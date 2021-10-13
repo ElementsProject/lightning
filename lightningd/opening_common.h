@@ -65,7 +65,7 @@ struct funding_channel {
 
 	struct wallet_tx *wtx;
 	struct amount_msat push;
-	struct amount_sat funding;
+	struct amount_sat funding_sats;
 	u8 channel_flags;
 	const u8 *our_upfront_shutdown_script;
 

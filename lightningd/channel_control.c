@@ -138,10 +138,11 @@ void channel_record_open(struct channel *channel)
 
 	/* FIXME: logic here will change for dual funded channels */
 	if (channel->opener == LOCAL) {
-		if (!amount_sat_to_msat(&channel_open_amt, channel->funding))
+		if (!amount_sat_to_msat(&channel_open_amt,
+					channel->funding_sats))
 			fatal("Unable to convert funding %s to msat",
 			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->funding));
+					     &channel->funding_sats));
 
 		/* if we pushed sats, we should decrement that
 		 * from the channel balance */
@@ -150,7 +151,7 @@ void channel_record_open(struct channel *channel)
 					      type_to_string(tmpctx,
 							     struct channel_id,
 							     &channel->cid),
-					      &channel->funding_txid,
+					      &channel->funding.txid,
 					      blockheight, channel->push);
 			notify_chain_mvt(channel->peer->ld, mvt);
 		}
@@ -164,8 +165,7 @@ void channel_record_open(struct channel *channel)
 	mvt = new_coin_deposit(ctx,
 			       type_to_string(tmpctx, struct channel_id,
 					      &channel->cid),
-			       &channel->funding_txid,
-			       channel->funding_outnum,
+			       &channel->funding,
 			       blockheight, channel_open_amt);
 	notify_chain_mvt(channel->peer->ld, mvt);
 	tal_free(ctx);
@@ -648,9 +648,8 @@ void peer_start_channeld(struct channel *channel,
 				      chainparams,
  				      ld->our_features,
 				      &channel->cid,
-				      &channel->funding_txid,
-				      channel->funding_outnum,
-				      channel->funding,
+				      &channel->funding,
+				      channel->funding_sats,
 				      channel->minimum_depth,
 				      get_block_height(ld->topology),
 				      channel->blockheight_states,
@@ -858,7 +857,7 @@ void channel_notify_new_block(struct lightningd *ld,
 			    "loss of funds.",
 			    block_height - channel->first_blocknum,
 			    type_to_string(tmpctx, struct bitcoin_txid,
-					   &channel->funding_txid));
+					   &channel->funding.txid));
 		/* FIXME: Send an error packet for this case! */
 		/* And forget it. */
 		delete_channel(channel);
@@ -967,7 +966,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	 * type into DB before broadcast). */
 	enum wallet_tx_type type;
 	if (wallet_transaction_type(cmd->ld->wallet,
-				   &cancel_channel->funding_txid,
+				   &cancel_channel->funding.txid,
 				   &type))
 		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
 				    "Has the funding transaction been"
@@ -991,8 +990,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	 * is broadcast by external wallet and the transaction hasn't
 	 * been onchain. */
 	bitcoind_getutxout(cmd->ld->topology->bitcoind,
-			   &cancel_channel->funding_txid,
-			   cancel_channel->funding_outnum,
+			   &cancel_channel->funding,
 			   process_check_funding_broadcast,
 			   notleak(tal_steal(NULL, cc)));
 	return command_still_pending(cmd);

@@ -248,8 +248,7 @@ int main(int argc, char *argv[])
 	u64 commitnum;
 	struct amount_sat funding_amount;
 	struct channel_id cid;
-	struct bitcoin_txid funding_txid;
-	unsigned int funding_outnum;
+	struct bitcoin_outpoint funding;
 	u32 feerate_per_kw;
 	struct pubkey local_per_commit_point, remote_per_commit_point;
 	struct bitcoin_signature local_sig, remote_sig;
@@ -313,10 +312,10 @@ int main(int argc, char *argv[])
 	argnum = 1;
 	commitnum = atol(argv[argnum++]);
 	if (!bitcoin_txid_from_hex(argv[argnum],
-				   strlen(argv[argnum]), &funding_txid))
+				   strlen(argv[argnum]), &funding.txid))
 		errx(1, "Bad funding-txid");
 	argnum++;
-	funding_outnum = atoi(argv[argnum++]);
+	funding.n = atoi(argv[argnum++]);
 	if (!parse_amount_sat(&funding_amount, argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad funding-amount");
 	argnum++;
@@ -387,7 +386,7 @@ int main(int argc, char *argv[])
 			 &remotebase, &funding_remotekey, commitnum);
 
 	/* FIXME: option for v2? */
-	derive_channel_id(&cid, &funding_txid, funding_outnum);
+	derive_channel_id(&cid, &funding);
 
 	if (option_anchor_outputs)
 		channel_type = channel_type_anchor_outputs(NULL);
@@ -398,7 +397,7 @@ int main(int argc, char *argv[])
 
 	channel = new_full_channel(NULL,
 				   &cid,
-				   &funding_txid, funding_outnum, 1,
+				   &funding, 1,
 				   take(new_height_states(NULL, fee_payer,
 							  &blockheight)),
 				   0, /* Defaults to no lease */

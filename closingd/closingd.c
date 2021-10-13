@@ -53,9 +53,8 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   struct per_peer_state *pps,
 				   const struct channel_id *channel_id,
 				   u8 *scriptpubkey[NUM_SIDES],
-				   const struct bitcoin_txid *funding_txid,
-				   unsigned int funding_txout,
-				   struct amount_sat funding,
+				   const struct bitcoin_outpoint *funding,
+				   struct amount_sat funding_sats,
 				   const u8 *funding_wscript,
 				   const struct amount_sat out[NUM_SIDES],
 				   enum side opener,
@@ -87,9 +86,8 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 			     chainparams,
 			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_wscript,
-			     funding_txid,
-			     funding_txout,
 			     funding,
+			     funding_sats,
 			     out_minus_fee[LOCAL],
 			     out_minus_fee[REMOTE],
 			     dust_limit);
@@ -101,16 +99,14 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				" dust_limit = %s"
 				" LOCAL = %s"
 				" REMOTE = %s",
-				type_to_string(tmpctx, struct amount_sat, &funding),
+				type_to_string(tmpctx, struct amount_sat, &funding_sats),
 				type_to_string(tmpctx, struct amount_sat, &fee),
 				type_to_string(tmpctx, struct amount_sat, &dust_limit),
 				type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
 				type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
 
 	if (wrong_funding)
-		bitcoin_tx_input_set_txid(tx, 0,
-					  &wrong_funding->txid,
-					  wrong_funding->n);
+		bitcoin_tx_input_set_outpoint(tx, 0, wrong_funding);
 
 	return tx;
 }
@@ -150,9 +146,8 @@ static void send_offer(struct per_peer_state *pps,
 		       const struct pubkey funding_pubkey[NUM_SIDES],
 		       const u8 *funding_wscript,
 		       u8 *scriptpubkey[NUM_SIDES],
-		       const struct bitcoin_txid *funding_txid,
-		       unsigned int funding_txout,
-		       struct amount_sat funding,
+		       const struct bitcoin_outpoint *funding,
+		       struct amount_sat funding_sats,
 		       const struct amount_sat out[NUM_SIDES],
 		       enum side opener,
 		       struct amount_sat our_dust_limit,
@@ -173,9 +168,8 @@ static void send_offer(struct per_peer_state *pps,
 	 */
 	tx = close_tx(tmpctx, chainparams, pps, channel_id,
 		      scriptpubkey,
-		      funding_txid,
-		      funding_txout,
 		      funding,
+		      funding_sats,
 		      funding_wscript,
 		      out,
 		      opener, fee_to_offer, our_dust_limit,
@@ -247,9 +241,8 @@ receive_offer(struct per_peer_state *pps,
 	      const struct pubkey funding_pubkey[NUM_SIDES],
 	      const u8 *funding_wscript,
 	      u8 *scriptpubkey[NUM_SIDES],
-	      const struct bitcoin_txid *funding_txid,
-	      unsigned int funding_txout,
-	      struct amount_sat funding,
+	      const struct bitcoin_outpoint *funding,
+	      struct amount_sat funding_sats,
 	      const struct amount_sat out[NUM_SIDES],
 	      enum side opener,
 	      struct amount_sat our_dust_limit,
@@ -308,9 +301,8 @@ receive_offer(struct per_peer_state *pps,
 	 */
 	tx = close_tx(tmpctx, chainparams, pps, channel_id,
 		      scriptpubkey,
-		      funding_txid,
-		      funding_txout,
 		      funding,
+		      funding_sats,
 		      funding_wscript,
 		      out, opener, received_fee, our_dust_limit,
 		      wrong_funding);
@@ -339,9 +331,8 @@ receive_offer(struct per_peer_state *pps,
 		 */
 		trimmed = close_tx(tmpctx, chainparams, pps, channel_id,
 				   scriptpubkey,
-				   funding_txid,
-				   funding_txout,
 				   funding,
+				   funding_sats,
 				   funding_wscript,
 				   trimming_out,
 				   opener, received_fee, our_dust_limit,
@@ -582,23 +573,23 @@ static void closing_dev_memleak(const tal_t *ctx,
 static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 					 const u8 *funding_wscript,
 					 const struct amount_sat *out,
-					 struct amount_sat funding,
+					 struct amount_sat funding_sats,
 					 struct amount_sat dust_limit)
 {
 	/* We create a dummy close */
 	struct bitcoin_tx *tx;
-	struct bitcoin_txid dummy_txid;
+	struct bitcoin_outpoint dummy_funding;
 	struct bitcoin_signature dummy_sig;
 	struct privkey dummy_privkey;
 	struct pubkey dummy_pubkey;
 	u8 **witness;
 
-	memset(&dummy_txid, 0, sizeof(dummy_txid));
+	memset(&dummy_funding, 0, sizeof(dummy_funding));
 	tx = create_close_tx(tmpctx, chainparams,
 			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_wscript,
-			     &dummy_txid, 0,
-			     funding,
+			     &dummy_funding,
+			     funding_sats,
 			     out[LOCAL],
 			     out[REMOTE],
 			     dust_limit);
@@ -607,7 +598,7 @@ static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 	 * tx. */
 	dummy_sig.sighash_type = SIGHASH_ALL;
 	memset(&dummy_privkey, 1, sizeof(dummy_privkey));
-	sign_hash(&dummy_privkey, &dummy_txid.shad, &dummy_sig.s);
+	sign_hash(&dummy_privkey, &dummy_funding.txid.shad, &dummy_sig.s);
 	pubkey_from_privkey(&dummy_privkey, &dummy_pubkey);
 	witness = bitcoin_witness_2of2(NULL, &dummy_sig, &dummy_sig,
 				       &dummy_pubkey, &dummy_pubkey);
@@ -709,9 +700,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 			  const struct pubkey funding_pubkey[NUM_SIDES],
 			  const u8 *funding_wscript,
 			  u8 *scriptpubkey[NUM_SIDES],
-			  const struct bitcoin_txid *funding_txid,
-			  unsigned int funding_txout,
-			  struct amount_sat funding,
+			  const struct bitcoin_outpoint *funding,
+			  struct amount_sat funding_sats,
 			  const struct amount_sat out[NUM_SIDES],
 			  enum side opener,
 			  struct amount_sat our_dust_limit,
@@ -788,8 +778,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 			offer[LOCAL] = offer[REMOTE];
 			send_offer(pps, chainparams,
 				   channel_id, funding_pubkey, funding_wscript,
-				   scriptpubkey, funding_txid, funding_txout,
-				   funding, out, opener,
+				   scriptpubkey, funding,
+				   funding_sats, out, opener,
 				   our_dust_limit,
 				   offer[LOCAL],
 				   wrong_funding,
@@ -827,8 +817,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 		}
 		send_offer(pps, chainparams,
 			   channel_id, funding_pubkey, funding_wscript,
-			   scriptpubkey, funding_txid, funding_txout,
-			   funding, out, opener,
+			   scriptpubkey, funding,
+			   funding_sats, out, opener,
 			   our_dust_limit,
 			   offer[LOCAL],
 			   wrong_funding,
@@ -840,8 +830,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 				= receive_offer(pps, chainparams,
 						channel_id, funding_pubkey,
 						funding_wscript,
-						scriptpubkey, funding_txid,
-						funding_txout, funding,
+						scriptpubkey, funding,
+						funding_sats,
 						out, opener,
 						our_dust_limit,
 						our_feerange->min_fee_satoshis,
@@ -880,9 +870,9 @@ int main(int argc, char *argv[])
 	struct per_peer_state *pps;
 	u8 *msg;
 	struct pubkey funding_pubkey[NUM_SIDES];
-	struct bitcoin_txid funding_txid, closing_txid;
-	u16 funding_txout;
-	struct amount_sat funding, out[NUM_SIDES];
+	struct bitcoin_txid closing_txid;
+	struct bitcoin_outpoint funding;
+	struct amount_sat funding_sats, out[NUM_SIDES];
 	struct amount_sat our_dust_limit;
 	struct amount_sat min_fee_to_accept, commitment_fee, offer[NUM_SIDES],
 		max_fee_to_accept;
@@ -908,8 +898,8 @@ int main(int argc, char *argv[])
 				    &chainparams,
 				    &pps,
 				    &channel_id,
-				    &funding_txid, &funding_txout,
 				    &funding,
+				    &funding_sats,
 				    &funding_pubkey[LOCAL],
 				    &funding_pubkey[REMOTE],
 				    &opener,
@@ -937,9 +927,10 @@ int main(int argc, char *argv[])
 	/* Start at what we consider a reasonable feerate for this tx. */
 	calc_fee_bounds(closing_tx_weight_estimate(scriptpubkey,
 						   funding_wscript,
-						   out, funding, our_dust_limit),
+						   out, funding_sats,
+						   our_dust_limit),
 			min_feerate, initial_feerate, max_feerate,
-			commitment_fee, funding, opener,
+			commitment_fee, funding_sats, opener,
 			&min_fee_to_accept, &offer[LOCAL], &max_fee_to_accept);
 
 	/* Write values into tlv for updated closing fee neg */
@@ -995,8 +986,8 @@ int main(int argc, char *argv[])
 		if (whose_turn == LOCAL) {
 			send_offer(pps, chainparams,
 				   &channel_id, funding_pubkey, funding_wscript,
-				   scriptpubkey, &funding_txid, funding_txout,
-				   funding, out, opener,
+				   scriptpubkey, &funding,
+				   funding_sats, out, opener,
 				   our_dust_limit,
 				   offer[LOCAL],
 				   wrong_funding,
@@ -1016,8 +1007,8 @@ int main(int argc, char *argv[])
 				= receive_offer(pps, chainparams,
 						&channel_id, funding_pubkey,
 						funding_wscript,
-						scriptpubkey, &funding_txid,
-						funding_txout, funding,
+						scriptpubkey, &funding,
+						funding_sats,
 						out, opener,
 						our_dust_limit,
 						min_fee_to_accept,
@@ -1030,8 +1021,8 @@ int main(int argc, char *argv[])
 					      pps, &channel_id, funding_pubkey,
 					      funding_wscript,
 					      scriptpubkey,
-					      &funding_txid, funding_txout,
-					      funding, out, opener,
+					      &funding,
+					      funding_sats, out, opener,
 					      our_dust_limit,
 					      wrong_funding,
 					      &closing_txid,
@@ -1062,8 +1053,8 @@ int main(int argc, char *argv[])
 						    fee_negotiation_step_unit);
 			send_offer(pps, chainparams, &channel_id,
 				   funding_pubkey, funding_wscript,
-				   scriptpubkey, &funding_txid, funding_txout,
-				   funding, out, opener,
+				   scriptpubkey, &funding,
+				   funding_sats, out, opener,
 				   our_dust_limit,
 				   offer[LOCAL],
 				   wrong_funding,
@@ -1078,8 +1069,8 @@ int main(int argc, char *argv[])
 				= receive_offer(pps, chainparams, &channel_id,
 						funding_pubkey,
 						funding_wscript,
-						scriptpubkey, &funding_txid,
-						funding_txout, funding,
+						scriptpubkey, &funding,
+						funding_sats,
 						out, opener,
 						our_dust_limit,
 						min_fee_to_accept,

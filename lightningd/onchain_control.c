@@ -185,18 +185,18 @@ static enum watch_result onchain_txo_watched(struct channel *channel,
 static void watch_tx_and_outputs(struct channel *channel,
 				 const struct bitcoin_tx *tx)
 {
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 	struct txwatch *txw;
 	struct lightningd *ld = channel->peer->ld;
 
-	bitcoin_txid(tx, &txid);
+	bitcoin_txid(tx, &outpoint.txid);
 
 	/* Make txwatch a parent of txo watches, so we can unwatch together. */
 	txw = watch_tx(channel->owner, ld->topology, channel, tx,
 		       onchain_tx_watched);
 
-	for (size_t i = 0; i < tx->wtx->num_outputs; i++)
-		watch_txo(txw, ld->topology, channel, &txid, i,
+	for (outpoint.n = 0; outpoint.n < tx->wtx->num_outputs; outpoint.n++)
+		watch_txo(txw, ld->topology, channel, &outpoint,
 			  onchain_txo_watched);
 }
 
@@ -381,14 +381,14 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 {
 	struct chain_coin_mvt *mvt;
 	u32 blockheight;
-	struct bitcoin_txid txid;
-	u32 outnum, csv_lock;
+	struct bitcoin_outpoint outpoint;
+	u32 csv_lock;
 	struct amount_sat amount;
 	struct pubkey *commitment_point;
 	u8 *scriptPubkey;
 
 	if (!fromwire_onchaind_add_utxo(
-		tmpctx, msg, &txid, &outnum, &commitment_point,
+		tmpctx, msg, &outpoint, &commitment_point,
 		&amount, &blockheight, &scriptPubkey,
 		&csv_lock)) {
 		log_broken(channel->log,
@@ -399,32 +399,30 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 
 	assert(blockheight);
 	outpointfilter_add(channel->peer->ld->wallet->owned_outpoints,
-			   &txid, outnum);
-	log_debug(channel->log, "adding utxo to watch %s:%u, csv %u",
-		  type_to_string(tmpctx, struct bitcoin_txid, &txid),
-		  outnum, csv_lock);
+			   &outpoint);
+	log_debug(channel->log, "adding utxo to watch %s, csv %u",
+		  type_to_string(tmpctx, struct bitcoin_outpoint, &outpoint),
+		  csv_lock);
 
 	wallet_add_onchaind_utxo(channel->peer->ld->wallet,
-				 &txid, outnum, scriptPubkey,
+				 &outpoint, scriptPubkey,
 				 blockheight, amount, channel,
 				 commitment_point,
 				 csv_lock);
 
-	mvt = new_coin_deposit_sat(msg, "wallet", &txid,
-				   outnum, blockheight, amount);
+	mvt = new_coin_deposit_sat(msg, "wallet", &outpoint, blockheight, amount);
 	notify_chain_mvt(channel->peer->ld, mvt);
 }
 
 static void onchain_annotate_txout(struct channel *channel, const u8 *msg)
 {
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 	enum wallet_tx_type type;
-	u32 outnum;
-	if (!fromwire_onchaind_annotate_txout(msg, &txid, &outnum, &type))
+	if (!fromwire_onchaind_annotate_txout(msg, &outpoint, &type))
 		fatal("onchaind gave invalid onchain_annotate_txout "
 		      "message: %s",
 		      tal_hex(msg, msg));
-	wallet_annotate_txout(channel->peer->ld->wallet, &txid, outnum, type,
+	wallet_annotate_txout(channel->peer->ld->wallet, &outpoint, type,
 			      channel->dbid);
 }
 
@@ -636,7 +634,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	for (size_t i = 0; i < 3; i++) {
 		if (!feerates[i]) {
 			/* We have at least one data point: the last tx's feerate. */
-			struct amount_sat fee = channel->funding;
+			struct amount_sat fee = channel->funding_sats;
 			for (size_t i = 0;
 			     i < channel->last_tx->wtx->num_outputs; i++) {
 				struct amount_asset asset =
@@ -649,7 +647,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 						   " funding %s tx %s",
 						   type_to_string(tmpctx,
 								  struct amount_sat,
-								  &channel->funding),
+								  &channel->funding_sats),
 						   type_to_string(tmpctx,
 								  struct bitcoin_tx,
 								  channel->last_tx));
@@ -669,7 +667,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	msg = towire_onchaind_init(channel,
 				  &channel->their_shachain.chain,
 				  chainparams,
-				  channel->funding,
+				  channel->funding_sats,
 				  channel->our_msat,
 				  &channel->channel_info.old_remote_per_commit,
 				  &channel->channel_info.remote_per_commit,

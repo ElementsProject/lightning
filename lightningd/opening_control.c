@@ -50,7 +50,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	}
 
 	/* These should never fail. */
-	if (amount_sat_to_msat(&total, uc->fc->funding)
+	if (amount_sat_to_msat(&total, uc->fc->funding_sats)
 	    && amount_msat_sub(&ours, total, uc->fc->push)) {
 		json_add_amount_msat_compat(response, ours,
 					    "msatoshi_to_us", "to_us_msat");
@@ -80,9 +80,8 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct channel_id *cid,
 		      struct bitcoin_tx *remote_commit,
 		      struct bitcoin_signature *remote_commit_sig,
-		      const struct bitcoin_txid *funding_txid,
-		      u16 funding_outnum,
-		      struct amount_sat funding,
+		      const struct bitcoin_outpoint *funding,
+		      struct amount_sat funding_sats,
 		      struct amount_msat push,
 		      u8 channel_flags,
 		      struct channel_info *channel_info,
@@ -111,15 +110,15 @@ wallet_commit_channel(struct lightningd *ld,
 	}
 
 	if (uc->fc) {
-		if (!amount_sat_sub_msat(&our_msat, funding, push)) {
+		if (!amount_sat_sub_msat(&our_msat, funding_sats, push)) {
 			log_broken(uc->log, "push %s exceeds funding %s",
 				   type_to_string(tmpctx, struct amount_msat,
 						  &push),
 				   type_to_string(tmpctx, struct amount_sat,
-						  &funding));
+						  &funding_sats));
 			return NULL;
 		}
-		local_funding = funding;
+		local_funding = funding_sats;
 	} else {
 		our_msat = push;
 		local_funding = AMOUNT_SAT(0);
@@ -166,9 +165,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      &uc->our_config,
 			      uc->minimum_depth,
 			      1, 1, 0,
-			      funding_txid,
-			      funding_outnum,
 			      funding,
+			      funding_sats,
 			      push,
 			      local_funding,
 			      false, /* !remote_funding_locked */
@@ -332,8 +330,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 {
 	struct channel_info channel_info;
 	struct channel_id cid;
-	struct bitcoin_txid funding_txid;
-	u16 funding_txout;
+	struct bitcoin_outpoint funding;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 	u32 feerate;
@@ -360,8 +357,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &channel_info.remote_per_commit,
 					   &fc->uc->minimum_depth,
 					   &channel_info.remote_fundingkey,
-					   &funding_txid,
-					   &funding_txout,
+					   &funding,
 					   &feerate,
 					   &fc->uc->our_config.channel_reserve,
 					   &remote_upfront_shutdown_script,
@@ -382,7 +378,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				       &channel_info.remote_per_commit));
 
 	/* Saved with channel to disk */
-	derive_channel_id(&cid, &funding_txid, funding_txout);
+	derive_channel_id(&cid, &funding);
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
@@ -392,9 +388,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&cid,
 					remote_commit,
 					&remote_commit_sig,
-					&funding_txid,
-					funding_txout,
-					fc->funding,
+					&funding,
+					fc->funding_sats,
 					fc->push,
 					fc->channel_flags,
 					&channel_info,
@@ -435,9 +430,8 @@ static void opening_fundee_finished(struct subd *openingd,
 	struct bitcoin_tx *remote_commit;
 	struct channel_id cid;
 	struct lightningd *ld = openingd->ld;
-	struct bitcoin_txid funding_txid;
-	u16 funding_outnum;
-	struct amount_sat funding;
+	struct bitcoin_outpoint funding;
+	struct amount_sat funding_sats;
 	struct amount_msat push;
 	u32 feerate;
 	u8 channel_flags;
@@ -464,9 +458,8 @@ static void opening_fundee_finished(struct subd *openingd,
 				     &channel_info.theirbase.delayed_payment,
 				     &channel_info.remote_per_commit,
 				     &channel_info.remote_fundingkey,
-				     &funding_txid,
-				     &funding_outnum,
 				     &funding,
+				     &funding_sats,
 				     &push,
 				     &channel_flags,
 				     &feerate,
@@ -493,7 +486,7 @@ static void opening_fundee_finished(struct subd *openingd,
 		goto failed;
 	}
 
-	derive_channel_id(&cid, &funding_txid, funding_outnum);
+	derive_channel_id(&cid, &funding);
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
@@ -503,9 +496,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					&cid,
 					remote_commit,
 					&remote_commit_sig,
-					&funding_txid,
-					funding_outnum,
-					funding,
+					&funding,
+					funding_sats,
 					push,
 					channel_flags,
 					&channel_info,
@@ -521,13 +513,13 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	log_debug(channel->log, "Watching funding tx %s",
 		  type_to_string(reply, struct bitcoin_txid,
-				 &channel->funding_txid));
+				 &channel->funding.txid));
 
 	channel_watch_funding(ld, channel);
 
 	/* Tell plugins about the success */
-	notify_channel_opened(ld, &channel->peer->id, &channel->funding,
-			      &channel->funding_txid, &channel->remote_funding_locked);
+	notify_channel_opened(ld, &channel->peer->id, &channel->funding_sats,
+			      &channel->funding.txid, &channel->remote_funding_locked);
 
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
@@ -1054,14 +1046,14 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 		if (!chainparams->is_elements
 		    && !amount_sat_eq(amount_sat(funding_psbt->tx->outputs
 						 [*funding_txout_num].satoshi),
-				      fc->funding))
+				      fc->funding_sats))
 			return command_fail(cmd, FUNDING_PSBT_INVALID,
 					    "Output to open channel is %"PRIu64"sat,"
 					    " should be %s",
 					    funding_psbt->tx->outputs
 					    [*funding_txout_num].satoshi,
 					    type_to_string(tmpctx, struct amount_sat,
-							   &fc->funding));
+							   &fc->funding_sats));
 
 		funding_txid = tal(cmd, struct bitcoin_txid);
 		psbt_txid(NULL, funding_psbt, funding_txid, NULL);
@@ -1165,7 +1157,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    type_to_string(tmpctx, struct amount_msat, push_msat),
 				    type_to_string(tmpctx, struct amount_sat, amount));
 
-	fc->funding = *amount;
+	fc->funding_sats = *amount;
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
 		*feerate_per_kw = opening_feerate(cmd->ld->topology);

@@ -341,13 +341,12 @@ int main(int argc, const char *argv[])
 {
 	common_setup(argv[0]);
 
-	struct bitcoin_txid funding_txid;
+	struct bitcoin_outpoint funding;
 	/* We test from both sides. */
 	struct channel *lchannel, *rchannel;
 	struct channel_id cid;
 	struct amount_sat funding_amount;
 	u32 *feerate_per_kw;
-	unsigned int funding_output_index;
 	struct keyset keyset;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
 	struct pubkey local_per_commitment_point;
@@ -395,8 +394,8 @@ int main(int argc, const char *argv[])
 	 *     local_delay: 144
 	 *     local_dust_limit_satoshi: 546
 	 */
-	funding_txid = txid_from_hex("8984484a580b825b9972d7adb15050b3ab624ccd731946b3eeddb92f4e7ef6be");
-	funding_output_index = 0;
+	funding.txid = txid_from_hex("8984484a580b825b9972d7adb15050b3ab624ccd731946b3eeddb92f4e7ef6be");
+	funding.n = 0;
 	funding_amount = AMOUNT_SAT(10000000);
 
 	remote_config->to_self_delay = 144;
@@ -468,9 +467,9 @@ int main(int argc, const char *argv[])
 	to_local = AMOUNT_MSAT(7000000000);
 	to_remote = AMOUNT_MSAT(3000000000);
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
-	derive_channel_id(&cid, &funding_txid, funding_output_index);
+	derive_channel_id(&cid, &funding);
 	lchannel = new_full_channel(tmpctx, &cid,
-				    &funding_txid, funding_output_index, 0,
+				    &funding, 0,
 				    take(new_height_states(NULL, LOCAL, &blockheight)),
 				    0, /* No channel lease */
 				    funding_amount, to_local,
@@ -483,7 +482,7 @@ int main(int argc, const char *argv[])
 				    &remote_funding_pubkey,
 				    take(channel_type_none(NULL)), false, LOCAL);
 	rchannel = new_full_channel(tmpctx, &cid,
-				    &funding_txid, funding_output_index, 0,
+				    &funding, 0,
 				    take(new_height_states(NULL, REMOTE, &blockheight)),
 				    0, /* No channel lease */
 				    funding_amount, to_remote,
@@ -517,7 +516,7 @@ int main(int argc, const char *argv[])
 	keyset.other_htlc_key = keyset.other_payment_key;
 
 	raw_tx = commit_tx(tmpctx,
-			   &funding_txid, funding_output_index,
+			   &funding,
 			   funding_amount,
 			   &local_funding_pubkey,
 			   &remote_funding_pubkey,
@@ -648,7 +647,7 @@ int main(int argc, const char *argv[])
 			= feerate_per_kw[REMOTE];
 
 		raw_tx = commit_tx(
-		    tmpctx, &funding_txid, funding_output_index,
+		    tmpctx, &funding,
 		    funding_amount,
 		    &local_funding_pubkey,
 		    &remote_funding_pubkey,

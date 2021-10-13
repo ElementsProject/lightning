@@ -32,9 +32,9 @@ void init(int *argc, char ***argv)
 void run(const uint8_t *data, size_t size)
 {
 	struct channel_id cid;
-	struct bitcoin_txid funding_txid;
-	u32 funding_txout, minimum_depth;
-	struct amount_sat funding, max;
+	struct bitcoin_outpoint funding;
+	u32 minimum_depth;
+	struct amount_sat funding_sats, max;
 	struct amount_msat local_msatoshi;
 	u32 feerate_per_kw, blockheight, lease_expiry;
 	struct channel_config local, remote;
@@ -45,14 +45,13 @@ void run(const uint8_t *data, size_t size)
 	struct channel *channel;
 
 	fromwire_channel_id(&data, &size, &cid);
-	fromwire_bitcoin_txid(&data, &size, &funding_txid);
-	funding_txout = fromwire_u32(&data, &size);
+	fromwire_bitcoin_outpoint(&data, &size, &funding);
 	minimum_depth = fromwire_u32(&data, &size);
-	funding = fromwire_amount_sat(&data, &size);
+	funding_sats = fromwire_amount_sat(&data, &size);
 	local_msatoshi = fromwire_amount_msat(&data, &size);
 	max = AMOUNT_SAT((u32)WALLY_SATOSHI_PER_BTC * WALLY_BTC_MAX);
-	if (amount_sat_greater(funding, max))
-		funding = max;
+	if (amount_sat_greater(funding_sats, max))
+		funding_sats = max;
 	feerate_per_kw = fromwire_u32(&data, &size);
 	blockheight = fromwire_u32(&data, &size);
 	lease_expiry = fromwire_u32(&data, &size);
@@ -79,12 +78,12 @@ void run(const uint8_t *data, size_t size)
 		return;
 
 	for (enum side opener = 0; opener < NUM_SIDES; opener++) {
-		channel = new_initial_channel(tmpctx, &cid, &funding_txid,
-					      funding_txout, minimum_depth,
+		channel = new_initial_channel(tmpctx, &cid, &funding,
+					      minimum_depth,
 					      take(new_height_states(NULL, opener,
 								     &blockheight)),
 					      lease_expiry,
-					      funding, local_msatoshi,
+					      funding_sats, local_msatoshi,
 					      take(new_fee_states(NULL, opener,
 								  &feerate_per_kw)),
 					      &local, &remote,

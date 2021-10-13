@@ -247,7 +247,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			 bool option_anchor_outputs)
 {
 	size_t i, n;
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 	struct bitcoin_tx **htlc_tx;
 	struct bitcoin_signature *remotehtlcsig;
 	struct keyset keyset;
@@ -258,7 +258,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 				tal_count(htlc_map));
 	wscript = tal_arr(tmpctx, u8 *, tal_count(htlc_map));
 
-	bitcoin_txid(tx, &txid);
+	bitcoin_txid(tx, &outpoint.txid);
 
 	/* First report remote signatures, in order we would receive them. */
 	n = 0;
@@ -283,6 +283,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 		if (!htlc)
 			continue;
 
+		outpoint.n = i;
 		if (htlc_owner(htlc) == LOCAL) {
 			wscript[i] = bitcoin_wscript_htlc_offer(tmpctx,
 								local_htlckey,
@@ -291,7 +292,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								remote_revocation_key,
 								option_anchor_outputs);
 			htlc_tx[i] = htlc_timeout_tx(htlc_tx, tx->chainparams,
-						     &txid, i, wscript[i],
+						     &outpoint, wscript[i],
 						     htlc->amount,
 						     htlc->expiry.locktime,
 						     to_self_delay,
@@ -306,7 +307,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								  remote_revocation_key,
 								  option_anchor_outputs);
 			htlc_tx[i] = htlc_success_tx(htlc_tx, tx->chainparams,
-						     &txid, i, wscript[i],
+						     &outpoint, wscript[i],
 						     htlc->amount,
 						     to_self_delay,
 						     feerate_per_kw,
@@ -490,7 +491,7 @@ int main(int argc, const char *argv[])
 {
 	common_setup(argv[0]);
 
-	struct bitcoin_txid funding_txid;
+	struct bitcoin_outpoint funding;
 	struct amount_sat funding_amount, dust_limit;
 	u32 feerate_per_kw;
 	u16 to_self_delay;
@@ -516,7 +517,6 @@ int main(int argc, const char *argv[])
 	struct bitcoin_tx *tx, *tx2;
 	struct keyset keyset;
 	u8 *wscript;
-	unsigned int funding_output_index;
 	u64 commitment_number, cn_obscurer;
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
@@ -565,8 +565,8 @@ int main(int argc, const char *argv[])
 	 *     local_delay: 144
 	 *     local_dust_limit_satoshi: 546
 	 */
-	funding_txid = txid_from_hex("8984484a580b825b9972d7adb15050b3ab624ccd731946b3eeddb92f4e7ef6be");
-	funding_output_index = 0;
+	funding.txid = txid_from_hex("8984484a580b825b9972d7adb15050b3ab624ccd731946b3eeddb92f4e7ef6be");
+	funding.n = 0;
 	funding_amount.satoshis = 10000000;
 	commitment_number = 42;
 	to_self_delay = 144;
@@ -792,7 +792,7 @@ int main(int argc, const char *argv[])
 
 	print_superverbose = true;
 	tx = commit_tx(tmpctx,
-		       &funding_txid, funding_output_index,
+		       &funding,
 		       funding_amount,
 		       &local_funding_pubkey,
 		       &remote_funding_pubkey,
@@ -808,7 +808,7 @@ int main(int argc, const char *argv[])
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
-			&funding_txid, funding_output_index,
+			&funding,
 			funding_amount,
 			&local_funding_pubkey,
 			&remote_funding_pubkey,
@@ -857,7 +857,7 @@ int main(int argc, const char *argv[])
 
 	print_superverbose = true;
 	tx = commit_tx(tmpctx,
-		       &funding_txid, funding_output_index,
+		       &funding,
 		       funding_amount,
 		       &local_funding_pubkey,
 		       &remote_funding_pubkey,
@@ -873,7 +873,7 @@ int main(int argc, const char *argv[])
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
-			&funding_txid, funding_output_index,
+			&funding,
 			funding_amount,
 			&local_funding_pubkey,
 			&remote_funding_pubkey,
@@ -910,7 +910,7 @@ int main(int argc, const char *argv[])
 		feerate_per_kw = increase(feerate_per_kw);
 		print_superverbose = false;
 		newtx = commit_tx(tmpctx,
-				  &funding_txid, funding_output_index,
+				  &funding,
 				  funding_amount,
 				  &local_funding_pubkey,
 				  &remote_funding_pubkey,
@@ -927,7 +927,7 @@ int main(int argc, const char *argv[])
 				  LOCAL);
 		/* This is what it would look like for peer generating it! */
 		tx2 = commit_tx(tmpctx,
-				&funding_txid, funding_output_index,
+				&funding,
 				funding_amount,
 				&local_funding_pubkey,
 				&remote_funding_pubkey,
@@ -970,7 +970,7 @@ int main(int argc, const char *argv[])
 		/* Recalc with verbosity on */
 		print_superverbose = true;
 		tx = commit_tx(tmpctx,
-			       &funding_txid, funding_output_index,
+			       &funding,
 			       funding_amount,
 			       &local_funding_pubkey,
 			       &remote_funding_pubkey,
@@ -1019,7 +1019,7 @@ int main(int argc, const char *argv[])
 		/* Recalc with verbosity on */
 		print_superverbose = true;
 		newtx = commit_tx(tmpctx,
-				  &funding_txid, funding_output_index,
+				  &funding,
 				  funding_amount,
 				  &local_funding_pubkey,
 				  &remote_funding_pubkey,
@@ -1094,7 +1094,7 @@ int main(int argc, const char *argv[])
 		       "local_feerate_per_kw: %u\n",
 		       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw);
 		tx = commit_tx(tmpctx,
-			       &funding_txid, funding_output_index,
+			       &funding,
 			       funding_amount,
 			       &local_funding_pubkey,
 			       &remote_funding_pubkey,
@@ -1149,7 +1149,7 @@ int main(int argc, const char *argv[])
 
 	print_superverbose = true;
 	tx = commit_tx(tmpctx,
-		       &funding_txid, funding_output_index,
+		       &funding,
 		       funding_amount,
 		       &local_funding_pubkey,
 		       &remote_funding_pubkey,
@@ -1165,7 +1165,7 @@ int main(int argc, const char *argv[])
 		       LOCAL);
 	print_superverbose = false;
 	tx2 = commit_tx(tmpctx,
-			&funding_txid, funding_output_index,
+			&funding,
 			funding_amount,
 			&local_funding_pubkey,
 			&remote_funding_pubkey,

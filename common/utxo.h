@@ -32,8 +32,7 @@ enum output_status {
 };
 
 struct utxo {
-	struct bitcoin_txid txid;
-	u32 outnum;
+	struct bitcoin_outpoint outpoint;
 	struct amount_sat amount;
 	u32 keyindex;
 	bool is_p2sh;

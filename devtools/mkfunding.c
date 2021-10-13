@@ -42,7 +42,7 @@ static struct bitcoin_tx *tx_spending_utxo(const tal_t *ctx,
 					   nlocktime);
 
 	assert(!utxo->is_p2sh);
-	bitcoin_tx_add_input(tx, &utxo->txid, utxo->outnum,
+	bitcoin_tx_add_input(tx, &utxo->outpoint,
 			     nsequence, NULL, utxo->amount,
 			     utxo->scriptPubkey, NULL);
 
@@ -99,10 +99,10 @@ int main(int argc, char *argv[])
 
 	argnum = 1;
 	if (!bitcoin_txid_from_hex(argv[argnum],
-				   strlen(argv[argnum]), &input.txid))
+				   strlen(argv[argnum]), &input.outpoint.txid))
 		errx(1, "Bad input-txid");
 	argnum++;
-	input.outnum = atoi(argv[argnum++]);
+	input.outpoint.n = atoi(argv[argnum++]);
 	if (!parse_amount_sat(&input.amount, argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad input-amount");
 	argnum++;

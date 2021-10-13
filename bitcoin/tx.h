@@ -27,6 +27,9 @@ struct bitcoin_outpoint {
 /* Define bitcoin_txid_eq */
 STRUCTEQ_DEF(bitcoin_txid, 0, shad.sha.u);
 
+/* Define bitcoin_outpoint_eq */
+STRUCTEQ_DEF(bitcoin_outpoint, 0, txid.shad.sha.u, n);
+
 struct bitcoin_tx {
 	struct wally_tx *wtx;
 
@@ -109,15 +112,15 @@ void bitcoin_tx_set_locktime(struct bitcoin_tx *tx, u32 locktime);
  * Passing in just the {input_wscript}, we'll generate the scriptPubkey for you.
  * In some cases we may not have the wscript, in which case the scriptPubkey
  * should be provided. We'll check that it's P2WSH before saving it */
-int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
-			 u32 outnum, u32 sequence, const u8 *scriptSig,
+int bitcoin_tx_add_input(struct bitcoin_tx *tx,
+			 const struct bitcoin_outpoint *outpoint,
+			 u32 sequence, const u8 *scriptSig,
 			 struct amount_sat amount, const u8 *scriptPubkey,
 			 const u8 *input_wscript);
 
 /* This helps is useful because wally uses a raw byte array for txids */
 bool wally_tx_input_spends(const struct wally_tx_input *input,
-			   const struct bitcoin_txid *txid,
-			   int outnum);
+			   const struct bitcoin_outpoint *outpoint);
 
 struct amount_asset
 wally_tx_output_get_amount(const struct wally_tx_output *output);
@@ -193,17 +196,23 @@ const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
 /**
  * Wrap the raw txhash in the wally_tx_input into a bitcoin_txid
  */
+void bitcoin_tx_input_get_outpoint(const struct bitcoin_tx *tx,
+				   int innum,
+				   struct bitcoin_outpoint *outpoint);
+
 void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 			       struct bitcoin_txid *out);
 void wally_tx_input_get_txid(const struct wally_tx_input *in,
 			     struct bitcoin_txid *txid);
 
+void wally_tx_input_get_outpoint(const struct wally_tx_input *in,
+				 struct bitcoin_outpoint *outpoint);
+
 /**
  * Overwrite the txhash and index in the wally_tx_input
  */
-void bitcoin_tx_input_set_txid(struct bitcoin_tx *tx, int innum,
-			       const struct bitcoin_txid *txid,
-			       u32 index);
+void bitcoin_tx_input_set_outpoint(struct bitcoin_tx *tx, int innum,
+				   const struct bitcoin_outpoint *outpoint);
 
 /**
  * Check a transaction for consistency.

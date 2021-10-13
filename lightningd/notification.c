@@ -194,6 +194,7 @@ void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
 	plugins_notify(ld->plugins, take(n));
 }
 
+/* FIXME: Use outpoint here! */
 static void channel_opened_notification_serialize(struct json_stream *stream,
 						  struct node_id *node_id,
 						  struct amount_sat *funding_sat,
@@ -437,11 +438,11 @@ static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
 			/* some chain ledger entries aren't associated with a utxo
 			 * e.g. journal updates (due to penalty/state loss) and
 			 * chain_fee entries */
-			if (id->output_txid) {
+			if (id->outpoint) {
 				json_add_string(stream, "utxo_txid",
 						type_to_string(tmpctx, struct bitcoin_txid,
-							       id->output_txid));
-				json_add_u32(stream, "vout", id->vout);
+							       &id->outpoint->txid));
+				json_add_u32(stream, "vout", id->outpoint->n);
 			}
 
 			/* on-chain htlcs include a payment hash */

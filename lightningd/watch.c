@@ -187,8 +187,7 @@ struct txwatch *watch_tx(const tal_t *ctx,
 struct txowatch *watch_txo(const tal_t *ctx,
 			   struct chain_topology *topo,
 			   struct channel *channel,
-			   const struct bitcoin_txid *txid,
-			   unsigned int output,
+			   const struct bitcoin_outpoint *outpoint,
 			   enum watch_result (*cb)(struct channel *channel,
 						   const struct bitcoin_tx *tx,
 						   size_t input_num,
@@ -197,8 +196,7 @@ struct txowatch *watch_txo(const tal_t *ctx,
 	struct txowatch *w = tal(ctx, struct txowatch);
 
 	w->topo = topo;
-	w->out.txid = *txid;
-	w->out.n = output;
+	w->out = *outpoint;
 	w->channel = channel;
 	w->cb = cb;
 

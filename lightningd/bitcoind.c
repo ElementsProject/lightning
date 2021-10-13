@@ -543,7 +543,7 @@ clean:
 }
 
 void bitcoind_getutxout_(struct bitcoind *bitcoind,
-			 const struct bitcoin_txid *txid, const u32 outnum,
+			 const struct bitcoin_outpoint *outpoint,
 			 void (*cb)(struct bitcoind *bitcoind,
 				    const struct bitcoin_tx_output *txout,
 				    void *arg),
@@ -558,8 +558,8 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind,
 
 	req = jsonrpc_request_start(bitcoind, "getutxout", bitcoind->log,
 				    NULL, getutxout_callback, call);
-	json_add_txid(req->stream, "txid", txid);
-	json_add_num(req->stream, "vout", outnum);
+	json_add_txid(req->stream, "txid", &outpoint->txid);
+	json_add_num(req->stream, "vout", outpoint->n);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
 }
@@ -599,7 +599,7 @@ process_getfilteredblock_step2(struct bitcoind *bitcoind,
 	call->current_outpoint++;
 	if (call->current_outpoint < tal_count(call->outpoints)) {
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_getutxout(bitcoind, &o->txid, o->outnum,
+		bitcoind_getutxout(bitcoind, &o->outpoint,
 				  process_getfilteredblock_step2, call);
 	} else {
 		/* If there were no more outpoints to check, we call the callback. */
@@ -645,10 +645,10 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 			if (amount_asset_is_main(&amount) && is_p2wsh(script, NULL)) {
 				/* This is an interesting output, remember it. */
 				o = tal(call->outpoints, struct filteredblock_outpoint);
-				bitcoin_txid(tx, &o->txid);
+				bitcoin_txid(tx, &o->outpoint.txid);
+				o->outpoint.n = j;
 				o->amount = amount_asset_to_sat(&amount);
 				o->txindex = i;
-				o->outnum = j;
 				o->scriptPubKey = tal_steal(o, script);
 				tal_arr_expand(&call->outpoints, o);
 			} else {
@@ -667,7 +667,7 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 		 * store the one's that are unspent in
 		 * call->result->outpoints. */
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_getutxout(bitcoind, &o->txid, o->outnum,
+		bitcoind_getutxout(bitcoind, &o->outpoint,
 				  process_getfilteredblock_step2, call);
 	}
 }

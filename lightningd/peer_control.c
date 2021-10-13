@@ -579,7 +579,8 @@ struct amount_msat channel_amount_receivable(const struct channel *channel)
 	struct amount_msat their_msat, receivable;
 
 	/* Compute how much we can receive via this channel in one payment */
-	if (!amount_sat_sub_msat(&their_msat, channel->funding, channel->our_msat))
+	if (!amount_sat_sub_msat(&their_msat,
+				 channel->funding_sats, channel->our_msat))
 		their_msat = AMOUNT_MSAT(0);
 
 	if (!amount_msat_sub_sat(&receivable,
@@ -653,7 +654,7 @@ static void json_add_channel(struct lightningd *ld,
 
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &channel->cid));
-	json_add_txid(response, "funding_txid", &channel->funding_txid);
+	json_add_txid(response, "funding_txid", &channel->funding.txid);
 
 	if (!list_empty(&channel->inflights)) {
 		struct channel_inflight *initial, *inflight;
@@ -690,9 +691,9 @@ static void json_add_channel(struct lightningd *ld,
 
 			json_object_start(response, NULL);
 			json_add_txid(response, "funding_txid",
-				      &inflight->funding->txid);
+				      &inflight->funding->outpoint.txid);
 			json_add_num(response, "funding_outnum",
-				     inflight->funding->outnum);
+				     inflight->funding->outpoint.n);
 			json_add_string(response, "feerate",
 					tal_fmt(tmpctx, "%d%s",
 						inflight->funding->feerate,
@@ -743,12 +744,12 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_string(response, NULL, "option_anchor_outputs");
 	json_array_end(response);
 
-	if (!amount_sat_sub(&peer_funded_sats, channel->funding,
+	if (!amount_sat_sub(&peer_funded_sats, channel->funding_sats,
 			    channel->our_funds)) {
 		log_broken(channel->log,
 			   "Overflow subtracing funding %s, our funds %s",
 			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding),
+					  &channel->funding_sats),
 			   type_to_string(tmpctx, struct amount_sat,
 					  &channel->our_funds));
 		peer_funded_sats = AMOUNT_SAT(0);
@@ -791,11 +792,11 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_sat_only(response, "remote_msat", peer_funded_sats);
 	json_object_end(response);
 
-	if (!amount_sat_to_msat(&funding_msat, channel->funding)) {
+	if (!amount_sat_to_msat(&funding_msat, channel->funding_sats)) {
 		log_broken(channel->log,
 			   "Overflow converting funding %s",
 			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding));
+					  &channel->funding_sats));
 		funding_msat = AMOUNT_MSAT(0);
 	}
 	json_add_amount_msat_compat(response, channel->our_msat,
@@ -1203,14 +1204,14 @@ static bool check_funding_tx(const struct bitcoin_tx *tx,
 	 * actually contain the funding output). As of v2 (where
 	 * RBF is introduced), this isn't a problem so much as
 	 * both sides have full access to the funding transaction */
-	if (check_funding_details(tx, wscript, channel->funding,
-				    channel->funding_outnum))
+	if (check_funding_details(tx, wscript, channel->funding_sats,
+				  channel->funding.n))
 		return true;
 
 	list_for_each(&channel->inflights, inflight, list) {
 		if (check_funding_details(tx, wscript,
 					  inflight->funding->total_funds,
-					  inflight->funding->outnum))
+					  inflight->funding->outpoint.n))
 			return true;
 	}
 	return false;
@@ -1222,9 +1223,8 @@ static void update_channel_from_inflight(struct lightningd *ld,
 {
 	struct wally_psbt *psbt_copy;
 
-	channel->funding_txid = inflight->funding->txid;
-	channel->funding_outnum = inflight->funding->outnum;
-	channel->funding = inflight->funding->total_funds;
+	channel->funding = inflight->funding->outpoint;
+	channel->funding_sats = inflight->funding->total_funds;
 	channel->our_funds = inflight->funding->our_funds;
 
 	/* Lease infos ! */
@@ -1306,17 +1306,17 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 			update_channel_from_inflight(ld, channel, inf);
 		}
 
-		wallet_annotate_txout(ld->wallet, txid, channel->funding_outnum,
+		wallet_annotate_txout(ld->wallet, &channel->funding,
 				      TX_CHANNEL_FUNDING, channel->dbid);
 		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 		if (!mk_short_channel_id(&scid,
 					 loc->blkheight, loc->index,
-					 channel->funding_outnum)) {
+					 channel->funding.n)) {
 			channel_fail_permanent(channel,
 					       REASON_LOCAL,
 					       "Invalid funding scid %u:%u:%u",
 					       loc->blkheight, loc->index,
-					       channel->funding_outnum);
+					       channel->funding.n);
 			return DELETE_WATCH;
 		}
 
@@ -1373,8 +1373,7 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 	if (channel->shutdown_wrong_funding) {
 		/* FIXME: Remove arg from cb? */
 		watch_txo(channel, ld->topology, channel,
-			  &channel->shutdown_wrong_funding->txid,
-			  channel->shutdown_wrong_funding->n,
+			  channel->shutdown_wrong_funding,
 			  funding_spent);
 	}
 }
@@ -1383,9 +1382,9 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* FIXME: Remove arg from cb? */
 	watch_txid(channel, ld->topology, channel,
-		   &channel->funding_txid, funding_depth_cb);
+		   &channel->funding.txid, funding_depth_cb);
 	watch_txo(channel, ld->topology, channel,
-		  &channel->funding_txid, channel->funding_outnum,
+		  &channel->funding,
 		  funding_spent);
 	channel_watch_wrong_funding(ld, channel);
 }
@@ -1396,10 +1395,9 @@ static void channel_watch_inflight(struct lightningd *ld,
 {
 	/* FIXME: Remove arg from cb? */
 	watch_txid(channel, ld->topology, channel,
-		   &inflight->funding->txid, funding_depth_cb);
+		   &inflight->funding->outpoint.txid, funding_depth_cb);
 	watch_txo(channel, ld->topology, channel,
-		  &inflight->funding->txid,
-		  inflight->funding->outnum,
+		  &inflight->funding->outpoint,
 		  funding_spent);
 }
 
@@ -1574,8 +1572,8 @@ static void activate_peer(struct peer *peer, u32 delay)
 		list_for_each(&channel->inflights, inflight, list) {
 			/* Don't double watch the txid that's also in
 			 * channel->funding_txid */
-			if (bitcoin_txid_eq(&channel->funding_txid,
-					    &inflight->funding->txid))
+			if (bitcoin_txid_eq(&channel->funding.txid,
+					    &inflight->funding->outpoint.txid))
 				continue;
 
 			channel_watch_inflight(ld, channel, inflight);
@@ -2096,7 +2094,7 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 				     &inflight->last_sig);
 			json_object_start(response, NULL);
 			json_add_txid(response, "funding_txid",
-				      &inflight->funding->txid);
+				      &inflight->funding->outpoint.txid);
 			remove_sig(inflight->last_tx);
 			json_add_tx(response, "tx", channel->last_tx);
 			json_object_end(response);
@@ -2240,7 +2238,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	response = json_stream_success(forget->cmd);
 	json_add_bool(response, "forced", forget->force);
 	json_add_bool(response, "funding_unspent", txout != NULL);
-	json_add_txid(response, "funding_txid", &forget->channel->funding_txid);
+	json_add_txid(response, "funding_txid", &forget->channel->funding.txid);
 
 	/* Set error so we don't try to reconnect. */
 	forget->channel->error = towire_errorfmt(forget->channel,
@@ -2316,8 +2314,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 
 	if (!channel_unsaved(forget->channel))
 		bitcoind_getutxout(cmd->ld->topology->bitcoind,
-				   &forget->channel->funding_txid,
-				   forget->channel->funding_outnum,
+				   &forget->channel->funding,
 				   process_dev_forget_channel, forget);
 	return command_still_pending(cmd);
 }

@@ -71,9 +71,8 @@ void tx_add_anchor_output(struct bitcoin_tx *tx,
 }
 
 struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
-				     const struct bitcoin_txid *funding_txid,
-				     unsigned int funding_txout,
-				     struct amount_sat funding,
+				     const struct bitcoin_outpoint *funding,
+				     struct amount_sat funding_sats,
 				     const struct pubkey funding_key[NUM_SIDES],
 				     enum side opener,
 				     u16 to_self_delay,
@@ -107,7 +106,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
-	assert(!amount_msat_greater_sat(total_pay, funding));
+	assert(!amount_msat_greater_sat(total_pay, funding_sats));
 
 	/* BOLT #3:
 	 *
@@ -319,8 +318,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    * `txin[0]` script bytes: 0
 	 */
 	sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
-	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence,
-			     NULL, funding, NULL, funding_wscript);
+	bitcoin_tx_add_input(tx, funding, sequence,
+			     NULL, funding_sats, NULL, funding_wscript);
 
 	if (direct_outputs != NULL) {
 		direct_outputs[LOCAL] = direct_outputs[REMOTE] = NULL;

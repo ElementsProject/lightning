@@ -80,9 +80,8 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 }
 
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
-			     const struct bitcoin_txid *funding_txid,
-			     unsigned int funding_txout,
-			     struct amount_sat funding,
+			     const struct bitcoin_outpoint *funding,
+			     struct amount_sat funding_sats,
 			     const struct pubkey *local_funding_key,
 			     const struct pubkey *remote_funding_key,
 			     enum side opener,
@@ -119,7 +118,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
-	assert(!amount_msat_greater_sat(total_pay, funding));
+	assert(!amount_msat_greater_sat(total_pay, funding_sats));
 
 	/* BOLT #3:
 	 *
@@ -176,7 +175,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(other_pay));
 		assert(ok);
 		SUPERVERBOSE("# actual commitment transaction fee = %"PRIu64"\n",
-			     funding.satoshis - out.satoshis);  /* Raw: test output */
+			     funding_sats.satoshis - out.satoshis);  /* Raw: test output */
 	}
 #endif
 
@@ -390,8 +389,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are upper 24 bits of the obscured commitment number
 	 */
 	u32 sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
-	bitcoin_tx_add_input(tx, funding_txid, funding_txout,
-			     sequence, NULL, funding, NULL, funding_wscript);
+	bitcoin_tx_add_input(tx, funding,
+			     sequence, NULL, funding_sats, NULL, funding_wscript);
 
 	/* Identify the direct outputs (to_us, to_them). */
 	if (direct_outputs != NULL) {

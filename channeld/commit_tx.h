@@ -27,7 +27,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 /**
  * commit_tx: create (unsigned) commitment tx to spend the funding tx output
  * @ctx: context to allocate transaction and @htlc_map from.
- * @funding_txid, @funding_out, @funding: funding outpoint.
+ * @funding, @funding_sats: funding outpoint and amount
  * @local_funding_key, @remote_funding_key: keys for funding input.
  * @opener: is the LOCAL or REMOTE paying the fee?
  * @keyset: keys derived for this commit tx.
@@ -48,9 +48,8 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * transaction, so we carefully use the terms "self" and "other" here.
  */
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
-			     const struct bitcoin_txid *funding_txid,
-			     unsigned int funding_txout,
-			     struct amount_sat funding,
+			     const struct bitcoin_outpoint *funding,
+			     struct amount_sat funding_sats,
 			     const struct pubkey *local_funding_key,
 			     const struct pubkey *remote_funding_key,
 			     enum side opener,

@@ -2320,7 +2320,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
 
     l1.wait_for_onchaind_broadcast('IGNORING_TINY_PAYMENT',
                                    'THEIR_UNILATERAL/OUR_HTLC')
-    l1.daemon.wait_for_log('Ignoring output .* of .*: THEIR_UNILATERAL/OUR_HTLC')
+    l1.daemon.wait_for_log('Ignoring output .*: THEIR_UNILATERAL/OUR_HTLC')
 
     # 100 deep and l2 forgets.
     bitcoind.generate_block(93)

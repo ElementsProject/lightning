@@ -585,7 +585,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		if (!amount_sat_add(&cumulative_reserve,
 				    candidates[i].c->our_config.channel_reserve,
 				    candidates[i].c->channel_info.their_config.channel_reserve)
-			|| !amount_sat_to_msat(&capacity, candidates[i].c->funding)
+			|| !amount_sat_to_msat(&capacity, candidates[i].c->funding_sats)
 			|| !amount_msat_sub_sat(&capacity, capacity, cumulative_reserve)) {
 			log_broken(ld->log, "Channel %s capacity overflow!",
 					type_to_string(tmpctx, struct short_channel_id, candidates[i].c->scid));

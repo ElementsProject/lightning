@@ -39,8 +39,7 @@ struct bitcoind {
 
 /* A single outpoint in a filtered block */
 struct filteredblock_outpoint {
-	struct bitcoin_txid txid;
-	u32 outnum;
+	struct bitcoin_outpoint outpoint;
 	u32 txindex;
 	const u8 *scriptPubKey;
 	struct amount_sat amount;
@@ -150,13 +149,13 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 				      (arg))
 
 void bitcoind_getutxout_(struct bitcoind *bitcoind,
-			 const struct bitcoin_txid *txid, const u32 outnum,
+			 const struct bitcoin_outpoint *outpoint,
 			 void (*cb)(struct bitcoind *bitcoind,
 				    const struct bitcoin_tx_output *txout,
 				    void *arg),
 			 void *arg);
-#define bitcoind_getutxout(bitcoind_, txid_, vout_, cb, arg)		\
-	bitcoind_getutxout_((bitcoind_), (txid_), (vout_),		\
+#define bitcoind_getutxout(bitcoind_, outpoint_, cb, arg)		\
+	bitcoind_getutxout_((bitcoind_), (outpoint_),			\
 			    typesafe_cb_preargs(void, void *,		\
 					        (cb), (arg),		\
 					        struct bitcoind *,	\

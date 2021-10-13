@@ -92,14 +92,14 @@ static void add_in_out_with_serial(struct wally_psbt *psbt,
 				   size_t serial_id,
 				   size_t default_value)
 {
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 	u8 *script;
 	struct amount_sat sat;
 	struct wally_psbt_input *in;
 	struct wally_psbt_output *out;
 
-	memset(&txid, default_value, sizeof(txid));
-	in = psbt_append_input(psbt, &txid, default_value, default_value,
+	memset(&outpoint, default_value, sizeof(outpoint));
+	in = psbt_append_input(psbt, &outpoint, default_value,
 			       NULL, NULL, NULL);
 	if (!in)
 		abort();

@@ -197,8 +197,8 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 	bool feerate_unknown;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
-	fee = calc_tx_fee(channel->funding, tx);
-	last_fee = calc_tx_fee(channel->funding, channel->last_tx);
+	fee = calc_tx_fee(channel->funding_sats, tx);
+	last_fee = calc_tx_fee(channel->funding_sats, channel->last_tx);
 
 	log_debug(channel->log, "Their actual closing tx fee is %s"
 		 " vs previous %s",
@@ -421,7 +421,7 @@ void peer_start_closingd(struct channel *channel,
 		if (!*max_feerate)
 			*max_feerate = final_commit_feerate;
 		/* No other limit on fees */
-		feelimit = channel->funding;
+		feelimit = channel->funding_sats;
 	} else
 		max_feerate = NULL;
 
@@ -440,10 +440,10 @@ void peer_start_closingd(struct channel *channel,
 	 */
 	/* What is not ours is theirs */
 	if (!amount_sat_sub_msat(&their_msat,
-				 channel->funding, channel->our_msat)) {
+				 channel->funding_sats, channel->our_msat)) {
 		log_broken(channel->log, "our_msat overflow funding %s minus %s",
 			  type_to_string(tmpctx, struct amount_sat,
-					 &channel->funding),
+					 &channel->funding_sats),
 			  type_to_string(tmpctx, struct amount_msat,
 					 &channel->our_msat));
 		channel_fail_permanent(channel,
@@ -456,9 +456,8 @@ void peer_start_closingd(struct channel *channel,
 				       chainparams,
 				       pps,
 				       &channel->cid,
-				       &channel->funding_txid,
-				       channel->funding_outnum,
-				       channel->funding,
+				       &channel->funding,
+				       channel->funding_sats,
 				       &channel->local_funding_pubkey,
 				       &channel->channel_info.remote_fundingkey,
 				       channel->opener,

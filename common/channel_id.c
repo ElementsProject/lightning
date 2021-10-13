@@ -6,12 +6,12 @@
 #include <wire/wire.h>
 
 void derive_channel_id(struct channel_id *channel_id,
-		       const struct bitcoin_txid *txid, u16 txout)
+		       const struct bitcoin_outpoint *outpoint)
 {
-	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
-	memcpy(channel_id, txid, sizeof(*channel_id));
-	channel_id->id[sizeof(*channel_id)-2] ^= txout >> 8;
-	channel_id->id[sizeof(*channel_id)-1] ^= txout;
+	BUILD_ASSERT(sizeof(*channel_id) == sizeof(outpoint->txid));
+	memcpy(channel_id, &outpoint->txid, sizeof(*channel_id));
+	channel_id->id[sizeof(*channel_id)-2] ^= outpoint->n >> 8;
+	channel_id->id[sizeof(*channel_id)-1] ^= outpoint->n;
 }
 
 void derive_channel_id_v2(struct channel_id *channel_id,

@@ -932,13 +932,13 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 
 	/* Check that we've got the same / correct PSBT */
 	psbt_txid(NULL, payload->psbt, &txid, NULL);
-	if (!bitcoin_txid_eq(&inflight->funding->txid, &txid)) {
+	if (!bitcoin_txid_eq(&inflight->funding->outpoint.txid, &txid)) {
 		log_broken(channel->log,
 			   "PSBT's txid does not match. %s != %s",
 			   type_to_string(tmpctx, struct bitcoin_txid,
 					  &txid),
 			   type_to_string(tmpctx, struct bitcoin_txid,
-					  &inflight->funding->txid));
+					  &inflight->funding->outpoint.txid));
 		msg = towire_dualopend_fail(NULL, "Peer error with PSBT"
 					    " signatures.");
 		goto send_msg;
@@ -1057,8 +1057,7 @@ wallet_update_channel(struct lightningd *ld,
 		      struct channel *channel,
 		      struct bitcoin_tx *remote_commit STEALS,
 		      struct bitcoin_signature *remote_commit_sig,
-		      const struct bitcoin_txid *funding_txid,
-		      u16 funding_outnum,
+		      const struct bitcoin_outpoint *funding,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
 		      u32 funding_feerate,
@@ -1080,9 +1079,8 @@ wallet_update_channel(struct lightningd *ld,
 	assert(channel->unsaved_dbid == 0);
 	assert(channel->dbid != 0);
 
-	channel->funding_txid = *funding_txid;
-	channel->funding_outnum = funding_outnum;
-	channel->funding = total_funding;
+	channel->funding = *funding;
+	channel->funding_sats = total_funding;
 	channel->our_funds = our_funding;
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = our_msat;
@@ -1109,10 +1107,9 @@ wallet_update_channel(struct lightningd *ld,
 
 	/* Add open attempt to channel's inflights */
 	inflight = new_inflight(channel,
-				channel->funding_txid,
-				channel->funding_outnum,
+				&channel->funding,
 				funding_feerate,
-				channel->funding,
+				channel->funding_sats,
 				channel->our_funds,
 				psbt,
 				channel->last_tx,
@@ -1133,8 +1130,7 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct channel *channel,
 		      struct bitcoin_tx *remote_commit,
 		      struct bitcoin_signature *remote_commit_sig,
-		      const struct bitcoin_txid *funding_txid,
-		      u16 funding_outnum,
+		      const struct bitcoin_outpoint *funding,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
 		      struct channel_info *channel_info,
@@ -1174,9 +1170,8 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->dbid = channel->unsaved_dbid;
 	channel->unsaved_dbid = 0;
 
-	channel->funding_txid = *funding_txid;
-	channel->funding_outnum = funding_outnum;
-	channel->funding = total_funding;
+	channel->funding = *funding;
+	channel->funding_sats = total_funding;
 	channel->our_funds = our_funding;
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = our_msat;
@@ -1231,10 +1226,9 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* Open attempt to channel's inflights */
 	inflight = new_inflight(channel,
-				channel->funding_txid,
-				channel->funding_outnum,
+				&channel->funding,
 				funding_feerate,
-				channel->funding,
+				channel->funding_sats,
 				channel->our_funds,
 				psbt,
 				channel->last_tx,
@@ -1505,8 +1499,8 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 			/* Tell plugins about the success */
 			notify_channel_opened(dualopend->ld,
 					      &channel->peer->id,
-					      &channel->funding,
-					      &channel->funding_txid,
+					      &channel->funding_sats,
+					      &channel->funding.txid,
 					      &channel->remote_funding_locked);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
@@ -1651,7 +1645,7 @@ void dualopen_tell_depth(struct subd *dualopend,
 	/* Are we there yet? */
 	if (to_go == 0) {
 		assert(channel->scid);
-		assert(bitcoin_txid_eq(&channel->funding_txid, txid));
+		assert(bitcoin_txid_eq(&channel->funding.txid, txid));
 
 		channel_set_billboard(channel, false,
 				      tal_fmt(tmpctx, "Funding depth reached"
@@ -1876,8 +1870,8 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 			/* Tell plugins about the success */
 			notify_channel_opened(dualopend->ld,
 					      &channel->peer->id,
-					      &channel->funding,
-					      &channel->funding_txid,
+					      &channel->funding_sats,
+					      &channel->funding.txid,
 					      &channel->remote_funding_locked);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
@@ -2007,12 +2001,12 @@ static void handle_validate_rbf(struct subd *dualopend,
 		for (size_t i = 0; i < candidate_psbt->num_inputs; i++) {
 			struct wally_tx_input *input =
 				&candidate_psbt->tx->inputs[i];
-			struct bitcoin_txid in_txid;
+			struct bitcoin_outpoint outpoint;
 
-			wally_tx_input_get_txid(input, &in_txid);
+			wally_tx_input_get_outpoint(input, &outpoint);
 
 			if (!psbt_has_input(inflight->funding_psbt,
-					    &in_txid, input->index))
+					    &outpoint))
 				inputs_present[i] = false;
 		}
 	}
@@ -2308,13 +2302,13 @@ json_openchannel_signed(struct command *cmd,
 	/* Verify that the psbt's txid matches that of the
 	 * funding txid for this channel */
 	psbt_txid(NULL, psbt, &txid, NULL);
-	if (!bitcoin_txid_eq(&txid, &channel->funding_txid))
+	if (!bitcoin_txid_eq(&txid, &channel->funding.txid))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Txid for passed in PSBT does not match"
 				    " funding txid for channel. Expected %s, "
 				    "received %s",
 				    type_to_string(tmpctx, struct bitcoin_txid,
-						   &channel->funding_txid),
+						   &channel->funding.txid),
 				    type_to_string(tmpctx, struct bitcoin_txid,
 						   &txid));
 
@@ -2325,14 +2319,15 @@ json_openchannel_signed(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Open attempt for channel not found");
 
-	if (!bitcoin_txid_eq(&txid, &inflight->funding->txid))
+	if (!bitcoin_txid_eq(&txid, &inflight->funding->outpoint.txid))
 		return command_fail(cmd, LIGHTNINGD,
 				    "Current inflight transaction is %s,"
 				    " not %s",
 				    type_to_string(tmpctx, struct bitcoin_txid,
 						   &txid),
 				    type_to_string(tmpctx, struct bitcoin_txid,
-						   &inflight->funding->txid));
+						   &inflight->funding
+						   ->outpoint.txid));
 
 	if (inflight->funding_psbt && psbt_is_finalized(inflight->funding_psbt))
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -2709,8 +2704,8 @@ static void handle_commit_received(struct subd *dualopend,
 	struct channel_info channel_info;
 	struct bitcoin_tx *remote_commit;
 	struct bitcoin_signature remote_commit_sig;
-	struct bitcoin_txid funding_txid;
-	u16 funding_outnum, lease_chan_max_ppt;
+	struct bitcoin_outpoint funding;
+	u16 lease_chan_max_ppt;
 	u32 feerate_funding, feerate_commitment, lease_expiry,
 	    lease_chan_max_msat, lease_blockheight_start;
 	struct amount_sat total_funding, funding_ours;
@@ -2736,8 +2731,7 @@ static void handle_commit_received(struct subd *dualopend,
 					    &channel_info.theirbase.delayed_payment,
 					    &channel_info.remote_per_commit,
 					    &channel_info.remote_fundingkey,
-					    &funding_txid,
-					    &funding_outnum,
+					    &funding,
 					    &total_funding,
 					    &funding_ours,
 					    &channel->channel_flags,
@@ -2779,8 +2773,7 @@ static void handle_commit_received(struct subd *dualopend,
 		if (!(inflight = wallet_commit_channel(ld, channel,
 						       remote_commit,
 						       &remote_commit_sig,
-						       &funding_txid,
-						       funding_outnum,
+						       &funding,
 						       total_funding,
 						       funding_ours,
 						       &channel_info,
@@ -2819,8 +2812,7 @@ static void handle_commit_received(struct subd *dualopend,
 		if (!(inflight = wallet_update_channel(ld, channel,
 						       remote_commit,
 						       &remote_commit_sig,
-						       &funding_txid,
-						       funding_outnum,
+						       &funding,
 						       total_funding,
 						       funding_ours,
 						       feerate_funding,
@@ -2861,7 +2853,7 @@ static void handle_commit_received(struct subd *dualopend,
 		json_add_psbt(response, "psbt", psbt);
 		json_add_bool(response, "commitments_secured", true);
 		/* For convenience sake, we include the funding outnum */
-		json_add_num(response, "funding_outnum", funding_outnum);
+		json_add_num(response, "funding_outnum", funding.n);
 		if (oa->our_upfront_shutdown_script) {
 			json_add_hex_talarr(response, "close_to",
 					    oa->our_upfront_shutdown_script);
@@ -3264,10 +3256,9 @@ void peer_restart_dualopend(struct peer *peer,
 				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey,
 				      channel->minimum_depth,
-				      &inflight->funding->txid,
-				      inflight->funding->outnum,
+				      &inflight->funding->outpoint,
 				      inflight->funding->feerate,
-				      channel->funding,
+				      channel->funding_sats,
 				      channel->our_msat,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,

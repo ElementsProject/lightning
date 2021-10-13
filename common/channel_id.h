@@ -4,7 +4,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 
-struct bitcoin_txid;
+struct bitcoin_outpoint;
 struct pubkey;
 
 /* BOLT #2:
@@ -22,7 +22,7 @@ STRUCTEQ_DEF(channel_id, 0, id);
 
 /* For v1 channel establishment */
 void derive_channel_id(struct channel_id *channel_id,
-		       const struct bitcoin_txid *txid, u16 txout);
+		       const struct bitcoin_outpoint *outpoint);
 
 /* For v1 channel establishment */
 void temporary_channel_id(struct channel_id *channel_id);

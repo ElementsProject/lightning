@@ -7,8 +7,7 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 	/* Is this a unilateral close output and needs the
 	 * close_info? */
 	bool is_unilateral_close = utxo->close_info != NULL;
-	towire_bitcoin_txid(pptr, &utxo->txid);
-	towire_u32(pptr, utxo->outnum);
+	towire_bitcoin_outpoint(pptr, &utxo->outpoint);
 	towire_amount_sat(pptr, utxo->amount);
 	towire_u32(pptr, utxo->keyindex);
 	towire_bool(pptr, utxo->is_p2sh);
@@ -32,8 +31,7 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
 
-	fromwire_bitcoin_txid(ptr, max, &utxo->txid);
-	utxo->outnum = fromwire_u32(ptr, max);
+	fromwire_bitcoin_outpoint(ptr, max, &utxo->outpoint);
 	utxo->amount = fromwire_amount_sat(ptr, max);
 	utxo->keyindex = fromwire_u32(ptr, max);
 	utxo->is_p2sh = fromwire_bool(ptr, max);

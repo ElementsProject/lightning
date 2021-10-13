@@ -15,26 +15,23 @@ void run(const uint8_t *data, size_t size)
 {
 	struct channel_id chan_id;
 	struct pubkey basepoint_1, basepoint_2;
-	struct bitcoin_txid txid;
-	uint16_t vout;
+	struct bitcoin_outpoint outpoint;
 	const uint8_t **v1_chunks, **v2_chunks, **marshal_chunks;
 	const uint8_t *wire_ptr;
 	size_t wire_max;
 	uint8_t *wire_buf;
 
-	if (size < 34)
+	/* 32 (txid) + 4 (vout) */
+	if (size < 36)
 		return;
 
-	/* 32 (txid) + 2 (vout ala LN) */
-	v1_chunks = get_chunks(NULL, data, size, 34);
+	v1_chunks = get_chunks(NULL, data, size, 36);
 	for (size_t i = 0; i < tal_count(v1_chunks); i++) {
 		wire_ptr = v1_chunks[i];
-		wire_max = 32;
-		fromwire_bitcoin_txid(&wire_ptr, &wire_max, &txid);
+		wire_max = 36;
+		fromwire_bitcoin_outpoint(&wire_ptr, &wire_max, &outpoint);
 		assert(wire_ptr);
-		wire_max = 2;
-		vout = fromwire_u16(&wire_ptr, &wire_max);
-		derive_channel_id(&chan_id, &txid, vout);
+		derive_channel_id(&chan_id, &outpoint);
 	}
 	tal_free(v1_chunks);
 

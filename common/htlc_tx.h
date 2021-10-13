@@ -6,7 +6,7 @@
 #include <common/utils.h>
 
 struct bitcoin_signature;
-struct bitcoin_txid;
+struct bitcoin_outpoint;
 struct keyset;
 struct preimage;
 struct pubkey;
@@ -82,8 +82,7 @@ static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw,
  * output; doesn't fill in input witness. */
 struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
-				   const struct bitcoin_txid *commit_txid,
-				   unsigned int commit_output_number,
+				   const struct bitcoin_outpoint *commit,
 				   const u8 *commit_wscript,
 				   struct amount_msat htlc_msatoshi,
 				   u16 to_self_delay,
@@ -106,8 +105,7 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
  * output; doesn't fill in input witness. */
 struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
-				   const struct bitcoin_txid *commit_txid,
-				   unsigned int commit_output_number,
+				   const struct bitcoin_outpoint *commit,
 				   const u8 *commit_wscript,
 				   struct amount_msat htlc_msatoshi,
 				   u32 cltv_expiry,
