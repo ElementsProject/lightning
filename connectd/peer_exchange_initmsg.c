@@ -42,16 +42,18 @@ static struct io_plan *read_init(struct io_conn *conn, struct early_peer *peer);
 
 struct remote_addr_any {
 	u8 type; /* ipv4:1  ipv6:2 */
-	union {
-		struct {
-			u8 addr[4];
-			u16 port;
-		} ipv4;
-		struct {
-			u8 addr[16];
-			u16 port;
-		} ipv6;
-	} u;
+}__attribute__((packed));
+
+struct remote_addr_ipv4 {
+	u8 type; /* ipv4:1 */
+	u8 addr[4];
+	u16 port;
+}__attribute__((packed));
+
+struct remote_addr_ipv6 {
+	u8 type; /* ipv6:2 */
+	u8 addr[16];
+	u16 port;
 }__attribute__((packed));
 
 static struct io_plan *peer_init_received(struct io_conn *conn,
@@ -186,6 +188,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	struct early_peer *peer = tal(conn, struct early_peer);
 	struct io_plan *(*next)(struct io_conn *, struct early_peer *);
 	struct tlv_init_tlvs *tlvs;
+	struct remote_addr_ipv4 *remote_addr_v4;
+	struct remote_addr_ipv6 *remote_addr_v6;
 
 	peer->daemon = daemon;
 	peer->id = *id;
@@ -205,6 +209,32 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	tlvs = tlv_init_tlvs_new(tmpctx);
 	tlvs->networks = tal_dup_arr(tlvs, struct bitcoin_blkid,
 				     &chainparams->genesis_blockhash, 1, 0);
+
+	/* BOLT-remote-address #1:
+	 * The sending node:
+	 * ...
+	 *  - SHOULD set `remote_addr` to reflect the remote IP address (and port) of an
+	 *    incoming connection, if the node is the receiver and the connection was done
+	 *    via IP.
+	 */
+	if (incoming && addr->itype == ADDR_INTERNAL_WIREADDR) {
+		if (addr->u.wireaddr.type == ADDR_TYPE_IPV4) {
+			remote_addr_v4 = tal(tlvs, struct remote_addr_ipv4);
+			remote_addr_v4->type = 1;
+			remote_addr_v4->port = addr->u.wireaddr.port;
+			memcpy(&remote_addr_v4->addr,
+			       addr->u.wireaddr.addr, 4);
+			tlvs->remote_addr = (u8*)remote_addr_v4;
+		}
+		if (addr->u.wireaddr.type == ADDR_TYPE_IPV6) {
+			remote_addr_v6 = tal(tlvs, struct remote_addr_ipv6);
+			remote_addr_v6->type = 2;
+			remote_addr_v6->port = addr->u.wireaddr.port;
+			memcpy(&remote_addr_v6->addr,
+			       addr->u.wireaddr.addr, 16);
+			tlvs->remote_addr = (u8*)remote_addr_v6;
+		}
+	}
 
 	/* Initially, there were two sets of feature bits: global and local.
 	 * Local affected peer nodes only, global affected everyone.  Both were
