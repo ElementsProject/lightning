@@ -2423,6 +2423,8 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			bool *we_filled)
 {
 	struct db_stmt *stmt;
+	bool terminal = (new_state == RCVD_REMOVE_ACK_REVOCATION
+			 || new_state == SENT_REMOVE_ACK_REVOCATION);
 
 	/* We should only use this for badonion codes */
 	assert(!badonion || (badonion & BADONION));
@@ -2459,13 +2461,22 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 		db_bind_null(stmt, 5);
 
 	/* Set max_commit_num iff we're in final state. */
-	if (new_state == RCVD_REMOVE_ACK_REVOCATION
-	    || new_state == SENT_REMOVE_ACK_REVOCATION)
+	if (terminal)
 		db_bind_u64(stmt, 6, max_commit_num);
 	else
 		db_bind_null(stmt, 6);
 
 	db_exec_prepared_v2(take(stmt));
+
+	if (terminal) {
+		/* If it's terminal, remove the data we needed for re-xmission. */
+		stmt = db_prepare_v2(
+			wallet->db,
+			SQL("UPDATE channel_htlcs SET payment_key=NULL, routing_onion=NULL, failuremsg=NULL, shared_secret=NULL, localfailmsg=NULL "
+			    " WHERE id=?"));
+		db_bind_u64(stmt, 0, htlc_dbid);
+		db_exec_prepared_v2(take(stmt));
+	}
 }
 
 static bool wallet_stmt2htlc_in(struct channel *channel,
