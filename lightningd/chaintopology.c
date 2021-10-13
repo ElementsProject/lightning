@@ -72,10 +72,10 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 
 		/* Tell them if it spends a txo we care about. */
 		for (j = 0; j < tx->wtx->num_inputs; j++) {
-			struct txwatch_output out;
+			struct bitcoin_outpoint out;
 			struct txowatch *txo;
 			bitcoin_tx_input_get_txid(tx, j, &out.txid);
-			out.index = tx->wtx->inputs[j].index;
+			out.n = tx->wtx->inputs[j].index;
 
 			txo = txowatch_hash_get(&topo->txowatches, &out);
 			if (txo) {

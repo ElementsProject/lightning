@@ -4,7 +4,6 @@
 #include <bitcoin/tx.h>
 #include <ccan/htable/htable_type.h>
 
-struct bitcoin_tx;
 struct block;
 struct channel;
 struct chain_topology;
@@ -17,14 +16,9 @@ enum watch_result {
 	KEEP_WATCHING = -2
 };
 
-struct txwatch_output {
-	struct bitcoin_txid txid;
-	unsigned int index;
-};
-
-const struct txwatch_output *txowatch_keyof(const struct txowatch *w);
-size_t txo_hash(const struct txwatch_output *out);
-bool txowatch_eq(const struct txowatch *w, const struct txwatch_output *out);
+const struct bitcoin_outpoint *txowatch_keyof(const struct txowatch *w);
+size_t txo_hash(const struct bitcoin_outpoint *out);
+bool txowatch_eq(const struct txowatch *w, const struct bitcoin_outpoint *out);
 
 HTABLE_DEFINE_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
 		   txowatch_hash);

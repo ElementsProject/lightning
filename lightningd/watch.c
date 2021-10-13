@@ -40,7 +40,7 @@ struct txowatch {
 	struct channel *channel;
 
 	/* Output to watch. */
-	struct txwatch_output out;
+	struct bitcoin_outpoint out;
 
 	/* A new tx. */
 	enum watch_result (*cb)(struct channel *channel,
@@ -71,24 +71,24 @@ struct txwatch {
 				unsigned int depth);
 };
 
-const struct txwatch_output *txowatch_keyof(const struct txowatch *w)
+const struct bitcoin_outpoint *txowatch_keyof(const struct txowatch *w)
 {
 	return &w->out;
 }
 
-size_t txo_hash(const struct txwatch_output *out)
+size_t txo_hash(const struct bitcoin_outpoint *out)
 {
 	/* This hash-in-one-go trick only works if they're consecutive. */
-	BUILD_ASSERT(offsetof(struct txwatch_output, index)
-		     == sizeof(((struct txwatch_output *)NULL)->txid));
-	return siphash24(siphash_seed(), &out->txid,
-			 sizeof(out->txid) + sizeof(out->index));
+	BUILD_ASSERT(offsetof(struct bitcoin_outpoint, n)
+		     == sizeof(((struct bitcoin_outpoint *)NULL)->txid));
+	return siphash24(siphash_seed(), out,
+			 sizeof(out->txid) + sizeof(out->n));
 }
 
-bool txowatch_eq(const struct txowatch *w, const struct txwatch_output *out)
+bool txowatch_eq(const struct txowatch *w, const struct bitcoin_outpoint *out)
 {
 	return bitcoin_txid_eq(&w->out.txid, &out->txid)
-		&& w->out.index == out->index;
+		&& w->out.n == out->n;
 }
 
 static void destroy_txowatch(struct txowatch *w)
@@ -198,7 +198,7 @@ struct txowatch *watch_txo(const tal_t *ctx,
 
 	w->topo = topo;
 	w->out.txid = *txid;
-	w->out.index = output;
+	w->out.n = output;
 	w->channel = channel;
 	w->cb = cb;
 
@@ -266,7 +266,7 @@ void txowatch_fire(const struct txowatch *txow,
 	log_debug(txow->channel->log,
 		  "Got UTXO spend for %s:%u: %s",
 		  type_to_string(tmpctx, struct bitcoin_txid, &txow->out.txid),
-		  txow->out.index,
+		  txow->out.n,
 		  type_to_string(tmpctx, struct bitcoin_txid, &txid));
 
 	r = txow->cb(txow->channel, tx, input_num, block);
