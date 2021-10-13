@@ -11,6 +11,8 @@
 #include <bitcoin/tx.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <common/blockheight_states.h>
+#include <common/channel_type.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
 #include <common/setup.h>
@@ -38,7 +40,8 @@ void run(const uint8_t *data, size_t size)
 	struct channel_config local, remote;
 	struct basepoints local_basepoints, remote_basepoints;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
-	bool option_static_remotekey, option_anchor_outputs;
+	bool option_static_remotekey, option_anchor_outputs, wumbo;
+	struct channel_type *channel_type;
 	struct channel *channel;
 
 	fromwire_channel_id(&data, &size, &cid);
@@ -59,8 +62,16 @@ void run(const uint8_t *data, size_t size)
 	fromwire_basepoints(&data, &size, &remote_basepoints);
 	fromwire_pubkey(&data, &size, &local_funding_pubkey);
 	fromwire_pubkey(&data, &size, &remote_funding_pubkey);
+	wumbo = fromwire_bool(&data, &size);
 	option_anchor_outputs = fromwire_bool(&data, &size);
 	option_static_remotekey = option_anchor_outputs || fromwire_bool(&data, &size);
+
+	if (option_anchor_outputs)
+		channel_type = channel_type_anchor_outputs(tmpctx);
+	else if (option_static_remotekey)
+		channel_type = channel_type_static_remotekey(tmpctx);
+	else
+		channel_type = channel_type_none(tmpctx);
 
 	/* TODO: determine if it makes sense to check at each step for libfuzzer
 	 * to deduce pertinent inputs */
@@ -81,8 +92,8 @@ void run(const uint8_t *data, size_t size)
 					      &remote_basepoints,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey,
-					      option_static_remotekey,
-					      option_anchor_outputs, opener);
+					      channel_type,
+					      wumbo, opener);
 
 		/* TODO: make initial_channel_tx() work with ASAN.. */
 	}
