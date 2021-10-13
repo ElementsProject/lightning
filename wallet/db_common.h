@@ -140,7 +140,7 @@ struct db_config {
 	bool (*setup_fn)(struct db *db);
 	void (*teardown_fn)(struct db *db);
 
-	u32 (*version)(struct db *db);
+	bool (*vacuum_fn)(struct db *db);
 };
 
 /* Provide a way for DB backends to register themselves */
