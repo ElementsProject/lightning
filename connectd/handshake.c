@@ -857,7 +857,6 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	return io_write(conn, &h->act2, ACT_TWO_SIZE, act_three_responder, h);
 }
 
-
 static struct io_plan *act_one_responder2(struct io_conn *conn,
 					 struct handshake *h)
 {
