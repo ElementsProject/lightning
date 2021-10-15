@@ -14,10 +14,17 @@ CONNECTD_SRC := $(CONNECTD_HEADERS:.h=.c) connectd/connectd.c
 CONNECTD_OBJS := $(CONNECTD_SRC:.c=.o)
 $(CONNECTD_OBJS): $(CONNECTD_HEADERS)
 
+WEBSOCKETD_HEADERS := connectd/sha1.h
+WEBSOCKETD_SRC := $(WEBSOCKETD_HEADERS:.h=.c) connectd/websocketd.c
+
+WEBSOCKETD_OBJS := $(WEBSOCKETD_SRC:.c=.o)
+$(WEBSOCKETD_OBJS): $(WEBSOCKETD_HEADERS)
+
 # Make sure these depend on everything.
-ALL_C_SOURCES += $(CONNECTD_SRC)
-ALL_C_HEADERS += $(CONNECTD_HEADERS)
+ALL_C_SOURCES += $(CONNECTD_SRC) $(WEBSOCKETD_SRC)
+ALL_C_HEADERS += $(CONNECTD_HEADERS) $(WEBSOCKETD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_connectd
+ALL_PROGRAMS += lightningd/lightning_websocketd
 
 # Here's what lightningd depends on
 LIGHTNINGD_CONTROL_HEADERS += connectd/connectd_wiregen.h
@@ -68,5 +75,7 @@ CONNECTD_COMMON_OBJS :=				\
 	wire/onion$(EXP)_wiregen.o
 
 lightningd/lightning_connectd: $(CONNECTD_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
+
+lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) common/setup.o common/utils.o
 
 include connectd/test/Makefile

@@ -363,7 +363,8 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_gossipd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
-	       lightningd/lightning_openingd
+	       lightningd/lightning_openingd \
+	       lightningd/lightning_websocketd
 
 # Don't delete these intermediaries.
 .PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
