@@ -64,21 +64,45 @@
 	    "description": "The addresses we announce to the world",
 	    "items": {
 		"type": "object",
-		"required": [ "type", "address", "port" ],
-		"additionalProperties": false,
+		"required": [ "type", "port" ],
+		"additionalProperties": true,
 		"properties": {
 		    "type": {
 			"type": "string",
-			"enum": [ "ipv4", "ipv6", "torv2", "torv3" ],
+			"enum": [ "ipv4", "ipv6", "torv2", "torv3", "websocket" ],
 			"description": "Type of connection"
-		    },
-		    "address": {
-			"type": "string",
-			"description": "address in expected format for **type**"
 		    },
 		    "port": {
 			"type": "u16",
 			"description": "port number"
+		    }
+		},
+		"if": {
+		    "properties": {
+			"type": {
+			    "type": "string",
+			    "enum": [ "ipv4", "ipv6", "torv2", "torv3" ]
+			}
+		    }
+		},
+		"then": {
+		    "required": [ "type", "address", "port" ],
+		    "additionalProperties": false,
+		    "properties": {
+			"type": { },
+			"port": { },
+			"address": {
+			    "type": "string",
+			    "description": "address in expected format for **type**"
+			}
+		    }
+		},
+		"else": {
+		    "required": [ "type", "port" ],
+		    "additionalProperties": false,
+		    "properties": {
+			"type": { },
+			"port": { }
 		    }
 		}
 	    }

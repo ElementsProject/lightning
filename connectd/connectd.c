@@ -835,36 +835,41 @@ static void try_connect_one_addr(struct connecting *connect)
 		case ADDR_TYPE_IPV6:
 			af = AF_INET6;
 			break;
+		case ADDR_TYPE_WEBSOCKET:
+			af = -1;
+			break;
 		}
 	}
 
 	/* If we have to use proxy but we don't have one, we fail. */
 	if (use_proxy) {
 		if (!connect->daemon->proxyaddr) {
-			status_debug("Need proxy");
-			af = -1;
-		} else
-			af = connect->daemon->proxyaddr->ai_family;
+			tal_append_fmt(&connect->errors,
+				       "%s: need a proxy. ",
+				       type_to_string(tmpctx,
+						      struct wireaddr_internal,
+						      addr));
+			goto next;
+		}
+		af = connect->daemon->proxyaddr->ai_family;
 	}
 
 	if (af == -1) {
-		fd = -1;
-		errno = EPROTONOSUPPORT;
-	} else
-		fd = socket(af, SOCK_STREAM, 0);
+		tal_append_fmt(&connect->errors,
+			       "%s: not supported. ",
+			       type_to_string(tmpctx, struct wireaddr_internal,
+					      addr));
+		goto next;
+	}
 
-	/* We might not have eg. IPv6 support, or it might be an onion addr
-	 * and we have no proxy. */
+	fd = socket(af, SOCK_STREAM, 0);
 	if (fd < 0) {
 		tal_append_fmt(&connect->errors,
 			       "%s: opening %i socket gave %s. ",
 			       type_to_string(tmpctx, struct wireaddr_internal,
 					      addr),
 			       af, strerror(errno));
-		/* This causes very limited recursion. */
-		connect->addrnum++;
-		try_connect_one_addr(connect);
-		return;
+		goto next;
 	}
 
 	/* This creates the new connection using our fd, with the initialization
@@ -878,6 +883,13 @@ static void try_connect_one_addr(struct connecting *connect)
 	 * that frees connect. */
 	if (conn)
 		connect->conn = conn;
+
+	return;
+
+next:
+	/* This causes very limited recursion. */
+	connect->addrnum++;
+	try_connect_one_addr(connect);
 }
 
 /*~ connectd is responsible for incoming connections, but it's the process of
@@ -988,6 +1000,8 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 			return true;
 		}
 		return false;
+	/* Handle specially by callers. */
+	case ADDR_TYPE_WEBSOCKET:
 	case ADDR_TYPE_TOR_V2:
 	case ADDR_TYPE_TOR_V3:
 		break;

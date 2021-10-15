@@ -36,9 +36,11 @@ If **last_timestamp** is present:
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
   - **features** (hex): BOLT #9 features bitmap this node advertized
   - **addresses** (array of objects): The addresses this node advertized:
-    - **type** (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
-    - **address** (string): address in expected format for *type*
+    - **type** (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3", "websocket")
     - **port** (u16): port number
+
+    If **type** is "ipv4", "ipv6", "torv2" or "torv3":
+      - **address** (string): address in expected format for **type**
 
 If **option_will_fund** is present:
   - **option_will_fund** (object):
@@ -93,4 +95,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:158477348efb51a8cf71a595b3d76dde545ab6824958c8a32d4b3dbbbe2c8121)
+[comment]: # ( SHA256STAMP:f9e1f4655b416c5e60279cf11a832bc4c652f503e48095dc3cf39deee5f0c769)
