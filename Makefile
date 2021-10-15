@@ -146,6 +146,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/alignof/alignof.h		\
 	$(CCANDIR)/ccan/array_size/array_size.h		\
 	$(CCANDIR)/ccan/asort/asort.h			\
+	$(CCANDIR)/ccan/base64/base64.h			\
 	$(CCANDIR)/ccan/bitmap/bitmap.h			\
 	$(CCANDIR)/ccan/bitops/bitops.h			\
 	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
