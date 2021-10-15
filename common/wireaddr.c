@@ -37,6 +37,9 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 	case ADDR_TYPE_TOR_V3:
 		addr->addrlen = TOR_V3_ADDRLEN;
 		break;
+	case ADDR_TYPE_WEBSOCKET:
+		addr->addrlen = 0;
+		break;
 	default:
 		return false;
 	}
@@ -160,6 +163,14 @@ void wireaddr_from_ipv6(struct wireaddr *addr,
 	memcpy(&addr->addr, ip6, addr->addrlen);
 }
 
+void wireaddr_from_websocket(struct wireaddr *addr, const u16 port)
+{
+	addr->type = ADDR_TYPE_WEBSOCKET;
+	addr->addrlen = 0;
+	addr->port = port;
+	memset(addr->addr, 0, sizeof(addr->addr));
+}
+
 bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4)
 {
 	if (addr->type != ADDR_TYPE_IPV4)
@@ -184,6 +195,14 @@ bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6)
 	return true;
 }
 
+bool wireaddr_to_websocket(const struct wireaddr *addr, u16 *port)
+{
+	if (addr->type != ADDR_TYPE_WEBSOCKET)
+		return false;
+	*port = addr->port;
+	return true;
+}
+
 bool wireaddr_is_wildcard(const struct wireaddr *addr)
 {
 	switch (addr->type) {
@@ -192,6 +211,7 @@ bool wireaddr_is_wildcard(const struct wireaddr *addr)
 		return memeqzero(addr->addr, addr->addrlen);
 	case ADDR_TYPE_TOR_V2:
 	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_WEBSOCKET:
 		return false;
 	}
 	abort();
@@ -239,6 +259,8 @@ char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 	case ADDR_TYPE_TOR_V3:
 		return tal_fmt(ctx, "%s.onion",
 			       b32_encode(tmpctx, a->addr, a->addrlen));
+	case ADDR_TYPE_WEBSOCKET:
+		return tal_strdup(ctx, "websocket");
 	}
 
 	hex = tal_hexstr(ctx, a->addr, a->addrlen);
@@ -675,6 +697,7 @@ struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
 		return ai;
 	case ADDR_TYPE_TOR_V2:
 	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_WEBSOCKET:
 		break;
 	}
 	abort();
@@ -729,6 +752,7 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 				return false;
 			case ADDR_TYPE_TOR_V2:
 			case ADDR_TYPE_TOR_V3:
+			case ADDR_TYPE_WEBSOCKET:
 				continue;
 			}
 		}

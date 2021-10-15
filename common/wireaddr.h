@@ -37,6 +37,10 @@ struct sockaddr_un;
  *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
  */
 
+/* BOLT-websockets #7:
+ *    * `5`: WebSocket port; data = `[2:port]` (length 2)
+ */
+
 #define	TOR_V2_ADDRLEN 10
 #define	TOR_V3_ADDRLEN 35
 #define	LARGEST_ADDRLEN TOR_V3_ADDRLEN
@@ -47,7 +51,8 @@ enum wire_addr_type {
 	ADDR_TYPE_IPV4 = 1,
 	ADDR_TYPE_IPV6 = 2,
 	ADDR_TYPE_TOR_V2 = 3,
-	ADDR_TYPE_TOR_V3 = 4
+	ADDR_TYPE_TOR_V3 = 4,
+	ADDR_TYPE_WEBSOCKET = 5,
 };
 
 /* Structure now fit for tor support */
@@ -98,8 +103,10 @@ void wireaddr_from_ipv4(struct wireaddr *addr,
 void wireaddr_from_ipv6(struct wireaddr *addr,
 			const struct in6_addr *ip6,
 			const u16 port);
+void wireaddr_from_websocket(struct wireaddr *addr, const u16 port);
 bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4);
 bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6);
+bool wireaddr_to_websocket(const struct wireaddr *addr, u16 *port);
 
 bool wireaddr_is_wildcard(const struct wireaddr *addr);
 
