@@ -41,10 +41,13 @@ static bool db_sqlite3_setup(struct db *db)
 	}
 	db->conn = sql;
 
-	/* In case another writer (litestream?) grabs a lock, we don't
+	/* In case another process (litestream?) grabs a lock, we don't
 	 * want to return SQLITE_BUSY immediately (which will cause a
-	 * fatal error): give it 5 seconds. */
-	sqlite3_busy_timeout(db->conn, 5000);
+	 * fatal error): give it 60 seconds.
+	 * We *could* make this an option, but surely the user prefers a
+	 * long timeout over an outright crash.
+	 */
+	sqlite3_busy_timeout(db->conn, 60000);
 
 	sqlite3_prepare_v2(db->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
 	err = sqlite3_step(stmt);
