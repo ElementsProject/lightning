@@ -242,31 +242,6 @@ three or four storage devices.
 BTRFS would probably work better if you were purchasing an entire set
 of new storage devices to set up a new node.
 
-## SQLite Litestream Replication
-`/!\` WHO SHOULD DO THIS: Casual users
-
-One of the simpler things on any system is to use Litestream to replicate the SQLite database.
-It continuously streams SQLite changes to file or external storage - the cloud storage option 
-should not be used. 
-Backups/replication should not be on the same disk as the original SQLite DB.
-
-/etc/litestream.yml : 
-
-    dbs:
-     - path: /home/bitcoin/.lightning/bitcoin/lightningd.sqlite3
-       replicas:
-         - path: /media/storage/lightning_backup
-         
- and start the service using systemctl:
- 
-    $ sudo systemctl start litestream
-
-Restore:
-
-    $ litestream restore -o /media/storage/lightning_backup  /home/bitcoin/restore_lightningd.sqlite3
-
-   
-
 ## PostgreSQL Cluster
 
 `/!\` WHO SHOULD DO THIS: Enterprise users, whales.
@@ -352,6 +327,59 @@ saved in all permanent storage.
 This can be difficult to create remote replicas due to the latency.
 
 [pqsyncreplication]: https://www.postgresql.org/docs/13/warm-standby.html#SYNCHRONOUS-REPLICATION
+
+## SQLite Litestream Replication
+`/!\` WHO SHOULD DO THIS: Casual users
+
+`/!\` **CAUTION** `/!\` This technique will only be safe on 0.10.2
+or later.
+Earlier versions will crash regularly with "database is locked" errors,
+as Litestream puts a read-shared lock on the database.
+0.10.2 adds a 60-second timeout for locking.
+
+One of the simpler things on any system is to use Litestream to replicate the SQLite database.
+It continuously streams SQLite changes to file or external storage - the cloud storage option 
+should not be used.
+Backups/replication should not be on the same disk as the original SQLite DB.
+
+You need to enable WAL mode on your database.
+To do so, first stop `lightningd`, then:
+
+    $ sqlite3 lightningd.sqlite3
+    sqlite3> PRAGMA journal_mode = WAL;
+    sqlite3> .quit
+
+Then just restart `lightningd`.
+
+/etc/litestream.yml :
+
+    dbs:
+     - path: /home/bitcoin/.lightning/bitcoin/lightningd.sqlite3
+       replicas:
+         - path: /media/storage/lightning_backup
+
+ and start the service using systemctl:
+
+    $ sudo systemctl start litestream
+
+Restore:
+
+    $ litestream restore -o /media/storage/lightning_backup  /home/bitcoin/restore_lightningd.sqlite3
+
+Because Litestream only copies small changes and not the entire
+database (holding a read lock on the file while doing so), the
+60-second timeout on locking should not be reached unless
+something has made your backup medium very very slow.
+
+Litestream has its own timer, so there is a tiny (but
+non-negligible) probability that `lightningd` updates the
+database, then irrevocably commits to the update by sending
+revocation keys to the counterparty, and *then* your main
+storage media crashes before Litestream can replicate the
+update.
+Treat this as a superior version of "Database File Backups"
+section below and prefer recovering via other backup methods
+first.
 
 ## Database File Backups
 
@@ -458,9 +486,33 @@ Even if the backup is not corrupted, take note that this backup
 strategy should still be a last resort; recovery of all funds is
 still not assured with this backup strategy.
 
-You might be tempted to use `sqlite3` `.dump` or `VACUUM INTO`.
-Unfortunately, these commands exclusive-lock the database.
-A race condition between your `.dump` or `VACUUM INTO` and
-`lightningd` accessing the database can cause `lightningd` to
-crash, so you might as well just cleanly shut down `lightningd`
-and copy the file at rest.
+### `sqlite3` `.dump` or `VACUUM INTO` Commands
+
+`/!\` **CAUTION** `/!\` This technique will only be safe on 0.10.2
+or later.
+Earlier versions will crash regularly with "database is locked"
+errors, as `.dump` and `VACUUM INTO` put a read-shared lock on the
+database.
+0.10.2 adds a 60-second timeout for locking.
+
+Use the `sqlite3` command on the `lightningd.sqlite3` file, and
+feed it with `.dump "/path/to/backup.sqlite3"` or `VACUUM INTO
+"/path/to/backup.sqlite3";`.
+
+These create a snapshot copy that, unlike the previous technique,
+is assuredly uncorrupted (barring any corruption caused by your
+backup media).
+
+However, if the copying process takes a long time (approaching the
+timeout of 60 seconds) then you run the risk of `lightningd`
+attempting to grab a write lock, waiting up to 60 seconds, and
+then failing with a "database is locked" error.
+Your backup system could `.dump` to a fast `tmpfs` RAMDISK or
+local media, and *then* copy to the final backup media on a remote
+system accessed via slow network, for example, to reduce this
+risk.
+
+It is recommended that you use `.dump` instead of `VACUUM INTO`,
+as that is assuredly faster; you can just open the backup copy
+in a new `sqlite3` session and `VACUUM;` to reduce the size
+of the backup.
