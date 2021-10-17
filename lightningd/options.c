@@ -1211,7 +1211,7 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	/*~ Move into config dir: this eases path manipulation and also
 	 * gives plugins a good place to store their stuff. */
 	if (chdir(ld->config_netdir) != 0) {
-		log_unusual(ld->log, "Creating configuration directory %s",
+		log_info(ld->log, "Creating configuration directory %s",
 			    ld->config_netdir);
 		/* We assume home dir exists, so only create two. */
 		if (mkdir(ld->config_basedir, 0700) != 0 && errno != EEXIST)
