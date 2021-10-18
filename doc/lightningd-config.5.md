@@ -517,6 +517,13 @@ about whether to add funds or not to a proposed channel is handled
 automatically by a plugin that implements the appropriate logic for
 your needs. The default behavior is to not contribute funds.
 
+ **experimental-websocket-port**
+
+Specifying this enables support for accepting incoming WebSocket
+connections on that port, on any IPv4 and IPv6 addresses you listen
+to.  The normal protocol is expected to be sent over WebSocket binary
+frames once the connection is upgraded.
+
 BUGS
 ----
 

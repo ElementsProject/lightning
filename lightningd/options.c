@@ -850,6 +850,21 @@ static char *opt_set_wumbo(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
+{
+	u32 port COMPILER_WANTS_INIT("9.3.0 -O2");
+	char *err;
+
+	err = opt_set_u32(arg, &port);
+	if (err)
+		return err;
+
+	ld->websocket_port = port;
+	if (ld->websocket_port != port)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+	return NULL;
+}
+
 static char *opt_set_dual_fund(struct lightningd *ld)
 {
 	/* Dual funding implies anchor outputs */
@@ -1051,6 +1066,11 @@ static void register_opts(struct lightningd *ld)
 			 "--subdaemon=hsmd:remote_signer "
 			 "would use a hypothetical remote signing subdaemon.");
 
+	opt_register_arg("--experimental-websocket-port",
+			 opt_set_websocket_port, NULL,
+			 ld,
+			 "experimental: alternate port for peers to connect"
+			 " using WebSockets (RFC6455)");
 	opt_register_logging(ld);
 	opt_register_version();
 
@@ -1463,6 +1483,11 @@ static void add_config(struct lightningd *ld,
 			json_add_opt_disable_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_force_feerates) {
 			answer = fmt_force_feerates(name0, ld->force_feerates);
+		} else if (opt->cb_arg == (void *)opt_set_websocket_port) {
+			if (ld->websocket_port)
+				json_add_u32(response, name0,
+					     ld->websocket_port);
+			return;
 		} else if (opt->cb_arg == (void *)opt_important_plugin) {
 			/* Do nothing, this is already handled by
 			 * opt_add_plugin.  */

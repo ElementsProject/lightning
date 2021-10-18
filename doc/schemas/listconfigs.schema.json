@@ -121,6 +121,10 @@
 	    "type": "boolean",
 	    "description": "`experimental-shutdown-wrong-funding` field from config or cmdline, or default"
 	},
+	"experimental-websocket-port": {
+	    "type": "u16",
+	    "description": "`experimental-websocket-port` field from config or cmdline, or default"
+	},
 	"rgb": {
 	    "type": "hex",
 	    "description": "`rgb` field from config or cmdline, or default",
