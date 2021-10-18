@@ -1,3 +1,4 @@
+#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
@@ -10,6 +11,7 @@
 #include <common/derive_basepoints.h>
 #include <common/descriptor_checksum.h>
 #include <common/hsm_encryption.h>
+#include <common/lease_rates.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <errno.h>
@@ -352,18 +354,20 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 	char *passwd, *err;
 	struct pubkey basepoint;
 	struct ripemd160 pubkeyhash;
-	/* We only support P2WPKH, hence 20. */
-	u8 goal_pubkeyhash[20];
+	struct sha256 scripthash;
+	u8 goal_hash[41];
 	/* See common/bech32.h for buffer size. */
 	char hrp[strlen(address) - 6];
 	int witver;
 	size_t witlen;
 
 	/* Get the hrp to accept addresses from any network. */
-	if (bech32_decode(hrp, goal_pubkeyhash, &witlen, address, 90) != BECH32_ENCODING_BECH32)
+	if (bech32_decode(hrp, goal_hash, &witlen, address, 90) != BECH32_ENCODING_BECH32)
 		errx(ERROR_USAGE, "Could not get address' network");
-	if (segwit_addr_decode(&witver, goal_pubkeyhash, &witlen, hrp, address) != 1)
+
+	if (segwit_addr_decode(&witver, goal_hash, &witlen, hrp, address) != 1)
 		errx(ERROR_USAGE, "Wrong bech32 address");
+
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 	                                         | SECP256K1_CONTEXT_SIGN);
@@ -389,8 +393,9 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 			                     type_to_string(tmpctx,
 			                                    struct secret, &channel_seed));
 
+		/* Try it first as P2WPKH, non-anchor outputs */
 		pubkey_to_hash160(&basepoint, &pubkeyhash);
-		if (memcmp(pubkeyhash.u.u8, goal_pubkeyhash, 20) == 0) {
+		if (memcmp(pubkeyhash.u.u8, goal_hash, 20) == 0) {
 			printf("bech32      : %s\n", address);
 			printf("pubkey hash : %s\n",
 			       tal_hexstr(tmpctx, pubkeyhash.u.u8, 20));
@@ -399,6 +404,50 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 			printf("privkey     : %s \n",
 			       type_to_string(tmpctx, struct secret, &basepoint_secret));
 			return 0;
+		}
+
+		if (witlen == 20)
+			continue;
+
+		/* Next, try it as an anchor output, potentially with a lease */
+		/* BOLT #3:
+		 *
+		 * #### `to_remote` Output
+		 *
+		 * If `option_anchor_outputs` applies to the commitment
+		 * transaction, the `to_remote` output is encumbered by a one
+		 * block csv lock.
+		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
+		 */
+		/* BOLT- #3
+		 * ##### Leased channel (`option_will_fund`)
+		 *
+		 * If a `lease` applies to the channel, the `to_remote` output
+		 * of the `initiator` ensures the `leasor` funds are not
+		 * spendable until the lease expires.
+		 *
+		 * <remote_pubkey> OP_CHECKSIGVERIFY MAX(1, lease_end - blockheight) OP_CHECKSEQUENCEVERIFY
+		 */
+		/* FIXME: this needs more tooling; you can't easily produce
+		 * a sig for arbitrary P2WSH's */
+		for (size_t i = 1; i <= LEASE_RATE_DURATION; i++) {
+			u8 *wscript = anchor_to_remote_redeem(tmpctx,
+							      &basepoint, i);
+
+			sha256(&scripthash, wscript, tal_count(wscript));
+			if (memcmp(scripthash.u.u8, goal_hash, 32) == 0) {
+				printf("bech32      : %s\n", address);
+				printf("script hash : %s\n",
+				       tal_hexstr(tmpctx, scripthash.u.u8, 32));
+				printf("script      : %s\n",
+				       tal_hex(tmpctx, wscript));
+				printf("csv         : %zu\n", i);
+				printf("pubkey      : %s \n",
+				       type_to_string(tmpctx, struct pubkey, &basepoint));
+				printf("privkey     : %s \n",
+				       type_to_string(tmpctx, struct secret, &basepoint_secret));
+				return 0;
+			}
 		}
 	}
 
