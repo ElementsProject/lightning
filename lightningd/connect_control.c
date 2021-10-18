@@ -350,7 +350,10 @@ int connectd_init(struct lightningd *ld)
 	int hsmfd;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
-	const char *websocket_helper_path = "";
+	const char *websocket_helper_path;
+
+	websocket_helper_path = subdaemon_path(tmpctx, ld,
+					       "lightning_websocketd");
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		fatal("Could not socketpair for connectd<->gossipd");
@@ -384,7 +387,7 @@ int connectd_init(struct lightningd *ld)
 	    ld->config.use_v3_autotor,
 	    ld->config.connection_timeout_secs,
 	    websocket_helper_path,
-	    0);
+	    ld->websocket_port);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

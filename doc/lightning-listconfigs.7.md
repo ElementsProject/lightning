@@ -56,6 +56,7 @@ On success, an object is returned, containing:
 - **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default
 - **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default
 - **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default
+- **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default
 - **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters)
 - **alias** (string, optional): `alias` field from config or cmdline, or default
 - **pid-file** (string, optional): `pid-file` field from config or cmdline, or default
@@ -205,4 +206,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:7bb40fc8fac201b32d9701b02596d0fa59eb14a3baf606439cbf96dc11548ed4)
+[comment]: # ( SHA256STAMP:47c067588120e0f9a71206313685cebb2a8c515e9b04b688b202d2772c8f8146)

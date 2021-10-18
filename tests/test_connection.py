@@ -2,7 +2,9 @@ from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
+from ephemeral_port_reserve import reserve  # type: ignore
 from pyln.client import RpcError, Millisatoshi
+import pyln.proto.wire as wire
 from utils import (
     only_one, wait_for, sync_blockheight, TIMEOUT,
     expected_peer_features, expected_node_features,
@@ -20,6 +22,7 @@ import re
 import shutil
 import time
 import unittest
+import websocket
 
 
 def test_connect(node_factory):
@@ -3738,6 +3741,67 @@ def test_old_feerate(node_factory):
 
     # This will timeout if l2 didn't accept fee.
     l1.pay(l2, 1000)
+
+
+@pytest.mark.developer("needs --dev-allow-localhost")
+def test_websocket(node_factory):
+    ws_port = reserve()
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{'experimental-websocket-port': ws_port,
+                                            'dev-allow-localhost': None},
+                                           {'dev-allow-localhost': None}],
+                                     wait_for_announce=True)
+    assert l1.rpc.listconfigs()['experimental-websocket-port'] == ws_port
+
+    # Adapter to turn websocket into a stream "connection"
+    class BinWebSocket(object):
+        def __init__(self, hostname, port):
+            self.ws = websocket.WebSocket()
+            self.ws.connect("ws://" + hostname + ":" + str(port))
+            self.recvbuf = bytes()
+
+        def send(self, data):
+            self.ws.send(data, websocket.ABNF.OPCODE_BINARY)
+
+        def recv(self, maxlen):
+            while len(self.recvbuf) < maxlen:
+                self.recvbuf += self.ws.recv()
+
+            ret = self.recvbuf[:maxlen]
+            self.recvbuf = self.recvbuf[maxlen:]
+            return ret
+
+    ws = BinWebSocket('localhost', ws_port)
+    lconn = wire.LightningConnection(ws,
+                                     wire.PublicKey(bytes.fromhex(l1.info['id'])),
+                                     wire.PrivateKey(bytes([1] * 32)),
+                                     is_initiator=True)
+
+    l1.daemon.wait_for_log('Websocket connection in from')
+
+    # Perform handshake.
+    lconn.shake()
+
+    # Expect to receive init msg.
+    msg = lconn.read_message()
+    assert int.from_bytes(msg[0:2], 'big') == 16
+
+    # Echo same message back.
+    lconn.send_message(msg)
+
+    # Now try sending a ping, ask for 50 bytes
+    msg = bytes((0, 18, 0, 50, 0, 0))
+    lconn.send_message(msg)
+
+    # Could actually reply with some gossip msg!
+    while True:
+        msg = lconn.read_message()
+        if int.from_bytes(msg[0:2], 'big') == 19:
+            break
+
+    # Check node_announcement has websocket
+    assert (only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['addresses']
+            == [{'type': 'ipv4', 'address': '127.0.0.1', 'port': l1.port}, {'type': 'websocket', 'port': ws_port}])
 
 
 @pytest.mark.developer("dev-disconnect required")

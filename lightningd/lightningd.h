@@ -284,6 +284,9 @@ struct lightningd {
 	/* Array of (even) TLV types that we should allow. This is required
 	 * since we otherwise would outright reject them. */
 	u64 *accept_extra_tlv_types;
+
+	/* EXPERIMENTAL: websocket port if non-zero */
+	u16 websocket_port;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
