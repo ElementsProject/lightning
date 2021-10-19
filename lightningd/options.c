@@ -221,6 +221,7 @@ static char *opt_add_addr_withtype(const char *arg,
 		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
 
+#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 	/* Add ADDR_TYPE_DNS to announce DNS hostnames */
 	if (is_dnsaddr(address) && ala & ADDR_ANNOUNCE) {
 		memset(&wi, 0, sizeof(wi));
@@ -234,6 +235,7 @@ static char *opt_add_addr_withtype(const char *arg,
 		tal_arr_expand(&ld->proposed_listen_announce, ADDR_ANNOUNCE);
 		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
+#endif
 
 	return NULL;
 
