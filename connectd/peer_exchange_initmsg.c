@@ -40,6 +40,7 @@ static bool contains_common_chain(struct bitcoin_blkid *chains)
 /* Here in case we need to read another message. */
 static struct io_plan *read_init(struct io_conn *conn, struct early_peer *peer);
 
+#if EXPERIMENTAL_FEATURES /* BOLT1 remote_addr #917 */
 struct remote_addr_any {
 	u8 type; /* ipv4:1  ipv6:2 */
 }__attribute__((packed));
@@ -55,6 +56,7 @@ struct remote_addr_ipv6 {
 	u8 addr[16];
 	u16 port;
 }__attribute__((packed));
+#endif
 
 static struct io_plan *peer_init_received(struct io_conn *conn,
 					  struct early_peer *peer)
@@ -62,10 +64,12 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
 	u8 *globalfeatures, *features;
 	struct tlv_init_tlvs *tlvs = tlv_init_tlvs_new(msg);
+#if EXPERIMENTAL_FEATURES /* BOLT1 remote_addr #917 */
 	struct remote_addr_any *remote_addr_any;
 	struct remote_addr_ipv4 *remote_addr_v4;
 	struct remote_addr_ipv6 *remote_addr_v6;
 	struct wireaddr_internal *remote_addr_wi;
+#endif
 
 	if (!msg)
 		return io_close(conn);
@@ -105,6 +109,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		}
 	}
 
+#if EXPERIMENTAL_FEATURES /* BOLT1 remote_addr #917 */
 	/* BOLT-remote-address #1:
 	 * The receiving node:
 	 * ...
@@ -133,6 +138,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			       &remote_addr_v6->addr, 16);
 		}
 	}
+#endif
 
 	/* The globalfeatures field is now unused, but there was a
 	 * window where it was: combine the two. */
@@ -208,8 +214,10 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	struct early_peer *peer = tal(conn, struct early_peer);
 	struct io_plan *(*next)(struct io_conn *, struct early_peer *);
 	struct tlv_init_tlvs *tlvs;
+#if EXPERIMENTAL_FEATURES /* BOLT1 remote_addr #917 */
 	struct remote_addr_ipv4 *remote_addr_v4;
 	struct remote_addr_ipv6 *remote_addr_v6;
+#endif
 
 	peer->daemon = daemon;
 	peer->id = *id;
@@ -230,6 +238,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	tlvs->networks = tal_dup_arr(tlvs, struct bitcoin_blkid,
 				     &chainparams->genesis_blockhash, 1, 0);
 
+#if EXPERIMENTAL_FEATURES /* BOLT1 remote_addr #917 */
 	/* BOLT-remote-address #1:
 	 * The sending node:
 	 * ...
@@ -255,6 +264,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 			tlvs->remote_addr = (u8*)remote_addr_v6;
 		}
 	}
+#endif
 
 	/* Initially, there were two sets of feature bits: global and local.
 	 * Local affected peer nodes only, global affected everyone.  Both were
