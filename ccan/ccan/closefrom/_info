@@ -1,0 +1,69 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * closefrom - close all fds starting from specified fd.
+ *
+ * This code is an example of what to do in a child process to
+ * ensure that none of the (possibly sensitive) file descriptors
+ * in the parent remain in the child process.
+ *
+ * License: CC0 (Public domain)
+ * Author: ZmnSCPxj jxPCSnmZ <ZmnSCPxj@protonmail.com>
+ *
+ * Example:
+ * #include <ccan/closefrom/closefrom.h>
+ * #include <ccan/err/err.h>
+ * #include <stdio.h>
+ * #include <sys/resource.h>
+ * #include <sys/time.h>
+ * #include <sys/types.h>
+ * #include <sys/wait.h>
+ * #include <unistd.h>
+ *
+ * int main(int argc, char **argv)
+ * {
+ *	pid_t child;
+ *
+ *	// If being emulated, then we might end up
+ *	// looping over a large _SC_OPEN_MAX
+ *	// (Some systems have it as INT_MAX!)
+ *	// If so, closefrom_limit will lower this limit
+ *	// to a value you specify, or if given 0 will
+ *	// limit to 4096.
+ *	// Call this as early as possible.
+ *	closefrom_limit(0);
+ *
+ *	// If we limited, we can query this so we can
+ *	// print it in debug logs or something.
+ *	if (closefrom_may_be_slow())
+ *		printf("we limited ourselves to 4096 fds.\n");
+ *
+ *	child = fork();
+ *	if (child < 0)
+ *		err(1, "Forking");
+ *	if (child == 0) {
+ *		closefrom(STDERR_FILENO + 1);
+ *		// Insert your *whatever* code here.
+ *		_exit(0);
+ *	}
+ *
+ *	waitpid(child, NULL, 0);
+ *
+ *	return 0;
+ * }
+ *
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	return 1;
+}
