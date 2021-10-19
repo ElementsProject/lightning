@@ -8,7 +8,6 @@ from time import sleep
 import sys
 
 plugin = Plugin()
-shutdown_notifications = 0
 
 
 @plugin.hook('db_write')
