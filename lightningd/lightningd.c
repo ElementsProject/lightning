@@ -39,6 +39,7 @@
  * in detail below.
  */
 #include <ccan/array_size/array_size.h>
+#include <ccan/closefrom/closefrom.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -1182,15 +1183,11 @@ int main(int argc, char *argv[])
 
 	/* Were we supposed to restart ourselves? */
 	if (try_reexec) {
-		long max_fd;
-
 		/* Give a reasonable chance for the install to finish. */
 		sleep(5);
 
 		/* Close all filedescriptors except stdin/stdout/stderr */
-		max_fd = sysconf(_SC_OPEN_MAX);
-		for (int i = STDERR_FILENO+1; i < max_fd; i++)
-			close(i);
+		closefrom(STDERR_FILENO + 1);
 		execv(orig_argv[0], orig_argv);
 		err(1, "Failed to re-exec ourselves after version change");
 	}
