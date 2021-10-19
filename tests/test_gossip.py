@@ -4,7 +4,8 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    DEVELOPER, wait_for, TIMEOUT, only_one, sync_blockheight, expected_node_features, COMPAT
+    DEVELOPER, wait_for, TIMEOUT, only_one, sync_blockheight,
+    expected_node_features, COMPAT, EXPERIMENTAL_FEATURES
 )
 
 import json
@@ -118,6 +119,13 @@ def test_announce_address(node_factory, bitcoind):
              '::'],
             'log-level': 'io',
             'dev-allow-localhost': None}
+    if not EXPERIMENTAL_FEATURES:  # BOLT7 DNS RFC #911
+        opts = {'disable-dns': None, 'announce-addr':
+                ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
+                 '1.2.3.4:1234',
+                 '::'],
+                'log-level': 'io',
+                'dev-allow-localhost': None}
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -126,6 +134,14 @@ def test_announce_address(node_factory, bitcoind):
 
     l1.wait_channel_active(scid)
     l2.wait_channel_active(scid)
+
+    if not EXPERIMENTAL_FEATURES:  # BOLT7 DNS RFC #911
+        l1.daemon.wait_for_log(r"\[OUT\] 0101.*47"
+                               "010102030404d2"
+                               "017f000001...."
+                               "02000000000000000000000000000000002607"
+                               "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607")
+        return
 
     # We should see it send node announce with all addresses (257 = 0x0101)
     # Note: local ephemeral port is masked out.
@@ -154,6 +170,7 @@ def test_announce_address(node_factory, bitcoind):
     assert addresses_dns[1]['port'] == 1236
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_announce_and_connect_via_dns(node_factory, bitcoind):
     """ Test that DNS annoucements propagate and can be used when connecting.
