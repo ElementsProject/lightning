@@ -21,7 +21,8 @@ bool json_escape_eq(const struct json_escape *a, const struct json_escape *b)
 
 bool json_escape_needed(const char *str, size_t len)
 {
-	for (size_t i = 0; i < len; i++) {
+	size_t i;
+	for (i = 0; i < len; i++) {
 		if ((unsigned)str[i] < ' '
 		    || str[i] == 127
 		    || str[i] == '"'

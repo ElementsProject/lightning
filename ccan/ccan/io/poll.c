@@ -121,7 +121,9 @@ bool add_listener(struct io_listener *l)
 
 static int find_always(const struct io_plan *plan)
 {
-	for (size_t i = 0; i < num_always; i++)
+	size_t i = 0;
+
+	for (i = 0; i < num_always; i++)
 		if (always[i] == plan)
 			return i;
 	return -1;
@@ -287,8 +289,10 @@ static bool *exclusive(struct io_plan *plan)
 /* For simplicity, we do one always at a time */
 static bool handle_always(void)
 {
+	int i;
+
 	/* Backwards is simple easier to remove entries */
-	for (int i = num_always - 1; i >= 0; i--) {
+	for (i = num_always - 1; i >= 0; i--) {
 		struct io_plan *plan = always[i];
 
 		if (num_exclusive && !*exclusive(plan))
@@ -323,10 +327,12 @@ bool backend_set_exclusive(struct io_plan *plan, bool excl)
  * else that we manipulate events. */
 static void exclude_pollfds(void)
 {
+	size_t i;
+
 	if (num_exclusive == 0)
 		return;
 
-	for (size_t i = 0; i < num_fds; i++) {
+	for (i = 0; i < num_fds; i++) {
 		struct pollfd *pfd = &pollfds[fds[i]->backend_info];
 
 		if (!fds[i]->exclusive[IO_IN])
@@ -343,10 +349,12 @@ static void exclude_pollfds(void)
 
 static void restore_pollfds(void)
 {
+	size_t i;
+
 	if (num_exclusive == 0)
 		return;
 
-	for (size_t i = 0; i < num_fds; i++) {
+	for (i = 0; i < num_fds; i++) {
 		struct pollfd *pfd = &pollfds[fds[i]->backend_info];
 
 		if (fds[i]->listener) {

@@ -70,7 +70,8 @@ static bool decode_8_chars(const char c[8], beint64_t *res, int *bytes)
 {
 	uint64_t acc = 0;
 	size_t num_pad = 0;
-	for (int i = 0; i < 8; i++) {
+	int i;
+	for (i = 0; i < 8; i++) {
 		const char *p;
 
 		acc <<= 5;

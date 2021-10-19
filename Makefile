@@ -96,6 +96,7 @@ CCAN_OBJS :=					\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
+	ccan-closefrom.o			\
 	ccan-crc32c.o				\
 	ccan-crypto-hmac.o			\
 	ccan-crypto-hkdf.o			\
@@ -154,6 +155,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/cast/cast.h			\
 	$(CCANDIR)/ccan/cdump/cdump.h			\
 	$(CCANDIR)/ccan/check_type/check_type.h		\
+	$(CCANDIR)/ccan/closefrom/closefrom.h		\
 	$(CCANDIR)/ccan/compiler/compiler.h		\
 	$(CCANDIR)/ccan/container_of/container_of.h	\
 	$(CCANDIR)/ccan/cppmagic/cppmagic.h		\
@@ -856,4 +858,6 @@ ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
 ccan-json_escape.o: $(CCANDIR)/ccan/json_escape/json_escape.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-json_out.o: $(CCANDIR)/ccan/json_out/json_out.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+ccan-closefrom.o: $(CCANDIR)/ccan/closefrom/closefrom.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
