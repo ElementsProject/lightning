@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/closefrom/closefrom.h>
 #include <ccan/err/err.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
@@ -122,6 +123,8 @@ void dev_blackhole_fd(int fd)
 	int i;
 	struct stat st;
 
+	int maxfd;
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		err(1, "dev_blackhole_fd: creating socketpair");
 
@@ -130,12 +133,25 @@ void dev_blackhole_fd(int fd)
 		err(1, "dev_blackhole_fd: forking");
 	case 0:
 		/* Close everything but the dev_disconnect_fd, the socket
-		 * which is pretending to be the peer, and stderr. */
-		for (i = 0; i < sysconf(_SC_OPEN_MAX); i++)
+		 * which is pretending to be the peer, and stderr.
+		 * The "correct" way to do this would be to move the
+		 * fds we want to preserve to the low end (0, 1, 2...)
+		 * of the fd space and then just do a single closefrom
+		 * call, but dup2 could fail with ENFILE (which is a
+		 * *system*-level error, i.e. the entire system has too
+		 * many processes with open files) and we have no
+		 * convenient way to inform the parent of the error.
+		 * So loop until we reach whichever is higher of fds[0]
+		 * or dev_disconnect_fd, and *then* closefrom after that.
+		 */
+		maxfd = (fds[0] > dev_disconnect_fd) ? fds[0] :
+						       dev_disconnect_fd ;
+		for (i = 0; i < maxfd; i++)
 			if (i != fds[0]
 			    && i != dev_disconnect_fd
 			    && i != STDERR_FILENO)
 				close(i);
+		closefrom(maxfd + 1);
 
 		/* Close once dev_disconnect file is truncated. */
 		for (;;) {

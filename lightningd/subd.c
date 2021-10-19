@@ -1,3 +1,4 @@
+#include <ccan/closefrom/closefrom.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/mem/mem.h>
@@ -21,9 +22,50 @@
 static bool move_fd(int from, int to)
 {
 	assert(from >= 0);
+
+	/* dup2 with same arguments may be a no-op, but
+	 * the later close would make the fd invalid.
+	 * Handle this edge case.
+	 */
+	if (from == to)
+		return true;
+
 	if (dup2(from, to) == -1)
 		return false;
+
+	/* dup2 does not duplicate flags, copy it here.
+	 * This should be benign; the only POSIX-defined
+	 * flag is FD_CLOEXEC, and we only use it rarely.
+	 */
+	if (fcntl(to, F_SETFD, fcntl(from, F_GETFD)) < 0)
+		return false;
+
 	close(from);
+	return true;
+}
+
+/* Like the above, but move the fd from whatever it currently has
+ * to any other unused fd number that is *not* its current value.
+ */
+static bool move_fd_any(int *fd)
+{
+	int old_fd = *fd;
+	int new_fd;
+
+	assert(old_fd >= 0);
+
+	if ((new_fd = dup(old_fd)) == -1)
+		return false;
+
+	/* dup does not duplicate flags.  */
+	if (fcntl(new_fd, F_SETFD, fcntl(old_fd, F_GETFD)) < 0)
+		return false;
+
+	close(old_fd);
+
+	*fd = new_fd;
+
+	assert(old_fd != *fd);
 	return true;
 }
 
@@ -149,8 +191,7 @@ static int subd(const char *path, const char *name,
 		goto close_execfail_fail;
 
 	if (childpid == 0) {
-		int fdnum = 3, i, stdin_is_now = STDIN_FILENO;
-		long max;
+		int fdnum = 3, stdin_is_now = STDIN_FILENO;
 		size_t num_args;
 		char *args[] = { NULL, NULL, NULL, NULL, NULL };
 
@@ -165,29 +206,50 @@ static int subd(const char *path, const char *name,
 				goto child_errno_fail;
 		}
 
-		// Move dev_disconnect_fd out the way.
-		if (dev_disconnect_fd != -1) {
-			if (!move_fd(dev_disconnect_fd, 101))
-				goto child_errno_fail;
-			dev_disconnect_fd = 101;
-		}
-
 		/* Dup any extra fds up first. */
 		while ((fd = va_arg(*ap, int *)) != NULL) {
 			int actual_fd = *fd;
 			/* If this were stdin, we moved it above! */
 			if (actual_fd == STDIN_FILENO)
 				actual_fd = stdin_is_now;
+
+			/* If we would overwrite important fds, move those.  */
+			if (fdnum == dev_disconnect_fd) {
+				if (!move_fd_any(&dev_disconnect_fd))
+					goto child_errno_fail;
+			}
+			if (fdnum == execfail[1]) {
+				if (!move_fd_any(&execfail[1]))
+					goto child_errno_fail;
+			}
+
 			if (!move_fd(actual_fd, fdnum))
 				goto child_errno_fail;
 			fdnum++;
 		}
 
+		/* Move dev_disconnect_fd *after* the extra fds above.  */
+		if (dev_disconnect_fd != -1) {
+			/* Do not overwrite execfail[1].  */
+			if (fdnum == execfail[1]) {
+				if (!move_fd_any(&execfail[1]))
+					goto child_errno_fail;
+			}
+			if (!move_fd(dev_disconnect_fd, fdnum))
+				goto child_errno_fail;
+			dev_disconnect_fd = fdnum;
+			fdnum++;
+		}
+
+		/* Move execfail[1] *after* the fds we will pass
+		 * to the subdaemon.  */
+		if (!move_fd(execfail[1], fdnum))
+			goto child_errno_fail;
+		execfail[1] = fdnum;
+		fdnum++;
+
 		/* Make (fairly!) sure all other fds are closed. */
-		max = sysconf(_SC_OPEN_MAX);
-		for (i = fdnum; i < max; i++)
-			if (i != dev_disconnect_fd)
-				close(i);
+		closefrom(fdnum);
 
 		num_args = 0;
 		args[num_args++] = tal_strdup(NULL, path);
