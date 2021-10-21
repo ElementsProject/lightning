@@ -2092,7 +2092,8 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 
 	/* Mark the set of plugins we want to shutdown in this call */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
-		if (first && plugin_registered_db_write_hook(p))
+		/* FIXME: Make db_write plugin's important by default? */
+		if (first && (plugin_registered_db_write_hook(p) || p->important))
 			continue;
 
 		/* don't complain about important plugins vanishing and stop sending
