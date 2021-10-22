@@ -3781,17 +3781,16 @@ def test_delpay_payment_split(node_factory, bitcoind):
     Test behavior of delpay with an MPP
     """
     MPP_TARGET_SIZE = 10**7  # Taken from libpluin-pay.c
-    amt = 5 * MPP_TARGET_SIZE
+    amt = 4 * MPP_TARGET_SIZE
 
     l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5,
                                          wait_for_announce=True)
-
     inv = l3.rpc.invoice(amt, 'lbl', 'desc')
     l1.rpc.pay(inv['bolt11'])
 
     assert len(l1.rpc.listpays()['pays']) == 1
     delpay_result = l1.rpc.delpay(inv['payment_hash'], 'complete')['payments']
-    assert len(delpay_result) >= 5
+    assert len(delpay_result) >= 4
     assert len(l1.rpc.listpays()['pays']) == 0
 
 
