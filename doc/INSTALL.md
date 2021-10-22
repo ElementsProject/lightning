@@ -226,6 +226,11 @@ If you need SQLite (or get a SQLite mismatch build error):
     $ export LDFLAGS="-L/usr/local/opt/sqlite/lib"
     $ export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 
+Some library paths are different when using `homebrew` with M1 macs, therefore the following two variables need to be set for M1 machines
+
+    $ export CPATH=/opt/homebrew/include
+    $ export LIBRARY_PATH=/opt/homebrew/lib
+
 If you need Python 3.x for mako (or get a mako build error):
 
     $ brew install pyenv
