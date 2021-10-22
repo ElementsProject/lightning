@@ -63,6 +63,9 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	u8 *globalfeatures, *features;
 	struct tlv_init_tlvs *tlvs = tlv_init_tlvs_new(msg);
 	struct remote_addr_any *remote_addr_any;
+	struct remote_addr_ipv4 *remote_addr_v4;
+	struct remote_addr_ipv6 *remote_addr_v6;
+	struct wireaddr_internal *remote_addr_wi;
 
 	if (!msg)
 		return io_close(conn);
@@ -107,13 +110,28 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 * ...
 	 *  - MAY use the `remote_addr` to update its `node_annoucement`
 	 */
+	remote_addr_wi = talz(tmpctx, struct wireaddr_internal);
 	if (tlvs->remote_addr) {
 		/* 'parsing' can be done by overlaying the correct C struct */
 		remote_addr_any = (struct remote_addr_any *)tlvs->remote_addr;
-		status_peer_debug(&peer->id,
-				  "Peer reported remote_addr type %i. "
-				  "TODO: do something useful",
-				  remote_addr_any->type);
+		if (remote_addr_any->type == ADDR_TYPE_IPV4) {
+			remote_addr_v4 = (struct remote_addr_ipv4 *)remote_addr_any;
+			remote_addr_wi->itype = ADDR_INTERNAL_WIREADDR;
+			remote_addr_wi->u.wireaddr.type = ADDR_TYPE_IPV4;
+			remote_addr_wi->u.wireaddr.port = remote_addr_v4->port;
+			remote_addr_wi->u.wireaddr.addrlen = 4;
+			memcpy(&remote_addr_wi->u.wireaddr.addr,
+			       &remote_addr_v4->addr, 4);
+		}
+		if (remote_addr_any->type == ADDR_TYPE_IPV6) {
+			remote_addr_v6 = (struct remote_addr_ipv6 *)remote_addr_any;
+			remote_addr_wi->itype = ADDR_INTERNAL_WIREADDR;
+			remote_addr_wi->u.wireaddr.type = ADDR_TYPE_IPV6;
+			remote_addr_wi->u.wireaddr.port = remote_addr_v6->port;
+			remote_addr_wi->u.wireaddr.addrlen = 16;
+			memcpy(&remote_addr_wi->u.wireaddr.addr,
+			       &remote_addr_v6->addr, 16);
+		}
 	}
 
 	/* The globalfeatures field is now unused, but there was a
@@ -126,7 +144,9 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	/* Usually return io_close_taken_fd, but may wait for old peer to
 	 * be disconnected if it's a reconnect. */
 	return peer_connected(conn, peer->daemon, &peer->id,
-			      &peer->addr, &peer->cs,
+			      &peer->addr,
+			      remote_addr_wi,
+			      &peer->cs,
 			      take(features),
 			      peer->incoming);
 }

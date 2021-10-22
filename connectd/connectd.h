@@ -21,6 +21,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr,
+			       const struct wireaddr_internal *remote_addr,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
 			       bool incoming);

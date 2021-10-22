@@ -33,6 +33,7 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/wire_error.h>
+#include <common/wireaddr.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -929,6 +930,7 @@ struct peer_connected_hook_payload {
 	struct lightningd *ld;
 	struct channel *channel;
 	struct wireaddr_internal addr;
+	struct wireaddr_internal remote_addr;
 	bool incoming;
 	struct peer *peer;
 	struct per_peer_state *pps;
@@ -1129,6 +1131,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
 					      &id, &hook_payload->addr,
+					      &hook_payload->remote_addr,
 					      &hook_payload->incoming,
 					      &hook_payload->pps,
 					      &their_features))
@@ -1160,6 +1163,15 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	/* It might be v2 opening, though, since we hang onto these */
 	if (!hook_payload->channel)
 		hook_payload->channel = peer_unsaved_channel(peer);
+
+	/* Log remote_addr for now */
+	if (hook_payload->remote_addr.itype == ADDR_INTERNAL_WIREADDR && (
+	    hook_payload->remote_addr.u.wireaddr.type == ADDR_TYPE_IPV4 ||
+	    hook_payload->remote_addr.u.wireaddr.type == ADDR_TYPE_IPV6)) {
+		log_info(ld->log, "Peer reports remote_addr: %s",
+			 fmt_wireaddr(peer,
+				      &hook_payload->remote_addr.u.wireaddr));
+	}
 
 	plugin_hook_call_peer_connected(ld, hook_payload);
 }

@@ -130,7 +130,7 @@ bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p
 bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct penalty_base **pbase UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_signature *commit_sig UNNEEDED, struct bitcoin_signature **htlc_sigs UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_sending_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_connected */
-bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, bool *incoming UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
+bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr_internal *remote_addr UNNEEDED, bool *incoming UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_custommsg_in */
 bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **msg UNNEEDED)
