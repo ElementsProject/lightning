@@ -448,7 +448,7 @@ def test_plugin_connected_hook_chaining(node_factory):
         return peers == [] or not peers[0]['connected']
 
     wait_for(check_disconnect)
-    assert not l3.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
+    assert not l1.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
 
 
 def test_async_rpcmethod(node_factory, executor):
