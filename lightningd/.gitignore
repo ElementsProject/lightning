@@ -7,3 +7,4 @@ lightning_gossipd
 lightning_hsmd
 lightning_onchaind
 lightning_openingd
+lightning_websocketd
