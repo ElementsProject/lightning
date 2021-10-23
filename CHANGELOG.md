@@ -4,6 +4,125 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2rc1] - 2021-10-22
+
+### Added
+
+ - With `sqlite3` db backend we now use a 60-second busy timer, to allow backup processes like `litestream` to operate safely. ([#4867])
+ - pay: Payment attempts are now grouped by the pay command that initiated them ([#4567])
+ - JSON-RPC: `setchannelfee` gives a grace period (`enforcedelay`) before rejecting old-fee payments: default 10 minutes. ([#4806])
+ - Support to listpays the status parameter to filter the payments by status. ([#4595])
+ - `close` now notifies about the feeranges each side uses. ([#4784])
+ - Protocol: We now send and support channel_type in channel open (not dual-funding though). ([#4616])
+ - Protocol: We now perform quick-close if the peer supports it. ([#4599])
+ - JSONRPC: `close` now takes a `feerange` parameter to set min/max fee rates for mutual close. ([#4599])
+ - Protocol: Allow sending large HTLCs if peer offers option_support_large_channel (> 4294967295msat) ([#4599])
+ - pyln-client: routines for direct access to the gossip store as Gossmap ([#4582])
+ - Plugins: `shutdown` notification for clean exits. ([#4754])
+ - addes channel_id and commitnum to commitment_revocation hook ([#4760])
+ - JSON-RPC: `datastore`, `deldatastore` and `listdatastore` for plugins to store simple persistent key/value data. ([#4674])
+
+
+### Changed
+
+ - db: removal of old HTLC information and vacuuming shrinks large lightningd.sqlite3 by a factor of 2-3. ([#4850])
+ - JSON-RPC: `ping` now only works if we have a channel with the peer. ([#4804])
+ - Protocol: Send regular pings to detect dead connections (particularly for Tor). ([#4804])
+ - Build: Python is now required to build, as generated files are no longer checked into the repository. ([#4805])
+ - pyln-spec: updated to latest BOLT versions. ([#4763])
+ - Change order parameters in the listforwards command ([#4668])
+ - db: we now set a busy timeout to safely allow others to access sqlite3 db (e.g. litestream) ([#4554])
+ - connectd: try non-TOR connections first ([#4731])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - Protocol: No longer restrict HTLCs to ([#4599])
+ - Change order of the status parameter in the listforwards rpc command. ([#4668])
+ - RPC framwork now require the "jsonrpc" propriety inside the request. ([#4742])
+ - Plugins: Renames plugin init 'use_proxy_always' to 'always_use_proxy' ([#4731])
+
+
+### Removed
+
+
+
+### Fixed
+
+ - We now no longer self-limit the number of file descriptors (which limits the number of channels) in sufficiently modern systems, or where we can access `/proc` or `/dev/fd`.  We still self-limit on old systems where we cannot find the list of open files on `/proc` or `/dev/fd`, so if you need > ~4000 channels, upgrade or mount `/proc`. ([#4872])
+ - errors: Errors returning a `channel_update` no longer return an outdated one. ([#4876])
+ - pay: `listpays` returns payments orderd by their creation date ([#4567])
+ - pay: `listpays` no longer groups attempts from multiple attempts to pay an invoice ([#4567])
+ - sqlite3: Relaxed the version match requirements to be at least a minimum version and a major version match ([#4852])
+ - pay: `pay` would sometimes misreport a final state of `pending` instead of `failed` ([#4803])
+ - Plugins: C plugins would could leak memory on every command (esp. seen when hammering topology's listchannels). ([#4737])
+ - libplugin: Fatal error messages from plugin_exit() now logged in lightningd. ([#4754])
+ - openchannel_signed would fail on PSBT comparison of materially identical PSBTs ([#4752])
+ - doc: listnodes fields now correctly documented. ([#4750])
+ - EXPERIMENTAL: crash for some users while requesting dual funding leases. ([#4751])
+ - RPC framwork now required the "jsonrpc" propriety to be specified inside each request. ([#4742])
+ - Plugins: don't drop complaints about silly channels to stderr. ([#4730])
+ - connectd: do not try address hint twice ([#4731])
+
+
+### EXPERIMENTAL
+
+ - channel_upgrade draft upgraded: cannot upgrade channels until peers also upgrade. ([#4830])
+ - bolt12: `chains` in invoice_request and invoice is deprecated, `chain` is used instead. ([#4849])
+ - bolt12: `vendor` is deprecated: the field is now called `issuer`. ([#4849])
+ - Protocol: Updated onion_message support to match updated draft specification (with backwards compat for old version) ([#4800])
+ - Anchor output mutual close allow a fee higher than the final commitment transaction (as per lightning-rfc #847) ([#4599])
+
+
+
+[#4852]: https://github.com/ElementsProject/lightning/pull/4852
+[#4754]: https://github.com/ElementsProject/lightning/pull/4754
+[#4760]: https://github.com/ElementsProject/lightning/pull/4760
+[#4830]: https://github.com/ElementsProject/lightning/pull/4830
+[#4750]: https://github.com/ElementsProject/lightning/pull/4750
+[#4752]: https://github.com/ElementsProject/lightning/pull/4752
+[#4554]: https://github.com/ElementsProject/lightning/pull/4554
+[#4567]: https://github.com/ElementsProject/lightning/pull/4567
+[#4730]: https://github.com/ElementsProject/lightning/pull/4730
+[#4582]: https://github.com/ElementsProject/lightning/pull/4582
+[#4803]: https://github.com/ElementsProject/lightning/pull/4803
+[#4668]: https://github.com/ElementsProject/lightning/pull/4668
+[#4731]: https://github.com/ElementsProject/lightning/pull/4731
+[#4872]: https://github.com/ElementsProject/lightning/pull/4872
+[#4784]: https://github.com/ElementsProject/lightning/pull/4784
+[#4754]: https://github.com/ElementsProject/lightning/pull/4754
+[#4731]: https://github.com/ElementsProject/lightning/pull/4731
+[#4668]: https://github.com/ElementsProject/lightning/pull/4668
+[#4567]: https://github.com/ElementsProject/lightning/pull/4567
+[#4806]: https://github.com/ElementsProject/lightning/pull/4806
+[#4805]: https://github.com/ElementsProject/lightning/pull/4805
+[#4876]: https://github.com/ElementsProject/lightning/pull/4876
+[#4742]: https://github.com/ElementsProject/lightning/pull/4742
+[#4850]: https://github.com/ElementsProject/lightning/pull/4850
+[#4616]: https://github.com/ElementsProject/lightning/pull/4616
+[#4849]: https://github.com/ElementsProject/lightning/pull/4849
+[#4804]: https://github.com/ElementsProject/lightning/pull/4804
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4731]: https://github.com/ElementsProject/lightning/pull/4731
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4737]: https://github.com/ElementsProject/lightning/pull/4737
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4849]: https://github.com/ElementsProject/lightning/pull/4849
+[#4567]: https://github.com/ElementsProject/lightning/pull/4567
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4751]: https://github.com/ElementsProject/lightning/pull/4751
+[#4763]: https://github.com/ElementsProject/lightning/pull/4763
+[#4674]: https://github.com/ElementsProject/lightning/pull/4674
+[#4804]: https://github.com/ElementsProject/lightning/pull/4804
+[#4867]: https://github.com/ElementsProject/lightning/pull/4867
+[#4800]: https://github.com/ElementsProject/lightning/pull/4800
+[#4595]: https://github.com/ElementsProject/lightning/pull/4595
+[#4742]: https://github.com/ElementsProject/lightning/pull/4742
+[0.10.2rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.2rc1
+
 ## [0.10.1] - 2021-08-09: "eltoo: Ethereum Layer Too"
 
 This release named by @nalinbhardwaj.
