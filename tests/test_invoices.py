@@ -59,6 +59,16 @@ def test_invoice(node_factory, chainparams):
     b11 = l1.rpc.decodepay(inv['bolt11'])
     assert b11['min_final_cltv_expiry'] == 99
 
+    # Test description_hash option.
+    h = '5' * 64
+    inv = l1.rpc.invoice(123000, 'label4', '', '3700', description_hash=h)
+    b11 = l1.rpc.decodepay(inv['bolt11'])
+    assert('description' not in b11)
+    assert(b11['description_hash'] == h)
+
+    with pytest.raises(RpcError, match=r"Description must be empty if description_hash is set"):
+        inv = l1.rpc.invoice(123000, 'label5', 'fail', '3700', description_hash=h)
+
 
 def test_invoice_zeroval(node_factory):
     """A zero value invoice is unpayable, did you mean 'any'?"""

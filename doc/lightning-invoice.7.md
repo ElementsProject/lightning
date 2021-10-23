@@ -6,6 +6,7 @@ SYNOPSIS
 
 **invoice** *msatoshi* *label* *description* \[*expiry*\]
 \[*fallbacks*\] \[*preimage*\] \[*exposeprivatechannels*\] \[*cltv*\]
+\[*description\_hash*\]
 
 DESCRIPTION
 -----------
@@ -67,6 +68,10 @@ payment.
 
 If specified, *cltv* sets the *min_final_cltv_expiry* for the invoice.
 Otherwise, it's set to the parameter **cltv-final**.
+
+A *description\_hash* can be specified when *description* is the empty string,
+it specifies a SHA-256 hash of the description to commit to, in hexadecimal format.
+This can be used when the invoice protocol communicates the description out of band.
 
 RETURN VALUE
 ------------
