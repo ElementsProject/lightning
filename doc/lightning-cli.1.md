@@ -4,7 +4,7 @@ lightning-cli -- Control lightning daemon
 SYNOPSIS
 --------
 
-**lightning-cli** \[*OPTIONS*\] *command*…
+**lightning-cli** \[*OPTIONS*\] *command*
 
 DESCRIPTION
 -----------
@@ -15,7 +15,7 @@ OPTIONS
 -------
 
  **--lightning-dir**=*DIR*
-Set the directory for the lightning daemon we’re talking to; defaults to
+Set the directory for the lightning daemon we're talking to; defaults to
 *$HOME/.lightning*.
 
  **--conf**=*PATH*
@@ -69,7 +69,7 @@ Print version number to standard output and exit.
 
  **allow-deprecated-apis**=*BOOL*
 Enable deprecated options. It defaults to *true*, but you should set
-it to *false* when testing to ensure that an upgrade won’t break your
+it to *false* when testing to ensure that an upgrade won't break your
 configuration.
 
 COMMANDS
@@ -109,7 +109,7 @@ BUGS
 ----
 
 This manpage documents how it should work, not how it does work. The
-pretty printing of results isn’t pretty.
+pretty printing of results isn't pretty.
 
 AUTHOR
 ------

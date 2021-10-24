@@ -46,15 +46,15 @@ OPTIONS
  **allow-deprecated-apis**=*BOOL*
 Enable deprecated options, JSONRPC commands, fields, etc. It defaults to
 *true*, but you should set it to *false* when testing to ensure that an
-upgrade won’t break your configuration.
+upgrade won't break your configuration.
 
  **help**
 Print help and exit. Not very useful inside a configuration file, but
-fun to put in other’s config files while their computer is unattended.
+fun to put in other's config files while their computer is unattended.
 
  **version**
 Print version and exit. Also useless inside a configuration file, but
-putting this in someone’s config file may convince them to read this man
+putting this in someone's config file may convince them to read this man
 page.
 
 Bitcoin control options:
@@ -232,7 +232,7 @@ lightning-setchannelfee(7).
 
  **fee-per-satoshi**=*MILLIONTHS*
 Default: 10 (0.001%). This is the proportional fee to charge for every
-payment which passes through. As percentages are too coarse, it’s in
+payment which passes through. As percentages are too coarse, it's in
 millionths, so 10000 is 1%, 1000 is 0.1%. Changing this value will only
 affect new channels and not existing ones. If you want to change fees
 for existing channels, use the RPC call lightning-setchannelfee(7).
@@ -281,14 +281,14 @@ is spelled **large-channels** but it's pronounced **wumbo**.
 
  **watchtime-blocks**=*BLOCKS*
 How long we need to spot an outdated close attempt: on opening a channel
-we tell our peer that this is how long they’ll have to wait if they
+we tell our peer that this is how long they'll have to wait if they
 perform a unilateral close.
 
  **max-locktime-blocks**=*BLOCKS*
 The longest our funds can be delayed (ie. the longest
 **watchtime-blocks** our peer can ask for, and also the longest HTLC
-timeout we will accept). If our peer asks for longer, we’ll refuse to
-create a channel, and if an HTLC asks for longer, we’ll refuse it.
+timeout we will accept). If our peer asks for longer, we'll refuse to
+create a channel, and if an HTLC asks for longer, we'll refuse it.
 
  **funding-confirms**=*BLOCKS*
 Confirmations required for the funding transaction when the other side

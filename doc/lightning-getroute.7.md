@@ -28,7 +28,7 @@ your funds being stuck (as a percentage).
 For example, if you thought the convenience of keeping your funds liquid
 (not stuck) was worth 20% per annum interest, *riskfactor* would be 20.
 
-If you didn’t care about risk, *riskfactor* would be zero.
+If you didn't care about risk, *riskfactor* would be zero.
 
 *fromid* is the node to start the route from: default is this node.
 

@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **multiwithdraw** RPC command sends funds from c-lightning’s internal
+The **multiwithdraw** RPC command sends funds from c-lightning's internal
 wallet to the addresses specified in *outputs*,
 which is an array containing objects of the form `{address: amount}`.
 The `amount` may be the string *"all"*, indicating that all onchain funds
@@ -23,7 +23,7 @@ or a number with 1 to 8 decimal places ending in *btc*.
 
 *feerate* is an optional feerate to use. It can be one of the strings
 *urgent* (aim for next block), *normal* (next 4 blocks or so) or *slow*
-(next 100 blocks or so) to use lightningd’s internal estimates: *normal*
+(next 100 blocks or so) to use lightningd's internal estimates: *normal*
 is the default.
 
 Otherwise, *feerate* is a number, with an optional suffix: *perkw* means

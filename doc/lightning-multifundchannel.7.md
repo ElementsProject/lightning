@@ -65,7 +65,7 @@ it cannot be an empty array.
 *commitment_feerate* is not set, as the initial feerate for
 commitment and HTLC transactions. It can be one of
 the strings *urgent* (aim for next block), *normal* (next 4 blocks or
-so) or *slow* (next 100 blocks or so) to use lightningd’s internal
+so) or *slow* (next 100 blocks or so) to use lightningd's internal
 estimates: *normal* is the default.
 
 Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
