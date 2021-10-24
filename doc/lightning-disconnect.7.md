@@ -10,7 +10,7 @@ DESCRIPTION
 -----------
 
 The disconnect RPC command closes an existing connection to a peer,
-identified by *id*, in the Lightning Network, as long as it doesn’t have
+identified by *id*, in the Lightning Network, as long as it doesn't have
 an active channel. If *force* is set then it will disconnect even with
 an active channel.
 

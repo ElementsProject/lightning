@@ -9,12 +9,12 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **check** RPC command verifies another command’s parameters without
+The **check** RPC command verifies another command's parameters without
 running it.
 
 The *command\_to\_check* is the name of the relevant command.
 
-*parameters* is the command’s parameters.
+*parameters* is the command's parameters.
 
 This does not guarantee successful execution of the command in all
 cases. For example, a call to lightning-getroute(7) may still fail to

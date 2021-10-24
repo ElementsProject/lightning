@@ -70,7 +70,7 @@ the defaults.
 
 Rates are one of the strings *urgent* (aim for next block), *normal*
 (next 4 blocks or so) or *slow* (next 100 blocks or so) to use
-lightningd’s internal estimates, or one of the names from
+lightningd's internal estimates, or one of the names from
 lightning-feerates(7).  Otherwise, they can be numbers with
 an optional suffix: *perkw* means the number is interpreted as
 satoshi-per-kilosipa (weight), and *perkb* means it is interpreted

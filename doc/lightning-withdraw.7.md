@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **withdraw** RPC command sends funds from c-lightning’s internal
+The **withdraw** RPC command sends funds from c-lightning's internal
 wallet to the address specified in *destination*.
 
 The address can be of any Bitcoin accepted type, including bech32.
@@ -23,7 +23,7 @@ decimal places ending in *btc*.
 
 *feerate* is an optional feerate to use. It can be one of the strings
 *urgent* (aim for next block), *normal* (next 4 blocks or so) or *slow*
-(next 100 blocks or so) to use lightningd’s internal estimates: *normal*
+(next 100 blocks or so) to use lightningd's internal estimates: *normal*
 is the default.
 
 Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
