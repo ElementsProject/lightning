@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - With `sqlite3` db backend we now use a 60-second busy timer, to allow backup processes like `litestream` to operate safely. ([#4867])
  - pay: Payment attempts are now grouped by the pay command that initiated them ([#4567])
+ - pay: [Probabilistic Pathfinding](https://arxiv.org/abs/2103.08576) is now used to generate candidate paths in payment delivery ([#4771])
  - JSON-RPC: `setchannelfee` gives a grace period (`enforcedelay`) before rejecting old-fee payments: default 10 minutes. ([#4806])
  - Support to listpays the status parameter to filter the payments by status. ([#4595])
  - `close` now notifies about the feeranges each side uses. ([#4784])
