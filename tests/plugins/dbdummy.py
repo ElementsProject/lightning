@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
-'''This plugin is used to test we can handle multiple backup plugins and
-that they have some control at shutdown.
+'''This plugin is used to test we can handle multiple backup plugins, that it
+   has some control at shutdown and is correctly killed as last.
 '''
 
 from pyln.client import Plugin
@@ -22,6 +22,12 @@ def shutdown(plugin, **kwargs):
     # so only in 2nd call we timeout
     sleep(6)
     sys.exit(0)
+
+
+# dummy method, should've been removed before JSON RPC is closed
+@plugin.method("noop_method")
+def handle_dummy_method(plugin, **kwargs):
+    pass
 
 
 plugin.run()
