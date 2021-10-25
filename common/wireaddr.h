@@ -38,7 +38,7 @@ struct sockaddr_un;
  */
 
 /* BOLT-websockets #7:
- *    * `5`: WebSocket port; data = `[2:port]` (length 2)
+ *    * `6`: WebSocket port; data = `[2:port]` (length 2)
  */
 
 #define	TOR_V2_ADDRLEN 10
@@ -52,7 +52,7 @@ enum wire_addr_type {
 	ADDR_TYPE_IPV6 = 2,
 	ADDR_TYPE_TOR_V2 = 3,
 	ADDR_TYPE_TOR_V3 = 4,
-	ADDR_TYPE_WEBSOCKET = 5,
+	ADDR_TYPE_WEBSOCKET = 6,
 };
 
 /* Structure now fit for tor support */
