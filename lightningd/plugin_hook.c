@@ -54,7 +54,7 @@ static struct plugin_hook *plugin_hook_by_name(const char *name)
 	return NULL;
 }
 
-/* When we destroy an unimportant plugin, we remove its hooks */
+/* When we destroy a plugin, we remove its hooks */
 static void destroy_hook_instance(struct hook_instance *h,
 				  struct plugin_hook *hook)
 {
@@ -91,10 +91,7 @@ struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *meth
 	h->plugin = plugin;
 	h->before = tal_arr(h, const char *, 0);
 	h->after = tal_arr(h, const char *, 0);
-
-	/* Never unregister important hooks */
-	if (!plugin->important)
-		tal_add_destructor2(h, destroy_hook_instance, hook);
+	tal_add_destructor2(h, destroy_hook_instance, hook);
 
 	tal_arr_expand(&hook->hooks, h);
 	return hook;
@@ -165,6 +162,12 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	assert(last != NULL);
 	tal_del_destructor(last, plugin_hook_killed);
 	tal_free(last);
+
+	if (r->ld->state == LD_STATE_SHUTDOWN) {
+		log_debug(r->ld->log,
+			  "Abandoning plugin hook call due to shutdown");
+		return;
+	}
 
 	log_debug(r->ld->log, "Plugin %s returned from %s hook call",
 		  r->plugin->shortname, r->hook->name);
