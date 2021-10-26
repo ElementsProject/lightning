@@ -264,7 +264,7 @@ static bool db_postgres_vacuum(struct db *db)
 
 	res = PQexec(db->conn, "VACUUM FULL;");
 	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-		db->error = tal_fmt(db, "BEGIN command failed: %s",
+		db->error = tal_fmt(db, "VACUUM command failed: %s",
 				    PQerrorMessage(db->conn));
 		PQclear(res);
 		return false;
