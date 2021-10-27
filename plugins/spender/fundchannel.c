@@ -132,7 +132,7 @@ fundchannel_get_result(struct command *cmd,
 
 	if (!ok)
 		plugin_err(cmd->plugin,
-			   "Unexpected result from nultifundchannel: %.*s",
+			   "Unexpected result from multifundchannel: %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
