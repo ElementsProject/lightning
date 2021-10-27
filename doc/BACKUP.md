@@ -82,6 +82,67 @@ any in-channel funds.
 To recover in-channel funds, you need to use one or more of the other
 backup strategies below.
 
+## SQLITE3 `--wallet` `:` And Remote NFS Mount
+
+`/!\` WHO SHOULD DO THIS: Casual users.
+
+`/!\` **CAUTION** `/!\` This technique is only supported on 0.10.3
+or later.
+On earlier versions, the `:` character is not special and will be
+considered part of the path of the database file.
+
+When using the SQLITE3 backend (the default), you can specify a
+second database file to replicate to, by separating the second
+file with a single `:` character in the `--wallet` option, after
+the main database filename.
+
+For example, if the user running `lightningd` is named `user`, and
+you are on the Bitcoin mainnet with the default `${LIGHTNINGDIR}`, you
+can specify in your `config` file:
+
+    wallet=sqlite3:///home/user/.lightning/bitcoin/lightningd.sqlite3:/my/backup/lightningd.sqlite3
+
+Or via command line:
+
+    lightningd --wallet=sqlite3:///home/user/.lightning/bitcoin/lightningd.sqlite3:/my/backup/lightningd.sqlite3
+
+If the second database file does not exist but the directory that would
+contain it does exist, the file is created.
+If the directory of the second database file does not exist, `lightningd` will
+fail at startup.
+If the second database file already exists, on startup it will be overwritten
+with the main database.
+During operation, all database updates will be done on both databases.
+
+This has the advantage compared to the `backup` plugin below of requiring
+exactly the same amount of space on both the main and backup storage.
+The `backup` plugin will take more space on the backup than on the main
+storage.
+It has the disadvantage that it will only work with the SQLITE3 backend and
+is not supported by the PostgreSQL backend, and is unlikely to be supported
+on any future database backends.
+
+You can only specify *one* replica.
+
+It is recommended that you use a network-mounted filesystem for the backup
+destination.
+For example, if you have a NAS you can access remotely.
+At the minimum, set the backup to a different storage device.
+
+Do note that files are not stored encrypted, so you should really not do
+this with rented space ("cloud storage").
+
+To recover, simply get the second database file, which is a replica of the
+main database file.
+
+If your backup destination is a network-mounted filesystem that is in a
+remote location, then even loss of all hardware in one location will allow
+you to still recover your Lightning funds.
+
+However, if instead you are just replicating the database on another
+storage device in a single location, you remain vulnerable to disasters
+like fire or computer confiscation.
+
 ## `backup` Plugin And Remote NFS Mount
 
 `/!\` WHO SHOULD DO THIS: Casual users.

@@ -5,6 +5,27 @@
 #if HAVE_SQLITE3
   #include <sqlite3.h>
 
+struct db_sqlite3 {
+	/* The actual db connection.  */
+	sqlite3 *conn;
+	/* A replica db connection, if requested, or NULL otherwise.  */
+	sqlite3 *backup_conn;
+	/* The backup object for the replica db connection.  */
+	sqlite3_backup *backup;
+};
+
+/**
+ * @param conn: The db->conn void * pointer.
+ *
+ * @return the actual sqlite3 connection.
+ */
+static inline
+sqlite3 *conn2sql(void *conn)
+{
+	struct db_sqlite3 *wrapper = (struct db_sqlite3 *) conn;
+	return wrapper->conn;
+}
+
 #if !HAVE_SQLITE3_EXPANDED_SQL
 /* Prior to sqlite3 v3.14, we have to use tracing to dump statements */
 static void trace_sqlite3(void *stmtv, const char *stmt)
@@ -17,21 +38,35 @@ static void trace_sqlite3(void *stmtv, const char *stmt)
 static const char *db_sqlite3_fmt_error(struct db_stmt *stmt)
 {
 	return tal_fmt(stmt, "%s: %s: %s", stmt->location, stmt->query->query,
-		       sqlite3_errmsg(stmt->db->conn));
+		       sqlite3_errmsg(conn2sql(stmt->db->conn)));
 }
 
 static bool db_sqlite3_setup(struct db *db)
 {
 	char *filename;
+	char *sep;
+	char *backup_filename = NULL;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql;
 	int err, flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+
+	struct db_sqlite3 *wrapper;
 
 	if (!strstarts(db->filename, "sqlite3://") || strlen(db->filename) < 10)
 		db_fatal("Could not parse the wallet DSN: %s", db->filename);
 
 	/* Strip the scheme from the dsn. */
 	filename = db->filename + strlen("sqlite3://");
+	/* Look for a replica specification.  */
+	sep = strchr(filename, ':');
+	if (sep) {
+		/* Split at ':'.  */
+		filename = tal_strndup(db, filename, sep - filename);
+		backup_filename = tal_strdup(db, sep + 1);
+	}
+
+	wrapper = tal(db, struct db_sqlite3);
+	db->conn = wrapper;
 
 	err = sqlite3_open_v2(filename, &sql, flags, NULL);
 
@@ -39,7 +74,38 @@ static bool db_sqlite3_setup(struct db *db)
 		db_fatal("failed to open database %s: %s", filename,
 			 sqlite3_errstr(err));
 	}
-	db->conn = sql;
+	wrapper->conn = sql;
+
+	if (!backup_filename) {
+		wrapper->backup_conn = NULL;
+		wrapper->backup = NULL;
+	} else {
+		err = sqlite3_open_v2(backup_filename,
+				      &wrapper->backup_conn,
+				      flags, NULL);
+		if (err != SQLITE_OK) {
+			db_fatal("failed to open backup database %s: %s",
+				 backup_filename,
+				 sqlite3_errstr(err));
+		}
+
+		wrapper->backup = sqlite3_backup_init(wrapper->backup_conn,
+						      "main",
+						      wrapper->conn,
+						      "main");
+		if (!wrapper->backup) {
+			db_fatal("failed to setup backup on database %s: %s",
+				 backup_filename,
+				 sqlite3_errmsg(wrapper->backup_conn));
+		}
+
+		/* Initial copy.  */
+		err = sqlite3_backup_step(wrapper->backup, -1);
+		if (err != SQLITE_DONE) {
+			db_fatal("Failed initial backup: %s",
+				 sqlite3_errstr(err));
+		}
+	}
 
 	/* In case another process (litestream?) grabs a lock, we don't
 	 * want to return SQLITE_BUSY immediately (which will cause a
@@ -47,9 +113,10 @@ static bool db_sqlite3_setup(struct db *db)
 	 * We *could* make this an option, but surely the user prefers a
 	 * long timeout over an outright crash.
 	 */
-	sqlite3_busy_timeout(db->conn, 60000);
+	sqlite3_busy_timeout(conn2sql(db->conn), 60000);
 
-	sqlite3_prepare_v2(db->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
+	sqlite3_prepare_v2(conn2sql(db->conn),
+			   "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
 	err = sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
 	return err == SQLITE_DONE;
@@ -58,7 +125,7 @@ static bool db_sqlite3_setup(struct db *db)
 static bool db_sqlite3_query(struct db_stmt *stmt)
 {
 	sqlite3_stmt *s;
-	sqlite3 *conn = (sqlite3*)stmt->db->conn;
+	sqlite3 *conn = conn2sql(stmt->db->conn);
 	int err;
 
 	err = sqlite3_prepare_v2(conn, stmt->query->query, -1, &s, NULL);
@@ -110,7 +177,7 @@ static bool db_sqlite3_exec(struct db_stmt *stmt)
 #if !HAVE_SQLITE3_EXPANDED_SQL
 	/* Register the tracing function if we don't have an explicit way of
 	 * expanding the statement. */
-	sqlite3_trace(stmt->db->conn, trace_sqlite3, stmt);
+	sqlite3_trace(conn2sql(stmt->db->conn), trace_sqlite3, stmt);
 #endif
 
 	if (!db_sqlite3_query(stmt)) {
@@ -140,7 +207,7 @@ done:
 #if !HAVE_SQLITE3_EXPANDED_SQL
 	/* Unregister the trace callback to avoid it accessing the potentially
 	 * stale pointer to stmt */
-	sqlite3_trace(stmt->db->conn, NULL, NULL);
+	sqlite3_trace(conn2sql(stmt->db->conn), NULL, NULL);
 #endif
 
 	return success;
@@ -156,7 +223,8 @@ static bool db_sqlite3_begin_tx(struct db *db)
 {
 	int err;
 	char *errmsg;
-	err = sqlite3_exec(db->conn, "BEGIN TRANSACTION;", NULL, NULL, &errmsg);
+	err = sqlite3_exec(conn2sql(db->conn),
+			   "BEGIN TRANSACTION;", NULL, NULL, &errmsg);
 	if (err != SQLITE_OK) {
 		db->error = tal_fmt(db, "Failed to begin a transaction: %s", errmsg);
 		return false;
@@ -168,11 +236,35 @@ static bool db_sqlite3_commit_tx(struct db *db)
 {
 	int err;
 	char *errmsg;
-	err = sqlite3_exec(db->conn, "COMMIT;", NULL, NULL, &errmsg);
+
+	struct db_sqlite3 *wrapper = (struct db_sqlite3 *) db->conn;
+
+	err = sqlite3_exec(conn2sql(db->conn),
+				    "COMMIT;", NULL, NULL, &errmsg);
 	if (err != SQLITE_OK) {
 		db->error = tal_fmt(db, "Failed to commit a transaction: %s", errmsg);
 		return false;
 	}
+
+	if (wrapper->backup) {
+		/* This *should* be fast:
+		 * https://sqlite.org/c3ref/backup_finish.html#sqlite3backupstep
+		 * "If the source database is modified by using the same database
+		 * connection as is used by the backup operation, then the backup
+		 * database is automatically updated at the same time."
+		 * So the `COMMIT;` should have updated the backup too, and the
+		 * sqlite3_backup_step should return quickly.
+		 */
+		err = sqlite3_backup_step(wrapper->backup, -1);
+		if (err != SQLITE_DONE) {
+			db->error = tal_fmt(db,
+					    "Failed to replicate transaction "
+					    "to backup: %s",
+					    sqlite3_errstr(err));
+			return false;
+		}
+	}
+
 	return true;
 }
 
@@ -221,19 +313,26 @@ static void db_sqlite3_stmt_free(struct db_stmt *stmt)
 
 static size_t db_sqlite3_count_changes(struct db_stmt *stmt)
 {
-	sqlite3 *s = stmt->db->conn;
+	sqlite3 *s = conn2sql(stmt->db->conn);
 	return sqlite3_changes(s);
 }
 
 static void db_sqlite3_close(struct db *db)
 {
-	sqlite3_close(db->conn);
-	db->conn = NULL;
+	struct db_sqlite3 *wrapper = (struct db_sqlite3 *) db->conn;
+
+	if (wrapper->backup) {
+		sqlite3_backup_finish(wrapper->backup);
+		sqlite3_close(wrapper->backup_conn);
+	}
+	sqlite3_close(wrapper->conn);
+
+	db->conn = tal_free(db->conn);
 }
 
 static u64 db_sqlite3_last_insert_id(struct db_stmt *stmt)
 {
-	sqlite3 *s = stmt->db->conn;
+	sqlite3 *s = conn2sql(stmt->db->conn);
 	return sqlite3_last_insert_rowid(s);
 }
 
@@ -242,11 +341,23 @@ static bool db_sqlite3_vacuum(struct db *db)
 	int err;
 	sqlite3_stmt *stmt;
 
-	sqlite3_prepare_v2(db->conn, "VACUUM;", -1, &stmt, NULL);
+	struct db_sqlite3 *wrapper = (struct db_sqlite3 *) db->conn;
+
+	sqlite3_prepare_v2(conn2sql(db->conn), "VACUUM;", -1, &stmt, NULL);
 	err = sqlite3_step(stmt);
 	if (err != SQLITE_DONE)
-		db->error = tal_fmt(db, "%s", sqlite3_errmsg(db->conn));
+		db->error = tal_fmt(db, "%s",
+				    sqlite3_errmsg(conn2sql(db->conn)));
 	sqlite3_finalize(stmt);
+
+	if (err == SQLITE_DONE && wrapper->backup) {
+		err = sqlite3_backup_step(wrapper->backup, -1);
+		if (err != SQLITE_DONE)
+			db->error = tal_fmt(db,
+					    "Failed to replicate VACUUM "
+					    "to backup: %s",
+					    sqlite3_errstr(err));
+	}
 
 	return err == SQLITE_DONE;
 }
