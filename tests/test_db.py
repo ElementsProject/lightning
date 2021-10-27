@@ -7,6 +7,7 @@ from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, only_
 import base64
 import os
 import pytest
+import shutil
 import time
 import unittest
 
@@ -379,3 +380,36 @@ def test_local_basepoints_cache(bitcoind, node_factory):
     # after we verified.
     l1.restart()
     l2.restart()
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Tests a feature unique to SQLITE3 backend")
+def test_sqlite3_builtin_backup(bitcoind, node_factory):
+    l1 = node_factory.get_node(start=False)
+
+    # Figure out the path to the actual db.
+    main_db_file = l1.db.path
+    # Create a backup copy in the same location with the suffix .bak
+    backup_db_file = main_db_file + ".bak"
+
+    # Provide the --wallet option and start.
+    l1.daemon.opts['wallet'] = "sqlite3://" + main_db_file + ':' + backup_db_file
+    l1.start()
+
+    # Get an address and put some funds.
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 1)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    # Stop the node.
+    l1.stop()
+
+    # Copy the backup over the main db file.
+    shutil.copyfile(backup_db_file, main_db_file)
+
+    # Remove the --wallet option and start.
+    del l1.daemon.opts['wallet']
+    l1.start()
+
+    # Should still see the funds.
+    assert(len(l1.rpc.listfunds()['outputs']) == 1)

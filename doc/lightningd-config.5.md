@@ -193,6 +193,13 @@ The default wallet corresponds to the following DSN:
 --wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3
 ```
 
+For the `sqlite3` scheme, you can specify a single backup database file
+by separating it with a `:` character, like so:
+
+```
+--wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3:/backup/lightningd.sqlite3
+```
+
 The following is an example of a postgresql wallet DSN:
 
 ```
