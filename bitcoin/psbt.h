@@ -15,6 +15,7 @@ struct amount_sat;
 struct bitcoin_outpoint;
 struct bitcoin_signature;
 struct bitcoin_txid;
+struct sha256_double;
 struct pubkey;
 
 /** psbt_destroy - Destroy a PSBT that is not tal-allocated
@@ -228,6 +229,14 @@ void psbt_output_set_unknown(const tal_t *ctx,
 			     struct wally_psbt_output *out,
 			     const u8 *key, const void *value,
 			     size_t value_len);
+
+/* psbt_input_hash_for_sig - Produce (SegWit) signing hash for PSBT's input
+ *
+ * @psbt - psbt with input to produce hash of
+ * @in   - input to produce hash for
+ * @dest - hash result */
+void psbt_input_hash_for_sig(struct wally_psbt *psbt, size_t in,
+			     struct sha256_double *dest);
 
 /* psbt_input_get_amount - Returns the value of this input
  *

@@ -4,6 +4,7 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
+#include <bitcoin/shadouble.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -439,6 +440,47 @@ bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 						       redeemscript,
 						       tal_bytelen(redeemscript));
 	return wally_err == WALLY_OK;
+}
+
+void psbt_input_hash_for_sig(struct wally_psbt *psbt, size_t in,
+			     struct sha256_double *dest)
+{
+       int ret;
+       u8 value[9];
+       u64 input_val_sats;
+       struct amount_sat input_amt;
+       int flags = WALLY_TX_FLAG_USE_WITNESS;
+
+       input_amt = psbt_input_get_amount(psbt, in);
+       input_val_sats = input_amt.satoshis; /* Raw: type conversion */
+
+       /* Wally can allocate here, iff tx doesn't fit on stack */
+       tal_wally_start();
+       if (is_elements(chainparams)) {
+               ret = wally_tx_confidential_value_from_satoshi(input_val_sats, value, sizeof(value));
+               assert(ret == WALLY_OK);
+               ret = wally_tx_get_elements_signature_hash(
+                   psbt->tx, in,
+                   /* assume segwit */
+                   psbt->inputs[in].witness_script,
+                   psbt->inputs[in].witness_script_len,
+                   value, sizeof(value),
+                   psbt->inputs[in].sighash,
+                   flags, dest->sha.u.u8,
+                   sizeof(*dest));
+               assert(ret == WALLY_OK);
+       } else {
+               ret = wally_tx_get_btc_signature_hash(
+                   psbt->tx, in,
+                   /* assume segwit */
+                   psbt->inputs[in].witness_script,
+                   psbt->inputs[in].witness_script_len,
+                   input_val_sats,
+                   psbt->inputs[in].sighash,
+                   flags, dest->sha.u.u8, sizeof(*dest));
+               assert(ret == WALLY_OK);
+       }
+       tal_wally_end(psbt);
 }
 
 struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
