@@ -1195,6 +1195,43 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
     assert len(bitcoind.rpc.listunspent(1, 1, [addr])) == 1
 
 
+@pytest.mark.openchannel('v1')
+def test_hsmtool_guess_to_remote_non_anchor(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
+    # Allow l2 some warnings
+    l2.allow_warning = True
+    amount = 500000
+    l1.fundwallet(20000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], amount)
+    bitcoind.generate_block(6)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
+
+    # unilateral close channels l1<->l2
+    l1.stop()
+    l2.rpc.close(l1.info['id'], 1)
+
+    # Wait til to_self_delay expires, l1 should claim to_local back
+    bitcoind.generate_block(10, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l2])
+    log = l2.daemon.wait_for_log(r'Script to-them: ')
+    m = re.search(r'Script to-them: ([a-f0-9]{44})', log)
+    onchain_addr = bitcoind.rpc.decodescript(m.group(1))['address']
+
+    # Now try using the hsmtool to find the thing
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    hsmtool = HsmTool("guesstoremote", onchain_addr,
+                      l2.info['id'], str(100), hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hsmtool.wait_for_log(r"bech32")
+    hsmtool.wait_for_log(r"pubkey hash")
+    hsmtool.wait_for_log(r"wif")
+
+
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', 'v2 channels not available')
 @pytest.mark.openchannel('v2')
 @pytest.mark.developer("requres 'dev-queryrates'")

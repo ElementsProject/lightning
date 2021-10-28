@@ -19,6 +19,7 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <wally_address.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>
 
@@ -396,6 +397,8 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 		/* Try it first as P2WPKH, non-anchor outputs */
 		pubkey_to_hash160(&basepoint, &pubkeyhash);
 		if (memcmp(pubkeyhash.u.u8, goal_hash, 20) == 0) {
+			char *wif;
+
 			printf("bech32      : %s\n", address);
 			printf("pubkey hash : %s\n",
 			       tal_hexstr(tmpctx, pubkeyhash.u.u8, 20));
@@ -403,6 +406,16 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 			       type_to_string(tmpctx, struct pubkey, &basepoint));
 			printf("privkey     : %s \n",
 			       type_to_string(tmpctx, struct secret, &basepoint_secret));
+
+			/* As a convenience, we also print the WIF */
+			wally_wif_from_bytes(basepoint_secret.data,
+					     sizeof(basepoint_secret.data),
+					     0x80, /* we assume mainnet */
+					     WALLY_WIF_FLAG_COMPRESSED,
+					     &wif);
+
+			printf("wif         : %s \n", wif);
+
 			return 0;
 		}
 
