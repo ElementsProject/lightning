@@ -2781,8 +2781,6 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		     to_self_delay[LOCAL],
 		     tal_hex(tmpctx, script[LOCAL]),
 		     tal_hex(tmpctx, local_wscript));
-	status_debug("Script to-them: %s",
-		     tal_hex(tmpctx, script[REMOTE]));
 
 	for (i = 0; i < tal_count(tx->outputs); i++) {
 		if (tx->outputs[i]->script == NULL)
@@ -2836,6 +2834,8 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		if (script[REMOTE]
 		    && wally_tx_output_scripteq(tx->outputs[i],
 						script[REMOTE])) {
+			status_debug("Script to-them: %s",
+				     tal_hex(tmpctx, script[REMOTE]));
 			/* BOLT #5:
 			 *
 			 *     - MAY ignore the `to_remote` output.
@@ -2936,6 +2936,8 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 					if (!wally_tx_output_scripteq(tx->outputs[i], script[REMOTE]))
 						continue;
 
+					status_debug("Script to-them: %s",
+						     tal_hex(tmpctx, script[REMOTE]));
 					/* BOLT #5:
 					 *
 					 *     - MAY ignore the `to_remote` output.
