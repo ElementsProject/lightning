@@ -519,6 +519,12 @@ fail:
  */
 static void destroy_hout_subd_died(struct htlc_out *hout)
 {
+	struct db *db = hout->key.channel->peer->ld->wallet->db;
+	/* Under some circumstances we may need to start a DB
+	 * transaction and commit it here again. This is the case when
+	 * we're getting called from the destructor chain. */
+	bool have_tx =
+	    db_in_transaction(db);
 	log_debug(hout->key.channel->log,
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->key.id);
@@ -531,8 +537,14 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 	assert(hout->hstate == SENT_ADD_HTLC);
 	hout->hstate = RCVD_REMOVE_HTLC;
 
+	if (!have_tx)
+		db_begin_transaction(db);
+
 	fail_out_htlc(hout, "Outgoing subdaemon died",
 		      take(towire_temporary_channel_failure(NULL, NULL)));
+
+	if (!have_tx)
+		db_commit_transaction(db);
 }
 
 /* This is where channeld gives us the HTLC id, and also reports if it
