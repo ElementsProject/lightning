@@ -1785,6 +1785,7 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	struct secret old_commit_secret;
 	struct privkey privkey;
 	struct channel_id channel_id;
+	const u8 *revocation_msg;
 	struct pubkey per_commit_point, next_per_commit;
 	const struct htlc **changed_htlcs = tal_arr(msg, const struct htlc *, 0);
 
@@ -1798,6 +1799,19 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unexpected revoke_and_ack");
 	}
+
+	/* Submit the old revocation secret to the signer so it can
+	 * independently verify that the latest state is commited. It
+	 * is also validated in this routine after the signer returns.
+	 */
+	revocation_msg = towire_hsmd_validate_revocation(tmpctx,
+							 peer->next_index[REMOTE] - 2,
+							 &old_commit_secret);
+	revocation_msg = hsm_req(tmpctx, take(revocation_msg));
+	if (!fromwire_hsmd_validate_revocation_reply(revocation_msg))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad hsmd_validate_revocation_reply: %s",
+			      tal_hex(tmpctx, revocation_msg));
 
 	/* BOLT #2:
 	 *

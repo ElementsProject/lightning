@@ -107,6 +107,14 @@ msgdata,hsmd_sign_commitment_tx,remote_funding_key,pubkey,
 msgtype,hsmd_sign_commitment_tx_reply,105
 msgdata,hsmd_sign_commitment_tx_reply,sig,bitcoin_signature,
 
+# Vaidate the counterparty's revocation secret
+msgtype,hsmd_validate_revocation,36
+msgdata,hsmd_validate_revocation,revoke_num,u64,
+msgdata,hsmd_validate_revocation,per_commitment_secret,secret,
+
+# No value returned.
+msgtype,hsmd_validate_revocation_reply,136
+
 # Onchaind asks HSM to sign a spend to-us.  Four variants, since each set
 # of keys is derived differently...
 # FIXME: Have master tell hsmd the keyindex, so it can validate output!
