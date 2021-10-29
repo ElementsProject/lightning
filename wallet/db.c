@@ -855,6 +855,9 @@ static struct migration dbmigrations[] = {
     /* We default to 50k sats */
     {SQL("ALTER TABLE channel_configs ADD max_dust_htlc_exposure_msat BIGINT DEFAULT 50000000"), NULL},
     {SQL("ALTER TABLE channel_htlcs ADD fail_immediate INTEGER DEFAULT 0"), NULL},
+
+    /* Issue #4887: reset the payments.id sequence after the migration above. Since this is a SELECT statement that would otherwise fail, make it an INSERT into the `vars` table.*/
+    {SQL("/*PSQL*/INSERT INTO vars (name, intval) VALUES ('payment_id_reset', setval(pg_get_serial_sequence('payments', 'id'), COALESCE((SELECT MAX(id)+1 FROM payments), 1)))"), NULL},
 };
 
 /* Leak tracking. */
