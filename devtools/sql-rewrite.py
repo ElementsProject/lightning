@@ -35,6 +35,10 @@ class Rewriter(object):
 
 class Sqlite3Rewriter(Rewriter):
     def rewrite_single(self, query):
+        # Replace DB specific queries with a no-op
+        if "/*PSQL*/" in query:
+            return "UPDATE vars SET intval=1 WHERE name='doesnotexist'"  # Return a no-op
+
         typemapping = {
             r'BIGINT': 'INTEGER',
             r'BIGINTEGER': 'INTEGER',
@@ -51,6 +55,10 @@ class Sqlite3Rewriter(Rewriter):
 
 class PostgresRewriter(Rewriter):
     def rewrite_single(self, q):
+        # Replace DB specific queries with a no-op
+        if "/*SQLITE*/" in q:
+            return "UPDATE vars SET intval=1 WHERE name='doesnotexist'"  # Return a no-op
+
         # Let's start by replacing any eventual '?' placeholders
         q2 = ""
         count = 1
