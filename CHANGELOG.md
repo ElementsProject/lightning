@@ -4,10 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.2rc1] - 2021-10-22
+## [0.10.2rc2] - 2021-10-31
 
 ### Added
 
+ - config: new option --max-dust-htlc-exposure-msat, which limits the total amount of sats to be allowed as dust on a channel ([#4837])
  - With `sqlite3` db backend we now use a 60-second busy timer, to allow backup processes like `litestream` to operate safely. ([#4867])
  - pay: Payment attempts are now grouped by the pay command that initiated them ([#4567])
  - JSON-RPC: `setchannelfee` gives a grace period (`enforcedelay`) before rejecting old-fee payments: default 10 minutes. ([#4806])
@@ -25,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+ - pay: The route selection will now use the log-propability-based channel selection to increase success rate and reduce time to completion ([#4771])
+ - Plugins: `pay` now biases towards larger channels, improving success probability. ([#4771])
  - db: removal of old HTLC information and vacuuming shrinks large lightningd.sqlite3 by a factor of 2-3. ([#4850])
  - JSON-RPC: `ping` now only works if we have a channel with the peer. ([#4804])
  - Protocol: Send regular pings to detect dead connections (particularly for Tor). ([#4804])
@@ -51,6 +54,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
+ - peer: Fixed a crash when a connection is lost outside of a DB transaction ([#4894])
  - We now no longer self-limit the number of file descriptors (which limits the number of channels) in sufficiently modern systems, or where we can access `/proc` or `/dev/fd`.  We still self-limit on old systems where we cannot find the list of open files on `/proc` or `/dev/fd`, so if you need > ~4000 channels, upgrade or mount `/proc`. ([#4872])
  - errors: Errors returning a `channel_update` no longer return an outdated one. ([#4876])
  - pay: `listpays` returns payments orderd by their creation date ([#4567])
@@ -75,53 +79,55 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Protocol: Updated onion_message support to match updated draft specification (with backwards compat for old version) ([#4800])
  - Anchor output mutual close allow a fee higher than the final commitment transaction (as per lightning-rfc #847) ([#4599])
 
-
-
-[#4852]: https://github.com/ElementsProject/lightning/pull/4852
-[#4754]: https://github.com/ElementsProject/lightning/pull/4754
-[#4760]: https://github.com/ElementsProject/lightning/pull/4760
-[#4830]: https://github.com/ElementsProject/lightning/pull/4830
-[#4750]: https://github.com/ElementsProject/lightning/pull/4750
-[#4752]: https://github.com/ElementsProject/lightning/pull/4752
-[#4554]: https://github.com/ElementsProject/lightning/pull/4554
-[#4567]: https://github.com/ElementsProject/lightning/pull/4567
-[#4730]: https://github.com/ElementsProject/lightning/pull/4730
-[#4582]: https://github.com/ElementsProject/lightning/pull/4582
-[#4803]: https://github.com/ElementsProject/lightning/pull/4803
-[#4668]: https://github.com/ElementsProject/lightning/pull/4668
-[#4731]: https://github.com/ElementsProject/lightning/pull/4731
-[#4872]: https://github.com/ElementsProject/lightning/pull/4872
-[#4784]: https://github.com/ElementsProject/lightning/pull/4784
-[#4754]: https://github.com/ElementsProject/lightning/pull/4754
-[#4731]: https://github.com/ElementsProject/lightning/pull/4731
-[#4668]: https://github.com/ElementsProject/lightning/pull/4668
-[#4567]: https://github.com/ElementsProject/lightning/pull/4567
-[#4806]: https://github.com/ElementsProject/lightning/pull/4806
-[#4805]: https://github.com/ElementsProject/lightning/pull/4805
-[#4876]: https://github.com/ElementsProject/lightning/pull/4876
-[#4742]: https://github.com/ElementsProject/lightning/pull/4742
 [#4850]: https://github.com/ElementsProject/lightning/pull/4850
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4754]: https://github.com/ElementsProject/lightning/pull/4754
+[#4849]: https://github.com/ElementsProject/lightning/pull/4849
+[#4730]: https://github.com/ElementsProject/lightning/pull/4730
+[#4876]: https://github.com/ElementsProject/lightning/pull/4876
+[#4830]: https://github.com/ElementsProject/lightning/pull/4830
+[#4668]: https://github.com/ElementsProject/lightning/pull/4668
+[#4872]: https://github.com/ElementsProject/lightning/pull/4872
 [#4616]: https://github.com/ElementsProject/lightning/pull/4616
-[#4849]: https://github.com/ElementsProject/lightning/pull/4849
-[#4804]: https://github.com/ElementsProject/lightning/pull/4804
-[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4752]: https://github.com/ElementsProject/lightning/pull/4752
 [#4731]: https://github.com/ElementsProject/lightning/pull/4731
-[#4599]: https://github.com/ElementsProject/lightning/pull/4599
-[#4737]: https://github.com/ElementsProject/lightning/pull/4737
-[#4599]: https://github.com/ElementsProject/lightning/pull/4599
-[#4599]: https://github.com/ElementsProject/lightning/pull/4599
-[#4849]: https://github.com/ElementsProject/lightning/pull/4849
-[#4567]: https://github.com/ElementsProject/lightning/pull/4567
-[#4599]: https://github.com/ElementsProject/lightning/pull/4599
-[#4751]: https://github.com/ElementsProject/lightning/pull/4751
-[#4763]: https://github.com/ElementsProject/lightning/pull/4763
-[#4674]: https://github.com/ElementsProject/lightning/pull/4674
-[#4804]: https://github.com/ElementsProject/lightning/pull/4804
-[#4867]: https://github.com/ElementsProject/lightning/pull/4867
-[#4800]: https://github.com/ElementsProject/lightning/pull/4800
-[#4595]: https://github.com/ElementsProject/lightning/pull/4595
+[#4554]: https://github.com/ElementsProject/lightning/pull/4554
 [#4742]: https://github.com/ElementsProject/lightning/pull/4742
-[0.10.2rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.2rc1
+[#4803]: https://github.com/ElementsProject/lightning/pull/4803
+[#4737]: https://github.com/ElementsProject/lightning/pull/4737
+[#4784]: https://github.com/ElementsProject/lightning/pull/4784
+[#4852]: https://github.com/ElementsProject/lightning/pull/4852
+[#4849]: https://github.com/ElementsProject/lightning/pull/4849
+[#4894]: https://github.com/ElementsProject/lightning/pull/4894
+[#4837]: https://github.com/ElementsProject/lightning/pull/4837
+[#4771]: https://github.com/ElementsProject/lightning/pull/4771
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4567]: https://github.com/ElementsProject/lightning/pull/4567
+[#4567]: https://github.com/ElementsProject/lightning/pull/4567
+[#4804]: https://github.com/ElementsProject/lightning/pull/4804
+[#4742]: https://github.com/ElementsProject/lightning/pull/4742
+[#4805]: https://github.com/ElementsProject/lightning/pull/4805
+[#4750]: https://github.com/ElementsProject/lightning/pull/4750
+[#4595]: https://github.com/ElementsProject/lightning/pull/4595
+[#4567]: https://github.com/ElementsProject/lightning/pull/4567
+[#4763]: https://github.com/ElementsProject/lightning/pull/4763
+[#4668]: https://github.com/ElementsProject/lightning/pull/4668
+[#4806]: https://github.com/ElementsProject/lightning/pull/4806
+[#4731]: https://github.com/ElementsProject/lightning/pull/4731
+[#4582]: https://github.com/ElementsProject/lightning/pull/4582
+[#4771]: https://github.com/ElementsProject/lightning/pull/4771
+[#4751]: https://github.com/ElementsProject/lightning/pull/4751
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4804]: https://github.com/ElementsProject/lightning/pull/4804
+[#4800]: https://github.com/ElementsProject/lightning/pull/4800
+[#4754]: https://github.com/ElementsProject/lightning/pull/4754
+[#4599]: https://github.com/ElementsProject/lightning/pull/4599
+[#4674]: https://github.com/ElementsProject/lightning/pull/4674
+[#4731]: https://github.com/ElementsProject/lightning/pull/4731
+[#4760]: https://github.com/ElementsProject/lightning/pull/4760
+[#4867]: https://github.com/ElementsProject/lightning/pull/4867
+[0.10.2rc2]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.2rc2
 
 ## [0.10.1] - 2021-08-09: "eltoo: Ethereum Layer Too"
 
