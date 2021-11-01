@@ -197,7 +197,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * NULL.  So we start with a zero-length array. */
 	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
 	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
-	ld->portnum = DEFAULT_PORT;
 	ld->listen = true;
 	ld->autolisten = true;
 	ld->reconnect = true;
@@ -951,6 +950,10 @@ int main(int argc, char *argv[])
 	 * between early args (including --plugin registration) and
 	 * non-early opts.  This also forks if they say --daemon. */
 	handle_early_opts(ld, argc, argv);
+
+	/*~ Set the default portnum according to the used network
+	 * similarly to what Bitcoin Core does to ports by default. */
+	ld->portnum = DEFAULT_PORT + chainparams->rpc_port - 8332;
 
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
