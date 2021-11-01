@@ -139,8 +139,8 @@ def test_announce_address(node_factory, bitcoind):
         l1.daemon.wait_for_log(r"\[OUT\] 0101.*47"
                                "010102030404d2"
                                "017f000001...."
-                               "02000000000000000000000000000000002607"
-                               "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607")
+                               "0200000000000000000000000000000000...."
+                               "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba5023003....")
         return
 
     # We should see it send node announce with all addresses (257 = 0x0101)
@@ -154,8 +154,8 @@ def test_announce_address(node_factory, bitcoind):
     l1.daemon.wait_for_log(r"\[OUT\] 0101.*0063"
                            "010102030404d2"  # IPv4 01 1.2.3.4:1234
                            "017f000001...."  # IPv4 01 127.0.0.1:wxyz
-                           "02000000000000000000000000000000002607"  # IPv6 02 :::9735
-                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607"  # TORv3 04
+                           "0200000000000000000000000000000000...."  # IPv6 02 :::<any_port>
+                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba5023003...."  # TORv3 04
                            "05096c6f63616c686f737404d3"       # DNS 05 len localhost:1235
                            "050b6578616d706c652e636f6d04d4")  # DNS 05 len example.com:1236
 
@@ -1019,10 +1019,7 @@ def test_gossip_addresses(node_factory, bitcoind):
     l1 = node_factory.get_node(options={
         'announce-addr': [
             '[::]:3',
-            '[::]',
             '127.0.0.1:2',
-            '127.0.0.1',
-            'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
             '4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion:1234'
         ],
     })
@@ -1037,10 +1034,7 @@ def test_gossip_addresses(node_factory, bitcoind):
     nodes = l2.rpc.listnodes(l1.info['id'])['nodes']
     assert len(nodes) == 1 and nodes[0]['addresses'] == [
         {'type': 'ipv4', 'address': '127.0.0.1', 'port': 2},
-        {'type': 'ipv4', 'address': '127.0.0.1', 'port': 9735},
         {'type': 'ipv6', 'address': '::', 'port': 3},
-        {'type': 'ipv6', 'address': '::', 'port': 9735},
-        {'type': 'torv3', 'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion', 'port': 9735},
         {'type': 'torv3', 'address': '4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion', 'port': 1234},
     ]
 
@@ -1912,7 +1906,7 @@ def test_statictor_onions(node_factory):
     })
 
     assert l1.daemon.is_in_log('127.0.0.1:{}'.format(l1.port))
-    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:9735,127.0.0.1:{}'.format(l2.port))
+    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:{},127.0.0.1:{}'.format(l2.port, l2.port))
 
 
 @pytest.mark.developer("needs a running Tor service instance at port 9151 or 9051")
