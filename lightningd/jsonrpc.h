@@ -22,7 +22,7 @@ enum command_mode {
 /* Context for a command (from JSON, but might outlive the connection!). */
 /* FIXME: move definition into jsonrpc.c */
 struct command {
-	/* Off json_cmd->commands */
+	/* Off list jcon->commands */
 	struct list_node list;
 	/* The global state */
 	struct lightningd *ld;

@@ -401,35 +401,8 @@ bool wallet_unreserve_output(struct wallet *w,
 					   OUTPUT_STATE_AVAILABLE);
 }
 
-/**
- * unreserve_utxo - Mark a reserved UTXO as available again
- */
-static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
-{
-	if (!wallet_update_output_status(w, &unres->outpoint,
-					 OUTPUT_STATE_RESERVED,
-					 OUTPUT_STATE_AVAILABLE)) {
-		fatal("Unable to unreserve output");
-	}
-}
-
-/**
- * destroy_utxos - Destructor for an array of pointers to utxo
- */
-static void destroy_utxos(const struct utxo **utxos, struct wallet *w)
-{
-	for (size_t i = 0; i < tal_count(utxos); i++)
-		unreserve_utxo(w, utxos[i]);
-}
-
-void wallet_persist_utxo_reservation(struct wallet *w, const struct utxo **utxos)
-{
-	tal_del_destructor2(utxos, destroy_utxos, w);
-}
-
 void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 {
-	tal_del_destructor2(utxos, destroy_utxos, w);
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (!wallet_update_output_status(
 			w, &utxos[i]->outpoint,

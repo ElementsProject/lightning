@@ -1411,13 +1411,6 @@ void add_unreleased_tx(struct wallet *w, struct unreleased_tx *utx);
 /* These will touch the db, so need to be explicitly freed. */
 void free_unreleased_txs(struct wallet *w);
 
-/* wallet_persist_utxo_reservation - Removes destructor
- *
- * Persists the reservation in the database (until a restart)
- * instead of clearing the reservation when the utxo object
- * is destroyed */
-void wallet_persist_utxo_reservation(struct wallet *w, const struct utxo **utxos);
-
 /* wallet_unreserve_output - Unreserve a utxo
  *
  * We unreserve utxos so that they can be spent elsewhere.

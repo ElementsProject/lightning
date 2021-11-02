@@ -1193,12 +1193,8 @@ int main(int argc, char *argv[])
 	/* Tell plugins we're shutting down, closes the db for write access. */
 	shutdown_plugins(ld);
 
-	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
-	 * it might actually be touching the DB in some destructors, e.g.,
-	 * unreserving UTXOs (see #1737) */
-	db_begin_transaction(ld->wallet->db);
+	/* Cleanup JSON RPC separately: destructors assume some list_head * in ld */
 	tal_free(ld->jsonrpc);
-	db_commit_transaction(ld->wallet->db);
 
 	/* Clean our our HTLC maps, since they use malloc. */
 	htlc_in_map_clear(&ld->htlcs_in);
