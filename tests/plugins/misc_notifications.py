@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Plugin to be used to test miscellaneous notifications.
-
-Only used for 'channel_opened' for now.
 """
 
 from pyln.client import Plugin
+from time import sleep
+import sys
 
 plugin = Plugin()
 
@@ -25,6 +25,13 @@ def channel_opened(plugin, channel_opened, **kwargs):
 @plugin.subscribe("channel_state_changed")
 def channel_state_changed(plugin, channel_state_changed, **kwargs):
     plugin.log("channel_state_changed {}".format(channel_state_changed))
+
+
+@plugin.subscribe("shutdown")
+def shutdown(plugin, **kwargs):
+    plugin.log("delaying shutdown with 5s")
+    sleep(5)
+    sys.exit(0)
 
 
 plugin.run()

@@ -1084,6 +1084,32 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1.result()
 
 
+def test_htlc_accepted_hook_shutdown(node_factory, executor):
+    """Hooks of important-plugins are never removed and these plugins are kept
+       alive until after subdaemons are shutdown.
+    """
+    l1, l2 = node_factory.line_graph(2, opts=[
+        {'may_reconnect': True, 'log-level': 'info'},
+        {'may_reconnect': True, 'log-level': 'debug',
+         'plugin': [os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py')],
+         'important-plugin': [os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')]}
+    ])
+
+    i1 = l2.rpc.invoice(msatoshi=1000, label="inv1", description="desc")['bolt11']
+
+    # fail_htlcs.py makes payment fail
+    with pytest.raises(RpcError):
+        l1.rpc.pay(i1)
+
+    f_stop = executor.submit(l2.rpc.stop)
+    l2.daemon.wait_for_log(r'plugin-misc_notifications.py: delaying shutdown with 5s')
+
+    # Should still fail htlc while shutting down
+    with pytest.raises(RpcError):
+        l1.rpc.pay(i1)
+    f_stop.result()
+
+
 @pytest.mark.developer("without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
