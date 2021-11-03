@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="eltoo: Ethereum Layer Too"
-VERSION=0.10.1
+VERSION_NAME="Bitcoin Dust Consensus Rule"
+VERSION=0.10.2
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
