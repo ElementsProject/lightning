@@ -17,16 +17,16 @@ RUN wget -qO /opt/tini "https://github.com/krallin/tini/releases/download/v0.18.
     && echo "12d20136605531b09a2c2dac02ccee85e1b874eb322ef6baf7561cd93f93c855 /opt/tini" | sha256sum -c - \
     && chmod +x /opt/tini
 
-ARG BITCOIN_VERSION=0.18.1
+ARG BITCOIN_VERSION=22.0
 ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
 ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
-ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS.asc
+ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS
 
 RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
     && wget -qO $BITCOIN_TARBALL "$BITCOIN_URL" \
-    && wget -qO bitcoin.asc "$BITCOIN_ASC_URL" \
-    && grep $BITCOIN_TARBALL bitcoin.asc | tee SHA256SUMS.asc \
-    && sha256sum -c SHA256SUMS.asc \
+    && wget -qO bitcoin "$BITCOIN_ASC_URL" \
+    && grep $BITCOIN_TARBALL bitcoin | tee SHA256SUMS \
+    && sha256sum -c SHA256SUMS \
     && BD=bitcoin-$BITCOIN_VERSION/bin \
     && tar -xzvf $BITCOIN_TARBALL $BD/bitcoin-cli --strip-components=1 \
     && rm $BITCOIN_TARBALL
@@ -48,7 +48,7 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
 FROM debian:buster-slim as builder
 
 ENV LIGHTNINGD_VERSION=master
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python3 python3-mako wget gnupg dirmngr git gettext
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python3 python3-pip python3-setuptools python3-mako wget gnupg dirmngr git gettext
 
 RUN wget -q https://zlib.net/zlib-1.2.11.tar.gz \
 && tar xvf zlib-1.2.11.tar.gz \
@@ -79,6 +79,7 @@ RUN git clone --recursive /tmp/lightning . && \
 
 ARG DEVELOPER=0
 ENV PYTHON_VERSION=3
+RUN pip3 install mrkd
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 
 FROM debian:buster-slim as final
