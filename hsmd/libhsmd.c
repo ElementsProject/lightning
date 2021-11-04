@@ -105,6 +105,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 		return (client->capabilities & HSM_CAP_SIGN_WILL_FUND_OFFER) != 0;
 
 	case WIRE_HSMD_INIT:
+	case WIRE_HSMD_NEW_CHANNEL:
 	case WIRE_HSMD_CLIENT_HSMFD:
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 	case WIRE_HSMD_SIGN_INVOICE:
@@ -123,6 +124,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_CUPDATE_SIG_REPLY:
 	case WIRE_HSMD_CLIENT_HSMFD_REPLY:
+	case WIRE_HSMD_NEW_CHANNEL_REPLY:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
@@ -277,6 +279,21 @@ static void get_channel_seed(const struct node_id *peer_id, u64 dbid,
 		    input, sizeof(input),
 		    &channel_base, sizeof(channel_base),
 		    info, strlen(info));
+}
+
+/* ~This stub implementation is overriden by fully validating signers
+ * that need to manage per-channel state. */
+static u8 *handle_new_channel(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct node_id peer_id;
+	u64 dbid;
+
+	if (!fromwire_hsmd_new_channel(msg_in, &peer_id, &dbid))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* Stub implementation */
+
+	return towire_hsmd_new_channel_reply(NULL);
 }
 
 /*~ For almost every wallet tx we use the BIP32 seed, but not for onchain
@@ -1412,6 +1429,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		    "libhsmd",
 		    hsmd_wire_name(t));
 
+	case WIRE_HSMD_NEW_CHANNEL:
+		return handle_new_channel(client, msg);
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 		return handle_get_output_scriptpubkey(client, msg);
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
@@ -1462,6 +1481,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_CUPDATE_SIG_REPLY:
 	case WIRE_HSMD_CLIENT_HSMFD_REPLY:
+	case WIRE_HSMD_NEW_CHANNEL_REPLY:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:

@@ -138,6 +138,10 @@ bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8
 /* Generated stub for fromwire_gossipd_get_stripped_cupdate_reply */
 bool fromwire_gossipd_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_get_stripped_cupdate_reply called!\n"); abort(); }
+u8 *towire_hsmd_new_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_new_channel called!\n"); abort(); }
+bool fromwire_hsmd_new_channel_reply(const void *p UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_new_channel_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
