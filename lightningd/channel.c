@@ -218,6 +218,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 {
 	struct lightningd *ld = peer->ld;
 	struct channel *channel = tal(ld, struct channel);
+	u8 *msg;
 
 	channel->peer = peer;
 	/* Not saved to the database yet! */
@@ -283,6 +284,14 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
 	shachain_init(&channel->their_shachain.chain);
+
+	msg = towire_hsmd_new_channel(NULL, &peer->id, channel->unsaved_dbid);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!fromwire_hsmd_new_channel_reply(msg))
+		fatal("HSM gave bad hsm_new_channel_reply %s",
+		      tal_hex(msg, msg));
 
 	get_channel_basepoints(ld, &peer->id, channel->unsaved_dbid,
 			       &channel->local_basepoints,

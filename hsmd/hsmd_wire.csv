@@ -23,6 +23,14 @@ msgdata,hsmd_init_reply,bip32,ext_key,
 msgdata,hsmd_init_reply,bolt12,point32,
 msgdata,hsmd_init_reply,onion_reply_secret,secret,
 
+# Declare a new channel.
+msgtype,hsmd_new_channel,30
+msgdata,hsmd_new_channel,id,node_id,
+msgdata,hsmd_new_channel,dbid,u64,
+
+# No value returned.
+msgtype,hsmd_new_channel_reply,130
+
 # Get a new HSM FD, with the specified capabilities
 msgtype,hsmd_client_hsmfd,9
 # Which identity to use for requests
