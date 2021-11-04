@@ -88,6 +88,7 @@ On success, an object is returned, containing:
 - **log-timestamps** (boolean, optional): `log-timestamps` field from config or cmdline, or default
 - **force-feerates** (string, optional): force-feerate configuration setting, if any
 - **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
+- **fetchinvoice-noconnect** (boolean, optional): `featchinvoice-noconnect` fileds from config or cmdline, or default
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

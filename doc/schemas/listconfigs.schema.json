@@ -251,6 +251,10 @@
 	    "type": "string",
 	    "description": "`subdaemon` fields from config or cmdline if any (can be more than one)"
 	},
+       "fetchinvoice-noconnect": {
+            "type": "boolean",
+            "description": "`featchinvoice-noconnect` fileds from config or cmdline, or default"
+       },
 	"tor-service-password": {
 	    "type": "string",
 	    "description": "`tor-service-password` field from config or cmdline, if any"
