@@ -68,6 +68,32 @@ jobs:
           path: report.*
           if-no-files-found: ignore
 
+  check-dock:
+    name: Check c-lightning doc
+    runs-on: ubuntu-20.04
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: bash -x .github/scripts/setup.sh
+
+      - name: Check Doc
+        run: |
+          pip install mako
+          ./configure
+          make check-doc
+
   proto-test:
     name: Protocol Test Config
     runs-on: ubuntu-20.04
