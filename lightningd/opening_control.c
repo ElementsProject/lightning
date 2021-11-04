@@ -649,6 +649,7 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	const u8 *our_upfront_shutdown_script = payload->our_upfront_shutdown_script;
 	const char *errmsg = payload->errmsg;
 	struct uncommitted_channel* uc = payload->uc;
+	u32 *upfront_shutdown_script_wallet_index;
 
 	/* We want to free this, whatever happens. */
 	tal_steal(tmpctx, payload);
@@ -669,9 +670,24 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 		uc->got_offer = true;
 	}
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(payload->openingd->ld->wallet,
+			     our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		upfront_shutdown_script_wallet_index = NULL;
+
+
 	subd_send_msg(openingd,
 		      take(towire_openingd_got_offer_reply(NULL, errmsg,
-							  our_upfront_shutdown_script)));
+							   our_upfront_shutdown_script,
+							   upfront_shutdown_script_wallet_index)));
 }
 
 static bool
@@ -760,8 +776,8 @@ static void opening_got_offer(struct subd *openingd,
 	/* Tell them they can't open, if we already have open channel. */
 	if (peer_active_channel(uc->peer)) {
 		subd_send_msg(openingd,
-			      take(towire_openingd_got_offer_reply(NULL,
-					  "Already have active channel", NULL)));
+			      take(towire_openingd_got_offer_reply(
+					   NULL, "Already have active channel", NULL, NULL)));
 		return;
 	}
 
@@ -1110,6 +1126,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	u8 *msg = NULL;
 	struct amount_sat *amount;
 	struct amount_msat *push_msat;
+	u32 *upfront_shutdown_script_wallet_index;
 
 	fc->cmd = cmd;
 	fc->cancels = tal_arr(fc, struct command *, 0);
@@ -1220,10 +1237,24 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		fc->our_upfront_shutdown_script
 			= tal_steal(fc, fc->our_upfront_shutdown_script);
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(fc->cmd->ld->wallet,
+			     fc->our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		upfront_shutdown_script_wallet_index = NULL;
+
 	msg = towire_openingd_funder_start(NULL,
 					  *amount,
 					  fc->push,
 					  fc->our_upfront_shutdown_script,
+					  upfront_shutdown_script_wallet_index,
 					  *feerate_per_kw,
 					  fc->channel_flags);
 

@@ -181,6 +181,9 @@ struct state {
 	/* If non-NULL, this is the scriptpubkey we/they *must* close with */
 	u8 *upfront_shutdown_script[NUM_SIDES];
 
+	/* If non-NULL, the wallet index for the LOCAL script */
+	u32 *local_upfront_shutdown_wallet_index;
+
 	/* The channel structure, as defined in common/initial_channel.h. While
 	 * the structure has room for HTLCs, those routines are
 	 * channeld-specific as initial channels never have HTLCs. */
@@ -1799,6 +1802,28 @@ static u8 *accepter_commits(struct state *state,
 
 	type = default_channel_type(NULL,
 				    state->our_features, state->their_features);
+
+	/*~ Report the channel parameters to the signer. */
+	msg = towire_hsmd_ready_channel(NULL,
+				       false,	/* is_outbound */
+				       total,
+				       our_msats,
+				       &tx_state->funding.txid,
+				       tx_state->funding.n,
+				       tx_state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       state->local_upfront_shutdown_wallet_index,
+				       &state->their_points,
+				       &state->their_funding_pubkey,
+				       tx_state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       type);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
+
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
 					     &tx_state->funding,
@@ -2139,6 +2164,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						&tx_state->accepter_funding,
 						&tx_state->psbt,
 						&state->upfront_shutdown_script[LOCAL],
+						&state->local_upfront_shutdown_wallet_index,
 						&tx_state->rates))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
 
@@ -2367,6 +2393,7 @@ static u8 *opener_commits(struct state *state,
 	const u8 *wscript;
 	u8 *msg;
 	char *error;
+	struct amount_msat their_msats;
 	const struct channel_type *type;
 
 	wscript = bitcoin_redeem_2of2(tmpctx, &state->our_funding_pubkey,
@@ -2409,9 +2436,40 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
+	if (!amount_sat_to_msat(&their_msats, tx_state->accepter_funding)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Overflow error, can't convert accepter_funding %s"
+			      " to msats",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &tx_state->accepter_funding));
+		return NULL;
+	}
+
 	/* Ok, we're mostly good now? Let's do this */
 	type = default_channel_type(NULL,
 				    state->our_features, state->their_features);
+
+	/*~ Report the channel parameters to the signer. */
+	msg = towire_hsmd_ready_channel(NULL,
+				       true,	/* is_outbound */
+				       total,
+				       their_msats,
+				       &tx_state->funding.txid,
+				       tx_state->funding.n,
+				       tx_state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       state->local_upfront_shutdown_wallet_index,
+				       &state->their_points,
+				       &state->their_funding_pubkey,
+				       tx_state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       type);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
+
 	state->channel = new_initial_channel(state,
 					     &cid,
 					     &tx_state->funding,
@@ -2612,6 +2670,7 @@ static void opener_start(struct state *state, u8 *msg)
 					    &tx_state->psbt,
 					    &tx_state->opener_funding,
 					    &state->upfront_shutdown_script[LOCAL],
+					    &state->local_upfront_shutdown_wallet_index,
 					    &state->feerate_per_kw_commitment,
 					    &tx_state->feerate_per_kw_funding,
 					    &state->channel_flags,
@@ -3826,6 +3885,7 @@ int main(int argc, char *argv[])
 					     &state->shutdown_sent[REMOTE],
 					     &state->upfront_shutdown_script[LOCAL],
 					     &state->upfront_shutdown_script[REMOTE],
+					     &state->local_upfront_shutdown_wallet_index,
 					     &state->tx_state->remote_funding_sigs_rcvd,
 					     &fee_states,
 					     &state->channel_flags,
