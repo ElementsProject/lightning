@@ -84,6 +84,9 @@ struct state {
 	/* If non-NULL, this is the scriptpubkey we/they *must* close with */
 	u8 *upfront_shutdown_script[NUM_SIDES];
 
+	/* If non-NULL, the wallet index for the LOCAL script */
+	u32 *local_upfront_shutdown_wallet_index;
+
 	/* This is a cluster of fields in open_channel and accept_channel which
 	 * indicate the restrictions each side places on the channel. */
 	struct channel_config localconf, remoteconf;
@@ -518,6 +521,27 @@ static bool funder_finalize_channel_setup(struct state *state,
 	struct channel_id cid;
 	char *err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
+
+	/*~ Channel is ready; Report the channel parameters to the signer. */
+	msg = towire_hsmd_ready_channel(NULL,
+				       true,	/* is_outbound */
+				       state->funding_sats,
+				       state->push_msat,
+				       &state->funding.txid,
+				       state->funding.n,
+				       state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       state->local_upfront_shutdown_wallet_index,
+				       &state->their_points,
+				       &state->their_funding_pubkey,
+				       state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       state->channel_type);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
 
 	/*~ Now we can initialize the `struct channel`.  This represents
 	 * the current channel state and is how we can generate the current
@@ -979,7 +1003,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* We don't allocate off tmpctx, because that's freed inside
 	 * opening_negotiate_msg */
 	if (!fromwire_openingd_got_offer_reply(state, msg, &err_reason,
-					      &state->upfront_shutdown_script[LOCAL]))
+					      &state->upfront_shutdown_script[LOCAL],
+					      &state->local_upfront_shutdown_wallet_index))
 		master_badmsg(WIRE_OPENINGD_GOT_OFFER_REPLY, msg);
 
 	/* If they give us a reason to reject, do so. */
@@ -1054,6 +1079,27 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				type_to_string(msg, struct channel_id,
 					       &state->channel_id),
 				type_to_string(msg, struct channel_id, &id_in));
+
+	/*~ Channel is ready; Report the channel parameters to the signer. */
+	msg = towire_hsmd_ready_channel(NULL,
+				       false,	/* is_outbound */
+				       state->funding_sats,
+				       state->push_msat,
+				       &state->funding.txid,
+				       state->funding.n,
+				       state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       state->local_upfront_shutdown_wallet_index,
+				       &theirs,
+				       &their_funding_pubkey,
+				       state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       state->channel_type);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
 
 	/* Now we can create the channel structure. */
 	state->channel = new_initial_channel(state,
@@ -1318,6 +1364,7 @@ static u8 *handle_master_in(struct state *state)
 						    &state->funding_sats,
 						    &state->push_msat,
 						    &state->upfront_shutdown_script[LOCAL],
+						    &state->local_upfront_shutdown_wallet_index,
 						    &state->feerate_per_kw,
 						    &channel_flags))
 			master_badmsg(WIRE_OPENINGD_FUNDER_START, msg);

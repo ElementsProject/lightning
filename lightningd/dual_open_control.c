@@ -616,6 +616,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 {
 	struct subd *dualopend = payload->dualopend;
 	struct channel *channel = payload->channel;
+	u32 *our_shutdown_script_wallet_index;
 	u8 *msg;
 
 	/* Our daemon died! */
@@ -646,6 +647,19 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 		return subd_send_msg(dualopend, take(msg));
 	}
 
+	/* Determine the wallet index for our_shutdown_scriptpubkey,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(dualopend->ld->wallet,
+			     payload->our_shutdown_scriptpubkey,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		our_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*our_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		our_shutdown_script_wallet_index = NULL;
+
 	channel->cid = payload->channel_id;
 	channel->opener = REMOTE;
 	channel->open_attempt = new_channel_open_attempt(channel);
@@ -653,6 +667,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 					       payload->accepter_funding,
 					       payload->psbt,
 					       payload->our_shutdown_scriptpubkey,
+					       our_shutdown_script_wallet_index,
 					       payload->rates);
 
 	subd_send_msg(dualopend, take(msg));
@@ -2468,6 +2483,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	struct amount_sat *amount, psbt_val, *request_amt;
 	struct wally_psbt *psbt;
 	const u8 *our_upfront_shutdown_script;
+	u32 *our_upfront_shutdown_script_wallet_index;
 	struct open_attempt *oa;
 	struct lease_rates *rates;
 	struct command_result *res;
@@ -2603,9 +2619,23 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		oa->our_upfront_shutdown_script
 			= tal_steal(oa, our_upfront_shutdown_script);
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(cmd->ld->wallet,
+			     oa->our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		our_upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*our_upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		our_upfront_shutdown_script_wallet_index = NULL;
+
 	msg = towire_dualopend_opener_init(NULL,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
+					   our_upfront_shutdown_script_wallet_index,
 					   *feerate_per_kw,
 					   *feerate_per_kw_funding,
 					   channel->channel_flags,
@@ -2989,6 +3019,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	struct amount_sat *amount, *request_amt;
 	struct wally_psbt *psbt;
 	struct open_attempt *oa;
+	u32 *our_upfront_shutdown_script_wallet_index;
 	u8 *msg;
 	struct command_result *res;
 
@@ -3060,9 +3091,23 @@ static struct command_result *json_queryrates(struct command *cmd,
 	/* empty psbt to start */
 	psbt = create_psbt(tmpctx, 0, 0, 0);
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(cmd->ld->wallet,
+			     oa->our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		our_upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*our_upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		our_upfront_shutdown_script_wallet_index = NULL;
+
 	msg = towire_dualopend_opener_init(NULL,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
+					   our_upfront_shutdown_script_wallet_index,
 					   *feerate_per_kw,
 					   *feerate_per_kw_funding,
 					   channel->channel_flags,
@@ -3201,6 +3246,7 @@ void peer_restart_dualopend(struct peer *peer,
 	struct channel_config unused_config;
 	struct channel_inflight *inflight;
         int hsmfd;
+	u32 *local_shutdown_script_wallet_index;
 	u8 *msg;
 
 	if (channel_unsaved(channel)) {
@@ -3243,6 +3289,19 @@ void peer_restart_dualopend(struct peer *peer,
 	blockheight = get_blockheight(channel->blockheight_states,
 				      channel->opener, LOCAL);
 
+	/* Determine the wallet index for the LOCAL shutdown_scriptpubkey,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(peer->ld->wallet,
+			     channel->shutdown_scriptpubkey[LOCAL],
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		local_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*local_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		local_shutdown_script_wallet_index = NULL;
+
 	msg = towire_dualopend_reinit(NULL,
 				      chainparams,
 				      peer->ld->our_features,
@@ -3271,6 +3330,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->remote_upfront_shutdown_script,
+				      local_shutdown_script_wallet_index,
 				      inflight->remote_tx_sigs,
                                       channel->fee_states,
 				      channel->channel_flags,

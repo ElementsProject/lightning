@@ -55,6 +55,7 @@ msgtype,openingd_got_offer_reply,6105
 msgdata,openingd_got_offer_reply,rejection,?wirestring,
 msgdata,openingd_got_offer_reply,shutdown_len,u16,
 msgdata,openingd_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
+msgdata,openingd_got_offer_reply,our_shutdown_wallet_index,?u32,
 
 #include <common/penalty_base.h>
 # Openingd->master: we've successfully offered channel.
@@ -85,6 +86,7 @@ msgdata,openingd_funder_start,funding_satoshis,amount_sat,
 msgdata,openingd_funder_start,push_msat,amount_msat,
 msgdata,openingd_funder_start,len_upfront,u16,
 msgdata,openingd_funder_start,upfront_shutdown_script,u8,len_upfront
+msgdata,openingd_funder_start,upfront_shutdown_wallet_index,?u32,
 msgdata,openingd_funder_start,feerate_per_kw,u32,
 msgdata,openingd_funder_start,channel_flags,u8,
 

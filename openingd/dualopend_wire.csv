@@ -61,6 +61,7 @@ msgdata,dualopend_reinit,local_shutdown_len,u16,
 msgdata,dualopend_reinit,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,dualopend_reinit,remote_shutdown_len,u16,
 msgdata,dualopend_reinit,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_reinit,local_shutdown_wallet_index,?u32,
 msgdata,dualopend_reinit,remote_funding_sigs_received,bool,
 msgdata,dualopend_reinit,fee_states,fee_states,
 msgdata,dualopend_reinit,channel_flags,u8,
@@ -94,6 +95,7 @@ msgdata,dualopend_got_offer_reply,accepter_funding,amount_sat,
 msgdata,dualopend_got_offer_reply,psbt,wally_psbt,
 msgdata,dualopend_got_offer_reply,shutdown_len,u16,
 msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
+msgdata,dualopend_got_offer_reply,our_shutdown_wallet_index,?u32,
 # must go last because of embedded tu32
 msgdata,dualopend_got_offer_reply,lease_rates,?lease_rates,
 
@@ -172,6 +174,7 @@ msgdata,dualopend_opener_init,psbt,wally_psbt,
 msgdata,dualopend_opener_init,funding_amount,amount_sat,
 msgdata,dualopend_opener_init,local_shutdown_len,u16,
 msgdata,dualopend_opener_init,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dualopend_opener_init,local_shutdown_wallet_index,?u32,
 msgdata,dualopend_opener_init,feerate_per_kw,u32,
 msgdata,dualopend_opener_init,feerate_per_kw_funding,u32,
 msgdata,dualopend_opener_init,channel_flags,u8,
