@@ -15,7 +15,6 @@
         "funder-reserve-tank",
         "lease-fee-base-msat",
         "lease-fee-basis",
-        "lease-funding-weight",
-        "fetchinvoice-noconnect"
+        "lease-funding-weight"
     ]
 }
