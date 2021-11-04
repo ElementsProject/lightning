@@ -89,7 +89,15 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-help.7 \
 	doc/lightning-getlog.7
 
-doc-all: $(MANPAGES) doc/index.rst
+doc-all: fmt-schema $(MANPAGES) doc/index.rst
+
+#FIXME(vincenzopalazzo) we don't need to change a file if it is well format,
+#so we can use diff to check difference in the real json and in the .fmt
+fmt-schema:
+	@echo "Checking schema fmt!"
+	@for f in $$(find doc/schemas -type f -name '*.json'); do cat "$$f" | jq . > "$$f.fmt" ; mv "$$f.fmt" "$$f" ; done
+
+check-doc: check-config-docs check-manpages
 
 # Some manpages use a schema, so need that added.
 MARKDOWN_WITH_SCHEMA := $(shell grep -l GENERATE-FROM-SCHEMA $(MANPAGES:=.md))
@@ -149,7 +157,7 @@ check-manpages: all-programs check-config-docs
 # Makes sure that fields mentioned in schema are in man page, and vice versa.
 check-config-docs:
 	@for c in `sed -n 's/^	"\(.*\)": {/\1/p' doc/schemas/listconfigs.schema.json | grep -v '^# version$$' | grep -v '^plugins$$' | grep -v '^important-plugins$$'`; do if ! grep -q "^ \*\*$$c\*\*" doc/lightningd-config.5.md; then echo "$$c undocumented!"; exit 1; fi; done
-	@for c in `grep -v '\[plugin ' doc/lightningd-config.5.md | sed -n 's/^ \*\*\([^*]*\)\*\*.*/\1/p' | grep -v '^\(help\|version\|mainnet\|testnet\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do if ! grep -q '^	"'"$$c"'"' doc/schemas/listconfigs.schema.json; then echo "$$c documented but not in schema!"; exit 1; fi; done
+	@for c in `grep -v '\[plugin ' doc/lightningd-config.5.md | sed -n 's/^ \*\*\([^*]*\)\*\*.*/\1/p' | grep -v '^\(help\|version\|mainnet\|testnet\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do if ! grep -q '"'"$$c"'"' doc/schemas/listconfigs.schema.json; then echo "$$c documented but not in schema!"; exit 1; fi; done
 
 doc-maintainer-clean:
 	$(RM) $(MANPAGES)
