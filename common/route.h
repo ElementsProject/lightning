@@ -74,4 +74,22 @@ struct route_hop *route_from_dijkstra(const tal_t *ctx,
 				      const struct gossmap_node *src,
 				      struct amount_msat final_amount,
 				      u32 final_cltv);
+
+/*
+ * Manually exlude nodes or channels from a route.
+ * Used with `getroute` and `pay` commands
+ */
+enum route_exclusion_type {
+	EXCLUDE_CHANNEL = 1,
+	EXCLUDE_NODE = 2
+};
+
+struct route_exclusion {
+	enum route_exclusion_type type;
+	union {
+		struct short_channel_id_dir chan_id;
+		struct node_id node_id;
+	} u;
+};
+
 #endif /* LIGHTNING_COMMON_ROUTE_H */

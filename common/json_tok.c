@@ -10,6 +10,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
+#include <common/route.h>
 
 struct command_result *param_array(struct command *cmd, const char *name,
 				   const char *buffer, const jsmntok_t *tok,
@@ -643,6 +644,64 @@ param_routehint_array(struct command *cmd, const char *name, const char *buffer,
 			return err;
 		}
 		tal_arr_expand(ris, element);
+
+		tal_free(element_name);
+	}
+	return NULL;
+}
+
+struct command_result *param_route_exclusion(struct command *cmd,
+					const char *name, const char *buffer, const jsmntok_t *tok,
+					struct route_exclusion **re)
+{
+	*re = tal(cmd, struct route_exclusion);
+	struct short_channel_id_dir *chan_id =
+					tal(tmpctx, struct short_channel_id_dir);
+	if (!short_channel_id_dir_from_str(buffer + tok->start,
+						tok->end - tok->start,
+						chan_id)) {
+		struct node_id *node_id = tal(tmpctx, struct node_id);
+
+		if (!json_to_node_id(buffer, tok, node_id))
+			return command_fail_badparam(cmd, "exclude",
+								buffer, tok,
+								"should be short_channel_id_dir or node_id");
+
+		(*re)->type = EXCLUDE_NODE;
+		(*re)->u.node_id = *node_id;
+	} else {
+		(*re)->type = EXCLUDE_CHANNEL;
+		(*re)->u.chan_id = *chan_id;
+	}
+
+	return NULL;
+}
+
+struct command_result *
+param_route_exclusion_array(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t *tok,
+					struct route_exclusion ***res)
+{
+	size_t i;
+	const jsmntok_t *curr;
+	char *element_name;
+	struct command_result *err;
+	if (tok->type != JSMN_ARRAY) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Exclude array %s (\"%s\") is not an array",
+		    name, json_strdup(tmpctx, buffer, tok));
+	}
+
+	*res = tal_arr(cmd, struct route_exclusion *, 0);
+	json_for_each_arr(i, curr, tok) {
+		struct route_exclusion *element;
+		element_name = tal_fmt(cmd, "%s[%zu]", name, i);
+		err = param_route_exclusion(cmd, element_name, buffer, curr, &element);
+		if (err != NULL) {
+			return err;
+		}
+		tal_arr_expand(res, element);
 
 		tal_free(element_name);
 	}

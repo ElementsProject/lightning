@@ -30,19 +30,6 @@ static struct gossmap *get_gossmap(void)
 /* Convenience global since route_score_fuzz doesn't take args. 0 to 1. */
 static double fuzz;
 
-enum exclude_entry_type {
-	EXCLUDE_CHANNEL = 1,
-	EXCLUDE_NODE = 2
-};
-
-struct exclude_entry {
-	enum exclude_entry_type type;
-	union {
-		struct short_channel_id_dir chan_id;
-		struct node_id node_id;
-	} u;
-};
-
 /* Prioritize costs over distance, but with fuzz.  Cost must be
  * the same when the same channel queried, so we base it on that. */
 static u64 route_score_fuzz(u32 distance,
@@ -68,7 +55,7 @@ static bool can_carry(const struct gossmap *map,
 		      const struct gossmap_chan *c,
 		      int dir,
 		      struct amount_msat amount,
-		      const struct exclude_entry **excludes)
+		      struct route_exclusion **excludes)
 {
 	struct node_id dstid;
 
@@ -143,12 +130,11 @@ static struct command_result *json_getroute(struct command *cmd,
 {
 	struct node_id *destination;
 	struct node_id *source;
-	const jsmntok_t *excludetok;
 	struct amount_msat *msat;
 	u32 *cltv;
 	/* risk factor 12.345% -> riskfactor_millionths = 12345000 */
 	u64 *riskfactor_millionths, *fuzz_millionths;
-	const struct exclude_entry **excluded;
+	struct route_exclusion **excluded;
 	u32 *max_hops;
 	const struct dijkstra *dij;
 	struct route_hop *route;
@@ -164,7 +150,7 @@ static struct command_result *json_getroute(struct command *cmd,
 		   p_opt_def("fromid", param_node_id, &source, local_id),
 		   p_opt_def("fuzzpercent", param_millionths, &fuzz_millionths,
 			     5000000),
-		   p_opt("exclude", param_array, &excludetok),
+		   p_opt("exclude", param_route_exclusion_array, &excluded),
 		   p_opt_def("maxhops", param_number, &max_hops, ROUTING_MAX_HOPS),
 		   NULL))
 		return command_param_failed();
@@ -175,38 +161,6 @@ static struct command_result *json_getroute(struct command *cmd,
 		return command_fail_badparam(cmd, "fuzzpercent",
 					     buffer, params,
 					     "should be <= 100");
-
-	if (excludetok) {
-		const jsmntok_t *t;
-		size_t i;
-
-		excluded = tal_arr(cmd, const struct exclude_entry *, 0);
-
-		json_for_each_arr(i, t, excludetok) {
-			struct exclude_entry *entry = tal(excluded, struct exclude_entry);
-			struct short_channel_id_dir *chan_id = tal(tmpctx, struct short_channel_id_dir);
-			if (!short_channel_id_dir_from_str(buffer + t->start,
-							   t->end - t->start,
-							   chan_id)) {
-				struct node_id *node_id = tal(tmpctx, struct node_id);
-
-				if (!json_to_node_id(buffer, t, node_id))
-					return command_fail_badparam(cmd, "exclude",
-								     buffer, t,
-								     "should be short_channel_id or node_id");
-
-				entry->type = EXCLUDE_NODE;
-				entry->u.node_id = *node_id;
-			} else {
-				entry->type = EXCLUDE_CHANNEL;
-				entry->u.chan_id = *chan_id;
-			}
-
-			tal_arr_expand(&excluded, entry);
-		}
-	} else {
-		excluded = NULL;
-	}
 
 	gossmap = get_gossmap();
 	src = gossmap_find_node(gossmap, source);
