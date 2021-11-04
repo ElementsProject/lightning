@@ -309,6 +309,9 @@ transactions: default is 100.
 Number of HTLCs one channel can handle concurrently in each direction.
 Should be between 1 and 483 (default 30).
 
+ **max-dust-htlc-exposure-msat**=*MILLISATOSHI*
+Option which limits the total amount of sats to be allowed as dust on a channel.
+
  **cltv-delta**=*BLOCKS*
 The number of blocks between incoming payments and outgoing payments:
 this needs to be enough to make sure that if we have to, we can close
@@ -438,9 +441,6 @@ Disable the DNS bootstrapping mechanism to find a node by its node ID.
 Set a Tor control password, which may be needed for *autotor:* to
 authenticate to the Tor control port.
 
- **max-dust-htlc-exposure-msat**
-Option which limits the total amount of sats to be allowed as dust on a channel.
-
 ### Lightning Plugins
 
 lightningd(8) supports plugins, which offer additional configuration
@@ -527,7 +527,7 @@ about whether to add funds or not to a proposed channel is handled
 automatically by a plugin that implements the appropriate logic for
 your needs. The default behavior is to not contribute funds.
 
- **experimental-websocket-port**
+ **experimental-websocket-port**=*PORT*
 
 Specifying this enables support for accepting incoming WebSocket
 connections on that port, on any IPv4 and IPv6 addresses you listen
