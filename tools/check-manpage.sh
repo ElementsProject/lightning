@@ -32,6 +32,16 @@ CMD_OPTNAMES=$(get_cmd_opts "$1" | sort)
 # Now, gather (long) opt names from man page, make sure they match.
 MAN_OPTNAMES=$(sed -E -n 's/^ \*\*(--)?([^*/]*)\*\*(=?).*/\2\3/p' < "$2" | sort)
 
+# Remove undocumented proprieties, usually these proprieties are
+# under experimental phases.
+for flag in $(jq '.flags[]' <doc/undoc-flags.json) ; do
+    # Remove the quotes from the string, so the code will remove
+    # the first and last char in the string.
+    FLAG=$(sed 's/.//;s/.$//' <(echo "$flag"))
+    CMD_OPTNAMES=$(sed "/$FLAG=/d" <(echo "$CMD_OPTNAMES"))
+done
+
+
 if [ "$CMD_OPTNAMES" != "$MAN_OPTNAMES" ]; then
     echo "diff of command names vs manpage names":
     diff -u <(echo "$CMD_OPTNAMES") <(echo "$MAN_OPTNAMES")
