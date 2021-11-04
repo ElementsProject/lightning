@@ -438,6 +438,9 @@ Disable the DNS bootstrapping mechanism to find a node by its node ID.
 Set a Tor control password, which may be needed for *autotor:* to
 authenticate to the Tor control port.
 
+ **max-dust-htlc-exposure-msat**
+Option which limits the total amount of sats to be allowed as dust on a channel.
+
 ### Lightning Plugins
 
 lightningd(8) supports plugins, which offer additional configuration
@@ -500,7 +503,7 @@ which are in draft status in the BOLT specifications.
  **experimental-offers**
 
 Specifying this enables the `offers` and `fetchinvoice` plugins and
-corresponding functionality, which are in draft status as BOLT12. 
+corresponding functionality, which are in draft status as BOLT12.
 This usually requires **experimental-onion-messages** as well.  See
 lightning-offer(7) and lightning-fetchinvoice(7).
 
@@ -517,7 +520,7 @@ remote node has opened a channel but claims it used the incorrect txid
 negotiate a clean shutdown with the txid they offer.
 
  **experimental-dual-fund**
- 
+
 Specifying this enables support for the dual funding protocol,
 allowing both parties to contribute funds to a channel. The decision
 about whether to add funds or not to a proposed channel is handled
@@ -560,4 +563,3 @@ COPYING
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
-
