@@ -47,6 +47,8 @@ contrib/pylightning/pylightning.egg-info/
 contrib/pyln-*/build/
 contrib/pyln-*/dist/
 contrib/pyln-*/pyln_*.egg-info/
+contrib/pyln-*/.eggs/
+contrib/pyln-*/pyln/*/__version__.py
 release/
 tests/plugins/test_selfdisable_after_getmanifest
 .DS_Store
