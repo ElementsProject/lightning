@@ -345,8 +345,9 @@ network.
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the
-right thing: it will try to bind to port 9735 on IPv4 and IPv6, and will
-announce it to peers if it seems like a public address.
+right thing: for the mainnet (bitcoin) network it will try to bind to
+port 9735 on IPv4 and IPv6, and will announce it to peers if it seems
+like a public address.
 
 You can instead use *addr* to override this (eg. to change the port), or
 precisely control where to bind and what to announce with the
@@ -360,27 +361,31 @@ Set an IP address (v4 or v6) or automatic Tor address to listen on and
 
 An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
 IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
-interfaces, '::' means 'bind to all IPv6 interfaces'.  If 'PORT' is
-not specified, 9735 is used.  If we can determine a public IP
-address from the resulting binding, the address is announced.
+interfaces, '::' means 'bind to all IPv6 interfaces'.
+If 'PORT' is not specified, the default port 9735 is used for mainnet
+(testnet: 19735, signet: 39735, regtest: 19846).
+If we can determine a public IP address from the resulting binding,
+the address is announced.
 
 If the argument begins with 'autotor:' then it is followed by the
 IPv4 or IPv6 address of the Tor control port (default port 9051),
-and this will be used to configure a Tor hidden service for port 9735.
+and this will be used to configure a Tor hidden service for port 9735
+in case of mainnet (bitcoin) network whereas other networks (testnet,
+signet, regtest) will set the same default ports they use for non-Tor
+addresses (see above).
 The Tor hidden service will be configured to point to the
-first IPv4 or IPv6 address we bind to.
+first IPv4 or IPv6 address we bind to and is by default unique to
+your node's id.
 
 If the argument begins with 'statictor:' then it is followed by the
 IPv4 or IPv6 address of the Tor control port (default port 9051),
-and this will be used to configure a static Tor hidden service for port 9735.
-The Tor hidden service will be configured to point to the
-first IPv4 or IPv6 address we bind to and is by default unique to
-your nodes id. You can add the text '/torblob=BLOB' followed by up to
+and this will be used to configure a static Tor hidden service.
+You can add the text '/torblob=BLOB' followed by up to
 64 Bytes of text to generate from this text a v3 onion service
 address text unique to the first 32 Byte of this text.
 You can also use an postfix '/torport=TORPORT' to select the external
 tor binding. The result is that over tor your node is accessible by a port
-defined by you and possible different from your local node port assignment
+defined by you and possibly different from your local node port assignment.
 
 This option can be used multiple times to add more addresses, and
 its use disables autolisten.  If necessary, and 'always-use-proxy'
