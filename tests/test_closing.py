@@ -3099,7 +3099,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> 16440sat \(not 1000000sat\)')
 
     # This will fail because l1 restarted!
-    with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
+    with pytest.raises(RpcError, match=r'Channel forgotten before proper close.'):
         fut.result(TIMEOUT)
 
     # But we still complete negotiation!
