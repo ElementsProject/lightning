@@ -163,12 +163,10 @@ Build and Development
 Install `valgrind` and the python dependencies for best results:
 
 ```
-sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev
-pip3 install --user \
-         -r requirements.txt \
-         -r contrib/pyln-client/requirements.txt \
-         -r contrib/pyln-proto/requirements.txt \
-         -r contrib/pyln-testing/requirements.txt
+sudo apt update
+sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev libpq-dev
+pip3 install --upgrade pip
+pip3 install --user -r requirements.txt
 ```
 
 Re-run `configure` for the python dependencies and build using `make`.
