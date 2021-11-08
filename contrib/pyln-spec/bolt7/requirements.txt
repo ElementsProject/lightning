@@ -1,1 +1,1 @@
-pyln.proto
+pyln-proto
