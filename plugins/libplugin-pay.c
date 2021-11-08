@@ -3231,7 +3231,7 @@ static struct command_result *direct_pay_listpeers(struct command *cmd,
 	    json_to_listpeers_result(tmpctx, buffer, toks);
 	struct direct_pay_data *d = payment_mod_directpay_get_data(p);
 
-	if (tal_count(r->peers) == 1) {
+	if (r && tal_count(r->peers) == 1) {
 		struct listpeers_peer *peer = r->peers[0];
 		if (!peer->connected)
 			goto cont;
