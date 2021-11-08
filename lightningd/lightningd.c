@@ -757,13 +757,14 @@ static int setup_sig_handlers(void)
 
 /*~ This removes the SIGCHLD handler, so we don't try to write
  * to a broken pipe. */
-static void remove_sigchild_handler(void)
+static void remove_sigchild_handler(struct io_conn *sigchld_conn)
 {
 	struct sigaction sigchild;
 
 	memset(&sigchild, 0, sizeof(struct sigaction));
 	sigchild.sa_handler = SIG_DFL;
 	sigaction(SIGCHLD, &sigchild, NULL);
+	io_close(sigchld_conn);
 }
 
 /*~ This is the routine which sets up the sigchild handling.  We just
@@ -854,6 +855,7 @@ int main(int argc, char *argv[])
 	struct htlc_in_map *unconnected_htlcs_in;
 	struct ext_key *bip32_base;
 	int sigchld_rfd;
+	struct io_conn *sigchld_conn;
 	int exit_code = 0;
 	char **orig_argv;
 	bool try_reexec;
@@ -1099,10 +1101,8 @@ int main(int argc, char *argv[])
 	 * "funding transaction spent" event which creates it. */
 	onchaind_replay_channels(ld);
 
-	/*~ Now handle sigchld, so we can clean up appropriately.
-	 * We don't keep a pointer to this, so our simple leak detection
-	 * code gets upset unless we mark it notleak(). */
-	notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
+	/*~ Now handle sigchld, so we can clean up appropriately. */
+	sigchld_conn = notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
 
 	/*~ Mark ourselves live.
 	 *
@@ -1189,7 +1189,7 @@ int main(int argc, char *argv[])
 	stop_topology(ld->topology);
 
 	/* We're not going to collect our children. */
-	remove_sigchild_handler();
+	remove_sigchild_handler(sigchld_conn);
 	shutdown_subdaemons(ld);
 
 	/* Tell plugins we're shutting down, closes the db for write access. */
