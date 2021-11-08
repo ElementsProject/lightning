@@ -1598,9 +1598,6 @@ static struct command_result *json_paystatus(struct command *cmd,
 		if (p->invstring)
 			json_add_invstring(ret, p->invstring);
 		json_add_amount_msat_only(ret, "amount_msat", p->amount);
-		json_add_string(
-		    ret, "amount_msat",
-		    type_to_string(tmpctx, struct amount_msat, &p->amount));
 
 		json_add_node_id(ret, "destination", p->destination);
 
