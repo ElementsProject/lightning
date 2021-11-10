@@ -734,8 +734,7 @@ all channel funds' account are the channel id.
 
 `txid` is the transaction id of the bitcoin transaction that triggered this
 ledger event. `utxo_txid` and `vout` identify the bitcoin output which triggered
-this notification. (`chain_mvt` only) In most cases, the `utxo_txid` will be the
-same as the `txid`, except for `spend_track` notficiations.  Notifications tagged
+this notification. (`chain_mvt` only). Notifications tagged
 `chain_fees` and `journal_entry` do not have a `utxo_txid` as they're not
 represented in the utxo set.
 
@@ -755,7 +754,6 @@ multiple times. `channel_mvt` only
 `tag` is a movement descriptor. Current tags are as follows:
  - `deposit`: funds deposited
  - `withdrawal`: funds withdrawn
- - `chain_fees`: funds paid for onchain fees. `chain_mvt` only
  - `penalty`: funds paid or gained from a penalty tx. `chain_mvt` only
  - `invoice`: funds paid to or recieved from an invoice. `channel_mvt` only
  - `routed`: funds routed through this node. `channel_mvt` only
@@ -763,7 +761,6 @@ multiple times. `channel_mvt` only
                     by a penalty tx onchain. `chain_mvt` only
  - `onchain_htlc`: funds moved via an htlc onchain. `chain_mvt` only
  - `pushed`: funds pushed to peer. `channel_mvt` only.
- - `spend_track`:  informational notification about a wallet utxo spend. `chain_mvt` only.
 
 `blockheight` is the block the txid is included in. `chain_mvt` only. In the
 case that an output is considered dust, c-lightning does not track its return to

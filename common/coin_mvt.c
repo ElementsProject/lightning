@@ -16,14 +16,12 @@ const char *mvt_type_str(enum mvt_type type)
 static const char *mvt_tags[] = {
 	"deposit",
 	"withdrawal",
-	"chain_fees",
 	"penalty",
 	"invoice",
 	"routed",
 	"journal_entry",
 	"onchain_htlc",
 	"pushed",
-	"spend_track",
 };
 const char *mvt_tag_str(enum mvt_tag tag)
 {
@@ -153,7 +151,7 @@ struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx,
 {
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
 				  NULL, NULL, blockheight,
-				  CHAIN_FEES, amount, false);
+				  0, amount, false);
 }
 
 struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
@@ -265,7 +263,7 @@ struct chain_coin_mvt *new_coin_spend_track(const tal_t *ctx,
 					    u32 blockheight)
 {
 	return new_chain_coin_mvt_sat(ctx, "wallet", txid, outpoint,
-				      NULL, blockheight, SPEND_TRACK, AMOUNT_SAT(0),
+				      NULL, blockheight, 0, AMOUNT_SAT(0),
 				      false);
 }
 
