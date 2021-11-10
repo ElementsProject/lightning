@@ -242,6 +242,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 */
 	ld->plugins = plugins_new(ld, ld->log_book, ld);
 	ld->plugins->startup = true;
+	ld->plugins->shutdown = false;
 
 	/*~ This is set when a JSON RPC command comes in to shut us down. */
 	ld->stop_conn = NULL;
@@ -1187,10 +1188,10 @@ int main(int argc, char *argv[])
 
 	/* We're not going to collect our children. */
 	remove_sigchild_handler();
-
-	/* Tell plugins we're shutting down. */
-	shutdown_plugins(ld);
 	shutdown_subdaemons(ld);
+
+	/* Tell plugins we're shutting down, closes the db for write access. */
+	shutdown_plugins(ld);
 
 	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
 	 * it might actually be touching the DB in some destructors, e.g.,

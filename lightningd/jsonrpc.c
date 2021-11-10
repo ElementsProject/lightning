@@ -972,7 +972,7 @@ static struct io_plan *start_json_stream(struct io_conn *conn,
 	io_wake(conn);
 
 	/* Once the stop_conn conn is drained, we can shut down. */
-	if (jcon->ld->stop_conn == conn) {
+	if (jcon->ld->stop_conn == conn && jcon->ld->state == LD_STATE_RUNNING) {
 		/* Return us to toplevel lightningd.c */
 		io_break(jcon->ld);
 		/* We never come back. */

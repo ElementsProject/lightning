@@ -113,7 +113,7 @@ struct plugins {
 	/* Blacklist of plugins from --disable-plugin */
 	const char **blacklist;
 
-	/* Whether we are shutting down (`plugins_free` is called) */
+	/* Whether we are shutting down, blocks db write's */
 	bool shutdown;
 
 	/* Index to show what order they were added in */
