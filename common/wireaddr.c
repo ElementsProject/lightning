@@ -520,21 +520,18 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 		char **parts = tal_strsplit(tmpctx, arg, "/", STR_EMPTY_OK);
 
 		for (size_t i = 1; i < tal_count(parts)-1; i++) {
-			if (tal_strreg(tmpctx, parts[i], "torport")) {
+			if (strstarts(parts[i], "torport=")) {
 				char *endp = NULL;
-				char **parts_2 = tal_strsplit(tmpctx, parts[i], "=", STR_EMPTY_OK);
-				if (tal_count(parts_2) == 3) {
-					addr->u.torservice.port = strtol((const char *)parts_2[1], &endp, 10);
-					if (addr->u.torservice.port <= 0 || *endp != '\0') {
-						if (err_msg)
-							*err_msg = "Bad :torport: number";
-						return false;
-					}
-				} else {
+				addr->u.torservice.port = strtol(parts[i]+strlen("torport="), &endp, 10);
+				if (addr->u.torservice.port <= 0 || *endp != '\0') {
 					if (err_msg)
-						*err_msg = "Bad :torport: format";
+						*err_msg = "Bad :torport: number";
 					return false;
 				}
+			} else {
+				if (err_msg)
+					*err_msg = tal_fmt(tmpctx, "unknown tor arg %s", parts[i]);
+				return false;
 			}
 		}
 
@@ -551,47 +548,38 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 		bool use_magic_blob = true;
 		addr->itype = ADDR_INTERNAL_STATICTOR;
 		addr->u.torservice.port = DEFAULT_PORT;
-		memset(&(addr->u.torservice.blob[0]), 0, sizeof(addr->u.torservice.blob));
+		memset(addr->u.torservice.blob, 0, sizeof(addr->u.torservice.blob));
 
 		/* Format is separated by slash. */
 		char **parts = tal_strsplit(tmpctx, arg, "/", STR_EMPTY_OK);
 		for (size_t i = 1; i < tal_count(parts)-1; i++) {
-			if (tal_strreg(tmpctx, parts[i], "torport")) {
+			if (strstarts(parts[i], "torport=")) {
 				char *endp = NULL;
-				char **parts_eq = tal_strsplit(tmpctx, parts[i], "=", STR_EMPTY_OK);
-				if (tal_count(parts_eq) == 3) {
-					addr->u.torservice.port = strtol((const char *)parts_eq[1], &endp, 10);
-					if (addr->u.torservice.port <= 0 || *endp != '\0') {
-						if (err_msg)
-							*err_msg = "Bad :torport: number";
-						return false;
-					}
-				} else {
+				addr->u.torservice.port = strtol(parts[i]+strlen("torport="), &endp, 10);
+				if (addr->u.torservice.port <= 0 || *endp != '\0') {
 					if (err_msg)
-							*err_msg = "Bad :torport: format";
+						*err_msg = "Bad :torport: number";
 					return false;
 				}
-			}
-			if (tal_strreg(tmpctx, parts[i], "torblob")) {
-				char **parts_eq = tal_strsplit(tmpctx, parts[i], "=", STR_EMPTY_OK);
-				if (tal_count(parts_eq) == 3) {
-					if (strlen((char *)parts_eq[1]) == 0) {
-						if (err_msg)
-							*err_msg = "Blob too short";
-						return false;
-					}
-				strncpy((char *)&(addr->u.torservice.blob[0]),
-					(const char *)parts_eq[1], TOR_V3_BLOBLEN);
-				use_magic_blob = false;
+			} else if (strstarts(parts[i], "torblob=")) {
+				const char *blobdata = parts[i] + strlen("torblob=");
+				if (strlen(blobdata) > TOR_V3_BLOBLEN) {
+					if (err_msg)
+						*err_msg = "torblob too long";
+					return false;
 				}
+				strcpy(addr->u.torservice.blob, blobdata);
+				use_magic_blob = false;
+			} else {
+				if (err_msg)
+					*err_msg = tal_fmt(tmpctx, "unknown tor arg %s", parts[i]);
+				return false;
 			}
 		}
 
 		if (use_magic_blob) {
 			/* when statictor called just with the service address and or port generate the unique onion */
-			strncpy((char *)&(addr->u.torservice.blob[0]),
-				tal_fmt(tmpctx, STATIC_TOR_MAGIC_STRING),
-				strlen(STATIC_TOR_MAGIC_STRING));
+			strcpy(addr->u.torservice.blob, STATIC_TOR_MAGIC_STRING);
 		}
 
 		service_addr = tal_fmt(tmpctx, "%s", parts[0] + strlen("statictor:"));

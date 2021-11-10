@@ -5,7 +5,7 @@
  * We import base64 from libsodium to generate tor V3 ED25519-V3 onions from blobs
 */
 
-char *b64_encode(const tal_t *ctx, const u8 *data, size_t len)
+char *b64_encode(const tal_t *ctx, const void *data, size_t len)
 {
 	char *str = tal_arr(ctx, char, sodium_base64_encoded_len(len, sodium_base64_VARIANT_ORIGINAL) + 1);
 
