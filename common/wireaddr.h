@@ -50,7 +50,7 @@ struct sockaddr_un;
 enum wire_addr_type {
 	ADDR_TYPE_IPV4 = 1,
 	ADDR_TYPE_IPV6 = 2,
-	ADDR_TYPE_TOR_V2 = 3,
+	ADDR_TYPE_TOR_V2_REMOVED = 3,
 	ADDR_TYPE_TOR_V3 = 4,
 	ADDR_TYPE_WEBSOCKET = 6,
 };

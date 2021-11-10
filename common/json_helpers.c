@@ -273,7 +273,7 @@ void json_add_address(struct json_stream *response, const char *fieldname,
 		json_add_string(response, "type", "ipv6");
 		json_add_string(response, "address", addrstr);
 		json_add_num(response, "port", addr->port);
-	} else if (addr->type == ADDR_TYPE_TOR_V2) {
+	} else if (addr->type == ADDR_TYPE_TOR_V2_REMOVED) {
 		json_add_string(response, "type", "torv2");
 		json_add_string(response, "address", fmt_wireaddr_without_port(tmpctx, addr));
 		json_add_num(response, "port", addr->port);

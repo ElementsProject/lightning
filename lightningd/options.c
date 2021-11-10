@@ -254,9 +254,8 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 	/* handle in case you used the addr option with an .onion */
 	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true,
 				    deprecated_apis, NULL)) {
-		if (addr.itype == ADDR_INTERNAL_WIREADDR && (
-			addr.u.wireaddr.type == ADDR_TYPE_TOR_V2 ||
-			addr.u.wireaddr.type == ADDR_TYPE_TOR_V3)) {
+		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
+		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
 				log_unusual(ld->log, "You used `--addr=%s` option with an .onion address, please use"
 							" `--announce-addr` ! You are lucky in this node live some wizards and"
 							" fairies, we have done this for you and announce, Be as hidden as wished",
@@ -302,9 +301,8 @@ static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 	/* handle in case you used the bind option with an .onion */
 	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true,
 				    deprecated_apis, NULL)) {
-		if (addr.itype == ADDR_INTERNAL_WIREADDR && (
-			addr.u.wireaddr.type == ADDR_TYPE_TOR_V2 ||
-			addr.u.wireaddr.type == ADDR_TYPE_TOR_V3)) {
+		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
+		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
 				log_unusual(ld->log, "You used `--bind-addr=%s` option with an .onion address,"
 							" You are lucky in this node live some wizards and"
 							" fairies, we have done this for you and don't announce, Be as hidden as wished",

@@ -31,7 +31,7 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 	case ADDR_TYPE_IPV6:
 		addr->addrlen = 16;
 		break;
-	case ADDR_TYPE_TOR_V2:
+	case ADDR_TYPE_TOR_V2_REMOVED:
 		addr->addrlen = TOR_V2_ADDRLEN;
 		break;
 	case ADDR_TYPE_TOR_V3:
@@ -209,7 +209,7 @@ bool wireaddr_is_wildcard(const struct wireaddr *addr)
 	case ADDR_TYPE_IPV6:
 	case ADDR_TYPE_IPV4:
 		return memeqzero(addr->addr, addr->addrlen);
-	case ADDR_TYPE_TOR_V2:
+	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
 	case ADDR_TYPE_WEBSOCKET:
 		return false;
@@ -255,7 +255,7 @@ char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 		if (!inet_ntop(AF_INET6, a->addr, addrstr, INET6_ADDRSTRLEN))
 			return "Unprintable-ipv6-address";
 		return tal_fmt(ctx, "[%s]", addrstr);
-	case ADDR_TYPE_TOR_V2:
+	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
 		return tal_fmt(ctx, "%s.onion",
 			       b32_encode(tmpctx, a->addr, a->addrlen));
@@ -345,9 +345,7 @@ wireaddr_from_hostname(const tal_t *ctx,
 		u8 *dec = b32_decode(tmpctx, hostname,
 				     strlen(hostname) - strlen(".onion"));
 		tal_resize(&addrs, 1);
-		if (tal_count(dec) == TOR_V2_ADDRLEN) {
-			addrs[0].type = ADDR_TYPE_TOR_V2;
-		} else if (tal_count(dec) == TOR_V3_ADDRLEN) {
+		if (tal_count(dec) == TOR_V3_ADDRLEN) {
 			addrs[0].type = ADDR_TYPE_TOR_V3;
 		} else {
 			if (err_msg)
@@ -591,9 +589,9 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 	addr->itype = ADDR_INTERNAL_WIREADDR;
 	if (parse_wireaddr(arg, &addr->u.wireaddr, port,
 			   dns_ok ? NULL : &needed_dns, err_msg)) {
-		if (!allow_deprecated && addr->u.wireaddr.type == ADDR_TYPE_TOR_V2) {
+		if (addr->u.wireaddr.type == ADDR_TYPE_TOR_V2_REMOVED) {
 			if (err_msg)
-				*err_msg = "v2 Tor onion services are deprecated";
+				*err_msg = "v2 Tor onion services not supported";
 			return false;
 		}
 
@@ -695,7 +693,7 @@ struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
 		ai->ai_addrlen = sizeof(*sin6);
 		ai->ai_addr = (struct sockaddr *)sin6;
 		return ai;
-	case ADDR_TYPE_TOR_V2:
+	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
 	case ADDR_TYPE_WEBSOCKET:
 		break;
@@ -750,7 +748,7 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 			case ADDR_TYPE_IPV4:
 			case ADDR_TYPE_IPV6:
 				return false;
-			case ADDR_TYPE_TOR_V2:
+			case ADDR_TYPE_TOR_V2_REMOVED:
 			case ADDR_TYPE_TOR_V3:
 			case ADDR_TYPE_WEBSOCKET:
 				continue;

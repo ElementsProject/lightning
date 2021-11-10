@@ -182,19 +182,17 @@ int main(int argc, char *argv[])
 	assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion", &addr, 1, false, NULL));
 	assert(addr.port == 1);
 
-	assert(parse_wireaddr("odpzvneidqdf5hdq.onion:49150", &addr, 1, false, NULL));
-	assert(addr.port == 49150);
+	/* We don't accept torv2 any more */
+	assert(!parse_wireaddr("odpzvneidqdf5hdq.onion:49150", &addr, 1, false, NULL));
+	assert(!parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, false, NULL));
 
-	assert(parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, false, NULL));
-	assert(addr.port == 1);
-
-	// Don't accept legacy hidden services with deprecated APIs on
+	/* Neither allow_deprecated = true nor false will parse it now */
 	assert(!parse_wireaddr_internal("odpzvneidqdf5hdq.onion", &addr_int, 1,
-				        false, false, false, /* allow_deprecated = */ false, NULL));
-	assert(parse_wireaddr_internal("odpzvneidqdf5hdq.onion", &addr_int, 1,
-				       false, false, false, /* allow_deprecated = */ true, NULL));
+				        false, false, false, false, NULL));
+	assert(!parse_wireaddr_internal("odpzvneidqdf5hdq.onion", &addr_int, 1,
+					false, false, false, true, NULL));
 
-	assert(tal_count(wireaddr_from_hostname(tmpctx, "odpzvneidqdf5hdq.onion", 1, NULL, NULL, NULL)) > 0);
+	assert(wireaddr_from_hostname(tmpctx, "odpzvneidqdf5hdq.onion", 1, NULL, NULL, NULL) == NULL);
 	assert(wireaddr_from_hostname(tmpctx, "aaa.onion", 1, NULL, NULL, NULL) == NULL);
 
 	common_shutdown();

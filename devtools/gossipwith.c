@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 
 	case ADDR_INTERNAL_WIREADDR:
 		switch (addr.u.wireaddr.type) {
-		case ADDR_TYPE_TOR_V2:
+		case ADDR_TYPE_TOR_V2_REMOVED:
 		case ADDR_TYPE_TOR_V3:
 			opt_usage_exit_fail("Don't support proxy use");
 			break;

@@ -135,7 +135,7 @@ static bool IsRFC4843(const struct wireaddr *addr)
 
 static bool IsTor(const struct wireaddr *addr)
 {
-    return addr->type == ADDR_TYPE_TOR_V2 || addr->type == ADDR_TYPE_TOR_V3;
+    return addr->type == ADDR_TYPE_TOR_V3;
 }
 
 static bool IsLocal(const struct wireaddr *addr)
@@ -256,7 +256,7 @@ bool guess_address(struct wireaddr *addr)
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
         return ret;
     }
-    case ADDR_TYPE_TOR_V2:
+    case ADDR_TYPE_TOR_V2_REMOVED:
     case ADDR_TYPE_TOR_V3:
     case ADDR_TYPE_WEBSOCKET:
         status_broken("Cannot guess address type %u", addr->type);
