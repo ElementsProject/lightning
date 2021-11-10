@@ -236,34 +236,6 @@ static void add_amt(struct amount_sat *sum, struct amount_sat amt)
 					     sum));
 }
 
-static void record_mutual_closure(const struct bitcoin_outpoint *outpoint,
-				  u32 blockheight,
-				  struct amount_sat our_out)
-{
-	struct amount_msat output_msat;
-
-	/* First figure out 'fees' we paid on this will include
-	 *   - 'residue' that can't fit onchain (< 1 sat)
-	 *   - trimmed output, if our balance is < dust_limit
-	 *   - fees paid for getting this tx mined
-	 */
-	if (!amount_sat_to_msat(&output_msat, our_out))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "unable to convert %s to msat",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &our_out));
-
-	/* If we have no output, we exit early */
-	if (amount_msat_eq(AMOUNT_MSAT(0), output_msat))
-		return;
-
-	/* Otherwise, we record the channel withdrawal */
-	/* FIXME: WHy dup txid? */
-	send_coin_mvt(take(new_coin_withdrawal(NULL, NULL, &outpoint->txid,
-					       outpoint,
-					       blockheight, output_msat)));
-}
-
 static void record_coin_loss(const struct bitcoin_txid *txid,
 			     u32 blockheight,
 			     struct tracked_output *out)
@@ -1284,12 +1256,10 @@ static u64 unmask_commit_number(const struct tx_parts *tx,
 
 static bool is_mutual_close(const struct tx_parts *tx,
 			    const u8 *local_scriptpubkey,
-			    const u8 *remote_scriptpubkey,
-			    int *local_outnum)
+			    const u8 *remote_scriptpubkey)
 {
 	size_t i;
 	bool local_matched = false, remote_matched = false;
-	*local_outnum = -1;
 
 	for (i = 0; i < tal_count(tx->outputs); i++) {
 		/* To be paranoid, we only let each one match once. */
@@ -1300,7 +1270,6 @@ static bool is_mutual_close(const struct tx_parts *tx,
 		} else if (wally_tx_output_scripteq(tx->outputs[i],
 						    local_scriptpubkey)
 			   && !local_matched) {
-			*local_outnum = i;
 			local_matched = true;
 		} else if (wally_tx_output_scripteq(tx->outputs[i],
 						    remote_scriptpubkey)
@@ -2145,13 +2114,8 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 }
 
 static void handle_mutual_close(struct tracked_output **outs,
-				const struct tx_parts *tx,
-				u32 tx_blockheight,
-				int our_outnum,
-				bool is_replay)
+				const struct tx_parts *tx)
 {
-	struct amount_sat our_out;
-
 	/* In this case, we don't care about htlcs: there are none. */
 	init_reply(tmpctx, "Tracking mutual close transaction");
 
@@ -2167,23 +2131,6 @@ static void handle_mutual_close(struct tracked_output **outs,
 	 * already agreed to the output, which is sent to its specified `scriptpubkey`
 	 */
 	resolved_by_other(outs[0], &tx->txid, MUTUAL_CLOSE);
-
-	if (!is_replay) {
-		struct bitcoin_outpoint outpoint;
-		/* It's possible there's no to_us output */
-		if (our_outnum > -1) {
-			struct amount_asset asset;
-			asset = wally_tx_output_get_amount(tx->outputs[our_outnum]);
-			assert(amount_asset_is_main(&asset));
-			our_out = amount_asset_to_sat(&asset);
-		} else
-			our_out = AMOUNT_SAT(0);
-
-		outpoint.txid = tx->txid;
-		outpoint.n = our_outnum;
-		record_mutual_closure(&outpoint, tx_blockheight, our_out);
-	}
-
 	wait_for_resolved(outs);
 }
 
@@ -3909,7 +3856,6 @@ int main(int argc, char *argv[])
 	u8 *scriptpubkey[NUM_SIDES];
 	u32 locktime, tx_blockheight;
 	struct pubkey *possible_remote_per_commitment_point;
-	int mutual_outnum;
 	bool open_is_replay;
 
 	subdaemon_setup(argc, argv);
@@ -3973,6 +3919,14 @@ int main(int argc, char *argv[])
 			   funding_sats,
 			   FUNDING_OUTPUT, NULL, NULL, NULL);
 
+	/* Record the funding output being spent */
+	/* FIXME: use channel_id as "account name" */
+	send_coin_mvt(take(new_coin_withdrawal(NULL, NULL, &tx->txid,
+					       &funding, tx_blockheight,
+					       our_msat)));
+
+
+
 	status_debug("Remote per-commit point: %s",
 		     type_to_string(tmpctx, struct pubkey,
 				    &remote_per_commit_point));
@@ -3992,9 +3946,8 @@ int main(int argc, char *argv[])
 	 * without any pending payments) and publish it on the blockchain (see
 	 * [BOLT #2: Channel Close](02-peer-protocol.md#channel-close)).
 	 */
-	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE], &mutual_outnum))
-		handle_mutual_close(outs, tx,
-				    tx_blockheight, mutual_outnum, open_is_replay);
+	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE]))
+		handle_mutual_close(outs, tx);
 	else {
 		/* BOLT #5:
 		 *
