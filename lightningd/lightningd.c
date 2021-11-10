@@ -1168,6 +1168,8 @@ int main(int argc, char *argv[])
 	 *  shut down.
 	 */
 	assert(io_loop_ret == ld);
+
+	/* Fail JSON RPC requests and ignore plugin's responses */
 	ld->state = LD_STATE_SHUTDOWN;
 
 	stop_fd = -1;
