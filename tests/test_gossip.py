@@ -918,9 +918,7 @@ def test_gossip_addresses(node_factory, bitcoind):
             '[::]:3',
             '127.0.0.1:2',
             'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
-            '3fyb44wdhnd2ghhl.onion:1234'
         ],
-        'allow-deprecated-apis': True,
     })
     l2 = node_factory.get_node()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -934,8 +932,7 @@ def test_gossip_addresses(node_factory, bitcoind):
     assert len(nodes) == 1 and nodes[0]['addresses'] == [
         {'type': 'ipv4', 'address': '127.0.0.1', 'port': 2},
         {'type': 'ipv6', 'address': '::', 'port': 3},
-        {'type': 'torv2', 'address': '3fyb44wdhnd2ghhl.onion', 'port': 1234},
-        {'type': 'torv3', 'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion', 'port': 9735}
+        {'type': 'torv3', 'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion', 'port': 9735},
     ]
 
 
