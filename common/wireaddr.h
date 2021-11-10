@@ -134,8 +134,8 @@ struct wireaddr_internal {
 			struct wireaddr address;
 			/* Tor port to use */
 			u16 port;
-			/* Blob to use to create tor service */
-			u8 blob[TOR_V3_BLOBLEN + 1];
+			/* Nul-terminated blob to use to create tor service */
+			char blob[TOR_V3_BLOBLEN + 1];
 		} torservice;
 		/* ADDR_INTERNAL_FORPROXY */
 		struct unresolved {

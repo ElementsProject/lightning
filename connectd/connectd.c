@@ -1232,7 +1232,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	struct sockaddr_un addrun;
 	int fd;
 	struct wireaddr_internal *binding;
-	const u8 *blob = NULL;
+	const char *blob = NULL;
 	struct secret random;
 	struct pubkey pb;
 	struct wireaddr *toraddr;
