@@ -585,6 +585,17 @@ static const char *plugin_response_handle(struct plugin *plugin,
 			json_tok_full(plugin->buffer, idtok));
 	}
 
+	/* In this state we're shutting down and in the process of unwinding the
+	 * custom behavior injected by plugins via hooks etc.. We want to stay dead
+	 * now, because otherwise (other) plugins that are already destroyed would
+	 * miss the action, which wouldn't be consistent. */
+	if (plugin->plugins->ld->state == LD_STATE_SHUTDOWN) {
+		log_debug(plugin->plugins->ld->log,
+			  "Ignoring response of method %s from plugin %s due to shutdown",
+			  request->method, plugin->shortname);
+		return NULL;
+	}
+
 	/* We expect the request->cb to copy if needed */
 	pd = plugin_detect_destruction(plugin);
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
@@ -2146,7 +2157,7 @@ void shutdown_plugins(struct lightningd *ld)
 
 	/* We should *stay* dead when restarting the io_loop */
 	assert(list_empty(&ld->subds));
-//	assert(!ld->wallet->db);
+	assert(!ld->wallet->db);
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {

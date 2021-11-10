@@ -25,7 +25,7 @@ static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 		subd_release_channel(open_daemon, uc);
 	}
 
-	/* This is how shutdown_subdaemons tells us not to delete from db! */
+	/* This is how free_all_channels tells us not to delete from db! */
 	if (!uc->peer->uncommitted_channel)
 		return;
 
