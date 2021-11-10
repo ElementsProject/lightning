@@ -257,16 +257,6 @@ struct chain_coin_mvt *new_coin_pushed(const tal_t *ctx,
 				  false);
 }
 
-struct chain_coin_mvt *new_coin_spend_track(const tal_t *ctx,
-					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_outpoint *outpoint,
-					    u32 blockheight)
-{
-	return new_chain_coin_mvt_sat(ctx, "wallet", txid, outpoint,
-				      NULL, blockheight, 0, AMOUNT_SAT(0),
-				      false);
-}
-
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
 				    const char *bip173_name,

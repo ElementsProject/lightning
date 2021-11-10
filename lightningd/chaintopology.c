@@ -652,102 +652,25 @@ static void updates_complete(struct chain_topology *topo)
 	next_topology_timer(topo);
 }
 
-static void record_utxo_spent(struct lightningd *ld,
-			      const struct bitcoin_txid *txid,
-			      const struct bitcoin_outpoint *outpoint,
-			      u32 blockheight,
-			      struct amount_sat *input_amt)
+static void record_wallet_spend(struct lightningd *ld,
+				struct bitcoin_outpoint *outpoint,
+				struct bitcoin_txid *txid,
+				u32 tx_blockheight)
 {
 	struct utxo *utxo;
-	struct chain_coin_mvt *mvt;
-	u8 *ctx = tal(NULL, u8);
 
-	utxo = wallet_utxo_get(ctx, ld->wallet, outpoint);
+	/* Find the amount this was for */
+	utxo = wallet_utxo_get(tmpctx, ld->wallet, outpoint);
 	if (!utxo) {
 		log_broken(ld->log, "No record of utxo %s",
-			    type_to_string(tmpctx, struct bitcoin_outpoint,
-					   outpoint));
+			   type_to_string(tmpctx, struct bitcoin_outpoint,
+					  outpoint));
 		return;
 	}
 
-	*input_amt = utxo->amount;
-	mvt = new_coin_spend_track(ctx, txid, outpoint, blockheight);
-	notify_chain_mvt(ld, mvt);
-	tal_free(ctx);
-}
-
-static void record_outputs_as_withdraws(const tal_t *ctx,
-					struct lightningd *ld,
-					const struct bitcoin_tx *tx,
-					const struct bitcoin_txid *txid,
-					u32 blockheight)
-{
-	struct chain_coin_mvt *mvt;
-	struct bitcoin_outpoint outpoint;
-
-	outpoint.txid = *txid;
-	for (outpoint.n = 0; outpoint.n < tx->wtx->num_outputs; outpoint.n++) {
-		struct amount_asset asset;
-		struct amount_sat outval;
-		if (elements_tx_output_is_fee(tx, outpoint.n))
-			continue;
-		asset = bitcoin_tx_output_get_amount(tx, outpoint.n);
-		assert(amount_asset_is_main(&asset));
-		outval = amount_asset_to_sat(&asset);
-		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid,
-					      &outpoint, blockheight,
-					      outval);
-		notify_chain_mvt(ld, mvt);
-	}
-}
-
-static void record_tx_outs_and_fees(struct lightningd *ld,
-				    const struct bitcoin_tx *tx,
-				    const struct bitcoin_txid *txid,
-				    u32 blockheight,
-				    struct amount_sat inputs_total,
-				    bool our_tx)
-{
-	struct amount_sat fee, out_val;
-	struct chain_coin_mvt *mvt;
-	bool ok;
-	struct wally_psbt *psbt = NULL;
-	u8 *ctx = tal(NULL, u8);
-
-	/* We own every input on this tx, so track withdrawals precisely */
-	if (our_tx) {
-		record_outputs_as_withdraws(ctx, ld, tx, txid, blockheight);
-		fee = bitcoin_tx_compute_fee_w_inputs(tx, inputs_total);
-		goto log_fee;
-	}
-
-	/* FIXME: look up stashed psbt! */
-	if (!psbt) {
-		fee = bitcoin_tx_compute_fee_w_inputs(tx, inputs_total);
-		ok = amount_sat_sub(&out_val, inputs_total, fee);
-		assert(ok);
-
-		/* We don't have detailed withdrawal info for this tx,
-		 * so we log the wallet withdrawal as a single entry */
-		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid, NULL,
-					      blockheight, out_val);
-		notify_chain_mvt(ld, mvt);
-		goto log_fee;
-	}
-
-	fee = AMOUNT_SAT(0);
-
-	/* Note that to figure out the *total* 'onchain'
-	 * cost of a channel, you'll want to also include
-	 * fees logged here, to the 'wallet' account (for funding tx).
-	 * You can do this in post by accounting for any 'chain_fees' logged for
-	 * the funding txid when looking at a channel. */
-log_fee:
-	notify_chain_mvt(ld,
-			new_coin_chain_fees_sat(ctx, "wallet", txid,
-						blockheight, fee));
-
-	tal_free(ctx);
+	notify_chain_mvt(ld, new_coin_wallet_withdraw(tmpctx, txid, outpoint,
+						      tx_blockheight,
+						      utxo->amount, WITHDRAWAL));
 }
 
 /**
@@ -758,37 +681,20 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 	const struct short_channel_id *spent_scids;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
-		bool our_tx = true, includes_our_spend = false;
-		struct bitcoin_txid txid;
-		struct amount_sat inputs_total = AMOUNT_SAT(0);
-
-		txid = b->txids[i];
 
 		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
 			struct bitcoin_outpoint outpoint;
-			bool our_spend;
 
 			bitcoin_tx_input_get_outpoint(tx, j, &outpoint);
 
-			our_spend = wallet_outpoint_spend(
-			    topo->ld->wallet, tmpctx, b->height, &outpoint);
-			our_tx &= our_spend;
-			includes_our_spend |= our_spend;
-			if (our_spend) {
-				struct amount_sat input_amt;
-				bool ok;
+			if (wallet_outpoint_spend(topo->ld->wallet, tmpctx,
+						  b->height, &outpoint))
+				record_wallet_spend(topo->ld, &outpoint,
+						    &b->txids[i], b->height);
 
-				record_utxo_spent(topo->ld, &txid, &outpoint,
-						  b->height, &input_amt);
-				ok = amount_sat_add(&inputs_total, inputs_total, input_amt);
-				assert(ok);
-			}
 		}
-
-		if (includes_our_spend)
-			record_tx_outs_and_fees(topo->ld, tx, &txid,
-						b->height, inputs_total, our_tx);
 	}
+
 	/* Retrieve all potential channel closes from the UTXO set and
 	 * tell gossipd about them. */
 	spent_scids =
