@@ -558,12 +558,12 @@ static struct command_result *json_listnodes(struct command *cmd,
 }
 
 /* What is capacity of peer attached to chan #n? */
-static struct amount_sat peer_capacity(const struct gossmap *gossmap,
+static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 				       const struct gossmap_node *me,
 				       const struct gossmap_node *peer,
 				       const struct gossmap_chan *ourchan)
 {
-	struct amount_sat capacity = AMOUNT_SAT(0);
+	struct amount_msat capacity = AMOUNT_MSAT(0);
 
 	for (size_t i = 0; i < peer->num_chans; i++) {
 		int dir;
@@ -573,8 +573,8 @@ static struct amount_sat peer_capacity(const struct gossmap *gossmap,
 			continue;
 		if (!c->half[!dir].enabled)
 			continue;
-		if (!amount_sat_add(&capacity, capacity,
-				    amount_sat(fp16_to_u64(c->half[dir]
+		if (!amount_msat_add(&capacity, capacity,
+				    amount_msat(fp16_to_u64(c->half[dir]
 							   .htlc_max))))
 			continue;
 	}
@@ -625,7 +625,7 @@ static struct command_result *json_listincoming(struct command *cmd,
 		json_add_u32(js, "fee_proportional_millionths",
 			     ourchan->half[!dir].proportional_fee);
 		json_add_u32(js, "cltv_expiry_delta", ourchan->half[!dir].delay);
-		json_add_amount_sat_only(js, "incoming_capacity_msat",
+		json_add_amount_msat_only(js, "incoming_capacity_msat",
 					 peer_capacity(gossmap,
 						       me, peer, ourchan));
 		json_object_end(js);
