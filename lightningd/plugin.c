@@ -520,6 +520,11 @@ static const char *plugin_response_handle(struct plugin *plugin,
 			"Received a JSON-RPC response for non-existent request");
 	}
 
+	/* Ignore responses when shutting down */
+	if (plugin->plugins->ld->state == LD_STATE_SHUTDOWN) {
+		return NULL;
+	}
+
 	/* We expect the request->cb to copy if needed */
 	pd = plugin_detect_destruction(plugin);
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
