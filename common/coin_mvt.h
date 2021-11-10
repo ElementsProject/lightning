@@ -170,10 +170,6 @@ struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx,
 						 u32 blockheight,
 						 struct amount_sat amount,
 						 bool is_credit);
-struct chain_coin_mvt *new_coin_spend_track(const tal_t *ctx,
-					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_outpoint *outpoint,
-					    u32 blockheight);
 struct chain_coin_mvt *new_coin_pushed(const tal_t *ctx,
 				       const char *account_name,
 				       const struct bitcoin_txid *txid,
