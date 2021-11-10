@@ -454,6 +454,37 @@ finish:
 	return res;
 }
 
+bool wireaddr_internal_eq(const struct wireaddr_internal *a,
+			  const struct wireaddr_internal *b)
+{
+	if (a->itype != b->itype)
+		return false;
+
+	switch (a->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		return streq(a->u.sockname, b->u.sockname);
+	case ADDR_INTERNAL_ALLPROTO:
+		return a->u.port == b->u.port;
+	case ADDR_INTERNAL_STATICTOR:
+		if (!memeq(a->u.torservice.blob, sizeof(a->u.torservice.blob),
+			   b->u.torservice.blob, sizeof(b->u.torservice.blob)))
+			return false;
+		/* fall thru */
+	case ADDR_INTERNAL_AUTOTOR:
+		if (!wireaddr_eq(&a->u.torservice.address,
+				 &b->u.torservice.address))
+			return false;
+		return a->u.torservice.port == b->u.torservice.port;
+	case ADDR_INTERNAL_FORPROXY:
+		if (!streq(a->u.unresolved.name, b->u.unresolved.name))
+			return false;
+		return a->u.unresolved.port == b->u.unresolved.port;
+	case ADDR_INTERNAL_WIREADDR:
+		return wireaddr_eq(&a->u.wireaddr, &b->u.wireaddr);
+	}
+	abort();
+}
+
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
 			     bool unresolved_ok, bool allow_deprecated,

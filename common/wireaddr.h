@@ -146,6 +146,9 @@ struct wireaddr_internal {
 		char sockname[sizeof(((struct sockaddr_un *)0)->sun_path)];
 	} u;
 };
+
+bool wireaddr_internal_eq(const struct wireaddr_internal *a,
+			  const struct wireaddr_internal *b);
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
 			     bool unresolved_ok, bool allow_deprecated,

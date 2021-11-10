@@ -198,6 +198,18 @@ static char *opt_add_addr_withtype(const char *arg,
 				     deprecated_apis, &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
+
+	/* Sanity check for exact duplicates. */
+	for (size_t i = 0; i < tal_count(ld->proposed_wireaddr); i++) {
+		/* Only compare announce vs announce and bind vs bind */
+		if ((ld->proposed_listen_announce[i] & ala) == 0)
+			continue;
+
+		if (wireaddr_internal_eq(&ld->proposed_wireaddr[i], &wi))
+			return tal_fmt(NULL, "Duplicate %s address %s",
+				       ala & ADDR_ANNOUNCE ? "announce" : "listen",
+				       type_to_string(tmpctx, struct wireaddr_internal, &wi));
+	}
 	tal_arr_expand(&ld->proposed_wireaddr, wi);
 	return NULL;
 
@@ -205,7 +217,6 @@ static char *opt_add_addr_withtype(const char *arg,
 
 static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 {
-	const struct wireaddr *wn;
 	size_t n = tal_count(ld->proposed_wireaddr);
 	char *err;
 
@@ -226,24 +237,6 @@ static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 		return tal_fmt(NULL, "address '%s' is not announcable",
 			       arg);
 
-	/* gossipd will refuse to announce the second one, sure, but it's
-	 * better to check and fail now if they've explicitly asked for it. */
-	wn = &ld->proposed_wireaddr[n].u.wireaddr;
-	for (size_t i = 0; i < n; i++) {
-		const struct wireaddr *wi;
-
-		if (ld->proposed_listen_announce[i] != ADDR_ANNOUNCE)
-			continue;
-		assert(ld->proposed_wireaddr[i].itype == ADDR_INTERNAL_WIREADDR);
-		wi = &ld->proposed_wireaddr[i].u.wireaddr;
-
-		if (wn->type != wi->type)
-			continue;
-		return tal_fmt(NULL, "Cannot announce address %s;"
-			       " already have %s which is the same type",
-			       type_to_string(tmpctx, struct wireaddr, wn),
-			       type_to_string(tmpctx, struct wireaddr, wi));
-	}
 	return NULL;
 }
 
