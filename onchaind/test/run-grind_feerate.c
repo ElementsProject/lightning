@@ -136,20 +136,6 @@ struct htable *memleak_find_allocations(const tal_t *ctx UNNEEDED,
 void memleak_remove_region(struct htable *memtable UNNEEDED,
 			   const void *p UNNEEDED, size_t bytelen UNNEEDED)
 { fprintf(stderr, "memleak_remove_region called!\n"); abort(); }
-/* Generated stub for new_coin_chain_fees */
-struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx UNNEEDED,
-					   const char *account_name UNNEEDED,
-					   const struct bitcoin_txid *tx_txid UNNEEDED,
-					   u32 blockheight UNNEEDED,
-					   struct amount_msat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_chain_fees called!\n"); abort(); }
-/* Generated stub for new_coin_chain_fees_sat */
-struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx UNNEEDED,
-					       const char *account_name UNNEEDED,
-					       const struct bitcoin_txid *tx_txid UNNEEDED,
-					       u32 blockheight UNNEEDED,
-					       struct amount_sat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_chain_fees_sat called!\n"); abort(); }
 /* Generated stub for new_coin_journal_entry */
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx UNNEEDED,
 					      const char *account_name UNNEEDED,

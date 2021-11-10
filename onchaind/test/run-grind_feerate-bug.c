@@ -113,20 +113,6 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
-/* Generated stub for new_coin_chain_fees */
-struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx UNNEEDED,
-					   const char *account_name UNNEEDED,
-					   const struct bitcoin_txid *tx_txid UNNEEDED,
-					   u32 blockheight UNNEEDED,
-					   struct amount_msat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_chain_fees called!\n"); abort(); }
-/* Generated stub for new_coin_chain_fees_sat */
-struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx UNNEEDED,
-					       const char *account_name UNNEEDED,
-					       const struct bitcoin_txid *tx_txid UNNEEDED,
-					       u32 blockheight UNNEEDED,
-					       struct amount_sat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_chain_fees_sat called!\n"); abort(); }
 /* Generated stub for new_coin_journal_entry */
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx UNNEEDED,
 					      const char *account_name UNNEEDED,

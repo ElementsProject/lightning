@@ -128,16 +128,6 @@ struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
 					       const struct bitcoin_outpoint *outpoint,
 					       u32 blockheight,
 					       struct amount_sat amount);
-struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx,
-					   const char *account_name,
-					   const struct bitcoin_txid *tx_txid,
-					   u32 blockheight,
-					   struct amount_msat amount);
-struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
-					       const char *account_name,
-					       const struct bitcoin_txid *tx_txid,
-					       u32 blockheight,
-					       struct amount_sat amount);
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
 					      const char *account_name,
 					      const struct bitcoin_txid *txid,
