@@ -249,6 +249,9 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 #define db_prepare_v2(db,query)						\
 	db_prepare_v2_(__FILE__ ":" stringify(__LINE__), db, query)
 
+/* Check that plugins are not shutting down when calling db_write hook */
+void db_check_plugins_not_shutdown(struct db *db);
+
 /**
  * Access pending changes that have been added to the current transaction.
  */

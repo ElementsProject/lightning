@@ -187,18 +187,17 @@ static void destroy_plugin(struct plugin *p)
 	if (p->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
 		check_plugins_manifests(p->plugins);
 
-	/* If this was the last one init was waiting for, handle cmd replies */
-	if (p->plugin_state == AWAITING_INIT_RESPONSE)
-		check_plugins_initted(p->plugins);
-
-	/* If we are shutting down, do not continue to checking if
-	 * the dying plugin is important.  */
+	/* Daemon shutdown overrules plugin's importance; aborts init checks */
 	if (p->plugins->shutdown) {
 		/* But return if this was the last plugin! */
 		if (list_empty(&p->plugins->plugins))
-			io_break(p->plugins);
+			io_break(destroy_plugin);
 		return;
 	}
+
+	/* If this was the last one init was waiting for, handle cmd replies */
+	if (p->plugin_state == AWAITING_INIT_RESPONSE)
+		check_plugins_initted(p->plugins);
 
 	/* Now check if the dying plugin is important.  */
 	if (p->important) {
@@ -2082,46 +2081,48 @@ bool was_plugin_destroyed(struct plugin_destroyed *pd)
 
 static void plugin_shutdown_timeout(struct lightningd *ld)
 {
-	io_break(ld->plugins);
+	io_break(plugin_shutdown_timeout);
 }
 
 void shutdown_plugins(struct lightningd *ld)
 {
 	struct plugin *p, *next;
 
-	/* This makes sure we don't complain about important plugins
-	 * vanishing! */
+	/* Don't complain about important plugins vanishing and
+	 * crash any attempt to write to db. */
 	ld->plugins->shutdown = true;
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
 		/* Kill immediately, deletes self from list. */
-		if (!notify_plugin_shutdown(ld, p))
+		if (p->plugin_state != INIT_COMPLETE || !notify_plugin_shutdown(ld, p))
 			tal_free(p);
 	}
 
 	/* If anyone was interested in shutdown, give them time. */
 	if (!list_empty(&ld->plugins->plugins)) {
-		struct oneshot *t;
+		struct timers *orig_timers, *timer;
 
-		/* 30 seconds should do it. */
-		t = new_reltimer(ld->timers, ld,
-				 time_from_sec(30),
-				 plugin_shutdown_timeout, ld);
+		/* 30 seconds should do it, use a clean timers struct */
+		orig_timers = ld->timers;
+		timer = tal(NULL, struct timers);
+		timers_init(timer, time_mono());
+		new_reltimer(timer, timer, time_from_sec(30),
+				  plugin_shutdown_timeout, ld);
 
-		io_loop_with_timers(ld);
-		tal_free(t);
+		ld->timers = timer;
+		void *ret = io_loop_with_timers(ld);
+		assert(ret == plugin_shutdown_timeout || ret == destroy_plugin);
+		ld->timers = orig_timers;
+		tal_free(timer);
 
 		/* Report and free remaining plugins. */
 		while (!list_empty(&ld->plugins->plugins)) {
 			p = list_pop(&ld->plugins->plugins, struct plugin, list);
 			log_debug(ld->log,
-				  "%s: failed to shutdown, killing.",
+				  "%s: failed to self-terminate in time, killing.",
 				  p->shortname);
 			tal_free(p);
 		}
 	}
-
-	/* NULL stops notifications trying to access plugins. */
-	ld->plugins = tal_free(ld->plugins);
 }

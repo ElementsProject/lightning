@@ -34,6 +34,9 @@ struct db {
 	 * Used to bump the data_version in the DB.*/
 	bool dirty;
 
+	/* Only needed to check shutdown state of plugins */
+	const bool *plugins_shutdown;
+
 	/* The current DB version we expect to update if changes are
 	 * committed. */
 	u32 data_version;
