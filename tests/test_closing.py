@@ -3070,53 +3070,6 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
             l1.rpc.fundchannel(l2.info['id'], 10**6)
 
 
-@pytest.mark.openchannel('v1')
-def test_shutdown_alternate_txid(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False,
-                                     opts={'experimental-shutdown-wrong-funding': None,
-                                           'allow-deprecated-apis': True})
-
-    amount = 1000000
-    amount_msat = Millisatoshi(amount * 1000)
-
-    # Let's make a classic fundchannel mistake (wrong txid!)
-    addr = l1.rpc.fundchannel_start(l2.info['id'], amount_msat)['funding_address']
-    txid = bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
-
-    # Gotta figure out which output manually :(
-    tx = bitcoind.rpc.getrawtransaction(txid, 1)
-    for n, out in enumerate(tx['vout']):
-        if scriptpubkey_addr(out['scriptPubKey']) == addr:
-            txout = n
-
-    bitcoind.generate_block(1, wait_for_mempool=1)
-
-    # Wrong txid, wrong txout!
-    wrong_txid = txid[16:] + txid[:16]
-    wrong_txout = txout ^ 1
-    l1.rpc.fundchannel_complete(l2.info['id'], wrong_txid, wrong_txout)
-
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] != [])
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CHANNELD_AWAITING_LOCKIN')
-
-    closeaddr = l1.rpc.newaddr()['bech32']
-
-    # Oops, try rescuing it!
-    l1.rpc.call('close', {'id': l2.info['id'], 'destination': closeaddr, 'wrong_funding': txid + ':' + str(txout)})
-
-    # Just make sure node has no funds.
-    assert l1.rpc.listfunds()['outputs'] == []
-
-    bitcoind.generate_block(100, wait_for_mempool=1)
-    sync_blockheight(bitcoind, [l1, l2])
-
-    # We will see our funds return.
-    assert len(l1.rpc.listfunds()['outputs']) == 1
-
-    wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
-    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
-
-
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs anchor_outputs")
 @pytest.mark.developer("needs to set dev-disconnect")
 def test_closing_higherfee(node_factory, bitcoind, executor):
