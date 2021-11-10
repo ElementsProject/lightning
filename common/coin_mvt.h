@@ -17,14 +17,14 @@ enum mvt_type {
 enum mvt_tag {
 	DEPOSIT = 0,
 	WITHDRAWAL = 1,
-	CHAIN_FEES = 2,
+	/* 2, CHAIN_FEES has been removed */
 	PENALTY = 3,
 	INVOICE = 4,
 	ROUTED = 5,
 	JOURNAL = 6,
 	ONCHAIN_HTLC = 7,
 	PUSHED = 8,
-	SPEND_TRACK = 9,
+	/* 9, SPEND_TRACK has been removed */
 };
 
 struct channel_coin_mvt {
