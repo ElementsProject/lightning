@@ -143,33 +143,6 @@ struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
 				   blockheight, amt_msat);
 }
 
-struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx,
-					   const char *account_name,
-					   const struct bitcoin_txid *tx_txid,
-					   u32 blockheight,
-					   struct amount_msat amount)
-{
-	return new_chain_coin_mvt(ctx, account_name, tx_txid,
-				  NULL, NULL, blockheight,
-				  0, amount, false);
-}
-
-struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
-					       const char *account_name,
-					       const struct bitcoin_txid *tx_txid,
-					       u32 blockheight,
-					       struct amount_sat amount)
-{
-	struct amount_msat amt_msat;
-	bool ok;
-
-	ok = amount_sat_to_msat(&amt_msat, amount);
-	assert(ok);
-
-	return new_coin_chain_fees(ctx, account_name, tx_txid,
-				   blockheight, amt_msat);
-}
-
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
 					      const char *account_name,
 					      const struct bitcoin_txid *txid,

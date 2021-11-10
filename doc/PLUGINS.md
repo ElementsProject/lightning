@@ -735,7 +735,7 @@ all channel funds' account are the channel id.
 `txid` is the transaction id of the bitcoin transaction that triggered this
 ledger event. `utxo_txid` and `vout` identify the bitcoin output which triggered
 this notification. (`chain_mvt` only). Notifications tagged
-`chain_fees` and `journal_entry` do not have a `utxo_txid` as they're not
+`journal_entry` do not have a `utxo_txid` as they're not
 represented in the utxo set.
 
 `payment_hash` is the hash of the preimage used to move this payment. Only
