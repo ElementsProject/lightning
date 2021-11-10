@@ -1081,7 +1081,7 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
 
 def test_htlc_accepted_hook_shutdown(node_factory, executor):
     """Hooks of important-plugins are never removed and these plugins are kept
-       alive until after subdaemons are shutdown.
+       alive until after subdaemons are shutdown. Also tests shutdown notification.
     """
     l1, l2 = node_factory.line_graph(2, opts=[
         {'may_reconnect': True, 'log-level': 'info'},
@@ -1089,6 +1089,10 @@ def test_htlc_accepted_hook_shutdown(node_factory, executor):
          'plugin': [os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py')],
          'important-plugin': [os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')]}
     ])
+
+    l2.rpc.plugin_stop(os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py'))
+    l2.daemon.wait_for_log(r'datastore success')
+    l2.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py'))
 
     i1 = l2.rpc.invoice(msatoshi=1000, label="inv1", description="desc")['bolt11']
 
@@ -1102,6 +1106,8 @@ def test_htlc_accepted_hook_shutdown(node_factory, executor):
     # Should still fail htlc while shutting down
     with pytest.raises(RpcError):
         l1.rpc.pay(i1)
+
+    l2.daemon.wait_for_log(r'datastore failed')
     f_stop.result()
 
 
