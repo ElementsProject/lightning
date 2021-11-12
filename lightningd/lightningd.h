@@ -207,6 +207,9 @@ struct lightningd {
 	/* If we want to debug a subdaemon/plugin. */
 	const char *dev_debug_subprocess;
 
+	/* If we have --dev-no-plugin-checksum */
+	bool dev_no_plugin_checksum;
+
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 

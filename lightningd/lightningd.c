@@ -114,6 +114,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * same exact code users will be running. */
 #if DEVELOPER
 	ld->dev_debug_subprocess = NULL;
+	ld->dev_no_plugin_checksum = false;
 	ld->dev_disconnect_fd = -1;
 	ld->dev_subdaemon_fail = false;
 	ld->dev_allow_localhost = false;
