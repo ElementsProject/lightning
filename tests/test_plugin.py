@@ -2520,6 +2520,9 @@ plugin.run()
 
     # get a node that is not started so we can put a plugin in its lightning_dir
     n = node_factory.get_node(start=False)
+    if "dev-no-plugin-checksum" in n.daemon.opts:
+        del n.daemon.opts["dev-no-plugin-checksum"]
+
     lndir = n.daemon.lightning_dir
 
     # write hello world plugin to lndir/plugins

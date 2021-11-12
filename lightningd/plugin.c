@@ -209,9 +209,14 @@ static void destroy_plugin(struct plugin *p)
 	}
 }
 
-static u32 file_checksum(const char* path)
+static u32 file_checksum(struct lightningd *ld, const char *path)
 {
-	char *content = grab_file(tmpctx, path);
+	char *content;
+
+	if (IFDEV(ld->dev_no_plugin_checksum, false))
+		return 0;
+
+	content = grab_file(tmpctx, path);
 	if (content == NULL) return 0;
 	return crc32c(0, content, tal_count(content));
 }
@@ -231,7 +236,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 			if (important)
 				p_temp->important = true;
 			/* stop and restart plugin on different checksum */
-			chksum = file_checksum(path);
+			chksum = file_checksum(plugins->ld, path);
 			if (p_temp->checksum != chksum && !p_temp->important) {
 				plugin_kill(p_temp, LOG_INFORM,
 					    "Plugin changed, needs restart.");
@@ -246,7 +251,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p = tal(plugins, struct plugin);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
-	p->checksum = file_checksum(p->cmd);
+	p->checksum = file_checksum(plugins->ld, p->cmd);
 	p->shortname = path_basename(p, p->cmd);
 	p->start_cmd = start_cmd;
 

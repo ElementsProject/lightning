@@ -675,6 +675,7 @@ class LightningNode(object):
                 self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
             if valgrind:
                 self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
+                self.daemon.opts["dev-no-plugin-checksum"] = None
             else:
                 # Under valgrind, scanning can access uninitialized mem.
                 self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"

@@ -584,6 +584,10 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_early_arg("--dev-debugger=<subprocess>", opt_subprocess_debug, NULL,
 			 ld, "Invoke gdb at start of <subprocess>");
 
+	opt_register_early_noarg("--dev-no-plugin-checksum", opt_set_bool,
+				 &ld->dev_no_plugin_checksum,
+				 "Don't checksum plugins to detect changes");
+
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
 			   &ld->reconnect,
 			   "Disable automatic reconnect-attempts by this node, but accept incoming");
