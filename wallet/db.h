@@ -182,8 +182,7 @@ void db_column_amount_msat_or_default(struct db_stmt *stmt, int col,
 /* Modern variants: get columns by name from SELECT */
 /* Bridge function to get column number from SELECT
    (must exist) */
-size_t db_query_colnum(const struct db_stmt *stmt,
-		       const char *colname);
+size_t db_query_colnum(const struct db_stmt *stmt, const char *colname);
 
 u64 db_col_u64(struct db_stmt *stmt, const char *colname);
 int db_col_int(struct db_stmt *stmt, const char *colname);
@@ -237,6 +236,9 @@ void db_col_amount_msat_or_default(struct db_stmt *stmt, const char *colname,
 				      struct amount_msat *msat,
 				      struct amount_msat def);
 
+
+/* Explicitly ignore a column (so we don't complain you didn't use it!) */
+void db_col_ignore(struct db_stmt *stmt, const char *colname);
 
 /**
  * db_exec_prepared -- Execute a prepared statement

@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/strset/strset.h>
 #include <common/autodata.h>
 
 /* For testing, we want to catch fatal messages. */
@@ -99,6 +100,11 @@ struct db_stmt {
 	bool executed;
 
 	int row;
+
+#if DEVELOPER
+	/* Map as we reference into a SELECT statement in query. */
+	struct strset *cols_used;
+#endif
 };
 
 struct db_config {

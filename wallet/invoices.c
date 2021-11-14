@@ -96,6 +96,10 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 		dtl->pay_index = db_col_u64(stmt, "pay_index");
 		db_col_amount_msat(stmt, "msatoshi_received", &dtl->received);
 		dtl->paid_timestamp = db_col_u64(stmt, "paid_timestamp");
+	} else {
+		db_col_ignore(stmt, "pay_index");
+		db_col_ignore(stmt, "msatoshi_received");
+		db_col_ignore(stmt, "paid_timestamp");
 	}
 
 	dtl->invstring = db_col_strdup(dtl, stmt, "bolt11");
