@@ -76,6 +76,6 @@ CONNECTD_COMMON_OBJS :=				\
 
 lightningd/lightning_connectd: $(CONNECTD_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
 
-lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) common/setup.o common/utils.o
+lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) common/setup.o common/utils.o common/autodata.o
 
 include connectd/test/Makefile

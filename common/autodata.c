@@ -38,3 +38,17 @@ void *autodata_get_(const char *typename, size_t *nump)
 	*nump = t->num;
 	return t->ptrs;
 }
+
+static bool free_one(const char *member,
+		     struct typereg *t, void *unused)
+{
+	free(t->ptrs);
+	free(t);
+	return true;
+}
+
+void autodata_cleanup(void)
+{
+	strmap_iterate(&typemap, free_one, NULL);
+	strmap_clear(&typemap);
+}
