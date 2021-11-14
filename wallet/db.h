@@ -129,56 +129,6 @@ void db_bind_talarr(struct db_stmt *stmt, int col, const u8 *arr);
 
 bool db_step(struct db_stmt *stmt);
 
-u64 db_column_u64(struct db_stmt *stmt, int col);
-int db_column_int(struct db_stmt *stmt, int col);
-size_t db_column_bytes(struct db_stmt *stmt, int col);
-int db_column_is_null(struct db_stmt *stmt, int col);
-const void* db_column_blob(struct db_stmt *stmt, int col);
-const unsigned char *db_column_text(struct db_stmt *stmt, int col);
-void db_column_preimage(struct db_stmt *stmt, int col, struct preimage *preimage);
-void db_column_amount_msat(struct db_stmt *stmt, int col, struct amount_msat *msat);
-void db_column_amount_sat(struct db_stmt *stmt, int col, struct amount_sat *sat);
-struct json_escape *db_column_json_escape(const tal_t *ctx, struct db_stmt *stmt, int col);
-void db_column_sha256(struct db_stmt *stmt, int col, struct sha256 *sha);
-void db_column_sha256d(struct db_stmt *stmt, int col, struct sha256_double *shad);
-void db_column_secret(struct db_stmt *stmt, int col, struct secret *s);
-struct secret *db_column_secret_arr(const tal_t *ctx, struct db_stmt *stmt,
-				    int col);
-void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t);
-void db_column_channel_id(struct db_stmt *stmt, int col, struct channel_id *dest);
-void db_column_node_id(struct db_stmt *stmt, int pos, struct node_id *ni);
-struct node_id *db_column_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
-				      int col);
-void db_column_pubkey(struct db_stmt *stmt, int pos, struct pubkey *p);
-bool db_column_short_channel_id(struct db_stmt *stmt, int col,
-				struct short_channel_id *dest);
-struct short_channel_id *
-db_column_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, int col);
-bool db_column_signature(struct db_stmt *stmt, int col,
-			 secp256k1_ecdsa_signature *sig);
-struct timeabs db_column_timeabs(struct db_stmt *stmt, int col);
-struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col);
-struct wally_psbt *db_column_psbt(const tal_t *ctx, struct db_stmt *stmt, int col);
-struct bitcoin_tx *db_column_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, int col);
-
-struct onionreply *db_column_onionreply(const tal_t *ctx,
-					struct db_stmt *stmt, int col);
-u8 *db_column_talarr(const tal_t *ctx, struct db_stmt *stmt, int col);
-
-#define db_column_arr(ctx, stmt, col, type)			\
-	((type *)db_column_arr_((ctx), (stmt), (col),		\
-				sizeof(type), TAL_LABEL(type, "[]"),	\
-				__func__))
-void *db_column_arr_(const tal_t *ctx, struct db_stmt *stmt, int col,
-		     size_t bytes, const char *label, const char *caller);
-
-
-/* Some useful default variants */
-int db_column_int_or_default(struct db_stmt *stmt, int col, int def);
-void db_column_amount_msat_or_default(struct db_stmt *stmt, int col,
-				      struct amount_msat *msat,
-				      struct amount_msat def);
-
 /* Modern variants: get columns by name from SELECT */
 /* Bridge function to get column number from SELECT
    (must exist) */
