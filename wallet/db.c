@@ -2230,7 +2230,9 @@ const void *db_col_blob(struct db_stmt *stmt, const char *colname)
 	return stmt->db->config->column_blob_fn(stmt, col);
 }
 
-const unsigned char *db_col_text(struct db_stmt *stmt, const char *colname)
+char *db_col_strdup(const tal_t *ctx,
+		    struct db_stmt *stmt,
+		    const char *colname)
 {
 	size_t col = db_query_colnum(stmt, colname);
 
@@ -2238,7 +2240,7 @@ const unsigned char *db_col_text(struct db_stmt *stmt, const char *colname)
 		log_broken(stmt->db->log, "Accessing a null column %s/%zu in query %s", colname, col, stmt->query->query);
 		return NULL;
 	}
-	return stmt->db->config->column_text_fn(stmt, col);
+	return tal_strdup(ctx, (char *)stmt->db->config->column_text_fn(stmt, col));
 }
 
 void db_col_preimage(struct db_stmt *stmt, const char *colname,
@@ -2295,8 +2297,9 @@ void db_col_pubkey(struct db_stmt *stmt,
 	assert(ok);
 }
 
-bool db_col_short_channel_id(struct db_stmt *stmt, const char *colname,
-				struct short_channel_id *dest)
+/* Yes, we put this in as a string.  Past mistakes; do not use! */
+bool db_col_short_channel_id_str(struct db_stmt *stmt, const char *colname,
+				 struct short_channel_id *dest)
 {
 	size_t col = db_query_colnum(stmt, colname);
 	const char *source = db_column_blob(stmt, col);
