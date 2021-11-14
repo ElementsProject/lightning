@@ -881,6 +881,23 @@ static void db_stmt_free(struct db_stmt *stmt)
 	if (!stmt->executed)
 		fatal("Freeing an un-executed statement from %s: %s",
 		      stmt->location, stmt->query->query);
+#if DEVELOPER
+	/* If they never got a db_step, we don't track */
+	if (stmt->cols_used) {
+		for (size_t i = 0; i < stmt->query->num_colnames; i++) {
+			if (!stmt->query->colnames[i].sqlname)
+				continue;
+			if (!strset_get(stmt->cols_used,
+					stmt->query->colnames[i].sqlname)) {
+				log_broken(stmt->db->log,
+					   "Never accessed column %s in query %s",
+					   stmt->query->colnames[i].sqlname,
+					   stmt->query->query);
+			}
+		}
+		strset_clear(stmt->cols_used);
+	}
+#endif
 	if (stmt->inner_stmt)
 		stmt->db->config->stmt_free_fn(stmt);
 	assert(stmt->inner_stmt == NULL);
@@ -929,6 +946,10 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 
 	list_add(&db->pending_statements, &stmt->list);
 
+#if DEVELOPER
+	stmt->cols_used = NULL;
+#endif /* DEVELOPER */
+
 	return stmt;
 }
 
@@ -937,8 +958,19 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 
 bool db_step(struct db_stmt *stmt)
 {
+	bool ret;
+
 	assert(stmt->executed);
-	return stmt->db->config->step_fn(stmt);
+	ret = stmt->db->config->step_fn(stmt);
+
+#if DEVELOPER
+	/* We only track cols_used if we return a result! */
+	if (ret && !stmt->cols_used) {
+		stmt->cols_used = tal(stmt, struct strset);
+		strset_init(stmt->cols_used);
+	}
+#endif
+	return ret;
 }
 
 u64 db_column_u64(struct db_stmt *stmt, int col)
@@ -1432,6 +1464,8 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 				fatal("HSM gave bad hsm_get_output_scriptpubkey_reply %s",
 				      tal_hex(msg, msg));
 		} else {
+			db_col_ignore(stmt, "peer_id");
+			db_col_ignore(stmt, "commitment_point");
 			/* Build from bip32_base */
 			bip32_pubkey(mc->bip32_base, &key, keyindex);
 			if (type == p2sh_wpkh) {
@@ -1623,11 +1657,18 @@ migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 		last_tx = db_col_tx(stmt, stmt, "inflight.last_tx");
 		assert(last_tx != NULL);
 
+		/* FIXME: This is only needed inside the select? */
+		db_col_ignore(stmt, "inflight.last_tx");
+
 		/* If we've forgotten about the peer_id
 		 * because we closed / forgot the channel,
 		 * we can skip this. */
-		if (db_col_is_null(stmt, "p.node_id"))
+		if (db_col_is_null(stmt, "p.node_id")) {
+			db_col_ignore(stmt, "inflight.last_sig");
+			db_col_ignore(stmt, "inflight.funding_satoshi");
+			db_col_ignore(stmt, "inflight.funding_tx_id");
 			continue;
+		}
 		db_col_node_id(stmt, "p.node_id", &peer_id);
 		db_col_amount_sat(stmt, "inflight.funding_satoshi", &funding_sat);
 		db_col_pubkey(stmt, "c.fundingkey_remote", &remote_funding_pubkey);
@@ -1711,8 +1752,13 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 		/* If we've forgotten about the peer_id
 		 * because we closed / forgot the channel,
 		 * we can skip this. */
-		if (db_col_is_null(stmt, "p.node_id"))
+		if (db_col_is_null(stmt, "p.node_id")) {
+			db_col_ignore(stmt, "c.funding_satoshi");
+			db_col_ignore(stmt, "c.fundingkey_remote");
+			db_col_ignore(stmt, "c.last_sig");
 			continue;
+		}
+
 		db_col_node_id(stmt, "p.node_id", &peer_id);
 		db_col_amount_sat(stmt, "c.funding_satoshi", &funding_sat);
 		db_col_pubkey(stmt, "c.fundingkey_remote", &remote_funding_pubkey);
@@ -2567,5 +2613,17 @@ size_t db_query_colnum(const struct db_stmt *stmt,
 		      colname)) {
 		col = (col + 1) % stmt->query->num_colnames;
 	}
+
+#if DEVELOPER
+	strset_add(stmt->cols_used, colname);
+#endif
+
 	return stmt->query->colnames[col].val;
+}
+
+void db_col_ignore(struct db_stmt *stmt, const char *colname)
+{
+#if DEVELOPER
+	db_query_colnum(stmt, colname);
+#endif
 }
