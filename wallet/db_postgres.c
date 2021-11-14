@@ -275,8 +275,8 @@ static bool db_postgres_vacuum(struct db *db)
 
 struct db_config db_postgres_config = {
     .name = "postgres",
-    .queries = db_postgres_queries,
-    .num_queries = DB_POSTGRES_QUERY_COUNT,
+    .query_table = db_postgres_queries,
+    .query_table_size = ARRAY_SIZE(db_postgres_queries),
     .exec_fn = db_postgres_exec,
     .query_fn = db_postgres_query,
     .step_fn = db_postgres_step,

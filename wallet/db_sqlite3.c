@@ -253,8 +253,8 @@ static bool db_sqlite3_vacuum(struct db *db)
 
 struct db_config db_sqlite3_config = {
 	.name = "sqlite3",
-	.queries = db_sqlite3_queries,
-	.num_queries = DB_SQLITE3_QUERY_COUNT,
+	.query_table = db_sqlite3_queries,
+	.query_table_size = ARRAY_SIZE(db_sqlite3_queries),
 	.exec_fn = &db_sqlite3_exec,
 	.query_fn = &db_sqlite3_query,
 	.step_fn = &db_sqlite3_step,

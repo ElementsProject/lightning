@@ -903,12 +903,20 @@ static void db_stmt_free(struct db_stmt *stmt)
 	assert(stmt->inner_stmt == NULL);
 }
 
+/* Matches the hash function used in devtools/sql-rewrite.py */
+static u32 hash_djb2(const char *str)
+{
+	u32 hash = 5381;
+	for (size_t i = 0; str[i]; i++)
+		hash = ((hash << 5) + hash) ^ str[i];
+	return hash;
+}
+
 struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 				     const char *query_id)
 {
 	struct db_stmt *stmt = tal(db, struct db_stmt);
-	size_t num_slots;
-	stmt->query = NULL;
+	size_t num_slots, pos;
 
 	/* Normalize query_id paths, because unit tests are compiled with this
 	 * prefix. */
@@ -920,14 +928,16 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 			 "transaction: %s", location);
 
 	/* Look up the query by its ID */
-	for (size_t i = 0; i < db->config->num_queries; i++) {
-		if (streq(query_id, db->config->queries[i].name)) {
-			stmt->query = &db->config->queries[i];
+	pos = hash_djb2(query_id) % db->config->query_table_size;
+	for (;;) {
+		if (!db->config->query_table[pos].name)
+			fatal("Could not resolve query %s", query_id);
+		if (streq(query_id, db->config->query_table[pos].name)) {
+			stmt->query = &db->config->query_table[pos];
 			break;
 		}
+		pos = (pos + 1) % db->config->query_table_size;
 	}
-	if (stmt->query == NULL)
-		fatal("Could not resolve query %s", query_id);
 
 	num_slots = stmt->query->placeholders;
 	/* Allocate the slots for placeholders/bindings, zeroed next since
@@ -2333,15 +2343,6 @@ void db_changes_add(struct db_stmt *stmt, const char * expanded)
 const char **db_changes(struct db *db)
 {
 	return db->changes;
-}
-
-/* Matches the hash function used in devtools/sql-rewrite.py */
-static u32 hash_djb2(const char *str)
-{
-	u32 hash = 5381;
-	for (size_t i = 0; str[i]; i++)
-		hash = ((hash << 5) + hash) ^ str[i];
-	return hash;
 }
 
 size_t db_query_colnum(const struct db_stmt *stmt,
