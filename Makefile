@@ -132,6 +132,7 @@ CCAN_OBJS :=					\
 	ccan-str-hex.o				\
 	ccan-str.o				\
 	ccan-strmap.o				\
+	ccan-strset.o				\
 	ccan-take.o				\
 	ccan-tal-grab_file.o			\
 	ccan-tal-link.o				\
@@ -200,6 +201,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/str/str.h			\
 	$(CCANDIR)/ccan/str/str_debug.h			\
 	$(CCANDIR)/ccan/strmap/strmap.h			\
+	$(CCANDIR)/ccan/strset/strset.h			\
 	$(CCANDIR)/ccan/structeq/structeq.h		\
 	$(CCANDIR)/ccan/take/take.h			\
 	$(CCANDIR)/ccan/tal/grab_file/grab_file.h	\
@@ -814,6 +816,8 @@ ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
 ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+ccan-strset.o: $(CCANDIR)/ccan/strset/strset.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
