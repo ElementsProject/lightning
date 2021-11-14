@@ -7,6 +7,7 @@
 #include <common/channel_type.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/setup.h>
 #include <stdio.h>
 
 #ifdef NDEBUG
@@ -491,11 +492,11 @@ static u8 *test_query_short_channel_ids(const char *test_vector,
 	return msg;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	jsmntok_t *toks = tal_arr(NULL, jsmntok_t, 1000);
 
-	setup_locale();
+	common_setup(argv[0]);
 
 	for (size_t i = 0; i < ARRAY_SIZE(test_vectors); i++) {
 		jsmn_parser parser;
@@ -524,5 +525,6 @@ int main(void)
 		tal_free(m);
 	}
 	tal_free(toks);
+	common_shutdown();
 	return 0;
 }

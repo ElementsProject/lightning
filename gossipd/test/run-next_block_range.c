@@ -2,6 +2,7 @@
 #include <ccan/err/err.h>
 #include <common/channel_type.h>
 #include <common/json_stream.h>
+#include <common/setup.h>
 #include <common/wireaddr.h>
 #include <stdio.h>
 
@@ -117,7 +118,7 @@ int main(int argc, char *argv[])
 {
 	struct seeker *seeker = tal(NULL, struct seeker);
 
-	setup_locale();
+	common_setup(argv[0]);
 
 	seeker->daemon = tal(seeker, struct daemon);
 
@@ -152,4 +153,5 @@ int main(int argc, char *argv[])
 			 -1);
 
 	tal_free(seeker);
+	common_shutdown();
 }

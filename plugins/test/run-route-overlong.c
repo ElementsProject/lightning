@@ -1,6 +1,7 @@
 #include "../libplugin-pay.c"
 #include <bitcoin/chainparams.h>
 #include <common/gossip_store.h>
+#include <common/setup.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -324,10 +325,8 @@ static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
 /* We create an arrangement of nodes, each node N connected to N+1 and
  * to node 1.  The cost for each N to N+1 route is 1, for N to 1 is
  * 2^N.  That means it's always cheapest to go the longer route */
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct node_id ids[NUM_NODES];
 	int store_fd;
 	struct payment *p;
@@ -335,9 +334,7 @@ int main(void)
 	char gossip_version = GOSSIP_STORE_VERSION;
 	char gossipfilename[] = "/tmp/run-route-overlong.XXXXXX";
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
+	common_setup(argv[0]);
 	chainparams = chainparams_for_network("regtest");
 	store_fd = mkstemp(gossipfilename);
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
@@ -401,7 +398,6 @@ int main(void)
 		assert(tal_count(r) == 2);
 	}
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	return 0;
 }

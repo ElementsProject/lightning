@@ -1082,6 +1082,8 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 					   5),
 		  "wallet_add_utxo with close_info and csv > 1");
 	CHECK_MSG(!wallet_err, wallet_err);
+	/* Normally freed by destroy_channel, but we don't call that */
+	tal_free(channel.peer);
 
 	/* Select everything but 5 csv-locked utxo */
 	utxos = tal_arr(w, const struct utxo *, 0);
@@ -1890,7 +1892,6 @@ int main(int argc, const char *argv[])
 	/* Do not clean up in the case of an error, we might want to debug the
 	 * database. */
 	if (ok) {
-		take_cleanup();
 		common_shutdown();
 	}
 	return !ok;

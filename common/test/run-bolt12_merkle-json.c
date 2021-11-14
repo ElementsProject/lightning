@@ -129,8 +129,7 @@ int main(int argc, char *argv[])
 					   "bolt12/merkle-test.json"));
 		if (!json) {
 			printf("test file not found, skipping\n");
-			tal_free(tmpctx);
-			exit(0);
+			goto out;
 		}
 	}
 
@@ -179,6 +178,8 @@ int main(int argc, char *argv[])
 			abort();
 		printf(" - WRAPPED OK\n");
 	}
+
+out:
 	common_shutdown();
 	return 0;
 }

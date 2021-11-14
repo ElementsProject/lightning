@@ -4,6 +4,7 @@
 #include <common/channel_id.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
+#include <common/setup.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -168,7 +169,7 @@ int test_chdir(const char *path)
 
 int main(int argc UNUSED, char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "test", "-N", "none", NULL };
 
@@ -190,6 +191,6 @@ int main(int argc UNUSED, char *argv[])
 		     "num_connected=1\n"));
 	tal_free(output);
 	assert(!taken_any());
-	take_cleanup();
+	common_shutdown();
 	return 0;
 }
