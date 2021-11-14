@@ -49,6 +49,10 @@ struct db_query {
 	/* Is this a read-only query? If it is there's no need to tell plugins
 	 * about it. */
 	bool readonly;
+
+	/* If this is a select statement, what column names */
+	const struct sqlname_map *colnames;
+	size_t num_colnames;
 };
 
 enum db_binding_type {
@@ -155,5 +159,10 @@ AUTODATA_TYPE(db_backends, struct db_config);
  */
 void db_changes_add(struct db_stmt *db_stmt, const char * expanded);
 
+/* devtools/sql-rewrite.py generates this simple htable */
+struct sqlname_map {
+	const char *sqlname;
+	int val;
+};
 
 #endif /* LIGHTNING_WALLET_DB_COMMON_H */

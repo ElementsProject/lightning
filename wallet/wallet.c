@@ -4321,7 +4321,7 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
-					"FROM forwarded_payments "
+					" FROM forwarded_payments "
 					"WHERE state = ?;"));
 	db_bind_int(stmt, 0, wallet_forward_status_in_db(FORWARD_SETTLED));
 	db_query_prepared(stmt);
