@@ -190,7 +190,9 @@ int db_col_int(struct db_stmt *stmt, const char *colname);
 size_t db_col_bytes(struct db_stmt *stmt, const char *colname);
 int db_col_is_null(struct db_stmt *stmt, const char *colname);
 const void* db_col_blob(struct db_stmt *stmt, const char *colname);
-const unsigned char *db_col_text(struct db_stmt *stmt, const char *colname);
+char *db_col_strdup(const tal_t *ctx,
+		    struct db_stmt *stmt,
+		    const char *colname);
 void db_col_preimage(struct db_stmt *stmt, const char *colname, struct preimage *preimage);
 void db_col_amount_msat(struct db_stmt *stmt, const char *colname, struct amount_msat *msat);
 void db_col_amount_sat(struct db_stmt *stmt, const char *colname, struct amount_sat *sat);
@@ -207,7 +209,7 @@ struct node_id *db_col_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
 				   const char *colname);
 void db_col_pubkey(struct db_stmt *stmt, const char *colname,
 		   struct pubkey *p);
-bool db_col_short_channel_id(struct db_stmt *stmt, const char *colname,
+bool db_col_short_channel_id_str(struct db_stmt *stmt, const char *colname,
 				struct short_channel_id *dest);
 struct short_channel_id *
 db_col_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
