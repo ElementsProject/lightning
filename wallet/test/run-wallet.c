@@ -1498,7 +1498,7 @@ static int count_inflights(struct wallet *w, u64 channel_dbid)
 	db_query_prepared(stmt);
 	if (!db_step(stmt))
 		abort();
-	count = db_column_int(stmt, 0);
+	count = db_col_int(stmt, "COUNT(1)");
 	tal_free(stmt);
 	return count;
 }
