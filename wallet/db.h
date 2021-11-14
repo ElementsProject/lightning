@@ -128,6 +128,7 @@ void db_bind_onionreply(struct db_stmt *stmt, int col,
 void db_bind_talarr(struct db_stmt *stmt, int col, const u8 *arr);
 
 bool db_step(struct db_stmt *stmt);
+
 u64 db_column_u64(struct db_stmt *stmt, int col);
 int db_column_int(struct db_stmt *stmt, int col);
 size_t db_column_bytes(struct db_stmt *stmt, int col);
@@ -178,6 +179,63 @@ void db_column_amount_msat_or_default(struct db_stmt *stmt, int col,
 				      struct amount_msat *msat,
 				      struct amount_msat def);
 
+/* Modern variants: get columns by name from SELECT */
+/* Bridge function to get column number from SELECT
+   (must exist) */
+size_t db_query_colnum(const struct db_stmt *stmt,
+		       const char *colname);
+
+u64 db_col_u64(struct db_stmt *stmt, const char *colname);
+int db_col_int(struct db_stmt *stmt, const char *colname);
+size_t db_col_bytes(struct db_stmt *stmt, const char *colname);
+int db_col_is_null(struct db_stmt *stmt, const char *colname);
+const void* db_col_blob(struct db_stmt *stmt, const char *colname);
+const unsigned char *db_col_text(struct db_stmt *stmt, const char *colname);
+void db_col_preimage(struct db_stmt *stmt, const char *colname, struct preimage *preimage);
+void db_col_amount_msat(struct db_stmt *stmt, const char *colname, struct amount_msat *msat);
+void db_col_amount_sat(struct db_stmt *stmt, const char *colname, struct amount_sat *sat);
+struct json_escape *db_col_json_escape(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
+void db_col_sha256(struct db_stmt *stmt, const char *colname, struct sha256 *sha);
+void db_col_sha256d(struct db_stmt *stmt, const char *colname, struct sha256_double *shad);
+void db_col_secret(struct db_stmt *stmt, const char *colname, struct secret *s);
+struct secret *db_col_secret_arr(const tal_t *ctx, struct db_stmt *stmt,
+				 const char *colname);
+void db_col_txid(struct db_stmt *stmt, const char *colname, struct bitcoin_txid *t);
+void db_col_channel_id(struct db_stmt *stmt, const char *colname, struct channel_id *dest);
+void db_col_node_id(struct db_stmt *stmt, const char *colname, struct node_id *ni);
+struct node_id *db_col_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
+				   const char *colname);
+void db_col_pubkey(struct db_stmt *stmt, const char *colname,
+		   struct pubkey *p);
+bool db_col_short_channel_id(struct db_stmt *stmt, const char *colname,
+				struct short_channel_id *dest);
+struct short_channel_id *
+db_col_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
+bool db_col_signature(struct db_stmt *stmt, const char *colname,
+			 secp256k1_ecdsa_signature *sig);
+struct timeabs db_col_timeabs(struct db_stmt *stmt, const char *colname);
+struct bitcoin_tx *db_col_tx(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
+struct wally_psbt *db_col_psbt(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
+struct bitcoin_tx *db_col_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
+
+struct onionreply *db_col_onionreply(const tal_t *ctx,
+					struct db_stmt *stmt, const char *colname);
+
+#define db_col_arr(ctx, stmt, colname, type)			\
+	((type *)db_col_arr_((ctx), (stmt), (colname),		\
+				sizeof(type), TAL_LABEL(type, "[]"),	\
+				__func__))
+void *db_col_arr_(const tal_t *ctx, struct db_stmt *stmt, const char *colname,
+		     size_t bytes, const char *label, const char *caller);
+
+
+/* Some useful default variants */
+int db_col_int_or_default(struct db_stmt *stmt, const char *colname, int def);
+void db_col_amount_msat_or_default(struct db_stmt *stmt, const char *colname,
+				      struct amount_msat *msat,
+				      struct amount_msat def);
+
+
 /**
  * db_exec_prepared -- Execute a prepared statement
  *
@@ -202,7 +260,7 @@ bool db_exec_prepared_v2(struct db_stmt *stmt TAKES);
  * After preparing a query using `db_prepare`, and after binding all non-null
  * variables using the `db_bind_*` functions, it can be executed with this
  * function. This function must be called before calling `db_step` or any of
- * the `db_column_*` column access functions.
+ * the `db_col_*` column access functions.
  *
  * If you are not executing a read-only statement, please use
  * `db_exec_prepared` instead.
