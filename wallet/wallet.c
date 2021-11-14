@@ -1035,20 +1035,20 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(w->db,
 			     SQL("INSERT INTO channel_funding_inflights ("
-				 "  channel_id" // 0
-				 ", funding_tx_id" // 1
-				 ", funding_tx_outnum" // 2
-				 ", funding_feerate" // 3
-				 ", funding_satoshi" // 4
-				 ", our_funding_satoshi" // 5
-				 ", funding_psbt" // 6
-				 ", last_tx" // 7
-				 ", last_sig" // 8
-				 ", lease_commit_sig" // 9
-				 ", lease_chan_max_msat" // 10
-				 ", lease_chan_max_ppt" // 11
-				 ", lease_expiry" // 12
-				 ", lease_blockheight_start" // 13
+				 "  channel_id"
+				 ", funding_tx_id"
+				 ", funding_tx_outnum"
+				 ", funding_feerate"
+				 ", funding_satoshi"
+				 ", our_funding_satoshi"
+				 ", funding_psbt"
+				 ", last_tx"
+				 ", last_sig"
+				 ", lease_commit_sig"
+				 ", lease_chan_max_msat"
+				 ", lease_chan_max_ppt"
+				 ", lease_expiry"
+				 ", lease_blockheight_start"
 				 ") VALUES ("
 				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
@@ -1187,22 +1187,22 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					"  funding_tx_id" // 0
-					", funding_tx_outnum" // 1
-					", funding_feerate" // 2
-					", funding_satoshi" // 3
-					", our_funding_satoshi" // 4
-					", funding_psbt" // 5
-					", last_tx" // 6
-					", last_sig" // 7
-					", funding_tx_remote_sigs_received" //8
-					", lease_expiry" // 9
-					", lease_commit_sig" // 10
-					", lease_chan_max_msat" // 11
-					", lease_chan_max_ppt" // 12
-					", lease_blockheight_start" // 13
+					"  funding_tx_id"
+					", funding_tx_outnum"
+					", funding_feerate"
+					", funding_satoshi"
+					", our_funding_satoshi"
+					", funding_psbt"
+					", last_tx"
+					", last_sig"
+					", funding_tx_remote_sigs_received"
+					", lease_expiry"
+					", lease_commit_sig"
+					", lease_chan_max_msat"
+					", lease_chan_max_ppt"
+					", lease_blockheight_start"
 					" FROM channel_funding_inflights"
-					" WHERE channel_id = ?" // ?0
+					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
@@ -1495,70 +1495,68 @@ static bool wallet_channels_load_active(struct wallet *w)
 
 	/* We load all channels */
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					"  id" // 0
-					", peer_id" // 1
-					", short_channel_id" // 2
-					", full_channel_id" // 3
-					", channel_config_local" // 4
-					", channel_config_remote" // 5
-					", state" // 6
-					", funder" // 7
-					", channel_flags" // 8
-					", minimum_depth" // 9
-					", next_index_local" // 10
-					", next_index_remote" // 11
-					", next_htlc_id" // 12
-					", funding_tx_id" // 13
-					", funding_tx_outnum" // 14
-					", funding_satoshi" // 15
-					", our_funding_satoshi" // 16
-					", funding_locked_remote" // 17
-					", push_msatoshi" // 18
-					", msatoshi_local" // 19
-					", fundingkey_remote" // 20
-					", revocation_basepoint_remote" // 21
-					", payment_basepoint_remote" // 22
-					", htlc_basepoint_remote" // 23
+					"  id"
+					", peer_id"
+					", short_channel_id"
+					", full_channel_id"
+					", channel_config_local"
+					", channel_config_remote"
+					", state"
+					", funder"
+					", channel_flags"
+					", minimum_depth"
+					", next_index_local"
+					", next_index_remote"
+					", next_htlc_id"
+					", funding_tx_id"
+					", funding_tx_outnum"
+					", funding_satoshi"
+					", our_funding_satoshi"
+					", funding_locked_remote"
+					", push_msatoshi"
+					", msatoshi_local"
+					", fundingkey_remote"
+					", revocation_basepoint_remote"
+					", payment_basepoint_remote"
+					", htlc_basepoint_remote"
 					", delayed_payment_basepoint_remote"
-					", per_commit_remote" // 25
-					", old_per_commit_remote" // 26
-					", local_feerate_per_kw" // 27
-					", remote_feerate_per_kw" // 28
-					", shachain_remote_id"  // 29
-					", shutdown_scriptpubkey_remote" // 30
-					", shutdown_keyidx_local" // 31
-					", last_sent_commit_state" // 32
-					", last_sent_commit_id" // 33
-					", last_tx" // 34
-					", last_sig" // 35
-					", last_was_revoke" // 36
-					", first_blocknum" // 37
-					", min_possible_feerate" // 38
-					", max_possible_feerate" // 39
-					", msatoshi_to_us_min" // 40
-					", msatoshi_to_us_max" // 41
-					", future_per_commitment_point" // 42
-					", last_sent_commit" // 43
-					", feerate_base" // 44
-					", feerate_ppm" // 45
-					", remote_upfront_shutdown_script" // 46
-					", local_static_remotekey_start" // 47
-					", remote_static_remotekey_start" // 48
-					", option_anchor_outputs" // 49
-					", shutdown_scriptpubkey_local" // 50
-					", closer" // 51
-					", state_change_reason" // 52
-					", revocation_basepoint_local" // 53
-					", payment_basepoint_local" // 54
-					", htlc_basepoint_local" // 55
-					", delayed_payment_basepoint_local" // 56
-					", funding_pubkey_local" // 57
-					", shutdown_wrong_txid" // 58
-					", shutdown_wrong_outnum" // 59
-					", lease_expiry" // 60
-					", lease_commit_sig" // 61
-					", lease_chan_max_msat" // 62
-					", lease_chan_max_ppt" // 63
+					", per_commit_remote"
+					", old_per_commit_remote"
+					", shachain_remote_id"
+					", shutdown_scriptpubkey_remote"
+					", shutdown_keyidx_local"
+					", last_sent_commit_state"
+					", last_sent_commit_id"
+					", last_tx"
+					", last_sig"
+					", last_was_revoke"
+					", first_blocknum"
+					", min_possible_feerate"
+					", max_possible_feerate"
+					", msatoshi_to_us_min"
+					", msatoshi_to_us_max"
+					", future_per_commitment_point"
+					", last_sent_commit"
+					", feerate_base"
+					", feerate_ppm"
+					", remote_upfront_shutdown_script"
+					", local_static_remotekey_start"
+					", remote_static_remotekey_start"
+					", option_anchor_outputs"
+					", shutdown_scriptpubkey_local"
+					", closer"
+					", state_change_reason"
+					", revocation_basepoint_local"
+					", payment_basepoint_local"
+					", htlc_basepoint_local"
+					", delayed_payment_basepoint_local"
+					", funding_pubkey_local"
+					", shutdown_wrong_txid"
+					", shutdown_wrong_outnum"
+					", lease_expiry"
+					", lease_commit_sig"
+					", lease_chan_max_msat"
+					", lease_chan_max_ppt"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, 0, CLOSED);
@@ -1570,9 +1568,6 @@ static bool wallet_channels_load_active(struct wallet *w)
 			ok = false;
 			break;
 		}
-		/* FIXME: Remove */
-		db_col_ignore(stmt, "local_feerate_per_kw");
-		db_col_ignore(stmt, "remote_feerate_per_kw");
 		count++;
 	}
 	log_debug(w->log, "Loaded %d channels from DB", count);
@@ -1774,7 +1769,7 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 {
 	bool ok = true;
 	const char *query = SQL(
-	    "SELECT id, dust_limit_satoshis, max_htlc_value_in_flight_msat, "
+	    "SELECT dust_limit_satoshis, max_htlc_value_in_flight_msat, "
 	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
 	    "max_accepted_htlcs, max_dust_htlc_exposure_msat"
 	    " FROM channel_configs WHERE id= ? ;");
@@ -1785,8 +1780,6 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	if (!db_step(stmt))
 		return false;
 
-	/* FIXME */
-	db_col_ignore(stmt, "id");
 	cc->id = id;
 	db_col_amount_sat(stmt, "dust_limit_satoshis", &cc->dust_limit);
 	db_col_amount_msat(stmt, "max_htlc_value_in_flight_msat",
@@ -2608,9 +2601,6 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 
 	in->fail_immediate = db_col_int(stmt, "fail_immediate");
 
-	/* FIXME: Don't fetch this at all! */
-	db_col_ignore(stmt, "origin_htlc");
-
 	return ok;
 }
 
@@ -2682,11 +2672,6 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 		out->am_origin = true;
 	}
 
-	/* FIXME: don't SELECT these columns */
-	db_col_ignore(stmt, "received_time");
-	db_col_ignore(stmt, "shared_secret");
-	db_col_ignore(stmt, "malformed_onion");
-
 	return ok;
 }
 
@@ -2742,9 +2727,8 @@ bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
 					     ", routing_onion"
 					     ", failuremsg"
 					     ", malformed_onion"
-					     ", origin_htlc"
 					     ", shared_secret"
-					     ", received_time" // 12
+					     ", received_time"
 					     ", we_filled"
 					     ", fail_immediate"
 					     " FROM channel_htlcs"
@@ -2789,10 +2773,7 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet,
 					     ", payment_key"
 					     ", routing_onion"
 					     ", failuremsg"
-					     ", malformed_onion"
 					     ", origin_htlc"
-					     ", shared_secret"
-					     ", received_time"
 					     ", partid"
 					     ", localfailmsg"
 					     ", groupid"
