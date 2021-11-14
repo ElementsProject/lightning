@@ -84,7 +84,7 @@ struct db_stmt {
 	struct db *db;
 
 	/* Which SQL statement are we trying to execute? */
-	struct db_query *query;
+	const struct db_query *query;
 
 	/* Which parameters are we binding to the statement? */
 	struct db_binding *bindings;
@@ -109,8 +109,8 @@ struct db_stmt {
 
 struct db_config {
 	const char *name;
-	struct db_query *queries;
-	size_t num_queries;
+	const struct db_query *query_table;
+	size_t query_table_size;
 
 	/* Function used to execute a statement that doesn't result in a
 	 * response. */

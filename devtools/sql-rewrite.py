@@ -27,6 +27,8 @@ class Rewriter(object):
 
     def rewrite(self, queries):
         for i, q in enumerate(queries):
+            if q['name'] is None:
+                continue
             org = q['query']
             queries[i]['query'] = self.rewrite_single(org)
             eprint("Rewritten statement\n\tfrom {}\n\t  to {}".format(org, q['query']))
@@ -136,10 +138,11 @@ static const struct sqlname_map ${colname}[] = {
 
 % endfor
 
-struct db_query db_${f}_queries[] = {
+const struct db_query db_${f}_queries[] = {
 
 % for elem in queries:
     {
+% if elem['name'] is not None:
          .name = "${elem['name']}",
          .query = "${elem['query']}",
          .placeholders = ${elem['placeholders']},
@@ -148,16 +151,29 @@ struct db_query db_${f}_queries[] = {
          .colnames = ${elem['colnames']},
          .num_colnames = ARRAY_SIZE(${elem['colnames']}),
 % endif
+% endif
     },
 % endfor
 };
-
-#define DB_${f.upper()}_QUERY_COUNT ${len(queries)}
 
 #endif /* HAVE_${f.upper()} */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_${f.upper()} */
 """)
+
+
+def queries_htable(queries):
+    # Converts a list of queries into a hash table.
+    tablesize = len(queries) * 2 - 1
+    htable = [{'name': None}] * tablesize
+
+    for q in queries:
+        pos = hash_djb2(q['name']) % tablesize
+        while htable[pos]['name'] is not None:
+            pos = (pos + 1) % tablesize
+        htable[pos] = q
+
+    return htable
 
 
 def extract_queries(pofile):
@@ -204,7 +220,7 @@ def extract_queries(pofile):
             'readonly': "true" if is_select else "false",
             'colnames': colnames,
         })
-    return colhtables, queries
+    return colhtables, queries_htable(queries)
 
 
 if __name__ == "__main__":
