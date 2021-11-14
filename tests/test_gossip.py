@@ -27,7 +27,8 @@ with open('config.vars') as configfile:
 def test_gossip_pruning(node_factory, bitcoind):
     """ Create channel and see it being updated in time before pruning
     """
-    l1, l2, l3 = node_factory.get_nodes(3, opts={'dev-fast-gossip-prune': None})
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'dev-fast-gossip-prune': None,
+                                                 'allow_bad_gossip': True})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
