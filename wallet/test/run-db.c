@@ -167,6 +167,91 @@ static bool test_vars(struct lightningd *ld)
 	return true;
 }
 
+static bool test_manip_columns(void)
+{
+	struct db_stmt *stmt;
+	struct db *db = create_test_db();
+	const char *field1 = "field1";
+
+	db_begin_transaction(db);
+	/* tablea refers to tableb */
+	stmt = db_prepare_v2(db, SQL("CREATE TABLE tablea ("
+				     "  id BIGSERIAL"
+				     ", field1 INTEGER"
+				     ", PRIMARY KEY (id))"));
+	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("INSERT INTO tablea (id, field1) VALUES (0, 1);"));
+	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("CREATE TABLE tableb ("
+				     "   id REFERENCES tablea(id) ON DELETE CASCADE"
+				     ",  field1 INTEGER"
+				     ",  field2 INTEGER);"));
+	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("INSERT INTO tableb (id, field1, field2) VALUES (0, 1, 2);"));
+	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	tal_free(stmt);
+	/* Don't let it try to set a version field (we don't have one!) */
+	db->dirty = false;
+	db->changes = tal_arr(db, const char *, 0);
+	db_commit_transaction(db);
+
+	/* Rename tablea.field1 -> table1.field1a. */
+	CHECK(db->config->rename_column(db, "tablea", "field1", "field1a"));
+	/* Remove tableb.field1. */
+	CHECK(db->config->delete_columns(db, "tableb", &field1, 1));
+
+	db_begin_transaction(db);
+	stmt = db_prepare_v2(db, SQL("SELECT id, field1a FROM tablea;"));
+	CHECK_MSG(db_query_prepared(stmt), "db_query_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	CHECK(db_step(stmt));
+	CHECK(db_col_u64(stmt, "id") == 0);
+	CHECK(db_col_u64(stmt, "field1a") == 1);
+	CHECK(!db_step(stmt));
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("SELECT id, field2 FROM tableb;"));
+	CHECK_MSG(db_query_prepared(stmt), "db_query_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	CHECK(db_step(stmt));
+	CHECK(db_col_u64(stmt, "id") == 0);
+	CHECK(db_col_u64(stmt, "field2") == 2);
+	CHECK(!db_step(stmt));
+	tal_free(stmt);
+	db->dirty = false;
+	db->changes = tal_arr(db, const char *, 0);
+	db_commit_transaction(db);
+
+	db_begin_transaction(db);
+	/* This will actually fail */
+	stmt = db_prepare_v2(db, SQL("SELECT field1 FROM tablea;"));
+	CHECK_MSG(!db_query_prepared(stmt), "db_query_prepared must fail");
+	db->dirty = false;
+	db->changes = tal_arr(db, const char *, 0);
+	db_commit_transaction(db);
+
+	db_begin_transaction(db);
+	/* This will actually fail */
+	stmt = db_prepare_v2(db, SQL("SELECT field1 FROM tableb;"));
+	CHECK_MSG(!db_query_prepared(stmt), "db_query_prepared must fail");
+	db->dirty = false;
+	db->changes = tal_arr(db, const char *, 0);
+	db_commit_transaction(db);
+
+	tal_free(db);
+	return true;
+}
+
 int main(int argc, char *argv[])
 {
 	bool ok = true;
@@ -179,6 +264,7 @@ int main(int argc, char *argv[])
 	ok &= test_empty_db_migrate(ld);
 	ok &= test_vars(ld);
 	ok &= test_primitives();
+	ok &= test_manip_columns();
 
 	tal_free(ld);
 	common_shutdown();
