@@ -307,8 +307,10 @@ u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 	return (u8 *)ctx;
 }
 
-bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
+bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES)
 {
+	if (taken(msg))
+		tal_free(msg);
 	return true;
 }
 
@@ -422,6 +424,5 @@ int main(int argc, char *argv[])
 						htlc_scripts,
 						false);
 	assert(ret == 2);
-	take_cleanup();
 	common_shutdown();
 }

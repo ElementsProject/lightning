@@ -4,6 +4,7 @@
 #include <common/channel_id.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
+#include <common/setup.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 
@@ -162,7 +163,7 @@ ssize_t test_read(int fd UNUSED, void *buf, size_t len)
 
 int main(int argc UNUSED, char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "-H", "listconfigs", "-N", "none", NULL };
 
@@ -170,7 +171,7 @@ int main(int argc UNUSED, char *argv[])
 	max_read_return = -1;
 	assert(test_main(6, fake_argv) == 0);
 	assert(!taken_any());
-	take_cleanup();
+	common_shutdown();
 	return 0;
 }
 

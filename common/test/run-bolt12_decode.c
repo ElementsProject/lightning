@@ -6,6 +6,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
+#include <common/setup.h>
 
 bool deprecated_apis = false;
 
@@ -174,8 +175,7 @@ int main(int argc, char *argv[])
 	jsmntok_t toks[5000];
 	const jsmntok_t *t;
 
-	setup_locale();
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	if (argv[1])
 		json = grab_file(tmpctx, argv[1]);
@@ -187,8 +187,7 @@ int main(int argc, char *argv[])
 					   "bolt12/format-string-test.json"));
 		if (!json) {
 			printf("test file not found, skipping\n");
-			tal_free(tmpctx);
-			exit(0);
+			goto out;
 		}
 	}
 
@@ -213,6 +212,7 @@ int main(int argc, char *argv[])
 					 "lno", &dlen, &fail) != NULL);
 		assert(actual == valid);
 	}
-	tal_free(tmpctx);
+out:
+	common_shutdown();
 	return 0;
 }

@@ -16,6 +16,7 @@ CLI_TEST_COMMON_OBJS :=				\
 	common/pseudorand.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/setup.o				\
 	common/utils.o				\
 	common/type_to_string.o			\
 	common/permute_tx.o

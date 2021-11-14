@@ -11,6 +11,7 @@
 #include <common/gossmap.h>
 #include <common/gossip_store.h>
 #include <common/route.h>
+#include <common/setup.h>
 #include <common/type_to_string.h>
 #include <bitcoin/chainparams.h>
 #include <stdio.h>
@@ -180,10 +181,8 @@ static bool route_can_carry_unless_disabled(const struct gossmap *map,
 	return route_can_carry_even_disabled(map, c, dir, amount, arg);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct node_id a, b, c, d;
 	struct gossmap_node *a_node, *b_node, *c_node, *d_node;
 	const struct dijkstra *dij;
@@ -194,10 +193,7 @@ int main(void)
 	char gossip_version = GOSSIP_STORE_VERSION;
 	char gossipfilename[] = "/tmp/run-route-specific-gossipstore.XXXXXX";
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
-
+	common_setup(argv[0]);
 	node_id_from_hexstr("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf",
 			   strlen("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf"),
 			   &a);
@@ -309,7 +305,6 @@ int main(void)
 				    AMOUNT_MSAT(499968+1), 0);
 	assert(!route);
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	return 0;
 }
