@@ -273,6 +273,51 @@ static bool db_postgres_vacuum(struct db *db)
 	return true;
 }
 
+static bool db_postgres_rename_column(struct db *db,
+				      const char *tablename,
+				      const char *from, const char *to)
+{
+	PGresult *res;
+	char *cmd;
+
+	cmd = tal_fmt(db, "ALTER TABLE %s RENAME %s TO %s;",
+		      tablename, from, to);
+	res = PQexec(db->conn, cmd);
+	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+		db->error = tal_fmt(db, "Rename '%s' failed: %s",
+				    cmd, PQerrorMessage(db->conn));
+		PQclear(res);
+		return false;
+	}
+	PQclear(res);
+	return true;
+}
+
+static bool db_postgres_delete_columns(struct db *db,
+				       const char *tablename,
+				       const char **colnames, size_t num_cols)
+{
+	PGresult *res;
+	char *cmd;
+
+	cmd = tal_fmt(db, "ALTER TABLE %s ", tablename);
+	for (size_t i = 0; i < num_cols; i++) {
+		if (i != 0)
+			tal_append_fmt(&cmd, ", ");
+		tal_append_fmt(&cmd, "DROP %s", colnames[i]);
+	}
+	tal_append_fmt(&cmd, ";");
+	res = PQexec(db->conn, cmd);
+	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+		db->error = tal_fmt(db, "Delete '%s' failed: %s",
+				    cmd, PQerrorMessage(db->conn));
+		PQclear(res);
+		return false;
+	}
+	PQclear(res);
+	return true;
+}
+
 struct db_config db_postgres_config = {
     .name = "postgres",
     .query_table = db_postgres_queries,
@@ -296,6 +341,8 @@ struct db_config db_postgres_config = {
     .setup_fn = db_postgres_setup,
     .teardown_fn = db_postgres_teardown,
     .vacuum_fn = db_postgres_vacuum,
+    .rename_column = db_postgres_rename_column,
+    .delete_columns = db_postgres_delete_columns,
 };
 
 AUTODATA(db_backends, &db_postgres_config);

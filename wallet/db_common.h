@@ -151,6 +151,13 @@ struct db_config {
 	void (*teardown_fn)(struct db *db);
 
 	bool (*vacuum_fn)(struct db *db);
+
+	bool (*rename_column)(struct db *db,
+			      const char *tablename,
+			      const char *from, const char *to);
+	bool (*delete_columns)(struct db *db,
+			       const char *tablename,
+			       const char **colnames, size_t num_cols);
 };
 
 /* Provide a way for DB backends to register themselves */
