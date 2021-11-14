@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <ccan/cppmagic/cppmagic.h>
+#include <stddef.h>
 
 #define AUTODATA_TYPE(name, type)					\
 	static inline void register_autotype_##name(const type *t) {	\
@@ -23,4 +24,6 @@
 void autodata_register_(const char *typename, const void *ptr);
 void *autodata_get_(const char *typename, size_t *nump);
 
+/* Call on shutdown to keep valgrind leak detection happy. */
+void autodata_cleanup(void);
 #endif /* LIGHTNING_COMMON_AUTODATA_H */
