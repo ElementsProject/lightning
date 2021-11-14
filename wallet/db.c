@@ -1201,7 +1201,7 @@ static int db_get_version(struct db *db)
 	}
 
 	if (db_step(stmt))
-		res = db_column_int(stmt, 0);
+		res = db_col_int(stmt, "version");
 
 	tal_free(stmt);
 	return res;
@@ -1271,7 +1271,7 @@ u32 db_data_version_get(struct db *db)
 	stmt = db_prepare_v2(db, SQL("SELECT intval FROM vars WHERE name = 'data_version'"));
 	db_query_prepared(stmt);
 	db_step(stmt);
-	version = db_column_int(stmt, 0);
+	version = db_col_int(stmt, "intval");
 	tal_free(stmt);
 	return version;
 }
@@ -1309,7 +1309,7 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 		goto done;
 
 	if (db_step(stmt))
-		res = db_column_int(stmt, 0);
+		res = db_col_int(stmt, "intval");
 
 done:
 	tal_free(stmt);
@@ -1399,23 +1399,23 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 		struct pubkey key;
 		struct db_stmt *update_stmt;
 
-		type = db_column_int(stmt, 0);
-		keyindex = db_column_int(stmt, 1);
-		db_column_txid(stmt, 2, &txid);
-		outnum = db_column_int(stmt, 3);
+		type = db_col_int(stmt, "type");
+		keyindex = db_col_int(stmt, "keyindex");
+		db_col_txid(stmt, "prev_out_tx", &txid);
+		outnum = db_col_int(stmt, "prev_out_index");
 
 		/* This indiciates whether or not we have 'close_info' */
-		if (!db_column_is_null(stmt, 4)) {
+		if (!db_col_is_null(stmt, "channel_id")) {
 			struct pubkey *commitment_point;
 			struct node_id peer_id;
 			u64 channel_id;
 			u8 *msg;
 
-			channel_id = db_column_u64(stmt, 4);
-			db_column_node_id(stmt, 5, &peer_id);
-			if (!db_column_is_null(stmt, 6)) {
+			channel_id = db_col_u64(stmt, "channel_id");
+			db_col_node_id(stmt, "peer_id", &peer_id);
+			if (!db_col_is_null(stmt, "commitment_point")) {
 				commitment_point = tal(stmt, struct pubkey);
-				db_column_pubkey(stmt, 6, commitment_point);
+				db_col_pubkey(stmt, "commitment_point", commitment_point);
 			} else
 				commitment_point = NULL;
 
@@ -1479,9 +1479,9 @@ static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
 		struct bitcoin_outpoint funding;
 		struct channel_id cid;
 
-		id = db_column_u64(stmt, 0);
-		db_column_txid(stmt, 1, &funding.txid);
-		funding.n = db_column_int(stmt, 2);
+		id = db_col_u64(stmt, "id");
+		db_col_txid(stmt, "funding_tx_id", &funding.txid);
+		funding.n = db_col_int(stmt, "funding_tx_outnum");
 		derive_channel_id(&cid, &funding);
 
 		update_stmt = db_prepare_v2(db, SQL("UPDATE channels"
@@ -1522,8 +1522,8 @@ static void fillin_missing_local_basepoints(struct lightningd *ld,
 		struct basepoints base;
 		struct pubkey funding_pubkey;
 
-		dbid = db_column_u64(stmt, 0);
-		db_column_node_id(stmt, 1, &peer_id);
+		dbid = db_col_u64(stmt, "channels.id");
+		db_col_node_id(stmt, "peers.node_id", &peer_id);
 
 		if (!wire_sync_write(mc->hsm_fd,
 				     towire_hsmd_get_channel_basepoints(
@@ -1619,19 +1619,19 @@ migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 		u64 cdb_id;
 		u8 *funding_wscript;
 
-		cdb_id = db_column_u64(stmt, 0);
-		last_tx = db_column_tx(stmt, stmt, 3);
+		cdb_id = db_col_u64(stmt, "c.id");
+		last_tx = db_col_tx(stmt, stmt, "inflight.last_tx");
 		assert(last_tx != NULL);
 
 		/* If we've forgotten about the peer_id
 		 * because we closed / forgot the channel,
 		 * we can skip this. */
-		if (db_column_is_null(stmt, 1))
+		if (db_col_is_null(stmt, "p.node_id"))
 			continue;
-		db_column_node_id(stmt, 1, &peer_id);
-		db_column_amount_sat(stmt, 5, &funding_sat);
-		db_column_pubkey(stmt, 2, &remote_funding_pubkey);
-		db_column_txid(stmt, 6, &funding_txid);
+		db_col_node_id(stmt, "p.node_id", &peer_id);
+		db_col_amount_sat(stmt, "inflight.funding_satoshi", &funding_sat);
+		db_col_pubkey(stmt, "c.fundingkey_remote", &remote_funding_pubkey);
+		db_col_txid(stmt, "inflight.funding_tx_id", &funding_txid);
 
 		get_channel_basepoints(ld, &peer_id, cdb_id,
 				       &local_basepoints, &local_funding_pubkey);
@@ -1645,7 +1645,7 @@ migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 					funding_sat);
 		psbt_input_set_witscript(last_tx->psbt, 0, funding_wscript);
 
-		if (!db_column_signature(stmt, 4, &last_sig.s))
+		if (!db_col_signature(stmt, "inflight.last_sig", &last_sig.s))
 			abort();
 
 		last_sig.sighash_type = SIGHASH_ALL;
@@ -1704,18 +1704,18 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 		u64 cdb_id;
 		u8 *funding_wscript;
 
-		cdb_id = db_column_u64(stmt, 0);
-		last_tx = db_column_tx(stmt, stmt, 2);
+		cdb_id = db_col_u64(stmt, "c.id");
+		last_tx = db_col_tx(stmt, stmt, "c.last_tx");
 		assert(last_tx != NULL);
 
 		/* If we've forgotten about the peer_id
 		 * because we closed / forgot the channel,
 		 * we can skip this. */
-		if (db_column_is_null(stmt, 1))
+		if (db_col_is_null(stmt, "p.node_id"))
 			continue;
-		db_column_node_id(stmt, 1, &peer_id);
-		db_column_amount_sat(stmt, 3, &funding_sat);
-		db_column_pubkey(stmt, 4, &remote_funding_pubkey);
+		db_col_node_id(stmt, "p.node_id", &peer_id);
+		db_col_amount_sat(stmt, "c.funding_satoshi", &funding_sat);
+		db_col_pubkey(stmt, "c.fundingkey_remote", &remote_funding_pubkey);
 
 		get_channel_basepoints(ld, &peer_id, cdb_id,
 				       &local_basepoints, &local_funding_pubkey);
@@ -1737,7 +1737,7 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 		}
 
 
-		if (!db_column_signature(stmt, 5, &last_sig.s))
+		if (!db_col_signature(stmt, "c.last_sig", &last_sig.s))
 			abort();
 
 		last_sig.sighash_type = SIGHASH_ALL;
