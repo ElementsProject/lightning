@@ -5,50 +5,56 @@
 #include "ccan/utf8/utf8.h"
 
 
-// GraphQL character classes
-
-#define SOURCE_CHAR(c) ((c) == 9 || (c) == 10 || (c) == 13 || ((c) >= 32 && (c) <= 65535))
-#define WHITE_SPACE(c) ((c) == 9 || (c) == 32)
-#define LINE_TERMINATOR(c) ((c) == 10 || (c) == 13)
-#define COMMENT(c) ((c) == 35)
+/* GraphQL character classes
+ *
+ * These definitions are meant to reflect the GraphQL specification as
+ * literally as possible.
+ */
+#define SOURCE_CHAR(c) ((c) == '\t' || (c) == '\n' || (c) == '\r' || ((c) >= 32 && (c) <= 65535))
+#define WHITE_SPACE(c) ((c) == '\t' || (c) == ' ')
+#define LINE_TERMINATOR(c) ((c) == '\n' || (c) == '\r')
+#define COMMENT(c) ((c) == '#')
 #define COMMENT_CHAR(c) (SOURCE_CHAR(c) && !LINE_TERMINATOR(c))
 #define STRING_CHAR(c) (SOURCE_CHAR(c) && !LINE_TERMINATOR(c) && (c)!='"' && (c)!='\\')
 #define BLOCK_STRING_CHAR(c) (SOURCE_CHAR(c))
-#define COMMA(c) ((c) == 44)
+#define COMMA(c) ((c) == ',')
 #define EOF_CHAR(c) ((c) == 0 || (c) == 4)
 #define PUNCTUATOR(c) (strchr("!$&().:=@[]{|}", c))
-#define HEX_DIGIT(c) (DIGIT(c) || ((c) >= 0x61 && (c) <= 0x66) || ((c) >= 0x41 && (c) <= 0x46))
-#define DIGIT(c) ((c) >= 0x30 && (c) <= 0x39)
-#define NAME_START(c) (((c) >= 0x61 && (c) <= 0x7A) || ((c) >= 0x41 && (c) <= 0x5A) || (c) == 0x5F)
+#define HEX_DIGIT(c) (DIGIT(c) || ((c) >= 'a' && (c) <= 'f') || ((c) >= 'A' && (c) <= 'F'))
+#define DIGIT(c) ((c) >= '0' && (c) <= '9')
+#define NAME_START(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'Z') || (c) == '_')
 #define NAME_CONTINUE(c) (NAME_START(c) || DIGIT(c))
 
-// Safe copy helper
+// Helper for copying an overlapping string, since strcpy() is not safe for that
 #define cpystr(d,s) { char *cpystr_p; char *cpystr_q; for(cpystr_p = (s), cpystr_q = (d); *cpystr_p;) *cpystr_q++ = *cpystr_p++; *cpystr_q++ = *cpystr_p++; }
 
-// Parser shorthands
-
+/* Parser shorthands
+ *
+ * These (perhaps unusual) shorthands are used so that the parser functions can be
+ * written in a format that almost exactly matches the specification.
+ */
 #define RET void *
 #define PARAMS struct list_head *tokens, struct list_head *used, const char **err
 #define ARGS tokens, used, err
 #define INIT(type) \
-	struct graphql_token *rollback_top = list_top(tokens, struct graphql_token, list); \
-	struct graphql_##type *obj = tal(tokens, struct graphql_##type); memset(obj, 0, sizeof(struct graphql_##type)); \
+	struct graphql_token *rollback_top = list_top(tokens, struct graphql_token, node); \
+	struct graphql_##type *obj = talz(tokens, struct graphql_##type); \
+	(void)rollback_top; /* avoids unused variable warning */ \
 
 #define EXIT \
-	goto exit_label; \
+	goto exit_label; /* avoids unused label warning */ \
 	exit_label: \
-	rollback_top = rollback_top; \
 	if (*err) obj = tal_free(obj); \
 	return obj; \
 
-#define CONSUME_ONE { list_add(used, (struct list_node *)list_pop(tokens, struct graphql_token, list)); }
-#define RESTORE_ONE { list_add(tokens, (struct list_node *)list_pop(used, struct graphql_token, list)); }
-#define ROLLBACK(args) { while (list_top(tokens, struct graphql_token, list) != rollback_top) { RESTORE_ONE; } }
+#define CONSUME_ONE list_add(used, &list_pop(tokens, struct graphql_token, node)->node);
+#define RESTORE_ONE list_add(tokens, &list_pop(used, struct graphql_token, node)->node);
+#define ROLLBACK(args) while (list_top(tokens, struct graphql_token, node) != rollback_top) { RESTORE_ONE; }
 #define OR if (!*err) goto exit_label; *err = NULL;
 #define REQ if (*err) { ROLLBACK(args); goto exit_label; }
 #define OPT *err = NULL;
 #define WHILE_OPT while(!*err); *err = NULL;
-#define LOOKAHEAD(args, tok) struct graphql_token *tok = list_top(tokens, struct graphql_token, list);
+#define LOOKAHEAD(args, tok) struct graphql_token *tok = list_top(tokens, struct graphql_token, node);
 #define MSG(msg) if (*err) *err = msg;
 
 
@@ -143,9 +149,10 @@ RET parse_int(PARAMS);
 RET parse_float(PARAMS);
 RET parse_string(PARAMS);
 
+
 // Convert input string into AST.
-const char *graphql_lexparse(const char *input, const tal_t *ctx, struct list_head **tokens, struct graphql_executable_document **doc) {
-	const char *err = graphql_lex(input, ctx, tokens);
+const char *graphql_lexparse(const tal_t *ctx, const char *input, struct list_head **tokens, struct graphql_executable_document **doc) {
+	const char *err = graphql_lex(ctx, input, tokens);
 	if (!err)
 		err = graphql_parse(*tokens, doc);
 	return err;
@@ -315,7 +322,7 @@ RET parse_fragment_definition(PARAMS) {
 RET parse_fragment_name(PARAMS) {
 	INIT(fragment_name);
 	obj->name = parse_name(ARGS); REQ
-	struct graphql_token *tok = list_top(used, struct graphql_token, list);
+	struct graphql_token *tok = list_top(used, struct graphql_token, node);
 	if (streq(tok->token_string, "on")) {
 		*err = "invalid fragment name";
 		ROLLBACK(ARGS);
@@ -388,7 +395,7 @@ RET parse_null_value(PARAMS) {
 RET parse_enum_value(PARAMS) {
 	INIT(enum_value);
 	obj->val = parse_name(ARGS); REQ
-	struct graphql_token *tok = list_top(used, struct graphql_token, list);
+	struct graphql_token *tok = list_top(used, struct graphql_token, node);
 	if (streq(tok->token_string, "true")
 	 || streq(tok->token_string, "false")
 	 || streq(tok->token_string, "null")) {
@@ -546,7 +553,7 @@ RET parse_directive(PARAMS) {
 /* The following functions construct the "leaves" of the abstract syntax tree. */
 
 RET parse_keyword(PARAMS, const char *keyword, const char *errmsg) {
-	struct graphql_token *tok = list_top(tokens, struct graphql_token, list);
+	struct graphql_token *tok = list_top(tokens, struct graphql_token, node);
 	if (!tok || tok->token_type != 'a') {
 		*err = errmsg; return NULL;
 	}
@@ -560,7 +567,7 @@ RET parse_keyword(PARAMS, const char *keyword, const char *errmsg) {
 // Note: a static buffer is used here.
 RET parse_punct(PARAMS, int punct) {
 	static char punctbuf[16];
-	struct graphql_token *tok = list_top(tokens, struct graphql_token, list);
+	struct graphql_token *tok = list_top(tokens, struct graphql_token, node);
 	if (!tok || tok->token_type != punct) {
 		if (punct == 0x2026)
 			sprintf(punctbuf, "expected: '...'");
@@ -573,7 +580,7 @@ RET parse_punct(PARAMS, int punct) {
 }
 
 RET parse_name(PARAMS) {
-	struct graphql_token *tok = list_top(tokens, struct graphql_token, list);
+	struct graphql_token *tok = list_top(tokens, struct graphql_token, node);
 	if (!tok || tok->token_type != 'a') {
 		*err = "name expected"; return NULL;
 	}
@@ -582,7 +589,7 @@ RET parse_name(PARAMS) {
 }
 
 RET parse_int(PARAMS) {
-	struct graphql_token *tok = list_top(tokens, struct graphql_token, list);
+	struct graphql_token *tok = list_top(tokens, struct graphql_token, node);
 	if (!tok || tok->token_type != 'i') {
 		*err = "integer expected"; return NULL;
 	}
@@ -591,7 +598,7 @@ RET parse_int(PARAMS) {
 }
 
 RET parse_float(PARAMS) {
-	struct graphql_token *tok = list_top(tokens, struct graphql_token, list);
+	struct graphql_token *tok = list_top(tokens, struct graphql_token, node);
 	if (!tok || tok->token_type != 'f') {
 		*err = "float expected"; return NULL;
 	}
@@ -600,7 +607,7 @@ RET parse_float(PARAMS) {
 }
 
 RET parse_string(PARAMS) {
-	struct graphql_token *tok = list_top(tokens, struct graphql_token, list);
+	struct graphql_token *tok = list_top(tokens, struct graphql_token, node);
 	if (!tok || tok->token_type != 's') {
 		*err = "string expected"; return NULL;
 	}
@@ -609,8 +616,12 @@ RET parse_string(PARAMS) {
 }
 
 
-// Convert input string into tokens.
-const char *graphql_lex(const char *input, const tal_t *ctx, struct list_head **tokens) {
+/* Convert input string into tokens.
+ *
+ * All data (i.e. the list and the tokens it contains) are allocated to the
+ * specified tal context.
+ */
+const char *graphql_lex(const tal_t *ctx, const char *input, struct list_head **tokens) {
 
 	unsigned int c;
 	const char *p, *line_beginning;
@@ -675,10 +686,9 @@ newchar:
 				c = 0x2026;
 			}
 
-			tok = tal(tok_list, struct graphql_token);
-			list_add_tail(tok_list, &tok->list);
+			tok = talz(tok_list, struct graphql_token);
+			list_add_tail(tok_list, &tok->node);
 			tok->token_type = c;
-			tok->token_specific = c;
 			tok->token_string = NULL;
 			tok->source_line = line_num;
 			tok->source_column = start - line_beginning + 1;
@@ -688,10 +698,9 @@ newchar:
 		} else if (NAME_START(c)) {
 
 			// Name/identifier tokens.
-			tok = tal(tok_list, struct graphql_token);
-			list_add_tail(tok_list, &tok->list);
+			tok = talz(tok_list, struct graphql_token);
+			list_add_tail(tok_list, &tok->node);
 			tok->token_type = 'a';
-			tok->token_specific = 'a';
 			// tok->token_string updated below.
 			tok->source_line = line_num;
 			tok->source_column = p - line_beginning;
@@ -767,8 +776,8 @@ newchar:
 			const char *num_end = p - 1;
 			int num_len = num_end - num_start;
 
-			tok = tal(tok_list, struct graphql_token);
-			list_add_tail(tok_list, &tok->list);
+			tok = talz(tok_list, struct graphql_token);
+			list_add_tail(tok_list, &tok->node);
 			tok->token_type = type;
 			tok->token_string = tal_strndup(tok, num_start, num_len);
 			tok->source_line = line_num;
@@ -850,10 +859,9 @@ newchar:
 			}
 			int str_len = str_end - str_begin;
 
-			tok = tal(tok_list, struct graphql_token);
-			list_add_tail(tok_list, &tok->list);
+			tok = talz(tok_list, struct graphql_token);
+			list_add_tail(tok_list, &tok->node);
 			tok->token_type = 's';
-			tok->token_specific = 's';
 			tok->token_string = tal_strndup(tok, str_begin, str_len);
 			tok->source_line = line_num;
 			tok->source_column = str_begin - line_beginning + 1;

@@ -7,7 +7,7 @@
 #include <common/blockheight_states.h>
 #include <common/configdir.h>
 #include <common/fee_states.h>
-#include <common/graphql_args.h>
+#include <common/graphql_util.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -74,35 +74,33 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	json_object_end(response);
 }
 
-struct uc_cbd;
-typedef void (*uc_json_cb)(struct json_stream *js,
-			   const struct uc_cbd *d,
-			   const struct uncommitted_channel *uc);
-struct uc_cbd {
-        uc_json_cb json_add_func;
-        const char *name;
-};
-#define CHANNEL_CB(name) \
-static void name(struct json_stream *response, \
-                 const struct uc_cbd *d, \
-                 const struct uncommitted_channel *uc)
 
-CHANNEL_CB(json_add_uc_state)
+/* JSON emitters for an uncommitted channel */
+
+static void json_add_uc_state(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct uncommitted_channel *uc)
 {
 	json_add_string(response, d->name, "OPENINGD");
 }
 
-CHANNEL_CB(json_add_uc_owner)
+static void json_add_uc_owner(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct uncommitted_channel *uc)
 {
 	json_add_string(response, d->name, "lightning_openingd");
 }
 
-CHANNEL_CB(json_add_uc_opener)
+static void json_add_uc_opener(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct uncommitted_channel *uc)
 {
 	json_add_string(response, d->name, "local");
 }
 
-CHANNEL_CB(json_add_uc_status)
+static void json_add_uc_status(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct uncommitted_channel *uc)
 {
 	json_array_start(response, d->name);
 	if (uc->transient_billboard)
@@ -111,7 +109,9 @@ CHANNEL_CB(json_add_uc_status)
 }
 
 /* These should never fail. */
-CHANNEL_CB(json_add_uc_to_us_msat)
+static void json_add_uc_to_us_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct uncommitted_channel *uc)
 {
 	struct amount_msat total, ours;
 	if (amount_sat_to_msat(&total, uc->fc->funding)
@@ -121,7 +121,9 @@ CHANNEL_CB(json_add_uc_to_us_msat)
 		json_add_null(response, d->name);
 }
 
-CHANNEL_CB(json_add_uc_total_msat)
+static void json_add_uc_total_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct uncommitted_channel *uc)
 {
 	struct amount_msat total;
 	if (amount_sat_to_msat(&total, uc->fc->funding))
@@ -130,7 +132,9 @@ CHANNEL_CB(json_add_uc_total_msat)
 		json_add_null(response, d->name);
 }
 
-CHANNEL_CB(json_add_uc_features)
+static void json_add_uc_features(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct uncommitted_channel *uc)
 {
 	json_array_start(response, d->name);
 	if (feature_negotiated(uc->peer->ld->our_features,
@@ -144,6 +148,7 @@ CHANNEL_CB(json_add_uc_features)
 	json_array_end(response);
 }
 
+/*
 static struct command_result *
 prep_uc_field_cb(struct command *cmd, struct graphql_field *field,
 		 uc_json_cb cb)
@@ -159,37 +164,25 @@ prep_uc_field_cb(struct command *cmd, struct graphql_field *field,
 
 	return NULL;
 }
+*/
 
-struct command_result *
-prep_uncommitted_channels_field(struct command *cmd, struct graphql_field *field, bool gen_err)
-{
-        const char *name = field->name->token_string;
-
-        if (streq(name, "state"))
-                return prep_uc_field_cb(cmd, field, json_add_uc_state);
-        else if (streq(name, "owner"))
-                return prep_uc_field_cb(cmd, field, json_add_uc_owner);
-        else if (streq(name, "opener"))
-                return prep_uc_field_cb(cmd, field, json_add_uc_opener);
-        else if (streq(name, "features"))
-                return prep_uc_field_cb(cmd, field, json_add_uc_features);
-        else if (streq(name, "to_us_msat"))
-                return prep_uc_field_cb(cmd, field, json_add_uc_to_us_msat);
-        else if (streq(name, "total_msat"))
-                return prep_uc_field_cb(cmd, field, json_add_uc_total_msat);
-        else if (streq(name, "status"))
-                return prep_uc_field_cb(cmd, field, json_add_uc_status);
-        else
-                return gen_err? command_fail(cmd, GRAPHQL_FIELD_ERROR,
-					     "unknown field '%s'", name): NULL;
-}
+GQLCB_TABLE_TYPES_DECL(uncommittedchannel /*prefix*/, uncommitted_channel /*struct*/);
+struct uncommittedchannel_fieldspec uncommittedchannel_fields[] = {
+{"state",               0,0,0,  NULL,   NULL,   NULL,   json_add_uc_state},
+{"owner",               0,0,0,  NULL,   NULL,   NULL,   json_add_uc_owner},
+{"opener",              0,0,0,  NULL,   NULL,   NULL,   json_add_uc_opener},
+{"features",            0,0,0,  NULL,   NULL,   NULL,   json_add_uc_features},
+{"to_us_msat",          0,0,0,  NULL,   NULL,   NULL,   json_add_uc_to_us_msat},
+{"total_msat",          0,0,0,  NULL,   NULL,   NULL,   json_add_uc_total_msat},
+{"status",              0,0,0,  NULL,   NULL,   NULL,   json_add_uc_status},
+{NULL}};
 
 void json_add_uncommitted_channel2(struct json_stream *response,
-				   const struct graphql_selection_set *sel_set,
+				   const struct gqlcb_data *d,
 				   const struct uncommitted_channel *uc)
 {
-	struct graphql_selection *sel;
-	struct uc_cbd *cbd;
+	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
 	if (!uc)
 		return;
@@ -199,12 +192,28 @@ void json_add_uncommitted_channel2(struct json_stream *response,
 		return;
 
 	json_object_start(response, NULL);
-	if (sel_set)
-		for (sel = sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "UncommittedChannel", struct uc_cbd);
-			cbd->json_add_func(response, cbd, uc);
+	if (d->field->sel_set)
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = get_cbd(sel->field, "UncommittedChannel", struct gqlcb_data);
+			if (cbd)
+				cbd->fieldspec->json_emitter(response, cbd, uc);
+			else
+				json_add_null(response, get_alias(sel->field));
 		}
 	json_object_end(response);
+}
+
+struct command_result *uncommitted_channel_prep(struct command *cmd,
+                                                const char *buffer,
+                                                struct graphql_field *field,
+                                                struct gqlcb_data *d)
+{
+	return field_prep_typed(cmd, buffer, field,
+				(struct gqlcb_fieldspec *)uncommittedchannel_fields,
+				d, "UncommittedChannel", false);
+	//create_cbd(field, "UncommittedChannel", cmd, struct gqlcb_data);
+	//return object_prep(cmd, buffer, field,
+	//		   (struct gqlcb_fieldspec *)uncommittedchannel_fields, d);
 }
 
 /* Steals fields from uncommitted_channel: returns NULL if can't generate a

@@ -13,6 +13,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/channel_type.o			\
 	common/derive_basepoints.o		\
 	common/features.o			\
+	common/graphql_util.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\
 	common/fee_states.o			\

@@ -37,7 +37,7 @@ int listlen(struct list_head *tokens);
 int listlen(struct list_head *tokens) {
 	struct graphql_token *tok;
 	int n=0;
-	list_for_each(tokens, tok, list) {
+	list_for_each(tokens, tok, node) {
 		n++;
 	}
 	return n;
@@ -88,74 +88,74 @@ void check_example_3(const char *source) {
 	if (!mute) printf("// Example No. 3\n");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 11);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '{');
 	TEST_CONT(tok->source_line == 1);
 	TEST_CONT(tok->source_column == 1);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "user");
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 3);
 	TEST_CONT(tok->source_len == 4);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '(');
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 7);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 8);
 	TEST_CONT(tok->source_len == 2);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == ':');
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 10);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "4");
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 12);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == ')');
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 13);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '{');
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 15);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
 	TEST_CONT(tok->source_line == 3);
 	TEST_CONT(tok->source_column == 5);
 	TEST_CONT(tok->source_len == 4);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '}');
 	TEST_CONT(tok->source_line == 4);
 	TEST_CONT(tok->source_column == 3);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '}');
 	TEST_CONT(tok->source_line == 5);
 	TEST_CONT(tok->source_column == 1);
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -221,63 +221,63 @@ mutation {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 15);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "mutation");
 	TEST_CONT(tok->source_line == 1);
 	TEST_CONT(tok->source_column == 1);
 	TEST_CONT(tok->source_len == 8);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "likeStory");
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 3);
 	TEST_CONT(tok->source_len == 9);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "storyID");
 	TEST_CONT(tok->source_line == 2);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "12345");
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 22);
 	TEST_CONT(tok->source_len == 5);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "story");
 	TEST_CONT(tok->source_line == 3);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "likeCount");
 	TEST_CONT(tok->source_line == 4);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -354,25 +354,25 @@ void check_example_6(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 3);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "field");
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 3);
 	TEST_CONT(tok->source_len == 5);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -414,37 +414,37 @@ void check_example_7(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 5);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 3);
 	TEST_CONT(tok->source_len == 2);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "firstName");
 	TEST_CONT(tok->source_line == 3);
 	TEST_CONT(tok->source_column == 3);
 	TEST_CONT(tok->source_len == 9);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "lastName");
 	TEST_CONT(tok->source_line == 4);
 	TEST_CONT(tok->source_column == 3);
 	TEST_CONT(tok->source_len == 8);
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list);
+	tok = list_pop(tokens, struct graphql_token, node);
 	TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -517,40 +517,40 @@ void check_example_8(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 17);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "me");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "firstName");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "lastName");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "birthday");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "month");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "day");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "friends");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -686,38 +686,38 @@ void check_example_9(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 17);
 	// NOTE: Comments are ignored.
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "me");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "user");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "4");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -816,40 +816,40 @@ void check_example_10(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 18);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "user");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "4");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "profilePic");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "size");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "100");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -947,46 +947,46 @@ void check_example_11(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 21);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "user");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "4");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "profilePic");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "width");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "100");
 	// NOTE: Comma is ignored.
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "height");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "50");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -1083,33 +1083,33 @@ void check_example_12_and_13(const char *source) {
 
 	// Test the lexer.
 	const char *param;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 11);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "picture");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_ABRT(tok->token_string != NULL && (streq(tok->token_string, "width") || streq(tok->token_string, "height")));
 	param = tok->token_string;
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_CONT(tok->token_string != NULL && ((streq(param, "width") && streq(tok->token_string, "200")) || (streq(param, "height") && streq(tok->token_string, "100"))));
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_CONT(tok->token_string != NULL && (streq(tok->token_string, "width") || streq(tok->token_string, "height")));
 	param = tok->token_string;
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_CONT(tok->token_string != NULL && ((streq(param, "width") && streq(tok->token_string, "200")) || (streq(param, "height") && streq(tok->token_string, "100"))));
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_argument *arg;
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -1177,55 +1177,55 @@ void check_example_14(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 28);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "user");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "4");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "smallPic");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "profilePic");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "size");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "64");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "bigPic");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "profilePic");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "size");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "1024");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -1349,34 +1349,34 @@ void check_example_16(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 14);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "zuck");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "user");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, "4");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -1462,13 +1462,13 @@ query noFragments {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 44);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -1522,26 +1522,26 @@ fragment friendFields on User {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 46);
 	for (int i=0; i<17; i++)
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 0x2026);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 0x2026);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "friendFields");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
 	for (int i=0; i<7; i++)
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 0x2026);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 0x2026);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "friendFields");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
 	const char *e;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT((e = graphql_parse(tokens, &doc)) == NULL);
 	if (e) printf("%s\n", e);
 	TEST_ABRT(doc != NULL);
@@ -1632,26 +1632,26 @@ fragment standardProfilePic on User {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 54);
 	for (int i=0; i<17; i++)
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 0x2026);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 0x2026);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "friendFields");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
 	for (int i=0; i<7; i++)
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 0x2026);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 0x2026);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "friendFields");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
 	const char *e;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT((e = graphql_parse(tokens, &doc)) == NULL);
 	if (e) printf("%s\n", e);
 	TEST_ABRT(doc != NULL);
@@ -1766,33 +1766,33 @@ fragment pageFragment on Page {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 40);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "query");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "FragmentTyping");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "profiles");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "handles");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '[');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '[');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
 	TEST_STRG(tok->token_string, "zuck");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
 	TEST_STRG(tok->token_string, "coca-cola");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ']');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ']');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
 	const char *e;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT((e = graphql_parse(tokens, &doc)) == NULL);
 	if (e) printf("%s\n", e);
 	TEST_ABRT(doc != NULL);
@@ -1890,33 +1890,33 @@ query inlineFragmentTyping {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 34);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "query");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "inlineFragmentTyping");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "profiles");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "handles");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '[');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '[');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
 	TEST_STRG(tok->token_string, "zuck");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
 	TEST_STRG(tok->token_string, "coca-cola");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ']');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ']');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
 	const char *e;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT((e = graphql_parse(tokens, &doc)) == NULL);
 	if (e) printf("%s\n", e);
 	TEST_ABRT(doc != NULL);
@@ -1989,62 +1989,62 @@ query inlineFragmentNoType($expandedInfo: Boolean) {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 34);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "query");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "inlineFragmentNoType");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '$');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '$');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "expandedInfo");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "Boolean");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "user");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "handle");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
 	TEST_STRG(tok->token_string, "zuck");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "id");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "name");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 0x2026);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '@');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 0x2026);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '@');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "include");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "if");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '$');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '$');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "expandedInfo");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "firstName");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "lastName");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "birthday");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -2125,32 +2125,32 @@ void check_int_value(char *source, int int_value) {
 	sprintf(buf, "%d", int_value);
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 11);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
 	TEST_STRG(tok->token_string, buf);
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 12);
 	TEST_CONT(tok->source_len == strlen(buf));
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 12 + strlen(buf));
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -2193,7 +2193,7 @@ void check_invalid_int_values(char *source) {
 		", bad_values[i]);
 
 		// Test the lexer.
-		TEST_CONT(graphql_lex(source, NULL, &tokens) != NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) != NULL);
 		TEST_ABRT(listlen(tokens) == 5);
 		tokens = tal_free(tokens);
 
@@ -2219,32 +2219,32 @@ void check_float_value(char *source, float float_value, const char *format) {
 	sprintf(buf, format, float_value);
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 11);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'f');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'f');
 	TEST_STRG(tok->token_string, buf);
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 12);
 	TEST_CONT(tok->source_len == strlen(buf));
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
 	TEST_CONT(tok->source_line == 2);
 	TEST_CONT(tok->source_column == 12 + strlen(buf));
 	TEST_CONT(tok->source_len == 1);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -2288,32 +2288,32 @@ void check_valid_float_values(char *source) {
 		", good_values[i]);
 
 		// Test the lexer.
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_ABRT(listlen(tokens) == 11);
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'f');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'f');
 		TEST_STRG(tok->token_string, good_values[i]);
 		TEST_CONT(tok->source_line == 2);
 		TEST_CONT(tok->source_column == 12);
 		TEST_CONT(tok->source_len == strlen(good_values[i]));
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
 		TEST_CONT(tok->source_line == 2);
 		TEST_CONT(tok->source_column == 12 + strlen(good_values[i]));
 		TEST_CONT(tok->source_len == 1);
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 		tokens = tal_free(tokens);
 
 		// Test the parser.
 		struct graphql_executable_document *doc;
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 		TEST_ABRT(doc != NULL);
 		TEST_ABRT(doc->first_def != NULL);
@@ -2357,7 +2357,7 @@ void check_invalid_float_values(char *source) {
 		", bad_values[i]);
 
 		// Test the lexer.
-		TEST_CONT(graphql_lex(source, NULL, &tokens) != NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) != NULL);
 		TEST_ABRT(listlen(tokens) == 5);
 		tokens = tal_free(tokens);
 
@@ -2382,13 +2382,13 @@ void check_boolean_values(char *source) {
 		", good_values[i]);
 
 		// Test the lexer.
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_ABRT(listlen(tokens) == 11);
 		tokens = tal_free(tokens);
 
 		// Test the parser.
 		struct graphql_executable_document *doc;
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 		TEST_ABRT(doc != NULL);
 		TEST_ABRT(doc->first_def != NULL);
@@ -2426,13 +2426,13 @@ void check_boolean_values(char *source) {
 		", bad_values[i]);
 
 		// Test the lexer.
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_ABRT(listlen(tokens) == 11);
 		tokens = tal_free(tokens);
 
 		// Test the parser (it will succeed in parsing the bad values as enum values, not boolean values).
 		struct graphql_executable_document *doc;
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 		TEST_ABRT(doc != NULL);
 		TEST_ABRT(doc->first_def != NULL);
@@ -2483,32 +2483,32 @@ void check_string_value(char *source, const char *test_value, const char *expect
 
 	bool block = (test_value[0]=='\"' && test_value[1]=='\"' && test_value[2]=='\"')? true: false;
 	if (expected_result) {
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_ABRT(listlen(tokens) == 11);
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
 		TEST_STRG(tok->token_string, expected_result);
 		TEST_CONT(tok->source_line == 2);
 		TEST_CONT(tok->source_column == 11 + (block? 3: 1));
 		TEST_CONT(tok->source_len == strlen(test_value) - (block? 6: 2));
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
 		TEST_CONT(tok->source_line == 2);
 		TEST_CONT(tok->source_column == 11 + strlen(test_value));
 		TEST_CONT(tok->source_len == 1);
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 		tokens = tal_free(tokens);
 
 		// Test the parser (it will succeed in parsing the bad values as enum values, not boolean values).
 		struct graphql_executable_document *doc;
-		TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 		TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 		TEST_ABRT(doc != NULL);
 		TEST_ABRT(doc->first_def != NULL);
@@ -2541,7 +2541,7 @@ void check_string_value(char *source, const char *test_value, const char *expect
 		TEST_ABRT(doc->first_def->op_def->sel_set->first->field->sel_set->first->field != NULL);
 		tokens = tal_free(tokens);
 	} else {
-		TEST_CONT(graphql_lex(source, NULL, &tokens) != NULL);
+		TEST_CONT(graphql_lex(NULL, source, &tokens) != NULL);
 		tokens = tal_free(tokens);
 	}
 }
@@ -2552,8 +2552,8 @@ void check_example_25_and_26(const char *source) {
 
 	if (!mute) printf("// Example No. 25 and 26\n");
 
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
-	while ((tok = list_pop(tokens, struct graphql_token, list)) && tok->token_type != 's') { }
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
+	while ((tok = list_pop(tokens, struct graphql_token, node)) && tok->token_type != 's') { }
 	if (tok) {
 		TEST_STRG(tok->token_string, "Hello,\n  World!\n\nYours,\n  GraphQL.");
 	}
@@ -2562,7 +2562,7 @@ void check_example_25_and_26(const char *source) {
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	tokens = tal_free(tokens);
@@ -2582,24 +2582,24 @@ void check_example_29(char *source) {
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 9);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "null");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -2658,25 +2658,25 @@ void check_example_30_and_31(const char *source) {
 
 	if (!mute) printf("// Example No. 30 and 31\n");
 
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 15);
-	while ((tok = list_pop(tokens, struct graphql_token, list)) && !(tok->token_type == 'a' && tok->token_string != NULL && streq(tok->token_string, "lat"))) { }
+	while ((tok = list_pop(tokens, struct graphql_token, node)) && !(tok->token_type == 'a' && tok->token_string != NULL && streq(tok->token_string, "lat"))) { }
 	TEST_CONT(tok);
 	if (tok) {
 		TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'f');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'f');
 		TEST_STRG(tok->token_string, "-53.211");
 	}
 	tokens = tal_free(tokens);
 
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
-	while ((tok = list_pop(tokens, struct graphql_token, list)) && !(tok->token_type == 'a' && tok->token_string != NULL && streq(tok->token_string, "lon"))) { }
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
+	while ((tok = list_pop(tokens, struct graphql_token, node)) && !(tok->token_type == 'a' && tok->token_string != NULL && streq(tok->token_string, "lon"))) { }
 	TEST_CONT(tok);
 	if (tok) {
 		TEST_CONT(tok->token_type == 'a');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-		tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'f');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+		tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'f');
 		TEST_STRG(tok->token_string, "12.43");
 	}
 	tokens = tal_free(tokens);
@@ -2684,7 +2684,7 @@ void check_example_30_and_31(const char *source) {
 	// Test the parser.
 	struct graphql_executable_document *doc;
 	const char *e;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT((e = graphql_parse(tokens, &doc)) == NULL);
 	if (e) printf("%s\n", e);
 	TEST_ABRT(doc != NULL);
@@ -2759,41 +2759,41 @@ query getZuckProfile($devicePicSize: Int) {\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 27);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '$');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'i');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '$');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '$');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'i');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '$');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// Test the parser.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(graphql_parse(tokens, &doc) == NULL);
 	TEST_ABRT(doc != NULL);
 	TEST_ABRT(doc->first_def != NULL);
@@ -2909,38 +2909,38 @@ type Person\n\
 	");
 
 	// Test the lexer.
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 21);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '@');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '@');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "addExternalFields");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '@');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '@');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "excludeField");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// The type system is not yet implemented, so parsing will fail here.
 	// This could be "phase 2" of this project.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT(graphql_parse(tokens, &doc) != NULL);
 	tokens = tal_free(tokens);
 }
@@ -2959,38 +2959,38 @@ type Person\n\
 }\n\
 	");
 
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_ABRT(listlen(tokens) == 21);
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '@');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '@');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "excludeField");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '@');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '@');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
 	TEST_STRG(tok->token_string, "addExternalFields");
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '(');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 's');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ')');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '{');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == ':');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == 'a');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok->token_type == '}');
-	tok = list_pop(tokens, struct graphql_token, list); TEST_CONT(tok == NULL);
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '(');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 's');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ')');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '{');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == ':');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == 'a');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok->token_type == '}');
+	tok = list_pop(tokens, struct graphql_token, node); TEST_CONT(tok == NULL);
 	tokens = tal_free(tokens);
 
 	// The type system is not yet implemented, so parsing will fail here.
 	// This could be "phase 2" of this project.
 	struct graphql_executable_document *doc;
-	TEST_CONT(graphql_lex(source, NULL, &tokens) == NULL);
+	TEST_CONT(graphql_lex(NULL, source, &tokens) == NULL);
 	TEST_CONT(graphql_parse(tokens, &doc) != NULL);
 	tokens = tal_free(tokens);
 }

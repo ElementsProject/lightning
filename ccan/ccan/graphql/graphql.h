@@ -8,7 +8,7 @@
 #include <ccan/tal/tal.h>
 
 // Coding constants
-#define GRAPHQL_SUCCESS 0
+#define GRAPHQL_SUCCESS ((const char *)NULL)
 
 // The following structures constitute the AST returned by the parser.
 
@@ -228,11 +228,30 @@ struct graphql_document {
 	void *data; // for application use
 };
 
+enum token_type_enum {
+	NAME		= 'a',
+	INTEGER		= 'i',
+	FLOAT		= 'f',
+	STRING		= 's',
+	PUNCT_BANG	= '!',
+	PUNCT_SH__	= '$',
+	PUNCT_AMP	= '&',
+	PUNCT_LPAR	= '(',
+	PUNCT_RPAR	= ')',
+	PUNCT_COLON	= ':',
+	PUNCT_EQ	= '=',
+	PUNCT_AT	= '@',
+	PUNCT_LBRACKET	= '[',
+	PUNCT_RBRACKET	= ']',
+	PUNCT_LBRACE	= '{',
+	PUNCT_PIPE	= '|',
+	PUNCT_RBRACE	= '}',
+	PUNCT_SPREAD	= 0x2026, // spread operator (triple dot)
+};
 
 struct graphql_token {
-	struct list_node list;
-	unsigned int token_type;
-	unsigned int token_specific;
+	struct list_node node;
+	enum token_type_enum token_type;
 	char *token_string;
 	unsigned int source_line;
 	unsigned int source_column;
@@ -249,19 +268,24 @@ struct graphql_token {
  * RETURN:
  *	GRAPHQL_SUCCESS or an error string.
  */
-const char *graphql_lex(const char *input, const tal_t *ctx, struct list_head **tokens);
+const char *graphql_lex(const tal_t *ctx, const char *input, struct list_head **tokens);
 
 /* The parser.
  * INPUTS:
  *	tokens - the list produced by the lexer
  *	doc - a variable to receive the resulting abstract syntax tree (AST)
+ * OPERATION:
+ *	The token list is emptied during parsing, so far as the parsing
+ *	succeeds. This allows the caller to inspect the line/char position
+ *	of the next token (where the error likely is) and report that hint to
+ *	the user in the form of an error message.
  * RETURN:
  *	GRAPHQL_SUCCESS or an error string.
  */
 const char *graphql_parse(struct list_head *tokens, struct graphql_executable_document **doc);
 
 /* The lexer and parser in one function, for convenience. */
-const char *graphql_lexparse(const char *input, const tal_t *ctx, struct list_head **tokens, struct graphql_executable_document **doc);
+const char *graphql_lexparse(const tal_t *ctx, const char *input, struct list_head **tokens, struct graphql_executable_document **doc);
 
 #endif
 

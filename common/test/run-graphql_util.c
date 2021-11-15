@@ -1,4 +1,4 @@
-#include "../graphql_args.c"
+#include "../graphql_util.c"
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
@@ -38,6 +38,11 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat UNNEEDED, const u
 /* Generated stub for amount_tx_fee */
 struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 { fprintf(stderr, "amount_tx_fee called!\n"); abort(); }
+/* Generated stub for command_fail */
+struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
+				    const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "command_fail called!\n"); abort(); }
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }

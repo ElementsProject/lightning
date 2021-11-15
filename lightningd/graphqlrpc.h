@@ -13,6 +13,7 @@ struct toplevel_field_data {
 	toplevel_json_add_cb json_add_func;
 };
 
+/*
 #define create_cbd(field, tname, ctx, datatype) \
 	((datatype *)create_cbd_((field), (tname), (ctx), tal((ctx), datatype)))
 void *create_cbd_(struct graphql_field *field, const char *tname, void *ctx, void *obj);
@@ -20,5 +21,6 @@ void *create_cbd_(struct graphql_field *field, const char *tname, void *ctx, voi
 #define get_cbd(field, tname, datatype) \
 	((datatype *)get_cbd_((field), (tname)))
 void *get_cbd_(const struct graphql_field *field, const char *tname);
+*/
 
 #endif /* LIGHTNING_LIGHTNINGD_GRAPHQLRPC_H */

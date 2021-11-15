@@ -157,12 +157,6 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 		       bool incoming UNNEEDED,
 		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
-/* Generated stub for convert_args_to_paramtokens */
-void convert_args_to_paramtokens(struct graphql_field *field UNNEEDED, const tal_t *ctx UNNEEDED, jsmntok_t **params UNNEEDED)
-{ fprintf(stderr, "convert_args_to_paramtokens called!\n"); abort(); }
-/* Generated stub for create_cbd_ */
-void *create_cbd_(struct graphql_field *field UNNEEDED, const char *tname UNNEEDED, void *ctx UNNEEDED, void *obj UNNEEDED)
-{ fprintf(stderr, "create_cbd_ called!\n"); abort(); }
 /* Generated stub for db_begin_transaction_ */
 void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
 { fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
@@ -232,15 +226,9 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 /* Generated stub for fromwire_onchaind_dev_memleak_reply */
 bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_onchaind_dev_memleak_reply called!\n"); abort(); }
-/* Generated stub for get_alias */
-const char *get_alias(struct graphql_field *field UNNEEDED)
-{ fprintf(stderr, "get_alias called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
-/* Generated stub for get_cbd_ */
-void *get_cbd_(const struct graphql_field *field UNNEEDED, const char *tname UNNEEDED)
-{ fprintf(stderr, "get_cbd_ called!\n"); abort(); }
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
 		enum side opener UNNEEDED,
@@ -369,7 +357,7 @@ void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel2 */
 void json_add_uncommitted_channel2(struct json_stream *response UNNEEDED,
-				   const struct graphql_selection_set *sel_set UNNEEDED,
+				   const struct gqlcb_data *d UNNEEDED,
 				   const struct uncommitted_channel *uc UNNEEDED)
 { fprintf(stderr, "json_add_uncommitted_channel2 called!\n"); abort(); }
 /* Generated stub for json_add_unsaved_channel */
@@ -378,7 +366,7 @@ void json_add_unsaved_channel(struct json_stream *response UNNEEDED,
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
 /* Generated stub for json_add_unsaved_channel2 */
 void json_add_unsaved_channel2(struct json_stream *response UNNEEDED,
-			       const struct graphql_selection_set *sel_set UNNEEDED,
+			       struct gqlcb_data *d UNNEEDED,
 			       const struct channel *channel UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel2 called!\n"); abort(); }
 /* Generated stub for json_array_end */
@@ -630,16 +618,6 @@ bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook 
 void plugin_request_send(struct plugin *plugin UNNEEDED,
 			 struct jsonrpc_request *req TAKES UNNEEDED)
 { fprintf(stderr, "plugin_request_send called!\n"); abort(); }
-/* Generated stub for prep_uncommitted_channels_field */
-struct command_result *prep_uncommitted_channels_field(
-				struct command *cmd UNNEEDED,
-				struct graphql_field *field UNNEEDED, bool gen_err UNNEEDED)
-{ fprintf(stderr, "prep_uncommitted_channels_field called!\n"); abort(); }
-/* Generated stub for prep_unsaved_channels_field */
-struct command_result *prep_unsaved_channels_field(
-				struct command *cmd UNNEEDED,
-				struct graphql_field *field UNNEEDED, bool gen_err UNNEEDED)
-{ fprintf(stderr, "prep_unsaved_channels_field called!\n"); abort(); }
 /* Generated stub for resolve_close_command */
 void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
 			   bool cooperative UNNEEDED)
@@ -704,6 +682,18 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
+/* Generated stub for uncommitted_channel_prep */
+struct command_result *uncommitted_channel_prep(struct command *cmd UNNEEDED,
+						const char *buffer UNNEEDED,
+						struct graphql_field *field UNNEEDED,
+						struct gqlcb_data *d UNNEEDED)
+{ fprintf(stderr, "uncommitted_channel_prep called!\n"); abort(); }
+/* Generated stub for unsaved_channel_prep */
+struct command_result *unsaved_channel_prep(struct command *cmd UNNEEDED,
+					    const char *buffer UNNEEDED,
+					    struct graphql_field *field UNNEEDED,
+					    struct gqlcb_data *d UNNEEDED)
+{ fprintf(stderr, "unsaved_channel_prep called!\n"); abort(); }
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }

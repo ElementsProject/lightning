@@ -9,7 +9,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/graphql/graphql.h>
 #include <common/channel_type.h>
-#include <common/graphql_args.c>
+#include <common/graphql_util.c>
 #include <common/setup.h>
 #include <stdio.h>
 

@@ -4,14 +4,13 @@
  * The RPC command for lightningd is "graphql" and is defined here.
  * It takes a single string argument, fully JSON-escaped, which is a
  * GraphQL "executable document" per the GraphQL spec.
- *
  */
 /* eg: { info { id }, peers { id, log(level: UNUSUAL), channels { state } } } */
 #include "ccan/config.h"
 #include <ccan/graphql/graphql.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
-#include <common/graphql_args.h>
+#include <common/graphql_util.h>
 #include <common/json_command.h>
 #include <common/json_tok.h>
 #include <common/param.h>
@@ -19,64 +18,17 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/peer_control.h>
 
-struct typelist {
-	struct list_head types;
-};
-
-struct typenode {
-	struct list_node node;
-	const char *type_name;
-	void *cb_data;
-};
-
-void *create_cbd_(struct graphql_field *field, const char *tname, void *ctx, void *obj)
-{
-	struct typelist *tl;
-	struct typenode *tn;
-
-	if (!field->data) {
-		tl = field->data = tal(ctx, struct typelist);
-		list_head_init(&tl->types);
-	} else {
-		tl = field->data;
-	}
-
-	tn = tal(ctx, struct typenode);
-	list_add(&tl->types, &tn->node);
-	tn->type_name = tal_strdup(ctx, tname);
-	tn->cb_data = obj;
-
-	return obj;
-}
-
-void *get_cbd_(const struct graphql_field *field, const char *tname)
-{
-	struct typelist *tl;
-	struct typenode *tn = NULL, *n;
-
-	if (!field->data)
-		return NULL;
-	tl = field->data;
-	list_for_each(&tl->types, n, node) {
-		if (streq(n->type_name, tname))
-			tn = n;
-	}
-	if (!tn)
-		return NULL;
-
-	return tn->cb_data;
-}
-
 static void json_add_op(struct json_stream *js,
 			struct command *cmd,
 			const struct graphql_operation_definition *op)
 {
 	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
 	if (!op->op_type && op->sel_set) {
 		for (sel = op->sel_set->first; sel; sel = sel->next) {
-			((struct toplevel_field_data *)sel->field->data)->
-				json_add_func(js, sel->field);
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(js, cbd, cmd->ld);
 		}
 	}
 }
@@ -88,9 +40,9 @@ prep_toplevel_field(struct command *cmd, const char *buffer,
 	const char *name = sel->field->name->token_string;
 
 	if (streq(name, "peers"))
-		return prep_peers(cmd, buffer, sel->field);
+		return peers_prep(cmd, buffer, sel->field);
 	else if (streq(name, "info"))
-		return prep_info(cmd, buffer, sel->field);
+		return info_prep(cmd, buffer, sel->field);
 	else
 		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
@@ -128,7 +80,7 @@ static struct command_result *json_graphql(struct command *cmd,
 		return command_param_failed();
 
 	/* Parse the GraphQL syntax */
-	if ((queryerr = graphql_lexparse(querystr, cmd, &toks, &doc)))
+	if ((queryerr = graphql_lexparse(cmd, querystr, &toks, &doc)))
 		return command_fail(cmd, GRAPHQL_INVALID_SYNTAX, "%s", queryerr);
 
 	/* Traverse the AST and prepare for execution */

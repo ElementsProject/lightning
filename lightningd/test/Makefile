@@ -12,6 +12,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/autodata.o			\
 	common/bech32.o				\
 	common/daemon_conn.o			\
+	common/graphql_util.o			\
 	common/htlc_state.o			\
 	common/io_lock.o			\
 	common/json.o				\

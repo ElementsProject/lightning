@@ -4,10 +4,11 @@
 
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/graphql/graphql.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
-#include <common/graphql_args.h>
+#include <common/graphql_util.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -159,36 +160,34 @@ void json_add_unsaved_channel(struct json_stream *response,
 	json_object_end(response);
 }
 
-struct usc_cbd;
-typedef void (*usc_json_cb)(struct json_stream *js,
-			    const struct usc_cbd *d,
-			    const struct channel *channel);
-struct usc_cbd {
-	usc_json_cb json_add_func;
-	const char *name;
-};
-#define CHANNEL_CB(name) \
-static void name(struct json_stream *response, \
-		 const struct usc_cbd *d, \
-		 const struct channel *channel)
 
-CHANNEL_CB(json_add_usc_state)
+/* JSON emitters for an unsaved channel */
+
+static void json_add_usc_state(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_string(response, d->name, channel_state_name(channel));
 }
 
-CHANNEL_CB(json_add_usc_owner)
+static void json_add_usc_owner(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_string(response, d->name, channel->owner->name);
 }
 
-CHANNEL_CB(json_add_usc_opener)
+static void json_add_usc_opener(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_string(response, d->name, channel->opener == LOCAL ?
 					   "local" : "remote");
 }
 
-CHANNEL_CB(json_add_usc_status)
+static void json_add_usc_status(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_array_start(response, d->name);
 	for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
@@ -203,7 +202,9 @@ CHANNEL_CB(json_add_usc_status)
 }
 
 /* funding + our_upfront_shutdown only available if we're initiator */
-CHANNEL_CB(json_add_usc_to_us_msat)
+static void json_add_usc_to_us_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	struct amount_msat total;
 	struct open_attempt *oa = channel->open_attempt;
@@ -213,7 +214,9 @@ CHANNEL_CB(json_add_usc_to_us_msat)
 			json_add_amount_msat_only(response, d->name, total);
 }
 
-CHANNEL_CB(json_add_usc_total_msat)
+static void json_add_usc_total_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	struct amount_msat total;
 	struct open_attempt *oa = channel->open_attempt;
@@ -224,7 +227,9 @@ CHANNEL_CB(json_add_usc_total_msat)
 			json_add_amount_msat_only(response, d->name, total);
 }
 
-CHANNEL_CB(json_add_usc_features)
+static void json_add_usc_features(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_array_start(response, "features");
 	/* v2 channels assumed to have both static_remotekey + anchor_outputs */
@@ -233,52 +238,23 @@ CHANNEL_CB(json_add_usc_features)
 	json_array_end(response);
 }
 
-static struct command_result *
-prep_usc_field_cb(struct command *cmd, struct graphql_field *field,
-		  usc_json_cb cb)
-{
-	struct usc_cbd *d;
-
-	d = create_cbd(field, "UnsavedChannel", cmd, struct usc_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
-}
-
-struct command_result *
-prep_unsaved_channels_field(struct command *cmd, struct graphql_field *field, bool gen_err)
-{
-	const char *name = field->name->token_string;
-
-	if (streq(name, "state"))
-		return prep_usc_field_cb(cmd, field, json_add_usc_state);
-	else if (streq(name, "owner"))
-		return prep_usc_field_cb(cmd, field, json_add_usc_owner);
-	else if (streq(name, "opener"))
-		return prep_usc_field_cb(cmd, field, json_add_usc_opener);
-	else if (streq(name, "features"))
-		return prep_usc_field_cb(cmd, field, json_add_usc_features);
-	else if (streq(name, "to_us_msat"))
-		return prep_usc_field_cb(cmd, field, json_add_usc_to_us_msat);
-	else if (streq(name, "total_msat"))
-		return prep_usc_field_cb(cmd, field, json_add_usc_total_msat);
-	else if (streq(name, "status"))
-		return prep_usc_field_cb(cmd, field, json_add_usc_status);
-	else
-		return gen_err? command_fail(cmd, GRAPHQL_FIELD_ERROR,
-					     "unknown field '%s'", name): NULL;
-}
+GQLCB_TABLE_TYPES_DECL(unsavedchannel /*prefix*/, channel /*struct*/);
+struct unsavedchannel_fieldspec unsavedchannel_fields[] = {
+{"state",               0,0,0,  NULL,   NULL,   NULL,   json_add_usc_state},
+{"owner",               0,0,0,  NULL,   NULL,   NULL,   json_add_usc_owner},
+{"opener",              0,0,0,  NULL,   NULL,   NULL,   json_add_usc_opener},
+{"features",            0,0,0,  NULL,   NULL,   NULL,   json_add_usc_features},
+{"to_us_msat",          0,0,0,  NULL,   NULL,   NULL,   json_add_usc_to_us_msat},
+{"total_msat",          0,0,0,  NULL,   NULL,   NULL,   json_add_usc_total_msat},
+{"status",              0,0,0,  NULL,   NULL,   NULL,   json_add_usc_status},
+{NULL}};
 
 void json_add_unsaved_channel2(struct json_stream *response,
-			       const struct graphql_selection_set *sel_set,
+			       struct gqlcb_data *d,
 			       const struct channel *channel)
 {
-	struct graphql_selection *sel;
-	struct usc_cbd *cbd;
+	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
 	if (!channel)
 		return;
@@ -288,13 +264,29 @@ void json_add_unsaved_channel2(struct json_stream *response,
 		return;
 
 	json_object_start(response, NULL);
-	if (sel_set) {
-		for (sel = sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "UnsavedChannel", struct usc_cbd);
-			cbd->json_add_func(response, cbd, channel);
+	if (d->field->sel_set) {
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = get_cbd(sel->field, "UnsavedChannel", struct gqlcb_data);
+			if (cbd)
+				cbd->fieldspec->json_emitter(response, cbd, channel);
+			else
+				json_add_null(response, get_alias(sel->field));
 		}
 	}
 	json_object_end(response);
+}
+
+struct command_result *unsaved_channel_prep(struct command *cmd,
+					    const char *buffer,
+					    struct graphql_field *field,
+					    struct gqlcb_data *d)
+{
+	return field_prep_typed(cmd, buffer, field,
+				(struct gqlcb_fieldspec *)unsavedchannel_fields,
+				d, "UnsavedChannel", false);
+	//create_cbd(field, "UnsavedChannel", cmd, struct gqlcb_data);
+	//return object_prep(cmd, buffer, field,
+	//		   (struct gqlcb_fieldspec *)unsavedchannel_fields, d);
 }
 
 struct rbf_channel_payload {

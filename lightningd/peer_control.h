@@ -113,16 +113,16 @@ command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct channel **channel);
 
-void json_add_peers(struct json_stream *js,
-		    const struct graphql_field *field);
+//void json_add_peers(struct json_stream *js,
+//		    const struct graphql_field *field);
 
-void json_add_info(struct json_stream *js,
-		   const struct graphql_field *field);
+//void json_add_info(struct json_stream *js, struct gqlcb_data *d,
+//		   const struct lightningd *ld);
 
-struct command_result *prep_peers(struct command *cmd, const char *buffer,
+struct command_result *peers_prep(struct command *cmd, const char *buffer,
 				  struct graphql_field *field);
 
-struct command_result *prep_info(struct command *cmd,
+struct command_result *info_prep(struct command *cmd,
 				 const char *buffer,
 				 struct graphql_field *field);
 

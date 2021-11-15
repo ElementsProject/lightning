@@ -20,7 +20,7 @@
 #include <common/configdir.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
-#include <common/graphql_args.h>
+#include <common/graphql_util.h>
 #include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_command.h>
@@ -70,6 +70,9 @@
 #include <wire/common_wiregen.h>
 #include <wire/onion_wire.h>
 #include <wire/wire_sync.h>
+
+//struct empty {
+//};
 
 static void destroy_peer(struct peer *peer)
 {
@@ -928,227 +931,231 @@ static void json_add_channel(struct lightningd *ld,
 }
 
 
-/* JSON/GraphQL output of an htlc */
-
-/* htlc callback and struct */
-struct htlc_cbd;
-typedef void (*htlc_json_cb)(struct json_stream *js,
-			     const struct htlc_cbd *d,
-			     const struct channel *channel, bool in,
-			     const struct htlc_in *hin,
-			     const struct htlc_out *hout);
-struct htlc_cbd {
-	htlc_json_cb json_add_func;
-	const char *name;
+/* The in/out structures are almost identical and we want to use the same
+ * JSON emitter functions for both, hence this union.
+ */
+struct htlc {
+	enum {
+		IN,
+		OUT,
+	} dir;
+	union {
+		const struct htlc_in *in;
+		const struct htlc_out *out;
+	};
 };
-#define HTLC_CB(name) \
-static void name(struct json_stream *response, const struct htlc_cbd *d, \
-		 const struct channel *channel, bool in, \
-		 const struct htlc_in *hin, const struct htlc_out *hout)
 
-HTLC_CB(json_add_htlc_direction)
+/* JSON emitters for an HTLC */
+
+static void json_add_htlc_direction(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
-	json_add_string(response, d->name, in? "in": "out");
+	json_add_string(response, d->name, h->dir==IN? "in": "out");
 }
 
-HTLC_CB(json_add_htlc_id)
+static void json_add_htlc_id(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
-	json_add_u64(response, d->name, in? hin->key.id: hout->key.id);
+	json_add_u64(response, d->name, h->dir==IN? h->in->key.id: h->out->key.id);
 }
 
-HTLC_CB(json_add_htlc_amount_msat)
+static void json_add_htlc_amount_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
-	json_add_amount_msat_only(response, d->name, in? hin->msat:
-							 hout->msat);
+	json_add_amount_msat_only(response, d->name, h->dir==IN?
+				  h->in->msat: h->out->msat);
 }
 
-HTLC_CB(json_add_htlc_expiry)
+static void json_add_htlc_expiry(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
-	json_add_u32(response, d->name, in? hin->cltv_expiry:
-					    hout->cltv_expiry);
+	json_add_u32(response, d->name, h->dir==IN?
+		     h->in->cltv_expiry: h->out->cltv_expiry);
 }
 
-HTLC_CB(json_add_htlc_payment_hash)
+static void json_add_htlc_payment_hash(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
-	json_add_sha256(response, d->name, in? &hin->payment_hash:
-					       &hout->payment_hash);
+	json_add_sha256(response, d->name, h->dir==IN?
+			&h->in->payment_hash: &h->out->payment_hash);
 }
 
-HTLC_CB(json_add_htlc_state)
+static void json_add_htlc_state(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
-	json_add_string(response, d->name, htlc_state_name(in? hin->hstate:
-							       hout->hstate));
+	json_add_string(response, d->name, htlc_state_name(h->dir==IN?
+							   h->in->hstate:
+							   h->out->hstate));
 }
 
-HTLC_CB(json_add_htlc_local_trimmed)
+static void json_add_htlc_local_trimmed(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
+	struct channel *channel = d->parent->current_object;
 	u32 local_feerate = get_feerate(channel->fee_states,
 					channel->opener, LOCAL);
 	bool local_trimmed = htlc_is_trimmed(
-				REMOTE, in? hin->msat: hout->msat,
+				REMOTE, h->dir==IN? h->in->msat: h->out->msat,
 				local_feerate,
 				channel->our_config.dust_limit, LOCAL,
 				channel_has(channel, OPT_ANCHOR_OUTPUTS));
 	json_add_bool(response, d->name, local_trimmed? "true": "false");
 }
 
-HTLC_CB(json_add_htlc_status)
+static void json_add_htlc_status(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct htlc *h)
 {
-	if (in && hin->status)
-		json_add_string(response, d->name, hin->status);
+	if (h->dir==IN && h->in->status)
+		json_add_string(response, d->name, h->in->status);
 	else
 		json_add_null(response, d->name);
 }
 
-static struct command_result *
-prep_htlc_field_cb(struct command *cmd, struct graphql_field *field,
-		   htlc_json_cb cb)
+GQLCB_TABLE_TYPES_DECL(htlc /*prefix*/, htlc /*struct*/);
+struct htlc_fieldspec htlc_fields[] = {
+// Alphabetical order.
+{"amount_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_amount_msat},
+{"direction",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_direction},
+{"expiry",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_expiry},
+{"id",			0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_id},
+{"local_trimmed",	0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_local_trimmed},
+{"payment_hash",	0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_payment_hash},
+{"state",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_state},
+{"status",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_status},
+{NULL}};
+
+static void json_add_htlc_in(
+	struct json_stream *response, const struct gqlcb_data *d,
+	const struct channel *channel, const struct htlc_in *hin)
 {
-	struct htlc_cbd *d;
+	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
-	field->data = d = tal(cmd, struct htlc_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
+	json_object_start(response, NULL);
+	struct htlc h = { .dir = IN, .in = hin };
+	if (d->field->sel_set) {
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(response, cbd, &h);
+		}
+	}
+	json_object_end(response);
 }
 
-static struct command_result *
-prep_htlc_field(struct command *cmd, struct graphql_field *field)
+static void json_add_htlc_out(
+	struct json_stream *response, const struct gqlcb_data *d,
+	const struct channel *channel, const struct htlc_out *hout)
 {
-	const char *name = field->name->token_string;
+	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
-	if (streq(name, "direction"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_direction);
-	else if (streq(name, "id"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_id);
-	else if (streq(name, "amount_msat"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_amount_msat);
-	else if (streq(name, "expiry"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_expiry);
-	else if (streq(name, "payment_hash"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_payment_hash);
-	else if (streq(name, "state"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_state);
-	else if (streq(name, "local_trimmed"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_local_trimmed);
-	else if (streq(name, "status"))
-		return prep_htlc_field_cb(cmd, field, json_add_htlc_status);
-	else
-		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
-				    "unknown field '%s'", name);
+	json_object_start(response, NULL);
+	struct htlc h = { .dir = OUT, .out = hout };
+	if (d->field->sel_set) {
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(response, cbd, &h);
+		}
+	}
+	json_object_end(response);
 }
 
-/* JSON/GraphQL output of a state change entry */
 
-/* state change callback and struct */
-struct state_change_cbd;
-typedef void (*state_change_json_cb)(struct json_stream *js,
-				     const struct state_change_cbd *d,
-				     const struct state_change_entry *state_change);
-struct state_change_cbd {
-	state_change_json_cb json_add_func;
-	const char *name;
-};
-#define STATE_CHANGE_CB(name) \
-static void name(struct json_stream *response, \
-		 const struct state_change_cbd *d, \
-		 const struct state_change_entry *state_change)
+/* JSON emitters for a state_change record */
 
-STATE_CHANGE_CB(json_add_sc_timestamp)
+static void json_add_sc_timestamp(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct state_change_entry *state_change)
 {
 	json_add_timeiso(response, d->name, (struct timeabs *)&state_change->timestamp);
 }
 
-STATE_CHANGE_CB(json_add_sc_old_state)
+static void json_add_sc_old_state(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct state_change_entry *state_change)
 {
 	json_add_string(response, d->name,
 			channel_state_str(state_change->old_state));
 }
 
-STATE_CHANGE_CB(json_add_sc_new_state)
+static void json_add_sc_new_state(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct state_change_entry *state_change)
 {
 	json_add_string(response, d->name,
 			channel_state_str(state_change->new_state));
 }
 
-STATE_CHANGE_CB(json_add_sc_cause)
+static void json_add_sc_cause(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct state_change_entry *state_change)
 {
 	json_add_string(response, d->name,
 			channel_change_state_reason_str(state_change->cause));
 }
 
-STATE_CHANGE_CB(json_add_sc_message)
+static void json_add_sc_message(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct state_change_entry *state_change)
 {
 	json_add_string(response, d->name, state_change->message);
 }
 
-static struct command_result *
-prep_sc_field_cb(struct command *cmd, struct graphql_field *field,
-		 state_change_json_cb cb)
+GQLCB_TABLE_TYPES_DECL(statechange /*prefix*/, state_change_entry /*struct*/);
+struct statechange_fieldspec statechange_fields[] = {
+// Alphabetical order.
+{"cause",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_cause},
+{"message",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_message},
+{"new_state",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_new_state},
+{"old_state",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_old_state},
+{"timestamp",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_timestamp},
+{NULL}};
+
+static void json_add_state_change(
+	struct json_stream *response, const struct gqlcb_data *d,
+	const struct state_change_entry *state_change)
 {
-	struct state_change_cbd *d;
+	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
-	field->data = d = tal(cmd, struct state_change_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
+	json_object_start(response, NULL);
+	if (d->field->sel_set) {
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(response, cbd, state_change);
+		}
+	}
+	json_object_end(response);
 }
 
-static struct command_result *
-prep_state_change_field(struct command *cmd, struct graphql_field *field)
-{
-	const char *name = field->name->token_string;
 
-	if (streq(name, "timestamp"))
-		return prep_sc_field_cb(cmd, field, json_add_sc_timestamp);
-	else if (streq(name, "old_state"))
-		return prep_sc_field_cb(cmd, field, json_add_sc_old_state);
-	else if (streq(name, "new_state"))
-		return prep_sc_field_cb(cmd, field, json_add_sc_new_state);
-	else if (streq(name, "cause"))
-		return prep_sc_field_cb(cmd, field, json_add_sc_cause);
-	else if (streq(name, "message"))
-		return prep_sc_field_cb(cmd, field, json_add_sc_message);
-	else
-		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
-				    "unknown field '%s'", name);
-}
+/* JSON emitters for an inflight record */
 
-/* JSON/GraphQL output of an inflight entry */
-
-/* inflight callback and struct */
-struct inf_cbd;
-typedef void (*inf_json_cb)(struct json_stream *js,
-			    const struct inf_cbd *d,
-			    const struct channel_inflight *inflight);
-struct inf_cbd {
-	inf_json_cb json_add_func;
-	const char *name;
-};
-#define INFLIGHT_CB(name) \
-static void name(struct json_stream *response, \
-		 const struct inf_cbd *d, \
-		 const struct channel_inflight *inflight)
-
-INFLIGHT_CB(json_add_inf_funding_txid)
+static void json_add_inf_funding_txid(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel_inflight *inflight)
 {
 	json_add_txid(response, d->name, &inflight->funding->txid);
 }
 
-INFLIGHT_CB(json_add_inf_funding_outnum)
+static void json_add_inf_funding_outnum(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel_inflight *inflight)
 {
 	json_add_num(response, d->name, inflight->funding->outnum);
 }
 
-INFLIGHT_CB(json_add_inf_feerate)
+static void json_add_inf_feerate(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel_inflight *inflight)
 {
 	json_add_string(response, d->name,
 			tal_fmt(tmpctx, "%d%s",
@@ -1156,19 +1163,25 @@ INFLIGHT_CB(json_add_inf_feerate)
 				feerate_style_name(FEERATE_PER_KSIPA)));
 }
 
-INFLIGHT_CB(json_add_inf_total_funding_msat)
+static void json_add_inf_total_funding_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel_inflight *inflight)
 {
 	json_add_amount_sat_only(response, d->name,
 				 inflight->funding->total_funds);
 }
 
-INFLIGHT_CB(json_add_inf_our_funding_msat)
+static void json_add_inf_our_funding_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel_inflight *inflight)
 {
 	json_add_amount_sat_only(response, d->name,
 				 inflight->funding->our_funds);
 }
 
-INFLIGHT_CB(json_add_inf_scratch_txid)
+static void json_add_inf_scratch_txid(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel_inflight *inflight)
 {
 	struct bitcoin_txid txid;
 
@@ -1176,159 +1189,107 @@ INFLIGHT_CB(json_add_inf_scratch_txid)
 	json_add_txid(response, d->name, &txid);
 }
 
-static struct command_result *
-prep_inf_field_cb(struct command *cmd, struct graphql_field *field,
-		  inf_json_cb cb)
+GQLCB_TABLE_TYPES_DECL(inflight /*prefix*/, channel_inflight /*struct*/);
+struct inflight_fieldspec inflight_fields[] = {
+// Alphabetical order.
+{"feerate",		0,0,0,	NULL,	NULL,	NULL,	json_add_inf_feerate},
+{"funding_outnum",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_funding_outnum},
+{"funding_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_funding_txid},
+{"our_funding_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_our_funding_msat},
+{"scratch_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_scratch_txid},
+{"total_funding_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_total_funding_msat},
+{NULL}};
+
+static void json_add_inflight(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel_inflight *inflight)
 {
-	struct inf_cbd *d;
+	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
-	field->data = d = tal(cmd, struct inf_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
+	json_object_start(response, NULL);
+	if (d->field->sel_set) {
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(response, cbd, inflight);
+		}
+	}
+	json_object_end(response);
 }
 
-static struct command_result *
-prep_inflight_field(struct command *cmd, struct graphql_field *field)
-{
-	const char *name = field->name->token_string;
 
-	if (streq(name, "funding_txid"))
-		return prep_inf_field_cb(cmd, field, json_add_inf_funding_txid);
-	else if (streq(name, "funding_outnum"))
-		return prep_inf_field_cb(cmd, field, json_add_inf_funding_outnum);
-	else if (streq(name, "feerate"))
-		return prep_inf_field_cb(cmd, field, json_add_inf_feerate);
-	else if (streq(name, "total_funding_msat"))
-		return prep_inf_field_cb(cmd, field, json_add_inf_total_funding_msat);
-	else if (streq(name, "our_funding_msat"))
-		return prep_inf_field_cb(cmd, field, json_add_inf_our_funding_msat);
-	else if (streq(name, "scratch_txid"))
-		return prep_inf_field_cb(cmd, field, json_add_inf_scratch_txid);
-	else
-		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
-				    "unknown field '%s'", name);
+/* JSON emitters for channel funding record */
+
+static void json_add_chan_funding_local_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
+{
+	json_add_sat_only(response, d->name, channel->our_funds);
 }
 
-/* JSON/GraphQL output of a channel */
+static void json_add_chan_funding_remote_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
+{
+	struct amount_sat peer_funded_sats;
 
-/* basic channel callback and struct */
-struct chan_cbd;
-typedef void (*chan_json_cb)(struct json_stream *js,
-			     const struct chan_cbd *d,
-			     const struct channel *channel);
-struct chan_cbd {
-	chan_json_cb json_add_func;
-	const char *name;
+	if (!amount_sat_sub(&peer_funded_sats, channel->funding,
+			    channel->our_funds)) {
+		log_broken(channel->log,
+			   "Overflow subtracing funding %s, our funds %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->funding),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->our_funds));
+		peer_funded_sats = AMOUNT_SAT(0);
+	}
+
+	json_add_sat_only(response, d->name, peer_funded_sats);
+}
+
+GQLCB_TABLE_TYPES_DECL(funding /*prefix*/, channel /*struct*/);
+struct funding_fieldspec funding_fields[] = {
+// Alphabetical order.
+{"local_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_funding_local_msat},
+{"remote_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_funding_remote_msat},
+{NULL}};
+
+
+/* additional data needed by some channel field emitters */
+
+struct chans_aux_data {
+	struct lightningd *ld;
+	bool stats_valid;
+	struct channel_stats channel_stats;
 };
-#define CHANNEL_CB(name) \
-static void name(struct json_stream *response, \
-		 const struct chan_cbd *d, \
-		 const struct channel *channel)
 
-/* channel callback and struct with extended fields */
-struct chan_cbd_ext;
-typedef void (*chan_json_cb_ext)(struct json_stream *js,
-				 struct chan_cbd_ext *d,
-				 const struct channel *chan);
-struct chan_cbd_ext {
-	chan_json_cb_ext json_add_func;
-	const char *name;
-	const struct graphql_selection_set *sel_set;
-	const struct lightningd *ld;
-	struct peer_chan_cbd *parent;
-};
-#define CHANNEL_CB_EXT(name) \
-static void name(struct json_stream *response, \
-		 struct chan_cbd_ext *d, \
-		 const struct channel *channel)
-
-/* This function doesn't fit the mold because it straddles channel and inflight. */
-static void json_add_inflight(struct json_stream *response,
-			      const struct chan_cbd_ext *d,
-			      const struct channel_inflight *inflight)
+// helper
+static const struct channel_stats *
+chan_get_stats(const struct channel *channel, struct gqlcb_data *d)
 {
-	const struct graphql_selection *sel;
-	struct inf_cbd *cbd;
+	struct chans_aux_data *auxdat = d->parent->field->sel_set->data;
 
-	json_object_start(response, NULL);
-	if (d->sel_set) {
-		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = (struct inf_cbd *)sel->field->data;
-			cbd->json_add_func(response, cbd, inflight);
-		}
-	}
-	json_object_end(response);
+	if (auxdat->stats_valid)
+		return &auxdat->channel_stats;
+
+	wallet_channel_stats_load(auxdat->ld->wallet, channel->dbid,
+				  &auxdat->channel_stats);
+	auxdat->stats_valid = true;
+	return &auxdat->channel_stats;
 }
 
-/* This function doesn't fit the mold because it straddles channel and state change. */
-static void json_add_state_change(struct json_stream *response,
-				  const struct chan_cbd_ext *d,
-				  const struct state_change_entry *state_change)
-{
-	const struct graphql_selection *sel;
-	struct state_change_cbd *cbd;
+/* JSON emitters for channel */
 
-	json_object_start(response, NULL);
-	if (d->sel_set) {
-		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = (struct state_change_cbd *)sel->field->data;
-			cbd->json_add_func(response, cbd, state_change);
-		}
-	}
-	json_object_end(response);
-}
-
-/* This function doesn't fit the mold because it straddles channel and htlc. */
-static void json_add_htlc_in(struct json_stream *response,
-			     const struct chan_cbd_ext *d,
-			     const struct channel *channel,
-			     const struct htlc_in *hin)
-{
-	const struct graphql_selection *sel;
-	struct htlc_cbd *cbd;
-
-	json_object_start(response, NULL);
-	if (d->sel_set) {
-		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = (struct htlc_cbd *)sel->field->data;
-			cbd->json_add_func(response, cbd,
-					   channel, true, hin, NULL);
-		}
-	}
-	json_object_end(response);
-}
-
-/* This function doesn't fit the mold because it straddles channel and htlc. */
-static void json_add_htlc_out(struct json_stream *response,
-			      const struct chan_cbd_ext *d,
-			      const struct channel *channel,
-			      const struct htlc_out *hout)
-{
-	const struct graphql_selection *sel;
-	struct htlc_cbd *cbd;
-
-	json_object_start(response, NULL);
-	if (d->sel_set) {
-		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = (struct htlc_cbd *)sel->field->data;
-			cbd->json_add_func(response, cbd,
-					   channel, false, NULL, hout);
-		}
-	}
-	json_object_end(response);
-}
-
-CHANNEL_CB(json_add_chan_state)
+static void json_add_chan_state(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_string(response, d->name, channel_state_name(channel));
 }
 
-CHANNEL_CB(json_add_chan_scratch_txid)
+static void json_add_chan_scratch_txid(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
 		struct bitcoin_txid txid;
@@ -1340,7 +1301,9 @@ CHANNEL_CB(json_add_chan_scratch_txid)
 	}
 }
 
-CHANNEL_CB(json_add_chan_last_tx_fee_msat)
+static void json_add_chan_last_tx_fee_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
 		json_add_amount_sat_only(response, d->name,
@@ -1350,7 +1313,9 @@ CHANNEL_CB(json_add_chan_last_tx_fee_msat)
 	}
 }
 
-CHANNEL_CB(json_add_chan_feerate)
+static void json_add_chan_feerate(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	u32 feerate;
 
@@ -1362,7 +1327,9 @@ CHANNEL_CB(json_add_chan_feerate)
 	json_object_end(response);
 }
 
-CHANNEL_CB(json_add_chan_owner)
+static void json_add_chan_owner(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	if (channel->owner)
 		json_add_string(response, d->name, channel->owner->name);
@@ -1370,7 +1337,9 @@ CHANNEL_CB(json_add_chan_owner)
 		json_add_null(response, d->name);
 }
 
-CHANNEL_CB(json_add_chan_short_channel_id)
+static void json_add_chan_short_channel_id(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	if (channel->scid)
 		json_add_short_channel_id(response, d->name, channel->scid);
@@ -1378,27 +1347,37 @@ CHANNEL_CB(json_add_chan_short_channel_id)
 		json_add_null(response, d->name);
 }
 
-CHANNEL_CB_EXT(json_add_chan_direction)
+static void json_add_chan_direction(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
+	struct chans_aux_data *auxdat = d->parent->field->sel_set->data;
+
 	if (channel->scid)
 		json_add_num(response, d->name,
-			     node_id_idx(&d->ld->id, &channel->peer->id));
+			     node_id_idx(&auxdat->ld->id, &channel->peer->id));
 	else
 		json_add_null(response, d->name);
 }
 
-CHANNEL_CB(json_add_chan_id)
+static void json_add_chan_id(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_string(response, d->name,
 			type_to_string(tmpctx, struct channel_id, &channel->cid));
 }
 
-CHANNEL_CB(json_add_chan_funding_txid)
+static void json_add_chan_funding_txid(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_txid(response, "funding_txid", &channel->funding_txid);
 }
 
-CHANNEL_CB(json_add_chan_initial_feerate)
+static void json_add_chan_initial_feerate(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	struct channel_inflight *initial;
 
@@ -1415,7 +1394,9 @@ CHANNEL_CB(json_add_chan_initial_feerate)
 				feerate_style_name(FEERATE_PER_KSIPA)));
 }
 
-CHANNEL_CB(json_add_chan_last_feerate)
+static void json_add_chan_last_feerate(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	u32 last_feerate;
 
@@ -1431,7 +1412,9 @@ CHANNEL_CB(json_add_chan_last_feerate)
 				feerate_style_name(FEERATE_PER_KSIPA)));
 }
 
-CHANNEL_CB(json_add_chan_next_feerate)
+static void json_add_chan_next_feerate(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	u32 last_feerate, next_feerate;
 
@@ -1454,7 +1437,9 @@ CHANNEL_CB(json_add_chan_next_feerate)
 				feerate_style_name(FEERATE_PER_KSIPA)));
 }
 
-CHANNEL_CB_EXT(json_add_chan_inflights)
+static void json_add_chan_inflights(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	struct channel_inflight *inflight;
 
@@ -1465,7 +1450,9 @@ CHANNEL_CB_EXT(json_add_chan_inflights)
 	json_array_end(response);
 }
 
-CHANNEL_CB(json_add_chan_close_to_addr)
+static void json_add_chan_close_to_addr(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
 		char *addr = encode_scriptpubkey_to_addr(tmpctx,
@@ -1479,7 +1466,9 @@ CHANNEL_CB(json_add_chan_close_to_addr)
 	json_add_null(response, d->name);
 }
 
-CHANNEL_CB(json_add_chan_close_to)
+static void json_add_chan_close_to(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
 		json_add_hex_talarr(response, d->name,
@@ -1489,21 +1478,27 @@ CHANNEL_CB(json_add_chan_close_to)
 	json_add_null(response, d->name);
 }
 
-CHANNEL_CB(json_add_chan_private)
+static void json_add_chan_private(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_bool(
 	    response, d->name,
 	    !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
 }
 
-CHANNEL_CB(json_add_chan_opener)
+static void json_add_chan_opener(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	assert(channel->opener != NUM_SIDES);
 	json_add_string(response, d->name, channel->opener == LOCAL ?
 					   "local" : "remote");
 }
 
-CHANNEL_CB(json_add_chan_closer)
+static void json_add_chan_closer(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	if (channel->closer != NUM_SIDES)
 		json_add_string(response, d->name, channel->closer == LOCAL ?
@@ -1512,7 +1507,9 @@ CHANNEL_CB(json_add_chan_closer)
 		json_add_null(response, d->name);
 }
 
-CHANNEL_CB(json_add_chan_features)
+static void json_add_chan_features(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_array_start(response, d->name);
 	if (channel_has(channel, OPT_STATIC_REMOTEKEY))
@@ -1522,60 +1519,47 @@ CHANNEL_CB(json_add_chan_features)
 	json_array_end(response);
 }
 
-CHANNEL_CB_EXT(json_add_chan_funding)
+static void json_add_chan_funding(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct graphql_selection *sel;
-	struct chan_cbd *cbd;
+	struct gqlcb_data *cbd;
 
 	json_object_start(response, d->name);
-	if (d->sel_set) {
-		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "Channel", struct chan_cbd);
-			cbd->json_add_func(response, cbd, channel);
+	if (d->field->sel_set) {
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(response, cbd, channel);
 		}
 	}
 	json_object_end(response);
 }
 
-CHANNEL_CB(json_add_chan_funding_local_msat)
-{
-	json_add_sat_only(response, d->name, channel->our_funds);
-}
-
-CHANNEL_CB(json_add_chan_funding_remote_msat)
-{
-	struct amount_sat peer_funded_sats;
-
-	if (!amount_sat_sub(&peer_funded_sats, channel->funding,
-			    channel->our_funds)) {
-		log_broken(channel->log,
-			   "Overflow subtracing funding %s, our funds %s",
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding),
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->our_funds));
-		peer_funded_sats = AMOUNT_SAT(0);
-	}
-
-	json_add_sat_only(response, d->name, peer_funded_sats);
-}
-
-CHANNEL_CB(json_add_chan_to_us_msat)
+static void json_add_chan_to_us_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name, channel->our_msat);
 }
 
-CHANNEL_CB(json_add_chan_min_to_us_msat)
+static void json_add_chan_min_to_us_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name, channel->msat_to_us_min);
 }
 
-CHANNEL_CB(json_add_chan_max_to_us_msat)
+static void json_add_chan_max_to_us_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name, channel->msat_to_us_max);
 }
 
-CHANNEL_CB(json_add_chan_total_msat)
+static void json_add_chan_total_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	struct amount_msat funding_msat;
 
@@ -1591,25 +1575,33 @@ CHANNEL_CB(json_add_chan_total_msat)
 }
 
 /* routing fees */
-CHANNEL_CB(json_add_chan_fee_base_msat)
+static void json_add_chan_fee_base_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name,
 				  amount_msat(channel->feerate_base));
 }
 
-CHANNEL_CB(json_add_chan_fee_proportional_millionths)
+static void json_add_chan_fee_proportional_millionths(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_u32(response, d->name, channel->feerate_ppm);
 }
 
 /* channel config */
-CHANNEL_CB(json_add_chan_dust_limit_msat)
+static void json_add_chan_dust_limit_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_sat_only(response, d->name,
 				 channel->our_config.dust_limit);
 }
 
-CHANNEL_CB(json_add_chan_max_total_htlc_in_msat)
+static void json_add_chan_max_total_htlc_in_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name,
 				  channel->our_config.max_htlc_value_in_flight);
@@ -1622,31 +1614,41 @@ CHANNEL_CB(json_add_chan_max_total_htlc_in_msat)
  * is imposed on their side, while their
  * configuration `channel_reserve_satoshis` is
  * imposed on ours. */
-CHANNEL_CB(json_add_chan_their_reserve_msat)
+static void json_add_chan_their_reserve_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_sat_only(response, d->name,
 				 channel->our_config.channel_reserve);
 }
 
-CHANNEL_CB(json_add_chan_our_reserve_msat)
+static void json_add_chan_our_reserve_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_sat_only(response, d->name,
 				 channel->channel_info.their_config.channel_reserve);
 }
 
-CHANNEL_CB(json_add_chan_spendable_msat)
+static void json_add_chan_spendable_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name,
 				  channel_amount_spendable(channel));
 }
 
-CHANNEL_CB(json_add_chan_receivable_msat)
+static void json_add_chan_receivable_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name,
 				  channel_amount_receivable(channel));
 }
 
-CHANNEL_CB(json_add_chan_minimum_htlc_in_msat)
+static void json_add_chan_minimum_htlc_in_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_amount_msat_only(response, d->name,
 				  channel->our_config.htlc_minimum);
@@ -1656,29 +1658,38 @@ CHANNEL_CB(json_add_chan_minimum_htlc_in_msat)
  * side, so our configuration `to_self_delay` is
  * imposed on their side, while their configuration
  * `to_self_delay` is imposed on ours. */
-CHANNEL_CB(json_add_chan_their_to_self_delay)
+static void json_add_chan_their_to_self_delay(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_num(response, d->name,
 		     channel->our_config.to_self_delay);
 }
 
-CHANNEL_CB(json_add_chan_our_to_self_delay)
+static void json_add_chan_our_to_self_delay(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_num(response, d->name,
 		     channel->channel_info.their_config.to_self_delay);
 }
 
-CHANNEL_CB(json_add_chan_max_accepted_htlcs)
+static void json_add_chan_max_accepted_htlcs(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_add_num(response, d->name,
 		     channel->our_config.max_accepted_htlcs);
 }
 
-CHANNEL_CB_EXT(json_add_chan_state_changes)
+static void json_add_chan_state_changes(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
+	struct chans_aux_data *auxdat = d->parent->field->sel_set->data;
 	struct state_change_entry *state_changes;
 
-	state_changes = wallet_state_change_get(d->ld->wallet, tmpctx, channel->dbid);
+	state_changes = wallet_state_change_get(auxdat->ld->wallet, tmpctx, channel->dbid);
 	json_array_start(response, d->name);
 	for (size_t i = 0; i < tal_count(state_changes); i++) {
 		json_add_state_change(response, d, &state_changes[i]);
@@ -1686,7 +1697,9 @@ CHANNEL_CB_EXT(json_add_chan_state_changes)
 	json_array_end(response);
 }
 
-CHANNEL_CB(json_add_chan_status)
+static void json_add_chan_status(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	json_array_start(response, d->name);
 	for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
@@ -1700,82 +1713,97 @@ CHANNEL_CB(json_add_chan_status)
 	json_array_end(response);
 }
 
-struct peer_chan_cbd;
-static const struct channel_stats *
-chan_get_stats(const struct channel *channel, struct chan_cbd_ext *d);
-
-CHANNEL_CB_EXT(json_add_chan_in_payments_offered)
+static void json_add_chan_in_payments_offered(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->in_payments_offered);
 }
 
-CHANNEL_CB_EXT(json_add_chan_in_offered_msat)
+static void json_add_chan_in_offered_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->in_msatoshi_offered);
 }
 
-CHANNEL_CB_EXT(json_add_chan_in_payments_fulfilled)
+static void json_add_chan_in_payments_fulfilled(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->in_payments_fulfilled);
 }
 
-CHANNEL_CB_EXT(json_add_chan_in_fulfilled_msat)
+static void json_add_chan_in_fulfilled_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->in_msatoshi_fulfilled);
 }
 
-CHANNEL_CB_EXT(json_add_chan_out_payments_offered)
+static void json_add_chan_out_payments_offered(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->out_payments_offered);
 }
 
-CHANNEL_CB_EXT(json_add_chan_out_offered_msat)
+static void json_add_chan_out_offered_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->out_msatoshi_offered);
 }
 
-CHANNEL_CB_EXT(json_add_chan_out_payments_fulfilled)
+static void json_add_chan_out_payments_fulfilled(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->out_payments_fulfilled);
 }
 
-CHANNEL_CB_EXT(json_add_chan_out_fulfilled_msat)
+static void json_add_chan_out_fulfilled_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->out_msatoshi_fulfilled);
 }
 
-CHANNEL_CB_EXT(json_add_chan_htlcs)
+static void json_add_chan_htlcs(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct channel *channel)
 {
 	const struct htlc_in *hin;
 	struct htlc_in_map_iter ini;
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
+	struct chans_aux_data *auxdat = d->parent->field->sel_set->data;
 
 	json_array_start(response, d->name);
 
-	for (hin = htlc_in_map_first(&d->ld->htlcs_in, &ini);
+	for (hin = htlc_in_map_first(&auxdat->ld->htlcs_in, &ini);
 	     hin;
-	     hin = htlc_in_map_next(&d->ld->htlcs_in, &ini)) {
+	     hin = htlc_in_map_next(&auxdat->ld->htlcs_in, &ini)) {
 		if (hin->key.channel != channel)
 			continue;
 		json_add_htlc_in(response, d, channel, hin);
 	}
 
-	for (hout = htlc_out_map_first(&d->ld->htlcs_out, &outi);
+	for (hout = htlc_out_map_first(&auxdat->ld->htlcs_out, &outi);
 	     hout;
-	     hout = htlc_out_map_next(&d->ld->htlcs_out, &outi)) {
+	     hout = htlc_out_map_next(&auxdat->ld->htlcs_out, &outi)) {
 		if (hout->key.channel != channel)
 			continue;
 		json_add_htlc_out(response, d, channel, hout);
@@ -1784,277 +1812,89 @@ CHANNEL_CB_EXT(json_add_chan_htlcs)
 	json_array_end(response);
 }
 
-static struct command_result *
-prep_chan_field_cb(struct command *cmd, struct graphql_field *field,
-		   chan_json_cb cb)
+GQLCB_TABLE_TYPES_DECL(channel /*prefix*/, channel /*struct*/);
+struct channel_fieldspec channel_fields[] = {
+// Alphabetical order.
+{"channel_id",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_id},
+{"close_to",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_close_to},
+{"close_to_addr",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_close_to_addr},
+{"closer",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_closer},
+{"direction",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_direction},
+{"dust_limit_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_dust_limit_msat},
+{"features",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_features},
+{"fee_base_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_fee_base_msat},
+{"fee_proportional_millionths",
+			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_fee_proportional_millionths},
+{"feerate",		0,1,0,	NULL,	NULL,	NULL,	json_add_chan_feerate},
+{"funding",		0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)funding_fields,
+							json_add_chan_funding},
+{"funding_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_funding_txid},
+{"htlcs",		0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)htlc_fields,
+							json_add_chan_htlcs},
+{"in_fulfilled_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_fulfilled_msat},
+{"in_offered_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_offered_msat},
+{"in_payments_fulfilled",
+			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_payments_fulfilled},
+{"in_payments_offered",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_payments_offered},
+{"inflight",		0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)inflight_fields,
+							json_add_chan_inflights},
+{"initial_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_initial_feerate},
+{"last_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_last_feerate},
+{"last_tx_fee_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_last_tx_fee_msat},
+{"max_accepted_htlcs",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_accepted_htlcs},
+{"max_to_us_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_to_us_msat},
+{"max_total_htlc_in_msat",
+			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_total_htlc_in_msat},
+{"min_to_us_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_min_to_us_msat},
+{"minimum_htlc_in_msat",0,0,0,	NULL,	NULL,	NULL,	json_add_chan_minimum_htlc_in_msat},
+{"next_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_next_feerate},
+{"opener",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_opener},
+{"our_reserve_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_our_reserve_msat},
+{"our_to_self_delay",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_our_to_self_delay},
+{"out_fulfilled_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_fulfilled_msat},
+{"out_offered_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_offered_msat},
+{"out_payments_fulfilled",
+			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_payments_fulfilled},
+{"out_payments_offered",0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_payments_offered},
+{"owner",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_owner},
+{"private",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_private},
+{"receivable_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_receivable_msat},
+{"scratch_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_scratch_txid},
+{"short_channel_id",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_short_channel_id},
+{"spendable_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_spendable_msat},
+{"state",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_state},
+{"state_changes",	0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)statechange_fields,
+							json_add_chan_state_changes},
+{"status",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_status},
+{"their_reserve_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_their_reserve_msat},
+{"their_to_self_delay",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_their_to_self_delay},
+{"to_us_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_to_us_msat},
+{"total_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_total_msat},
+{NULL}};
+
+static void json_add_channel2(struct json_stream *response,
+			      struct gqlcb_data *d,
+			      const char *key,
+			      const struct channel *channel)
 {
-	struct chan_cbd *d;
+	const struct graphql_selection *sel;
+	struct gqlcb_data *cbd;
 
-	d = create_cbd(field, "Channel", cmd, struct chan_cbd);
-	//field->data = d = tal(cmd, struct chan_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
+	json_object_start(response, key);
+	if (d->field->sel_set) {
+		struct chans_aux_data *auxdat = d->field->sel_set->data;
+		auxdat->stats_valid = false;
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = get_cbd(sel->field, "Channel", struct gqlcb_data);
+			if (cbd)
+				cbd->fieldspec->json_emitter(response, cbd, channel);
+			else
+				json_add_null(response, get_alias(sel->field));
+		}
+	}
+	json_object_end(response);
 }
 
-static struct command_result *
-prep_chan_field_cb_ext1(struct command *cmd, struct graphql_field *field,
-		        struct peer_chan_cbd *parent, chan_json_cb_ext cb)
-{
-	struct chan_cbd_ext *d;
-
-	d = create_cbd(field, "Channel", cmd, struct chan_cbd_ext);
-	//field->data = d = tal(cmd, struct chan_cbd_ext);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->ld = cmd->ld;
-	d->parent = parent;
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
-}
-
-static struct command_result *
-prep_chan_field_cb_ext(struct command *cmd, struct graphql_field *field,
-		       chan_json_cb_ext cb)
-{
-	return prep_chan_field_cb_ext1(cmd, field, NULL, cb);
-}
-
-static struct command_result *
-prep_chan_feerate(struct command *cmd, struct graphql_field *field,
-		  chan_json_cb cb)
-{
-	struct chan_cbd *d;
-
-	d = create_cbd(field, "Channel", cmd, struct chan_cbd);
-	//field->data = d = tal(cmd, struct chan_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELD_SELECTION(cmd, field);
-
-	return NULL;
-}
-
-static struct command_result *
-prep_chan_inflight_cb(struct command *cmd, struct graphql_field *field,
-		      chan_json_cb_ext cb)
-{
-	struct chan_cbd_ext *d;
-	struct graphql_selection *sel;
-	struct command_result *err;
-
-	d = create_cbd(field, "Channel", cmd, struct chan_cbd_ext);
-	//field->data = d = tal(cmd, struct chan_cbd_ext);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->sel_set = field->sel_set;
-
-	NO_ARGS(cmd, field);
-
-	if (field->sel_set)
-		for (sel = field->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_inflight_field(cmd, sel->field)))
-				return err;
-	return NULL;
-}
-
-static struct command_result *
-prep_funding_field(struct command *cmd, struct graphql_field *field)
-{
-	const char *name = field->name->token_string;
-
-	if (streq(name, "local_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_funding_local_msat);
-	else if (streq(name, "remote_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_funding_remote_msat);
-	else
-		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
-				    "unknown field '%s'", name);
-}
-
-static struct command_result *
-prep_chan_funding_cb(struct command *cmd, struct graphql_field *field,
-		     chan_json_cb_ext cb)
-{
-	struct chan_cbd_ext *d;
-	struct graphql_selection *sel;
-	struct command_result *err;
-
-	d = create_cbd(field, "Channel", cmd, struct chan_cbd_ext);
-	//field->data = d = tal(cmd, struct chan_cbd_ext);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->sel_set = field->sel_set;
-
-	NO_ARGS(cmd, field);
-
-	if (field->sel_set)
-		for (sel = field->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_funding_field(cmd, sel->field)))
-				return err;
-	return NULL;
-}
-
-static struct command_result *
-prep_chan_sc_cb(struct command *cmd, struct graphql_field *field,
-		chan_json_cb_ext cb)
-{
-	struct chan_cbd_ext *d;
-	struct graphql_selection *sel;
-	struct command_result *err;
-
-	d = create_cbd(field, "Channel", cmd, struct chan_cbd_ext);
-	//field->data = d = tal(cmd, struct chan_cbd_ext);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->sel_set = field->sel_set;
-	d->ld = cmd->ld;
-
-	NO_ARGS(cmd, field);
-
-	if (field->sel_set)
-		for (sel = field->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_state_change_field(cmd, sel->field)))
-				return err;
-	return NULL;
-}
-
-static struct command_result *
-prep_chan_htlc_cb(struct command *cmd, struct graphql_field *field,
-		  chan_json_cb_ext cb)
-{
-	struct chan_cbd_ext *d;
-	struct graphql_selection *sel;
-	struct command_result *err;
-
-	d = create_cbd(field, "Channel", cmd, struct chan_cbd_ext);
-	//field->data = d = tal(cmd, struct chan_cbd_ext);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->sel_set = field->sel_set;
-	d->ld = cmd->ld;
-
-	NO_ARGS(cmd, field);
-
-	if (field->sel_set)
-		for (sel = field->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_htlc_field(cmd, sel->field)))
-				return err;
-	return NULL;
-}
-
-static struct command_result *
-prep_channels_field(struct command *cmd, struct graphql_field *field, struct peer_chan_cbd *d)
-{
-	const char *name = field->name->token_string;
-
-	if (streq(name, "state"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_state);
-	else if (streq(name, "scratch_txid"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_scratch_txid);
-	else if (streq(name, "last_tx_fee_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_last_tx_fee_msat);
-	else if (streq(name, "feerate"))
-		return prep_chan_feerate(cmd, field, json_add_chan_feerate);
-	else if (streq(name, "owner"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_owner);
-	else if (streq(name, "short_channel_id"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_short_channel_id);
-	else if (streq(name, "direction"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_direction);
-	else if (streq(name, "channel_id"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_id);
-	else if (streq(name, "funding_txid"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_funding_txid);
-	else if (streq(name, "initial_feerate"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_initial_feerate);
-	else if (streq(name, "last_feerate"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_last_feerate);
-	else if (streq(name, "next_feerate"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_next_feerate);
-	else if (streq(name, "inflight"))
-		return prep_chan_inflight_cb(cmd, field, json_add_chan_inflights);
-	else if (streq(name, "close_to_addr"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_close_to_addr);
-	else if (streq(name, "close_to"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_close_to);
-	else if (streq(name, "private"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_private);
-	else if (streq(name, "opener"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_opener);
-	else if (streq(name, "closer"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_closer);
-	else if (streq(name, "features"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_features);
-	else if (streq(name, "funding"))
-		return prep_chan_funding_cb(cmd, field, json_add_chan_funding);
-	else if (streq(name, "to_us_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_to_us_msat);
-	else if (streq(name, "min_to_us_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_min_to_us_msat);
-	else if (streq(name, "max_to_us_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_max_to_us_msat);
-	else if (streq(name, "total_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_total_msat);
-	else if (streq(name, "fee_base_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_fee_base_msat);
-	else if (streq(name, "fee_proportional_millionths"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_fee_proportional_millionths);
-	else if (streq(name, "dust_limit_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_dust_limit_msat);
-	else if (streq(name, "max_total_htlc_in_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_max_total_htlc_in_msat);
-	else if (streq(name, "their_reserve_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_their_reserve_msat);
-	else if (streq(name, "our_reserve_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_our_reserve_msat);
-	else if (streq(name, "spendable_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_spendable_msat);
-	else if (streq(name, "receivable_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_receivable_msat);
-	else if (streq(name, "minimum_htlc_in_msat"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_minimum_htlc_in_msat);
-	else if (streq(name, "their_to_self_delay"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_their_to_self_delay);
-	else if (streq(name, "our_to_self_delay"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_our_to_self_delay);
-	else if (streq(name, "max_accepted_htlcs"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_max_accepted_htlcs);
-	else if (streq(name, "state_changes"))
-		return prep_chan_sc_cb(cmd, field, json_add_chan_state_changes);
-	else if (streq(name, "status"))
-		return prep_chan_field_cb(cmd, field, json_add_chan_status);
-	else if (streq(name, "in_payments_offered"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_payments_offered);
-	else if (streq(name, "in_offered_msat"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_offered_msat);
-	else if (streq(name, "in_payments_fulfilled"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_payments_fulfilled);
-	else if (streq(name, "in_fulfilled_msat"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_fulfilled_msat);
-	else if (streq(name, "out_payments_offered"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_payments_offered);
-	else if (streq(name, "out_offered_msat"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_offered_msat);
-	else if (streq(name, "out_payments_fulfilled"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_payments_fulfilled);
-	else if (streq(name, "out_fulfilled_msat"))
-		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_fulfilled_msat);
-	else if (streq(name, "htlcs"))
-		return prep_chan_htlc_cb(cmd, field, json_add_chan_htlcs);
-	else
-		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
-				    "unknown field '%s'", name);
-}
 
 struct peer_connected_hook_payload {
 	struct lightningd *ld;
@@ -2584,60 +2424,18 @@ static void json_add_peer(struct lightningd *ld,
 	json_object_end(response);
 }
 
-/* JSON/GraphQL output of a peer */
 
-/* basic callback and struct */
-struct peer_cbd;
-typedef void (*peer_json_cb)(struct json_stream *response,
-				 const struct peer_cbd *d,
-				 const struct peer *p);
-struct peer_cbd {
-	peer_json_cb json_add_func;
-	const char *name;
-};
-#define PEER_CB(name) \
-static void name(struct json_stream *response, \
-                 const struct peer_cbd *d, \
-                 const struct peer *p)
+/* additional data needed by some peer field emitters */
 
-/* callback and struct with extension for channels field */
-struct peer_chan_cbd;
-typedef void (*peer_json_chan_cb)(struct json_stream *response,
-				 struct peer_chan_cbd *d,
-				 const struct peer *p);
-struct peer_chan_cbd {
-	peer_json_chan_cb json_add_func;
-	const char *name;
-	struct graphql_selection_set *sel_set;
-	bool stats_valid;
-	struct channel_stats channel_stats;
-};
-#define PEER_CHAN_CB(name) \
-static void name(struct json_stream *response, \
-		 struct peer_chan_cbd *d, \
-		 const struct peer *p)
-
-/* callback and struct with extensions for log */
-struct peer_log_cbd;
-typedef void (*peer_json_log_cb)(struct json_stream *js,
-				 const struct peer_log_cbd *d,
-				 const struct peer *p);
-struct peer_log_cbd {
-	peer_json_log_cb json_add_func;
-	const char *name;
+struct peers_aux_data {
 	struct lightningd *ld;
+};
+
+struct log_arg_data {
 	enum log_level *ll;
 };
-#define PEER_LOG_CB(name) \
-static void name(struct json_stream *response, \
-		 const struct peer_log_cbd *d, \
-		 const struct peer *p)
 
-PEER_CB(json_add_peer_id)
-{
-	json_add_node_id(response, d->name, &p->id);
-}
-
+// helper
 static bool is_connected(const struct peer *peer)
 {
 	/* Channel is also connected if uncommitted */
@@ -2652,12 +2450,25 @@ static bool is_connected(const struct peer *peer)
 	}
 }
 
-PEER_CB(json_add_peer_connected)
+/* JSON emitters for a peer */
+
+static void json_add_peer_id(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct peer *p)
+{
+	json_add_node_id(response, d->name, &p->id);
+}
+
+static void json_add_peer_connected(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct peer *p)
 {
 	json_add_bool(response, d->name, is_connected(p));
 }
 
-PEER_CB(json_add_peer_netaddr)
+static void json_add_peer_netaddr(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct peer *p)
 {
 	/* See comment in json_add_peer_features() */
 	if (!is_connected(p)) {
@@ -2672,7 +2483,9 @@ PEER_CB(json_add_peer_netaddr)
 	json_array_end(response);
 }
 
-PEER_CB(json_add_peer_features)
+static void json_add_peer_features(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct peer *p)
 {
 	/* If it's not connected, features are unreliable: we don't
 	 * store them in the database, and they would only reflect
@@ -2684,221 +2497,177 @@ PEER_CB(json_add_peer_features)
 	json_add_hex_talarr(response, d->name, p->their_features);
 }
 
-static void json_add_channel2(struct json_stream *response,
-			      struct peer_chan_cbd *d,
-			      const char *key,
-			      const struct channel *channel);
-
-PEER_CHAN_CB(json_add_peer_channels)
+static void json_add_peer_channels(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct peer *p)
 {
 	struct channel *channel;
 
 	json_array_start(response, d->name);
-	json_add_uncommitted_channel2(response, d->sel_set, p->uncommitted_channel);
+	json_add_uncommitted_channel2(response, d, p->uncommitted_channel);
 	list_for_each(&p->channels, channel, list) {
 		if (channel_unsaved(channel))
-			json_add_unsaved_channel2(response, d->sel_set, channel);
+			json_add_unsaved_channel2(response, d, channel);
 		else
 			json_add_channel2(response, d, NULL, channel);
 	}
 	json_array_end(response);
 }
 
-PEER_LOG_CB(json_add_peer_log)
+static void json_add_peer_log(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct peer *p)
 {
-	json_add_log(response, d->ld->log_book, &p->id, *d->ll);
+	struct log_arg_data *argdat = d->field->args->data;
+	struct peers_aux_data *auxdat = d->parent->field->sel_set->data;
+	json_add_log(response, auxdat->ld->log_book, &p->id, *argdat->ll);
 }
 
+// Specialized prep function for channels, to handle multiple types.
 static struct command_result *
-prep_peers_field_cb(struct command *cmd, struct graphql_field *field,
-		    peer_json_cb cb)
+chans_prep(struct command *cmd, const char *buffer,
+           struct graphql_field *field, struct gqlcb_fieldspec *table,
+           struct gqlcb_data *d)
 {
-	struct peer_cbd *d;
-
-	field->data = d = tal(cmd, struct peer_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
-}
-
-static struct command_result *
-prep_peers_channels(struct command *cmd, struct graphql_field *field)
-{
-	struct peer_chan_cbd *d;
 	struct graphql_selection *sel;
-	struct command_result *err;
+	static struct command_result *err;
 
-	field->data = d = tal(cmd, struct peer_chan_cbd);
-	d->json_add_func = json_add_peer_channels;
-	d->name = get_alias(field);
-	d->sel_set = field->sel_set;
+	if (!d->field->sel_set) {
+		d->field->sel_set = tal(cmd, struct graphql_selection_set);
+		d->field->sel_set->first = NULL;
+		d->field->sel_set->data = NULL;
+	}
+	struct chans_aux_data *auxdat = d->field->sel_set->data;
+	if (!auxdat) {
+		auxdat = d->field->sel_set->data = tal(cmd, struct chans_aux_data);
+		auxdat->ld = cmd->ld;
+	}
 
-	NO_ARGS(cmd, field);
+	for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+		//prep_uncommitted_channels_field(cmd, sel->field, false);
+		//prep_unsaved_channels_field(cmd, sel->field, false);
+		uncommitted_channel_prep(cmd, buffer, sel->field, d);
+		unsaved_channel_prep(cmd, buffer, sel->field, d);
+		//create_cbd(sel->field, "Channel", cmd, struct gqlcb_data);
+		if ((err = field_prep_typed(cmd, buffer, sel->field,
+					    (struct gqlcb_fieldspec *)channel_fields,
+					    d, "Channel", true)))
+			return err;
+	}
 
-	if (field->sel_set)
-		for (sel = field->sel_set->first; sel; sel = sel->next)
-		{
-			prep_uncommitted_channels_field(cmd, sel->field, false);
-			prep_unsaved_channels_field(cmd, sel->field, false);
-			if ((err = prep_channels_field(cmd, sel->field, d)))
-				return err;
-		}
 	return NULL;
 }
 
+// Parameter parsing
 static struct command_result *
-prep_peers_log(struct command *cmd, const char *buffer,
-	       struct graphql_field *field)
+log_args(struct command *cmd, const char *buffer, jsmntok_t *params, struct gqlcb_data *d)
 {
-	struct peer_log_cbd *d;
-	jsmntok_t *params;
-
-	field->data = d = tal(cmd, struct peer_log_cbd);
-	d->json_add_func = json_add_peer_log;
-	d->name = get_alias(field);
-	d->ld = cmd->ld;
-
-	NO_ALIAS_SUPPORT(cmd, field);
-	NO_SUBFIELD_SELECTION(cmd, field);
-
-	convert_args_to_paramtokens(field, cmd, &params);
+	struct log_arg_data *argdat = d->field->args->data;
+	if (!argdat) {
+		argdat = d->field->args->data = tal(cmd, struct log_arg_data);
+	}
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("level", param_loglevel, &d->ll, 0),
+		   p_opt_def("level", param_loglevel, &argdat->ll, 0),
 		   NULL))
 		return command_param_failed();
 
 	return NULL;
 }
 
-static struct command_result *
-prep_peers_field(struct command *cmd, const char *buffer, struct graphql_field *field)
-{
-	const char *name = field->name->token_string;
-
-	if (streq(name, "id"))
-		return prep_peers_field_cb(cmd, field, json_add_peer_id);
-	else if (streq(name, "connected"))
-		return prep_peers_field_cb(cmd, field, json_add_peer_connected);
-	else if (streq(name, "netaddr"))
-		return prep_peers_field_cb(cmd, field, json_add_peer_netaddr);
-	else if (streq(name, "features"))
-		return prep_peers_field_cb(cmd, field, json_add_peer_features);
-	else if (streq(name, "channels"))
-		return prep_peers_channels(cmd, field);
-	else if (streq(name, "log"))
-		return prep_peers_log(cmd, buffer, field);
-	else
-		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
-				    "unknown field '%s'", name);
-}
-
-static void json_add_channel2(struct json_stream *response,
-			      struct peer_chan_cbd *d,
-			      const char *key,
-			      const struct channel *channel)
-{
-	const struct graphql_selection *sel;
-	struct chan_cbd *cbd;
-
-	json_object_start(response, key);
-	if (d->sel_set) {
-		d->stats_valid = false;
-		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "Channel", struct chan_cbd);
-			if (cbd)
-				cbd->json_add_func(response, cbd, channel);
-			else
-				json_add_null(response, get_alias(sel->field));
-		}
-	}
-	json_object_end(response);
-}
+GQLCB_TABLE_TYPES_DECL(peer /*prefix*/, peer /*struct*/);
+struct peer_fieldspec peer_fields[] = {
+// Alphabetical order.
+{"channels",	0,0,1,	NULL,		chans_prep, (struct gqlcb_fieldspec *)channel_fields,
+							json_add_peer_channels},
+{"connected",	0,0,0,	NULL,		NULL,	NULL,	json_add_peer_connected},
+{"features",	0,0,0,	NULL,		NULL,	NULL,	json_add_peer_features},
+{"id",		0,0,0,	NULL,		NULL,	NULL,	json_add_peer_id},
+{"log",		1,1,1,	log_args,	NULL,	NULL,	json_add_peer_log},
+{"netaddr",	0,0,0,	NULL,		NULL,	NULL,	json_add_peer_netaddr},
+{NULL}};
 
 static void json_add_peer2(struct json_stream *js,
 			   const struct graphql_field *field,
 			   const struct peer *peer)
 {
 	const struct graphql_selection *sel;
-	struct peer_cbd *cbd;
+	struct gqlcb_data *cbd;
 
 	json_object_start(js, NULL);
 	if (field->sel_set) {
 		for (sel = field->sel_set->first; sel; sel = sel->next) {
-			cbd = (struct peer_cbd *)sel->field->data;
-			cbd->json_add_func(js, cbd, peer);
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(js, cbd, peer);
 		}
 	}
 	json_object_end(js);
 }
 
-static const struct channel_stats *
-chan_get_stats(const struct channel *channel, struct chan_cbd_ext *d)
-{
-	if (d->parent->stats_valid)
-		return &d->parent->channel_stats;
 
-	wallet_channel_stats_load(d->ld->wallet, channel->dbid,
-				  &d->parent->channel_stats);
-	d->parent->stats_valid = true;
-	return &d->parent->channel_stats;
-}
+/* additional data needed by peers field emitter */
 
-struct peers_cbd {
-        struct toplevel_field_data cb;
-        const char *name;
-        struct command *cmd;
-        struct node_id *specific_id;
+struct peers_arg_data {
+	struct node_id *specific_id;
+	unsigned int *from, *to;
 };
 
-void json_add_peers(struct json_stream *js,
-		    const struct graphql_field *field)
+// Parameter handling
+static struct command_result *
+peers_args(struct command *cmd, const char *buffer, jsmntok_t *params, struct gqlcb_data *d)
 {
-	struct peer *peer;
-	struct peers_cbd *d = field->data;
-
-	json_array_start(js, d->name);
-	if (d->specific_id) {
-		peer = peer_by_id(d->cmd->ld, d->specific_id);
-		if (peer)
-			json_add_peer2(js, field, peer);
-	} else {
-		list_for_each(&d->cmd->ld->peers, peer, list)
-			json_add_peer2(js, field, peer);
+	struct peers_arg_data *argdat = d->field->args->data;
+	if (!argdat) {
+		argdat = d->field->args->data = tal(cmd, struct peers_arg_data);
 	}
-	json_array_end(js);
-}
-
-struct command_result *
-prep_peers(struct command *cmd, const char *buffer,
-	   struct graphql_field *field)
-{
-	struct peers_cbd *d;
-	jsmntok_t *params;
-	struct graphql_selection *sel;
-	struct command_result *err;
-
-	field->data = d = tal(cmd, struct peers_cbd);
-	d->cb.json_add_func = json_add_peers;
-	d->name = get_alias(field);
-	d->cmd = cmd;
-
-	convert_args_to_paramtokens(field, cmd, &params);
 
 	if (!param(cmd, buffer, params,
-		   p_opt("id", param_node_id, &d->specific_id),
+		   p_opt("id", param_node_id, &argdat->specific_id),
+		   p_opt("from", param_number, &argdat->from),
+		   p_opt("to", param_number, &argdat->to),
 		   NULL))
 		return command_param_failed();
 
-	if (field->sel_set)
-		for (sel = field->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_peers_field(cmd, buffer, sel->field)))
-				return err;
 	return NULL;
+}
+
+/* JSON emitters for top-level fields */
+
+static void json_add_peers(
+	struct json_stream *js, struct gqlcb_data *d,
+	const struct lightningd *ld)
+{
+	struct peers_arg_data *argdat = NULL;
+	struct peers_aux_data *auxdat = NULL;
+	struct peer *peer;
+	unsigned int i = 0, from, to;
+	bool from_any = true, to_any = true;
+
+	argdat = d->field->args->data;
+	auxdat = d->field->sel_set->data;
+
+	if (argdat->from) {
+		from_any = false;
+		from = *argdat->from;
+	}
+	if (argdat->to) {
+		to_any = false;
+		to = *argdat->to;
+	}
+
+	json_array_start(js, d->name);
+	if (argdat->specific_id) {
+		peer = peer_by_id(auxdat->ld, argdat->specific_id);
+		if (peer)
+			json_add_peer2(js, d->field, peer);
+	} else {
+		list_for_each(&auxdat->ld->peers, peer, list) {
+			i++;
+			if ((from <= i || from_any) && (i <= to || to_any))
+				json_add_peer2(js, d->field, peer);
+		}
+	}
+	json_array_end(js);
 }
 
 static struct command_result *json_listpeers(struct command *cmd,
@@ -3140,315 +2909,231 @@ static const struct json_command disconnect_command = {
 };
 AUTODATA(json_command, &disconnect_command);
 
-struct info_cbd {
-	struct toplevel_field_data cb;
-	const char *name;
-	struct command *cmd;
 
+/* additional data needed by some info field emitters */
+
+struct info_aux_data {
 	bool stats_valid;
 	unsigned int pending_channels, active_channels,
 		     inactive_channels, num_peers;
 };
 
-struct info_field_cbd;
-typedef void (*info_json_cb)(struct json_stream *js,
-			     const struct info_field_cbd *d);
-struct info_field_cbd {
-	info_json_cb json_add_func;
-	const char *name;
-	const struct lightningd *ld;
-};
-#define INFO_CB(name) \
-static void name(struct json_stream *response, \
-		 const struct info_field_cbd *d)
-
-struct info_field_cbd_ext1;
-typedef void (*info_json_cb_ext1)(struct json_stream *js,
-				  struct info_field_cbd_ext1 *d);
-struct info_field_cbd_ext1 {
-	info_json_cb_ext1 json_add_func;
-	const char *name;
-	const struct lightningd *ld;
-	struct info_cbd *parent;
-};
-#define INFO_CB_EXT1(name) \
-static void name(struct json_stream *response, \
-		 struct info_field_cbd_ext1 *d)
-
-INFO_CB(json_add_info_id)
-{
-	json_add_node_id(response, d->name, &d->ld->id);
-}
-
-INFO_CB(json_add_info_alias)
-{
-	json_add_string(response, d->name, (const char *)d->ld->alias);
-}
-
-INFO_CB(json_add_info_color)
-{
-	json_add_hex_talarr(response, d->name, d->ld->rgb);
-}
-
-static void info_get_stats(struct info_field_cbd_ext1 *d)
+// helper
+static void info_get_stats(const struct lightningd *ld, struct gqlcb_data *d)
 {
 	struct peer *peer;
 	struct channel *channel;
+	struct info_aux_data *auxdat = d->parent->field->sel_set->data;
 
-	if (d->parent->stats_valid)
+	if (auxdat->stats_valid)
 		return;
 
 	/* Calc peer and channel stats */
-	list_for_each(&d->ld->peers, peer, list) {
-		d->parent->num_peers++;
+	list_for_each(&ld->peers, peer, list) {
+		auxdat->num_peers++;
 
 		list_for_each(&peer->channels, channel, list) {
 			if (channel->state == CHANNELD_AWAITING_LOCKIN
 			    || channel->state == DUALOPEND_AWAITING_LOCKIN
 			    || channel->state == DUALOPEND_OPEN_INIT) {
-				d->parent->pending_channels++;
+				auxdat->pending_channels++;
 			} else if (channel_active(channel)) {
-				d->parent->active_channels++;
+				auxdat->active_channels++;
 			} else {
-				d->parent->inactive_channels++;
+				auxdat->inactive_channels++;
 			}
 		}
 	}
-	d->parent->stats_valid = true;
+	auxdat->stats_valid = true;
 }
 
-INFO_CB_EXT1(json_add_info_num_peers)
+/* JSON emitters for info */
+
+static void json_add_info_id(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	info_get_stats(d);
-	json_add_num(response, d->name, d->parent->num_peers);
+	json_add_node_id(response, d->name, &ld->id);
 }
 
-INFO_CB_EXT1(json_add_info_num_pending_channels)
+static void json_add_info_alias(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	info_get_stats(d);
-	json_add_num(response, d->name, d->parent->pending_channels);
+	json_add_string(response, d->name, (const char *)ld->alias);
 }
 
-INFO_CB_EXT1(json_add_info_num_active_channels)
+static void json_add_info_color(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	info_get_stats(d);
-	json_add_num(response, d->name, d->parent->active_channels);
+	json_add_hex_talarr(response, d->name, ld->rgb);
 }
 
-INFO_CB_EXT1(json_add_info_num_inactive_channels)
+static void json_add_info_num_peers(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	info_get_stats(d);
-	json_add_num(response, d->name, d->parent->inactive_channels);
+	struct info_aux_data *auxdat = d->parent->field->sel_set->data;
+	info_get_stats(ld, d);
+	json_add_num(response, d->name, auxdat->num_peers);
 }
 
-INFO_CB(json_add_info_address)
+static void json_add_info_num_pending_channels(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
+{
+	struct info_aux_data *auxdat = d->parent->field->sel_set->data;
+	info_get_stats(ld, d);
+	json_add_num(response, d->name, auxdat->pending_channels);
+}
+
+static void json_add_info_num_active_channels(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
+{
+	struct info_aux_data *auxdat = d->parent->field->sel_set->data;
+	info_get_stats(ld, d);
+	json_add_num(response, d->name, auxdat->active_channels);
+}
+
+static void json_add_info_num_inactive_channels(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
+{
+	struct info_aux_data *auxdat = d->parent->field->sel_set->data;
+	info_get_stats(ld, d);
+	json_add_num(response, d->name, auxdat->inactive_channels);
+}
+
+static void json_add_info_address(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
 	/* These are the addresses we're announcing */
 	json_array_start(response, d->name);
-	if (d->ld->listen)
-		for (size_t i = 0; i < tal_count(d->ld->announcable); i++)
-			json_add_address(response, NULL, d->ld->announcable+i);
+	if (ld->listen)
+		for (size_t i = 0; i < tal_count(ld->announcable); i++)
+			json_add_address(response, NULL, ld->announcable+i);
 	json_array_end(response);
 }
 
-INFO_CB(json_add_info_binding)
+static void json_add_info_binding(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
 	/* This is what we're actually bound to. */
 	json_array_start(response, d->name);
-	if (d->ld->listen)
-		for (size_t i = 0; i < tal_count(d->ld->binding); i++)
+	if (ld->listen)
+		for (size_t i = 0; i < tal_count(ld->binding); i++)
 			json_add_address_internal(response, NULL,
-						  d->ld->binding+i);
+						  ld->binding+i);
 	json_array_end(response);
 }
 
-INFO_CB(json_add_info_version)
+static void json_add_info_version(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
 	json_add_string(response, d->name, version());
 }
 
-INFO_CB(json_add_info_blockheight)
+static void json_add_info_blockheight(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	json_add_num(response, d->name, get_block_height(d->ld->topology));
+	json_add_num(response, d->name, get_block_height(ld->topology));
 }
 
-INFO_CB(json_add_info_network)
+static void json_add_info_network(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
 	json_add_string(response, d->name, chainparams->network_name);
 }
 
-INFO_CB(json_add_info_fees_collected_msat)
+static void json_add_info_fees_collected_msat(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
 	json_add_amount_msat_only(response, d->name,
-				  wallet_total_forward_fees(d->ld->wallet));
+				  wallet_total_forward_fees(ld->wallet));
 }
 
-INFO_CB(json_add_info_lightningdir)
+static void json_add_info_lightningdir(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	json_add_string(response, d->name, d->ld->config_netdir);
+	json_add_string(response, d->name, ld->config_netdir);
 }
 
-INFO_CB(json_add_info_warning_bitcoind_sync)
+static void json_add_info_warning_bitcoind_sync(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	if (!d->ld->topology->bitcoind->synced)
+	if (!ld->topology->bitcoind->synced)
 		json_add_string(response, d->name,
 				"Bitcoind is not up-to-date with network.");
 	else
 		json_add_null(response, d->name);
 }
 
-INFO_CB(json_add_info_warning_lightningd_sync)
+static void json_add_info_warning_lightningd_sync(
+	struct json_stream *response, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	if (d->ld->topology->bitcoind->synced &&
-	    !topology_synced(d->ld->topology))
+	if (ld->topology->bitcoind->synced &&
+	    !topology_synced(ld->topology))
 		json_add_string(response, d->name,
 				"Still loading latest blocks from bitcoind.");
 	else
 		json_add_null(response, d->name);
 }
 
-static struct command_result *
-prep_info_field_cb(struct command *cmd, struct graphql_field *field,
-		   info_json_cb cb)
+GQLCB_TABLE_TYPES_DECL(info /*prefix*/, lightningd /*struct*/);
+struct info_fieldspec info_fields[] = {
+// Alphabetical order.
+{"id",				0,0,0,	NULL,	NULL,	NULL,	json_add_info_id},
+{"alias",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_alias},
+{"color",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_color},
+{"num_peers",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_num_peers},
+{"num_pending_channels",	0,0,0,	NULL,	NULL,	NULL,	json_add_info_num_pending_channels},
+{"num_active_channels",		0,0,0,	NULL,	NULL,	NULL,	json_add_info_num_active_channels},
+{"num_inactive_channels",	0,0,0,	NULL,	NULL,	NULL,	json_add_info_num_inactive_channels},
+{"address",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_address},
+{"binding",			0,1,1,	NULL,	NULL,	NULL,	json_add_info_binding},
+{"version",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_version},
+{"blockheight",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_blockheight},
+{"network",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_network},
+{"fees_collected_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_info_fees_collected_msat},
+{"lightningdir",		0,0,0,	NULL,	NULL,	NULL,	json_add_info_lightningdir},
+{"warning_bitcoind_sync",	0,0,0,	NULL,	NULL,	NULL,	json_add_info_warning_bitcoind_sync},
+{"warning_lightningd_sync",	0,0,0,	NULL,	NULL,	NULL,	json_add_info_warning_lightningd_sync},
+{NULL}};
+
+static void json_add_info(
+	struct json_stream *js, struct gqlcb_data *d,
+	const struct lightningd *ld)
 {
-	struct info_field_cbd *d;
-
-	field->data = d = tal(cmd, struct info_field_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->ld = cmd->ld;
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
-}
-
-static struct command_result *
-prep_info_binding_cb(struct command *cmd, struct graphql_field *field,
-		     info_json_cb cb)
-{
-	struct info_field_cbd *d;
-
-	field->data = d = tal(cmd, struct info_field_cbd);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->ld = cmd->ld;
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELD_SELECTION(cmd, field);
-
-	return NULL;
-}
-
-static struct command_result *
-prep_info_stats_cb(struct command *cmd, struct graphql_field *field,
-		   struct info_cbd *parent, info_json_cb_ext1 cb)
-{
-	struct info_field_cbd_ext1 *d;
-
-	field->data = d = tal(cmd, struct info_field_cbd_ext1);
-	d->json_add_func = cb;
-	d->name = get_alias(field);
-	d->ld = cmd->ld;
-	d->parent = parent;
-
-	NO_ARGS(cmd, field);
-	NO_SUBFIELDS(cmd, field);
-
-	return NULL;
-}
-
-static struct command_result *
-prep_info_field(struct command *cmd, const char *buffer,
-		struct graphql_field *field, struct info_cbd *parent)
-{
-	const char *name = field->name->token_string;
-
-	if (streq(name, "id"))
-		return prep_info_field_cb(cmd, field, json_add_info_id);
-	else if (streq(name, "alias"))
-		return prep_info_field_cb(cmd, field, json_add_info_alias);
-	else if (streq(name, "color"))
-		return prep_info_field_cb(cmd, field, json_add_info_color);
-	else if (streq(name, "num_peers"))
-		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_peers);
-	else if (streq(name, "num_pending_channels"))
-		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_pending_channels);
-	else if (streq(name, "num_active_channels"))
-		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_active_channels);
-	else if (streq(name, "num_inactive_channels"))
-		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_inactive_channels);
-	else if (streq(name, "address"))
-		return prep_info_field_cb(cmd, field, json_add_info_address);
-	else if (streq(name, "binding"))
-		return prep_info_binding_cb(cmd, field, json_add_info_binding);
-	else if (streq(name, "version"))
-		return prep_info_field_cb(cmd, field, json_add_info_version);
-	else if (streq(name, "blockheight"))
-		return prep_info_field_cb(cmd, field, json_add_info_blockheight);
-	else if (streq(name, "network"))
-		return prep_info_field_cb(cmd, field, json_add_info_network);
-	else if (streq(name, "fees_collected_msat"))
-		return prep_info_field_cb(cmd, field, json_add_info_fees_collected_msat);
-	else if (streq(name, "lightningdir"))
-		return prep_info_field_cb(cmd, field, json_add_info_lightningdir);
-	else if (streq(name, "warning_bitcoind_sync"))
-		return prep_info_field_cb(cmd, field, json_add_info_warning_bitcoind_sync);
-	else if (streq(name, "warning_lightningd_sync"))
-		return prep_info_field_cb(cmd, field, json_add_info_warning_lightningd_sync);
-	else
-		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
-				    "unknown field '%s'", name);
-}
-
-void json_add_info(struct json_stream *js,
-		   const struct graphql_field *field)
-{
-	struct info_cbd *d = (struct info_cbd *)field->data;
+	struct info_aux_data *auxdat = NULL;
 	const struct graphql_selection *sel;
-	const struct info_field_cbd *cbd;
+	struct gqlcb_data *cbd;
 
-	d->stats_valid = false;
-	d->pending_channels = 0;
-	d->active_channels = 0;
-	d->inactive_channels = 0;
-	d->num_peers = 0;
+	auxdat = d->field->sel_set->data;
+	auxdat->stats_valid = false;
+	auxdat->pending_channels = 0;
+	auxdat->active_channels = 0;
+	auxdat->inactive_channels = 0;
+	auxdat->num_peers = 0;
 
         json_object_start(js, d->name);
-	if (field->sel_set) {
-		for (sel = field->sel_set->first; sel; sel = sel->next) {
-			cbd = (struct info_field_cbd *)sel->field->data;
-			cbd->json_add_func(js, cbd);
+	if (d->field->sel_set) {
+		for (sel = d->field->sel_set->first; sel; sel = sel->next) {
+			cbd = (struct gqlcb_data *)sel->field->data;
+			cbd->fieldspec->json_emitter(js, cbd, ld);
 		}
 	}
         json_object_end(js);
-}
-
-struct command_result *prep_info(struct command *cmd,
-				 const char *buffer,
-				 struct graphql_field *field)
-{
-	struct info_cbd *d;
-	jsmntok_t *params;
-	struct graphql_selection *sel;
-	struct command_result *err;
-
-	field->data = d = tal(cmd, struct info_cbd);
-	d->cb.json_add_func = json_add_info;
-	d->name = get_alias(field);
-	d->cmd = cmd;
-
-	convert_args_to_paramtokens(field, cmd, &params);
-
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
-
-	if (field->sel_set)
-		for (sel = field->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_info_field(cmd, buffer, sel->field, d)))
-				return err;
-	return NULL;
 }
 
 static struct command_result *json_getinfo(struct command *cmd,
@@ -3532,6 +3217,53 @@ static const struct json_command getinfo_command = {
     "Show information about this node"
 };
 AUTODATA(json_command, &getinfo_command);
+
+GQLCB_TABLE_TYPES_DECL(top /*prefix*/, lightningd /*struct*/);
+struct top_fieldspec top_fields[] = {
+// Alphabetical order.
+{"peers", 0,0,1, peers_args, object_prep, (struct gqlcb_fieldspec *)peer_fields, json_add_peers},
+{"info",  0,0,1, NULL,       object_prep, (struct gqlcb_fieldspec *)info_fields, json_add_info},
+{NULL}};
+
+struct command_result *
+peers_prep(struct command *cmd, const char *buffer,
+	   struct graphql_field *field)
+{
+	if (!field->args) {
+		field->args = tal(cmd, struct graphql_arguments);
+		field->args->first = NULL;
+		field->args->data = NULL;
+	}
+	if (!field->sel_set) {
+		field->sel_set = tal(cmd, struct graphql_selection_set);
+		field->sel_set->first = NULL;
+		field->sel_set->data = NULL;
+	}
+	struct peers_aux_data *auxdat = field->sel_set->data;
+	if (!auxdat) {
+		auxdat = field->sel_set->data = tal(cmd, struct peers_aux_data);
+	}
+	auxdat->ld = cmd->ld;
+
+	return field_prep(cmd, buffer, field, (struct gqlcb_fieldspec *)top_fields, NULL);
+}
+
+struct command_result *
+info_prep(struct command *cmd, const char *buffer,
+	  struct graphql_field *field)
+{
+	if (!field->sel_set) {
+		field->sel_set = tal(cmd, struct graphql_selection_set);
+		field->sel_set->first = NULL;
+		field->sel_set->data = NULL;
+	}
+	struct info_aux_data *auxdat = field->sel_set->data;
+	if (!auxdat) {
+		auxdat = field->sel_set->data = tal(cmd, struct info_aux_data);
+	}
+
+	return field_prep(cmd, buffer, field, (struct gqlcb_fieldspec *)top_fields, NULL);
+}
 
 /* Wait for at least a specific blockheight, then return, or time out.  */
 struct waitblockheight_waiter {

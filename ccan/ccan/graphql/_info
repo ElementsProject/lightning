@@ -21,14 +21,14 @@
  *		struct graphql_executable_document *output_document;
  *	
  *		const char *errmsg = graphql_lexparse(
- *			input_string,
  *			NULL, // tal context
+ *			input_string,
  *			&output_tokens, // variable to receive tokens
  *			&output_document); // variable to receive AST
  *	
  *		if (errmsg) {
  *			struct graphql_token *last_token;
- *			last_token = list_tail(output_tokens, struct graphql_token, list);
+ *			last_token = list_tail(output_tokens, struct graphql_token, node);
  *			printf("Line %d, col %d: %s",
  *				last_token->source_line,
  *				last_token->source_column + last_token->source_len,
