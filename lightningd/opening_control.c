@@ -168,6 +168,7 @@ prep_uc_field_cb(struct command *cmd, struct graphql_field *field,
 
 GQLCB_TABLE_TYPES_DECL(uncommittedchannel /*prefix*/, uncommitted_channel /*struct*/);
 struct uncommittedchannel_fieldspec uncommittedchannel_fields[] = {
+// name                 flags   args    prep    table   emitter
 {"state",               0,0,0,  NULL,   NULL,   NULL,   json_add_uc_state},
 {"owner",               0,0,0,  NULL,   NULL,   NULL,   json_add_uc_owner},
 {"opener",              0,0,0,  NULL,   NULL,   NULL,   json_add_uc_opener},

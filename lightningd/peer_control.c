@@ -71,8 +71,6 @@
 #include <wire/onion_wire.h>
 #include <wire/wire_sync.h>
 
-//struct empty {
-//};
 
 static void destroy_peer(struct peer *peer)
 {
@@ -1021,14 +1019,14 @@ static void json_add_htlc_status(
 
 GQLCB_TABLE_TYPES_DECL(htlc /*prefix*/, htlc /*struct*/);
 struct htlc_fieldspec htlc_fields[] = {
-// Alphabetical order.
-{"amount_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_amount_msat},
+// name			flags	args	prep	table	emitter
 {"direction",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_direction},
-{"expiry",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_expiry},
 {"id",			0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_id},
-{"local_trimmed",	0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_local_trimmed},
+{"amount_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_amount_msat},
+{"expiry",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_expiry},
 {"payment_hash",	0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_payment_hash},
 {"state",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_state},
+{"local_trimmed",	0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_local_trimmed},
 {"status",		0,0,0,	NULL,	NULL,	NULL,	json_add_htlc_status},
 {NULL}};
 
@@ -1111,12 +1109,12 @@ static void json_add_sc_message(
 
 GQLCB_TABLE_TYPES_DECL(statechange /*prefix*/, state_change_entry /*struct*/);
 struct statechange_fieldspec statechange_fields[] = {
-// Alphabetical order.
+// name			flags	args	prep	table	emitter
+{"timestamp",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_timestamp},
+{"old_state",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_old_state},
+{"new_state",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_new_state},
 {"cause",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_cause},
 {"message",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_message},
-{"new_state",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_new_state},
-{"old_state",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_old_state},
-{"timestamp",		0,0,0,	NULL,	NULL,	NULL,	json_add_sc_timestamp},
 {NULL}};
 
 static void json_add_state_change(
@@ -1191,13 +1189,13 @@ static void json_add_inf_scratch_txid(
 
 GQLCB_TABLE_TYPES_DECL(inflight /*prefix*/, channel_inflight /*struct*/);
 struct inflight_fieldspec inflight_fields[] = {
-// Alphabetical order.
-{"feerate",		0,0,0,	NULL,	NULL,	NULL,	json_add_inf_feerate},
-{"funding_outnum",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_funding_outnum},
+// name			flags	args	prep	table	emitter
 {"funding_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_funding_txid},
+{"funding_outnum",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_funding_outnum},
+{"feerate",		0,0,0,	NULL,	NULL,	NULL,	json_add_inf_feerate},
+{"total_funding_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_total_funding_msat},
 {"our_funding_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_our_funding_msat},
 {"scratch_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_scratch_txid},
-{"total_funding_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_inf_total_funding_msat},
 {NULL}};
 
 static void json_add_inflight(
@@ -1249,7 +1247,7 @@ static void json_add_chan_funding_remote_msat(
 
 GQLCB_TABLE_TYPES_DECL(funding /*prefix*/, channel /*struct*/);
 struct funding_fieldspec funding_fields[] = {
-// Alphabetical order.
+// name			flags	args	prep	table	emitter
 {"local_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_funding_local_msat},
 {"remote_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_funding_remote_msat},
 {NULL}};
@@ -1814,62 +1812,66 @@ static void json_add_chan_htlcs(
 
 GQLCB_TABLE_TYPES_DECL(channel /*prefix*/, channel /*struct*/);
 struct channel_fieldspec channel_fields[] = {
-// Alphabetical order.
-{"channel_id",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_id},
-{"close_to",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_close_to},
-{"close_to_addr",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_close_to_addr},
-{"closer",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_closer},
+// name			flags	args	prep	table	emitter
+{"state",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_state},
+{"scratch_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_scratch_txid},
+{"last_tx_fee_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_last_tx_fee_msat},
+{"feerate",		0,1,0,	NULL,	NULL,	NULL,	json_add_chan_feerate},
+{"owner",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_owner},
+{"short_channel_id",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_short_channel_id},
 {"direction",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_direction},
-{"dust_limit_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_dust_limit_msat},
+{"channel_id",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_id},
+{"funding_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_funding_txid},
+{"initial_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_initial_feerate},
+{"last_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_last_feerate},
+{"next_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_next_feerate},
+{"inflight",		0,0,1,	NULL,	object_prep,
+						(struct gqlcb_fieldspec *)inflight_fields,
+							json_add_chan_inflights},
+{"close_to_addr",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_close_to_addr},
+{"close_to",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_close_to},
+{"private",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_private},
+{"opener",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_opener},
+{"closer",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_closer},
 {"features",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_features},
+{"funding",		0,0,1,	NULL,	object_prep,
+						(struct gqlcb_fieldspec *)funding_fields,
+							json_add_chan_funding},
+{"to_us_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_to_us_msat},
+{"min_to_us_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_min_to_us_msat},
+{"max_to_us_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_to_us_msat},
+{"total_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_total_msat},
 {"fee_base_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_fee_base_msat},
 {"fee_proportional_millionths",
 			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_fee_proportional_millionths},
-{"feerate",		0,1,0,	NULL,	NULL,	NULL,	json_add_chan_feerate},
-{"funding",		0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)funding_fields,
-							json_add_chan_funding},
-{"funding_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_funding_txid},
-{"htlcs",		0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)htlc_fields,
-							json_add_chan_htlcs},
-{"in_fulfilled_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_fulfilled_msat},
+{"dust_limit_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_dust_limit_msat},
+{"max_total_htlc_in_msat",
+			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_total_htlc_in_msat},
+{"their_reserve_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_their_reserve_msat},
+{"our_reserve_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_our_reserve_msat},
+{"spendable_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_spendable_msat},
+{"receivable_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_receivable_msat},
+{"minimum_htlc_in_msat",0,0,0,	NULL,	NULL,	NULL,	json_add_chan_minimum_htlc_in_msat},
+{"their_to_self_delay",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_their_to_self_delay},
+{"our_to_self_delay",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_our_to_self_delay},
+{"max_accepted_htlcs",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_accepted_htlcs},
+{"state_changes",	0,0,1,	NULL,	object_prep,
+						(struct gqlcb_fieldspec *)statechange_fields,
+							json_add_chan_state_changes},
+{"status",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_status},
+{"in_payments_offered",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_payments_offered},
 {"in_offered_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_offered_msat},
 {"in_payments_fulfilled",
 			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_payments_fulfilled},
-{"in_payments_offered",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_payments_offered},
-{"inflight",		0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)inflight_fields,
-							json_add_chan_inflights},
-{"initial_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_initial_feerate},
-{"last_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_last_feerate},
-{"last_tx_fee_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_last_tx_fee_msat},
-{"max_accepted_htlcs",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_accepted_htlcs},
-{"max_to_us_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_to_us_msat},
-{"max_total_htlc_in_msat",
-			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_max_total_htlc_in_msat},
-{"min_to_us_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_min_to_us_msat},
-{"minimum_htlc_in_msat",0,0,0,	NULL,	NULL,	NULL,	json_add_chan_minimum_htlc_in_msat},
-{"next_feerate",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_next_feerate},
-{"opener",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_opener},
-{"our_reserve_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_our_reserve_msat},
-{"our_to_self_delay",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_our_to_self_delay},
-{"out_fulfilled_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_fulfilled_msat},
+{"in_fulfilled_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_in_fulfilled_msat},
+{"out_payments_offered",0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_payments_offered},
 {"out_offered_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_offered_msat},
 {"out_payments_fulfilled",
 			0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_payments_fulfilled},
-{"out_payments_offered",0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_payments_offered},
-{"owner",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_owner},
-{"private",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_private},
-{"receivable_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_receivable_msat},
-{"scratch_txid",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_scratch_txid},
-{"short_channel_id",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_short_channel_id},
-{"spendable_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_spendable_msat},
-{"state",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_state},
-{"state_changes",	0,0,1,	NULL,	object_prep, (struct gqlcb_fieldspec *)statechange_fields,
-							json_add_chan_state_changes},
-{"status",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_status},
-{"their_reserve_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_their_reserve_msat},
-{"their_to_self_delay",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_their_to_self_delay},
-{"to_us_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_to_us_msat},
-{"total_msat",		0,0,0,	NULL,	NULL,	NULL,	json_add_chan_total_msat},
+{"out_fulfilled_msat",	0,0,0,	NULL,	NULL,	NULL,	json_add_chan_out_fulfilled_msat},
+{"htlcs",		0,0,1,	NULL,	object_prep,
+						(struct gqlcb_fieldspec *)htlc_fields,
+							json_add_chan_htlcs},
 {NULL}};
 
 static void json_add_channel2(struct json_stream *response,
@@ -2544,11 +2546,8 @@ chans_prep(struct command *cmd, const char *buffer,
 	}
 
 	for (sel = d->field->sel_set->first; sel; sel = sel->next) {
-		//prep_uncommitted_channels_field(cmd, sel->field, false);
-		//prep_unsaved_channels_field(cmd, sel->field, false);
 		uncommitted_channel_prep(cmd, buffer, sel->field, d);
 		unsaved_channel_prep(cmd, buffer, sel->field, d);
-		//create_cbd(sel->field, "Channel", cmd, struct gqlcb_data);
 		if ((err = field_prep_typed(cmd, buffer, sel->field,
 					    (struct gqlcb_fieldspec *)channel_fields,
 					    d, "Channel", true)))
@@ -2577,14 +2576,16 @@ log_args(struct command *cmd, const char *buffer, jsmntok_t *params, struct gqlc
 
 GQLCB_TABLE_TYPES_DECL(peer /*prefix*/, peer /*struct*/);
 struct peer_fieldspec peer_fields[] = {
-// Alphabetical order.
-{"channels",	0,0,1,	NULL,		chans_prep, (struct gqlcb_fieldspec *)channel_fields,
+// name			flags	args	prep	table	emitter
+{"id",			0,0,0,	NULL,	NULL,	NULL,	json_add_peer_id},
+{"connected",		0,0,0,	NULL,	NULL,	NULL,	json_add_peer_connected},
+{"netaddr",		0,0,0,	NULL,	NULL,	NULL,	json_add_peer_netaddr},
+{"features",		0,0,0,	NULL,	NULL,	NULL,	json_add_peer_features},
+{"channels",		0,0,1,	NULL,	chans_prep,
+						(struct gqlcb_fieldspec *)channel_fields,
 							json_add_peer_channels},
-{"connected",	0,0,0,	NULL,		NULL,	NULL,	json_add_peer_connected},
-{"features",	0,0,0,	NULL,		NULL,	NULL,	json_add_peer_features},
-{"id",		0,0,0,	NULL,		NULL,	NULL,	json_add_peer_id},
-{"log",		1,1,1,	log_args,	NULL,	NULL,	json_add_peer_log},
-{"netaddr",	0,0,0,	NULL,		NULL,	NULL,	json_add_peer_netaddr},
+{"log",			1,1,1,	log_args,
+					NULL,	NULL,	json_add_peer_log},
 {NULL}};
 
 static void json_add_peer2(struct json_stream *js,
@@ -2707,7 +2708,6 @@ static const struct json_command listpeers_command = {
 	json_listpeers,
 	"Show current peers, if {level} is set, include logs for {id}"
 };
-/* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &listpeers_command);
 
 struct command_result *
@@ -3092,7 +3092,7 @@ static void json_add_info_warning_lightningd_sync(
 
 GQLCB_TABLE_TYPES_DECL(info /*prefix*/, lightningd /*struct*/);
 struct info_fieldspec info_fields[] = {
-// Alphabetical order.
+// name				flags	args	prep	table	emitter
 {"id",				0,0,0,	NULL,	NULL,	NULL,	json_add_info_id},
 {"alias",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_alias},
 {"color",			0,0,0,	NULL,	NULL,	NULL,	json_add_info_color},
@@ -3218,17 +3218,12 @@ static const struct json_command getinfo_command = {
 };
 AUTODATA(json_command, &getinfo_command);
 
-GQLCB_TABLE_TYPES_DECL(top /*prefix*/, lightningd /*struct*/);
-struct top_fieldspec top_fields[] = {
-// Alphabetical order.
-{"peers", 0,0,1, peers_args, object_prep, (struct gqlcb_fieldspec *)peer_fields, json_add_peers},
-{"info",  0,0,1, NULL,       object_prep, (struct gqlcb_fieldspec *)info_fields, json_add_info},
-{NULL}};
-
-struct command_result *
+static struct command_result *
 peers_prep(struct command *cmd, const char *buffer,
-	   struct graphql_field *field)
+           struct graphql_field *field, struct gqlcb_fieldspec *table,
+           struct gqlcb_data *d)
 {
+/*
 	if (!field->args) {
 		field->args = tal(cmd, struct graphql_arguments);
 		field->args->first = NULL;
@@ -3239,31 +3234,44 @@ peers_prep(struct command *cmd, const char *buffer,
 		field->sel_set->first = NULL;
 		field->sel_set->data = NULL;
 	}
+*/
 	struct peers_aux_data *auxdat = field->sel_set->data;
 	if (!auxdat) {
 		auxdat = field->sel_set->data = tal(cmd, struct peers_aux_data);
 	}
 	auxdat->ld = cmd->ld;
 
-	return field_prep(cmd, buffer, field, (struct gqlcb_fieldspec *)top_fields, NULL);
+	return object_prep(cmd, buffer, field, table, d);
 }
 
-struct command_result *
+static struct command_result *
 info_prep(struct command *cmd, const char *buffer,
-	  struct graphql_field *field)
+          struct graphql_field *field, struct gqlcb_fieldspec *table,
+          struct gqlcb_data *d)
 {
-	if (!field->sel_set) {
-		field->sel_set = tal(cmd, struct graphql_selection_set);
-		field->sel_set->first = NULL;
-		field->sel_set->data = NULL;
-	}
+//	if (!field->sel_set) {
+//		field->sel_set = tal(cmd, struct graphql_selection_set);
+//		field->sel_set->first = NULL;
+//		field->sel_set->data = NULL;
+//	}
 	struct info_aux_data *auxdat = field->sel_set->data;
 	if (!auxdat) {
 		auxdat = field->sel_set->data = tal(cmd, struct info_aux_data);
 	}
 
-	return field_prep(cmd, buffer, field, (struct gqlcb_fieldspec *)top_fields, NULL);
+	return object_prep(cmd, buffer, field, table, d);
 }
+
+GQLCB_TABLE_TYPES_DECL(top /*prefix*/, lightningd /*struct*/);
+struct top_fieldspec peer_control_top_fields[] = {
+// name		flags	args		prep	table	emitter
+{"peers",	0,0,1,	peers_args,	peers_prep,
+						(struct gqlcb_fieldspec *)peer_fields,
+							json_add_peers},
+{"info",	0,0,1,	NULL,		info_prep,
+						(struct gqlcb_fieldspec *)info_fields,
+							json_add_info},
+{NULL}};
 
 /* Wait for at least a specific blockheight, then return, or time out.  */
 struct waitblockheight_waiter {

@@ -240,6 +240,7 @@ static void json_add_usc_features(
 
 GQLCB_TABLE_TYPES_DECL(unsavedchannel /*prefix*/, channel /*struct*/);
 struct unsavedchannel_fieldspec unsavedchannel_fields[] = {
+// name                 flags   args    prep    table   emitter
 {"state",               0,0,0,  NULL,   NULL,   NULL,   json_add_usc_state},
 {"owner",               0,0,0,  NULL,   NULL,   NULL,   json_add_usc_owner},
 {"opener",              0,0,0,  NULL,   NULL,   NULL,   json_add_usc_opener},
