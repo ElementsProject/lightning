@@ -65,13 +65,6 @@ struct declname##_fieldspec { \
 	struct gqlcb_fieldspec *subtable; \
 	declname##field_emitter json_emitter; \
 }; \
-static inline struct command_result *declname##_field_prep( \
-	struct command *cmd, const char *buffer, \
-	struct graphql_field *field, struct declname##_fieldspec *f, \
-	struct gqlcb_data *parent) \
-{ \
-	return object_prep(cmd, buffer, field, (struct gqlcb_fieldspec *)f, (void *)parent); \
-}
 
 const char *get_alias(struct graphql_field *field);
 
