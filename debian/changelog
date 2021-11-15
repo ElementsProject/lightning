@@ -1,4 +1,4 @@
-lightningd (0.10.1ubuntu1) stable; urgency=medium
+lightningd (0.10.2ubuntu1) stable; urgency=medium
 
   * config: new option `--max-dust-htlc-exposure-msat`, which limits the total amount of sats to be allowed as dust on a channel ([#4837])
   * With `sqlite3` db backend we now use a 60-second busy timer, to allow backup processes like `litestream` to operate safely. ([#4867])
