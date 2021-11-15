@@ -2641,7 +2641,7 @@ static void json_add_peers(
 	struct peers_arg_data *argdat = NULL;
 	struct peers_aux_data *auxdat = NULL;
 	struct peer *peer;
-	unsigned int i = 0, from, to;
+	unsigned int i = 0, from = 0, to = 0;
 	bool from_any = true, to_any = true;
 
 	argdat = d->field->args->data;
