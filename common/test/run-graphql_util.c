@@ -140,11 +140,11 @@ static void test_conversion(void)
 	jsmntok_t *params;
 
 	input = "{ field1(strarg1: \"value\", intarg1: 4, floatarg1: 3.5, boolarg1: false, nullarg1: null, enumarg1: value) }";
-	err = graphql_lexparse(input, NULL, &tokens, &doc);
+	err = graphql_lexparse(NULL, input, &tokens, &doc);
 	assert(err == 0);
 	field1 = doc->first_def->op_def->sel_set->first->field;
 
-	convert_args_to_paramtokens(field1, NULL, &params);
+	convert_args_to_paramtokens(NULL, field1, &params);
 
 	assert(params[0].type == JSMN_OBJECT);
 	assert(params[0].size == 6);

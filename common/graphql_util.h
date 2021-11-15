@@ -75,7 +75,7 @@ static inline struct command_result *declname##_field_prep( \
 
 const char *get_alias(struct graphql_field *field);
 
-void convert_args_to_paramtokens(struct graphql_field *field, const tal_t *ctx, jsmntok_t **params);
+void convert_args_to_paramtokens(const tal_t *ctx, struct graphql_field *field, jsmntok_t **params);
 
 #define NO_ARGS(cmd, field) \
 	if ((field)->args) \

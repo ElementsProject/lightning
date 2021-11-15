@@ -154,10 +154,10 @@ static struct json *gql_parse(const tal_t *ctx, const char *str)
 	struct list_head *gql_tokens;
 	struct graphql_executable_document *doc;
 	struct graphql_field *field1;
-	err = graphql_lexparse(j->buffer, ctx, &gql_tokens, &doc);
+	err = graphql_lexparse(ctx, j->buffer, &gql_tokens, &doc);
 	assert(err == NULL);
 	field1 = doc->first_def->op_def->sel_set->first->field;
-	convert_args_to_paramtokens(field1, ctx, &j->toks);
+	convert_args_to_paramtokens(ctx, field1, &j->toks);
 
 	return j;
 }
@@ -625,6 +625,6 @@ int main(int argc, char *argv[])
 	param_tests();
 	usage();
 
-	printf("run-params ok\n");
+	printf("run-param-graphql ok\n");
 	common_shutdown();
 }
