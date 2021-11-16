@@ -213,7 +213,7 @@ static int subd(const char *path, const char *name,
 		size_t num_args;
 		char *args[] = { NULL, NULL, NULL, NULL, NULL };
 		int **fds = tal_arr(tmpctx, int *, 3);
-		int stdout = STDOUT_FILENO, stderr = STDERR_FILENO;
+		int stdoutfd = STDOUT_FILENO, stderrfd = STDERR_FILENO;
 
 		close(childmsg[0]);
 		close(execfail[0]);
@@ -221,8 +221,8 @@ static int subd(const char *path, const char *name,
 		/* msg = STDIN (0) */
 		fds[0] = &childmsg[1];
 		/* These are untouched */
-		fds[1] = &stdout;
-		fds[2] = &stderr;
+		fds[1] = &stdoutfd;
+		fds[2] = &stderrfd;
 
 		while ((fd = va_arg(*ap, int *)) != NULL) {
 			assert(*fd != -1);
