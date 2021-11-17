@@ -462,15 +462,17 @@ static char **prepare_table_manip(const tal_t *ctx,
 	char *cmd, *bracket;
 	char **parts;
 	int err;
+	struct db_sqlite3 *wrapper = (struct db_sqlite3 *)db->conn;
 
 	/* Get schema. */
-	sqlite3_prepare_v2(db->conn, "SELECT sql FROM sqlite_master WHERE type = ? AND name = ?;", -1, &stmt, NULL);
+	sqlite3_prepare_v2(wrapper->conn, "SELECT sql FROM sqlite_master WHERE type = ? AND name = ?;", -1, &stmt, NULL);
 	sqlite3_bind_text(stmt, 1, "table", strlen("table"), SQLITE_TRANSIENT);
 	sqlite3_bind_text(stmt, 2, tablename, strlen(tablename), SQLITE_TRANSIENT);
+
 	err = sqlite3_step(stmt);
 	if (err != SQLITE_ROW) {
 		db->error = tal_fmt(db, "getting schema: %s",
-				    sqlite3_errmsg(db->conn));
+				    sqlite3_errmsg(wrapper->conn));
 		sqlite3_finalize(stmt);
 		return NULL;
 	}
@@ -489,22 +491,26 @@ static char **prepare_table_manip(const tal_t *ctx,
 	parts = tal_strsplit(ctx, bracket + 1, ",", STR_EMPTY_OK);
 
 	/* Turn off foreign keys first. */
-	sqlite3_prepare_v2(db->conn, "PRAGMA foreign_keys = OFF;", -1, &stmt, NULL);
+	sqlite3_prepare_v2(wrapper->conn, "PRAGMA foreign_keys = OFF;", -1, &stmt, NULL);
 	if (sqlite3_step(stmt) != SQLITE_DONE)
 		goto sqlite_stmt_err;
 	sqlite3_finalize(stmt);
 
 	cmd = tal_fmt(tmpctx, "ALTER TABLE %s RENAME TO temp_%s;",
 		      tablename, tablename);
-	sqlite3_prepare_v2(db->conn, cmd, -1, &stmt, NULL);
+	sqlite3_prepare_v2(wrapper->conn, cmd, -1, &stmt, NULL);
 	if (sqlite3_step(stmt) != SQLITE_DONE)
 		goto sqlite_stmt_err;
 	sqlite3_finalize(stmt);
 
+	/* Make sure we do the same to backup! */
+	replicate_statement(wrapper, "PRAGMA foreign_keys = OFF;");
+	replicate_statement(wrapper, cmd);
+
 	return parts;
 
 sqlite_stmt_err:
-	db->error = tal_fmt(db, "%s", sqlite3_errmsg(db->conn));
+	db->error = tal_fmt(db, "%s", sqlite3_errmsg(wrapper->conn));
 	sqlite3_finalize(stmt);
 	return tal_free(parts);
 }
@@ -516,6 +522,7 @@ static bool complete_table_manip(struct db *db,
 {
 	sqlite3_stmt *stmt;
 	char *create_cmd, *insert_cmd, *drop_cmd;
+	struct db_sqlite3 *wrapper = (struct db_sqlite3 *)db->conn;
 
 	/* Create table */
 	create_cmd = tal_fmt(tmpctx, "CREATE TABLE %s (", tablename);
@@ -526,10 +533,13 @@ static bool complete_table_manip(struct db *db,
 	}
 	tal_append_fmt(&create_cmd, ";");
 
-	sqlite3_prepare_v2(db->conn, create_cmd, -1, &stmt, NULL);
+	sqlite3_prepare_v2(wrapper->conn, create_cmd, -1, &stmt, NULL);
 	if (sqlite3_step(stmt) != SQLITE_DONE)
 		goto sqlite_stmt_err;
 	sqlite3_finalize(stmt);
+
+	/* Make sure we do the same to backup! */
+	replicate_statement(wrapper, create_cmd);
 
 	/* Populate table from old one */
 	insert_cmd = tal_fmt(tmpctx, "INSERT INTO %s SELECT ", tablename);
@@ -540,28 +550,31 @@ static bool complete_table_manip(struct db *db,
 	}
 	tal_append_fmt(&insert_cmd, " FROM temp_%s;", tablename);
 
-	sqlite3_prepare_v2(db->conn, insert_cmd, -1, &stmt, NULL);
+	sqlite3_prepare_v2(wrapper->conn, insert_cmd, -1, &stmt, NULL);
 	if (sqlite3_step(stmt) != SQLITE_DONE)
 		goto sqlite_stmt_err;
 	sqlite3_finalize(stmt);
+	replicate_statement(wrapper, insert_cmd);
 
 	/* Cleanup temp table */
 	drop_cmd = tal_fmt(tmpctx, "DROP TABLE temp_%s;", tablename);
-	sqlite3_prepare_v2(db->conn, drop_cmd, -1, &stmt, NULL);
+	sqlite3_prepare_v2(wrapper->conn, drop_cmd, -1, &stmt, NULL);
 	if (sqlite3_step(stmt) != SQLITE_DONE)
 		goto sqlite_stmt_err;
 	sqlite3_finalize(stmt);
+	replicate_statement(wrapper, drop_cmd);
 
 	/* Allow links between them (esp. cascade deletes!) */
-	sqlite3_prepare_v2(db->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
+	sqlite3_prepare_v2(wrapper->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
 	if (sqlite3_step(stmt) != SQLITE_DONE)
 		goto sqlite_stmt_err;
 	sqlite3_finalize(stmt);
+	replicate_statement(wrapper, "PRAGMA foreign_keys = ON;");
 
 	return true;
 
 sqlite_stmt_err:
-	db->error = tal_fmt(db, "%s", sqlite3_errmsg(db->conn));
+	db->error = tal_fmt(db, "%s", sqlite3_errmsg(wrapper->conn));
 	sqlite3_finalize(stmt);
 	return false;
 }
