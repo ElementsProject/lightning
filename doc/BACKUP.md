@@ -418,13 +418,16 @@ This can be difficult to create remote replicas due to the latency.
 [pqsyncreplication]: https://www.postgresql.org/docs/13/warm-standby.html#SYNCHRONOUS-REPLICATION
 
 ## SQLite Litestream Replication
-`/!\` WHO SHOULD DO THIS: Casual users
 
-`/!\` **CAUTION** `/!\` This technique will only be safe on 0.10.2
-or later.
-Earlier versions will crash regularly with "database is locked" errors,
-as Litestream puts a read-shared lock on the database.
-0.10.2 adds a 60-second timeout for locking.
+`/!\` **CAUTION** `/!\` Previous versions of this document recommended
+this technique, but we no longer do so.
+According to [issue 4857][], even with a 60-second timeout that we added
+in 0.10.2, this leads to constant crashing of `lightningd` in some
+situations.
+This section will be removed completely six months after 0.10.3.
+Consider using `--wallet=sqlite3://${main}:${backup}` above, instead.
+
+[issue 4857]: https://github.com/ElementsProject/lightning/issues/4857
 
 One of the simpler things on any system is to use Litestream to replicate the SQLite database.
 It continuously streams SQLite changes to file or external storage - the cloud storage option 
@@ -575,14 +578,20 @@ Even if the backup is not corrupted, take note that this backup
 strategy should still be a last resort; recovery of all funds is
 still not assured with this backup strategy.
 
+`sqlite3` has `.dump` and `VACUUM INTO` commands, but note that
+those lock the main database for long time periods, which will
+negatively affect your `lightningd` instance.
+
 ### `sqlite3` `.dump` or `VACUUM INTO` Commands
 
-`/!\` **CAUTION** `/!\` This technique will only be safe on 0.10.2
-or later.
-Earlier versions will crash regularly with "database is locked"
-errors, as `.dump` and `VACUUM INTO` put a read-shared lock on the
-database.
-0.10.2 adds a 60-second timeout for locking.
+`/!\` **CAUTION** `/!\` Previous versions of this document recommended
+this technique, but we no longer do so.
+According to [issue 4857][], even with a 60-second timeout that we added
+in 0.10.2, this may lead to constant crashing of `lightningd` in some
+situations; this technique uses substantially the same techniques as
+`litestream`.
+This section will be removed completely six months after 0.10.3.
+Consider using `--wallet=sqlite3://${main}:${backup}` above, instead.
 
 Use the `sqlite3` command on the `lightningd.sqlite3` file, and
 feed it with `.dump "/path/to/backup.sqlite3"` or `VACUUM INTO
