@@ -5001,3 +5001,30 @@ def test_sendpay_grouping(node_factory, bitcoind):
     pays = l1.rpc.listpays()['pays']
     assert(len(pays) == 3)
     assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
+
+
+def test_pay_manual_exclude(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1_id = l1.rpc.getinfo()['id']
+    l2_id = l2.rpc.getinfo()['id']
+    l3_id = l3.rpc.getinfo()['id']
+    chan12 = l1.rpc.listpeers(l2_id)['peers'][0]['channels'][0]
+    chan23 = l2.rpc.listpeers(l3_id)['peers'][0]['channels'][0]
+    scid12 = chan12['short_channel_id'] + '/' + str(chan12['direction'])
+    scid23 = chan23['short_channel_id'] + '/' + str(chan23['direction'])
+    inv = l3.rpc.invoice(msatoshi='123000', label='label1', description='desc')['bolt11']
+    # Exclude the payer node id
+    with pytest.raises(RpcError, match=r'Payer is manually excluded'):
+        l1.rpc.pay(inv, exclude=[l1_id])
+    # Exclude the direct payee node id
+    with pytest.raises(RpcError, match=r'Payee is manually excluded'):
+        l2.rpc.pay(inv, exclude=[l3_id])
+    # Exclude intermediate node id
+    with pytest.raises(RpcError, match=r'is not reachable directly and all routehints were unusable.'):
+        l1.rpc.pay(inv, exclude=[l2_id])
+    # Exclude intermediate channel id
+    with pytest.raises(RpcError, match=r'is not reachable directly and all routehints were unusable.'):
+        l1.rpc.pay(inv, exclude=[scid12])
+    # Exclude direct channel id
+    with pytest.raises(RpcError, match=r'is not reachable directly and all routehints were unusable.'):
+        l2.rpc.pay(inv, exclude=[scid23])
