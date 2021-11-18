@@ -2255,7 +2255,14 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 }
 
 struct payment_modifier *paymod_mods[] = {
+	/* NOTE: The order in which these four paymods are executed is
+	 * significant!
+	 * local_channel_hints *must* execute first before route_exclusions
+	 * which *must* execute before directpay.
+	 * exemptfee *must* also execute before directpay.
+	 */
 	&local_channel_hints_pay_mod,
+	&route_exclusions_pay_mod,
 	&exemptfee_pay_mod,
 	&directpay_pay_mod,
 	&shadowroute_pay_mod,
@@ -2305,6 +2312,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	struct sha256 *local_offer_id;
 	const struct tlv_invoice *b12;
 	struct out_req *req;
+	struct route_exclusion **exclusions;
 #if DEVELOPER
 	bool *use_shadow;
 #endif
@@ -2326,6 +2334,7 @@ static struct command_result *json_paymod(struct command *cmd,
 			     maxdelay_default),
 		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
+		   p_opt("exclude", param_route_exclusion_array, &exclusions),
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
 #endif
@@ -2479,6 +2488,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	shadow_route = payment_mod_shadowroute_get_data(p);
 	payment_mod_presplit_get_data(p)->disable = disablempp;
 	payment_mod_adaptive_splitter_get_data(p)->disable = disablempp;
+	payment_mod_route_exclusions_get_data(p)->exclusions = exclusions;
 
 	/* This is an MPP enabled pay command, disable amount fuzzing. */
 	shadow_route->fuzz_amount = false;
