@@ -3885,3 +3885,45 @@ static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
 
 REGISTER_PAYMENT_MODIFIER(payee_incoming_limit, void *, NULL,
 			  payee_incoming_limit_step_cb);
+
+static struct route_exclusions_data *
+route_exclusions_data_init(struct payment *p)
+{
+	struct route_exclusions_data *d;
+	if (p->parent != NULL) {
+		return payment_mod_route_exclusions_get_data(p->parent);
+	} else {
+		d = tal(p, struct route_exclusions_data);
+		d->exclusions = NULL;
+	}
+	return d;
+}
+
+static void route_exclusions_step_cb(struct route_exclusions_data *d,
+		struct payment *p)
+{
+	if (p->parent)
+		return payment_continue(p);
+	struct route_exclusion **exclusions = d->exclusions;
+	for (size_t i = 0; i < tal_count(exclusions); i++) {
+		struct route_exclusion *e = exclusions[i];
+		if (e->type == EXCLUDE_CHANNEL) {
+			channel_hints_update(p, e->u.chan_id.scid, e->u.chan_id.dir,
+				false, false, NULL, NULL);
+		} else {
+			if (node_id_eq(&e->u.node_id, p->destination)) {
+				payment_abort(p, "Payee is manually excluded");
+				return;
+			} else if (node_id_eq(&e->u.node_id, p->local_id)) {
+				payment_abort(p, "Payer is manually excluded");
+				return;
+			}
+
+			tal_arr_expand(&p->excluded_nodes, e->u.node_id);
+		}
+	}
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(route_exclusions, struct route_exclusions_data *,
+	route_exclusions_data_init, route_exclusions_step_cb);
