@@ -939,7 +939,11 @@ hook subscribers would not get called.
 
 ### `db_write`
 
-This hook is called whenever a change is about to be committed to the database.
+This hook is called whenever a change is about to be committed to the database,
+if you are using a SQLITE3 database (the default).
+This hook will be useless (the `"writes"` field will always be empty) if you are
+using a PostgreSQL database.
+
 It is currently extremely restricted:
 
 1. a plugin registering for this hook should not perform anything that may cause
