@@ -103,7 +103,7 @@ char *read_stdin_pass(char **reason)
 		}
 		temp_term = current_term;
 		temp_term.c_lflag &= ~ECHO;
-		if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0) {
+		if (tcsetattr(fileno(stdin), TCSANOW, &temp_term) != 0) {
 			*reason = "Could not disable pass echoing.";
 			return NULL;
 		}
@@ -114,7 +114,7 @@ char *read_stdin_pass(char **reason)
 		}
 
 		/* Restore the original terminal */
-		if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0) {
+		if (tcsetattr(fileno(stdin), TCSANOW, &current_term) != 0) {
 			*reason = "Could not restore terminal options.";
 			free(passwd);
 			return NULL;
