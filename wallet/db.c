@@ -2,8 +2,10 @@
 
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/htlc_state.h>
 #include <common/key_derive.h>
 #include <common/onionreply.h>
 #include <common/version.h>
@@ -858,6 +860,14 @@ static struct migration dbmigrations[] = {
 
     /* Issue #4887: reset the payments.id sequence after the migration above. Since this is a SELECT statement that would otherwise fail, make it an INSERT into the `vars` table.*/
     {SQL("/*PSQL*/INSERT INTO vars (name, intval) VALUES ('payment_id_reset', setval(pg_get_serial_sequence('payments', 'id'), COALESCE((SELECT MAX(id)+1 FROM payments), 1)))"), NULL},
+
+    /* Issue #4901: Partial index speeds up startup on nodes with ~1000 channels.  */
+    {&SQL("CREATE INDEX channel_htlcs_speedup_unresolved_idx"
+	 "    ON channel_htlcs(channel_id, direction)"
+	 " WHERE hstate NOT IN (9, 19);")
+	[BUILD_ASSERT_OR_ZERO( 9 == RCVD_REMOVE_ACK_REVOCATION) +
+	 BUILD_ASSERT_OR_ZERO(19 == SENT_REMOVE_ACK_REVOCATION)],
+     NULL},
 };
 
 /* Leak tracking. */

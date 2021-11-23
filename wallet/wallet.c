@@ -2734,10 +2734,16 @@ bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
 					     " FROM channel_htlcs"
 					     " WHERE direction= ?"
 					     " AND channel_id= ?"
-					     " AND hstate != ?"));
+					     " AND hstate NOT IN (?, ?)"));
 	db_bind_int(stmt, 0, DIRECTION_INCOMING);
 	db_bind_u64(stmt, 1, chan->dbid);
-	db_bind_int(stmt, 2, SENT_REMOVE_ACK_REVOCATION);
+	/* We need to generate `hstate NOT IN (9, 19)` in order to match
+	 * the `WHERE` clause of the database index; incoming HTLCs will
+	 * never actually get the state `RCVD_REMOVE_ACK_REVOCATION`.
+	 * See https://sqlite.org/partialindex.html#queries_using_partial_indexes
+	 */
+	db_bind_int(stmt, 2, RCVD_REMOVE_ACK_REVOCATION); /* Not gonna happen.  */
+	db_bind_int(stmt, 3, SENT_REMOVE_ACK_REVOCATION);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -2780,10 +2786,16 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet,
 					     " FROM channel_htlcs"
 					     " WHERE direction = ?"
 					     " AND channel_id = ?"
-					     " AND hstate != ?"));
+					     " AND hstate NOT IN (?, ?)"));
 	db_bind_int(stmt, 0, DIRECTION_OUTGOING);
 	db_bind_u64(stmt, 1, chan->dbid);
+	/* We need to generate `hstate NOT IN (9, 19)` in order to match
+	 * the `WHERE` clause of the database index; outgoing HTLCs will
+	 * never actually get the state `SENT_REMOVE_ACK_REVOCATION`.
+	 * See https://sqlite.org/partialindex.html#queries_using_partial_indexes
+	 */
 	db_bind_int(stmt, 2, RCVD_REMOVE_ACK_REVOCATION);
+	db_bind_int(stmt, 3, SENT_REMOVE_ACK_REVOCATION); /* Not gonna happen.  */
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
