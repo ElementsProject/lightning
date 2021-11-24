@@ -992,7 +992,8 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	bitcoind_getutxout(cmd->ld->topology->bitcoind,
 			   &cancel_channel->funding,
 			   process_check_funding_broadcast,
-			   notleak(tal_steal(NULL, cc)));
+			   /* Freed by callback */
+			   tal_steal(NULL, cc));
 	return command_still_pending(cmd);
 }
 

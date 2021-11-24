@@ -405,8 +405,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight",
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,
-				    /* Freed in cb. */
-				    notleak(call));
+				    call);
 	json_add_num(req->stream, "height", height);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
