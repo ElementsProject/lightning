@@ -108,7 +108,7 @@ static void warning_notification_serialize(struct json_stream *stream,
 	 * the absolute time, like when channels failed. */
 	json_add_time(stream, "time", l->time.ts);
 	json_add_timeiso(stream, "timestamp", &l->time);
-	json_add_string(stream, "source", l->prefix);
+	json_add_string(stream, "source", l->prefix->prefix);
 	json_add_string(stream, "log", l->log);
 	json_object_end(stream); /* .warning */
 }
