@@ -226,9 +226,6 @@ struct lightningd {
 	bool dev_fast_gossip;
 	bool dev_fast_gossip_prune;
 
-	/* Things we've marked as not leaking. */
-	const void **notleaks;
-
 	/* This is the forced private key for the node. */
 	struct privkey *dev_force_privkey;
 
