@@ -793,12 +793,14 @@ here, with the peer's signatures attached.
 
 ### `shutdown`
 
-Called when lightningd is shutting down, or this plugin has been
-shutdown by the plugin stop command.  The plugin has 30 seconds to
-exit itself, otherwise it's killed.
+Send in two situations: lightningd is (almost completely) shutdown, or the plugin
+`stop` command has been called for this plugin. In both cases the plugin has 30
+seconds to exit itself, otherwise it's killed.
 
-Because lightningd can crash or be killed, a plugin cannot rely on
-this function always called.
+In the shutdown case, plugins should not interact with lightnind except via (id-less)
+logging or notifications. New rpc calls will fail with error code -5 and (plugin's)
+responses will be ignored. Because lightningd can crash or be killed, a plugin cannot
+rely on the shutdown notification always been send.
 
 
 ## Hooks
