@@ -837,7 +837,7 @@ static void dump_node(unsigned int indent, const struct tal_hdr *t)
 		switch (p->type) {
 		case CHILDREN:
 			c = (struct children *)p;
-			fprintf(stderr, " CHILDREN(%p):parent=%p,children={%p,%p}\n",
+			fprintf(stderr, " CHILDREN(%p):parent=%p,children={%p,%p}",
 			       p, c->parent,
 			       c->children.n.prev, c->children.n.next);
 			break;
