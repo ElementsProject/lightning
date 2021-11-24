@@ -25,31 +25,37 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
 #include <ccan/intmap/intmap.h>
+#include <ccan/tal/str/str.h>
 #include <common/memleak.h>
+#include <common/utils.h>
 
 struct backtrace_state *backtrace_state;
 
 #if DEVELOPER
 static bool memleak_track;
 
-struct memleak_notleak {
-	bool plus_children;
-};
-
 struct memleak_helper {
 	void (*cb)(struct htable *memtable, const tal_t *);
 };
 
-void *notleak_(const void *ptr, bool plus_children)
+void *notleak_(void *ptr, bool plus_children)
 {
-	struct memleak_notleak *notleak;
-
+	const char *name;
 	/* If we're not tracking, don't do anything. */
 	if (!memleak_track)
 		return cast_const(void *, ptr);
 
-	notleak = tal(ptr, struct memleak_notleak);
-	notleak->plus_children = plus_children;
+	/* We use special tal names to mark notleak */
+	name = tal_name(ptr);
+	if (!name)
+		name = "";
+	if (plus_children)
+		name = tal_fmt(tmpctx, "%s **NOTLEAK_IGNORE_CHILDREN**",
+			       name);
+	else
+		name = tal_fmt(tmpctx, "%s **NOTLEAK**", name);
+	tal_set_name(ptr, name);
+
 	return cast_const(void *, ptr);
 }
 
@@ -80,9 +86,8 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			if (streq(name, "backtrace"))
 				continue;
 
-			/* Don't add our own memleak_helpers or notleak() */
-			if (strends(name, "struct memleak_helper")
-			    || strends(name, "struct memleak_notleak"))
+			/* Don't add our own memleak_helpers */
+			if (strends(name, "struct memleak_helper"))
 				continue;
 
 			/* Don't add tal_link objects */
@@ -101,7 +106,6 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			if (streq(name, "tmpctx"))
 				continue;
 		}
-		htable_add(memtable, hash_ptr(i, NULL), i);
 		children_into_htable(exclude1, exclude2, memtable, i);
 	}
 }
@@ -265,12 +269,11 @@ static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
 		if (name && strends(name, "struct memleak_helper")) {
 			const struct memleak_helper *mh = i;
 			mh->cb(memtable, p);
-		} else if (name && strends(name, "struct memleak_notleak")) {
-			const struct memleak_notleak *notleak = i;
-			if (notleak->plus_children)
-				remove_with_children(memtable, p);
-			else
-				pointer_referenced(memtable, p);
+		} else if (name && strends(name, " **NOTLEAK**")) {
+			pointer_referenced(memtable, p);
+			memleak_remove_region(memtable, p, tal_bytelen(p));
+		} else if (name && strends(name, " **NOTLEAK_IGNORE_CHILDREN**")) {
+			remove_with_children(memtable, p);
 			memleak_remove_region(memtable, p, tal_bytelen(p));
 		} else if (name && strends(name, "_notleak")) {
 			pointer_referenced(memtable, i);
@@ -360,8 +363,8 @@ bool dump_memleak(struct htable *memtable,
 	return found_leak;
 }
 #else /* !DEVELOPER */
-void *notleak_(const void *ptr, bool plus_children UNNEEDED)
+void *notleak_(void *ptr, bool plus_children UNNEEDED)
 {
-	return cast_const(void *, ptr);
+	return ptr;
 }
 #endif /* !DEVELOPER */

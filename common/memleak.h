@@ -35,7 +35,7 @@ void memleak_init(void);
 #define memleak_typeof(var) void *
 #endif /* !HAVE_TYPEOF */
 
-void *notleak_(const void *ptr, bool plus_children);
+void *notleak_(void *ptr, bool plus_children);
 
 #if DEVELOPER
 /**

@@ -193,7 +193,7 @@ struct json_stream *jsonrpc_stream_fail(struct command *cmd UNNEEDED,
 struct json_stream *jsonrpc_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "jsonrpc_stream_success called!\n"); abort(); }
 /* Generated stub for notleak_ */
-void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)
+void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for plugin_err */
 void  plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
