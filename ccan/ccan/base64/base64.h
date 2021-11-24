@@ -103,8 +103,8 @@ ssize_t base64_decode_using_maps(const base64_maps_t *maps,
  * @return Number of decoded bytes set in dest. -1 on error (and errno set)
  * @note sets errno = EDOM if src contains invalid characters
  */
-int base64_decode_quartet_using_maps(const base64_maps_t *maps,
-				     char dest[3], const char src[4]);
+ssize_t base64_decode_quartet_using_maps(const base64_maps_t *maps,
+				         char dest[3], const char src[4]);
 
 /**
  * base64_decode_tail_using_maps - decode the final bytes of a base64 string using a specific alphabet
@@ -116,8 +116,8 @@ int base64_decode_quartet_using_maps(const base64_maps_t *maps,
  * @note sets errno = EDOM if src contains invalid characters
  * @note sets errno = EINVAL if src is an invalid base64 tail
  */
-int base64_decode_tail_using_maps(const base64_maps_t *maps, char *dest,
-				  const char *src, size_t srclen);
+ssize_t base64_decode_tail_using_maps(const base64_maps_t *maps, char *dest,
+				      const char *src, size_t srclen);
 
 
 /* the rfc4648 functions: */
@@ -212,7 +212,7 @@ ssize_t base64_decode(char *dest, size_t destlen,
  * @note sets errno = EDOM if src contains invalid characters
  */
 static inline
-int base64_decode_quartet(char dest[3], const char src[4])
+ssize_t base64_decode_quartet(char dest[3], const char src[4])
 {
 	return base64_decode_quartet_using_maps(&base64_maps_rfc4648,
 						dest, src);

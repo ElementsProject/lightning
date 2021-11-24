@@ -118,7 +118,7 @@ size_t base64_decoded_length(size_t srclen)
 	return ((srclen+3)/4*3);
 }
 
-int base64_decode_quartet_using_maps(const base64_maps_t *maps, char dest[3],
+ssize_t base64_decode_quartet_using_maps(const base64_maps_t *maps, char dest[3],
 				     const char src[4])
 {
 	signed char a;
@@ -143,7 +143,7 @@ int base64_decode_quartet_using_maps(const base64_maps_t *maps, char dest[3],
 }
 
 
-int base64_decode_tail_using_maps(const base64_maps_t *maps, char dest[3],
+ssize_t base64_decode_tail_using_maps(const base64_maps_t *maps, char dest[3],
 				  const char * src, const size_t srclen)
 {
 	char longsrc[4];
@@ -178,7 +178,7 @@ ssize_t base64_decode_using_maps(const base64_maps_t *maps,
 {
 	ssize_t dest_offset = 0;
 	ssize_t i;
-	size_t more;
+	ssize_t more;
 
 	if (destlen < base64_decoded_length(srclen)) {
 		errno = EOVERFLOW;
