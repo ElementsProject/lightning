@@ -55,11 +55,33 @@ struct log_book {
 struct log {
 	struct log_book *lr;
 	const struct node_id *default_node_id;
-	const char *prefix;
+	struct log_prefix *prefix;
 
 	/* Non-NULL once it's been initialized */
 	enum log_level *print_level;
 };
+
+static struct log_prefix *log_prefix_new(const tal_t *ctx,
+					 const char *prefix TAKES)
+{
+	struct log_prefix *lp = tal(ctx, struct log_prefix);
+	lp->refcnt = 1;
+	lp->prefix = tal_strdup(lp, prefix);
+	return lp;
+}
+
+static void log_prefix_drop(struct log_prefix *lp)
+{
+	if (--lp->refcnt == 0)
+		tal_free(lp);
+}
+
+static struct log_prefix *log_prefix_get(struct log_prefix *lp)
+{
+	assert(lp->refcnt);
+	lp->refcnt++;
+	return lp;
+}
 
 /* Avoids duplicate node_id entries. */
 struct node_id_cache {
@@ -184,6 +206,7 @@ static size_t delete_entry(struct log_book *log, struct log_entry *i)
 	if (i->nc && --i->nc->count == 0)
 		tal_free(i->nc);
 	free(i->log);
+	log_prefix_drop(i->prefix);
 	tal_free(i->io);
 
 	return 1 + i->skipped;
@@ -254,13 +277,14 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	return lr;
 }
 
-static enum log_level filter_level(struct log_book *lr, const char *prefix)
+static enum log_level filter_level(struct log_book *lr,
+				   const struct log_prefix *lp)
 {
 	struct print_filter *i;
 
 	assert(lr->default_print_level != NULL);
 	list_for_each(&lr->print_filters, i, list) {
-		if (strstr(prefix, i->prefix))
+		if (strstr(lp->prefix, i->prefix))
 			return i->level;
 	}
 	return *lr->default_print_level;
@@ -277,9 +301,9 @@ new_log(const tal_t *ctx, struct log_book *record,
 
 	log->lr = tal_link(log, record);
 	va_start(ap, fmt);
-	/* log->lr owns this, since its entries keep a pointer to it. */
-	/* FIXME: Refcount this! */
-	log->prefix = notleak(tal_vfmt(log->lr, fmt, ap));
+	/* Owned by the log book itself, since it can be referenced
+	 * by log entries, too */
+	log->prefix = log_prefix_new(log->lr, take(tal_vfmt(NULL, fmt, ap)));
 	va_end(ap);
 	if (default_node_id)
 		log->default_node_id = tal_dup(log, struct node_id,
@@ -294,7 +318,7 @@ new_log(const tal_t *ctx, struct log_book *record,
 
 const char *log_prefix(const struct log *log)
 {
-	return log->prefix;
+	return log->prefix->prefix;
 }
 
 enum log_level log_print_level(struct log *log)
@@ -343,7 +367,7 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 	l->time = time_now();
 	l->level = level;
 	l->skipped = 0;
-	l->prefix = log->prefix;
+	l->prefix = log_prefix_get(log->prefix);
 	l->io = NULL;
 	if (!node_id)
 		node_id = log->default_node_id;
@@ -367,7 +391,7 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 static void maybe_print(struct log *log, const struct log_entry *l)
 {
 	if (l->level >= log_print_level(log))
-		log_to_file(log->prefix, l->level,
+		log_to_file(log->prefix->prefix, l->level,
 			    l->nc ? &l->nc->node_id : NULL,
 			    &l->time, l->log,
 			    l->io, tal_bytelen(l->io),
@@ -417,7 +441,7 @@ void log_io(struct log *log, enum log_level dir,
 
 	/* Print first, in case we need to truncate. */
 	if (l->level >= log_print_level(log))
-		log_to_file(log->prefix, l->level,
+		log_to_file(log->prefix->prefix, l->level,
 			    l->nc ? &l->nc->node_id : NULL,
 			    &l->time, str,
 			    data, len,
@@ -482,7 +506,7 @@ static void log_each_line_(const struct log_book *lr,
 
 		func(l->skipped, time_between(l->time, lr->init_time),
 		     l->level, l->nc ? &l->nc->node_id : NULL,
-		     l->prefix, l->log, l->io, arg);
+		     l->prefix->prefix, l->log, l->io, arg);
 	}
 }
 
@@ -585,13 +609,14 @@ static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 static char *arg_log_prefix(const char *arg, struct log *log)
 {
 	/* log->lr owns this, since it keeps a pointer to it. */
-	log->prefix = tal_strdup(log->lr, arg);
+	tal_free(log->prefix);
+	log->prefix = log_prefix_new(log->lr, arg);
 	return NULL;
 }
 
 static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
 {
-	strncpy(buf, log->prefix, OPT_SHOW_LEN);
+	strncpy(buf, log->prefix->prefix, OPT_SHOW_LEN);
 }
 
 static int signalfds[2];
@@ -712,7 +737,7 @@ void logging_options_parsed(struct log_book *lr)
 		const struct log_entry *l = &lr->log[i];
 
 		if (l->level >= filter_level(lr, l->prefix))
-			log_to_file(l->prefix, l->level,
+			log_to_file(l->prefix->prefix, l->level,
 				    l->nc ? &l->nc->node_id : NULL,
 				    &l->time, l->log,
 				    l->io, tal_bytelen(l->io),

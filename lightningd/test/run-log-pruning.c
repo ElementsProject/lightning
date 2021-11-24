@@ -110,7 +110,8 @@ int main(int argc, char *argv[])
 		assert(lb->log[i].level == LOG_DBG);
 		assert(lb->log[i].skipped == 0);
 		assert(lb->log[i].nc == NULL);
-		assert(streq(lb->log[i].prefix, "test prefix"));
+		assert(lb->log[i].prefix->refcnt == 101);
+		assert(streq(lb->log[i].prefix->prefix, "test prefix"));
 		assert(streq(lb->log[i].log, tal_fmt(lb, "test %06zi", i)));
 		assert(lb->log[i].io == NULL);
 	}
