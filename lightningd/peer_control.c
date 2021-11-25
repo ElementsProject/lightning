@@ -1141,14 +1141,14 @@ static void json_add_inf_funding_txid(
 	struct json_stream *response, struct gqlcb_data *d,
 	const struct channel_inflight *inflight)
 {
-	json_add_txid(response, d->name, &inflight->funding->txid);
+	json_add_txid(response, d->name, &inflight->funding->outpoint.txid);
 }
 
 static void json_add_inf_funding_outnum(
 	struct json_stream *response, struct gqlcb_data *d,
 	const struct channel_inflight *inflight)
 {
-	json_add_num(response, d->name, inflight->funding->outnum);
+	json_add_num(response, d->name, inflight->funding->outpoint.n);
 }
 
 static void json_add_inf_feerate(
@@ -1231,12 +1231,12 @@ static void json_add_chan_funding_remote_msat(
 {
 	struct amount_sat peer_funded_sats;
 
-	if (!amount_sat_sub(&peer_funded_sats, channel->funding,
+	if (!amount_sat_sub(&peer_funded_sats, channel->funding_sats,
 			    channel->our_funds)) {
 		log_broken(channel->log,
 			   "Overflow subtracing funding %s, our funds %s",
 			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding),
+					  &channel->funding_sats),
 			   type_to_string(tmpctx, struct amount_sat,
 					  &channel->our_funds));
 		peer_funded_sats = AMOUNT_SAT(0);
@@ -1370,7 +1370,7 @@ static void json_add_chan_funding_txid(
 	struct json_stream *response, struct gqlcb_data *d,
 	const struct channel *channel)
 {
-	json_add_txid(response, "funding_txid", &channel->funding_txid);
+	json_add_txid(response, d->name, &channel->funding.txid);
 }
 
 static void json_add_chan_initial_feerate(
@@ -1561,11 +1561,11 @@ static void json_add_chan_total_msat(
 {
 	struct amount_msat funding_msat;
 
-	if (!amount_sat_to_msat(&funding_msat, channel->funding)) {
+	if (!amount_sat_to_msat(&funding_msat, channel->funding_sats)) {
 		log_broken(channel->log,
 			   "Overflow converting funding %s",
 			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->funding));
+					  &channel->funding_sats));
 		funding_msat = AMOUNT_MSAT(0);
 	}
 

@@ -144,7 +144,7 @@ static void test_conversion(void)
 	assert(err == 0);
 	field1 = doc->first_def->op_def->sel_set->first->field;
 
-	convert_args_to_paramtokens(NULL, field1, &params);
+	convert_args_to_paramtokens(tokens, field1, &params);
 
 	assert(params[0].type == JSMN_OBJECT);
 	assert(params[0].size == 6);
@@ -160,6 +160,8 @@ static void test_conversion(void)
 	check_primitive(&params[10], "null");
 	check_string(&params[11], "enumarg1");
 	check_string(&params[12], "value");
+
+	tal_free(tokens);
 }
 
 

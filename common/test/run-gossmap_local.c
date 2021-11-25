@@ -17,18 +17,12 @@ bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
-/* Generated stub for fromwire_channel_type */
-struct channel_type *fromwire_channel_type(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_type called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }
 /* Generated stub for towire_channel_id */
 void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_channel_id called!\n"); abort(); }
-/* Generated stub for towire_channel_type */
-void towire_channel_type(u8 **p UNNEEDED, const struct channel_type *channel_type UNNEEDED)
-{ fprintf(stderr, "towire_channel_type called!\n"); abort(); }
 /* Generated stub for type_to_string_ */
 const char *type_to_string_(const tal_t *ctx UNNEEDED, const char *typename UNNEEDED,
 			    union printable_types u UNNEEDED)

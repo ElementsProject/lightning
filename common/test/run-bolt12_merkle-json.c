@@ -22,9 +22,6 @@
 void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
-/* Generated stub for fromwire_channel_type */
-struct channel_type *fromwire_channel_type(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_type called!\n"); abort(); }
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
@@ -50,9 +47,6 @@ void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 /* Generated stub for towire_channel_id */
 void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_channel_id called!\n"); abort(); }
-/* Generated stub for towire_channel_type */
-void towire_channel_type(u8 **p UNNEEDED, const struct channel_type *channel_type UNNEEDED)
-{ fprintf(stderr, "towire_channel_type called!\n"); abort(); }
 /* Generated stub for towire_node_id */
 void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_node_id called!\n"); abort(); }

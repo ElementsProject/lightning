@@ -114,7 +114,7 @@ static void json_add_uc_to_us_msat(
 	const struct uncommitted_channel *uc)
 {
 	struct amount_msat total, ours;
-	if (amount_sat_to_msat(&total, uc->fc->funding)
+	if (amount_sat_to_msat(&total, uc->fc->funding_sats)
 	    && amount_msat_sub(&ours, total, uc->fc->push))
 		json_add_amount_msat_only(response, d->name, ours);
 	else
@@ -126,7 +126,7 @@ static void json_add_uc_total_msat(
 	const struct uncommitted_channel *uc)
 {
 	struct amount_msat total;
-	if (amount_sat_to_msat(&total, uc->fc->funding))
+	if (amount_sat_to_msat(&total, uc->fc->funding_sats))
 		json_add_amount_msat_only(response, d->name, total);
 	else
 		json_add_null(response, d->name);
