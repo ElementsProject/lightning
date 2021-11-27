@@ -640,6 +640,7 @@ class LightningNode(object):
                  allow_bad_gossip=False,
                  db=None, port=None, disconnect=None, random_hsm=None, options=None,
                  jsonschemas={},
+                 valgrind_plugins=True,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
@@ -690,11 +691,14 @@ class LightningNode(object):
         if dsn is not None:
             self.daemon.opts['wallet'] = dsn
         if valgrind:
+            trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*'
+            if not valgrind_plugins:
+                trace_skip_pattern += ',*plugins*'
             self.daemon.cmd_prefix = [
                 'valgrind',
                 '-q',
                 '--trace-children=yes',
-                '--trace-children-skip=*python*,*bitcoin-cli*,*elements-cli*',
+                '--trace-children-skip={}'.format(trace_skip_pattern),
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors.%p'.format(self.daemon.lightning_dir)
             ]
@@ -1280,12 +1284,20 @@ class NodeFactory(object):
 
         assert len(opts) == num_nodes
 
+        # Only trace one random node's plugins, to avoid OOM.
+        if SLOW_MACHINE:
+            valgrind_plugins = [False] * num_nodes
+            valgrind_plugins[random.randint(0, num_nodes - 1)] = True
+        else:
+            valgrind_plugins = [True] * num_nodes
+
         jobs = []
         for i in range(num_nodes):
             node_opts, cli_opts = self.split_options(opts[i])
             jobs.append(self.executor.submit(
                 self.get_node, options=cli_opts,
-                node_id=self.get_node_id(), **node_opts
+                node_id=self.get_node_id(), **node_opts,
+                valgrind_plugins=valgrind_plugins[i]
             ))
 
         return [j.result() for j in jobs]
