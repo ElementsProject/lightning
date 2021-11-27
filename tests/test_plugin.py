@@ -282,6 +282,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Also works by basename.
     n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
@@ -290,6 +291,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Other order also works!
     n = node_factory.get_node(options=OrderedDict([('disable-plugin',
@@ -298,6 +300,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Both orders of explicit specification work.
     n = node_factory.get_node(options=OrderedDict([('disable-plugin',
@@ -308,6 +311,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Both orders of explicit specification work.
     n = node_factory.get_node(options=OrderedDict([('plugin',
@@ -322,6 +326,7 @@ def test_plugin_disable(node_factory):
     # Still disabled if we load directory.
     n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
     n.daemon.wait_for_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Check that list works
     n = node_factory.get_node(options={'disable-plugin':
