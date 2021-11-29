@@ -598,17 +598,15 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		return decode_fail(b11, fail,
 				   "Prefix '%s' does not start with ln", prefix);
 
-	/* Signet chose to use prefix 'tb', just like testnet.  So we tread
-	 * carefully here: */
 	if (must_be_chain) {
-		if (streq(prefix + 2, must_be_chain->bip173_name))
+		if (streq(prefix + 2, must_be_chain->lightning_hrp))
 			b11->chain = must_be_chain;
 		else
 			return decode_fail(b11, fail, "Prefix %s is not for %s",
 					   prefix + 2,
 					   must_be_chain->network_name);
 	} else {
-		b11->chain = chainparams_by_bip173(prefix + 2);
+		b11->chain = chainparams_by_lightning_hrp(prefix + 2);
 		if (!b11->chain)
 			return decode_fail(b11, fail, "Unknown chain %s",
 					   prefix + 2);
@@ -1097,9 +1095,9 @@ char *bolt11_encode_(const tal_t *ctx,
 			amount = msat * 10 / multipliers[i].m10;
 		}
 		hrp = tal_fmt(tmpctx, "ln%s%"PRIu64"%c",
-			      b11->chain->bip173_name, amount, postfix);
+			      b11->chain->lightning_hrp, amount, postfix);
 	} else
-		hrp = tal_fmt(tmpctx, "ln%s", b11->chain->bip173_name);
+		hrp = tal_fmt(tmpctx, "ln%s", b11->chain->lightning_hrp);
 
 	/* BOLT #11:
 	 *

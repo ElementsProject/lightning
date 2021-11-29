@@ -48,7 +48,7 @@ encode_pubkey_to_addr(const tal_t *ctx,
 				     chainparams,
 				     &h160);
 	} else {
-		hrp = chainparams->bip173_name;
+		hrp = chainparams->onchain_hrp;
 
 		/* out buffer is 73 + strlen(human readable part),
 		 * see common/bech32.h*/

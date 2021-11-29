@@ -110,7 +110,7 @@ static bool print_amount(const struct bitcoin_blkid *chains,
 								  &chains[0]));
 				ok = false;
 			} else
-				currency = ch->bip173_name;
+				currency = ch->lightning_hrp;
 		}
 		minor_unit = 11;
 	} else {

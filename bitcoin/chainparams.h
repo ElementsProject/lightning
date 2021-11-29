@@ -10,7 +10,13 @@
 
 struct chainparams {
 	const char *network_name;
-	const char *bip173_name;
+	/* Unfortunately starting with signet, we now have diverging
+	 * conventions for the "BIP173" Human Readable Part (HRP).
+	 * On onchain signet, the HRP is `tb` , but on Lightning
+	 * signet the HRP is `tbs`.
+	 */
+	const char *onchain_hrp;
+	const char *lightning_hrp;
 	/*'bip70_name' is corresponding to the 'chain' field of
 	 * the API 'getblockchaininfo' */
 	const char *bip70_name;
@@ -46,7 +52,7 @@ const struct chainparams *chainparams_for_network(const char *network_name);
  *
  * This lets us decode BOLT11 addresses.
  */
-const struct chainparams *chainparams_by_bip173(const char *bip173_name);
+const struct chainparams *chainparams_by_lightning_hrp(const char *lightning_hrp);
 
 /**
  * chainparams_by_chainhash - Helper to get a network by its genesis blockhash

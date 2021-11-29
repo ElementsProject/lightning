@@ -27,7 +27,8 @@ static u8 liquid_regtest_fee_asset[] = {
 
 const struct chainparams networks[] = {
     {.network_name = "bitcoin",
-     .bip173_name = "bc",
+     .onchain_hrp = "bc",
+     .lightning_hrp = "bc",
      .bip70_name = "main",
      .genesis_blockhash = {{{.u.u8 = {0x6f, 0xe2, 0x8c, 0x0a, 0xb6, 0xf1, 0xb3,
 				      0x72, 0xc1, 0xa6, 0xa2, 0x46, 0xae, 0x63,
@@ -57,7 +58,8 @@ const struct chainparams networks[] = {
 			   .bip32_privkey_version = BIP32_VER_MAIN_PRIVATE},
      .is_elements = false},
     {.network_name = "regtest",
-     .bip173_name = "bcrt",
+     .onchain_hrp = "bcrt",
+     .lightning_hrp = "bcrt",
      .bip70_name = "regtest",
      .genesis_blockhash = {{{.u.u8 = {0x06, 0x22, 0x6e, 0x46, 0x11, 0x1a, 0x0b,
 				      0x59, 0xca, 0xaf, 0x12, 0x60, 0x43, 0xeb,
@@ -80,7 +82,8 @@ const struct chainparams networks[] = {
 			   .bip32_privkey_version = BIP32_VER_TEST_PRIVATE},
      .is_elements = false},
     {.network_name = "signet",
-     .bip173_name = "tb",
+     .onchain_hrp = "tb",
+     .lightning_hrp = "tbs",
      .bip70_name = "signet",
      // 00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6
      .genesis_blockhash = {{{.u.u8 = {0xf6, 0x1e, 0xee, 0x3b, 0x63, 0xa3, 0x80,
@@ -103,7 +106,8 @@ const struct chainparams networks[] = {
      .is_elements = false,
     },
     {.network_name = "testnet",
-     .bip173_name = "tb",
+     .onchain_hrp = "tb",
+     .lightning_hrp = "tb",
      .bip70_name = "test",
      .genesis_blockhash = {{{.u.u8 = {0x43, 0x49, 0x7f, 0xd7, 0xf8, 0x26, 0x95,
 				      0x71, 0x08, 0xf4, 0xa3, 0x0f, 0xd9, 0xce,
@@ -125,7 +129,8 @@ const struct chainparams networks[] = {
 			   .bip32_privkey_version = BIP32_VER_TEST_PRIVATE},
      .is_elements = false},
     {.network_name = "litecoin",
-     .bip173_name = "ltc",
+     .onchain_hrp = "ltc",
+     .lightning_hrp = "ltc",
      .bip70_name = "main",
      .genesis_blockhash = {{{.u.u8 = {0xe2, 0xbf, 0x04, 0x7e, 0x7e, 0x5a, 0x19,
 				      0x1a, 0xa4, 0xef, 0x34, 0xd3, 0x14, 0x97,
@@ -148,7 +153,8 @@ const struct chainparams networks[] = {
 			   .bip32_privkey_version = BIP32_VER_MAIN_PRIVATE},
      .is_elements = false},
     {.network_name = "litecoin-testnet",
-     .bip173_name = "tltc",
+     .onchain_hrp = "tltc",
+     .lightning_hrp = "tltc",
      .bip70_name = "test",
      .genesis_blockhash = {{{.u.u8 = {0xa0, 0x29, 0x3e, 0x4e, 0xeb, 0x3d, 0xa6,
 				      0xe6, 0xf5, 0x6f, 0x81, 0xed, 0x59, 0x5f,
@@ -171,7 +177,8 @@ const struct chainparams networks[] = {
 			   .bip32_privkey_version = BIP32_VER_TEST_PRIVATE},
      .is_elements = false},
     {.network_name = "liquid-regtest",
-     .bip173_name = "ert",
+     .onchain_hrp = "ert",
+     .lightning_hrp = "ert",
      .bip70_name = "liquid-regtest",
      .genesis_blockhash = {{{.u.u8 = {0x9f, 0x87, 0xeb, 0x58, 0x0b, 0x9e, 0x5f,
 				      0x11, 0xdc, 0x21, 0x1e, 0x9f, 0xb6, 0x6a,
@@ -193,7 +200,8 @@ const struct chainparams networks[] = {
 			   .bip32_privkey_version = BIP32_VER_TEST_PRIVATE},
      .is_elements = true},
     {.network_name = "liquid",
-     .bip173_name = "ex",
+     .onchain_hrp = "ex",
+     .lightning_hrp = "ex",
      .bip70_name = "liquidv1",
      .genesis_blockhash = {{{.u.u8 = {0x14, 0x66, 0x27, 0x58, 0x36, 0x22, 0x0d,
 				      0xb2, 0x94, 0x4c, 0xa0, 0x59, 0xa3, 0xa1,
@@ -236,10 +244,10 @@ const struct chainparams *chainparams_by_chainhash(const struct bitcoin_blkid *c
 	return NULL;
 }
 
-const struct chainparams *chainparams_by_bip173(const char *bip173_name)
+const struct chainparams *chainparams_by_lightning_hrp(const char *lightning_hrp)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
-		if (streq(bip173_name, networks[i].bip173_name)) {
+		if (streq(lightning_hrp, networks[i].lightning_hrp)) {
 			return &networks[i];
 		}
 	}

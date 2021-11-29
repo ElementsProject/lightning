@@ -377,9 +377,9 @@ static const char *segwit_addr_net_decode(int *witness_version,
 					  const struct chainparams *chainparams)
 {
 	if (segwit_addr_decode(witness_version, witness_program,
-			       witness_program_len, chainparams->bip173_name,
+			       witness_program_len, chainparams->onchain_hrp,
 			       addrz))
-		return chainparams->bip173_name;
+		return chainparams->onchain_hrp;
 	else
 		return NULL;
 }
@@ -443,7 +443,7 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 			*scriptpubkey = scriptpubkey_witness_raw(ctx, witness_version,
 								 witness_program, witness_program_len);
 			parsed = true;
-			right_network = streq(bip173, chainparams->bip173_name);
+			right_network = streq(bip173, chainparams->onchain_hrp);
 		}
 	}
 	/* Insert other parsers that accept null-terminated string here. */
