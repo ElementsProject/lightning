@@ -80,7 +80,7 @@ const struct chainparams networks[] = {
 			   .bip32_privkey_version = BIP32_VER_TEST_PRIVATE},
      .is_elements = false},
     {.network_name = "signet",
-     .bip173_name = "tbs",
+     .bip173_name = "tb",
      .bip70_name = "signet",
      // 00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6
      .genesis_blockhash = {{{.u.u8 = {0xf6, 0x1e, 0xee, 0x3b, 0x63, 0xa3, 0x80,
