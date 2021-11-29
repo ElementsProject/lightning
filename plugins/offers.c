@@ -468,10 +468,10 @@ static bool json_add_fallback_address(struct json_stream *js,
 				      const struct chainparams *chain,
 				      u8 version, const u8 *address)
 {
-	char out[73 + strlen(chain->bip173_name)];
+	char out[73 + strlen(chain->onchain_hrp)];
 
 	/* Does extra checks, in particular checks v0 sizes */
-	if (segwit_addr_encode(out, chain->bip173_name, version,
+	if (segwit_addr_encode(out, chain->onchain_hrp, version,
 			       address, tal_bytelen(address))) {
 		json_add_string(js, "address", out);
 		return true;

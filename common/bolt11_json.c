@@ -28,15 +28,15 @@ static void json_add_fallback(struct json_stream *response,
 		json_add_string(response, "addr",
 				p2sh_to_base58(tmpctx, chain, &sh));
 	} else if (is_p2wpkh(fallback, &pkh)) {
-		char out[73 + strlen(chain->bip173_name)];
+		char out[73 + strlen(chain->onchain_hrp)];
 		json_add_string(response, "type", "P2WPKH");
-		if (segwit_addr_encode(out, chain->bip173_name, 0,
+		if (segwit_addr_encode(out, chain->onchain_hrp, 0,
 				       (const u8 *)&pkh, sizeof(pkh)))
 			json_add_string(response, "addr", out);
 	} else if (is_p2wsh(fallback, &wsh)) {
-		char out[73 + strlen(chain->bip173_name)];
+		char out[73 + strlen(chain->onchain_hrp)];
 		json_add_string(response, "type", "P2WSH");
-		if (segwit_addr_encode(out, chain->bip173_name, 0,
+		if (segwit_addr_encode(out, chain->onchain_hrp, 0,
 				       (const u8 *)&wsh, sizeof(wsh)))
 			json_add_string(response, "addr", out);
 	}
@@ -47,7 +47,7 @@ static void json_add_fallback(struct json_stream *response,
 void json_add_bolt11(struct json_stream *response,
 		     const struct bolt11 *b11)
 {
-	json_add_string(response, "currency", b11->chain->bip173_name);
+	json_add_string(response, "currency", b11->chain->lightning_hrp);
 	json_add_u64(response, "created_at", b11->timestamp);
 	json_add_u64(response, "expiry", b11->expiry);
 	json_add_node_id(response, "payee", &b11->receiver_id);

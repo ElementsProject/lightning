@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 	if (!b11)
 		errx(ERROR_BAD_DECODE, "%s", fail);
 
-	printf("currency: %s\n", b11->chain->bip173_name);
+	printf("currency: %s\n", b11->chain->lightning_hrp);
 	printf("timestamp: %"PRIu64" (%s)\n",
 	       b11->timestamp, fmt_time(ctx, b11->timestamp));
 	printf("expiry: %"PRIu64" (%s)\n",
@@ -136,13 +136,13 @@ int main(int argc, char *argv[])
 					      b11->chain,
 					      &sh));
                 } else if (is_p2wpkh(b11->fallbacks[i], &pkh)) {
-                        char out[73 + strlen(b11->chain->bip173_name)];
-                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
+                        char out[73 + strlen(b11->chain->onchain_hrp)];
+                        if (segwit_addr_encode(out, b11->chain->onchain_hrp, 0,
                                                (const u8 *)&pkh, sizeof(pkh)))
 				printf("fallback-P2WPKH: %s\n", out);
                 } else if (is_p2wsh(b11->fallbacks[i], &wsh)) {
-                        char out[73 + strlen(b11->chain->bip173_name)];
-                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
+                        char out[73 + strlen(b11->chain->onchain_hrp)];
+                        if (segwit_addr_encode(out, b11->chain->onchain_hrp, 0,
                                                (const u8 *)&wsh, sizeof(wsh)))
 				printf("fallback-P2WSH: %s\n", out);
                 }
