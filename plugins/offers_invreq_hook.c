@@ -833,15 +833,16 @@ static struct command_result *handle_offerless_request(struct command *cmd,
 
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
-					      struct tlv_obs2_onionmsg_payload_reply_path *reply_path)
+					      struct tlv_onionmsg_payload_reply_path *reply_path,
+					      struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path)
 {
 	size_t len = tal_count(invreqbin);
 	struct invreq *ir = tal(cmd, struct invreq);
 	struct out_req *req;
 	int bad_feature;
 
-	ir->obs2_reply_path = tal_steal(ir, reply_path);
-	ir->reply_path = NULL;
+	ir->obs2_reply_path = tal_steal(ir, obs2_reply_path);
+	ir->reply_path = tal_steal(ir, reply_path);
 
 	ir->invreq = tlv_invoice_request_new(cmd);
 	if (!fromwire_invoice_request(&invreqbin, &len, ir->invreq)) {

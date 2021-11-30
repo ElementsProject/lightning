@@ -75,6 +75,7 @@ msgtype,gossipd_new_blockheight,3026
 msgdata,gossipd_new_blockheight,blockheight,u32,
 
 msgtype,gossipd_got_onionmsg_to_us,3145
+msgdata,gossipd_got_onionmsg_to_us,obs2,bool,
 msgdata,gossipd_got_onionmsg_to_us,node_alias,pubkey,
 msgdata,gossipd_got_onionmsg_to_us,self_id,?secret,
 msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
