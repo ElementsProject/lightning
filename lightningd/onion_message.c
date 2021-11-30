@@ -173,6 +173,7 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	 * means we created the path it's using. */
 	if (!self_id || !secret_eq_consttime(self_id, &ld->onion_reply_secret))
 		payload->our_alias = tal_free(payload->our_alias);
+	tal_free(self_id);
 
 	submsglen = tal_bytelen(submsg);
 	subptr = submsg;
