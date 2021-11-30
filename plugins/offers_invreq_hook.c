@@ -15,7 +15,8 @@
 /* We need to keep the reply path around so we can reply with invoice */
 struct invreq {
 	struct tlv_invoice_request *invreq;
-	struct tlv_obs2_onionmsg_payload_reply_path *reply_path;
+	struct tlv_onionmsg_payload_reply_path *reply_path;
+	struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path;
 
 	/* The offer, once we've looked it up. */
 	struct tlv_offer *offer;
@@ -59,7 +60,8 @@ fail_invreq_level(struct command *cmd,
 
 	errdata = tal_arr(cmd, u8, 0);
 	towire_invoice_error(&errdata, err);
-	return send_onion_reply(cmd, invreq->reply_path, "invoice_error", errdata);
+	return send_onion_reply(cmd, invreq->reply_path, invreq->obs2_reply_path,
+				"invoice_error", errdata);
 }
 
 static struct command_result *WARN_UNUSED_RESULT PRINTF_FMT(3,4)
@@ -178,7 +180,8 @@ static struct command_result *createinvoice_done(struct command *cmd,
 					json_tok_full(buf, t));
 	}
 
-	return send_onion_reply(cmd, ir->reply_path, "invoice", rawinv);
+	return send_onion_reply(cmd, ir->reply_path, ir->obs2_reply_path,
+				"invoice", rawinv);
 }
 
 static struct command_result *createinvoice_error(struct command *cmd,
@@ -837,7 +840,8 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	struct out_req *req;
 	int bad_feature;
 
-	ir->reply_path = tal_steal(ir, reply_path);
+	ir->obs2_reply_path = tal_steal(ir, reply_path);
+	ir->reply_path = NULL;
 
 	ir->invreq = tlv_invoice_request_new(cmd);
 	if (!fromwire_invoice_request(&invreqbin, &len, ir->invreq)) {

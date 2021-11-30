@@ -505,17 +505,21 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 	u8 *onionmsg;
 	struct pubkey blinding;
 	struct peer *peer;
+	bool obs2;
 
-	if (!fromwire_gossipd_send_onionmsg(msg, msg, &id, &onionmsg, &blinding))
+	if (!fromwire_gossipd_send_onionmsg(msg, msg, &obs2, &id, &onionmsg, &blinding))
 		master_badmsg(WIRE_GOSSIPD_SEND_ONIONMSG, msg);
 
 	/* Even though lightningd checks for valid ids, there's a race
 	 * where it might vanish before we read this command. */
 	peer = find_peer(daemon, &id);
 	if (peer) {
-		queue_peer_msg(peer,
-			       take(towire_obs2_onion_message(NULL,
-							      &blinding, onionmsg)));
+		u8 *omsg;
+		if (obs2)
+			omsg = towire_obs2_onion_message(NULL, &blinding, onionmsg);
+		else
+			omsg = towire_onion_message(NULL, &blinding, onionmsg);
+		queue_peer_msg(peer, take(omsg));
 	}
 	return daemon_conn_read_next(conn, daemon->master);
 }
