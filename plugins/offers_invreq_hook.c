@@ -754,10 +754,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 *     - MUST specify `chains` the offer is valid for.
 	 */
 	if (!streq(chainparams->network_name, "bitcoin")) {
-		if (deprecated_apis) {
-			ir->inv->chains = tal_arr(ir->inv, struct bitcoin_blkid, 1);
-			ir->inv->chains[0] = chainparams->genesis_blockhash;
-		}
 		ir->inv->chain = tal_dup(ir->inv, struct bitcoin_blkid,
 					 &chainparams->genesis_blockhash);
 	}
@@ -875,8 +871,7 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	 *  - otherwise:
 	 *    - MUST fail the request if `chain` is not a supported chain.
 	 */
-	if (!bolt12_chain_matches(ir->invreq->chain, chainparams,
-				  ir->invreq->chains)) {
+	if (!bolt12_chain_matches(ir->invreq->chain, chainparams)) {
 		return fail_invreq(cmd, ir,
 				   "Wrong chain %s",
 				   tal_hex(tmpctx, ir->invreq->chain));

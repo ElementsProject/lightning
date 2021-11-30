@@ -8,11 +8,11 @@
 #include <secp256k1_schnorrsig.h>
 #include <time.h>
 
-bool bolt12_chains_match(const struct bitcoin_blkid *chains,
-			 const struct chainparams *must_be_chain)
+/* If chains is NULL, max_num_chains is ignored */
+static bool bolt12_chains_match(const struct bitcoin_blkid *chains,
+				size_t max_num_chains,
+				const struct chainparams *must_be_chain)
 {
-	size_t num_chains;
-
 	/* BOLT-offers #12:
 	 *   - if the chain for the invoice is not solely bitcoin:
 	 *     - MUST specify `chains` the offer is valid for.
@@ -27,13 +27,12 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	 *  - otherwise:
 	 *    - MUST fail the request if `chain` is not a supported chain.
 	 */
-	num_chains = tal_count(chains);
-	if (num_chains == 0) {
-		num_chains = 1;
+	if (!chains) {
+		max_num_chains = 1;
 		chains = &chainparams_for_network("bitcoin")->genesis_blockhash;
 	}
 
-	for (size_t i = 0; i < num_chains; i++) {
+	for (size_t i = 0; i < max_num_chains; i++) {
 		if (bitcoin_blkid_eq(&chains[i],
 				     &must_be_chain->genesis_blockhash))
 			return true;
@@ -43,28 +42,20 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 }
 
 bool bolt12_chain_matches(const struct bitcoin_blkid *chain,
-			  const struct chainparams *must_be_chain,
-			  const struct bitcoin_blkid *deprecated_chains)
+			  const struct chainparams *must_be_chain)
 {
-	/* Obsolete: We used to put an array in here, but we only ever
-	 * used a single value */
-	if (deprecated_apis && !chain)
-		chain = deprecated_chains;
-
-	if (!chain)
-		chain = &chainparams_for_network("bitcoin")->genesis_blockhash;
-
-	return bitcoin_blkid_eq(chain, &must_be_chain->genesis_blockhash);
+	return bolt12_chains_match(chain, 1, must_be_chain);
 }
 
 static char *check_features_and_chain(const tal_t *ctx,
 				      const struct feature_set *our_features,
 				      const struct chainparams *must_be_chain,
 				      const u8 *features,
-				      const struct bitcoin_blkid *chains)
+				      const struct bitcoin_blkid *chains,
+				      size_t num_chains)
 {
 	if (must_be_chain) {
-		if (!bolt12_chains_match(chains, must_be_chain))
+		if (!bolt12_chains_match(chains, num_chains, must_be_chain))
 			return tal_fmt(ctx, "wrong chain");
 	}
 
@@ -190,7 +181,8 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 offer->features,
-					 offer->chains);
+					 offer->chains,
+					 tal_count(offer->chains));
 	if (*fail)
 		return tal_free(offer);
 
@@ -242,9 +234,7 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 invrequest->features,
-					 invrequest->chain
-					 ? invrequest->chain
-					 : invrequest->chains);
+					 invrequest->chain, 1);
 	if (*fail)
 		return tal_free(invrequest);
 
@@ -283,8 +273,7 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 invoice->features,
-					 invoice->chain
-					 ? invoice->chain : invoice->chains);
+					 invoice->chain, 1);
 	if (*fail)
 		return tal_free(invoice);
 

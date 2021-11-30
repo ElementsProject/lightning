@@ -42,8 +42,6 @@ subtypedata,blinded_path,first_node_id,point,
 subtypedata,blinded_path,blinding,point,
 subtypedata,blinded_path,num_hops,byte,
 subtypedata,blinded_path,path,onionmsg_path,num_hops
-tlvtype,invoice_request,chains,2
-tlvdata,invoice_request,chains,chains,chain_hash,...
 tlvtype,invoice_request,chain,3
 tlvdata,invoice_request,chain,chain,chain_hash,
 tlvtype,invoice_request,offer_id,4
@@ -68,8 +66,6 @@ tlvtype,invoice_request,replace_invoice,56
 tlvdata,invoice_request,replace_invoice,payment_hash,sha256,
 tlvtype,invoice_request,payer_signature,240
 tlvdata,invoice_request,payer_signature,sig,bip340sig,
-tlvtype,invoice,chains,2
-tlvdata,invoice,chains,chains,chain_hash,...
 tlvtype,invoice,chain,3
 tlvdata,invoice,chain,chain,chain_hash,
 tlvtype,invoice,offer_id,4
