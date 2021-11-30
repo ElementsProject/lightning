@@ -61,7 +61,8 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 						 const struct sha256 *payment_hash TAKES,
 						 u32 blockheight, enum mvt_tag tag,
 						 struct amount_msat amount,
-						 bool is_credit)
+						 bool is_credit,
+						 struct amount_sat output_val)
 {
 	struct chain_coin_mvt *mvt = tal(ctx, struct chain_coin_mvt);
 
@@ -90,6 +91,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 		mvt->debit = amount;
 		mvt->credit = AMOUNT_MSAT(0);
 	}
+	mvt->output_val = output_val;
 
 	return mvt;
 }
@@ -250,6 +252,10 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	mvt->tag = chain_mvt->tag;
 	mvt->credit = chain_mvt->credit;
 	mvt->debit = chain_mvt->debit;
+
+	mvt->output_val = tal(mvt, struct amount_sat);
+	*mvt->output_val = chain_mvt->output_val;
+
 	mvt->timestamp = timestamp;
 	mvt->blockheight = chain_mvt->blockheight;
 	mvt->version = COIN_MVT_VERSION;
@@ -278,6 +284,7 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->tag = chan_mvt->tag;
 	mvt->credit = chan_mvt->credit;
 	mvt->debit = chan_mvt->debit;
+	mvt->output_val = NULL;
 	mvt->timestamp = timestamp;
 	/* channel movements don't have a blockheight */
 	mvt->blockheight = 0;
@@ -345,4 +352,5 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 	mvt->tag = fromwire_u8(cursor, max);
 	mvt->credit = fromwire_amount_msat(cursor, max);
 	mvt->debit = fromwire_amount_msat(cursor, max);
+	mvt->output_val = fromwire_amount_sat(cursor, max);
 }

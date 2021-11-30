@@ -66,6 +66,9 @@ struct chain_coin_mvt {
 	/* only one or the other */
 	struct amount_msat credit;
 	struct amount_msat debit;
+
+	/* total value of output (useful for tracking external outs) */
+	struct amount_sat output_val;
 };
 
 /* differs depending on type!? */
@@ -93,6 +96,10 @@ struct coin_mvt {
 	/* only one or the other */
 	struct amount_msat credit;
 	struct amount_msat debit;
+
+	/* Value of the output. May be different than
+	 * our credit/debit amount, eg channel opens */
+	struct amount_sat *output_val;
 
 	u32 timestamp;
 	u32 blockheight;
