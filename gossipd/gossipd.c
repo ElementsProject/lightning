@@ -350,15 +350,15 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 	return true;
 }
 
-/* Peer sends onion msg. */
-static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
+/* Peer sends obsolete onion msg. */
+static u8 *handle_obs2_onion_message(struct peer *peer, const u8 *msg)
 {
 	enum onion_wire badreason;
 	struct onionpacket *op;
 	struct pubkey blinding, ephemeral;
 	struct route_step *rs;
 	u8 *onion;
-	struct tlv_onionmsg_payload *om;
+	struct tlv_obs2_onionmsg_payload *om;
 	struct secret ss, onion_ss;
 	const u8 *cursor;
 	size_t max, maxlen;
@@ -369,7 +369,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		return NULL;
 
 	/* FIXME: ratelimit! */
-	if (!fromwire_onion_message(msg, msg, &blinding, &onion))
+	if (!fromwire_obs2_onion_message(msg, msg, &blinding, &onion))
 		return towire_warningfmt(peer, NULL, "Bad onion_message");
 
 	/* We unwrap the onion now. */
@@ -411,8 +411,8 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		return NULL;
 	}
 
-	om = tlv_onionmsg_payload_new(msg);
-	if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
+	om = tlv_obs2_onionmsg_payload_new(msg);
+	if (!fromwire_obs2_onionmsg_payload(&cursor, &maxlen, om)) {
 		status_peer_debug(&peer->id, "onion msg: invalid onionmsg_payload %s",
 				  tal_hex(tmpctx, rs->raw_payload));
 		return NULL;
@@ -433,9 +433,9 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		if (!om->enctlv) {
 			alias = me;
 			self_id = NULL;
-		} else if (!decrypt_final_enctlv(tmpctx, &blinding, &ss,
-						 om->enctlv, &me, &alias,
-						 &self_id)) {
+		} else if (!decrypt_obs2_final_enctlv(tmpctx, &blinding, &ss,
+						      om->enctlv, &me, &alias,
+						      &self_id)) {
 			status_peer_debug(&peer->id,
 					  "onion msg: failed to decrypt enctlv"
 					  " %s", tal_hex(tmpctx, om->enctlv));
@@ -469,8 +469,8 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		struct node_id next_node_id;
 
 		/* This fails as expected if no enctlv. */
-		if (!decrypt_enctlv(&blinding, &ss, om->enctlv, &next_node,
-				    &next_blinding)) {
+		if (!decrypt_obs2_enctlv(&blinding, &ss, om->enctlv, &next_node,
+					 &next_blinding)) {
 			status_peer_debug(&peer->id,
 					  "onion msg: invalid enctlv %s",
 					  tal_hex(tmpctx, om->enctlv));
@@ -490,9 +490,9 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 			return NULL;
 		}
 		queue_peer_msg(next_peer,
-			       take(towire_onion_message(NULL,
-							 &next_blinding,
-							 serialize_onionpacket(tmpctx, rs->next))));
+			       take(towire_obs2_onion_message(NULL,
+							      &next_blinding,
+							      serialize_onionpacket(tmpctx, rs->next))));
 	}
 
 	return NULL;
@@ -514,8 +514,8 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 	peer = find_peer(daemon, &id);
 	if (peer) {
 		queue_peer_msg(peer,
-			       take(towire_onion_message(NULL,
-							 &blinding, onionmsg)));
+			       take(towire_obs2_onion_message(NULL,
+							      &blinding, onionmsg)));
 	}
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -553,8 +553,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		err = handle_reply_short_channel_ids_end(peer, msg);
 		goto handled_relay;
-	case WIRE_ONION_MESSAGE:
-		err = handle_onion_message(peer, msg);
+	case WIRE_OBS2_ONION_MESSAGE:
+		err = handle_obs2_onion_message(peer, msg);
 		goto handled_relay;
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */

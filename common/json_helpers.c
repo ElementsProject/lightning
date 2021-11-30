@@ -141,15 +141,15 @@ struct wally_psbt *json_to_psbt(const tal_t *ctx, const char *buffer,
 	return psbt_from_b64(ctx, buffer + tok->start, tok->end - tok->start);
 }
 
-struct tlv_onionmsg_payload_reply_path *
-json_to_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+struct tlv_obs2_onionmsg_payload_reply_path *
+json_to_obs2_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
-	struct tlv_onionmsg_payload_reply_path *rpath;
+	struct tlv_obs2_onionmsg_payload_reply_path *rpath;
 	const jsmntok_t *hops, *t;
 	size_t i;
 	const char *err;
 
-	rpath = tal(ctx, struct tlv_onionmsg_payload_reply_path);
+	rpath = tal(ctx, struct tlv_obs2_onionmsg_payload_reply_path);
 	err = json_scan(tmpctx, buffer, tok, "{blinding:%,first_node_id:%}",
 			JSON_SCAN(json_to_pubkey, &rpath->blinding),
 			JSON_SCAN(json_to_pubkey, &rpath->first_node_id),

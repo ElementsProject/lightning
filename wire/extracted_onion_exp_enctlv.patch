@@ -8,6 +8,6 @@
 +tlvdata,tlv_payload,enctlv,enctlv,byte,...
 +tlvtype,tlv_payload,blinding_seed,12
 +tlvdata,tlv_payload,blinding_seed,blinding_seed,pubkey,
- tlvtype,onionmsg_payload,reply_path,2
- tlvdata,onionmsg_payload,reply_path,first_node_id,point,
- tlvdata,onionmsg_payload,reply_path,blinding,point,
+ tlvtype,obs2_onionmsg_payload,reply_path,2
+ tlvdata,obs2_onionmsg_payload,reply_path,first_node_id,point,
+ tlvdata,obs2_onionmsg_payload,reply_path,blinding,point,

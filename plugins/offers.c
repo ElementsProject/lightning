@@ -43,7 +43,7 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 /* FIXME: replyfield string interface is to accomodate obsolete API */
 struct command_result *
 send_onion_reply(struct command *cmd,
-		 struct tlv_onionmsg_payload_reply_path *reply_path,
+		 struct tlv_obs2_onionmsg_payload_reply_path *reply_path,
 		 const char *replyfield,
 		 const u8 *replydata)
 {
@@ -57,13 +57,13 @@ send_onion_reply(struct command *cmd,
 	json_add_pubkey(req->js, "blinding", &reply_path->blinding);
 	json_array_start(req->js, "hops");
 	for (size_t i = 0; i < nhops; i++) {
-		struct tlv_onionmsg_payload *omp;
+		struct tlv_obs2_onionmsg_payload *omp;
 		u8 *tlv;
 
 		json_object_start(req->js, NULL);
 		json_add_pubkey(req->js, "id", &reply_path->path[i]->node_id);
 
-		omp = tlv_onionmsg_payload_new(tmpctx);
+		omp = tlv_obs2_onionmsg_payload_new(tmpctx);
 		omp->enctlv = reply_path->path[i]->enctlv;
 
 		/* Put payload in last hop. */
@@ -76,7 +76,7 @@ send_onion_reply(struct command *cmd,
 			}
 		}
 		tlv = tal_arr(tmpctx, u8, 0);
-		towire_onionmsg_payload(&tlv, omp);
+		towire_obs2_onionmsg_payload(&tlv, omp);
 		json_add_hex_talarr(req->js, "tlv", tlv);
 		json_object_end(req->js);
 	}
@@ -89,7 +89,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 							const jsmntok_t *params)
 {
 	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
-	struct tlv_onionmsg_payload_reply_path *reply_path;
+	struct tlv_obs2_onionmsg_payload_reply_path *reply_path;
 
 	if (!offers_enabled)
 		return command_hook_success(cmd);
@@ -97,7 +97,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 	om = json_get_member(buf, params, "onion_message");
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
-		reply_path = json_to_reply_path(cmd, buf, replytok);
+		reply_path = json_to_obs2_reply_path(cmd, buf, replytok);
 		if (!reply_path)
 			plugin_err(cmd->plugin, "Invalid reply path %.*s?",
 				   json_tok_full_len(replytok),

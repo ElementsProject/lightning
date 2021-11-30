@@ -639,14 +639,14 @@ struct sending {
 
 static struct command_result *
 send_modern_message(struct command *cmd,
-		    struct tlv_onionmsg_payload_reply_path *reply_path,
+		    struct tlv_obs2_onionmsg_payload_reply_path *reply_path,
 		    struct sending *sending)
 {
 	struct sent *sent = sending->sent;
 	struct privkey blinding_iter;
 	struct pubkey fwd_blinding, *node_alias;
 	size_t nhops = tal_count(sent->path);
-	struct tlv_onionmsg_payload **payloads;
+	struct tlv_obs2_onionmsg_payload **payloads;
 	struct out_req *req;
 
 	/* Now create enctlvs for *forward* path. */
@@ -658,29 +658,29 @@ send_modern_message(struct command *cmd,
 						   &blinding_iter));
 
 	/* We overallocate: this node (0) doesn't have payload or alias */
-	payloads = tal_arr(cmd, struct tlv_onionmsg_payload *, nhops);
+	payloads = tal_arr(cmd, struct tlv_obs2_onionmsg_payload *, nhops);
 	node_alias = tal_arr(cmd, struct pubkey, nhops);
 
 	for (size_t i = 1; i < nhops - 1; i++) {
-		payloads[i] = tlv_onionmsg_payload_new(payloads);
-		payloads[i]->enctlv = create_enctlv(payloads[i],
-						    &blinding_iter,
-						    &sent->path[i],
-						    &sent->path[i+1],
-						    /* FIXME: Pad? */
-						    0,
-						    NULL,
-						    &blinding_iter,
-						    &node_alias[i]);
+		payloads[i] = tlv_obs2_onionmsg_payload_new(payloads);
+		payloads[i]->enctlv = create_obs2_enctlv(payloads[i],
+							 &blinding_iter,
+							 &sent->path[i],
+							 &sent->path[i+1],
+							 /* FIXME: Pad? */
+							 0,
+							 NULL,
+							 &blinding_iter,
+							 &node_alias[i]);
 	}
 	/* Final payload contains the actual data. */
-	payloads[nhops-1] = tlv_onionmsg_payload_new(payloads);
+	payloads[nhops-1] = tlv_obs2_onionmsg_payload_new(payloads);
 
 	/* We don't include enctlv in final, but it gives us final alias */
-	if (!create_final_enctlv(tmpctx, &blinding_iter, &sent->path[nhops-1],
-				 /* FIXME: Pad? */ 0,
-				 NULL,
-				 &node_alias[nhops-1])) {
+	if (!create_obs2_final_enctlv(tmpctx, &blinding_iter, &sent->path[nhops-1],
+				      /* FIXME: Pad? */ 0,
+				      NULL,
+				      &node_alias[nhops-1])) {
 		/* Should not happen! */
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could create final enctlv");
@@ -709,7 +709,7 @@ send_modern_message(struct command *cmd,
 		json_object_start(req->js, NULL);
 		json_add_pubkey(req->js, "id", &node_alias[i]);
 		tlv = tal_arr(tmpctx, u8, 0);
-		towire_onionmsg_payload(&tlv, payloads[i]);
+		towire_obs2_onionmsg_payload(&tlv, payloads[i]);
 		json_add_hex_talarr(req->js, "tlv", tlv);
 		json_object_end(req->js);
 	}
@@ -724,10 +724,10 @@ static struct command_result *use_reply_path(struct command *cmd,
 					     const jsmntok_t *result,
 					     struct sending *sending)
 {
-	struct tlv_onionmsg_payload_reply_path *rpath;
+	struct tlv_obs2_onionmsg_payload_reply_path *rpath;
 
-	rpath = json_to_reply_path(cmd, buf,
-				   json_get_member(buf, result, "blindedpath"));
+	rpath = json_to_obs2_reply_path(cmd, buf,
+					json_get_member(buf, result, "blindedpath"));
 	if (!rpath)
 		plugin_err(cmd->plugin,
 			   "could not parse reply path %.*s?",

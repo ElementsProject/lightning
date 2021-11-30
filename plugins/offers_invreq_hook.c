@@ -15,7 +15,7 @@
 /* We need to keep the reply path around so we can reply with invoice */
 struct invreq {
 	struct tlv_invoice_request *invreq;
-	struct tlv_onionmsg_payload_reply_path *reply_path;
+	struct tlv_obs2_onionmsg_payload_reply_path *reply_path;
 
 	/* The offer, once we've looked it up. */
 	struct tlv_offer *offer;
@@ -830,7 +830,7 @@ static struct command_result *handle_offerless_request(struct command *cmd,
 
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
-					      struct tlv_onionmsg_payload_reply_path *reply_path)
+					      struct tlv_obs2_onionmsg_payload_reply_path *reply_path)
 {
 	size_t len = tal_count(invreqbin);
 	struct invreq *ir = tal(cmd, struct invreq);

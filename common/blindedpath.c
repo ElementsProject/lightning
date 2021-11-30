@@ -61,7 +61,7 @@ static bool blind_node(const struct privkey *blinding,
 static u8 *enctlv_from_encmsg(const tal_t *ctx,
 			      const struct privkey *blinding,
 			      const struct pubkey *node,
-			      const struct tlv_encmsg_tlvs *encmsg,
+			      const struct tlv_obs2_encmsg_tlvs *encmsg,
 			      struct privkey *next_blinding,
 			      struct pubkey *node_alias)
 {
@@ -89,7 +89,7 @@ static u8 *enctlv_from_encmsg(const tal_t *ctx,
 
 	/* Marshall */
 	ret = tal_arr(ctx, u8, 0);
-	towire_encmsg_tlvs(&ret, encmsg);
+	towire_obs2_encmsg_tlvs(&ret, encmsg);
 	SUPERVERBOSE("\t\"encmsg_hex\": \"%s\",\n", tal_hex(tmpctx, ret));
 
 	/*
@@ -136,16 +136,16 @@ bool unblind_onion(const struct pubkey *blinding,
 					     hmac.data) == 1;
 }
 
-static struct tlv_encmsg_tlvs *decrypt_encmsg(const tal_t *ctx,
-					      const struct pubkey *blinding,
-					      const struct secret *ss,
-					      const u8 *enctlv)
+static struct tlv_obs2_encmsg_tlvs *decrypt_encmsg(const tal_t *ctx,
+						   const struct pubkey *blinding,
+						   const struct secret *ss,
+						   const u8 *enctlv)
 {
 	struct secret rho;
 	u8 *dec;
 	const u8 *cursor;
 	size_t maxlen;
-	struct tlv_encmsg_tlvs *encmsg;
+	struct tlv_obs2_encmsg_tlvs *encmsg;
 	/* All-zero npub */
 	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 
@@ -179,21 +179,21 @@ static struct tlv_encmsg_tlvs *decrypt_encmsg(const tal_t *ctx,
 	 * - if the `enctlv` is not a valid TLV...
 	 *   - MUST drop the message.
 	 */
-	encmsg = tlv_encmsg_tlvs_new(ctx);
-	if (!fromwire_encmsg_tlvs(&cursor, &maxlen, encmsg)
+	encmsg = tlv_obs2_encmsg_tlvs_new(ctx);
+	if (!fromwire_obs2_encmsg_tlvs(&cursor, &maxlen, encmsg)
 	    || !tlv_fields_valid(encmsg->fields, NULL, NULL))
 		return tal_free(encmsg);
 
 	return encmsg;
 }
 
-bool decrypt_enctlv(const struct pubkey *blinding,
-		    const struct secret *ss,
-		    const u8 *enctlv,
-		    struct pubkey *next_node,
-		    struct pubkey *next_blinding)
+bool decrypt_obs2_enctlv(const struct pubkey *blinding,
+			 const struct secret *ss,
+			 const u8 *enctlv,
+			 struct pubkey *next_node,
+			 struct pubkey *next_blinding)
 {
-	struct tlv_encmsg_tlvs *encmsg;
+	struct tlv_obs2_encmsg_tlvs *encmsg;
 
 	encmsg = decrypt_encmsg(tmpctx, blinding, ss, enctlv);
 	if (!encmsg)
@@ -244,15 +244,15 @@ bool decrypt_enctlv(const struct pubkey *blinding,
 	return true;
 }
 
-bool decrypt_final_enctlv(const tal_t *ctx,
-			  const struct pubkey *blinding,
-			  const struct secret *ss,
-			  const u8 *enctlv,
-			  const struct pubkey *my_id,
-			  struct pubkey *alias,
-			  struct secret **self_id)
+bool decrypt_obs2_final_enctlv(const tal_t *ctx,
+			       const struct pubkey *blinding,
+			       const struct secret *ss,
+			       const u8 *enctlv,
+			       const struct pubkey *my_id,
+			       struct pubkey *alias,
+			       struct secret **self_id)
 {
-	struct tlv_encmsg_tlvs *encmsg;
+	struct tlv_obs2_encmsg_tlvs *encmsg;
 	struct secret node_id_blinding;
 
 	/* Repeat the tweak to get the alias it was using for us */
@@ -276,16 +276,16 @@ bool decrypt_final_enctlv(const tal_t *ctx,
 	return true;
 }
 
-u8 *create_enctlv(const tal_t *ctx,
-		  const struct privkey *blinding,
-		  const struct pubkey *node,
-		  const struct pubkey *next_node,
-		  size_t padlen,
-		  const struct pubkey *override_blinding,
-		  struct privkey *next_blinding,
-		  struct pubkey *node_alias)
+u8 *create_obs2_enctlv(const tal_t *ctx,
+		       const struct privkey *blinding,
+		       const struct pubkey *node,
+		       const struct pubkey *next_node,
+		       size_t padlen,
+		       const struct pubkey *override_blinding,
+		       struct privkey *next_blinding,
+		       struct pubkey *node_alias)
 {
-	struct tlv_encmsg_tlvs *encmsg = tlv_encmsg_tlvs_new(tmpctx);
+	struct tlv_obs2_encmsg_tlvs *encmsg = tlv_obs2_encmsg_tlvs_new(tmpctx);
 	if (padlen)
 		encmsg->padding = tal_arrz(encmsg, u8, padlen);
 	encmsg->next_node_id = cast_const(struct pubkey *, next_node);
@@ -295,14 +295,14 @@ u8 *create_enctlv(const tal_t *ctx,
 				  next_blinding, node_alias);
 }
 
-u8 *create_final_enctlv(const tal_t *ctx,
-			const struct privkey *blinding,
-			const struct pubkey *final_node,
-			size_t padlen,
-			const struct secret *self_id,
-			struct pubkey *node_alias)
+u8 *create_obs2_final_enctlv(const tal_t *ctx,
+			     const struct privkey *blinding,
+			     const struct pubkey *final_node,
+			     size_t padlen,
+			     const struct secret *self_id,
+			     struct pubkey *node_alias)
 {
-	struct tlv_encmsg_tlvs *encmsg = tlv_encmsg_tlvs_new(tmpctx);
+	struct tlv_obs2_encmsg_tlvs *encmsg = tlv_obs2_encmsg_tlvs_new(tmpctx);
 	struct privkey unused_next_blinding;
 
 	if (padlen)

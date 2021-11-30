@@ -84,7 +84,7 @@ msgdata,gossipd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
 msgdata,gossipd_got_onionmsg_to_us,rawmsg_len,u16,
 msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
 
-# Lightningd tells us to send a onion message.
+# Lightningd tells us to send an onion message.
 msgtype,gossipd_send_onionmsg,3041
 msgdata,gossipd_send_onionmsg,id,node_id,
 msgdata,gossipd_send_onionmsg,onion_len,u16,
