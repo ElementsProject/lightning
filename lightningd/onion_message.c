@@ -199,10 +199,11 @@ static struct command_result *param_onion_hops(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *json_sendonionmessage(struct command *cmd,
-						    const char *buffer,
-						    const jsmntok_t *obj UNNEEDED,
-						    const jsmntok_t *params)
+static struct command_result *json_sendonionmessage2(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params,
+						     bool obs2)
 {
 	struct onion_hop *hops;
 	struct node_id *first_id;
@@ -248,11 +249,27 @@ static struct command_result *json_sendonionmessage(struct command *cmd,
 				    "Creating onion failed (tlvs too long?)");
 
 	subd_send_msg(cmd->ld->gossip,
-		      take(towire_gossipd_send_onionmsg(NULL, first_id,
+		      take(towire_gossipd_send_onionmsg(NULL, obs2, first_id,
 					serialize_onionpacket(tmpctx, op),
 					blinding)));
 
 	return command_success(cmd, json_stream_success(cmd));
+}
+
+static struct command_result *json_sendonionmessage(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj,
+						    const jsmntok_t *params)
+{
+	return json_sendonionmessage2(cmd, buffer, obj, params, false);
+}
+
+static struct command_result *json_sendobs2onionmessage(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *obj,
+							const jsmntok_t *params)
+{
+	return json_sendonionmessage2(cmd, buffer, obj, params, true);
 }
 
 static const struct json_command sendonionmessage_command = {
@@ -262,6 +279,14 @@ static const struct json_command sendonionmessage_command = {
 	"Send message to {first_id}, using {blinding}, encoded over {hops} (id, tlv)"
 };
 AUTODATA(json_command, &sendonionmessage_command);
+
+static const struct json_command sendobs2onionmessage_command = {
+	"sendobs2onionmessage",
+	"utility",
+	json_sendobs2onionmessage,
+	"Send obsolete message to {first_id}, using {blinding}, encoded over {hops} (id, tlv)"
+};
+AUTODATA(json_command, &sendobs2onionmessage_command);
 
 static struct command_result *param_pubkeys(struct command *cmd,
 					    const char *name,

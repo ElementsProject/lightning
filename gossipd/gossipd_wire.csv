@@ -86,6 +86,7 @@ msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
 
 # Lightningd tells us to send an onion message.
 msgtype,gossipd_send_onionmsg,3041
+msgdata,gossipd_send_onionmsg,obs2,bool,
 msgdata,gossipd_send_onionmsg,id,node_id,
 msgdata,gossipd_send_onionmsg,onion_len,u16,
 msgdata,gossipd_send_onionmsg,onion,u8,onion_len
