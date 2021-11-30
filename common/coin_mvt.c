@@ -291,10 +291,10 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 {
 	if (mvt->account_name) {
-		towire_u16(pptr, strlen(mvt->account_name));
-		towire_u8_array(pptr, (u8 *)mvt->account_name, strlen(mvt->account_name));
+		towire_bool(pptr, true);
+		towire_wirestring(pptr, mvt->account_name);
 	} else
-		towire_u16(pptr, 0);
+		towire_bool(pptr, false);
 
 	towire_bitcoin_outpoint(pptr, mvt->outpoint);
 
@@ -313,16 +313,13 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 	towire_u8(pptr, mvt->tag);
 	towire_amount_msat(pptr, mvt->credit);
 	towire_amount_msat(pptr, mvt->debit);
+	towire_amount_sat(pptr, mvt->output_val);
 }
 
 void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt)
 {
-	u16 account_name_len;
-	account_name_len = fromwire_u16(cursor, max);
-
-	if (account_name_len) {
-		mvt->account_name = tal_arr(mvt, char, account_name_len);
-		fromwire_u8_array(cursor, max, (u8 *)mvt->account_name, account_name_len);
+	if (fromwire_bool(cursor, max)) {
+		mvt->account_name = fromwire_wirestring(mvt, cursor, max);
 	} else
 		mvt->account_name = NULL;
 
