@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 
 	/* We output the JSON test vectors. */
 	printf("[{");
-	json_strfield("test name", "Simple enctlv for Alice, next is Bob");
+	json_strfield("test name", "Simple encrypted_recipient_data for Alice, next is Bob");
 	json_strfield("node_privkey",
 		      type_to_string(tmpctx, struct privkey, &alice));
 	json_strfield("node_id",
@@ -145,14 +145,14 @@ int main(int argc, char *argv[])
 		      type_to_string(tmpctx, struct privkey, &blinding));
 	json_strfield("blinding",
 		      type_to_string(tmpctx, struct pubkey, &blinding_pub));
-	printf("\t\"encmsg\": {\n"
+	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\"\n"
 	       "\t},\n",
 	       type_to_string(tmpctx, struct pubkey, &bob_id));
 
 	enctlv = create_obs2_enctlv(tmpctx, &blinding, &alice_id, &bob_id,
 				    0, NULL, &blinding, &alias);
-	printf("\t\"enctlv_hex\": \"%s\"\n"
+	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
 
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 
 	printf("{");
 	json_strfield("test name",
-		      "Blinding-key-override enctlv for Bob, next is Carol");
+		      "Blinding-key-override encrypted_recipient_data for Bob, next is Carol");
 	json_strfield("node_privkey",
 		      type_to_string(tmpctx, struct privkey, &bob));
 	json_strfield("node_id",
@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 		      type_to_string(tmpctx, struct privkey, &blinding));
 	json_strfield("blinding",
 		      type_to_string(tmpctx, struct pubkey, &blinding_pub));
-	printf("\t\"encmsg\": {\n"
+	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\",\n"
 	       "\t\t\"blinding\": \"%s\"\n"
 	       "\t},\n",
@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 
 	enctlv = create_obs2_enctlv(tmpctx, &blinding, &bob_id, &carol_id,
 				    0, &override_blinding_pub, &blinding, &alias);
-	printf("\t\"enctlv_hex\": \"%s\"\n"
+	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
 
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 	blinding_pub = override_blinding_pub;
 
 	printf("{");
-	json_strfield("test name", "Padded enctlv for Carol, next is Dave");
+	json_strfield("test name", "Padded encrypted_recipient_data for Carol, next is Dave");
 	json_strfield("node_privkey",
 		      type_to_string(tmpctx, struct privkey, &carol));
 	json_strfield("node_id",
@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
 		      type_to_string(tmpctx, struct privkey, &blinding));
 	json_strfield("blinding",
 		      type_to_string(tmpctx, struct pubkey, &blinding_pub));
-	printf("\t\"encmsg\": {\n"
+	printf("\t\"encrypted_data_tlv\": {\n"
 	       "\t\t\"next_node_id\": \"%s\",\n"
 	       "\t\t\"padding\": \"%s\"\n"
 	       "\t},\n",
@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
 
 	enctlv = create_obs2_enctlv(tmpctx, &blinding, &carol_id, &dave_id,
 				    35, NULL, &blinding, &alias);
-	printf("\t\"enctlv_hex\": \"%s\"\n"
+	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "}]\n",
 	       tal_hex(tmpctx, enctlv));
 

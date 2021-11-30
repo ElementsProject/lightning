@@ -270,7 +270,7 @@ static bool print_blindedpaths(struct blinded_path **paths,
 			printf(" %s:%s",
 			       type_to_string(tmpctx, struct pubkey,
 					      &p[j]->node_id),
-			       tal_hex(tmpctx, p[j]->enctlv));
+			       tal_hex(tmpctx, p[j]->encrypted_recipient_data));
 			if (blindedpay) {
 				if (bp_idx < tal_count(blindedpay))
 					printf("fee=%u/%u,cltv=%u,features=%s",

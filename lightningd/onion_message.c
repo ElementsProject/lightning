@@ -37,7 +37,8 @@ static void json_add_blindedpath(struct json_stream *stream,
 	for (size_t i = 0; i < tal_count(path); i++) {
 		json_object_start(stream, NULL);
 		json_add_pubkey(stream, "id", &path[i]->node_id);
-		json_add_hex_talarr(stream, "enctlv", path[i]->enctlv);
+		json_add_hex_talarr(stream, "encrypted_recipient_data",
+				    path[i]->encrypted_recipient_data);
 		json_object_end(stream);
 	};
 	json_array_end(stream);
@@ -327,7 +328,7 @@ static struct command_result *json_blindedpath(struct command *cmd,
 
 	for (size_t i = 0; i < nhops - 1; i++) {
 		path[i] = tal(path, struct onionmsg_path);
-		path[i]->enctlv = create_obs2_enctlv(path[i],
+		path[i]->encrypted_recipient_data = create_obs2_enctlv(path[i],
 						     &blinding_iter,
 						     &ids[i],
 						     &ids[i+1],
@@ -340,7 +341,7 @@ static struct command_result *json_blindedpath(struct command *cmd,
 
 	/* FIXME: Add padding! */
 	path[nhops-1] = tal(path, struct onionmsg_path);
-	path[nhops-1]->enctlv = create_obs2_final_enctlv(path[nhops-1],
+	path[nhops-1]->encrypted_recipient_data = create_obs2_final_enctlv(path[nhops-1],
 							 &blinding_iter,
 							 &ids[nhops-1],
 							 /* FIXME: Pad? */

@@ -64,7 +64,7 @@ send_onion_reply(struct command *cmd,
 		json_add_pubkey(req->js, "id", &reply_path->path[i]->node_id);
 
 		omp = tlv_obs2_onionmsg_payload_new(tmpctx);
-		omp->enctlv = reply_path->path[i]->enctlv;
+		omp->enctlv = reply_path->path[i]->encrypted_recipient_data;
 
 		/* Put payload in last hop. */
 		if (i == nhops - 1) {
@@ -227,7 +227,7 @@ static void json_add_onionmsg_path(struct json_stream *js,
 {
 	json_object_start(js, fieldname);
 	json_add_pubkey(js, "node_id", &path->node_id);
-	json_add_hex_talarr(js, "enctlv", path->enctlv);
+	json_add_hex_talarr(js, "encrypted_recipient_data", path->encrypted_recipient_data);
 	if (payinfo) {
 		json_add_u32(js, "fee_base_msat", payinfo->fee_base_msat);
 		json_add_u32(js, "fee_proportional_millionths",

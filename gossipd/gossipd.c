@@ -520,6 +520,13 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+/* Peer sends an onion msg. */
+static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
+{
+	/* FIXME! */
+	return NULL;
+}
+
 /*~ This is where the per-peer daemons send us messages.  It's either forwarded
  * gossip, or a request for information.  We deliberately use non-overlapping
  * message types so we can distinguish them. */
@@ -555,6 +562,9 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		goto handled_relay;
 	case WIRE_OBS2_ONION_MESSAGE:
 		err = handle_obs2_onion_message(peer, msg);
+		goto handled_relay;
+	case WIRE_ONION_MESSAGE:
+		err = handle_onion_message(peer, msg);
 		goto handled_relay;
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */

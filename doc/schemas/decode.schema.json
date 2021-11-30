@@ -146,7 +146,7 @@
                     "type": "object",
                     "required": [
                       "node_id",
-                      "enctlv"
+                      "encrypted_recipient_data"
                     ],
                     "additionalProperties": false,
                     "properties": {
@@ -154,7 +154,7 @@
                         "type": "pubkey",
                         "description": "node_id of the hop"
                       },
-                      "enctlv": {
+                      "encrypted_recipient_data": {
                         "type": "hex",
                         "description": "encrypted TLV entry for this hop"
                       }
@@ -388,7 +388,7 @@
                     "type": "object",
                     "required": [
                       "node_id",
-                      "enctlv"
+                      "encrypted_recipient_data"
                     ],
                     "additionalProperties": false,
                     "properties": {
@@ -396,7 +396,7 @@
                         "type": "pubkey",
                         "description": "node_id of the hop"
                       },
-                      "enctlv": {
+                      "encrypted_recipient_data": {
                         "type": "hex",
                         "description": "encrypted TLV entry for this hop"
                       }
