@@ -1514,13 +1514,12 @@ type prefix, since c-lightning does not know how to parse the message.
 Because this is a chained hook, the daemon expects the result to be
 `{'result': 'continue'}`. It will fail if something else is returned.
 
-### `onion_message`, `onion_message_blinded` and `onion_message_ourpath`
+### `onion_message_blinded` and `onion_message_ourpath`
 
 **(WARNING: experimental-offers only)**
 
-These three hooks are almost identical, in that they are called when
-an onion message is received.  The `onion_message` hook is only used
-for obsolete unblinded messages, and can be ignored for modern usage.
+These two hooks are almost identical, in that they are called when
+an onion message is received.
 
 `onion_message_blinded` is used for unsolicited messages (where the
 source knows that it is sending to this node), and
@@ -1556,6 +1555,7 @@ The payload for a call follows this format:
 All fields shown here are optional.
 
 We suggest just returning `{'result': 'continue'}`; any other result
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 will cause the message not to be handed to any other hooks.
 
 ## Bitcoin backend

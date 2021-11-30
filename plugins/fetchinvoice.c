@@ -28,9 +28,7 @@ static LIST_HEAD(sent_list);
 struct sent {
 	/* We're in sent_invreqs, awaiting reply. */
 	struct list_node list;
-	/* The blinding factor used by reply (obsolete only) */
-	struct pubkey *reply_blinding;
-	/* The alias used by reply (modern only) */
+	/* The alias used by reply */
 	struct pubkey *reply_alias;
 	/* The command which sent us. */
 	struct command *cmd;
@@ -48,17 +46,6 @@ struct sent {
 	/* How long to wait for response before giving up. */
 	u32 wait_timeout;
 };
-
-static struct sent *find_sent_by_blinding(const struct pubkey *blinding)
-{
-	struct sent *i;
-
-	list_for_each(&sent_list, i, list) {
-		if (i->reply_blinding && pubkey_eq(i->reply_blinding, blinding))
-			return i;
-	}
-	return NULL;
-}
 
 static struct sent *find_sent_by_alias(const struct pubkey *alias)
 {
@@ -443,48 +430,6 @@ static struct command_result *recv_modern_onion_message(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
-static struct command_result *recv_obs_onion_message(struct command *cmd,
-						     const char *buf,
-						     const jsmntok_t *params)
-{
-	const jsmntok_t *om, *blindingtok;
-	bool obsolete;
-	struct sent *sent;
-	struct pubkey blinding;
-	struct command_result *err;
-
-	om = json_get_member(buf, params, "onion_message");
-	json_to_bool(buf, json_get_member(buf, om, "obsolete"), &obsolete);
-	if (!obsolete)
-		return command_hook_success(cmd);
-
-	blindingtok = json_get_member(buf, om, "blinding_in");
-	if (!blindingtok || !json_to_pubkey(buf, blindingtok, &blinding))
-		return command_hook_success(cmd);
-
-	sent = find_sent_by_blinding(&blinding);
-	if (!sent) {
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "No match for obsolete onion %.*s",
-			   json_tok_full_len(om),
-			   json_tok_full(buf, om));
-		return command_hook_success(cmd);
-	}
-
-	plugin_log(cmd->plugin, LOG_DBG, "Received onion message: %.*s",
-		   json_tok_full_len(params),
-		   json_tok_full(buf, params));
-
-	err = handle_error(cmd, sent, buf, om);
-	if (err)
-		return err;
-
-	if (sent->invreq)
-		return handle_invreq_response(cmd, sent, buf, om);
-
-	return command_hook_success(cmd);
-}
-
 static void destroy_sent(struct sent *sent)
 {
 	list_del(&sent->list);
@@ -681,7 +626,7 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 	return nodes;
 }
 
-/* Marshal arguments for sending obsolete and modern onion messages */
+/* Marshal arguments for sending onion messages */
 struct sending {
 	struct sent *sent;
 	const char *msgfield;
@@ -691,63 +636,6 @@ struct sending {
 				       const jsmntok_t *result UNUSED,
 				       struct sent *sent);
 };
-
-/* Send this message down this path, with blinded reply path */
-static struct command_result *send_obs_message(struct command *cmd,
-					       const char *buf UNUSED,
-					       const jsmntok_t *result UNUSED,
-					       struct sending *sending)
-{
-	struct pubkey *backwards;
-	struct onionmsg_path **path;
-	struct pubkey blinding;
-	struct out_req *req;
-	struct sent *sent = sending->sent;
-
-	/* FIXME: Maybe we should allow this? */
-	if (tal_count(sent->path) == 1)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
-				    "Refusing to talk to ourselves");
-
-	/* Reverse path is offset by one. */
-	backwards = tal_arr(tmpctx, struct pubkey, tal_count(sent->path) - 1);
-	for (size_t i = 0; i < tal_count(backwards); i++)
-		backwards[tal_count(backwards)-1-i] = sent->path[i];
-
-	/* Ok, now make reply for onion_message */
-	sent->reply_blinding = tal(sent, struct pubkey);
-	path = make_blindedpath(tmpctx, backwards, &blinding,
-				sent->reply_blinding);
-
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobsonionmessage",
-				    sending->done,
-				    forward_error,
-				    sent);
-	json_array_start(req->js, "hops");
-	for (size_t i = 1; i < tal_count(sent->path); i++) {
-		json_object_start(req->js, NULL);
-		json_add_pubkey(req->js, "id", &sent->path[i]);
-		if (i == tal_count(sent->path) - 1)
-			json_add_hex_talarr(req->js,
-					    sending->msgfield, sending->msgval);
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-
-	json_object_start(req->js, "reply_path");
-	json_add_pubkey(req->js, "blinding", &blinding);
-	json_array_start(req->js, "path");
-	for (size_t i = 0; i < tal_count(path); i++) {
-		json_object_start(req->js, NULL);
-		json_add_pubkey(req->js, "id", &path[i]->node_id);
-		if (path[i]->enctlv)
-			json_add_hex_talarr(req->js, "enctlv", path[i]->enctlv);
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	json_object_end(req->js);
-	return send_outreq(cmd->plugin, req);
-}
 
 static struct command_result *
 send_modern_message(struct command *cmd,
@@ -810,10 +698,9 @@ send_modern_message(struct command *cmd,
 	payloads[nhops-1]->reply_path = reply_path;
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
-				    /* We try obsolete msg next */
-				    send_obs_message,
+				    sending->done,
 				    forward_error,
-				    sending);
+				    sending->sent);
 	json_add_pubkey(req->js, "first_id", &sent->path[1]);
 	json_add_pubkey(req->js, "blinding", &fwd_blinding);
 	json_array_start(req->js, "hops");
@@ -1942,10 +1829,6 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 }
 
 static const struct plugin_hook hooks[] = {
-	{
-		"onion_message_blinded",
-		recv_obs_onion_message
-	},
 	{
 		"onion_message_ourpath",
 		recv_modern_onion_message

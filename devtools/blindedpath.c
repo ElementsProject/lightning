@@ -144,15 +144,7 @@ int main(int argc, char **argv)
 
 			/* Inner is encrypted */
 			inner = tlv_encmsg_tlvs_new(tmpctx);
-			/* Use scid if they provided one */
-			if (scids[i]) {
-				inner->obs_next_short_channel_id
-					= tal_dup(inner, struct short_channel_id,
-						  scids[i]);
-			} else {
-				inner->next_node_id
-					= tal_dup(inner, struct pubkey, &nodes[i+1]);
-			}
+			inner->next_node_id = tal_dup(inner, struct pubkey, &nodes[i+1]);
 			p = tal_arr(tmpctx, u8, 0);
 			towire_encmsg_tlvs(&p, inner);
 

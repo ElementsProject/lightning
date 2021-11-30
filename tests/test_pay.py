@@ -3259,6 +3259,7 @@ def test_reject_invalid_payload(node_factory):
         l1.rpc.waitsendpay(inv['payment_hash'])
 
 
+@pytest.mark.skip("Needs to be updated for modern onion")
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs blinding args to sendpay")
 def test_sendpay_blinding(node_factory):
     l1, l2, l3, l4 = node_factory.line_graph(4)
@@ -4348,23 +4349,6 @@ def test_fetchinvoice_3hop(node_factory, bitcoind):
     offer1 = l4.rpc.call('offer', {'amount': '2msat',
                                    'description': 'simple test'})
     assert offer1['created'] is True
-
-    l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
-
-    # Test with obsolete onion.
-    l4.stop()
-    l4.daemon.opts['dev-no-modern-onion'] = None
-    l4.start()
-    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
-
-    l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
-
-    # Test with modern onion.
-    l4.stop()
-    del l4.daemon.opts['dev-no-modern-onion']
-    l4.daemon.opts['dev-no-obsolete-onion'] = None
-    l4.start()
-    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
 

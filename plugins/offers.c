@@ -41,11 +41,11 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 }
 
 /* FIXME: replyfield string interface is to accomodate obsolete API */
-static struct command_result *
-send_modern_onion_reply(struct command *cmd,
-			struct tlv_onionmsg_payload_reply_path *reply_path,
-			const char *replyfield,
-			const u8 *replydata)
+struct command_result *
+send_onion_reply(struct command *cmd,
+		 struct tlv_onionmsg_payload_reply_path *reply_path,
+		 const char *replyfield,
+		 const u8 *replydata)
 {
 	struct out_req *req;
 	size_t nhops = tal_count(reply_path->path);
@@ -84,104 +84,17 @@ send_modern_onion_reply(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-struct command_result *WARN_UNUSED_RESULT
-send_onion_reply(struct command *cmd,
-		 struct tlv_onionmsg_payload_reply_path *reply_path,
-		 const char *jsonbuf,
-		 const jsmntok_t *replytok,
-		 const char *replyfield,
-		 const u8 *replydata)
-{
-	struct out_req *req;
-	size_t i;
-	const jsmntok_t *t;
-
-	if (reply_path)
-		return send_modern_onion_reply(cmd, reply_path,
-					       replyfield, replydata);
-
-	plugin_log(cmd->plugin, LOG_DBG, "sending obs reply %s = %s",
-		   replyfield, tal_hex(tmpctx, replydata));
-
-	/* Send to requester, using return route. */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobsonionmessage",
-				    finished, sendonionmessage_error, NULL);
-
-	/* Add reply into last hop. */
-	json_array_start(req->js, "hops");
-	json_for_each_arr(i, t, replytok) {
-		size_t j;
-		const jsmntok_t *t2;
-
-		plugin_log(cmd->plugin, LOG_DBG, "hops[%zu/%i]",
-			   i, replytok->size);
-		json_object_start(req->js, NULL);
-		json_for_each_obj(j, t2, t)
-			json_add_tok(req->js,
-				     json_strdup(tmpctx, jsonbuf, t2),
-				     t2+1, jsonbuf);
-		if (i == replytok->size - 1) {
-			plugin_log(cmd->plugin, LOG_DBG, "... adding %s",
-				   replyfield);
-			json_add_hex_talarr(req->js, replyfield, replydata);
-		}
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	return send_outreq(cmd->plugin, req);
-}
-
-static struct command_result *onion_message_call(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *params)
-{
-	const jsmntok_t *om, *invreqtok, *invtok;
-
-	if (!offers_enabled)
-		return command_hook_success(cmd);
-
-	om = json_get_member(buf, params, "onion_message");
-
-	invreqtok = json_get_member(buf, om, "invoice_request");
-	if (invreqtok) {
-		const jsmntok_t *replytok;
-
-		replytok = json_get_member(buf, om, "reply_path");
-		if (replytok && replytok->size > 0)
-			return handle_invoice_request(cmd, buf,
-						      invreqtok, replytok, NULL);
-		else
-			plugin_log(cmd->plugin, LOG_DBG,
-				   "invoice_request without reply_path");
-	}
-
-	invtok = json_get_member(buf, om, "invoice");
-	if (invtok) {
-		const jsmntok_t *replytok;
-
-		replytok = json_get_member(buf, om, "reply_path");
-		return handle_invoice(cmd, buf, invtok, replytok, NULL);
-	}
-
-	return command_hook_success(cmd);
-}
-
 static struct command_result *onion_message_modern_call(struct command *cmd,
 							const char *buf,
 							const jsmntok_t *params)
 {
 	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
-	bool obsolete;
 	struct tlv_onionmsg_payload_reply_path *reply_path;
 
 	if (!offers_enabled)
 		return command_hook_success(cmd);
 
 	om = json_get_member(buf, params, "onion_message");
-	json_to_bool(buf, json_get_member(buf, om, "obsolete"), &obsolete);
-	if (obsolete)
-		return command_hook_success(cmd);
-
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
 		reply_path = json_to_reply_path(cmd, buf, replytok);
@@ -194,10 +107,11 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 
 	invreqtok = json_get_member(buf, om, "invoice_request");
 	if (invreqtok) {
+		const u8 *invreqbin = json_tok_bin_from_hex(tmpctx, buf, invreqtok);
 		if (reply_path)
-			return handle_invoice_request(cmd, buf,
-						      invreqtok,
-						      NULL, reply_path);
+			return handle_invoice_request(cmd,
+						      invreqbin,
+						      reply_path);
 		else
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "invoice_request without reply_path");
@@ -205,17 +119,15 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 
 	invtok = json_get_member(buf, om, "invoice");
 	if (invtok) {
-		return handle_invoice(cmd, buf, invtok, NULL, reply_path);
+		const u8 *invbin = json_tok_bin_from_hex(tmpctx, buf, invtok);
+		if (invbin)
+			return handle_invoice(cmd, invbin, reply_path);
 	}
 
 	return command_hook_success(cmd);
 }
 
 static const struct plugin_hook hooks[] = {
-	{
-		"onion_message",
-		onion_message_call
-	},
 	{
 		"onion_message_blinded",
 		onion_message_modern_call

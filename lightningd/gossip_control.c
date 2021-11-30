@@ -123,7 +123,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
 	case WIRE_GOSSIPD_DEV_SET_TIME:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
-	case WIRE_GOSSIPD_SEND_OBS_ONIONMSG:
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	/* This is a reply, so never gets through to here. */
@@ -134,12 +133,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 		break;
 
-	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_TO_US:
-		handle_obs_onionmsg_to_us(gossip->ld, msg);
-		break;
-	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_FORWARD:
-		handle_obs_onionmsg_forward(gossip->ld, msg);
-		break;
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 		handle_onionmsg_to_us(gossip->ld, msg);
 		break;
