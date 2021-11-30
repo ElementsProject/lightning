@@ -138,17 +138,17 @@ int main(int argc, char **argv)
 			u8 *p;
 			u8 buf[BIGSIZE_MAX_LEN];
 			const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-			struct tlv_onionmsg_payload *outer;
-			struct tlv_encmsg_tlvs *inner;
+			struct tlv_obs2_onionmsg_payload *outer;
+			struct tlv_obs2_encmsg_tlvs *inner;
 			int ret;
 
 			/* Inner is encrypted */
-			inner = tlv_encmsg_tlvs_new(tmpctx);
+			inner = tlv_obs2_encmsg_tlvs_new(tmpctx);
 			inner->next_node_id = tal_dup(inner, struct pubkey, &nodes[i+1]);
 			p = tal_arr(tmpctx, u8, 0);
-			towire_encmsg_tlvs(&p, inner);
+			towire_obs2_encmsg_tlvs(&p, inner);
 
-			outer = tlv_onionmsg_payload_new(tmpctx);
+			outer = tlv_obs2_onionmsg_payload_new(tmpctx);
 			outer->enctlv = tal_arr(outer, u8, tal_count(p)
 				      + crypto_aead_chacha20poly1305_ietf_ABYTES);
 			ret = crypto_aead_chacha20poly1305_ietf_encrypt(outer->enctlv, NULL,
@@ -160,7 +160,7 @@ int main(int argc, char **argv)
 			assert(ret == 0);
 
 			p = tal_arr(tmpctx, u8, 0);
-			towire_onionmsg_payload(&p, outer);
+			towire_obs2_onionmsg_payload(&p, outer);
 			ret = bigsize_put(buf, tal_bytelen(p));
 
 			if (simpleout) {
@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 		struct secret hmac, rho;
 		struct route_step *rs;
 		const u8 *cursor;
-		struct tlv_onionmsg_payload *outer;
+		struct tlv_obs2_onionmsg_payload *outer;
 		size_t max, len;
 		struct pubkey res;
 		struct sha256 h;
@@ -257,8 +257,8 @@ int main(int argc, char **argv)
 
 		/* Always true since we're non-legacy */
 		assert(len == max);
-		outer = tlv_onionmsg_payload_new(tmpctx);
-		if (!fromwire_onionmsg_payload(&cursor, &max, outer))
+		outer = tlv_obs2_onionmsg_payload_new(tmpctx);
+		if (!fromwire_obs2_onionmsg_payload(&cursor, &max, outer))
 			errx(1, "Invalid payload %s",
 			     tal_hex(tmpctx, rs->raw_payload));
 

@@ -84,7 +84,7 @@ static void test_decrypt(const struct pubkey *blinding,
 
 	mykey = me;
 	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
-	assert(decrypt_enctlv(blinding, &ss, enctlv, &next_node, &next_blinding));
+	assert(decrypt_obs2_enctlv(blinding, &ss, enctlv, &next_node, &next_blinding));
 
 	pubkey_from_privkey(expected_next_blinding_priv, &expected_next_blinding);
 	assert(pubkey_eq(&next_blinding, &expected_next_blinding));
@@ -106,8 +106,8 @@ static void test_final_decrypt(const struct pubkey *blinding,
 	mykey = me;
 	pubkey_from_privkey(me, &my_pubkey);
 	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
-	assert(decrypt_final_enctlv(tmpctx, blinding, &ss, enctlv, &my_pubkey,
-				    &alias, &self_id));
+	assert(decrypt_obs2_final_enctlv(tmpctx, blinding, &ss, enctlv, &my_pubkey,
+					 &alias, &self_id));
 
 	assert(pubkey_eq(&alias, expected_alias));
 	assert(secret_eq_consttime(self_id, expected_self_id));
@@ -150,8 +150,8 @@ int main(int argc, char *argv[])
 	       "\t},\n",
 	       type_to_string(tmpctx, struct pubkey, &bob_id));
 
-	enctlv = create_enctlv(tmpctx, &blinding, &alice_id, &bob_id,
-			       0, NULL, &blinding, &alias);
+	enctlv = create_obs2_enctlv(tmpctx, &blinding, &alice_id, &bob_id,
+				    0, NULL, &blinding, &alias);
 	printf("\t\"enctlv_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
@@ -180,8 +180,8 @@ int main(int argc, char *argv[])
 	       type_to_string(tmpctx, struct pubkey, &carol_id),
 	       type_to_string(tmpctx, struct privkey, &override_blinding));
 
-	enctlv = create_enctlv(tmpctx, &blinding, &bob_id, &carol_id,
-			       0, &override_blinding_pub, &blinding, &alias);
+	enctlv = create_obs2_enctlv(tmpctx, &blinding, &bob_id, &carol_id,
+				    0, &override_blinding_pub, &blinding, &alias);
 	printf("\t\"enctlv_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
@@ -209,8 +209,8 @@ int main(int argc, char *argv[])
 	       type_to_string(tmpctx, struct pubkey, &dave_id),
 	       tal_hex(tmpctx, tal_arrz(tmpctx, u8, 35)));
 
-	enctlv = create_enctlv(tmpctx, &blinding, &carol_id, &dave_id,
-			       35, NULL, &blinding, &alias);
+	enctlv = create_obs2_enctlv(tmpctx, &blinding, &carol_id, &dave_id,
+				    35, NULL, &blinding, &alias);
 	printf("\t\"enctlv_hex\": \"%s\"\n"
 	       "}]\n",
 	       tal_hex(tmpctx, enctlv));
@@ -220,8 +220,8 @@ int main(int argc, char *argv[])
 	/* FIXME: Add this to the test vectors! */
 	fclose(stdout);
 	memset(&self_id, 0x77, sizeof(self_id));
-	enctlv = create_final_enctlv(tmpctx, &blinding, &dave_id,
-				     0, &self_id, &alias);
+	enctlv = create_obs2_final_enctlv(tmpctx, &blinding, &dave_id,
+					  0, &self_id, &alias);
 
 	pubkey_from_privkey(&blinding, &blinding_pub);
 	test_final_decrypt(&blinding_pub, enctlv, &dave, &alias, &self_id);

@@ -33,7 +33,7 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
-	case WIRE_ONION_MESSAGE:
+	case WIRE_OBS2_ONION_MESSAGE:
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:
@@ -62,7 +62,7 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
-	case WIRE_ONION_MESSAGE:
+	case WIRE_OBS2_ONION_MESSAGE:
 		return true;
 	case WIRE_WARNING:
 	case WIRE_INIT:

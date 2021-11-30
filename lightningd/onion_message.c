@@ -21,7 +21,7 @@ struct onion_message_hook_payload {
 	struct pubkey *reply_first_node;
 	struct pubkey *our_alias;
 
-	struct tlv_onionmsg_payload *om;
+	struct tlv_obs2_onionmsg_payload *om;
 };
 
 static void json_add_blindedpath(struct json_stream *stream,
@@ -116,7 +116,7 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	const u8 *subptr;
 
 	payload = tal(ld, struct onion_message_hook_payload);
-	payload->om = tlv_onionmsg_payload_new(payload);
+	payload->om = tlv_obs2_onionmsg_payload_new(payload);
 	payload->our_alias = tal(payload, struct pubkey);
 
 	if (!fromwire_gossipd_got_onionmsg_to_us(payload, msg,
@@ -138,8 +138,8 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 
 	submsglen = tal_bytelen(submsg);
 	subptr = submsg;
-	if (!fromwire_onionmsg_payload(&subptr,
-				       &submsglen, payload->om)) {
+	if (!fromwire_obs2_onionmsg_payload(&subptr,
+					    &submsglen, payload->om)) {
 		tal_free(payload);
 		log_broken(ld->log, "bad got_onionmsg_tous om: %s",
 			   tal_hex(tmpctx, msg));
@@ -327,26 +327,26 @@ static struct command_result *json_blindedpath(struct command *cmd,
 
 	for (size_t i = 0; i < nhops - 1; i++) {
 		path[i] = tal(path, struct onionmsg_path);
-		path[i]->enctlv = create_enctlv(path[i],
-						&blinding_iter,
-						&ids[i],
-						&ids[i+1],
-						/* FIXME: Pad? */
-						0,
-						NULL,
-						&blinding_iter,
-						&path[i]->node_id);
+		path[i]->enctlv = create_obs2_enctlv(path[i],
+						     &blinding_iter,
+						     &ids[i],
+						     &ids[i+1],
+						     /* FIXME: Pad? */
+						     0,
+						     NULL,
+						     &blinding_iter,
+						     &path[i]->node_id);
 	}
 
 	/* FIXME: Add padding! */
 	path[nhops-1] = tal(path, struct onionmsg_path);
-	path[nhops-1]->enctlv = create_final_enctlv(path[nhops-1],
-						    &blinding_iter,
-						    &ids[nhops-1],
-						    /* FIXME: Pad? */
-						    0,
-						    &cmd->ld->onion_reply_secret,
-						    &path[nhops-1]->node_id);
+	path[nhops-1]->enctlv = create_obs2_final_enctlv(path[nhops-1],
+							 &blinding_iter,
+							 &ids[nhops-1],
+							 /* FIXME: Pad? */
+							 0,
+							 &cmd->ld->onion_reply_secret,
+							 &path[nhops-1]->node_id);
 
 	response = json_stream_success(cmd);
 	json_add_blindedpath(response, "blindedpath",

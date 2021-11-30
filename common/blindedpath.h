@@ -23,7 +23,7 @@ struct secret;
  *
  * Returns the enctlv blob, or NULL if the secret is invalid.
  */
-u8 *create_enctlv(const tal_t *ctx,
+u8 *create_obs2_enctlv(const tal_t *ctx,
 		  const struct privkey *blinding,
 		  const struct pubkey *node,
 		  const struct pubkey *next_node,
@@ -44,7 +44,7 @@ u8 *create_enctlv(const tal_t *ctx,
  *
  * If it fails, it means one of the privkeys is bad.
  */
-u8 *create_final_enctlv(const tal_t *ctx,
+u8 *create_obs2_final_enctlv(const tal_t *ctx,
 			const struct privkey *blinding,
 			const struct pubkey *final_node,
 			size_t padlen,
@@ -77,7 +77,7 @@ bool unblind_onion(const struct pubkey *blinding,
  *
  * Returns false if decryption failed or encmsg was malformed.
  */
-bool decrypt_enctlv(const struct pubkey *blinding,
+bool decrypt_obs2_enctlv(const struct pubkey *blinding,
 		    const struct secret *ss,
 		    const u8 *enctlv,
 		    struct pubkey *next_node,
@@ -96,7 +96,7 @@ bool decrypt_enctlv(const struct pubkey *blinding,
  *
  * Returns false if decryption failed or encmsg was malformed.
  */
-bool decrypt_final_enctlv(const tal_t *ctx,
+bool decrypt_obs2_final_enctlv(const tal_t *ctx,
 			  const struct pubkey *blinding,
 			  const struct secret *ss,
 			  const u8 *enctlv,

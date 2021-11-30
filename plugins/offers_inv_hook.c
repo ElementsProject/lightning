@@ -11,7 +11,7 @@ struct inv {
 	struct tlv_invoice *inv;
 
 	/* May be NULL */
-	struct tlv_onionmsg_payload_reply_path *reply_path;
+	struct tlv_obs2_onionmsg_payload_reply_path *reply_path;
 
 	/* The offer, once we've looked it up. */
 	struct tlv_offer *offer;
@@ -313,7 +313,7 @@ static struct command_result *listoffers_error(struct command *cmd,
 
 struct command_result *handle_invoice(struct command *cmd,
 				      const u8 *invbin,
-				      struct tlv_onionmsg_payload_reply_path *reply_path STEALS)
+				      struct tlv_obs2_onionmsg_payload_reply_path *reply_path STEALS)
 {
 	size_t len = tal_count(invbin);
 	struct inv *inv = tal(cmd, struct inv);
