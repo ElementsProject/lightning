@@ -10,13 +10,6 @@ struct pubkey;
 struct privkey;
 struct secret;
 
-/* Fills in *initial_blinding and *final_blinding and returns
- * onionmsg_path array for this route */
-struct onionmsg_path **make_blindedpath(const tal_t *ctx,
-					const struct pubkey *route,
-					struct pubkey *initial_blinding,
-					struct pubkey *final_blinding);
-
 /**
  * create_enctlv - Encrypt an encmsg to form an enctlv.
  * @ctx: tal context

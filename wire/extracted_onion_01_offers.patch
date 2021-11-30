@@ -1,30 +1,29 @@
 --- wire/extracted_onion_wire_csv	2020-03-25 10:24:12.861645774 +1030
 +++ -	2020-03-26 13:47:13.498294435 +1030
-@@ -8,6 +8,31 @@
+@@ -8,6 +8,30 @@
  tlvtype,tlv_payload,payment_data,8
  tlvdata,tlv_payload,payment_data,payment_secret,byte,32
  tlvdata,tlv_payload,payment_data,total_msat,tu64,
-+tlvtype,onionmsg_payload,obs_next_node_id,4
-+tlvdata,onionmsg_payload,obs_next_node_id,node_id,point,
-+tlvtype,onionmsg_payload,obs_next_short_channel_id,6
-+tlvdata,onionmsg_payload,obs_next_short_channel_id,short_channel_id,short_channel_id,
-+tlvtype,onionmsg_payload,obs_reply_path,8
-+tlvdata,onionmsg_payload,obs_reply_path,blinding,point,
-+tlvdata,onionmsg_payload,obs_reply_path,path,onionmsg_path,...
++tlvtype,onionmsg_payload,reply_path,2
++tlvdata,onionmsg_payload,reply_path,first_node_id,point,
++tlvdata,onionmsg_payload,reply_path,blinding,point,
++tlvdata,onionmsg_payload,reply_path,path,onionmsg_path,...
 +tlvtype,onionmsg_payload,enctlv,10
 +tlvdata,onionmsg_payload,enctlv,enctlv,byte,...
-+tlvtype,onionmsg_payload,obs_blinding,12
-+tlvdata,onionmsg_payload,obs_blinding,blinding,point,
 +tlvtype,onionmsg_payload,invoice_request,64
 +tlvdata,onionmsg_payload,invoice_request,invoice_request,byte,...
 +tlvtype,onionmsg_payload,invoice,66
 +tlvdata,onionmsg_payload,invoice,invoice,byte,...
 +tlvtype,onionmsg_payload,invoice_error,68
 +tlvdata,onionmsg_payload,invoice_error,invoice_error,byte,...
++tlvtype,encmsg_tlvs,padding,1
++tlvdata,encmsg_tlvs,padding,pad,byte,...
 +tlvtype,encmsg_tlvs,next_node_id,4
 +tlvdata,encmsg_tlvs,next_node_id,node_id,point,
-+tlvtype,encmsg_tlvs,obs_next_short_channel_id,6
-+tlvdata,encmsg_tlvs,obs_next_short_channel_id,short_channel_id,short_channel_id,
++tlvtype,encmsg_tlvs,next_blinding,12
++tlvdata,encmsg_tlvs,next_blinding,blinding,point,
++tlvtype,encmsg_tlvs,self_id,14
++tlvdata,encmsg_tlvs,self_id,data,byte,...
 +subtype,onionmsg_path
 +subtypedata,onionmsg_path,node_id,point,
 +subtypedata,onionmsg_path,enclen,u16,
