@@ -471,6 +471,10 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 	json_mvt_id(stream, mvt->type, &mvt->id);
 	json_add_amount_msat_only(stream, "credit", mvt->credit);
 	json_add_amount_msat_only(stream, "debit", mvt->debit);
+	/* Only chain movements */
+	if (mvt->output_val)
+		json_add_amount_sat_only(stream, "output_value",
+					 *mvt->output_val);
 	json_add_string(stream, "tag", mvt_tag_str(mvt->tag));
 
 	/* Only chain movements have blockheights. A blockheight
