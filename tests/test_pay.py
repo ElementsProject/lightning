@@ -4352,6 +4352,23 @@ def test_fetchinvoice_3hop(node_factory, bitcoind):
 
     l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
 
+    # Test with obsolete onion.
+    l4.stop()
+    l4.daemon.opts['dev-no-modern-onion'] = None
+    l4.start()
+    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+
+    # Test with modern onion.
+    l4.stop()
+    del l4.daemon.opts['dev-no-modern-onion']
+    l4.daemon.opts['dev-no-obsolete-onion'] = None
+    l4.start()
+    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+
 
 def test_fetchinvoice(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.

@@ -146,7 +146,7 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	size_t submsglen;
 	const u8 *subptr;
 
-	payload = tal(ld, struct onion_message_hook_payload);
+	payload = tal(tmpctx, struct onion_message_hook_payload);
 	payload->our_alias = tal(payload, struct pubkey);
 
 	if (!fromwire_gossipd_got_onionmsg_to_us(payload, msg,
@@ -162,6 +162,13 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		return;
 	}
 
+#if DEVELOPER
+	if (!obs2 && ld->dev_ignore_modern_onion)
+		return;
+	if (obs2 && ld->dev_ignore_obsolete_onion)
+		return;
+#endif
+
 	/* If there's no self_id, or it's not correct, ignore alias: alias
 	 * means we created the path it's using. */
 	if (!self_id || !secret_eq_consttime(self_id, &ld->onion_reply_secret))
@@ -174,7 +181,6 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		payload->obs2_om = tlv_obs2_onionmsg_payload_new(payload);
 		if (!fromwire_obs2_onionmsg_payload(&subptr,
 						    &submsglen, payload->obs2_om)) {
-			tal_free(payload);
 			log_broken(ld->log, "bad got_onionmsg_tous obs2 om: %s",
 				   tal_hex(tmpctx, msg));
 			return;
@@ -183,7 +189,6 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		payload->obs2_om = NULL;
 		payload->om = tlv_onionmsg_payload_new(payload);
 		if (!fromwire_onionmsg_payload(&subptr, &submsglen, payload->om)) {
-			tal_free(payload);
 			log_broken(ld->log, "bad got_onionmsg_tous om: %s",
 				   tal_hex(tmpctx, msg));
 			return;
@@ -203,6 +208,8 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		  payload->our_alias ? " via-ourpath": "",
 		  payload->reply_path ? " reply_path": "");
 
+	/* We'll free this on return */
+	tal_steal(ld, payload);
 	if (payload->our_alias)
 		plugin_hook_call_onion_message_ourpath(ld, payload);
 	else
