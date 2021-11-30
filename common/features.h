@@ -137,7 +137,7 @@ const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
 
 /* BOLT-1ede04a1a3225581e265b3ce96984ba88253a4a4 #9:
  *
- * | 38/39 | `option_onion_messages` |... INC+ ...
+ * | 38/39 | `option_onion_messages` |... IN ...
  */
 #define OPT_ONION_MESSAGES			38
 
