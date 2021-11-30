@@ -539,8 +539,6 @@ static void json_add_b12_invoice(struct json_stream *js,
 {
 	bool valid = true;
 
-	if (invoice->chains)
-		json_add_chains(js, invoice->chains);
 	if (invoice->chain)
 		json_add_sha256(js, "chain", &invoice->chain->shad.sha);
 	if (invoice->offer_id)
@@ -679,7 +677,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 
 	if (invoice->fallbacks)
 		valid &= json_add_fallbacks(js,
-					    invoice->chain ? invoice->chain : invoice->chains,
+					    invoice->chain,
 					    invoice->fallbacks->fallbacks);
 
 	/* BOLT-offers #12:
@@ -726,8 +724,6 @@ static void json_add_invoice_request(struct json_stream *js,
 {
 	bool valid = true;
 
-	if (invreq->chains)
-		json_add_chains(js, invreq->chains);
 	if (invreq->chain)
 		json_add_sha256(js, "chain", &invreq->chain->shad.sha);
 

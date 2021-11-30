@@ -359,9 +359,9 @@ struct command_result *handle_invoice(struct command *cmd,
 	 *   - otherwise:
 	 *     - MUST fail the request if `chain` is not a supported chain.
 	 */
-	if (!bolt12_chain_matches(inv->inv->chain, chainparams, inv->inv->chains)) {
+	if (!bolt12_chain_matches(inv->inv->chain, chainparams)) {
 		return fail_inv(cmd, inv,
-				"Wrong chains %s",
+				"Wrong chain %s",
 				tal_hex(tmpctx, inv->inv->chain));
 	}
 
