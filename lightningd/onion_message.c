@@ -292,8 +292,8 @@ static struct command_result *json_blindedpath(struct command *cmd,
 {
 	struct pubkey *ids;
 	struct onionmsg_path **path;
-	struct privkey blinding_iter;
-	struct pubkey first_blinding, first_node, me;
+	struct privkey first_blinding, blinding_iter;
+	struct pubkey first_blinding_pubkey, first_node, me;
 	size_t nhops;
 	struct json_stream *response;
 
@@ -317,8 +317,8 @@ static struct command_result *json_blindedpath(struct command *cmd,
 				    type_to_string(tmpctx, struct pubkey,
 						   &ids[nhops-1]));
 
-	randombytes_buf(&blinding_iter, sizeof(blinding_iter));
-	if (!pubkey_from_privkey(&blinding_iter, &first_blinding))
+	randombytes_buf(&first_blinding, sizeof(first_blinding));
+	if (!pubkey_from_privkey(&first_blinding, &first_blinding_pubkey))
 		/* Should not happen! */
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not convert blinding to pubkey!");
@@ -326,6 +326,36 @@ static struct command_result *json_blindedpath(struct command *cmd,
 	/* We convert ids into aliases as we go. */
 	path = tal_arr(cmd, struct onionmsg_path *, nhops);
 
+	blinding_iter = first_blinding;
+	for (size_t i = 0; i < nhops - 1; i++) {
+		path[i] = tal(path, struct onionmsg_path);
+		path[i]->encrypted_recipient_data = create_enctlv(path[i],
+						     &blinding_iter,
+						     &ids[i],
+						     &ids[i+1],
+						     /* FIXME: Pad? */
+						     0,
+						     NULL,
+						     &blinding_iter,
+						     &path[i]->node_id);
+	}
+
+	/* FIXME: Add padding! */
+	path[nhops-1] = tal(path, struct onionmsg_path);
+	path[nhops-1]->encrypted_recipient_data = create_final_enctlv(path[nhops-1],
+							 &blinding_iter,
+							 &ids[nhops-1],
+							 /* FIXME: Pad? */
+							 0,
+							 &cmd->ld->onion_reply_secret,
+							 &path[nhops-1]->node_id);
+
+	response = json_stream_success(cmd);
+	json_add_blindedpath(response, "blindedpath",
+			     &first_blinding_pubkey, &first_node, path);
+
+	/* Now create obsolete one! */
+	blinding_iter = first_blinding;
 	for (size_t i = 0; i < nhops - 1; i++) {
 		path[i] = tal(path, struct onionmsg_path);
 		path[i]->encrypted_recipient_data = create_obs2_enctlv(path[i],
@@ -348,10 +378,8 @@ static struct command_result *json_blindedpath(struct command *cmd,
 							 0,
 							 &cmd->ld->onion_reply_secret,
 							 &path[nhops-1]->node_id);
-
-	response = json_stream_success(cmd);
-	json_add_blindedpath(response, "blindedpath",
-			     &first_blinding, &first_node, path);
+	json_add_blindedpath(response, "obs2blindedpath",
+			     &first_blinding_pubkey, &first_node, path);
 	return command_success(cmd, response);
 }
 
