@@ -269,11 +269,11 @@ int main(int argc, char **argv)
 
 		/* Look for enctlv */
 		if (!outer->enctlv)
-			errx(1, "No enctlv field");
+			errx(1, "No encrypted_recipient_data field");
 
 		if (tal_bytelen(outer->enctlv)
 		    < crypto_aead_chacha20poly1305_ietf_ABYTES)
-			errx(1, "enctlv field too short");
+			errx(1, "encrypted_recipient_data field too short");
 
 		dec = tal_arr(tmpctx, u8,
 			      tal_bytelen(outer->enctlv)
@@ -286,7 +286,7 @@ int main(int argc, char **argv)
 								npub,
 								rho.data);
 		if (ret != 0)
-			errx(1, "Failed to decrypt enctlv field");
+			errx(1, "Failed to decrypt encrypted_recipient_data field");
 
 		printf("Contents: %s\n", tal_hex(tmpctx, dec));
 

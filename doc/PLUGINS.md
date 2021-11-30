@@ -1542,7 +1542,7 @@ The payload for a call follows this format:
         "reply_first_node": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
         "reply_blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
 		"reply_path": [ {"id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-                         "enctlv": "0a020d0d",
+                         "encrypted_recipient_data": "0a020d0d",
                          "blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"} ],
         "invoice_request": "0a020d0d",
 		"invoice": "0a020d0d",
