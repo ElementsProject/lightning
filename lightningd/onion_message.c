@@ -21,7 +21,9 @@ struct onion_message_hook_payload {
 	struct pubkey *reply_first_node;
 	struct pubkey *our_alias;
 
-	struct tlv_obs2_onionmsg_payload *om;
+	/* Exactly one of these is set! */
+	struct tlv_onionmsg_payload *om;
+	struct tlv_obs2_onionmsg_payload *obs2_om;
 };
 
 static void json_add_blindedpath(struct json_stream *stream,
@@ -61,28 +63,55 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 	}
 
 	/* Common convenience fields */
-	if (payload->om->invoice_request)
-		json_add_hex_talarr(stream, "invoice_request",
-				    payload->om->invoice_request);
-	if (payload->om->invoice)
-		json_add_hex_talarr(stream, "invoice", payload->om->invoice);
+	if (payload->obs2_om) {
+		json_add_bool(stream, "obs2", true);
+		if (payload->obs2_om->invoice_request)
+			json_add_hex_talarr(stream, "invoice_request",
+					    payload->obs2_om->invoice_request);
+		if (payload->obs2_om->invoice)
+			json_add_hex_talarr(stream, "invoice", payload->obs2_om->invoice);
 
-	if (payload->om->invoice_error)
-		json_add_hex_talarr(stream, "invoice_error",
-				    payload->om->invoice_error);
+		if (payload->obs2_om->invoice_error)
+			json_add_hex_talarr(stream, "invoice_error",
+					    payload->obs2_om->invoice_error);
 
-	json_array_start(stream, "unknown_fields");
-	for (size_t i = 0; i < tal_count(payload->om->fields); i++) {
-		if (payload->om->fields[i].meta)
-			continue;
-		json_object_start(stream, NULL);
-		json_add_u64(stream, "number", payload->om->fields[i].numtype);
-		json_add_hex(stream, "value",
-			     payload->om->fields[i].value,
-			     payload->om->fields[i].length);
-		json_object_end(stream);
+		json_array_start(stream, "unknown_fields");
+		for (size_t i = 0; i < tal_count(payload->obs2_om->fields); i++) {
+			if (payload->obs2_om->fields[i].meta)
+				continue;
+			json_object_start(stream, NULL);
+			json_add_u64(stream, "number", payload->obs2_om->fields[i].numtype);
+			json_add_hex(stream, "value",
+				     payload->obs2_om->fields[i].value,
+				     payload->obs2_om->fields[i].length);
+			json_object_end(stream);
+		}
+		json_array_end(stream);
+	} else {
+		json_add_bool(stream, "obs2", false);
+		if (payload->om->invoice_request)
+			json_add_hex_talarr(stream, "invoice_request",
+					    payload->om->invoice_request);
+		if (payload->om->invoice)
+			json_add_hex_talarr(stream, "invoice", payload->om->invoice);
+
+		if (payload->om->invoice_error)
+			json_add_hex_talarr(stream, "invoice_error",
+					    payload->om->invoice_error);
+
+		json_array_start(stream, "unknown_fields");
+		for (size_t i = 0; i < tal_count(payload->om->fields); i++) {
+			if (payload->om->fields[i].meta)
+				continue;
+			json_object_start(stream, NULL);
+			json_add_u64(stream, "number", payload->om->fields[i].numtype);
+			json_add_hex(stream, "value",
+				     payload->om->fields[i].value,
+				     payload->om->fields[i].length);
+			json_object_end(stream);
+		}
+		json_array_end(stream);
 	}
-	json_array_end(stream);
 	json_object_end(stream);
 }
 
@@ -113,14 +142,15 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	struct onion_message_hook_payload *payload;
 	u8 *submsg;
 	struct secret *self_id;
+	bool obs2;
 	size_t submsglen;
 	const u8 *subptr;
 
 	payload = tal(ld, struct onion_message_hook_payload);
-	payload->om = tlv_obs2_onionmsg_payload_new(payload);
 	payload->our_alias = tal(payload, struct pubkey);
 
 	if (!fromwire_gossipd_got_onionmsg_to_us(payload, msg,
+						 &obs2,
 						 payload->our_alias,
 						 &self_id,
 						 &payload->reply_blinding,
@@ -139,12 +169,25 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 
 	submsglen = tal_bytelen(submsg);
 	subptr = submsg;
-	if (!fromwire_obs2_onionmsg_payload(&subptr,
-					    &submsglen, payload->om)) {
-		tal_free(payload);
-		log_broken(ld->log, "bad got_onionmsg_tous om: %s",
-			   tal_hex(tmpctx, msg));
-		return;
+	if (obs2) {
+		payload->om = NULL;
+		payload->obs2_om = tlv_obs2_onionmsg_payload_new(payload);
+		if (!fromwire_obs2_onionmsg_payload(&subptr,
+						    &submsglen, payload->obs2_om)) {
+			tal_free(payload);
+			log_broken(ld->log, "bad got_onionmsg_tous obs2 om: %s",
+				   tal_hex(tmpctx, msg));
+			return;
+		}
+	} else {
+		payload->obs2_om = NULL;
+		payload->om = tlv_onionmsg_payload_new(payload);
+		if (!fromwire_onionmsg_payload(&subptr, &submsglen, payload->om)) {
+			tal_free(payload);
+			log_broken(ld->log, "bad got_onionmsg_tous om: %s",
+				   tal_hex(tmpctx, msg));
+			return;
+		}
 	}
 	tal_free(submsg);
 

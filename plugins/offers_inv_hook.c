@@ -315,7 +315,8 @@ static struct command_result *listoffers_error(struct command *cmd,
 
 struct command_result *handle_invoice(struct command *cmd,
 				      const u8 *invbin,
-				      struct tlv_obs2_onionmsg_payload_reply_path *reply_path STEALS)
+				      struct tlv_onionmsg_payload_reply_path *reply_path STEALS,
+				      struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path STEALS)
 {
 	size_t len = tal_count(invbin);
 	struct inv *inv = tal(cmd, struct inv);
@@ -324,8 +325,8 @@ struct command_result *handle_invoice(struct command *cmd,
 	int bad_feature;
 	struct sha256 m, shash;
 
-	inv->obs2_reply_path = tal_steal(inv, reply_path);
-	inv->reply_path = NULL;
+	inv->obs2_reply_path = tal_steal(inv, obs2_reply_path);
+	inv->reply_path = tal_steal(inv, reply_path);
 
 	inv->inv = tlv_invoice_new(cmd);
 	if (!fromwire_invoice(&invbin, &len, inv->inv)) {

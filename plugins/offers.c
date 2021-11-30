@@ -140,7 +140,8 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 							const jsmntok_t *params)
 {
 	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
-	struct tlv_obs2_onionmsg_payload_reply_path *reply_path;
+	struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path = NULL;
+	struct tlv_onionmsg_payload_reply_path *reply_path = NULL;
 
 	if (!offers_enabled)
 		return command_hook_success(cmd);
@@ -148,21 +149,31 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 	om = json_get_member(buf, params, "onion_message");
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
-		reply_path = json_to_obs2_reply_path(cmd, buf, replytok);
-		if (!reply_path)
-			plugin_err(cmd->plugin, "Invalid reply path %.*s?",
-				   json_tok_full_len(replytok),
-				   json_tok_full(buf, replytok));
-	} else
-		reply_path = NULL;
+		bool obs2;
+		json_to_bool(buf, json_get_member(buf, om, "obs2"), &obs2);
+		if (obs2) {
+			obs2_reply_path = json_to_obs2_reply_path(cmd, buf, replytok);
+			if (!obs2_reply_path)
+				plugin_err(cmd->plugin, "Invalid obs2 reply path %.*s?",
+					   json_tok_full_len(replytok),
+					   json_tok_full(buf, replytok));
+		} else {
+			reply_path = json_to_reply_path(cmd, buf, replytok);
+			if (!reply_path)
+				plugin_err(cmd->plugin, "Invalid reply path %.*s?",
+					   json_tok_full_len(replytok),
+					   json_tok_full(buf, replytok));
+		}
+	}
 
 	invreqtok = json_get_member(buf, om, "invoice_request");
 	if (invreqtok) {
 		const u8 *invreqbin = json_tok_bin_from_hex(tmpctx, buf, invreqtok);
-		if (reply_path)
+		if (reply_path || obs2_reply_path)
 			return handle_invoice_request(cmd,
 						      invreqbin,
-						      reply_path);
+						      reply_path,
+						      obs2_reply_path);
 		else
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "invoice_request without reply_path");
@@ -172,7 +183,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 	if (invtok) {
 		const u8 *invbin = json_tok_bin_from_hex(tmpctx, buf, invtok);
 		if (invbin)
-			return handle_invoice(cmd, invbin, reply_path);
+			return handle_invoice(cmd, invbin, reply_path, obs2_reply_path);
 	}
 
 	return command_hook_success(cmd);
