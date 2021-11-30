@@ -727,7 +727,7 @@ static struct command_result *use_reply_path(struct command *cmd,
 	struct tlv_obs2_onionmsg_payload_reply_path *rpath;
 
 	rpath = json_to_obs2_reply_path(cmd, buf,
-					json_get_member(buf, result, "blindedpath"));
+					json_get_member(buf, result, "obs2blindedpath"));
 	if (!rpath)
 		plugin_err(cmd->plugin,
 			   "could not parse reply path %.*s?",
