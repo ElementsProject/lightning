@@ -3540,10 +3540,10 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
 
+    # Make sure l2 gets REVOKE_AND_ACK from previous.
+    l2.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
+
     # Pre-statickey penalty works.
-    # FIXME: Without this sleep, l1 will broadcasts one tx more compared to good
-    # case, causing `wait_for_onchaind_broadcast` to timeout.
-    time.sleep(5)
     bitcoind.rpc.sendrawtransaction(tx)
     bitcoind.generate_block(1)
 
