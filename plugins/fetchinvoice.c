@@ -243,6 +243,15 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	 *   - MUST reject the invoice unless the following fields are equal or
 	 *     unset exactly as they are in the `invoice_request:`
 	 *     - `quantity`
+	 *     - `payer_key`
+	 *     - `payer_info`
+	 */
+	/* BOLT-offers-recurrence #12:
+	 * - if the invoice is a reply to an `invoice_request`:
+	 *...
+	 *   - MUST reject the invoice unless the following fields are equal or
+	 *     unset exactly as they are in the `invoice_request:`
+	 *     - `quantity`
 	 *     - `recurrence_counter`
 	 *     - `recurrence_start`
 	 *     - `payer_key`
@@ -279,7 +288,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	} else
 		expected_amount = NULL;
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the offer contained `recurrence`:
 	 *   - MUST reject the invoice if `recurrence_basetime` is not set.
 	 */
@@ -1080,7 +1089,7 @@ static struct command_result *invreq_done(struct command *cmd,
 		if (sent->invreq->recurrence_start)
 			period_idx += *sent->invreq->recurrence_start;
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - if the offer contained `recurrence_limit`:
 		 *   - MUST NOT send an `invoice_request` for a period greater
 		 *     than `max_period`
@@ -1093,7 +1102,7 @@ static struct command_result *invreq_done(struct command *cmd,
 					    period_idx,
 					    *sent->offer->recurrence_limit);
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - SHOULD NOT send an `invoice_request` for a period which has
 		 *   already passed.
 		 */
@@ -1257,11 +1266,11 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	    && time_now().ts.tv_sec > *sent->offer->absolute_expiry)
 		return command_fail(cmd, OFFER_EXPIRED, "Offer expired");
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the offer did not specify `amount`:
 	 *   - MUST specify `amount`.`msat` in multiples of the minimum
-	 *     lightning-payable unit (e.g. milli-satoshis for bitcoin) for the
-	 *     first `chains` entry.
+	 *     lightning-payable unit (e.g. milli-satoshis for bitcoin) for
+	 *     `chain` (or for bitcoin, if there is no `chain`).
 	 * - otherwise:
 	 *   - MAY omit `amount`.
 	 *     - if it sets `amount`:
@@ -1309,16 +1318,16 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 					    "quantity parameter unnecessary");
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the offer contained `recurrence`:
 	 */
 	if (sent->offer->recurrence) {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *    - for the initial request:
 		 *...
 		 *      - MUST set `recurrence_counter` `counter` to 0.
 		 */
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *    - for any successive requests:
 		 *...
 		 *      - MUST set `recurrence_counter` `counter` to one greater
@@ -1328,7 +1337,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "needs recurrence_counter");
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *    - if the offer contained `recurrence_base` with
 		 *      `start_any_period` non-zero:
 		 *      - MUST include `recurrence_start`
@@ -1353,7 +1362,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "needs recurrence_label");
 	} else {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - otherwise:
 		 *   - MUST NOT set `recurrence_counter`.
 		 *   - MUST NOT set `recurrence_start`
@@ -1758,9 +1767,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	 */
 	sent->inv->payer_key = sent->offer->node_id;
 
-	/* BOLT-offers #12:
-	 *     - FIXME: recurrence!
-	 */
+	/* FIXME: recurrence? */
 	if (sent->offer->recurrence)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "FIXME: handle recurring send_invoice offer!");

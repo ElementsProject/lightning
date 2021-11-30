@@ -174,8 +174,8 @@ static bool print_recurrance(const struct tlv_offer_recurrence *recurrence,
 	const char *unit;
 	bool ok = true;
 
-	/* BOLT-offers #12:
-	 * Thus, each payment has:
+	/* BOLT-offers-recurrence #12:
+	 * Thus, each offer containing a recurring payment has:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
 	 *    3 (years).
 	 * 2. A `period`, defining how often (in `time_unit`) it has to be paid.

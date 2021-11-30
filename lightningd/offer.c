@@ -310,7 +310,7 @@ static struct command_result *prev_payment(struct command *cmd,
 		if (!inv->recurrence_counter)
 			continue;
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - if the offer contained `recurrence_base` with
 		 *   `start_any_period` non-zero:
 		 *   - MUST include `recurrence_start`

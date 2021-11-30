@@ -54,7 +54,7 @@ static void h_simpletag_ctx(struct sha256_ctx *sctx, const char *tag)
 /* BOLT-offers #12:
  * The Merkle tree's leaves are, in TLV-ascending order for each tlv:
  * 1. The H(`LnLeaf`,tlv).
- * 2. The H(`LnAll`|all-tlvs,tlv) where "all-tlvs" consists of all non-signature TLV entries appended in ascending order.
+ * 2. The H(`LnAll`||all-tlvs,tlv) where "all-tlvs" consists of all non-signature TLV entries appended in ascending order.
  */
 
 /* Create a sha256_ctx which has the tag part done. */
@@ -107,7 +107,7 @@ static void calc_lnleaf(const struct tlv_field *field, struct sha256 *hash)
 }
 
 /* BOLT-offers #12:
- * The Merkle tree inner nodes are H(`LnBranch`, lesser-SHA256|greater-SHA256);
+ * The Merkle tree inner nodes are H(`LnBranch`, lesser-SHA256||greater-SHA256)
  */
 static struct sha256 *merkle_pair(const tal_t *ctx,
 				  const struct sha256 *a, const struct sha256 *b)
@@ -200,11 +200,11 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
  *
  * Each form is signed using one or more TLV signature elements; TLV
  * types 240 through 1000 are considered signature elements.  For these
- * the tag is `lightning` | `messagename` | `fieldname`, and `msg` is the
- * Merkle-root; `lightning` is the literal 9-byte ASCII string,
- * `messagename` is the name of the TLV stream being signed (i.e. `offer`,
- * `invoice_request` or `invoice`) and the `fieldname` is the TLV field
- * containing the signature (e.g. `signature` or `payer_signature`).
+ * the tag is "lightning" || `messagename` || `fieldname`, and `msg` is the
+ * Merkle-root; "lightning" is the literal 9-byte ASCII string,
+ * `messagename` is the name of the TLV stream being signed (i.e. "offer",
+ * "invoice_request" or "invoice") and the `fieldname` is the TLV field
+ * containing the signature (e.g. "signature" or "payer_signature").
  */
 void sighash_from_merkle(const char *messagename,
 			 const char *fieldname,

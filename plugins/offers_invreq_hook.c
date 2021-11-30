@@ -109,7 +109,7 @@ test_field(struct command *cmd,
 	return NULL;
 }
 
-/* BOLT-offers #12:
+/* BOLT-offers-recurrence #12:
  * - if the invoice corresponds to an offer with `recurrence`:
  * ...
  *   - if it sets `relative_expiry`:
@@ -230,7 +230,7 @@ static struct command_result *check_period(struct command *cmd,
 	if (ir->offer->recurrence_base)
 		basetime = ir->offer->recurrence_base->basetime;
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the invoice corresponds to an offer with `recurrence`:
 	 *   - MUST set `recurrence_basetime` to the start of period #0 as
 	 *     calculated by [Period Calculation](#offer-period-calculation).
@@ -239,7 +239,7 @@ static struct command_result *check_period(struct command *cmd,
 
 	period_idx = *ir->invreq->recurrence_counter;
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the offer had `recurrence_base` and `start_any_period`
 	 *   was 1:
 	 *   - MUST fail the request if there is no `recurrence_start`
@@ -255,14 +255,14 @@ static struct command_result *check_period(struct command *cmd,
 			return err;
 		period_idx += *ir->invreq->recurrence_start;
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - MUST set (or not set) `recurrence_start` exactly as the
 		 *   invoice_request did.
 		 */
 		ir->inv->recurrence_start
 			= tal_dup(ir->inv, u32, ir->invreq->recurrence_start);
 	} else {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *
 		 * - otherwise:
 		 *   - MUST fail the request if there is a `recurrence_start`
@@ -275,7 +275,7 @@ static struct command_result *check_period(struct command *cmd,
 			return err;
 	}
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the offer has a `recurrence_limit`:
 	 *   - MUST fail the request if the period index is greater than
 	 *     `max_period`.
@@ -309,7 +309,7 @@ static struct command_result *check_period(struct command *cmd,
 
 	set_recurring_inv_expiry(ir->inv, paywindow_end);
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 *
 	 * - if `recurrence_counter` is non-zero:
 	 *...
@@ -475,7 +475,7 @@ static struct command_result *invreq_base_amount_simple(struct command *cmd,
 
 		*amt = amount_msat(raw_amount);
 	} else {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *
 		 * - otherwise:
 		 * - MUST fail the request if it does not contain `amount`.
@@ -534,7 +534,7 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 	/* Last of all, we handle recurrence details, which often requires
 	 * further lookups. */
 
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - MUST set (or not set) `recurrence_counter` exactly as the
 	 *   invoice_request did.
 	 */
@@ -723,7 +723,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	}
 
 	if (ir->offer->recurrence) {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *
 		 * - if the offer had a `recurrence`:
 		 *   - MUST fail the request if there is no `recurrence_counter`
@@ -733,7 +733,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 		if (err)
 			return err;
 	} else {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - otherwise (the offer had no `recurrence`):
 		 *   - MUST fail the request if there is a `recurrence_counter`
 		 *     field.
@@ -870,8 +870,10 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	 *
 	 * The reader of an invoice_request:
 	 *...
-	 *   - MUST fail the request if `chains` does not include (or imply) a
-	 *     supported chain.
+	 *  - if `chain` is not present:
+	 *    - MUST fail the request if bitcoin is not a supported chain.
+	 *  - otherwise:
+	 *    - MUST fail the request if `chain` is not a supported chain.
 	 */
 	if (!bolt12_chain_matches(ir->invreq->chain, chainparams,
 				  ir->invreq->chains)) {

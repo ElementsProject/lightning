@@ -22,15 +22,10 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	/* BOLT-offers #12:
 	 * The reader of an invoice_request:
 	 *...
-	 *  - MUST fail the request if `chains` does not include (or
-	 *    imply) a supported chain.
-	 */
-	/* BOLT-offers #12:
-	 *
-	 * - if the chain for the invoice is not solely bitcoin:
-	 *   - MUST specify `chains` the invoice is valid for.
-	 * - otherwise:
-	 *   - the bitcoin chain is implied as the first and only entry.
+	 *  - if `chain` is not present:
+	 *    - MUST fail the request if bitcoin is not a supported chain.
+	 *  - otherwise:
+	 *    - MUST fail the request if `chain` is not a supported chain.
 	 */
 	num_chains = tal_count(chains);
 	if (num_chains == 0) {
@@ -340,7 +335,7 @@ static u64 time_change(u64 prevstart, u32 number,
 u64 offer_period_start(u64 basetime, size_t n,
 		       const struct tlv_offer_recurrence *recur)
 {
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
 	 *    3 (years).
 	 */
@@ -365,13 +360,13 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 			    u64 basetime, u64 period_idx,
 			    u64 *start, u64 *end)
 {
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the offer contains `recurrence_paywindow`:
 	 */
 	if (recurrence_paywindow) {
 		u64 pstart = offer_period_start(basetime, period_idx,
 						recurrence);
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - if the offer has a `recurrence_basetime` or the
 		 *    `recurrence_counter` is non-zero:
 		 *   - SHOULD NOT send an `invoice_request` for a period prior to
@@ -389,7 +384,7 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 		    && recurrence_paywindow->seconds_after < 60)
 			*end = pstart + 60;
 	} else {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - otherwise:
 		 *   - SHOULD NOT send an `invoice_request` with
 		 *     `recurrence_counter` is non-zero for a period whose
@@ -401,7 +396,7 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 			*start = offer_period_start(basetime, period_idx-1,
 						    recurrence);
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *     - SHOULD NOT send an `invoice_request` for a period which
 		 *       has already passed.
 		 */

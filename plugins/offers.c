@@ -339,7 +339,7 @@ static bool json_add_blinded_paths(struct json_stream *js,
 
 static const char *recurrence_time_unit_name(u8 time_unit)
 {
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * `time_unit` defining 0 (seconds), 1 (days), 2 (months), 3 (years).
 	 */
 	switch (time_unit) {
@@ -608,7 +608,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 		if (invoice->recurrence_start)
 			json_add_u32(js, "recurrence_start",
 				     *invoice->recurrence_start);
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - if the offer contained `recurrence`:
 		 *   - MUST reject the invoice if `recurrence_basetime` is not
 		 *     set.
@@ -733,7 +733,7 @@ static void json_add_invoice_request(struct json_stream *js,
 
 	/* BOLT-offers #12:
 	 * - MUST fail the request if `payer_key` is not present.
-	 * - MUST fail the request if `chains` does not include (or imply) a supported chain.
+	 *...
 	 * - MUST fail the request if `features` contains unknown even bits.
 	 * - MUST fail the request if `offer_id` is not present.
 	 */

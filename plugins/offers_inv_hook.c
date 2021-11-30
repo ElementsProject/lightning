@@ -354,8 +354,10 @@ struct command_result *handle_invoice(struct command *cmd,
 	 *
 	 * The reader of an invoice_request:
 	 *...
-	 *   - MUST fail the request if `chains` does not include (or imply) a
-	 *     supported chain.
+	 *   - if `chain` is not present:
+	 *     - MUST fail the request if bitcoin is not a supported chain.
+	 *   - otherwise:
+	 *     - MUST fail the request if `chain` is not a supported chain.
 	 */
 	if (!bolt12_chain_matches(inv->inv->chain, chainparams, inv->inv->chains)) {
 		return fail_inv(cmd, inv,
