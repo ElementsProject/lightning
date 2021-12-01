@@ -127,6 +127,26 @@ struct tracked_output {
 	struct sha256 payment_hash;
 };
 
+static const char *tx_type_name(enum tx_type tx_type)
+{
+	size_t i;
+
+	for (i = 0; enum_tx_type_names[i].name; i++)
+		if (enum_tx_type_names[i].v == tx_type)
+			return enum_tx_type_names[i].name;
+	return "unknown";
+}
+
+static const char *output_type_name(enum output_type output_type)
+{
+	size_t i;
+
+	for (i = 0; enum_output_type_names[i].name; i++)
+		if (enum_output_type_names[i].v == output_type)
+			return enum_output_type_names[i].name;
+	return "unknown";
+}
+
 /* helper to compare output script with our tal'd script */
 static bool wally_tx_output_scripteq(const struct wally_tx_output *out,
 				     const u8 *script)
@@ -454,26 +474,6 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 		      type_to_string(tmpctx, struct bitcoin_tx, tx),
 		      type_to_string(tmpctx, struct bitcoin_signature, remotesig),
 		      tal_hex(tmpctx, wscript));
-}
-
-static const char *tx_type_name(enum tx_type tx_type)
-{
-	size_t i;
-
-	for (i = 0; enum_tx_type_names[i].name; i++)
-		if (enum_tx_type_names[i].v == tx_type)
-			return enum_tx_type_names[i].name;
-	return "unknown";
-}
-
-static const char *output_type_name(enum output_type output_type)
-{
-	size_t i;
-
-	for (i = 0; enum_output_type_names[i].name; i++)
-		if (enum_output_type_names[i].v == output_type)
-			return enum_output_type_names[i].name;
-	return "unknown";
 }
 
 static u8 *delayed_payment_to_us(const tal_t *ctx,
