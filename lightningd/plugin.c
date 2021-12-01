@@ -2084,18 +2084,13 @@ bool was_plugin_destroyed(struct plugin_destroyed *pd)
 	return true;
 }
 
-static void plugin_shutdown_timeout(struct lightningd *ld)
-{
-	io_break(plugin_shutdown_timeout);
-}
-
 void shutdown_plugins(struct lightningd *ld)
 {
 	struct plugin *p, *next;
 
-	/* Don't complain about important plugins vanishing and
-	 * crash any attempt to write to db. */
+	/* Don't complain about important plugins vanishing; close the db. */
 	ld->plugins->shutdown = true;
+	ld->wallet = tal_free(ld->wallet);
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
@@ -2106,19 +2101,16 @@ void shutdown_plugins(struct lightningd *ld)
 
 	/* If anyone was interested in shutdown, give them time. */
 	if (!list_empty(&ld->plugins->plugins)) {
-		struct timers *orig_timers, *timer;
+		struct timers *timer;
+		struct timer *expired;
 
 		/* 30 seconds should do it, use a clean timers struct */
-		orig_timers = ld->timers;
 		timer = tal(NULL, struct timers);
 		timers_init(timer, time_mono());
-		new_reltimer(timer, timer, time_from_sec(30),
-				  plugin_shutdown_timeout, ld);
+		new_reltimer(timer, timer, time_from_sec(30), NULL, NULL);
 
-		ld->timers = timer;
-		void *ret = io_loop_with_timers(ld);
-		assert(ret == plugin_shutdown_timeout || ret == destroy_plugin);
-		ld->timers = orig_timers;
+		void *ret = io_loop(timer, &expired);
+		assert(ret == NULL || ret == destroy_plugin);
 		tal_free(timer);
 
 		/* Report and free remaining plugins. */

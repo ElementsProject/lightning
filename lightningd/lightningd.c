@@ -1192,7 +1192,7 @@ int main(int argc, char *argv[])
 	remove_sigchild_handler(sigchld_conn);
 	shutdown_subdaemons(ld);
 
-	/* Tell plugins we're shutting down, closes the db for write access. */
+	/* Tell plugins we're shutting down, closes the db. */
 	shutdown_plugins(ld);
 
 	/* Cleanup JSON RPC separately: destructors assume some list_head * in ld */
