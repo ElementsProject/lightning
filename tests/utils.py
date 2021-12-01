@@ -143,7 +143,7 @@ def check_coin_moves_idx(n):
 
 
 def account_balance(n, account_id):
-    moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
+    moves = dedupe_moves(n.rpc.call('listcoinmoves_plugin')['coin_moves'])
     chan_moves = [m for m in moves if m['account_id'] == account_id]
     assert len(chan_moves) > 0
     m_sum = 0
@@ -268,10 +268,27 @@ def matchup_events(u_set, evs, chans, tag_list):
     return txid
 
 
+def dedupe_moves(moves):
+    move_set = {}
+    deduped_moves = []
+    for move in moves:
+        # Dupes only pertain to onchain moves?
+        if 'utxo_txid' not in move:
+            deduped_moves.append(move)
+            continue
+
+        outpoint = '{}:{};{}'.format(move['utxo_txid'], move['vout'], move['txid'] if 'txid' in move else 'xx')
+        if outpoint not in move_set:
+            deduped_moves.append(move)
+            move_set[outpoint] = move
+    return deduped_moves
+
+
 def check_utxos_channel(n, chans, expected, exp_tag_list=None, filter_channel=None):
     tag_list = {}
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
-    utxos = extract_utxos(moves)
+
+    utxos = extract_utxos(dedupe_moves(moves))
 
     if filter_channel:
         utxos = utxos_for_channel(utxos, filter_channel)
