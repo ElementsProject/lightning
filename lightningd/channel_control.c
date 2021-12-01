@@ -130,46 +130,40 @@ void notify_feerate_change(struct lightningd *ld)
 void channel_record_open(struct channel *channel)
 {
 	struct chain_coin_mvt *mvt;
-	struct amount_msat channel_open_amt;
 	u32 blockheight;
-
-	u8 *ctx = tal(NULL, u8);
+	struct amount_msat start_balance;
+	bool we_pushed = channel->opener == LOCAL
+			&& !amount_msat_zero(channel->push);
 
 	blockheight = short_channel_id_blocknum(channel->scid);
 
-	/* FIXME: logic here will change for dual funded channels */
-	if (channel->opener == LOCAL) {
-		if (!amount_sat_to_msat(&channel_open_amt,
-					channel->funding_sats))
-			fatal("Unable to convert funding %s to msat",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->funding_sats));
+	/* If we pushed funds, add them back into the starting balance */
+	if (we_pushed) {
+		if (!amount_msat_add(&start_balance,
+				    channel->push, channel->our_msat))
+			fatal("Unable to add push_msat (%s) + our_msat (%s)",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &channel->push),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &channel->our_msat));
 
-		/* if we pushed sats, we should decrement that
-		 * from the channel balance */
-		if (amount_msat_greater(channel->push, AMOUNT_MSAT(0))) {
-			mvt = new_coin_pushed(ctx,
-					      type_to_string(tmpctx,
-							     struct channel_id,
-							     &channel->cid),
-					      &channel->funding.txid,
-					      blockheight, channel->push);
-			notify_chain_mvt(channel->peer->ld, mvt);
-		}
-	} else {
-		/* we're not the funder, we record our 'opening balance'
-		 * anyway (there's a small chance we were pushed some
-		 * satoshis, otherwise it's zero) */
-		channel_open_amt = channel->our_msat;
-	}
+	} else
+		start_balance = channel->our_msat;
 
-	mvt = new_coin_deposit(ctx,
-			       type_to_string(tmpctx, struct channel_id,
-					      &channel->cid),
-			       &channel->funding,
-			       blockheight, channel_open_amt);
+	mvt = new_coin_channel_open(tmpctx,
+				    &channel->cid,
+				    &channel->funding,
+				    blockheight,
+				    start_balance,
+				    channel->funding_sats);
+
 	notify_chain_mvt(channel->peer->ld, mvt);
-	tal_free(ctx);
+
+	/* If we pushed sats, *now* record them as a withdrawal */
+	if (we_pushed)
+		notify_channel_mvt(channel->peer->ld,
+				   new_coin_pushed(tmpctx, &channel->cid,
+						   channel->push));
 }
 
 static void lockin_complete(struct channel *channel)

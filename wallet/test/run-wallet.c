@@ -441,13 +441,13 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx UNNEEDED,
 						     struct htlc_out *hout UNNEEDED,
 						     struct channel *channel UNNEEDED)
 { fprintf(stderr, "new_channel_mvt_routed_hout called!\n"); abort(); }
-/* Generated stub for new_coin_deposit_sat */
-struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx UNNEEDED,
-					    const char *account_name UNNEEDED,
-					    const struct bitcoin_outpoint *outpoint UNNEEDED,
-					    u32 blockheight UNNEEDED,
-					    struct amount_sat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_deposit_sat called!\n"); abort(); }
+/* Generated stub for new_coin_wallet_deposit */
+struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
+					       const struct bitcoin_outpoint *outpoint UNNEEDED,
+					       u32 blockheight UNNEEDED,
+					       struct amount_sat amount UNNEEDED,
+					       enum mvt_tag tag UNNEEDED)
+{ fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }

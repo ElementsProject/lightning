@@ -479,7 +479,8 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 				 commitment_point,
 				 csv_lock);
 
-	mvt = new_coin_deposit_sat(msg, "wallet", &outpoint, blockheight, amount);
+	mvt = new_coin_wallet_deposit(msg, &outpoint, blockheight,
+			              amount, CHANNEL_CLOSE);
 	notify_chain_mvt(channel->peer->ld, mvt);
 }
 

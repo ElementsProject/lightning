@@ -113,49 +113,65 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
-/* Generated stub for new_coin_journal_entry */
-struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx UNNEEDED,
-					      const char *account_name UNNEEDED,
+/* Generated stub for new_coin_channel_close */
+struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx UNNEEDED,
 					      const struct bitcoin_txid *txid UNNEEDED,
-					      const struct bitcoin_outpoint *outpoint UNNEEDED,
+					      const struct bitcoin_outpoint *out UNNEEDED,
 					      u32 blockheight UNNEEDED,
-					      struct amount_msat amount UNNEEDED,
-					      bool is_credit UNNEEDED)
-{ fprintf(stderr, "new_coin_journal_entry called!\n"); abort(); }
-/* Generated stub for new_coin_onchain_htlc_sat */
-struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx UNNEEDED,
-						 const char *account_name UNNEEDED,
-						 const struct bitcoin_txid *txid UNNEEDED,
+					      const struct amount_msat amount UNNEEDED,
+					      const struct amount_sat output_val UNNEEDED)
+{ fprintf(stderr, "new_coin_channel_close called!\n"); abort(); }
+/* Generated stub for new_coin_external_deposit */
+struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx UNNEEDED,
 						 const struct bitcoin_outpoint *outpoint UNNEEDED,
-						 struct sha256 payment_hash UNNEEDED,
 						 u32 blockheight UNNEEDED,
 						 struct amount_sat amount UNNEEDED,
-						 bool is_credit UNNEEDED)
-{ fprintf(stderr, "new_coin_onchain_htlc_sat called!\n"); abort(); }
-/* Generated stub for new_coin_penalty_sat */
-struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx UNNEEDED,
-					    const char *account_name UNNEEDED,
-					    const struct bitcoin_txid *txid UNNEEDED,
-					    const struct bitcoin_outpoint *outpoint UNNEEDED,
-					    u32 blockheight UNNEEDED,
-					    struct amount_sat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_penalty_sat called!\n"); abort(); }
-/* Generated stub for new_coin_withdrawal */
-struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx UNNEEDED,
-					   const char *account_name UNNEEDED,
-					   const struct bitcoin_txid *tx_txid UNNEEDED,
-					   const struct bitcoin_outpoint *outpoint UNNEEDED,
-					   u32 blockheight UNNEEDED,
-					   struct amount_msat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_withdrawal called!\n"); abort(); }
-/* Generated stub for new_coin_withdrawal_sat */
-struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx UNNEEDED,
-					       const char *account_name UNNEEDED,
-					       const struct bitcoin_txid *tx_txid UNNEEDED,
+						 enum mvt_tag tag UNNEEDED)
+{ fprintf(stderr, "new_coin_external_deposit called!\n"); abort(); }
+/* Generated stub for new_coin_external_spend */
+struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx UNNEEDED,
+					       const struct bitcoin_outpoint *outpoint UNNEEDED,
+					       const struct bitcoin_txid *txid UNNEEDED,
+					       u32 blockheight UNNEEDED,
+					       struct amount_sat amount UNNEEDED,
+					       enum mvt_tag tag UNNEEDED)
+{ fprintf(stderr, "new_coin_external_spend called!\n"); abort(); }
+/* Generated stub for new_coin_wallet_deposit */
+struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
 					       u32 blockheight UNNEEDED,
-					       struct amount_sat amount UNNEEDED)
-{ fprintf(stderr, "new_coin_withdrawal_sat called!\n"); abort(); }
+					       struct amount_sat amount UNNEEDED,
+					       enum mvt_tag tag UNNEEDED)
+{ fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
+/* Generated stub for new_onchain_htlc_deposit */
+struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx UNNEEDED,
+						const struct bitcoin_outpoint *outpoint UNNEEDED,
+						u32 blockheight UNNEEDED,
+						struct amount_sat amount UNNEEDED,
+						struct sha256 *payment_hash UNNEEDED)
+{ fprintf(stderr, "new_onchain_htlc_deposit called!\n"); abort(); }
+/* Generated stub for new_onchain_htlc_withdraw */
+struct chain_coin_mvt *new_onchain_htlc_withdraw(const tal_t *ctx UNNEEDED,
+						 const struct bitcoin_outpoint *outpoint UNNEEDED,
+						 u32 blockheight UNNEEDED,
+						 struct amount_sat amount UNNEEDED,
+						 struct sha256 *payment_hash UNNEEDED)
+{ fprintf(stderr, "new_onchain_htlc_withdraw called!\n"); abort(); }
+/* Generated stub for new_onchaind_deposit */
+struct chain_coin_mvt *new_onchaind_deposit(const tal_t *ctx UNNEEDED,
+					    const struct bitcoin_outpoint *outpoint UNNEEDED,
+					    u32 blockheight UNNEEDED,
+					    struct amount_sat amount UNNEEDED,
+					    enum mvt_tag tag UNNEEDED)
+{ fprintf(stderr, "new_onchaind_deposit called!\n"); abort(); }
+/* Generated stub for new_onchaind_withdraw */
+struct chain_coin_mvt *new_onchaind_withdraw(const tal_t *ctx UNNEEDED,
+					     const struct bitcoin_outpoint *outpoint UNNEEDED,
+					     const struct bitcoin_txid *spend_txid UNNEEDED,
+					     u32 blockheight UNNEEDED,
+					     struct amount_sat amount UNNEEDED,
+					     enum mvt_tag tag UNNEEDED)
+{ fprintf(stderr, "new_onchaind_withdraw called!\n"); abort(); }
 /* Generated stub for notleak_ */
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
