@@ -709,7 +709,7 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"credit":"2000000000msat",
 		"debit":"0msat",
 		"tag":"deposit",
-		"blockheight":102, // (`channel_mvt` type only. may be null)
+		"blockheight":102, // (May be null)
 		"timestamp":1585948198,
 		"coin_type":"bc"
 	}
@@ -759,10 +759,7 @@ multiple times. `channel_mvt` only
  - `onchain_htlc`: funds moved via an htlc onchain. `chain_mvt` only
  - `pushed`: funds pushed to peer. `channel_mvt` only.
 
-`blockheight` is the block the txid is included in. `chain_mvt` only. In the
-case that an output is considered dust, c-lightning does not track its return to
-our wallet. In those cases, the blockheight will be `null`, as they're recorded
-before confirmation.
+`blockheight` is the block the txid is included in.
 
 The `timestamp` is seconds since Unix epoch of the node's machine time
 at the time lightningd broadcasts the notification.
