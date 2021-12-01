@@ -9,8 +9,7 @@ from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     DEPRECATED_APIS, expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
-    check_coin_moves, first_channel_id, check_coin_moves_idx,
-    EXPERIMENTAL_DUAL_FUND
+    check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND
 )
 
 import ast
@@ -1986,7 +1985,6 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     # Verify we recorded all the movements we expect
     check_coin_moves(l2, chanid_1, l1_l2_mvts, chainparams)
     check_coin_moves(l2, chanid_3, l2_l3_mvts, chainparams)
-    check_coin_moves_idx(l2)
 
 
 def test_3847_repro(node_factory, bitcoind):

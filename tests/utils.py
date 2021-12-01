@@ -99,7 +99,7 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
                       Millisatoshi(mv['credit']).millisatoshis,
                       Millisatoshi(mv['debit']).millisatoshis,
                       mv['tag']))
-        assert mv['version'] == 1
+        assert mv['version'] == 2
         assert mv['node_id'] == node_id
         assert mv['timestamp'] > 0
         assert mv['coin_type'] == chainparams['bip173_prefix']
@@ -127,19 +127,6 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
             acct_moves = acct_moves[1:]
 
     assert acct_moves == []
-
-
-def check_coin_moves_idx(n):
-    """ Just check that the counter increments smoothly"""
-    moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
-    idx = 0
-    for m in moves:
-        c_idx = m['movement_idx']
-        # verify that the index count increments smoothly here, also
-        if c_idx == 0 and idx == 0:
-            continue
-        assert c_idx == idx + 1
-        idx = c_idx
 
 
 def account_balance(n, account_id):

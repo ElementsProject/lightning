@@ -21,6 +21,4 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     struct htlc_out *hout,
 						     struct channel *channel);
 
-/* Initialize the coin movement counter on lightningd */
-void coin_mvts_init_count(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_COIN_MVTS_H */

@@ -1000,10 +1000,6 @@ int main(int argc, char *argv[])
 	 * states, invoices, payments, blocks and bitcoin transactions. */
 	ld->wallet = wallet_new(ld, ld->timers, bip32_base);
 
-	/*~ We keep track of how many 'coin moves' we've ever made.
-	 * Initialize the starting value from the database here. */
-	coin_mvts_init_count(ld);
-
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);
 

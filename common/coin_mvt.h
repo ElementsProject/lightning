@@ -5,7 +5,7 @@
 #include <common/amount.h>
 #include <common/channel_id.h>
 
-#define COIN_MVT_VERSION 1
+#define COIN_MVT_VERSION 2
 
 #define COIN_MVT_ACCT_WALLET "wallet"
 
@@ -123,9 +123,6 @@ struct coin_mvt {
 
 	/* node originating this movement */
 	struct node_id *node_id;
-
-	/* id of this movement (on this node) */
-	u64 counter;
 };
 
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
@@ -222,14 +219,12 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
 				    const char *bip173_name,
 				    u32 timestamp,
-				    struct node_id *node_id,
-				    s64 mvt_count);
+				    struct node_id *node_id);
 
 struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      const struct channel_coin_mvt *chan_mvt,
 				      const char *bip173_name,
-				      u32 timestamp, struct node_id *node_id,
-				      s64 mvt_count);
+				      u32 timestamp, struct node_id *node_id);
 
 const char *mvt_type_str(enum mvt_type type);
 const char *mvt_tag_str(enum mvt_tag tag);

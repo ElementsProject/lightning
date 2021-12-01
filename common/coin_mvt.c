@@ -306,8 +306,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
 				    const char *bip173_name,
 				    u32 timestamp,
-				    struct node_id *node_id,
-				    s64 count)
+				    struct node_id *node_id)
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
@@ -330,7 +329,6 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	mvt->blockheight = chain_mvt->blockheight;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = node_id;
-	mvt->counter = count;
 
 	return mvt;
 }
@@ -338,8 +336,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      const struct channel_coin_mvt *chan_mvt,
 				      const char *bip173_name,
-				      u32 timestamp, struct node_id *node_id,
-				      s64 count)
+				      u32 timestamp, struct node_id *node_id)
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
@@ -360,7 +357,6 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->blockheight = 0;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = node_id;
-	mvt->counter = count;
 
 	return mvt;
 }
