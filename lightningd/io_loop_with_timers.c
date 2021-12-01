@@ -26,7 +26,7 @@ void *io_loop_with_timers(struct lightningd *ld)
 			/* This routine is legal in early startup, too. */
 			if (ld->wallet)
 				db_begin_transaction(ld->wallet->db);
-			timer_expired(ld, expired);
+			timer_expired(expired);
 			if (ld->wallet)
 				db_commit_transaction(ld->wallet->db);
 		}

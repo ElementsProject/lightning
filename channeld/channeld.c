@@ -4076,7 +4076,7 @@ int main(int argc, char *argv[])
 
 		expired = timers_expire(&peer->timers, now);
 		if (expired) {
-			timer_expired(peer, expired);
+			timer_expired(expired);
 			continue;
 		}
 

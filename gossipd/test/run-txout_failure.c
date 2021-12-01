@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
 	t = timers_expire(&timers, timemono_add(time_mono(),
 						time_from_sec(3601)));
 	assert(t);
-	timer_expired(NULL, t);
+	timer_expired(t);
 
 	/* Still there, just old.  Refresh scid1 */
 	assert(rstate->num_txout_failures == 0);
@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 	t = timers_expire(&timers, timemono_add(time_mono(),
 						time_from_sec(3601)));
 	assert(t);
-	timer_expired(NULL, t);
+	timer_expired(t);
 
 	assert(rstate->num_txout_failures == 0);
 	assert(in_txout_failures(rstate, &scid1));

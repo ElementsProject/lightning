@@ -2069,7 +2069,7 @@ int main(int argc, char *argv[])
 	for (;;) {
 		struct timer *expired;
 		io_loop(&daemon->timers, &expired);
-		timer_expired(daemon, expired);
+		timer_expired(expired);
 	}
 }
 
