@@ -697,9 +697,8 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 ```json
 {
 	"coin_movement": {
-		"version":1,
+		"version":2,
 		"node_id":"03a7103a2322b811f7369cbb27fb213d30bbc0b012082fed3cad7e4498da2dc56b",
-		"movement_idx":0,
 		"type":"chain_mvt",
 		"account_id":"wallet",
 		"txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` type only, mandatory)
@@ -721,8 +720,6 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 notification adheres to.
 
 `node_id` specifies the node issuing the coin movement.
-
-`movement_idx` is an increment-only counter for coin moves emitted by this node.
 
 `type` marks the underlying mechanism which moved these coins. There are two
 'types' of `coin_movements`:

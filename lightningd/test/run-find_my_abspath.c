@@ -19,9 +19,6 @@ void begin_topology(struct chain_topology *topo UNNEEDED)
 void channel_notify_new_block(struct lightningd *ld UNNEEDED,
 			      u32 block_height UNNEEDED)
 { fprintf(stderr, "channel_notify_new_block called!\n"); abort(); }
-/* Generated stub for coin_mvts_init_count */
-void coin_mvts_init_count(struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "coin_mvts_init_count called!\n"); abort(); }
 /* Generated stub for connectd_activate */
 void connectd_activate(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "connectd_activate called!\n"); abort(); }
