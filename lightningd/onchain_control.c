@@ -52,21 +52,7 @@ static void onchaind_tell_fulfill(struct channel *channel)
 		if (!hin->preimage)
 			continue;
 
-		/* Sooo these are *probably* replays since they're coming
-		 * from the database but it's hard to be sure since we update
-		 * the database before notifying onchaind about them.
-		 * There's a *very* rare chance that we'll not log them,
-		 * only in that we only make ledger records as a result of this call
-		 * iff the output isn't deemed 'trackable'. So if we do miss a
-		 * ledger record as a result of this decision, it's guaranteed to be
-		 * impreceptibly tiny *and* not show up anywhere else in the node's
-		 * utxo set.
-		 *
-		 * Aka a reconciliator's nightmare.
-		 * The alternative is to double-count *every* ignored htlc output
-		 * It's easier to delete than find a missing, but I'm banking on
-		 * the rarity of failure here. (hahaha) */
-		msg = towire_onchaind_known_preimage(channel, hin->preimage, false);
+		msg = towire_onchaind_known_preimage(channel, hin->preimage);
 		subd_send_msg(channel->owner, take(msg));
 	}
 }
@@ -152,11 +138,10 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
  */
 static void onchain_tx_depth(struct channel *channel,
 			     const struct bitcoin_txid *txid,
-			     unsigned int depth,
-			     bool is_replay)
+			     unsigned int depth)
 {
 	u8 *msg;
-	msg = towire_onchaind_depth(channel, txid, depth, is_replay);
+	msg = towire_onchaind_depth(channel, txid, depth);
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -199,7 +184,7 @@ static enum watch_result onchain_tx_watched(struct lightningd *ld,
 	wallet_channeltxs_add(ld->wallet, channel,
 			      WIRE_ONCHAIND_DEPTH, txid, 0, blockheight);
 
-	onchain_tx_depth(channel, txid, depth, false);
+	onchain_tx_depth(channel, txid, depth);
 	return KEEP_WATCHING;
 }
 
@@ -209,7 +194,7 @@ static void watch_tx_and_outputs(struct channel *channel,
 /**
  * Notify onchaind that an output was spent and register new watches.
  */
-static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *tx, size_t input_num, u32 blockheight, bool is_replay)
+static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *tx, size_t input_num, u32 blockheight)
 {
 	u8 *msg;
 	/* Onchaind needs all inputs, since it uses those to compare
@@ -219,7 +204,7 @@ static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *
 
 	watch_tx_and_outputs(channel, tx);
 
-	msg = towire_onchaind_spent(channel, parts, input_num, blockheight, is_replay);
+	msg = towire_onchaind_spent(channel, parts, input_num, blockheight);
 	subd_send_msg(channel->owner, take(msg));
 
 }
@@ -240,7 +225,7 @@ static enum watch_result onchain_txo_watched(struct channel *channel,
 			      WIRE_ONCHAIND_SPENT, &txid, input_num,
 			      block->height);
 
-	onchain_txo_spent(channel, tx, input_num, block->height, false);
+	onchain_txo_spent(channel, tx, input_num, block->height);
 
 	/* We don't need to keep watching: If this output is double-spent
 	 * (reorg), we'll get a zero depth cb to onchain_tx_watched, and
@@ -590,8 +575,7 @@ static void onchain_error(struct channel *channel,
  * onchaind (like any other owner), and restart */
 enum watch_result onchaind_funding_spent(struct channel *channel,
 					 const struct bitcoin_tx *tx,
-					 u32 blockheight,
-					 bool is_replay)
+					 u32 blockheight)
 {
 	u8 *msg;
 	struct bitcoin_txid our_last_txid;
@@ -727,7 +711,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->static_remotekey_start[LOCAL],
 				  channel->static_remotekey_start[REMOTE],
 				   channel_has(channel, OPT_ANCHOR_OUTPUTS),
-				  is_replay,
 				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));
 
@@ -757,18 +740,16 @@ void onchaind_replay_channels(struct lightningd *ld)
 		for (size_t j = 0; j < tal_count(txs); j++) {
 			if (txs[j].type == WIRE_ONCHAIND_INIT) {
 				onchaind_funding_spent(chan, txs[j].tx,
-						       txs[j].blockheight,
-						       true);
+						       txs[j].blockheight);
 
 			} else if (txs[j].type == WIRE_ONCHAIND_SPENT) {
 				onchain_txo_spent(chan, txs[j].tx,
 						  txs[j].input_num,
-						  txs[j].blockheight,
-						  true);
+						  txs[j].blockheight);
 
 			} else if (txs[j].type == WIRE_ONCHAIND_DEPTH) {
 				onchain_tx_depth(chan, &txs[j].txid,
-						 txs[j].depth, true);
+						 txs[j].depth);
 
 			} else {
 				fatal("unknown message of type %d during "
