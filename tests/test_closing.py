@@ -6,7 +6,8 @@ from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
-    scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES
+    scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
+    check_utxos_channel, anchor_expected
 )
 
 import os
@@ -19,9 +20,11 @@ import unittest
 
 
 @pytest.mark.developer("Too slow without --dev-bitcoind-poll")
-def test_closing(node_factory, bitcoind, chainparams):
-    l1, l2 = node_factory.line_graph(2)
+def test_closing_simple(node_factory, bitcoind, chainparams):
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
     chan = l1.get_channel_scid(l2)
+    channel_id = first_channel_id(l1, l2)
     fee = closing_fee(3750, 2) if not chainparams['elements'] else 3603
 
     l1.pay(l2, 200000000)
@@ -97,6 +100,22 @@ def test_closing(node_factory, bitcoind, chainparams):
     # The entry in the channels table should still be there
     assert l1.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
     assert l2.db_query("SELECT count(*) as c FROM channels;")[0]['c'] == 1
+
+    assert account_balance(l1, channel_id) == 0
+    assert account_balance(l2, channel_id) == 0
+
+    expected_1 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('wallet', 'deposit', None, None)],
+    }
+
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('wallet', 'deposit', None, None)],
+    }
+    tags = check_utxos_channel(l1, [channel_id], expected_1)
+    check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
 def test_closing_while_disconnected(node_factory, bitcoind, executor):
@@ -604,7 +623,33 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
 
     assert [o['status'] for o in outputs] == ['confirmed'] * 2
     assert set([o['txid'] for o in outputs]) == txids
+    assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
+
+    # l1 loses all of their channel balance to the peer, as penalties
+    expected_1 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'penalty', None, None), ('external', 'penalty', None, None)],
+    }
+
+    # l2 sweeps all of l1's closing outputs
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('cid1', 'penalty', 'to_wallet', 'C'), ('cid1', 'penalty', 'to_wallet', 'D')],
+        'C': [('wallet', 'deposit', None, None)],
+        'D': [('wallet', 'deposit', None, None)]
+    }
+
+    if anchor_expected():
+        expected_1['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_1['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    # We use a subset of tags in expected_2 that are used in expected_1
+    tags = check_utxos_channel(l1, [channel_id], expected_1)
+    check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
@@ -705,7 +750,33 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 
     assert [o['status'] for o in outputs] == ['confirmed'] * 3
     assert set([o['txid'] for o in outputs]) == txids
+    assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
+
+    # l1 loses all of their channel balance to the peer, as penalties
+    expected_1 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'penalty', None, None), ('external', 'penalty', None, None), ('external', 'penalty', None, None)],
+    }
+
+    # l2 sweeps all of l1's closing outputs
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('wallet', 'channel_close', None, None), ('cid1', 'penalty', 'to_wallet', 'C'), ('cid1', 'penalty', 'to_wallet', 'D')],
+        'C': [('wallet', 'deposit', None, None)],
+        'D': [('wallet', 'deposit', None, None)]
+    }
+
+    if anchor_expected():
+        expected_1['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_1['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    # We use a subset of tags in expected_2 that are used in expected_1
+    tags = check_utxos_channel(l1, [channel_id], expected_1)
+    check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -1173,7 +1244,6 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     # reconnect with l1, which will fulfill the payment
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.daemon.wait_for_log('got commitsig .*: feerate 11000, blockheight: 0, 0 added, 1 fulfilled, 0 failed, 0 changed')
-    l2.daemon.wait_for_log('coins payment_hash: {}'.format(sticky_inv['payment_hash']))
 
     # l2 moves on for closed l3
     bitcoind.generate_block(1)
@@ -1211,6 +1281,29 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
     assert account_balance(l3, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
+
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'to_them', None, None), ('cid1', 'htlc_fulfill', 'htlc_fulfill', 'C'), ('external', 'penalized', None, None)],
+        'C': [('external', 'penalized', None, None)],
+    }
+
+    expected_3 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('wallet', 'channel_close', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'C'), ('cid1', 'penalty', 'to_wallet', 'E')],
+        'C': [('cid1', 'penalty', 'to_wallet', 'D')],
+        'D': [('wallet', 'deposit', None, None)],
+        'E': [('wallet', 'deposit', None, None)]
+    }
+
+    if anchor_expected():
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_3['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_3['B'].append(('wallet', 'anchor', None, None))
+
+    tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
+    check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
@@ -1329,7 +1422,6 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     # reconnect with l1, which will fulfill the payment
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.daemon.wait_for_log('got commitsig .*: feerate 11000, blockheight: 0, 0 added, 1 fulfilled, 0 failed, 0 changed')
-    l2.daemon.wait_for_log('coins payment_hash: {}'.format(sticky_inv_2['payment_hash']))
 
     # l2 moves on for closed l3
     bitcoind.generate_block(1, wait_for_mempool=1)
@@ -1396,12 +1488,40 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     assert account_balance(l3, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
 
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'to_them', None, None), ('cid1', 'htlc_fulfill', 'htlc_fulfill', 'E'), ('cid1', 'delayed_to_us', 'to_wallet', 'F'), ('cid1', 'htlc_timeout', 'htlc_timeout', 'C')],
+        'C': [('external', 'penalized', None, None)],
+        'E': [('cid1', 'htlc_tx', 'to_wallet', 'G')],
+        'F': [('wallet', 'deposit', None, None)],
+        'G': [('wallet', 'deposit', None, None)]
+    }
+
+    expected_3 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('wallet', 'channel_close', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'E'), ('external', 'stolen', None, None), ('external', 'htlc_timeout', 'htlc_timeout', 'C')],
+        'C': [('cid1', 'penalty', 'to_wallet', 'D')],
+        'D': [('wallet', 'deposit', None, None)],
+        'E': [('external', 'stolen', None, None)]
+    }
+
+    if anchor_expected():
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_3['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_3['B'].append(('wallet', 'anchor', None, None))
+
+    tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
+    check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
+
 
 @pytest.mark.developer("uses dev_sign_last_tx")
 def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     '''
     Test that penalty transactions are RBFed.
     '''
+    # We track channel balances, to verify that accounting is ok.
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     to_self_delay = 10
     # l1 is the thief, which causes our honest upstanding lightningd
     # code to break, so l1 can fail.
@@ -1409,10 +1529,12 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
                                may_fail=True, allow_broken_log=True)
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
-                               options={'watchtime-blocks': to_self_delay})
+                               options={'watchtime-blocks': to_self_delay,
+                                        'plugin': coin_mvt_plugin})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**7)
+    channel_id = first_channel_id(l1, l2)
 
     # Trigger an HTLC being added.
     t = executor.submit(l1.pay, l2, 1000000 * 1000)
@@ -1501,6 +1623,21 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     # And l2 should consider it in its listfunds.
     assert(len(l2.rpc.listfunds()['outputs']) >= 1)
 
+    assert account_balance(l2, channel_id) == 0
+
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('cid1', 'penalty', 'to_wallet', 'C'), ('cid1', 'penalty', 'to_wallet', 'D')],
+        'C': [('wallet', 'deposit', None, None)],
+        'D': [('wallet', 'deposit', None, None)]
+    }
+
+    if anchor_expected():
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    check_utxos_channel(l2, [channel_id], expected_2)
+
 
 @pytest.mark.developer("uses dev_sign_last_tx")
 def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
@@ -1508,6 +1645,8 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     Test that penalty transactions are RBFed and we are willing to burn
     it all up to spite the thief.
     '''
+    # We track channel balances, to verify that accounting is ok.
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     to_self_delay = 10
     # l1 is the thief, which causes our honest upstanding lightningd
     # code to break, so l1 can fail.
@@ -1515,10 +1654,12 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
                                may_fail=True, allow_broken_log=True)
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
-                               options={'watchtime-blocks': to_self_delay})
+                               options={'watchtime-blocks': to_self_delay,
+                                        'plugin': coin_mvt_plugin})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**7)
+    channel_id = first_channel_id(l1, l2)
 
     # Trigger an HTLC being added.
     t = executor.submit(l1.pay, l2, 1000000 * 1000)
@@ -1605,6 +1746,18 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
 
     # l2 donated it to the miners, so it owns nothing
     assert(len(l2.rpc.listfunds()['outputs']) == 0)
+    assert account_balance(l2, channel_id) == 0
+
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('cid1', 'penalty', 'to_miner', 'C'), ('cid1', 'penalty', 'to_miner', 'D')],
+    }
+
+    if anchor_expected():
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    check_utxos_channel(l2, [channel_id], expected_2)
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
@@ -1912,9 +2065,37 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
 
+    # Graph of coin_move events we expect
+    expected_1 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('cid1', 'delayed_to_us', 'to_wallet', 'C'), ('cid1', 'htlc_timeout', 'htlc_timeout', 'D')],
+        'C': [('wallet', 'deposit', None, None)],
+        'D': [('cid1', 'htlc_tx', 'to_wallet', 'E')],
+        'E': [('wallet', 'deposit', None, None)]
+    }
+
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'to_them', None, None), ('external', 'htlc_timeout', None, None)]
+    }
+
+    if anchor_expected():
+        expected_1['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_1['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    # We use a subset of tags in expected_2 that are used in expected_1
+    tags = check_utxos_channel(l1, [channel_id], expected_1)
+    # Passing the same tags in to the check again will verify that the
+    # txids 'unify' across both event sets (in other words, we're talking
+    # about the same tx's when we say 'A' in each
+    check_utxos_channel(l2, [channel_id], expected_2, tags)
+
 
 @pytest.mark.developer("needs DEVELOPER=1")
-def test_onchain_middleman(node_factory, bitcoind):
+def test_onchain_middleman_simple(node_factory, bitcoind):
     # We track channel balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
@@ -1998,6 +2179,35 @@ def test_onchain_middleman(node_factory, bitcoind):
     # Verify accounting for l1 & l2
     assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
+
+    # Graph of coin_move events we expect
+    expected_2 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        # This is ugly, but this wallet deposit is either unspent or used
+        # in the next channel open
+        'A': [('wallet', 'deposit', [('withdrawal', 'F'), (None, None)]), ('cid1', 'channel_open', 'channel_close', 'B')],
+        '1': [('wallet', 'deposit', 'withdrawal', 'F')],
+        'B': [('cid1', 'delayed_to_us', 'to_wallet', 'C'), ('cid1', 'htlc_fulfill', 'htlc_fulfill', 'D'), ('external', 'to_them', None, None)],
+        'C': [('wallet', 'deposit', None, None)],
+        'D': [('cid1', 'htlc_tx', 'to_wallet', 'E')],
+        'E': [('wallet', 'deposit', None, None)],
+        'F': [('wallet', 'deposit', None, None), ('cid2', 'channel_open', None, None)]
+    }
+
+    expected_1 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'to_them', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'D'), ('wallet', 'channel_close', None, None)]
+    }
+
+    if anchor_expected():
+        expected_1['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_1['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    chan2_id = first_channel_id(l2, l3)
+    tags = check_utxos_channel(l2, [channel_id, chan2_id], expected_2)
+    check_utxos_channel(l1, [channel_id, chan2_id], expected_1, tags)
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
@@ -2091,6 +2301,34 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
 
+    # Graph of coin_move events we expect
+    expected_2 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        # This is ugly, but this wallet deposit is either unspent or used
+        # in the next channel open
+        'A': [('wallet', 'deposit', [('withdrawal', 'D'), (None, None)]), ('cid1', 'channel_open', 'channel_close', 'B')],
+        '1': [('wallet', 'deposit', 'withdrawal', 'D')],
+        'B': [('external', 'to_them', None, None), ('wallet', 'channel_close', None, None), ('cid1', 'htlc_fulfill', 'to_wallet', 'C')],
+        'C': [('wallet', 'deposit', None, None)],
+        'D': [('wallet', 'deposit', None, None), ('cid2', 'channel_open', None, None)]
+    }
+
+    expected_1 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'to_them', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'C'), ('cid1', 'delayed_to_us', 'to_wallet', 'E')],
+        'E': [('wallet', 'deposit', None, None)]
+    }
+
+    if anchor_expected():
+        expected_1['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_1['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    chan2_id = first_channel_id(l2, l3)
+    tags = check_utxos_channel(l2, [channel_id, chan2_id], expected_2)
+    check_utxos_channel(l1, [channel_id, chan2_id], expected_1, tags)
+
 
 @pytest.mark.developer("needs DEVELOPER=1")
 def test_onchain_their_unilateral_out(node_factory, bitcoind):
@@ -2155,6 +2393,30 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
     # Verify accounting for l1 & l2
     assert account_balance(l2, channel_id) == 0
     assert account_balance(l1, channel_id) == 0
+
+    # Graph of coin_move events we expect
+    expected_1 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        # This is ugly, but this wallet deposit is either unspent or used
+        # in the next channel open
+        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('wallet', 'channel_close', None, None), ('cid1', 'htlc_timeout', 'to_wallet', 'C')],
+        'C': [('wallet', 'deposit', None, None)],
+    }
+
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'to_them', None, None), ('external', 'htlc_timeout', None, None)],
+    }
+
+    if anchor_expected():
+        expected_1['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_1['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    tags = check_utxos_channel(l1, [channel_id], expected_1)
+    check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
 def test_listfunds_after_their_unilateral(node_factory, bitcoind):
@@ -2335,6 +2597,28 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
 
     assert account_balance(l1, channel_id) == 0
     assert account_balance(l2, channel_id) == 0
+
+    # Graph of coin_move events we expect
+    expected_1 = {
+        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('wallet', 'channel_close', None, None), ('cid1', 'htlc_timeout', 'ignored', 'C')],
+        'C': [('wallet', 'deposit', None, None)],
+    }
+
+    expected_2 = {
+        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
+        'B': [('external', 'to_them', None, None), ('external', 'htlc_timeout', None, None)],
+    }
+
+    if anchor_expected():
+        expected_1['B'].append(('external', 'anchor', None, None))
+        expected_2['B'].append(('external', 'anchor', None, None))
+        expected_1['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('wallet', 'anchor', None, None))
+
+    tags = check_utxos_channel(l1, [channel_id], expected_1)
+    check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
 @pytest.mark.developer("needs DEVELOPER=1 for dev_fail")

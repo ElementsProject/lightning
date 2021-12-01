@@ -2253,10 +2253,10 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 
 		/* We only record final ledger movements */
 		if (blockheight) {
-			mvt = new_coin_deposit_sat(utxo, "wallet",
-						   &utxo->outpoint,
-						   blockheight ? *blockheight : 0,
-						   utxo->amount);
+			mvt = new_coin_wallet_deposit(tmpctx, &utxo->outpoint,
+						      *blockheight,
+						      utxo->amount,
+						      DEPOSIT);
 			notify_chain_mvt(w->ld, mvt);
 		}
 

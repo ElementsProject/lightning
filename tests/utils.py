@@ -8,6 +8,10 @@ EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
 
 
+def anchor_expected():
+    return EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND
+
+
 def hex_bits(features):
     # We always to full bytes
     flen = (max(features + [0]) + 7) // 8 * 8
@@ -147,6 +151,155 @@ def account_balance(n, account_id):
         m_sum += int(m['credit'][:-4])
         m_sum -= int(m['debit'][:-4])
     return m_sum
+
+
+def extract_utxos(moves):
+    utxos = {}
+    for m in moves:
+        if 'utxo_txid' not in m:
+            continue
+        txid = m['utxo_txid']
+        if txid not in utxos:
+            utxos[txid] = []
+
+        if 'txid' not in m:
+            utxos[txid].append([m, None])
+        else:
+            evs = utxos[txid]
+            # it's a withdrawal, find the deposit and add to the pair
+            for ev in evs:
+                if ev[0]['vout'] == m['vout']:
+                    ev[1] = m
+                    assert ev[0]['output_value'] == m['output_value']
+                    break
+    return utxos
+
+
+def print_utxos(utxos):
+    for k, us in utxos.items():
+        print(k)
+        for u in us:
+            if u[1]:
+                print('\t', u[0]['account_id'], u[0]['tag'], u[1]['tag'], u[1]['txid'])
+            else:
+                print('\t', u[0]['account_id'], u[0]['tag'], None, None)
+
+
+def utxos_for_channel(utxoset, channel_id):
+    relevant_txids = []
+    chan_utxos = {}
+
+    def _add_relevant(txid, utxo):
+        if txid not in chan_utxos:
+            chan_utxos[txid] = []
+        chan_utxos[txid].append(utxo)
+
+    for txid, utxo_list in utxoset.items():
+        for utxo in utxo_list:
+            if utxo[0]['account_id'] == channel_id:
+                _add_relevant(txid, utxo)
+                relevant_txids.append(txid)
+                if utxo[1]:
+                    relevant_txids.append(utxo[1]['txid'])
+            elif txid in relevant_txids:
+                _add_relevant(txid, utxo)
+                if utxo[1]:
+                    relevant_txids.append(utxo[1]['txid'])
+
+    # if they're not well ordered, we'll leave some txids out
+    for txid in relevant_txids:
+        if txid not in chan_utxos:
+            chan_utxos[txid] = utxoset[txid]
+
+    return chan_utxos
+
+
+def matchup_events(u_set, evs, chans, tag_list):
+    assert len(u_set) == len(evs) and len(u_set) > 0
+
+    txid = u_set[0][0]['utxo_txid']
+    for ev in evs:
+        found = False
+        for u in u_set:
+            # We use 'cid' as a placeholder for the channel id, since it's
+            # dyanmic, but we need to sub it in. 'chans' is a list of cids,
+            # which are mapped to `cid` tags' suffixes. eg. 'cid1' is the
+            # first cid in the chans list
+            if ev[0][:3] == 'cid':
+                idx = int(ev[0][3:])
+                acct = chans[idx - 1]
+            else:
+                acct = ev[0]
+
+            if u[0]['account_id'] != acct or u[0]['tag'] != ev[1]:
+                continue
+
+            if ev[2] is None:
+                assert u[1] is None
+                found = True
+                u_set.remove(u)
+                break
+
+            # ugly hack to annotate two possible futures for a utxo
+            if type(ev[2]) is list:
+                tag = u[1]['tag'] if u[1] else u[1]
+                assert tag in [x[0] for x in ev[2]]
+                if not u[1]:
+                    found = True
+                    u_set.remove(u)
+                    break
+                for x in ev[2]:
+                    if x[0] == u[1]['tag'] and u[1]['tag'] != 'to_miner':
+                        # Save the 'spent to' txid in the tag-list
+                        tag_list[x[1]] = u[1]['txid']
+            else:
+                assert ev[2] == u[1]['tag']
+                # Save the 'spent to' txid in the tag-list
+                if u[1]['tag'] != 'to_miner':
+                    tag_list[ev[3]] = u[1]['txid']
+
+            found = True
+            u_set.remove(u)
+
+        assert found
+
+    # Verify we used them all up
+    assert len(u_set) == 0
+    return txid
+
+
+def check_utxos_channel(n, chans, expected, exp_tag_list=None, filter_channel=None):
+    tag_list = {}
+    moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
+    utxos = extract_utxos(moves)
+
+    if filter_channel:
+        utxos = utxos_for_channel(utxos, filter_channel)
+
+    for tag, evs in expected.items():
+        if tag not in tag_list:
+            u_set = list(utxos.values())[0]
+        elif tag in tag_list:
+            u_set = utxos[tag_list[tag]]
+
+        txid = matchup_events(u_set, evs, chans, tag_list)
+
+        if tag not in tag_list:
+            tag_list[tag] = txid
+
+        # Remove checked set from utxos
+        del utxos[txid]
+
+    # Verify that we went through all of the utxos
+    assert len(utxos) == 0
+
+    # Verify that the expected tags match the found tags
+    if exp_tag_list:
+        for tag, txid in tag_list.items():
+            if tag in exp_tag_list:
+                assert exp_tag_list[tag] == txid
+
+    return tag_list
 
 
 def first_channel_id(n1, n2):
