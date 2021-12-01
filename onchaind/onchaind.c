@@ -1014,7 +1014,7 @@ static bool proposal_is_rbfable(const struct proposed_resolution *proposal)
  * @desc precondition: the given output must have an
  * rbfable proposal as per `proposal_is_rbfable`.
  */
-static void proposal_should_rbf(struct tracked_output *out, bool is_replay)
+static void proposal_should_rbf(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx = NULL;
 	u32 depth;
@@ -1095,7 +1095,7 @@ static void proposal_should_rbf(struct tracked_output *out, bool is_replay)
 	}
 }
 
-static void proposal_meets_depth(struct tracked_output *out, bool is_replay)
+static void proposal_meets_depth(struct tracked_output *out)
 {
 	bool is_rbf = false;
 
@@ -1139,8 +1139,7 @@ static void proposal_meets_depth(struct tracked_output *out, bool is_replay)
 static void propose_resolution(struct tracked_output *out,
 			       const struct bitcoin_tx *tx,
 			       unsigned int depth_required,
-			       enum tx_type tx_type,
-			       bool is_replay)
+			       enum tx_type tx_type)
 {
 	status_debug("Propose handling %s/%s by %s (%s) after %u blocks",
 		     tx_type_name(out->tx_type),
@@ -1155,14 +1154,13 @@ static void propose_resolution(struct tracked_output *out,
 	out->proposal->tx_type = tx_type;
 
 	if (depth_required == 0)
-		proposal_meets_depth(out, is_replay);
+		proposal_meets_depth(out);
 }
 
 static void propose_resolution_at_block(struct tracked_output *out,
 					const struct bitcoin_tx *tx,
 					unsigned int block_required,
-					enum tx_type tx_type,
-					bool is_replay)
+					enum tx_type tx_type)
 {
 	u32 depth;
 
@@ -1171,7 +1169,7 @@ static void propose_resolution_at_block(struct tracked_output *out,
 		depth = 0;
 	else /* Note that out->tx_blockheight is already at depth 1 */
 		depth = block_required - out->tx_blockheight + 1;
-	propose_resolution(out, tx, depth, tx_type, is_replay);
+	propose_resolution(out, tx, depth, tx_type);
 }
 
 static bool is_valid_sig(const u8 *e)
@@ -1541,8 +1539,7 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 			    size_t out_index,
 			    const struct tx_parts *htlc_tx,
 			    size_t input_num,
-			    u32 tx_blockheight,
-			    bool is_replay)
+			    u32 tx_blockheight)
 {
 	struct tracked_output *out;
 	struct bitcoin_tx *tx;
@@ -1591,8 +1588,7 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 	tx = tx_to_us(*outs, delayed_payment_to_us, out, to_self_delay[LOCAL],
 		      0, NULL, 0, wscript, &tx_type, htlc_feerate);
 
-	propose_resolution(out, tx, to_self_delay[LOCAL], tx_type,
-			   is_replay);
+	propose_resolution(out, tx, to_self_delay[LOCAL], tx_type);
 }
 
 /* BOLT #5:
@@ -1607,8 +1603,7 @@ static void steal_htlc_tx(struct tracked_output *out,
 			  const struct tx_parts *htlc_tx,
 			  u32 htlc_tx_blockheight,
 			  enum tx_type htlc_tx_type,
-			  const struct bitcoin_outpoint *htlc_outpoint,
-			  bool is_replay)
+			  const struct bitcoin_outpoint *htlc_outpoint)
 {
 	struct bitcoin_tx *tx;
 	enum tx_type tx_type = OUR_PENALTY_TX;
@@ -1645,7 +1640,7 @@ static void steal_htlc_tx(struct tracked_output *out,
 	resolved_by_other(out, &htlc_tx->txid, htlc_tx_type);
 
 	/* annnd done! */
-	propose_resolution(htlc_out, tx, 0, tx_type, is_replay);
+	propose_resolution(htlc_out, tx, 0, tx_type);
 }
 
 static void onchain_annotate_txout(const struct bitcoin_outpoint *outpoint,
@@ -1666,8 +1661,7 @@ static void onchain_annotate_txin(const struct bitcoin_txid *txid, u32 innum,
 static void output_spent(struct tracked_output ***outs,
 			 const struct tx_parts *tx_parts,
 			 u32 input_num,
-			 u32 tx_blockheight,
-			 bool is_replay)
+			 u32 tx_blockheight)
 {
 	for (size_t i = 0; i < tal_count(*outs); i++) {
 		struct tracked_output *out = (*outs)[i];
@@ -1686,7 +1680,7 @@ static void output_spent(struct tracked_output ***outs,
 			if (out->resolved->tx_type == OUR_HTLC_SUCCESS_TX
 			    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX)
 				resolve_htlc_tx(outs, i, tx_parts, input_num,
-						tx_blockheight, is_replay);
+						tx_blockheight);
 
 			record_coin_movements(out, tx_blockheight,
 					      out->proposal->tx,
@@ -1715,8 +1709,7 @@ static void output_spent(struct tracked_output ***outs,
 				steal_htlc_tx(out, outs, tx_parts,
 					      tx_blockheight,
 					      THEIR_HTLC_TIMEOUT_TO_THEM,
-					      &htlc_outpoint,
-					      is_replay);
+					      &htlc_outpoint);
 			} else {
 				/* We ignore this timeout tx, since we should
 				 * resolve by ignoring once we reach depth. */
@@ -1752,8 +1745,7 @@ static void output_spent(struct tracked_output ***outs,
 				steal_htlc_tx(out, outs, tx_parts,
 					      tx_blockheight,
 					      OUR_HTLC_FULFILL_TO_THEM,
-					      &htlc_outpoint,
-					      is_replay);
+					      &htlc_outpoint);
 			} else {
 				/* BOLT #5:
 				 *
@@ -1847,8 +1839,7 @@ static void update_resolution_depth(struct tracked_output *out, u32 depth)
 }
 
 static void tx_new_depth(struct tracked_output **outs,
-			 const struct bitcoin_txid *txid, u32 depth,
-			 bool is_replay)
+			 const struct bitcoin_txid *txid, u32 depth)
 {
 	size_t i;
 
@@ -1882,7 +1873,7 @@ static void tx_new_depth(struct tracked_output **outs,
 		if (outs[i]->proposal
 		    && bitcoin_txid_eq(&outs[i]->outpoint.txid, txid)
 		    && depth >= outs[i]->proposal->depth_required) {
-			proposal_meets_depth(outs[i], is_replay);
+			proposal_meets_depth(outs[i]);
 		}
 
 		/* Otherwise, is this an output whose proposed resolution
@@ -1890,7 +1881,7 @@ static void tx_new_depth(struct tracked_output **outs,
 		if (outs[i]->proposal
 		    && bitcoin_txid_eq(&outs[i]->outpoint.txid, txid)
 		    && proposal_is_rbfable(outs[i]->proposal))
-			proposal_should_rbf(outs[i], is_replay);
+			proposal_should_rbf(outs[i]);
 	}
 }
 
@@ -1921,8 +1912,7 @@ static void tx_new_depth(struct tracked_output **outs,
  */
 /* Master makes sure we only get told preimages once other node is committed. */
 static void handle_preimage(struct tracked_output **outs,
-			    const struct preimage *preimage,
-			    bool is_replay)
+			    const struct preimage *preimage)
 {
 	size_t i;
 	struct sha256 sha;
@@ -1992,8 +1982,7 @@ static void handle_preimage(struct tracked_output **outs,
 			    tx, &sig, outs[i]->remote_htlc_sig, preimage,
 			    outs[i]->wscript);
 			bitcoin_tx_input_set_witness(tx, 0, take(witness));
-			propose_resolution(outs[i], tx, 0, OUR_HTLC_SUCCESS_TX,
-					   is_replay);
+			propose_resolution(outs[i], tx, 0, OUR_HTLC_SUCCESS_TX);
 		} else {
 			enum tx_type tx_type = THEIR_HTLC_FULFILL_TO_US;
 
@@ -2015,8 +2004,7 @@ static void handle_preimage(struct tracked_output **outs,
 				      0, preimage, sizeof(*preimage),
 				      outs[i]->wscript, &tx_type,
 				      htlc_feerate);
-			propose_resolution(outs[i], tx, 0, tx_type,
-					   is_replay);
+			propose_resolution(outs[i], tx, 0, tx_type);
 
 		}
 	}
@@ -2080,7 +2068,6 @@ static void wait_for_resolved(struct tracked_output **outs)
 		struct bitcoin_txid txid;
 		u32 input_num, depth, tx_blockheight;
 		struct preimage preimage;
-		bool is_replay;
 		struct tx_parts *tx_parts;
 
 		if (tal_count(queued_msgs)) {
@@ -2092,13 +2079,13 @@ static void wait_for_resolved(struct tracked_output **outs)
 		status_debug("Got new message %s",
 			     onchaind_wire_name(fromwire_peektype(msg)));
 
-		if (fromwire_onchaind_depth(msg, &txid, &depth, &is_replay))
-			tx_new_depth(outs, &txid, depth, is_replay);
+		if (fromwire_onchaind_depth(msg, &txid, &depth))
+			tx_new_depth(outs, &txid, depth);
 		else if (fromwire_onchaind_spent(msg, msg, &tx_parts, &input_num,
-						&tx_blockheight, &is_replay)) {
-			output_spent(&outs, tx_parts, input_num, tx_blockheight, is_replay);
-		} else if (fromwire_onchaind_known_preimage(msg, &preimage, &is_replay))
-			handle_preimage(outs, &preimage, is_replay);
+						&tx_blockheight)) {
+			output_spent(&outs, tx_parts, input_num, tx_blockheight);
+		} else if (fromwire_onchaind_known_preimage(msg, &preimage))
+			handle_preimage(outs, &preimage);
 		else if (!handle_dev_memleak(outs, msg))
 			master_badmsg(-1, msg);
 
@@ -2221,8 +2208,7 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 					 const size_t *matches,
 					 const struct htlc_stub *htlcs,
-					 u8 **htlc_scripts,
-					 bool is_replay)
+					 u8 **htlc_scripts)
 {
 	struct bitcoin_tx *tx = NULL;
 	struct bitcoin_signature localsig;
@@ -2311,7 +2297,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 
 	/* Steals tx onto out */
 	propose_resolution_at_block(out, tx, htlcs[matches[i]].cltv_expiry,
-				    OUR_HTLC_TIMEOUT_TX, is_replay);
+				    OUR_HTLC_TIMEOUT_TX);
 
 	return matches[i];
 }
@@ -2333,8 +2319,7 @@ static u32 matches_cltv(const size_t *matches,
 static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 					   const size_t *matches,
 					   const struct htlc_stub *htlcs,
-					   u8 **htlc_scripts,
-					   bool is_replay)
+					   u8 **htlc_scripts)
 {
 	struct bitcoin_tx *tx;
 	enum tx_type tx_type = OUR_HTLC_TIMEOUT_TO_US;
@@ -2355,7 +2340,7 @@ static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 		      cltv_expiry, NULL, 0,
 		      htlc_scripts[matches[0]], &tx_type, htlc_feerate);
 
-	propose_resolution_at_block(out, tx, cltv_expiry, tx_type, is_replay);
+	propose_resolution_at_block(out, tx, cltv_expiry, tx_type);
 
 	/* They're all equivalent: might as well use first one. */
 	return matches[0];
@@ -2365,8 +2350,7 @@ static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 static size_t resolve_their_htlc(struct tracked_output *out,
 				 const size_t *matches,
 				 const struct htlc_stub *htlcs,
-				 u8 **htlc_scripts,
-				 bool is_replay)
+				 u8 **htlc_scripts)
 {
 	size_t which_htlc;
 
@@ -2403,7 +2387,7 @@ static size_t resolve_their_htlc(struct tracked_output *out,
 
 	/* If we hit timeout depth, resolve by ignoring. */
 	propose_resolution_at_block(out, NULL, htlcs[which_htlc].cltv_expiry,
-				    THEIR_HTLC_TIMEOUT_TO_THEM, is_replay);
+				    THEIR_HTLC_TIMEOUT_TO_THEM);
 	return which_htlc;
 }
 
@@ -2513,8 +2497,7 @@ static void our_unilateral_to_us(struct tracked_output ***outs,
 				 struct amount_sat amt,
 				 u16 sequence,
 				 const u8 *local_scriptpubkey,
-				 const u8 *local_wscript,
-				 bool is_replay)
+				 const u8 *local_wscript)
 {
 	struct bitcoin_tx *to_us;
 	struct tracked_output *out;
@@ -2556,7 +2539,7 @@ static void our_unilateral_to_us(struct tracked_output ***outs,
 	 * Note: if the output is spent (as recommended), the
 	 * output is *resolved* by the spending transaction
 	 */
-	propose_resolution(out, to_us, sequence, tx_type, is_replay);
+	propose_resolution(out, to_us, sequence, tx_type);
 }
 
 static void handle_our_unilateral(const struct tx_parts *tx,
@@ -2564,8 +2547,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 				  const struct basepoints basepoints[NUM_SIDES],
 				  const enum side opener,
 				  const struct bitcoin_signature *remote_htlc_sigs,
-				  struct tracked_output **outs,
-				  bool is_replay)
+				  struct tracked_output **outs)
 {
 	u8 **htlc_scripts;
 	u8 *local_wscript, *script[NUM_SIDES], *anchor[NUM_SIDES];
@@ -2682,7 +2664,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			our_unilateral_to_us(&outs, &outpoint, tx_blockheight,
 					     amt, to_self_delay[LOCAL],
 					     script[LOCAL],
-					     local_wscript, is_replay);
+					     local_wscript);
 
 			script[LOCAL] = NULL;
 			continue;
@@ -2769,8 +2751,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 							     amt,
 							     max_unsigned(to_self_delay[LOCAL], csv),
 							     script[LOCAL],
-							     local_wscript,
-							     is_replay);
+							     local_wscript);
 
 					script[LOCAL] = NULL;
 					found = true;
@@ -2846,8 +2827,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			/* Tells us which htlc to use */
 			which_htlc = resolve_our_htlc_ourcommit(out, matches,
 								htlcs_info->htlcs,
-								htlc_scripts,
-								is_replay);
+								htlc_scripts);
 		} else {
 			out = new_tracked_output(&outs, &outpoint,
 						 tx_blockheight,
@@ -2865,8 +2845,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			/* Tells us which htlc to use */
 			which_htlc = resolve_their_htlc(out, matches,
 							htlcs_info->htlcs,
-							htlc_scripts,
-							is_replay);
+							htlc_scripts);
 		}
 		out->htlc = htlcs_info->htlcs[which_htlc];
 		out->wscript = tal_steal(out, htlc_scripts[which_htlc]);
@@ -2887,8 +2866,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 /* We produce individual penalty txs.  It's less efficient, but avoids them
  * using HTLC txs to block our penalties for long enough to pass the CSV
  * delay */
-static void steal_to_them_output(struct tracked_output *out,
-				 u32 csv, bool is_replay)
+static void steal_to_them_output(struct tracked_output *out, u32 csv)
 {
 	u8 *wscript;
 	struct bitcoin_tx *tx;
@@ -2908,10 +2886,10 @@ static void steal_to_them_output(struct tracked_output *out,
 	tx = tx_to_us(tmpctx, penalty_to_us, out, BITCOIN_TX_RBF_SEQUENCE, 0,
 		      &ONE, sizeof(ONE), wscript, &tx_type, penalty_feerate);
 
-	propose_resolution(out, tx, 0, tx_type, is_replay);
+	propose_resolution(out, tx, 0, tx_type);
 }
 
-static void steal_htlc(struct tracked_output *out, bool is_replay)
+static void steal_htlc(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx;
 	enum tx_type tx_type = OUR_PENALTY_TX;
@@ -2929,7 +2907,7 @@ static void steal_htlc(struct tracked_output *out, bool is_replay)
 		      der, sizeof(der), out->wscript, &tx_type,
 		      penalty_feerate);
 
-	propose_resolution(out, tx, 0, tx_type, is_replay);
+	propose_resolution(out, tx, 0, tx_type);
 }
 
 /* Tell wallet that we have discovered a UTXO from a to-remote output,
@@ -2969,7 +2947,6 @@ static void their_unilateral_local(struct tracked_output ***outs,
 				   struct amount_sat amt,
 				   const u8 *local_scriptpubkey,
 				   enum tx_type tx_type,
-				   bool is_replay,
 				   u32 csv_lock)
 {
 	struct tracked_output *out;
@@ -3012,8 +2989,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 			       const struct secret *revocation_preimage,
 			       const struct basepoints basepoints[NUM_SIDES],
 			       const enum side opener,
-			       struct tracked_output **outs,
-			       bool is_replay)
+			       struct tracked_output **outs)
 {
 	u8 **htlc_scripts;
 	u8 *remote_wscript, *script[NUM_SIDES], *anchor[NUM_SIDES];
@@ -3171,8 +3147,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 			their_unilateral_local(&outs, tx, &outpoint,
 					       tx_blockheight,
 					       amt, script[LOCAL],
-					       THEIR_REVOKED_UNILATERAL,
-					       is_replay, 1);
+					       THEIR_REVOKED_UNILATERAL, 1);
 			script[LOCAL] = NULL;
 			continue;
 		}
@@ -3190,7 +3165,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 						 amt,
 						 DELAYED_CHEAT_OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
-			steal_to_them_output(out, 1, is_replay);
+			steal_to_them_output(out, 1);
 			script[REMOTE] = NULL;
 			continue;
 		}
@@ -3249,7 +3224,6 @@ static void handle_their_cheat(const struct tx_parts *tx,
 							       amt,
 							       script[LOCAL],
 							       THEIR_REVOKED_UNILATERAL,
-							       is_replay,
 							       csv);
 					script[LOCAL] = NULL;
 					found = true;
@@ -3280,8 +3254,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 								 amt,
 								 DELAYED_CHEAT_OUTPUT_TO_THEM,
 								 NULL, NULL, NULL);
-					steal_to_them_output(out, csv,
-							     is_replay);
+					steal_to_them_output(out, csv);
 					script[REMOTE] = NULL;
 					found = true;
 					break;
@@ -3318,7 +3291,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 						 &htlcs_info->htlcs[which_htlc],
 						 htlc_scripts[which_htlc],
 						 NULL);
-			steal_htlc(out, is_replay);
+			steal_htlc(out);
 		} else {
 			out = new_tracked_output(&outs, &outpoint,
 						 tx_blockheight,
@@ -3335,7 +3308,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 			 *     * spend the *commitment tx* using the payment preimage (if known).
 			 *     * spend the *HTLC-timeout tx*, if the remote node has published it.
 			 */
-			steal_htlc(out, is_replay);
+			steal_htlc(out);
 		}
 		htlc_scripts[which_htlc] = NULL;
 	}
@@ -3351,8 +3324,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 				    const struct pubkey *this_remote_per_commitment_point,
 				    const struct basepoints basepoints[NUM_SIDES],
 				    const enum side opener,
-				    struct tracked_output **outs,
-				    bool is_replay)
+				    struct tracked_output **outs)
 {
 	u8 **htlc_scripts;
 	u8 *remote_wscript, *script[NUM_SIDES], *anchor[NUM_SIDES];
@@ -3496,8 +3468,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 			their_unilateral_local(&outs, tx, &outpoint,
 					       tx_blockheight,
 					       amt, script[LOCAL],
-					       THEIR_UNILATERAL,
-					       is_replay, 1);
+					       THEIR_UNILATERAL, 1);
 
 			script[LOCAL] = NULL;
 			continue;
@@ -3581,7 +3552,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 							       amt,
 							       script[LOCAL],
 							       THEIR_UNILATERAL,
-							       is_replay, csv);
+							       csv);
 					script[LOCAL] = NULL;
 					found = true;
 					break;
@@ -3649,8 +3620,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 			which_htlc = resolve_our_htlc_theircommit(out,
 								  matches,
 								  htlcs_info->htlcs,
-								  htlc_scripts,
-								  is_replay);
+								  htlc_scripts);
 		} else {
 			out = new_tracked_output(&outs, &outpoint,
 						 tx_blockheight,
@@ -3667,7 +3637,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 			 */
 			which_htlc = resolve_their_htlc(out, matches,
 							htlcs_info->htlcs,
-							htlc_scripts, is_replay);
+							htlc_scripts);
 		}
 		out->htlc = htlcs_info->htlcs[which_htlc];
 		out->wscript = tal_steal(out, htlc_scripts[which_htlc]);
@@ -3684,8 +3654,7 @@ static void handle_unknown_commitment(const struct tx_parts *tx,
 				      u32 tx_blockheight,
 				      const struct pubkey *possible_remote_per_commitment_point,
 				      const struct basepoints basepoints[NUM_SIDES],
-				      struct tracked_output **outs,
-				      bool is_replay)
+				      struct tracked_output **outs)
 {
 	int to_us_output = -1;
 	/* We have two possible local scripts, depending on options */
@@ -3829,7 +3798,6 @@ int main(int argc, char *argv[])
 	u8 *scriptpubkey[NUM_SIDES];
 	u32 locktime, tx_blockheight;
 	struct pubkey *possible_remote_per_commitment_point;
-	bool open_is_replay;
 
 	subdaemon_setup(argc, argv);
 
@@ -3872,7 +3840,6 @@ int main(int argc, char *argv[])
 				   &static_remotekey_start[LOCAL],
 				   &static_remotekey_start[REMOTE],
 				   &option_anchor_outputs,
-				   &open_is_replay,
 				   &min_relay_feerate)) {
 		master_badmsg(WIRE_ONCHAIND_INIT, msg);
 	}
@@ -3941,8 +3908,7 @@ int main(int argc, char *argv[])
 					      basepoints,
 					      opener,
 					      remote_htlc_sigs,
-					      outs,
-					      open_is_replay);
+					      outs);
 		/* BOLT #5:
 		 *
 		 * 3. The ugly way (*revoked transaction close*): one of the
@@ -3957,8 +3923,7 @@ int main(int argc, char *argv[])
 					   &revocation_preimage,
 					   basepoints,
 					   opener,
-					   outs,
-					   open_is_replay);
+					   outs);
 		/* BOLT #5:
 		 *
 		 * There may be more than one valid, *unrevoked* commitment
@@ -3974,22 +3939,19 @@ int main(int argc, char *argv[])
 						&old_remote_per_commit_point,
 						basepoints,
 						opener,
-						outs,
-						open_is_replay);
+						outs);
 		} else if (commit_num == revocations_received(&shachain) + 1) {
 			status_debug("Their unilateral tx, new commit point");
 			handle_their_unilateral(tx, tx_blockheight,
 						&remote_per_commit_point,
 						basepoints,
 						opener,
-						outs,
-						open_is_replay);
+						outs);
 		} else {
 			handle_unknown_commitment(tx, tx_blockheight,
 						  possible_remote_per_commitment_point,
 						  basepoints,
-						  outs,
-						  open_is_replay);
+						  outs);
 		}
 	}
 
