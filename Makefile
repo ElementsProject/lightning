@@ -610,7 +610,6 @@ distclean: clean
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
-	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
 # We used to have gen_ files, now we have _gen files.
 obsclean:
@@ -618,6 +617,7 @@ obsclean:
 
 clean: obsclean
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
+	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 	$(RM) $(ALL_PROGRAMS)
 	$(RM) $(ALL_TEST_PROGRAMS)
 	$(RM) $(ALL_FUZZ_TARGETS)
