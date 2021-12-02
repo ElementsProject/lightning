@@ -46,7 +46,8 @@ wallet/db_%_sqlgen.c: wallet/statements_gettextgen.po devtools/sql-rewrite.py $(
 		$(call VERBOSE,"sql-rewrite $@",devtools/sql-rewrite.py wallet/statements_gettextgen.po $* > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
-maintainer-clean: wallet-maintainer-clean
+maintainer-clean: clean
+clean: wallet-maintainer-clean
 wallet-maintainer-clean:
 	$(RM) wallet/statements.po
 	$(RM) wallet/statements_gettextgen.po
