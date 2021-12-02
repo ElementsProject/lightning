@@ -3746,7 +3746,6 @@ def test_old_feerate(node_factory):
     l1.pay(l2, 1000)
 
 
-@pytest.mark.skip('Broken')
 @pytest.mark.developer("needs --dev-allow-localhost")
 def test_websocket(node_factory):
     ws_port = reserve()
