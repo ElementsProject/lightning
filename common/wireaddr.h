@@ -162,6 +162,8 @@ bool is_ipaddr(const char *arg);
 
 bool is_toraddr(const char *arg);
 
+bool is_wildcardaddr(const char *arg);
+
 bool is_dnsaddr(const char *arg);
 
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,

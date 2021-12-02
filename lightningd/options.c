@@ -198,7 +198,10 @@ static char *opt_add_addr_withtype(const char *arg,
 	if (!separate_address_and_port(tmpctx, arg, &address, &port))
 		return tal_fmt(NULL, "Unable to parse address:port '%s'", arg);
 
-	if (is_ipaddr(address) || is_toraddr(address) || ala != ADDR_ANNOUNCE) {
+	if (is_ipaddr(address)
+	    || is_toraddr(address)
+	    || is_wildcardaddr(address)
+	    || ala != ADDR_ANNOUNCE) {
 		if (!parse_wireaddr_internal(arg, &wi, ld->portnum,
 					     wildcard_ok, dns_ok, false,
 					     deprecated_apis, &err_msg)) {

@@ -361,6 +361,11 @@ bool is_toraddr(const char *arg)
 	return true;
 }
 
+bool is_wildcardaddr(const char *arg)
+{
+	return streq(arg, "");
+}
+
 /* Rules:
  *
  * - not longer than 255
@@ -374,7 +379,7 @@ bool is_dnsaddr(const char *arg)
 	size_t i, arglen;
 	int lastdot;
 
-	if (is_ipaddr(arg) || is_toraddr(arg))
+	if (is_ipaddr(arg) || is_toraddr(arg) || is_wildcardaddr(arg))
 		return false;
 
 	/* now that its not IP or TOR, check its a DNS name */
@@ -684,7 +689,7 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 
 	/* An empty string means IPv4 and IPv6 (which under Linux by default
 	 * means just IPv6, and IPv4 gets autobound). */
-	if (wildcard_ok && streq(ip, "")) {
+	if (wildcard_ok && is_wildcardaddr(ip)) {
 		addr->itype = ADDR_INTERNAL_ALLPROTO;
 		addr->u.port = splitport;
 		return true;
