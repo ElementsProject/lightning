@@ -1413,13 +1413,12 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			/* Override with websocket port */
 			addr = binding[i].u.wireaddr;
 			addr.port = daemon->websocket_port;
-			handle_wireaddr_listen(daemon, &addr, false, true);
-			announced_some = true;
+			if (handle_wireaddr_listen(daemon, &addr, true, true))
+				announced_some = true;
 			/* FIXME: We don't report these bindings to
 			 * lightningd, so they don't appear in
 			 * getinfo. */
 		}
-
 
 		/* We add the websocket port to the announcement if it
 		 * applies to any */
