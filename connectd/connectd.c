@@ -1420,9 +1420,13 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			 * getinfo. */
 		}
 
-		/* We add the websocket port to the announcement if it
-		 * applies to any */
-		if (announced_some) {
+		/* We add the websocket port to the announcement if we made one
+		 * *and* we have other announced addresses. */
+		/* BOLT-websocket #7:
+		 *   - MUST NOT add a `type 6` address unless there is also at
+		 *     least one address of different type.
+		 */
+		if (announced_some && tal_count(*announcable) != 0) {
 			wireaddr_from_websocket(&addr, daemon->websocket_port);
 			add_announcable(announcable, &addr);
 		}
