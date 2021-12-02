@@ -13,13 +13,13 @@ The **datastore** RPC command allows plugins to store data in the
 c-lightning database, for later retrieval.
 
 *key* is an array of values (though a single value is treated as a
-one-element array), to form a heirarchy.  Using the first element of
+one-element array), to form a hierarchy.  Using the first element of
 the key as the plugin name (e.g. `[ "summary" ]`) is recommended.
 A key can either have children or a value, never both: parents are
 created and removed automatically.
 
-*mode* is one of "must-create" (default, fails it it already exists),
-"must-replace" (fails it it doesn't already exist),
+*mode* is one of "must-create" (default, fails if it already exists),
+"must-replace" (fails if it doesn't already exist),
 "create-or-replace" (never fails), "must-append" (must already exist,
 append this to what's already there) or "create-or-append" (append if
 anything is there, otherwise create).
