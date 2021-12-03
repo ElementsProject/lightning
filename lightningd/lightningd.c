@@ -17,12 +17,9 @@
 
 /*~ Notice how includes are in ASCII order: this is actually enforced by
  * the build system under `make check-source`.  It avoids merge conflicts
- * and keeps things consistent. */
-#include "gossip_control.h"
-#include "hsm_control.h"
-#include "lightningd.h"
-#include "peer_control.h"
-#include "subd.h"
+ * and keeps things consistent.  It also make sure you include "config.h"
+ * before anything else. */
+#include "config.h"
 
 /*~ This is Ian Lance Taylor's libbacktrace.  It turns out that it's
  * horrifically difficult to obtain a decent backtrace in C; the standard
@@ -65,10 +62,15 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/gossip_control.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/io_loop_with_timers.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/plugin.h>
+#include <lightningd/subd.h>
 #include <sys/resource.h>
 #include <wallet/txfilter.h>
 #include <wally_bip32.h>

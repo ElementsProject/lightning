@@ -1,4 +1,4 @@
-#include "invoice.h"
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
+#include <lightningd/invoice.h>
 #include <lightningd/notification.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/routehint.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <ccan/io/io.h>

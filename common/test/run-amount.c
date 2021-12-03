@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../amount.c"
 #include <common/setup.h>
 #include <stdio.h>

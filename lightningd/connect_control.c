@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>

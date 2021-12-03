@@ -10,6 +10,7 @@
  * The gossip protocol itself is fairly simple, but has some twists which
  * add complexity to this daemon.
  */
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/blindedpath.h>

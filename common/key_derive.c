@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <common/key_derive.h>

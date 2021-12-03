@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/htlc_trim.h>
 #include <common/htlc_tx.h>
 

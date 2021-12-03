@@ -1,4 +1,4 @@
-#include "pay.h"
+#include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
 #include <common/json_command.h>
@@ -14,6 +14,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
+#include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 
 /* Routing failure object */

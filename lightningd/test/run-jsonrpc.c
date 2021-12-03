@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../../common/json_stream.c"
 #include "../jsonrpc.c"
 #include "../json.c"

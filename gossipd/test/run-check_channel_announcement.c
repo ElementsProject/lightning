@@ -27,6 +27,7 @@ bitcoin_key_2=02b3e55c7a1a6cdf17a83a801f7f8f698e4980323e2584f27a643a1b0519ebf8c7
 In particular, we set feature bit 19.  The spec says we should set feature bit 18 (which is clearly wrong!).
 */
 
+#include "config.h"
 #include "../common/wire_error.c"
 #include "../routing.c"
 #include <common/channel_type.h>

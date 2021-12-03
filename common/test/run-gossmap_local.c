@@ -1,4 +1,5 @@
 /* Test local modifications to gossmap */
+#include "config.h"
 #include "../amount.c"
 #include "../fp16.c"
 #include "../gossmap.c"

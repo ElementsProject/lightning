@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/io/io.h>
   /* To reach into io_plan: not a public header! */
   #include <ccan/io/backend.h>

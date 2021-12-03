@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../json.c"
 #include <common/amount.h>
 #include <common/setup.h>

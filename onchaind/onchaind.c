@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/asort/asort.h>

@@ -1,4 +1,4 @@
-#include "log.h"
+#include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/opt/opt.h>
@@ -12,6 +12,7 @@
 #include <common/param.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/log.h>
 #include <lightningd/notification.h>
 #include <signal.h>
 #include <stdio.h>

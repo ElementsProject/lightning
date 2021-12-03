@@ -1,3 +1,4 @@
+#include "config.h"
 #include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
 #include <common/json_tok.h>

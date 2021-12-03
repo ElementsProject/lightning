@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/time/time.h>

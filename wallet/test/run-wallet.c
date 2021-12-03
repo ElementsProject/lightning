@@ -1,3 +1,4 @@
+#include "config.h"
   #include <lightningd/log.h>
 
 static void wallet_test_fatal(const char *fmt, ...);

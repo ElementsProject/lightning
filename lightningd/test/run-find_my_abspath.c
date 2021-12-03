@@ -1,3 +1,4 @@
+#include "config.h"
 #define main unused_main
 int unused_main(int argc, char *argv[]);
 #include "../../common/base32.c"

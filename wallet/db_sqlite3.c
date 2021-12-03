@@ -1,6 +1,7 @@
-#include "db_sqlite3_sqlgen.c"
+#include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <lightningd/log.h>
+#include <wallet/db_sqlite3_sqlgen.c>
 
 #if HAVE_SQLITE3
   #include <sqlite3.h>

@@ -1,5 +1,6 @@
 #define SUPERVERBOSE
 
+#include "config.h"
 #include <ccan/str/hex/hex.h>
 #include <common/amount.h>
 #include <common/setup.h>

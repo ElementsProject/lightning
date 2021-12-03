@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../invoice.c"
 #include "../peer_control.c"
 #include "../routehint.c"

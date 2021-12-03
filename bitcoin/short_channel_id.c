@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>

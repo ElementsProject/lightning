@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../towire.c"
 #include "../fromwire.c"
 #include "../peer_wire.c"

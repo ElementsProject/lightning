@@ -7,6 +7,7 @@
  * up to lightningd which will fire up a specific per-peer daemon to talk to
  * it.
  */
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/fdpass/fdpass.h>

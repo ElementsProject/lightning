@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <common/type_to_string.h>

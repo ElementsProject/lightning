@@ -1,4 +1,5 @@
 /* Test conversion assumptions used by gossmap_guess_node_id */
+#include "config.h"
 #include "../node_id.c"
 #include <bitcoin/privkey.h>
 #include <common/amount.h>

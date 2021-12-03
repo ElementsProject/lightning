@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/base64.h>
 #include <sodium/utils.h>
 

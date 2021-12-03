@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/feerate.h>
 #include <common/key_derive.h>
 #include <common/type_to_string.h>

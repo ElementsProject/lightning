@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../bigsize.c"
 #include "../blinding.c"
 #include "../hmac.c"

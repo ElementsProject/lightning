@@ -1,5 +1,4 @@
-#include "gossip_store.h"
-
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/noerr/noerr.h>
@@ -10,6 +9,7 @@
 #include <common/status.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <sys/stat.h>
 #include <sys/uio.h>

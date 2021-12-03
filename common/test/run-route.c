@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <common/channel_type.h>
 #include <common/dijkstra.h>

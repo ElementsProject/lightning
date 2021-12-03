@@ -1,3 +1,4 @@
+#include "config.h"
   #include <lightningd/log.h>
 
 static void db_test_fatal(const char *fmt, ...);

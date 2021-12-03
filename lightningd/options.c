@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>

@@ -1,5 +1,6 @@
 /* Routines to make our own gossip messages.  Not as in "we're the gossip
  * generation, man!" */
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <common/features.h>

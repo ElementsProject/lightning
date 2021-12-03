@@ -1,9 +1,10 @@
-#include "address.h"
-#include "locktime.h"
-#include "preimage.h"
-#include "pubkey.h"
-#include "script.h"
+#include "config.h"
 #include <assert.h>
+#include <bitcoin/address.h>
+#include <bitcoin/locktime.h>
+#include <bitcoin/preimage.h>
+#include <bitcoin/pubkey.h>
+#include <bitcoin/script.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <common/utils.h>

@@ -1,6 +1,7 @@
-#include "bech32_util.h"
+#include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/bech32_util.h>
 
 static u8 get_bit(const u8 *src, size_t bitoff)
 {

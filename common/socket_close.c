@@ -1,5 +1,6 @@
-#include "socket_close.h"
+#include "config.h"
 #include <ccan/noerr/noerr.h>
+#include <common/socket_close.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <unistd.h>

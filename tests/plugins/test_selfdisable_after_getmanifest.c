@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>

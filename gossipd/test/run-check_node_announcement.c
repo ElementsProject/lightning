@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../gossip_generation.c"
 #include <common/channel_type.h>
 #include <common/json_stream.h>

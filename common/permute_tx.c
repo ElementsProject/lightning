@@ -1,4 +1,5 @@
-#include "permute_tx.h"
+#include "config.h"
+#include <common/permute_tx.h>
 #include <wally_psbt.h>
 
 static bool input_better(const struct wally_tx_input *a,

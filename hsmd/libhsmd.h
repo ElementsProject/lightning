@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_HSMD_LIBHSMD_H
 #define LIGHTNING_HSMD_LIBHSMD_H
 
+#include "config.h"
 #include <common/node_id.h>
 #include <common/status_levels.h>
 #include <hsmd/hsmd_wiregen.h>

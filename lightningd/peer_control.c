@@ -1,6 +1,4 @@
-#include "lightningd.h"
-#include "peer_control.h"
-#include "subd.h"
+#include "config.h"
 #include <arpa/inet.h>
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
@@ -50,6 +48,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/memdump.h>
 #include <lightningd/notification.h>
@@ -57,8 +56,10 @@
 #include <lightningd/opening_common.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
+#include <lightningd/subd.h>
 #include <limits.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <stdlib.h>

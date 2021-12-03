@@ -1,5 +1,4 @@
-#include "db.h"
-
+#include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
@@ -11,6 +10,7 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/plugin_hook.h>
+#include <wallet/db.h>
 #include <wallet/db_common.h>
 #include <wire/wire_sync.h>
 

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/crypto_state.h>
 #include <wire/wire.h>
 

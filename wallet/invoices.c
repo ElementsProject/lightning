@@ -1,8 +1,9 @@
-#include "db.h"
-#include "invoices.h"
-#include "wallet.h"
+#include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/timeout.h>
+#include <wallet/db.h>
+#include <wallet/invoices.h>
+#include <wallet/wallet.h>
 
 struct invoice_waiter {
 	/* Is this waiter already triggered? */

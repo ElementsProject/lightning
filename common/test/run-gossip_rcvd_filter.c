@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../gossip_rcvd_filter.c"
 #include "../pseudorand.c"
 #include "../../wire/fromwire.c"

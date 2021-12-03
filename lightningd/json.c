@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/str/hex/hex.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>

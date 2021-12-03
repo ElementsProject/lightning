@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>

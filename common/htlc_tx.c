@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/script.h>
 #include <common/htlc_tx.h>

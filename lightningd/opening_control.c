@@ -1,4 +1,5 @@
-#include "bitcoin/feerate.h"
+#include "config.h"
+#include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>

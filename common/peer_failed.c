@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/tal/str/str.h>

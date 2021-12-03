@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_TESTS_FUZZ_LIBFUZZ_H
 #define LIGHTNING_TESTS_FUZZ_LIBFUZZ_H
 
+#include "config.h"
 #include <ccan/ccan/short_types/short_types.h>
 #include <ccan/ccan/tal/tal.h>
 #include <stddef.h>

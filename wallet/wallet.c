@@ -1,6 +1,4 @@
-#include "invoices.h"
-#include "wallet.h"
-
+#include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
@@ -17,7 +15,9 @@
 #include <lightningd/peer_control.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/db_common.h>
+#include <wallet/invoices.h>
 #include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 #include <wally_bip32.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF

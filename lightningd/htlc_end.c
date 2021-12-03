@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>

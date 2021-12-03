@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <common/derive_basepoints.h>
 #include <common/utils.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>

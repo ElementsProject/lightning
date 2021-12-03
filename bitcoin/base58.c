@@ -3,11 +3,12 @@
 // Copyright (c) 2009-2012 The Bitcoin Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#include "address.h"
-#include "base58.h"
-#include "privkey.h"
-#include "pubkey.h"
-#include "shadouble.h"
+#include "config.h"
+#include <bitcoin/address.h>
+#include <bitcoin/base58.h>
+#include <bitcoin/privkey.h>
+#include <bitcoin/pubkey.h>
+#include <bitcoin/shadouble.h>
 #include <common/utils.h>
 #include <wally_core.h>
 

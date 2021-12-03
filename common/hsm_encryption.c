@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/hsm_encryption.h>
 #include <termios.h>
 #include <unistd.h>

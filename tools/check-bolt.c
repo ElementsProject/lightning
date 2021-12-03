@@ -1,5 +1,6 @@
 /* Simple program to search for BOLT references in C files and make sure
  * they're accurate. */
+#include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>

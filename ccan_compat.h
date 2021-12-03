@@ -1,7 +1,12 @@
 #ifndef LIGHTNING_CCAN_COMPAT_H
 #define LIGHTNING_CCAN_COMPAT_H
+
 /* Magical file included from config.h (ie. everywhere) which renames
  * sha256 routines so they don't clash with libwally-core's internal ones */
+
+/* So, for obvious reasons, this is an exception to the usual rule that we
+#include "config.h"
+ * in all files. */
 #define sha256(sha, p, size) ccan_sha256(sha, p, size)
 #define sha256_init(ctx) ccan_sha256_init(ctx)
 #define sha256_update(ctx, p, size) ccan_sha256_update(ctx, p, size)

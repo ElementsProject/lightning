@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../amount.c"
 #include "../bech32.c"
 #include "../bech32_util.c"

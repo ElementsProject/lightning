@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/address.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>

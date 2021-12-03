@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
 #include <common/status.h>

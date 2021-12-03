@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../bolt12.c"
 #include "../json.c"
 #include <ccan/array_size/array_size.h>

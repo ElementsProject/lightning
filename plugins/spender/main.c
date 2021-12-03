@@ -1,3 +1,4 @@
+#include "config.h"
 #include <plugins/spender/fundchannel.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/multiwithdraw.h>

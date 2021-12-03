@@ -1,4 +1,5 @@
 /* This plugin covers both sending and receiving offers */
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>

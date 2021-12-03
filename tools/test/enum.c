@@ -1,3 +1,4 @@
+#include "config.h"
 #include "enum.h"
 #include <stdio.h>
 

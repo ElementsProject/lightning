@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../routing.c"
 #include "../common/timeout.c"
 #include <common/channel_type.h>

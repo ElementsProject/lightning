@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/ilog/ilog.h>
 #include <ccan/mem/mem.h>

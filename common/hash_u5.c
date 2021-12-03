@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/endian/endian.h>
 #include <common/hash_u5.h>
 #include <string.h>
