@@ -12,7 +12,7 @@
 #include <wire/wire.h>
 
 
-void psbt_destroy(struct wally_psbt *psbt)
+static void psbt_destroy(struct wally_psbt *psbt)
 {
 	wally_psbt_free(psbt);
 }
@@ -430,17 +430,6 @@ bool psbt_has_input(const struct wally_psbt *psbt,
 	return false;
 }
 
-bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
-				 const u8 *redeemscript)
-{
-	int wally_err;
-	assert(psbt->num_inputs > in);
-	wally_err = wally_psbt_input_set_redeem_script(&psbt->inputs[in],
-						       redeemscript,
-						       tal_bytelen(redeemscript));
-	return wally_err == WALLY_OK;
-}
-
 struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
 					size_t in)
 {
@@ -558,9 +547,9 @@ void psbt_input_set_unknown(const tal_t *ctx,
 		abort();
 }
 
-void *psbt_get_unknown(const struct wally_map *map,
-		       const u8 *key,
-		       size_t *val_len)
+static void *psbt_get_unknown(const struct wally_map *map,
+			      const u8 *key,
+			      size_t *val_len)
 {
 	size_t index;
 

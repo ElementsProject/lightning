@@ -42,12 +42,6 @@ struct chainparams {
 const struct chainparams *chainparams_for_network(const char *network_name);
 
 /**
- * chainparams_for_networks - Get blockchain parameters for all known networks,
- *                            as a tal array.
- */
-const struct chainparams **chainparams_for_networks(const tal_t *ctx);
-
-/**
  * chainparams_by_bip173 - Helper to get a network by its bip173 name
  *
  * This lets us decode BOLT11 addresses.

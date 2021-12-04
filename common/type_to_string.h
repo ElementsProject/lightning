@@ -15,8 +15,6 @@ union printable_types {
 	const struct sha256 *sha256;
 	const struct sha256_double *sha256_double;
 	const struct ripemd160 *ripemd160;
-	const struct rel_locktime *rel_locktime;
-	const struct abs_locktime *abs_locktime;
 	const struct bitcoin_tx *bitcoin_tx;
 	const struct htlc *htlc;
 	const struct preimage *preimage;

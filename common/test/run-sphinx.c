@@ -51,9 +51,6 @@ size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 /* Generated stub for fromwire_amount_msat */
 struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_msat called!\n"); abort(); }
-/* Generated stub for fromwire_amount_sat */
-struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
 /* Generated stub for fromwire_bigsize */
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
@@ -72,9 +69,6 @@ bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra 
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
-/* Generated stub for towire_amount_sat */
-void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
-{ fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

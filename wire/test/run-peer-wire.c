@@ -3,6 +3,7 @@
 #include "../fromwire.c"
 #include "../peer_wire.c"
 #include "bitcoin/pubkey.c"
+#include "bitcoin/chainparams.c"
 #include "common/amount.c"
 #include "common/channel_id.c"
 #include "common/node_id.c"
@@ -1019,7 +1020,6 @@ int main(int argc, char *argv[])
 	void *ctx = tal(NULL, char);
 	size_t i;
 	u8 *msg;
-	const struct chainparams **chains;
 
 	common_setup(argv[0]);
 
@@ -1099,8 +1099,7 @@ int main(int argc, char *argv[])
 	assert(error_eq(&e, e2));
 	test_corruption(&e, e2, error);
 
-	chains = chainparams_for_networks(ctx);
-	for (i = 0; i < tal_count(chains); i++) {
+	for (i = 0; i < ARRAY_SIZE(networks); i++) {
 		memset(&init, 2, sizeof(init));
 		init.globalfeatures = tal_arr(ctx, u8, 2);
 		memset(init.globalfeatures, 2, 2);
@@ -1108,7 +1107,7 @@ int main(int argc, char *argv[])
 		memset(init.localfeatures, 2, 2);
 		init.tlvs = tlv_init_tlvs_new(ctx);
 		init.tlvs->networks = tal_arr(init.tlvs, struct bitcoin_blkid, 1);
-		init.tlvs->networks[0] = chains[i]->genesis_blockhash;
+		init.tlvs->networks[0] = networks[i].genesis_blockhash;
 		msg = towire_struct_init(ctx, &init);
 		init2 = fromwire_struct_init(ctx, msg);
 		assert(init_eq(&init, init2));

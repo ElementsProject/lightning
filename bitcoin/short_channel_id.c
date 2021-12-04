@@ -78,8 +78,8 @@ bool short_channel_id_dir_from_str(const char *str, size_t strlen,
 	return true;
 }
 
-char *short_channel_id_dir_to_str(const tal_t *ctx,
-				  const struct short_channel_id_dir *scidd)
+static char *short_channel_id_dir_to_str(const tal_t *ctx,
+					 const struct short_channel_id_dir *scidd)
 {
 	char *str, *scidstr = short_channel_id_to_str(NULL, &scidd->scid);
 	str = tal_fmt(ctx, "%s/%u", scidstr, scidd->dir);
@@ -96,22 +96,8 @@ void towire_short_channel_id(u8 **pptr,
 	towire_u64(pptr, short_channel_id->u64);
 }
 
-void towire_short_channel_id_dir(u8 **pptr,
-				 const struct short_channel_id_dir *scidd)
-{
-	towire_short_channel_id(pptr, &scidd->scid);
-	towire_bool(pptr, scidd->dir);
-}
-
 void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 			       struct short_channel_id *short_channel_id)
 {
 	short_channel_id->u64 = fromwire_u64(cursor, max);
-}
-
-void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
-				   struct short_channel_id_dir *scidd)
-{
-	fromwire_short_channel_id(cursor, max, &scidd->scid);
-	scidd->dir = fromwire_bool(cursor, max);
 }

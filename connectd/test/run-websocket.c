@@ -83,9 +83,6 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }
-/* Generated stub for fromwire_amount_sat */
-struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
 /* Generated stub for fromwire_bool */
 bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bool called!\n"); abort(); }
@@ -121,9 +118,6 @@ void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
-/* Generated stub for towire_amount_sat */
-void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
-{ fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
 /* Generated stub for towire_bool */
 void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 { fprintf(stderr, "towire_bool called!\n"); abort(); }

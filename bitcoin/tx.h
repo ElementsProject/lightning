@@ -99,10 +99,6 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 			  u8 *wscript,
 			  struct amount_sat amount);
 
-/* Add mutiple output to tx. */
-int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
-				 struct bitcoin_tx_output **outputs);
-
 /* Set the locktime for a transaction */
 void bitcoin_tx_set_locktime(struct bitcoin_tx *tx, u32 locktime);
 
@@ -187,13 +183,6 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script);
 
 /**
- * Helper to get a witness as a tal_arr array.
- */
-const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
-				       const struct bitcoin_tx *tx, int innum,
-				       int witnum);
-
-/**
  * Wrap the raw txhash in the wally_tx_input into a bitcoin_txid
  */
 void bitcoin_tx_input_get_outpoint(const struct bitcoin_tx *tx,
@@ -260,13 +249,8 @@ void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
 			   struct bitcoin_txid *txid);
 struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 				       const u8 **cursor, size_t *max);
-struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
-						     const u8 **cursor, size_t *max);
-struct wally_tx *fromwire_wally_tx(const tal_t *ctx, const u8 **cursor, size_t *max);
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
-void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
-void towire_wally_tx(u8 **pptr, const struct wally_tx *wtx);
 void towire_bitcoin_outpoint(u8 **pptr, const struct bitcoin_outpoint *outp);
 void fromwire_bitcoin_outpoint(const u8 **cursor, size_t *max,
 			       struct bitcoin_outpoint *outp);

@@ -17,18 +17,6 @@ struct bitcoin_signature;
 struct bitcoin_txid;
 struct pubkey;
 
-/** psbt_destroy - Destroy a PSBT that is not tal-allocated
- *
- * @psbt - the PSBT to destroy
- *
- * WARNING Do NOT call this function directly if you got the
- * PSBT from create_psbt, new_psbt, psbt_from_bytes,
- * psbt_from_b64, or fromwire_wally_psbt.
- * Those functions register this function as a `tal_destructor`
- * automatically.
- */
-void psbt_destroy(struct wally_psbt *psbt);
-
 /**
  * create_psbt - Create a new psbt object
  *
@@ -172,16 +160,7 @@ WARN_UNUSED_RESULT bool psbt_input_set_signature(struct wally_psbt *psbt, size_t
 						 const struct bitcoin_signature *sig);
 
 void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscript);
-void psbt_elements_input_init(struct wally_psbt *psbt, size_t in,
-			      const u8 *scriptPubkey,
-			      struct amount_asset *asset,
-			      const u8 *nonce);
-void psbt_elements_input_init_witness(struct wally_psbt *psbt, size_t in,
-				      const u8 *witscript,
-				      struct amount_asset *asset,
-				      const u8 *nonce);
-bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
-				 const u8 *redeemscript);
+
 /* psbt_input_set_unknown - Set the given Key-Value in the psbt's input keymap
  * @ctx - tal context for allocations
  * @in - psbt input to set key-value on
@@ -194,16 +173,6 @@ void psbt_input_set_unknown(const tal_t *ctx,
 			    const u8 *key,
 			    const void *value,
 			    size_t value_len);
-/* psbt_get_unknown - Fetch the value from the given map at key
- *
- * @map - map of unknowns to search for key
- * @key - key of key-value pair to return value for
- * @value_len - (out) length of value (if found)
- *
- * Returns: value at @key, or NULL if not found */
-void *psbt_get_unknown(const struct wally_map *map,
-		       const u8 *key,
-		       size_t *val_len);
 
 /* psbt_get_lightning - Fetch a proprietary lightning value from the given map
  *

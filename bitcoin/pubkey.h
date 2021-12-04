@@ -32,9 +32,6 @@ bool pubkey_from_hexstr(const char *derstr, size_t derlen, struct pubkey *key);
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
 char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key);
 
-/* Convenience wrapper for a raw secp256k1_pubkey */
-char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key);
-
 /* Point from secret */
 bool pubkey_from_secret(const struct secret *secret, struct pubkey *key);
 
@@ -75,5 +72,4 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey);
 void towire_point32(u8 **pptr, const struct point32 *pubkey);
 void fromwire_point32(const u8 **cursor, size_t *max, struct point32 *pubkey);
 
-char *point32_to_hexstr(const tal_t *ctx, const struct point32 *point32);
 #endif /* LIGHTNING_BITCOIN_PUBKEY_H */

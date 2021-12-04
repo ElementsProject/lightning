@@ -229,19 +229,8 @@ void bitcoin_block_blkid(const struct bitcoin_block *b,
 	*out = b->hdr.hash;
 }
 
-/* We do the same hex-reversing crud as txids. */
-bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
-			    struct bitcoin_blkid *blockid)
-{
-	struct bitcoin_txid fake_txid;
-	if (!bitcoin_txid_from_hex(hexstr, hexstr_len, &fake_txid))
-		return false;
-	blockid->shad = fake_txid.shad;
-	return true;
-}
-
-bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blockid,
-			  char *hexstr, size_t hexstr_len)
+static bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blockid,
+				 char *hexstr, size_t hexstr_len)
 {
 	struct bitcoin_txid fake_txid;
 	fake_txid.shad = blockid->shad;
