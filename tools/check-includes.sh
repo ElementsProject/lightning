@@ -21,7 +21,7 @@ do
         EXIT_CODE=1
     fi
     # Ignore contrib/.
-    if [ "${HEADER_FILE##contrib/}" = "$HEADER_FILE" -a "$(grep '#include' $HEADER_FILE | head -n1)" != '#include "config.h"' ]; then
+    if [ "${HEADER_FILE##contrib/}" = "$HEADER_FILE" ] && [ "$(grep '#include' "$HEADER_FILE" | head -n1)" != '#include "config.h"' ]; then
 	echo "${HEADER_FILE}:1:does not include config.h first"
 	EXIT_CODE=1
     fi
@@ -68,7 +68,7 @@ for C_FILE in $(filter_suffix c); do
 	EXIT_CODE=1
     fi
     # Ignore contrib/.
-    if [ "${C_FILE##contrib/}" = "$C_FILE" -a "$(grep '#include' $C_FILE | head -n1)" != '#include "config.h"' ]; then
+    if [ "${C_FILE##contrib/}" = "$C_FILE" ] && [ "$(grep '#include' "$C_FILE" | head -n1)" != '#include "config.h"' ]; then
 	echo "${C_FILE}:1:does not include config.h first"
 	EXIT_CODE=1
     fi
