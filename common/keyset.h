@@ -2,7 +2,6 @@
 #define LIGHTNING_COMMON_KEYSET_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
-#include <stdbool.h>
 
 struct basepoints;
 
@@ -18,5 +17,6 @@ struct keyset {
 bool derive_keyset(const struct pubkey *per_commitment_point,
 		   const struct basepoints *self,
 		   const struct basepoints *other,
+		   bool option_static_remotekey,
 		   struct keyset *keyset);
 #endif /* LIGHTNING_COMMON_KEYSET_H */

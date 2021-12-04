@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "currency",
+    "created_at",
+    "expiry",
+    "payee",
+    "min_final_cltv_expiry",
+    "payment_hash",
+    "signature"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "currency": {
+      "type": "string",
+      "description": "the BIP173 name for the currency"
+    },
+    "created_at": {
+      "type": "u64",
+      "description": "the UNIX-style timestamp of the invoice"
+    },
+    "expiry": {
+      "type": "u64",
+      "description": "the number of seconds this is valid after *timestamp*"
+    },
+    "payee": {
+      "type": "pubkey",
+      "description": "the public key of the recipient"
+    },
+    "msatoshi": {
+      "type": "u64",
+      "deprecated": true
+    },
+    "amount_msat": {
+      "type": "msat",
+      "description": "Amount the invoice asked for"
+    },
+    "payment_hash": {
+      "type": "hex",
+      "description": "the hash of the *payment_preimage*",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "signature": {
+      "type": "signature",
+      "description": "signature of the *payee* on this invoice"
+    },
+    "description": {
+      "type": "string",
+      "description": "the description of the purpose of the purchase"
+    },
+    "description_hash": {
+      "type": "hex",
+      "description": "the hash of the description, in place of *description*",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "min_final_cltv_expiry": {
+      "type": "u32",
+      "description": "the minimum CLTV delay for the final node"
+    },
+    "payment_secret": {
+      "type": "hex",
+      "description": "the secret to hand to the payee node",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "features": {
+      "type": "hex",
+      "description": "the features bitmap for this invoice"
+    },
+    "fallbacks": {
+      "type": "array",
+      "description": "onchain addresses",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "hex"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "the address type (if known)",
+            "enum": [
+              "P2PKH",
+              "P2SH",
+              "P2WPKH",
+              "P2WSH"
+            ]
+          },
+          "addr": {
+            "type": "string",
+            "description": "the address in appropriate format for *type*"
+          },
+          "hex": {
+            "type": "hex",
+            "description": "Raw encoded address"
+          }
+        }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "description": "Route hints to the *payee*",
+      "items": {
+        "type": "array",
+        "description": "hops in the route",
+        "items": {
+          "type": "object",
+          "required": [
+            "pubkey",
+            "short_channel_id",
+            "fee_base_msat",
+            "fee_proportional_millionths",
+            "cltv_expiry_delta"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "pubkey": {
+              "type": "pubkey",
+              "description": "the public key of the node"
+            },
+            "short_channel_id": {
+              "type": "short_channel_id",
+              "description": "a channel to the next peer"
+            },
+            "fee_base_msat": {
+              "type": "u32",
+              "description": "the base fee for payments"
+            },
+            "fee_proportional_millionths": {
+              "type": "u32",
+              "description": "the parts-per-million fee for payments"
+            },
+            "cltv_expiry_delta": {
+              "type": "u32",
+              "description": "the CLTV delta across this hop"
+            }
+          }
+        }
+      }
+    },
+    "extra": {
+      "type": "array",
+      "description": "Any extra fields we didn't know how to parse",
+      "items": {
+        "type": "object",
+        "required": [
+          "tag",
+          "data"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "The bech32 letter which identifies this field",
+            "maxLength": 1,
+            "minLength": 1
+          },
+          "data": {
+            "type": "string",
+            "description": "The bech32 data for this field"
+          }
+        }
+      }
+    }
+  }
+}

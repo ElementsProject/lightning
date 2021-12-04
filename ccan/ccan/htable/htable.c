@@ -11,6 +11,33 @@
 /* We use 0x1 as deleted marker. */
 #define HTABLE_DELETED (0x1)
 
+/* perfect_bitnum 63 means there's no perfect bitnum */
+#define NO_PERFECT_BIT (sizeof(uintptr_t) * CHAR_BIT - 1)
+
+static void *htable_default_alloc(struct htable *ht, size_t len)
+{
+	return calloc(len, 1);
+}
+
+static void htable_default_free(struct htable *ht, void *p)
+{
+	free(p);
+}
+
+static void *(*htable_alloc)(struct htable *, size_t) = htable_default_alloc;
+static void (*htable_free)(struct htable *, void *) = htable_default_free;
+
+void htable_set_allocator(void *(*alloc)(struct htable *, size_t len),
+			  void (*free)(struct htable *, void *p))
+{
+	if (!alloc)
+		alloc = htable_default_alloc;
+	if (!free)
+		free = htable_default_free;
+	htable_alloc = alloc;
+	htable_free = free;
+}
+
 /* We clear out the bits which are always the same, and put metadata there. */
 static inline uintptr_t get_extra_ptr_bits(const struct htable *ht,
 					   uintptr_t e)
@@ -34,6 +61,11 @@ static inline bool entry_is_valid(uintptr_t e)
 	return e > HTABLE_DELETED;
 }
 
+static inline uintptr_t ht_perfect_mask(const struct htable *ht)
+{
+	return (uintptr_t)2 << ht->perfect_bitnum;
+}
+
 static inline uintptr_t get_hash_ptr_bits(const struct htable *ht,
 					  size_t hash)
 {
@@ -41,7 +73,7 @@ static inline uintptr_t get_hash_ptr_bits(const struct htable *ht,
 	 * end is quite expensive.  But the lower bits are redundant, so
 	 * we fold the value first. */
 	return (hash ^ (hash >> ht->bits))
-		& ht->common_mask & ~ht->perfect_bit;
+		& ht->common_mask & ~ht_perfect_mask(ht);
 }
 
 void htable_init(struct htable *ht,
@@ -51,14 +83,17 @@ void htable_init(struct htable *ht,
 	*ht = empty;
 	ht->rehash = rehash;
 	ht->priv = priv;
-	ht->table = &ht->perfect_bit;
+	ht->table = &ht->common_bits;
 }
 
-/* We've changed ht->bits, update ht->max and ht->max_with_deleted */
-static void htable_adjust_capacity(struct htable *ht)
+static inline size_t ht_max(const struct htable *ht)
 {
-	ht->max = ((size_t)3 << ht->bits) / 4;
-	ht->max_with_deleted = ((size_t)9 << ht->bits) / 10;
+	return ((size_t)3 << ht->bits) / 4;
+}
+
+static inline size_t ht_max_with_deleted(const struct htable *ht)
+{
+	return ((size_t)9 << ht->bits) / 10;
 }
 
 bool htable_init_sized(struct htable *ht,
@@ -73,26 +108,25 @@ bool htable_init_sized(struct htable *ht,
 			break;
 	}
 
-	ht->table = calloc(1 << ht->bits, sizeof(size_t));
+	ht->table = htable_alloc(ht, sizeof(size_t) << ht->bits);
 	if (!ht->table) {
-		ht->table = &ht->perfect_bit;
+		ht->table = &ht->common_bits;
 		return false;
 	}
-	htable_adjust_capacity(ht);
 	(void)htable_debug(ht, HTABLE_LOC);
 	return true;
 }
 	
 void htable_clear(struct htable *ht)
 {
-	if (ht->table != &ht->perfect_bit)
-		free((void *)ht->table);
+	if (ht->table != &ht->common_bits)
+		htable_free(ht, (void *)ht->table);
 	htable_init(ht, ht->rehash, ht->priv);
 }
 
 bool htable_copy_(struct htable *dst, const struct htable *src)
 {
-	uintptr_t *htable = malloc(sizeof(size_t) << src->bits);
+	uintptr_t *htable = htable_alloc(dst, sizeof(size_t) << src->bits);
 
 	if (!htable)
 		return false;
@@ -128,7 +162,7 @@ void *htable_firstval_(const struct htable *ht,
 		       struct htable_iter *i, size_t hash)
 {
 	i->off = hash_bucket(ht, hash);
-	return htable_val(ht, i, hash, ht->perfect_bit);
+	return htable_val(ht, i, hash, ht_perfect_mask(ht));
 }
 
 void *htable_nextval_(const struct htable *ht,
@@ -171,7 +205,7 @@ void *htable_prev_(const struct htable *ht, struct htable_iter *i)
 static void ht_add(struct htable *ht, const void *new, size_t h)
 {
 	size_t i;
-	uintptr_t perfect = ht->perfect_bit;
+	uintptr_t perfect = ht_perfect_mask(ht);
 
 	i = hash_bucket(ht, h);
 
@@ -189,32 +223,31 @@ static COLD bool double_table(struct htable *ht)
 	uintptr_t *oldtable, e;
 
 	oldtable = ht->table;
-	ht->table = calloc(1 << (ht->bits+1), sizeof(size_t));
+	ht->table = htable_alloc(ht, sizeof(size_t) << (ht->bits+1));
 	if (!ht->table) {
 		ht->table = oldtable;
 		return false;
 	}
 	ht->bits++;
-	htable_adjust_capacity(ht);
 
 	/* If we lost our "perfect bit", get it back now. */
-	if (!ht->perfect_bit && ht->common_mask) {
+	if (ht->perfect_bitnum == NO_PERFECT_BIT && ht->common_mask) {
 		for (i = 0; i < sizeof(ht->common_mask) * CHAR_BIT; i++) {
-			if (ht->common_mask & ((size_t)1 << i)) {
-				ht->perfect_bit = (size_t)1 << i;
+			if (ht->common_mask & ((size_t)2 << i)) {
+				ht->perfect_bitnum = i;
 				break;
 			}
 		}
 	}
 
-	if (oldtable != &ht->perfect_bit) {
+	if (oldtable != &ht->common_bits) {
 		for (i = 0; i < oldnum; i++) {
 			if (entry_is_valid(e = oldtable[i])) {
 				void *p = get_raw_ptr(ht, e);
 				ht_add(ht, p, ht->rehash(p, ht->priv));
 			}
 		}
-		free(oldtable);
+		htable_free(ht, oldtable);
 	}
 	ht->deleted = 0;
 
@@ -225,7 +258,7 @@ static COLD bool double_table(struct htable *ht)
 static COLD void rehash_table(struct htable *ht)
 {
 	size_t start, i;
-	uintptr_t e;
+	uintptr_t e, perfect = ht_perfect_mask(ht);
 
 	/* Beware wrap cases: we need to start from first empty bucket. */
 	for (start = 0; ht->table[start]; start++);
@@ -237,7 +270,7 @@ static COLD void rehash_table(struct htable *ht)
 			continue;
 		if (e == HTABLE_DELETED)
 			ht->table[h] = 0;
-		else if (!(e & ht->perfect_bit)) {
+		else if (!(e & perfect)) {
 			void *p = get_raw_ptr(ht, e);
 			ht->table[h] = 0;
 			ht_add(ht, p, ht->rehash(p, ht->priv));
@@ -265,7 +298,7 @@ static COLD void update_common(struct htable *ht, const void *p)
 
 		ht->common_mask = ~((uintptr_t)1 << i);
 		ht->common_bits = ((uintptr_t)p & ht->common_mask);
-		ht->perfect_bit = 1;
+		ht->perfect_bitnum = 0;
 		(void)htable_debug(ht, HTABLE_LOC);
 		return;
 	}
@@ -288,15 +321,16 @@ static COLD void update_common(struct htable *ht, const void *p)
 	/* Take away those bits from our mask, bits and perfect bit. */
 	ht->common_mask &= ~maskdiff;
 	ht->common_bits &= ~maskdiff;
-	ht->perfect_bit &= ~maskdiff;
+	if (ht_perfect_mask(ht) & maskdiff)
+		ht->perfect_bitnum = NO_PERFECT_BIT;
 	(void)htable_debug(ht, HTABLE_LOC);
 }
 
 bool htable_add_(struct htable *ht, size_t hash, const void *p)
 {
-	if (ht->elems+1 > ht->max && !double_table(ht))
+	if (ht->elems+1 > ht_max(ht) && !double_table(ht))
 		return false;
-	if (ht->elems+1 + ht->deleted > ht->max_with_deleted)
+	if (ht->elems+1 + ht->deleted > ht_max_with_deleted(ht))
 		rehash_table(ht);
 	assert(p);
 	if (((uintptr_t)p & ht->common_mask) != ht->common_bits)
@@ -329,6 +363,20 @@ void htable_delval_(struct htable *ht, struct htable_iter *i)
 	ht->elems--;
 	ht->table[i->off] = HTABLE_DELETED;
 	ht->deleted++;
+}
+
+void *htable_pick_(const struct htable *ht, size_t seed, struct htable_iter *i)
+{
+	void *e;
+	struct htable_iter unwanted;
+
+	if (!i)
+		i = &unwanted;
+	i->off = seed % ((size_t)1 << ht->bits);
+	e = htable_next(ht, i);
+	if (!e)
+		e = htable_first(ht, i);
+	return e;
 }
 
 struct htable *htable_check(const struct htable *ht, const char *abortstr)

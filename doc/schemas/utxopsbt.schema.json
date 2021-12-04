@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "psbt",
+    "feerate_per_kw",
+    "estimated_final_weight",
+    "excess_msat"
+  ],
+  "properties": {
+    "psbt": {
+      "type": "string",
+      "description": "Unsigned PSBT which fulfills the parameters given"
+    },
+    "feerate_per_kw": {
+      "type": "u32",
+      "description": "The feerate used to create the PSBT, in satoshis-per-kiloweight"
+    },
+    "estimated_final_weight": {
+      "type": "u32",
+      "description": "The estimated weight of the transaction once fully signed"
+    },
+    "excess_msat": {
+      "type": "msat",
+      "description": "The amount above *satoshi* which is available.  This could be zero, or dust; it will be zero if *change_outnum* is also returned"
+    },
+    "change_outnum": {
+      "type": "u32",
+      "description": "The 0-based output number where change was placed (only if parameter *excess_as_change* was true and there was sufficient funds)"
+    },
+    "reservations": {
+      "type": "array",
+      "description": "If *reserve* was true or a non-zero number, just as per lightning-reserveinputs(7)",
+      "items": {
+        "type": "object",
+        "required": [
+          "txid",
+          "vout",
+          "was_reserved",
+          "reserved",
+          "reserved_to_block"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "txid": {
+            "type": "txid",
+            "description": "The txid of the transaction"
+          },
+          "vout": {
+            "type": "u32",
+            "description": "The 0-based output number"
+          },
+          "was_reserved": {
+            "type": "boolean",
+            "description": "Whether this output was previously reserved"
+          },
+          "reserved": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Whether this output is now reserved"
+          },
+          "reserved_to_block": {
+            "type": "u32",
+            "description": "The blockheight the reservation will expire"
+          }
+        }
+      }
+    }
+  }
+}

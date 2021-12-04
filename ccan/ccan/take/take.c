@@ -32,9 +32,20 @@ void *take_(const void *p, const char *label)
 		}
 		takenarr = new;
 		/* Once labelarr is set, we maintain it. */
-		if (labelarr)
-			labelarr = realloc(labelarr,
-					   sizeof(*labelarr) * (max_taken+1));
+		if (labelarr) {
+                        const char **labelarr_new;
+			labelarr_new = realloc(labelarr,
+					       sizeof(*labelarr) * (max_taken+1));
+                        if (labelarr_new) {
+                                labelarr = labelarr_new;
+                        } else {
+                                /* num_taken will be out of sync with the size of
+                                 * labelarr after realloc failure.
+                                 * Just pretend that we never had labelarr allocated. */
+                                free(labelarr);
+                                labelarr = NULL;
+                        }
+                }
 		max_taken++;
 	}
 	if (unlikely(labelarr))

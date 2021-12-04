@@ -61,10 +61,7 @@ static bool next_plan(struct io_conn *conn, struct io_plan *plan)
 	if (plan == &io_conn_freed)
 		return false;
 
-	/* It should have set a plan inside this conn (or duplex) */
-	assert(plan == &conn->plan[IO_IN]
-	       || plan == &conn->plan[IO_OUT]
-	       || plan == &conn->plan[2]);
+	assert(plan == &conn->plan[plan->dir]);
 	assert(conn->plan[IO_IN].status != IO_UNSET
 	       || conn->plan[IO_OUT].status != IO_UNSET);
 
@@ -100,13 +97,16 @@ struct io_conn *io_new_conn_(const tal_t *ctx, int fd,
 	conn->fd.fd = fd;
 	conn->finish = NULL;
 	conn->finish_arg = NULL;
-	list_node_init(&conn->always);
 
 	if (!add_conn(conn))
 		return tal_free(conn);
 
 	/* Keep our I/O async. */
 	io_fd_block(fd, false);
+
+	/* So we can get back from plan -> conn later */
+	conn->plan[IO_OUT].dir = IO_OUT;
+	conn->plan[IO_IN].dir = IO_IN;
 
 	/* We start with out doing nothing, and in doing our init. */
 	conn->plan[IO_OUT].status = IO_UNSET;
@@ -117,6 +117,16 @@ struct io_conn *io_new_conn_(const tal_t *ctx, int fd,
 		return NULL;
 
 	return conn;
+}
+
+bool io_conn_exclusive(struct io_conn *conn, bool exclusive)
+{
+	return backend_set_exclusive(&conn->plan[IO_IN], exclusive);
+}
+
+bool io_conn_out_exclusive(struct io_conn *conn, bool exclusive)
+{
+	return backend_set_exclusive(&conn->plan[IO_OUT], exclusive);
 }
 
 void io_set_finish_(struct io_conn *conn,
@@ -144,7 +154,9 @@ static struct io_plan *set_always(struct io_conn *conn,
 	struct io_plan *plan = &conn->plan[dir];
 
 	plan->status = IO_ALWAYS;
-	backend_new_always(conn);
+	/* Only happens on OOM, and only with non-default tal_backend. */
+	if (!backend_new_always(plan))
+		return NULL;
 	return io_set_plan(conn, dir, NULL, next, arg);
 }
 
@@ -413,27 +425,14 @@ void io_ready(struct io_conn *conn, int pollflags)
 			|| conn->plan[IO_IN].status == IO_POLLING_STARTED);
 }
 
-void io_do_always(struct io_conn *conn)
+void io_do_always(struct io_plan *plan)
 {
-	/* There's a corner case where the in next_plan wakes up the
-	 * out, placing it in IO_ALWAYS and we end up processing it immediately,
-	 * only to leave it in the always list.
-	 *
-	 * Yet we can't just process one, in case they are both supposed
-	 * to be done, so grab state beforehand.
-	 */
-	bool always_out = (conn->plan[IO_OUT].status == IO_ALWAYS);
+	struct io_conn *conn;
 
-	if (conn->plan[IO_IN].status == IO_ALWAYS)
-		if (!next_plan(conn, &conn->plan[IO_IN]))
-			return;
+	assert(plan->status == IO_ALWAYS);
+	conn = container_of(plan, struct io_conn, plan[plan->dir]);
 
-	if (always_out) {
-		/* You can't *unalways* a conn (except by freeing, in which
-		 * case next_plan() returned false */
-		assert(conn->plan[IO_OUT].status == IO_ALWAYS);
-		next_plan(conn, &conn->plan[IO_OUT]);
-	}
+	next_plan(conn, plan);
 }
 
 void io_do_wakeup(struct io_conn *conn, enum io_direction dir)
@@ -488,7 +487,7 @@ struct io_plan *io_duplex(struct io_conn *conn,
 	assert(conn == container_of(in_plan, struct io_conn, plan[IO_IN]));
 	/* in_plan must be conn->plan[IO_IN], out_plan must be [IO_OUT] */
 	assert(out_plan == in_plan + 1);
-	return out_plan + 1;
+	return in_plan;
 }
 
 struct io_plan *io_halfclose(struct io_conn *conn)

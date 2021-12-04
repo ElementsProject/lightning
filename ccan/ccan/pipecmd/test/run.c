@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	
 	/* This is how many tests you plan to run */
 	plan_tests(67);
-	child = pipecmd(&outfd, &infd, &errfd, argv[0], "inout", NULL);
+	child = pipecmd(&infd, &outfd, &errfd, argv[0], "inout", NULL);
 	if (!ok1(child > 0))
 		exit(1);
 	ok1(write(infd, buf, sizeof(buf)) == sizeof(buf));
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	ok1(WIFEXITED(status));
 	ok1(WEXITSTATUS(status) == 0);
 
-	child = pipecmd(NULL, &infd, NULL, argv[0], "in", NULL);
+	child = pipecmd(&infd, NULL, NULL, argv[0], "in", NULL);
 	if (!ok1(child > 0))
 		exit(1);
 	ok1(write(infd, buf, sizeof(buf)) == sizeof(buf));
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	ok1(WIFEXITED(status));
 	ok1(WEXITSTATUS(status) == 0);
 
-	child = pipecmd(&outfd, NULL, NULL, argv[0], "out", NULL);
+	child = pipecmd(NULL, &outfd, NULL, argv[0], "out", NULL);
 	if (!ok1(child > 0))
 		exit(1);
 	ok1(read(outfd, buf, sizeof(buf)) == sizeof(buf));
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 	ok1(WEXITSTATUS(status) == 0);
 
 	/* errfd == outfd should work with both. */
-	child = pipecmd(&errfd, NULL, &errfd, argv[0], "err", NULL);
+	child = pipecmd(NULL, &errfd, &errfd, argv[0], "err", NULL);
 	if (!ok1(child > 0))
 		exit(1);
 	ok1(read(errfd, buf, sizeof(buf)) == sizeof(buf));
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 	ok1(WIFEXITED(status));
 	ok1(WEXITSTATUS(status) == 0);
 
-	child = pipecmd(&outfd, NULL, &outfd, argv[0], "out", NULL);
+	child = pipecmd(NULL, &outfd, &outfd, argv[0], "out", NULL);
 	if (!ok1(child > 0))
 		exit(1);
 	ok1(read(outfd, buf, sizeof(buf)) == sizeof(buf));

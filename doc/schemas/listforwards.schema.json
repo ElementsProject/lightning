@@ -1,0 +1,230 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "forwards"
+  ],
+  "properties": {
+    "forwards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "in_channel",
+          "in_msat",
+          "status",
+          "received_time"
+        ],
+        "properties": {
+          "in_channel": {
+            "type": "short_channel_id",
+            "description": "the channel that received the HTLC"
+          },
+          "in_msatoshi": {
+            "deprecated": true
+          },
+          "in_msat": {
+            "type": "msat",
+            "description": "the value of the incoming HTLC"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "offered",
+              "settled",
+              "local_failed",
+              "failed"
+            ],
+            "description": "still ongoing, completed, failed locally, or failed after forwarding"
+          },
+          "received_time": {
+            "type": "number",
+            "description": "the UNIX timestamp when this was received"
+          },
+          "out_channel": {
+            "type": "short_channel_id",
+            "description": "the channel that the HTLC was forwarded to"
+          },
+          "payment_hash": {
+            "type": "hex",
+            "description": "payment hash sought by HTLC",
+            "maxLength": 64,
+            "minLength": 64
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "out_channel"
+              ]
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "fee_msat",
+                "out_msat"
+              ],
+              "properties": {
+                "in_channel": {},
+                "in_msatoshi": {},
+                "in_msat": {},
+                "status": {},
+                "received_time": {},
+                "resolved_time": {},
+                "out_channel": {},
+                "payment_hash": {},
+                "failcode": {},
+                "failreason": {},
+                "fee": {
+                  "deprecated": true
+                },
+                "fee_msat": {
+                  "type": "msat",
+                  "description": "the amount this paid in fees"
+                },
+                "out_msatoshi": {
+                  "deprecated": true
+                },
+                "out_msat": {
+                  "type": "msat",
+                  "description": "the amount we sent out the *out_channel*"
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [],
+              "properties": {
+                "in_channel": {},
+                "in_msatoshi": {},
+                "in_msat": {},
+                "status": {},
+                "received_time": {},
+                "resolved_time": {},
+                "payment_hash": {},
+                "failcode": {},
+                "failreason": {}
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "settled",
+                    "failed"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "resolved_time"
+              ],
+              "properties": {
+                "in_channel": {},
+                "in_msatoshi": {},
+                "in_msat": {},
+                "status": {},
+                "received_time": {},
+                "out_channel": {},
+                "payment_hash": {},
+                "fee": {},
+                "fee_msat": {},
+                "out_msatoshi": {},
+                "out_msat": {},
+                "failcode": {},
+                "failreason": {},
+                "resolved_time": {
+                  "type": "number",
+                  "description": "the UNIX timestamp when this was resolved"
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "properties": {
+                "in_channel": {},
+                "in_msatoshi": {},
+                "in_msat": {},
+                "status": {},
+                "received_time": {},
+                "out_channel": {},
+                "payment_hash": {},
+                "fee": {},
+                "fee_msat": {},
+                "failcode": {},
+                "failreason": {},
+                "out_msatoshi": {},
+                "out_msat": {}
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "local_failed",
+                    "failed"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [],
+              "properties": {
+                "in_channel": {},
+                "in_msatoshi": {},
+                "in_msat": {},
+                "status": {},
+                "received_time": {},
+                "out_channel": {},
+                "payment_hash": {},
+                "fee": {},
+                "fee_msat": {},
+                "out_msatoshi": {},
+                "out_msat": {},
+                "resolved_time": {},
+                "failcode": {
+                  "type": "u32",
+                  "description": "the numeric onion code returned"
+                },
+                "failreason": {
+                  "type": "string",
+                  "description": "the name of the onion code returned"
+                }
+              }
+            },
+            "else": {
+              "additionalProperties": false,
+              "required": [],
+              "properties": {
+                "in_channel": {},
+                "in_msatoshi": {},
+                "in_msat": {},
+                "status": {},
+                "received_time": {},
+                "out_channel": {},
+                "payment_hash": {},
+                "fee": {},
+                "fee_msat": {},
+                "out_msatoshi": {},
+                "out_msat": {},
+                "resolved_time": {}
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

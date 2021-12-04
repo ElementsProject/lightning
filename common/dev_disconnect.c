@@ -1,15 +1,14 @@
-#include <assert.h>
+#include "config.h"
+#include <ccan/closefrom/closefrom.h>
 #include <ccan/err/err.h>
-#include <ccan/str/str.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
-#include <fcntl.h>
-#include <stdlib.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wire.h>
 
 #if DEVELOPER
 /* We move the fd if and only if we do a disconnect. */
@@ -69,7 +68,7 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 	if (!dev_disconnect_count)
 		next_dev_disconnect();
 
-	if (!streq(wire_type_name(pkt_type), dev_disconnect_line+1))
+	if (!streq(peer_wire_name(pkt_type), dev_disconnect_line+1))
 		return DEV_DISCONNECT_NORMAL;
 
 	if (--dev_disconnect_count != 0) {
@@ -80,22 +79,38 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 		err(1, "lseek failure");
 	}
 
-	status_trace("dev_disconnect: %s%s", dev_disconnect_line,
+	status_debug("dev_disconnect: %s%s", dev_disconnect_line,
 		     dev_disconnect_nocommit ? "-nocommit" : "");
 	if (dev_disconnect_nocommit)
 		dev_suppress_commit = true;
 	return dev_disconnect_line[0];
 }
 
-void dev_sabotage_fd(int fd)
+void dev_sabotage_fd(int fd, bool close_fd)
 {
 	int fds[2];
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		err(1, "dev_sabotage_fd: creating socketpair");
 
-	/* Close one. */
-	close(fds[0]);
+#if defined(TCP_NODELAY)
+	/* On Linux, at least, this flushes. */
+	int opt = TCP_NODELAY;
+	int val = 1;
+	setsockopt(fd, IPPROTO_TCP, opt, &val, sizeof(val));
+#else
+#error No TCP_NODELAY?
+#endif
+
+	/* Move fd out the way if we don't want to close it. */
+	if (!close_fd) {
+		if (dup(fd) == -1) {
+			; /* -Wunused-result */
+		}
+	} else
+		/* Close other end of socket. */
+		close(fds[0]);
+
 	/* Move other over to the fd we want to sabotage. */
 	dup2(fds[1], fd);
 	close(fds[1]);
@@ -108,6 +123,8 @@ void dev_blackhole_fd(int fd)
 	int i;
 	struct stat st;
 
+	int maxfd;
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		err(1, "dev_blackhole_fd: creating socketpair");
 
@@ -116,12 +133,25 @@ void dev_blackhole_fd(int fd)
 		err(1, "dev_blackhole_fd: forking");
 	case 0:
 		/* Close everything but the dev_disconnect_fd, the socket
-		 * which is pretending to be the peer, and stderr. */
-		for (i = 0; i < sysconf(_SC_OPEN_MAX); i++)
+		 * which is pretending to be the peer, and stderr.
+		 * The "correct" way to do this would be to move the
+		 * fds we want to preserve to the low end (0, 1, 2...)
+		 * of the fd space and then just do a single closefrom
+		 * call, but dup2 could fail with ENFILE (which is a
+		 * *system*-level error, i.e. the entire system has too
+		 * many processes with open files) and we have no
+		 * convenient way to inform the parent of the error.
+		 * So loop until we reach whichever is higher of fds[0]
+		 * or dev_disconnect_fd, and *then* closefrom after that.
+		 */
+		maxfd = (fds[0] > dev_disconnect_fd) ? fds[0] :
+						       dev_disconnect_fd ;
+		for (i = 0; i < maxfd; i++)
 			if (i != fds[0]
 			    && i != dev_disconnect_fd
 			    && i != STDERR_FILENO)
 				close(i);
+		closefrom(maxfd + 1);
 
 		/* Close once dev_disconnect file is truncated. */
 		for (;;) {

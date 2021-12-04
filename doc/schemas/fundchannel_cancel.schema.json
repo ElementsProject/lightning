@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cancelled"
+  ],
+  "properties": {
+    "cancelled": {
+      "type": "string",
+      "description": "A message indicating it was cancelled by RPC"
+    }
+  }
+}

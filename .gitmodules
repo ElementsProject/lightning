@@ -1,9 +1,6 @@
 [submodule "daemon/jsmn"]
 	path = external/jsmn
 	url = https://github.com/zserge/jsmn
-[submodule "bitcoin/libbase58"]
-	path = external/libbase58
-	url = https://github.com/bitcoin/libbase58.git
 [submodule "libsodium"]
 	path = external/libsodium
 	url = https://github.com/jedisct1/libsodium.git
@@ -14,3 +11,9 @@
 	path = external/libwally-core
 	url = https://github.com/ElementsProject/libwally-core.git
 	ignore = dirty
+[submodule "external/gheap"]
+	path = external/gheap
+	url = https://github.com/valyala/gheap
+[submodule "external/lnprototest"]
+	path = external/lnprototest
+	url = https://github.com/rustyrussell/lnprototest.git

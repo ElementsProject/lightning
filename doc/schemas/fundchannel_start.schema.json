@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "funding_address",
+    "scriptpubkey"
+  ],
+  "properties": {
+    "funding_address": {
+      "type": "string",
+      "description": "The address to send funding to for the channel"
+    },
+    "scriptpubkey": {
+      "type": "hex",
+      "description": "The raw scriptPubkey for the address"
+    },
+    "close_to": {
+      "type": "hex",
+      "description": "The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`"
+    }
+  }
+}

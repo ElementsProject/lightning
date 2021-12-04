@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invoice",
+    "changes"
+  ],
+  "properties": {
+    "invoice": {
+      "type": "string",
+      "description": "The BOLT12 invoice we fetched"
+    },
+    "changes": {
+      "type": "object",
+      "description": "Summary of changes from offer",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "description_appended": {
+          "type": "string",
+          "description": "extra characters appended to the *description* field."
+        },
+        "description": {
+          "type": "string",
+          "description": "a completely replaced *description* field"
+        },
+        "vendor_removed": {
+          "type": "string",
+          "description": "The *vendor* from the offer, which is missing in the invoice"
+        },
+        "vendor": {
+          "type": "string",
+          "description": "a completely replaced *vendor* field"
+        },
+        "msat": {
+          "type": "msat",
+          "description": "the amount, if different from the offer amount multiplied by any *quantity* (or the offer had no amount, or was not in BTC)."
+        }
+      }
+    },
+    "next_period": {
+      "type": "object",
+      "description": "Only for recurring invoices if the next period is under the *recurrence_limit*",
+      "additionalProperties": false,
+      "required": [
+        "counter",
+        "starttime",
+        "endtime",
+        "paywindow_start",
+        "paywindow_end"
+      ],
+      "properties": {
+        "counter": {
+          "type": "u64",
+          "description": "the index of the next period to fetchinvoice"
+        },
+        "starttime": {
+          "type": "u64",
+          "description": "UNIX timestamp that the next period starts"
+        },
+        "endtime": {
+          "type": "u64",
+          "description": "UNIX timestamp that the next period ends"
+        },
+        "paywindow_start": {
+          "type": "u64",
+          "description": "UNIX timestamp of the earliest time that the next invoice can be fetched"
+        },
+        "paywindow_end": {
+          "type": "u64",
+          "description": "UNIX timestamp of the latest time that the next invoice can be fetched"
+        }
+      }
+    }
+  }
+}

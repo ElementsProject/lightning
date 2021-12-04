@@ -31,7 +31,7 @@ int main(void)
 
 	/* Grab ourselves for comparison. */
 	buf[full_read(fd, buf, sizeof(buf))] = '\0';
-	lseek(fd, SEEK_SET, 0);
+	lseek(fd, 0, SEEK_SET);
 
 	for (i = 0, p = buf; *p; i++) {
 		lines[i] = p;

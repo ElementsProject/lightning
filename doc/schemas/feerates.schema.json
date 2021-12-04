@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "warning_missing_feerates": {
+      "type": "string",
+      "description": "Some fee estimates are missing"
+    },
+    "perkb": {
+      "type": "object",
+      "description": "If *style* parameter was perkb",
+      "additionalProperties": false,
+      "required": [
+        "min_acceptable",
+        "max_acceptable"
+      ],
+      "properties": {
+        "min_acceptable": {
+          "type": "u32",
+          "description": "The smallest feerate that you can use, usually the minimum relayed feerate of the backend"
+        },
+        "max_acceptable": {
+          "type": "u32",
+          "description": "The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet)."
+        },
+        "opening": {
+          "type": "u32",
+          "description": "Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)"
+        },
+        "mutual_close": {
+          "type": "u32",
+          "description": "Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer."
+        },
+        "unilateral_close": {
+          "type": "u32",
+          "description": "Feerate for commitment_transaction in a live channel which we originally funded"
+        },
+        "delayed_to_us": {
+          "type": "u32",
+          "description": "Feerate for returning unilateral close funds to our wallet"
+        },
+        "htlc_resolution": {
+          "type": "u32",
+          "description": "Feerate for returning unilateral close HTLC outputs to our wallet"
+        },
+        "penalty": {
+          "type": "u32",
+          "description": "Feerate to start at when penalizing a cheat attempt"
+        }
+      }
+    },
+    "perkw": {
+      "type": "object",
+      "description": "If *style* parameter was perkw",
+      "additionalProperties": false,
+      "required": [
+        "min_acceptable",
+        "max_acceptable"
+      ],
+      "properties": {
+        "min_acceptable": {
+          "type": "u32",
+          "description": "The smallest feerate that you can use, usually the minimum relayed feerate of the backend"
+        },
+        "max_acceptable": {
+          "type": "u32",
+          "description": "The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet)."
+        },
+        "opening": {
+          "type": "u32",
+          "description": "Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)"
+        },
+        "mutual_close": {
+          "type": "u32",
+          "description": "Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer."
+        },
+        "unilateral_close": {
+          "type": "u32",
+          "description": "Feerate for commitment_transaction in a live channel which we originally funded"
+        },
+        "delayed_to_us": {
+          "type": "u32",
+          "description": "Feerate for returning unilateral close funds to our wallet"
+        },
+        "htlc_resolution": {
+          "type": "u32",
+          "description": "Feerate for returning unilateral close HTLC outputs to our wallet"
+        },
+        "penalty": {
+          "type": "u32",
+          "description": "Feerate to start at when penalizing a cheat attempt"
+        }
+      }
+    },
+    "onchain_fee_estimates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opening_channel_satoshis",
+        "mutual_close_satoshis",
+        "unilateral_close_satoshis",
+        "htlc_timeout_satoshis",
+        "htlc_success_satoshis"
+      ],
+      "properties": {
+        "opening_channel_satoshis": {
+          "type": "u64",
+          "description": "Estimated cost of typical channel open"
+        },
+        "mutual_close_satoshis": {
+          "type": "u64",
+          "description": "Estimated cost of typical channel close"
+        },
+        "unilateral_close_satoshis": {
+          "type": "u64",
+          "description": "Estimated cost of typical unilateral close (without HTLCs)"
+        },
+        "htlc_timeout_satoshis": {
+          "type": "u64",
+          "description": "Estimated cost of typical HTLC timeout transaction"
+        },
+        "htlc_success_satoshis": {
+          "type": "u64",
+          "description": "Estimated cost of typical HTLC fulfillment transaction"
+        }
+      }
+    }
+  }
+}

@@ -3,7 +3,6 @@
 
 #include "config.h"
 #include <ccan/io/io.h>
-#include <ccan/tal/tal.h>
 struct io_lock;
 
 /**
@@ -31,7 +30,7 @@ struct io_plan *io_lock_acquire_out_(struct io_conn *conn, struct io_lock *lock,
 				     void *arg);
 
 #define io_lock_acquire_in(conn, lock, next, arg)                             \
-	io_lock_acquire_in_((conn), (lock),                                   \
+	io_lock_acquire_in_((conn), (lock),				      \
 			    typesafe_cb_preargs(struct io_plan *, void *, \
 						(next), (arg),		\
 						struct io_conn *),	\
@@ -46,5 +45,10 @@ struct io_plan *io_lock_acquire_in_(struct io_conn *conn, struct io_lock *lock,
  * Release the lock and notify waiters so they can proceed.
  */
 void io_lock_release(struct io_lock *lock);
+
+/**
+ * Is this lock acquired?
+ */
+bool io_lock_taken(const struct io_lock *lock);
 
 #endif /* LIGHTNING_COMMON_IO_LOCK_H */

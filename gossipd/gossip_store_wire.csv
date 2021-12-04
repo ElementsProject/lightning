@@ -1,0 +1,34 @@
+# gossip_store messages: messages persisted in the gossip_store
+# We store raw messages here, so these numbers must not overlap with
+# 256/257/258.
+#include <common/amount.h>
+#include <common/node_id.h>
+
+# This always follows the channel_announce / private_announce
+msgtype,gossip_store_channel_amount,4101
+msgdata,gossip_store_channel_amount,satoshis,amount_sat,
+
+# Mimics a channel_announce, except signatures are all-zero
+msgtype,gossip_store_private_channel,4104
+msgdata,gossip_store_private_channel,satoshis,amount_sat,
+msgdata,gossip_store_private_channel,len,u16,
+msgdata,gossip_store_private_channel,announcement,u8,len
+
+msgtype,gossip_store_private_update,4102
+msgdata,gossip_store_private_update,len,u16,
+msgdata,gossip_store_private_update,update,u8,len
+
+msgtype,gossip_store_delete_chan,4103
+msgdata,gossip_store_delete_chan,scid,short_channel_id,
+
+msgtype,gossip_store_ended,4105
+msgdata,gossip_store_ended,equivalent_offset,u64,
+
+# FIXME: Here for COMPAT with v0.9.0 and before only.
+msgtype,gossipd_local_add_channel_obs,3503
+msgdata,gossipd_local_add_channel_obs,short_channel_id,short_channel_id,
+msgdata,gossipd_local_add_channel_obs,remote_node_id,node_id,
+msgdata,gossipd_local_add_channel_obs,satoshis,amount_sat,
+msgdata,gossipd_local_add_channel_obs,flen,u16,
+msgdata,gossipd_local_add_channel_obs,features,u8,flen
+

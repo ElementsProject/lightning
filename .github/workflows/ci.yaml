@@ -1,0 +1,339 @@
+---
+name: Continuous Integration
+on: [push, pull_request]
+jobs:
+  smoke-test:
+    name: Smoke Test ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - CFG: "make"
+            TEST_CMD: "make"
+          - CFG: "make-O3-check"
+            TEST_CMD: "make check-source check-units installcheck check-gen-updated"
+            COPTFLAGS: "-O3"
+          - CFG: "make-32-bit-nodev-check"
+            ARCH: 32
+            TEST_CMD: "make check-source check-units installcheck"
+            DEVELOPER: 0
+          - CFG: "make-EXPERIMENTAL-check"
+            TEST_CMD: "make check-source check-units installcheck check-gen-updated"
+            EXPERIMENTAL_FEATURES: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Fetch tags for auto versioning
+        run: git fetch --prune --unshallow --tags -f
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          COMPILER: ${{ matrix.COMPILER }}
+          ARCH: ${{ matrix.ARCH }}
+          COMPAT: ${{ matrix.COMPAT }}
+          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
+          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
+          COPTFLAGS: ${{ matrix.COPTFLAGS }}
+          NETWORK: ${{ matrix.NETWORK }}
+          TEST_CMD: ${{ matrix.TEST_CMD }}
+          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
+          TEST_GROUP: ${{ matrix.TEST_GROUP }}
+        run: |
+          bash -x .github/scripts/build.sh
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
+          path: report.*
+          if-no-files-found: ignore
+
+  check-dock:
+    name: Check c-lightning doc
+    runs-on: ubuntu-20.04
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: bash -x .github/scripts/setup.sh
+
+      - name: Check Doc
+        run: |
+          pip install mako
+          ./configure
+          make check-doc
+
+  proto-test:
+    name: Protocol Test Config
+    runs-on: ubuntu-20.04
+    needs: [smoke-test]
+    env:
+      DEVELOPER: 1
+      EXPERIMENTAL_FEATURES: 1
+      COMPAT: 0
+      PYTEST_PAR: 2
+      TEST_CMD: "make check-protos"
+      TEST_GROUP: 1
+      TEST_GROUP_COUNT: 1
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - {compiler: clang, db: sqlite3}
+          - {compiler: gcc, db: postgres}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Setup Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          ARCH: ${{ matrix.arch }}
+          COMPILER: ${{ matrix.compiler }}
+          DB: ${{ matrix.db }}
+          NETWORK: ${{ matrix.network }}
+          TARGET_HOST: ${{ matrix.TARGET_HOST }}
+          VALGRIND: ${{ matrix.valgrind }}
+        run: |
+          bash -x .github/scripts/build.sh
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.{{ matrix.cfg }}
+          path: report.*
+
+  normal-test:
+    name: Normal Test Config ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    needs: [smoke-test]
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # All of the following will just run `make pytest`
+          - CFG: "clang-fuzzing"
+            COMPILER: clang
+            FUZZING: 1
+          - CFG: "check-dbstmts"
+            COMPILER: gcc
+            TEST_CHECK_DBSTMTS: 1
+          - CFG: "non-DEVELOPER-non-COMPAT-1"
+            DEVELOPER: 0
+            COMPAT: 0
+            TEST_GROUP: 1
+            TEST_GROUP_COUNT: 2
+          - CFG: "non-DEVELOPER-non-COMPAT-2"
+            DEVELOPER: 0
+            COMPAT: 0
+            TEST_GROUP: 2
+            TEST_GROUP_COUNT: 2
+          - CFG: "DUAL_FUND"
+            EXPERIMENTAL_DUAL_FUND: 1
+            DEVELOPER: 1
+            COMPAT: 0
+          # Various other configurations
+          - CFG: "Elements"
+            NETWORK: liquid-regtest
+          - CFG: "PostgreSQL"
+            DB: postgres
+            PYTEST_PAR: 2
+
+          # The cross-compiled versions
+          - CFG: "cross-arm32"
+            ARCH: arm32v7
+            TARGET_HOST: arm-linux-gnueabihf
+          - CFG: "cross-arm64"
+            ARCH: arm64v8
+            TARGET_HOST: aarch64-linux-gnu
+
+          # The experimental feature test
+          - CFG: "EXPERIMENTAL"
+            EXPERIMENTAL_FEATURES: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
+          COMPILER: ${{ matrix.COMPILER }}
+          ARCH: ${{ matrix.ARCH }}
+          COMPAT: ${{ matrix.COMPAT }}
+          FUZZING: ${{ matrix.FUZZING }}
+          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
+          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
+          NETWORK: ${{ matrix.NETWORK }}
+          TEST_CMD: ${{ matrix.TEST_CMD }}
+          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
+          TEST_GROUP: ${{ matrix.TEST_GROUP }}
+          TEST_DB_PROVIDER: ${{ matrix.DB }}
+        run: |
+          bash -x .github/scripts/build.sh
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
+          path: report.*
+
+  valgrind-test:
+    name: Valgrind Test Config ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    needs: [smoke-test]
+    env:
+      DEVELOPER: 1
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+      TEST_GROUP_COUNT: 10
+      PYTEST_PAR: 3
+      LABEL: "Valgrind-test"
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - CFG: "valgrind-1"
+            VALGRIND: 1
+            TEST_GROUP: 1
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-2"
+            VALGRIND: 1
+            TEST_GROUP: 2
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-3"
+            VALGRIND: 1
+            TEST_GROUP: 3
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-4"
+            VALGRIND: 1
+            TEST_GROUP: 4
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-5"
+            VALGRIND: 1
+            TEST_GROUP: 5
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-6"
+            VALGRIND: 1
+            TEST_GROUP: 6
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-7"
+            VALGRIND: 1
+            TEST_GROUP: 7
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-8"
+            VALGRIND: 1
+            TEST_GROUP: 8
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-9"
+            VALGRIND: 1
+            TEST_GROUP: 9
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-10"
+            VALGRIND: 1
+            TEST_GROUP: 10
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
+          COMPILER: ${{ matrix.COMPILER }}
+          ARCH: ${{ matrix.ARCH }}
+          COMPAT: ${{ matrix.COMPAT }}
+          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
+          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
+          NETWORK: ${{ matrix.NETWORK }}
+          TEST_CMD: ${{ matrix.TEST_CMD }}
+          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
+          TEST_GROUP: ${{ matrix.TEST_GROUP }}
+        run: |
+          bash -x .github/scripts/build.sh
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
+          path: report.*

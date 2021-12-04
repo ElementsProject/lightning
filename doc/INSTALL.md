@@ -1,14 +1,18 @@
-# Table of Contents
+Install
+=======
+
 1. [Library Requirements](#library-requirements)
 2. [Ubuntu](#to-build-on-ubuntu)
 3. [Fedora](#to-build-on-fedora)
 4. [FreeBSD](#to-build-on-freebsd)
-5. [NixOS](#to-build-on-nixos)
-6. [macOS](#to-build-on-macos)
-7. [Android](#to-cross-compile-for-android)
-8. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
-9. [Armbian](#to-compile-for-armbian)
-10. [Additional steps](#additional-steps)
+5. [OpenBSD](#to-build-on-openbsd)
+6. [NixOS](#to-build-on-nixos)
+7. [macOS](#to-build-on-macos)
+8. [Android](#to-cross-compile-for-android)
+9. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
+10. [Armbian](#to-compile-for-armbian)
+11. [Alpine](#to-compile-for-alpine)
+12. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -20,11 +24,9 @@ You will need several development libraries:
 
 For actually doing development and running the tests, you will also need:
 * pip3: to install python-bitcoinlib
-* asciidoc: for formatting the man pages (if you change them)
 * valgrind: for extra debugging checks
 
-You will also need a version of bitcoind with segregated witness and
-estimatesmartfee economical node, such as the 0.15 or above.
+You will also need a version of bitcoind with segregated witness and `estimatesmartfee` with `ECONOMICAL` mode support, such as the 0.16 or above.
 
 To Build on Ubuntu
 ---------------------
@@ -35,31 +37,37 @@ Get dependencies:
 
     sudo apt-get update
     sudo apt-get install -y \
-      autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python python3 net-tools zlib1g-dev
+      autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev \
+      python3 python3-mako python3-pip net-tools zlib1g-dev libsodium-dev \
+      gettext
+    pip3 install --user mrkd
 
 If you don't have Bitcoin installed locally you'll need to install that
-as well:
+as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
 
-    sudo apt-get install software-properties-common
-    sudo add-apt-repository ppa:bitcoin/bitcoin
-    sudo apt-get update
-    sudo apt-get install -y bitcoind
-
-For development or running tests, get additional dependencies:
-
-    sudo apt-get install -y asciidoc valgrind python3-pip
-    sudo pip3 install -r tests/requirements.txt
+    sudo apt-get install snapd
+    sudo snap install bitcoin-core
+    # Snap does some weird things with binary names; you'll
+    # want to add a link to them so everything works as expected
+    sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 
 Clone lightning:
 
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
 
+For development or running tests, get additional dependencies:
+
+    sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
+      libsecp256k1-dev jq
+    pip3 install --upgrade pip
+    pip3 install --user -r requirements.txt
+
 Build lightning:
 
     ./configure
     make
+    sudo make install
 
 Running lightning:
 
@@ -81,19 +89,19 @@ $ sudo dnf update -y && \
                 'C Development Tools and Libraries' \
                 'Development Tools' && \
         sudo dnf install -y \
-                asciidoc \
                 clang \
+                gettext \
+                git \
                 gmp-devel \
                 libsq3-devel \
-                python2-devel \
                 python3-devel \
                 python3-pip \
                 python3-setuptools \
                 net-tools \
-                net-tools \
                 valgrind \
                 wget \
-                zlib-devel && \
+                zlib-devel \
+				libsodium-devel && \
         sudo dnf clean all
 ```
 
@@ -125,40 +133,75 @@ $ lightningd --network=testnet
 ```
 
 To Build on FreeBSD
----------------------
+-------------------
 
 OS version: FreeBSD 11.1-RELEASE or above
 
-Get dependencies:
+c-lightning is in the FreeBSD ports, so install it as any other port
+(dependencies are handled automatically):
 
-    # pkg install -y \
-      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3
+    # pkg install c-lightning
 
-If you don't have Bitcoin installed locally you'll need to install that
-as well:
+for a binary, pre-compiled package. If you want to compile locally and
+fiddle with compile time options:
 
-    # pkg install -y bitcoin-daemon bitcoin-utils
+    # cd /usr/ports/net-p2p/c-lightning && make install
 
-Clone lightning:
+mrkd is required to build man pages from markdown files (not done by the port):
 
-    $ git clone https://github.com/ElementsProject/lightning.git
-    $ cd lightning
+    # cd /usr/ports/devel/py-pip && make install
+    $ pip install --user mrkd
 
-Build lightning:
+See `/usr/ports/net-p2p/c-lightning/Makefile` for instructions on how to
+build from an arbitrary git commit, instead of the latest release tag.
 
-    $ ./configure
-    $ gmake
-    $ gmake install
+**Note**: Make sure you've set an utf-8 locale, e.g.
+`export LC_CTYPE=en_US.UTF-8`, otherwise manpage installation may fail.
 
 Running lightning:
 
-**Note**: Edit your `/usr/local/etc/bitcoin.conf` to include
-`rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also need to
-include `testnet=1`
+Configure bitcoind, if not already: add `rpcuser=<foo>` and `rpcpassword=<bar>`
+to `/usr/local/etc/bitcoin.conf`, maybe also `testnet=1`.
+
+Configure lightningd: copy `/usr/local/etc/lightningd-bitcoin.conf.sample` to
+`/usr/local/etc/lightningd-bitcoin.conf` and edit according to your needs.
 
     # service bitcoind start
-    $ ./lightningd/lightningd &
-    $ ./cli/lightning-cli help
+    # service lightningd start
+    # lightning-cli --rpc-file /var/db/c-lightning/bitcoin/lightning-rpc --lightning-dir=/var/db/c-lightning help
+
+To Build on OpenBSD
+--------------------
+
+OS version: OpenBSD 6.7
+
+Install dependencies:
+```
+pkg_add git python gmake py3-pip libtool gmp
+pkg_add automake # (select highest version, automake1.16.2 at time of writing)
+pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
+```
+Install `mako` and `mrkd` otherwise we run into build errors:
+```
+pip3.7 install --user mako
+pip3.7 install --user mrkd
+```
+
+Add `/home/<username>/.local/bin` to your path:
+
+`export PATH=$PATH:/home/<username>/.local/bin`
+
+Needed for `configure`:
+```
+export AUTOCONF_VERSION=2.69
+export AUTOMAKE_VERSION=1.16
+./configure
+```
+
+Finally, build `c-lightning`:
+
+`gmake`
+
 
 To Build on NixOS
 --------------------
@@ -167,33 +210,57 @@ Use nix-shell launch a shell with a full clightning dev environment:
 
 ```
 $ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
-autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
-valgrind asciidoc --run make
+autogen automake libsodium 'python3.withPackages (p: [p.bitcoinlib])' \
+valgrind --run make
 ```
 
 To Build on macOS
 ---------------------
 
-Assume you have Xcode and HomeBrew installed on your Mac.
-Get dependencies:
+Assuming you have Xcode and Homebrew installed. Install dependencies:
 
-    $ brew install autoconf automake libtool python3 gmp gnu-sed
+    $ brew install autoconf automake libtool python3 gmp gnu-sed gettext libsodium
+    $ ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
+    $ export PATH="/usr/local/opt:$PATH"
+
+If you need SQLite (or get a SQLite mismatch build error):
+
+    $ brew install sqlite
+    $ export LDFLAGS="-L/usr/local/opt/sqlite/lib"
+    $ export CPPFLAGS="-I/usr/local/opt/sqlite/include"
+
+Some library paths are different when using `homebrew` with M1 macs, therefore the following two variables need to be set for M1 machines
+
+    $ export CPATH=/opt/homebrew/include
+    $ export LIBRARY_PATH=/opt/homebrew/lib
+
+If you need Python 3.x for mako (or get a mako build error):
+
+    $ brew install pyenv
+    $ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
+    $ source ~/.bash_profile
+    $ pyenv install 3.7.4
+    $ pip install --upgrade pip
 
 If you don't have bitcoind installed locally you'll need to install that
 as well:
 
-    $ brew install \
-    berkeley-db4 boost miniupnpc openssl pkg-config protobuf qt libevent
+    $ brew install berkeley-db4 boost miniupnpc pkg-config libevent
     $ git clone https://github.com/bitcoin/bitcoin
     $ cd bitcoin
     $ ./autogen.sh
     $ ./configure
-    $ make & make install
+    $ make src/bitcoind src/bitcoin-cli && make install
 
 Clone lightning:
 
     $ git clone https://github.com/ElementsProject/lightning.git
     $ cd lightning
+
+Configure Python 3.x & get mako:
+
+    $ pyenv local 3.7.4
+    $ pip install mako
 
 Build lightning:
 
@@ -248,9 +315,12 @@ Build with:
 To cross-compile for Raspberry Pi
 --------------------
 
-Obtain the [official Raspberry Pi toolchains](https://github.com/raspberrypi/tools). This document assumes compilation will occur towards the Raspberry Pi 3 (arm-linux-gnueabihf as of Mar. 2018). In addition, obtain and install cross-compiled versions of sqlite 3 and gmp.
+Obtain the [official Raspberry Pi toolchains](https://github.com/raspberrypi/tools).
+This document assumes compilation will occur towards the Raspberry Pi 3
+(arm-linux-gnueabihf as of Mar. 2018).
 
-Depending on your toolchain location and target arch, source env variables will need to be set. They can be set from the command line as such:
+Depending on your toolchain location and target arch, source env variables
+will need to be set. They can be set from the command line as such:
 
     export PATH=$PATH:/path/to/arm-linux-gnueabihf/bin
     # Change next line depending on specific Raspberry Pi device
@@ -262,16 +332,45 @@ Depending on your toolchain location and target arch, source env variables will 
     export LD=$target_host-ld
     export STRIP=$target_host-strip
 
-Install the `qemu-user` package. This will allow you to properly configure the build for the target device environment. Then, build with the following commands. (A 64-bit build system is assumed here.)
+Install the `qemu-user` package. This will allow you to properly configure the
+build for the target device environment.
+Config the arm elf interpreter prefix:
 
-    make CC=gcc clean ccan/tools/configurator/configurator
-    BUILD=x86_64 MAKE_HOST=arm-linux-gnueabihf make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-gnueabihf-gcc -static" LDFLAGS="-L/path/to/gmp-and-sqlite/lib" CFLAGS="-std=gnu11 -I /path/to/gmp-and-sqlite/include -I . -I ccan -I external/libwally-core/src/secp256k1/include -I external/libsodium/src/libsodium/include -I external/jsmn -I external/libwally-core/include -I external/libbacktrace -I external/libbase58"
+    export QEMU_LD_PREFIX=/path/to/raspberry/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf/arm-linux-gnueabihf/sysroot/
 
-The compilation will eventually fail due to a compile error in the `cdump` CCAN module. Recompile the module, and then re-run the make system.
+Obtain and install cross-compiled versions of sqlite3, gmp and zlib:
 
-    make clean -C ccan/ccan/cdump/tools
-    make CC=gcc -C ccan/ccan/cdump/tools
-    BUILD=x86_64 MAKE_HOST=arm-linux-gnueabihf make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-gnueabihf-gcc -static" LDFLAGS="-L/path/to/gmp-and-sqlite/lib" CFLAGS="-std=gnu11 -I /path/to/gmp-and-sqlite/include -I . -I ccan -I external/libwally-core/src/secp256k1/include -I external/libsodium/src/libsodium/include -I external/jsmn -I external/libwally-core/include -I external/libbacktrace -I external/libbase58"
+Download and build zlib:
+
+    wget https://zlib.net/zlib-1.2.11.tar.gz
+    tar xvf zlib-1.2.11.tar.gz
+    cd zlib-1.2.11
+    ./configure --prefix=$QEMU_LD_PREFIX
+    make
+    make install
+
+Download and build sqlite3:
+
+    wget https://www.sqlite.org/2018/sqlite-src-3260000.zip
+    unzip sqlite-src-3260000.zip
+    cd sqlite-src-3260000
+    ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension --host=$target_host --prefix=$QEMU_LD_PREFIX
+    make
+    make install
+
+Download and build gmp:
+
+    wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
+    tar xvf gmp-6.1.2.tar.xz
+    cd gmp-6.1.2
+    ./configure --disable-assembly --host=$target_host --prefix=$QEMU_LD_PREFIX
+    make
+    make install
+
+Then, build c-lightning with the following commands:
+
+    ./configure
+    make
 
 To compile for Armbian
 --------------------
@@ -281,6 +380,33 @@ You can compile in `customize-image.sh` using the instructions for Ubuntu.
 
 A working example that compiles both bitcoind and c-lightning for Armbian can
 be found [here](https://github.com/Sjors/armbian-bitcoin-core).
+
+To compile for Alpine
+---------------------
+Get dependencies:
+```
+apk update
+apk add ca-certificates alpine-sdk autoconf automake git libtool \
+  gmp-dev sqlite-dev python python3 py3-mako net-tools zlib-dev libsodium gettext
+```
+Clone lightning:
+```
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
+git submodule update --init --recursive
+```
+Build and install:
+```
+./configure
+make
+make install
+```
+Clean up:
+```
+cd .. && rm -rf lightning
+apk del ca-certificates alpine-sdk autoconf automake git libtool \
+  gmp-dev sqlite python3 py3-mako net-tools zlib-dev libsodium gettext
+```
 
 Additional steps
 --------------------

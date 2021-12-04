@@ -176,6 +176,24 @@ void _opt_register(const char *names, enum opt_type type,
 	add_opt(&opt);
 }
 
+bool opt_unregister(const char *names)
+{
+	int found = -1, i;
+
+	for (i = 0; i < opt_count; i++) {
+		if (opt_table[i].type == OPT_SUBTABLE)
+			continue;
+		if (strcmp(opt_table[i].names, names) == 0)
+			found = i;
+	}
+	if (found == -1)
+		return false;
+	opt_count--;
+	memmove(&opt_table[found], &opt_table[found+1],
+		(opt_count - found) * sizeof(opt_table[found]));
+	return true;
+}
+
 void opt_register_table(const struct opt_table entry[], const char *desc)
 {
 	unsigned int i, start = opt_count;
@@ -207,14 +225,15 @@ bool opt_parse(int *argc, char *argv[], void (*errlog)(const char *fmt, ...))
 	/* This helps opt_usage. */
 	opt_argv0 = argv[0];
 
-	while ((ret = parse_one(argc, argv, 0, &offset, errlog)) == 1);
+	while ((ret = parse_one(argc, argv, 0, &offset, errlog, false)) == 1);
 
 	/* parse_one returns 0 on finish, -1 on error */
 	return (ret == 0);
 }
 
-bool opt_early_parse(int argc, char *argv[],
-		     void (*errlog)(const char *fmt, ...))
+static bool early_parse(int argc, char *argv[],
+			void (*errlog)(const char *fmt, ...),
+			bool ignore_unknown)
 {
 	int ret;
 	unsigned off = 0;
@@ -226,12 +245,24 @@ bool opt_early_parse(int argc, char *argv[],
 	/* This helps opt_usage. */
 	opt_argv0 = argv[0];
 
-	while ((ret = parse_one(&argc, tmpargv, OPT_EARLY, &off, errlog)) == 1);
+	while ((ret = parse_one(&argc, tmpargv, OPT_EARLY, &off, errlog, ignore_unknown)) == 1);
 
 	opt_alloc.free(tmpargv);
 
 	/* parse_one returns 0 on finish, -1 on error */
 	return (ret == 0);
+}
+
+bool opt_early_parse(int argc, char *argv[],
+		     void (*errlog)(const char *fmt, ...))
+{
+	return early_parse(argc, argv, errlog, false);
+}
+
+bool opt_early_parse_incomplete(int argc, char *argv[],
+				void (*errlog)(const char *fmt, ...))
+{
+	return early_parse(argc, argv, errlog, true);
 }
 
 void opt_free_table(void)

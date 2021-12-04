@@ -1,13 +1,11 @@
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/htlc.h>
-#include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <common/type_to_string.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
-#include <stdio.h>
 
 size_t hash_htlc_key(const struct htlc_key *k)
 {
@@ -26,6 +24,22 @@ struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
 {
 	const struct htlc_key key = { (struct channel *)channel, htlc_id };
 	return htlc_in_map_get(map, &key);
+}
+
+struct htlc_in *remove_htlc_in_by_dbid(struct htlc_in_map *remaining_htlcs_in,
+				       u64 dbid)
+{
+	struct htlc_in *hin;
+	struct htlc_in_map_iter ini;
+
+	for (hin = htlc_in_map_first(remaining_htlcs_in, &ini); hin;
+	     hin = htlc_in_map_next(remaining_htlcs_in, &ini)) {
+		if (hin->dbid == dbid) {
+			htlc_in_map_del(remaining_htlcs_in, hin);
+			return hin;
+		}
+	}
+	return NULL;
 }
 
 static void destroy_htlc_in(struct htlc_in *hend, struct htlc_in_map *map)
@@ -58,8 +72,10 @@ void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hend)
 	htlc_out_map_add(map, hend);
 }
 
-static void *PRINTF_FMT(2,3)
-	corrupt(const char *abortstr, const char *fmt, ...)
+static void *corrupt(const char *abortstr, const char *fmt, ...)
+	PRINTF_FMT(2,3);
+
+static void *corrupt(const char *abortstr, const char *fmt, ...)
 {
 	if (abortstr) {
 		char *p;
@@ -75,16 +91,16 @@ static void *PRINTF_FMT(2,3)
 
 struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 {
-	if (hin->msatoshi == 0)
+	if (amount_msat_eq(hin->msat, AMOUNT_MSAT(0)))
 		return corrupt(abortstr, "zero msatoshi");
 	else if (htlc_state_owner(hin->hstate) != REMOTE)
 		return corrupt(abortstr, "invalid state %s",
 			       htlc_state_name(hin->hstate));
-	else if (hin->failuremsg && hin->preimage)
-		return corrupt(abortstr, "Both failuremsg and succeeded");
-	else if (hin->failcode != 0 && hin->preimage)
-		return corrupt(abortstr, "Both failcode and succeeded");
-	else if (hin->failuremsg && (hin->failcode & BADONION))
+	else if (hin->failonion && hin->preimage)
+		return corrupt(abortstr, "Both failonion and succeeded");
+	else if (hin->badonion != 0 && hin->preimage)
+		return corrupt(abortstr, "Both badonion and succeeded");
+	else if (hin->failonion && hin->badonion)
 		return corrupt(abortstr, "Both failed and malformed");
 
 	/* Can't have a resolution while still being added. */
@@ -92,13 +108,13 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 	    && hin->hstate <= RCVD_ADD_ACK_REVOCATION) {
 		if (hin->preimage)
 			return corrupt(abortstr, "Still adding, has preimage");
-		if (hin->failuremsg)
+		if (hin->failonion)
 			return corrupt(abortstr, "Still adding, has failmsg");
-		if (hin->failcode)
-			return corrupt(abortstr, "Still adding, has failcode");
+		if (hin->badonion)
+			return corrupt(abortstr, "Still adding, has badonion");
 	} else if (hin->hstate >= SENT_REMOVE_HTLC
 		   && hin->hstate <= SENT_REMOVE_ACK_REVOCATION) {
-		if (!hin->preimage && !hin->failuremsg && !hin->failcode)
+		if (!hin->preimage && !hin->failonion && !hin->badonion)
 			return corrupt(abortstr, "Removing, no resolution");
 	} else
 		return corrupt(abortstr, "Bad state %s",
@@ -109,27 +125,43 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 
 struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct channel *channel, u64 id,
-			    u64 msatoshi, u32 cltv_expiry,
+			    struct amount_msat msat, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
-			    const struct secret *shared_secret,
-			    const u8 *onion_routing_packet)
+			    const struct secret *shared_secret TAKES,
+			    const struct pubkey *blinding TAKES,
+			    const struct secret *blinding_ss,
+			    const u8 *onion_routing_packet,
+			    bool fail_immediate)
 {
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
 
 	hin->dbid = 0;
 	hin->key.channel = channel;
 	hin->key.id = id;
-	hin->msatoshi = msatoshi;
+	hin->msat = msat;
 	hin->cltv_expiry = cltv_expiry;
 	hin->payment_hash = *payment_hash;
-	hin->shared_secret = *shared_secret;
+	hin->status = NULL;
+	hin->fail_immediate = fail_immediate;
+	if (shared_secret)
+		hin->shared_secret = tal_dup(hin, struct secret, shared_secret);
+	else
+		hin->shared_secret = NULL;
+	if (blinding) {
+		hin->blinding = tal_dup(hin, struct pubkey, blinding);
+		hin->blinding_ss = *blinding_ss;
+	} else
+		hin->blinding = NULL;
 	memcpy(hin->onion_routing_packet, onion_routing_packet,
 	       sizeof(hin->onion_routing_packet));
 
 	hin->hstate = RCVD_ADD_COMMIT;
-	hin->failcode = 0;
-	hin->failuremsg = NULL;
+	hin->badonion = 0;
+	hin->failonion = NULL;
 	hin->preimage = NULL;
+	hin->we_filled = NULL;
+
+	hin->received_time = time_now();
 
 	return htlc_in_check(hin, "new_htlc_in");
 }
@@ -140,56 +172,59 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 	if (htlc_state_owner(hout->hstate) != LOCAL)
 		return corrupt(abortstr, "invalid state %s",
 			       htlc_state_name(hout->hstate));
-	else if (hout->failuremsg && hout->preimage)
+	else if (hout->failonion && hout->preimage)
 		return corrupt(abortstr, "Both failed and succeeded");
 
 	if (hout->am_origin && hout->in)
 		return corrupt(abortstr, "Both origin and incoming");
 
 	if (hout->in) {
-		if (hout->in->msatoshi < hout->msatoshi)
-			return corrupt(abortstr, "Input msatoshi %"PRIu64
-				       " less than %"PRIu64,
-				       hout->in->msatoshi, hout->msatoshi);
+		if (amount_msat_less(hout->in->msat, hout->msat))
+			return corrupt(abortstr, "Input amount %s"
+				       " less than %s",
+				       type_to_string(tmpctx, struct amount_msat,
+						      &hout->in->msat),
+				       type_to_string(tmpctx, struct amount_msat,
+						      &hout->msat));
 		if (hout->in->cltv_expiry <= hout->cltv_expiry)
-			return corrupt(abortstr, "Input ctlv_expiry %u"
+			return corrupt(abortstr, "Input cltv_expiry %u"
 				       " less than %u",
 				       hout->in->cltv_expiry, hout->cltv_expiry);
 		if (!sha256_eq(&hout->in->payment_hash, &hout->payment_hash))
 			return corrupt(abortstr, "Input hash != output hash");
 		/* If output is resolved, input must be resolved same
 		 * way (or not resolved yet). */
-		if (hout->failuremsg) {
-			if (hout->in->failcode)
+		if (hout->failonion) {
+			if (hout->in->badonion)
 				return corrupt(abortstr,
-					       "Output failmsg, input failcode");
+					       "Output failmsg, input badonion");
 			if (hout->in->preimage)
 				return corrupt(abortstr,
 					       "Output failmsg, input preimage");
-		} else if (hout->failcode) {
-			if (hout->in->failuremsg)
+		} else if (hout->failmsg) {
+			if (hout->in->failonion)
 				return corrupt(abortstr,
-					       "Output failcode, input failmsg");
+					       "Output failmsg, input failonion");
 			if (hout->in->preimage)
 				return corrupt(abortstr,
-					       "Output failcode, input preimage");
+					       "Output failmsg, input preimage");
 		} else if (hout->preimage) {
-			if (hout->in->failuremsg)
+			if (hout->in->failonion)
 				return corrupt(abortstr,
-					       "Output preimage, input failmsg");
-			if (hout->in->failcode)
+					       "Output preimage, input failonion");
+			if (hout->in->badonion)
 				return corrupt(abortstr,
-					       "Output preimage, input failcode");
+					       "Output preimage, input badonion");
 		} else {
 			if (hout->in->preimage)
 				return corrupt(abortstr,
 					       "Output unresolved, input preimage");
-			if (hout->in->failuremsg)
+			if (hout->in->failonion)
 				return corrupt(abortstr,
 					       "Output unresovled, input failmsg");
-			if (hout->in->failcode)
+			if (hout->in->badonion)
 				return corrupt(abortstr,
-					       "Output unresolved, input failcode");
+					       "Output unresolved, input badonion");
 		}
 	}
 
@@ -198,13 +233,13 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 	    && hout->hstate <= SENT_ADD_ACK_REVOCATION) {
 		if (hout->preimage)
 			return corrupt(abortstr, "Still adding, has preimage");
-		if (hout->failuremsg)
+		if (hout->failonion)
 			return corrupt(abortstr, "Still adding, has failmsg");
-		if (hout->failcode)
-			return corrupt(abortstr, "Still adding, has failcode");
+		if (hout->failmsg)
+			return corrupt(abortstr, "Still adding, has failmsg");
 	} else if (hout->hstate >= RCVD_REMOVE_HTLC
 		   && hout->hstate <= RCVD_REMOVE_ACK_REVOCATION) {
-		if (!hout->preimage && !hout->failuremsg && !hout->failcode)
+		if (!hout->preimage && !hout->failonion && !hout->failmsg)
 			return corrupt(abortstr, "Removing, no resolution");
 	} else
 		return corrupt(abortstr, "Bad state %s",
@@ -237,10 +272,14 @@ void htlc_out_connect_htlc_in(struct htlc_out *hout, struct htlc_in *hin)
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct channel *channel,
-			      u64 msatoshi, u32 cltv_expiry,
+			      struct amount_msat msat,
+			      u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
+			      const struct pubkey *blinding,
 			      bool am_origin,
+			      u64 partid,
+			      u64 groupid,
 			      struct htlc_in *in)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
@@ -250,18 +289,27 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 
 	hout->key.channel = channel;
 	hout->key.id = HTLC_INVALID_ID;
-	hout->msatoshi = msatoshi;
+	hout->msat = msat;
 	hout->cltv_expiry = cltv_expiry;
 	hout->payment_hash = *payment_hash;
 	memcpy(hout->onion_routing_packet, onion_routing_packet,
 	       sizeof(hout->onion_routing_packet));
 
 	hout->hstate = SENT_ADD_HTLC;
-	hout->failcode = 0;
-	hout->failuremsg = NULL;
+	hout->failmsg = NULL;
+	hout->failonion = NULL;
 	hout->preimage = NULL;
+	hout->timeout = NULL;
 
+	if (blinding)
+		hout->blinding = tal_dup(hout, struct pubkey, blinding);
+	else
+		hout->blinding = NULL;
 	hout->am_origin = am_origin;
+	if (am_origin) {
+		hout->partid = partid;
+		hout->groupid = groupid;
+	}
 	hout->in = NULL;
 	if (in)
 		htlc_out_connect_htlc_in(hout, in);

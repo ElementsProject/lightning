@@ -1,0 +1,33 @@
+--- wire/extracted_onion_wire_csv	2020-03-25 10:24:12.861645774 +1030
++++ -	2020-03-26 13:47:13.498294435 +1030
+@@ -8,6 +8,30 @@
+ tlvtype,tlv_payload,payment_data,8
+ tlvdata,tlv_payload,payment_data,payment_secret,byte,32
+ tlvdata,tlv_payload,payment_data,total_msat,tu64,
++tlvtype,obs2_onionmsg_payload,reply_path,2
++tlvdata,obs2_onionmsg_payload,reply_path,first_node_id,point,
++tlvdata,obs2_onionmsg_payload,reply_path,blinding,point,
++tlvdata,obs2_onionmsg_payload,reply_path,path,onionmsg_path,...
++tlvtype,obs2_onionmsg_payload,enctlv,10
++tlvdata,obs2_onionmsg_payload,enctlv,enctlv,byte,...
++tlvtype,obs2_onionmsg_payload,invoice_request,64
++tlvdata,obs2_onionmsg_payload,invoice_request,invoice_request,byte,...
++tlvtype,obs2_onionmsg_payload,invoice,66
++tlvdata,obs2_onionmsg_payload,invoice,invoice,byte,...
++tlvtype,obs2_onionmsg_payload,invoice_error,68
++tlvdata,obs2_onionmsg_payload,invoice_error,invoice_error,byte,...
++tlvtype,obs2_encmsg_tlvs,padding,1
++tlvdata,obs2_encmsg_tlvs,padding,pad,byte,...
++tlvtype,obs2_encmsg_tlvs,next_node_id,4
++tlvdata,obs2_encmsg_tlvs,next_node_id,node_id,point,
++tlvtype,obs2_encmsg_tlvs,next_blinding,12
++tlvdata,obs2_encmsg_tlvs,next_blinding,blinding,point,
++tlvtype,obs2_encmsg_tlvs,self_id,14
++tlvdata,obs2_encmsg_tlvs,self_id,data,byte,...
++subtype,onionmsg_path
++subtypedata,onionmsg_path,node_id,point,
++subtypedata,onionmsg_path,enclen,u16,
++subtypedata,onionmsg_path,enctlv,byte,enclen
+ msgtype,invalid_realm,PERM|1
+ msgtype,temporary_node_failure,NODE|2
+ msgtype,permanent_node_failure,PERM|NODE|2

@@ -19,6 +19,15 @@ static bool check_umap(const umap *map)
 	bool last = true;
 
 	/* Must be in order, must contain value. */
+	prev = 256;
+	for (v = uintmap_last(map, &i); v; v = uintmap_before(map, &i)) {
+		if (i >= prev)
+			return false;
+		if (*v != i)
+			return false;
+		prev = i;
+	}
+
 	prev = -1;
 	for (v = uintmap_first(map, &i); v; v = uintmap_after(map, &i)) {
 		if (i <= prev)
@@ -40,6 +49,15 @@ static bool check_smap(const smap *map)
 	bool last = true;
 
 	/* Must be in order, must contain value. */
+	prev = 0x80000000ULL;
+	for (v = sintmap_last(map, &i); v; v = sintmap_before(map, &i)) {
+		if (i >= prev)
+			return false;
+		if (*v != i)
+			return false;
+		prev = i;
+	}
+
 	prev = -0x80000001ULL;
 	for (v = sintmap_first(map, &i); v; v = sintmap_after(map, &i)) {
 		if (i <= prev)
@@ -52,7 +70,7 @@ static bool check_smap(const smap *map)
 	return last;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	umap umap;
 	smap smap;
@@ -63,6 +81,9 @@ int main(void)
 	plan_tests(6 * NUM + 2);
 	uintmap_init(&umap);
 	sintmap_init(&smap);
+
+	if (argc > 1)
+		srandom(atoi(argv[1]));
 
 	for (i = 0; i < NUM; i++) {
 		urandoms[i] = random();

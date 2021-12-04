@@ -3,18 +3,19 @@
 
 set -e
 
-# Default values, loaded from environment or canned.
-PREFIX=${PREFIX:-/usr/local}
-CC=${CC:-cc}
-CWARNFLAGS=${CWARNFLAGS:--Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition}
-CDEBUGFLAGS=${CDEBUGFLAGS:--std=gnu11 -g -fstack-protector}
-DEVELOPER=${DEVELOPER:-0}
-COMPAT=${COMPAT:-1}
-CONFIGURATOR_CC=${CONFIGURATOR_CC:-$CC}
-
 CONFIGURATOR=ccan/tools/configurator/configurator
 CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
+BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -Werror"
+
+: ${PKG_CONFIG=pkg-config}
+
+# You can set PG_CONFIG in the environment to direct configure to call
+# a specific 'pg_config' binary. If you set it to an empty string, then
+# PostgreSQL support will be explicitly disabled, even if a 'pg_config'
+# binary exists in your PATH. If you leave it unset, then the following
+# line enables the automagic detection that most users want.
+: ${PG_CONFIG=pg_config}
 
 usage_with_default()
 {
@@ -30,43 +31,42 @@ usage_with_default()
     echo "  $1 (default $DEF)"
 }
 
-usage()
+# Given DEVELOPER, what COPTFLAGS do we default to.
+default_coptflags()
 {
-    echo "Usage: ./configure [--reconfigure] [setting=value] [options]"
-    echo "If --reconfigure is specified, $CONFIG_VAR_FILE will set defaults if it exists."
-    echo "Default settings:"
-    usage_with_default "CC" "$CC"
-    usage_with_default "CWARNFLAGS" "$CWARNFLAGS"
-    usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
-    usage_with_default "CONFIGURATOR_CC" "$CONFIGURATOR_CC"
-    usage_with_default "PYTEST" "$PYTEST"
-    echo "    To override compile line for configurator itself"
-
-    echo "Options include:"
-    usage_with_default "--prefix=" "$PREFIX"
-    echo "    Prefix for make install"
-    usage_with_default "--enable/disable-developer" "$DEVELOPER" "enable" "disable"
-    echo "    Developer mode, good for testing"
-    usage_with_default "--enable/disable-compat" "$COMPAT" "enable" "disable"
-    echo "    Compatibility mode, good to disable to see if your software breaks"
-    usage_with_default "--enable/disable-valgrind" "(autodetect)"
-    echo "    Valgrind binary to use for tests"
-    exit 1
+    if [ "$1" = 0 ]; then
+	echo "-Og"
+    fi
 }
 
-add_var()
+# Given COPTFLAGS, HAVE_GCC and HAVE_MODERN_GCC, what CWARNFLAGS to default to?
+default_cwarnflags()
 {
-    echo "Setting $1... $2"
-    echo "$1=$2" >> $CONFIG_VAR_FILE
-    [ -z "$3" ] || echo "#define $1 $2" >> "$3"
+    F=$BASE_WARNFLAGS
+    # Clang doesn't like -Wno-maybe-uninitialized, but doesn't seem
+    # to give spurious warnings, either.
+    if [ "$2" = 1 ]; then
+	# With old gccs, or optimization != -O3, we need to suppress some warnings.
+	if [ -n "${1##*-O3*}" ] || [ "$3" != "1" ]; then
+	    F="$F -Wno-maybe-uninitialized"
+	fi
+    fi
+    echo "$F"
 }
 
-find_pytest()
+default_pytest()
 {
-    PYTEST_BINS="pytest-3 pytest3 pytest py.test"
+    # Since we just checked that we have python3 we give that one the
+    # most priority and then fall back to some common aliases.
+    PYTEST_BINS="python3 -m pytest,pytest,py.test,pytest3,pytest-3"
+    IFS=','
     for p in $PYTEST_BINS; do
-	if [ "$(which $p)" != "" ] ; then
-	    "$p" --version 2>&1 | grep -q "python3" || continue
+	# If it is a combined command such as `python3 -m pytest` we
+	# want to only call which on the executable
+	exe=$(echo "$p" | awk '{print $1}')
+	# shellcheck disable=SC2086
+	if [ "$(which $exe)" != "" ] ; then
+	    "$p" --version 2>&1 | grep -q "pytest" || continue
 	    echo "$p"
 	    return
 	fi
@@ -76,7 +76,7 @@ find_pytest()
     for p in $PYTHON_BINS; do
         if [ "$(which $p)" != "" ] ; then
             $p --version 2>&1 | grep -q "Python 3." || continue
-            if $p -c "import pytest" ; then
+            if $p -c "import pytest" 2>/dev/null ; then
                 echo "$p -m pytest"
                 return
             fi
@@ -84,27 +84,144 @@ find_pytest()
     done
 }
 
-PYTEST=${PYTEST:-`find_pytest`}
+check_command()
+{
+    name="$1"
+    shift 1
+
+    echo -n "checking for $name... "
+    if "$@" >/dev/null 2>&1; then
+	echo 'found'
+	return 0
+    fi
+    echo 'not found'
+    return 1
+}
+
+default_valgrind_setting()
+{
+    # Valgrind must accept all these options (might exit with error 7 though
+    # if /bin/true leaks mem on your system!)
+    if valgrind -q --error-exitcode=7 --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all /bin/true >/dev/null 2>&1 || [ $? = 7 ]; then
+	echo 1
+    else
+	echo 0
+    fi
+}
+
+set_defaults()
+{
+    # Default values, loaded from environment or canned.
+    # Note that ":-" means substitute if empty or unset, "-" means only if unset
+    # which matters since you might explicitly set of these blank.
+    PREFIX=${PREFIX:-/usr/local}
+    CC=${CC:-cc}
+    CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector-strong}
+    DEVELOPER=${DEVELOPER:-0}
+    EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
+    COMPAT=${COMPAT:-1}
+    STATIC=${STATIC:-0}
+    ASAN=${ASAN:-0}
+    UBSAN=${UBSAN:-0}
+    PYTEST=${PYTEST-$(default_pytest)}
+    COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEVELOPER")}
+    CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
+    VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
+    TEST_NETWORK=${TEST_NETWORK:-regtest}
+    FUZZING=${FUZZING:-0}
+}
+
+usage()
+{
+    echo "Usage: ./configure [--reconfigure] [setting=value] [options]"
+    echo "If --reconfigure is specified, $CONFIG_VAR_FILE will set defaults."
+    echo "Default settings:"
+    set_defaults
+    DEFAULT_COPTFLAGS="$(default_coptflags $DEVELOPER)"
+    # We assume we have a modern gcc.
+    DEFAULT_CWARNFLAGS="$(default_cwarnflags ""$DEFAULT_COPTFLAGS"" 1 1)"
+    usage_with_default "CC" "$CC"
+    usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
+    usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
+    usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
+    usage_with_default "CONFIGURATOR_CC" "${CONFIGURATOR_CC:-$CC}"
+    echo "    To override compile line for configurator itself"
+    usage_with_default "PYTEST" "$PYTEST"
+    usage_with_default "VALGRIND" "$VALGRIND"
+
+    echo "Options include:"
+    usage_with_default "--prefix=" "$PREFIX"
+    echo "    Prefix for make install"
+    usage_with_default "--enable/disable-developer" "$DEVELOPER" "enable" "disable"
+    echo "    Developer mode, good for testing"
+    usage_with_default "--enable/disable-experimental-features" "$EXPERIMENTAL_FEATURES" "enable" "disable"
+    echo "    Enable experimental features"
+    usage_with_default "--enable/disable-compat" "$COMPAT" "enable" "disable"
+    echo "    Compatibility mode, good to disable to see if your software breaks"
+    usage_with_default "--enable/disable-valgrind" "(autodetect)"
+    echo "    Run tests with Valgrind"
+    usage_with_default "--enable/disable-static" "$STATIC" "enable" "disable"
+    echo "    Static link sqlite3, gmp and zlib libraries"
+    usage_with_default "--enable/disable-address-sanitizer" "$ASAN" "enable" "disable"
+    echo "    Compile with address-sanitizer"
+    usage_with_default "--enable/disable-ub-sanitizer" "$UBSAN" "enable" "disable"
+    echo "    Compile with undefined behaviour sanitizer"
+    usage_with_default "--enable/disable-fuzzing" "$FUZZING" "enable" "disable"
+    exit 1
+}
+
+add_var()
+{
+    if [ -n "$2" ]; then
+        echo "Setting $1... $2"
+    else
+        echo "$1 not found"
+    fi
+    echo "$1=$2" >> $CONFIG_VAR_FILE.$$
+    [ -z "$3" ] || echo "#define $1 $2" >> "$3"
+}
 
 for opt in "$@"; do
     case "$opt" in
 	--reconfigure)
-	    # Escape spaces for things like CWARNFLAGS.
-	    sed 's/=\(.*\)$/="\1"/' $CONFIG_VAR_FILE > $CONFIG_VAR_FILE.$$
-	    . ./$CONFIG_VAR_FILE.$$
+	    # Figure out what defaulT COPTFLAGS was for this config.vars
+	    DEFAULT_COPTFLAGS=
+	    # Set from values if not already set.
+	    while IFS='=' read VAR VAL; do
+		if eval [ -z \${$VAR+x} ]; then eval $VAR=\"$VAL\"; fi
+		if [ "$VAR" = DEVELOPER ]; then
+		   DEFAULT_COPTFLAGS=$(default_coptflags "$VAL")
+		fi
+	    done < $CONFIG_VAR_FILE
+	    # If we were those defaults, unset so we get new defaults in
+	    # case DEVELOPER has changed.
+	    if [ x"$COPTFLAGS" = x"$DEFAULT_COPTFLAGS" ]; then
+		unset COPTFLAGS
+	    fi
 	    ;;
 	CC=*) CC="${opt#CC=}";;
 	CONFIGURATOR_CC=*) CONFIGURATOR_CC="${opt#CONFIGURATOR_CC=}";;
 	CWARNFLAGS=*) CWARNFLAGS="${opt#CWARNFLAGS=}";;
 	CDEBUGFLAGS=*) CDEBUGFLAGS="${opt#CDEBUGFLAGS=}";;
+	COPTFLAGS=*) COPTFLAGS="${opt#COPTFLAGS=}";;
 	PYTEST=*) PYTEST="${opt#PYTEST=}";;
 	--prefix=*) PREFIX="${opt#--prefix=}";;
 	--enable-developer) DEVELOPER=1;;
 	--disable-developer) DEVELOPER=0;;
+	--enable-experimental-features) EXPERIMENTAL_FEATURES=1;;
+	--disable-experimental-features) EXPERIMENTAL_FEATURES=0;;
 	--enable-compat) COMPAT=1;;
 	--disable-compat) COMPAT=0;;
 	--enable-valgrind) VALGRIND=1;;
 	--disable-valgrind) VALGRIND=0;;
+	--enable-static) STATIC=1;;
+	--disable-static) STATIC=0;;
+	--enable-address-sanitizer) ASAN=1;;
+	--disable-address-sanitizer) ASAN=0;;
+	--enable-ub-sanitizer) UBSAN=1;;
+	--disable-ub-sanitize) UBSAN=0;;
+	--enable-fuzzing) FUZZING=1;;
+	--disable-fuzzing) FUZZING=0;;
 	--help|-h) usage;;
 	*)
 	    echo "Unknown option '$opt'" >&2
@@ -113,32 +230,221 @@ for opt in "$@"; do
     esac
 done
 
+# Now fill in any unset vars.
+set_defaults
+
+# We assume warning flags don't affect congfigurator that much!
 echo -n "Compiling $CONFIGURATOR..."
-$CC $CWARNFLAGS $CDEBUGFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done"
 
-if [ -z "$VALGRIND" ]; then
-    if valgrind -q --error-exitcode=7 --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all $CONFIGURATOR --help >/dev/null 2>&1; then
-	VALGRIND=1
-    else
-	VALGRIND=0
+if [ "$ASAN" = "1" ]; then
+    if [ "$VALGRIND" = "1" ]; then
+	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time"
+	exit 1
     fi
 fi
 
-rm -f $CONFIG_VAR_FILE.$$
-$CONFIGURATOR --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" $CWARNFLAGS $CDEBUGFLAGS
-mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
+if [ "$FUZZING" = "1" ]; then
+	case "$CC" in
+		(*"clang"*)
+			;;
+		(*)
+			echo "Fuzzing is currently only supported with clang."
+			exit 1
+			;;
+	esac
+fi
+
+
+SQLITE3_CFLAGS=""
+SQLITE3_LDLIBS="-lsqlite3"
+if command -v "${PKG_CONFIG}" >/dev/null; then
+    SQLITE3_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags sqlite3 || :)"
+    SQLITE3_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs sqlite3 || :)"
+fi
+
+POSTGRES_INCLUDE=""
+POSTGRES_LDLIBS=""
+if command -v "${PG_CONFIG}" >/dev/null; then
+    POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
+    POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
+fi
+
+# Clean up on exit.
+trap "rm -f $CONFIG_VAR_FILE.$$" 0
+
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I/usr/local/include -L/usr/local/lib $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
+
+var=HAVE_GOOD_LIBSODIUM
+desc=libsodium with IETF chacha20 variants
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=-lsodium
+code=
+#include <sodium.h>
+#include <stdio.h>
+#include <string.h>
+
+int main(void)
+{
+	crypto_secretstream_xchacha20poly1305_state crypto_state;
+	unsigned char header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
+	unsigned char data[] = { 1, 2, 3 };
+
+	crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, header,
+	                                                data);
+	printf("%p\n", crypto_aead_chacha20poly1305_ietf_encrypt);
+	printf("%d\n", crypto_aead_chacha20poly1305_ietf_NPUBBYTES);
+	return 0;
+}
+/*END*/
+var=HAVE_SQLITE3_EXPANDED_SQL
+desc=sqlite3_expanded_sql
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=$SQLITE3_LDLIBS
+code=
+#include <sqlite3.h>
+#include <stdio.h>
+
+int main(void)
+{
+	printf("%p\n", sqlite3_expanded_sql);
+	return 0;
+}
+/*END*/
+var=HAVE_SQLITE3
+desc=sqlite3
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=$SQLITE3_LDLIBS
+code=
+#include <sqlite3.h>
+#include <stdio.h>
+
+int main(void)
+{
+	printf("%p\n", sqlite3_prepare_v2);
+	return 0;
+}
+/*END*/
+var=HAVE_POSTGRES
+desc=postgres
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+link=$POSTGRES_LDLIBS
+code=
+#include <libpq-fe.h>
+#include <stdio.h>
+
+int main(void)
+{
+	printf("libpq version %d\n", PQlibVersion());
+	return 0;
+}
+/*END*/
+var=HAVE_GCC
+desc=compiler is GCC
+style=OUTSIDE_MAIN
+code=
+#ifndef __GNUC__
+#error "Not GCC"
+#endif
+#ifdef __clang__
+#error "clang"
+#endif
+/*END*/
+var=HAVE_MODERN_GCC
+desc=GCC version is 7 or above
+style=OUTSIDE_MAIN
+code=
+#if __GNUC__ < 7
+#error "Not modern GCC"
+#endif
+/*END*/
+var=HAVE_PWRITEV
+desc=pwritev() defined
+style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+code=
+#include <sys/uio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int main(void)
+{
+	struct iovec iov[2];
+	int fd = open("/dev/null", O_WRONLY);
+
+	iov[0].iov_base = "hello";
+	iov[0].iov_len = 5;
+	iov[1].iov_base = " world";
+	iov[1].iov_len = 6;
+	if (pwritev(fd, iov, 2, 0) == 11)
+		return 0;
+	return 1;
+}
+/*END*/
+EOF
+
+if check_command 'python3-mako' python3 -c 'import mako'; then
+    HAVE_PYTHON3_MAKO=1
+else
+    HAVE_PYTHON3_MAKO=0
+fi
+
+if echo | check_command sha256sum sha256sum; then
+    SHA256SUM=sha256sum
+elif echo | check_command "shasum -a 256" shasum -a 256; then
+    SHA256SUM="shasum -a 256"
+elif echo | check_command sha256 sha256; then
+    SHA256SUM=sha256
+else
+    echo "*** We need sha256sum, shasum -a 256, or sha256!" >&2
+    exit 1
+fi
+
+# Now we can finally set our warning flags
+if [ -z ${CWARNFLAGS+x} ]; then
+    CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS" \
+		    $(sed -n 's/^HAVE_GCC=//p' < $CONFIG_VAR_FILE.$$) \
+		    $(sed -n 's/^HAVE_MODERN_GCC=//p' < $CONFIG_VAR_FILE.$$) )
+fi
 
 add_var PREFIX "$PREFIX"
 add_var CC "$CC"
 add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
+add_var COPTFLAGS "$COPTFLAGS"
+add_var SQLITE3_CFLAGS "$SQLITE3_CFLAGS"
+add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
+add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
+add_var POSTGRES_LDLIBS "$POSTGRES_LDLIBS"
 add_var VALGRIND "$VALGRIND"
-add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
-add_var COMPAT "$COMPAT" $CONFIG_HEADER
+add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER.$$
+add_var EXPERIMENTAL_FEATURES "$EXPERIMENTAL_FEATURES" $CONFIG_HEADER.$$
+add_var COMPAT "$COMPAT" $CONFIG_HEADER.$$
 add_var PYTEST "$PYTEST"
+add_var STATIC "$STATIC"
+add_var ASAN "$ASAN"
+add_var UBSAN "$UBSAN"
+add_var TEST_NETWORK "$TEST_NETWORK"
+add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
+add_var SHA256SUM "$SHA256SUM"
+add_var FUZZING "$FUZZING"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
-echo '#include "ccan_compat.h"' >> $CONFIG_HEADER
+echo '#include "ccan_compat.h"' >> $CONFIG_HEADER.$$
+
+# Now we set them all and check.
+while IFS='=' read VAR VAL; do
+    eval $VAR=\"$VAL\"
+done < $CONFIG_VAR_FILE.$$
+
+if [ "$HAVE_SQLITE3" = 0 -a "$HAVE_POSTGRES" = 0 ]; then
+    # I have no database yet I must schema!)
+    echo "*** We need a database, but neither sqlite3 nor postgres found" >&2
+    exit 1
+fi
+
+mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
+mv $CONFIG_HEADER.$$ $CONFIG_HEADER

@@ -1,0 +1,48 @@
+--- wire/peer_wire.csv	2021-06-10 12:47:17.225844741 -0500
++++ -	2021-06-10 12:47:40.960373156 -0500
+@@ -143,6 +139,9 @@
+ tlvtype,opening_tlvs,option_upfront_shutdown_script,1
+ tlvdata,opening_tlvs,option_upfront_shutdown_script,shutdown_len,u16,
+ tlvdata,opening_tlvs,option_upfront_shutdown_script,shutdown_scriptpubkey,byte,shutdown_len
++tlvtype,opening_tlvs,request_funds,3
++tlvdata,opening_tlvs,request_funds,requested_sats,u64,
++tlvdata,opening_tlvs,request_funds,blockheight,u32,
+ msgtype,accept_channel2,65
+ msgdata,accept_channel2,channel_id,channel_id,
+ msgdata,accept_channel2,funding_satoshis,u64,
+@@ -162,6 +161,15 @@
+ tlvtype,accept_tlvs,option_upfront_shutdown_script,1
+ tlvdata,accept_tlvs,option_upfront_shutdown_script,shutdown_len,u16,
+ tlvdata,accept_tlvs,option_upfront_shutdown_script,shutdown_scriptpubkey,byte,shutdown_len
++tlvtype,accept_tlvs,will_fund,2
++tlvdata,accept_tlvs,will_fund,signature,signature,
++tlvdata,accept_tlvs,will_fund,lease_rates,lease_rates,
++subtype,lease_rates
++subtypedata,lease_rates,funding_weight,u16,
++subtypedata,lease_rates,lease_fee_basis,u16,
++subtypedata,lease_rates,channel_fee_max_proportional_thousandths,u16,
++subtypedata,lease_rates,lease_fee_base_sat,u32,
++subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
+ msgtype,init_rbf,72
+ msgdata,init_rbf,channel_id,channel_id,
+ msgdata,init_rbf,funding_satoshis,u64,
+@@ -215,6 +219,9 @@
+ msgtype,update_fee,134
+ msgdata,update_fee,channel_id,channel_id,
+ msgdata,update_fee,feerate_per_kw,u32,
++msgtype,update_blockheight,137
++msgdata,update_blockheight,channel_id,channel_id,
++msgdata,update_blockheight,blockheight,u32,
+ msgtype,channel_reestablish,136
+ msgdata,channel_reestablish,channel_id,channel_id,
+ msgdata,channel_reestablish,next_commitment_number,u64,
+@@ -249,6 +256,9 @@
+ msgdata,node_announcement,alias,byte,32
+ msgdata,node_announcement,addrlen,u16,
+ msgdata,node_announcement,addresses,byte,addrlen
++msgdata,node_announcement,tlvs,node_ann_tlvs,
++tlvtype,node_ann_tlvs,option_will_fund,1
++tlvdata,node_ann_tlvs,option_will_fund,lease_rates,lease_rates,
+ msgtype,channel_update,258
+ msgdata,channel_update,signature,signature,
+ msgdata,channel_update,chain_hash,chain_hash,

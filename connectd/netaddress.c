@@ -1,15 +1,11 @@
-#include <arpa/inet.h>
+/* -*- c-basic-offset: 4; indent-tabs-mode: nil; -*- */
+#include "config.h"
 #include <assert.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <connectd/netaddress.h>
 #include <errno.h>
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <wire/wire.h>
 
 /* Based on bitcoin's src/netaddress.cpp, hence different naming and styling!
    version 7f31762cb6261806542cc6d1188ca07db98a6950:
@@ -112,8 +108,8 @@ static bool IsRFC6598(const struct wireaddr *addr)
 static bool IsRFC5737(const struct wireaddr *addr)
 {
     return IsIPv4(addr) && ((GetByte(addr, 3) == 192 && GetByte(addr, 2) == 0 && GetByte(addr, 1) == 2) ||
-        (GetByte(addr, 3) == 198 && GetByte(addr, 2) == 51 && GetByte(addr, 1) == 100) ||
-        (GetByte(addr, 3) == 203 && GetByte(addr, 2) == 0 && GetByte(addr, 1) == 113));
+                            (GetByte(addr, 3) == 198 && GetByte(addr, 2) == 51 && GetByte(addr, 1) == 100) ||
+                            (GetByte(addr, 3) == 203 && GetByte(addr, 2) == 0 && GetByte(addr, 1) == 113));
 }
 
 static bool IsRFC3849(const struct wireaddr *addr)
@@ -139,26 +135,26 @@ static bool IsRFC4843(const struct wireaddr *addr)
 
 static bool IsTor(const struct wireaddr *addr)
 {
-	return addr->type == ADDR_TYPE_TOR_V2 || addr->type == ADDR_TYPE_TOR_V3;
+    return addr->type == ADDR_TYPE_TOR_V3;
 }
 
 static bool IsLocal(const struct wireaddr *addr)
 {
     // IPv4 loopback
-   if (IsIPv4(addr) && (GetByte(addr, 3) == 127 || GetByte(addr, 3) == 0))
-       return true;
+    if (IsIPv4(addr) && (GetByte(addr, 3) == 127 || GetByte(addr, 3) == 0))
+        return true;
 
-   // IPv6 loopback (::1/128)
-   static const unsigned char pchLocal[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
-   if (IsIPv6(addr) && RawEq(addr, pchLocal, sizeof(pchLocal)))
-       return true;
+    // IPv6 loopback (::1/128)
+    static const unsigned char pchLocal[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
+    if (IsIPv6(addr) && RawEq(addr, pchLocal, sizeof(pchLocal)))
+        return true;
 
-   return false;
+    return false;
 }
 
 static bool IsInternal(const struct wireaddr *addr)
 {
-    return addr->type == ADDR_TYPE_PADDING;
+    return false;
 }
 
 static bool IsValid(const struct wireaddr *addr)
@@ -204,21 +200,21 @@ static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
 {
     int fd = socket(af, SOCK_DGRAM, 0);
     if (fd < 0) {
-        status_trace("Failed to create %u socket: %s",
-		     af, strerror(errno));
+        status_debug("Failed to create %u socket: %s",
+                     af, strerror(errno));
         return false;
     }
 
     if (connect(fd, saddr, saddrlen) != 0) {
-        status_trace("Failed to connect %u socket: %s",
-		     af, strerror(errno));
+        status_debug("Failed to connect %u socket: %s",
+                     af, strerror(errno));
         close(fd);
         return false;
     }
 
     if (getsockname(fd, saddr, &saddrlen) != 0) {
-        status_trace("Failed to get %u socket name: %s",
-		     af, strerror(errno));
+        status_debug("Failed to get %u socket name: %s",
+                     af, strerror(errno));
         close(fd);
         return false;
     }
@@ -235,9 +231,10 @@ bool guess_address(struct wireaddr *addr)
     switch (addr->type) {
     case ADDR_TYPE_IPV4: {
         struct sockaddr_in sin;
-	sin.sin_port = htons(53);
+        memset(&sin, 0, sizeof(sin));
+        sin.sin_port = htons(53);
         /* 8.8.8.8 */
-	sin.sin_addr.s_addr = 0x08080808;
+        sin.sin_addr.s_addr = 0x08080808;
         sin.sin_family = AF_INET;
         ret = get_local_sockname(AF_INET, &sin, sizeof(sin));
         addr->addrlen = sizeof(sin.sin_addr);
@@ -246,9 +243,10 @@ bool guess_address(struct wireaddr *addr)
     }
     case ADDR_TYPE_IPV6: {
         struct sockaddr_in6 sin6;
+        memset(&sin6, 0, sizeof(sin6));
         /* 2001:4860:4860::8888 */
         static const unsigned char pchGoogle[16]
-                = {0x20,0x01,0x48,0x60,0x48,0x60,0,0,0,0,0,0,8,8,8,8};
+            = {0x20,0x01,0x48,0x60,0x48,0x60,0,0,0,0,0,0,8,8,8,8};
         memset(&sin6, 0, sizeof(sin6));
         sin6.sin6_port = htons(53);
         sin6.sin6_family = AF_INET6;
@@ -258,9 +256,10 @@ bool guess_address(struct wireaddr *addr)
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
         return ret;
     }
-    case ADDR_TYPE_TOR_V2:
+    case ADDR_TYPE_TOR_V2_REMOVED:
     case ADDR_TYPE_TOR_V3:
-    case ADDR_TYPE_PADDING:
+    case ADDR_TYPE_DNS:
+    case ADDR_TYPE_WEBSOCKET:
         status_broken("Cannot guess address type %u", addr->type);
         break;
     }
@@ -270,6 +269,6 @@ bool guess_address(struct wireaddr *addr)
 bool address_routable(const struct wireaddr *wireaddr, bool allow_localhost)
 {
     if (allow_localhost && IsLocal(wireaddr))
-	return true;
+        return true;
     return IsRoutable(wireaddr);
 }

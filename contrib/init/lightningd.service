@@ -11,6 +11,8 @@
 Description=C-Lightning daemon
 Requires=bitcoind.service
 After=bitcoind.service
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 ExecStart=/usr/bin/lightningd --daemon --conf /etc/lightningd/lightningd.conf --pid-file=/run/lightningd/lightningd.pid

@@ -4,11 +4,15 @@
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
+#include <wire/wire.h>
+
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
 
 bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key)
 {
-	if (len != PUBKEY_DER_LEN)
+	if (len != PUBKEY_CMPR_LEN)
 		return false;
 
 	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &key->pubkey,
@@ -18,14 +22,14 @@ bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key)
 	return true;
 }
 
-void pubkey_to_der(u8 der[PUBKEY_DER_LEN], const struct pubkey *key)
+void pubkey_to_der(u8 der[PUBKEY_CMPR_LEN], const struct pubkey *key)
 {
-	size_t outlen = PUBKEY_DER_LEN;
+	size_t outlen = PUBKEY_CMPR_LEN;
 	if (!secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &outlen,
 					   &key->pubkey,
 					   SECP256K1_EC_COMPRESSED))
 		abort();
-	assert(outlen == PUBKEY_DER_LEN);
+	assert(outlen == PUBKEY_CMPR_LEN);
 }
 
 bool pubkey_from_secret(const struct secret *secret, struct pubkey *key)
@@ -45,7 +49,7 @@ bool pubkey_from_privkey(const struct privkey *privkey,
 bool pubkey_from_hexstr(const char *derstr, size_t slen, struct pubkey *key)
 {
 	size_t dlen;
-	unsigned char der[PUBKEY_DER_LEN];
+	unsigned char der[PUBKEY_CMPR_LEN];
 
 	dlen = hex_data_size(slen);
 	if (dlen != sizeof(der))
@@ -59,7 +63,7 @@ bool pubkey_from_hexstr(const char *derstr, size_t slen, struct pubkey *key)
 
 char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key)
 {
-	unsigned char der[PUBKEY_DER_LEN];
+	unsigned char der[PUBKEY_CMPR_LEN];
 
 	pubkey_to_der(der, key);
 	return tal_hexstr(ctx, der, sizeof(der));
@@ -68,7 +72,7 @@ REGISTER_TYPE_TO_STRING(pubkey, pubkey_to_hexstr);
 
 char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key)
 {
-	unsigned char der[PUBKEY_DER_LEN];
+	unsigned char der[PUBKEY_CMPR_LEN];
 	size_t outlen = sizeof(der);
 	if (!secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &outlen, key,
 					   SECP256K1_EC_COMPRESSED))
@@ -88,10 +92,69 @@ int pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 
 void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	struct sha256 h;
 
 	pubkey_to_der(der, pk);
 	sha256(&h, der, sizeof(der));
 	ripemd160(hash, h.u.u8, sizeof(h));
 }
+
+void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
+{
+	u8 der[PUBKEY_CMPR_LEN];
+
+	if (!fromwire(cursor, max, der, sizeof(der)))
+		return;
+
+	if (!pubkey_from_der(der, sizeof(der), pubkey)) {
+		SUPERVERBOSE("not a valid point");
+		fromwire_fail(cursor, max);
+	}
+}
+
+void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
+{
+	u8 output[PUBKEY_CMPR_LEN];
+	size_t outputlen = sizeof(output);
+
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx, output, &outputlen,
+				      &pubkey->pubkey,
+				      SECP256K1_EC_COMPRESSED);
+
+	towire(pptr, output, outputlen);
+}
+
+void fromwire_point32(const u8 **cursor, size_t *max, struct point32 *point32)
+{
+	u8 raw[32];
+
+	if (!fromwire(cursor, max, raw, sizeof(raw)))
+		return;
+
+	if (secp256k1_xonly_pubkey_parse(secp256k1_ctx,
+					 &point32->pubkey,
+					 raw) != 1) {
+		SUPERVERBOSE("not a valid point");
+		fromwire_fail(cursor, max);
+	}
+}
+
+void towire_point32(u8 **pptr, const struct point32 *point32)
+{
+	u8 output[32];
+
+	secp256k1_xonly_pubkey_serialize(secp256k1_ctx, output,
+					 &point32->pubkey);
+	towire(pptr, output, sizeof(output));
+}
+
+char *point32_to_hexstr(const tal_t *ctx, const struct point32 *point32)
+{
+	u8 output[32];
+
+	secp256k1_xonly_pubkey_serialize(secp256k1_ctx, output,
+					 &point32->pubkey);
+	return tal_hexstr(ctx, output, sizeof(output));
+}
+REGISTER_TYPE_TO_STRING(point32, point32_to_hexstr);

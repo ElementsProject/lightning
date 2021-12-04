@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "key"
+  ],
+  "properties": {
+    "key": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Part of the key added to the datastore"
+      }
+    },
+    "generation": {
+      "type": "u64",
+      "description": "The number of times this has been updated"
+    },
+    "hex": {
+      "type": "hex",
+      "description": "The hex data which has removed from the datastore"
+    },
+    "string": {
+      "type": "string",
+      "description": "The data as a string, if it's valid utf-8"
+    }
+  }
+}

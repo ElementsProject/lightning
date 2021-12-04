@@ -26,8 +26,8 @@ int main(void)
 
 	htable_init(&ht, hash, NULL);
 	for (i = 0; i < NUM_VALS; i++) {
-		ok1(ht.max >= i);
-		ok1(ht.max <= i * 2);
+		ok1(ht_max(&ht) >= i);
+		ok1(ht_max(&ht) <= i * 2);
 		htable_add(&ht, hash(&val[i], NULL), &val[i]);
 	}
 	htable_clear(&ht);

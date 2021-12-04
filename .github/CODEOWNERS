@@ -1,0 +1,20 @@
+# Code owners are automatically requested for review when someone
+# opens a pull request that modifies code that they own. When someone
+# with admin or owner permissions has enabled required reviews, they
+# also can optionally require approval from a code owner before the
+# author can merge a pull request in the repository.
+
+wallet/                 @cdecker
+*.py                    @cdecker
+
+wallet/invoices.*       @ZmnSCPxj
+plugins/multifundchannel.c @ZmnSCPxj
+doc/BACKUP.md           @ZmnSCPxj @cdecker
+
+common/param.*          @wythe
+common/json.*           @wythe
+common/json_tok.*       @wythe
+common/wallet_tx.*      @wythe
+
+# See https://help.github.com/articles/about-codeowners/ for more
+# information

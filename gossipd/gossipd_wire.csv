@@ -1,0 +1,107 @@
+#include <common/cryptomsg.h>
+#include <common/features.h>
+#include <common/wireaddr.h>
+#include <wire/peer_wire.h>
+#include <wire/onion_wire.h>
+
+# Initialize the gossip daemon.
+msgtype,gossipd_init,3000
+msgdata,gossipd_init,chainparams,chainparams,
+msgdata,gossipd_init,our_features,feature_set,
+msgdata,gossipd_init,id,node_id,
+msgdata,gossipd_init,rgb,u8,3
+msgdata,gossipd_init,alias,u8,32
+msgdata,gossipd_init,num_announcable,u16,
+msgdata,gossipd_init,announcable,wireaddr,num_announcable
+msgdata,gossipd_init,dev_gossip_time,?u32,
+msgdata,gossipd_init,dev_fast_gossip,bool,
+msgdata,gossipd_init,dev_fast_gossip_prune,bool,
+
+msgtype,gossipd_init_reply,3100
+
+# In developer mode, we can mess with time.
+msgtype,gossipd_dev_set_time,3001
+msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
+
+# Set artificial maximum reply_channel_range size.  Master->gossipd
+msgtype,gossipd_dev_set_max_scids_encode_size,3030
+msgdata,gossipd_dev_set_max_scids_encode_size,max,u32,
+
+# Given a short_channel_id, return the latest (stripped) update for error msg.
+msgtype,gossipd_get_stripped_cupdate,3010
+msgdata,gossipd_get_stripped_cupdate,channel_id,short_channel_id,
+
+msgtype,gossipd_get_stripped_cupdate_reply,3110
+msgdata,gossipd_get_stripped_cupdate_reply,stripped_update_len,u16,
+msgdata,gossipd_get_stripped_cupdate_reply,stripped_update,u8,stripped_update_len
+
+# gossipd->master: we're closing this channel.
+msgtype,gossipd_local_channel_close,3027
+msgdata,gossipd_local_channel_close,short_channel_id,short_channel_id,
+
+# Gossipd->master get this tx output please.
+msgtype,gossipd_get_txout,3018
+msgdata,gossipd_get_txout,short_channel_id,short_channel_id,
+
+# master->gossipd here is the output, or empty if none.
+msgtype,gossipd_get_txout_reply,3118
+msgdata,gossipd_get_txout_reply,short_channel_id,short_channel_id,
+msgdata,gossipd_get_txout_reply,satoshis,amount_sat,
+msgdata,gossipd_get_txout_reply,len,u16,
+msgdata,gossipd_get_txout_reply,outscript,u8,len
+
+# master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
+msgtype,gossipd_outpoint_spent,3024
+msgdata,gossipd_outpoint_spent,short_channel_id,short_channel_id,
+
+# master -> gossipd: stop gossip timers.
+msgtype,gossipd_dev_suppress,3032
+
+# master -> gossipd: do you have a memleak?
+msgtype,gossipd_dev_memleak,3033
+
+msgtype,gossipd_dev_memleak_reply,3133
+msgdata,gossipd_dev_memleak_reply,leak,bool,
+
+# master -> gossipd: please rewrite the gossip_store
+msgtype,gossipd_dev_compact_store,3034
+
+# gossipd -> master: ok
+msgtype,gossipd_dev_compact_store_reply,3134
+msgdata,gossipd_dev_compact_store_reply,success,bool,
+
+# master -> gossipd: blockheight increased.
+msgtype,gossipd_new_blockheight,3026
+msgdata,gossipd_new_blockheight,blockheight,u32,
+
+msgtype,gossipd_got_onionmsg_to_us,3145
+msgdata,gossipd_got_onionmsg_to_us,obs2,bool,
+msgdata,gossipd_got_onionmsg_to_us,node_alias,pubkey,
+msgdata,gossipd_got_onionmsg_to_us,self_id,?secret,
+msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_first_node,?pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_path_len,u16,
+msgdata,gossipd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+msgdata,gossipd_got_onionmsg_to_us,rawmsg_len,u16,
+msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
+
+# Lightningd tells us to send an onion message.
+msgtype,gossipd_send_onionmsg,3041
+msgdata,gossipd_send_onionmsg,obs2,bool,
+msgdata,gossipd_send_onionmsg,id,node_id,
+msgdata,gossipd_send_onionmsg,onion_len,u16,
+msgdata,gossipd_send_onionmsg,onion,u8,onion_len
+msgdata,gossipd_send_onionmsg,blinding,pubkey,
+
+# Lightningd tells us to inject a gossip message (for addgossip RPC)
+msgtype,gossipd_addgossip,3044
+msgdata,gossipd_addgossip,len,u16,
+msgdata,gossipd_addgossip,msg,u8,len
+
+# Empty string means no problem.
+msgtype,gossipd_addgossip_reply,3144
+msgdata,gossipd_addgossip_reply,err,wirestring,
+
+# Updated lease rates available
+msgtype,gossipd_new_lease_rates,3046
+msgdata,gossipd_new_lease_rates,rates,lease_rates,

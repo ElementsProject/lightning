@@ -1,22 +1,30 @@
+#include <common/per_peer_state.h>
+#include <common/node_id.h>
 #include <common/status_wire.h>
+#include <common/status_levels.h>
 
-status_log,0xFFF0
-status_log,,level,enum log_level
-status_log,,entry,wirestring
+msgtype,status_log,0xFFF0
+msgdata,status_log,level,enum log_level,
+msgdata,status_log,peer,?node_id,
+msgdata,status_log,entry,wirestring,
 
-status_io,0xFFF1
-status_io,,iodir,enum log_level
-status_io,,who,wirestring
-status_io,,len,u16
-status_io,,data,len*u8
+msgtype,status_io,0xFFF1
+msgdata,status_io,iodir,enum log_level,
+msgdata,status_io,peer,?node_id,
+msgdata,status_io,who,wirestring,
+msgdata,status_io,len,u16,
+msgdata,status_io,data,u8,len
 
-status_fail,0xFFF2
-status_fail,,failreason,enum status_failreason
-status_fail,,desc,wirestring
+msgtype,status_fail,0xFFF2
+msgdata,status_fail,failreason,enum status_failreason,
+msgdata,status_fail,desc,wirestring,
 
-status_peer_connection_lost,0xFFF3
+msgtype,status_peer_connection_lost,0xFFF3
 
-status_peer_billboard,0xFFF5
-status_peer_billboard,,perm,bool
-status_peer_billboard,,happenings,wirestring
+msgtype,status_peer_billboard,0xFFF5
+msgdata,status_peer_billboard,perm,bool,
+msgdata,status_peer_billboard,happenings,wirestring,
+
+msgtype,status_version,0xFFF6
+msgdata,status_version,version,wirestring,
 # Note: 0xFFFF is reserved for MSG_PASS_FD!

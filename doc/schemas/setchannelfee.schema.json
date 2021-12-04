@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "base",
+    "ppm",
+    "channels"
+  ],
+  "properties": {
+    "base": {
+      "type": "u32",
+      "description": "The fee_base_msat value"
+    },
+    "ppm": {
+      "type": "u32",
+      "description": "The fee_proportional_millionths value"
+    },
+    "channels": {
+      "type": "array",
+      "description": "channel(s) whose rate is now set",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "peer_id",
+          "channel_id"
+        ],
+        "properties": {
+          "peer_id": {
+            "type": "pubkey",
+            "description": "The node_id of the peer"
+          },
+          "channel_id": {
+            "type": "hex",
+            "description": "The channel_id of the channel",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "short_channel_id": {
+            "type": "short_channel_id",
+            "description": "the short_channel_id (if locked in)"
+          }
+        }
+      }
+    }
+  }
+}

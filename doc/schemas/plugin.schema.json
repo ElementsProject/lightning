@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "enum": [
+        "start",
+        "stop",
+        "rescan",
+        "startdir",
+        "list"
+      ],
+      "description": "the subcommand this is responding to"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "start",
+              "startdir",
+              "rescan",
+              "list"
+            ]
+          }
+        }
+      },
+      "then": {
+        "additionalProperties": false,
+        "required": [
+          "command",
+          "plugins"
+        ],
+        "properties": {
+          "command": {},
+          "plugins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "active"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "full pathname of the plugin"
+                },
+                "active": {
+                  "type": "boolean",
+                  "description": "status; since plugins are configured asynchronously, a freshly started plugin may not appear immediately."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "stop"
+            ]
+          }
+        }
+      },
+      "then": {
+        "additionalProperties": false,
+        "required": [
+          "command",
+          "result"
+        ],
+        "properties": {
+          "command": {},
+          "result": {
+            "type": "string",
+            "description": "A message saying it successfully stopped"
+          }
+        }
+      }
+    }
+  ]
+}

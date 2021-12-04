@@ -1,0 +1,241 @@
+#include <bitcoin/chainparams.h>
+#include <bitcoin/psbt.h>
+#include <common/cryptomsg.h>
+#include <common/channel_config.h>
+#include <common/channel_id.h>
+#include <common/derive_basepoints.h>
+#include <common/features.h>
+#include <common/fee_states.h>
+#include <common/htlc_wire.h>
+#include <common/penalty_base.h>
+#include <common/per_peer_state.h>
+#include <secp256k1.h>
+#include <wire/peer_wire.h>
+
+msgtype,dualopend_init,7000
+# Which network are we configured for?
+msgdata,dualopend_init,chainparams,chainparams,
+msgdata,dualopend_init,our_feature_set,feature_set,
+msgdata,dualopend_init,their_init_features_len,u16,
+msgdata,dualopend_init,their_init_features,u8,their_init_features_len
+# Base configuration we'll offer
+msgdata,dualopend_init,our_config,channel_config,
+# Minimum/maximum configuration values we'll accept
+msgdata,dualopend_init,max_to_self_delay,u32,
+msgdata,dualopend_init,min_effective_htlc_capacity_msat,amount_msat,
+msgdata,dualopend_init,pps,per_peer_state,
+msgdata,dualopend_init,our_basepoints,basepoints,
+msgdata,dualopend_init,our_funding_pubkey,pubkey,
+# Constraints in case the other end tries to open a channel.
+msgdata,dualopend_init,minimum_depth,u32,
+
+# master-dualopend: peer has reconnected
+msgtype,dualopend_reinit,7001
+msgdata,dualopend_reinit,chainparams,chainparams,
+msgdata,dualopend_reinit,our_feature_set,feature_set,
+msgdata,dualopend_reinit,their_init_features_len,u16,
+msgdata,dualopend_reinit,their_init_features,u8,their_init_features_len
+msgdata,dualopend_reinit,our_config,channel_config,
+msgdata,dualopend_reinit,their_config,channel_config,
+msgdata,dualopend_reinit,channel_id,channel_id,
+msgdata,dualopend_reinit,max_to_self_delay,u32,
+msgdata,dualopend_reinit,min_effective_htlc_capacity_msat,amount_msat,
+msgdata,dualopend_reinit,pps,per_peer_state,
+msgdata,dualopend_reinit,our_basepoints,basepoints,
+msgdata,dualopend_reinit,our_funding_pubkey,pubkey,
+msgdata,dualopend_reinit,their_funding_pubkey,pubkey,
+msgdata,dualopend_reinit,minimum_depth,u32,
+msgdata,dualopend_reinit,funding,bitcoin_outpoint,
+msgdata,dualopend_reinit,most_recent_feerate_per_kw_funding,u32,
+msgdata,dualopend_reinit,funding_satoshi,amount_sat,
+msgdata,dualopend_reinit,our_funding,amount_msat,
+msgdata,dualopend_reinit,their_basepoints,basepoints,
+msgdata,dualopend_reinit,remote_per_commit,pubkey,
+msgdata,dualopend_reinit,funding_psbt,wally_psbt,
+msgdata,dualopend_reinit,opener,enum side,
+msgdata,dualopend_reinit,local_funding_locked,bool,
+msgdata,dualopend_reinit,remote_funding_locked,bool,
+msgdata,dualopend_reinit,send_shutdown,bool,
+msgdata,dualopend_reinit,remote_shutdown_received,bool,
+msgdata,dualopend_reinit,local_shutdown_len,u16,
+msgdata,dualopend_reinit,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dualopend_reinit,remote_shutdown_len,u16,
+msgdata,dualopend_reinit,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_reinit,remote_funding_sigs_received,bool,
+msgdata,dualopend_reinit,fee_states,fee_states,
+msgdata,dualopend_reinit,channel_flags,u8,
+msgdata,dualopend_reinit,lease_start_blockheight,u32,
+msgdata,dualopend_reinit,lease_expiry,u32,
+msgdata,dualopend_reinit,lease_commit_sig,?secp256k1_ecdsa_signature,
+msgdata,dualopend_reinit,lease_chan_max_msat,u32,
+msgdata,dualopend_reinit,lease_chan_max_ppt,u16,
+
+# dualopend->master: they offered channel, should we continue?
+msgtype,dualopend_got_offer,7005
+msgdata,dualopend_got_offer,channel_id,channel_id,
+msgdata,dualopend_got_offer,opener_funding,amount_sat,
+msgdata,dualopend_got_offer,dust_limit_satoshis,amount_sat,
+msgdata,dualopend_got_offer,max_htlc_value_in_flight_msat,amount_msat,
+msgdata,dualopend_got_offer,htlc_minimum_msat,amount_msat,
+msgdata,dualopend_got_offer,feerate_per_kw_funding,u32,
+msgdata,dualopend_got_offer,feerate_per_kw_commitment,u32,
+msgdata,dualopend_got_offer,to_self_delay,u16,
+msgdata,dualopend_got_offer,max_accepted_htlcs,u16,
+msgdata,dualopend_got_offer,channel_flags,u8,
+msgdata,dualopend_got_offer,locktime,u32,
+msgdata,dualopend_got_offer,shutdown_len,u16,
+msgdata,dualopend_got_offer,shutdown_scriptpubkey,u8,shutdown_len
+msgdata,dualopend_got_offer,requested_amt,amount_sat,
+msgdata,dualopend_got_offer,lease_blockheight_start,u32,
+
+# master->dualopend: reply back with our first funding info/contribs
+msgtype,dualopend_got_offer_reply,7105
+msgdata,dualopend_got_offer_reply,accepter_funding,amount_sat,
+msgdata,dualopend_got_offer_reply,psbt,wally_psbt,
+msgdata,dualopend_got_offer_reply,shutdown_len,u16,
+msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
+# must go last because of embedded tu32
+msgdata,dualopend_got_offer_reply,lease_rates,?lease_rates,
+
+# dualopend->master: they offered a RBF, should we continue?
+msgtype,dualopend_got_rbf_offer,7500
+msgdata,dualopend_got_rbf_offer,channel_id,channel_id,
+msgdata,dualopend_got_rbf_offer,their_funding,amount_sat,
+msgdata,dualopend_got_rbf_offer,funding_feerate_per_kw,u32,
+msgdata,dualopend_got_rbf_offer,locktime,u32,
+
+# master->dualopend: reply back with our funding info/contribs
+msgtype,dualopend_got_rbf_offer_reply,7505
+msgdata,dualopend_got_rbf_offer_reply,our_funding,amount_sat,
+msgdata,dualopend_got_rbf_offer_reply,psbt,wally_psbt,
+
+# dualopend->master: is this a valid RBF candidate transaction?
+msgtype,dualopend_rbf_validate,7506
+msgdata,dualopend_rbf_validate,proposed_funding_psbt,wally_psbt,
+
+# master->dualopend: this is a valid RBF candidate transaction
+msgtype,dualopend_rbf_valid,7507
+
+# master->dualopend: attempt an RBF
+msgtype,dualopend_rbf_init,7509
+msgdata,dualopend_rbf_init,our_funding,amount_sat,
+msgdata,dualopend_rbf_init,funding_feerate_perkw,u32,
+msgdata,dualopend_rbf_init,psbt,wally_psbt,
+
+# dualopend->master: ready to commit channel open to database and
+#                    get some signatures for the funding_tx.
+msgtype,dualopend_commit_rcvd,7007
+msgdata,dualopend_commit_rcvd,their_config,channel_config,
+msgdata,dualopend_commit_rcvd,remote_first_commit,bitcoin_tx,
+msgdata,dualopend_commit_rcvd,pbase,?penalty_base,
+msgdata,dualopend_commit_rcvd,first_commit_sig,bitcoin_signature,
+msgdata,dualopend_commit_rcvd,psbt,wally_psbt,
+msgdata,dualopend_commit_rcvd,revocation_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,payment_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,htlc_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,delayed_payment_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,their_per_commit_point,pubkey,
+msgdata,dualopend_commit_rcvd,remote_fundingkey,pubkey,
+msgdata,dualopend_commit_rcvd,funding,bitcoin_outpoint,
+msgdata,dualopend_commit_rcvd,funding_satoshis,amount_sat,
+msgdata,dualopend_commit_rcvd,our_funding_sats,amount_sat,
+msgdata,dualopend_commit_rcvd,channel_flags,u8,
+msgdata,dualopend_commit_rcvd,feerate_per_kw_funding,u32,
+msgdata,dualopend_commit_rcvd,feerate_per_kw_commitment,u32,
+msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
+msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dualopend_commit_rcvd,remote_shutdown_len,u16,
+msgdata,dualopend_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_commit_rcvd,lease_start_blockheight,u32,
+msgdata,dualopend_commit_rcvd,lease_expiry,u32,
+msgdata,dualopend_commit_rcvd,lease_commit_sig,?secp256k1_ecdsa_signature,
+msgdata,dualopend_commit_rcvd,lease_chan_max_msat,u32,
+msgdata,dualopend_commit_rcvd,lease_chan_max_ppt,u16,
+
+# dualopend->master: peer updated the psbt
+msgtype,dualopend_psbt_changed,7107
+msgdata,dualopend_psbt_changed,channel_id,channel_id,
+msgdata,dualopend_psbt_changed,funding_serial,u64,
+msgdata,dualopend_psbt_changed,psbt,wally_psbt,
+
+# master->dualopend: we updated the psbt
+msgtype,dualopend_psbt_updated,7108
+msgdata,dualopend_psbt_updated,psbt,wally_psbt,
+
+# master->dualopend: fail this channel open
+msgtype,dualopend_fail,7003
+msgdata,dualopend_fail,reason,wirestring,
+
+# master->dualopend: hello, I'd like to start a channel open
+msgtype,dualopend_opener_init,7200
+msgdata,dualopend_opener_init,psbt,wally_psbt,
+msgdata,dualopend_opener_init,funding_amount,amount_sat,
+msgdata,dualopend_opener_init,local_shutdown_len,u16,
+msgdata,dualopend_opener_init,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dualopend_opener_init,feerate_per_kw,u32,
+msgdata,dualopend_opener_init,feerate_per_kw_funding,u32,
+msgdata,dualopend_opener_init,channel_flags,u8,
+msgdata,dualopend_opener_init,requested_sats,amount_sat,
+msgdata,dualopend_opener_init,blockheight,u32,
+msgdata,dualopend_opener_init,dry_run,bool,
+# must go last because embedded tu32
+msgdata,dualopend_opener_init,expected_rates,?lease_rates,
+
+# dualopend->master received tx_sigs from peer
+msgtype,dualopend_funding_sigs,7010
+msgdata,dualopend_funding_sigs,signed_psbt,wally_psbt,
+
+# master->dualopend send our tx_sigs to peer
+msgtype,dualopend_send_tx_sigs,7011
+msgdata,dualopend_send_tx_sigs,signed_psbt,wally_psbt,
+
+# dualopend->master tx sigs transmitted to peer
+msgtype,dualopend_tx_sigs_sent,7012
+
+# dualopend->peer peer locked channel
+msgtype,dualopend_peer_locked,7018
+msgdata,dualopend_peer_locked,remote_per_commit,pubkey,
+
+# dualopend->master this channel has been locked
+msgtype,dualopend_channel_locked,7019
+msgdata,dualopend_channel_locked,pps,per_peer_state,
+
+# master->dualopend funding reached depth; tell peer
+msgtype,dualopend_depth_reached,7020
+msgdata,dualopend_depth_reached,depth,u32,
+
+# Tell peer to shut down channel.
+msgtype,dualopend_send_shutdown,7023
+msgdata,dualopend_send_shutdown,shutdown_scriptpubkey_len,u16,
+msgdata,dualopend_send_shutdown,shutdown_scriptpubkey,u8,shutdown_scriptpubkey_len
+
+# Peer told us that channel is shutting down
+msgtype,dualopend_got_shutdown,7024
+msgdata,dualopend_got_shutdown,scriptpubkey_len,u16,
+msgdata,dualopend_got_shutdown,scriptpubkey,u8,scriptpubkey_len
+
+# Peer presented proof it was from the future.
+msgtype,dualopend_fail_fallen_behind,1028
+
+# Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
+msgtype,dualopend_shutdown_complete,7025
+msgdata,dualopend_shutdown_complete,per_peer_state,per_peer_state,
+
+# dualopend -> master: this was a dry run, here's some info about this open
+msgtype,dualopend_dry_run,7026
+msgdata,dualopend_dry_run,channel_id,channel_id,
+msgdata,dualopend_dry_run,our_funding,amount_sat,
+msgdata,dualopend_dry_run,their_funding,amount_sat,
+# must go last because of embedded tu32
+msgdata,dualopend_dry_run,lease_rates,?lease_rates,
+
+# dualopend -> master:  validate liqudity offer sig
+msgtype,dualopend_validate_lease,7027
+msgdata,dualopend_validate_lease,sig,secp256k1_ecdsa_signature,
+msgdata,dualopend_validate_lease,lease_expiry,u32,
+msgdata,dualopend_validate_lease,chan_fee_max_base_msat,u32,
+msgdata,dualopend_validate_lease,chan_fee_max_ppt,u16,
+msgdata,dualopend_validate_lease,their_pubkey,pubkey,
+
+msgtype,dualopend_validate_lease_reply,7127
+msgdata,dualopend_validate_lease_reply,err_msg,?wirestring,

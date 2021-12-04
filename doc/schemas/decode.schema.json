@@ -1,0 +1,908 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "type",
+    "valid"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "bolt12 offer",
+        "bolt12 invoice",
+        "bolt12 invoice_request",
+        "bolt11 invoice"
+      ],
+      "description": "what kind of object it decoded to"
+    },
+    "valid": {
+      "type": "boolean",
+      "description": "if this is false, you *MUST* not use the result except for diagnostics!"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bolt12 offer"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "offer_id",
+          "node_id",
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "offer_id": {
+            "type": "hex",
+            "description": "the id of this offer (merkle hash of non-signature fields)",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "node_id": {
+            "type": "point32",
+            "description": "x-only public key of the offering node"
+          },
+          "signature": {
+            "type": "bip340sig",
+            "description": "BIP-340 signature of the *node_id* on this offer"
+          },
+          "chains": {
+            "type": "array",
+            "description": "which blockchains this offer is for (missing implies bitcoin mainnet only)",
+            "items": {
+              "type": "hex",
+              "description": "the genesis blockhash",
+              "maxLength": 64,
+              "minLength": 64
+            }
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 code of the currency (missing implies Bitcoin)",
+            "maxLength": 3,
+            "minLength": 3
+          },
+          "minor_unit": {
+            "type": "u32",
+            "description": "the number of decimal places to apply to amount (if currency known)"
+          },
+          "warning_offer_unknown_currency": {
+            "type": "string",
+            "description": "The currency code is unknown (so no **minor_unit**)"
+          },
+          "amount": {
+            "type": "u64",
+            "description": "the amount in the *currency* adjusted by *minor_unit*, if any"
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": "the amount in bitcoin (if specified, and no *currency*)"
+          },
+          "send_invoice": {
+            "type": "boolean",
+            "description": "present if this is a send_invoice offer",
+            "enum": [
+              true
+            ]
+          },
+          "refund_for": {
+            "type": "hex",
+            "description": "the *payment_preimage* of invoice this is a refund for",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "description": {
+            "type": "string",
+            "description": "the description of the purpose of the offer"
+          },
+          "vendor": {
+            "type": "string",
+            "description": "the name of the vendor for this offer"
+          },
+          "features": {
+            "type": "hex",
+            "description": "the array of feature bits for this offer"
+          },
+          "absolute_expiry": {
+            "type": "u64",
+            "description": "UNIX timestamp of when this offer expires"
+          },
+          "paths": {
+            "type": "array",
+            "description": "Paths to the destination",
+            "items": {
+              "type": "object",
+              "required": [
+                "blinding",
+                "path"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "blinding": {
+                  "type": "pubkey",
+                  "description": "blinding factor for this path"
+                },
+                "path": {
+                  "type": "array",
+                  "description": "an individual path",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "node_id",
+                      "encrypted_recipient_data"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "node_id": {
+                        "type": "pubkey",
+                        "description": "node_id of the hop"
+                      },
+                      "encrypted_recipient_data": {
+                        "type": "hex",
+                        "description": "encrypted TLV entry for this hop"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "quantity_min": {
+            "type": "u64",
+            "description": "the minimum quantity"
+          },
+          "quantity_max": {
+            "type": "u64",
+            "description": "the maximum quantity"
+          },
+          "recurrence": {
+            "type": "object",
+            "description": "how often to this offer should be used",
+            "required": [
+              "period",
+              "time_unit"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "time_unit": {
+                "type": "u32",
+                "description": "the BOLT12 time unit"
+              },
+              "time_unit_name": {
+                "type": "string",
+                "description": "the name of *time_unit* (if valid)"
+              },
+              "period": {
+                "type": "u32",
+                "description": "how many *time_unit* per payment period"
+              },
+              "basetime": {
+                "type": "u64",
+                "description": "period starts at this UNIX timestamp"
+              },
+              "start_any_period": {
+                "type": "u64",
+                "description": "you can start at any period (only if **basetime** present)"
+              },
+              "limit": {
+                "type": "u32",
+                "description": "maximum period number for recurrence"
+              },
+              "paywindow": {
+                "type": "object",
+                "description": "when within a period will payment be accepted (default is prior and during the period)",
+                "required": [
+                  "seconds_before",
+                  "seconds_after"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "seconds_before": {
+                    "type": "u32",
+                    "description": "seconds prior to period start"
+                  },
+                  "seconds_after": {
+                    "type": "u32",
+                    "description": "seconds after to period start"
+                  },
+                  "proportional_amount": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ],
+                    "description": "amount should be scaled if payed after period start"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bolt12 offer"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "offer_id": {},
+          "node_id": {},
+          "signature": {},
+          "chains": {},
+          "currency": {},
+          "minor_unit": {},
+          "warning_offer_unknown_currency": {},
+          "amount": {},
+          "amount_msat": {},
+          "send_invoice": {},
+          "refund_for": {},
+          "description": {},
+          "vendor": {},
+          "features": {},
+          "absolute_expiry": {},
+          "paths": {},
+          "quantity_min": {},
+          "quantity_max": {},
+          "recurrence": {},
+          "warning_offer_missing_description": {
+            "type": "string",
+            "description": "No **description**"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bolt12 invoice"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "node_id",
+          "signature",
+          "amount_msat",
+          "description",
+          "created_at",
+          "payment_hash",
+          "relative_expiry",
+          "min_final_cltv_expiry"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "offer_id": {
+            "type": "hex",
+            "description": "the id of this offer (merkle hash of non-signature fields)",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "node_id": {
+            "type": "point32",
+            "description": "x-only public key of the offering node"
+          },
+          "signature": {
+            "type": "bip340sig",
+            "description": "BIP-340 signature of the *node_id* on this offer"
+          },
+          "chain": {
+            "type": "hex",
+            "description": "which blockchain this invoice is for (missing implies bitcoin mainnet only)",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": "the amount in bitcoin"
+          },
+          "send_invoice": {
+            "type": "boolean",
+            "description": "present if this offer was a send_invoice offer",
+            "enum": [
+              true
+            ]
+          },
+          "refund_for": {
+            "type": "hex",
+            "description": "the *payment_preimage* of invoice this is a refund for",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "description": {
+            "type": "string",
+            "description": "the description of the purpose of the offer"
+          },
+          "vendor": {
+            "type": "string",
+            "description": "the name of the vendor for this offer"
+          },
+          "features": {
+            "type": "hex",
+            "description": "the array of feature bits for this offer"
+          },
+          "paths": {
+            "type": "array",
+            "description": "Paths to the destination",
+            "items": {
+              "type": "object",
+              "required": [
+                "blinding",
+                "path"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "blinding": {
+                  "type": "pubkey",
+                  "description": "blinding factor for this path"
+                },
+                "path": {
+                  "type": "array",
+                  "description": "an individual path",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "node_id",
+                      "encrypted_recipient_data"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "node_id": {
+                        "type": "pubkey",
+                        "description": "node_id of the hop"
+                      },
+                      "encrypted_recipient_data": {
+                        "type": "hex",
+                        "description": "encrypted TLV entry for this hop"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "quantity": {
+            "type": "u64",
+            "description": "the quantity ordered"
+          },
+          "recurrence_counter": {
+            "type": "u32",
+            "description": "the 0-based counter for a recurring payment"
+          },
+          "recurrence_start": {
+            "type": "u32",
+            "description": "the optional start period for a recurring payment"
+          },
+          "recurrence_basetime": {
+            "type": "u32",
+            "description": "the UNIX timestamp of the first recurrence period start"
+          },
+          "payer_key": {
+            "type": "point32",
+            "description": "the transient key which identifies the payer"
+          },
+          "payer_info": {
+            "type": "hex",
+            "description": "the payer-provided blob to derive payer_key"
+          },
+          "timestamp": {
+            "deprecated": true
+          },
+          "created_at": {
+            "type": "u64",
+            "description": "the UNIX timestamp of invoice creation"
+          },
+          "payment_hash": {
+            "type": "hex",
+            "description": "the hash of the *payment_preimage*",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "relative_expiry": {
+            "type": "u32",
+            "description": "the number of seconds after *created_at* when this expires"
+          },
+          "min_final_cltv_expiry": {
+            "type": "u32",
+            "description": "the number of blocks required by destination"
+          },
+          "fallbacks": {
+            "type": "array",
+            "description": "onchain addresses",
+            "items": {
+              "type": "object",
+              "required": [
+                "version",
+                "hex"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "version": {
+                  "type": "u8",
+                  "description": "Segwit address version"
+                },
+                "hex": {
+                  "type": "hex",
+                  "description": "Raw encoded segwit address"
+                },
+                "address": {
+                  "type": "string",
+                  "description": "bech32 segwit address"
+                }
+              }
+            }
+          },
+          "refund_signature": {
+            "type": "bip340sig",
+            "description": "the payer key signature to get a refund"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bolt12 invoice"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "offer_id": {},
+          "node_id": {},
+          "signature": {},
+          "chain": {},
+          "amount_msat": {},
+          "send_invoice": {},
+          "refund_for": {},
+          "description": {},
+          "vendor": {},
+          "features": {},
+          "paths": {},
+          "quantity": {},
+          "recurrence_counter": {},
+          "recurrence_start": {},
+          "recurrence_basetime": {},
+          "payer_key": {},
+          "payer_info": {},
+          "timestamp": {},
+          "created_at": {},
+          "payment_hash": {},
+          "relative_expiry": {},
+          "min_final_cltv_expiry": {},
+          "fallbacks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "version",
+                "hex"
+              ],
+              "properties": {
+                "version": {},
+                "hex": {},
+                "address": {},
+                "warning_invoice_fallbacks_version_invalid": {
+                  "type": "string",
+                  "description": "**version** is > 16"
+                }
+              }
+            }
+          },
+          "refund_signature": {},
+          "warning_invoice_missing_amount": {
+            "type": "string",
+            "description": "**amount_msat* missing"
+          },
+          "warning_invoice_missing_description": {
+            "type": "string",
+            "description": "No **description**"
+          },
+          "warning_invoice_missing_blinded_payinfo": {
+            "type": "string",
+            "description": "Has **paths** without payinfo"
+          },
+          "warning_invoice_invalid_blinded_payinfo": {
+            "type": "string",
+            "description": "Does not have exactly one payinfo for each of **paths**"
+          },
+          "warning_invoice_missing_recurrence_basetime": {
+            "type": "string",
+            "description": "Has **recurrence_counter** without **recurrence_basetime**"
+          },
+          "warning_invoice_missing_created_at": {
+            "type": "string",
+            "description": "Missing **created_at**"
+          },
+          "warning_invoice_missing_payment_hash": {
+            "type": "string",
+            "description": "Missing **payment_hash**"
+          },
+          "warning_invoice_refund_signature_missing_payer_key": {
+            "type": "string",
+            "description": "Missing **payer_key** for refund_signature"
+          },
+          "warning_invoice_refund_signature_invalid": {
+            "type": "string",
+            "description": "**refund_signature** incorrect"
+          },
+          "warning_invoice_refund_missing_signature": {
+            "type": "string",
+            "description": "No **refund_signature**"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bolt12 invoice_request"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "offer_id",
+          "payer_key"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "offer_id": {
+            "type": "hex",
+            "description": "the id of the offer this is requesting (merkle hash of non-signature fields)",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "chain": {
+            "type": "hex",
+            "description": "which blockchain this invoice_request is for (missing implies bitcoin mainnet only)",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": "the amount in bitcoin"
+          },
+          "features": {
+            "type": "hex",
+            "description": "the array of feature bits for this offer"
+          },
+          "quantity": {
+            "type": "u64",
+            "description": "the quantity ordered"
+          },
+          "recurrence_counter": {
+            "type": "u32",
+            "description": "the 0-based counter for a recurring payment"
+          },
+          "recurrence_start": {
+            "type": "u32",
+            "description": "the optional start period for a recurring payment"
+          },
+          "payer_key": {
+            "type": "point32",
+            "description": "the transient key which identifies the payer"
+          },
+          "payer_info": {
+            "type": "hex",
+            "description": "the payer-provided blob to derive payer_key"
+          },
+          "recurrence_signature": {
+            "type": "bip340sig",
+            "description": "the payer key signature"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bolt12 invoice_request"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "type": {},
+          "valid": {},
+          "offer_id": {},
+          "chain": {},
+          "amount_msat": {},
+          "features": {},
+          "quantity": {},
+          "recurrence_counter": {},
+          "recurrence_start": {},
+          "payer_key": {},
+          "payer_info": {},
+          "recurrence_signature": {},
+          "warning_invoice_request_missing_offer_id": {
+            "type": "string",
+            "description": "No **offer_id**"
+          },
+          "warning_invoice_request_missing_payer_key": {
+            "type": "string",
+            "description": "No **payer_key**"
+          },
+          "warning_invoice_request_missing_recurrence_signature": {
+            "type": "string",
+            "description": "No **recurrence_signature**"
+          },
+          "warning_invoice_request_invalid_recurrence_signature": {
+            "type": "string",
+            "description": "**recurrence_signature** incorrect"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bolt11 invoice"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "currency",
+          "created_at",
+          "expiry",
+          "payee",
+          "min_final_cltv_expiry",
+          "payment_hash",
+          "signature"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "description": "the BIP173 name for the currency"
+          },
+          "created_at": {
+            "type": "u64",
+            "description": "the UNIX-style timestamp of the invoice"
+          },
+          "expiry": {
+            "type": "u64",
+            "description": "the number of seconds this is valid after *timestamp*"
+          },
+          "payee": {
+            "type": "pubkey",
+            "description": "the public key of the recipient"
+          },
+          "msatoshi": {
+            "type": "u64",
+            "deprecated": true
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": "Amount the invoice asked for"
+          },
+          "payment_hash": {
+            "type": "hex",
+            "description": "the hash of the *payment_preimage*",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "signature": {
+            "type": "signature",
+            "description": "signature of the *payee* on this invoice"
+          },
+          "description": {
+            "type": "string",
+            "description": "the description of the purpose of the purchase"
+          },
+          "description_hash": {
+            "type": "hex",
+            "description": "the hash of the description, in place of *description*",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "min_final_cltv_expiry": {
+            "type": "u32",
+            "description": "the minimum CLTV delay for the final node"
+          },
+          "payment_secret": {
+            "type": "hex",
+            "description": "the secret to hand to the payee node",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "features": {
+            "type": "hex",
+            "description": "the features bitmap for this invoice"
+          },
+          "fallbacks": {
+            "type": "array",
+            "description": "onchain addresses",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "hex"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "the address type (if known)",
+                  "enum": [
+                    "P2PKH",
+                    "P2SH",
+                    "P2WPKH",
+                    "P2WSH"
+                  ]
+                },
+                "addr": {
+                  "type": "string",
+                  "description": "the address in appropriate format for *type*"
+                },
+                "hex": {
+                  "type": "hex",
+                  "description": "Raw encoded address"
+                }
+              }
+            }
+          },
+          "routes": {
+            "type": "array",
+            "description": "Route hints to the *payee*",
+            "items": {
+              "type": "array",
+              "description": "hops in the route",
+              "items": {
+                "type": "object",
+                "required": [
+                  "pubkey",
+                  "short_channel_id",
+                  "fee_base_msat",
+                  "fee_proportional_millionths",
+                  "cltv_expiry_delta"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "pubkey": {
+                    "type": "pubkey",
+                    "description": "the public key of the node"
+                  },
+                  "short_channel_id": {
+                    "type": "short_channel_id",
+                    "description": "a channel to the next peer"
+                  },
+                  "fee_base_msat": {
+                    "type": "u32",
+                    "description": "the base fee for payments"
+                  },
+                  "fee_proportional_millionths": {
+                    "type": "u32",
+                    "description": "the parts-per-million fee for payments"
+                  },
+                  "cltv_expiry_delta": {
+                    "type": "u32",
+                    "description": "the CLTV delta across this hop"
+                  }
+                }
+              }
+            }
+          },
+          "extra": {
+            "type": "array",
+            "description": "Any extra fields we didn't know how to parse",
+            "items": {
+              "type": "object",
+              "required": [
+                "tag",
+                "data"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "tag": {
+                  "type": "string",
+                  "description": "The bech32 letter which identifies this field",
+                  "maxLength": 1,
+                  "minLength": 1
+                },
+                "data": {
+                  "type": "string",
+                  "description": "The bech32 data for this field"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

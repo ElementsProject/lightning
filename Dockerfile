@@ -1,104 +1,104 @@
-FROM alpine:3.7 as builder
+# This dockerfile is meant to compile a c-lightning x64 image
+# It is using multi stage build:
+# * downloader: Download litecoin/bitcoin and qemu binaries needed for c-lightning
+# * builder: Compile c-lightning dependencies, then c-lightning itself with static linking
+# * final: Copy the binaries required at runtime
+# The resulting image uploaded to dockerhub will only contain what is needed for runtime.
+# From the root of the repository, run "docker build -t yourimage:yourtag ."
+FROM debian:buster-slim as downloader
 
-RUN apk add --no-cache \
-     ca-certificates \
-     autoconf \
-     automake \
-     build-base \
-     libressl \
-     libtool \
-     gmp-dev \
-     python \
-     python-dev \
-     python3 \
-     sqlite-dev \
-     wget \
-     git \
-     file \
-     gnupg \
-     swig \
-     zlib-dev
+RUN set -ex \
+	&& apt-get update \
+	&& apt-get install -qq --no-install-recommends ca-certificates dirmngr wget
 
 WORKDIR /opt
 
-ARG BITCOIN_VERSION=0.17.0
-ENV BITCOIN_TARBALL bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz
+RUN wget -qO /opt/tini "https://github.com/krallin/tini/releases/download/v0.18.0/tini" \
+    && echo "12d20136605531b09a2c2dac02ccee85e1b874eb322ef6baf7561cd93f93c855 /opt/tini" | sha256sum -c - \
+    && chmod +x /opt/tini
+
+ARG BITCOIN_VERSION=0.18.1
+ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
 ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
 ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS.asc
-ENV BITCOIN_PGP_KEY 01EA5486DE18A882D4C2684590C8019E36C2E964
 
 RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
     && wget -qO $BITCOIN_TARBALL "$BITCOIN_URL" \
-    && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$BITCOIN_PGP_KEY" \
     && wget -qO bitcoin.asc "$BITCOIN_ASC_URL" \
-    && gpg --verify bitcoin.asc \
     && grep $BITCOIN_TARBALL bitcoin.asc | tee SHA256SUMS.asc \
     && sha256sum -c SHA256SUMS.asc \
     && BD=bitcoin-$BITCOIN_VERSION/bin \
     && tar -xzvf $BITCOIN_TARBALL $BD/bitcoin-cli --strip-components=1 \
     && rm $BITCOIN_TARBALL
 
-ENV LITECOIN_VERSION 0.14.2
-ENV LITECOIN_URL https://download.litecoin.org/litecoin-0.14.2/linux/litecoin-0.14.2-x86_64-linux-gnu.tar.gz
-ENV LITECOIN_SHA256 05f409ee57ce83124f2463a3277dc8d46fca18637052d1021130e4deaca07b3c
-ENV LITECOIN_ASC_URL https://download.litecoin.org/litecoin-0.14.2/linux/litecoin-0.14.2-linux-signatures.asc
+ENV LITECOIN_VERSION 0.16.3
 ENV LITECOIN_PGP_KEY FE3348877809386C
+ENV LITECOIN_URL https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/linux/litecoin-${LITECOIN_VERSION}-x86_64-linux-gnu.tar.gz
+ENV LITECOIN_ASC_URL https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/linux/litecoin-${LITECOIN_VERSION}-linux-signatures.asc
+ENV LITECOIN_SHA256 686d99d1746528648c2c54a1363d046436fd172beadaceea80bdc93043805994
 
 # install litecoin binaries
 RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && wget -qO litecoin.tar.gz "$LITECOIN_URL" \
     && echo "$LITECOIN_SHA256  litecoin.tar.gz" | sha256sum -c - \
-    && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$LITECOIN_PGP_KEY" \
-    && wget -qO litecoin.asc "$LITECOIN_ASC_URL" \
-    && gpg --verify litecoin.asc \
     && BD=litecoin-$LITECOIN_VERSION/bin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
     && rm litecoin.tar.gz
 
+FROM debian:buster-slim as builder
+
 ENV LIGHTNINGD_VERSION=master
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python3 python3-mako wget gnupg dirmngr git gettext
+
+RUN wget -q https://zlib.net/zlib-1.2.11.tar.gz \
+&& tar xvf zlib-1.2.11.tar.gz \
+&& cd zlib-1.2.11 \
+&& ./configure \
+&& make \
+&& make install && cd .. && rm zlib-1.2.11.tar.gz && rm -rf zlib-1.2.11
+
+RUN apt-get install -y --no-install-recommends unzip tclsh \
+&& wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip \
+&& unzip sqlite-src-3290000.zip \
+&& cd sqlite-src-3290000 \
+&& ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension \
+&& make \
+&& make install && cd .. && rm sqlite-src-3290000.zip && rm -rf sqlite-src-3290000
+
+RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
+&& tar xvf gmp-6.1.2.tar.xz \
+&& cd gmp-6.1.2 \
+&& ./configure --disable-assembly \
+&& make \
+&& make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
 
 WORKDIR /opt/lightningd
-COPY . .
+COPY . /tmp/lightning
+RUN git clone --recursive /tmp/lightning . && \
+    git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=0
-RUN ./configure && make -j3 DEVELOPER=${DEVELOPER} && cp lightningd/lightning* cli/lightning-cli /usr/bin/
+ENV PYTHON_VERSION=3
+RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 
-FROM alpine:3.7
+FROM debian:buster-slim as final
 
-RUN apk add --no-cache \
-     gmp-dev \
-     sqlite-dev \
-     inotify-tools \
-     socat \
-     bash \
-     zlib-dev
-
-ENV GLIBC_VERSION 2.27-r0
-ENV GLIBC_SHA256 938bceae3b83c53e7fa9cc4135ce45e04aae99256c5e74cf186c794b97473bc7
-ENV GLIBCBIN_SHA256 3a87874e57b9d92e223f3e90356aaea994af67fb76b71bb72abfb809e948d0d6
-# Download and install glibc (https://github.com/jeanblanchard/docker-alpine-glibc/blob/master/Dockerfile)
-RUN apk add --update curl && \
-  curl -Lo /etc/apk/keys/sgerrand.rsa.pub https://github.com/sgerrand/alpine-pkg-glibc/releases/download/$GLIBC_VERSION/sgerrand.rsa.pub && \
-  curl -Lo glibc.apk "https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/glibc-${GLIBC_VERSION}.apk" && \
-  echo "$GLIBC_SHA256  glibc.apk" | sha256sum -c - && \
-  curl -Lo glibc-bin.apk "https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/glibc-bin-${GLIBC_VERSION}.apk" && \
-  echo "$GLIBCBIN_SHA256  glibc-bin.apk" | sha256sum -c - && \
-  apk add glibc-bin.apk glibc.apk && \
-  /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib && \
-  echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf && \
-  apk del curl && \
-  rm -rf glibc.apk glibc-bin.apk /var/cache/apk/*
+COPY --from=downloader /opt/tini /usr/bin/tini
+RUN apt-get update && apt-get install -y --no-install-recommends socat inotify-tools python3 python3-pip \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_RPC_PORT=9835
+ENV LIGHTNINGD_PORT=9735
+ENV LIGHTNINGD_NETWORK=bitcoin
 
+RUN mkdir $LIGHTNINGD_DATA && \
+    touch $LIGHTNINGD_DATA/config
 VOLUME [ "/root/.lightning" ]
-
-COPY --from=builder /opt/lightningd/cli/lightning-cli /usr/bin
-COPY --from=builder /opt/lightningd/lightningd/lightning* /usr/bin/
-COPY --from=builder /opt/bitcoin/bin /usr/bin
-COPY --from=builder /opt/litecoin/bin /usr/bin
+COPY --from=builder /tmp/lightning_install/ /usr/local/
+COPY --from=downloader /opt/bitcoin/bin /usr/bin
+COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835
-ENTRYPOINT  [ "./entrypoint.sh" ]
+ENTRYPOINT  [ "/usr/bin/tini", "-g", "--", "./entrypoint.sh" ]

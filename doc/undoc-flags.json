@@ -1,0 +1,20 @@
+{
+    "flags": [
+        "experimental-accept-extra-tlv-types",
+        "channel-fee-max-base-msat",
+        "channel-fee-max-proportional-thousandths",
+        "funder-fund-probability",
+        "funder-fuzz-percent",
+        "funder-lease-requests-only",
+        "funder-max-their-funding",
+        "funder-min-their-funding",
+        "funder-per-channel-max",
+        "funder-per-channel-min",
+        "funder-policy",
+        "funder-policy-mod",
+        "funder-reserve-tank",
+        "lease-fee-base-msat",
+        "lease-fee-basis",
+        "lease-funding-weight"
+    ]
+}

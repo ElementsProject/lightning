@@ -1,0 +1,59 @@
+#! /bin/sh
+
+VERBOSE=false
+
+if [ x"$1" = x"--verbose" ]; then
+    VERBOSE=true
+    shift
+fi
+
+if [ "$#" != 1 ]; then
+    echo "Usage: $0 [--verbose] <last-tag>" >&2
+    exit 1
+fi
+PREV_TAG="$1"
+
+if [ -z $(git tag -l "$PREV_TAG") ]; then
+    echo "Error: couldn't find tag '$PREV_TAG'!"
+    exit 1
+fi
+git log "$PREV_TAG".. --format="%an|%ae" | sort | uniq -c | sort -rn > /tmp/authors.$$
+sed -n 's/.*[Nn]amed by //p' < CHANGELOG.md | sed 's/(.*)//' | tr -dc '[:alnum:][:space:]' > /tmp/namers.$$
+git log "$PREV_TAG" --format="%an|%ae" | sort -u > /tmp/prev-authors.$$
+
+NAMER=""
+BACKUP_NAMER=""
+TOTAL=0
+while read LINE; do
+    COUNT=${LINE%% [^ 0123456789]*}
+    TOTAL=$(($TOTAL + $COUNT))
+    LINE=${LINE#*[1234567890] }
+    NAME=${LINE%%|*}
+    EMAIL=${LINE#*|}
+    NOTES=""
+    if [ $(grep -ci -- "$NAME\|$EMAIL" /tmp/prev-authors.$$) = 0 ]; then
+	NOTES="$NOTES""NEW COMMITTER "
+    fi
+    # ZmnSCPxj gave himself a surname!
+    if [ "${NAME%% *}" = ZmnSCPxj ]; then
+	NAME=ZmnSCPxj
+    fi
+    if ! grep -qi -- "$NAME" /tmp/namers.$$; then
+	if [ -z "$NAMER" ]; then
+	    NAMER="$NAME"
+	    NOTES="$NOTES""*NEXT NAMER* "
+	elif [ -z "$BACKUP_NAMER" ]; then
+	    BACKUP_NAMER="$NAME"
+	    NOTES="$NOTES""*BACKUP NAMER* "
+	fi
+    fi
+    if [ -n "$NOTES" ] || $VERBOSE; then
+	echo " - $COUNT $NAME $EMAIL $NOTES"
+    fi
+done < /tmp/authors.$$
+
+DAYS=$(( ( $(date +%s) - $(git log "$PREV_TAG" --format=%at | head -n1) ) / (3600*24) ))
+
+AUTHORS=$(cat /tmp/authors.$$ | wc -l)
+echo "$TOTAL commits in $DAYS days by $AUTHORS authors"
+rm /tmp/authors.$$ /tmp/namers.$$ /tmp/prev-authors.$$

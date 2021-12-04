@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tx",
+    "txid",
+    "outnum",
+    "channel_id"
+  ],
+  "properties": {
+    "tx": {
+      "type": "hex",
+      "description": "The raw transaction which funded the channel"
+    },
+    "txid": {
+      "type": "txid",
+      "description": "The txid of the transaction which funded the channel"
+    },
+    "outnum": {
+      "type": "u32",
+      "description": "The 0-based output index showing which output funded the channel"
+    },
+    "channel_id": {
+      "type": "hex",
+      "description": "The channel_id of the resulting channel",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "close_to": {
+      "type": "hex",
+      "description": "The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`"
+    }
+  }
+}

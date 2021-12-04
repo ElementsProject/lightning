@@ -1,0 +1,2 @@
+# Clang would detect false positive here, due to padding. See https://github.com/ElementsProject/lightning/pull/2285
+leak:ccan/ccan/htable/htable.c

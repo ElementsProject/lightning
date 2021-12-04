@@ -2,8 +2,6 @@
 #define LIGHTNING_COMMON_CRYPTO_STATE_H
 #include "config.h"
 #include <bitcoin/privkey.h>
-#include <ccan/short_types/short_types.h>
-#include <stddef.h>
 
 struct crypto_state {
 	/* Received and sent nonces. */

@@ -2,17 +2,15 @@
 #define LIGHTNING_WALLET_INVOICES_H
 #include "config.h"
 #include <bitcoin/preimage.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 
+struct amount_msat;
 struct db;
-struct json_escaped;
+struct json_escape;
 struct invoice;
 struct invoice_details;
 struct invoice_iterator;
 struct invoices;
-struct log;
 struct sha256;
 struct timers;
 
@@ -21,12 +19,10 @@ struct timers;
  *
  * @ctx - the owner of the invoice handler.
  * @db - the database connection to use for saving invoice.
- * @log - the log to report to.
  * @timers - the timers object to use for expirations.
  */
 struct invoices *invoices_new(const tal_t *ctx,
 			      struct db *db,
-			      struct log *log,
 			      struct timers *timers);
 
 /**
@@ -34,7 +30,7 @@ struct invoices *invoices_new(const tal_t *ctx,
  *
  * @invoices - the invoice handler.
  * @pinvoice - pointer to location to load new invoice in.
- * @msatoshi - the amount the invoice should have, or
+ * @msat - the amount the invoice should have, or
  * NULL for any-amount invoices.
  * @label - the unique label for this invoice. Must be
  * non-NULL.
@@ -47,13 +43,15 @@ struct invoices *invoices_new(const tal_t *ctx,
  */
 bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
-		     u64 *msatoshi TAKES,
-		     const struct json_escaped *label TAKES,
+		     const struct amount_msat *msat TAKES,
+		     const struct json_escape *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
 		     const char *description,
+		     const u8 *features,
 		     const struct preimage *r,
-		     const struct sha256 *rhash);
+		     const struct sha256 *rhash,
+		     const struct sha256 *local_offer_id);
 
 /**
  * invoices_find_by_label - Search for an invoice by label
@@ -67,7 +65,7 @@ bool invoices_create(struct invoices *invoices,
  */
 bool invoices_find_by_label(struct invoices *invoices,
 			    struct invoice *pinvoice,
-			    const struct json_escaped *label);
+			    const struct json_escape *label);
 
 /**
  * invoices_find_by_rhash - Search for an invoice by
@@ -173,14 +171,13 @@ const struct invoice_details *invoices_iterator_deref(
  *
  * @invoices - the invoice handler.
  * @invoice - the invoice to mark as paid.
- * @msatoshi_received - the actual amount received.
+ * @received - the actual amount received.
  *
- * Precondition: the invoice must not yet be expired (invoices
- * does not check).
+ * If the invoice is not UNPAID, returns false.
  */
-void invoices_resolve(struct invoices *invoices,
+bool invoices_resolve(struct invoices *invoices,
 		      struct invoice invoice,
-		      u64 msatoshi_received);
+		      struct amount_msat received);
 
 /**
  * invoices_waitany - Wait for any invoice to be paid.

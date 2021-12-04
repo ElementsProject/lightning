@@ -5,8 +5,8 @@
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
 
-/* We don't allow > 64M msgs: enough for 483 64k failure msgs. */
-#define WIRE_LEN_LIMIT (1 << 26)
+/* We don't allow > 128M msgs: enough for more than 1M channels in gossip_getchannels_entry. */
+#define WIRE_LEN_LIMIT (1 << 27)
 
 typedef be32 wire_len_t;
 #define wirelen_to_cpu be32_to_cpu

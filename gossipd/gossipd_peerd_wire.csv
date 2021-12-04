@@ -1,0 +1,28 @@
+# These must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!
+#include <bitcoin/short_channel_id.h>
+#include <common/amount.h>
+
+# Channel daemon can ask for updates for a specific channel, for sending
+# errors.  
+msgtype,gossipd_get_update,3501
+msgdata,gossipd_get_update,short_channel_id,short_channel_id,
+
+# If channel isn't known, update will be empty.
+msgtype,gossipd_get_update_reply,3601
+msgdata,gossipd_get_update_reply,len,u16,
+msgdata,gossipd_get_update_reply,update,u8,len
+
+# Send this channel_update.
+msgtype,gossipd_local_channel_update,3504
+msgdata,gossipd_local_channel_update,short_channel_id,short_channel_id,
+msgdata,gossipd_local_channel_update,disable,bool,
+msgdata,gossipd_local_channel_update,cltv_expiry_delta,u16,
+msgdata,gossipd_local_channel_update,htlc_minimum_msat,amount_msat,
+msgdata,gossipd_local_channel_update,fee_base_msat,u32,
+msgdata,gossipd_local_channel_update,fee_proportional_millionths,u32,
+msgdata,gossipd_local_channel_update,htlc_maximum_msat,amount_msat,
+
+# Send this channel_announcement
+msgtype,gossipd_local_channel_announcement,3506
+msgdata,gossipd_local_channel_announcement,len,u16,
+msgdata,gossipd_local_channel_announcement,cannount,u8,len

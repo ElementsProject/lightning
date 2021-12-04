@@ -63,6 +63,8 @@ bool utf8_decode(struct utf8_state *utf8_state, char c)
 		/* First character in sequence. */
 		if (((unsigned char)c & 0x80) == 0) {
 			/* ASCII, easy. */
+			if (c == 0)
+				goto bad_encoding;
 			utf8_state->total_len = 1;
 			utf8_state->c = c;
 			goto finished_decoding;

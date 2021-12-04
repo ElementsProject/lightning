@@ -65,7 +65,7 @@ static void find_vals(const struct htable_obj *ht,
 			return;
 		}
 	}
-	pass("Found %u numbers in hash", i);
+	ok1(htable_obj_count(ht) == i);
 }
 
 static void del_vals(struct htable_obj *ht,
@@ -116,22 +116,24 @@ int main(void)
 	void *p;
 	struct htable_obj_iter iter;
 
-	plan_tests(29);
+	plan_tests(35);
 	for (i = 0; i < NUM_VALS; i++)
 		val[i].key = i;
 	dne = i;
 
 	htable_obj_init(&ht);
-	ok1(ht.raw.max == 0);
+	ok1(htable_obj_count(&ht) == 0);
+	ok1(ht_max(&ht.raw) == 0);
 	ok1(ht.raw.bits == 0);
 
 	/* We cannot find an entry which doesn't exist. */
 	ok1(!htable_obj_get(&ht, &dne));
+	ok1(!htable_obj_pick(&ht, 0, NULL));
 
 	/* Fill it, it should increase in size. */
 	add_vals(&ht, val, NUM_VALS);
 	ok1(ht.raw.bits == NUM_BITS + 1);
-	ok1(ht.raw.max < (1 << ht.raw.bits));
+	ok1(ht_max(&ht.raw) < (1 << ht.raw.bits));
 
 	/* Mask should be set. */
 	ok1(ht.raw.common_mask != 0);
@@ -141,6 +143,8 @@ int main(void)
 	/* Find all. */
 	find_vals(&ht, val, NUM_VALS);
 	ok1(!htable_obj_get(&ht, &dne));
+	ok1(htable_obj_pick(&ht, 0, NULL));
+	ok1(htable_obj_pick(&ht, 0, &iter));
 
 	/* Walk once, should get them all. */
 	i = 0;
@@ -205,6 +209,8 @@ int main(void)
 	}
 
 	htable_obj_clear(&ht);
+	ok1(htable_obj_count(&ht) == 0);
 	htable_obj_clear(&ht2);
+	ok1(htable_obj_count(&ht2) == 0);
 	return exit_status();
 }

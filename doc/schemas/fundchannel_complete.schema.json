@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel_id",
+    "commitments_secured"
+  ],
+  "properties": {
+    "channel_id": {
+      "type": "hex",
+      "description": "The channel_id of the resulting channel",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "commitments_secured": {
+      "type": "boolean",
+      "enum": [
+        true
+      ],
+      "description": "Indication that channel is safe to use"
+    }
+  }
+}

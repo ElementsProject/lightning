@@ -1,0 +1,13 @@
+--- wire/peer_exp_wire.csv	2021-01-14 11:00:27.526336550 +1030
++++ -	2021-01-21 15:31:37.071118999 +1030
+@@ -10,6 +10,10 @@
+ msgdata,error,channel_id,channel_id,
+ msgdata,error,len,u16,
+ msgdata,error,data,byte,len
++msgtype,warning,1
++msgdata,warning,channel_id,channel_id,
++msgdata,warning,len,u16,
++msgdata,warning,data,byte,len
+ msgtype,ping,18
+ msgdata,ping,num_pong_bytes,u16,
+ msgdata,ping,byteslen,u16,

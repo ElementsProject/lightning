@@ -1,25 +1,21 @@
+#include "config.h"
 #include <assert.h>
-#include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <common/crypto_state.h>
+#include <common/ecdh.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>
 #include <errno.h>
-#include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <sodium/randombytes.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <wire/wire.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -39,7 +35,7 @@ enum bolt8_side {
  */
 struct act_one {
 	u8 v;
-	u8 pubkey[PUBKEY_DER_LEN];
+	u8 pubkey[PUBKEY_CMPR_LEN];
 	u8 tag[crypto_aead_chacha20poly1305_ietf_ABYTES];
 };
 
@@ -68,7 +64,7 @@ static inline void check_act_one(const struct act_one *act1)
  */
 struct act_two {
 	u8 v;
-	u8 pubkey[PUBKEY_DER_LEN];
+	u8 pubkey[PUBKEY_CMPR_LEN];
 	u8 tag[crypto_aead_chacha20poly1305_ietf_ABYTES];
 };
 
@@ -98,7 +94,7 @@ static inline void check_act_two(const struct act_two *act2)
  */
 struct act_three {
 	u8 v;
-	u8 ciphertext[PUBKEY_DER_LEN + crypto_aead_chacha20poly1305_ietf_ABYTES];
+	u8 ciphertext[PUBKEY_CMPR_LEN + crypto_aead_chacha20poly1305_ietf_ABYTES];
 	u8 tag[crypto_aead_chacha20poly1305_ietf_ABYTES];
 };
 
@@ -109,10 +105,9 @@ static inline void check_act_three(const struct act_three *act3)
 {
 	/* BOLT #8:
 	 *
-	 * 1 byte for the handshake version, 33 bytes for the ephemeral
-	 * public key encrypted with the `ChaCha20` stream cipher, 16 bytes
-	 * for the encrypted public key's tag generated via the AEAD
-	 * construction, and 16 bytes for a final authenticating tag.
+	 * 1 byte for the handshake version, 33 bytes for the
+	 * compressed ephemeral public key of the initiator, and 16
+	 * bytes for the `poly1305` tag.
 	 */
 	BUILD_ASSERT(sizeof(act3->v) == 1);
 	BUILD_ASSERT(sizeof(act3->ciphertext) == 33 + 16);
@@ -138,28 +133,28 @@ struct keypair {
  * Throughout the handshake process, each side maintains these variables:
  *
  *  * `ck`: the **chaining key**. This value is the accumulated hash of all
- *    previous ECDH outputs. At the end of the handshake, `ck` is used to
- *    derive the encryption keys for Lightning messages.
+ *    previous ECDH outputs. At the end of the handshake, `ck` is used to derive
+ *    the encryption keys for Lightning messages.
  *
  *  * `h`: the **handshake hash**. This value is the accumulated hash of _all_
- *    handshake data that has been sent and received so far during the
- *    handshake process.
+ *    handshake data that has been sent and received so far during the handshake
+ *    process.
  *
- * * `temp_k1`, `temp_k2`, `temp_k3`: the **intermediate keys**. These are used to
- *    encrypt and decrypt the zero-length AEAD payloads at the end of each
- *    handshake message.
+ *  * `temp_k1`, `temp_k2`, `temp_k3`: the **intermediate keys**. These are used to
+ *    encrypt and decrypt the zero-length AEAD payloads at the end of each handshake
+ *    message.
  *
- *  * `e`: a party's **ephemeral keypair**. For each session, a node MUST
- *    generate a new ephemeral key with strong cryptographic randomness.
+ *  * `e`: a party's **ephemeral keypair**. For each session, a node MUST generate a
+ *    new ephemeral key with strong cryptographic randomness.
  *
- *  * `s`: a party's **static public key** (`ls` for local, `rs` for remote)
+ *  * `s`: a party's **static keypair** (`ls` for local, `rs` for remote)
  */
 struct handshake {
 	struct secret ck;
 	struct secret temp_k;
 	struct sha256 h;
 	struct keypair e;
-	struct secret ss;
+	struct secret *ss;
 
 	/* Used between the Acts */
 	struct pubkey re;
@@ -182,7 +177,7 @@ struct handshake {
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
 			      const struct wireaddr_internal *wireaddr,
-			      const struct crypto_state *cs,
+			      struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
 };
@@ -212,7 +207,7 @@ static void sha_mix_in(struct sha256 *h, const void *data, size_t len)
 /* h = SHA-256(h || pub.serializeCompressed()) */
 static void sha_mix_in_key(struct sha256 *h, const struct pubkey *key)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 	size_t len = sizeof(der);
 
 	secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &len, &key->pubkey,
@@ -336,7 +331,7 @@ static struct io_plan *handshake_failed_(struct io_conn *conn,
 					 struct handshake *h,
 					 const char *function, int line)
 {
-	status_trace("%s: handshake failed %s:%u",
+	status_debug("%s: handshake failed %s:%u",
 		     h->side == RESPONDER ? "Responder" : "Initiator",
 		     function, line);
 	errno = EPROTO;
@@ -352,7 +347,7 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
 			      const struct wireaddr_internal *addr,
-			      const struct crypto_state *cs,
+			      struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
 	struct pubkey their_id;
@@ -426,11 +421,11 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	 * into the handshake digest:
 	 *
 	 * * The initiating node mixes in the responding node's static public
-	 *    key serialized in Bitcoin's DER-compressed format:
+	 *    key serialized in Bitcoin's compressed format:
 	 *    * `h = SHA-256(h || rs.pub.serializeCompressed())`
 	 *
 	 * * The responding node mixes in their local static public key
-	 *   serialized in Bitcoin's DER-compressed format:
+	 *   serialized in Bitcoin's compressed format:
 	 *    * `h = SHA-256(h || ls.pub.serializeCompressed())`
 	 */
 	sha_mix_in_key(&handshake->h, responder_id);
@@ -443,7 +438,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 static struct io_plan *act_three_initiator(struct io_conn *conn,
 					   struct handshake *h)
 {
-	u8 spub[PUBKEY_DER_LEN];
+	u8 spub[PUBKEY_CMPR_LEN];
 	size_t len = sizeof(spub);
 
 	SUPERVERBOSE("Initiator: Act 3");
@@ -469,22 +464,19 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 3. `ss = ECDH(re, s.priv)`
+	 * 3. `se = ECDH(s.priv, re)`
 	 *     * where `re` is the ephemeral public key of the responder
-	 *
 	 */
-	if (!hsm_do_ecdh(&h->ss, &h->re))
-		return handshake_failed(conn, h);
-
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	h->ss = tal(h, struct secret);
+	ecdh(&h->re, h->ss);
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
-	 * 4. `ck, temp_k3 = HKDF(ck, ss)`
-	 *     * The final intermediate shared secret is mixed into the running
-	 *       chaining key.
+	 * 4. `ck, temp_k3 = HKDF(ck, se)`
+	 *     * The final intermediate shared secret is mixed into the running chaining key.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -546,22 +538,21 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 5. `ss = ECDH(re, e.priv)`
-	 *    * where `re` is the responder's ephemeral public key
+	 * 5. `es = ECDH(s.priv, re)`
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &h->re.pubkey,
-			    h->e.priv.secret.data))
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
+			    h->e.priv.secret.data, NULL, NULL))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
-	 * 6. `ck, temp_k2 = HKDF(ck, ss)`
-	 *     * A new temporary encryption key is generated, which is
-	 *       used to generate the authenticating MAC.
+	 * 6. `ck, temp_k2 = HKDF(ck, ee)`
+	 *      * A new temporary encryption key is generated, which is
+	 *        used to generate the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k2=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -635,23 +626,25 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 3. `ss = ECDH(rs, e.priv)`
-	 *     * The initiator performs an ECDH between its newly generated
-	 *       ephemeral key and the remote node's static public key.
+	 * 3. `es = ECDH(e.priv, rs)`
+	 *      * The initiator performs an ECDH between its newly generated ephemeral
+	 *        key and the remote node's static public key.
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data,
-			    &h->their_id.pubkey, h->e.priv.secret.data))
+	h->ss = tal(h, struct secret);
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data,
+			    &h->their_id.pubkey, h->e.priv.secret.data,
+			    NULL, NULL))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss.data, sizeof(h->ss.data)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss->data, sizeof(h->ss->data)));
 
 	/* BOLT #8:
 	 *
-	 * 4. `ck, temp_k1 = HKDF(ck, ss)`
-	 *     * A new temporary encryption key is generated, which is
-	 *       used to generate the authenticating MAC.
+	 * 4. `ck, temp_k1 = HKDF(ck, es)`
+	 *      * A new temporary encryption key is generated, which is
+	 *        used to generate the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -691,7 +684,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 static struct io_plan *act_three_responder2(struct io_conn *conn,
 					    struct handshake *h)
 {
-	u8 der[PUBKEY_DER_LEN];
+	u8 der[PUBKEY_CMPR_LEN];
 
 	SUPERVERBOSE("input: 0x%s", tal_hexstr(tmpctx, &h->act3, ACT_THREE_SIZE));
 
@@ -737,19 +730,19 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 6. `ss = ECDH(rs, e.priv)`
+	 * 6. `se = ECDH(e.priv, rs)`
 	 *      * where `e` is the responder's original ephemeral key
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &h->their_id.pubkey,
-			    h->e.priv.secret.data))
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->their_id.pubkey,
+			    h->e.priv.secret.data, NULL, NULL))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
-	 * 7. `ck, temp_k3 = HKDF(ck, ss)`
+	 * 7. `ck, temp_k3 = HKDF(ck, se)`
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -811,22 +804,22 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 3. `ss = ECDH(re, e.priv)`
-	 *      * where `re` is the ephemeral key of the initiator, which was
-	 *        received during Act One
+	 * 3. `ee = ECDH(e.priv, re)`
+	 *      * where `re` is the ephemeral key of the initiator, which was received
+	 *        during Act One
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &h->re.pubkey,
-			    h->e.priv.secret.data))
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
+			    h->e.priv.secret.data, NULL, NULL))
 		return handshake_failed(conn, h);
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
-	 * 4. `ck, temp_k2 = HKDF(ck, ss)`
-	 *     * A new temporary encryption key is generated, which is
+	 * 4. `ck, temp_k2 = HKDF(ck, ee)`
+	 *      * A new temporary encryption key is generated, which is
 	 *       used to generate the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k2=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -864,7 +857,6 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	return io_write(conn, &h->act2, ACT_TWO_SIZE, act_three_responder, h);
 }
 
-
 static struct io_plan *act_one_responder2(struct io_conn *conn,
 					 struct handshake *h)
 {
@@ -877,8 +869,9 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 		return handshake_failed(conn, h);
 
 	/* BOLT #8:
+	 *
 	 *     * The raw bytes of the remote party's ephemeral public key
-	 *       (`e`) are to be deserialized into a point on the curve using
+	 *       (`re`) are to be deserialized into a point on the curve using
 	 *       affine coordinates as encoded by the key's serialized
 	 *       composed format.
 	 */
@@ -898,22 +891,22 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
-	 * 5. `ss = ECDH(re, s.priv)`
+	 *
+	 * 5. `es = ECDH(s.priv, re)`
 	 *    * The responder performs an ECDH between its static private key and
 	 *      the initiator's ephemeral public key.
 	 */
-	if (!hsm_do_ecdh(&h->ss, &h->re))
-		return handshake_failed(conn, h);
-
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	h->ss = tal(h, struct secret);
+	ecdh(&h->re, h->ss);
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
-	 * 6. `ck, temp_k1 = HKDF(ck, ss)`
-	 *    * A new temporary encryption key is generated, which will
-	 *      shortly be used to check the authenticating MAC.
+	 * 6. `ck, temp_k1 = HKDF(ck, es)`
+	 *     * A new temporary encryption key is generated, which will
+	 *       shortly be used to check the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -966,7 +959,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
-							   const struct crypto_state *,
+							   struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
 {
@@ -988,7 +981,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
-							   const struct crypto_state *,
+							   struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
 {

@@ -30,7 +30,7 @@ static void consume_option(int *argc, char *argv[], unsigned optnum)
 
 /* Returns 1 if argument consumed, 0 if all done, -1 on error. */
 int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
-	      void (*errlog)(const char *fmt, ...))
+	      void (*errlog)(const char *fmt, ...), bool unknown_ok)
 {
 	unsigned i, arg, len;
 	const char *o, *optarg = NULL;
@@ -67,10 +67,13 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 				continue;
 			break;
 		}
-		if (!o)
+		if (!o) {
+			if (unknown_ok)
+				goto ok;
 			return parse_err(errlog, argv[0],
 					 argv[arg], strlen(argv[arg]),
 					 "unrecognized option");
+		}
 		/* For error messages, we include the leading '--' */
 		o -= 2;
 		len += 2;
@@ -82,10 +85,15 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 			(*offset)++;
 			break;
 		}
-		if (!o)
+		if (!o) {
+			if (unknown_ok) {
+				(*offset)++;
+				goto ok;
+			}
 			return parse_err(errlog, argv[0],
 					 argv[arg], strlen(argv[arg]),
 					 "unrecognized option");
+		}
 		/* For error messages, we include the leading '-' */
 		o--;
 		len = 2;
@@ -120,6 +128,7 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 		return -1;
 	}
 
+ok:
 	/* If no more letters in that short opt, reset offset. */
 	if (*offset && !argv[arg][*offset + 1])
 		*offset = 0;

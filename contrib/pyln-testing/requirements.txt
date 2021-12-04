@@ -1,0 +1,12 @@
+Flask==1.1.*
+cheroot==8.5.*
+ephemeral-port-reserve==1.1.1
+flaky ~= 3.7.0
+psutil==5.7.*
+psycopg2-binary==2.8.*
+pytest-rerunfailures==9.1.1
+pytest-timeout ~= 1.4.2
+pytest-xdist ~= 2.2.0
+pytest==6.1.*
+python-bitcoinlib==0.11.*
+jsonschema==3.2.*

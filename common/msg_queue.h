@@ -8,15 +8,14 @@
 /* Reserved type used to indicate we're actually passing an fd. */
 #define MSG_PASS_FD 0xFFFF
 
-struct msg_queue {
-	const u8 **q;
-	const tal_t *ctx;
-};
-
-void msg_queue_init(struct msg_queue *q, const tal_t *ctx);
+/* Allocate a new msg queue. */
+struct msg_queue *msg_queue_new(const tal_t *ctx);
 
 /* If add is taken(), freed after sending.  msg_wake() implied. */
-void msg_enqueue(struct msg_queue *q, const u8 *add);
+void msg_enqueue(struct msg_queue *q, const u8 *add TAKES);
+
+/* Get current queue length */
+size_t msg_queue_length(const struct msg_queue *q);
 
 /* Fd is closed after sending.  msg_wake() implied. */
 void msg_enqueue_fd(struct msg_queue *q, int fd);

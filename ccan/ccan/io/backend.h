@@ -8,6 +8,8 @@
 struct fd {
 	int fd;
 	bool listener;
+	/* We could put these in io_plan, but they pack nicely here */
+	bool exclusive[2];
 	size_t backend_info;
 };
 
@@ -37,6 +39,7 @@ enum io_plan_status {
 /**
  * struct io_plan - one half of I/O to do
  * @status: the status of this plan.
+ * @dir: are we plan[0] or plan[1] inside io_conn?
  * @io: function to call when fd becomes read/writable, returns 0 to be
  *      called again, 1 if it's finished, and -1 on error (fd will be closed)
  * @next: the next function which is called if io returns 1.
@@ -45,6 +48,7 @@ enum io_plan_status {
  */
 struct io_plan {
 	enum io_plan_status status;
+	enum io_direction dir;
 
 	int (*io)(int fd, struct io_plan_arg *arg);
 
@@ -57,9 +61,6 @@ struct io_plan {
 /* One connection per client. */
 struct io_conn {
 	struct fd fd;
-
-	/* always list. */
-	struct list_node always;
 
 	void (*finish)(struct io_conn *, void *arg);
 	void *finish_arg;
@@ -74,15 +75,15 @@ bool add_conn(struct io_conn *c);
 bool add_duplex(struct io_conn *c);
 void del_listener(struct io_listener *l);
 void cleanup_conn_without_close(struct io_conn *c);
-void backend_new_always(struct io_conn *conn);
+bool backend_new_always(struct io_plan *plan);
 void backend_new_plan(struct io_conn *conn);
-void remove_from_always(struct io_conn *conn);
 void backend_plan_done(struct io_conn *conn);
+bool backend_set_exclusive(struct io_plan *plan, bool exclusive);
 
 void backend_wake(const void *wait);
 
 void io_ready(struct io_conn *conn, int pollflags);
-void io_do_always(struct io_conn *conn);
+void io_do_always(struct io_plan *conn);
 void io_do_wakeup(struct io_conn *conn, enum io_direction dir);
 void *do_io_loop(struct io_conn **ready);
 #endif /* CCAN_IO_BACKEND_H */

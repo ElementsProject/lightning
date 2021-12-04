@@ -103,6 +103,29 @@ bool parse_early_args(int *argc, char ***argv, ...)
 	return opt_early_parse(*argc, *argv, save_err_output);
 }
 
+bool parse_early_args_incomplete(int *argc, char ***argv, ...)
+{
+	char **a;
+	va_list ap;
+
+	va_start(ap, argv);
+	*argc = 1;
+	a = malloc(sizeof(*a) * (*argc + 1));
+	a[0] = (*argv)[0];
+	while ((a[*argc] = va_arg(ap, char *)) != NULL) {
+		(*argc)++;
+		a = realloc(a, sizeof(*a) * (*argc + 1));
+	}
+
+	if (allocated)
+		free(*argv);
+
+	*argv = a;
+	allocated = true;
+
+	return opt_early_parse_incomplete(*argc, *argv, save_err_output);
+}
+
 struct opt_table short_table[] = {
 	/* Short opts, different args. */
 	OPT_WITHOUT_ARG("-a", test_noarg, "a", "Description of a"),

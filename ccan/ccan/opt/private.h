@@ -22,6 +22,6 @@ struct opt_alloc {
 extern struct opt_alloc opt_alloc;
 
 int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
-	      void (*errlog)(const char *fmt, ...));
+	      void (*errlog)(const char *fmt, ...), bool unknown_ok);
 
 #endif /* CCAN_OPT_PRIVATE_H */

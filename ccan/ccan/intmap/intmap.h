@@ -310,6 +310,32 @@ void *intmap_after_(const struct intmap *map, intmap_index_t *indexp);
 		  sintmap_after_(sintmap_unwrap_(smap), (indexp)))
 
 /**
+ * uintmap_before - get the closest preceding index in an unsigned intmap
+ * @umap: the typed intmap to iterate through.
+ * @indexp: the succeeding index (may not exist)
+ *
+ * Returns NULL if the there is no entry < @indexp, otherwise
+ * populates *@indexp and returns the highest entry < @indexp.
+ */
+#define uintmap_before(umap, indexp)					\
+	tcon_cast((umap), uintmap_canary,				\
+		  intmap_before_(uintmap_unwrap_(umap), (indexp)))
+
+void *intmap_before_(const struct intmap *map, intmap_index_t *indexp);
+
+/**
+ * sintmap_before - get the closest preceding index in a signed intmap
+ * @smap: the typed intmap to iterate through.
+ * @indexp: the succeeding index (may not exist)
+ *
+ * Returns NULL if the there is no entry < @indexp, otherwise
+ * populates *@indexp and returns the highest entry < @indexp.
+ */
+#define sintmap_before(smap, indexp)					\
+	tcon_cast((smap), sintmap_canary,				\
+		  sintmap_before_(sintmap_unwrap_(smap), (indexp)))
+
+/**
  * uintmap_last - get last value in an unsigned intmap
  * @umap: the typed intmap to iterate through.
  * @indexp: a pointer to store the index.
@@ -451,6 +477,15 @@ static inline void *sintmap_after_(const struct intmap *map,
 {
 	intmap_index_t i = SINTMAP_OFF(*indexp);
 	void *ret = intmap_after_(map, &i);
+	*indexp = SINTMAP_UNOFF(i);
+	return ret;
+}
+
+static inline void *sintmap_before_(const struct intmap *map,
+				   sintmap_index_t *indexp)
+{
+	intmap_index_t i = SINTMAP_OFF(*indexp);
+	void *ret = intmap_before_(map, &i);
 	*indexp = SINTMAP_UNOFF(i);
 	return ret;
 }

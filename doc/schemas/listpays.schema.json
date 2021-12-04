@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pays"
+  ],
+  "properties": {
+    "pays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "payment_hash",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "payment_hash": {
+            "type": "hex",
+            "description": "the hash of the *payment_preimage* which will prove payment",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "failed",
+              "complete"
+            ],
+            "description": "status of the payment"
+          },
+          "destination": {
+            "type": "pubkey",
+            "description": "the final destination of the payment if known"
+          },
+          "created_at": {
+            "type": "u64",
+            "description": "the UNIX timestamp showing when this payment was initiated"
+          },
+          "label": {
+            "type": "string",
+            "description": "the label, if given to sendpay"
+          },
+          "bolt11": {
+            "type": "string",
+            "description": "the bolt11 string (if pay supplied one)"
+          },
+          "bolt12": {
+            "type": "string",
+            "description": "the bolt12 string (if supplied for pay: **experimental-offers** only)."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "complete"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "amount_sent_msat"
+              ],
+              "properties": {
+                "payment_hash": {},
+                "status": {},
+                "destination": {},
+                "created_at": {},
+                "label": {},
+                "bolt11": {},
+                "bolt12": {},
+                "preimage": {},
+                "number_of_parts": {},
+                "amount_msat": {
+                  "type": "msat",
+                  "description": "the amount the destination received, if known"
+                },
+                "amount_sent_msat": {
+                  "type": "msat",
+                  "description": "the amount we actually sent, including fees"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "complete"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "preimage"
+              ],
+              "properties": {
+                "payment_hash": {},
+                "status": {},
+                "destination": {},
+                "created_at": {},
+                "label": {},
+                "bolt11": {},
+                "bolt12": {},
+                "amount_msat": {},
+                "amount_sent_msat": {},
+                "preimage": {
+                  "type": "hex",
+                  "description": "proof of payment",
+                  "maxLength": 64,
+                  "minLength": 64
+                },
+                "number_of_parts": {
+                  "type": "u64",
+                  "description": "the number of parts for a successful payment (only if more than one)."
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "failed"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [],
+              "properties": {
+                "payment_hash": {},
+                "status": {},
+                "destination": {},
+                "created_at": {},
+                "label": {},
+                "bolt11": {},
+                "bolt12": {},
+                "amount_sent_msat": {},
+                "erroronion": {
+                  "type": "hex",
+                  "description": "the error onion returned on failure, if any."
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -6,7 +6,7 @@ int main(void)
 {
 	char *parent, *c;
 
-	plan_tests(21);
+	plan_tests(22);
 
 	/* We can take NULL. */
 	ok1(take(NULL) == NULL);
@@ -43,6 +43,12 @@ int main(void)
 	/* No leftover allocations. */
 	tal_free(c);
 	ok1(tal_first(parent) == NULL);
+
+	/* tal_resize should return a taken pointer. */
+	c = take(tal_arr(parent, char, 5));
+	tal_resize(&c, 100);
+	ok1(taken(c));
+	tal_free(c);
 
 	tal_free(parent);
 	ok1(!taken_any());

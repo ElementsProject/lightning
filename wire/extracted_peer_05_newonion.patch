@@ -1,0 +1,14 @@
+--- peer_wire.csv	2021-08-25 12:41:02.876254003 +0930
++++ peer_wire.csv.raw	2021-08-25 13:42:31.991693809 +0930
+@@ -320,3 +210,11 @@
+ msgdata,gossip_timestamp_filter,chain_hash,chain_hash,
+ msgdata,gossip_timestamp_filter,first_timestamp,u32,
+ msgdata,gossip_timestamp_filter,timestamp_range,u32,
++msgtype,obs2_onion_message,387,option_onion_messages
++msgdata,obs2_onion_message,blinding,point,
++msgdata,obs2_onion_message,len,u16,
++msgdata,obs2_onion_message,onionmsg,byte,len
++msgtype,onion_message,513,option_onion_messages
++msgdata,onion_message,blinding,point,
++msgdata,onion_message,len,u16,
++msgdata,onion_message,onionmsg,byte,len

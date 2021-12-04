@@ -1,0 +1,279 @@
+.TH "LIGHTNING-LISTCONFIGS" "7" "" "" "lightning-listconfigs"
+.SH NAME
+lightning-listconfigs - Command to list all configuration options\.
+.SH SYNOPSIS
+
+\fBlistconfigs\fR [config]
+
+.SH DESCRIPTION
+
+The \fBlistconfigs\fR RPC command to list all configuration options, or with \fIconfig\fR, just that one\.
+
+
+The returned values reflect the current configuration, including
+showing default values (\fBdev-\fR options are not shown)\.
+
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "listconfigs",
+  "params": {
+    "config": "network"
+  }
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fB# version\fR (string, optional): Special field indicating the current version
+.IP \[bu]
+\fBplugins\fR (array of objects, optional):
+.RS
+.IP \[bu]
+\fBpath\fR (string): Full path of the plugin
+.IP \[bu]
+\fBname\fR (string): short name of the plugin
+.IP \[bu]
+\fBoptions\fR (object, optional): Specific options set for this plugin:
+
+.RE
+
+.IP \[bu]
+\fBimportant-plugins\fR (array of objects, optional):
+.RS
+.IP \[bu]
+\fBpath\fR (string): Full path of the plugin
+.IP \[bu]
+\fBname\fR (string): short name of the plugin
+.IP \[bu]
+\fBoptions\fR (object, optional): Specific options set for this plugin:
+
+.RE
+
+.IP \[bu]
+\fBconf\fR (string, optional): \fBconf\fR field from cmdline, or default
+.IP \[bu]
+\fBlightning-dir\fR (string, optional): \fBlightning-dir\fR field from config or cmdline, or default
+.IP \[bu]
+\fBnetwork\fR (string, optional): \fBnetwork\fR field from config or cmdline, or default
+.IP \[bu]
+\fBallow-deprecated-apis\fR (boolean, optional): \fBallow-deprecated-apis\fR field from config or cmdline, or default
+.IP \[bu]
+\fBrpc-file\fR (string, optional): \fBrpc-file\fR field from config or cmdline, or default
+.IP \[bu]
+\fBdisable-plugin\fR (array of strings, optional):
+.RS
+.IP \[bu]
+\fBdisable-plugin\fR field from config or cmdline
+
+.RE
+
+.IP \[bu]
+\fBalways-use-proxy\fR (boolean, optional): \fBalways-use-proxy\fR field from config or cmdline, or default
+.IP \[bu]
+\fBdaemon\fR (boolean, optional): \fBdaemon\fR field from config or cmdline, or default
+.IP \[bu]
+\fBwallet\fR (string, optional): \fBwallet\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlarge-channels\fR (boolean, optional): \fBlarge-channels\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-dual-fund\fR (boolean, optional): \fBexperimental-dual-fund\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-onion-messages\fR (boolean, optional): \fBexperimental-onion-messages\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-offers\fR (boolean, optional): \fBexperimental-offers\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-shutdown-wrong-funding\fR (boolean, optional): \fBexperimental-shutdown-wrong-funding\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-websocket-port\fR (u16, optional): \fBexperimental-websocket-port\fR field from config or cmdline, or default
+.IP \[bu]
+\fBrgb\fR (hex, optional): \fBrgb\fR field from config or cmdline, or default (always 6 characters)
+.IP \[bu]
+\fBalias\fR (string, optional): \fBalias\fR field from config or cmdline, or default
+.IP \[bu]
+\fBpid-file\fR (string, optional): \fBpid-file\fR field from config or cmdline, or default
+.IP \[bu]
+\fBignore-fee-limits\fR (boolean, optional): \fBignore-fee-limits\fR field from config or cmdline, or default
+.IP \[bu]
+\fBwatchtime-blocks\fR (u32, optional): \fBwatchtime-blocks\fR field from config or cmdline, or default
+.IP \[bu]
+\fBmax-locktime-blocks\fR (u32, optional): \fBmax-locktime-blocks\fR field from config or cmdline, or default
+.IP \[bu]
+\fBfunding-confirms\fR (u32, optional): \fBfunding-confirms\fR field from config or cmdline, or default
+.IP \[bu]
+\fBcltv-delta\fR (u32, optional): \fBcltv-delta\fR field from config or cmdline, or default
+.IP \[bu]
+\fBcltv-final\fR (u32, optional): \fBcltv-final\fR field from config or cmdline, or default
+.IP \[bu]
+\fBcommit-time\fR (u32, optional): \fBcommit-time\fR field from config or cmdline, or default
+.IP \[bu]
+\fBfee-base\fR (u32, optional): \fBfee-base\fR field from config or cmdline, or default
+.IP \[bu]
+\fBrescan\fR (integer, optional): \fBrescan\fR field from config or cmdline, or default
+.IP \[bu]
+\fBfee-per-satoshi\fR (u32, optional): \fBfee-per-satoshi\fR field from config or cmdline, or default
+.IP \[bu]
+\fBmax-concurrent-htlcs\fR (u32, optional): \fBmax-concurrent-htlcs\fR field from config or cmdline, or default
+.IP \[bu]
+\fBmax-dust-htlc-exposure-msat\fR (msat, optional): \fBmax-dust-htlc-exposure-mast\fR field from config or cmdline, or default
+.IP \[bu]
+\fBmin-capacity-sat\fR (u64, optional): \fBmin-capacity-sat\fR field from config or cmdline, or default
+.IP \[bu]
+\fBaddr\fR (string, optional): \fBaddr\fR field from config or cmdline (can be more than one)
+.IP \[bu]
+\fBannounce-addr\fR (string, optional): \fBannounce-addr\fR field from config or cmdline (can be more than one)
+.IP \[bu]
+\fBbind-addr\fR (string, optional): \fBbind-addr\fR field from config or cmdline (can be more than one)
+.IP \[bu]
+\fBoffline\fR (boolean, optional): \fBtrue\fR if \fBoffline\fR was set in config or cmdline
+.IP \[bu]
+\fBautolisten\fR (boolean, optional): \fBautolisten\fR field from config or cmdline, or default
+.IP \[bu]
+\fBproxy\fR (string, optional): \fBproxy\fR field from config or cmdline, or default
+.IP \[bu]
+\fBdisable-dns\fR (boolean, optional): \fBtrue\fR if \fBdisable-dns\fR was set in config or cmdline
+.IP \[bu]
+\fBencrypted-hsm\fR (boolean, optional): \fBtrue\fR if \fBencrypted-hsm\fR was set in config or cmdline
+.IP \[bu]
+\fBrpc-file-mode\fR (string, optional): \fBrpc-file-mode\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-level\fR (string, optional): \fBlog-level\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-prefix\fR (string, optional): \fBlog-prefix\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-file\fR (string, optional): \fBlog-file\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-timestamps\fR (boolean, optional): \fBlog-timestamps\fR field from config or cmdline, or default
+.IP \[bu]
+\fBforce-feerates\fR (string, optional): force-feerate configuration setting, if any
+.IP \[bu]
+\fBsubdaemon\fR (string, optional): \fBsubdaemon\fR fields from config or cmdline if any (can be more than one)
+.IP \[bu]
+\fBfetchinvoice-noconnect\fR (boolean, optional): \fBfeatchinvoice-noconnect\fR fileds from config or cmdline, or default
+.IP \[bu]
+\fBtor-service-password\fR (string, optional): \fBtor-service-password\fR field from config or cmdline, if any
+
+.RE
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters or field with \fIconfig\fR name doesn't exist\.
+
+.RE
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+   "# version": "v0.9.0-1",
+   "lightning-dir": "/media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev",
+   "network": "testnet",
+   "allow-deprecated-apis": true,
+   "rpc-file": "lightning-rpc",
+   "plugins": [
+      {
+         "path": "/home/vincent/Github/plugins/sauron/sauron.py",
+         "name": "sauron.py",
+         "options": {
+            "sauron-api-endpoint": "http://blockstream.info/testnet/api/",
+            "sauron-tor-proxy": ""
+         }
+      },
+      {
+         "path": "/home/vincent/Github/reckless/reckless.py",
+         "name": "reckless.py"
+      }
+   ],
+   "important-plugins": [
+      {
+         "path": "/home/vincent/Github/lightning/lightningd/../plugins/autoclean",
+         "name": "autoclean",
+         "options": {
+            "autocleaninvoice-cycle": null,
+            "autocleaninvoice-expired-by": null
+         }
+      },
+      {
+         "path": "/home/vincent/Github/lightning/lightningd/../plugins/fundchannel",
+         "name": "fundchannel"
+      },
+      {
+         "path": "/home/vincent/Github/lightning/lightningd/../plugins/keysend",
+         "name": "keysend"
+      },
+      {
+         "path": "/home/vincent/Github/lightning/lightningd/../plugins/pay",
+         "name": "pay",
+         "options": {
+            "disable-mpp": false
+         }
+      }
+   ],
+   "important-plugin": "/home/vincent/Github/lightning/lightningd/../plugins/autoclean",
+   "important-plugin": "/home/vincent/Github/lightning/lightningd/../plugins/fundchannel",
+   "important-plugin": "/home/vincent/Github/lightning/lightningd/../plugins/keysend",
+   "important-plugin": "/home/vincent/Github/lightning/lightningd/../plugins/pay",
+   "plugin": "/home/vincent/Github/plugins/sauron/sauron.py",
+   "plugin": "/home/vincent/Github/reckless/reckless.py",
+   "disable-plugin": [
+      "bcli"
+   ],
+   "always-use-proxy": false,
+   "daemon": "false",
+   "wallet": "sqlite3:///media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/testnet/lightningd.sqlite3",
+   "wumbo": false,
+   "wumbo": false,
+   "rgb": "03ad98",
+   "alias": "BRUCEWAYN-TES-DEV",
+   "pid-file": "/media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/lightningd-testne...",
+   "ignore-fee-limits": true,
+   "watchtime-blocks": 6,
+   "max-locktime-blocks": 2016,
+   "funding-confirms": 1,
+   "commit-fee-min": 0,
+   "commit-fee-max": 0,
+   "cltv-delta": 6,
+   "cltv-final": 10,
+   "commit-time": 10,
+   "fee-base": 1,
+   "rescan": 30,
+   "fee-per-satoshi": 10,
+   "max-concurrent-htlcs": 483,
+   "min-capacity-sat": 10000,
+   "addr": "autotor:127.0.0.1:9051",
+   "bind-addr": "127.0.0.1:9735",
+   "announce-addr": "fp463inc4w3lamhhduytrwdwq6q6uzugtaeapylqfc43agrdnnqsheyd.onion:9735",
+   "offline": "false",
+   "autolisten": true,
+   "proxy": "127.0.0.1:9050",
+   "disable-dns": "false",
+   "enable-autotor-v2-mode": "false",
+   "encrypted-hsm": false,
+   "rpc-file-mode": "0600",
+   "log-level": "DEBUG",
+   "log-prefix": "lightningd",
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH SEE ALSO
+
+\fBlightning-getinfo\fR(7), \fBlightningd-config\fR(5)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:37b3fd1b2c5b2c903c25579f96d0bb4116955f3aebbf6bbb97f8a62e352cf440

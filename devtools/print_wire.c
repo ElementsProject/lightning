@@ -1,10 +1,9 @@
 #include <ccan/mem/mem.h>
 #include <ccan/utf8/utf8.h>
-#include <common/decode_short_channel_ids.h>
+#include <common/decode_array.h>
 #include <common/type_to_string.h>
 #include <devtools/print_wire.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <stdio.h>
 
 void printwire_u8(const char *fieldname, const u8 *v)
@@ -103,20 +102,19 @@ static void printwire_addresses(const u8 **cursor, size_t *plen, size_t len)
 static void printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t len)
 {
 	struct short_channel_id *scids;
-	u8 *arr = tal_arr(tmpctx, u8, len);
+	u8 *arr = fromwire_tal_arrn(tmpctx, cursor, plen, len);
 
-	fromwire_u8_array(cursor, plen, arr, len);
-	if (!*cursor)
+	if (!arr)
 		return;
 
 	printf("[");
 	scids = decode_short_ids(tmpctx, arr);
 	if (scids) {
 		switch (arr[0]) {
-		case SHORTIDS_UNCOMPRESSED:
+		case ARR_UNCOMPRESSED:
 			printf(" (UNCOMPRESSED)");
 			break;
-		case SHORTIDS_ZLIB:
+		case ARR_ZLIB:
 			printf(" (ZLIB)");
 			break;
 		default:
@@ -128,8 +126,8 @@ static void printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 	} else {
 		/* If it was unknown, that's different from corrupt */
 		if (len == 0
-		    || arr[0] == SHORTIDS_UNCOMPRESSED
-		    || arr[0] == SHORTIDS_ZLIB) {
+		    || arr[0] == ARR_UNCOMPRESSED
+		    || arr[0] == ARR_ZLIB) {
 			printf(" **CORRUPT**");
 			return;
 		} else {
@@ -161,6 +159,55 @@ void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, 
 	printf("]\n");
 }
 
+static const struct tlv_print_record_type *
+find_print_record_type(u64 type,
+		 const struct tlv_print_record_type types[],
+		 size_t num_types)
+{
+	for (size_t i = 0; i < num_types; i++)
+		if (types[i].type == type)
+			return types + i;
+	return NULL;
+}
+
+void printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
+		    const struct tlv_print_record_type types[],
+		    size_t num_types)
+{
+	while (*plen > 0) {
+		u64 type, length;
+		const struct tlv_print_record_type *ptype;
+
+		type = fromwire_bigsize(cursor, plen);
+		if (!*cursor)
+			goto fail;
+		length = fromwire_bigsize(cursor, plen);
+		if (!*cursor)
+			goto fail;
+
+		if (length > *plen) {
+			*plen = 0;
+			goto fail;
+		}
+
+		ptype = find_print_record_type(type, types, num_types);
+		if (ptype) {
+			size_t tlvlen = length;
+			printf("{\ntype=%"PRIu64"\nlen=%"PRIu64"\n", type, length);
+			ptype->print(fieldname, cursor, &tlvlen);
+			if (!*cursor)
+				goto fail;
+			printf("}\n");
+		} else
+			printf("**TYPE #%"PRIu64" UNKNOWN for TLV %s**\n", type, fieldname);
+		*plen -= length;
+	}
+	return;
+
+fail:
+	printf("**TRUNCATED TLV %s**\n", fieldname);
+}
+
 #define PRINTWIRE_TYPE_TO_STRING(T, N)					\
 	void printwire_##N(const char *fieldname, const T *v)		\
 	{								\
@@ -175,9 +222,12 @@ void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, 
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bitcoin_blkid);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bitcoin_txid);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(channel_id);
+PRINTWIRE_STRUCT_TYPE_TO_STRING(node_id);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(preimage);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(pubkey);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(sha256);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(secret);
 PRINTWIRE_STRUCT_TYPE_TO_STRING(short_channel_id);
+PRINTWIRE_STRUCT_TYPE_TO_STRING(amount_sat);
+PRINTWIRE_STRUCT_TYPE_TO_STRING(amount_msat);
 PRINTWIRE_TYPE_TO_STRING(secp256k1_ecdsa_signature, secp256k1_ecdsa_signature);

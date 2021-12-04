@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "payments"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "payments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "payment_hash",
+          "status",
+          "amount_sent_msat",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "u64",
+            "description": "unique ID for this payment attempt"
+          },
+          "payment_hash": {
+            "type": "hex",
+            "description": "the hash of the *payment_preimage* which will prove payment",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "failed",
+              "complete"
+            ],
+            "description": "status of the payment"
+          },
+          "msatoshi_sent": {
+            "deprecated": true
+          },
+          "amount_sent_msat": {
+            "type": "msat",
+            "description": "the amount we actually sent, including fees"
+          },
+          "partid": {
+            "type": "u64",
+            "description": "unique ID within this (multi-part) payment"
+          },
+          "destination": {
+            "type": "pubkey",
+            "description": "the final destination of the payment if known"
+          },
+          "msatoshi": {
+            "deprecated": true
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": "the amount the destination received, if known"
+          },
+          "created_at": {
+            "type": "u64",
+            "description": "the UNIX timestamp showing when this payment was initiated"
+          },
+          "groupid": {
+            "type": "u64",
+            "description": "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash"
+          },
+          "payment_preimage": {
+            "type": "hex",
+            "description": "proof of payment",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "label": {
+            "type": "string",
+            "description": "the label, if given to sendpay"
+          },
+          "bolt11": {
+            "type": "string",
+            "description": "the bolt11 string (if pay supplied one)"
+          },
+          "bolt12": {
+            "type": "string",
+            "description": "the bolt12 string (if supplied for pay: **experimental-offers** only)."
+          },
+          "erroronion": {
+            "type": "hex",
+            "description": "the error onion returned on failure, if any."
+          }
+        }
+      }
+    }
+  }
+}

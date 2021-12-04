@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tx",
+    "txid",
+    "channel_ids"
+  ],
+  "properties": {
+    "tx": {
+      "type": "hex",
+      "description": "The raw transaction which funded the channel"
+    },
+    "txid": {
+      "type": "txid",
+      "description": "The txid of the transaction which funded the channel"
+    },
+    "channel_ids": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "channel_id",
+          "outnum"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": "The peer we opened the channel with"
+          },
+          "outnum": {
+            "type": "u32",
+            "description": "The 0-based output index showing which output funded the channel"
+          },
+          "channel_id": {
+            "type": "hex",
+            "description": "The channel_id of the resulting channel",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "close_to": {
+            "type": "hex",
+            "description": "The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`"
+          }
+        }
+      }
+    },
+    "failed": {
+      "type": "array",
+      "description": "any peers we failed to open with (if *minchannels* was specified less than the number of destinations)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "method",
+          "error"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": "The peer we failed to open the channel with"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "connect",
+              "openchannel_init",
+              "fundchannel_start",
+              "fundchannel_complete"
+            ],
+            "description": "What stage we failed at"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "integer",
+                "description": "JSON error code from failing stage"
+              },
+              "message": {
+                "type": "string",
+                "description": "Message from stage"
+              },
+              "data": {
+                "untyped": true,
+                "description": "Additional error data"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

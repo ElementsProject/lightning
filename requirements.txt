@@ -1,0 +1,15 @@
+# Dependencies required to build and test c-lightning
+mrkd ~= 0.1.6
+Mako ~= 1.1.3
+flake8 ~= 3.7.8
+websocket-client
+
+./contrib/pyln-client
+./contrib/pyln-proto
+./contrib/pyln-testing
+
+# Dependencies from pyln-spec
+# None
+
+# Dependencies from lnprototest
+crc32c

@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "command_to_check": {
+      "type": "string",
+      "description": "the *command_to_check* argument"
+    }
+  },
+  "required": [
+    "command_to_check"
+  ]
+}

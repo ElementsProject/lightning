@@ -7,8 +7,20 @@
 #include <stdlib.h>
 
 struct wireaddr *tor_autoservice(const tal_t *ctx,
-				 const struct wireaddr *tor_serviceaddr,
+				 const struct wireaddr_internal *tor_serviceaddr,
 				 const char *tor_password,
-				 const struct wireaddr_internal *bindings);
+				 const struct wireaddr_internal *bindings,
+				 const bool use_v3_autotor);
+
+struct wireaddr *tor_fixed_service(const tal_t *ctx,
+				 const struct wireaddr_internal *tor_serviceaddr,
+				 const char *tor_password,
+				 const char *blob,
+				 const struct wireaddr *bind,
+				 const u8 index);
+
+const struct wireaddr *
+find_local_address(const struct wireaddr_internal *bindings);
+
 
 #endif /* LIGHTNING_CONNECTD_TOR_AUTOSERVICE_H */

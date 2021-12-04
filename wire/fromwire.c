@@ -1,18 +1,18 @@
 #include "wire.h"
-#include <bitcoin/preimage.h>
-#include <bitcoin/pubkey.h>
-#include <bitcoin/shadouble.h>
-#include <bitcoin/tx.h>
-#include <ccan/build_assert/build_assert.h>
+#include <assert.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/tal/str/str.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
+
+extern const struct chainparams *chainparams;
+
 /* Sets *cursor to NULL and returns NULL when extraction fails. */
-const void *fromwire_fail(const u8 **cursor, size_t *max)
+void *fromwire_fail(const u8 **cursor, size_t *max)
 {
 	*cursor = NULL;
 	*max = 0;
@@ -27,6 +27,8 @@ const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n)
 		/* Just make sure we don't leak uninitialized mem! */
 		if (copy)
 			memset(copy, 0, n);
+		if (*cursor)
+			SUPERVERBOSE("less than encoding length");
 		return fromwire_fail(cursor, max);
 	}
 	*cursor += n;
@@ -83,9 +85,58 @@ u64 fromwire_u64(const u8 **cursor, size_t *max)
 	return be64_to_cpu(ret);
 }
 
-void fromwire_double(const u8 **cursor, size_t *max, double *ret)
+static u64 fromwire_tlv_uint(const u8 **cursor, size_t *max, size_t maxlen)
 {
-	fromwire(cursor, max, ret, sizeof(*ret));
+	u8 bytes[8];
+	size_t length;
+	be64 val;
+
+	assert(maxlen <= sizeof(bytes));
+
+	/* BOLT #1:
+	 *
+	 * - if `length` is not exactly equal to that required for the
+	 *   known encoding for `type`:
+	 *      - MUST fail to parse the `tlv_stream`.
+	 */
+	length = *max;
+	if (length > maxlen) {
+		SUPERVERBOSE("greater than encoding length");
+		fromwire_fail(cursor, max);
+		return 0;
+	}
+
+	memset(bytes, 0, sizeof(bytes));
+	fromwire(cursor, max, bytes + sizeof(bytes) - length, length);
+
+	/* BOLT #1:
+	 * - if variable-length fields within the known encoding for `type` are
+	 *   not minimal:
+	 *    - MUST fail to parse the `tlv_stream`.
+	 */
+	if (length > 0 && bytes[sizeof(bytes) - length] == 0) {
+		SUPERVERBOSE("not minimal");
+		fromwire_fail(cursor, max);
+		return 0;
+	}
+	BUILD_ASSERT(sizeof(val) == sizeof(bytes));
+	memcpy(&val, bytes, sizeof(bytes));
+	return be64_to_cpu(val);
+}
+
+u16 fromwire_tu16(const u8 **cursor, size_t *max)
+{
+	return fromwire_tlv_uint(cursor, max, 2);
+}
+
+u32 fromwire_tu32(const u8 **cursor, size_t *max)
+{
+	return fromwire_tlv_uint(cursor, max, 4);
+}
+
+u64 fromwire_tu64(const u8 **cursor, size_t *max)
+{
+	return fromwire_tlv_uint(cursor, max, 8);
 }
 
 bool fromwire_bool(const u8 **cursor, size_t *max)
@@ -99,25 +150,13 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 	return ret;
 }
 
-void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
+errcode_t fromwire_errcode_t(const u8 **cursor, size_t *max)
 {
-	u8 der[PUBKEY_DER_LEN];
+	errcode_t ret;
 
-	if (!fromwire(cursor, max, der, sizeof(der)))
-		return;
+	ret = (s32)fromwire_u32(cursor, max);
 
-	if (!pubkey_from_der(der, sizeof(der), pubkey))
-		fromwire_fail(cursor, max);
-}
-
-void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret)
-{
-	fromwire(cursor, max, secret->data, sizeof(secret->data));
-}
-
-void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey)
-{
-	fromwire_secret(cursor, max, &privkey->secret);
+	return ret;
 }
 
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,
@@ -149,44 +188,9 @@ void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
 		fromwire_fail(cursor, max);
 }
 
-void fromwire_channel_id(const u8 **cursor, size_t *max,
-			 struct channel_id *channel_id)
-{
-	fromwire(cursor, max, channel_id, sizeof(*channel_id));
-}
-
-void fromwire_short_channel_id(const u8 **cursor, size_t *max,
-			       struct short_channel_id *short_channel_id)
-{
-	short_channel_id->u64 = fromwire_u64(cursor, max);
-}
-
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)
 {
 	fromwire(cursor, max, sha256, sizeof(*sha256));
-}
-
-void fromwire_sha256_double(const u8 **cursor, size_t *max,
-			    struct sha256_double *sha256d)
-{
-	fromwire_sha256(cursor, max, &sha256d->sha);
-}
-
-void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
-			   struct bitcoin_txid *txid)
-{
-	fromwire_sha256_double(cursor, max, &txid->shad);
-}
-
-void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
-			    struct bitcoin_blkid *blkid)
-{
-	fromwire_sha256_double(cursor, max, &blkid->shad);
-}
-
-void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage)
-{
-	fromwire(cursor, max, preimage, sizeof(*preimage));
 }
 
 void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd)
@@ -197,6 +201,28 @@ void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 {
 	fromwire(cursor, max, arr, num);
+}
+
+void fromwire_utf8_array(const u8 **cursor, size_t *max, char *arr, size_t num)
+{
+	fromwire(cursor, max, arr, num);
+	if (!utf8_check(arr, num))
+		fromwire_fail(cursor, max);
+}
+
+u8 *fromwire_tal_arrn(const tal_t *ctx,
+		      const u8 **cursor, size_t *max, size_t num)
+{
+	u8 *arr;
+	if (num == 0)
+		return NULL;
+
+	if (num > *max)
+		return fromwire_fail(cursor, max);
+
+	arr = tal_arr(ctx, u8, num);
+	fromwire_u8_array(cursor, max, arr, num);
+	return arr;
 }
 
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
@@ -221,33 +247,7 @@ char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
 		if ((*cursor)[i] < ' ')
 			break;
 	}
-	fromwire_fail(cursor, max);
-	return NULL;
-}
-
-REGISTER_TYPE_TO_STRING(short_channel_id, short_channel_id_to_str);
-REGISTER_TYPE_TO_HEXSTR(channel_id);
-
-/* BOLT #2:
- *
- * This message introduces the `channel_id` to identify the channel.  It's
- * derived from the funding transaction by combining the `funding_txid` and
- * the `funding_output_index`, using big-endian exclusive-OR
- * (i.e. `funding_output_index` alters the last 2 bytes).
- */
-void derive_channel_id(struct channel_id *channel_id,
-		       struct bitcoin_txid *txid, u16 txout)
-{
-	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
-	memcpy(channel_id, txid, sizeof(*channel_id));
-	channel_id->id[sizeof(*channel_id)-2] ^= txout >> 8;
-	channel_id->id[sizeof(*channel_id)-1] ^= txout;
-}
-
-struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
-				       const u8 **cursor, size_t *max)
-{
-	return pull_bitcoin_tx(ctx, cursor, max);
+	return fromwire_fail(cursor, max);
 }
 
 void fromwire_siphash_seed(const u8 **cursor, size_t *max,

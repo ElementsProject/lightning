@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "verified"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "verified": {
+      "type": "boolean",
+      "description": "Whether the signature was valid"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "then": {
+        "additionalProperties": false,
+        "required": [
+          "pubkey"
+        ],
+        "properties": {
+          "verified": {},
+          "pubkey": {
+            "type": "pubkey",
+            "description": "the *pubkey* parameter, or the pubkey found by looking for known nodes"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        }
+      },
+      "then": {
+        "additionalProperties": false,
+        "required": [
+          "pubkey"
+        ],
+        "properties": {
+          "verified": {},
+          "pubkey": {
+            "type": "pubkey",
+            "description": "the *pubkey* (if any) which could have signed this; this is usually not useful!"
+          }
+        }
+      }
+    }
+  ]
+}

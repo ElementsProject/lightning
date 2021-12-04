@@ -1,0 +1,39 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * json_escape - Escape sequences for JSON strings
+ *
+ * This code helps you format strings into forms useful for JSON.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * License: BSD-MIT
+ * Example:
+ *	// Print arguments as a JSON array.
+ *	#include <ccan/json_escape/json_escape.h>
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		printf("[");
+ *		for (int i = 1; i < argc; i++) {
+ *			struct json_escape *e = json_escape(NULL, argv[i]);
+ *			printf("%s\"%s\"", i == 1 ? "" : ",", e->s);
+ *		}
+ *		printf("]\n");
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/tal\n");
+		return 0;
+	}
+
+	return 1;
+}

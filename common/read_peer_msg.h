@@ -6,12 +6,12 @@
 
 struct crypto_state;
 struct channel_id;
+struct per_peer_state;
 
 /**
  * peer_or_gossip_sync_read - read a peer message, or maybe a gossip msg.
  * @ctx: context to allocate return packet from.
- * @peer_fd, @gossip_fd: peer and gossip fd.
- * @cs: the cryptostate (updated)
+ * @pps: the per-peer peer state and fds
  * @from_gossipd: true if the msg was from gossipd, otherwise false.
  *
  * Will call peer_failed_connection_lost() or
@@ -24,8 +24,7 @@ struct channel_id;
  * a valid message.
  */
 u8 *peer_or_gossip_sync_read(const tal_t *ctx,
-			     int peer_fd, int gossip_fd,
-			     struct crypto_state *cs,
+			     struct per_peer_state *pps,
 			     bool *from_gossipd);
 
 /**
@@ -34,14 +33,14 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
  * @msg: the peer message.
  * @channel_id: the channel id of the current channel.
  * @desc: set to non-NULL if this describes a channel we care about.
- * @all_channels: set to true if this applies to all channels.
+ * @warning: set to true if this is a warning, not an error.
  *
  * If @desc is NULL, ignore this message.  Otherwise, that's usually passed
  * to peer_failed_received_errmsg().
  */
 bool is_peer_error(const tal_t *ctx, const u8 *msg,
 		   const struct channel_id *channel_id,
-		   char **desc, bool *all_channels);
+		   char **desc, bool *warning);
 
 /**
  * is_wrong_channel - if it's a message about a different channel, return true
@@ -57,21 +56,27 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 
 /**
  * handle_peer_gossip_or_error - simple handler for all the above cases.
- * @peer_fd, @gossip_fd: peer and gossip fd.
- * @cs: the cryptostate (updated)
+ * @pps: per-peer state.
+ * @channel_id: the channel id of the current channel.
+ * @soft_error: tell lightningd that incoming error is non-fatal.
  * @msg: the peer message (only taken if returns true).
  *
  * This returns true if it handled the packet: a gossip packet (forwarded
- * to gossipd), an error packet (causes peer_failed_received_errmsg or
- * ignored), or a message about the wrong channel (sends sync error reply).
+ * to gossipd), or an error packet (causes peer_failed_received_errmsg or
+ * ignored), or a ping (may reply with pong).
  */
-bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd,
-				 struct crypto_state *cs,
+bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const struct channel_id *channel_id,
+				 bool soft_error,
 				 const u8 *msg TAKES);
 
-/* We got this message from gossipd: forward/quit as it asks. */
-void handle_gossip_msg(int peer_fd, struct crypto_state *cs,
-		       const u8 *msg TAKES);
+/**
+ * handle_timestamp_filter - deal with timestamp filter requests.
+ * @pps: per-peer state.
+ * @msg: the peer message (only taken if returns true).
+ */
+bool handle_timestamp_filter(struct per_peer_state *pps, const u8 *msg TAKES);
 
+/* We got this message from gossipd: forward/quit as it asks. */
+void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES);
 #endif /* LIGHTNING_COMMON_READ_PEER_MSG_H */

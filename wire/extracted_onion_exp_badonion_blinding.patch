@@ -1,0 +1,9 @@
+diff --git a/wire/extracted_onion_wire_csv b/wire/extracted_onion_wire_csv
+index 58f278f38..253a50012 100644
+--- a/wire/extracted_onion_wire_csv
++++ b/wire/extracted_onion_wire_csv
+@@ -71,3 +71,4 @@ msgtype,invalid_onion_payload,PERM|22
+ msgdata,invalid_onion_payload,type,bigsize,
+ msgdata,invalid_onion_payload,offset,u16,
+ msgtype,mpp_timeout,23
++msgtype,invalid_onion_blinding,BADONION|PERM|24

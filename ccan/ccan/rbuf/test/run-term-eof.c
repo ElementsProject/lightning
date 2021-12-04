@@ -27,7 +27,7 @@ int main(void)
 	/* Grab ourselves for comparison. */
 	len = read(fd, buf, sizeof(buf));
 	buf[len] = '\0';
-	lseek(fd, SEEK_SET, 0);
+	lseek(fd, 0, SEEK_SET);
 
 	/* We have exact-size buffer, which causes problems adding term. */
 	rbuf_init(&in, fd, malloc(len), len, test_realloc);
@@ -44,7 +44,7 @@ int main(void)
 	free(rbuf_cleanup(&in));
 
 	/* Try again. */
-	lseek(fd, SEEK_SET, 0);
+	lseek(fd, 0, SEEK_SET);
 	rbuf_init(&in, fd, malloc(len), len, test_realloc);
 	p = rbuf_read_str(&in, 64);
 	ok1(p);
@@ -53,7 +53,7 @@ int main(void)
 	free(rbuf_cleanup(&in));
 
 	/* Normal case, we get rbuf_start after nul */
-	lseek(fd, SEEK_SET, 0);
+	lseek(fd, 0, SEEK_SET);
 	rbuf_init(&in, fd, NULL, 0, test_realloc);
 	p = rbuf_read_str(&in, '^');
 	ok1(p);

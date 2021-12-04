@@ -1,0 +1,20 @@
+#! /bin/sh
+# Feed log in stdin (sometimes 'grep' to get interesting parts)
+
+print_hex()
+{
+    hex="$1"
+    # We allow one character of trailing junk
+    while [ ${#hex} -gt 1 ]; do
+	/usr/bin/printf \\x$(echo "$hex" | cut -c1,2)
+	hex=$(echo "$hex" | cut -c3-)
+    done
+}
+
+while read TIMESTAMP LOGDIR HEX; do
+    case "$LOGDIR" in
+	*\[IN\]|*\[OUT\])
+	    echo $LOGDIR:$(print_hex "$HEX")
+	    ;;
+    esac
+done

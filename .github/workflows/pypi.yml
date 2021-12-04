@@ -1,0 +1,72 @@
+---
+name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
+on:
+  # Only deploy if we're the result of a PR being merged
+  push:
+    branches:
+      - master
+jobs:
+  deploy:
+    name: Build and publish ${{ matrix.package }} 🐍
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - PACKAGE: pyln-client
+            WORKDIR: contrib/pyln-client
+          - PACKAGE: pyln-testing
+            WORKDIR: contrib/pyln-testing
+          - PACKAGE: pyln-proto
+            WORKDIR: contrib/pyln-proto
+          - PACKAGE: pyn-bolt1
+            WORKDIR: contrib/pyln-spec/bolt1/
+          - PACKAGE: pyn-bolt2
+            WORKDIR: contrib/pyln-spec/bolt2/
+          - PACKAGE: pyn-bolt4
+            WORKDIR: contrib/pyln-spec/bolt4/
+          - PACKAGE: pyn-bolt7
+            WORKDIR: contrib/pyln-spec/bolt7/
+    steps:
+    - uses: actions/checkout@master
+      with:
+        # Need to fetch entire history in order to locate the version tag
+        fetch-depth: 0
+
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+
+    - name: Install pypa/build
+      run: >-
+        python -m pip install build --user
+
+    - name: Build a binary wheel and a source tarball
+      env:
+        WORKDIR: ${{ matrix.WORKDIR }}
+      run: >-
+        cd ${{ env.WORKDIR}} &&
+        python -m build --sdist --wheel --outdir dist/ .
+
+    - name: Publish distribution 📦 to Test PyPI
+      if: github.repository == 'ElementsProject/lightning'
+      uses: pypa/gh-action-pypi-publish@master
+      env:
+        WORKDIR: ${{ matrix.WORKDIR }}
+      with:
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        repository_url: https://test.pypi.org/legacy/
+        packages_dir: "${{ env.WORKDIR}}/dist"
+        skip_existing: true
+
+    - name: Publish distribution 📦 to PyPI
+      if: startsWith(github.ref, 'refs/tags') && github.repository == 'ElementsProject/lightning'
+      uses: pypa/gh-action-pypi-publish@master
+      env:
+        WORKDIR: ${{ matrix.WORKDIR }}
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        packages_dir: "${{ env.WORKDIR}}/dist"
+        # We should never have a conflict here, the version tags are unique
+        skip_existing: false

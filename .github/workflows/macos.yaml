@@ -1,0 +1,102 @@
+---
+name: Mac OS pytest
+on: [pull_request]
+jobs:
+  smoke-test:
+    name: Smoke Test macOS
+    runs-on: macos-latest
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 1
+      COMPAT: 0
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Fetch tags for auto versioning
+        run: git fetch --prune --unshallow --tags
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          export BITCOIN_VERSION=0.20.1
+          brew install wget python autoconf automake libtool python3 gmp gnu-sed gettext libsodium
+
+          (
+            cd /tmp/
+            wget https://storage.googleapis.com/c-lightning-tests/bitcoin-$BITCOIN_VERSION-osx64.tar.gz -O bitcoin.tar.gz
+            tar -xvzf bitcoin.tar.gz
+            sudo mv bitcoin-$BITCOIN_VERSION/bin/* /usr/local/bin
+          )
+
+          pip install --upgrade mako pip
+          ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
+          export PATH="/usr/local/opt:$PATH"
+
+      - name: Build
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          COMPILER: ${{ matrix.COMPILER }}
+          COMPAT: ${{ matrix.COMPAT }}
+          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
+          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
+          NO_PYTHON: ${{ matrix.NO_PYTHON }}
+          COPTFLAGS: ${{ matrix.COPTFLAGS }}
+          NETWORK: ${{ matrix.NETWORK }}
+          TEST_CMD: ${{ matrix.TEST_CMD }}
+          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
+          TEST_GROUP: ${{ matrix.TEST_GROUP }}
+        run: |
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:$PATH"
+          export LDFLAGS="-L/usr/local/opt/sqlite/lib"
+          export CPPFLAGS="-I/usr/local/opt/sqlite/include"
+
+          pip3 install --user -U \
+            -r requirements.lock
+
+          pip3 install --user --no-index \
+            --use-feature=in-tree-build \
+            ./contrib/pyln-spec/bolt7 \
+            ./contrib/pyln-client \
+            ./contrib/pyln-proto \
+            ./contrib/pyln-testing
+
+          # Install utilities that aren't dependencies, but make
+          # running tests easier/feasible on CI (and pytest which
+          # keeps breaking the rerunfailures plugin).
+          pip3 install --user -U \
+            blinker \
+            flake8 \
+            flaky \
+            mako \
+            pytest-sentry \
+            pytest-test-groups==1.0.3 \
+            pytest-custom-exit-code==0.3.0 \
+            pytest-json-report
+
+          cat << EOF > pytest.ini
+          [pytest]
+          addopts=-p no:logging --color=yes --timeout=600 --timeout-method=thread --test-group-random-seed=42 --force-flaky --no-success-flaky-report --max-runs=3 --junitxml=report.xml --json-report --json-report-file=report.json --json-report-indent=2
+          markers =
+              slow_test: marks tests as slow (deselect with '-m "not slow_test"')
+          EOF
+
+          ./configure
+          make
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
+          path: report.*
+          if-no-files-found: ignore

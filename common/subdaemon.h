@@ -3,6 +3,8 @@
 #include "config.h"
 #include <common/daemon.h>
 
+struct htable;
+
 /* daemon_setup, but for subdaemons */
 void subdaemon_setup(int argc, char *argv[]);
 

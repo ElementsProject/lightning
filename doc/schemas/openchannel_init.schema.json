@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel_id",
+    "psbt",
+    "commitments_secured",
+    "funding_serial"
+  ],
+  "properties": {
+    "channel_id": {
+      "type": "hex",
+      "description": "the channel id of the channel",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "psbt": {
+      "type": "string",
+      "description": "the (incomplete) PSBT of the funding transaction"
+    },
+    "commitments_secured": {
+      "type": "boolean",
+      "enum": [
+        false
+      ],
+      "description": "whether the *psbt* is complete"
+    },
+    "funding_serial": {
+      "type": "u64",
+      "description": "the serial_id of the funding output in the *psbt*"
+    }
+  }
+}

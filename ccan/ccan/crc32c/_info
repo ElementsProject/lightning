@@ -1,0 +1,46 @@
+#include "config.h"
+#include <string.h>
+#include <stdio.h>
+
+/**
+ * crc32c - routine for Castagnoli CRC (crc32c) of bytes
+ *
+ * Cyclic Redundancy Check routine, optimized for x86-64.  Reasonably fast
+ * checksum routines, but not suitable for cryptographic use.
+ *
+ * They are useful for simple error detection, eg. a 32-bit CRC will
+ * detect a single error burst of up to 32 bits.
+ *
+ * Example:
+ *	#include <ccan/crc32c/crc32c.h>
+ *	#include <stdio.h>
+ *	#include <stdlib.h>
+ *
+ *	// Given "123456789" outputs 0xe3069283
+ *	int main(int argc, char *argv[])
+ *	{
+ *		if (argc != 2) {
+ *			fprintf(stderr, "Usage: %s <string>\n"
+ *				"Prints 32 bit CRC of the string\n", argv[0]);
+ *			exit(1);
+ *		}
+ *		printf("0x%08x\n", crc32c(0, argv[1], strlen(argv[1])));
+ *		exit(0);
+ *	}
+ *
+ * License: MIT
+ * Author: Mark Adler
+ * Maintainer: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/compiler\n");
+		return 0;
+	}
+
+	return 1;
+}

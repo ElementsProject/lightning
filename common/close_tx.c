@@ -3,20 +3,26 @@
 #include "close_tx.h"
 #include "permute_tx.h"
 #include <assert.h>
+#include <common/utils.h>
 
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,
+				   const struct chainparams *chainparams,
 				   const u8 *our_script,
 				   const u8 *their_script,
-				   const struct bitcoin_txid *anchor_txid,
-				   unsigned int anchor_index,
-				   u64 anchor_satoshis,
-				   uint64_t to_us, uint64_t to_them,
-				   uint64_t dust_limit)
+				   const u8 *funding_wscript,
+				   const struct bitcoin_outpoint *funding,
+				   struct amount_sat funding_sats,
+				   struct amount_sat to_us,
+				   struct amount_sat to_them,
+				   struct amount_sat dust_limit)
 {
 	struct bitcoin_tx *tx;
 	size_t num_outputs = 0;
+	struct amount_sat total_out;
+	u8 *script;
 
-	assert(to_us + to_them <= anchor_satoshis);
+	assert(amount_sat_add(&total_out, to_us, to_them));
+	assert(amount_sat_less_eq(total_out, funding_sats));
 
 	/* BOLT #3:
 	 *
@@ -29,35 +35,34 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	 * * txin count: 1
 	 */
 	/* Now create close tx: one input, two outputs. */
-	tx = bitcoin_tx(ctx, 1, 2);
+	tx = bitcoin_tx(ctx, chainparams, 1, 2, 0);
 
 	/* Our input spends the anchor tx output. */
-	tx->input[0].txid = *anchor_txid;
-	tx->input[0].index = anchor_index;
-	tx->input[0].amount = tal_dup(tx->input, u64, &anchor_satoshis);
+	bitcoin_tx_add_input(tx, funding,
+			     BITCOIN_TX_DEFAULT_SEQUENCE, NULL,
+			     funding_sats, NULL, funding_wscript);
 
-	if (to_us >= dust_limit) {
+	if (amount_sat_greater_eq(to_us, dust_limit)) {
+		script = tal_dup_talarr(tx, u8, our_script);
 		/* One output is to us. */
-		tx->output[num_outputs].amount = to_us;
-		tx->output[num_outputs].script = tal_dup_arr(tx, u8,
-					   our_script, tal_count(our_script), 0);
+		bitcoin_tx_add_output(tx, script, NULL, to_us);
 		num_outputs++;
 	}
 
-	if (to_them >= dust_limit) {
+	if (amount_sat_greater_eq(to_them, dust_limit)) {
+		script = tal_dup_talarr(tx, u8, their_script);
 		/* Other output is to them. */
-		tx->output[num_outputs].amount = to_them;
-		tx->output[num_outputs].script = tal_dup_arr(tx, u8,
-					   their_script, tal_count(their_script),
-					   0);
+		bitcoin_tx_add_output(tx, script, NULL, to_them);
 		num_outputs++;
 	}
 
 	/* Can't have no outputs at all! */
 	if (num_outputs == 0)
 		return tal_free(tx);
-	tal_resize(&tx->output, num_outputs);
 
-	permute_outputs(tx->output, num_outputs, NULL);
+	permute_outputs(tx, NULL, NULL);
+
+	bitcoin_tx_finalize(tx);
+	assert(bitcoin_tx_check(tx));
 	return tx;
 }

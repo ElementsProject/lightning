@@ -30,19 +30,20 @@ def test_single_hop(node_factory, executor):
     fs = []
     invoices = []
     for i in tqdm(range(num_payments)):
-        invoices.append(l2.rpc.invoice(1000, 'invoice-%d' % (i), 'desc')['payment_hash'])
+        inv = l2.rpc.invoice(1000, 'invoice-%d' % (i), 'desc')
+        invoices.append((inv['payment_hash'], inv['payment_secret']))
 
     route = l1.rpc.getroute(l2.rpc.getinfo()['id'], 1000, 1)['route']
     print("Sending payments")
     start_time = time()
 
-    def do_pay(i):
-        p = l1.rpc.sendpay(route, i)
+    def do_pay(i, s):
+        p = l1.rpc.sendpay(route, i, payment_secret=s)
         r = l1.rpc.waitsendpay(p['payment_hash'])
         return r
 
-    for i in invoices:
-        fs.append(executor.submit(do_pay, i))
+    for i, s in invoices:
+        fs.append(executor.submit(do_pay, i, s))
 
     for f in tqdm(futures.as_completed(fs), total=len(fs)):
         f.result()
@@ -62,7 +63,7 @@ def test_single_payment(node_factory, benchmark):
 
 
 def test_forward_payment(node_factory, benchmark):
-    l1, l2, l3 = node_factory.line_graph(3, announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     def do_pay(src, dest):
         invoice = dest.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
@@ -72,7 +73,7 @@ def test_forward_payment(node_factory, benchmark):
 
 
 def test_long_forward_payment(node_factory, benchmark):
-    nodes = node_factory.line_graph(21, announce=True)
+    nodes = node_factory.line_graph(21, wait_for_announce=True)
 
     def do_pay(src, dest):
         invoice = dest.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']

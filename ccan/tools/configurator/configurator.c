@@ -136,6 +136,18 @@ static const struct test base_tests[] = {
 	{ "HAVE_ATTRIBUTE_CONST", "__attribute__((const)) support",
 	  "DEFINES_FUNC", NULL, NULL,
 	  "static int __attribute__((const)) func(int x) { return x; }" },
+	{ "HAVE_ATTRIBUTE_DEPRECATED", "__attribute__((deprecated)) support",
+	  "DEFINES_FUNC", NULL, NULL,
+	  "static int __attribute__((deprecated)) func(int x) { return x; }" },
+	{ "HAVE_ATTRIBUTE_NONNULL", "__attribute__((nonnull)) support",
+	  "DEFINES_FUNC", NULL, NULL,
+	  "static char *__attribute__((nonnull)) func(char *p) { return p; }" },
+	{ "HAVE_ATTRIBUTE_RETURNS_NONNULL", "__attribute__((returns_nonnull)) support",
+	  "DEFINES_FUNC", NULL, NULL,
+	  "static const char *__attribute__((returns_nonnull)) func(void) { return \"hi\"; }" },
+	{ "HAVE_ATTRIBUTE_SENTINEL", "__attribute__((sentinel)) support",
+	  "DEFINES_FUNC", NULL, NULL,
+	  "static int __attribute__((sentinel)) func(int i, ...) { return i; }" },
 	{ "HAVE_ATTRIBUTE_PURE", "__attribute__((pure)) support",
 	  "DEFINES_FUNC", NULL, NULL,
 	  "static int __attribute__((pure)) func(int x) { return x; }" },
@@ -402,7 +414,7 @@ static const struct test base_tests[] = {
 	  "int main(int argc, char *argv[]) {\n"
 	  "	(void)argc;\n"
 	  "     char pad[sizeof(int *) * 1];\n"
-	  "	strncpy(pad, argv[0], sizeof(pad));\n"
+	  "	memcpy(pad, argv[0], sizeof(pad));\n"
 	  "	int *x = (int *)pad, *y = (int *)(pad + 1);\n"
 	  "	return *x == *y;\n"
 	  "}\n" },
@@ -422,7 +434,7 @@ static const struct test base_tests[] = {
 	  "	return i + 1;\n"
 	  "}" },
 	{ "HAVE_OPENMP", "#pragma omp and -fopenmp support",
-	  "INSIDE_MAIN", NULL, NULL,
+	  "INSIDE_MAIN|EXECUTE|MAY_NOT_COMPILE", NULL, NULL,
 	  "int i;\n"
 	  "#pragma omp parallel for\n"
 	  "for(i = 0; i < 0; i++) {};\n"
@@ -477,6 +489,50 @@ static const struct test base_tests[] = {
 	  "	makecontext(&a, (void (*)(void))fn, 2, ap, aq);\n"
 	  "	swapcontext(&b, &a);\n"
 	  "	return worked ? 0 : 1;\n"
+	  "}\n"
+	},
+	{ "HAVE_BUILTIN_CPU_SUPPORTS", "__builtin_cpu_supports()",
+	  "DEFINES_FUNC", NULL, NULL,
+	  "#include <stdbool.h>\n"
+	  "static bool func(void) {\n"
+	  "	return __builtin_cpu_supports(\"mmx\");\n"
+	  "}"
+	},
+	{ "HAVE_CLOSEFROM", "closefrom() offered by system",
+	  "DEFINES_EVERYTHING", NULL, NULL,
+	  "#include <stdlib.h>\n"
+	  "#include <unistd.h>\n"
+	  "int main(void) {\n"
+	  "    closefrom(STDERR_FILENO + 1);\n"
+	  "    return 0;\n"
+	  "}\n"
+	},
+	{ "HAVE_F_CLOSEM", "F_CLOSEM defined for fctnl.",
+	  "DEFINES_EVERYTHING", NULL, NULL,
+	  "#include <fcntl.h>\n"
+	  "#include <unistd.h>\n"
+	  "int main(void) {\n"
+	  "    int res = fcntl(STDERR_FILENO + 1, F_CLOSEM, 0);\n"
+	  "    return res < 0;\n"
+	  "}\n"
+	},
+	{ "HAVE_NR_CLOSE_RANGE", "close_range syscall available as __NR_close_range.",
+	  "DEFINES_EVERYTHING", NULL, NULL,
+	  "#include <limits.h>\n"
+	  "#include <sys/syscall.h>\n"
+	  "#include <unistd.h>\n"
+	  "int main(void) {\n"
+	  "    int res = syscall(__NR_close_range, STDERR_FILENO + 1, INT_MAX, 0);\n"
+	  "    return res < 0;\n"
+	  "}\n"
+	},
+	{ "HAVE_F_MAXFD", "F_MAXFD defined for fcntl.",
+	  "DEFINES_EVERYTHING", NULL, NULL,
+	  "#include <fcntl.h>\n"
+	  "#include <unistd.h>\n"
+	  "int main(void) {\n"
+	  "    int res = fcntl(0, F_MAXFD);\n"
+	  "    return res < 0;\n"
 	  "}\n"
 	},
 };
@@ -623,7 +679,7 @@ static struct test *find_test(const char *name)
 #define MAIN_BODY_BOILERPLATE "return 0;\n"
 #define MAIN_END_BOILERPLATE "}\n"
 
-static bool run_test(const char *cmd, struct test *test)
+static bool run_test(const char *cmd, const char *wrapper, struct test *test)
 {
 	char *output, *newcmd;
 	FILE *outf;
@@ -651,7 +707,7 @@ static bool run_test(const char *cmd, struct test *test)
 				dep++;
 				positive = false;
 			}
-			if (run_test(cmd, find_test(dep)) != positive) {
+			if (run_test(cmd, wrapper, find_test(dep)) != positive) {
 				test->answer = false;
 				test->done = true;
 				return test->answer;
@@ -741,7 +797,12 @@ static bool run_test(const char *cmd, struct test *test)
 		/* We run INSIDE_MAIN tests for sanity checking. */
 		if (strstr(test->style, "EXECUTE")
 		    || strstr(test->style, "INSIDE_MAIN")) {
-			output = run("." DIR_SEP OUTPUT_FILE, &status);
+			char *cmd = malloc(strlen(wrapper) + strlen(" ." DIR_SEP OUTPUT_FILE) + 1);
+
+			strcpy(cmd, wrapper);
+			strcat(cmd, " ." DIR_SEP OUTPUT_FILE);
+			output = run(cmd, &status);
+			free(cmd);
 			if (!strstr(test->style, "EXECUTE") && status != 0)
 				c12r_errx(EXIT_BAD_TEST,
 					  "Test for %s failed with %i:\n%s",
@@ -879,7 +940,8 @@ static void read_tests(size_t num_tests)
 {
 	while (read_test(tests + num_tests)) {
 		num_tests++;
-		tests = realloc(tests, num_tests * sizeof(tests[0]));
+		tests = realloc(tests, (num_tests + 1) * sizeof(tests[0]));
+		tests[num_tests].name = NULL;
 	}
 }
 
@@ -891,6 +953,7 @@ int main(int argc, const char *argv[])
 		= { "", DEFAULT_COMPILER, DEFAULT_FLAGS, NULL };
 	const char *outflag = DEFAULT_OUTPUT_EXE_FLAG;
 	const char *configurator_cc = NULL;
+	const char *wrapper = "";
 	const char *orig_cc;
 	const char *varfile = NULL;
 	const char *headerfile = NULL;
@@ -902,7 +965,7 @@ int main(int argc, const char *argv[])
 
 	while (argc > 1) {
 		if (strcmp(argv[1], "--help") == 0) {
-			printf("Usage: configurator [-v] [--var-file=<filename>] [-O<outflag>] [--configurator-cc=<compiler-for-tests>] [--autotools-style] [--extra-tests] [<compiler> <flags>...]\n"
+			printf("Usage: configurator [-v] [--var-file=<filename>] [-O<outflag>] [--configurator-cc=<compiler-for-tests>] [--wrapper=<wrapper-for-tests>] [--autotools-style] [--extra-tests] [<compiler> <flags>...]\n"
 			       "  <compiler> <flags> will have \"<outflag> <outfile> <infile.c>\" appended\n"
 			       "Default: %s %s %s\n",
 			       DEFAULT_COMPILER, DEFAULT_FLAGS,
@@ -929,6 +992,10 @@ int main(int argc, const char *argv[])
 			verbose += 2;
 		} else if (strncmp(argv[1], "--configurator-cc=", 18) == 0) {
 			configurator_cc = argv[1] + 18;
+			argc--;
+			argv++;
+		} else if (strncmp(argv[1], "--wrapper=", 10) == 0) {
+			wrapper = argv[1] + 10;
 			argc--;
 			argv++;
 		} else if (strncmp(argv[1], "--var-file=", 11) == 0) {
@@ -978,7 +1045,7 @@ int main(int argc, const char *argv[])
 		end_test(1);
 	}
 	for (i = 0; tests[i].name; i++)
-		run_test(cmd, &tests[i]);
+		run_test(cmd, wrapper, &tests[i]);
 	free(cmd);
 
 	remove(OUTPUT_FILE);

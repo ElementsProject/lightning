@@ -29,11 +29,17 @@ static void destroy_inc(char *p UNNEEDED)
 	destroy_count++;
 }
 
+static void remove_own_destructor(char *p)
+{
+	destroy_count++;
+	ok1(!tal_del_destructor(p, remove_own_destructor));
+}
+
 int main(void)
 {
 	char *child2;
 
-	plan_tests(18);
+	plan_tests(21);
 
 	destroy_count = 0;
 	parent = tal(NULL, char);
@@ -63,6 +69,12 @@ int main(void)
 	tal_free(parent);
 	ok1(destroy_count == 4);
 
+	destroy_count = 0;
+	parent = tal(NULL, char);
+	ok1(tal_add_destructor(parent, remove_own_destructor));
+	tal_free(parent);
+	ok1(destroy_count == 1);
+	
 	tal_cleanup();
 	return exit_status();
 }

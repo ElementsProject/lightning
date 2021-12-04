@@ -1,7 +1,7 @@
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/version.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wire.h>
 
 bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 {
@@ -65,26 +65,4 @@ u8 *make_ping(const tal_t *ctx, u16 num_pong_bytes, u16 padlen)
 	ping = towire_ping(ctx, num_pong_bytes, ignored);
 	tal_free(ignored);
 	return ping;
-}
-
-const char *got_pong(const u8 *pong, size_t *num_pings_outstanding)
-{
-	u8 *ignored;
-	int i;
-
-	if (!fromwire_pong(pong, pong, &ignored))
-		return "Bad pong";
-
-	if (*num_pings_outstanding == 0)
-		return "Unexpected pong";
-
-	for (i = 0; i < tal_count(ignored); i++) {
-		if (ignored[i] < ' ' || ignored[i] == 127)
-			break;
-	}
-	status_trace("Got pong %zu bytes (%.*s...)",
-		     tal_count(ignored), i, (char *)ignored);
-
-	(*num_pings_outstanding)--;
-	return NULL;
 }

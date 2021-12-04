@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel_id",
+    "channel_canceled",
+    "reason"
+  ],
+  "properties": {
+    "channel_id": {
+      "type": "hex",
+      "description": "the channel id of the aborted channel",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "channel_canceled": {
+      "type": "boolean",
+      "description": "whether this is completely canceled (there may be remaining in-flight transactions)"
+    },
+    "reason": {
+      "type": "string",
+      "description": "usually \"Abort requested\", but if it happened to fail at the same time it could be different"
+    }
+  }
+}

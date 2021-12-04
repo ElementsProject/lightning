@@ -80,3 +80,8 @@ void io_lock_release(struct io_lock *lock)
 	lock->locked = false;
 	io_wake(lock);
 }
+
+bool io_lock_taken(const struct io_lock *lock)
+{
+	return lock->locked;
+}

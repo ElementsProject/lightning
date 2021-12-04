@@ -1,0 +1,267 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "# version": {
+      "type": "string",
+      "description": "Special field indicating the current version"
+    },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "name"
+        ],
+        "description": "`plugin` field from config or cmdline",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Full path of the plugin"
+          },
+          "name": {
+            "type": "string",
+            "description": "short name of the plugin"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [],
+            "description": "Specific options set for this plugin",
+            "properties": {}
+          }
+        }
+      }
+    },
+    "important-plugins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "name"
+        ],
+        "description": "`important-plugin` field from config or cmdline, or built-in",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Full path of the plugin"
+          },
+          "name": {
+            "type": "string",
+            "description": "short name of the plugin"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [],
+            "description": "Specific options set for this plugin",
+            "properties": {}
+          }
+        }
+      }
+    },
+    "conf": {
+      "type": "string",
+      "description": "`conf` field from cmdline, or default"
+    },
+    "lightning-dir": {
+      "type": "string",
+      "description": "`lightning-dir` field from config or cmdline, or default"
+    },
+    "network": {
+      "type": "string",
+      "description": "`network` field from config or cmdline, or default"
+    },
+    "allow-deprecated-apis": {
+      "type": "boolean",
+      "description": "`allow-deprecated-apis` field from config or cmdline, or default"
+    },
+    "rpc-file": {
+      "type": "string",
+      "description": "`rpc-file` field from config or cmdline, or default"
+    },
+    "disable-plugin": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "`disable-plugin` field from config or cmdline"
+      }
+    },
+    "always-use-proxy": {
+      "type": "boolean",
+      "description": "`always-use-proxy` field from config or cmdline, or default"
+    },
+    "daemon": {
+      "type": "boolean",
+      "description": "`daemon` field from config or cmdline, or default"
+    },
+    "wallet": {
+      "type": "string",
+      "description": "`wallet` field from config or cmdline, or default"
+    },
+    "large-channels": {
+      "type": "boolean",
+      "description": "`large-channels` field from config or cmdline, or default"
+    },
+    "experimental-dual-fund": {
+      "type": "boolean",
+      "description": "`experimental-dual-fund` field from config or cmdline, or default"
+    },
+    "experimental-onion-messages": {
+      "type": "boolean",
+      "description": "`experimental-onion-messages` field from config or cmdline, or default"
+    },
+    "experimental-offers": {
+      "type": "boolean",
+      "description": "`experimental-offers` field from config or cmdline, or default"
+    },
+    "experimental-shutdown-wrong-funding": {
+      "type": "boolean",
+      "description": "`experimental-shutdown-wrong-funding` field from config or cmdline, or default"
+    },
+    "experimental-websocket-port": {
+      "type": "u16",
+      "description": "`experimental-websocket-port` field from config or cmdline, or default"
+    },
+    "rgb": {
+      "type": "hex",
+      "description": "`rgb` field from config or cmdline, or default",
+      "maxLength": 6,
+      "minLength": 6
+    },
+    "alias": {
+      "type": "string",
+      "description": "`alias` field from config or cmdline, or default"
+    },
+    "pid-file": {
+      "type": "string",
+      "description": "`pid-file` field from config or cmdline, or default"
+    },
+    "ignore-fee-limits": {
+      "type": "boolean",
+      "description": "`ignore-fee-limits` field from config or cmdline, or default"
+    },
+    "watchtime-blocks": {
+      "type": "u32",
+      "description": "`watchtime-blocks` field from config or cmdline, or default"
+    },
+    "max-locktime-blocks": {
+      "type": "u32",
+      "description": "`max-locktime-blocks` field from config or cmdline, or default"
+    },
+    "funding-confirms": {
+      "type": "u32",
+      "description": "`funding-confirms` field from config or cmdline, or default"
+    },
+    "cltv-delta": {
+      "type": "u32",
+      "description": "`cltv-delta` field from config or cmdline, or default"
+    },
+    "cltv-final": {
+      "type": "u32",
+      "description": "`cltv-final` field from config or cmdline, or default"
+    },
+    "commit-time": {
+      "type": "u32",
+      "description": "`commit-time` field from config or cmdline, or default"
+    },
+    "fee-base": {
+      "type": "u32",
+      "description": "`fee-base` field from config or cmdline, or default"
+    },
+    "rescan": {
+      "type": "integer",
+      "description": "`rescan` field from config or cmdline, or default"
+    },
+    "fee-per-satoshi": {
+      "type": "u32",
+      "description": "`fee-per-satoshi` field from config or cmdline, or default"
+    },
+    "max-concurrent-htlcs": {
+      "type": "u32",
+      "description": "`max-concurrent-htlcs` field from config or cmdline, or default"
+    },
+    "max-dust-htlc-exposure-msat": {
+      "type": "msat",
+      "description": "`max-dust-htlc-exposure-mast` field from config or cmdline, or default"
+    },
+    "min-capacity-sat": {
+      "type": "u64",
+      "description": "`min-capacity-sat` field from config or cmdline, or default"
+    },
+    "addr": {
+      "type": "string",
+      "description": "`addr` field from config or cmdline (can be more than one)"
+    },
+    "announce-addr": {
+      "type": "string",
+      "description": "`announce-addr` field from config or cmdline (can be more than one)"
+    },
+    "bind-addr": {
+      "type": "string",
+      "description": "`bind-addr` field from config or cmdline (can be more than one)"
+    },
+    "offline": {
+      "type": "boolean",
+      "description": "`true` if `offline` was set in config or cmdline"
+    },
+    "autolisten": {
+      "type": "boolean",
+      "description": "`autolisten` field from config or cmdline, or default"
+    },
+    "proxy": {
+      "type": "string",
+      "description": "`proxy` field from config or cmdline, or default"
+    },
+    "disable-dns": {
+      "type": "boolean",
+      "description": "`true` if `disable-dns` was set in config or cmdline"
+    },
+    "encrypted-hsm": {
+      "type": "boolean",
+      "description": "`true` if `encrypted-hsm` was set in config or cmdline"
+    },
+    "rpc-file-mode": {
+      "type": "string",
+      "description": "`rpc-file-mode` field from config or cmdline, or default"
+    },
+    "log-level": {
+      "type": "string",
+      "description": "`log-level` field from config or cmdline, or default"
+    },
+    "log-prefix": {
+      "type": "string",
+      "description": "`log-prefix` field from config or cmdline, or default"
+    },
+    "log-file": {
+      "type": "string",
+      "description": "`log-file` field from config or cmdline, or default"
+    },
+    "log-timestamps": {
+      "type": "boolean",
+      "description": "`log-timestamps` field from config or cmdline, or default"
+    },
+    "force-feerates": {
+      "type": "string",
+      "description": "force-feerate configuration setting, if any"
+    },
+    "subdaemon": {
+      "type": "string",
+      "description": "`subdaemon` fields from config or cmdline if any (can be more than one)"
+    },
+    "fetchinvoice-noconnect": {
+      "type": "boolean",
+      "description": "`featchinvoice-noconnect` fileds from config or cmdline, or default"
+    },
+    "tor-service-password": {
+      "type": "string",
+      "description": "`tor-service-password` field from config or cmdline, if any"
+    }
+  }
+}

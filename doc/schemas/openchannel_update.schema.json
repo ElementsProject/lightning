@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel_id",
+    "psbt",
+    "commitments_secured",
+    "funding_outnum"
+  ],
+  "properties": {
+    "channel_id": {
+      "type": "hex",
+      "description": "the channel id of the channel",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "psbt": {
+      "type": "string",
+      "description": "the PSBT of the funding transaction"
+    },
+    "commitments_secured": {
+      "type": "boolean",
+      "description": "whether the *psbt* is complete (if true, sign *psbt* and call `openchannel_signed` to complete the channel open)"
+    },
+    "funding_outnum": {
+      "type": "u32",
+      "description": "The index of the funding output in the psbt"
+    },
+    "close_to": {
+      "type": "hex",
+      "description": "scriptPubkey which we have to close to if we mutual close"
+    }
+  }
+}

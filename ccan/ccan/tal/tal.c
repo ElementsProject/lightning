@@ -53,7 +53,7 @@ struct name {
 struct notifier {
 	struct prop_hdr hdr; /* NOTIFIER */
 	enum tal_notify_type types;
-	union {
+	union notifier_cb {
 		void (*notifyfn)(tal_t *, enum tal_notify_type, void *);
 		void (*destroy)(tal_t *); /* If NOTIFY_IS_DESTRUCTOR set */
 		void (*destroy2)(tal_t *, void *); /* If NOTIFY_EXTRA_ARG */
@@ -228,11 +228,16 @@ static void notify(const struct tal_hdr *ctx,
 		if (n->types & type) {
 			errno = saved_errno;
 			if (n->types & NOTIFY_IS_DESTRUCTOR) {
+				/* Blatt this notifier in case it tries to
+				 * tal_del_destructor() from inside */
+				union notifier_cb cb = n->u;
+				/* It's a union, so this NULLs destroy2 too! */
+				n->u.destroy = NULL;
 				if (n->types & NOTIFY_EXTRA_ARG)
-					n->u.destroy2(from_tal_hdr(ctx),
-						      EXTRA_ARG(n));
+					cb.destroy2(from_tal_hdr(ctx),
+						    EXTRA_ARG(n));
 				else
-					n->u.destroy(from_tal_hdr(ctx));
+					cb.destroy(from_tal_hdr(ctx));
 			} else
 				n->u.notifyfn(from_tal_hdr_or_null(ctx), type,
 					      (void *)info);
@@ -384,6 +389,8 @@ static bool add_child(struct tal_hdr *parent, struct tal_hdr *child)
 static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno)
 {
 	struct prop_hdr **prop, *p, *next;
+
+	assert(!taken(from_tal_hdr(t)));
 
         /* Already being destroyed?  Don't loop. */
         if (unlikely(get_destroying_bit(t->parent_child)))
@@ -710,6 +717,10 @@ bool tal_resize_(tal_t **ctxp, size_t size, size_t count, bool clear)
 		/* Fix up linked list pointers. */
 		t->list.next->prev = t->list.prev->next = &t->list;
 
+		/* Copy take() property. */
+		if (taken(from_tal_hdr(old_t)))
+			take(from_tal_hdr(t));
+
 		/* Fix up child property's parent pointer. */
 		child = find_property(t, CHILDREN);
 		if (child) {
@@ -813,36 +824,36 @@ static void dump_node(unsigned int indent, const struct tal_hdr *t)
         const struct prop_hdr *p;
 
 	for (i = 0; i < indent; i++)
-		printf("  ");
-	printf("%p len=%zu", t, t->bytelen);
+		fprintf(stderr, "  ");
+	fprintf(stderr, "%p len=%zu", t, t->bytelen);
         for (p = t->prop; p; p = p->next) {
 		struct children *c;
 		struct name *n;
 		struct notifier *no;
                 if (is_literal(p)) {
-			printf(" \"%s\"", (const char *)p);
+			fprintf(stderr, " \"%s\"", (const char *)p);
 			break;
 		}
 		switch (p->type) {
 		case CHILDREN:
 			c = (struct children *)p;
-			printf(" CHILDREN(%p):parent=%p,children={%p,%p}\n",
+			fprintf(stderr, " CHILDREN(%p):parent=%p,children={%p,%p}",
 			       p, c->parent,
 			       c->children.n.prev, c->children.n.next);
 			break;
 		case NAME:
 			n = (struct name *)p;
-			printf(" NAME(%p):%s", p, n->name);
+			fprintf(stderr, " NAME(%p):%s", p, n->name);
 			break;
 		case NOTIFIER:
 			no = (struct notifier *)p;
-			printf(" NOTIFIER(%p):fn=%p", p, no->u.notifyfn);
+			fprintf(stderr, " NOTIFIER(%p):fn=%p", p, no->u.notifyfn);
 			break;
 		default:
-			printf(" **UNKNOWN(%p):%i**", p, p->type);
+			fprintf(stderr, " **UNKNOWN(%p):%i**", p, p->type);
 		}
 	}
-	printf("\n");
+	fprintf(stderr, "\n");
 }
 
 static void tal_dump_(unsigned int level, const struct tal_hdr *t)

@@ -1,20 +1,110 @@
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
-#include <common/memleak.h>
-#include <wire/wire.h>
+#include <common/onionreply.h>
+
+struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
+				    const struct failed_htlc *f TAKES)
+{
+	struct failed_htlc *newf;
+
+	if (taken(f))
+		return cast_const(struct failed_htlc *, tal_steal(ctx, f));
+	newf = tal(ctx, struct failed_htlc);
+	newf->id = f->id;
+	if (f->sha256_of_onion)
+		newf->sha256_of_onion = tal_dup(newf, struct sha256, f->sha256_of_onion);
+	else
+		newf->sha256_of_onion = NULL;
+	newf->badonion = f->badonion;
+	if (f->onion)
+		newf->onion = dup_onionreply(newf, f->onion);
+	else
+		newf->onion = NULL;
+	return newf;
+}
+
+struct existing_htlc *new_existing_htlc(const tal_t *ctx,
+					u64 id,
+					enum htlc_state state,
+					struct amount_msat amount,
+					const struct sha256 *payment_hash,
+					u32 cltv_expiry,
+					const u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
+					const struct pubkey *blinding TAKES,
+					const struct preimage *preimage TAKES,
+					const struct failed_htlc *failed TAKES)
+{
+	struct existing_htlc *existing = tal(ctx, struct existing_htlc);
+
+	existing->id = id;
+	existing->state = state;
+	existing->amount = amount;
+	existing->cltv_expiry = cltv_expiry;
+	existing->payment_hash = *payment_hash;
+	memcpy(existing->onion_routing_packet, onion_routing_packet,
+	       sizeof(existing->onion_routing_packet));
+	if (blinding)
+		existing->blinding = tal_dup(existing, struct pubkey, blinding);
+	else
+		existing->blinding = NULL;
+	if (preimage)
+		existing->payment_preimage
+			= tal_dup(existing, struct preimage, preimage);
+	else
+		existing->payment_preimage = NULL;
+	if (failed)
+		existing->failed = failed_htlc_dup(existing, failed);
+	else
+		existing->failed = NULL;
+
+	return existing;
+}
 
 /* FIXME: We could adapt tools/generate-wire.py to generate structures
  * and code like this. */
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 {
 	towire_u64(pptr, added->id);
-	towire_u64(pptr, added->amount_msat);
+	towire_amount_msat(pptr, added->amount);
  	towire_sha256(pptr, &added->payment_hash);
 	towire_u32(pptr, added->cltv_expiry);
 	towire(pptr, added->onion_routing_packet,
 	       sizeof(added->onion_routing_packet));
+	if (added->blinding) {
+		towire_bool(pptr, true);
+		towire_pubkey(pptr, added->blinding);
+		towire_secret(pptr, &added->blinding_ss);
+	} else
+		towire_bool(pptr, false);
+	towire_bool(pptr, added->fail_immediate);
+}
+
+void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
+{
+	towire_u8(pptr, existing->state);
+	towire_u64(pptr, existing->id);
+	towire_amount_msat(pptr, existing->amount);
+ 	towire_sha256(pptr, &existing->payment_hash);
+	towire_u32(pptr, existing->cltv_expiry);
+	towire(pptr, existing->onion_routing_packet,
+	       sizeof(existing->onion_routing_packet));
+	if (existing->payment_preimage) {
+		towire_bool(pptr, true);
+		towire_preimage(pptr, existing->payment_preimage);
+	} else
+		towire_bool(pptr, false);
+	if (existing->failed) {
+		towire_bool(pptr, true);
+		towire_failed_htlc(pptr, existing->failed);
+	} else
+		towire_bool(pptr, false);
+	if (existing->blinding) {
+		towire_bool(pptr, true);
+		towire_pubkey(pptr, existing->blinding);
+	} else
+		towire_bool(pptr, false);
 }
 
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
@@ -25,22 +115,16 @@ void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
 
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 {
-	/* Only one can be set. */
-	assert(failed->failcode || tal_count(failed->failreason));
-	assert(!failed->failcode || !tal_count(failed->failreason));
 	towire_u64(pptr, failed->id);
-	towire_u16(pptr, failed->failcode);
-	if (failed->failcode & UPDATE) {
-		assert(!failed->failreason);
-		towire_short_channel_id(pptr, failed->scid);
+	/* Only one can be set. */
+	if (failed->sha256_of_onion) {
+		assert(!failed->onion);
+		assert(failed->badonion & BADONION);
+		towire_u16(pptr, failed->badonion);
+		towire_sha256(pptr, failed->sha256_of_onion);
 	} else {
-		assert(!failed->scid);
-		if (!failed->failcode) {
-			assert(failed->failreason);
-			towire_u16(pptr, tal_count(failed->failreason));
-			towire_u8_array(pptr, failed->failreason,
-					tal_count(failed->failreason));
-		}
+		towire_u16(pptr, 0);
+		towire_onionreply(pptr, failed->onion);
 	}
 }
 
@@ -77,11 +161,47 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added)
 {
 	added->id = fromwire_u64(cursor, max);
-	added->amount_msat = fromwire_u64(cursor, max);
+	added->amount = fromwire_amount_msat(cursor, max);
 	fromwire_sha256(cursor, max, &added->payment_hash);
 	added->cltv_expiry = fromwire_u32(cursor, max);
 	fromwire(cursor, max, added->onion_routing_packet,
 		 sizeof(added->onion_routing_packet));
+	if (fromwire_bool(cursor, max)) {
+		added->blinding = tal(added, struct pubkey);
+		fromwire_pubkey(cursor, max, added->blinding);
+		fromwire_secret(cursor, max, &added->blinding_ss);
+	} else
+		added->blinding = NULL;
+	added->fail_immediate = fromwire_bool(cursor, max);
+}
+
+struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
+					     const u8 **cursor, size_t *max)
+{
+	struct existing_htlc *existing = tal(ctx, struct existing_htlc);
+
+	existing->state = fromwire_u8(cursor, max);
+	existing->id = fromwire_u64(cursor, max);
+	existing->amount = fromwire_amount_msat(cursor, max);
+	fromwire_sha256(cursor, max, &existing->payment_hash);
+	existing->cltv_expiry = fromwire_u32(cursor, max);
+	fromwire(cursor, max, existing->onion_routing_packet,
+		 sizeof(existing->onion_routing_packet));
+	if (fromwire_bool(cursor, max)) {
+		existing->payment_preimage = tal(existing, struct preimage);
+		fromwire_preimage(cursor, max, existing->payment_preimage);
+	} else
+		existing->payment_preimage = NULL;
+	if (fromwire_bool(cursor, max))
+		existing->failed = fromwire_failed_htlc(existing, cursor, max);
+	else
+		existing->failed = NULL;
+	if (fromwire_bool(cursor, max)) {
+		existing->blinding = tal(existing, struct pubkey);
+		fromwire_pubkey(cursor, max, existing->blinding);
+	} else
+		existing->blinding = NULL;
+	return existing;
 }
 
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
@@ -94,24 +214,20 @@ void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
 struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
 	struct failed_htlc *failed = tal(ctx, struct failed_htlc);
+	enum onion_wire badonion;
 
 	failed->id = fromwire_u64(cursor, max);
-	failed->failcode = fromwire_u16(cursor, max);
-	if (failed->failcode == 0) {
-		u16 failreason_len;
-		failed->scid = NULL;
-		failreason_len = fromwire_u16(cursor, max);
-		failed->failreason = tal_arr(failed, u8, failreason_len);
-		fromwire_u8_array(cursor, max, failed->failreason,
-				  failreason_len);
+	badonion = fromwire_u16(cursor, max);
+	if (badonion) {
+		failed->onion = NULL;
+		if (!(badonion & BADONION))
+			return tal_free(failed);
+		failed->badonion = badonion;
+		failed->sha256_of_onion = tal(failed, struct sha256);
+		fromwire_sha256(cursor, max, failed->sha256_of_onion);
 	} else {
-		failed->failreason = NULL;
-		if (failed->failcode & UPDATE) {
-			failed->scid = tal(failed, struct short_channel_id);
-			fromwire_short_channel_id(cursor, max, failed->scid);
-		} else {
-			failed->scid = NULL;
-		}
+		failed->sha256_of_onion = NULL;
+		failed->onion = fromwire_onionreply(failed, cursor, max);
 	}
 
 	return failed;
@@ -136,7 +252,7 @@ void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 
 enum side fromwire_side(const u8 **cursor, size_t *max)
 {
-	enum side side = fromwire_u8(cursor, max);
+	u8 side = fromwire_u8(cursor, max);
 	if (side >= NUM_SIDES) {
 		side = NUM_SIDES;
 		fromwire_fail(cursor, max);

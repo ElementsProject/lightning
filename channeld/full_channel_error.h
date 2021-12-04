@@ -1,6 +1,7 @@
 /* Error enums separated out for easy autogen of names*/
 #ifndef LIGHTNING_CHANNELD_FULL_CHANNEL_ERROR_H
 #define LIGHTNING_CHANNELD_FULL_CHANNEL_ERROR_H
+#include "config.h"
 
 enum channel_add_err {
 	/* All OK! */
@@ -19,6 +20,8 @@ enum channel_add_err {
 	CHANNEL_ERR_HTLC_BELOW_MINIMUM,
 	/* HTLC would push past max_accepted_htlcs */
 	CHANNEL_ERR_TOO_MANY_HTLCS,
+	/* HTLC would push dusted-htlcs above max_dust_htlc_exposure_msat */
+	CHANNEL_ERR_DUST_FAILURE,
 };
 
 enum channel_remove_err {

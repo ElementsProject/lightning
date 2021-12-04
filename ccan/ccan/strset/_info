@@ -1,0 +1,72 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * strset - an ordered set of strings
+ *
+ * This code implements an ordered set of string as a critbit tree. See:
+ *
+ *  http://cr.yp.to/critbit.html
+ *  http://github.com/agl/critbit (which this code is based on)
+ *
+ * Note that ccan/htable is faster and uses less memory, but doesn't provide
+ * ordered or prefix operations.
+ *
+ * Example:
+ *	// Print all words in order.
+ *	#include <ccan/strset/strset.h>
+ *	#include <ccan/tal/grab_file/grab_file.h>
+ *	#include <err.h>
+ *	#include <string.h>
+ *
+ *	static bool dump(const char *member, void *unused)
+ *	{
+ *		printf("%s ", member);
+ *		return true; // Keep going with iteration.
+ *	}
+ *
+ *	int main(void)
+ *	{
+ *		struct strset words;
+ *		char *file, *word;
+ *
+ *		strset_init(&words);
+ *		file = grab_fd(NULL, 0);
+ *		if (!file)
+ *			err(1, "Reading stdin");
+ *
+ *		for (word = strtok(file, " \t\r\n");
+ *		     word;
+ *		     word = strtok(NULL, " \t\r\n")) {
+ *			strset_add(&words, word);
+ *		}
+ *		strset_iterate(&words, dump, NULL);
+ *		printf("\n");
+ *		return 0;
+ *	}
+ *	// Given "foo bar" outputs "bar foo \n"
+ *	// Given "foo foo bar" outputs "bar foo \n"
+ *
+ * License: CC0 (but some dependencies are LGPL!)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * Ccanlint:
+ *	license_depends_compat FAIL
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/ilog\n"
+		       "ccan/likely\n"
+		       "ccan/short_types\n"
+		       "ccan/str\n"
+		       "ccan/typesafe_cb\n");
+		return 0;
+	}
+
+	return 1;
+}

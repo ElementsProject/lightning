@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "transactions"
+  ],
+  "properties": {
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hash",
+          "rawtx",
+          "blockheight",
+          "txindex",
+          "locktime",
+          "version",
+          "inputs",
+          "outputs"
+        ],
+        "properties": {
+          "hash": {
+            "type": "txid",
+            "description": "the transaction id"
+          },
+          "rawtx": {
+            "type": "hex",
+            "description": "the raw transaction"
+          },
+          "blockheight": {
+            "type": "u32",
+            "description": "the block height of this tx"
+          },
+          "txindex": {
+            "type": "u32",
+            "description": "the transaction number within the block"
+          },
+          "type": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "theirs",
+                "deposit",
+                "withdraw",
+                "channel_funding",
+                "channel_mutual_close",
+                "channel_unilateral_close",
+                "channel_sweep",
+                "channel_htlc_success",
+                "channel_htlc_timeout",
+                "channel_penalty",
+                "channel_unilateral_cheat"
+              ],
+              "description": "Reason we care about this transaction (*EXPERIMENTAL_FEATURES* only)"
+            }
+          },
+          "channel": {
+            "type": "short_channel_id",
+            "description": "the channel this transaction is associated with (*EXPERIMENTAL_FEATURES* only)"
+          },
+          "locktime": {
+            "type": "u32",
+            "description": "The nLocktime for this tx"
+          },
+          "version": {
+            "type": "u32",
+            "description": "The nVersion for this tx"
+          },
+          "inputs": {
+            "type": "array",
+            "description": "Each input, in order",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "txid",
+                "index",
+                "sequence"
+              ],
+              "properties": {
+                "txid": {
+                  "type": "txid",
+                  "description": "the transaction id spent"
+                },
+                "index": {
+                  "type": "u32",
+                  "description": "the output spent"
+                },
+                "sequence": {
+                  "type": "u32",
+                  "description": "the nSequence value"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "theirs",
+                    "deposit",
+                    "withdraw",
+                    "channel_funding",
+                    "channel_mutual_close",
+                    "channel_unilateral_close",
+                    "channel_sweep",
+                    "channel_htlc_success",
+                    "channel_htlc_timeout",
+                    "channel_penalty",
+                    "channel_unilateral_cheat"
+                  ],
+                  "description": "the purpose of this input (*EXPERIMENTAL_FEATURES* only)"
+                },
+                "channel": {
+                  "type": "short_channel_id",
+                  "description": "the channel this input is associated with (*EXPERIMENTAL_FEATURES* only)"
+                }
+              }
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "description": "Each output, in order",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "index",
+                "msat",
+                "scriptPubKey"
+              ],
+              "properties": {
+                "index": {
+                  "type": "u32",
+                  "description": "the 0-based output number"
+                },
+                "satoshis": {
+                  "deprecated": true
+                },
+                "msat": {
+                  "type": "msat",
+                  "description": "the amount of the output"
+                },
+                "scriptPubKey": {
+                  "type": "hex",
+                  "description": "the scriptPubKey"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "theirs",
+                    "deposit",
+                    "withdraw",
+                    "channel_funding",
+                    "channel_mutual_close",
+                    "channel_unilateral_close",
+                    "channel_sweep",
+                    "channel_htlc_success",
+                    "channel_htlc_timeout",
+                    "channel_penalty",
+                    "channel_unilateral_cheat"
+                  ],
+                  "description": "the purpose of this output (*EXPERIMENTAL_FEATURES* only)"
+                },
+                "channel": {
+                  "type": "short_channel_id",
+                  "description": "the channel this output is associated with (*EXPERIMENTAL_FEATURES* only)"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

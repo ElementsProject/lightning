@@ -1,35 +1,27 @@
-#include <bitcoin/pubkey.h>
 #include <ccan/err/err.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
-#include <common/features.h>
+#include <common/configdir.h>
+#include <common/json_command.h>
+#include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
-#include <common/pseudorand.h>
+#include <common/param.h>
 #include <common/timeout.h>
-#include <common/wireaddr.h>
-#include <connectd/gen_connect_wire.h>
-#include <errno.h>
+#include <common/type_to_string.h>
+#include <connectd/connectd_wiregen.h>
 #include <hsmd/capabilities.h>
-#include <hsmd/gen_hsm_wire.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/opening_control.h>
-#include <lightningd/param.h>
+#include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
-#include <lightningd/subd.h>
-#include <wire/gen_peer_wire.h>
-#include <wire/wire_sync.h>
 
 struct connect {
 	struct list_node list;
-	struct pubkey id;
+	struct node_id id;
 	struct command *cmd;
 };
 
@@ -39,7 +31,7 @@ static void destroy_connect(struct connect *c)
 }
 
 static struct connect *new_connect(struct lightningd *ld,
-				   const struct pubkey *id,
+				   const struct node_id *id,
 				   struct command *cmd)
 {
 	struct connect *c = tal(cmd, struct connect);
@@ -52,32 +44,38 @@ static struct connect *new_connect(struct lightningd *ld,
 
 /* Finds first command which matches. */
 static struct connect *find_connect(struct lightningd *ld,
-				    const struct pubkey *id)
+				    const struct node_id *id)
 {
 	struct connect *i;
 
 	list_for_each(&ld->connects, i, list) {
-		if (pubkey_eq(&i->id, id))
+		if (node_id_eq(&i->id, id))
 			return i;
 	}
 	return NULL;
 }
 
-static void connect_cmd_succeed(struct command *cmd, const struct pubkey *id)
+static struct command_result *connect_cmd_succeed(struct command *cmd,
+						  const struct peer *peer,
+						  bool incoming,
+						  const struct wireaddr_internal *addr)
 {
-	struct json_result *response = new_json_result(cmd);
-	json_object_start(response, NULL);
-	json_add_pubkey(response, "id", id);
-	json_object_end(response);
-	command_success(cmd, response);
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_node_id(response, "id", &peer->id);
+	json_add_hex_talarr(response, "features", peer->their_features);
+	json_add_string(response, "direction", incoming ? "in" : "out");
+	json_add_address_internal(response, "address", addr);
+	return command_success(cmd, response);
 }
 
-static void json_connect(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+static struct command_result *json_connect(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
 {
 	u32 *port;
 	jsmntok_t *idtok;
-	struct pubkey id;
+	struct node_id id;
 	char *id_str;
 	char *atptr;
 	char *ataddr = NULL;
@@ -88,15 +86,14 @@ static void json_connect(struct command *cmd,
 	struct peer *peer;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_tok, (const jsmntok_t **) &idtok),
-		   p_opt("host", json_tok_string, &name),
-		   p_opt("port", json_tok_number, &port),
+		   p_req("id", param_tok, (const jsmntok_t **) &idtok),
+		   p_opt("host", param_string, &name),
+		   p_opt("port", param_number, &port),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	/* Check for id@addrport form */
-	id_str = tal_strndup(cmd, buffer + idtok->start,
-			     idtok->end - idtok->start);
+	id_str = json_strdup(cmd, buffer, idtok);
 	atptr = strchr(id_str, '@');
 	if (atptr) {
 		int atidx = atptr - id_str;
@@ -105,19 +102,17 @@ static void json_connect(struct command *cmd,
 		idtok->end = idtok->start + atidx;
 	}
 
-	if (!json_to_pubkey(buffer, idtok, &id)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "id %.*s not valid",
-			     idtok->end - idtok->start,
-			     buffer + idtok->start);
-		return;
+	if (!json_to_node_id(buffer, idtok, &id)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "id %.*s not valid",
+				    json_tok_full_len(idtok),
+				    json_tok_full(buffer, idtok));
 	}
 
 	if (name && ataddr) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Can't specify host as both xxx@yyy "
-			     "and separate argument");
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can't specify host as both xxx@yyy "
+				    "and separate argument");
 	}
 
 	/* Get parseable host if provided somehow */
@@ -126,9 +121,8 @@ static void json_connect(struct command *cmd,
 
 	/* Port without host name? */
 	if (port && !name) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Can't specify port without host");
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can't specify port without host");
 	}
 
 	/* If we know about peer, see if it's already connected. */
@@ -136,10 +130,16 @@ static void json_connect(struct command *cmd,
 	if (peer) {
 		struct channel *channel = peer_active_channel(peer);
 
+		if (!channel)
+			channel = peer_unsaved_channel(peer);
+
 		if (peer->uncommitted_channel
 		    || (channel && channel->connected)) {
-			connect_cmd_succeed(cmd, &id);
-			return;
+			log_debug(cmd->ld->log, "Already connected via %s",
+				  type_to_string(tmpctx, struct wireaddr_internal, &peer->addr));
+			return connect_cmd_succeed(cmd, peer,
+						   peer->connected_incoming,
+						   &peer->addr);
 		}
 	}
 
@@ -152,27 +152,29 @@ static void json_connect(struct command *cmd,
 		}
 		addr = tal(cmd, struct wireaddr_internal);
 		if (!parse_wireaddr_internal(name, addr, *port, false,
-					     !cmd->ld->use_proxy_always
+					     !cmd->ld->always_use_proxy
 					     && !cmd->ld->pure_tor_setup,
-					     true,
+					     true, deprecated_apis,
 					     &err_msg)) {
-			command_fail(cmd, LIGHTNINGD, "Host %s:%u not valid: %s",
-				     name, *port, err_msg ? err_msg : "port is 0");
-			return;
+			return command_fail(cmd, LIGHTNINGD,
+					    "Host %s:%u not valid: %s",
+					    name, *port,
+					    err_msg ? err_msg : "port is 0");
 		}
 	} else
 		addr = NULL;
 
-	msg = towire_connectctl_connect_to_peer(NULL, &id, 0, addr);
+	msg = towire_connectd_connect_to_peer(NULL, &id, 0, addr);
 	subd_send_msg(cmd->ld->connectd, take(msg));
 
 	/* Leave this here for peer_connected or connect_failed. */
 	new_connect(cmd->ld, &id, cmd);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command connect_command = {
 	"connect",
+	"network",
 	json_connect,
 	"Connect to {id} at {host} (which can end in ':port' if not default). "
 	"{id} can also be of the form id@host"
@@ -191,7 +193,7 @@ static void maybe_reconnect(struct delayed_reconnect *d)
 
 	/* Might have gone onchain since we started timer. */
 	if (channel_active(d->channel)) {
-		u8 *msg = towire_connectctl_connect_to_peer(NULL, &peer->id,
+		u8 *msg = towire_connectd_connect_to_peer(NULL, &peer->id,
 							    d->seconds_delayed,
 							    d->addrhint);
 		subd_send_msg(peer->ld->connectd, take(msg));
@@ -221,7 +223,7 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 
 	/* We fuzz the timer by up to 1 second, to avoid getting into
 	 * simultanous-reconnect deadlocks with peer. */
-	notleak(new_reltimer(&ld->timers, d,
+	notleak(new_reltimer(ld->timers, d,
 			     timerel_add(time_from_sec(seconds_delay),
 					 time_from_usec(pseudorand(1000000))),
 			     maybe_reconnect, d));
@@ -229,22 +231,23 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 
 static void connect_failed(struct lightningd *ld, const u8 *msg)
 {
-	struct pubkey id;
-	char *err;
+	struct node_id id;
+	errcode_t errcode;
+	char *errmsg;
 	struct connect *c;
 	u32 seconds_to_delay;
 	struct wireaddr_internal *addrhint;
 	struct channel *channel;
 
-	if (!fromwire_connectctl_connect_failed(tmpctx, msg, &id, &err,
+	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg,
 						&seconds_to_delay, &addrhint))
-		fatal("Connect gave bad CONNECTCTL_CONNECT_FAILED message %s",
+		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
 	/* We can have multiple connect commands: fail them all */
 	while ((c = find_connect(ld, &id)) != NULL) {
 		/* They delete themselves from list */
-		command_fail(c->cmd, LIGHTNINGD, "%s", err);
+		was_pending(command_fail(c->cmd, errcode, "%s", errmsg));
 	}
 
 	/* If we have an active channel, then reconnect. */
@@ -253,59 +256,70 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 		delay_then_reconnect(channel, seconds_to_delay, addrhint);
 }
 
-void connect_succeeded(struct lightningd *ld, const struct pubkey *id)
+void connect_succeeded(struct lightningd *ld, const struct peer *peer,
+		       bool incoming,
+		       const struct wireaddr_internal *addr)
 {
 	struct connect *c;
 
 	/* We can have multiple connect commands: fail them all */
-	while ((c = find_connect(ld, id)) != NULL) {
+	while ((c = find_connect(ld, &peer->id)) != NULL) {
 		/* They delete themselves from list */
-		connect_cmd_succeed(c->cmd, id);
+		connect_cmd_succeed(c->cmd, peer, incoming, addr);
 	}
 }
 
 static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 {
-	struct pubkey id;
+	struct node_id id;
 	struct channel *c;
 	struct uncommitted_channel *uc;
 
-	if (!fromwire_connect_reconnected(msg, &id))
+	if (!fromwire_connectd_reconnected(msg, &id))
 		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
 
 	c = active_channel_by_id(ld, &id, &uc);
 	if (uc)
 		kill_uncommitted_channel(uc, "Reconnected");
-	else if (c)
-		channel_fail_transient(c, "Reconnected");
+	else if (c) {
+		channel_cleanup_commands(c, "Reconnected");
+		channel_fail_reconnect(c, "Reconnected");
+	}
+	else if ((c = unsaved_channel_by_id(ld, &id))) {
+		log_info(c->log, "Killing opening daemon: Reconnected");
+		channel_unsaved_close_conn(c, "Reconnected");
+	}
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
 {
-	enum connect_wire_type t = fromwire_peektype(msg);
+	enum connectd_wire t = fromwire_peektype(msg);
 
 	switch (t) {
 	/* These are messages we send, not them. */
-	case WIRE_CONNECTCTL_INIT:
-	case WIRE_CONNECTCTL_ACTIVATE:
-	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
-	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
+	case WIRE_CONNECTD_INIT:
+	case WIRE_CONNECTD_ACTIVATE:
+	case WIRE_CONNECTD_CONNECT_TO_PEER:
+	case WIRE_CONNECTD_PEER_DISCONNECTED:
+	case WIRE_CONNECTD_DEV_MEMLEAK:
+	case WIRE_CONNECTD_PEER_FINAL_MSG:
 	/* This is a reply, so never gets through to here. */
-	case WIRE_CONNECTCTL_INIT_REPLY:
-	case WIRE_CONNECTCTL_ACTIVATE_REPLY:
+	case WIRE_CONNECTD_INIT_REPLY:
+	case WIRE_CONNECTD_ACTIVATE_REPLY:
+	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 		break;
 
-	case WIRE_CONNECT_RECONNECTED:
+	case WIRE_CONNECTD_RECONNECTED:
 		peer_please_disconnect(connectd->ld, msg);
 		break;
 
-	case WIRE_CONNECT_PEER_CONNECTED:
-		if (tal_count(fds) != 2)
-			return 2;
-		peer_connected(connectd->ld, msg, fds[0], fds[1]);
+	case WIRE_CONNECTD_PEER_CONNECTED:
+		if (tal_count(fds) != 3)
+			return 3;
+		peer_connected(connectd->ld, msg, fds[0], fds[1], fds[2]);
 		break;
 
-	case WIRE_CONNECTCTL_CONNECT_FAILED:
+	case WIRE_CONNECTD_CONNECT_FAILED:
 		connect_failed(connectd->ld, msg);
 		break;
 	}
@@ -319,10 +333,10 @@ static void connect_init_done(struct subd *connectd,
 {
 	struct lightningd *ld = connectd->ld;
 
-	if (!fromwire_connectctl_init_reply(ld, reply,
+	if (!fromwire_connectd_init_reply(ld, reply,
 					    &ld->binding,
 					    &ld->announcable))
-		fatal("Bad connectctl_activate_reply: %s",
+		fatal("Bad connectd_activate_reply: %s",
 		      tal_hex(reply, reply));
 
 	/* Break out of loop, so we can begin */
@@ -336,11 +350,10 @@ int connectd_init(struct lightningd *ld)
 	int hsmfd;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
-	bool allow_localhost = false;
-#if DEVELOPER
-	if (ld->dev_allow_localhost)
-		allow_localhost = true;
-#endif
+	const char *websocket_helper_path;
+
+	websocket_helper_path = subdaemon_path(tmpctx, ld,
+					       "lightning_websocketd");
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		fatal("Could not socketpair for connectd<->gossipd");
@@ -348,7 +361,7 @@ int connectd_init(struct lightningd *ld)
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH);
 
 	ld->connectd = new_global_subd(ld, "lightning_connectd",
-				       connect_wire_type_name, connectd_msg,
+				       connectd_wire_name, connectd_msg,
 				       take(&hsmfd), take(&fds[1]), NULL);
 	if (!ld->connectd)
 		err(1, "Could not subdaemon connectd");
@@ -362,14 +375,19 @@ int connectd_init(struct lightningd *ld)
 		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
 	}
 
-	msg = towire_connectctl_init(
-	    tmpctx, &ld->id,
-	    get_offered_globalfeatures(tmpctx),
-	    get_offered_localfeatures(tmpctx), wireaddrs,
+	msg = towire_connectd_init(
+	    tmpctx, chainparams,
+	    ld->our_features,
+	    &ld->id,
+	    wireaddrs,
 	    listen_announce,
-	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
-	    allow_localhost, ld->config.use_dns,
-	    ld->tor_service_password ? ld->tor_service_password : "");
+	    ld->proxyaddr, ld->always_use_proxy || ld->pure_tor_setup,
+	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
+	    ld->tor_service_password ? ld->tor_service_password : "",
+	    ld->config.use_v3_autotor,
+	    ld->config.connection_timeout_secs,
+	    websocket_helper_path,
+	    ld->websocket_port);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
@@ -391,7 +409,7 @@ static void connect_activate_done(struct subd *connectd,
 
 void connectd_activate(struct lightningd *ld)
 {
-	const u8 *msg = towire_connectctl_activate(NULL, ld->listen);
+	const u8 *msg = towire_connectd_activate(NULL, ld->listen);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_activate_done, NULL);

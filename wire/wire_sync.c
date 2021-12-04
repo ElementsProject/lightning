@@ -1,5 +1,5 @@
+#include "config.h"
 #include <assert.h>
-#include <ccan/endian/endian.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <errno.h>
 #include <wire/wire_io.h>

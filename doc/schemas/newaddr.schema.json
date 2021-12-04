@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "bech32": {
+      "type": "string",
+      "description": "The bech32 (native segwit) address"
+    },
+    "p2sh-segwit": {
+      "type": "string",
+      "description": "The p2sh-wrapped address"
+    }
+  }
+}

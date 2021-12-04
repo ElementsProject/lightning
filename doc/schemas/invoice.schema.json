@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payment_hash",
+    "expires_at",
+    "bolt11",
+    "payment_secret"
+  ],
+  "properties": {
+    "bolt11": {
+      "type": "string",
+      "description": "the bolt11 string"
+    },
+    "payment_hash": {
+      "type": "hex",
+      "description": "the hash of the *payment_preimage* which will prove payment",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "payment_secret": {
+      "type": "hex",
+      "description": "the *payment_secret* to place in the onion",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "expires_at": {
+      "type": "u64",
+      "description": "UNIX timestamp of when invoice expires"
+    },
+    "warning_capacity": {
+      "type": "string",
+      "description": "even using all possible channels, there's not enough incoming capacity to pay this invoice."
+    },
+    "warning_offline": {
+      "type": "string",
+      "description": "there would be enough incoming capacity, but some channels are offline, so there isn't."
+    },
+    "warning_deadends": {
+      "type": "string",
+      "description": "there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't."
+    },
+    "warning_private_unused": {
+      "type": "string",
+      "description": "there would be enough incoming capacity, but some channels are unannounced and *exposeprivatechannels* is *false*, so there isn't."
+    },
+    "warning_mpp": {
+      "type": "string",
+      "description": "there is sufficient capacity, but not in a single channel, so the payer will have to use multi-part payments."
+    }
+  }
+}

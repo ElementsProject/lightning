@@ -2,11 +2,9 @@
 #include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/err/err.h>
 #include <ccan/isaac/isaac64.h>
 #include <ccan/likely/likely.h>
 #include <sodium/randombytes.h>
-#include <stdbool.h>
 #include <string.h>
 
 static struct isaac64_ctx isaac64;
@@ -35,6 +33,20 @@ uint64_t pseudorand(uint64_t max)
 
 	assert(max);
 	return isaac64_next_uint(&isaac64, max);
+}
+
+uint64_t pseudorand_u64(void)
+{
+	init_if_needed();
+
+	return isaac64_next_uint64(&isaac64);
+}
+
+double pseudorand_double(void)
+{
+	init_if_needed();
+
+	return isaac64_next_double(&isaac64);
 }
 
 const struct siphash_seed *siphash_seed(void)

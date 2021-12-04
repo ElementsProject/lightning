@@ -1,17 +1,9 @@
+#include "config.h"
 #include <assert.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/take/take.h>
 #include <common/cryptomsg.h>
-#include <common/dev_disconnect.h>
-#include <common/status.h>
-#include <common/utils.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <wire/peer_wire.h>
-#include <wire/wire.h>
 #include <wire/wire_io.h>
 
 static void hkdf_two_keys(struct secret *out1, struct secret *out2,
@@ -63,7 +55,7 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 	 */
 	hkdf_two_keys(&new_ck, &new_k, ck, k);
 #ifdef SUPERVERBOSE
-	status_trace("# 0x%s, 0x%s = HKDF(0x%s, 0x%s)",
+	status_debug("# 0x%s, 0x%s = HKDF(0x%s, 0x%s)",
 		     tal_hexstr(trc, &new_ck, sizeof(new_ck)),
 		     tal_hexstr(trc, &new_k, sizeof(new_k)),
 		     tal_hexstr(trc, ck, sizeof(*ck)),
@@ -204,7 +196,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	assert(ret == 0);
 	assert(clen == sizeof(l) + 16);
 #ifdef SUPERVERBOSE
-	status_trace("# encrypt l: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
+	status_debug("# encrypt l: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
 		     tal_hexstr(trc, &l, sizeof(l)),
 		     tal_hexstr(trc, npub, sizeof(npub)),
 		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),
@@ -229,7 +221,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	assert(ret == 0);
 	assert(clen == mlen + 16);
 #ifdef SUPERVERBOSE
-	status_trace("# encrypt m: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
+	status_debug("# encrypt m: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
 		     tal_hexstr(trc, msg, mlen),
 		     tal_hexstr(trc, npub, sizeof(npub)),
 		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),

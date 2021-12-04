@@ -1,10 +1,8 @@
 #ifndef LIGHTNING_COMMON_WIRE_ERROR_H
 #define LIGHTNING_COMMON_WIRE_ERROR_H
 #include "config.h"
-#include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <stdarg.h>
 
 struct channel_id;
 
@@ -12,25 +10,49 @@ struct channel_id;
  * towire_errorfmt - helper to turn string into WIRE_ERROR.
  *
  * @ctx: context to allocate from
- * @channel: specific channel to complain about, or NULL for all.
+ * @channel: specific channel to complain about
  * @fmt: format for error.
  */
 u8 *towire_errorfmt(const tal_t *ctx,
 		    const struct channel_id *channel,
-		    const char *fmt, ...) PRINTF_FMT(3,4);
+		    const char *fmt, ...) PRINTF_FMT(3,4) NON_NULL_ARGS(2);
 
 /**
  * towire_errorfmtv - helper to turn string into WIRE_ERROR.
  *
  * @ctx: context to allocate from
- * @channel: specific channel to complain about, or NULL for all.
+ * @channel: specific channel to complain about
  * @fmt: format for error.
  * @ap: accumulated varargs.
  */
 u8 *towire_errorfmtv(const tal_t *ctx,
 		     const struct channel_id *channel,
 		     const char *fmt,
-		     va_list ap);
+		     va_list ap) NON_NULL_ARGS(2);
+
+/**
+ * towire_warningfmt - helper to turn string into WIRE_WARNING.
+ *
+ * @ctx: context to allocate from
+ * @channel: specific channel to complain about, or NULL for all.
+ * @fmt: format for warning.
+ */
+u8 *towire_warningfmt(const tal_t *ctx,
+		      const struct channel_id *channel,
+		      const char *fmt, ...) PRINTF_FMT(3,4);
+
+/**
+ * towire_warningfmtv - helper to turn string into WIRE_WARNING.
+ *
+ * @ctx: context to allocate from
+ * @channel: specific channel to complain about, or NULL for all.
+ * @fmt: format for warning.
+ * @ap: accumulated varargs.
+ */
+u8 *towire_warningfmtv(const tal_t *ctx,
+		       const struct channel_id *channel,
+		       const char *fmt,
+		       va_list ap);
 
 /* BOLT #1:
  *
@@ -43,10 +65,10 @@ u8 *towire_errorfmtv(const tal_t *ctx,
 bool channel_id_is_all(const struct channel_id *channel_id);
 
 /**
- * sanitize_error - extract and sanitize contents of WIRE_ERROR.
+ * sanitize_error - extract and sanitize contents of WIRE_ERROR/WIRE_WARNING.
  *
  * @ctx: context to allocate from
- * @errmsg: the wire_error
+ * @errmsg: the wire_error or wire_warning
  * @channel: (out) channel it's referring to, or NULL if don't care.
  */
 char *sanitize_error(const tal_t *ctx, const u8 *errmsg,

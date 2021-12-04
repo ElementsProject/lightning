@@ -2,16 +2,8 @@
 #define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
 #include <bitcoin/block.h>
-#include <bitcoin/tx.h>
 #include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/structeq/structeq.h>
-#include <ccan/time/time.h>
-#include <jsmn.h>
-#include <lightningd/json.h>
 #include <lightningd/watch.h>
-#include <math.h>
-#include <stddef.h>
 
 struct bitcoin_tx;
 struct bitcoind;
@@ -22,11 +14,17 @@ struct txwatch;
 
 /* FIXME: move all feerate stuff out to new lightningd/feerate.[ch] files */
 enum feerate {
-	FEERATE_URGENT, /* Aka: aim for next block. */
-	FEERATE_NORMAL, /* Aka: next 4 blocks or so. */
-	FEERATE_SLOW, /* Aka: next 100 blocks or so. */
+	/* DO NOT REORDER: force-feerates uses this order! */
+	FEERATE_OPENING,
+	FEERATE_MUTUAL_CLOSE,
+	FEERATE_UNILATERAL_CLOSE,
+	FEERATE_DELAYED_TO_US,
+	FEERATE_HTLC_RESOLUTION,
+	FEERATE_PENALTY,
+	FEERATE_MIN,
+	FEERATE_MAX,
 };
-#define NUM_FEERATES (FEERATE_SLOW+1)
+#define NUM_FEERATES (FEERATE_MAX+1)
 
 /* We keep the last three in case there are outliers (for min/max) */
 #define FEE_HISTORY_NUM 3
@@ -37,7 +35,7 @@ struct outgoing_tx {
 	struct channel *channel;
 	const char *hextx;
 	struct bitcoin_txid txid;
-	void (*failed)(struct channel *channel, int exitstatus, const char *err);
+	void (*failed_or_success)(struct channel *channel, bool success, const char *err);
 };
 
 struct block {
@@ -55,11 +53,9 @@ struct block {
 	/* Key for hash table */
 	struct bitcoin_blkid blkid;
 
-	/* And their associated index in the block */
-	u32 *txnums;
-
-	/* Full copy of txs (trimmed to txs list in connect_block) */
+	/* Full copy of txs (freed in filter_block_txs) */
 	struct bitcoin_tx **full_txs;
+	struct bitcoin_txid *txids;
 };
 
 /* Hash blocks by sha */
@@ -85,7 +81,8 @@ HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map)
 struct chain_topology {
 	struct lightningd *ld;
 	struct block *root;
-	struct block *prev_tip, *tip;
+	struct block *tip;
+	struct bitcoin_blkid prev_tip;
 	struct block_map block_map;
 	u32 feerate[NUM_FEERATES];
 	bool feerate_uninitialized;
@@ -100,11 +97,16 @@ struct chain_topology {
 	/* How often to poll. */
 	u32 poll_seconds;
 
+	/* struct sync_waiters waiting for us to catch up with bitcoind (and
+	 * once that has caught up with the network).  NULL if we're already
+	 * caught up. */
+	struct list_head *sync_waiters;
+
 	/* The bitcoind. */
 	struct bitcoind *bitcoind;
 
-	/* Our timer list. */
-	struct timers *timers;
+	/* Timers we're running. */
+	struct oneshot *extend_timer, *updatefee_timer;
 
 	/* Bitcoin transactions we're broadcasting */
 	struct list_head outgoing_txs;
@@ -112,6 +114,13 @@ struct chain_topology {
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
+
+	/* The number of headers known to the bitcoin backend at startup. Not
+	 * updated after the initial check. */
+	u32 headercount;
+
+	/* Are we stopped? */
+	bool stopping;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -132,6 +141,13 @@ size_t get_tx_depth(const struct chain_topology *topo,
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);
 
+/* Get the highest block number in the network that we are aware of. Unlike
+ * `get_block_height` this takes into consideration the block header counter
+ * in the bitcoin backend as well. If an absolute time is required, rather
+ * than our current scan position this is preferable since it is far less
+ * likely to lag behind the rest of the network.*/
+u32 get_network_blockheight(const struct chain_topology *topo);
+
 /* Get fee rate in satoshi per kiloweight, or 0 if unavailable! */
 u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
 
@@ -140,35 +156,74 @@ u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
 u32 feerate_min(struct lightningd *ld, bool *unknown);
 u32 feerate_max(struct lightningd *ld, bool *unknown);
 
-u32 mutual_close_feerate(struct chain_topology *topo);
 u32 opening_feerate(struct chain_topology *topo);
+u32 mutual_close_feerate(struct chain_topology *topo);
 u32 unilateral_feerate(struct chain_topology *topo);
-
-/* We always use feerate-per-ksipa, ie. perkw */
-u32 feerate_from_style(u32 feerate, enum feerate_style style);
-u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style);
+/* For onchain resolution. */
+u32 delayed_to_us_feerate(struct chain_topology *topo);
+u32 htlc_resolution_feerate(struct chain_topology *topo);
+u32 penalty_feerate(struct chain_topology *topo);
 
 const char *feerate_name(enum feerate feerate);
 
-/* Set feerate_per_kw to this estimate, or fail cmd */
-bool json_feerate_estimate(struct command *cmd,
-			   u32 **feerate_per_kw, enum feerate feerate);
+/* Set feerate_per_kw to this estimate & return NULL, or fail cmd */
+struct command_result *param_feerate_estimate(struct command *cmd,
+					      u32 **feerate_per_kw,
+					      enum feerate feerate);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
 void broadcast_tx(struct chain_topology *topo,
 		  struct channel *channel, const struct bitcoin_tx *tx,
 		  void (*failed)(struct channel *channel,
-				 int exitstatus,
+				 bool success,
 				 const char *err));
+/* Like the above, but with an additional `allowhighfees` parameter.
+ * If true, suppress any high-fee checks in the backend.  */
+void broadcast_tx_ahf(struct chain_topology *topo,
+		      struct channel *channel, const struct bitcoin_tx *tx,
+		      bool allowhighfees,
+		      void (*failed)(struct channel *channel,
+				     bool success,
+				     const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
-void setup_topology(struct chain_topology *topology, struct timers *timers,
+void setup_topology(struct chain_topology *topology,
 		    u32 min_blockheight, u32 max_blockheight);
 
 void begin_topology(struct chain_topology *topo);
 
+void stop_topology(struct chain_topology *topo);
+
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
+
+static inline bool topology_synced(const struct chain_topology *topo)
+{
+	return topo->sync_waiters == NULL;
+}
+
+/**
+ * topology_add_sync_waiter: wait for lightningd to sync with bitcoin network
+ * @ctx: context to allocate the waiter from.
+ * @topo: chain topology
+ * @cb: callback to call when we're synced.
+ * @arg: arg for @cb
+ *
+ * topology_synced() must be false when this is called.  It will be true
+ * when @cb is called.  @cb will not be called if @ctx is freed first.
+ */
+void topology_add_sync_waiter_(const tal_t *ctx,
+			       struct chain_topology *topo,
+			       void (*cb)(struct chain_topology *topo,
+					  void *arg),
+			       void *arg);
+#define topology_add_sync_waiter(ctx, topo, cb, arg)			\
+	topology_add_sync_waiter_((ctx), (topo),			\
+				  typesafe_cb_preargs(void, void *,	\
+						      (cb), (arg),	\
+						      struct chain_topology *), \
+				  (arg))
+
 
 /* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);

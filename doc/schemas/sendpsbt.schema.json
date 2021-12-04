@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tx",
+    "txid"
+  ],
+  "properties": {
+    "tx": {
+      "type": "hex",
+      "description": "The raw transaction which was sent"
+    },
+    "txid": {
+      "type": "txid",
+      "description": "The txid of the **tx**"
+    }
+  }
+}

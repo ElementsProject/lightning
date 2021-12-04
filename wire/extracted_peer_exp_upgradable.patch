@@ -1,0 +1,18 @@
+--- wire/peer_wire.csv	2021-05-09 15:44:59.166135652 +0930
++++ wire/peer_wire.csv.raw	2021-05-11 09:59:31.695459756 +0930
+@@ -244,6 +140,15 @@
+ msgdata,channel_reestablish,next_revocation_number,u64,
+ msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
+ msgdata,channel_reestablish,my_current_per_commitment_point,point,
++msgdata,channel_reestablish,tlvs,channel_reestablish_tlvs,
++tlvtype,channel_reestablish_tlvs,next_to_send,1
++tlvdata,channel_reestablish_tlvs,next_to_send,commitment_number,tu64,
++tlvtype,channel_reestablish_tlvs,desired_channel_type,3
++tlvdata,channel_reestablish_tlvs,desired_channel_type,type,byte,...
++tlvtype,channel_reestablish_tlvs,current_channel_type,5
++tlvdata,channel_reestablish_tlvs,current_channel_type,type,byte,...
++tlvtype,channel_reestablish_tlvs,upgradable_channel_type,7
++tlvdata,channel_reestablish_tlvs,upgradable_channel_type,type,byte,...
+ msgtype,announcement_signatures,259
+ msgdata,announcement_signatures,channel_id,channel_id,
+ msgdata,announcement_signatures,short_channel_id,short_channel_id,

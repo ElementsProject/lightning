@@ -36,6 +36,22 @@ using early returns or continues, eg:
 }
 ```
 
+## Tabs and indentaion
+
+The C code uses TAB charaters with a visual indentation of 8 whitespaces.
+If you submit code for a review, make sure your editor knows this.
+
+When breaking a line with more than 80 characters, align parameters and
+arguments like so:
+
+```C
+static void subtract_received_htlcs(const struct channel *channel,
+				    struct amount_msat *amount)
+```
+
+Note: For more details, the files `.clang-format` and `.editorconfig` are
+located in the projects root directory.
+
 ## Prefer Simple Statements
 
 Notice the statement above uses separate tests, rather than combining
@@ -160,3 +176,77 @@ Try to make a single change at a time.  It's tempting to do "drive-by"
 fixes as you see other things, and a minimal amount is unavoidable, but
 you can end up shaving infinite yaks.  This is a good time to drop a 
 `/* FIXME: ...*/` comment and move on.
+
+## Creating JSON APIs
+
+Our JSON RPCs always return a top-level object.  This allows us to add
+warnings (e.g. that we're still starting up) or other optional fields
+later.
+
+Prefer to use JSON names which are already in use, or otherwise names
+from the BOLT specifications.
+
+The same command should always return the same JSON format: this is
+why e.g. `listchannels` return an array even if given an argument so
+there's only zero or one entries.
+
+All `warning` fields should have unique names which start with
+`warning_`, the value of which should be an explanation.  This allows
+for programs to deal with them sanely, and also perform translations.
+
+### Documenting JSON APIs
+
+We use JSON schemas to validate that JSON-RPC returns are in the
+correct form, and also to generate documentation.  See
+[doc/schemas/WRITING_SCHEMAS.md](WRITING_SCHEMAS.md).
+
+## Changing JSON APIs
+
+All JSON API changes need a Changelog line (see below).
+
+You can always add a new output JSON field (Changelog-Added), but you
+cannot remove one without going through a 6-month deprecation cycle
+(Changelog-Deprecated)
+
+So, only output it if `allow-deprecated-apis` is true, so users can test
+their code is futureproof.  In 6 months remove it (Changelog-Removed).
+
+Changing existing input parameters is harder, and should generally be
+avoided.  Adding input parameters is possible, but should be done
+cautiously as too many parameters get unwieldy quickly.
+
+## Github Workflows
+
+We have adopted a number of workflows to facilitate the development of
+c-lightning, and to make things more pleasant for contributors.
+
+### Changelog Entries in Commit Messages
+
+We are maintaining a changelog in the top-level directory of this
+project. However since every pull request has a tendency to touch the file and
+therefore create merge-conflicts we decided to derive the changelog file from
+the pull requests that were added between releases. In order for a pull
+request to show up in the changelog at least one of its commits will have to
+have a line with one of the following prefixes:
+
+ - `Changelog-Added: ` if the pull request adds a new feature
+ - `Changelog-Changed: ` if a feature has been modified and might require
+   changes on the user side
+ - `Changelog-Deprecated: ` if a feature has been marked for deprecation, but
+   not yet removed
+ - `Changelog-Fixed: ` if a bug has been fixed
+ - `Changelog-Removed: ` if a (previously deprecated) feature has been removed
+ - `Changelog-Experimental: ` if it only affects --enable-experimental-features builds, or experimental- config options.
+ 
+In case you think the pull request is small enough not to require a changelog
+entry please use `Changelog-None` in one of the commit messages to opt out.
+ 
+Under some circumstances a feature may be removed even without deprecation
+warning if it was not part of a released version yet, or the removal is
+urgent.
+
+In order to ensure that each pull request has the required `Changelog-*:` line
+for the changelog our trusty @bitcoin-bot will check logs whenever a pull
+request is created or updated and search for the required line. If there is no
+such line it'll mark the pull request as `pending` to call out the need for an
+entry.

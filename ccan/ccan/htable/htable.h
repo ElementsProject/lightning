@@ -24,11 +24,10 @@
 struct htable {
 	size_t (*rehash)(const void *elem, void *priv);
 	void *priv;
-	unsigned int bits;
-	size_t elems, deleted, max, max_with_deleted;
+	unsigned int bits, perfect_bitnum;
+	size_t elems, deleted;
 	/* These are the bits which are the same in all pointers. */
 	uintptr_t common_mask, common_bits;
-	uintptr_t perfect_bit;
 	uintptr_t *table;
 };
 
@@ -50,7 +49,7 @@ struct htable {
  *	static struct htable ht = HTABLE_INITIALIZER(ht, rehash, NULL);
  */
 #define HTABLE_INITIALIZER(name, rehash, priv)				\
-	{ rehash, priv, 0, 0, 0, 0, 0, -1, 0, 0, &name.perfect_bit }
+	{ rehash, priv, 0, 0, 0, 0, -1, 0, &name.common_bits }
 
 /**
  * htable_init - initialize an empty hash table.
@@ -75,6 +74,15 @@ void htable_init(struct htable *ht,
 bool htable_init_sized(struct htable *ht,
 		       size_t (*rehash)(const void *elem, void *priv),
 		       void *priv, size_t size);
+
+/**
+ * htable_count - count number of entries in a hash table.
+ * @ht: the hash table
+ */
+static inline size_t htable_count(const struct htable *ht)
+{
+	return ht->elems;
+}
 
 /**
  * htable_clear - empty a hash table.
@@ -259,4 +267,24 @@ void *htable_prev_(const struct htable *htable, struct htable_iter *i);
 	htable_delval_(htable_debug(htable, HTABLE_LOC), i)
 void htable_delval_(struct htable *ht, struct htable_iter *i);
 
+/**
+ * htable_pick - set iterator to a random valid entry.
+ * @ht: the htable
+ * @seed: a random number to use.
+ * @i: the htable_iter which is output (or NULL).
+ *
+ * Usually used with htable_delval to delete a random entry.  Returns
+ * NULL iff the table is empty, otherwise a random entry.
+ */
+#define htable_pick(htable, seed, i)					\
+	htable_pick_(htable_debug(htable, HTABLE_LOC), seed, i)
+void *htable_pick_(const struct htable *ht, size_t seed, struct htable_iter *i);
+
+/**
+ * htable_set_allocator - set calloc/free functions.
+ * @alloc: allocator to use, must zero memory!
+ * @free: unallocator to use (@p is NULL or a return from @alloc)
+ */
+void htable_set_allocator(void *(*alloc)(struct htable *, size_t len),
+			  void (*free)(struct htable *, void *p));
 #endif /* CCAN_HTABLE_H */

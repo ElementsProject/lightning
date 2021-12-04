@@ -302,7 +302,7 @@ fail_take_to:
 
  char *path_readlink(const tal_t *ctx, const char *linkname)
  {
-	ssize_t len, maxlen = 64; /* good first guess. */
+	ssize_t maxlen = 64; /* good first guess. */
 	char *ret = NULL;
 
 	if (unlikely(!linkname) && is_taken(linkname))
@@ -311,18 +311,19 @@ fail_take_to:
 	ret = tal_arr(ctx, char, maxlen + 1);
 
 	while (ret) {
-		len = readlink(linkname, ret, maxlen);
+		ssize_t len = readlink(linkname, ret, maxlen);
+
 		if (len < 0)
 			goto fail;
-		if (len < maxlen)
+
+		if (len < maxlen) {
+			ret[len] = '\0';
 			break;
+		}
 
 		if (!tal_resize(&ret, maxlen *= 2 + 1))
 			goto fail;
 	}
-
-	if (ret)
-		ret[len] = '\0';
 
 out:
 	if (taken(linkname))

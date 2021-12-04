@@ -1,5 +1,16 @@
 #include "varint.h"
 
+size_t varint_size(varint_t v)
+{
+	if (v < 0xfd)
+		return 1;
+	if (v <= 0xffff)
+		return 3;
+	if (v <= 0xffffffff)
+		return 5;
+	return 9;
+}
+
 size_t varint_put(u8 buf[VARINT_MAX_LEN], varint_t v)
 {
 	u8 *p = buf;

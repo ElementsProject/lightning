@@ -1,0 +1,48 @@
+diff --git b/wire/bolt12_wire.csv a/wire/bolt12_wire.csv
+index 726c3c0a1..a53ca3cdf 100644
+--- b/wire/bolt12_wire.csv
++++ a/wire/bolt12_wire.csv
+@@ -18,6 +18,18 @@ tlvtype,offer,quantity_min,22
+ tlvdata,offer,quantity_min,min,tu64,
+ tlvtype,offer,quantity_max,24
+ tlvdata,offer,quantity_max,max,tu64,
++tlvtype,offer,recurrence,26
++tlvdata,offer,recurrence,time_unit,byte,
++tlvdata,offer,recurrence,period,tu32,
++tlvtype,offer,recurrence_paywindow,64
++tlvdata,offer,recurrence_paywindow,seconds_before,u32,
++tlvdata,offer,recurrence_paywindow,proportional_amount,byte,
++tlvdata,offer,recurrence_paywindow,seconds_after,tu32,
++tlvtype,offer,recurrence_limit,66
++tlvdata,offer,recurrence_limit,max_period,tu32,
++tlvtype,offer,recurrence_base,28
++tlvdata,offer,recurrence_base,start_any_period,byte,
++tlvdata,offer,recurrence_base,basetime,tu64,
+ tlvtype,offer,node_id,30
+ tlvdata,offer,node_id,node_id,point32,
+ tlvtype,offer,send_invoice,54
+@@ -40,6 +54,10 @@ tlvtype,invoice_request,features,12
+ tlvdata,invoice_request,features,features,byte,...
+ tlvtype,invoice_request,quantity,32
+ tlvdata,invoice_request,quantity,quantity,tu64,
++tlvtype,invoice_request,recurrence_counter,36
++tlvdata,invoice_request,recurrence_counter,counter,tu32,
++tlvtype,invoice_request,recurrence_start,68
++tlvdata,invoice_request,recurrence_start,period_offset,tu32,
+ tlvtype,invoice_request,payer_key,38
+ tlvdata,invoice_request,payer_key,key,point32,
+ tlvtype,invoice_request,payer_note,39
+@@ -74,6 +94,13 @@ tlvtype,invoice,quantity,32
+ tlvdata,invoice,quantity,quantity,tu64,
+ tlvtype,invoice,refund_for,34
+ tlvdata,invoice,refund_for,refunded_payment_hash,sha256,
++tlvtype,invoice,recurrence_counter,36
++tlvdata,invoice,recurrence_counter,counter,tu32,
++tlvtype,invoice,send_invoice,54
++tlvtype,invoice,recurrence_start,68
++tlvdata,invoice,recurrence_start,period_offset,tu32,
++tlvtype,invoice,recurrence_basetime,64
++tlvdata,invoice,recurrence_basetime,basetime,tu64,
+ tlvtype,invoice,payer_key,38
+ tlvdata,invoice,payer_key,key,point32,
+ tlvtype,invoice,payer_note,39

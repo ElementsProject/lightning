@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "offers"
+  ],
+  "properties": {
+    "offers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "offer_id",
+          "active",
+          "single_use",
+          "bolt12",
+          "bolt12_unsigned",
+          "used"
+        ],
+        "properties": {
+          "offer_id": {
+            "type": "hex",
+            "description": "the id of this offer (merkle hash of non-signature fields)",
+            "maxLength": 64,
+            "minLength": 64
+          },
+          "active": {
+            "type": "boolean",
+            "description": "whether this can still be used"
+          },
+          "single_use": {
+            "type": "boolean",
+            "description": "whether this expires as soon as it's paid"
+          },
+          "bolt12": {
+            "type": "string",
+            "description": "the bolt12 encoding of the offer"
+          },
+          "bolt12_unsigned": {
+            "type": "string",
+            "description": "the bolt12 encoding of the offer, without signature"
+          },
+          "used": {
+            "type": "boolean",
+            "description": "True if an associated invoice has been paid"
+          },
+          "label": {
+            "type": "string",
+            "description": "the (optional) user-specified label"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "offer_id",
+    "active",
+    "single_use",
+    "bolt12",
+    "bolt12_unsigned",
+    "used"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "offer_id": {
+      "type": "hex",
+      "description": "the merkle hash of the offer",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "active": {
+      "type": "boolean",
+      "enum": [
+        false
+      ],
+      "description": "Whether the offer can produce invoices/payments"
+    },
+    "single_use": {
+      "type": "boolean",
+      "description": "Whether the offer is disabled after first successful use"
+    },
+    "bolt12": {
+      "type": "string",
+      "description": "The bolt12 string representing this offer"
+    },
+    "bolt12_unsigned": {
+      "type": "string",
+      "description": "The bolt12 string representing this offer, without signature"
+    },
+    "used": {
+      "type": "boolean",
+      "description": "Whether the offer has had an invoice paid / payment made"
+    },
+    "label": {
+      "type": "string",
+      "description": "The label provided when offer was created"
+    }
+  }
+}

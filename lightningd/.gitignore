@@ -1,8 +1,10 @@
 lightningd
 lightning_channeld
+lightning_closingd
 lightning_connectd
+lightning_dualopend
 lightning_gossipd
 lightning_hsmd
-lightning_openingd
-lightning_closingd
 lightning_onchaind
+lightning_openingd
+lightning_websocketd

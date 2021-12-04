@@ -2,15 +2,23 @@
 #define LIGHTNING_COMMON_BOLT11_H
 #include "config.h"
 
-#include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
 #include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
 #include <common/hash_u5.h>
+#include <common/node_id.h>
 #include <secp256k1_recovery.h>
 
 /* We only have 10 bits for the field length, meaning < 640 bytes */
 #define BOLT11_FIELD_BYTE_LIMIT ((1 << 10) * 5 / 8)
+
+/* BOLT #11:
+ * * `c` (24): `data_length` variable.
+ *    `min_final_cltv_expiry` to use for the last HTLC in the route.
+ *    Default is 18 if not specified.
+ */
+#define DEFAULT_FINAL_CLTV_DELTA 18
+
+struct feature_set;
 
 struct bolt11_field {
 	struct list_node list;
@@ -28,19 +36,20 @@ struct bolt11_field {
  */
 
 struct route_info {
-	struct pubkey pubkey;
+	/* This is 33 bytes, so we pack cltv_expiry_delta next to it */
+	struct node_id pubkey;
+	u16 cltv_expiry_delta;
 	struct short_channel_id short_channel_id;
 	u32 fee_base_msat, fee_proportional_millionths;
-	u16 cltv_expiry_delta;
 };
 
 struct bolt11 {
 	const struct chainparams *chain;
 	u64 timestamp;
-	u64 *msatoshi; /* NULL if not specified. */
+	struct amount_msat *msat; /* NULL if not specified. */
 
 	struct sha256 payment_hash;
-	struct pubkey receiver_id;
+	struct node_id receiver_id;
 
 	/* description_hash valid if and only if description is NULL. */
 	const char *description;
@@ -61,16 +70,40 @@ struct bolt11 {
 	/* signature of sha256 of entire thing. */
 	secp256k1_ecdsa_signature sig;
 
+	/* payment secret, if any. */
+	struct secret *payment_secret;
+
+	/* Features bitmap, if any. */
+	u8 *features;
+
 	struct list_head extra_fields;
 };
 
 /* Decodes and checks signature; returns NULL on error; description is
- * (optional) out-of-band description of payment, for `h` field. */
+ * (optional) out-of-band description of payment, for `h` field.
+ * fset is NULL to accept any features (usually not desirable!).
+ *
+ * if @must_be_chain is not NULL, fails unless it's this chain.
+ */
 struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
-			     const char *description, char **fail);
+			     const struct feature_set *our_features,
+			     const char *description,
+			     const struct chainparams *must_be_chain,
+			     char **fail);
+
+/* Extracts signature but does not check it. */
+struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
+				   const struct feature_set *our_features,
+				   const char *description,
+				   const struct chainparams *must_be_chain,
+				   struct sha256 *hash,
+				   u5 **sig,
+				   bool *have_n,
+				   char **fail);
 
 /* Initialize an empty bolt11 struct with optional amount */
-struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi);
+struct bolt11 *new_bolt11(const tal_t *ctx,
+			  const struct amount_msat *msat TAKES);
 
 /* Encodes and signs, even if it's nonsense. */
 char *bolt11_encode_(const tal_t *ctx,
