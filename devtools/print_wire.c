@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/mem/mem.h>
 #include <ccan/utf8/utf8.h>
 #include <common/decode_array.h>

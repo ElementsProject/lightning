@@ -1,6 +1,4 @@
-#include "hsm_control.h"
-#include "lightningd.h"
-#include "subd.h"
+#include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
 #include <common/ecdh.h>
@@ -10,8 +8,11 @@
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/subd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <wally_bip32.h>

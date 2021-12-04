@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/bolt11.h>
 #include <common/json_helpers.h>
 #include <common/type_to_string.h>

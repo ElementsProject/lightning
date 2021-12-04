@@ -1,9 +1,4 @@
-#include "bitcoind.h"
-#include "chaintopology.h"
-#include "gossip_control.h"
-#include "lightningd.h"
-#include "peer_control.h"
-#include "subd.h"
+#include "config.h"
 #include <ccan/err/err.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -11,9 +6,15 @@
 #include <common/param.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/onion_message.h>
+#include <lightningd/peer_control.h>
+#include <lightningd/subd.h>
 
 static void got_txout(struct bitcoind *bitcoind,
 		      const struct bitcoin_tx_output *output,

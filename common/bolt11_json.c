@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>

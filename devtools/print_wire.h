@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_DEVTOOLS_PRINT_WIRE_H
 #define LIGHTNING_DEVTOOLS_PRINT_WIRE_H
+#include "config.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/tx.h>
 #include <common/wireaddr.h>

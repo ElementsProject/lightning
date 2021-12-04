@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../../common/blockheight_states.c"
 #include "../../common/channel_id.c"
 #include "../../common/fee_states.c"

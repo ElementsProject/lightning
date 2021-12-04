@@ -11,6 +11,7 @@
  * new and improved, two-party opening protocol, which allows bother peers to
  * contribute inputs to the transaction
  */
+#include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>

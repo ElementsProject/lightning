@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../log.c"
 #include <common/setup.h>
 

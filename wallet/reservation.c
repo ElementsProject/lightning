@@ -1,4 +1,5 @@
 /* Dealing with reserving UTXOs */
+#include "config.h"
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>

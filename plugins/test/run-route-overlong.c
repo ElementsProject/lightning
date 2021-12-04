@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../libplugin-pay.c"
 #include <bitcoin/chainparams.h>
 #include <common/gossip_store.h>

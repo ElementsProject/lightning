@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/htlc_wire.h>
 #include <onchaind/onchaind_wire.h>
 

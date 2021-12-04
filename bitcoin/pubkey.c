@@ -1,6 +1,7 @@
-#include "privkey.h"
-#include "pubkey.h"
+#include "config.h"
 #include <assert.h>
+#include <bitcoin/privkey.h>
+#include <bitcoin/pubkey.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>

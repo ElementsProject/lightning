@@ -1,5 +1,6 @@
-#include "billboard.h"
+#include "config.h"
 #include <ccan/ccan/tal/str/str.h>
+#include <common/billboard.h>
 #include <common/utils.h>
 
 char *billboard_message(const tal_t *ctx,

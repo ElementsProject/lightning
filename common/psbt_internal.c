@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/script.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>

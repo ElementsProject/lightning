@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/peer_billboard.h>
 #include <common/status.h>

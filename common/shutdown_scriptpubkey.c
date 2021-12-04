@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/script.h>
 #include <common/shutdown_scriptpubkey.h>
 

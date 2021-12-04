@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/psbt.h>
 #include <ccan/array_size/array_size.h>
 #include <common/addr.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/script.h>
 #include <channeld/commit_tx.h>
 #include <common/htlc_trim.h>

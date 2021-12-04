@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/crypto_sync.h>
 #include <common/cryptomsg.h>

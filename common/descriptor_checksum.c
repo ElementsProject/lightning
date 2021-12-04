@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <common/descriptor_checksum.h>
 #include <stdlib.h>

@@ -13,7 +13,7 @@
  * that point, the `json_connection` becomes the owner (or it's simply freed).
  */
 /* eg: { "jsonrpc":"2.0", "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
-#include "ccan/config.h"
+#include "config.h"
 #include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>

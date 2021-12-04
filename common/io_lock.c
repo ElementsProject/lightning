@@ -1,6 +1,7 @@
-#include "io_lock.h"
+#include "config.h"
 #include <assert.h>
 #include <ccan/io/io_plan.h>
+#include <common/io_lock.h>
 
 struct io_lock {
 	bool locked;

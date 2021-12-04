@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../seeker.c"
 #include <ccan/err/err.h>
 #include <common/blinding.h>

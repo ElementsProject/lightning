@@ -1,5 +1,6 @@
 /* Without this, gheap is *really* slow!  Comment out for debugging. */
 #define NDEBUG
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>

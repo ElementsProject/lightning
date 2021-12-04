@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
 #include <common/channel_id.h>

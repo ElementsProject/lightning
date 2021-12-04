@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>

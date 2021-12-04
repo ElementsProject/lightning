@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
 #include <common/closing_fee.h>

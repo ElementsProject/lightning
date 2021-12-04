@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/pseudorand.h>
 #include <common/random_select.h>
 

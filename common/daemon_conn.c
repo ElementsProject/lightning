@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <common/daemon_conn.h>

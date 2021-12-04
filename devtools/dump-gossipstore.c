@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>

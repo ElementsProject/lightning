@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../block.c"
 #include "../psbt.c"
 #include "../shadouble.c"

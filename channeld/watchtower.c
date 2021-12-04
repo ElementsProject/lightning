@@ -1,7 +1,7 @@
-#include "watchtower.h"
-
+#include "config.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
+#include <channeld/watchtower.h>
 #include <common/features.h>
 #include <common/htlc_tx.h>
 #include <common/keyset.h>

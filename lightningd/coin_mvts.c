@@ -1,3 +1,4 @@
+#include "config.h"
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>

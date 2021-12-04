@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>

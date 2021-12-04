@@ -1,3 +1,4 @@
+#include "config.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <common/type_to_string.h>

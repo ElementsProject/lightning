@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/derive_basepoints.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>

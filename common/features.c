@@ -1,7 +1,8 @@
-#include "features.h"
+#include "config.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/features.h>
 #include <wire/peer_wire.h>
 
 enum feature_copy_style {

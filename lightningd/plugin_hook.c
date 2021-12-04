@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/io/io.h>
 #include <common/memleak.h>
 #include <lightningd/plugin_hook.h>

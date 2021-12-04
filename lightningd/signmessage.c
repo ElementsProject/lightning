@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/bech32.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>

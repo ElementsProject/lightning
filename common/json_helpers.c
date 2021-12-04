@@ -1,3 +1,4 @@
+#include "config.h"
 #include <arpa/inet.h>
 #include <bitcoin/psbt.h>
 #include <ccan/ccan/str/hex/hex.h>

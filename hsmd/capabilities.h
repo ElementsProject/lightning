@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_HSMD_CAPABILITIES_H
 #define LIGHTNING_HSMD_CAPABILITIES_H
+#include "config.h"
 
 #define HSM_CAP_ECDH 1
 #define HSM_CAP_SIGN_GOSSIP 2

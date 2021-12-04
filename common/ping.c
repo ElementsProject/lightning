@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/version.h>

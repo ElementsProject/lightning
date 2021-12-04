@@ -6,6 +6,7 @@
  * which indicates what it's allowed to ask for.  We're entirely driven
  * by request, response.
  */
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/io/fdpass/fdpass.h>

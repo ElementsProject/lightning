@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/dev_disconnect.h>
 #include <common/status.h>
 #include <common/subdaemon.h>

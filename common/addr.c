@@ -1,7 +1,8 @@
-#include "addr.h"
+#include "config.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
+#include <common/addr.h>
 #include <common/bech32.h>
 
 char *encode_scriptpubkey_to_addr(const tal_t *ctx,

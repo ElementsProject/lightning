@@ -1,14 +1,7 @@
-#include "bitcoin/block.h"
-#include "bitcoin/feerate.h"
-#include "bitcoin/script.h"
-#include "bitcoin/tx.h"
-#include "bitcoind.h"
-#include "chaintopology.h"
-#include "channel.h"
-#include "jsonrpc.h"
-#include "lightningd.h"
-#include "log.h"
-#include "watch.h"
+#include "config.h"
+#include <bitcoin/feerate.h>
+#include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
@@ -18,10 +11,16 @@
 #include <common/param.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/json.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <math.h>
 #include <wallet/txfilter.h>
 

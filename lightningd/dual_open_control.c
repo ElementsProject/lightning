@@ -2,6 +2,7 @@
  * dualopend subdaemons. It manages the callbacks and database
  * saves and funding tx watching for a channel open */
 
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
