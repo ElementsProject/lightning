@@ -50,9 +50,6 @@ int features_unsupported(const struct feature_set *our_features UNNEEDED,
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }
-/* Generated stub for fromwire_amount_sat */
-struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
 /* Generated stub for fromwire_bool */
 bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bool called!\n"); abort(); }
@@ -82,9 +79,6 @@ void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sh
 u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
 		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
-/* Generated stub for fromwire_u16 */
-u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u16 called!\n"); abort(); }
 /* Generated stub for fromwire_u32 */
 u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
@@ -128,9 +122,6 @@ struct tlv_offer *tlv_offer_new(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
-/* Generated stub for towire_amount_sat */
-void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
-{ fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
 /* Generated stub for towire_bool */
 void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 { fprintf(stderr, "towire_bool called!\n"); abort(); }
@@ -150,9 +141,6 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
-/* Generated stub for towire_u16 */
-void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
-{ fprintf(stderr, "towire_u16 called!\n"); abort(); }
 /* Generated stub for towire_u32 */
 void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
 { fprintf(stderr, "towire_u32 called!\n"); abort(); }

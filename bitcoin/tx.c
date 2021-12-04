@@ -97,16 +97,6 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 	return i;
 }
 
-int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
-				 struct bitcoin_tx_output **outputs)
-{
-	for (size_t j = 0; j < tal_count(outputs); j++)
-		bitcoin_tx_add_output(tx, outputs[j]->script,
-				      NULL, outputs[j]->amount);
-
-	return tx->wtx->num_outputs;
-}
-
 bool elements_wtx_output_is_fee(const struct wally_tx *tx, int outnum)
 {
 	assert(outnum < tx->num_outputs);
@@ -374,20 +364,6 @@ void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
 	tal_wally_start();
 	wally_psbt_input_set_final_scriptsig(in, script, tal_bytelen(script));
 	tal_wally_end(tx->psbt);
-}
-
-const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
-				       const struct bitcoin_tx *tx, int innum,
-				       int witnum)
-{
-	const u8 *witness_item;
-	struct wally_tx_witness_item *item;
-	assert(innum < tx->wtx->num_inputs);
-	assert(witnum < tx->wtx->inputs[innum].witness->num_items);
-	item = &tx->wtx->inputs[innum].witness->items[witnum];
-	witness_item =
-	    tal_dup_arr(ctx, u8, item->witness, item->witness_len, 0);
-	return witness_item;
 }
 
 /* FIXME: remove */
@@ -747,16 +723,6 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 	return tx;
 }
 
-struct wally_tx *fromwire_wally_tx(const tal_t *ctx,
-				   const u8 **cursor, size_t *max)
-{
-	struct wally_tx *wtx;
-	wtx = pull_wtx(ctx, cursor, max);
-	if (!wtx)
-		return fromwire_fail(cursor, max);
-	return wtx;
-}
-
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
 {
 	towire_sha256_double(pptr, &txid->shad);
@@ -782,31 +748,6 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 	towire_u8_array(pptr, lin, tal_count(lin));
 
 	towire_wally_psbt(pptr, tx->psbt);
-}
-
-void towire_wally_tx(u8 **pptr, const struct wally_tx *wtx)
-{
-	u8 *lin = linearize_wtx(tmpctx, wtx);
-	towire_u8_array(pptr, lin, tal_count(lin));
-}
-
-struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
-						     const u8 **cursor, size_t *max)
-{
-	struct bitcoin_tx_output *output = tal(ctx, struct bitcoin_tx_output);
-	output->amount = fromwire_amount_sat(cursor, max);
-	u16 script_len = fromwire_u16(cursor, max);
-	output->script = fromwire_tal_arrn(output, cursor, max, script_len);
-	if (!*cursor)
-		return tal_free(output);
-	return output;
-}
-
-void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
-{
-	towire_amount_sat(pptr, output->amount);
-	towire_u16(pptr, tal_count(output->script));
-	towire_u8_array(pptr, output->script, tal_count(output->script));
 }
 
 bool wally_tx_input_spends(const struct wally_tx_input *input,

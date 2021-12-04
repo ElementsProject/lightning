@@ -187,13 +187,6 @@ u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct bitcoin_address *addr)
 	return script;
 }
 
-u8 *scriptpubkey_opreturn(const tal_t *ctx)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-
-	add_op(&script, OP_RETURN);
-	return script;
-}
 u8 *scriptpubkey_opreturn_padded(const tal_t *ctx)
 {
 	u8 *script = tal_arr(ctx, u8, 0);

@@ -16,7 +16,7 @@ WIRE_TEST_COMMON_OBJS :=		\
 	common/utils.o
 
 # run-tlvstream.c needs to reach into bitcoin/pubkey for SUPERVERBOSE
-$(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(filter-out bitcoin/pubkey.o,$(BITCOIN_OBJS))
+$(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(filter-out bitcoin/pubkey.o bitcoin/chainparams.o,$(BITCOIN_OBJS))
 
 # We put a dependency on non-exp sources here, so they get built even if
 # we're EXPERIMENTAL_FEATURES.

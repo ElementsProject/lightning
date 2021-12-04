@@ -71,7 +71,7 @@ char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key)
 }
 REGISTER_TYPE_TO_STRING(pubkey, pubkey_to_hexstr);
 
-char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key)
+static char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key)
 {
 	unsigned char der[PUBKEY_CMPR_LEN];
 	size_t outlen = sizeof(der);
@@ -150,7 +150,7 @@ void towire_point32(u8 **pptr, const struct point32 *point32)
 	towire(pptr, output, sizeof(output));
 }
 
-char *point32_to_hexstr(const tal_t *ctx, const struct point32 *point32)
+static char *point32_to_hexstr(const tal_t *ctx, const struct point32 *point32)
 {
 	u8 output[32];
 
