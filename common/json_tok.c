@@ -581,9 +581,11 @@ struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
 	return NULL;
 }
 
-struct command_result *param_routehint(struct command *cmd, const char *name,
-				       const char *buffer, const jsmntok_t *tok,
-				       struct route_info **ri)
+static struct command_result *param_routehint(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct route_info **ri)
 {
 	size_t i;
 	const jsmntok_t *curr;

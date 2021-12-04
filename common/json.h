@@ -90,10 +90,6 @@ const jsmntok_t *json_next(const jsmntok_t *tok);
 const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label);
 
-/* Get top-level member, with explicit label length */
-const jsmntok_t *json_get_membern(const char *buffer, const jsmntok_t tok[],
-				  const char *label, size_t len);
-
 /* Get index'th array member. */
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
 
@@ -133,9 +129,6 @@ jsmntok_t *json_parse_simple(const tal_t *ctx, const char *input, int len);
 
 /* Convert a jsmntype_t enum to a human readable string. */
 const char *jsmntype_to_string(jsmntype_t t);
-
-/* Print a json value for debugging purposes. */
-void json_tok_print(const char *buffer, const jsmntok_t *params);
 
 /* Return a copy of a json value as an array. */
 jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok);

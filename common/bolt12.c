@@ -415,17 +415,17 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 	return invoice;
 }
 
-bool bolt12_has_invoice_prefix(const char *str)
+static bool bolt12_has_invoice_prefix(const char *str)
 {
 	return strstarts(str, "lni1") || strstarts(str, "LNI1");
 }
 
-bool bolt12_has_request_prefix(const char *str)
+static bool bolt12_has_request_prefix(const char *str)
 {
 	return strstarts(str, "lnr1") || strstarts(str, "LNR1");
 }
 
-bool bolt12_has_offer_prefix(const char *str)
+static bool bolt12_has_offer_prefix(const char *str)
 {
 	return strstarts(str, "lno1") || strstarts(str, "LNO1");
 }

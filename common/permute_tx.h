@@ -6,13 +6,6 @@
 struct htlc;
 
 /**
- * permute_inputs: permute the transaction inputs into BIP69 order.
- * @tx: the transaction whose inputs are to be sorted (inputs must be tal_arr).
- * @map: if non-NULL, pointers to be permuted the same as the inputs.
- */
-void permute_inputs(struct bitcoin_tx *tx, const void **map);
-
-/**
  * permute_outputs: permute the transaction outputs into BIP69 + cltv order.
  * @tx: the transaction whose outputs are to be sorted (outputs must be tal_arr).
  * @cltvs: CLTV delays to use as a tie-breaker, or NULL.

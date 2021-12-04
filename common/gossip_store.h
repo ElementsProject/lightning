@@ -44,12 +44,6 @@ struct gossip_hdr {
 u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps);
 
 /**
- * Switches the gossip store fd, and gets to the correct offset.
- */
-void gossip_store_switch_fd(struct per_peer_state *pps,
-			    int newfd, u64 offset_shorter);
-
-/**
  * Sets up the tiemstamp filter once they told us to set it.(
  */
 void gossip_setup_timestamp_filter(struct per_peer_state *pps,

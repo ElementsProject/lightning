@@ -116,21 +116,6 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 
 
 /**
- * Preliminary prefix check to see if the string might be a bolt12 invoice.
- */
-bool bolt12_has_invoice_prefix(const char *str);
-
-/**
- * Preliminary prefix check to see if the string might be a bolt12 request.
- */
-bool bolt12_has_request_prefix(const char *str);
-
-/**
- * Preliminary prefix check to see if the string might be a bolt12 offer.
- */
-bool bolt12_has_offer_prefix(const char *str);
-
-/**
  * Preliminary prefix check to see if the string might be a bolt12 string.
  */
 bool bolt12_has_prefix(const char *str);
