@@ -71,7 +71,6 @@ CONNECTD_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	common/wire_error.o			\
 	gossipd/gossipd_wiregen.o		\
-	lightningd/gossip_msg.o			\
 	wire/onion$(EXP)_wiregen.o
 
 lightningd/lightning_connectd: $(CONNECTD_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)

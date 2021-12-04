@@ -1,8 +1,9 @@
+#include <bitcoin/block.h>
 #include <common/cryptomsg.h>
 #include <common/features.h>
+#include <common/node_id.h>
 #include <common/per_peer_state.h>
 #include <common/wireaddr.h>
-#include <lightningd/gossip_msg.h>
 
 msgtype,connectd_init,2000
 msgdata,connectd_init,chainparams,chainparams,

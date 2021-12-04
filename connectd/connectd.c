@@ -10,7 +10,9 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/htable/htable_type.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>

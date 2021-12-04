@@ -34,8 +34,8 @@
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
+#include <gossipd/routing.h>
 #include <gossipd/seeker.h>
-#include <lightningd/gossip_msg.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 
 /*~ A channel consists of a `struct half_chan` for each direction, each of
