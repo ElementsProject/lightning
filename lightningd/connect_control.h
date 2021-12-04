@@ -15,6 +15,5 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 		       bool incoming,
 		       const struct wireaddr_internal *addr);
-void gossip_connect_result(struct lightningd *ld, const u8 *msg);
 
 #endif /* LIGHTNING_LIGHTNINGD_CONNECT_CONTROL_H */

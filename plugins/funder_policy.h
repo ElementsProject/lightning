@@ -63,20 +63,6 @@ struct funder_policy {
 	struct lease_rates *rates;
 };
 
-struct funder_policy *
-new_funder_policy(const tal_t *ctx,
-		  enum funder_opt opt,
-		  u64 policy_mod,
-		  struct amount_sat min_their_funding,
-		  struct amount_sat max_their_funding,
-		  struct amount_sat per_channel_min,
-		  struct amount_sat per_channel_max,
-		  u32 fuzz_factor,
-		  struct amount_sat reserve_tank,
-		  u32 fund_probability,
-		  bool leases_only,
-		  struct lease_rates *rates);
-
 /* Get a new funder_policy, set to the defaults */
 struct funder_policy *
 default_funder_policy(const tal_t *ctx,

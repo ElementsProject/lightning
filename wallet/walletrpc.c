@@ -291,9 +291,9 @@ static void json_add_utxo(struct json_stream *response,
 	json_object_end(response);
 }
 
-void json_add_utxos(struct json_stream *response,
-		    struct wallet *wallet,
-		    struct utxo **utxos)
+static void json_add_utxos(struct json_stream *response,
+			   struct wallet *wallet,
+			   struct utxo **utxos)
 {
 	for (size_t i = 0; i < tal_count(utxos); i++)
 		json_add_utxo(response, NULL, wallet, utxos[i]);

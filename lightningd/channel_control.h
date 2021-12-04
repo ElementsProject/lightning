@@ -36,9 +36,6 @@ bool channel_on_funding_locked(struct channel *channel,
 
 /* Record channel open (coin movement notifications) */
 void channel_record_open(struct channel *channel);
-/* Forget a channel. Deletes the channel and handles all
- * associated waiting commands, if present. Notifies peer if available */
-void forget_channel(struct channel *channel, const char *err_msg);
 
 /* A channel has unrecoverably fallen behind */
 void channel_fallen_behind(struct channel *channel, const u8 *msg);

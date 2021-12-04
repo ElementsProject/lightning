@@ -267,16 +267,6 @@ struct command_result *plugin_register_all_complete(struct lightningd *ld,
 void plugins_config(struct plugins *plugins);
 
 /**
- * Are any plugins at this state still?
- */
-bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state);
-
-/**
- * Are all plugins at this state?
- */
-bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state);
-
-/**
  * This populates the jsonrpc request with the plugin/lightningd specifications
  */
 void plugin_populate_init_request(struct plugin *p, struct jsonrpc_request *req);
@@ -372,8 +362,4 @@ struct log *plugin_get_log(struct plugin *plugin);
 void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				     const char *dir);
 
-/* Pair of functions to detect if plugin destroys itself: must always
- * call both! */
-struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin);
-bool was_plugin_destroyed(struct plugin_destroyed *destroyed);
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

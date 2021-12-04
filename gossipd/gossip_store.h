@@ -92,7 +92,4 @@ bool gossip_store_compact(struct gossip_store *gs);
  */
 int gossip_store_readonly_fd(struct gossip_store *gs);
 
-/* Callback inside gossipd when store is compacted */
-void update_peers_broadcast_index(struct list_head *peers, u32 offset);
-
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

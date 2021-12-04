@@ -82,51 +82,6 @@ void tlvstream_set_tu32(struct tlv_field **stream, u64 type, u32 value)
 	tlvstream_set_raw(stream, type, take(ser), tal_bytelen(ser));
 }
 
-bool tlvstream_get_short_channel_id(struct tlv_field *stream, u64 type,
-				    struct short_channel_id *value)
-{
-	struct tlv_field *raw = tlvstream_get_raw(stream, type);
-	const u8 *v;
-	size_t max;
-	if (raw == NULL || raw->length != 8)
-		return false;
-
-	max = raw->length;
-	v = raw->value;
-	fromwire_short_channel_id(&v, &max, value);
-
-	return true;
-}
-
-bool tlvstream_get_tu64(struct tlv_field *stream, u64 type, u64 *value)
-{
-	struct tlv_field *raw = tlvstream_get_raw(stream, type);
-	const u8 *v;
-	size_t max;
-	if (raw == NULL || raw->length != 8)
-		return false;
-
-	max = raw->length;
-	v = raw->value;
-	*value = fromwire_tu64(&v, &max);
-
-	return true;
-}
-
-bool tlvstream_get_tu32(struct tlv_field *stream, u64 type, u32 *value)
-{
-	struct tlv_field *raw = tlvstream_get_raw(stream, type);
-	const u8 *v;
-	size_t max;
-	if (raw == NULL || raw->length != 8)
-		return false;
-
-	max = raw->length;
-	v = raw->value;
-	*value = fromwire_tu64(&v, &max);
-	return true;
-}
-
 bool fromwire_tlv(const u8 **cursor, size_t *max,
 		  const struct tlv_record_type *types, size_t num_types,
 		  void *record, struct tlv_field **fields)

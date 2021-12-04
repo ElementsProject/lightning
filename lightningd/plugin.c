@@ -110,6 +110,30 @@ static void plugin_check_subscriptions(struct plugins *plugins,
 	}
 }
 
+static bool plugins_any_in_state(const struct plugins *plugins,
+				 enum plugin_state state)
+{
+	const struct plugin *p;
+
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->plugin_state == state)
+			return true;
+	}
+	return false;
+}
+
+static bool plugins_all_in_state(const struct plugins *plugins,
+				 enum plugin_state state)
+{
+	const struct plugin *p;
+
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->plugin_state != state)
+			return false;
+	}
+	return true;
+}
+
 /* Once they've all replied with their manifests, we can order them. */
 static void check_plugins_manifests(struct plugins *plugins)
 {
@@ -491,6 +515,36 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 		plugins_notify(plugin->plugins, take(n));
 	}
 	return NULL;
+}
+
+struct plugin_destroyed {
+	const struct plugin *plugin;
+};
+
+static void mark_plugin_destroyed(const struct plugin *unused,
+				  struct plugin_destroyed *pd)
+{
+	pd->plugin = NULL;
+}
+
+static struct plugin_destroyed *
+plugin_detect_destruction(const struct plugin *plugin)
+{
+	struct plugin_destroyed *pd = tal(NULL, struct plugin_destroyed);
+	pd->plugin = plugin;
+	tal_add_destructor2(plugin, mark_plugin_destroyed, pd);
+	return pd;
+}
+
+static bool was_plugin_destroyed(struct plugin_destroyed *pd)
+{
+	if (pd->plugin) {
+		tal_del_destructor2(pd->plugin, mark_plugin_destroyed, pd);
+		tal_free(pd);
+		return false;
+	}
+	tal_free(pd);
+	return true;
 }
 
 /* Returns the error string, or NULL */
@@ -1459,28 +1513,6 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 	return err;
 }
 
-bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state)
-{
-	const struct plugin *p;
-
-	list_for_each(&plugins->plugins, p, list) {
-		if (p->plugin_state == state)
-			return true;
-	}
-	return false;
-}
-
-bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state)
-{
-	const struct plugin *p;
-
-	list_for_each(&plugins->plugins, p, list) {
-		if (p->plugin_state != state)
-			return false;
-	}
-	return true;
-}
-
 /**
  * Callback for the plugin_manifest request.
  */
@@ -2054,35 +2086,6 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				NULL,
 				/* important = */ true,
 				NULL, NULL);
-}
-
-struct plugin_destroyed {
-	const struct plugin *plugin;
-};
-
-static void mark_plugin_destroyed(const struct plugin *unused,
-				  struct plugin_destroyed *pd)
-{
-	pd->plugin = NULL;
-}
-
-struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin)
-{
-	struct plugin_destroyed *pd = tal(NULL, struct plugin_destroyed);
-	pd->plugin = plugin;
-	tal_add_destructor2(plugin, mark_plugin_destroyed, pd);
-	return pd;
-}
-
-bool was_plugin_destroyed(struct plugin_destroyed *pd)
-{
-	if (pd->plugin) {
-		tal_del_destructor2(pd->plugin, mark_plugin_destroyed, pd);
-		tal_free(pd);
-		return false;
-	}
-	tal_free(pd);
-	return true;
 }
 
 static void plugin_shutdown_timeout(struct lightningd *ld)

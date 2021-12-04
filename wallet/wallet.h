@@ -491,37 +491,6 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 			     const struct bitcoin_outpoint *outpoint);
 
 /**
- * wallet_select_specific - Select utxos given an array of txids and an array of outputs index
- *
- * Returns an array of `utxo` structs.
- */
-const struct utxo **wallet_select_specific(const tal_t *ctx, struct wallet *w,
-					struct bitcoin_txid **txids,
-					u32 **outnums);
-
-/**
- * wallet_confirm_utxos - Once we've spent a set of utxos, mark them confirmed.
- *
- * May be called once the transaction spending these UTXOs has been
- * broadcast. If something fails use `tal_free(utxos)` instead to undo
- * the reservation.
- */
-void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos);
-
-/**
- * wallet_can_spend - Do we have the private key matching this scriptpubkey?
- *
- * FIXME: This is very slow with lots of inputs!
- *
- * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
- * @script: (in) the script to check
- * @index: (out) the bip32 derivation index that matched the script
- * @output_is_p2sh: (out) whether the script is a p2sh, or p2wpkh
- */
-bool wallet_can_spend(struct wallet *w, const u8 *script,
-		      u32 *index, bool *output_is_p2sh);
-
-/**
  * wallet_get_newindex - get a new index from the wallet.
  * @ld: (in) lightning daemon
  *
@@ -536,17 +505,6 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 			      struct wallet_shachain *chain,
 			      uint64_t index,
 			      const struct secret *hash);
-
-/**
- * wallet_shachain_load -- Load an existing shachain from the wallet.
- *
- * @wallet: the wallet to load from
- * @id: the shachain id to load
- * @chain: where to load the shachain into
- */
-bool wallet_shachain_load(struct wallet *wallet, u64 id,
-			  struct wallet_shachain *chain);
-
 
 /**
  * wallet_get_uncommitted_channel_dbid -- get a unique channel dbid
@@ -616,12 +574,6 @@ struct state_change_entry *wallet_state_change_get(struct wallet *w,
  * wallet_peer_delete -- After no more channels in peer, forget about it
  */
 void wallet_peer_delete(struct wallet *w, u64 peer_dbid);
-
-/**
- * wallet_channel_config_load -- Load channel_config from database into cc
- */
-bool wallet_channel_config_load(struct wallet *w, const u64 id,
-				struct channel_config *cc);
 
 /**
  * wallet_init_channels -- Loads active channels into peers
@@ -938,16 +890,6 @@ bool wallet_invoice_delete(struct wallet *wallet,
 void wallet_invoice_delete_expired(struct wallet *wallet,
 				   u64 max_expiry_time);
 
-/**
- * wallet_invoice_autoclean - Set up a repeating autoclean of
- * expired invoices.
- * Cleans (deletes) expired invoices every @cycle_seconds.
- * Clean only those invoices that have been expired for at
- * least @expired_by seconds or more.
- */
-void wallet_invoice_autoclean(struct wallet * wallet,
-			      u64 cycle_seconds,
-			      u64 expired_by);
 
 /**
  * wallet_invoice_iterate - Iterate over all existing invoices
@@ -1081,15 +1023,6 @@ void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment)
  */
 void wallet_payment_store(struct wallet *wallet,
 			  struct wallet_payment *payment TAKES);
-
-/**
- * wallet_payment_delete - Remove a payment
- *
- * Removes the payment from the database.
- */
-void wallet_payment_delete(struct wallet *wallet,
-			   const struct sha256 *payment_hash,
-			   u64 partid);
 
 /**
  * wallet_payment_delete_by_hash - Remove a payment
@@ -1392,32 +1325,6 @@ bool wallet_remote_ann_sigs_load(const tal_t *ctx, struct wallet *w, u64 id,
 				 secp256k1_ecdsa_signature **remote_ann_bitcoin_sig);
 
 /**
- * wallet_clean_utxos: clean up any reserved UTXOs on restart.
- * @w: wallet
- *
- * If we crash, it's unclear if we have actually used the inputs.  eg. if
- * we crash around transaction broadcast.
- *
- * We ask bitcoind to clarify in this case.
- */
-void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind);
-
-/* Operations for unreleased transactions */
-struct unreleased_tx *find_unreleased_tx(struct wallet *w,
-					 const struct bitcoin_txid *txid);
-void remove_unreleased_tx(struct unreleased_tx *utx);
-void add_unreleased_tx(struct wallet *w, struct unreleased_tx *utx);
-
-/* These will touch the db, so need to be explicitly freed. */
-void free_unreleased_txs(struct wallet *w);
-
-/* wallet_unreserve_output - Unreserve a utxo
- *
- * We unreserve utxos so that they can be spent elsewhere.
- * */
-bool wallet_unreserve_output(struct wallet *w,
-			     const struct bitcoin_outpoint *outpoint);
-/**
  * Get a list of transactions that we track in the wallet.
  *
  * @param ctx: allocation context for the returned list
@@ -1553,7 +1460,7 @@ char *wallet_offer_find(const tal_t *ctx,
  * @w: the wallet
  * @offer_id: the first offer id (if returns non-NULL)
  *
- * Returns pointer to hand as @stmt to wallet_offer_next(), or NULL.
+ * Returns pointer to hand as @stmt to wallet_offer_id_next(), or NULL.
  * If you choose not to call wallet_offer_id_next() you must free it!
  */
 struct db_stmt *wallet_offer_id_first(struct wallet *w,

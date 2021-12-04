@@ -51,7 +51,7 @@ const char *funder_policy_desc(const tal_t *ctx,
 	/* FIXME: add in more info? */
 }
 
-struct funder_policy *
+static struct funder_policy *
 new_funder_policy(const tal_t *ctx,
 		  enum funder_opt opt,
 		  u64 policy_mod,

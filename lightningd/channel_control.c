@@ -404,7 +404,7 @@ static void handle_error_channel(struct channel *channel,
 	forget(channel);
 }
 
-void forget_channel(struct channel *channel, const char *why)
+static void forget_channel(struct channel *channel, const char *why)
 {
 	channel->error = towire_errorfmt(channel, &channel->cid, "%s", why);
 

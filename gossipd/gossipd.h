@@ -128,10 +128,4 @@ void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
 void queue_peer_from_store(struct peer *peer,
 			   const struct broadcastable *bcast);
 
-/* Reset gossip range for this peer. */
-void setup_gossip_range(struct peer *peer);
-
-/* A peer has given us these short channel ids: see if we need to catch up */
-void process_scids(struct daemon *daemon, const struct short_channel_id *scids);
-
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */
