@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../json_helpers.c"
 #include <assert.h>
 #include <ccan/tal/str/str.h>

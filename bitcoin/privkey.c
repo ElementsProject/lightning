@@ -1,4 +1,5 @@
-#include "privkey.h"
+#include "config.h"
+#include <bitcoin/privkey.h>
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
 #include <wire/wire.h>

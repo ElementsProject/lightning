@@ -1,4 +1,5 @@
 /* Pipe through jq for test vector! */
+#include "config.h"
 #include "../bigsize.c"
 #include "../blindedpath.c"
 #include "../blinding.c"

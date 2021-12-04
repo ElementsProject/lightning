@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../features.c"
 #include "../memleak.c"
 #include <ccan/mem/mem.h>

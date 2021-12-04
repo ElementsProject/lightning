@@ -1,4 +1,5 @@
 /* hex variants removed -- RR */
+#include "config.h"
 #include <connectd/sha1.h>
 
 /*******************************************************************************

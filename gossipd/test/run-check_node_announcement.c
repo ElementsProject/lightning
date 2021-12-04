@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../gossip_generation.c"
 #include <common/blinding.h>
 #include <common/channel_type.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/gossmap.h>
 #include <devtools/clean_topo.h>
 

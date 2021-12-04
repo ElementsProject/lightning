@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/closefrom/closefrom.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>

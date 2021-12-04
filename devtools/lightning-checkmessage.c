@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
 #include <ccan/err/err.h>

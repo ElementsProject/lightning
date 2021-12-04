@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../io_lock.c"
 #include <common/amount.h>
 #include <common/setup.h>

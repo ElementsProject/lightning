@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/str/base32/base32.h>
 #include <common/base32.h>
 

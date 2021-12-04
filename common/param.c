@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>

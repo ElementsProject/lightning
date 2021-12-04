@@ -21,9 +21,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "bech32.h"
-
+#include "config.h"
 #include <assert.h>
+#include <common/bech32.h>
 #include <string.h>
 
 static uint32_t bech32_polymod_step(uint32_t pre) {

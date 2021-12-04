@@ -1,3 +1,4 @@
+#include "config.h"
 #include "wire.h"
 #include <assert.h>
 #include <ccan/crypto/siphash24/siphash24.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/status_wiregen.h>
 #include <lightningd/log_status.h>
 

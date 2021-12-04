@@ -1,4 +1,5 @@
 /* Routines to generate and handle gossip query messages */
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <common/htlc.h>
   #include "htlc_state_names_gen.h"

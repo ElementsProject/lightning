@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/status_wire.h>
 #include <wire/wire.h>
 

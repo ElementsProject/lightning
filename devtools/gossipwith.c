@@ -1,4 +1,5 @@
 /* Simple tool to route gossip from a peer. */
+#include "config.h"
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>

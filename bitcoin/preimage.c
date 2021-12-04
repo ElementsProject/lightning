@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/preimage.h>
 #include <wire/wire.h>
 

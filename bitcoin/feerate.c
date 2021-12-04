@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/feerate.h>
 
 u32 feerate_from_style(u32 feerate, enum feerate_style style)

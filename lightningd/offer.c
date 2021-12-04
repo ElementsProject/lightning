@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <common/bolt12_merkle.h>
 #include <common/json_command.h>

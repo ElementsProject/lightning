@@ -1,4 +1,5 @@
-#include "timeout.h"
+#include "config.h"
+#include <common/timeout.h>
 #include <common/utils.h>
 
 struct oneshot {

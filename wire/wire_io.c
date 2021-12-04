@@ -1,3 +1,4 @@
+#include "config.h"
 /* FIXME: io_plan needs size_t */
  #include <unistd.h>
 #include <ccan/io/io_plan.h>

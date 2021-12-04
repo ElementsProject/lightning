@@ -7,6 +7,7 @@
  * there's nothing permanent about the channel: lightningd will only have to
  * commit to the database once openingd succeeds.
  */
+#include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>

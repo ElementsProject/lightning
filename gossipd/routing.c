@@ -1,4 +1,4 @@
-#include "routing.h"
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
@@ -13,6 +13,7 @@
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
+#include <gossipd/routing.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

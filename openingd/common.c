@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/channel_config.h>
 #include <common/features.h>

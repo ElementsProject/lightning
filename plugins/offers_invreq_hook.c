@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <ccan/tal/str/str.h>

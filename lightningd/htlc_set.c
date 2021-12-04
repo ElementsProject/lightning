@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/features.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>

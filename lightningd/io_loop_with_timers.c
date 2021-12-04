@@ -1,7 +1,7 @@
-#include "io_loop_with_timers.h"
-
+#include "config.h"
 #include <ccan/io/io.h>
 #include <common/timeout.h>
+#include <lightningd/io_loop_with_timers.h>
 #include <lightningd/lightningd.h>
 
 void *io_loop_with_timers(struct lightningd *ld)

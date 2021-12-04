@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/ccan/tal/grab_file/grab_file.h>
 #include <ccan/crc32c/crc32c.h>

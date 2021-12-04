@@ -1,5 +1,5 @@
 /* Only possible if we're in developer mode. */
-#include "memdump.h"
+#include "config.h"
 #if DEVELOPER
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
@@ -14,6 +14,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/memdump.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>

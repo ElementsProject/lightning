@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>

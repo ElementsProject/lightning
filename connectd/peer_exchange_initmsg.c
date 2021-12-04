@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/io/io.h>
 #include <common/dev_disconnect.h>

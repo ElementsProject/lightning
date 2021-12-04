@@ -1,3 +1,4 @@
+#include "config.h"
 #include <tests/fuzz/libfuzz.h>
 
 #include <common/descriptor_checksum.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/channel_config.h>
 #include <wire/wire.h>
 

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <common/decode_array.h>
 #include <wire/peer_wire.h>

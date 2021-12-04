@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../hmac.c"
 #include "../onion.c"
 #include "../onionreply.c"

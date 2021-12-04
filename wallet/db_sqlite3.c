@@ -1,3 +1,4 @@
+#include "config.h"
 #include "db_sqlite3_sqlgen.c"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/utils.h>

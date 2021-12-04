@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../wireaddr.c"
 #include <common/amount.h>
 #include <common/setup.h>

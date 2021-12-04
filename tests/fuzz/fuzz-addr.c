@@ -1,3 +1,4 @@
+#include "config.h"
 #include "common/utils.h"
 #include <tests/fuzz/libfuzz.h>
 

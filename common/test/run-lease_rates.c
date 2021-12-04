@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../amount.c"
 #include "../lease_rates.c"
 #include <common/setup.h>

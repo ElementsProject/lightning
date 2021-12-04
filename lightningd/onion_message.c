@@ -1,3 +1,4 @@
+#include "config.h"
 #include <ccan/mem/mem.h>
 #include <common/blindedpath.h>
 #include <common/json_command.h>

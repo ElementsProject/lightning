@@ -1,3 +1,4 @@
+#include "config.h"
 #include "../derive_basepoints.c"
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
