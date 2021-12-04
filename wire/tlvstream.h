@@ -55,10 +55,4 @@ void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
 void tlvstream_set_tu64(struct tlv_field **stream, u64 type, u64 value);
 void tlvstream_set_tu32(struct tlv_field **stream, u64 type, u32 value);
 
-/* Generic primitive gettes for tlvstreams. */
-bool tlvstream_get_short_channel_id(struct tlv_field *stream, u64 type,
-				    struct short_channel_id *value);
-bool tlvstream_get_tu64(struct tlv_field *stream, u64 type, u64 *value);
-bool tlvstream_get_tu32(struct tlv_field *stream, u64 type, u32 *value);
-
 #endif /* LIGHTNING_WIRE_TLVSTREAM_H */

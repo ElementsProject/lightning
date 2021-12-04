@@ -393,25 +393,6 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 	return utxo;
 }
 
-bool wallet_unreserve_output(struct wallet *w,
-			     const struct bitcoin_outpoint *outpoint)
-{
-	return wallet_update_output_status(w, outpoint,
-					   OUTPUT_STATE_RESERVED,
-					   OUTPUT_STATE_AVAILABLE);
-}
-
-void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
-{
-	for (size_t i = 0; i < tal_count(utxos); i++) {
-		if (!wallet_update_output_status(
-			w, &utxos[i]->outpoint,
-			OUTPUT_STATE_RESERVED, OUTPUT_STATE_SPENT)) {
-			fatal("Unable to mark output as spent");
-		}
-	}
-}
-
 static void db_set_utxo(struct db *db, const struct utxo *utxo)
 {
 	struct db_stmt *stmt;
@@ -634,8 +615,8 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	return true;
 }
 
-bool wallet_can_spend(struct wallet *w, const u8 *script,
-		      u32 *index, bool *output_is_p2sh)
+static bool wallet_can_spend(struct wallet *w, const u8 *script,
+			     u32 *index, bool *output_is_p2sh)
 {
 	struct ext_key ext;
 	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
@@ -774,8 +755,8 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 	return true;
 }
 
-bool wallet_shachain_load(struct wallet *wallet, u64 id,
-			  struct wallet_shachain *chain)
+static bool wallet_shachain_load(struct wallet *wallet, u64 id,
+				 struct wallet_shachain *chain)
 {
 	struct db_stmt *stmt;
 	chain->id = id;
@@ -1190,6 +1171,37 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 		}
 
 	}
+	tal_free(stmt);
+	return ok;
+}
+
+static bool wallet_channel_config_load(struct wallet *w, const u64 id,
+				       struct channel_config *cc)
+{
+	bool ok = true;
+	const char *query = SQL(
+	    "SELECT dust_limit_satoshis, max_htlc_value_in_flight_msat, "
+	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
+	    "max_accepted_htlcs, max_dust_htlc_exposure_msat"
+	    " FROM channel_configs WHERE id= ? ;");
+	struct db_stmt *stmt = db_prepare_v2(w->db, query);
+	db_bind_u64(stmt, 0, id);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt))
+		return false;
+
+	cc->id = id;
+	db_col_amount_sat(stmt, "dust_limit_satoshis", &cc->dust_limit);
+	db_col_amount_msat(stmt, "max_htlc_value_in_flight_msat",
+			   &cc->max_htlc_value_in_flight);
+	db_col_amount_sat(stmt, "channel_reserve_satoshis",
+			  &cc->channel_reserve);
+	db_col_amount_msat(stmt, "htlc_minimum_msat", &cc->htlc_minimum);
+	cc->to_self_delay = db_col_int(stmt, "to_self_delay");
+	cc->max_accepted_htlcs = db_col_int(stmt, "max_accepted_htlcs");
+	db_col_amount_msat(stmt, "max_dust_htlc_exposure_msat",
+			   &cc->max_dust_htlc_exposure_msat);
 	tal_free(stmt);
 	return ok;
 }
@@ -1735,37 +1747,6 @@ static void wallet_channel_config_save(struct wallet *w,
 	db_bind_amount_msat(stmt, 6, &cc->max_dust_htlc_exposure_msat);
 	db_bind_u64(stmt, 7, cc->id);
 	db_exec_prepared_v2(take(stmt));
-}
-
-bool wallet_channel_config_load(struct wallet *w, const u64 id,
-				struct channel_config *cc)
-{
-	bool ok = true;
-	const char *query = SQL(
-	    "SELECT dust_limit_satoshis, max_htlc_value_in_flight_msat, "
-	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
-	    "max_accepted_htlcs, max_dust_htlc_exposure_msat"
-	    " FROM channel_configs WHERE id= ? ;");
-	struct db_stmt *stmt = db_prepare_v2(w->db, query);
-	db_bind_u64(stmt, 0, id);
-	db_query_prepared(stmt);
-
-	if (!db_step(stmt))
-		return false;
-
-	cc->id = id;
-	db_col_amount_sat(stmt, "dust_limit_satoshis", &cc->dust_limit);
-	db_col_amount_msat(stmt, "max_htlc_value_in_flight_msat",
-			   &cc->max_htlc_value_in_flight);
-	db_col_amount_sat(stmt, "channel_reserve_satoshis",
-			  &cc->channel_reserve);
-	db_col_amount_msat(stmt, "htlc_minimum_msat", &cc->htlc_minimum);
-	cc->to_self_delay = db_col_int(stmt, "to_self_delay");
-	cc->max_accepted_htlcs = db_col_int(stmt, "max_accepted_htlcs");
-	db_col_amount_msat(stmt, "max_dust_htlc_exposure_msat",
-			   &cc->max_dust_htlc_exposure_msat);
-	tal_free(stmt);
-	return ok;
 }
 
 u64 wallet_get_channel_dbid(struct wallet *wallet)
@@ -3062,29 +3043,6 @@ void wallet_payment_store(struct wallet *wallet,
 		list_del(&payment->list);
 		tal_del_destructor(payment, destroy_unstored_payment);
 	}
-}
-
-void wallet_payment_delete(struct wallet *wallet,
-			   const struct sha256 *payment_hash,
-			   u64 partid)
-{
-	struct db_stmt *stmt;
-	struct wallet_payment *payment;
-
-	payment = find_unstored_payment(wallet, payment_hash, partid);
-	if (payment) {
-		tal_free(payment);
-		return;
-	}
-
-	stmt = db_prepare_v2(
-	    wallet->db, SQL("DELETE FROM payments WHERE payment_hash = ?"
-			    " AND partid = ?"));
-
-	db_bind_sha256(stmt, 0, payment_hash);
-	db_bind_u64(stmt, 1, partid);
-
-	db_exec_prepared_v2(take(stmt));
 }
 
 u64 wallet_payment_get_groupid(struct wallet *wallet,
