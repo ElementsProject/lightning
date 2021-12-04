@@ -47,7 +47,6 @@ COMMON_SRC_NOGEN :=				\
 	common/htlc_wire.c			\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
-	common/io_lock.c			\
 	common/iso4217.c			\
 	common/json.c				\
 	common/json_helpers.c			\
