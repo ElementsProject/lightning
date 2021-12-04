@@ -5,8 +5,8 @@
 #include <common/htlc_wire.h>
 #include <common/onionreply.h>
 
-struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
-				    const struct failed_htlc *f TAKES)
+static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
+					   const struct failed_htlc *f TAKES)
 {
 	struct failed_htlc *newf;
 
@@ -129,7 +129,7 @@ void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 	}
 }
 
-void towire_htlc_state(u8 **pptr, const enum htlc_state hstate)
+static void towire_htlc_state(u8 **pptr, const enum htlc_state hstate)
 {
 	towire_u8(pptr, hstate);
 }
@@ -234,7 +234,7 @@ struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, si
 	return failed;
 }
 
-enum htlc_state fromwire_htlc_state(const u8 **cursor, size_t *max)
+static enum htlc_state fromwire_htlc_state(const u8 **cursor, size_t *max)
 {
 	enum htlc_state hstate = fromwire_u8(cursor, max);
 	if (hstate >= HTLC_STATE_INVALID) {

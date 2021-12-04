@@ -39,9 +39,6 @@ dijkstra_(const tal_t *ctx,
 /* Returns UINT_MAX if unreachable. */
 u32 dijkstra_distance(const struct dijkstra *dij, u32 node_idx);
 
-/* Total CLTV delay (0 if unreachable) */
-u32 dijkstra_delay(const struct dijkstra *dij, u32 node_idx);
-
 /* Best path we found to here */
 struct gossmap_chan *dijkstra_best_chan(const struct dijkstra *dij,
 					u32 node_idx);

@@ -300,8 +300,9 @@ const jsmntok_t *json_next(const jsmntok_t *tok)
 	return t;
 }
 
-const jsmntok_t *json_get_membern(const char *buffer, const jsmntok_t tok[],
-				  const char *label, size_t len)
+static const jsmntok_t *json_get_membern(const char *buffer,
+					 const jsmntok_t tok[],
+					 const char *label, size_t len)
 {
 	const jsmntok_t *t;
 	size_t i;
@@ -663,20 +664,6 @@ const char *jsmntype_to_string(jsmntype_t t)
 			return "PRIMITIVE";
 	}
 	return "INVALID";
-}
-
-void json_tok_print(const char *buffer, const jsmntok_t *tok)
-{
-	const jsmntok_t *first = tok;
-	const jsmntok_t *last = json_next(tok);
-	printf("size: %d, count: %td\n", tok->size, last - first);
-	while (first != last) {
-		printf("%td. %.*s, %s\n", first - tok,
-			first->end - first->start, buffer + first->start,
-			jsmntype_to_string(first->type));
-		first++;
-	}
-	printf("\n");
 }
 
 jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok)

@@ -132,11 +132,6 @@ void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
 			       const struct short_channel_id *id);
 
-/* '"fieldname" : "1234:5:6/7"' */
-void json_add_short_channel_id_dir(struct json_stream *response,
-				   const char *fieldname,
-				   const struct short_channel_id_dir *id);
-
 /* JSON serialize a network address for a node */
 void json_add_address(struct json_stream *response, const char *fieldname,
 		      const struct wireaddr *addr);

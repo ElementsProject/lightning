@@ -43,7 +43,13 @@ struct json_stream *json_stream_dup(const tal_t *ctx,
 	return js;
 }
 
-bool json_stream_still_writing(const struct json_stream *js)
+/**
+ * json_stream_still_writing - is someone currently writing to this stream?
+ * @js: the json_stream.
+ *
+ * Has this json_stream not been closed yet?
+ */
+static bool json_stream_still_writing(const struct json_stream *js)
 {
 	return js->writer != NULL;
 }

@@ -35,12 +35,6 @@ u32 dijkstra_distance(const struct dijkstra *dij, u32 node_idx)
 	return dij[node_idx].distance;
 }
 
-/* Total CLTV delay */
-u32 dijkstra_delay(const struct dijkstra *dij, u32 node_idx)
-{
-	return dij[node_idx].total_delay;
-}
-
 struct gossmap_chan *dijkstra_best_chan(const struct dijkstra *dij,
 					u32 node_idx)
 {
