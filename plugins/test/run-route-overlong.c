@@ -2,6 +2,7 @@
 #include <bitcoin/chainparams.h>
 #include <common/gossip_store.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -332,11 +333,11 @@ int main(int argc, char *argv[])
 	struct payment *p;
 	struct payment_modifier **mods;
 	char gossip_version = GOSSIP_STORE_VERSION;
-	char gossipfilename[] = "/tmp/run-route-overlong.XXXXXX";
+	char *gossipfilename;
 
 	common_setup(argv[0]);
 	chainparams = chainparams_for_network("regtest");
-	store_fd = mkstemp(gossipfilename);
+	store_fd = tmpdir_mkstemp(tmpctx, "run-route-overlong.XXXXXX", &gossipfilename);
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 
