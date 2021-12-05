@@ -159,7 +159,8 @@ def test_announce_address(node_factory, bitcoind):
                            "05096c6f63616c686f737404d3"       # DNS 05 len localhost:1235
                            "050b6578616d706c652e636f6d04d4")  # DNS 05 len example.com:1236
 
-    # Check other node can parse these
+    # Check other node can parse these (make sure it has digested msg)
+    wait_for(lambda: 'addresses' in l2.rpc.listnodes(l1.info['id'])['nodes'][0])
     addresses = l2.rpc.listnodes(l1.info['id'])['nodes'][0]['addresses']
     addresses_dns = [address for address in addresses if address['type'] == 'dns']
     assert len(addresses) == 6
