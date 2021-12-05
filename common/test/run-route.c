@@ -6,6 +6,7 @@
 #include <common/route.h>
 #include <common/setup.h>
 #include <common/type_to_string.h>
+#include <common/utils.h>
 #include <bitcoin/chainparams.h>
 #include <stdio.h>
 #include <wire/peer_wiregen.h>
@@ -182,11 +183,11 @@ int main(int argc, char *argv[])
 	struct gossmap *gossmap;
 	const double riskfactor = 1.0;
 	char gossip_version = GOSSIP_STORE_VERSION;
-	char gossipfilename[] = "/tmp/run-route-gossipstore.XXXXXX";
+	char *gossipfilename;
 
 	chainparams = chainparams_for_network("regtest");
 
-	store_fd = mkstemp(gossipfilename);
+	store_fd = tmpdir_mkstemp(tmpctx, "run-route-gossipstore.XXXXXX", &gossipfilename);
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 	gossmap = gossmap_load(tmpctx, gossipfilename, NULL);

@@ -18,6 +18,7 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 #include "wallet/db.c"
 
 #include <common/setup.h>
+#include <common/utils.h>
 #include <stdio.h>
 
 bool deprecated_apis = true;
@@ -917,8 +918,8 @@ static void cleanup_test_wallet(struct wallet *w, char *filename)
 
 static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx)
 {
-	char *dsn, *filename = tal_fmt(ctx, "/tmp/ldb-XXXXXX");
-	int fd = mkstemp(filename);
+	char *dsn, *filename;
+	int fd = tmpdir_mkstemp(ctx, "ldb-XXXXXX", &filename);
 	struct wallet *w = tal(ctx, struct wallet);
 	static unsigned char badseed[BIP32_ENTROPY_LEN_128];
 	const struct ext_key *bip32_base = NULL;
