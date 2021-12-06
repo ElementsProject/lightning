@@ -89,15 +89,15 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-help.7 \
 	doc/lightning-getlog.7
 
-doc-all: fmt-schema $(MANPAGES) doc/index.rst
+doc-all: $(MANPAGES) doc/index.rst
 
-#FIXME(vincenzopalazzo) we don't need to change a file if it is well format,
-#so we can use diff to check difference in the real json and in the .fmt
-fmt-schema:
-	@echo "Checking schema fmt!"
-	@for f in $$(find doc/schemas -type f -name '*.json'); do cat "$$f" | jq . > "$$f.fmt" ; mv "$$f.fmt" "$$f" ; done
+SCHEMAS := $(wildcard doc/schemas/*.json)
+check-fmt-schemas: $(SCHEMAS:%=check-fmt-schema/%)
 
-check-doc: check-config-docs check-manpages
+check-fmt-schema/%: %
+	@jq . < "$*" > "$*".fmt && diff -u "$*" "$*.fmt" && rm "$*.fmt"
+
+check-doc: check-config-docs check-manpages check-fmt-schemas
 
 # Some manpages use a schema, so need that added.
 MARKDOWN_WITH_SCHEMA := $(shell grep -l GENERATE-FROM-SCHEMA $(MANPAGES:=.md))
