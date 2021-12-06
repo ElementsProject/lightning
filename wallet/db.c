@@ -1276,7 +1276,6 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 	struct db *db = db_open(ctx, ld->wallet_dsn);
 	bool migrated;
 	db->log = new_log(db, ld->log_book, NULL, "database");
-	db->plugins_shutdown = &ld->plugins->shutdown;
 
 	db_begin_transaction(db);
 
@@ -2349,11 +2348,6 @@ void db_changes_add(struct db_stmt *stmt, const char * expanded)
 	}
 
 	tal_arr_expand(&db->changes, tal_strdup(db->changes, expanded));
-}
-
-void db_check_plugins_not_shutdown(struct db *db)
-{
-	assert(!*db->plugins_shutdown);
 }
 
 const char **db_changes(struct db *db)
