@@ -302,7 +302,7 @@ void status_setup_async(struct daemon_conn *master UNNEEDED)
 void subdaemon_setup(int argc UNNEEDED, char *argv[])
 { fprintf(stderr, "subdaemon_setup called!\n"); abort(); }
 /* Generated stub for timer_expired */
-void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
+void timer_expired(struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
 /* Generated stub for towire_gossipd_addgossip_reply */
 u8 *towire_gossipd_addgossip_reply(const tal_t *ctx UNNEEDED, const wirestring *err UNNEEDED)

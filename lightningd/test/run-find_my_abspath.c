@@ -207,7 +207,7 @@ void shutdown_plugins(struct lightningd *ld UNNEEDED)
 void stop_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "stop_topology called!\n"); abort(); }
 /* Generated stub for timer_expired */
-void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
+void timer_expired(struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)

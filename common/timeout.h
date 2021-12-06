@@ -18,6 +18,6 @@ struct oneshot *new_reltimer_(struct timers *timers,
 /* Get timer arg. */
 void *reltimer_arg(struct oneshot *t);
 
-void timer_expired(tal_t *ctx, struct timer *timer);
+void timer_expired(struct timer *timer);
 
 #endif /* LIGHTNING_COMMON_TIMEOUT_H */
