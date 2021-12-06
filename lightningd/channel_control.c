@@ -155,7 +155,8 @@ void channel_record_open(struct channel *channel)
 				    &channel->funding,
 				    blockheight,
 				    start_balance,
-				    channel->funding_sats);
+				    channel->funding_sats,
+				    channel->opener == LOCAL);
 
 	notify_chain_mvt(channel->peer->ld, mvt);
 

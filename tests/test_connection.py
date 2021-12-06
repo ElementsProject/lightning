@@ -1104,8 +1104,8 @@ def test_funding_push(node_factory, bitcoind, chainparams):
     # give the file write a second
     time.sleep(1)
     channel_mvts = [
-        {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tag': 'channel_open'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 20000000, 'tag': 'pushed'},
+        {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tags': ['channel_open', 'opener']},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 20000000, 'tags': ['pushed']},
     ]
     check_coin_moves(l1, chanid, channel_mvts, chainparams)
     assert account_balance(l1, chanid) == (amount - push_sat) * 1000

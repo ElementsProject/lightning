@@ -105,14 +105,14 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     assert account_balance(l2, channel_id) == 0
 
     expected_1 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
-        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('wallet', 'deposit', None, None)],
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+        'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('wallet', ['deposit'], None, None)],
     }
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('wallet', 'deposit', None, None)],
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('wallet', ['deposit'], None, None)],
     }
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
@@ -628,24 +628,24 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
 
     # l1 loses all of their channel balance to the peer, as penalties
     expected_1 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
-        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'penalty', None, None), ('external', 'penalty', None, None)],
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+        'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('external', ['penalty'], None, None), ('external', ['penalty'], None, None)],
     }
 
     # l2 sweeps all of l1's closing outputs
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('cid1', 'penalty', 'to_wallet', 'C'), ('cid1', 'penalty', 'to_wallet', 'D')],
-        'C': [('wallet', 'deposit', None, None)],
-        'D': [('wallet', 'deposit', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('cid1', ['penalty'], ['to_wallet'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'D')],
+        'C': [('wallet', ['deposit'], None, None)],
+        'D': [('wallet', ['deposit'], None, None)]
     }
 
     if anchor_expected():
-        expected_1['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_1['B'].append(('wallet', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -755,24 +755,24 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 
     # l1 loses all of their channel balance to the peer, as penalties
     expected_1 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
-        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'penalty', None, None), ('external', 'penalty', None, None), ('external', 'penalty', None, None)],
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+        'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('external', ['penalty'], None, None), ('external', ['penalty'], None, None), ('external', ['penalty'], None, None)],
     }
 
     # l2 sweeps all of l1's closing outputs
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('wallet', 'channel_close', None, None), ('cid1', 'penalty', 'to_wallet', 'C'), ('cid1', 'penalty', 'to_wallet', 'D')],
-        'C': [('wallet', 'deposit', None, None)],
-        'D': [('wallet', 'deposit', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('wallet', ['channel_close'], None, None), ('cid1', ['penalty'], ['to_wallet'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'D')],
+        'C': [('wallet', ['deposit'], None, None)],
+        'D': [('wallet', ['deposit'], None, None)]
     }
 
     if anchor_expected():
-        expected_1['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_1['B'].append(('wallet', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -1283,24 +1283,24 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     assert account_balance(l2, channel_id) == 0
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'to_them', None, None), ('cid1', 'htlc_fulfill', 'htlc_fulfill', 'C'), ('external', 'penalized', None, None)],
-        'C': [('external', 'penalized', None, None)],
+        'A': [('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('external', ['to_them'], None, None), ('cid1', ['htlc_fulfill'], ['htlc_fulfill'], 'C'), ('external', ['penalized'], None, None)],
+        'C': [('external', ['penalized'], None, None)],
     }
 
     expected_3 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('wallet', 'channel_close', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'C'), ('cid1', 'penalty', 'to_wallet', 'E')],
-        'C': [('cid1', 'penalty', 'to_wallet', 'D')],
-        'D': [('wallet', 'deposit', None, None)],
-        'E': [('wallet', 'deposit', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('wallet', ['channel_close'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'E')],
+        'C': [('cid1', ['penalty'], ['to_wallet'], 'D')],
+        'D': [('wallet', ['deposit'], None, None)],
+        'E': [('wallet', ['deposit'], None, None)]
     }
 
     if anchor_expected():
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_3['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
-        expected_3['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_3['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_3['B'].append(('wallet', ['anchor'], None, None))
 
     tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
     check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
@@ -1489,27 +1489,27 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     assert account_balance(l2, channel_id) == 0
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'to_them', None, None), ('cid1', 'htlc_fulfill', 'htlc_fulfill', 'E'), ('cid1', 'delayed_to_us', 'to_wallet', 'F'), ('cid1', 'htlc_timeout', 'htlc_timeout', 'C')],
-        'C': [('external', 'penalized', None, None)],
-        'E': [('cid1', 'htlc_tx', 'to_wallet', 'G')],
-        'F': [('wallet', 'deposit', None, None)],
-        'G': [('wallet', 'deposit', None, None)]
+        'A': [('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('external', ['to_them'], None, None), ('cid1', ['htlc_fulfill'], ['htlc_fulfill'], 'E'), ('cid1', ['delayed_to_us'], ['to_wallet'], 'F'), ('cid1', ['htlc_timeout'], ['htlc_timeout'], 'C')],
+        'C': [('external', ['penalized'], None, None)],
+        'E': [('cid1', ['htlc_tx'], ['to_wallet'], 'G')],
+        'F': [('wallet', ['deposit'], None, None)],
+        'G': [('wallet', ['deposit'], None, None)]
     }
 
     expected_3 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('wallet', 'channel_close', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'E'), ('external', 'stolen', None, None), ('external', 'htlc_timeout', 'htlc_timeout', 'C')],
-        'C': [('cid1', 'penalty', 'to_wallet', 'D')],
-        'D': [('wallet', 'deposit', None, None)],
-        'E': [('external', 'stolen', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('wallet', ['channel_close'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'E'), ('external', ['stolen'], None, None), ('external', ['htlc_timeout'], ['htlc_timeout'], 'C')],
+        'C': [('cid1', ['penalty'], ['to_wallet'], 'D')],
+        'D': [('wallet', ['deposit'], None, None)],
+        'E': [('external', ['stolen'], None, None)]
     }
 
     if anchor_expected():
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_3['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
-        expected_3['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_3['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_3['B'].append(('wallet', ['anchor'], None, None))
 
     tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
     check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
@@ -1626,15 +1626,15 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     assert account_balance(l2, channel_id) == 0
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('cid1', 'penalty', 'to_wallet', 'C'), ('cid1', 'penalty', 'to_wallet', 'D')],
-        'C': [('wallet', 'deposit', None, None)],
-        'D': [('wallet', 'deposit', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('cid1', ['penalty'], ['to_wallet'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'D')],
+        'C': [('wallet', ['deposit'], None, None)],
+        'D': [('wallet', ['deposit'], None, None)]
     }
 
     if anchor_expected():
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     check_utxos_channel(l2, [channel_id], expected_2)
 
@@ -1749,13 +1749,13 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     assert account_balance(l2, channel_id) == 0
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('cid1', 'penalty', 'to_miner', 'C'), ('cid1', 'penalty', 'to_miner', 'D')],
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('cid1', ['penalty'], ['to_miner'], 'C'), ('cid1', ['penalty'], ['to_miner'], 'D')],
     }
 
     if anchor_expected():
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     check_utxos_channel(l2, [channel_id], expected_2)
 
@@ -2067,24 +2067,24 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
 
     # Graph of coin_move events we expect
     expected_1 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
-        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('cid1', 'delayed_to_us', 'to_wallet', 'C'), ('cid1', 'htlc_timeout', 'htlc_timeout', 'D')],
-        'C': [('wallet', 'deposit', None, None)],
-        'D': [('cid1', 'htlc_tx', 'to_wallet', 'E')],
-        'E': [('wallet', 'deposit', None, None)]
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+        'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('cid1', ['delayed_to_us'], ['to_wallet'], 'C'), ('cid1', ['htlc_timeout'], ['htlc_timeout'], 'D')],
+        'C': [('wallet', ['deposit'], None, None)],
+        'D': [('cid1', ['htlc_tx'], ['to_wallet'], 'E')],
+        'E': [('wallet', ['deposit'], None, None)]
     }
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'to_them', None, None), ('external', 'htlc_timeout', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None)]
     }
 
     if anchor_expected():
-        expected_1['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_1['B'].append(('wallet', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -2182,28 +2182,28 @@ def test_onchain_middleman_simple(node_factory, bitcoind):
 
     # Graph of coin_move events we expect
     expected_2 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
         # This is ugly, but this wallet deposit is either unspent or used
         # in the next channel open
-        'A': [('wallet', 'deposit', [('withdrawal', 'F'), (None, None)]), ('cid1', 'channel_open', 'channel_close', 'B')],
-        '1': [('wallet', 'deposit', 'withdrawal', 'F')],
-        'B': [('cid1', 'delayed_to_us', 'to_wallet', 'C'), ('cid1', 'htlc_fulfill', 'htlc_fulfill', 'D'), ('external', 'to_them', None, None)],
-        'C': [('wallet', 'deposit', None, None)],
-        'D': [('cid1', 'htlc_tx', 'to_wallet', 'E')],
-        'E': [('wallet', 'deposit', None, None)],
-        'F': [('wallet', 'deposit', None, None), ('cid2', 'channel_open', None, None)]
+        'A': [('wallet', ['deposit'], ((['withdrawal'], 'F'), (None, None))), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        '1': [('wallet', ['deposit'], ['withdrawal'], 'F')],
+        'B': [('cid1', ['delayed_to_us'], ['to_wallet'], 'C'), ('cid1', ['htlc_fulfill'], ['htlc_fulfill'], 'D'), ('external', ['to_them'], None, None)],
+        'C': [('wallet', ['deposit'], None, None)],
+        'D': [('cid1', ['htlc_tx'], ['to_wallet'], 'E')],
+        'E': [('wallet', ['deposit'], None, None)],
+        'F': [('wallet', ['deposit'], None, None), ('cid2', ['channel_open', 'opener'], None, None)]
     }
 
     expected_1 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'to_them', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'D'), ('wallet', 'channel_close', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('external', ['to_them'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'D'), ('wallet', ['channel_close'], None, None)]
     }
 
     if anchor_expected():
-        expected_1['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_1['B'].append(('wallet', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     chan2_id = first_channel_id(l2, l3)
     tags = check_utxos_channel(l2, [channel_id, chan2_id], expected_2)
@@ -2303,27 +2303,27 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
 
     # Graph of coin_move events we expect
     expected_2 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
         # This is ugly, but this wallet deposit is either unspent or used
         # in the next channel open
-        'A': [('wallet', 'deposit', [('withdrawal', 'D'), (None, None)]), ('cid1', 'channel_open', 'channel_close', 'B')],
-        '1': [('wallet', 'deposit', 'withdrawal', 'D')],
-        'B': [('external', 'to_them', None, None), ('wallet', 'channel_close', None, None), ('cid1', 'htlc_fulfill', 'to_wallet', 'C')],
-        'C': [('wallet', 'deposit', None, None)],
-        'D': [('wallet', 'deposit', None, None), ('cid2', 'channel_open', None, None)]
+        'A': [('wallet', ['deposit'], ((['withdrawal'], 'D'), (None, None))), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        '1': [('wallet', ['deposit'], ['withdrawal'], 'D')],
+        'B': [('external', ['to_them'], None, None), ('wallet', ['channel_close'], None, None), ('cid1', ['htlc_fulfill'], ['to_wallet'], 'C')],
+        'C': [('wallet', ['deposit'], None, None)],
+        'D': [('wallet', ['deposit'], None, None), ('cid2', ['channel_open', 'opener'], None, None)]
     }
 
     expected_1 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'to_them', None, None), ('external', 'htlc_fulfill', 'htlc_fulfill', 'C'), ('cid1', 'delayed_to_us', 'to_wallet', 'E')],
-        'E': [('wallet', 'deposit', None, None)]
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('external', ['to_them'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'C'), ('cid1', ['delayed_to_us'], ['to_wallet'], 'E')],
+        'E': [('wallet', ['deposit'], None, None)]
     }
 
     if anchor_expected():
-        expected_1['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_1['B'].append(('wallet', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     chan2_id = first_channel_id(l2, l3)
     tags = check_utxos_channel(l2, [channel_id, chan2_id], expected_2)
@@ -2396,24 +2396,24 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
 
     # Graph of coin_move events we expect
     expected_1 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
         # This is ugly, but this wallet deposit is either unspent or used
         # in the next channel open
-        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('wallet', 'channel_close', None, None), ('cid1', 'htlc_timeout', 'to_wallet', 'C')],
-        'C': [('wallet', 'deposit', None, None)],
+        'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('wallet', ['channel_close'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C')],
+        'C': [('wallet', ['deposit'], None, None)],
     }
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'to_them', None, None), ('external', 'htlc_timeout', None, None)],
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None)],
     }
 
     if anchor_expected():
-        expected_1['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_1['B'].append(('wallet', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
@@ -2600,22 +2600,22 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
 
     # Graph of coin_move events we expect
     expected_1 = {
-        '0': [('wallet', 'deposit', 'withdrawal', 'A')],
-        'A': [('wallet', 'deposit', None, None), ('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('wallet', 'channel_close', None, None), ('cid1', 'htlc_timeout', 'ignored', 'C')],
-        'C': [('wallet', 'deposit', None, None)],
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+        'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
+        'B': [('wallet', ['channel_close'], None, None), ('cid1', ['htlc_timeout'], ['ignored'], 'C')],
+        'C': [('wallet', ['deposit'], None, None)],
     }
 
     expected_2 = {
-        'A': [('cid1', 'channel_open', 'channel_close', 'B')],
-        'B': [('external', 'to_them', None, None), ('external', 'htlc_timeout', None, None)],
+        'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
+        'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None)],
     }
 
     if anchor_expected():
-        expected_1['B'].append(('external', 'anchor', None, None))
-        expected_2['B'].append(('external', 'anchor', None, None))
-        expected_1['B'].append(('wallet', 'anchor', None, None))
-        expected_2['B'].append(('wallet', 'anchor', None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor'], None, None))
 
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)

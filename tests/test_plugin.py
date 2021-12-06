@@ -1887,19 +1887,19 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     """Verify that channel coin movements are triggered correctly.  """
 
     l1_l2_mvts = [
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'channel_open'},
-        {'type': 'channel_mvt', 'credit': 100001001, 'debit': 0, 'tag': 'routed'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tag': 'routed'},
-        {'type': 'channel_mvt', 'credit': 100000000, 'debit': 0, 'tag': 'invoice'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tag': 'invoice'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 100001001, 'tag': 'channel_close'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tags': ['channel_open']},
+        {'type': 'channel_mvt', 'credit': 100001001, 'debit': 0, 'tags': ['routed']},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tags': ['routed']},
+        {'type': 'channel_mvt', 'credit': 100000000, 'debit': 0, 'tags': ['invoice']},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tags': ['invoice']},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 100001001, 'tags': ['channel_close']},
     ]
 
     l2_l3_mvts = [
-        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'channel_open'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
-        {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 950000501, 'tag': 'channel_close'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tags': ['channel_open', 'opener']},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tags': ['routed']},
+        {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tags': ['routed']},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 950000501, 'tags': ['channel_close']},
     ]
 
     l1, l2, l3 = node_factory.line_graph(3, opts=[

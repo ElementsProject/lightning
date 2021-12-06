@@ -428,6 +428,7 @@ static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg U
 	delete_channel(channel);
 }
 
+
 /**
  * onchain_add_utxo -- onchaind is telling us about an UTXO we own
  */
@@ -466,6 +467,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 
 	mvt = new_coin_wallet_deposit(msg, &outpoint, blockheight,
 			              amount, CHANNEL_CLOSE);
+
 	notify_chain_mvt(channel->peer->ld, mvt);
 }
 

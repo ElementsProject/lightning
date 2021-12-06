@@ -474,7 +474,11 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 	if (mvt->output_val)
 		json_add_amount_sat_only(stream, "output_value",
 					 *mvt->output_val);
-	json_add_string(stream, "tag", mvt_tag_str(mvt->tag));
+
+	json_array_start(stream, "tags");
+	for (size_t i = 0; i < tal_count(mvt->tags); i++)
+		json_add_string(stream, NULL, mvt_tag_str(mvt->tags[i]));
+	json_array_end(stream);
 
 	/* Only chain movements have blockheights. A blockheight
 	 * of 'zero' means we haven't seen this tx confirmed yet. */
