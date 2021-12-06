@@ -1019,7 +1019,10 @@ def test_gossip_addresses(node_factory, bitcoind):
     l1 = node_factory.get_node(options={
         'announce-addr': [
             '[::]:3',
+            '[::]',
             '127.0.0.1:2',
+            '127.0.0.1',
+            'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
             '4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion:1234'
         ],
     })
@@ -1032,9 +1035,18 @@ def test_gossip_addresses(node_factory, bitcoind):
                            .format(l1.info['id']))
 
     nodes = l2.rpc.listnodes(l1.info['id'])['nodes']
+    if TEST_NETWORK == 'regtest':
+        default_port = 19846
+    else:
+        assert TEST_NETWORK == 'liquid-regtest'
+        default_port = 20735
+
     assert len(nodes) == 1 and nodes[0]['addresses'] == [
         {'type': 'ipv4', 'address': '127.0.0.1', 'port': 2},
+        {'type': 'ipv4', 'address': '127.0.0.1', 'port': default_port},
         {'type': 'ipv6', 'address': '::', 'port': 3},
+        {'type': 'ipv6', 'address': '::', 'port': default_port},
+        {'type': 'torv3', 'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion', 'port': default_port},
         {'type': 'torv3', 'address': '4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion', 'port': 1234},
     ]
 
