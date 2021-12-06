@@ -4,10 +4,9 @@
 
 #include <common/amount.h>
 #include <common/channel_id.h>
+#include <common/utils.h>
 
 #define COIN_MVT_VERSION 2
-
-#define COIN_MVT_ACCT_WALLET "wallet"
 
 enum mvt_type {
 	CHAIN_MVT = 0,
@@ -38,6 +37,7 @@ enum mvt_tag {
 	PENALIZED = 20,
 	STOLEN = 21,
 	TO_MINER = 22,
+	OPENER = 23,
 };
 
 struct channel_coin_mvt {
@@ -51,8 +51,8 @@ struct channel_coin_mvt {
 	 * so we should also record a 'part-id' for them */
 	u64 *part_id;
 
-	/* label / tag */
-	enum mvt_tag tag;
+	/* label / tag array */
+	enum mvt_tag *tags;
 
 	/* only one or the other */
 	struct amount_msat credit;
@@ -69,8 +69,8 @@ struct chain_coin_mvt {
 	/* some on-chain movements have a payment hash */
 	struct sha256 *payment_hash;
 
-	/* label / tag */
-	enum mvt_tag tag;
+	/* label / tag array */
+	enum mvt_tag *tags;
 
 	/* block this transaction is confirmed in
 	 * zero means it's unknown/unconfirmed */
@@ -103,8 +103,8 @@ struct coin_mvt {
 	/* identifier */
 	struct mvt_id id;
 
-	/* label / tag */
-	enum mvt_tag tag;
+	/* label / tag array */
+	enum mvt_tag *tags;
 
 	/* only one or the other */
 	struct amount_msat credit;
@@ -125,12 +125,14 @@ struct coin_mvt {
 	struct node_id *node_id;
 };
 
+enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag);
+
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      const struct channel_id *cid,
 					      struct sha256 payment_hash,
 					      u64 *part_id,
 					      struct amount_msat amount,
-					      enum mvt_tag tag,
+					      enum mvt_tag *tags STEALS,
 					      bool is_credit);
 
 struct chain_coin_mvt *new_onchaind_withdraw(const tal_t *ctx,
@@ -159,12 +161,14 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 					      u32 blockheight,
 					      const struct amount_msat amount,
 					      const struct amount_sat output_val);
+
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     const struct channel_id *chan_id,
 					     const struct bitcoin_outpoint *out,
 					     u32 blockheight,
 					     const struct amount_msat amount,
-					     const struct amount_sat output_val);
+					     const struct amount_sat output_val,
+					     bool is_opener);
 
 struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx,
 						const struct bitcoin_outpoint *outpoint,

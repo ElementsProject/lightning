@@ -32,7 +32,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 {
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hin->payment_hash, NULL,
-				    hin->msat, INVOICE,
+				    hin->msat, new_tag_arr(ctx, INVOICE),
 				    true);
 }
 
@@ -42,7 +42,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 {
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hin->payment_hash, NULL,
-				    hin->msat, ROUTED,
+				    hin->msat, new_tag_arr(ctx, ROUTED),
 				    true);
 }
 
@@ -52,7 +52,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 {
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, &hout->partid,
-				    hout->msat, INVOICE,
+				    hout->msat, new_tag_arr(ctx, INVOICE),
 				    false);
 }
 
@@ -62,6 +62,6 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 {
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, NULL,
-				    hout->msat, ROUTED,
+				    hout->msat, new_tag_arr(ctx, ROUTED),
 				    false);
 }

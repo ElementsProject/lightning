@@ -77,7 +77,7 @@ def move_matches(exp, mv):
         return False
     if mv['debit'] != "{}msat".format(exp['debit']):
         return False
-    if mv['tag'] != exp['tag']:
+    if mv['tags'] != exp['tags']:
         return False
     return True
 
@@ -94,11 +94,11 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
     node_id = n.info['id']
     acct_moves = [m for m in moves if m['account_id'] == account_id]
     for mv in acct_moves:
-        print("{{'type': '{}', 'credit': {}, 'debit': {}, 'tag': '{}'}},"
+        print("{{'type': '{}', 'credit': {}, 'debit': {}, 'tags': '{}'}},"
               .format(mv['type'],
                       Millisatoshi(mv['credit']).millisatoshis,
                       Millisatoshi(mv['debit']).millisatoshis,
-                      mv['tag']))
+                      mv['tags']))
         assert mv['version'] == 2
         assert mv['node_id'] == node_id
         assert mv['timestamp'] > 0
@@ -167,9 +167,9 @@ def print_utxos(utxos):
         print(k)
         for u in us:
             if u[1]:
-                print('\t', u[0]['account_id'], u[0]['tag'], u[1]['tag'], u[1]['txid'])
+                print('\t', u[0]['account_id'], u[0]['tags'], u[1]['tags'], u[1]['txid'])
             else:
-                print('\t', u[0]['account_id'], u[0]['tag'], None, None)
+                print('\t', u[0]['account_id'], u[0]['tags'], None, None)
 
 
 def utxos_for_channel(utxoset, channel_id):
@@ -218,7 +218,7 @@ def matchup_events(u_set, evs, chans, tag_list):
             else:
                 acct = ev[0]
 
-            if u[0]['account_id'] != acct or u[0]['tag'] != ev[1]:
+            if u[0]['account_id'] != acct or u[0]['tags'] != ev[1]:
                 continue
 
             if ev[2] is None:
@@ -228,21 +228,21 @@ def matchup_events(u_set, evs, chans, tag_list):
                 break
 
             # ugly hack to annotate two possible futures for a utxo
-            if type(ev[2]) is list:
-                tag = u[1]['tag'] if u[1] else u[1]
+            if type(ev[2]) is tuple:
+                tag = u[1]['tags'] if u[1] else u[1]
                 assert tag in [x[0] for x in ev[2]]
                 if not u[1]:
                     found = True
                     u_set.remove(u)
                     break
                 for x in ev[2]:
-                    if x[0] == u[1]['tag'] and u[1]['tag'] != 'to_miner':
+                    if x[0] == u[1]['tags'] and 'to_miner' not in u[1]['tags']:
                         # Save the 'spent to' txid in the tag-list
                         tag_list[x[1]] = u[1]['txid']
             else:
-                assert ev[2] == u[1]['tag']
+                assert ev[2] == u[1]['tags']
                 # Save the 'spent to' txid in the tag-list
-                if u[1]['tag'] != 'to_miner':
+                if 'to_miner' not in u[1]['tags']:
                     tag_list[ev[3]] = u[1]['txid']
 
             found = True

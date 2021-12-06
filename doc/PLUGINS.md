@@ -708,7 +708,7 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"part_id": 0, // (`channel_mvt` type only, mandatory)
 		"credit":"2000000000msat",
 		"debit":"0msat",
-		"tag":"deposit",
+		"tags": ["deposit"],
 		"blockheight":102, // (May be null)
 		"timestamp":1585948198,
 		"coin_type":"bc"
