@@ -279,6 +279,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const u8 *onion_routing_packet,
 			      const struct pubkey *blinding,
 			      bool am_origin,
+			      struct amount_msat final_msat,
 			      u64 partid,
 			      u64 groupid,
 			      struct htlc_in *in)
@@ -310,10 +311,34 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	if (am_origin) {
 		hout->partid = partid;
 		hout->groupid = groupid;
+
+		/* Stash the fees (for accounting) */
+		if (!amount_msat_sub(&hout->fees, msat, final_msat))
+			return corrupt("new_htlc_out",
+				       "overflow subtract %s-%s",
+				       type_to_string(tmpctx,
+						      struct amount_msat,
+						      &msat),
+				       type_to_string(tmpctx,
+						      struct amount_msat,
+						      &final_msat));
+
 	}
 	hout->in = NULL;
-	if (in)
+	if (in) {
 		htlc_out_connect_htlc_in(hout, in);
+
+		/* Stash the fees (for accounting) */
+		if (!amount_msat_sub(&hout->fees, in->msat, msat))
+			return corrupt("new_htlc_out",
+				       "overflow subtract %s-%s",
+				       type_to_string(tmpctx,
+						      struct amount_msat,
+						      &in->msat),
+				       type_to_string(tmpctx,
+						      struct amount_msat,
+						      &msat));
+	}
 
 	return htlc_out_check(hout, "new_htlc_out");
 }

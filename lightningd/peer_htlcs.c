@@ -638,6 +638,7 @@ static void htlc_offer_timeout(struct htlc_out *out)
 const u8 *send_htlc_out(const tal_t *ctx,
 			struct channel *out,
 			struct amount_msat amount, u32 cltv,
+			struct amount_msat final_msat,
 			const struct sha256 *payment_hash,
 			const struct pubkey *blinding,
 			u64 partid,
@@ -675,6 +676,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	*houtp = new_htlc_out(out->owner, out, amount, cltv,
 			      payment_hash, onion_routing_packet,
 			      blinding, in == NULL,
+			      final_msat,
 			      partid, groupid, in);
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
@@ -786,7 +788,8 @@ static void forward_htlc(struct htlc_in *hin,
 	}
 
 	failmsg = send_htlc_out(tmpctx, next, amt_to_forward,
-				outgoing_cltv_value, &hin->payment_hash,
+				outgoing_cltv_value, AMOUNT_MSAT(0),
+				&hin->payment_hash,
 				next_blinding, 0 /* partid */, 0 /* groupid */,
 				next_onion, hin, &hout, &needs_update_appended);
 	if (!failmsg)
@@ -1605,7 +1608,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 
 		if (!mvt)
 			log_broken(channel->log,
-				   "Unable to calculate fees collected."
+				   "Unable to calculate fees."
 				   " Not logging an outbound HTLC");
 		else
 			notify_channel_mvt(channel->peer->ld, mvt);

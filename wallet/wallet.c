@@ -2372,8 +2372,9 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		" malformed_onion,"
 		" partid,"
 		" groupid,"
+		" fees_msat,"
 		" min_commit_num"
-		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);"));
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_bind_u64(stmt, 1, out->key.id);
@@ -2403,7 +2404,9 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		db_bind_u64(stmt, 10, out->partid);
 		db_bind_u64(stmt, 11, out->groupid);
 	}
-	db_bind_u64(stmt, 12, min_u64(chan->next_index[LOCAL]-1,
+
+	db_bind_amount_msat(stmt, 12, &out->fees);
+	db_bind_u64(stmt, 13, min_u64(chan->next_index[LOCAL]-1,
 				      chan->next_index[REMOTE]-1));
 
 	db_exec_prepared_v2(stmt);
@@ -2598,6 +2601,7 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 		out->failmsg = db_col_arr(out, stmt, "localfailmsg", u8);
 
 	out->in = NULL;
+	db_col_amount_msat(stmt, "fees_msat", &out->fees);
 
 	if (!db_col_is_null(stmt, "origin_htlc")) {
 		u64 in_id = db_col_u64(stmt, "origin_htlc");
@@ -2737,6 +2741,7 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet,
 					     ", partid"
 					     ", localfailmsg"
 					     ", groupid"
+					     ", fees_msat"
 					     " FROM channel_htlcs"
 					     " WHERE direction = ?"
 					     " AND channel_id = ?"

@@ -63,25 +63,16 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, &hout->partid,
 				    hout->msat, new_tag_arr(ctx, INVOICE),
-				    false, AMOUNT_MSAT(0));
+				    false, hout->fees);
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     struct htlc_out *hout,
 						     struct channel *channel)
 {
-	struct amount_msat fees_collected;
-
-	if (!hout->in)
-		return NULL;
-
-	if (!amount_msat_sub(&fees_collected, hout->in->msat,
-			     hout->msat))
-		return NULL;
-
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, NULL,
 				    hout->msat, new_tag_arr(ctx, ROUTED),
 				    false,
-				    fees_collected);
+				    hout->fees);
 }

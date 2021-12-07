@@ -773,6 +773,7 @@ static bool should_use_tlv(enum route_hop_style style)
 static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 			    const struct onionpacket *packet,
 			    const struct route_hop *first_hop,
+			    const struct amount_msat final_amount,
 			    const struct sha256 *payment_hash,
 			    const struct pubkey *blinding,
 			    u64 partid,
@@ -786,7 +787,8 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 	base_expiry = get_block_height(ld->topology) + 1;
 	onion = serialize_onionpacket(tmpctx, packet);
 	return send_htlc_out(ctx, channel, first_hop->amount,
-			     base_expiry + first_hop->delay, payment_hash,
+			     base_expiry + first_hop->delay,
+			     final_amount, payment_hash,
 			     blinding, partid, groupid, onion, NULL, hout,
 			     &dont_care_about_channel_update);
 }
@@ -1047,7 +1049,8 @@ send_payment_core(struct lightningd *ld,
 		return command_failed(cmd, data);
 	}
 
-	failmsg = send_onion(tmpctx, ld, packet, first_hop, rhash, NULL, partid,
+	failmsg = send_onion(tmpctx, ld, packet, first_hop, msat,
+			     rhash, NULL, partid,
 			     group, channel, &hout);
 
 	if (failmsg) {
@@ -1211,7 +1214,8 @@ send_payment(struct lightningd *ld,
 		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
 	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
 	return send_payment_core(ld, cmd, rhash, partid, group, &route[0],
-				 msat, total_msat, label, invstring,
+				 msat, total_msat,
+				 label, invstring,
 				 packet, &ids[n_hops - 1], ids,
 				 channels, path_secrets, local_offer_id);
 }

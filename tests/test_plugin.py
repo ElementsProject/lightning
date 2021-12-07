@@ -1902,10 +1902,18 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
         {'type': 'chain_mvt', 'credit': 0, 'debit': 950000501, 'tags': ['channel_close']},
     ]
 
+    l3_l2_mvts = [
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tags': ['channel_open']},
+        {'type': 'channel_mvt', 'credit': 100000000, 'debit': 0, 'tags': ['invoice'], 'fees': '0msat'},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000501, 'tags': ['invoice'], 'fees': '501msat'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 49999499, 'tags': ['channel_close']},
+    ]
+
+    coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {'may_reconnect': True},
-        {'may_reconnect': True, 'plugin': os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')},
-        {'may_reconnect': True},
+        {'may_reconnect': True, 'plugin': coin_plugin},
+        {'may_reconnect': True, 'plugin': coin_plugin},
     ], wait_for_announce=True)
 
     bitcoind.generate_block(5)
@@ -1977,12 +1985,14 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l2])
     l2.daemon.wait_for_log('{}.*FUNDING_TRANSACTION/FUNDING_OUTPUT->MUTUAL_CLOSE depth'.format(l3.info['id']))
+    l3.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
 
     # Ending channel balance should be zero
     assert account_balance(l2, chanid_1) == 0
     assert account_balance(l2, chanid_3) == 0
 
     # Verify we recorded all the movements we expect
+    check_coin_moves(l3, chanid_3, l3_l2_mvts, chainparams)
     check_coin_moves(l2, chanid_1, l1_l2_mvts, chainparams)
     check_coin_moves(l2, chanid_3, l2_l3_mvts, chainparams)
 
