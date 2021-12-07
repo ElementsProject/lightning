@@ -58,6 +58,8 @@ struct channel_coin_mvt {
 	struct amount_msat credit;
 	struct amount_msat debit;
 
+	/* Fees collected (or paid) on this mvt */
+	struct amount_msat fees;
 };
 
 struct chain_coin_mvt {
@@ -114,6 +116,9 @@ struct coin_mvt {
 	 * our credit/debit amount, eg channel opens */
 	struct amount_sat *output_val;
 
+	/* Amount of fees collected/paid by channel mvt */
+	struct amount_msat *fees;
+
 	u32 timestamp;
 	u32 blockheight;
 
@@ -133,7 +138,8 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      u64 *part_id,
 					      struct amount_msat amount,
 					      enum mvt_tag *tags STEALS,
-					      bool is_credit);
+					      bool is_credit,
+					      struct amount_msat fees);
 
 struct chain_coin_mvt *new_onchaind_withdraw(const tal_t *ctx,
 					     const struct bitcoin_outpoint *outpoint,

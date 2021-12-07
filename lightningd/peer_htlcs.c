@@ -1544,12 +1544,17 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 			channel->msat_to_us_max = channel->our_msat;
 
 		/* Coins have definitively moved, log a movement */
-		if (hin->we_filled)
+		if (hin->we_filled && *hin->we_filled)
 			mvt = new_channel_mvt_invoice_hin(hin, hin, channel);
 		else
 			mvt = new_channel_mvt_routed_hin(hin, hin, channel);
 
-		notify_channel_mvt(channel->peer->ld, mvt);
+		if (!mvt)
+			log_broken(channel->log,
+				   "Unable to calculate fees collected."
+				   " Not logging an inbound HTLC");
+		else
+			notify_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hin);
@@ -1597,7 +1602,13 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 		else
 			mvt = new_channel_mvt_routed_hout(hout, hout, channel);
 
-		notify_channel_mvt(channel->peer->ld, mvt);
+
+		if (!mvt)
+			log_broken(channel->log,
+				   "Unable to calculate fees collected."
+				   " Not logging an outbound HTLC");
+		else
+			notify_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hout);

@@ -79,6 +79,13 @@ def move_matches(exp, mv):
         return False
     if mv['tags'] != exp['tags']:
         return False
+    if 'fees' in exp:
+        if 'fees' not in mv:
+            return False
+        if mv['fees'] != exp['fees']:
+            return False
+    elif 'fees' in mv:
+        return False
     return True
 
 
@@ -94,11 +101,12 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
     node_id = n.info['id']
     acct_moves = [m for m in moves if m['account_id'] == account_id]
     for mv in acct_moves:
-        print("{{'type': '{}', 'credit': {}, 'debit': {}, 'tags': '{}'}},"
+        print("{{'type': '{}', 'credit': {}, 'debit': {}, 'tags': '{}' , ['fees'?: '{}']}},"
               .format(mv['type'],
                       Millisatoshi(mv['credit']).millisatoshis,
                       Millisatoshi(mv['debit']).millisatoshis,
-                      mv['tags']))
+                      mv['tags'],
+                      mv['fees'] if 'fees' in mv else ''))
         assert mv['version'] == 2
         assert mv['node_id'] == node_id
         assert mv['timestamp'] > 0
