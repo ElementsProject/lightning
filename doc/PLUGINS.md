@@ -708,6 +708,8 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"part_id": 0, // (`channel_mvt` type only, mandatory)
 		"credit":"2000000000msat",
 		"debit":"0msat",
+		"output_value": "2000000000msat", // ('chain_mvt' only)
+		"fees": "382msat", // ('channel_mvt' only, optional)
 		"tags": ["deposit"],
 		"blockheight":102, // (May be null)
 		"timestamp":1585948198,
@@ -747,6 +749,16 @@ multiple times. `channel_mvt` only
 `credit` and `debit` are millisatoshi denominated amounts of the fund movement. A
 'credit' is funds deposited into an account; a `debit` is funds withdrawn.
 
+`output_value` is the total value of the on-chain UTXO. Note that for
+channel opens/closes the total output value will not necessarily correspond
+to the amount that's credited/debited.
+
+`fees` is an HTLC annotation for the amount of fees either paid or
+earned. For "invoice" tagged events, the fees are the total fees
+paid to send that payment. The end amount can be found by subtracting
+the total fees from the `debited` amount. For "routed" tagged events,
+both the debit/credit contain fees. Technically routed debits are the
+'fee generating' event, however we include them on routed credits as well.
 
 `tag` is a movement descriptor. Current tags are as follows:
  - `deposit`: funds deposited

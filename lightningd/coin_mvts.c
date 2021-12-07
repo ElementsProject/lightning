@@ -1,4 +1,5 @@
 #include "config.h"
+#include <common/onion.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
@@ -33,17 +34,26 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hin->payment_hash, NULL,
 				    hin->msat, new_tag_arr(ctx, INVOICE),
-				    true);
+				    true, AMOUNT_MSAT(0));
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 						    struct htlc_in *hin,
 						    struct channel *channel)
 {
+	struct amount_msat fees_collected;
+
+	if (!hin->payload)
+		return NULL;
+
+	if (!amount_msat_sub(&fees_collected, hin->msat,
+			     hin->payload->amt_to_forward))
+		return NULL;
+
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hin->payment_hash, NULL,
 				    hin->msat, new_tag_arr(ctx, ROUTED),
-				    true);
+				    true, fees_collected);
 }
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
@@ -53,15 +63,25 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, &hout->partid,
 				    hout->msat, new_tag_arr(ctx, INVOICE),
-				    false);
+				    false, AMOUNT_MSAT(0));
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     struct htlc_out *hout,
 						     struct channel *channel)
 {
+	struct amount_msat fees_collected;
+
+	if (!hout->in)
+		return NULL;
+
+	if (!amount_msat_sub(&fees_collected, hout->in->msat,
+			     hout->msat))
+		return NULL;
+
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, NULL,
 				    hout->msat, new_tag_arr(ctx, ROUTED),
-				    false);
+				    false,
+				    fees_collected);
 }

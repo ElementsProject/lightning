@@ -474,6 +474,9 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 	if (mvt->output_val)
 		json_add_amount_sat_only(stream, "output_value",
 					 *mvt->output_val);
+	if (mvt->fees)
+		json_add_amount_msat_only(stream, "fees",
+					  *mvt->fees);
 
 	json_array_start(stream, "tags");
 	for (size_t i = 0; i < tal_count(mvt->tags); i++)

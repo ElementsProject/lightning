@@ -61,7 +61,8 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      u64 *part_id,
 					      struct amount_msat amount,
 					      enum mvt_tag *tags STEALS,
-					      bool is_credit)
+					      bool is_credit,
+					      struct amount_msat fees)
 {
 	struct channel_coin_mvt *mvt = tal(ctx, struct channel_coin_mvt);
 
@@ -77,6 +78,8 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 		mvt->debit = amount;
 		mvt->credit = AMOUNT_MSAT(0);
 	}
+
+	mvt->fees = fees;
 
 	return mvt;
 }
@@ -326,7 +329,8 @@ struct channel_coin_mvt *new_coin_pushed(const tal_t *ctx,
 
 	return new_channel_coin_mvt(ctx, cid, empty_hash,
 				    NULL, amount,
-				    new_tag_arr(ctx, PUSHED), false);
+				    new_tag_arr(ctx, PUSHED), false,
+				    AMOUNT_MSAT(0));
 }
 
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
@@ -351,6 +355,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 
 	mvt->output_val = tal(mvt, struct amount_sat);
 	*mvt->output_val = chain_mvt->output_val;
+	mvt->fees = NULL;
 
 	mvt->timestamp = timestamp;
 	mvt->blockheight = chain_mvt->blockheight;
@@ -379,6 +384,8 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->credit = chan_mvt->credit;
 	mvt->debit = chan_mvt->debit;
 	mvt->output_val = NULL;
+	mvt->fees = tal(mvt, struct amount_msat);
+	*mvt->fees = chan_mvt->fees;
 	mvt->timestamp = timestamp;
 	/* channel movements don't have a blockheight */
 	mvt->blockheight = 0;
