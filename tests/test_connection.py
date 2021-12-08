@@ -1074,7 +1074,7 @@ def test_funding_push(node_factory, bitcoind, chainparams):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
     l1 = node_factory.get_node(options={'plugin': coin_mvt_plugin})
-    l2 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'plugin': coin_mvt_plugin})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -1103,11 +1103,17 @@ def test_funding_push(node_factory, bitcoind, chainparams):
     chanid = first_channel_id(l2, l1)
     # give the file write a second
     time.sleep(1)
-    channel_mvts = [
+    channel_mvts_1 = [
         {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tags': ['channel_open', 'opener']},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 20000000, 'tags': ['pushed']},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 20000000, 'tags': ['pushed'], 'fees': '0msat'},
     ]
-    check_coin_moves(l1, chanid, channel_mvts, chainparams)
+    channel_mvts_2 = [
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tags': ['channel_open']},
+        {'type': 'channel_mvt', 'credit': 20000000, 'debit': 0, 'tags': ['pushed'], 'fees': '0msat'},
+    ]
+    check_coin_moves(l1, chanid, channel_mvts_1, chainparams)
+    check_coin_moves(l2, chanid, channel_mvts_2, chainparams)
+
     assert account_balance(l1, chanid) == (amount - push_sat) * 1000
 
 

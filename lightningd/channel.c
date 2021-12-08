@@ -155,7 +155,8 @@ new_inflight(struct channel *channel,
 	     const u32 lease_expiry,
 	     const secp256k1_ecdsa_signature *lease_commit_sig,
 	     const u32 lease_chan_max_msat, const u16 lease_chan_max_ppt,
-	     const u32 lease_blockheight_start)
+	     const u32 lease_blockheight_start,
+	     const struct amount_msat lease_fee)
 {
 	struct wally_psbt *last_tx_psbt_clone;
 	struct channel_inflight *inflight
@@ -191,6 +192,7 @@ new_inflight(struct channel *channel,
 
 	inflight->lease_chan_max_msat = lease_chan_max_msat;
 	inflight->lease_chan_max_ppt = lease_chan_max_ppt;
+	inflight->lease_fee = lease_fee;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);

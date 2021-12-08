@@ -38,6 +38,8 @@ enum mvt_tag {
 	STOLEN = 21,
 	TO_MINER = 22,
 	OPENER = 23,
+	LEASE_FEE = 24,
+	LEASED = 25,
 };
 
 struct channel_coin_mvt {
@@ -174,7 +176,8 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     u32 blockheight,
 					     const struct amount_msat amount,
 					     const struct amount_sat output_val,
-					     bool is_opener);
+					     bool is_opener,
+					     bool is_leased);
 
 struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx,
 						const struct bitcoin_outpoint *outpoint,
@@ -221,9 +224,11 @@ struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 					    u32 blockheight,
 					    struct amount_sat amount);
 
-struct channel_coin_mvt *new_coin_pushed(const tal_t *ctx,
-					 const struct channel_id *cid,
-					 struct amount_msat amount);
+struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
+					       const struct channel_id *cid,
+					       struct amount_msat amount,
+					       enum mvt_tag tag,
+					       bool is_credit);
 
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,

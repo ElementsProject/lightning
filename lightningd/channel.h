@@ -50,6 +50,10 @@ struct channel_inflight {
 	u32 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
 	u32 lease_blockheight_start;
+
+	/* We save this data so we can do nice accounting;
+	 * on the channel we slot it into the 'push' field */
+	struct amount_msat lease_fee;
 };
 
 struct open_attempt {
@@ -318,7 +322,8 @@ new_inflight(struct channel *channel,
 	     const secp256k1_ecdsa_signature *lease_commit_sig,
 	     const u32 lease_chan_max_msat,
 	     const u16 lease_chan_max_ppt,
-	     const u32 lease_blockheight_start);
+	     const u32 lease_blockheight_start,
+	     const struct amount_msat lease_fee);
 
 /* Given a txid, find an inflight channel stub. Returns NULL if none found */
 struct channel_inflight *channel_inflight_find(struct channel *channel,

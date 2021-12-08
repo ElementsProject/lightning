@@ -132,21 +132,30 @@ void channel_record_open(struct channel *channel)
 	struct chain_coin_mvt *mvt;
 	u32 blockheight;
 	struct amount_msat start_balance;
-	bool we_pushed = channel->opener == LOCAL
-			&& !amount_msat_zero(channel->push);
+	bool is_pushed = !amount_msat_zero(channel->push);
+	bool is_leased = channel->lease_expiry > 0;
 
 	blockheight = short_channel_id_blocknum(channel->scid);
 
-	/* If we pushed funds, add them back into the starting balance */
-	if (we_pushed) {
-		if (!amount_msat_add(&start_balance,
-				    channel->push, channel->our_msat))
-			fatal("Unable to add push_msat (%s) + our_msat (%s)",
-			      type_to_string(tmpctx, struct amount_msat,
-					     &channel->push),
-			      type_to_string(tmpctx, struct amount_msat,
-					     &channel->our_msat));
-
+	/* If funds were pushed, add/sub them from the starting balance */
+	if (is_pushed) {
+		if (channel->opener == LOCAL) {
+			if (!amount_msat_add(&start_balance,
+					    channel->our_msat, channel->push))
+				fatal("Unable to add push_msat (%s) + our_msat (%s)",
+				      type_to_string(tmpctx, struct amount_msat,
+						     &channel->push),
+				      type_to_string(tmpctx, struct amount_msat,
+						     &channel->our_msat));
+		} else {
+			if (!amount_msat_sub(&start_balance,
+					    channel->our_msat, channel->push))
+				fatal("Unable to sub our_msat (%s) - push (%s)",
+				      type_to_string(tmpctx, struct amount_msat,
+						     &channel->our_msat),
+				      type_to_string(tmpctx, struct amount_msat,
+						     &channel->push));
+		}
 	} else
 		start_balance = channel->our_msat;
 
@@ -156,15 +165,18 @@ void channel_record_open(struct channel *channel)
 				    blockheight,
 				    start_balance,
 				    channel->funding_sats,
-				    channel->opener == LOCAL);
+				    channel->opener == LOCAL,
+				    is_leased);
 
 	notify_chain_mvt(channel->peer->ld, mvt);
 
-	/* If we pushed sats, *now* record them as a withdrawal */
-	if (we_pushed)
+	/* If we pushed sats, *now* record them */
+	if (is_pushed)
 		notify_channel_mvt(channel->peer->ld,
-				   new_coin_pushed(tmpctx, &channel->cid,
-						   channel->push));
+				   new_coin_channel_push(tmpctx, &channel->cid,
+							 channel->push,
+							 is_leased ? LEASE_FEE : PUSHED,
+							 channel->opener == REMOTE));
 }
 
 static void lockin_complete(struct channel *channel)

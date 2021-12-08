@@ -1230,6 +1230,7 @@ static void update_channel_from_inflight(struct lightningd *ld,
 
 	/* Lease infos ! */
 	channel->lease_expiry = inflight->lease_expiry;
+	channel->push = inflight->lease_fee;
 	tal_free(channel->lease_commit_sig);
 	channel->lease_commit_sig
 		= tal_steal(channel, inflight->lease_commit_sig);
