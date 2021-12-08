@@ -4352,6 +4352,10 @@ def test_fetchinvoice_3hop(node_factory, bitcoind):
 
     l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
 
+    # Make sure l4 handled both onions before shutting down
+    l1.daemon.wait_for_log(r'plugin-fetchinvoice: Received modern onion .*obs2\\":false')
+    l1.daemon.wait_for_log(r'plugin-fetchinvoice: No match for modern onion.*obs2\\":true')
+
     # Test with obsolete onion.
     l4.stop()
     l4.daemon.opts['dev-no-modern-onion'] = None
