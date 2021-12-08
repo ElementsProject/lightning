@@ -1003,8 +1003,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", lease_chan_max_ppt"
 				 ", lease_expiry"
 				 ", lease_blockheight_start"
+				 ", lease_fee"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, inflight->channel->dbid);
 	db_bind_txid(stmt, 1, &inflight->funding->outpoint.txid);
@@ -1022,12 +1023,14 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 		db_bind_int(stmt, 11, inflight->lease_chan_max_ppt);
 		db_bind_int(stmt, 12, inflight->lease_expiry);
 		db_bind_int(stmt, 13, inflight->lease_blockheight_start);
+		db_bind_amount_msat(stmt, 14, &inflight->lease_fee);
 	} else {
 		db_bind_null(stmt, 9);
 		db_bind_null(stmt, 10);
 		db_bind_null(stmt, 11);
 		db_bind_int(stmt, 12, 0);
 		db_bind_null(stmt, 13);
+		db_bind_null(stmt, 14);
 	}
 
 	db_exec_prepared_v2(stmt);
@@ -1083,6 +1086,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		     struct channel *chan)
 {
 	struct amount_sat funding_sat, our_funding_sat;
+	struct amount_msat lease_fee;
 	struct bitcoin_outpoint funding;
 	struct bitcoin_signature last_sig;
 	struct channel_inflight *inflight;
@@ -1106,14 +1110,18 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		lease_chan_max_msat = db_col_int(stmt, "lease_chan_max_msat");
 		lease_chan_max_ppt = db_col_int(stmt, "lease_chan_max_ppt");
 		lease_blockheight_start = db_col_int(stmt, "lease_blockheight_start");
+		db_col_amount_msat(stmt, "lease_fee", &lease_fee);
 	} else {
 		lease_commit_sig = NULL;
 		lease_chan_max_msat = 0;
 		lease_chan_max_ppt = 0;
 		lease_blockheight_start = 0;
+		lease_fee = AMOUNT_MSAT(0);
+
 		db_col_ignore(stmt, "lease_chan_max_msat");
 		db_col_ignore(stmt, "lease_chan_max_ppt");
 		db_col_ignore(stmt, "lease_blockheight_start");
+		db_col_ignore(stmt, "lease_fee");
 	}
 
 	inflight = new_inflight(chan, &funding,
@@ -1127,7 +1135,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				lease_commit_sig,
 				lease_chan_max_msat,
 				lease_chan_max_ppt,
-				lease_blockheight_start);
+				lease_blockheight_start,
+				lease_fee);
 
 	/* Pull out the serialized tx-sigs-received-ness */
 	inflight->remote_tx_sigs = db_col_int(stmt, "funding_tx_remote_sigs_received");
@@ -1155,6 +1164,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", lease_chan_max_msat"
 					", lease_chan_max_ppt"
 					", lease_blockheight_start"
+					", lease_fee"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));

@@ -113,6 +113,9 @@ struct tx_state {
 	/* If delay til the channel funds lease expires */
 	u32 lease_expiry;
 
+	/* Total fee for lease */
+	struct amount_sat lease_fee;
+
 	/* Lease's commit sig */
 	secp256k1_ecdsa_signature *lease_commit_sig;
 
@@ -130,6 +133,7 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	tx_state->remote_funding_sigs_rcvd = false;
 
 	tx_state->lease_expiry = 0;
+	tx_state->lease_fee = AMOUNT_SAT(0);
 	tx_state->blockheight = 0;
 	tx_state->lease_commit_sig = NULL;
 	tx_state->lease_chan_max_msat = 0;
@@ -567,7 +571,6 @@ static char *check_balances(const tal_t *ctx,
 			    struct state *state,
 			    struct tx_state *tx_state,
 			    struct wally_psbt *psbt,
-			    struct amount_sat lease_fee,
 			    u32 feerate_per_kw_funding)
 {
 	struct amount_sat initiator_inputs, initiator_outs,
@@ -721,9 +724,11 @@ static char *check_balances(const tal_t *ctx,
 	/* The lease_fee has been added to the accepter_funding,
 	 * but the opener_funding is responsible for covering it,
 	 * so we do a little switcheroo here */
-	if (!amount_sat_add(&initiator_outs, initiator_outs, lease_fee))
+	if (!amount_sat_add(&initiator_outs, initiator_outs,
+			    tx_state->lease_fee))
 		return "overflow adding lease_fee to initiator's funding";
-	if (!amount_sat_sub(&accepter_outs, accepter_outs, lease_fee))
+	if (!amount_sat_sub(&accepter_outs, accepter_outs,
+			    tx_state->lease_fee))
 		return "unable to subtract lease_fee from accepter's funding";
 
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
@@ -787,7 +792,7 @@ static char *check_balances(const tal_t *ctx,
 			       type_to_string(tmpctx, struct amount_sat,
 					      &initiator_outs),
 			       type_to_string(tmpctx, struct amount_sat,
-					      &lease_fee));
+					      &tx_state->lease_fee));
 
 
 	}
@@ -806,7 +811,8 @@ static char *check_balances(const tal_t *ctx,
 		return tal_fmt(tmpctx, "accepter inputs %s less than outputs %s (lease fee %s)",
 			       type_to_string(tmpctx, struct amount_sat, &accepter_inputs),
 			       type_to_string(tmpctx, struct amount_sat, &accepter_outs),
-			       type_to_string(tmpctx, struct amount_sat, &lease_fee));
+			       type_to_string(tmpctx, struct amount_sat,
+				              &tx_state->lease_fee));
 	}
 
 	if (!amount_sat_sub(&initiator_diff, initiator_inputs,
@@ -1726,7 +1732,6 @@ static void revert_channel_state(struct state *state)
 static u8 *accepter_commits(struct state *state,
 			    struct tx_state *tx_state,
 			    struct amount_sat total,
-			    struct amount_sat lease_fee,
 			    char **err_reason)
 {
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
@@ -1762,7 +1767,6 @@ static u8 *accepter_commits(struct state *state,
 	/* Check tx funds are sane */
 	error = check_balances(tmpctx, state, tx_state,
 			       tx_state->psbt,
-			       lease_fee,
 			       tx_state->feerate_per_kw_funding);
 	if (error) {
 		*err_reason = tal_fmt(tmpctx, "Insufficiently funded"
@@ -1960,6 +1964,7 @@ static u8 *accepter_commits(struct state *state,
 					   state->upfront_shutdown_script[REMOTE],
 					   tx_state->blockheight,
 					   tx_state->lease_expiry,
+					   tx_state->lease_fee,
 					   tx_state->lease_commit_sig,
 					   tx_state->lease_chan_max_msat,
 					   tx_state->lease_chan_max_ppt);
@@ -2039,7 +2044,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	struct channel_id cid, full_cid;
 	char *err_reason;
 	u8 *msg;
-	struct amount_sat total, requested_amt, lease_fee, our_accept;
+	struct amount_sat total, requested_amt, our_accept;
 	enum dualopend_wire msg_type;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2209,13 +2214,14 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					  tx_state->accepter_funding,
 					  requested_amt,
 					  tx_state->feerate_per_kw_funding,
-					  &lease_fee))
+					  &tx_state->lease_fee))
 			negotiation_failed(state,
 					   "Unable to calculate lease fee");
 
 		/* Add it to the accepter's total */
 		if (!amount_sat_add(&tx_state->accepter_funding,
-				    tx_state->accepter_funding, lease_fee))
+				    tx_state->accepter_funding,
+				    tx_state->lease_fee))
 
 			negotiation_failed(state,
 					   "Unable to add accepter's funding"
@@ -2225,11 +2231,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 							  &tx_state->accepter_funding),
 					   type_to_string(tmpctx,
 							  struct amount_sat,
-							  &lease_fee));
-
-	} else {
-		tx_state->lease_expiry = 0;
-		lease_fee = AMOUNT_SAT(0);
+							  &tx_state->lease_fee));
 	}
 
 	/* Check that total funding doesn't overflow */
@@ -2342,8 +2344,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_ACCEPTER))
 		return;
 
-	msg = accepter_commits(state, tx_state, total,
-			       lease_fee, &err_reason);
+	msg = accepter_commits(state, tx_state, total, &err_reason);
 	if (!msg) {
 		if (err_reason)
 			negotiation_failed(state, "%s", err_reason);
@@ -2380,7 +2381,6 @@ static void add_funding_output(struct tx_state *tx_state,
 static u8 *opener_commits(struct state *state,
 			  struct tx_state *tx_state,
 			  struct amount_sat total,
-			  struct amount_sat lease_fee,
 			  char **err_reason)
 {
 	struct channel_id cid;
@@ -2416,7 +2416,6 @@ static u8 *opener_commits(struct state *state,
 
 	error = check_balances(tmpctx, state, tx_state,
 			       tx_state->psbt,
-			       lease_fee,
 			       tx_state->feerate_per_kw_funding);
 	if (error) {
 		*err_reason = tal_fmt(tmpctx, "Insufficiently funded funding "
@@ -2649,6 +2648,7 @@ static u8 *opener_commits(struct state *state,
 					    state->upfront_shutdown_script[REMOTE],
 					    tx_state->blockheight,
 					    tx_state->lease_expiry,
+					    tx_state->lease_fee,
 					    tx_state->lease_commit_sig,
 					    tx_state->lease_chan_max_msat,
 					    tx_state->lease_chan_max_ppt);
@@ -2661,7 +2661,7 @@ static void opener_start(struct state *state, u8 *msg)
 	struct tlv_accept_tlvs *a_tlv;
 	struct channel_id cid;
 	char *err_reason;
-	struct amount_sat total, requested_sats, lease_fee;
+	struct amount_sat total, requested_sats;
 	bool dry_run;
 	struct lease_rates *expected_rates;
 	struct tx_state *tx_state = state->tx_state;
@@ -2882,13 +2882,14 @@ static void opener_start(struct state *state, u8 *msg)
 		if (!lease_rates_calc_fee(rates, tx_state->accepter_funding,
 					  requested_sats,
 					  tx_state->feerate_per_kw_funding,
-					  &lease_fee))
+					  &tx_state->lease_fee))
 			negotiation_failed(state,
 					   "Unable to calculate lease fee");
 
 		/* Add it to the accepter's total */
 		if (!amount_sat_add(&tx_state->accepter_funding,
-				    tx_state->accepter_funding, lease_fee)) {
+				    tx_state->accepter_funding,
+				    tx_state->lease_fee)) {
 
 			negotiation_failed(state,
 					   "Unable to add accepter's funding"
@@ -2898,7 +2899,7 @@ static void opener_start(struct state *state, u8 *msg)
 							  &tx_state->accepter_funding),
 					   type_to_string(tmpctx,
 							  struct amount_sat,
-							  &lease_fee));
+							  &tx_state->lease_fee));
 			return;
 		}
 
@@ -2909,8 +2910,7 @@ static void opener_start(struct state *state, u8 *msg)
 			= rates->channel_fee_max_base_msat;
 		tx_state->lease_chan_max_ppt
 			= rates->channel_fee_max_proportional_thousandths;
-	} else
-		lease_fee = AMOUNT_SAT(0);
+	}
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -2975,7 +2975,7 @@ static void opener_start(struct state *state, u8 *msg)
 	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_INITIATOR))
 		return;
 
-	msg = opener_commits(state, tx_state, total, lease_fee, &err_reason);
+	msg = opener_commits(state, tx_state, total, &err_reason);
 	if (!msg) {
 		if (err_reason)
 			open_err_warn(state, "%s", err_reason);
@@ -3075,11 +3075,9 @@ static void rbf_wrap_up(struct state *state,
 
 	if (state->our_role == TX_ACCEPTER)
 		/* FIXME: lease fee rate !? */
-		msg = accepter_commits(state, tx_state, total,
-				       AMOUNT_SAT(0), &err_reason);
+		msg = accepter_commits(state, tx_state, total, &err_reason);
 	else
-		msg = opener_commits(state, tx_state, total,
-				     AMOUNT_SAT(0), &err_reason);
+		msg = opener_commits(state, tx_state, total, &err_reason);
 
 	if (!msg) {
 		if (err_reason)

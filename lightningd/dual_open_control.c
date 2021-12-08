@@ -1079,16 +1079,22 @@ wallet_update_channel(struct lightningd *ld,
 		      u32 funding_feerate,
 		      struct wally_psbt *psbt STEALS,
 		      const u32 lease_expiry,
+		      struct amount_sat lease_fee,
 		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 		      const u32 lease_chan_max_msat,
 		      const u16 lease_chan_max_ppt,
 		      const u32 lease_blockheight_start)
 {
-	struct amount_msat our_msat;
+	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
 		log_broken(channel->log, "Unable to convert funds");
+		return NULL;
+	}
+
+	if (!amount_sat_to_msat(&lease_fee_msat, lease_fee)) {
+		log_broken(channel->log, "Unable to convert 'lease_fee'");
 		return NULL;
 	}
 
@@ -1099,6 +1105,7 @@ wallet_update_channel(struct lightningd *ld,
 	channel->funding_sats = total_funding;
 	channel->our_funds = our_funding;
 	channel->our_msat = our_msat;
+	channel->push = lease_fee_msat;
 	channel->msat_to_us_min = our_msat;
 	channel->msat_to_us_max = our_msat;
 	channel->lease_expiry = lease_expiry;
@@ -1134,7 +1141,8 @@ wallet_update_channel(struct lightningd *ld,
 				channel->lease_commit_sig,
 				channel->lease_chan_max_msat,
 				channel->lease_chan_max_ppt,
-				lease_blockheight_start);
+				lease_blockheight_start,
+				channel->push);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -1157,15 +1165,21 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct wally_psbt *psbt STEALS,
 		      const u32 lease_blockheight_start,
 		      const u32 lease_expiry,
+		      const struct amount_sat lease_fee,
 		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 		      const u32 lease_chan_max_msat,
 		      const u16 lease_chan_max_ppt)
 {
-	struct amount_msat our_msat;
+	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
 		log_broken(channel->log, "Unable to convert funds");
+		return NULL;
+	}
+
+	if (!amount_sat_to_msat(&lease_fee_msat, lease_fee)) {
+		log_broken(channel->log, "Unable to convert lease fee");
 		return NULL;
 	}
 
@@ -1190,6 +1204,7 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->funding_sats = total_funding;
 	channel->our_funds = our_funding;
 	channel->our_msat = our_msat;
+	channel->push = lease_fee_msat;
 	channel->msat_to_us_min = our_msat;
 	channel->msat_to_us_max = our_msat;
 
@@ -1253,7 +1268,8 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->lease_commit_sig,
 				channel->lease_chan_max_msat,
 				channel->lease_chan_max_ppt,
-				lease_blockheight_start);
+				lease_blockheight_start,
+				channel->push);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -2739,7 +2755,7 @@ static void handle_commit_received(struct subd *dualopend,
 	u16 lease_chan_max_ppt;
 	u32 feerate_funding, feerate_commitment, lease_expiry,
 	    lease_chan_max_msat, lease_blockheight_start;
-	struct amount_sat total_funding, funding_ours;
+	struct amount_sat total_funding, funding_ours, lease_fee;
 	u8 *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script;
 	struct penalty_base *pbase;
@@ -2772,6 +2788,7 @@ static void handle_commit_received(struct subd *dualopend,
 					    &remote_upfront_shutdown_script,
 					    &lease_blockheight_start,
 					    &lease_expiry,
+					    &lease_fee,
 					    &lease_commit_sig,
 					    &lease_chan_max_msat,
 					    &lease_chan_max_ppt)) {
@@ -2817,6 +2834,7 @@ static void handle_commit_received(struct subd *dualopend,
 						       psbt,
 						       lease_blockheight_start,
 						       lease_expiry,
+						       lease_fee,
 						       lease_commit_sig,
 						       lease_chan_max_msat,
 						       lease_chan_max_ppt))) {
@@ -2849,6 +2867,7 @@ static void handle_commit_received(struct subd *dualopend,
 						       feerate_funding,
 						       psbt,
 						       lease_expiry,
+						       lease_fee,
 						       lease_commit_sig,
 						       lease_chan_max_msat,
 						       lease_chan_max_ppt,

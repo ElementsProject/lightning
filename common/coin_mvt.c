@@ -41,6 +41,8 @@ static const char *mvt_tags[] = {
 	"stolen",
 	"to_miner",
 	"opener",
+	"lease_fee",
+	"leased",
 };
 
 const char *mvt_tag_str(enum mvt_tag tag)
@@ -209,7 +211,8 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     u32 blockheight,
 					     const struct amount_msat amount,
 					     const struct amount_sat output_val,
-					     bool is_opener)
+					     bool is_opener,
+					     bool is_leased)
 {
 	struct chain_coin_mvt *mvt;
 
@@ -221,6 +224,9 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
 		tal_arr_expand(&mvt->tags, OPENER);
+
+	if (is_leased)
+		tal_arr_expand(&mvt->tags, LEASED);
 
 	return mvt;
 }
@@ -319,9 +325,11 @@ struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 				      amount, false);
 }
 
-struct channel_coin_mvt *new_coin_pushed(const tal_t *ctx,
-					 const struct channel_id *cid,
-					 struct amount_msat amount)
+struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
+					       const struct channel_id *cid,
+					       struct amount_msat amount,
+					       enum mvt_tag tag,
+					       bool is_credit)
 {
 	struct sha256 empty_hash;
 	/* Use a 0'd out payment hash */
@@ -329,7 +337,7 @@ struct channel_coin_mvt *new_coin_pushed(const tal_t *ctx,
 
 	return new_channel_coin_mvt(ctx, cid, empty_hash,
 				    NULL, amount,
-				    new_tag_arr(ctx, PUSHED), false,
+				    new_tag_arr(ctx, tag), is_credit,
 				    AMOUNT_MSAT(0));
 }
 

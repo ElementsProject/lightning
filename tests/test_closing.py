@@ -7,7 +7,7 @@ from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
     scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
-    check_utxos_channel, anchor_expected
+    check_utxos_channel, anchor_expected, check_coin_moves
 )
 
 import os
@@ -824,11 +824,12 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @pytest.mark.developer("requres 'dev-queryrates'")
 @pytest.mark.slow_test
-def test_channel_lease_post_expiry(node_factory, bitcoind):
+def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
-            'may_reconnect': True}
+            'may_reconnect': True, 'plugin': coin_mvt_plugin}
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
 
@@ -854,6 +855,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind):
 
     bitcoind.generate_block(6)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+    channel_id = first_channel_id(l1, l2)
 
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
 
@@ -896,6 +898,30 @@ def test_channel_lease_post_expiry(node_factory, bitcoind):
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l1.rpc.close(chan)
     l2.daemon.wait_for_log('State changed from CLOSINGD_SIGEXCHANGE to CLOSINGD_COMPLETE')
+
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
+    l2.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
+
+    channel_mvts_1 = [
+        {'type': 'chain_mvt', 'credit': 506432000, 'debit': 0, 'tags': ['channel_open', 'opener', 'leased']},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 6432000, 'tags': ['lease_fee'], 'fees': '0msat'},
+        {'type': 'channel_mvt', 'credit': 0, 'debit': 10000, 'tags': ['invoice'], 'fees': '0msat'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 499990000, 'tags': ['channel_close']},
+    ]
+
+    channel_mvts_2 = [
+        {'type': 'chain_mvt', 'credit': 500000000, 'debit': 0, 'tags': ['channel_open', 'leased']},
+        {'type': 'channel_mvt', 'credit': 6432000, 'debit': 0, 'tags': ['lease_fee'], 'fees': '0msat'},
+        {'type': 'channel_mvt', 'credit': 10000, 'debit': 0, 'tags': ['invoice'], 'fees': '0msat'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 506442000, 'tags': ['channel_close']},
+    ]
+
+    check_coin_moves(l1, channel_id, channel_mvts_1, chainparams)
+    check_coin_moves(l2, channel_id, channel_mvts_2, chainparams)
+    assert account_balance(l1, channel_id) == 0
+    assert account_balance(l2, channel_id) == 0
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
