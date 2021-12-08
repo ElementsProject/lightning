@@ -1084,38 +1084,6 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1.result()
 
 
-def test_htlc_accepted_hook_shutdown(node_factory, executor):
-    """Hooks of important-plugins are never removed and these plugins are kept
-       alive until after subdaemons are shutdown. Also tests shutdown notification.
-    """
-    l1, l2 = node_factory.line_graph(2, opts=[
-        {'may_reconnect': True, 'log-level': 'info'},
-        {'may_reconnect': True, 'log-level': 'debug',
-         'plugin': [os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py')],
-         'important-plugin': [os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')]}
-    ])
-
-    l2.rpc.plugin_stop(os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py'))
-    l2.daemon.wait_for_log(r'datastore success')
-    l2.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py'))
-
-    i1 = l2.rpc.invoice(msatoshi=1000, label="inv1", description="desc")['bolt11']
-
-    # fail_htlcs.py makes payment fail
-    with pytest.raises(RpcError):
-        l1.rpc.pay(i1)
-
-    f_stop = executor.submit(l2.rpc.stop)
-    l2.daemon.wait_for_log(r'plugin-misc_notifications.py: delaying shutdown with 5s')
-
-    # Should still fail htlc while shutting down
-    with pytest.raises(RpcError):
-        l1.rpc.pay(i1)
-
-    l2.daemon.wait_for_log(r'datastore failed')
-    f_stop.result()
-
-
 @pytest.mark.developer("without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
@@ -2593,22 +2561,33 @@ plugin.run()
 
 
 def test_plugin_shutdown(node_factory):
-    """test 'shutdown' notification"""
+    """test 'shutdown' notifications, via `plugin stop` or via `stop`"""
+
     p = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
-    l1 = node_factory.get_node(options={'plugin': p})
+    p2 = os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py')
+    l1 = node_factory.get_node(options={'plugin': [p, p2]})
 
     l1.rpc.plugin_stop(p)
     l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
     # FIXME: clean this up!
     l1.daemon.wait_for_log(r"test_libplugin: Killing plugin: exited during normal operation")
 
-    # Now try timeout.
+    # Via `plugin stop` it can make RPC calls before it (self-)terminates
+    l1.rpc.plugin_stop(p2)
+    l1.daemon.wait_for_log(r'misc_notifications.py: via plugin stop, datastore success')
+    l1.rpc.plugin_start(p2)
+
+    # Now try timeout via `plugin stop`
     l1.rpc.plugin_start(p, dont_shutdown=True)
     l1.rpc.plugin_stop(p)
     l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
     l1.daemon.wait_for_log(r"test_libplugin: Timeout on shutdown: killing anyway")
 
-    # Now, should also shutdown on finish.
-    l1.rpc.plugin_start(p)
+    # Now, should also shutdown or timeout on finish, RPC calls then fail with error code -5
+    l1.rpc.plugin_start(p, dont_shutdown=True)
+    needle = l1.daemon.logsearch_start
     l1.rpc.stop()
     l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
+    l1.daemon.logsearch_start = needle          # we don't know what comes first
+    l1.daemon.is_in_log(r'misc_notifications.py: via lightningd shutdown, datastore failed')
+    l1.daemon.is_in_log(r'test_libplugin: failed to self-terminate in time, killing.')

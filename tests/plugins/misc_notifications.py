@@ -3,7 +3,6 @@
 """
 
 from pyln.client import Plugin, RpcError
-from time import sleep
 import sys
 import pytest
 
@@ -30,25 +29,22 @@ def channel_state_changed(plugin, channel_state_changed, **kwargs):
 
 @plugin.subscribe("shutdown")
 def shutdown(plugin, **kwargs):
-    plugin.log("received shutdown notification")
 
     # 'shutdown' notification can be called in two ways, from `plugin stop` or from
     # lightningd's shutdown loop, we test which one by making `getinfo` call
     try:
         plugin.rpc.getinfo()
         plugin.rpc.datastore(key='test', string='Allowed', mode="create-or-append")
-        plugin.log("datastore success")
+        plugin.log("via plugin stop, datastore success")
     except RpcError as e:
         if e.error == {'code': -5, 'message': 'lightningd is shutting down'}:
             # JSON RPC is disabled by now, but can do logging
             with pytest.raises(RpcError, match=r'-5.*lightningd is shutting down'):
                 plugin.rpc.datastore(key='test', string='Not allowed', mode="create-or-append")
-            plugin.log("datastore failed")
+            plugin.log("via lightningd shutdown, datastore failed")
         else:
             raise
 
-    plugin.log("delaying shutdown with 5s")
-    sleep(5)
     sys.exit(0)
 
 
