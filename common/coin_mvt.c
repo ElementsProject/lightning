@@ -19,14 +19,10 @@ const char *mvt_type_str(enum mvt_type type)
 static const char *mvt_tags[] = {
 	"deposit",
 	"withdrawal",
-	NULL,
 	"penalty",
 	"invoice",
 	"routed",
-	"journal_entry",
-	NULL,
 	"pushed",
-	NULL,
 	"channel_open",
 	"channel_close",
 	"delayed_to_us",
@@ -176,19 +172,6 @@ struct chain_coin_mvt *new_onchaind_deposit(const tal_t *ctx,
 				      outpoint, NULL,
 				      blockheight, new_tag_arr(ctx, tag),
 				      amount, true);
-}
-
-struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
-					      const struct bitcoin_txid *txid,
-					      const struct bitcoin_outpoint *outpoint,
-					      u32 blockheight,
-					      struct amount_msat amount,
-					      bool is_credit)
-{
-	return new_chain_coin_mvt(ctx, NULL, txid,
-				  outpoint, NULL,
-				  blockheight, new_tag_arr(ctx, JOURNAL),
-				  amount, is_credit, AMOUNT_SAT(0));
 }
 
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
