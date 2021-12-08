@@ -701,15 +701,15 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"node_id":"03a7103a2322b811f7369cbb27fb213d30bbc0b012082fed3cad7e4498da2dc56b",
 		"type":"chain_mvt",
 		"account_id":"wallet",
-		"txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` type only, mandatory)
-		"utxo_txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` type only, optional)
-		"vout":1, // (`chain_mvt` type only, optional)
+		"txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` only, optional)
+		"utxo_txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` only)
+		"vout":1, // (`chain_mvt` only)
 		"payment_hash": "xxx", // (either type, optional on `chain_mvt`)
-		"part_id": 0, // (`channel_mvt` type only, mandatory)
+		"part_id": 0, // (`channel_mvt` only, mandatory)
 		"credit":"2000000000msat",
 		"debit":"0msat",
 		"output_value": "2000000000msat", // ('chain_mvt' only)
-		"fees": "382msat", // ('channel_mvt' only, optional)
+		"fees": "382msat", // ('channel_mvt' only)
 		"tags": ["deposit"],
 		"blockheight":102, // (May be null)
 		"timestamp":1585948198,
@@ -763,13 +763,26 @@ both the debit/credit contain fees. Technically routed debits are the
 `tag` is a movement descriptor. Current tags are as follows:
  - `deposit`: funds deposited
  - `withdrawal`: funds withdrawn
- - `penalty`: funds paid or gained from a penalty tx. `chain_mvt` only
- - `invoice`: funds paid to or recieved from an invoice. `channel_mvt` only
- - `routed`: funds routed through this node. `channel_mvt` only
- - `journal_entry`: a balance reconciliation event, typically triggered
-                    by a penalty tx onchain. `chain_mvt` only
- - `onchain_htlc`: funds moved via an htlc onchain. `chain_mvt` only
- - `pushed`: funds pushed to peer. `channel_mvt` only.
+ - `penalty`: funds paid or gained from a penalty tx.
+ - `invoice`: funds paid to or recieved from an invoice.
+ - `routed`: funds routed through this node.
+ - `pushed`: funds pushed to peer.
+ -  channel_open : channel is opened, initial channel balance
+ -  channel_close: channel is closed, final channel balance
+ -  delayed_to_us : on-chain output to us, spent back into our wallet
+ -  htlc_timeout : on-chain htlc timeout output
+ - htlc_fulfill : on-chian htlc fulfill output
+ - htlc_tx : on-chain htlc tx has happened
+ - to_wallet : output being spent into our wallet
+ - ignored : output is being ignored
+ - anchor : an anchor output
+ - to_them : output intended to peer's wallet
+ - penalized : output we've 'lost' due to a penalty (failed cheat attempt)
+ - stolen : output we've 'lost' due to peer's cheat
+ - to_miner : output we've burned to miner (OP_RETURN)
+ - opener : tags channel_open, we are the channel opener
+ - lease_fee: amount paid as lease fee
+ - leased: tags channel_open, channel contains leased funds
 
 `blockheight` is the block the txid is included in.
 
