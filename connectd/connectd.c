@@ -948,7 +948,8 @@ static void try_connect_one_addr(struct connecting *connect)
 		connect_failed(connect->daemon, &connect->id,
 			       connect->seconds_waited,
 			       connect->addrhint, CONNECT_ALL_ADDRESSES_FAILED,
-			       "%s", connect->errors);
+			       "All addresses failed: %s",
+			       connect->errors);
 		tal_free(connect);
 		return;
 	}
@@ -992,8 +993,14 @@ static void try_connect_one_addr(struct connecting *connect)
 #if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 			if (use_proxy) /* hand it to the proxy */
 				break;
-			if (!use_dns)  /* ignore DNS when we can't use it */
+			if (!use_dns) {  /* ignore DNS when we can't use it */
+				tal_append_fmt(&connect->errors,
+					       "%s: dns disabled. ",
+					       type_to_string(tmpctx,
+							      struct wireaddr_internal,
+							      addr));
 				goto next;
+			}
 			/* Resolve with getaddrinfo */
 			memset(&hints, 0, sizeof(hints));
 			hints.ai_socktype = SOCK_STREAM;
@@ -1005,8 +1012,12 @@ static void try_connect_one_addr(struct connecting *connect)
 						      addr->u.wireaddr.port),
 					      &hints, &ais);
 			if (gai_err != 0) {
-				status_debug("DNS with getaddrinfo gave: %s",
-					     gai_strerror(gai_err));
+				tal_append_fmt(&connect->errors,
+					       "%s: getaddrinfo error '%s'. ",
+					       type_to_string(tmpctx,
+							      struct wireaddr_internal,
+							      addr),
+					       gai_strerror(gai_err));
 				goto next;
 			}
 			/* create new addrhints on-the-fly per result ... */
@@ -1032,6 +1043,11 @@ static void try_connect_one_addr(struct connecting *connect)
 			}
 			freeaddrinfo(ais);
 #endif
+			tal_append_fmt(&connect->errors,
+				       "%s: EXPERIMENTAL_FEATURES needed. ",
+				       type_to_string(tmpctx,
+						      struct wireaddr_internal,
+						      addr));
 			goto next;
 		case ADDR_TYPE_WEBSOCKET:
 			af = -1;

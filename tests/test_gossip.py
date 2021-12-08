@@ -232,7 +232,7 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
 
     # l4 however must not be able to connect because he used '--disable-dns'
     # This raises RpcError code 401, currently with an empty error message.
-    with pytest.raises(RpcError, match=r"401"):
+    with pytest.raises(RpcError, match=r"401.*dns disabled"):
         l4.rpc.connect(l1.info['id'])
 
 
