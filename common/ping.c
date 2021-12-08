@@ -13,14 +13,6 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 		return false;
 	tal_free(ignored);
 
-	/* FIXME: */
-	/* BOLT #1:
-	 *
-	 * A node receiving a `ping` message:
-	 *  - SHOULD fail the channels if it has received significantly in
-	 *    excess of one `ping` per 30 seconds.
-	 */
-
 	/* BOLT #1:
 	 *
 	 * A node receiving a `ping` message:
