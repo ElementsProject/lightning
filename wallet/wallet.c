@@ -615,8 +615,8 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	return true;
 }
 
-static bool wallet_can_spend(struct wallet *w, const u8 *script,
-			     u32 *index, bool *output_is_p2sh)
+bool wallet_can_spend(struct wallet *w, const u8 *script,
+		      u32 *index, bool *output_is_p2sh)
 {
 	struct ext_key ext;
 	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
