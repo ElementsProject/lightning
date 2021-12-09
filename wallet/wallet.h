@@ -491,6 +491,19 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 			     const struct bitcoin_outpoint *outpoint);
 
 /**
+ * wallet_can_spend - Do we have the private key matching this scriptpubkey?
+ *
+ * FIXME: This is very slow with lots of inputs!
+ *
+ * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
+ * @script: (in) the script to check
+ * @index: (out) the bip32 derivation index that matched the script
+ * @output_is_p2sh: (out) whether the script is a p2sh, or p2wpkh
+ */
+bool wallet_can_spend(struct wallet *w, const u8 *script,
+		      u32 *index, bool *output_is_p2sh);
+
+/**
  * wallet_get_newindex - get a new index from the wallet.
  * @ld: (in) lightning daemon
  *
