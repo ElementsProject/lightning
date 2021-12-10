@@ -96,6 +96,16 @@ def calc_lease_fee(amt, feerate, rates):
     return fee
 
 
+def check_balance_snaps(n, expected_bals):
+    snaps = n.rpc.listsnapshots()['balance_snapshots']
+    for snap, exp in zip(snaps, expected_bals):
+        assert snap['blockheight'] == exp['blockheight']
+        for acct, exp_acct in zip(snap['accounts'], exp['accounts']):
+            # FIXME: also check 'account_id's (these change every run)
+            for item in ['balance']:
+                assert acct[item] == exp_acct[item]
+
+
 def check_coin_moves(n, account_id, expected_moves, chainparams):
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
     node_id = n.info['id']

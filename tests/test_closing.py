@@ -7,7 +7,8 @@ from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
     scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
-    check_utxos_channel, anchor_expected, check_coin_moves
+    check_utxos_channel, anchor_expected, check_coin_moves,
+    check_balance_snaps
 )
 
 import os
@@ -1038,12 +1039,15 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessee can recover funds if lessor cheats
     '''
+    balance_snaps = os.path.join(os.getcwd(), 'tests/plugins/balance_snaps.py')
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True, 'allow_warning': True},
+             'may_reconnect': True, 'allow_warning': True,
+             'plugin': balance_snaps},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True, 'allow_broken_log': True}]
+             'may_reconnect': True, 'allow_broken_log': True,
+             'plugin': balance_snaps}]
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -1203,17 +1207,18 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
     # We track channel balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    balance_snaps = os.path.join(os.getcwd(), 'tests/plugins/balance_snaps.py')
 
     l1, l2, l3, l4 = node_factory.line_graph(4,
                                              opts=[{'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
                                                     'may_reconnect': True,
                                                     'dev-no-reconnect': None},
-                                                   {'plugin': coin_mvt_plugin,
+                                                   {'plugin': [coin_mvt_plugin, balance_snaps],
                                                     'disable-mpp': None,
                                                     'dev-no-reconnect': None,
                                                     'may_reconnect': True,
                                                     'allow_broken_log': True},
-                                                   {'plugin': coin_mvt_plugin,
+                                                   {'plugin': [coin_mvt_plugin, balance_snaps],
                                                     'dev-no-reconnect': None,
                                                     'may_reconnect': True,
                                                     'allow_broken_log': True},
@@ -1330,6 +1335,17 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
     tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
     check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
+
+    if not chainparams['elements']:
+        # Also check snapshots
+        expected_bals_2 = [
+            {'blockheight': 101, 'accounts': [{'balance': '0msat'}]},
+            {'blockheight': 108, 'accounts': [{'balance': '995433000msat'}, {'balance': '500000000msat'}, {'balance': '499994999msat'}]},
+            # There's a duplicate because we stop and restart l2 twice
+            # (both times at block 108)
+            {'blockheight': 108, 'accounts': [{'balance': '995433000msat'}, {'balance': '500000000msat'}, {'balance': '499994999msat'}]},
+        ]
+        check_balance_snaps(l2, expected_bals_2)
 
 
 @pytest.mark.developer("needs DEVELOPER=1")

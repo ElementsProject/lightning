@@ -100,6 +100,7 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	/* Add the 'wallet' account balance */
 	snap->accts = tal_arr(snap, struct account_balance *, 1);
 	bal = tal(snap, struct account_balance);
+	bal->balance = AMOUNT_MSAT(0);
 	bal->acct_id = WALLET;
 	bal->bip173_name = chainparams->lightning_hrp;
 

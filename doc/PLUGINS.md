@@ -791,6 +791,47 @@ at the time lightningd broadcasts the notification.
 
 `coin_type` is the BIP173 name for the coin which moved.
 
+### `balance_snapshot`
+
+Emitted after we've caught up to the chain head on first start. Lists all
+current accounts (`account_id` matches the `account_id` emitted from
+`coin_movement`). Useful for checkpointing account balances.
+
+```json
+{
+    "balance_snapshots": [
+	{
+	    'node_id': '035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d',
+	    'blockheight': 101,
+	    'timestamp': 1639076327,
+	    'accounts': [
+		{
+		    'account_id': 'wallet',
+		    'balance': '0msat',
+		    'coin_type': 'bcrt'
+		}
+	    ]
+	},
+	{
+	    'node_id': '035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d',
+	    'blockheight': 110,
+	    'timestamp': 1639076343,
+	    'accounts': [
+		{
+		    'account_id': 'wallet',
+		    'balance': '995433000msat',
+		    'coin_type': 'bcrt'
+		}, {
+		    'account_id': '5b65c199ee862f49758603a5a29081912c8816a7c0243d1667489d244d3d055f',
+		     'balance': '500000000msat',
+		    'coin_type': 'bcrt'
+		}
+	    ]
+	}
+    ]
+}
+```
+
 ### `openchannel_peer_sigs`
 
 When opening a channel with a peer using the collaborative transaction protocol
