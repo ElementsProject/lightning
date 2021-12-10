@@ -9,6 +9,7 @@
 *.dSYM
 *.rej
 *.pyc
+*.tmp
 .cppcheck-suppress
 .mypy_cache
 TAGS
