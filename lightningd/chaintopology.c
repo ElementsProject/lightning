@@ -27,6 +27,8 @@
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
 
+static bool first_update_complete = false;
+
 /* init_topo sets topo->root, start_fee_estimate clears
  * feerate_uninitialized (even if unsuccessful) */
 static void maybe_completed_init(struct chain_topology *topo)
@@ -631,8 +633,10 @@ static void updates_complete(struct chain_topology *topo)
 		topo->prev_tip = topo->tip->blkid;
 
 		/* Send out an account balance snapshot */
-		/* FIXME: only issue on first updates_complete call */
-		send_account_balance_snapshot(topo->ld, topo->tip->height);
+		if (!first_update_complete) {
+			send_account_balance_snapshot(topo->ld, topo->tip->height);
+			first_update_complete = true;
+		}
 	}
 
 	/* If bitcoind is synced, we're now synced. */
