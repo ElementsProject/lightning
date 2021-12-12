@@ -2310,7 +2310,7 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			      const jsmntok_t *toks, struct payment *p)
 {
 	const jsmntok_t *peers, *peer, *channels, *channel, *spendsats, *scid,
-	    *dir, *connected, *max_htlc, *htlcs;
+		*dir, *connected, *max_htlc, *htlcs, *state;
 	size_t i, j;
 	peers = json_get_member(buffer, toks, "peers");
 
@@ -2331,13 +2331,19 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			dir = json_get_member(buffer, channel, "direction");
 			max_htlc = json_get_member(buffer, channel, "max_accepted_htlcs");
 			htlcs = json_get_member(buffer, channel, "htlcs");
+			state = json_get_member(buffer, channel, "state");
 			if (spendsats == NULL || scid == NULL || dir == NULL ||
-			    max_htlc == NULL ||
+			    max_htlc == NULL || state == NULL ||
 			    max_htlc->type != JSMN_PRIMITIVE || htlcs == NULL ||
 			    htlcs->type != JSMN_ARRAY)
 				continue;
 
+			/* Filter out local channels if they are
+			 * either a) disconnected, or b) not in normal
+			 * state. */
 			json_to_bool(buffer, connected, &h.enabled);
+			h.enabled &= json_tok_streq(buffer, state, "CHANNELD_NORMAL");
+
 			json_to_short_channel_id(buffer, scid, &h.scid.scid);
 			json_to_int(buffer, dir, &h.scid.dir);
 
