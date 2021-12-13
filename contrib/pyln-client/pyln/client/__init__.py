@@ -1,7 +1,7 @@
 from .lightning import LightningRpc, RpcError, Millisatoshi
 from .plugin import Plugin, monkey_patch, RpcException
 from .gossmap import Gossmap, GossmapNode, GossmapChannel, GossmapNodeId
-from .__version__ import __version__
+from .__version__ import __version__  # type: ignore
 
 
 __all__ = [

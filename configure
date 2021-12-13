@@ -109,6 +109,15 @@ default_valgrind_setting()
     fi
 }
 
+default_rust_setting()
+{
+    if cargo --version > /dev/null 2>&1 || [ $? = 0 ]; then
+	echo 1
+    else
+	echo 0
+    fi
+}
+
 set_defaults()
 {
     # Default values, loaded from environment or canned.
@@ -129,6 +138,7 @@ set_defaults()
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
     TEST_NETWORK=${TEST_NETWORK:-regtest}
     FUZZING=${FUZZING:-0}
+    RUST=${RUST:-$(default_rust_setting)}
 }
 
 usage()
@@ -167,6 +177,8 @@ usage()
     usage_with_default "--enable/disable-ub-sanitizer" "$UBSAN" "enable" "disable"
     echo "    Compile with undefined behaviour sanitizer"
     usage_with_default "--enable/disable-fuzzing" "$FUZZING" "enable" "disable"
+    echo "    Compile with Rust support"
+    usage_with_default "--enable/disable-rust" "$RUST" "enable" "disable"
     exit 1
 }
 
@@ -222,6 +234,8 @@ for opt in "$@"; do
 	--disable-ub-sanitize) UBSAN=0;;
 	--enable-fuzzing) FUZZING=1;;
 	--disable-fuzzing) FUZZING=0;;
+	--enable-rust) RUST=1;;
+	--disable-rust) RUST=0;;
 	--help|-h) usage;;
 	*)
 	    echo "Unknown option '$opt'" >&2
@@ -430,6 +444,7 @@ add_var TEST_NETWORK "$TEST_NETWORK"
 add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
 add_var SHA256SUM "$SHA256SUM"
 add_var FUZZING "$FUZZING"
+add_var RUST "$RUST"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
