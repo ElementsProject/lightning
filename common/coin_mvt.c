@@ -7,7 +7,6 @@
 #include <common/type_to_string.h>
 #include <wire/wire.h>
 
-#define WALLET "wallet"
 #define EXTERNAL "external"
 
 static const char *mvt_types[] = { "chain_mvt", "channel_mvt" };
