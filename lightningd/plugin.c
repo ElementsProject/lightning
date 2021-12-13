@@ -83,7 +83,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->startup = true;
 	p->plugin_cmds = tal_arr(p, struct plugin_command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
-	p->shutdown = false;
 	p->plugin_idx = 0;
 #if DEVELOPER
 	p->dev_builtin_plugins_unimportant = false;
@@ -213,7 +212,7 @@ static void destroy_plugin(struct plugin *p)
 		check_plugins_manifests(p->plugins);
 
 	/* Daemon shutdown overrules plugin's importance; aborts init checks */
-	if (p->plugins->shutdown) {
+	if (p->plugins->ld->state == LD_STATE_SHUTDOWN) {
 		/* But return if this was the last plugin! */
 		if (list_empty(&p->plugins->plugins))
 			io_break(destroy_plugin);
@@ -786,7 +785,7 @@ static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
 	/* This is expected at shutdown of course. */
 	plugin_kill(plugin,
-		    plugin->plugins->shutdown
+		    plugin->plugins->ld->state == LD_STATE_SHUTDOWN
 		    ? LOG_DBG : LOG_INFORM,
 		    "exited %s", state_desc(plugin));
 }
@@ -2092,8 +2091,7 @@ void shutdown_plugins(struct lightningd *ld)
 {
 	struct plugin *p, *next;
 
-	/* Don't complain about important plugins vanishing; close the db. */
-	ld->plugins->shutdown = true;
+	/* The next io_loop does not need db access, close it. */
 	ld->wallet->db = tal_free(ld->wallet->db);
 
 	/* Tell them all to shutdown; if they care. */
@@ -2115,7 +2113,6 @@ void shutdown_plugins(struct lightningd *ld)
 
 		void *ret = io_loop(timer, &expired);
 		assert(ret == NULL || ret == destroy_plugin);
-
 
 		/* Report and free remaining plugins. */
 		while (!list_empty(&ld->plugins->plugins)) {
