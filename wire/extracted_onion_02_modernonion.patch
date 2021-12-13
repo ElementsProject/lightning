@@ -1,0 +1,40 @@
+--- wire/onion_wire.csv	2021-11-16 15:17:39.446494580 +1030
++++ wire/onion_wire.csv.raw	2021-11-16 15:36:00.046441058 +1030
+@@ -8,10 +8,36 @@
+ tlvdata,obs2_encmsg_tlvs,next_blinding,blinding,point,
+ tlvtype,obs2_encmsg_tlvs,self_id,14
+ tlvdata,obs2_encmsg_tlvs,self_id,data,byte,...
++tlvtype,tlv_payload,encrypted_recipient_data,10
++tlvdata,tlv_payload,encrypted_recipient_data,encrypted_data,byte,...
++tlvtype,tlv_payload,blinding_point,12
++tlvdata,tlv_payload,blinding_point,blinding,point,
++tlvtype,encrypted_data_tlv,padding,1
++tlvdata,encrypted_data_tlv,padding,padding,byte,...
++tlvtype,encrypted_data_tlv,short_channel_id,2
++tlvdata,encrypted_data_tlv,short_channel_id,short_channel_id,short_channel_id,
++tlvtype,encrypted_data_tlv,next_node_id,4
++tlvdata,encrypted_data_tlv,next_node_id,node_id,point,
++tlvtype,encrypted_data_tlv,path_id,6
++tlvdata,encrypted_data_tlv,path_id,data,byte,...
++tlvtype,encrypted_data_tlv,next_blinding_override,8
++tlvdata,encrypted_data_tlv,next_blinding_override,blinding,point,
++tlvtype,onionmsg_payload,reply_path,2
++tlvdata,onionmsg_payload,reply_path,first_node_id,point,
++tlvdata,onionmsg_payload,reply_path,blinding,point,
++tlvdata,onionmsg_payload,reply_path,path,onionmsg_path,...
++tlvtype,onionmsg_payload,encrypted_data_tlv,4
++tlvdata,onionmsg_payload,encrypted_data_tlv,encrypted_data_tlv,byte,...
++tlvtype,onionmsg_payload,invoice_request,64
++tlvdata,onionmsg_payload,invoice_request,invoice_request,byte,...
++tlvtype,onionmsg_payload,invoice,66
++tlvdata,onionmsg_payload,invoice,invoice,byte,...
++tlvtype,onionmsg_payload,invoice_error,68
++tlvdata,onionmsg_payload,invoice_error,invoice_error,byte,...
+ subtype,onionmsg_path
+ subtypedata,onionmsg_path,node_id,point,
+ subtypedata,onionmsg_path,enclen,u16,
+-subtypedata,onionmsg_path,enctlv,byte,enclen
++subtypedata,onionmsg_path,encrypted_recipient_data,byte,enclen
+ msgtype,invalid_realm,PERM|1
+ msgtype,temporary_node_failure,NODE|2
+ msgtype,permanent_node_failure,PERM|NODE|2
