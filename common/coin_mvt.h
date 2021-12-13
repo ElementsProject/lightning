@@ -7,6 +7,7 @@
 #include <common/utils.h>
 
 #define COIN_MVT_VERSION 2
+#define WALLET "wallet"
 
 enum mvt_type {
 	CHAIN_MVT = 0,

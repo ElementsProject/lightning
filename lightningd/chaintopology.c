@@ -629,6 +629,10 @@ static void updates_complete(struct chain_topology *topo)
 			      "last_processed_block", topo->tip->height);
 
 		topo->prev_tip = topo->tip->blkid;
+
+		/* Send out an account balance snapshot */
+		/* FIXME: only issue on first updates_complete call */
+		send_account_balance_snapshot(topo->ld, topo->tip->height);
 	}
 
 	/* If bitcoind is synced, we're now synced. */

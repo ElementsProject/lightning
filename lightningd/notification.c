@@ -2,6 +2,7 @@
 #include <common/json_helpers.h>
 #include <common/type_to_string.h>
 #include <lightningd/channel.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
 
 static struct notification *find_notification_by_topic(const char* topic)
@@ -509,6 +510,43 @@ void notify_coin_mvt(struct lightningd *ld,
 	struct jsonrpc_notification *n =
 		jsonrpc_notification_start(NULL, "coin_movement");
 	serialize(n->stream, mvt);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
+
+static void balance_snapshot_notification_serialize(struct json_stream *stream, struct balance_snapshot *snap)
+{
+	json_object_start(stream, "balance_snapshot");
+	json_add_node_id(stream, "node_id", snap->node_id);
+	json_add_u32(stream, "blockheight", snap->blockheight);
+	json_add_u32(stream, "timestamp", snap->timestamp);
+
+	json_array_start(stream, "accounts");
+	for (size_t i = 0; i < tal_count(snap->accts); i++) {
+		json_object_start(stream, NULL);
+		json_add_string(stream, "account_id",
+				snap->accts[i]->acct_id);
+		json_add_amount_msat_only(stream, "balance",
+					  snap->accts[i]->balance);
+		json_add_string(stream, "coin_type", snap->accts[i]->bip173_name);
+		json_object_end(stream);
+	}
+	json_array_end(stream);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(balance_snapshot,
+		      balance_snapshot_notification_serialize);
+
+void notify_balance_snapshot(struct lightningd *ld,
+			     const struct balance_snapshot *snap)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct balance_snapshot *) = balance_snapshot_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, "balance_snapshot");
+	serialize(n->stream, snap);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
