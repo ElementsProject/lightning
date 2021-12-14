@@ -26,6 +26,20 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+/* Unless overridden, we exit with status 1 when option parsing fails */
+static int opt_exitcode = 1;
+
+static void opt_log_stderr_exitcode(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	va_end(ap);
+	exit(opt_exitcode);
+}
+
 /* Declare opt_add_addr here, because we we call opt_add_addr
  * and opt_announce_addr vice versa
 */
@@ -461,7 +475,7 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
  */
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
-	char *passwd, *passwd_confirmation, *err;
+	char *passwd, *passwd_confirmation, *err_msg;
 
 	printf("The hsm_secret is encrypted with a password. In order to "
 	       "decrypt it and start the node you must provide the password.\n");
@@ -469,20 +483,23 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	/* If we don't flush we might end up being buffered and we might seem
 	 * to hang while we wait for the password. */
 	fflush(stdout);
-	passwd = read_stdin_pass(&err);
+
+	passwd = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 	if (!passwd)
-		return err;
+		return err_msg;
 	printf("Confirm hsm_secret password:\n");
 	fflush(stdout);
-	passwd_confirmation = read_stdin_pass(&err);
+	passwd_confirmation = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 	if (!passwd_confirmation)
-		return err;
+		return err_msg;
 	printf("\n");
 
 	ld->config.keypass = tal(NULL, struct secret);
-	err = hsm_secret_encryption_key(passwd, ld->config.keypass);
-	if (err)
-		return err;
+
+	opt_exitcode = hsm_secret_encryption_key_with_exitcode(passwd, ld->config.keypass, &err_msg);
+	if (opt_exitcode > 0)
+		return err_msg;
+
 	ld->encrypted_hsm = true;
 	free(passwd);
 	free(passwd_confirmation);
@@ -1087,8 +1104,8 @@ static void register_opts(struct lightningd *ld)
 				   opt_hidden);
 
 	opt_register_noarg("--encrypted-hsm", opt_set_hsm_password, ld,
-	                   "Set the password to encrypt hsm_secret with. If no password is passed through command line, "
-	                   "you will be prompted to enter it.");
+					  "Set the password to encrypt hsm_secret with. If no password is passed through command line, "
+					  "you will be prompted to enter it.");
 
 	opt_register_arg("--rpc-file-mode", &opt_set_mode, &opt_show_mode,
 			 &ld->rpc_filemode,
@@ -1315,10 +1332,9 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	parse_config_files(ld->config_filename, ld->config_basedir, false);
 
 	/* Now parse cmdline, which overrides config. */
-	opt_parse(&argc, argv, opt_log_stderr_exit);
+	opt_parse(&argc, argv, opt_log_stderr_exitcode);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
-
 	/* We keep a separate variable rather than overriding always_use_proxy,
 	 * so listconfigs shows the correct thing. */
 	if (tal_count(ld->proposed_wireaddr) != 0

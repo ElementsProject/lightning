@@ -17,6 +17,11 @@ import unittest
 
 WAIT_TIMEOUT = 60  # Wait timeout for processes
 
+# Errors codes
+HSM_GENERIC_ERROR = 20
+HSM_ERROR_IS_ENCRYPT = 21
+HSM_BAD_PASSWORD = 22
+
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Test relies on a number of example addresses valid only in regtest")
 def test_withdraw(node_factory, bitcoind):
@@ -1018,7 +1023,7 @@ def test_hsm_secret_encryption(node_factory):
 
     # Test we cannot start the same wallet without specifying --encrypted-hsm
     l1.daemon.opts.pop("encrypted-hsm")
-    with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status 1'):
+    with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status {}'.format(HSM_ERROR_IS_ENCRYPT)):
         subprocess.check_call(l1.daemon.cmd_line)
 
     # Test we cannot restore the same wallet with another password
@@ -1029,7 +1034,7 @@ def test_hsm_secret_encryption(node_factory):
     write_all(master_fd, password[2:].encode("utf-8"))
     l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     write_all(master_fd, password[2:].encode("utf-8"))
-    assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == 1)
+    assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == HSM_BAD_PASSWORD)
     assert(l1.daemon.is_in_log("Wrong password for encrypted hsm_secret."))
 
     # Test we can restore the same wallet with the same password
@@ -1097,6 +1102,7 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
     write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+
     # Then test we can now start it without password
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
@@ -1115,7 +1121,7 @@ def test_hsmtool_secret_decryption(node_factory):
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     # Now we need to pass the encrypted-hsm startup option
     l1.stop()
-    with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status 1'):
+    with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status {}'.format(HSM_ERROR_IS_ENCRYPT)):
         subprocess.check_call(l1.daemon.cmd_line)
 
     l1.daemon.opts.update({"encrypted-hsm": None})
