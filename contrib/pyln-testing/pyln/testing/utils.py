@@ -277,9 +277,12 @@ class TailableProc(object):
     def wait_for_logs(self, regexs, timeout=TIMEOUT):
         """Look for `regexs` in the logs.
 
-        We tail the stdout of the process and look for each regex in `regexs`,
-        starting from last of the previous waited-for log entries (if any).  We
-        fail if the timeout is exceeded or if the underlying process
+        The logs contain tailed stdout of the process. We look for each regex
+        in `regexs`, starting from `logsearch_start` which normally is the
+        position of the last found entry of a previous wait-for logs call.
+        The ordering inside `regexs` doesn't matter.
+
+        We fail if the timeout is exceeded or if the underlying process
         exits before all the `regexs` were found.
 
         If timeout is None, no time-out is applied.
