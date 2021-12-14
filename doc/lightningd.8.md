@@ -152,6 +152,16 @@ merchant, and use lightning-pay(7) to pay it:
 
     $ lightning-cli pay $INVOICE
 
+ERRORS CODE
+---
+
+- 1: Generic lightning-cli error
+- 20: Generic error related to HSM secret
+- 21: HSM secret is encrypted
+- 22: Bad password used to decrypt the HSM secred
+- 23: Error caused from the I/O operation during a HSM decryption/encryption operation
+
+
 BUGS
 ----
 
@@ -184,4 +194,3 @@ COPYING
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
-
