@@ -2537,9 +2537,7 @@ def test_plugin_shutdown(node_factory):
 
     # Now, should also shutdown or timeout on finish, RPC calls then fail with error code -5
     l1.rpc.plugin_start(p, dont_shutdown=True)
-    needle = l1.daemon.logsearch_start
     l1.rpc.stop()
-    l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
-    l1.daemon.logsearch_start = needle          # we don't know what comes first
-    l1.daemon.is_in_log(r'misc_notifications.py: via lightningd shutdown, datastore failed')
-    l1.daemon.is_in_log(r'test_libplugin: failed to self-terminate in time, killing.')
+    l1.daemon.wait_for_logs(['test_libplugin: shutdown called',
+                             'misc_notifications.py: via lightningd shutdown, datastore failed',
+                             'test_libplugin: failed to self-terminate in time, killing.'])
