@@ -21,10 +21,12 @@ struct encrypted_hsm_secret {
 /** Derive the hsm_secret encryption key from a passphrase.
  * @pass: the passphrase string.
  * @encryption_key: the output key derived from the passphrase.
+ * @err_msg: if not NULL the error message contains the reason of the failure.
  *
- * On success, NULL is returned. On error, a human-readable error is.
+ * On success, 0 is returned, on error a value > 0 is returned and it can be used as exit code.
  */
-char *hsm_secret_encryption_key(const char *pass, struct secret *encryption_key);
+int hsm_secret_encryption_key_with_exitcode(const char *pass, struct secret *key,
+					    char **err_msg);
 
 /** Encrypt the hsm_secret using a previously derived encryption key.
  * @encryption_key: the key derived from the passphrase.
@@ -54,10 +56,11 @@ bool decrypt_hsm_secret(const struct secret *encryption_key,
 void discard_key(struct secret *key TAKES);
 
 /** Read hsm_secret encryption pass from stdin, disabling echoing.
- * @reason: if NULL is returned, will point to the human-readable error.
+ * @reason: if NULL is returned, will point to the human-readable error,
+ * and the correct exit code is returned by the exit_code parameter.
  *
  * Caller must free the string as it does tal-reallocate getline's output.
  */
-char *read_stdin_pass(char **reason);
+char *read_stdin_pass_with_exit_code(char **reason, int *exit_code);
 
 #endif /* LIGHTNING_COMMON_HSM_ENCRYPTION_H */
