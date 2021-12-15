@@ -1008,11 +1008,30 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	const u8 *msg;
 	struct bitcoin_signature *htlc_sigs;
 
+	/* Collect the htlcs for call to hsmd. */
+	struct simple_htlc **htlcs = tal_arr(tmpctx, struct simple_htlc *, 0);
+	size_t num_entries = tal_count(htlc_map);
+	for (size_t ndx = 0; ndx < num_entries; ++ndx) {
+		struct htlc const *hh = htlc_map[ndx];
+		if (hh) {
+			struct simple_htlc *simple =
+				new_simple_htlc(htlcs,
+						htlc_state_owner(hh->state),
+						hh->amount,
+						&hh->rhash,
+						hh->expiry.locktime);
+			tal_arr_expand(&htlcs, simple);
+		}
+	}
+
 	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
 						   &peer->remote_per_commit,
 						    channel_has(peer->channel,
-								OPT_STATIC_REMOTEKEY));
+								OPT_STATIC_REMOTEKEY),
+						    commit_index,
+						    (const struct simple_htlc **) htlcs,
+						    channel_feerate(peer->channel, REMOTE));
 
 	msg = hsm_req(tmpctx, take(msg));
 	if (!fromwire_hsmd_sign_tx_reply(msg, commit_sig))

@@ -63,6 +63,14 @@ struct changed_htlc {
 	u64 id;
 };
 
+/* For signing interfaces */
+struct simple_htlc {
+	enum side side;
+	struct amount_msat amount;
+	struct sha256 payment_hash;
+	u32 cltv_expiry;
+};
+
 struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					u64 id,
 					enum htlc_state state,
@@ -74,8 +82,15 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					const struct preimage *preimage TAKES,
 					const struct failed_htlc *failed TAKES);
 
+struct simple_htlc *new_simple_htlc(const tal_t *ctx,
+				    enum side side,
+				    struct amount_msat amount,
+				    const struct sha256 *payment_hash,
+				    u32 cltv_expiry);
+
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added);
 void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing);
+void towire_simple_htlc(u8 **pptr, const struct simple_htlc *simple);
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled);
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed);
 void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed);
@@ -86,6 +101,8 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added);
 struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 					     const u8 **cursor, size_t *max);
+struct simple_htlc *fromwire_simple_htlc(const tal_t *ctx,
+					 const u8 **cursor, size_t *max);
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
 			     struct fulfilled_htlc *fulfilled);
 struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor,

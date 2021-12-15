@@ -228,6 +228,7 @@ class Type(FieldSet):
         'gossip_getchannels_entry',
         'failed_htlc',
         'existing_htlc',
+        'simple_htlc',
         'utxo',
         'bitcoin_tx',
         'wirestring',
