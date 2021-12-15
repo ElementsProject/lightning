@@ -2,6 +2,7 @@ use serde::de::{self, Deserializer};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "method", content = "params")]

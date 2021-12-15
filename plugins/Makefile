@@ -172,4 +172,6 @@ ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(foreach d,$(notdir $(PLUGINS)),\"$d\",) NULL };" > $@)
 
+RUST_SRC := $(shell find plugins -name '*.rs')
+
 include plugins/test/Makefile

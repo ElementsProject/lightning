@@ -230,6 +230,8 @@ ALL_TEST_PROGRAMS :=
 ALL_FUZZ_TARGETS :=
 ALL_C_SOURCES :=
 ALL_C_HEADERS := header_versions_gen.h version_gen.h
+# Extra (non C) targets that should be built by default.
+DEFAULT_TARGETS :=
 
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
@@ -260,7 +262,7 @@ ifeq ($(HAVE_POSTGRES),1)
 LDLIBS += $(POSTGRES_LDLIBS)
 endif
 
-default: show-flags all-programs all-test-programs doc-all
+default: show-flags all-programs all-test-programs doc-all default-targets
 
 ifneq ($(SUPPRESS_GENERATION),1)
 FORCE = FORCE
@@ -323,6 +325,13 @@ endif
 		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
+RUST_PROFILE ?= debug
+ifeq ($(RUST_PROFILE),release)
+CARGO_OPTS := --release
+else
+CARGO_OPTS :=
+endif
+
 include external/Makefile
 include bitcoin/Makefile
 include common/Makefile
@@ -344,6 +353,9 @@ include tests/plugins/Makefile
 include contrib/libhsmd_python/Makefile
 ifneq ($(FUZZING),0)
 	include tests/fuzz/Makefile
+endif
+ifneq ($(RUST),0)
+	include cln-rpc/Makefile
 endif
 
 # We make pretty much everything depend on these.
@@ -604,6 +616,7 @@ update-ccan:
 # Now ALL_PROGRAMS is fully populated, we can expand it.
 all-programs: $(ALL_PROGRAMS)
 all-test-programs: $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS)
+default-targets: $(DEFAULT_TARGETS)
 
 distclean: clean
 	$(RM) ccan/config.h config.vars
@@ -627,6 +640,7 @@ clean: obsclean
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
+	if [ "${RUST}" -eq "1" ]; then cargo clean; fi
 
 # These must both be enabled for update-mocks
 ifeq ($(DEVELOPER)$(EXPERIMENTAL_FEATURES),11)

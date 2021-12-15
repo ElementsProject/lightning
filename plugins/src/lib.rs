@@ -10,7 +10,7 @@ use tokio::io::Stdin;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 /// Builder for a new plugin.
-struct Builder<S, I, O>
+pub struct Builder<S, I, O>
 where
     S: Clone + Send,
     I: AsyncRead,
@@ -40,7 +40,7 @@ where
     pub fn run(mut self) -> Plugin<S, I, O> {
         let plugin = Plugin {
             state: Arc::new(Mutex::new(self.state)),
-            output: FramedWrite::new(self.output, JsonCodec::new()),
+            output: FramedWrite::new(self.output, JsonCodec::default()),
             input_type: PhantomData,
         };
 
@@ -52,7 +52,7 @@ where
         (
             Plugin {
                 state: Arc::new(Mutex::new(self.state)),
-                output: FramedWrite::new(self.output, JsonCodec::new()),
+                output: FramedWrite::new(self.output, JsonCodec::default()),
                 input_type: PhantomData,
             },
             self.input,
@@ -60,7 +60,7 @@ where
     }
 }
 
-struct Plugin<S, I, O>
+pub struct Plugin<S, I, O>
 where
     S: Clone + Send,
     I: AsyncRead,
