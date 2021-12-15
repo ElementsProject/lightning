@@ -1203,12 +1203,17 @@ static u8 *handle_sign_remote_commitment_tx(struct hsmd_client *c, const u8 *msg
 	const u8 *funding_wscript;
 	struct pubkey remote_per_commit;
 	bool option_static_remotekey;
+	u64 commit_num;
+	struct simple_htlc **htlc;
+	u32 feerate;
 
 	if (!fromwire_hsmd_sign_remote_commitment_tx(tmpctx, msg_in,
 						    &tx,
 						    &remote_funding_pubkey,
 						    &remote_per_commit,
-						    &option_static_remotekey))
+						    &option_static_remotekey,
+						    &commit_num,
+						    &htlc, &feerate))
 		return hsmd_status_malformed_request(c, msg_in);
 	tx->chainparams = c->chainparams;
 
@@ -1293,13 +1298,15 @@ static u8 *handle_sign_commitment_tx(struct hsmd_client *c, const u8 *msg_in)
 	struct secret channel_seed;
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
+	u64 commit_num;
 	struct secrets secrets;
 	const u8 *funding_wscript;
 
 	if (!fromwire_hsmd_sign_commitment_tx(tmpctx, msg_in,
 					     &peer_id, &dbid,
 					     &tx,
-					     &remote_funding_pubkey))
+					     &remote_funding_pubkey,
+					     &commit_num))
 		return hsmd_status_malformed_request(c, msg_in);
 
 	tx->chainparams = c->chainparams;

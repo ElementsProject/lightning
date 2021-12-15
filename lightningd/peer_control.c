@@ -186,13 +186,16 @@ static void sign_last_tx(struct channel *channel,
 	struct bitcoin_signature sig;
 	u8 *msg, **witness;
 
+	u64 commit_index = channel->next_index[LOCAL] - 1;
+
 	assert(!last_tx->wtx->inputs[0].witness);
 	msg = towire_hsmd_sign_commitment_tx(tmpctx,
 					     &channel->peer->id,
 					     channel->dbid,
 					     last_tx,
 					     &channel->channel_info
-					     .remote_fundingkey);
+					     .remote_fundingkey,
+					     commit_index);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));

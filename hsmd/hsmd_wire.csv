@@ -133,6 +133,7 @@ msgdata,hsmd_sign_commitment_tx,peer_id,node_id,
 msgdata,hsmd_sign_commitment_tx,channel_dbid,u64,
 msgdata,hsmd_sign_commitment_tx,tx,bitcoin_tx,
 msgdata,hsmd_sign_commitment_tx,remote_funding_key,pubkey,
+msgdata,hsmd_sign_commitment_tx,commit_num,u64,
 
 msgtype,hsmd_sign_commitment_tx_reply,105
 msgdata,hsmd_sign_commitment_tx_reply,sig,bitcoin_signature,
@@ -176,11 +177,16 @@ msgdata,hsmd_sign_local_htlc_tx,wscript,u8,wscript_len
 msgdata,hsmd_sign_local_htlc_tx,option_anchor_outputs,bool,
 
 # Openingd/channeld asks HSM to sign the other sides' commitment tx.
+#include <common/htlc_wire.h>
 msgtype,hsmd_sign_remote_commitment_tx,19
 msgdata,hsmd_sign_remote_commitment_tx,tx,bitcoin_tx,
 msgdata,hsmd_sign_remote_commitment_tx,remote_funding_key,pubkey,
 msgdata,hsmd_sign_remote_commitment_tx,remote_per_commit,pubkey,
 msgdata,hsmd_sign_remote_commitment_tx,option_static_remotekey,bool,
+msgdata,hsmd_sign_remote_commitment_tx,commit_num,u64,
+msgdata,hsmd_sign_remote_commitment_tx,num_htlcs,u16,
+msgdata,hsmd_sign_remote_commitment_tx,htlcs,simple_htlc,num_htlcs
+msgdata,hsmd_sign_remote_commitment_tx,feerate,u32,
 
 # channeld asks HSM to sign remote HTLC tx.
 msgtype,hsmd_sign_remote_htlc_tx,20

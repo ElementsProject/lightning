@@ -652,7 +652,7 @@ u8 *towire_gossipd_remote_addr(const tal_t *ctx UNNEEDED, const struct wireaddr 
 u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_commitment_tx */
-u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED)
+u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, u64 commit_num UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_commitment_tx called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_invoice */
 u8 *towire_hsmd_sign_invoice(const tal_t *ctx UNNEEDED, const u8 *u5bytes UNNEEDED, const u8 *hrp UNNEEDED)

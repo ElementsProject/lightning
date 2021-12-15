@@ -10,7 +10,9 @@ HSMD_OBJS := $(HSMD_SRC:.c=.o)
 $(HSMD_OBJS): $(HSMD_HEADERS)
 
 # Other programs which use the hsm need this.
-HSMD_CLIENT_OBJS := hsmd/hsmd_wiregen.o
+HSMD_CLIENT_OBJS := \
+	hsmd/hsmd_wiregen.o			\
+	common/htlc_wire.o
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(HSMD_SRC)
@@ -32,11 +34,13 @@ HSMD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/hash_u5.o			\
 	common/hsm_encryption.o			\
+	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/lease_rates.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
+	common/onionreply.o			\
 	common/permute_tx.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
