@@ -170,7 +170,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * in limbo until we get all the parts, or we time them out. */
 	htlc_set_map_init(&ld->htlc_sets);
 
-	/*~ We have a multi-entry log-book infrastructure: we define a 100MB log
+	/*~ We have a multi-entry log-book infrastructure: we define a 10MB log
 	 * book to hold all the entries (and trims as necessary), and multiple
 	 * log objects which each can write into it, each with a unique
 	 * prefix. */
