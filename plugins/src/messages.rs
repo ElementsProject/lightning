@@ -1,5 +1,5 @@
 use serde::de::{self, Deserializer};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -10,7 +10,7 @@ use std::fmt::Debug;
 pub(crate) enum Request {
     // Builtin
     Getmanifest(GetManifestCall),
-    Init(InitRequest),
+    Init(InitCall),
 
     // Hooks
     PeerConnected,
@@ -61,7 +61,7 @@ pub(crate) enum Notification {
 pub struct GetManifestCall {}
 
 #[derive(Deserialize, Debug)]
-pub struct InitRequest {
+pub struct InitCall {
     pub options: Value,
     pub configuration: HashMap<String, Value>,
 }
@@ -114,3 +114,14 @@ where
         }
     }
 }
+
+#[derive(Serialize, Default, Debug)]
+pub struct GetManifestResponse {
+    options: Vec<()>,
+    rpcmethods: Vec<()>,
+}
+
+#[derive(Serialize, Default, Debug)]
+pub struct InitResponse {}
+
+pub trait Response: Serialize + Debug {}
