@@ -18,7 +18,6 @@ WALLET_SRC := $(WALLET_LIB_SRC) $(WALLET_LIB_SRC_NOHDR) $(WALLET_DB_DRIVERS)
 WALLET_HDRS := $(WALLET_LIB_SRC:.c=.h)
 
 WALLET_OBJS := $(WALLET_SRC:.c=.o)
-$(WALLET_OBJS): $(WALLET_HDRS) $(LIGHTNINGD_HEADERS)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(WALLET_SRC) wallet/db_sqlite3_sqlgen.c wallet/db_postgres_sqlgen.c
