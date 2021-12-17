@@ -69,7 +69,11 @@ def gen_enum(e):
 
     decl += f"#[derive(Debug, Deserialize, Serialize)]\n#[allow(non_camel_case_types)]\npub enum {e.typename} {{\n"
     for v in e.values:
-        decl += f"\t{v.upper() if v is not None else 'NONE'},\n"
+        if v is None:
+            continue
+        norm = v.upper().replace(' ', '_')
+
+        decl += f"    {norm},\n"
     decl += "}\n\n"
 
     name = e.name if e.name not in keywords else f"_{e.name}"
