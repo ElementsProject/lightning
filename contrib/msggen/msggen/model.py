@@ -32,10 +32,32 @@ class CompositeField(F):
     def from_js(cls, js, path):
         typename = path2type(path)
 
+        properties = js["properties"]
+        # Ok, let's flatten the conditional properties. We do this by
+        # reformatting the outer conditions into the `allOf` format.
+        top = {
+            'then': {'properties': js.get('then', {}).get('properties', [])},
+            'else': {'properties': js.get('else', {}).get('properties', [])},
+        }
+        # Yes, this is ugly, but walking nested dicts always is.
+        for a in [top] + js.get('allOf', []):
+            var = a.get('then', {})
+            props = var.get('properties', None)
+            if isinstance(props, dict):
+                for k, v in props.items():
+                    if k not in properties:
+                        properties[k] = v
+            var = a.get('else', {})
+            props = var.get('properties', None)
+            if isinstance(props, dict):
+                for k, v in props.items():
+                    if k not in properties:
+                        properties[k] = v
+
         # Identify required fields
         required = js.get("required", [])
         fields = []
-        for fname, ftype in js["properties"].items():
+        for fname, ftype in properties.items():
             field = None
             desc = ftype["description"] if "description" in ftype else ""
             fpath = f"{path}.{fname}"
