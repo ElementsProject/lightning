@@ -78,7 +78,10 @@ def gen_enum(e):
 
     name = e.name if e.name not in keywords else f"_{e.name}"
 
-    defi = f"\t{name}: {e.typename},\n"
+    if e.required:
+        defi = f"\tpub {name}: {e.typename},\n"
+    else:
+        defi = f"\tpub {name}: Option<{e.typename}>,\n"
 
     return defi, decl
 
@@ -86,7 +89,10 @@ def gen_enum(e):
 def gen_primitive(p):
     defi, decl = "", ""
 
-    defi = f"\t{p.name}: {p.typename},\n"
+    if p.required:
+        defi = f"\tpub {p.name}: {p.typename},\n"
+    else:
+        defi = f"\tpub {p.name}: Option<{p.typename}>,\n"
 
     return defi, decl
 
