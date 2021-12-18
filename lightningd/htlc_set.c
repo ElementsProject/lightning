@@ -1,9 +1,10 @@
+#include "config.h"
 #include <common/features.h>
 #include <common/timeout.h>
-#include <lightningd/htlc_end.h>
+#include <common/type_to_string.h>
 #include <lightningd/htlc_set.h>
+#include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/peer_htlcs.h>
 
 /* If an HTLC times out, we need to free entire set, since we could be processing
  * it in invoice.c right now. */

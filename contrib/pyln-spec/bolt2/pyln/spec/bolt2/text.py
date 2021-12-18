@@ -126,11 +126,14 @@ the funding transaction and both versions of the commitment transaction.
    * [`byte`:`channel_flags`]
    * [`open_channel_tlvs`:`tlvs`]
 
-1. tlvs: `open_channel_tlvs`
+1. `tlv_stream`: `open_channel_tlvs`
 2. types:
     1. type: 0 (`upfront_shutdown_script`)
     2. data:
         * [`...*byte`:`shutdown_scriptpubkey`]
+    1. type: 1 (`channel_type`)
+    2. data:
+        * [`...*byte`:`type`]
 
 The `chain_hash` value denotes the exact blockchain that the opened channel will
 reside within. This is usually the genesis hash of the respective blockchain.
@@ -198,6 +201,19 @@ know this node will accept `funding_satoshis` greater than or equal to 2^24.
 Since it's broadcast in the `node_announcement` message other nodes can use it to identify peers 
 willing to accept large channel even before exchanging the `init` message with them. 
 
+#### Defined Channel Types
+
+Channel types are an explicit enumeration: for convenience of future
+definitions they reuse even feature bits, but they are not an
+arbitrary combination (they represent the persistent features which
+affect the channel operation).
+
+The currently defined types are:
+  - no features (no bits set)
+  - `option_static_remotekey` (bit 12)
+  - `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12)
+  - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12)
+
 #### Requirements
 
 The sending node:
@@ -218,6 +234,10 @@ The sending node:
     - MAY include `upfront_shutdown_script`.
   - if it includes `open_channel_tlvs`:
     - MUST include `upfront_shutdown_script`.
+  - if it includes `channel_type`:
+    - MUST set it to a defined type representing the type it wants.
+    - MUST use the smallest bitmap possible to represent the channel type.
+    - SHOULD NOT set it to a type containing a feature which was not negotiated.
 
 The sending node SHOULD:
   - set `to_self_delay` sufficient to ensure the sender can irreversibly spend a commitment transaction output, in case of misbehavior by the receiver.
@@ -253,6 +273,7 @@ are not valid secp256k1 pubkeys in compressed format.
   - the funder's amount for the initial commitment transaction is not sufficient for full [fee payment](03-transactions.md#fee-payment).
   - both `to_local` and `to_remote` amounts for the initial commitment transaction are less than or equal to `channel_reserve_satoshis` (see [BOLT 3](03-transactions.md#commitment-transaction-outputs)).
   - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support `option_support_large_channel`. 
+  - It supports `channel_type`, `channel_type` was set, and the `type` is not suitable.
 
 The receiving node MUST NOT:
   - consider funds received, using `push_msat`, to be received until the funding transaction has reached sufficient depth.
@@ -301,11 +322,14 @@ funding transaction and both versions of the commitment transaction.
    * [`point`:`first_per_commitment_point`]
    * [`accept_channel_tlvs`:`tlvs`]
 
-1. tlvs: `accept_channel_tlvs`
+1. `tlv_stream`: `accept_channel_tlvs`
 2. types:
     1. type: 0 (`upfront_shutdown_script`)
     2. data:
         * [`...*byte`:`shutdown_scriptpubkey`]
+    1. type: 1 (`channel_type`)
+    2. data:
+        * [`...*byte`:`type`]
 
 #### Requirements
 
@@ -317,14 +341,20 @@ The sender:
 avoid double-spending of the funding transaction.
   - MUST set `channel_reserve_satoshis` greater than or equal to `dust_limit_satoshis` from the `open_channel` message.
   - MUST set `dust_limit_satoshis` less than or equal to `channel_reserve_satoshis` from the `open_channel` message.
+  - if it sets `channel_type`:
+    - MUST set it to the `channel_type` from `open_channel`
 
 The receiver:
   - if `minimum_depth` is unreasonably large:
     - MAY reject the channel.
   - if `channel_reserve_satoshis` is less than `dust_limit_satoshis` within the `open_channel` message:
-	- MUST reject the channel.
+    - MUST reject the channel.
   - if `channel_reserve_satoshis` from the `open_channel` message is less than `dust_limit_satoshis`:
-	- MUST reject the channel.
+    - MUST reject the channel.
+  - if `channel_type` is set, and `channel_type` was set in `open_channel`, and they are not equal types:
+    - MUST reject the channel.
+
+
 Other fields have the same requirements as their counterparts in `open_channel`.
 
 ### The `funding_created` Message
@@ -352,9 +382,10 @@ The sender MUST set:
 The sender:
   - when creating the funding transaction:
     - SHOULD use only BIP141 (Segregated Witness) inputs.
+    - SHOULD ensure the funding transaction confirms in the next 2016 blocks.
 
 The recipient:
-  - if `signature` is incorrect:
+  - if `signature` is incorrect OR non-compliant with LOW-S-standard rule<sup>[LOWS](https://github.com/bitcoin/bitcoin/pull/6769)</sup>:
     - MUST fail the channel.
 
 #### Rationale
@@ -362,6 +393,9 @@ The recipient:
 The `funding_output_index` can only be 2 bytes, since that's how it's packed into the `channel_id` and used throughout the gossip protocol. The limit of 65535 outputs should not be overly burdensome.
 
 A transaction with all Segregated Witness inputs is not malleable, hence the funding transaction recommendation.
+
+The funder may use CPFP on a change output to ensure that the funding transaction confirms before 2016 blocks,
+otherwise the fundee may forget that channel.
 
 ### The `funding_signed` Message
 
@@ -379,17 +413,25 @@ This message introduces the `channel_id` to identify the channel. It's derived f
 #### Requirements
 
 Both peers:
-  - if `option_static_remotekey` was negotiated:
-    - `option_static_remotekey` applies to all commitment transactions
+  - if `channel_type` was present in both `open_channel` and `accept_channel`:
+    - This is the `channel_type` (they must be equal, required above)
   - otherwise:
-    - `option_static_remotekey` does not apply to any commitment transactions
+    - if `option_anchors_zero_fee_htlc_tx` was negotiated:
+      - the `channel_type` is `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 22 and 12)
+    - otherwise, if `option_anchor_outputs` was negotiated:
+      - the `channel_type` is `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12)
+    - otherwise, if `option_static_remotekey` was negotiated:
+      - the `channel_type` is `option_static_remotekey` (bit 12)
+    - otherwise:
+      - the `channel_type` is empty
+  - MUST use that `channel_type` for all commitment transactions.
 
 The sender MUST set:
   - `channel_id` by exclusive-OR of the `funding_txid` and the `funding_output_index` from the `funding_created` message.
   - `signature` to the valid signature, using its `funding_pubkey` for the initial commitment transaction, as defined in [BOLT #3](03-transactions.md#commitment-transaction).
 
 The recipient:
-  - if `signature` is incorrect:
+  - if `signature` is incorrect OR non-compliant with LOW-S-standard rule<sup>[LOWS](https://github.com/bitcoin/bitcoin/pull/6769)</sup>:
     - MUST fail the channel.
   - MUST NOT broadcast the funding transaction before receipt of a valid `funding_signed`.
   - on receipt of a valid `funding_signed`:
@@ -397,9 +439,19 @@ The recipient:
 
 #### Rationale
 
-We decide on `option_static_remotekey` at this point when we first have to generate the commitment
-transaction.  Even if a later reconnection does not negotiate this parameter, this channel will continue to use `option_static_remotekey`; we don't support "downgrading".
-This simplifies channel state, particularly penalty transaction handling.
+We decide on `option_static_remotekey`, `option_anchor_outputs` or
+`option_anchors_zero_fee_htlc_tx` at this point when we first have to generate
+the commitment transaction. The feature bits that were communicated in the
+`init` message exchange for the current connection determine the channel
+commitment format for the total lifetime of the channel. Even if a later
+reconnection does not negotiate this parameter, this channel will continue to
+use `option_static_remotekey`, `option_anchor_outputs` or
+`option_anchors_zero_fee_htlc_tx`; we don't support "downgrading".
+
+`option_anchors_zero_fee_htlc_tx` is considered superior to
+`option_anchor_outputs`, which again is considered superior to
+`option_static_remotekey`, and the superior one is is favored if more than one
+is negotiated.
 
 ### The `funding_locked` Message
 
@@ -415,16 +467,15 @@ This message indicates that the funding transaction has reached the `minimum_dep
 The sender MUST:
   - NOT send `funding_locked` unless outpoint of given by `funding_txid` and
    `funding_output_index` in the `funding_created` message pays exactly `funding_satoshis` to the scriptpubkey specified in [BOLT #3](03-transactions.md#funding-transaction-output).
-  - wait until the funding transaction has reached
-`minimum_depth` before sending this message.
-  - set `next_per_commitment_point` to the
-per-commitment point to be used for the following commitment
-transaction, derived as specified in
-[BOLT #3](03-transactions.md#per-commitment-secret-requirements).
+  - wait until the funding transaction has reached `minimum_depth` before
+  sending this message.
+  - set `next_per_commitment_point` to the per-commitment point to be used
+  for the following commitment transaction, derived as specified in
+  [BOLT #3](03-transactions.md#per-commitment-secret-requirements).
 
 A non-funding node (fundee):
-  - SHOULD forget the channel if it does not see the correct
-funding transaction after a reasonable timeout.
+  - SHOULD forget the channel if it does not see the correct funding
+  transaction after a timeout of 2016 blocks.
 
 From the point of waiting for `funding_locked` onward, either node MAY
 fail the channel if it does not receive a required response from the
@@ -436,6 +487,11 @@ The non-funder can simply forget the channel ever existed, since no
 funds are at risk. If the fundee were to remember the channel forever, this
 would create a Denial of Service risk; therefore, forgetting it is recommended
 (even if the promise of `push_msat` is significant).
+
+If the fundee forgets the channel before it was confirmed, the funder will need
+to broadcast the commitment transaction to get his funds back and open a new
+channel. To avoid this, the funder should ensure the funding transaction
+confirms in the next 2016 blocks.
 
 ## Channel Close
 
@@ -482,7 +538,7 @@ A sending node:
     - MUST NOT send a `shutdown`.
   - MUST NOT send an `update_add_htlc` after a `shutdown`.
   - if no HTLCs remain in either commitment transaction:
-	- MUST NOT send any `update` message after a `shutdown`.
+    - MUST NOT send any `update` message after a `shutdown`.
   - SHOULD fail to route any HTLC added after it has sent `shutdown`.
   - if it sent a non-zero-length `shutdown_scriptpubkey` in `open_channel` or `accept_channel`:
     - MUST send the same value in `scriptpubkey`.
@@ -491,8 +547,11 @@ A sending node:
     1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
    (pay to pubkey hash), OR
     2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
-    3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey), OR
-    4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
+    3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey hash), OR
+    4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash), OR
+    5. if (and only if) `option_shutdown_anysegwit` is negotiated:
+      * `OP_1` through `OP_16` inclusive, followed by a single push of 2 to 40 bytes
+        (witness program versions 1 through 16)
 
 A receiving node:
   - if it hasn't received a `funding_signed` (if it is a funder) or a `funding_created` (if it is a fundee):
@@ -542,11 +601,24 @@ the other node then replies similarly, using a fee it thinks is fair.  This
 exchange continues until both agree on the same fee or when one side fails
 the channel.
 
+In the modern method, the funder sends its permissable fee range, and the
+non-funder has to pick a fee in this range. If the non-funder chooses the same
+value, negotiation is complete after two messages, otherwise the funder will
+reply with the same value (completing after three messages).
+
 1. type: 39 (`closing_signed`)
 2. data:
    * [`channel_id`:`channel_id`]
    * [`u64`:`fee_satoshis`]
    * [`signature`:`signature`]
+   * [`closing_signed_tlvs`:`tlvs`]
+
+1. `tlv_stream`: `closing_signed_tlvs`
+2. types:
+    1. type: 1 (`fee_range`)
+    2. data:
+        * [`u64`:`min_fee_satoshis`]
+        * [`u64`:`max_fee_satoshis`]
 
 #### Requirements
 
@@ -555,44 +627,69 @@ The funding node:
     - SHOULD send a `closing_signed` message.
 
 The sending node:
-  - MUST set `fee_satoshis` less than or equal to the
- base fee of the final commitment transaction, as calculated in [BOLT #3](03-transactions.md#fee-calculation).
-  - SHOULD set the initial `fee_satoshis` according to its
- estimate of cost of inclusion in a block.
-  - MUST set `signature` to the Bitcoin signature of the close
- transaction, as specified in [BOLT #3](03-transactions.md#closing-transaction).
+  - SHOULD set the initial `fee_satoshis` according to its estimate of cost of
+  inclusion in a block.
+  - SHOULD set `fee_range` according to the minimum and maximum fees it is
+  prepared to pay for a close transaction.
+  - if it doesn't receive a `closing_signed` response after a reasonable amount of time:
+    - MUST fail the channel
+  - if it is not the funder:
+    - SHOULD set `max_fee_satoshis` to at least the `max_fee_satoshis` received
+    - SHOULD set `min_fee_satoshis` to a fairly low value
+  - MUST set `signature` to the Bitcoin signature of the close transaction,
+  as specified in [BOLT #3](03-transactions.md#closing-transaction).
 
 The receiving node:
   - if the `signature` is not valid for either variant of closing transaction
-  specified in [BOLT #3](03-transactions.md#closing-transaction):
+  specified in [BOLT #3](03-transactions.md#closing-transaction) OR non-compliant with LOW-S-standard rule<sup>[LOWS](https://github.com/bitcoin/bitcoin/pull/6769)</sup>:
     - MUST fail the connection.
   - if `fee_satoshis` is equal to its previously sent `fee_satoshis`:
     - SHOULD sign and broadcast the final closing transaction.
     - MAY close the connection.
-  - otherwise, if `fee_satoshis` is greater than
-the base fee of the final commitment transaction as calculated in
-[BOLT #3](03-transactions.md#fee-calculation):
-    - MUST fail the connection.
-  - if `fee_satoshis` is not strictly
-between its last-sent `fee_satoshis` and its previously-received
-`fee_satoshis`, UNLESS it has since reconnected:
+  - if `fee_satoshis` matches its previously sent `fee_range`:
+    - SHOULD use `fee_satoshis` to sign and broadcast the final closing transaction
+    - SHOULD reply with a `closing_signed` with the same `fee_satoshis` value if it is different from its previously sent `fee_satoshis`
+    - MAY close the connection.
+  - if the message contains a `fee_range`:
+    - if there is no overlap between that and its own `fee_range`:
+      - SHOULD fail the connection
+      - MUST fail the channel if it doesn't receive a satisfying `fee_range` after a reasonable amount of time
+    - otherwise:
+      - if it is the funder:
+        - if `fee_satoshis` is not in the overlap between the sent and received `fee_range`:
+          - MUST fail the channel
+        - otherwise:
+          - MUST reply with the same `fee_satoshis`.
+      - otherwise (it is not the funder):
+        - if it has already sent a `closing_signed`:
+          - if `fee_satoshis` is not the same as the value it sent:
+            - MUST fail the channel
+        - otherwise:
+          - MUST propose a `fee_satoshis` in the overlap between received and (about-to-be) sent `fee_range`.
+  - otherwise, if `fee_satoshis` is not strictly between its last-sent `fee_satoshis`
+  and its previously-received `fee_satoshis`, UNLESS it has since reconnected:
     - SHOULD fail the connection.
-  - if the receiver agrees with the fee:
+  - otherwise, if the receiver agrees with the fee:
     - SHOULD reply with a `closing_signed` with the same `fee_satoshis` value.
   - otherwise:
     - MUST propose a value "strictly between" the received `fee_satoshis`
-  and its previously-sent `fee_satoshis`.
+    and its previously-sent `fee_satoshis`.
 
 #### Rationale
 
-The "strictly between" requirement ensures that forward
-progress is made, even if only by a single satoshi at a time. To avoid
-keeping state and to handle the corner case, where fees have shifted
+When `fee_range` is not provided, the "strictly between" requirement ensures
+that forward progress is made, even if only by a single satoshi at a time.
+To avoid keeping state and to handle the corner case, where fees have shifted
 between disconnection and reconnection, negotiation restarts on reconnection.
 
 Note there is limited risk if the closing transaction is
 delayed, but it will be broadcast very soon; so there is usually no
 reason to pay a premium for rapid processing.
+
+Note that the non-funder is not paying the fee, so there is no reason for it
+to have a maximum feerate. It may want a minimum feerate, however, to ensure
+that the transaction propagates. It can always use CPFP later to speed up
+confirmation if necessary, so that minimum should be low.
 
 ## Normal Operation
 
@@ -741,31 +838,33 @@ the longest possible time to redeem it on-chain:
 Thus, the worst case is `3R+2G+2S`, assuming `R` is at least 1. Note that the
 chances of three reorganizations in which the other node wins all of them is
 low for `R` of 2 or more. Since high fees are used (and HTLC spends can use
-almost arbitrary fees), `S` should be small; although, given that block times are
-irregular and empty blocks still occur, `S=2` should be considered a
-minimum. Similarly, the grace period `G` can be low (1 or 2), as nodes are
-required to timeout or fulfill as soon as possible; but if `G` is too low it increases the
-risk of unnecessary channel closure due to networking delays.
+almost arbitrary fees), `S` should be small during normal operation; although,
+given that block times are irregular, empty blocks still occur, fees may vary
+greatly, and the fees cannot be bumped on HTLC transactions, `S=12` should be
+considered a minimum. `S` is also the parameter that may vary the most under
+attack, so a higher value may be desirable when non-negligible amounts are at
+risk. The grace period `G` can be low (1 or 2), as nodes are required to timeout
+or fulfill as soon as possible; but if `G` is too low it increases the risk of
+unnecessary channel closure due to networking delays.
 
 There are four values that need be derived:
 
 1. the `cltv_expiry_delta` for channels, `3R+2G+2S`: if in doubt, a
-   `cltv_expiry_delta` of 12 is reasonable (R=2, G=1, S=2).
+   `cltv_expiry_delta` of at least 34 is reasonable (R=2, G=2, S=12).
 
-2. the deadline for offered HTLCs: the deadline after which the channel has to be failed
-   and timed out on-chain. This is `G` blocks after the HTLC's
-   `cltv_expiry`: 1 block is reasonable.
+2. the deadline for offered HTLCs: the deadline after which the channel has to
+   be failed and timed out on-chain. This is `G` blocks after the HTLC's
+   `cltv_expiry`: 1 or 2 blocks is reasonable.
 
-3. the deadline for received HTLCs this node has fulfilled: the deadline after which
-the channel has to be failed and the HTLC fulfilled on-chain before its
-   `cltv_expiry`. See steps 4-7 above, which imply a deadline of `2R+G+S`
-   blocks before `cltv_expiry`: 7 blocks is reasonable.
+3. the deadline for received HTLCs this node has fulfilled: the deadline after
+   which the channel has to be failed and the HTLC fulfilled on-chain before
+   its `cltv_expiry`. See steps 4-7 above, which imply a deadline of `2R+G+S`
+   blocks before `cltv_expiry`: 18 blocks is reasonable.
 
 4. the minimum `cltv_expiry` accepted for terminal payments: the
    worst case for the terminal node C is `2R+G+S` blocks (as, again, steps
-   1-3 above don't apply). The default in
-   [BOLT #11](11-payment-encoding.md) is 9, which is slightly more
-   conservative than the 7 that this calculation suggests.
+   1-3 above don't apply). The default in [BOLT #11](11-payment-encoding.md) is
+   18, which matches this calculation.
 
 #### Requirements
 
@@ -812,6 +911,10 @@ A sending node:
     transaction, it cannot pay the fee for either the local or remote commitment
     transaction at the current `feerate_per_kw` while maintaining its channel
     reserve (see [Updating Fees](#updating-fees-update_fee)).
+    - if `option_anchors` applies to this commitment transaction and the sending
+    node is the funder:
+      - MUST be able to additionally pay for `to_local_anchor` and 
+      `to_remote_anchor` above its reserve.
     - SHOULD NOT offer `amount_msat` if, after adding that HTLC to its commitment
     transaction, its remaining balance doesn't allow it to pay the commitment
     transaction fee when receiving or sending a future additional non-dust HTLC
@@ -826,8 +929,6 @@ A sending node:
   - MUST offer `amount_msat` greater than 0.
   - MUST NOT offer `amount_msat` below the receiving node's `htlc_minimum_msat`
   - MUST set `cltv_expiry` less than 500000000.
-  - for channels with `chain_hash` identifying the Bitcoin blockchain:
-    - MUST set the four most significant bytes of `amount_msat` to 0.
   - if result would be offering more than the remote's
   `max_accepted_htlcs` HTLCs, in the remote commitment transaction:
     - MUST NOT add an HTLC.
@@ -844,15 +945,13 @@ been received). It MUST continue incrementing instead.
 A receiving node:
   - receiving an `amount_msat` equal to 0, OR less than its own `htlc_minimum_msat`:
     - SHOULD fail the channel.
-  - receiving an `amount_msat` that the sending node cannot afford at the current `feerate_per_kw` (while maintaining its channel reserve):
+  - receiving an `amount_msat` that the sending node cannot afford at the current `feerate_per_kw` (while maintaining its channel reserve and any `to_local_anchor` and `to_remote_anchor` costs):
     - SHOULD fail the channel.
   - if a sending node adds more than receiver `max_accepted_htlcs` HTLCs to
     its local commitment transaction, OR adds more than receiver `max_htlc_value_in_flight_msat` worth of offered HTLCs to its local commitment transaction:
     - SHOULD fail the channel.
   - if sending node sets `cltv_expiry` to greater or equal to 500000000:
     - SHOULD fail the channel.
-  - for channels with `chain_hash` identifying the Bitcoin blockchain, if the four most significant bytes of `amount_msat` are not 0:
-    - MUST fail the channel.
   - MUST allow multiple HTLCs with the same `payment_hash`.
   - if the sender did not previously acknowledge the commitment of that HTLC:
     - MUST ignore a repeated `id` value after a reconnection.
@@ -884,10 +983,6 @@ as calculated in [BOLT #5](05-onchain.md#penalty-transaction-weight-calculation)
 
 `cltv_expiry` values equal to or greater than 500000000 would indicate a time in
 seconds, and the protocol only supports an expiry in blocks.
-
-`amount_msat` is deliberately limited for this version of the
-specification; larger amounts are not necessary, nor wise, during the
-bootstrap phase of the network.
 
 The node _responsible_ for paying the Bitcoin fee should maintain a "fee
 spike buffer" on top of its reserve to accommodate a future fee increase.
@@ -1011,12 +1106,12 @@ fee changes).
 
 A receiving node:
   - once all pending updates are applied:
-    - if `signature` is not valid for its local commitment transaction:
+    - if `signature` is not valid for its local commitment transaction OR non-compliant with LOW-S-standard rule <sup>[LOWS](https://github.com/bitcoin/bitcoin/pull/6769)</sup>:
       - MUST fail the channel.
     - if `num_htlcs` is not equal to the number of HTLC outputs in the local
     commitment transaction:
       - MUST fail the channel.
-  - if any `htlc_signature` is not valid for the corresponding HTLC transaction:
+  - if any `htlc_signature` is not valid for the corresponding HTLC transaction OR non-compliant with LOW-S-standard rule <sup>[LOWS](https://github.com/bitcoin/bitcoin/pull/6769)</sup>:
     - MUST fail the channel.
   - MUST respond with a `revoke_and_ack` message.
 
@@ -1033,7 +1128,13 @@ offline until after sending `commitment_signed`.  Once
 those HTLCs, and cannot fail the related incoming HTLCs until the
 output HTLCs are fully resolved.
 
-Note that the `htlc_signature` implicitly enforces the time-lock mechanism in the case of offered HTLCs being timed out or received HTLCs being spent. This is done to reduce fees by creating smaller scripts compared to explicitly stating time-locks on HTLC outputs.
+Note that the `htlc_signature` implicitly enforces the time-lock mechanism in
+the case of offered HTLCs being timed out or received HTLCs being spent. This
+is done to reduce fees by creating smaller scripts compared to explicitly
+stating time-locks on HTLC outputs.
+
+The `option_anchors` allows HTLC transactions to "bring their own fees" by
+attaching other inputs and outputs, hence the modified signature flags.
 
 ### Completing the Transition to the Updated State: `revoke_and_ack`
 
@@ -1064,7 +1165,7 @@ A sending node:
   transaction.
 
 A receiving node:
-  - if `per_commitment_secret` does not generate the previous `per_commitment_point`:
+  - if `per_commitment_secret` is not a valid secret key or does not generate the previous `per_commitment_point`:
     - MUST fail the channel.
   - if the `per_commitment_secret` was not generated by the protocol in [BOLT #3](03-transactions.md#per-commitment-secret-requirements):
     - MAY fail the channel.
@@ -1119,13 +1220,18 @@ A receiving node:
 
 #### Rationale
 
-Bitcoin fees are required for unilateral closes to be effective —
-particularly since there is no general method for the broadcasting node to use
-child-pays-for-parent to increase its effective fee.
+Bitcoin fees are required for unilateral closes to be effective.
+With `option_anchors`, `feerate_per_kw` is not as critical anymore to guarantee
+confirmation as it was in the legacy commitment format, but it still needs to
+be enough to be able to enter the mempool (satisfy min relay fee and mempool
+min fee).
+
+For the legacy commitment format, there is no general method for the
+broadcasting node to use child-pays-for-parent to increase its effective fee.
 
 Given the variance in fees, and the fact that the transaction may be
 spent in the future, it's a good idea for the fee payer to keep a good
-margin (say 5x the expected fee requirement); but, due to differing methods of
+margin (say 5x the expected fee requirement) for legacy commitment txes; but, due to differing methods of
 fee estimation, an exact value is not specified.
 
 Since the fees are currently one-sided (the party which requested the
@@ -1209,7 +1315,8 @@ The sending node:
   next `commitment_signed` it expects to receive.
   - MUST set `next_revocation_number` to the commitment number of the
   next `revoke_and_ack` message it expects to receive.
-  - if `option_static_remotekey` applies to the commitment transaction:
+  - if `option_static_remotekey` or `option_anchors` applies to the commitment
+    transaction:
     - MUST set `my_current_per_commitment_point` to a valid point.
   - otherwise:
     - MUST set `my_current_per_commitment_point` to its commitment point for
@@ -1243,6 +1350,10 @@ A node:
   the last `revoke_and_ack` the receiving node sent, AND the receiving node
   hasn't already received a `closing_signed`:
     - MUST re-send the `revoke_and_ack`.
+    - if it has previously sent a `commitment_signed` that needs to be
+    retransmitted:
+      - MUST retransmit `revoke_and_ack` and `commitment_signed` in the same
+      relative order as initially transmitted.
   - otherwise:
     - if `next_revocation_number` is not equal to 1 greater than the
     commitment number of the last `revoke_and_ack` the receiving node has sent:
@@ -1252,7 +1363,8 @@ A node:
       - SHOULD fail the channel.
 
  A receiving node:
-  - if `option_static_remotekey` applies to the commitment transaction:
+  - if `option_static_remotekey` or `option_anchors` applies to the commitment
+    transaction:
     - if `next_revocation_number` is greater than expected above, AND
     `your_last_per_commitment_secret` is correct for that
     `next_revocation_number` minus 1:
@@ -1312,7 +1424,9 @@ involve different fees, or even be missing HTLCs which are now too old
 to be added. Requiring they be identical would effectively mean a
 write to disk by the sender upon each transmission, whereas the scheme
 here encourages a single persistent write to disk for each
-`commitment_signed` sent or received.
+`commitment_signed` sent or received. But if you need to retransmit both a
+`commitment_signed` and a `revoke_and_ack`, the relative order of these two
+must be preserved, otherwise it will lead to a channel closure.
 
 A re-transmittal of `revoke_and_ack` should never be asked for after a
 `closing_signed` has been received, since that would imply a shutdown has been

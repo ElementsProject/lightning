@@ -1,11 +1,6 @@
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/chainparams.h>
-#include <bitcoin/psbt.h>
-#include <bitcoin/tx.h>
 #include <common/setup.h>
 #include <stdio.h>
-#include <wire/wire.h>
 #include "../amount.c"
 #include "../psbt_open.c"
 
@@ -30,9 +25,6 @@ void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sh
 u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
 		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
-/* Generated stub for fromwire_u16 */
-u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u16 called!\n"); abort(); }
 /* Generated stub for fromwire_u32 */
 u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
@@ -61,9 +53,6 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
-/* Generated stub for towire_u16 */
-void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
-{ fprintf(stderr, "towire_u16 called!\n"); abort(); }
 /* Generated stub for towire_u32 */
 void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
 { fprintf(stderr, "towire_u32 called!\n"); abort(); }
@@ -97,14 +86,14 @@ static void add_in_out_with_serial(struct wally_psbt *psbt,
 				   size_t serial_id,
 				   size_t default_value)
 {
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 	u8 *script;
 	struct amount_sat sat;
 	struct wally_psbt_input *in;
 	struct wally_psbt_output *out;
 
-	memset(&txid, default_value, sizeof(txid));
-	in = psbt_append_input(psbt, &txid, default_value, default_value,
+	memset(&outpoint, default_value, sizeof(outpoint));
+	in = psbt_append_input(psbt, &outpoint, default_value,
 			       NULL, NULL, NULL);
 	if (!in)
 		abort();

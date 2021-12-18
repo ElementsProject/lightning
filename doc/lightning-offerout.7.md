@@ -7,7 +7,7 @@ SYNOPSIS
 **(WARNING: experimental-offers only)**
 
 
-**offerout** *amount* *description* \[*vendor*\] \[*label*\] \[*absolute_expiry*\] \[*refund_for*\]
+**offerout** *amount* *description* \[*issuer*\] \[*label*\] \[*absolute_expiry*\] \[*refund_for*\]
 
 DESCRIPTION
 -----------
@@ -34,7 +34,7 @@ e.g. *withdrawl from ATM*. This value is encoded into the resulting offer and is
 viewable by anyone you expose this offer to. It must be UTF-8, and
 cannot use *\\u* JSON escape codes.
 
-The *vendor* is another (optional) field exposed in the offer, and
+The *issuer* is another (optional) field exposed in the offer, and
 reflects who is issuing this offer (i.e. you) if appropriate.
 
 The *label* field is an internal-use name for the offer, which can
@@ -99,4 +99,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:99a4e1cdf68ec7bcf05b9d6b088b8a84f01d085fae5a1565192f488ff8484570)
+[comment]: # ( SHA256STAMP:fb60c3239f3d47b421f842304263ec73f864a307b77e39265653c3e85880a483)

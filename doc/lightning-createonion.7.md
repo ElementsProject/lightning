@@ -108,7 +108,7 @@ above hops parameter:
 
 ```json
 {
-	"onion": "0003f3f80d2142b953319336d2fe4097[...✂...]6af33fcf4fb113bce01f56dd62248a9e5fcbbfba35c",
+	"onion": "0003f3f80d2142b953319336d2fe4097[...]6af33fcf4fb113bce01f56dd62248a9e5fcbbfba35c",
 	"shared_secrets": [
 		"88ce98c73e4d9293ab1797b0a913fe9bca0213a566252047d01b8af6da871f3e",
 		"4474d296810e57bd460ef8b83d2e7d288321f8a99ff7686f87384699747bcfc4",
@@ -136,4 +136,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-[comment]: # ( SHA256STAMP:a00e746c41b59c6f34fb4a875cf3bf1cded7101f3e4d6d5b35f577d6aca6387f)
+[comment]: # ( SHA256STAMP:23e999fedfde74a200c0e6626fa828548b3b60952de30c5885cd63b1922f4508)

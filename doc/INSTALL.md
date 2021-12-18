@@ -37,9 +37,10 @@ Get dependencies:
 
     sudo apt-get update
     sudo apt-get install -y \
-      autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python3 python3-mako net-tools zlib1g-dev libsodium-dev \
+      autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev \
+      python3 python3-mako python3-pip net-tools zlib1g-dev libsodium-dev \
       gettext
+    pip3 install --user mrkd mistune==0.8.4
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
@@ -54,11 +55,13 @@ Clone lightning:
 
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
-    
+
 For development or running tests, get additional dependencies:
 
-    sudo apt-get install -y valgrind python3-pip libpq-dev
-    sudo pip3 install -r requirements.txt
+    sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
+      libsecp256k1-dev jq
+    pip3 install --upgrade pip
+    pip3 install --user -r requirements.txt
 
 Build lightning:
 
@@ -152,7 +155,7 @@ mrkd is required to build man pages from markdown files (not done by the port):
 See `/usr/ports/net-p2p/c-lightning/Makefile` for instructions on how to
 build from an arbitrary git commit, instead of the latest release tag.
 
-**Note**: Make sure you've set an utf-8 locale, e.g. 
+**Note**: Make sure you've set an utf-8 locale, e.g.
 `export LC_CTYPE=en_US.UTF-8`, otherwise manpage installation may fail.
 
 Running lightning:
@@ -170,7 +173,7 @@ Configure lightningd: copy `/usr/local/etc/lightningd-bitcoin.conf.sample` to
 To Build on OpenBSD
 --------------------
 
-OS version: OpenBSD 6.7 
+OS version: OpenBSD 6.7
 
 Install dependencies:
 ```
@@ -225,6 +228,11 @@ If you need SQLite (or get a SQLite mismatch build error):
     $ brew install sqlite
     $ export LDFLAGS="-L/usr/local/opt/sqlite/lib"
     $ export CPPFLAGS="-I/usr/local/opt/sqlite/include"
+
+Some library paths are different when using `homebrew` with M1 macs, therefore the following two variables need to be set for M1 machines
+
+    $ export CPATH=/opt/homebrew/include
+    $ export LIBRARY_PATH=/opt/homebrew/lib
 
 If you need Python 3.x for mako (or get a mako build error):
 
@@ -308,7 +316,7 @@ To cross-compile for Raspberry Pi
 --------------------
 
 Obtain the [official Raspberry Pi toolchains](https://github.com/raspberrypi/tools).
-This document assumes compilation will occur towards the Raspberry Pi 3 
+This document assumes compilation will occur towards the Raspberry Pi 3
 (arm-linux-gnueabihf as of Mar. 2018).
 
 Depending on your toolchain location and target arch, source env variables
@@ -353,7 +361,7 @@ Download and build sqlite3:
 Download and build gmp:
 
     wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
-    tar xvf gmp-6.1.2.tar.xz 
+    tar xvf gmp-6.1.2.tar.xz
     cd gmp-6.1.2
     ./configure --disable-assembly --host=$target_host --prefix=$QEMU_LD_PREFIX
     make

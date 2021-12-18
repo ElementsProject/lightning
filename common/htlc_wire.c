@@ -1,14 +1,12 @@
-#include <bitcoin/tx.h>
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
-#include <common/memleak.h>
 #include <common/onionreply.h>
-#include <wire/wire.h>
 
-struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
-				    const struct failed_htlc *f TAKES)
+static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
+					   const struct failed_htlc *f TAKES)
 {
 	struct failed_htlc *newf;
 
@@ -81,6 +79,7 @@ void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 		towire_secret(pptr, &added->blinding_ss);
 	} else
 		towire_bool(pptr, false);
+	towire_bool(pptr, added->fail_immediate);
 }
 
 void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
@@ -130,7 +129,7 @@ void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 	}
 }
 
-void towire_htlc_state(u8 **pptr, const enum htlc_state hstate)
+static void towire_htlc_state(u8 **pptr, const enum htlc_state hstate)
 {
 	towire_u8(pptr, hstate);
 }
@@ -174,6 +173,7 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 		fromwire_secret(cursor, max, &added->blinding_ss);
 	} else
 		added->blinding = NULL;
+	added->fail_immediate = fromwire_bool(cursor, max);
 }
 
 struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
@@ -234,7 +234,7 @@ struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, si
 	return failed;
 }
 
-enum htlc_state fromwire_htlc_state(const u8 **cursor, size_t *max)
+static enum htlc_state fromwire_htlc_state(const u8 **cursor, size_t *max)
 {
 	enum htlc_state hstate = fromwire_u8(cursor, max);
 	if (hstate >= HTLC_STATE_INVALID) {

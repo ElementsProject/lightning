@@ -5,12 +5,16 @@
  * getchannels:
  * {'channels': [{'active': True, 'short_id': '6990x2x1/1', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'last_update': 1504064344}, {'active': True, 'short_id': '6989x2x1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 0, 'destination': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'source': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'last_update': 1504064344}, {'active': True, 'short_id': '6990x2x1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 0, 'destination': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'source': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'last_update': 1504064344}, {'active': True, 'short_id': '6989x2x1/1', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}]}
  */
+#include "config.h"
 #include <assert.h>
+#include <common/channel_type.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossip_store.h>
 #include <common/route.h>
+#include <common/setup.h>
 #include <common/type_to_string.h>
+#include <common/utils.h>
 #include <bitcoin/chainparams.h>
 #include <stdio.h>
 #include <wire/peer_wiregen.h>
@@ -173,10 +177,8 @@ static bool route_can_carry_unless_disabled(const struct gossmap *map,
 	return route_can_carry_even_disabled(map, c, dir, amount, arg);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct node_id a, b, c, d;
 	struct gossmap_node *a_node, *b_node, *c_node, *d_node;
 	const struct dijkstra *dij;
@@ -185,12 +187,9 @@ int main(void)
 	struct gossmap *gossmap;
 	const double riskfactor = 1.0;
 	char gossip_version = GOSSIP_STORE_VERSION;
-	char gossipfilename[] = "/tmp/run-route-specific-gossipstore.XXXXXX";
+	char *gossipfilename;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
-
+	common_setup(argv[0]);
 	node_id_from_hexstr("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf",
 			   strlen("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf"),
 			   &a);
@@ -206,7 +205,7 @@ int main(void)
 
 	chainparams = chainparams_for_network("regtest");
 
-	store_fd = mkstemp(gossipfilename);
+	store_fd = tmpdir_mkstemp(tmpctx, "run-route-specific-gossipstore.XXXXXX", &gossipfilename);
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 
@@ -302,7 +301,6 @@ int main(void)
 				    AMOUNT_MSAT(499968+1), 0);
 	assert(!route);
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	return 0;
 }

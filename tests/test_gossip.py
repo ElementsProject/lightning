@@ -4,7 +4,8 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    DEVELOPER, wait_for, TIMEOUT, only_one, sync_blockheight, expected_node_features, COMPAT
+    DEVELOPER, wait_for, TIMEOUT, only_one, sync_blockheight,
+    expected_node_features, COMPAT, EXPERIMENTAL_FEATURES
 )
 
 import json
@@ -27,7 +28,8 @@ with open('config.vars') as configfile:
 def test_gossip_pruning(node_factory, bitcoind):
     """ Create channel and see it being updated in time before pruning
     """
-    l1, l2, l3 = node_factory.get_nodes(3, opts={'dev-fast-gossip-prune': None})
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'dev-fast-gossip-prune': None,
+                                                 'allow_bad_gossip': True})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -109,12 +111,21 @@ def test_announce_address(node_factory, bitcoind):
     """Make sure our announcements are well formed."""
 
     # We do not allow announcement of duplicates.
-    opts = {'announce-addr':
+    opts = {'disable-dns': None, 'announce-addr':
             ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
              '1.2.3.4:1234',
+             'localhost:1235',
+             'example.com:1236',
              '::'],
             'log-level': 'io',
             'dev-allow-localhost': None}
+    if not EXPERIMENTAL_FEATURES:  # BOLT7 DNS RFC #911
+        opts = {'disable-dns': None, 'announce-addr':
+                ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
+                 '1.2.3.4:1234',
+                 '::'],
+                'log-level': 'io',
+                'dev-allow-localhost': None}
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -124,13 +135,105 @@ def test_announce_address(node_factory, bitcoind):
     l1.wait_channel_active(scid)
     l2.wait_channel_active(scid)
 
+    if not EXPERIMENTAL_FEATURES:  # BOLT7 DNS RFC #911
+        l1.daemon.wait_for_log(r"\[OUT\] 0101.*47"
+                               "010102030404d2"
+                               "017f000001...."
+                               "0200000000000000000000000000000000...."
+                               "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba5023003....")
+        return
+
     # We should see it send node announce with all addresses (257 = 0x0101)
-    # local ephemeral port is masked out.
-    l1.daemon.wait_for_log(r"\[OUT\] 0101.*47"
-                           "010102030404d2"
-                           "017f000001...."
-                           "02000000000000000000000000000000002607"
-                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607")
+    # Note: local ephemeral port is masked out.
+    # Note: Since we `disable-dns` it should not announce a resolved IPv4
+    #       or IPv6 address for example.com
+    #
+    # Also expect the address descriptor types to be sorted!
+    # BOLT #7:
+    #   - MUST place address descriptors in ascending order.
+    l1.daemon.wait_for_log(r"\[OUT\] 0101.*0063"
+                           "010102030404d2"  # IPv4 01 1.2.3.4:1234
+                           "017f000001...."  # IPv4 01 127.0.0.1:wxyz
+                           "0200000000000000000000000000000000...."  # IPv6 02 :::<any_port>
+                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba5023003...."  # TORv3 04
+                           "05096c6f63616c686f737404d3"       # DNS 05 len localhost:1235
+                           "050b6578616d706c652e636f6d04d4")  # DNS 05 len example.com:1236
+
+    # Check other node can parse these (make sure it has digested msg)
+    wait_for(lambda: 'addresses' in l2.rpc.listnodes(l1.info['id'])['nodes'][0])
+    addresses = l2.rpc.listnodes(l1.info['id'])['nodes'][0]['addresses']
+    addresses_dns = [address for address in addresses if address['type'] == 'dns']
+    assert len(addresses) == 6
+    assert len(addresses_dns) == 2
+    assert addresses_dns[0]['address'] == 'localhost'
+    assert addresses_dns[0]['port'] == 1235
+    assert addresses_dns[1]['address'] == 'example.com'
+    assert addresses_dns[1]['port'] == 1236
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
+def test_announce_and_connect_via_dns(node_factory, bitcoind):
+    """ Test that DNS annoucements propagate and can be used when connecting.
+
+        - First node announces only a FQDN like 'localhost.localdomain'.
+        - Second node gets a channel with first node.
+        - Third node just connects to second node.
+        - Fourth node with DNS disabled also connects to second node.
+        - Wait for gossip so third and fourth node sees first node.
+        - Third node must be able to 'resolve' 'localhost.localdomain'
+          and connect to first node.
+        - Fourth node must not be able to connect because he has disabled DNS.
+
+        Notes:
+        - --disable-dns is needed so the first node does not announce 127.0.0.1 itself.
+        - 'dev-allow-localhost' must not be set, so it does not resolve localhost anyway.
+    """
+    opts1 = {'disable-dns': None,
+             'announce-addr': ['localhost.localdomain:12345'],  # announce dns
+             'bind-addr': ['127.0.0.1:12345', '[::1]:12345']}   # and bind local IPs
+    opts3 = {'may_reconnect': True}
+    opts4 = {'disable-dns': None}
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[opts1, {}, opts3, opts4])
+
+    # In order to enable DNS on a pyln testnode we need to delete the
+    # 'disable-dns' opt (which is added by pyln test utils) and restart it.
+    del l3.daemon.opts['disable-dns']
+    l3.restart()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid, _ = l1.fundchannel(l2, 10**6)
+    bitcoind.generate_block(5)
+
+    # wait until l3 and l4 see l1 via gossip with announced addresses
+    wait_for(lambda: len(l3.rpc.listnodes(l1.info['id'])['nodes']) == 1)
+    wait_for(lambda: len(l4.rpc.listnodes(l1.info['id'])['nodes']) == 1)
+    wait_for(lambda: 'addresses' in l3.rpc.listnodes(l1.info['id'])['nodes'][0])
+    wait_for(lambda: 'addresses' in l4.rpc.listnodes(l1.info['id'])['nodes'][0])
+    addresses = l3.rpc.listnodes(l1.info['id'])['nodes'][0]['addresses']
+    assert(len(addresses) == 1)  # no other addresses must be announced for this
+    assert(addresses[0]['type'] == 'dns')
+    assert(addresses[0]['address'] == 'localhost.localdomain')
+    assert(addresses[0]['port'] == 12345)
+
+    # now l3 must be able to use DNS to resolve and connect to l1
+    result = l3.rpc.connect(l1.info['id'])
+    assert result['id'] == l1.info['id']
+    assert result['direction'] == 'out'
+    assert result['address']['port'] == 12345
+    if result['address']['type'] == 'ipv4':
+        assert result['address']['address'] == '127.0.0.1'
+    elif result['address']['type'] == 'ipv6':
+        assert result['address']['address'] == '::1'
+    else:
+        assert False
+
+    # l4 however must not be able to connect because he used '--disable-dns'
+    # This raises RpcError code 401, currently with an empty error message.
+    with pytest.raises(RpcError, match=r"401.*dns disabled"):
+        l4.rpc.connect(l1.info['id'])
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
@@ -916,11 +1019,12 @@ def test_gossip_addresses(node_factory, bitcoind):
     l1 = node_factory.get_node(options={
         'announce-addr': [
             '[::]:3',
+            '[::]',
             '127.0.0.1:2',
+            '127.0.0.1',
             'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
-            '3fyb44wdhnd2ghhl.onion:1234'
+            '4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion:1234'
         ],
-        'allow-deprecated-apis': True,
     })
     l2 = node_factory.get_node()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -931,11 +1035,19 @@ def test_gossip_addresses(node_factory, bitcoind):
                            .format(l1.info['id']))
 
     nodes = l2.rpc.listnodes(l1.info['id'])['nodes']
+    if TEST_NETWORK == 'regtest':
+        default_port = 19846
+    else:
+        assert TEST_NETWORK == 'liquid-regtest'
+        default_port = 20735
+
     assert len(nodes) == 1 and nodes[0]['addresses'] == [
         {'type': 'ipv4', 'address': '127.0.0.1', 'port': 2},
+        {'type': 'ipv4', 'address': '127.0.0.1', 'port': default_port},
         {'type': 'ipv6', 'address': '::', 'port': 3},
-        {'type': 'torv2', 'address': '3fyb44wdhnd2ghhl.onion', 'port': 1234},
-        {'type': 'torv3', 'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion', 'port': 9735}
+        {'type': 'ipv6', 'address': '::', 'port': default_port},
+        {'type': 'torv3', 'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion', 'port': default_port},
+        {'type': 'torv3', 'address': '4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion', 'port': 1234},
     ]
 
 
@@ -1806,7 +1918,7 @@ def test_statictor_onions(node_factory):
     })
 
     assert l1.daemon.is_in_log('127.0.0.1:{}'.format(l1.port))
-    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:9735,127.0.0.1:{}'.format(l2.port))
+    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:{},127.0.0.1:{}'.format(l2.port, l2.port))
 
 
 @pytest.mark.developer("needs a running Tor service instance at port 9151 or 9051")
@@ -1933,9 +2045,8 @@ def test_addgossip(node_factory):
     # 0x0100 = channel_announcement
     # 0x0102 = channel_update
     # 0x0101 = node_announcement
-    ann = l1.daemon.is_in_log(r"\[OUT\] 0100.*")
-    if ann is None:
-        ann = l2.daemon.is_in_log(r"\[OUT\] 0100.*")
+    l1.daemon.logsearch_start = 0
+    ann = l1.daemon.wait_for_log(r"\[(OUT|IN)\] 0100.*")  # Either direction will suppress the other.
 
     upd1 = l1.daemon.is_in_log(r"\[OUT\] 0102.*")
     upd2 = l2.daemon.is_in_log(r"\[OUT\] 0102.*")
@@ -1964,6 +2075,22 @@ def test_addgossip(node_factory):
 
     with pytest.raises(RpcError, match='Bad signature'):
         l3.rpc.addgossip(badupdate)
+
+
+def test_topology_leak(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    l1.rpc.listchannels()
+    bitcoind.generate_block(5)
+
+    # Wait until l1 sees all the channels.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+
+    # Close and wait for gossip to catchup.
+    txid = l2.rpc.close(l3.info['id'])['txid']
+    bitcoind.generate_block(1, txid)
+
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
 
 
 def test_parms_listforwards(node_factory):

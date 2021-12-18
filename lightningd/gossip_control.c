@@ -1,42 +1,20 @@
-#include "bitcoind.h"
-#include "chaintopology.h"
-#include "gossip_control.h"
-#include "lightningd.h"
-#include "peer_control.h"
-#include "subd.h"
-#include <ccan/array_size/array_size.h>
-#include <ccan/crypto/siphash24/siphash24.h>
+#include "config.h"
 #include <ccan/err/err.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/json_escape/json_escape.h>
-#include <ccan/take/take.h>
-#include <ccan/tal/str/str.h>
-#include <common/amount.h>
-#include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
-#include <common/lease_rates.h>
+#include <common/json_tok.h>
 #include <common/param.h>
-#include <common/type_to_string.h>
-#include <common/utils.h>
-#include <errno.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
-#include <inttypes.h>
-#include <lightningd/connect_control.h>
-#include <lightningd/gossip_msg.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/log.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/onion_message.h>
-#include <lightningd/options.h>
-#include <lightningd/ping.h>
-#include <sodium/randombytes.h>
-#include <string.h>
-#include <wire/peer_wire.h>
-#include <wire/wire_sync.h>
+#include <lightningd/peer_control.h>
+#include <lightningd/subd.h>
 
 static void got_txout(struct bitcoind *bitcoind,
 		      const struct bitcoin_tx_output *output,
@@ -80,7 +58,7 @@ static void got_filteredblock(struct bitcoind *bitcoind,
 	u32 txindex = short_channel_id_txnum(scid);
 	for (size_t i=0; i<tal_count(fb->outpoints); i++) {
 		o = fb->outpoints[i];
-		if (o->txindex == txindex && o->outnum == outnum) {
+		if (o->txindex == txindex && o->outpoint.n == outnum) {
 			fbo = o;
 			break;
 		}
@@ -135,7 +113,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	switch (t) {
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPD_INIT:
-	case WIRE_GOSSIPD_PING:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 	case WIRE_GOSSIPD_OUTPOINT_SPENT:
@@ -160,13 +137,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 		handle_onionmsg_to_us(gossip->ld, msg);
 		break;
-	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
-		handle_onionmsg_forward(gossip->ld, msg);
-		break;
-	case WIRE_GOSSIPD_PING_REPLY:
-		ping_reply(gossip, msg);
-		break;
-
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
 		break;

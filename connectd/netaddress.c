@@ -1,17 +1,11 @@
 /* -*- c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 #include "config.h"
-#include <arpa/inet.h>
 #include <assert.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <connectd/netaddress.h>
 #include <errno.h>
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <wire/wire.h>
 
 /* Based on bitcoin's src/netaddress.cpp, hence different naming and styling!
    version 7f31762cb6261806542cc6d1188ca07db98a6950:
@@ -141,7 +135,7 @@ static bool IsRFC4843(const struct wireaddr *addr)
 
 static bool IsTor(const struct wireaddr *addr)
 {
-    return addr->type == ADDR_TYPE_TOR_V2 || addr->type == ADDR_TYPE_TOR_V3;
+    return addr->type == ADDR_TYPE_TOR_V3;
 }
 
 static bool IsLocal(const struct wireaddr *addr)
@@ -262,8 +256,10 @@ bool guess_address(struct wireaddr *addr)
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
         return ret;
     }
-    case ADDR_TYPE_TOR_V2:
+    case ADDR_TYPE_TOR_V2_REMOVED:
     case ADDR_TYPE_TOR_V3:
+    case ADDR_TYPE_DNS:
+    case ADDR_TYPE_WEBSOCKET:
         status_broken("Cannot guess address type %u", addr->type);
         break;
     }

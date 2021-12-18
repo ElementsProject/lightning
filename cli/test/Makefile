@@ -8,6 +8,7 @@ ALL_C_SOURCES += $(CLI_TEST_SRC)
 ALL_TEST_PROGRAMS += $(CLI_TEST_PROGRAMS)
 
 CLI_TEST_COMMON_OBJS :=				\
+	common/autodata.o			\
 	common/configdir.o			\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
@@ -15,6 +16,7 @@ CLI_TEST_COMMON_OBJS :=				\
 	common/pseudorand.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/setup.o				\
 	common/utils.o				\
 	common/type_to_string.o			\
 	common/permute_tx.o

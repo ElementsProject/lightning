@@ -1,10 +1,8 @@
 #ifndef LIGHTNING_COMMON_WIRE_ERROR_H
 #define LIGHTNING_COMMON_WIRE_ERROR_H
 #include "config.h"
-#include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <stdarg.h>
 
 struct channel_id;
 

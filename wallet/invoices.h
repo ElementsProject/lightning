@@ -2,8 +2,6 @@
 #define LIGHTNING_WALLET_INVOICES_H
 #include "config.h"
 #include <bitcoin/preimage.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 
 struct amount_msat;
@@ -119,22 +117,6 @@ bool invoices_delete(struct invoices *invoices,
  */
 void invoices_delete_expired(struct invoices *invoices,
 			     u64 max_expiry_time);
-
-/**
- * invoices_autoclean_set - Set up automatic deletion of
- * expired invoices.
- *
- * @invoices - the invoice handler.
- * @cycle_seconds - The number of seconds to repeat the
- * automatic deletion. If 0, do not perform automatic
- * deletion.
- * @expiry_by - Each cycle, delete invoices that
- * have been expired for at least `expiry_by`
- * seconds.
- */
-void invoices_autoclean_set(struct invoices *invoices,
-			    u64 cycle_seconds,
-			    u64 expired_by);
 
 /**
  * invoices_iterate - Iterate over all existing invoices

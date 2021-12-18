@@ -1,3 +1,4 @@
+#include "config.h"
 #include <bitcoin/privkey.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>

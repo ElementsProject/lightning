@@ -91,6 +91,14 @@ MANPAGES := doc/lightning-cli.1 \
 
 doc-all: $(MANPAGES) doc/index.rst
 
+SCHEMAS := $(wildcard doc/schemas/*.json)
+check-fmt-schemas: $(SCHEMAS:%=check-fmt-schema/%)
+
+check-fmt-schema/%: %
+	@jq . < "$*" > "$*".fmt && diff -u "$*" "$*.fmt" && rm "$*.fmt"
+
+check-doc: check-config-docs check-manpages check-fmt-schemas
+
 # Some manpages use a schema, so need that added.
 MARKDOWN_WITH_SCHEMA := $(shell grep -l GENERATE-FROM-SCHEMA $(MANPAGES:=.md))
 
@@ -149,7 +157,7 @@ check-manpages: all-programs check-config-docs
 # Makes sure that fields mentioned in schema are in man page, and vice versa.
 check-config-docs:
 	@for c in `sed -n 's/^	"\(.*\)": {/\1/p' doc/schemas/listconfigs.schema.json | grep -v '^# version$$' | grep -v '^plugins$$' | grep -v '^important-plugins$$'`; do if ! grep -q "^ \*\*$$c\*\*" doc/lightningd-config.5.md; then echo "$$c undocumented!"; exit 1; fi; done
-	@for c in `grep -v '\[plugin ' doc/lightningd-config.5.md | sed -n 's/^ \*\*\([^*]*\)\*\*.*/\1/p' | grep -v '^\(help\|version\|mainnet\|testnet\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do if ! grep -q '^	"'"$$c"'"' doc/schemas/listconfigs.schema.json; then echo "$$c documented but not in schema!"; exit 1; fi; done
+	@for c in `grep -v '\[plugin ' doc/lightningd-config.5.md | sed -n 's/^ \*\*\([^*]*\)\*\*.*/\1/p' | grep -v '^\(help\|version\|mainnet\|testnet\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do if ! grep -q '"'"$$c"'"' doc/schemas/listconfigs.schema.json; then echo "$$c documented but not in schema!"; exit 1; fi; done
 
 doc-maintainer-clean:
 	$(RM) $(MANPAGES)

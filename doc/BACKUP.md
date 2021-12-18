@@ -60,7 +60,7 @@ the user, and is not writable, as otherwise `lightningd` will refuse to
 start.
 Hence the `chmod 0400 hsm_secret` command.
 
-Alternately, if you are deploying a new node that has no funds and
+Alternatively, if you are deploying a new node that has no funds and
 channels yet, you can generate BIP39 words using any process, and
 create the `hsm_secret` using the `hsmtool generatehsm` command.
 If you did `make install` then `hsmtool` is installed as
@@ -81,6 +81,95 @@ Recovery of the `hsm_secret` is necessary, but insufficient, to recover
 any in-channel funds.
 To recover in-channel funds, you need to use one or more of the other
 backup strategies below.
+
+## SQLITE3 `--wallet=${main}:${backup}` And Remote NFS Mount
+
+`/!\` WHO SHOULD DO THIS: Casual users.
+
+`/!\` **CAUTION** `/!\` This technique is only supported on 0.10.3
+or later.
+On earlier versions, the `:` character is not special and will be
+considered part of the path of the database file.
+
+When using the SQLITE3 backend (the default), you can specify a
+second database file to replicate to, by separating the second
+file with a single `:` character in the `--wallet` option, after
+the main database filename.
+
+For example, if the user running `lightningd` is named `user`, and
+you are on the Bitcoin mainnet with the default `${LIGHTNINGDIR}`, you
+can specify in your `config` file:
+
+    wallet=sqlite3:///home/user/.lightning/bitcoin/lightningd.sqlite3:/my/backup/lightningd.sqlite3
+
+Or via command line:
+
+    lightningd --wallet=sqlite3:///home/user/.lightning/bitcoin/lightningd.sqlite3:/my/backup/lightningd.sqlite3
+
+If the second database file does not exist but the directory that would
+contain it does exist, the file is created.
+If the directory of the second database file does not exist, `lightningd` will
+fail at startup.
+If the second database file already exists, on startup it will be overwritten
+with the main database.
+During operation, all database updates will be done on both databases.
+
+The main and backup files will **not** be identical at every byte, but they
+will still contain the same data.
+
+It is recommended that you use **the same filename** for both files, just on
+different directories.
+
+This has the advantage compared to the `backup` plugin below of requiring
+exactly the same amount of space on both the main and backup storage.
+The `backup` plugin will take more space on the backup than on the main
+storage.
+It has the disadvantage that it will only work with the SQLITE3 backend and
+is not supported by the PostgreSQL backend, and is unlikely to be supported
+on any future database backends.
+
+You can only specify *one* replica.
+
+It is recommended that you use a network-mounted filesystem for the backup
+destination.
+For example, if you have a NAS you can access remotely.
+
+At the minimum, set the backup to a different storage device.
+This is no better than just using RAID-1 (and the RAID-1 will probably be
+faster) but this is easier to set up --- just plug in a commodity USB
+flash disk (with metal casing, since a lot of writes are done and you need
+to dissipate the heat quickly) and use it as the backup location, without
+repartitioning your OS disk, for example.
+
+Do note that files are not stored encrypted, so you should really not do
+this with rented space ("cloud storage").
+
+To recover, simply get **all** the backup database files.
+Note that SQLITE3 will sometimes create a `-journal` or `-wal` file, which
+is necessary to ensure correct recovery of the backup; you need to copy
+those too, with corresponding renames if you use a different filename for
+the backup database, e.g. if you named the backup `backup.sqlite3` and
+when you recover you find `backup.sqlite3` and `backup.sqlite3-journal`
+files, you rename `backup.sqlite3` to `lightningd.sqlite3` and
+`backup.sqlite3-journal` to `lightningd.sqlite3-journal`.
+Note that the `-journal` or `-wal` file may or may not exist, but if they
+*do*, you *must* recover them as well
+(there can be an `-shm` file as well in WAL mode, but it is unnecessary;
+it is only used by SQLITE3 as a hack for portable shared memory, and
+contains no useful data; SQLITE3 will ignore its contents always).
+It is recommended that you use **the same filename** for both main and
+backup databases (just on different directories), and put the backup in
+its own directory, so that you can just recover all the files in that
+directory without worrying about missing any needed files or correctly
+renaming.
+
+If your backup destination is a network-mounted filesystem that is in a
+remote location, then even loss of all hardware in one location will allow
+you to still recover your Lightning funds.
+
+However, if instead you are just replicating the database on another
+storage device in a single location, you remain vulnerable to disasters
+like fire or computer confiscation.
 
 ## `backup` Plugin And Remote NFS Mount
 
@@ -242,31 +331,6 @@ three or four storage devices.
 BTRFS would probably work better if you were purchasing an entire set
 of new storage devices to set up a new node.
 
-## SQLite Litestream Replication
-`/!\` WHO SHOULD DO THIS: Casual users
-
-One of the simpler things on any system is to use Litestream to replicate the SQLite database.
-It continuously streams SQLite changes to file or external storage - the cloud storage option 
-should not be used. 
-Backups/replication should not be on the same disk as the original SQLite DB.
-
-/etc/litestream.yml : 
-
-    dbs:
-     - path: /home/bitcoin/.lightning/bitcoin/lightningd.sqlite3
-       replicas:
-         - path: /media/storage/lightning_backup
-         
- and start the service using systemctl:
- 
-    $ sudo systemctl start litestream
-
-Restore:
-
-    $ litestream restore -o /media/storage/lightning_backup  /home/bitcoin/restore_lightningd.sqlite3
-
-   
-
 ## PostgreSQL Cluster
 
 `/!\` WHO SHOULD DO THIS: Enterprise users, whales.
@@ -352,6 +416,62 @@ saved in all permanent storage.
 This can be difficult to create remote replicas due to the latency.
 
 [pqsyncreplication]: https://www.postgresql.org/docs/13/warm-standby.html#SYNCHRONOUS-REPLICATION
+
+## SQLite Litestream Replication
+
+`/!\` **CAUTION** `/!\` Previous versions of this document recommended
+this technique, but we no longer do so.
+According to [issue 4857][], even with a 60-second timeout that we added
+in 0.10.2, this leads to constant crashing of `lightningd` in some
+situations.
+This section will be removed completely six months after 0.10.3.
+Consider using `--wallet=sqlite3://${main}:${backup}` above, instead.
+
+[issue 4857]: https://github.com/ElementsProject/lightning/issues/4857
+
+One of the simpler things on any system is to use Litestream to replicate the SQLite database.
+It continuously streams SQLite changes to file or external storage - the cloud storage option 
+should not be used.
+Backups/replication should not be on the same disk as the original SQLite DB.
+
+You need to enable WAL mode on your database.
+To do so, first stop `lightningd`, then:
+
+    $ sqlite3 lightningd.sqlite3
+    sqlite3> PRAGMA journal_mode = WAL;
+    sqlite3> .quit
+
+Then just restart `lightningd`.
+
+/etc/litestream.yml :
+
+    dbs:
+     - path: /home/bitcoin/.lightning/bitcoin/lightningd.sqlite3
+       replicas:
+         - path: /media/storage/lightning_backup
+
+ and start the service using systemctl:
+
+    $ sudo systemctl start litestream
+
+Restore:
+
+    $ litestream restore -o /media/storage/lightning_backup  /home/bitcoin/restore_lightningd.sqlite3
+
+Because Litestream only copies small changes and not the entire
+database (holding a read lock on the file while doing so), the
+60-second timeout on locking should not be reached unless
+something has made your backup medium very very slow.
+
+Litestream has its own timer, so there is a tiny (but
+non-negligible) probability that `lightningd` updates the
+database, then irrevocably commits to the update by sending
+revocation keys to the counterparty, and *then* your main
+storage media crashes before Litestream can replicate the
+update.
+Treat this as a superior version of "Database File Backups"
+section below and prefer recovering via other backup methods
+first.
 
 ## Database File Backups
 
@@ -458,9 +578,39 @@ Even if the backup is not corrupted, take note that this backup
 strategy should still be a last resort; recovery of all funds is
 still not assured with this backup strategy.
 
-You might be tempted to use `sqlite3` `.dump` or `VACUUM INTO`.
-Unfortunately, these commands exclusive-lock the database.
-A race condition between your `.dump` or `VACUUM INTO` and
-`lightningd` accessing the database can cause `lightningd` to
-crash, so you might as well just cleanly shut down `lightningd`
-and copy the file at rest.
+`sqlite3` has `.dump` and `VACUUM INTO` commands, but note that
+those lock the main database for long time periods, which will
+negatively affect your `lightningd` instance.
+
+### `sqlite3` `.dump` or `VACUUM INTO` Commands
+
+`/!\` **CAUTION** `/!\` Previous versions of this document recommended
+this technique, but we no longer do so.
+According to [issue 4857][], even with a 60-second timeout that we added
+in 0.10.2, this may lead to constant crashing of `lightningd` in some
+situations; this technique uses substantially the same techniques as
+`litestream`.
+This section will be removed completely six months after 0.10.3.
+Consider using `--wallet=sqlite3://${main}:${backup}` above, instead.
+
+Use the `sqlite3` command on the `lightningd.sqlite3` file, and
+feed it with `.dump "/path/to/backup.sqlite3"` or `VACUUM INTO
+"/path/to/backup.sqlite3";`.
+
+These create a snapshot copy that, unlike the previous technique,
+is assuredly uncorrupted (barring any corruption caused by your
+backup media).
+
+However, if the copying process takes a long time (approaching the
+timeout of 60 seconds) then you run the risk of `lightningd`
+attempting to grab a write lock, waiting up to 60 seconds, and
+then failing with a "database is locked" error.
+Your backup system could `.dump` to a fast `tmpfs` RAMDISK or
+local media, and *then* copy to the final backup media on a remote
+system accessed via slow network, for example, to reduce this
+risk.
+
+It is recommended that you use `.dump` instead of `VACUUM INTO`,
+as that is assuredly faster; you can just open the backup copy
+in a new `sqlite3` session and `VACUUM;` to reduce the size
+of the backup.

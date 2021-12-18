@@ -220,6 +220,7 @@ class Type(FieldSet):
     # Externally defined variable size types (require a context)
     varsize_types = [
         'peer_features',
+        'channel_type',
         'gossip_getnodes_entry',
         'gossip_getchannels_entry',
         'failed_htlc',
@@ -239,6 +240,7 @@ class Type(FieldSet):
         'tx_parts',
         'wally_psbt',
         'wally_tx',
+        'channel_type',
     ]
 
     # Some BOLT types are re-typed based on their field name

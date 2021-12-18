@@ -7,44 +7,26 @@
  * up to lightningd which will fire up a specific per-peer daemon to talk to
  * it.
  */
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
-#include <ccan/build_assert/build_assert.h>
-#include <ccan/cast/cast.h>
-#include <ccan/container_of/container_of.h>
-#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/endian/endian.h>
 #include <ccan/fdpass/fdpass.h>
-#include <ccan/io/fdpass/fdpass.h>
-#include <ccan/io/io.h>
-#include <ccan/list/list.h>
-#include <ccan/mem/mem.h>
+#include <ccan/htable/htable_type.h>
 #include <ccan/noerr/noerr.h>
-#include <ccan/str/str.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/timer/timer.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
-#include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
-#include <common/decode_array.h>
 #include <common/ecdh_hsmd.h>
-#include <common/errcode.h>
-#include <common/features.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
-#include <common/ping.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <common/version.h>
 #include <common/wire_error.h>
-#include <common/wireaddr.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <connectd/connectd_wiregen.h>
@@ -54,25 +36,14 @@
 #include <connectd/tor.h>
 #include <connectd/tor_autoservice.h>
 #include <errno.h>
-#include <gossipd/gossipd_wiregen.h>
-#include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
-#include <lightningd/gossip_msg.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <secp256k1_ecdh.h>
 #include <sodium.h>
-#include <sodium/randombytes.h>
-#include <stdarg.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <wire/peer_wire.h>
-#include <wire/wire_io.h>
 #include <wire/wire_sync.h>
-#include <zlib.h>
 
 /*~ We are passed two file descriptors when exec'ed from `lightningd`: the
  * first is a connection to `hsmd`, which we need for the cryptographic
@@ -163,6 +134,12 @@ struct daemon {
 
 	/* Our features, as lightningd told us */
 	struct feature_set *our_features;
+
+	/* Subdaemon to proxy websocket requests. */
+	char *websocket_helper;
+
+	/* If non-zero, port to listen for websocket connections. */
+	u16 websocket_port;
 };
 
 /* Peers we're trying to reach: we iterate through addrs until we succeed
@@ -565,11 +542,10 @@ static void conn_timeout(struct io_conn *conn)
 	io_close(conn);
 }
 
-/*~ When we get a connection in we set up its network address then call
- * handshake.c to set up the crypto state. */
-static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
+/*~ So, where are you from? */
+static bool get_remote_address(struct io_conn *conn,
+			       struct wireaddr_internal *addr)
 {
-	struct wireaddr_internal addr;
 	struct sockaddr_storage s = {};
 	socklen_t len = sizeof(s);
 
@@ -577,28 +553,44 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 	if (getpeername(io_conn_fd(conn), (struct sockaddr *)&s, &len) != 0) {
 		status_debug("Failed to get peername for incoming conn: %s",
 			     strerror(errno));
-		return io_close(conn);
+		return false;
 	}
 
 	if (s.ss_family == AF_INET6) {
 		struct sockaddr_in6 *s6 = (void *)&s;
-		addr.itype = ADDR_INTERNAL_WIREADDR;
-		wireaddr_from_ipv6(&addr.u.wireaddr,
+		addr->itype = ADDR_INTERNAL_WIREADDR;
+		wireaddr_from_ipv6(&addr->u.wireaddr,
 				   &s6->sin6_addr, ntohs(s6->sin6_port));
 	} else if (s.ss_family == AF_INET) {
 		struct sockaddr_in *s4 = (void *)&s;
-		addr.itype = ADDR_INTERNAL_WIREADDR;
-		wireaddr_from_ipv4(&addr.u.wireaddr,
+		addr->itype = ADDR_INTERNAL_WIREADDR;
+		wireaddr_from_ipv4(&addr->u.wireaddr,
 				   &s4->sin_addr, ntohs(s4->sin_port));
 	} else if (s.ss_family == AF_UNIX) {
 		struct sockaddr_un *sun = (void *)&s;
-		addr.itype = ADDR_INTERNAL_SOCKNAME;
-		memcpy(addr.u.sockname, sun->sun_path, sizeof(sun->sun_path));
+		addr->itype = ADDR_INTERNAL_SOCKNAME;
+		memcpy(addr->u.sockname, sun->sun_path, sizeof(sun->sun_path));
 	} else {
 		status_broken("Unknown socket type %i for incoming conn",
 			      s.ss_family);
-		return io_close(conn);
+		return false;
 	}
+	return true;
+}
+
+/*~ As so common in C, we need to bundle two args into a callback, so we
+ * allocate a temporary structure to hold them: */
+struct conn_in {
+	struct wireaddr_internal addr;
+	struct daemon *daemon;
+};
+
+/*~ Once we've got a connection in, we set it up here (whether it's via the
+ * websocket proxy, or direct). */
+static struct io_plan *conn_in(struct io_conn *conn,
+			       struct conn_in *conn_in_arg)
+{
+	struct daemon *daemon = conn_in_arg->daemon;
 
 	/* If they don't complete handshake in reasonable time, hang up */
 	notleak(new_reltimer(&daemon->timers, conn,
@@ -610,8 +602,120 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 	 * Note, again, the notleak() to avoid our simplistic leak detection
 	 * code from thinking `conn` (which we don't keep a pointer to) is
 	 * leaked */
-	return responder_handshake(notleak(conn), &daemon->mykey, &addr,
+	return responder_handshake(notleak(conn), &daemon->mykey,
+				   &conn_in_arg->addr,
 				   handshake_in_success, daemon);
+}
+
+/*~ When we get a direct connection in we set up its network address
+ * then call handshake.c to set up the crypto state. */
+static struct io_plan *connection_in(struct io_conn *conn,
+				     struct daemon *daemon)
+{
+	struct conn_in conn_in_arg;
+
+	if (!get_remote_address(conn, &conn_in_arg.addr))
+		return io_close(conn);
+
+	conn_in_arg.daemon = daemon;
+	return conn_in(conn, &conn_in_arg);
+}
+
+/*~ <hello>I speak web socket</hello>.
+ *
+ * Actually that's dumb, websocket (aka rfc6455) looks nothing like that. */
+static struct io_plan *websocket_connection_in(struct io_conn *conn,
+					       struct daemon *daemon)
+{
+	int childmsg[2], execfail[2];
+	pid_t childpid;
+	int err;
+	struct conn_in conn_in_arg;
+
+	if (!get_remote_address(conn, &conn_in_arg.addr))
+		return io_close(conn);
+
+	status_debug("Websocket connection in from %s",
+		     type_to_string(tmpctx, struct wireaddr_internal,
+				    &conn_in_arg.addr));
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, childmsg) != 0)
+		goto fail;
+
+	if (pipe(execfail) != 0)
+		goto close_msgfd_fail;
+
+	if (fcntl(execfail[1], F_SETFD, fcntl(execfail[1], F_GETFD)
+		  | FD_CLOEXEC) < 0)
+		goto close_execfail_fail;
+
+	childpid = fork();
+	if (childpid < 0)
+		goto close_execfail_fail;
+
+	if (childpid == 0) {
+		size_t max;
+		close(childmsg[0]);
+		close(execfail[0]);
+
+		/* Attach remote socket to stdin. */
+		if (dup2(io_conn_fd(conn), STDIN_FILENO) == -1)
+			goto child_errno_fail;
+
+		/* Attach our socket to stdout. */
+		if (dup2(childmsg[1], STDOUT_FILENO) == -1)
+			goto child_errno_fail;
+
+		/* Make (fairly!) sure all other fds are closed. */
+		max = sysconf(_SC_OPEN_MAX);
+		for (size_t i = STDERR_FILENO + 1; i < max; i++)
+			close(i);
+
+		/* Tell websocket helper what we read so far. */
+		execlp(daemon->websocket_helper, daemon->websocket_helper,
+		       NULL);
+
+	child_errno_fail:
+		err = errno;
+		/* Gcc's warn-unused-result fail. */
+		if (write(execfail[1], &err, sizeof(err))) {
+			;
+		}
+		exit(127);
+	}
+
+	close(childmsg[1]);
+	close(execfail[1]);
+
+	/* Child will close this without writing on successful exec. */
+	if (read(execfail[0], &err, sizeof(err)) == sizeof(err)) {
+		close(execfail[0]);
+		waitpid(childpid, NULL, 0);
+		status_broken("Exec of helper %s failed: %s",
+			      daemon->websocket_helper, strerror(err));
+		errno = err;
+		return io_close(conn);
+	}
+
+	close(execfail[0]);
+
+	/* New connection actually talks to proxy process. */
+	conn_in_arg.daemon = daemon;
+	io_new_conn(tal_parent(conn), childmsg[0], conn_in, &conn_in_arg);
+
+	/* Abandon original (doesn't close since child has dup'd fd) */
+	return io_close(conn);
+
+close_execfail_fail:
+	close_noerr(execfail[0]);
+	close_noerr(execfail[1]);
+close_msgfd_fail:
+	close_noerr(childmsg[0]);
+	close_noerr(childmsg[1]);
+fail:
+	status_broken("Preparation of helper failed: %s",
+		      strerror(errno));
+	return io_close(conn);
 }
 
 /*~ These are the mirror functions for the connecting-out case. */
@@ -773,7 +877,10 @@ static struct io_plan *conn_init(struct io_conn *conn,
 			      "Can't connect to forproxy address");
 		break;
 	case ADDR_INTERNAL_WIREADDR:
+		/* DNS should have been resolved before */
+		assert(addr->u.wireaddr.type != ADDR_TYPE_DNS);
 		/* If it was a Tor address, we wouldn't be here. */
+		assert(!is_toraddr((char*)addr->u.wireaddr.addr));
 		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr);
 		break;
 	}
@@ -824,6 +931,14 @@ static void try_connect_one_addr(struct connecting *connect)
 	bool use_proxy = connect->daemon->always_use_proxy;
 	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 	struct io_conn *conn;
+#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
+	bool use_dns = connect->daemon->use_dns;
+	struct addrinfo hints, *ais, *aii;
+	struct wireaddr_internal addrhint;
+	int gai_err;
+	struct sockaddr_in *sa4;
+	struct sockaddr_in6 *sa6;
+#endif
 
 	/* In case we fail without a connection, make destroy_io_conn happy */
 	connect->conn = NULL;
@@ -833,7 +948,8 @@ static void try_connect_one_addr(struct connecting *connect)
 		connect_failed(connect->daemon, &connect->id,
 			       connect->seconds_waited,
 			       connect->addrhint, CONNECT_ALL_ADDRESSES_FAILED,
-			       "%s", connect->errors);
+			       "All addresses failed: %s",
+			       connect->errors);
 		tal_free(connect);
 		return;
 	}
@@ -861,7 +977,9 @@ static void try_connect_one_addr(struct connecting *connect)
 		break;
 	case ADDR_INTERNAL_WIREADDR:
 		switch (addr->u.wireaddr.type) {
-		case ADDR_TYPE_TOR_V2:
+		case ADDR_TYPE_TOR_V2_REMOVED:
+			af = -1;
+			break;
 		case ADDR_TYPE_TOR_V3:
 			use_proxy = true;
 			break;
@@ -871,36 +989,101 @@ static void try_connect_one_addr(struct connecting *connect)
 		case ADDR_TYPE_IPV6:
 			af = AF_INET6;
 			break;
+		case ADDR_TYPE_DNS:
+#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
+			if (use_proxy) /* hand it to the proxy */
+				break;
+			if (!use_dns) {  /* ignore DNS when we can't use it */
+				tal_append_fmt(&connect->errors,
+					       "%s: dns disabled. ",
+					       type_to_string(tmpctx,
+							      struct wireaddr_internal,
+							      addr));
+				goto next;
+			}
+			/* Resolve with getaddrinfo */
+			memset(&hints, 0, sizeof(hints));
+			hints.ai_socktype = SOCK_STREAM;
+			hints.ai_family = AF_UNSPEC;
+			hints.ai_protocol = 0;
+			hints.ai_flags = AI_ADDRCONFIG;
+			gai_err = getaddrinfo((char *)addr->u.wireaddr.addr,
+					      tal_fmt(tmpctx, "%d",
+						      addr->u.wireaddr.port),
+					      &hints, &ais);
+			if (gai_err != 0) {
+				tal_append_fmt(&connect->errors,
+					       "%s: getaddrinfo error '%s'. ",
+					       type_to_string(tmpctx,
+							      struct wireaddr_internal,
+							      addr),
+					       gai_strerror(gai_err));
+				goto next;
+			}
+			/* create new addrhints on-the-fly per result ... */
+			for (aii = ais; aii; aii = aii->ai_next) {
+				addrhint.itype = ADDR_INTERNAL_WIREADDR;
+				if (aii->ai_family == AF_INET) {
+					sa4 = (struct sockaddr_in *) aii->ai_addr;
+					wireaddr_from_ipv4(&addrhint.u.wireaddr,
+							   &sa4->sin_addr,
+							   addr->u.wireaddr.port);
+				} else if (aii->ai_family == AF_INET6) {
+					sa6 = (struct sockaddr_in6 *) aii->ai_addr;
+					wireaddr_from_ipv6(&addrhint.u.wireaddr,
+							   &sa6->sin6_addr,
+							   addr->u.wireaddr.port);
+				} else {
+					/* skip unsupported ai_family */
+					continue;
+				}
+				tal_arr_expand(&connect->addrs, addrhint);
+				/* don't forget to update convenience pointer */
+				addr = &connect->addrs[connect->addrnum];
+			}
+			freeaddrinfo(ais);
+#endif
+			tal_append_fmt(&connect->errors,
+				       "%s: EXPERIMENTAL_FEATURES needed. ",
+				       type_to_string(tmpctx,
+						      struct wireaddr_internal,
+						      addr));
+			goto next;
+		case ADDR_TYPE_WEBSOCKET:
+			af = -1;
+			break;
 		}
 	}
 
 	/* If we have to use proxy but we don't have one, we fail. */
 	if (use_proxy) {
 		if (!connect->daemon->proxyaddr) {
-			status_debug("Need proxy");
-			af = -1;
-		} else
-			af = connect->daemon->proxyaddr->ai_family;
+			tal_append_fmt(&connect->errors,
+				       "%s: need a proxy. ",
+				       type_to_string(tmpctx,
+						      struct wireaddr_internal,
+						      addr));
+			goto next;
+		}
+		af = connect->daemon->proxyaddr->ai_family;
 	}
 
 	if (af == -1) {
-		fd = -1;
-		errno = EPROTONOSUPPORT;
-	} else
-		fd = socket(af, SOCK_STREAM, 0);
+		tal_append_fmt(&connect->errors,
+			       "%s: not supported. ",
+			       type_to_string(tmpctx, struct wireaddr_internal,
+					      addr));
+		goto next;
+	}
 
-	/* We might not have eg. IPv6 support, or it might be an onion addr
-	 * and we have no proxy. */
+	fd = socket(af, SOCK_STREAM, 0);
 	if (fd < 0) {
 		tal_append_fmt(&connect->errors,
 			       "%s: opening %i socket gave %s. ",
 			       type_to_string(tmpctx, struct wireaddr_internal,
 					      addr),
 			       af, strerror(errno));
-		/* This causes very limited recursion. */
-		connect->addrnum++;
-		try_connect_one_addr(connect);
-		return;
+		goto next;
 	}
 
 	/* This creates the new connection using our fd, with the initialization
@@ -914,6 +1097,13 @@ static void try_connect_one_addr(struct connecting *connect)
 	 * that frees connect. */
 	if (conn)
 		connect->conn = conn;
+
+	return;
+
+next:
+	/* This causes very limited recursion. */
+	connect->addrnum++;
+	try_connect_one_addr(connect);
 }
 
 /*~ connectd is responsible for incoming connections, but it's the process of
@@ -930,9 +1120,14 @@ struct listen_fd {
 	 * covers IPv4 too.  Normally we'd consider failing to listen on a
 	 * port to be fatal, so we note this when setting up addresses. */
 	bool mayfail;
+	/* Callback to use for the listening: either connection_in, or for
+	 * our much-derided WebSocket ability, websocket_connection_in! */
+	struct io_plan *(*in_cb)(struct io_conn *conn, struct daemon *daemon);
 };
 
-static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
+static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail,
+			  struct io_plan *(*in_cb)(struct io_conn *,
+						   struct daemon *))
 {
 	/*~ utils.h contains a convenience macro tal_arr_expand which
 	 * reallocates a tal_arr to make it one longer, then returns a pointer
@@ -940,6 +1135,7 @@ static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
 	struct listen_fd l;
 	l.fd = fd;
 	l.mayfail = mayfail;
+	l.in_cb = in_cb;
 	tal_arr_expand(&daemon->listen_fds, l);
 }
 
@@ -994,11 +1190,18 @@ fail:
 /* Return true if it created socket successfully. */
 static bool handle_wireaddr_listen(struct daemon *daemon,
 				   const struct wireaddr *wireaddr,
-				   bool mayfail)
+				   bool mayfail,
+				   bool websocket)
 {
 	int fd;
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
+	struct io_plan *(*in_cb)(struct io_conn *, struct daemon *);
+
+	if (websocket)
+		in_cb = websocket_connection_in;
+	else
+		in_cb = connection_in;
 
 	/* Note the use of a switch() over enum here, even though it must be
 	 * IPv4 or IPv6 here; that will catch future changes. */
@@ -1008,9 +1211,10 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		/* We might fail if IPv6 bound to port first */
 		fd = make_listen_fd(AF_INET, &addr, sizeof(addr), mayfail);
 		if (fd >= 0) {
-			status_debug("Created IPv4 listener on port %u",
+			status_debug("Created IPv4 %slistener on port %u",
+				     websocket ? "websocket ": "",
 				     wireaddr->port);
-			add_listen_fd(daemon, fd, mayfail);
+			add_listen_fd(daemon, fd, mayfail, in_cb);
 			return true;
 		}
 		return false;
@@ -1018,14 +1222,18 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		wireaddr_to_ipv6(wireaddr, &addr6);
 		fd = make_listen_fd(AF_INET6, &addr6, sizeof(addr6), mayfail);
 		if (fd >= 0) {
-			status_debug("Created IPv6 listener on port %u",
+			status_debug("Created IPv6 %slistener on port %u",
+				     websocket ? "websocket ": "",
 				     wireaddr->port);
-			add_listen_fd(daemon, fd, mayfail);
+			add_listen_fd(daemon, fd, mayfail, in_cb);
 			return true;
 		}
 		return false;
-	case ADDR_TYPE_TOR_V2:
+	/* Handle specially by callers. */
+	case ADDR_TYPE_WEBSOCKET:
+	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_DNS:
 		break;
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1100,7 +1308,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	struct sockaddr_un addrun;
 	int fd;
 	struct wireaddr_internal *binding;
-	const u8 *blob = NULL;
+	const char *blob = NULL;
 	struct secret random;
 	struct pubkey pb;
 	struct wireaddr *toraddr;
@@ -1144,7 +1352,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 					    false);
 			status_debug("Created socket listener on file %s",
 				     addrun.sun_path);
-			add_listen_fd(daemon, fd, false);
+			add_listen_fd(daemon, fd, false, connection_in);
 			/* We don't announce socket names, though we allow
 			 * them to lazily specify --addr=/socket. */
 			add_binding(&binding, &wa);
@@ -1169,7 +1377,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			       sizeof(wa.u.wireaddr.addr));
 
 			ipv6_ok = handle_wireaddr_listen(daemon, &wa.u.wireaddr,
-							 true);
+							 true, false);
 			if (ipv6_ok) {
 				add_binding(&binding, &wa);
 				if (announce
@@ -1185,7 +1393,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			       sizeof(wa.u.wireaddr.addr));
 			/* OK if this fails, as long as one succeeds! */
 			if (handle_wireaddr_listen(daemon, &wa.u.wireaddr,
-						   ipv6_ok)) {
+						   ipv6_ok, false)) {
 				add_binding(&binding, &wa);
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
@@ -1196,7 +1404,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		}
 		/* This is a vanilla wireaddr as per BOLT #7 */
 		case ADDR_INTERNAL_WIREADDR:
-			handle_wireaddr_listen(daemon, &wa.u.wireaddr, false);
+			handle_wireaddr_listen(daemon, &wa.u.wireaddr,
+					       false, false);
 			add_binding(&binding, &wa);
 			if (announce && public_address(daemon, &wa.u.wireaddr))
 				add_announcable(announcable, &wa.u.wireaddr);
@@ -1209,6 +1418,41 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			      "Invalid listener address type %u",
 			      proposed_wireaddr[i].itype);
 	}
+
+	/* If we want websockets to match IPv4/v6, set it up now. */
+	if (daemon->websocket_port) {
+		bool announced_some = false;
+		struct wireaddr addr;
+
+		for (size_t i = 0; i < tal_count(binding); i++) {
+			/* Ignore UNIX sockets */
+			if (binding[i].itype != ADDR_INTERNAL_WIREADDR)
+				continue;
+
+			/* Override with websocket port */
+			addr = binding[i].u.wireaddr;
+			addr.port = daemon->websocket_port;
+			if (handle_wireaddr_listen(daemon, &addr, true, true))
+				announced_some = true;
+			/* FIXME: We don't report these bindings to
+			 * lightningd, so they don't appear in
+			 * getinfo. */
+		}
+
+		/* We add the websocket port to the announcement if we made one
+		 * *and* we have other announced addresses. */
+		/* BOLT-websocket #7:
+		 *   - MUST NOT add a `type 6` address unless there is also at
+		 *     least one address of different type.
+		 */
+		if (announced_some && tal_count(*announcable) != 0) {
+			wireaddr_from_websocket(&addr, daemon->websocket_port);
+			add_announcable(announcable, &addr);
+		}
+	}
+
+	/* FIXME: Websocket over Tor (difficult for autotor, since we need
+	 * to use the same onion addr!) */
 
 	/* Now we have bindings, set up any Tor auto addresses: we will point
 	 * it at the first bound IPv4 or IPv6 address we have. */
@@ -1316,7 +1560,9 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password,
 		&daemon->use_v3_autotor,
-		    &daemon->timeout_secs)) {
+		&daemon->timeout_secs,
+		&daemon->websocket_helper,
+		&daemon->websocket_port)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1389,7 +1635,8 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 			}
 			notleak(io_new_listener(daemon,
 						daemon->listen_fds[i].fd,
-						connection_in, daemon));
+						daemon->listen_fds[i].in_cb,
+						daemon));
 		}
 	}
 	/* Free, with NULL assignment just as an extra sanity check. */
@@ -1445,6 +1692,10 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 		                                   NULL, broken_reply, NULL);
 		if (new_addrs) {
 			for (size_t j = 0; j < tal_count(new_addrs); j++) {
+#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
+				if (new_addrs[j].type == ADDR_TYPE_DNS)
+					continue;
+#endif
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
 				a.u.wireaddr = new_addrs[j];
@@ -1493,9 +1744,12 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 
 	/* Wrap each one in a wireaddr_internal and add to addrs. */
 	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
+		/* This is not supported, ignore. */
+		if (normal_addrs[i].type == ADDR_TYPE_TOR_V2_REMOVED)
+			continue;
+
 		/* add TOR addresses in a second loop */
-		if (normal_addrs[i].type == ADDR_TYPE_TOR_V2 ||
-		    normal_addrs[i].type == ADDR_TYPE_TOR_V3)
+		if (normal_addrs[i].type == ADDR_TYPE_TOR_V3)
 			continue;
 		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
 			continue;
@@ -1506,8 +1760,7 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 	}
 	/* so connectd prefers direct connections if possible. */
 	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
-		if (normal_addrs[i].type != ADDR_TYPE_TOR_V2 &&
-		    normal_addrs[i].type != ADDR_TYPE_TOR_V3)
+		if (normal_addrs[i].type != ADDR_TYPE_TOR_V3)
 			continue;
 		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
 			continue;
@@ -1734,7 +1987,7 @@ static struct io_plan *dev_connect_memleak(struct io_conn *conn,
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_remove_region(memtable, daemon, sizeof(daemon));
 
-	found_leak = dump_memleak(memtable);
+	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
 			 take(towire_connectd_dev_memleak_reply(NULL,
 							      found_leak)));
@@ -1838,7 +2091,7 @@ int main(int argc, char *argv[])
 	for (;;) {
 		struct timer *expired;
 		io_loop(&daemon->timers, &expired);
-		timer_expired(daemon, expired);
+		timer_expired(expired);
 	}
 }
 

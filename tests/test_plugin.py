@@ -282,6 +282,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Also works by basename.
     n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
@@ -290,6 +291,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Other order also works!
     n = node_factory.get_node(options=OrderedDict([('disable-plugin',
@@ -298,6 +300,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Both orders of explicit specification work.
     n = node_factory.get_node(options=OrderedDict([('disable-plugin',
@@ -308,6 +311,7 @@ def test_plugin_disable(node_factory):
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
     assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Both orders of explicit specification work.
     n = node_factory.get_node(options=OrderedDict([('plugin',
@@ -322,6 +326,7 @@ def test_plugin_disable(node_factory):
     # Still disabled if we load directory.
     n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
     n.daemon.wait_for_log('helloworld.py: disabled via disable-plugin')
+    n.stop()
 
     # Check that list works
     n = node_factory.get_node(options={'disable-plugin':
@@ -392,7 +397,7 @@ def test_pay_plugin(node_factory):
 
     # Make sure usage messages are present.
     msg = 'pay bolt11 [msatoshi] [label] [riskfactor] [maxfeepercent] '\
-          '[retry_for] [maxdelay] [exemptfee] [localofferid]'
+          '[retry_for] [maxdelay] [exemptfee] [localofferid] [exclude]'
     if DEVELOPER:
         msg += ' [use_shadow]'
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
@@ -443,7 +448,7 @@ def test_plugin_connected_hook_chaining(node_factory):
         return peers == [] or not peers[0]['connected']
 
     wait_for(check_disconnect)
-    assert not l3.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
+    assert not l1.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
 
 
 def test_async_rpcmethod(node_factory, executor):
@@ -2520,6 +2525,9 @@ plugin.run()
 
     # get a node that is not started so we can put a plugin in its lightning_dir
     n = node_factory.get_node(start=False)
+    if "dev-no-plugin-checksum" in n.daemon.opts:
+        del n.daemon.opts["dev-no-plugin-checksum"]
+
     lndir = n.daemon.lightning_dir
 
     # write hello world plugin to lndir/plugins
@@ -2553,22 +2561,33 @@ plugin.run()
 
 
 def test_plugin_shutdown(node_factory):
-    """test 'shutdown' notification"""
+    """test 'shutdown' notifications, via `plugin stop` or via `stop`"""
+
     p = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
-    l1 = node_factory.get_node(options={'plugin': p})
+    p2 = os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py')
+    l1 = node_factory.get_node(options={'plugin': [p, p2]})
 
     l1.rpc.plugin_stop(p)
     l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
     # FIXME: clean this up!
     l1.daemon.wait_for_log(r"test_libplugin: Killing plugin: exited during normal operation")
 
-    # Now try timeout.
+    # Via `plugin stop` it can make RPC calls before it (self-)terminates
+    l1.rpc.plugin_stop(p2)
+    l1.daemon.wait_for_log(r'misc_notifications.py: via plugin stop, datastore success')
+    l1.rpc.plugin_start(p2)
+
+    # Now try timeout via `plugin stop`
     l1.rpc.plugin_start(p, dont_shutdown=True)
     l1.rpc.plugin_stop(p)
     l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
     l1.daemon.wait_for_log(r"test_libplugin: Timeout on shutdown: killing anyway")
 
-    # Now, should also shutdown on finish.
-    l1.rpc.plugin_start(p)
+    # Now, should also shutdown or timeout on finish, RPC calls then fail with error code -5
+    l1.rpc.plugin_start(p, dont_shutdown=True)
+    needle = l1.daemon.logsearch_start
     l1.rpc.stop()
     l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
+    l1.daemon.logsearch_start = needle          # we don't know what comes first
+    l1.daemon.is_in_log(r'misc_notifications.py: via lightningd shutdown, datastore failed')
+    l1.daemon.is_in_log(r'test_libplugin: failed to self-terminate in time, killing.')

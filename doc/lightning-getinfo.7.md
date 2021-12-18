@@ -40,9 +40,11 @@ On success, an object is returned, containing:
 - **network** (string): represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)
 - **fees_collected_msat** (msat): Total routing fees collected by this node
 - **address** (array of objects, optional): The addresses we announce to the world:
-  - **type** (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
-  - **address** (string): address in expected format for **type**
+  - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
   - **port** (u16): port number
+
+  If **type** is "dns", "ipv4", "ipv6", "torv2" or "torv3":
+    - **address** (string): address in expected format for **type**
 - **binding** (array of objects, optional): The addresses we are listening on:
   - **type** (string): Type of connection (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
   - **address** (string, optional): address in expected format for **type**
@@ -115,4 +117,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:a41fb9bb8e6e61bec105ff250584ae019dda93d4f97bfff53bc86d57ab6e8607)
+[comment]: # ( SHA256STAMP:90a3bacb6cb4456119afee8e60677c29bf5f46c4cd950e660a9f9c8e0433b473)

@@ -1,11 +1,8 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/short_types/short_types.h>
 #include <common/bech32.h>
 #include <common/utils.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <string.h>
 
 static void test_enc(const char *hrp, const char *hex)
 {

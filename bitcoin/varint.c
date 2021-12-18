@@ -1,4 +1,5 @@
-#include "varint.h"
+#include "config.h"
+#include <bitcoin/varint.h>
 
 size_t varint_size(varint_t v)
 {

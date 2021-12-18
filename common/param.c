@@ -1,9 +1,9 @@
+#include "config.h"
 #include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/param.h>
-#include <common/utils.h>
 
 struct param {
 	const char *name;

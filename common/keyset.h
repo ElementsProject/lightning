@@ -2,7 +2,6 @@
 #define LIGHTNING_COMMON_KEYSET_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
-#include <stdbool.h>
 
 struct basepoints;
 

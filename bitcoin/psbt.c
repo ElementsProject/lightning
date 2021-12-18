@@ -4,20 +4,15 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
-#include <bitcoin/signature.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <string.h>
 #include <wally_psbt.h>
-#include <wally_transaction.h>
 #include <wire/wire.h>
 
 
-void psbt_destroy(struct wally_psbt *psbt)
+static void psbt_destroy(struct wally_psbt *psbt)
 {
 	wally_psbt_free(psbt);
 }
@@ -131,8 +126,8 @@ struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 }
 
 struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
-					   const struct bitcoin_txid *txid,
-					   u32 outnum, u32 sequence,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 sequence,
 					   const u8 *scriptSig,
 					   const u8 *input_wscript,
 					   const u8 *redeemscript)
@@ -144,9 +139,10 @@ struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 
 	tal_wally_start();
 	if (chainparams->is_elements) {
-		if (wally_tx_elements_input_init_alloc(txid->shad.sha.u.u8,
-						       sizeof(txid->shad.sha.u.u8),
-						       outnum, sequence, NULL, 0,
+		if (wally_tx_elements_input_init_alloc(outpoint->txid.shad.sha.u.u8,
+						       sizeof(outpoint->txid.shad.sha.u.u8),
+						       outpoint->n,
+						       sequence, NULL, 0,
 						       NULL,
 						       NULL, 0,
 						       NULL, 0, NULL, 0,
@@ -155,9 +151,10 @@ struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 						       &tx_in) != WALLY_OK)
 			abort();
 	} else {
-		if (wally_tx_input_init_alloc(txid->shad.sha.u.u8,
-					      sizeof(txid->shad.sha.u.u8),
-					      outnum, sequence, NULL, 0, NULL,
+		if (wally_tx_input_init_alloc(outpoint->txid.shad.sha.u.u8,
+					      sizeof(outpoint->txid.shad.sha.u.u8),
+					      outpoint->n,
+					      sequence, NULL, 0, NULL,
 					      &tx_in) != WALLY_OK)
 			abort();
 	}
@@ -417,32 +414,20 @@ void psbt_elements_normalize_fees(struct wally_psbt *psbt)
 }
 
 bool psbt_has_input(const struct wally_psbt *psbt,
-		    const struct bitcoin_txid *txid,
-		    u32 outnum)
+		    const struct bitcoin_outpoint *outpoint)
 {
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct bitcoin_txid in_txid;
 		struct wally_tx_input *in = &psbt->tx->inputs[i];
 
-		if (outnum != in->index)
+		if (outpoint->n != in->index)
 			continue;
 
 		wally_tx_input_get_txid(in, &in_txid);
-		if (bitcoin_txid_eq(txid, &in_txid))
+		if (bitcoin_txid_eq(&outpoint->txid, &in_txid))
 			return true;
 	}
 	return false;
-}
-
-bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
-				 const u8 *redeemscript)
-{
-	int wally_err;
-	assert(psbt->num_inputs > in);
-	wally_err = wally_psbt_input_set_redeem_script(&psbt->inputs[in],
-						       redeemscript,
-						       tal_bytelen(redeemscript));
-	return wally_err == WALLY_OK;
 }
 
 struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
@@ -562,9 +547,9 @@ void psbt_input_set_unknown(const tal_t *ctx,
 		abort();
 }
 
-void *psbt_get_unknown(const struct wally_map *map,
-		       const u8 *key,
-		       size_t *val_len)
+static void *psbt_get_unknown(const struct wally_map *map,
+			      const u8 *key,
+			      size_t *val_len)
 {
 	size_t index;
 

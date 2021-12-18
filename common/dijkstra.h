@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_COMMON_DIJKSTRA_H
 #define LIGHTNING_COMMON_DIJKSTRA_H
 #include "config.h"
-#include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/amount.h>
 
 struct gossmap;
@@ -24,6 +22,7 @@ dijkstra_(const tal_t *ctx,
 	  u64 (*path_score)(u32 distance,
 			    struct amount_msat cost,
 			    struct amount_msat risk,
+			    int dir,
 			    const struct gossmap_chan *c),
 	  void *arg);
 
@@ -39,9 +38,6 @@ dijkstra_(const tal_t *ctx,
 
 /* Returns UINT_MAX if unreachable. */
 u32 dijkstra_distance(const struct dijkstra *dij, u32 node_idx);
-
-/* Total CLTV delay (0 if unreachable) */
-u32 dijkstra_delay(const struct dijkstra *dij, u32 node_idx);
 
 /* Best path we found to here */
 struct gossmap_chan *dijkstra_best_chan(const struct dijkstra *dij,

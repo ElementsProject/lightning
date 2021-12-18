@@ -1,12 +1,7 @@
 #include "config.h"
-#include <bitcoin/pubkey.h>
-#include <ccan/ccan/crypto/sha256/sha256.h>
-#include <ccan/ccan/mem/mem.h>
 #include <ccan/ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/lease_rates.h>
 #include <common/overflows.h>
-#include <common/type_to_string.h>
 
 bool lease_rates_empty(const struct lease_rates *rates)
 {

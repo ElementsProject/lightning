@@ -2,24 +2,8 @@
 #define LIGHTNING_LIGHTNINGD_PLUGIN_H
 #include "config.h"
 #include <ccan/intmap/intmap.h>
-#include <ccan/io/io.h>
-#include <ccan/pipecmd/pipecmd.h>
-#include <ccan/take/take.h>
-#include <ccan/tal/path/path.h>
-#include <ccan/tal/tal.h>
-#include <common/json_command.h>
-#include <common/jsonrpc_errors.h>
-#include <common/memleak.h>
-#include <common/param.h>
-#include <common/timeout.h>
-#include <dirent.h>
-#include <errno.h>
-#include <lightningd/io_loop_with_timers.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <stdarg.h>
-#include <unistd.h>
 
 
 enum plugin_state {
@@ -128,9 +112,6 @@ struct plugins {
 
 	/* Blacklist of plugins from --disable-plugin */
 	const char **blacklist;
-
-	/* Whether we are shutting down (`plugins_free` is called) */
-	bool shutdown;
 
 	/* Index to show what order they were added in */
 	u64 plugin_idx;
@@ -283,16 +264,6 @@ struct command_result *plugin_register_all_complete(struct lightningd *ld,
 void plugins_config(struct plugins *plugins);
 
 /**
- * Are any plugins at this state still?
- */
-bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state);
-
-/**
- * Are all plugins at this state?
- */
-bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state);
-
-/**
  * This populates the jsonrpc request with the plugin/lightningd specifications
  */
 void plugin_populate_init_request(struct plugin *p, struct jsonrpc_request *req);
@@ -388,8 +359,4 @@ struct log *plugin_get_log(struct plugin *plugin);
 void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				     const char *dir);
 
-/* Pair of functions to detect if plugin destroys itself: must always
- * call both! */
-struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin);
-bool was_plugin_destroyed(struct plugin_destroyed *destroyed);
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <bitcoin/short_channel_id.h>
+#include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <gossipd/routing.h>
@@ -90,8 +91,5 @@ bool gossip_store_compact(struct gossip_store *gs);
  * Returns -1 on failure, and sets errno.
  */
 int gossip_store_readonly_fd(struct gossip_store *gs);
-
-/* Callback inside gossipd when store is compacted */
-void update_peers_broadcast_index(struct list_head *peers, u32 offset);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

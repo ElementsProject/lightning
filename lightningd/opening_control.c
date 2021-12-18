@@ -1,42 +1,33 @@
-#include "bitcoin/feerate.h"
-#include <bitcoin/privkey.h>
+#include "config.h"
+#include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
+#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/blockheight_states.h>
-#include <common/channel_config.h>
-#include <common/features.h>
+#include <common/configdir.h>
 #include <common/fee_states.h>
+#include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
-#include <common/key_derive.h>
+#include <common/json_tok.h>
 #include <common/param.h>
-#include <common/penalty_base.h>
-#include <common/per_peer_state.h>
-#include <common/utils.h>
-#include <common/wire_error.h>
-#include <connectd/connectd_wiregen.h>
+#include <common/type_to_string.h>
 #include <errno.h>
+#include <hsmd/capabilities.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
-#include <lightningd/closing_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/opening_control.h>
-#include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/openingd_wiregen.h>
-#include <string.h>
+#include <wally_psbt.h>
 #include <wire/common_wiregen.h>
-#include <wire/wire.h>
-#include <wire/wire_sync.h>
 
 void json_add_uncommitted_channel(struct json_stream *response,
 				  const struct uncommitted_channel *uc)
@@ -60,7 +51,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	}
 
 	/* These should never fail. */
-	if (amount_sat_to_msat(&total, uc->fc->funding)
+	if (amount_sat_to_msat(&total, uc->fc->funding_sats)
 	    && amount_msat_sub(&ours, total, uc->fc->push)) {
 		json_add_amount_msat_compat(response, ours,
 					    "msatoshi_to_us", "to_us_msat");
@@ -90,22 +81,21 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct channel_id *cid,
 		      struct bitcoin_tx *remote_commit,
 		      struct bitcoin_signature *remote_commit_sig,
-		      const struct bitcoin_txid *funding_txid,
-		      u16 funding_outnum,
-		      struct amount_sat funding,
+		      const struct bitcoin_outpoint *funding,
+		      struct amount_sat funding_sats,
 		      struct amount_msat push,
 		      u8 channel_flags,
 		      struct channel_info *channel_info,
 		      u32 feerate,
 		      const u8 *our_upfront_shutdown_script,
-		      const u8 *remote_upfront_shutdown_script)
+		      const u8 *remote_upfront_shutdown_script,
+		      const struct channel_type *type)
 {
 	struct channel *channel;
 	struct amount_msat our_msat;
 	struct amount_sat local_funding;
 	s64 final_key_idx;
 	u64 static_remotekey_start;
-	bool option_anchor_outputs;
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
 
 	/* We cannot both be the fundee *and* have a `fundchannel_start`
@@ -121,15 +111,15 @@ wallet_commit_channel(struct lightningd *ld,
 	}
 
 	if (uc->fc) {
-		if (!amount_sat_sub_msat(&our_msat, funding, push)) {
+		if (!amount_sat_sub_msat(&our_msat, funding_sats, push)) {
 			log_broken(uc->log, "push %s exceeds funding %s",
 				   type_to_string(tmpctx, struct amount_msat,
 						  &push),
 				   type_to_string(tmpctx, struct amount_sat,
-						  &funding));
+						  &funding_sats));
 			return NULL;
 		}
-		local_funding = funding;
+		local_funding = funding_sats;
 	} else {
 		our_msat = push;
 		local_funding = AMOUNT_SAT(0);
@@ -147,25 +137,24 @@ wallet_commit_channel(struct lightningd *ld,
 	 * #### Requirements
 	 *
 	 * Both peers:
-	 *   - if `option_static_remotekey` or `option_anchor_outputs` was negotiated:
-	 *     - `option_static_remotekey` or `option_anchor_outputs` applies to all commitment
-	 *       transactions
+	 * ...
+	 *   - if `option_anchors_zero_fee_htlc_tx` was negotiated:
+	 *     - the `channel_type` is `option_anchors_zero_fee_htlc_tx` and
+	 *       `option_static_remotekey` (bits 22 and 12)
+	 *   - otherwise, if `option_anchor_outputs` was negotiated:
+	 *     - the `channel_type` is `option_anchor_outputs` and
+	 *       `option_static_remotekey` (bits 20 and 12)
+	 *   - otherwise, if `option_static_remotekey` was negotiated:
+	 *     - the `channel_type` is `option_static_remotekey` (bit 12)
 	 *   - otherwise:
-	 *     - `option_static_remotekey` or `option_anchor_outputs` does not apply to any commitment
-	 *        transactions
+	 *     - the `channel_type` is empty
+	 * - MUST use that `channel_type` for all commitment transactions.
 	 */
 	/* i.e. We set it now for the channel permanently. */
-	if (feature_negotiated(ld->our_features,
-			       uc->peer->their_features,
-			       OPT_STATIC_REMOTEKEY))
+	if (channel_type_has(type, OPT_STATIC_REMOTEKEY))
 		static_remotekey_start = 0;
 	else
 		static_remotekey_start = 0x7FFFFFFFFFFFFFFF;
-
-	option_anchor_outputs
-		= feature_negotiated(ld->our_features,
-				     uc->peer->their_features,
-				     OPT_ANCHOR_OUTPUTS);
 
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
@@ -177,9 +166,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      &uc->our_config,
 			      uc->minimum_depth,
 			      1, 1, 0,
-			      funding_txid,
-			      funding_outnum,
 			      funding,
+			      funding_sats,
 			      push,
 			      local_funding,
 			      false, /* !remote_funding_locked */
@@ -215,7 +203,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.fee_per_satoshi,
 			      remote_upfront_shutdown_script,
 			      static_remotekey_start, static_remotekey_start,
-			      option_anchor_outputs,
+			      type,
 			      NUM_SIDES, /* closer not yet known */
 			      uc->fc ? REASON_USER : REASON_REMOTE,
 			      NULL,
@@ -304,12 +292,12 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 					 const int *fds,
 					 struct funding_channel *fc)
 {
-	u8 *funding_scriptPubkey;
 	bool supports_shutdown_script;
 
-	if (!fromwire_openingd_funder_start_reply(resp, resp,
-						 &funding_scriptPubkey,
-						 &supports_shutdown_script)) {
+	if (!fromwire_openingd_funder_start_reply(fc, resp,
+						  &fc->funding_scriptpubkey,
+						  &supports_shutdown_script,
+						  &fc->channel_type)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -324,8 +312,6 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 		fc->our_upfront_shutdown_script =
 			tal_free(fc->our_upfront_shutdown_script);
 
-	/* Save this so we can indentify output for scriptpubkey */
-	fc->funding_scriptpubkey = tal_steal(fc, funding_scriptPubkey);
 	funding_started_success(fc);
 
 	/* Mark that we're in-flight */
@@ -345,8 +331,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 {
 	struct channel_info channel_info;
 	struct channel_id cid;
-	struct bitcoin_txid funding_txid;
-	u16 funding_txout;
+	struct bitcoin_outpoint funding;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 	u32 feerate;
@@ -355,6 +340,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	u8 *remote_upfront_shutdown_script;
 	struct per_peer_state *pps;
 	struct penalty_base *pbase;
+	struct channel_type *type;
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -372,11 +358,11 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &channel_info.remote_per_commit,
 					   &fc->uc->minimum_depth,
 					   &channel_info.remote_fundingkey,
-					   &funding_txid,
-					   &funding_txout,
+					   &funding,
 					   &feerate,
 					   &fc->uc->our_config.channel_reserve,
-					   &remote_upfront_shutdown_script)) {
+					   &remote_upfront_shutdown_script,
+					   &type)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -393,7 +379,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				       &channel_info.remote_per_commit));
 
 	/* Saved with channel to disk */
-	derive_channel_id(&cid, &funding_txid, funding_txout);
+	derive_channel_id(&cid, &funding);
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
@@ -403,15 +389,15 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&cid,
 					remote_commit,
 					&remote_commit_sig,
-					&funding_txid,
-					funding_txout,
-					fc->funding,
+					&funding,
+					fc->funding_sats,
 					fc->push,
 					fc->channel_flags,
 					&channel_info,
 					feerate,
 					fc->our_upfront_shutdown_script,
-					remote_upfront_shutdown_script);
+					remote_upfront_shutdown_script,
+					type);
 	if (!channel) {
 		was_pending(command_fail(fc->cmd, LIGHTNINGD,
 					 "Key generation failure"));
@@ -445,9 +431,8 @@ static void opening_fundee_finished(struct subd *openingd,
 	struct bitcoin_tx *remote_commit;
 	struct channel_id cid;
 	struct lightningd *ld = openingd->ld;
-	struct bitcoin_txid funding_txid;
-	u16 funding_outnum;
-	struct amount_sat funding;
+	struct bitcoin_outpoint funding;
+	struct amount_sat funding_sats;
 	struct amount_msat push;
 	u32 feerate;
 	u8 channel_flags;
@@ -455,6 +440,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	u8 *remote_upfront_shutdown_script, *local_upfront_shutdown_script;
 	struct per_peer_state *pps;
 	struct penalty_base *pbase;
+	struct channel_type *type;
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 
@@ -473,16 +459,16 @@ static void opening_fundee_finished(struct subd *openingd,
 				     &channel_info.theirbase.delayed_payment,
 				     &channel_info.remote_per_commit,
 				     &channel_info.remote_fundingkey,
-				     &funding_txid,
-				     &funding_outnum,
 				     &funding,
+				     &funding_sats,
 				     &push,
 				     &channel_flags,
 				     &feerate,
 				     cast_const2(u8 **, &fwd_msg),
 				     &uc->our_config.channel_reserve,
 				     &local_upfront_shutdown_script,
-				     &remote_upfront_shutdown_script)) {
+				     &remote_upfront_shutdown_script,
+				     &type)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
@@ -501,7 +487,7 @@ static void opening_fundee_finished(struct subd *openingd,
 		goto failed;
 	}
 
-	derive_channel_id(&cid, &funding_txid, funding_outnum);
+	derive_channel_id(&cid, &funding);
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
@@ -511,15 +497,15 @@ static void opening_fundee_finished(struct subd *openingd,
 					&cid,
 					remote_commit,
 					&remote_commit_sig,
-					&funding_txid,
-					funding_outnum,
-					funding,
+					&funding,
+					funding_sats,
 					push,
 					channel_flags,
 					&channel_info,
 					feerate,
 					local_upfront_shutdown_script,
-					remote_upfront_shutdown_script);
+					remote_upfront_shutdown_script,
+					type);
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       "Commit channel failed");
@@ -528,13 +514,13 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	log_debug(channel->log, "Watching funding tx %s",
 		  type_to_string(reply, struct bitcoin_txid,
-				 &channel->funding_txid));
+				 &channel->funding.txid));
 
 	channel_watch_funding(ld, channel);
 
 	/* Tell plugins about the success */
-	notify_channel_opened(ld, &channel->peer->id, &channel->funding,
-			      &channel->funding_txid, &channel->remote_funding_locked);
+	notify_channel_opened(ld, &channel->peer->id, &channel->funding_sats,
+			      &channel->funding.txid, &channel->remote_funding_locked);
 
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
@@ -663,6 +649,7 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	const u8 *our_upfront_shutdown_script = payload->our_upfront_shutdown_script;
 	const char *errmsg = payload->errmsg;
 	struct uncommitted_channel* uc = payload->uc;
+	u32 *upfront_shutdown_script_wallet_index;
 
 	/* We want to free this, whatever happens. */
 	tal_steal(tmpctx, payload);
@@ -683,9 +670,24 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 		uc->got_offer = true;
 	}
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(payload->openingd->ld->wallet,
+			     our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		upfront_shutdown_script_wallet_index = NULL;
+
+
 	subd_send_msg(openingd,
 		      take(towire_openingd_got_offer_reply(NULL, errmsg,
-							  our_upfront_shutdown_script)));
+							   our_upfront_shutdown_script,
+							   upfront_shutdown_script_wallet_index)));
 }
 
 static bool
@@ -774,8 +776,8 @@ static void opening_got_offer(struct subd *openingd,
 	/* Tell them they can't open, if we already have open channel. */
 	if (peer_active_channel(uc->peer)) {
 		subd_send_msg(openingd,
-			      take(towire_openingd_got_offer_reply(NULL,
-					  "Already have active channel", NULL)));
+			      take(towire_openingd_got_offer_reply(
+					   NULL, "Already have active channel", NULL, NULL)));
 		return;
 	}
 
@@ -962,6 +964,7 @@ void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 	msg = towire_openingd_init(NULL,
 				  chainparams,
 				  peer->ld->our_features,
+				  peer->their_features,
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity,
@@ -970,13 +973,6 @@ void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 				  uc->minimum_depth,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
-				  peer->their_features,
-				  feature_negotiated(peer->ld->our_features,
-						     peer->their_features,
-						     OPT_STATIC_REMOTEKEY),
-				  feature_negotiated(peer->ld->our_features,
-						     peer->their_features,
-						     OPT_ANCHOR_OUTPUTS),
 				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
 				  IFDEV(peer->ld->dev_fast_gossip, false));
 	subd_send_msg(uc->open_daemon, take(msg));
@@ -995,34 +991,12 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	struct wally_psbt *funding_psbt;
 	u32 *funding_txout_num = NULL;
 	struct funding_channel *fc;
-	bool old_api;
 
-	/* params is NULL for initial parameter desc generation! */
-	if (params && deprecated_apis) {
-		/* We used to have a three-arg version. */
-		if (params->type == JSMN_ARRAY)
-			old_api = (params->size == 3);
-		else
-			old_api = (json_get_member(buffer, params, "txid")
-				   != NULL);
-		if (old_api) {
-			if (!param(cmd, buffer, params,
-				   p_req("id", param_node_id, &id),
-				   p_req("txid", param_txid, &funding_txid),
-				   p_req("txout", param_number, &funding_txout_num),
-				   NULL))
-				return command_param_failed();
-		}
-	} else
-		old_api = false;
-
-	if (!old_api) {
-		if (!param(cmd, buffer, params,
-			   p_req("id", param_node_id, &id),
-			   p_req("psbt", param_psbt, &funding_psbt),
-			   NULL))
-			return command_param_failed();
-	}
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("psbt", param_psbt, &funding_psbt),
+		   NULL))
+		return command_param_failed();
 
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
@@ -1045,40 +1019,38 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 
 	fc = peer->uncommitted_channel->fc;
 
-	if (!old_api) {
-		/* Figure out the correct output, and perform sanity checks. */
-		for (size_t i = 0; i < funding_psbt->tx->num_outputs; i++) {
-			if (memeq(funding_psbt->tx->outputs[i].script,
-				  funding_psbt->tx->outputs[i].script_len,
-				  fc->funding_scriptpubkey,
-				  tal_bytelen(fc->funding_scriptpubkey))) {
-				if (funding_txout_num)
-					return command_fail(cmd, FUNDING_PSBT_INVALID,
-							    "Two outputs to open channel");
-				funding_txout_num = tal(cmd, u32);
-				*funding_txout_num = i;
-			}
+	/* Figure out the correct output, and perform sanity checks. */
+	for (size_t i = 0; i < funding_psbt->tx->num_outputs; i++) {
+		if (memeq(funding_psbt->tx->outputs[i].script,
+			  funding_psbt->tx->outputs[i].script_len,
+			  fc->funding_scriptpubkey,
+			  tal_bytelen(fc->funding_scriptpubkey))) {
+			if (funding_txout_num)
+				return command_fail(cmd, FUNDING_PSBT_INVALID,
+						    "Two outputs to open channel");
+			funding_txout_num = tal(cmd, u32);
+			*funding_txout_num = i;
 		}
-		if (!funding_txout_num)
-			return command_fail(cmd, FUNDING_PSBT_INVALID,
-					    "No output to open channel");
-
-		/* Can't really check amounts for elements. */
-		if (!chainparams->is_elements
-		    && !amount_sat_eq(amount_sat(funding_psbt->tx->outputs
-						 [*funding_txout_num].satoshi),
-				      fc->funding))
-			return command_fail(cmd, FUNDING_PSBT_INVALID,
-					    "Output to open channel is %"PRIu64"sat,"
-					    " should be %s",
-					    funding_psbt->tx->outputs
-					    [*funding_txout_num].satoshi,
-					    type_to_string(tmpctx, struct amount_sat,
-							   &fc->funding));
-
-		funding_txid = tal(cmd, struct bitcoin_txid);
-		psbt_txid(NULL, funding_psbt, funding_txid, NULL);
 	}
+	if (!funding_txout_num)
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "No output to open channel");
+
+	/* Can't really check amounts for elements. */
+	if (!chainparams->is_elements
+	    && !amount_sat_eq(amount_sat(funding_psbt->tx->outputs
+					 [*funding_txout_num].satoshi),
+			      fc->funding_sats))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "Output to open channel is %"PRIu64"sat,"
+				    " should be %s",
+				    funding_psbt->tx->outputs
+				    [*funding_txout_num].satoshi,
+				    type_to_string(tmpctx, struct amount_sat,
+						   &fc->funding_sats));
+
+	funding_txid = tal(cmd, struct bitcoin_txid);
+	psbt_txid(NULL, funding_psbt, funding_txid, NULL);
 
 	/* Fun fact: our wire protocol only allows 16 bits for outnum.
 	 * That is reflected in our encoding scheme for short_channel_id. */
@@ -1090,8 +1062,9 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
 	msg = towire_openingd_funder_complete(NULL,
-					     funding_txid,
-					     *funding_txout_num);
+					      funding_txid,
+					      *funding_txout_num,
+					      peer->uncommitted_channel->fc->channel_type);
 	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
@@ -1153,6 +1126,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	u8 *msg = NULL;
 	struct amount_sat *amount;
 	struct amount_msat *push_msat;
+	u32 *upfront_shutdown_script_wallet_index;
 
 	fc->cmd = cmd;
 	fc->cancels = tal_arr(fc, struct command *, 0);
@@ -1177,7 +1151,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    type_to_string(tmpctx, struct amount_msat, push_msat),
 				    type_to_string(tmpctx, struct amount_sat, amount));
 
-	fc->funding = *amount;
+	fc->funding_sats = *amount;
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
 		*feerate_per_kw = opening_feerate(cmd->ld->topology);
@@ -1263,10 +1237,24 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		fc->our_upfront_shutdown_script
 			= tal_steal(fc, fc->our_upfront_shutdown_script);
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(fc->cmd->ld->wallet,
+			     fc->our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		upfront_shutdown_script_wallet_index = NULL;
+
 	msg = towire_openingd_funder_start(NULL,
 					  *amount,
 					  fc->push,
 					  fc->our_upfront_shutdown_script,
+					  upfront_shutdown_script_wallet_index,
 					  *feerate_per_kw,
 					  fc->channel_flags);
 

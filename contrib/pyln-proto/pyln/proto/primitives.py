@@ -85,6 +85,12 @@ class ShortChannelId(object):
             and self.outnum == other.outnum
         )
 
+    def __hash__(self):
+        return self.to_int().__hash__()
+
+    def __repr__(self):
+        return "ShortChannelId[{}]".format(str(self))
+
 
 class Secret(object):
     def __init__(self, data: bytes) -> None:
@@ -146,6 +152,15 @@ class PublicKey(object):
         return "PublicKey[0x{}]".format(
             self.serializeCompressed().hex()
         )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PublicKey):
+            return False
+
+        return self.key == other.key
+
+    def __hash__(self):
+        return self.to_bytes().__hash__()
 
 
 def Keypair(object):

@@ -2,8 +2,6 @@
 #define LIGHTNING_COMMON_DAEMON_CONN_H
 
 #include "config.h"
-#include <ccan/io/io.h>
-#include <ccan/short_types/short_types.h>
 #include <common/msg_queue.h>
 
 /**

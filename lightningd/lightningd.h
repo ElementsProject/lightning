@@ -1,19 +1,13 @@
 #ifndef LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #define LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #include "config.h"
-#include <bitcoin/chainparams.h>
-#include <bitcoin/privkey.h>
-#include <ccan/container_of/container_of.h>
-#include <ccan/strmap/strmap.h>
-#include <ccan/time/time.h>
-#include <ccan/timer/timer.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
-#include <lightningd/plugin.h>
-#include <stdio.h>
+#include <signal.h>
 #include <sys/stat.h>
-#include <wallet/txfilter.h>
 #include <wallet/wallet.h>
+
+struct amount_msat;
 
 /* Various adjustable things. */
 struct config {
@@ -38,6 +32,9 @@ struct config {
 
 	/* htlcs per channel */
 	u32 max_concurrent_htlcs;
+
+	/* Max amount of dust allowed per channel */
+	struct amount_msat max_dust_htlc_exposure_msat;
 
 	/* How long between changing commit and sending COMMIT message. */
 	u32 commit_time_ms;
@@ -115,7 +112,10 @@ struct lightningd {
 	struct node_id id;
 
 	/* The public base for our payer_id keys */
-	struct pubkey32 bolt12_base;
+	struct point32 bolt12_base;
+
+	/* The secret we put in onion message paths to know it's ours. */
+	struct secret onion_reply_secret;
 
 	/* Feature set we offer. */
 	struct feature_set *our_features;
@@ -207,6 +207,9 @@ struct lightningd {
 	/* If we want to debug a subdaemon/plugin. */
 	const char *dev_debug_subprocess;
 
+	/* If we have --dev-no-plugin-checksum */
+	bool dev_no_plugin_checksum;
+
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 
@@ -222,9 +225,6 @@ struct lightningd {
 	/* Speedup gossip propagation, for testing. */
 	bool dev_fast_gossip;
 	bool dev_fast_gossip_prune;
-
-	/* Things we've marked as not leaking. */
-	const void **notleaks;
 
 	/* This is the forced private key for the node. */
 	struct privkey *dev_force_privkey;
@@ -247,6 +247,9 @@ struct lightningd {
 	/* Number of blocks we wait for a channel to get funded
 	 * if we are the fundee. */
 	u32 dev_max_funding_unconfirmed;
+
+	/* Special switches to test onion compatibility */
+	bool dev_ignore_modern_onion, dev_ignore_obsolete_onion;
 #endif /* DEVELOPER */
 
 	/* tor support */
@@ -286,6 +289,9 @@ struct lightningd {
 	/* Array of (even) TLV types that we should allow. This is required
 	 * since we otherwise would outright reject them. */
 	u64 *accept_extra_tlv_types;
+
+	/* EXPERIMENTAL: websocket port if non-zero */
+	u16 websocket_port;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

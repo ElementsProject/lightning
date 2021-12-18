@@ -1,12 +1,11 @@
+#include "config.h"
 #include <ccan/mem/mem.h>
 #include <ccan/utf8/utf8.h>
 #include <common/decode_array.h>
 #include <common/type_to_string.h>
 #include <devtools/print_wire.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <stdio.h>
-#include <wire/tlvstream.h>
 
 void printwire_u8(const char *fieldname, const u8 *v)
 {

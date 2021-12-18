@@ -2,13 +2,8 @@
 #define LIGHTNING_LIGHTNINGD_WATCH_H
 #include "config.h"
 #include <bitcoin/tx.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/htable/htable_type.h>
-#include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 
-struct bitcoin_tx;
 struct block;
 struct channel;
 struct chain_topology;
@@ -21,14 +16,9 @@ enum watch_result {
 	KEEP_WATCHING = -2
 };
 
-struct txwatch_output {
-	struct bitcoin_txid txid;
-	unsigned int index;
-};
-
-const struct txwatch_output *txowatch_keyof(const struct txowatch *w);
-size_t txo_hash(const struct txwatch_output *out);
-bool txowatch_eq(const struct txowatch *w, const struct txwatch_output *out);
+const struct bitcoin_outpoint *txowatch_keyof(const struct txowatch *w);
+size_t txo_hash(const struct bitcoin_outpoint *out);
+bool txowatch_eq(const struct txowatch *w, const struct bitcoin_outpoint *out);
 
 HTABLE_DEFINE_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
 		   txowatch_hash);
@@ -63,8 +53,7 @@ struct txwatch *watch_tx(const tal_t *ctx,
 struct txowatch *watch_txo(const tal_t *ctx,
 			   struct chain_topology *topo,
 			   struct channel *channel,
-			   const struct bitcoin_txid *txid,
-			   unsigned int output,
+			   const struct bitcoin_outpoint *outpoint,
 			   enum watch_result (*cb)(struct channel *channel,
 						   const struct bitcoin_tx *tx,
 						   size_t input_num,

@@ -17,17 +17,13 @@
 
 /*~ Notice how includes are in ASCII order: this is actually enforced by
  * the build system under `make check-source`.  It avoids merge conflicts
- * and keeps things consistent. */
-#include "gossip_control.h"
-#include "hsm_control.h"
-#include "lightningd.h"
-#include "peer_control.h"
-#include "subd.h"
+ * and keeps things consistent.  It also make sure you include "config.h"
+ * before anything else. */
+#include "config.h"
 
 /*~ This is Ian Lance Taylor's libbacktrace.  It turns out that it's
  * horrifically difficult to obtain a decent backtrace in C; the standard
  * backtrace function is useless in most programs. */
-#include <backtrace.h>
 
 /*~ These headers are from CCAN: http://ccodearchive.net.
  *
@@ -40,16 +36,10 @@
  * in detail below.
  */
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/err/err.h>
-#include <ccan/io/fdpass/fdpass.h>
-#include <ccan/io/io.h>
-#include <ccan/json_escape/json_escape.h>
-#include <ccan/noerr/noerr.h>
+#include <ccan/closefrom/closefrom.h>
+#include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -58,33 +48,32 @@
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
 #include <common/ecdh_hsmd.h>
-#include <common/features.h>
 #include <common/hsm_encryption.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
-#include <common/utils.h>
+#include <common/type_to_string.h>
 #include <common/version.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>
-#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
-#include <lightningd/invoice.h>
+#include <lightningd/gossip_control.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/io_loop_with_timers.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/log.h>
-#include <lightningd/memdump.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
-#include <signal.h>
-#include <sodium.h>
+#include <lightningd/peer_control.h>
+#include <lightningd/plugin.h>
+#include <lightningd/subd.h>
 #include <sys/resource.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <wallet/txfilter.h>
+#include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
 #if DEVELOPER
@@ -127,6 +116,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * same exact code users will be running. */
 #if DEVELOPER
 	ld->dev_debug_subprocess = NULL;
+	ld->dev_no_plugin_checksum = false;
 	ld->dev_disconnect_fd = -1;
 	ld->dev_subdaemon_fail = false;
 	ld->dev_allow_localhost = false;
@@ -141,6 +131,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_no_htlc_timeout = false;
 	ld->dev_no_version_checks = false;
 	ld->dev_max_funding_unconfirmed = 2016;
+	ld->dev_ignore_modern_onion = false;
+	ld->dev_ignore_obsolete_onion = false;
 #endif
 
 	/*~ These are CCAN lists: an embedded double-linked list.  It's not
@@ -207,7 +199,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * NULL.  So we start with a zero-length array. */
 	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
 	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
-	ld->portnum = DEFAULT_PORT;
 	ld->listen = true;
 	ld->autolisten = true;
 	ld->reconnect = true;
@@ -228,6 +219,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->always_use_proxy = false;
 	ld->pure_tor_setup = false;
 	ld->tor_service_password = NULL;
+	ld->websocket_port = 0;
 
 	/*~ This is initialized later, but the plugin loop examines this,
 	 * so set it to NULL explicitly now. */
@@ -765,13 +757,14 @@ static int setup_sig_handlers(void)
 
 /*~ This removes the SIGCHLD handler, so we don't try to write
  * to a broken pipe. */
-static void remove_sigchild_handler(void)
+static void remove_sigchild_handler(struct io_conn *sigchld_conn)
 {
 	struct sigaction sigchild;
 
 	memset(&sigchild, 0, sizeof(struct sigaction));
 	sigchild.sa_handler = SIG_DFL;
 	sigaction(SIGCHLD, &sigchild, NULL);
+	io_close(sigchld_conn);
 }
 
 /*~ This is the routine which sets up the sigchild handling.  We just
@@ -818,6 +811,7 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_SHUTDOWN_ANYSEGWIT),
 #if EXPERIMENTAL_FEATURES
 		OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS),
+		OPTIONAL_FEATURE(OPT_QUIESCE),
 		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
 #endif
 	};
@@ -860,15 +854,49 @@ int main(int argc, char *argv[])
 	const char *stop_response;
 	struct htlc_in_map *unconnected_htlcs_in;
 	struct ext_key *bip32_base;
-	struct rlimit nofile = {1024, 1024};
 	int sigchld_rfd;
+	struct io_conn *sigchld_conn;
 	int exit_code = 0;
 	char **orig_argv;
 	bool try_reexec;
 
-	/*~ Make sure that we limit ourselves to something reasonable. Modesty
-	 *  is a virtue. */
-	setrlimit(RLIMIT_NOFILE, &nofile);
+	/*~ We fork out new processes very very often; every channel gets its
+	 * own process, for example, and we have `hsmd` and `gossipd` and
+	 * the plugins as well.
+	 * Now, we also keep around several file descriptors (`fd`s), including
+	 * file descriptors to communicate with `hsmd` which is a privileged
+	 * process with access to private keys and is therefore very sensitive.
+	 * Thus, we need to close all file descriptors other than what the
+	 * forked-out new process should have ASAP.
+	 *
+	 * We do this by using the `ccan/closefrom` module, which implements
+	 * an emulation for the `closefrom` syscall on BSD and Solaris.
+	 * This emulation tries to use the fastest facility available on the
+	 * system (`close_range` syscall on Linux 5.9+, snooping through
+	 * `/proc/$PID/fd` on many OSs (but requires procps to be mounted),
+	 * the actual `closefrom` call if available, etc.).
+	 * As a fallback if none of those are available on the system, however,
+	 * it just iterates over the theoretical range of possible file
+	 * descriptors.
+	 *
+	 * On some systems, that theoretical range can be very high, up to
+	 * `INT_MAX` in the worst case.
+	 * If the `closefrom` emulation has to fall back to this loop, it
+	 * can be very slow; fortunately, the emulation will also inform
+	 * us of that via the `closefrom_may_be_slow` function, and also has
+	 * `closefrom_limit` to limit the number of allowed file descriptors
+	 * *IF AND ONLY IF* `closefrom_may_be_slow()` is true.
+	 *
+	 * On systems with a fast `closefrom` then `closefrom_limit` does
+	 * nothing.
+	 *
+	 * Previously we always imposed a limit of 1024 file descriptors
+	 * (because we used to always iterate up to limit instead of using
+	 * some OS facility, because those were non-portable and needed
+	 * code for each OS), until @whitslack went and made >1000 channels
+	 * and hit the 1024 limit.
+	 */
+	closefrom_limit(4096);
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
@@ -923,6 +951,10 @@ int main(int argc, char *argv[])
 	 * between early args (including --plugin registration) and
 	 * non-early opts.  This also forks if they say --daemon. */
 	handle_early_opts(ld, argc, argv);
+
+	/*~ Set the default portnum according to the used network
+	 * similarly to what Bitcoin Core does to ports by default. */
+	ld->portnum = DEFAULT_PORT + chainparams->rpc_port - 8332;
 
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
@@ -1073,10 +1105,8 @@ int main(int argc, char *argv[])
 	 * "funding transaction spent" event which creates it. */
 	onchaind_replay_channels(ld);
 
-	/*~ Now handle sigchld, so we can clean up appropriately.
-	 * We don't keep a pointer to this, so our simple leak detection
-	 * code gets upset unless we mark it notleak(). */
-	notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
+	/*~ Now handle sigchld, so we can clean up appropriately. */
+	sigchld_conn = notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
 
 	/*~ Mark ourselves live.
 	 *
@@ -1091,6 +1121,22 @@ int main(int argc, char *argv[])
 		 type_to_string(tmpctx, struct node_id, &ld->id),
 		 json_escape(tmpctx, (const char *)ld->alias)->s,
 		 tal_hex(tmpctx, ld->rgb), version());
+
+	/*~ If `closefrom_may_be_slow`, we limit ourselves to 4096 file
+	 * descriptors; tell the user about it as that limits the number
+	 * of channels they can have.
+	 * We do not really expect most users to ever reach that many,
+	 * but: https://github.com/ElementsProject/lightning/issues/4868
+	 */
+	if (closefrom_may_be_slow())
+		log_info(ld->log,
+			 "We have self-limited number of open file "
+			 "descriptors to 4096, but that will result in a "
+			 "'Too many open files' error if you ever reach "
+			 ">4000 channels.  Please upgrade your OS kernel "
+			 "(Linux 5.9+, FreeBSD 8.0+), or mount proc or "
+			 "/dev/fd (if running in chroot) if you are "
+			 "approaching that many channels.");
 
 	/*~ This is where we ask connectd to reconnect to any peers who have
 	 * live channels with us, and makes sure we're watching the funding
@@ -1126,6 +1172,8 @@ int main(int argc, char *argv[])
 	 *  shut down.
 	 */
 	assert(io_loop_ret == ld);
+
+	/* Fail JSON RPC requests and ignore plugin's responses */
 	ld->state = LD_STATE_SHUTDOWN;
 
 	stop_fd = -1;
@@ -1145,18 +1193,14 @@ int main(int argc, char *argv[])
 	stop_topology(ld->topology);
 
 	/* We're not going to collect our children. */
-	remove_sigchild_handler();
-
-	/* Tell plugins we're shutting down. */
-	shutdown_plugins(ld);
+	remove_sigchild_handler(sigchld_conn);
 	shutdown_subdaemons(ld);
 
-	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
-	 * it might actually be touching the DB in some destructors, e.g.,
-	 * unreserving UTXOs (see #1737) */
-	db_begin_transaction(ld->wallet->db);
+	/* Tell plugins we're shutting down, closes the db. */
+	shutdown_plugins(ld);
+
+	/* Cleanup JSON RPC separately: destructors assume some list_head * in ld */
 	tal_free(ld->jsonrpc);
-	db_commit_transaction(ld->wallet->db);
 
 	/* Clean our our HTLC maps, since they use malloc. */
 	htlc_in_map_clear(&ld->htlcs_in);
@@ -1192,15 +1236,11 @@ int main(int argc, char *argv[])
 
 	/* Were we supposed to restart ourselves? */
 	if (try_reexec) {
-		long max_fd;
-
 		/* Give a reasonable chance for the install to finish. */
 		sleep(5);
 
 		/* Close all filedescriptors except stdin/stdout/stderr */
-		max_fd = sysconf(_SC_OPEN_MAX);
-		for (int i = STDERR_FILENO+1; i < max_fd; i++)
-			close(i);
+		closefrom(STDERR_FILENO + 1);
 		execv(orig_argv[0], orig_argv);
 		err(1, "Failed to re-exec ourselves after version change");
 	}

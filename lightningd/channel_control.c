@@ -1,37 +1,27 @@
-#include <bitcoin/pubkey.h>
-#include <bitcoin/script.h>
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <channeld/channeld_wiregen.h>
-#include <common/channel_id.h>
-#include <common/coin_mvt.h>
-#include <common/features.h>
-#include <common/gossip_constants.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
-#include <common/per_peer_state.h>
-#include <common/psbt_open.h>
+#include <common/param.h>
 #include <common/shutdown_scriptpubkey.h>
-#include <common/timeout.h>
-#include <common/tx_roles.h>
-#include <common/utils.h>
+#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <inttypes.h>
+#include <hsmd/capabilities.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
-#include <lightningd/subd.h>
+#include <lightningd/ping.h>
 #include <wire/common_wiregen.h>
-#include <wire/wire_sync.h>
 
 static void update_feerates(struct lightningd *ld, struct channel *channel)
 {
@@ -149,10 +139,11 @@ void channel_record_open(struct channel *channel)
 
 	/* FIXME: logic here will change for dual funded channels */
 	if (channel->opener == LOCAL) {
-		if (!amount_sat_to_msat(&channel_open_amt, channel->funding))
+		if (!amount_sat_to_msat(&channel_open_amt,
+					channel->funding_sats))
 			fatal("Unable to convert funding %s to msat",
 			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->funding));
+					     &channel->funding_sats));
 
 		/* if we pushed sats, we should decrement that
 		 * from the channel balance */
@@ -161,7 +152,7 @@ void channel_record_open(struct channel *channel)
 					      type_to_string(tmpctx,
 							     struct channel_id,
 							     &channel->cid),
-					      &channel->funding_txid,
+					      &channel->funding.txid,
 					      blockheight, channel->push);
 			notify_chain_mvt(channel->peer->ld, mvt);
 		}
@@ -175,8 +166,7 @@ void channel_record_open(struct channel *channel)
 	mvt = new_coin_deposit(ctx,
 			       type_to_string(tmpctx, struct channel_id,
 					      &channel->cid),
-			       &channel->funding_txid,
-			       channel->funding_outnum,
+			       &channel->funding,
 			       blockheight, channel_open_amt);
 	notify_chain_mvt(channel->peer->ld, mvt);
 	tal_free(ctx);
@@ -414,7 +404,7 @@ static void handle_error_channel(struct channel *channel,
 	forget(channel);
 }
 
-void forget_channel(struct channel *channel, const char *why)
+static void forget_channel(struct channel *channel, const char *why)
 {
 	channel->error = towire_errorfmt(channel, &channel->cid, "%s", why);
 
@@ -431,14 +421,32 @@ void forget_channel(struct channel *channel, const char *why)
 static void handle_channel_upgrade(struct channel *channel,
 				   const u8 *msg)
 {
-	bool option_static_remotekey;
+	struct channel_type *newtype;
 
-	if (!fromwire_channeld_upgraded(msg, &option_static_remotekey)) {
+	if (!fromwire_channeld_upgraded(msg, msg, &newtype)) {
 		channel_internal_error(channel, "bad handle_channel_upgrade: %s",
 				       tal_hex(tmpctx, msg));
 		return;
 	}
 
+	/* You can currently only upgrade to turn on option_static_remotekey:
+	 * if they somehow thought anything else we need to close channel! */
+	if (channel->static_remotekey_start[LOCAL] != 0x7FFFFFFFFFFFFFFFULL) {
+		channel_internal_error(channel,
+				       "channel_upgrade already static_remotekey? %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!channel_type_eq(newtype, channel_type_static_remotekey(tmpctx))) {
+		channel_internal_error(channel,
+				       "channel_upgrade must be static_remotekey, not %s",
+				       fmt_featurebits(tmpctx, newtype->features));
+		return;
+	}
+
+	tal_free(channel->type);
+	channel->type = channel_type_dup(channel, newtype);
 	channel->static_remotekey_start[LOCAL] = channel->next_index[LOCAL];
 	channel->static_remotekey_start[REMOTE] = channel->next_index[REMOTE];
 	log_debug(channel->log,
@@ -485,6 +493,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
+	case WIRE_CHANNELD_PING_REPLY:
+		ping_reply(sd, msg);
+		break;
 #if EXPERIMENTAL_FEATURES
 	case WIRE_CHANNELD_UPGRADED:
 		handle_channel_upgrade(sd->channel, msg);
@@ -514,6 +525,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNELD_SEND_ERROR:
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
+	case WIRE_CHANNELD_PING:
 		break;
 	}
 
@@ -637,9 +649,8 @@ void peer_start_channeld(struct channel *channel,
 				      chainparams,
  				      ld->our_features,
 				      &channel->cid,
-				      &channel->funding_txid,
-				      channel->funding_outnum,
-				      channel->funding,
+				      &channel->funding,
+				      channel->funding_sats,
 				      channel->minimum_depth,
 				      get_block_height(ld->topology),
 				      channel->blockheight_states,
@@ -692,10 +703,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->remote_upfront_shutdown_script,
 				      remote_ann_node_sig,
 				      remote_ann_bitcoin_sig,
-				      /* Set at channel open, even if not
-				       * negotiated now! */
-				      channel->next_index[LOCAL] >= channel->static_remotekey_start[LOCAL],
-				      channel->option_anchor_outputs,
+				      channel->type,
 				      IFDEV(ld->dev_fast_gossip, false),
 				      IFDEV(dev_fail_process_onionpacket, false),
 				      pbases,
@@ -850,7 +858,7 @@ void channel_notify_new_block(struct lightningd *ld,
 			    "loss of funds.",
 			    block_height - channel->first_blocknum,
 			    type_to_string(tmpctx, struct bitcoin_txid,
-					   &channel->funding_txid));
+					   &channel->funding.txid));
 		/* FIXME: Send an error packet for this case! */
 		/* And forget it. */
 		delete_channel(channel);
@@ -959,7 +967,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	 * type into DB before broadcast). */
 	enum wallet_tx_type type;
 	if (wallet_transaction_type(cmd->ld->wallet,
-				   &cancel_channel->funding_txid,
+				   &cancel_channel->funding.txid,
 				   &type))
 		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
 				    "Has the funding transaction been"
@@ -983,10 +991,10 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	 * is broadcast by external wallet and the transaction hasn't
 	 * been onchain. */
 	bitcoind_getutxout(cmd->ld->topology->bitcoind,
-			   &cancel_channel->funding_txid,
-			   cancel_channel->funding_outnum,
+			   &cancel_channel->funding,
 			   process_check_funding_broadcast,
-			   notleak(tal_steal(NULL, cc)));
+			   /* Freed by callback */
+			   tal_steal(NULL, cc));
 	return command_still_pending(cmd);
 }
 

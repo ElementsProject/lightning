@@ -1,8 +1,7 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <common/decode_array.h>
-#include <common/utils.h>
 #include <wire/peer_wire.h>
-#include <wire/wire.h>
 #include <zlib.h>
 
 static u8 *unzlib(const tal_t *ctx, const u8 *encoded, size_t len)

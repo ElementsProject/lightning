@@ -1,12 +1,11 @@
 #ifndef LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H
 #define LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H
 #include "config.h"
+#include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <common/gossip_constants.h>
-#include <stdbool.h>
-#include <stddef.h>
 
 /* Short Channel ID is composed of 3 bytes for the block height, 3
  * bytes of tx index in block and 2 bytes of output index. */
@@ -70,17 +69,10 @@ char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *s
 bool WARN_UNUSED_RESULT short_channel_id_dir_from_str(const char *str, size_t strlen,
 						      struct short_channel_id_dir *scidd);
 
-char *short_channel_id_dir_to_str(const tal_t *ctx,
-				  const struct short_channel_id_dir *scidd);
-
 /* Marshal/unmarshal */
 void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id);
-void towire_short_channel_id_dir(u8 **pptr,
-				 const struct short_channel_id_dir *scidd);
 void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 			       struct short_channel_id *short_channel_id);
-void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
-				   struct short_channel_id_dir *scidd);
 
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */

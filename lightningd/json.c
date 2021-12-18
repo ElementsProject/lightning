@@ -1,27 +1,10 @@
-#include <arpa/inet.h>
-#include <bitcoin/address.h>
-#include <bitcoin/base58.h>
-#include <bitcoin/script.h>
-#include <ccan/json_escape/json_escape.h>
-#include <ccan/mem/mem.h>
+#include "config.h"
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/str/str.h>
-#include <common/bech32.h>
-#include <common/channel_id.h>
-#include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
-#include <common/memleak.h>
-#include <common/param.h>
-#include <common/type_to_string.h>
-#include <common/utils.h>
-#include <gossipd/routing.h>
+#include <common/json_tok.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/options.h>
-#include <sys/socket.h>
-#include <wire/wire.h>
+#include <lightningd/json.h>
 
 struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,

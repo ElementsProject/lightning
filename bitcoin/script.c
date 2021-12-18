@@ -1,11 +1,10 @@
-#include "address.h"
-#include "locktime.h"
-#include "preimage.h"
-#include "pubkey.h"
-#include "script.h"
+#include "config.h"
 #include <assert.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
-#include <ccan/crypto/sha256/sha256.h>
+#include <bitcoin/address.h>
+#include <bitcoin/locktime.h>
+#include <bitcoin/preimage.h>
+#include <bitcoin/pubkey.h>
+#include <bitcoin/script.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <common/utils.h>
@@ -13,8 +12,6 @@
 
 /* To push 0-75 bytes onto stack. */
 #define OP_PUSHBYTES(val) (val)
-
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 /* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
 static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
@@ -190,13 +187,6 @@ u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct bitcoin_address *addr)
 	return script;
 }
 
-u8 *scriptpubkey_opreturn(const tal_t *ctx)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-
-	add_op(&script, OP_RETURN);
-	return script;
-}
 u8 *scriptpubkey_opreturn_padded(const tal_t *ctx)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
@@ -558,7 +548,7 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
 	add_op(&script, OP_IF);
 	add_push_key(&script, revocation_pubkey);
 	add_op(&script, OP_ELSE);
-	add_number(&script, max(lease_remaining, to_self_delay));
+	add_number(&script, max_unsigned(lease_remaining, to_self_delay));
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
 	add_push_key(&script, local_delayedkey);

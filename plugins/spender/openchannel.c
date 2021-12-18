@@ -1,17 +1,13 @@
 #include "config.h"
-#include <assert.h>
 #include <bitcoin/psbt.h>
 #include <ccan/ccan/array_size/array_size.h>
-#include <ccan/ccan/cast/cast.h>
 #include <ccan/ccan/mem/mem.h>
-#include <ccan/ccan/tal/str/str.h>
 #include <common/json_stream.h>
+#include <common/lease_rates.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
-#include <wally_psbt.h>
 
 static struct list_head mfc_commands;
 
@@ -90,8 +86,9 @@ static bool update_parent_psbt(const tal_t *ctx,
 	if (wally_psbt_clone_alloc(new_node_psbt, 0, &new_node_copy)
 			!= WALLY_OK)
 		abort();
-	/* copy is cleaned up below */
-	tal_wally_end(NULL);
+	/* copy is cleaned up below, but we need parts we steal from it
+	 * owned by the clone.  */
+	tal_wally_end(clone);
 
 	changes = psbt_get_changeset(NULL, old_node_psbt,
 				     new_node_copy);
@@ -527,9 +524,9 @@ check_sigs_ready(struct multifundchannel_command *mfc)
 	return command_still_pending(mfc->cmd);
 }
 
-static void json_peer_sigs(struct command *cmd,
-			   const char *buf,
-			   const jsmntok_t *params)
+static struct command_result *json_peer_sigs(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *params)
 {
 	struct channel_id cid;
 	const struct wally_psbt *psbt;
@@ -555,7 +552,7 @@ static void json_peer_sigs(struct command *cmd,
 			   "mfc ??: `openchannel_peer_sigs` no "
 			   "pending dest found for channel_id %s",
 			   type_to_string(tmpctx, struct channel_id, &cid));
-		return;
+		return notification_handled(cmd);
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG,
@@ -590,7 +587,12 @@ static void json_peer_sigs(struct command *cmd,
 		dest->state = MULTIFUNDCHANNEL_SIGNED;
 	}
 
+	/* Possibly free up the struct command for the mfc that
+	 * we found.  */
 	check_sigs_ready(dest->mfc);
+
+	/* Free up the struct command for *this* call.  */
+	return notification_handled(cmd);
 }
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*

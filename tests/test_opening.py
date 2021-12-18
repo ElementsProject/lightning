@@ -129,7 +129,7 @@ def test_multifunding_v2_best_effort(node_factory, bitcoind):
     # With 2 down, it will fail to fund channel
     l2.stop()
     l3.stop()
-    with pytest.raises(RpcError, match=r'Connection refused'):
+    with pytest.raises(RpcError, match=r'(Connection refused|Bad file descriptor)'):
         l1.rpc.multifundchannel(destinations, minchannels=2)
 
     # This works though.

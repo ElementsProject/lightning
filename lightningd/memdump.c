@@ -1,12 +1,9 @@
 /* Only possible if we're in developer mode. */
-#include "memdump.h"
+#include "config.h"
 #if DEVELOPER
 #include <backtrace.h>
-#include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
-#include <common/daemon.h>
 #include <common/json_command.h>
-#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/timeout.h>
@@ -17,11 +14,10 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
+#include <lightningd/memdump.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
-#include <stdio.h>
 #include <wire/wire_sync.h>
 
 static void json_add_ptr(struct json_stream *response, const char *name,
@@ -126,22 +122,6 @@ static void json_add_backtrace(struct json_stream *response,
 				 NULL, response);
 	}
 	json_array_end(response);
-}
-
-static bool handle_strmap(const char *member, void *p, void *memtable_)
-{
-	struct htable *memtable = memtable_;
-
-	memleak_remove_region(memtable, p, tal_bytelen(p));
-
-	/* Keep going */
-	return true;
-}
-
-/* FIXME: If strmap used tal, this wouldn't be necessary! */
-void memleak_remove_strmap_(struct htable *memtable, const struct strmap *m)
-{
-	strmap_iterate_(m, handle_strmap, memtable);
 }
 
 static void scan_mem(struct command *cmd,

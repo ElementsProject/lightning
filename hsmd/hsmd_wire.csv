@@ -20,7 +20,16 @@ msgdata,hsmd_init,dev_force_channel_secrets_shaseed,?sha256,
 msgtype,hsmd_init_reply,111
 msgdata,hsmd_init_reply,node_id,node_id,
 msgdata,hsmd_init_reply,bip32,ext_key,
-msgdata,hsmd_init_reply,bolt12,pubkey32,
+msgdata,hsmd_init_reply,bolt12,point32,
+msgdata,hsmd_init_reply,onion_reply_secret,secret,
+
+# Declare a new channel.
+msgtype,hsmd_new_channel,30
+msgdata,hsmd_new_channel,id,node_id,
+msgdata,hsmd_new_channel,dbid,u64,
+
+# No value returned.
+msgtype,hsmd_new_channel_reply,130
 
 # Get a new HSM FD, with the specified capabilities
 msgtype,hsmd_client_hsmfd,9
@@ -42,6 +51,28 @@ msgdata,hsmd_get_channel_basepoints,dbid,u64,
 msgtype,hsmd_get_channel_basepoints_reply,110
 msgdata,hsmd_get_channel_basepoints_reply,basepoints,basepoints,
 msgdata,hsmd_get_channel_basepoints_reply,funding_pubkey,pubkey,
+
+#include <common/channel_type.h>
+# Provide channel parameters.
+msgtype,hsmd_ready_channel,31
+msgdata,hsmd_ready_channel,is_outbound,bool,
+msgdata,hsmd_ready_channel,channel_value,amount_sat,
+msgdata,hsmd_ready_channel,push_value,amount_msat,
+msgdata,hsmd_ready_channel,funding_txid,bitcoin_txid,
+msgdata,hsmd_ready_channel,funding_txout,u16,
+msgdata,hsmd_ready_channel,local_to_self_delay,u16,
+msgdata,hsmd_ready_channel,local_shutdown_script_len,u16,
+msgdata,hsmd_ready_channel,local_shutdown_script,u8,local_shutdown_script_len
+msgdata,hsmd_ready_channel,local_shutdown_wallet_index,?u32,
+msgdata,hsmd_ready_channel,remote_basepoints,basepoints,
+msgdata,hsmd_ready_channel,remote_funding_pubkey,pubkey,
+msgdata,hsmd_ready_channel,remote_to_self_delay,u16,
+msgdata,hsmd_ready_channel,remote_shutdown_script_len,u16,
+msgdata,hsmd_ready_channel,remote_shutdown_script,u8,remote_shutdown_script_len
+msgdata,hsmd_ready_channel,channel_type,channel_type,
+
+# No value returned.
+msgtype,hsmd_ready_channel_reply,131
 
 # Return signature for a funding tx.
 #include <common/utxo.h>
@@ -105,6 +136,14 @@ msgdata,hsmd_sign_commitment_tx,remote_funding_key,pubkey,
 
 msgtype,hsmd_sign_commitment_tx_reply,105
 msgdata,hsmd_sign_commitment_tx_reply,sig,bitcoin_signature,
+
+# Vaidate the counterparty's revocation secret
+msgtype,hsmd_validate_revocation,36
+msgdata,hsmd_validate_revocation,revoke_num,u64,
+msgdata,hsmd_validate_revocation,per_commitment_secret,secret,
+
+# No value returned.
+msgtype,hsmd_validate_revocation_reply,136
 
 # Onchaind asks HSM to sign a spend to-us.  Four variants, since each set
 # of keys is derived differently...

@@ -163,12 +163,10 @@ Build and Development
 Install `valgrind` and the python dependencies for best results:
 
 ```
-sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev
-pip3 install --user \
-         -r requirements.txt \
-         -r contrib/pyln-client/requirements.txt \
-         -r contrib/pyln-proto/requirements.txt \
-         -r contrib/pyln-testing/requirements.txt
+sudo apt update
+sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev libpq-dev
+pip3 install --upgrade pip
+pip3 install --user -r requirements.txt
 ```
 
 Re-run `configure` for the python dependencies and build using `make`.
@@ -241,10 +239,7 @@ TEST_CHECK_DBSTMTS=[0|1]            - When running blackbox tests, this will
                                       Note: Only SQLite3.
 TEST_DB_PROVIDER=[sqlite3|postgres] - Selects the database to use when running
                                       blackbox tests.
-NO_PYTHON=[0|1]                     - Disables the usage of python when using
-                                      `make`. Useful to discover if regeneration
-                                      of e.g. `wallet/db_sqlite3_sqlgen.c` would
-                                      be required to build the source correctly.
+EXPERIMENTAL_DUAL_FUND=[0|1]	    - Enable dual-funding tests.
 ```
 
 Making BOLT Modifications

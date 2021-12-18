@@ -1,11 +1,9 @@
-#include "watchtower.h"
-
+#include "config.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
-#include <bitcoin/signature.h>
-#include <bitcoin/tx.h>
+#include <channeld/watchtower.h>
+#include <common/features.h>
 #include <common/htlc_tx.h>
-#include <common/key_derive.h>
 #include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
@@ -32,7 +30,7 @@ penalty_tx_create(const tal_t *ctx,
 	struct amount_sat fee, min_out, amt;
 	struct bitcoin_signature sig;
 	u32 locktime = 0;
-	bool option_static_remotekey = channel->option_static_remotekey;
+	bool option_static_remotekey = channel_has(channel, OPT_STATIC_REMOTEKEY);
 	u8 **witness;
 	u32 remote_to_self_delay = channel->config[REMOTE].to_self_delay;
 	const struct amount_sat dust_limit = channel->config[LOCAL].dust_limit;
@@ -40,6 +38,7 @@ penalty_tx_create(const tal_t *ctx,
 	const struct secret remote_per_commitment_secret = *revocation_preimage;
 	struct pubkey remote_per_commitment_point;
 	const struct basepoints *basepoints = channel->basepoints;
+	struct bitcoin_outpoint outpoint;
 
 	if (to_them_outnum == -1 ||
 	    amount_sat_less_eq(to_them_sats, dust_limit)) {
@@ -48,6 +47,9 @@ penalty_tx_create(const tal_t *ctx,
 			    "is no non-dust to_them output in the commitment.");
 		return NULL;
 	}
+
+	outpoint.txid = *commitment_txid;
+	outpoint.n = to_them_outnum;
 
 	if (!pubkey_from_secret(&remote_per_commitment_secret, &remote_per_commitment_point))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -69,7 +71,7 @@ penalty_tx_create(const tal_t *ctx,
 					   &keyset.self_delayed_payment_key);
 
 	tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
-	bitcoin_tx_add_input(tx, commitment_txid, to_them_outnum, 0xFFFFFFFF,
+	bitcoin_tx_add_input(tx, &outpoint, 0xFFFFFFFF,
 			     NULL, to_them_sats, NULL, wscript);
 
 	bitcoin_tx_add_output(tx, final_scriptpubkey, NULL, to_them_sats);

@@ -1,14 +1,10 @@
 /* Without this, gheap is *really* slow!  Comment out for debugging. */
 #define NDEBUG
+#include "config.h"
 #include <ccan/cast/cast.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <gheap.h>
-#include <inttypes.h>
-#include <stdio.h>
 
 /* Each node has this side-info. */
 struct dijkstra {
@@ -37,12 +33,6 @@ static const struct gossmap *global_map;
 u32 dijkstra_distance(const struct dijkstra *dij, u32 node_idx)
 {
 	return dij[node_idx].distance;
-}
-
-/* Total CLTV delay */
-u32 dijkstra_delay(const struct dijkstra *dij, u32 node_idx)
-{
-	return dij[node_idx].total_delay;
 }
 
 struct gossmap_chan *dijkstra_best_chan(const struct dijkstra *dij,
@@ -144,6 +134,7 @@ dijkstra_(const tal_t *ctx,
 	  u64 (*path_score)(u32 distance,
 			    struct amount_msat cost,
 			    struct amount_msat risk,
+			    int dir,
 			    const struct gossmap_chan *c),
 	  void *arg)
 {
@@ -251,7 +242,7 @@ dijkstra_(const tal_t *ctx,
 			risk = risk_price(cost, riskfactor,
 					  cur_d->total_delay
 					  + c->half[!which_half].delay);
-			score = path_score(cur_d->distance + 1, cost, risk, c);
+			score = path_score(cur_d->distance + 1, cost, risk, !which_half, c);
 			if (score >= d->score)
 				continue;
 

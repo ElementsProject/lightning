@@ -3,8 +3,6 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <stdbool.h>
-#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -39,20 +37,30 @@ struct sockaddr_un;
  *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
  */
 
+/* BOLT-hostnames #7:
+ *   * `5`: DNS hostname; data = `[byte:len][len*byte:hostname][u16:port]` (length up to 258)
+ */
+
+/* BOLT-websockets #7:
+ *    * `6`: WebSocket port; data = `[2:port]` (length 2)
+ */
+
 #define	TOR_V2_ADDRLEN 10
 #define	TOR_V3_ADDRLEN 35
-#define	LARGEST_ADDRLEN TOR_V3_ADDRLEN
+#define	DNS_ADDRLEN 255
+#define	LARGEST_ADDRLEN DNS_ADDRLEN
 #define	TOR_V3_BLOBLEN 64
 #define	STATIC_TOR_MAGIC_STRING "gen-default-toraddress"
 
 enum wire_addr_type {
 	ADDR_TYPE_IPV4 = 1,
 	ADDR_TYPE_IPV6 = 2,
-	ADDR_TYPE_TOR_V2 = 3,
-	ADDR_TYPE_TOR_V3 = 4
+	ADDR_TYPE_TOR_V2_REMOVED = 3,
+	ADDR_TYPE_TOR_V3 = 4,
+	ADDR_TYPE_DNS = 5,
+	ADDR_TYPE_WEBSOCKET = 6
 };
 
-/* Structure now fit for tor support */
 struct wireaddr {
 	enum wire_addr_type type;
 	u8 addrlen;
@@ -100,8 +108,10 @@ void wireaddr_from_ipv4(struct wireaddr *addr,
 void wireaddr_from_ipv6(struct wireaddr *addr,
 			const struct in6_addr *ip6,
 			const u16 port);
+void wireaddr_from_websocket(struct wireaddr *addr, const u16 port);
 bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4);
 bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6);
+bool wireaddr_to_websocket(const struct wireaddr *addr, u16 *port);
 
 bool wireaddr_is_wildcard(const struct wireaddr *addr);
 
@@ -129,8 +139,8 @@ struct wireaddr_internal {
 			struct wireaddr address;
 			/* Tor port to use */
 			u16 port;
-			/* Blob to use to create tor service */
-			u8 blob[TOR_V3_BLOBLEN + 1];
+			/* Nul-terminated blob to use to create tor service */
+			char blob[TOR_V3_BLOBLEN + 1];
 		} torservice;
 		/* ADDR_INTERNAL_FORPROXY */
 		struct unresolved {
@@ -141,6 +151,21 @@ struct wireaddr_internal {
 		char sockname[sizeof(((struct sockaddr_un *)0)->sun_path)];
 	} u;
 };
+
+bool wireaddr_internal_eq(const struct wireaddr_internal *a,
+			  const struct wireaddr_internal *b);
+
+bool separate_address_and_port(const tal_t *ctx, const char *arg,
+			       char **addr, u16 *port);
+
+bool is_ipaddr(const char *arg);
+
+bool is_toraddr(const char *arg);
+
+bool is_wildcardaddr(const char *arg);
+
+bool is_dnsaddr(const char *arg);
+
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
 			     bool unresolved_ok, bool allow_deprecated,

@@ -1,11 +1,10 @@
-#include "common/psbt_open.h"
-#include <assert.h>
+#include "config.h"
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/asort/asort.h>
 #include <ccan/ccan/endian/endian.h>
 #include <ccan/ccan/mem/mem.h>
+#include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
 
@@ -100,11 +99,11 @@ static const u8 *linearize_output(const tal_t *ctx,
 {
 	struct wally_psbt *psbt = create_psbt(NULL, 1, 1, 0);
 	size_t byte_len;
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 
 	/* Add a 'fake' input so this will linearize the tx */
-	memset(&txid, 0, sizeof(txid));
-	psbt_append_input(psbt, &txid, 0, 0, NULL, NULL, NULL);
+	memset(&outpoint, 0, sizeof(outpoint));
+	psbt_append_input(psbt, &outpoint, 0, NULL, NULL, NULL);
 
 	tal_wally_start();
 	if (wally_tx_add_output(psbt->tx, tx_out) != WALLY_OK)

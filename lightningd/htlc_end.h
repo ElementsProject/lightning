@@ -2,12 +2,9 @@
 #define LIGHTNING_LIGHTNINGD_HTLC_END_H
 #include "config.h"
 #include <ccan/htable/htable_type.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/time/time.h>
-#include <common/amount.h>
 #include <common/htlc_state.h>
 #include <common/sphinx.h>
-#include <wire/onion_wire.h>
 
 /* We look up HTLCs by channel & id */
 struct htlc_key {
@@ -55,6 +52,8 @@ struct htlc_in {
 	struct secret blinding_ss;
 	/* true if we supplied the preimage */
 	bool *we_filled;
+	/* true if we immediately fail the htlc (too much dust) */
+	bool fail_immediate;
 
 	/* A simple text annotation shown in `listpeers` */
 	char *status;
@@ -93,6 +92,9 @@ struct htlc_out {
 
 	/* If am_origin, this is the partid of the payment. */
 	u64 partid;
+
+	/* Is this is part of a group of HTLCs, which group is it? */
+	u64 groupid;
 
 	/* Where it's from, if not going to us. */
 	struct htlc_in *in;
@@ -154,7 +156,8 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret TAKES,
 			    const struct pubkey *blinding TAKES,
 			    const struct secret *blinding_ss,
-			    const u8 *onion_routing_packet);
+			    const u8 *onion_routing_packet,
+			    bool fail_immediate);
 
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
@@ -166,6 +169,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct pubkey *blinding,
 			      bool am_origin,
 			      u64 partid,
+			      u64 groupid,
 			      struct htlc_in *in);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);

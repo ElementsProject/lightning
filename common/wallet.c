@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/wallet.h>
 
 enum wallet_tx_type fromwire_wallet_tx_type(const u8 **cursor, size_t *max)

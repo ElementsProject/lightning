@@ -1,43 +1,28 @@
-#include "invoice.h"
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
-#include <ccan/json_escape/json_escape.h>
+#include <ccan/cast/cast.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
-#include <common/bech32.h>
-#include <common/bolt11.h>
 #include <common/bolt11_json.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
-#include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/onion.h>
 #include <common/overflows.h>
 #include <common/param.h>
 #include <common/random_select.h>
 #include <common/timeout.h>
-#include <common/utils.h>
+#include <common/type_to_string.h>
 #include <errno.h>
-#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
 #include <lightningd/channel.h>
-#include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
+#include <lightningd/invoice.h>
 #include <lightningd/notification.h>
-#include <lightningd/options.h>
-#include <lightningd/peer_control.h>
-#include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/routehint.h>
-#include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
@@ -601,7 +586,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		if (!amount_sat_add(&cumulative_reserve,
 				    candidates[i].c->our_config.channel_reserve,
 				    candidates[i].c->channel_info.their_config.channel_reserve)
-			|| !amount_sat_to_msat(&capacity, candidates[i].c->funding)
+			|| !amount_sat_to_msat(&capacity, candidates[i].c->funding_sats)
 			|| !amount_msat_sub_sat(&capacity, capacity, cumulative_reserve)) {
 			log_broken(ld->log, "Channel %s capacity overflow!",
 					type_to_string(tmpctx, struct short_channel_id, candidates[i].c->scid));
@@ -885,19 +870,6 @@ invoice_complete(struct invoice_info *info,
 				    info->label->s);
 	}
 
-	/* If this requires a giant HTLC, most implementations cannot
-	 * send that much; will need to split. */
-	/* BOLT #2:
-	 * ### Adding an HTLC: `update_add_htlc`
-	 *...
-	 *   - for channels with `chain_hash` identifying the Bitcoin blockchain:
-	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
-	 */
-	if (info->b11->msat
-	    && amount_msat_greater(*info->b11->msat, chainparams->max_payment)) {
-		warning_mpp = true;
-	}
-
 	/* Get details */
 	details = wallet_invoice_details(info, wallet, invoice);
 
@@ -916,7 +888,7 @@ invoice_complete(struct invoice_info *info,
 				"No listincoming command available, cannot add routehints to invoice");
 	if (warning_mpp)
 		json_add_string(response, "warning_mpp",
-				"The invoice might only be payable by MPP-capable payers.");
+				"The invoice is only payable by MPP-capable payers.");
 	if (warning_capacity)
 		json_add_string(response, "warning_capacity",
 				"Insufficient incoming channel capacity to pay invoice");
@@ -1192,7 +1164,7 @@ static struct command_result *json_invoice(struct command *cmd,
 				    INVOICE_MAX_LABEL_LEN);
 	}
 
-	if (strlen(desc_val) >= BOLT11_FIELD_BYTE_LIMIT) {
+	if (strlen(desc_val) > BOLT11_FIELD_BYTE_LIMIT) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Descriptions greater than %d bytes "
 				    "not yet supported "

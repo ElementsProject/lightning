@@ -4,9 +4,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/tx_roles.h>
-#include <stdbool.h>
 #include <wally_psbt.h>
-#include <wally_transaction.h>
 
 struct channel_id;
 struct wally_tx_input;

@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_TOOLS_TEST_ENUM_H
 #define LIGHTNING_TOOLS_TEST_ENUM_H
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <stdlib.h>
 

@@ -2,42 +2,34 @@
  * dualopend subdaemons. It manages the callbacks and database
  * saves and funding tx watching for a channel open */
 
-#include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
+#include "config.h"
 #include <ccan/array_size/array_size.h>
-#include <ccan/ccan/mem/mem.h>
-#include <ccan/ccan/take/take.h>
-#include <ccan/ccan/tal/tal.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
+#include <ccan/cast/cast.h>
+#include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
-#include <common/channel_config.h>
-#include <common/channel_id.h>
-#include <common/derive_basepoints.h>
-#include <common/features.h>
-#include <common/fee_states.h>
-#include <common/htlc.h>
+#include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
-#include <common/lease_rates.h>
-#include <common/per_peer_state.h>
+#include <common/param.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
-#include <connectd/connectd_wiregen.h>
+#include <errno.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
 #include <wire/common_wiregen.h>
-#include <wire/peer_wire.h>
 
 struct commit_rcvd {
 	struct channel *channel;
@@ -624,6 +616,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 {
 	struct subd *dualopend = payload->dualopend;
 	struct channel *channel = payload->channel;
+	u32 *our_shutdown_script_wallet_index;
 	u8 *msg;
 
 	/* Our daemon died! */
@@ -654,6 +647,19 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 		return subd_send_msg(dualopend, take(msg));
 	}
 
+	/* Determine the wallet index for our_shutdown_scriptpubkey,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(dualopend->ld->wallet,
+			     payload->our_shutdown_scriptpubkey,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		our_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*our_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		our_shutdown_script_wallet_index = NULL;
+
 	channel->cid = payload->channel_id;
 	channel->opener = REMOTE;
 	channel->open_attempt = new_channel_open_attempt(channel);
@@ -661,6 +667,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 					       payload->accepter_funding,
 					       payload->psbt,
 					       payload->our_shutdown_scriptpubkey,
+					       our_shutdown_script_wallet_index,
 					       payload->rates);
 
 	subd_send_msg(dualopend, take(msg));
@@ -941,13 +948,13 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 
 	/* Check that we've got the same / correct PSBT */
 	psbt_txid(NULL, payload->psbt, &txid, NULL);
-	if (!bitcoin_txid_eq(&inflight->funding->txid, &txid)) {
+	if (!bitcoin_txid_eq(&inflight->funding->outpoint.txid, &txid)) {
 		log_broken(channel->log,
 			   "PSBT's txid does not match. %s != %s",
 			   type_to_string(tmpctx, struct bitcoin_txid,
 					  &txid),
 			   type_to_string(tmpctx, struct bitcoin_txid,
-					  &inflight->funding->txid));
+					  &inflight->funding->outpoint.txid));
 		msg = towire_dualopend_fail(NULL, "Peer error with PSBT"
 					    " signatures.");
 		goto send_msg;
@@ -1066,8 +1073,7 @@ wallet_update_channel(struct lightningd *ld,
 		      struct channel *channel,
 		      struct bitcoin_tx *remote_commit STEALS,
 		      struct bitcoin_signature *remote_commit_sig,
-		      const struct bitcoin_txid *funding_txid,
-		      u16 funding_outnum,
+		      const struct bitcoin_outpoint *funding,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
 		      u32 funding_feerate,
@@ -1089,9 +1095,8 @@ wallet_update_channel(struct lightningd *ld,
 	assert(channel->unsaved_dbid == 0);
 	assert(channel->dbid != 0);
 
-	channel->funding_txid = *funding_txid;
-	channel->funding_outnum = funding_outnum;
-	channel->funding = total_funding;
+	channel->funding = *funding;
+	channel->funding_sats = total_funding;
 	channel->our_funds = our_funding;
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = our_msat;
@@ -1118,10 +1123,9 @@ wallet_update_channel(struct lightningd *ld,
 
 	/* Add open attempt to channel's inflights */
 	inflight = new_inflight(channel,
-				channel->funding_txid,
-				channel->funding_outnum,
+				&channel->funding,
 				funding_feerate,
-				channel->funding,
+				channel->funding_sats,
 				channel->our_funds,
 				psbt,
 				channel->last_tx,
@@ -1142,8 +1146,7 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct channel *channel,
 		      struct bitcoin_tx *remote_commit,
 		      struct bitcoin_signature *remote_commit_sig,
-		      const struct bitcoin_txid *funding_txid,
-		      u16 funding_outnum,
+		      const struct bitcoin_outpoint *funding,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
 		      struct channel_info *channel_info,
@@ -1183,9 +1186,8 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->dbid = channel->unsaved_dbid;
 	channel->unsaved_dbid = 0;
 
-	channel->funding_txid = *funding_txid;
-	channel->funding_outnum = funding_outnum;
-	channel->funding = total_funding;
+	channel->funding = *funding;
+	channel->funding_sats = total_funding;
 	channel->our_funds = our_funding;
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = our_msat;
@@ -1240,10 +1242,9 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* Open attempt to channel's inflights */
 	inflight = new_inflight(channel,
-				channel->funding_txid,
-				channel->funding_outnum,
+				&channel->funding,
 				funding_feerate,
-				channel->funding,
+				channel->funding_sats,
 				channel->our_funds,
 				psbt,
 				channel->last_tx,
@@ -1514,8 +1515,8 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 			/* Tell plugins about the success */
 			notify_channel_opened(dualopend->ld,
 					      &channel->peer->id,
-					      &channel->funding,
-					      &channel->funding_txid,
+					      &channel->funding_sats,
+					      &channel->funding.txid,
 					      &channel->remote_funding_locked);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
@@ -1660,7 +1661,7 @@ void dualopen_tell_depth(struct subd *dualopend,
 	/* Are we there yet? */
 	if (to_go == 0) {
 		assert(channel->scid);
-		assert(bitcoin_txid_eq(&channel->funding_txid, txid));
+		assert(bitcoin_txid_eq(&channel->funding.txid, txid));
 
 		channel_set_billboard(channel, false,
 				      tal_fmt(tmpctx, "Funding depth reached"
@@ -1885,8 +1886,8 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 			/* Tell plugins about the success */
 			notify_channel_opened(dualopend->ld,
 					      &channel->peer->id,
-					      &channel->funding,
-					      &channel->funding_txid,
+					      &channel->funding_sats,
+					      &channel->funding.txid,
 					      &channel->remote_funding_locked);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
@@ -2016,12 +2017,12 @@ static void handle_validate_rbf(struct subd *dualopend,
 		for (size_t i = 0; i < candidate_psbt->num_inputs; i++) {
 			struct wally_tx_input *input =
 				&candidate_psbt->tx->inputs[i];
-			struct bitcoin_txid in_txid;
+			struct bitcoin_outpoint outpoint;
 
-			wally_tx_input_get_txid(input, &in_txid);
+			wally_tx_input_get_outpoint(input, &outpoint);
 
 			if (!psbt_has_input(inflight->funding_psbt,
-					    &in_txid, input->index))
+					    &outpoint))
 				inputs_present[i] = false;
 		}
 	}
@@ -2317,13 +2318,13 @@ json_openchannel_signed(struct command *cmd,
 	/* Verify that the psbt's txid matches that of the
 	 * funding txid for this channel */
 	psbt_txid(NULL, psbt, &txid, NULL);
-	if (!bitcoin_txid_eq(&txid, &channel->funding_txid))
+	if (!bitcoin_txid_eq(&txid, &channel->funding.txid))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Txid for passed in PSBT does not match"
 				    " funding txid for channel. Expected %s, "
 				    "received %s",
 				    type_to_string(tmpctx, struct bitcoin_txid,
-						   &channel->funding_txid),
+						   &channel->funding.txid),
 				    type_to_string(tmpctx, struct bitcoin_txid,
 						   &txid));
 
@@ -2334,14 +2335,15 @@ json_openchannel_signed(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Open attempt for channel not found");
 
-	if (!bitcoin_txid_eq(&txid, &inflight->funding->txid))
+	if (!bitcoin_txid_eq(&txid, &inflight->funding->outpoint.txid))
 		return command_fail(cmd, LIGHTNINGD,
 				    "Current inflight transaction is %s,"
 				    " not %s",
 				    type_to_string(tmpctx, struct bitcoin_txid,
 						   &txid),
 				    type_to_string(tmpctx, struct bitcoin_txid,
-						   &inflight->funding->txid));
+						   &inflight->funding
+						   ->outpoint.txid));
 
 	if (inflight->funding_psbt && psbt_is_finalized(inflight->funding_psbt))
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -2481,6 +2483,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	struct amount_sat *amount, psbt_val, *request_amt;
 	struct wally_psbt *psbt;
 	const u8 *our_upfront_shutdown_script;
+	u32 *our_upfront_shutdown_script_wallet_index;
 	struct open_attempt *oa;
 	struct lease_rates *rates;
 	struct command_result *res;
@@ -2616,9 +2619,23 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		oa->our_upfront_shutdown_script
 			= tal_steal(oa, our_upfront_shutdown_script);
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(cmd->ld->wallet,
+			     oa->our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		our_upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*our_upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		our_upfront_shutdown_script_wallet_index = NULL;
+
 	msg = towire_dualopend_opener_init(NULL,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
+					   our_upfront_shutdown_script_wallet_index,
 					   *feerate_per_kw,
 					   *feerate_per_kw_funding,
 					   channel->channel_flags,
@@ -2718,8 +2735,8 @@ static void handle_commit_received(struct subd *dualopend,
 	struct channel_info channel_info;
 	struct bitcoin_tx *remote_commit;
 	struct bitcoin_signature remote_commit_sig;
-	struct bitcoin_txid funding_txid;
-	u16 funding_outnum, lease_chan_max_ppt;
+	struct bitcoin_outpoint funding;
+	u16 lease_chan_max_ppt;
 	u32 feerate_funding, feerate_commitment, lease_expiry,
 	    lease_chan_max_msat, lease_blockheight_start;
 	struct amount_sat total_funding, funding_ours;
@@ -2745,8 +2762,7 @@ static void handle_commit_received(struct subd *dualopend,
 					    &channel_info.theirbase.delayed_payment,
 					    &channel_info.remote_per_commit,
 					    &channel_info.remote_fundingkey,
-					    &funding_txid,
-					    &funding_outnum,
+					    &funding,
 					    &total_funding,
 					    &funding_ours,
 					    &channel->channel_flags,
@@ -2788,8 +2804,7 @@ static void handle_commit_received(struct subd *dualopend,
 		if (!(inflight = wallet_commit_channel(ld, channel,
 						       remote_commit,
 						       &remote_commit_sig,
-						       &funding_txid,
-						       funding_outnum,
+						       &funding,
 						       total_funding,
 						       funding_ours,
 						       &channel_info,
@@ -2828,8 +2843,7 @@ static void handle_commit_received(struct subd *dualopend,
 		if (!(inflight = wallet_update_channel(ld, channel,
 						       remote_commit,
 						       &remote_commit_sig,
-						       &funding_txid,
-						       funding_outnum,
+						       &funding,
 						       total_funding,
 						       funding_ours,
 						       feerate_funding,
@@ -2870,7 +2884,7 @@ static void handle_commit_received(struct subd *dualopend,
 		json_add_psbt(response, "psbt", psbt);
 		json_add_bool(response, "commitments_secured", true);
 		/* For convenience sake, we include the funding outnum */
-		json_add_num(response, "funding_outnum", funding_outnum);
+		json_add_num(response, "funding_outnum", funding.n);
 		if (oa->our_upfront_shutdown_script) {
 			json_add_hex_talarr(response, "close_to",
 					    oa->our_upfront_shutdown_script);
@@ -3005,6 +3019,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	struct amount_sat *amount, *request_amt;
 	struct wally_psbt *psbt;
 	struct open_attempt *oa;
+	u32 *our_upfront_shutdown_script_wallet_index;
 	u8 *msg;
 	struct command_result *res;
 
@@ -3076,9 +3091,23 @@ static struct command_result *json_queryrates(struct command *cmd,
 	/* empty psbt to start */
 	psbt = create_psbt(tmpctx, 0, 0, 0);
 
+	/* Determine the wallet index for our_upfront_shutdown_script,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(cmd->ld->wallet,
+			     oa->our_upfront_shutdown_script,
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		our_upfront_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*our_upfront_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		our_upfront_shutdown_script_wallet_index = NULL;
+
 	msg = towire_dualopend_opener_init(NULL,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
+					   our_upfront_shutdown_script_wallet_index,
 					   *feerate_per_kw,
 					   *feerate_per_kw_funding,
 					   channel->channel_flags,
@@ -3217,6 +3246,7 @@ void peer_restart_dualopend(struct peer *peer,
 	struct channel_config unused_config;
 	struct channel_inflight *inflight;
         int hsmfd;
+	u32 *local_shutdown_script_wallet_index;
 	u8 *msg;
 
 	if (channel_unsaved(channel)) {
@@ -3259,6 +3289,19 @@ void peer_restart_dualopend(struct peer *peer,
 	blockheight = get_blockheight(channel->blockheight_states,
 				      channel->opener, LOCAL);
 
+	/* Determine the wallet index for the LOCAL shutdown_scriptpubkey,
+	 * NULL if not found. */
+	u32 found_wallet_index;
+	bool is_p2sh;
+	if (wallet_can_spend(peer->ld->wallet,
+			     channel->shutdown_scriptpubkey[LOCAL],
+			     &found_wallet_index,
+			     &is_p2sh)) {
+		local_shutdown_script_wallet_index = tal(tmpctx, u32);
+		*local_shutdown_script_wallet_index = found_wallet_index;
+	} else
+		local_shutdown_script_wallet_index = NULL;
+
 	msg = towire_dualopend_reinit(NULL,
 				      chainparams,
 				      peer->ld->our_features,
@@ -3273,10 +3316,9 @@ void peer_restart_dualopend(struct peer *peer,
 				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey,
 				      channel->minimum_depth,
-				      &inflight->funding->txid,
-				      inflight->funding->outnum,
+				      &inflight->funding->outpoint,
 				      inflight->funding->feerate,
-				      channel->funding,
+				      channel->funding_sats,
 				      channel->our_msat,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,
@@ -3288,6 +3330,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->remote_upfront_shutdown_script,
+				      local_shutdown_script_wallet_index,
 				      inflight->remote_tx_sigs,
                                       channel->fee_states,
 				      channel->channel_flags,

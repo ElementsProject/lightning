@@ -1,12 +1,10 @@
+#include "config.h"
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
-#include <ccan/endian/endian.h>
 #include <channeld/commit_tx.h>
 #include <common/htlc_trim.h>
 #include <common/htlc_tx.h>
 #include <common/keyset.h>
 #include <common/permute_tx.h>
-#include <common/utils.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -36,6 +34,22 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 			   option_anchor_outputs, side);
 
 	return n;
+}
+
+bool commit_tx_amount_trimmed(const struct htlc **htlcs,
+			      u32 feerate_per_kw,
+			      struct amount_sat dust_limit,
+			      bool option_anchor_outputs,
+			      enum side side,
+			      struct amount_msat *amt)
+{
+	for (size_t i = 0; i < tal_count(htlcs); i++) {
+		if (trim(htlcs[i], feerate_per_kw, dust_limit,
+			 option_anchor_outputs, side))
+			if (!amount_msat_add(amt, *amt, htlcs[i]->amount))
+				return false;
+	}
+	return true;
 }
 
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
@@ -83,9 +97,8 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 }
 
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
-			     const struct bitcoin_txid *funding_txid,
-			     unsigned int funding_txout,
-			     struct amount_sat funding,
+			     const struct bitcoin_outpoint *funding,
+			     struct amount_sat funding_sats,
 			     const struct pubkey *local_funding_key,
 			     const struct pubkey *remote_funding_key,
 			     enum side opener,
@@ -122,7 +135,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
-	assert(!amount_msat_greater_sat(total_pay, funding));
+	assert(!amount_msat_greater_sat(total_pay, funding_sats));
 
 	/* BOLT #3:
 	 *
@@ -147,7 +160,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		     base_fee.satoshis /* Raw: spec uses raw numbers */);
 
 	/* BOLT #3:
-	 * If `option_anchor_outputs` applies to the commitment
+	 * If `option_anchors` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
@@ -179,7 +192,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(other_pay));
 		assert(ok);
 		SUPERVERBOSE("# actual commitment transaction fee = %"PRIu64"\n",
-			     funding.satoshis - out.satoshis);  /* Raw: test output */
+			     funding_sats.satoshis - out.satoshis);  /* Raw: test output */
 	}
 #endif
 
@@ -281,7 +294,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 *
 		 * #### `to_remote` Output
 		 *
-		 * If `option_anchor_outputs` applies to the commitment
+		 * If `option_anchors` applies to the commitment
 		 * transaction, the `to_remote` output is encumbered by a one
 		 * block csv lock.
 		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
@@ -329,7 +342,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 8. If `option_anchor_outputs` applies to the commitment transaction:
+	 * 8. If `option_anchors` applies to the commitment transaction:
 	 *    * if `to_local` exists or there are untrimmed HTLCs, add a
 	 *      [`to_local_anchor` output]...
 	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a
@@ -393,8 +406,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are upper 24 bits of the obscured commitment number
 	 */
 	u32 sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
-	bitcoin_tx_add_input(tx, funding_txid, funding_txout,
-			     sequence, NULL, funding, NULL, funding_wscript);
+	bitcoin_tx_add_input(tx, funding,
+			     sequence, NULL, funding_sats, NULL, funding_wscript);
 
 	/* Identify the direct outputs (to_us, to_them). */
 	if (direct_outputs != NULL) {

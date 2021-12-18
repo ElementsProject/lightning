@@ -1,21 +1,19 @@
-#include <bitcoin/block.h>
+#include "config.h"
 #include <bitcoin/chainparams.h>
-#include <ccan/cast/cast.h>
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/mem/mem.h>
-#include <common/bech32.h>
+#include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
+#include <common/configdir.h>
 #include <common/features.h>
 #include <secp256k1_schnorrsig.h>
 #include <time.h>
 
-bool bolt12_chains_match(const struct bitcoin_blkid *chains,
-			 const struct chainparams *must_be_chain)
+/* If chains is NULL, max_num_chains is ignored */
+static bool bolt12_chains_match(const struct bitcoin_blkid *chains,
+				size_t max_num_chains,
+				const struct chainparams *must_be_chain)
 {
-	size_t num_chains;
-
 	/* BOLT-offers #12:
 	 *   - if the chain for the invoice is not solely bitcoin:
 	 *     - MUST specify `chains` the offer is valid for.
@@ -25,23 +23,17 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	/* BOLT-offers #12:
 	 * The reader of an invoice_request:
 	 *...
-	 *  - MUST fail the request if `chains` does not include (or
-	 *    imply) a supported chain.
+	 *  - if `chain` is not present:
+	 *    - MUST fail the request if bitcoin is not a supported chain.
+	 *  - otherwise:
+	 *    - MUST fail the request if `chain` is not a supported chain.
 	 */
-	/* BOLT-offers #12:
-	 *
-	 * - if the chain for the invoice is not solely bitcoin:
-	 *   - MUST specify `chains` the invoice is valid for.
-	 * - otherwise:
-	 *   - the bitcoin chain is implied as the first and only entry.
-	 */
-	num_chains = tal_count(chains);
-	if (num_chains == 0) {
-		num_chains = 1;
+	if (!chains) {
+		max_num_chains = 1;
 		chains = &chainparams_for_network("bitcoin")->genesis_blockhash;
 	}
 
-	for (size_t i = 0; i < num_chains; i++) {
+	for (size_t i = 0; i < max_num_chains; i++) {
 		if (bitcoin_blkid_eq(&chains[i],
 				     &must_be_chain->genesis_blockhash))
 			return true;
@@ -50,14 +42,21 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	return false;
 }
 
+bool bolt12_chain_matches(const struct bitcoin_blkid *chain,
+			  const struct chainparams *must_be_chain)
+{
+	return bolt12_chains_match(chain, 1, must_be_chain);
+}
+
 static char *check_features_and_chain(const tal_t *ctx,
 				      const struct feature_set *our_features,
 				      const struct chainparams *must_be_chain,
 				      const u8 *features,
-				      const struct bitcoin_blkid *chains)
+				      const struct bitcoin_blkid *chains,
+				      size_t num_chains)
 {
 	if (must_be_chain) {
-		if (!bolt12_chains_match(chains, must_be_chain))
+		if (!bolt12_chains_match(chains, num_chains, must_be_chain))
 			return tal_fmt(ctx, "wrong chain");
 	}
 
@@ -74,7 +73,7 @@ static char *check_features_and_chain(const tal_t *ctx,
 bool bolt12_check_signature(const struct tlv_field *fields,
 			    const char *messagename,
 			    const char *fieldname,
-			    const struct pubkey32 *key,
+			    const struct point32 *key,
 			    const struct bip340sig *sig)
 {
 	struct sha256 m, shash;
@@ -91,7 +90,7 @@ static char *check_signature(const tal_t *ctx,
 			     const struct tlv_field *fields,
 			     const char *messagename,
 			     const char *fieldname,
-			     const struct pubkey32 *node_id,
+			     const struct point32 *node_id,
 			     const struct bip340sig *sig)
 {
 	if (!node_id)
@@ -183,7 +182,8 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 offer->features,
-					 offer->chains);
+					 offer->chains,
+					 tal_count(offer->chains));
 	if (*fail)
 		return tal_free(offer);
 
@@ -235,7 +235,7 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 invrequest->features,
-					 invrequest->chains);
+					 invrequest->chain, 1);
 	if (*fail)
 		return tal_free(invrequest);
 
@@ -274,7 +274,7 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 invoice->features,
-					 invoice->chains);
+					 invoice->chain, 1);
 	if (*fail)
 		return tal_free(invoice);
 
@@ -325,7 +325,7 @@ static u64 time_change(u64 prevstart, u32 number,
 u64 offer_period_start(u64 basetime, size_t n,
 		       const struct tlv_offer_recurrence *recur)
 {
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
 	 *    3 (years).
 	 */
@@ -350,13 +350,13 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 			    u64 basetime, u64 period_idx,
 			    u64 *start, u64 *end)
 {
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * - if the offer contains `recurrence_paywindow`:
 	 */
 	if (recurrence_paywindow) {
 		u64 pstart = offer_period_start(basetime, period_idx,
 						recurrence);
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - if the offer has a `recurrence_basetime` or the
 		 *    `recurrence_counter` is non-zero:
 		 *   - SHOULD NOT send an `invoice_request` for a period prior to
@@ -374,7 +374,7 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 		    && recurrence_paywindow->seconds_after < 60)
 			*end = pstart + 60;
 	} else {
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - otherwise:
 		 *   - SHOULD NOT send an `invoice_request` with
 		 *     `recurrence_counter` is non-zero for a period whose
@@ -386,7 +386,7 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 			*start = offer_period_start(basetime, period_idx-1,
 						    recurrence);
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 *     - SHOULD NOT send an `invoice_request` for a period which
 		 *       has already passed.
 		 */
@@ -415,17 +415,17 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 	return invoice;
 }
 
-bool bolt12_has_invoice_prefix(const char *str)
+static bool bolt12_has_invoice_prefix(const char *str)
 {
 	return strstarts(str, "lni1") || strstarts(str, "LNI1");
 }
 
-bool bolt12_has_request_prefix(const char *str)
+static bool bolt12_has_request_prefix(const char *str)
 {
 	return strstarts(str, "lnr1") || strstarts(str, "LNR1");
 }
 
-bool bolt12_has_offer_prefix(const char *str)
+static bool bolt12_has_offer_prefix(const char *str)
 {
 	return strstarts(str, "lno1") || strstarts(str, "LNO1");
 }

@@ -18,6 +18,7 @@ struct channel_id;
 struct command;
 struct command_result;
 struct json_escape;
+struct route_exclusion;
 struct sha256;
 struct wally_psbt;
 
@@ -197,13 +198,18 @@ struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
 					const jsmntok_t *tok,
 					struct tlv_field **fields);
 
-struct command_result *param_routehint(struct command *cmd, const char *name,
-				       const char *buffer, const jsmntok_t *tok,
-				       struct route_info **ri);
-
 struct command_result *
 param_routehint_array(struct command *cmd, const char *name, const char *buffer,
 		      const jsmntok_t *tok, struct route_info ***ris);
+
+struct command_result *param_route_exclusion(struct command *cmd,
+					const char *name, const char *buffer, const jsmntok_t *tok,
+					struct route_exclusion **re);
+
+struct command_result *
+param_route_exclusion_array(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t *tok,
+					struct route_exclusion ***res);
 
 /**
  * Parse a 'compact-lease' (serialized lease_rates) back into lease_rates

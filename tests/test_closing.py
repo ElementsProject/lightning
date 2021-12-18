@@ -6,7 +6,7 @@ from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
-    scriptpubkey_addr, calc_lease_fee
+    scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES
 )
 
 import os
@@ -446,6 +446,7 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
     assert opts['expected_close_fee'] == fee_mempool
 
 
+@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 30%"""
     opts = {}
@@ -460,20 +461,7 @@ def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
-def test_closing_negotiation_step_50pct(node_factory, bitcoind, chainparams):
-    """Test that the closing fee negotiation step works, 50%, the default"""
-    opts = {}
-    opts['fee_negotiation_step'] = '50%'
-
-    opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 25789
-    closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
-
-    opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 25789
-    closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
-
-
+@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 100%"""
     opts = {}
@@ -493,6 +481,7 @@ def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
+@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 def test_closing_negotiation_step_1sat(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 1sat"""
     opts = {}
@@ -507,6 +496,7 @@ def test_closing_negotiation_step_1sat(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
+@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 700sat"""
     opts = {}
@@ -1871,7 +1861,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
         'channel': '1x1x1'
     }
 
-    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'], groupid=1)
     with pytest.raises(RpcError):
         l1.rpc.waitsendpay(rhash)
 
@@ -1880,7 +1870,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     sync_blockheight(bitcoind, [l1])
 
     # Second one will cause drop to chain.
-    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'], groupid=2)
     payfuture = executor.submit(l1.rpc.waitsendpay, rhash)
 
     # l1 will drop to chain.
@@ -2338,7 +2328,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
 
     l1.wait_for_onchaind_broadcast('IGNORING_TINY_PAYMENT',
                                    'THEIR_UNILATERAL/OUR_HTLC')
-    l1.daemon.wait_for_log('Ignoring output .* of .*: THEIR_UNILATERAL/OUR_HTLC')
+    l1.daemon.wait_for_log('Ignoring output .*: THEIR_UNILATERAL/OUR_HTLC')
 
     # 100 deep and l2 forgets.
     bitcoind.generate_block(93)
@@ -3088,51 +3078,41 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
             l1.rpc.fundchannel(l2.info['id'], 10**6)
 
 
-@pytest.mark.openchannel('v1')
-def test_shutdown_alternate_txid(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False,
-                                     opts={'experimental-shutdown-wrong-funding': None,
-                                           'allow-deprecated-apis': True})
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs anchor_outputs")
+@pytest.mark.developer("needs to set dev-disconnect")
+def test_closing_higherfee(node_factory, bitcoind, executor):
+    """With anchor outputs we can ask for a *higher* fee than the last commit tx"""
 
-    amount = 1000000
-    amount_msat = Millisatoshi(amount * 1000)
+    # We change the feerate before it starts negotiating close, so it aims
+    # for *higher* than last commit tx.
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'feerates': (7500, 7500, 7500, 7500),
+                                               'disconnect': ['-WIRE_CLOSING_SIGNED']},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'feerates': (7500, 7500, 7500, 7500)}])
+    # This will trigger disconnect.
+    fut = executor.submit(l1.rpc.close, l2.info['id'])
+    l1.daemon.wait_for_log('dev_disconnect')
 
-    # Let's make a classic fundchannel mistake (wrong txid!)
-    addr = l1.rpc.fundchannel_start(l2.info['id'], amount_msat)['funding_address']
-    txid = bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+    # Now adjust fees so l1 asks for more on reconnect.
+    l1.set_feerates((30000,) * 4, False)
+    l2.set_feerates((30000,) * 4, False)
+    l1.restart()
+    l2.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    # Gotta figure out which output manually :(
-    tx = bitcoind.rpc.getrawtransaction(txid, 1)
-    for n, out in enumerate(tx['vout']):
-        if scriptpubkey_addr(out['scriptPubKey']) == addr:
-            txout = n
+    # This causes us to *exceed* previous requirements!
+    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> 16440sat \(not 1000000sat\)')
 
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    # This will fail because l1 restarted!
+    with pytest.raises(RpcError, match=r'Channel forgotten before proper close.'):
+        fut.result(TIMEOUT)
 
-    # Wrong txid, wrong txout!
-    wrong_txid = txid[16:] + txid[:16]
-    wrong_txout = txout ^ 1
-    l1.rpc.fundchannel_complete(l2.info['id'], wrong_txid, wrong_txout)
-
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] != [])
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CHANNELD_AWAITING_LOCKIN')
-
-    closeaddr = l1.rpc.newaddr()['bech32']
-
-    # Oops, try rescuing it!
-    l1.rpc.call('close', {'id': l2.info['id'], 'destination': closeaddr, 'wrong_funding': txid + ':' + str(txout)})
-
-    # Just make sure node has no funds.
-    assert l1.rpc.listfunds()['outputs'] == []
-
-    bitcoind.generate_block(100, wait_for_mempool=1)
-    sync_blockheight(bitcoind, [l1, l2])
-
-    # We will see our funds return.
-    assert len(l1.rpc.listfunds()['outputs']) == 1
-
-    wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
-    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
+    # But we still complete negotiation!
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
 
 
 @pytest.mark.developer("needs dev_disconnect")
@@ -3293,3 +3273,61 @@ def test_anysegwit_close_needs_feature(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'], destination='bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56')
     wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
     bitcoind.generate_block(1, wait_for_mempool=1)
+
+
+def test_close_feerate_range(node_factory, bitcoind, chainparams):
+    """Test the quick-close fee range negotiation"""
+    l1, l2 = node_factory.line_graph(2)
+
+    notifications = []
+
+    def save_notifications(message, progress, request, **kwargs):
+        notifications.append(message)
+
+    # Lowball the range here.
+    with l1.rpc.notify(save_notifications):
+        l1.rpc.close(l2.info['id'], feerange=['253perkw', 'normal'])
+
+    if not chainparams['elements']:
+        l1_range = [138, 4110]
+        l2_range = [1027, 1000000]
+    else:
+        # That fee output is a little chunky.
+        l1_range = [175, 5212]
+        l2_range = [1303, 1000000]
+
+    l1.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l1_range[0], l1_range[1]))
+    l2.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l2_range[0], l2_range[1]))
+
+    overlap = [max(l1_range[0], l2_range[0]), min(l1_range[1], l2_range[1])]
+    l1.daemon.wait_for_log('performing quickclose in range {}sat-{}sat'.format(overlap[0], overlap[1]))
+
+    log = l1.daemon.is_in_log('Their actual closing tx fee is .*sat')
+    rate = re.match('.*Their actual closing tx fee is ([0-9]*sat).*', log).group(1)
+
+    assert notifications == ['Sending closing fee offer {}, with range {}sat-{}sat'.format(rate,
+                                                                                           l1_range[0],
+                                                                                           l1_range[1]),
+                             'Received closing fee offer {}, with range {}sat-{}sat'.format(rate,
+                                                                                            l2_range[0],
+                                                                                            l2_range[1])]
+
+
+def test_close_twice(node_factory, executor):
+    # First feerate is too low, second fixes it.
+    l1, l2 = node_factory.line_graph(2, opts=[{'allow_warning': True,
+                                               'may_reconnect': True},
+                                              {'allow_warning': True,
+                                               'may_reconnect': True,
+                                               'feerates': (15000, 15000, 15000, 15000)}])
+
+    # This makes it disconnect, since feerate is too low.
+    fut = executor.submit(l1.rpc.close, l2.info['id'], feerange=['253perkw', '500perkw'])
+    l1.daemon.wait_for_log('WARNING.*Unable to agree on a feerate')
+
+    fut2 = executor.submit(l1.rpc.close, l2.info['id'], feerange=['253perkw', '15000perkw'])
+
+    # Now reconnect, it should work.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    assert fut.result(TIMEOUT)['type'] == 'mutual'
+    assert fut2.result(TIMEOUT)['type'] == 'mutual'

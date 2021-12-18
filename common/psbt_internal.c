@@ -1,8 +1,7 @@
-#include "common/psbt_internal.h"
+#include "config.h"
 #include <bitcoin/script.h>
-#include <ccan/ccan/tal/tal.h>
+#include <common/psbt_internal.h>
 #include <common/psbt_open.h>
-#include <wally_psbt.h>
 #include <wire/peer_wire.h>
 
 static void

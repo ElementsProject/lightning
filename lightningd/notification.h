@@ -1,26 +1,9 @@
 #ifndef LIGHTNING_LIGHTNINGD_NOTIFICATION_H
 #define LIGHTNING_LIGHTNINGD_NOTIFICATION_H
 #include "config.h"
-#include <bitcoin/short_channel_id.h>
-#include <bitcoin/tx.h>
-#include <ccan/autodata/autodata.h>
-#include <ccan/json_escape/json_escape.h>
-#include <ccan/time/time.h>
-#include <common/amount.h>
-#include <common/channel_id.h>
 #include <common/coin_mvt.h>
-#include <common/errcode.h>
-#include <common/node_id.h>
-#include <lightningd/channel_state.h>
-#include <lightningd/htlc_end.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/pay.h>
 #include <lightningd/plugin.h>
-#include <wallet/wallet.h>
-#include <wally_psbt.h>
-#include <wire/onion_wire.h>
 
 struct onionreply;
 struct wally_psbt;

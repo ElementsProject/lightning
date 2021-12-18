@@ -1,9 +1,9 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
-#include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
+#include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/features.h>
 #include <common/iso4217.h>
@@ -13,17 +13,14 @@
 #include <inttypes.h>
 #include <secp256k1_schnorrsig.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
 #include <time.h>
-#include <unistd.h>
 
 #define NO_ERROR 0
 #define ERROR_BAD_DECODE 1
 #define ERROR_USAGE 3
 
 static bool well_formed = true;
+bool deprecated_apis = true;
 
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
@@ -77,6 +74,12 @@ static void print_chains(const struct bitcoin_blkid *chains)
 	printf("\n");
 }
 
+static void print_chain(const struct bitcoin_blkid *chain)
+{
+	printf("chain: %s\n",
+	       type_to_string(tmpctx, struct bitcoin_blkid, chain));
+}
+
 static bool print_amount(const struct bitcoin_blkid *chains,
 			 const char *iso4217, u64 amount)
 {
@@ -107,7 +110,7 @@ static bool print_amount(const struct bitcoin_blkid *chains,
 								  &chains[0]));
 				ok = false;
 			} else
-				currency = ch->bip173_name;
+				currency = ch->lightning_hrp;
 		}
 		minor_unit = 11;
 	} else {
@@ -144,14 +147,14 @@ static void print_description(const char *description)
 	       (int)tal_bytelen(description), description);
 }
 
-static void print_vendor(const char *vendor)
+static void print_issuer(const char *issuer)
 {
-	printf("vendor: %.*s\n", (int)tal_bytelen(vendor), vendor);
+	printf("issuer: %.*s\n", (int)tal_bytelen(issuer), issuer);
 }
 
-static void print_node_id(const struct pubkey32 *node_id)
+static void print_node_id(const struct point32 *node_id)
 {
-	printf("node_id: %s\n", type_to_string(tmpctx, struct pubkey32, node_id));
+	printf("node_id: %s\n", type_to_string(tmpctx, struct point32, node_id));
 }
 
 static void print_quantity_min(u64 min)
@@ -172,8 +175,8 @@ static bool print_recurrance(const struct tlv_offer_recurrence *recurrence,
 	const char *unit;
 	bool ok = true;
 
-	/* BOLT-offers #12:
-	 * Thus, each payment has:
+	/* BOLT-offers-recurrence #12:
+	 * Thus, each offer containing a recurring payment has:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
 	 *    3 (years).
 	 * 2. A `period`, defining how often (in `time_unit`) it has to be paid.
@@ -268,7 +271,7 @@ static bool print_blindedpaths(struct blinded_path **paths,
 			printf(" %s:%s",
 			       type_to_string(tmpctx, struct pubkey,
 					      &p[j]->node_id),
-			       tal_hex(tmpctx, p[j]->enctlv));
+			       tal_hex(tmpctx, p[j]->encrypted_recipient_data));
 			if (blindedpay) {
 				if (bp_idx < tal_count(blindedpay))
 					printf("fee=%u/%u,cltv=%u,features=%s",
@@ -304,7 +307,7 @@ static void print_refund_for(const struct sha256 *payment_hash)
 static bool print_signature(const char *messagename,
 			    const char *fieldname,
 			    const struct tlv_field *fields,
-			    const struct pubkey32 *node_id,
+			    const struct point32 *node_id,
 			    const struct bip340sig *sig)
 {
 	struct sha256 m, shash;
@@ -363,11 +366,11 @@ static bool print_recurrence_counter_with_base(const u32 *recurrence_counter,
 	return true;
 }
 
-static void print_payer_key(const struct pubkey32 *payer_key,
+static void print_payer_key(const struct point32 *payer_key,
 			    const u8 *payer_info)
 {
 	printf("payer_key: %s",
-	       type_to_string(tmpctx, struct pubkey32, payer_key));
+	       type_to_string(tmpctx, struct point32, payer_key));
 	if (payer_info)
 		printf(" (payer_info %s)", tal_hex(tmpctx, payer_info));
 	printf("\n");
@@ -504,8 +507,8 @@ int main(int argc, char *argv[])
 						    *offer->amount);
 		if (must_have(offer, description))
 			print_description(offer->description);
-		if (offer->vendor)
-			print_vendor(offer->vendor);
+		if (offer->issuer)
+			print_issuer(offer->issuer);
 		if (must_have(offer, node_id))
 			print_node_id(offer->node_id);
 		if (offer->quantity_min)
@@ -537,8 +540,8 @@ int main(int argc, char *argv[])
 		if (!invreq)
 			errx(ERROR_BAD_DECODE, "Bad invoice_request: %s", fail);
 
-		if (invreq->chains)
-			print_chains(invreq->chains);
+		if (invreq->chain)
+			print_chain(invreq->chain);
 		if (must_have(invreq, payer_key))
 			print_payer_key(invreq->payer_key, invreq->payer_info);
 		if (invreq->payer_note)
@@ -546,7 +549,7 @@ int main(int argc, char *argv[])
 		if (must_have(invreq, offer_id))
 			print_offer_id(invreq->offer_id);
 		if (must_have(invreq, amount))
-			well_formed &= print_amount(invreq->chains,
+			well_formed &= print_amount(invreq->chain,
 						    NULL,
 						    *invreq->amount);
 		if (invreq->features)
@@ -574,14 +577,14 @@ int main(int argc, char *argv[])
 		if (!invoice)
 			errx(ERROR_BAD_DECODE, "Bad invoice: %s", fail);
 
-		if (invoice->chains)
-			print_chains(invoice->chains);
+		if (invoice->chain)
+			print_chain(invoice->chain);
 
 		if (invoice->offer_id) {
 			print_offer_id(invoice->offer_id);
 		}
 		if (must_have(invoice, amount))
-			well_formed &= print_amount(invoice->chains,
+			well_formed &= print_amount(invoice->chain,
 						    NULL,
 						    *invoice->amount);
 		if (must_have(invoice, description))
@@ -594,8 +597,8 @@ int main(int argc, char *argv[])
 							  invoice->blindedpay);
 		} else
 			must_not_have(invoice, blindedpay);
-		if (invoice->vendor)
-			print_vendor(invoice->vendor);
+		if (invoice->issuer)
+			print_issuer(invoice->issuer);
 		if (must_have(invoice, node_id))
 			print_node_id(invoice->node_id);
 		if (invoice->quantity)

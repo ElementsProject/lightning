@@ -2,11 +2,6 @@
 #define LIGHTNING_LIGHTNINGD_PLUGIN_HOOK_H
 
 #include "config.h"
-#include <ccan/autodata/autodata.h>
-#include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
-#include <common/json_stream.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/plugin.h>
 
 /**

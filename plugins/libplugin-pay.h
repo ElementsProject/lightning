@@ -30,9 +30,9 @@ struct createonion_request {
 
 /* States returned by listsendpays, waitsendpay, etc. */
 enum payment_result_state {
-	PAYMENT_PENDING,
-	PAYMENT_COMPLETE,
-	PAYMENT_FAILED,
+	PAYMENT_PENDING = 1,
+	PAYMENT_COMPLETE = 2,
+	PAYMENT_FAILED = 4,
 };
 
 /* A parsed version of the possible outcomes that a sendpay / payment may
@@ -184,6 +184,7 @@ struct payment {
 	/* Payment secret, from the invoice if any. */
 	struct secret *payment_secret;
 
+	u64 groupid;
 	u32 partid;
 	u32 next_partid;
 
@@ -297,6 +298,11 @@ struct payment {
 	/* A human readable error message that is used as a top-level
 	 * explanation if a payment is aborted. */
 	char *aborterror;
+
+	/* Callback to be called when the entire payment process
+	 * completes successfully. */
+	void (*on_payment_success)(struct payment *p);
+	void (*on_payment_failure)(struct payment *p);
 };
 
 struct payment_modifier {
@@ -400,6 +406,10 @@ struct adaptive_split_mod_data {
 	u32 htlc_budget;
 };
 
+struct route_exclusions_data {
+	struct route_exclusion **exclusions;
+};
+
 /* List of globally available payment modifiers. */
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(routehints, struct routehints_data);
@@ -420,6 +430,8 @@ REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
  * we detect the payee to have, in order to not exhaust the number of HTLCs
  * each of those channels can bear.  */
 REGISTER_PAYMENT_MODIFIER_HEADER(payee_incoming_limit, void);
+REGISTER_PAYMENT_MODIFIER_HEADER(route_exclusions, struct route_exclusions_data);
+
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,

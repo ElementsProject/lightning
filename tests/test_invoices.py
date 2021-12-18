@@ -54,11 +54,6 @@ def test_invoice(node_factory, chainparams):
     assert 'routes' not in b11
     assert 'warning_capacity' in inv
 
-    # Make sure wumbo invoices warn about mpp being needed.
-    inv = l2.rpc.invoice(4294967295 + 1, 'inv4', '?')
-    assert 'warning_mpp' in inv
-    l2.rpc.invoice(4294967295, 'inv3', '?')
-
     # Test cltv option.
     inv = l1.rpc.invoice(123000, 'label3', 'description', '3700', cltv=99)
     b11 = l1.rpc.decodepay(inv['bolt11'])

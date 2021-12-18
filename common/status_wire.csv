@@ -1,6 +1,7 @@
 #include <common/per_peer_state.h>
 #include <common/node_id.h>
 #include <common/status_wire.h>
+#include <common/status_levels.h>
 
 msgtype,status_log,0xFFF0
 msgdata,status_log,level,enum log_level,

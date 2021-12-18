@@ -1,4 +1,4 @@
-#include "configdir.h"
+#include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/cast/cast.h>
@@ -7,9 +7,9 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <errno.h>
 
 bool deprecated_apis = true;
 

@@ -1,14 +1,9 @@
 #ifndef LIGHTNING_LIGHTNINGD_LOG_H
 #define LIGHTNING_LIGHTNINGD_LOG_H
 #include "config.h"
-#include <ccan/list/list.h>
-#include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <jsmn.h>
-#include <stdarg.h>
 
 struct command;
 struct json_stream;
@@ -74,12 +69,19 @@ struct command_result *param_loglevel(struct command *cmd,
 				      const jsmntok_t *tok,
 				      enum log_level **level);
 
+/* Reference counted log_prefix.  Log entries keep a pointer, and they
+ * can outlast the log entry point which created them. */
+struct log_prefix {
+	size_t refcnt;
+	const char *prefix;
+};
+
 struct log_entry {
 	struct timeabs time;
 	enum log_level level;
 	unsigned int skipped;
 	struct node_id_cache *nc;
-	const char *prefix;
+	struct log_prefix *prefix;
 	char *log;
 	/* Iff LOG_IO */
 	const u8 *io;

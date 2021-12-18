@@ -1,14 +1,11 @@
 #ifndef LIGHTNING_LIGHTNINGD_JSONRPC_H
 #define LIGHTNING_LIGHTNINGD_JSONRPC_H
 #include "config.h"
-#include <bitcoin/chainparams.h>
-#include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
-#include <common/errcode.h>
+#include <common/autodata.h>
 #include <common/json.h>
 #include <common/json_stream.h>
 #include <common/status_levels.h>
-#include <stdarg.h>
 
 struct jsonrpc;
 
@@ -25,7 +22,7 @@ enum command_mode {
 /* Context for a command (from JSON, but might outlive the connection!). */
 /* FIXME: move definition into jsonrpc.c */
 struct command {
-	/* Off json_cmd->commands */
+	/* Off list jcon->commands */
 	struct list_node list;
 	/* The global state */
 	struct lightningd *ld;

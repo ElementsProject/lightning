@@ -32,6 +32,7 @@ LIGHTNINGD_CONTROL_OBJS += openingd/openingd_wiregen.o openingd/dualopend_wirege
 # Common source we use.
 OPENINGD_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/billboard.o			\
@@ -39,6 +40,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/blockheight_states.o		\
 	common/channel_config.o			\
 	common/channel_id.o			\
+	common/channel_type.o			\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
@@ -68,6 +70,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
+	common/ping.o				\
 	common/psbt_internal.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\

@@ -1,21 +1,18 @@
+#include "config.h"
 #include "../towire.c"
 #include "../fromwire.c"
 #include "../peer_wire.c"
 #include "bitcoin/pubkey.c"
+#include "bitcoin/chainparams.c"
 #include "common/amount.c"
 #include "common/channel_id.c"
 #include "common/node_id.c"
 
-#include <assert.h>
 #include <stdio.h>
 
-#include <ccan/str/hex/hex.h>
-#include <common/amount.h>
-#include <common/bigsize.h>
-#include <bitcoin/chainparams.h>
+#include <common/channel_type.h>
 #include <common/setup.h>
 #include <common/sphinx.h>
-#include <wire/peer_wire.h>
 #include <wire/tlvstream.c>
 
 extern secp256k1_context *secp256k1_ctx;
@@ -615,20 +612,27 @@ static struct msg_funding_signed *fromwire_struct_funding_signed(const tal_t *ct
 static void *towire_struct_closing_signed(const tal_t *ctx,
 					  const struct msg_closing_signed *s)
 {
+	struct tlv_closing_signed_tlvs *close_tlvs;
+
+	close_tlvs = tlv_closing_signed_tlvs_new(ctx);
 	return towire_closing_signed(ctx,
 				     &s->channel_id,
 				     s->fee_satoshis,
-				     &s->signature);
+				     &s->signature,
+				     close_tlvs);
 }
 
 static struct msg_closing_signed *fromwire_struct_closing_signed(const tal_t *ctx, const void *p)
 {
 	struct msg_closing_signed *s = tal(ctx, struct msg_closing_signed);
+	struct tlv_closing_signed_tlvs *close_tlvs;
 
+	close_tlvs = tlv_closing_signed_tlvs_new(ctx);
 	if (fromwire_closing_signed(p,
 				    &s->channel_id,
 				    &s->fee_satoshis,
-				    &s->signature))
+				    &s->signature,
+				    close_tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -1016,7 +1020,6 @@ int main(int argc, char *argv[])
 	void *ctx = tal(NULL, char);
 	size_t i;
 	u8 *msg;
-	const struct chainparams **chains;
 
 	common_setup(argv[0]);
 
@@ -1096,8 +1099,7 @@ int main(int argc, char *argv[])
 	assert(error_eq(&e, e2));
 	test_corruption(&e, e2, error);
 
-	chains = chainparams_for_networks(ctx);
-	for (i = 0; i < tal_count(chains); i++) {
+	for (i = 0; i < ARRAY_SIZE(networks); i++) {
 		memset(&init, 2, sizeof(init));
 		init.globalfeatures = tal_arr(ctx, u8, 2);
 		memset(init.globalfeatures, 2, 2);
@@ -1105,7 +1107,7 @@ int main(int argc, char *argv[])
 		memset(init.localfeatures, 2, 2);
 		init.tlvs = tlv_init_tlvs_new(ctx);
 		init.tlvs->networks = tal_arr(init.tlvs, struct bitcoin_blkid, 1);
-		init.tlvs->networks[0] = chains[i]->genesis_blockhash;
+		init.tlvs->networks[0] = networks[i].genesis_blockhash;
 		msg = towire_struct_init(ctx, &init);
 		init2 = fromwire_struct_init(ctx, msg);
 		assert(init_eq(&init, init2));

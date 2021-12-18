@@ -5,27 +5,22 @@
  *  "They say marriages are made in Heaven.
  *   But so is funder and lightning."
  *     - Clint Eastwood
+ *  (because funder rhymes with thunder)
+ *
  */
 #include "config.h"
 #include <bitcoin/feerate.h>
-#include <bitcoin/psbt.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
-#include <common/channel_id.h>
-#include <common/json.h>
-#include <common/json_helpers.h>
 #include <common/json_stream.h>
-#include <common/lease_rates.h>
-#include <common/node_id.h>
+#include <common/json_tok.h>
+#include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <plugins/funder_policy.h>
 #include <plugins/libplugin.h>
-#include <wire/peer_wire.h>
 
 /* In-progress channel opens */
 static struct list_head pending_opens;
@@ -713,9 +708,9 @@ json_rbf_channel_call(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static void json_disconnect(struct command *cmd,
-			    const char *buf,
-			    const jsmntok_t *params)
+static struct command_result *json_disconnect(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *params)
 {
 	struct node_id id;
 	const char *err;
@@ -735,11 +730,13 @@ static void json_disconnect(struct command *cmd,
 		   type_to_string(tmpctx, struct node_id, &id));
 
 	cleanup_peer_pending_opens(&id);
+
+	return notification_handled(cmd);
 }
 
-static void json_channel_open_failed(struct command *cmd,
-				     const char *buf,
-				     const jsmntok_t *params)
+static struct command_result *json_channel_open_failed(struct command *cmd,
+						       const char *buf,
+						       const jsmntok_t *params)
 {
 	struct channel_id cid;
 	struct pending_open *open;
@@ -763,6 +760,8 @@ static void json_channel_open_failed(struct command *cmd,
 	open = cleanup_channel_pending_open(&cid);
 	if (open)
 		unreserve_psbt(open);
+
+	return notification_handled(cmd);
 }
 
 static void json_add_policy(struct json_stream *stream,
@@ -827,6 +826,7 @@ param_policy_mod(struct command *cmd, const char *name,
 
 	err = u64_option(arg_str, *mod);
 	if (err) {
+		tal_free(err);
 		if (!parse_amount_sat(&sats, arg_str, strlen(arg_str)))
 			return command_fail_badparam(cmd, name,
 						     buffer, tok, err);
@@ -922,9 +922,7 @@ json_funderupdate(struct command *cmd,
 	const struct out_req *req;
 	const char *err;
 	struct command_result *res;
-
-	struct funder_policy *policy = tal(tal_parent(current_policy),
-					   struct funder_policy);
+	struct funder_policy *policy = tal(cmd, struct funder_policy);
 
 	if (!param(cmd, buf, params,
 		   p_opt_def("policy", param_funder_opt, &opt,
@@ -992,7 +990,7 @@ json_funderupdate(struct command *cmd,
 	}
 
 	tal_free(current_policy);
-	current_policy = policy;
+	current_policy = tal_steal(NULL, policy);
 
 	/* Update lightningd, also */
 	req = jsonrpc_request_start(cmd->plugin, cmd,
@@ -1061,6 +1059,14 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 
 }
 
+#if DEVELOPER
+static void memleak_mark(struct plugin *p, struct htable *memtable)
+{
+	memleak_remove_region(memtable, &pending_opens, sizeof(pending_opens));
+	memleak_remove_region(memtable, current_policy, sizeof(*current_policy));
+}
+#endif
+
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
 	const char *err;
@@ -1073,6 +1079,10 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 
 	if (current_policy->rates)
 		tell_lightningd_lease_rates(p, current_policy->rates);
+
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark);
+#endif
 
 	return NULL;
 }
@@ -1197,12 +1207,10 @@ static char *amount_sat_or_u64_option(const char *arg, u64 *amt)
 
 int main(int argc, char **argv)
 {
-	char *owner = tal(NULL, char);
-
 	setup_locale();
 
 	/* Our default funding policy is fixed (0msat) */
-	current_policy = default_funder_policy(owner, FIXED, 0);
+	current_policy = default_funder_policy(NULL, FIXED, 0);
 
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true,
 		    NULL,
@@ -1303,6 +1311,6 @@ int main(int argc, char **argv)
 				  option_channel_fee_proportional_thousandths_max, current_policy),
 		    NULL);
 
-	tal_free(owner);
+	tal_free(current_policy);
 	return 0;
 }

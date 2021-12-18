@@ -10,7 +10,7 @@ DESCRIPTION
 -----------
 
 The **txprepare** RPC command creates an unsigned transaction which
-spends funds from c-lightning’s internal wallet to the outputs specified
+spends funds from c-lightning's internal wallet to the outputs specified
 in *outputs*.
 
 The *outputs* is the array of output that include *destination*
@@ -31,7 +31,7 @@ or a number with 1 to 8 decimal places ending in *btc*.
 
 *feerate* is an optional feerate to use. It can be one of the strings
 *urgent* (aim for next block), *normal* (next 4 blocks or so) or *slow*
-(next 100 blocks or so) to use lightningd’s internal estimates: *normal*
+(next 100 blocks or so) to use lightningd's internal estimates: *normal*
 is the default.
 
 Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
@@ -84,4 +84,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:3b18b65b58bce0ce6fcacd49d86b6da2b59828c4b3474d1de0f6ab76d810044c)
+[comment]: # ( SHA256STAMP:f16a12290870442316c8f3fb552627637610ab6a7cfed9082089040c78dce2be)

@@ -1,9 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_ONCHAIN_CONTROL_H
 #define LIGHTNING_LIGHTNINGD_ONCHAIN_CONTROL_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
 #include <lightningd/lightningd.h>
-#include <onchaind/onchaind_wiregen.h>
 
 struct channel;
 struct bitcoin_tx;

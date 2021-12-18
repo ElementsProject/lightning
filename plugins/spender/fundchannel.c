@@ -1,7 +1,7 @@
+#include "config.h"
 #include <ccan/array_size/array_size.h>
-#include <ccan/compiler/compiler.h>
-#include <common/json.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <plugins/spender/fundchannel.h>
 
 static struct command_result *
@@ -133,7 +133,7 @@ fundchannel_get_result(struct command *cmd,
 
 	if (!ok)
 		plugin_err(cmd->plugin,
-			   "Unexpected result from nultifundchannel: %.*s",
+			   "Unexpected result from multifundchannel: %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 

@@ -5,11 +5,7 @@
 #include "bitcoin/privkey.h"
 #include "bitcoin/pubkey.h"
 
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/hmac.h>
-#include <secp256k1.h>
-#include <sodium/randombytes.h>
 #include <wire/onion_wire.h>
 
 struct node_id;
@@ -231,6 +227,13 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
  */
 void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 		    const u8 *payload TAKES);
+
+/**
+ * Prepend length to payload and add: for onionmessage, any size is OK,
+ * for HTLC onions tal_bytelen(payload) must be > 1.
+ */
+void sphinx_add_modern_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+			   const u8 *payload TAKES);
 
 /**
  * Compute the size of the serialized payloads.

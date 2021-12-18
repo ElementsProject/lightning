@@ -56,6 +56,7 @@ On success, an object is returned, containing:
 - **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default
 - **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default
 - **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default
+- **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default
 - **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters)
 - **alias** (string, optional): `alias` field from config or cmdline, or default
 - **pid-file** (string, optional): `pid-file` field from config or cmdline, or default
@@ -70,6 +71,7 @@ On success, an object is returned, containing:
 - **rescan** (integer, optional): `rescan` field from config or cmdline, or default
 - **fee-per-satoshi** (u32, optional): `fee-per-satoshi` field from config or cmdline, or default
 - **max-concurrent-htlcs** (u32, optional): `max-concurrent-htlcs` field from config or cmdline, or default
+- **max-dust-htlc-exposure-msat** (msat, optional): `max-dust-htlc-exposure-mast` field from config or cmdline, or default
 - **min-capacity-sat** (u64, optional): `min-capacity-sat` field from config or cmdline, or default
 - **addr** (string, optional): `addr` field from config or cmdline (can be more than one)
 - **announce-addr** (string, optional): `announce-addr` field from config or cmdline (can be more than one)
@@ -86,6 +88,7 @@ On success, an object is returned, containing:
 - **log-timestamps** (boolean, optional): `log-timestamps` field from config or cmdline, or default
 - **force-feerates** (string, optional): force-feerate configuration setting, if any
 - **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
+- **fetchinvoice-noconnect** (boolean, optional): `featchinvoice-noconnect` fileds from config or cmdline, or default
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -205,4 +208,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:7bb40fc8fac201b32d9701b02596d0fa59eb14a3baf606439cbf96dc11548ed4)
+[comment]: # ( SHA256STAMP:59b197ad256bd701744ed5aa9f663166e48ef6320cf3a1538af0bd855daa3186)

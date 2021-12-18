@@ -49,16 +49,10 @@ bool tlv_fields_valid(const struct tlv_field *fields, u64 *allow_extra,
 		      size_t *err_index);
 
 /* Generic primitive setters for tlvstreams. */
-void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value, size_t valuelen);
+void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value TAKES, size_t valuelen);
 void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
 				    struct short_channel_id *value);
 void tlvstream_set_tu64(struct tlv_field **stream, u64 type, u64 value);
 void tlvstream_set_tu32(struct tlv_field **stream, u64 type, u32 value);
-
-/* Generic primitive gettes for tlvstreams. */
-bool tlvstream_get_short_channel_id(struct tlv_field *stream, u64 type,
-				    struct short_channel_id *value);
-bool tlvstream_get_tu64(struct tlv_field *stream, u64 type, u64 *value);
-bool tlvstream_get_tu32(struct tlv_field *stream, u64 type, u32 *value);
 
 #endif /* LIGHTNING_WIRE_TLVSTREAM_H */

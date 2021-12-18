@@ -20,6 +20,11 @@ do
         echo
         EXIT_CODE=1
     fi
+    # Ignore contrib/.
+    if [ "${HEADER_FILE##contrib/}" = "$HEADER_FILE" ] && [ "$(grep '#include' "$HEADER_FILE" | head -n1)" != '#include "config.h"' ]; then
+	echo "${HEADER_FILE}:1:does not include config.h first"
+	EXIT_CODE=1
+    fi
 done
 
 # Check redundant includes
@@ -55,6 +60,17 @@ for C_FILE in $(filter_suffix c); do
         echo "${DUPLICATE_INCLUDES_IN_C_FILE}"
         echo
         EXIT_CODE=1
+    fi
+    H_FILE="${C_FILE%.c}.h"
+    H_BASE="$(basename "$H_FILE")"
+    if [ -f "$H_FILE" ] && ! grep -E '#include (<'"$H_FILE"'>|"'"$H_BASE"'")' "$C_FILE" > /dev/null; then
+	echo "${C_FILE} does not include $H_FILE" >& 2
+	EXIT_CODE=1
+    fi
+    # Ignore contrib/.
+    if [ "${C_FILE##contrib/}" = "$C_FILE" ] && [ "$(grep '#include' "$C_FILE" | head -n1)" != '#include "config.h"' ]; then
+	echo "${C_FILE}:1:does not include config.h first"
+	EXIT_CODE=1
     fi
 done
 

@@ -14,24 +14,34 @@ export PYTEST_PAR=${PYTEST_PAR:-10}
 export PYTEST_SENTRY_ALWAYS_REPORT=1
 export SLOW_MACHINE=1
 export TEST_CMD=${TEST_CMD:-"make -j $PYTEST_PAR pytest"}
-export TEST_DB_PROVIDER=${DB:-"sqlite3"}
+export TEST_DB_PROVIDER=${TEST_DB_PROVIDER:-"sqlite3"}
 export TEST_NETWORK=${NETWORK:-"regtest"}
 export TIMEOUT=900
 export VALGRIND=${VALGRIND:-0}
 export FUZZING=${FUZZING:-0}
+export LIGHTNINGD_POSTGRES_NO_VACUUM=1
 
-env
+pip3 install --user -U \
+     -r requirements.lock
 
-pip3 install --user -U -r requirements.txt
+timeout 60 pip3 install --user \
+     --use-feature=in-tree-build \
+     ./contrib/pyln-client \
+     ./contrib/pyln-proto \
+     ./contrib/pyln-testing
 
 # Install utilities that aren't dependencies, but make
 # running tests easier/feasible on CI (and pytest which
 # keeps breaking the rerunfailures plugin).
-pip3 install --user -U \
+pip3 install --user \
      blinker \
+     flake8 \
+     flaky \
+     mako \
      pytest-sentry \
      pytest-test-groups==1.0.3 \
      pytest-custom-exit-code==0.3.0 \
+     pytest-timeout \
      pytest-json-report
 
 git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc

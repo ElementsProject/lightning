@@ -1,7 +1,6 @@
 /* JSON core and helpers */
 #include "config.h"
 #include <assert.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -11,11 +10,9 @@
 #include <common/json_stream.h>
 #include <common/overflows.h>
 #include <common/utils.h>
-#include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
 
 const char *json_tok_full(const char *buffer, const jsmntok_t *t)
 {
@@ -303,8 +300,9 @@ const jsmntok_t *json_next(const jsmntok_t *tok)
 	return t;
 }
 
-const jsmntok_t *json_get_membern(const char *buffer, const jsmntok_t tok[],
-				  const char *label, size_t len)
+static const jsmntok_t *json_get_membern(const char *buffer,
+					 const jsmntok_t tok[],
+					 const char *label, size_t len)
 {
 	const jsmntok_t *t;
 	size_t i;
@@ -666,20 +664,6 @@ const char *jsmntype_to_string(jsmntype_t t)
 			return "PRIMITIVE";
 	}
 	return "INVALID";
-}
-
-void json_tok_print(const char *buffer, const jsmntok_t *tok)
-{
-	const jsmntok_t *first = tok;
-	const jsmntok_t *last = json_next(tok);
-	printf("size: %d, count: %td\n", tok->size, last - first);
-	while (first != last) {
-		printf("%td. %.*s, %s\n", first - tok,
-			first->end - first->start, buffer + first->start,
-			jsmntype_to_string(first->type));
-		first++;
-	}
-	printf("\n");
 }
 
 jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok)
@@ -1080,9 +1064,9 @@ void json_add_literal(struct json_stream *result, const char *fieldname,
 		      const char *literal, int len)
 {
 	/* Literal may contain quotes, so bypass normal checks */
-	char *dest = json_member_direct(result, fieldname, strlen(literal));
+	char *dest = json_member_direct(result, fieldname, len);
 	if (dest)
-		memcpy(dest, literal, strlen(literal));
+		memcpy(dest, literal, len);
 }
 
 void json_add_stringn(struct json_stream *result, const char *fieldname,

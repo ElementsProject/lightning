@@ -1,5 +1,5 @@
+#include "libhsmd_python.h"
 #include <ccan/str/hex/hex.h>
-#include <libhsmd_python.h>
 #include <common/setup.h>
 
 char *init(char *hex_hsm_secret, char *network_name) {

@@ -2,26 +2,21 @@
  * Helper to submit via JSON-RPC and get back response.
  */
 #include "config.h"
-#include <assert.h>
 #include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
-#include <common/json.h>
 #include <common/json_command.h>
-#include <common/memleak.h>
 #include <common/status_levels.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <libgen.h>
 #include <stdio.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>

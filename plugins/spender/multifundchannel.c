@@ -1,34 +1,16 @@
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/compiler/compiler.h>
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/json_out/json_out.h>
-#include <ccan/str/str.h>
-#include <ccan/take/take.h>
+#include <ccan/tal/str/str.h>
 #include <common/addr.h>
-#include <common/amount.h>
-#include <common/features.h>
-#include <common/json.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
-#include <common/jsonrpc_errors.h>
-#include <common/lease_rates.h>
-#include <common/node_id.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
-#include <common/tx_roles.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
 
 extern const struct chainparams *chainparams;
 

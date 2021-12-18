@@ -36,9 +36,11 @@ If **last_timestamp** is present:
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
   - **features** (hex): BOLT #9 features bitmap this node advertized
   - **addresses** (array of objects): The addresses this node advertized:
-    - **type** (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
-    - **address** (string): address in expected format for *type*
+    - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
     - **port** (u16): port number
+
+    If **type** is "dns", "ipv4", "ipv6", "torv2" or "torv3":
+      - **address** (string): address in expected format for **type**
 
 If **option_will_fund** is present:
   - **option_will_fund** (object):
@@ -50,9 +52,9 @@ If **option_will_fund** is present:
     - **compact_lease** (hex): the lease as represented in the node_announcement
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
-  
+
 On failure, one of the following error codes may be returned:
- 
+
 - -32602: Error in given parameters.
 
 EXAMPLE JSON RESPONSE
@@ -87,10 +89,10 @@ Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version o
 SEE ALSO
 --------
 
-FIXME: 
+FIXME:
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:158477348efb51a8cf71a595b3d76dde545ab6824958c8a32d4b3dbbbe2c8121)
+[comment]: # ( SHA256STAMP:85400c9c1741943e2e02935b4f14fd187a7db6056410e42adec07ef3c6772f5f)

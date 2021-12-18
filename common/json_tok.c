@@ -1,21 +1,17 @@
+#include "config.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/bech32.h>
-#include <common/channel_id.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
-#include <common/jsonrpc_errors.h>
-#include <common/param.h>
+#include <common/route.h>
 
 struct command_result *param_array(struct command *cmd, const char *name,
 				   const char *buffer, const jsmntok_t *tok,
@@ -381,9 +377,9 @@ static const char *segwit_addr_net_decode(int *witness_version,
 					  const struct chainparams *chainparams)
 {
 	if (segwit_addr_decode(witness_version, witness_program,
-			       witness_program_len, chainparams->bip173_name,
+			       witness_program_len, chainparams->onchain_hrp,
 			       addrz))
-		return chainparams->bip173_name;
+		return chainparams->onchain_hrp;
 	else
 		return NULL;
 }
@@ -447,7 +443,7 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 			*scriptpubkey = scriptpubkey_witness_raw(ctx, witness_version,
 								 witness_program, witness_program_len);
 			parsed = true;
-			right_network = streq(bip173, chainparams->bip173_name);
+			right_network = streq(bip173, chainparams->onchain_hrp);
 		}
 	}
 	/* Insert other parsers that accept null-terminated string here. */
@@ -585,9 +581,11 @@ struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
 	return NULL;
 }
 
-struct command_result *param_routehint(struct command *cmd, const char *name,
-				       const char *buffer, const jsmntok_t *tok,
-				       struct route_info **ri)
+static struct command_result *param_routehint(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct route_info **ri)
 {
 	size_t i;
 	const jsmntok_t *curr;
@@ -649,6 +647,64 @@ param_routehint_array(struct command *cmd, const char *name, const char *buffer,
 			return err;
 		}
 		tal_arr_expand(ris, element);
+
+		tal_free(element_name);
+	}
+	return NULL;
+}
+
+struct command_result *param_route_exclusion(struct command *cmd,
+					const char *name, const char *buffer, const jsmntok_t *tok,
+					struct route_exclusion **re)
+{
+	*re = tal(cmd, struct route_exclusion);
+	struct short_channel_id_dir *chan_id =
+					tal(tmpctx, struct short_channel_id_dir);
+	if (!short_channel_id_dir_from_str(buffer + tok->start,
+						tok->end - tok->start,
+						chan_id)) {
+		struct node_id *node_id = tal(tmpctx, struct node_id);
+
+		if (!json_to_node_id(buffer, tok, node_id))
+			return command_fail_badparam(cmd, "exclude",
+								buffer, tok,
+								"should be short_channel_id_dir or node_id");
+
+		(*re)->type = EXCLUDE_NODE;
+		(*re)->u.node_id = *node_id;
+	} else {
+		(*re)->type = EXCLUDE_CHANNEL;
+		(*re)->u.chan_id = *chan_id;
+	}
+
+	return NULL;
+}
+
+struct command_result *
+param_route_exclusion_array(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t *tok,
+					struct route_exclusion ***res)
+{
+	size_t i;
+	const jsmntok_t *curr;
+	char *element_name;
+	struct command_result *err;
+	if (tok->type != JSMN_ARRAY) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Exclude array %s (\"%s\") is not an array",
+		    name, json_strdup(tmpctx, buffer, tok));
+	}
+
+	*res = tal_arr(cmd, struct route_exclusion *, 0);
+	json_for_each_arr(i, curr, tok) {
+		struct route_exclusion *element;
+		element_name = tal_fmt(cmd, "%s[%zu]", name, i);
+		err = param_route_exclusion(cmd, element_name, buffer, curr, &element);
+		if (err != NULL) {
+			return err;
+		}
+		tal_arr_expand(res, element);
 
 		tal_free(element_name);
 	}

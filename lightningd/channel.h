@@ -1,12 +1,11 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
-#include <ccan/list/list.h>
 #include <common/channel_id.h>
-#include <common/per_peer_state.h>
+#include <common/channel_type.h>
 #include <common/tx_roles.h>
+#include <common/utils.h>
 #include <lightningd/channel_state.h>
-#include <lightningd/peer_htlcs.h>
 #include <wallet/wallet.h>
 
 struct channel_id;
@@ -20,8 +19,7 @@ struct billboard {
 };
 
 struct funding_info {
-	struct bitcoin_txid txid;
-	u16 outnum;
+	struct bitcoin_outpoint outpoint;
 	u32 feerate;
 	struct amount_sat total_funds;
 
@@ -118,10 +116,9 @@ struct channel {
 	u64 next_index[NUM_SIDES];
 	u64 next_htlc_id;
 
-	/* Funding txid and amounts */
-	struct bitcoin_txid funding_txid;
-	u16 funding_outnum;
-	struct amount_sat funding;
+	/* Funding outpoint and amount */
+	struct bitcoin_outpoint funding;
+	struct amount_sat funding_sats;
 
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;
@@ -174,6 +171,9 @@ struct channel {
 	/* optional wrong_funding for mutual close */
 	const struct bitcoin_outpoint *shutdown_wrong_funding;
 
+	/* optional feerate min/max for mutual close */
+	u32 *closing_feerate_range;
+
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -194,6 +194,9 @@ struct channel {
 
 	/* Feerate per channel */
 	u32 feerate_base, feerate_ppm;
+	/* But allow these feerates up until this time. */
+	struct timeabs old_feerate_timeout;
+	u32 old_feerate_base, old_feerate_ppm;
 
 	/* If they used option_upfront_shutdown_script. */
 	const u8 *remote_upfront_shutdown_script;
@@ -201,8 +204,8 @@ struct channel {
 	/* At what commit numbers does `option_static_remotekey` apply? */
 	u64 static_remotekey_start[NUM_SIDES];
 
-	/* Was this negotiated with `option_anchor_outputs? */
-	bool option_anchor_outputs;
+	/* What features apply to this channel? */
+	const struct channel_type *type;
 
 	/* Any commands trying to forget us. */
 	struct command **forgets;
@@ -253,9 +256,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_index_local,
 			    u64 next_index_remote,
 			    u64 next_htlc_id,
-			    const struct bitcoin_txid *funding_txid,
-			    u16 funding_outnum,
-			    struct amount_sat funding,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
@@ -291,7 +293,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const u8 *remote_upfront_shutdown_script STEALS,
 			    u64 local_static_remotekey_start,
 			    u64 remote_static_remotekey_start,
-			    bool option_anchor_outputs,
+			    const struct channel_type *type STEALS,
 			    enum side closer,
 			    enum state_change reason,
 			    /* NULL or stolen */
@@ -305,10 +307,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *
 new_inflight(struct channel *channel,
-	     const struct bitcoin_txid funding_txid,
-	     u16 funding_outnum,
+	     const struct bitcoin_outpoint *funding_outpoint,
 	     u32 funding_feerate,
-	     struct amount_sat funding,
+	     struct amount_sat funding_sat,
 	     struct amount_sat our_funds,
 	     struct wally_psbt *funding_psbt STEALS,
 	     struct bitcoin_tx *last_tx STEALS,
@@ -446,6 +447,11 @@ static inline bool channel_closed(const struct channel *channel)
 		|| channel->state == FUNDING_SPEND_SEEN
 		|| channel->state == ONCHAIN
 		|| channel->state == CLOSED;
+}
+
+static inline bool channel_has(const struct channel *channel, int f)
+{
+	return channel_type_has(channel->type, f);
 }
 
 void get_channel_basepoints(struct lightningd *ld,

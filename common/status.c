@@ -1,19 +1,14 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/breakpoint/breakpoint.h>
-#include <ccan/endian/endian.h>
-#include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
-#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/daemon_conn.h>
 #include <common/status.h>
 #include <common/status_wiregen.h>
-#include <common/utils.h>
 #include <common/version.h>
 #include <errno.h>
-#include <signal.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -103,13 +98,25 @@ static void status_io_full(enum log_level iodir,
 	status_send(take(towire_status_io(NULL, iodir, peer, who, p)));
 }
 
+static bool status_peer_io_filter_packettype(const u8 *p)
+{
+	int msg_type = fromwire_peektype(p);
+	switch (msg_type) {
+	case WIRE_PING:
+	case WIRE_PONG:
+		return true;
+	}
+	return false;
+}
+
 static void status_peer_io_short(enum log_level iodir,
 				 const struct node_id *peer,
 				 const u8 *p)
 {
-	status_peer_debug(peer, "%s %s",
-			  iodir == LOG_IO_OUT ? "peer_out" : "peer_in",
-			  peer_wire_name(fromwire_peektype(p)));
+	if (!status_peer_io_filter_packettype(p))
+		status_peer_debug(peer, "%s %s",
+				  iodir == LOG_IO_OUT ? "peer_out" : "peer_in",
+				  peer_wire_name(fromwire_peektype(p)));
 }
 
 void status_peer_io(enum log_level iodir,
@@ -226,3 +233,14 @@ void master_badmsg(u32 type_expected, const u8 *msg)
 		     "Error parsing %u: %s",
 		     type_expected, tal_hex(tmpctx, msg));
 }
+
+#if DEVELOPER
+/* Print BROKEN status: callback for dump_memleak. */
+void memleak_status_broken(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	status_vfmt(LOG_BROKEN, NULL, fmt, ap);
+	va_end(ap);
+}
+#endif

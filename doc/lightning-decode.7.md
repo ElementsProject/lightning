@@ -24,7 +24,7 @@ On success, an object is returned, containing:
 
 If **type** is "bolt12 offer", and **valid** is *true*:
   - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
-  - **node_id** (pubkey32): x-only public key of the offering node
+  - **node_id** (point32): x-only public key of the offering node
   - **description** (string): the description of the purpose of the offer
   - **signature** (bip340sig, optional): BIP-340 signature of the *node_id* on this offer
   - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
@@ -42,7 +42,7 @@ If **type** is "bolt12 offer", and **valid** is *true*:
     - **blinding** (pubkey): blinding factor for this path
     - **path** (array of objects): an individual path:
       - **node_id** (pubkey): node_id of the hop
-      - **enctlv** (hex): encrypted TLV entry for this hop
+      - **encrypted_recipient_data** (hex): encrypted TLV entry for this hop
   - **quantity_min** (u64, optional): the minimum quantity
   - **quantity_max** (u64, optional): the maximum quantity
   - **recurrence** (object, optional): how often to this offer should be used:
@@ -64,7 +64,7 @@ If **type** is "bolt12 offer", and **valid** is *false*:
     - **warning_offer_missing_description**: No **description**
 
 If **type** is "bolt12 invoice", and **valid** is *true*:
-  - **node_id** (pubkey32): x-only public key of the offering node
+  - **node_id** (point32): x-only public key of the offering node
   - **signature** (bip340sig): BIP-340 signature of the *node_id* on this offer
   - **amount_msat** (msat): the amount in bitcoin
   - **description** (string): the description of the purpose of the offer
@@ -73,8 +73,7 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - **relative_expiry** (u32): the number of seconds after *created_at* when this expires
   - **min_final_cltv_expiry** (u32): the number of blocks required by destination
   - **offer_id** (hex, optional): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
-  - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
-    - the genesis blockhash (always 64 characters)
+  - **chain** (hex, optional): which blockchain this invoice is for (missing implies bitcoin mainnet only) (always 64 characters)
   - **send_invoice** (boolean, optional): present if this offer was a send_invoice offer (always *true*)
   - **refund_for** (hex, optional): the *payment_preimage* of invoice this is a refund for (always 64 characters)
   - **vendor** (string, optional): the name of the vendor for this offer
@@ -83,12 +82,12 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
     - **blinding** (pubkey): blinding factor for this path
     - **path** (array of objects): an individual path:
       - **node_id** (pubkey): node_id of the hop
-      - **enctlv** (hex): encrypted TLV entry for this hop
+      - **encrypted_recipient_data** (hex): encrypted TLV entry for this hop
   - **quantity** (u64, optional): the quantity ordered
   - **recurrence_counter** (u32, optional): the 0-based counter for a recurring payment
   - **recurrence_start** (u32, optional): the optional start period for a recurring payment
   - **recurrence_basetime** (u32, optional): the UNIX timestamp of the first recurrence period start
-  - **payer_key** (pubkey32, optional): the transient key which identifies the payer
+  - **payer_key** (point32, optional): the transient key which identifies the payer
   - **payer_info** (hex, optional): the payer-provided blob to derive payer_key
   - **fallbacks** (array of objects, optional): onchain addresses:
     - **version** (u8): Segwit address version
@@ -113,10 +112,9 @@ If **type** is "bolt12 invoice", and **valid** is *false*:
     - **warning_invoice_refund_missing_signature**: No **refund_signature**
 
 If **type** is "bolt12 invoice_request", and **valid** is *true*:
-  - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
-  - **payer_key** (pubkey32): the transient key which identifies the payer
-  - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
-    - the genesis blockhash (always 64 characters)
+  - **offer_id** (hex): the id of the offer this is requesting (merkle hash of non-signature fields) (always 64 characters)
+  - **payer_key** (point32): the transient key which identifies the payer
+  - **chain** (hex, optional): which blockchain this invoice_request is for (missing implies bitcoin mainnet only) (always 64 characters)
   - **amount_msat** (msat, optional): the amount in bitcoin
   - **features** (hex, optional): the array of feature bits for this offer
   - **quantity** (u64, optional): the quantity ordered
@@ -182,4 +180,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d9e00b0a8c93fecd75aab0688204601a7ceeca0f424012cf0d04ce24b6017aee)
+[comment]: # ( SHA256STAMP:d05b5fc1bf230b3bbd03e2023fb0c6bbefb700f7c3cfb43512da48dbce45f005)

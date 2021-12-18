@@ -40,7 +40,6 @@ msgdata,onchaind_init,tx_blockheight,u32,
 msgdata,onchaind_init,reasonable_depth,u32,
 msgdata,onchaind_init,num_htlc_sigs,u16,
 msgdata,onchaind_init,htlc_signature,bitcoin_signature,num_htlc_sigs
-msgdata,onchaind_init,num_htlcs,u64,
 msgdata,onchaind_init,min_possible_feerate,u32,
 msgdata,onchaind_init,max_possible_feerate,u32,
 msgdata,onchaind_init,possible_remote_per_commit_point,?pubkey,
@@ -53,16 +52,17 @@ msgdata,onchaind_init,is_replay,bool,
 # We need this for BIP125 rule 4
 msgdata,onchaind_init,min_relay_feerate,u32,
 
-#include <onchaind/onchaind_wire.h>
-# This is all the HTLCs: one per message
-msgtype,onchaind_htlc,5002
-msgdata,onchaind_htlc,htlc,htlc_stub,
-# If it's not in the commitment tx, tell us (immediately or htlc_missing_depth)
-msgdata,onchaind_htlc,tell_if_missing,bool,
-msgdata,onchaind_htlc,tell_immediately,bool,
-
-# This says we're ready; give us preimages.
+# This says we're ready; give us htlcs and preimages.
 msgtype,onchaind_init_reply,5101
+msgdata,onchaind_init_reply,commit_num,u64,
+
+#include <onchaind/onchaind_wire.h>
+msgtype,onchaind_htlcs,5002
+msgdata,onchaind_htlcs,num_htlcs,u32,
+msgdata,onchaind_htlcs,htlc,htlc_stub,num_htlcs
+# If it's not in the commitment tx, tell us (immediately or htlc_missing_depth)
+msgdata,onchaind_htlcs,tell_if_missing,bool,num_htlcs
+msgdata,onchaind_htlcs,tell_immediately,bool,num_htlcs
 
 # onchaind->master: Send out a tx.
 # If is_rbf is false then master should rebroadcast the tx.
@@ -112,8 +112,7 @@ msgtype,onchaind_all_irrevocably_resolved,5011
 
 # onchaind->master: hey, I identified an UTXO you'll want to track
 msgtype,onchaind_add_utxo,5012
-msgdata,onchaind_add_utxo,prev_out_tx,bitcoin_txid,
-msgdata,onchaind_add_utxo,prev_out_index,u32,
+msgdata,onchaind_add_utxo,prev_out,bitcoin_outpoint,
 msgdata,onchaind_add_utxo,per_commit_point,?pubkey,
 msgdata,onchaind_add_utxo,value,amount_sat,
 msgdata,onchaind_add_utxo,blockheight,u32,
@@ -131,8 +130,7 @@ msgdata,onchaind_dev_memleak_reply,leak,bool,
 # that we tracked automatically but only onchaind knows how to classify their
 # transactions.
 msgtype,onchaind_annotate_txout,5035
-msgdata,onchaind_annotate_txout,txid,bitcoin_txid,
-msgdata,onchaind_annotate_txout,outnum,u32,
+msgdata,onchaind_annotate_txout,outpoint,bitcoin_outpoint,
 msgdata,onchaind_annotate_txout,type,enum wallet_tx_type,
 
 msgtype,onchaind_annotate_txin,5036

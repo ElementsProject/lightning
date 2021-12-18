@@ -274,7 +274,7 @@ def _extra_validator():
             return False
         return instance[0:2] == "02" or instance[0:2] == "03"
 
-    def is_pubkey32(checker, instance):
+    def is_point32(checker, instance):
         """x-only BIP-340 public key"""
         if not checker.is_type(instance, "hex"):
             return False
@@ -319,7 +319,7 @@ def _extra_validator():
         "txid": is_txid,
         "signature": is_signature,
         "bip340sig": is_bip340sig,
-        "pubkey32": is_pubkey32,
+        "point32": is_point32,
         "short_channel_id": is_short_channel_id,
     })
 

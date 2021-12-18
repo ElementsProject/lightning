@@ -1,23 +1,14 @@
+#include "config.h"
 #include <bitcoin/base58.h>
-#include <bitcoin/block.h>
-#include <bitcoin/feerate.h>
-#include <bitcoin/script.h>
-#include <bitcoin/shadouble.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
-#include <ccan/json_out/json_out.h>
 #include <ccan/pipecmd/pipecmd.h>
-#include <ccan/str/hex/hex.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
-#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
-#include <common/utils.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 /* Bitcoind's web server has a default of 4 threads, with queue depth 16.
@@ -26,6 +17,7 @@
  * This is how many request for each priority level we have.
  */
 #define BITCOIND_MAX_PARALLEL 4
+#define RPC_TRANSACTION_ALREADY_IN_CHAIN -27
 
 enum bitcoind_prio {
 	BITCOIND_LOW_PRIO,
@@ -51,6 +43,9 @@ struct bitcoind {
 
 	/* Pending requests (high and low prio). */
 	struct list_head pending[BITCOIND_NUM_PRIO];
+
+	/* In flight requests (in a list for memleak detection) */
+	struct list_head current;
 
 	/* If non-zero, time we first hit a bitcoind error. */
 	unsigned int error_count;
@@ -176,9 +171,18 @@ static char *bcli_args(struct bitcoin_cli *bcli)
     return args_string(bcli, bcli->args);
 }
 
+/* Only set as destructor once bcli is in current. */
+static void destroy_bcli(struct bitcoin_cli *bcli)
+{
+	list_del_from(&bitcoind->current, &bcli->list);
+}
+
 static void retry_bcli(void *cb_arg)
 {
 	struct bitcoin_cli *bcli = cb_arg;
+	list_del_from(&bitcoind->current, &bcli->list);
+	tal_del_destructor(bcli, destroy_bcli);
+
 	list_add_tail(&bitcoind->pending[bcli->prio], &bcli->list);
 	next_bcli(bcli->prio);
 }
@@ -210,7 +214,7 @@ static void bcli_failure(struct bitcoin_cli *bcli,
 		   bcli_args(bcli), exitstatus);
 	bitcoind->error_count++;
 
-	/* Retry in 1 second (not a leak!) */
+	/* Retry in 1 second */
 	plugin_timer(bcli->cmd->plugin, time_from_sec(1), retry_bcli, bcli);
 }
 
@@ -287,8 +291,12 @@ static void next_bcli(enum bitcoind_prio prio)
 
 	bitcoind->num_requests[prio]++;
 
-	conn = io_new_conn(bcli, bcli->fd, output_init, bcli);
+	/* We don't keep a pointer to this, but it's not a leak */
+	conn = notleak(io_new_conn(bcli, bcli->fd, output_init, bcli));
 	io_set_finish(conn, bcli_finished, bcli);
+
+	list_add_tail(&bitcoind->current, &bcli->list);
+	tal_add_destructor(bcli, destroy_bcli);
 }
 
 /* If ctx is non-NULL, and is freed before we return, we don't call process().
@@ -483,7 +491,10 @@ static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcl
 				bcli->output);
 
 	response = jsonrpc_stream_success(bcli->cmd);
-	json_add_bool(response, "success", *bcli->exitstatus == 0);
+	json_add_bool(response, "success",
+		      *bcli->exitstatus == 0 ||
+			  *bcli->exitstatus ==
+			      RPC_TRANSACTION_ALREADY_IN_CHAIN);
 	json_add_string(response, "errmsg",
 			*bcli->exitstatus ?
 			tal_strndup(bcli->cmd,
@@ -851,6 +862,13 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	tal_free(cmd);
 }
 
+#if DEVELOPER
+static void memleak_mark_bitcoind(struct plugin *p, struct htable *memtable)
+{
+	memleak_remove_region(memtable, bitcoind, sizeof(*bitcoind));
+}
+#endif
+
 static const char *init(struct plugin *p, const char *buffer UNUSED,
 			const jsmntok_t *config UNUSED)
 {
@@ -862,6 +880,9 @@ static const char *init(struct plugin *p, const char *buffer UNUSED,
 	else
 		bitcoind->fake_fees = false;
 
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark_bitcoind);
+#endif
 	plugin_log(p, LOG_INFORM,
 		   "bitcoin-cli initialized and connected to bitcoind.");
 
@@ -918,6 +939,7 @@ static struct bitcoind *new_bitcoind(const tal_t *ctx)
 		bitcoind->num_requests[i] = 0;
 		list_head_init(&bitcoind->pending[i]);
 	}
+	list_head_init(&bitcoind->current);
 	bitcoind->error_count = 0;
 	bitcoind->retry_timeout = 60;
 	bitcoind->rpcuser = NULL;

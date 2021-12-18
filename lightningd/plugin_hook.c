@@ -1,12 +1,7 @@
-#include <ccan/asort/asort.h>
+#include "config.h"
 #include <ccan/io/io.h>
-#include <ccan/list/list.h>
-#include <common/configdir.h>
 #include <common/memleak.h>
-#include <lightningd/jsonrpc.h>
 #include <lightningd/plugin_hook.h>
-#include <wallet/db.h>
-#include <wallet/db_common.h>
 
 /* Struct containing all the information needed to deserialize and
  * dispatch an eventual plugin_hook response. */
@@ -163,19 +158,20 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	struct plugin_hook_call_link *last, *it;
 	bool in_transaction = false;
 
-	log_debug(r->ld->log, "Plugin %s returned from %s hook call",
-		  r->plugin->shortname, r->hook->name);
+	/* Pop the head off the call chain and continue with the next */
+	last = list_pop(&r->call_chain, struct plugin_hook_call_link, list);
+	assert(last != NULL);
+	tal_del_destructor(last, plugin_hook_killed);
+	tal_free(last);
 
 	if (r->ld->state == LD_STATE_SHUTDOWN) {
 		log_debug(r->ld->log,
 			  "Abandoning plugin hook call due to shutdown");
 		return;
 	}
-	/* Pop the head off the call chain and continue with the next */
-	last = list_pop(&r->call_chain, struct plugin_hook_call_link, list);
-	assert(last != NULL);
-	tal_del_destructor(last, plugin_hook_killed);
-	tal_free(last);
+
+	log_debug(r->ld->log, "Plugin %s returned from %s hook call",
+		  r->plugin->shortname, r->hook->name);
 
 	if (buffer) {
 		resulttok = json_get_member(buffer, toks, "result");

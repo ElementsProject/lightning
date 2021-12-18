@@ -2,11 +2,8 @@
 #define LIGHTNING_COMMON_HTLC_WIRE_H
 #include "config.h"
 #include <bitcoin/preimage.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
 #include <common/htlc.h>
 #include <common/sphinx.h>
-#include <wire/onion_wire.h>
 
 struct bitcoin_tx;
 struct shachain;
@@ -18,6 +15,7 @@ struct added_htlc {
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	bool fail_immediate;
 
 	/* If this is non-NULL, secret is the resulting shared secret */
 	struct pubkey *blinding;
@@ -76,14 +74,11 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					const struct preimage *preimage TAKES,
 					const struct failed_htlc *failed TAKES);
 
-struct failed_htlc *failed_htlc_dup(const tal_t *ctx, const struct failed_htlc *f TAKES);
-
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added);
 void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing);
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled);
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed);
 void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed);
-void towire_htlc_state(u8 **pptr, const enum htlc_state hstate);
 void towire_side(u8 **pptr, const enum side side);
 void towire_shachain(u8 **pptr, const struct shachain *shachain);
 
@@ -97,7 +92,6 @@ struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor,
 					 size_t *max);
 void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 			   struct changed_htlc *changed);
-enum htlc_state fromwire_htlc_state(const u8 **cursor, size_t *max);
 enum side fromwire_side(const u8 **cursor, size_t *max);
 void fromwire_shachain(const u8 **cursor, size_t *max,
 		       struct shachain *shachain);

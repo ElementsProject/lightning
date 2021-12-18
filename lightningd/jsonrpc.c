@@ -13,41 +13,25 @@
  * that point, the `json_connection` becomes the owner (or it's simply freed).
  */
 /* eg: { "jsonrpc":"2.0", "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
-#include "ccan/config.h"
-#include <arpa/inet.h>
+#include "config.h"
 #include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
-#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/str/hex/hex.h>
-#include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/timeout.h>
-#include <common/utils.h>
-#include <common/version.h>
-#include <common/wireaddr.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <lightningd/chaintopology.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/log.h>
-#include <lightningd/memdump.h>
-#include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
-#include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/un.h>
-#include <wallet/db.h>
 
 
 /* Dummy structure. */
@@ -949,6 +933,11 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    json_tok_full(jcon->buffer, method));
 	}
 
+	if (jcon->ld->state == LD_STATE_SHUTDOWN) {
+		return command_fail(c, LIGHTNINGD_SHUTDOWN,
+				    "lightningd is shutting down");
+	}
+
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
@@ -988,7 +977,7 @@ static struct io_plan *start_json_stream(struct io_conn *conn,
 	io_wake(conn);
 
 	/* Once the stop_conn conn is drained, we can shut down. */
-	if (jcon->ld->stop_conn == conn) {
+	if (jcon->ld->stop_conn == conn && jcon->ld->state == LD_STATE_RUNNING) {
 		/* Return us to toplevel lightningd.c */
 		io_break(jcon->ld);
 		/* We never come back. */

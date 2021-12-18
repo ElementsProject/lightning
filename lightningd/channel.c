@@ -1,31 +1,22 @@
-#include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
-#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
+#include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
 #include <common/closing_fee.h>
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
-#include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_state_names_gen.h>
 #include <lightningd/connect_control.h>
-#include <lightningd/hsm_control.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
-#include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <wallet/txfilter.h>
 #include <wire/wire_sync.h>
 
 static bool connects_to_peer(struct subd *owner)
@@ -154,8 +145,7 @@ static void destroy_inflight(struct channel_inflight *inflight)
 
 struct channel_inflight *
 new_inflight(struct channel *channel,
-	     const struct bitcoin_txid funding_txid,
-	     u16 funding_outnum,
+	     const struct bitcoin_outpoint *funding_outpoint,
 	     u32 funding_feerate,
 	     struct amount_sat total_funds,
 	     struct amount_sat our_funds,
@@ -173,9 +163,8 @@ new_inflight(struct channel *channel,
 	struct funding_info *funding
 		= tal(inflight, struct funding_info);
 
-	funding->txid = funding_txid;
+	funding->outpoint = *funding_outpoint;
 	funding->total_funds = total_funds;
-	funding->outnum = funding_outnum;
 	funding->feerate = funding_feerate;
 	funding->our_funds = our_funds;
 
@@ -229,6 +218,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 {
 	struct lightningd *ld = peer->ld;
 	struct channel *channel = tal(ld, struct channel);
+	u8 *msg;
 
 	channel->peer = peer;
 	/* Not saved to the database yet! */
@@ -263,6 +253,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->closing_fee_negotiation_step_unit
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding = NULL;
+	channel->closing_feerate_range = NULL;
 
 	/* Channel is connected! */
 	channel->connected = true;
@@ -273,6 +264,8 @@ struct channel *new_unsaved_channel(struct peer *peer,
 
 	channel->feerate_base = feerate_base;
 	channel->feerate_ppm = feerate_ppm;
+	channel->old_feerate_timeout.ts.tv_sec = 0;
+	channel->old_feerate_timeout.ts.tv_nsec = 0;
 	/* closer not yet known */
 	channel->closer = NUM_SIDES;
 
@@ -283,7 +276,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	 * | `option_anchor_outputs`    */
 	channel->static_remotekey_start[LOCAL]
 		= channel->static_remotekey_start[REMOTE] = 0;
-	channel->option_anchor_outputs = true;
+	channel->type = channel_type_anchor_outputs(channel);
 	channel->future_per_commitment_point = NULL;
 
 	channel->lease_commit_sig = NULL;
@@ -291,6 +284,14 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
 	shachain_init(&channel->their_shachain.chain);
+
+	msg = towire_hsmd_new_channel(NULL, &peer->id, channel->unsaved_dbid);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!fromwire_hsmd_new_channel_reply(msg))
+		fatal("HSM gave bad hsm_new_channel_reply %s",
+		      tal_hex(msg, msg));
 
 	get_channel_basepoints(ld, &peer->id, channel->unsaved_dbid,
 			       &channel->local_basepoints,
@@ -319,9 +320,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_index_local,
 			    u64 next_index_remote,
 			    u64 next_htlc_id,
-			    const struct bitcoin_txid *funding_txid,
-			    u16 funding_outnum,
-			    struct amount_sat funding,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
@@ -357,7 +357,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const u8 *remote_upfront_shutdown_script,
 			    u64 local_static_remotekey_start,
 			    u64 remote_static_remotekey_start,
-			    bool option_anchor_outputs,
+			    const struct channel_type *type STEALS,
 			    enum side closer,
 			    enum state_change reason,
 			    /* NULL or stolen */
@@ -403,9 +403,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_index[LOCAL] = next_index_local;
 	channel->next_index[REMOTE] = next_index_remote;
 	channel->next_htlc_id = next_htlc_id;
-	channel->funding_txid = *funding_txid;
-	channel->funding_outnum = funding_outnum;
-	channel->funding = funding;
+	channel->funding = *funding;
+	channel->funding_sats = funding_sats;
 	channel->push = push;
 	channel->our_funds = our_funds;
 	channel->remote_funding_locked = remote_funding_locked;
@@ -429,6 +428,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding
 		= tal_steal(channel, shutdown_wrong_funding);
+	channel->closing_feerate_range = NULL;
 	if (local_shutdown_scriptpubkey)
 		channel->shutdown_scriptpubkey[LOCAL]
 			= tal_steal(channel, local_shutdown_scriptpubkey);
@@ -448,11 +448,13 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		= tal_steal(channel, future_per_commitment_point);
 	channel->feerate_base = feerate_base;
 	channel->feerate_ppm = feerate_ppm;
+	channel->old_feerate_timeout.ts.tv_sec = 0;
+	channel->old_feerate_timeout.ts.tv_nsec = 0;
 	channel->remote_upfront_shutdown_script
 		= tal_steal(channel, remote_upfront_shutdown_script);
 	channel->static_remotekey_start[LOCAL] = local_static_remotekey_start;
 	channel->static_remotekey_start[REMOTE] = remote_static_remotekey_start;
-	channel->option_anchor_outputs = option_anchor_outputs;
+	channel->type = tal_steal(channel, type);
 	channel->forgets = tal_arr(channel, struct command *, 0);
 
 	channel->lease_expiry = lease_expiry;
@@ -518,7 +520,7 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 {
 	struct channel_inflight *inflight;
 	list_for_each(&channel->inflights, inflight, list) {
-		if (bitcoin_txid_eq(txid, &inflight->funding->txid))
+		if (bitcoin_txid_eq(txid, &inflight->funding->outpoint.txid))
 			return inflight;
 	}
 

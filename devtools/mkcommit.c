@@ -8,28 +8,24 @@
    0000000000000000000000000000000000000000000000000000000000000020 0000000000000000000000000000000000000000000000000000000000000000 0000000000000000000000000000000000000000000000000000000000000021 0000000000000000000000000000000000000000000000000000000000000022 0000000000000000000000000000000000000000000000000000000000000023 0000000000000000000000000000000000000000000000000000000000000024 \
    0000000000000000000000000000000000000000000000000000000000000010 FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0000000000000000000000000000000000000000000000000000000000000011 0000000000000000000000000000000000000000000000000000000000000012 0000000000000000000000000000000000000000000000000000000000000013 0000000000000000000000000000000000000000000000000000000000000014
  */
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/full_channel.h>
-#include <common/amount.h>
 #include <common/blockheight_states.h>
-#include <common/channel_id.h>
-#include <common/derive_basepoints.h>
+#include <common/channel_type.h>
 #include <common/fee_states.h>
 #include <common/htlc_wire.h>
 #include <common/key_derive.h>
-#include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
 
 static bool verbose = false;
@@ -154,6 +150,7 @@ static int parse_config(char *argv[],
 	config->max_htlc_value_in_flight = AMOUNT_MSAT(-1ULL);
 	config->htlc_minimum = AMOUNT_MSAT(0);
 	config->max_accepted_htlcs = 483;
+	config->max_dust_htlc_exposure_msat = AMOUNT_MSAT(-1ULL);
 
 	config->to_self_delay = atoi(argv[argnum]);
 	argnum++;
@@ -253,8 +250,7 @@ int main(int argc, char *argv[])
 	u64 commitnum;
 	struct amount_sat funding_amount;
 	struct channel_id cid;
-	struct bitcoin_txid funding_txid;
-	unsigned int funding_outnum;
+	struct bitcoin_outpoint funding;
 	u32 feerate_per_kw;
 	struct pubkey local_per_commit_point, remote_per_commit_point;
 	struct bitcoin_signature local_sig, remote_sig;
@@ -271,6 +267,7 @@ int main(int argc, char *argv[])
 	struct privkey local_htlc_privkey, remote_htlc_privkey;
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
 	bool option_static_remotekey = false, option_anchor_outputs = false;
+	const struct channel_type *channel_type;
 	struct sha256_double hash;
 	u32 blockheight = 0;
 
@@ -317,10 +314,10 @@ int main(int argc, char *argv[])
 	argnum = 1;
 	commitnum = atol(argv[argnum++]);
 	if (!bitcoin_txid_from_hex(argv[argnum],
-				   strlen(argv[argnum]), &funding_txid))
+				   strlen(argv[argnum]), &funding.txid))
 		errx(1, "Bad funding-txid");
 	argnum++;
-	funding_outnum = atoi(argv[argnum++]);
+	funding.n = atoi(argv[argnum++]);
 	if (!parse_amount_sat(&funding_amount, argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad funding-amount");
 	argnum++;
@@ -391,11 +388,18 @@ int main(int argc, char *argv[])
 			 &remotebase, &funding_remotekey, commitnum);
 
 	/* FIXME: option for v2? */
-	derive_channel_id(&cid, &funding_txid, funding_outnum);
+	derive_channel_id(&cid, &funding);
+
+	if (option_anchor_outputs)
+		channel_type = channel_type_anchor_outputs(NULL);
+	else if (option_static_remotekey)
+		channel_type = channel_type_static_remotekey(NULL);
+	else
+		channel_type = channel_type_none(NULL);
 
 	channel = new_full_channel(NULL,
 				   &cid,
-				   &funding_txid, funding_outnum, 1,
+				   &funding, 1,
 				   take(new_height_states(NULL, fee_payer,
 							  &blockheight)),
 				   0, /* Defaults to no lease */
@@ -406,8 +410,8 @@ int main(int argc, char *argv[])
 				   &localconfig, &remoteconfig,
 				   &localbase, &remotebase,
 				   &funding_localkey, &funding_remotekey,
-				   option_static_remotekey,
-				   option_anchor_outputs,
+				   channel_type,
+				   false,
 				   fee_payer);
 
 	if (!channel_force_htlcs(channel,

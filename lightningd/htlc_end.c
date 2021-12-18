@@ -1,13 +1,12 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/htlc.h>
-#include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <common/type_to_string.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
-#include <stdio.h>
 
 size_t hash_htlc_key(const struct htlc_key *k)
 {
@@ -132,7 +131,8 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret TAKES,
 			    const struct pubkey *blinding TAKES,
 			    const struct secret *blinding_ss,
-			    const u8 *onion_routing_packet)
+			    const u8 *onion_routing_packet,
+			    bool fail_immediate)
 {
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
 
@@ -143,6 +143,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->cltv_expiry = cltv_expiry;
 	hin->payment_hash = *payment_hash;
 	hin->status = NULL;
+	hin->fail_immediate = fail_immediate;
 	if (shared_secret)
 		hin->shared_secret = tal_dup(hin, struct secret, shared_secret);
 	else
@@ -279,6 +280,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct pubkey *blinding,
 			      bool am_origin,
 			      u64 partid,
+			      u64 groupid,
 			      struct htlc_in *in)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
@@ -305,8 +307,10 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	else
 		hout->blinding = NULL;
 	hout->am_origin = am_origin;
-	if (am_origin)
+	if (am_origin) {
 		hout->partid = partid;
+		hout->groupid = groupid;
+	}
 	hout->in = NULL;
 	if (in)
 		htlc_out_connect_htlc_in(hout, in);

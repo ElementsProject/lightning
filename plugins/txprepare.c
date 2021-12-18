@@ -1,21 +1,14 @@
-#include <bitcoin/chainparams.h>
-#include <bitcoin/feerate.h>
+#include "config.h"
 #include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/json_out/json_out.h>
-#include <ccan/list/list.h>
-#include <ccan/tal/str/str.h>
 #include <common/addr.h>
-#include <common/amount.h>
-#include <common/features.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
+#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <plugins/libplugin.h>
+#include <wally_psbt.h>
 
 struct tx_output {
 	struct amount_sat amount;
@@ -212,6 +205,8 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	if (txp->is_withdraw) {
 		struct out_req *req;
 
+		/* Won't live beyond this cmd. */
+		tal_steal(cmd, utx);
 		req = jsonrpc_request_start(cmd->plugin, cmd, "signpsbt",
 					    signpsbt_done, forward_error,
 					    utx);
@@ -558,9 +553,25 @@ static const struct plugin_command commands[] = {
 	},
 };
 
+#if DEVELOPER
+static void mark_unreleased_txs(struct plugin *plugin, struct htable *memtable)
+{
+	memleak_remove_region(memtable, &unreleased_txs, sizeof(unreleased_txs));
+}
+#endif
+
+static const char *init(struct plugin *p,
+			const char *buf UNUSED, const jsmntok_t *config UNUSED)
+{
+#if DEVELOPER
+	plugin_set_memleak_handler(p, mark_unreleased_txs);
+#endif
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, NULL, PLUGIN_RESTARTABLE, true, NULL, commands,
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands,
 		    ARRAY_SIZE(commands), NULL, 0, NULL, 0, NULL, 0, NULL);
 }

@@ -1,43 +1,91 @@
-#include <ccan/array_size/array_size.h>
+#include "config.h"
+#include <ccan/closefrom/closefrom.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
-#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
-#include <ccan/str/str.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/crypto_state.h>
 #include <common/memleak.h>
 #include <common/peer_status_wiregen.h>
-#include <common/per_peer_state.h>
 #include <common/status_wiregen.h>
 #include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/log_status.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
-#include <signal.h>
-#include <stdarg.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
-#include <wallet/db.h>
 #include <wire/common_wiregen.h>
 #include <wire/wire_io.h>
 
-static bool move_fd(int from, int to)
+/* Carefully move fd *@from to @to: on success *from set to to */
+static bool move_fd(int *from, int to)
 {
-	assert(from >= 0);
-	if (dup2(from, to) == -1)
+	assert(*from >= 0);
+
+	/* dup2 with same arguments may be a no-op, but
+	 * the later close would make the fd invalid.
+	 * Handle this edge case.
+	 */
+	if (*from == to)
+		return true;
+
+	if (dup2(*from, to) == -1)
 		return false;
-	close(from);
+
+	/* dup2 does not duplicate flags, copy it here.
+	 * This should be benign; the only POSIX-defined
+	 * flag is FD_CLOEXEC, and we only use it rarely.
+	 */
+	if (fcntl(to, F_SETFD, fcntl(*from, F_GETFD)) < 0)
+		return false;
+
+	close(*from);
+	*from = to;
+	return true;
+}
+
+/* Returns index of fds which is == this fd, or -1 */
+static int fd_used(int **fds, size_t num_fds, int fd)
+{
+	for (size_t i = 0; i < num_fds; i++) {
+		if (*fds[i] == fd)
+			return i;
+	}
+	return -1;
+}
+
+/* Move an series of fd pointers into 0, 1, ... */
+static bool shuffle_fds(int **fds, size_t num_fds)
+{
+	/* If we need to move an fd out the way, this is a good place to start
+	 * looking */
+	size_t next_free_fd = num_fds;
+	for (size_t i = 0; i < num_fds; i++) {
+		int in_the_way;
+
+		/* Already in the right place?  Great! */
+		if (*fds[i] == i)
+			continue;
+		/* Is something we care about in the way? */
+		in_the_way = fd_used(fds + i, num_fds - i, i);
+		if (in_the_way != -1) {
+			/* Find a high-numbered unused fd. */
+			while (fd_used(fds + i, num_fds - i, next_free_fd) != -1)
+				next_free_fd++;
+			/* Trick: in_the_way is offset by i! */
+			if (!move_fd(fds[i + in_the_way], next_free_fd))
+				return false;
+			next_free_fd++;
+		}
+
+		/* Now there should be nothing in the way. */
+		assert(fd_used(fds, num_fds, i) == -1);
+		if (!move_fd(fds[i], i))
+			return false;
+	}
 	return true;
 }
 
@@ -163,45 +211,37 @@ static int subd(const char *path, const char *name,
 		goto close_execfail_fail;
 
 	if (childpid == 0) {
-		int fdnum = 3, i, stdin_is_now = STDIN_FILENO;
-		long max;
 		size_t num_args;
 		char *args[] = { NULL, NULL, NULL, NULL, NULL };
+		int **fds = tal_arr(tmpctx, int *, 3);
+		int stdoutfd = STDOUT_FILENO, stderrfd = STDERR_FILENO;
 
 		close(childmsg[0]);
 		close(execfail[0]);
 
-		// msg = STDIN
-		if (childmsg[1] != STDIN_FILENO) {
-			/* Do we need to move STDIN out the way? */
-			stdin_is_now = dup(STDIN_FILENO);
-			if (!move_fd(childmsg[1], STDIN_FILENO))
-				goto child_errno_fail;
-		}
+		/* msg = STDIN (0) */
+		fds[0] = &childmsg[1];
+		/* These are untouched */
+		fds[1] = &stdoutfd;
+		fds[2] = &stderrfd;
 
-		// Move dev_disconnect_fd out the way.
-		if (dev_disconnect_fd != -1) {
-			if (!move_fd(dev_disconnect_fd, 101))
-				goto child_errno_fail;
-			dev_disconnect_fd = 101;
-		}
-
-		/* Dup any extra fds up first. */
 		while ((fd = va_arg(*ap, int *)) != NULL) {
-			int actual_fd = *fd;
-			/* If this were stdin, we moved it above! */
-			if (actual_fd == STDIN_FILENO)
-				actual_fd = stdin_is_now;
-			if (!move_fd(actual_fd, fdnum))
-				goto child_errno_fail;
-			fdnum++;
+			assert(*fd != -1);
+			tal_arr_expand(&fds, fd);
 		}
+
+		/* If we have a dev_disconnect_fd, add it after. */
+		if (dev_disconnect_fd != -1)
+			tal_arr_expand(&fds, &dev_disconnect_fd);
+
+		/* Finally, the fd to report exec errors on */
+		tal_arr_expand(&fds, &execfail[1]);
+
+		if (!shuffle_fds(fds, tal_count(fds)))
+			goto child_errno_fail;
 
 		/* Make (fairly!) sure all other fds are closed. */
-		max = sysconf(_SC_OPEN_MAX);
-		for (i = fdnum; i < max; i++)
-			if (i != dev_disconnect_fd)
-				close(i);
+		closefrom(tal_count(fds) + 1);
 
 		num_args = 0;
 		args[num_args++] = tal_strdup(NULL, path);

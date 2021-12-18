@@ -1,13 +1,8 @@
 #ifndef LIGHTNING_COMMON_STATUS_H
 #define LIGHTNING_COMMON_STATUS_H
 #include "config.h"
-#include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
-#include <ccan/take/take.h>
 #include <common/status_levels.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdlib.h>
 
 struct channel_id;
 struct daemon_conn;
@@ -74,4 +69,10 @@ void status_send_fatal(const u8 *msg TAKES) NORETURN;
 
 /* Only for sync status! */
 void status_send_fd(int fd);
+
+#if DEVELOPER
+/* Print BROKEN status: callback for dump_memleak. */
+void memleak_status_broken(const char *fmt, ...);
+#endif
+
 #endif /* LIGHTNING_COMMON_STATUS_H */

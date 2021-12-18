@@ -1,17 +1,13 @@
 #include "config.h"
-#include <assert.h>
 #include <common/amount.h>
 #include <common/bigsize.h>
 #include <common/channel_id.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
-#include <common/wireaddr.h>
+#include <common/setup.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 int test_main(int argc, char *argv[]);
 ssize_t test_read(int fd, void *buf, size_t len);
@@ -173,7 +169,7 @@ int test_chdir(const char *path)
 
 int main(int argc UNUSED, char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "test", "-N", "none", NULL };
 
@@ -195,6 +191,6 @@ int main(int argc UNUSED, char *argv[])
 		     "num_connected=1\n"));
 	tal_free(output);
 	assert(!taken_any());
-	take_cleanup();
+	common_shutdown();
 	return 0;
 }

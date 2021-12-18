@@ -20,7 +20,7 @@ ending in *000msat*, or a number with 1 to 8 decimal places ending in
 
 *feerate* can be one of the feerates listed in lightning-feerates(7),
 or one of the strings *urgent* (aim for next block), *normal* (next 4
-blocks or so) or *slow* (next 100 blocks or so) to use lightningd’s
+blocks or so) or *slow* (next 100 blocks or so) to use lightningd's
 internal estimates.  It can also be a *feerate* is a number, with an
 optional suffix: *perkw* means the number is interpreted as
 satoshi-per-kilosipa (weight), and *perkb* means it is interpreted
@@ -115,4 +115,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:fd84205c50f43a2e55b0adb1c4d0709cd5d909c211148b005674e8e1afffba53)
+[comment]: # ( SHA256STAMP:635cc321d158bcdb3ca24f13c9955cc9b867e34247c1cf3d91edbbe21eb06a48)

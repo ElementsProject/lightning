@@ -2,16 +2,8 @@
 #define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
 #include <bitcoin/block.h>
-#include <bitcoin/tx.h>
 #include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/structeq/structeq.h>
-#include <ccan/time/time.h>
-#include <jsmn.h>
-#include <lightningd/json.h>
 #include <lightningd/watch.h>
-#include <math.h>
-#include <stddef.h>
 
 struct bitcoin_tx;
 struct bitcoind;
@@ -126,6 +118,9 @@ struct chain_topology {
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
 	u32 headercount;
+
+	/* Are we stopped? */
+	bool stopping;
 };
 
 /* Information relevant to locating a TX in a blockchain. */

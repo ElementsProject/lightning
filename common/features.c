@@ -1,9 +1,8 @@
-#include "features.h"
+#include "config.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
-#include <common/memleak.h>
-#include <common/utils.h>
+#include <common/features.h>
 #include <wire/peer_wire.h>
 
 enum feature_copy_style {
@@ -71,7 +70,7 @@ static const struct feature_style feature_styles[] = {
 	{ OPT_ONION_MESSAGES,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
-			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 	{ OPT_SHUTDOWN_WRONG_FUNDING,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
@@ -87,6 +86,10 @@ static const struct feature_style feature_styles[] = {
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 	{ OPT_SHUTDOWN_ANYSEGWIT,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_QUIESCE,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
@@ -375,7 +378,7 @@ int features_unsupported(const struct feature_set *our_features,
 	return all_supported_features(our_features, their_features, p);
 }
 
-static const char *feature_name(const tal_t *ctx, size_t f)
+const char *feature_name(const tal_t *ctx, size_t f)
 {
 	static const char *fnames[] = {
 		"option_data_loss_protect", 	/* 0/1 */
@@ -390,22 +393,22 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_support_large_channel",
 		"option_anchor_outputs", 	/* 20/21 */
 		"option_anchors_zero_fee_htlc_tx",
-		NULL,
+		"option_trampoline_routing", /* https://github.com/lightningnetwork/lightning-rfc/pull/836 */
 		"option_shutdown_anysegwit",
 		"option_dual_fund",
-		NULL, /* 30/31 */
+		"option_amp", /* 30/31 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/658 */
 		NULL,
+		"option_quiesce", /* https://github.com/lightningnetwork/lightning-rfc/pull/869 */
 		NULL,
-		NULL,
-		"option_onion_messages", /* 38/39 */
-		NULL, /* 40/41 */
-		NULL,
+		"option_onion_messages",  /* https://github.com/lightningnetwork/lightning-rfc/pull/759 */
+		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
+		"option_provide_peer_backup", /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
 		NULL,
 		NULL,
 		NULL,
 		NULL, /* 50/51 */
 		NULL,
-		NULL,
+		"option_keysend",
 		NULL,
 		NULL,
 		NULL, /* 60/61 */

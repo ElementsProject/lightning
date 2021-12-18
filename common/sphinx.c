@@ -1,23 +1,17 @@
 #include "config.h"
 #include <assert.h>
 
-#include <ccan/array_size/array_size.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
-#include <common/node_id.h>
 #include <common/onion.h>
 #include <common/onionreply.h>
 #include <common/sphinx.h>
-#include <common/utils.h>
 
-#include <err.h>
 
 #include <secp256k1_ecdh.h>
 
 #include <sodium/crypto_stream_chacha20.h>
+#include <sodium/randombytes.h>
 
-#include <wire/wire.h>
 
 #define BLINDING_FACTOR_SIZE 32
 
@@ -116,6 +110,19 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 	sp.raw_payload = tal_dup_talarr(path, u8, payload);
 	sp.pubkey = *pubkey;
 	tal_arr_expand(&path->hops, sp);
+}
+
+void sphinx_add_modern_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+			   const u8 *payload TAKES)
+{
+	u8 *with_len = tal_arr(NULL, u8, 0);
+	size_t len = tal_bytelen(payload);
+	towire_bigsize(&with_len, len);
+	towire_u8_array(&with_len, payload, len);
+	if (taken(payload))
+		tal_free(payload);
+
+	sphinx_add_hop(path, pubkey, take(with_len));
 }
 
 /* Small helper to append data to a buffer and update the position

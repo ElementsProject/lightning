@@ -2,8 +2,6 @@
 #define LIGHTNING_COMMON_PARAM_H
 #include "config.h"
 #include <common/json.h>
-#include <common/json_tok.h>
-#include <stdbool.h>
 
 /*~ Greetings adventurer!
  *

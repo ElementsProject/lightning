@@ -72,7 +72,8 @@ static inline uint32_t gf2_matrix_times(uint32_t *mat, uint32_t vec) {
 /* Multiply a matrix by itself over GF(2).  Both mat and square must have 32
    rows. */
 static inline void gf2_matrix_square(uint32_t *square, uint32_t *mat) {
-    for (unsigned n = 0; n < 32; n++)
+    unsigned n;
+    for (n = 0; n < 32; n++)
         square[n] = gf2_matrix_times(mat, mat[n]);
 }
 
@@ -87,7 +88,8 @@ static void crc32c_zeros_op(uint32_t *even, size_t len) {
     /* put operator for one zero bit in odd */
     odd[0] = POLY;              /* CRC-32C polynomial */
     uint32_t row = 1;
-    for (unsigned n = 1; n < 32; n++) {
+    unsigned n;
+    for (n = 1; n < 32; n++) {
         odd[n] = row;
         row <<= 1;
     }
@@ -111,7 +113,7 @@ static void crc32c_zeros_op(uint32_t *even, size_t len) {
     } while (len);
 
     /* answer ended up in odd -- copy to even */
-    for (unsigned n = 0; n < 32; n++)
+    for (n = 0; n < 32; n++)
         even[n] = odd[n];
 }
 
@@ -121,7 +123,8 @@ static void crc32c_zeros(uint32_t zeros[][256], size_t len) {
     uint32_t op[32];
 
     crc32c_zeros_op(op, len);
-    for (unsigned n = 0; n < 256; n++) {
+    unsigned n;
+    for (n = 0; n < 256; n++) {
         zeros[0][n] = gf2_matrix_times(op, n);
         zeros[1][n] = gf2_matrix_times(op, n << 8);
         zeros[2][n] = gf2_matrix_times(op, n << 16);
@@ -265,7 +268,8 @@ uint32_t crc32c(uint32_t crc, void const *buf, size_t len) {
 static bool crc32c_once_little;
 static uint32_t crc32c_table_little[8][256];
 static void crc32c_init_sw_little(void) {
-    for (unsigned n = 0; n < 256; n++) {
+    unsigned n;
+    for (n = 0; n < 256; n++) {
         uint32_t crc = n;
         crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
         crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
@@ -277,9 +281,10 @@ static void crc32c_init_sw_little(void) {
         crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
         crc32c_table_little[0][n] = crc;
     }
-    for (unsigned n = 0; n < 256; n++) {
+    for (n = 0; n < 256; n++) {
         uint32_t crc = crc32c_table_little[0][n];
-        for (unsigned k = 1; k < 8; k++) {
+        unsigned k;
+        for (k = 1; k < 8; k++) {
             crc = crc32c_table_little[0][crc & 0xff] ^ (crc >> 8);
             crc32c_table_little[k][n] = crc;
         }
@@ -340,7 +345,8 @@ static bool crc32c_once_big;
 static uint32_t crc32c_table_big_byte[256];
 static uint64_t crc32c_table_big[8][256];
 static void crc32c_init_sw_big(void) {
-    for (unsigned n = 0; n < 256; n++) {
+    unsigned n;
+    for (n = 0; n < 256; n++) {
         uint32_t crc = n;
         crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
         crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
@@ -352,10 +358,11 @@ static void crc32c_init_sw_big(void) {
         crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
         crc32c_table_big_byte[n] = crc;
     }
-    for (unsigned n = 0; n < 256; n++) {
+    for (n = 0; n < 256; n++) {
         uint32_t crc = crc32c_table_big_byte[n];
         crc32c_table_big[0][n] = swap(crc);
-        for (unsigned k = 1; k < 8; k++) {
+        unsigned k;
+        for (k = 1; k < 8; k++) {
             crc = crc32c_table_big_byte[crc & 0xff] ^ (crc >> 8);
             crc32c_table_big[k][n] = swap(crc);
         }

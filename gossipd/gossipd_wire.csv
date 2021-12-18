@@ -23,19 +23,6 @@ msgtype,gossipd_init_reply,3100
 msgtype,gossipd_dev_set_time,3001
 msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
 
-# Ping/pong test.  Waits for a reply if it expects one.
-msgtype,gossipd_ping,3008
-msgdata,gossipd_ping,id,node_id,
-msgdata,gossipd_ping,num_pong_bytes,u16,
-msgdata,gossipd_ping,len,u16,
-
-msgtype,gossipd_ping_reply,3108
-msgdata,gossipd_ping_reply,id,node_id,
-# False if id in gossip_ping was unknown.
-msgdata,gossipd_ping_reply,sent,bool,
-# 0 == no pong expected
-msgdata,gossipd_ping_reply,totlen,u16,
-
 # Set artificial maximum reply_channel_range size.  Master->gossipd
 msgtype,gossipd_dev_set_max_scids_encode_size,3030
 msgdata,gossipd_dev_set_max_scids_encode_size,max,u32,
@@ -87,28 +74,24 @@ msgdata,gossipd_dev_compact_store_reply,success,bool,
 msgtype,gossipd_new_blockheight,3026
 msgdata,gossipd_new_blockheight,blockheight,u32,
 
-# Tell lightningd we got a onion message (for us, or to fwd)
-msgtype,gossipd_got_onionmsg_to_us,3142
-msgdata,gossipd_got_onionmsg_to_us,blinding_in,?pubkey,
+msgtype,gossipd_got_onionmsg_to_us,3145
+msgdata,gossipd_got_onionmsg_to_us,obs2,bool,
+msgdata,gossipd_got_onionmsg_to_us,node_alias,pubkey,
+msgdata,gossipd_got_onionmsg_to_us,self_id,?secret,
 msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_first_node,?pubkey,
 msgdata,gossipd_got_onionmsg_to_us,reply_path_len,u16,
 msgdata,gossipd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
 msgdata,gossipd_got_onionmsg_to_us,rawmsg_len,u16,
 msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
 
-msgtype,gossipd_got_onionmsg_forward,3143
-msgdata,gossipd_got_onionmsg_forward,next_scid,?short_channel_id,
-msgdata,gossipd_got_onionmsg_forward,next_node_id,?node_id,
-msgdata,gossipd_got_onionmsg_forward,next_blinding,?pubkey,
-msgdata,gossipd_got_onionmsg_forward,next_onion_len,u16,
-msgdata,gossipd_got_onionmsg_forward,next_onion,u8,next_onion_len
-
-# Lightningd tells us to send a onion message.
-msgtype,gossipd_send_onionmsg,3040
+# Lightningd tells us to send an onion message.
+msgtype,gossipd_send_onionmsg,3041
+msgdata,gossipd_send_onionmsg,obs2,bool,
 msgdata,gossipd_send_onionmsg,id,node_id,
 msgdata,gossipd_send_onionmsg,onion_len,u16,
 msgdata,gossipd_send_onionmsg,onion,u8,onion_len
-msgdata,gossipd_send_onionmsg,blinding,?pubkey,
+msgdata,gossipd_send_onionmsg,blinding,pubkey,
 
 # Lightningd tells us to inject a gossip message (for addgossip RPC)
 msgtype,gossipd_addgossip,3044

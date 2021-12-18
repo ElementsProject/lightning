@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_COMMON_CHANNEL_CONFIG_H
 #define LIGHTNING_COMMON_CHANNEL_CONFIG_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/amount.h>
 
 /* BOLT #2:
@@ -73,6 +71,12 @@ struct channel_config {
 	 * similarly, `max_accepted_htlcs` limits the number of outstanding
 	 * HTLCs the other node can offer. */
 	u16 max_accepted_htlcs;
+
+	/* BOLT-TBD #X
+	 *
+	 * maximum dust exposure allowed for this channel
+	 */
+	struct amount_msat max_dust_htlc_exposure_msat;
 };
 
 void towire_channel_config(u8 **pptr, const struct channel_config *config);

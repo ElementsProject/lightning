@@ -1,11 +1,10 @@
 /* Simple wrapper to create zlib or raw encodings of hex. */
+#include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
 #include <common/decode_array.h>
-#include <common/utils.h>
 #include <stdio.h>
-#include <wire/wire.h>
 #include <zlib.h>
 
 static NORETURN void usage(void)

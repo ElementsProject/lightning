@@ -1,4 +1,5 @@
 /* Simple tool to route gossip from a peer. */
+#include "config.h"
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
@@ -7,6 +8,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
@@ -16,6 +18,7 @@
 #include <netdb.h>
 #include <poll.h>
 #include <secp256k1_ecdh.h>
+#include <stdio.h>
 #include <wire/peer_wire.h>
 
 #define io_write_ simple_write
@@ -315,9 +318,15 @@ int main(int argc, char *argv[])
 
 	case ADDR_INTERNAL_WIREADDR:
 		switch (addr.u.wireaddr.type) {
-		case ADDR_TYPE_TOR_V2:
+		case ADDR_TYPE_TOR_V2_REMOVED:
 		case ADDR_TYPE_TOR_V3:
 			opt_usage_exit_fail("Don't support proxy use");
+			break;
+		case ADDR_TYPE_WEBSOCKET:
+			opt_usage_exit_fail("Don't support websockets");
+			break;
+		case ADDR_TYPE_DNS:
+			opt_usage_exit_fail("Don't support DNS");
 			break;
 		case ADDR_TYPE_IPV4:
 			af = AF_INET;

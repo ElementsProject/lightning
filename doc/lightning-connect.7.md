@@ -12,11 +12,11 @@ DESCRIPTION
 The **connect** RPC command establishes a new connection with another
 node in the Lightning Network.
 
-*id* represents the target node’s public key. As a convenience, *id* may
+*id* represents the target node's public key. As a convenience, *id* may
 be of the form *id@host* or *id@host:port*. In this case, the *host* and
 *port* parameters must be omitted.
 
-*host* is the peer’s hostname or IP address.
+*host* is the peer's hostname or IP address.
 
 If not specified, the *port* defaults to 9735.
 
@@ -89,4 +89,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:306d0966721f20c9a8688f33a030114a5ac095c6218eeb7fafd88fca97b9ee52)
+[comment]: # ( SHA256STAMP:540ce22f5d912b59732b8b2659e4a950d1344eb926901e26476a246d9eb473b8)

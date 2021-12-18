@@ -1,0 +1,86 @@
+name: FreeBSD Test
+
+on: [push, pull_request]
+
+jobs:
+  testfreebsd:
+    runs-on: macos-10.15
+    name: Build and test on FreeBSD
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test in FreeBSD
+      id: test
+      uses: vmactions/freebsd-vm@v0.1.5
+      with:
+        envs: 'DEVELOPER VALGRIND EXPERIMENTAL_FEATURES COMPAT'
+        usesh: true
+        prepare: |
+          pkg install -y \
+            wget \
+            py38-pip \
+            py38-sqlite3 \
+            gmake \
+            git \
+            python \
+            postgresql12-server \
+            autoconf \
+            automake \
+            libtool \
+            gmp \
+            bash \
+            gettext \
+            sqlite3 \
+            curl
+
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2021-08-3z1
+
+          cd /tmp/ || exit 1
+          wget https://storage.googleapis.com/c-lightning-tests/bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
+          tar -xjf bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
+          sudo mv bitcoin-0.20.1/bin/* /usr/local/bin
+          rm -rf \
+            bitcoin-0.20.1-x86_64-linux-gnu.tar.gz \
+            bitcoin-0.20.1
+          
+        run: |
+          PATH=/root/.local/bin:$PATH
+          pip install --user -U wheel pip
+          pip install --user -U -r requirements.txt
+
+          # Install utilities that aren't dependencies, but make
+          # running tests easier/feasible on CI (and pytest which
+          # keeps breaking the rerunfailures plugin).
+          pip install --user -U \
+            blinker \
+            flake8 \
+            mako \
+            mrkd \
+            pytest-sentry \
+            pytest-test-groups==1.0.3 \
+            pytest-custom-exit-code==0.3.0 \
+            pytest-json-report
+
+          git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc
+          git submodule update --init --recursive
+
+          ./configure CC="$CC"
+          cat config.vars
+
+          cat << EOF > pytest.ini
+          [pytest]
+          addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42 --force-flaky --no-success-flaky-report --max-runs=3 --junitxml=report.xml --json-report --json-report-file=report.json --json-report-indent=2
+          markers =
+              slow_test: marks tests as slow (deselect with '-m "not slow_test"')
+          EOF
+
+          # Just run a "quick" test without memory checking
+          gmake
+
+          # Clean up to maximize rsync's chances of succeeding
+          gmake clean
+

@@ -1,19 +1,15 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/take/take.h>
-#include <common/amount.h>
-#include <common/json.h>
-#include <common/json_helpers.h>
+#include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <plugins/spender/multiwithdraw.h>
-#include <stdarg.h>
-#include <stdlib.h>
+#include <wally_psbt.h>
 
 /*-----------------------------------------------------------------------------
 Command Access

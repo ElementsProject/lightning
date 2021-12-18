@@ -1,7 +1,5 @@
+#include "config.h"
 #include <bitcoin/feerate.h>
-#include <bitcoin/varint.h>
-#include <limits.h>
-#include <stdlib.h>
 
 u32 feerate_from_style(u32 feerate, enum feerate_style style)
 {

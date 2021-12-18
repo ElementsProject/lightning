@@ -3,32 +3,22 @@
  * by using bitcoin-cli, but the interface we use to gather Bitcoin data is
  * standardized and you can use another plugin as the Bitcoin backend, or
  * even make your own! */
-#include "bitcoin/base58.h"
-#include "bitcoin/block.h"
-#include "bitcoin/feerate.h"
-#include "bitcoin/script.h"
-#include "bitcoin/shadouble.h"
-#include "bitcoind.h"
-#include "lightningd.h"
-#include "log.h"
+#include "config.h"
+#include <bitcoin/base58.h>
+#include <bitcoin/block.h>
+#include <bitcoin/feerate.h>
+#include <bitcoin/script.h>
+#include <bitcoin/shadouble.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
-#include <ccan/pipecmd/pipecmd.h>
-#include <ccan/str/hex/hex.h>
-#include <ccan/str/str.h>
-#include <ccan/take/take.h>
-#include <ccan/tal/grab_file/grab_file.h>
-#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/configdir.h>
 #include <common/json_helpers.h>
 #include <common/memleak.h>
-#include <common/timeout.h>
-#include <common/utils.h>
-#include <errno.h>
-#include <inttypes.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/io_loop_with_timers.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/plugin.h>
 
 /* The names of the requests we can make to our Bitcoin backend. */
@@ -416,8 +406,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight",
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,
-				    /* Freed in cb. */
-				    notleak(call));
+				    call);
 	json_add_num(req->stream, "height", height);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
@@ -554,7 +543,7 @@ clean:
 }
 
 void bitcoind_getutxout_(struct bitcoind *bitcoind,
-			 const struct bitcoin_txid *txid, const u32 outnum,
+			 const struct bitcoin_outpoint *outpoint,
 			 void (*cb)(struct bitcoind *bitcoind,
 				    const struct bitcoin_tx_output *txout,
 				    void *arg),
@@ -569,8 +558,8 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind,
 
 	req = jsonrpc_request_start(bitcoind, "getutxout", bitcoind->log,
 				    NULL, getutxout_callback, call);
-	json_add_txid(req->stream, "txid", txid);
-	json_add_num(req->stream, "vout", outnum);
+	json_add_txid(req->stream, "txid", &outpoint->txid);
+	json_add_num(req->stream, "vout", outpoint->n);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
 }
@@ -610,7 +599,7 @@ process_getfilteredblock_step2(struct bitcoind *bitcoind,
 	call->current_outpoint++;
 	if (call->current_outpoint < tal_count(call->outpoints)) {
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_getutxout(bitcoind, &o->txid, o->outnum,
+		bitcoind_getutxout(bitcoind, &o->outpoint,
 				  process_getfilteredblock_step2, call);
 	} else {
 		/* If there were no more outpoints to check, we call the callback. */
@@ -656,10 +645,10 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 			if (amount_asset_is_main(&amount) && is_p2wsh(script, NULL)) {
 				/* This is an interesting output, remember it. */
 				o = tal(call->outpoints, struct filteredblock_outpoint);
-				bitcoin_txid(tx, &o->txid);
+				bitcoin_txid(tx, &o->outpoint.txid);
+				o->outpoint.n = j;
 				o->amount = amount_asset_to_sat(&amount);
 				o->txindex = i;
-				o->outnum = j;
 				o->scriptPubKey = tal_steal(o, script);
 				tal_arr_expand(&call->outpoints, o);
 			} else {
@@ -678,7 +667,7 @@ static void process_getfilteredblock_step1(struct bitcoind *bitcoind,
 		 * store the one's that are unspent in
 		 * call->result->outpoints. */
 		o = call->outpoints[call->current_outpoint];
-		bitcoind_getutxout(bitcoind, &o->txid, o->outnum,
+		bitcoind_getutxout(bitcoind, &o->outpoint,
 				  process_getfilteredblock_step2, call);
 	}
 }

@@ -4,13 +4,7 @@
 #ifndef LIGHTNING_COMMON_JSON_STREAM_H
 #define LIGHTNING_COMMON_JSON_STREAM_H
 #include "config.h"
-#include <ccan/membuf/membuf.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 
 struct command;
 struct io_conn;
@@ -70,15 +64,6 @@ void json_stream_close(struct json_stream *js, struct command *writer);
 
 /* For low-level JSON stream access: */
 void json_stream_log_suppress(struct json_stream *js, const char *cmd_name);
-
-/**
- * json_stream_still_writing - is someone currently writing to this stream?
- * @js: the json_stream.
- *
- * Has this json_stream not been closed yet?
- */
-bool json_stream_still_writing(const struct json_stream *js);
-
 
 /* '"fieldname" : [ ' or '[ ' if fieldname is NULL */
 void json_array_start(struct json_stream *js, const char *fieldname);

@@ -10,45 +10,24 @@
  * The gossip protocol itself is fairly simple, but has some twists which
  * add complexity to this daemon.
  */
-#include <bitcoin/chainparams.h>
-#include <ccan/array_size/array_size.h>
-#include <ccan/build_assert/build_assert.h>
+#include "config.h"
 #include <ccan/cast/cast.h>
-#include <ccan/container_of/container_of.h>
-#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/endian/endian.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/io/fdpass/fdpass.h>
-#include <ccan/io/io.h>
-#include <ccan/mem/mem.h>
-#include <ccan/noerr/noerr.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <common/bech32.h>
-#include <common/bech32_util.h>
+#include <common/blindedpath.h>
 #include <common/blinding.h>
-#include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
-#include <common/features.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
-#include <common/ping.h>
 #include <common/pseudorand.h>
 #include <common/sphinx.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <common/version.h>
 #include <common/wire_error.h>
-#include <common/wireaddr.h>
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <gossipd/broadcast.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
@@ -57,20 +36,7 @@
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
 #include <gossipd/seeker.h>
-#include <inttypes.h>
-#include <lightningd/gossip_msg.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <sodium/randombytes.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <unistd.h>
-#include <wire/wire_io.h>
-#include <wire/wire_sync.h>
 
 /*~ A channel consists of a `struct half_chan` for each direction, each of
  * which has a `flags` word from the `channel_update`; bit 1 is
@@ -293,36 +259,6 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
-/*~ For simplicity, all pings and pongs are forwarded to us here in gossipd. */
-static u8 *handle_ping(struct peer *peer, const u8 *ping)
-{
-	u8 *pong;
-
-	/* This checks the ping packet and makes a pong reply if needed; peer
-	 * can specify it doesn't want a response, to simulate traffic. */
-	if (!check_ping_make_pong(NULL, ping, &pong))
-		return towire_warningfmt(peer, NULL, "Bad ping");
-
-	if (pong)
-		queue_peer_msg(peer, take(pong));
-	return NULL;
-}
-
-/*~ When we get a pong, we tell lightningd about it (it's probably a response
- * to the `ping` JSON RPC command). */
-static const u8 *handle_pong(struct peer *peer, const u8 *pong)
-{
-	const char *err = got_pong(pong, &peer->num_pings_outstanding);
-
-	if (err)
-		return towire_warningfmt(peer, NULL, "%s", err);
-
-	daemon_conn_send(peer->daemon->master,
-			 take(towire_gossipd_ping_reply(NULL, &peer->id, true,
-						       tal_count(pong))));
-	return NULL;
-}
-
 /*~ This is when channeld asks us for a channel_update for a local channel.
  * It does that to fill in the error field when lightningd fails an HTLC and
  * sets the UPDATE bit in the error type.  lightningd is too important to
@@ -415,19 +351,18 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 	return true;
 }
 
-/* Peer sends onion msg. */
-static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
+/* Peer sends obsolete onion msg. */
+static u8 *handle_obs2_onion_message(struct peer *peer, const u8 *msg)
 {
 	enum onion_wire badreason;
 	struct onionpacket *op;
-	struct secret ss, *blinding_ss;
-	struct pubkey *blinding_in;
+	struct pubkey blinding, ephemeral;
 	struct route_step *rs;
 	u8 *onion;
+	struct tlv_obs2_onionmsg_payload *om;
+	struct secret ss, onion_ss;
 	const u8 *cursor;
 	size_t max, maxlen;
-	struct tlv_onionmsg_payload *om;
-	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
 
 	/* Ignore unless explicitly turned on. */
 	if (!feature_offered(peer->daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
@@ -435,166 +370,88 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		return NULL;
 
 	/* FIXME: ratelimit! */
-	if (!fromwire_onion_message(msg, msg, &onion, tlvs))
+	if (!fromwire_obs2_onion_message(msg, msg, &blinding, &onion))
 		return towire_warningfmt(peer, NULL, "Bad onion_message");
 
 	/* We unwrap the onion now. */
 	op = parse_onionpacket(tmpctx, onion, tal_bytelen(onion), &badreason);
 	if (!op) {
-		status_debug("peer %s: onion msg: can't parse onionpacket: %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     onion_wire_name(badreason));
+		status_peer_debug(&peer->id, "onion msg: can't parse onionpacket: %s",
+				  onion_wire_name(badreason));
 		return NULL;
 	}
 
-	if (tlvs->blinding) {
-		struct secret hmac;
-
-		/* E(i) */
-		blinding_in = tal_dup(msg, struct pubkey, tlvs->blinding);
-		status_debug("peer %s: blinding in = %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     type_to_string(tmpctx, struct pubkey, blinding_in));
-		blinding_ss = tal(msg, struct secret);
-		ecdh(blinding_in, blinding_ss);
-
-		/* b(i) = HMAC256("blinded_node_id", ss(i)) * k(i) */
-		subkey_from_hmac("blinded_node_id", blinding_ss, &hmac);
-
-		/* We instead tweak the *ephemeral* key from the onion and use
-		 * our normal privkey: since hsmd knows only how to ECDH with
-		 * our real key */
-		if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
-						  &op->ephemeralkey.pubkey,
-						  hmac.data) != 1) {
-			status_debug("peer %s: onion msg: can't tweak pubkey",
-				     type_to_string(tmpctx, struct node_id, &peer->id));
-			return NULL;
-		}
-	} else {
-		blinding_ss = NULL;
-		blinding_in = NULL;
+	ephemeral = op->ephemeralkey;
+	if (!unblind_onion(&blinding, ecdh, &ephemeral, &ss)) {
+		status_peer_debug(&peer->id, "onion msg: can't unblind onionpacket");
+		return NULL;
 	}
 
-	ecdh(&op->ephemeralkey, &ss);
-
-	/* We make sure we can parse onion packet, so we know if shared secret
-	 * is actually valid (this checks hmac). */
-	rs = process_onionpacket(tmpctx, op, &ss, NULL, 0, false);
+	/* Now get onion shared secret and parse it. */
+	ecdh(&ephemeral, &onion_ss);
+	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0, false);
 	if (!rs) {
-		status_debug("peer %s: onion msg: can't process onionpacket ss=%s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     type_to_string(tmpctx, struct secret, &ss));
+		status_peer_debug(&peer->id,
+				  "onion msg: can't process onionpacket ss=%s",
+				  type_to_string(tmpctx, struct secret, &onion_ss));
 		return NULL;
 	}
 
-	/* The raw payload is prepended with length in the TLV world. */
+	/* The raw payload is prepended with length in the modern onion. */
 	cursor = rs->raw_payload;
 	max = tal_bytelen(rs->raw_payload);
 	maxlen = fromwire_bigsize(&cursor, &max);
 	if (!cursor) {
-		status_debug("peer %s: onion msg: Invalid hop payload %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     tal_hex(tmpctx, rs->raw_payload));
+		status_peer_debug(&peer->id, "onion msg: Invalid hop payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
 		return NULL;
 	}
 	if (maxlen > max) {
-		status_debug("peer %s: onion msg: overlong hop payload %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     tal_hex(tmpctx, rs->raw_payload));
+		status_peer_debug(&peer->id, "onion msg: overlong hop payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
 		return NULL;
 	}
 
-	om = tlv_onionmsg_payload_new(msg);
-	if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
-		status_debug("peer %s: onion msg: invalid onionmsg_payload %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     tal_hex(tmpctx, rs->raw_payload));
-		return NULL;
-	}
-
-	/* If we weren't given a blinding factor, tlv can provide one. */
-	if (om->blinding && !blinding_ss) {
-		/* E(i) */
-		blinding_in = tal_dup(msg, struct pubkey, om->blinding);
-		blinding_ss = tal(msg, struct secret);
-
-		ecdh(blinding_in, blinding_ss);
-	}
-
-	if (om->enctlv) {
-		const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-		u8 *dec;
-		struct secret rho;
-		int ret;
-
-		if (!blinding_ss) {
-			status_debug("peer %s: enctlv but no blinding?",
-				     type_to_string(tmpctx, struct node_id, &peer->id));
-			return NULL;
-		}
-
-		/* We need this to decrypt enctlv */
-		subkey_from_hmac("rho", blinding_ss, &rho);
-
-		/* Overrides next_scid / next_node */
-		if (tal_bytelen(om->enctlv)
-		    < crypto_aead_chacha20poly1305_ietf_ABYTES) {
-			status_debug("peer %s: enctlv too short for mac",
-				     type_to_string(tmpctx, struct node_id, &peer->id));
-			return NULL;
-		}
-
-		dec = tal_arr(msg, u8,
-			      tal_bytelen(om->enctlv)
-			      - crypto_aead_chacha20poly1305_ietf_ABYTES);
-		ret = crypto_aead_chacha20poly1305_ietf_decrypt(dec, NULL,
-								NULL,
-								om->enctlv,
-								tal_bytelen(om->enctlv),
-								NULL, 0,
-								npub,
-								rho.data);
-		if (ret != 0) {
-			status_debug("peer %s: Failed to decrypt enctlv field",
-				     type_to_string(tmpctx, struct node_id, &peer->id));
-			return NULL;
-		}
-
-		status_debug("peer %s: enctlv -> %s",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     tal_hex(tmpctx, dec));
-
-		/* Replace onionmsg with one from enctlv */
-		cursor = dec;
-		maxlen = tal_bytelen(dec);
-
-		om = tlv_onionmsg_payload_new(msg);
-		if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
-			status_debug("peer %s: onion msg: invalid enctlv onionmsg_payload %s",
-				     type_to_string(tmpctx, struct node_id, &peer->id),
-				     tal_hex(tmpctx, dec));
-			return NULL;
-		}
-	} else if (blinding_ss && rs->nextcase != ONION_END) {
-		status_debug("peer %s: Onion had %s, but not enctlv?",
-			     type_to_string(tmpctx, struct node_id, &peer->id),
-			     tlvs->blinding ? "blinding" : "om blinding");
+	om = tlv_obs2_onionmsg_payload_new(msg);
+	if (!fromwire_obs2_onionmsg_payload(&cursor, &maxlen, om)) {
+		status_peer_debug(&peer->id, "onion msg: invalid onionmsg_payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
 		return NULL;
 	}
 
 	if (rs->nextcase == ONION_END) {
-		struct pubkey *blinding;
-		const struct onionmsg_path **path;
+		struct pubkey *reply_blinding, *first_node_id, me, alias;
+		const struct onionmsg_path **reply_path;
+		struct secret *self_id;
 		u8 *omsg;
 
+		if (!pubkey_from_node_id(&me, &peer->daemon->id)) {
+			status_broken("Failed to convert own id");
+			return NULL;
+		}
+
+		/* Final enctlv is actually optional */
+		if (!om->enctlv) {
+			alias = me;
+			self_id = NULL;
+		} else if (!decrypt_obs2_final_enctlv(tmpctx, &blinding, &ss,
+						      om->enctlv, &me, &alias,
+						      &self_id)) {
+			status_peer_debug(&peer->id,
+					  "onion msg: failed to decrypt enctlv"
+					  " %s", tal_hex(tmpctx, om->enctlv));
+			return NULL;
+		}
+
 		if (om->reply_path) {
-			blinding = &om->reply_path->blinding;
-			path = cast_const2(const struct onionmsg_path **,
-					   om->reply_path->path);
+			first_node_id = &om->reply_path->first_node_id;
+			reply_blinding = &om->reply_path->blinding;
+			reply_path = cast_const2(const struct onionmsg_path **,
+						 om->reply_path->path);
 		} else {
-			blinding = NULL;
-			path = NULL;
+			first_node_id = NULL;
+			reply_blinding = NULL;
+			reply_path = NULL;
 		}
 
 		/* We re-marshall here by policy, before handing to lightningd */
@@ -602,77 +459,219 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		towire_tlvstream_raw(&omsg, om->fields);
 		daemon_conn_send(peer->daemon->master,
 				 take(towire_gossipd_got_onionmsg_to_us(NULL,
-							blinding_in,
-							blinding,
-							path,
+							true, /* obs2 */
+							&alias, self_id,
+							reply_blinding,
+							first_node_id,
+							reply_path,
 							omsg)));
 	} else {
-		struct pubkey *next_blinding;
-		struct node_id *next_node;
+		struct pubkey next_node, next_blinding;
+		struct peer *next_peer;
+		struct node_id next_node_id;
 
-		/* This *MUST* have instructions on where to go next. */
-		if (!om->next_short_channel_id && !om->next_node_id) {
-			status_debug("peer %s: onion msg: no next field in %s",
-				     type_to_string(tmpctx, struct node_id, &peer->id),
-				     tal_hex(tmpctx, rs->raw_payload));
+		/* This fails as expected if no enctlv. */
+		if (!decrypt_obs2_enctlv(&blinding, &ss, om->enctlv, &next_node,
+					 &next_blinding)) {
+			status_peer_debug(&peer->id,
+					  "onion msg: invalid enctlv %s",
+					  tal_hex(tmpctx, om->enctlv));
 			return NULL;
 		}
 
-		if (blinding_ss) {
-			/* E(i-1) = H(E(i) || ss(i)) * E(i) */
-			struct sha256 h;
-			blinding_hash_e_and_ss(blinding_in, blinding_ss, &h);
-			next_blinding = tal(msg, struct pubkey);
-			blinding_next_pubkey(blinding_in, &h, next_blinding);
-		} else
-			next_blinding = NULL;
-
-		if (om->next_node_id) {
-			next_node = tal(tmpctx, struct node_id);
-			node_id_from_pubkey(next_node, om->next_node_id);
-		} else
-			next_node = NULL;
-
-		daemon_conn_send(peer->daemon->master,
-				 take(towire_gossipd_got_onionmsg_forward(NULL,
-						  om->next_short_channel_id,
-						  next_node,
-						  next_blinding,
-						  serialize_onionpacket(tmpctx, rs->next))));
+		/* Even though lightningd checks for valid ids, there's a race
+		 * where it might vanish before we read this command. */
+		node_id_from_pubkey(&next_node_id, &next_node);
+		next_peer = find_peer(peer->daemon, &next_node_id);
+		if (!next_peer) {
+			status_peer_debug(&peer->id,
+					  "onion msg: unknown next peer %s",
+					  type_to_string(tmpctx,
+							 struct pubkey,
+							 &next_node));
+			return NULL;
+		}
+		queue_peer_msg(next_peer,
+			       take(towire_obs2_onion_message(NULL,
+							      &next_blinding,
+							      serialize_onionpacket(tmpctx, rs->next))));
 	}
+
 	return NULL;
 }
 
-/* We send onion msg. */
 static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
 {
 	struct node_id id;
-	u8 *onion_routing_packet;
-	struct pubkey *blinding;
+	u8 *onionmsg;
+	struct pubkey blinding;
 	struct peer *peer;
+	bool obs2;
 
-	if (!fromwire_gossipd_send_onionmsg(msg, msg, &id, &onion_routing_packet,
-					    &blinding))
+	if (!fromwire_gossipd_send_onionmsg(msg, msg, &obs2, &id, &onionmsg, &blinding))
 		master_badmsg(WIRE_GOSSIPD_SEND_ONIONMSG, msg);
 
-	/* Even if lightningd were to check for valid ids, there's a race
-	 * where it might vanish before we read this command; cleaner to
-	 * handle it here with 'sent' = false. */
+	/* Even though lightningd checks for valid ids, there's a race
+	 * where it might vanish before we read this command. */
 	peer = find_peer(daemon, &id);
 	if (peer) {
-		struct tlv_onion_message_tlvs *tlvs;
-
-		tlvs = tlv_onion_message_tlvs_new(msg);
-		if (blinding)
-			tlvs->blinding = tal_dup(tlvs, struct pubkey, blinding);
-
-		queue_peer_msg(peer,
-			       take(towire_onion_message(NULL,
-							 onion_routing_packet,
-							 tlvs)));
+		u8 *omsg;
+		if (obs2)
+			omsg = towire_obs2_onion_message(NULL, &blinding, onionmsg);
+		else
+			omsg = towire_onion_message(NULL, &blinding, onionmsg);
+		queue_peer_msg(peer, take(omsg));
 	}
 	return daemon_conn_read_next(conn, daemon->master);
+}
+
+/* Peer sends an onion msg. */
+static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
+{
+	enum onion_wire badreason;
+	struct onionpacket *op;
+	struct pubkey blinding, ephemeral;
+	struct route_step *rs;
+	u8 *onion;
+	struct tlv_onionmsg_payload *om;
+	struct secret ss, onion_ss;
+	const u8 *cursor;
+	size_t max, maxlen;
+
+	/* Ignore unless explicitly turned on. */
+	if (!feature_offered(peer->daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
+			     OPT_ONION_MESSAGES))
+		return NULL;
+
+	/* FIXME: ratelimit! */
+	if (!fromwire_onion_message(msg, msg, &blinding, &onion))
+		return towire_warningfmt(peer, NULL, "Bad onion_message");
+
+	/* We unwrap the onion now. */
+	op = parse_onionpacket(tmpctx, onion, tal_bytelen(onion), &badreason);
+	if (!op) {
+		status_peer_debug(&peer->id, "onion msg: can't parse onionpacket: %s",
+				  onion_wire_name(badreason));
+		return NULL;
+	}
+
+	ephemeral = op->ephemeralkey;
+	if (!unblind_onion(&blinding, ecdh, &ephemeral, &ss)) {
+		status_peer_debug(&peer->id, "onion msg: can't unblind onionpacket");
+		return NULL;
+	}
+
+	/* Now get onion shared secret and parse it. */
+	ecdh(&ephemeral, &onion_ss);
+	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0, false);
+	if (!rs) {
+		status_peer_debug(&peer->id,
+				  "onion msg: can't process onionpacket ss=%s",
+				  type_to_string(tmpctx, struct secret, &onion_ss));
+		return NULL;
+	}
+
+	/* The raw payload is prepended with length in the modern onion. */
+	cursor = rs->raw_payload;
+	max = tal_bytelen(rs->raw_payload);
+	maxlen = fromwire_bigsize(&cursor, &max);
+	if (!cursor) {
+		status_peer_debug(&peer->id, "onion msg: Invalid hop payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+	if (maxlen > max) {
+		status_peer_debug(&peer->id, "onion msg: overlong hop payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+
+	om = tlv_onionmsg_payload_new(msg);
+	if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
+		status_peer_debug(&peer->id, "onion msg: invalid onionmsg_payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+
+	if (rs->nextcase == ONION_END) {
+		struct pubkey *reply_blinding, *first_node_id, me, alias;
+		const struct onionmsg_path **reply_path;
+		struct secret *self_id;
+		u8 *omsg;
+
+		if (!pubkey_from_node_id(&me, &peer->daemon->id)) {
+			status_broken("Failed to convert own id");
+			return NULL;
+		}
+
+		/* Final enctlv is actually optional */
+		if (!om->encrypted_data_tlv) {
+			alias = me;
+			self_id = NULL;
+		} else if (!decrypt_final_enctlv(tmpctx, &blinding, &ss,
+						 om->encrypted_data_tlv, &me, &alias,
+						 &self_id)) {
+			status_peer_debug(&peer->id,
+					  "onion msg: failed to decrypt enctlv"
+					  " %s", tal_hex(tmpctx, om->encrypted_data_tlv));
+			return NULL;
+		}
+
+		if (om->reply_path) {
+			first_node_id = &om->reply_path->first_node_id;
+			reply_blinding = &om->reply_path->blinding;
+			reply_path = cast_const2(const struct onionmsg_path **,
+						 om->reply_path->path);
+		} else {
+			first_node_id = NULL;
+			reply_blinding = NULL;
+			reply_path = NULL;
+		}
+
+		/* We re-marshall here by policy, before handing to lightningd */
+		omsg = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&omsg, om->fields);
+		daemon_conn_send(peer->daemon->master,
+				 take(towire_gossipd_got_onionmsg_to_us(NULL,
+							false, /* !obs2 */
+							&alias, self_id,
+							reply_blinding,
+							first_node_id,
+							reply_path,
+							omsg)));
+	} else {
+		struct pubkey next_node, next_blinding;
+		struct peer *next_peer;
+		struct node_id next_node_id;
+
+		/* This fails as expected if no enctlv. */
+		if (!decrypt_enctlv(&blinding, &ss, om->encrypted_data_tlv, &next_node,
+					 &next_blinding)) {
+			status_peer_debug(&peer->id,
+					  "onion msg: invalid enctlv %s",
+					  tal_hex(tmpctx, om->encrypted_data_tlv));
+			return NULL;
+		}
+
+		/* FIXME: Handle short_channel_id! */
+		node_id_from_pubkey(&next_node_id, &next_node);
+		next_peer = find_peer(peer->daemon, &next_node_id);
+		if (!next_peer) {
+			status_peer_debug(&peer->id,
+					  "onion msg: unknown next peer %s",
+					  type_to_string(tmpctx,
+							 struct pubkey,
+							 &next_node));
+			return NULL;
+		}
+		queue_peer_msg(next_peer,
+			       take(towire_onion_message(NULL,
+							 &next_blinding,
+							 serialize_onionpacket(tmpctx, rs->next))));
+	}
+
+	return NULL;
 }
 
 /*~ This is where the per-peer daemons send us messages.  It's either forwarded
@@ -708,11 +707,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		err = handle_reply_short_channel_ids_end(peer, msg);
 		goto handled_relay;
-	case WIRE_PING:
-		err = handle_ping(peer, msg);
-		goto handled_relay;
-	case WIRE_PONG:
-		err = handle_pong(peer, msg);
+	case WIRE_OBS2_ONION_MESSAGE:
+		err = handle_obs2_onion_message(peer, msg);
 		goto handled_relay;
 	case WIRE_ONION_MESSAGE:
 		err = handle_onion_message(peer, msg);
@@ -722,6 +718,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_WARNING:
 	case WIRE_INIT:
 	case WIRE_ERROR:
+	case WIRE_PING:
+	case WIRE_PONG:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
@@ -858,7 +856,6 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->scid_query_outstanding = false;
 	peer->range_replies = NULL;
 	peer->query_channel_range_cb = NULL;
-	peer->num_pings_outstanding = 0;
 
 	/* We keep a list so we can find peer by id */
 	list_add_tail(&peer->daemon->peers, &peer->list);
@@ -1152,61 +1149,6 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
-/*~ We currently have a JSON command to ping a peer: it ends up here, where
- * gossipd generates the actual ping and sends it like any other gossip. */
-static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
-				const u8 *msg)
-{
-	struct node_id id;
-	u16 num_pong_bytes, len;
-	struct peer *peer;
-	u8 *ping;
-
-	if (!fromwire_gossipd_ping(msg, &id, &num_pong_bytes, &len))
-		master_badmsg(WIRE_GOSSIPD_PING, msg);
-
-	/* Even if lightningd were to check for valid ids, there's a race
-	 * where it might vanish before we read this command; cleaner to
-	 * handle it here with 'sent' = false. */
-	peer = find_peer(daemon, &id);
-	if (!peer) {
-		daemon_conn_send(daemon->master,
-				 take(towire_gossipd_ping_reply(NULL, &id,
-							       false, 0)));
-		goto out;
-	}
-
-	/* It should never ask for an oversize ping. */
-	ping = make_ping(peer, num_pong_bytes, len);
-	if (tal_count(ping) > 65535)
-		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
-
-	queue_peer_msg(peer, take(ping));
-	status_peer_debug(&peer->id, "sending ping expecting %sresponse",
-			  num_pong_bytes >= 65532 ? "no " : "");
-
-	/* BOLT #1:
-	 *
-	 * A node receiving a `ping` message:
-	 *...
-	 *  - if `num_pong_bytes` is less than 65532:
-	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
-	 *      to `num_pong_bytes`.
-	 *  - otherwise (`num_pong_bytes` is **not** less than 65532):
-	 *    - MUST ignore the `ping`.
-	 */
-	if (num_pong_bytes >= 65532)
-		daemon_conn_send(daemon->master,
-				 take(towire_gossipd_ping_reply(NULL, &id,
-							       true, 0)));
-	else
-		/* We'll respond to lightningd once the pong comes in */
-		peer->num_pings_outstanding++;
-
-out:
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
 static struct io_plan *new_blockheight(struct io_conn *conn,
 				       struct daemon *daemon,
 				       const u8 *msg)
@@ -1260,7 +1202,7 @@ static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_remove_region(memtable, daemon, sizeof(*daemon));
 
-	found_leak = dump_memleak(memtable);
+	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_dev_memleak_reply(NULL,
 							      found_leak)));
@@ -1509,9 +1451,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
 		return handle_local_channel_close(conn, daemon, msg);
 
-	case WIRE_GOSSIPD_PING:
-		return ping_req(conn, daemon, msg);
-
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 		return new_blockheight(conn, daemon, msg);
 
@@ -1543,15 +1482,14 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
 		return onionmsg_req(conn, daemon, msg);
+
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIPD_PING_REPLY:
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
-	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 		break;
 	}
@@ -1610,7 +1548,7 @@ int main(int argc, char *argv[])
 		struct timer *expired = NULL;
 		io_loop(&daemon->timers, &expired);
 
-		timer_expired(daemon, expired);
+		timer_expired(expired);
 	}
 }
 

@@ -1,6 +1,7 @@
 COMMON_SRC_NOGEN :=				\
 	common/addr.c				\
 	common/amount.c				\
+	common/autodata.c			\
 	common/base32.c				\
 	common/base64.c				\
 	common/bech32.c				\
@@ -17,6 +18,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bolt12_merkle.c			\
 	common/channel_config.c			\
 	common/channel_id.c			\
+	common/channel_type.c			\
 	common/coin_mvt.c			\
 	common/close_tx.c			\
 	common/configdir.c			\
@@ -45,7 +47,6 @@ COMMON_SRC_NOGEN :=				\
 	common/htlc_wire.c			\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
-	common/io_lock.c			\
 	common/iso4217.c			\
 	common/json.c				\
 	common/json_helpers.c			\

@@ -57,12 +57,14 @@ bool route_can_carry_even_disabled(const struct gossmap *map,
 u64 route_score_shorter(u32 distance,
 			struct amount_msat cost,
 			struct amount_msat risk,
+			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED);
 
 /* Cheapest path, with shorter path tiebreak */
 u64 route_score_cheaper(u32 distance,
 			struct amount_msat cost,
 			struct amount_msat risk,
+			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED);
 
 /* Extract route tal_arr from completed dijkstra: NULL if none. */
@@ -72,4 +74,22 @@ struct route_hop *route_from_dijkstra(const tal_t *ctx,
 				      const struct gossmap_node *src,
 				      struct amount_msat final_amount,
 				      u32 final_cltv);
+
+/*
+ * Manually exlude nodes or channels from a route.
+ * Used with `getroute` and `pay` commands
+ */
+enum route_exclusion_type {
+	EXCLUDE_CHANNEL = 1,
+	EXCLUDE_NODE = 2
+};
+
+struct route_exclusion {
+	enum route_exclusion_type type;
+	union {
+		struct short_channel_id_dir chan_id;
+		struct node_id node_id;
+	} u;
+};
+
 #endif /* LIGHTNING_COMMON_ROUTE_H */

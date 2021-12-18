@@ -1,13 +1,11 @@
-#include <bitcoin/preimage.h>
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
-#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
-#include <common/gossmap.h>
+#include <common/json_tok.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin-pay.h>
-#include <plugins/libplugin.h>
-#include <wire/onion_wire.h>
+#include <sodium.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484
 #define KEYSEND_FEATUREBIT 55
@@ -480,14 +478,14 @@ static const char *notification_topics[] = {
 
 int main(int argc, char *argv[])
 {
-	struct feature_set features;
+	struct feature_set *features = tal(NULL, struct feature_set);
 	setup_locale();
 
-	for (int i=0; i<ARRAY_SIZE(features.bits); i++)
-		features.bits[i] = tal_arr(NULL, u8, 0);
-	set_feature_bit(&features.bits[NODE_ANNOUNCE_FEATURE], KEYSEND_FEATUREBIT);
+	for (int i=0; i<ARRAY_SIZE(features->bits); i++)
+		features->bits[i] = tal_arr(features, u8, 0);
+	set_feature_bit(&features->bits[NODE_ANNOUNCE_FEATURE], KEYSEND_FEATUREBIT);
 
-	plugin_main(argv, init, PLUGIN_STATIC, true, &features, commands,
+	plugin_main(argv, init, PLUGIN_STATIC, true, features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
 		    notification_topics, ARRAY_SIZE(notification_topics), NULL);
 }

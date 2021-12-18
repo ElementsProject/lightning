@@ -6,6 +6,7 @@ SYNOPSIS
 
 **pay** *bolt11* \[*msatoshi*\] \[*label*\] \[*riskfactor*\]
 \[*maxfeepercent*\] \[*retry\_for*\] \[*maxdelay*\] \[*exemptfee*\]
+\[*exclude*\]
 
 DESCRIPTION
 -----------
@@ -39,6 +40,11 @@ Until *retry\_for* seconds passes (default: 60), the command will keep
 finding routes and retrying the payment. However, a payment may be
 delayed for up to `maxdelay` blocks by another node; clients should be
 prepared for this worst case.
+
+*exclude* is a JSON array of short-channel-id/direction (e.g. \[
+"564334x877x1/0", "564195x1292x0/1" \]) or node-id which should be excluded
+from consideration for routing. The default is not to exclude any channels
+or nodes.
 
 When using *lightning-cli*, you may skip optional parameters by using
 *null*. Alternatively, use **-k** option to provide parameters by name.
@@ -143,4 +149,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:1c931f2ff49a169011ca6c2abde58281570a1db0dfbdca829105999723fe8bb8)
+[comment]: # ( SHA256STAMP:bf507985544575c4ef2fe194fda6a693378cb8ab3bfb30ca7a7c066be271be29)

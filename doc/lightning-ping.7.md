@@ -9,11 +9,15 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **ping** command checks if the node with *id* is ready to talk. It accepts the following parameters:
+The **ping** command checks if the node with *id* is ready to talk. 
+It currently only works for peers we have a channel with.
+
+It accepts the following parameters:
 
 - *id*: A string that represents the node id;
 - *len*: A integer that represents the length of the ping (default 128);
 - *pongbytes*: An integer that represents the length of the reply (default 128).
+  A value of 65532 to 65535 means "don't reply".
 
 EXAMPLE JSON REQUEST
 ------------
@@ -39,7 +43,7 @@ On success, an object is returned, containing:
 
 On failure, one of the following error codes may be returned:
 
-- -32602: Error in given parameters or unknown peer.
+- -32602: Error in given parameters or we're already waiting for a ping response from peer.
 
 EXAMPLE JSON RESPONSE
 -----
@@ -65,4 +69,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:aa91cd20bea0156c4b2b2ca377945c383ad3ae06d31b972fbce9fc1999cfbc70)
+[comment]: # ( SHA256STAMP:a78a1d58cfe1fbf654ee58aad20ffcaa075f63bd8774c64be5ec28857e95ae3b)

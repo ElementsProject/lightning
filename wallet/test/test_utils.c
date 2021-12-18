@@ -1,3 +1,4 @@
+#include "config.h"
 #include "test_utils.h"
 
 /*

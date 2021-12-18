@@ -11,6 +11,7 @@
  * primitives to link time, and here we provide simple ones that just
  * print to stdout, as alternatives to the status wire protocol ones.
  */
+#include "config.h"
 #include <hsmd/libhsmd.h>
 #include <stdio.h>
 u8 *hsmd_status_bad_request(struct hsmd_client *client, const u8 *msg, const char *error)

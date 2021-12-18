@@ -59,7 +59,7 @@ as a route hint candidate; if *false*, never.  If it is a short channel id
 will be considered candidates, even if they are public or dead-ends.
 
 The route hint is selected from the set of incoming channels of which:
-peer’s balance minus their reserves is at least *msatoshi*, state is
+peer's balance minus their reserves is at least *msatoshi*, state is
 normal, the peer is connected and not a dead end (i.e. has at least one
 other public channel). The selection uses some randomness to prevent
 probing, but favors channels that become more balanced after the
@@ -113,4 +113,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a65026d45e3a70b98c97d838c08748f873aeab20321d930de17fb45cf5022848)
+[comment]: # ( SHA256STAMP:f7d82473482e5454fc03641fddcfa97984e6a597e7ad377ced2cbed1512e91ed)

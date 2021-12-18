@@ -64,6 +64,9 @@ bool feature_check_depends(const u8 *their_features,
 const char **list_supported_features(const tal_t *ctx,
 				     const struct feature_set *fset);
 
+/* Give a name for this feature */
+const char *feature_name(const tal_t *ctx, size_t f);
+
 /* Low-level helpers to deal with big-endian bitfields. */
 bool feature_is_set(const u8 *features, size_t bit);
 void set_feature_bit(u8 **ptr, u32 bit);
@@ -127,9 +130,14 @@ const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
  */
 #define OPT_DUAL_FUND 				28
 
-/* BOLT-1ede04a1a3225581e265b3ce96984ba88253a4a4 #9:
+/* BOLT-quiescent #9:
+ * | 34/35 | `option_quiesce` | ... IN ...
+ */
+#define OPT_QUIESCE 				34
+
+/* BOLT-offers #9:
  *
- * | 38/39 | `option_onion_messages` |... INC+ ...
+ * | 38/39 | `option_onion_messages` |... IN ...
  */
 #define OPT_ONION_MESSAGES			38
 

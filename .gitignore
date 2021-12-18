@@ -9,6 +9,7 @@
 *.dSYM
 *.rej
 *.pyc
+*.tmp
 .cppcheck-suppress
 .mypy_cache
 TAGS
@@ -47,5 +48,19 @@ contrib/pylightning/pylightning.egg-info/
 contrib/pyln-*/build/
 contrib/pyln-*/dist/
 contrib/pyln-*/pyln_*.egg-info/
+contrib/pyln-*/.eggs/
+contrib/pyln-*/pyln/*/__version__.py
 release/
 tests/plugins/test_selfdisable_after_getmanifest
+
+# Ignore generated files
+devtools/features
+doc/lightning*.[1578]
+*_sqlgen.[ch]
+*_wiregen.[ch]
+*_printgen.[ch]
+*_gettextgen.po
+
+# Ignore unrelated stuff
+.DS_Store
+.gdb_history

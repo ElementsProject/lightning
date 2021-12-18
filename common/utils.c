@@ -1,9 +1,10 @@
-#include "utils.h"
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/str/str.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/utf8/utf8.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <locale.h>
 
@@ -33,8 +34,16 @@ void tal_wally_end(const tal_t *parent)
 {
 	tal_t *p;
 	while ((p = tal_first(wally_tal_ctx)) != NULL) {
-		if (p != parent)
+		if (p != parent) {
+#if DEVELOPER
+			/* Don't steal backtrace from wally_tal_ctx! */
+			if (tal_name(p) && streq(tal_name(p), "backtrace")) {
+				tal_free(p);
+				continue;
+			}
+#endif /* DEVELOPER */
 			tal_steal(parent, p);
+		}
 	}
 	wally_tal_ctx = tal_free(wally_tal_ctx);
 }
@@ -209,4 +218,18 @@ char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
 	ret = tal_dup_arr(ctx, char, (const char *)buf, buflen, 1);
 	ret[buflen] = '\0';
 	return ret;
+}
+
+int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created)
+{
+	char *tmpdir = getenv("TMPDIR");
+	char *path = path_join(ctx, tmpdir ?: "/tmp", template);
+	int fd = mkstemp(path);
+
+	if (fd >= 0)
+		*created = path;
+	else
+		tal_free(path);
+
+	return fd;
 }

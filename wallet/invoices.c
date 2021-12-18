@@ -1,17 +1,9 @@
-#include "db.h"
-#include "invoices.h"
-#include "wallet.h"
-#include <assert.h>
-#include <ccan/list/list.h>
+#include "config.h"
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
-#include <ccan/timer/timer.h>
-#include <common/amount.h>
 #include <common/timeout.h>
-#include <common/utils.h>
-#include <lightningd/invoice.h>
-#include <sodium/randombytes.h>
-#include <string.h>
+#include <wallet/db.h>
+#include <wallet/invoices.h>
+#include <wallet/wallet.h>
 
 struct invoice_waiter {
 	/* Is this waiter already triggered? */
@@ -84,44 +76,46 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 							   struct db_stmt *stmt)
 {
 	struct invoice_details *dtl = tal(ctx, struct invoice_details);
-	dtl->state = db_column_int(stmt, 0);
+	dtl->state = db_col_int(stmt, "state");
 
-	db_column_preimage(stmt, 1, &dtl->r);
+	db_col_preimage(stmt, "payment_key", &dtl->r);
 
-	db_column_sha256(stmt, 2, &dtl->rhash);
+	db_col_sha256(stmt, "payment_hash", &dtl->rhash);
 
-	dtl->label = db_column_json_escape(dtl, stmt, 3);
+	dtl->label = db_col_json_escape(dtl, stmt, "label");
 
-	if (!db_column_is_null(stmt, 4)) {
+	if (!db_col_is_null(stmt, "msatoshi")) {
 		dtl->msat = tal(dtl, struct amount_msat);
-		db_column_amount_msat(stmt, 4, dtl->msat);
+		db_col_amount_msat(stmt, "msatoshi", dtl->msat);
 	} else {
 		dtl->msat = NULL;
 	}
 
-	dtl->expiry_time = db_column_u64(stmt, 5);
+	dtl->expiry_time = db_col_u64(stmt, "expiry_time");
 
 	if (dtl->state == PAID) {
-		dtl->pay_index = db_column_u64(stmt, 6);
-		db_column_amount_msat(stmt, 7, &dtl->received);
-		dtl->paid_timestamp = db_column_u64(stmt, 8);
+		dtl->pay_index = db_col_u64(stmt, "pay_index");
+		db_col_amount_msat(stmt, "msatoshi_received", &dtl->received);
+		dtl->paid_timestamp = db_col_u64(stmt, "paid_timestamp");
+	} else {
+		db_col_ignore(stmt, "pay_index");
+		db_col_ignore(stmt, "msatoshi_received");
+		db_col_ignore(stmt, "paid_timestamp");
 	}
 
-	dtl->invstring = tal_strndup(dtl, db_column_blob(stmt, 9),
-				     db_column_bytes(stmt, 9));
+	dtl->invstring = db_col_strdup(dtl, stmt, "bolt11");
 
-	if (!db_column_is_null(stmt, 10))
-		dtl->description = tal_strdup(
-		    dtl, (const char *)db_column_text(stmt, 10));
+	if (!db_col_is_null(stmt, "description"))
+		dtl->description = db_col_strdup(dtl, stmt,
+						 "description");
 	else
 		dtl->description = NULL;
 
-	dtl->features = tal_dup_arr(dtl, u8,
-				    db_column_blob(stmt, 11),
-				    db_column_bytes(stmt, 11), 0);
-	if (!db_column_is_null(stmt, 12)) {
+	dtl->features = db_col_arr(dtl, stmt, "features", u8);
+	if (!db_col_is_null(stmt, "local_offer_id")) {
 		dtl->local_offer_id = tal(dtl, struct sha256);
-		db_column_sha256(stmt, 12, dtl->local_offer_id);
+		db_col_sha256(stmt, "local_offer_id",
+			      dtl->local_offer_id);
 	} else
 		dtl->local_offer_id = NULL;
 
@@ -191,7 +185,7 @@ static void trigger_expiration(struct invoices *invoices)
 	while (db_step(stmt)) {
 		idn = tal(tmpctx, struct invoice_id_node);
 		list_add_tail(&idlist, &idn->list);
-		idn->id = db_column_u64(stmt, 0);
+		idn->id = db_col_u64(stmt, "id");
 	}
 	tal_free(stmt);
 
@@ -229,11 +223,12 @@ static void install_expiration_timer(struct invoices *invoices)
 	res = db_step(stmt);
 	assert(res);
 
-	if (db_column_is_null(stmt, 0))
+	if (db_col_is_null(stmt, "MIN(expiry_time)"))
 		/* Nothing to install */
 		goto done;
 
-	invoices->min_expiry_time = db_column_u64(stmt, 0);
+	invoices->min_expiry_time = db_col_u64(stmt,
+					       "MIN(expiry_time)");
 
 	memset(&expiry, 0, sizeof(expiry));
 	expiry.ts.tv_sec = invoices->min_expiry_time;
@@ -352,7 +347,7 @@ bool invoices_find_by_label(struct invoices *invoices,
 		return false;
 	}
 
-	pinvoice->id = db_column_u64(stmt, 0);
+	pinvoice->id = db_col_u64(stmt, "id");
 	tal_free(stmt);
 	return true;
 }
@@ -373,7 +368,7 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 		tal_free(stmt);
 		return false;
 	} else {
-		pinvoice->id = db_column_u64(stmt, 0);
+		pinvoice->id = db_col_u64(stmt, "id");
 		tal_free(stmt);
 		return true;
 	}
@@ -396,7 +391,7 @@ bool invoices_find_unpaid(struct invoices *invoices,
 		tal_free(stmt);
 		return false;
 	} else  {
-		pinvoice->id = db_column_u64(stmt, 0);
+		pinvoice->id = db_col_u64(stmt, "id");
 		tal_free(stmt);
 		return true;
 	}
@@ -506,7 +501,7 @@ static enum invoice_status invoice_get_status(struct invoices *invoices, struct 
 
 	res = db_step(stmt);
 	assert(res);
-	state = db_column_int(stmt, 0);
+	state = db_col_int(stmt, "state");
 	tal_free(stmt);
 	return state;
 }
@@ -523,11 +518,11 @@ static void maybe_mark_offer_used(struct db *db, struct invoice invoice)
 	db_query_prepared(stmt);
 
 	db_step(stmt);
-	if (db_column_is_null(stmt, 0)) {
+	if (db_col_is_null(stmt, "local_offer_id")) {
 		tal_free(stmt);
 		return;
 	}
-	db_column_sha256(stmt, 0, &local_offer_id);
+	db_col_sha256(stmt, "local_offer_id", &local_offer_id);
 	tal_free(stmt);
 
 	wallet_offer_mark_used(db, &local_offer_id);
@@ -618,7 +613,7 @@ void invoices_waitany(const tal_t *ctx,
 	db_query_prepared(stmt);
 
 	if (db_step(stmt)) {
-		invoice.id = db_column_u64(stmt, 0);
+		invoice.id = db_col_u64(stmt, "id");
 
 		cb(&invoice, cbarg);
 	} else {

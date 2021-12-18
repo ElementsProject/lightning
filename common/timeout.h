@@ -3,9 +3,7 @@
 #include "config.h"
 
 #include <ccan/tal/tal.h>
-#include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 
 /* tal_free this to disable timer. */
 struct oneshot *new_reltimer_(struct timers *timers,
@@ -17,6 +15,9 @@ struct oneshot *new_reltimer_(struct timers *timers,
 	new_reltimer_((timers), (ctx), (relexpire),			\
 		      typesafe_cb(void, void *, (func), (arg)), (arg))
 
-void timer_expired(tal_t *ctx, struct timer *timer);
+/* Get timer arg. */
+void *reltimer_arg(struct oneshot *t);
+
+void timer_expired(struct timer *timer);
 
 #endif /* LIGHTNING_COMMON_TIMEOUT_H */

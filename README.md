@@ -95,7 +95,7 @@ This creates a `.lightning/` subdirectory in your home directory: see `man -l do
 
 ### Using The JSON-RPC Interface
 
-c-lightning exposes a [JSON-RPC 2.0][jsonrpcspec] interface over a Unix Domain socket; the `lightning-cli` tool can be used to access it, or there is a [python client library](contrib/pylightning).
+c-lightning exposes a [JSON-RPC 2.0][jsonrpcspec] interface over a Unix Domain socket; the `lightning-cli` tool can be used to access it, or there is a [python client library](contrib/pyln-client).
 
 You can use `lightning-cli help` to print a table of RPC methods; `lightning-cli help <command>`
 will offer specific information on that command.
@@ -217,7 +217,7 @@ If the two blockheights drift apart it might be necessary to intervene.
 
 You can encrypt the `hsm_secret` content (which is used to derive the HD wallet's master key) by passing the `--encrypted-hsm` startup argument, or by using the `hsmtool` (which you can find in the `tool/` directory at the root of this repo) with the `encrypt` method. You can unencrypt an encrypted `hsm_secret` using the `hsmtool` with the `decrypt` method.
 
-If you encrypt your `hsm_secret`, you will have to pass the `--encrypted-hsm` startup option to `lightningd`. Once your `hsm_secret` is encrypted, you __will not__ be able to access your funds without your password, so please beware with your password management. Also beware of not feeling too safe with an encrypted `hsm_secret`: unlike for `bitcoind` where the wallet encryption can restrict the usage of some RPC command, `lightningd` always need to access keys from the wallet which is thus __not locked__ (yet), even with an encrypted BIP32 master seed.
+If you encrypt your `hsm_secret`, you will have to pass the `--encrypted-hsm` startup option to `lightningd`. Once your `hsm_secret` is encrypted, you __will not__ be able to access your funds without your password, so please beware with your password management. Also, beware of not feeling too safe with an encrypted `hsm_secret`: unlike for `bitcoind` where the wallet encryption can restrict the usage of some RPC command, `lightningd` always needs to access keys from the wallet which is thus __not locked__ (yet), even with an encrypted BIP32 master seed.
 
 ### Developers
 

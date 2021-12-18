@@ -1,3 +1,4 @@
+#include "config.h"
 #include <common/htlc_trim.h>
 #include <common/htlc_tx.h>
 
@@ -41,4 +42,20 @@ bool htlc_is_trimmed(enum side htlc_owner,
 	if (!amount_sat_add(&htlc_min, dust_limit, htlc_fee))
 		return true;
 	return amount_msat_less_sat(htlc_amount, htlc_min);
+}
+
+/*  Minimum amount of headroom we should use for
+ *  anticipated feerate adjustments */
+#define HTLC_FEE_MIN_RANGE 2530
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
+u32 htlc_trim_feerate_ceiling(u32 feerate_per_kw)
+{
+	/* BOLT-919 #2:
+	 *
+	 * `dust_buffer_feerate` is defined as the maximum
+	 * of either 2530 sats per kWU or 125% of the
+	 * current `feerate_per_kw`. */
+	return max(feerate_per_kw + feerate_per_kw / 4,
+		   feerate_per_kw + HTLC_FEE_MIN_RANGE);
 }

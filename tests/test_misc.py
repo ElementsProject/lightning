@@ -27,33 +27,6 @@ import time
 import unittest
 
 
-@pytest.mark.developer("needs --dev-disconnect")
-@pytest.mark.openchannel('v1')
-def test_stop_pending_fundchannel(node_factory, executor):
-    """Stop the daemon while waiting for an accept_channel
-
-    This used to crash the node, since we were calling unreserve_utxo while
-    freeing the daemon, but that needs a DB transaction to be open.
-
-    """
-    l1, l2 = node_factory.get_nodes(2)
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-
-    # We want l2 to stop replying altogether, not disconnect
-    os.kill(l2.daemon.proc.pid, signal.SIGSTOP)
-
-    # The fundchannel call will not terminate so run it in a future
-    executor.submit(l1.fundchannel, l2, 10**6)
-    l1.daemon.wait_for_log('peer_out WIRE_OPEN_CHANNEL')
-
-    l1.rpc.stop()
-
-    # Now allow l2 a clean shutdown
-    os.kill(l2.daemon.proc.pid, signal.SIGCONT)
-    l2.rpc.stop()
-
-
 def test_names(node_factory):
     # Note:
     # private keys:
@@ -254,7 +227,7 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
 
 
 def test_ping(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.line_graph(2)
 
     def ping_tests(l1, l2):
         # 0-byte pong gives just type + length field.
@@ -282,14 +255,6 @@ def test_ping(node_factory):
         # = 65529 max.
         with pytest.raises(RpcError, match=r'oversize ping'):
             l1.rpc.ping(l2.info['id'], 65530, 1)
-
-    # Test gossip pinging.
-    ping_tests(l1, l2)
-    if DEVELOPER:
-        l1.daemon.wait_for_log(r'Got pong 1000 bytes \({}\.\.\.\)'
-                               .format(l2.info['version']), timeout=1)
-
-    l1.fundchannel(l2, 10**5)
 
     # channeld pinging
     ping_tests(l1, l2)
@@ -1387,55 +1352,6 @@ def test_reserve_enforcement(node_factory, executor):
     assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
 
 
-@pytest.mark.developer("needs dev_disconnect")
-def test_htlc_send_timeout(node_factory, bitcoind, compat):
-    """Test that we don't commit an HTLC to an unreachable node."""
-    # Feerates identical so we don't get gratuitous commit to update them
-    l1, l2, l3 = node_factory.line_graph(3, opts=[{'log-level': 'io',
-                                                   'feerates': (7500, 7500, 7500, 7500)},
-                                                  # Blackhole it after it sends HTLC_ADD to l3.
-                                                  {'log-level': 'io',
-                                                   'feerates': (7500, 7500, 7500, 7500),
-                                                   'disconnect': ['0WIRE_UPDATE_ADD_HTLC']},
-                                                  {}],
-                                         wait_for_announce=True)
-
-    chanid2 = l2.get_channel_scid(l3)
-
-    # Make sure we have 30 seconds without any incoming traffic from l3 to l2
-    # so it tries to ping before sending WIRE_COMMITMENT_SIGNED.
-    timedout = False
-    while not timedout:
-        try:
-            l2.daemon.wait_for_log(r'channeld-chan#[0-9]*: \[IN\] ', timeout=30)
-        except TimeoutError:
-            timedout = True
-
-    inv = l3.rpc.invoice(123000, 'test_htlc_send_timeout', 'description')
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempt[s]?') as excinfo:
-        l1.rpc.pay(inv['bolt11'])
-
-    err = excinfo.value
-    # Complains it stopped after several attempts.
-    # FIXME: include in pylightning
-    PAY_STOPPED_RETRYING = 210
-    assert err.error['code'] == PAY_STOPPED_RETRYING
-
-    status = only_one(l1.rpc.call('paystatus')['pay'])
-
-    # Temporary channel failure
-    assert status['attempts'][0]['failure']['data']['failcode'] == 0x1007
-    assert status['attempts'][0]['failure']['data']['erring_node'] == l2.info['id']
-    assert status['attempts'][0]['failure']['data']['erring_channel'] == chanid2
-
-    # L2 should send ping, but never receive pong so never send commitment.
-    l2.daemon.wait_for_log(r'{}-.*channeld.*: \[OUT\] 0012'.format(l3.info['id']))
-    assert not l2.daemon.is_in_log(r'{}-.*channeld.*: \[IN\] 0013'.format(l3.info['id']))
-    assert not l2.daemon.is_in_log(r'{}-.*channeld.*: \[OUT\] 0084'.format(l3.info['id']))
-    # L2 killed the channel with l3 because it was too slow.
-    l2.daemon.wait_for_log('{}-.*channeld-.*Adding HTLC 0 too slow: killing connection'.format(l3.info['id']))
-
-
 def test_ipv4_and_ipv6(node_factory):
     """Test we can bind to both IPv4 and IPv6 addresses (if supported)"""
     port = reserve()
@@ -1923,7 +1839,9 @@ def test_list_features_only(node_factory):
     if EXPERIMENTAL_FEATURES:
         expected += ['option_anchor_outputs/odd']
         expected += ['option_shutdown_anysegwit/odd']
+        expected += ['option_quiesce/odd']
         expected += ['option_onion_messages/odd']
+        expected += ['supports_open_accept_channel_type']
     else:
         expected += ['option_shutdown_anysegwit/odd']
     assert features == expected
@@ -2332,77 +2250,6 @@ def test_sendcustommsg(node_factory):
         r'Got custommessage_b {msg} from peer {peer_id}'.format(
             msg=msg, peer_id=l2.info['id']),
     ])
-
-
-def test_sendonionmessage(node_factory):
-    l1, l2, l3 = node_factory.line_graph(3, opts={'experimental-onion-messages': None})
-
-    blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
-
-    l1.rpc.call('sendonionmessage',
-                {'hops':
-                 [{'id': l2.info['id']},
-                  {'id': l3.info['id']}]})
-    assert l3.daemon.wait_for_log('Got onionmsg')
-
-    # Now by SCID.
-    l1.rpc.call('sendonionmessage',
-                {'hops':
-                 [{'id': l2.info['id'],
-                   'short_channel_id': l2.get_channel_scid(l3)},
-                  {'id': l3.info['id']}]})
-    assert l3.daemon.wait_for_log('Got onionmsg')
-
-    # Now test blinded path.
-    output = subprocess.check_output(
-        [blindedpathtool, '--simple-output', 'create', l2.info['id'], l3.info['id']]
-    ).decode('ASCII').strip()
-
-    # First line is blinding, then <peerid> then <encblob>.
-    blinding, p1, p1enc, p2 = output.split('\n')
-    # First hop can't be blinded!
-    assert p1 == l2.info['id']
-
-    l1.rpc.call('sendonionmessage',
-                {'hops':
-                 [{'id': l2.info['id'],
-                   'blinding': blinding,
-                   'enctlv': p1enc},
-                  {'id': p2}]})
-    assert l3.daemon.wait_for_log('Got onionmsg')
-
-
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendonionmessage")
-def test_sendonionmessage_reply(node_factory):
-    blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
-
-    plugin = os.path.join(os.path.dirname(__file__), "plugins", "onionmessage-reply.py")
-    l1, l2, l3 = node_factory.line_graph(3, opts={'plugin': plugin})
-
-    # Make reply path
-    output = subprocess.check_output(
-        [blindedpathtool, '--simple-output', 'create', l2.info['id'], l1.info['id']]
-    ).decode('ASCII').strip()
-
-    # First line is blinding, then <peerid> then <encblob>.
-    blinding, p1, p1enc, p2 = output.split('\n')
-    # First hop can't be blinded!
-    assert p1 == l2.info['id']
-
-    # Also tests oversize payload which won't fit in 1366-byte onion.
-    l1.rpc.call('sendonionmessage',
-                {'hops':
-                 [{'id': l2.info['id']},
-                  {'id': l3.info['id'],
-                   'invoice': '77' * 15000}],
-                 'reply_path':
-                 {'blinding': blinding,
-                  'path': [{'id': p1, 'enctlv': p1enc}, {'id': p2}]}})
-
-    assert l3.daemon.wait_for_log('Got onionmsg reply_blinding reply_path')
-    assert l3.daemon.wait_for_log("Got onion_message invoice '{}'".format('77' * 15000))
-    assert l3.daemon.wait_for_log('Sent reply via')
-    assert l1.daemon.wait_for_log('Got onionmsg')
 
 
 @pytest.mark.developer("needs --dev-force-privkey")

@@ -1,17 +1,9 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/features.h>
 #include <common/gossmap.h>
-#include <common/pseudorand.h>
-#include <common/random_select.h>
 #include <common/route.h>
-#include <common/type_to_string.h>
-#include <inttypes.h>
-#include <stdio.h>
 
 bool route_can_carry_even_disabled(const struct gossmap *map,
 				   const struct gossmap_chan *c,
@@ -52,6 +44,7 @@ static u32 costs_to_score(struct amount_msat cost,
 u64 route_score_shorter(u32 distance,
 			struct amount_msat cost,
 			struct amount_msat risk,
+			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED)
 {
 	return costs_to_score(cost, risk) + ((u64)distance << 32);
@@ -61,6 +54,7 @@ u64 route_score_shorter(u32 distance,
 u64 route_score_cheaper(u32 distance,
 			struct amount_msat cost,
 			struct amount_msat risk,
+			int dir UNUSED,
 			const struct gossmap_chan *c UNUSED)
 {
 	return ((u64)costs_to_score(cost, risk) << 32) + distance;

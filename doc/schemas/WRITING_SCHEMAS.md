@@ -39,6 +39,9 @@ You should always list all fields which are *always* present in
 We extend the basic types; see
 [contrib/pyln-testing/pyln/testing/fixtures.py](fixtures.py).
 
+In addition, before committing a new schema or a new version of it, make sure that it
+is well formatted. If you don't want do it by hand, use `make fmt-schema` that uses
+jq under the hood.
 
 ### Using Conditional Fields
 

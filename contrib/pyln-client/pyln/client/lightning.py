@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import socket
-import warnings
 from contextlib import contextmanager
 from decimal import Decimal
 from json import JSONEncoder
@@ -516,7 +515,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("check", payload)
 
     def close(self, peer_id, unilateraltimeout=None, destination=None,
-              fee_negotiation_step=None, force_lease_closed=None):
+              fee_negotiation_step=None, force_lease_closed=None, feerange=None):
         """
         Close the channel with peer {id}, forcing a unilateral
         close after {unilateraltimeout} seconds if non-zero, and
@@ -533,6 +532,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "destination": destination,
             "fee_negotiation_step": fee_negotiation_step,
             "force_lease_closed": force_lease_closed,
+            "feerange": feerange,
         }
         return self.call("close", payload)
 
@@ -616,7 +616,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
                 maxfeepercent=None, retry_for=None,
-                maxdelay=None, exemptfee=None, use_shadow=True):
+                maxdelay=None, exemptfee=None, use_shadow=True, exclude=[]):
         """
         A developer version of `pay`, with the possibility to deactivate
         shadow routing (used for testing).
@@ -631,6 +631,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "maxdelay": maxdelay,
             "exemptfee": exemptfee,
             "use_shadow": use_shadow,
+            "exclude": exclude,
         }
         return self.call("pay", payload)
 
@@ -756,33 +757,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel_cancel", payload)
 
-    def _deprecated_fundchannel_complete(self, node_id, funding_txid, funding_txout):
-        warnings.warn("fundchannel_complete: funding_txid & funding_txout replaced by psbt: expect removal"
-                      " in Mid-2021",
-                      DeprecationWarning)
-
-        payload = {
-            "id": node_id,
-            "txid": funding_txid,
-            "txout": funding_txout,
-        }
-        return self.call("fundchannel_complete", payload)
-
-    def fundchannel_complete(self, node_id, *args, **kwargs):
+    def fundchannel_complete(self, node_id, psbt):
         """
         Complete channel establishment with {id}, using {psbt}.
         """
-        if 'txid' in kwargs or len(args) == 2:
-            return self._deprecated_fundchannel_complete(node_id, *args, **kwargs)
-
-        def _fundchannel_complete(node_id, psbt):
-            payload = {
-                "id": node_id,
-                "psbt": psbt,
-            }
-            return self.call("fundchannel_complete", payload)
-
-        return _fundchannel_complete(node_id, *args, **kwargs)
+        payload = {
+            "id": node_id,
+            "psbt": psbt,
+        }
+        return self.call("fundchannel_complete", payload)
 
     def getinfo(self):
         """
@@ -930,15 +913,17 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
-    def listpays(self, bolt11=None, payment_hash=None):
+    def listpays(self, bolt11=None, payment_hash=None, status=None):
         """
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
-        Can only specify one of {bolt11} or {payment_hash}.
+        Can only specify one of {bolt11} or {payment_hash}. It is possible
+        filter the payments by {status}.
         """
         assert not (bolt11 and payment_hash)
         payload = {
             "bolt11": bolt11,
-            "payment_hash": payment_hash
+            "payment_hash": payment_hash,
+            "status": status
         }
         return self.call("listpays", payload)
 
@@ -952,11 +937,12 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def listsendpays(self, bolt11=None, payment_hash=None):
+    def listsendpays(self, bolt11=None, payment_hash=None, status=None):
         """Show all sendpays results, or only for `bolt11` or `payment_hash`."""
         payload = {
             "bolt11": bolt11,
-            "payment_hash": payment_hash
+            "payment_hash": payment_hash,
+            "status": status
         }
         return self.call("listsendpays", payload)
 
@@ -1004,7 +990,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
             maxfeepercent=None, retry_for=None,
-            maxdelay=None, exemptfee=None):
+            maxdelay=None, exemptfee=None, exclude=[]):
         """
         Send payment specified by {bolt11} with {msatoshi}
         (ignored if {bolt11} has an amount), optional {label}
@@ -1019,6 +1005,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "retry_for": retry_for,
             "maxdelay": maxdelay,
             "exemptfee": exemptfee,
+            "exclude": exclude,
         }
         return self.call("pay", payload)
 
@@ -1134,7 +1121,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("plugin", payload)
 
-    def sendpay(self, route, payment_hash, label=None, msatoshi=None, bolt11=None, payment_secret=None, partid=None):
+    def sendpay(self, route, payment_hash, label=None, msatoshi=None, bolt11=None, payment_secret=None, partid=None, groupid=None):
         """
         Send along {route} in return for preimage of {payment_hash}.
         """
@@ -1146,19 +1133,46 @@ class LightningRpc(UnixDomainSocketRpc):
             "bolt11": bolt11,
             "payment_secret": payment_secret,
             "partid": partid,
+            "groupid": groupid,
         }
         return self.call("sendpay", payload)
 
-    def setchannelfee(self, id, base=None, ppm=None):
+    def sendonion(
+            self, onion, first_hop, payment_hash, label=None,
+            shared_secrets=None, partid=None, bolt11=None, msatoshi=None,
+            destination=None
+    ):
+        """Send an outgoing payment using the specified onion.
+
+        This method allows sending a payment using an externally
+        generated routing onion, with optional metadata to facilitate
+        internal handling, but not required.
+
+        """
+        payload = {
+            "onion": onion,
+            "first_hop": first_hop,
+            "payment_hash": payment_hash,
+            "label": label,
+            "shared_secrets": shared_secrets,
+            "partid": partid,
+            "bolt11": bolt11,
+            "msatoshi": msatoshi,
+            "destination": destination,
+        }
+        return self.call("sendonion", payload)
+
+    def setchannelfee(self, id, base=None, ppm=None, enforcedelay=None):
         """
         Set routing fees for a channel/peer {id} (or 'all'). {base} is a value in millisatoshi
         that is added as base fee to any routed payment. {ppm} is a value added proportionally
-        per-millionths to any routed payment volume in satoshi.
+        per-millionths to any routed payment volume in satoshi. {enforcedelay} is the number of seconds before enforcing this change.
         """
         payload = {
             "id": id,
             "base": base,
-            "ppm": ppm
+            "ppm": ppm,
+            "enforcedelay": enforcedelay,
         }
         return self.call("setchannelfee", payload)
 
@@ -1201,7 +1215,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("waitinvoice", payload)
 
-    def waitsendpay(self, payment_hash, timeout=None, partid=None):
+    def waitsendpay(self, payment_hash, timeout=None, partid=None, groupid=None):
         """
         Wait for payment for preimage of {payment_hash} to complete.
         """
@@ -1209,6 +1223,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "payment_hash": payment_hash,
             "timeout": timeout,
             "partid": partid,
+            "groupid": groupid,
         }
         return self.call("waitsendpay", payload)
 

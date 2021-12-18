@@ -1,9 +1,13 @@
+#include "config.h"
 #include <assert.h>
+#include <common/channel_type.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossip_store.h>
 #include <common/route.h>
+#include <common/setup.h>
 #include <common/type_to_string.h>
+#include <common/utils.h>
 #include <bitcoin/chainparams.h>
 #include <stdio.h>
 #include <wire/peer_wiregen.h>
@@ -167,9 +171,9 @@ static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
 	node_id_from_pubkey(id, &k);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
+	common_setup(argv[0]);
 
 	struct node_id a, b, c, d;
 	struct gossmap_node *a_node, *b_node, *c_node, *d_node;
@@ -180,14 +184,11 @@ int main(void)
 	struct gossmap *gossmap;
 	const double riskfactor = 1.0;
 	char gossip_version = GOSSIP_STORE_VERSION;
-	char gossipfilename[] = "/tmp/run-route-gossipstore.XXXXXX";
+	char *gossipfilename;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
 	chainparams = chainparams_for_network("regtest");
 
-	store_fd = mkstemp(gossipfilename);
+	store_fd = tmpdir_mkstemp(tmpctx, "run-route-gossipstore.XXXXXX", &gossipfilename);
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 	gossmap = gossmap_load(tmpctx, gossipfilename, NULL);
@@ -306,7 +307,6 @@ int main(void)
 	assert(amount_msat_eq(route[0].amount, AMOUNT_MSAT(3000000 + 6)));
 	assert(route[0].delay == 15);
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	return 0;
 }

@@ -1,16 +1,17 @@
-#include <bitcoin/preimage.h>
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
-#include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
 #include <common/type_to_string.h>
 #include <errno.h>
+#include <math.h>
 #include <plugins/libplugin-pay.h>
+#include <sys/types.h>
 #include <wire/peer_wire.h>
 
 static struct gossmap *global_gossmap;
@@ -67,6 +68,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->routetxt = NULL;
 	p->max_htlcs = UINT32_MAX;
 	p->aborterror = NULL;
+	p->on_payment_success = NULL;
+	p->on_payment_failure = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -90,6 +93,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->id = parent->id;
 		p->local_id = parent->local_id;
 		p->local_offer_id = parent->local_offer_id;
+		p->groupid = parent->groupid;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -101,6 +105,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		/* Caller must set this.  */
 		p->local_id = NULL;
 		p->local_offer_id = NULL;
+		p->groupid = 0;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -692,6 +697,48 @@ static bool payment_route_can_carry_even_disabled(const struct gossmap *map,
 	return payment_route_check(map, c, dir, amount, p);
 }
 
+/* Rene Pickhardt:
+ *
+ * Btw the linear term of the Taylor series of -log((c+1-x)/(c+1)) is 1/(c+1)
+ * meaning that another suitable Weight for Dijkstra would be amt/(c+1) +
+ * \mu*fee(amt) which is the linearized version which for small amounts and
+ * suitable value of \mu should be good enough)
+ */
+static u64 capacity_bias(const struct gossmap *map,
+			 const struct gossmap_chan *c,
+			 int dir,
+			 struct amount_msat amount)
+{
+	struct amount_sat capacity;
+	u64 capmsat, amtmsat = amount.millisatoshis; /* Raw: lengthy math */
+
+	/* Can fail in theory if gossmap changed underneath. */
+	if (!gossmap_chan_get_capacity(map, c, &capacity))
+		return 0;
+
+	capmsat = capacity.satoshis * 1000; /* Raw: lengthy math */
+	return -log((capmsat + 1 - amtmsat) / (capmsat + 1));
+}
+
+/* Prioritize costs over distance, but bias to larger channels. */
+static u64 route_score(u32 distance,
+		       struct amount_msat cost,
+		       struct amount_msat risk,
+		       int dir,
+		       const struct gossmap_chan *c)
+{
+	u64 cmsat = cost.millisatoshis; /* Raw: lengthy math */
+	u64 rmsat = risk.millisatoshis; /* Raw: lengthy math */
+	u64 bias = capacity_bias(global_gossmap, c, dir, cost);
+
+	/* Smoothed harmonic mean to avoid division by 0 */
+	u64 costs = (cmsat * rmsat * bias) / (cmsat + rmsat + bias + 1);
+
+	if (costs > 0xFFFFFFFF)
+		costs = 0xFFFFFFFF;
+	return costs;
+}
+
 static struct route_hop *route(const tal_t *ctx,
 			       struct gossmap *gossmap,
 			       const struct gossmap_node *src,
@@ -713,14 +760,14 @@ static struct route_hop *route(const tal_t *ctx,
 
 	can_carry = payment_route_can_carry;
 	dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
-		       can_carry, route_score_cheaper, p);
+		       can_carry, route_score, p);
 	r = route_from_dijkstra(ctx, gossmap, dij, src, amount, final_delay);
 	if (!r) {
 		/* Try using disabled channels too */
 		/* FIXME: is there somewhere we can annotate this for paystatus? */
 		can_carry = payment_route_can_carry_even_disabled;
 		dij = dijkstra(ctx, gossmap, dst, amount, riskfactor,
-			       can_carry, route_score_cheaper, p);
+			       can_carry, route_score, p);
 		r = route_from_dijkstra(ctx, gossmap, dij, src,
 					amount, final_delay);
 		if (!r) {
@@ -1489,6 +1536,7 @@ static struct command_result *payment_sendonion_success(struct command *cmd,
 				    payment_waitsendpay_finished, p);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
 	json_add_num(req->js, "partid", p->partid);
+	json_add_u64(req->js, "groupid", p->groupid);
 	send_outreq(p->plugin, req);
 
 	return command_still_pending(cmd);
@@ -1526,6 +1574,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_array_end(req->js);
 
 	json_add_num(req->js, "partid", p->partid);
+	json_add_u64(req->js, "groupid", p->groupid);
 
 	if (p->label)
 		json_add_string(req->js, "label", p->label);
@@ -1866,6 +1915,10 @@ static void payment_finished(struct payment *p)
 			assert(result.leafstates & PAYMENT_STEP_SUCCESS);
 			assert(result.preimage != NULL);
 
+			/* Call any callback we might have registered. */
+			if (p->on_payment_success != NULL)
+				p->on_payment_success(p);
+
 			ret = jsonrpc_stream_success(cmd);
 			json_add_node_id(ret, "destination", p->destination);
 			json_add_sha256(ret, "payment_hash", p->payment_hash);
@@ -1895,6 +1948,7 @@ static void payment_finished(struct payment *p)
 			plugin_notification_end(p->plugin, n);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			p->cmd = NULL;
 			return;
 		} else if (p->aborterror != NULL) {
 			/* We set an explicit toplevel error message,
@@ -1906,8 +1960,12 @@ static void payment_finished(struct payment *p)
 			payment_notify_failure(p, p->aborterror);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			p->cmd = NULL;
 			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {
+			if (p->on_payment_failure != NULL)
+				p->on_payment_failure(p);
+
 			/* This is failing because we have no more routes to try */
 			msg = tal_fmt(cmd,
 				      "Ran out of routes to try after "
@@ -1921,11 +1979,14 @@ static void payment_finished(struct payment *p)
 			payment_notify_failure(p, msg);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			p->cmd = NULL;
 			return;
 
 		}  else {
 			struct payment_result *failure = result.failure;
 			assert(failure!= NULL);
+			if (p->on_payment_failure != NULL)
+				p->on_payment_failure(p);
 			ret = jsonrpc_stream_fail(cmd, failure->code,
 						  failure->message);
 
@@ -1950,7 +2011,7 @@ static void payment_finished(struct payment *p)
 				 * success. */
 				json_add_string(ret, "status", "complete");
 
-			} else if (result.leafstates & ~PAYMENT_FAILED) {
+			} else if (result.leafstates & ~PAYMENT_STEP_FAILED) {
 				/* If there are non-failed leafs we are still trying. */
 				json_add_string(ret, "status", "pending");
 
@@ -1988,6 +2049,7 @@ static void payment_finished(struct payment *p)
 			payment_notify_failure(p, failure->message);
 
 			if (command_finished(cmd, ret)) { /* Ignore result. */}
+			p->cmd = NULL;
 			return;
 		}
 	} else {
@@ -2248,7 +2310,7 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			      const jsmntok_t *toks, struct payment *p)
 {
 	const jsmntok_t *peers, *peer, *channels, *channel, *spendsats, *scid,
-	    *dir, *connected, *max_htlc, *htlcs;
+		*dir, *connected, *max_htlc, *htlcs, *state;
 	size_t i, j;
 	peers = json_get_member(buffer, toks, "peers");
 
@@ -2269,13 +2331,19 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			dir = json_get_member(buffer, channel, "direction");
 			max_htlc = json_get_member(buffer, channel, "max_accepted_htlcs");
 			htlcs = json_get_member(buffer, channel, "htlcs");
+			state = json_get_member(buffer, channel, "state");
 			if (spendsats == NULL || scid == NULL || dir == NULL ||
-			    max_htlc == NULL ||
+			    max_htlc == NULL || state == NULL ||
 			    max_htlc->type != JSMN_PRIMITIVE || htlcs == NULL ||
 			    htlcs->type != JSMN_ARRAY)
 				continue;
 
+			/* Filter out local channels if they are
+			 * either a) disconnected, or b) not in normal
+			 * state. */
 			json_to_bool(buffer, connected, &h.enabled);
+			h.enabled &= json_tok_streq(buffer, state, "CHANNELD_NORMAL");
+
 			json_to_short_channel_id(buffer, scid, &h.scid.scid);
 			json_to_int(buffer, dir, &h.scid.dir);
 
@@ -3170,7 +3238,7 @@ static struct command_result *direct_pay_listpeers(struct command *cmd,
 	    json_to_listpeers_result(tmpctx, buffer, toks);
 	struct direct_pay_data *d = payment_mod_directpay_get_data(p);
 
-	if (tal_count(r->peers) == 1) {
+	if (r && tal_count(r->peers) == 1) {
 		struct listpeers_peer *peer = r->peers[0];
 		if (!peer->connected)
 			goto cont;
@@ -3824,3 +3892,45 @@ static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
 
 REGISTER_PAYMENT_MODIFIER(payee_incoming_limit, void *, NULL,
 			  payee_incoming_limit_step_cb);
+
+static struct route_exclusions_data *
+route_exclusions_data_init(struct payment *p)
+{
+	struct route_exclusions_data *d;
+	if (p->parent != NULL) {
+		return payment_mod_route_exclusions_get_data(p->parent);
+	} else {
+		d = tal(p, struct route_exclusions_data);
+		d->exclusions = NULL;
+	}
+	return d;
+}
+
+static void route_exclusions_step_cb(struct route_exclusions_data *d,
+		struct payment *p)
+{
+	if (p->parent)
+		return payment_continue(p);
+	struct route_exclusion **exclusions = d->exclusions;
+	for (size_t i = 0; i < tal_count(exclusions); i++) {
+		struct route_exclusion *e = exclusions[i];
+		if (e->type == EXCLUDE_CHANNEL) {
+			channel_hints_update(p, e->u.chan_id.scid, e->u.chan_id.dir,
+				false, false, NULL, NULL);
+		} else {
+			if (node_id_eq(&e->u.node_id, p->destination)) {
+				payment_abort(p, "Payee is manually excluded");
+				return;
+			} else if (node_id_eq(&e->u.node_id, p->local_id)) {
+				payment_abort(p, "Payer is manually excluded");
+				return;
+			}
+
+			tal_arr_expand(&p->excluded_nodes, e->u.node_id);
+		}
+	}
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(route_exclusions, struct route_exclusions_data *,
+	route_exclusions_data_init, route_exclusions_step_cb);

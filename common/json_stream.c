@@ -1,15 +1,9 @@
+#include "config.h"
 #include <ccan/io/io.h>
   /* To reach into io_plan: not a public header! */
   #include <ccan/io/backend.h>
-#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/str/hex/hex.h>
-#include <ccan/tal/str/str.h>
-#include <common/daemon.h>
 #include <common/json_stream.h>
-#include <common/utils.h>
-#include <stdarg.h>
-#include <stdio.h>
 
 
 static void adjust_io_write(struct json_out *jout,
@@ -49,7 +43,13 @@ struct json_stream *json_stream_dup(const tal_t *ctx,
 	return js;
 }
 
-bool json_stream_still_writing(const struct json_stream *js)
+/**
+ * json_stream_still_writing - is someone currently writing to this stream?
+ * @js: the json_stream.
+ *
+ * Has this json_stream not been closed yet?
+ */
+static bool json_stream_still_writing(const struct json_stream *js)
 {
 	return js->writer != NULL;
 }

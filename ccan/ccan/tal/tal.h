@@ -456,7 +456,7 @@ bool tal_check(const tal_t *ctx, const char *errorstr);
 
 #ifdef CCAN_TAL_DEBUG
 /**
- * tal_dump - dump entire tal tree.
+ * tal_dump - dump entire tal tree to stderr.
  *
  * This is a helper for debugging tal itself, which dumps all the tal internal
  * state.

@@ -4,7 +4,7 @@ lightning-setchannelfee -- Command for setting specific routing fees on a lightn
 SYNOPSIS
 --------
 
-**setchannelfee** *id* \[*base*\] \[*ppm*\]
+**setchannelfee** *id* \[*base*\] \[*ppm*\] \[*enforcedelay*\]
 
 DESCRIPTION
 -----------
@@ -31,6 +31,15 @@ to any routed payment volume in satoshi. For example, if ppm is 1,000
 and 1,000,000 satoshi is being routed through the channel, an
 proportional fee of 1,000 satoshi is added, resulting in a 0.1% fee. If
 the parameter is left out, the global config value will be used again.
+
+*enforcedelay* is the number of seconds to delay before enforcing the
+new fees (default 600, which is ten minutes).  This gives the network
+a chance to catch up with the new rates and avoids rejecting HTLCs
+before they do.  This only has an effect if rates are increased (we
+always allow users to overpay fees), only applies to a single rate
+increase per channel (we don't remember an arbitrary number of prior
+feerates) and if the node is restarted the updated fees are enforced
+immediately.
 
 RETURN VALUE
 ------------
@@ -72,4 +81,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:1f040269076ac47e5ed973225bfddbcffdec83dd91f6df143d29bcb981de04ed)
+[comment]: # ( SHA256STAMP:2245fde48f1858886e0f484cb3d96331fef9c41b0081ae51478d912189c38907)

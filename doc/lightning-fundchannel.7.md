@@ -37,7 +37,7 @@ channels were negotiated with the peer).
 *feerate* is an optional feerate used for the opening transaction and as
 initial feerate for commitment and HTLC transactions. It can be one of
 the strings *urgent* (aim for next block), *normal* (next 4 blocks or
-so) or *slow* (next 100 blocks or so) to use lightningd’s internal
+so) or *slow* (next 100 blocks or so) to use lightningd's internal
 estimates: *normal* is the default.
 
 Otherwise, *feerate* is a number, with an optional suffix: *perkw* means
@@ -113,4 +113,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:43dfc7b25dad697f3589492a5bdcd895b8edbc2d39e9edb6a9c18313fac9ca50)
+[comment]: # ( SHA256STAMP:4a8d7c524cfe257f961531929d14d3589efb6ecd182a33e92aade30af90406f8)

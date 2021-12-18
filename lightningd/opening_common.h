@@ -65,7 +65,7 @@ struct funding_channel {
 
 	struct wallet_tx *wtx;
 	struct amount_msat push;
-	struct amount_sat funding;
+	struct amount_sat funding_sats;
 	u8 channel_flags;
 	const u8 *our_upfront_shutdown_script;
 
@@ -77,6 +77,9 @@ struct funding_channel {
 
 	/* Channel, subsequent owner of us */
 	struct uncommitted_channel *uc;
+
+	/* Channel type we ended up negotiating. */
+	struct channel_type *channel_type;
 
 	/* The scriptpubkey to pay (once started) */
 	u8 *funding_scriptpubkey;

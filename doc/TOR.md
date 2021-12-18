@@ -2,10 +2,7 @@
 
 To use any Tor features with c-lightning you must have Tor installed and running.
 
-Note that [Tor v2 onion services are deprecated since mid-2020](https://blog.torproject.org/v2-deprecation-timeline)
-and that C-lightning deprecated their support since mid-2021.
-
-You can check your installed Tor version with `tor --version` or `sudo tor --version`
+Note that we only support Tor v3: you can check your installed Tor version with `tor --version` or `sudo tor --version`
 
 If Tor is not installed you can install it on Debian based Linux systems (Ubuntu, Debian, etc) with the following command:
 
@@ -37,6 +34,7 @@ To provide the node with a .onion address you can:
 * create a **non-persistent** address with an auto service or
 
 * create a **persistent** address with a hidden service.
+
 
 ### Quick Start On Linux
 
@@ -179,37 +177,73 @@ on those.
 
 ### Detailed Discussion
 
-#### Creation of an auto service for non-persistent .onion addresses
+#### Three Ways to Create .onion Addresses for C-lightning
 
-To provide the node a non-persistent .onion address it
-is necessary to access the Tor auto service. These types of addresses change
-each time the Tor service is restarted.
+You have have Tor create an onion address for you, and tell
+c-lightning to use that, or you can have c-lightning tell Tor to
+create the same onion address every time it starts up, or you can have
+c-lightning tell Tor to create a new onion address every time.
 
-*NOTE:If the node is required to be reachable only by **persistent** .onion addresses, this
-part can be skipped and it is necessary to set up a hidden service with the steps
-outlined in the next section.*
+#### Tor-Created .onion Address
 
-To create and use the auto service follow these steps:
+Having Tor create an onion address lets you run other services (e.g.
+a web server) at that same address, and you just tell that address to
+c-lightning and it doesn't have to talk to the Tor server at all.
 
-Edit the Tor config file `/etc/tor/torrc`
+Put the following in your `/etc/tor/torrc` file:
 
-You can configure the service authenticated by cookie or by password:
+```
+HiddenServiceDir /var/lib/tor/lightningd-service_v3/
+HiddenServiceVersion 3
+HiddenServicePort 1234 127.0.0.1:9735
+```
+
+The hidden lightning service  will be reachable at port 1234 (global port)
+of the .onion address, which will be created at the restart of the
+Tor service.  Both types of addresses can coexist on the same node.
+
+Save the file and restart the Tor service. In linux:
+
+`/etc/init.d/tor restart` or `sudo systemctl start tor` depending
+on the configuration of your system.
+
+You will find the newly created address (myaddress.onion) with:
+```
+sudo cat /var/lib/tor/lightningd-service_v3/hostname
+```
+
+Now you need to tell c-lightning to advertize that onion hostname and
+port, by placing `announce-addr=myaddress.onion` in your lightning
+config.
+
+#### Letting C-lightning Control Tor
+
+To have c-lightning control your Tor addresses, you have to tell Tor
+to accept control commands from c-lightning, either by using a cookie,
+or a password.
 
 ##### Service authenticated by cookie
+
+This tells Tor to create a cookie file each time: lightningd will have
+to be in the same group as tor (e.g. debian-tor): you can look at
+`/run/tor/control.authcookie` to check the group name.
+
 Add the following lines in the `/etc/tor/torrc` file:
 
-````
+```
 ControlPort 9051
 CookieAuthentication 1
 CookieAuthFileGroupReadable 1
-````
+```
+
+Save the file and restart the Tor service.
 
 ##### Service authenticated by password
 
-Alternatively, you can set the authentication
-to the service with a password by following these steps:
+This tells Tor to allow password access: you also need to tell lightningd
+what the password is.
 
-1. Create a hash of your password with
+Create a hash of your password with
 ```
 tor --hash-password yourpassword
 ```
@@ -218,126 +252,62 @@ This returns a line like
 
 `16:533E3963988E038560A8C4EE6BBEE8DB106B38F9C8A7F81FE38D2A3B1F`
 
-2. put these lines in the `/etc/tor/torrc` file:
+Put these lines in the `/etc/tor/torrc` file:
 ```
 ControlPort 9051
 HashedControlPassword 16:533E3963988E038560A8C4EE6BBEE8DB106B38F9C8A7F81FE38D2A3B1F
-````
-
-Save the file and restart the Tor service. In linux:
-
-`/etc/init.d/tor restart` or `sudo systemctl start tor` depending
-on the configuration of your system.
-
-The auto service is used by adding `--addr=autotor:127.0.0.1:9051` if you
-want the address to be public or `--bind-addr=autotor:127.0.0.1:9051` if you
-don't want to publish it.
-
-In the case where the auto service is authenticated through a password, it will
-be necessary to add the option `--tor-service-password=yourpassword` (not the hash).
-
-The created non-persistent .onion address will be shown by the `lightning-cli getinfo`
-command. The other nodes will be able to `connect` to this .onion address through the
-9735 port.
-
-#### Creation of a hidden service for a persistent .onion address
-
-To have a persistent .onion address other nodes can connect to, it
-is necessary to set up a [Tor Hidden Service].
-
-*NOTE: In the case where only non-persistent addresses are required,
-you don't have to create the hidden service and you can skip this part.*
-
-##### Automatic persistent .onion address
-
-It is possible to generate persistent .onion addresses automatically.
-
-Add the following lines in the `/etc/tor/torrc` file
-(you might already have done this if for example you connected Bitcoin
-over Tor):
-
-````
-ControlPort 9051
-CookieAuthentication 1
-CookieAuthFileGroupReadable 1
-````
-
-Then you can use `--addr=statictor:127.0.0.1:9051` instead of
-`--announce-addr=.onionAddressV3`.
-By default V3 onion addresses are generated.
-
-Note that you have to specify a `--bind-addr` first before using
-`--addr=statictor:`.
-Generally `--bind-addr=127.0.0.1:9735` should work fine.
-
-You can also have multiple persistent .onion addresses
-by adding `/torblob=BLOB`, where `BLOB` is 32 to 64 ***random***
-bytes of text.
-Note that this blob will be used to derive the secret key behind
-the .onion address and you should keep the blob secret otherwise
-anyone who steals it can spoof your .onion address and block
-incoming data to your node via this .onion address.
-You can then specify multiple `statictor:` options with different
-`BLOB`s.
-
-However, even if you have multiple persistent addresses, you can
-only announce up to one onion service (v3).
-This is a limitation of the BOLT spec.
-It is still possible for other nodes to contact you by those
-other hidden services.
-
-Finally, the default external port number for the autogenerated
-persistent .onion address will be 9735, but you can change this by
-adding `/torport=9999` to change the external port for the .onion
-address.
-
-##### Explicit Control
-
-If you want to create a version 3 address, you must also add `HiddenServiceVersion 3` so
-the whole section will be:
-
-````
-HiddenServiceDir /var/lib/tor/lightningd-service_v3/
-HiddenServiceVersion 3
-HiddenServicePort 1234 127.0.0.1:9735
-````
-
-The hidden lightning service  will be reachable at port 1234 (global port)
-of the .onion address, which will be created at the restart of the
-Tor service. Both types of addresses can coexist on the same node.
-
-Save the file and restart the Tor service. In linux:
-
-`/etc/init.d/tor restart` or `sudo systemctl start tor` depending
-on the configuration of your system.
-
-You will find the newly created address with:
-```
-sudo cat /var/lib/tor/lightningd-service_v3/hostname
 ```
 
-Now you are able to create:
+Save the file and restart the Tor service.
 
-* Persistent version 3 hidden services.
+Put `tor-service-password=yourpassword` (not the hash) in your
+lightning configuration file.
 
-Let's see how to use them.
+##### C-Lightning Creating Persistent Hidden Addresses
+
+This is usually better than transient addresses, as nodes won't have
+to wait for gossip propagation to find out your new address each time
+you restart.
+
+Once you've configured access to Tor as described above, you need
+to add *two* lines in your lightningd config file:
+
+1. A local address which lightningd can tell Tor to connect to when
+   connections come in, e.g. `bind-addr=127.0.0.1:9735`.
+2. After that, a `addr=statictor:127.0.0.1:9051` to tell 
+   c-lightning to set up and announce a Tor onion address (and tell
+   Tor to send connections to our real address, above).
+
+You can use `bind-addr` if you want to set up the onion address and
+not announce it to the world for some reason.
+
+You may add more `addr` lines if you want to advertize other
+addresses.
+
+There is an older method, called "autotor" instead of "statictor"
+which creates a different Tor address on each restart, which is
+usually not very helpful; you need to use `lightning-cli getinfo` to
+see what address it is currently using, and other peers need to wait
+for fresh gossip messages if you announce it, before they can connect.
+
 
 ### What do we support
 
 | Case #  | IP Number     | Hidden service            |Incoming / Outgoing Tor |
 | ------- | ------------- | ------------------------- |-------------------------
 | 1       | Public        | NO                        | Outgoing               |
-| 6       | Public        | v3                        | Incoming [1]           |
-| 7       | Not Announced | v3                        | Incoming               |
-| 8       | Public        | NO                        | Outcoing socks5 .      |
+| 2       | Public        | FIXED BY TOR              | Incoming [1]           |
+| 3       | Public        | FIXED BY C-LIGHTNING      | Incoming [1]           |
+| 4       | Not Announced | FIXED BY TOR              | Incoming [1]           |
+| 5       | Not Announced | FIXED BY C-LIGHTNING      | Incoming [1]           |
+
 
 NOTE:
 
 1. In all the "Incoming" use case, the node can also make "Outgoing" Tor
-connections (connect to a .onion address) by adding the
-`--proxy=127.0.0.1:9050` option.
+connections (connect to a .onion address) by adding the `proxy=127.0.0.1:9050` option.
 
-#### Case #1 c-lightning has a public IP address and no Tor hidden service address, but can connect to an onion address via a Tor socks 5 proxy.
+#### Case #1: Public IP address and no Tor address, but can connect to Tor addresses
 
 Without a .onion address, the node won't be reachable through Tor by other
 nodes but it will always be able to `connect` to a Tor enabled node
@@ -345,7 +315,7 @@ nodes but it will always be able to `connect` to a Tor enabled node
 service socks5 proxy. When the Tor service starts it creates a socks5
 proxy which is by default at the address 127.0.0.1:9050.
 
-If the node is started  with the option `--proxy=127.0.0.1:9050` the node
+If the node is started with the option `proxy=127.0.0.1:9050` the node
 will be always able to connect to nodes with .onion address through the socks5
 proxy.
 
@@ -353,18 +323,22 @@ proxy.
 Tor capabilities.**
 
 If you want to `connect` to nodes ONLY via the Tor proxy, you have to add the
-`--always-use-proxy=true` option.
+`always-use-proxy=true` option (though if you only advertize Tor addresses,
+we also assume you want to always use the proxy).
 
-You can announce your public IP address through the usual method:
+You can announce your public IP address through the usual method: if
+your node is in an internal network:
 
 ```
---bind-addr=internalIPAddress:port --announce-addr=externalIpAddress
+bind-addr=internalIPAddress:port
+announce-addr=externalIpAddress
 ```
-if the node is into an internal network
+
+or if it has a public IP address:
+
 ```
---addr=externalIpAddress
+addr=externalIpAddress
 ```
-if the node is not inside an internal network.
 
 TIP: If you are unsure which of the two is suitable for you, find your internal
 and external address and see if they match.
@@ -377,141 +351,81 @@ and your internal IP Address with: `ip route get 1 | awk '{print $NF;exit}'`
 
 If they match you can use the `--addr` command line option.
 
-#### Case #2 c-lightning has a public IP address and a fixed Tor hidden service address that is persistent, so that external users can connect to this node.
+#### Case #2: Public IP address, and a fixed Tor address in torrc
 
-To have your external IP address and your .onion address announced, you use the
-```
---bind-addr=yourInternalIPAddress:port --announce-addr=yourexternalIPAddress:port --announce-addr=your.onionAddress:port`
-```
-or
-```
---bind-addr=yourInternalIPAddress:port --announce-addr=yourexternalIPAddress:port --addr=statictor:127.0.0.1:9051`
-```
-options.
+Other nodes can connect to you entirely over Tor, and the Tor address
+doesn't change every time you restart.
 
-If you are not inside an internal network you can use
+You simply tell c-lightning to advertize both addresses (you can use
+`sudo cat /var/lib/tor/lightningd-service_v3/hostname` to get your
+Tor-assigned onion address).
+
+If you have an internal IP address:
+
 ```
---addr=yourIPAddress:port --announce-addr=your.onionAddress:port
-```
-or
-```
---addr=yourIPAddress:port --addr=statictor:127.0.0.1:9051
+bind-addr=yourInternalIPAddress:port
+announce-addr=yourexternalIPAddress:port
+announce-addr=your.onionAddress:port
 ```
 
-your.onionAddress is the one created with the Tor hidden service ([see above](#creation-of-an-hidden-service-for-a-persistent-onion-address)).
-The port is the one indicated as the hidden service port. If the hidden service creation
-line is `HiddenServicePort 1234 127.0.0.1:9735` the .onion address will be reachable at
-the 1234 port (the global port).
-
-For `statictor` the `127.0.0.1` is your computer, and `9051` is the
-Tor Control Port you set up in the `/etc/tor/torrc` file.
-
-It will be possible to connect to this node with:
+Or an external address:
 ```
-lightning-cli connect nodeID .onionAddress globalPort
+addr=yourIPAddress:port
+announce-addr=your.onionAddress:port
 ```
-through Tor where .onion address is in the form `xxxxxxxxxxxxxxxxxxxxxxxxxx.onion`, Or
+
+#### Case #3: Public IP address, and a fixed Tor address set by C-lightning
+
+Other nodes can connect to you entirely over Tor, and the Tor address
+doesn't change every time you restart.
+
+See "Letting C-lightning Control Tor" for how to get c-lightning
+talking to Tor.
+
+If you have an internal IP address:
+
 ```
-lightning-cli connect nodeID yourexternalIPAddress Port
+bind-addr=yourInternalIPAddress:port
+announce-addr=yourexternalIPAddress:port
+addr=statictor:127.0.0.1:9051
 ```
-through Clearnet.
 
-#### Case #3 c-lightning has a public IP address and a non-persisten Tor service address
-
-In this case other nodes can connect to you via Clearnet or Tor.
-
-To announce your IP address to the network, you add:
+Or an external address:
 ```
---bind-addr=internalAddress:port --announce-addr=yourExternalIPAddress
+addr=yourIPAddress:port
+addr=statictor:127.0.0.1:9051
 ```
-or `--addr=yourExternalIPAddress`if you are NOT on an internal network.
 
-To get your non-persistent Tor address, add
-`--addr=autotor:127.0.0.1:9051` if you want to announce it or
-`--bind-addr=autotor:127.0.0.1:9051` if you don't want to announce it.
+#### Case #4: Unannounced IP address, and a fixed Tor address in torrc
 
-If the auto service is protected by password ([see above](#service-authenticated-by-password)) it is necessary to
-specify it with the option `--tor-service-password=yourpassword` (not the hash).
+Other nodes can only connect to you over Tor.
 
-You will obtain the generated non persisten .onion address by reading the results of the
-`lightning-cli getinfo` command. Other nodes will be able to connect to the
-.onion address through the 9735 port.
+You simply tell c-lightning to advertize the Tor address (you can use
+`sudo cat /var/lib/tor/lightningd-service_v3/hostname` to get your
+Tor-assigned onion address).
 
-#### Case #4 c-lightning has no public IP address, but has a fixed Tor hidden service address that is persistent
-
-Other nodes can connect to the announced .onion address created with the
-hidden service ([see above](#creation-of-an-hidden-service-for-a-persistent-onion-address)).
-
-In this case In the `lightningd` command line you will specify:
 ```
---bind-addr=yourInternalIPAddress:port --announce-addr=your.onionAddress:port
+announce-addr=your.onionAddress:port
+proxy=127.0.0.1:9050
+always-use-proxy=true
 ```
-or `--addr=your.onionAddress:port` if you are NOT on an internal network.
 
-#### Case #5 c-lightning has no public IP address, and has no fixed Tor hidden service address
+#### Case #4: Unannounced IP address, and a fixed Tor address set by C-lightning
 
-In this case it is difficult to track the node.
-You specify just:
+Other nodes can only connect to you over Tor.
+
+See "Letting C-lightning Control Tor" for how to get c-lightning
+talking to Tor.
+
 ```
---bind-addr=yourInternalIPAddress:port --addr=autotor:127.0.0.1:9051
-```
-In the `lightningd` command line.
-
-Other nodes will not be able to `connect` to you unless you communicate them how to reach you.
-You will find your .onion address with the command `lightning-cli getinfo` and the other nodes will
-be able to connect to it through the 9735 port.
-
-#### Case #6 c-lightning has a public IP address and a fixed Tor v3 hidden service
-
-You will be reachable via Clearnet, via Tor to the .onion if it is communicated to the node that wants to
-connect with our node.
-
-To make your external IP address public you add:
-```
---bind-addr=yourInternalAddress:port --announce-addr=yourexternalIPAddress:port`.
-```
-If the node is not on an internal network the option will be:
-`--addr=yourexternalIPAddress:port`.
-
-Once the .onion addresses have been created with the procedures [oulined above](#creation-of-an-hidden-service-for-a-persistent-onion-address),
-the node is already reachable at the .onion address.
-
-To make your external hidden service public you add:
-```
---announce-addr=.onionAddressV3:port
-```
-to the options to publish your IP number.
-
-#### Case #7 c-lightning has no public IP address, a fixed Tor V3 service address
-
-The Persistent addresses can be created with the steps [outlined above](#creation-of-an-hidden-service-for-a-persistent-onion-address).
-
-To create your non-persistent Tor address, add
-`--addr=autotor:127.0.0.1:9051` if you want to announce it or
-`--bind-addr=autotor:127.0.0.1:9051` if you don't want to announce it.
-
-Also you must specify `--tor-service-password=yourpassword` (not the hash) to access the
-Tor service at 9051 If you have protected them with the password (no additional options if
-they are protected with a cookie file. [See above](#creation-of-an-auto-service-for-non-persistent-onion-addresses)).
-
-To make your external onion service public you add:
-```
---bind-addr=yourInternalIPAddress:port --announce-addr=your.onionAddressV3:port
-```
-#### Case #8 	c-lightning has a public IP address and no Tor addresses
-
-The external address is communicated by the
-```
---bind-addr=internalIPAddress:port --announce-addr=yourexternalIPAddress:port`
-```
-or `--addr=yourexternalIPAddress:port` if the node is not inside an internal network.
-
-The node can connect to any V4/6 ip address via a IPV4/6 socks 5 proxy by specifing
-```
---proxy=127.0.0.1:9050 --always-use-proxy=true
+addr=statictor:127.0.0.1:9051
+proxy=127.0.0.1:9050
+always-use-proxy=true
 ```
 
 ## References
+
+The lightningd-config manual page covers the various address cases in detail.
 
 [The Tor project](https://www.torproject.org/)
 

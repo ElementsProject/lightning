@@ -1,10 +1,10 @@
 #ifndef LIGHTNING_WALLET_DB_COMMON_H
 #define LIGHTNING_WALLET_DB_COMMON_H
 #include "config.h"
-#include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
-#include <stdbool.h>
+#include <ccan/strset/strset.h>
+#include <common/autodata.h>
 
 /* For testing, we want to catch fatal messages. */
 #ifndef db_fatal
@@ -50,6 +50,10 @@ struct db_query {
 	/* Is this a read-only query? If it is there's no need to tell plugins
 	 * about it. */
 	bool readonly;
+
+	/* If this is a select statement, what column names */
+	const struct sqlname_map *colnames;
+	size_t num_colnames;
 };
 
 enum db_binding_type {
@@ -80,7 +84,7 @@ struct db_stmt {
 	struct db *db;
 
 	/* Which SQL statement are we trying to execute? */
-	struct db_query *query;
+	const struct db_query *query;
 
 	/* Which parameters are we binding to the statement? */
 	struct db_binding *bindings;
@@ -96,12 +100,17 @@ struct db_stmt {
 	bool executed;
 
 	int row;
+
+#if DEVELOPER
+	/* Map as we reference into a SELECT statement in query. */
+	struct strset *cols_used;
+#endif
 };
 
 struct db_config {
 	const char *name;
-	struct db_query *queries;
-	size_t num_queries;
+	const struct db_query *query_table;
+	size_t query_table_size;
 
 	/* Function used to execute a statement that doesn't result in a
 	 * response. */
@@ -141,7 +150,14 @@ struct db_config {
 	bool (*setup_fn)(struct db *db);
 	void (*teardown_fn)(struct db *db);
 
-	u32 (*version)(struct db *db);
+	bool (*vacuum_fn)(struct db *db);
+
+	bool (*rename_column)(struct db *db,
+			      const char *tablename,
+			      const char *from, const char *to);
+	bool (*delete_columns)(struct db *db,
+			       const char *tablename,
+			       const char **colnames, size_t num_cols);
 };
 
 /* Provide a way for DB backends to register themselves */
@@ -156,5 +172,10 @@ AUTODATA_TYPE(db_backends, struct db_config);
  */
 void db_changes_add(struct db_stmt *db_stmt, const char * expanded);
 
+/* devtools/sql-rewrite.py generates this simple htable */
+struct sqlname_map {
+	const char *sqlname;
+	int val;
+};
 
 #endif /* LIGHTNING_WALLET_DB_COMMON_H */

@@ -4,7 +4,7 @@ lightning-close -- Command for closing channels with direct peers
 SYNOPSIS
 --------
 
-**close** *id* \[*unilateraltimeout*\] \[*destination*\] \[*fee_negotiation_step*\] \[*wrong_funding*\] \[*force_lease_closed*\]
+**close** *id* \[*unilateraltimeout*\] \[*destination*\] \[*fee_negotiation_step*\] \[*wrong_funding*\] \[*force_lease_closed*\] [\*feerange\*]
 
 DESCRIPTION
 -----------
@@ -33,7 +33,9 @@ friends to upgrade!
 
 The *fee_negotiation_step* parameter controls how closing fee
 negotiation is performed assuming the peer proposes a fee that is
-different than our estimate. On every negotiation step we must give up
+different than our estimate.  (Note that modern peers use the quick-close protocol which does not allow negotiation: see *feerange* instead).
+
+On every negotiation step we must give up
 some amount from our proposal towards the peer's proposal. This parameter
 can be an integer in which case it is interpreted as number of satoshis
 to step at a time. Or it can be an integer followed by "%" to designate
@@ -61,6 +63,23 @@ can rescue openings which have been manually miscreated.
 (option_will_fund), we prevent initiation of a mutual close
 unless this flag is passed in. Defaults to false.
 
+*feerange* is an optional array [ *min*, *max* ], indicating the
+minimum and maximum feerates to offer: the peer will obey these if it
+supports the quick-close protocol.  *slow* and *unilateral_close* are
+the defaults.
+
+Rates are one of the strings *urgent* (aim for next block), *normal*
+(next 4 blocks or so) or *slow* (next 100 blocks or so) to use
+lightningd's internal estimates, or one of the names from
+lightning-feerates(7).  Otherwise, they can be numbers with
+an optional suffix: *perkw* means the number is interpreted as
+satoshi-per-kilosipa (weight), and *perkb* means it is interpreted
+bitcoind-style as satoshi-per-kilobyte. Omitting the suffix is
+equivalent to *perkb*.
+
+Note that the maximum fee will be capped at the final commitment
+transaction fee (unless the experimental anchor-outputs option is
+negotiated).
 
 The peer needs to be live and connected in order to negotiate a mutual
 close. The default of unilaterally closing after 48 hours is usually a
@@ -114,4 +133,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:db5ba99eb3393f6c55833f0bbace34b3ca504d490a25cb26c53b8790ae325981)
+[comment]: # ( SHA256STAMP:3540adff8d75123f90598a2c0657924c0d5a53aa26716980f9a59879fcfb1f6b)

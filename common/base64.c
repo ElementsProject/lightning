@@ -1,16 +1,16 @@
+#include "config.h"
+#include <assert.h>
+#include <ccan/base64/base64.h>
 #include <common/base64.h>
-#include <sodium.h>
-#include <sodium/utils.h>
 
-/* Decode/encode from/to base64, base64 helper functions.
- * We import base64 from libsodium to generate tor V3 ED25519-V3 onions from blobs
-*/
-
-char *b64_encode(const tal_t *ctx, const u8 *data, size_t len)
+/* Decode/encode from/to base64, base64 helper functions.*/
+char *b64_encode(const tal_t *ctx, const void *data, size_t len)
 {
-	char *str = tal_arr(ctx, char, sodium_base64_encoded_len(len, sodium_base64_VARIANT_ORIGINAL) + 1);
+	size_t slen = base64_encoded_length(len), enclen;
+	char *str = tal_arr(ctx, char, slen + 1);
+	enclen = base64_encode(str, slen, data, len);
+	assert(enclen == slen);
 
-	str = sodium_bin2base64(str,  tal_count(str), data,
-								len, sodium_base64_VARIANT_ORIGINAL);
+	str[enclen] = '\0';
 	return str;
 }

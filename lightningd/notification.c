@@ -1,9 +1,8 @@
-#include <ccan/array_size/array_size.h>
+#include "config.h"
 #include <common/json_helpers.h>
+#include <common/type_to_string.h>
 #include <lightningd/channel.h>
-#include <lightningd/json.h>
 #include <lightningd/notification.h>
-#include <lightningd/peer_htlcs.h>
 
 static struct notification *find_notification_by_topic(const char* topic)
 {
@@ -110,7 +109,7 @@ static void warning_notification_serialize(struct json_stream *stream,
 	 * the absolute time, like when channels failed. */
 	json_add_time(stream, "time", l->time.ts);
 	json_add_timeiso(stream, "timestamp", &l->time);
-	json_add_string(stream, "source", l->prefix);
+	json_add_string(stream, "source", l->prefix->prefix);
 	json_add_string(stream, "log", l->log);
 	json_object_end(stream); /* .warning */
 }
@@ -196,6 +195,7 @@ void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
 	plugins_notify(ld->plugins, take(n));
 }
 
+/* FIXME: Use outpoint here! */
 static void channel_opened_notification_serialize(struct json_stream *stream,
 						  struct node_id *node_id,
 						  struct amount_sat *funding_sat,
@@ -439,11 +439,11 @@ static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
 			/* some chain ledger entries aren't associated with a utxo
 			 * e.g. journal updates (due to penalty/state loss) and
 			 * chain_fee entries */
-			if (id->output_txid) {
+			if (id->outpoint) {
 				json_add_string(stream, "utxo_txid",
 						type_to_string(tmpctx, struct bitcoin_txid,
-							       id->output_txid));
-				json_add_u32(stream, "vout", id->vout);
+							       &id->outpoint->txid));
+				json_add_u32(stream, "vout", id->outpoint->n);
 			}
 
 			/* on-chain htlcs include a payment hash */
@@ -555,7 +555,7 @@ void notify_channel_open_failed(struct lightningd *ld,
 	plugins_notify(ld->plugins, take(n));
 }
 
-REGISTER_NOTIFICATION(plugin_shutdown, NULL);
+REGISTER_NOTIFICATION(shutdown, NULL);
 
 bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p)
 {

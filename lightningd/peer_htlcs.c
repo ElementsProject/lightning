@@ -1,43 +1,28 @@
-#include <bitcoin/preimage.h>
-#include <bitcoin/tx.h>
-#include <ccan/build_assert/build_assert.h>
+#include "config.h"
 #include <ccan/cast/cast.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/blinding.h>
-#include <common/coin_mvt.h>
+#include <common/configdir.h>
 #include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/onion.h>
 #include <common/onionreply.h>
-#include <common/overflows.h>
 #include <common/param.h>
-#include <common/sphinx.h>
 #include <common/timeout.h>
-#include <common/utils.h>
+#include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
-#include <lightningd/htlc_end.h>
-#include <lightningd/htlc_set.h>
-#include <lightningd/json.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/options.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
-#include <wallet/wallet.h>
-#include <wire/onion_wire.h>
-#include <wire/wire_sync.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -79,6 +64,8 @@ static bool htlc_in_update_state(struct channel *channel,
 
 	wallet_htlc_update(channel->peer->ld->wallet,
 			   hin->dbid, newstate, hin->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
 			   hin->badonion, hin->failonion, NULL,
 			   hin->we_filled);
 
@@ -96,7 +83,10 @@ static bool htlc_out_update_state(struct channel *channel,
 
 	bool we_filled = false;
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
-			   hout->preimage, 0, hout->failonion,
+			   hout->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
+			   0, hout->failonion,
 			   hout->failmsg, &we_filled);
 
 	hout->hstate = newstate;
@@ -190,6 +180,8 @@ static void failmsg_update_reply(struct subd *gossipd,
 	wallet_htlc_update(gossipd->ld->wallet,
 			   cbdata->hin->dbid, cbdata->hin->hstate,
 			   cbdata->hin->preimage,
+			   max_unsigned(cbdata->hin->key.channel->next_index[LOCAL],
+					cbdata->hin->key.channel->next_index[REMOTE]),
 			   cbdata->hin->badonion,
 			   cbdata->hin->failonion, NULL, &we_filled);
 
@@ -350,9 +342,18 @@ static void fail_out_htlc(struct htlc_out *hout,
 static bool check_fwd_amount(struct htlc_in *hin,
 			     struct amount_msat amt_to_forward,
 			     struct amount_msat amt_in_htlc,
-			     struct amount_msat fee)
+			     u32 feerate_base, u32 feerate_ppm)
 {
+	struct amount_msat fee;
 	struct amount_msat fwd;
+
+	if (!amount_msat_fee(&fee, amt_to_forward,
+			     feerate_base, feerate_ppm)) {
+		log_broken(hin->key.channel->log, "Fee overflow forwarding %s!",
+			   type_to_string(tmpctx, struct amount_msat,
+					  &amt_to_forward));
+		return false;
+	}
 
 	if (amount_msat_sub(&fwd, amt_in_htlc, fee)
 	    && amount_msat_greater_eq(fwd, amt_to_forward))
@@ -519,6 +520,12 @@ fail:
  */
 static void destroy_hout_subd_died(struct htlc_out *hout)
 {
+	struct db *db = hout->key.channel->peer->ld->wallet->db;
+	/* Under some circumstances we may need to start a DB
+	 * transaction and commit it here again. This is the case when
+	 * we're getting called from the destructor chain. */
+	bool have_tx =
+	    db_in_transaction(db);
 	log_debug(hout->key.channel->log,
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->key.id);
@@ -531,8 +538,14 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 	assert(hout->hstate == SENT_ADD_HTLC);
 	hout->hstate = RCVD_REMOVE_HTLC;
 
+	if (!have_tx)
+		db_begin_transaction(db);
+
 	fail_out_htlc(hout, "Outgoing subdaemon died",
 		      take(towire_temporary_channel_failure(NULL, NULL)));
+
+	if (!have_tx)
+		db_commit_transaction(db);
 }
 
 /* This is where channeld gives us the HTLC id, and also reports if it
@@ -628,6 +641,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			const struct sha256 *payment_hash,
 			const struct pubkey *blinding,
 			u64 partid,
+			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
 			struct htlc_out **houtp,
@@ -661,7 +675,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	*houtp = new_htlc_out(out->owner, out, amount, cltv,
 			      payment_hash, onion_routing_packet,
 			      blinding, in == NULL,
-			      partid, in);
+			      partid, groupid, in);
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit this htlc. */
@@ -689,7 +703,6 @@ static void forward_htlc(struct htlc_in *hin,
 			 const struct pubkey *next_blinding)
 {
 	const u8 *failmsg;
-	struct amount_msat fee;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next = active_channel_by_scid(ld, scid);
 	struct htlc_out *hout = NULL;
@@ -711,20 +724,21 @@ static void forward_htlc(struct htlc_in *hin,
 	 *   - SHOULD accept HTLCs that pay a fee equal to or greater than:
 	 *     - fee_base_msat + ( amount_to_forward * fee_proportional_millionths / 1000000 )
 	 */
-	if (!amount_msat_fee(&fee, amt_to_forward,
-				next->feerate_base,
-				next->feerate_ppm)) {
-		log_broken(ld->log, "Fee overflow forwarding %s!",
-			   type_to_string(tmpctx, struct amount_msat,
-					  &amt_to_forward));
-		needs_update_appended = true;
-		failmsg = towire_fee_insufficient(tmpctx, hin->msat, NULL);
-		goto fail;
-	}
-	if (!check_fwd_amount(hin, amt_to_forward, hin->msat, fee)) {
-		needs_update_appended = true;
-		failmsg = towire_fee_insufficient(tmpctx, hin->msat, NULL);
-		goto fail;
+	if (!check_fwd_amount(hin, amt_to_forward, hin->msat,
+			      next->feerate_base,
+			      next->feerate_ppm)) {
+		/* Are we in old-fee grace-period? */
+		if (!time_before(time_now(), next->old_feerate_timeout)
+		    || !check_fwd_amount(hin, amt_to_forward, hin->msat,
+					 next->old_feerate_base,
+					 next->old_feerate_ppm)) {
+			needs_update_appended = true;
+			failmsg = towire_fee_insufficient(tmpctx, hin->msat,
+							  NULL);
+			goto fail;
+		}
+		log_info(hin->key.channel->log,
+			 "Allowing payment using older feerate");
 	}
 
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,
@@ -773,8 +787,8 @@ static void forward_htlc(struct htlc_in *hin,
 
 	failmsg = send_htlc_out(tmpctx, next, amt_to_forward,
 				outgoing_cltv_value, &hin->payment_hash,
-				next_blinding, 0, next_onion, hin,
-				&hout, &needs_update_appended);
+				next_blinding, 0 /* partid */, 0 /* groupid */,
+				next_onion, hin, &hout, &needs_update_appended);
 	if (!failmsg)
 		return;
 
@@ -1127,7 +1141,6 @@ static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 	return true;
 }
 
-/* AUTODATA wants a different line number */
 REGISTER_PLUGIN_HOOK(htlc_accepted,
 		     htlc_accepted_hook_deserialize,
 		     htlc_accepted_hook_final,
@@ -1167,6 +1180,13 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	if (!hin) {
 		channel_internal_error(channel,
 				    "peer_got_revoke unknown htlc %"PRIu64, id);
+		*failmsg = towire_temporary_node_failure(ctx);
+		goto fail;
+	}
+
+	if (hin->fail_immediate && htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION)) {
+		log_debug(channel->log, "failing immediately, as requested");
+		/* Failing the htlc, typically done because of htlc dust */
 		*failmsg = towire_temporary_node_failure(ctx);
 		goto fail;
 	}
@@ -1289,7 +1309,10 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	htlc_out_check(hout, __func__);
 
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, 0, hout->failonion,
+			   hout->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
+			   0, hout->failonion,
 			   hout->failmsg, &we_filled);
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
@@ -1460,7 +1483,10 @@ void onchain_failed_our_htlc(const struct channel *channel,
 
 	bool we_filled = false;
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, 0, hout->failonion,
+			   hout->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
+			   0, hout->failonion,
 			   hout->failmsg, &we_filled);
 
 	if (hout->am_origin) {
@@ -1629,7 +1655,8 @@ static bool update_out_htlc(struct channel *channel,
 		if (hout->am_origin) {
 			payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 							 &hout->payment_hash,
-							 hout->partid);
+							 hout->partid,
+							 hout->groupid);
 			assert(payment);
 			payment_store(ld, take(payment));
 		}
@@ -1856,7 +1883,8 @@ static bool channel_added_their_htlc(struct channel *channel,
 			  added->cltv_expiry, &added->payment_hash,
 			  op ? &shared_secret : NULL,
 			  added->blinding, &added->blinding_ss,
-			  added->onion_routing_packet);
+			  added->onion_routing_packet,
+			  added->fail_immediate);
 
 	/* Save an incoming htlc to the wallet */
 	wallet_htlc_save_in(ld->wallet, channel, hin);

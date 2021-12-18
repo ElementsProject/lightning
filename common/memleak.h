@@ -1,9 +1,8 @@
 #ifndef LIGHTNING_COMMON_MEMLEAK_H
 #define LIGHTNING_COMMON_MEMLEAK_H
 #include "config.h"
-#include <ccan/cast/cast.h>
+#include <ccan/strmap/strmap.h>
 #include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <inttypes.h>
 
 struct htable;
@@ -36,7 +35,7 @@ void memleak_init(void);
 #define memleak_typeof(var) void *
 #endif /* !HAVE_TYPEOF */
 
-void *notleak_(const void *ptr, bool plus_children);
+void *notleak_(void *ptr, bool plus_children);
 
 #if DEVELOPER
 /**
@@ -109,6 +108,11 @@ void memleak_remove_htable(struct htable *memtable, const struct htable *ht);
 struct intmap;
 void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m);
 
+/* Remove any pointers inside this strmap (which is opaque to memleak). */
+#define memleak_remove_strmap(memtable, strmap) \
+	memleak_remove_strmap_((memtable), tcon_unwrap(strmap))
+void memleak_remove_strmap_(struct htable *memtable, const struct strmap *m);
+
 /**
  * memleak_get: get (and remove) a leak from memtable, or NULL
  * @memtable: the memtable after all known allocations removed.
@@ -120,5 +124,11 @@ void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m);
 const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
 
 extern struct backtrace_state *backtrace_state;
+
+#if DEVELOPER
+/* Only defined if DEVELOPER */
+bool dump_memleak(struct htable *memtable,
+		  void PRINTF_FMT(1,2) (*print)(const char *fmt, ...));
+#endif
 
 #endif /* LIGHTNING_COMMON_MEMLEAK_H */

@@ -11,6 +11,7 @@ ALL_TEST_PROGRAMS += $(ONCHAIND_TEST_PROGRAMS)
 
 ONCHAIND_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
+	common/autodata.o			\
 	common/features.o			\
 	common/pseudorand.o			\
 	common/setup.o				\

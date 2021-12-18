@@ -1,6 +1,8 @@
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
-#include <common/json_stream.h>
+#include <common/json_tok.h>
+#include <common/memleak.h>
 #include <plugins/libplugin.h>
 
 
@@ -47,24 +49,25 @@ json_peer_connected(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-static void json_connected(struct command *cmd,
-			   const char *buf,
-			   const jsmntok_t *params)
+static struct command_result *json_connected(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *params)
 {
 	const jsmntok_t *idtok = json_get_member(buf, params, "id");
 	assert(idtok);
 	plugin_log(cmd->plugin, LOG_INFORM, "%s connected",
 		   json_strdup(tmpctx, buf, idtok));
+	return notification_handled(cmd);
 }
 
-static void json_shutdown(struct command *cmd,
-			  const char *buf,
-			  const jsmntok_t *params)
+static struct command_result *json_shutdown(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *params)
 {
 	plugin_log(cmd->plugin, LOG_DBG, "shutdown called");
 
 	if (dont_shutdown)
-		return;
+		return notification_handled(cmd);
 
 	plugin_exit(cmd->plugin, 0);
 }
@@ -99,6 +102,14 @@ static struct command_result *json_testrpc(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+#if DEVELOPER
+static void memleak_mark(struct plugin *p, struct htable *memtable)
+{
+	/* name_option is not a leak! */
+	memleak_remove_region(memtable, &name_option, sizeof(name_option));
+}
+#endif /* DEVELOPER */
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -107,6 +118,11 @@ static const char *init(struct plugin *p,
 
 	if (self_disable)
 		return "Disabled via selfdisable option";
+
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark);
+#endif
+
 	return NULL;
 }
 

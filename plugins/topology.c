@@ -1,23 +1,20 @@
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/json_escape/json_escape.h>
-#include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/route.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/wireaddr.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <plugins/libplugin.h>
-#include <wire/peer_wire.h>
 
 /* Access via get_gossmap() */
 static struct gossmap *global_gossmap;
@@ -34,24 +31,12 @@ static struct gossmap *get_gossmap(void)
 /* Convenience global since route_score_fuzz doesn't take args. 0 to 1. */
 static double fuzz;
 
-enum exclude_entry_type {
-	EXCLUDE_CHANNEL = 1,
-	EXCLUDE_NODE = 2
-};
-
-struct exclude_entry {
-	enum exclude_entry_type type;
-	union {
-		struct short_channel_id_dir chan_id;
-		struct node_id node_id;
-	} u;
-};
-
 /* Prioritize costs over distance, but with fuzz.  Cost must be
  * the same when the same channel queried, so we base it on that. */
 static u64 route_score_fuzz(u32 distance,
 			    struct amount_msat cost,
 			    struct amount_msat risk,
+			    int dir UNUSED,
 			    const struct gossmap_chan *c)
 {
 	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
@@ -71,7 +56,7 @@ static bool can_carry(const struct gossmap *map,
 		      const struct gossmap_chan *c,
 		      int dir,
 		      struct amount_msat amount,
-		      const struct exclude_entry **excludes)
+		      struct route_exclusion **excludes)
 {
 	struct node_id dstid;
 
@@ -146,12 +131,11 @@ static struct command_result *json_getroute(struct command *cmd,
 {
 	struct node_id *destination;
 	struct node_id *source;
-	const jsmntok_t *excludetok;
 	struct amount_msat *msat;
 	u32 *cltv;
 	/* risk factor 12.345% -> riskfactor_millionths = 12345000 */
 	u64 *riskfactor_millionths, *fuzz_millionths;
-	const struct exclude_entry **excluded;
+	struct route_exclusion **excluded;
 	u32 *max_hops;
 	const struct dijkstra *dij;
 	struct route_hop *route;
@@ -167,7 +151,7 @@ static struct command_result *json_getroute(struct command *cmd,
 		   p_opt_def("fromid", param_node_id, &source, local_id),
 		   p_opt_def("fuzzpercent", param_millionths, &fuzz_millionths,
 			     5000000),
-		   p_opt("exclude", param_array, &excludetok),
+		   p_opt("exclude", param_route_exclusion_array, &excluded),
 		   p_opt_def("maxhops", param_number, &max_hops, ROUTING_MAX_HOPS),
 		   NULL))
 		return command_param_failed();
@@ -178,38 +162,6 @@ static struct command_result *json_getroute(struct command *cmd,
 		return command_fail_badparam(cmd, "fuzzpercent",
 					     buffer, params,
 					     "should be <= 100");
-
-	if (excludetok) {
-		const jsmntok_t *t;
-		size_t i;
-
-		excluded = tal_arr(cmd, const struct exclude_entry *, 0);
-
-		json_for_each_arr(i, t, excludetok) {
-			struct exclude_entry *entry = tal(excluded, struct exclude_entry);
-			struct short_channel_id_dir *chan_id = tal(tmpctx, struct short_channel_id_dir);
-			if (!short_channel_id_dir_from_str(buffer + t->start,
-							   t->end - t->start,
-							   chan_id)) {
-				struct node_id *node_id = tal(tmpctx, struct node_id);
-
-				if (!json_to_node_id(buffer, t, node_id))
-					return command_fail_badparam(cmd, "exclude",
-								     buffer, t,
-								     "should be short_channel_id or node_id");
-
-				entry->type = EXCLUDE_NODE;
-				entry->u.node_id = *node_id;
-			} else {
-				entry->type = EXCLUDE_CHANNEL;
-				entry->u.chan_id = *chan_id;
-			}
-
-			tal_arr_expand(&excluded, entry);
-		}
-	} else {
-		excluded = NULL;
-	}
 
 	gossmap = get_gossmap();
 	src = gossmap_find_node(gossmap, source);
@@ -606,12 +558,12 @@ static struct command_result *json_listnodes(struct command *cmd,
 }
 
 /* What is capacity of peer attached to chan #n? */
-static struct amount_sat peer_capacity(const struct gossmap *gossmap,
+static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 				       const struct gossmap_node *me,
 				       const struct gossmap_node *peer,
 				       const struct gossmap_chan *ourchan)
 {
-	struct amount_sat capacity = AMOUNT_SAT(0);
+	struct amount_msat capacity = AMOUNT_MSAT(0);
 
 	for (size_t i = 0; i < peer->num_chans; i++) {
 		int dir;
@@ -621,8 +573,8 @@ static struct amount_sat peer_capacity(const struct gossmap *gossmap,
 			continue;
 		if (!c->half[!dir].enabled)
 			continue;
-		if (!amount_sat_add(&capacity, capacity,
-				    amount_sat(fp16_to_u64(c->half[dir]
+		if (!amount_msat_add(&capacity, capacity,
+				    amount_msat(fp16_to_u64(c->half[dir]
 							   .htlc_max))))
 			continue;
 	}
@@ -673,7 +625,7 @@ static struct command_result *json_listincoming(struct command *cmd,
 		json_add_u32(js, "fee_proportional_millionths",
 			     ourchan->half[!dir].proportional_fee);
 		json_add_u32(js, "cltv_expiry_delta", ourchan->half[!dir].delay);
-		json_add_amount_sat_only(js, "incoming_capacity_msat",
+		json_add_amount_msat_only(js, "incoming_capacity_msat",
 					 peer_capacity(gossmap,
 						       me, peer, ourchan));
 		json_object_end(js);
@@ -683,6 +635,14 @@ done:
 
 	return command_finished(cmd, js);
 }
+
+#if DEVELOPER
+static void memleak_mark(struct plugin *p, struct htable *memtable)
+{
+	memleak_remove_region(memtable, global_gossmap,
+			      tal_bytelen(global_gossmap));
+}
+#endif
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
@@ -694,9 +654,9 @@ static const char *init(struct plugin *p,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &local_id));
 
-	global_gossmap = notleak_with_children(gossmap_load(NULL,
-					    GOSSIP_STORE_FILENAME,
-					    &num_cupdates_rejected));
+	global_gossmap = gossmap_load(NULL,
+				      GOSSIP_STORE_FILENAME,
+				      &num_cupdates_rejected);
 	if (!global_gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
@@ -705,6 +665,9 @@ static const char *init(struct plugin *p,
 		plugin_log(plugin, LOG_DBG,
 			   "gossmap ignored %zu channel updates",
 			   num_cupdates_rejected);
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark);
+#endif
 	return NULL;
 }
 

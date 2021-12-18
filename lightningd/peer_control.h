@@ -9,11 +9,7 @@
 #include <common/json.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
-#include <lightningd/channel.h>
-#include <lightningd/channel_state.h>
-#include <stdbool.h>
 #include <wallet/wallet.h>
-#include <wire/peer_wire.h>
 
 struct per_peer_state;
 struct wally_psbt;
@@ -108,5 +104,12 @@ void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
 /* Triggered at each new block.  */
 void waitblockheight_notify_new_block(struct lightningd *ld,
 				      u32 block_height);
+
+
+/* JSON parameter by channel_id or scid */
+struct command_result *
+command_find_channel(struct command *cmd,
+		     const char *buffer, const jsmntok_t *tok,
+		     struct channel **channel);
 
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

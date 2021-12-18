@@ -1,36 +1,24 @@
+#include "config.h"
 #include <ccan/err/err.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
-#include <common/errcode.h>
-#include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/json_stream.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
-#include <common/node_id.h>
 #include <common/param.h>
-#include <common/pseudorand.h>
 #include <common/timeout.h>
-#include <common/wireaddr.h>
+#include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
-#include <errno.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
-#include <lightningd/subd.h>
-#include <wire/peer_wire.h>
-#include <wire/wire_sync.h>
 
 struct connect {
 	struct list_node list;
@@ -363,6 +351,10 @@ int connectd_init(struct lightningd *ld)
 	int hsmfd;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
+	const char *websocket_helper_path;
+
+	websocket_helper_path = subdaemon_path(tmpctx, ld,
+					       "lightning_websocketd");
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		fatal("Could not socketpair for connectd<->gossipd");
@@ -394,7 +386,9 @@ int connectd_init(struct lightningd *ld)
 	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
 	    ld->tor_service_password ? ld->tor_service_password : "",
 	    ld->config.use_v3_autotor,
-	    ld->config.connection_timeout_secs);
+	    ld->config.connection_timeout_secs,
+	    websocket_helper_path,
+	    ld->websocket_port);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

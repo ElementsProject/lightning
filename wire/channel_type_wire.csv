@@ -1,0 +1,4 @@
+# Why not let our generator generate this too?
+subtype,channel_type
+subtypedata,channel_type,len,u16,
+subtypedata,channel_type,features,byte,len

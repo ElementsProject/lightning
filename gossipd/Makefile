@@ -28,12 +28,14 @@ LIGHTNINGD_CONTROL_OBJS += gossipd/gossipd_wiregen.o
 GOSSIPD_COMMON_OBJS :=				\
 	bitcoin/chainparams.o			\
 	common/amount.o				\
+	common/autodata.o			\
 	common/base32.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/blinding.o			\
+	common/blindedpath.o			\
 	common/channel_id.o			\
 	common/crypto_state.o			\
 	common/cryptomsg.o			\
@@ -73,7 +75,6 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	common/wire_error.o			\
 	connectd/connectd_gossipd_wiregen.o	\
-	lightningd/gossip_msg.o			\
 	wire/onion$(EXP)_wiregen.o
 
 lightningd/lightning_gossipd: $(GOSSIPD_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)

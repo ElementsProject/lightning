@@ -1,24 +1,29 @@
+#include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/ccan/tal/grab_file/grab_file.h>
 #include <ccan/crc32c/crc32c.h>
-#include <ccan/list/list.h>
+#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
+#include <ccan/pipecmd/pipecmd.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
+#include <common/configdir.h>
 #include <common/features.h>
+#include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/utils.h>
+#include <common/memleak.h>
+#include <common/timeout.h>
 #include <common/version.h>
-#include <lightningd/json.h>
+#include <dirent.h>
+#include <errno.h>
+#include <lightningd/io_loop_with_timers.h>
 #include <lightningd/notification.h>
-#include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
-#include <signal.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 /* Only this file can include this generated header! */
 # include <plugins/list_of_builtin_plugins_gen.h>
@@ -78,7 +83,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->startup = true;
 	p->plugin_cmds = tal_arr(p, struct plugin_command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
-	p->shutdown = false;
 	p->plugin_idx = 0;
 #if DEVELOPER
 	p->dev_builtin_plugins_unimportant = false;
@@ -103,6 +107,30 @@ static void plugin_check_subscriptions(struct plugins *plugins,
 			    "topic '%s' is not a known notification topic",
 			    topic);
 	}
+}
+
+static bool plugins_any_in_state(const struct plugins *plugins,
+				 enum plugin_state state)
+{
+	const struct plugin *p;
+
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->plugin_state == state)
+			return true;
+	}
+	return false;
+}
+
+static bool plugins_all_in_state(const struct plugins *plugins,
+				 enum plugin_state state)
+{
+	const struct plugin *p;
+
+	list_for_each(&plugins->plugins, p, list) {
+		if (p->plugin_state != state)
+			return false;
+	}
+	return true;
 }
 
 /* Once they've all replied with their manifests, we can order them. */
@@ -183,18 +211,17 @@ static void destroy_plugin(struct plugin *p)
 	if (p->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
 		check_plugins_manifests(p->plugins);
 
+	/* Daemon shutdown overrules plugin's importance; aborts init checks */
+	if (p->plugins->ld->state == LD_STATE_SHUTDOWN) {
+		/* But return if this was the last plugin! */
+		if (list_empty(&p->plugins->plugins))
+			io_break(destroy_plugin);
+		return;
+	}
+
 	/* If this was the last one init was waiting for, handle cmd replies */
 	if (p->plugin_state == AWAITING_INIT_RESPONSE)
 		check_plugins_initted(p->plugins);
-
-	/* If we are shutting down, do not continue to checking if
-	 * the dying plugin is important.  */
-	if (p->plugins->shutdown) {
-		/* But return if this was the last plugin! */
-		if (list_empty(&p->plugins->plugins))
-			io_break(p->plugins);
-		return;
-	}
 
 	/* Now check if the dying plugin is important.  */
 	if (p->important) {
@@ -205,9 +232,14 @@ static void destroy_plugin(struct plugin *p)
 	}
 }
 
-static u32 file_checksum(const char* path)
+static u32 file_checksum(struct lightningd *ld, const char *path)
 {
-	char *content = grab_file(tmpctx, path);
+	char *content;
+
+	if (IFDEV(ld->dev_no_plugin_checksum, false))
+		return 0;
+
+	content = grab_file(tmpctx, path);
 	if (content == NULL) return 0;
 	return crc32c(0, content, tal_count(content));
 }
@@ -227,7 +259,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 			if (important)
 				p_temp->important = true;
 			/* stop and restart plugin on different checksum */
-			chksum = file_checksum(path);
+			chksum = file_checksum(plugins->ld, path);
 			if (p_temp->checksum != chksum && !p_temp->important) {
 				plugin_kill(p_temp, LOG_INFORM,
 					    "Plugin changed, needs restart.");
@@ -242,7 +274,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p = tal(plugins, struct plugin);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
-	p->checksum = file_checksum(p->cmd);
+	p->checksum = file_checksum(plugins->ld, p->cmd);
 	p->shortname = path_basename(p, p->cmd);
 	p->start_cmd = start_cmd;
 
@@ -484,6 +516,36 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 	return NULL;
 }
 
+struct plugin_destroyed {
+	const struct plugin *plugin;
+};
+
+static void mark_plugin_destroyed(const struct plugin *unused,
+				  struct plugin_destroyed *pd)
+{
+	pd->plugin = NULL;
+}
+
+static struct plugin_destroyed *
+plugin_detect_destruction(const struct plugin *plugin)
+{
+	struct plugin_destroyed *pd = tal(NULL, struct plugin_destroyed);
+	pd->plugin = plugin;
+	tal_add_destructor2(plugin, mark_plugin_destroyed, pd);
+	return pd;
+}
+
+static bool was_plugin_destroyed(struct plugin_destroyed *pd)
+{
+	if (pd->plugin) {
+		tal_del_destructor2(pd->plugin, mark_plugin_destroyed, pd);
+		tal_free(pd);
+		return false;
+	}
+	tal_free(pd);
+	return true;
+}
+
 /* Returns the error string, or NULL */
 static const char *plugin_response_handle(struct plugin *plugin,
 					  const jsmntok_t *toks,
@@ -510,6 +572,11 @@ static const char *plugin_response_handle(struct plugin *plugin,
 		return tal_fmt(
 			plugin,
 			"Received a JSON-RPC response for non-existent request");
+	}
+
+	/* Ignore responses when shutting down */
+	if (plugin->plugins->ld->state == LD_STATE_SHUTDOWN) {
+		return NULL;
 	}
 
 	/* We expect the request->cb to copy if needed */
@@ -718,7 +785,7 @@ static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
 	/* This is expected at shutdown of course. */
 	plugin_kill(plugin,
-		    plugin->plugins->shutdown
+		    plugin->plugins->ld->state == LD_STATE_SHUTDOWN
 		    ? LOG_DBG : LOG_INFORM,
 		    "exited %s", state_desc(plugin));
 }
@@ -1445,28 +1512,6 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 	return err;
 }
 
-bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state)
-{
-	const struct plugin *p;
-
-	list_for_each(&plugins->plugins, p, list) {
-		if (p->plugin_state == state)
-			return true;
-	}
-	return false;
-}
-
-bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state)
-{
-	const struct plugin *p;
-
-	list_for_each(&plugins->plugins, p, list) {
-		if (p->plugin_state != state)
-			return false;
-	}
-	return true;
-}
-
 /**
  * Callback for the plugin_manifest request.
  */
@@ -2042,77 +2087,40 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				NULL, NULL);
 }
 
-struct plugin_destroyed {
-	const struct plugin *plugin;
-};
-
-static void mark_plugin_destroyed(const struct plugin *unused,
-				  struct plugin_destroyed *pd)
-{
-	pd->plugin = NULL;
-}
-
-struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin)
-{
-	struct plugin_destroyed *pd = tal(NULL, struct plugin_destroyed);
-	pd->plugin = plugin;
-	tal_add_destructor2(plugin, mark_plugin_destroyed, pd);
-	return pd;
-}
-
-bool was_plugin_destroyed(struct plugin_destroyed *pd)
-{
-	if (pd->plugin) {
-		tal_del_destructor2(pd->plugin, mark_plugin_destroyed, pd);
-		tal_free(pd);
-		return false;
-	}
-	tal_free(pd);
-	return true;
-}
-
-static void plugin_shutdown_timeout(struct lightningd *ld)
-{
-	io_break(ld->plugins);
-}
-
 void shutdown_plugins(struct lightningd *ld)
 {
 	struct plugin *p, *next;
 
-	/* This makes sure we don't complain about important plugins
-	 * vanishing! */
-	ld->plugins->shutdown = true;
+	/* The next io_loop does not need db access, close it. */
+	ld->wallet->db = tal_free(ld->wallet->db);
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
 		/* Kill immediately, deletes self from list. */
-		if (!notify_plugin_shutdown(ld, p))
+		if (p->plugin_state != INIT_COMPLETE || !notify_plugin_shutdown(ld, p))
 			tal_free(p);
 	}
 
 	/* If anyone was interested in shutdown, give them time. */
 	if (!list_empty(&ld->plugins->plugins)) {
-		struct oneshot *t;
+		struct timers *timer;
+		struct timer *expired;
 
-		/* 30 seconds should do it. */
-		t = new_reltimer(ld->timers, ld,
-				 time_from_sec(30),
-				 plugin_shutdown_timeout, ld);
+		/* 30 seconds should do it, use a clean timers struct */
+		timer = tal(NULL, struct timers);
+		timers_init(timer, time_mono());
+		new_reltimer(timer, timer, time_from_sec(30), NULL, NULL);
 
-		io_loop_with_timers(ld);
-		tal_free(t);
+		void *ret = io_loop(timer, &expired);
+		assert(ret == NULL || ret == destroy_plugin);
 
 		/* Report and free remaining plugins. */
 		while (!list_empty(&ld->plugins->plugins)) {
 			p = list_pop(&ld->plugins->plugins, struct plugin, list);
 			log_debug(ld->log,
-				  "%s: failed to shutdown, killing.",
+				  "%s: failed to self-terminate in time, killing.",
 				  p->shortname);
 			tal_free(p);
 		}
 	}
-
-	/* NULL stops notifications trying to access plugins. */
-	ld->plugins = tal_free(ld->plugins);
 }

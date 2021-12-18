@@ -12,4 +12,7 @@ bool htlc_is_trimmed(enum side htlc_owner,
 		     enum side side,
 		     bool option_anchor_outputs);
 
+/* Calculate the our htlc-trimming buffer feerate
+ * (max(25%, 10s/vbyte) above feerate_per_kw) */
+u32 htlc_trim_feerate_ceiling(u32 feerate_per_kw);
 #endif /* LIGHTNING_COMMON_HTLC_TRIM_H */

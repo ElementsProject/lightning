@@ -20,6 +20,7 @@ LIGHTNINGD_CONTROL_OBJS += closingd/closingd_wiregen.o
 # Common source we use.
 CLOSINGD_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
@@ -46,6 +47,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/peer_failed.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
+	common/ping.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\

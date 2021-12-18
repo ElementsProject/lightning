@@ -1,15 +1,12 @@
+#include "config.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
-#include <ccan/read_write_all/read_write_all.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
-#include <common/amount.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/features.h>
@@ -18,10 +15,6 @@
 #include <common/version.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <unistd.h>
 
 #define NO_ERROR 0
 #define ERROR_BAD_DECODE 1
@@ -94,7 +87,7 @@ int main(int argc, char *argv[])
 	if (!b11)
 		errx(ERROR_BAD_DECODE, "%s", fail);
 
-	printf("currency: %s\n", b11->chain->bip173_name);
+	printf("currency: %s\n", b11->chain->lightning_hrp);
 	printf("timestamp: %"PRIu64" (%s)\n",
 	       b11->timestamp, fmt_time(ctx, b11->timestamp));
 	printf("expiry: %"PRIu64" (%s)\n",
@@ -143,13 +136,13 @@ int main(int argc, char *argv[])
 					      b11->chain,
 					      &sh));
                 } else if (is_p2wpkh(b11->fallbacks[i], &pkh)) {
-                        char out[73 + strlen(b11->chain->bip173_name)];
-                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
+                        char out[73 + strlen(b11->chain->onchain_hrp)];
+                        if (segwit_addr_encode(out, b11->chain->onchain_hrp, 0,
                                                (const u8 *)&pkh, sizeof(pkh)))
 				printf("fallback-P2WPKH: %s\n", out);
                 } else if (is_p2wsh(b11->fallbacks[i], &wsh)) {
-                        char out[73 + strlen(b11->chain->bip173_name)];
-                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
+                        char out[73 + strlen(b11->chain->onchain_hrp)];
+                        if (segwit_addr_encode(out, b11->chain->onchain_hrp, 0,
                                                (const u8 *)&wsh, sizeof(wsh)))
 				printf("fallback-P2WSH: %s\n", out);
                 }

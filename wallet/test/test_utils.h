@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_WALLET_TEST_TEST_UTILS_H
 #define LIGHTNING_WALLET_TEST_TEST_UTILS_H
 
+#include "config.h"
 #include "lightningd/lightningd.h"
 
 /* Definitions "inspired" by libsecp256k1 */

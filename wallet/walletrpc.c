@@ -1,36 +1,26 @@
-#include <bitcoin/address.h>
+#include "config.h"
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>
-#include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/bech32.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/key_derive.h>
 #include <common/param.h>
-#include <common/pseudorand.h>
-#include <common/status.h>
-#include <common/utils.h>
-#include <common/utxo.h>
+#include <common/type_to_string.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
-#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
+#include <lightningd/channel.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/options.h>
 #include <lightningd/peer_control.h>
-#include <lightningd/subd.h>
-#include <wallet/wallet.h>
+#include <wallet/txfilter.h>
 #include <wallet/walletrpc.h>
-#include <wally_bip32.h>
+#include <wally_psbt.h>
 #include <wire/wire_sync.h>
 
 /* May return NULL if encoding error occurs. */
@@ -58,7 +48,7 @@ encode_pubkey_to_addr(const tal_t *ctx,
 				     chainparams,
 				     &h160);
 	} else {
-		hrp = chainparams->bip173_name;
+		hrp = chainparams->onchain_hrp;
 
 		/* out buffer is 73 + strlen(human readable part),
 		 * see common/bech32.h*/
@@ -250,8 +240,8 @@ static void json_add_utxo(struct json_stream *response,
 	bool reserved;
 
 	json_object_start(response, fieldname);
-	json_add_txid(response, "txid", &utxo->txid);
-	json_add_num(response, "output", utxo->outnum);
+	json_add_txid(response, "txid", &utxo->outpoint.txid);
+	json_add_num(response, "output", utxo->outpoint.n);
 	json_add_amount_sat_compat(response, utxo->amount,
 				   "value", "amount_msat");
 
@@ -268,11 +258,10 @@ static void json_add_utxo(struct json_stream *response,
 					  utxo->scriptPubkey);
 	if (!out)
 		log_broken(wallet->log,
-			   "Could not encode utxo %s:%u%s!",
+			   "Could not encode utxo %s%s!",
 			   type_to_string(tmpctx,
-					  struct bitcoin_txid,
-					  &utxo->txid),
-			   utxo->outnum,
+					  struct bitcoin_outpoint,
+					  &utxo->outpoint),
 			   utxo->close_info ? " (has close_info)" : "");
 	else
 		json_add_string(response, "address", out);
@@ -302,9 +291,9 @@ static void json_add_utxo(struct json_stream *response,
 	json_object_end(response);
 }
 
-void json_add_utxos(struct json_stream *response,
-		    struct wallet *wallet,
-		    struct utxo **utxos)
+static void json_add_utxos(struct json_stream *response,
+			   struct wallet *wallet,
+			   struct utxo **utxos)
 {
 	for (size_t i = 0; i < tal_count(utxos); i++)
 		json_add_utxo(response, NULL, wallet, utxos[i]);
@@ -365,13 +354,13 @@ static struct command_result *json_listfunds(struct command *cmd,
 						   amount_msat_to_sat_round_down(c->our_msat),
 						   "channel_sat",
 						   "our_amount_msat");
-			json_add_amount_sat_compat(response, c->funding,
+			json_add_amount_sat_compat(response, c->funding_sats,
 						   "channel_total_sat",
 						   "amount_msat");
 			json_add_txid(response, "funding_txid",
-				      &c->funding_txid);
+				      &c->funding.txid);
 			json_add_num(response, "funding_output",
-				      c->funding_outnum);
+				      c->funding.n);
 			json_object_end(response);
 		}
 	}
@@ -410,12 +399,12 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	    txout == NULL ? OUTPUT_STATE_SPENT : OUTPUT_STATE_AVAILABLE;
 
 	json_object_start(rescan->response, NULL);
-	json_add_txid(response, "txid", &u->txid);
-	json_add_num(response, "output", u->outnum);
+	json_add_txid(response, "txid", &u->outpoint.txid);
+	json_add_num(response, "output", u->outpoint.n);
 	json_add_num(response, "oldstate", u->status);
 	json_add_num(response, "newstate", newstate);
 	json_object_end(rescan->response);
-	wallet_update_output_status(bitcoind->ld->wallet, &u->txid, u->outnum,
+	wallet_update_output_status(bitcoind->ld->wallet, &u->outpoint,
 				    u->status, newstate);
 
 	/* Remove the utxo we just resolved */
@@ -427,9 +416,9 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 		json_array_end(rescan->response);
 		was_pending(command_success(rescan->cmd, rescan->response));
 	} else {
-		bitcoind_getutxout(
-		    bitcoind->ld->topology->bitcoind, &rescan->utxos[0]->txid,
-		    rescan->utxos[0]->outnum, process_utxo_result, rescan);
+		bitcoind_getutxout(bitcoind->ld->topology->bitcoind,
+				   &rescan->utxos[0]->outpoint,
+				   process_utxo_result, rescan);
 	}
 }
 
@@ -453,9 +442,10 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 		json_array_end(rescan->response);
 		return command_success(cmd, rescan->response);
 	}
-	bitcoind_getutxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
-			  rescan->utxos[0]->outnum, process_utxo_result,
-			  rescan);
+	bitcoind_getutxout(cmd->ld->topology->bitcoind,
+			   &rescan->utxos[0]->outpoint,
+			   process_utxo_result,
+			   rescan);
 	return command_still_pending(cmd);
 }
 
@@ -637,31 +627,28 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 	*utxos = tal_arr(cmd, struct utxo *, 0);
 	for (size_t i = 0; i < psbt->tx->num_inputs; i++) {
 		struct utxo *utxo;
-		struct bitcoin_txid txid;
+		struct bitcoin_outpoint outpoint;
 
 		if (only_inputs && !in_only_inputs(only_inputs, i))
 			continue;
 
-		wally_tx_input_get_txid(&psbt->tx->inputs[i], &txid);
-		utxo = wallet_utxo_get(*utxos, cmd->ld->wallet,
-				       &txid, psbt->tx->inputs[i].index);
+		wally_tx_input_get_outpoint(&psbt->tx->inputs[i], &outpoint);
+		utxo = wallet_utxo_get(*utxos, cmd->ld->wallet, &outpoint);
 		if (!utxo) {
 			if (only_inputs)
 				return command_fail(cmd, LIGHTNINGD,
-						    "Aborting PSBT signing. UTXO %s:%u is unknown (and specified by signonly)",
-						    type_to_string(tmpctx, struct bitcoin_txid,
-								   &txid),
-						    psbt->tx->inputs[i].index);
+						    "Aborting PSBT signing. UTXO %s is unknown (and specified by signonly)",
+						    type_to_string(tmpctx, struct bitcoin_outpoint,
+								   &outpoint));
 			continue;
 		}
 
 		/* Oops we haven't reserved this utxo yet! */
 		if (!utxo_is_reserved(utxo, get_block_height(cmd->ld->topology)))
 			return command_fail(cmd, LIGHTNINGD,
-					    "Aborting PSBT signing. UTXO %s:%u is not reserved",
-					    type_to_string(tmpctx, struct bitcoin_txid,
-							   &utxo->txid),
-					    utxo->outnum);
+					    "Aborting PSBT signing. UTXO %s is not reserved",
+					    type_to_string(tmpctx, struct bitcoin_outpoint,
+							   &utxo->outpoint));
 		tal_arr_expand(utxos, utxo);
 	}
 

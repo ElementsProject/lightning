@@ -1,11 +1,11 @@
-#include "common/onion.h"
+#include "config.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <common/ecdh.h>
+#include <common/onion.h>
 #include <common/sphinx.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <wire/onion_wire.h>
 
 /* BOLT #4:
  *
@@ -83,8 +83,8 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		tlv->short_channel_id = cast_const(struct short_channel_id *,
 						   scid);
 #if EXPERIMENTAL_FEATURES
-		tlv->blinding_seed = cast_const(struct pubkey *, blinding);
-		tlv->enctlv = cast_const(u8 *, enctlv);
+		tlv->blinding_point = cast_const(struct pubkey *, blinding);
+		tlv->encrypted_recipient_data = cast_const(u8 *, enctlv);
 #endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
@@ -136,8 +136,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 			tlv->payment_data = &tlv_pdata;
 		}
 #if EXPERIMENTAL_FEATURES
-		tlv->blinding_seed = cast_const(struct pubkey *, blinding);
-		tlv->enctlv = cast_const(u8 *, enctlv);
+		tlv->blinding_point = cast_const(struct pubkey *, blinding);
+		tlv->encrypted_recipient_data = cast_const(u8 *, enctlv);
 #endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
@@ -363,10 +363,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 #if EXPERIMENTAL_FEATURES
 		if (!p->blinding) {
 			/* If we have no blinding, it could be in TLV. */
-			if (tlv->blinding_seed) {
+			if (tlv->blinding_point) {
 				p->blinding =
 					tal_dup(p, struct pubkey,
-						tlv->blinding_seed);
+						tlv->blinding_point);
 				ecdh(p->blinding, &p->blinding_ss);
 			}
 		} else
@@ -378,12 +378,12 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			if (rs->nextcase == ONION_FORWARD) {
 				struct tlv_tlv_payload *ntlv;
 
-				if (!tlv->enctlv)
+				if (!tlv->encrypted_recipient_data)
 					goto fail;
 
 				ntlv = decrypt_tlv(tmpctx,
 						   &p->blinding_ss,
-						   tlv->enctlv);
+						   tlv->encrypted_recipient_data);
 				if (!ntlv)
 					goto fail;
 

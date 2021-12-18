@@ -24,7 +24,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-DEFAULT_BOLTVERSION := 3508e4e85d26240ae7492c3d2e02770cdc360fe9
+DEFAULT_BOLTVERSION := 498f104fd399488c77f449d05cb21c0b604636a2
 # Can be overridden on cmdline.
 BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
@@ -80,7 +80,7 @@ endif
 
 # (method=thread to support xdist)
 PYTEST_OPTS := -v -p no:logging $(PYTEST_OPTS)
-PYTHONPATH=$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/external/lnprototest:$(shell pwd)/contrib/pyln-spec/bolt1:$(shell pwd)/contrib/pyln-spec/bolt2:$(shell pwd)/contrib/pyln-spec/bolt4:$(shell pwd)/contrib/pyln-spec/bolt7
+MY_CHECK_PYTHONPATH=$${PYTHONPATH}$${PYTHONPATH:+:}$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/external/lnprototest:$(shell pwd)/contrib/pyln-spec/bolt1:$(shell pwd)/contrib/pyln-spec/bolt2:$(shell pwd)/contrib/pyln-spec/bolt4:$(shell pwd)/contrib/pyln-spec/bolt7
 # Collect generated python files to be excluded from lint checks
 PYTHON_GENERATED=
 
@@ -93,10 +93,10 @@ FEATURES :=
 
 CCAN_OBJS :=					\
 	ccan-asort.o				\
-	ccan-autodata.o				\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
+	ccan-closefrom.o			\
 	ccan-crc32c.o				\
 	ccan-crypto-hmac.o			\
 	ccan-crypto-hkdf.o			\
@@ -132,6 +132,7 @@ CCAN_OBJS :=					\
 	ccan-str-hex.o				\
 	ccan-str.o				\
 	ccan-strmap.o				\
+	ccan-strset.o				\
 	ccan-take.o				\
 	ccan-tal-grab_file.o			\
 	ccan-tal-link.o				\
@@ -147,7 +148,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/alignof/alignof.h		\
 	$(CCANDIR)/ccan/array_size/array_size.h		\
 	$(CCANDIR)/ccan/asort/asort.h			\
-	$(CCANDIR)/ccan/autodata/autodata.h		\
+	$(CCANDIR)/ccan/base64/base64.h			\
 	$(CCANDIR)/ccan/bitmap/bitmap.h			\
 	$(CCANDIR)/ccan/bitops/bitops.h			\
 	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
@@ -155,6 +156,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/cast/cast.h			\
 	$(CCANDIR)/ccan/cdump/cdump.h			\
 	$(CCANDIR)/ccan/check_type/check_type.h		\
+	$(CCANDIR)/ccan/closefrom/closefrom.h		\
 	$(CCANDIR)/ccan/compiler/compiler.h		\
 	$(CCANDIR)/ccan/container_of/container_of.h	\
 	$(CCANDIR)/ccan/cppmagic/cppmagic.h		\
@@ -168,6 +170,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/endian/endian.h			\
 	$(CCANDIR)/ccan/err/err.h			\
 	$(CCANDIR)/ccan/fdpass/fdpass.h			\
+	$(CCANDIR)/ccan/graphql/graphql.h		\
 	$(CCANDIR)/ccan/htable/htable.h			\
 	$(CCANDIR)/ccan/htable/htable_type.h		\
 	$(CCANDIR)/ccan/ilog/ilog.h			\
@@ -199,6 +202,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/str/str.h			\
 	$(CCANDIR)/ccan/str/str_debug.h			\
 	$(CCANDIR)/ccan/strmap/strmap.h			\
+	$(CCANDIR)/ccan/strset/strset.h			\
 	$(CCANDIR)/ccan/structeq/structeq.h		\
 	$(CCANDIR)/ccan/take/take.h			\
 	$(CCANDIR)/ccan/tal/grab_file/grab_file.h	\
@@ -300,22 +304,22 @@ endif
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then \
 		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
 %_wiregen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then \
 		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
 %_printgen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then \
 		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
 %_printgen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then  if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then \
 		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
@@ -364,7 +368,8 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_gossipd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
-	       lightningd/lightning_openingd
+	       lightningd/lightning_openingd \
+	       lightningd/lightning_websocketd
 
 # Don't delete these intermediaries.
 .PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
@@ -399,7 +404,7 @@ ifeq ($(PYTEST),)
 	@echo "py.test is required to run the protocol tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."; false
 else
 ifeq ($(DEVELOPER),1)
-	@(cd external/lnprototest && PYTHONPATH=$(PYTHONPATH) LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
+	@(cd external/lnprototest && PYTHONPATH=$(MY_CHECK_PYTHONPATH) LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
 else
 	@echo "lnprototest target requires DEVELOPER=1, skipping"
 endif
@@ -411,7 +416,7 @@ ifeq ($(PYTEST),)
 	exit 1
 else
 # Explicitly hand DEVELOPER and VALGRIND so you can override on make cmd line.
-	PYTHONPATH=$(PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
+	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
@@ -468,7 +473,7 @@ PYSRC=$(shell git ls-files "*.py" | grep -v /text.py) contrib/pylightning/lightn
 # allows it to find that
 PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
 check-pyln-%: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
-	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(MAKE) check)
+	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(MAKE) check)
 
 check-python: check-python-flake8 check-pytest-pyln-proto check-pyln-client check-pyln-testing
 
@@ -476,10 +481,11 @@ check-python-flake8:
 	@# E501 line too long (N > 79 characters)
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
-	@flake8 --ignore=E501,E731,W503 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
+	@# E741: ambiguous variable name
+	@flake8 --ignore=E501,E731,E741,W503 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
 
 check-pytest-pyln-proto:
-	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
+	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
@@ -581,6 +587,9 @@ $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
 # Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
 $(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
 
+# Test files can literally #include generated C files.
+$(ALL_TEST_PROGRAMS:=.o): $(ALL_GEN_SOURCES)
+
 update-ccan:
 	mv ccan ccan.old
 	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | sed s,/_info,, | $(SORT)` $(CCAN_NEW)
@@ -602,7 +611,6 @@ distclean: clean
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
-	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
 # We used to have gen_ files, now we have _gen files.
 obsclean:
@@ -610,6 +618,7 @@ obsclean:
 
 clean: obsclean
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
+	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 	$(RM) $(ALL_PROGRAMS)
 	$(RM) $(ALL_TEST_PROGRAMS)
 	$(RM) $(ALL_FUZZ_TARGETS)
@@ -773,8 +782,6 @@ ccan-list.o: $(CCANDIR)/ccan/list/list.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
-ccan-autodata.o: $(CCANDIR)/ccan/autodata/autodata.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-ptr_valid.o: $(CCANDIR)/ccan/ptr_valid/ptr_valid.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
@@ -810,6 +817,8 @@ ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
 ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+ccan-strset.o: $(CCANDIR)/ccan/strset/strset.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
@@ -854,4 +863,6 @@ ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
 ccan-json_escape.o: $(CCANDIR)/ccan/json_escape/json_escape.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-json_out.o: $(CCANDIR)/ccan/json_out/json_out.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+ccan-closefrom.o: $(CCANDIR)/ccan/closefrom/closefrom.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)

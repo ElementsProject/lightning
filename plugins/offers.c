@@ -1,21 +1,21 @@
 /* This plugin covers both sending and receiving offers */
+#include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
-#include <plugins/libplugin.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
 #include <plugins/offers_offer.h>
 
-struct pubkey32 id;
+struct point32 id;
 u32 cltv_final;
 bool offers_enabled;
 
@@ -32,74 +32,149 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 						     const jsmntok_t *err,
 						     void *unused)
 {
-	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "sendoniomessage gave JSON error: %.*s",
+	/* This can happen if the peer goes offline or wasn't directly
+	 * connected: "Unknown first peer" */
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "sendonionmessage gave JSON error: %.*s",
 		   json_tok_full_len(err),
 		   json_tok_full(buf, err));
 	return command_hook_success(cmd);
 }
 
-struct command_result *WARN_UNUSED_RESULT
-send_onion_reply(struct command *cmd,
-		 const char *jsonbuf,
-		 const jsmntok_t *replytok,
-		 const char *replyfield,
-		 const u8 *replydata)
+/* FIXME: replyfield string interface is to accomodate obsolete API */
+static struct command_result *
+send_obs2_onion_reply(struct command *cmd,
+		      struct tlv_obs2_onionmsg_payload_reply_path *reply_path,
+		      const char *replyfield,
+		      const u8 *replydata)
 {
 	struct out_req *req;
-	size_t i;
-	const jsmntok_t *t;
+	size_t nhops = tal_count(reply_path->path);
 
-	plugin_log(cmd->plugin, LOG_DBG, "sending reply %s = %s",
-		   replyfield, tal_hex(tmpctx, replydata));
-
-	/* Send to requester, using return route. */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobs2onionmessage",
 				    finished, sendonionmessage_error, NULL);
 
-	/* Add reply into last hop. */
+	json_add_pubkey(req->js, "first_id", &reply_path->first_node_id);
+	json_add_pubkey(req->js, "blinding", &reply_path->blinding);
 	json_array_start(req->js, "hops");
-	json_for_each_arr(i, t, replytok) {
-		size_t j;
-		const jsmntok_t *t2;
+	for (size_t i = 0; i < nhops; i++) {
+		struct tlv_obs2_onionmsg_payload *omp;
+		u8 *tlv;
 
-		plugin_log(cmd->plugin, LOG_DBG, "hops[%zu/%i]",
-			   i, replytok->size);
 		json_object_start(req->js, NULL);
-		json_for_each_obj(j, t2, t)
-			json_add_tok(req->js,
-				     json_strdup(tmpctx, jsonbuf, t2),
-				     t2+1, jsonbuf);
-		if (i == replytok->size - 1) {
-			plugin_log(cmd->plugin, LOG_DBG, "... adding %s",
-				   replyfield);
-			json_add_hex_talarr(req->js, replyfield, replydata);
+		json_add_pubkey(req->js, "id", &reply_path->path[i]->node_id);
+
+		omp = tlv_obs2_onionmsg_payload_new(tmpctx);
+		omp->enctlv = reply_path->path[i]->encrypted_recipient_data;
+
+		/* Put payload in last hop. */
+		if (i == nhops - 1) {
+			if (streq(replyfield, "invoice")) {
+				omp->invoice = cast_const(u8 *, replydata);
+			} else {
+				assert(streq(replyfield, "invoice_error"));
+				omp->invoice_error = cast_const(u8 *, replydata);
+			}
 		}
+		tlv = tal_arr(tmpctx, u8, 0);
+		towire_obs2_onionmsg_payload(&tlv, omp);
+		json_add_hex_talarr(req->js, "tlv", tlv);
 		json_object_end(req->js);
 	}
 	json_array_end(req->js);
 	return send_outreq(cmd->plugin, req);
 }
 
-static struct command_result *onion_message_call(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *params)
+struct command_result *
+send_onion_reply(struct command *cmd,
+		 struct tlv_onionmsg_payload_reply_path *reply_path,
+		 struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path,
+		 const char *replyfield,
+		 const u8 *replydata)
 {
-	const jsmntok_t *om, *invreqtok, *invtok;
+	struct out_req *req;
+	size_t nhops;
+
+	/* Exactly one must be set! */
+	assert(!reply_path != !obs2_reply_path);
+	if (obs2_reply_path)
+		return send_obs2_onion_reply(cmd, obs2_reply_path, replyfield, replydata);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
+				    finished, sendonionmessage_error, NULL);
+
+	json_add_pubkey(req->js, "first_id", &reply_path->first_node_id);
+	json_add_pubkey(req->js, "blinding", &reply_path->blinding);
+	json_array_start(req->js, "hops");
+
+	nhops = tal_count(reply_path->path);
+	for (size_t i = 0; i < nhops; i++) {
+		struct tlv_onionmsg_payload *omp;
+		u8 *tlv;
+
+		json_object_start(req->js, NULL);
+		json_add_pubkey(req->js, "id", &reply_path->path[i]->node_id);
+
+		omp = tlv_onionmsg_payload_new(tmpctx);
+		omp->encrypted_data_tlv = reply_path->path[i]->encrypted_recipient_data;
+
+		/* Put payload in last hop. */
+		if (i == nhops - 1) {
+			if (streq(replyfield, "invoice")) {
+				omp->invoice = cast_const(u8 *, replydata);
+			} else {
+				assert(streq(replyfield, "invoice_error"));
+				omp->invoice_error = cast_const(u8 *, replydata);
+			}
+		}
+		tlv = tal_arr(tmpctx, u8, 0);
+		towire_onionmsg_payload(&tlv, omp);
+		json_add_hex_talarr(req->js, "tlv", tlv);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *onion_message_modern_call(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *params)
+{
+	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
+	struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path = NULL;
+	struct tlv_onionmsg_payload_reply_path *reply_path = NULL;
 
 	if (!offers_enabled)
 		return command_hook_success(cmd);
 
 	om = json_get_member(buf, params, "onion_message");
+	replytok = json_get_member(buf, om, "reply_blindedpath");
+	if (replytok) {
+		bool obs2;
+		json_to_bool(buf, json_get_member(buf, om, "obs2"), &obs2);
+		if (obs2) {
+			obs2_reply_path = json_to_obs2_reply_path(cmd, buf, replytok);
+			if (!obs2_reply_path)
+				plugin_err(cmd->plugin, "Invalid obs2 reply path %.*s?",
+					   json_tok_full_len(replytok),
+					   json_tok_full(buf, replytok));
+		} else {
+			reply_path = json_to_reply_path(cmd, buf, replytok);
+			if (!reply_path)
+				plugin_err(cmd->plugin, "Invalid reply path %.*s?",
+					   json_tok_full_len(replytok),
+					   json_tok_full(buf, replytok));
+		}
+	}
 
 	invreqtok = json_get_member(buf, om, "invoice_request");
 	if (invreqtok) {
-		const jsmntok_t *replytok;
-
-		replytok = json_get_member(buf, om, "reply_path");
-		if (replytok && replytok->size > 0)
-			return handle_invoice_request(cmd, buf,
-						      invreqtok, replytok);
+		const u8 *invreqbin = json_tok_bin_from_hex(tmpctx, buf, invreqtok);
+		if (reply_path || obs2_reply_path)
+			return handle_invoice_request(cmd,
+						      invreqbin,
+						      reply_path,
+						      obs2_reply_path);
 		else
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "invoice_request without reply_path");
@@ -107,10 +182,9 @@ static struct command_result *onion_message_call(struct command *cmd,
 
 	invtok = json_get_member(buf, om, "invoice");
 	if (invtok) {
-		const jsmntok_t *replytok;
-
-		replytok = json_get_member(buf, om, "reply_path");
-		return handle_invoice(cmd, buf, invtok, replytok);
+		const u8 *invbin = json_tok_bin_from_hex(tmpctx, buf, invtok);
+		if (invbin)
+			return handle_invoice(cmd, invbin, reply_path, obs2_reply_path);
 	}
 
 	return command_hook_success(cmd);
@@ -118,8 +192,8 @@ static struct command_result *onion_message_call(struct command *cmd,
 
 static const struct plugin_hook hooks[] = {
 	{
-		"onion_message",
-		onion_message_call
+		"onion_message_blinded",
+		onion_message_modern_call
 	},
 };
 
@@ -216,7 +290,7 @@ static void json_add_onionmsg_path(struct json_stream *js,
 {
 	json_object_start(js, fieldname);
 	json_add_pubkey(js, "node_id", &path->node_id);
-	json_add_hex_talarr(js, "enctlv", path->enctlv);
+	json_add_hex_talarr(js, "encrypted_recipient_data", path->encrypted_recipient_data);
 	if (payinfo) {
 		json_add_u32(js, "fee_base_msat", payinfo->fee_base_msat);
 		json_add_u32(js, "fee_proportional_millionths",
@@ -266,7 +340,7 @@ static bool json_add_blinded_paths(struct json_stream *js,
 
 static const char *recurrence_time_unit_name(u8 time_unit)
 {
-	/* BOLT-offers #12:
+	/* BOLT-offers-recurrence #12:
 	 * `time_unit` defining 0 (seconds), 1 (days), 2 (months), 3 (years).
 	 */
 	switch (time_unit) {
@@ -328,9 +402,14 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 		valid = false;
 	}
 
-	if (offer->vendor)
-		json_add_stringn(js, "vendor", offer->vendor,
-				 tal_bytelen(offer->vendor));
+	if (offer->issuer) {
+		json_add_stringn(js, "issuer", offer->issuer,
+				 tal_bytelen(offer->issuer));
+		if (deprecated_apis) {
+			json_add_stringn(js, "vendor", offer->issuer,
+					 tal_bytelen(offer->issuer));
+		}
+	}
 	if (offer->features)
 		json_add_hex_talarr(js, "features", offer->features);
 	if (offer->absolute_expiry)
@@ -373,7 +452,7 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 	}
 
 	if (offer->node_id)
-		json_add_pubkey32(js, "node_id", offer->node_id);
+		json_add_point32(js, "node_id", offer->node_id);
 	else
 		valid = false;
 
@@ -389,10 +468,10 @@ static bool json_add_fallback_address(struct json_stream *js,
 				      const struct chainparams *chain,
 				      u8 version, const u8 *address)
 {
-	char out[73 + strlen(chain->bip173_name)];
+	char out[73 + strlen(chain->onchain_hrp)];
 
 	/* Does extra checks, in particular checks v0 sizes */
-	if (segwit_addr_encode(out, chain->bip173_name, version,
+	if (segwit_addr_encode(out, chain->onchain_hrp, version,
 			       address, tal_bytelen(address))) {
 		json_add_string(js, "address", out);
 		return true;
@@ -461,8 +540,8 @@ static void json_add_b12_invoice(struct json_stream *js,
 {
 	bool valid = true;
 
-	if (invoice->chains)
-		json_add_chains(js, invoice->chains);
+	if (invoice->chain)
+		json_add_sha256(js, "chain", &invoice->chain->shad.sha);
 	if (invoice->offer_id)
 		json_add_sha256(js, "offer_id", invoice->offer_id);
 
@@ -490,9 +569,14 @@ static void json_add_b12_invoice(struct json_stream *js,
 		valid = false;
 	}
 
-	if (invoice->vendor)
-		json_add_stringn(js, "vendor", invoice->vendor,
-				 tal_bytelen(invoice->vendor));
+	if (invoice->issuer) {
+		json_add_stringn(js, "issuer", invoice->issuer,
+				 tal_bytelen(invoice->issuer));
+		if (deprecated_apis) {
+			json_add_stringn(js, "vendor", invoice->issuer,
+					 tal_bytelen(invoice->issuer));
+		}
+	}
 	if (invoice->features)
 		json_add_hex_talarr(js, "features", invoice->features);
 	if (invoice->paths) {
@@ -523,7 +607,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 		if (invoice->recurrence_start)
 			json_add_u32(js, "recurrence_start",
 				     *invoice->recurrence_start);
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - if the offer contained `recurrence`:
 		 *   - MUST reject the invoice if `recurrence_basetime` is not
 		 *     set.
@@ -539,7 +623,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	}
 
 	if (invoice->payer_key)
-		json_add_pubkey32(js, "payer_key", invoice->payer_key);
+		json_add_point32(js, "payer_key", invoice->payer_key);
 	if (invoice->payer_info)
 		json_add_hex_talarr(js, "payer_info", invoice->payer_info);
 	if (invoice->payer_note)
@@ -593,7 +677,8 @@ static void json_add_b12_invoice(struct json_stream *js,
 		json_add_u32(js, "min_final_cltv_expiry", 18);
 
 	if (invoice->fallbacks)
-		valid &= json_add_fallbacks(js, invoice->chains,
+		valid &= json_add_fallbacks(js,
+					    invoice->chain,
 					    invoice->fallbacks->fallbacks);
 
 	/* BOLT-offers #12:
@@ -629,7 +714,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	}
 
 	/* invoice_decode checked these */
-	json_add_pubkey32(js, "node_id", invoice->node_id);
+	json_add_point32(js, "node_id", invoice->node_id);
 	json_add_bip340sig(js, "signature", invoice->signature);
 
 	json_add_bool(js, "valid", valid);
@@ -640,11 +725,12 @@ static void json_add_invoice_request(struct json_stream *js,
 {
 	bool valid = true;
 
-	if (invreq->chains)
-		json_add_chains(js, invreq->chains);
+	if (invreq->chain)
+		json_add_sha256(js, "chain", &invreq->chain->shad.sha);
+
 	/* BOLT-offers #12:
 	 * - MUST fail the request if `payer_key` is not present.
-	 * - MUST fail the request if `chains` does not include (or imply) a supported chain.
+	 *...
 	 * - MUST fail the request if `features` contains unknown even bits.
 	 * - MUST fail the request if `offer_id` is not present.
 	 */
@@ -670,7 +756,7 @@ static void json_add_invoice_request(struct json_stream *js,
 		json_add_u32(js, "recurrence_start",
 			     *invreq->recurrence_start);
 	if (invreq->payer_key)
-		json_add_pubkey32(js, "payer_key", invreq->payer_key);
+		json_add_point32(js, "payer_key", invreq->payer_key);
 	else {
 		json_add_string(js, "warning_invoice_request_missing_payer_key",
 				"invoice_request requires payer_key");
@@ -761,14 +847,14 @@ static const struct plugin_command commands[] = {
 	    "offer",
 	    "payment",
 	    "Create an offer to accept money",
-            "Create an offer for invoices of {amount} with {description}, optional {vendor}, internal {label}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
+            "Create an offer for invoices of {amount} with {description}, optional {issuer}, internal {label}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
             json_offer
     },
     {
 	    "offerout",
 	    "payment",
 	    "Create an offer to send money",
-            "Create an offer to pay invoices of {amount} with {description}, optional {vendor}, internal {label}, {absolute_expiry} and {refund_for}",
+            "Create an offer to pay invoices of {amount} with {description}, optional {issuer}, internal {label}, {absolute_expiry} and {refund_for}",
             json_offerout
     },
     {

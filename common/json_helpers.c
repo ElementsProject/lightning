@@ -1,18 +1,13 @@
+#include "config.h"
 #include <arpa/inet.h>
-#include <bitcoin/preimage.h>
-#include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
-#include <bitcoin/pubkey.h>
 #include <ccan/ccan/str/hex/hex.h>
-#include <common/amount.h>
-#include <common/channel_id.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
-#include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <errno.h>
-#include <wally_psbt.h>
+#include <wire/onion_wire.h>
 #include <wire/peer_wire.h>
 
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
@@ -147,6 +142,78 @@ struct wally_psbt *json_to_psbt(const tal_t *ctx, const char *buffer,
 	return psbt_from_b64(ctx, buffer + tok->start, tok->end - tok->start);
 }
 
+struct tlv_obs2_onionmsg_payload_reply_path *
+json_to_obs2_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+{
+	struct tlv_obs2_onionmsg_payload_reply_path *rpath;
+	const jsmntok_t *hops, *t;
+	size_t i;
+	const char *err;
+
+	rpath = tal(ctx, struct tlv_obs2_onionmsg_payload_reply_path);
+	err = json_scan(tmpctx, buffer, tok, "{blinding:%,first_node_id:%}",
+			JSON_SCAN(json_to_pubkey, &rpath->blinding),
+			JSON_SCAN(json_to_pubkey, &rpath->first_node_id),
+			NULL);
+	if (err)
+		return tal_free(rpath);
+
+	hops = json_get_member(buffer, tok, "hops");
+	if (!hops || hops->size < 1)
+		return tal_free(rpath);
+
+	rpath->path = tal_arr(rpath, struct onionmsg_path *, hops->size);
+	json_for_each_arr(i, t, hops) {
+		rpath->path[i] = tal(rpath->path, struct onionmsg_path);
+		err = json_scan(tmpctx, buffer, t, "{id:%,encrypted_recipient_data:%}",
+				JSON_SCAN(json_to_pubkey,
+					  &rpath->path[i]->node_id),
+				JSON_SCAN_TAL(rpath->path[i],
+					      json_tok_bin_from_hex,
+					      &rpath->path[i]->encrypted_recipient_data));
+		if (err)
+			return tal_free(rpath);
+	}
+
+	return rpath;
+}
+
+struct tlv_onionmsg_payload_reply_path *
+json_to_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+{
+	struct tlv_onionmsg_payload_reply_path *rpath;
+	const jsmntok_t *hops, *t;
+	size_t i;
+	const char *err;
+
+	rpath = tal(ctx, struct tlv_onionmsg_payload_reply_path);
+	err = json_scan(tmpctx, buffer, tok, "{blinding:%,first_node_id:%}",
+			JSON_SCAN(json_to_pubkey, &rpath->blinding),
+			JSON_SCAN(json_to_pubkey, &rpath->first_node_id),
+			NULL);
+	if (err)
+		return tal_free(rpath);
+
+	hops = json_get_member(buffer, tok, "hops");
+	if (!hops || hops->size < 1)
+		return tal_free(rpath);
+
+	rpath->path = tal_arr(rpath, struct onionmsg_path *, hops->size);
+	json_for_each_arr(i, t, hops) {
+		rpath->path[i] = tal(rpath->path, struct onionmsg_path);
+		err = json_scan(tmpctx, buffer, t, "{id:%,encrypted_recipient_data:%}",
+				JSON_SCAN(json_to_pubkey,
+					  &rpath->path[i]->node_id),
+				JSON_SCAN_TAL(rpath->path[i],
+					      json_tok_bin_from_hex,
+					      &rpath->path[i]->encrypted_recipient_data));
+		if (err)
+			return tal_free(rpath);
+	}
+
+	return rpath;
+}
+
 void json_add_node_id(struct json_stream *response,
 		      const char *fieldname,
 		      const struct node_id *id)
@@ -171,9 +238,9 @@ void json_add_pubkey(struct json_stream *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
-void json_add_pubkey32(struct json_stream *response,
-		       const char *fieldname,
-		       const struct pubkey32 *key)
+void json_add_point32(struct json_stream *response,
+		      const char *fieldname,
+		      const struct point32 *key)
 {
 	u8 output[32];
 
@@ -215,18 +282,6 @@ void json_add_short_channel_id(struct json_stream *response,
 			short_channel_id_outnum(scid));
 }
 
-void json_add_short_channel_id_dir(struct json_stream *response,
-			       const char *fieldname,
-			       const struct short_channel_id_dir *scidd)
-{
-	json_add_member(response, fieldname, true, "%dx%dx%d/%d",
-			short_channel_id_blocknum(&scidd->scid),
-			short_channel_id_txnum(&scidd->scid),
-			short_channel_id_outnum(&scidd->scid),
-			scidd->dir
-		);
-}
-
 void json_add_address(struct json_stream *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
@@ -243,13 +298,20 @@ void json_add_address(struct json_stream *response, const char *fieldname,
 		json_add_string(response, "type", "ipv6");
 		json_add_string(response, "address", addrstr);
 		json_add_num(response, "port", addr->port);
-	} else if (addr->type == ADDR_TYPE_TOR_V2) {
+	} else if (addr->type == ADDR_TYPE_TOR_V2_REMOVED) {
 		json_add_string(response, "type", "torv2");
 		json_add_string(response, "address", fmt_wireaddr_without_port(tmpctx, addr));
 		json_add_num(response, "port", addr->port);
 	} else if (addr->type == ADDR_TYPE_TOR_V3) {
 		json_add_string(response, "type", "torv3");
 		json_add_string(response, "address", fmt_wireaddr_without_port(tmpctx, addr));
+		json_add_num(response, "port", addr->port);
+	} else if (addr->type == ADDR_TYPE_DNS) {
+		json_add_string(response, "type", "dns");
+		json_add_string(response, "address", fmt_wireaddr_without_port(tmpctx, addr));
+		json_add_num(response, "port", addr->port);
+	} else if (addr->type == ADDR_TYPE_WEBSOCKET) {
+		json_add_string(response, "type", "websocket");
 		json_add_num(response, "port", addr->port);
 	}
 	json_object_end(response);

@@ -1,26 +1,15 @@
+#include "config.h"
 #include <bitcoin/address.h>
-#include <bitcoin/base58.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/endian/endian.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/bolt11.h>
 #include <common/features.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/hsm_control.h>
-#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <wire/wire.h>
-#include <wire/wire_sync.h>
 
 struct multiplier {
 	const char letter;
@@ -609,17 +598,15 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		return decode_fail(b11, fail,
 				   "Prefix '%s' does not start with ln", prefix);
 
-	/* Signet chose to use prefix 'tb', just like testnet.  So we tread
-	 * carefully here: */
 	if (must_be_chain) {
-		if (streq(prefix + 2, must_be_chain->bip173_name))
+		if (streq(prefix + 2, must_be_chain->lightning_hrp))
 			b11->chain = must_be_chain;
 		else
 			return decode_fail(b11, fail, "Prefix %s is not for %s",
 					   prefix + 2,
 					   must_be_chain->network_name);
 	} else {
-		b11->chain = chainparams_by_bip173(prefix + 2);
+		b11->chain = chainparams_by_lightning_hrp(prefix + 2);
 		if (!b11->chain)
 			return decode_fail(b11, fail, "Unknown chain %s",
 					   prefix + 2);
@@ -1108,9 +1095,9 @@ char *bolt11_encode_(const tal_t *ctx,
 			amount = msat * 10 / multipliers[i].m10;
 		}
 		hrp = tal_fmt(tmpctx, "ln%s%"PRIu64"%c",
-			      b11->chain->bip173_name, amount, postfix);
+			      b11->chain->lightning_hrp, amount, postfix);
 	} else
-		hrp = tal_fmt(tmpctx, "ln%s", b11->chain->bip173_name);
+		hrp = tal_fmt(tmpctx, "ln%s", b11->chain->lightning_hrp);
 
 	/* BOLT #11:
 	 *

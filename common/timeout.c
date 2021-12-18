@@ -1,4 +1,5 @@
-#include "timeout.h"
+#include "config.h"
+#include <common/timeout.h>
 #include <common/utils.h>
 
 struct oneshot {
@@ -30,7 +31,12 @@ struct oneshot *new_reltimer_(struct timers *timers,
 	return t;
 }
 
-void timer_expired(tal_t *ctx, struct timer *timer)
+void *reltimer_arg(struct oneshot *t)
+{
+	return t->arg;
+}
+
+void timer_expired(struct timer *timer)
 {
 	struct oneshot *t = container_of(timer, struct oneshot, timer);
 

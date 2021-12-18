@@ -1,13 +1,10 @@
-#include "wire.h"
+#include "config.h"
 #include <assert.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/str/str.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
+#include <wire/wire.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

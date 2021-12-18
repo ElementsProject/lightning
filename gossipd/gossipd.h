@@ -1,11 +1,7 @@
 #ifndef LIGHTNING_GOSSIPD_GOSSIPD_H
 #define LIGHTNING_GOSSIPD_GOSSIPD_H
 #include "config.h"
-#include <bitcoin/block.h>
-#include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/timer/timer.h>
-#include <common/bigsize.h>
 #include <common/node_id.h>
 #include <wire/peer_wire.h>
 
@@ -101,9 +97,6 @@ struct peer {
 	bool scid_query_outstanding;
 	void (*scid_query_cb)(struct peer *peer, bool complete);
 
-	/* How many pongs are we expecting? */
-	size_t num_pings_outstanding;
-
 	/* What we're querying: [range_first_blocknum, range_end_blocknum) */
 	u32 range_first_blocknum, range_end_blocknum;
 	u32 range_blocks_outstanding;
@@ -134,11 +127,5 @@ void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
  * other end simply forwards it to the peer. */
 void queue_peer_from_store(struct peer *peer,
 			   const struct broadcastable *bcast);
-
-/* Reset gossip range for this peer. */
-void setup_gossip_range(struct peer *peer);
-
-/* A peer has given us these short channel ids: see if we need to catch up */
-void process_scids(struct daemon *daemon, const struct short_channel_id *scids);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */

@@ -2,7 +2,9 @@ from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
+from ephemeral_port_reserve import reserve  # type: ignore
 from pyln.client import RpcError, Millisatoshi
+import pyln.proto.wire as wire
 from utils import (
     only_one, wait_for, sync_blockheight, TIMEOUT,
     expected_peer_features, expected_node_features,
@@ -20,6 +22,7 @@ import re
 import shutil
 import time
 import unittest
+import websocket
 
 
 def test_connect(node_factory):
@@ -96,7 +99,7 @@ def test_reconnect_channel_peers(node_factory, executor):
     wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
 
     # Now should fail.
-    with pytest.raises(RpcError, match=r'Connection refused'):
+    with pytest.raises(RpcError, match=r'(Connection refused|Bad file descriptor)'):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Wait for exponential backoff to give us a 2 second window.
@@ -213,17 +216,17 @@ def test_opening_tiny_channel(node_factory):
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*msat'):
+    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l2, l2_min_capacity + overhead - 1)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, l2_min_capacity + overhead)
 
-    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*msat'):
+    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l3, l3_min_capacity + overhead - 1)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fundchannel(l3, l3_min_capacity + overhead)
 
-    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*msat'):
+    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l4, l4_min_capacity + overhead - 1)
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     l1.fundchannel(l4, l4_min_capacity + overhead)
@@ -231,7 +234,7 @@ def test_opening_tiny_channel(node_factory):
     # Note that this check applies locally too, so you can't open it if
     # you would reject it.
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    with pytest.raises(RpcError, match=r"channel capacity is .*, which is below .*msat"):
+    with pytest.raises(RpcError, match=r"channel capacity is .*, which is below .*sat"):
         l3.fundchannel(l2, l3_min_capacity + overhead - 1)
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l3.fundchannel(l2, l3_min_capacity + overhead)
@@ -532,7 +535,7 @@ def test_reconnect_openingd(node_factory):
 @pytest.mark.developer
 def test_reconnect_gossiping(node_factory):
     # connectd thinks we're still gossiping; peer reconnects.
-    disconnects = ['0WIRE_PING']
+    disconnects = ['0INVALID 33333']
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
@@ -540,7 +543,7 @@ def test_reconnect_gossiping(node_factory):
     # Make sure l2 knows about l1
     wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'] != [])
 
-    l2.rpc.ping(l1.info['id'], 1, 65532)
+    l2.rpc.sendcustommsg(l1.info['id'], bytes([0x82, 0x35]).hex())
     wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -2040,7 +2043,7 @@ def test_multifunding_best_effort(node_factory, bitcoind):
     # With 2 down, it will fail to fund channel
     l2.stop()
     l3.stop()
-    with pytest.raises(RpcError, match=r'Connection refused'):
+    with pytest.raises(RpcError, match=r'(Connection refused|Bad file descriptor)'):
         l1.rpc.multifundchannel(destinations, minchannels=2)
 
     # This works though.
@@ -3499,9 +3502,9 @@ def test_upgrade_statickey(node_factory, executor):
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.daemon.wait_for_logs([r"They sent current_type \[\]",
-                             r"They offered upgrade to \[13\]"])
-    l2.daemon.wait_for_log(r"They sent desired_type \[13\]")
+    l1.daemon.wait_for_logs([r"They sent current_channel_type \[\]",
+                             r"They offered upgrade to \[12\]"])
+    l2.daemon.wait_for_log(r"They sent desired_channel_type \[12\]")
 
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
     l2.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
@@ -3514,8 +3517,8 @@ def test_upgrade_statickey(node_factory, executor):
     # They won't offer upgrade!
     assert not l1.daemon.is_in_log("They offered upgrade",
                                    start=l1.daemon.logsearch_start)
-    l1.daemon.wait_for_log(r"They sent current_type \[13\]")
-    l2.daemon.wait_for_log(r"They sent desired_type \[13\]")
+    l1.daemon.wait_for_log(r"They sent current_channel_type \[12\]")
+    l2.daemon.wait_for_log(r"They sent desired_channel_type \[12\]")
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
@@ -3523,10 +3526,12 @@ def test_upgrade_statickey(node_factory, executor):
 def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     """We test penalty before/after, and unilateral before/after"""
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-no-reconnect': None,
                                                'dev-force-features': ["-13", "-21"],
                                                # We try to cheat!
                                                'allow_broken_log': True},
-                                              {'may_reconnect': True}])
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None}])
 
     # TEST 1: Cheat from pre-upgrade.
     tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
@@ -3534,6 +3539,9 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+
+    # Make sure l2 gets REVOKE_AND_ACK from previous.
+    l2.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
 
     # Pre-statickey penalty works.
     bitcoind.rpc.sendrawtransaction(tx)
@@ -3578,6 +3586,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l1.daemon.wait_for_log("chan#3: Removing out HTLC 0 state RCVD_REMOVE_ACK_REVOCATION FULFILLED")
 
     l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 3/3')
 
     # But this is the *pre*-update commit tx!
@@ -3599,6 +3608,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     node_factory.join_nodes([l1, l2])
 
     l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
 
     # Move to static_remotekey.
@@ -3734,3 +3744,83 @@ def test_old_feerate(node_factory):
 
     # This will timeout if l2 didn't accept fee.
     l1.pay(l2, 1000)
+
+
+@pytest.mark.developer("needs --dev-allow-localhost")
+def test_websocket(node_factory):
+    ws_port = reserve()
+    port1, port2 = reserve(), reserve()
+    # We need a wildcard to show the websocket bug, but we need a real
+    # address to give us something to announce.
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{'experimental-websocket-port': ws_port,
+                                            'addr': [':' + str(port1),
+                                                     '127.0.0.1: ' + str(port2)],
+                                            'dev-allow-localhost': None},
+                                           {'dev-allow-localhost': None}],
+                                     wait_for_announce=True)
+    assert l1.rpc.listconfigs()['experimental-websocket-port'] == ws_port
+
+    # Adapter to turn websocket into a stream "connection"
+    class BinWebSocket(object):
+        def __init__(self, hostname, port):
+            self.ws = websocket.WebSocket()
+            self.ws.connect("ws://" + hostname + ":" + str(port))
+            self.recvbuf = bytes()
+
+        def send(self, data):
+            self.ws.send(data, websocket.ABNF.OPCODE_BINARY)
+
+        def recv(self, maxlen):
+            while len(self.recvbuf) < maxlen:
+                self.recvbuf += self.ws.recv()
+
+            ret = self.recvbuf[:maxlen]
+            self.recvbuf = self.recvbuf[maxlen:]
+            return ret
+
+    ws = BinWebSocket('localhost', ws_port)
+    lconn = wire.LightningConnection(ws,
+                                     wire.PublicKey(bytes.fromhex(l1.info['id'])),
+                                     wire.PrivateKey(bytes([1] * 32)),
+                                     is_initiator=True)
+
+    l1.daemon.wait_for_log('Websocket connection in from')
+
+    # Perform handshake.
+    lconn.shake()
+
+    # Expect to receive init msg.
+    msg = lconn.read_message()
+    assert int.from_bytes(msg[0:2], 'big') == 16
+
+    # Echo same message back.
+    lconn.send_message(msg)
+
+    # Now try sending a ping, ask for 50 bytes
+    msg = bytes((0, 18, 0, 50, 0, 0))
+    lconn.send_message(msg)
+
+    # Could actually reply with some gossip msg!
+    while True:
+        msg = lconn.read_message()
+        if int.from_bytes(msg[0:2], 'big') == 19:
+            break
+
+    # Check node_announcement has websocket
+    assert (only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['addresses']
+            == [{'type': 'ipv4', 'address': '127.0.0.1', 'port': port2}, {'type': 'websocket', 'port': ws_port}])
+
+
+@pytest.mark.developer("dev-disconnect required")
+def test_ping_timeout(node_factory):
+    # Disconnects after this, but doesn't know it.
+    l1_disconnects = ['xWIRE_PING']
+
+    l1, l2 = node_factory.line_graph(2, opts=[{'dev-no-reconnect': None,
+                                               'disconnect': l1_disconnects},
+                                              {}])
+    # Takes 15-45 seconds, then another to try second ping
+    l1.daemon.wait_for_log('Last ping unreturned: hanging up',
+                           timeout=45 + 45 + 5)
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)

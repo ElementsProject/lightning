@@ -1,21 +1,16 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <ccan/fdpass/fdpass.h>
 #include <common/crypto_sync.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/peer_failed.h>
 #include <common/per_peer_state.h>
+#include <common/ping.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
-#include <sys/select.h>
-#include <unistd.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -162,6 +157,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 {
 	char *err;
 	bool warning;
+	u8 *pong;
 
 #if DEVELOPER
 	/* Any odd-typed unknown message is handled by the caller, so if we
@@ -180,7 +176,11 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 
 	if (handle_timestamp_filter(pps, msg))
 		return true;
-	else if (is_msg_for_gossipd(msg)) {
+	else if (check_ping_make_pong(NULL, msg, &pong)) {
+		if (pong)
+			sync_crypto_write(pps, take(pong));
+		return true;
+	} else if (is_msg_for_gossipd(msg)) {
 		gossip_rcvd_filter_add(pps->grf, msg);
 		wire_sync_write(pps->gossip_fd, msg);
 		/* wire_sync_write takes, so don't take again. */

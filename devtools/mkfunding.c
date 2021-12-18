@@ -6,15 +6,12 @@
  *
  * lightning/devtools/mkfunding 16835ac8c154b616baac524163f41fb0c4f82c7b972ad35d4d6f18d854f6856b 3 0.03btc 253 16c5027616e940d1e72b4c172557b3b799a93c0582f924441174ea556aadd01c 0000000000000000000000000000000000000000000000000000000000000050 0000000000000000000000000000000000000000000000000000000000000060
  */
-#include <bitcoin/address.h>
+#include "config.h"
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
-#include <common/amount.h>
 #include <common/derive_basepoints.h>
 #include <common/initial_commit_tx.h>
-#include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utxo.h>
@@ -46,7 +43,7 @@ static struct bitcoin_tx *tx_spending_utxo(const tal_t *ctx,
 					   nlocktime);
 
 	assert(!utxo->is_p2sh);
-	bitcoin_tx_add_input(tx, &utxo->txid, utxo->outnum,
+	bitcoin_tx_add_input(tx, &utxo->outpoint,
 			     nsequence, NULL, utxo->amount,
 			     utxo->scriptPubkey, NULL);
 
@@ -103,10 +100,10 @@ int main(int argc, char *argv[])
 
 	argnum = 1;
 	if (!bitcoin_txid_from_hex(argv[argnum],
-				   strlen(argv[argnum]), &input.txid))
+				   strlen(argv[argnum]), &input.outpoint.txid))
 		errx(1, "Bad input-txid");
 	argnum++;
-	input.outnum = atoi(argv[argnum++]);
+	input.outpoint.n = atoi(argv[argnum++]);
 	if (!parse_amount_sat(&input.amount, argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad input-amount");
 	argnum++;

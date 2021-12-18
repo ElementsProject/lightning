@@ -1,16 +1,17 @@
+#include "config.h"
 #include <ccan/cast/cast.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
+#include <common/json_tok.h>
 #include <common/param.h>
+#include <common/type_to_string.h>
+#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <secp256k1_schnorrsig.h>
-#include <wallet/wallet.h>
+#include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
 static void json_populate_offer(struct json_stream *response,
@@ -54,7 +55,7 @@ static void hsm_sign_b12(struct lightningd *ld,
 			 const char *fieldname,
 			 const struct sha256 *merkle,
 			 const u8 *publictweak,
-			 const struct pubkey32 *key,
+			 const struct point32 *key,
 			 struct bip340sig *sig)
 {
 	u8 *msg;
@@ -76,7 +77,7 @@ static void hsm_sign_b12(struct lightningd *ld,
 					sighash.u.u8, &key->pubkey) != 1)
 		fatal("HSM gave bad signature %s for pubkey %s",
 		      type_to_string(tmpctx, struct bip340sig, sig),
-		      type_to_string(tmpctx, struct pubkey32, key));
+		      type_to_string(tmpctx, struct point32, key));
 }
 
 static struct command_result *json_createoffer(struct command *cmd,
@@ -91,7 +92,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 	const char *b12str, *b12str_nosig;
 	bool *single_use;
 	enum offer_status status;
-	struct pubkey32 key;
+	struct point32 key;
 	bool created;
 
 	if (!param(cmd, buffer, params,
@@ -107,7 +108,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 		status = OFFER_MULTIPLE_USE_UNUSED;
  	merkle_tlv(offer->fields, &merkle);
 	offer->signature = tal(offer, struct bip340sig);
-	if (!pubkey32_from_node_id(&key, &cmd->ld->id))
+	if (!point32_from_node_id(&key, &cmd->ld->id))
 		fatal("invalid own node_id?");
 	hsm_sign_b12(cmd->ld, "offer", "signature", &merkle, NULL, &key,
 		     offer->signature);
@@ -282,7 +283,7 @@ static struct command_result *prev_payment(struct command *cmd,
 	bool prev_paid = false;
 
 	assert(!invreq->payer_info);
-	payments = wallet_payment_list(cmd, cmd->ld->wallet, NULL);
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, NULL, NULL);
 
 	for (size_t i = 0; i < tal_count(payments); i++) {
 		const struct tlv_invoice *inv;
@@ -310,7 +311,7 @@ static struct command_result *prev_payment(struct command *cmd,
 		if (!inv->recurrence_counter)
 			continue;
 
-		/* BOLT-offers #12:
+		/* BOLT-offers-recurrence #12:
 		 * - if the offer contained `recurrence_base` with
 		 *   `start_any_period` non-zero:
 		 *   - MUST include `recurrence_start`
@@ -388,7 +389,7 @@ static struct command_result *param_b12_invreq(struct command *cmd,
 
 static bool payer_key(struct lightningd *ld,
 		      const u8 *public_tweak, size_t public_tweak_len,
-		      struct pubkey32 *key)
+		      struct point32 *key)
 {
 	struct sha256 tweakhash;
 	secp256k1_pubkey tweaked;
@@ -454,7 +455,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 				tal_bytelen(invreq->payer_info));
 	}
 
-	invreq->payer_key = tal(invreq, struct pubkey32);
+	invreq->payer_key = tal(invreq, struct point32);
 	if (!payer_key(cmd->ld,
 		       invreq->payer_info, tal_bytelen(invreq->payer_info),
 		       invreq->payer_key)) {
@@ -502,7 +503,7 @@ static struct command_result *json_payersign(struct command *cmd,
 	u8 *tweak;
 	struct bip340sig sig;
 	const char *messagename, *fieldname;
-	struct pubkey32 key;
+	struct point32 key;
 
 	if (!param(cmd, buffer, params,
 		   p_req("messagename", param_string, &messagename),

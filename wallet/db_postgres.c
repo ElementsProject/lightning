@@ -1,9 +1,9 @@
-#include "db_postgres_sqlgen.c"
+#include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <ccan/endian/endian.h>
 #include <lightningd/log.h>
-#include <stdio.h>
 #include <wallet/db_common.h>
+#include <wallet/db_postgres_sqlgen.c>
 
 #if HAVE_POSTGRES
 /* Indented in order not to trigger the inclusion order check */
@@ -252,10 +252,77 @@ static void db_postgres_teardown(struct db *db)
 {
 }
 
+static bool db_postgres_vacuum(struct db *db)
+{
+	PGresult *res;
+
+#if DEVELOPER
+	/* This can use a lot of diskspacem breaking CI! */
+	if (getenv("LIGHTNINGD_POSTGRES_NO_VACUUM")
+	    && streq(getenv("LIGHTNINGD_POSTGRES_NO_VACUUM"), "1"))
+		return true;
+#endif
+
+	res = PQexec(db->conn, "VACUUM FULL;");
+	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+		db->error = tal_fmt(db, "VACUUM command failed: %s",
+				    PQerrorMessage(db->conn));
+		PQclear(res);
+		return false;
+	}
+	PQclear(res);
+	return true;
+}
+
+static bool db_postgres_rename_column(struct db *db,
+				      const char *tablename,
+				      const char *from, const char *to)
+{
+	PGresult *res;
+	char *cmd;
+
+	cmd = tal_fmt(db, "ALTER TABLE %s RENAME %s TO %s;",
+		      tablename, from, to);
+	res = PQexec(db->conn, cmd);
+	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+		db->error = tal_fmt(db, "Rename '%s' failed: %s",
+				    cmd, PQerrorMessage(db->conn));
+		PQclear(res);
+		return false;
+	}
+	PQclear(res);
+	return true;
+}
+
+static bool db_postgres_delete_columns(struct db *db,
+				       const char *tablename,
+				       const char **colnames, size_t num_cols)
+{
+	PGresult *res;
+	char *cmd;
+
+	cmd = tal_fmt(db, "ALTER TABLE %s ", tablename);
+	for (size_t i = 0; i < num_cols; i++) {
+		if (i != 0)
+			tal_append_fmt(&cmd, ", ");
+		tal_append_fmt(&cmd, "DROP %s", colnames[i]);
+	}
+	tal_append_fmt(&cmd, ";");
+	res = PQexec(db->conn, cmd);
+	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+		db->error = tal_fmt(db, "Delete '%s' failed: %s",
+				    cmd, PQerrorMessage(db->conn));
+		PQclear(res);
+		return false;
+	}
+	PQclear(res);
+	return true;
+}
+
 struct db_config db_postgres_config = {
     .name = "postgres",
-    .queries = db_postgres_queries,
-    .num_queries = DB_POSTGRES_QUERY_COUNT,
+    .query_table = db_postgres_queries,
+    .query_table_size = ARRAY_SIZE(db_postgres_queries),
     .exec_fn = db_postgres_exec,
     .query_fn = db_postgres_query,
     .step_fn = db_postgres_step,
@@ -274,6 +341,9 @@ struct db_config db_postgres_config = {
     .count_changes_fn = db_postgres_count_changes,
     .setup_fn = db_postgres_setup,
     .teardown_fn = db_postgres_teardown,
+    .vacuum_fn = db_postgres_vacuum,
+    .rename_column = db_postgres_rename_column,
+    .delete_columns = db_postgres_delete_columns,
 };
 
 AUTODATA(db_backends, &db_postgres_config);

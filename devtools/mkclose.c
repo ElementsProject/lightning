@@ -4,21 +4,14 @@
  *
  * lightning/devtools/mkclose 189c40b0728f382fe91c87270926584e48e0af3a6789f37454afee6c7560311d 0 0.00999877btc 253 0.00999877btc 0000000000000000000000000000000000000000000000000000000000000010 0000000000000000000000000000000000000000000000000000000000000020 026957e53b46df017bd6460681d068e1d23a7b027de398272d0b15f59b78d060a9 03a9f795ff2e4c27091f40e8f8277301824d1c3dfa6b0204aa92347314e41b1033
  */
+#include "config.h"
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
-#include <channeld/full_channel.h>
-#include <common/amount.h>
-#include <common/derive_basepoints.h>
 #include <common/htlc_wire.h>
 #include <common/initial_commit_tx.h>
-#include <common/key_derive.h>
-#include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
-#include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
 
 static bool verbose = false;
@@ -58,8 +51,7 @@ int main(int argc, char *argv[])
 	struct pubkey funding_pubkey[NUM_SIDES], outkey[NUM_SIDES];
 	struct privkey funding_privkey[NUM_SIDES];
 	struct amount_sat funding_amount;
-	struct bitcoin_txid funding_txid;
-	unsigned int funding_outnum;
+	struct bitcoin_outpoint funding;
 	u32 feerate_per_kw;
 	struct amount_sat fee;
 	struct bitcoin_signature local_sig, remote_sig;
@@ -89,10 +81,10 @@ int main(int argc, char *argv[])
 
 	argnum = 1;
 	if (!bitcoin_txid_from_hex(argv[argnum],
-				   strlen(argv[argnum]), &funding_txid))
+				   strlen(argv[argnum]), &funding.txid))
 		errx(1, "Bad funding-txid");
 	argnum++;
-	funding_outnum = atoi(argv[argnum++]);
+	funding.n = atoi(argv[argnum++]);
 	if (!parse_amount_sat(&funding_amount, argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad funding-amount");
 	argnum++;
@@ -121,7 +113,7 @@ int main(int argc, char *argv[])
 	fee = commit_tx_base_fee(feerate_per_kw, 0,
 				 option_anchor_outputs);
 	/* BOLT #3:
-	 * If `option_anchor_outputs` applies to the commitment
+	 * If `option_anchors` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
@@ -173,7 +165,7 @@ int main(int argc, char *argv[])
 	       tal_hex(NULL, funding_wscript));
 
 	/* Our input spends the anchor tx output. */
-	bitcoin_tx_add_input(tx, &funding_txid, funding_outnum,
+	bitcoin_tx_add_input(tx, &funding,
 			     BITCOIN_TX_DEFAULT_SEQUENCE, NULL,
 			     funding_amount, NULL, funding_wscript);
 

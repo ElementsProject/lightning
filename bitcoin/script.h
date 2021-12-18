@@ -3,8 +3,6 @@
 #include "config.h"
 #include "signature.h"
 #include "tx.h"
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <wally_script.h>
 
 struct bitcoin_address;
@@ -29,8 +27,6 @@ u8 *scriptpubkey_p2sh_hash(const tal_t *ctx, const struct ripemd160 *redeemhash)
 /* Create an output script using p2pkh */
 u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct bitcoin_address *addr);
 
-/* Create a prunable output script */
-u8 *scriptpubkey_opreturn(const tal_t *ctx);
 /* Create a prunable output script with 20 random bytes.
  * This is needed since a spend from a p2wpkh to an `OP_RETURN` without
  * any other outputs would result in a transaction smaller than the

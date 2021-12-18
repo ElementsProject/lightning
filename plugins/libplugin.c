@@ -1,23 +1,19 @@
+#include "config.h"
 #include <bitcoin/chainparams.h>
-#include <ccan/err/err.h>
+#include <bitcoin/privkey.h>
 #include <ccan/io/io.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/route.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
-#include <poll.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
-#include <unistd.h>
 
 #define READ_CHUNKSIZE 4096
 
@@ -98,6 +94,11 @@ struct plugin {
 
 	const char **notif_topics;
 	size_t num_notif_topics;
+
+#if DEVELOPER
+	/* Lets them remove ptrs from leak detection. */
+	void (*mark_mem)(struct plugin *plugin, struct htable *memtable);
+#endif
 };
 
 /* command_result is mainly used as a compile-time check to encourage you
@@ -584,6 +585,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	struct json_stream *params = jsonrpc_stream_success(getmanifest_cmd);
 	struct plugin *p = getmanifest_cmd->plugin;
 	const jsmntok_t *dep;
+	bool has_shutdown_notif;
 
 	/* This was added post 0.9.0 */
 	dep = json_get_member(buf, getmanifest_params, "allow-deprecated-apis");
@@ -623,8 +625,20 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	json_array_end(params);
 
 	json_array_start(params, "subscriptions");
-	for (size_t i = 0; i < p->num_notif_subs; i++)
+	has_shutdown_notif = false;
+	for (size_t i = 0; i < p->num_notif_subs; i++) {
 		json_add_string(params, NULL, p->notif_subs[i].name);
+		if (streq(p->notif_subs[i].name, "shutdown"))
+			has_shutdown_notif = true;
+	}
+#if DEVELOPER
+	/* For memleak detection, always get notified of shutdown. */
+	if (!has_shutdown_notif)
+		json_add_string(params, NULL, "shutdown");
+#else
+	/* Don't care this is unused: compiler don't complain! */
+	(void)has_shutdown_notif;
+#endif
 	json_array_end(params);
 
 	json_array_start(params, "hooks");
@@ -1010,7 +1024,7 @@ struct plugin_timer *plugin_timer_(struct plugin *p, struct timerel t,
 				   void (*cb)(void *cb_arg),
 				   void *cb_arg)
 {
-	struct plugin_timer *timer = tal(NULL, struct plugin_timer);
+	struct plugin_timer *timer = notleak(tal(NULL, struct plugin_timer));
 	timer->cb = cb;
 	timer->cb_arg = cb_arg;
 	timer_init(&timer->timer);
@@ -1158,11 +1172,50 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...)
 	va_end(ap);
 }
 
+#if DEVELOPER
+/* Hack since we have no extra ptr to log_memleak */
+static struct plugin *memleak_plugin;
+static void PRINTF_FMT(1,2) log_memleak(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	plugin_logv(memleak_plugin, LOG_BROKEN, fmt, ap);
+	va_end(ap);
+}
+
+static void memleak_check(struct plugin *plugin, struct command *cmd)
+{
+	struct htable *memtable;
+
+	memtable = memleak_find_allocations(tmpctx, cmd, cmd);
+
+	/* Now delete plugin and anything it has pointers to. */
+	memleak_remove_region(memtable, plugin, sizeof(*plugin));
+
+	/* We know usage strings are referred to. */
+	memleak_remove_strmap(memtable, &cmd->plugin->usagemap);
+
+	if (plugin->mark_mem)
+		plugin->mark_mem(plugin, memtable);
+
+	memleak_plugin = plugin;
+	dump_memleak(memtable, log_memleak);
+}
+
+void plugin_set_memleak_handler(struct plugin *plugin,
+				void (*mark_mem)(struct plugin *plugin,
+						 struct htable *memtable))
+{
+	plugin->mark_mem = mark_mem;
+}
+#endif /* DEVELOPER */
+
 static void ld_command_handle(struct plugin *plugin,
-			      struct command *cmd,
 			      const jsmntok_t *toks)
 {
 	const jsmntok_t *idtok, *methtok, *paramstok;
+	struct command *cmd;
 
 	idtok = json_get_member(plugin->buffer, toks, "id");
 	methtok = json_get_member(plugin->buffer, toks, "method");
@@ -1174,6 +1227,7 @@ static void ld_command_handle(struct plugin *plugin,
 			   json_tok_full_len(toks),
 			   json_tok_full(plugin->buffer, toks));
 
+	cmd = tal(plugin, struct command);
 	cmd->plugin = plugin;
 	cmd->id = NULL;
 	cmd->usage_only = false;
@@ -1208,6 +1262,11 @@ static void ld_command_handle(struct plugin *plugin,
 
 	/* If that's a notification. */
 	if (!cmd->id) {
+#if DEVELOPER
+		bool is_shutdown = streq(cmd->methodname, "shutdown");
+		if (is_shutdown)
+			memleak_check(plugin, cmd);
+#endif
 		for (size_t i = 0; i < plugin->num_notif_subs; i++) {
 			if (streq(cmd->methodname,
 				  plugin->notif_subs[i].name)) {
@@ -1217,6 +1276,13 @@ static void ld_command_handle(struct plugin *plugin,
 				return;
 			}
 		}
+
+#if DEVELOPER
+		/* We subscribe them to this always */
+		if (is_shutdown)
+			plugin_exit(plugin, 0);
+#endif
+
 		plugin_err(plugin, "Unregistered notification %.*s",
 			   json_tok_full_len(methtok),
 			   json_tok_full(plugin->buffer, methtok));
@@ -1250,7 +1316,6 @@ static void ld_command_handle(struct plugin *plugin,
 static bool ld_read_json_one(struct plugin *plugin)
 {
 	bool complete;
-	struct command *cmd = tal(plugin, struct command);
 
 	if (!json_parse_input(&plugin->parser, &plugin->toks,
 			      plugin->buffer, plugin->used,
@@ -1275,7 +1340,7 @@ static bool ld_read_json_one(struct plugin *plugin)
 
 	/* FIXME: Spark doesn't create proper jsonrpc 2.0!  So we don't
 	 * check for "jsonrpc" here. */
-	ld_command_handle(plugin, cmd, plugin->toks);
+	ld_command_handle(plugin, plugin->toks);
 
 	/* Move this object out of the buffer */
 	memmove(plugin->buffer, plugin->buffer + plugin->toks[0].end,
@@ -1369,14 +1434,14 @@ static struct plugin *new_plugin(const tal_t *ctx,
 						     const jsmntok_t *),
 				 const enum plugin_restartability restartability,
 				 bool init_rpc,
-				 struct feature_set *features,
-				 const struct plugin_command *commands,
+				 struct feature_set *features STEALS,
+				 const struct plugin_command *commands TAKES,
 				 size_t num_commands,
-				 const struct plugin_notification *notif_subs,
+				 const struct plugin_notification *notif_subs TAKES,
 				 size_t num_notif_subs,
-				 const struct plugin_hook *hook_subs,
+				 const struct plugin_hook *hook_subs TAKES,
 				 size_t num_hook_subs,
-				 const char **notif_topics,
+				 const char **notif_topics TAKES,
 				 size_t num_notif_topics,
 				 va_list ap)
 {
@@ -1399,7 +1464,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->next_outreq_id = 0;
 	uintmap_init(&p->out_reqs);
 
-	p->our_features = features;
+	p->our_features = tal_steal(p, features);
 	if (init_rpc) {
 		/* Sync RPC FIXME: maybe go full async ? */
 		p->rpc_conn = tal(p, struct rpc_conn);
@@ -1414,12 +1479,20 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->in_timer = 0;
 
 	p->commands = commands;
+	if (taken(commands))
+		tal_steal(p, commands);
 	p->num_commands = num_commands;
 	p->notif_topics = notif_topics;
+	if (taken(notif_topics))
+		tal_steal(p, notif_topics);
 	p->num_notif_topics = num_notif_topics;
 	p->notif_subs = notif_subs;
+	if (taken(notif_subs))
+		tal_steal(p, notif_subs);
 	p->num_notif_subs = num_notif_subs;
 	p->hook_subs = hook_subs;
+	if (taken(hook_subs))
+		tal_steal(p, hook_subs);
 	p->num_hook_subs = num_hook_subs;
 	p->opts = tal_arr(p, struct plugin_option, 0);
 
@@ -1434,6 +1507,9 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		tal_arr_expand(&p->opts, o);
 	}
 
+#if DEVELOPER
+	p->mark_mem = NULL;
+#endif
 	return p;
 }
 
@@ -1442,14 +1518,14 @@ void plugin_main(char *argv[],
 				     const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
 		 bool init_rpc,
-		 struct feature_set *features,
-		 const struct plugin_command *commands,
+		 struct feature_set *features STEALS,
+		 const struct plugin_command *commands TAKES,
 		 size_t num_commands,
-		 const struct plugin_notification *notif_subs,
+		 const struct plugin_notification *notif_subs TAKES,
 		 size_t num_notif_subs,
-		 const struct plugin_hook *hook_subs,
+		 const struct plugin_hook *hook_subs TAKES,
 		 size_t num_hook_subs,
-		 const char **notif_topics,
+		 const char **notif_topics TAKES,
 		 size_t num_notif_topics,
 		 ...)
 {
@@ -1683,4 +1759,11 @@ command_hook_success(struct command *cmd)
 	struct json_stream *response = jsonrpc_stream_success(cmd);
 	json_add_string(response, "result", "continue");
 	return command_finished(cmd, response);
+}
+
+struct command_result *WARN_UNUSED_RESULT
+notification_handled(struct command *cmd)
+{
+	tal_free(cmd);
+	return &complete;
 }

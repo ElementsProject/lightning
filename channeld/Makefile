@@ -30,6 +30,7 @@ LIGHTNINGD_CONTROL_OBJS += channeld/channeld_wiregen.o
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/billboard.o			\
@@ -38,6 +39,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/blockheight_states.o		\
 	common/channel_config.o			\
 	common/channel_id.o			\
+	common/channel_type.o			\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
@@ -90,7 +92,6 @@ CHANNELD_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	gossipd/gossipd_peerd_wiregen.o		\
 	gossipd/gossip_store_wiregen.o		\
-	lightningd/gossip_msg.o			\
 	wire/fromwire.o				\
 	wire/towire.o
 

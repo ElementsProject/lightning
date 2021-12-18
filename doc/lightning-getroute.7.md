@@ -28,7 +28,7 @@ your funds being stuck (as a percentage).
 For example, if you thought the convenience of keeping your funds liquid
 (not stuck) was worth 20% per annum interest, *riskfactor* would be 20.
 
-If you didn’t care about risk, *riskfactor* would be zero.
+If you didn't care about risk, *riskfactor* would be zero.
 
 *fromid* is the node to start the route from: default is this node.
 
@@ -309,4 +309,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a297c66baaf5dd18528e4e8bc1bac3348536fed7be474f1c26475b88198a2c1e)
+[comment]: # ( SHA256STAMP:0c1f92ff24ae0277fed3cf3fd41f2f45e4a57558a4b61fc51a1a698b4f3d8f01)

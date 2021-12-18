@@ -1,26 +1,19 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/bitops/bitops.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
 #include <ccan/htable/htable_type.h>
-#include <ccan/mem/mem.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
-#include <common/node_id.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
@@ -1262,13 +1255,13 @@ int gossmap_node_get_feature(const struct gossmap *map,
 /* There are two 33-byte pubkeys possible: choose the one which appears
  * in the graph (otherwise payment will fail anyway). */
 void gossmap_guess_node_id(const struct gossmap *map,
-			   const struct pubkey32 *pubkey32,
+			   const struct point32 *point32,
 			   struct node_id *id)
 {
 	id->k[0] = SECP256K1_TAG_PUBKEY_EVEN;
 	secp256k1_xonly_pubkey_serialize(secp256k1_ctx,
 					 id->k + 1,
-					 &pubkey32->pubkey);
+					 &point32->pubkey);
 
 	/* If we don't find this, let's assume it's odd. */
 	if (!gossmap_find_node(map, id))

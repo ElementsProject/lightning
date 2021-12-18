@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_UTILS_H
 #define LIGHTNING_COMMON_UTILS_H
 #include "config.h"
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
@@ -11,6 +12,29 @@
 extern secp256k1_context *secp256k1_ctx;
 
 extern const struct chainparams *chainparams;
+
+/* Unsigned min/max macros: BUILD_ASSERT make sure types are unsigned */
+#if HAVE_TYPEOF
+#define MUST_BE_UNSIGNED_INT(x) BUILD_ASSERT_OR_ZERO((typeof(x))(-1)>=0)
+#else
+#define MUST_BE_UNSIGNED_INT(x) 0
+#endif
+
+#define min_unsigned(a, b)						\
+	(MUST_BE_UNSIGNED_INT(a) + MUST_BE_UNSIGNED_INT(b) + min_u64((a), (b)))
+
+#define max_unsigned(a, b)				\
+	(MUST_BE_UNSIGNED_INT(a) + MUST_BE_UNSIGNED_INT(b) + max_u64((a), (b)))
+
+static inline u64 min_u64(u64 a, u64 b)
+{
+	return a < b ? a : b;
+}
+
+static inline u64 max_u64(u64 a, u64 b)
+{
+	return a < b ? b : a;
+}
 
 /* Marker which indicates an (tal) pointer argument is stolen
  * (i.e. eventually freed) by the function.  Unlike TAKEN, which
@@ -127,5 +151,9 @@ STRUCTEQ_DEF(ripemd160, 0, u);
 
 /* Context which all wally allocations use (see common/setup.c) */
 extern const tal_t *wally_tal_ctx;
+
+/* Like mkstemp but resolves template relative to $TMPDIR (or /tmp if unset).
+ * Returns created temporary path name at *created if successful. */
+int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created);
 
 #endif /* LIGHTNING_COMMON_UTILS_H */

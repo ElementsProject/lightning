@@ -11,54 +11,37 @@
  * new and improved, two-party opening protocol, which allows bother peers to
  * contribute inputs to the transaction
  */
-#include <bitcoin/feerate.h>
-#include <bitcoin/privkey.h>
+#include "config.h"
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
-#include <bitcoin/varint.h>
-#include <ccan/ccan/array_size/array_size.h>
-#include <ccan/ccan/mem/mem.h>
-#include <ccan/ccan/take/take.h>
-#include <ccan/ccan/time/time.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
+#include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <common/billboard.h>
 #include <common/blockheight_states.h>
-#include <common/channel_config.h>
-#include <common/channel_id.h>
+#include <common/channel_type.h>
 #include <common/crypto_sync.h>
-#include <common/features.h>
-#include <common/fee_states.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
-#include <common/htlc.h>
 #include <common/initial_channel.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
-#include <common/penalty_base.h>
-#include <common/per_peer_state.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
 #include <common/setup.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
-#include <common/tx_roles.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
 #include <openingd/common.h>
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
 #include <wire/common_wiregen.h>
-#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
@@ -100,8 +83,7 @@ struct tx_state {
 	u32 tx_locktime;
 	u32 feerate_per_kw_funding;
 
-	struct bitcoin_txid funding_txid;
-	u16 funding_txout;
+	struct bitcoin_outpoint funding;
 
 	/* This is a cluster of fields in open_channel and accept_channel which
 	 * indicate the restrictions each side places on the channel. */
@@ -153,6 +135,9 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	tx_state->lease_chan_max_msat = 0;
 	tx_state->lease_chan_max_ppt = 0;
 
+	/* no max_htlc_dust_exposure on remoteconf, we exclusively use the local's */
+	tx_state->remoteconf.max_dust_htlc_exposure_msat = AMOUNT_MSAT(0);
+
 	for (size_t i = 0; i < NUM_TX_MSGS; i++)
 		tx_state->tx_msg_count[i] = 0;
 
@@ -195,6 +180,9 @@ struct state {
 
 	/* If non-NULL, this is the scriptpubkey we/they *must* close with */
 	u8 *upfront_shutdown_script[NUM_SIDES];
+
+	/* If non-NULL, the wallet index for the LOCAL script */
+	u32 *local_upfront_shutdown_wallet_index;
 
 	/* The channel structure, as defined in common/initial_channel.h. While
 	 * the structure has room for HTLCs, those routines are
@@ -563,7 +551,7 @@ static size_t psbt_output_weight(struct wally_psbt *psbt,
 		varint_size(psbt->tx->outputs[outnum].script_len)) * 4;
 }
 
-static bool find_txout(struct wally_psbt *psbt, const u8 *wscript, u16 *funding_txout)
+static bool find_txout(struct wally_psbt *psbt, const u8 *wscript, u32 *funding_txout)
 {
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
 		if (memeq(wscript, tal_bytelen(wscript), psbt->tx->outputs[i].script,
@@ -589,7 +577,7 @@ static char *check_balances(const tal_t *ctx,
 			  initiator_diff, accepter_diff;
 
 	bool ok;
-	u16 funding_outnum = psbt->num_outputs;
+	u32 funding_outnum = psbt->num_outputs;
 	size_t accepter_weight = 0;
 
 
@@ -898,7 +886,7 @@ static void dualopend_dev_memleak(struct state *state)
 	memleak_remove_region(memtable, state, tal_bytelen(state));
 
 	/* If there's anything left, dump it to logs, and return true. */
-	dump_memleak(memtable);
+	dump_memleak(memtable, memleak_status_broken);
 }
 #endif /* DEVELOPER */
 
@@ -922,7 +910,7 @@ static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
 				       state->our_role);
 
 	return towire_tx_signatures(ctx, &state->channel_id,
-				    &state->tx_state->funding_txid,
+				    &state->tx_state->funding.txid,
 				    ws);
 }
 
@@ -969,7 +957,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 					     &txid));
 
 
-	if (!bitcoin_txid_eq(&tx_state->funding_txid, &txid))
+	if (!bitcoin_txid_eq(&tx_state->funding.txid, &txid))
 		open_err_warn(state,
 			      "tx_signatures for %s received,"
 			      "working on funding_txid %s",
@@ -978,7 +966,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 					     &txid),
 			      type_to_string(tmpctx,
 					     struct bitcoin_txid,
-					     &tx_state->funding_txid));
+					     &tx_state->funding.txid));
 
 	/* We put the PSBT + sigs all together */
 	for (size_t i = 0; i < tx_state->psbt->num_inputs; i++) {
@@ -1024,13 +1012,13 @@ static void handle_send_tx_sigs(struct state *state, const u8 *msg)
 
 	/* Check that we've got the same / correct PSBT */
 	psbt_txid(NULL, psbt, &txid, NULL);
-	if (!bitcoin_txid_eq(&txid, &tx_state->funding_txid))
+	if (!bitcoin_txid_eq(&txid, &tx_state->funding.txid))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "TXID for passed in PSBT does not match"
 			      " funding txid for channel. Expected %s, "
 			      "received %s",
 			      type_to_string(tmpctx, struct bitcoin_txid,
-					     &tx_state->funding_txid),
+					     &tx_state->funding.txid),
 			      type_to_string(tmpctx, struct bitcoin_txid,
 					     &txid));
 
@@ -1301,6 +1289,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_CHANNEL_REESTABLISH:
 		case WIRE_ANNOUNCEMENT_SIGNATURES:
 		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_OBS2_ONION_MESSAGE:
 		case WIRE_ONION_MESSAGE:
 		case WIRE_ACCEPT_CHANNEL2:
 		case WIRE_TX_ADD_INPUT:
@@ -1356,17 +1345,17 @@ static bool run_tx_interactive(struct state *state,
 		switch (t) {
 		case WIRE_TX_ADD_INPUT: {
 			const u8 *tx_bytes, *redeemscript;
-			u32 outnum, sequence;
+			u32 sequence;
 			size_t len;
 			struct bitcoin_tx *tx;
-			struct bitcoin_txid txid;
+			struct bitcoin_outpoint outpoint;
 			struct amount_sat amt;
 
 			if (!fromwire_tx_add_input(tmpctx, msg, &cid,
 						   &serial_id,
 						   cast_const2(u8 **,
 							       &tx_bytes),
-						   &outnum, &sequence,
+						   &outpoint.n, &sequence,
 						   cast_const2(u8 **,
 							       &redeemscript)))
 				open_err_fatal(state,
@@ -1412,10 +1401,10 @@ static bool run_tx_interactive(struct state *state,
 			if (!tx || len != 0)
 				open_err_warn(state, "%s", "Invalid tx sent.");
 
-			if (outnum >= tx->wtx->num_outputs)
+			if (outpoint.n >= tx->wtx->num_outputs)
 				open_err_warn(state,
 					      "Invalid tx outnum sent. %u",
-					      outnum);
+					      outpoint.n);
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node: ...
@@ -1423,7 +1412,7 @@ static bool run_tx_interactive(struct state *state,
 			 *   - the `prevtx_out` input of `prevtx` is
 			 *   not an `OP_0` to `OP_16` followed by a single push
 			 */
-			if (!is_segwit_output(&tx->wtx->outputs[outnum],
+			if (!is_segwit_output(&tx->wtx->outputs[outpoint.n],
 					      redeemscript))
 				open_err_warn(state,
 					      "Invalid tx sent. Not SegWit %s",
@@ -1439,15 +1428,14 @@ static bool run_tx_interactive(struct state *state,
 			 *    identical to a previously added (and not
 			 *    removed) input's
 			 */
-			bitcoin_txid(tx, &txid);
-			if (psbt_has_input(psbt, &txid, outnum))
+			bitcoin_txid(tx, &outpoint.txid);
+			if (psbt_has_input(psbt, &outpoint))
 				open_err_warn(state,
-					      "Unable to add input %s:%d- "
+					      "Unable to add input %s- "
 					      "already present",
 					      type_to_string(tmpctx,
-							     struct bitcoin_txid,
-							     &txid),
-					      outnum);
+							     struct bitcoin_outpoint,
+							     &outpoint));
 
 			/*
 			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
@@ -1455,17 +1443,16 @@ static bool run_tx_interactive(struct state *state,
 			 *  - MUST add all received inputs to the transaction
 			 */
 			struct wally_psbt_input *in =
-				psbt_append_input(psbt, &txid, outnum,
+				psbt_append_input(psbt, &outpoint,
 						  sequence, NULL,
 						  NULL,
 						  redeemscript);
 			if (!in)
 				open_err_warn(state,
-					      "Unable to add input %s:%d",
+					      "Unable to add input %s",
 					      type_to_string(tmpctx,
-							     struct bitcoin_txid,
-							     &txid),
-					      outnum);
+							     struct bitcoin_outpoint,
+							     &outpoint));
 
 			tal_wally_start();
 			wally_psbt_input_set_utxo(in, tx->wtx);
@@ -1474,7 +1461,7 @@ static bool run_tx_interactive(struct state *state,
 			if (is_elements(chainparams)) {
 				struct amount_asset asset;
 
-				bitcoin_tx_output_get_amount_sat(tx, outnum,
+				bitcoin_tx_output_get_amount_sat(tx, outpoint.n,
 								 &amt);
 
 				/* FIXME: persist asset tags */
@@ -1482,7 +1469,7 @@ static bool run_tx_interactive(struct state *state,
 						chainparams->fee_asset_tag);
 				/* FIXME: persist nonces */
 				psbt_elements_input_set_asset(psbt,
-							      outnum,
+							      outpoint.n,
 							      &asset);
 			}
 
@@ -1649,6 +1636,7 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_CHANNEL_REESTABLISH:
 		case WIRE_ANNOUNCEMENT_SIGNATURES:
 		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_OBS2_ONION_MESSAGE:
 		case WIRE_ONION_MESSAGE:
 		case WIRE_TX_SIGNATURES:
 		case WIRE_OPEN_CHANNEL2:
@@ -1692,6 +1680,7 @@ static void revert_channel_state(struct state *state)
 	struct amount_sat total;
 	struct amount_msat our_msats;
 	enum side opener = state->our_role == TX_INITIATOR ? LOCAL : REMOTE;
+	const struct channel_type *type;
 
 	/* We've already checked this */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -1706,10 +1695,11 @@ static void revert_channel_state(struct state *state)
 		abort();
 
 	tal_free(state->channel);
+	type = default_channel_type(NULL,
+				    state->our_features, state->their_features);
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
-					     &tx_state->funding_txid,
-					     tx_state->funding_txout,
+					     &tx_state->funding,
 					     state->minimum_depth,
 					     take(new_height_states(NULL, opener,
 								    &tx_state->blockheight)),
@@ -1725,7 +1715,9 @@ static void revert_channel_state(struct state *state)
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     true, true,
+					     take(type),
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     opener);
 }
 
@@ -1747,9 +1739,10 @@ static u8 *accepter_commits(struct state *state,
 	const u8 *wscript;
 	u8 *msg;
 	char *error;
+	const struct channel_type *type;
 
 	/* Find the funding transaction txid */
-	psbt_txid(NULL, tx_state->psbt, &tx_state->funding_txid, NULL);
+	psbt_txid(NULL, tx_state->psbt, &tx_state->funding.txid, NULL);
 
 	wscript = bitcoin_redeem_2of2(state,
 				      &state->our_funding_pubkey,
@@ -1758,7 +1751,7 @@ static u8 *accepter_commits(struct state *state,
 	/* Figure out the txout */
 	if (!find_txout(tx_state->psbt,
 			scriptpubkey_p2wsh(tmpctx, wscript),
-			&tx_state->funding_txout))
+			&tx_state->funding.n))
 		open_err_warn(state,
 			      "Expected output %s not found on funding tx %s",
 			      tal_hex(tmpctx,
@@ -1807,10 +1800,33 @@ static u8 *accepter_commits(struct state *state,
 	if (state->channel)
 		state->channel = tal_free(state->channel);
 
+	type = default_channel_type(NULL,
+				    state->our_features, state->their_features);
+
+	/*~ Report the channel parameters to the signer. */
+	msg = towire_hsmd_ready_channel(NULL,
+				       false,	/* is_outbound */
+				       total,
+				       our_msats,
+				       &tx_state->funding.txid,
+				       tx_state->funding.n,
+				       tx_state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       state->local_upfront_shutdown_wallet_index,
+				       &state->their_points,
+				       &state->their_funding_pubkey,
+				       tx_state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       type);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
+
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
-					     &tx_state->funding_txid,
-					     tx_state->funding_txout,
+					     &tx_state->funding,
 					     state->minimum_depth,
 					     take(new_height_states(NULL, REMOTE,
 								    &tx_state->blockheight)),
@@ -1827,7 +1843,9 @@ static u8 *accepter_commits(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     true, true,
+					     take(type),
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     REMOTE);
 
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
@@ -1879,7 +1897,7 @@ static u8 *accepter_commits(struct state *state,
 				     * the funding tx doesn't match up */
 				      type_to_string(tmpctx,
 						     struct bitcoin_txid,
-						     &tx_state->funding_txid),
+						     &tx_state->funding.txid),
 				      type_to_string(tmpctx,
 						     struct wally_psbt,
 						     tx_state->psbt));
@@ -1932,8 +1950,7 @@ static u8 *accepter_commits(struct state *state,
 					   &state->their_points.delayed_payment,
 					   &state->first_per_commitment_point[REMOTE],
 					   &state->their_funding_pubkey,
-					   &tx_state->funding_txid,
-					   tx_state->funding_txout,
+					   &tx_state->funding,
 					   total,
 					   tx_state->accepter_funding,
 					   state->channel_flags,
@@ -2147,6 +2164,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						&tx_state->accepter_funding,
 						&tx_state->psbt,
 						&state->upfront_shutdown_script[LOCAL],
+						&state->local_upfront_shutdown_wallet_index,
 						&tx_state->rates))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
 
@@ -2375,14 +2393,16 @@ static u8 *opener_commits(struct state *state,
 	const u8 *wscript;
 	u8 *msg;
 	char *error;
+	struct amount_msat their_msats;
+	const struct channel_type *type;
 
 	wscript = bitcoin_redeem_2of2(tmpctx, &state->our_funding_pubkey,
 				      &state->their_funding_pubkey);
-	psbt_txid(NULL, tx_state->psbt, &tx_state->funding_txid, NULL);
+	psbt_txid(NULL, tx_state->psbt, &tx_state->funding.txid, NULL);
 
 	/* Figure out the txout */
 	if (!find_txout(tx_state->psbt, scriptpubkey_p2wsh(tmpctx, wscript),
-			&tx_state->funding_txout)) {
+			&tx_state->funding.n)) {
 		*err_reason = tal_fmt(tmpctx, "Expected output %s not"
 				      " found on funding tx %s",
 				      tal_hex(tmpctx,
@@ -2416,11 +2436,43 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
+	if (!amount_sat_to_msat(&their_msats, tx_state->accepter_funding)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Overflow error, can't convert accepter_funding %s"
+			      " to msats",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &tx_state->accepter_funding));
+		return NULL;
+	}
+
 	/* Ok, we're mostly good now? Let's do this */
+	type = default_channel_type(NULL,
+				    state->our_features, state->their_features);
+
+	/*~ Report the channel parameters to the signer. */
+	msg = towire_hsmd_ready_channel(NULL,
+				       true,	/* is_outbound */
+				       total,
+				       their_msats,
+				       &tx_state->funding.txid,
+				       tx_state->funding.n,
+				       tx_state->localconf.to_self_delay,
+				       state->upfront_shutdown_script[LOCAL],
+				       state->local_upfront_shutdown_wallet_index,
+				       &state->their_points,
+				       &state->their_funding_pubkey,
+				       tx_state->remoteconf.to_self_delay,
+				       state->upfront_shutdown_script[REMOTE],
+				       type);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_ready_channel_reply(msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad ready_channel_reply %s",
+			      tal_hex(tmpctx, msg));
+
 	state->channel = new_initial_channel(state,
 					     &cid,
-					     &tx_state->funding_txid,
-					     tx_state->funding_txout,
+					     &tx_state->funding,
 					     state->minimum_depth,
 					     take(new_height_states(NULL, LOCAL,
 								    &state->tx_state->blockheight)),
@@ -2435,7 +2487,9 @@ static u8 *opener_commits(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     true, true,
+					     take(type),
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     /* Opener is local */
 					     LOCAL);
 
@@ -2556,7 +2610,7 @@ static u8 *opener_commits(struct state *state,
 				     * funding tx doesn't match up */
 				      type_to_string(tmpctx,
 						     struct bitcoin_txid,
-						     &tx_state->funding_txid),
+						     &tx_state->funding.txid),
 				      type_to_string(tmpctx,
 						     struct wally_psbt,
 						     tx_state->psbt));
@@ -2585,8 +2639,7 @@ static u8 *opener_commits(struct state *state,
 					    &state->their_points.delayed_payment,
 					    &state->first_per_commitment_point[REMOTE],
 					    &state->their_funding_pubkey,
-					    &tx_state->funding_txid,
-					    tx_state->funding_txout,
+					    &tx_state->funding,
 					    total,
 					    tx_state->opener_funding,
 					    state->channel_flags,
@@ -2617,6 +2670,7 @@ static void opener_start(struct state *state, u8 *msg)
 					    &tx_state->psbt,
 					    &tx_state->opener_funding,
 					    &state->upfront_shutdown_script[LOCAL],
+					    &state->local_upfront_shutdown_wallet_index,
 					    &state->feerate_per_kw_commitment,
 					    &tx_state->feerate_per_kw_funding,
 					    &state->channel_flags,
@@ -3017,7 +3071,7 @@ static void rbf_wrap_up(struct state *state,
 		master_badmsg(WIRE_DUALOPEND_RBF_VALID, msg);
 
 	/* Find the funding transaction txid */
-	psbt_txid(NULL, tx_state->psbt, &tx_state->funding_txid, NULL);
+	psbt_txid(NULL, tx_state->psbt, &tx_state->funding.txid, NULL);
 
 	if (state->our_role == TX_ACCEPTER)
 		/* FIXME: lease fee rate !? */
@@ -3411,7 +3465,7 @@ static bool dualopend_handle_custommsg(const u8 *msg)
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` applies to the commitment transaction:
+ *  - if `option_static_remotekey` or `option_anchors` applies to the commitment transaction:
  *    - if `next_revocation_number` is greater than expected above, AND
  *    `your_last_per_commitment_secret` is correct for that
  *    `next_revocation_number` minus 1:
@@ -3692,6 +3746,7 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_OBS2_ONION_MESSAGE:
 	case WIRE_ONION_MESSAGE:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_TX_ADD_INPUT:
@@ -3759,6 +3814,7 @@ int main(int argc, char *argv[])
 	u8 *msg;
 	struct amount_sat total_funding;
 	struct amount_msat our_msat;
+	const struct channel_type *type;
 
 	subdaemon_setup(argc, argv);
 
@@ -3815,8 +3871,7 @@ int main(int argc, char *argv[])
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     &state->minimum_depth,
-					     &state->tx_state->funding_txid,
-					     &state->tx_state->funding_txout,
+					     &state->tx_state->funding,
 					     &state->tx_state->feerate_per_kw_funding,
 					     &total_funding,
 					     &our_msat,
@@ -3830,6 +3885,7 @@ int main(int argc, char *argv[])
 					     &state->shutdown_sent[REMOTE],
 					     &state->upfront_shutdown_script[LOCAL],
 					     &state->upfront_shutdown_script[REMOTE],
+					     &state->local_upfront_shutdown_wallet_index,
 					     &state->tx_state->remote_funding_sigs_rcvd,
 					     &fee_states,
 					     &state->channel_flags,
@@ -3841,10 +3897,12 @@ int main(int argc, char *argv[])
 
 		/*~ We only reconnect on channels that the
 		 * saved the the database (exchanged commitment sigs) */
+		type = default_channel_type(NULL,
+					    state->our_features,
+					    state->their_features);
 		state->channel = new_initial_channel(state,
 						     &state->channel_id,
-						     &state->tx_state->funding_txid,
-						     state->tx_state->funding_txout,
+						     &state->tx_state->funding,
 						     state->minimum_depth,
 						     take(new_height_states(NULL, opener,
 									    &state->tx_state->blockheight)),
@@ -3858,7 +3916,10 @@ int main(int argc, char *argv[])
 						     &state->their_points,
 						     &state->our_funding_pubkey,
 						     &state->their_funding_pubkey,
-						     true, true, opener);
+						     take(type),
+						     feature_offered(state->their_features,
+								     OPT_LARGE_CHANNELS),
+						     opener);
 
 		if (opener == LOCAL)
 			state->our_role = TX_INITIATOR;

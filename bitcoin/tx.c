@@ -1,18 +1,14 @@
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/endian/endian.h>
-#include <ccan/mem/mem.h>
-#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
-#include <stdio.h>
+#include <wally_psbt.h>
 #include <wire/wire.h>
+#include <bitcoin/tx.h>
 
 #define SEGREGATED_WITNESS_FLAG 0x1
 
@@ -99,16 +95,6 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 	bitcoin_tx_output_set_amount(tx, i, amount);
 
 	return i;
-}
-
-int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
-				 struct bitcoin_tx_output **outputs)
-{
-	for (size_t j = 0; j < tal_count(outputs); j++)
-		bitcoin_tx_add_output(tx, outputs[j]->script,
-				      NULL, outputs[j]->amount);
-
-	return tx->wtx->num_outputs;
 }
 
 bool elements_wtx_output_is_fee(const struct wally_tx *tx, int outnum)
@@ -200,15 +186,17 @@ void bitcoin_tx_set_locktime(struct bitcoin_tx *tx, u32 locktime)
 	tx->psbt->tx->locktime = locktime;
 }
 
-int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
-			 u32 outnum, u32 sequence, const u8 *scriptSig,
+int bitcoin_tx_add_input(struct bitcoin_tx *tx,
+			 const struct bitcoin_outpoint *outpoint,
+			 u32 sequence, const u8 *scriptSig,
 			 struct amount_sat amount, const u8 *scriptPubkey,
 			 const u8 *input_wscript)
 {
 	int wally_err;
 	int input_num = tx->wtx->num_inputs;
 
-	psbt_append_input(tx->psbt, txid, outnum, sequence, scriptSig,
+	psbt_append_input(tx->psbt, outpoint,
+			  sequence, scriptSig,
 			  input_wscript, NULL);
 
 	if (input_wscript) {
@@ -378,20 +366,7 @@ void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
 	tal_wally_end(tx->psbt);
 }
 
-const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
-				       const struct bitcoin_tx *tx, int innum,
-				       int witnum)
-{
-	const u8 *witness_item;
-	struct wally_tx_witness_item *item;
-	assert(innum < tx->wtx->num_inputs);
-	assert(witnum < tx->wtx->inputs[innum].witness->num_items);
-	item = &tx->wtx->inputs[innum].witness->items[witnum];
-	witness_item =
-	    tal_dup_arr(ctx, u8, item->witness, item->witness_len, 0);
-	return witness_item;
-}
-
+/* FIXME: remove */
 void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 			       struct bitcoin_txid *out)
 {
@@ -399,24 +374,40 @@ void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 	wally_tx_input_get_txid(&tx->wtx->inputs[innum], out);
 }
 
-void bitcoin_tx_input_set_txid(struct bitcoin_tx *tx, int innum,
-			       const struct bitcoin_txid *txid,
-			       u32 index)
+void bitcoin_tx_input_get_outpoint(const struct bitcoin_tx *tx,
+				   int innum,
+				   struct bitcoin_outpoint *outpoint)
+{
+	assert(innum < tx->wtx->num_inputs);
+	wally_tx_input_get_outpoint(&tx->wtx->inputs[innum], outpoint);
+}
+
+void bitcoin_tx_input_set_outpoint(struct bitcoin_tx *tx, int innum,
+				   const struct bitcoin_outpoint *outpoint)
 {
 	struct wally_tx_input *in;
 	assert(innum < tx->wtx->num_inputs);
 
 	in = &tx->wtx->inputs[innum];
 	BUILD_ASSERT(sizeof(struct bitcoin_txid) == sizeof(in->txhash));
-	memcpy(in->txhash, txid, sizeof(struct bitcoin_txid));
-	in->index = index;
+	memcpy(in->txhash, &outpoint->txid, sizeof(struct bitcoin_txid));
+	in->index = outpoint->n;
 }
 
+/* FIXME: remove */
 void wally_tx_input_get_txid(const struct wally_tx_input *in,
 			     struct bitcoin_txid *txid)
 {
 	BUILD_ASSERT(sizeof(struct bitcoin_txid) == sizeof(in->txhash));
 	memcpy(txid, in->txhash, sizeof(struct bitcoin_txid));
+}
+
+void wally_tx_input_get_outpoint(const struct wally_tx_input *in,
+				 struct bitcoin_outpoint *outpoint)
+{
+	BUILD_ASSERT(sizeof(struct bitcoin_txid) == sizeof(in->txhash));
+	memcpy(&outpoint->txid, in->txhash, sizeof(struct bitcoin_txid));
+	outpoint->n = in->index;
 }
 
 /* BIP144:
@@ -682,6 +673,14 @@ static char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid)
 	return hexstr;
 }
 
+static char *fmt_bitcoin_outpoint(const tal_t *ctx,
+				  const struct bitcoin_outpoint *outpoint)
+{
+	return tal_fmt(ctx, "%s:%u",
+		       fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+		       outpoint->n);
+}
+
 static char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx)
 {
 	u8 *lin = linearize_wtx(ctx, tx);
@@ -692,6 +691,7 @@ static char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx)
 
 REGISTER_TYPE_TO_STRING(bitcoin_tx, fmt_bitcoin_tx);
 REGISTER_TYPE_TO_STRING(bitcoin_txid, fmt_bitcoin_txid);
+REGISTER_TYPE_TO_STRING(bitcoin_outpoint, fmt_bitcoin_outpoint);
 REGISTER_TYPE_TO_STRING(wally_tx, fmt_wally_tx);
 
 void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
@@ -705,8 +705,13 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx;
 
+	u32 len = fromwire_u32(cursor, max);
+	size_t start = *max;
 	tx = pull_bitcoin_tx(ctx, cursor, max);
 	if (!tx)
+		return fromwire_fail(cursor, max);
+	// Check that we consumed len bytes
+	if (start - *max != len)
 		return fromwire_fail(cursor, max);
 
 	/* pull_bitcoin_tx sets the psbt */
@@ -716,16 +721,6 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 		return fromwire_fail(cursor, max);
 
 	return tx;
-}
-
-struct wally_tx *fromwire_wally_tx(const tal_t *ctx,
-				   const u8 **cursor, size_t *max)
-{
-	struct wally_tx *wtx;
-	wtx = pull_wtx(ctx, cursor, max);
-	if (!wtx)
-		return fromwire_fail(cursor, max);
-	return wtx;
 }
 
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
@@ -749,47 +744,22 @@ void fromwire_bitcoin_outpoint(const u8 **cursor, size_t *max,
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 {
 	u8 *lin = linearize_tx(tmpctx, tx);
+	towire_u32(pptr, tal_count(lin));
 	towire_u8_array(pptr, lin, tal_count(lin));
 
 	towire_wally_psbt(pptr, tx->psbt);
 }
 
-void towire_wally_tx(u8 **pptr, const struct wally_tx *wtx)
-{
-	u8 *lin = linearize_wtx(tmpctx, wtx);
-	towire_u8_array(pptr, lin, tal_count(lin));
-}
-
-struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
-						     const u8 **cursor, size_t *max)
-{
-	struct bitcoin_tx_output *output = tal(ctx, struct bitcoin_tx_output);
-	output->amount = fromwire_amount_sat(cursor, max);
-	u16 script_len = fromwire_u16(cursor, max);
-	output->script = fromwire_tal_arrn(output, cursor, max, script_len);
-	if (!*cursor)
-		return tal_free(output);
-	return output;
-}
-
-void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output)
-{
-	towire_amount_sat(pptr, output->amount);
-	towire_u16(pptr, tal_count(output->script));
-	towire_u8_array(pptr, output->script, tal_count(output->script));
-}
-
 bool wally_tx_input_spends(const struct wally_tx_input *input,
-			   const struct bitcoin_txid *txid,
-			   int outnum)
+			   const struct bitcoin_outpoint *outpoint)
 {
 	/* Useful, as tx_part can have some NULL inputs */
 	if (!input)
 		return false;
-	BUILD_ASSERT(sizeof(*txid) == sizeof(input->txhash));
-	if (memcmp(txid, input->txhash, sizeof(*txid)) != 0)
+	BUILD_ASSERT(sizeof(outpoint->txid) == sizeof(input->txhash));
+	if (memcmp(&outpoint->txid, input->txhash, sizeof(outpoint->txid)) != 0)
 		return false;
-	return input->index == outnum;
+	return input->index == outpoint->n;
 }
 
 /* FIXME(cdecker) Make the caller pass in a reference to amount_asset, and

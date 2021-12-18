@@ -14,12 +14,11 @@ struct existing_htlc;
  * new_full_channel: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
  * @cid: The channel id.
- * @funding_txid: The commitment transaction id.
- * @funding_txout: The commitment transaction output number.
+ * @funding: The commitment transaction id/output number.
  * @minimum_depth: The minimum confirmations needed for funding transaction.
  * @blockheight_states: The blockheight update states.
  * @lease_expiry: The block the lease on this channel expires at; 0 if no lease.
- * @funding: The commitment transaction amount.
+ * @funding_sats: The commitment transaction amount.
  * @local_msat: The amount for the local side (remainder goes to remote)
  * @fee_states: The fee update states.
  * @local: local channel configuration
@@ -28,30 +27,29 @@ struct existing_htlc;
  * @remote_basepoints: remote basepoints.
  * @local_fundingkey: local funding key
  * @remote_fundingkey: remote funding key
- * @option_static_remotekey: use `option_static_remotekey`.
- * @option_anchor_outputs: use `option_anchor_outputs`.
+ * @type: type for this channel
+ * @option_wumbo: large channel negotiated.
  * @opener: which side initiated it.
  *
  * Returns state, or NULL if malformed.
  */
 struct channel *new_full_channel(const tal_t *ctx,
 				 const struct channel_id *cid,
-				 const struct bitcoin_txid *funding_txid,
-				 unsigned int funding_txout,
+				 const struct bitcoin_outpoint *funding,
 				 u32 minimum_depth,
 				 const struct height_states *blockheight_states,
 				 u32 lease_expiry,
-				 struct amount_sat funding,
+				 struct amount_sat funding_sats,
 				 struct amount_msat local_msat,
-				 const struct fee_states *fee_states,
+				 const struct fee_states *fee_states TAKES,
 				 const struct channel_config *local,
 				 const struct channel_config *remote,
 				 const struct basepoints *local_basepoints,
 				 const struct basepoints *remote_basepoints,
 				 const struct pubkey *local_funding_pubkey,
 				 const struct pubkey *remote_funding_pubkey,
-				 bool option_static_remotekey,
-				 bool option_anchor_outputs,
+				 const struct channel_type *type TAKES,
+				 bool option_wumbo,
 				 enum side opener);
 
 /**
@@ -105,6 +103,10 @@ u32 actual_feerate(const struct channel *channel,
  * @routing: routing information (copied)
  * @blinding: optional blinding information for this HTLC.
  * @htlcp: optional pointer for resulting htlc: filled in if and only if CHANNEL_ERR_NONE.
+ * @err_immediate_failures: in some cases (dusty htlcs) we want to immediately
+ *                          fail the htlc; for peer incoming don't want to
+ *                          error, but rather mark it as failed and fail after
+ *                          it's been committed to (so set this to false)
  *
  * If this returns CHANNEL_ERR_NONE, the fee htlc was added and
  * the output amounts adjusted accordingly.  Otherwise nothing
@@ -119,7 +121,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
-				      struct amount_sat *htlc_fee);
+				      struct amount_sat *htlc_fee,
+				      bool err_immediate_failures);
 
 /**
  * channel_get_htlc: find an HTLC
@@ -176,6 +179,18 @@ u32 approx_max_feerate(const struct channel *channel);
  * @feerate: The feerate in satoshi per 1000 bytes.
  */
 bool can_opener_afford_feerate(const struct channel *channel, u32 feerate);
+
+/**
+ * htlc_dust_ok: will this feerate keep our dusted htlc's beneath
+ * 		 the updated feerate?
+ *
+ * @channel: The channel state
+ * @feerate_per_kw: new feerate to test ok'ness for
+ * @side: which side's htlcs to verify
+ */
+bool htlc_dust_ok(const struct channel *channel,
+		  u32 feerate_per_kw,
+		  enum side side);
 
 /**
  * channel_update_feerate: Change fee rate on non-opener side.
