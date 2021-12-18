@@ -53,7 +53,7 @@ def test_connect(node_factory):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
 
     # Should get reasonable error if connection refuse.
-    with pytest.raises(RpcError, match=r'Connection establishment: Connection refused'):
+    with pytest.raises(RpcError, match=r'Connection establishment: (Connection refused|Bad file descriptor)'):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', 1)
 
     # Should get reasonable error if wrong key for peer.
