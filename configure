@@ -8,6 +8,18 @@ CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
 BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -Werror"
 
+OS=$(uname -s)
+ARCH=$(uname -m)
+if [ "$OS-$ARCH" = "Darwin-arm64" ]; then
+CPATH=/opt/homebrew/include
+LIBRARY_PATH=/opt/homebrew/lib
+export PKG_CONFIG_PATH=/opt/homebrew/opt/sqlite/lib/pkgconfig
+else
+CPATH=/usr/local/lib
+LIBRARY_PATH=/usr/local/lib
+export PKG_CONFIG_PATH=/usr/local/opt/sqlite/lib/pkgconfig
+fi
+
 : ${PKG_CONFIG=pkg-config}
 
 # You can set PG_CONFIG in the environment to direct configure to call
