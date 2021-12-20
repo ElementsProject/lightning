@@ -13,6 +13,8 @@ SUPPRESS_OUTPUT :=
 endif
 
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
+OS=$(shell uname -s)
+ARCH=$(shell uname -m)
 # Changing this could break installs!
 PKGNAME = c-lightning
 
@@ -231,8 +233,21 @@ ALL_C_HEADERS := header_versions_gen.h version_gen.h
 # Extra (non C) targets that should be built by default.
 DEFAULT_TARGETS :=
 
+# M1 macos machines with homebrew will install the native libraries in
+# /opt/homebrew instead of /usr/local, most likely because they
+# emulate x86_64 compatibility via Rosetta, and wanting to keep the
+# libraries separate. This however means we also need to switch out
+# the paths accordingly when we detect we're on an M1 macos machine.
+ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
+CPATH := /opt/homebrew/include
+LIBRARY_PATH := /opt/homebrew/lib
+else
+CPATH := /usr/local/include
+LIBRARY_PATH := /usr/local/lib
+endif
+
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
+CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I$(CPATH) $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
 # we set, including CWARNFLAGS which by default contains -Wall -Werror. This
@@ -250,9 +265,9 @@ ifeq ($(STATIC),1)
 # For MacOS, Jacob Rapoport <jacob@rumblemonkey.com> changed this to:
 #  -L/usr/local/lib -Wl,-lgmp -lsqlite3 -lz -Wl,-lm -lpthread -ldl $(COVFLAGS)
 # But that doesn't static link.
-LDLIBS = -L/usr/local/lib -Wl,-dn -lgmp $(SQLITE3_LDLIBS) -lz -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
+LDLIBS = -L$(CPATH) -Wl,-dn -lgmp $(SQLITE3_LDLIBS) -lz -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
 else
-LDLIBS = -L/usr/local/lib -lm -lgmp $(SQLITE3_LDLIBS) -lz $(COVFLAGS)
+LDLIBS = -L$(CPATH) -lm -lgmp $(SQLITE3_LDLIBS) -lz $(COVFLAGS)
 endif
 
 # If we have the postgres client library we need to link against it as well
