@@ -285,6 +285,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    `dust_limit_satoshis`, add a [`to_remote`
 	 *    output](#to_remote-output).
 	 */
+	u8 *redeem;
 	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
 		struct amount_sat amount = amount_msat_to_sat_round_down(other_pay);
 		u8 *scriptpubkey;
@@ -303,11 +304,10 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
 		if (option_anchor_outputs) {
-			const u8 *redeem
-				= anchor_to_remote_redeem(tmpctx,
-							  &keyset->other_payment_key,
-							  (!side) == lessor ?
-								csv_lock : 1);
+			redeem = anchor_to_remote_redeem(tmpctx,
+							 &keyset->other_payment_key,
+							 (!side) == lessor ?
+							       csv_lock : 1);
 			/* BOLT- #3:
 			 * ##### Leased channel (`option_will_fund`)
 			 *
@@ -322,10 +322,11 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			 */
 			scriptpubkey = scriptpubkey_p2wsh(tmpctx, redeem);
 		} else {
+			redeem = NULL;
 			scriptpubkey = scriptpubkey_p2wpkh(tmpctx,
 							   &keyset->other_payment_key);
 		}
-		pos = bitcoin_tx_add_output(tx, scriptpubkey, NULL, amount);
+		pos = bitcoin_tx_add_output(tx, scriptpubkey, redeem, amount);
 		assert(pos == n);
 		(*htlcmap)[n] = direct_outputs ? dummy_to_remote : NULL;
 		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
@@ -337,8 +338,10 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		n++;
 
 		to_remote = true;
-	} else
+	} else {
 		to_remote = false;
+		redeem = NULL;
+	}
 
 	/* BOLT #3:
 	 *
