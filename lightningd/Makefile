@@ -115,6 +115,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
+	common/psbt_keypath.o		\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\
