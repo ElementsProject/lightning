@@ -21,6 +21,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/node_id.o			\
 	common/onionreply.o			\
 	common/key_derive.o			\
+	common/psbt_keypath.o		\
 	common/pseudorand.o			\
 	common/setup.o				\
 	common/timeout.o			\

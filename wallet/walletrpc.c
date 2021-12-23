@@ -10,6 +10,7 @@
 #include <common/json_tok.h>
 #include <common/key_derive.h>
 #include <common/param.h>
+#include <common/psbt_keypath.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
@@ -658,6 +659,35 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 	return NULL;
 }
 
+static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
+				  struct wallet *w)
+{
+	assert(psbt->tx->num_outputs == psbt->num_outputs);
+	tal_wally_start();
+	for (size_t outndx = 0; outndx < psbt->num_outputs; ++outndx) {
+		u32 index;
+		bool is_p2sh;
+		const u8 *script;
+		struct ext_key ext;
+
+		script = wally_tx_output_get_script(tmpctx,
+						    &psbt->tx->outputs[outndx]);
+		if (!script)
+			continue;
+
+		if (!wallet_can_spend(w, script, &index, &is_p2sh))
+			continue;
+
+		if (bip32_key_from_parent(
+			    w->bip32_base, index, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+			abort();
+		}
+
+		psbt_set_keypath(index, &ext, &psbt->outputs[outndx].keypaths);
+	}
+	tal_wally_end(psbt);
+}
+
 static struct command_result *param_input_numbers(struct command *cmd,
 						  const char *name,
 						  const char *buffer,
@@ -720,6 +750,9 @@ static struct command_result *json_signpsbt(struct command *cmd,
 	if (tal_count(utxos) == 0)
 		return command_fail(cmd, LIGHTNINGD,
 				    "No wallet inputs to sign");
+
+	/* Update the keypaths on any outputs that are in our wallet (change addresses). */
+	match_psbt_outputs_to_wallet(psbt, cmd->ld->wallet);
 
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
