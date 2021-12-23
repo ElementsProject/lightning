@@ -69,6 +69,7 @@ COMMON_SRC_NOGEN :=				\
 	common/ping.c				\
 	common/private_channel_announcement.c	\
 	common/psbt_internal.c			\
+	common/psbt_keypath.c			\
 	common/psbt_open.c			\
 	common/pseudorand.c			\
 	common/random_select.c			\
