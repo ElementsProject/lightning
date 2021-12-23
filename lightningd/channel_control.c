@@ -22,6 +22,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
+#include <wally_bip32.h>
 
 static void update_feerates(struct lightningd *ld, struct channel *channel)
 {
@@ -665,6 +666,18 @@ void peer_start_channeld(struct channel *channel,
 	pbases = wallet_penalty_base_load_for_channel(
 	    tmpctx, channel->peer->ld->wallet, channel->dbid);
 
+	struct ext_key final_ext_key;
+	if (bip32_key_from_parent(
+		    ld->wallet->bip32_base,
+		    channel->final_key_idx,
+		    BIP32_FLAG_KEY_PUBLIC,
+		    &final_ext_key) != WALLY_OK) {
+		channel_internal_error(channel,
+				       "Could not derive final_ext_key %"PRIu64,
+				       channel->final_key_idx);
+		return;
+	}
+
 	initmsg = towire_channeld_init(tmpctx,
 				       chainparams,
 				       ld->our_features,
@@ -713,6 +726,8 @@ void peer_start_channeld(struct channel *channel,
 				       || channel->state == CLOSINGD_SIGEXCHANGE
 				       || channel_closed(channel),
 				       channel->shutdown_scriptpubkey[REMOTE] != NULL,
+				       channel->final_key_idx,
+				       &final_ext_key,
 				       channel->shutdown_scriptpubkey[LOCAL],
 				       channel->channel_flags,
 				       fwd_msg,

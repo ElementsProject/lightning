@@ -42,6 +42,7 @@
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <wally_bip32.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -122,6 +123,8 @@ struct peer {
 	u32 fee_per_satoshi;
 
 	/* The scriptpubkey to use for shutting down. */
+	u32 *final_index;
+	struct ext_key *final_ext_key;
 	u8 *final_scriptpubkey;
 
 	/* If master told us to shut down */
@@ -1722,6 +1725,7 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 	if (pbase) {
 		ptx = penalty_tx_create(
 		    NULL, peer->channel, peer->feerate_penalty,
+		    peer->final_index, peer->final_ext_key,
 		    peer->final_scriptpubkey, per_commitment_secret,
 		    &pbase->txid, pbase->outnum, pbase->amount,
 		    HSM_FD);
@@ -3470,11 +3474,22 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 
 static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 {
+	u32 *final_index;
+	struct ext_key *final_ext_key;
 	u8 *local_shutdown_script;
 
-	if (!fromwire_channeld_send_shutdown(peer, inmsg, &local_shutdown_script,
+	if (!fromwire_channeld_send_shutdown(peer, inmsg,
+					     &final_index,
+					     &final_ext_key,
+					     &local_shutdown_script,
 					     &peer->shutdown_wrong_funding))
 		master_badmsg(WIRE_CHANNELD_SEND_SHUTDOWN, inmsg);
+
+	tal_free(peer->final_index);
+	peer->final_index = final_index;
+
+	tal_free(peer->final_ext_key);
+	peer->final_ext_key = final_ext_key;
 
 	tal_free(peer->final_scriptpubkey);
 	peer->final_scriptpubkey = local_shutdown_script;
@@ -3652,6 +3667,8 @@ static void init_channel(struct peer *peer)
 	enum side opener;
 	struct existing_htlc **htlcs;
 	bool reconnected;
+	u32 final_index;
+	struct ext_key final_ext_key;
 	u8 *fwd_msg;
 	const u8 *msg;
 	struct fee_states *fee_states;
@@ -3715,6 +3732,8 @@ static void init_channel(struct peer *peer)
 				    &reconnected,
 				    &peer->send_shutdown,
 				    &peer->shutdown_sent[REMOTE],
+				    &final_index,
+				    &final_ext_key,
 				    &peer->final_scriptpubkey,
 				    &peer->channel_flags,
 				    &fwd_msg,
@@ -3733,6 +3752,9 @@ static void init_channel(struct peer *peer)
 				    &peer->channel_update)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
+
+	peer->final_index = tal_dup(peer, u32, &final_index);
+	peer->final_ext_key = tal_dup(peer, struct ext_key, &final_ext_key);
 
 #if DEVELOPER
 	peer->dev_disable_commit = dev_disable_commit;

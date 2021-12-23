@@ -54,6 +54,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/onionreply.o			\
 	common/peer_billboard.o			\
 	common/permute_tx.o			\
+	common/psbt_keypath.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/setup.o				\

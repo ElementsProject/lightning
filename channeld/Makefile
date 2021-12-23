@@ -73,6 +73,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/ping.o				\
+	common/psbt_keypath.o		\
 	common/psbt_open.o			\
 	common/private_channel_announcement.o	\
 	common/pseudorand.o			\

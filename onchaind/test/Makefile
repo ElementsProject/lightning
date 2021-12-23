@@ -13,6 +13,7 @@ ONCHAIND_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
 	common/autodata.o			\
 	common/features.o			\
+	common/psbt_keypath.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
 	common/type_to_string.o			\

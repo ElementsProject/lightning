@@ -26,6 +26,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wally_bip32.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -51,6 +52,8 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
 				   struct per_peer_state *pps,
 				   const struct channel_id *channel_id,
+				   u32 *local_wallet_index,
+				   const struct ext_key *local_wallet_ext_key,
 				   u8 *scriptpubkey[NUM_SIDES],
 				   const struct bitcoin_outpoint *funding,
 				   struct amount_sat funding_sats,
@@ -83,6 +86,7 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	/* FIXME: We need to allow this! */
 	tx = create_close_tx(ctx,
 			     chainparams,
+			     local_wallet_index, local_wallet_ext_key,
 			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_wscript,
 			     funding,
@@ -130,6 +134,8 @@ static void send_offer(struct per_peer_state *pps,
 		       const struct channel_id *channel_id,
 		       const struct pubkey funding_pubkey[NUM_SIDES],
 		       const u8 *funding_wscript,
+		       u32 *local_wallet_index,
+		       const struct ext_key *local_wallet_ext_key,
 		       u8 *scriptpubkey[NUM_SIDES],
 		       const struct bitcoin_outpoint *funding,
 		       struct amount_sat funding_sats,
@@ -152,6 +158,8 @@ static void send_offer(struct per_peer_state *pps,
 	 *     #3](03-transactions.md#closing-transaction).
 	 */
 	tx = close_tx(tmpctx, chainparams, pps, channel_id,
+		      local_wallet_index,
+		      local_wallet_ext_key,
 		      scriptpubkey,
 		      funding,
 		      funding_sats,
@@ -225,6 +233,8 @@ receive_offer(struct per_peer_state *pps,
 	      const struct channel_id *channel_id,
 	      const struct pubkey funding_pubkey[NUM_SIDES],
 	      const u8 *funding_wscript,
+	      u32 *local_wallet_index,
+	      const struct ext_key *local_wallet_ext_key,
 	      u8 *scriptpubkey[NUM_SIDES],
 	      const struct bitcoin_outpoint *funding,
 	      struct amount_sat funding_sats,
@@ -285,6 +295,8 @@ receive_offer(struct per_peer_state *pps,
 	 *     - MUST fail the connection.
 	 */
 	tx = close_tx(tmpctx, chainparams, pps, channel_id,
+		      local_wallet_index,
+		      local_wallet_ext_key,
 		      scriptpubkey,
 		      funding,
 		      funding_sats,
@@ -315,6 +327,8 @@ receive_offer(struct per_peer_state *pps,
 		 *   - MAY eliminate its own output.
 		 */
 		trimmed = close_tx(tmpctx, chainparams, pps, channel_id,
+				   local_wallet_index,
+				   local_wallet_ext_key,
 				   scriptpubkey,
 				   funding,
 				   funding_sats,
@@ -559,7 +573,9 @@ static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 					 const u8 *funding_wscript,
 					 const struct amount_sat *out,
 					 struct amount_sat funding_sats,
-					 struct amount_sat dust_limit)
+					 struct amount_sat dust_limit,
+					 u32 *local_wallet_index,
+					 const struct ext_key *local_wallet_ext_key)
 {
 	/* We create a dummy close */
 	struct bitcoin_tx *tx;
@@ -567,6 +583,7 @@ static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 
 	memset(&dummy_funding, 0, sizeof(dummy_funding));
 	tx = create_close_tx(tmpctx, chainparams,
+			     local_wallet_index, local_wallet_ext_key,
 			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_wscript,
 			     &dummy_funding,
@@ -671,6 +688,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 			  const struct channel_id *channel_id,
 			  const struct pubkey funding_pubkey[NUM_SIDES],
 			  const u8 *funding_wscript,
+			  u32 *local_wallet_index,
+			  const struct ext_key *local_wallet_ext_key,
 			  u8 *scriptpubkey[NUM_SIDES],
 			  const struct bitcoin_outpoint *funding,
 			  struct amount_sat funding_sats,
@@ -750,6 +769,7 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 			offer[LOCAL] = offer[REMOTE];
 			send_offer(pps, chainparams,
 				   channel_id, funding_pubkey, funding_wscript,
+				   local_wallet_index, local_wallet_ext_key,
 				   scriptpubkey, funding,
 				   funding_sats, out, opener,
 				   our_dust_limit,
@@ -789,6 +809,7 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 		}
 		send_offer(pps, chainparams,
 			   channel_id, funding_pubkey, funding_wscript,
+			   local_wallet_index, local_wallet_ext_key,
 			   scriptpubkey, funding,
 			   funding_sats, out, opener,
 			   our_dust_limit,
@@ -802,6 +823,7 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 				= receive_offer(pps, chainparams,
 						channel_id, funding_pubkey,
 						funding_wscript,
+						local_wallet_index, local_wallet_ext_key,
 						scriptpubkey, funding,
 						funding_sats,
 						out, opener,
@@ -851,6 +873,8 @@ int main(int argc, char *argv[])
 	u32 min_feerate, initial_feerate, *max_feerate;
 	struct feerange feerange;
 	enum side opener;
+	u32 *local_wallet_index;
+	struct ext_key *local_wallet_ext_key;
 	u8 *scriptpubkey[NUM_SIDES], *funding_wscript;
 	u64 fee_negotiation_step;
 	u8 fee_negotiation_step_unit;
@@ -879,6 +903,8 @@ int main(int argc, char *argv[])
 				    &our_dust_limit,
 				    &min_feerate, &initial_feerate, &max_feerate,
 				    &commitment_fee,
+				    &local_wallet_index,
+				    &local_wallet_ext_key,
 				    &scriptpubkey[LOCAL],
 				    &scriptpubkey[REMOTE],
 				    &fee_negotiation_step,
@@ -899,7 +925,9 @@ int main(int argc, char *argv[])
 	calc_fee_bounds(closing_tx_weight_estimate(scriptpubkey,
 						   funding_wscript,
 						   out, funding_sats,
-						   our_dust_limit),
+						   our_dust_limit,
+						   local_wallet_index,
+						   local_wallet_ext_key),
 			min_feerate, initial_feerate, max_feerate,
 			commitment_fee, funding_sats, opener,
 			&min_fee_to_accept, &offer[LOCAL], &max_fee_to_accept);
@@ -957,6 +985,7 @@ int main(int argc, char *argv[])
 		if (whose_turn == LOCAL) {
 			send_offer(pps, chainparams,
 				   &channel_id, funding_pubkey, funding_wscript,
+				   local_wallet_index, local_wallet_ext_key,
 				   scriptpubkey, &funding,
 				   funding_sats, out, opener,
 				   our_dust_limit,
@@ -978,6 +1007,8 @@ int main(int argc, char *argv[])
 				= receive_offer(pps, chainparams,
 						&channel_id, funding_pubkey,
 						funding_wscript,
+						local_wallet_index,
+						local_wallet_ext_key,
 						scriptpubkey, &funding,
 						funding_sats,
 						out, opener,
@@ -991,6 +1022,7 @@ int main(int argc, char *argv[])
 				do_quickclose(offer,
 					      pps, &channel_id, funding_pubkey,
 					      funding_wscript,
+					      local_wallet_index, local_wallet_ext_key,
 					      scriptpubkey,
 					      &funding,
 					      funding_sats, out, opener,
@@ -1024,6 +1056,8 @@ int main(int argc, char *argv[])
 						    fee_negotiation_step_unit);
 			send_offer(pps, chainparams, &channel_id,
 				   funding_pubkey, funding_wscript,
+				   local_wallet_index,
+				   local_wallet_ext_key,
 				   scriptpubkey, &funding,
 				   funding_sats, out, opener,
 				   our_dust_limit,
@@ -1040,6 +1074,8 @@ int main(int argc, char *argv[])
 				= receive_offer(pps, chainparams, &channel_id,
 						funding_pubkey,
 						funding_wscript,
+						local_wallet_index,
+						local_wallet_ext_key,
 						scriptpubkey, &funding,
 						funding_sats,
 						out, opener,
@@ -1064,6 +1100,8 @@ exit_thru_the_giftshop:
 	tal_free(our_feerange);
 	tal_free(their_feerange);
 	tal_free(max_feerate);
+	tal_free(local_wallet_index);
+	tal_free(local_wallet_ext_key);
 	closing_dev_memleak(ctx, scriptpubkey, funding_wscript);
 #endif
 

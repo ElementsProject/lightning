@@ -11,6 +11,7 @@
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/peer_billboard.h>
+#include <common/psbt_keypath.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -18,6 +19,7 @@
 #include <onchaind/onchain_types.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <unistd.h>
+#include <wally_bip32.h>
 #include <wire/wire_sync.h>
   #include "onchain_types_names_gen.h"
 
@@ -53,6 +55,8 @@ static struct amount_sat dust_limit;
 static u32 to_self_delay[NUM_SIDES];
 
 /* Where we send money to (our wallet) */
+static u32 our_wallet_index;
+static struct ext_key our_wallet_ext_key;
 static struct pubkey our_wallet_pubkey;
 
 /* Their revocation secret (only if they cheated). */
@@ -618,6 +622,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	bitcoin_tx_add_output(
 	    tx, scriptpubkey_p2wpkh(tmpctx, &our_wallet_pubkey), NULL, out->sat);
+	psbt_add_keypath_to_last_output(tx, our_wallet_index, &our_wallet_ext_key);
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
@@ -738,13 +743,14 @@ replace_penalty_tx_to_us(const tal_t *ctx,
 			     BITCOIN_TX_RBF_SEQUENCE,
 			     NULL, input_amount, NULL, input_wscript);
 	/* Reconstruct the output with a smaller amount.  */
-	if (amount_sat_greater(*output_amount, dust_limit))
+	if (amount_sat_greater(*output_amount, dust_limit)) {
 		bitcoin_tx_add_output(tx,
 				      scriptpubkey_p2wpkh(tx,
 							  &our_wallet_pubkey),
 				      NULL,
 				      *output_amount);
-	else {
+		psbt_add_keypath_to_last_output(tx, our_wallet_index, &our_wallet_ext_key);
+	} else {
 		bitcoin_tx_add_output(tx,
 				      scriptpubkey_opreturn_padded(tx),
 				      NULL,
@@ -3845,6 +3851,8 @@ int main(int argc, char *argv[])
 				   &our_broadcast_txid,
 				   &scriptpubkey[LOCAL],
 				   &scriptpubkey[REMOTE],
+				   &our_wallet_index,
+				   &our_wallet_ext_key,
 				   &our_wallet_pubkey,
 				   &opener,
 				   &basepoints[LOCAL],

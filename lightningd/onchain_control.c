@@ -15,6 +15,7 @@
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
+#include <wally_bip32.h>
 
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct channel *channel)
@@ -642,6 +643,16 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 			   channel->final_key_idx);
 		return KEEP_WATCHING;
 	}
+	struct ext_key final_wallet_ext_key;
+	if (bip32_key_from_parent(
+		    ld->wallet->bip32_base,
+		    channel->final_key_idx,
+		    BIP32_FLAG_KEY_PUBLIC,
+		    &final_wallet_ext_key) != WALLY_OK) {
+		log_broken(channel->log, "Could not derive final_wallet_ext_key %"PRIu64,
+			   channel->final_key_idx);
+		return KEEP_WATCHING;
+	}
 	/* This could be a mutual close, but it doesn't matter. */
 	bitcoin_txid(channel->last_tx, &our_last_txid);
 
@@ -706,6 +717,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  &our_last_txid,
 				  channel->shutdown_scriptpubkey[LOCAL],
 				  channel->shutdown_scriptpubkey[REMOTE],
+				  channel->final_key_idx,
+				  &final_wallet_ext_key,
 				  &final_key,
 				  channel->opener,
 				  &channel->local_basepoints,

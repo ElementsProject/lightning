@@ -1,5 +1,6 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/tx.h>
+#include <common/bip32.h>
 #include <common/blockheight_states.h>
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
@@ -56,6 +57,8 @@ msgdata,channeld_init,funding_short_id,short_channel_id,
 msgdata,channeld_init,reestablish,bool,
 msgdata,channeld_init,send_shutdown,bool,
 msgdata,channeld_init,remote_shutdown_received,bool,
+msgdata,channeld_init,final_index,u32,
+msgdata,channeld_init,final_ext_key,ext_key,
 msgdata,channeld_init,final_scriptpubkey_len,u16,
 msgdata,channeld_init,final_scriptpubkey,u8,final_scriptpubkey_len
 msgdata,channeld_init,flags,u8,
@@ -173,8 +176,11 @@ msgdata,channeld_got_revoke,penalty_tx,?bitcoin_tx,
 # (eg. if we sent another commitment_signed, that would implicitly ack).
 msgtype,channeld_got_revoke_reply,1122
 
+#include <wally_bip32.h>
 # Tell peer to shut down channel.
 msgtype,channeld_send_shutdown,1023
+msgdata,channeld_send_shutdown,final_index,?u32,
+msgdata,channeld_send_shutdown,final_ext_key,?ext_key,
 msgdata,channeld_send_shutdown,shutdown_len,u16,
 msgdata,channeld_send_shutdown,shutdown_scriptpubkey,u8,shutdown_len
 msgdata,channeld_send_shutdown,wrong_funding,?bitcoin_outpoint,
