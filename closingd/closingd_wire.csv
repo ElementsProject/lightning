@@ -1,8 +1,10 @@
 #include <bitcoin/tx.h>
+#include <common/bip32.h>
 #include <common/channel_id.h>
 #include <common/cryptomsg.h>
 #include <common/htlc_wire.h>
 #include <common/status_wire.h>
+#include <wally_bip32.h>
 # Begin!  (passes peer fd, gossipd-client fd)
 msgtype,closingd_init,2001
 msgdata,closingd_init,chainparams,chainparams,
@@ -19,6 +21,8 @@ msgdata,closingd_init,min_feerate_perksipa,u32,
 msgdata,closingd_init,preferred_feerate_perksipa,u32,
 msgdata,closingd_init,max_feerate_perksipa,?u32,
 msgdata,closingd_init,fee_limit_satoshi,amount_sat,
+msgdata,closingd_init,local_wallet_index,?u32,
+msgdata,closingd_init,local_wallet_ext_key,?ext_key,
 msgdata,closingd_init,local_scriptpubkey_len,u16,
 msgdata,closingd_init,local_scriptpubkey,u8,local_scriptpubkey_len
 msgdata,closingd_init,remote_scriptpubkey_len,u16,

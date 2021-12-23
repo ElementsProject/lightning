@@ -3,10 +3,13 @@
 #include <bitcoin/script.h>
 #include <common/close_tx.h>
 #include <common/permute_tx.h>
+#include <common/psbt_keypath.h>
 #include <common/utils.h>
 
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
+				   u32 *local_wallet_index,
+				   const struct ext_key *local_wallet_ext_key,
 				   const u8 *our_script,
 				   const u8 *their_script,
 				   const u8 *funding_wscript,
@@ -46,6 +49,10 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 		script = tal_dup_talarr(tx, u8, our_script);
 		/* One output is to us. */
 		bitcoin_tx_add_output(tx, script, NULL, to_us);
+		assert((local_wallet_index == NULL) == (local_wallet_ext_key == NULL));
+		if (local_wallet_index)
+			psbt_add_keypath_to_last_output(
+				tx, *local_wallet_index, local_wallet_ext_key);
 		num_outputs++;
 	}
 
