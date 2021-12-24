@@ -27,7 +27,7 @@ pub enum ChannelStateChangeCause {
     ONCHAIN,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub enum Amount {
     Millisatoshi(u64),
     Satoshi(u64),

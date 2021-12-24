@@ -174,4 +174,12 @@ plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
 
 RUST_SRC := $(shell find plugins -name '*.rs')
 
+target/${RUST_PROFILE}/examples/cln-plugin-startup: ${RUST_SRC}
+	cargo build ${CARGO_OPTS} --all --example cln-plugin-startup
+
+# If we have Rust then we can also compile these plugins
+ifeq ($(RUST),1)
+DEFAULT_TARGETS += target/${RUST_PROFILE}/examples/cln-plugin-startup
+endif
+
 include plugins/test/Makefile
