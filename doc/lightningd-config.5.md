@@ -124,7 +124,8 @@ Specify pid file to write to.
  **log-level**=*LEVEL*\[:*SUBSYSTEM*\]
 What log level to print out: options are io, debug, info, unusual,
 broken.  If *SUBSYSTEM* is supplied, this sets the logging level
-for any subsystem containing that string.  Subsystems include:
+for any subsystem containing that string. This option may be specified multiple times.
+Subsystems include:
 
 * *lightningd*: The main lightning daemon
 * *database*: The database subsystem
@@ -497,8 +498,11 @@ considered important.
 
 Experimental options are subject to breakage between releases: they
 are made available for advanced users who want to test proposed
-features.  If lightningd is built configured with
-`--enable-experimental-features` these are on by default.
+features. When the build is configured _without_ `--enable-experimental-features`,
+below options are available but disabled by default.
+A build _with_ `--enable-experimental-features` enables some of below options
+by default and also adds support for even more features. Supported features can
+be listed with `lightningd --list-features-only`.
 
  **experimental-onion-messages**
 

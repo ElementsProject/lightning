@@ -46,8 +46,7 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 
 	announcement =
 	    towire_node_announcement(ctx, sig,
-				     daemon->our_features->bits
-				     [NODE_ANNOUNCE_FEATURE],
+				     daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
 				     timestamp,
 				     &daemon->id, daemon->rgb, daemon->alias,
 				     addresses,
