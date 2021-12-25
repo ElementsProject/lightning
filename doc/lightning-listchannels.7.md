@@ -45,7 +45,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **fee_per_millionth** (u32): Proportional fee changed by *source* to use this channel, in parts-per-million
 - **delay** (u32): The number of blocks delay required by *source* to use this channel
 - **htlc_minimum_msat** (msat): The smallest payment *source* will allow via this channel
-- **features** (hex): BOLT #9 features bitmap for this channel
+- **features** (hex): BOLT #9 features bitmap for this channel in channel_announcement message
 - **htlc_maximum_msat** (msat, optional): The largest payment *source* will allow via this channel
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

@@ -34,7 +34,7 @@ On success, an object containing **nodes** is returned.  It is an array of objec
 If **last_timestamp** is present:
   - **alias** (string): The fun alias this node advertized (up to 32 characters)
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
-  - **features** (hex): BOLT #9 features bitmap this node advertized
+  - **features** (hex): BOLT #9 features bitmap this node advertized in node_announcement message
   - **addresses** (array of objects): The addresses this node advertized:
     - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
     - **port** (u16): port number
