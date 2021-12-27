@@ -493,6 +493,7 @@ def test_reconnect_signed(node_factory):
     l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
 
+@pytest.mark.skip('needs blackhold support')
 @pytest.mark.developer
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
@@ -532,6 +533,7 @@ def test_reconnect_openingd(node_factory):
     l2.daemon.wait_for_log(r'channeld-chan#[0-9]: pid [0-9]+, msgfd [0-9]+')
 
 
+@pytest.mark.skip('needs blackhold support')
 @pytest.mark.developer
 def test_reconnect_gossiping(node_factory):
     # connectd thinks we're still gossiping; peer reconnects.
@@ -3035,6 +3037,7 @@ def test_restart_many_payments(node_factory, bitcoind):
         wait_for(lambda: 'pending' not in [p['status'] for p in n.rpc.listsendpays()['payments']])
 
 
+@pytest.mark.skip('needs blackhold support')
 @pytest.mark.developer("need dev-disconnect")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
@@ -3090,6 +3093,7 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
     l1.fundchannel(l2, 200000, wait_for_active=True)
 
 
+@pytest.mark.skip('needs blackhold support')
 @pytest.mark.developer("need dev-disconnect")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
@@ -3396,6 +3400,7 @@ def test_nonstatic_channel(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'])
 
 
+@pytest.mark.skip('needs blackhold support')
 @pytest.mark.developer("need --dev-timeout-secs")
 @pytest.mark.openchannel('v1')
 def test_connection_timeout(node_factory):
