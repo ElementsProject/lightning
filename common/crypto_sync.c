@@ -29,8 +29,6 @@ void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 	case DEV_DISCONNECT_BEFORE:
 		dev_sabotage_fd(pps->peer_fd, true);
 		peer_failed_connection_lost();
-	case DEV_DISCONNECT_DROPPKT:
-		enc = tal_free(enc); /* FALL THRU */
 	case DEV_DISCONNECT_AFTER:
 		post_sabotage = true;
 		post_close = true;

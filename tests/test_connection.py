@@ -289,13 +289,10 @@ def test_channel_abandon(node_factory, bitcoind):
 def test_disconnect(node_factory):
     # These should all make us fail
     disconnects = ['-WIRE_INIT',
-                   '@WIRE_INIT',
                    '+WIRE_INIT']
     l1 = node_factory.get_node(disconnect=disconnects)
     l2 = node_factory.get_node()
 
-    with pytest.raises(RpcError):
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError):
@@ -317,22 +314,16 @@ def test_disconnect(node_factory):
 def test_disconnect_opener(node_factory):
     # Now error on opener side during channel open.
     disconnects = ['-WIRE_OPEN_CHANNEL',
-                   '@WIRE_OPEN_CHANNEL',
                    '+WIRE_OPEN_CHANNEL',
-                   '-WIRE_FUNDING_CREATED',
-                   '@WIRE_FUNDING_CREATED']
+                   '-WIRE_FUNDING_CREATED']
     if EXPERIMENTAL_DUAL_FUND:
         disconnects = ['-WIRE_OPEN_CHANNEL2',
-                       '@WIRE_OPEN_CHANNEL2',
                        '+WIRE_OPEN_CHANNEL2',
                        '-WIRE_TX_ADD_INPUT',
-                       '@WIRE_TX_ADD_INPUT',
                        '+WIRE_TX_ADD_INPUT',
                        '-WIRE_TX_ADD_OUTPUT',
-                       '@WIRE_TX_ADD_OUTPUT',
                        '+WIRE_TX_ADD_OUTPUT',
                        '-WIRE_TX_COMPLETE',
-                       '@WIRE_TX_COMPLETE',
                        '+WIRE_TX_COMPLETE']
 
     l1 = node_factory.get_node(disconnect=disconnects)
@@ -361,14 +352,11 @@ def test_disconnect_opener(node_factory):
 def test_disconnect_fundee(node_factory):
     # Now error on fundee side during channel open.
     disconnects = ['-WIRE_ACCEPT_CHANNEL',
-                   '@WIRE_ACCEPT_CHANNEL',
                    '+WIRE_ACCEPT_CHANNEL']
     if EXPERIMENTAL_DUAL_FUND:
         disconnects = ['-WIRE_ACCEPT_CHANNEL2',
-                       '@WIRE_ACCEPT_CHANNEL2',
                        '+WIRE_ACCEPT_CHANNEL2',
                        '-WIRE_TX_COMPLETE',
-                       '@WIRE_TX_COMPLETE',
                        '+WIRE_TX_COMPLETE']
 
     l1 = node_factory.get_node()
@@ -397,16 +385,12 @@ def test_disconnect_fundee(node_factory):
 def test_disconnect_fundee_v2(node_factory):
     # Now error on fundee side during channel open, with them funding
     disconnects = ['-WIRE_ACCEPT_CHANNEL2',
-                   '@WIRE_ACCEPT_CHANNEL2',
                    '+WIRE_ACCEPT_CHANNEL2',
                    '-WIRE_TX_ADD_INPUT',
-                   '@WIRE_TX_ADD_INPUT',
                    '+WIRE_TX_ADD_INPUT',
                    '-WIRE_TX_ADD_OUTPUT',
-                   '@WIRE_TX_ADD_OUTPUT',
                    '+WIRE_TX_ADD_OUTPUT',
                    '-WIRE_TX_COMPLETE',
-                   '@WIRE_TX_COMPLETE',
                    '+WIRE_TX_COMPLETE']
 
     l1 = node_factory.get_node()
@@ -440,9 +424,9 @@ def test_disconnect_fundee_v2(node_factory):
 def test_disconnect_half_signed(node_factory):
     # Now, these are the corner cases.  Fundee sends funding_signed,
     # but opener doesn't receive it.
-    disconnects = ['@WIRE_FUNDING_SIGNED']
+    disconnects = ['-WIRE_FUNDING_SIGNED']
     if EXPERIMENTAL_DUAL_FUND:
-        disconnects = ['@WIRE_COMMITMENT_SIGNED']
+        disconnects = ['-WIRE_COMMITMENT_SIGNED']
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
 
@@ -567,7 +551,7 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
     reconnects. See comments for details.
 
     """
-    disconnects = ["@WIRE_FUNDING_LOCKED", "@WIRE_SHUTDOWN"]
+    disconnects = ["-WIRE_FUNDING_LOCKED", "-WIRE_SHUTDOWN"]
     # Allow bad gossip because it might receive WIRE_CHANNEL_UPDATE before
     # announcement of the disconnection
     l1 = node_factory.get_node(may_reconnect=True, allow_bad_gossip=True)
@@ -591,7 +575,7 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
 
     # For closingd reconnection
     l1.daemon.start()
-    # Close will trigger the @WIRE_SHUTDOWN and we then wait for the
+    # Close will trigger the -WIRE_SHUTDOWN and we then wait for the
     # automatic reconnection to trigger the retransmission.
     l1.rpc.close(l2.info['id'], 0)
     l2.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
@@ -645,7 +629,6 @@ def test_connect_stresstest(node_factory, executor):
 def test_reconnect_normal(node_factory):
     # Should reconnect fine even if locked message gets lost.
     disconnects = ['-WIRE_FUNDING_LOCKED',
-                   '@WIRE_FUNDING_LOCKED',
                    '+WIRE_FUNDING_LOCKED']
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
@@ -661,8 +644,7 @@ def test_reconnect_normal(node_factory):
 def test_reconnect_sender_add1(node_factory):
     # Fail after add is OK, will cause payment failure though.
     disconnects = ['-WIRE_UPDATE_ADD_HTLC-nocommit',
-                   '+WIRE_UPDATE_ADD_HTLC-nocommit',
-                   '@WIRE_UPDATE_ADD_HTLC-nocommit']
+                   '+WIRE_UPDATE_ADD_HTLC-nocommit']
 
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
@@ -697,10 +679,8 @@ def test_reconnect_sender_add1(node_factory):
 @pytest.mark.openchannel('v2')
 def test_reconnect_sender_add(node_factory):
     disconnects = ['-WIRE_COMMITMENT_SIGNED',
-                   '@WIRE_COMMITMENT_SIGNED',
                    '+WIRE_COMMITMENT_SIGNED',
                    '-WIRE_REVOKE_AND_ACK',
-                   '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
     if EXPERIMENTAL_DUAL_FUND:
         disconnects = ['=WIRE_COMMITMENT_SIGNED'] + disconnects
@@ -733,10 +713,8 @@ def test_reconnect_sender_add(node_factory):
 @pytest.mark.openchannel('v2')
 def test_reconnect_receiver_add(node_factory):
     disconnects = ['-WIRE_COMMITMENT_SIGNED',
-                   '@WIRE_COMMITMENT_SIGNED',
                    '+WIRE_COMMITMENT_SIGNED',
                    '-WIRE_REVOKE_AND_ACK',
-                   '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
 
     if EXPERIMENTAL_DUAL_FUND:
@@ -767,14 +745,11 @@ def test_reconnect_receiver_fulfill(node_factory):
     # Ordering matters: after +WIRE_UPDATE_FULFILL_HTLC, channeld
     # will continue and try to send WIRE_COMMITMENT_SIGNED: if
     # that's the next failure, it will do two in one run.
-    disconnects = ['@WIRE_UPDATE_FULFILL_HTLC',
-                   '+WIRE_UPDATE_FULFILL_HTLC',
+    disconnects = ['+WIRE_UPDATE_FULFILL_HTLC',
                    '-WIRE_UPDATE_FULFILL_HTLC',
                    '-WIRE_COMMITMENT_SIGNED',
-                   '@WIRE_COMMITMENT_SIGNED',
                    '+WIRE_COMMITMENT_SIGNED',
                    '-WIRE_REVOKE_AND_ACK',
-                   '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
@@ -801,7 +776,6 @@ def test_reconnect_receiver_fulfill(node_factory):
 @pytest.mark.openchannel('v2')
 def test_shutdown_reconnect(node_factory):
     disconnects = ['-WIRE_SHUTDOWN',
-                   '@WIRE_SHUTDOWN',
                    '+WIRE_SHUTDOWN']
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
@@ -1802,7 +1776,7 @@ def test_multifunding_disconnect(node_factory):
     '''
     Test disconnection during multifundchannel
     '''
-    # TODO: Note that @WIRE_FUNDING_SIGNED does not
+    # TODO: Note that -WIRE_FUNDING_SIGNED does not
     # work.
     # See test_disconnect_half_signed.
     # If disconnected when the peer believes it sent
@@ -1812,9 +1786,7 @@ def test_multifunding_disconnect(node_factory):
     # never send it.
     disconnects = ["-WIRE_INIT",
                    "-WIRE_ACCEPT_CHANNEL",
-                   "@WIRE_ACCEPT_CHANNEL",
-                   "+WIRE_ACCEPT_CHANNEL",
-                   "-WIRE_FUNDING_SIGNED"]
+                   "+WIRE_ACCEPT_CHANNEL"]
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
     l3 = node_factory.get_node()
@@ -1833,7 +1805,7 @@ def test_multifunding_disconnect(node_factory):
             l1.rpc.multifundchannel(destinations)
 
     # TODO: failing at the fundchannel_complete phase
-    # (@WIRE_FUNDING_SIGNED +@WIRE_FUNDING_SIGNED)
+    # (-WIRE_FUNDING_SIGNED +-WIRE_FUNDING_SIGNED)
     # leaves the peer (l2 in this case) in a state
     # where it is waiting for an incoming channel,
     # even though we no longer have a channel going to

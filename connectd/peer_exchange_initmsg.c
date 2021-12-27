@@ -204,8 +204,6 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	case DEV_DISCONNECT_BEFORE:
 		dev_sabotage_fd(io_conn_fd(conn), true);
 		break;
-	case DEV_DISCONNECT_DROPPKT:
-		peer->msg = tal_free(peer->msg); /* FALL THRU */
 	case DEV_DISCONNECT_AFTER:
 		next = peer_write_postclose;
 		break;

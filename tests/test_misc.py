@@ -316,7 +316,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't time out HTLC"""
 
     # HTLC 1->2, 1 fails after it's irrevocably committed, can't reconnect
-    disconnects = ['@WIRE_REVOKE_AND_ACK']
+    disconnects = ['-WIRE_REVOKE_AND_ACK']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
                                options={'dev-no-reconnect': None},
@@ -336,7 +336,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     executor.submit(l1.rpc.dev_pay, inv, use_shadow=False)
 
     # l1 will disconnect, and not reconnect.
-    l1.daemon.wait_for_log('dev_disconnect: @WIRE_REVOKE_AND_ACK')
+    l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
 
     # Takes 6 blocks to timeout (cltv-final + 1), but we also give grace period of 1 block.
     # shadow route can add extra blocks!
