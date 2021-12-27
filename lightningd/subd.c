@@ -241,7 +241,7 @@ static int subd(const char *path, const char *name,
 			goto child_errno_fail;
 
 		/* Make (fairly!) sure all other fds are closed. */
-		closefrom(tal_count(fds) + 1);
+		closefrom(tal_count(fds));
 
 		num_args = 0;
 		args[num_args++] = tal_strdup(NULL, path);
