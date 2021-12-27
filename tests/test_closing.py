@@ -312,7 +312,6 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
 @pytest.mark.developer("needs DEVELOPER=1")
 def test_closing_negotiation_reconnect(node_factory, bitcoind):
     disconnects = ['-WIRE_CLOSING_SIGNED',
-                   '@WIRE_CLOSING_SIGNED',
                    '+WIRE_CLOSING_SIGNED']
     l1, l2 = node_factory.line_graph(2, opts=[{'disconnect': disconnects,
                                                'may_reconnect': True},
@@ -1956,7 +1955,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
     # HTLC 1->2, 1 fails after it's irrevocably committed
-    disconnects = ['@WIRE_REVOKE_AND_ACK', 'permfail']
+    disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{'disconnect': disconnects,
@@ -3481,13 +3480,13 @@ def test_htlc_rexmit_while_closing(node_factory, executor):
 @pytest.mark.developer("needs dev_disconnect")
 def test_you_forgot_closed_channel(node_factory, executor):
     """Ideally you'd keep talking to us about closed channels: simple"""
-    disconnects = ['@WIRE_CLOSING_SIGNED']
+    disconnects = ['xWIRE_CLOSING_SIGNED']
 
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-no-reconnect': None},
-                                              {'may_reconnect': True,
                                                'dev-no-reconnect': None,
-                                               'disconnect': disconnects}])
+                                               'disconnect': disconnects},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None}])
 
     l1.pay(l2, 200000)
 
@@ -3498,6 +3497,7 @@ def test_you_forgot_closed_channel(node_factory, executor):
     assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
 
     # l1 reconnects, it should succeed.
+    l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     fut.result(TIMEOUT)
 
@@ -3505,13 +3505,13 @@ def test_you_forgot_closed_channel(node_factory, executor):
 @pytest.mark.developer("needs dev_disconnect")
 def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
     """Ideally you'd keep talking to us about closed channels: even if close is mined"""
-    disconnects = ['@WIRE_CLOSING_SIGNED']
+    disconnects = ['xWIRE_CLOSING_SIGNED']
 
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-no-reconnect': None},
-                                              {'may_reconnect': True,
                                                'dev-no-reconnect': None,
-                                               'disconnect': disconnects}])
+                                               'disconnect': disconnects},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None}])
 
     l1.pay(l2, 200000)
 
@@ -3533,6 +3533,8 @@ def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
     wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'ONCHAIN')
 
     # l1 reconnects, it should succeed.
+    # l1 will disconnect once it sees block
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     fut.result(TIMEOUT)
 

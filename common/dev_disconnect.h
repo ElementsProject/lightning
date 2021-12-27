@@ -7,12 +7,10 @@
 enum dev_disconnect {
 	/* Do nothing. */
 	DEV_DISCONNECT_NORMAL = '=',
-	/* Close connection before sending packet (and fail write). */
+	/* Close connection before sending packet. */
 	DEV_DISCONNECT_BEFORE = '-',
 	/* Close connection after sending packet. */
 	DEV_DISCONNECT_AFTER = '+',
-	/* Close connection after dropping packet. */
-	DEV_DISCONNECT_DROPPKT = '@',
 	/* Swallow all writes from now on, and do no more reads. */
 	DEV_DISCONNECT_BLACKHOLE = '0',
 	/* Don't use connection after sending packet, but don't close. */

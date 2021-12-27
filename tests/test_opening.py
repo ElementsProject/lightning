@@ -508,7 +508,6 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
     disconnects = ['-WIRE_INIT_RBF',
-                   '@WIRE_INIT_RBF',
                    '+WIRE_INIT_RBF']
 
     l1, l2 = node_factory.get_nodes(2,
@@ -559,7 +558,6 @@ def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
     disconnects = ['-WIRE_ACK_RBF',
-                   '@WIRE_ACK_RBF',
                    '+WIRE_ACK_RBF']
 
     l1, l2 = node_factory.get_nodes(2,
@@ -611,13 +609,10 @@ def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
 def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     disconnects = ['=WIRE_TX_ADD_INPUT',  # Initial funding succeeds
                    '-WIRE_TX_ADD_INPUT',
-                   '@WIRE_TX_ADD_INPUT',
                    '+WIRE_TX_ADD_INPUT',
                    '-WIRE_TX_ADD_OUTPUT',
-                   '@WIRE_TX_ADD_OUTPUT',
                    '+WIRE_TX_ADD_OUTPUT',
                    '-WIRE_TX_COMPLETE',
-                   '@WIRE_TX_COMPLETE',
                    '+WIRE_TX_COMPLETE']
 
     l1, l2 = node_factory.get_nodes(2,
@@ -652,14 +647,14 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
                                excess_as_change=True)
 
     # Run through TX_ADD wires
-    for d in disconnects[1:-3]:
+    for d in disconnects[1:-2]:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError):
             l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
         assert l1.rpc.getpeer(l2.info['id']) is not None
 
     # Now we finish off the completes failure check
-    for d in disconnects[-3:]:
+    for d in disconnects[-2:]:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
         with pytest.raises(RpcError):
@@ -678,8 +673,6 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
 def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     disconnects = ['=WIRE_TX_SIGNATURES',  # Initial funding succeeds
                    '-WIRE_TX_SIGNATURES',  # When we send tx-sigs, RBF
-                   '=WIRE_TX_SIGNATURES',  # When we reconnect
-                   '@WIRE_TX_SIGNATURES',  # When we RBF again
                    '=WIRE_TX_SIGNATURES',  # When we reconnect
                    '+WIRE_TX_SIGNATURES']  # When we RBF again
 
@@ -753,49 +746,13 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_REESTABLISH')
     l1.daemon.wait_for_log('peer_in WIRE_TX_SIGNATURES')
 
-    # Now we initiate the RBF
+    # 2nd RBF
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
                                    funding_feerate=next_feerate)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-
-    # Sign our inputs, and continue
     signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
 
     # Second time we error after we send our sigs
-    with pytest.raises(RpcError, match='Owning subdaemon dualopend died'):
-        l1.rpc.openchannel_signed(chan_id, signed_psbt)
-
-    # We reconnect and try again. feerate should have bumped
-    rate = int(find_next_feerate(l1, l2)[:-5])
-    # We bump the feerate to beat the min-relay fee
-    next_feerate = '{}perkw'.format(rate * 2)
-
-    startweight = 42 + 172  # base weight, funding output
-    initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
-                               prev_utxos, reservedok=True,
-                               min_witness_weight=110,
-                               excess_as_change=True)
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-
-    # l2 gets our sigs and broadcasts them
-    l2.daemon.wait_for_log('peer_in WIRE_CHANNEL_REESTABLISH')
-    l2.daemon.wait_for_log('peer_in WIRE_TX_SIGNATURES')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
-
-    # Wait until we've done re-establish, if we try to
-    # RBF again too quickly, it'll fail since they haven't
-    # had time to process our sigs yet
-    l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_REESTABLISH')
-    l1.daemon.wait_for_log('peer_in WIRE_TX_SIGNATURES')
-
-    # 3rd RBF
-    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
-                                   funding_feerate=next_feerate)
-    update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
-
-    # Third time we error after we send our sigs
     with pytest.raises(RpcError, match='Owning subdaemon dualopend died'):
         l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
