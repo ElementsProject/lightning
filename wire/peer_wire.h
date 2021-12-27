@@ -23,6 +23,8 @@
 bool is_unknown_msg_discardable(const u8 *cursor);
 /* Return true if it's a message for gossipd. */
 bool is_msg_for_gossipd(const u8 *cursor);
+/* Return true if it's a gossip update or announcement. */
+bool is_msg_gossip_broadcast(const u8 *cursor);
 
 /* Extract channel_id from various packets, return true if possible. */
 bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id);
