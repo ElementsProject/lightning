@@ -352,10 +352,21 @@ tal_t *tal_parent(const tal_t *ctx);
  * tal_dup - duplicate an object.
  * @ctx: The tal allocated object to be parent of the result (may be NULL).
  * @type: the type (should match type of @p!)
- * @p: the object to copy (or reparented if take())
+ * @p: the object to copy (or reparented if take()).  Must not be NULL.
  */
 #define tal_dup(ctx, type, p)					\
-	tal_dup_label(ctx, type, p, TAL_LABEL(type, ""))
+	tal_dup_label(ctx, type, p, TAL_LABEL(type, ""), false)
+
+/**
+ * tal_dup_or_null - duplicate an object, or just pass NULL.
+ * @ctx: The tal allocated object to be parent of the result (may be NULL).
+ * @type: the type (should match type of @p!)
+ * @p: the object to copy (or reparented if take())
+ *
+ * if @p is NULL, just return NULL, otherwise to tal_dup().
+ */
+#define tal_dup_or_null(ctx, type, p)					\
+	tal_dup_label(ctx, type, p, TAL_LABEL(type, ""), true)
 
 /**
  * tal_dup_arr - duplicate an array.
@@ -369,7 +380,17 @@ tal_t *tal_parent(const tal_t *ctx);
 	tal_dup_arr_label(ctx, type, p, n, extra, TAL_LABEL(type, "[]"))
 
 
-
+/**
+ * tal_dup_arr - duplicate a tal array.
+ * @ctx: The tal allocated object to be parent of the result (may be NULL).
+ * @type: the type (should match type of @p!)
+ * @p: the tal array to copy (or resized & reparented if take())
+ *
+ * The comon case of duplicating an entire tal array.
+ */
+#define tal_dup_talarr(ctx, type, p)					\
+	((type *)tal_dup_talarr_((ctx), tal_typechk_(p, type *),	\
+				 TAL_LABEL(type, "[]")))
 /* Lower-level interfaces, where you want to supply your own label string. */
 #define tal_label(ctx, type, label)						\
 	((type *)tal_alloc_((ctx), sizeof(type), false, label))
@@ -379,13 +400,13 @@ tal_t *tal_parent(const tal_t *ctx);
 	((type *)tal_alloc_arr_((ctx), sizeof(type), (count), false, label))
 #define tal_arrz_label(ctx, type, count, label)					\
 	((type *)tal_alloc_arr_((ctx), sizeof(type), (count), true, label))
-#define tal_dup_label(ctx, type, p, label)			\
+#define tal_dup_label(ctx, type, p, label, nullok)			\
 	((type *)tal_dup_((ctx), tal_typechk_(p, type *),	\
-			  sizeof(type), 1, 0,			\
+			  sizeof(type), 1, 0, nullok,		\
 			  label))
 #define tal_dup_arr_label(ctx, type, p, n, extra, label)	\
 	((type *)tal_dup_((ctx), tal_typechk_(p, type *),	\
-			  sizeof(type), (n), (extra),		\
+			  sizeof(type), (n), (extra), false,	\
 			  label))
 
 /**
@@ -505,7 +526,9 @@ void *tal_alloc_arr_(const tal_t *ctx, size_t bytes, size_t count, bool clear,
 		     const char *label);
 
 void *tal_dup_(const tal_t *ctx, const void *p TAKES, size_t size,
-	       size_t n, size_t extra, const char *label);
+	       size_t n, size_t extra, bool nullok, const char *label);
+void *tal_dup_talarr_(const tal_t *ctx, const tal_t *src TAKES,
+		      const char *label);
 
 tal_t *tal_steal_(const tal_t *new_parent, const tal_t *t);
 
