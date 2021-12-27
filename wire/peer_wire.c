@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/mem/mem.h>
 #include <wire/peer_wire.h>
 
 static bool unknown_type(enum peer_wire t)
@@ -172,38 +173,234 @@ bool is_unknown_msg_discardable(const u8 *cursor)
 /* Extract channel_id from various packets, return true if possible. */
 bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 {
-	struct amount_sat ignored_sat;
-	struct amount_msat ignored_msat;
-	u64 ignored_u64;
-	u32 ignored_u32;
-	u16 ignored_u16;
-	u8 ignored_u8;
-	struct pubkey ignored_pubkey;
-	struct bitcoin_blkid ignored_chainhash;
-	struct secret ignored_secret;
-	struct tlv_open_channel_tlvs *tlvs = tlv_open_channel_tlvs_new(tmpctx);
-#if EXPERIMENTAL_FEATURES
-	struct tlv_channel_reestablish_tlvs *reestab_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-#endif
+	const u8 *cursor = in_pkt;
+	size_t max = tal_bytelen(in_pkt);
+	enum peer_wire t;
 
-	if (fromwire_channel_reestablish(in_pkt, channel_id,
-					 &ignored_u64, &ignored_u64,
-					 &ignored_secret, &ignored_pubkey
+	t = fromwire_u16(&cursor, &max);
+
+	/* We carefully quote bolts here, in case anything changes! */
+	switch (t) {
+	/* These ones don't have a channel_id */
+	case WIRE_INIT:
+	case WIRE_PING:
+	case WIRE_PONG:
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_OBS2_ONION_MESSAGE:
+	case WIRE_ONION_MESSAGE:
+		return false;
+
+	/* Special cases: */
+	case WIRE_ERROR:
+		/* BOLT #1:
+		 * 1. type: 17 (`error`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 *...
+		 * The channel is referred to by `channel_id`, unless
+		 * `channel_id` is 0
+		 */
+		/* fall thru */
+	case WIRE_WARNING:
+		/* BOLT-warning #1:
+		 * 1. type: 1 (`warning`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 *...
+		 * The channel is referred to by `channel_id`, unless
+		 * `channel_id` is 0
+		 */
+		if (!fromwire_channel_id(&cursor, &max, channel_id))
+			return false;
+		if (memeqzero(channel_id->id, sizeof(channel_id->id)))
+			return false;
+		return true;
+
+	case WIRE_OPEN_CHANNEL:
+		/* BOLT #2:
+		 * 1. type: 32 (`open_channel`)
+		 * 2. data:
+		 *    * [`chain_hash`:`chain_hash`]
+		 *    * [`32*byte`:`temporary_channel_id`]
+		 */
+	case WIRE_OPEN_CHANNEL2:
+		/* BOLT-dualfund #2:
+		 * 1. type: 64 (`open_channel2`)
+		 * 2. data:
+		 *    * [`chain_hash`:`chain_hash`]
+		 *    * [`channel_id`:`zerod_channel_id`]
+		 */
+
+		/* Skip over chain_hash */
+		fromwire_pad(&cursor, &max, sizeof(struct bitcoin_blkid));
+
+	/* These have them at the start */
+	case WIRE_TX_ADD_INPUT:
+		/* BOLT-dualfund #2:
+		 * 1. type: 66 (`tx_add_input`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_TX_ADD_OUTPUT:
+		/* BOLT-dualfund #2:
+		 * 1. type: 67 (`tx_add_output`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_TX_REMOVE_INPUT:
+		/* BOLT-dualfund #2:
+		 * 1. type: 68 (`tx_remove_input`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_TX_REMOVE_OUTPUT:
+		/* BOLT-dualfund #2:
+		 * 1. type: 69 (`tx_remove_output`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_TX_COMPLETE:
+		/* BOLT-dualfund #2:
+		 * 1. type: 70 (`tx_complete`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_TX_SIGNATURES:
+		/* BOLT-dualfund #2:
+		 * 1. type: 71 (`tx_signatures`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_ACCEPT_CHANNEL:
+		/* BOLT #2:
+		 * 1. type: 33 (`accept_channel`)
+		 * 2. data:
+		 *    * [`32*byte`:`temporary_channel_id`]
+		 */
+	case WIRE_FUNDING_CREATED:
+		/* BOLT #2:
+		 * 1. type: 34 (`funding_created`)
+		 * 2. data:
+		 *     * [`32*byte`:`temporary_channel_id`]
+		 */
+	case WIRE_FUNDING_SIGNED:
+		/* BOLT #2:
+		 * 1. type: 35 (`funding_signed`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_FUNDING_LOCKED:
+		/* BOLT #2:
+		 * 1. type: 36 (`funding_locked`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_ACCEPT_CHANNEL2:
+		/* BOLT-dualfund #2:
+		 * 1. type: 65 (`accept_channel2`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_INIT_RBF:
+		/* BOLT-dualfund #2:
+		 * 1. type: 72 (`init_rbf`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_ACK_RBF:
+		/* BOLT-dualfund #2:
+		 * 1. type: 73 (`ack_rbf`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_SHUTDOWN:
+		/* BOLT #2:
+		 * 1. type: 38 (`shutdown`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_CLOSING_SIGNED:
+		/* BOLT #2:
+		 * 1. type: 39 (`closing_signed`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_UPDATE_ADD_HTLC:
+		/* BOLT #2:
+		 * 1. type: 128 (`update_add_htlc`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_UPDATE_FULFILL_HTLC:
+		/* BOLT #2:
+		 * 1. type: 130 (`update_fulfill_htlc`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_UPDATE_FAIL_HTLC:
+		/* BOLT #2:
+		 * 1. type: 131 (`update_fail_htlc`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		/* BOLT #2:
+		 * 1. type: 135 (`update_fail_malformed_htlc`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_COMMITMENT_SIGNED:
+		/* BOLT #2:
+		 * 1. type: 132 (`commitment_signed`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_REVOKE_AND_ACK:
+		/* BOLT #2:
+		 * 1. type: 133 (`revoke_and_ack`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_UPDATE_FEE:
+		/* BOLT #2:
+		 * 1. type: 134 (`update_fee`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_UPDATE_BLOCKHEIGHT:
+		/* BOLT-liquidity-ads #2:
+		 * 1. type: 137 (`update_blockheight`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_CHANNEL_REESTABLISH:
+		/* BOLT #2:
+		 * 1. type: 136 (`channel_reestablish`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+		/* BOLT #7:
+		 * 1. type: 259 (`announcement_signatures`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
 #if EXPERIMENTAL_FEATURES
-					 , reestab_tlvs
+	case WIRE_STFU:
+		/* BOLT-quiescent #2:
+		 * 1. type: 2 (`stfu`)
+		 * 2. data:
+		 *     * [`channel_id`:`channel_id`]
+		 */
 #endif
-		    ))
-		return true;
-	if (fromwire_open_channel(in_pkt, &ignored_chainhash,
-				  channel_id, &ignored_sat,
-				  &ignored_msat, &ignored_sat,
-				  &ignored_msat, &ignored_sat,
-				  &ignored_msat, &ignored_u32,
-				  &ignored_u16, &ignored_u16,
-				  &ignored_pubkey, &ignored_pubkey,
-				  &ignored_pubkey, &ignored_pubkey,
-				  &ignored_pubkey, &ignored_pubkey,
-				  &ignored_u8, tlvs))
-		return true;
+		return fromwire_channel_id(&cursor, &max, channel_id);
+	}
 	return false;
 }

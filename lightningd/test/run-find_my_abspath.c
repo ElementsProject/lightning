@@ -73,7 +73,7 @@ void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UN
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
-void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_node_id */

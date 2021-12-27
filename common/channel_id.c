@@ -88,10 +88,10 @@ void towire_channel_id(u8 **pptr, const struct channel_id *channel_id)
 	towire(pptr, channel_id, sizeof(*channel_id));
 }
 
-void fromwire_channel_id(const u8 **cursor, size_t *max,
+bool fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id)
 {
-	fromwire(cursor, max, channel_id, sizeof(*channel_id));
+	return fromwire(cursor, max, channel_id, sizeof(*channel_id)) != NULL;
 }
 
 REGISTER_TYPE_TO_HEXSTR(channel_id);

@@ -22,7 +22,7 @@ int features_unsupported(const struct feature_set *our_features UNNEEDED,
 			 enum feature_place p UNNEEDED)
 { fprintf(stderr, "features_unsupported called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
-void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_onionmsg_path */
