@@ -319,9 +319,7 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 	return;
 
 failed:
-	subd_release_channel(openingd, fc->uc);
-	fc->uc->open_daemon = NULL;
-	/* Frees fc too, and tmpctx */
+	/* Frees fc too */
 	tal_free(fc->uc);
 }
 
@@ -414,9 +412,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	peer_start_channeld(channel, pps, NULL, false, NULL);
 
 cleanup:
-	subd_release_channel(openingd, fc->uc);
-	fc->uc->open_daemon = NULL;
-	/* Frees fc too, and tmpctx */
+	/* Frees fc too */
 	tal_free(fc->uc);
 }
 
@@ -528,8 +524,6 @@ static void opening_fundee_finished(struct subd *openingd,
 	/* On to normal operation! */
 	peer_start_channeld(channel, pps, fwd_msg, false, NULL);
 
-	subd_release_channel(openingd, uc);
-	uc->open_daemon = NULL;
 	tal_free(uc);
 	return;
 
