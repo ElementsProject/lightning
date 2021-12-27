@@ -197,9 +197,10 @@ void subd_req_(const tal_t *ctx,
  * @channel: channel to release.
  *
  * If the subdaemon is not already shutting down, and it is a per-channel
- * subdaemon, this shuts it down.
+ * subdaemon, this shuts it down.  Don't call this directly, use
+ * channel_set_owner() or uncommitted_channel_release_subd().
  */
-void subd_release_channel(struct subd *owner, void *channel);
+void subd_release_channel(struct subd *owner, const void *channel);
 
 /**
  * subd_shutdown - try to politely shut down a subdaemon.

@@ -654,7 +654,7 @@ u8 *serialize_onionpacket(
 	const struct onionpacket *packet UNNEEDED)
 { fprintf(stderr, "serialize_onionpacket called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
-void subd_release_channel(struct subd *owner UNNEEDED, void *channel UNNEEDED)
+void subd_release_channel(struct subd *owner UNNEEDED, const void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }
 /* Generated stub for subd_req_ */
 void subd_req_(const tal_t *ctx UNNEEDED,

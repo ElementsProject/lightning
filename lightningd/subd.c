@@ -888,7 +888,7 @@ struct subd *subd_shutdown(struct subd *sd, unsigned int seconds)
 	return tal_free(sd);
 }
 
-void subd_release_channel(struct subd *owner, void *channel)
+void subd_release_channel(struct subd *owner, const void *channel)
 {
 	/* If owner is a per-peer-daemon, and not already freeing itself... */
 	if (owner->channel) {

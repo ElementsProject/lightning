@@ -17,8 +17,9 @@
 
 static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 {
-	if (uc->open_daemon) {
-		struct subd *open_daemon= uc->open_daemon;
+	struct subd *open_daemon = uc->open_daemon;
+
+	if (open_daemon) {
 		uc->open_daemon = NULL;
 		subd_release_channel(open_daemon, uc);
 	}
@@ -114,10 +115,6 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc,
 			      const char *why)
 {
 	log_info(uc->log, "Killing opening daemon: %s", why);
-
-	/* Close opend daemon. */
-	subd_release_channel(uc->open_daemon, uc);
-	uc->open_daemon = NULL;
 
 	uncommitted_channel_disconnect(uc, LOG_INFORM, why);
 	tal_free(uc);

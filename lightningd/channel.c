@@ -826,7 +826,7 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 	channel_cleanup_commands(channel, why);
 
 	if (channel_unsaved(channel)) {
-		subd_release_channel(channel->owner, channel);
+		channel_set_owner(channel, NULL);
 		delete_channel(channel);
 		tal_free(why);
 		return;
