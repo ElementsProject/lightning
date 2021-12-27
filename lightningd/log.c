@@ -306,11 +306,8 @@ new_log(const tal_t *ctx, struct log_book *record,
 	 * by log entries, too */
 	log->prefix = log_prefix_new(log->lr, take(tal_vfmt(NULL, fmt, ap)));
 	va_end(ap);
-	if (default_node_id)
-		log->default_node_id = tal_dup(log, struct node_id,
+	log->default_node_id = tal_dup_or_null(log, struct node_id,
 					       default_node_id);
-	else
-		log->default_node_id = NULL;
 
 	/* Initialized on first use */
 	log->print_level = NULL;

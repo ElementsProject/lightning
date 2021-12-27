@@ -495,11 +495,8 @@ remote_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = failcode;
 	routing_failure->msg = tal_dup_talarr(routing_failure, u8, failuremsg);
 
-	if (erring_node != NULL)
-		routing_failure->erring_node =
-		    tal_dup(routing_failure, struct node_id, erring_node);
-	else
-		routing_failure->erring_node = NULL;
+	routing_failure->erring_node =
+		tal_dup_or_null(routing_failure, struct node_id, erring_node);
 
 	if (erring_channel != NULL) {
 		routing_failure->erring_channel = tal_dup(
@@ -1081,10 +1078,8 @@ send_payment_core(struct lightningd *ld,
 	payment->payment_hash = *rhash;
 	payment->partid = partid;
 	payment->groupid = group;
-	if (destination)
-		payment->destination = tal_dup(payment, struct node_id, destination);
-	else
-		payment->destination = NULL;
+	payment->destination = tal_dup_or_null(payment, struct node_id,
+					       destination);
 	payment->status = PAYMENT_PENDING;
 	payment->msatoshi = msat;
 	payment->msatoshi_sent = first_hop->amount;
@@ -1092,14 +1087,8 @@ send_payment_core(struct lightningd *ld,
 	payment->timestamp = time_now().ts.tv_sec;
 	payment->payment_preimage = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
-	if (route_nodes)
-		payment->route_nodes = tal_steal(payment, route_nodes);
-	else
-		payment->route_nodes = NULL;
-	if (route_channels)
-		payment->route_channels = tal_steal(payment, route_channels);
-	else
-		payment->route_channels = NULL;
+	payment->route_nodes = tal_steal(payment, route_nodes);
+	payment->route_channels = tal_steal(payment, route_channels);
 	payment->failonion = NULL;
 	if (label != NULL)
 		payment->label = tal_strdup(payment, label);
@@ -1109,10 +1098,8 @@ send_payment_core(struct lightningd *ld,
 		payment->invstring = tal_strdup(payment, invstring);
 	else
 		payment->invstring = NULL;
-	if (local_offer_id)
-		payment->local_offer_id = tal_dup(payment, struct sha256, local_offer_id);
-	else
-		payment->local_offer_id = NULL;
+	payment->local_offer_id = tal_dup_or_null(payment, struct sha256,
+						  local_offer_id);
 
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);

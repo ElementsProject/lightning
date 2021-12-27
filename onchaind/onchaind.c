@@ -929,11 +929,8 @@ new_tracked_output(struct tracked_output ***outs,
 	if (htlc)
 		out->htlc = *htlc;
 	out->wscript = tal_steal(out, wscript);
-	if (remote_htlc_sig)
-		out->remote_htlc_sig = tal_dup(out, struct bitcoin_signature,
+	out->remote_htlc_sig = tal_dup_or_null(out, struct bitcoin_signature,
 					       remote_htlc_sig);
-	else
-		out->remote_htlc_sig = NULL;
 
 	tal_arr_expand(outs, out);
 

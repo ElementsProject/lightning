@@ -546,13 +546,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->fail_immediate = false;
 
 	htlc->rhash = *payment_hash;
-	if (blinding)
-		htlc->blinding = tal_dup(htlc, struct pubkey, blinding);
-	else {
-		/* Can be taken, even if NULL. */
-		taken(blinding);
-		htlc->blinding = NULL;
-	}
+	htlc->blinding = tal_dup_or_null(htlc, struct pubkey, blinding);
 	htlc->failed = NULL;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), 0);

@@ -48,10 +48,9 @@ struct fee_states *dup_fee_states(const tal_t *ctx,
 		return cast_const(struct fee_states *,
 				  tal_steal(ctx, fee_states));
 	n = tal_dup(ctx, struct fee_states, fee_states);
-	for (size_t i = 0; i < ARRAY_SIZE(n->feerate); i++) {
-		if (n->feerate[i])
-			n->feerate[i] = tal_dup(n, u32, n->feerate[i]);
-	}
+	for (size_t i = 0; i < ARRAY_SIZE(n->feerate); i++)
+		n->feerate[i] = tal_dup_or_null(n, u32, n->feerate[i]);
+
 	return n;
 }
 

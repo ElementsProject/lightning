@@ -214,10 +214,7 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 	d = tal(channel, struct delayed_reconnect);
 	d->channel = channel;
 	d->seconds_delayed = seconds_delay;
-	if (addrhint)
-		d->addrhint = tal_dup(d, struct wireaddr_internal, addrhint);
-	else
-		d->addrhint = NULL;
+	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
 
 	log_debug(channel->log, "Will try reconnect in %u seconds",
 		  seconds_delay);

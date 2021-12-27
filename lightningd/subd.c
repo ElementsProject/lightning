@@ -753,10 +753,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	list_head_init(&sd->reqs);
 	sd->channel = channel;
 	sd->rcvd_version = false;
-	if (node_id)
-		sd->node_id = tal_dup(sd, struct node_id, node_id);
-	else
-		sd->node_id = NULL;
+	sd->node_id = tal_dup_or_null(sd, struct node_id, node_id);
 
 	/* conn actually owns daemon: we die when it does. */
 	sd->conn = io_new_conn(ld, msg_fd, msg_setup, sd);

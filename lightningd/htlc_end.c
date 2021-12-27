@@ -144,10 +144,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->payment_hash = *payment_hash;
 	hin->status = NULL;
 	hin->fail_immediate = fail_immediate;
-	if (shared_secret)
-		hin->shared_secret = tal_dup(hin, struct secret, shared_secret);
-	else
-		hin->shared_secret = NULL;
+	hin->shared_secret = tal_dup_or_null(hin, struct secret, shared_secret);
 	if (blinding) {
 		hin->blinding = tal_dup(hin, struct pubkey, blinding);
 		hin->blinding_ss = *blinding_ss;
@@ -303,10 +300,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->preimage = NULL;
 	hout->timeout = NULL;
 
-	if (blinding)
-		hout->blinding = tal_dup(hout, struct pubkey, blinding);
-	else
-		hout->blinding = NULL;
+	hout->blinding = tal_dup_or_null(hout, struct pubkey, blinding);
 	hout->am_origin = am_origin;
 	if (am_origin) {
 		hout->partid = partid;

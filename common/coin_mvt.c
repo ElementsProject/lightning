@@ -105,10 +105,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 
 	/* for htlc's that are filled onchain, we also have a
 	 * preimage, NULL otherwise */
-	if (payment_hash)
-		mvt->payment_hash = tal_dup(mvt, struct sha256, payment_hash);
-	else
-		mvt->payment_hash = NULL;
+	mvt->payment_hash = tal_dup_or_null(mvt, struct sha256, payment_hash);
 	mvt->blockheight = blockheight;
 
 	mvt->tags = tal_steal(mvt, tags);
