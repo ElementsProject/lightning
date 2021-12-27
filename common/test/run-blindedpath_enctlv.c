@@ -50,7 +50,7 @@ struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max 
 struct amount_sat fromwire_amount_sat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_sat called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
-void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_node_id */

@@ -103,6 +103,9 @@ bool is_peer_error(const tal_t *ctx, const u8 *msg,
 bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 		      struct channel_id *actual)
 {
+	if (!expected)
+		return false;
+
 	if (!extract_channel_id(msg, actual))
 		return false;
 

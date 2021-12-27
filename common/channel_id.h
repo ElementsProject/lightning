@@ -38,6 +38,6 @@ void derive_tmp_channel_id(struct channel_id *channel_id,
 
 /* Marshalling/unmarshalling functions */
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
-void fromwire_channel_id(const u8 **cursor, size_t *max,
+bool fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id);
 #endif /* LIGHTNING_COMMON_CHANNEL_ID_H */

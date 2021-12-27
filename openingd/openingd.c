@@ -177,7 +177,8 @@ static void set_reserve(struct state *state, const struct amount_sat dust_limit)
 /*~ Handle random messages we might get during opening negotiation, (eg. gossip)
  * returning the first non-handled one, or NULL if we aborted negotiation. */
 static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
-				 bool am_opener)
+				 bool am_opener,
+				 const struct channel_id *alternate)
 {
 	/* This is an event loop of its own.  That's generally considered poor
 	 * form, but we use it in a very limited way. */
@@ -250,7 +251,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		 * keeps things simple: if we wanted to change this, we would
 		 * probably be best with another daemon to de-multiplex them;
 		 * this could be connectd itself, in fact. */
-		if (is_wrong_channel(msg, &state->channel_id, &actual)) {
+		if (is_wrong_channel(msg, &state->channel_id, &actual)
+		    && is_wrong_channel(msg, alternate, &actual)) {
 			status_debug("Rejecting %s for unknown channel_id %s",
 				     peer_wire_name(fromwire_peektype(msg)),
 				     type_to_string(tmpctx, struct channel_id,
@@ -401,7 +403,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		       "Funding channel start: offered, now waiting for accept_channel");
 
 	/* ... since their reply should be immediate. */
-	msg = opening_negotiate_msg(tmpctx, state, true);
+	msg = opening_negotiate_msg(tmpctx, state, true, NULL);
 	if (!msg)
 		return NULL;
 
@@ -652,8 +654,10 @@ static bool funder_finalize_channel_setup(struct state *state,
 		       "Funding channel: create first tx, now waiting for their signature");
 
 	/* Now they send us their signature for that first commitment
-	 * transaction. */
-	msg = opening_negotiate_msg(tmpctx, state, true);
+	 * transaction.  Note that errors may refer to the temporary channel
+	 * id (state->channel_id), but success should refer to the new
+	 * "cid" */
+	msg = opening_negotiate_msg(tmpctx, state, true, &cid);
 	if (!msg)
 		goto fail;
 
@@ -1052,7 +1056,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
 
 	/* This is a loop which handles gossip until we get a non-gossip msg */
-	msg = opening_negotiate_msg(tmpctx, state, false);
+	msg = opening_negotiate_msg(tmpctx, state, false, NULL);
 	if (!msg)
 		return NULL;
 
