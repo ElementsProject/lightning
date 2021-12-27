@@ -1537,9 +1537,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 /*~ Parse the incoming connect init message from lightningd ("master") and
  * assign config variables to the daemon; it should be the first message we
  * get. */
-static struct io_plan *connect_init(struct io_conn *conn,
-				    struct daemon *daemon,
-				    const u8 *msg)
+static void connect_init(struct daemon *daemon, const u8 *msg)
 {
 	struct wireaddr *proxyaddr;
 	struct wireaddr_internal *binding;
@@ -1606,15 +1604,10 @@ static struct io_plan *connect_init(struct io_conn *conn,
 			 take(towire_connectd_init_reply(NULL,
 							   binding,
 							   announcable)));
-
-	/* Read the next message. */
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ lightningd tells us to go! */
-static struct io_plan *connect_activate(struct io_conn *conn,
-					struct daemon *daemon,
-					const u8 *msg)
+static void connect_activate(struct daemon *daemon, const u8 *msg)
 {
 	bool do_listen;
 
@@ -1645,7 +1638,6 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 	/* OK, we're ready! */
 	daemon_conn_send(daemon->master,
 			 take(towire_connectd_activate_reply(NULL)));
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /* BOLT #10:
@@ -1861,8 +1853,7 @@ static void try_connect_peer(struct daemon *daemon,
 }
 
 /* lightningd tells us to connect to a peer by id, with optional addr hint. */
-static struct io_plan *connect_to_peer(struct io_conn *conn,
-				       struct daemon *daemon, const u8 *msg)
+static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	u32 seconds_waited;
@@ -1874,7 +1865,6 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
 	try_connect_peer(daemon, &id, seconds_waited, addrhint);
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /* A peer is gone: clean things up. */
@@ -1900,8 +1890,7 @@ static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
 }
 
 /* lightningd tells us a peer has disconnected. */
-static struct io_plan *peer_disconnected(struct io_conn *conn,
-					 struct daemon *daemon, const u8 *msg)
+static void peer_disconnected(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 
@@ -1909,9 +1898,6 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 		master_badmsg(WIRE_CONNECTD_PEER_DISCONNECTED, msg);
 
 	cleanup_dead_peer(daemon, &id);
-
-	/* Read the next message from lightningd. */
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /* lightningd tells us to send a final (usually error) message to peer, then
@@ -1932,8 +1918,8 @@ static struct io_plan *send_final_msg(struct io_conn *conn, u8 *msg)
 }
 
 /* lightningd tells us to send a msg and disconnect. */
-static struct io_plan *peer_final_msg(struct io_conn *conn,
-				      struct daemon *daemon, const u8 *msg)
+static void peer_final_msg(struct io_conn *conn,
+			   struct daemon *daemon, const u8 *msg)
 {
 	struct per_peer_state *pps;
 	struct final_msg_data *f = tal(NULL, struct final_msg_data);
@@ -1969,15 +1955,10 @@ static struct io_plan *peer_final_msg(struct io_conn *conn,
 	/* Organize io loop to write out that message, it will free f
 	 * once closed */
 	tal_steal(io_new_conn(daemon, fds[0], send_final_msg, finalmsg), f);
-
-	/* Read the next message from lightningd. */
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 #if DEVELOPER
-static struct io_plan *dev_connect_memleak(struct io_conn *conn,
-					   struct daemon *daemon,
-					   const u8 *msg)
+static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 {
 	struct htable *memtable;
 	bool found_leak;
@@ -1991,7 +1972,6 @@ static struct io_plan *dev_connect_memleak(struct io_conn *conn,
 	daemon_conn_send(daemon->master,
 			 take(towire_connectd_dev_memleak_reply(NULL,
 							      found_leak)));
-	return daemon_conn_read_next(conn, daemon->master);
 }
 #endif /* DEVELOPER */
 
@@ -2005,23 +1985,29 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	 * connect requests and disconnected messages. */
 	switch (t) {
 	case WIRE_CONNECTD_INIT:
-		return connect_init(conn, daemon, msg);
+		connect_init(daemon, msg);
+		goto out;
 
 	case WIRE_CONNECTD_ACTIVATE:
-		return connect_activate(conn, daemon, msg);
+		connect_activate(daemon, msg);
+		goto out;
 
 	case WIRE_CONNECTD_CONNECT_TO_PEER:
-		return connect_to_peer(conn, daemon, msg);
+		connect_to_peer(daemon, msg);
+		goto out;
 
 	case WIRE_CONNECTD_PEER_DISCONNECTED:
-		return peer_disconnected(conn, daemon, msg);
+		peer_disconnected(daemon, msg);
+		goto out;
 
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
-		return peer_final_msg(conn, daemon, msg);
+		peer_final_msg(conn, daemon, msg);
+		goto out;
 
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 #if DEVELOPER
-		return dev_connect_memleak(conn, daemon, msg);
+		dev_connect_memleak(daemon, msg);
+		goto out;
 #endif
 	/* We send these, we don't receive them */
 	case WIRE_CONNECTD_INIT_REPLY:
@@ -2036,6 +2022,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	/* Master shouldn't give bad requests. */
 	status_failed(STATUS_FAIL_MASTER_IO, "%i: %s",
 		      t, tal_hex(tmpctx, msg));
+
+out:
+	/* Read the next message. */
+	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ UNUSED is defined to an __attribute__ for GCC; at one stage we tried to use
