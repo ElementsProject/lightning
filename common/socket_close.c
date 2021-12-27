@@ -2,6 +2,8 @@
 #include <ccan/noerr/noerr.h>
 #include <common/socket_close.h>
 #include <errno.h>
+#include <signal.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -18,9 +20,15 @@ Simplified (minus all the error checks):
 	close(fd);
 */
 
+/* makes read() return EINTR */
+static void break_read(int signum)
+{
+}
+
 bool socket_close(int fd)
 {
 	char unused[64];
+	struct sigaction act, old_act;
 	int sys_res;
 
 	sys_res = shutdown(fd, SHUT_WR);
@@ -29,20 +37,22 @@ bool socket_close(int fd)
 		return false;
 	}
 
-	for (;;) {
-		do {
-			sys_res = read(fd, unused, sizeof(unused));
-		} while (sys_res < 0 && errno == EINTR);
-		if (sys_res < 0) {
-			close_noerr(fd);
-			return false;
-		}
-		if (sys_res == 0)
-			break;
+	/* Let's not get too enthusiastic about waiting. */
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = break_read;
+	sigaction(SIGALRM, &act, &old_act);
+
+	alarm(5);
+
+	while ((sys_res = read(fd, unused, sizeof(unused))) > 0);
+
+	alarm(0);
+	sigaction(SIGALRM, &old_act, NULL);
+
+	if (sys_res < 0) {
+		close_noerr(fd);
+		return false;
 	}
 
-	if (close(fd) < 0)
-		return false;
-	else
-		return true;
+	return close(fd) == 0;
 }
