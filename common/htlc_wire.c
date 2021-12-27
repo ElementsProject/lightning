@@ -14,10 +14,8 @@ static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 		return cast_const(struct failed_htlc *, tal_steal(ctx, f));
 	newf = tal(ctx, struct failed_htlc);
 	newf->id = f->id;
-	if (f->sha256_of_onion)
-		newf->sha256_of_onion = tal_dup(newf, struct sha256, f->sha256_of_onion);
-	else
-		newf->sha256_of_onion = NULL;
+	newf->sha256_of_onion = tal_dup_or_null(newf, struct sha256,
+						f->sha256_of_onion);
 	newf->badonion = f->badonion;
 	if (f->onion)
 		newf->onion = dup_onionreply(newf, f->onion);
@@ -46,15 +44,9 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 	existing->payment_hash = *payment_hash;
 	memcpy(existing->onion_routing_packet, onion_routing_packet,
 	       sizeof(existing->onion_routing_packet));
-	if (blinding)
-		existing->blinding = tal_dup(existing, struct pubkey, blinding);
-	else
-		existing->blinding = NULL;
-	if (preimage)
-		existing->payment_preimage
-			= tal_dup(existing, struct preimage, preimage);
-	else
-		existing->payment_preimage = NULL;
+	existing->blinding = tal_dup_or_null(existing, struct pubkey, blinding);
+	existing->payment_preimage
+		= tal_dup_or_null(existing, struct preimage, preimage);
 	if (failed)
 		existing->failed = failed_htlc_dup(existing, failed);
 	else

@@ -2361,9 +2361,7 @@ static struct command_result *json_paymod(struct command *cmd,
 		    feature_offered(b11->features, OPT_VAR_ONION);
 		p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 		p->payment_secret =
-		    b11->payment_secret
-			? tal_dup(p, struct secret, b11->payment_secret)
-			: NULL;
+			tal_dup_or_null(p, struct secret, b11->payment_secret);
 		p->routes = tal_steal(p, b11->routes);
 		p->min_final_cltv_expiry = b11->min_final_cltv_expiry;
 		p->features = tal_steal(p, b11->features);

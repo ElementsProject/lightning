@@ -355,10 +355,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		}
 
 		p->payment_secret = NULL;
-		if (blinding)
-			p->blinding = tal_dup(p, struct pubkey, blinding);
-		else
-			p->blinding = NULL;
+		p->blinding = tal_dup_or_null(p, struct pubkey, blinding);
 
 #if EXPERIMENTAL_FEATURES
 		if (!p->blinding) {
