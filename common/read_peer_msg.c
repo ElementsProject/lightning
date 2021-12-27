@@ -181,7 +181,8 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 			sync_crypto_write(pps, take(pong));
 		return true;
 	} else if (is_msg_for_gossipd(msg)) {
-		gossip_rcvd_filter_add(pps->grf, msg);
+		if (is_msg_gossip_broadcast(msg))
+			gossip_rcvd_filter_add(pps->grf, msg);
 		wire_sync_write(pps->gossip_fd, msg);
 		/* wire_sync_write takes, so don't take again. */
 		return true;
