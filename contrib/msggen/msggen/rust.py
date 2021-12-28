@@ -56,8 +56,6 @@ def normalize_varname(field):
 
 
 def gen_field(field):
-    field = normalize_varname(field)
-
     if isinstance(field, Command):
         return gen_command(field)
     elif isinstance(field, CompositeField):
@@ -78,7 +76,7 @@ def gen_enum(e):
     if e.description != "":
         decl += f"/// {e.description}\n"
 
-    decl += f"#[derive(Debug, Deserialize, Serialize)]\npub enum {e.typename} {{\n"
+    decl += f"#[derive(Clone, Debug, Deserialize, Serialize)]\n#[serde(rename_all = \"lowercase\")]\npub enum {e.typename} {{\n"
     for v in e.values:
         if v is None:
             continue
@@ -95,7 +93,7 @@ def gen_enum(e):
         typename = overrides[e.path]
 
     if e.required:
-        defi = f"\t// Path `{e.path}`\n\tpub {name}: {typename},\n"
+        defi = f"    // Path `{e.path}`\n    #[serde(rename = \"{e.name}\")]\n    pub {name}: {typename},\n"
     else:
         defi = f"    pub {name}: Option<{typename}>,\n"
 
@@ -104,14 +102,14 @@ def gen_enum(e):
 
 def gen_primitive(p):
     defi, decl = "", ""
-
+    name = p.name.split(".")[-1]
     typename = typemap.get(p.typename, p.typename)
     normalize_varname(p)
 
     if p.required:
-        defi = f"\tpub {p.name}: {typename},\n"
+        defi = f"    #[serde(alias = \"{name}\")]\n    pub {p.name}: {typename},\n"
     else:
-        defi = f"\tpub {p.name}: Option<{typename}>,\n"
+        defi = f"    #[serde(alias = \"{name}\")]\n    pub {p.name}: Option<{typename}>,\n"
 
     return defi, decl
 
@@ -134,7 +132,7 @@ def gen_array(a):
         itemtype = overrides[a.path]
 
     itemtype = typemap.get(itemtype, itemtype)
-    defi = f"\tpub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
+    defi = f"    #[serde(alias = \"{name}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
 
     return (defi, decl)
 
