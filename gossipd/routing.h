@@ -273,6 +273,21 @@ struct routing_state {
 #endif
 };
 
+/* Which direction are we?  False if neither. */
+static inline bool local_direction(struct routing_state *rstate,
+				   const struct chan *chan,
+				   int *direction)
+{
+	for (int dir = 0; dir <= 1; (dir)++) {
+		if (node_id_eq(&chan->nodes[dir]->id, &rstate->local_id)) {
+			if (direction)
+				*direction = dir;
+			return true;
+		}
+	}
+	return false;
+}
+
 static inline struct chan *
 get_channel(const struct routing_state *rstate,
 	    const struct short_channel_id *scid)

@@ -795,13 +795,6 @@ static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 	pending_cannouncement_map_del(&rstate->pending_cannouncements, pending);
 }
 
-static bool is_local_channel(const struct routing_state *rstate,
-			     const struct chan *chan)
-{
-	return node_id_eq(&chan->nodes[0]->id, &rstate->local_id)
-		|| node_id_eq(&chan->nodes[1]->id, &rstate->local_id);
-}
-
 static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      struct chan *chan,
 					      const u8 *channel_announce,
@@ -809,7 +802,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      u32 index)
 {
 	u8 *addendum = towire_gossip_store_channel_amount(tmpctx, chan->sat);
-	bool is_local = is_local_channel(rstate, chan);
+	bool is_local = local_direction(rstate, chan, NULL);
 
 	chan->bcast.timestamp = timestamp;
 	/* 0, unless we're loading from store */
@@ -1381,7 +1374,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	} else if (!is_chan_public(chan)) {
 		/* For private channels, we get updates without an announce: don't
 		 * broadcast them!  But save local ones to store anyway. */
-		assert(is_local_channel(rstate, chan));
+		assert(local_direction(rstate, chan, NULL));
 		/* Don't save if we're loading from store */
 		if (!index) {
 			hc->bcast.index
@@ -1399,7 +1392,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		hc->bcast.index
 			= gossip_store_add(rstate->gs, update,
 					   hc->bcast.timestamp,
-					   is_local_channel(rstate, chan),
+					   local_direction(rstate, chan, NULL),
 					   NULL);
 		if (hc->bcast.timestamp > rstate->last_timestamp
 		    && hc->bcast.timestamp < time_now().ts.tv_sec)
