@@ -138,13 +138,12 @@ bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8
 /* Generated stub for fromwire_gossipd_get_stripped_cupdate_reply */
 bool fromwire_gossipd_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_get_stripped_cupdate_reply called!\n"); abort(); }
-u8 *towire_hsmd_new_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
-{ fprintf(stderr, "towire_hsmd_new_channel called!\n"); abort(); }
-bool fromwire_hsmd_new_channel_reply(const void *p UNNEEDED)
-{ fprintf(stderr, "fromwire_hsmd_new_channel_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_new_channel_reply */
+bool fromwire_hsmd_new_channel_reply(const void *p UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_new_channel_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_sign_commitment_tx_reply */
 bool fromwire_hsmd_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_sign_commitment_tx_reply called!\n"); abort(); }
@@ -446,7 +445,8 @@ struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
 					       u32 blockheight UNNEEDED,
 					       struct amount_sat amount UNNEEDED,
-					       enum mvt_tag tag UNNEEDED)
+					       enum mvt_tag tag)
+
 { fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
@@ -750,6 +750,9 @@ u8 *towire_gossipd_get_stripped_cupdate(const tal_t *ctx UNNEEDED, const struct 
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
+/* Generated stub for towire_hsmd_new_channel */
+u8 *towire_hsmd_new_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_new_channel called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_commitment_tx */
 u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_commitment_tx called!\n"); abort(); }
