@@ -523,8 +523,7 @@ static u8 *handle_obs2_onion_message(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
-static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
-				    const u8 *msg)
+static void onionmsg_req(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	u8 *onionmsg;
@@ -546,7 +545,6 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 			omsg = towire_onion_message(NULL, &blinding, onionmsg);
 		queue_peer_msg(peer, take(omsg));
 	}
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /* Peer sends an onion msg. */
@@ -1099,9 +1097,7 @@ struct peer *random_peer(struct daemon *daemon,
 }
 
 /*~ Parse init message from lightningd: starts the daemon properly. */
-static struct io_plan *gossip_init(struct io_conn *conn,
-				   struct daemon *daemon,
-				   const u8 *msg)
+static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	u32 *dev_gossip_time;
 	bool dev_fast_gossip, dev_fast_gossip_prune;
@@ -1159,12 +1155,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	/* OK, we are ready. */
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_init_reply(NULL)));
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
-static struct io_plan *new_blockheight(struct io_conn *conn,
-				       struct daemon *daemon,
-				       const u8 *msg)
+static void new_blockheight(struct daemon *daemon, const u8 *msg)
 {
 	if (!fromwire_gossipd_new_blockheight(msg, &daemon->current_blockheight))
 		master_badmsg(WIRE_GOSSIPD_NEW_BLOCKHEIGHT, msg);
@@ -1185,27 +1178,20 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 		tal_arr_remove(&daemon->deferred_txouts, i);
 		i--;
 	}
-
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 #if DEVELOPER
 /* Another testing hack */
-static struct io_plan *dev_gossip_suppress(struct io_conn *conn,
-					   struct daemon *daemon,
-					   const u8 *msg)
+static void dev_gossip_suppress(struct daemon *daemon, const u8 *msg)
 {
 	if (!fromwire_gossipd_dev_suppress(msg))
 		master_badmsg(WIRE_GOSSIPD_DEV_SUPPRESS, msg);
 
 	status_unusual("Suppressing all gossip");
 	dev_suppress_gossip = true;
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
-static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
-					  struct daemon *daemon,
-					  const u8 *msg)
+static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 {
 	struct htable *memtable;
 	bool found_leak;
@@ -1219,24 +1205,18 @@ static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_dev_memleak_reply(NULL,
 							      found_leak)));
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
-static struct io_plan *dev_compact_store(struct io_conn *conn,
-					 struct daemon *daemon,
-					 const u8 *msg)
+static void dev_compact_store(struct daemon *daemon, const u8 *msg)
 {
 	bool done = gossip_store_compact(daemon->rstate->gs);
 
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_dev_compact_store_reply(NULL,
 								    done)));
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
-static struct io_plan *dev_gossip_set_time(struct io_conn *conn,
-					   struct daemon *daemon,
-					   const u8 *msg)
+static void dev_gossip_set_time(struct daemon *daemon, const u8 *msg)
 {
 	u32 time;
 
@@ -1246,15 +1226,12 @@ static struct io_plan *dev_gossip_set_time(struct io_conn *conn,
 		daemon->rstate->gossip_time = tal(daemon->rstate, struct timeabs);
 	daemon->rstate->gossip_time->ts.tv_sec = time;
 	daemon->rstate->gossip_time->ts.tv_nsec = 0;
-
-	return daemon_conn_read_next(conn, daemon->master);
 }
 #endif /* DEVELOPER */
 
 /*~ lightningd: so, get me the latest update for this local channel,
  *  so I can include it in an error message. */
-static struct io_plan *get_stripped_cupdate(struct io_conn *conn,
-					    struct daemon *daemon, const u8 *msg)
+static void get_stripped_cupdate(struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
@@ -1300,13 +1277,11 @@ out:
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_get_stripped_cupdate_reply(NULL,
 							   stripped_update)));
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ We queue incoming channel_announcement pending confirmation from lightningd
  * that it really is an unspent output.  Here's its reply. */
-static struct io_plan *handle_txout_reply(struct io_conn *conn,
-					  struct daemon *daemon, const u8 *msg)
+static void handle_txout_reply(struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
 	u8 *outscript;
@@ -1326,16 +1301,12 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	/* Anywhere we might have announced a channel, we check if it's time to
 	 * announce ourselves (ie. if we just announced our own first channel) */
 	maybe_send_own_node_announce(daemon, false);
-
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ lightningd tells us when about a gossip message directly, when told to by
  * the addgossip RPC call.  That's usually used when a plugin gets an update
  * returned in an payment error. */
-static struct io_plan *inject_gossip(struct io_conn *conn,
-				     struct daemon *daemon,
-				     const u8 *msg)
+static void inject_gossip(struct daemon *daemon, const u8 *msg)
 {
 	u8 *goss;
 	const u8 *errmsg;
@@ -1374,12 +1345,9 @@ static struct io_plan *inject_gossip(struct io_conn *conn,
 err_extracted:
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_addgossip_reply(NULL, err)));
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
-static struct io_plan *handle_new_lease_rates(struct io_conn *conn,
-					      struct daemon *daemon,
-					      const u8 *msg)
+static void handle_new_lease_rates(struct daemon *daemon, const u8 *msg)
 {
 	struct lease_rates *rates = tal(daemon, struct lease_rates);
 
@@ -1394,15 +1362,11 @@ static struct io_plan *handle_new_lease_rates(struct io_conn *conn,
 
 	/* Send the update over to the peer */
 	maybe_send_own_node_announce(daemon, false);
-
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ This is where lightningd tells us that a channel's funding transaction has
  * been spent. */
-static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
-					     struct daemon *daemon,
-					     const u8 *msg)
+static void handle_outpoint_spent(struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
@@ -1424,8 +1388,6 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 		 * the channel */
 		free_chan(rstate, chan);
 	}
-
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ This is sent by lightningd when it kicks off 'closingd': we disable it
@@ -1437,9 +1399,7 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
  * channels. This does not send out updates since that's triggered by the peer
  * connection closing.
  */
-static struct io_plan *handle_local_channel_close(struct io_conn *conn,
-						  struct daemon *daemon,
-						  const u8 *msg)
+static void handle_local_channel_close(struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
@@ -1460,7 +1420,6 @@ static struct io_plan *handle_local_channel_close(struct io_conn *conn,
 			local_disable_chan(daemon, chan, direction);
 		}
 	}
-	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ This routine handles all the commands from lightningd. */
@@ -1472,40 +1431,53 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	switch (t) {
 	case WIRE_GOSSIPD_INIT:
-		return gossip_init(conn, daemon, msg);
+		gossip_init(daemon, msg);
+		goto done;
 
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
-		return get_stripped_cupdate(conn, daemon, msg);
+		get_stripped_cupdate(daemon, msg);
+		goto done;
 
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
-		return handle_txout_reply(conn, daemon, msg);
+		handle_txout_reply(daemon, msg);
+		goto done;
 
 	case WIRE_GOSSIPD_OUTPOINT_SPENT:
-		return handle_outpoint_spent(conn, daemon, msg);
+		handle_outpoint_spent(daemon, msg);
+		goto done;
 
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
-		return handle_local_channel_close(conn, daemon, msg);
+		handle_local_channel_close(daemon, msg);
+		goto done;
 
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
-		return new_blockheight(conn, daemon, msg);
+		new_blockheight(daemon, msg);
+		goto done;
 
 	case WIRE_GOSSIPD_ADDGOSSIP:
-		return inject_gossip(conn, daemon, msg);
+		inject_gossip(daemon, msg);
+		goto done;
 
 	case WIRE_GOSSIPD_NEW_LEASE_RATES:
-		return handle_new_lease_rates(conn, daemon, msg);
+		handle_new_lease_rates(daemon, msg);
+		goto done;
 
 #if DEVELOPER
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-		return dev_set_max_scids_encode_size(conn, daemon, msg);
+		dev_set_max_scids_encode_size(daemon, msg);
+		goto done;
 	case WIRE_GOSSIPD_DEV_SUPPRESS:
-		return dev_gossip_suppress(conn, daemon, msg);
+		dev_gossip_suppress(daemon, msg);
+		goto done;
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
-		return dev_gossip_memleak(conn, daemon, msg);
+		dev_gossip_memleak(daemon, msg);
+		goto done;
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
-		return dev_compact_store(conn, daemon, msg);
+		dev_compact_store(daemon, msg);
+		goto done;
 	case WIRE_GOSSIPD_DEV_SET_TIME:
-		return dev_gossip_set_time(conn, daemon, msg);
+		dev_gossip_set_time(daemon, msg);
+		goto done;
 #else
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIPD_DEV_SUPPRESS:
@@ -1516,7 +1488,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 #endif /* !DEVELOPER */
 
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
-		return onionmsg_req(conn, daemon, msg);
+		onionmsg_req(daemon, msg);
+		goto done;
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_INIT_REPLY:
@@ -1532,6 +1505,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	/* Master shouldn't give bad requests. */
 	status_failed(STATUS_FAIL_MASTER_IO, "%i: %s",
 		      t, tal_hex(tmpctx, msg));
+
+done:
+	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /* This is called when lightningd closes its connection to us.  We simply

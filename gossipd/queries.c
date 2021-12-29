@@ -1163,15 +1163,12 @@ bool query_channel_range(struct daemon *daemon,
 #if DEVELOPER
 /* This is a testing hack to allow us to artificially lower the maximum bytes
  * of short_channel_ids we'll encode, using dev_set_max_scids_encode_size. */
-struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
-					      struct daemon *daemon,
-					      const u8 *msg)
+void dev_set_max_scids_encode_size(struct daemon *daemon, const u8 *msg)
 {
 	if (!fromwire_gossipd_dev_set_max_scids_encode_size(msg,
 							   &dev_max_encoding_bytes))
 		master_badmsg(WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
 
 	status_debug("Set max_scids_encode_bytes to %u", dev_max_encoding_bytes);
-	return daemon_conn_read_next(conn, daemon->master);
 }
 #endif /* DEVELOPER */
