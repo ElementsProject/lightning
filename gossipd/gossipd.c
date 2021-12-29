@@ -44,15 +44,32 @@
  * whole-channel flag which indicates it's not available; we use this when a
  * peer disconnects, and generate a `channel_update` to tell the world lazily
  * when someone asks. */
-static void peer_disable_channels(struct daemon *daemon, struct node *node)
+static void peer_disable_channels(struct daemon *daemon, const struct node *node)
 {
 	/* If this peer had a channel with us, mark it disabled. */
 	struct chan_map_iter i;
-	struct chan *c;
+	const struct chan *c;
 
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-		if (node_id_eq(&other_node(node, c)->id, &daemon->id))
-			local_disable_chan(daemon->rstate, c);
+		int direction;
+		if (!local_direction(daemon->rstate, c, &direction))
+			continue;
+		local_disable_chan(daemon, c, direction);
+	}
+}
+
+/*~ This cancels the soft-disables when the peer reconnects. */
+static void peer_enable_channels(struct daemon *daemon, const struct node *node)
+{
+	/* If this peer had a channel with us, mark it disabled. */
+	struct chan_map_iter i;
+	const struct chan *c;
+
+	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
+		int direction;
+		if (!local_direction(daemon->rstate, c, &direction))
+			continue;
+		local_enable_chan(daemon, c, direction);
 	}
 }
 
@@ -267,10 +284,10 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 static bool handle_get_local_channel_update(struct peer *peer, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct local_chan *local_chan;
 	struct chan *chan;
 	const u8 *update;
 	struct routing_state *rstate = peer->daemon->rstate;
+	int direction;
 
 	if (!fromwire_gossipd_get_update(msg, &scid)) {
 		status_broken("peer %s sent bad gossip_get_update %s",
@@ -280,8 +297,8 @@ static bool handle_get_local_channel_update(struct peer *peer, const u8 *msg)
 	}
 
 	/* It's possible that the channel has just closed (though v. unlikely) */
-	local_chan = local_chan_map_get(&rstate->local_chan_map, &scid);
-	if (!local_chan) {
+	chan = get_channel(rstate, &scid);
+	if (!chan) {
 		status_unusual("peer %s scid %s: unknown channel",
 			       type_to_string(tmpctx, struct node_id, &peer->id),
 			       type_to_string(tmpctx, struct short_channel_id,
@@ -290,18 +307,24 @@ static bool handle_get_local_channel_update(struct peer *peer, const u8 *msg)
 		goto out;
 	}
 
-	chan = local_chan->chan;
-
 	/* Since we're going to send it out, make sure it's up-to-date. */
-	refresh_local_channel(peer->daemon, local_chan, false);
+	local_channel_update_latest(peer->daemon, chan);
+
+	if (!local_direction(rstate, chan, &direction)) {
+		status_peer_broken(&peer->id, "Chan %s is not local?",
+				   type_to_string(tmpctx, struct short_channel_id,
+						  &scid));
+		update = NULL;
+		goto out;
+	}
 
  	/* It's possible this is zero, if we've never sent a channel_update
 	 * for that channel. */
-	if (!is_halfchan_defined(&chan->half[local_chan->direction]))
+	if (!is_halfchan_defined(&chan->half[direction]))
 		update = NULL;
 	else
 		update = gossip_store_get(tmpctx, rstate->gs,
-					  chan->half[local_chan->direction].bcast.index);
+					  chan->half[direction].bcast.index);
 out:
 	status_peer_debug(&peer->id, "schanid %s: %s update",
 			  type_to_string(tmpctx, struct short_channel_id, &scid),
@@ -808,6 +831,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 					 const u8 *msg)
 {
 	struct peer *peer = tal(conn, struct peer);
+	struct node *node;
 	int fds[2];
 	int gossip_store_fd;
 	struct gossip_state *gs;
@@ -868,6 +892,10 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 				   maybe_send_query_responses, peer);
 	/* Free peer if conn closed (destroy_peer closes conn if peer freed) */
 	tal_steal(peer->dc, peer);
+
+	node = get_node(daemon->rstate, &peer->id);
+	if (node)
+		peer_enable_channels(daemon, node);
 
 	/* This sends the initial timestamp filter. */
 	seeker_setup_peer_gossip(daemon->seeker, peer);
@@ -967,23 +995,6 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 	return io_close(conn);
 }
 
-/*~ This is our 13-day timer callback for refreshing our channels.  This
- * was added to the spec because people abandoned their channels without
- * closing them. */
-static void gossip_send_keepalive_update(struct daemon *daemon,
-					 struct local_chan *local_chan)
-{
-	status_debug("Sending keepalive channel_update for %s/%u",
-		     type_to_string(tmpctx, struct short_channel_id,
-				    &local_chan->chan->scid),
-		     local_chan->direction);
-
-	/* As a side-effect, this will create an update which matches the
-	 * local_disabled state */
-	refresh_local_channel(daemon, local_chan, true);
-}
-
-
 /* BOLT #7:
  *
  * A node:
@@ -1016,11 +1027,13 @@ static void gossip_refresh_network(struct daemon *daemon)
 		struct chan *c;
 
 		for (c = first_chan(n, &i); c; c = next_chan(n, &i)) {
-			struct local_chan *local_chan;
 			struct half_chan *hc;
+			int direction;
 
-			local_chan = is_local_chan(daemon->rstate, c);
-			hc = &c->half[local_chan->direction];
+			if (!local_direction(daemon->rstate, c, &direction))
+				continue;
+
+			hc = &c->half[direction];
 
 			if (!is_halfchan_defined(hc)) {
 				/* Connection is not announced yet, so don't even
@@ -1033,12 +1046,12 @@ static void gossip_refresh_network(struct daemon *daemon)
 				continue;
 			}
 
-			if (is_chan_local_disabled(daemon->rstate, c)) {
-				/* Only send keepalives for active connections */
-				continue;
-			}
-
-			gossip_send_keepalive_update(daemon, local_chan);
+			status_debug("Sending keepalive channel_update"
+				     " for %s/%u",
+				     type_to_string(tmpctx,
+						    struct short_channel_id,
+						    &c->scid), direction);
+			refresh_local_channel(daemon, c, direction);
 		}
 	}
 
@@ -1060,7 +1073,7 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		return;
 
 	for (c = first_chan(local_node, &i); c; c = next_chan(local_node, &i))
-		local_disable_chan(daemon->rstate, c);
+		local_disable_chan(daemon, c, half_chan_idx(local_node, c));
 }
 
 struct peer *random_peer(struct daemon *daemon,
@@ -1244,24 +1257,34 @@ static struct io_plan *get_stripped_cupdate(struct io_conn *conn,
 					    struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct local_chan *local_chan;
+	struct chan *chan;
 	const u8 *stripped_update;
 
 	if (!fromwire_gossipd_get_stripped_cupdate(msg, &scid))
 		master_badmsg(WIRE_GOSSIPD_GET_STRIPPED_CUPDATE, msg);
 
-	local_chan = local_chan_map_get(&daemon->rstate->local_chan_map, &scid);
-	if (!local_chan) {
+	chan = get_channel(daemon->rstate, &scid);
+	if (!chan) {
 		status_debug("Failed to resolve local channel %s",
 			     type_to_string(tmpctx, struct short_channel_id, &scid));
 		stripped_update = NULL;
 	} else {
+		int direction;
 		const struct half_chan *hc;
 
-		/* Since we're going to use it, make sure it's up-to-date. */
-		refresh_local_channel(daemon, local_chan, false);
+		if (!local_direction(daemon->rstate, chan, &direction)) {
+			status_broken("%s is a non-local channel!",
+				      type_to_string(tmpctx,
+						     struct short_channel_id,
+						     &scid));
+			stripped_update = NULL;
+			goto out;
+		}
 
-		hc = &local_chan->chan->half[local_chan->direction];
+		/* Since we're going to use it, make sure it's up-to-date. */
+		local_channel_update_latest(daemon, chan);
+
+		hc = &chan->half[direction];
 		if (is_halfchan_defined(hc)) {
 			const u8 *update;
 
@@ -1272,6 +1295,8 @@ static struct io_plan *get_stripped_cupdate(struct io_conn *conn,
 		} else
 			stripped_update = NULL;
 	}
+
+out:
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_get_stripped_cupdate_reply(NULL,
 							   stripped_update)));
@@ -1423,8 +1448,18 @@ static struct io_plan *handle_local_channel_close(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE, msg);
 
 	chan = get_channel(rstate, &scid);
-	if (chan)
-		local_disable_chan(rstate, chan);
+	if (chan) {
+		int direction;
+
+		if (!local_direction(rstate, chan, &direction)) {
+			status_broken("Non-local channel close %s",
+				      type_to_string(tmpctx,
+						     struct short_channel_id,
+						     &scid));
+		} else {
+			local_disable_chan(daemon, chan, direction);
+		}
+	}
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -1522,6 +1557,7 @@ int main(int argc, char *argv[])
 	daemon->node_announce_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
 	daemon->rates = NULL;
+	list_head_init(&daemon->deferred_updates);
 
 	/* Tell the ecdh() function how to talk to hsmd */
 	ecdh_hsmd_setup(HSM_FD, status_failed);

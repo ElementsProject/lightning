@@ -60,6 +60,9 @@ struct daemon {
 
 	/* The channel lease rates we're advertising */
 	const struct lease_rates *rates;
+
+	/* Any of our channel_updates we're deferring. */
+	struct list_head deferred_updates;
 };
 
 struct range_query_reply {

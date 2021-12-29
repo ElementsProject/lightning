@@ -198,7 +198,6 @@ static void destroy_routing_state(struct routing_state *rstate)
 
 	/* Free up our htables */
 	pending_cannouncement_map_clear(&rstate->pending_cannouncements);
-	local_chan_map_clear(&rstate->local_chan_map);
 }
 
 /* We don't check this when loading from the gossip_store: that would break
@@ -226,7 +225,6 @@ static void memleak_help_routing_tables(struct htable *memtable,
 	memleak_remove_htable(memtable, &rstate->nodes->raw);
 	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
 	memleak_remove_htable(memtable, &rstate->pending_cannouncements.raw);
-	memleak_remove_htable(memtable, &rstate->local_chan_map.raw);
 	memleak_remove_uintmap(memtable, &rstate->unupdated_chanmap);
 
 	for (n = node_map_first(rstate->nodes, &nit);
@@ -295,7 +293,6 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 
 	uintmap_init(&rstate->chanmap);
 	uintmap_init(&rstate->unupdated_chanmap);
-	local_chan_map_init(&rstate->local_chan_map);
 	rstate->num_txout_failures = 0;
 	uintmap_init(&rstate->txout_failures);
 	uintmap_init(&rstate->txout_failures_old);
@@ -524,36 +521,6 @@ static void bad_gossip_order(const u8 *msg,
 			  details);
 }
 
-static void destroy_local_chan(struct local_chan *local_chan,
-			       struct routing_state *rstate)
-{
-	if (!local_chan_map_del(&rstate->local_chan_map, local_chan))
-		abort();
-}
-
-static void maybe_add_local_chan(struct routing_state *rstate,
-				 struct chan *chan)
-{
-	int direction;
-	struct local_chan *local_chan;
-
-	if (node_id_eq(&chan->nodes[0]->id, &rstate->local_id))
-		direction = 0;
-	else if (node_id_eq(&chan->nodes[1]->id, &rstate->local_id))
-		direction = 1;
-	else
-		return;
-
-	local_chan = tal(chan, struct local_chan);
-	local_chan->chan = chan;
-	local_chan->direction = direction;
-	local_chan->local_disabled = false;
-	local_chan->channel_update_timer = NULL;
-
-	local_chan_map_add(&rstate->local_chan_map, local_chan);
-	tal_add_destructor2(local_chan, destroy_local_chan, rstate);
-}
-
 struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct node_id *id1,
@@ -595,8 +562,6 @@ struct chan *new_chan(struct routing_state *rstate,
 
 	uintmap_add(&rstate->chanmap, scid->u64, chan);
 
-	/* Initialize shadow structure if it's local */
-	maybe_add_local_chan(rstate, chan);
 	return chan;
 }
 
