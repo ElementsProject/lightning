@@ -18,9 +18,8 @@ int unused_main(int argc, char *argv[]);
 bool dev_suppress_gossip;
 
 /* Generated stub for dev_set_max_scids_encode_size */
-struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn UNNEEDED,
-					      struct daemon *daemon UNNEEDED,
-					      const u8 *msg UNNEEDED)
+void dev_set_max_scids_encode_size(struct daemon *daemon UNNEEDED,
+				   const u8 *msg UNNEEDED)
 { fprintf(stderr, "dev_set_max_scids_encode_size called!\n"); abort(); }
 /* Generated stub for dump_memleak */
 bool dump_memleak(struct htable *memtable UNNEEDED,

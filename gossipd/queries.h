@@ -62,9 +62,7 @@ struct io_plan *dev_query_channel_range(struct io_conn *conn,
 
 /* This is a testing hack to allow us to artificially lower the maximum bytes
  * of short_channel_ids we'll encode, using dev_set_max_scids_encode_size. */
-struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
-					      struct daemon *daemon,
-					      const u8 *msg);
+void dev_set_max_scids_encode_size(struct daemon *daemon, const u8 *msg);
 #endif /* DEVELOPER */
 
 #endif /* LIGHTNING_GOSSIPD_QUERIES_H */
