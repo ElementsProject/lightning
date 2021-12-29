@@ -452,7 +452,9 @@ static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
 				json_add_sha256(stream, "payment_hash", id->payment_hash);
 			return;
 		case CHANNEL_MVT:
-			json_add_sha256(stream, "payment_hash", id->payment_hash);
+			/* push funding / leases don't have a payment_hash */
+			if (id->payment_hash)
+				json_add_sha256(stream, "payment_hash", id->payment_hash);
 			if (id->part_id)
 				json_add_u64(stream, "part_id", *id->part_id);
 			return;
