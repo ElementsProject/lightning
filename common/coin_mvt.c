@@ -320,14 +320,14 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
-				    const char *bip173_name TAKES,
+				    const char *hrp_name TAKES,
 				    u32 timestamp,
 				    struct node_id *node_id)
 {
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
 	mvt->account_id = tal_strdup(mvt, chain_mvt->account_name);
-	mvt->bip173_name = tal_strdup(mvt, bip173_name);
+	mvt->hrp_name = tal_strdup(mvt, hrp_name);
 	mvt->type = CHAIN_MVT;
 
 	mvt->id.tx_txid = chain_mvt->tx_txid;
@@ -351,7 +351,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 
 struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      const struct channel_coin_mvt *chan_mvt,
-				      const char *bip173_name TAKES,
+				      const char *hrp_name TAKES,
 				      u32 timestamp,
 				      const struct node_id *node_id TAKES)
 {
@@ -359,7 +359,7 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 
 	mvt->account_id = type_to_string(mvt, struct channel_id,
 					 &chan_mvt->chan_id);
-	mvt->bip173_name = tal_strdup(mvt, bip173_name);
+	mvt->hrp_name = tal_strdup(mvt, hrp_name);
 	mvt->type = CHANNEL_MVT;
 	mvt->id.payment_hash = chan_mvt->payment_hash;
 	mvt->id.part_id = chan_mvt->part_id;

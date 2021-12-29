@@ -96,7 +96,9 @@ struct mvt_id {
 struct coin_mvt {
 	/* name of 'account': wallet, external, <channel_id> */
 	const char *account_id;
-	const char *bip173_name;
+
+	/* Chain name: BIP 173, except signet lightning-style: tbs not tb */
+	const char *hrp_name;
 
 	/* type of movement: channel or chain */
 	enum mvt_type type;
@@ -235,14 +237,14 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 
 struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 				    const struct chain_coin_mvt *chain_mvt,
-				    const char *bip173_name,
+				    const char *hrp_name,
 				    u32 timestamp,
 				    struct node_id *node_id)
 	NON_NULL_ARGS(2, 3);
 
 struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      const struct channel_coin_mvt *chan_mvt,
-				      const char *bip173_name,
+				      const char *hrp_name,
 				      u32 timestamp,
 				      const struct node_id *node_id)
 	NON_NULL_ARGS(2, 3, 5);

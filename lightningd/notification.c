@@ -495,7 +495,7 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 			json_add_null(stream, "blockheight");
 	}
 	json_add_u32(stream, "timestamp", mvt->timestamp);
-	json_add_string(stream, "coin_type", mvt->bip173_name);
+	json_add_string(stream, "coin_type", mvt->hrp_name);
 
 	json_object_end(stream);
 }
