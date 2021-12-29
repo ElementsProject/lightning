@@ -7,20 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-/*
-Simplified (minus all the error checks):
-
-	shutdown(fd, SHUT_WR);
-	for (;;) {
-		char unused[64]
-		sys_res = read(fd, unused, 64);
-		if (sys_res == 0)
-			break;
-	}
-	close(fd);
-*/
-
-/* makes read() return EINTR */
+/* makes read() return EINTR after 5 seconds */
 static void break_read(int signum)
 {
 }
@@ -29,8 +16,9 @@ bool socket_close(int fd)
 {
 	char unused[64];
 	struct sigaction act, old_act;
-	int sys_res;
+	int sys_res, saved_errno;
 
+	/* We shutdown.  Usually they then shutdown too, and read() gives 0 */
 	sys_res = shutdown(fd, SHUT_WR);
 	if (sys_res < 0) {
 		close_noerr(fd);
@@ -45,12 +33,14 @@ bool socket_close(int fd)
 	alarm(5);
 
 	while ((sys_res = read(fd, unused, sizeof(unused))) > 0);
+	saved_errno = errno;
 
 	alarm(0);
 	sigaction(SIGALRM, &old_act, NULL);
 
 	if (sys_res < 0) {
-		close_noerr(fd);
+		close(fd);
+		errno = saved_errno;
 		return false;
 	}
 
