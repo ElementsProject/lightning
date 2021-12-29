@@ -3,6 +3,7 @@ from pyln.testing.utils import env, only_one, wait_for, write_config, TailablePr
 import bitstring
 from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
+import time
 
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
@@ -108,6 +109,19 @@ def check_balance_snaps(n, expected_bals):
 
 def check_coin_moves(n, account_id, expected_moves, chainparams):
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
+    # moves can lag; wait for a few seconds if we don't have correct number.
+    # then move on: we'll get details below.
+    expected_count = 0
+    for m in enumerate(expected_moves):
+        if isinstance(m, list):
+            expected_count += len(m)
+        else:
+            expected_count += 1
+
+    if len(moves) != expected_count:
+        time.sleep(5)
+        moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
+
     node_id = n.info['id']
     acct_moves = [m for m in moves if m['account_id'] == account_id]
     for mv in acct_moves:
