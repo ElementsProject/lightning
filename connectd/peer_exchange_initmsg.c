@@ -10,7 +10,7 @@
 #include <wire/peer_wire.h>
 
 /* Temporary structure for us to read peer message in */
-struct peer {
+struct early_peer {
 	struct daemon *daemon;
 
 	/* The ID of the peer */
@@ -38,10 +38,10 @@ static bool contains_common_chain(struct bitcoin_blkid *chains)
 }
 
 /* Here in case we need to read another message. */
-static struct io_plan *read_init(struct io_conn *conn, struct peer *peer);
+static struct io_plan *read_init(struct io_conn *conn, struct early_peer *peer);
 
 static struct io_plan *peer_init_received(struct io_conn *conn,
-					  struct peer *peer)
+					  struct early_peer *peer)
 {
 	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
 	u8 *globalfeatures, *features;
@@ -89,6 +89,9 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 * window where it was: combine the two. */
 	features = featurebits_or(tmpctx, take(features), globalfeatures);
 
+	/* We can dispose of peer after next call. */
+	tal_steal(tmpctx, peer);
+
 	/* Usually return io_close_taken_fd, but may wait for old peer to
 	 * be disconnected if it's a reconnect. */
 	return peer_connected(conn, peer->daemon, &peer->id,
@@ -98,7 +101,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 }
 
 static struct io_plan *peer_init_hdr_received(struct io_conn *conn,
-					      struct peer *peer)
+					      struct early_peer *peer)
 {
 	u16 len;
 
@@ -111,7 +114,7 @@ static struct io_plan *peer_init_hdr_received(struct io_conn *conn,
 		       peer_init_received, peer);
 }
 
-static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
+static struct io_plan *read_init(struct io_conn *conn, struct early_peer *peer)
 {
 	/* Free our sent init msg. */
 	tal_free(peer->msg);
@@ -128,14 +131,14 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
 
 #if DEVELOPER
 static struct io_plan *peer_write_postclose(struct io_conn *conn,
-					    struct peer *peer)
+					    struct early_peer *peer)
 {
 	dev_sabotage_fd(io_conn_fd(conn), true);
 	return read_init(conn, peer);
 }
 
 static struct io_plan *peer_write_post_sabotage(struct io_conn *conn,
-						struct peer *peer)
+						struct early_peer *peer)
 {
 	dev_sabotage_fd(io_conn_fd(conn), false);
 	return read_init(conn, peer);
@@ -151,8 +154,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      bool incoming)
 {
 	/* If conn is closed, forget peer */
-	struct peer *peer = tal(conn, struct peer);
-	struct io_plan *(*next)(struct io_conn *, struct peer *);
+	struct early_peer *peer = tal(conn, struct early_peer);
+	struct io_plan *(*next)(struct io_conn *, struct early_peer *);
 	struct tlv_init_tlvs *tlvs;
 
 	peer->daemon = daemon;
