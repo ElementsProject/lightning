@@ -1101,8 +1101,6 @@ def test_funding_push(node_factory, bitcoind, chainparams):
     assert funds['channel_sat'] + push_sat == funds['channel_total_sat']
 
     chanid = first_channel_id(l2, l1)
-    # give the file write a second
-    time.sleep(1)
     channel_mvts_1 = [
         {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tags': ['channel_open', 'opener']},
         {'type': 'channel_mvt', 'credit': 0, 'debit': 20000000, 'tags': ['pushed'], 'fees': '0msat'},
