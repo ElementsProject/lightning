@@ -643,8 +643,8 @@ def test_reconnect_normal(node_factory):
 @pytest.mark.openchannel('v2')
 def test_reconnect_sender_add1(node_factory):
     # Fail after add is OK, will cause payment failure though.
-    disconnects = ['-WIRE_UPDATE_ADD_HTLC-nocommit',
-                   '+WIRE_UPDATE_ADD_HTLC-nocommit']
+    disconnects = ['-WIRE_UPDATE_ADD_HTLC',
+                   '+WIRE_UPDATE_ADD_HTLC']
 
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
@@ -2085,14 +2085,14 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # mysteriously die while committing the first HTLC so we can
     # check that HTLCs reloaded from the DB work.
     # Feerates identical so we don't get gratuitous commit to update them
-    disconnect = ['=WIRE_COMMITMENT_SIGNED-nocommit']
-
+    disable_commit_after = 1
     if EXPERIMENTAL_DUAL_FUND:
-        disconnect = ['=WIRE_COMMITMENT_SIGNED'] + disconnect
+        disable_commit_after = 2
 
     l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500,
                                                              7500))
-    l2 = node_factory.get_node(disconnect=disconnect, may_reconnect=True)
+    l2 = node_factory.get_node(options={'dev-disable-commit-after': disable_commit_after},
+                               may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Neither node should have a channel open, they are just connected
@@ -2119,7 +2119,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     l2.daemon.kill()
 
     # Clear the disconnect and timer stop so we can proceed normally
-    del l2.daemon.opts['dev-disconnect']
+    del l2.daemon.opts['dev-disable-commit-after']
 
     # Wait for l1 to notice
     wait_for(lambda: 'connected' not in only_one(l1.rpc.listpeers()['peers'][0]['channels']))
@@ -2845,10 +2845,9 @@ def test_dataloss_protection(node_factory, bitcoind):
 @pytest.mark.developer("needs dev_disconnect")
 def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
     # l1 disables commit timer once we send first htlc, dies on commit
-    disconnects = ['=WIRE_UPDATE_ADD_HTLC-nocommit',
-                   '-WIRE_COMMITMENT_SIGNED']
-    l1, l2 = node_factory.line_graph(2, opts=[{'disconnect': disconnects,
-                                               'may_reconnect': True},
+    l1, l2 = node_factory.line_graph(2, opts=[{'disconnect': ['-WIRE_COMMITMENT_SIGNED'],
+                                               'may_reconnect': True,
+                                               'dev-disable-commit-after': 0},
                                               {'may_reconnect': True}])
 
     executor.submit(l1.pay, l2, 20000)
@@ -3397,9 +3396,9 @@ def test_htlc_retransmit_order(node_factory, executor):
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{'may_reconnect': True,
                                             'feerates': (7500, 7500, 7500, 7500),
-                                            'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit',
-                                                           '=WIRE_UPDATE_ADD_HTLC*' + str(NUM_HTLCS - 1),
-                                                           '-WIRE_COMMITMENT_SIGNED']},
+                                            'disconnect': ['=WIRE_UPDATE_ADD_HTLC*' + str(NUM_HTLCS),
+                                                           '-WIRE_COMMITMENT_SIGNED'],
+                                            'dev-disable-commit-after': 0},
                                            {'may_reconnect': True}])
     invoices = [l2.rpc.invoice(1000, str(x), str(x)) for x in range(NUM_HTLCS)]
 
@@ -3412,7 +3411,7 @@ def test_htlc_retransmit_order(node_factory, executor):
     for inv in invoices:
         executor.submit(l1.rpc.sendpay, [routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
 
-    l1.daemon.wait_for_logs(['dev_disconnect'] * 2)
+    l1.daemon.wait_for_log('dev_disconnect')
     l1.rpc.call('dev-reenable-commit', [l2.info['id']])
     l1.daemon.wait_for_log('dev_disconnect')
 
@@ -3619,8 +3618,7 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     l1_disconnects = ['-WIRE_COMMITMENT_SIGNED',
                       '-WIRE_REVOKE_AND_ACK']
     l2_disconnects = ['-WIRE_REVOKE_AND_ACK',
-                      '-WIRE_COMMITMENT_SIGNED',
-                      '=WIRE_UPDATE_FAIL_HTLC-nocommit']
+                      '-WIRE_COMMITMENT_SIGNED']
 
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
                                                'dev-no-reconnect': None,
@@ -3630,13 +3628,14 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
                                                'feerates': (7500, 7500, 7500, 7500)},
                                               {'may_reconnect': True,
                                                'dev-no-reconnect': None,
-                                               'disconnect': l2_disconnects}])
+                                               'disconnect': l2_disconnects,
+                                               'dev-disable-commit-after': 1}])
 
     # This HTLC will fail
     l1.rpc.sendpay([{'msatoshi': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32, payment_secret='00' * 32)
 
     # Each one should cause one disconnection, no upgrade.
-    for d in l1_disconnects + l2_disconnects[:-1]:
+    for d in l1_disconnects + l2_disconnects:
         l1.daemon.wait_for_log('Peer connection lost')
         l2.daemon.wait_for_log('Peer connection lost')
         assert not l1.daemon.is_in_log('option_static_remotekey enabled')

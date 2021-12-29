@@ -29,8 +29,6 @@ void dev_blackhole_fd(int fd);
 /* For debug code to set in daemon. */
 void dev_disconnect_init(int fd);
 
-/* Hack for channeld to do DEV_DISCONNECT_SUPPRESS_COMMIT. */
-extern bool dev_suppress_commit;
 #endif /* DEVELOPER */
 
 #endif /* LIGHTNING_COMMON_DEV_DISCONNECT_H */

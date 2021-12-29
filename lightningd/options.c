@@ -697,6 +697,10 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-no-obsolete-onion", opt_set_bool,
 			   &ld->dev_ignore_obsolete_onion,
 			   "Ignore obsolete onion messages");
+	opt_register_arg("--dev-disable-commit-after",
+			 opt_set_intval, opt_show_intval,
+			 &ld->dev_disable_commit,
+			 "Disable commit timer after this many commits");
 }
 #endif /* DEVELOPER */
 

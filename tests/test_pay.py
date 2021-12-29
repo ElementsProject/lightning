@@ -450,7 +450,7 @@ def test_payment_failed_persistence(node_factory, executor):
 @pytest.mark.developer("needs DEVELOPER=1")
 def test_payment_duplicate_uncommitted(node_factory, executor):
     # We want to test two payments at the same time, before we send commit
-    l1 = node_factory.get_node(disconnect=['=WIRE_UPDATE_ADD_HTLC-nocommit'])
+    l1 = node_factory.get_node(options={'dev-disable-commit-after': 0})
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -463,7 +463,7 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     fut = executor.submit(l1.rpc.pay, inv1['bolt11'])
 
     # Make sure that's started...
-    l1.daemon.wait_for_log('dev_disconnect: =WIRE_UPDATE_ADD_HTLC-nocommit')
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_ADD_HTLC')
 
     # We should see it in listsendpays
     payments = l1.rpc.listsendpays()['payments']
@@ -2809,12 +2809,12 @@ def test_sendonion_rpc(node_factory):
         assert(e.error['data']['raw_message'] == "400f00000000000003e80000006c")
 
 
-@pytest.mark.developer("needs dev-disconnect, dev-no-htlc-timeout")
+@pytest.mark.developer("needs dev-disable-commit-after, dev-no-htlc-timeout")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
-    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit'], 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
+    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
 
     # Two routes to l4: one via l2, and one via l3.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -2925,13 +2925,15 @@ def test_partial_payment(node_factory, bitcoind, executor):
         groupid=1,
     )
 
-    # Make sure they've done the suppress-commitment thing before we unsuppress
-    l2.daemon.wait_for_log(r'dev_disconnect')
-    l3.daemon.wait_for_log(r'dev_disconnect')
+    # Make sure they've got the HTLCs before we unsuppress
+    l2.daemon.wait_for_logs('peer_in WIRE_UPDATE_ADD_HTLC')
+    l3.daemon.wait_for_log('peer_in WIRE_UPDATE_ADD_HTLC')
 
     # Now continue, payments will succeed due to MPP.
     l2.rpc.dev_reenable_commit(l4.info['id'])
     l3.rpc.dev_reenable_commit(l4.info['id'])
+    l2.rpc.dev_reenable_commit(l1.info['id'])
+    l3.rpc.dev_reenable_commit(l1.info['id'])
 
     res = l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], partid=1)
     assert res['partid'] == 1
