@@ -530,7 +530,7 @@ def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
+@pytest.mark.developer("needs dev-disable-commit-after")
 def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
 
@@ -538,12 +538,12 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     # We suppress each one after first commit; HTLC gets added not fulfilled.
     # Feerates identical so we don't get gratuitous commit to update them
-    l1, l2 = node_factory.line_graph(2, opts=[{'disconnect': ['=WIRE_COMMITMENT_SIGNED-nocommit'],
+    l1, l2 = node_factory.line_graph(2, opts=[{'dev-disable-commit-after': 1,
                                                'may_fail': True,
                                                'feerates': (7500, 7500, 7500, 7500),
                                                'allow_broken_log': True,
                                                'plugin': coin_mvt_plugin},
-                                              {'disconnect': ['=WIRE_COMMITMENT_SIGNED-nocommit'],
+                                              {'dev-disable-commit-after': 1,
                                                'plugin': coin_mvt_plugin}])
 
     channel_id = first_channel_id(l1, l2)
@@ -555,8 +555,8 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     assert len(l2.getactivechannels()) == 2
 
     # They should both have commitments blocked now.
-    l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
-    l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+    l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l2.daemon.wait_for_log('dev-disable-commit-after: disabling')
 
     # Make sure l1 got l2's commitment to the HTLC, and sent to master.
     l1.daemon.wait_for_log('got commitsig')
@@ -652,7 +652,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
+@pytest.mark.developer("needs dev-disable-commit-after")
 def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an outgoing HTLC"""
 
@@ -661,20 +661,20 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     # First we need to get funds to l2, so suppress after second.
     # Feerates identical so we don't get gratuitous commit to update them
     l1, l2 = node_factory.line_graph(2,
-                                     opts=[{'disconnect': ['=WIRE_COMMITMENT_SIGNED*3-nocommit'],
+                                     opts=[{'dev-disable-commit-after': 3,
                                             'may_fail': True,
                                             'feerates': (7500, 7500, 7500, 7500),
                                             'allow_broken_log': True,
                                             'plugin': coin_mvt_plugin},
-                                           {'disconnect': ['=WIRE_COMMITMENT_SIGNED*3-nocommit'],
+                                           {'dev-disable-commit-after': 3,
                                             'plugin': coin_mvt_plugin}])
     channel_id = first_channel_id(l1, l2)
 
     # Move some across to l2.
     l1.pay(l2, 200000000)
 
-    assert not l1.daemon.is_in_log('=WIRE_COMMITMENT_SIGNED')
-    assert not l2.daemon.is_in_log('=WIRE_COMMITMENT_SIGNED')
+    assert not l1.daemon.is_in_log('dev-disable-commit-after: disabling')
+    assert not l2.daemon.is_in_log('dev-disable-commit-after: disabling')
 
     # Now, this will get stuck due to l1 commit being disabled..
     t = executor.submit(l2.pay, l1, 100000000)
@@ -684,8 +684,8 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     l1.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
 
     # They should both have commitments blocked now.
-    l1.daemon.wait_for_log('dev_disconnect: =WIRE_COMMITMENT_SIGNED')
-    l2.daemon.wait_for_log('dev_disconnect: =WIRE_COMMITMENT_SIGNED')
+    l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l2.daemon.wait_for_log('dev-disable-commit-after: disabling')
 
     # Make sure both sides got revoke_and_ack for that commitment.
     l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
@@ -1567,10 +1567,10 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     # l1 is the thief, which causes our honest upstanding lightningd
     # code to break, so l1 can fail.
     # Initially, disconnect before the HTLC can be resolved.
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+    l1 = node_factory.get_node(options={'dev-disable-commit-after': 1},
                                may_fail=True, allow_broken_log=True)
-    l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
-                               options={'watchtime-blocks': to_self_delay,
+    l2 = node_factory.get_node(options={'dev-disable-commit-after': 1,
+                                        'watchtime-blocks': to_self_delay,
                                         'plugin': coin_mvt_plugin})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1585,8 +1585,8 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     assert len(l2.getactivechannels()) == 2
 
     # Wait for the disconnection.
-    l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
-    l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+    l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l2.daemon.wait_for_log('dev-disable-commit-after: disabling')
     # Make sure l1 gets the new HTLC.
     l1.daemon.wait_for_log('got commitsig')
 
@@ -1692,10 +1692,10 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     # l1 is the thief, which causes our honest upstanding lightningd
     # code to break, so l1 can fail.
     # Initially, disconnect before the HTLC can be resolved.
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+    l1 = node_factory.get_node(options={'dev-disable-commit-after': 1},
                                may_fail=True, allow_broken_log=True)
-    l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
-                               options={'watchtime-blocks': to_self_delay,
+    l2 = node_factory.get_node(options={'dev-disable-commit-after': 1,
+                                        'watchtime-blocks': to_self_delay,
                                         'plugin': coin_mvt_plugin})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1710,8 +1710,8 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     assert len(l2.getactivechannels()) == 2
 
     # Wait for the disconnection.
-    l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
-    l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+    l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l2.daemon.wait_for_log('dev-disable-commit-after: disabling')
     # Make sure l1 gets the new HTLC.
     l1.daemon.wait_for_log('got commitsig')
 

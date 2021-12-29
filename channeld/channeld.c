@@ -158,6 +158,10 @@ struct peer {
 	struct msg_queue *update_queue;
 #endif
 
+#if DEVELOPER
+	/* If set, don't fire commit counter when this hits 0 */
+	u32 *dev_disable_commit;
+#endif
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -1248,8 +1252,7 @@ static void send_commit(struct peer *peer)
 	u32 feerate_target;
 
 #if DEVELOPER
-	/* Hack to suppress all commit sends if dev_disconnect says to */
-	if (dev_suppress_commit) {
+	if (peer->dev_disable_commit && !*peer->dev_disable_commit) {
 		peer->commit_timer = NULL;
 		return;
 	}
@@ -1383,6 +1386,14 @@ static void send_commit(struct peer *peer)
 		tal_arr_expand(&peer->pbases, tal_steal(peer, pbase));
 	}  else
 		pbase = NULL;
+
+#if DEVELOPER
+	if (peer->dev_disable_commit) {
+		(*peer->dev_disable_commit)--;
+		if (*peer->dev_disable_commit == 0)
+			status_unusual("dev-disable-commit-after: disabling");
+	}
+#endif
 
 	status_debug("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
@@ -3655,7 +3666,7 @@ static void handle_send_ping(struct peer *peer, const u8 *msg)
 #if DEVELOPER
 static void handle_dev_reenable_commit(struct peer *peer)
 {
-	dev_suppress_commit = false;
+	peer->dev_disable_commit = tal_free(peer->dev_disable_commit);
 	start_commit_timer(peer);
 	status_debug("dev_reenable_commit");
 	wire_sync_write(MASTER_FD,
@@ -3828,6 +3839,7 @@ static void init_channel(struct peer *peer)
 	struct penalty_base *pbases;
 	u8 *reestablish_only;
 	struct channel_type *channel_type;
+	u32 *dev_disable_commit; /* Always NULL */
 #if !DEVELOPER
 	bool dev_fail_process_onionpacket; /* Ignored */
 #endif
@@ -3836,65 +3848,70 @@ static void init_channel(struct peer *peer)
 
 	msg = wire_sync_read(tmpctx, MASTER_FD);
 	if (!fromwire_channeld_init(peer, msg,
-				   &chainparams,
-				   &peer->our_features,
-				   &peer->channel_id,
-				   &funding,
-				   &funding_sats,
-				   &minimum_depth,
-				   &peer->our_blockheight,
-				   &blockheight_states,
-				   &lease_expiry,
-				   &conf[LOCAL], &conf[REMOTE],
-				   &fee_states,
-				   &peer->feerate_min,
-				   &peer->feerate_max,
-				   &peer->feerate_penalty,
-				   &peer->their_commit_sig,
-				   &peer->pps,
-				   &funding_pubkey[REMOTE],
-				   &points[REMOTE],
-				   &peer->remote_per_commit,
-				   &peer->old_remote_per_commit,
-				   &opener,
-				   &peer->fee_base,
-				   &peer->fee_per_satoshi,
-				   &local_msat,
-				   &points[LOCAL],
-				   &funding_pubkey[LOCAL],
-				   &peer->node_ids[LOCAL],
-				   &peer->node_ids[REMOTE],
-				   &peer->commit_msec,
-				   &peer->cltv_delta,
-				   &peer->last_was_revoke,
-				   &peer->last_sent_commit,
-				   &peer->next_index[LOCAL],
-				   &peer->next_index[REMOTE],
-				   &peer->revocations_received,
-				   &peer->htlc_id,
-				   &htlcs,
-				   &peer->funding_locked[LOCAL],
-				   &peer->funding_locked[REMOTE],
-				   &peer->short_channel_ids[LOCAL],
-				   &reconnected,
-				   &peer->send_shutdown,
-				   &peer->shutdown_sent[REMOTE],
-				   &peer->final_scriptpubkey,
-				   &peer->channel_flags,
-				   &fwd_msg,
-				   &peer->announce_depth_reached,
-				   &last_remote_per_commit_secret,
-				   &peer->their_features,
-				   &peer->remote_upfront_shutdown_script,
-				   &remote_ann_node_sig,
-				   &remote_ann_bitcoin_sig,
-				   &channel_type,
-				   &dev_fast_gossip,
-				   &dev_fail_process_onionpacket,
-				   &pbases,
-				   &reestablish_only)) {
+				    &chainparams,
+				    &peer->our_features,
+				    &peer->channel_id,
+				    &funding,
+				    &funding_sats,
+				    &minimum_depth,
+				    &peer->our_blockheight,
+				    &blockheight_states,
+				    &lease_expiry,
+				    &conf[LOCAL], &conf[REMOTE],
+				    &fee_states,
+				    &peer->feerate_min,
+				    &peer->feerate_max,
+				    &peer->feerate_penalty,
+				    &peer->their_commit_sig,
+				    &peer->pps,
+				    &funding_pubkey[REMOTE],
+				    &points[REMOTE],
+				    &peer->remote_per_commit,
+				    &peer->old_remote_per_commit,
+				    &opener,
+				    &peer->fee_base,
+				    &peer->fee_per_satoshi,
+				    &local_msat,
+				    &points[LOCAL],
+				    &funding_pubkey[LOCAL],
+				    &peer->node_ids[LOCAL],
+				    &peer->node_ids[REMOTE],
+				    &peer->commit_msec,
+				    &peer->cltv_delta,
+				    &peer->last_was_revoke,
+				    &peer->last_sent_commit,
+				    &peer->next_index[LOCAL],
+				    &peer->next_index[REMOTE],
+				    &peer->revocations_received,
+				    &peer->htlc_id,
+				    &htlcs,
+				    &peer->funding_locked[LOCAL],
+				    &peer->funding_locked[REMOTE],
+				    &peer->short_channel_ids[LOCAL],
+				    &reconnected,
+				    &peer->send_shutdown,
+				    &peer->shutdown_sent[REMOTE],
+				    &peer->final_scriptpubkey,
+				    &peer->channel_flags,
+				    &fwd_msg,
+				    &peer->announce_depth_reached,
+				    &last_remote_per_commit_secret,
+				    &peer->their_features,
+				    &peer->remote_upfront_shutdown_script,
+				    &remote_ann_node_sig,
+				    &remote_ann_bitcoin_sig,
+				    &channel_type,
+				    &dev_fast_gossip,
+				    &dev_fail_process_onionpacket,
+				    &dev_disable_commit,
+				    &pbases,
+				    &reestablish_only)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
+
+#if DEVELOPER
+	peer->dev_disable_commit = dev_disable_commit;
+#endif
 
 	status_debug("option_static_remotekey = %u, option_anchor_outputs = %u",
 		     channel_type_has(channel_type, OPT_STATIC_REMOTEKEY),

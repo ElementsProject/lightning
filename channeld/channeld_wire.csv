@@ -74,6 +74,7 @@ msgdata,channeld_init,remote_ann_bitcoin_sig,?secp256k1_ecdsa_signature,
 msgdata,channeld_init,desired_type,channel_type,
 msgdata,channeld_init,dev_fast_gossip,bool,
 msgdata,channeld_init,dev_fail_process_onionpacket,bool,
+msgdata,channeld_init,dev_disable_commit,?u32,
 msgdata,channeld_init,num_penalty_bases,u32,
 msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
 msgdata,channeld_init,reestablish_only_len,u16,
