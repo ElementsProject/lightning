@@ -203,6 +203,15 @@ void json_object_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for local_channel_update_latest */
+bool local_channel_update_latest(struct daemon *daemon UNNEEDED, struct chan *chan UNNEEDED)
+{ fprintf(stderr, "local_channel_update_latest called!\n"); abort(); }
+/* Generated stub for local_disable_chan */
+void local_disable_chan(struct daemon *daemon UNNEEDED, const struct chan *chan UNNEEDED, int direction UNNEEDED)
+{ fprintf(stderr, "local_disable_chan called!\n"); abort(); }
+/* Generated stub for local_enable_chan */
+void local_enable_chan(struct daemon *daemon UNNEEDED, const struct chan *chan UNNEEDED, int direction UNNEEDED)
+{ fprintf(stderr, "local_enable_chan called!\n"); abort(); }
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
@@ -258,8 +267,7 @@ void query_unknown_node(struct seeker *seeker UNNEEDED, struct peer *peer UNNEED
 { fprintf(stderr, "query_unknown_node called!\n"); abort(); }
 /* Generated stub for refresh_local_channel */
 void refresh_local_channel(struct daemon *daemon UNNEEDED,
-			   struct local_chan *local_chan UNNEEDED,
-			   bool even_if_identical UNNEEDED)
+			   struct chan *chan UNNEEDED, int direction UNNEEDED)
 { fprintf(stderr, "refresh_local_channel called!\n"); abort(); }
 /* Generated stub for remove_channel_from_store */
 void remove_channel_from_store(struct routing_state *rstate UNNEEDED,

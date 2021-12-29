@@ -35,10 +35,18 @@ bool nannounce_different(struct gossip_store *gs,
 /* Should we announce our own node?  Called at strategic places. */
 void maybe_send_own_node_announce(struct daemon *daemon, bool startup);
 
-/* This is a refresh of a local channel: sends an update if one is needed. */
+/* Flush any pending changes to this channel. */
+bool local_channel_update_latest(struct daemon *daemon, struct chan *chan);
+
+/* Disable this local channel (lazily) */
+void local_disable_chan(struct daemon *daemon, const struct chan *chan, int direction);
+
+/* Re-enable this local channel */
+void local_enable_chan(struct daemon *daemon, const struct chan *chan, int direction);
+
+/* This is a refresh of a local channel which is > 13 days old. */
 void refresh_local_channel(struct daemon *daemon,
-			   struct local_chan *local_chan,
-			   bool even_if_identical);
+			   struct chan *chan, int direction);
 
 /* channeld asks us to update the local channel. */
 bool handle_local_channel_update(struct daemon *daemon,

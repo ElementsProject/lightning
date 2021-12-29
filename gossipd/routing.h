@@ -94,22 +94,6 @@ static inline bool chan_eq_scid(const struct chan *c,
 
 HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map);
 
-/* Container for local channel pointers. */
-static inline const struct short_channel_id *local_chan_map_scid(const struct local_chan *local_chan)
-{
-	return &local_chan->chan->scid;
-}
-
-static inline bool local_chan_eq_scid(const struct local_chan *local_chan,
-				      const struct short_channel_id *scid)
-{
-	return short_channel_id_eq(scid, &local_chan->chan->scid);
-}
-
-HTABLE_DEFINE_TYPE(struct local_chan,
-		   local_chan_map_scid, hash_scid, local_chan_eq_scid,
-		   local_chan_map);
-
 /* For a small number of channels (by far the most common) we use a simple
  * array, with empty buckets NULL.  For larger, we use a proper hash table,
  * with the extra allocation that implies. */
@@ -191,33 +175,13 @@ HTABLE_DEFINE_TYPE(struct pending_cannouncement, panding_cannouncement_map_scid,
 struct pending_node_map;
 struct unupdated_channel;
 
-/* Fast versions: if you know n is one end of the channel */
-static inline struct node *other_node(const struct node *n,
-				      const struct chan *chan)
+/* If you know n is one end of the channel, get index of src == n */
+static inline int half_chan_idx(const struct node *n, const struct chan *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
 	assert(chan->nodes[0] == n || chan->nodes[1] == n);
-	return chan->nodes[!idx];
-}
-
-/* If you know n is one end of the channel, get connection src == n */
-static inline struct half_chan *half_chan_from(const struct node *n,
-					       struct chan *chan)
-{
-	int idx = (chan->nodes[1] == n);
-
-	assert(chan->nodes[0] == n || chan->nodes[1] == n);
-	return &chan->half[idx];
-}
-
-/* If you know n is one end of the channel, get index dst == n */
-static inline int half_chan_to(const struct node *n, const struct chan *chan)
-{
-	int idx = (chan->nodes[1] == n);
-
-	assert(chan->nodes[0] == n || chan->nodes[1] == n);
-	return !idx;
+	return idx;
 }
 
 struct routing_state {
@@ -254,9 +218,6 @@ struct routing_state {
 	size_t num_txout_failures;
 	UINTMAP(bool) txout_failures, txout_failures_old;
 	struct oneshot *txout_failure_timer;
-
-        /* A map of local channels by short_channel_ids */
-	struct local_chan_map local_chan_map;
 
 	/* Highest timestamp of gossip we accepted (before now) */
 	u32 last_timestamp;
@@ -427,40 +388,10 @@ bool routing_add_private_channel(struct routing_state *rstate,
  */
 struct timeabs gossip_time_now(const struct routing_state *rstate);
 
-static inline struct local_chan *is_local_chan(struct routing_state *rstate,
-					       const struct chan *chan)
-{
-	return local_chan_map_get(&rstate->local_chan_map, &chan->scid);
-}
-
 /* Would we ratelimit a channel_update with this timestamp? */
 bool would_ratelimit_cupdate(struct routing_state *rstate,
 			     const struct half_chan *hc,
 			     u32 timestamp);
-
-/* Because we can have millions of channels, and we only want a local_disable
- * flag on ones connected to us, we keep a separate hashtable for that flag.
- */
-static inline bool is_chan_local_disabled(struct routing_state *rstate,
-					  const struct chan *chan)
-{
-	struct local_chan *local_chan = is_local_chan(rstate, chan);
-	return local_chan && local_chan->local_disabled;
-}
-
-static inline void local_disable_chan(struct routing_state *rstate,
-				      const struct chan *chan)
-{
-	struct local_chan *local_chan = is_local_chan(rstate, chan);
-	local_chan->local_disabled = true;
-}
-
-static inline void local_enable_chan(struct routing_state *rstate,
-				     const struct chan *chan)
-{
-	struct local_chan *local_chan = is_local_chan(rstate, chan);
-	local_chan->local_disabled = false;
-}
 
 /* Remove channel from store: announcement and any updates. */
 void remove_channel_from_store(struct routing_state *rstate,
