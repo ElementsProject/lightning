@@ -115,6 +115,39 @@ where
     }
 }
 
+use serde::ser::{SerializeStruct, Serializer};
+
+impl<N, R> Serialize for JsonRpc<N, R>
+where
+    N: Serialize + Debug,
+    R: Serialize + Debug,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            JsonRpc::Notification(r) => {
+                let r = serde_json::to_value(r).unwrap();
+                let mut s = serializer.serialize_struct("Notification", 3)?;
+                s.serialize_field("jsonrpc", "2.0")?;
+                s.serialize_field("method", &r["method"])?;
+                s.serialize_field("params", &r["params"])?;
+                s.end()
+            }
+            JsonRpc::Request(id, r) => {
+                let r = serde_json::to_value(r).unwrap();
+                let mut s = serializer.serialize_struct("Request", 4)?;
+                s.serialize_field("jsonrpc", "2.0")?;
+                s.serialize_field("id", id)?;
+                s.serialize_field("method", &r["method"])?;
+                s.serialize_field("params", &r["params"])?;
+                s.end()
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Default, Debug)]
 pub struct GetManifestResponse {
     options: Vec<()>,
