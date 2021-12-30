@@ -1,4 +1,3 @@
-use crate::messages::{JsonRpc, Notification, Request};
 /// The codec is used to encode and decode messages received from and
 /// sent to the main daemon. The protocol uses `stdout` and `stdin` to
 /// exchange JSON formatted messages. Each message is separated by an
@@ -11,6 +10,9 @@ use serde_json::value::Value;
 use std::str::FromStr;
 use std::{io, str};
 use tokio_util::codec::{Decoder, Encoder};
+
+use crate::messages::{Notification, Request};
+pub use crate::messages::JsonRpc;
 
 /// A simple codec that parses messages separated by two successive
 /// `\n` newlines.
