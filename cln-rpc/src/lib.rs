@@ -109,3 +109,27 @@ mod codec {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    use futures_util::StreamExt;
+
+    #[tokio::test]
+    async fn test_call() {
+        let req = requests::Request::Getinfo(requests::Getinfo {});
+        let (uds1, uds2) = UnixStream::pair().unwrap();
+        let mut cln = ClnRpc::from_stream(uds1).unwrap();
+
+        let mut read = FramedRead::new(uds2, JsonCodec::default());
+        tokio::task::spawn(async move {
+            cln.call(req).await.unwrap();
+        });
+
+        let read_req = dbg!(read.next().await.unwrap().unwrap());
+
+        assert_eq!(
+            json!({"id": 1, "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
+            read_req
+        );
+    }
+}
