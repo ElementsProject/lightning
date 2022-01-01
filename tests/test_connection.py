@@ -48,6 +48,9 @@ def test_connect(node_factory):
     assert len(l1.rpc.listpeers()) == 1
     assert len(l2.rpc.listpeers()) == 1
 
+    if EXPERIMENTAL_FEATURES:
+        l1.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
+
     # Should get reasonable error if unknown addr for peer.
     with pytest.raises(RpcError, match=r'Unable to connect, no address known'):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
