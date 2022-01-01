@@ -10,7 +10,7 @@ plugin = Plugin()
 
 @plugin.hook('peer_connected')
 def on_connected(peer, plugin, **kwargs):
-    print("peer_connected_logger_a {}".format(peer['id']))
+    print(f"peer_connected_logger_a {peer['id']} {peer}")
     return {'result': 'continue'}
 
 

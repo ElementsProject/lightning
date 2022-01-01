@@ -10,7 +10,7 @@ from utils import (
     DEPRECATED_APIS, expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
-    mine_funding_to_announce
+    mine_funding_to_announce, EXPERIMENTAL_FEATURES
 )
 
 import ast
@@ -449,6 +449,31 @@ def test_plugin_connected_hook_chaining(node_factory):
 
     wait_for(check_disconnect)
     assert not l1.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT1 remote_addr #917")
+def test_peer_connected_remote_addr(node_factory):
+    """This tests the optional tlv `remote_addr` being passed to a plugin.
+
+    The optional tlv `remote_addr` should only be visible to the initiator l1.
+    """
+    l1, l2 = node_factory.get_nodes(2, opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/peer_connected_logger_a.py')})
+    l1id = l1.info['id']
+    l2id = l2.info['id']
+
+    l1.connect(l2)
+    l1log = l1.daemon.wait_for_log(f"peer_connected_logger_a {l2id}")
+    l2log = l2.daemon.wait_for_log(f"peer_connected_logger_a {l1id}")
+
+    # the log entries are followed by the peer_connected payload as dict {} like:
+    # {'id': '022d223...', 'direction': 'out', 'addr': '127.0.0.1:35289',
+    #  'remote_addr': '127.0.0.1:59582', 'features': '8808226aa2'}
+    l1payload = eval(l1log[l1log.find('{'):])
+    l2payload = eval(l2log[l2log.find('{'):])
+
+    # check that l1 sees its remote_addr as l2 sees l1
+    assert(l1payload['remote_addr'] == l2payload['addr'])
+    assert(not l2payload.get('remote_addr'))  # l2 can't see a remote_addr
 
 
 def test_async_rpcmethod(node_factory, executor):
