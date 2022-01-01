@@ -196,6 +196,23 @@ static char *opt_set_accept_extra_tlv_types(const char *arg,
 }
 #endif
 
+#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
+/* Returns the number of wireaddr types already announced */
+static size_t num_announced_types(enum wire_addr_type type, struct lightningd *ld)
+{
+	size_t num = 0;
+	for (size_t i = 0; i < tal_count(ld->proposed_wireaddr); i++) {
+		if (ld->proposed_wireaddr[i].itype != ADDR_INTERNAL_WIREADDR)
+			continue;
+		if (ld->proposed_wireaddr[i].u.wireaddr.type != type)
+			continue;
+		if (ld->proposed_listen_announce[i] & ADDR_ANNOUNCE)
+			num++;
+	}
+	return num;
+}
+#endif
+
 static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
 				   enum addr_listen_announce ala,
@@ -242,6 +259,14 @@ static char *opt_add_addr_withtype(const char *arg,
 #if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 	/* Add ADDR_TYPE_DNS to announce DNS hostnames */
 	if (is_dnsaddr(address) && ala & ADDR_ANNOUNCE) {
+		/* BOLT-hostnames #7:
+		 * The origin node:
+		 * ...
+		 *   - MUST NOT announce more than one `type 5` DNS hostname.
+		 */
+		if (num_announced_types(ADDR_TYPE_DNS, ld) > 0) {
+			return tal_fmt(NULL, "Only one DNS can be announced");
+		}
 		memset(&wi, 0, sizeof(wi));
 		wi.itype = ADDR_INTERNAL_WIREADDR;
 		wi.u.wireaddr.type = ADDR_TYPE_DNS;
