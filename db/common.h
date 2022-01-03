@@ -1,10 +1,32 @@
-#ifndef LIGHTNING_WALLET_DB_COMMON_H
-#define LIGHTNING_WALLET_DB_COMMON_H
+#ifndef LIGHTNING_DB_COMMON_H
+#define LIGHTNING_DB_COMMON_H
 #include "config.h"
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/strset/strset.h>
 #include <common/autodata.h>
+#include <common/utils.h>
+
+/**
+ * Macro to annotate a named SQL query.
+ *
+ * This macro is used to annotate SQL queries that might need rewriting for
+ * different SQL dialects. It is used both as a marker for the query
+ * extraction logic in devtools/sql-rewrite.py to identify queries, as well as
+ * a way to swap out the query text with it's name so that the query execution
+ * engine can then look up the rewritten query using its name.
+ *
+ */
+#define NAMED_SQL(name,x) x
+
+/**
+ * Simple annotation macro that auto-generates names for NAMED_SQL
+ *
+ * If this macro is changed it is likely that the extraction logic in
+ * devtools/sql-rewrite.py needs to change as well, since they need to
+ * generate identical names to work correctly.
+ */
+#define SQL(x) NAMED_SQL( __FILE__ ":" stringify(__COUNTER__), x)
 
 struct db {
 	char *filename;
@@ -13,17 +35,17 @@ struct db {
 	/* DB-specific context */
 	void *conn;
 
-	/* The configuration, including translated queries for the current
-	 * instance. */
+	/* The configuration for the current database driver */
 	const struct db_config *config;
+
+	/* Translated queries for the current database domain + driver */
+	const struct db_query_set *queries;
 
 	const char **changes;
 
 	/* List of statements that have been created but not executed yet. */
 	struct list_head pending_statements;
 	char *error;
-
-	struct log *log;
 
 	/* Were there any modifying statements in the current transaction?
 	 * Used to bump the data_version in the DB.*/
@@ -32,6 +54,8 @@ struct db {
 	/* The current DB version we expect to update if changes are
 	 * committed. */
 	u32 data_version;
+
+	void (*report_changes_fn)(struct db *);
 };
 
 struct db_query {
@@ -102,10 +126,14 @@ struct db_stmt {
 #endif
 };
 
-struct db_config {
+struct db_query_set {
 	const char *name;
 	const struct db_query *query_table;
 	size_t query_table_size;
+};
+
+struct db_config {
+	const char *name;
 
 	/* Function used to execute a statement that doesn't result in a
 	 * response. */
@@ -155,20 +183,14 @@ struct db_config {
 			       const char **colnames, size_t num_cols);
 };
 
-/* Provide a way for DB backends to register themselves */
-AUTODATA_TYPE(db_backends, struct db_config);
-
 void db_fatal(const char *fmt, ...)
 	PRINTF_FMT(1, 2);
 
-/**
- * Report a statement that changes the wallet
- *
- * Allows the DB driver to report an expanded statement during
- * execution. Changes are queued up and reported to the `db_write` plugin hook
- * upon committing.
- */
-void db_changes_add(struct db_stmt *db_stmt, const char * expanded);
+/* Provide a way for DB backends to register themselves */
+AUTODATA_TYPE(db_backends, struct db_config);
+
+/* Provide a way for DB query sets to register themselves */
+AUTODATA_TYPE(db_queries, struct db_query_set);
 
 /* devtools/sql-rewrite.py generates this simple htable */
 struct sqlname_map {
@@ -176,4 +198,4 @@ struct sqlname_map {
 	int val;
 };
 
-#endif /* LIGHTNING_WALLET_DB_COMMON_H */
+#endif /* LIGHTNING_DB_COMMON_H */

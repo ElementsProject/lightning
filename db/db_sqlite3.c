@@ -1,8 +1,8 @@
 #include "config.h"
-#include "db_sqlite3_sqlgen.c"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/utils.h>
-#include <lightningd/log.h>
+#include <db/common.h>
+#include <db/utils.h>
 
 #if HAVE_SQLITE3
   #include <sqlite3.h>
@@ -682,8 +682,6 @@ static bool db_sqlite3_delete_columns(struct db *db,
 
 struct db_config db_sqlite3_config = {
 	.name = "sqlite3",
-	.query_table = db_sqlite3_queries,
-	.query_table_size = ARRAY_SIZE(db_sqlite3_queries),
 	.exec_fn = &db_sqlite3_exec,
 	.query_fn = &db_sqlite3_query,
 	.step_fn = &db_sqlite3_step,
@@ -710,4 +708,4 @@ struct db_config db_sqlite3_config = {
 
 AUTODATA(db_backends, &db_sqlite3_config);
 
-#endif
+#endif /* HAVE_SQLITE3 */

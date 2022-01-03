@@ -336,6 +336,7 @@ include external/Makefile
 include bitcoin/Makefile
 include common/Makefile
 include wire/Makefile
+include db/Makefile
 include hsmd/Makefile
 include gossipd/Makefile
 include openingd/Makefile

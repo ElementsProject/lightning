@@ -10,6 +10,7 @@
 #include <common/peer_status_wiregen.h>
 #include <common/status_wiregen.h>
 #include <common/version.h>
+#include <db/exec.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>

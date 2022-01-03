@@ -126,7 +126,8 @@ template = Template("""#ifndef LIGHTNINGD_WALLET_GEN_DB_${f.upper()}
 
 #include <config.h>
 #include <ccan/array_size/array_size.h>
-#include <wallet/db_common.h>
+#include <db/common.h>
+#include <db/utils.h>
 
 #if HAVE_${f.upper()}
 % for colname, table in colhtables.items():

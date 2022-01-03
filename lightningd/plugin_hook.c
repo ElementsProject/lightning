@@ -1,6 +1,8 @@
 #include "config.h"
 #include <ccan/io/io.h>
 #include <common/memleak.h>
+#include <db/exec.h>
+#include <db/utils.h>
 #include <lightningd/plugin_hook.h>
 
 /* Struct containing all the information needed to deserialize and

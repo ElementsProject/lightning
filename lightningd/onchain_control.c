@@ -2,6 +2,7 @@
 #include <bitcoin/feerate.h>
 #include <common/key_derive.h>
 #include <common/type_to_string.h>
+#include <db/exec.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
 #include <inttypes.h>

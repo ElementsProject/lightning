@@ -37,6 +37,7 @@
  */
 #include <ccan/array_size/array_size.h>
 #include <ccan/closefrom/closefrom.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -53,6 +54,7 @@
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
+#include <db/exec.h>
 
 #include <errno.h>
 #include <fcntl.h>

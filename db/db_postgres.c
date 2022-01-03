@@ -1,9 +1,8 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <ccan/endian/endian.h>
-#include <lightningd/log.h>
-#include <wallet/db_common.h>
-#include <wallet/db_postgres_sqlgen.c>
+#include <db/common.h>
+#include <db/utils.h>
 
 #if HAVE_POSTGRES
 /* Indented in order not to trigger the inclusion order check */
@@ -321,8 +320,6 @@ static bool db_postgres_delete_columns(struct db *db,
 
 struct db_config db_postgres_config = {
     .name = "postgres",
-    .query_table = db_postgres_queries,
-    .query_table_size = ARRAY_SIZE(db_postgres_queries),
     .exec_fn = db_postgres_exec,
     .query_fn = db_postgres_query,
     .step_fn = db_postgres_step,
@@ -348,4 +345,4 @@ struct db_config db_postgres_config = {
 
 AUTODATA(db_backends, &db_postgres_config);
 
-#endif
+#endif /* HAVE_POSTGRES */
