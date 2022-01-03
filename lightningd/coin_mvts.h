@@ -3,7 +3,8 @@
 #include "config.h"
 
 #include <common/coin_mvt.h>
-#include <lightningd/lightningd.h>
+
+struct lightningd;
 
 struct account_balance {
 	const char *acct_id;
