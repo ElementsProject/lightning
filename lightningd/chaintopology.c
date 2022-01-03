@@ -11,6 +11,7 @@
 #include <common/param.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
+#include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>

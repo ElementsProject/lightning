@@ -12,6 +12,7 @@
 #include <common/param.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
+#include <db/exec.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>

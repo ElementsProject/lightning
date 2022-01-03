@@ -14,6 +14,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_helpers.h>
 #include <common/memleak.h>
+#include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/io_loop_with_timers.h>

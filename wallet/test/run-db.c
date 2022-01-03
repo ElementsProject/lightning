@@ -6,6 +6,10 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 }
 #define log_ db_log_
 
+#include "db/bindings.c"
+#include "db/db_sqlite3.c"
+#include "db/exec.c"
+#include "db/utils.c"
 #include "wallet/db.c"
 
 #include "test_utils.h"
@@ -86,6 +90,8 @@ static struct db *create_test_db(void)
 	tal_free(filename);
 	db = db_open(NULL, dsn);
 	db->data_version = 0;
+	db->report_changes_fn = NULL;
+
 	tal_free(dsn);
 	return db;
 }

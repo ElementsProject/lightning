@@ -130,9 +130,11 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wallet.o				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
+	db/bindings.o				\
+	db/exec.o				\
 
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HDRS)
-$(WALLET_OBJS): $(LIGHTNINGD_HDRS)
+$(WALLET_OBJS): $(LIGHTNINGD_HDRS) $(DB_HEADERS)
 
 # Only the plugin component needs to depend on this header.
 lightningd/plugin.o: plugins/list_of_builtin_plugins_gen.h
@@ -140,6 +142,6 @@ lightningd/plugin.o: plugins/list_of_builtin_plugins_gen.h
 lightningd/channel_state_names_gen.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr lightningd/channel_state.h > $@
 
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS)
+lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS) $(DB_OBJS)
 
 include lightningd/test/Makefile

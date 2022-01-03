@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/io/io.h>
 #include <common/timeout.h>
+#include <db/exec.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/lightningd.h>
 

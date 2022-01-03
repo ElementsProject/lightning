@@ -1,7 +1,10 @@
 #include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/timeout.h>
-#include <wallet/db.h>
+#include <db/bindings.h>
+#include <db/common.h>
+#include <db/exec.h>
+#include <db/utils.h>
 #include <wallet/invoices.h>
 #include <wallet/wallet.h>
 

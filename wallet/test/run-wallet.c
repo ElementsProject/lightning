@@ -3,7 +3,7 @@
 
 #include "test_utils.h"
 #include <ccan/tal/str/str.h>
-#include <wallet/db_common.h>
+#include <db/common.h>
 
 static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const struct node_id *node_id UNUSED, bool call_notifier UNUSED, const char *fmt UNUSED, ...)
 {
@@ -35,6 +35,10 @@ void db_fatal(const char *fmt, ...)
 #include "lightningd/peer_htlcs.c"
 #include "lightningd/channel.c"
 
+#include "db/bindings.c"
+#include "db/db_sqlite3.c"
+#include "db/exec.c"
+#include "db/utils.c"
 #include "wallet/db.c"
 
 #include <common/setup.h>
@@ -908,6 +912,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 
 	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
 	w->db = db_open(w, dsn);
+	w->db->report_changes_fn = NULL;
 	tal_free(dsn);
 	tal_add_destructor2(w, cleanup_test_wallet, filename);
 

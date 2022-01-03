@@ -1,5 +1,7 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
+#include <ccan/json_escape/json_escape.h>
+#include <ccan/take/take.h>
 #include <common/bolt12_merkle.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
