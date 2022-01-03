@@ -3,12 +3,20 @@
 #include <common/coin_mvt.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
+#include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
+#include <plugins/bkpr/db.h>
 #include <plugins/libplugin.h>
 
 #define CHAIN_MOVE "chain_mvt"
 #define CHANNEL_MOVE "channel_mvt"
+
+/* The database that we store all the accounting data in */
+static struct db *db ;
+
+// FIXME: make relative to directory we're loaded into
+static char *db_dsn = "sqlite3://accounts.sqlite3";
 
 static struct command_result *json_list_balances(struct command *cmd,
 						 const char *buf,
@@ -322,7 +330,9 @@ static const struct plugin_command commands[] = {
 
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
-	// FIXME set up database, run migrations
+	// FIXME: pass in database DSN as an option??
+	db = notleak(db_setup(p, p, db_dsn));
+
 	return NULL;
 }
 
