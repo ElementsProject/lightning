@@ -996,6 +996,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", funding_satoshi"
 				 ", our_funding_satoshi"
 				 ", funding_psbt"
+				 ", funding_tx_remote_sigs_received"
 				 ", last_tx"
 				 ", last_sig"
 				 ", lease_commit_sig"
@@ -1005,7 +1006,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", lease_blockheight_start"
 				 ", lease_fee"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, inflight->channel->dbid);
 	db_bind_txid(stmt, 1, &inflight->funding->outpoint.txid);
@@ -1014,23 +1015,24 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	db_bind_amount_sat(stmt, 4, &inflight->funding->total_funds);
 	db_bind_amount_sat(stmt, 5, &inflight->funding->our_funds);
 	db_bind_psbt(stmt, 6, inflight->funding_psbt);
-	db_bind_psbt(stmt, 7, inflight->last_tx->psbt);
-	db_bind_signature(stmt, 8, &inflight->last_sig.s);
+	db_bind_int(stmt, 7, inflight->remote_tx_sigs ? 1 : 0);
+	db_bind_psbt(stmt, 8, inflight->last_tx->psbt);
+	db_bind_signature(stmt, 9, &inflight->last_sig.s);
 
 	if (inflight->lease_expiry != 0) {
-		db_bind_signature(stmt, 9, inflight->lease_commit_sig);
-		db_bind_int(stmt, 10, inflight->lease_chan_max_msat);
-		db_bind_int(stmt, 11, inflight->lease_chan_max_ppt);
-		db_bind_int(stmt, 12, inflight->lease_expiry);
-		db_bind_int(stmt, 13, inflight->lease_blockheight_start);
-		db_bind_amount_msat(stmt, 14, &inflight->lease_fee);
+		db_bind_signature(stmt, 10, inflight->lease_commit_sig);
+		db_bind_int(stmt, 11, inflight->lease_chan_max_msat);
+		db_bind_int(stmt, 12, inflight->lease_chan_max_ppt);
+		db_bind_int(stmt, 13, inflight->lease_expiry);
+		db_bind_int(stmt, 14, inflight->lease_blockheight_start);
+		db_bind_amount_msat(stmt, 15, &inflight->lease_fee);
 	} else {
-		db_bind_null(stmt, 9);
 		db_bind_null(stmt, 10);
 		db_bind_null(stmt, 11);
-		db_bind_int(stmt, 12, 0);
-		db_bind_null(stmt, 13);
+		db_bind_null(stmt, 12);
+		db_bind_int(stmt, 13, 0);
 		db_bind_null(stmt, 14);
+		db_bind_null(stmt, 15);
 	}
 
 	db_exec_prepared_v2(stmt);
