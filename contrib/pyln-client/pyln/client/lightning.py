@@ -223,14 +223,14 @@ class UnixSocket(object):
     """
 
     def __init__(self, path: str):
-        self.path = str(path) if 'pathlib' in str(type(path)) else path
+        self.path = path
         self.sock: Optional[socket.SocketType] = None
         self.connect()
 
     def connect(self) -> None:
         try:
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect(self.path)
+            self.sock.connect(str(self.path))
         except OSError as e:
             self.close()
 
