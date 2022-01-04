@@ -223,7 +223,7 @@ class UnixSocket(object):
     """
 
     def __init__(self, path: str):
-        self.path = path
+        self.path = str(path) if 'pathlib' in str(type(path)) else path
         self.sock: Optional[socket.SocketType] = None
         self.connect()
 
