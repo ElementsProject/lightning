@@ -2,6 +2,7 @@ x86_64-linux-gnu
 aarch64-linux-gnu
 arm-linux-gnueabihf
 x86_64-pc-linux-gnu
+arm64-apple-darwin*
 
 libbacktrace-build/
 libbacktrace.a
