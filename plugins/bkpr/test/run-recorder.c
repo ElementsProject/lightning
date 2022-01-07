@@ -222,17 +222,356 @@ static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 	return true;
 }
 
-/*
-static bool onchain_fees_eq(struct onchain_fee *of1, struct onchain_fee *of2)
+static struct chain_event *make_chain_event(const tal_t *ctx,
+					    char *tag,
+					    struct amount_msat credit,
+					    struct amount_msat debit,
+					    char outpoint_char,
+					    u32 outnum,
+					    /* Note that '*' is magic */
+					    char spend_char)
+
+
 {
-	CHECK(of1->acct_db_id == of2->acct_db_id);
-	CHECK(bitcoin_txid_eq(&of1->txid, &of2->txid));
-	CHECK(amount_msat_eq(of1->amount, of2->amount));
-	CHECK(streq(of1->currency, of2->currency));
+	struct chain_event *ev = tal(ctx, struct chain_event);
+
+	/* This event spends the second inserted event */
+	ev->tag = tal_fmt(ctx, "%s", tag);
+	ev->credit = credit;
+	ev->debit = debit;
+	ev->output_value = AMOUNT_MSAT(1000);
+	ev->currency = "btc";
+	ev->timestamp = 1919191;
+	ev->blockheight = 1919191;
+	memset(&ev->outpoint.txid, outpoint_char, sizeof(struct bitcoin_txid));
+	ev->outpoint.n = outnum;
+
+	if (spend_char != '*') {
+		ev->spending_txid = tal(ctx, struct bitcoin_txid);
+		memset(ev->spending_txid, spend_char,
+		       sizeof(struct bitcoin_txid));
+	} else
+		ev->spending_txid = NULL;
+
+	ev->payment_id = NULL;
+
+	return ev;
+}
+
+static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
+{
+	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
+	struct node_id node_id, peer_id;
+	struct account *wal_acct, *ext_acct;
+	struct bitcoin_txid txid;
+	struct onchain_fee **ofs;
+
+	memset(&node_id, 2, sizeof(struct node_id));
+	memset(&peer_id, 3, sizeof(struct node_id));
+
+	wal_acct = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
+	ext_acct = new_account(ctx, tal_fmt(ctx, "external"), &peer_id);
+
+	db_begin_transaction(db);
+	account_add(db, wal_acct);
+	account_add(db, ext_acct);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Send funds to an external address
+	 * tag     utxo_id vout    txid    debits  credits acct_id
+	 * withdr  XXXX    0       1111    1000            wallet
+	 * deposit 1111    1                        200    wallet
+	 * *screms*
+	 */
+	db_begin_transaction(db);
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "withdrawal",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(1000),
+				 'X', 0, '1'));
+	memset(&txid, '1', sizeof(struct bitcoin_txid));
+	maybe_update_onchain_fees(ctx, db, &txid);
+
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(200),
+				 AMOUNT_MSAT(0),
+				 '1', 1, '*'));
+	memset(&txid, '1', sizeof(struct bitcoin_txid));
+	maybe_update_onchain_fees(ctx, db, &txid);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Send some funds to an external acct? */
+	db_begin_transaction(db);
+	ofs = list_chain_fees(ctx, db);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* FIXME: track onchain wallet withdrawals?? */
+	CHECK(tal_count(ofs) == 0);
 
 	return true;
 }
-*/
+
+static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
+{
+	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
+	struct node_id node_id, peer_id;
+	struct account *acct, *wal_acct, *ext_acct;
+	struct onchain_fee **ofs, **ofs1;
+	struct bitcoin_txid txid;
+
+	memset(&node_id, 2, sizeof(struct node_id));
+	memset(&peer_id, 3, sizeof(struct node_id));
+
+	wal_acct = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
+	ext_acct = new_account(ctx, tal_fmt(ctx, "external"), &peer_id);
+	acct = new_account(ctx, tal_fmt(ctx, "chan-1"), &peer_id);
+
+	db_begin_transaction(db);
+	account_add(db, wal_acct);
+	account_add(db, ext_acct);
+	account_add(db, acct);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Close a channel */
+	/* tag     utxo_id vout    txid    debits  credits acct_id
+	 * close   XXXX    0       1111    1000            wallet
+	 * delay   1111    1       2222             200    chan-1
+	 * htlc_tx 1111    2       3333             600    chan-1
+	 * to_them 1111    3                               external
+	 * to_wall 3333    0                        500    wallet
+	 * to_wall 2222    0                        150    wallet
+	 */
+	db_begin_transaction(db);
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "close",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(1000),
+				 'X', 0, '1'));
+
+	log_chain_event(db, acct,
+		make_chain_event(ctx, "delayed_to_us",
+				 AMOUNT_MSAT(200),
+				 AMOUNT_MSAT(0),
+				 '1', 1, '*'));
+	memset(&txid, '1', sizeof(struct bitcoin_txid));
+	maybe_update_onchain_fees(ctx, db, &txid);
+
+	/* Should be one fees now */
+	ofs = list_chain_fees(ctx, db);
+	CHECK_MSG(!db_err, db_err);
+
+	CHECK(tal_count(ofs) == 1);
+	CHECK(ofs[0]->acct_db_id == acct->db_id);
+	CHECK(amount_msat_eq(ofs[0]->amount, AMOUNT_MSAT(800)));
+
+	log_chain_event(db, acct,
+		make_chain_event(ctx, "htlc_tx",
+				 AMOUNT_MSAT(600),
+				 AMOUNT_MSAT(0),
+				 '1', 2, '*'));
+
+	log_chain_event(db, ext_acct,
+		make_chain_event(ctx, "to_them",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(0),
+				 '1', 3, '*'));
+
+	memset(&txid, '1', sizeof(struct bitcoin_txid));
+	maybe_update_onchain_fees(ctx, db, &txid);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* txid 2222 */
+	db_begin_transaction(db);
+	log_chain_event(db, acct,
+		make_chain_event(ctx, "withdraw",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(200),
+				 '1', 1, '2'));
+
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "to_wallet",
+				 AMOUNT_MSAT(150),
+				 AMOUNT_MSAT(0),
+				 '2', 0, '*'));
+	memset(&txid, '2', sizeof(struct bitcoin_txid));
+	maybe_update_onchain_fees(ctx, db, &txid);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Expect: 2 onchain fee records, all for chan-1 */
+	db_begin_transaction(db);
+	ofs = list_chain_fees(ctx, db);
+	ofs1 = account_onchain_fees(ctx, db, acct);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	CHECK(tal_count(ofs) == tal_count(ofs1));
+	CHECK(tal_count(ofs) == 2);
+
+	/* txid 3333 */
+	db_begin_transaction(db);
+	log_chain_event(db, acct,
+		make_chain_event(ctx, "htlc_tx",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(600),
+				 '1', 2, '3'));
+
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "to_wallet",
+				 AMOUNT_MSAT(500),
+				 AMOUNT_MSAT(0),
+				 '3', 0, '*'));
+	memset(&txid, '3', sizeof(struct bitcoin_txid));
+	maybe_update_onchain_fees(ctx, db, &txid);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Expect: 3 onchain fee records, all for chan-1 */
+	db_begin_transaction(db);
+	ofs = list_chain_fees(ctx, db);
+	ofs1 = account_onchain_fees(ctx, db, acct);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	CHECK(tal_count(ofs) == tal_count(ofs1));
+	CHECK(tal_count(ofs) == 3);
+
+	/* Expect: fees as follows
+	 *
+	 * chan-1, 1111, 200
+	 * chan-1, 3333, 100
+	 * chan-1, 2222,  50
+	 */
+	for (size_t i = 0; i < tal_count(ofs); i++) {
+		CHECK(ofs[i]->acct_db_id == acct->db_id);
+		CHECK(streq(ofs[i]->currency, "btc"));
+
+		memset(&txid, '1', sizeof(struct bitcoin_txid));
+		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
+			CHECK(200 == ofs[i]->amount.millisatoshis); /* Raw: test eq */
+			continue;
+		}
+		memset(&txid, '2', sizeof(struct bitcoin_txid));
+		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
+			CHECK(50 == ofs[i]->amount.millisatoshis); /* Raw: test eq */
+			continue;
+		}
+		memset(&txid, '3', sizeof(struct bitcoin_txid));
+		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
+			CHECK(100 == ofs[i]->amount.millisatoshis); /* Raw: test eq */
+			continue;
+		}
+
+		CHECK_MSG(false, "txid didn't match");
+	}
+
+	return true;
+}
+
+static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
+{
+	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
+	struct node_id node_id, peer_id;
+	struct account *acct, *acct2, *wal_acct, *ext_acct;
+	struct bitcoin_txid txid;
+	struct onchain_fee **ofs;
+
+	memset(&node_id, 2, sizeof(struct node_id));
+	memset(&peer_id, 3, sizeof(struct node_id));
+
+	wal_acct = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
+	ext_acct = new_account(ctx, tal_fmt(ctx, "external"), &peer_id);
+	acct = new_account(ctx, tal_fmt(ctx, "chan-1"), &peer_id);
+	acct2 = new_account(ctx, tal_fmt(ctx, "chan-2"), &peer_id);
+
+	db_begin_transaction(db);
+	account_add(db, wal_acct);
+	account_add(db, ext_acct);
+	account_add(db, acct);
+	account_add(db, acct2);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Assumption that we rely on later */
+	CHECK(acct->db_id < acct2->db_id);
+
+	/* Open two channels from wallet */
+	/* tag     utxo_id vout    txid    debits  credits acct_id
+	 * withd   XXXX    0       AAAA    1000            wallet
+	 * withd   YYYY    0       AAAA    3000            wallet
+	 * open    AAAA    0                        500    chan-1
+	 * open    AAAA    1                       1000    chan-2
+	 * depo    AAAA    2                       2200    wallet
+	 */
+	memset(&txid, 'A', sizeof(struct bitcoin_txid));
+	db_begin_transaction(db);
+	log_chain_event(db, acct,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(500),
+				 AMOUNT_MSAT(0),
+				 'A', 0, '*'));
+
+	log_chain_event(db, acct2,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(1000),
+				 AMOUNT_MSAT(0),
+				 'A', 1, '*'));
+
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(2200),
+				 AMOUNT_MSAT(0),
+				 'A', 2, '*'));
+	maybe_update_onchain_fees(ctx, db, &txid);
+
+	/* Should be no fee records yet! */
+	ofs = list_chain_fees(ctx, db);
+	CHECK_MSG(tal_count(ofs) == 0,
+		  "no fees counted yet");
+
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "withdrawal",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(1000),
+				 'X', 0, 'A'));
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "withdrawal",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(3001),
+				 'Y', 0, 'A'));
+
+	maybe_update_onchain_fees(ctx, db, &txid);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Expect: 2 onchain fee records of 151/150msat ea,
+	 * none for wallet */
+	db_begin_transaction(db);
+	ofs = list_chain_fees(ctx, db);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	CHECK(tal_count(ofs) == 2);
+	/* Since these are sorted by acct_id on fetch,
+	 * this *should* be stable */
+	CHECK(ofs[0]->acct_db_id == acct->db_id);
+	CHECK(amount_msat_eq(ofs[0]->amount, AMOUNT_MSAT(151)));
+	CHECK(streq(ofs[0]->currency, "btc"));
+	CHECK(bitcoin_txid_eq(&ofs[0]->txid, &txid));
+
+	CHECK(ofs[1]->acct_db_id == acct2->db_id);
+	CHECK(amount_msat_eq(ofs[1]->amount, AMOUNT_MSAT(150)));
+	CHECK(streq(ofs[1]->currency, "btc"));
+	CHECK(bitcoin_txid_eq(&ofs[1]->txid, &txid));
+
+	return true;
+}
 
 static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 {
@@ -240,11 +579,10 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	struct node_id peer_id;
 	struct account *acct, *acct2;
 	struct channel_event ev1, ev2, ev3, **chan_evs;
-	char *name = tal_fmt(ctx, "example");
 
 	memset(&peer_id, 3, sizeof(struct node_id));
 
-	acct = new_account(ctx, name, &peer_id);
+	acct = new_account(ctx, tal_fmt(ctx, "example"), &peer_id);
 	acct2 = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
 	db_begin_transaction(db);
 	account_add(db, acct);
@@ -534,6 +872,9 @@ int main(int argc, char *argv[])
 	ok &= test_account_crud(tmpctx, plugin);
 	ok &= test_channel_event_crud(tmpctx, plugin);
 	ok &= test_chain_event_crud(tmpctx, plugin);
+	ok &= test_onchain_fee_chan_close(tmpctx, plugin);
+	ok &= test_onchain_fee_chan_open(tmpctx, plugin);
+	ok &= test_onchain_fee_wallet_spend(tmpctx, plugin);
 
 	tal_free(plugin);
 	common_shutdown();

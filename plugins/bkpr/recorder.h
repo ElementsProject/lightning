@@ -5,6 +5,7 @@
 #include <ccan/tal/tal.h>
 
 struct account;
+struct bitcoin_txid;
 struct chain_event;
 struct channel_event;
 struct db;
@@ -29,6 +30,9 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct db *db,
 					      struct account *acct);
 
+/* List all chain fees, for all accounts */
+struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);
+
 /* Add the given account to the database */
 void account_add(struct db *db, struct account *acct);
 
@@ -42,6 +46,11 @@ void maybe_update_account(struct db *db,
 			  struct account *acct,
 			  struct chain_event *e,
 			  const enum mvt_tag *tags);
+
+/* Update our onchain fees now? */
+char *maybe_update_onchain_fees(const tal_t *ctx,
+			        struct db *db,
+			        struct bitcoin_txid *txid);
 
 /* Log a channel event */
 void log_channel_event(struct db *db,

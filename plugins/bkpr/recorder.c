@@ -1,7 +1,10 @@
 #include "config.h"
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
 #include <common/node_id.h>
+#include <common/type_to_string.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>
@@ -11,6 +14,9 @@
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
+
+#define EXTERNAL_ACCT "external"
+#define WALLET_ACCT WALLET
 
 static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *stmt)
 {
@@ -46,6 +52,24 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 	return e;
 }
 
+static struct chain_event **find_chain_events(const tal_t *ctx,
+					      struct db_stmt *stmt TAKES)
+{
+	struct chain_event **results;
+
+	db_query_prepared(stmt);
+	results = tal_arr(ctx, struct chain_event *, 0);
+	while (db_step(stmt)) {
+		struct chain_event *e = stmt2chain_event(results, stmt);
+		tal_arr_expand(&results, e);
+	}
+
+	if (taken(stmt))
+		tal_free(stmt);
+
+	return results;
+}
+
 static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct channel_event *e = tal(ctx, struct channel_event);
@@ -72,7 +96,6 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct account *acct)
 {
 	struct db_stmt *stmt;
-	struct chain_event **results;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  id"
@@ -92,16 +115,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     " WHERE account_id = ?;"));
 
 	db_bind_int(stmt, 0, acct->db_id);
-	db_query_prepared(stmt);
-
-	results = tal_arr(ctx, struct chain_event *, 0);
-	while (db_step(stmt)) {
-		struct chain_event *e = stmt2chain_event(results, stmt);
-		tal_arr_expand(&results, e);
-	}
-	tal_free(stmt);
-
-	return results;
+	return find_chain_events(ctx, take(stmt));
 }
 
 static struct chain_event *find_chain_event(const tal_t *ctx,
@@ -207,6 +221,43 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 	return results;
 }
 
+static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
+					    struct db_stmt *stmt)
+{
+	struct onchain_fee *of = tal(ctx, struct onchain_fee);
+
+	of->acct_db_id = db_col_u64(stmt, "account_id");
+	db_col_txid(stmt, "txid", &of->txid);
+	db_col_amount_msat(stmt, "amount", &of->amount);
+	of->currency = db_col_strdup(of, stmt, "currency");
+
+	return of;
+}
+
+struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
+{
+	struct db_stmt *stmt;
+	struct onchain_fee **results;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  account_id"
+				     ", txid"
+				     ", amount"
+				     ", currency"
+				     " FROM onchain_fees"
+				     " ORDER BY account_id"));
+	db_query_prepared(stmt);
+
+	results = tal_arr(ctx, struct onchain_fee *, 0);
+	while (db_step(stmt)) {
+		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
+		tal_arr_expand(&results, of);
+	}
+	tal_free(stmt);
+
+	return results;
+}
+
 static struct account *stmt2account(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct account *a = tal(ctx, struct account);
@@ -276,18 +327,6 @@ struct account *find_account(const tal_t *ctx,
 	return a;
 }
 
-static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx, struct db_stmt *stmt)
-{
-	struct onchain_fee *of = tal(ctx, struct onchain_fee);
-
-	of->acct_db_id = db_col_u64(stmt, "account_id");
-	db_col_txid(stmt, "txid", &of->txid);
-	db_col_amount_msat(stmt, "amount", &of->amount);
-	of->currency = db_col_strdup(of, stmt, "currency");
-
-	return of;
-}
-
 struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 					  struct db *db,
 					  struct account *acct)
@@ -303,10 +342,10 @@ struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 				     " FROM onchain_fees"
 				     " WHERE account_id = ?;"));
 
-	db_bind_int(stmt, 0, acct->db_id);
+	db_bind_u64(stmt, 0, acct->db_id);
 	db_query_prepared(stmt);
 
-	results = tal_arr(ctx, struct onchain_fee*, 0);
+	results = tal_arr(ctx, struct onchain_fee *, 0);
 	while (db_step(stmt)) {
 		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
 		tal_arr_expand(&results, of);
@@ -490,6 +529,261 @@ void log_channel_event(struct db *db,
 	e->db_id = db_last_insert_id_v2(stmt);
 	e->acct_db_id = acct->db_id;
 	tal_free(stmt);
+}
+
+static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
+						     struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT "
+				     "  id"
+				     ", account_id"
+				     ", tag"
+				     ", credit"
+				     ", debit"
+				     ", output_value"
+				     ", currency"
+				     ", timestamp"
+				     ", blockheight"
+				     ", utxo_txid"
+				     ", outnum"
+				     ", spending_txid"
+				     ", payment_id"
+				     " FROM chain_events"
+				     " WHERE spending_txid = ?"
+				     " OR (utxo_txid = ? AND spending_txid IS NULL)"
+				     " ORDER BY account_id"));
+
+	db_bind_txid(stmt, 0, txid);
+	db_bind_txid(stmt, 1, txid);
+	return find_chain_events(ctx, take(stmt));
+}
+
+static u64 find_acct_id(struct db *db, const char *name)
+{
+	u64 acct_id;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  id"
+				     " FROM accounts"
+				     " WHERE name = ?"));
+
+	db_bind_text(stmt, 0, name);
+	db_query_prepared(stmt);
+	if (db_step(stmt))
+		acct_id = db_col_u64(stmt, "id");
+	else
+		acct_id = 0;
+
+	tal_free(stmt);
+	return acct_id;
+}
+
+static void update_or_insert_chain_fees(struct db *db,
+					u64 acct_id,
+					struct bitcoin_txid *txid,
+					struct amount_msat *amount,
+					const char *currency)
+{
+	struct db_stmt *stmt;
+
+	/* First, look to see if there's an already existing
+	 * record to update */
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  1"
+				     " FROM onchain_fees"
+				     " WHERE txid = ?"
+				     " AND account_id = ?"));
+
+	db_bind_txid(stmt, 0, txid);
+	db_bind_u64(stmt, 1, acct_id);
+	db_query_prepared(stmt);
+
+	/* If there's no current record, add it */
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+
+		stmt = db_prepare_v2(db, SQL("INSERT INTO onchain_fees"
+					     " ("
+					     "  account_id"
+					     ", txid"
+					     ", amount"
+					     ", currency"
+					     ") VALUES"
+					     " (?, ?, ?, ?);"));
+
+		db_bind_u64(stmt, 0, acct_id);
+		db_bind_txid(stmt, 1, txid);
+		db_bind_amount_msat(stmt, 2, amount);
+		db_bind_text(stmt, 3, currency);
+		db_exec_prepared_v2(take(stmt));
+		return;
+	}
+
+	/* Otherwise, we update the existing record */
+	db_col_ignore(stmt, "1");
+	tal_free(stmt);
+	stmt = db_prepare_v2(db, SQL("UPDATE onchain_fees SET"
+				     "  amount = ?"
+				     " WHERE txid = ?"
+				     " AND account_id = ?"));
+
+	db_bind_amount_msat(stmt, 0, amount);
+	db_bind_txid(stmt, 1, txid);
+	db_bind_u64(stmt, 2, acct_id);
+	db_exec_prepared_v2(take(stmt));
+}
+
+char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
+			        struct bitcoin_txid *txid)
+{
+	size_t no_accts = 0, plus_ones;
+	u64 last_id = 0, wallet_id, extern_id;
+	bool contains_wallet = false, skip_wallet = true;
+	struct chain_event **events;
+	struct amount_msat deposit_msat = AMOUNT_MSAT(0),
+			   withdraw_msat = AMOUNT_MSAT(0),
+			   fees_msat, fee_part_msat;
+	char *err = NULL;
+	u8 *inner_ctx = tal(NULL, u8);
+
+	/* Find all the deposits/withdrawals for this txid */
+	events = find_chain_events_bytxid(inner_ctx, db, txid);
+	wallet_id = find_acct_id(db, WALLET_ACCT);
+	extern_id = find_acct_id(db, EXTERNAL_ACCT);
+
+	/* If we don't even have two events, skip */
+	if (tal_count(events) < 2)
+		goto finished;
+
+	for (size_t i = 0; i < tal_count(events); i++) {
+		if (events[i]->spending_txid) {
+			if (!amount_msat_add(&withdraw_msat, withdraw_msat,
+					     events[i]->debit)) {
+				err = tal_fmt(ctx, "Overflow adding withdrawal debits for"
+					      " txid: %s",
+					      type_to_string(ctx, struct bitcoin_txid,
+							     txid));
+				goto finished;
+			}
+		} else {
+			if (!amount_msat_add(&deposit_msat, deposit_msat,
+					     events[i]->credit)) {
+				err = tal_fmt(ctx, "Overflow adding deposit credits for"
+					      " txid: %s",
+					      type_to_string(ctx, struct bitcoin_txid,
+							     txid));
+				goto finished;
+			}
+		}
+
+		/* While we're here, also count number of accts
+		 * that were involved! Two little tricks here.
+		 *
+		 * One) we sorted the output
+		 * by acct id, so we can cheat how we count: if
+		 * it's a different acct_id than the last seen, we inc
+		 * the counter.
+		 *
+		 * Two) who "gets" fee attribution is complicated
+		 * and requires knowing if the wallet/external accts
+		 * were involved (everything else is channel accts)
+		 * */
+		if (last_id != events[i]->acct_db_id) {
+			last_id = events[i]->acct_db_id;
+			/* Don't count external accts */
+			if (last_id != extern_id)
+				no_accts++;
+
+			contains_wallet |= (last_id == wallet_id);
+		}
+	}
+
+	/* If either is zero, keep waiting */
+	if (amount_msat_zero(withdraw_msat)
+	    || amount_msat_zero(deposit_msat))
+		goto finished;
+
+	/* If our withdraws < deposits, wait for more data */
+	if (amount_msat_less(withdraw_msat, deposit_msat))
+		goto finished;
+
+	/* At this point, we have no way to know we've gotten all the data.
+	 * But that's what the 'onchain_resolved_block' marker on
+	 * accounts is for */
+	if (!amount_msat_sub(&fees_msat, withdraw_msat, deposit_msat)) {
+		err = tal_fmt(ctx, "Err subtracting withdraw %s from deposit %s"
+			      " for txid %s",
+			      type_to_string(ctx, struct amount_msat, &withdraw_msat),
+			      type_to_string(ctx, struct amount_msat, &deposit_msat),
+			      type_to_string(ctx, struct bitcoin_txid, txid));
+		goto finished;
+	}
+
+	/* Now we need to figure out how to allocate fees to each account
+	 * that was involved in the tx. This is a lil complex, buckle up*/
+
+	/* If the wallet's involved + there were any other accounts, decr by one */
+	if (no_accts > 1 && contains_wallet) {
+		skip_wallet = true;
+		no_accts--;
+	}
+
+	/* Now we divide by the number of accts involved, to figure out the
+	 * value to log for each account! */
+	fee_part_msat = amount_msat_div(fees_msat, no_accts);
+
+	/* So we don't lose any msats b/c of rounding, find the number of
+	 * accts to add an extra msat onto */
+	plus_ones = fees_msat.millisatoshis % no_accts; /* Raw: mod calc */
+
+	/* Now we log (or update the existing record) for each acct */
+	last_id = 0;
+	for (size_t i = 0; i < tal_count(events); i++) {
+		struct amount_msat fees;
+
+		if (last_id == events[i]->acct_db_id)
+			continue;
+
+		last_id = events[i]->acct_db_id;
+
+		/* We *never assign fees to external accounts;
+		 * if external funds were contributed to a tx
+		 * we wouldn't record it -- fees are solely ours */
+		if (last_id == extern_id)
+			continue;
+
+		/* We only attribute fees to the wallet
+		 * if the wallet is the only game in town */
+		if (skip_wallet && last_id == wallet_id)
+			continue;
+
+		/* Add an extra msat onto plus_ones accts
+		 * so we don't lose any precision in
+		 * our accounting */
+		if (plus_ones > 0) {
+			plus_ones--;
+			if (!amount_msat_add(&fees, fee_part_msat,
+					     AMOUNT_MSAT(1))) {
+				err = "Overflow adding 1 ... yeah right";
+				/* We're gonna keep going, yolo */
+				fees = fee_part_msat;
+			}
+		} else
+			fees = fee_part_msat;
+
+		/* FIXME: fee_currency property of acct? */
+		update_or_insert_chain_fees(db, last_id,
+					    txid, &fees,
+					    events[i]->currency);
+
+	}
+
+finished:
+	tal_free(inner_ctx);
+	return err;
 }
 
 void log_chain_event(struct db *db,
