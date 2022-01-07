@@ -547,6 +547,9 @@ ncc: ${TARGET_DIR}/libwally-core-build/src/libwallycore.la
 TAGS:
 	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print -o -name '*.py' -print | xargs etags --append
 
+tags:
+	$(RM) tags; find * -name test -type d -prune -o -name '*.[ch]' -print -o -name '*.py' -print | xargs ctags --append
+
 ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
 
 ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
