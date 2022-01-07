@@ -1,3 +1,4 @@
+from typing import List, Union, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -6,6 +7,25 @@ logger = logging.getLogger(__name__)
 def path2type(path):
     typename = "".join([s.capitalize() for s in path.replace("[]", "").split(".")])
     return typename
+
+
+class Service:
+    """Top level class that wraps all the RPC methods.
+    """
+    def __init__(self, name: str, methods=None):
+        self.name = name
+        self.methods = [] if methods is None else methods
+
+        # If we require linking with some external files we'll add
+        # them here so the generator can use them.
+        self.includes: List[str] = []
+
+
+class Method:
+    def __init__(self, name: str, request: "F", response: "F"):
+        self.name = name
+        self.request = request
+        self.response = response
 
 
 class F:
@@ -20,6 +40,12 @@ class F:
 
     def __str__(self):
         return f"Field[path={self.path}, required={self.required}]"
+
+    def __repr__(self):
+        return str(self)
+
+    def normalized(self):
+        return self.name.replace(' ', '_').replace('-', '_')
 
 
 class CompositeField(F):
@@ -108,11 +134,25 @@ class CompositeField(F):
         return f"CompositeField[name={self.path}, fields=[{fieldnames}]]"
 
 
+class EnumVariant(F):
+    """A variant of an enum with helpers for normalization of the display.
+    """
+    def __init__(self, variant: Optional[str]):
+        self.variant = variant
+
+    def __str__(self):
+        return self.variant
+
+    def normalized(self):
+        return self.variant.replace(' ', '_').replace('-', '_').upper()
+
+
 class EnumField(F):
     def __init__(self, typename, values, path, description):
         F.__init__(self, path, description)
         self.typename = typename
         self.values = values
+        self.variants = [EnumVariant(v) for v in self.values]
 
     @classmethod
     def from_js(cls, js, path):
@@ -120,7 +160,7 @@ class EnumField(F):
         typename = path2type(path)
         return EnumField(
             typename,
-            values=js["enum"],
+            values=filter(lambda i: i is not None, js["enum"]),
             path=path,
             description=js["description"] if "description" in js else "",
         )
@@ -190,6 +230,10 @@ class ArrayField(F):
             itemtype, dims=dims, path=path, description=js.get("description", "")
         )
 
+    def normalized(self):
+        # Strip the '[]' that we use to signal an array. The name
+        # itself doesn't need this.
+        return F.normalized(self)[:-2]
 
 
 class Command:
@@ -202,7 +246,7 @@ class Command:
         return f"Command[name={self.name}, fields=[{fieldnames}]]"
 
 
-def parse_doc(command, js) -> CompositeField:
+def parse_doc(command, js) -> Union[CompositeField, Command]:
     """Given a command name and its schema, generate the IR model"""
     path = command
 

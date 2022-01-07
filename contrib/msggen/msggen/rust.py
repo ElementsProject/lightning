@@ -1,3 +1,4 @@
+from typing import Tuple
 import logging
 import sys
 
@@ -137,7 +138,7 @@ def gen_array(a):
     return (defi, decl)
 
 
-def gen_composite(c) -> (str, str):
+def gen_composite(c) -> Tuple[str, str]:
     logger.debug(f"Generating composite field {c.name} ({c.path})")
     fields = []
     for f in c.fields:
@@ -153,7 +154,7 @@ def gen_composite(c) -> (str, str):
     return ("", r)
 
 
-def gen_command(c) -> str:
+def gen_command(c) -> Tuple[str, str]:
     """A command is just the a composite type, with no definition, but a declaration."""
     _, decl = gen_composite(c)
     return ("", header + decl)
