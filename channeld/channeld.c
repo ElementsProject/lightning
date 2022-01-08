@@ -19,7 +19,6 @@
 #include <channeld/full_channel.h>
 #include <channeld/watchtower.h>
 #include <common/billboard.h>
-#include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
 #include <common/gossip_store.h>
 #include <common/key_derive.h>

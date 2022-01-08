@@ -188,7 +188,7 @@ static void close_taken_fds(va_list *ap)
 /* We use sockets, not pipes, because fds are bidir. */
 static int subd(const char *path, const char *name,
 		const char *debug_subdaemon,
-		int *msgfd, int dev_disconnect_fd,
+		int *msgfd,
 		bool io_logging,
 		va_list *ap)
 {
@@ -212,7 +212,7 @@ static int subd(const char *path, const char *name,
 
 	if (childpid == 0) {
 		size_t num_args;
-		char *args[] = { NULL, NULL, NULL, NULL, NULL };
+		char *args[] = { NULL, NULL, NULL, NULL };
 		int **fds = tal_arr(tmpctx, int *, 3);
 		int stdoutfd = STDOUT_FILENO, stderrfd = STDERR_FILENO;
 
@@ -230,10 +230,6 @@ static int subd(const char *path, const char *name,
 			tal_arr_expand(&fds, fd);
 		}
 
-		/* If we have a dev_disconnect_fd, add it after. */
-		if (dev_disconnect_fd != -1)
-			tal_arr_expand(&fds, &dev_disconnect_fd);
-
 		/* Finally, the fd to report exec errors on */
 		tal_arr_expand(&fds, &execfail[1]);
 
@@ -248,8 +244,6 @@ static int subd(const char *path, const char *name,
 		if (io_logging)
 			args[num_args++] = "--log-io";
 #if DEVELOPER
-		if (dev_disconnect_fd != -1)
-			args[num_args++] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
 		if (debug_subdaemon && strends(name, debug_subdaemon))
 			args[num_args++] = "--debugger";
 #endif
@@ -700,7 +694,6 @@ static struct subd *new_subd(struct lightningd *ld,
 	struct subd *sd = tal(ld, struct subd);
 	int msg_fd;
 	const char *debug_subd = NULL;
-	int disconnect_fd = -1;
 	const char *shortname;
 
 	assert(name != NULL);
@@ -720,13 +713,12 @@ static struct subd *new_subd(struct lightningd *ld,
 
 #if DEVELOPER
 	debug_subd = ld->dev_debug_subprocess;
-	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
 	const char *path = subdaemon_path(tmpctx, ld, name);
 
 	sd->pid = subd(path, name, debug_subd,
-		       &msg_fd, disconnect_fd,
+		       &msg_fd,
 		       /* We only turn on subdaemon io logging if we're going
 			* to print it: too stressful otherwise! */
 		       log_print_level(sd->log) < LOG_DBG,

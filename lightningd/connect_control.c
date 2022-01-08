@@ -360,7 +360,13 @@ int connectd_init(struct lightningd *ld)
 
 	ld->connectd = new_global_subd(ld, "lightning_connectd",
 				       connectd_wire_name, connectd_msg,
-				       take(&hsmfd), take(&fds[1]), NULL);
+				       take(&hsmfd), take(&fds[1]),
+#if DEVELOPER
+				       /* Not take(): we share it */
+				       ld->dev_disconnect_fd >= 0 ?
+				       &ld->dev_disconnect_fd : NULL,
+#endif
+				       NULL);
 	if (!ld->connectd)
 		err(1, "Could not subdaemon connectd");
 
@@ -385,7 +391,8 @@ int connectd_init(struct lightningd *ld)
 	    ld->config.use_v3_autotor,
 	    ld->config.connection_timeout_secs,
 	    websocket_helper_path,
-	    ld->websocket_port);
+	    ld->websocket_port,
+	    IFDEV(ld->dev_disconnect_fd >= 0, false));
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
