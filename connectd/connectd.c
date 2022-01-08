@@ -31,6 +31,7 @@
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <connectd/connectd_wiregen.h>
 #include <connectd/handshake.h>
+#include <connectd/multiplex.h>
 #include <connectd/netaddress.h>
 #include <connectd/peer_exchange_initmsg.h>
 #include <connectd/tor.h>
@@ -59,13 +60,14 @@
 #define INITIAL_WAIT_SECONDS	1
 #define MAX_WAIT_SECONDS	300
 
-/*~ We keep a hash table (ccan/htable) of public keys, which tells us what
- * peers are already connected.  The HTABLE_DEFINE_TYPE() macro needs a
- * keyof() function to extract the key.  For this simple use case, that's the
- * identity function: */
-static const struct node_id *node_id_keyof(const struct node_id *pc)
+/*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
+ * already connected (by peer->id). */
+
+/*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:
+ */
+static const struct node_id *peer_keyof(const struct peer *peer)
 {
-	return pc;
+	return &peer->id;
 }
 
 /*~ We also need to define a hashing function. siphash24 is a fast yet
@@ -79,12 +81,19 @@ static size_t node_id_hash(const struct node_id *id)
 	return siphash24(siphash_seed(), id->k, sizeof(id->k));
 }
 
-/*~ This defines 'struct node_set' which contains 'struct node_id' pointers. */
-HTABLE_DEFINE_TYPE(struct node_id,
-		   node_id_keyof,
+/*~ We also define an equality function: is this element equal to this key? */
+static bool peer_eq_node_id(const struct peer *peer,
+			    const struct node_id *id)
+{
+	return node_id_eq(&peer->id, id);
+}
+
+/*~ This defines 'struct peer_htable' which contains 'struct peer' pointers. */
+HTABLE_DEFINE_TYPE(struct peer,
+		   peer_keyof,
 		   node_id_hash,
-		   node_id_eq,
-		   node_set);
+		   peer_eq_node_id,
+		   peer_htable);
 
 /*~ This is the global state, like `struct lightningd *ld` in lightningd. */
 struct daemon {
@@ -100,7 +109,7 @@ struct daemon {
 
 	/* Peers that we've handed to `lightningd`, which it hasn't told us
 	 * have disconnected. */
-	struct node_set peers;
+	struct peer_htable peers;
 
 	/* Peers we are trying to reach */
 	struct list_head connecting;
@@ -414,12 +423,55 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	/*~ ccan/io supports waiting on an address: in this case, the key in
 	 * the peer set.  When someone calls `io_wake()` on that address, it
 	 * will call retry_peer_connected above. */
-	return io_wait(conn, node_set_get(&daemon->peers, id),
+	return io_wait(conn, peer_htable_get(&daemon->peers, id),
 			/*~ The notleak() wrapper is a DEVELOPER-mode hack so
 			 * that our memory leak detection doesn't consider 'pr'
 			 * (which is not referenced from our code) to be a
 			 * memory leak. */
 		       retry_peer_connected, notleak(pr));
+}
+
+/*~ When we free a peer, we remove it from the daemon's hashtable */
+static void destroy_peer(struct peer *peer, struct daemon *daemon)
+{
+	peer_htable_del(&daemon->peers, peer);
+}
+
+/*~ This is where we create a new peer. */
+static struct peer *new_peer(struct daemon *daemon,
+			     const struct node_id *id,
+			     const struct crypto_state *cs,
+			     const u8 *their_features,
+			     struct io_conn *conn STEALS,
+			     int *fd_for_subd)
+{
+	struct peer *peer = tal(daemon, struct peer);
+
+	peer->id = *id;
+	peer->pps = new_per_peer_state(peer, cs);
+	peer->final_msg = NULL;
+	peer->subd_in = NULL;
+	peer->peer_in = NULL;
+	peer->sent_to_subd = NULL;
+	peer->sent_to_peer = NULL;
+	peer->peer_outq = msg_queue_new(peer);
+	peer->subd_outq = msg_queue_new(peer);
+
+	/* Aim for connection to shuffle data back and forth: sets up
+	 * peer->to_subd */
+	if (!multiplex_subd_setup(peer, fd_for_subd))
+		return tal_free(peer);
+
+	/* If gossipd can't give us a file descriptor, we give up connecting. */
+	if (!get_gossipfds(daemon, id, their_features, peer->pps)) {
+		close(*fd_for_subd);
+		return tal_free(peer);
+	}
+
+	peer->to_peer = tal_steal(peer, conn);
+	peer_htable_add(&daemon->peers, peer);
+	tal_add_destructor2(peer, destroy_peer, daemon);
+	return peer;
 }
 
 /*~ Note the lack of static: this is called by peer_exchange_initmsg.c once the
@@ -433,11 +485,13 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       bool incoming)
 {
 	u8 *msg;
-	struct per_peer_state *pps;
+	struct peer *peer;
 	int unsup;
 	size_t depender, missing;
+	int subd_fd;
 
-	if (node_set_get(&daemon->peers, id))
+	peer = peer_htable_get(&daemon->peers, id);
+	if (peer)
 		return peer_reconnected(conn, daemon, id, addr, cs,
 					their_features, incoming);
 
@@ -487,35 +541,28 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			      conn, find_connecting(daemon, id)->conn);
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
-	pps = new_per_peer_state(tmpctx, cs);
-
-	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	if (!get_gossipfds(daemon, id, their_features, pps))
+	peer = new_peer(daemon, id, cs, their_features, conn, &subd_fd);
+	/* Only takes over conn if it succeeds. */
+	if (!peer)
 		return io_close(conn);
 
 	/* Create message to tell master peer has connected. */
 	msg = towire_connectd_peer_connected(NULL, id, addr, incoming,
-					     pps, their_features);
+					     peer->pps, their_features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
 	 * we have connected, and give the peer and gossip fds. */
 	daemon_conn_send(daemon->master, take(msg));
-	/* io_conn_fd() extracts the fd from ccan/io's io_conn */
-	daemon_conn_send_fd(daemon->master, io_conn_fd(conn));
-	daemon_conn_send_fd(daemon->master, pps->gossip_fd);
-	daemon_conn_send_fd(daemon->master, pps->gossip_store_fd);
+	daemon_conn_send_fd(daemon->master, subd_fd);
+	daemon_conn_send_fd(daemon->master, peer->pps->gossip_fd);
+	daemon_conn_send_fd(daemon->master, peer->pps->gossip_store_fd);
 
 	/* Don't try to close these on freeing. */
-	pps->gossip_store_fd = pps->gossip_fd = -1;
+	peer->pps->gossip_store_fd = peer->pps->gossip_fd = -1;
 
-	/*~ Finally, we add it to the set of pubkeys: tal_dup will handle
-	 * take() args for us, by simply tal_steal()ing it. */
-	node_set_add(&daemon->peers, tal_dup(daemon, struct node_id, id));
-
-	/*~ We want to free the connection, but not close the fd (which is
-	 * queued to go to lightningd), so use this variation on io_close: */
-	return io_close_taken_fd(conn);
+	/*~ Now we set up this connection to read/write from subd */
+	return multiplex_peer_setup(conn, peer);
 }
 
 /*~ handshake.c's handles setting up the crypto state once we get a connection
@@ -1774,14 +1821,14 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
 			     u32 seconds_waited,
-			     struct wireaddr_internal *addrhint)
+			     struct wireaddr_internal *addrhint STEALS)
 {
 	struct wireaddr_internal *addrs;
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
 
 	/* Already done?  May happen with timer. */
-	if (node_set_get(&daemon->peers, id))
+	if (peer_htable_get(&daemon->peers, id))
 		return;
 
 	/* If we're trying to connect it right now, that's OK. */
@@ -1874,23 +1921,24 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 /* A peer is gone: clean things up. */
 static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
 {
-	struct node_id *node;
+	struct peer *peer;
 
 	/* We should stay in sync with lightningd at all times. */
-	node = node_set_get(&daemon->peers, id);
-	if (!node)
+	peer = peer_htable_get(&daemon->peers, id);
+	if (!peer)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "peer_disconnected unknown peer: %s",
 			      type_to_string(tmpctx, struct node_id, id));
-	node_set_del(&daemon->peers, node);
 	status_peer_debug(id, "disconnect");
 
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
-	io_wake(node);
+	io_wake(peer);
 
 	/* Note: deleting from a htable (a-la node_set_del) does not free it:
-	 * htable doesn't assume it's a tal object at all. */
-	tal_free(node);
+	 * htable doesn't assume it's a tal object at all.  That's why we have
+	 * a destructor attached to peer (called destroy_peer by
+	 * convention). */
+	tal_free(peer);
 }
 
 /* lightningd tells us a peer has disconnected. */
@@ -1904,39 +1952,19 @@ static void peer_disconnected(struct daemon *daemon, const u8 *msg)
 	cleanup_dead_peer(daemon, &id);
 }
 
-/* lightningd tells us to send a final (usually error) message to peer, then
- * disconnect. */
-struct final_msg_data {
-	struct daemon *daemon;
-	struct node_id id;
-};
-
-static void destroy_final_msg_data(struct final_msg_data *f)
-{
-	cleanup_dead_peer(f->daemon, &f->id);
-}
-
-static struct io_plan *send_final_msg(struct io_conn *conn, u8 *msg)
-{
-	return io_write(conn, msg, tal_bytelen(msg), io_close_cb, NULL);
-}
-
 /* lightningd tells us to send a msg and disconnect. */
 static void peer_final_msg(struct io_conn *conn,
 			   struct daemon *daemon, const u8 *msg)
 {
+	struct peer *peer;
 	struct per_peer_state *pps;
-	struct final_msg_data *f = tal(NULL, struct final_msg_data);
+	struct node_id id;
 	u8 *finalmsg;
 	int fds[3];
 
-	f->daemon = daemon;
 	/* pps is allocated off f, so fds are closed when f freed. */
-	if (!fromwire_connectd_peer_final_msg(f, msg, &f->id, &pps, &finalmsg))
+	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &pps, &finalmsg))
 		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
-
-	/* When f is freed, we want to mark node as dead. */
-	tal_add_destructor(f, destroy_final_msg_data);
 
 	/* Get the fds for this peer. */
 	io_fd_block(io_conn_fd(conn), true);
@@ -1949,16 +1977,20 @@ static void peer_final_msg(struct io_conn *conn,
 	}
 	io_fd_block(io_conn_fd(conn), false);
 
+	/* Close fd to ourselves. */
+	close(fds[0]);
+
 	/* We put peer fd into conn, but pps needs to free the rest */
 	per_peer_state_set_fds(pps, -1, fds[1], fds[2]);
 
-	/* Log and encrypt message for peer. */
-	status_peer_io(LOG_IO_OUT, &f->id, finalmsg);
-	finalmsg = cryptomsg_encrypt_msg(f, &pps->cs, take(finalmsg));
-
-	/* Organize io loop to write out that message, it will free f
-	 * once closed */
-	tal_steal(io_new_conn(daemon, fds[0], send_final_msg, finalmsg), f);
+	/* This can happen if peer hung up on us. */
+	peer = peer_htable_get(&daemon->peers, &id);
+	if (peer) {
+		/* Log and encrypt message for peer. */
+		status_peer_io(LOG_IO_OUT, &id, finalmsg);
+		finalmsg = cryptomsg_encrypt_msg(NULL, &pps->cs, take(finalmsg));
+		multiplex_final_msg(peer, take(finalmsg));
+	}
 }
 
 #if DEVELOPER
@@ -1971,6 +2003,7 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_remove_region(memtable, daemon, sizeof(daemon));
+	memleak_remove_htable(memtable, &daemon->peers.raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
@@ -2064,7 +2097,7 @@ int main(int argc, char *argv[])
 
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);
-	node_set_init(&daemon->peers);
+	peer_htable_init(&daemon->peers);
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
