@@ -10,8 +10,11 @@
 #include <common/utils.h>
 #include <connectd/multiplex.h>
 #include <errno.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>
 
@@ -48,15 +51,118 @@ static struct io_plan *dev_leave_hanging(struct io_conn *peer_conn,
 }
 #endif /* DEVELOPER */
 
+/* We're happy for the kernel to batch update and gossip messages, but a
+ * commitment message, for example, should be instantly sent.  There's no
+ * great way of doing this, unfortunately.
+ *
+ * Setting TCP_NODELAY on Linux flushes the socket, which really means
+ * we'd want to toggle on then off it *after* sending.  But Linux has
+ * TCP_CORK.  On FreeBSD, it seems (looking at source) not to, so
+ * there we'd want to set it before the send, and reenable it
+ * afterwards.  Even if this is wrong on other non-Linux platforms, it
+ * only means one extra packet.
+ */
+static void set_urgent_flag(struct peer *peer, bool urgent)
+{
+	int val;
+	int opt;
+	const char *optname;
+	static bool complained = false;
+
+	if (urgent == peer->urgent)
+		return;
+
+#ifdef TCP_CORK
+	opt = TCP_CORK;
+	optname = "TCP_CORK";
+#elif defined(TCP_NODELAY)
+	opt = TCP_NODELAY;
+	optname = "TCP_NODELAY";
+#else
+#error "Please report platform with neither TCP_CORK nor TCP_NODELAY?"
+#endif
+
+	val = urgent;
+	if (setsockopt(io_conn_fd(peer->to_peer),
+		       IPPROTO_TCP, opt, &val, sizeof(val)) != 0) {
+		/* This actually happens in testing, where we blackhole the fd */
+		if (!complained) {
+			status_unusual("setsockopt %s=1: %s",
+				       optname,
+				       strerror(errno));
+			complained = true;
+		}
+	}
+	peer->urgent = urgent;
+}
+
+static bool is_urgent(enum peer_wire type)
+{
+	switch (type) {
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_WARNING:
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_TX_SIGNATURES:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+	case WIRE_FUNDING_LOCKED:
+	case WIRE_OPEN_CHANNEL2:
+	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+	case WIRE_SHUTDOWN:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_UPDATE_FEE:
+	case WIRE_UPDATE_BLOCKHEIGHT:
+	case WIRE_CHANNEL_REESTABLISH:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_OBS2_ONION_MESSAGE:
+	case WIRE_ONION_MESSAGE:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_STFU:
+#endif
+		return false;
+
+	/* These are time-sensitive, and so send without delay. */
+	case WIRE_PING:
+	case WIRE_PONG:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+		return true;
+	};
+
+	/* plugins can inject other messages; assume not urgent. */
+	return false;
+}
+
 static struct io_plan *encrypt_and_send(struct peer *peer,
 					const u8 *msg TAKES,
 					struct io_plan *(*next)
 					(struct io_conn *peer_conn,
 					 struct peer *peer))
 {
-#if DEVELOPER
 	int type = fromwire_peektype(msg);
 
+#if DEVELOPER
 	switch (dev_disconnect(&peer->id, type)) {
 	case DEV_DISCONNECT_BEFORE:
 		if (taken(msg))
@@ -75,6 +181,7 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 		break;
 	}
 #endif
+	set_urgent_flag(peer, is_urgent(type));
 
 	/* We free this and the encrypted version in next write_to_peer */
 	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);

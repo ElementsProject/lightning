@@ -1123,7 +1123,7 @@ static void send_ping(struct peer *peer)
 		exit(0);
 	}
 
-	peer_write_no_delay(peer->pps, take(make_ping(NULL, 1, 0)));
+	peer_write(peer->pps, take(make_ping(NULL, 1, 0)));
 	peer->expecting_pong = PONG_EXPECTED_PROBING;
 	set_ping_timer(peer);
 }
@@ -1415,7 +1415,7 @@ static void send_commit(struct peer *peer)
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
 				       &commit_sig.s,
 				       raw_sigs(tmpctx, htlc_sigs));
-	peer_write_no_delay(peer->pps, take(msg));
+	peer_write(peer->pps, take(msg));
 
 	maybe_send_shutdown(peer);
 
@@ -1583,7 +1583,7 @@ static void send_revocation(struct peer *peer,
 			       WIRE_CHANNELD_GOT_COMMITSIG_REPLY);
 
 	/* Now we can finally send revoke_and_ack to peer */
-	peer_write_no_delay(peer->pps, take(msg));
+	peer_write(peer->pps, take(msg));
 }
 
 static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
@@ -3631,7 +3631,7 @@ static void handle_send_ping(struct peer *peer, const u8 *msg)
 	if (tal_count(ping) > 65535)
 		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
 
-	peer_write_no_delay(peer->pps, take(ping));
+	peer_write(peer->pps, take(ping));
 
 	/* Since we're doing this manually, kill and restart timer. */
 	status_debug("sending ping expecting %sresponse",
