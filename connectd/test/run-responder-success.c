@@ -277,6 +277,7 @@ static struct io_plan *success(struct io_conn *conn UNUSED,
 			       const struct pubkey *them UNUSED,
 			       const struct wireaddr_internal *addr UNUSED,
 			       struct crypto_state *cs,
+			       struct oneshot *timeout UNUSED,
 			       void *unused UNUSED)
 {
 	assert(secret_eq_str(&cs->sk, expect_sk));
@@ -314,7 +315,7 @@ int main(int argc, char *argv[])
 
 	dummy.itype = ADDR_INTERNAL_WIREADDR;
 	dummy.u.wireaddr.addrlen = 0;
-	responder_handshake((void *)tmpctx, &ls_pub, &dummy, success, NULL);
+	responder_handshake((void *)tmpctx, &ls_pub, &dummy, NULL, success, NULL);
 	/* Should not exit! */
 	abort();
 }
