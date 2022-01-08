@@ -1,9 +1,9 @@
 #include "config.h"
 #include <ccan/read_write_all/read_write_all.h>
-#include <common/crypto_sync.h>
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>
 #include <common/peer_failed.h>
+#include <common/peer_io.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
 #include <errno.h>
@@ -15,7 +15,7 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
-void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
+void peer_write(struct per_peer_state *pps, const void *msg TAKES)
 {
 #if DEVELOPER
 	bool post_sabotage = false, post_close;
@@ -64,8 +64,7 @@ void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
  * afterwards.  Even if this is wrong on other non-Linux platforms, it
  * only means one extra packet.
  */
-void sync_crypto_write_no_delay(struct per_peer_state *pps,
-				const void *msg TAKES)
+void peer_write_no_delay(struct per_peer_state *pps, const void *msg TAKES)
 {
 	int val;
 	int opt;
@@ -92,13 +91,13 @@ void sync_crypto_write_no_delay(struct per_peer_state *pps,
 			complained = true;
 		}
 	}
-	sync_crypto_write(pps, msg);
+	peer_write(pps, msg);
 
 	val = 0;
 	setsockopt(pps->peer_fd, IPPROTO_TCP, opt, &val, sizeof(val));
 }
 
-u8 *sync_crypto_read(const tal_t *ctx, struct per_peer_state *pps)
+u8 *peer_read(const tal_t *ctx, struct per_peer_state *pps)
 {
 	u8 *dec = wire_sync_read(ctx, pps->peer_fd);
 	if (!dec)

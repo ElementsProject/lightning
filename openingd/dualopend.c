@@ -20,7 +20,6 @@
 #include <common/billboard.h>
 #include <common/blockheight_states.h>
 #include <common/channel_type.h>
-#include <common/crypto_sync.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/initial_channel.h>
@@ -28,6 +27,7 @@
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
+#include <common/peer_io.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
@@ -396,7 +396,7 @@ static void send_shutdown(struct state *state, const u8 *final_scriptpubkey)
 	/* FIXME: send wrong_funding */
 	msg = towire_shutdown(NULL, &state->channel_id,
 			      final_scriptpubkey, NULL);
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 	state->shutdown_sent[LOCAL] = true;
 }
 
@@ -904,7 +904,7 @@ static void dualopend_send_custommsg(struct state *state, const u8 *msg)
 	u8 *inner;
 	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
 		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
-	sync_crypto_write(state->pps, take(inner));
+	peer_write(state->pps, take(inner));
 }
 
 static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
@@ -1043,7 +1043,7 @@ static void handle_send_tx_sigs(struct state *state, const u8 *msg)
 
 	/*  Send our sigs to peer */
 	msg = psbt_to_tx_sigs_msg(tmpctx, state, tx_state->psbt);
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	/* Notify lightningd that we've sent sigs */
 	wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
@@ -1115,7 +1115,7 @@ static bool send_next(struct state *state,
 	}
 
 sendmsg:
-	sync_crypto_write(state->pps, msg);
+	peer_write(state->pps, msg);
 
 	return !finished;
 }
@@ -1248,10 +1248,10 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 				     peer_wire_name(fromwire_peektype(msg)),
 				     type_to_string(tmpctx, struct channel_id,
 						    &actual));
-			sync_crypto_write(state->pps,
-					  take(towire_errorfmt(NULL, &actual,
-							       "Multiple channels"
-							       " unsupported")));
+			peer_write(state->pps,
+				   take(towire_errorfmt(NULL, &actual,
+							"Multiple channels"
+							" unsupported")));
 			tal_free(msg);
 			continue;
 		}
@@ -1976,10 +1976,10 @@ static u8 *accepter_commits(struct state *state,
 		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
 
 	/* Send our commitment sigs over now */
-	sync_crypto_write(state->pps,
-			  take(towire_commitment_signed(NULL,
-							&state->channel_id,
-							&local_sig.s, NULL)));
+	peer_write(state->pps,
+		   take(towire_commitment_signed(NULL,
+						 &state->channel_id,
+						 &local_sig.s, NULL)));
 	return msg;
 }
 
@@ -2333,7 +2333,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			     &state->our_points.revocation,
 			     &state->their_points.revocation);
 
-	sync_crypto_write(state->pps, msg);
+	peer_write(state->pps, msg);
 	peer_billboard(false, "channel open: accept sent, waiting for reply");
 
 	/* This is unused in this flow. We re-use
@@ -2533,7 +2533,7 @@ static u8 *opener_commits(struct state *state,
 	msg = towire_commitment_signed(tmpctx, &state->channel_id,
 				       &local_sig.s,
 				       NULL);
-	sync_crypto_write(state->pps, msg);
+	peer_write(state->pps, msg);
 	peer_billboard(false, "channel open: commitment sent, waiting for reply");
 
 	/* Wait for the peer to send us our commitment tx signature */
@@ -2735,7 +2735,7 @@ static void opener_start(struct state *state, u8 *msg)
 				   state->channel_flags,
 				   open_tlv);
 
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	/* This is usually a very transient state... */
 	peer_billboard(false, "channel open: offered, waiting for"
@@ -3151,7 +3151,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 			      tx_state->tx_locktime,
 			      tx_state->feerate_per_kw_funding);
 
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	/* ... since their reply should be immediate. */
 	msg = opening_negotiate_msg(tmpctx, state);
@@ -3360,7 +3360,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 			     state->our_role == TX_INITIATOR ?
 				tx_state->opener_funding :
 				tx_state->accepter_funding);
-	sync_crypto_write(state->pps, msg);
+	peer_write(state->pps, msg);
 	peer_billboard(false, "channel rbf: ack sent, waiting for reply");
 
 	/* We merge with RBF's we've initiated now */
@@ -3394,7 +3394,7 @@ static void send_funding_locked(struct state *state)
 	msg = towire_funding_locked(NULL,
 				    &state->channel_id,
 				    &next_local_per_commit);
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	state->funding_locked[LOCAL] = true;
 	billboard_update(state);
@@ -3440,7 +3440,7 @@ static void try_read_gossip_store(struct state *state)
 	u8 *msg = gossip_store_next(tmpctx, state->pps);
 
 	if (msg)
-		sync_crypto_write(state->pps, take(msg));
+		peer_write(state->pps, take(msg));
 }
 
 /* Try to handle a custommsg Returns true if it was a custom message and has
@@ -3550,7 +3550,7 @@ static void do_reconnect_dance(struct state *state)
 		 , tlvs
 #endif
 			);
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
 	bool soft_error = state->funding_locked[REMOTE]
@@ -3561,7 +3561,7 @@ static void do_reconnect_dance(struct state *state)
 	 * before we've reestablished channel). */
 	do {
 		clean_tmpctx();
-		msg = sync_crypto_read(tmpctx, state->pps);
+		msg = peer_read(tmpctx, state->pps);
 	} while (dualopend_handle_custommsg(msg)
 		 || handle_peer_gossip_or_error(state->pps,
 						&state->channel_id,
@@ -3616,7 +3616,7 @@ static void do_reconnect_dance(struct state *state)
 	if (psbt_side_finalized(tx_state->psbt, state->our_role)
 	    && !state->funding_locked[REMOTE]) {
 		msg = psbt_to_tx_sigs_msg(NULL, state, tx_state->psbt);
-		sync_crypto_write(state->pps, take(msg));
+		peer_write(state->pps, take(msg));
 	}
 
 	if (state->funding_locked[LOCAL]) {
@@ -3701,7 +3701,7 @@ static u8 *handle_master_in(struct state *state)
  * surprise. */
 static u8 *handle_peer_in(struct state *state)
 {
-	u8 *msg = sync_crypto_read(tmpctx, state->pps);
+	u8 *msg = peer_read(tmpctx, state->pps);
 	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
@@ -3784,14 +3784,14 @@ static u8 *handle_peer_in(struct state *state)
 					&state->channel_id, false, msg))
 		return NULL;
 
-	sync_crypto_write(state->pps,
-			  take(towire_warningfmt(NULL,
-						 extract_channel_id(msg,
-								    &channel_id) ?
-						 &channel_id : NULL,
-						 "Unexpected message %s: %s",
-						 peer_wire_name(t),
-						 tal_hex(tmpctx, msg))));
+	peer_write(state->pps,
+		   take(towire_warningfmt(NULL,
+					  extract_channel_id(msg,
+							     &channel_id) ?
+					  &channel_id : NULL,
+					  "Unexpected message %s: %s",
+					  peer_wire_name(t),
+					  tal_hex(tmpctx, msg))));
 
 	/* FIXME: We don't actually want master to try to send an
 	 * error, since peer is transient.  This is a hack.

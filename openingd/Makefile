@@ -42,7 +42,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/channel_id.o			\
 	common/channel_type.o			\
 	common/crypto_state.o			\
-	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
@@ -50,8 +49,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/features.o			\
 	common/fee_states.o			\
-	common/status_wiregen.o			\
-	common/peer_status_wiregen.o		\
 	common/gossip_rcvd_filter.o		\
 	common/gossip_store.o			\
 	common/htlc_state.o			\
@@ -65,10 +62,12 @@ OPENINGD_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/node_id.o			\
 	common/onionreply.o			\
-	common/penalty_base.o			\
-	common/per_peer_state.o			\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
+	common/peer_io.o			\
+	common/peer_status_wiregen.o		\
+	common/penalty_base.o			\
+	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/ping.o				\
 	common/psbt_internal.o			\
@@ -79,6 +78,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/shutdown_scriptpubkey.o		\
 	common/status.o				\
 	common/status_wire.o			\
+	common/status_wiregen.o			\
 	common/subdaemon.o			\
 	common/type_to_string.o			\
 	common/utils.o				\

@@ -1,10 +1,10 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <common/crypto_sync.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/peer_failed.h>
+#include <common/peer_io.h>
 #include <common/per_peer_state.h>
 #include <common/ping.h>
 #include <common/read_peer_msg.h>
@@ -49,7 +49,7 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
 	}
 
 	if (FD_ISSET(pps->peer_fd, &readfds)) {
-		msg = sync_crypto_read(ctx, pps);
+		msg = peer_read(ctx, pps);
 		*from_gossipd = false;
 		return msg;
 	}
@@ -121,10 +121,10 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 
 	/* Gossipd can send us gossip messages, OR warnings */
 	if (fromwire_peektype(gossip) == WIRE_WARNING) {
-		sync_crypto_write(pps, gossip);
+		peer_write(pps, gossip);
 		peer_failed_connection_lost();
 	} else {
-		sync_crypto_write(pps, gossip);
+		peer_write(pps, gossip);
 	}
 }
 
@@ -141,11 +141,11 @@ bool handle_timestamp_filter(struct per_peer_state *pps, const u8 *msg TAKES)
 	}
 
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
-		sync_crypto_write(pps,
-				  take(towire_warningfmt(NULL, NULL,
-				       "gossip_timestamp_filter"
-				       " for bad chain: %s",
-				       tal_hex(tmpctx, take(msg)))));
+		peer_write(pps,
+			   take(towire_warningfmt(NULL, NULL,
+						  "gossip_timestamp_filter"
+						  " for bad chain: %s",
+						  tal_hex(tmpctx, take(msg)))));
 		return true;
 	}
 
@@ -181,7 +181,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 		return true;
 	else if (check_ping_make_pong(NULL, msg, &pong)) {
 		if (pong)
-			sync_crypto_write(pps, take(pong));
+			peer_write(pps, take(pong));
 		return true;
 	} else if (is_msg_for_gossipd(msg)) {
 		if (is_msg_gossip_broadcast(msg))
