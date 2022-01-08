@@ -10,9 +10,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/fdpass/fdpass.h>
-#include <ccan/htable/htable_type.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
@@ -20,9 +18,10 @@
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
+#include <common/gossip_rcvd_filter.h>
+#include <common/gossip_store.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
-#include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
@@ -60,97 +59,6 @@
 #define MAX_CONNECT_ATTEMPTS 10
 #define INITIAL_WAIT_SECONDS	1
 #define MAX_WAIT_SECONDS	300
-
-/*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
- * already connected (by peer->id). */
-
-/*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:
- */
-static const struct node_id *peer_keyof(const struct peer *peer)
-{
-	return &peer->id;
-}
-
-/*~ We also need to define a hashing function. siphash24 is a fast yet
- * cryptographic hash in ccan/crypto/siphash24; we might be able to get away
- * with a slightly faster hash with fewer guarantees, but it's good hygiene to
- * use this unless it's a proven bottleneck.  siphash_seed() is a function in
- * common/pseudorand which sets up a seed for our hashing; it's different
- * every time the program is run. */
-static size_t node_id_hash(const struct node_id *id)
-{
-	return siphash24(siphash_seed(), id->k, sizeof(id->k));
-}
-
-/*~ We also define an equality function: is this element equal to this key? */
-static bool peer_eq_node_id(const struct peer *peer,
-			    const struct node_id *id)
-{
-	return node_id_eq(&peer->id, id);
-}
-
-/*~ This defines 'struct peer_htable' which contains 'struct peer' pointers. */
-HTABLE_DEFINE_TYPE(struct peer,
-		   peer_keyof,
-		   node_id_hash,
-		   peer_eq_node_id,
-		   peer_htable);
-
-/*~ This is the global state, like `struct lightningd *ld` in lightningd. */
-struct daemon {
-	/* Who am I? */
-	struct node_id id;
-
-	/* pubkey equivalent. */
-	struct pubkey mykey;
-
-	/* Base for timeout timers, and how long to wait for init msg */
-	struct timers timers;
-	u32 timeout_secs;
-
-	/* Peers that we've handed to `lightningd`, which it hasn't told us
-	 * have disconnected. */
-	struct peer_htable peers;
-
-	/* Peers we are trying to reach */
-	struct list_head connecting;
-
-	/* Connection to main daemon. */
-	struct daemon_conn *master;
-
-	/* Allow localhost to be considered "public": DEVELOPER-only option,
-	 * but for simplicity we don't #if DEVELOPER-wrap it here. */
-	bool dev_allow_localhost;
-
-	/* We support use of a SOCKS5 proxy (e.g. Tor) */
-	struct addrinfo *proxyaddr;
-
-	/* They can tell us we must use proxy even for non-Tor addresses. */
-	bool always_use_proxy;
-
-	/* There are DNS seeds we can use to look up node addresses as a last
-	 * resort, but doing so leaks our address so can be disabled. */
-	bool use_dns;
-
-	/* The address that the broken response returns instead of
-	 * NXDOMAIN. NULL if we have not detected a broken resolver. */
-	struct sockaddr *broken_resolver_response;
-
-	/* File descriptors to listen on once we're activated. */
-	struct listen_fd *listen_fds;
-
-	/* Allow to define the default behavior of tor services calls*/
-	bool use_v3_autotor;
-
-	/* Our features, as lightningd told us */
-	struct feature_set *our_features;
-
-	/* Subdaemon to proxy websocket requests. */
-	char *websocket_helper;
-
-	/* If non-zero, port to listen for websocket connections. */
-	u16 websocket_port;
-};
 
 /* Peers we're trying to reach: we iterate through addrs until we succeed
  * or fail. */
@@ -448,6 +356,7 @@ static struct peer *new_peer(struct daemon *daemon,
 {
 	struct peer *peer = tal(daemon, struct peer);
 
+	peer->daemon = daemon;
 	peer->id = *id;
 	peer->cs = *cs;
 	peer->final_msg = NULL;
@@ -457,6 +366,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->urgent = false;
 	peer->peer_outq = msg_queue_new(peer);
 	peer->subd_outq = msg_queue_new(peer);
+	peer->grf = new_gossip_rcvd_filter(peer);
 
 	/* Aim for connection to shuffle data back and forth: sets up
 	 * peer->to_subd */
@@ -466,6 +376,8 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->to_peer = tal_steal(peer, conn);
 	peer_htable_add(&daemon->peers, peer);
 	tal_add_destructor2(peer, destroy_peer, daemon);
+
+	peer->gs = NULL;
 	return peer;
 }
 
@@ -549,6 +461,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		close(subd_fd);
 		return tal_free(peer);
 	}
+
+	/* Get ready for streaming gossip from the store */
+	setup_peer_gossip_store(peer, daemon->our_features, their_features);
 
 	/* Create message to tell master peer has connected. */
 	msg = towire_connectd_peer_connected(NULL, id, addr, incoming,
@@ -1600,6 +1515,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announcable;
 	char *tor_password;
+	bool dev_fast_gossip;
 	bool dev_disconnect;
 
 	/* Fields which require allocation are allocated off daemon */
@@ -1617,11 +1533,17 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		&daemon->timeout_secs,
 		&daemon->websocket_helper,
 		&daemon->websocket_port,
+		&dev_fast_gossip,
 		&dev_disconnect)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
 	}
+
+#if DEVELOPER
+	/*~ Clearly mark this as a developer-only flag! */
+	daemon->dev_fast_gossip = dev_fast_gossip;
+#endif
 
 	if (!pubkey_from_node_id(&daemon->mykey, &daemon->id))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -2111,6 +2033,8 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	timers_init(&daemon->timers, time_mono());
+	daemon->gossip_store_fd = -1;
+
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,
 					 daemon);

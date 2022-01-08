@@ -6,6 +6,8 @@
 #include <ccan/tal/tal.h>
 
 struct per_peer_state;
+struct gossip_state;
+struct gossip_rcvd_filter;
 
 /**
  * gossip_store -- On-disk storage related information
@@ -44,9 +46,28 @@ struct gossip_hdr {
 u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps);
 
 /**
+ * Direct store accessor: loads gossip msg from store.
+ *
+ * Returns NULL if there are no more gossip msgs.
+ */
+u8 *gossip_store_iter(const tal_t *ctx,
+		      int *gossip_store_fd,
+		      struct gossip_state *gs,
+		      struct gossip_rcvd_filter *grf,
+		      size_t *off);
+
+/**
  * Sets up the tiemstamp filter once they told us to set it.(
  */
 void gossip_setup_timestamp_filter(struct per_peer_state *pps,
 				   u32 first_timestamp,
 				   u32 timestamp_range);
+
+/**
+ * Gossipd will be writing to this, and it's not atomic!  Safest
+ * way to find the "end" is to walk through.
+ * @old_end: 1 if no previous end.
+ */
+size_t find_gossip_store_end(int gossip_store_fd, size_t old_end);
+
 #endif /* LIGHTNING_COMMON_GOSSIP_STORE_H */

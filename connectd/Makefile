@@ -50,6 +50,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/status_wiregen.o			\
+	common/gossip_store.o			\
 	common/gossip_rcvd_filter.o		\
 	common/key_derive.o			\
 	common/memleak.o			\
@@ -71,6 +72,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	common/wire_error.o			\
 	gossipd/gossipd_wiregen.o		\
+	gossipd/gossip_store_wiregen.o		\
 	wire/onion$(EXP)_wiregen.o
 
 lightningd/lightning_connectd: $(CONNECTD_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)

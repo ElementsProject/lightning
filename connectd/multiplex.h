@@ -6,32 +6,9 @@
 #include <common/msg_queue.h>
 #include <common/node_id.h>
 
-struct peer {
-	struct node_id id;
-	/* Counters and keys for symmetric crypto */
-	struct crypto_state cs;
-
-	/* Connection to the peer */
-	struct io_conn *to_peer;
-
-	/* Connection to the subdaemon */
-	struct io_conn *to_subd;
-
-	/* Final message to send to peer (and hangup) */
-	u8 *final_msg;
-
-	/* When we write something which wants Nagle overridden */
-	bool urgent;
-
-	/* Input buffers. */
-	u8 *subd_in, *peer_in;
-
-	/* Output buffers. */
-	struct msg_queue *subd_outq, *peer_outq;
-
-	/* Peer sent buffer (for freeing after sending) */
-	const u8 *sent_to_peer;
-};
+struct peer;
+struct io_conn;
+struct feature_set;
 
 /* Set up peer->to_subd; sets fd_for_subd to pass to lightningd. */
 bool multiplex_subd_setup(struct peer *peer, int *fd_for_subd);
@@ -47,4 +24,7 @@ void multiplex_final_msg(struct peer *peer,
 /* Inject a message into the output stream */
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
 
+void setup_peer_gossip_store(struct peer *peer,
+			     const struct feature_set *our_features,
+			     const u8 *their_features);
 #endif /* LIGHTNING_CONNECTD_MULTIPLEX_H */

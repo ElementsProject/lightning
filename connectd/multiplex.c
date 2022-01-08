@@ -2,17 +2,28 @@
  * itself, and the subdaemons. */
 #include "config.h"
 #include <assert.h>
+#include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
 #include <ccan/io/io.h>
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>
+#include <common/features.h>
+#include <common/gossip_constants.h>
+#include <common/gossip_rcvd_filter.h>
+#include <common/gossip_store.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
+#include <common/timeout.h>
 #include <common/utils.h>
+#include <common/wire_error.h>
+#include <connectd/connectd.h>
 #include <connectd/multiplex.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
@@ -21,6 +32,117 @@
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 {
 	msg_enqueue(peer->peer_outq, msg);
+}
+
+/* Send warning, close connection to peer */
+static void send_warning(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	status_vfmt(LOG_UNUSUAL, &peer->id, fmt, ap);
+	va_end(ap);
+
+	/* Close locally, send msg as final warning */
+	io_close(peer->to_subd);
+
+	va_start(ap, fmt);
+	peer->final_msg = towire_warningfmtv(peer, NULL, fmt, ap);
+	va_end(ap);
+}
+
+/* Either for initial setup, or when they ask by timestamp */
+static bool setup_gossip_filter(struct peer *peer,
+				u32 first_timestamp,
+				u32 timestamp_range)
+{
+	bool immediate_sync;
+
+	/* If this is the first filter, we gossip sync immediately. */
+	if (!peer->gs) {
+		peer->gs = tal(peer, struct gossip_state);
+		peer->gs->next_gossip = time_mono();
+		immediate_sync = true;
+	} else
+		immediate_sync = false;
+
+	/* BOLT #7:
+	 *
+	 * The receiver:
+	 *   - SHOULD send all gossip messages whose `timestamp` is greater or
+	 *     equal to `first_timestamp`, and less than `first_timestamp` plus
+	 *     `timestamp_range`.
+	 * 	- MAY wait for the next outgoing gossip flush to send these.
+	 *   ...
+	 *   - SHOULD restrict future gossip messages to those whose `timestamp`
+	 *     is greater or equal to `first_timestamp`, and less than
+	 *     `first_timestamp` plus `timestamp_range`.
+	 */
+	peer->gs->timestamp_min = first_timestamp;
+	peer->gs->timestamp_max = first_timestamp + timestamp_range - 1;
+	/* Make sure we never leave it on an impossible value. */
+	if (peer->gs->timestamp_max < peer->gs->timestamp_min)
+		peer->gs->timestamp_max = UINT32_MAX;
+
+	peer->gossip_store_off = 1;
+	return immediate_sync;
+}
+
+/* This is called once we need it: otherwise, the gossip_store may not exist,
+ * since we start at the same time as gossipd itself. */
+static void setup_gossip_store(struct daemon *daemon)
+{
+	daemon->gossip_store_fd = open(GOSSIP_STORE_FILENAME, O_RDONLY);
+	if (daemon->gossip_store_fd < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Opening gossip_store %s: %s",
+			      GOSSIP_STORE_FILENAME, strerror(errno));
+	/* gossipd will be writing to this, and it's not atomic!  Safest
+	 * way to find the "end" is to walk through. */
+	daemon->gossip_store_end
+		= find_gossip_store_end(daemon->gossip_store_fd, 1);
+}
+
+void setup_peer_gossip_store(struct peer *peer,
+			     const struct feature_set *our_features,
+			     const u8 *their_features)
+{
+	/* Lazy setup */
+	if (peer->daemon->gossip_store_fd == -1)
+		setup_gossip_store(peer->daemon);
+
+	peer->gossip_timer = NULL;
+
+	/* BOLT #7:
+	 *
+	 * A node:
+	 *   - if the `gossip_queries` feature is negotiated:
+	 * 	- MUST NOT relay any gossip messages it did not generate itself,
+	 *        unless explicitly requested.
+	 */
+	if (feature_negotiated(our_features, their_features, OPT_GOSSIP_QUERIES))
+		return;
+
+	setup_gossip_filter(peer, 0, UINT32_MAX);
+
+	/* BOLT #7:
+	 *
+	 * - upon receiving an `init` message with the
+	 *   `initial_routing_sync` flag set to 1:
+	 *   - SHOULD send gossip messages for all known channels and
+	 *    nodes, as if they were just received.
+	 * - if the `initial_routing_sync` flag is set to 0, OR if the
+	 *   initial sync was completed:
+	 *   - SHOULD resume normal operation, as specified in the
+	 *     following [Rebroadcasting](#rebroadcasting) section.
+	 */
+	if (!feature_offered(their_features, OPT_INITIAL_ROUTING_SYNC)) {
+		/* During tests, particularly, we find that the gossip_store
+		 * moves fast, so make sure it really does start at the end. */
+		peer->gossip_store_off
+			= find_gossip_store_end(peer->daemon->gossip_store_fd,
+						peer->daemon->gossip_store_end);
+	}
 }
 
 /* These four function handle subd->peer */
@@ -191,6 +313,87 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 			next, peer);
 }
 
+/* Kicks off write_to_peer() to look for more gossip to send from store */
+static void wake_gossip(struct peer *peer)
+{
+	peer->gossip_timer = NULL;
+	io_wake(peer->peer_outq);
+}
+
+/* If we are streaming gossip, get something from gossip store */
+static u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
+{
+	u8 *msg;
+
+	/* Not streaming yet? */
+	if (!peer->gs)
+		return NULL;
+
+	/* Still waiting for timer? */
+	if (peer->gossip_timer != NULL)
+		return NULL;
+
+	msg = gossip_store_iter(ctx, &peer->daemon->gossip_store_fd,
+				peer->gs, peer->grf, &peer->gossip_store_off);
+
+	/* Cache highest valid offset (FIXME: doesn't really work when
+	 * gossip_store gets rewritten!) */
+	if (peer->gossip_store_off > peer->daemon->gossip_store_end)
+		peer->daemon->gossip_store_end = peer->gossip_store_off;
+
+	if (msg) {
+		status_peer_io(LOG_IO_OUT, &peer->id, msg);
+		return msg;
+	}
+
+	/* BOLT #7:
+	 *
+	 * A node:
+	 *...
+	 *  - SHOULD flush outgoing gossip messages once every 60 seconds,
+	 *    independently of the arrival times of the messages.
+	 *    - Note: this results in staggered announcements that are unique
+	 *      (not duplicated).
+	 */
+	/* We do 60 seconds from *start*, not from *now* */
+	peer->gs->next_gossip
+		= timemono_add(time_mono(),
+			       time_from_sec(GOSSIP_FLUSH_INTERVAL(
+						     peer->daemon->dev_fast_gossip)));
+	peer->gossip_timer = new_abstimer(&peer->daemon->timers, peer,
+					  peer->gs->next_gossip,
+					  wake_gossip, peer);
+	return NULL;
+}
+
+/* We only handle gossip_timestamp_filter for now */
+static bool handle_message_locally(struct peer *peer, const u8 *msg)
+{
+	struct bitcoin_blkid chain_hash;
+	u32 first_timestamp, timestamp_range;
+
+	/* We remember these so we don't rexmit them */
+	if (is_msg_gossip_broadcast(msg))
+		gossip_rcvd_filter_add(peer->grf, msg);
+
+	if (!fromwire_gossip_timestamp_filter(msg, &chain_hash,
+					      &first_timestamp,
+					      &timestamp_range)) {
+		return false;
+	}
+
+	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
+		send_warning(peer, "gossip_timestamp_filter for bad chain: %s",
+			     tal_hex(tmpctx, msg));
+		return true;
+	}
+
+	/* Returns true the first time. */
+	if (setup_gossip_filter(peer, first_timestamp, timestamp_range))
+		wake_gossip(peer);
+	return true;
+}
+
 static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				     struct peer *peer)
 {
@@ -211,12 +414,16 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 						peer->final_msg,
 						after_final_msg);
 		}
-		/* Tell them to read again, */
-		io_wake(&peer->subd_in);
+		/* If they want us to send gossip, do so now. */
+		msg = maybe_from_gossip_store(NULL, peer);
+		if (!msg) {
+			/* Tell them to read again, */
+			io_wake(&peer->subd_in);
 
-		/* Wait for them to wake us */
-		return msg_queue_wait(peer_conn, peer->peer_outq,
-				      write_to_peer, peer);
+			/* Wait for them to wake us */
+			return msg_queue_wait(peer_conn, peer->peer_outq,
+					      write_to_peer, peer);
+		}
 	}
 
 	return encrypt_and_send(peer, take(msg), write_to_peer);
@@ -277,6 +484,12 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        if (!decrypted)
                return io_close(peer_conn);
        tal_free(peer->peer_in);
+
+       /* If we swallow this, just try again. */
+       if (handle_message_locally(peer, decrypted)) {
+	       tal_free(decrypted);
+	       return read_hdr_from_peer(peer_conn, peer);
+       }
 
        /* Tell them to write. */
        msg_enqueue(peer->subd_outq, take(decrypted));
