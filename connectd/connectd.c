@@ -525,13 +525,14 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 					    const struct pubkey *id_key,
 					    const struct wireaddr_internal *addr,
 					    struct crypto_state *cs,
+					    struct oneshot *timeout,
 					    struct daemon *daemon)
 {
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
 	return peer_exchange_initmsg(conn, daemon, daemon->our_features,
-				     cs, &id, addr, true);
+				     cs, &id, addr, timeout, true);
 }
 
 /*~ If the timer goes off, we simply free everything, which hangs up. */
@@ -591,11 +592,12 @@ static struct io_plan *conn_in(struct io_conn *conn,
 			       struct conn_in *conn_in_arg)
 {
 	struct daemon *daemon = conn_in_arg->daemon;
+	struct oneshot *timeout;
 
-	/* If they don't complete handshake in reasonable time, hang up */
-	notleak(new_reltimer(&daemon->timers, conn,
-			     time_from_sec(daemon->timeout_secs),
-			     conn_timeout, conn));
+	/* If they don't complete handshake in reasonable time, we hang up */
+	timeout = new_reltimer(&daemon->timers, conn,
+			       time_from_sec(daemon->timeout_secs),
+			       conn_timeout, conn);
 
 	/*~ The crypto handshake differs depending on whether you received or
 	 * initiated the socket connection, so there are two entry points.
@@ -603,7 +605,7 @@ static struct io_plan *conn_in(struct io_conn *conn,
 	 * code from thinking `conn` (which we don't keep a pointer to) is
 	 * leaked */
 	return responder_handshake(notleak(conn), &daemon->mykey,
-				   &conn_in_arg->addr,
+				   &conn_in_arg->addr, timeout,
 				   handshake_in_success, daemon);
 }
 
@@ -723,6 +725,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *key,
 					     const struct wireaddr_internal *addr,
 					     struct crypto_state *cs,
+					     struct oneshot *timeout,
 					     struct connecting *connect)
 {
 	struct node_id id;
@@ -732,12 +735,13 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	status_peer_debug(&id, "Connect OUT");
 	return peer_exchange_initmsg(conn, connect->daemon,
 				     connect->daemon->our_features,
-				     cs, &id, addr, false);
+				     cs, &id, addr, timeout, false);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 {
 	struct pubkey outkey;
+	struct oneshot *timeout;
 
 	/* This shouldn't happen: lightningd should not give invalid ids! */
 	if (!pubkey_from_node_id(&outkey, &connect->id)) {
@@ -748,15 +752,15 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 	}
 
 	/* If they don't complete handshake in reasonable time, hang up */
-	notleak(new_reltimer(&connect->daemon->timers, conn,
-			     time_from_sec(connect->daemon->timeout_secs),
-			     conn_timeout, conn));
+	timeout = new_reltimer(&connect->daemon->timers, conn,
+			       time_from_sec(connect->daemon->timeout_secs),
+			       conn_timeout, conn);
 	status_peer_debug(&connect->id, "Connected out, starting crypto");
 
 	connect->connstate = "Cryptographic handshake";
 	return initiator_handshake(conn, &connect->daemon->mykey, &outkey,
 				   &connect->addrs[connect->addrnum],
-				   handshake_out_success, connect);
+				   timeout, handshake_out_success, connect);
 }
 
 /*~ When we've exhausted all addresses without success, we come here.

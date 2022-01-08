@@ -144,6 +144,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 					 const struct pubkey *them,
 					 const struct wireaddr_internal *addr,
 					 struct crypto_state *orig_cs,
+					 struct oneshot *timer,
 					 char **args)
 {
 	u8 *msg;
@@ -351,7 +352,8 @@ int main(int argc, char *argv[])
 	if (connect(conn->fd, ai->ai_addr, ai->ai_addrlen) != 0)
 		err(1, "Connecting to %s", at+1);
 
-	initiator_handshake(conn, &us, &them, &addr, handshake_success, argv+2);
+	initiator_handshake(conn, &us, &them, &addr, NULL,
+			    handshake_success, argv+2);
 	exit(0);
 }
 

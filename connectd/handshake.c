@@ -173,11 +173,15 @@ struct handshake {
 	/* Are we initiator or responder. */
 	enum bolt8_side side;
 
+	/* Timeout timer if we take too long. */
+	struct oneshot *timeout;
+
 	/* Function to call once handshake complete. */
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
 			      const struct wireaddr_internal *wireaddr,
 			      struct crypto_state *cs,
+			      struct oneshot *timeout,
 			      void *cbarg);
 	void *cbarg;
 };
@@ -348,10 +352,12 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 			      const struct pubkey *their_id,
 			      const struct wireaddr_internal *addr,
 			      struct crypto_state *cs,
+			      struct oneshot *timeout,
 			      void *cbarg);
 	void *cbarg;
 	struct pubkey their_id;
 	struct wireaddr_internal addr;
+	struct oneshot *timeout;
 
 	/* BOLT #8:
 	 *
@@ -377,9 +383,10 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	cbarg = h->cbarg;
 	their_id = h->their_id;
 	addr = h->addr;
+	timeout = h->timeout;
 
 	tal_free(h);
-	return cb(conn, &their_id, &addr, &cs, cbarg);
+	return cb(conn, &their_id, &addr, &cs, timeout, cbarg);
 }
 
 static struct handshake *new_handshake(const tal_t *ctx,
@@ -956,10 +963,12 @@ static struct io_plan *act_one_responder(struct io_conn *conn,
 struct io_plan *responder_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
 				     const struct wireaddr_internal *addr,
+				     struct oneshot *timeout,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
 							   struct crypto_state *,
+							   struct oneshot *,
 							   void *cbarg),
 				     void *cbarg)
 {
@@ -970,6 +979,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 	h->addr = *addr;
 	h->cbarg = cbarg;
 	h->cb = cb;
+	h->timeout = timeout;
 
 	return act_one_responder(conn, h);
 }
@@ -978,10 +988,12 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
 				     const struct pubkey *their_id,
 				     const struct wireaddr_internal *addr,
+				     struct oneshot *timeout,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
 							   struct crypto_state *,
+							   struct oneshot *timeout,
 							   void *cbarg),
 				     void *cbarg)
 {
@@ -993,6 +1005,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 	h->addr = *addr;
 	h->cbarg = cbarg;
 	h->cb = cb;
+	h->timeout = timeout;
 
 	return act_one_initiator(conn, h);
 }
