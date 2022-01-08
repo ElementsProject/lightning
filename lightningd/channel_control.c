@@ -6,6 +6,7 @@
 #include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/param.h>
+#include <common/per_peer_state.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
@@ -357,11 +358,12 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 {
 	struct per_peer_state *pps;
 
-	if (!fromwire_channeld_shutdown_complete(tmpctx, msg, &pps)) {
+	if (!fromwire_channeld_shutdown_complete(msg)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
 				       tal_hex(msg, msg));
 		return;
 	}
+	pps = new_per_peer_state(msg);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	/* This sets channel->owner, closes down channeld. */
@@ -489,9 +491,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		peer_got_shutdown(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
-		/* We expect 3 fds. */
+		/* We expect 2 fds. */
 		if (!fds)
-			return 3;
+			return 2;
 		peer_start_closingd_after_shutdown(sd->channel, msg, fds);
 		break;
 	case WIRE_CHANNELD_FAIL_FALLEN_BEHIND:
@@ -586,7 +588,6 @@ void peer_start_channeld(struct channel *channel,
 					   channel_set_billboard,
 					   take(&pps->peer_fd),
 					   take(&pps->gossip_fd),
-					   take(&pps->gossip_store_fd),
 					   take(&hsmfd), NULL));
 
 	if (!channel->owner) {
@@ -669,7 +670,6 @@ void peer_start_channeld(struct channel *channel,
 				       feerate_max(ld, NULL),
 				       try_get_feerate(ld->topology, FEERATE_PENALTY),
 				       &channel->last_sig,
-				       pps,
 				       &channel->channel_info.remote_fundingkey,
 				       &channel->channel_info.theirbase,
 				       &channel->channel_info.remote_per_commit,

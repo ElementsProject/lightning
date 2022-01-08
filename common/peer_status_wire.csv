@@ -8,6 +8,5 @@ msgdata,status_peer_error,channel,channel_id,
 msgdata,status_peer_error,desc,wirestring,
 # Take a deep breath, then try reconnecting to the precious little snowflake.
 msgdata,status_peer_error,warning,bool,
-msgdata,status_peer_error,pps,per_peer_state,
 msgdata,status_peer_error,len,u16,
 msgdata,status_peer_error,error_for_them,u8,len

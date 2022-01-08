@@ -223,7 +223,7 @@ static bool get_gossipfds(struct daemon *daemon,
 			  const u8 *their_features,
 			  struct per_peer_state *pps)
 {
-	bool gossip_queries_feature, initial_routing_sync, success;
+	bool gossip_queries_feature, success;
 	u8 *msg;
 
 	/*~ The way features generally work is that both sides need to offer it;
@@ -232,23 +232,16 @@ static bool get_gossipfds(struct daemon *daemon,
 		= feature_negotiated(daemon->our_features, their_features,
 				     OPT_GOSSIP_QUERIES);
 
-	/*~ `initial_routing_sync` is supported by every node, since it was in
-	 * the initial lightning specification: it means the peer wants the
-	 * backlog of existing gossip. */
-	initial_routing_sync
-		= feature_offered(their_features, OPT_INITIAL_ROUTING_SYNC);
-
 	/*~ We do this communication sync, since gossipd is our friend and
 	 * it's easier.  If gossipd fails, we fail. */
-	msg = towire_gossipd_new_peer(NULL, id, gossip_queries_feature,
-				     initial_routing_sync);
+	msg = towire_gossipd_new_peer(NULL, id, gossip_queries_feature);
 	if (!wire_sync_write(GOSSIPCTL_FD, take(msg)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing to gossipctl: %s",
 			      strerror(errno));
 
 	msg = wire_sync_read(tmpctx, GOSSIPCTL_FD);
-	if (!fromwire_gossipd_new_peer_reply(pps, msg, &success, &pps->gs))
+	if (!fromwire_gossipd_new_peer_reply(msg, &success))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed parsing msg gossipctl: %s",
 			      tal_hex(tmpctx, msg));
@@ -261,10 +254,9 @@ static bool get_gossipfds(struct daemon *daemon,
 		return false;
 	}
 
-	/* Otherwise, the next thing in the socket will be the file descriptors
+	/* Otherwise, the next thing in the socket will be the file descriptor
 	 * for the per-peer daemon. */
 	pps->gossip_fd = fdpass_recv(GOSSIPCTL_FD);
-	pps->gossip_store_fd = fdpass_recv(GOSSIPCTL_FD);
 	return true;
 }
 
@@ -454,6 +446,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	if (!peer)
 		return io_close(conn);
 
+	/* FIXME: Remove pps abstraction! */
 	pps = new_per_peer_state(tmpctx);
 
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
@@ -467,7 +460,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	/* Create message to tell master peer has connected. */
 	msg = towire_connectd_peer_connected(NULL, id, addr, incoming,
-					     pps, their_features);
+					     their_features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
@@ -475,10 +468,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	daemon_conn_send(daemon->master, take(msg));
 	daemon_conn_send_fd(daemon->master, subd_fd);
 	daemon_conn_send_fd(daemon->master, pps->gossip_fd);
-	daemon_conn_send_fd(daemon->master, pps->gossip_store_fd);
 
-	/* Don't try to close these on freeing. */
-	pps->gossip_store_fd = pps->gossip_fd = -1;
+	/* Don't try to close this on freeing. */
+	pps->gossip_fd = -1;
 
 	/*~ Now we set up this connection to read/write from subd */
 	return multiplex_peer_setup(conn, peer);
@@ -1892,10 +1884,9 @@ static void peer_final_msg(struct io_conn *conn,
 	struct per_peer_state *pps;
 	struct node_id id;
 	u8 *finalmsg;
-	int fds[3];
+	int fds[2];
 
-	/* pps is allocated off f, so fds are closed when f freed. */
-	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &pps, &finalmsg))
+	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &finalmsg))
 		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
 
 	/* Get the fds for this peer. */
@@ -1912,8 +1903,9 @@ static void peer_final_msg(struct io_conn *conn,
 	/* Close fd to ourselves. */
 	close(fds[0]);
 
-	/* We put peer fd into conn, but pps needs to free the rest */
-	per_peer_state_set_fds(pps, -1, fds[1], fds[2]);
+	/* We put peer fd into conn, but pps needs to free the gossip_fd */
+	pps = new_per_peer_state(tmpctx);
+	per_peer_state_set_fds(pps, -1, fds[1]);
 
 	/* This can happen if peer hung up on us. */
 	peer = peer_htable_get(&daemon->peers, &id);

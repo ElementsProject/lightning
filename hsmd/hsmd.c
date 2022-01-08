@@ -614,6 +614,9 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 {
 	enum hsmd_wire t = fromwire_peektype(c->msg_in);
 
+	if (!is_lightningd(c))
+		status_peer_debug(&c->id, "Got %s", hsmd_wire_name(t));
+
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
 	if (!hsmd_check_client_capabilities(c->hsmd_client, t))

@@ -70,7 +70,7 @@ bool fromwire_status_fail(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, enu
 bool fromwire_status_peer_billboard(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, bool *perm UNNEEDED, wirestring **happenings UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_billboard called!\n"); abort(); }
 /* Generated stub for fromwire_status_peer_error */
-bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, bool *warning UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **error_for_them UNNEEDED)
+bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, bool *warning UNNEEDED, u8 **error_for_them UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_error called!\n"); abort(); }
 /* Generated stub for fromwire_status_version */
 bool fromwire_status_version(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, wirestring **version UNNEEDED)
@@ -108,6 +108,9 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 		    const struct node_id *default_node_id UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
+/* Generated stub for new_per_peer_state */
+struct per_peer_state *new_per_peer_state(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "new_per_peer_state called!\n"); abort(); }
 /* Generated stub for per_peer_state_set_fds_arr */
 void per_peer_state_set_fds_arr(struct per_peer_state *pps UNNEEDED, const int *fds UNNEEDED)
 { fprintf(stderr, "per_peer_state_set_fds_arr called!\n"); abort(); }

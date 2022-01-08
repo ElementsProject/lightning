@@ -1052,14 +1052,12 @@ send_error:
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
-							  payload->pps, error)));
+							  error)));
 	subd_send_fd(ld->connectd, payload->pps->peer_fd);
 	subd_send_fd(ld->connectd, payload->pps->gossip_fd);
-	subd_send_fd(ld->connectd, payload->pps->gossip_store_fd);
 	/* Don't close those fds! */
 	payload->pps->peer_fd
 		= payload->pps->gossip_fd
-		= payload->pps->gossip_store_fd
 		= -1;
 }
 
@@ -1117,7 +1115,7 @@ REGISTER_PLUGIN_HOOK(peer_connected,
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_died. */
 void peer_connected(struct lightningd *ld, const u8 *msg,
-		    int peer_fd, int gossip_fd, int gossip_store_fd)
+		    int peer_fd, int gossip_fd)
 {
 	struct node_id id;
 	u8 *their_features;
@@ -1130,13 +1128,12 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
 					      &id, &hook_payload->addr,
 					      &hook_payload->incoming,
-					      &hook_payload->pps,
 					      &their_features))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
-	per_peer_state_set_fds(hook_payload->pps,
-			       peer_fd, gossip_fd, gossip_store_fd);
+	hook_payload->pps = new_per_peer_state(hook_payload);
+	per_peer_state_set_fds(hook_payload->pps, peer_fd, gossip_fd);
 
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */

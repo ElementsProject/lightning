@@ -21,6 +21,7 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
+#include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
@@ -35,9 +36,9 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-/* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
+/* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = hsmd */
 #define REQ_FD STDIN_FILENO
-#define HSM_FD 6
+#define HSM_FD 5
 
 #if DEVELOPER
 /* If --dev-force-tmp-channel-id is set, it ends up here */
@@ -205,7 +206,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 
 		/* Some messages go straight to gossipd. */
 		if (is_msg_for_gossipd(msg)) {
-			gossip_rcvd_filter_add(state->pps->grf, msg);
 			wire_sync_write(state->pps->gossip_fd, take(msg));
 			continue;
 		}
@@ -217,10 +217,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		 *     - MUST ignore the received message.
 		 */
 		if (is_unknown_msg_discardable(msg))
-			continue;
-
-		/* Might be a timestamp filter request: handle. */
-		if (handle_timestamp_filter(state->pps, msg))
 			continue;
 
 		/* A helper which decodes an error. */
@@ -774,7 +770,6 @@ static u8 *funder_channel_complete(struct state *state)
 					   tx,
 					   pbase,
 					   &sig,
-					   state->pps,
 					   &state->their_points.revocation,
 					   &state->their_points.payment,
 					   &state->their_points.htlc,
@@ -1234,7 +1229,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     local_commit,
 				     pbase,
 				     &theirsig,
-				     state->pps,
 				     &theirs.revocation,
 				     &theirs.payment,
 				     &theirs.htlc,
@@ -1286,8 +1280,7 @@ static u8 *handle_peer_in(struct state *state)
 	/* Reestablish on some now-closed channel?  Be nice. */
 	if (extracted && fromwire_peektype(msg) == WIRE_CHANNEL_REESTABLISH) {
 		return towire_openingd_got_reestablish(NULL,
-						       &channel_id, msg,
-						       state->pps);
+						       &channel_id, msg);
 	}
 	peer_write(state->pps,
 			  take(towire_warningfmt(NULL,
@@ -1427,14 +1420,6 @@ static u8 *handle_master_in(struct state *state)
 		      "Unknown msg %s", tal_hex(tmpctx, msg));
 }
 
-static void try_read_gossip_store(struct state *state)
-{
-	u8 *msg = gossip_store_next(tmpctx, state->pps);
-
-	if (msg)
-		peer_write(state->pps, take(msg));
-}
-
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -1460,21 +1445,20 @@ int main(int argc, char *argv[])
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity,
-				   &state->pps,
 				   &state->our_points,
 				   &state->our_funding_pubkey,
 				   &state->minimum_depth,
 				   &state->min_feerate, &state->max_feerate,
-				   &force_tmp_channel_id,
-				   &dev_fast_gossip))
+				   &force_tmp_channel_id))
 		master_badmsg(WIRE_OPENINGD_INIT, msg);
 
 #if DEVELOPER
 	dev_force_tmp_channel_id = force_tmp_channel_id;
 #endif
 
-	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
-	per_peer_state_set_fds(state->pps, 3, 4, 5);
+	/* 3 == peer, 4 == gossipd, 5 = hsmd */
+	state->pps = new_per_peer_state(state);
+	per_peer_state_set_fds(state->pps, 3, 4);
 
 	/*~ Initially we're not associated with a channel, but
 	 * handle_peer_gossip_or_error compares this. */
@@ -1520,19 +1504,12 @@ int main(int argc, char *argv[])
 	 * opening_funder_reply or opening_fundee. */
 	msg = NULL;
 	while (!msg) {
-		int t;
-		struct timerel trel;
-		if (time_to_next_gossip(state->pps, &trel))
-			t = time_to_msec(trel);
-		else
-			t = -1;
-
 		/*~ If we get a signal which aborts the poll() call, valgrind
 		 * complains about revents being uninitialized.  I'm not sure
 		 * that's correct, but it's easy to be sure. */
 		pollfd[0].revents = pollfd[1].revents = pollfd[2].revents = 0;
 
-		poll(pollfd, ARRAY_SIZE(pollfd), t);
+		poll(pollfd, ARRAY_SIZE(pollfd), -1);
 		/* Subtle: handle_master_in can do its own poll loop, so
 		 * don't try to service more than one fd per loop. */
 		/* First priority: messages from lightningd. */
@@ -1544,8 +1521,6 @@ int main(int argc, char *argv[])
 		/* Last priority: chit-chat from gossipd. */
 		else if (pollfd[1].revents & POLLIN)
 			handle_gossip_in(state);
-		else
-			try_read_gossip_store(state);
 
 		/* Since we're the top-level event loop, we clean up */
 		clean_tmpctx();

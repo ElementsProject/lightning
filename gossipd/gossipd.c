@@ -831,37 +831,21 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	struct peer *peer = tal(conn, struct peer);
 	struct node *node;
 	int fds[2];
-	int gossip_store_fd;
-	struct gossip_state *gs;
 
 	if (!fromwire_gossipd_new_peer(msg, &peer->id,
-				      &peer->gossip_queries_feature,
-				      &peer->initial_routing_sync_feature)) {
+				      &peer->gossip_queries_feature)) {
 		status_broken("Bad new_peer msg from connectd: %s",
 			      tal_hex(tmpctx, msg));
 		return io_close(conn);
-	}
-
-	gossip_store_fd = gossip_store_readonly_fd(daemon->rstate->gs);;
-	if (gossip_store_fd < 0) {
-		status_broken("Failed to get readonly store fd: %s",
-			      strerror(errno));
-		daemon_conn_send(daemon->connectd,
-				 take(towire_gossipd_new_peer_reply(NULL,
-								   false,
-								   NULL)));
-		goto done;
 	}
 
 	/* This can happen: we handle it gracefully, returning a `failed` msg. */
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		status_broken("Failed to create socketpair: %s",
 			      strerror(errno));
-		close(gossip_store_fd);
 		daemon_conn_send(daemon->connectd,
 				 take(towire_gossipd_new_peer_reply(NULL,
-								   false,
-								   NULL)));
+								    false)));
 		goto done;
 	}
 
@@ -898,43 +882,10 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	/* This sends the initial timestamp filter. */
 	seeker_setup_peer_gossip(daemon->seeker, peer);
 
-	/* BOLT #7:
-	 *
-	 * A node:
-	 *   - if the `gossip_queries` feature is negotiated:
-	 * 	- MUST NOT relay any gossip messages it did not generate itself,
-	 *        unless explicitly requested.
-	 */
-	if (peer->gossip_queries_feature) {
-		gs = NULL;
-	} else {
-		/* BOLT #7:
-		 *
-		 * - upon receiving an `init` message with the
-		 *   `initial_routing_sync` flag set to 1:
-		 *   - SHOULD send gossip messages for all known channels and
-		 *    nodes, as if they were just received.
-		 * - if the `initial_routing_sync` flag is set to 0, OR if the
-		 *   initial sync was completed:
-		 *   - SHOULD resume normal operation, as specified in the
-		 *     following [Rebroadcasting](#rebroadcasting) section.
-		 */
-		gs = tal(tmpctx, struct gossip_state);
-		gs->timestamp_min = 0;
-		gs->timestamp_max = UINT32_MAX;
-
-		/* If they don't want initial sync, start at end of store */
-		if (!peer->initial_routing_sync_feature)
-			lseek(gossip_store_fd, 0, SEEK_END);
-
-		gs->next_gossip = time_mono();
-	}
-
 	/* Reply with success, and the new fd and gossip_state. */
 	daemon_conn_send(daemon->connectd,
-			 take(towire_gossipd_new_peer_reply(NULL, true, gs)));
+			 take(towire_gossipd_new_peer_reply(NULL, true)));
 	daemon_conn_send_fd(daemon->connectd, fds[1]);
-	daemon_conn_send_fd(daemon->connectd, gossip_store_fd);
 
 done:
 	return daemon_conn_read_next(conn, daemon->connectd);

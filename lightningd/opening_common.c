@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_command.h>
+#include <common/per_peer_state.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
@@ -192,14 +193,12 @@ void handle_reestablish(struct lightningd *ld,
 			  type_to_string(tmpctx, struct channel_id, channel_id));
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_final_msg(NULL, peer_id,
-								  pps, err)));
+								  err)));
 		subd_send_fd(ld->connectd, pps->peer_fd);
 		subd_send_fd(ld->connectd, pps->gossip_fd);
-		subd_send_fd(ld->connectd, pps->gossip_store_fd);
 		/* Don't close those fds! */
 		pps->peer_fd
 			= pps->gossip_fd
-			= pps->gossip_store_fd
 			= -1;
 	}
 }

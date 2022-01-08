@@ -86,7 +86,7 @@ bool fromwire_status_fail(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, enu
 bool fromwire_status_peer_billboard(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, bool *perm UNNEEDED, wirestring **happenings UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_billboard called!\n"); abort(); }
 /* Generated stub for fromwire_status_peer_error */
-bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, bool *warning UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **error_for_them UNNEEDED)
+bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, bool *warning UNNEEDED, u8 **error_for_them UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_error called!\n"); abort(); }
 /* Generated stub for fromwire_status_version */
 bool fromwire_status_version(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, wirestring **version UNNEEDED)
@@ -167,6 +167,9 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 /* Generated stub for new_log_book */
 struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }
+/* Generated stub for new_per_peer_state */
+struct per_peer_state *new_per_peer_state(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "new_per_peer_state called!\n"); abort(); }
 /* Generated stub for new_topology */
 struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }

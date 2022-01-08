@@ -2,12 +2,10 @@
 #include <common/channel_id.h>
 #include <common/cryptomsg.h>
 #include <common/htlc_wire.h>
-#include <common/per_peer_state.h>
 #include <common/status_wire.h>
 # Begin!  (passes peer fd, gossipd-client fd)
 msgtype,closingd_init,2001
 msgdata,closingd_init,chainparams,chainparams,
-msgdata,closingd_init,pps,per_peer_state,
 msgdata,closingd_init,channel_id,channel_id,
 msgdata,closingd_init,funding,bitcoin_outpoint,
 msgdata,closingd_init,funding_satoshi,amount_sat,
@@ -28,7 +26,6 @@ msgdata,closingd_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
 msgdata,closingd_init,fee_negotiation_step,u64,
 msgdata,closingd_init,fee_negotiation_step_unit,u8,
 msgdata,closingd_init,use_quickclose,bool,
-msgdata,closingd_init,dev_fast_gossip,bool,
 msgdata,closingd_init,shutdown_wrong_funding,?bitcoin_outpoint,
 
 # Message for any commands waiting.
