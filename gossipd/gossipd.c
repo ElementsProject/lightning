@@ -1178,6 +1178,9 @@ static void new_blockheight(struct daemon *daemon, const u8 *msg)
 		tal_arr_remove(&daemon->deferred_txouts, i);
 		i--;
 	}
+
+	daemon_conn_send(daemon->master,
+			 take(towire_gossipd_new_blockheight_reply(NULL)));
 }
 
 #if DEVELOPER
@@ -1499,6 +1502,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
+	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 		break;
 	}
 

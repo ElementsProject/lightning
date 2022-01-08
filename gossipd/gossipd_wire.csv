@@ -74,6 +74,9 @@ msgdata,gossipd_dev_compact_store_reply,success,bool,
 msgtype,gossipd_new_blockheight,3026
 msgdata,gossipd_new_blockheight,blockheight,u32,
 
+# gossipd: got it!
+msgtype,gossipd_new_blockheight_reply,3126
+
 msgtype,gossipd_got_onionmsg_to_us,3145
 msgdata,gossipd_got_onionmsg_to_us,obs2,bool,
 msgdata,gossipd_got_onionmsg_to_us,node_alias,pubkey,

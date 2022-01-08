@@ -1749,7 +1749,7 @@ static struct command_result *json_getinfo(struct command *cmd,
         json_array_end(response);
     }
     json_add_string(response, "version", version());
-    json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
+    json_add_num(response, "blockheight", cmd->ld->blockheight);
     json_add_string(response, "network", chainparams->network_name);
     json_add_amount_msat_compat(response,
 				wallet_total_forward_fees(cmd->ld->wallet),
