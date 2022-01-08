@@ -12,6 +12,8 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <wire/wire.h>
+#include <wire/wire_io.h>
+#include <wire/wire_sync.h>
 
 void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 {
@@ -19,10 +21,8 @@ void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 	bool post_sabotage = false, post_close;
 	int type = fromwire_peektype(msg);
 #endif
-	u8 *enc;
 
 	status_peer_io(LOG_IO_OUT, NULL, msg);
-	enc = cryptomsg_encrypt_msg(NULL, &pps->cs, msg);
 
 #if DEVELOPER
 	switch (dev_disconnect(type)) {
@@ -44,9 +44,8 @@ void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 		break;
 	}
 #endif
-	if (!write_all(pps->peer_fd, enc, tal_count(enc)))
+	if (!wire_sync_write(pps->peer_fd, msg))
 		peer_failed_connection_lost();
-	tal_free(enc);
 
 #if DEVELOPER
 	if (post_sabotage)
@@ -101,32 +100,11 @@ void sync_crypto_write_no_delay(struct per_peer_state *pps,
 
 u8 *sync_crypto_read(const tal_t *ctx, struct per_peer_state *pps)
 {
-	u8 hdr[18], *enc, *dec;
-	u16 len;
-
-	if (!read_all(pps->peer_fd, hdr, sizeof(hdr))) {
-		status_debug("Failed reading header: %s", strerror(errno));
-		peer_failed_connection_lost();
-	}
-
-	if (!cryptomsg_decrypt_header(&pps->cs, hdr, &len)) {
-		status_debug("Failed hdr decrypt with rn=%"PRIu64,
-			     pps->cs.rn-1);
-		peer_failed_connection_lost();
-	}
-
-	enc = tal_arr(ctx, u8, len + 16);
-	if (!read_all(pps->peer_fd, enc, tal_count(enc))) {
-		status_debug("Failed reading body: %s", strerror(errno));
-		peer_failed_connection_lost();
-	}
-
-	dec = cryptomsg_decrypt_body(ctx, &pps->cs, enc);
-	tal_free(enc);
+	u8 *dec = wire_sync_read(ctx, pps->peer_fd);
 	if (!dec)
 		peer_failed_connection_lost();
-	else
-		status_peer_io(LOG_IO_IN, NULL, dec);
+
+	status_peer_io(LOG_IO_IN, NULL, dec);
 
 	return dec;
 }

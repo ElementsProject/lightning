@@ -24,8 +24,8 @@ struct peer {
 	/* Output buffers. */
 	struct msg_queue *subd_outq, *peer_outq;
 
-	/* Sent buffers (for freeing after sending) */
-	const u8 *sent_to_subd, *sent_to_peer;
+	/* Peer sent buffer (for freeing after sending) */
+	const u8 *sent_to_peer;
 };
 
 /* Set up peer->to_subd; sets fd_for_subd to pass to lightningd. */
@@ -38,4 +38,8 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 /* Send this message to peer and disconnect. */
 void multiplex_final_msg(struct peer *peer,
 			 const u8 *final_msg TAKES);
+
+/* Inject a message into the output stream */
+void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
+
 #endif /* LIGHTNING_CONNECTD_MULTIPLEX_H */

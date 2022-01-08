@@ -3,12 +3,20 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/io/io.h>
+#include <common/cryptomsg.h>
+#include <common/per_peer_state.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <connectd/multiplex.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <wire/wire_io.h>
+
+void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
+{
+	msg_enqueue(peer->peer_outq, msg);
+}
 
 /* These four function handle subd->peer */
 static struct io_plan *after_final_msg(struct io_conn *peer_conn,
@@ -24,25 +32,39 @@ static struct io_plan *after_final_msg(struct io_conn *peer_conn,
 	return io_close(peer_conn);
 }
 
+static struct io_plan *encrypt_and_send(struct peer *peer,
+					const u8 *msg TAKES,
+					struct io_plan *(*next)
+					(struct io_conn *peer_conn,
+					 struct peer *peer))
+{
+	/* We free this and the encrypted version in next write_to_peer */
+	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->pps->cs, msg);
+	return io_write(peer->to_peer,
+			peer->sent_to_peer,
+			tal_bytelen(peer->sent_to_peer),
+			next, peer);
+}
+
 static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				     struct peer *peer)
 {
+	const u8 *msg;
 	assert(peer->to_peer == peer_conn);
 
 	/* Free last sent one (if any) */
-	tal_free(peer->sent_to_peer);
+	peer->sent_to_peer = tal_free(peer->sent_to_peer);
 
 	/* Pop tail of send queue */
-	peer->sent_to_peer = msg_dequeue(peer->peer_outq);
+	msg = msg_dequeue(peer->peer_outq);
 
 	/* Nothing to send? */
-	if (!peer->sent_to_peer) {
+	if (!msg) {
 		/* Send final once subd is not longer connected */
 		if (peer->final_msg && !peer->to_subd) {
-			return io_write(peer_conn,
-					peer->final_msg,
-					tal_bytelen(peer->final_msg),
-					after_final_msg, peer);
+			return encrypt_and_send(peer,
+						peer->final_msg,
+						after_final_msg);
 		}
 		/* Tell them to read again, */
 		io_wake(&peer->subd_in);
@@ -52,10 +74,7 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				      write_to_peer, peer);
 	}
 
-	return io_write(peer_conn,
-			peer->sent_to_peer,
-			tal_bytelen(peer->sent_to_peer),
-			write_to_peer, peer);
+	return encrypt_and_send(peer, take(msg), write_to_peer);
 }
 
 static struct io_plan *read_from_subd(struct io_conn *subd_conn,
@@ -63,15 +82,10 @@ static struct io_plan *read_from_subd(struct io_conn *subd_conn,
 static struct io_plan *read_from_subd_done(struct io_conn *subd_conn,
 					   struct peer *peer)
 {
-	size_t len = ((size_t *)peer->subd_in)[1023];
-	assert(peer->to_subd == subd_conn);
-
-	/* Trim to length */
-	tal_resize(&peer->subd_in, len);
-
-	/* Tell them to write. */
-	msg_enqueue(peer->peer_outq, take(peer->subd_in));
+	/* Tell them to encrypt & write. */
+	queue_peer_msg(peer, take(peer->subd_in));
 	peer->subd_in = NULL;
+
 	/* Wait for them to wake us */
 	return io_wait(subd_conn, &peer->subd_in, read_from_subd, peer);
 }
@@ -79,32 +93,23 @@ static struct io_plan *read_from_subd_done(struct io_conn *subd_conn,
 static struct io_plan *read_from_subd(struct io_conn *subd_conn,
 				      struct peer *peer)
 {
-	/* We stash the length at the end */
-	size_t *buf = tal_arr(peer, size_t, 1024);
-	assert(peer->to_subd == subd_conn);
-
-	peer->subd_in = (u8 *)buf;
-	return io_read_partial(subd_conn, peer->subd_in,
-			       sizeof(size_t) * 1023,
-			       &buf[1023],
-			       read_from_subd_done, peer);
+	return io_read_wire(subd_conn, peer, &peer->subd_in,
+			    read_from_subd_done, peer);
 }
 
 /* These four function handle peer->subd */
 static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 				     struct peer *peer)
 {
+	const u8 *msg;
 	assert(peer->to_subd == subd_conn);
 
-	/* Free last sent one (if any) */
-	tal_free(peer->sent_to_subd);
-
 	/* Pop tail of send queue */
-	peer->sent_to_subd = msg_dequeue(peer->subd_outq);
+	msg = msg_dequeue(peer->subd_outq);
 
 	/* Nothing to send? */
-	if (!peer->sent_to_subd) {
-		/* Tell them to read again, */
+	if (!msg) {
+		/* Tell them to read again. */
 		io_wake(&peer->peer_in);
 
 		/* Wait for them to wake us */
@@ -112,42 +117,59 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 				      write_to_subd, peer);
 	}
 
-	return io_write(subd_conn,
-			peer->sent_to_subd,
-			tal_bytelen(peer->sent_to_subd),
-			write_to_subd, peer);
+	return io_write_wire(subd_conn, take(msg), write_to_subd, peer);
 }
 
-static struct io_plan *read_from_peer(struct io_conn *peer_conn,
-				      struct peer *peer);
-static struct io_plan *read_from_peer_done(struct io_conn *peer_conn,
+static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
+					  struct peer *peer);
+static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
+						struct peer *peer)
+{
+       u8 *decrypted;
+
+       decrypted = cryptomsg_decrypt_body(NULL, &peer->pps->cs,
+					  peer->peer_in);
+       if (!decrypted)
+               return io_close(peer_conn);
+       tal_free(peer->peer_in);
+
+       /* Tell them to write. */
+       msg_enqueue(peer->subd_outq, take(decrypted));
+
+       /* Wait for them to wake us */
+       return io_wait(peer_conn, &peer->peer_in, read_hdr_from_peer, peer);
+}
+
+static struct io_plan *read_body_from_peer(struct io_conn *peer_conn,
 					   struct peer *peer)
 {
-	size_t len = ((size_t *)peer->peer_in)[1023];
-	assert(peer->to_peer == peer_conn);
+       u16 len;
 
-	/* Trim to length */
-	tal_resize(&peer->peer_in, len);
+       if (!cryptomsg_decrypt_header(&peer->pps->cs, peer->peer_in, &len))
+               return io_close(peer_conn);
 
-	/* Tell them to write. */
-	msg_enqueue(peer->subd_outq, take(peer->peer_in));
-	peer->peer_in = NULL;
-	/* Wait for them to wake us */
-	return io_wait(peer_conn, &peer->peer_in, read_from_peer, peer);
+       tal_resize(&peer->peer_in, (u32)len + CRYPTOMSG_BODY_OVERHEAD);
+       return io_read(peer_conn, peer->peer_in, tal_count(peer->peer_in),
+		      read_body_from_peer_done, peer);
 }
 
-static struct io_plan *read_from_peer(struct io_conn *peer_conn,
-				      struct peer *peer)
+static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
+					  struct peer *peer)
 {
-	/* We stash the length at the end */
-	size_t *buf = tal_arr(peer, size_t, 1024);
 	assert(peer->to_peer == peer_conn);
 
-	peer->peer_in = (u8 *)buf;
-	return io_read_partial(peer_conn, peer->peer_in,
-			       sizeof(size_t) * 1023,
-			       &buf[1023],
-			       read_from_peer_done, peer);
+	/* BOLT #8:
+	 *
+	 * ### Receiving and Decrypting Messages
+	 *
+	 * In order to decrypt the _next_ message in the network
+	 * stream, the following steps are completed:
+	 *
+	 *  1. Read _exactly_ 18 bytes from the network buffer.
+	 */
+	peer->peer_in = tal_arr(peer, u8, CRYPTOMSG_HDR_SIZE);
+	return io_read(peer_conn, peer->peer_in, CRYPTOMSG_HDR_SIZE,
+		       read_body_from_peer, peer);
 }
 
 static struct io_plan *subd_conn_init(struct io_conn *subd_conn, struct peer *peer)
@@ -200,7 +222,7 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 	tal_add_destructor2(peer_conn, destroy_peer_conn, peer);
 
 	return io_duplex(peer_conn,
-			 read_from_peer(peer_conn, peer),
+			 read_hdr_from_peer(peer_conn, peer),
 			 write_to_peer(peer_conn, peer));
 }
 
