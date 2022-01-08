@@ -31,7 +31,24 @@ struct oneshot *new_reltimer_(struct timers *timers,
 	return t;
 }
 
-void *reltimer_arg(struct oneshot *t)
+struct oneshot *new_abstimer_(struct timers *timers,
+			      const tal_t *ctx,
+			      struct timemono expiry,
+			      void (*cb)(void *), void *arg)
+{
+	struct oneshot *t = tal(ctx, struct oneshot);
+
+	t->cb = cb;
+	t->arg = arg;
+	t->timers = timers;
+	timer_init(&t->timer);
+	timer_addmono(timers, &t->timer, expiry);
+	tal_add_destructor(t, destroy_timer);
+
+	return t;
+}
+
+void *oneshot_arg(struct oneshot *t)
 {
 	return t->arg;
 }
