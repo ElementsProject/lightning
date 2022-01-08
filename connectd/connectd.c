@@ -448,7 +448,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	struct peer *peer = tal(daemon, struct peer);
 
 	peer->id = *id;
-	peer->pps = new_per_peer_state(peer, cs);
+	peer->cs = *cs;
 	peer->final_msg = NULL;
 	peer->subd_in = NULL;
 	peer->peer_in = NULL;
@@ -460,12 +460,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	 * peer->to_subd */
 	if (!multiplex_subd_setup(peer, fd_for_subd))
 		return tal_free(peer);
-
-	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	if (!get_gossipfds(daemon, id, their_features, peer->pps)) {
-		close(*fd_for_subd);
-		return tal_free(peer);
-	}
 
 	peer->to_peer = tal_steal(peer, conn);
 	peer_htable_add(&daemon->peers, peer);
@@ -488,6 +482,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	int unsup;
 	size_t depender, missing;
 	int subd_fd;
+	struct per_peer_state *pps;
 
 	peer = peer_htable_get(&daemon->peers, id);
 	if (peer)
@@ -545,20 +540,28 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	if (!peer)
 		return io_close(conn);
 
+	pps = new_per_peer_state(tmpctx);
+
+	/* If gossipd can't give us a file descriptor, we give up connecting. */
+	if (!get_gossipfds(daemon, id, their_features, pps)) {
+		close(subd_fd);
+		return tal_free(peer);
+	}
+
 	/* Create message to tell master peer has connected. */
 	msg = towire_connectd_peer_connected(NULL, id, addr, incoming,
-					     peer->pps, their_features);
+					     pps, their_features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
 	 * we have connected, and give the peer and gossip fds. */
 	daemon_conn_send(daemon->master, take(msg));
 	daemon_conn_send_fd(daemon->master, subd_fd);
-	daemon_conn_send_fd(daemon->master, peer->pps->gossip_fd);
-	daemon_conn_send_fd(daemon->master, peer->pps->gossip_store_fd);
+	daemon_conn_send_fd(daemon->master, pps->gossip_fd);
+	daemon_conn_send_fd(daemon->master, pps->gossip_store_fd);
 
 	/* Don't try to close these on freeing. */
-	peer->pps->gossip_store_fd = peer->pps->gossip_fd = -1;
+	pps->gossip_store_fd = pps->gossip_fd = -1;
 
 	/*~ Now we set up this connection to read/write from subd */
 	return multiplex_peer_setup(conn, peer);

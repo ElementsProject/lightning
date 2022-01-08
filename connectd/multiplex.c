@@ -39,7 +39,7 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 					 struct peer *peer))
 {
 	/* We free this and the encrypted version in next write_to_peer */
-	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->pps->cs, msg);
+	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
 	return io_write(peer->to_peer,
 			peer->sent_to_peer,
 			tal_bytelen(peer->sent_to_peer),
@@ -127,7 +127,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 {
        u8 *decrypted;
 
-       decrypted = cryptomsg_decrypt_body(NULL, &peer->pps->cs,
+       decrypted = cryptomsg_decrypt_body(NULL, &peer->cs,
 					  peer->peer_in);
        if (!decrypted)
                return io_close(peer_conn);
@@ -145,7 +145,7 @@ static struct io_plan *read_body_from_peer(struct io_conn *peer_conn,
 {
        u16 len;
 
-       if (!cryptomsg_decrypt_header(&peer->pps->cs, peer->peer_in, &len))
+       if (!cryptomsg_decrypt_header(&peer->cs, peer->peer_in, &len))
                return io_close(peer_conn);
 
        tal_resize(&peer->peer_in, (u32)len + CRYPTOMSG_BODY_OVERHEAD);

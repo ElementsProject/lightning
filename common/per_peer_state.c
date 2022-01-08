@@ -19,12 +19,10 @@ static void destroy_per_peer_state(struct per_peer_state *pps)
 		close(pps->gossip_store_fd);
 }
 
-struct per_peer_state *new_per_peer_state(const tal_t *ctx,
-					  const struct crypto_state *cs)
+struct per_peer_state *new_per_peer_state(const tal_t *ctx)
 {
 	struct per_peer_state *pps = tal(ctx, struct per_peer_state);
 
-	pps->cs = *cs;
 	pps->gs = NULL;
 	pps->peer_fd = pps->gossip_fd = pps->gossip_store_fd = -1;
 	pps->grf = new_gossip_rcvd_filter(pps);
@@ -69,7 +67,6 @@ void fromwire_gossip_state(const u8 **cursor, size_t *max,
 
 void towire_per_peer_state(u8 **pptr, const struct per_peer_state *pps)
 {
-	towire_crypto_state(pptr, &pps->cs);
 	towire_bool(pptr, pps->gs != NULL);
 	if (pps->gs)
 		towire_gossip_state(pptr, pps->gs);
@@ -89,11 +86,9 @@ void per_peer_state_fdpass_send(int fd, const struct per_peer_state *pps)
 struct per_peer_state *fromwire_per_peer_state(const tal_t *ctx,
 					       const u8 **cursor, size_t *max)
 {
-	struct crypto_state cs;
 	struct per_peer_state *pps;
 
-	fromwire_crypto_state(cursor, max, &cs);
-	pps = new_per_peer_state(ctx, &cs);
+	pps = new_per_peer_state(ctx);
 	if (fromwire_bool(cursor, max)) {
 		pps->gs = tal(pps, struct gossip_state);
 		fromwire_gossip_state(cursor, max, pps->gs);

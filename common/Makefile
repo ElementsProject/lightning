@@ -22,7 +22,6 @@ COMMON_SRC_NOGEN :=				\
 	common/close_tx.c			\
 	common/coin_mvt.c			\
 	common/configdir.c			\
-	common/crypto_state.c			\
 	common/cryptomsg.c			\
 	common/daemon.c				\
 	common/daemon_conn.c			\
@@ -97,6 +96,7 @@ COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/closing_fee.h				\
+	common/crypto_state.h				\
 	common/ecdh.h					\
 	common/errcode.h				\
 	common/gossip_constants.h			\

@@ -42,7 +42,6 @@ CONNECTD_COMMON_OBJS :=				\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/channel_id.o			\
-	common/crypto_state.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
