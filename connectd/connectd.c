@@ -452,7 +452,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->final_msg = NULL;
 	peer->subd_in = NULL;
 	peer->peer_in = NULL;
-	peer->sent_to_subd = NULL;
 	peer->sent_to_peer = NULL;
 	peer->peer_outq = msg_queue_new(peer);
 	peer->subd_outq = msg_queue_new(peer);
@@ -1988,7 +1987,6 @@ static void peer_final_msg(struct io_conn *conn,
 	if (peer) {
 		/* Log and encrypt message for peer. */
 		status_peer_io(LOG_IO_OUT, &id, finalmsg);
-		finalmsg = cryptomsg_encrypt_msg(NULL, &pps->cs, take(finalmsg));
 		multiplex_final_msg(peer, take(finalmsg));
 	}
 }
