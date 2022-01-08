@@ -97,10 +97,6 @@ static bool is_lightningd(const struct client *client)
 	return client == dbid_zero_clients[0];
 }
 
-/* FIXME: This is used by debug.c.  Doesn't apply to us, but lets us link. */
-extern void dev_disconnect_init(int fd);
-void dev_disconnect_init(int fd UNUSED) { }
-
 /* Pre-declare this, due to mutual recursion */
 static struct io_plan *handle_client(struct io_conn *conn, struct client *c);
 

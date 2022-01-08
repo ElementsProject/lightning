@@ -1,7 +1,6 @@
 #include "config.h"
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/cryptomsg.h>
-#include <common/dev_disconnect.h>
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
 #include <common/per_peer_state.h>
@@ -17,40 +16,10 @@
 
 void peer_write(struct per_peer_state *pps, const void *msg TAKES)
 {
-#if DEVELOPER
-	bool post_sabotage = false, post_close;
-	int type = fromwire_peektype(msg);
-#endif
-
 	status_peer_io(LOG_IO_OUT, NULL, msg);
 
-#if DEVELOPER
-	switch (dev_disconnect(type)) {
-	case DEV_DISCONNECT_BEFORE:
-		dev_sabotage_fd(pps->peer_fd, true);
-		peer_failed_connection_lost();
-	case DEV_DISCONNECT_AFTER:
-		post_sabotage = true;
-		post_close = true;
-		break;
-	case DEV_DISCONNECT_BLACKHOLE:
-		dev_blackhole_fd(pps->peer_fd);
-		break;
-	case DEV_DISCONNECT_NORMAL:
-		break;
-	case DEV_DISCONNECT_DISABLE_AFTER:
-		post_sabotage = true;
-		post_close = false;
-		break;
-	}
-#endif
 	if (!wire_sync_write(pps->peer_fd, msg))
 		peer_failed_connection_lost();
-
-#if DEVELOPER
-	if (post_sabotage)
-		dev_sabotage_fd(pps->peer_fd, post_close);
-#endif
 }
 
 /* We're happy for the kernel to batch update and gossip messages, but a

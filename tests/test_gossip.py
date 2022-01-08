@@ -602,7 +602,8 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
     # l3 sends CHANNEL_ANNOUNCEMENT to l2, but not CHANNEL_UDPATE.
     l1, l2, l3, l4 = node_factory.line_graph(4, opts=[{'log-level': 'io'},
                                                       {'log-level': 'io'},
-                                                      {'disconnect': ['+WIRE_CHANNEL_ANNOUNCEMENT'],
+                                                      # Writes to l4 first, then l2
+                                                      {'disconnect': ['+WIRE_CHANNEL_ANNOUNCEMENT*2'],
                                                        'may_reconnect': True},
                                                       {'may_reconnect': True}],
                                              fundchannel=False)

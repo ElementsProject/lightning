@@ -21,6 +21,8 @@ msgdata,connectd_init,use_v3_autotor,bool,
 msgdata,connectd_init,timeout_secs,u32,
 msgdata,connectd_init,websocket_helper,wirestring,
 msgdata,connectd_init,websocket_port,u16,
+# If this is set, then fd 5 is dev_disconnect_fd.
+msgdata,connectd_init,dev_disconnect,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100

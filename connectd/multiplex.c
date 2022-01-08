@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ccan/io/io.h>
 #include <common/cryptomsg.h>
+#include <common/dev_disconnect.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
 #include <common/utils.h>
@@ -11,6 +12,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <wire/wire.h>
 #include <wire/wire_io.h>
 
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
@@ -32,12 +34,48 @@ static struct io_plan *after_final_msg(struct io_conn *peer_conn,
 	return io_close(peer_conn);
 }
 
+#if DEVELOPER
+static struct io_plan *write_to_peer(struct io_conn *peer_conn,
+				     struct peer *peer);
+
+static struct io_plan *dev_leave_hanging(struct io_conn *peer_conn,
+					 struct peer *peer)
+{
+	/* We don't tell the peer we're disconnecting, but from now on
+	 * our writes go nowhere, and there's nothing to read. */
+	dev_sabotage_fd(io_conn_fd(peer_conn), false);
+	return write_to_peer(peer_conn, peer);
+}
+#endif /* DEVELOPER */
+
 static struct io_plan *encrypt_and_send(struct peer *peer,
 					const u8 *msg TAKES,
 					struct io_plan *(*next)
 					(struct io_conn *peer_conn,
 					 struct peer *peer))
 {
+#if DEVELOPER
+	int type = fromwire_peektype(msg);
+
+	switch (dev_disconnect(&peer->id, type)) {
+	case DEV_DISCONNECT_BEFORE:
+		if (taken(msg))
+			tal_free(msg);
+		return io_close(peer->to_peer);
+	case DEV_DISCONNECT_AFTER:
+		next = (void *)io_close_cb;
+		break;
+	case DEV_DISCONNECT_BLACKHOLE:
+		dev_blackhole_fd(io_conn_fd(peer->to_peer));
+		break;
+	case DEV_DISCONNECT_NORMAL:
+		break;
+	case DEV_DISCONNECT_DISABLE_AFTER:
+		next = dev_leave_hanging;
+		break;
+	}
+#endif
+
 	/* We free this and the encrypted version in next write_to_peer */
 	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
 	return io_write(peer->to_peer,

@@ -1,5 +1,4 @@
 #include "config.h"
-#include <common/dev_disconnect.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/version.h>
@@ -32,15 +31,6 @@ void subdaemon_setup(int argc, char *argv[])
 	}
 
 	daemon_maybe_debug(argv);
-
-#if DEVELOPER
-	for (int i = 1; i < argc; i++) {
-		if (strstarts(argv[i], "--dev-disconnect=")) {
-			dev_disconnect_init(atoi(argv[i]
-						 + strlen("--dev-disconnect=")));
-		}
-	}
-#endif
 
 	daemon_setup(argv[0], status_backtrace_print, status_backtrace_exit);
 }

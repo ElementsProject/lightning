@@ -18,6 +18,7 @@
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/daemon_conn.h>
+#include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -1598,6 +1599,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announcable;
 	char *tor_password;
+	bool dev_disconnect;
 
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectd_init(
@@ -1613,7 +1615,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		&daemon->use_v3_autotor,
 		&daemon->timeout_secs,
 		&daemon->websocket_helper,
-		&daemon->websocket_port)) {
+		&daemon->websocket_port,
+		&dev_disconnect)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1657,6 +1660,10 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 			 take(towire_connectd_init_reply(NULL,
 							   binding,
 							   announcable)));
+#if DEVELOPER
+	if (dev_disconnect)
+		dev_disconnect_init(5);
+#endif
 }
 
 /*~ lightningd tells us to go! */

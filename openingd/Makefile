@@ -45,7 +45,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
-	common/dev_disconnect.o			\
 	common/features.o			\
 	common/fee_states.o			\
 	common/gossip_rcvd_filter.o		\

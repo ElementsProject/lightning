@@ -208,7 +208,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 
 	next = read_init;
 #if DEVELOPER
-	switch (dev_disconnect(WIRE_INIT)) {
+	switch (dev_disconnect(&peer->id, WIRE_INIT)) {
 	case DEV_DISCONNECT_BEFORE:
 		dev_sabotage_fd(io_conn_fd(conn), true);
 		break;
