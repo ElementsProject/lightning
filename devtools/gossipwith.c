@@ -9,12 +9,12 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/crypto_sync.h>
-#include <common/dev_disconnect.h>
+#include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/peer_failed.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
+#include <inttypes.h>
 #include <netdb.h>
 #include <poll.h>
 #include <secp256k1_ecdh.h>
@@ -69,23 +69,6 @@ void status_fmt(enum log_level level,
 {
 }
 
-#if DEVELOPER
-void dev_sabotage_fd(int fd, bool close_fd)
-{
-	abort();
-}
-
-void dev_blackhole_fd(int fd)
-{
-	abort();
-}
-
-enum dev_disconnect dev_disconnect(int pkt_type)
-{
-	return DEV_DISCONNECT_NORMAL;
-}
-#endif
-
 static char *opt_set_network(const char *arg, void *unused)
 {
 	assert(arg != NULL);
@@ -100,11 +83,6 @@ static char *opt_set_network(const char *arg, void *unused)
 static void opt_show_network(char buf[OPT_SHOW_LEN], const void *unused)
 {
 	snprintf(buf, OPT_SHOW_LEN, "%s", chainparams->network_name);
-}
-
-void peer_failed_connection_lost(void)
-{
-	exit(0);
 }
 
 void ecdh(const struct pubkey *point, struct secret *ss)
@@ -140,18 +118,60 @@ static struct io_plan *simple_read(struct io_conn *conn,
 	return next(conn, next_arg);
 }
 
+static void sync_crypto_write(int peer_fd, struct crypto_state *cs, const void *msg TAKES)
+{
+	u8 *enc;
+
+	enc = cryptomsg_encrypt_msg(NULL, cs, msg);
+
+	if (!write_all(peer_fd, enc, tal_count(enc)))
+		exit(1);
+	tal_free(enc);
+}
+
+static u8 *sync_crypto_read(const tal_t *ctx, int peer_fd, struct crypto_state *cs)
+{
+	u8 hdr[18], *enc, *dec;
+	u16 len;
+
+	if (!read_all(peer_fd, hdr, sizeof(hdr))) {
+		status_debug("Failed reading header: %s", strerror(errno));
+		exit(0);
+	}
+
+	if (!cryptomsg_decrypt_header(cs, hdr, &len)) {
+		status_debug("Failed hdr decrypt with rn=%"PRIu64,
+			     cs->rn-1);
+		exit(1);
+	}
+
+	enc = tal_arr(ctx, u8, len + 16);
+	if (!read_all(peer_fd, enc, tal_count(enc))) {
+		status_debug("Failed reading body: %s", strerror(errno));
+		exit(1);
+	}
+
+	dec = cryptomsg_decrypt_body(ctx, cs, enc);
+	tal_free(enc);
+	if (!dec)
+		exit(1);
+	else
+		status_peer_io(LOG_IO_IN, NULL, dec);
+
+	return dec;
+}
+
 static struct io_plan *handshake_success(struct io_conn *conn,
 					 const struct pubkey *them,
 					 const struct wireaddr_internal *addr,
-					 struct crypto_state *orig_cs,
+					 struct crypto_state *cs,
 					 struct oneshot *timer,
 					 char **args)
 {
 	u8 *msg;
-	struct per_peer_state *pps = new_per_peer_state(conn, orig_cs);
+	int peer_fd = io_conn_fd(conn);
 	struct pollfd pollfd[2];
 
-	pps->peer_fd = io_conn_fd(conn);
 	if (initial_sync)
 		set_feature_bit(&features,
 				OPTIONAL_FEATURE(OPT_INITIAL_ROUTING_SYNC));
@@ -165,9 +185,9 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		}
 			msg = towire_init(NULL, NULL, features, tlvs);
 
-		sync_crypto_write(pps, take(msg));
+		sync_crypto_write(peer_fd, cs, take(msg));
 		/* Ignore their init message. */
-		tal_free(sync_crypto_read(NULL, pps));
+		tal_free(sync_crypto_read(NULL, peer_fd, cs));
 		tal_free(tlvs);
 	}
 
@@ -176,14 +196,14 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	else
 		pollfd[0].fd = -1;
 	pollfd[0].events = POLLIN;
-	pollfd[1].fd = pps->peer_fd;
+	pollfd[1].fd = peer_fd;
 	pollfd[1].events = POLLIN;
 
 	while (*args) {
 		u8 *m = tal_hexdata(NULL, *args, strlen(*args));
 		if (!m)
 			errx(1, "Invalid hexdata '%s'", *args);
-		sync_crypto_write(pps, take(m));
+		sync_crypto_write(peer_fd, cs, take(m));
 		args++;
 	}
 
@@ -204,10 +224,10 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 
 				if (!read_all(STDIN_FILENO, msg, tal_bytelen(msg)))
 					err(1, "Only read partial message");
-				sync_crypto_write(pps, take(msg));
+				sync_crypto_write(peer_fd, cs, take(msg));
 			}
 		} else if (pollfd[1].revents & POLLIN) {
-			msg = sync_crypto_read(NULL, pps);
+			msg = sync_crypto_read(NULL, peer_fd, cs);
 			if (!msg)
 				err(1, "Reading msg");
 			if (hex) {
