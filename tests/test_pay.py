@@ -2339,7 +2339,8 @@ def test_channel_receivable(node_factory, bitcoind):
     assert l2.rpc.listpeers()['peers'][0]['channels'][0]['receivable_msat'] == Millisatoshi(0)
     l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
-    # Make sure l2 thinks it's all over.
+    # Make sure both think it's all over.
+    wait_for(lambda: len(l1.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
     wait_for(lambda: len(l2.rpc.listpeers()['peers'][0]['channels'][0]['htlcs']) == 0)
     # Now, reverse should work similarly.
     inv = l1.rpc.invoice('any', 'inv', 'for testing')

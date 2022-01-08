@@ -454,6 +454,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->subd_in = NULL;
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
+	peer->urgent = false;
 	peer->peer_outq = msg_queue_new(peer);
 	peer->subd_outq = msg_queue_new(peer);
 
