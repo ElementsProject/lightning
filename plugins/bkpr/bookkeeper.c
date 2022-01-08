@@ -185,9 +185,17 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 	maybe_update_account(db, acct, e, tags);
 
 	/* Can we calculate any onchain fees now? */
+	err = maybe_update_onchain_fees(cmd, db,
+					e->spending_txid ?
+					e->spending_txid :
+					&e->outpoint.txid);
+
+	db_commit_transaction(db);
+
+	if (err)
+		return err;
 
 	/* FIXME: maybe mark channel as 'onchain_resolved' */
-	db_commit_transaction(db);
 
 	return NULL;
 }
