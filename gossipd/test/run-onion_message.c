@@ -338,6 +338,9 @@ u8 *towire_gossipd_got_onionmsg_to_us(const tal_t *ctx UNNEEDED, bool obs2 UNNEE
 /* Generated stub for towire_gossipd_init_reply */
 u8 *towire_gossipd_init_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_gossipd_init_reply called!\n"); abort(); }
+/* Generated stub for towire_gossipd_new_blockheight_reply */
+u8 *towire_gossipd_new_blockheight_reply(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_new_blockheight_reply called!\n"); abort(); }
 /* Generated stub for towire_gossipd_new_peer_reply */
 u8 *towire_gossipd_new_peer_reply(const tal_t *ctx UNNEEDED, bool success UNNEEDED, const struct gossip_state *gs UNNEEDED)
 { fprintf(stderr, "towire_gossipd_new_peer_reply called!\n"); abort(); }

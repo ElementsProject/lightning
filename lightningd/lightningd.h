@@ -167,6 +167,9 @@ struct lightningd {
 	/* Our chain topology. */
 	struct chain_topology *topology;
 
+	/* Blockheight (as acknowledged by gossipd) */
+	u32 blockheight;
+
 	/* HTLCs in flight. */
 	struct htlc_in_map htlcs_in;
 	struct htlc_out_map htlcs_out;

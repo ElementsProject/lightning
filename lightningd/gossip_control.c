@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/err/err.h>
+#include <ccan/ptrint/ptrint.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -132,6 +133,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
+	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 		break;
 
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
@@ -144,14 +146,32 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	return 0;
 }
 
+static void gossipd_new_blockheight_reply(struct subd *gossipd,
+					  const u8 *reply,
+					  const int *fds UNUSED,
+					  void *blockheight)
+{
+	if (!fromwire_gossipd_new_blockheight_reply(reply)) {
+		/* Shouldn't happen! */
+		log_broken(gossipd->ld->log,
+			   "Invalid new_blockheight_reply from gossipd: %s",
+			   tal_hex(tmpctx, reply));
+		return;
+	}
+
+	/* Now, finally update getinfo's blockheight */
+	gossipd->ld->blockheight = ptr2int(blockheight);
+}
+
 void gossip_notify_new_block(struct lightningd *ld, u32 blockheight)
 {
 	/* Only notify gossipd once we're synced. */
 	if (!topology_synced(ld->topology))
 		return;
 
-	subd_send_msg(ld->gossip,
-		      take(towire_gossipd_new_blockheight(NULL, blockheight)));
+	subd_req(ld->gossip, ld->gossip,
+		 take(towire_gossipd_new_blockheight(NULL, blockheight)),
+		 -1, 0, gossipd_new_blockheight_reply, int2ptr(blockheight));
 }
 
 static void gossip_topology_synced(struct chain_topology *topo, void *unused)
