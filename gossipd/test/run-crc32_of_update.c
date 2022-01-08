@@ -28,10 +28,6 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
-/* Generated stub for daemon_conn_read_next */
-struct io_plan *daemon_conn_read_next(struct io_conn *conn UNNEEDED,
-				      struct daemon_conn *dc UNNEEDED)
-{ fprintf(stderr, "daemon_conn_read_next called!\n"); abort(); }
 /* Generated stub for daemon_conn_wake */
 void daemon_conn_wake(struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_wake called!\n"); abort(); }
@@ -117,9 +113,6 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      struct timerel expire UNNEEDED,
 			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
 { fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
-/* Generated stub for notleak_ */
-void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
-{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for peer_supplied_good_gossip */
 void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
@@ -130,9 +123,6 @@ void queue_peer_from_store(struct peer *peer UNNEEDED,
 /* Generated stub for queue_peer_msg */
 void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
-/* Generated stub for reltimer_arg */
-void *reltimer_arg(struct oneshot *t UNNEEDED)
-{ fprintf(stderr, "reltimer_arg called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)

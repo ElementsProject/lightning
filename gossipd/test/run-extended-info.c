@@ -33,10 +33,6 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
-/* Generated stub for daemon_conn_read_next */
-struct io_plan *daemon_conn_read_next(struct io_conn *conn UNNEEDED,
-				      struct daemon_conn *dc UNNEEDED)
-{ fprintf(stderr, "daemon_conn_read_next called!\n"); abort(); }
 /* Generated stub for daemon_conn_wake */
 void daemon_conn_wake(struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_wake called!\n"); abort(); }
