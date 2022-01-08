@@ -130,7 +130,7 @@ bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p
 bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct penalty_base **pbase UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_signature *commit_sig UNNEEDED, struct bitcoin_signature **htlc_sigs UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_sending_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_connected */
-bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, bool *incoming UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
+bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_custommsg_in */
 bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **msg UNNEEDED)
@@ -448,6 +448,9 @@ struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       enum mvt_tag tag)
 
 { fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
+/* Generated stub for new_per_peer_state */
+struct per_peer_state *new_per_peer_state(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "new_per_peer_state called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
@@ -628,7 +631,7 @@ const char *peer_wire_name(int e UNNEEDED)
 { fprintf(stderr, "peer_wire_name called!\n"); abort(); }
 /* Generated stub for per_peer_state_set_fds */
 void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
-			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED, int gossip_store_fd UNNEEDED)
+			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
 { fprintf(stderr, "per_peer_state_set_fds called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
@@ -719,7 +722,7 @@ u8 *towire_connectd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node
 u8 *towire_connectd_peer_disconnected(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_disconnected called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_final_msg */
-u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const struct per_peer_state *pps UNNEEDED, const u8 *msg UNNEEDED)
+u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_final_msg called!\n"); abort(); }
 /* Generated stub for towire_custommsg_out */
 u8 *towire_custommsg_out(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED)

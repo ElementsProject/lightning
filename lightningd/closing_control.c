@@ -380,7 +380,6 @@ void peer_start_closingd(struct channel *channel,
 					   channel_set_billboard,
 					   take(&pps->peer_fd),
 					   take(&pps->gossip_fd),
-					   take(&pps->gossip_store_fd),
 					   take(&hsmfd),
 					   NULL));
 
@@ -455,7 +454,6 @@ void peer_start_closingd(struct channel *channel,
 
 	initmsg = towire_closingd_init(tmpctx,
 				       chainparams,
-				       pps,
 				       &channel->cid,
 				       &channel->funding,
 				       channel->funding_sats,
@@ -476,7 +474,6 @@ void peer_start_closingd(struct channel *channel,
 					&& channel->closing_fee_negotiation_step_unit == CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE)
 				       /* Always use quickclose with anchors */
 				       || option_anchor_outputs,
-				       IFDEV(ld->dev_fast_gossip, false),
 				       channel->shutdown_wrong_funding);
 
 	/* We don't expect a response: it will give us feedback on

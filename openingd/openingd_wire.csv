@@ -5,7 +5,6 @@
 #include <common/channel_type.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
-#include <common/per_peer_state.h>
 
 msgtype,openingd_init,6000
 # Which network are we configured for?
@@ -18,7 +17,6 @@ msgdata,openingd_init,our_config,channel_config,
 # Minimum/maximum configuration values we'll accept
 msgdata,openingd_init,max_to_self_delay,u32,
 msgdata,openingd_init,min_effective_htlc_capacity_msat,amount_msat,
-msgdata,openingd_init,pps,per_peer_state,
 msgdata,openingd_init,our_basepoints,basepoints,
 msgdata,openingd_init,our_funding_pubkey,pubkey,
 # Constraints in case the other end tries to open a channel.
@@ -26,14 +24,12 @@ msgdata,openingd_init,minimum_depth,u32,
 msgdata,openingd_init,min_feerate,u32,
 msgdata,openingd_init,max_feerate,u32,
 msgdata,openingd_init,dev_temporary_channel_id,?byte,32
-msgdata,openingd_init,dev_fast_gossip,bool,
 
 # Openingd->master: they tried to reestablish a channel.
 msgtype,openingd_got_reestablish,6001
 msgdata,openingd_got_reestablish,channel_id,channel_id,
 msgdata,openingd_got_reestablish,len,u16,
 msgdata,openingd_got_reestablish,msg,u8,len
-msgdata,openingd_got_reestablish,pps,per_peer_state,
 
 # Openingd->master: they offered channel, should we continue?
 msgtype,openingd_got_offer,6005
@@ -65,7 +61,6 @@ msgdata,openingd_funder_reply,their_config,channel_config,
 msgdata,openingd_funder_reply,first_commit,bitcoin_tx,
 msgdata,openingd_funder_reply,pbase,?penalty_base,
 msgdata,openingd_funder_reply,first_commit_sig,bitcoin_signature,
-msgdata,openingd_funder_reply,pps,per_peer_state,
 msgdata,openingd_funder_reply,revocation_basepoint,pubkey,
 msgdata,openingd_funder_reply,payment_basepoint,pubkey,
 msgdata,openingd_funder_reply,htlc_basepoint,pubkey,
@@ -119,7 +114,6 @@ msgdata,openingd_fundee,their_config,channel_config,
 msgdata,openingd_fundee,first_commit,bitcoin_tx,
 msgdata,openingd_fundee,pbase,?penalty_base,
 msgdata,openingd_fundee,first_commit_sig,bitcoin_signature,
-msgdata,openingd_fundee,pps,per_peer_state,
 msgdata,openingd_fundee,revocation_basepoint,pubkey,
 msgdata,openingd_fundee,payment_basepoint,pubkey,
 msgdata,openingd_fundee,htlc_basepoint,pubkey,

@@ -28,6 +28,7 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
+#include <common/per_peer_state.h>
 #include <common/ping.h>
 #include <common/private_channel_announcement.h>
 #include <common/read_peer_msg.h>
@@ -45,9 +46,9 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
+/* stdin == requests, 3 == peer, 4 = gossip, 5 = HSM */
 #define MASTER_FD STDIN_FILENO
-#define HSM_FD 6
+#define HSM_FD 5
 
 enum pong_expect_type {
 	/* We weren't expecting a ping reply */
@@ -160,6 +161,9 @@ struct peer {
 #if DEVELOPER
 	/* If set, don't fire commit counter when this hits 0 */
 	u32 *dev_disable_commit;
+
+	/* If set, send channel_announcement after 1 second, not 30 */
+	bool dev_fast_gossip;
 #endif
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
@@ -638,7 +642,7 @@ static void channel_announcement_negotiate(struct peer *peer)
 
 		/* Give other nodes time to notice new block. */
 		notleak(new_reltimer(&peer->timers, peer,
-				     time_from_sec(GOSSIP_ANNOUNCE_DELAY(dev_fast_gossip)),
+				     time_from_sec(GOSSIP_ANNOUNCE_DELAY(peer->dev_fast_gossip)),
 				     announce_channel, peer));
 	}
 }
@@ -980,7 +984,7 @@ static void send_shutdown_complete(struct peer *peer)
 {
 	/* Now we can tell master shutdown is complete. */
 	wire_sync_write(MASTER_FD,
-			take(towire_channeld_shutdown_complete(NULL, peer->pps)));
+			take(towire_channeld_shutdown_complete(NULL)));
 	per_peer_state_fdpass_send(MASTER_FD, peer->pps);
 	close(MASTER_FD);
 }
@@ -3839,6 +3843,7 @@ static void init_channel(struct peer *peer)
 	u8 *reestablish_only;
 	struct channel_type *channel_type;
 	u32 *dev_disable_commit; /* Always NULL */
+	bool dev_fast_gossip;
 #if !DEVELOPER
 	bool dev_fail_process_onionpacket; /* Ignored */
 #endif
@@ -3862,7 +3867,6 @@ static void init_channel(struct peer *peer)
 				    &peer->feerate_max,
 				    &peer->feerate_penalty,
 				    &peer->their_commit_sig,
-				    &peer->pps,
 				    &funding_pubkey[REMOTE],
 				    &points[REMOTE],
 				    &peer->remote_per_commit,
@@ -3910,6 +3914,7 @@ static void init_channel(struct peer *peer)
 
 #if DEVELOPER
 	peer->dev_disable_commit = dev_disable_commit;
+	peer->dev_fast_gossip = dev_fast_gossip;
 #endif
 
 	status_debug("option_static_remotekey = %u, option_anchor_outputs = %u",
@@ -3924,8 +3929,9 @@ static void init_channel(struct peer *peer)
 			       tal_dup(peer, struct penalty_base, &pbases[i]));
 	tal_free(pbases);
 
-	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
-	per_peer_state_set_fds(peer->pps, 3, 4, 5);
+	/* stdin == requests, 3 == peer, 4 = gossip */
+	peer->pps = new_per_peer_state(peer);
+	per_peer_state_set_fds(peer->pps, 3, 4);
 
 	status_debug("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
@@ -4019,14 +4025,6 @@ static void init_channel(struct peer *peer)
 	billboard_update(peer);
 }
 
-static void try_read_gossip_store(struct peer *peer)
-{
-	u8 *msg = gossip_store_next(tmpctx, peer->pps);
-
-	if (msg)
-		peer_write(peer->pps, take(msg));
-}
-
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -4088,7 +4086,6 @@ int main(int argc, char *argv[])
 		struct timeval timeout, *tptr;
 		struct timer *expired;
 		const u8 *msg;
-		struct timerel trel;
 		struct timemono now = time_mono();
 
 		/* Free any temporary allocations */
@@ -4120,13 +4117,6 @@ int main(int argc, char *argv[])
 			tptr = &timeout;
 		}
 
-		/* If timer to next gossip is sooner, use that instead. */
-		if (time_to_next_gossip(peer->pps, &trel)
-		    && (!tptr || time_less(trel, timeval_to_timerel(*tptr)))) {
-			timeout = timerel_to_timeval(trel);
-			tptr = &timeout;
-		}
-
 		if (select(nfds, &rfds, NULL, NULL, tptr) < 0) {
 			/* Signals OK, eg. SIGUSR1 */
 			if (errno == EINTR)
@@ -4154,8 +4144,7 @@ int main(int argc, char *argv[])
 			if (!msg)
 				peer_failed_connection_lost();
 			handle_gossip_msg(peer->pps, take(msg));
-		} else /* Lowest priority: stream from store. */
-			try_read_gossip_store(peer);
+		}
 	}
 
 	/* We only exit when shutdown is complete. */

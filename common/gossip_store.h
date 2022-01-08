@@ -5,7 +5,6 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
-struct per_peer_state;
 struct gossip_state;
 struct gossip_rcvd_filter;
 
@@ -40,14 +39,6 @@ struct gossip_hdr {
 /**
  * Direct store accessor: loads gossip msg from store.
  *
- * Returns NULL and resets time_to_next_gossip(pps) if there are no
- * more gossip msgs.
- */
-u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps);
-
-/**
- * Direct store accessor: loads gossip msg from store.
- *
  * Returns NULL if there are no more gossip msgs.
  */
 u8 *gossip_store_iter(const tal_t *ctx,
@@ -55,13 +46,6 @@ u8 *gossip_store_iter(const tal_t *ctx,
 		      struct gossip_state *gs,
 		      struct gossip_rcvd_filter *grf,
 		      size_t *off);
-
-/**
- * Sets up the tiemstamp filter once they told us to set it.(
- */
-void gossip_setup_timestamp_filter(struct per_peer_state *pps,
-				   u32 first_timestamp,
-				   u32 timestamp_range);
 
 /**
  * Gossipd will be writing to this, and it's not atomic!  Safest

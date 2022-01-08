@@ -312,9 +312,9 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
-		if (tal_count(fds) != 3)
-			return 3;
-		peer_connected(connectd->ld, msg, fds[0], fds[1], fds[2]);
+		if (tal_count(fds) != 2)
+			return 2;
+		peer_connected(connectd->ld, msg, fds[0], fds[1]);
 		break;
 
 	case WIRE_CONNECTD_CONNECT_FAILED:

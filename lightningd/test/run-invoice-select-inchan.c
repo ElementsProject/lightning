@@ -210,7 +210,7 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_connected */
-bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, bool *incoming UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
+bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_sign_bolt12_reply */
 bool fromwire_hsmd_sign_bolt12_reply(const void *p UNNEEDED, struct bip340sig *sig UNNEEDED)
@@ -444,6 +444,9 @@ struct height_states *new_height_states(const tal_t *ctx UNNEEDED,
 					enum side opener UNNEEDED,
 					const u32 *blockheight UNNEEDED)
 { fprintf(stderr, "new_height_states called!\n"); abort(); }
+/* Generated stub for new_per_peer_state */
+struct per_peer_state *new_per_peer_state(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "new_per_peer_state called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,
@@ -598,7 +601,7 @@ struct channel *peer_unsaved_channel(struct peer *peer UNNEEDED)
 { fprintf(stderr, "peer_unsaved_channel called!\n"); abort(); }
 /* Generated stub for per_peer_state_set_fds */
 void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
-			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED, int gossip_store_fd UNNEEDED)
+			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
 { fprintf(stderr, "per_peer_state_set_fds called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
@@ -645,7 +648,7 @@ u8 *towire_channeld_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_bas
 u8 *towire_connectd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "towire_connectd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_final_msg */
-u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const struct per_peer_state *pps UNNEEDED, const u8 *msg UNNEEDED)
+u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_final_msg called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,

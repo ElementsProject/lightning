@@ -110,7 +110,7 @@ bool fromwire_gossipd_new_blockheight(const void *p UNNEEDED, u32 *blockheight U
 bool fromwire_gossipd_new_lease_rates(const void *p UNNEEDED, struct lease_rates *rates UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_new_lease_rates called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_new_peer */
-bool fromwire_gossipd_new_peer(const void *p UNNEEDED, struct node_id *id UNNEEDED, bool *gossip_queries_feature UNNEEDED, bool *initial_routing_sync UNNEEDED)
+bool fromwire_gossipd_new_peer(const void *p UNNEEDED, struct node_id *id UNNEEDED, bool *gossip_queries_feature UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_new_peer called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_outpoint_spent */
 bool fromwire_gossipd_outpoint_spent(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
@@ -136,9 +136,6 @@ const u8 *gossip_store_get(const tal_t *ctx UNNEEDED,
 /* Generated stub for gossip_store_load */
 u32 gossip_store_load(struct routing_state *rstate UNNEEDED, struct gossip_store *gs UNNEEDED)
 { fprintf(stderr, "gossip_store_load called!\n"); abort(); }
-/* Generated stub for gossip_store_readonly_fd */
-int gossip_store_readonly_fd(struct gossip_store *gs UNNEEDED)
-{ fprintf(stderr, "gossip_store_readonly_fd called!\n"); abort(); }
 /* Generated stub for gossip_time_now */
 struct timeabs gossip_time_now(const struct routing_state *rstate UNNEEDED)
 { fprintf(stderr, "gossip_time_now called!\n"); abort(); }
@@ -342,7 +339,7 @@ u8 *towire_gossipd_init_reply(const tal_t *ctx UNNEEDED)
 u8 *towire_gossipd_new_blockheight_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_gossipd_new_blockheight_reply called!\n"); abort(); }
 /* Generated stub for towire_gossipd_new_peer_reply */
-u8 *towire_gossipd_new_peer_reply(const tal_t *ctx UNNEEDED, bool success UNNEEDED, const struct gossip_state *gs UNNEEDED)
+u8 *towire_gossipd_new_peer_reply(const tal_t *ctx UNNEEDED, bool success UNNEEDED)
 { fprintf(stderr, "towire_gossipd_new_peer_reply called!\n"); abort(); }
 /* Generated stub for towire_warningfmt */
 u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,

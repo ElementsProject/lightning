@@ -1,8 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <common/gossip_rcvd_filter.h>
-#include <common/gossip_store.h>
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
 #include <common/per_peer_state.h>
@@ -21,31 +19,15 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
 	fd_set readfds;
 	u8 *msg;
 
-	for (;;) {
-		struct timeval tv, *tptr;
-		struct timerel trel;
+	FD_ZERO(&readfds);
+	FD_SET(pps->peer_fd, &readfds);
+	FD_SET(pps->gossip_fd, &readfds);
 
-		if (time_to_next_gossip(pps, &trel)) {
-			tv = timerel_to_timeval(trel);
-			tptr = &tv;
-		} else
-			tptr = NULL;
-
-		FD_ZERO(&readfds);
-		FD_SET(pps->peer_fd, &readfds);
-		FD_SET(pps->gossip_fd, &readfds);
-
-		if (select(pps->peer_fd > pps->gossip_fd
-			   ? pps->peer_fd + 1 : pps->gossip_fd + 1,
-			   &readfds, NULL, NULL, tptr) != 0)
-			break;
-
-		/* We timed out; look in gossip_store.  Failure resets timer. */
-		msg = gossip_store_next(tmpctx, pps);
-		if (msg) {
-			*from_gossipd = true;
-			return msg;
-		}
+	if (select(pps->peer_fd > pps->gossip_fd
+		   ? pps->peer_fd + 1 : pps->gossip_fd + 1,
+		   &readfds, NULL, NULL, NULL) <= 0) {
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "select failed?: %s", strerror(errno));
 	}
 
 	if (FD_ISSET(pps->peer_fd, &readfds)) {
@@ -128,31 +110,6 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 	}
 }
 
-/* takes iff returns true */
-bool handle_timestamp_filter(struct per_peer_state *pps, const u8 *msg TAKES)
-{
-	struct bitcoin_blkid chain_hash;
-	u32 first_timestamp, timestamp_range;
-
-	if (!fromwire_gossip_timestamp_filter(msg, &chain_hash,
-					      &first_timestamp,
-					      &timestamp_range)) {
-		return false;
-	}
-
-	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
-		peer_write(pps,
-			   take(towire_warningfmt(NULL, NULL,
-						  "gossip_timestamp_filter"
-						  " for bad chain: %s",
-						  tal_hex(tmpctx, take(msg)))));
-		return true;
-	}
-
-	gossip_setup_timestamp_filter(pps, first_timestamp, timestamp_range);
-	return true;
-}
-
 bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const struct channel_id *channel_id,
 				 bool soft_error,
@@ -177,15 +134,11 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 		goto handled;
 #endif
 
-	if (handle_timestamp_filter(pps, msg))
-		return true;
-	else if (check_ping_make_pong(NULL, msg, &pong)) {
+	if (check_ping_make_pong(NULL, msg, &pong)) {
 		if (pong)
 			peer_write(pps, take(pong));
 		return true;
 	} else if (is_msg_for_gossipd(msg)) {
-		if (is_msg_gossip_broadcast(msg))
-			gossip_rcvd_filter_add(pps->grf, msg);
 		wire_sync_write(pps->gossip_fd, msg);
 		/* wire_sync_write takes, so don't take again. */
 		return true;

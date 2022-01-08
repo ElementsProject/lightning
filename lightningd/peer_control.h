@@ -65,7 +65,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const jsmntok_t *peeridtok);
 
 void peer_connected(struct lightningd *ld, const u8 *msg,
-		    int peer_fd, int gossip_fd, int gossip_store_fd);
+		    int peer_fd, int gossip_fd);
 
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL

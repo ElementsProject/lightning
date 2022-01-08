@@ -1335,8 +1335,7 @@ def test_gossipwith(node_factory):
             num_msgs += 1
 
     # one channel announcement, two channel_updates, two node announcements.
-    # FIXME: Currently gets double gossip!
-    assert num_msgs == 5 * 2
+    assert num_msgs == 5
 
 
 def test_gossip_notices_close(node_factory, bitcoind):

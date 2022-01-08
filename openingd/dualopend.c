@@ -28,6 +28,7 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
+#include <common/per_peer_state.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
@@ -44,9 +45,9 @@
 #include <wire/common_wiregen.h>
 #include <wire/wire_sync.h>
 
-/* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
+/* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = hsmd */
 #define REQ_FD STDIN_FILENO
-#define HSM_FD 6
+#define HSM_FD 5
 
 /* tx_add_input, tx_add_output, tx_rm_input, tx_rm_output */
 #define NUM_TX_MSGS (TX_RM_OUTPUT + 1)
@@ -297,7 +298,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 static void shutdown(struct state *state)
 {
-	u8 *msg = towire_dualopend_shutdown_complete(state, state->pps);
+	u8 *msg = towire_dualopend_shutdown_complete(state);
 
 	wire_sync_write(REQ_FD, msg);
 	per_peer_state_fdpass_send(REQ_FD, state->pps);
@@ -1162,7 +1163,7 @@ static u8 *handle_funding_locked(struct state *state, u8 *msg)
 	billboard_update(state);
 
 	if (state->funding_locked[LOCAL])
-		return towire_dualopend_channel_locked(state, state->pps);
+		return towire_dualopend_channel_locked(state);
 
 	return NULL;
 }
@@ -1197,7 +1198,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 
 		/* Some messages go straight to gossipd. */
 		if (is_msg_for_gossipd(msg)) {
-			gossip_rcvd_filter_add(state->pps->grf, msg);
 			wire_sync_write(state->pps->gossip_fd, take(msg));
 			continue;
 		}
@@ -1209,10 +1209,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		 *     - MUST ignore the received message.
 		 */
 		if (is_unknown_msg_discardable(msg))
-			continue;
-
-		/* Might be a timestamp filter request: handle. */
-		if (handle_timestamp_filter(state->pps, msg))
 			continue;
 
 		/* A helper which decodes an error. */
@@ -3416,8 +3412,7 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 
 	send_funding_locked(state);
 	if (state->funding_locked[REMOTE])
-		return towire_dualopend_channel_locked(state,
-						       state->pps);
+		return towire_dualopend_channel_locked(state);
 
 	return NULL;
 }
@@ -3433,14 +3428,6 @@ static void handle_gossip_in(struct state *state)
 			      "Reading gossip: %s", strerror(errno));
 
 	handle_gossip_msg(state->pps, take(msg));
-}
-
-static void try_read_gossip_store(struct state *state)
-{
-	u8 *msg = gossip_store_next(tmpctx, state->pps);
-
-	if (msg)
-		peer_write(state->pps, take(msg));
 }
 
 /* Try to handle a custommsg Returns true if it was a custom message and has
@@ -3832,7 +3819,6 @@ int main(int argc, char *argv[])
 				    &state->tx_state->localconf,
 				    &state->max_to_self_delay,
 				    &state->min_effective_htlc_capacity,
-				    &state->pps,
 				    &state->our_points,
 				    &state->our_funding_pubkey,
 				    &state->minimum_depth)) {
@@ -3864,7 +3850,6 @@ int main(int argc, char *argv[])
 					     &state->channel_id,
 					     &state->max_to_self_delay,
 					     &state->min_effective_htlc_capacity,
-					     &state->pps,
 					     &state->our_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
@@ -3932,8 +3917,9 @@ int main(int argc, char *argv[])
 
 
 
-	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
-	per_peer_state_set_fds(state->pps, 3, 4, 5);
+	/* 3 == peer, 4 == gossipd, 5 = hsmd */
+	state->pps = new_per_peer_state(state);
+	per_peer_state_set_fds(state->pps, 3, 4);
 
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,
@@ -3972,19 +3958,13 @@ int main(int argc, char *argv[])
 	 * opening_funder_reply or opening_fundee. */
 	msg = NULL;
 	while (!msg) {
-		int t;
-		struct timerel trel;
-		if (time_to_next_gossip(state->pps, &trel))
-			t = time_to_msec(trel);
-		else
-			t = -1;
 
 		/*~ If we get a signal which aborts the poll() call, valgrind
 		 * complains about revents being uninitialized.  I'm not sure
 		 * that's correct, but it's easy to be sure. */
 		pollfd[0].revents = pollfd[1].revents = pollfd[2].revents = 0;
 
-		poll(pollfd, ARRAY_SIZE(pollfd), t);
+		poll(pollfd, ARRAY_SIZE(pollfd), -1);
 		/* Subtle: handle_master_in can do its own poll loop, so
 		 * don't try to service more than one fd per loop. */
 		/* First priority: messages from lightningd. */
@@ -3996,13 +3976,10 @@ int main(int argc, char *argv[])
 		/* Last priority: chit-chat from gossipd. */
 		else if (pollfd[1].revents & POLLIN)
 			handle_gossip_in(state);
-		else
-			try_read_gossip_store(state);
 
 		/* If we've shutdown, we're done */
 		if (shutdown_complete(state))
-			msg = towire_dualopend_shutdown_complete(state,
-								 state->pps);
+			msg = towire_dualopend_shutdown_complete(state);
 		/* Since we're the top-level event loop, we clean up */
 		clean_tmpctx();
 	}

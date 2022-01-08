@@ -20,7 +20,6 @@ peer_fatal_continue(const u8 *msg TAKES, const struct per_peer_state *pps)
 
 	status_send_fd(pps->peer_fd);
 	status_send_fd(pps->gossip_fd);
-	status_send_fd(pps->gossip_store_fd);
 	exit(0x80 | (reason & 0xFF));
 }
 
@@ -44,7 +43,6 @@ peer_failed(struct per_peer_state *pps,
 	msg = towire_status_peer_error(NULL, channel_id,
 				       desc,
 				       warn,
-				       pps,
 				       msg);
 	peer_billboard(true, desc);
 	peer_fatal_continue(take(msg), pps);
@@ -87,7 +85,7 @@ void peer_failed_received_errmsg(struct per_peer_state *pps,
 {
 	u8 *msg;
 
-	msg = towire_status_peer_error(NULL, channel_id, desc, warning, pps,
+	msg = towire_status_peer_error(NULL, channel_id, desc, warning,
 				       NULL);
 	peer_billboard(true, "Received %s", desc);
 	peer_fatal_continue(take(msg), pps);

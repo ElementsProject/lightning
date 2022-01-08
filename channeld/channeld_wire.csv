@@ -8,7 +8,6 @@
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/fee_states.h>
-#include <common/per_peer_state.h>
 
 # Begin!  (passes gossipd-client fd)
 msgtype,channeld_init,1000
@@ -28,7 +27,6 @@ msgdata,channeld_init,feerate_min,u32,
 msgdata,channeld_init,feerate_max,u32,
 msgdata,channeld_init,feerate_penalty,u32,
 msgdata,channeld_init,first_commit_sig,bitcoin_signature,
-msgdata,channeld_init,per_peer_state,per_peer_state,
 msgdata,channeld_init,remote_fundingkey,pubkey,
 msgdata,channeld_init,remote_basepoints,basepoints,
 msgdata,channeld_init,remote_per_commit,pubkey,
@@ -187,7 +185,6 @@ msgdata,channeld_got_shutdown,wrong_funding,?bitcoin_outpoint,
 
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
 msgtype,channeld_shutdown_complete,1025
-msgdata,channeld_shutdown_complete,per_peer_state,per_peer_state,
 
 # Re-enable commit timer.
 msgtype,channeld_dev_reenable_commit,1026

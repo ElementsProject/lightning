@@ -12,6 +12,7 @@
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
 #include <common/param.h>
+#include <common/per_peer_state.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
@@ -348,7 +349,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &remote_commit,
 					   &pbase,
 					   &remote_commit_sig,
-					   &pps,
 					   &channel_info.theirbase.revocation,
 					   &channel_info.theirbase.payment,
 					   &channel_info.theirbase.htlc,
@@ -370,6 +370,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		goto cleanup;
 	}
 	remote_commit->chainparams = chainparams;
+
+	pps = new_per_peer_state(resp);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	log_debug(ld->log,
@@ -448,7 +450,6 @@ static void opening_fundee_finished(struct subd *openingd,
 				     &remote_commit,
 				     &pbase,
 				     &remote_commit_sig,
-				     &pps,
 				     &channel_info.theirbase.revocation,
 				     &channel_info.theirbase.payment,
 				     &channel_info.theirbase.htlc,
@@ -473,6 +474,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	}
 
 	remote_commit->chainparams = chainparams;
+	pps = new_per_peer_state(tmpctx);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	/* openingd should never accept them funding channel in this case. */
@@ -530,7 +532,6 @@ static void opening_fundee_finished(struct subd *openingd,
 failed:
 	close(fds[0]);
 	close(fds[1]);
-	close(fds[3]);
 	tal_free(uc);
 }
 
@@ -803,7 +804,7 @@ static void opening_got_offer(struct subd *openingd,
 }
 
 static void opening_got_reestablish(struct subd *openingd, const u8 *msg,
-				    const int fds[3],
+				    const int fds[2],
 				    struct uncommitted_channel *uc)
 {
 	struct lightningd *ld = openingd->ld;
@@ -813,12 +814,13 @@ static void opening_got_reestablish(struct subd *openingd, const u8 *msg,
 	struct per_peer_state *pps;
 
 	if (!fromwire_openingd_got_reestablish(tmpctx, msg, &channel_id,
-					       &reestablish, &pps)) {
+					       &reestablish)) {
 		log_broken(openingd->log, "Malformed opening_got_reestablish %s",
 			   tal_hex(tmpctx, msg));
 		tal_free(openingd);
 		return;
 	}
+	pps = new_per_peer_state(tmpctx);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	/* This could free peer */
@@ -841,8 +843,8 @@ static unsigned int openingd_msg(struct subd *openingd,
 			tal_free(openingd);
 			return 0;
 		}
-		if (tal_count(fds) != 3)
-			return 3;
+		if (tal_count(fds) != 2)
+			return 2;
 		opening_funder_finished(openingd, msg, fds, uc->fc);
 		return 0;
 	case WIRE_OPENINGD_FUNDER_START_REPLY:
@@ -865,8 +867,8 @@ static unsigned int openingd_msg(struct subd *openingd,
 		return 0;
 
 	case WIRE_OPENINGD_FUNDEE:
-		if (tal_count(fds) != 3)
-			return 3;
+		if (tal_count(fds) != 2)
+			return 2;
 		opening_fundee_finished(openingd, msg, fds, uc);
 		return 0;
 
@@ -875,8 +877,8 @@ static unsigned int openingd_msg(struct subd *openingd,
 		return 0;
 
 	case WIRE_OPENINGD_GOT_REESTABLISH:
-		if (tal_count(fds) != 3)
-			return 3;
+		if (tal_count(fds) != 2)
+			return 2;
 		opening_got_reestablish(openingd, msg, fds, uc);
 		return 0;
 
@@ -932,7 +934,6 @@ void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 					opend_channel_set_billboard,
 					take(&pps->peer_fd),
 					take(&pps->gossip_fd),
-					take(&pps->gossip_store_fd),
 					take(&hsmfd), NULL);
 	if (!uc->open_daemon) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
@@ -962,13 +963,12 @@ void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity,
-				  pps, &uc->local_basepoints,
+				  &uc->local_basepoints,
 				  &uc->local_funding_pubkey,
 				  uc->minimum_depth,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
-				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
-				  IFDEV(peer->ld->dev_fast_gossip, false));
+				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL));
 	subd_send_msg(uc->open_daemon, take(msg));
 }
 

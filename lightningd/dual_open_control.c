@@ -12,6 +12,7 @@
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
 #include <common/param.h>
+#include <common/per_peer_state.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
@@ -1348,16 +1349,16 @@ static void handle_channel_closed(struct subd *dualopend,
 	struct per_peer_state *pps;
 	struct channel *channel = dualopend->channel;
 
-	if (!fromwire_dualopend_shutdown_complete(tmpctx, msg, &pps)) {
+	if (!fromwire_dualopend_shutdown_complete(msg)) {
 		channel_internal_error(dualopend->channel,
 				       "Bad DUALOPEND_SHUTDOWN_COMPLETE: %s",
 				       tal_hex(msg, msg));
 		close(fds[0]);
 		close(fds[1]);
-		close(fds[2]);
 		return;
 	}
 
+	pps = new_per_peer_state(tmpctx);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	peer_start_closingd(channel, pps);
@@ -1630,12 +1631,13 @@ static void handle_channel_locked(struct subd *dualopend,
 	struct channel *channel = dualopend->channel;
 	struct per_peer_state *pps;
 
-	if (!fromwire_dualopend_channel_locked(tmpctx, msg, &pps)) {
+	if (!fromwire_dualopend_channel_locked(msg)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_CHANNEL_LOCKED: %s",
 				       tal_hex(msg, msg));
 		return;
 	}
+	pps = new_per_peer_state(tmpctx);
 	per_peer_state_set_fds_arr(pps, fds);
 
 	assert(channel->scid);
@@ -2976,16 +2978,16 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			handle_dry_run_finished(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_CHANNEL_LOCKED:
-			if (tal_count(fds) != 3)
-				return 3;
+			if (tal_count(fds) != 2)
+				return 2;
 			handle_channel_locked(dualopend, fds, msg);
 			return 0;
 		case WIRE_DUALOPEND_GOT_SHUTDOWN:
 			handle_peer_wants_to_close(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
-			if (tal_count(fds) != 3)
-				return 3;
+			if (tal_count(fds) != 2)
+				return 2;
 			handle_channel_closed(dualopend, fds, msg);
 			return 0;
 		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
@@ -3220,7 +3222,6 @@ static void start_fresh_dualopend(struct peer *peer,
 					  channel_set_billboard,
 					  take(&pps->peer_fd),
 					  take(&pps->gossip_fd),
-					  take(&pps->gossip_store_fd),
 					  take(&hsmfd), NULL);
 
 	if (!channel->owner) {
@@ -3249,7 +3250,7 @@ static void start_fresh_dualopend(struct peer *peer,
 				    &channel->our_config,
 				    max_to_self_delay,
 				    min_effective_htlc_capacity,
-				    pps, &channel->local_basepoints,
+				    &channel->local_basepoints,
 				    &channel->local_funding_pubkey,
 				    channel->minimum_depth);
 	subd_send_msg(channel->owner, take(msg));
@@ -3288,7 +3289,6 @@ void peer_restart_dualopend(struct peer *peer,
 					   channel_set_billboard,
 					   take(&pps->peer_fd),
 					   take(&pps->gossip_fd),
-					   take(&pps->gossip_store_fd),
 					   take(&hsmfd), NULL));
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon channel: %s",
@@ -3330,7 +3330,6 @@ void peer_restart_dualopend(struct peer *peer,
 				      &channel->cid,
 				      max_to_self_delay,
 				      min_effective_htlc_capacity,
-				      pps,
 				      &channel->local_basepoints,
 				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey,
