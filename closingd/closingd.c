@@ -6,12 +6,12 @@
 #include <closingd/closingd_wiregen.h>
 #include <common/close_tx.h>
 #include <common/closing_fee.h>
-#include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
+#include <common/peer_io.h>
 #include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
 #include <common/socket_close.h>
@@ -214,7 +214,7 @@ static void send_offer(struct per_peer_state *pps,
 	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig.s,
 				    close_tlvs);
 
-	sync_crypto_write(pps, take(msg));
+	peer_write(pps, take(msg));
 }
 
 static void tell_master_their_offer(const struct bitcoin_signature *their_sig,

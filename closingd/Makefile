@@ -27,14 +27,11 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/channel_id.o			\
 	common/close_tx.o			\
 	common/crypto_state.o			\
-	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
-	common/dev_disconnect.o			\
 	common/derive_basepoints.o		\
-	common/peer_status_wiregen.o		\
-	common/status_wiregen.o			\
+	common/dev_disconnect.o			\
 	common/gossip_rcvd_filter.o		\
 	common/gossip_store.o			\
 	common/htlc_wire.o			\
@@ -45,11 +42,14 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/onionreply.o			\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
+	common/peer_io.o			\
+	common/peer_status_wiregen.o		\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/ping.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/status_wiregen.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
 	common/socket_close.o			\

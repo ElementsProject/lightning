@@ -13,7 +13,6 @@
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
-#include <common/crypto_sync.h>
 #include <common/fee_states.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
@@ -21,6 +20,7 @@
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
+#include <common/peer_io.h>
 #include <common/read_peer_msg.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
@@ -150,7 +150,7 @@ static void negotiation_failed(struct state *state, bool am_opener,
 
 	msg = towire_errorfmt(NULL, &state->channel_id,
 			      "You gave bad parameters: %s", errmsg);
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	negotiation_aborted(state, am_opener, errmsg);
 }
@@ -257,10 +257,10 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 				     peer_wire_name(fromwire_peektype(msg)),
 				     type_to_string(tmpctx, struct channel_id,
 						    &actual));
-			sync_crypto_write(state->pps,
-					  take(towire_errorfmt(NULL, &actual,
-							       "Multiple channels"
-							       " unsupported")));
+			peer_write(state->pps,
+				   take(towire_errorfmt(NULL, &actual,
+							"Multiple channels"
+							" unsupported")));
 			tal_free(msg);
 			continue;
 		}
@@ -396,7 +396,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				  &state->first_per_commitment_point[LOCAL],
 				  channel_flags,
 				  open_tlvs);
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	/* This is usually a very transient state... */
 	peer_billboard(false,
@@ -640,7 +640,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 				     &state->funding.txid,
 				     state->funding.n,
 				     &sig->s);
-	sync_crypto_write(state->pps, msg);
+	peer_write(state->pps, msg);
 
 	/* BOLT #2:
 	 *
@@ -1050,7 +1050,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->first_per_commitment_point[LOCAL],
 				    accept_tlvs);
 
-	sync_crypto_write(state->pps, take(msg));
+	peer_write(state->pps, take(msg));
 
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
@@ -1258,7 +1258,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
  * surprise. */
 static u8 *handle_peer_in(struct state *state)
 {
-	u8 *msg = sync_crypto_read(tmpctx, state->pps);
+	u8 *msg = peer_read(tmpctx, state->pps);
 	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 	bool extracted;
@@ -1289,7 +1289,7 @@ static u8 *handle_peer_in(struct state *state)
 						       &channel_id, msg,
 						       state->pps);
 	}
-	sync_crypto_write(state->pps,
+	peer_write(state->pps,
 			  take(towire_warningfmt(NULL,
 						 extracted ? &channel_id : NULL,
 						 "Unexpected message %s: %s",
@@ -1349,7 +1349,7 @@ static void openingd_send_custommsg(struct state *state, const u8 *msg)
 	u8 *inner;
 	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
 		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
-	sync_crypto_write(state->pps, take(inner));
+	peer_write(state->pps, take(inner));
 }
 
 /* Standard lightningd-fd-is-ready-to-read demux code.  Again, we could hang
@@ -1393,7 +1393,7 @@ static u8 *handle_master_in(struct state *state)
 			master_badmsg(WIRE_OPENINGD_FUNDER_CANCEL, msg);
 
 		msg = towire_errorfmt(NULL, &state->channel_id, "Channel open canceled by us");
-		sync_crypto_write(state->pps, take(msg));
+		peer_write(state->pps, take(msg));
 		negotiation_aborted(state, true, "Channel open canceled by RPC");
 		return NULL;
 	case WIRE_OPENINGD_DEV_MEMLEAK:
@@ -1432,7 +1432,7 @@ static void try_read_gossip_store(struct state *state)
 	u8 *msg = gossip_store_next(tmpctx, state->pps);
 
 	if (msg)
-		sync_crypto_write(state->pps, take(msg));
+		peer_write(state->pps, take(msg));
 }
 
 int main(int argc, char *argv[])

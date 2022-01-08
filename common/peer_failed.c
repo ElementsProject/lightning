@@ -2,9 +2,9 @@
 #include <assert.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/tal/str/str.h>
-#include <common/crypto_sync.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
+#include <common/peer_io.h>
 #include <common/peer_status_wiregen.h>
 #include <common/status.h>
 #include <common/status_wiregen.h>
@@ -38,7 +38,7 @@ peer_failed(struct per_peer_state *pps,
 	} else {
 		msg = towire_errorfmt(desc, channel_id, "%s", desc);
 	}
-	sync_crypto_write(pps, msg);
+	peer_write(pps, msg);
 
 	/* Tell master the error so it can re-xmit. */
 	msg = towire_status_peer_error(NULL, channel_id,
