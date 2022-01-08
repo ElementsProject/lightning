@@ -905,7 +905,8 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event2['cause'] == "user")
     assert(event2['message'] == "Forcibly closed by `close` command timeout")
 
-    # restart l1 early, as the test gets flaky when done after generate_block(100)
+    # restart l1 now, it will reconnect and l2 will send it an error.
+    # FIXME: it should re-xmit shutdown, but it doesn't until it's mined :(
     l1.restart()
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 1)
     # check 'closer' on l2 while the peer is not yet forgotten
@@ -932,21 +933,53 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     event1 = wait_for_event(l1)
     assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
 
-    # check if l1 sees ONCHAIN reasons for his channel
-    assert(event1['old_state'] == "CHANNELD_NORMAL")
-    assert(event1['new_state'] == "AWAITING_UNILATERAL")
-    assert(event1['cause'] == "onchain")
-    assert(event1['message'] == "Funding transaction spent")
-    event1 = wait_for_event(l1)
-    assert(event1['old_state'] == "AWAITING_UNILATERAL")
-    assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
-    assert(event1['cause'] == "onchain")
-    assert(event1['message'] == "Onchain funding spend")
-    event1 = wait_for_event(l1)
-    assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
-    assert(event1['new_state'] == "ONCHAIN")
-    assert(event1['cause'] == "onchain")
-    assert(event1['message'] == "Onchain init reply")
+    # If l1 saw onchain first, it goes:
+    #   AWAITING_UNILATERAL
+    #   FUNDING_SPEND_SEEN
+    # otherwise, it gets a shutdown from remote, and goes:
+    #   CHANNELD_SHUTTING_DOWN
+    #   AWAITING_UNILATERAL
+    #   FUNDING_SPEND_SEEN
+    if event1['new_state'] == "CHANNELD_SHUTTING_DOWN":
+        # In this case, cause is always "remote".
+        assert(event1['old_state'] == "CHANNELD_NORMAL")
+        assert(event1['cause'] == "remote")
+        assert(event1['message'] == "Peer closes channel")
+
+        event1 = wait_for_event(l1)
+        assert(event1['old_state'] == "CHANNELD_SHUTTING_DOWN")
+        assert(event1['new_state'] == "AWAITING_UNILATERAL")
+        assert(event1['message'] == "Funding transaction spent")
+
+        event1 = wait_for_event(l1)
+        assert(event1['old_state'] == "AWAITING_UNILATERAL")
+        assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
+        assert(event1['cause'] == "remote")
+        assert(event1['message'] == "Onchain funding spend")
+
+        event1 = wait_for_event(l1)
+        assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
+        assert(event1['new_state'] == "ONCHAIN")
+        assert(event1['cause'] == "remote")
+        assert(event1['message'] == "Onchain init reply")
+    else:
+        # In this case, cause is always "onchain".
+        assert(event1['old_state'] == "CHANNELD_NORMAL")
+        assert(event1['new_state'] == "AWAITING_UNILATERAL")
+        assert(event1['cause'] == "onchain")
+        assert(event1['message'] == "Funding transaction spent")
+
+        event1 = wait_for_event(l1)
+        assert(event1['old_state'] == "AWAITING_UNILATERAL")
+        assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
+        assert(event1['cause'] == "onchain")
+        assert(event1['message'] == "Onchain funding spend")
+
+        event1 = wait_for_event(l1)
+        assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
+        assert(event1['new_state'] == "ONCHAIN")
+        assert(event1['cause'] == "onchain")
+        assert(event1['message'] == "Onchain init reply")
 
 
 @pytest.mark.openchannel('v1')
