@@ -12,7 +12,4 @@ struct crypto_state {
 	struct secret s_ck, r_ck;
 };
 
-void towire_crypto_state(u8 **pptr, const struct crypto_state *cs);
-void fromwire_crypto_state(const u8 **ptr, size_t *max, struct crypto_state *cs);
-
 #endif /* LIGHTNING_COMMON_CRYPTO_STATE_H */

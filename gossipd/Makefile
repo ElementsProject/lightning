@@ -37,7 +37,6 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/blinding.o			\
 	common/blindedpath.o			\
 	common/channel_id.o			\
-	common/crypto_state.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\

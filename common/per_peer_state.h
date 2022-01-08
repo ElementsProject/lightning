@@ -15,9 +15,6 @@ struct gossip_state {
 
 /* Things we hand between daemons to talk to peers. */
 struct per_peer_state {
-	/* Cryptographic state needed to exchange messages with the peer (as
-	 * featured in BOLT #8) */
-	struct crypto_state cs;
 	/* NULL if it's not initialized yet */
 	struct gossip_state *gs;
 	/* Cache of msgs we have received, to avoid re-xmitting from store */
@@ -28,8 +25,7 @@ struct per_peer_state {
 
 /* Allocate a new per-peer state and add destructor to close fds if set;
  * sets fds to -1 and ->gs to NULL.. */
-struct per_peer_state *new_per_peer_state(const tal_t *ctx,
-					  const struct crypto_state *cs);
+struct per_peer_state *new_per_peer_state(const tal_t *ctx);
 
 /* Initialize the fds (must be -1 previous) */
 void per_peer_state_set_fds(struct per_peer_state *pps,

@@ -2,12 +2,14 @@
 #define LIGHTNING_CONNECTD_MULTIPLEX_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <common/crypto_state.h>
 #include <common/msg_queue.h>
 #include <common/node_id.h>
 
 struct peer {
 	struct node_id id;
-	struct per_peer_state *pps;
+	/* Counters and keys for symmetric crypto */
+	struct crypto_state cs;
 
 	/* Connection to the peer */
 	struct io_conn *to_peer;
