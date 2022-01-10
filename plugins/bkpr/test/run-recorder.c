@@ -386,7 +386,9 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 
 	CHECK(tal_count(ofs) == 1);
 	CHECK(ofs[0]->acct_db_id == acct->db_id);
-	CHECK(amount_msat_eq(ofs[0]->amount, AMOUNT_MSAT(800)));
+	CHECK(amount_msat_eq(ofs[0]->credit, AMOUNT_MSAT(800)));
+	CHECK(amount_msat_zero(ofs[0]->debit));
+	CHECK(ofs[0]->update_count == 1);
 
 	log_chain_event(db, acct,
 		make_chain_event(ctx, "htlc_tx",
@@ -423,7 +425,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
-	/* Expect: 2 onchain fee records, all for chan-1 */
+	/* Expect: 3 onchain fee records, all for chan-1 */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
 	ofs1 = account_onchain_fees(ctx, db, acct);
@@ -431,7 +433,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	CHECK_MSG(!db_err, db_err);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
-	CHECK(tal_count(ofs) == 2);
+	CHECK(tal_count(ofs) == 3);
 
 	/* txid 3333 */
 	db_begin_transaction(db);
@@ -459,11 +461,11 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	CHECK_MSG(!db_err, db_err);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
-	CHECK(tal_count(ofs) == 3);
+	CHECK(tal_count(ofs) == 4);
 
 	/* Expect: fees as follows
 	 *
-	 * chan-1, 1111, 200
+	 * chan-1, 1111, 800,-600
 	 * chan-1, 3333, 100
 	 * chan-1, 2222,  50
 	 */
@@ -473,17 +475,31 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 
 		memset(&txid, '1', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
-			CHECK(200 == ofs[i]->amount.millisatoshis); /* Raw: test eq */
+			CHECK(ofs[i]->update_count == 1
+			      || ofs[i]->update_count == 2);
+
+			if (ofs[i]->update_count == 1) {
+				CHECK(amount_msat_eq(ofs[i]->credit, AMOUNT_MSAT(800)));
+				CHECK(amount_msat_zero(ofs[i]->debit));
+
+			} else {
+				CHECK(amount_msat_eq(ofs[i]->debit, AMOUNT_MSAT(600)));
+				CHECK(amount_msat_zero(ofs[i]->credit));
+			}
 			continue;
 		}
 		memset(&txid, '2', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
-			CHECK(50 == ofs[i]->amount.millisatoshis); /* Raw: test eq */
+			CHECK(ofs[i]->update_count == 1);
+			CHECK(amount_msat_eq(ofs[i]->credit, AMOUNT_MSAT(50)));
+			CHECK(amount_msat_zero(ofs[i]->debit));
 			continue;
 		}
 		memset(&txid, '3', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
-			CHECK(100 == ofs[i]->amount.millisatoshis); /* Raw: test eq */
+			CHECK(ofs[i]->update_count == 1);
+			CHECK(amount_msat_eq(ofs[i]->credit, AMOUNT_MSAT(100)));
+			CHECK(amount_msat_zero(ofs[i]->debit));
 			continue;
 		}
 
@@ -523,37 +539,13 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 	/* Open two channels from wallet */
 	/* tag     utxo_id vout    txid    debits  credits acct_id
 	 * withd   XXXX    0       AAAA    1000            wallet
-	 * withd   YYYY    0       AAAA    3000            wallet
+	 * withd   YYYY    0       AAAA    3001            wallet
 	 * open    AAAA    0                        500    chan-1
 	 * open    AAAA    1                       1000    chan-2
 	 * depo    AAAA    2                       2200    wallet
 	 */
 	memset(&txid, 'A', sizeof(struct bitcoin_txid));
 	db_begin_transaction(db);
-	log_chain_event(db, acct,
-		make_chain_event(ctx, "deposit",
-				 AMOUNT_MSAT(500),
-				 AMOUNT_MSAT(0),
-				 'A', 0, '*'));
-
-	log_chain_event(db, acct2,
-		make_chain_event(ctx, "deposit",
-				 AMOUNT_MSAT(1000),
-				 AMOUNT_MSAT(0),
-				 'A', 1, '*'));
-
-	log_chain_event(db, wal_acct,
-		make_chain_event(ctx, "deposit",
-				 AMOUNT_MSAT(2200),
-				 AMOUNT_MSAT(0),
-				 'A', 2, '*'));
-	maybe_update_onchain_fees(ctx, db, &txid);
-
-	/* Should be no fee records yet! */
-	ofs = list_chain_fees(ctx, db);
-	CHECK_MSG(tal_count(ofs) == 0,
-		  "no fees counted yet");
-
 	log_chain_event(db, wal_acct,
 		make_chain_event(ctx, "withdrawal",
 				 AMOUNT_MSAT(0),
@@ -565,29 +557,67 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 				 AMOUNT_MSAT(3001),
 				 'Y', 0, 'A'));
 
+	log_chain_event(db, acct,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(500),
+				 AMOUNT_MSAT(0),
+				 'A', 0, '*'));
+	maybe_update_onchain_fees(ctx, db, &txid);
+
+	log_chain_event(db, acct2,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(1000),
+				 AMOUNT_MSAT(0),
+				 'A', 1, '*'));
+	maybe_update_onchain_fees(ctx, db, &txid);
+
+	log_chain_event(db, wal_acct,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(2200),
+				 AMOUNT_MSAT(0),
+				 'A', 2, '*'));
+	maybe_update_onchain_fees(ctx, db, &txid);
+
 	maybe_update_onchain_fees(ctx, db, &txid);
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
-	/* Expect: 2 onchain fee records of 151/150msat ea,
+	/* Expect: 5 onchain fee records, totaling to 151/150msat ea,
 	 * none for wallet */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
-	CHECK(tal_count(ofs) == 2);
-	/* Since these are sorted by acct_id on fetch,
-	 * this *should* be stable */
-	CHECK(ofs[0]->acct_db_id == acct->db_id);
-	CHECK(amount_msat_eq(ofs[0]->amount, AMOUNT_MSAT(151)));
-	CHECK(streq(ofs[0]->currency, "btc"));
-	CHECK(bitcoin_txid_eq(&ofs[0]->txid, &txid));
+	CHECK(tal_count(ofs) == 5);
 
-	CHECK(ofs[1]->acct_db_id == acct2->db_id);
-	CHECK(amount_msat_eq(ofs[1]->amount, AMOUNT_MSAT(150)));
-	CHECK(streq(ofs[1]->currency, "btc"));
-	CHECK(bitcoin_txid_eq(&ofs[1]->txid, &txid));
+	struct exp_result {
+		u32 credit;
+		u32 debit;
+		u32 update_count;
+	};
+
+	struct exp_result exp_results[] = {
+		{ .credit = 3501, .debit = 0, .update_count = 1 },
+		{ .credit = 0, .debit = 2250, .update_count = 2 },
+		{ .credit = 0, .debit = 1100, .update_count = 3 },
+		{ .credit = 1250, .debit = 0, .update_count = 1 },
+		{ .credit = 0, .debit = 1100, .update_count = 2 },
+	};
+
+	/* Since these are sorted on fetch,
+	 * this *should* be stable */
+	for (size_t i = 0; i < tal_count(ofs); i++) {
+		CHECK(i < ARRAY_SIZE(exp_results));
+		CHECK(amount_msat_eq(ofs[i]->credit,
+				     amount_msat(exp_results[i].credit)));
+		CHECK(amount_msat_eq(ofs[i]->debit,
+				     amount_msat(exp_results[i].debit)));
+		CHECK(ofs[i]->update_count == exp_results[i].update_count);
+
+		CHECK(streq(ofs[i]->currency, "btc"));
+		CHECK(bitcoin_txid_eq(&ofs[i]->txid, &txid));
+	}
 
 	return true;
 }

@@ -15,11 +15,18 @@ struct onchain_fee {
 	/* Transaction that we're recording fees for */
 	struct bitcoin_txid txid;
 
-	/* Total amount of onchain fees we paid for this txid */
-	struct amount_msat amount;
+	/* Incremental change in onchain fees */
+	struct amount_msat credit;
+	struct amount_msat debit;
 
 	/* What token are fees? */
 	char *currency;
+
+	/* Timestamp of the event that created this fee update */
+	u64 timestamp;
+
+	/* Count of records we've recorded for this tx */
+	u32 update_count;
 };
 
 #endif /* LIGHTNING_PLUGINS_BKPR_ONCHAIN_FEE_H */
