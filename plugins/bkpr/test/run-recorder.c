@@ -222,6 +222,25 @@ static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 	return true;
 }
 
+static struct channel_event *make_channel_event(const tal_t *ctx,
+						char *tag,
+						struct amount_msat credit,
+						struct amount_msat debit,
+						char payment_char)
+{
+	struct channel_event *ev = tal(ctx, struct channel_event);
+
+	memset(&ev->payment_id, payment_char, sizeof(struct sha256));
+	ev->credit = credit;
+	ev->debit = debit;
+	ev->fees = AMOUNT_MSAT(104);
+	ev->currency = "btc";
+	ev->timestamp = 1919191;
+	ev->part_id = 19;
+	ev->tag = tag;
+	return ev;
+}
+
 static struct chain_event *make_chain_event(const tal_t *ctx,
 					    char *tag,
 					    struct amount_msat credit,
@@ -759,6 +778,92 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
+static bool test_account_balances(const tal_t *ctx, struct plugin *p)
+{
+	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
+	struct node_id peer_id;
+	struct account *acct, *acct2;
+	struct chain_event *ev1;
+	struct acct_balance **balances;
+	char *err;
+
+	memset(&peer_id, 3, sizeof(struct node_id));
+
+	acct = new_account(ctx, tal_fmt(ctx, "example"), &peer_id);
+	acct2 = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
+
+	db_begin_transaction(db);
+	account_add(db, acct);
+	account_add(db, acct2);
+
+	/* +1000btc */
+	log_chain_event(db, acct,
+			make_chain_event(ctx, "one",
+					 AMOUNT_MSAT(1000),
+					 AMOUNT_MSAT(0),
+					 'A', 1, '*'));
+
+	/* -999btc */
+	log_chain_event(db, acct,
+			make_chain_event(ctx, "two",
+					 AMOUNT_MSAT(0),
+					 AMOUNT_MSAT(999),
+					 'A', 2, '*'));
+
+	/* -440btc */
+	log_channel_event(db, acct,
+			  make_channel_event(ctx, "chan",
+					     AMOUNT_MSAT(0),
+					     AMOUNT_MSAT(440),
+					     'C'));
+
+	/* 500btc */
+	log_channel_event(db, acct,
+			  make_channel_event(ctx, "chan",
+					     AMOUNT_MSAT(500),
+					     AMOUNT_MSAT(0),
+					     'D'));
+
+	/* +5000chf */
+	ev1 = make_chain_event(ctx, "two", AMOUNT_MSAT(5000), AMOUNT_MSAT(0),
+			       'A', 3, '*');
+	ev1->currency = "chf";
+	log_chain_event(db, acct, ev1);
+
+	/* Add same chain event to a different account, shouldn't show */
+	log_chain_event(db, acct2, ev1);
+
+	err = account_get_balance(ctx, db, acct->name,
+				  &balances);
+	CHECK_MSG(!err, err);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	/* Should have 2 balances */
+	CHECK(tal_count(balances) == 2);
+	CHECK(streq(balances[0]->currency, "btc"));
+	CHECK(amount_msat_eq(balances[0]->balance, AMOUNT_MSAT(500 - 440 + 1)));
+	CHECK(streq(balances[1]->currency, "chf"));
+	CHECK(amount_msat_eq(balances[1]->balance, AMOUNT_MSAT(5000)));
+
+	/* Should error if account balance is negative */
+	db_begin_transaction(db);
+	/* -5001chf */
+	ev1 = make_chain_event(ctx, "two",
+			       AMOUNT_MSAT(0), AMOUNT_MSAT(5001),
+			       'A', 4, '*');
+	ev1->currency = "chf";
+	log_chain_event(db, acct, ev1);
+
+	err = account_get_balance(ctx, db, acct->name,
+				  &balances);
+	CHECK_MSG(err != NULL, "Expected err message");
+	CHECK(streq(err, "chf channel balance is negative? 5000msat - 5001msat"));
+	db_commit_transaction(db);
+
+	return true;
+}
+
 static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 {
 	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
@@ -872,6 +977,7 @@ int main(int argc, char *argv[])
 	ok &= test_account_crud(tmpctx, plugin);
 	ok &= test_channel_event_crud(tmpctx, plugin);
 	ok &= test_chain_event_crud(tmpctx, plugin);
+	ok &= test_account_balances(tmpctx, plugin);
 	ok &= test_onchain_fee_chan_close(tmpctx, plugin);
 	ok &= test_onchain_fee_chan_open(tmpctx, plugin);
 	ok &= test_onchain_fee_wallet_spend(tmpctx, plugin);

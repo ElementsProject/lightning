@@ -1,7 +1,9 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/time/time.h>
 #include <common/coin_mvt.h>
 #include <common/json_helpers.h>
+#include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/type_to_string.h>
@@ -27,11 +29,51 @@ static struct command_result *json_list_balances(struct command *cmd,
 						 const jsmntok_t *params)
 {
 	struct json_stream *res;
+	struct account **accts;
+	char *err;
 
 	if (!param(cmd, buf, params, NULL))
 		return command_param_failed();
 
 	res = jsonrpc_stream_success(cmd);
+	/* List of accts */
+	db_begin_transaction(db);
+	accts = list_accounts(cmd, db);
+
+	json_array_start(res, "accounts");
+	for (size_t i = 0; i < tal_count(accts); i++) {
+		struct acct_balance **balances;
+
+		err = account_get_balance(cmd, db,
+					  accts[i]->name,
+					  &balances);
+
+		if (err)
+			plugin_err(cmd->plugin,
+				   "Get account balance returned err"
+				   " for account %s: %s",
+				   accts[i]->name, err);
+
+		/* Add it to the result data */
+		json_object_start(res, NULL);
+
+		json_add_string(res, "account_id", accts[i]->name);
+		json_array_start(res, "balances");
+		for (size_t j = 0; j < tal_count(balances); j++) {
+			json_object_start(res, NULL);
+			json_add_amount_msat_only(res, "balance",
+						  balances[j]->balance);
+			json_add_string(res, "coin_type",
+					balances[j]->currency);
+			json_object_end(res);
+		}
+		json_array_end(res);
+
+		json_object_end(res);
+	}
+	json_array_end(res);
+	db_commit_transaction(db);
+
 	return command_finished(cmd, res);
 }
 
@@ -80,8 +122,13 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			   json_tok_full(buf, params));
 
 	snaps = tal_arr(cmd, struct account_snap, accounts_tok->size);
+
+	db_begin_transaction(db);
 	json_for_each_arr(i, acct_tok, accounts_tok) {
+		struct acct_balance **balances;
+		struct amount_msat balance;
 		struct account_snap s = snaps[i];
+
 		err = json_scan(cmd, buf, acct_tok,
 				"{account_id:%"
 				",balance_msat:%"
@@ -100,9 +147,72 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 		plugin_log(cmd->plugin, LOG_DBG, "account %s has balance %s",
 			   s.name,
 			   type_to_string(tmpctx, struct amount_msat, &s.amt));
-	}
 
-	// FIXME: check balances are ok!
+		/* Find the account and verify the balance */
+		err = account_get_balance(cmd, db, s.name,
+					  &balances);
+
+		if (err)
+			plugin_err(cmd->plugin,
+				   "Get account balance returned err"
+				   " for account %s: %s",
+				   s.name, err);
+
+		/* FIXME: multiple currency balances */
+		balance = AMOUNT_MSAT(0);
+		for (size_t j = 0; j < tal_count(balances); j++) {
+			bool ok;
+			ok = amount_msat_add(&balance, balance,
+					     balances[j]->balance);
+			assert(ok);
+		}
+
+		if (!amount_msat_eq(s.amt, balance)) {
+			struct account *acct;
+			struct channel_event ev;
+
+			plugin_log(cmd->plugin, LOG_UNUSUAL,
+				   "Snapshot balance does not equal ondisk"
+				   " reported %s, on disk %s (account %s)."
+				   " Logging journal entry.",
+				   type_to_string(tmpctx, struct amount_msat, &s.amt),
+				   type_to_string(tmpctx, struct amount_msat, &balance),
+				   s.name);
+
+			if (!amount_msat_sub(&ev.credit, s.amt, balance)) {
+				ev.credit = AMOUNT_MSAT(0);
+				if (!amount_msat_sub(&ev.debit, balance, s.amt))
+					plugin_err(cmd->plugin,
+						   "Unable to sub amt");
+			} else
+				ev.debit = AMOUNT_MSAT(0);
+
+			/* Log a channel "journal entry" to get
+			 * the balances inline */
+			acct = find_account(cmd, db, s.name);
+			if (!acct) {
+				plugin_log(cmd->plugin, LOG_INFORM,
+					   "account %s not found, adding"
+					   " along with new balance",
+					   s.name);
+				/* FIXME: lookup peer id for channel? */
+				acct = new_account(cmd, s.name, NULL);
+				account_add(db, acct);
+			}
+
+			/* This is *not* a coin_mvt tag type */
+			ev.tag = "journal_entry";
+			ev.fees = AMOUNT_MSAT(0);
+			ev.currency = s.coin_type;
+			ev.part_id = 0;
+			memset(&ev.payment_id, 0, sizeof(struct sha256));
+			/* Use current time for this */
+			ev.timestamp = time_now().ts.tv_sec;
+
+			log_channel_event(db, acct, &ev);
+		}
+	}
+	db_commit_transaction(db);
 
 	return notification_handled(cmd);
 }
