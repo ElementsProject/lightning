@@ -47,6 +47,9 @@ struct peer {
 	/* Final message to send to peer (and hangup) */
 	u8 *final_msg;
 
+	/* Set when we want to close. */
+	bool told_to_close;
+
 	/* When socket has Nagle overridden */
 	bool urgent;
 
@@ -180,5 +183,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
 			       bool incoming);
+
+/* Called when peer->peer_conn is finally freed */
+void peer_conn_closed(struct peer *peer);
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_H */

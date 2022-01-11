@@ -355,6 +355,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
+	peer->told_to_close = false;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->subd_outq = msg_queue_new(peer, false);
 
@@ -1822,6 +1823,18 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	try_connect_peer(daemon, &id, seconds_waited, addrs, addrhint);
 }
 
+void peer_conn_closed(struct peer *peer)
+{
+	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
+	io_wake(peer);
+
+	/* Note: deleting from a htable (a-la node_set_del) does not free it:
+	 * htable doesn't assume it's a tal object at all.  That's why we have
+	 * a destructor attached to peer (called destroy_peer by
+	 * convention). */
+	tal_free(peer);
+}
+
 /* A peer is gone: clean things up. */
 static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
 {
@@ -1835,14 +1848,12 @@ static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
 			      type_to_string(tmpctx, struct node_id, id));
 	status_peer_debug(id, "disconnect");
 
-	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
-	io_wake(peer);
-
-	/* Note: deleting from a htable (a-la node_set_del) does not free it:
-	 * htable doesn't assume it's a tal object at all.  That's why we have
-	 * a destructor attached to peer (called destroy_peer by
-	 * convention). */
-	tal_free(peer);
+	/* Make sure we flush any outstanding writes! */
+	if (peer->to_peer) {
+		close_peer_conn(peer);
+		/* It calls peer_conn_closed() when done */
+	} else
+		peer_conn_closed(peer);
 }
 
 /* lightningd tells us a peer has disconnected. */
