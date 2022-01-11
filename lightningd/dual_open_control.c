@@ -66,9 +66,9 @@ void channel_unsaved_close_conn(struct channel *channel, const char *why)
 		 " Disconnecting and deleting channel. Reason: %s",
 		 why);
 
-	notify_disconnect(channel->peer->ld, &channel->peer->id);
 	channel_cleanup_commands(channel, why);
 
+	assert(channel->owner);
 	channel_set_owner(channel, NULL);
 	delete_channel(channel);
 }
