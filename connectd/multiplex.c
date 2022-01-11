@@ -142,20 +142,6 @@ void setup_peer_gossip_store(struct peer *peer,
 	}
 }
 
-/* These four function handle subd->peer */
-static struct io_plan *after_final_msg(struct io_conn *peer_conn,
-				       struct peer *peer)
-{
-	/* io_close will want to free this itself! */
-	assert(peer->to_peer == peer_conn);
-
-	/* Invert ownership, so io_close frees peer for us */
-	tal_steal(NULL, peer_conn);
-	tal_steal(peer_conn, peer);
-
-	return io_close(peer_conn);
-}
-
 /* We're happy for the kernel to batch update and gossip messages, but a
  * commitment message, for example, should be instantly sent.  There's no
  * great way of doing this, unfortunately.
@@ -415,15 +401,15 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	/* Pop tail of send queue */
 	msg = msg_dequeue(peer->peer_outq);
 
-	/* Nothing to send? */
-	if (!msg) {
-		/* Send final once subd is not longer connected */
-		if (peer->final_msg && !peer->to_subd) {
-			return encrypt_and_send(peer,
-						peer->final_msg,
-						after_final_msg);
-		}
+	/* Is it time to send final? */
+	if (!msg && peer->final_msg && !peer->to_subd) {
+		/* OK, send this then close. */
+		msg = peer->final_msg;
+		peer->final_msg = NULL;
+	}
 
+	/* Still nothing to send? */
+	if (!msg) {
 		/* We close once subds are all closed. */
 		if (!peer->to_subd) {
 			set_closing_timer(peer, peer_conn);
@@ -641,6 +627,7 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 
 void multiplex_final_msg(struct peer *peer, const u8 *final_msg TAKES)
 {
+	peer->told_to_close = true;
 	peer->final_msg = tal_dup_talarr(peer, u8, final_msg);
 	if (!peer->to_subd)
 		io_wake(peer->peer_outq);
