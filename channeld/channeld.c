@@ -4045,7 +4045,7 @@ int main(int argc, char *argv[])
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->announce_depth_reached = false;
 	peer->channel_local_active = false;
-	peer->from_master = msg_queue_new(peer);
+	peer->from_master = msg_queue_new(peer, true);
 	peer->shutdown_sent[LOCAL] = false;
 	peer->shutdown_wrong_funding = NULL;
 	peer->last_update_timestamp = 0;
@@ -4053,7 +4053,7 @@ int main(int argc, char *argv[])
 #if EXPERIMENTAL_FEATURES
 	peer->stfu = false;
 	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
-	peer->update_queue = msg_queue_new(peer);
+	peer->update_queue = msg_queue_new(peer, false);
 #endif
 
 	/* We send these to HSM to get real signatures; don't have valgrind

@@ -8,8 +8,9 @@
 /* Reserved type used to indicate we're actually passing an fd. */
 #define MSG_PASS_FD 0xFFFF
 
-/* Allocate a new msg queue. */
-struct msg_queue *msg_queue_new(const tal_t *ctx);
+/* Allocate a new msg queue; if we control all msgs we send/receive,
+ * we can pass fds.  Otherwise, set @fd_passing to false. */
+struct msg_queue *msg_queue_new(const tal_t *ctx, bool fd_passing);
 
 /* If add is taken(), freed after sending.  msg_wake() implied. */
 void msg_enqueue(struct msg_queue *q, const u8 *add TAKES);
@@ -27,7 +28,7 @@ void msg_wake(const struct msg_queue *q);
 const u8 *msg_dequeue(struct msg_queue *q);
 
 /* Returns -1 if not an fd: close after sending. */
-int msg_extract_fd(const u8 *msg);
+int msg_extract_fd(const struct msg_queue *q, const u8 *msg);
 
 #define msg_queue_wait(conn, q, next, arg) \
 	io_out_wait((conn), (q), (next), (arg))
