@@ -51,41 +51,28 @@ static void send_warning(struct peer *peer, const char *fmt, ...)
 	va_end(ap);
 }
 
-/* Either for initial setup, or when they ask by timestamp */
-static bool setup_gossip_filter(struct peer *peer,
-				u32 first_timestamp,
-				u32 timestamp_range)
-{
-	bool immediate_sync;
+/* Kicks off write_to_peer() to look for more gossip to send from store */
+static void wake_gossip(struct peer *peer);
 
-	/* If this is the first filter, we gossip sync immediately. */
-	if (!peer->gs) {
-		peer->gs = tal(peer, struct gossip_state);
-		peer->gs->next_gossip = time_mono();
-		immediate_sync = true;
-	} else
-		immediate_sync = false;
+static struct oneshot *gossip_stream_timer(struct peer *peer)
+{
+	u32 next;
 
 	/* BOLT #7:
 	 *
-	 * The receiver:
-	 *   - SHOULD send all gossip messages whose `timestamp` is greater or
-	 *     equal to `first_timestamp`, and less than `first_timestamp` plus
-	 *     `timestamp_range`.
-	 * 	- MAY wait for the next outgoing gossip flush to send these.
-	 *   ...
-	 *   - SHOULD restrict future gossip messages to those whose `timestamp`
-	 *     is greater or equal to `first_timestamp`, and less than
-	 *     `first_timestamp` plus `timestamp_range`.
+	 * A node:
+	 *...
+	 *  - SHOULD flush outgoing gossip messages once every 60 seconds,
+	 *    independently of the arrival times of the messages.
+	 *    - Note: this results in staggered announcements that are unique
+	 *      (not duplicated).
 	 */
-	peer->gs->timestamp_min = first_timestamp;
-	peer->gs->timestamp_max = first_timestamp + timestamp_range - 1;
-	/* Make sure we never leave it on an impossible value. */
-	if (peer->gs->timestamp_max < peer->gs->timestamp_min)
-		peer->gs->timestamp_max = UINT32_MAX;
+	/* We shorten this for dev_fast_gossip! */
+	next = GOSSIP_FLUSH_INTERVAL(peer->daemon->dev_fast_gossip);
 
-	peer->gossip_store_off = 1;
-	return immediate_sync;
+	return new_reltimer(&peer->daemon->timers,
+			    peer, time_from_sec(next),
+			    wake_gossip, peer);
 }
 
 /* This is called once we need it: otherwise, the gossip_store may not exist,
@@ -111,7 +98,7 @@ void setup_peer_gossip_store(struct peer *peer,
 	if (peer->daemon->gossip_store_fd == -1)
 		setup_gossip_store(peer->daemon);
 
-	peer->gossip_timer = NULL;
+	peer->gs.grf = new_gossip_rcvd_filter(peer);
 
 	/* BOLT #7:
 	 *
@@ -120,10 +107,17 @@ void setup_peer_gossip_store(struct peer *peer,
 	 * 	- MUST NOT relay any gossip messages it did not generate itself,
 	 *        unless explicitly requested.
 	 */
-	if (feature_negotiated(our_features, their_features, OPT_GOSSIP_QUERIES))
+	if (feature_negotiated(our_features, their_features, OPT_GOSSIP_QUERIES)) {
+		peer->gs.gossip_timer = NULL;
+		peer->gs.active = false;
+		peer->gs.off = 1;
 		return;
+	}
 
-	setup_gossip_filter(peer, 0, UINT32_MAX);
+	peer->gs.gossip_timer = gossip_stream_timer(peer);
+	peer->gs.active = true;
+	peer->gs.timestamp_min = 0;
+	peer->gs.timestamp_max = UINT32_MAX;
 
 	/* BOLT #7:
 	 *
@@ -136,10 +130,12 @@ void setup_peer_gossip_store(struct peer *peer,
 	 *   - SHOULD resume normal operation, as specified in the
 	 *     following [Rebroadcasting](#rebroadcasting) section.
 	 */
-	if (!feature_offered(their_features, OPT_INITIAL_ROUTING_SYNC)) {
+	if (feature_offered(their_features, OPT_INITIAL_ROUTING_SYNC))
+		peer->gs.off = 1;
+	else {
 		/* During tests, particularly, we find that the gossip_store
 		 * moves fast, so make sure it really does start at the end. */
-		peer->gossip_store_off
+		peer->gs.off
 			= find_gossip_store_end(peer->daemon->gossip_store_fd,
 						peer->daemon->gossip_store_end);
 	}
@@ -316,8 +312,11 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 /* Kicks off write_to_peer() to look for more gossip to send from store */
 static void wake_gossip(struct peer *peer)
 {
-	peer->gossip_timer = NULL;
+	peer->gs.active = true;
 	io_wake(peer->peer_outq);
+
+	/* And go again in 60 seconds (from now, now when we finish!) */
+	peer->gs.gossip_timer = gossip_stream_timer(peer);
 }
 
 /* If we are streaming gossip, get something from gossip store */
@@ -326,43 +325,32 @@ static u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
 	u8 *msg;
 
 	/* Not streaming yet? */
-	if (!peer->gs)
+	if (!peer->gs.active)
 		return NULL;
 
-	/* Still waiting for timer? */
-	if (peer->gossip_timer != NULL)
-		return NULL;
+	/* This should be around to kick us every 60 seconds */
+	assert(peer->gs.gossip_timer);
 
-	msg = gossip_store_iter(ctx, &peer->daemon->gossip_store_fd,
-				peer->gs, peer->grf, &peer->gossip_store_off);
-
-	/* Cache highest valid offset (FIXME: doesn't really work when
-	 * gossip_store gets rewritten!) */
-	if (peer->gossip_store_off > peer->daemon->gossip_store_end)
-		peer->daemon->gossip_store_end = peer->gossip_store_off;
-
+again:
+	msg = gossip_store_next(ctx, &peer->daemon->gossip_store_fd,
+				peer->gs.timestamp_min,
+				peer->gs.timestamp_max,
+				&peer->gs.off,
+				&peer->daemon->gossip_store_end);
+	/* Don't send back gossip they sent to us! */
 	if (msg) {
+		status_peer_debug(&peer->id,
+				  "Sending gossip %s",
+				  peer_wire_name(fromwire_peektype(msg)));
+		if (gossip_rcvd_filter_del(peer->gs.grf, msg)) {
+			msg = tal_free(msg);
+			goto again;
+		}
 		status_peer_io(LOG_IO_OUT, &peer->id, msg);
 		return msg;
 	}
 
-	/* BOLT #7:
-	 *
-	 * A node:
-	 *...
-	 *  - SHOULD flush outgoing gossip messages once every 60 seconds,
-	 *    independently of the arrival times of the messages.
-	 *    - Note: this results in staggered announcements that are unique
-	 *      (not duplicated).
-	 */
-	/* We do 60 seconds from *start*, not from *now* */
-	peer->gs->next_gossip
-		= timemono_add(time_mono(),
-			       time_from_sec(GOSSIP_FLUSH_INTERVAL(
-						     peer->daemon->dev_fast_gossip)));
-	peer->gossip_timer = new_abstimer(&peer->daemon->timers, peer,
-					  peer->gs->next_gossip,
-					  wake_gossip, peer);
+	peer->gs.active = false;
 	return NULL;
 }
 
@@ -374,7 +362,7 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 
 	/* We remember these so we don't rexmit them */
 	if (is_msg_gossip_broadcast(msg))
-		gossip_rcvd_filter_add(peer->grf, msg);
+		gossip_rcvd_filter_add(peer->gs.grf, msg);
 
 	if (!fromwire_gossip_timestamp_filter(msg, &chain_hash,
 					      &first_timestamp,
@@ -388,9 +376,21 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		return true;
 	}
 
-	/* Returns true the first time. */
-	if (setup_gossip_filter(peer, first_timestamp, timestamp_range))
+	peer->gs.timestamp_min = first_timestamp;
+	peer->gs.timestamp_max = first_timestamp + timestamp_range - 1;
+	/* Make sure we never leave it on an impossible value. */
+	if (peer->gs.timestamp_max < peer->gs.timestamp_min)
+		peer->gs.timestamp_max = UINT32_MAX;
+
+	peer->gs.off = 1;
+
+	/* BOLT #7:
+	 *    - MAY wait for the next outgoing gossip flush to send these.
+	 */
+	/* We send immediately the first time, after that we wait. */
+	if (!peer->gs.gossip_timer)
 		wake_gossip(peer);
+
 	return true;
 }
 
