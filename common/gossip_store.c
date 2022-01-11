@@ -86,7 +86,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 
 		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "gossip_store: bad checksum offset %zu"
+				      "gossip_store: bad checksum at offset %zu"
 				      ": %s",
 				      *off, tal_hex(tmpctx, msg));
 

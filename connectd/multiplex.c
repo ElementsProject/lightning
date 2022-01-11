@@ -481,8 +481,11 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 
        decrypted = cryptomsg_decrypt_body(NULL, &peer->cs,
 					  peer->peer_in);
-       if (!decrypted)
+       if (!decrypted) {
+	       status_peer_debug(&peer->id, "Bad encrypted packet len %zu",
+				 tal_bytelen(peer->peer_in));
                return io_close(peer_conn);
+       }
        tal_free(peer->peer_in);
 
        /* If we swallow this, just try again. */

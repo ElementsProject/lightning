@@ -24,11 +24,11 @@ void peer_write(struct per_peer_state *pps, const void *msg TAKES)
 
 u8 *peer_read(const tal_t *ctx, struct per_peer_state *pps)
 {
-	u8 *dec = wire_sync_read(ctx, pps->peer_fd);
-	if (!dec)
+	u8 *msg = wire_sync_read(ctx, pps->peer_fd);
+	if (!msg)
 		peer_failed_connection_lost();
 
-	status_peer_io(LOG_IO_IN, NULL, dec);
+	status_peer_io(LOG_IO_IN, NULL, msg);
 
-	return dec;
+	return msg;
 }

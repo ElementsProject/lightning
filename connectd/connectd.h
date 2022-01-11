@@ -47,7 +47,7 @@ struct peer {
 	/* Final message to send to peer (and hangup) */
 	u8 *final_msg;
 
-	/* When we write something which wants Nagle overridden */
+	/* When socket has Nagle overridden */
 	bool urgent;
 
 	/* Input buffers. */
