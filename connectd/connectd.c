@@ -357,7 +357,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->urgent = false;
 	peer->peer_outq = msg_queue_new(peer);
 	peer->subd_outq = msg_queue_new(peer);
-	peer->grf = new_gossip_rcvd_filter(peer);
 
 	/* Aim for connection to shuffle data back and forth: sets up
 	 * peer->to_subd */
@@ -368,7 +367,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer_htable_add(&daemon->peers, peer);
 	tal_add_destructor2(peer, destroy_peer, daemon);
 
-	peer->gs = NULL;
 	return peer;
 }
 

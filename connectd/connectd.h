@@ -13,6 +13,20 @@ struct io_conn;
 struct connecting;
 struct wireaddr_internal;
 
+/*~ All the gossip_store related fields are kept together for convenience. */
+struct gossip_state {
+	/* Is it active right now? */
+	bool active;
+	/* Except with dev override, this fires every 60 seconds */
+	struct oneshot *gossip_timer;
+	/* Timestamp filtering for gossip. */
+	u32 timestamp_min, timestamp_max;
+	/* I think this is called "echo cancellation" */
+	struct gossip_rcvd_filter *grf;
+	/* Offset within the gossip_store file */
+	size_t off;
+};
+
 /*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
  * already connected (by peer->id). */
 struct peer {
@@ -45,13 +59,8 @@ struct peer {
 	/* Peer sent buffer (for freeing after sending) */
 	const u8 *sent_to_peer;
 
-	/* Gossip store. */
-	struct gossip_state *gs;
-	/* FIXME: move into gs. */
-	struct gossip_rcvd_filter *grf;
-	size_t gossip_store_off;
-
-	struct oneshot *gossip_timer;
+	/* We stream from the gossip_store for them, when idle */
+	struct gossip_state gs;
 };
 
 /*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:
