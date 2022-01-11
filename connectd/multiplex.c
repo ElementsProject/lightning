@@ -46,6 +46,7 @@ static void send_warning(struct peer *peer, const char *fmt, ...)
 
 	/* Close locally, send msg as final warning */
 	io_close(peer->to_subd);
+	peer->to_subd = NULL;
 
 	va_start(ap, fmt);
 	peer->final_msg = towire_warningfmtv(peer, NULL, fmt, ap);
@@ -475,6 +476,10 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 
 	/* Nothing to send? */
 	if (!msg) {
+		/* If peer is closed, close this. */
+		if (!peer->to_peer)
+			return io_close(subd_conn);
+
 		/* Tell them to read again. */
 		io_wake(&peer->peer_in);
 
@@ -516,6 +521,12 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 
        /* If we swallow this, just try again. */
        if (handle_message_locally(peer, decrypted)) {
+	       tal_free(decrypted);
+	       return read_hdr_from_peer(peer_conn, peer);
+       }
+
+       /* If there's no subd, discard and keep reading. */
+       if (!peer->to_subd) {
 	       tal_free(decrypted);
 	       return read_hdr_from_peer(peer_conn, peer);
        }
@@ -574,12 +585,26 @@ static void destroy_subd_conn(struct io_conn *subd_conn, struct peer *peer)
 	/* In case they were waiting for this to send final_msg */
 	if (peer->final_msg)
 		msg_wake(peer->peer_outq);
+
+	/* Make sure we try to keep reading from peer, so we know if
+	 * it hangs up! */
+	io_wake(&peer->peer_in);
+
+	/* If no peer, finally time to close */
+	if (!peer->to_peer && peer->told_to_close)
+		peer_conn_closed(peer);
 }
 
 void close_peer_conn(struct peer *peer)
 {
 	/* Make write_to_peer do flush after writing */
 	peer->told_to_close = true;
+
+	/* Already dead? */
+	if (!peer->to_subd && !peer->to_peer) {
+		peer_conn_closed(peer);
+		return;
+	}
 
 	/* In case it's not currently writing, wake write_to_peer */
 	msg_wake(peer->peer_outq);
@@ -605,9 +630,11 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 	assert(peer->to_peer == peer_conn);
 	peer->to_peer = NULL;
 
-	/* Close internal connections if not already. */
-	if (peer->to_subd)
-		io_close(peer->to_subd);
+	/* Flush internal connections if not already. */
+	if (peer->to_subd) {
+		msg_wake(peer->subd_outq);
+		return;
+	}
 
 	if (peer->told_to_close)
 		peer_conn_closed(peer);
