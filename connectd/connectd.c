@@ -1733,10 +1733,17 @@ static void try_connect_peer(struct daemon *daemon,
 	struct wireaddr_internal *addrs;
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
+	struct peer *existing;
 
-	/* Already done?  May happen with timer. */
-	if (peer_htable_get(&daemon->peers, id))
-		return;
+	/* Already existing? */
+	existing = peer_htable_get(&daemon->peers, id);
+	if (existing) {
+		/* If it's exiting now, we've raced: reconnect after */
+		if (existing->to_subd
+		    && existing->to_peer
+		    && !existing->told_to_close)
+			return;
+	}
 
 	/* If we're trying to connect it right now, that's OK. */
 	if ((connect = find_connecting(daemon, id))) {
@@ -1807,7 +1814,8 @@ static void try_connect_peer(struct daemon *daemon,
 	tal_add_destructor(connect, destroy_connecting);
 
 	/* Now we kick it off by recursively trying connect->addrs[connect->addrnum] */
-	try_connect_one_addr(connect);
+	if (!existing)
+		try_connect_one_addr(connect);
 }
 
 /* lightningd tells us to connect to a peer by id, with optional addr hint. */
@@ -1828,6 +1836,8 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 
 void peer_conn_closed(struct peer *peer)
 {
+	struct connecting *connect = find_connecting(peer->daemon, &peer->id);
+
 	/* These should be closed already! */
 	assert(!peer->to_subd);
 	assert(!peer->to_peer);
@@ -1841,6 +1851,10 @@ void peer_conn_closed(struct peer *peer)
 	 * a destructor attached to peer (called destroy_peer by
 	 * convention). */
 	tal_free(peer);
+
+	/* If we wanted to connect to it, but found it was exiting, try again */
+	if (connect)
+		try_connect_one_addr(connect);
 }
 
 /* A peer is gone: clean things up. */
