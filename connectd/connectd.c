@@ -364,12 +364,15 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->dev_read_enabled = true;
 #endif
 
+	peer->to_peer = conn;
+
 	/* Aim for connection to shuffle data back and forth: sets up
 	 * peer->to_subd */
 	if (!multiplex_subd_setup(peer, fd_for_subd))
 		return tal_free(peer);
 
-	peer->to_peer = tal_steal(peer, conn);
+	/* Now we own it */
+	tal_steal(peer, peer->to_peer);
 	peer_htable_add(&daemon->peers, peer);
 	tal_add_destructor2(peer, destroy_peer, daemon);
 
@@ -1825,6 +1828,11 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 
 void peer_conn_closed(struct peer *peer)
 {
+	/* These should be closed already! */
+	assert(!peer->to_subd);
+	assert(!peer->to_peer);
+	assert(peer->told_to_close);
+
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
 	io_wake(peer);
 
@@ -1848,12 +1856,8 @@ static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
 			      type_to_string(tmpctx, struct node_id, id));
 	status_peer_debug(id, "disconnect");
 
-	/* Make sure we flush any outstanding writes! */
-	if (peer->to_peer) {
-		close_peer_conn(peer);
-		/* It calls peer_conn_closed() when done */
-	} else
-		peer_conn_closed(peer);
+	/* When it's finished, it will call peer_conn_closed() */
+	close_peer_conn(peer);
 }
 
 /* lightningd tells us a peer has disconnected. */
@@ -1893,7 +1897,7 @@ static void peer_final_msg(struct io_conn *conn,
 	/* This can happen if peer hung up on us. */
 	peer = peer_htable_get(&daemon->peers, &id);
 	if (peer) {
-		/* Log and encrypt message for peer. */
+		/* Log message for peer. */
 		status_peer_io(LOG_IO_OUT, &id, finalmsg);
 		multiplex_final_msg(peer, take(finalmsg));
 	}
