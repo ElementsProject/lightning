@@ -350,6 +350,9 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		return false;
 	}
 
+	/* gossipd doesn't log IO, so we log it here. */
+	status_peer_io(LOG_IO_IN, &peer->id, msg);
+
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
 		send_warning(peer, "gossip_timestamp_filter for bad chain: %s",
 			     tal_hex(tmpctx, msg));
