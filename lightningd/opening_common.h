@@ -92,14 +92,14 @@ struct funding_channel {
 
 	/* Place to stash the per-peer-state while we wait
 	 * for them to get back to us with signatures */
-	struct per_peer_state *pps;
+	struct peer_fd *peer_fd;
 };
 
 struct uncommitted_channel *
 new_uncommitted_channel(struct peer *peer);
 
 void opend_channel_errmsg(struct uncommitted_channel *uc,
-			  struct per_peer_state *pps,
+			  struct peer_fd *peer_fd,
 			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  bool warning UNUSED,
@@ -125,7 +125,7 @@ void handle_reestablish(struct lightningd *ld,
 			const struct node_id *peer_id,
 			const struct channel_id *channel_id,
 			const u8 *reestablish,
-			struct per_peer_state *pps);
+			struct peer_fd *peer_fd);
 
 #if DEVELOPER
 struct command;

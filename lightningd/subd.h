@@ -11,7 +11,7 @@
 
 struct crypto_state;
 struct io_conn;
-struct per_peer_state;
+struct peer_fd;
 
 /* By convention, replies are requests + 100 */
 #define SUBD_REPLY_OFFSET 100
@@ -43,11 +43,11 @@ struct subd {
 	unsigned (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
 
-	/* If per_peer_state == NULL, it was a disconnect/crash.  Otherwise,
+	/* If peer_fd == NULL, it was a disconnect/crash.  Otherwise,
 	 * sufficient information to hand back to gossipd, including the
 	 * error message we sent them if any. */
 	void (*errcb)(void *channel,
-		      struct per_peer_state *pps,
+		      struct peer_fd *peer_fd,
 		      const struct channel_id *channel_id,
 		      const char *desc,
 		      bool warning,
@@ -124,7 +124,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       unsigned int (*msgcb)(struct subd *, const u8 *,
 						     const int *fds),
 			       void (*errcb)(void *channel,
-					     struct per_peer_state *pps,
+					     struct peer_fd *peer_fd,
 					     const struct channel_id *channel_id,
 					     const char *desc,
 					     bool warning,
@@ -141,7 +141,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			  (msgname), (msgcb),				\
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel),		\
-					       struct per_peer_state *,	\
+					       struct peer_fd *,	\
 					       const struct channel_id *, \
 					       const char *, bool, const u8 *), \
 			  typesafe_cb_postargs(void, void *, (billboardcb), \

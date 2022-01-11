@@ -29,6 +29,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/options.c			\
 	lightningd/pay.c			\
 	lightningd/peer_control.c		\
+	lightningd/peer_fd.c			\
 	lightningd/peer_htlcs.c			\
 	lightningd/ping.c			\
 	lightningd/plugin.c			\

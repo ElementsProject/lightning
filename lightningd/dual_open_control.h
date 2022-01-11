@@ -4,12 +4,12 @@
 #include "config.h"
 #include <lightningd/subd.h>
 
-struct per_peer_state;
+struct peer_fd;
 
-void peer_start_dualopend(struct peer *peer, struct per_peer_state *pps);
+void peer_start_dualopend(struct peer *peer, struct peer_fd *peer_fd);
 
 void peer_restart_dualopend(struct peer *peer,
-			    struct per_peer_state *pps,
+			    struct peer_fd *peer_fd,
 			    struct channel *channel);
 
 void dualopen_tell_depth(struct subd *dualopend,

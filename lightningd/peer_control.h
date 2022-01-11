@@ -11,7 +11,7 @@
 #include <common/wireaddr.h>
 #include <wallet/wallet.h>
 
-struct per_peer_state;
+struct peer_fd;
 struct wally_psbt;
 
 struct peer {
@@ -71,7 +71,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
 
 void channel_errmsg(struct channel *channel,
-		    struct per_peer_state *pps,
+		    struct peer_fd *peer_fd,
 		    const struct channel_id *channel_id,
 		    const char *desc,
 		    bool warning,

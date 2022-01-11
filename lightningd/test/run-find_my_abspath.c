@@ -167,18 +167,15 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 /* Generated stub for new_log_book */
 struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }
-/* Generated stub for new_per_peer_state */
-struct per_peer_state *new_per_peer_state(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "new_per_peer_state called!\n"); abort(); }
+/* Generated stub for new_peer_fd_arr */
+struct peer_fd *new_peer_fd_arr(const tal_t *ctx UNNEEDED, const int *fds UNNEEDED)
+{ fprintf(stderr, "new_peer_fd_arr called!\n"); abort(); }
 /* Generated stub for new_topology */
 struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
 /* Generated stub for onchaind_replay_channels */
 void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
-/* Generated stub for per_peer_state_set_fds_arr */
-void per_peer_state_set_fds_arr(struct per_peer_state *pps UNNEEDED, const int *fds UNNEEDED)
-{ fprintf(stderr, "per_peer_state_set_fds_arr called!\n"); abort(); }
 /* Generated stub for plugins_config */
 void plugins_config(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_config called!\n"); abort(); }
