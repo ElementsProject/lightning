@@ -11,6 +11,7 @@
 #include <common/gossip_constants.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
+#include <common/memleak.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
 #include <common/timeout.h>
@@ -386,6 +387,22 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 	return true;
 }
 
+static void close_timeout(struct peer *peer)
+{
+	/* BROKEN means we'll trigger CI if we see it, though it's possible */
+	status_peer_broken(&peer->id, "Peer did not close, forcing close");
+	tal_free(peer->to_peer);
+}
+
+/* Close this in 5 seconds if it doesn't do so by itself. */
+static void set_closing_timer(struct peer *peer,
+			      struct io_conn *peer_conn)
+{
+	notleak(new_reltimer(&peer->daemon->timers,
+			     peer_conn, time_from_sec(5),
+			     close_timeout, peer));
+}
+
 static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				     struct peer *peer)
 {
@@ -406,6 +423,13 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 						peer->final_msg,
 						after_final_msg);
 		}
+
+		/* We close once subds are all closed. */
+		if (!peer->to_subd) {
+			set_closing_timer(peer, peer_conn);
+			return io_sock_shutdown(peer_conn);
+		}
+
 		/* If they want us to send gossip, do so now. */
 		msg = maybe_from_gossip_store(NULL, peer);
 		if (!msg) {
@@ -498,6 +522,12 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return read_hdr_from_peer(peer_conn, peer);
        }
 
+       /* Don't process packets while we're closing */
+       if (peer->told_to_close) {
+	       tal_free(decrypted);
+	       return read_hdr_from_peer(peer_conn, peer);
+       }
+
        /* If we swallow this, just try again. */
        if (handle_message_locally(peer, decrypted)) {
 	       tal_free(decrypted);
@@ -560,6 +590,15 @@ static void destroy_subd_conn(struct io_conn *subd_conn, struct peer *peer)
 		msg_wake(peer->peer_outq);
 }
 
+void close_peer_conn(struct peer *peer)
+{
+	/* Make write_to_peer do flush after writing */
+	peer->told_to_close = true;
+
+	/* In case it's not currently writing, wake write_to_peer */
+	msg_wake(peer->peer_outq);
+}
+
 bool multiplex_subd_setup(struct peer *peer, int *fd_for_subd)
 {
 	int fds[2];
@@ -583,6 +622,9 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 	/* Close internal connections if not already. */
 	if (peer->to_subd)
 		io_close(peer->to_subd);
+
+	if (peer->told_to_close)
+		peer_conn_closed(peer);
 }
 
 struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
