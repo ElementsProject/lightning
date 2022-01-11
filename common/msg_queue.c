@@ -5,12 +5,14 @@
 #include <wire/wire.h>
 
 struct msg_queue {
+	bool fd_passing;
 	const u8 **q;
 };
 
-struct msg_queue *msg_queue_new(const tal_t *ctx)
+struct msg_queue *msg_queue_new(const tal_t *ctx, bool fd_passing)
 {
 	struct msg_queue *q = tal(ctx, struct msg_queue);
+	q->fd_passing = fd_passing;
 	q->q = tal_arr(q, const u8 *, 0);
 	return q;
 }
@@ -30,13 +32,15 @@ size_t msg_queue_length(const struct msg_queue *q)
 
 void msg_enqueue(struct msg_queue *q, const u8 *add)
 {
-	assert(fromwire_peektype(add) != MSG_PASS_FD);
+	if (q->fd_passing)
+		assert(fromwire_peektype(add) != MSG_PASS_FD);
 	do_enqueue(q, add);
 }
 
 void msg_enqueue_fd(struct msg_queue *q, int fd)
 {
 	u8 *fdmsg = tal_arr(q, u8, 0);
+	assert(q->fd_passing);
 	towire_u16(&fdmsg, MSG_PASS_FD);
 	towire_u32(&fdmsg, fd);
 	do_enqueue(q, take(fdmsg));
@@ -56,11 +60,12 @@ const u8 *msg_dequeue(struct msg_queue *q)
 	return msg;
 }
 
-int msg_extract_fd(const u8 *msg)
+int msg_extract_fd(const struct msg_queue *q, const u8 *msg)
 {
 	const u8 *p = msg + sizeof(u16);
 	size_t len = tal_count(msg) - sizeof(u16);
 
+	assert(q->fd_passing);
 	if (fromwire_peektype(msg) != MSG_PASS_FD)
 		return -1;
 

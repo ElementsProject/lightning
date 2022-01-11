@@ -355,8 +355,8 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
-	peer->peer_outq = msg_queue_new(peer);
-	peer->subd_outq = msg_queue_new(peer);
+	peer->peer_outq = msg_queue_new(peer, false);
+	peer->subd_outq = msg_queue_new(peer, false);
 
 #if DEVELOPER
 	peer->dev_writes_enabled = NULL;
