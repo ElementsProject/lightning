@@ -529,6 +529,18 @@ bool io_plan_out_started(const struct io_conn *conn)
 	return conn->plan[IO_OUT].status == IO_POLLING_STARTED;
 }
 
+/* Despite being a TCP expert, I missed the full extent of this
+ * problem.  The legendary ZmnSCPxj implemented it (with the URL
+ * pointing to the explanation), and I imitate that here. */
+struct io_plan *io_sock_shutdown(struct io_conn *conn)
+{
+	if (shutdown(io_conn_fd(conn), SHUT_WR) != 0)
+		return io_close(conn);
+
+	/* And leave unset .*/
+	return &conn->plan[IO_IN];
+}
+	
 bool io_flush_sync(struct io_conn *conn)
 {
 	struct io_plan *plan = &conn->plan[IO_OUT];
