@@ -18,8 +18,9 @@ void peer_write(struct per_peer_state *pps, const void *msg TAKES)
 {
 	status_peer_io(LOG_IO_OUT, NULL, msg);
 
-	if (!wire_sync_write(pps->peer_fd, msg))
-		peer_failed_connection_lost();
+	/* We ignore write errors; we might still have something to read,
+	 * so we'd rather fail there. */
+	wire_sync_write(pps->peer_fd, msg);
 }
 
 u8 *peer_read(const tal_t *ctx, struct per_peer_state *pps)
