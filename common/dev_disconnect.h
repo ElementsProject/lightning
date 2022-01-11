@@ -25,9 +25,6 @@ enum dev_disconnect dev_disconnect(const struct node_id *id, int pkt_type);
 /* Make next write on fd fail as if they'd disconnected. */
 void dev_sabotage_fd(int fd, bool close_fd);
 
-/* No more data to arrive, what's written is swallowed. */
-void dev_blackhole_fd(int fd);
-
 /* For debug code to set in daemon. */
 void dev_disconnect_init(int fd);
 

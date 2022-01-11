@@ -155,20 +155,6 @@ static struct io_plan *after_final_msg(struct io_conn *peer_conn,
 	return io_close(peer_conn);
 }
 
-#if DEVELOPER
-static struct io_plan *write_to_peer(struct io_conn *peer_conn,
-				     struct peer *peer);
-
-static struct io_plan *dev_leave_hanging(struct io_conn *peer_conn,
-					 struct peer *peer)
-{
-	/* We don't tell the peer we're disconnecting, but from now on
-	 * our writes go nowhere, and there's nothing to read. */
-	dev_sabotage_fd(io_conn_fd(peer_conn), false);
-	return write_to_peer(peer_conn, peer);
-}
-#endif /* DEVELOPER */
-
 /* We're happy for the kernel to batch update and gossip messages, but a
  * commitment message, for example, should be instantly sent.  There's no
  * great way of doing this, unfortunately.
@@ -287,15 +273,21 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 			tal_free(msg);
 		return io_close(peer->to_peer);
 	case DEV_DISCONNECT_AFTER:
+		/* Disallow reads from now on */
+		peer->dev_read_enabled = false;
 		next = (void *)io_close_cb;
 		break;
 	case DEV_DISCONNECT_BLACKHOLE:
-		dev_blackhole_fd(io_conn_fd(peer->to_peer));
+		/* Disable both reads and writes from now on */
+		peer->dev_read_enabled = false;
+		peer->dev_writes_enabled = talz(peer, u32);
 		break;
 	case DEV_DISCONNECT_NORMAL:
 		break;
 	case DEV_DISCONNECT_DISABLE_AFTER:
-		next = dev_leave_hanging;
+		peer->dev_read_enabled = false;
+		peer->dev_writes_enabled = tal(peer, u32);
+		*peer->dev_writes_enabled = 1;
 		break;
 	}
 #endif
@@ -426,6 +418,18 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 		}
 	}
 
+	/* dev_disconnect can disable writes */
+#if DEVELOPER
+	if (peer->dev_writes_enabled) {
+		if (*peer->dev_writes_enabled == 0) {
+			tal_free(msg);
+			/* Continue, to drain queue */
+			return write_to_peer(peer_conn, peer);
+		}
+		(*peer->dev_writes_enabled)--;
+	}
+#endif
+
 	return encrypt_and_send(peer, take(msg), write_to_peer);
 }
 
@@ -487,6 +491,12 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
                return io_close(peer_conn);
        }
        tal_free(peer->peer_in);
+
+       /* dev_disconnect can disable read */
+       if (!IFDEV(peer->dev_read_enabled, true)) {
+	       tal_free(decrypted);
+	       return read_hdr_from_peer(peer_conn, peer);
+       }
 
        /* If we swallow this, just try again. */
        if (handle_message_locally(peer, decrypted)) {
