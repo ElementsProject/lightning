@@ -216,7 +216,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 		next = peer_write_postclose;
 		break;
 	case DEV_DISCONNECT_BLACKHOLE:
-		dev_blackhole_fd(io_conn_fd(conn));
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Blackhole not supported during handshake");
 		break;
 	case DEV_DISCONNECT_NORMAL:
 		break;
