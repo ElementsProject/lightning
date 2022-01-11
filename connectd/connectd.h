@@ -61,6 +61,12 @@ struct peer {
 
 	/* We stream from the gossip_store for them, when idle */
 	struct gossip_state gs;
+
+#if DEVELOPER
+	bool dev_read_enabled;
+	/* If non-NULL, this counts down; 0 means disable */
+	u32 *dev_writes_enabled;
+#endif
 };
 
 /*~ The HTABLE_DEFINE_TYPE() macro needs a keyof() function to extract the key:

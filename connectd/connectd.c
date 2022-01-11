@@ -358,6 +358,11 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_outq = msg_queue_new(peer);
 	peer->subd_outq = msg_queue_new(peer);
 
+#if DEVELOPER
+	peer->dev_writes_enabled = NULL;
+	peer->dev_read_enabled = true;
+#endif
+
 	/* Aim for connection to shuffle data back and forth: sets up
 	 * peer->to_subd */
 	if (!multiplex_subd_setup(peer, fd_for_subd))
