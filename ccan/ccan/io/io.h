@@ -390,6 +390,40 @@ struct io_plan *io_out_always_(struct io_conn *conn,
 			       void *arg);
 
 /**
+ * io_sock_shutdown - start socket close process (flushes TCP sockets).
+ * @conn: the connection the plan is for
+ *
+ * Simply closing a TCP socket can lose data; unfortunately you should
+ * shutdown(SHUT_WR) and wait for the other side to see this and close.
+ * Of course, you also need to set a timer, in case it doesn't (you may
+ * already have some responsiveness timer, of course).
+ *
+ * On error, is equivalent to io_close().
+ *
+ * Example:
+ * #include <ccan/timer/timer.h>
+ *
+ * // Timer infra needs wrapper to contain extra data.
+ * struct timeout_timer {
+ *    struct timer t;
+ *    struct io_conn *conn;
+ * };
+ * static struct timers timers;
+ *
+ * static struct io_plan *flush_and_close(struct io_conn *conn)
+ * {
+ *    struct timeout_timer *timeout;
+ *    // Freed if conn closes normally.
+ *    timeout = tal(conn, struct timeout_timer);
+ *    timeout->conn = conn;
+ *    timeout->t = conn;
+ *    timer_addrel(&timers, &timeout->t, time_from_sec(5));
+ *    return io_sock_shutdown(conn);
+ * }
+ */
+struct io_plan *io_sock_shutdown(struct io_conn *conn);
+
+/**
  * io_connect - create an asynchronous connection to a listening socket.
  * @conn: the connection that plan is for.
  * @addr: where to connect.
