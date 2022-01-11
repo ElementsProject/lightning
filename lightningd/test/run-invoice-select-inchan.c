@@ -94,10 +94,6 @@ void channel_internal_error(struct channel *channel UNNEEDED, const char *fmt UN
 /* Generated stub for channel_last_funding_feerate */
 u32 channel_last_funding_feerate(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_last_funding_feerate called!\n"); abort(); }
-/* Generated stub for channel_set_billboard */
-void channel_set_billboard(struct channel *channel UNNEEDED, bool perm UNNEEDED,
-			   const char *str TAKES UNNEEDED)
-{ fprintf(stderr, "channel_set_billboard called!\n"); abort(); }
 /* Generated stub for channel_set_last_tx */
 void channel_set_last_tx(struct channel *channel UNNEEDED,
 			 struct bitcoin_tx *tx UNNEEDED,
@@ -164,10 +160,6 @@ void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED
 /* Generated stub for db_commit_transaction */
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
-/* Generated stub for delay_then_reconnect */
-void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
-			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
-{ fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
 /* Generated stub for delete_channel */
 void delete_channel(struct channel *channel STEALS UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
@@ -640,9 +632,6 @@ u8 *towire_channeld_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channeld_specific_feerates */
 u8 *towire_channeld_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_base UNNEEDED, u32 feerate_ppm UNNEEDED)
 { fprintf(stderr, "towire_channeld_specific_feerates called!\n"); abort(); }
-/* Generated stub for towire_connectd_connect_to_peer */
-u8 *towire_connectd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
-{ fprintf(stderr, "towire_connectd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_final_msg */
 u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_final_msg called!\n"); abort(); }
@@ -671,6 +660,10 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
+/* Generated stub for try_reconnect */
+void try_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
+		   const struct wireaddr_internal *addrhint TAKES UNNEEDED)
+{ fprintf(stderr, "try_reconnect called!\n"); abort(); }
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }

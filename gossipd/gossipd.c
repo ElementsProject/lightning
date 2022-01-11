@@ -891,10 +891,10 @@ done:
 	return daemon_conn_read_next(conn, daemon->connectd);
 }
 
-/*~ connectd can also ask us if we know any addresses for a given id. */
-static struct io_plan *connectd_get_address(struct io_conn *conn,
-					    struct daemon *daemon,
-					    const u8 *msg)
+/*~ lightningd asks us if we know any addresses for a given id. */
+static struct io_plan *handle_get_address(struct io_conn *conn,
+					  struct daemon *daemon,
+					  const u8 *msg)
 {
 	struct node_id id;
 	u8 rgb_color[3];
@@ -903,20 +903,17 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 	struct wireaddr *addrs;
 	struct lease_rates *rates;
 
-	if (!fromwire_gossipd_get_addrs(msg, &id)) {
-		status_broken("Bad gossipd_get_addrs msg from connectd: %s",
-			      tal_hex(tmpctx, msg));
-		return io_close(conn);
-	}
+	if (!fromwire_gossipd_get_addrs(msg, &id))
+		master_badmsg(WIRE_GOSSIPD_GET_ADDRS, msg);
 
 	if (!get_node_announcement_by_id(tmpctx, daemon, &id,
 					 rgb_color, alias, &features, &addrs,
 					 &rates))
 		addrs = NULL;
 
-	daemon_conn_send(daemon->connectd,
+	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_get_addrs_reply(NULL, addrs)));
-	return daemon_conn_read_next(conn, daemon->connectd);
+	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ connectd's input handler is very simple. */
@@ -930,12 +927,8 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_NEW_PEER:
 		return connectd_new_peer(conn, daemon, msg);
 
-	case WIRE_GOSSIPD_GET_ADDRS:
-		return connectd_get_address(conn, daemon, msg);
-
 	/* We send these, don't receive them. */
 	case WIRE_GOSSIPD_NEW_PEER_REPLY:
-	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 		break;
 	}
 
@@ -1416,6 +1409,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		handle_new_lease_rates(daemon, msg);
 		goto done;
 
+	case WIRE_GOSSIPD_GET_ADDRS:
+		return handle_get_address(conn, daemon, msg);
+
 #if DEVELOPER
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		dev_set_max_scids_encode_size(daemon, msg);
@@ -1454,6 +1450,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
+	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 		break;
 	}
 

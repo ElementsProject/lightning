@@ -1527,7 +1527,6 @@ command_find_channel(struct command *cmd,
 
 static void activate_peer(struct peer *peer, u32 delay)
 {
-	u8 *msg;
 	struct channel *channel;
 	struct channel_inflight *inflight;
 	struct lightningd *ld = peer->ld;
@@ -1535,28 +1534,8 @@ static void activate_peer(struct peer *peer, u32 delay)
 	/* We can only have one active channel: make sure connectd
 	 * knows to try reconnecting. */
 	channel = peer_active_channel(peer);
-	if (channel && ld->reconnect) {
-		if (delay > 0) {
-			channel_set_billboard(channel, false,
-					      tal_fmt(tmpctx,
-						      "Will attempt reconnect "
-						      "in %u seconds",
-						      delay));
-			delay_then_reconnect(channel, delay,
-					     peer->connected_incoming
-					     ? NULL
-					     : &peer->addr);
-		} else {
-			msg = towire_connectd_connect_to_peer(NULL,
-							      &peer->id, 0,
-							      peer->connected_incoming
-							      ? NULL
-							      : &peer->addr);
-			subd_send_msg(ld->connectd, take(msg));
-			channel_set_billboard(channel, false,
-					      "Attempting to reconnect");
-		}
-	}
+	if (channel)
+		try_reconnect(channel, delay, &peer->addr);
 
 	list_for_each(&peer->channels, channel, list) {
 		if (channel_unsaved(channel))

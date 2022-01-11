@@ -95,10 +95,6 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 				     const struct secret *shared_secret UNNEEDED,
 				     const u8 *failure_msg UNNEEDED)
 { fprintf(stderr, "create_onionreply called!\n"); abort(); }
-/* Generated stub for delay_then_reconnect */
-void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
-			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
-{ fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
 /* Generated stub for derive_channel_id */
 void derive_channel_id(struct channel_id *channel_id UNNEEDED,
 		       const struct bitcoin_outpoint *outpoint UNNEEDED)
@@ -711,9 +707,6 @@ u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channeld_specific_feerates */
 u8 *towire_channeld_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_base UNNEEDED, u32 feerate_ppm UNNEEDED)
 { fprintf(stderr, "towire_channeld_specific_feerates called!\n"); abort(); }
-/* Generated stub for towire_connectd_connect_to_peer */
-u8 *towire_connectd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
-{ fprintf(stderr, "towire_connectd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_disconnected */
 u8 *towire_connectd_peer_disconnected(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_disconnected called!\n"); abort(); }
@@ -799,6 +792,10 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
+/* Generated stub for try_reconnect */
+void try_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
+		   const struct wireaddr_internal *addrhint TAKES UNNEEDED)
+{ fprintf(stderr, "try_reconnect called!\n"); abort(); }
 /* Generated stub for watch_txid */
 struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,

@@ -10,6 +10,7 @@
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
@@ -69,6 +70,14 @@ static struct command_result *connect_cmd_succeed(struct command *cmd,
 	return command_success(cmd, response);
 }
 
+/* FIXME: Reorder! */
+static void try_connect(const tal_t *ctx,
+			struct lightningd *ld,
+			const struct node_id *id,
+			struct channel *channel,
+			u32 seconds_delay,
+			const struct wireaddr_internal *addrhint);
+
 static struct command_result *json_connect(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -82,7 +91,6 @@ static struct command_result *json_connect(struct command *cmd,
 	char *ataddr = NULL;
 	const char *name;
 	struct wireaddr_internal *addr;
-	u8 *msg;
 	const char *err_msg;
 	struct peer *peer;
 
@@ -165,8 +173,7 @@ static struct command_result *json_connect(struct command *cmd,
 	} else
 		addr = NULL;
 
-	msg = towire_connectd_connect_to_peer(NULL, &id, 0, addr);
-	subd_send_msg(cmd->ld->connectd, take(msg));
+	try_connect(cmd, cmd->ld, &id, NULL, 0, addr);
 
 	/* Leave this here for peer_connected or connect_failed. */
 	new_connect(cmd->ld, &id, cmd);
@@ -182,40 +189,80 @@ static const struct json_command connect_command = {
 };
 AUTODATA(json_command, &connect_command);
 
+/* We actually use this even if we don't need a delay, while we talk to
+ * gossipd to get the addresses. */
 struct delayed_reconnect {
+	struct lightningd *ld;
+	struct node_id id;
+	/* May be unset if there's no associated channel */
 	struct channel *channel;
 	u32 seconds_delayed;
 	struct wireaddr_internal *addrhint;
 };
 
-static void maybe_reconnect(struct delayed_reconnect *d)
+static void gossipd_got_addrs(struct subd *subd,
+			      const u8 *msg,
+			      const int *fds,
+			      struct delayed_reconnect *d)
 {
-	struct peer *peer = d->channel->peer;
+	struct wireaddr *addrs;
+	u8 *connectmsg;
 
-	/* Might have gone onchain since we started timer. */
-	if (channel_active(d->channel)) {
-		u8 *msg = towire_connectd_connect_to_peer(NULL, &peer->id,
-							    d->seconds_delayed,
-							    d->addrhint);
-		subd_send_msg(peer->ld->connectd, take(msg));
+	if (!fromwire_gossipd_get_addrs_reply(tmpctx, msg, &addrs))
+		fatal("Gossipd gave bad GOSSIPD_GET_ADDRS_REPLY %s",
+		      tal_hex(msg, msg));
+
+	/* Might have gone onchain (if it was actually freed, we were too). */
+	if (d->channel && !channel_active(d->channel)) {
+		tal_free(d);
+		return;
 	}
+
+	connectmsg = towire_connectd_connect_to_peer(NULL,
+						     &d->id,
+						     d->seconds_delayed,
+						     addrs,
+						     d->addrhint);
+	subd_send_msg(d->ld->connectd, take(connectmsg));
 	tal_free(d);
 }
 
-void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
-			  const struct wireaddr_internal *addrhint)
+/* We might be off a delay timer.  Now ask gossipd about public addresses. */
+static void do_connect(struct delayed_reconnect *d)
+{
+	u8 *msg = towire_gossipd_get_addrs(NULL, &d->id);
+
+	subd_req(d, d->ld->gossip, take(msg), -1, 0, gossipd_got_addrs, d);
+}
+
+/* channel may be NULL here */
+static void try_connect(const tal_t *ctx,
+			struct lightningd *ld,
+			const struct node_id *id,
+			struct channel *channel,
+			u32 seconds_delay,
+			const struct wireaddr_internal *addrhint)
 {
 	struct delayed_reconnect *d;
-	struct lightningd *ld = channel->peer->ld;
 
-	if (!ld->reconnect)
-		return;
-
-	d = tal(channel, struct delayed_reconnect);
+	d = tal(ctx, struct delayed_reconnect);
+	d->ld = ld;
+	d->id = *id;
 	d->channel = channel;
 	d->seconds_delayed = seconds_delay;
 	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
 
+	if (!seconds_delay) {
+		do_connect(d);
+		return;
+	}
+
+	/* We never have a delay when connecting without a channel */
+	assert(channel);
+	channel_set_billboard(channel, false,
+			      tal_fmt(tmpctx,
+				      "Will attempt reconnect "
+				      "in %u seconds", seconds_delay));
 	log_debug(channel->log, "Will try reconnect in %u seconds",
 		  seconds_delay);
 
@@ -224,7 +271,22 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 	notleak(new_reltimer(ld->timers, d,
 			     timerel_add(time_from_sec(seconds_delay),
 					 time_from_usec(pseudorand(1000000))),
-			     maybe_reconnect, d));
+			     do_connect, d));
+}
+
+void try_reconnect(struct channel *channel,
+		   u32 seconds_delay,
+		   const struct wireaddr_internal *addrhint)
+{
+	if (!channel->peer->ld->reconnect)
+		return;
+
+	try_connect(channel,
+		    channel->peer->ld,
+		    &channel->peer->id,
+		    channel,
+		    seconds_delay,
+		    addrhint);
 }
 
 static void connect_failed(struct lightningd *ld, const u8 *msg)
@@ -251,7 +313,7 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	/* If we have an active channel, then reconnect. */
 	channel = active_channel_by_id(ld, &id, NULL);
 	if (channel)
-		delay_then_reconnect(channel, seconds_to_delay, addrhint);
+		try_reconnect(channel, seconds_to_delay, addrhint);
 }
 
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
