@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log_status.h>
+#include <lightningd/peer_fd.h>
 #include <lightningd/subd.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -409,7 +410,7 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
 	void *channel = sd->channel;
 	struct channel_id channel_id;
 	char *desc;
-	struct per_peer_state *pps;
+	struct peer_fd *peer_fd;
 	u8 *err_for_them;
 	bool warning;
 
@@ -418,12 +419,11 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
 					&err_for_them))
 		return false;
 
-	pps = new_per_peer_state(msg);
-	per_peer_state_set_fds_arr(pps, fds);
+	peer_fd = new_peer_fd_arr(msg, fds);
 
 	/* Don't free sd; we may be about to free channel. */
 	sd->channel = NULL;
-	sd->errcb(channel, pps, &channel_id, desc, warning, err_for_them);
+	sd->errcb(channel, peer_fd, &channel_id, desc, warning, err_for_them);
 	return true;
 }
 
@@ -682,7 +682,7 @@ static struct subd *new_subd(struct lightningd *ld,
 			     unsigned int (*msgcb)(struct subd *,
 						   const u8 *, const int *fds),
 			     void (*errcb)(void *channel,
-					   struct per_peer_state *pps,
+					   struct peer_fd *peer_fd,
 					   const struct channel_id *channel_id,
 					   const char *desc,
 					   bool warning,
@@ -789,7 +789,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       unsigned int (*msgcb)(struct subd *, const u8 *,
 						     const int *fds),
 			       void (*errcb)(void *channel,
-					     struct per_peer_state *pps,
+					     struct peer_fd *peer_fd,
 					     const struct channel_id *channel_id,
 					     const char *desc,
 					     bool warning,

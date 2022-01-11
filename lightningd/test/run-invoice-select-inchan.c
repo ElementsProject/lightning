@@ -444,9 +444,9 @@ struct height_states *new_height_states(const tal_t *ctx UNNEEDED,
 					enum side opener UNNEEDED,
 					const u32 *blockheight UNNEEDED)
 { fprintf(stderr, "new_height_states called!\n"); abort(); }
-/* Generated stub for new_per_peer_state */
-struct per_peer_state *new_per_peer_state(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "new_per_peer_state called!\n"); abort(); }
+/* Generated stub for new_peer_fd */
+struct peer_fd *new_peer_fd(const tal_t *ctx UNNEEDED, int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
+{ fprintf(stderr, "new_peer_fd called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,
@@ -579,30 +579,26 @@ struct channel *peer_normal_channel(struct peer *peer UNNEEDED)
 { fprintf(stderr, "peer_normal_channel called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */
 void peer_restart_dualopend(struct peer *peer UNNEEDED,
-			    struct per_peer_state *pps UNNEEDED,
+			    struct peer_fd *peer_fd UNNEEDED,
 			    struct channel *channel UNNEEDED)
 { fprintf(stderr, "peer_restart_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_channeld */
 void peer_start_channeld(struct channel *channel UNNEEDED,
-			 struct per_peer_state *pps UNNEEDED,
+			 struct peer_fd *peer_fd UNNEEDED,
 			 const u8 *fwd_msg UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 const u8 *reestablish_only UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
-void peer_start_dualopend(struct peer *peer UNNEEDED, struct per_peer_state *pps UNNEEDED)
+void peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED)
 { fprintf(stderr, "peer_start_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_openingd */
 void peer_start_openingd(struct peer *peer UNNEEDED,
-			 struct per_peer_state *pps UNNEEDED)
+			 struct peer_fd *peer_fd UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
 /* Generated stub for peer_unsaved_channel */
 struct channel *peer_unsaved_channel(struct peer *peer UNNEEDED)
 { fprintf(stderr, "peer_unsaved_channel called!\n"); abort(); }
-/* Generated stub for per_peer_state_set_fds */
-void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
-			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
-{ fprintf(stderr, "per_peer_state_set_fds called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)

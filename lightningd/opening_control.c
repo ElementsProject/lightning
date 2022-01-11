@@ -12,7 +12,6 @@
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
 #include <common/param.h>
-#include <common/per_peer_state.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
@@ -24,6 +23,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/opening_control.h>
+#include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/openingd_wiregen.h>
@@ -337,7 +337,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct channel *channel;
 	struct lightningd *ld = openingd->ld;
 	u8 *remote_upfront_shutdown_script;
-	struct per_peer_state *pps;
+	struct peer_fd *peer_fd;
 	struct penalty_base *pbase;
 	struct channel_type *type;
 
@@ -371,8 +371,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	}
 	remote_commit->chainparams = chainparams;
 
-	pps = new_per_peer_state(resp);
-	per_peer_state_set_fds_arr(pps, fds);
+	peer_fd = new_peer_fd_arr(resp, fds);
 
 	log_debug(ld->log,
 		  "%s", type_to_string(tmpctx, struct pubkey,
@@ -411,7 +410,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	funding_success(channel);
-	peer_start_channeld(channel, pps, NULL, false, NULL);
+	peer_start_channeld(channel, peer_fd, NULL, false, NULL);
 
 cleanup:
 	/* Frees fc too */
@@ -436,7 +435,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	u8 channel_flags;
 	struct channel *channel;
 	u8 *remote_upfront_shutdown_script, *local_upfront_shutdown_script;
-	struct per_peer_state *pps;
+	struct peer_fd *peer_fd;
 	struct penalty_base *pbase;
 	struct channel_type *type;
 
@@ -445,6 +444,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	/* This is a new channel_info.their_config, set its ID to 0 */
 	channel_info.their_config.id = 0;
 
+	peer_fd = new_peer_fd_arr(tmpctx, fds);
 	if (!fromwire_openingd_fundee(tmpctx, reply,
 				     &channel_info.their_config,
 				     &remote_commit,
@@ -474,8 +474,6 @@ static void opening_fundee_finished(struct subd *openingd,
 	}
 
 	remote_commit->chainparams = chainparams;
-	pps = new_per_peer_state(tmpctx);
-	per_peer_state_set_fds_arr(pps, fds);
 
 	/* openingd should never accept them funding channel in this case. */
 	if (peer_active_channel(uc->peer)) {
@@ -524,14 +522,12 @@ static void opening_fundee_finished(struct subd *openingd,
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	/* On to normal operation! */
-	peer_start_channeld(channel, pps, fwd_msg, false, NULL);
+	peer_start_channeld(channel, peer_fd, fwd_msg, false, NULL);
 
 	tal_free(uc);
 	return;
 
 failed:
-	close(fds[0]);
-	close(fds[1]);
 	tal_free(uc);
 }
 
@@ -811,7 +807,9 @@ static void opening_got_reestablish(struct subd *openingd, const u8 *msg,
 	struct node_id peer_id = uc->peer->id;
 	struct channel_id channel_id;
 	u8 *reestablish;
-	struct per_peer_state *pps;
+	struct peer_fd *peer_fd;
+
+	peer_fd = new_peer_fd_arr(tmpctx, fds);
 
 	if (!fromwire_openingd_got_reestablish(tmpctx, msg, &channel_id,
 					       &reestablish)) {
@@ -820,13 +818,11 @@ static void opening_got_reestablish(struct subd *openingd, const u8 *msg,
 		tal_free(openingd);
 		return;
 	}
-	pps = new_per_peer_state(tmpctx);
-	per_peer_state_set_fds_arr(pps, fds);
 
 	/* This could free peer */
 	tal_free(uc);
 
-	handle_reestablish(ld, &peer_id, &channel_id, reestablish, pps);
+	handle_reestablish(ld, &peer_id, &channel_id, reestablish, peer_fd);
 }
 
 static unsigned int openingd_msg(struct subd *openingd,
@@ -909,7 +905,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	return 0;
 }
 
-void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
+void peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 {
 	int hsmfd;
 	u32 max_to_self_delay;
@@ -932,8 +928,8 @@ void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 					openingd_msg,
 					opend_channel_errmsg,
 					opend_channel_set_billboard,
-					take(&pps->peer_fd),
-					take(&pps->gossip_fd),
+					take(&peer_fd->fd),
+					take(&peer_fd->gossip_fd),
 					take(&hsmfd), NULL);
 	if (!uc->open_daemon) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,

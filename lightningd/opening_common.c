@@ -1,7 +1,6 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_command.h>
-#include <common/per_peer_state.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
@@ -12,6 +11,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/peer_fd.h>
 #include <lightningd/subd.h>
 #include <openingd/openingd_wiregen.h>
 #include <wire/wire_sync.h>
@@ -76,14 +76,14 @@ new_uncommitted_channel(struct peer *peer)
 }
 
 void opend_channel_errmsg(struct uncommitted_channel *uc,
-			  struct per_peer_state *pps,
+			  struct peer_fd *peer_fd,
 			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  bool warning UNUSED,
 			  const u8 *err_for_them UNUSED)
 {
 	/* Close fds, if any. */
-	tal_free(pps);
+	tal_free(peer_fd);
 	uncommitted_channel_disconnect(uc, LOG_INFORM, desc);
 	tal_free(uc);
 }
@@ -169,7 +169,7 @@ void handle_reestablish(struct lightningd *ld,
 			const struct node_id *peer_id,
 			const struct channel_id *channel_id,
 			const u8 *reestablish,
-			struct per_peer_state *pps)
+			struct peer_fd *peer_fd)
 {
 	struct peer *peer;
 	struct channel *c;
@@ -185,7 +185,7 @@ void handle_reestablish(struct lightningd *ld,
 	if (c && channel_closed(c)) {
 		log_debug(c->log, "Reestablish on %s channel: using channeld to reply",
 			  channel_state_name(c));
-		peer_start_channeld(c, pps, NULL, true, reestablish);
+		peer_start_channeld(c, peer_fd, NULL, true, reestablish);
 	} else {
 		const u8 *err = towire_errorfmt(tmpctx, channel_id,
 				      "Unknown channel for reestablish");
@@ -194,12 +194,10 @@ void handle_reestablish(struct lightningd *ld,
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_final_msg(NULL, peer_id,
 								  err)));
-		subd_send_fd(ld->connectd, pps->peer_fd);
-		subd_send_fd(ld->connectd, pps->gossip_fd);
+		subd_send_fd(ld->connectd, peer_fd->fd);
+		subd_send_fd(ld->connectd, peer_fd->gossip_fd);
 		/* Don't close those fds! */
-		pps->peer_fd
-			= pps->gossip_fd
-			= -1;
+		peer_fd->fd = peer_fd->gossip_fd = -1;
 	}
 }
 

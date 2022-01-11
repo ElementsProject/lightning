@@ -14,7 +14,6 @@
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
 #include <common/param.h>
-#include <common/per_peer_state.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
@@ -36,6 +35,7 @@
 #include <lightningd/opening_common.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/peer_fd.h>
 #include <lightningd/subd.h>
 #include <openingd/dualopend_wiregen.h>
 #include <wire/common_wiregen.h>
@@ -349,7 +349,7 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 }
 
 void peer_start_closingd(struct channel *channel,
-			 struct per_peer_state *pps)
+			 struct peer_fd *peer_fd)
 {
 	u8 *initmsg;
 	u32 min_feerate, feerate, *max_feerate;
@@ -378,8 +378,8 @@ void peer_start_closingd(struct channel *channel,
 					   closingd_wire_name, closing_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
-					   take(&pps->peer_fd),
-					   take(&pps->gossip_fd),
+					   take(&peer_fd->fd),
+					   take(&peer_fd->gossip_fd),
 					   take(&hsmfd),
 					   NULL));
 
