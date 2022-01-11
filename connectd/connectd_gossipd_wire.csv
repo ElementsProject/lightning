@@ -11,11 +11,3 @@ msgdata,gossipd_new_peer,gossip_queries_feature,bool,
 # if success: + gossip fd
 msgtype,gossipd_new_peer_reply,4100
 msgdata,gossipd_new_peer_reply,success,bool,
-
-# Connectd asks gossipd for any known addresses for that node.
-msgtype,gossipd_get_addrs,4001
-msgdata,gossipd_get_addrs,id,node_id,
-
-msgtype,gossipd_get_addrs_reply,4101
-msgdata,gossipd_get_addrs_reply,num,u16,
-msgdata,gossipd_get_addrs_reply,addrs,wireaddr,num

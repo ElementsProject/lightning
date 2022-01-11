@@ -47,6 +47,8 @@ msgdata,connectd_reconnected,id,node_id,
 msgtype,connectd_connect_to_peer,2001
 msgdata,connectd_connect_to_peer,id,node_id,
 msgdata,connectd_connect_to_peer,seconds_waited,u32,
+msgdata,connectd_connect_to_peer,len,u32,
+msgdata,connectd_connect_to_peer,addrs,wireaddr,len
 msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
 
 # Connectd->master: connect failed.

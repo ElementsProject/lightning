@@ -874,10 +874,10 @@ static void err_and_reconnect(struct channel *channel,
 	channel_set_owner(channel, NULL);
 
 	/* Their address only useful if we connected to them */
-	delay_then_reconnect(channel, seconds_before_reconnect,
-			     channel->peer->connected_incoming
-			     ? NULL
-			     : &channel->peer->addr);
+	try_reconnect(channel, seconds_before_reconnect,
+		      channel->peer->connected_incoming
+		      ? NULL
+		      : &channel->peer->addr);
 }
 
 void channel_fail_reconnect_later(struct channel *channel, const char *fmt, ...)

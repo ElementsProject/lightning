@@ -127,6 +127,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
 	case WIRE_GOSSIPD_ADDGOSSIP:
+	case WIRE_GOSSIPD_GET_ADDRS:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
@@ -134,6 +135,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
+	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 		break;
 
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:

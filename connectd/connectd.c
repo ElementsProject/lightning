@@ -1669,37 +1669,19 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 	}
 }
 
-static bool wireaddr_int_equals_wireaddr(struct wireaddr_internal *addr_a,
-					 struct wireaddr *addr_b)
+static bool wireaddr_int_equals_wireaddr(const struct wireaddr_internal *addr_a,
+					 const struct wireaddr *addr_b)
 {
 	if (!addr_a || !addr_b)
 		return false;
 	return wireaddr_eq(&addr_a->u.wireaddr, addr_b);
 }
 
-/*~ This asks gossipd for any addresses advertized by the node. */
+/*~ Orders the addresses which lightningd gave us. */
 static void add_gossip_addrs(struct wireaddr_internal **addrs,
-			     const struct node_id *id,
-			     struct wireaddr_internal *addrhint)
+			     const struct wireaddr *normal_addrs,
+			     const struct wireaddr_internal *addrhint)
 {
-	u8 *msg;
-	struct wireaddr *normal_addrs;
-
-	/* For simplicity, we do this synchronous. */
-	msg = towire_gossipd_get_addrs(NULL, id);
-	if (!wire_sync_write(GOSSIPCTL_FD, take(msg)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed writing to gossipctl: %s",
-			      strerror(errno));
-
-	/* This returns 'struct wireaddr's since that's what's supported by
-	 * the BOLT #7 protocol. */
-	msg = wire_sync_read(tmpctx, GOSSIPCTL_FD);
-	if (!fromwire_gossipd_get_addrs_reply(tmpctx, msg, &normal_addrs))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed parsing get_addrs_reply gossipctl: %s",
-			      tal_hex(tmpctx, msg));
-
 	/* Wrap each one in a wireaddr_internal and add to addrs. */
 	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
 		/* This is not supported, ignore. */
@@ -1736,6 +1718,7 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
 			     u32 seconds_waited,
+			     struct wireaddr *gossip_addrs,
 			     struct wireaddr_internal *addrhint STEALS)
 {
 	struct wireaddr_internal *addrs;
@@ -1767,7 +1750,7 @@ static void try_connect_peer(struct daemon *daemon,
 	if (addrhint)
 		tal_arr_expand(&addrs, *addrhint);
 
-	add_gossip_addrs(&addrs, id, addrhint);
+	add_gossip_addrs(&addrs, gossip_addrs, addrhint);
 
 	if (tal_count(addrs) == 0) {
 		/* Don't resolve via DNS seed if we're supposed to use proxy. */
@@ -1824,13 +1807,14 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	struct node_id id;
 	u32 seconds_waited;
 	struct wireaddr_internal *addrhint;
+	struct wireaddr *addrs;
 
 	if (!fromwire_connectd_connect_to_peer(tmpctx, msg,
-						 &id, &seconds_waited,
-						 &addrhint))
+					       &id, &seconds_waited,
+					       &addrs, &addrhint))
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
-	try_connect_peer(daemon, &id, seconds_waited, addrhint);
+	try_connect_peer(daemon, &id, seconds_waited, addrs, addrhint);
 }
 
 /* A peer is gone: clean things up. */

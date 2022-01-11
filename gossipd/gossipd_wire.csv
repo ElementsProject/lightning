@@ -108,3 +108,11 @@ msgdata,gossipd_addgossip_reply,err,wirestring,
 # Updated lease rates available
 msgtype,gossipd_new_lease_rates,3046
 msgdata,gossipd_new_lease_rates,rates,lease_rates,
+
+# Lightningd asks gossipd for any known addresses for that node.
+msgtype,gossipd_get_addrs,3050
+msgdata,gossipd_get_addrs,id,node_id,
+
+msgtype,gossipd_get_addrs_reply,3150
+msgdata,gossipd_get_addrs_reply,num,u16,
+msgdata,gossipd_get_addrs_reply,addrs,wireaddr,num
