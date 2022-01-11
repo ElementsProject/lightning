@@ -218,10 +218,9 @@ static void peer_connected_in(struct daemon *daemon,
  * 'features' is a field in the `init` message, indicating properties of the
  * node.
  */
-static bool get_gossipfds(struct daemon *daemon,
-			  const struct node_id *id,
-			  const u8 *their_features,
-			  struct per_peer_state *pps)
+static int get_gossipfd(struct daemon *daemon,
+			const struct node_id *id,
+			const u8 *their_features)
 {
 	bool gossip_queries_feature, success;
 	u8 *msg;
@@ -251,13 +250,13 @@ static bool get_gossipfds(struct daemon *daemon,
 	if (!success) {
 		status_broken("Gossipd did not give us an fd: losing peer %s",
 			      type_to_string(tmpctx, struct node_id, id));
-		return false;
+		return -1;
 	}
 
 	/* Otherwise, the next thing in the socket will be the file descriptor
 	 * for the per-peer daemon. */
-	pps->gossip_fd = fdpass_recv(GOSSIPCTL_FD);
-	return true;
+	return fdpass_recv(GOSSIPCTL_FD);
+
 }
 
 /*~ This is an ad-hoc marshalling structure where we store arguments so we
@@ -387,8 +386,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	struct peer *peer;
 	int unsup;
 	size_t depender, missing;
-	int subd_fd;
-	struct per_peer_state *pps;
+	int subd_fd, gossip_fd;
 
 	peer = peer_htable_get(&daemon->peers, id);
 	if (peer)
@@ -446,11 +444,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	if (!peer)
 		return io_close(conn);
 
-	/* FIXME: Remove pps abstraction! */
-	pps = new_per_peer_state(tmpctx);
-
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	if (!get_gossipfds(daemon, id, their_features, pps)) {
+	gossip_fd = get_gossipfd(daemon, id, their_features);
+	if (gossip_fd < 0) {
 		close(subd_fd);
 		return tal_free(peer);
 	}
@@ -467,10 +463,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	 * we have connected, and give the peer and gossip fds. */
 	daemon_conn_send(daemon->master, take(msg));
 	daemon_conn_send_fd(daemon->master, subd_fd);
-	daemon_conn_send_fd(daemon->master, pps->gossip_fd);
-
-	/* Don't try to close this on freeing. */
-	pps->gossip_fd = -1;
+	daemon_conn_send_fd(daemon->master, gossip_fd);
 
 	/*~ Now we set up this connection to read/write from subd */
 	return multiplex_peer_setup(conn, peer);
@@ -1881,31 +1874,23 @@ static void peer_final_msg(struct io_conn *conn,
 			   struct daemon *daemon, const u8 *msg)
 {
 	struct peer *peer;
-	struct per_peer_state *pps;
 	struct node_id id;
 	u8 *finalmsg;
-	int fds[2];
 
 	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &finalmsg))
 		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
 
-	/* Get the fds for this peer. */
+	/* Get the peer_fd and gossip_fd for this peer: we don't need them. */
 	io_fd_block(io_conn_fd(conn), true);
-	for (size_t i = 0; i < ARRAY_SIZE(fds); i++) {
-		fds[i] = fdpass_recv(io_conn_fd(conn));
-		if (fds[i] == -1)
+	for (size_t i = 0; i < 2; i++) {
+		int fd = fdpass_recv(io_conn_fd(conn));
+		if (fd == -1)
 			status_failed(STATUS_FAIL_MASTER_IO,
 				      "Getting fd %zu after peer_final_msg: %s",
 				      i, strerror(errno));
+		close(fd);
 	}
 	io_fd_block(io_conn_fd(conn), false);
-
-	/* Close fd to ourselves. */
-	close(fds[0]);
-
-	/* We put peer fd into conn, but pps needs to free the gossip_fd */
-	pps = new_per_peer_state(tmpctx);
-	per_peer_state_set_fds(pps, -1, fds[1]);
 
 	/* This can happen if peer hung up on us. */
 	peer = peer_htable_get(&daemon->peers, &id);
