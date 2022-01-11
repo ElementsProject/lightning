@@ -678,6 +678,11 @@ static char *opt_force_featureset(const char *optarg,
 	return NULL;
 }
 
+static char *opt_null(void *unused UNNEEDED)
+{
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	/* We might want to debug plugins, which are started before normal
@@ -689,6 +694,8 @@ static void dev_register_opts(struct lightningd *ld)
 				 &ld->dev_no_plugin_checksum,
 				 "Don't checksum plugins to detect changes");
 
+	opt_register_noarg("--debugger", opt_null, NULL,
+			   "Invoke gdb to lightningd");
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
 			   &ld->reconnect,
 			   "Disable automatic reconnect-attempts by this node, but accept incoming");
@@ -1581,6 +1588,11 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb == (void *)plugin_opt_flag_set) {
 			/* Noop, they will get added below along with the
 			 * OPT_HASARG options. */
+#if DEVELOPER
+		/* instead of this, we could maybe change -dev-debugger=lightningd? */
+		} else if (streq(name, "debugger")) {
+			/* Handled early in lightningd's main(), ignored here */
+#endif
 		} else {
 			/* Insert more decodes here! */
 			assert(!"A noarg option was added but was not handled");

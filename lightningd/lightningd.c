@@ -964,6 +964,9 @@ int main(int argc, char *argv[])
 
 	/*~ Every daemon calls this in some form: the hooks are for dumping
 	 * backtraces when we crash (if supported on this platform). */
+#if DEVELOPER
+	daemon_maybe_debug(argv);
+#endif
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
 
 	/*~ There's always a battle between what a constructor like this
