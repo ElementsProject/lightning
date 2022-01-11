@@ -643,12 +643,14 @@ def test_reconnect_normal(node_factory):
 @pytest.mark.openchannel('v2')
 def test_reconnect_sender_add1(node_factory):
     # Fail after add is OK, will cause payment failure though.
+    # Make sure it doesn't send commit before it sees disconnect though.
     disconnects = ['-WIRE_UPDATE_ADD_HTLC',
                    '+WIRE_UPDATE_ADD_HTLC']
 
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True,
+                               options={'commit-time': 2000},
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
