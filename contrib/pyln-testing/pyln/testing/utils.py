@@ -1021,6 +1021,9 @@ class LightningNode(object):
         result = self.rpc.waitsendpay(rhash)
         assert(result.get('status') == 'complete')
 
+        # Make sure they're all settled, in case we quickly mine blocks!
+        dst.wait_for_htlcs()
+
     # This helper sends all money to a peer until even 1 msat can't get through.
     def drain(self, peer):
         total = 0
