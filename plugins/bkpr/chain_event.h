@@ -16,6 +16,9 @@ struct chain_event {
 	/* db_id of account this event belongs to */
 	u64 acct_db_id;
 
+	/* Name of the account this belongs to */
+	char *acct_name;
+
 	/* Tag describing the event */
 	const char *tag;
 

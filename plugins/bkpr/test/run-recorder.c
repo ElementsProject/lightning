@@ -630,7 +630,7 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
 	struct node_id peer_id;
 	struct account *acct, *acct2;
-	struct channel_event ev1, ev2, ev3, **chan_evs;
+	struct channel_event *ev1, *ev2, *ev3, **chan_evs;
 
 	memset(&peer_id, 3, sizeof(struct node_id));
 
@@ -642,48 +642,51 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
-	ev1.payment_id = tal(ctx, struct sha256);
-	memset(ev1.payment_id, 'B', sizeof(struct sha256));
-	ev1.credit = AMOUNT_MSAT(100);
-	ev1.debit = AMOUNT_MSAT(102);
-	ev1.fees = AMOUNT_MSAT(104);
-	ev1.currency = "btc";
-	ev1.timestamp = 11111;
-	ev1.part_id = 19;
+	ev1 = tal(ctx, struct channel_event);
+	ev1->payment_id = tal(ev1, struct sha256);
+	memset(ev1->payment_id, 'B', sizeof(struct sha256));
+	ev1->credit = AMOUNT_MSAT(100);
+	ev1->debit = AMOUNT_MSAT(102);
+	ev1->fees = AMOUNT_MSAT(104);
+	ev1->currency = "btc";
+	ev1->timestamp = 11111;
+	ev1->part_id = 19;
 
 	/* Passing unknown tags in should be ok */
-	ev1.tag = "hello";
+	ev1->tag = "hello";
 
-	ev2.payment_id = tal(ctx, struct sha256);
-	memset(ev2.payment_id, 'C', sizeof(struct sha256));
-	ev2.credit = AMOUNT_MSAT(200);
-	ev2.debit = AMOUNT_MSAT(202);
-	ev2.fees = AMOUNT_MSAT(204);
-	ev2.currency = "brct";
-	ev2.timestamp = 22222;
-	ev2.part_id = 0;
-	ev2.tag = tal_fmt(ctx, "deposit");
+	ev2 = tal(ctx, struct channel_event);
+	ev2->payment_id = tal(ev2, struct sha256);
+	memset(ev2->payment_id, 'C', sizeof(struct sha256));
+	ev2->credit = AMOUNT_MSAT(200);
+	ev2->debit = AMOUNT_MSAT(202);
+	ev2->fees = AMOUNT_MSAT(204);
+	ev2->currency = "brct";
+	ev2->timestamp = 22222;
+	ev2->part_id = 0;
+	ev2->tag = tal_fmt(ev2, "deposit");
 
-	ev3.payment_id = tal(ctx, struct sha256);
-	memset(ev3.payment_id, 'D', sizeof(struct sha256));
-	ev3.credit = AMOUNT_MSAT(300);
-	ev3.debit = AMOUNT_MSAT(302);
-	ev3.fees = AMOUNT_MSAT(304);
-	ev3.currency = "brct";
-	ev3.timestamp = 33333;
-	ev3.part_id = 5;
-	ev3.tag = tal_fmt(ctx, "routed");
+	ev3 = tal(ctx, struct channel_event);
+	ev3->payment_id = tal(ev3, struct sha256);
+	memset(ev3->payment_id, 'D', sizeof(struct sha256));
+	ev3->credit = AMOUNT_MSAT(300);
+	ev3->debit = AMOUNT_MSAT(302);
+	ev3->fees = AMOUNT_MSAT(304);
+	ev3->currency = "brct";
+	ev3->timestamp = 33333;
+	ev3->part_id = 5;
+	ev3->tag = tal_fmt(ev3, "routed");
 
 	db_begin_transaction(db);
-	log_channel_event(db, acct, &ev1);
-	log_channel_event(db, acct, &ev2);
+	log_channel_event(db, acct, ev1);
+	log_channel_event(db, acct, ev2);
 
 	/* log a channel event to a different acct */
-	log_channel_event(db, acct2, &ev3);
+	log_channel_event(db, acct2, ev3);
 
 	/* log a channel event without a payment id */
-	ev3.payment_id = NULL;
-	log_channel_event(db, acct2, &ev3);
+	ev3->payment_id = NULL;
+	log_channel_event(db, acct2, ev3);
 
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
@@ -694,9 +697,12 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	CHECK_MSG(!db_err, db_err);
 	CHECK_MSG(!db_err, db_err);
 
+	CHECK(streq(acct->name, chan_evs[0]->acct_name));
+	CHECK(streq(acct->name, chan_evs[1]->acct_name));
+
 	CHECK(tal_count(chan_evs) == 2);
-	channel_events_eq(&ev1, chan_evs[0]);
-	channel_events_eq(&ev2, chan_evs[1]);
+	channel_events_eq(ev1, chan_evs[0]);
+	channel_events_eq(ev2, chan_evs[1]);
 
 	return true;
 }
@@ -706,7 +712,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
 	struct node_id peer_id;
 	struct account *acct, *acct2;
-	struct chain_event ev1, *ev2, ev3, **chain_evs;
+	struct chain_event *ev1, *ev2, *ev3, **chain_evs;
 	char *name = tal_fmt(ctx, "example");
 
 	ev2 = tal(ctx, struct chain_event);
@@ -721,21 +727,22 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	CHECK_MSG(!db_err, db_err);
 
 	/* This event spends the second inserted event */
-	ev1.tag = tal_fmt(ctx, "withdrawal");
-	ev1.credit = AMOUNT_MSAT(100);
-	ev1.debit = AMOUNT_MSAT(102);
-	ev1.output_value = AMOUNT_MSAT(104);
-	ev1.currency = "btc";
-	ev1.timestamp = 1919191;
-	ev1.blockheight = 1919191;
-	memset(&ev1.outpoint.txid, 'D', sizeof(struct bitcoin_txid));
-	ev1.outpoint.n = 1;
-	ev1.spending_txid = tal(ctx, struct bitcoin_txid);
-	memset(ev1.spending_txid, 'C', sizeof(struct bitcoin_txid));
-	ev1.payment_id = NULL;
+	ev1 = tal(ctx, struct chain_event);
+	ev1->tag = tal_fmt(ev1, "withdrawal");
+	ev1->credit = AMOUNT_MSAT(100);
+	ev1->debit = AMOUNT_MSAT(102);
+	ev1->output_value = AMOUNT_MSAT(104);
+	ev1->currency = "btc";
+	ev1->timestamp = 1919191;
+	ev1->blockheight = 1919191;
+	memset(&ev1->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
+	ev1->outpoint.n = 1;
+	ev1->spending_txid = tal(ctx, struct bitcoin_txid);
+	memset(ev1->spending_txid, 'C', sizeof(struct bitcoin_txid));
+	ev1->payment_id = NULL;
 
 	db_begin_transaction(db);
-	log_chain_event(db, acct, &ev1);
+	log_chain_event(db, acct, ev1);
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
@@ -753,24 +760,25 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	memset(ev2->payment_id, 'B', sizeof(struct sha256));
 
 	/* Dummy event, logged to separate account */
-	ev3.tag = tal_fmt(ctx, "deposit");
-	ev3.credit = AMOUNT_MSAT(300);
-	ev3.debit = AMOUNT_MSAT(302);
-	ev3.output_value = AMOUNT_MSAT(304);
-	ev3.currency = "btc";
-	ev3.timestamp = 3939393;
-	ev3.blockheight = 3939393;
-	memset(&ev3.outpoint.txid, 'E', sizeof(struct bitcoin_txid));
-	ev3.outpoint.n = 1;
-	ev3.spending_txid = tal(ctx, struct bitcoin_txid);
-	memset(ev3.spending_txid, 'D', sizeof(struct bitcoin_txid));
-	ev3.payment_id = NULL;
+	ev3 = tal(ctx, struct chain_event);
+	ev3->tag = tal_fmt(ev3, "deposit");
+	ev3->credit = AMOUNT_MSAT(300);
+	ev3->debit = AMOUNT_MSAT(302);
+	ev3->output_value = AMOUNT_MSAT(304);
+	ev3->currency = "btc";
+	ev3->timestamp = 3939393;
+	ev3->blockheight = 3939393;
+	memset(&ev3->outpoint.txid, 'E', sizeof(struct bitcoin_txid));
+	ev3->outpoint.n = 1;
+	ev3->spending_txid = tal(ctx, struct bitcoin_txid);
+	memset(ev3->spending_txid, 'D', sizeof(struct bitcoin_txid));
+	ev3->payment_id = NULL;
 
 	db_begin_transaction(db);
 	log_chain_event(db, acct, ev2);
 
 	/* log new event to a different account.. */
-	log_chain_event(db, acct2, &ev3);
+	log_chain_event(db, acct2, ev3);
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
@@ -787,14 +795,16 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	CHECK_MSG(!db_err, db_err);
 	CHECK(tal_count(chain_evs) == 2);
 
-	chain_events_eq(&ev1, chain_evs[0]);
+	CHECK(streq(acct->name, chain_evs[0]->acct_name));
+	CHECK(streq(acct->name, chain_evs[1]->acct_name));
+	chain_events_eq(ev1, chain_evs[0]);
 	chain_events_eq(ev2, chain_evs[1]);
 
 	/* Now insert a utxo create and spend, in that order */
-	ev1.db_id = 0;
-	memset(&ev1.outpoint.txid, 'A', sizeof(struct bitcoin_txid));
-	ev1.outpoint.n = 10;
-	ev1.spending_txid = tal_free(ev1.spending_txid);
+	ev1->db_id = 0;
+	memset(&ev1->outpoint.txid, 'A', sizeof(struct bitcoin_txid));
+	ev1->outpoint.n = 10;
+	ev1->spending_txid = tal_free(ev1->spending_txid);
 
 	ev2->db_id = 0;
 	memset(&ev2->outpoint.txid, 'A', sizeof(struct bitcoin_txid));
@@ -804,7 +814,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 
 
 	db_begin_transaction(db);
-	log_chain_event(db, acct, &ev1);
+	log_chain_event(db, acct, ev1);
 	log_chain_event(db, acct, ev2);
 	chain_evs = account_get_chain_events(ctx, db, acct);
 	db_commit_transaction(db);
@@ -813,7 +823,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	/* There should be four now */
 	CHECK(tal_count(chain_evs) == 4);
 
-	chain_events_eq(&ev1, chain_evs[2]);
+	chain_events_eq(ev1, chain_evs[2]);
 	chain_events_eq(ev2, chain_evs[3]);
 
 	return true;
@@ -910,7 +920,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
 	struct node_id peer_id;
 	struct account *acct, *acct2, **acct_list;
-	struct chain_event ev1;
+	struct chain_event *ev1;
 	enum mvt_tag *tags;
 	char *name = tal_fmt(ctx, "example");
 
@@ -954,29 +964,29 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 
 	/* Will we update an account's properties
 	 * correctly, given an event and tag list? */
-	ev1.tag = tal_fmt(ctx, "withdrawal");
-	ev1.credit = AMOUNT_MSAT(100);
-	ev1.debit = AMOUNT_MSAT(102);
-	ev1.output_value = AMOUNT_MSAT(104);
-	ev1.currency = "btc";
-	ev1.timestamp = 1919191;
-	ev1.blockheight = 1919191;
-	memset(&ev1.outpoint.txid, 'D', sizeof(struct bitcoin_txid));
-	ev1.outpoint.n = 1;
-	ev1.spending_txid = tal(ctx, struct bitcoin_txid);
-	memset(ev1.spending_txid, 'C', sizeof(struct bitcoin_txid));
-	ev1.payment_id = NULL;
+	ev1 = tal(ctx, struct chain_event);
+	ev1->tag = tal_fmt(ctx, "withdrawal");
+	ev1->credit = AMOUNT_MSAT(100);
+	ev1->debit = AMOUNT_MSAT(102);
+	ev1->output_value = AMOUNT_MSAT(104);
+	ev1->currency = "btc";
+	ev1->timestamp = 1919191;
+	ev1->blockheight = 1919191;
+	memset(&ev1->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
+	ev1->outpoint.n = 1;
+	ev1->spending_txid = tal(ctx, struct bitcoin_txid);
+	memset(ev1->spending_txid, 'C', sizeof(struct bitcoin_txid));
+	ev1->payment_id = NULL;
 
 	db_begin_transaction(db);
-	log_chain_event(db, acct, &ev1);
+	log_chain_event(db, acct, ev1);
 
 	tags = tal_arr(ctx, enum mvt_tag, 2);
 
 	/* should not update the account info */
 	tags[0] = PUSHED;
 	tags[1] = PENALTY;
-	maybe_update_account(db, acct, &ev1, tags);
-	acct2 = find_account(ctx, db, "wallet");
+	maybe_update_account(db, acct, ev1, tags);
 	accountseq(acct, acct2);
 
 	/* channel_open -> open event db updated */
@@ -984,7 +994,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->open_event_db_id == NULL);
 	tags[0] = CHANNEL_OPEN;
 	tags[1] = LEASED;
-	maybe_update_account(db, acct, &ev1, tags);
+	maybe_update_account(db, acct, ev1, tags);
 	acct2 = find_account(ctx, db, "wallet");
 	accountseq(acct, acct2);
 	CHECK(acct->leased);
@@ -994,7 +1004,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	tags[1] = OPENER;
 	CHECK(acct->closed_event_db_id == NULL);
 	CHECK(!acct->we_opened);
-	maybe_update_account(db, acct, &ev1, tags);
+	maybe_update_account(db, acct, ev1, tags);
 	acct2 = find_account(ctx, db, "wallet");
 	accountseq(acct, acct2);
 	CHECK(acct->closed_event_db_id != NULL);
