@@ -3651,3 +3651,32 @@ def test_close_twice(node_factory, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert fut.result(TIMEOUT)['type'] == 'mutual'
     assert fut2.result(TIMEOUT)['type'] == 'mutual'
+
+
+@pytest.mark.xfail(strict=True)
+def test_close_weight_estimate(node_factory, bitcoind):
+    """closingd uses the expected closing tx weight to constrain fees; make sure that lightningd agrees
+    once it has the actual agreed tx"""
+    l1, l2 = node_factory.line_graph(2)
+    l1.rpc.close(l2.info['id'])
+
+    # Closingd gives this estimate before it begins
+    log = l1.daemon.wait_for_log('Expected closing weight = ')
+    expected_weight = int(re.match('.*Expected closing weight = ([0-9]*),.*', log).group(1))
+
+    # This is the actual weight: in theory this could use their
+    # actual sig, and thus vary, but we don't do that.
+    log = l1.daemon.wait_for_log('Their actual closing tx fee is')
+    actual_weight = int(re.match('.*: weight is ([0-9]*).*', log).group(1))
+
+    assert actual_weight == expected_weight
+
+    log = l1.daemon.wait_for_log('sendrawtransaction: ')
+    tx = re.match('.*sendrawtransaction: ([0-9a-f]*).*', log).group(1)
+
+    # This could actually be a bit shorter: 1 in 256 chance we get
+    # lucky with a sig and it's shorter.  We have 2 sigs, so that's
+    # 1 in 128.  Unlikely to do better than 2 bytes off though!
+    signed_weight = int(bitcoind.rpc.decoderawtransaction(tx)['weight'])
+    assert signed_weight <= actual_weight
+    assert signed_weight >= actual_weight - 2

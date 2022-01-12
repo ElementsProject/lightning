@@ -201,13 +201,14 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 	fee = calc_tx_fee(channel->funding_sats, tx);
 	last_fee = calc_tx_fee(channel->funding_sats, channel->last_tx);
 
-	log_debug(channel->log, "Their actual closing tx fee is %s"
-		 " vs previous %s",
-		  type_to_string(tmpctx, struct amount_sat, &fee),
-		  type_to_string(tmpctx, struct amount_sat, &last_fee));
-
 	/* Weight once we add in sigs. */
 	weight = bitcoin_tx_weight(tx) + bitcoin_tx_input_sig_weight() * 2;
+
+	log_debug(channel->log, "Their actual closing tx fee is %s"
+		 " vs previous %s: weight is %"PRIu64,
+		  type_to_string(tmpctx, struct amount_sat, &fee),
+		  type_to_string(tmpctx, struct amount_sat, &last_fee),
+		  weight);
 
 	/* If we don't have a feerate estimate, this gives feerate_floor */
 	min_feerate = feerate_min(ld, &feerate_unknown);
