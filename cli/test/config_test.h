@@ -1,0 +1,8 @@
+#ifndef LIGHTNING_CLI_TEST_CONFIG_TEST_H
+#define LIGHTNING_CLI_TEST_CONFIG_TEST_H
+
+#include "config.h"
+
+#define CLN_TEST 1
+
+#endif /* LIGHTNING_CLI_TEST_CONFIG_TEST_H */

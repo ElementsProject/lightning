@@ -1,4 +1,5 @@
 #include "config.h"
+#include "config_test.h"
 #include <common/amount.h>
 #include <common/bigsize.h>
 #include <common/channel_id.h>
@@ -18,7 +19,7 @@ int test_printf(const char *format, ...);
 int test_chdir(const char *path);
 
 #define main test_main
-#define read test_read
+#define cli_read test_read
 #define socket test_socket
 #define connect test_connect
 #define getpid test_getpid
@@ -174,4 +175,3 @@ int main(int argc UNUSED, char *argv[])
 	common_shutdown();
 	return 0;
 }
-

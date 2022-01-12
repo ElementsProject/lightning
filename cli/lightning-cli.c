@@ -2,6 +2,7 @@
  * Helper to submit via JSON-RPC and get back response.
  */
 #include "config.h"
+#include "config_cli.h"
 #include <ccan/asort/asort.h>
 #include <ccan/err/err.h>
 #include <ccan/json_escape/json_escape.h>
@@ -15,7 +16,6 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <libgen.h>
-#include <stdio.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -386,7 +386,7 @@ static size_t read_nofail(int fd, void *buf, size_t len)
 	ssize_t i;
 	assert(len > 0);
 
-	i = read(fd, buf, len);
+	i = cli_read(fd, buf, len);
 	if (i == 0)
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
 		     "reading response: socket closed");
@@ -572,7 +572,7 @@ static void enable_notifications(int fd)
 	memset(rbuf, 0, sizeof(rbuf));
 	while (!strends(rbuf, "\n\n")) {
 		size_t len = strlen(rbuf);
-		if (read(fd, rbuf + len, sizeof(rbuf) - len) < 0)
+		if (cli_read(fd, rbuf + len, sizeof(rbuf) - len) < 0)
 			err(ERROR_TALKING_TO_LIGHTNINGD,
 			    "Reading enable response");
 	}
@@ -756,7 +756,7 @@ int main(int argc, char *argv[])
 	while (parserr <= 0) {
 		/* Read more if parser says, or we have 0 tokens. */
 		if (parserr == 0 || parserr == JSMN_ERROR_PART) {
-			ssize_t i = read(fd, resp + off, tal_bytelen(resp) - 1 - off);
+			ssize_t i = cli_read(fd, resp + off, tal_bytelen(resp) - 1 - off);
 			if (i == 0)
 				errx(ERROR_TALKING_TO_LIGHTNINGD,
 				     "reading response: socket closed");
