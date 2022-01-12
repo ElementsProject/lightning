@@ -271,6 +271,9 @@ size_t bitcoin_tx_simple_input_witness_weight(void);
 /* We only do segwit inputs, and we assume witness is sig + key  */
 size_t bitcoin_tx_simple_input_weight(bool p2sh);
 
+/* The witness for our 2of2 input (closing or commitment tx). */
+size_t bitcoin_tx_2of2_input_witness_weight(void);
+
 /**
  * change_amount - Is it worth making a P2WPKH change output at this feerate?
  * @excess: input amount we have above the tx fee and other outputs.

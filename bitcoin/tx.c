@@ -884,6 +884,16 @@ size_t bitcoin_tx_simple_input_weight(bool p2sh)
 				       bitcoin_tx_simple_input_witness_weight());
 }
 
+size_t bitcoin_tx_2of2_input_witness_weight(void)
+{
+	/* witness[0] = ""
+	 * witness[1] = sig
+	 * witness[2] = sig
+	 * witness[3] = 2 key key 2 CHECKMULTISIG
+	 */
+	return 1 + (1 + 0) + (1 + 72) + (1 + 72) + (1 + 1 + 33 + 33 + 1 + 1);
+}
+
 struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 				size_t total_weight)
 {
