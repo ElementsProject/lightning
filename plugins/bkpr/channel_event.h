@@ -31,7 +31,7 @@ struct channel_event {
 	const char *currency;
 
 	/* Payment identifier (typically the preimage hash) */
-	struct sha256 payment_id;
+	struct sha256 *payment_id;
 
 	/* Some payments share a payment_id, and are differentiable via id */
 	u32 part_id;

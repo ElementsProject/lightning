@@ -84,7 +84,11 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	db_col_amount_msat(stmt, "fees", &e->fees);
 
 	e->currency = db_col_strdup(e, stmt, "currency");
-	db_col_sha256(stmt, "payment_id", &e->payment_id);
+	if (!db_col_is_null(stmt, "payment_id")) {
+		e->payment_id = tal(e, struct sha256);
+		db_col_sha256(stmt, "payment_id", e->payment_id);
+	} else
+		e->payment_id = NULL;
 	e->part_id = db_col_int(stmt, "part_id");
 	e->timestamp = db_col_u64(stmt, "timestamp");
 
@@ -629,7 +633,10 @@ void log_channel_event(struct db *db,
 	db_bind_amount_msat(stmt, 3, &e->debit);
 	db_bind_amount_msat(stmt, 4, &e->fees);
 	db_bind_text(stmt, 5, e->currency);
-	db_bind_sha256(stmt, 6, &e->payment_id);
+	if (e->payment_id)
+		db_bind_sha256(stmt, 6, e->payment_id);
+	else
+		db_bind_null(stmt, 6);
 	db_bind_int(stmt, 7, e->part_id);
 	db_bind_u64(stmt, 8, e->timestamp);
 
@@ -956,7 +963,11 @@ void log_chain_event(struct db *db,
 	db_bind_int(stmt, 7, e->blockheight);
 	db_bind_txid(stmt, 8, &e->outpoint.txid);
 	db_bind_int(stmt, 9, e->outpoint.n);
-	db_bind_sha256(stmt, 10, e->payment_id);
+
+	if (e->payment_id)
+		db_bind_sha256(stmt, 10, e->payment_id);
+	else
+		db_bind_null(stmt, 10);
 
 	if (e->spending_txid)
 		db_bind_txid(stmt, 11, e->spending_txid);
