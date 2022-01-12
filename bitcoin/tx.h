@@ -57,7 +57,7 @@ void wally_txid(const struct wally_tx *wtx, struct bitcoin_txid *txid);
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 u8 *linearize_wtx(const tal_t *ctx, const struct wally_tx *wtx);
 
-/* Get weight of tx in Sipa. */
+/* Get weight of tx in Sipa; assumes it will have witnesses! */
 size_t bitcoin_tx_weight(const struct bitcoin_tx *tx);
 size_t wally_tx_weight(const struct wally_tx *wtx);
 

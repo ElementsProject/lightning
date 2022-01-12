@@ -457,7 +457,18 @@ size_t wally_tx_weight(const struct wally_tx *wtx)
 
 size_t bitcoin_tx_weight(const struct bitcoin_tx *tx)
 {
-	return wally_tx_weight(tx->wtx);
+	size_t extra;
+	size_t num_witnesses;
+
+	/* If we don't have witnesses *yet*, libwally doesn't encode
+	 * in BIP 141 style, omitting the flag and marker bytes */
+	wally_tx_get_witness_count(tx->wtx, &num_witnesses);
+	if (num_witnesses == 0)
+		extra = 2;
+	else
+		extra = 0;
+
+	return extra + wally_tx_weight(tx->wtx);
 }
 
 void wally_txid(const struct wally_tx *wtx, struct bitcoin_txid *txid)
