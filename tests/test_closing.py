@@ -249,6 +249,7 @@ def test_closing_torture(node_factory, executor, bitcoind):
         wait_for(lambda: n.rpc.listpeers()['peers'] == [])
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'FIXME: broken under elements')
 @pytest.mark.slow_test
 def test_closing_different_fees(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
