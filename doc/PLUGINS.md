@@ -705,8 +705,8 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` only, optional)
 		"utxo_txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` only)
 		"vout":1, // (`chain_mvt` only)
-		"payment_hash": "xxx", // (either type, optional on `chain_mvt`)
-		"part_id": 0, // (`channel_mvt` only, mandatory)
+		"payment_hash": "xxx", // (either type, optional on both)
+		"part_id": 0, // (`channel_mvt` only, optional)
 		"credit":"2000000000msat",
 		"debit":"0msat",
 		"output_value": "2000000000msat", // ('chain_mvt' only)
