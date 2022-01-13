@@ -1,6 +1,4 @@
 # Dependencies required to build and test c-lightning
-
-mistune ~= 0.8.4
 mrkd ~= 0.1.6
 Mako ~= 1.1.3
 flake8 ~= 3.7.8
