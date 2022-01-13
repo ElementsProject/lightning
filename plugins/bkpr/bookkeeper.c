@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/coin_mvt.h>
@@ -13,6 +14,7 @@
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
+#include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
 
@@ -24,6 +26,158 @@ static struct db *db ;
 
 // FIXME: make relative to directory we're loaded into
 static char *db_dsn = "sqlite3://accounts.sqlite3";
+
+static void json_add_channel_event(struct json_stream *out,
+				   struct channel_event *ev)
+{
+	json_object_start(out, NULL);
+	json_add_string(out, "account", ev->acct_name);
+	json_add_string(out, "type", "channel");
+	json_add_string(out, "tag", ev->tag);
+	json_add_amount_msat_only(out, "credit", ev->credit);
+	json_add_amount_msat_only(out, "debit", ev->debit);
+	json_add_string(out, "currency", ev->currency);
+	if (ev->payment_id)
+		json_add_sha256(out, "payment_id", ev->payment_id);
+	json_add_u64(out, "timestamp", ev->timestamp);
+	json_object_end(out);
+}
+
+static void json_add_chain_event(struct json_stream *out,
+				 struct chain_event *ev)
+{
+	json_object_start(out, NULL);
+	json_add_string(out, "account", ev->acct_name);
+	json_add_string(out, "type", "chain");
+	json_add_string(out, "tag", ev->tag);
+	json_add_amount_msat_only(out, "credit", ev->credit);
+	json_add_amount_msat_only(out, "debit", ev->debit);
+	json_add_string(out, "currency", ev->currency);
+	json_add_outpoint(out, "outpoint", &ev->outpoint);
+	if (ev->spending_txid)
+		json_add_txid(out, "txid", ev->spending_txid);
+	if (ev->payment_id)
+		json_add_sha256(out, "payment_id", ev->payment_id);
+	json_add_u64(out, "timestamp", ev->timestamp);
+	json_add_u32(out, "blockheight", ev->blockheight);
+	json_object_end(out);
+}
+
+static void json_add_onchain_fee(struct json_stream *out,
+				 struct onchain_fee *fee)
+{
+	json_object_start(out, NULL);
+	json_add_string(out, "account", fee->acct_name);
+	json_add_string(out, "type", "onchain_fee");
+	json_add_string(out, "tag", "onchain_fee");
+	json_add_amount_msat_only(out, "credit", fee->credit);
+	json_add_amount_msat_only(out, "debit", fee->debit);
+	json_add_string(out, "currency", fee->currency);
+	json_add_u64(out, "timestamp", fee->timestamp);
+	json_add_txid(out, "txid", &fee->txid);
+	json_object_end(out);
+}
+
+/* Find all the events for this account, ordered by timestamp */
+static struct command_result *json_list_account_events(struct command *cmd,
+						       const char *buf,
+						       const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct account *acct;
+	const char *acct_name;
+	struct channel_event **channel_events;
+	struct chain_event **chain_events;
+	struct onchain_fee **onchain_fees;
+
+	if (!param(cmd, buf, params,
+		   p_opt("account", param_string, &acct_name),
+		   NULL))
+		return command_param_failed();
+
+	if (acct_name) {
+		db_begin_transaction(db);
+		acct = find_account(cmd, db, acct_name);
+		db_commit_transaction(db);
+
+		if (!acct)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Account '%s' not found",
+					    acct_name);
+	} else
+		acct = NULL;
+
+	db_begin_transaction(db);
+	if (acct) {
+		channel_events = account_get_channel_events(cmd, db, acct);
+		chain_events = account_get_chain_events(cmd, db, acct);
+		onchain_fees = account_get_chain_fees(cmd, db, acct);
+	} else {
+		channel_events = list_channel_events(cmd, db);
+		chain_events = list_chain_events(cmd, db);
+		onchain_fees = list_chain_fees(cmd, db);
+	}
+	db_commit_transaction(db);
+
+	res = jsonrpc_stream_success(cmd);
+	json_array_start(res, "events");
+	for (size_t i = 0, j = 0, k = 0;
+	     i < tal_count(channel_events)
+	     || j < tal_count(chain_events)
+	     || k < tal_count(onchain_fees);
+	     /* Incrementing happens inside loop */) {
+		struct channel_event *chan;
+		struct chain_event *chain;
+		struct onchain_fee *fee;
+		u64 lowest = 0;
+
+		if (i < tal_count(channel_events))
+			chan = channel_events[i];
+		else
+			chan = NULL;
+		if (j < tal_count(chain_events))
+			chain = chain_events[j];
+		else
+			chain = NULL;
+		if (k < tal_count(onchain_fees))
+			fee = onchain_fees[k];
+		else
+			fee = NULL;
+
+		if (chan)
+			lowest = chan->timestamp;
+
+		if (chain
+		    && (lowest == 0 || lowest > chain->timestamp))
+			lowest = chain->timestamp;
+
+		if (fee
+		    && (lowest == 0 || lowest > fee->timestamp))
+			lowest = fee->timestamp;
+
+		/* channel events first, then chain events, then fees.
+		 * (channel events contain journal entries, which
+		 * are the starting balance for accounts created
+		 * before the accountant plugin was installed) */
+		if (chan && chan->timestamp == lowest) {
+			json_add_channel_event(res, chan);
+			i++;
+			continue;
+		}
+
+		if (chain && chain->timestamp == lowest) {
+			json_add_chain_event(res, chain);
+			j++;
+			continue;
+		}
+
+		/* Last thing left is the fee */
+		json_add_onchain_fee(res, fee);
+		k++;
+	}
+	json_array_end(res);
+	return command_finished(cmd, res);
+}
 
 static struct command_result *json_list_balances(struct command *cmd,
 						 const char *buf,
@@ -870,6 +1024,14 @@ static const struct plugin_command commands[] = {
 		"List current account balances",
 		"List of current accounts and their balances",
 		json_list_balances
+	},
+	{
+		"listaccountevents",
+		"bookkeeping",
+		"List all events for an {account}",
+		"List all events for an {account} (or all accounts, if"
+		" no account specified) in {format}. Sorted by timestamp",
+		json_list_account_events
 	},
 };
 
