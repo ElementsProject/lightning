@@ -235,6 +235,10 @@
                   "type": "txid",
                   "description": "ID of the funding transaction"
                 },
+                "funding_outnum": {
+                  "type": "u32",
+                  "description": "The 0-based output number of the funding transaction which opens the channel"
+                },
                 "initial_feerate": {
                   "type": "string",
                   "description": "For inflight opens, the first feerate used to initiate the channel open"
@@ -741,6 +745,7 @@
                       "short_channel_id": {},
                       "channel_id": {},
                       "funding_txid": {},
+                      "funding_outnum": {},
                       "close_to": {},
                       "private": {},
                       "opener": {},
@@ -826,6 +831,7 @@
                       "short_channel_id": {},
                       "channel_id": {},
                       "funding_txid": {},
+                      "funding_outnum": {},
                       "inflight": {},
                       "close_to": {},
                       "private": {},
@@ -913,6 +919,7 @@
                       "short_channel_id": {},
                       "channel_id": {},
                       "funding_txid": {},
+                      "funding_outnum": {},
                       "inflight": {},
                       "close_to": {},
                       "private": {},
@@ -1000,6 +1007,7 @@
                       "short_channel_id": {},
                       "channel_id": {},
                       "funding_txid": {},
+                      "funding_outnum": {},
                       "close_to": {},
                       "private": {},
                       "opener": {},
