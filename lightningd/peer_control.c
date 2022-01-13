@@ -656,6 +656,7 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &channel->cid));
 	json_add_txid(response, "funding_txid", &channel->funding.txid);
+	json_add_num(response, "funding_outnum", channel->funding.n);
 
 	if (!list_empty(&channel->inflights)) {
 		struct channel_inflight *initial, *inflight;

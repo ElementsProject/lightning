@@ -55,6 +55,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **short_channel_id** (short_channel_id, optional): The short_channel_id (once locked in)
   - **channel_id** (hex, optional): The full channel_id (always 64 characters)
   - **funding_txid** (txid, optional): ID of the funding transaction
+  - **funding_outnum** (u32, optional): The 0-based output number of the funding transaction which opens the channel
   - **initial_feerate** (string, optional): For inflight opens, the first feerate used to initiate the channel open
   - **last_feerate** (string, optional): For inflight opens, the most recent feerate used on the channel open
   - **next_feerate** (string, optional): For inflight opens, the next feerate we'll use for the channel open
@@ -376,4 +377,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:956a13291bebc808bf1505a5d2030280aca441c5ca9991a6baae70c8715429a4)
+[comment]: # ( SHA256STAMP:444080f602bbce7d86bc7c38a4a2b1186a31c63d6b747d92c5aa4711dd9118c1)
