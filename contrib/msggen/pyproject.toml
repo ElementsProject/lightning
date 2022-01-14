@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "msggen"
+version = "0.1.0"
+description = "A utility to transform wire messages and JSON-RPC messages to arbitrary target languages."
+authors = ["Christian Decker <decker@blockstream.com>"]
+license = "BSD-MIT"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+msggen = 'msggen.__main__:run'
