@@ -1,0 +1,19 @@
+[package]
+name = "cln-rpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.51"
+bytes = "1.1.0"
+log = "0.4.14"
+serde = { version = "1.0.131", features = ["derive"] }
+serde_json = "1.0.72"
+tokio-util = { version = "0.6.9", features = ["codec"] }
+tokio = { version = "1", features = ["net"]}
+native-tls = { version = "*", features = ["vendored"] }
+futures-util = { version = "*", features = [ "sink" ] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["net", "macros", "rt-multi-thread"]}
+env_logger = "*"
