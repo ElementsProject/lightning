@@ -355,7 +355,7 @@ ifneq ($(FUZZING),0)
 	include tests/fuzz/Makefile
 endif
 ifneq ($(RUST),0)
-# Add Rust Makefiles here
+	include cln-rpc/Makefile
 endif
 
 # We make pretty much everything depend on these.
