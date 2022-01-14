@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [],
+  "additionalProperties": false,
+  "properties": {
+    "spent": {
+      "type": "boolean",
+      "description": "Should outputs that are already spent be included in the result?"
+    }
+  }
+}
