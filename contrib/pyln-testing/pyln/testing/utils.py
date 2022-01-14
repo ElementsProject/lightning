@@ -781,22 +781,15 @@ class LightningNode(object):
 
         self.rpc.connect(remote_node.info['id'], 'localhost', remote_node.port)
 
-        # Make sure the fundchannel is confirmed.
-        num_tx = len(self.bitcoin.rpc.getrawmempool())
         res = self.rpc.fundchannel(remote_node.info['id'], chan_capacity, feerate='slow', minconf=0, announce=announce, push_msat=Millisatoshi(chan_capacity * 500))
-        wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
-        blockid = self.bitcoin.generate_block(1)[0]
+        blockid = self.bitcoin.generate_block(1, wait_for_mempool=res['txid'])[0]
 
         # Generate the scid.
-        outnum = get_tx_p2wsh_outnum(self.bitcoin, res['tx'], total_capacity)
-        if outnum is None:
-            raise ValueError("no outnum found. capacity {} tx {}".format(total_capacity, res['tx']))
-
         for i, txid in enumerate(self.bitcoin.rpc.getblock(blockid)['tx']):
             if txid == res['txid']:
                 txnum = i
 
-        return '{}x{}x{}'.format(self.bitcoin.rpc.getblockcount(), txnum, outnum)
+        return '{}x{}x{}'.format(self.bitcoin.rpc.getblockcount(), txnum, res['outnum'])
 
     def getactivechannels(self):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
@@ -897,8 +890,7 @@ class LightningNode(object):
         res = self.rpc.fundchannel(l2.info['id'], amount,
                                    announce=announce_channel,
                                    **kwargs)
-        wait_for(lambda: res['txid'] in self.bitcoin.rpc.getrawmempool())
-        blockid = self.bitcoin.generate_block(1)[0]
+        blockid = self.bitcoin.generate_block(1, wait_for_mempool=res['txid'])[0]
 
         for i, txid in enumerate(self.bitcoin.rpc.getblock(blockid)['tx']):
             if txid == res['txid']:
