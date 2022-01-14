@@ -3,6 +3,10 @@ name = "cln-rpc"
 version = "0.1.0"
 edition = "2021"
 
+[[example]]
+name = "cln-rpc-getinfo"
+path = "examples/getinfo.rs"
+
 [dependencies]
 anyhow = "1.0.51"
 bytes = "1.1.0"
