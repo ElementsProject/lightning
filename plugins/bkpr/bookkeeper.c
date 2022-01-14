@@ -10,10 +10,11 @@
 #include <common/memleak.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
-#include <plugins/bkpr/db.h>
 #include <plugins/bkpr/account.h>
+#include <plugins/bkpr/account_entry.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
+#include <plugins/bkpr/db.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
@@ -286,7 +287,7 @@ static bool new_missed_channel_account(struct command *cmd,
 				continue;
 
 			chain_ev = tal(cmd, struct chain_event);
-			chain_ev->tag = "channel_open";
+			chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
 			chain_ev->credit = amt;
 			chain_ev->debit = AMOUNT_MSAT(0);
 			chain_ev->output_value = AMOUNT_MSAT(0);
@@ -404,7 +405,8 @@ static void log_journal_entry(struct account *acct,
 		return;
 
 	chan_ev = new_channel_event(tmpctx,
-				    tal_fmt(tmpctx, "journal_entry"),
+				    tal_fmt(tmpctx, "%s",
+					    account_entry_tag_str(JOURNAL_ENTRY)),
 				    credit_diff,
 				    debit_diff,
 				    AMOUNT_MSAT(0),
@@ -694,7 +696,8 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			}
 
 			ev = new_channel_event(cmd,
-					       tal_fmt(tmpctx, "journal_entry"),
+					       tal_fmt(tmpctx, "%s",
+						       account_entry_tag_str(JOURNAL_ENTRY)),
 					       credit_diff,
 					       debit_diff,
 					       AMOUNT_MSAT(0),

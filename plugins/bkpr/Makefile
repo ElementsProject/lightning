@@ -2,6 +2,7 @@
 
 BOOKKEEPER_PLUGIN_SRC := 			\
 	plugins/bkpr/account.c			\
+	plugins/bkpr/account_entry.c		\
 	plugins/bkpr/bookkeeper.c		\
 	plugins/bkpr/channel_event.c		\
 	plugins/bkpr/db.c			\
@@ -14,6 +15,7 @@ BOOKKEEPER_DB_QUERIES := 			\
 BOOKKEEPER_SRC := $(BOOKKEEPER_PLUGIN_SRC) $(BOOKKEEPER_DB_QUERIES)
 BOOKKEEPER_HEADER := 				\
 	plugins/bkpr/account.h			\
+	plugins/bkpr/account_entry.h		\
 	plugins/bkpr/chain_event.h		\
 	plugins/bkpr/channel_event.h		\
 	plugins/bkpr/db.h			\
