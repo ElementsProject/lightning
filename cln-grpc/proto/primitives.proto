@@ -1,0 +1,33 @@
+syntax = "proto3";
+package cln;
+
+message Amount {
+	oneof unit {
+		uint64 millisatoshi = 1;
+		uint64 satoshi = 2;
+		uint64 bitcoin = 3;
+		bool all = 4;
+		bool any = 5;
+	}
+}
+
+enum ChannelSide {
+	IN = 0;
+	OUT = 1;
+}
+
+enum ChannelState {
+	Openingd = 0;
+	ChanneldAwaitingLockin = 1;
+	ChanneldNormal = 2;
+	ChanneldShuttingDown = 3;
+	ClosingdSigexchange = 4;
+	ClosingdComplete = 5;
+	AwaitingUnilateral = 6;
+	FundingSpendSeen = 7;
+	Onchain = 8;
+	DualopendOpenInit = 9;
+	DualopendAwaitingLockin = 10;
+}
+
+message ChannelStateChangeCause {}

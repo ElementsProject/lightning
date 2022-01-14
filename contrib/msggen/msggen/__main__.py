@@ -1,4 +1,5 @@
 from msggen.model import Method, CompositeField, Service
+from msggen.grpc import GrpcGenerator
 from msggen.rust import RustGenerator
 from pathlib import Path
 import subprocess
@@ -125,6 +126,12 @@ def load_jsonrpc_service():
     return service
 
 
+def gengrpc(service):
+    """Load all mapped RPC methods, wrap them in a Service, and split them into messages.
+    """
+    fname = repo_root() / "cln-grpc" / "proto" / "node.proto"
+    dest = open(fname, "w")
+    GrpcGenerator(dest).generate(service)
 def genrustjsonrpc(service):
     fname = repo_root() / "cln-rpc" / "src" / "model.rs"
     dest = open(fname, "w")
@@ -133,6 +140,7 @@ def genrustjsonrpc(service):
 
 def run():
     service = load_jsonrpc_service()
+    gengrpc(service)
     genrustjsonrpc(service)
 
 
