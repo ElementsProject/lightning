@@ -123,8 +123,8 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "events");
 	for (size_t i = 0, j = 0, k = 0;
-	     i < tal_count(channel_events)
-	     || j < tal_count(chain_events)
+	     i < tal_count(chain_events)
+	     || j < tal_count(channel_events)
 	     || k < tal_count(onchain_fees);
 	     /* Incrementing happens inside loop */) {
 		struct channel_event *chan;
@@ -132,42 +132,39 @@ static struct command_result *json_list_account_events(struct command *cmd,
 		struct onchain_fee *fee;
 		u64 lowest = 0;
 
-		if (i < tal_count(channel_events))
-			chan = channel_events[i];
-		else
-			chan = NULL;
-		if (j < tal_count(chain_events))
-			chain = chain_events[j];
+		if (i < tal_count(chain_events))
+			chain = chain_events[i];
 		else
 			chain = NULL;
+		if (j < tal_count(channel_events))
+			chan = channel_events[j];
+		else
+			chan = NULL;
 		if (k < tal_count(onchain_fees))
 			fee = onchain_fees[k];
 		else
 			fee = NULL;
 
-		if (chan)
-			lowest = chan->timestamp;
-
-		if (chain
-		    && (lowest == 0 || lowest > chain->timestamp))
+		if (chain)
 			lowest = chain->timestamp;
+
+		if (chan
+		    && (lowest == 0 || lowest > chan->timestamp))
+			lowest = chan->timestamp;
 
 		if (fee
 		    && (lowest == 0 || lowest > fee->timestamp))
 			lowest = fee->timestamp;
 
-		/* channel events first, then chain events, then fees.
-		 * (channel events contain journal entries, which
-		 * are the starting balance for accounts created
-		 * before the accountant plugin was installed) */
-		if (chan && chan->timestamp == lowest) {
-			json_add_channel_event(res, chan);
+		/* chain events first, then channel events, then fees. */
+		if (chain && chain->timestamp == lowest) {
+			json_add_chain_event(res, chain);
 			i++;
 			continue;
 		}
 
-		if (chain && chain->timestamp == lowest) {
-			json_add_chain_event(res, chain);
+		if (chan && chan->timestamp == lowest) {
+			json_add_channel_event(res, chan);
 			j++;
 			continue;
 		}
