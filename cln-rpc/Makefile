@@ -1,7 +1,7 @@
 cln-rpc-wrongdir:
 	$(MAKE) -C .. cln-rpc-all
 
-CLN_RPC_EXAMPLES :=
+CLN_RPC_EXAMPLES := target/debug/examples/cln-rpc-getinfo
 CLN_RPC_GENALL = cln-rpc/src/model.rs
 CLN_RPC_SOURCES = $(shell find cln-rpc -name *.rs) ${CLN_RPC_GENALL}
 JSON_SCHEMA = doc/schemas/*.schema.json

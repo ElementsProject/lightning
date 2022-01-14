@@ -422,7 +422,7 @@ else
 endif
 endif
 
-pytest: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS)
+pytest: $(ALL_PROGRAMS) $(DEFAULT_TARGETS) $(ALL_TEST_PROGRAMS)
 ifeq ($(PYTEST),)
 	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."
 	exit 1
