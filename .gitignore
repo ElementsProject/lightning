@@ -64,3 +64,7 @@ doc/lightning*.[1578]
 # Ignore unrelated stuff
 .DS_Store
 .gdb_history
+
+# Rust targets
+target
+Cargo.lock
