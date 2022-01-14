@@ -1,0 +1,153 @@
+# A grpc model
+from .model import ArrayField, Field, CompositeField, EnumField, PrimitiveField, Service
+from typing import TextIO, List
+from textwrap import indent, dedent
+import re
+import logging
+
+
+typemap = {
+    'boolean': 'bool',
+    'hex': 'bytes',
+    'msat': 'Amount',
+    'number': 'i64',
+    'pubkey': 'bytes',
+    'short_channel_id': 'string',
+    'signature': 'bytes',
+    'string': 'string',
+    'txid': 'bytes',
+    'u8': 'uint32',  # Yep, this is the smallest integer type in grpc...
+    'u32': 'uint32',
+    'u64': 'uint64',
+    'u16': 'uint32',  # Yeah, I know...
+}
+
+
+# Manual overrides for some of the auto-generated types for paths
+overrides = {
+    'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
+    'ListPeers.peers[].channels[].state_changes[].new_state': "ChannelState",
+    'ListPeers.peers[].channels[].state_changes[].cause': "ChannelStateChangeCause",
+    'ListPeers.peers[].channels[].opener': "ChannelSide",
+    'ListPeers.peers[].channels[].closer': "ChannelSide",
+    'ListPeers.peers[].channels[].features[]': "string",
+    'ListFunds.channels[].state': 'ChannelState',
+}
+
+
+class GrpcGenerator:
+    """A generator that generates protobuf files.
+    """
+
+    def __init__(self, dest: TextIO):
+        self.dest = dest
+        self.logger = logging.getLogger("msggen.grpc.GrpcGenerator")
+
+    def write(self, text: str, cleanup: bool = True) -> None:
+        if cleanup:
+            self.dest.write(dedent(text))
+        else:
+            self.dest.write(text)
+
+    def gather_types(self, service):
+        """Gather all types that might need to be defined.
+        """
+
+        def gather_subfields(field: Field) -> List[Field]:
+            fields = [field]
+
+            if isinstance(field, CompositeField):
+                for f in field.fields:
+                    fields.extend(gather_subfields(f))
+            elif isinstance(field, ArrayField):
+                fields = []
+                fields.extend(gather_subfields(field.itemtype))
+
+            return fields
+
+        types = []
+        for method in service.methods:
+            types.extend([method.request, method.response])
+            for field in method.request.fields:
+                types.extend(gather_subfields(field))
+            for field in method.response.fields:
+                types.extend(gather_subfields(field))
+        return types
+
+    def generate_service(self, service: Service) -> None:
+        self.write(f"""
+        service {service.name} {{
+        """)
+
+        for method in service.methods:
+            self.write(
+                f"	rpc {method.name}({method.request.typename}) returns ({method.response.typename}) {{}}\n",
+                cleanup=False,
+            )
+
+        self.write(f"""}}
+        """)
+
+    def generate_enum(self, e: EnumField, indent=0):
+        self.logger.debug(f"Generating enum {e}")
+        prefix = "\t" * indent
+        self.write(f"{prefix}// {e.path}\n", False)
+        self.write(f"{prefix}enum {e.typename} {{\n", False)
+
+        for i, v in enumerate(e.variants):
+            self.logger.debug(f"Generating enum variant {v}")
+            self.write(f"{prefix}\t{v.normalized()} = {i};\n", False)
+
+        self.write(f"""{prefix}}}\n""", False)
+
+    def generate_message(self, message: CompositeField):
+        self.write(f"""
+        message {message.typename} {{
+        """)
+
+        # Declare enums inline so they are scoped correctly in C++
+        for i, f in enumerate(message.fields):
+            if isinstance(f, EnumField) and f.path not in overrides.keys():
+                self.generate_enum(f, indent=1)
+
+        for i, f in enumerate(message.fields):
+            opt = "optional " if not f.required else ""
+            if isinstance(f, ArrayField):
+                typename = typemap.get(f.itemtype.typename, f.itemtype.typename)
+                if f.path in overrides:
+                    typename = overrides[f.path]
+                self.write(f"\trepeated {typename} {f.normalized()} = {i+1};\n", False)
+            elif isinstance(f, PrimitiveField):
+                typename = typemap.get(f.typename, f.typename)
+                if f.path in overrides:
+                    typename = overrides[f.path]
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i+1};\n", False)
+            elif isinstance(f, EnumField):
+                typename = f.typename
+                if f.path in overrides:
+                    typename = overrides[f.path]
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i+1};\n", False)
+
+        self.write(f"""}}
+        """)
+
+    def generate(self, service: Service) -> None:
+        """Generate the GRPC protobuf file and write to `dest`
+        """
+        self.write(f"""syntax = "proto3";\npackage cln;\n""")
+        self.write("""
+        // This file was automatically derived from the JSON-RPC schemas in
+        // `doc/schemas`. Do not edit this file manually as it would get
+        // overwritten.
+
+        """)
+
+        for i in service.includes:
+            self.write(f"import \"{i}\";\n")
+
+        self.generate_service(service)
+
+        fields = self.gather_types(service)
+
+        for message in [f for f in fields if isinstance(f, CompositeField)]:
+            self.generate_message(message)

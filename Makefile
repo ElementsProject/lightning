@@ -356,6 +356,7 @@ ifneq ($(FUZZING),0)
 endif
 ifneq ($(RUST),0)
 	include cln-rpc/Makefile
+	include cln-grpc/Makefile
 endif
 
 # We make pretty much everything depend on these.
