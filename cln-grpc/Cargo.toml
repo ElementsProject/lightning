@@ -1,0 +1,15 @@
+[package]
+name = "cln-grpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+cln-rpc = { path="../cln-rpc" }
+tonic = { version = "^0.5", features = ["tls", "transport"] }
+prost = "0.8"
+hex = "0.4.3"
+
+[build-dependencies]
+tonic-build = "^0.5"
