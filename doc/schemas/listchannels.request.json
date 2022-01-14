@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [],
+  "additionalProperties": false,
+  "properties": {
+    "short_channel_id": {
+      "type": "short_channel_id",
+      "description": "If short_channel_id is a short channel id, then only known channels with a matching short_channel_id are returned. Otherwise, it must be null."
+    },
+    "source": {
+      "type": "pubkey",
+      "description": "If source is a node id, then only channels leading from that node id are returned."
+    },
+    "destination": {
+      "type": "pubkey",
+      "description": "If destination is a node id, then only channels leading to that node id are returned."
+    }
+  }
+}
