@@ -78,5 +78,6 @@ int main(int argc, char *argv[])
 			tal_free(m);
 		}
 	}
+	printf("\n");
 	return 0;
 }

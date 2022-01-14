@@ -85,14 +85,18 @@ hexdump:
 static void printwire_addresses(const u8 **cursor, size_t *plen, size_t len)
 {
 	struct wireaddr addr;
+	size_t to_go = len;
+	const size_t len_ref = *plen;
 
 	printf("[");
-	while (*plen && fromwire_wireaddr(cursor, plen, &addr))
+	while (to_go && fromwire_wireaddr(cursor, plen, &addr)) {
+		to_go = len - (len_ref - *plen);
 		printf(" %s", fmt_wireaddr(NULL, &addr));
+	}
 	if (!*cursor)
 		return;
 
-	if (*plen != 0) {
+	if (to_go) {
 		printf(" UNKNOWN:");
 		if (!print_hexstring(cursor, plen, len))
 			return;
