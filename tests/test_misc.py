@@ -452,7 +452,7 @@ def test_bech32_funding(node_factory, chainparams):
     wallettxid = res['wallettxid']
 
     wallettx = l1.bitcoin.rpc.getrawtransaction(wallettxid, True)
-    fundingtx = l1.bitcoin.rpc.decoderawtransaction(res['fundingtx']['tx'])
+    fundingtx = l1.bitcoin.rpc.decoderawtransaction(res['fundingtx'])
 
     def is_p2wpkh(output):
         return output['type'] == 'witness_v0_keyhash' and \

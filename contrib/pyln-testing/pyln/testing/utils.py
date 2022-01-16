@@ -731,21 +731,16 @@ class LightningNode(object):
         if connect and not self.is_connected(remote_node):
             self.connect(remote_node)
 
-        fundingtx = self.rpc.fundchannel(remote_node.info['id'], capacity)
-
-        # Wait for the funding transaction to be in bitcoind's mempool
-        wait_for(lambda: fundingtx['txid'] in self.bitcoin.rpc.getrawmempool())
+        res = self.rpc.fundchannel(remote_node.info['id'], capacity)
 
         if confirm or wait_for_announce:
-            self.bitcoin.generate_block(1)
+            self.bitcoin.generate_block(1, wait_for_mempool=res['txid'])
 
         if wait_for_announce:
             self.bitcoin.generate_block(5)
+            wait_for(lambda: ['alias' in e for e in self.rpc.listnodes(remote_node.info['id'])['nodes']])
 
-        if confirm or wait_for_announce:
-            self.daemon.wait_for_log(
-                r'Funding tx {} depth'.format(fundingtx['txid']))
-        return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': fundingtx}
+        return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': res['tx']}
 
     def fundwallet(self, sats, addrtype="p2sh-segwit", mine_block=True):
         addr = self.rpc.newaddr(addrtype)[addrtype]
@@ -1360,7 +1355,7 @@ class NodeFactory(object):
         return node
 
     def join_nodes(self, nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, announce_channels=True) -> None:
-        """Given nodes, connect them in a line, optionally funding a channel"""
+        """Given nodes, connect them in a line, optionally funding a channel, wait_for_announce waits for channel and node announcements"""
         assert not (wait_for_announce and not announce_channels), "You've asked to wait for an announcement that's not coming. (wait_for_announce=True,announce_channels=False)"
         connections = [(nodes[i], nodes[i + 1]) for i in range(len(nodes) - 1)]
 
@@ -1386,10 +1381,8 @@ class NodeFactory(object):
         for src, dst in connections:
             txids.append(src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)['txid'])
 
-        wait_for(lambda: set(txids).issubset(set(bitcoind.rpc.getrawmempool())))
-
         # Confirm all channels and wait for them to become usable
-        bitcoind.generate_block(1)
+        bitcoind.generate_block(1, wait_for_mempool=txids)
         scids = []
         for src, dst in connections:
             wait_for(lambda: src.channel_state(dst) == 'CHANNELD_NORMAL')
