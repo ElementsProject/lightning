@@ -249,3 +249,58 @@ class GrpcConverterGenerator:
             raw = indent(text, "    " * numindent)
 
         self.dest.write(raw)
+
+
+class GrpcUnconverterGenerator(GrpcConverterGenerator):
+    """Generator to generate the conversions from GRPC to JSON-RPC (for requests).
+    """
+    def generate(self, service: Service):
+        self.generate_requests(service)
+
+    def generate_composite(self, prefix, field: CompositeField) -> None:
+        # First pass: generate any sub-fields before we generate the
+        # top-level field itself.
+        for f in field.fields:
+            if isinstance(f, ArrayField):
+                self.generate_array(prefix, f)
+
+        # And now we can convert the current field:
+        self.write(f"""\
+        #[allow(unused_variables)]
+        impl From<&pb::{field.typename}> for {prefix}::{field.typename} {{
+            fn from(c: &pb::{field.typename}) -> Self {{
+                Self {{
+        """)
+
+        for f in field.fields:
+            name = f.normalized()
+            if isinstance(f, ArrayField):
+                self.write(f"{name}: c.{name}.iter().map(|s| s.into()).collect(),\n", numindent=3)
+
+            elif isinstance(f, EnumField):
+                raise ValueError("enums from i32 are not implemented yet")
+
+            elif isinstance(f, PrimitiveField):
+                typ = f.typename + ("?" if not f.required else "")
+                # We may need to reduce or increase the size of some
+                # types, or have some conversion such as
+                # hex-decoding. Also includes the `Some()` that grpc
+                # requires for non-native types.
+                rhs = {
+                    'hex': f'hex::encode(&c.{name})',
+                    'txid?': f'c.{name}.clone().map(|v| hex::encode(v))',
+                    'pubkey': f'hex::encode(&c.{name})',
+                    'pubkey?': f'c.{name}.clone().map(|v| hex::encode(v))',
+                }.get(
+                    typ,
+                    f'c.{name}.clone()'  # default to just assignment
+                )
+                self.write(f"{name}: {rhs},\n", numindent=3)
+
+        self.write(f"""\
+                }}
+            }}
+        }}
+
+        """)
+
