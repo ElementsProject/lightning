@@ -168,3 +168,75 @@ impl From<&responses::CloseResponse> for pb::CloseResponse {
     }
 }
 
+#[allow(unused_variables)]
+impl From<&pb::GetinfoRequest> for requests::GetinfoRequest {
+    fn from(c: &pb::GetinfoRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::ListfundsRequest> for requests::ListfundsRequest {
+    fn from(c: &pb::ListfundsRequest) -> Self {
+        Self {
+            spent: c.spent.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::ListchannelsRequest> for requests::ListchannelsRequest {
+    fn from(c: &pb::ListchannelsRequest) -> Self {
+        Self {
+            short_channel_id: c.short_channel_id.clone(),
+            source: c.source.clone().map(|v| hex::encode(v)),
+            destination: c.destination.clone().map(|v| hex::encode(v)),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::AddgossipRequest> for requests::AddgossipRequest {
+    fn from(c: &pb::AddgossipRequest) -> Self {
+        Self {
+            message: hex::encode(&c.message),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::AutocleaninvoiceRequest> for requests::AutocleaninvoiceRequest {
+    fn from(c: &pb::AutocleaninvoiceRequest) -> Self {
+        Self {
+            expired_by: c.expired_by.clone(),
+            cycle_seconds: c.cycle_seconds.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::CheckmessageRequest> for requests::CheckmessageRequest {
+    fn from(c: &pb::CheckmessageRequest) -> Self {
+        Self {
+            message: c.message.clone(),
+            zbase: c.zbase.clone(),
+            pubkey: c.pubkey.clone().map(|v| hex::encode(v)),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::CloseRequest> for requests::CloseRequest {
+    fn from(c: &pb::CloseRequest) -> Self {
+        Self {
+            id: hex::encode(&c.id),
+            unilateraltimeout: c.unilateraltimeout.clone(),
+            destination: c.destination.clone(),
+            fee_negotiation_step: c.fee_negotiation_step.clone(),
+            wrong_funding: c.wrong_funding.clone().map(|v| hex::encode(v)),
+            force_lease_closed: c.force_lease_closed.clone(),
+        }
+    }
+}
+
