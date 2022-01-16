@@ -3,7 +3,8 @@ cln-grpc-wrongdir:
 
 CLN_GRPC_EXAMPLES :=
 CLN_GRPC_GENALL = cln-grpc/proto/node.proto \
-	cln-grpc/src/convert.rs
+	cln-grpc/src/convert.rs \
+	cln-grpc/src/server.rs
 
 DEFAULT_TARGETS += $(CLN_GRPC_EXAMPLES) $(CLN_GRPC_GENALL)
 

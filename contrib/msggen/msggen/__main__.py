@@ -1,5 +1,5 @@
 from msggen.model import Method, CompositeField, Service
-from msggen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator
+from msggen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.rust import RustGenerator
 from pathlib import Path
 import subprocess
@@ -137,6 +137,10 @@ def gengrpc(service):
     dest = open(fname, "w")
     GrpcConverterGenerator(dest).generate(service)
     GrpcUnconverterGenerator(dest).generate(service)
+
+    fname = repo_root() / "cln-grpc" / "src" / "server.rs"
+    dest = open(fname, "w")
+    GrpcServerGenerator(dest).generate(service)
 
 
 def genrustjsonrpc(service):
