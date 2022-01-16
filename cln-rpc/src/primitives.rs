@@ -62,6 +62,10 @@ impl Amount {
             msat: 100_000_000_000 * btc,
         }
     }
+
+    pub fn msat(&self) -> u64 {
+        self.msat
+    }
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]

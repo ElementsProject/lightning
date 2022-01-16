@@ -2,13 +2,7 @@ syntax = "proto3";
 package cln;
 
 message Amount {
-	oneof unit {
-		uint64 millisatoshi = 1;
-		uint64 satoshi = 2;
-		uint64 bitcoin = 3;
-		bool all = 4;
-		bool any = 5;
-	}
+	uint64 msat = 1;
 }
 
 enum ChannelSide {
