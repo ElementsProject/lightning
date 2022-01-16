@@ -304,3 +304,75 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
 
         """)
 
+
+class GrpcServerGenerator(GrpcConverterGenerator):
+    def generate(self, service: Service) -> None:
+        self.write(f"""\
+        use crate::pb::node_server::Node;
+        use crate::pb;
+        use cln_rpc::{{Request, Response, ClnRpc}};
+        use anyhow::Result;
+        use std::path::{{Path, PathBuf}};
+        use cln_rpc::model::requests;
+        use log::debug;
+        use crate::convert::*;
+        use tonic::{{Code, Status}};
+
+        #[derive(Clone)]
+        pub struct Server
+        {{
+            rpc_path: PathBuf,
+        }}
+
+        impl Server
+        {{
+            pub async fn new(path: &Path) -> Result<Self>
+            {{
+                Ok(Self {{
+                    rpc_path: path.to_path_buf(),
+                }})
+            }}
+        }}
+
+        #[tonic::async_trait]
+        impl Node for Server
+        {{
+        """)
+
+        for method in service.methods:
+            # Tonic will convert to snake-case, so we have to do it here too
+            name = re.sub(r'(?<!^)(?=[A-Z])', '_', method.name).lower()
+            self.write(f"""\
+            async fn {name}(
+                &self,
+                request: tonic::Request<pb::{method.request.typename}>,
+            ) -> Result<tonic::Response<pb::{method.response.typename}>, tonic::Status> {{
+                let req = request.into_inner();
+                let req: requests::{method.request.typename} = (&req).into();
+                debug!("Client asked for getinfo");
+                let mut rpc = ClnRpc::new(&self.rpc_path)
+                    .await
+                    .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+                let result = rpc.call(Request::{method.name}(req))
+                    .await
+                    .map_err(|e| Status::new(
+                       Code::Unknown,
+                       format!("Error calling method {method.name}: {{:?}}", e)))?;
+                match result {{
+                    Response::{method.name}(r) => Ok(
+                        tonic::Response::new((&r).into())
+                    ),
+                    r => Err(Status::new(
+                        Code::Internal,
+                        format!(
+                            "Unexpected result {{:?}} to method call {method.name}",
+                            r
+                        )
+                    )),
+                }}
+
+            }}\n\n""", numindent=0)
+
+        self.write(f"""\
+        }}
+        """, numindent=0)
