@@ -1,0 +1,25 @@
+[package]
+name = "cln-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "cln-plugin-startup"
+path = "examples/cln-plugin-startup.rs"
+
+[dependencies]
+anyhow = "1.0.51"
+bytes = "1.1.0"
+log = "0.4.14"
+serde = { version = "1.0.131", features = ["derive"] }
+serde_json = "1.0.72"
+tokio-util = { version = "0.6.9", features = ["codec"] }
+tokio = { version="1", features = ['io-std', 'rt'] }
+tokio-stream = "*"
+futures = "0.3"
+cln-rpc = { path = "../cln-rpc" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", ] }
+env_logger = "*"
+cln-grpc = { path = "../cln-grpc" }

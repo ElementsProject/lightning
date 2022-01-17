@@ -2,4 +2,5 @@
 members = [
   "cln-rpc",
   "cln-grpc",
+  "plugins",
 ]
