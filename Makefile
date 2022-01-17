@@ -227,6 +227,7 @@ WIRE_GEN_DEPS := $(WIRE_GEN) $(wildcard tools/gen/*_template)
 # These are filled by individual Makefiles
 ALL_PROGRAMS :=
 ALL_TEST_PROGRAMS :=
+ALL_TEST_GEN :=
 ALL_FUZZ_TARGETS :=
 ALL_C_SOURCES :=
 ALL_C_HEADERS := header_versions_gen.h version_gen.h
@@ -424,7 +425,7 @@ else
 endif
 endif
 
-pytest: $(ALL_PROGRAMS) $(DEFAULT_TARGETS) $(ALL_TEST_PROGRAMS)
+pytest: $(ALL_PROGRAMS) $(DEFAULT_TARGETS) $(ALL_TEST_PROGRAMS) $(ALL_TEST_GEN)
 ifeq ($(PYTEST),)
 	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."
 	exit 1
