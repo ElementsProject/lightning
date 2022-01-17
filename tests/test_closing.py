@@ -737,9 +737,9 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
     their blockheight, the lessor fails the channel
     '''
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100},
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100}]
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100}]
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -776,7 +776,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
-            'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+            'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'may_reconnect': True, 'plugin': coin_mvt_plugin}
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
@@ -884,7 +884,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     l2-l3: l2 leases funds from l3; l3 goes to chain unilaterally
     '''
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
-            'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+            'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'funder-lease-requests-only': False}
 
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
@@ -988,11 +988,11 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     '''
     balance_snaps = os.path.join(os.getcwd(), 'tests/plugins/balance_snaps.py')
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'allow_warning': True,
              'plugin': balance_snaps},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'allow_broken_log': True,
              'plugin': balance_snaps}]
     l1, l2, = node_factory.get_nodes(2, opts=opts)
@@ -1063,10 +1063,10 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     Check that lessor can recover funds if lessee cheats
     '''
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'allow_broken_log': True},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True}]
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000

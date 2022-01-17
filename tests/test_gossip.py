@@ -1066,7 +1066,7 @@ def test_gossip_addresses(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 def test_gossip_lease_rates(node_factory, bitcoind):
     lease_opts = {'lease-fee-basis': 50,
-                  'lease-fee-base-msat': '2000msat',
+                  'lease-fee-base-sat': '2000msat',
                   'channel-fee-max-base-msat': '500sat',
                   'channel-fee-max-proportional-thousandths': 200}
     l1, l2 = node_factory.get_nodes(2, opts=[lease_opts, {}])

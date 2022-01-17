@@ -13,6 +13,7 @@
         "funder-policy",
         "funder-policy-mod",
         "funder-reserve-tank",
+        "lease-fee-base-sat",
         "lease-fee-base-msat",
         "lease-fee-basis",
         "lease-funding-weight"

@@ -339,7 +339,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
-            'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+            'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'may_reconnect': True}
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 

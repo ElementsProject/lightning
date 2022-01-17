@@ -1259,7 +1259,7 @@ int main(int argc, char **argv)
 		    plugin_option("funder-fuzz-percent",
 				  "int",
 				  "Percent to fuzz the policy contribution by."
-				  " Defaults to 5%. Max is 100%",
+				  " Defaults to 0%. Max is 100%",
 				  u32_option,
 				  &current_policy->fuzz_factor),
 		    plugin_option("funder-fund-probability",
@@ -1276,7 +1276,12 @@ int main(int argc, char **argv)
 				  " being advertised",
 				  bool_option,
 				  &current_policy->leases_only),
-		    plugin_option("lease-fee-base-msat",
+		    plugin_option("lease-fee-base-sat",
+				  "string",
+				  "Channel lease rates, base fee for leased"
+				  " funds, in satoshi.",
+				  option_lease_fee_base, current_policy),
+		    plugin_option_deprecated("lease-fee-base-msat",
 				  "string",
 				  "Channel lease rates, base fee for leased"
 				  " funds, in satoshi.",
