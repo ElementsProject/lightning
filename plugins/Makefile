@@ -173,4 +173,14 @@ ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(foreach d,$(notdir $(PLUGINS)),\"$d\",) NULL };" > $@)
 
+CLN_PLUGIN_EXAMPLES := target/${RUST_PROFILE}/examples/cln-plugin-startup
+CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
+
+${CLN_PLUGIN_EXAMPLES}: ${CLN_PLUGIN_SRC}
+	(cd plugins; cargo build ${CARGO_OPTS} --examples)
+
+ifneq ($(RUST),0)
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES)
+endif
+
 include plugins/test/Makefile
