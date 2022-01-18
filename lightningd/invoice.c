@@ -39,7 +39,8 @@ static void json_add_invoice(struct json_stream *response,
 			     const struct invoice_details *inv)
 {
 	json_add_escaped_string(response, "label", inv->label);
-	json_add_invstring(response, inv->invstring);
+	if (inv->invstring)
+		json_add_invstring(response, inv->invstring);
 	json_add_sha256(response, "payment_hash", &inv->rhash);
 	if (inv->msat)
 		json_add_amount_msat_compat(response, *inv->msat,
