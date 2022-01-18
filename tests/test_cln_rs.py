@@ -1,9 +1,11 @@
 from fixtures import *  # noqa: F401,F403
+from node_pb2_grpc import NodeStub
 from pathlib import Path
 from pyln.testing.utils import env, TEST_NETWORK
-import subprocess
+import grpc
+import node_pb2 as nodepb
 import pytest
-
+import subprocess
 
 # Skip the entire module if we don't have Rust.
 pytestmark = pytest.mark.skipif(
@@ -26,6 +28,10 @@ def test_plugin_start(node_factory):
     bin_path = Path.cwd() / "target" / "debug" / "examples" / "cln-plugin-startup"
     l1 = node_factory.get_node(options={"plugin": str(bin_path), 'test-option': 31337})
     l2 = node_factory.get_node()
+
+    # The plugin should be in the list of active plugins
+    plugins = l1.rpc.plugin('list')['plugins']
+    assert len([p for p in plugins if 'cln-plugin-startup' in p['name'] and p['active']]) == 1
 
     cfg = l1.rpc.listconfigs()
     p = cfg['plugins'][0]
