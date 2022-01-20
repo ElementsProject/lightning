@@ -1,0 +1,27 @@
+[package]
+edition = "2021"
+name = "grpc-plugin"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+prost = "0.8"
+rcgen = { version = "0.8", features = ["pem", "x509-parser"] }
+
+[dependencies.cln-grpc]
+path = "../../cln-grpc"
+
+[dependencies.cln-plugin]
+path = "../../plugins"
+
+[dependencies.cln-rpc]
+path = "../../cln-rpc"
+
+[dependencies.tokio]
+features = ["net", "rt-multi-thread"]
+version = "1"
+
+[dependencies.tonic]
+features = ["tls", "transport"]
+version = "^0.5"
