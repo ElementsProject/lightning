@@ -5,10 +5,14 @@ use log::{debug, warn};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
+mod tls;
+
 #[derive(Clone, Debug)]
 struct PluginState {
     rpc_path: PathBuf,
     bind_address: SocketAddr,
+    identity: tls::Identity,
+    ca_cert: Vec<u8>,
 }
 
 #[tokio::main]
@@ -17,9 +21,14 @@ async fn main() -> Result<()> {
     let path = Path::new("lightning-rpc");
     let addr: SocketAddr = "0.0.0.0:50051".parse().unwrap();
 
+    let directory = std::env::current_dir()?;
+    let (identity, ca_cert) = tls::init(&directory)?;
+
     let state = PluginState {
         rpc_path: path.into(),
         bind_address: addr,
+        identity,
+        ca_cert,
     };
 
     let (plugin, i) = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout()).build();
@@ -38,7 +47,17 @@ async fn run_interface(state: PluginState) -> Result<()> {
         "Connecting to {:?} and serving grpc on {:?}",
         &state.rpc_path, &state.bind_address
     );
+
+    let identity = state.identity.to_tonic_identity();
+    let ca_cert = tonic::transport::Certificate::from_pem(state.ca_cert);
+
+    let tls = tonic::transport::ServerTlsConfig::new()
+        .identity(identity)
+        .client_ca_root(ca_cert);
+
     tonic::transport::Server::builder()
+        .tls_config(tls)
+        .context("configuring tls")?
         .add_service(NodeServer::new(
             cln_grpc::Server::new(&state.rpc_path)
                 .await
