@@ -112,7 +112,6 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 
 bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const struct channel_id *channel_id,
-				 bool soft_error,
 				 const u8 *msg TAKES)
 {
 	char *err;
@@ -150,8 +149,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 			goto handled;
 
 		/* We hang up when a warning is received. */
-		peer_failed_received_errmsg(pps, err, channel_id,
-					    soft_error || warning);
+		peer_failed_received_errmsg(pps, err, channel_id, warning);
 
 		goto handled;
 	}

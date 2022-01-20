@@ -136,7 +136,7 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 			wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
 			continue;
 		}
-		if (!handle_peer_gossip_or_error(pps, channel_id, false, msg))
+		if (!handle_peer_gossip_or_error(pps, channel_id, msg))
 			return msg;
 	}
 }
