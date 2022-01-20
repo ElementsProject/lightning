@@ -848,12 +848,9 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
 
     The misc_notifications.py plugin logs `channel_state_changed` events.
     """
-    # FIXME: We can get warnings from unilteral changes, since we treat
-    # such errors a soft because LND.
     opts = {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py"),
-            "allow_warning": True}
-    if EXPERIMENTAL_DUAL_FUND:
-        opts['may_reconnect'] = True
+            "allow_warning": True,
+            'may_reconnect': True}
 
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
@@ -906,7 +903,6 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event2['message'] == "Forcibly closed by `close` command timeout")
 
     # restart l1 now, it will reconnect and l2 will send it an error.
-    # FIXME: it should re-xmit shutdown, but it doesn't until it's mined :(
     l1.restart()
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 1)
     # check 'closer' on l2 while the peer is not yet forgotten
@@ -914,6 +910,16 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     if EXPERIMENTAL_DUAL_FUND:
         l1.daemon.wait_for_log(r'Peer has reconnected, state')
         l2.daemon.wait_for_log(r'Peer has reconnected, state')
+
+    # l1 will receive error, and go into AWAITING_UNILATERAL
+    # FIXME: l2 should re-xmit shutdown, but it doesn't until it's mined :(
+    event1 = wait_for_event(l1)
+    # Doesn't have closer, since it blames the "protocol"?
+    assert 'closer' not in l1.rpc.listpeers()['peers'][0]['channels'][0]
+    assert(event1['old_state'] == "CHANNELD_NORMAL")
+    assert(event1['new_state'] == "AWAITING_UNILATERAL")
+    assert(event1['cause'] == "protocol")
+    assert(event1['message'] == "channeld: received ERROR error channel {}: Forcibly closed by `close` command timeout".format(cid))
 
     # settle the channel closure
     bitcoind.generate_block(100)
@@ -933,53 +939,16 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     event1 = wait_for_event(l1)
     assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
 
-    # If l1 saw onchain first, it goes:
-    #   AWAITING_UNILATERAL
-    #   FUNDING_SPEND_SEEN
-    # otherwise, it gets a shutdown from remote, and goes:
-    #   CHANNELD_SHUTTING_DOWN
-    #   AWAITING_UNILATERAL
-    #   FUNDING_SPEND_SEEN
-    if event1['new_state'] == "CHANNELD_SHUTTING_DOWN":
-        # In this case, cause is always "remote".
-        assert(event1['old_state'] == "CHANNELD_NORMAL")
-        assert(event1['cause'] == "remote")
-        assert(event1['message'] == "Peer closes channel")
+    assert(event1['old_state'] == "AWAITING_UNILATERAL")
+    assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
+    assert(event1['cause'] == "onchain")
+    assert(event1['message'] == "Onchain funding spend")
 
-        event1 = wait_for_event(l1)
-        assert(event1['old_state'] == "CHANNELD_SHUTTING_DOWN")
-        assert(event1['new_state'] == "AWAITING_UNILATERAL")
-        assert(event1['message'] == "Funding transaction spent")
-
-        event1 = wait_for_event(l1)
-        assert(event1['old_state'] == "AWAITING_UNILATERAL")
-        assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
-        assert(event1['cause'] == "remote")
-        assert(event1['message'] == "Onchain funding spend")
-
-        event1 = wait_for_event(l1)
-        assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
-        assert(event1['new_state'] == "ONCHAIN")
-        assert(event1['cause'] == "remote")
-        assert(event1['message'] == "Onchain init reply")
-    else:
-        # In this case, cause is always "onchain".
-        assert(event1['old_state'] == "CHANNELD_NORMAL")
-        assert(event1['new_state'] == "AWAITING_UNILATERAL")
-        assert(event1['cause'] == "onchain")
-        assert(event1['message'] == "Funding transaction spent")
-
-        event1 = wait_for_event(l1)
-        assert(event1['old_state'] == "AWAITING_UNILATERAL")
-        assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
-        assert(event1['cause'] == "onchain")
-        assert(event1['message'] == "Onchain funding spend")
-
-        event1 = wait_for_event(l1)
-        assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
-        assert(event1['new_state'] == "ONCHAIN")
-        assert(event1['cause'] == "onchain")
-        assert(event1['message'] == "Onchain init reply")
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
+    assert(event1['new_state'] == "ONCHAIN")
+    assert(event1['cause'] == "onchain")
+    assert(event1['message'] == "Onchain init reply")
 
 
 @pytest.mark.openchannel('v1')
