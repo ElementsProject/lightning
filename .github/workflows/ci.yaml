@@ -221,6 +221,7 @@ jobs:
           PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
           PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
           NETWORK: ${{ matrix.NETWORK }}
+          TEST_CHECK_DBSTMTS: ${{ matrix.TEST_CHECK_DBSTMTS }}
           TEST_CMD: ${{ matrix.TEST_CMD }}
           TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
           TEST_GROUP: ${{ matrix.TEST_GROUP }}
