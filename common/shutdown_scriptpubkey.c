@@ -2,8 +2,6 @@
 #include <bitcoin/script.h>
 #include <common/shutdown_scriptpubkey.h>
 
-#include <stdio.h>
-
 /* BOLT #2:
  * 5. if (and only if) `option_shutdown_anysegwit` is negotiated:
  *      * `OP_1` through `OP_16` inclusive, followed by a single
@@ -36,19 +34,14 @@ static bool is_valid_witnessprog(const u8 *scriptpubkey)
 	case OP_16:
 		break;
 	default:
-		fprintf(stderr, "op = %u (invalid)\n", scriptpubkey[0]);
 		return false;
 	}
 
 	pushlen = scriptpubkey[1];
 	/* Must be all of the rest of scriptpubkey */
 	if (2 + pushlen != tal_bytelen(scriptpubkey)) {
-		fprintf(stderr, "2 + %zu != %zu\n", pushlen, tal_bytelen(scriptpubkey));
 		return false;
 	}
-
-	if (!(pushlen >= 2 && pushlen <= 40))
-		fprintf(stderr, "pushlen == %zu\n", pushlen);
 
 	return pushlen >= 2 && pushlen <= 40;
 }
