@@ -58,7 +58,6 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
  * handle_peer_gossip_or_error - simple handler for all the above cases.
  * @pps: per-peer state.
  * @channel_id: the channel id of the current channel.
- * @soft_error: tell lightningd that incoming error is non-fatal.
  * @msg: the peer message (only taken if returns true).
  *
  * This returns true if it handled the packet: a gossip packet (forwarded
@@ -67,7 +66,6 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
  */
 bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const struct channel_id *channel_id,
-				 bool soft_error,
 				 const u8 *msg TAKES);
 
 /**

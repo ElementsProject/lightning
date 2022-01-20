@@ -1272,7 +1272,7 @@ static u8 *handle_peer_in(struct state *state)
 
 	/* Handles standard cases, and legal unknown ones. */
 	if (handle_peer_gossip_or_error(state->pps,
-					&state->channel_id, false, msg))
+					&state->channel_id, msg))
 		return NULL;
 
 	extracted = extract_channel_id(msg, &channel_id);

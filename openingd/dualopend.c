@@ -3540,8 +3540,6 @@ static void do_reconnect_dance(struct state *state)
 	peer_write(state->pps, take(msg));
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
-	bool soft_error = state->funding_locked[REMOTE]
-		|| state->funding_locked[LOCAL];
 
 	/* Read until they say something interesting (don't forward
 	 * gossip *to* them yet: we might try sending channel_update
@@ -3552,7 +3550,7 @@ static void do_reconnect_dance(struct state *state)
 	} while (dualopend_handle_custommsg(msg)
 		 || handle_peer_gossip_or_error(state->pps,
 						&state->channel_id,
-						soft_error, msg));
+						msg));
 
 	if (!fromwire_channel_reestablish
 			(msg, &cid,
@@ -3768,7 +3766,7 @@ static u8 *handle_peer_in(struct state *state)
 
 	/* Handles standard cases, and legal unknown ones. */
 	if (handle_peer_gossip_or_error(state->pps,
-					&state->channel_id, false, msg))
+					&state->channel_id, msg))
 		return NULL;
 
 	peer_write(state->pps,
