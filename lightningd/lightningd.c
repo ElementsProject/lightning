@@ -713,7 +713,7 @@ static void on_sigchild(int _ UNUSED)
 	 * __attribute__((warn_unused_result)) means we have to
 	 * "catch" the return value. */
         if (write(sigchld_wfd, "", 1) != 1) {
-		if (errno != EAGAIN && errno == EWOULDBLOCK) {
+		if (errno != EAGAIN && errno != EWOULDBLOCK) {
 			/* Should not call this in a signal handler, but we're
 			 * already messed up! */
 			fatal("on_sigchild: write errno %s", strerror(errno));
