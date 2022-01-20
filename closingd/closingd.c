@@ -14,7 +14,6 @@
 #include <common/peer_io.h>
 #include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
-#include <common/socket_close.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -1097,10 +1096,7 @@ exit_thru_the_giftshop:
 #endif
 
 	/* We're done! */
-	/* Properly close the channel first. */
-	if (!socket_close(pps->peer_fd))
-		status_unusual("Closing and draining peerfd gave error: %s",
-			       strerror(errno));
+
 	/* Sending the below will kill us! */
 	wire_sync_write(REQ_FD, take(towire_closingd_complete(NULL)));
 	tal_free(ctx);

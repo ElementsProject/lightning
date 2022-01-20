@@ -76,7 +76,6 @@ COMMON_SRC_NOGEN :=				\
 	common/route.c				\
 	common/setup.c				\
 	common/shutdown_scriptpubkey.c		\
-	common/socket_close.c			\
 	common/sphinx.c				\
 	common/status.c				\
 	common/status_levels.c			\

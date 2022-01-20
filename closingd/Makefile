@@ -50,7 +50,6 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
-	common/socket_close.o			\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\
