@@ -107,7 +107,14 @@ def test_grpc_generate_certificate(node_factory):
     }, start=False)
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
-    files = [p / f for f in ['ca.pem', 'ca-key.pem', 'client.pem', 'client-key.pem', 'server-key.pem', 'server.pem']]
+    files = [p / f for f in [
+        'ca.pem',
+        'ca-key.pem',
+        'client.pem',
+        'client-key.pem',
+        'server-key.pem',
+        'server.pem',
+    ]]
 
     # Before starting no files exist.
     assert [f.exists() for f in files] == [False] * len(files)
@@ -125,3 +132,51 @@ def test_grpc_generate_certificate(node_factory):
     l1.restart()
     assert contents[-2] != files[-2].open().read()
     assert contents[-1] != files[-1].open().read()
+
+
+def test_grpc_wrong_auth(node_factory):
+    """An mTLS client certificate should only be usable with its node
+
+    We create two instances, each generates its own certs and keys,
+    and then we try to cross the wires.
+    """
+    bin_path = Path.cwd() / "target" / "debug" / "grpc-plugin"
+    l1, l2 = node_factory.get_nodes(2, opts={"plugin": str(bin_path), "start": False})
+    l1.start()
+    l1.daemon.wait_for_log(r'serving grpc on 0.0.0.0:')
+
+    def connect(node):
+        p = Path(node.daemon.lightning_dir) / TEST_NETWORK
+        cert, key, ca = [f.open('rb').read() for f in [
+            p / 'client.pem',
+            p / 'client-key.pem',
+            p / "ca.pem"]]
+
+        creds = grpc.ssl_channel_credentials(
+            root_certificates=ca,
+            private_key=key,
+            certificate_chain=cert,
+        )
+
+        channel = grpc.secure_channel(
+            "localhost:50051",
+            creds,
+            options=(('grpc.ssl_target_name_override', 'cln'),)
+        )
+        return NodeStub(channel)
+
+    stub = connect(l1)
+    # This should work, it's the correct node
+    stub.Getinfo(nodepb.GetinfoRequest())
+
+    l1.stop()
+    l2.start()
+    l2.daemon.wait_for_log(r'serving grpc on 0.0.0.0:')
+
+    # This should not work, it's a different node
+    with pytest.raises(Exception, match=r'Socket closed|StatusCode.UNAVAILABLE'):
+        stub.Getinfo(nodepb.GetinfoRequest())
+
+    # Now load the correct ones and we should be good to go
+    stub = connect(l2)
+    stub.Getinfo(nodepb.GetinfoRequest())
