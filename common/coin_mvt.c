@@ -238,7 +238,7 @@ struct chain_coin_mvt *new_onchain_htlc_withdraw(const tal_t *ctx,
 				      outpoint, payment_hash,
 				      blockheight,
 				      take(new_tag_arr(NULL, HTLC_FULFILL)),
-				      amount, false);
+				      amount, true);
 }
 
 struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
