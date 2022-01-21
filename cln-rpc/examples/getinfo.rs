@@ -13,6 +13,6 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let mut rpc = ClnRpc::new(p).await?;
     let response = rpc.call(Request::Getinfo(GetinfoRequest {})).await?;
-    info!("{}", serde_json::to_string_pretty(&response)?);
+    println!("{}", serde_json::to_string_pretty(&response)?);
     Ok(())
 }
