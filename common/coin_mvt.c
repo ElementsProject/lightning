@@ -296,20 +296,6 @@ struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
 				      amount, false);
 }
 
-struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
-					    const char *account_name,
-					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_outpoint *outpoint,
-					    u32 blockheight,
-					    struct amount_sat amount)
-{
-	return new_chain_coin_mvt_sat(ctx, account_name,
-				      txid, outpoint, NULL,
-				      blockheight,
-				      take(new_tag_arr(NULL, PENALTY)),
-				      amount, false);
-}
-
 struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       const struct channel_id *cid,
 					       struct amount_msat amount,

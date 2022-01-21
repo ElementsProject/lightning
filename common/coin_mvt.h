@@ -227,14 +227,6 @@ struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 						 enum mvt_tag tag)
 	NON_NULL_ARGS(2);
 
-struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
-					    const char *account_name,
-					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_outpoint *outpoint,
-					    u32 blockheight,
-					    struct amount_sat amount)
-	NON_NULL_ARGS(3, 4);
-
 struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       const struct channel_id *cid,
 					       struct amount_msat amount,
