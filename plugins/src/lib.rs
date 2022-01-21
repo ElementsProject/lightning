@@ -159,7 +159,7 @@ where
                 serde_json::to_value(self.handle_get_manifest(c, state).await?).unwrap()
             }
             messages::Request::Init(c) => {
-                serde_json::to_value(Plugin::<S, I, O>::handle_init(c, state).await?).unwrap()
+                serde_json::to_value(self.handle_init(c, state).await?).unwrap()
             }
             o => panic!("Request {:?} is currently unhandled", o),
         };
@@ -196,9 +196,30 @@ where
     }
 
     async fn handle_init(
-        _call: messages::InitCall,
+        &mut self,
+        call: messages::InitCall,
         _state: Arc<Mutex<S>>,
     ) -> Result<messages::InitResponse, Error> {
+        use options::Value as OValue;
+        use serde_json::Value as JValue;
+
+        // Match up the ConfigOptions and fill in their values if we
+        // have a matching entry.
+
+        for opt in self.options.iter_mut() {
+            if let Some(val) = call.options.get(opt.name()) {
+                opt.value = Some(match (opt.default(), &val) {
+                    (OValue::String(_), JValue::String(s)) => OValue::String(s.clone()),
+                    (OValue::Integer(_), JValue::Number(n)) => OValue::Integer(n.as_i64().unwrap()),
+                    (OValue::Boolean(_), JValue::Bool(n)) => OValue::Boolean(*n),
+
+                    // It's ok to panic, if we get here c-lightning
+                    // has not enforced the option type.
+                    (_, _) => panic!("Mismatching types in options: {:?} != {:?}", opt, val),
+                });
+            }
+        }
+
         Ok(messages::InitResponse::default())
     }
 }

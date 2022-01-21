@@ -62,9 +62,8 @@ pub(crate) enum Notification {
 pub struct GetManifestCall {}
 
 #[derive(Deserialize, Debug)]
-pub struct InitCall {
-    pub options: Value,
-    pub configuration: HashMap<String, Value>,
+pub(crate) struct InitCall {
+    pub(crate) options: HashMap<String, Value>,
 }
 
 #[derive(Debug)]
