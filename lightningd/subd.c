@@ -21,6 +21,16 @@
 #include <wire/common_wiregen.h>
 #include <wire/wire_io.h>
 
+void maybe_subd_child(struct lightningd *ld, int childpid, int wstatus)
+{
+	struct subd *sd;
+
+	list_for_each(&ld->subds, sd, list) {
+		if (sd->pid == childpid)
+			sd->wstatus = tal_dup(sd, int, &wstatus);
+	}
+}
+
 /* Carefully move fd *@from to @to: on success *from set to to */
 static bool move_fd(int *from, int to)
 {
@@ -580,24 +590,30 @@ static void destroy_subd(struct subd *sd)
 	bool fail_if_subd_fails;
 
 	fail_if_subd_fails = IFDEV(sd->ld->dev_subdaemon_fail, false);
+	list_del_from(&sd->ld->subds, &sd->list);
 
-	switch (waitpid(sd->pid, &status, WNOHANG)) {
-	case 0:
-		/* If it's an essential daemon, don't kill: we want the
-		 * exit status */
-		if (!sd->must_not_exit) {
-			log_debug(sd->log,
-				  "Status closed, but not exited. Killing");
-			kill(sd->pid, SIGKILL);
+	/* lightningd may have already done waitpid() */
+	if (sd->wstatus != NULL) {
+		status = *sd->wstatus;
+	} else {
+		switch (waitpid(sd->pid, &status, WNOHANG)) {
+		case 0:
+			/* If it's an essential daemon, don't kill: we want the
+			 * exit status */
+			if (!sd->must_not_exit) {
+				log_debug(sd->log,
+					  "Status closed, but not exited. Killing");
+				kill(sd->pid, SIGKILL);
+			}
+			waitpid(sd->pid, &status, 0);
+			fail_if_subd_fails = false;
+			break;
+		case -1:
+			log_broken(sd->log, "Status closed, but waitpid %i says %s",
+				   sd->pid, strerror(errno));
+			status = -1;
+			break;
 		}
-		waitpid(sd->pid, &status, 0);
-		fail_if_subd_fails = false;
-		break;
-	case -1:
-		log_unusual(sd->log, "Status closed, but waitpid %i says %s",
-			    sd->pid, strerror(errno));
-		status = -1;
-		break;
 	}
 
 	if (fail_if_subd_fails && WIFSIGNALED(status)) {
@@ -742,6 +758,8 @@ static struct subd *new_subd(struct lightningd *ld,
 	sd->billboardcb = billboardcb;
 	sd->fds_in = NULL;
 	sd->outq = msg_queue_new(sd, true);
+	sd->wstatus = NULL;
+	list_add(&ld->subds, &sd->list);
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
 	sd->channel = channel;
@@ -868,6 +886,7 @@ struct subd *subd_shutdown(struct subd *sd, unsigned int seconds)
 	if (waitpid(sd->pid, NULL, 0) > 0) {
 		alarm(0);
 		sigaction(SIGALRM, &old, NULL);
+		list_del_from(&sd->ld->subds, &sd->list);
 		return tal_free(sd);
 	}
 

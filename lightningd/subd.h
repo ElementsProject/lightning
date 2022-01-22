@@ -20,6 +20,9 @@ struct peer_fd;
 
 /* One of our subds. */
 struct subd {
+	/* Inside ld->subds */
+	struct list_node list;
+
 	/* Name, like John, or "lightning_hsmd" */
 	const char *name;
 	/* The Big Cheese. */
@@ -74,6 +77,9 @@ struct subd {
 
 	/* Callbacks for replies. */
 	struct list_head reqs;
+
+	/* Did lightningd already wait for this pid? */
+	int *wstatus;
 };
 
 /**
@@ -218,6 +224,9 @@ struct subd *subd_shutdown(struct subd *subd, unsigned int seconds);
 
 /* Ugly helper to get full pathname of the current binary. */
 const char *find_my_abspath(const tal_t *ctx, const char *argv0);
+
+/* lightningd captures SIGCHLD and waits, but so does subd. */
+void maybe_subd_child(struct lightningd *ld, int childpid, int wstatus);
 
 #if DEVELOPER
 char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld);
