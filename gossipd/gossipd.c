@@ -261,11 +261,12 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	unknown_scid.u64 = 0;
 	err = handle_channel_update(peer->daemon->rstate, msg, peer,
 				    &unknown_scid, false);
-	if (err) {
-		if (unknown_scid.u64 != 0)
-			query_unknown_channel(peer->daemon, peer, &unknown_scid);
+	if (err)
 		return err;
-	}
+
+	/* If it's an unknown channel, ask someone about it */
+	if (unknown_scid.u64 != 0)
+		query_unknown_channel(peer->daemon, peer, &unknown_scid);
 
 	/*~ As a nasty compromise in the spec, we only forward `channel_announce`
 	 * once we have a `channel_update`; the channel isn't *usable* for
