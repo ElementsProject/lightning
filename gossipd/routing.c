@@ -1450,11 +1450,10 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	u32 fee_proportional_millionths;
 	struct bitcoin_blkid chain_hash;
 	u8 direction;
-	size_t len = tal_count(update);
 	struct pending_cannouncement *pending;
 	u8 *err;
 
-	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
+	serialized = tal_dup_talarr(tmpctx, u8, update);
 	if (!fromwire_channel_update(serialized, &signature,
 				     &chain_hash, &short_channel_id,
 				     &timestamp, &message_flags,
