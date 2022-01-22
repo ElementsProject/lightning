@@ -3629,7 +3629,9 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
                                               {'may_reconnect': True,
                                                'dev-no-reconnect': None,
                                                'disconnect': l2_disconnects,
-                                               'dev-disable-commit-after': 1}])
+                                               'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
+                                               'hold-time': 10000,
+                                               'hold-result': 'fail'}])
 
     # This HTLC will fail
     l1.rpc.sendpay([{'msatoshi': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32, payment_secret='00' * 32)
@@ -3641,17 +3643,38 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
         assert not l1.daemon.is_in_log('option_static_remotekey enabled')
         assert not l2.daemon.is_in_log('option_static_remotekey enabled')
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        line1 = l1.daemon.wait_for_log('No upgrade')
+        line2 = l2.daemon.wait_for_log('No upgrade')
 
     # On the last reconnect, it retransmitted revoke_and_ack.
-    l1.daemon.wait_for_log('No upgrade: we retransmitted')
-    l2.daemon.wait_for_log('No upgrade: pending changes')
+    assert re.search('No upgrade: we retransmitted', line1)
+    assert re.search('No upgrade: pending changes', line2)
 
-    # Now when we reconnect, despite having an HTLC, we're quiescent.
-    l1.rpc.disconnect(l2.info['id'], force=True)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # Make sure we already skip the first of these.
+    l1.daemon.wait_for_log('billboard perm: Reconnected, and reestablished.')
+    assert 'option_static_remotekey' not in only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['features']
+    assert 'option_static_remotekey' not in only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['features']
 
-    l1.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
-    l2.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
+    sleeptime = 1
+    while True:
+        # Now when we reconnect, despite having an HTLC, we're quiescent.
+        l1.rpc.disconnect(l2.info['id'], force=True)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+        oldstart = l1.daemon.logsearch_start
+        l1.daemon.wait_for_log('billboard perm: Reconnected, and reestablished.')
+        if not l1.daemon.is_in_log('No upgrade:', start=oldstart):
+            break
+
+        # Give it some processing time before reconnect...
+        time.sleep(sleeptime)
+        sleeptime += 1
+
+    l1.daemon.logsearch_start = oldstart
+    assert l1.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
+    assert l2.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
+    assert 'option_static_remotekey' in only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['features']
+    assert 'option_static_remotekey' in only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['features']
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")
