@@ -202,6 +202,9 @@ struct lightningd {
 	/* RPC response to send once we've shut down. */
 	const char *stop_response;
 
+	/* All the subdaemons. */
+	struct list_head subds;
+
 	/* Used these feerates instead of whatever bcli returns (up to
 	 * FEERATE_PENALTY). */
 	u32 *force_feerates;

@@ -151,6 +151,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * This method of manually declaring the list hooks avoids dynamic
 	 * allocations to put things into a list. */
 	list_head_init(&ld->peers);
+	list_head_init(&ld->subds);
 
 	/*~ These are hash tables of incoming and outgoing HTLCs (contracts),
 	 * defined as `struct htlc_in` and `struct htlc_out` in htlc_end.h.
@@ -409,10 +410,8 @@ void test_subdaemons(const struct lightningd *ld)
 		    || verstring[strlen(version())] != '\n')
 			errx(1, "%s: bad version '%s'",
 			     subdaemons[i], verstring);
-
-		/*~ finally reap the child process, freeing all OS
-		 *  resources that go with it */
-		waitpid(pid, NULL, 0);
+		/*~ The child will be reaped by sigchld_rfd_in, so we don't
+		 * need to waitpid() here. */
 	}
 }
 
@@ -784,9 +783,13 @@ static struct io_plan *sigchld_rfd_in(struct io_conn *conn,
 	/* We don't actually care what we read, so we stuff things here. */
 	static u8 ignorebuf;
 	static size_t len;
+	pid_t childpid;
+	int wstatus;
 
 	/* Reap the plugins, since we otherwise ignore them. */
-	while (waitpid(-1, NULL, WNOHANG) != 0);
+	while ((childpid = waitpid(-1, &wstatus, WNOHANG)) != 0) {
+		maybe_subd_child(ld, childpid, wstatus);
+	}
 
 	return io_read_partial(conn, &ignorebuf, 1, &len, sigchld_rfd_in, ld);
 }
