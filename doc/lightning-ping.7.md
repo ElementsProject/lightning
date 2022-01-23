@@ -4,7 +4,7 @@ lightning-ping -- Command to check if a node is up.
 SYNOPSIS
 --------
 
-**ping** *id* \[len\] \[pongbytes\]
+**ping** *id* \[*len*\] \[*pongbytes*\]
 
 DESCRIPTION
 -----------

@@ -4,7 +4,7 @@ lightning-unreserveinputs -- Release reserved UTXOs
 SYNOPSIS
 --------
 
-**unreserveinputs** *psbt* [*reserve*]
+**unreserveinputs** *psbt* \[*reserve*\]
 
 DESCRIPTION
 -----------

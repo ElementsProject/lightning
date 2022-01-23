@@ -4,7 +4,7 @@ lightning-connect -- Command for connecting to another lightning node
 SYNOPSIS
 --------
 
-**connect** *id* \[*host* *port*\]
+**connect** *id* \[*host*\] \[*port*\]
 
 DESCRIPTION
 -----------

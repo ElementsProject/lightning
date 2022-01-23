@@ -4,7 +4,7 @@ lightning-signpsbt -- Command to sign a wallet's inputs on a provided bitcoin tr
 SYNOPSIS
 --------
 
-**signpsbt** *psbt* [*signonly*]
+**signpsbt** *psbt* \[*signonly*\]
 
 DESCRIPTION
 -----------

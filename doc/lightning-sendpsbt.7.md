@@ -4,7 +4,7 @@ lightning-sendpsbt -- Command to finalize, extract and send a partially signed b
 SYNOPSIS
 --------
 
-**sendpsbt** *psbt* [*reserve*]
+**sendpsbt** *psbt* \[*reserve*\]
 
 DESCRIPTION
 -----------

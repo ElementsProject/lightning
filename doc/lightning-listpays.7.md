@@ -4,7 +4,7 @@ lightning-listpays -- Command for querying payment status
 SYNOPSIS
 --------
 
-**listpays** \[bolt11\] \[payment_hash\] \[status\]
+**listpays** \[*bolt11*\] \[*payment_hash*\] \[*status*\]
 
 DESCRIPTION
 -----------
