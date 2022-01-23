@@ -4,7 +4,7 @@ lightning-deldatastore -- Command for removing (plugin) data
 SYNOPSIS
 --------
 
-**deldatastore** *key* [*generation*]
+**deldatastore** *key* \[*generation*\]
 
 DESCRIPTION
 -----------

@@ -4,7 +4,7 @@ lightning-datastore -- Command for storing (plugin) data
 SYNOPSIS
 --------
 
-**datastore** *key* [*string*] [*hex*] [*mode*] [*generation*]
+**datastore** *key* \[*string*\] \[*hex*\] \[*mode*\] \[*generation*\]
 
 DESCRIPTION
 -----------

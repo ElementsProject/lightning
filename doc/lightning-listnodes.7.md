@@ -4,7 +4,7 @@ lightning-listnodes -- Command to get the list of nodes in the known network.
 SYNOPSIS
 --------
 
-**listnodes** \[id\]
+**listnodes** \[*id*\]
 
 DESCRIPTION
 -----------

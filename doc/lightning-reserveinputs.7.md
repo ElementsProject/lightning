@@ -4,7 +4,7 @@ lightning-reserveinputs -- Construct a transaction and reserve the UTXOs it spen
 SYNOPSIS
 --------
 
-**reserveinputs** *psbt* [*exclusive*] [*reserve*]
+**reserveinputs** *psbt* \[*exclusive*\] \[*reserve*\]
 
 DESCRIPTION
 -----------

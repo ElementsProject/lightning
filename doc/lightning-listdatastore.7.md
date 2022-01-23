@@ -4,7 +4,7 @@ lightning-listdatastore -- Command for listing (plugin) data
 SYNOPSIS
 --------
 
-**listdatastore** [*key*]
+**listdatastore** \[*key*\]
 
 DESCRIPTION
 -----------

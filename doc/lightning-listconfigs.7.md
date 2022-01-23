@@ -4,7 +4,7 @@ lightning-listconfigs -- Command to list all configuration options.
 SYNOPSIS
 --------
 
-**listconfigs** \[config\]
+**listconfigs** \[*config*\]
 
 DESCRIPTION
 -----------
