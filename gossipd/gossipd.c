@@ -1413,6 +1413,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_GET_ADDRS:
 		return handle_get_address(conn, daemon, msg);
 
+	case WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE:
+		handle_used_local_channel_update(daemon, msg);
+		goto done;
+
 #if DEVELOPER
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		dev_set_max_scids_encode_size(daemon, msg);
