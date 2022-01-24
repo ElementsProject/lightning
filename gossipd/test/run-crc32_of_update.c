@@ -28,6 +28,9 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 			  const struct sha256 *h UNNEEDED,
 			  struct pubkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
+/* Generated stub for daemon_conn_send */
+void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
 /* Generated stub for daemon_conn_wake */
 void daemon_conn_wake(struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_wake called!\n"); abort(); }
@@ -133,6 +136,9 @@ void status_fmt(enum log_level level UNNEEDED,
 		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
+/* Generated stub for towire_gossipd_got_local_channel_update */
+u8 *towire_gossipd_got_local_channel_update(const tal_t *ctx UNNEEDED, const struct short_channel_id *scid UNNEEDED, const u8 *channel_update UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_got_local_channel_update called!\n"); abort(); }
 /* Generated stub for towire_hsmd_cupdate_sig_req */
 u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
 { fprintf(stderr, "towire_hsmd_cupdate_sig_req called!\n"); abort(); }
