@@ -850,7 +850,7 @@ int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
 	u32 min_blockheight, max_blockheight;
-	int connectd_gossipd_fd;
+	int connectd_gossipd_fd, connectd_gossipd_fd2;
 	int stop_fd;
 	struct timers *timers;
 	const char *stop_response;
@@ -1022,7 +1022,7 @@ int main(int argc, char *argv[])
 	 * which knows (via node_announcement messages) the public
 	 * addresses of nodes, so connectd_init hands it one end of a
 	 * socket pair, and gives us the other */
-	connectd_gossipd_fd = connectd_init(ld);
+	connectd_gossipd_fd = connectd_init(ld, &connectd_gossipd_fd2);
 
 	/*~ We do every database operation within a transaction; usually this
 	 * is covered by the infrastructure (eg. opening a transaction before
@@ -1074,7 +1074,7 @@ int main(int argc, char *argv[])
 	 *  channel_announcement, channel_update, node_announcement and gossip
 	 *  queries.   It also hands us the latest channel_updates for our
 	 *  channels. */
-	gossip_init(ld, connectd_gossipd_fd);
+	gossip_init(ld, connectd_gossipd_fd, connectd_gossipd_fd2);
 
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
 	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */

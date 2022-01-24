@@ -52,6 +52,7 @@
  * thus may know how to reach certain peers. */
 #define HSM_FD 3
 #define GOSSIPCTL_FD 4
+#define GOSSIPCTL2_FD 5
 
 /*~ In C convention, constants are UPPERCASE macros.  Not everything needs to
  * be a constant, but it soothes the programmer's conscience to encapsulate
@@ -1577,7 +1578,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 							   announcable)));
 #if DEVELOPER
 	if (dev_disconnect)
-		dev_disconnect_init(5);
+		dev_disconnect_init(6);
 #endif
 }
 
@@ -2001,6 +2002,15 @@ static void master_gone(struct daemon_conn *master UNUSED)
 	exit(2);
 }
 
+/*~ gossipd sends us gossip to send to the peers. */
+static struct io_plan *recv_gossip(struct io_conn *conn,
+				   const u8 *msg,
+				   struct daemon *daemon)
+{
+	/* FIXME! */
+	return daemon_conn_read_next(conn, daemon->gossipd);
+}
+
 /*~ This is a hook used by the memleak code (if DEVELOPER=1): it can't see
  * pointers inside hash tables, so we give it a hint here. */
 #if DEVELOPER
@@ -2036,6 +2046,11 @@ int main(int argc, char *argv[])
 	/* This tells the status_* subsystem to use this connection to send
 	 * our status_ and failed messages. */
 	status_setup_async(daemon->master);
+
+	/* This streams gossip to and from gossipd */
+	daemon->gossipd = daemon_conn_new(daemon, GOSSIPCTL2_FD,
+					  recv_gossip, NULL,
+					  daemon);
 
 	/* Set up ecdh() function so it uses our HSM fd, and calls
 	 * status_failed on error. */
