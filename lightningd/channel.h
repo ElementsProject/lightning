@@ -237,6 +237,9 @@ struct channel {
 	u32 lease_chan_max_msat;
 	/* Lease commited max part per thousandth channel fee (ppm * 1000) */
 	u16 lease_chan_max_ppt;
+
+	/* Latest channel_update, for use in error messages. */
+	u8 *channel_update;
 };
 
 /* For v2 opens, a channel that has not yet been committed/saved to disk */

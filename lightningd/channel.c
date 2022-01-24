@@ -253,6 +253,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding = NULL;
 	channel->closing_feerate_range = NULL;
+	channel->channel_update = NULL;
 
 	/* Channel is connected! */
 	channel->connected = true;
@@ -461,6 +462,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->lease_chan_max_msat = lease_chan_max_msat;
 	channel->lease_chan_max_ppt = lease_chan_max_ppt;
 	channel->blockheight_states = dup_height_states(channel, height_states);
+	channel->channel_update = NULL;
 
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;

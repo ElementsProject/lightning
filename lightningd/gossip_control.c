@@ -5,10 +5,12 @@
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
 #include <common/param.h>
+#include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
@@ -107,6 +109,32 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	}
 }
 
+static void handle_local_channel_update(struct lightningd *ld, const u8 *msg)
+{
+	struct short_channel_id scid;
+	u8 *update;
+	struct channel *channel;
+
+	if (!fromwire_gossipd_got_local_channel_update(msg, msg,
+						       &scid, &update)) {
+		fatal("Gossip gave bad GOSSIP_GOT_LOCAL_CHANNEL_UPDATE %s",
+		      tal_hex(msg, msg));
+	}
+
+	/* In theory this could vanish before gossipd gets around to telling
+	 * us. */
+	channel = any_channel_by_scid(ld, &scid);
+	if (!channel) {
+		log_broken(ld->log, "Local update for bad scid %s",
+			   type_to_string(tmpctx, struct short_channel_id,
+					  &scid));
+		return;
+	}
+
+	tal_free(channel->channel_update);
+	channel->channel_update = tal_steal(channel, update);
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossipd_wire t = fromwire_peektype(msg);
@@ -143,6 +171,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		break;
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
+		break;
+	case WIRE_GOSSIPD_GOT_LOCAL_CHANNEL_UPDATE:
+		handle_local_channel_update(gossip->ld, msg);
 		break;
 	}
 	return 0;
