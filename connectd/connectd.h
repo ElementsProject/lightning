@@ -126,6 +126,9 @@ struct daemon {
 	/* Connection to main daemon. */
 	struct daemon_conn *master;
 
+	/* Connection to gossip daemon. */
+	struct daemon_conn *gossipd;
+
 	/* Allow localhost to be considered "public": DEVELOPER-only option,
 	 * but for simplicity we don't #if DEVELOPER-wrap it here. */
 	bool dev_allow_localhost;

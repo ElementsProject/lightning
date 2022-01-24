@@ -23,7 +23,7 @@ void channel_notify_new_block(struct lightningd *ld UNNEEDED,
 void connectd_activate(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "connectd_activate called!\n"); abort(); }
 /* Generated stub for connectd_init */
-int connectd_init(struct lightningd *ld UNNEEDED)
+int connectd_init(struct lightningd *ld UNNEEDED, int *gossipd_fd2 UNNEEDED)
 { fprintf(stderr, "connectd_init called!\n"); abort(); }
 /* Generated stub for daemon_poll */
 int daemon_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
@@ -92,7 +92,7 @@ bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDE
 bool fromwire_status_version(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, wirestring **version UNNEEDED)
 { fprintf(stderr, "fromwire_status_version called!\n"); abort(); }
 /* Generated stub for gossip_init */
-void gossip_init(struct lightningd *ld UNNEEDED, int connectd_fd UNNEEDED)
+void gossip_init(struct lightningd *ld UNNEEDED, int connectd_fd UNNEEDED, int connectd_fd2 UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
 /* Generated stub for gossip_notify_new_block */
 void gossip_notify_new_block(struct lightningd *ld UNNEEDED, u32 blockheight UNNEEDED)

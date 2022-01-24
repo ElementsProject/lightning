@@ -8,7 +8,7 @@
 struct channel;
 struct lightningd;
 
-void gossip_init(struct lightningd *ld, int connectd_fd);
+void gossip_init(struct lightningd *ld, int connectd_fd, int connectd_fd2);
 
 void gossipd_notify_spend(struct lightningd *ld,
 			  const struct short_channel_id *scid);
