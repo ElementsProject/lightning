@@ -83,6 +83,10 @@ struct chain_coin_mvt {
 
 	/* total value of output (useful for tracking external outs) */
 	struct amount_sat output_val;
+
+	/* When we pay to external accounts, it's useful
+	 * to track which internal account it originated from */
+	const char *originating_acct;
 };
 
 /* differs depending on type!? */
@@ -96,6 +100,9 @@ struct mvt_id {
 struct coin_mvt {
 	/* name of 'account': wallet, external, <channel_id> */
 	const char *account_id;
+
+	/* if account_id is external, the account this 'impacted' */
+	const char *originating_acct;
 
 	/* Chain name: BIP 173, except signet lightning-style: tbs not tb */
 	const char *hrp_name;
@@ -248,6 +255,9 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 				      u32 timestamp,
 				      const struct node_id *node_id)
 	NON_NULL_ARGS(2, 3, 5);
+
+/* Is this an xternal account? */
+bool chain_mvt_is_external(const struct chain_coin_mvt *mvt);
 
 const char *mvt_type_str(enum mvt_type type);
 const char *mvt_tag_str(enum mvt_tag tag);

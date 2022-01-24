@@ -470,6 +470,9 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 	json_add_node_id(stream, "node_id", mvt->node_id);
 	json_add_string(stream, "type", mvt_type_str(mvt->type));
 	json_add_string(stream, "account_id", mvt->account_id);
+	if (mvt->originating_acct)
+		json_add_string(stream, "originating_account",
+				mvt->originating_acct);
 	json_mvt_id(stream, mvt->type, &mvt->id);
 	json_add_amount_msat_only(stream, "credit", mvt->credit);
 	json_add_amount_msat_only(stream, "debit", mvt->debit);

@@ -701,6 +701,7 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"node_id":"03a7103a2322b811f7369cbb27fb213d30bbc0b012082fed3cad7e4498da2dc56b",
 		"type":"chain_mvt",
 		"account_id":"wallet",
+		"originating_account": "wallet", // (`chain_mvt` only, optional)
 		"txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` only, optional)
 		"utxo_txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` only)
 		"vout":1, // (`chain_mvt` only)
@@ -730,6 +731,9 @@ notification adheres to.
 
 `account_id` is the name of this account. The node's wallet is named 'wallet',
 all channel funds' account are the channel id.
+
+`originating_account` is the account that this movement originated from.
+*Only* tagged on external events (deposits/withdrawals to an external party).
 
 `txid` is the transaction id of the bitcoin transaction that triggered this
 ledger event. `utxo_txid` and `vout` identify the bitcoin output which triggered
