@@ -419,6 +419,13 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 	wire_sync_write(MASTER_FD, take(msg));
 }
 
+/* Tell gossipd and the other side what parameters we expect should
+ * they route through us */
+static void send_channel_initial_update(struct peer *peer)
+{
+	send_channel_update(peer, 0);
+}
+
 /**
  * Add a channel locally and send a channel update to the peer
  *
@@ -442,9 +449,12 @@ static void make_channel_local_active(struct peer *peer)
 						    annfeatures);
  	wire_sync_write(MASTER_FD, take(msg));
 
-	/* Tell gossipd and the other side what parameters we expect should
-	 * they route through us */
-	send_channel_update(peer, 0);
+	/* Under CI, because blocks come so fast, we often find that the
+	 * peer sends its first channel_update before the above message has
+	 * reached it. */
+	notleak(new_reltimer(&peer->timers, peer,
+			     time_from_sec(5),
+			     send_channel_initial_update, peer));
 }
 
 static void send_announcement_signatures(struct peer *peer)
