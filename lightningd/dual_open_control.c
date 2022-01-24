@@ -22,6 +22,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/dual_open_control.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
@@ -1366,6 +1367,24 @@ static void handle_channel_closed(struct subd *dualopend,
 			  CLOSINGD_SIGEXCHANGE,
 			  REASON_UNKNOWN,
 			  "Start closingd");
+}
+
+static void handle_local_private_channel(struct subd *dualopend,
+					 const u8 *msg)
+{
+	struct amount_sat capacity;
+	u8 *features;
+
+	if (!fromwire_dualopend_local_private_channel(msg, msg, &capacity,
+						      &features)) {
+		channel_internal_error(dualopend->channel,
+				       "bad dualopend_local_private_channel %s",
+				       tal_hex(msg, msg));
+		return;
+	}
+
+	tell_gossipd_local_private_channel(dualopend->ld, dualopend->channel,
+					   capacity, features);
 }
 
 struct channel_send {
@@ -2991,7 +3010,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 			channel_fail_fallen_behind(dualopend, msg);
 			return 0;
-
+		case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
+			handle_local_private_channel(dualopend, msg);
+			return 0;
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:
 		case WIRE_DUALOPEND_REINIT:
