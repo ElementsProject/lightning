@@ -533,7 +533,7 @@ void payment_store(struct lightningd *ld, struct wallet_payment *payment TAKES)
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
-		    const char *localfail, const u8 *failmsg_needs_update)
+		    const char *localfail)
 {
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
@@ -566,10 +566,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	if (localfail) {
 		/* Use temporary_channel_failure if failmsg has it */
 		enum onion_wire failcode;
-		if (failmsg_needs_update)
-			failcode = fromwire_peektype(failmsg_needs_update);
-		else
-			failcode = fromwire_peektype(hout->failmsg);
+		failcode = fromwire_peektype(hout->failmsg);
 
 		fail = local_routing_failure(tmpctx, ld, hout, failcode,
 					     payment);
@@ -780,14 +777,13 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 {
 	const u8 *onion;
 	unsigned int base_expiry;
-	bool dont_care_about_channel_update;
+
 	base_expiry = get_block_height(ld->topology) + 1;
 	onion = serialize_onionpacket(tmpctx, packet);
 	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
 			     final_amount, payment_hash,
-			     blinding, partid, groupid, onion, NULL, hout,
-			     &dont_care_about_channel_update);
+			     blinding, partid, groupid, onion, NULL, hout);
 }
 
 static struct command_result *check_offer_usage(struct command *cmd,

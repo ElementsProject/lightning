@@ -27,14 +27,6 @@ msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
 msgtype,gossipd_dev_set_max_scids_encode_size,3030
 msgdata,gossipd_dev_set_max_scids_encode_size,max,u32,
 
-# Given a short_channel_id, return the latest (stripped) update for error msg.
-msgtype,gossipd_get_stripped_cupdate,3010
-msgdata,gossipd_get_stripped_cupdate,channel_id,short_channel_id,
-
-msgtype,gossipd_get_stripped_cupdate_reply,3110
-msgdata,gossipd_get_stripped_cupdate_reply,stripped_update_len,u16,
-msgdata,gossipd_get_stripped_cupdate_reply,stripped_update,u8,stripped_update_len
-
 # gossipd->master: we're closing this channel.
 msgtype,gossipd_local_channel_close,3027
 msgdata,gossipd_local_channel_close,short_channel_id,short_channel_id,

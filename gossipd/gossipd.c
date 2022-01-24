@@ -1177,56 +1177,6 @@ static void dev_gossip_set_time(struct daemon *daemon, const u8 *msg)
 }
 #endif /* DEVELOPER */
 
-/*~ lightningd: so, get me the latest update for this local channel,
- *  so I can include it in an error message. */
-static void get_stripped_cupdate(struct daemon *daemon, const u8 *msg)
-{
-	struct short_channel_id scid;
-	struct chan *chan;
-	const u8 *stripped_update;
-
-	if (!fromwire_gossipd_get_stripped_cupdate(msg, &scid))
-		master_badmsg(WIRE_GOSSIPD_GET_STRIPPED_CUPDATE, msg);
-
-	chan = get_channel(daemon->rstate, &scid);
-	if (!chan) {
-		status_debug("Failed to resolve local channel %s",
-			     type_to_string(tmpctx, struct short_channel_id, &scid));
-		stripped_update = NULL;
-	} else {
-		int direction;
-		const struct half_chan *hc;
-
-		if (!local_direction(daemon->rstate, chan, &direction)) {
-			status_broken("%s is a non-local channel!",
-				      type_to_string(tmpctx,
-						     struct short_channel_id,
-						     &scid));
-			stripped_update = NULL;
-			goto out;
-		}
-
-		/* Since we're going to use it, make sure it's up-to-date. */
-		local_channel_update_latest(daemon, chan);
-
-		hc = &chan->half[direction];
-		if (is_halfchan_defined(hc)) {
-			const u8 *update;
-
-			update = gossip_store_get(tmpctx, daemon->rstate->gs,
-						  hc->bcast.index);
-			stripped_update = tal_dup_arr(tmpctx, u8, update + 2,
-						      tal_count(update) - 2, 0);
-		} else
-			stripped_update = NULL;
-	}
-
-out:
-	daemon_conn_send(daemon->master,
-			 take(towire_gossipd_get_stripped_cupdate_reply(NULL,
-							   stripped_update)));
-}
-
 /*~ We queue incoming channel_announcement pending confirmation from lightningd
  * that it really is an unspent output.  Here's its reply. */
 static void handle_txout_reply(struct daemon *daemon, const u8 *msg)
@@ -1382,10 +1332,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		gossip_init(daemon, msg);
 		goto done;
 
-	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
-		get_stripped_cupdate(daemon, msg);
-		goto done;
-
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 		handle_txout_reply(daemon, msg);
 		goto done;
@@ -1448,7 +1394,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_INIT_REPLY:
-	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
