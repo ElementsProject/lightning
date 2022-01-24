@@ -125,8 +125,8 @@ void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	u8 *outermsg = towire_gossipd_send_gossip(NULL, &peer->id, msg);
 	daemon_conn_send(peer->daemon->connectd2, take(outermsg));
 
-	/* FIXME: backwards compat! */
-	daemon_conn_send(peer->dc, msg);
+	if (taken(msg))
+		tal_free(msg);
 }
 
 /*~ We have a helper for messages from the store. */
@@ -798,11 +798,10 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	list_add_tail(&peer->daemon->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
 
-	/* This is the new connection: calls maybe_send_query_responses when
-	 * nothing else to send. */
+	/* This is the new connection. */
 	peer->dc = daemon_conn_new(daemon, fds[0],
 				   peer_msg_in,
-				   maybe_send_query_responses, peer);
+				   NULL, peer);
 	/* Free peer if conn closed (destroy_peer closes conn if peer freed) */
 	tal_steal(peer->dc, peer);
 
@@ -1157,7 +1156,8 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 
 	/* connectd is already started, and uses this fd to ask us things. */
 	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
-					   connectd_req, NULL, daemon);
+					   connectd_req,
+					   maybe_send_query_responses, daemon);
 
 	daemon->connectd2 = daemon_conn_new(daemon, CONNECTD2_FD,
 					    connectd_gossip_req, NULL, daemon);

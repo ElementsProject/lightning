@@ -16,8 +16,8 @@ const u8 *handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg);
 const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg);
 const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg);
 
-/* This called when the peer is idle. */
-void maybe_send_query_responses(struct peer *peer);
+/* This called when the connectd is idle. */
+void maybe_send_query_responses(struct daemon *daemon);
 
 /* BOLT #7:
  *
