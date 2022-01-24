@@ -378,8 +378,9 @@ bool routing_add_node_announcement(struct routing_state *rstate,
  * `announce_depth`.
  */
 bool routing_add_private_channel(struct routing_state *rstate,
-				 const struct peer *peer,
-				 const u8 *msg, u64 index);
+				 const struct node_id *id,
+				 struct amount_sat sat,
+				 const u8 *chan_ann, u64 index);
 
 /**
  * Get the local time.

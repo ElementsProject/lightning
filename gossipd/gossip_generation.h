@@ -45,10 +45,8 @@ void local_enable_chan(struct daemon *daemon, const struct chan *chan, int direc
 void refresh_local_channel(struct daemon *daemon,
 			   struct chan *chan, int direction);
 
-/* channeld asks us to update the local channel. */
-bool handle_local_channel_update(struct daemon *daemon,
-				 const struct node_id *src,
-				 const u8 *msg);
+/* channeld (via lightningd) asks us to update the local channel. */
+void handle_local_channel_update(struct daemon *daemon, const u8 *msg);
 
 /* lightningd tells us it used the last channel_update we sent. */
 void handle_used_local_channel_update(struct daemon *daemon, const u8 *msg);

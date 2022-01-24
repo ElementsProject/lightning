@@ -15,7 +15,6 @@
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/wire_sync.h>
@@ -695,11 +694,10 @@ void refresh_local_channel(struct daemon *daemon,
 	sign_timestamp_and_apply_update(daemon, chan, direction, take(update));
 }
 
-/* channeld asks us to update the local channel. */
-bool handle_local_channel_update(struct daemon *daemon,
-				 const struct node_id *src,
-				 const u8 *msg)
+/* channeld (via lightningd) asks us to update the local channel. */
+void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 {
+	struct node_id id;
 	struct short_channel_id scid;
 	bool disable;
 	u16 cltv_expiry_delta;
@@ -710,10 +708,8 @@ bool handle_local_channel_update(struct daemon *daemon,
 	u8 *unsigned_update;
 	const struct half_chan *hc;
 
-	/* FIXME: We should get scid from lightningd when setting up the
-	 * connection, so no per-peer daemon can mess with channels other than
-	 * its own! */
 	if (!fromwire_gossipd_local_channel_update(msg,
+						   &id,
 						   &scid,
 						   &disable,
 						   &cltv_expiry_delta,
@@ -721,26 +717,24 @@ bool handle_local_channel_update(struct daemon *daemon,
 						   &fee_base_msat,
 						   &fee_proportional_millionths,
 						   &htlc_maximum)) {
-		status_peer_broken(src, "bad local_channel_update %s",
-				   tal_hex(tmpctx, msg));
-		return false;
+		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE, msg);
 	}
 
 	chan = get_channel(daemon->rstate, &scid);
 	/* Can theoretically happen if channel just closed. */
 	if (!chan) {
-		status_peer_debug(src, "local_channel_update for unknown %s",
+		status_peer_debug(&id, "local_channel_update for unknown %s",
 				  type_to_string(tmpctx, struct short_channel_id,
 						 &scid));
-		return true;
+		return;
 	}
 
 	if (!local_direction(daemon->rstate, chan, &direction)) {
-		status_peer_broken(src, "bad local_channel_update chan %s",
+		status_peer_broken(&id, "bad local_channel_update chan %s",
 				   type_to_string(tmpctx,
 						  struct short_channel_id,
 						  &scid));
-		return false;
+		return;
 	}
 
 	unsigned_update = create_unsigned_update(tmpctx, &scid, direction,
@@ -754,7 +748,7 @@ bool handle_local_channel_update(struct daemon *daemon,
 	/* Ignore duplicates. */
 	if (is_halfchan_defined(hc)
 	    && !cupdate_different(daemon->rstate->gs, hc, unsigned_update))
-		return true;
+		return;
 
 	/* Too early?  Defer (don't worry if it's unannounced). */
 	if (hc && is_chan_public(chan)) {
@@ -764,13 +758,12 @@ bool handle_local_channel_update(struct daemon *daemon,
 		if (now < next_time) {
 			defer_update(daemon, next_time - now,
 				     chan, direction, take(unsigned_update));
-			return true;
+			return;
 		}
 	}
 
 	sign_timestamp_and_apply_update(daemon, chan, direction,
 					take(unsigned_update));
-	return true;
 }
 
 /* Take update, set/unset disabled flag (and update timestamp).

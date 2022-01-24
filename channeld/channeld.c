@@ -392,7 +392,9 @@ static void maybe_send_stfu(struct peer *peer)
 }
 #endif
 
-/* Create and send channel_update to gossipd (and maybe peer) */
+/* Tell gossipd to create channel_update (then it goes into
+ * gossip_store, then streams out to peers, or sends it directly if
+ * it's a private channel) */
 static void send_channel_update(struct peer *peer, int disable_flag)
 {
 	u8 *msg;
@@ -405,7 +407,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 
 	assert(peer->short_channel_ids[LOCAL].u64);
 
-	msg = towire_gossipd_local_channel_update(NULL,
+	msg = towire_channeld_local_channel_update(NULL,
 						  &peer->short_channel_ids[LOCAL],
 						  disable_flag
 						  == ROUTING_FLAGS_DISABLED,
@@ -414,7 +416,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
 						  advertized_htlc_max(peer->channel));
-	wire_sync_write(peer->pps->gossip_fd, take(msg));
+	wire_sync_write(MASTER_FD, take(msg));
 }
 
 /**
@@ -430,22 +432,15 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 static void make_channel_local_active(struct peer *peer)
 {
 	u8 *msg;
-	const u8 *ann;
 	const u8 *annfeatures = get_agreed_channelfeatures(tmpctx,
 							   peer->our_features,
 							   peer->their_features);
 
-	ann = private_channel_announcement(tmpctx,
-					   &peer->short_channel_ids[LOCAL],
-					   &peer->node_ids[LOCAL],
-					   &peer->node_ids[REMOTE],
-					   annfeatures);
-
-	/* Tell gossipd about local channel. */
-	msg = towire_gossip_store_private_channel(NULL,
-						  peer->channel->funding_sats,
-						  ann);
- 	wire_sync_write(peer->pps->gossip_fd, take(msg));
+	/* Tell lightningd to tell gossipd about local channel. */
+	msg = towire_channeld_local_private_channel(NULL,
+						    peer->channel->funding_sats,
+						    annfeatures);
+ 	wire_sync_write(MASTER_FD, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should
 	 * they route through us */
@@ -560,9 +555,9 @@ static void announce_channel(struct peer *peer)
 
 	cannounce = create_channel_announcement(tmpctx, peer);
 
-	wire_sync_write(peer->pps->gossip_fd,
-			take(towire_gossipd_local_channel_announcement(NULL,
-								       cannounce)));
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_local_channel_announcement(NULL,
+									cannounce)));
 	send_channel_update(peer, 0);
 }
 
@@ -3795,6 +3790,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_UPGRADED:
 	case WIRE_CHANNELD_PING_REPLY:
 	case WIRE_CHANNELD_USED_CHANNEL_UPDATE:
+	case WIRE_CHANNELD_LOCAL_CHANNEL_UPDATE:
+	case WIRE_CHANNELD_LOCAL_CHANNEL_ANNOUNCEMENT:
+	case WIRE_CHANNELD_LOCAL_PRIVATE_CHANNEL:
 		break;
 	}
 

@@ -782,14 +782,25 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		}
 
 		switch (fromwire_peektype(msg)) {
-		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL:
-			if (!routing_add_private_channel(rstate, NULL, msg,
+		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL: {
+			u8 *chan_ann;
+			struct amount_sat sat;
+			if (!fromwire_gossip_store_private_channel(msg, msg,
+								   &sat,
+								   &chan_ann)) {
+				bad = "Bad private_channel";
+				goto badmsg;
+			}
+
+			if (!routing_add_private_channel(rstate, NULL,
+							 sat, chan_ann,
 							 gs->len)) {
 				bad = "Bad add_private_channel";
 				goto badmsg;
 			}
 			stats[0]++;
 			break;
+		}
 		case WIRE_GOSSIP_STORE_CHANNEL_AMOUNT:
 			if (!fromwire_gossip_store_channel_amount(msg,
 								  &satoshis)) {
