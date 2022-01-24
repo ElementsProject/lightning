@@ -112,6 +112,9 @@ bool fromwire_gossipd_new_peer(const void *p UNNEEDED, struct node_id *id UNNEED
 /* Generated stub for fromwire_gossipd_outpoint_spent */
 bool fromwire_gossipd_outpoint_spent(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_outpoint_spent called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_recv_gossip */
+bool fromwire_gossipd_recv_gossip(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u8 **msg UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_recv_gossip called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_send_onionmsg */
 bool fromwire_gossipd_send_onionmsg(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, bool *obs2 UNNEEDED, struct node_id *id UNNEEDED, u8 **onion UNNEEDED, struct pubkey *blinding UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_send_onionmsg called!\n"); abort(); }
@@ -335,6 +338,9 @@ u8 *towire_gossipd_new_blockheight_reply(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_gossipd_new_peer_reply */
 u8 *towire_gossipd_new_peer_reply(const tal_t *ctx UNNEEDED, bool success UNNEEDED)
 { fprintf(stderr, "towire_gossipd_new_peer_reply called!\n"); abort(); }
+/* Generated stub for towire_gossipd_send_gossip */
+u8 *towire_gossipd_send_gossip(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_send_gossip called!\n"); abort(); }
 /* Generated stub for towire_warningfmt */
 u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,

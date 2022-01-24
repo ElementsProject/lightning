@@ -11,3 +11,15 @@ msgdata,gossipd_new_peer,gossip_queries_feature,bool,
 # if success: + gossip fd
 msgtype,gossipd_new_peer_reply,4100
 msgdata,gossipd_new_peer_reply,success,bool,
+
+# connectd tells gossipd a gossip msg it received for peer.
+msgtype,gossipd_recv_gossip,4002
+msgdata,gossipd_recv_gossip,id,node_id,
+msgdata,gossipd_recv_gossip,len,u16,
+msgdata,gossipd_recv_gossip,msg,byte,len
+
+# Gossipd asks connectd to send a gossip msg for peer.
+msgtype,gossipd_send_gossip,4102
+msgdata,gossipd_send_gossip,id,node_id,
+msgdata,gossipd_send_gossip,len,u16,
+msgdata,gossipd_send_gossip,msg,byte,len

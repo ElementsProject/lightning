@@ -2007,7 +2007,18 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 				   const u8 *msg,
 				   struct daemon *daemon)
 {
-	/* FIXME! */
+	struct node_id dst;
+	u8 *gossip_msg;
+	struct peer *peer;
+
+	if (!fromwire_gossipd_send_gossip(msg, msg, &dst, &gossip_msg))
+		status_failed(STATUS_FAIL_GOSSIP_IO, "Unknown msg %i",
+			      fromwire_peektype(msg));
+
+	peer = peer_htable_get(&daemon->peers, &dst);
+	if (peer)
+		queue_peer_msg(peer, take(gossip_msg));
+
 	return daemon_conn_read_next(conn, daemon->gossipd);
 }
 
