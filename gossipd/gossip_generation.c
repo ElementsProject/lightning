@@ -598,7 +598,7 @@ static void defer_update(struct daemon *daemon,
 }
 
 /* If there is a pending update for this local channel, apply immediately. */
-bool local_channel_update_latest(struct daemon *daemon, struct chan *chan)
+static bool local_channel_update_latest(struct daemon *daemon, struct chan *chan)
 {
 	struct deferred_update *du;
 

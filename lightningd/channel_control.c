@@ -504,6 +504,10 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_PING_REPLY:
 		ping_reply(sd, msg);
 		break;
+	case WIRE_CHANNELD_USED_CHANNEL_UPDATE:
+		/* This tells gossipd we used it. */
+		get_channel_update(sd->channel);
+		break;
 #if EXPERIMENTAL_FEATURES
 	case WIRE_CHANNELD_UPGRADED:
 		handle_channel_upgrade(sd->channel, msg);
@@ -525,6 +529,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_FEERATES:
 	case WIRE_CHANNELD_BLOCKHEIGHT:
 	case WIRE_CHANNELD_SPECIFIC_FEERATES:
+	case WIRE_CHANNELD_CHANNEL_UPDATE:
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 	case WIRE_CHANNELD_DEV_QUIESCE:
 		/* Replies go to requests. */
@@ -717,7 +722,8 @@ void peer_start_channeld(struct channel *channel,
 					     : (u32 *)&ld->dev_disable_commit,
 					     NULL),
 				       pbases,
-				       reestablish_only);
+				       reestablish_only,
+				       channel->channel_update);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
@@ -1006,6 +1012,20 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 			   /* Freed by callback */
 			   tal_steal(NULL, cc));
 	return command_still_pending(cmd);
+}
+
+void channel_replace_update(struct channel *channel, u8 *update TAKES)
+{
+	tal_free(channel->channel_update);
+	channel->channel_update = tal_dup_talarr(channel, u8, update);
+
+	/* Keep channeld up-to-date */
+	if (!channel->owner || !streq(channel->owner->name, "channeld"))
+		return;
+
+	subd_send_msg(channel->owner,
+		      take(towire_channeld_channel_update(NULL,
+							  channel->channel_update)));
 }
 
 #if DEVELOPER
