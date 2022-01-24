@@ -210,7 +210,7 @@ void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 void maybe_send_own_node_announce(struct daemon *daemon UNNEEDED, bool startup UNNEEDED)
 { fprintf(stderr, "maybe_send_own_node_announce called!\n"); abort(); }
 /* Generated stub for maybe_send_query_responses */
-void maybe_send_query_responses(struct peer *peer UNNEEDED)
+void maybe_send_query_responses(struct daemon *daemon UNNEEDED)
 { fprintf(stderr, "maybe_send_query_responses called!\n"); abort(); }
 /* Generated stub for memleak_find_allocations */
 struct htable *memleak_find_allocations(const tal_t *ctx UNNEEDED,

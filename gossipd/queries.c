@@ -335,8 +335,8 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = tal_arr(peer, struct node_id, 0);
 
-	/* Notify the daemon_conn-write loop to invoke create_next_scid_reply */
-	daemon_conn_wake(peer->dc);
+	/* Notify the daemon_conn-write loop to invoke maybe_send_query_responses_peer */
+	daemon_conn_wake(peer->daemon->connectd);
 	return NULL;
 }
 
@@ -985,7 +985,7 @@ static void uniquify_node_ids(struct node_id **ids)
 /* We are fairly careful to avoid the peer DoSing us with channel queries:
  * this routine sends information about a single short_channel_id, unless
  * it's finished all of them. */
-void maybe_send_query_responses(struct peer *peer)
+static bool maybe_send_query_responses_peer(struct peer *peer)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
 	size_t i, num;
@@ -1119,6 +1119,22 @@ void maybe_send_query_responses(struct peer *peer)
 		peer->scid_query_nodes = tal_free(peer->scid_query_nodes);
 		peer->scid_query_nodes_idx = 0;
 	}
+	return sent;
+}
+
+void maybe_send_query_responses(struct daemon *daemon)
+{
+	/* Rotate through, so we don't favor a single peer. */
+	struct list_head used;
+	struct peer *p;
+
+	list_head_init(&used);
+	while ((p = list_pop(&daemon->peers, struct peer, list)) != NULL) {
+		list_add(&used, &p->list);
+		if (maybe_send_query_responses_peer(p))
+			break;
+	}
+	list_append_list(&daemon->peers, &used);
 }
 
 bool query_channel_range(struct daemon *daemon,
