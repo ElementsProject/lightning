@@ -2,16 +2,6 @@
 #include <bitcoin/short_channel_id.h>
 #include <common/amount.h>
 
-# Channel daemon can ask for updates for a specific channel, for sending
-# errors.  
-msgtype,gossipd_get_update,3501
-msgdata,gossipd_get_update,short_channel_id,short_channel_id,
-
-# If channel isn't known, update will be empty.
-msgtype,gossipd_get_update_reply,3601
-msgdata,gossipd_get_update_reply,len,u16,
-msgdata,gossipd_get_update_reply,update,u8,len
-
 # Send this channel_update.
 msgtype,gossipd_local_channel_update,3504
 msgdata,gossipd_local_channel_update,short_channel_id,short_channel_id,

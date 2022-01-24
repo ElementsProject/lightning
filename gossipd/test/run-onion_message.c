@@ -88,9 +88,6 @@ bool fromwire_gossipd_get_addrs(const void *p UNNEEDED, struct node_id *id UNNEE
 /* Generated stub for fromwire_gossipd_get_txout_reply */
 bool fromwire_gossipd_get_txout_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct amount_sat *satoshis UNNEEDED, u8 **outscript UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_get_txout_reply called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_get_update */
-bool fromwire_gossipd_get_update(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_get_update called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_init */
 bool fromwire_gossipd_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, const struct chainparams **chainparams UNNEEDED, struct feature_set **our_features UNNEEDED, struct node_id *id UNNEEDED, u8 rgb[3] UNNEEDED, u8 alias[32] UNNEEDED, struct wireaddr **announcable UNNEEDED, u32 **dev_gossip_time UNNEEDED, bool *dev_fast_gossip UNNEEDED, bool *dev_fast_gossip_prune UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_init called!\n"); abort(); }
@@ -199,9 +196,6 @@ void json_object_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
-/* Generated stub for local_channel_update_latest */
-bool local_channel_update_latest(struct daemon *daemon UNNEEDED, struct chan *chan UNNEEDED)
-{ fprintf(stderr, "local_channel_update_latest called!\n"); abort(); }
 /* Generated stub for local_disable_chan */
 void local_disable_chan(struct daemon *daemon UNNEEDED, const struct chan *chan UNNEEDED, int direction UNNEEDED)
 { fprintf(stderr, "local_disable_chan called!\n"); abort(); }
@@ -323,9 +317,6 @@ u8 *towire_gossipd_get_addrs_reply(const tal_t *ctx UNNEEDED, const struct wirea
 /* Generated stub for towire_gossipd_get_txout */
 u8 *towire_gossipd_get_txout(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "towire_gossipd_get_txout called!\n"); abort(); }
-/* Generated stub for towire_gossipd_get_update_reply */
-u8 *towire_gossipd_get_update_reply(const tal_t *ctx UNNEEDED, const u8 *update UNNEEDED)
-{ fprintf(stderr, "towire_gossipd_get_update_reply called!\n"); abort(); }
 /* Generated stub for towire_gossipd_got_onionmsg_to_us */
 u8 *towire_gossipd_got_onionmsg_to_us(const tal_t *ctx UNNEEDED, bool obs2 UNNEEDED, const struct pubkey *node_alias UNNEEDED, const struct secret *self_id UNNEEDED, const struct pubkey *reply_blinding UNNEEDED, const struct pubkey *reply_first_node UNNEEDED, const struct onionmsg_path **reply_path UNNEEDED, const u8 *rawmsg UNNEEDED)
 { fprintf(stderr, "towire_gossipd_got_onionmsg_to_us called!\n"); abort(); }

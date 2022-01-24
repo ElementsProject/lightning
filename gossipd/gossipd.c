@@ -277,65 +277,6 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
-/*~ This is when channeld asks us for a channel_update for a local channel.
- * It does that to fill in the error field when lightningd fails an HTLC and
- * sets the UPDATE bit in the error type.  lightningd is too important to
- * fetch this itself, so channeld does it (channeld has to talk to us for
- * other things anyway, so why not?). */
-static bool handle_get_local_channel_update(struct peer *peer, const u8 *msg)
-{
-	struct short_channel_id scid;
-	struct chan *chan;
-	const u8 *update;
-	struct routing_state *rstate = peer->daemon->rstate;
-	int direction;
-
-	if (!fromwire_gossipd_get_update(msg, &scid)) {
-		status_broken("peer %s sent bad gossip_get_update %s",
-			      type_to_string(tmpctx, struct node_id, &peer->id),
-			      tal_hex(tmpctx, msg));
-		return false;
-	}
-
-	/* It's possible that the channel has just closed (though v. unlikely) */
-	chan = get_channel(rstate, &scid);
-	if (!chan) {
-		status_unusual("peer %s scid %s: unknown channel",
-			       type_to_string(tmpctx, struct node_id, &peer->id),
-			       type_to_string(tmpctx, struct short_channel_id,
-					      &scid));
-		update = NULL;
-		goto out;
-	}
-
-	/* Since we're going to send it out, make sure it's up-to-date. */
-	local_channel_update_latest(peer->daemon, chan);
-
-	if (!local_direction(rstate, chan, &direction)) {
-		status_peer_broken(&peer->id, "Chan %s is not local?",
-				   type_to_string(tmpctx, struct short_channel_id,
-						  &scid));
-		update = NULL;
-		goto out;
-	}
-
- 	/* It's possible this is zero, if we've never sent a channel_update
-	 * for that channel. */
-	if (!is_halfchan_defined(&chan->half[direction]))
-		update = NULL;
-	else
-		update = gossip_store_get(tmpctx, rstate->gs,
-					  chan->half[direction].bcast.index);
-out:
-	status_peer_debug(&peer->id, "schanid %s: %s update",
-			  type_to_string(tmpctx, struct short_channel_id, &scid),
-			  update ? "got" : "no");
-
-	msg = towire_gossipd_get_update_reply(NULL, update);
-	daemon_conn_send(peer->dc, take(msg));
-	return true;
-}
-
 static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 {
 	bool was_unknown = false;
@@ -781,19 +722,12 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 
 	/* Must be a gossipd_peerd_wire_type asking us to do something. */
 	switch ((enum gossipd_peerd_wire)fromwire_peektype(msg)) {
-	case WIRE_GOSSIPD_GET_UPDATE:
-		ok = handle_get_local_channel_update(peer, msg);
-		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
 		ok = handle_local_channel_update(peer->daemon, &peer->id, msg);
 		goto handled_cmd;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
 		ok = handle_local_channel_announcement(peer->daemon, peer, msg);
 		goto handled_cmd;
-
-	/* These are the ones we send, not them */
-	case WIRE_GOSSIPD_GET_UPDATE_REPLY:
-		break;
 	}
 
 	if (fromwire_peektype(msg) == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL) {

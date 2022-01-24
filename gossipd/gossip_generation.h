@@ -35,9 +35,6 @@ bool nannounce_different(struct gossip_store *gs,
 /* Should we announce our own node?  Called at strategic places. */
 void maybe_send_own_node_announce(struct daemon *daemon, bool startup);
 
-/* Flush any pending changes to this channel. */
-bool local_channel_update_latest(struct daemon *daemon, struct chan *chan);
-
 /* Disable this local channel (lazily) */
 void local_disable_chan(struct daemon *daemon, const struct chan *chan, int direction);
 
