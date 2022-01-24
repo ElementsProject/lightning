@@ -1799,10 +1799,13 @@ def test_gossip_ratelimit(node_factory, bitcoind):
     canned gossip to the other partition consisting of l3. l3 should ratelimit
     the incoming gossip.
 
+    We get BROKEN logs because gossipd talks about non-existent channels to
+    lightningd ("**BROKEN** lightningd: Local update for bad scid 103x1x1").
     """
     l3, = node_factory.get_nodes(
         1,
-        opts=[{'dev-gossip-time': 1568096251}]
+        opts=[{'dev-gossip-time': 1568096251,
+               'allow_broken_log': True}]
     )
 
     # Bump to block 102, so the following tx ends up in 103x1:
@@ -1958,7 +1961,11 @@ def test_torport_onions(node_factory):
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete gossip_store")
 def test_gossip_store_upgrade_v7_v8(node_factory):
     """Version 8 added feature bits to local channel announcements"""
-    l1 = node_factory.get_node(start=False)
+
+    # We get BROKEN logs because gossipd talks about non-existent channels to
+    # lightningd ("**BROKEN** lightningd: Local update for bad scid 103x1x1").
+    l1 = node_factory.get_node(start=False,
+                               allow_broken_log=True)
 
     # A channel announcement with no channel_update.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:

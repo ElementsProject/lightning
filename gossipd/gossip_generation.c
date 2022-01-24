@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
+#include <common/daemon_conn.h>
 #include <common/features.h>
 #include <common/memleak.h>
 #include <common/status.h>
@@ -15,6 +16,7 @@
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/wire_sync.h>
 
@@ -417,6 +419,11 @@ static u8 *sign_and_timestamp_update(const tal_t *ctx,
 
 	if (taken(unsigned_update))
 		tal_free(unsigned_update);
+
+	/* Tell lightningd about this immediately (even if we're not actually
+	 * applying it now) */
+	msg = towire_gossipd_got_local_channel_update(NULL, &chan->scid, update);
+	daemon_conn_send(daemon->master, take(msg));
 
 	return update;
 }

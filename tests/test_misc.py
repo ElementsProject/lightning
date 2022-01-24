@@ -1081,7 +1081,9 @@ def test_funding_reorg_private(node_factory, bitcoind):
     # Rescan to detect reorg at restart and may_reconnect so channeld
     # will restart.  Reorg can cause bad gossip msg.
     opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True,
-            'allow_bad_gossip': True}
+            'allow_bad_gossip': True,
+            # gossipd send lightning update for original channel.
+            'allow_broken_log': True}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
