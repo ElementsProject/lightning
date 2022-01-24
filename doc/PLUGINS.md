@@ -771,22 +771,22 @@ both the debit/credit contain fees. Technically routed debits are the
  - `invoice`: funds paid to or recieved from an invoice.
  - `routed`: funds routed through this node.
  - `pushed`: funds pushed to peer.
- -  channel_open : channel is opened, initial channel balance
- -  channel_close: channel is closed, final channel balance
- -  delayed_to_us : on-chain output to us, spent back into our wallet
- -  htlc_timeout : on-chain htlc timeout output
- - htlc_fulfill : on-chian htlc fulfill output
- - htlc_tx : on-chain htlc tx has happened
- - to_wallet : output being spent into our wallet
- - ignored : output is being ignored
- - anchor : an anchor output
- - to_them : output intended to peer's wallet
- - penalized : output we've 'lost' due to a penalty (failed cheat attempt)
- - stolen : output we've 'lost' due to peer's cheat
- - to_miner : output we've burned to miner (OP_RETURN)
- - opener : tags channel_open, we are the channel opener
- - lease_fee: amount paid as lease fee
- - leased: tags channel_open, channel contains leased funds
+ - `channel_open` : channel is opened, initial channel balance
+ - `channel_close`: channel is closed, final channel balance
+ - `delayed_to_us`: on-chain output to us, spent back into our wallet
+ - `htlc_timeout`: on-chain htlc timeout output
+ - `htlc_fulfill`: on-chian htlc fulfill output
+ - `htlc_tx`: on-chain htlc tx has happened
+ - `to_wallet`: output being spent into our wallet
+ - `ignored`: output is being ignored
+ - `anchor`: an anchor output
+ - `to_them`: output intended to peer's wallet
+ - `penalized`: output we've 'lost' due to a penalty (failed cheat attempt)
+ - `stolen`: output we've 'lost' due to peer's cheat
+ - `to_miner`: output we've burned to miner (OP_RETURN)
+ - `opener`: tags channel_open, we are the channel opener
+ - `lease_fee`: amount paid as lease fee
+ - `leased`: tags channel_open, channel contains leased funds
 
 `blockheight` is the block the txid is included in.
 
