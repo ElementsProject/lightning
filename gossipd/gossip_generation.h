@@ -53,4 +53,7 @@ bool handle_local_channel_update(struct daemon *daemon,
 				 const struct node_id *src,
 				 const u8 *msg);
 
+/* lightningd tells us it used the last channel_update we sent. */
+void handle_used_local_channel_update(struct daemon *daemon, const u8 *msg);
+
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_GENERATION_H */

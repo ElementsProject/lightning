@@ -39,6 +39,9 @@ char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr
 /* Generated stub for fromwire_gossipd_local_channel_update */
 bool fromwire_gossipd_local_channel_update(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, bool *disable UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_channel_update called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_used_local_channel_update */
+bool fromwire_gossipd_used_local_channel_update(const void *p UNNEEDED, struct short_channel_id *scid UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_used_local_channel_update called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_cupdate_sig_reply */
 bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_cupdate_sig_reply called!\n"); abort(); }
@@ -78,6 +81,9 @@ void json_object_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for master_badmsg */
+void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
+{ fprintf(stderr, "master_badmsg called!\n"); abort(); }
 /* Generated stub for new_onionreply */
 struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED)
 { fprintf(stderr, "new_onionreply called!\n"); abort(); }

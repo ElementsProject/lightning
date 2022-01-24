@@ -183,6 +183,9 @@ const u8 *handle_reply_channel_range(struct peer *peer UNNEEDED, const u8 *msg U
 /* Generated stub for handle_reply_short_channel_ids_end */
 const u8 *handle_reply_short_channel_ids_end(struct peer *peer UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "handle_reply_short_channel_ids_end called!\n"); abort(); }
+/* Generated stub for handle_used_local_channel_update */
+void handle_used_local_channel_update(struct daemon *daemon UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "handle_used_local_channel_update called!\n"); abort(); }
 /* Generated stub for json_add_member */
 void json_add_member(struct json_stream *js UNNEEDED,
 		     const char *fieldname UNNEEDED,

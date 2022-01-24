@@ -474,4 +474,6 @@ void channel_set_billboard(struct channel *channel, bool perm,
 struct htlc_in *channel_has_htlc_in(struct channel *channel);
 struct htlc_out *channel_has_htlc_out(struct channel *channel);
 
+const u8 *get_channel_update(struct channel *channel);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_H */

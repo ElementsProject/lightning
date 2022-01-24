@@ -135,6 +135,17 @@ static void handle_local_channel_update(struct lightningd *ld, const u8 *msg)
 	channel->channel_update = tal_steal(channel, update);
 }
 
+const u8 *get_channel_update(struct channel *channel)
+{
+	/* Tell gossipd we're using it (if shutting down, might be NULL) */
+	if (channel->channel_update && channel->peer->ld->gossip) {
+		subd_send_msg(channel->peer->ld->gossip,
+			      take(towire_gossipd_used_local_channel_update
+				   (NULL, channel->scid)));
+	}
+	return channel->channel_update;
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossipd_wire t = fromwire_peektype(msg);
@@ -156,6 +167,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	case WIRE_GOSSIPD_GET_ADDRS:
+	case WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:

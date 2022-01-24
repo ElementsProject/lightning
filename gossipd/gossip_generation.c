@@ -811,6 +811,26 @@ void local_disable_chan(struct daemon *daemon, const struct chan *chan, int dire
 	defer_update(daemon, 0xFFFFFFFF, chan, direction, take(update));
 }
 
+/* lightningd tells us it used the local channel update. */
+void handle_used_local_channel_update(struct daemon *daemon, const u8 *msg)
+{
+	struct short_channel_id scid;
+	struct chan *chan;
+
+	if (!fromwire_gossipd_used_local_channel_update(msg, &scid))
+		master_badmsg(WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE, msg);
+
+	chan = get_channel(daemon->rstate, &scid);
+	/* Might have closed in meantime, but v unlikely! */
+	if (!chan) {
+		status_broken("used_local_channel_update on unknown %s",
+			      type_to_string(tmpctx, struct short_channel_id,
+					     &scid));
+		return;
+	}
+	local_channel_update_latest(daemon, chan);
+}
+
 void local_enable_chan(struct daemon *daemon, const struct chan *chan, int direction)
 {
 	struct deferred_update *du;

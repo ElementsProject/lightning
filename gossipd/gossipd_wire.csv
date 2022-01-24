@@ -122,3 +122,7 @@ msgtype,gossipd_got_local_channel_update,3151
 msgdata,gossipd_got_local_channel_update,scid,short_channel_id,
 msgdata,gossipd_got_local_channel_update,len,u16,
 msgdata,gossipd_got_local_channel_update,channel_update,u8,len
+
+# Tell gossipd we used the channel update (in case it was deferred)
+msgtype,gossipd_used_local_channel_update,3052
+msgdata,gossipd_used_local_channel_update,scid,short_channel_id,
