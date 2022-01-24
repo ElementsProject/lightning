@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/ptrint/ptrint.h>
+#include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -167,6 +168,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	case WIRE_GOSSIPD_GET_ADDRS:
 	case WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE:
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
+	case WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
@@ -276,6 +280,85 @@ void gossipd_notify_spend(struct lightningd *ld,
 {
 	u8 *msg = towire_gossipd_outpoint_spent(tmpctx, scid);
 	subd_send_msg(ld->gossip, msg);
+}
+
+/* We unwrap, add the peer id, and send to gossipd. */
+void tell_gossipd_local_channel_update(struct lightningd *ld,
+				       struct channel *channel,
+				       const u8 *msg)
+{
+	struct short_channel_id scid;
+	bool disable;
+	u16 cltv_expiry_delta;
+	struct amount_msat htlc_minimum_msat;
+	u32 fee_base_msat, fee_proportional_millionths;
+	struct amount_msat htlc_maximum_msat;
+
+	if (!fromwire_channeld_local_channel_update(msg, &scid, &disable,
+						    &cltv_expiry_delta,
+						    &htlc_minimum_msat,
+						    &fee_base_msat,
+						    &fee_proportional_millionths,
+						    &htlc_maximum_msat)) {
+		channel_internal_error(channel,
+				       "bad channeld_local_channel_update %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	/* As we're shutting down, ignore */
+	if (!ld->gossip)
+		return;
+
+	subd_send_msg(ld->gossip,
+		      take(towire_gossipd_local_channel_update
+			   (NULL,
+			    &channel->peer->id,
+			    &scid,
+			    disable,
+			    cltv_expiry_delta,
+			    htlc_minimum_msat,
+			    fee_base_msat,
+			    fee_proportional_millionths, htlc_maximum_msat)));
+}
+
+void tell_gossipd_local_channel_announce(struct lightningd *ld,
+					 struct channel *channel,
+					 const u8 *msg)
+{
+	u8 *ann;
+	if (!fromwire_channeld_local_channel_announcement(msg, msg, &ann)) {
+		channel_internal_error(channel,
+				       "bad channeld_local_channel_announcement"
+				       " %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	/* As we're shutting down, ignore */
+	if (!ld->gossip)
+		return;
+
+	subd_send_msg(ld->gossip,
+		      take(towire_gossipd_local_channel_announcement
+			   (NULL, &channel->peer->id, ann)));
+}
+
+void tell_gossipd_local_private_channel(struct lightningd *ld,
+					struct channel *channel,
+					struct amount_sat capacity,
+					const u8 *features)
+{
+	/* As we're shutting down, ignore */
+	if (!ld->gossip)
+		return;
+
+	subd_send_msg(ld->gossip,
+		      take(towire_gossipd_local_private_channel
+			   (NULL, &channel->peer->id,
+			    capacity,
+			    channel->scid,
+			    features)));
 }
 
 static struct command_result *json_setleaserates(struct command *cmd,

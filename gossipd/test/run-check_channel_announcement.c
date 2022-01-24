@@ -144,6 +144,10 @@ void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 /* Generated stub for peer_supplied_good_gossip */
 void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
+/* Generated stub for status_failed */
+void status_failed(enum status_failreason code UNNEEDED,
+		   const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "status_failed called!\n"); abort(); }
 /* Generated stub for status_fmt */
 void status_fmt(enum log_level level UNNEEDED,
 		const struct node_id *peer UNNEEDED,

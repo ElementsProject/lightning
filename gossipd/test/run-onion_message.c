@@ -92,11 +92,14 @@ bool fromwire_gossipd_get_txout_reply(const tal_t *ctx UNNEEDED, const void *p U
 bool fromwire_gossipd_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, const struct chainparams **chainparams UNNEEDED, struct feature_set **our_features UNNEEDED, struct node_id *id UNNEEDED, u8 rgb[3] UNNEEDED, u8 alias[32] UNNEEDED, struct wireaddr **announcable UNNEEDED, u32 **dev_gossip_time UNNEEDED, bool *dev_fast_gossip UNNEEDED, bool *dev_fast_gossip_prune UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_init called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_channel_announcement */
-bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cannount UNNEEDED)
+bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u8 **cannounce UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_channel_announcement called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_local_channel_close */
 bool fromwire_gossipd_local_channel_close(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_channel_close called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_local_private_channel */
+bool fromwire_gossipd_local_private_channel(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct amount_sat *capacity UNNEEDED, struct short_channel_id *scid UNNEEDED, u8 **features UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_local_private_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_new_blockheight */
 bool fromwire_gossipd_new_blockheight(const void *p UNNEEDED, u32 *blockheight UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_new_blockheight called!\n"); abort(); }
@@ -133,9 +136,6 @@ u32 gossip_store_load(struct routing_state *rstate UNNEEDED, struct gossip_store
 /* Generated stub for gossip_time_now */
 struct timeabs gossip_time_now(const struct routing_state *rstate UNNEEDED)
 { fprintf(stderr, "gossip_time_now called!\n"); abort(); }
-/* Generated stub for gossipd_peerd_wire_name */
-const char *gossipd_peerd_wire_name(int e UNNEEDED)
-{ fprintf(stderr, "gossipd_peerd_wire_name called!\n"); abort(); }
 /* Generated stub for handle_channel_announcement */
 u8 *handle_channel_announcement(struct routing_state *rstate UNNEEDED,
 				const u8 *announce TAKES UNNEEDED,
@@ -150,9 +150,7 @@ u8 *handle_channel_update(struct routing_state *rstate UNNEEDED, const u8 *updat
 			  bool force UNNEEDED)
 { fprintf(stderr, "handle_channel_update called!\n"); abort(); }
 /* Generated stub for handle_local_channel_update */
-bool handle_local_channel_update(struct daemon *daemon UNNEEDED,
-				 const struct node_id *src UNNEEDED,
-				 const u8 *msg UNNEEDED)
+void handle_local_channel_update(struct daemon *daemon UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "handle_local_channel_update called!\n"); abort(); }
 /* Generated stub for handle_node_announcement */
 u8 *handle_node_announcement(struct routing_state *rstate UNNEEDED, const u8 *node UNNEEDED,
@@ -247,6 +245,13 @@ struct chan *next_chan(const struct node *node UNNEEDED, struct chan_map_iter *i
 /* Generated stub for notleak_ */
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
+/* Generated stub for private_channel_announcement */
+const u8 *private_channel_announcement(const tal_t *ctx UNNEEDED,
+				       const struct short_channel_id *scid UNNEEDED,
+				       const struct node_id *local_node_id UNNEEDED,
+				       const struct node_id *remote_node_id UNNEEDED,
+				       const u8 *features UNNEEDED)
+{ fprintf(stderr, "private_channel_announcement called!\n"); abort(); }
 /* Generated stub for query_unknown_channel */
 void query_unknown_channel(struct daemon *daemon UNNEEDED,
 			   struct peer *peer UNNEEDED,
@@ -273,8 +278,9 @@ void route_prune(struct routing_state *rstate UNNEEDED)
 { fprintf(stderr, "route_prune called!\n"); abort(); }
 /* Generated stub for routing_add_private_channel */
 bool routing_add_private_channel(struct routing_state *rstate UNNEEDED,
-				 const struct peer *peer UNNEEDED,
-				 const u8 *msg UNNEEDED, u64 index UNNEEDED)
+				 const struct node_id *id UNNEEDED,
+				 struct amount_sat sat UNNEEDED,
+				 const u8 *chan_ann UNNEEDED, u64 index UNNEEDED)
 { fprintf(stderr, "routing_add_private_channel called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,

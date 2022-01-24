@@ -109,6 +109,10 @@ void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDE
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "sanitize_error called!\n"); abort(); }
+/* Generated stub for status_failed */
+void status_failed(enum status_failreason code UNNEEDED,
+		   const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "status_failed called!\n"); abort(); }
 /* Generated stub for status_fmt */
 void status_fmt(enum log_level level UNNEEDED,
 		const struct node_id *peer UNNEEDED,

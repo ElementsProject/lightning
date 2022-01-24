@@ -1820,22 +1820,17 @@ void route_prune(struct routing_state *rstate)
 }
 
 bool routing_add_private_channel(struct routing_state *rstate,
-				 const struct peer *peer,
-				 const u8 *msg, u64 index)
+				 const struct node_id *id,
+				 struct amount_sat capacity,
+				 const u8 *chan_ann, u64 index)
 {
 	struct short_channel_id scid;
 	struct node_id node_id[2];
 	struct pubkey ignorekey;
-	struct amount_sat sat;
 	struct chan *chan;
-	u8 *features, *chan_ann;
+	u8 *features;
 	secp256k1_ecdsa_signature ignoresig;
 	struct bitcoin_blkid chain_hash;
-
-	if (!fromwire_gossip_store_private_channel(tmpctx, msg,
-						   &sat, &chan_ann))
-		return false;
-
 
 	if (!fromwire_channel_announcement(tmpctx, chan_ann,
 					   &ignoresig,
@@ -1851,21 +1846,46 @@ bool routing_add_private_channel(struct routing_state *rstate,
 					   &ignorekey))
 		return false;
 
-	/* Can happen on channeld restart. */
-	if (get_channel(rstate, &scid)) {
-		status_peer_debug(peer ? &peer->id : NULL,
-				  "Attempted to local_add_channel a known channel");
+	/* Happens on channeld restart. */
+	if (get_channel(rstate, &scid))
 		return true;
+
+	/* Make sure this id (if any) was allowed to create this */
+	if (id) {
+		struct node_id expected[2];
+		int cmp = node_id_cmp(&rstate->local_id, id);
+
+		if (cmp < 0) {
+			expected[0] = rstate->local_id;
+			expected[1] = *id;
+		} else if (cmp > 0) {
+			expected[0] = *id;
+			expected[1] = rstate->local_id;
+		} else {
+			/* lightningd sets id, so this is fatal */
+			status_failed(STATUS_FAIL_MASTER_IO,
+				      "private_channel peer was us?");
+		}
+
+		if (!node_id_eq(&node_id[0], &expected[0])
+		    || !node_id_eq(&node_id[1], &expected[1])) {
+			status_peer_broken(id, "private channel %s<->%s invalid",
+					   type_to_string(tmpctx, struct node_id,
+							  &node_id[0]),
+					   type_to_string(tmpctx, struct node_id,
+							  &node_id[1]));
+			return false;
+		}
 	}
 
-	status_peer_debug(peer ? &peer->id : NULL,
-			  "local_add_channel %s",
-			  type_to_string(tmpctx, struct short_channel_id, &scid));
-
 	/* Create new (unannounced) channel */
-	chan = new_chan(rstate, &scid, &node_id[0], &node_id[1], sat);
-	if (!index)
+	chan = new_chan(rstate, &scid, &node_id[0], &node_id[1], capacity);
+	if (!index) {
+		u8 *msg = towire_gossip_store_private_channel(tmpctx,
+							      capacity,
+							      chan_ann);
 		index = gossip_store_add(rstate->gs, msg, 0, false, NULL);
+	}
 	chan->bcast.index = index;
 	return true;
 }

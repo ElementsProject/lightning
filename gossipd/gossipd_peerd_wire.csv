@@ -2,17 +2,3 @@
 #include <bitcoin/short_channel_id.h>
 #include <common/amount.h>
 
-# Send this channel_update.
-msgtype,gossipd_local_channel_update,3504
-msgdata,gossipd_local_channel_update,short_channel_id,short_channel_id,
-msgdata,gossipd_local_channel_update,disable,bool,
-msgdata,gossipd_local_channel_update,cltv_expiry_delta,u16,
-msgdata,gossipd_local_channel_update,htlc_minimum_msat,amount_msat,
-msgdata,gossipd_local_channel_update,fee_base_msat,u32,
-msgdata,gossipd_local_channel_update,fee_proportional_millionths,u32,
-msgdata,gossipd_local_channel_update,htlc_maximum_msat,amount_msat,
-
-# Send this channel_announcement
-msgtype,gossipd_local_channel_announcement,3506
-msgdata,gossipd_local_channel_announcement,len,u16,
-msgdata,gossipd_local_channel_announcement,cannount,u8,len

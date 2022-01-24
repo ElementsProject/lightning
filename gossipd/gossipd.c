@@ -19,6 +19,7 @@
 #include <common/ecdh_hsmd.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
+#include <common/private_channel_announcement.h>
 #include <common/pseudorand.h>
 #include <common/sphinx.h>
 #include <common/status.h>
@@ -289,31 +290,60 @@ static u8 *handle_node_announce(struct peer *peer, const u8 *msg)
 	return err;
 }
 
-static bool handle_local_channel_announcement(struct daemon *daemon,
-					      struct peer *peer,
-					      const u8 *msg)
+static void handle_local_channel_announcement(struct daemon *daemon, const u8 *msg)
 {
 	u8 *cannouncement;
 	const u8 *err;
+	struct node_id id;
+	struct peer *peer;
 
 	if (!fromwire_gossipd_local_channel_announcement(msg, msg,
-							 &cannouncement)) {
-		status_broken("peer %s bad local_channel_announcement %s",
-			      type_to_string(tmpctx, struct node_id, &peer->id),
-			      tal_hex(tmpctx, msg));
-		return false;
-	}
+							 &id,
+							 &cannouncement))
+		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT, msg);
+
+	/* We treat it OK even if peer has disconnected since (unlikely though!) */
+	peer = find_peer(daemon, &id);
+	if (!peer)
+		status_broken("Unknown peer %s for local_channel_announcement",
+			      type_to_string(tmpctx, struct node_id, &id));
 
 	err = handle_channel_announcement_msg(daemon, peer, cannouncement);
 	if (err) {
 		status_broken("peer %s invalid local_channel_announcement %s (%s)",
-			      type_to_string(tmpctx, struct node_id, &peer->id),
+			      type_to_string(tmpctx, struct node_id, &id),
 			      tal_hex(tmpctx, msg),
 			      tal_hex(tmpctx, err));
-		return false;
 	}
+}
 
-	return true;
+
+/* channeld (via lightningd) tells us about (as-yet?) unannounce channel.
+ * It needs us to put it in gossip_store. */
+static void handle_local_private_channel(struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+	struct amount_sat capacity;
+	u8 *features;
+	struct short_channel_id scid;
+	const u8 *cannounce;
+
+	if (!fromwire_gossipd_local_private_channel(msg, msg,
+						    &id, &capacity, &scid,
+						    &features))
+		master_badmsg(WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL, msg);
+
+	cannounce = private_channel_announcement(tmpctx,
+						 &scid,
+						 &daemon->id,
+						 &id,
+						 features);
+
+	if (!routing_add_private_channel(daemon->rstate, &id, capacity,
+					 cannounce, 0)) {
+		status_peer_broken(&id, "bad add_private_channel %s",
+				   tal_hex(tmpctx, cannounce));
+	}
 }
 
 /* Peer sends obsolete onion msg. */
@@ -645,7 +675,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 				    struct peer *peer)
 {
 	const u8 *err;
-	bool ok;
 
 	/* These are messages relayed from peer */
 	switch ((enum peer_wire)fromwire_peektype(msg)) {
@@ -720,40 +749,17 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	/* Must be a gossipd_peerd_wire_type asking us to do something. */
-	switch ((enum gossipd_peerd_wire)fromwire_peektype(msg)) {
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
-		ok = handle_local_channel_update(peer->daemon, &peer->id, msg);
-		goto handled_cmd;
-	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
-		ok = handle_local_channel_announcement(peer->daemon, peer, msg);
-		goto handled_cmd;
-	}
-
-	if (fromwire_peektype(msg) == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL) {
-		ok = routing_add_private_channel(peer->daemon->rstate, peer,
-						 msg, 0);
-		goto handled_cmd;
-	}
-
 	/* Anything else should not have been sent to us: close on it */
-	status_peer_broken(&peer->id, "unexpected cmd of type %i %s",
-			   fromwire_peektype(msg),
-			   gossipd_peerd_wire_name(fromwire_peektype(msg)));
+	status_peer_broken(&peer->id, "unexpected cmd of type %i",
+			   fromwire_peektype(msg));
 	return io_close(conn);
-
-	/* Commands should always be OK. */
-handled_cmd:
-	if (!ok)
-		return io_close(conn);
-	goto done;
 
 	/* Forwarded messages may be bad, so we have error which the per-peer
 	 * daemon will forward to the peer. */
 handled_relay:
 	if (err)
 		queue_peer_msg(peer, take(err));
-done:
+
 	return daemon_conn_read_next(conn, peer->dc);
 }
 
@@ -1297,6 +1303,17 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		handle_used_local_channel_update(daemon, msg);
 		goto done;
 
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
+		handle_local_channel_update(daemon, msg);
+		goto done;
+
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:
+		handle_local_channel_announcement(daemon, msg);
+		goto done;
+
+	case WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL:
+		handle_local_private_channel(daemon, msg);
+		goto done;
 #if DEVELOPER
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		dev_set_max_scids_encode_size(daemon, msg);

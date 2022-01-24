@@ -17,6 +17,7 @@
 #include <lightningd/closing_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/dual_open_control.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
@@ -412,6 +413,23 @@ static void handle_error_channel(struct channel *channel,
 	forget(channel);
 }
 
+static void handle_local_private_channel(struct channel *channel, const u8 *msg)
+{
+	struct amount_sat capacity;
+	u8 *features;
+
+	if (!fromwire_channeld_local_private_channel(msg, msg, &capacity,
+						     &features)) {
+		channel_internal_error(channel,
+				       "bad channeld_local_private_channel %s",
+				       tal_hex(channel, msg));
+		return;
+	}
+
+	tell_gossipd_local_private_channel(channel->peer->ld, channel,
+					   capacity, features);
+}
+
 static void forget_channel(struct channel *channel, const char *why)
 {
 	channel->error = towire_errorfmt(channel, &channel->cid, "%s", why);
@@ -507,6 +525,15 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_USED_CHANNEL_UPDATE:
 		/* This tells gossipd we used it. */
 		get_channel_update(sd->channel);
+		break;
+	case WIRE_CHANNELD_LOCAL_CHANNEL_UPDATE:
+		tell_gossipd_local_channel_update(sd->ld, sd->channel, msg);
+		break;
+	case WIRE_CHANNELD_LOCAL_CHANNEL_ANNOUNCEMENT:
+		tell_gossipd_local_channel_announce(sd->ld, sd->channel, msg);
+		break;
+	case WIRE_CHANNELD_LOCAL_PRIVATE_CHANNEL:
+		handle_local_private_channel(sd->channel, msg);
 		break;
 #if EXPERIMENTAL_FEATURES
 	case WIRE_CHANNELD_UPGRADED:
