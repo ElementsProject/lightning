@@ -138,58 +138,6 @@ static void tell_channeld_htlc_failed(const struct htlc_in *hin,
 		      take(towire_channeld_fail_htlc(NULL, failed_htlc)));
 }
 
-struct failmsg_update_cbdata {
-	struct htlc_in *hin;
-	const u8 *failmsg_needs_update;
-};
-
-static void failmsg_update_reply(struct subd *gossipd,
-				 const u8 *msg,
-				 const int *unused,
-				 struct failmsg_update_cbdata *cbdata)
-{
-	u8 *failmsg;
-	u8 *stripped_update;
-	struct failed_htlc *failed_htlc;
-
-	/* This can happen because channel never got properly announced.*/
-	if (!fromwire_gossipd_get_stripped_cupdate_reply(msg, msg,
-							&stripped_update)
-	    || !tal_count(stripped_update)) {
-		failmsg = towire_temporary_node_failure(NULL);
-	} else {
-		/* End of failmsg is two zero bytes (empty update). */
-		assert(tal_count(cbdata->failmsg_needs_update) >= 2);
-		failmsg = tal_dup_arr(msg, u8,
-				      cbdata->failmsg_needs_update,
-				      tal_count(cbdata->failmsg_needs_update)-2,
-				      0);
-		towire_u16(&failmsg, tal_count(stripped_update));
-		towire_u8_array(&failmsg,
-				stripped_update, tal_count(stripped_update));
-	}
-
-	/* Now we replace dummy failonion with this real one */
-	tal_free(cbdata->hin->failonion);
-	cbdata->hin->failonion
-		= create_onionreply(cbdata->hin,
-				    cbdata->hin->shared_secret,
-				    failmsg);
-
-	bool we_filled = false;
-	wallet_htlc_update(gossipd->ld->wallet,
-			   cbdata->hin->dbid, cbdata->hin->hstate,
-			   cbdata->hin->preimage,
-			   max_unsigned(cbdata->hin->key.channel->next_index[LOCAL],
-					cbdata->hin->key.channel->next_index[REMOTE]),
-			   cbdata->hin->badonion,
-			   cbdata->hin->failonion, NULL, &we_filled);
-
-	failed_htlc = mk_failed_htlc(tmpctx,
-				     cbdata->hin, cbdata->hin->failonion);
-	tell_channeld_htlc_failed(cbdata->hin, failed_htlc);
-}
-
 static void fail_in_htlc(struct htlc_in *hin,
 			 const struct onionreply *failonion TAKES)
 {
@@ -210,6 +158,15 @@ static void fail_in_htlc(struct htlc_in *hin,
 	} else
 #endif
 		failed_htlc = mk_failed_htlc(tmpctx, hin, hin->failonion);
+
+	bool we_filled = false;
+	wallet_htlc_update(hin->key.channel->peer->ld->wallet,
+			   hin->dbid, hin->hstate,
+			   hin->preimage,
+			   max_unsigned(hin->key.channel->next_index[LOCAL],
+					hin->key.channel->next_index[REMOTE]),
+			   hin->badonion,
+			   hin->failonion, NULL, &we_filled);
 
 	tell_channeld_htlc_failed(hin, failed_htlc);
 }
@@ -244,34 +201,6 @@ void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 	fail_in_htlc(hin, take(failonion));
 }
 
-/* This is used for cases where we can immediately fail the HTLC, but
- * need to append a channel_update. */
-void local_fail_in_htlc_needs_update(struct htlc_in *hin,
-				     const u8 *failmsg_needs_update TAKES,
-				     const struct short_channel_id *failmsg_scid)
-{
-	struct failmsg_update_cbdata *cbdata;
-
-	/* To avoid the state where we have no failonion, we use a temporary
-	 * one, and update once we get the reply from gossipd. */
-	assert(!hin->preimage);
-
-	hin->failonion = create_onionreply(hin,
-					   hin->shared_secret,
-					   towire_temporary_node_failure(tmpctx));
-	/* We update state now to signal it's in progress, for persistence. */
-	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
-	htlc_in_check(hin, __func__);
-
-	cbdata = tal(hin, struct failmsg_update_cbdata);
-	cbdata->hin = hin;
-	cbdata->failmsg_needs_update
-		= tal_dup_talarr(cbdata, u8, failmsg_needs_update);
-	subd_req(cbdata, hin->key.channel->peer->ld->gossip,
-		 take(towire_gossipd_get_stripped_cupdate(NULL, failmsg_scid)),
-		 -1, 0, failmsg_update_reply, cbdata);
-}
-
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
 const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx,
 					struct lightningd *ld,
@@ -286,39 +215,27 @@ const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx,
 }
 
 /* localfail are for handing to the local payer if it's local. */
-static void fail_out_htlc(struct htlc_out *hout,
-			  const char *localfail,
-			  const u8 *failmsg_needs_update TAKES)
+static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 {
 	htlc_out_check(hout, __func__);
 	assert(hout->failmsg || hout->failonion);
 
 	if (hout->am_origin) {
-		payment_failed(hout->key.channel->peer->ld, hout, localfail,
-			       failmsg_needs_update);
-		if (taken(failmsg_needs_update))
-			tal_free(failmsg_needs_update);
+		payment_failed(hout->key.channel->peer->ld, hout, localfail);
 	} else if (hout->in) {
-		if (failmsg_needs_update) {
-			local_fail_in_htlc_needs_update(hout->in,
-							failmsg_needs_update,
-							hout->key.channel->scid);
-		} else {
-			const struct onionreply *failonion;
+		const struct onionreply *failonion;
 
-			/* If we have an onion, simply copy it. */
-			if (hout->failonion)
-				failonion = hout->failonion;
-			/* Otherwise, we need to onionize this local error. */
-			else
-				failonion = create_onionreply(hout,
-							      hout->in->shared_secret,
-							      hout->failmsg);
-			fail_in_htlc(hout->in, failonion);
-		}
+		/* If we have an onion, simply copy it. */
+		if (hout->failonion)
+			failonion = hout->failonion;
+		/* Otherwise, we need to onionize this local error. */
+		else
+			failonion = create_onionreply(hout,
+						      hout->in->shared_secret,
+						      hout->failmsg);
+		fail_in_htlc(hout->in, failonion);
 	} else {
-		if (taken(failmsg_needs_update))
-			tal_free(failmsg_needs_update);
+		log_broken(hout->key.channel->log, "Neither origin nor in?");
 	}
 }
 
@@ -530,8 +447,8 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->key.id);
 
-	/* This isn't really used, except as sanity check */
-	hout->failmsg = towire_temporary_node_failure(hout);
+	hout->failmsg = towire_temporary_channel_failure(hout,
+							 get_channel_update(hout->key.channel));
 
 	/* Assign a temporary state (we're about to free it!) so checks
 	 * are happy that it has a failure message */
@@ -541,8 +458,7 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 	if (!have_tx)
 		db_begin_transaction(db);
 
-	fail_out_htlc(hout, "Outgoing subdaemon died",
-		      take(towire_temporary_channel_failure(NULL, NULL)));
+	fail_out_htlc(hout, "Outgoing subdaemon died");
 
 	if (!have_tx)
 		db_commit_transaction(db);
@@ -573,7 +489,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			char *localfail = tal_fmt(msg, "%s: %s",
 						  onion_wire_name(fromwire_peektype(failmsg)),
 						  failurestr);
-			payment_failed(ld, hout, localfail, NULL);
+			payment_failed(ld, hout, localfail);
 
 		} else if (hout->in) {
 			struct onionreply *failonion;
@@ -645,13 +561,11 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
-			struct htlc_out **houtp,
-			bool *needs_update_appended)
+			struct htlc_out **houtp)
 {
 	u8 *msg;
 
 	*houtp = NULL;
-	*needs_update_appended = false;
 
 	if (!channel_can_add_htlc(out)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
@@ -662,8 +576,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	if (!out->owner) {
 		log_info(out->log, "Attempt to send HTLC but unowned (%s)",
 			 channel_state_name(out));
-		*needs_update_appended = true;
-		return towire_temporary_channel_failure(ctx, NULL);
+		return towire_temporary_channel_failure(ctx,
+							get_channel_update(out));
 	}
 
 	if (!topology_synced(out->peer->ld->topology)) {
@@ -708,7 +622,6 @@ static void forward_htlc(struct htlc_in *hin,
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next = active_channel_by_scid(ld, scid);
 	struct htlc_out *hout = NULL;
-	bool needs_update_appended;
 
 	/* Unknown peer, or peer not ready. */
 	if (!next || !next->scid) {
@@ -734,9 +647,8 @@ static void forward_htlc(struct htlc_in *hin,
 		    || !check_fwd_amount(hin, amt_to_forward, hin->msat,
 					 next->old_feerate_base,
 					 next->old_feerate_ppm)) {
-			needs_update_appended = true;
 			failmsg = towire_fee_insufficient(tmpctx, hin->msat,
-							  NULL);
+							  get_channel_update(next));
 			goto fail;
 		}
 		log_info(hin->key.channel->log,
@@ -745,9 +657,8 @@ static void forward_htlc(struct htlc_in *hin,
 
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,
 			ld->config.cltv_expiry_delta)) {
-		needs_update_appended = true;
 		failmsg = towire_incorrect_cltv_expiry(tmpctx, cltv_expiry,
-						       NULL);
+						       get_channel_update(next));
 		goto fail;
 	}
 
@@ -765,8 +676,8 @@ static void forward_htlc(struct htlc_in *hin,
 			  "Expiry cltv %u too close to current %u",
 			  outgoing_cltv_value,
 			  get_block_height(ld->topology));
-		needs_update_appended = true;
-		failmsg = towire_expiry_too_soon(tmpctx, NULL);
+		failmsg = towire_expiry_too_soon(tmpctx,
+						 get_channel_update(next));
 		goto fail;
 	}
 
@@ -782,7 +693,6 @@ static void forward_htlc(struct htlc_in *hin,
 			  outgoing_cltv_value,
 			  get_block_height(ld->topology),
 			  ld->config.locktime_max);
-		needs_update_appended = false;
 		failmsg = towire_expiry_too_far(tmpctx);
 		goto fail;
 	}
@@ -791,15 +701,12 @@ static void forward_htlc(struct htlc_in *hin,
 				outgoing_cltv_value, AMOUNT_MSAT(0),
 				&hin->payment_hash,
 				next_blinding, 0 /* partid */, 0 /* groupid */,
-				next_onion, hin, &hout, &needs_update_appended);
+				next_onion, hin, &hout);
 	if (!failmsg)
 		return;
 
 fail:
-	if (needs_update_appended)
-		local_fail_in_htlc_needs_update(hin, failmsg, next->scid);
-	else
-		local_fail_in_htlc(hin, failmsg);
+	local_fail_in_htlc(hin, failmsg);
 	wallet_forwarded_payment_add(ld->wallet,
 				 hin, next->scid, hout,
 				 FORWARD_LOCAL_FAILED,
@@ -1497,7 +1404,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_wire_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);
-		payment_failed(ld, hout, localfail, NULL);
+		payment_failed(ld, hout, localfail);
 		tal_free(localfail);
 	} else if (hout->in) {
 		local_fail_in_htlc(hout->in,
@@ -1575,7 +1482,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 
 	/* If it's failed, now we can forward since it's completely locked-in */
 	if (!hout->preimage) {
-		fail_out_htlc(hout, NULL, NULL);
+		fail_out_htlc(hout, NULL);
 	} else {
 		const struct channel_coin_mvt *mvt;
 		struct amount_msat oldamt = channel->our_msat;

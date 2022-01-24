@@ -307,7 +307,7 @@ def test_pay_get_error_with_update(node_factory):
     # channel_update, and it should patch it to include a type prefix. The
     # prefix 0x0102 should be in the channel_update, but not in the
     # onionreply (negation of 0x0102 in the RE)
-    l1.daemon.wait_for_log(r'Extracted channel_update 0102.*from onionreply 10070088[0-9a-fA-F]{88}')
+    l1.daemon.wait_for_log(r'Extracted channel_update 0102.*from onionreply 1007008a[0-9a-fA-F]{276}$')
 
     # And now monitor for l1 to apply the channel_update we just extracted
     wait_for(lambda: not l1.is_channel_active(chanid2))
@@ -1748,7 +1748,9 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
 def test_pay_routeboost(node_factory, bitcoind, compat):
     """Make sure we can use routeboost information. """
     # l1->l2->l3--private-->l4
-    l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
+    # Note: l1 gets upset because it extracts update for private channel.
+    l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True,
+                                     opts=[{'allow_bad_gossip': True}, {}])
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
 
     # This should a "could not find a route" because that's true.

@@ -85,9 +85,6 @@ bool fromwire_gossipd_dev_suppress(const void *p UNNEEDED)
 /* Generated stub for fromwire_gossipd_get_addrs */
 bool fromwire_gossipd_get_addrs(const void *p UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_get_addrs called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_get_stripped_cupdate */
-bool fromwire_gossipd_get_stripped_cupdate(const void *p UNNEEDED, struct short_channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_get_stripped_cupdate called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_get_txout_reply */
 bool fromwire_gossipd_get_txout_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct amount_sat *satoshis UNNEEDED, u8 **outscript UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_get_txout_reply called!\n"); abort(); }
@@ -323,9 +320,6 @@ u8 *towire_gossipd_dev_memleak_reply(const tal_t *ctx UNNEEDED, bool leak UNNEED
 /* Generated stub for towire_gossipd_get_addrs_reply */
 u8 *towire_gossipd_get_addrs_reply(const tal_t *ctx UNNEEDED, const struct wireaddr *addrs UNNEEDED)
 { fprintf(stderr, "towire_gossipd_get_addrs_reply called!\n"); abort(); }
-/* Generated stub for towire_gossipd_get_stripped_cupdate_reply */
-u8 *towire_gossipd_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const u8 *stripped_update UNNEEDED)
-{ fprintf(stderr, "towire_gossipd_get_stripped_cupdate_reply called!\n"); abort(); }
 /* Generated stub for towire_gossipd_get_txout */
 u8 *towire_gossipd_get_txout(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "towire_gossipd_get_txout called!\n"); abort(); }
