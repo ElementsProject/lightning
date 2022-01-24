@@ -118,10 +118,14 @@ void peer_supplied_good_gossip(struct peer *peer, size_t amount)
 		peer->gossip_counter += amount;
 }
 
-/* Queue a gossip message for the peer: the subdaemon on the other end simply
- * forwards it to the peer. */
+/* Queue a gossip message for the peer: connectd simply forwards it to
+ * the peer. */
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 {
+	u8 *outermsg = towire_gossipd_send_gossip(NULL, &peer->id, msg);
+	daemon_conn_send(peer->daemon->connectd2, take(outermsg));
+
+	/* FIXME: backwards compat! */
 	daemon_conn_send(peer->dc, msg);
 }
 
@@ -857,6 +861,108 @@ static struct io_plan *handle_get_address(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
+{
+	struct node_id id;
+	u8 *msg;
+	const u8 *err;
+	struct peer *peer;
+
+	if (!fromwire_gossipd_recv_gossip(outermsg, outermsg, &id, &msg)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Bad gossipd_recv_gossip msg from connectd: %s",
+			      tal_hex(tmpctx, outermsg));
+	}
+
+	/* FIXME: happens when peer closes! */
+	peer = find_peer(daemon, &id);
+	if (!peer) {
+		status_debug("connectd sent gossip msg %s for unknown peer %s",
+			     peer_wire_name(fromwire_peektype(msg)),
+			     type_to_string(tmpctx, struct node_id, &id));
+		return;
+	}
+
+	/* These are messages relayed from peer */
+	switch ((enum peer_wire)fromwire_peektype(msg)) {
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+		err = handle_channel_announcement_msg(peer->daemon, peer, msg);
+		goto handled_msg;
+	case WIRE_CHANNEL_UPDATE:
+		err = handle_channel_update_msg(peer, msg);
+		goto handled_msg;
+	case WIRE_NODE_ANNOUNCEMENT:
+		err = handle_node_announce(peer, msg);
+		goto handled_msg;
+	case WIRE_QUERY_CHANNEL_RANGE:
+		err = handle_query_channel_range(peer, msg);
+		goto handled_msg;
+	case WIRE_REPLY_CHANNEL_RANGE:
+		err = handle_reply_channel_range(peer, msg);
+		goto handled_msg;
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+		err = handle_query_short_channel_ids(peer, msg);
+		goto handled_msg;
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+		err = handle_reply_short_channel_ids_end(peer, msg);
+		goto handled_msg;
+	case WIRE_OBS2_ONION_MESSAGE:
+		err = handle_obs2_onion_message(peer, msg);
+		goto handled_msg;
+	case WIRE_ONION_MESSAGE:
+		err = handle_onion_message(peer, msg);
+		goto handled_msg;
+
+	/* These are non-gossip messages (!is_msg_for_gossipd()) */
+	case WIRE_WARNING:
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_PING:
+	case WIRE_PONG:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+	case WIRE_FUNDING_LOCKED:
+	case WIRE_SHUTDOWN:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+	case WIRE_UPDATE_FEE:
+	case WIRE_UPDATE_BLOCKHEIGHT:
+	case WIRE_CHANNEL_REESTABLISH:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_TX_SIGNATURES:
+	case WIRE_OPEN_CHANNEL2:
+	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_STFU:
+#endif
+		break;
+	}
+
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "connectd sent unexpected gossip msg %s for peer %s",
+		      peer_wire_name(fromwire_peektype(msg)),
+		      type_to_string(tmpctx, struct node_id, &peer->id));
+
+handled_msg:
+	if (err)
+		queue_peer_msg(peer, take(err));
+}
+
 /*~ connectd's input handler is very simple. */
 static struct io_plan *connectd_req(struct io_conn *conn,
 				    const u8 *msg,
@@ -868,14 +974,44 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_NEW_PEER:
 		return connectd_new_peer(conn, daemon, msg);
 
+	/* This is not for this fd! */
+	case WIRE_GOSSIPD_RECV_GOSSIP:
 	/* We send these, don't receive them. */
 	case WIRE_GOSSIPD_NEW_PEER_REPLY:
+	case WIRE_GOSSIPD_SEND_GOSSIP:
 		break;
 	}
 
 	status_broken("Bad msg from connectd: %s",
 		      tal_hex(tmpctx, msg));
 	return io_close(conn);
+}
+
+/*~ connectd's input handler is very simple. */
+static struct io_plan *connectd_gossip_req(struct io_conn *conn,
+					   const u8 *msg,
+					   struct daemon *daemon)
+{
+	enum connectd_gossipd_wire t = fromwire_peektype(msg);
+
+	switch (t) {
+	case WIRE_GOSSIPD_RECV_GOSSIP:
+		handle_recv_gossip(daemon, msg);
+		goto handled;
+
+	/* This is not for this fd! */
+	case WIRE_GOSSIPD_NEW_PEER:
+	/* We send these, don't receive them. */
+	case WIRE_GOSSIPD_NEW_PEER_REPLY:
+	case WIRE_GOSSIPD_SEND_GOSSIP:
+		break;
+	}
+
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Bad msg from connectd2: %s", tal_hex(tmpctx, msg));
+
+handled:
+	return daemon_conn_read_next(conn, daemon->connectd2);
 }
 
 /* BOLT #7:
@@ -1036,6 +1172,9 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	/* connectd is already started, and uses this fd to ask us things. */
 	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
 					   connectd_req, NULL, daemon);
+
+	daemon->connectd2 = daemon_conn_new(daemon, CONNECTD2_FD,
+					    connectd_gossip_req, NULL, daemon);
 
 	/* OK, we are ready. */
 	daemon_conn_send(daemon->master,

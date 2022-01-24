@@ -9,6 +9,7 @@
 #define HSM_FD 3
 /* connectd asks us for help finding nodes, and gossip fds for new peers */
 #define CONNECTD_FD 4
+#define CONNECTD2_FD 5
 
 struct chan;
 struct channel_update_timestamps;
@@ -32,6 +33,7 @@ struct daemon {
 
 	/* Connection to connect daemon. */
 	struct daemon_conn *connectd;
+	struct daemon_conn *connectd2;
 
 	/* Routing information */
 	struct routing_state *rstate;
