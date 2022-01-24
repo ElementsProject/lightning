@@ -116,3 +116,9 @@ msgdata,gossipd_get_addrs,id,node_id,
 msgtype,gossipd_get_addrs_reply,3150
 msgdata,gossipd_get_addrs_reply,num,u16,
 msgdata,gossipd_get_addrs_reply,addrs,wireaddr,num
+
+# Tell master a local channel update (so it can serve errors).
+msgtype,gossipd_got_local_channel_update,3151
+msgdata,gossipd_got_local_channel_update,scid,short_channel_id,
+msgdata,gossipd_got_local_channel_update,len,u16,
+msgdata,gossipd_got_local_channel_update,channel_update,u8,len
