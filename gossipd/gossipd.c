@@ -682,27 +682,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 
 	/* These are messages relayed from peer */
 	switch ((enum peer_wire)fromwire_peektype(msg)) {
-	case WIRE_CHANNEL_ANNOUNCEMENT:
-		err = handle_channel_announcement_msg(peer->daemon, peer, msg);
-		goto handled_relay;
-	case WIRE_CHANNEL_UPDATE:
-		err = handle_channel_update_msg(peer, msg);
-		goto handled_relay;
-	case WIRE_NODE_ANNOUNCEMENT:
-		err = handle_node_announce(peer, msg);
-		goto handled_relay;
-	case WIRE_QUERY_CHANNEL_RANGE:
-		err = handle_query_channel_range(peer, msg);
-		goto handled_relay;
-	case WIRE_REPLY_CHANNEL_RANGE:
-		err = handle_reply_channel_range(peer, msg);
-		goto handled_relay;
-	case WIRE_QUERY_SHORT_CHANNEL_IDS:
-		err = handle_query_short_channel_ids(peer, msg);
-		goto handled_relay;
-	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
-		err = handle_reply_short_channel_ids_end(peer, msg);
-		goto handled_relay;
 	case WIRE_OBS2_ONION_MESSAGE:
 		err = handle_obs2_onion_message(peer, msg);
 		goto handled_relay;
@@ -710,7 +689,14 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		err = handle_onion_message(peer, msg);
 		goto handled_relay;
 
-	/* These are non-gossip messages (!is_msg_for_gossipd()) */
+	/* These are not sent by peer (connectd sends us gossip msgs) */
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_WARNING:
 	case WIRE_INIT:
 	case WIRE_ERROR:
