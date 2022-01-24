@@ -102,6 +102,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 
 	mvt->tx_txid = tx_txid;
 	mvt->outpoint = outpoint;
+	mvt->originating_acct = NULL;
 
 	/* for htlc's that are filled onchain, we also have a
 	 * preimage, NULL otherwise */
@@ -267,6 +268,11 @@ struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 				  AMOUNT_MSAT(0), true, amount);
 }
 
+bool chain_mvt_is_external(const struct chain_coin_mvt *mvt)
+{
+	return streq(mvt->account_name, EXTERNAL);
+}
+
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx,
 					       const struct bitcoin_outpoint *outpoint,
 					       u32 blockheight,
@@ -327,6 +333,11 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
 
 	mvt->account_id = tal_strdup(mvt, chain_mvt->account_name);
+	if (chain_mvt->originating_acct)
+		mvt->originating_acct =
+			tal_strdup(mvt, chain_mvt->originating_acct);
+	else
+		mvt->originating_acct = NULL;
 	mvt->hrp_name = tal_strdup(mvt, hrp_name);
 	mvt->type = CHAIN_MVT;
 
@@ -359,6 +370,8 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 
 	mvt->account_id = type_to_string(mvt, struct channel_id,
 					 &chan_mvt->chan_id);
+	/* channel moves don't have external events! */
+	mvt->originating_acct = NULL;
 	mvt->hrp_name = tal_strdup(mvt, hrp_name);
 	mvt->type = CHANNEL_MVT;
 	mvt->id.payment_hash = chan_mvt->payment_hash;
@@ -385,6 +398,12 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 	if (mvt->account_name) {
 		towire_bool(pptr, true);
 		towire_wirestring(pptr, mvt->account_name);
+	} else
+		towire_bool(pptr, false);
+
+	if (mvt->originating_acct) {
+		towire_bool(pptr, true);
+		towire_wirestring(pptr, mvt->originating_acct);
 	} else
 		towire_bool(pptr, false);
 
@@ -418,6 +437,11 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 		mvt->account_name = fromwire_wirestring(mvt, cursor, max);
 	} else
 		mvt->account_name = NULL;
+
+	if (fromwire_bool(cursor, max)) {
+		mvt->originating_acct = fromwire_wirestring(mvt, cursor, max);
+	} else
+		mvt->originating_acct = NULL;
 
 	/* Read into non-const version */
 	struct bitcoin_outpoint *outpoint
