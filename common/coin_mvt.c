@@ -261,11 +261,9 @@ struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 						 struct amount_sat amount,
 						 enum mvt_tag tag)
 {
-	return new_chain_coin_mvt(ctx, EXTERNAL, NULL,
-				  outpoint, NULL,
-				  blockheight,
-				  take(new_tag_arr(NULL, tag)),
-				  AMOUNT_MSAT(0), true, amount);
+	return new_chain_coin_mvt_sat(ctx, EXTERNAL, NULL, outpoint, NULL,
+				      blockheight, take(new_tag_arr(NULL, tag)),
+				      amount, true);
 }
 
 bool chain_mvt_is_external(const struct chain_coin_mvt *mvt)
