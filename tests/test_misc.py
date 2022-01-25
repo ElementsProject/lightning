@@ -10,7 +10,7 @@ from pyln.testing.utils import (
     wait_for, TailableProc, env
 )
 from utils import (
-    account_balance, scriptpubkey_addr
+    account_balance, scriptpubkey_addr, check_coin_moves
 )
 from ephemeral_port_reserve import reserve
 from utils import EXPERIMENTAL_FEATURES
@@ -622,6 +622,16 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
     assert account_balance(l1, 'wallet') == 0
+
+    external_moves = [
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tags': ['deposit']},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tags': ['deposit']},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tags': ['deposit']},
+        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tags': ['deposit']},
+        {'type': 'chain_mvt', 'credit': 11957603000, 'debit': 0, 'tags': ['deposit']},
+    ]
+
+    check_coin_moves(l1, 'external', external_moves, chainparams)
 
 
 def test_io_logging(node_factory, executor):

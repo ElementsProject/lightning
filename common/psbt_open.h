@@ -37,6 +37,7 @@ struct psbt_changeset {
 
 #define PSBT_TYPE_SERIAL_ID 0x01
 #define PSBT_TYPE_INPUT_MARKER 0x02
+#define PSBT_TYPE_OUTPUT_EXTERNAL 0x04
 
 /* psbt_get_serial_id - Returns the serial_id from an unknowns map
  *
@@ -176,6 +177,17 @@ bool psbt_input_is_ours(const struct wally_psbt_input *input);
  * 			 any input that is ours
  */
 bool psbt_has_our_input(const struct wally_psbt *psbt);
+
+/* psbt_output_mark_external - Marks an output as a deposit to
+ * 			       an external address.
+ * 			       Used when withdrawing from internal
+ * 			       wallet */
+void psbt_output_mark_as_external(const tal_t *ctx,
+				  struct wally_psbt_output *output);
+
+/* psbt_output_to_external - Is this an output we're paying to an external
+ * 			     party? */
+bool psbt_output_to_external(const struct wally_psbt_output *output);
 
 /* psbt_contribs_changed - Returns true if the psbt's inputs/outputs
  *                         have changed.

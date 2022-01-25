@@ -788,7 +788,9 @@ both the debit/credit contain fees. Technically routed debits are the
  - `lease_fee`: amount paid as lease fee
  - `leased`: tags channel_open, channel contains leased funds
 
-`blockheight` is the block the txid is included in.
+`blockheight` is the block the txid is included in. `channel_mvt`s will be null,
+so will the blockheight for withdrawals to external parties (we issue these events
+when we send the tx containing them, before they're included in the chain).
 
 The `timestamp` is seconds since Unix epoch of the node's machine time
 at the time lightningd broadcasts the notification.
