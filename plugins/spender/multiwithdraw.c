@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
+#include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <plugins/spender/multiwithdraw.h>
@@ -44,6 +45,8 @@ struct multiwithdraw_destination {
 	struct amount_sat amount;
 	/* Whether the amount was "all".  */
 	bool all;
+	/* Whether this is to an external addr (all passed in are assumed) */
+	bool is_to_external;
 };
 
 struct multiwithdraw_command {
@@ -93,6 +96,7 @@ param_outputs_array(struct command *cmd,
 		enum address_parse_result res;
 
 		dest = &(*outputs)[i];
+		dest->is_to_external = true;
 
 		if (e->type != JSMN_OBJECT)
 			goto err;
@@ -537,6 +541,7 @@ mw_after_newaddr(struct command *cmd,
 	change.script = script;
 	change.amount = mw->change_amount;
 	change.all = false;
+	change.is_to_external = false;
 
 	tal_arr_expand(&mw->outputs, change);
 
@@ -560,15 +565,18 @@ mw_load_outputs(struct multiwithdraw_command *mw)
 {
 	/* Insert outputs at random locations.  */
 	for (size_t i = 0; i < tal_count(mw->outputs); ++i) {
+		struct wally_psbt_output *out;
 		/* There are already `i` outputs at this point,
 		 * select from 0 to `i` inclusive, with 0 meaning
 		 * "before first output" and `i` meaning "after
 		 * last output".  */
 		size_t point = pseudorand(i + 1);
-		psbt_insert_output(mw->psbt,
-				   mw->outputs[i].script,
-				   mw->outputs[i].amount,
-				   point);
+		out = psbt_insert_output(mw->psbt,
+					 mw->outputs[i].script,
+					 mw->outputs[i].amount,
+					 point);
+		if (mw->outputs[i].is_to_external)
+			psbt_output_mark_as_external(mw->psbt, out);
 	}
 
 	if (chainparams->is_elements) {

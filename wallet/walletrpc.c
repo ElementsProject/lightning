@@ -10,11 +10,13 @@
 #include <common/json_tok.h>
 #include <common/key_derive.h>
 #include <common/param.h>
+#include <common/psbt_open.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
@@ -753,8 +755,47 @@ struct sending_psbt {
 	struct command *cmd;
 	struct utxo **utxos;
 	struct wally_tx *wtx;
+	/* Hold onto b/c has data about
+	 * which are to external addresses */
+	struct wally_psbt *psbt;
 	u32 reserve_blocks;
 };
+
+static void maybe_notify_new_external_send(struct lightningd *ld,
+					   struct bitcoin_txid *txid,
+					   u32 outnum,
+					   struct wally_psbt *psbt)
+{
+	struct chain_coin_mvt *mvt;
+	struct bitcoin_outpoint outpoint;
+	struct amount_sat amount;
+	u32 index;
+	bool is_p2sh;
+	const u8 *script;
+
+	/* If it's not going to an external address, ignore */
+	if (!psbt_output_to_external(&psbt->outputs[outnum]))
+		return;
+
+	/* If it's going to our wallet, ignore */
+	script = wally_tx_output_get_script(tmpctx,
+					    &psbt->tx->outputs[outnum]);
+	if (wallet_can_spend(ld->wallet, script, &index, &is_p2sh))
+		return;
+
+	outpoint.txid = *txid;
+	outpoint.n = outnum;
+	amount = psbt_output_get_amount(psbt, outnum);
+
+	mvt = new_coin_external_deposit(NULL, &outpoint,
+					0, amount,
+					DEPOSIT);
+
+	mvt->originating_acct = WALLET;
+	notify_chain_mvt(ld, mvt);
+	tal_free(mvt);
+}
+
 
 static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 			  bool success, const char *msg,
@@ -787,9 +828,12 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 
 	/* Extract the change output and add it to the DB */
 	wallet_extract_owned_outputs(ld->wallet, sending->wtx, NULL, &change);
+	wally_txid(sending->wtx, &txid);
+
+	for (size_t i = 0; i < sending->psbt->num_outputs; i++)
+		maybe_notify_new_external_send(ld, &txid, i, sending->psbt);
 
 	response = json_stream_success(sending->cmd);
-	wally_txid(sending->wtx, &txid);
 	json_add_hex_talarr(response, "tx", linearize_wtx(tmpctx, sending->wtx));
 	json_add_txid(response, "txid", &txid);
 	was_pending(command_success(sending->cmd, response));
@@ -818,6 +862,12 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 	psbt_finalize(psbt);
 	sending->wtx = psbt_final_tx(sending, psbt);
+
+	/* psbt contains info about which outputs are to external,
+	 * and thus need a coin_move issued for them. We only
+	 * notify if the transaction broadcasts */
+	sending->psbt = tal_steal(sending, psbt);
+
 	if (!sending->wtx)
 		return command_fail(cmd, LIGHTNINGD,
 				    "PSBT not finalizeable %s",

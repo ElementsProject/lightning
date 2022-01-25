@@ -5,6 +5,7 @@
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/memleak.h>
+#include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin.h>
@@ -13,6 +14,7 @@
 struct tx_output {
 	struct amount_sat amount;
 	const u8 *script;
+	bool is_to_external;
 };
 
 struct txprepare {
@@ -78,6 +80,9 @@ static struct command_result *param_outputs(struct command *cmd,
 	json_for_each_arr(i, t, tok) {
 		enum address_parse_result res;
 		struct tx_output *out = &txp->outputs[i];
+
+		/* We assume these are accounted for elsewhere */
+		out->is_to_external = false;
 
 		/* output format: {destination: amount} */
 		if (t->type != JSMN_OBJECT)
@@ -190,6 +195,11 @@ static struct command_result *finish_txprepare(struct command *cmd,
 							   struct amount_sat,
 							   &txp->outputs[i].amount));
 		psbt_add_output(txp->psbt, out, i);
+
+		if (txp->outputs[i].is_to_external)
+			psbt_output_mark_as_external(txp->psbt,
+						     &txp->psbt->outputs[i]);
+
 		wally_tx_output_free(out);
 	}
 
@@ -239,6 +249,7 @@ static struct command_result *newaddr_done(struct command *cmd,
 		sizeof(txp->outputs[0]) * (num - pos));
 
 	txp->outputs[pos].amount = txp->change_amount;
+	txp->outputs[pos].is_to_external = false;
 	if (json_to_address_scriptpubkey(txp, chainparams, buf, addr,
 					 &txp->outputs[pos].script)
 	    != ADDRESS_PARSE_SUCCESS) {
@@ -516,6 +527,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 	}
 	txp->outputs[0].amount = *amount;
 	txp->outputs[0].script = scriptpubkey;
+	txp->outputs[0].is_to_external = true;
 	txp->weight = bitcoin_tx_core_weight(1, tal_count(txp->outputs))
 		+ bitcoin_tx_output_weight(tal_bytelen(scriptpubkey));
 

@@ -136,7 +136,7 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
         assert mv['timestamp'] > 0
         assert mv['coin_type'] == chainparams['bip173_prefix']
         # chain moves should have blockheights
-        if mv['type'] == 'chain_mvt':
+        if mv['type'] == 'chain_mvt' and mv['account_id'] != 'external':
             assert mv['blockheight'] is not None
 
     for num, m in enumerate(expected_moves):

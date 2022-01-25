@@ -491,6 +491,23 @@ bool psbt_has_our_input(const struct wally_psbt *psbt)
 	return false;
 }
 
+void psbt_output_mark_as_external(const tal_t *ctx,
+				  struct wally_psbt_output *output)
+{
+	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_OUTPUT_EXTERNAL, NULL);
+	beint16_t bev = cpu_to_be16(1);
+
+	psbt_output_set_unknown(ctx, output, key, &bev, sizeof(bev));
+}
+
+bool psbt_output_to_external(const struct wally_psbt_output *output)
+{
+	size_t unused;
+	void *result = psbt_get_lightning(&output->unknowns,
+					  PSBT_TYPE_OUTPUT_EXTERNAL, &unused);
+	return !(!result);
+}
+
 bool psbt_contribs_changed(struct wally_psbt *orig,
 			   struct wally_psbt *new)
 {

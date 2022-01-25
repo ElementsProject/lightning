@@ -7,6 +7,7 @@ from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES,
     VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
+    check_utxos_channel
 )
 
 import os
@@ -223,7 +224,8 @@ def test_addfunds_from_block(node_factory, bitcoind):
     """Send funds to the daemon without telling it explicitly
     """
     # Previous runs with same bitcoind can leave funds!
-    l1 = node_factory.get_node(random_hsm=True)
+    coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1 = node_factory.get_node(random_hsm=True, options={'plugin': coin_plugin})
 
     addr = l1.rpc.newaddr()['bech32']
     bitcoind.rpc.sendtoaddress(addr, 0.1)
@@ -247,6 +249,15 @@ def test_addfunds_from_block(node_factory, bitcoind):
     # The address we detect must match what was paid to.
     output = only_one(l1.rpc.listfunds()['outputs'])
     assert output['address'] == addr
+
+    # We don't print a 'external deposit' event
+    # for funds that come back to our own wallet
+    expected_utxos = {
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+        'A': [('wallet', ['deposit'], None, None)],
+    }
+
+    check_utxos_channel(l1, [], expected_utxos)
 
 
 def test_txprepare_multi(node_factory, bitcoind):
@@ -1298,11 +1309,13 @@ def test_withdraw_nlocktime_fuzz(node_factory, bitcoind):
         raise Exception("No transaction with fuzzed nLockTime !")
 
 
-def test_multiwithdraw_simple(node_factory, bitcoind):
+def test_multiwithdraw_simple(node_factory, bitcoind, chainparams):
     """
     Test simple multiwithdraw usage.
     """
-    l1, l2, l3 = node_factory.get_nodes(3)
+    coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'plugin': coin_plugin},
+                                                 {}, {}])
     l1.fundwallet(10**8)
 
     addr2 = l2.rpc.newaddr()['bech32']
@@ -1328,6 +1341,15 @@ def test_multiwithdraw_simple(node_factory, bitcoind):
     assert only_one(funds3)["address"] == addr3
     assert only_one(funds3)["status"] == "confirmed"
     assert only_one(funds3)["amount_msat"] == amount3
+
+    expected_utxos = {
+        '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
+        'A': [('wallet', ['deposit'], None, None),
+              ('external', ['deposit'], None, None),
+              ('external', ['deposit'], None, None)],
+    }
+
+    check_utxos_channel(l1, [], expected_utxos)
 
 
 @unittest.skipIf(
