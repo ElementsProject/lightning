@@ -15,15 +15,17 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
 
-#define EXTERNAL_ACCT "external"
-#define WALLET_ACCT WALLET
-
 static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct chain_event *e = tal(ctx, struct chain_event);
 	e->db_id = db_col_u64(stmt, "e.id");
 	e->acct_db_id = db_col_u64(stmt, "e.account_id");
 	e->acct_name = db_col_strdup(e, stmt, "a.name");
+
+	if (!db_col_is_null(stmt, "e.origin"))
+		e->origin_acct = db_col_strdup(e, stmt, "e.origin");
+	else
+		e->origin_acct = NULL;
 
 	e->tag = db_col_strdup(e, stmt, "e.tag");
 
@@ -105,6 +107,7 @@ struct chain_event **list_chain_events(const tal_t *ctx, struct db *db)
 				     "  e.id"
 				     ", e.account_id"
 				     ", a.name"
+				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
 				     ", e.debit"
@@ -134,6 +137,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     "  e.id"
 				     ", e.account_id"
 				     ", a.name"
+				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
 				     ", e.debit"
@@ -170,6 +174,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     "  e.id"
 					     ", e.account_id"
 					     ", a.name"
+					     ", e.origin"
 					     ", e.tag"
 					     ", e.credit"
 					     ", e.debit"
@@ -195,6 +200,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     "  e.id"
 					     ", e.account_id"
 					     ", a.name"
+					     ", e.origin"
 					     ", e.tag"
 					     ", e.credit"
 					     ", e.debit"
@@ -781,8 +787,9 @@ static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db
 
 	stmt = db_prepare_v2(db, SQL("SELECT "
 				     "  e.id"
-				     ", a.name"
 				     ", e.account_id"
+				     ", a.name"
+				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
 				     ", e.debit"
@@ -1069,6 +1076,7 @@ bool log_chain_event(struct db *db,
 	stmt = db_prepare_v2(db, SQL("INSERT INTO chain_events"
 				     " ("
 				     "  account_id"
+				     ", origin"
 				     ", tag"
 				     ", credit"
 				     ", debit"
@@ -1082,28 +1090,32 @@ bool log_chain_event(struct db *db,
 				     ", spending_txid"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
-	db_bind_text(stmt, 1, e->tag);
-	db_bind_amount_msat(stmt, 2, &e->credit);
-	db_bind_amount_msat(stmt, 3, &e->debit);
-	db_bind_amount_msat(stmt, 4, &e->output_value);
-	db_bind_text(stmt, 5, e->currency);
-	db_bind_u64(stmt, 6, e->timestamp);
-	db_bind_int(stmt, 7, e->blockheight);
-	db_bind_txid(stmt, 8, &e->outpoint.txid);
-	db_bind_int(stmt, 9, e->outpoint.n);
+	if (e->origin_acct)
+		db_bind_text(stmt, 1, e->origin_acct);
+	else
+		db_bind_null(stmt, 1);
+	db_bind_text(stmt, 2, e->tag);
+	db_bind_amount_msat(stmt, 3, &e->credit);
+	db_bind_amount_msat(stmt, 4, &e->debit);
+	db_bind_amount_msat(stmt, 5, &e->output_value);
+	db_bind_text(stmt, 6, e->currency);
+	db_bind_u64(stmt, 7, e->timestamp);
+	db_bind_int(stmt, 8, e->blockheight);
+	db_bind_txid(stmt, 9, &e->outpoint.txid);
+	db_bind_int(stmt, 10, e->outpoint.n);
 
 	if (e->payment_id)
-		db_bind_sha256(stmt, 10, e->payment_id);
-	else
-		db_bind_null(stmt, 10);
-
-	if (e->spending_txid)
-		db_bind_txid(stmt, 11, e->spending_txid);
+		db_bind_sha256(stmt, 11, e->payment_id);
 	else
 		db_bind_null(stmt, 11);
+
+	if (e->spending_txid)
+		db_bind_txid(stmt, 12, e->spending_txid);
+	else
+		db_bind_null(stmt, 12);
 
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);

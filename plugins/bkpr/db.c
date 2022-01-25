@@ -90,6 +90,7 @@ static struct migration db_migrations[] = {
 		", PRIMARY KEY (account_id, txid, update_count)"
 		");"),
 	NULL},
+	{SQL("ALTER TABLE chain_events ADD origin TEXT;"), NULL},
 };
 
 static bool db_migrate(struct plugin *p, struct db *db)

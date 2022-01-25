@@ -204,6 +204,9 @@ static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 {
 	CHECK(e1->db_id == e2->db_id);
 	CHECK(e1->acct_db_id == e2->acct_db_id);
+	CHECK((e1->origin_acct != NULL) == (e2->origin_acct != NULL));
+	if (e1->origin_acct)
+		CHECK(streq(e1->origin_acct, e2->origin_acct));
 	CHECK(streq(e1->tag, e2->tag));
 	CHECK(amount_msat_eq(e1->credit, e2->credit));
 	CHECK(amount_msat_eq(e1->debit, e2->debit));
@@ -220,6 +223,7 @@ static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 	CHECK((e1->payment_id != NULL) == (e2->payment_id != NULL));
 	if (e1->payment_id)
 		CHECK(sha256_eq(e1->payment_id, e2->payment_id));
+
 
 	return true;
 }
@@ -259,6 +263,7 @@ static struct chain_event *make_chain_event(const tal_t *ctx,
 
 	/* This event spends the second inserted event */
 	ev->tag = tal_fmt(ctx, "%s", tag);
+	ev->origin_acct = NULL;
 	ev->credit = credit;
 	ev->debit = debit;
 	ev->output_value = AMOUNT_MSAT(1000);
@@ -729,6 +734,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	/* This event spends the second inserted event */
 	ev1 = tal(ctx, struct chain_event);
 	ev1->tag = tal_fmt(ev1, "withdrawal");
+	ev1->origin_acct = NULL;
 	ev1->credit = AMOUNT_MSAT(100);
 	ev1->debit = AMOUNT_MSAT(102);
 	ev1->output_value = AMOUNT_MSAT(104);
@@ -747,6 +753,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	CHECK_MSG(!db_err, db_err);
 
 	ev2->tag = tal_fmt(ctx, "deposit");
+	ev2->origin_acct = tal_fmt(ctx, "wallet");
 	ev2->credit = AMOUNT_MSAT(200);
 	ev2->debit = AMOUNT_MSAT(202);
 	ev2->output_value = AMOUNT_MSAT(104);
@@ -762,6 +769,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	/* Dummy event, logged to separate account */
 	ev3 = tal(ctx, struct chain_event);
 	ev3->tag = tal_fmt(ev3, "deposit");
+	ev3->origin_acct = NULL;
 	ev3->credit = AMOUNT_MSAT(300);
 	ev3->debit = AMOUNT_MSAT(302);
 	ev3->output_value = AMOUNT_MSAT(304);
@@ -970,6 +978,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	 * correctly, given an event and tag list? */
 	ev1 = tal(ctx, struct chain_event);
 	ev1->tag = tal_fmt(ctx, "withdrawal");
+	ev1->origin_acct = NULL;
 	ev1->credit = AMOUNT_MSAT(100);
 	ev1->debit = AMOUNT_MSAT(102);
 	ev1->output_value = AMOUNT_MSAT(104);
