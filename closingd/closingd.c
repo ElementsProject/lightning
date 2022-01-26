@@ -579,10 +579,6 @@ static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 	/* We create a dummy close */
 	struct bitcoin_tx *tx;
 	struct bitcoin_outpoint dummy_funding;
-	struct bitcoin_signature dummy_sig;
-	struct privkey dummy_privkey;
-	struct pubkey dummy_pubkey;
-	u8 **witness;
 
 	memset(&dummy_funding, 0, sizeof(dummy_funding));
 	tx = create_close_tx(tmpctx, chainparams,
@@ -594,17 +590,8 @@ static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 			     out[REMOTE],
 			     dust_limit);
 
-	/* Create a signature, any signature, so we can weigh fully "signed"
-	 * tx. */
-	dummy_sig.sighash_type = SIGHASH_ALL;
-	memset(&dummy_privkey, 1, sizeof(dummy_privkey));
-	sign_hash(&dummy_privkey, &dummy_funding.txid.shad, &dummy_sig.s);
-	pubkey_from_privkey(&dummy_privkey, &dummy_pubkey);
-	witness = bitcoin_witness_2of2(NULL, &dummy_sig, &dummy_sig,
-				       &dummy_pubkey, &dummy_pubkey);
-	bitcoin_tx_input_set_witness(tx, 0, take(witness));
-
-	return bitcoin_tx_weight(tx);
+	/* We will have to append the witness */
+	return bitcoin_tx_weight(tx) + bitcoin_tx_2of2_input_witness_weight();
 }
 
 /* Get the minimum and desired fees */
