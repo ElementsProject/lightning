@@ -162,7 +162,7 @@ static int elements_tx_add_fee_output(struct bitcoin_tx *tx)
 	int pos;
 
 	/* If we aren't using elements, we don't add explicit fee outputs */
-	if (!chainparams->is_elements || amount_sat_eq(fee, AMOUNT_SAT(0)))
+	if (!chainparams->is_elements)
 		return -1;
 
 	/* Try to find any existing fee output */
@@ -462,9 +462,12 @@ size_t bitcoin_tx_weight(const struct bitcoin_tx *tx)
 	/* If we don't have witnesses *yet*, libwally doesn't encode
 	 * in BIP 141 style, omitting the flag and marker bytes */
 	wally_tx_get_witness_count(tx->wtx, &num_witnesses);
-	if (num_witnesses == 0)
-		extra = 2;
-	else
+	if (num_witnesses == 0) {
+		if (chainparams->is_elements)
+			extra = 7;
+		else
+			extra = 2;
+	} else
 		extra = 0;
 
 	return extra + wally_tx_weight(tx->wtx);
