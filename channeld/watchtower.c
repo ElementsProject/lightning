@@ -78,7 +78,7 @@ penalty_tx_create(const tal_t *ctx,
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
-	weight = elements_add_overhead(weight, 1, 1);
+	weight += elements_tx_overhead(chainparams, 1, 1);
 	fee = amount_tx_fee(penalty_feerate, weight);
 
 	if (!amount_sat_add(&min_out, dust_limit, fee))

@@ -1,6 +1,5 @@
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
