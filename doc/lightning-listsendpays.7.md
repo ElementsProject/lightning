@@ -4,7 +4,7 @@ lightning-listsendpays -- Low-level command for querying sendpay status
 SYNOPSIS
 --------
 
-**listsendpays** \[*bolt11*\] \[*payment\_hash*\] \[*status*\]
+**listsendpays** [*bolt11*] [*payment\_hash*] [*status*]
 
 DESCRIPTION
 -----------

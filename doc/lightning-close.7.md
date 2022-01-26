@@ -4,7 +4,7 @@ lightning-close -- Command for closing channels with direct peers
 SYNOPSIS
 --------
 
-**close** *id* \[*unilateraltimeout*\] \[*destination*\] \[*fee_negotiation_step*\] \[*wrong_funding*\] \[*force_lease_closed*\] [\*feerange\*]
+**close** *id* [*unilateraltimeout*] [*destination*] [*fee_negotiation_step*] [*wrong_funding*] [*force_lease_closed*] [\*feerange\*]
 
 DESCRIPTION
 -----------

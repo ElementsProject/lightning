@@ -4,7 +4,7 @@ lightning-withdraw -- Command for withdrawing funds from the internal wallet
 SYNOPSIS
 --------
 
-**withdraw** *destination* *satoshi* \[*feerate*\] \[*minconf*\] \[*utxos*\]
+**withdraw** *destination* *satoshi* [*feerate*] [*minconf*] [*utxos*]
 
 DESCRIPTION
 -----------

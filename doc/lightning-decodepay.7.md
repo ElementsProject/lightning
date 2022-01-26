@@ -4,7 +4,7 @@ lightning-decodepay -- Command for decoding a bolt11 string (low-level)
 SYNOPSIS
 --------
 
-**decodepay** *bolt11* \[*description*\]
+**decodepay** *bolt11* [*description*]
 
 DESCRIPTION
 -----------

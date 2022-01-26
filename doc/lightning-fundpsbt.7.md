@@ -4,7 +4,7 @@ lightning-fundpsbt -- Command to populate PSBT inputs from the wallet
 SYNOPSIS
 --------
 
-**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\] \[*locktime*\] \[*min_witness_weight*\] \[*excess_as_change*\]
+**fundpsbt** *satoshi* *feerate* *startweight* [*minconf*] [*reserve*] [*locktime*] [*min_witness_weight*] [*excess_as_change*]
 
 DESCRIPTION
 -----------

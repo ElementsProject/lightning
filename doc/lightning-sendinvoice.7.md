@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**sendinvoice** *offer* *label* \[*msatoshi*\] \[*timeout*\] \[*quantity*\]
+**sendinvoice** *offer* *label* [*msatoshi*] [*timeout*] [*quantity*]
 
 DESCRIPTION
 -----------

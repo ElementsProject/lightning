@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-onion-messages only)**
 
-**sendonionmessage** *hops* \[*reply_path*\]
+**sendonionmessage** *hops* [*reply_path*]
 
 DESCRIPTION
 -----------

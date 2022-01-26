@@ -4,7 +4,7 @@ lightning-disconnect -- Command for disconnecting from another lightning node
 SYNOPSIS
 --------
 
-**disconnect** *id* \[*force*\]
+**disconnect** *id* [*force*]
 
 DESCRIPTION
 -----------

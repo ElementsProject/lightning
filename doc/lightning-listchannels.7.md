@@ -4,7 +4,7 @@ lightning-listchannels -- Command to query active lightning channels in the enti
 SYNOPSIS
 --------
 
-**listchannels** \[*short\_channel\_id*\] \[*source*\] \[*destination*\]
+**listchannels** [*short\_channel\_id*] [*source*] [*destination*]
 
 DESCRIPTION
 -----------

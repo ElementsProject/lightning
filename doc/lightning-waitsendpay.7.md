@@ -4,7 +4,7 @@ lightning-waitsendpay -- Command for sending a payment via a route
 SYNOPSIS
 --------
 
-**waitsendpay** *payment\_hash* \[*timeout*\] \[*partid*\]
+**waitsendpay** *payment\_hash* [*timeout*] [*partid*]
 
 DESCRIPTION
 -----------

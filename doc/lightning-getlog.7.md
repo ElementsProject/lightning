@@ -4,7 +4,7 @@ lightning-getlog -- Command to show logs.
 SYNOPSIS
 --------
 
-**getlog** \[*level*\]
+**getlog** [*level*]
 
 DESCRIPTION
 -----------

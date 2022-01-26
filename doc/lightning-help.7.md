@@ -4,7 +4,7 @@ lightning-help -- Command to return all information about RPC commands.
 SYNOPSIS
 --------
 
-**help** \[*command\*]
+**help** [*command\*]
 
 DESCRIPTION
 -----------

@@ -4,7 +4,7 @@ lightning-listpeers -- Command returning data on connected lightning nodes
 SYNOPSIS
 --------
 
-**listpeers** \[*id*\] \[*level*\]
+**listpeers** [*id*] [*level*]
 
 DESCRIPTION
 -----------

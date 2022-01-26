@@ -4,7 +4,7 @@ lightning-multiwithdraw -- Command for withdrawing to multiple addresses
 SYNOPSIS
 --------
 
-**multiwithdraw** *outputs*  \[*feerate*\] \[*minconf*\] \[*utxos*\]
+**multiwithdraw** *outputs*  [*feerate*] [*minconf*] [*utxos*]
 
 DESCRIPTION
 -----------

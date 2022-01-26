@@ -4,7 +4,7 @@ lightning-check -- Command for verifying parameters
 SYNOPSIS
 --------
 
-**check** *command\_to\_check* \[*parameters*\]
+**check** *command\_to\_check* [*parameters*]
 
 DESCRIPTION
 -----------

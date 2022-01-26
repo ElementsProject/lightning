@@ -4,7 +4,7 @@ lightning-txprepare -- Command to prepare to withdraw funds from the internal wa
 SYNOPSIS
 --------
 
-**txprepare** *outputs* \[*feerate*\] \[*minconf*\] \[*utxos*\]
+**txprepare** *outputs* [*feerate*] [*minconf*] [*utxos*]
 
 DESCRIPTION
 -----------
@@ -15,9 +15,9 @@ in *outputs*.
 
 The *outputs* is the array of output that include *destination*
 and *amount*(\{*destination*: *amount*\}). Its format is like:
-\[\{address1: amount1\}, \{address2: amount2\}\]
+[\{address1: amount1\}, \{address2: amount2\}]
 or
-\[\{address: *all*\}\].
+[\{address: *all*\}].
 It supports any number of **confirmed** outputs.
 
 The *destination* of output is the address which can be of any Bitcoin accepted

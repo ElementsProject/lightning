@@ -4,7 +4,7 @@ lightning-listfunds -- Command showing all funds currently managed by the c-ligh
 SYNOPSIS
 --------
 
-**listfunds** \[*spent*\]
+**listfunds** [*spent*]
 
 DESCRIPTION
 -----------

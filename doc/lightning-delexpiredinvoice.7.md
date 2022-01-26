@@ -4,7 +4,7 @@ lightning-delexpiredinvoice -- Command for removing expired invoices
 SYNOPSIS
 --------
 
-**delexpiredinvoice** \[*maxexpirytime*\]
+**delexpiredinvoice** [*maxexpirytime*]
 
 DESCRIPTION
 -----------
