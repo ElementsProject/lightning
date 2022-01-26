@@ -14,7 +14,7 @@ if [ "$1" = "--inside-docker" ]; then
 fi
 
 # bin-Ubuntu-16.04-amd64 was superceded by the reproducible built 18.04 version.
-ALL_TARGETS="bin-Fedora-28-amd64 zipfile"
+ALL_TARGETS="bin-Fedora-28-amd64 zipfile tarball deb"
 
 FORCE_VERSION=
 FORCE_UNCLEAN=false
@@ -74,8 +74,6 @@ fi
 
 # If it's a completely clean directory, we need submodules!
 make submodcheck
-
-rm -rf release
 mkdir -p release
 for target in $TARGETS; do
     platform=${target#bin-}
@@ -116,6 +114,94 @@ if [ -z "${TARGETS##* zipfile *}" ]; then
     # zip -r doesn't have a deterministic order, and git ls-files does.
     LANG=C git ls-files --recurse-submodules | sed "s@^@clightning-$VERSION/@" | (cd release && zip -@ -X "clightning-$VERSION.zip")
     rm -r "release/clightning-$VERSION"
+fi
+
+RELEASEDIR="$(pwd)/release"
+BARE_VERSION="$(echo "${VERSION}" | sed 's/^v//g')"
+TARBALL="${RELEASEDIR}/lightningd_${BARE_VERSION}.orig.tar.bz2"
+DATE=$(date +%Y%m%d%H%M%S)
+
+
+if [ -z "${TARGETS##* tarball *}" ]; then
+    TMPDIR="$(mktemp -d /tmp/lightningd-tarball.XXXXXX)"
+    DIR="${TMPDIR}/lightningd_${BARE_VERSION}"
+    DESTINATION="${RELEASEDIR}/lightningd_${BARE_VERSION}.orig.tar.bz2"
+    echo "Bundling tarball in ${DIR}"
+    git clone --recursive . "${DIR}"
+    (
+	cd "${DIR}"
+	# Materialize the version in the Makefile, allows us to skip
+	# the git dependency
+	sed -i "/^VERSION=/c\VERSION=v${BARE_VERSION}" "Makefile"
+	./configure --disable-valgrind --enable-developer --enable-experimental-features
+	make doc-all check-gen-updated clean
+	find . -name .git -type d -print0 | xargs -0 /bin/rm -rf
+    )
+
+    (
+	cd "$TMPDIR"
+	tar -cjvf "${DESTINATION}" "lightningd_${BARE_VERSION}"
+    )
+
+    rm -rf "${TMPDIR}"
+fi
+
+if [ -z "${TARGETS##* deb *}" ]; then
+    TMPDIR="$(mktemp -d /tmp/lightningd-deb.XXXXXX)"
+    SRCDIR="$(pwd)"
+    BLDDIR="${TMPDIR}/clightning-${VERSION}"
+    ARCH="$(dpkg-architecture -q DEB_BUILD_ARCH)"
+
+    for SUITE in bionic focal hirsute xenial hirsute impish; do
+
+	mkdir -p "${BLDDIR}"
+	echo "Building ${BARE_VERSION} in ${TMPDIR}"
+
+	# Stage the source directory, with the debian directory bolted on
+	# until we add it to contrib
+	tar --directory="$BLDDIR" --strip-components=1 -xjf "${TARBALL}"
+	cp -R "${SRCDIR}/debian" "${BLDDIR}"
+
+	# Stage the tarball so `debuild` can find it in the parent of the
+	# source directory.
+	cp "${TARBALL}" "${TMPDIR}"
+	cp "${TARBALL}" "${TMPDIR}/lightningd_${BARE_VERSION}~${DATE}~${SUITE}.orig.tar.bz2"
+
+	# Now actually build all the artifacts.
+	#(cd "${BLDDIR}" && debuild -i -us -uc -b)
+	(
+	    cd "${BLDDIR}"
+	    # Add a dummy changelog entry
+	    dch -D "${SUITE}" -v "${BARE_VERSION}~${DATE}~${SUITE}" "Upstream release $BARE_VERSION"
+	    head debian/changelog
+	    debuild -k5B7EE09E54473A764A23515B25B5BC531246001A -S
+	    debuild -k5B7EE09E54473A764A23515B25B5BC531246001A -b
+	)
+	rm -rf "${BLDDIR}"
+
+	# Save the debs locally
+	cp -v "${TMPDIR}/lightningd_${BARE_VERSION}~${DATE}~${SUITE}_${ARCH}.deb" "${RELEASEDIR}"
+	cp -v "${TMPDIR}/lightningd-dbgsym_${BARE_VERSION}~${DATE}~${SUITE}_${ARCH}.ddeb" "${RELEASEDIR}"
+
+	# Send to PPA
+	dput ppa:cdecker/clightning "${TMPDIR}/lightningd_${BARE_VERSION}~${DATE}~${SUITE}_source.changes"
+    done
+    rm -rf "${TMPDIR}"
+fi
+
+if [ -z "${TARGETS##* docker *}" ]; then
+    TMPDIR="$(mktemp -d /tmp/lightningd-docker.XXXXXX)"
+    SRCDIR="$(pwd)"
+    echo "Bundling tarball in ${TMPDIR}"
+    git clone --recursive . "${TMPDIR}"
+    (
+	cd "${TMPDIR}"
+	git checkout "v${BARE_VERSION}"
+	cp "${SRCDIR}/Dockerfile" "${TMPDIR}/"
+	sudo docker build -t elementsproject/lightningd:latest .
+	sudo docker tag "elementsproject/lightningd:latest" "elementsproject/lightningd:v${BARE_VERSION}"
+    )
+    rm -rf "${TMPDIR}"
 fi
 
 if [ -z "${TARGETS##* sign *}" ]; then

@@ -48,7 +48,24 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
 FROM debian:buster-slim as builder
 
 ENV LIGHTNINGD_VERSION=master
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python3 python3-pip python3-setuptools python3-mako wget gnupg dirmngr git gettext
+RUN apt-get update -qq && \
+    apt-get install -qq -y --no-install-recommends \
+        autoconf \
+        automake \
+        build-essential \
+        ca-certificates \
+        dirmngr \
+        gettext \
+        git \
+        gnupg \
+        libtool \
+        python3 \
+        python3-mako \
+        python3-pip \
+        python3-setuptools \
+        wget
+
+RUN pip3 install -U setuptools mrkd mako
 
 RUN wget -q https://zlib.net/zlib-1.2.11.tar.gz \
 && tar xvf zlib-1.2.11.tar.gz \

@@ -35,7 +35,7 @@ usage_with_default()
 default_coptflags()
 {
     if [ "$1" = 0 ]; then
-	echo "-Og"
+	echo ""
     fi
 }
 
