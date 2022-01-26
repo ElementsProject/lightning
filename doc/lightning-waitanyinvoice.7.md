@@ -4,7 +4,7 @@ lightning-waitanyinvoice -- Command for waiting for payments
 SYNOPSIS
 --------
 
-**waitanyinvoice** \[*lastpay\_index*\] \[*timeout*\]
+**waitanyinvoice** [*lastpay\_index*] [*timeout*]
 
 DESCRIPTION
 -----------

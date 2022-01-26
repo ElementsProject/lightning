@@ -7,7 +7,7 @@ SYNOPSIS
 **(WARNING: experimental-offers only)**
 
 
-**offerout** *amount* *description* \[*issuer*\] \[*label*\] \[*absolute_expiry*\] \[*refund_for*\]
+**offerout** *amount* *description* [*issuer*] [*label*] [*absolute_expiry*] [*refund_for*]
 
 DESCRIPTION
 -----------

@@ -4,7 +4,7 @@ lightning-checkmessage -- Command to check if a signature is from a node
 SYNOPSIS
 --------
 
-**checkmessage** *message* *zbase* \[*pubkey*\]
+**checkmessage** *message* *zbase* [*pubkey*]
 
 DESCRIPTION
 -----------

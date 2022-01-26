@@ -4,7 +4,7 @@ lightning-openchannel\_init -- Command to initiate a channel to a peer
 SYNOPSIS
 --------
 
-**openchannel_init** *id* *amount* *initalpsbt* \[*commitment_feerate*\] \[*funding_feerate*\] \[*announce*\] \[*close_to*\] \[*request_amt*\] \[*compact_lease*\]
+**openchannel_init** *id* *amount* *initalpsbt* [*commitment_feerate*] [*funding_feerate*] [*announce*] [*close_to*] [*request_amt*] [*compact_lease*]
 
 DESCRIPTION
 -----------

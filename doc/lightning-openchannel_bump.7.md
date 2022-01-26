@@ -4,7 +4,7 @@ lightning-openchannel\_bump -- Command to initiate a channel RBF
 SYNOPSIS
 --------
 
-**openchannel_bump** *channel_id* *amount* *initalpsbt* \[*funding_feerate*\]
+**openchannel_bump** *channel_id* *amount* *initalpsbt* [*funding_feerate*]
 
 DESCRIPTION
 -----------

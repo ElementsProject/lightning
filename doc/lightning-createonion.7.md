@@ -4,7 +4,7 @@ lightning-createonion -- Low-level command to create a custom onion
 SYNOPSIS
 --------
 
-**createonion** *hops* *assocdata* \[*session_key*\] \[*onion_size*\]
+**createonion** *hops* *assocdata* [*session_key*] [*onion_size*]
 
 DESCRIPTION
 -----------

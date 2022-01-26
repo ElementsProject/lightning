@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**offer** *amount* *description* \[*issuer*\] \[*label*\] \[*quantity_min*\] \[*quantity_max*\] \[*absolute_expiry*\] \[*recurrence*\] \[*recurrence_base*\] \[*recurrence_paywindow*\] \[*recurrence_limit*\] \[*single_use*\]
+**offer** *amount* *description* [*issuer*] [*label*] [*quantity_min*] [*quantity_max*] [*absolute_expiry*] [*recurrence*] [*recurrence_base*] [*recurrence_paywindow*] [*recurrence_limit*] [*single_use*]
 
 DESCRIPTION
 -----------
@@ -69,7 +69,7 @@ period.  This is encoded in the offer.  e.g. "@1609459200" indicates
 you must start paying on the 1st January 2021.
 
 *recurrence_paywindow* is an optional argument of form
-'-time+time\[%\]'.  The first time is the number of seconds before the
+'-time+time[%]'.  The first time is the number of seconds before the
 start of a period in which an invoice and payment is valid, the second
 time is the number of seconds after the start of the period.  For
 example *-604800+86400* means you can fetch an pay the invoice 4 weeks

@@ -4,7 +4,7 @@ lightning-funderupdate -- Command for adjusting node funding v2 channels
 SYNOPSIS
 --------
 
-**funderupdate** \[*policy*\] \[*policy_mod*\] \[*leases_only*\] \[*min_their_funding_msat*\] \[*max_their_funding_msat*\] \[*per_channel_min_msat*\] \[*per_channel_max_msat*\] \[*reserve_tank_msat*\] \[*fuzz_percent*\] \[*fund_probability*\] \[*lease_fee_base_msat*\] \[*lease_fee_basis*\] \[*funding_weight*\] \[*channel_fee_max_base_msat*\] \[*channel_fee_max_proportional_thousandths*\] \[*compact_lease*\]
+**funderupdate** [*policy*] [*policy_mod*] [*leases_only*] [*min_their_funding_msat*] [*max_their_funding_msat*] [*per_channel_min_msat*] [*per_channel_max_msat*] [*reserve_tank_msat*] [*fuzz_percent*] [*fund_probability*] [*lease_fee_base_msat*] [*lease_fee_basis*] [*funding_weight*] [*channel_fee_max_base_msat*] [*channel_fee_max_proportional_thousandths*] [*compact_lease*]
 
 NOTE: Must have --experimental-dual-fund enabled for these settings to take effect.
 

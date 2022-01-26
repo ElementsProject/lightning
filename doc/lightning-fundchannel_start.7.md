@@ -4,7 +4,7 @@ lightning-fundchannel\_start -- Command for initiating channel establishment for
 SYNOPSIS
 --------
 
-**fundchannel\_start** *id* *amount* \[*feerate* *announce* *close_to* *push_msat*\]
+**fundchannel\_start** *id* *amount* [*feerate* *announce* *close_to* *push_msat*]
 
 DESCRIPTION
 -----------

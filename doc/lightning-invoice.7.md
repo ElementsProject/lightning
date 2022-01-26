@@ -4,8 +4,8 @@ lightning-invoice -- Command for accepting payments
 SYNOPSIS
 --------
 
-**invoice** *msatoshi* *label* *description* \[*expiry*\]
-\[*fallbacks*\] \[*preimage*\] \[*exposeprivatechannels*\] \[*cltv*\]
+**invoice** *msatoshi* *label* *description* [*expiry*]
+[*fallbacks*] [*preimage*] [*exposeprivatechannels*] [*cltv*]
 
 DESCRIPTION
 -----------

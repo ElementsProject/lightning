@@ -4,7 +4,7 @@ lightning-newaddr -- Command for generating a new address to be used by c-lightn
 SYNOPSIS
 --------
 
-**newaddr** \[ *addresstype* \]
+**newaddr** [ *addresstype* ]
 
 DESCRIPTION
 -----------

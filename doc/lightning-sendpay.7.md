@@ -4,8 +4,8 @@ lightning-sendpay -- Low-level command for sending a payment via a route
 SYNOPSIS
 --------
 
-**sendpay** *route* *payment\_hash* \[*label*\] \[*msatoshi*\]
-\[*bolt11*\] \[*payment_secret*\] \[*partid*\]
+**sendpay** *route* *payment\_hash* [*label*] [*msatoshi*]
+[*bolt11*] [*payment_secret*] [*partid*]
 
 DESCRIPTION
 -----------

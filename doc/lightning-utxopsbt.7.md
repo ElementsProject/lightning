@@ -4,7 +4,7 @@ lightning-utxopsbt -- Command to populate PSBT inputs from given UTXOs
 SYNOPSIS
 --------
 
-**utxopsbt** *satoshi* *feerate* *startweight* *utxos* \[*reserve*\] \[*reservedok*\] \[*locktime*\] \[*min_witness_weight*\] \[*excess_as_change*\]
+**utxopsbt** *satoshi* *feerate* *startweight* *utxos* [*reserve*] [*reservedok*] [*locktime*] [*min_witness_weight*] [*excess_as_change*]
 
 DESCRIPTION
 -----------

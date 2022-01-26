@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**fetchinvoice** *offer* \[*msatoshi*\] \[*quantity*\] \[*recurrence_counter*\] \[*recurrence_start*\] \[*recurrence_label*\] \[*timeout*\] \[*payer_note*\]
+**fetchinvoice** *offer* [*msatoshi*] [*quantity*] [*recurrence_counter*] [*recurrence_start*] [*recurrence_label*] [*timeout*] [*payer_note*]
 
 DESCRIPTION
 -----------

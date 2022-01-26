@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 **(WARNING: experimental-offers only)**
 
-**listoffers** \[*offer_id*\] \[*active_only*\]
+**listoffers** [*offer_id*] [*active_only*]
 
 DESCRIPTION
 -----------

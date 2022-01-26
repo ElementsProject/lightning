@@ -4,8 +4,8 @@ lightning-getroute -- Command for routing a payment (low-level)
 SYNOPSIS
 --------
 
-**getroute** *id* *msatoshi* *riskfactor* \[*cltv*\] \[*fromid*\]
-\[*fuzzpercent*\] \[*exclude*\] \[*maxhops*\]
+**getroute** *id* *msatoshi* *riskfactor* [*cltv*] [*fromid*]
+[*fuzzpercent*] [*exclude*] [*maxhops*]
 
 DESCRIPTION
 -----------
@@ -39,8 +39,8 @@ route generated. 0.0 means the exact fee of that channel is used, while
 100.0 means the fee used might be from 0 to twice the actual fee. The
 default is 5.0, or up to 5% fee distortion.
 
-*exclude* is a JSON array of short-channel-id/direction (e.g. \[
-"564334x877x1/0", "564195x1292x0/1" \]) or node-id which should be excluded
+*exclude* is a JSON array of short-channel-id/direction (e.g. [
+"564334x877x1/0", "564195x1292x0/1" ]) or node-id which should be excluded
 from consideration for routing. The default is not to exclude any channels
 or nodes. Note if the source or destination is excluded, the command result
 is undefined.
