@@ -202,7 +202,9 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 	last_fee = calc_tx_fee(channel->funding_sats, channel->last_tx);
 
 	/* Weight once we add in sigs. */
-	weight = bitcoin_tx_weight(tx) + bitcoin_tx_input_sig_weight() * 2;
+	assert(!tx->wtx->inputs[0].witness
+	       || tx->wtx->inputs[0].witness->num_items == 0);
+	weight = bitcoin_tx_weight(tx) + bitcoin_tx_2of2_input_witness_weight();
 
 	log_debug(channel->log, "Their actual closing tx fee is %s"
 		 " vs previous %s: weight is %"PRIu64,
