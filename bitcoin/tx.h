@@ -1,9 +1,10 @@
 #ifndef LIGHTNING_BITCOIN_TX_H
 #define LIGHTNING_BITCOIN_TX_H
 #include "config.h"
-#include "shadouble.h"
-#include "signature.h"
-#include "varint.h"
+#include <bitcoin/chainparams.h>
+#include <bitcoin/shadouble.h>
+#include <bitcoin/signature.h>
+#include <bitcoin/varint.h>
 #include <ccan/structeq/structeq.h>
 #include <common/amount.h>
 #include <wally_transaction.h>
@@ -229,6 +230,36 @@ bool elements_wtx_output_is_fee(const struct wally_tx *tx, int outnum);
  * Returns true if the given outnum is a fee output
  */
 bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum);
+
+/** Attempt to compute the elements overhead given a base bitcoin size.
+ *
+ * The overhead consists of 2 empty proofs for the transaction, 6 bytes of
+ * proofs per input and 35 bytes per output. In addition the explicit fee
+ * output will add 9 bytes and the per output overhead as well.
+ */
+static inline size_t elements_tx_overhead(const struct chainparams *chainparams,
+					  size_t incount, size_t outcount)
+{
+	size_t overhead;
+
+	if (!chainparams->is_elements)
+		return 0;
+
+	/* Each transaction has surjection and rangeproof (both empty
+	 * for us as long as we use unblinded L-BTC transactions). */
+	overhead = 2 * 4;
+	/* For elements we also need to add the fee output and the
+	 * overhead for rangeproofs into the mix. */
+	overhead += (8 + 1) * 4; /* Bitcoin style output */
+
+	/* All outputs have a bit of elements overhead (incl fee) */
+	overhead += (32 + 1 + 1 + 1) * 4 * (outcount + 1); /* Elements added fields */
+
+	/* Inputs have 6 bytes of blank proofs attached. */
+	overhead += 6 * incount;
+
+	return overhead;
+}
 
 /**
  * Calculate the fees for this transaction

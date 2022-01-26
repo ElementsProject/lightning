@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_HTLC_TX_H
 #include "config.h"
 #include <bitcoin/chainparams.h>
+#include <bitcoin/tx.h>
 #include <common/htlc.h>
 #include <common/utils.h>
 
@@ -11,34 +12,6 @@ struct keyset;
 struct preimage;
 struct pubkey;
 struct ripemd160;
-
-/** Attempt to compute the elements overhead given a base bitcoin size.
- *
- * The overhead consists of 2 empty proofs for the transaction, 6 bytes of
- * proofs per input and 35 bytes per output. In addition the explicit fee
- * output will add 9 bytes and the per output overhead as well.
- */
-/* FIXME: This seems to be a generalization of the logic in initial_commit_tx.h
- * and should be in bitcoin/tx.h */
-static inline size_t elements_add_overhead(size_t weight, size_t incount,
-					   size_t outcount)
-{
-	if (chainparams->is_elements) {
-		/* Each transaction has surjection and rangeproof (both empty
-		 * for us as long as we use unblinded L-BTC transactions). */
-		weight += 2 * 4;
-		/* For elements we also need to add the fee output and the
-		 * overhead for rangeproofs into the mix. */
-		weight += (8 + 1) * 4; /* Bitcoin style output */
-
-		/* All outputs have a bit of elements overhead */
-		weight += (32 + 1 + 1 + 1) * 4 * (outcount + 1); /* Elements added fields */
-
-		/* Inputs have 6 bytes of blank proofs attached. */
-		weight += 6 * incount;
-	}
-	return weight;
-}
 
 static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw,
 						 bool option_anchor_outputs)
@@ -56,7 +29,8 @@ static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw,
 		base = 666;
 	else
 		base = 663;
-	return amount_tx_fee(elements_add_overhead(base, 1, 1), feerate_per_kw);
+	return amount_tx_fee(base + elements_tx_overhead(chainparams, 1, 1),
+			     feerate_per_kw);
 }
 
 static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw,
@@ -75,7 +49,8 @@ static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw,
 		base = 706;
 	else
 		base = 703;
-	return amount_tx_fee(elements_add_overhead(base, 1, 1), feerate_per_kw);
+	return amount_tx_fee(base + elements_tx_overhead(chainparams, 1, 1),
+			     feerate_per_kw);
 }
 
 /* Create HTLC-success tx to spend a received HTLC commitment tx

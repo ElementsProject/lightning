@@ -441,8 +441,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 		weight = 666;
 	else
 		weight = 663;
-	weight = elements_add_overhead(weight, tx->wtx->num_inputs,
-				       tx->wtx->num_outputs);
+	weight += elements_tx_overhead(chainparams, 1, 1);
 
 	assert(amount_asset_is_main(&asset));
 	amount = amount_asset_to_sat(&asset);
@@ -491,15 +490,16 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 	else
 		weight = 703;
 
-	weight = elements_add_overhead(weight, tx->wtx->num_inputs,
-				       tx->wtx->num_outputs);
+	weight += elements_tx_overhead(chainparams, 1, 1);
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
 		if (!grind_htlc_tx_fee(&fee, tx, remotesig, wscript, weight))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "htlc_success_fee can't be found "
-				      "for tx %s, signature %s, wscript %s",
+				      "for tx %s (weight %zu, feerate %u-%u), signature %s, wscript %s",
 				      type_to_string(tmpctx, struct bitcoin_tx,
 						     tx),
+				      weight,
+				      min_possible_feerate, max_possible_feerate,
 				      type_to_string(tmpctx,
 						     struct bitcoin_signature,
 						     remotesig),
@@ -596,7 +596,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
-	weight = elements_add_overhead(weight, 1, 1);
+	weight += elements_tx_overhead(chainparams, 1, 1);
 	fee = amount_tx_fee(feerate, weight);
 
 	/* Result is trivial?  Spend with small feerate, but don't wait
