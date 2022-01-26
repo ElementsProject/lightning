@@ -3138,13 +3138,14 @@ def test_change_chaining(node_factory, bitcoind):
     l1.rpc.fundchannel(l3.info['id'], 10**7, minconf=0)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
 def test_feerate_spam(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
 
     # We constrain the value the opener has at its disposal so we get the
     # REMOTE feerate we are looking for below. This may be fragile and depends
     # on the transactions we generate.
-    slack = 45000000 if not chainparams['elements'] else 68000000
+    slack = 45000000
 
     # Pay almost everything to l2.
     l1.pay(l2, 10**9 - slack)

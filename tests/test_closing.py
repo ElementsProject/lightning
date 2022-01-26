@@ -26,7 +26,7 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
     chan = l1.get_channel_scid(l2)
     channel_id = first_channel_id(l1, l2)
-    fee = closing_fee(3750, 2) if not chainparams['elements'] else 3603
+    fee = closing_fee(3750, 2) if not chainparams['elements'] else 4263
 
     l1.pay(l2, 200000000)
 
@@ -466,28 +466,30 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
 
 
 @unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 30%"""
     opts = {}
     opts['fee_negotiation_step'] = '30%'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20537 if not chainparams['elements'] else 26046
+    opts['expected_close_fee'] = 20537
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20233 if not chainparams['elements'] else 25657
+    opts['expected_close_fee'] = 20233
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
 @unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 100%"""
     opts = {}
     opts['fee_negotiation_step'] = '100%'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20001 if not chainparams['elements'] else 25366
+    opts['expected_close_fee'] = 20001
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     # The close fee of 20499 looks strange in this case - one would expect
@@ -496,37 +498,39 @@ def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     # * the opener is always first to propose, he uses 50% step, so he proposes 20500
     # * the range is narrowed to [20001, 20499] and the peer proposes 20499
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 25998
+    opts['expected_close_fee'] = 20499
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
 @unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_1sat(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 1sat"""
     opts = {}
     opts['fee_negotiation_step'] = '1'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20989 if not chainparams['elements'] else 26624
+    opts['expected_close_fee'] = 20989
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20010 if not chainparams['elements'] else 25373
+    opts['expected_close_fee'] = 20010
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
 @unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Different closing fees")
 def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 700sat"""
     opts = {}
     opts['fee_negotiation_step'] = '700'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20151 if not chainparams['elements'] else 25650
+    opts['expected_close_fee'] = 20151
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 25998
+    opts['expected_close_fee'] = 20499
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
@@ -3613,8 +3617,8 @@ def test_close_feerate_range(node_factory, bitcoind, chainparams):
         l2_range = [1027, 1000000]
     else:
         # That fee output is a little chunky.
-        l1_range = [175, 5212]
-        l2_range = [1303, 1000000]
+        l1_range = [220, 6547]
+        l2_range = [1636, 1000000]
 
     l1.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l1_range[0], l1_range[1]))
     l2.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l2_range[0], l2_range[1]))
