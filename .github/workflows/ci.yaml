@@ -347,6 +347,8 @@ jobs:
       DEVELOPER: 1
       RUST: 1
       VALGRIND: 0
+      # Run only the rust tests, others are not impacted.
+      TEST_CMD: "make -j 8 && pytest -vvv tests/test_cln_rs.py"
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
