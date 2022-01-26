@@ -290,6 +290,17 @@ impl From<&responses::CloseResponse> for pb::CloseResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::ConnectResponse> for pb::ConnectResponse {
+    fn from(c: &responses::ConnectResponse) -> Self {
+        Self {
+            id: hex::decode(&c.id).unwrap(),
+            features: hex::decode(&c.features).unwrap(),
+            direction: c.direction as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&pb::GetinfoRequest> for requests::GetinfoRequest {
     fn from(c: &pb::GetinfoRequest) -> Self {
         Self {
@@ -367,6 +378,17 @@ impl From<&pb::CloseRequest> for requests::CloseRequest {
             fee_negotiation_step: c.fee_negotiation_step.clone(),
             wrong_funding: c.wrong_funding.clone().map(|v| hex::encode(v)),
             force_lease_closed: c.force_lease_closed.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::ConnectRequest> for requests::ConnectRequest {
+    fn from(c: &pb::ConnectRequest) -> Self {
+        Self {
+            id: hex::encode(&c.id),
+            host: c.host.clone(),
+            port: c.port.map(|i| i as u16),
         }
     }
 }

@@ -266,4 +266,34 @@ async fn close(
 
 }
 
+async fn connect_peer(
+    &self,
+    request: tonic::Request<pb::ConnectRequest>,
+) -> Result<tonic::Response<pb::ConnectResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ConnectRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ConnectPeer(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ConnectPeer: {:?}", e)))?;
+    match result {
+        Response::ConnectPeer(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ConnectPeer",
+                r
+            )
+        )),
+    }
+
+}
+
 }

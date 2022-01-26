@@ -16,6 +16,7 @@ service Node {
 	rpc AutoCleanInvoice(AutocleaninvoiceRequest) returns (AutocleaninvoiceResponse) {}
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
 	rpc Close(CloseRequest) returns (CloseResponse) {}
+	rpc ConnectPeer(ConnectRequest) returns (ConnectResponse) {}
 }
 
 message GetinfoRequest {
@@ -338,4 +339,36 @@ message CloseResponse {
 	CloseType item_type = 7;
 	optional bytes tx = 8;
 	optional bytes txid = 9;
+}
+
+message ConnectRequest {
+	bytes id = 1;
+	optional string host = 2;
+	optional uint32 port = 3;
+}
+
+message ConnectResponse {
+	// Connect.direction
+	enum ConnectDirection {
+		IN = 0;
+		OUT = 1;
+	}
+	bytes id = 1;
+	bytes features = 2;
+	ConnectDirection direction = 3;
+}
+
+message ConnectAddress {
+	// Connect.address.type
+	enum ConnectAddressType {
+		LOCAL_SOCKET = 0;
+		IPV4 = 1;
+		IPV6 = 2;
+		TORV2 = 3;
+		TORV3 = 4;
+	}
+	ConnectAddressType item_type = 1;
+	optional string socket = 2;
+	optional string address = 3;
+	optional uint32 port = 4;
 }

@@ -6,6 +6,12 @@ import subprocess
 import json
 
 
+# Sometimes we want to rename a method, due to a name clash
+method_name_override = {
+    "Connect": "ConnectPeer",
+}
+
+
 def repo_root():
     path = subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
     return Path(path.strip().decode('UTF-8'))
@@ -26,7 +32,7 @@ def load_jsonrpc_method(name):
     response.typename += "Response"
 
     return Method(
-        name=name,
+        name=method_name_override.get(name, name),
         request=request,
         response=response,
     )
@@ -44,7 +50,7 @@ def load_jsonrpc_service():
         "CheckMessage",
         # "check",  # No point in mapping this one
         "Close",
-        # "connect",
+        "Connect",
         # "createinvoice",
         # "createonion",
         # "datastore",
