@@ -24,6 +24,7 @@ pub enum Request {
 	AutoCleanInvoice(requests::AutocleaninvoiceRequest),
 	CheckMessage(requests::CheckmessageRequest),
 	Close(requests::CloseRequest),
+	ConnectPeer(requests::ConnectRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,6 +39,7 @@ pub enum Response {
 	AutoCleanInvoice(responses::AutocleaninvoiceResponse),
 	CheckMessage(responses::CheckmessageResponse),
 	Close(responses::CloseResponse),
+	ConnectPeer(responses::ConnectResponse),
 }
 
 pub mod requests {
@@ -112,6 +114,16 @@ pub mod requests {
 	    pub wrong_funding: Option<String>,
 	    #[serde(alias = "force_lease_closed", skip_serializing_if = "Option::is_none")]
 	    pub force_lease_closed: Option<bool>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ConnectRequest {
+	    #[serde(alias = "id")]
+	    pub id: String,
+	    #[serde(alias = "host", skip_serializing_if = "Option::is_none")]
+	    pub host: Option<String>,
+	    #[serde(alias = "port", skip_serializing_if = "Option::is_none")]
+	    pub port: Option<u16>,
 	}
 
 }
@@ -729,6 +741,49 @@ pub mod responses {
 	    pub tx: Option<String>,
 	    #[serde(alias = "txid", skip_serializing_if = "Option::is_none")]
 	    pub txid: Option<String>,
+	}
+
+	/// Whether they initiated connection or we did
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[serde(rename_all = "lowercase")]
+	pub enum ConnectDirection {
+	    IN,
+	    OUT,
+	}
+
+	/// Type of connection (*torv2*/*torv3* only if **direction** is *out*)
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[serde(rename_all = "lowercase")]
+	pub enum ConnectAddressType {
+	    LOCAL_SOCKET,
+	    IPV4,
+	    IPV6,
+	    TORV2,
+	    TORV3,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ConnectAddress {
+	    // Path `Connect.address.type`
+	    #[serde(rename = "type")]
+	    pub item_type: ConnectAddressType,
+	    #[serde(alias = "socket", skip_serializing_if = "Option::is_none")]
+	    pub socket: Option<String>,
+	    #[serde(alias = "address", skip_serializing_if = "Option::is_none")]
+	    pub address: Option<String>,
+	    #[serde(alias = "port", skip_serializing_if = "Option::is_none")]
+	    pub port: Option<u16>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ConnectResponse {
+	    #[serde(alias = "id")]
+	    pub id: String,
+	    #[serde(alias = "features")]
+	    pub features: String,
+	    // Path `Connect.direction`
+	    #[serde(rename = "direction")]
+	    pub direction: ConnectDirection,
 	}
 
 }
