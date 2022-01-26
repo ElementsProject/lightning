@@ -298,6 +298,7 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 
 	wal_acct = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
 	ext_acct = new_account(ctx, tal_fmt(ctx, "external"), &peer_id);
+	memset(&txid, '1', sizeof(struct bitcoin_txid));
 
 	db_begin_transaction(db);
 	account_add(db, wal_acct);
@@ -309,7 +310,7 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 	 * tag     utxo_id vout    txid    debits  credits acct_id
 	 * withdr  XXXX    0       1111    1000            wallet
 	 * deposit 1111    1                        200    wallet
-	 * *screms*
+	 * deposit 1111    0                        700    external
 	 */
 	db_begin_transaction(db);
 	log_chain_event(db, wal_acct,
@@ -317,7 +318,6 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 				 AMOUNT_MSAT(0),
 				 AMOUNT_MSAT(1000),
 				 'X', 0, '1'));
-	memset(&txid, '1', sizeof(struct bitcoin_txid));
 	maybe_update_onchain_fees(ctx, db, &txid);
 
 	log_chain_event(db, wal_acct,
@@ -325,19 +325,32 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 				 AMOUNT_MSAT(200),
 				 AMOUNT_MSAT(0),
 				 '1', 1, '*'));
-	memset(&txid, '1', sizeof(struct bitcoin_txid));
+	maybe_update_onchain_fees(ctx, db, &txid);
+
+	log_chain_event(db, ext_acct,
+		make_chain_event(ctx, "deposit",
+				 AMOUNT_MSAT(700),
+				 AMOUNT_MSAT(0),
+				 '1', 0, '*'));
 	maybe_update_onchain_fees(ctx, db, &txid);
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
-	/* Send some funds to an external acct? */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
-	/* FIXME: track onchain wallet withdrawals?? */
-	CHECK(tal_count(ofs) == 0);
+	CHECK(tal_count(ofs) == 2);
+
+	/* we expect 800, then -700 */
+	CHECK(amount_msat_eq(ofs[0]->credit, AMOUNT_MSAT(800)));
+	CHECK(amount_msat_zero(ofs[0]->debit));
+	CHECK(ofs[0]->update_count == 1);
+
+	CHECK(amount_msat_zero(ofs[1]->credit));
+	CHECK(amount_msat_eq(ofs[1]->debit, AMOUNT_MSAT(700)));
+	CHECK(ofs[1]->update_count == 2);
 
 	return true;
 }
