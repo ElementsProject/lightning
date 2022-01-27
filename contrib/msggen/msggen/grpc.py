@@ -26,9 +26,9 @@ typemap = {
 
 # Manual overrides for some of the auto-generated types for paths
 overrides = {
-    'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
-    'ListPeers.peers[].channels[].state_changes[].new_state': "ChannelState",
-    'ListPeers.peers[].channels[].state_changes[].cause': "ChannelStateChangeCause",
+    # Truncate the tree here, it's a complex structure with identitcal
+    # types
+    'ListPeers.peers[].channels[].state_changes[]': None,
     'ListPeers.peers[].channels[].opener': "ChannelSide",
     'ListPeers.peers[].channels[].closer': "ChannelSide",
     'ListPeers.peers[].channels[].features[]': "string",
@@ -107,6 +107,9 @@ class GrpcGenerator:
         self.write(f"""{prefix}}}\n""", False)
 
     def generate_message(self, message: CompositeField):
+        if overrides.get(message.path, "") is None:
+            return
+
         self.write(f"""
         message {message.typename} {{
         """)
@@ -117,6 +120,9 @@ class GrpcGenerator:
                 self.generate_enum(f, indent=1)
 
         for i, f in enumerate(message.fields):
+            if overrides.get(f.path, "") is None:
+                continue
+
             opt = "optional " if not f.required else ""
             if isinstance(f, ArrayField):
                 typename = typemap.get(f.itemtype.typename, f.itemtype.typename)
@@ -171,6 +177,9 @@ class GrpcConverterGenerator:
     def generate_composite(self, prefix, field: CompositeField):
         """Generates the conversions from JSON-RPC to GRPC.
         """
+        if overrides.get(field.path, "") is None:
+            return
+
         # First pass: generate any sub-fields before we generate the
         # top-level field itself.
         for f in field.fields:
@@ -186,12 +195,18 @@ class GrpcConverterGenerator:
         """)
 
         for f in field.fields:
+            if overrides.get(f.path, "") is None:
+                continue
+
             name = f.normalized()
             if isinstance(f, ArrayField):
                 self.write(f"{name}: c.{name}.iter().map(|s| s.into()).collect(),\n", numindent=3)
 
             elif isinstance(f, EnumField):
-                self.write(f"{name}: c.{name} as i32,\n", numindent=3)
+                if f.required:
+                    self.write(f"{name}: c.{name} as i32,\n", numindent=3)
+                else:
+                    self.write(f"{name}: c.{name}.map(|v| v as i32),\n", numindent=3)
 
             elif isinstance(f, PrimitiveField):
                 typ = f.typename + ("?" if not f.required else "")
@@ -266,6 +281,9 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
     def generate_composite(self, prefix, field: CompositeField) -> None:
         # First pass: generate any sub-fields before we generate the
         # top-level field itself.
+        if overrides.get(field.path, "") is None:
+            return
+
         for f in field.fields:
             if isinstance(f, ArrayField):
                 self.generate_array(prefix, f)
