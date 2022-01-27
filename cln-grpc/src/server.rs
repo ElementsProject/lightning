@@ -57,6 +57,36 @@ async fn getinfo(
 
 }
 
+async fn list_peers(
+    &self,
+    request: tonic::Request<pb::ListpeersRequest>,
+) -> Result<tonic::Response<pb::ListpeersResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListpeersRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListPeers(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListPeers: {:?}", e)))?;
+    match result {
+        Response::ListPeers(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListPeers",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn list_funds(
     &self,
     request: tonic::Request<pb::ListfundsRequest>,

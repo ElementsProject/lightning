@@ -9,6 +9,7 @@ import "primitives.proto";
 
 service Node {
 	rpc Getinfo(GetinfoRequest) returns (GetinfoResponse) {}
+	rpc ListPeers(ListpeersRequest) returns (ListpeersResponse) {}
 	rpc ListFunds(ListfundsRequest) returns (ListfundsResponse) {}
 	rpc ListChannels(ListchannelsRequest) returns (ListchannelsResponse) {}
 	rpc AddGossip(AddgossipRequest) returns (AddgossipResponse) {}
@@ -67,6 +68,152 @@ message GetinfoBinding {
 	optional string address = 2;
 	optional uint32 port = 3;
 	optional string socket = 4;
+}
+
+message ListpeersRequest {
+	optional bytes id = 1;
+	optional string level = 2;
+}
+
+message ListpeersResponse {
+	repeated ListpeersPeers peers = 1;
+}
+
+message ListpeersPeers {
+	bytes id = 1;
+	bool connected = 2;
+	repeated ListpeersPeersLog log = 3;
+	repeated ListpeersPeersChannels channels = 4;
+	repeated string netaddr = 5;
+	optional bytes features = 6;
+}
+
+message ListpeersPeersLog {
+	// ListPeers.peers[].log[].type
+	enum ListpeersPeersLogType {
+		SKIPPED = 0;
+		BROKEN = 1;
+		UNUSUAL = 2;
+		INFO = 3;
+		DEBUG = 4;
+		IO_IN = 5;
+		IO_OUT = 6;
+	}
+	ListpeersPeersLogType item_type = 1;
+	optional uint32 num_skipped = 2;
+	optional string time = 3;
+	optional string source = 4;
+	optional string log = 5;
+	optional bytes node_id = 6;
+	optional bytes data = 7;
+}
+
+message ListpeersPeersChannels {
+	// ListPeers.peers[].channels[].state
+	enum ListpeersPeersChannelsState {
+		OPENINGD = 0;
+		CHANNELD_AWAITING_LOCKIN = 1;
+		CHANNELD_NORMAL = 2;
+		CHANNELD_SHUTTING_DOWN = 3;
+		CLOSINGD_SIGEXCHANGE = 4;
+		CLOSINGD_COMPLETE = 5;
+		AWAITING_UNILATERAL = 6;
+		FUNDING_SPEND_SEEN = 7;
+		ONCHAIN = 8;
+		DUALOPEND_OPEN_INIT = 9;
+		DUALOPEND_AWAITING_LOCKIN = 10;
+	}
+	ListpeersPeersChannelsState state = 1;
+	optional bytes scratch_txid = 2;
+	optional string owner = 4;
+	optional string short_channel_id = 5;
+	optional bytes channel_id = 6;
+	optional bytes funding_txid = 7;
+	optional string initial_feerate = 8;
+	optional string last_feerate = 9;
+	optional string next_feerate = 10;
+	optional uint32 next_fee_step = 11;
+	repeated ListpeersPeersChannelsInflight inflight = 12;
+	optional bytes close_to = 13;
+	optional bool private = 14;
+	ChannelSide opener = 15;
+	optional ChannelSide closer = 16;
+	repeated string features = 17;
+	optional Amount to_us_msat = 19;
+	optional Amount min_to_us_msat = 20;
+	optional Amount max_to_us_msat = 21;
+	optional Amount total_msat = 22;
+	optional Amount fee_base_msat = 23;
+	optional uint32 fee_proportional_millionths = 24;
+	optional Amount dust_limit_msat = 25;
+	optional Amount max_total_htlc_in_msat = 26;
+	optional Amount their_reserve_msat = 27;
+	optional Amount our_reserve_msat = 28;
+	optional Amount spendable_msat = 29;
+	optional Amount receivable_msat = 30;
+	optional Amount minimum_htlc_in_msat = 31;
+	optional uint32 their_to_self_delay = 32;
+	optional uint32 our_to_self_delay = 33;
+	optional uint32 max_accepted_htlcs = 34;
+	repeated string status = 36;
+	optional uint64 in_payments_offered = 37;
+	optional Amount in_offered_msat = 38;
+	optional uint64 in_payments_fulfilled = 39;
+	optional Amount in_fulfilled_msat = 40;
+	optional uint64 out_payments_offered = 41;
+	optional Amount out_offered_msat = 42;
+	optional uint64 out_payments_fulfilled = 43;
+	optional Amount out_fulfilled_msat = 44;
+	repeated ListpeersPeersChannelsHtlcs htlcs = 45;
+	optional string close_to_addr = 46;
+}
+
+message ListpeersPeersChannelsFeerate {
+	uint32 perkw = 1;
+	uint32 perkb = 2;
+}
+
+message ListpeersPeersChannelsInflight {
+	bytes funding_txid = 1;
+	uint32 funding_outnum = 2;
+	string feerate = 3;
+	Amount total_funding_msat = 4;
+	Amount our_funding_msat = 5;
+	bytes scratch_txid = 6;
+}
+
+message ListpeersPeersChannelsFunding {
+	Amount local_msat = 1;
+	Amount remote_msat = 2;
+}
+
+message ListpeersPeersChannelsHtlcs {
+	// ListPeers.peers[].channels[].htlcs[].direction
+	enum ListpeersPeersChannelsHtlcsDirection {
+		IN = 0;
+		OUT = 1;
+	}
+	// ListPeers.peers[].channels[].htlcs[].state
+	enum ListpeersPeersChannelsHtlcsState {
+		SENT_ADD_HTLC = 0;
+		SENT_ADD_COMMIT = 1;
+		RCVD_ADD_REVOCATION = 2;
+		RCVD_ADD_ACK_COMMIT = 3;
+		SENT_ADD_ACK_REVOCATION = 4;
+		RCVD_REMOVE_HTLC = 5;
+		RCVD_REMOVE_COMMIT = 6;
+		SENT_REMOVE_REVOCATION = 7;
+		SENT_REMOVE_ACK_COMMIT = 8;
+		RCVD_REMOVE_ACK_REVOCATION = 9;
+	}
+	ListpeersPeersChannelsHtlcsDirection direction = 1;
+	uint64 id = 2;
+	Amount amount_msat = 3;
+	uint32 expiry = 4;
+	bytes payment_hash = 5;
+	optional bool local_trimmed = 6;
+	optional string status = 7;
+	ListpeersPeersChannelsHtlcsState state = 8;
 }
 
 message ListfundsRequest {
