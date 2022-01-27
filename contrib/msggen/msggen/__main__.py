@@ -35,7 +35,7 @@ def load_jsonrpc_method(name):
 def load_jsonrpc_service():
     method_names = [
         "Getinfo",
-        # "ListPeers",
+        "ListPeers",
         "ListFunds",
         # "ListConfigs",
         "ListChannels",
