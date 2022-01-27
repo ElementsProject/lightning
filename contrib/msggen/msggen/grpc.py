@@ -35,6 +35,10 @@ overrides = {
     'ListFunds.channels[].state': 'ChannelState',
 }
 
+method_name_overrides = {
+    "Connect": "ConnectPeer",
+}
+
 
 class GrpcGenerator:
     """A generator that generates protobuf files.
@@ -81,8 +85,9 @@ class GrpcGenerator:
         """)
 
         for method in service.methods:
+            mname = method_name_overrides.get(method.name, method.name)
             self.write(
-                f"	rpc {method.name}({method.request.typename}) returns ({method.response.typename}) {{}}\n",
+                f"	rpc {mname}({method.request.typename}) returns ({method.response.typename}) {{}}\n",
                 cleanup=False,
             )
 
@@ -348,8 +353,9 @@ class GrpcServerGenerator(GrpcConverterGenerator):
         """)
 
         for method in service.methods:
+            mname = method_name_overrides.get(method.name, method.name)
             # Tonic will convert to snake-case, so we have to do it here too
-            name = re.sub(r'(?<!^)(?=[A-Z])', '_', method.name).lower()
+            name = re.sub(r'(?<!^)(?=[A-Z])', '_', mname).lower()
             self.write(f"""\
             async fn {name}(
                 &self,
