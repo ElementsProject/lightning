@@ -10,7 +10,7 @@ typemap = {
     'boolean': 'bool',
     'hex': 'bytes',
     'msat': 'Amount',
-    'number': 'i64',
+    'number': 'sint64',
     'pubkey': 'bytes',
     'short_channel_id': 'string',
     'signature': 'bytes',
@@ -20,6 +20,7 @@ typemap = {
     'u32': 'uint32',
     'u64': 'uint64',
     'u16': 'uint32',  # Yeah, I know...
+    'integer': 'sint64',
 }
 
 
@@ -287,10 +288,14 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 # hex-decoding. Also includes the `Some()` that grpc
                 # requires for non-native types.
                 rhs = {
+                    'u16': f'c.{name} as u16',
+                    'u16?': f'c.{name}.map(|v| v as u16)',
                     'hex': f'hex::encode(&c.{name})',
+                    'hex?': f'c.{name}.clone().map(|v| hex::encode(v))',
                     'txid?': f'c.{name}.clone().map(|v| hex::encode(v))',
                     'pubkey': f'hex::encode(&c.{name})',
                     'pubkey?': f'c.{name}.clone().map(|v| hex::encode(v))',
+                    'msat': f'c.{name}.as_ref().unwrap().into()'
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment
