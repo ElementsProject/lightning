@@ -87,6 +87,25 @@ def gen_enum(e):
         decl += f"    {norm},\n"
     decl += "}\n\n"
 
+    # Implement From<i32> so we can convert from the numerical
+    # representation
+    decl += dedent(f"""\
+    impl TryFrom<i32> for {e.typename} {{
+        type Error = anyhow::Error;
+        fn try_from(c: i32) -> Result<{e.typename}, anyhow::Error> {{
+            match c {{
+    """)
+    for i, v in enumerate(e.variants):
+        norm = v.normalized()
+        # decl += f"    #[serde(rename = \"{v}\")]\n"
+        decl += f"    {i} => Ok({e.typename}::{norm}),\n"
+    decl += dedent(f"""\
+                o => Err(anyhow::anyhow!("Unknown variant {{}} for enum {e.typename}", o)),
+            }}
+        }}
+    }}
+    """)
+
     typename = e.typename
 
     if e.path in overrides:

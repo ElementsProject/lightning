@@ -279,8 +279,11 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 self.write(f"{name}: c.{name}.iter().map(|s| s.into()).collect(),\n", numindent=3)
 
             elif isinstance(f, EnumField):
-                raise ValueError("enums from i32 are not implemented yet")
-
+                if f.required:
+                    self.write(f"{name}: c.{name}.into(),\n", numindent=3)
+                else:
+                    self.write(f"{name}: c.{name}.map(|v| v.try_into().unwrap()),\n", numindent=3)
+                pass
             elif isinstance(f, PrimitiveField):
                 typ = f.typename + ("?" if not f.required else "")
                 # We may need to reduce or increase the size of some
