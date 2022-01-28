@@ -51,6 +51,9 @@ class Sqlite3Db(object):
         c.close()
         db.close()
 
+    def stop(self):
+        pass
+
 
 class PostgresDb(object):
     def __init__(self, dbname, port):
@@ -87,6 +90,15 @@ class PostgresDb(object):
     def execute(self, query):
         with self.conn, self.conn.cursor() as cur:
             cur.execute(query)
+
+    def stop(self):
+        """Clean up the database.
+        """
+        self.conn.close()
+        conn = psycopg2.connect("dbname=postgres user=postgres host=localhost port={self.port}")
+        cur = conn.cursor()
+        cur.execute("DROP DATABASE {};".format(self.dbname))
+        cur.close()
 
 
 class SqliteDbProvider(object):
@@ -208,3 +220,4 @@ class PostgresDbProvider(object):
         # [1] https://www.postgresql.org/docs/9.1/server-shutdown.html
         self.proc.send_signal(signal.SIGINT)
         self.proc.wait()
+        shutil.rmtree(self.pgdir)
