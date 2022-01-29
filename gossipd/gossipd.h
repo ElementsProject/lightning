@@ -109,9 +109,6 @@ struct peer {
 	void (*query_channel_range_cb)(struct peer *peer,
 				       u32 first_blocknum, u32 number_of_blocks,
 				       const struct range_query_reply *replies);
-
-	/* The daemon_conn used to queue messages to/from the peer. */
-	struct daemon_conn *dc;
 };
 
 /* Search for a peer. */

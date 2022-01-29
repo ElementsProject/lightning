@@ -81,9 +81,6 @@ struct peer {
 	/* Random ping timer, to detect dead connections. */
 	struct oneshot *ping_timer;
 
-	/* FIXME: remove! */
-	int gossip_fd;
-
 #if DEVELOPER
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
