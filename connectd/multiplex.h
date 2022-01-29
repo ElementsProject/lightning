@@ -21,8 +21,9 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 void multiplex_final_msg(struct peer *peer,
 			 const u8 *final_msg TAKES);
 
-/* Inject a message into the output stream */
-void queue_peer_msg(struct peer *peer, const u8 *msg TAKES);
+/* Inject a message into the output stream.  Unlike a raw msg_enqueue,
+ * this does io logging if required. */
+void inject_peer_msg(struct peer *peer, const u8 *msg TAKES);
 
 void setup_peer_gossip_store(struct peer *peer,
 			     const struct feature_set *our_features,

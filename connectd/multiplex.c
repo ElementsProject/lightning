@@ -36,8 +36,9 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
-void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
+void inject_peer_msg(struct peer *peer, const u8 *msg TAKES)
 {
+	status_peer_io(LOG_IO_OUT, &peer->id, msg);
 	msg_enqueue(peer->peer_outq, msg);
 }
 
@@ -360,7 +361,7 @@ static void send_ping(struct peer *peer)
 		return;
 	}
 
-	queue_peer_msg(peer, take(make_ping(NULL, 1, 0)));
+	inject_peer_msg(peer, take(make_ping(NULL, 1, 0)));
 	peer->expecting_pong = PONG_EXPECTED_PROBING;
 	set_ping_timer(peer);
 }
@@ -378,7 +379,7 @@ static void handle_ping_in(struct peer *peer, const u8 *msg)
 	}
 
 	if (pong)
-		queue_peer_msg(peer, take(pong));
+		inject_peer_msg(peer, take(pong));
 }
 
 static void handle_ping_reply(struct peer *peer, const u8 *msg)
@@ -582,7 +583,7 @@ static struct io_plan *read_from_subd_done(struct io_conn *subd_conn,
 					   struct peer *peer)
 {
 	/* Tell them to encrypt & write. */
-	queue_peer_msg(peer, take(peer->subd_in));
+	msg_enqueue(peer->peer_outq, take(peer->subd_in));
 	peer->subd_in = NULL;
 
 	/* Wait for them to wake us */
@@ -828,7 +829,7 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 	if (tal_count(ping) > 65535)
 		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
 
-	queue_peer_msg(peer, take(ping));
+	inject_peer_msg(peer, take(ping));
 
 	status_debug("sending ping expecting %sresponse",
 		     num_pong_bytes >= 65532 ? "no " : "");

@@ -37,9 +37,9 @@ void handle_obs2_onion_message(struct daemon *daemon,
 
 	/* FIXME: ratelimit! */
 	if (!fromwire_obs2_onion_message(msg, msg, &blinding, &onion)) {
-		queue_peer_msg(peer,
-			       towire_warningfmt(NULL, NULL,
-						 "Bad onion_message"));
+		inject_peer_msg(peer,
+				towire_warningfmt(NULL, NULL,
+						  "Bad onion_message"));
 		return;
 	}
 
@@ -161,10 +161,10 @@ void handle_obs2_onion_message(struct daemon *daemon,
 							 &next_node));
 			return;
 		}
-		queue_peer_msg(next_peer,
-			       take(towire_obs2_onion_message(NULL,
-							      &next_blinding,
-							      serialize_onionpacket(tmpctx, rs->next))));
+		inject_peer_msg(next_peer,
+				take(towire_obs2_onion_message(NULL,
+							       &next_blinding,
+							       serialize_onionpacket(tmpctx, rs->next))));
 	}
 }
 
@@ -188,7 +188,7 @@ void onionmsg_req(struct daemon *daemon, const u8 *msg)
 			omsg = towire_obs2_onion_message(NULL, &blinding, onionmsg);
 		else
 			omsg = towire_onion_message(NULL, &blinding, onionmsg);
-		queue_peer_msg(peer, take(omsg));
+		inject_peer_msg(peer, take(omsg));
 	}
 }
 
@@ -213,9 +213,9 @@ void handle_onion_message(struct daemon *daemon,
 
 	/* FIXME: ratelimit! */
 	if (!fromwire_onion_message(msg, msg, &blinding, &onion)) {
-		queue_peer_msg(peer,
-			       towire_warningfmt(NULL, NULL,
-						 "Bad onion_message"));
+		inject_peer_msg(peer,
+				towire_warningfmt(NULL, NULL,
+						  "Bad onion_message"));
 		return;
 	}
 
@@ -336,10 +336,10 @@ void handle_onion_message(struct daemon *daemon,
 							 &next_node));
 			return;
 		}
-		queue_peer_msg(next_peer,
-			       take(towire_onion_message(NULL,
-							 &next_blinding,
-							 serialize_onionpacket(tmpctx, rs->next))));
+		inject_peer_msg(next_peer,
+				take(towire_onion_message(NULL,
+							  &next_blinding,
+							  serialize_onionpacket(tmpctx, rs->next))));
 	}
 }
 

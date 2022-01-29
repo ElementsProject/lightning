@@ -2028,7 +2028,7 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 
 	peer = peer_htable_get(&daemon->peers, &dst);
 	if (peer)
-		queue_peer_msg(peer, take(gossip_msg));
+		inject_peer_msg(peer, take(gossip_msg));
 
 	return daemon_conn_read_next(conn, daemon->gossipd);
 }
