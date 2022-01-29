@@ -125,7 +125,7 @@ void status_peer_io(enum log_level iodir,
 {
 	report_logging_io("SIGUSR1");
 	if (logging_io)
-		status_io_full(iodir, NULL, "", p);
+		status_io_full(iodir, peer, "", p);
 	/* We get a huge amount of gossip; don't log it */
 	else if (!is_msg_for_gossipd(p))
 		status_peer_io_short(iodir, peer, p);
