@@ -3521,8 +3521,21 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
 
+    # Make sure another commitment happens, sending failed payment.
+    routestep = {
+        'msatoshi': 1,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
+    }
+    l1.rpc.sendpay([routestep], '00' * 32, payment_secret='00' * 32)
+    with pytest.raises(RpcError, match=r'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
+        l1.rpc.waitsendpay('00' * 32)
+
     # Make sure l2 gets REVOKE_AND_ACK from previous.
+    l2.daemon.wait_for_log('peer_in WIRE_UPDATE_ADD_HTLC')
     l2.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
+    l2.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
 
     # Pre-statickey penalty works.
     bitcoind.rpc.sendrawtransaction(tx)
