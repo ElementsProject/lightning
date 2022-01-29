@@ -17,7 +17,6 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
@@ -164,7 +163,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
 	case WIRE_GOSSIPD_DEV_SET_TIME:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
-	case WIRE_GOSSIPD_SEND_ONIONMSG:
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	case WIRE_GOSSIPD_GET_ADDRS:
 	case WIRE_GOSSIPD_USED_LOCAL_CHANNEL_UPDATE:
@@ -180,9 +178,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 		break;
 
-	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
-		handle_onionmsg_to_us(gossip->ld, msg);
-		break;
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
 		break;
