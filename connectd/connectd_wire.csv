@@ -72,7 +72,7 @@ msgdata,connectd_peer_connected,features,u8,flen
 msgtype,connectd_peer_disconnected,2015
 msgdata,connectd_peer_disconnected,id,node_id,
 
-# master -> connectd: give message to peer and disconnect.  Plus fd for peer
+# master -> connectd: give message to peer and disconnect. 
 msgtype,connectd_peer_final_msg,2003
 msgdata,connectd_peer_final_msg,id,node_id,
 msgdata,connectd_peer_final_msg,len,u16,

@@ -1846,20 +1846,9 @@ static void peer_final_msg(struct io_conn *conn,
 	struct peer *peer;
 	struct node_id id;
 	u8 *finalmsg;
-	int peer_fd;
 
 	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &finalmsg))
 		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
-
-	/* Get the peer_fd for this peer: we don't need it though! */
-	io_fd_block(io_conn_fd(conn), true);
-	peer_fd = fdpass_recv(io_conn_fd(conn));
-	if (peer_fd == -1)
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "Getting peer fd after peer_final_msg: %s",
-			      strerror(errno));
-	close(peer_fd);
-	io_fd_block(io_conn_fd(conn), false);
 
 	/* This can happen if peer hung up on us. */
 	peer = peer_htable_get(&daemon->peers, &id);
