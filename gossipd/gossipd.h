@@ -33,7 +33,6 @@ struct daemon {
 
 	/* Connection to connect daemon. */
 	struct daemon_conn *connectd;
-	struct daemon_conn *connectd2;
 
 	/* Routing information */
 	struct routing_state *rstate;
