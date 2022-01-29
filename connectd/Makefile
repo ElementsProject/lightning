@@ -57,6 +57,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/node_id.o			\
 	common/onionreply.o			\
+	common/ping.o				\
 	common/per_peer_state.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\

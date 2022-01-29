@@ -266,14 +266,3 @@ msgdata,channeld_upgraded,new_type,channel_type,
 # Tell peer about our latest and greatest blockheight.
 msgtype,channeld_blockheight,1012
 msgdata,channeld_blockheight,blockheight,u32,
-
-# Ping/pong test.  Waits for a reply if it expects one.
-msgtype,channeld_ping,1030
-msgdata,channeld_ping,num_pong_bytes,u16,
-msgdata,channeld_ping,len,u16,
-
-msgtype,channeld_ping_reply,1130
-# False if we there was already a ping in progress.
-msgdata,channeld_ping_reply,sent,bool,
-# 0 == no pong expected, otherwise length of pong.
-msgdata,channeld_ping_reply,totlen,u16,

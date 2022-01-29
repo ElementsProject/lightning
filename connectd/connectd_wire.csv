@@ -82,3 +82,15 @@ msgtype,connectd_dev_memleak,2033
 
 msgtype,connectd_dev_memleak_reply,2133
 msgdata,connectd_dev_memleak_reply,leak,bool,
+
+# Ping/pong test.  Waits for a reply if it expects one.
+msgtype,connectd_ping,2030
+msgdata,connectd_ping,id,node_id,
+msgdata,connectd_ping,num_pong_bytes,u16,
+msgdata,connectd_ping,len,u16,
+
+msgtype,connectd_ping_reply,2130
+# False if we there was already a ping in progress.
+msgdata,connectd_ping_reply,sent,bool,
+# 0 == no pong expected, otherwise length of pong.
+msgdata,connectd_ping_reply,totlen,u16,
