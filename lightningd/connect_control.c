@@ -475,9 +475,9 @@ static void connect_init_done(struct subd *connectd,
 	io_break(connectd);
 }
 
-int connectd_init(struct lightningd *ld, int *gossipd_fd2)
+int connectd_init(struct lightningd *ld)
 {
-	int fds[2], fds2[2];
+	int fds[2];
 	u8 *msg;
 	int hsmfd;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
@@ -490,16 +490,11 @@ int connectd_init(struct lightningd *ld, int *gossipd_fd2)
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		fatal("Could not socketpair for connectd<->gossipd");
 
-	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds2) != 0)
-		fatal("Could not socketpair for connectd<->gossipd 2");
-
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH);
 
 	ld->connectd = new_global_subd(ld, "lightning_connectd",
 				       connectd_wire_name, connectd_msg,
-				       take(&hsmfd),
-				       take(&fds[1]),
-				       take(&fds2[1]),
+				       take(&hsmfd), take(&fds[1]),
 #if DEVELOPER
 				       /* Not take(): we share it */
 				       ld->dev_disconnect_fd >= 0 ?
@@ -540,7 +535,6 @@ int connectd_init(struct lightningd *ld, int *gossipd_fd2)
 	/* Wait for init_reply */
 	io_loop(NULL, NULL);
 
-	*gossipd_fd2 = fds2[0];
 	return fds[0];
 }
 

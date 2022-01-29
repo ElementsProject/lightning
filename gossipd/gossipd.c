@@ -114,7 +114,7 @@ void peer_supplied_good_gossip(struct peer *peer, size_t amount)
 void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 {
 	u8 *outermsg = towire_gossipd_send_gossip(NULL, &peer->id, msg);
-	daemon_conn_send(peer->daemon->connectd2, take(outermsg));
+	daemon_conn_send(peer->daemon->connectd, take(outermsg));
 
 	if (taken(msg))
 		tal_free(msg);
@@ -532,27 +532,6 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 	enum connectd_gossipd_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	/* This is not for this fd! */
-	case WIRE_GOSSIPD_RECV_GOSSIP:
-	case WIRE_GOSSIPD_NEW_PEER:
-	case WIRE_GOSSIPD_PEER_GONE:
-	/* We send these, don't receive them. */
-	case WIRE_GOSSIPD_SEND_GOSSIP:
-		break;
-	}
-
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "Bad msg from connectd: %s", tal_hex(tmpctx, msg));
-}
-
-/*~ connectd's input handler is very simple. */
-static struct io_plan *connectd_gossip_req(struct io_conn *conn,
-					   const u8 *msg,
-					   struct daemon *daemon)
-{
-	enum connectd_gossipd_wire t = fromwire_peektype(msg);
-
-	switch (t) {
 	case WIRE_GOSSIPD_RECV_GOSSIP:
 		handle_recv_gossip(daemon, msg);
 		goto handled;
@@ -574,7 +553,7 @@ static struct io_plan *connectd_gossip_req(struct io_conn *conn,
 		      "Bad msg from connectd2: %s", tal_hex(tmpctx, msg));
 
 handled:
-	return daemon_conn_read_next(conn, daemon->connectd2);
+	return daemon_conn_read_next(conn, daemon->connectd);
 }
 
 /* BOLT #7:
@@ -732,13 +711,10 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	/* Fire up the seeker! */
 	daemon->seeker = new_seeker(daemon);
 
-	/* connectd is already started, and uses this fd to ask us things. */
+	/* connectd is already started, and uses this fd to feed/recv gossip. */
 	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
 					   connectd_req,
 					   maybe_send_query_responses, daemon);
-
-	daemon->connectd2 = daemon_conn_new(daemon, CONNECTD2_FD,
-					    connectd_gossip_req, NULL, daemon);
 
 	/* OK, we are ready. */
 	daemon_conn_send(daemon->master,

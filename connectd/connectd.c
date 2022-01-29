@@ -53,7 +53,6 @@
  * thus may know how to reach certain peers. */
 #define HSM_FD 3
 #define GOSSIPCTL_FD 4
-#define GOSSIPCTL2_FD 5
 
 /*~ In C convention, constants are UPPERCASE macros.  Not everything needs to
  * be a constant, but it soothes the programmer's conscience to encapsulate
@@ -1528,7 +1527,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 							   announcable)));
 #if DEVELOPER
 	if (dev_disconnect)
-		dev_disconnect_init(6);
+		dev_disconnect_init(5);
 #endif
 }
 
@@ -2027,7 +2026,7 @@ int main(int argc, char *argv[])
 	status_setup_async(daemon->master);
 
 	/* This streams gossip to and from gossipd */
-	daemon->gossipd = daemon_conn_new(daemon, GOSSIPCTL2_FD,
+	daemon->gossipd = daemon_conn_new(daemon, GOSSIPCTL_FD,
 					  recv_gossip, NULL,
 					  daemon);
 

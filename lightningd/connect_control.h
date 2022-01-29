@@ -7,7 +7,7 @@ struct pubkey;
 struct wireaddr_internal;
 
 /* Returns fd for gossipd to talk to connectd */
-int connectd_init(struct lightningd *ld, int *gossipd_fd2);
+int connectd_init(struct lightningd *ld);
 void connectd_activate(struct lightningd *ld);
 
 void try_reconnect(struct channel *channel, u32 seconds_delay,
