@@ -88,6 +88,9 @@ bool fromwire_connectd_send_onionmsg(const tal_t *ctx UNNEEDED, const void *p UN
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
+/* Generated stub for inject_peer_msg */
+void inject_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
+{ fprintf(stderr, "inject_peer_msg called!\n"); abort(); }
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
@@ -100,9 +103,6 @@ void node_id_from_pubkey(struct node_id *id UNNEEDED, const struct pubkey *key U
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
-/* Generated stub for queue_peer_msg */
-void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
-{ fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
 /* Generated stub for status_fmt */
 void status_fmt(enum log_level level UNNEEDED,
 		const struct node_id *peer UNNEEDED,
