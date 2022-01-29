@@ -15,6 +15,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <channeld/channeld.h>
 #include <channeld/channeld_wiregen.h>
 #include <channeld/full_channel.h>
 #include <channeld/watchtower.h>
@@ -193,23 +194,17 @@ static void billboard_update(const struct peer *peer)
 	peer_billboard(false, update);
 }
 
-static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
+const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 {
 	u8 *msg;
-	int type = fromwire_peektype(req);
 
+	/* hsmd goes away at shutdown.  That's OK. */
 	if (!wire_sync_write(HSM_FD, req))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing %s to HSM: %s",
-			      hsmd_wire_name(type),
-			      strerror(errno));
+		exit(0);
 
 	msg = wire_sync_read(ctx, HSM_FD);
 	if (!msg)
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading resp to %s: %s",
-			      hsmd_wire_name(type),
-			      strerror(errno));
+		exit(0);
 
 	return msg;
 }
