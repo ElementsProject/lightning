@@ -210,57 +210,6 @@ static void peer_connected_in(struct daemon *daemon,
 	tal_free(connect);
 }
 
-/*~ Every per-peer daemon needs a connection to the gossip daemon; this allows
- * it to forward gossip to/from the peer.  The gossip daemon needs to know a
- * few of the features of the peer and its id (for reporting).
- *
- * Every peer also has read-only access to the gossip_store, which is handed
- * out by gossipd too, and also a "gossip_state" indicating where we're up to.
- *
- * 'features' is a field in the `init` message, indicating properties of the
- * node.
- */
-static int get_gossipfd(struct daemon *daemon,
-			const struct node_id *id,
-			const u8 *their_features)
-{
-	bool gossip_queries_feature, success;
-	u8 *msg;
-
-	/*~ The way features generally work is that both sides need to offer it;
-	 * we always offer `gossip_queries`, but this check is explicit. */
-	gossip_queries_feature
-		= feature_negotiated(daemon->our_features, their_features,
-				     OPT_GOSSIP_QUERIES);
-
-	/*~ We do this communication sync, since gossipd is our friend and
-	 * it's easier.  If gossipd fails, we fail. */
-	msg = towire_gossipd_new_peer(NULL, id, gossip_queries_feature);
-	if (!wire_sync_write(GOSSIPCTL_FD, take(msg)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed writing to gossipctl: %s",
-			      strerror(errno));
-
-	msg = wire_sync_read(tmpctx, GOSSIPCTL_FD);
-	if (!fromwire_gossipd_new_peer_reply(msg, &success))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed parsing msg gossipctl: %s",
-			      tal_hex(tmpctx, msg));
-
-	/* Gossipd might run out of file descriptors, so it tells us, and we
-	 * give up on connecting this peer. */
-	if (!success) {
-		status_broken("Gossipd did not give us an fd: losing peer %s",
-			      type_to_string(tmpctx, struct node_id, id));
-		return -1;
-	}
-
-	/* Otherwise, the next thing in the socket will be the file descriptor
-	 * for the per-peer daemon. */
-	return fdpass_recv(GOSSIPCTL_FD);
-
-}
-
 /*~ This is an ad-hoc marshalling structure where we store arguments so we
  * can call peer_connected again. */
 struct peer_reconnected {
@@ -336,8 +285,6 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 /*~ When we free a peer, we remove it from the daemon's hashtable */
 static void destroy_peer(struct peer *peer, struct daemon *daemon)
 {
-	if (peer->gossip_fd >= 0)
-		close(peer->gossip_fd);
 	peer_htable_del(&daemon->peers, peer);
 }
 
@@ -398,6 +345,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	int unsup;
 	size_t depender, missing;
 	int subd_fd;
+	bool option_gossip_queries;
 
 	peer = peer_htable_get(&daemon->peers, id);
 	if (peer)
@@ -455,12 +403,12 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	if (!peer)
 		return io_close(conn);
 
-	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	peer->gossip_fd = get_gossipfd(daemon, id, their_features);
-	if (peer->gossip_fd < 0) {
-		close(subd_fd);
-		return tal_free(peer);
-	}
+	/* Tell gossipd it can ask query this new peer for gossip */
+	option_gossip_queries = feature_negotiated(daemon->our_features,
+						   their_features,
+						   OPT_GOSSIP_QUERIES);
+	msg = towire_gossipd_new_peer(NULL, id, option_gossip_queries);
+	daemon_conn_send(daemon->gossipd, take(msg));
 
 	/* Get ready for streaming gossip from the store */
 	setup_peer_gossip_store(peer, daemon->our_features, their_features);
@@ -1845,6 +1793,10 @@ void peer_conn_closed(struct peer *peer)
 	assert(!peer->to_subd);
 	assert(!peer->to_peer);
 	assert(peer->told_to_close);
+
+	/* Tell gossipd to stop asking this peer gossip queries */
+	daemon_conn_send(peer->daemon->gossipd,
+			 take(towire_gossipd_peer_gone(NULL, &peer->id)));
 
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
 	io_wake(peer);

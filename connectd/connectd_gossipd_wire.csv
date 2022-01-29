@@ -8,9 +8,9 @@ msgdata,gossipd_new_peer,id,node_id,
 # Did we negotiate OPT_GOSSIP_QUERIES?
 msgdata,gossipd_new_peer,gossip_queries_feature,bool,
 
-# if success: + gossip fd
-msgtype,gossipd_new_peer_reply,4100
-msgdata,gossipd_new_peer_reply,success,bool,
+# peer is done
+msgtype,gossipd_peer_gone,4101
+msgdata,gossipd_peer_gone,id,node_id,
 
 # connectd tells gossipd a gossip msg it received for peer.
 msgtype,gossipd_recv_gossip,4002
