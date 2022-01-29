@@ -116,3 +116,15 @@ msgdata,connectd_send_onionmsg,onion_len,u16,
 msgdata,connectd_send_onionmsg,onion,u8,onion_len
 msgdata,connectd_send_onionmsg,blinding,pubkey,
 
+# A custom message that we got from a peer and don't know how to handle, so we
+# forward it to the master for further handling.
+msgtype,connectd_custommsg_in,2110
+msgdata,connectd_custommsg_in,id,node_id,
+msgdata,connectd_custommsg_in,msg_len,u16,
+msgdata,connectd_custommsg_in,msg,u8,msg_len
+
+# A custom message that the lightningd tells us to send to the peer.
+msgtype,connectd_custommsg_out,2011
+msgdata,connectd_custommsg_out,id,node_id,
+msgdata,connectd_custommsg_out,msg_len,u16,
+msgdata,connectd_custommsg_out,msg,u8,msg_len

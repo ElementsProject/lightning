@@ -41,7 +41,6 @@
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -2049,23 +2048,6 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	billboard_update(peer);
 }
 
-/* Try to handle a custommsg Returns true if it was a custom message and has
- * been handled, false if the message was not handled.
- */
-static bool channeld_handle_custommsg(const u8 *msg)
-{
-	enum peer_wire type = fromwire_peektype(msg);
-	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
-		/* The message is not part of the messages we know how to
-		 * handle. Assuming this is a custommsg, we just forward it to the
-		 * master. */
-		wire_sync_write(MASTER_FD, take(towire_custommsg_in(NULL, msg)));
-		return true;
-	} else {
-		return false;
-	}
-}
-
 static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
 {
 	const struct witness_stack **ws;
@@ -2154,9 +2136,6 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum peer_wire type = fromwire_peektype(msg);
-
-	if (channeld_handle_custommsg(msg))
-		return;
 
 	if (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg))
 		return;
@@ -2824,8 +2803,7 @@ skip_tlvs:
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, peer->pps);
-	} while (channeld_handle_custommsg(msg) ||
-		 handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg) ||
+	} while (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
 got_reestablish:
@@ -3577,17 +3555,6 @@ static void handle_dev_quiesce(struct peer *peer, const u8 *msg)
 #endif /* EXPERIMENTAL_FEATURES */
 #endif /* DEVELOPER */
 
-/* We were told to send a custommsg to the peer by `lightningd`. All the
- * verification is done on the side of `lightningd` so we should be good to
- * just forward it here. */
-static void channeld_send_custommsg(struct peer *peer, const u8 *msg)
-{
-	u8 *inner;
-	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
-		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
-	peer_write(peer->pps, take(inner));
-}
-
 static void req_in(struct peer *peer, const u8 *msg)
 {
 	enum channeld_wire t = fromwire_peektype(msg);
@@ -3676,17 +3643,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_LOCAL_PRIVATE_CHANNEL:
 		break;
 	}
-
-	/* Now handle common messages. */
-	switch ((enum common_wire)t) {
-	case WIRE_CUSTOMMSG_OUT:
-		channeld_send_custommsg(peer, msg);
-		return;
-	/* We send these. */
-	case WIRE_CUSTOMMSG_IN:
-		break;
-	}
-
 	master_badmsg(-1, msg);
 }
 

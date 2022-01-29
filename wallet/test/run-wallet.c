@@ -128,9 +128,6 @@ bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *
 /* Generated stub for fromwire_connectd_peer_connected */
 bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
-/* Generated stub for fromwire_custommsg_in */
-bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **msg UNNEEDED)
-{ fprintf(stderr, "fromwire_custommsg_in called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
@@ -524,11 +521,6 @@ void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
 { fprintf(stderr, "param called!\n"); abort(); }
-/* Generated stub for param_bin_from_hex */
-struct command_result *param_bin_from_hex(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-					  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-					  u8 **bin UNNEEDED)
-{ fprintf(stderr, "param_bin_from_hex called!\n"); abort(); }
 /* Generated stub for param_bool */
 struct command_result *param_bool(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
@@ -594,9 +586,6 @@ void payment_store(struct lightningd *ld UNNEEDED, struct wallet_payment *paymen
 void payment_succeeded(struct lightningd *ld UNNEEDED, struct htlc_out *hout UNNEEDED,
 		       const struct preimage *rval UNNEEDED)
 { fprintf(stderr, "payment_succeeded called!\n"); abort(); }
-/* Generated stub for peer_get_owning_subd */
-struct subd *peer_get_owning_subd(struct peer *peer UNNEEDED)
-{ fprintf(stderr, "peer_get_owning_subd called!\n"); abort(); }
 /* Generated stub for peer_memleak_done */
 void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "peer_memleak_done called!\n"); abort(); }
@@ -619,12 +608,6 @@ void peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UN
 void peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
-/* Generated stub for peer_wire_is_defined */
-bool peer_wire_is_defined(u16 type UNNEEDED)
-{ fprintf(stderr, "peer_wire_is_defined called!\n"); abort(); }
-/* Generated stub for peer_wire_name */
-const char *peer_wire_name(int e UNNEEDED)
-{ fprintf(stderr, "peer_wire_name called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
@@ -713,9 +696,6 @@ u8 *towire_connectd_peer_disconnected(const tal_t *ctx UNNEEDED, const struct no
 /* Generated stub for towire_connectd_peer_final_msg */
 u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_final_msg called!\n"); abort(); }
-/* Generated stub for towire_custommsg_out */
-u8 *towire_custommsg_out(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "towire_custommsg_out called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,

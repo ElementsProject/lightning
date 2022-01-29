@@ -18,7 +18,6 @@
 #include <lightningd/subd.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
-#include <wire/common_wiregen.h>
 #include <wire/wire_io.h>
 
 void maybe_subd_child(struct lightningd *ld, int childpid, int wstatus)
@@ -831,8 +830,7 @@ void subd_send_msg(struct subd *sd, const u8 *msg_out)
 	u16 type = fromwire_peektype(msg_out);
 	/* FIXME: We should use unique upper bits for each daemon, then
 	 * have generate-wire.py add them, just assert here. */
-	assert(!strstarts(common_wire_name(type), "INVALID") ||
-	       !strstarts(sd->msgname(type), "INVALID"));
+	assert(!strstarts(sd->msgname(type), "INVALID"));
 	msg_enqueue(sd->outq, msg_out);
 }
 

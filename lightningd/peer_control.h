@@ -98,9 +98,6 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld);
 void peer_dev_memleak(struct command *cmd);
 #endif /* DEVELOPER */
 
-void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
-			 const u8 *msg);
-
 /* Triggered at each new block.  */
 void waitblockheight_notify_new_block(struct lightningd *ld,
 				      u32 block_height);

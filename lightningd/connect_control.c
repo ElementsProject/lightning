@@ -20,7 +20,9 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/opening_common.h>
+#include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/plugin_hook.h>
 
 struct connect {
 	struct list_node list;
@@ -352,6 +354,63 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 	}
 }
 
+struct custommsg_payload {
+	struct node_id peer_id;
+	u8 *msg;
+};
+
+static bool custommsg_cb(struct custommsg_payload *payload,
+			 const char *buffer, const jsmntok_t *toks)
+{
+	const jsmntok_t *t_res;
+
+	if (!toks || !buffer)
+		return true;
+
+	t_res = json_get_member(buffer, toks, "result");
+
+	/* fail */
+	if (!t_res || !json_tok_streq(buffer, t_res, "continue"))
+		fatal("Plugin returned an invalid response to the "
+		      "custommsg hook: %s", buffer);
+
+	/* call next hook */
+	return true;
+}
+
+static void custommsg_final(struct custommsg_payload *payload STEALS)
+{
+	tal_steal(tmpctx, payload);
+}
+
+static void custommsg_payload_serialize(struct custommsg_payload *payload,
+					struct json_stream *stream,
+					struct plugin *plugin)
+{
+	json_add_hex_talarr(stream, "payload", payload->msg);
+	json_add_node_id(stream, "peer_id", &payload->peer_id);
+}
+
+REGISTER_PLUGIN_HOOK(custommsg,
+		     custommsg_cb,
+		     custommsg_final,
+		     custommsg_payload_serialize,
+		     struct custommsg_payload *);
+
+static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
+{
+	struct custommsg_payload *p = tal(NULL, struct custommsg_payload);
+
+	if (!fromwire_connectd_custommsg_in(p, msg, &p->peer_id, &p->msg)) {
+		log_broken(ld->log, "Malformed custommsg: %s",
+			   tal_hex(tmpctx, msg));
+		tal_free(p);
+		return;
+	}
+
+	plugin_hook_call_custommsg(ld, p);
+}
+
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
 {
 	enum connectd_wire t = fromwire_peektype(msg);
@@ -366,6 +425,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
 	case WIRE_CONNECTD_PING:
 	case WIRE_CONNECTD_SEND_ONIONMSG:
+	case WIRE_CONNECTD_CUSTOMMSG_OUT:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
@@ -389,6 +449,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_GOT_ONIONMSG_TO_US:
 		handle_onionmsg_to_us(connectd->ld, msg);
+		break;
+
+	case WIRE_CONNECTD_CUSTOMMSG_IN:
+		handle_custommsg_in(connectd->ld, msg);
 		break;
 	}
 	return 0;
@@ -500,3 +564,88 @@ void connectd_activate(struct lightningd *ld)
 	io_loop(NULL, NULL);
 }
 
+static struct command_result *json_sendcustommsg(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct node_id *dest;
+	struct peer *peer;
+	u8 *msg;
+	int type;
+
+	if (!param(cmd, buffer, params,
+		   p_req("node_id", param_node_id, &dest),
+		   p_req("msg", param_bin_from_hex, &msg),
+		   NULL))
+		return command_param_failed();
+
+	type = fromwire_peektype(msg);
+	if (peer_wire_is_defined(type)) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_REQUEST,
+		    "Cannot send messages of type %d (%s). It is not possible "
+		    "to send messages that have a type managed internally "
+		    "since that might cause issues with the internal state "
+		    "tracking.",
+		    type, peer_wire_name(type));
+	}
+
+	if (type % 2 == 0) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_REQUEST,
+		    "Cannot send even-typed %d custom message. Currently "
+		    "custom messages are limited to odd-numbered message "
+		    "types, as even-numbered types might result in "
+		    "disconnections.",
+		    type);
+	}
+
+	peer = peer_by_id(cmd->ld, dest);
+	if (!peer) {
+		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
+				    "No such peer: %s",
+				    type_to_string(cmd, struct node_id, dest));
+	}
+
+	/* FIXME: This won't work once connectd keeps peers */
+	if (!peer_get_owning_subd(peer)) {
+		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
+				    "Peer is not connected: %s",
+				    type_to_string(cmd, struct node_id, dest));
+	}
+
+	subd_send_msg(cmd->ld->connectd,
+		      take(towire_connectd_custommsg_out(cmd, dest, msg)));
+
+	response = json_stream_success(cmd);
+	json_add_string(response, "status",
+			"Message sent to connectd for delivery");
+
+	return command_success(cmd, response);
+}
+
+static const struct json_command sendcustommsg_command = {
+    "sendcustommsg",
+    "utility",
+    json_sendcustommsg,
+    "Send a custom message to the peer with the given {node_id}",
+    .verbose = "sendcustommsg node_id hexcustommsg",
+};
+
+AUTODATA(json_command, &sendcustommsg_command);
+
+#ifdef COMPAT_V0100
+#ifdef DEVELOPER
+static const struct json_command dev_sendcustommsg_command = {
+    "dev-sendcustommsg",
+    "utility",
+    json_sendcustommsg,
+    "Send a custom message to the peer with the given {node_id}",
+    .verbose = "dev-sendcustommsg node_id hexcustommsg",
+};
+
+AUTODATA(json_command, &dev_sendcustommsg_command);
+#endif  /* DEVELOPER */
+#endif /* COMPAT_V0100 */
