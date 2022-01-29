@@ -4,6 +4,7 @@ CHANNELD_HEADERS :=			\
 	channeld/full_channel_error_names_gen.h	\
 	channeld/channeld_wiregen.h		\
 	channeld/channeld_htlc.h		\
+	channeld/channeld.h			\
 	channeld/commit_tx.h			\
 	channeld/full_channel.h			\
 	channeld/full_channel_error.h		\

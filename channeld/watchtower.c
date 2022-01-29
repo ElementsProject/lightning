@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
+#include <channeld/channeld.h>
 #include <channeld/watchtower.h>
 #include <common/features.h>
 #include <common/htlc_tx.h>
@@ -26,7 +27,7 @@ penalty_tx_create(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	struct keyset keyset;
 	size_t weight;
-	u8 *msg;
+	const u8 *msg;
 	struct amount_sat fee, min_out, amt;
 	struct bitcoin_signature sig;
 	u32 locktime = 0;
@@ -105,16 +106,12 @@ penalty_tx_create(const tal_t *ctx,
 	bitcoin_tx_finalize(tx);
 
 	u8 *hsm_sign_msg =
-	    towire_hsmd_sign_penalty_to_us(ctx, &remote_per_commitment_secret,
+	    towire_hsmd_sign_penalty_to_us(tmpctx, &remote_per_commitment_secret,
 					  tx, wscript);
 
-	if (!wire_sync_write(hsm_fd, take(hsm_sign_msg)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Writing sign request to hsm");
-
-	msg = wire_sync_read(tmpctx, hsm_fd);
-	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+	msg = hsm_req(tmpctx, hsm_sign_msg);
+	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
+		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
 
 	witness = bitcoin_witness_sig_and_element(tx, &sig, &ONE, sizeof(ONE),
