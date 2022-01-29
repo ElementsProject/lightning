@@ -596,32 +596,47 @@ def test_routing_gossip_reconnect(node_factory):
         wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
-def test_gossip_no_empty_announcements(node_factory, bitcoind):
+@pytest.mark.developer("needs fast gossip, dev-no-reconnect")
+def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
     # Need full IO logging so we can see gossip
-    # l3 sends CHANNEL_ANNOUNCEMENT to l2, but not CHANNEL_UDPATE.
-    l1, l2, l3, l4 = node_factory.line_graph(4, opts=[{'log-level': 'io'},
-                                                      {'log-level': 'io'},
-                                                      # Writes to l4 first, then l2
-                                                      {'disconnect': ['+WIRE_CHANNEL_ANNOUNCEMENT*2'],
+    # l2 sends CHANNEL_ANNOUNCEMENT to l1, but not CHANNEL_UDPATE.
+    l1, l2, l3, l4 = node_factory.line_graph(4, opts=[{'log-level': 'io',
+                                                       'dev-no-reconnect': None},
+                                                      {'log-level': 'io',
+                                                       'disconnect': ['+WIRE_CHANNEL_ANNOUNCEMENT'],
                                                        'may_reconnect': True},
+                                                      {'may_reconnect': True},
                                                       {'may_reconnect': True}],
                                              fundchannel=False)
 
-    # Make an announced-but-not-updated channel.
     l3.fundchannel(l4, 10**5)
     bitcoind.generate_block(5)
 
-    # 0x0100 = channel_announcement, which goes to l2 before l3 dies.
-    l2.daemon.wait_for_log(r'\[IN\] 0100')
+    # l2 sends CHANNEL_ANNOUNCEMENT to l1, then disconnects/
+    l2.daemon.wait_for_log('dev_disconnect')
+    l1.daemon.wait_for_log(r'\[IN\] 0100')
 
-    # But it never goes to l1, as there's no channel_update.
+    # l1 won't relay it (make sure it has time to digest though)
     time.sleep(2)
-    assert not l1.daemon.is_in_log(r'\[IN\] 0100')
-    assert len(l1.rpc.listchannels()['channels']) == 0
+    assert l1.rpc.listchannels()['channels'] == []
+    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00'],
+                             check=True,
+                             timeout=TIMEOUT,
+                             stdout=subprocess.PIPE).stdout.strip().decode()
+    assert l1.query_gossip('query_channel_range',
+                           chainparams['chain_hash'],
+                           0, 1000000,
+                           filters=['0109', '0012']) == ['0108'
+                                                         # blockhash
+                                                         + chainparams['chain_hash']
+                                                         # first_blocknum, number_of_blocks, complete
+                                                         + format(0, '08x') + format(1000000, '08x') + '01'
+                                                         # encoded_short_ids
+                                                         + format(len(encoded) // 2, '04x')
+                                                         + encoded]
 
     # If we reconnect, gossip will now flow.
-    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
 
 
