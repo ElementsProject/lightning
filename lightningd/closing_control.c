@@ -38,7 +38,6 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/subd.h>
 #include <openingd/dualopend_wiregen.h>
-#include <wire/common_wiregen.h>
 
 struct close_command {
 	/* Inside struct lightningd close_commands. */
@@ -333,15 +332,6 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 	/* We send these, not receive them */
 	case WIRE_CLOSINGD_INIT:
 	case WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY:
-		break;
-	}
-
-	switch ((enum common_wire)t) {
-	case WIRE_CUSTOMMSG_IN:
-		handle_custommsg_in(sd->ld, sd->node_id, msg);
-		break;
-	/* We send these. */
-	case WIRE_CUSTOMMSG_OUT:
 		break;
 	}
 

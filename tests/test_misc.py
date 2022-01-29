@@ -2168,8 +2168,8 @@ def test_sendcustommsg(node_factory):
     # This should work since the peer is currently owned by `channeld`
     l2.rpc.sendcustommsg(l1.info['id'], msg)
     l2.daemon.wait_for_log(
-        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
-            owner='channeld', msg=msg, peer_id=l1.info['id']
+        r'{peer_id}-{owner}: \[OUT\] {msg}'.format(
+            owner='connectd', msg=msg, peer_id=l1.info['id']
         )
     )
     l1.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
@@ -2183,8 +2183,8 @@ def test_sendcustommsg(node_factory):
     # This should work since the peer is currently owned by `openingd`
     l2.rpc.sendcustommsg(l4.info['id'], msg)
     l2.daemon.wait_for_log(
-        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
-            owner='openingd', msg=msg, peer_id=l4.info['id']
+        r'{peer_id}-{owner}: \[OUT\] {msg}'.format(
+            owner='connectd', msg=msg, peer_id=l4.info['id']
         )
     )
     l4.daemon.wait_for_log(r'\[IN\] {}'.format(msg))

@@ -31,7 +31,6 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
-#include <wire/common_wiregen.h>
 
 struct commit_rcvd {
 	struct channel *channel;
@@ -3028,15 +3027,6 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_SEND_SHUTDOWN:
 		case WIRE_DUALOPEND_DEPTH_REACHED:
 			break;
-	}
-
-	switch ((enum common_wire)t) {
-	case WIRE_CUSTOMMSG_IN:
-		handle_custommsg_in(dualopend->ld, dualopend->node_id, msg);
-		return 0;
-	/* We send these. */
-	case WIRE_CUSTOMMSG_OUT:
-		break;
 	}
 
 	log_broken(dualopend->log, "Unexpected msg %s: %s",

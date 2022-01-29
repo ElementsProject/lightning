@@ -10,7 +10,6 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 		wire/peer$(EXP)_wiregen.h	\
 		wire/onion$(EXP)_wiregen.h	\
 		wire/bolt12$(EXP)_wiregen.h	\
-		wire/common_wiregen.h		\
 		wire/channel_type_wiregen.h	\
 		wire/peer$(EXP)_printgen.h	\
 		wire/onion$(EXP)_printgen.h
@@ -22,7 +21,6 @@ WIRE_SRC := wire/wire_sync.c			\
 		wire/peer_wire.c		\
 		wire/tlvstream.c		\
 		wire/towire.c			\
-		wire/common_wiregen.c		\
 		wire/bolt12$(EXP)_wiregen.c	\
 		wire/peer$(EXP)_wiregen.c	\
 		wire/channel_type_wiregen.c	\

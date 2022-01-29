@@ -32,7 +32,6 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <openingd/common.h>
 #include <openingd/openingd_wiregen.h>
-#include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -1260,16 +1259,6 @@ static u8 *handle_peer_in(struct state *state)
 	if (t == WIRE_OPEN_CHANNEL)
 		return fundee_channel(state, msg);
 
-	/* Handle custommsgs */
-	enum peer_wire type = fromwire_peektype(msg);
-	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
-		/* The message is not part of the messages we know how to
-		 * handle. Assuming this is a custommsg, we just forward it to the
-		 * master. */
-		wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
-		return NULL;
-	}
-
 	/* Handles standard cases, and legal unknown ones. */
 	if (handle_peer_gossip_or_error(state->pps,
 					&state->channel_id, msg))
@@ -1334,17 +1323,6 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 }
 #endif /* DEVELOPER */
 
-/* We were told to send a custommsg to the peer by `lightningd`. All the
- * verification is done on the side of `lightningd` so we should be good to
- * just forward it here. */
-static void openingd_send_custommsg(struct state *state, const u8 *msg)
-{
-	u8 *inner;
-	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
-		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
-	peer_write(state->pps, take(inner));
-}
-
 /* Standard lightningd-fd-is-ready-to-read demux code.  Again, we could hang
  * here, but if we can't trust our parent, who can we trust? */
 static u8 *handle_master_in(struct state *state)
@@ -1403,16 +1381,6 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENINGD_GOT_OFFER:
 	case WIRE_OPENINGD_GOT_OFFER_REPLY:
 	case WIRE_OPENINGD_GOT_REESTABLISH:
-		break;
-	}
-
-	/* Now handle common messages. */
-	switch ((enum common_wire)t) {
-	case WIRE_CUSTOMMSG_OUT:
-		openingd_send_custommsg(state, msg);
-		return NULL;
-	/* We send these. */
-	case WIRE_CUSTOMMSG_IN:
 		break;
 	}
 

@@ -28,7 +28,6 @@
 #include <lightningd/subd.h>
 #include <openingd/openingd_wiregen.h>
 #include <wally_psbt.h>
-#include <wire/common_wiregen.h>
 
 void json_add_uncommitted_channel(struct json_stream *response,
 				  const struct uncommitted_channel *uc)
@@ -887,15 +886,6 @@ static unsigned int openingd_msg(struct subd *openingd,
 	case WIRE_OPENINGD_DEV_MEMLEAK:
 	/* Replies never get here */
 	case WIRE_OPENINGD_DEV_MEMLEAK_REPLY:
-		break;
-	}
-
-	switch ((enum common_wire)t) {
-	case WIRE_CUSTOMMSG_IN:
-		handle_custommsg_in(openingd->ld, openingd->node_id, msg);
-		return 0;
-	/* We send these. */
-	case WIRE_CUSTOMMSG_OUT:
 		break;
 	}
 

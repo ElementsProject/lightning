@@ -42,7 +42,6 @@
 #include <openingd/common.h>
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
-#include <wire/common_wiregen.h>
 #include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = hsmd */
@@ -896,17 +895,6 @@ static void dualopend_dev_memleak(struct state *state)
 	dump_memleak(memtable, memleak_status_broken);
 }
 #endif /* DEVELOPER */
-
-/* We were told to send a custommsg to the peer by `lightningd`. All the
- * verification is done on the side of `lightningd` so we should be good to
- * just forward it here. */
-static void dualopend_send_custommsg(struct state *state, const u8 *msg)
-{
-	u8 *inner;
-	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
-		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
-	peer_write(state->pps, take(inner));
-}
 
 static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
 			       struct state *state,
@@ -3465,23 +3453,6 @@ static void handle_gossip_in(struct state *state)
 	handle_gossip_msg(state->pps, take(msg));
 }
 
-/* Try to handle a custommsg Returns true if it was a custom message and has
- * been handled, false if the message was not handled.
- */
-static bool dualopend_handle_custommsg(const u8 *msg)
-{
-	enum peer_wire type = fromwire_peektype(msg);
-	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
-		/* The message is not part of the messages we know how to
-		 * handle. Assuming this is a custommsg, we just forward it to the
-		 * master. */
-		wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
-		return true;
-	} else {
-		return false;
-	}
-}
-
 /* BOLT #2:
  *
  * A receiving node:
@@ -3582,10 +3553,9 @@ static void do_reconnect_dance(struct state *state)
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, state->pps);
-	} while (dualopend_handle_custommsg(msg)
-		 || handle_peer_gossip_or_error(state->pps,
-						&state->channel_id,
-						msg));
+	} while (handle_peer_gossip_or_error(state->pps,
+					     &state->channel_id,
+					     msg));
 
 	if (!fromwire_channel_reestablish
 			(msg, &cid,
@@ -3703,16 +3673,6 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
 		break;
 	}
-
-	/* Now handle common messages. */
-	switch ((enum common_wire)t) {
-	case WIRE_CUSTOMMSG_OUT:
-		dualopend_send_custommsg(state, msg);
-	/* We send these. */
-	case WIRE_CUSTOMMSG_IN:
-		break;
-	}
-
 	status_failed(STATUS_FAIL_MASTER_IO,
 		      "Unknown msg %s", tal_hex(tmpctx, msg));
 }
@@ -3788,16 +3748,6 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_STFU:
 #endif
 		break;
-	}
-
-	/* Handle custommsgs */
-	enum peer_wire type = fromwire_peektype(msg);
-	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
-		/* The message is not part of the messages we know how to
-		 * handle. Assuming this is a custommsg, we just
-		 * forward it to master. */
-		wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
-		return NULL;
 	}
 
 	/* Handles standard cases, and legal unknown ones. */

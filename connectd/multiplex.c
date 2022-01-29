@@ -366,6 +366,21 @@ static void send_ping(struct peer *peer)
 	set_ping_timer(peer);
 }
 
+void send_custommsg(struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+	u8 *custommsg;
+	struct peer *peer;
+
+	if (!fromwire_connectd_custommsg_out(tmpctx, msg, &id, &custommsg))
+		master_badmsg(WIRE_CONNECTD_CUSTOMMSG_OUT, msg);
+
+	/* Races can happen: this might be gone by now. */
+	peer = peer_htable_get(&daemon->peers, &id);
+	if (peer)
+		inject_peer_msg(peer, take(custommsg));
+}
+
 static void handle_ping_in(struct peer *peer, const u8 *msg)
 {
 	u8 *pong;
@@ -472,6 +487,26 @@ static void handle_gossip_timetamp_filter_in(struct peer *peer, const u8 *msg)
 		wake_gossip(peer);
 }
 
+static bool handle_custommsg(struct daemon *daemon,
+			     struct peer *peer,
+			     const u8 *msg)
+{
+	enum peer_wire type = fromwire_peektype(msg);
+	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
+		/* The message is not part of the messages we know how to
+		 * handle. Assuming this is a custommsg, we just forward it to the
+		 * master. */
+		status_peer_io(LOG_IO_IN, &peer->id, msg);
+		daemon_conn_send(daemon->master,
+				 take(towire_connectd_custommsg_in(NULL,
+								   &peer->id,
+								   msg)));
+		return true;
+	} else {
+		return false;
+	}
+}
+
 /* We handle pings and gossip messages. */
 static bool handle_message_locally(struct peer *peer, const u8 *msg)
 {
@@ -495,6 +530,8 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		return true;
 	} else if (type == WIRE_ONION_MESSAGE) {
 		handle_onion_message(peer->daemon, peer, msg);
+		return true;
+	} else if (handle_custommsg(peer->daemon, peer, msg)) {
 		return true;
 	}
 

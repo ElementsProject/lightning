@@ -26,7 +26,6 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -124,15 +123,6 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 		msg = peer_or_gossip_sync_read(ctx, pps, &from_gossipd);
 		if (from_gossipd) {
 			handle_gossip_msg(pps, take(msg));
-			continue;
-		}
-		/* Handle custommsgs */
-		enum peer_wire type = fromwire_peektype(msg);
-		if (type % 2 == 1 && !peer_wire_is_defined(type)) {
-			/* The message is not part of the messages we know
-			 * how to handle. Assume is custommsg, forward it
-			 * to master. */
-			wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
 			continue;
 		}
 		if (!handle_peer_gossip_or_error(pps, channel_id, msg))
