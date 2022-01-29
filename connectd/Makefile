@@ -7,6 +7,7 @@ CONNECTD_HEADERS := connectd/connectd_wiregen.h		\
 	connectd/handshake.h				\
 	connectd/multiplex.h				\
 	connectd/netaddress.h				\
+	connectd/onion_message.h			\
 	connectd/tor_autoservice.h			\
 	connectd/tor.h
 
@@ -41,6 +42,8 @@ CONNECTD_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/blinding.o			\
+	common/blindedpath.o			\
 	common/channel_id.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
@@ -49,6 +52,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/ecdh_hsmd.o			\
 	common/features.o			\
+	common/hmac.o				\
 	common/status_wiregen.o			\
 	common/gossip_store.o			\
 	common/gossip_rcvd_filter.o		\
@@ -56,12 +60,14 @@ CONNECTD_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
+	common/onion.o				\
 	common/onionreply.o			\
 	common/ping.o				\
 	common/per_peer_state.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
+	common/sphinx.o				\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\

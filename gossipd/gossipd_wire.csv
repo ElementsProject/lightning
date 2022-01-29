@@ -69,25 +69,6 @@ msgdata,gossipd_new_blockheight,blockheight,u32,
 # gossipd: got it!
 msgtype,gossipd_new_blockheight_reply,3126
 
-msgtype,gossipd_got_onionmsg_to_us,3145
-msgdata,gossipd_got_onionmsg_to_us,obs2,bool,
-msgdata,gossipd_got_onionmsg_to_us,node_alias,pubkey,
-msgdata,gossipd_got_onionmsg_to_us,self_id,?secret,
-msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
-msgdata,gossipd_got_onionmsg_to_us,reply_first_node,?pubkey,
-msgdata,gossipd_got_onionmsg_to_us,reply_path_len,u16,
-msgdata,gossipd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
-msgdata,gossipd_got_onionmsg_to_us,rawmsg_len,u16,
-msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
-
-# Lightningd tells us to send an onion message.
-msgtype,gossipd_send_onionmsg,3041
-msgdata,gossipd_send_onionmsg,obs2,bool,
-msgdata,gossipd_send_onionmsg,id,node_id,
-msgdata,gossipd_send_onionmsg,onion_len,u16,
-msgdata,gossipd_send_onionmsg,onion,u8,onion_len
-msgdata,gossipd_send_onionmsg,blinding,pubkey,
-
 # Lightningd tells us to inject a gossip message (for addgossip RPC)
 msgtype,gossipd_addgossip,3044
 msgdata,gossipd_addgossip,len,u16,

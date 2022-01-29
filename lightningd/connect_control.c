@@ -18,6 +18,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/onion_message.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 
@@ -364,6 +365,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
 	case WIRE_CONNECTD_PING:
+	case WIRE_CONNECTD_SEND_ONIONMSG:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
@@ -383,6 +385,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_CONNECT_FAILED:
 		connect_failed(connectd->ld, msg);
+		break;
+
+	case WIRE_CONNECTD_GOT_ONIONMSG_TO_US:
+		handle_onionmsg_to_us(connectd->ld, msg);
 		break;
 	}
 	return 0;

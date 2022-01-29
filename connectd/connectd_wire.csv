@@ -3,6 +3,7 @@
 #include <common/features.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
+#include <wire/onion_wire.h>
 
 msgtype,connectd_init,2000
 msgdata,connectd_init,chainparams,chainparams,
@@ -94,3 +95,24 @@ msgtype,connectd_ping_reply,2130
 msgdata,connectd_ping_reply,sent,bool,
 # 0 == no pong expected, otherwise length of pong.
 msgdata,connectd_ping_reply,totlen,u16,
+
+# We tell lightningd we got an onionmsg
+msgtype,connectd_got_onionmsg_to_us,2145
+msgdata,connectd_got_onionmsg_to_us,obs2,bool,
+msgdata,connectd_got_onionmsg_to_us,node_alias,pubkey,
+msgdata,connectd_got_onionmsg_to_us,self_id,?secret,
+msgdata,connectd_got_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,connectd_got_onionmsg_to_us,reply_first_node,?pubkey,
+msgdata,connectd_got_onionmsg_to_us,reply_path_len,u16,
+msgdata,connectd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+msgdata,connectd_got_onionmsg_to_us,rawmsg_len,u16,
+msgdata,connectd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
+
+# Lightningd tells us to send an onion message.
+msgtype,connectd_send_onionmsg,2041
+msgdata,connectd_send_onionmsg,obs2,bool,
+msgdata,connectd_send_onionmsg,id,node_id,
+msgdata,connectd_send_onionmsg,onion_len,u16,
+msgdata,connectd_send_onionmsg,onion,u8,onion_len
+msgdata,connectd_send_onionmsg,blinding,pubkey,
+

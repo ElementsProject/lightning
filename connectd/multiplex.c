@@ -23,6 +23,7 @@
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <connectd/connectd_wiregen.h>
 #include <connectd/multiplex.h>
+#include <connectd/onion_message.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -487,6 +488,12 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		return true;
 	} else if (type == WIRE_PONG) {
 		handle_pong_in(peer, msg);
+		return true;
+	} else if (type == WIRE_OBS2_ONION_MESSAGE) {
+		handle_obs2_onion_message(peer->daemon, peer, msg);
+		return true;
+	} else if (type == WIRE_ONION_MESSAGE) {
+		handle_onion_message(peer->daemon, peer, msg);
 		return true;
 	}
 

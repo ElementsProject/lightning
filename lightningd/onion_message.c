@@ -6,7 +6,7 @@
 #include <common/json_tok.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
-#include <gossipd/gossipd_wiregen.h>
+#include <connectd/connectd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/json.h>
 #include <lightningd/onion_message.h>
@@ -150,7 +150,7 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	payload = tal(tmpctx, struct onion_message_hook_payload);
 	payload->our_alias = tal(payload, struct pubkey);
 
-	if (!fromwire_gossipd_got_onionmsg_to_us(payload, msg,
+	if (!fromwire_connectd_got_onionmsg_to_us(payload, msg,
 						 &obs2,
 						 payload->our_alias,
 						 &self_id,
@@ -198,7 +198,7 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	}
 	tal_free(submsg);
 
-	/* Make sure gossipd gets this right. */
+	/* Make sure connectd gets this right. */
 	if (payload->reply_path
 	    && (!payload->reply_blinding || !payload->reply_first_node)) {
 		log_broken(ld->log,
@@ -277,7 +277,7 @@ static struct command_result *json_sendonionmessage2(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "experimental-onion-messages not enabled");
 
-	/* Sanity check first; gossipd doesn't bother telling us if peer
+	/* Sanity check first; connectd doesn't bother telling us if peer
 	 * can't be reached. */
 	if (!peer_by_id(cmd->ld, first_id))
 		return command_fail(cmd, LIGHTNINGD, "Unknown first peer");
@@ -300,8 +300,8 @@ static struct command_result *json_sendonionmessage2(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Creating onion failed (tlvs too long?)");
 
-	subd_send_msg(cmd->ld->gossip,
-		      take(towire_gossipd_send_onionmsg(NULL, obs2, first_id,
+	subd_send_msg(cmd->ld->connectd,
+		      take(towire_connectd_send_onionmsg(NULL, obs2, first_id,
 					serialize_onionpacket(tmpctx, op),
 					blinding)));
 
