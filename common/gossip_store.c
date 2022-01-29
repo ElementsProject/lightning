@@ -99,6 +99,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 		/* end can go backwards in this case! */
 		if (type == WIRE_GOSSIP_STORE_ENDED) {
 			*off = *end = reopen_gossip_store(gossip_store_fd, msg);
+			msg = tal_free(msg);
 		/* Ignore gossipd internal messages. */
 		} else if (type != WIRE_CHANNEL_ANNOUNCEMENT
 			   && type != WIRE_CHANNEL_UPDATE
