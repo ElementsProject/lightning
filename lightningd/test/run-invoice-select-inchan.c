@@ -437,7 +437,7 @@ struct height_states *new_height_states(const tal_t *ctx UNNEEDED,
 					const u32 *blockheight UNNEEDED)
 { fprintf(stderr, "new_height_states called!\n"); abort(); }
 /* Generated stub for new_peer_fd */
-struct peer_fd *new_peer_fd(const tal_t *ctx UNNEEDED, int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
+struct peer_fd *new_peer_fd(const tal_t *ctx UNNEEDED, int peer_fd UNNEEDED)
 { fprintf(stderr, "new_peer_fd called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,

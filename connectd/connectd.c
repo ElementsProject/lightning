@@ -336,6 +336,8 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 /*~ When we free a peer, we remove it from the daemon's hashtable */
 static void destroy_peer(struct peer *peer, struct daemon *daemon)
 {
+	if (peer->gossip_fd >= 0)
+		close(peer->gossip_fd);
 	peer_htable_del(&daemon->peers, peer);
 }
 
@@ -395,7 +397,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	struct peer *peer;
 	int unsup;
 	size_t depender, missing;
-	int subd_fd, gossip_fd;
+	int subd_fd;
 
 	peer = peer_htable_get(&daemon->peers, id);
 	if (peer)
@@ -454,8 +456,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		return io_close(conn);
 
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	gossip_fd = get_gossipfd(daemon, id, their_features);
-	if (gossip_fd < 0) {
+	peer->gossip_fd = get_gossipfd(daemon, id, their_features);
+	if (peer->gossip_fd < 0) {
 		close(subd_fd);
 		return tal_free(peer);
 	}
@@ -469,10 +471,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
-	 * we have connected, and give the peer and gossip fds. */
+	 * we have connected, and give the peer fd. */
 	daemon_conn_send(daemon->master, take(msg));
 	daemon_conn_send_fd(daemon->master, subd_fd);
-	daemon_conn_send_fd(daemon->master, gossip_fd);
 
 	/*~ Now we set up this connection to read/write from subd */
 	return multiplex_peer_setup(conn, peer);
@@ -1894,20 +1895,19 @@ static void peer_final_msg(struct io_conn *conn,
 	struct peer *peer;
 	struct node_id id;
 	u8 *finalmsg;
+	int peer_fd;
 
 	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &finalmsg))
 		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
 
-	/* Get the peer_fd and gossip_fd for this peer: we don't need them. */
+	/* Get the peer_fd for this peer: we don't need it though! */
 	io_fd_block(io_conn_fd(conn), true);
-	for (size_t i = 0; i < 2; i++) {
-		int fd = fdpass_recv(io_conn_fd(conn));
-		if (fd == -1)
-			status_failed(STATUS_FAIL_MASTER_IO,
-				      "Getting fd %zu after peer_final_msg: %s",
-				      i, strerror(errno));
-		close(fd);
-	}
+	peer_fd = fdpass_recv(io_conn_fd(conn));
+	if (peer_fd == -1)
+		status_failed(STATUS_FAIL_MASTER_IO,
+			      "Getting peer fd after peer_final_msg: %s",
+			      strerror(errno));
+	close(peer_fd);
 	io_fd_block(io_conn_fd(conn), false);
 
 	/* This can happen if peer hung up on us. */

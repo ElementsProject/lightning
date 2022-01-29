@@ -60,7 +60,7 @@ msgdata,connectd_connect_failed,failreason,wirestring,
 msgdata,connectd_connect_failed,seconds_to_delay,u32,
 msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 
-# Connectd -> master: we got a peer. Three fds: peer, gossip and gossip_store
+# Connectd -> master: we got a peer. Plus fd for peer daemon
 msgtype,connectd_peer_connected,2002
 msgdata,connectd_peer_connected,id,node_id,
 msgdata,connectd_peer_connected,addr,wireaddr_internal,
@@ -72,7 +72,7 @@ msgdata,connectd_peer_connected,features,u8,flen
 msgtype,connectd_peer_disconnected,2015
 msgdata,connectd_peer_disconnected,id,node_id,
 
-# master -> connectd: give message to peer and disconnect.  Three fds: peer, gossip and gossip_store
+# master -> connectd: give message to peer and disconnect.  Plus fd for peer
 msgtype,connectd_peer_final_msg,2003
 msgdata,connectd_peer_final_msg,id,node_id,
 msgdata,connectd_peer_final_msg,len,u16,

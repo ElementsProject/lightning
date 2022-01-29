@@ -338,8 +338,7 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 	return 0;
 }
 
-void peer_start_closingd(struct channel *channel,
-			 struct peer_fd *peer_fd)
+void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 {
 	u8 *initmsg;
 	u32 min_feerate, feerate, *max_feerate;
@@ -369,7 +368,6 @@ void peer_start_closingd(struct channel *channel,
 					   channel_errmsg,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
-					   take(&peer_fd->gossip_fd),
 					   take(&hsmfd),
 					   NULL));
 

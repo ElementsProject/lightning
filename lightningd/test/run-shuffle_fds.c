@@ -109,7 +109,7 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
 /* Generated stub for new_peer_fd_arr */
-struct peer_fd *new_peer_fd_arr(const tal_t *ctx UNNEEDED, const int *fds UNNEEDED)
+struct peer_fd *new_peer_fd_arr(const tal_t *ctx UNNEEDED, const int *fd UNNEEDED)
 { fprintf(stderr, "new_peer_fd_arr called!\n"); abort(); }
 /* Generated stub for subdaemon_path */
 const char *subdaemon_path(const tal_t *ctx UNNEEDED, const struct lightningd *ld UNNEEDED, const char *name UNNEEDED)

@@ -35,9 +35,9 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-/* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = hsmd */
+/* stdin == lightningd, 3 == peer, 4 = hsmd */
 #define REQ_FD STDIN_FILENO
-#define HSM_FD 5
+#define HSM_FD 4
 
 #if DEVELOPER
 /* If --dev-force-tmp-channel-id is set, it ends up here */
@@ -184,7 +184,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 	 * form, but we use it in a very limited way. */
 	for (;;) {
 		u8 *msg;
-		bool from_gossipd;
 		char *err;
 		bool warning;
 		struct channel_id actual;
@@ -194,20 +193,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		clean_tmpctx();
 
 		/* This helper routine polls both the peer and gossipd. */
-		msg = peer_or_gossip_sync_read(ctx, state->pps, &from_gossipd);
-
-		/* Use standard helper for gossip msgs (forwards, if it's an
-		 * error, exits). */
-		if (from_gossipd) {
-			handle_gossip_msg(state->pps, take(msg));
-			continue;
-		}
-
-		/* Some messages go straight to gossipd. */
-		if (is_msg_for_gossipd(msg)) {
-			wire_sync_write(state->pps->gossip_fd, take(msg));
-			continue;
-		}
+		msg = peer_read(ctx, state->pps);
 
 		/* BOLT #1:
 		 *
@@ -1259,9 +1245,8 @@ static u8 *handle_peer_in(struct state *state)
 	if (t == WIRE_OPEN_CHANNEL)
 		return fundee_channel(state, msg);
 
-	/* Handles standard cases, and legal unknown ones. */
-	if (handle_peer_gossip_or_error(state->pps,
-					&state->channel_id, msg))
+	/* Handles error cases. */
+	if (handle_peer_error(state->pps, &state->channel_id, msg))
 		return NULL;
 
 	extracted = extract_channel_id(msg, &channel_id);
@@ -1283,19 +1268,6 @@ static u8 *handle_peer_in(struct state *state)
 	 */
 	status_broken("Unexpected message %s", peer_wire_name(t));
 	peer_failed_connection_lost();
-}
-
-/*~ If we see the gossip_fd readable, we read a whole message.  Sure, we might
- * block, but we trust gossipd. */
-static void handle_gossip_in(struct state *state)
-{
-	u8 *msg = wire_sync_read(NULL, state->pps->gossip_fd);
-
-	if (!msg)
-		status_failed(STATUS_FAIL_GOSSIP_IO,
-			      "Reading gossip: %s", strerror(errno));
-
-	handle_gossip_msg(state->pps, take(msg));
 }
 
 /* Memory leak detection is DEVELOPER-only because we go to great lengths to
@@ -1393,7 +1365,7 @@ int main(int argc, char *argv[])
 	setup_locale();
 
 	u8 *msg;
-	struct pollfd pollfd[3];
+	struct pollfd pollfd[2];
 	struct state *state = tal(NULL, struct state);
 	struct secret *none;
 	struct channel_id *force_tmp_channel_id;
@@ -1424,9 +1396,9 @@ int main(int argc, char *argv[])
 	dev_force_tmp_channel_id = force_tmp_channel_id;
 #endif
 
-	/* 3 == peer, 4 == gossipd, 5 = hsmd */
+	/* 3 == peer, 4 = hsmd */
 	state->pps = new_per_peer_state(state);
-	per_peer_state_set_fds(state->pps, 3, 4);
+	per_peer_state_set_fd(state->pps, 3);
 
 	/*~ Initially we're not associated with a channel, but
 	 * handle_peer_gossip_or_error compares this. */
@@ -1463,10 +1435,8 @@ int main(int argc, char *argv[])
 	/*~ We manually run a little poll() loop here.  With only three fds */
 	pollfd[0].fd = REQ_FD;
 	pollfd[0].events = POLLIN;
-	pollfd[1].fd = state->pps->gossip_fd;
+	pollfd[1].fd = state->pps->peer_fd;
 	pollfd[1].events = POLLIN;
-	pollfd[2].fd = state->pps->peer_fd;
-	pollfd[2].events = POLLIN;
 
 	/* We exit when we get a conclusion to write to lightningd: either
 	 * opening_funder_reply or opening_fundee. */
@@ -1475,7 +1445,7 @@ int main(int argc, char *argv[])
 		/*~ If we get a signal which aborts the poll() call, valgrind
 		 * complains about revents being uninitialized.  I'm not sure
 		 * that's correct, but it's easy to be sure. */
-		pollfd[0].revents = pollfd[1].revents = pollfd[2].revents = 0;
+		pollfd[0].revents = pollfd[1].revents = 0;
 
 		poll(pollfd, ARRAY_SIZE(pollfd), -1);
 		/* Subtle: handle_master_in can do its own poll loop, so
@@ -1484,22 +1454,19 @@ int main(int argc, char *argv[])
 		if (pollfd[0].revents & POLLIN)
 			msg = handle_master_in(state);
 		/* Second priority: messages from peer. */
-		else if (pollfd[2].revents & POLLIN)
-			msg = handle_peer_in(state);
-		/* Last priority: chit-chat from gossipd. */
 		else if (pollfd[1].revents & POLLIN)
-			handle_gossip_in(state);
+			msg = handle_peer_in(state);
 
 		/* Since we're the top-level event loop, we clean up */
 		clean_tmpctx();
 	}
 
-	/*~ Write message and hand back the peer fd and gossipd fd.  This also
-	 * means that if the peer or gossipd wrote us any messages we didn't
-	 * read yet, it will simply be read by the next daemon. */
+	/*~ Write message and hand back the peer fd.  This also means that if
+	 * the peer wrote us any messages we didn't read yet, it will simply
+	 * be read by the next daemon. */
 	wire_sync_write(REQ_FD, msg);
 	per_peer_state_fdpass_send(REQ_FD, state->pps);
-	status_debug("Sent %s with fds",
+	status_debug("Sent %s with fd",
 		     openingd_wire_name(fromwire_peektype(msg)));
 
 	/* This frees the entire tal tree. */
