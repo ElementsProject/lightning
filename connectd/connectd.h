@@ -27,6 +27,16 @@ struct gossip_state {
 	size_t off;
 };
 
+/*~ We need to know if we were expecting a pong, and why */
+enum pong_expect_type {
+	/* We weren't expecting a ping reply */
+	PONG_UNEXPECTED = 0,
+	/* We were expecting a ping reply due to ping command */
+	PONG_EXPECTED_COMMAND = 1,
+	/* We were expecting a ping reply due to ping timer */
+	PONG_EXPECTED_PROBING = 2,
+};
+
 /*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
  * already connected (by peer->id). */
 struct peer {
@@ -64,6 +74,12 @@ struct peer {
 
 	/* We stream from the gossip_store for them, when idle */
 	struct gossip_state gs;
+
+	/* Are we expecting a pong? */
+	enum pong_expect_type expecting_pong;
+
+	/* Random ping timer, to detect dead connections. */
+	struct oneshot *ping_timer;
 
 #if DEVELOPER
 	bool dev_read_enabled;

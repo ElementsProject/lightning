@@ -22,7 +22,6 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
-#include <lightningd/ping.h>
 #include <wire/common_wiregen.h>
 
 static void update_feerates(struct lightningd *ld, struct channel *channel)
@@ -519,9 +518,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
-	case WIRE_CHANNELD_PING_REPLY:
-		ping_reply(sd, msg);
-		break;
 	case WIRE_CHANNELD_USED_CHANNEL_UPDATE:
 		/* This tells gossipd we used it. */
 		get_channel_update(sd->channel);
@@ -565,7 +561,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNELD_SEND_ERROR:
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
-	case WIRE_CHANNELD_PING:
 		break;
 	}
 

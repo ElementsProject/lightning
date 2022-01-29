@@ -1,83 +1,39 @@
 #include "config.h"
-#include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
 #include <common/json_tok.h>
 #include <common/param.h>
+#include <connectd/connectd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
-#include <lightningd/ping.h>
 #include <lightningd/subd.h>
 
-struct ping_command {
-	struct list_node list;
-	struct node_id id;
-	struct command *cmd;
-};
-
-static struct ping_command *find_ping_cmd(struct lightningd *ld,
-					  const struct node_id *id)
-{
-	struct ping_command *i;
-
-	list_for_each(&ld->ping_commands, i, list) {
-		if (node_id_eq(id, &i->id))
-			return i;
-	}
-	return NULL;
-}
-
-static void destroy_ping_command(struct ping_command *pc)
-{
-	list_del(&pc->list);
-}
-
-static struct ping_command *new_ping_command(const tal_t *ctx,
-					     struct lightningd *ld,
-					     const struct node_id *peer_id,
-					     struct command *cmd)
-{
-	struct ping_command *pc = tal(ctx, struct ping_command);
-
-	pc->id = *peer_id;
-	pc->cmd = cmd;
-	list_add_tail(&ld->ping_commands, &pc->list);
-	tal_add_destructor(pc, destroy_ping_command);
-
-	return pc;
-}
-
-void ping_reply(struct subd *channeld, const u8 *msg)
+static void ping_reply(struct subd *connectd,
+		       const u8 *msg, const int *fds,
+		       struct command *cmd)
 {
 	u16 totlen;
 	bool sent;
-	struct ping_command *pc;
-	struct channel *c = channeld->channel;
 
-	log_debug(channeld->log, "Got ping reply!");
-	pc = find_ping_cmd(channeld->ld, &c->peer->id);
-	if (!pc) {
-		log_broken(channeld->log, "Unexpected ping reply?");
-		return;
-	}
+	log_debug(connectd->log, "Got ping reply!");
 
-	if (!fromwire_channeld_ping_reply(msg, &sent, &totlen)) {
-		log_broken(channeld->log, "Malformed ping reply %s",
+	if (!fromwire_connectd_ping_reply(msg, &sent, &totlen)) {
+		log_broken(connectd->log, "Malformed ping reply %s",
 			   tal_hex(tmpctx, msg));
-		was_pending(command_fail(pc->cmd, LIGHTNINGD,
+		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Bad reply message"));
 		return;
 	}
 
 	if (!sent)
-		was_pending(command_fail(pc->cmd, LIGHTNINGD,
+		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Ping already pending"));
 	else {
-		struct json_stream *response = json_stream_success(pc->cmd);
+		struct json_stream *response = json_stream_success(cmd);
 
 		json_add_num(response, "totlen", totlen);
-		was_pending(command_success(pc->cmd, response));
+		was_pending(command_success(cmd, response));
 	}
 }
 
@@ -88,8 +44,6 @@ static struct command_result *json_ping(struct command *cmd,
 {
 	unsigned int *len, *pongbytes;
 	struct node_id *id;
-	struct peer *peer;
-	struct channel *channel;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
@@ -124,19 +78,11 @@ static struct command_result *json_ping(struct command *cmd,
 				    "pongbytes %u > 65535", *pongbytes);
 	}
 
-	peer = peer_by_id(cmd->ld, id);
-	if (!peer)
+	if (!peer_by_id(cmd->ld, id))
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 
-	channel = peer_active_channel(peer);
-	if (!channel || !channel->owner || channel->state != CHANNELD_NORMAL)
-		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
-
-	/* parent is cmd, so when we complete cmd, we free this. */
-	new_ping_command(cmd, cmd->ld, id, cmd);
-
-	msg = towire_channeld_ping(NULL, *pongbytes, *len);
-	subd_send_msg(channel->owner, take(msg));
+	msg = towire_connectd_ping(NULL, id, *pongbytes, *len);
+	subd_req(cmd, cmd->ld->connectd, take(msg), -1, 0, ping_reply, cmd);
 
 	return command_still_pending(cmd);
 }

@@ -1966,6 +1966,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		peer_final_msg(conn, daemon, msg);
 		goto out;
 
+	case WIRE_CONNECTD_PING:
+		send_manual_ping(daemon, msg);
+		goto out;
+
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 #if DEVELOPER
 		dev_connect_memleak(daemon, msg);
@@ -1978,6 +1982,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_RECONNECTED:
 	case WIRE_CONNECTD_CONNECT_FAILED:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
+	case WIRE_CONNECTD_PING_REPLY:
 		break;
 	}
 
