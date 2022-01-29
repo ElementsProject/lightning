@@ -9,25 +9,6 @@ struct channel_id;
 struct per_peer_state;
 
 /**
- * peer_or_gossip_sync_read - read a peer message, or maybe a gossip msg.
- * @ctx: context to allocate return packet from.
- * @pps: the per-peer peer state and fds
- * @from_gossipd: true if the msg was from gossipd, otherwise false.
- *
- * Will call peer_failed_connection_lost() or
- * status_failed(STATUS_FAIL_GOSSIP_IO) or return a message.
- *
- * Usually, you should call handle_gossip_msg if *@from_gossipd is
- * true, otherwise if is_peer_error() handle the error, otherwise if
- * is_msg_for_gossipd() then send to gossipd, otherwise if is
- * is_wrong_channel() send that as a reply.  Otherwise it should be
- * a valid message.
- */
-u8 *peer_or_gossip_sync_read(const tal_t *ctx,
-			     struct per_peer_state *pps,
-			     bool *from_gossipd);
-
-/**
  * is_peer_error - if it's an error, describe if it applies to this channel.
  * @ctx: context to allocate return from.
  * @msg: the peer message.
@@ -55,26 +36,15 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 
 
 /**
- * handle_peer_gossip_or_error - simple handler for all the above cases.
+ * handle_peer_error - simple handler for errors
  * @pps: per-peer state.
  * @channel_id: the channel id of the current channel.
  * @msg: the peer message (only taken if returns true).
  *
- * This returns true if it handled the packet: a gossip packet (forwarded
- * to gossipd), or an error packet (causes peer_failed_received_errmsg or
- * ignored), or a ping (may reply with pong).
+ * This returns true if it handled the packet.
  */
-bool handle_peer_gossip_or_error(struct per_peer_state *pps,
-				 const struct channel_id *channel_id,
-				 const u8 *msg TAKES);
+bool handle_peer_error(struct per_peer_state *pps,
+		       const struct channel_id *channel_id,
+		       const u8 *msg TAKES);
 
-/**
- * handle_timestamp_filter - deal with timestamp filter requests.
- * @pps: per-peer state.
- * @msg: the peer message (only taken if returns true).
- */
-bool handle_timestamp_filter(struct per_peer_state *pps, const u8 *msg TAKES);
-
-/* We got this message from gossipd: forward/quit as it asks. */
-void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES);
 #endif /* LIGHTNING_COMMON_READ_PEER_MSG_H */

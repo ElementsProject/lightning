@@ -2994,16 +2994,16 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			handle_dry_run_finished(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_CHANNEL_LOCKED:
-			if (tal_count(fds) != 2)
-				return 2;
+			if (tal_count(fds) != 1)
+				return 1;
 			handle_channel_locked(dualopend, fds, msg);
 			return 0;
 		case WIRE_DUALOPEND_GOT_SHUTDOWN:
 			handle_peer_wants_to_close(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
-			if (tal_count(fds) != 2)
-				return 2;
+			if (tal_count(fds) != 1)
+				return 1;
 			handle_channel_closed(dualopend, fds, msg);
 			return 0;
 		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
@@ -3230,7 +3230,6 @@ static void start_fresh_dualopend(struct peer *peer,
 					  channel_errmsg,
 					  channel_set_billboard,
 					  take(&peer_fd->fd),
-					  take(&peer_fd->gossip_fd),
 					  take(&hsmfd), NULL);
 
 	if (!channel->owner) {
@@ -3297,7 +3296,6 @@ void peer_restart_dualopend(struct peer *peer,
 					   channel_errmsg,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
-					   take(&peer_fd->gossip_fd),
 					   take(&hsmfd), NULL));
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon channel: %s",

@@ -195,9 +195,8 @@ void handle_reestablish(struct lightningd *ld,
 			      take(towire_connectd_peer_final_msg(NULL, peer_id,
 								  err)));
 		subd_send_fd(ld->connectd, peer_fd->fd);
-		subd_send_fd(ld->connectd, peer_fd->gossip_fd);
-		/* Don't close those fds! */
-		peer_fd->fd = peer_fd->gossip_fd = -1;
+		/* Don't close this fd! */
+		peer_fd->fd = -1;
 	}
 }
 

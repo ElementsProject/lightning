@@ -506,9 +506,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		peer_got_shutdown(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
-		/* We expect 2 fds. */
+		/* We expect 1 fd. */
 		if (!fds)
-			return 2;
+			return 1;
 		peer_start_closingd_after_shutdown(sd->channel, msg, fds);
 		break;
 	case WIRE_CHANNELD_FAIL_FALLEN_BEHIND:
@@ -603,7 +603,6 @@ void peer_start_channeld(struct channel *channel,
 					   channel_errmsg,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
-					   take(&peer_fd->gossip_fd),
 					   take(&hsmfd), NULL));
 
 	if (!channel->owner) {

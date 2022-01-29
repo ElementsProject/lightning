@@ -45,9 +45,9 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer, 4 = gossip, 5 = HSM */
+/* stdin == requests, 3 == peer, 4 = HSM */
 #define MASTER_FD STDIN_FILENO
-#define HSM_FD 5
+#define HSM_FD 4
 
 struct peer {
 	struct per_peer_state *pps;
@@ -2132,13 +2132,12 @@ static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum peer_wire type = fromwire_peektype(msg);
 
-	if (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg))
+	if (handle_peer_error(peer->pps, &peer->channel_id, msg))
 		return;
 
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
 		if (type != WIRE_FUNDING_LOCKED
-		    && type != WIRE_PONG
 		    && type != WIRE_SHUTDOWN
 		    /* We expect these for v2 !! */
 		    && type != WIRE_TX_SIGNATURES
@@ -2215,7 +2214,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_unexpected_reestablish(peer, msg);
 		return;
 
-	/* These are all swallowed by handle_peer_gossip_or_error */
+	/* These are all swallowed by connectd */
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:
@@ -2798,7 +2797,7 @@ skip_tlvs:
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, peer->pps);
-	} while (handle_peer_gossip_or_error(peer->pps, &peer->channel_id, msg) ||
+	} while (handle_peer_error(peer->pps, &peer->channel_id, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
 got_reestablish:
@@ -3752,9 +3751,9 @@ static void init_channel(struct peer *peer)
 			       tal_dup(peer, struct penalty_base, &pbases[i]));
 	tal_free(pbases);
 
-	/* stdin == requests, 3 == peer, 4 = gossip */
+	/* stdin == requests, 3 == peer */
 	peer->pps = new_per_peer_state(peer);
-	per_peer_state_set_fds(peer->pps, 3, 4);
+	per_peer_state_set_fd(peer->pps, 3);
 
 	status_debug("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
@@ -3895,11 +3894,10 @@ int main(int argc, char *argv[])
 	FD_ZERO(&fds_in);
 	FD_SET(MASTER_FD, &fds_in);
 	FD_SET(peer->pps->peer_fd, &fds_in);
-	FD_SET(peer->pps->gossip_fd, &fds_in);
 
 	FD_ZERO(&fds_out);
 	FD_SET(peer->pps->peer_fd, &fds_out);
-	nfds = peer->pps->gossip_fd+1;
+	nfds = peer->pps->peer_fd+1;
 
 	while (!shutdown_complete(peer)) {
 		struct timemono first;
@@ -3958,13 +3956,6 @@ int main(int argc, char *argv[])
 			/* This could take forever, but who cares? */
 			msg = peer_read(tmpctx, peer->pps);
 			peer_in(peer, msg);
-		} else if (FD_ISSET(peer->pps->gossip_fd, &rfds)) {
-			msg = wire_sync_read(tmpctx, peer->pps->gossip_fd);
-			/* Gossipd hangs up on us to kill us when a new
-			 * connection comes in. */
-			if (!msg)
-				peer_failed_connection_lost();
-			handle_gossip_msg(peer->pps, take(msg));
 		}
 	}
 

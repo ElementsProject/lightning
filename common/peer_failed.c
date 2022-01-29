@@ -19,7 +19,6 @@ peer_fatal_continue(const u8 *msg TAKES, const struct per_peer_state *pps)
  	status_send(msg);
 
 	status_send_fd(pps->peer_fd);
-	status_send_fd(pps->gossip_fd);
 	exit(0x80 | (reason & 0xFF));
 }
 
