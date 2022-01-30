@@ -8,7 +8,7 @@ from utils import (
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
     scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
     check_utxos_channel, anchor_expected, check_coin_moves,
-    check_balance_snaps
+    check_balance_snaps, mine_funding_to_announce
 )
 
 import os
@@ -281,7 +281,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
         # Technically, this is async to fundchannel returning.
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
-    bitcoind.generate_block(6)
+    mine_funding_to_announce(bitcoind, peers, num_blocks=6)
 
     # Now wait for them all to hit normal state, do payments
     l1.daemon.wait_for_logs(['update for channel .* now ACTIVE'] * num_peers
@@ -349,7 +349,8 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
     l1.pay(l3, 100000000)
     l1.pay(l4, 100000000)
 
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
+
     addr = chainparams['example_addr']
     l1.rpc.close(chan12, None, addr)
     l1.rpc.call('close', {'id': chan13, 'destination': addr})
@@ -2156,7 +2157,7 @@ def test_onchain_middleman_simple(node_factory, bitcoind):
     channel_id = first_channel_id(l1, l2)
 
     # Make sure routes finalized.
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
     l1.wait_channel_active(c23)
 
     # Give l1 some money to play with.
@@ -2276,7 +2277,7 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     channel_id = first_channel_id(l1, l2)
 
     # Make sure routes finalized.
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
     l1.wait_channel_active(c23)
 
     # Make sure l3 sees gossip for channel now; it can get upset

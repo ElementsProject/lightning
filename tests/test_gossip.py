@@ -5,7 +5,8 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, wait_for, TIMEOUT, only_one, sync_blockheight,
-    expected_node_features, COMPAT, EXPERIMENTAL_FEATURES
+    expected_node_features, COMPAT, EXPERIMENTAL_FEATURES,
+    mine_funding_to_announce
 )
 
 import json
@@ -37,7 +38,7 @@ def test_gossip_pruning(node_factory, bitcoind):
     scid1, _ = l1.fundchannel(l2, 10**6)
     scid2, _ = l2.fundchannel(l3, 10**6)
 
-    bitcoind.generate_block(6)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # Channels should be activated locally
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4)
@@ -201,7 +202,7 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
     scid, _ = l1.fundchannel(l2, 10**6)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # wait until l3 and l4 see l1 via gossip with announced addresses
     wait_for(lambda: len(l3.rpc.listnodes(l1.info['id'])['nodes']) == 1)
@@ -252,7 +253,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
 
     # Make a public channel.
     chan12, _ = l1.fundchannel(l2, 10**5)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
 
     l3.wait_for_channel_updates([chan12])
     after_12 = int(time.time())
@@ -334,7 +335,7 @@ def test_connect_by_gossip(node_factory, bitcoind):
 
     # Nodes are gossiped only if they have channels
     chanid, _ = l2.fundchannel(l3, 10**6)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # Let channel reach announcement depth
     l2.wait_channel_active(chanid)
@@ -442,7 +443,7 @@ def test_gossip_jsonrpc(node_factory):
 
 
 @pytest.mark.developer("Too slow without --dev-fast-gossip")
-def test_gossip_badsig(node_factory):
+def test_gossip_badsig(node_factory, bitcoind):
     """Make sure node announcement signatures are ok.
 
     This is a smoke test to see if signatures fail. This used to be the case
@@ -460,7 +461,7 @@ def test_gossip_badsig(node_factory):
     l2.fundchannel(l3, 10**6)
 
     # Wait for route propagation.
-    l1.bitcoin.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
     l1.daemon.wait_for_log('Received node_announcement for node {}'
                            .format(l3.info['id']))
     assert not l1.daemon.is_in_log('signature verification failed')
@@ -517,7 +518,7 @@ def test_gossip_persistence(node_factory, bitcoind):
     scid23, _ = l2.fundchannel(l3, 10**6)
 
     # Make channels public, except for l3 -> l4, which is kept local-only for now
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
     scid34, _ = l3.fundchannel(l4, 10**6)
     bitcoind.generate_block(1)
 
@@ -610,7 +611,7 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
                                              fundchannel=False)
 
     l3.fundchannel(l4, 10**5)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
 
     # l2 sends CHANNEL_ANNOUNCEMENT to l1, then disconnects/
     l2.daemon.wait_for_log('dev_disconnect')
@@ -644,20 +645,16 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
 def test_routing_gossip(node_factory, bitcoind):
     nodes = node_factory.get_nodes(5)
 
-    sync_blockheight(bitcoind, nodes)
     for i in range(len(nodes) - 1):
         src, dst = nodes[i], nodes[i + 1]
         src.rpc.connect(dst.info['id'], 'localhost', dst.port)
         src.openchannel(dst, 25000, confirm=False, wait_for_announce=False)
-        sync_blockheight(bitcoind, nodes)
 
-    # Avoid "bad gossip" caused by future announcements (a node below
-    # confirmation height receiving and ignoring the announcement,
-    # thus marking followup messages as bad).
-    sync_blockheight(bitcoind, nodes)
+    # openchannel calls fundwallet which mines a block; so first channel
+    # is 4 deep, last is unconfirmed.
 
     # Allow announce messages.
-    bitcoind.generate_block(6)
+    mine_funding_to_announce(bitcoind, nodes, num_blocks=6, wait_for_mempool=1)
 
     # Deep check that all channels are in there
     comb = []
@@ -691,17 +688,15 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
     l2.fundwallet(10**6)
 
     num_tx = len(bitcoind.rpc.getrawmempool())
+    # We want these one block apart.
     l1.rpc.fundchannel(l2.info['id'], 10**5)['tx']
-    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == num_tx + 1)
-    bitcoind.generate_block(1)
-
-    num_tx = len(bitcoind.rpc.getrawmempool())
+    bitcoind.generate_block(wait_for_mempool=num_tx + 1)
+    sync_blockheight(bitcoind, [l1, l2, l3, l4])
     l2.rpc.fundchannel(l3.info['id'], 10**5)['tx']
-    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == num_tx + 1)
-    bitcoind.generate_block(1)
-
     # Get them both to gossip depth.
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4],
+                             num_blocks=6,
+                             wait_for_mempool=1)
 
     # Make sure l2 has received all the gossip.
     l2.daemon.wait_for_logs(['Received node_announcement for node ' + l1.info['id'],
@@ -874,7 +869,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
 
     # This should actually be large enough for zlib to kick in!
     scid34, _ = l3.fundchannel(l4, 10**5)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
     l2.daemon.wait_for_log('Received node_announcement for node ' + l4.info['id'])
 
     # Restore infinite encode size.
@@ -924,12 +919,6 @@ def test_report_routing_failure(node_factory, bitcoind):
     # Finally the only possible path is
     # l1-l2-l3-l4.
 
-    def fund_from_to_payer(lsrc, ldst, lpayer):
-        lsrc.rpc.connect(ldst.info['id'], 'localhost', ldst.port)
-        c, _ = lsrc.fundchannel(ldst, 10000000)
-        bitcoind.generate_block(5)
-        lpayer.wait_for_channel_updates([c])
-
     # Setup
     # Construct lightningd
     l1, l2, l3, l4 = node_factory.get_nodes(4)
@@ -946,7 +935,7 @@ def test_report_routing_failure(node_factory, bitcoind):
                                       dst.daemon.lightning_dir))
         c, _ = src.fundchannel(dst, 10**6)
         channels.append(c)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
 
     for c in channels:
         l1.wait_channel_active(c)
@@ -982,7 +971,7 @@ def test_query_short_channel_id(node_factory, bitcoind, chainparams):
     # Make channels public.
     scid12, _ = l1.fundchannel(l2, 10**5)
     scid23, _ = l2.fundchannel(l3, 10**5)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # It will know about everything.
     l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l3.info['id']))
@@ -1369,7 +1358,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
     node_factory.join_nodes([l2, l3])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # Make sure l1 learns about channel and nodes.
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
@@ -1468,7 +1457,7 @@ def test_getroute_exclude(node_factory, bitcoind):
     # Now, create an alternate (better) route.
     l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
     scid, _ = l2.fundchannel(l4, 1000000, wait_for_active=False)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4, l5])
 
     # We don't wait above, because we care about it hitting l1.
     l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
@@ -1505,7 +1494,7 @@ def test_getroute_exclude(node_factory, bitcoind):
     scid15, _ = l1.fundchannel(l5, 1000000, wait_for_active=False)
     l5.rpc.connect(l4.info['id'], 'localhost', l4.port)
     scid54, _ = l5.fundchannel(l4, 1000000, wait_for_active=False)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4, l5])
 
     # We don't wait above, because we care about it hitting l1.
     l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
@@ -1589,7 +1578,7 @@ def setup_gossip_store_test(node_factory, bitcoind):
     scid23, _ = l2.fundchannel(l3, 10**6)
 
     # Have that channel announced.
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
     # Make sure we've got node_announcements
     wait_for(lambda: ['alias' in n for n in l2.rpc.listnodes()['nodes']] == [True, True])
 
@@ -2115,7 +2104,7 @@ def test_topology_leak(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3)
 
     l1.rpc.listchannels()
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # Wait until l1 sees all the channels.
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
