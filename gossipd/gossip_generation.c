@@ -751,7 +751,7 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 		return;
 
 	/* Too early?  Defer (don't worry if it's unannounced). */
-	if (hc && is_chan_public(chan)) {
+	if (is_halfchan_defined(hc) && is_chan_public(chan)) {
 		u32 now = time_now().ts.tv_sec;
 		u32 next_time = hc->bcast.timestamp
 			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
