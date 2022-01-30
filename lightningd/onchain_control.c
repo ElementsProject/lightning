@@ -570,10 +570,15 @@ static void onchain_error(struct channel *channel,
 			  bool warning UNUSED,
 			  const u8 *err_for_them UNUSED)
 {
+	channel_set_owner(channel, NULL);
+
+	/* This happens on shutdown: fine */
+	if (channel->peer->ld->state == LD_STATE_SHUTDOWN)
+		return;
+
 	/* FIXME: re-launch? */
 	log_broken(channel->log, "%s", desc);
 	channel_set_billboard(channel, true, desc);
-	channel_set_owner(channel, NULL);
 }
 
 /* With a reorg, this can get called multiple times; each time we'll kill

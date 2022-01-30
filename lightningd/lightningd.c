@@ -529,6 +529,11 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	ld->gossip = subd_shutdown(ld->gossip, 10);
 	ld->hsm = subd_shutdown(ld->hsm, 10);
 
+	/*~ Closing the hsmd means all other subdaemons should be exiting;
+	 * deal with that cleanly before we start freeing internal
+	 * structures. */
+	subd_shutdown_remaining(ld);
+
 	/* Now we free all the HTLCs */
 	free_htlcs(ld, NULL);
 
