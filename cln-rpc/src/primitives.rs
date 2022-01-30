@@ -28,6 +28,23 @@ pub enum ChannelStateChangeCause {
     ONCHAIN,
 }
 
+/// An `Amount` that can also be `any`. Useful for cases in which you
+/// want to delegate the Amount selection so someone else, e.g., an
+/// amountless invoice.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum AmountOrAny {
+    Amount(Amount),
+    Any,
+}
+
+/// An amount that can also be `all`. Useful for cases where you want
+/// to delegate the amount computation to the cln node.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum AmountOrAll {
+    Amount(Amount),
+    All,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Amount {
     msat: u64,
@@ -72,6 +89,62 @@ impl Serialize for Amount {
         S: Serializer,
     {
         serializer.serialize_str(&format!("{}msat", self.msat))
+    }
+}
+
+impl Serialize for AmountOrAll {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            AmountOrAll::Amount(a) => serializer.serialize_str(&format!("{}msat", a.msat)),
+            AmountOrAll::All => serializer.serialize_str("all"),
+        }
+    }
+}
+
+impl Serialize for AmountOrAny {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            AmountOrAny::Amount(a) => serializer.serialize_str(&format!("{}msat", a.msat)),
+            AmountOrAny::Any => serializer.serialize_str("any"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for AmountOrAny {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(match s.to_lowercase().as_ref() {
+            "any" => AmountOrAny::Any,
+            v => AmountOrAny::Amount(
+                v.try_into()
+                    .map_err(|_e| serde::de::Error::custom("could not parse amount"))?,
+            ),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for AmountOrAll {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(match s.to_lowercase().as_ref() {
+            "all" => AmountOrAll::All,
+            v => AmountOrAll::Amount(
+                v.try_into()
+                    .map_err(|_e| serde::de::Error::custom("could not parse amount"))?,
+            ),
+        })
     }
 }
 
@@ -138,5 +211,34 @@ mod test {
             let serialized: String = parsed.amount.into();
             assert_eq!(s, serialized);
         }
+    }
+
+    #[test]
+    fn test_amount_all_any() {
+        let t = r#"{"any": "any", "all": "all", "not_any": "42msat", "not_all": "31337msat"}"#;
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        struct T {
+            all: AmountOrAll,
+            not_all: AmountOrAll,
+            any: AmountOrAny,
+            not_any: AmountOrAny,
+        }
+
+        let parsed: T = serde_json::from_str(t).unwrap();
+
+        let expected = T {
+            all: AmountOrAll::All,
+            any: AmountOrAny::Any,
+            not_all: AmountOrAll::Amount(Amount { msat: 31337 }),
+            not_any: AmountOrAny::Amount(Amount { msat: 42 }),
+        };
+        assert_eq!(expected, parsed);
+
+        let serialized: String = serde_json::to_string(&parsed).unwrap();
+        assert_eq!(
+            serialized,
+            r#"{"all":"all","not_all":"31337msat","any":"any","not_any":"42msat"}"#
+        );
     }
 }
