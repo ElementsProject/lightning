@@ -7,7 +7,7 @@ from pyln.client import RpcError
 from threading import Event
 from pyln.testing.utils import (
     DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
-    wait_for, TailableProc, env
+    wait_for, TailableProc, env, mine_funding_to_announce
 )
 from utils import (
     account_balance, scriptpubkey_addr, check_coin_moves
@@ -2291,7 +2291,7 @@ def test_listforwards(node_factory, bitcoind):
     c24, _ = l2.fundchannel(l4, 10**5)
 
     # Wait until channels are active
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
     l1.wait_channel_active(c23)
 
     # successful payments

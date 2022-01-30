@@ -118,6 +118,17 @@ def sync_blockheight(bitcoind, nodes):
         wait_for(lambda: n.rpc.getinfo()['blockheight'] == height)
 
 
+def mine_funding_to_announce(bitcoind, nodes, num_blocks=5, wait_for_mempool=0):
+    """Mine blocks so a channel can be announced (5, if it's already
+mined), but make sure we don't leave nodes behind who will reject the
+announcement.  Not needed if there are only two nodes.
+
+    """
+    bitcoind.generate_block(num_blocks - 1, wait_for_mempool)
+    sync_blockheight(bitcoind, nodes)
+    bitcoind.generate_block(1)
+
+
 def wait_channel_quiescent(n1, n2):
     wait_for(lambda: only_one(only_one(n1.rpc.listpeers(n2.info['id'])['peers'])['channels'])['htlcs'] == [])
     wait_for(lambda: only_one(only_one(n2.rpc.listpeers(n1.info['id'])['peers'])['channels'])['htlcs'] == [])

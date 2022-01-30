@@ -9,7 +9,8 @@ from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     DEPRECATED_APIS, expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
-    check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND
+    check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
+    mine_funding_to_announce
 )
 
 import ast
@@ -1723,7 +1724,9 @@ def test_hook_crash(node_factory, executor, bitcoind):
             n.rpc.plugin_start(p)
         l1.openchannel(n, 10**6, confirm=False, wait_for_announce=False)
 
-    bitcoind.generate_block(6)
+    # Mine final openchannel tx first.
+    sync_blockheight(bitcoind, [l1] + nodes)
+    mine_funding_to_announce(bitcoind, [l1] + nodes, wait_for_mempool=1)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2 * len(perm))
 
@@ -1918,7 +1921,7 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
         {'may_reconnect': True, 'plugin': coin_plugin},
     ], wait_for_announce=True)
 
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
     amount = 10**8
 

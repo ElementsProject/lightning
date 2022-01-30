@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
-from utils import only_one, wait_for, wait_channel_quiescent
+from utils import only_one, wait_for, wait_channel_quiescent, mine_funding_to_announce
 
 
 import pytest
@@ -221,7 +221,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     l0 = node_factory.get_node()
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
     scid_dummy, _ = l0.fundchannel(l1, 2 * (10**5))
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l0, l1, l2, l3])
 
     # Make sure channel is totally public.
     wait_for(lambda: [c['public'] for c in l2.rpc.listchannels(scid_dummy)['channels']] == [True, True])
@@ -285,7 +285,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # the exposure of private channels.
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     scid2, _ = l3.fundchannel(l2, (10**5))
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l0, l1, l2, l3])
 
     # Make sure channel is totally public.
     wait_for(lambda: [c['public'] for c in l2.rpc.listchannels(scid2)['channels']] == [True, True])

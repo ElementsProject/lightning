@@ -11,7 +11,7 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr,
-    EXPERIMENTAL_FEATURES
+    EXPERIMENTAL_FEATURES, mine_funding_to_announce
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
@@ -2556,7 +2556,7 @@ def test_disconnectpeer(node_factory, bitcoind):
 
     # Fund channel l1 -> l3
     l1.fundchannel(l3, 10**6)
-    bitcoind.generate_block(5)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # disconnecting a non gossiping peer results in error
     with pytest.raises(RpcError, match=r'Peer is in state CHANNELD_NORMAL'):
@@ -2945,11 +2945,9 @@ def test_restart_many_payments(node_factory, bitcoind):
         # OK to use change from previous fundings
         l1.rpc.fundchannel(n.info['id'], 10**6, minconf=0)
 
-    # Now mine them, get scids; make sure they all see the first block
-    # otherwise they may complain about channel_announcement from the future.
-    bitcoind.generate_block(1, wait_for_mempool=num * 2)
-    sync_blockheight(bitcoind, [l1] + nodes)
-    bitcoind.generate_block(5)
+    # Now mine them, get scids
+    mine_funding_to_announce(bitcoind, [l1] + nodes,
+                             num_blocks=6, wait_for_mempool=num * 2)
 
     wait_for(lambda: [only_one(n.rpc.listpeers()['peers'])['channels'][0]['state'] for n in nodes] == ['CHANNELD_NORMAL'] * len(nodes))
 
