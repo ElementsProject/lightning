@@ -222,6 +222,15 @@ void subd_release_channel(struct subd *owner, const void *channel);
  */
 struct subd *subd_shutdown(struct subd *subd, unsigned int seconds);
 
+/**
+ * subd_shutdown_remaining - kill all remaining (per-peer) subds
+ * @ld: lightningd
+ *
+ * They should already be exiting (since we shutdown hsmd), but
+ * make sure they have.
+ */
+void subd_shutdown_remaining(struct lightningd *ld);
+
 /* Ugly helper to get full pathname of the current binary. */
 const char *find_my_abspath(const tal_t *ctx, const char *argv0);
 

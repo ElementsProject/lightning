@@ -105,7 +105,9 @@ void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 {
 	u8 *msg = towire_connectd_peer_disconnected(tmpctx, &uc->peer->id);
 	log_(uc->log, level, NULL, false, "%s", desc);
-	subd_send_msg(uc->peer->ld->connectd, msg);
+	/* NULL when we're shutting down */
+	if (uc->peer->ld->connectd)
+		subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc && uc->fc->cmd)
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 	notify_disconnect(uc->peer->ld, &uc->peer->id);
@@ -191,9 +193,11 @@ void handle_reestablish(struct lightningd *ld,
 				      "Unknown channel for reestablish");
 		log_debug(ld->log, "Reestablish on UNKNOWN channel %s",
 			  type_to_string(tmpctx, struct channel_id, channel_id));
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_peer_final_msg(NULL, peer_id,
-								  err)));
+		/* Unless we're shutting down */
+		if (ld->connectd)
+			subd_send_msg(ld->connectd,
+				      take(towire_connectd_peer_final_msg(NULL, peer_id,
+									  err)));
 		tal_free(peer_fd);
 	}
 }

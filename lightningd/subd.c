@@ -895,6 +895,20 @@ struct subd *subd_shutdown(struct subd *sd, unsigned int seconds)
 	return tal_free(sd);
 }
 
+void subd_shutdown_remaining(struct lightningd *ld)
+{
+	struct subd *subd;
+
+	/* We give them a second to finish exiting, before we kill
+	 * them in destroy_subd() */
+	sleep(1);
+
+	while ((subd = list_top(&ld->subds, struct subd, list)) != NULL) {
+		/* Destructor removes from list */
+		io_close(subd->conn);
+	}
+}
+
 void subd_release_channel(struct subd *owner, const void *channel)
 {
 	/* If owner is a per-peer-daemon, and not already freeing itself... */
