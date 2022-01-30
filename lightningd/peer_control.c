@@ -1209,7 +1209,7 @@ static bool check_funding_tx(const struct bitcoin_tx *tx,
 
 static void update_channel_from_inflight(struct lightningd *ld,
 					 struct channel *channel,
-					 struct channel_inflight *inflight)
+					 const struct channel_inflight *inflight)
 {
 	struct wally_psbt *psbt_copy;
 
@@ -1222,7 +1222,7 @@ static void update_channel_from_inflight(struct lightningd *ld,
 	channel->push = inflight->lease_fee;
 	tal_free(channel->lease_commit_sig);
 	channel->lease_commit_sig
-		= tal_steal(channel, inflight->lease_commit_sig);
+		= tal_dup_or_null(channel, secp256k1_ecdsa_signature, inflight->lease_commit_sig);
 	channel->lease_chan_max_msat = inflight->lease_chan_max_msat;
 	channel->lease_chan_max_ppt = inflight->lease_chan_max_ppt;
 

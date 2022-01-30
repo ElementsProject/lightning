@@ -810,7 +810,7 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
                        compact_lease=rates['compact_lease'])
 
     # sink the funding transaction
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
 
     # stop l1
     l1.stop()
