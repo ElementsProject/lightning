@@ -3630,6 +3630,16 @@ def test_mpp_adaptive(node_factory, bitcoind):
     assert(c12['spendable_msat'].millisatoshis < amt)
     assert(c34['spendable_msat'].millisatoshis < amt)
 
+    # Make sure all HTLCs entirely resolved before we mine more blocks!
+    def all_htlcs(n):
+        htlcs = []
+        for p in n.rpc.listpeers()['peers']:
+            for c in p['channels']:
+                htlcs += c['htlcs']
+        return htlcs
+
+    wait_for(lambda: all([all_htlcs(n) == [] for n in [l1, l2, l3, l4]]))
+
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
 
