@@ -3438,6 +3438,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
 @pytest.mark.developer("needs dev_disconnect")
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""
+    # FIXME: This should be in lnprototest!  UNRELIABLE.
     # l1 disconnects after sending second COMMITMENT_SIGNED.
     # Then it stops receiving after sending WIRE_SHUTDOWN (which is before it
     # reads the revoke_and_ack).
