@@ -4692,6 +4692,7 @@ bool wallet_offer_create(struct wallet *w,
 	db_query_prepared(stmt);
 
 	if (db_step(stmt)) {
+		db_col_ignore(stmt, "1");
 		tal_free(stmt);
 		return false;
 	}
