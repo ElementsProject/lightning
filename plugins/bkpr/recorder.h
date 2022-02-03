@@ -60,12 +60,16 @@ char *account_get_balance(const tal_t *ctx,
 struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 					    struct account *acct);
 
+/* Find a chain event by its database id */
+struct chain_event *find_chain_event_by_id(const tal_t *ctx,
+					   struct db *db,
+					   u64 event_db_id);
+
 /* List all chain fees, for all accounts */
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);
 
 /* Add the given account to the database */
 void account_add(struct db *db, struct account *acct);
-
 /* Given an account name, find that account record */
 struct account *find_account(const tal_t *ctx,
 			     struct db *db,
