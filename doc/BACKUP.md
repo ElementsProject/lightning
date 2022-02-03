@@ -86,7 +86,7 @@ backup strategies below.
 
 `/!\` WHO SHOULD DO THIS: Casual users.
 
-`/!\` **CAUTION** `/!\` This technique is only supported on 0.10.3
+`/!\` **CAUTION** `/!\` This technique is only supported after the version v0.10.2 (not included)
 or later.
 On earlier versions, the `:` character is not special and will be
 considered part of the path of the database file.
@@ -234,7 +234,7 @@ such as (not an exhaustive list!):
   of multiple physical media.
 * BTRFS RAID-1 or RAID-10, a filesystem built into Linux.
 * ZFS RAID-Z, a filesystem that cannot be legally distributed with the Linux
-  kernel, but can be distributed in a BSD system, and can be installed 
+  kernel, but can be distributed in a BSD system, and can be installed
   on Linux with some extra effort, see
   [ZFSonLinux](https://zfsonlinux.org).
 
@@ -430,7 +430,7 @@ Consider using `--wallet=sqlite3://${main}:${backup}` above, instead.
 [issue 4857]: https://github.com/ElementsProject/lightning/issues/4857
 
 One of the simpler things on any system is to use Litestream to replicate the SQLite database.
-It continuously streams SQLite changes to file or external storage - the cloud storage option 
+It continuously streams SQLite changes to file or external storage - the cloud storage option
 should not be used.
 Backups/replication should not be on the same disk as the original SQLite DB.
 
