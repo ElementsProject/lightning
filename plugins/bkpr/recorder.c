@@ -1051,6 +1051,10 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 		}
 	}
 
+	/* Only affects external accounts, we can ignore */
+	if (no_accts == 0)
+		goto finished;
+
 	/* If either is zero, keep waiting */
 	if (amount_msat_zero(withdraw_msat)
 	    || amount_msat_zero(deposit_msat))
@@ -1099,7 +1103,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 
 		last_id = events[i]->acct_db_id;
 
-		/* We *never assign fees to external accounts;
+		/* We *never* assign fees to external accounts;
 		 * if external funds were contributed to a tx
 		 * we wouldn't record it -- fees are solely ours */
 		if (last_id == extern_id)
