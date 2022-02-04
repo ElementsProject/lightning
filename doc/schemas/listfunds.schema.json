@@ -151,7 +151,7 @@
           },
           "our_amount_msat": {
             "type": "msat",
-            "description": "available satoshis on our node’s end of the channel"
+            "description": "available satoshis on our node's end of the channel"
           },
           "channel_sat": {
             "deprecated": true
