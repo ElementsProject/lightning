@@ -146,6 +146,12 @@ static bool db_sqlite3_setup(struct db *db)
 	}
 	wrapper->conn = sql;
 
+	err = sqlite3_extended_result_codes(wrapper->conn, 1);
+	if (err != SQLITE_OK) {
+		db_fatal("failed to enable extended result codes: %s",
+			 sqlite3_errstr(err));
+	}
+
 	if (!backup_filename)
 		wrapper->backup_conn = NULL;
 	else {
