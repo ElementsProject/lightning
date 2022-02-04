@@ -37,7 +37,7 @@ On success, an object is returned, containing:
     - **reserved_to_block** (u32): Block height where reservation will expire
 - **channels** (array of objects):
   - **peer_id** (pubkey): the peer with which the channel is opened
-  - **our_amount_msat** (msat): available satoshis on our node’s end of the channel
+  - **our_amount_msat** (msat): available satoshis on our node's end of the channel
   - **amount_msat** (msat): total channel value
   - **funding_txid** (txid): funding transaction id
   - **funding_output** (u32): the 0-based index of the output in the funding transaction
