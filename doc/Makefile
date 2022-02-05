@@ -93,9 +93,13 @@ doc-all: $(MANPAGES) doc/index.rst
 
 SCHEMAS := $(wildcard doc/schemas/*.json)
 check-fmt-schemas: $(SCHEMAS:%=check-fmt-schema/%)
+fmt-schemas: $(SCHEMAS:%=fmt-schema/%)
 
 check-fmt-schema/%: %
 	@jq . < "$*" > "$*".fmt && diff -u "$*" "$*.fmt" && rm "$*.fmt"
+
+fmt-schema/%: %
+	@jq . < "$*" > "$*".fmt && cat "$*".fmt > "$*" && rm "$*.fmt"
 
 check-doc: check-config-docs check-manpages check-fmt-schemas
 
