@@ -9,8 +9,6 @@
 #include <wire/wire.h>
 #include <bitcoin/tx.h>
 
-#define SEGREGATED_WITNESS_FLAG 0x1
-
 struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
 					struct amount_sat amount,
 					const u8 *script)
