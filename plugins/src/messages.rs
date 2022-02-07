@@ -1,3 +1,4 @@
+use crate::options::ConfigOption;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -149,9 +150,9 @@ where
 }
 
 #[derive(Serialize, Default, Debug)]
-pub struct GetManifestResponse {
-    options: Vec<()>,
-    rpcmethods: Vec<()>,
+pub(crate) struct GetManifestResponse {
+    pub(crate) options: Vec<ConfigOption>,
+    pub(crate) rpcmethods: Vec<()>,
 }
 
 #[derive(Serialize, Default, Debug)]

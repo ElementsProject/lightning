@@ -18,6 +18,10 @@ mod messages;
 #[macro_use]
 extern crate serde_json;
 
+pub mod options;
+
+use options::ConfigOption;
+
 /// Builder for a new plugin.
 pub struct Builder<S, I, O>
 where
@@ -35,6 +39,8 @@ where
 
     #[allow(dead_code)]
     subscriptions: Subscriptions,
+
+    options: Vec<ConfigOption>,
 }
 
 impl<S, I, O> Builder<S, I, O>
@@ -50,7 +56,13 @@ where
             output,
             hooks: Hooks::default(),
             subscriptions: Subscriptions::default(),
+            options: vec![],
         }
+    }
+
+    pub fn option(mut self, opt: options::ConfigOption) -> Builder<S, I, O> {
+        self.options.push(opt);
+        self
     }
 
     pub fn build(self) -> (Plugin<S, I, O>, I) {
@@ -67,6 +79,7 @@ where
                 state: Arc::new(Mutex::new(self.state)),
                 output,
                 input_type: PhantomData,
+                options: self.options,
             },
             self.input,
         )
@@ -85,7 +98,20 @@ where
     /// The state gets cloned for each request
     state: Arc<Mutex<S>>,
     input_type: PhantomData<I>,
+    options: Vec<ConfigOption>,
 }
+
+impl<S, I, O> Plugin<S, I, O>
+where
+    S: Clone + Send,
+    I: AsyncRead + Send + Unpin,
+    O: Send + AsyncWrite + Unpin,
+{
+    pub fn options(&self) -> Vec<ConfigOption> {
+        self.options.clone()
+    }
+}
+
 impl<S, I, O> Plugin<S, I, O>
 where
     S: Clone + Send,
@@ -130,8 +156,7 @@ where
         let state = self.state.clone();
         let res: serde_json::Value = match request {
             messages::Request::Getmanifest(c) => {
-                serde_json::to_value(Plugin::<S, I, O>::handle_get_manifest(c, state).await?)
-                    .unwrap()
+                serde_json::to_value(self.handle_get_manifest(c, state).await?).unwrap()
             }
             messages::Request::Init(c) => {
                 serde_json::to_value(Plugin::<S, I, O>::handle_init(c, state).await?).unwrap()
@@ -160,10 +185,14 @@ where
     }
 
     async fn handle_get_manifest(
+        &mut self,
         _call: messages::GetManifestCall,
         _state: Arc<Mutex<S>>,
     ) -> Result<messages::GetManifestResponse, Error> {
-        Ok(messages::GetManifestResponse::default())
+        Ok(messages::GetManifestResponse {
+            options: self.options.clone(),
+            rpcmethods: vec![],
+        })
     }
 
     async fn handle_init(
@@ -192,6 +221,6 @@ mod test {
     #[test]
     fn init() {
         let builder = Builder::new((), tokio::io::stdin(), tokio::io::stdout());
-        let plugin = builder.build();
+        builder.build();
     }
 }
