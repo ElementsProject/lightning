@@ -821,6 +821,12 @@ void handle_used_local_channel_update(struct daemon *daemon, const u8 *msg)
 					     &scid));
 		return;
 	}
+
+	/* This whole idea is racy: they might have used a *previous* update.
+	 * But that's OK: the notification is an optimization to avoid
+	 * broadcasting updates we never use (route flapping).  In this case,
+	 * we might broadcast a more recent update than the one we sent to a
+	 * peer. */
 	local_channel_update_latest(daemon, chan);
 }
 

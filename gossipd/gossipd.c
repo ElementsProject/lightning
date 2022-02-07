@@ -442,7 +442,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 
 	peer = find_peer(daemon, &id);
 	if (!peer) {
-		status_broken("connectd sent gossip msg %s for unknown peer %s",
+		status_broken("connectd sent gossip msg %s from unknown peer %s",
 			      peer_wire_name(fromwire_peektype(msg)),
 			      type_to_string(tmpctx, struct node_id, &id));
 		return;
