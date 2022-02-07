@@ -36,6 +36,10 @@
             "type": "pubkey",
             "description": "the destination node"
           },
+          "short_channel_id": {
+            "type": "short_channel_id",
+            "description": "short channel id of channel"
+          },
           "public": {
             "type": "boolean",
             "description": "true if this is announced (otherwise it must be our channel)"
