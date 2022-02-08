@@ -342,7 +342,8 @@
                   "additionalProperties": false,
                   "required": [
                     "local_msat",
-                    "remote_msat"
+                    "remote_msat",
+                    "pushed_msat"
                   ],
                   "properties": {
                     "local_msat": {
@@ -352,6 +353,10 @@
                     "remote_msat": {
                       "type": "msat",
                       "description": "Amount of channel they funded"
+                    },
+                    "pushed_msat": {
+                      "type": "msat",
+                      "description": "Amount pushed from opener to peer"
                     }
                   }
                 },

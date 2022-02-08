@@ -73,6 +73,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **funding** (object, optional):
     - **local_msat** (msat): Amount of channel we funded
     - **remote_msat** (msat): Amount of channel they funded
+    - **pushed_msat** (msat): Amount pushed from opener to peer
   - **to_us_msat** (msat, optional): how much of channel is owed to us
   - **min_to_us_msat** (msat, optional): least amount owed to us ever
   - **max_to_us_msat** (msat, optional): most amount owed to us ever
@@ -377,4 +378,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:d45de73a968bcc3e7fb699f0acd7a27a4c70d9e9fded8af8c684a71fe012f1ce)
+[comment]: # ( SHA256STAMP:001e3cf495571bb09fe29f74adde8a6e40e69ddb1169934924eaf901a1e5f3c0)
