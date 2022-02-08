@@ -791,6 +791,7 @@ static void json_add_channel(struct lightningd *ld,
 	json_object_start(response, "funding");
 	json_add_sat_only(response, "local_msat", channel->our_funds);
 	json_add_sat_only(response, "remote_msat", peer_funded_sats);
+	json_add_amount_msat_only(response, "pushed_msat", channel->push);
 	json_object_end(response);
 
 	if (!amount_sat_to_msat(&funding_msat, channel->funding_sats)) {
