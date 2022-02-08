@@ -266,7 +266,7 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 	if (!mvt->account_name)
 		mvt->account_name = type_to_string(mvt, struct channel_id,
 						   &channel->cid);
-	else if (chain_mvt_is_external(mvt))
+	else
 		mvt->originating_acct = type_to_string(mvt, struct channel_id,
 						       &channel->cid);
 	notify_chain_mvt(channel->peer->ld, mvt);
