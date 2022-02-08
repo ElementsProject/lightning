@@ -208,6 +208,11 @@ static struct command_result *json_list_balances(struct command *cmd,
 				   " for account %s: %s",
 				   accts[i]->name, err);
 
+		/* Skip the external acct balance, it's effectively
+		 * meaningless */
+		if (streq(accts[i]->name, EXTERNAL_ACCT))
+			continue;
+
 		/* Add it to the result data */
 		json_object_start(res, NULL);
 
