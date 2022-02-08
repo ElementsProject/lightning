@@ -79,6 +79,149 @@ static void json_add_onchain_fee(struct json_stream *out,
 	json_object_end(out);
 }
 
+static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
+					 struct bitcoin_txid *txid)
+{
+	for (size_t i = 0; i < tal_count(sums); i++) {
+		if (bitcoin_txid_eq(txid, sums[i]->txid))
+			return sums[i];
+	}
+	return NULL;
+}
+
+static struct command_result *json_inspect(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct account *acct;
+	const char *acct_name;
+	struct fee_sum **fee_sums;
+	struct txo_set **txos;
+
+	/* Only available for channel accounts? */
+	if (!param(cmd, buf, params,
+		   p_opt("account", param_string, &acct_name),
+		   NULL))
+		return command_param_failed();
+
+	if (!acct_name)
+		return command_fail(cmd, PLUGIN_ERROR,
+				    "Account not provided");
+
+	if (streq(acct_name, WALLET_ACCT)
+	    || streq(acct_name, EXTERNAL_ACCT))
+		return command_fail(cmd, PLUGIN_ERROR,
+				    "`inspect` not supported for"
+				    " non-channel accounts");
+
+	db_begin_transaction(db);
+	acct = find_account(cmd, db, acct_name);
+	db_commit_transaction(db);
+
+	if (!acct)
+		return command_fail(cmd, PLUGIN_ERROR,
+				    "Account %s not found",
+				    acct_name);
+
+	db_begin_transaction(db);
+	find_txo_chain(cmd, db, acct, &txos);
+	fee_sums = find_account_onchain_fees(cmd, db, acct);
+	db_commit_transaction(db);
+
+	res = jsonrpc_stream_success(cmd);
+	json_array_start(res, "txs");
+	for (size_t i = 0; i < tal_count(txos); i++) {
+		struct txo_set *set = txos[i];
+		struct fee_sum *fee_sum;
+
+		json_object_start(res, NULL);
+		json_add_txid(res, "txid", set->txid);
+
+		/* annoyting, but we can only add the block height
+		 * if we have a txo for it */
+		for (size_t j = 0; j < tal_count(set->pairs); j++) {
+			if (set->pairs[j]->txo
+			    && set->pairs[j]->txo->blockheight > 0) {
+				json_add_num(res, "blockheight",
+				     set->pairs[j]->txo->blockheight);
+				break;
+			}
+		}
+
+		fee_sum = find_sum_for_txid(fee_sums, set->txid);
+		if (fee_sum)
+			json_add_amount_msat_only(res, "fees_paid",
+						  fee_sum->fees_paid);
+		else
+			json_add_amount_msat_only(res, "fees_paid",
+						  AMOUNT_MSAT(0));
+
+		json_array_start(res, "outputs");
+		for (size_t j = 0; j < tal_count(set->pairs); j++) {
+			struct txo_pair *pr = set->pairs[j];
+
+			/* Is this an event that belongs to this account? */
+			if (pr->txo) {
+				if (pr->txo->origin_acct) {
+					if (!streq(pr->txo->origin_acct, acct->name))
+						continue;
+				} else if (pr->txo->acct_db_id != acct->db_id
+					   /* We make an exception for wallet events */
+					   && !streq(pr->txo->acct_name, WALLET_ACCT))
+					continue;
+			} else if (pr->spend
+				   && pr->spend->acct_db_id != acct->db_id)
+				continue;
+
+			json_object_start(res, NULL);
+			if (set->pairs[j]->txo) {
+				struct chain_event *ev = set->pairs[j]->txo;
+
+				json_add_string(res, "account", ev->acct_name);
+				json_add_num(res, "outnum",
+					     ev->outpoint.n);
+				json_add_string(res, "output_tag", ev->tag);
+				json_add_amount_msat_only(res, "output_value",
+							  ev->output_value);
+				json_add_amount_msat_only(res, "credit",
+							  ev->credit);
+				json_add_string(res, "currency", ev->currency);
+				if (ev->origin_acct)
+					json_add_string(res, "originating_account",
+							ev->origin_acct);
+			}
+			if (set->pairs[j]->spend) {
+				struct chain_event *ev = set->pairs[j]->spend;
+				/* If we didn't already populate this info */
+				if (!set->pairs[j]->txo) {
+					json_add_string(res, "account",
+							ev->acct_name);
+					json_add_num(res, "outnum",
+						     ev->outpoint.n);
+					json_add_amount_msat_only(res, "output_value",
+								  ev->output_value);
+					json_add_string(res, "currency",
+							ev->currency);
+				}
+				json_add_string(res, "spend_tag", ev->tag);
+				json_add_txid(res, "spending_txid",
+					      ev->spending_txid);
+				json_add_amount_msat_only(res, "debit", ev->debit);
+				if (ev->payment_id)
+					json_add_sha256(res, "payment_id",
+							ev->payment_id);
+			}
+			json_object_end(res);
+		}
+		json_array_end(res);
+		json_object_end(res);
+	}
+	json_array_end(res);
+
+	return command_finished(cmd, res);
+}
+
 /* Find all the events for this account, ordered by timestamp */
 static struct command_result *json_list_account_events(struct command *cmd,
 						       const char *buf,
@@ -1115,6 +1258,13 @@ static const struct plugin_command commands[] = {
 		"List all events for an {account} (or all accounts, if"
 		" no account specified) in {format}. Sorted by timestamp",
 		json_list_account_events
+	},
+	{
+		"inspect",
+		"utilities",
+		"See the current on-chain graph of an {account}",
+		"Prints out the on-chain footprint of a given {account}.",
+		json_inspect
 	},
 };
 
