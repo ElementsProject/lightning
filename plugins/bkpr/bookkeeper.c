@@ -216,7 +216,7 @@ static struct command_result *json_list_balances(struct command *cmd,
 		/* Add it to the result data */
 		json_object_start(res, NULL);
 
-		json_add_string(res, "account_id", accts[i]->name);
+		json_add_string(res, "account", accts[i]->name);
 		json_array_start(res, "balances");
 		for (size_t j = 0; j < tal_count(balances); j++) {
 			json_object_start(res, NULL);
