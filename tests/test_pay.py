@@ -1746,9 +1746,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
 def test_pay_routeboost(node_factory, bitcoind, compat):
     """Make sure we can use routeboost information. """
     # l1->l2->l3--private-->l4
-    # Note: l1 gets upset because it extracts update for private channel.
-    l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True,
-                                     opts=[{'allow_bad_gossip': True}, {}])
+    l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
 
     # This should a "could not find a route" because that's true.

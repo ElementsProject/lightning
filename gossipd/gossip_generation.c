@@ -420,9 +420,13 @@ static u8 *sign_and_timestamp_update(const tal_t *ctx,
 		tal_free(unsigned_update);
 
 	/* Tell lightningd about this immediately (even if we're not actually
-	 * applying it now) */
-	msg = towire_gossipd_got_local_channel_update(NULL, &chan->scid, update);
-	daemon_conn_send(daemon->master, take(msg));
+	 * applying it now).  We choose not to send info about private
+	 * channels, even in errors. */
+	if (is_chan_public(chan)) {
+		msg = towire_gossipd_got_local_channel_update(NULL, &chan->scid,
+							      update);
+		daemon_conn_send(daemon->master, take(msg));
+	}
 
 	return update;
 }
