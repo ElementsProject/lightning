@@ -334,7 +334,8 @@ bool find_txo_chain(const tal_t *ctx,
 	open_ev = find_chain_event_by_id(ctx, db,
 					 *acct->open_event_db_id);
 
-	*sets = tal_arr(ctx, struct txo_set *, 0);
+	if (sets)
+		*sets = tal_arr(ctx, struct txo_set *, 0);
 	txids = tal_arr(ctx, struct bitcoin_txid *, 0);
 	tal_arr_expand(&txids, &open_ev->outpoint.txid);
 
@@ -379,10 +380,49 @@ bool find_txo_chain(const tal_t *ctx,
 			}
 		}
 
-		tal_arr_expand(sets, set);
+		if (sets)
+			tal_arr_expand(sets, set);
 	}
 
 	return is_complete;
+}
+
+void maybe_mark_account_onchain(struct db *db, struct account *acct)
+{
+	const u8 *ctx = tal(NULL, u8);
+	if (find_txo_chain(ctx, db, acct, NULL)) {
+		/* Ok now we find the max block height of the
+		 * spending chain_events for this channel */
+		bool ok;
+
+		struct db_stmt *stmt = db_prepare_v2(db,
+				SQL("SELECT"
+				    " blockheight"
+				    " FROM chain_events"
+				    " WHERE account_id = ?"
+				    "  AND spending_txid IS NOT NULL"
+				    " ORDER BY blockheight DESC"
+				    " LIMIT 1"));
+
+		db_bind_u64(stmt, 0, acct->db_id);
+		db_query_prepared(stmt);
+		ok = db_step(stmt);
+		assert(ok);
+
+		acct->onchain_resolved_block = db_col_int(stmt, "blockheight");
+		tal_free(stmt);
+
+		/* Ok, now we update the account with this blockheight */
+		stmt = db_prepare_v2(db, SQL("UPDATE accounts SET"
+					     "  onchain_resolved_block = ?"
+					     " WHERE"
+					     " id = ?"));
+		db_bind_int(stmt, 0, acct->onchain_resolved_block);
+		db_bind_u64(stmt, 1, acct->db_id);
+		db_exec_prepared_v2(take(stmt));
+	}
+
+	tal_free(ctx);
 }
 
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,

@@ -117,6 +117,13 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 			        struct db *db,
 			        struct bitcoin_txid *txid);
 
+/* Have all the outputs for this account's close tx
+ * been resolved onchain? If so, update the account with the
+ * highest blockheight that has a resolving tx in it.
+ *
+ * The point of this is to allow us to prune data, eventually */
+void maybe_mark_account_onchain(struct db *db, struct account *acct);
+
 /* Log a channel event */
 void log_channel_event(struct db *db,
 		       const struct account *acct,
