@@ -264,21 +264,27 @@ static bool new_missed_channel_account(struct command *cmd,
 		assert(chan_arr_tok->type == JSMN_ARRAY);
 		json_for_each_arr(j, curr_chan, chan_arr_tok) {
 			struct bitcoin_outpoint opt;
-			struct amount_msat amt;
+			struct amount_msat amt, remote_amt, push_amt,
+					   push_credit, push_debit;
 			char *opener, *chan_id;
 			const char *err;
 			enum mvt_tag *tags;
+			bool ok;
 
 			err = json_scan(tmpctx, buf, curr_chan,
 					"{channel_id:%,"
 					"funding_txid:%,"
 					"funding_outnum:%,"
-					"funding:{local_msat:%},"
+					"funding:{local_msat:%,"
+						 "remote_msat:%,"
+						 "pushed_msat:%},"
 					"opener:%}",
 					JSON_SCAN_TAL(tmpctx, json_strdup, &chan_id),
 					JSON_SCAN(json_to_txid, &opt.txid),
 					JSON_SCAN(json_to_number, &opt.n),
 					JSON_SCAN(json_to_msat, &amt),
+					JSON_SCAN(json_to_msat, &remote_amt),
+					JSON_SCAN(json_to_msat, &push_amt),
 					JSON_SCAN_TAL(tmpctx, json_strdup, &opener));
 			if (err)
 				plugin_err(cmd->plugin,
@@ -290,10 +296,11 @@ static bool new_missed_channel_account(struct command *cmd,
 
 			chain_ev = tal(cmd, struct chain_event);
 			chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
-			chain_ev->credit = amt;
 			chain_ev->debit = AMOUNT_MSAT(0);
-			chain_ev->output_value = AMOUNT_MSAT(0);
+			ok = amount_msat_add(&chain_ev->output_value, amt, remote_amt);
+			assert(ok);
 			chain_ev->currency = tal_strdup(chain_ev, currency);
+			chain_ev->origin_acct = NULL;
 			/* 2s before the channel opened, minimum */
 			chain_ev->timestamp = timestamp - 2;
 			chain_ev->blockheight = 0;
@@ -303,13 +310,50 @@ static bool new_missed_channel_account(struct command *cmd,
 
 			/* Update the account info too */
 			tags = tal_arr(chain_ev, enum mvt_tag, 1);
-			tags[1] = CHANNEL_OPEN;
-			if (streq(opener, "local"))
-				tal_arr_expand(&tags, OPENER);
+			tags[0] = CHANNEL_OPEN;
 
+			/* Leased/pushed channels have some extra work */
+			if (streq(opener, "local")) {
+				tal_arr_expand(&tags, OPENER);
+				ok = amount_msat_add(&amt, amt, push_amt);
+				push_credit = AMOUNT_MSAT(0);
+				push_debit = push_amt;
+			} else {
+				ok = amount_msat_sub(&amt, amt, push_amt);
+				push_credit = push_amt;
+				push_debit = AMOUNT_MSAT(0);
+			}
+
+			/* We assume pushes are all leases, even
+			 * though they might just be pushes */
+			if (!amount_msat_zero(push_amt))
+				tal_arr_expand(&tags, LEASED);
+
+			assert(ok);
+			chain_ev->credit = amt;
 			db_begin_transaction(db);
 			log_chain_event(db, acct, chain_ev);
 			maybe_update_account(db, acct, chain_ev, tags);
+
+			/* We log a channel event for the push amt */
+			if (!amount_msat_zero(push_amt)) {
+				struct channel_event *chan_ev;
+				char *chan_tag;
+
+				chan_tag = tal_fmt(tmpctx, "%s",
+						   mvt_tag_str(LEASE_FEE));
+
+				chan_ev = new_channel_event(tmpctx,
+							    chan_tag,
+							    push_credit,
+							    push_debit,
+							    AMOUNT_MSAT(0),
+							    currency,
+							    NULL, 0,
+							    timestamp - 1);
+				log_channel_event(db, acct, chan_ev);
+			}
+
 			db_commit_transaction(db);
 			return true;
 		}
