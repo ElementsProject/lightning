@@ -138,26 +138,23 @@ void channel_record_open(struct channel *channel)
 	blockheight = short_channel_id_blocknum(channel->scid);
 
 	/* If funds were pushed, add/sub them from the starting balance */
-	if (is_pushed) {
-		if (channel->opener == LOCAL) {
-			if (!amount_msat_add(&start_balance,
-					    channel->our_msat, channel->push))
-				fatal("Unable to add push_msat (%s) + our_msat (%s)",
-				      type_to_string(tmpctx, struct amount_msat,
-						     &channel->push),
-				      type_to_string(tmpctx, struct amount_msat,
-						     &channel->our_msat));
-		} else {
-			if (!amount_msat_sub(&start_balance,
-					    channel->our_msat, channel->push))
-				fatal("Unable to sub our_msat (%s) - push (%s)",
-				      type_to_string(tmpctx, struct amount_msat,
-						     &channel->our_msat),
-				      type_to_string(tmpctx, struct amount_msat,
-						     &channel->push));
-		}
-	} else
-		start_balance = channel->our_msat;
+	if (channel->opener == LOCAL) {
+		if (!amount_msat_add(&start_balance,
+				     channel->our_msat, channel->push))
+			fatal("Unable to add push_msat (%s) + our_msat (%s)",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &channel->push),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &channel->our_msat));
+	} else {
+		if (!amount_msat_sub(&start_balance,
+				    channel->our_msat, channel->push))
+			fatal("Unable to sub our_msat (%s) - push (%s)",
+			      type_to_string(tmpctx, struct amount_msat,
+					     &channel->our_msat),
+			      type_to_string(tmpctx, struct amount_msat,
+					     &channel->push));
+	}
 
 	mvt = new_coin_channel_open(tmpctx,
 				    &channel->cid,
