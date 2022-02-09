@@ -5,19 +5,11 @@ import subprocess
 import pytest
 
 
-# Skip the entire module if we don't have Rust. The same is true for
-# VALGRIND, since it sometimes causes false positives in
-# `std::sync::Once`
-pytestmark = [
-    pytest.mark.skipif(
-        env('RUST') != '1',
-        reason='RUST is not enabled skipping rust-dependent tests'
-    ),
-    pytest.mark.skipif(
-        env('VALGRIND') == '1',
-        reason='VALGRIND is enabled skipping rust-dependent tests, as they may report false positives.'
-    ),
-]
+# Skip the entire module if we don't have Rust.
+pytestmark = pytest.mark.skipif(
+    env('RUST') != '1',
+    reason='RUST is not enabled skipping rust-dependent tests'
+)
 
 
 def test_rpc_client(node_factory):

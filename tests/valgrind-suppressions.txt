@@ -1,0 +1,14 @@
+{
+   rust__std_sync_once__try_statx_01
+   Memcheck:Param
+   statx(buf)
+   fun:statx
+   ...
+}
+{
+   rust__std_sync_once__try_statx_02
+   Memcheck:Param
+   statx(file_name)
+   fun:statx
+   ...
+}

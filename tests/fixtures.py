@@ -1,7 +1,8 @@
-from utils import DEVELOPER, TEST_NETWORK  # noqa: F401,F403
+from utils import DEVELOPER, TEST_NETWORK, VALGRIND  # noqa: F401,F403
 from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, node_factory, bitcoind, teardown_checks, throttler, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
 from utils import COMPAT
+from pathlib import Path
 
 import os
 import pytest
@@ -16,6 +17,18 @@ def node_cls():
 class LightningNode(utils.LightningNode):
     def __init__(self, *args, **kwargs):
         utils.LightningNode.__init__(self, *args, **kwargs)
+
+        # We have some valgrind suppressions in the `tests/`
+        # directory, so we can add these to the valgrind configuration
+        # (not generally true when running pyln-testing, hence why
+        # it's being done in this specialization, and not in the
+        # library).
+        if self.daemon.cmd_line[0] == 'valgrind':
+            suppressions_path = Path(__file__).parent / "valgrind-suppressions.txt"
+            self.daemon.cmd_prefix += [
+                f"--suppressions={suppressions_path}",
+                "--gen-suppressions=all"
+            ]
 
         # If we opted into checking the DB statements we will attach the dblog
         # plugin before starting the node

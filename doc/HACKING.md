@@ -242,6 +242,37 @@ TEST_DB_PROVIDER=[sqlite3|postgres] - Selects the database to use when running
 EXPERIMENTAL_DUAL_FUND=[0|1]	    - Enable dual-funding tests.
 ```
 
+#### Troubleshooting
+
+##### Valgrind complains about code we don't control
+
+Sometimes `valgrind` will complain about code we do not control
+ourselves, either because it's in a library we use or it's a false
+positive. There are generally three ways to address these issues
+(in descending order of preference):
+
+ 1. Add a suppression for the one specific call that is causing the
+    issue. Upon finding an issue `valgrind` is instructed in the
+    testing framework to print filters that'd match the issue. These
+    can be added to the suppressions file under
+    `tests/valgrind-suppressions.txt` in order to explicitly skip
+    reporting these in future. This is preferred over the other
+    solutions since it only disables reporting selectively for things
+    that were manually checked. See the [valgrind docs][vg-supp] for
+    details.
+ 2. Add the process that `valgrind` is complaining about to the
+    `--trace-children-skip` argument in `pyln-testing`. This is used
+    in cases of full binaries not being under our control, such as the
+    `python3` interpreter used in tests that run plugins. Do not use
+    this for binaries that are compiled from our code, as it tends to
+    mask real issues.
+ 3. Mark the test as skipped if running under `valgrind`. It's mostly
+    used to skip tests that otherwise would take considerably too long
+    to test on CI. We discourage this for suppressions, since it is a
+    very blunt tool.
+
+[vg-supp]: https://valgrind.org/docs/manual/manual-core.html#manual-core.suppress
+
 Making BOLT Modifications
 -------------------------
 
