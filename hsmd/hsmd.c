@@ -168,6 +168,7 @@ static struct io_plan *bad_req(struct io_conn *conn,
  * and then call handle_client with argument 'c' */
 static struct io_plan *client_read_next(struct io_conn *conn, struct client *c)
 {
+	c->msg_in = tal_free(c->msg_in);
 	return io_read_wire(conn, c, &c->msg_in, handle_client, c);
 }
 
@@ -189,6 +190,8 @@ static struct client *new_client(const tal_t *ctx,
 				 int fd)
 {
 	struct client *c = tal(ctx, struct client);
+
+	c->msg_in = NULL;
 
 	/*~ All-zero pubkey is used for the initial master connection */
 	if (id) {
