@@ -224,7 +224,7 @@ static void decode_h(struct bolt11 *b11,
 static char *decode_x(struct bolt11 *b11,
 		      struct hash_u5 *hu5,
 		      u5 **data, size_t *data_len,
-		      size_t data_length, const bool *have_x)
+		      size_t data_length, bool *have_x)
 {
 	if (*have_x)
 		return unknown_field(b11, hu5, data, data_len, 'x',
@@ -234,6 +234,8 @@ static char *decode_x(struct bolt11 *b11,
 	if (!pull_uint(hu5, data, data_len, &b11->expiry, data_length * 5))
 		return tal_fmt(b11, "x: length %zu chars is excessive",
 			       *data_len);
+
+	*have_x = true;
 	return NULL;
 }
 
