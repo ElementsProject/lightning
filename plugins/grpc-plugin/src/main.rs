@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
-use cln_plugin::Builder;
+use cln_plugin::{options, Builder};
 use log::{debug, warn};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -31,7 +31,14 @@ async fn main() -> Result<()> {
         ca_cert,
     };
 
-    let (plugin, i) = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout()).build();
+    let plugin = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
+        .option(options::ConfigOption::new(
+            "grpc-port",
+            options::Value::Integer(29735),
+            "Which port should the grpc plugin listen for incoming connections?",
+        ))
+        .start()
+        .await?;
 
     tokio::spawn(async move {
         if let Err(e) = run_interface(state).await {
