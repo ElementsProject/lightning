@@ -245,7 +245,7 @@ static char *decode_x(struct bolt11 *b11,
 static char *decode_c(struct bolt11 *b11,
 		      struct hash_u5 *hu5,
 		      u5 **data, size_t *data_len,
-		      size_t data_length, const bool *have_c)
+		      size_t data_length, bool *have_c)
 {
 	u64 c;
 	if (*have_c)
@@ -261,6 +261,7 @@ static char *decode_c(struct bolt11 *b11,
 	if (b11->min_final_cltv_expiry != c)
 		return tal_fmt(b11, "c: %"PRIu64" is too large", c);
 
+	*have_c = true;
 	return NULL;
 }
 
