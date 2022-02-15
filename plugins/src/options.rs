@@ -104,14 +104,14 @@ mod test {
                     }),
             ),
             (
-                ConfigOption::new("name", Value::Boolean(true), "description"
+                ConfigOption::new("name", Value::Boolean(true), "description"),
                 json!({
                 "name": "name",
                         "description":"description",
                         "default": true,
                         "type": "booltes",
                     }),
-            )),
+            ),
         ];
 
         for (input, expected) in tests.iter() {
