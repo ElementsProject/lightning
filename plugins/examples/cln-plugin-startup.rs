@@ -6,17 +6,13 @@ use tokio;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let (plugin, stdin) = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
+    let plugin = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "test-option",
             options::Value::Integer(42),
             "a test-option with default 42",
         ))
-        .build();
-
-    tokio::spawn(async {
-        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
-        log::info!("Hello world");
-    });
-    plugin.run(stdin).await
+        .start()
+        .await?;
+    plugin.join().await
 }
