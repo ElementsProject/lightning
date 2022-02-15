@@ -1173,7 +1173,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		 * temporary allocations don't grow unbounded. */
 		clean_tmpctx();
 
-		/* This helper routine polls both the peer and gossipd. */
+		/* This helper routine polls the peer. */
 		msg = peer_read(ctx, state->pps);
 
 		/* BOLT #1:
@@ -3896,7 +3896,7 @@ int main(int argc, char *argv[])
 	/*~ Turns out this is useful for testing, to make sure we're ready. */
 	status_debug("Handed peer, entering loop");
 
-	/*~ We manually run a little poll() loop here.  With only three fds */
+	/*~ We manually run a little poll() loop here.  With only two fds */
 	pollfd[0].fd = REQ_FD;
 	pollfd[0].events = POLLIN;
 	pollfd[1].fd = state->pps->peer_fd;
@@ -3935,8 +3935,8 @@ int main(int argc, char *argv[])
 		clean_tmpctx();
 	}
 
-	/*~ Write message and hand back the peer fd and gossipd fd.  This also
-	 * means that if the peer or gossipd wrote us any messages we didn't
+	/*~ Write message and hand back the peer fd.  This also
+	 * means that if the peer wrote us any messages we didn't
 	 * read yet, it will simply be read by the next daemon. */
 	wire_sync_write(REQ_FD, msg);
 	per_peer_state_fdpass_send(REQ_FD, state->pps);
