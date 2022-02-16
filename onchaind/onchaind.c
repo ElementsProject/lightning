@@ -247,6 +247,31 @@ static void record_external_deposit(const struct tracked_output *out,
 	record_external_output(&out->outpoint, out->sat, blockheight, tag);
 }
 
+static void record_mutual_close(const struct tx_parts *tx,
+				const u8 *remote_scriptpubkey,
+				u32 blockheight)
+{
+	/* FIXME: if we ever change how closes happen, this will
+	 * need to be updated as there's no longer 1 output
+	 * per peer */
+	for (size_t i = 0; i < tal_count(tx->outputs); i++) {
+		struct bitcoin_outpoint out;
+
+		if (!wally_tx_output_scripteq(tx->outputs[i],
+					      remote_scriptpubkey))
+			continue;
+
+		out.n = i;
+		out.txid = tx->txid;
+		record_external_output(&out,
+				       amount_sat(tx->outputs[i]->satoshi),
+				       blockheight,
+				       TO_THEM);
+		break;
+	}
+}
+
+
 static void record_channel_deposit(struct tracked_output *out,
 				   u32 blockheight, enum mvt_tag tag)
 {
@@ -3882,9 +3907,11 @@ int main(int argc, char *argv[])
 	 * without any pending payments) and publish it on the blockchain (see
 	 * [BOLT #2: Channel Close](02-peer-protocol.md#channel-close)).
 	 */
-	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE]))
+	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE])) {
+		record_mutual_close(tx, scriptpubkey[REMOTE],
+				    tx_blockheight);
 		handle_mutual_close(outs, tx);
-	else {
+	} else {
 		/* BOLT #5:
 		 *
 		 * 2. The bad way (*unilateral close*): something goes wrong,

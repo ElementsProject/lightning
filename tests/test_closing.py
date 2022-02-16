@@ -108,12 +108,12 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     expected_1 = {
         '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
         'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
-        'B': [('wallet', ['deposit'], None, None)],
+        'B': [('wallet', ['deposit'], None, None), ('external', ['to_them'], None, None)],
     }
 
     expected_2 = {
         'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
-        'B': [('wallet', ['deposit'], None, None)],
+        'B': [('wallet', ['deposit'], None, None), ('external', ['to_them'], None, None)],
     }
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
