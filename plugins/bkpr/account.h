@@ -34,6 +34,9 @@ struct account {
 
 	/* db_id of chain event that closed this account */
 	u64 *closed_event_db_id;
+
+	/* Number of outputs to expect on close */
+	u32 closed_count;
 };
 
 /* Get a new account */

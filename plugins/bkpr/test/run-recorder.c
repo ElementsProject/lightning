@@ -179,6 +179,8 @@ static bool accountseq(struct account *a1, struct account *a2)
 	if (a1->closed_event_db_id)
 		CHECK(*a1->closed_event_db_id == *a2->closed_event_db_id);
 
+	CHECK(a1->closed_count == a2->closed_count);
+
 	return true;
 }
 
@@ -1012,7 +1014,8 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	/* should not update the account info */
 	tags[0] = PUSHED;
 	tags[1] = PENALTY;
-	maybe_update_account(db, acct, ev1, tags);
+	maybe_update_account(db, acct, ev1, tags, 0);
+	acct2 = find_account(ctx, db, "wallet");
 	accountseq(acct, acct2);
 
 	/* channel_open -> open event db updated */
@@ -1020,17 +1023,18 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->open_event_db_id == NULL);
 	tags[0] = CHANNEL_OPEN;
 	tags[1] = LEASED;
-	maybe_update_account(db, acct, ev1, tags);
+	maybe_update_account(db, acct, ev1, tags, 2);
 	acct2 = find_account(ctx, db, "wallet");
 	accountseq(acct, acct2);
 	CHECK(acct->leased);
 	CHECK(acct->open_event_db_id != NULL);
+	CHECK(acct->closed_count == 2);
 
 	tags[0] = CHANNEL_CLOSE;
 	tags[1] = OPENER;
 	CHECK(acct->closed_event_db_id == NULL);
 	CHECK(!acct->we_opened);
-	maybe_update_account(db, acct, ev1, tags);
+	maybe_update_account(db, acct, ev1, tags, 0);
 	acct2 = find_account(ctx, db, "wallet");
 	accountseq(acct, acct2);
 	CHECK(acct->closed_event_db_id != NULL);

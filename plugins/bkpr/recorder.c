@@ -836,6 +836,8 @@ static struct account *stmt2account(const tal_t *ctx, struct db_stmt *stmt)
 	} else
 		a->closed_event_db_id = NULL;
 
+	a->closed_count = db_col_int(stmt, "closed_count");
+
 	return a;
 }
 
@@ -856,6 +858,7 @@ struct account *find_account(const tal_t *ctx,
 				     ", is_wallet"
 				     ", we_opened"
 				     ", leased"
+				     ", closed_count"
 				     " FROM accounts"
 				     " WHERE name = ?"));
 
@@ -921,6 +924,7 @@ struct account **list_accounts(const tal_t *ctx, struct db *db)
 				     ", is_wallet"
 				     ", we_opened"
 				     ", leased"
+				     ", closed_count"
 				     " FROM accounts;"));
 	db_query_prepared(stmt);
 
@@ -966,7 +970,8 @@ void account_add(struct db *db, struct account *acct)
 void maybe_update_account(struct db *db,
 			  struct account *acct,
 			  struct chain_event *e,
-			  const enum mvt_tag *tags)
+			  const enum mvt_tag *tags,
+			  u32 closed_count)
 {
 	struct db_stmt *stmt;
 	bool updated = false;
@@ -1014,6 +1019,11 @@ void maybe_update_account(struct db *db,
 		}
 	}
 
+	if (closed_count > 0) {
+		updated = true;
+		acct->closed_count = closed_count;
+	}
+
 	/* Nothing new here */
 	if (!updated)
 		return;
@@ -1024,6 +1034,7 @@ void maybe_update_account(struct db *db,
 				     ", closed_event_id = ?"
 				     ", we_opened = ?"
 				     ", leased = ?"
+				     ", closed_count = ?"
 				     " WHERE"
 				     " name = ?"));
 
@@ -1039,8 +1050,9 @@ void maybe_update_account(struct db *db,
 
 	db_bind_int(stmt, 2, acct->we_opened ? 1 : 0);
 	db_bind_int(stmt, 3, acct->leased ? 1 : 0);
+	db_bind_int(stmt, 4, acct->closed_count);
 
-	db_bind_text(stmt, 4, acct->name);
+	db_bind_text(stmt, 5, acct->name);
 
 	db_exec_prepared_v2(take(stmt));
 }

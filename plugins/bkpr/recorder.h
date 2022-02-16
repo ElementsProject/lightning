@@ -110,7 +110,8 @@ struct account *find_account(const tal_t *ctx,
 void maybe_update_account(struct db *db,
 			  struct account *acct,
 			  struct chain_event *e,
-			  const enum mvt_tag *tags);
+			  const enum mvt_tag *tags,
+			  u32 closed_count);
 
 /* Update our onchain fees now? */
 char *maybe_update_onchain_fees(const tal_t *ctx,

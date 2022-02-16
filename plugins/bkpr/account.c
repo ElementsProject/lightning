@@ -19,6 +19,7 @@ struct account *new_account(const tal_t *ctx,
 	a->onchain_resolved_block = 0;
 	a->open_event_db_id = NULL;
 	a->closed_event_db_id = NULL;
+	a->closed_count = 0;
 
 	return a;
 }
