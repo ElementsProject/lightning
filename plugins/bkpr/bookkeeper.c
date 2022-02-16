@@ -702,6 +702,35 @@ listpeers_multi_done(struct command *cmd,
 	return notification_handled(cmd);
 }
 
+static char *do_account_close_checks(const tal_t *ctx,
+				     struct chain_event *e,
+				     struct account *acct)
+{
+	struct account *closed_acct;
+
+	db_begin_transaction(db);
+
+	/* If is an external acct event, might be close channel related */
+	if (!is_channel_account(acct) && !e->spending_txid)
+		closed_acct = find_close_account(ctx, db, &e->outpoint.txid);
+	else
+		closed_acct = acct;
+
+	if (closed_acct && closed_acct->closed_event_db_id) {
+		maybe_mark_account_onchain(db, closed_acct);
+		if (closed_acct->onchain_resolved_block > 0) {
+			char *err;
+			err = update_channel_onchain_fees(ctx, db, closed_acct);
+			if (err)
+				return err;
+		}
+	}
+
+	db_commit_transaction(db);
+
+	return NULL;
+}
+
 struct event_info {
 	struct chain_event *ev;
 	struct account *acct;
@@ -758,10 +787,10 @@ listpeers_done(struct command *cmd, const char *buf,
 			   info->acct->name);
 
 	/* Maybe mark acct as onchain resolved */
-	db_begin_transaction(db);
-	if (info->acct->closed_event_db_id)
-		maybe_mark_account_onchain(db, info->acct);
-	db_commit_transaction(db);
+	err = do_account_close_checks(cmd, info->ev, info->acct);
+	if (err)
+		plugin_err(cmd->plugin, err);
+
 	return notification_handled(cmd);
 }
 
@@ -1097,10 +1126,9 @@ parse_and_log_chain_move(struct command *cmd,
 	}
 
 	/* Maybe mark acct as onchain resolved */
-	db_begin_transaction(db);
-	if (acct->closed_event_db_id)
-		maybe_mark_account_onchain(db, acct);
-	db_commit_transaction(db);
+	err = do_account_close_checks(cmd, e, acct);
+	if (err)
+		plugin_err(cmd->plugin, err);
 
 	return notification_handled(cmd);;
 }
