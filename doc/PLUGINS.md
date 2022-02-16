@@ -713,7 +713,7 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"output_count": 2, // ('chain_mvt' only, typically only channel closes)
 		"fees": "382msat", // ('channel_mvt' only)
 		"tags": ["deposit"],
-		"blockheight":102, // (May be null)
+		"blockheight":102, // 'chain_mvt' only
 		"timestamp":1585948198,
 		"coin_type":"bc"
 	}

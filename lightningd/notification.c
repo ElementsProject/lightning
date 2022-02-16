@@ -493,14 +493,9 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 		json_add_string(stream, NULL, mvt_tag_str(mvt->tags[i]));
 	json_array_end(stream);
 
-	/* Only chain movements have blockheights. A blockheight
-	 * of 'zero' means we haven't seen this tx confirmed yet. */
-	if (mvt->type == CHAIN_MVT) {
-		if (mvt->blockheight)
-			json_add_u32(stream, "blockheight", mvt->blockheight);
-		else
-			json_add_null(stream, "blockheight");
-	}
+	if (mvt->type == CHAIN_MVT)
+		json_add_u32(stream, "blockheight", mvt->blockheight);
+
 	json_add_u32(stream, "timestamp", mvt->timestamp);
 	json_add_string(stream, "coin_type", mvt->hrp_name);
 

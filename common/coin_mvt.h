@@ -74,8 +74,7 @@ struct chain_coin_mvt {
 	/* label / tag array */
 	enum mvt_tag *tags;
 
-	/* block this transaction is confirmed in
-	 * zero means it's unknown/unconfirmed */
+	/* block this transaction is confirmed in */
 	u32 blockheight;
 
 	/* only one or the other */
