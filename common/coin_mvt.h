@@ -87,6 +87,10 @@ struct chain_coin_mvt {
 	/* When we pay to external accounts, it's useful
 	 * to track which internal account it originated from */
 	const char *originating_acct;
+
+	/* Number of outputs in spending tx; used by the
+	 * `channel_close` event */
+	u32 output_count;
 };
 
 /* differs depending on type!? */
@@ -123,6 +127,8 @@ struct coin_mvt {
 	/* Value of the output. May be different than
 	 * our credit/debit amount, eg channel opens */
 	struct amount_sat *output_val;
+	/* Really only needed for channel closes */
+	size_t output_count;
 
 	/* Amount of fees collected/paid by channel mvt */
 	struct amount_msat *fees;
@@ -170,7 +176,8 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 					      const struct bitcoin_outpoint *out,
 					      u32 blockheight,
 					      const struct amount_msat amount,
-					      const struct amount_sat output_val)
+					      const struct amount_sat output_val,
+					      u32 output_count)
 	NON_NULL_ARGS(2, 3);
 
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,

@@ -480,6 +480,10 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 	if (mvt->output_val)
 		json_add_amount_sat_only(stream, "output_value",
 					 *mvt->output_val);
+	if (mvt->output_count > 0)
+		json_add_num(stream, "output_count",
+			     mvt->output_count);
+
 	if (mvt->fees)
 		json_add_amount_msat_only(stream, "fees",
 					  *mvt->fees);

@@ -3860,7 +3860,8 @@ int main(int argc, char *argv[])
 	send_coin_mvt(take(new_coin_channel_close(NULL, &tx->txid,
 						  &funding, tx_blockheight,
 						  our_msat,
-						  funding_sats)));
+						  funding_sats,
+						  tal_count(tx->outputs))));
 
 	status_debug("Remote per-commit point: %s",
 		     type_to_string(tmpctx, struct pubkey,
