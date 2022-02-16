@@ -14,6 +14,7 @@ enum mvt_type {
 	CHANNEL_MVT = 1,
 };
 
+#define NUM_MVT_TAGS (LEASED + 1)
 enum mvt_tag {
 	DEPOSIT = 0,
 	WITHDRAWAL = 1,
