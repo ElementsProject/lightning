@@ -462,7 +462,11 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
     wait_for(get_mempool_when_size_1)
 
     close_tx_id = mempool_tx_ids[0]
-    fee_mempool = round(mempool[close_tx_id]['fee'] * 10**8)
+    # v22.99.0-8fe6f5a6fbcd at least doesn't have 'fee', it has 'fees'.
+    if 'fees' in mempool[close_tx_id]:
+        fee_mempool = round(mempool[close_tx_id]['fees']['base'] * 10**8)
+    else:
+        fee_mempool = round(mempool[close_tx_id]['fee'] * 10**8)
 
     assert opts['expected_close_fee'] == fee_mempool
 
