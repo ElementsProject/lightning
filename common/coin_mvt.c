@@ -376,8 +376,6 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->fees = tal(mvt, struct amount_msat);
 	*mvt->fees = chan_mvt->fees;
 	mvt->timestamp = timestamp;
-	/* channel movements don't have a blockheight */
-	mvt->blockheight = 0;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = tal_dup(mvt, struct node_id, node_id);
 
