@@ -1933,11 +1933,13 @@ def test_statictor_onions(node_factory):
     })
     l2 = node_factory.get_node(may_fail=True, options={
         'bind-addr': '127.0.0.1:{}'.format(portB),
-        'addr': ['statictor:{}/torblob=11234567890123456789012345678901'.format(torips)]
+        'addr': ['statictor:{}/torblob=11234567890123456789012345678901/torport={}'.format(torips, 9736)]
     })
 
     assert l1.daemon.is_in_log('127.0.0.1:{}'.format(l1.port))
-    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:{},127.0.0.1:{}'.format(l2.port, l2.port))
+    # Did not specify torport, so it's the default.
+    assert l1.daemon.is_in_log('.onion:{}'.format(9735))
+    assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:{},127.0.0.1:{}'.format(9736, l2.port))
 
 
 @pytest.mark.developer("needs a running Tor service instance at port 9151 or 9051")
