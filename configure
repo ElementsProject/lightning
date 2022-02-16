@@ -111,7 +111,7 @@ default_valgrind_setting()
 
 default_rust_setting()
 {
-    if cargoa --version > /dev/null 2>&1; then
+    if cargo --version > /dev/null 2>&1; then
 	echo 1
     else
 	echo 0
