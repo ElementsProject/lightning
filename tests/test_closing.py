@@ -711,7 +711,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     # l2 sweeps all of l1's closing outputs
     expected_2 = {
         'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
-        'B': [('wallet', ['channel_close'], None, None), ('cid1', ['penalty'], ['to_wallet'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'D')],
+        'B': [('wallet', ['deposit'], None, None), ('cid1', ['penalty'], ['to_wallet'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'D')],
         'C': [('wallet', ['deposit'], None, None)],
         'D': [('wallet', ['deposit'], None, None)]
     }
@@ -1268,7 +1268,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
     expected_3 = {
         'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
-        'B': [('wallet', ['channel_close'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'E')],
+        'B': [('wallet', ['deposit'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'C'), ('cid1', ['penalty'], ['to_wallet'], 'E')],
         'C': [('cid1', ['penalty'], ['to_wallet'], 'D')],
         'D': [('wallet', ['deposit'], None, None)],
         'E': [('wallet', ['deposit'], None, None)]
@@ -1488,7 +1488,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
 
     expected_3 = {
         'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
-        'B': [('wallet', ['channel_close'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'E'), ('external', ['stolen'], None, None), ('external', ['htlc_timeout'], ['htlc_timeout'], 'C')],
+        'B': [('wallet', ['deposit'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'E'), ('external', ['stolen'], None, None), ('external', ['htlc_timeout'], ['htlc_timeout'], 'C')],
         'C': [('cid1', ['penalty'], ['to_wallet'], 'D')],
         'D': [('wallet', ['deposit'], None, None)],
         'E': [('external', ['stolen'], None, None)]
@@ -2185,7 +2185,7 @@ def test_onchain_middleman_simple(node_factory, bitcoind):
 
     expected_1 = {
         'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
-        'B': [('external', ['to_them'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'D'), ('wallet', ['channel_close'], None, None)]
+        'B': [('external', ['to_them'], None, None), ('external', ['htlc_fulfill'], ['htlc_fulfill'], 'D'), ('wallet', ['deposit'], None, None)]
     }
 
     if anchor_expected():
@@ -2297,7 +2297,7 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
         # in the next channel open
         'A': [('wallet', ['deposit'], ((['withdrawal'], 'D'), (None, None))), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
         '1': [('wallet', ['deposit'], ['withdrawal'], 'D')],
-        'B': [('external', ['to_them'], None, None), ('wallet', ['channel_close'], None, None), ('cid1', ['htlc_fulfill'], ['to_wallet'], 'C')],
+        'B': [('external', ['to_them'], None, None), ('wallet', ['deposit'], None, None), ('cid1', ['htlc_fulfill'], ['to_wallet'], 'C')],
         'C': [('wallet', ['deposit'], None, None)],
         'D': [('wallet', ['deposit'], None, None), ('cid2', ['channel_open', 'opener'], None, None)]
     }
@@ -2389,7 +2389,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
         # This is ugly, but this wallet deposit is either unspent or used
         # in the next channel open
         'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
-        'B': [('wallet', ['channel_close'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C')],
+        'B': [('wallet', ['deposit'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C')],
         'C': [('wallet', ['deposit'], None, None)],
     }
 
@@ -2592,7 +2592,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     expected_1 = {
         '0': [('wallet', ['deposit'], ['withdrawal'], 'A')],
         'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
-        'B': [('wallet', ['channel_close'], None, None), ('cid1', ['htlc_timeout'], ['ignored'], 'C')],
+        'B': [('wallet', ['deposit'], None, None), ('cid1', ['htlc_timeout'], ['ignored'], 'C')],
         'C': [('wallet', ['deposit'], None, None)],
     }
 
