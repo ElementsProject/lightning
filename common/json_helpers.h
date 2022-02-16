@@ -3,6 +3,7 @@
 #define LIGHTNING_COMMON_JSON_HELPERS_H
 #include "config.h"
 #include <bitcoin/tx.h>
+#include <common/coin_mvt.h>
 #include <common/json.h>
 #include <wire/wire.h>
 
@@ -72,6 +73,10 @@ bool json_to_outpoint(const char *buffer, const jsmntok_t *tok,
 /* Extract a channel id from this */
 bool json_to_channel_id(const char *buffer, const jsmntok_t *tok,
 			struct channel_id *cid);
+
+/* Extract a coin movement 'tag' from this */
+bool json_to_coin_mvt_tag(const char *buffer, const jsmntok_t *tok,
+			  enum mvt_tag *tag);
 
 /* Split a json token into 2 tokens given a splitting character */
 bool split_tok(const char *buffer, const jsmntok_t *tok,

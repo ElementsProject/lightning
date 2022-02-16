@@ -21,8 +21,8 @@ ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
 # Sphinx test wants to decode TLVs.
 common/test/run-sphinx: wire/onion$(EXP)_wiregen.o wire/towire.o wire/fromwire.o
 common/test/run-blindedpath_enctlv common/test/run-blindedpath_onion: common/base32.o common/wireaddr.o wire/onion$(EXP)_wiregen.o wire/peer$(EXP)_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o
-common/test/run-route_blinding_test: wire/onion$(EXP)_wiregen.o wire/peer$(EXP)_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/json.o common/json_helpers.o
-common/test/run-route_blinding_override_test: common/base32.o common/wireaddr.o wire/onion$(EXP)_wiregen.o wire/peer$(EXP)_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/json.o common/json_helpers.o
+common/test/run-route_blinding_test: wire/onion$(EXP)_wiregen.o wire/peer$(EXP)_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/json.o common/json_helpers.o common/coin_mvt.o
+common/test/run-route_blinding_override_test: common/base32.o common/wireaddr.o wire/onion$(EXP)_wiregen.o wire/peer$(EXP)_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/json.o common/json_helpers.o common/coin_mvt.o
 
 common/test/run-param					\
 common/test/run-json:					\
@@ -30,6 +30,7 @@ common/test/run-json:					\
 	common/base32.o					\
 	common/bigsize.o				\
 	common/channel_id.o				\
+	common/coin_mvt.o				\
 	common/json.o					\
 	common/json_stream.o				\
 	common/lease_rates.o				\
