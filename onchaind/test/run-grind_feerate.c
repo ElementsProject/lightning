@@ -142,7 +142,8 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx UNNEEDED,
 					      const struct bitcoin_outpoint *out UNNEEDED,
 					      u32 blockheight UNNEEDED,
 					      const struct amount_msat amount UNNEEDED,
-					      const struct amount_sat output_val)
+					      const struct amount_sat output_val UNNEEDED,
+					      u32 output_count)
 
 { fprintf(stderr, "new_coin_channel_close called!\n"); abort(); }
 /* Generated stub for new_coin_external_deposit */
