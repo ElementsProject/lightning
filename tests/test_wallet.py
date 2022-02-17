@@ -1189,21 +1189,37 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
     out = subprocess.check_output(cmd_line).decode("utf8").split("\n")
     descriptor = [l for l in out if l.startswith("wpkh(tpub")][0]
 
+    # If we switch wallet, we can't generate address: do so now.
+    mine_to_addr = bitcoind.rpc.getnewaddress()
+
     # Import the descriptor to bitcoind
-    # FIXME: if we update the testsuite to use the upcoming 0.21 we could use
-    # importdescriptors instead.
-    bitcoind.rpc.importmulti([{
-        "desc": descriptor,
-        # No need to rescan, we'll transact afterward
-        "timestamp": "now",
-        # The default
-        "range": [0, 99]
-    }])
+    try:
+        bitcoind.rpc.importmulti([{
+            "desc": descriptor,
+            # No need to rescan, we'll transact afterward
+            "timestamp": "now",
+            # The default
+            "range": [0, 99]
+        }])
+    except JSONRPCError:
+        # Oh look, a new API!
+        # Need watch-only wallet, since descriptor has no privkeys.
+        bitcoind.rpc.createwallet("lightningd-ro", True)
+
+        # FIXME: No way to access non-default wallet in python-bitcoinlib
+        bitcoind.rpc.unloadwallet("lightningd-tests", True)
+        bitcoind.rpc.importdescriptors([{
+            "desc": descriptor,
+            # No need to rescan, we'll transact afterward
+            "timestamp": "now",
+            # The default
+            "range": [0, 99]
+        }])
 
     # Funds sent to lightningd can be retrieved by bitcoind
     addr = l1.rpc.newaddr()["bech32"]
     txid = l1.rpc.withdraw(addr, 10**3)["txid"]
-    bitcoind.generate_block(1, txid)
+    bitcoind.generate_block(1, txid, mine_to_addr)
     assert len(bitcoind.rpc.listunspent(1, 1, [addr])) == 1
 
 
