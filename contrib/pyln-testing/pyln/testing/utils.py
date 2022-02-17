@@ -422,7 +422,7 @@ class BitcoinD(TailableProc):
     # int > 0 := wait for at least N transactions
     # 'tx_id' := wait for one transaction id given as a string
     # ['tx_id1', 'tx_id2'] := wait until all of the specified transaction IDs
-    def generate_block(self, numblocks=1, wait_for_mempool=0):
+    def generate_block(self, numblocks=1, wait_for_mempool=0, to_addr=None):
         if wait_for_mempool:
             if isinstance(wait_for_mempool, str):
                 wait_for_mempool = [wait_for_mempool]
@@ -439,7 +439,9 @@ class BitcoinD(TailableProc):
         ))
 
         # As of 0.16, generate() is removed; use generatetoaddress.
-        return self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
+        if to_addr is None:
+            to_addr = self.rpc.getnewaddress()
+        return self.rpc.generatetoaddress(numblocks, to_addr)
 
     def simple_reorg(self, height, shift=0):
         """
