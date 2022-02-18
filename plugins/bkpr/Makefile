@@ -7,6 +7,7 @@ BOOKKEEPER_PLUGIN_SRC := 			\
 	plugins/bkpr/chain_event.c		\
 	plugins/bkpr/channel_event.c		\
 	plugins/bkpr/db.c			\
+	plugins/bkpr/incomestmt.c		\
 	plugins/bkpr/onchain_fee.c		\
 	plugins/bkpr/recorder.c
 
@@ -21,6 +22,7 @@ BOOKKEEPER_HEADER := 				\
 	plugins/bkpr/chain_event.h		\
 	plugins/bkpr/channel_event.h		\
 	plugins/bkpr/db.h			\
+	plugins/bkpr/incomestmt.h		\
 	plugins/bkpr/onchain_fee.h		\
 	plugins/bkpr/recorder.h
 
@@ -38,6 +40,7 @@ plugins/bookkeeper: common/coin_mvt.o $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(JS
 BOOKKEEPER_SQL_FILES := 			\
 	$(DB_SQL_FILES)				\
 	plugins/bkpr/db.c			\
+	plugins/bkpr/incomestmt.c		\
 	plugins/bkpr/recorder.c
 
 plugins/bkpr/statements_gettextgen.po: $(BOOKKEEPER_SQL_FILES) $(FORCE)

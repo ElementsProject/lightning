@@ -15,6 +15,7 @@
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/db.h>
+#include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
@@ -36,6 +37,32 @@ static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 			return sums[i];
 	}
 	return NULL;
+}
+
+static struct command_result *json_list_income(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct income_event **evs;
+
+	if (!param(cmd, buf, params,
+		   NULL))
+		return command_param_failed();
+
+	/* Ok, go find me some income events! */
+	db_begin_transaction(db);
+	evs = list_income_events_all(cmd, db);
+	db_commit_transaction(db);
+
+	res = jsonrpc_stream_success(cmd);
+
+	json_array_start(res, "income_events");
+	for (size_t i = 0; i < tal_count(evs); i++)
+		json_add_income_event(res, evs[i]);
+
+	json_array_end(res);
+	return command_finished(cmd, res);
 }
 
 static struct command_result *json_inspect(struct command *cmd,
@@ -1261,6 +1288,13 @@ static const struct plugin_command commands[] = {
 		"See the current on-chain graph of an {account}",
 		"Prints out the on-chain footprint of a given {account}.",
 		json_inspect
+	},
+	{
+		"listincome",
+		"bookkeeping",
+		"List all income impacting events",
+		"List all events for this node that impacted income",
+		json_list_income
 	},
 };
 
