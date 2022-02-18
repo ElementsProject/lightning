@@ -1747,6 +1747,15 @@ static struct command_result *json_getinfo(struct command *cmd,
 	    json_add_string(response, "warning_lightningd_sync",
 			    "Still loading latest blocks from bitcoind.");
 
+    u8 **bits = cmd->ld->our_features->bits;
+    json_object_start(response, "our_features");
+    json_add_hex_talarr(response, "init",
+			featurebits_or(cmd, bits[INIT_FEATURE], bits[GLOBAL_INIT_FEATURE]));
+    json_add_hex_talarr(response, "node", bits[NODE_ANNOUNCE_FEATURE]);
+    json_add_hex_talarr(response, "channel", bits[CHANNEL_FEATURE]);
+    json_add_hex_talarr(response, "invoice", bits[BOLT11_FEATURE]);
+    json_object_end(response);
+
     return command_success(cmd, response);
 }
 
