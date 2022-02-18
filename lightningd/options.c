@@ -611,11 +611,11 @@ static char *opt_force_featureset(const char *optarg,
 				  struct lightningd *ld)
 {
 	char **parts = tal_strsplit(tmpctx, optarg, "/", STR_EMPTY_OK);
-	if (tal_count(parts) != NUM_FEATURE_PLACE) {
+	if (tal_count(parts) != NUM_FEATURE_PLACE + 1) {
 		if (!strstarts(optarg, "-") && !strstarts(optarg, "+"))
-			return "Expected 5 feature sets (init, globalinit,"
-			       " node_announce, channel, bolt11) separated"
-			       " by / OR +/-<feature_num>";
+			return "Expected 5 feature sets (init/globalinit/"
+			       " node_announce/channel/bolt11) each terminated by /"
+			       " OR +/-<single_bit_num>";
 
 		char *endp;
 		long int n = strtol(optarg + 1, &endp, 10);
@@ -712,7 +712,7 @@ static void dev_register_opts(struct lightningd *ld)
 				 &ld->plugins->dev_builtin_plugins_unimportant,
 				 "Make builtin plugins unimportant so you can plugin stop them.");
 	opt_register_arg("--dev-force-features", opt_force_featureset, NULL, ld,
-			 "Force the init/globalinit/node_announce/channel/bolt11 features, each comma-separated bitnumbers");
+			 "Force the init/globalinit/node_announce/channel/bolt11/ features, each comma-separated bitnumbers OR a single +/-<bitnumber>");
 	opt_register_arg("--dev-timeout-secs", opt_set_u32, opt_show_u32,
 			 &ld->config.connection_timeout_secs,
 			 "Seconds to timeout if we don't receive INIT from peer");
