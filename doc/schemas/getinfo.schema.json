@@ -56,6 +56,35 @@
       "type": "string",
       "description": "Identifies where you can find the configuration and other related files"
     },
+    "our_features": {
+      "type": "object",
+      "description": "Our BOLT #9 feature bits (as hexstring) for various contexts",
+      "additionalProperties": true,
+      "required": [
+        "init",
+        "node",
+        "channel",
+        "invoice"
+      ],
+      "properties": {
+        "init": {
+          "type": "hex",
+          "description": "features (incl. globalfeatures) in our init message, these also restrict what we offer in open_channel or accept in accept_channel"
+        },
+        "node": {
+          "type": "hex",
+          "description": "features in our node_announcement message"
+        },
+        "channel": {
+          "type": "hex",
+          "description": "negotiated channel features we — as channel initiator — publish in the channel_announcement message"
+        },
+        "invoice": {
+          "type": "hex",
+          "description": "features in our BOLT11 invoices"
+        }
+      }
+    },
     "blockheight": {
       "type": "u32",
       "description": "The highest block height we've learned"
