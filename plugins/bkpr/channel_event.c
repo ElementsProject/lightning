@@ -3,6 +3,8 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
+#include <common/json_helpers.h>
+#include <common/json_stream.h>
 #include <plugins/bkpr/channel_event.h>
 
 struct channel_event *new_channel_event(const tal_t *ctx,
@@ -27,4 +29,20 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 	ev->timestamp = timestamp;
 
 	return ev;
+}
+
+void json_add_channel_event(struct json_stream *out,
+			    struct channel_event *ev)
+{
+	json_object_start(out, NULL);
+	json_add_string(out, "account", ev->acct_name);
+	json_add_string(out, "type", "channel");
+	json_add_string(out, "tag", ev->tag);
+	json_add_amount_msat_only(out, "credit", ev->credit);
+	json_add_amount_msat_only(out, "debit", ev->debit);
+	json_add_string(out, "currency", ev->currency);
+	if (ev->payment_id)
+		json_add_sha256(out, "payment_id", ev->payment_id);
+	json_add_u64(out, "timestamp", ev->timestamp);
+	json_object_end(out);
 }

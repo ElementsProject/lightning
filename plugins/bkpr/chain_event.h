@@ -7,6 +7,7 @@
 struct amount_msat;
 struct bitcoin_outpoint;
 struct bitcoin_txid;
+struct json_stream;
 
 struct chain_event {
 
@@ -52,5 +53,8 @@ struct chain_event {
 	/* Sometimes chain events resolve payments */
 	struct sha256 *payment_id;
 };
+
+void json_add_chain_event(struct json_stream *out,
+                          struct chain_event *ev);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_CHAIN_EVENT_H */

@@ -32,4 +32,7 @@ struct onchain_fee {
 	u32 update_count;
 };
 
+void json_add_onchain_fee(struct json_stream *out,
+			  struct onchain_fee *fee);
+
 #endif /* LIGHTNING_PLUGINS_BKPR_ONCHAIN_FEE_H */

@@ -28,57 +28,6 @@ static struct db *db ;
 // FIXME: make relative to directory we're loaded into
 static char *db_dsn = "sqlite3://accounts.sqlite3";
 
-static void json_add_channel_event(struct json_stream *out,
-				   struct channel_event *ev)
-{
-	json_object_start(out, NULL);
-	json_add_string(out, "account", ev->acct_name);
-	json_add_string(out, "type", "channel");
-	json_add_string(out, "tag", ev->tag);
-	json_add_amount_msat_only(out, "credit", ev->credit);
-	json_add_amount_msat_only(out, "debit", ev->debit);
-	json_add_string(out, "currency", ev->currency);
-	if (ev->payment_id)
-		json_add_sha256(out, "payment_id", ev->payment_id);
-	json_add_u64(out, "timestamp", ev->timestamp);
-	json_object_end(out);
-}
-
-static void json_add_chain_event(struct json_stream *out,
-				 struct chain_event *ev)
-{
-	json_object_start(out, NULL);
-	json_add_string(out, "account", ev->acct_name);
-	json_add_string(out, "type", "chain");
-	json_add_string(out, "tag", ev->tag);
-	json_add_amount_msat_only(out, "credit", ev->credit);
-	json_add_amount_msat_only(out, "debit", ev->debit);
-	json_add_string(out, "currency", ev->currency);
-	json_add_outpoint(out, "outpoint", &ev->outpoint);
-	if (ev->spending_txid)
-		json_add_txid(out, "txid", ev->spending_txid);
-	if (ev->payment_id)
-		json_add_sha256(out, "payment_id", ev->payment_id);
-	json_add_u64(out, "timestamp", ev->timestamp);
-	json_add_u32(out, "blockheight", ev->blockheight);
-	json_object_end(out);
-}
-
-static void json_add_onchain_fee(struct json_stream *out,
-				 struct onchain_fee *fee)
-{
-	json_object_start(out, NULL);
-	json_add_string(out, "account", fee->acct_name);
-	json_add_string(out, "type", "onchain_fee");
-	json_add_string(out, "tag", "onchain_fee");
-	json_add_amount_msat_only(out, "credit", fee->credit);
-	json_add_amount_msat_only(out, "debit", fee->debit);
-	json_add_string(out, "currency", fee->currency);
-	json_add_u64(out, "timestamp", fee->timestamp);
-	json_add_txid(out, "txid", &fee->txid);
-	json_object_end(out);
-}
-
 static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 					 struct bitcoin_txid *txid)
 {
