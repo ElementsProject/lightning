@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "pyln-bolt7"
+version = "1.0.186"
+description = "BOLT7"
+authors = ["Rusty Russell"]
+license = "BSD-MIT"
+
+packages = [
+  { include = "pyln/spec/bolt7" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pyln-proto = { path = "../../pyln-proto" }
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
