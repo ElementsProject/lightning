@@ -1,3 +1,0 @@
-recommonmark~=0.7
-pyln-bolt7
-pyln-proto
