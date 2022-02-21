@@ -37,3 +37,18 @@ def test_plugin_start(node_factory):
         'path': None
     }
     assert expected == p
+
+    # Now check that the `testmethod was registered ok
+    l1.rpc.help("testmethod") == {
+        'help': [
+            {
+                'command': 'testmethod ',
+                'category': 'plugin',
+                'description': 'This is a test',
+                'verbose': 'This is a test'
+            }
+        ],
+        'format-hint': 'simple'
+    }
+
+    assert l1.rpc.testmethod() == "Hello"
