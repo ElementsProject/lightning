@@ -70,6 +70,8 @@ pub(crate) struct InitCall {
 pub enum JsonRpc<N, R> {
     Request(usize, R),
     Notification(N),
+    CustomRequest(usize, Value),
+    CustomNotification(Value),
 }
 
 /// This function disentangles the various cases:
@@ -103,55 +105,29 @@ where
         let v = Value::deserialize(deserializer)?;
         let helper = IdHelper::deserialize(&v).map_err(de::Error::custom)?;
         match helper.id {
-            Some(id) => {
-                let r = R::deserialize(v).map_err(de::Error::custom)?;
-                Ok(JsonRpc::Request(id, r))
-            }
-            None => {
-                let n = N::deserialize(v).map_err(de::Error::custom)?;
-                Ok(JsonRpc::Notification(n))
-            }
-        }
-    }
-}
-
-use serde::ser::{SerializeStruct, Serializer};
-
-impl<N, R> Serialize for JsonRpc<N, R>
-where
-    N: Serialize + Debug,
-    R: Serialize + Debug,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            JsonRpc::Notification(r) => {
-                let r = serde_json::to_value(r).unwrap();
-                let mut s = serializer.serialize_struct("Notification", 3)?;
-                s.serialize_field("jsonrpc", "2.0")?;
-                s.serialize_field("method", &r["method"])?;
-                s.serialize_field("params", &r["params"])?;
-                s.end()
-            }
-            JsonRpc::Request(id, r) => {
-                let r = serde_json::to_value(r).unwrap();
-                let mut s = serializer.serialize_struct("Request", 4)?;
-                s.serialize_field("jsonrpc", "2.0")?;
-                s.serialize_field("id", id)?;
-                s.serialize_field("method", &r["method"])?;
-                s.serialize_field("params", &r["params"])?;
-                s.end()
-            }
+            Some(id) => match R::deserialize(v.clone()) {
+                Ok(r) => Ok(JsonRpc::Request(id, r)),
+                Err(_) => Ok(JsonRpc::CustomRequest(id, v)),
+            },
+            None => match N::deserialize(v.clone()) {
+                Ok(n) => Ok(JsonRpc::Notification(n)),
+                Err(_) => Ok(JsonRpc::CustomNotification(v)),
+            },
         }
     }
 }
 
 #[derive(Serialize, Default, Debug)]
+pub(crate) struct RpcMethod {
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) usage: String,
+}
+
+#[derive(Serialize, Default, Debug)]
 pub(crate) struct GetManifestResponse {
     pub(crate) options: Vec<ConfigOption>,
-    pub(crate) rpcmethods: Vec<()>,
+    pub(crate) rpcmethods: Vec<RpcMethod>,
 }
 
 #[derive(Serialize, Default, Debug)]

@@ -109,7 +109,7 @@ mod test {
                 "name": "name",
                         "description":"description",
                         "default": true,
-                        "type": "booltes",
+                        "type": "bool",
                     }),
             ),
         ];
