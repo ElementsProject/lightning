@@ -1747,6 +1747,10 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
 
     check_utxos_channel(l2, [channel_id], expected_2)
 
+    # Make sure that l2's account is considered closed (has a fee output)
+    fees = [e for e in l2.rpc.listincome()['income_events'] if e['tag'] == 'onchain_fee']
+    assert len(fees) == 1
+
 
 @pytest.mark.developer("needs DEVELOPER=1")
 def test_onchain_first_commit(node_factory, bitcoind):
