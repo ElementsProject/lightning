@@ -217,10 +217,47 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 	return channel_to_income(ctx, ev, ev->credit, ev->debit);
 }
 
+static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
+						   struct db *db,
+						   struct onchain_fee **fees TAKES)
+{
+	struct fee_sum **sums;
+	struct onchain_fee **updated_fees
+		= tal_arr(ctx, struct onchain_fee *, 0);
+
+	sums = calculate_onchain_fee_sums(ctx, db);
+
+	for (size_t i = 0; i < tal_count(sums); i++) {
+		/* Find the last matching feerate's data */
+		for (size_t j = tal_count(fees); j > 0; j--) {
+			struct onchain_fee *fee;
+			if (bitcoin_txid_eq(&fees[j - 1]->txid,
+					    sums[i]->txid)
+			    && fees[j - 1]->acct_db_id == sums[i]->acct_db_id) {
+				fee = tal_steal(updated_fees, fees[j - 1]);
+				fee->credit = sums[i]->fees_paid;
+				fee->debit = AMOUNT_MSAT(0);
+				tal_arr_expand(&updated_fees, fee);
+				fees[j - 1] = NULL;
+				break;
+			}
+		}
+
+		/* It's possible there weren't any fee events
+		 * for this txid in the time period we've selected */
+	}
+
+	if (taken(fees))
+		tal_free(fees);
+
+	return updated_fees;
+}
+
 struct income_event **list_income_events(const tal_t *ctx,
 					 struct db *db,
 					 u64 start_time,
-					 u64 end_time)
+					 u64 end_time,
+					 bool consolidate_fees)
 {
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
@@ -234,6 +271,10 @@ struct income_event **list_income_events(const tal_t *ctx,
 	chain_events = list_chain_events_timebox(ctx, db, start_time, end_time);
 	onchain_fees = list_chain_fees_timebox(ctx, db, start_time, end_time);
 	accts = list_accounts(ctx, db);
+
+	if (consolidate_fees)
+		onchain_fees = find_consolidated_fees(ctx, db,
+						      take(onchain_fees));
 
 	evs = tal_arr(ctx, struct income_event *, 0);
 
@@ -302,9 +343,11 @@ struct income_event **list_income_events(const tal_t *ctx,
 	return evs;
 }
 
-struct income_event **list_income_events_all(const tal_t *ctx, struct db *db)
+struct income_event **list_income_events_all(const tal_t *ctx, struct db *db,
+					     bool consolidate_fees)
 {
-	return list_income_events(ctx, db, 0, SQLITE_MAX_UINT);
+	return list_income_events(ctx, db, 0, SQLITE_MAX_UINT,
+				  consolidate_fees);
 }
 
 void json_add_income_event(struct json_stream *out, struct income_event *ev)

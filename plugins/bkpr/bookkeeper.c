@@ -45,14 +45,17 @@ static struct command_result *json_list_income(struct command *cmd,
 {
 	struct json_stream *res;
 	struct income_event **evs;
+	bool *consolidate_fees;
 
 	if (!param(cmd, buf, params,
+		   p_opt_def("consolidate_fees", param_bool,
+			     &consolidate_fees, true),
 		   NULL))
 		return command_param_failed();
 
 	/* Ok, go find me some income events! */
 	db_begin_transaction(db);
-	evs = list_income_events_all(cmd, db);
+	evs = list_income_events_all(cmd, db, *consolidate_fees);
 	db_commit_transaction(db);
 
 	res = jsonrpc_stream_success(cmd);
