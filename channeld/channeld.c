@@ -1,6 +1,6 @@
 /* Main channel operation daemon: runs from funding_locked to shutdown_complete.
  *
- * We're fairly synchronous: our main loop looks for gossip, master or
+ * We're fairly synchronous: our main loop looks for master or
  * peer requests and services them synchronously.
  *
  * The exceptions are:
