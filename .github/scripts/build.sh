@@ -52,7 +52,7 @@ cat config.vars
 
 cat << EOF > pytest.ini
 [pytest]
-addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42 --force-flaky --no-success-flaky-report --max-runs=3 --junitxml=report.xml --json-report --json-report-file=report.json --json-report-indent=2
+addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42 --force-flaky --no-success-flaky-report --max-runs=3
 markers =
     slow_test: marks tests as slow (deselect with '-m "not slow_test"')
 EOF
