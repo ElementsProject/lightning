@@ -33,7 +33,7 @@ jobs:
       - name: Set up Python 3.7
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.7
 
       - name: Install dependencies
         run: |
@@ -77,10 +77,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
-      - name: Set up Python 3.6
+      - name: Set up Python 3.7
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.7
 
       - name: Install dependencies
         run: bash -x .github/scripts/setup.sh
@@ -113,10 +113,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
-      - name: Setup Python 3.6
+      - name: Setup Python 3.7
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.7
 
       - name: Install dependencies
         run: |
@@ -196,10 +196,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
-      - name: Set up Python 3.6
+      - name: Set up Python 3.7
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.7
 
       - name: Install dependencies
         run: |
@@ -302,10 +302,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
-      - name: Set up Python 3.6
+      - name: Set up Python 3.7
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.7
 
       - name: Install dependencies
         run: |
@@ -350,10 +350,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
-      - name: Set up Python 3.6
+      - name: Set up Python 3.7
         uses: actions/setup-python@v2
         with:
-          python-version: 3.6
+          python-version: 3.7
 
       - name: Install dependencies
         run: |
