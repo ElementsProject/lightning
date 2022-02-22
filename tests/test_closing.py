@@ -3443,6 +3443,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
 
 
+@unittest.skipIf(True, "Test is extremely flaky")
 @pytest.mark.developer("needs dev_disconnect")
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""
