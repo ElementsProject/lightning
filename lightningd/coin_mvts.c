@@ -107,6 +107,9 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	for (size_t i = 0; i < ARRAY_SIZE(utxo_states); i++) {
 		utxos = wallet_get_utxos(NULL, ld->wallet, utxo_states[i]);
 		for (size_t j = 0; j < tal_count(utxos); j++) {
+			/* Don't count unconfirmed utxos! */
+			if (!utxos[j]->spendheight && !utxos[j]->blockheight)
+				continue;
 			if (!amount_msat_add_sat(&bal->balance,
 						 bal->balance, utxos[j]->amount))
 				fatal("Overflow adding node balance");
