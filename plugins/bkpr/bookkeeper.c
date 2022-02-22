@@ -1073,6 +1073,18 @@ parse_and_log_chain_move(struct command *cmd,
 			   "Unable to update onchain fees %s",
 			   err);
 
+	/* If this is a spend confirmation event, it's possible
+	 * that it we've got an external deposit that's now
+	 * confirmed */
+	if (e->spending_txid) {
+		db_begin_transaction(db);
+		/* Go see if there's any deposits to an external
+		 * that are now confirmed */
+		/* FIXME: might need updating when we can splice? */
+		maybe_closeout_external_deposits(db, e);
+		db_commit_transaction(db);
+	}
+
 	/* If this is an account close event, it's possible
 	 * that we *never* got the open event. (This happens
 	 * if you add the plugin *after* you've closed the channel) */
