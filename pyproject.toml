@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "cln-meta-project"
+version = "0.1.0"
+description = "Just a helper to get our python dependencies under control"
+authors = ["Christian Decker <cdecker@blockstream.com>"]
+
+[tool.poetry.dependencies]
+# Build dependencies belong here
+python = "^3.7"
+pyln-client = { path = "contrib/pyln-client" }
+pyln-proto = { path = "contrib/pyln-proto" }
+Mako = "^1.1.6"
+mrkd = "^0.2.0"
+websocket-client = "^1.2.3"
+
+[tool.poetry.dev-dependencies]
+# Test dependencies and inherited dependencies belong here
+crc32c = "^2.2.post0"  # Belongs to lnprototest
+pytest-xdist = "^2.5.0"
+mistune = "0.8.4"  # Belongs to pyln-proto
+pytest-test-groups = "^1.0.3"
+pytest-timeout = "^2.1.0"
+flake8 = "^4.0.1"
+mypy = "^0.931"
+pytest-custom-exit-code = "0.3.0"
+pyln-testing = { path = "contrib/pyln-testing" }
+flaky = "^3.7.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
