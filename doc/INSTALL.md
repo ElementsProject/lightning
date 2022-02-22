@@ -38,9 +38,9 @@ Get dependencies:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev \
-      python3 python3-mako python3-pip net-tools zlib1g-dev libsodium-dev \
-      gettext
-    pip3 install --user mrkd mistune==0.8.4
+      python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
+    pip install --user poetry
+    poetry install
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
@@ -60,8 +60,6 @@ For development or running tests, get additional dependencies:
 
     sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
       libsecp256k1-dev jq
-    pip3 install --upgrade pip
-    pip3 install --user -r requirements.txt
 
 Build lightning:
 
@@ -150,7 +148,8 @@ fiddle with compile time options:
 mrkd is required to build man pages from markdown files (not done by the port):
 
     # cd /usr/ports/devel/py-pip && make install
-    $ pip install --user mrkd
+    $ pip install --user poetry
+    $ poetry install
 
 See `/usr/ports/net-p2p/c-lightning/Makefile` for instructions on how to
 build from an arbitrary git commit, instead of the latest release tag.
@@ -183,8 +182,8 @@ pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
 ```
 Install `mako` and `mrkd` otherwise we run into build errors:
 ```
-pip3.7 install --user mako
-pip3.7 install --user mrkd
+pip3.7 install --user poetry
+poetry install
 ```
 
 Add `/home/<username>/.local/bin` to your path:

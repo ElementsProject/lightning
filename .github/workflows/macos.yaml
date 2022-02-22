@@ -16,9 +16,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
-      - name: Fetch tags for auto versioning
-        run: git fetch --prune --unshallow --tags
-
       - name: Set up Python 3.6
         uses: actions/setup-python@v2
         with:
@@ -36,7 +33,10 @@ jobs:
             sudo mv bitcoin-$BITCOIN_VERSION/bin/* /usr/local/bin
           )
 
-          pip install --upgrade mako pip
+          pip3 install --user poetry
+          poetry config virtualenvs.create false --local
+          poetry install
+          
           ln -s /usr/local/Cellar/gettext/0.20.1/bin/xgettext /usr/local/opt
           export PATH="/usr/local/opt:$PATH"
 
