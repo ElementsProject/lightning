@@ -176,6 +176,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
+	case WIRE_GOSSIPD_REMOTE_ADDR:
 		break;
 
 	case WIRE_GOSSIPD_GET_TXOUT:

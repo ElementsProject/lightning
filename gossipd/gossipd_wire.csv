@@ -125,3 +125,7 @@ msgdata,gossipd_local_private_channel,features,u8,len
 # Tell gossipd we used the channel update (in case it was deferred)
 msgtype,gossipd_used_local_channel_update,3052
 msgdata,gossipd_used_local_channel_update,scid,short_channel_id,
+
+# Tell gossipd we have discovered a new remote_addr
+msgtype,gossipd_remote_addr,3009
+msgdata,gossipd_remote_addr,remote_addr,wireaddr,

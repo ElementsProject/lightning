@@ -47,6 +47,10 @@ struct daemon {
 	/* What addresses we can actually announce. */
 	struct wireaddr *announceable;
 
+	/* verified remote_addr as reported by recent peers */
+	struct wireaddr *remote_addr_v4;
+	struct wireaddr *remote_addr_v6;
+
 	/* Timer until we can send an updated node_announcement */
 	struct oneshot *node_announce_timer;
 

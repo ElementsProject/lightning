@@ -51,9 +51,6 @@ void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 /* Generated stub for find_peer */
 struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "find_peer called!\n"); abort(); }
-/* Generated stub for fmt_wireaddr_without_port */
-char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
-{ fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
 /* Generated stub for force_node_announce_rexmit */
 void force_node_announce_rexmit(struct routing_state *rstate UNNEEDED, struct node *node UNNEEDED)
 { fprintf(stderr, "force_node_announce_rexmit called!\n"); abort(); }
@@ -72,9 +69,6 @@ bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UN
 /* Generated stub for fromwire_hsmd_node_announcement_sig_reply */
 bool fromwire_hsmd_node_announcement_sig_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_node_announcement_sig_reply called!\n"); abort(); }
-/* Generated stub for fromwire_wireaddr */
-bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
-{ fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
 /* Generated stub for get_node */
 struct node *get_node(struct routing_state *rstate UNNEEDED,
 		      const struct node_id *id UNNEEDED)
@@ -159,9 +153,6 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
-/* Generated stub for towire_wireaddr */
-void towire_wireaddr(u8 **pptr UNNEEDED, const struct wireaddr *addr UNNEEDED)
-{ fprintf(stderr, "towire_wireaddr called!\n"); abort(); }
 /* Generated stub for wire_sync_read */
 u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 { fprintf(stderr, "wire_sync_read called!\n"); abort(); }

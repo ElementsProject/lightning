@@ -24,6 +24,7 @@
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
+#include <common/wireaddr.h>
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <errno.h>
 #include <gossipd/gossip_generation.h>
@@ -339,6 +340,53 @@ static void handle_local_private_channel(struct daemon *daemon, const u8 *msg)
 		status_peer_broken(&id, "bad add_private_channel %s",
 				   tal_hex(tmpctx, cannounce));
 	}
+}
+
+/* lightningd tells us it has dicovered and verified new `remote_addr`.
+ * We can use this to update our node announcement. */
+static void handle_remote_addr(struct daemon *daemon, const u8 *msg)
+{
+	struct wireaddr remote_addr;
+
+	if (!fromwire_gossipd_remote_addr(msg, &remote_addr))
+		master_badmsg(WIRE_GOSSIPD_REMOTE_ADDR, msg);
+
+	/* current best guess is that we use DEFAULT_PORT on public internet */
+	remote_addr.port = DEFAULT_PORT;
+
+	switch (remote_addr.type) {
+	case ADDR_TYPE_IPV4:
+		if (daemon->remote_addr_v4 != NULL &&
+		    wireaddr_eq_without_port(daemon->remote_addr_v4,
+					     &remote_addr))
+			break;
+		tal_free(daemon->remote_addr_v4);
+		daemon->remote_addr_v4 = tal_dup(daemon, struct wireaddr,
+						 &remote_addr);
+		goto update_node_annoucement;
+	case ADDR_TYPE_IPV6:
+		if (daemon->remote_addr_v6 != NULL &&
+		    wireaddr_eq_without_port(daemon->remote_addr_v6,
+					     &remote_addr))
+			break;
+		tal_free(daemon->remote_addr_v6);
+		daemon->remote_addr_v6 = tal_dup(daemon, struct wireaddr,
+						 &remote_addr);
+		goto update_node_annoucement;
+
+	/* ignore all other cases */
+	case ADDR_TYPE_TOR_V2_REMOVED:
+	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_DNS:
+	case ADDR_TYPE_WEBSOCKET:
+		break;
+	}
+	return;
+
+update_node_annoucement:
+	status_debug("Update our node_announcement for discovered address: %s",
+		     fmt_wireaddr(tmpctx, &remote_addr));
+	maybe_send_own_node_announce(daemon, false);
 }
 
 /*~ This is where connectd tells us about a new peer we might want to
@@ -993,6 +1041,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL:
 		handle_local_private_channel(daemon, msg);
 		goto done;
+
+	case WIRE_GOSSIPD_REMOTE_ADDR:
+		handle_remote_addr(daemon, msg);
+		goto done;
 #if DEVELOPER
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		dev_set_max_scids_encode_size(daemon, msg);
@@ -1062,6 +1114,8 @@ int main(int argc, char *argv[])
 	daemon->node_announce_regen_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
 	daemon->rates = NULL;
+	daemon->remote_addr_v4 = NULL;
+	daemon->remote_addr_v6 = NULL;
 	list_head_init(&daemon->deferred_updates);
 
 	/* Tell the ecdh() function how to talk to hsmd */
