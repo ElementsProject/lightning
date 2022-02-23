@@ -40,14 +40,10 @@ where
     input: Option<I>,
     output: Option<O>,
 
-    #[allow(dead_code)]
-    hooks: Hooks,
-
-    #[allow(dead_code)]
-    subscriptions: Subscriptions,
-
+    hooks: HashMap<String, Hook<S>>,
     options: Vec<ConfigOption>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
+    subscriptions: HashMap<String, Subscription<S>>,
 }
 
 impl<S, I, O> Builder<S, I, O>
@@ -61,8 +57,8 @@ where
             state,
             input: Some(input),
             output: Some(output),
-            hooks: Hooks::default(),
-            subscriptions: Subscriptions::default(),
+            hooks: HashMap::new(),
+            subscriptions: HashMap::new(),
             options: vec![],
             rpcmethods: HashMap::new(),
         }
@@ -73,6 +69,21 @@ where
         self
     }
 
+    /// Subscribe to notifications for the given `topic`.
+    pub fn subscribe(mut self, topic: &str, callback: NotificationCallback<S>) -> Builder<S, I, O> {
+        self.subscriptions
+            .insert(topic.to_string(), Subscription { callback });
+        self
+    }
+
+    /// Add a subscription to a given `hookname`
+    pub fn hook(mut self, hookname: &str, callback: Callback<S>) -> Self {
+        self.hooks.insert(hookname.to_string(), Hook { callback });
+        self
+    }
+
+    /// Register a custom RPC method for the RPC passthrough from the
+    /// main daemon
     pub fn rpcmethod(
         mut self,
         name: &str,
@@ -148,12 +159,6 @@ where
 
         let (wait_handle, _) = tokio::sync::broadcast::channel(1);
 
-        // Collect the callbacks and create the hashmap for the dispatcher.
-        let mut rpcmethods = HashMap::new();
-        for (name, callback) in self.rpcmethods.drain().map(|(k, v)| (k, v.callback)) {
-            rpcmethods.insert(name, callback);
-        }
-
         // An MPSC pair used by anything that needs to send messages
         // to the main daemon.
         let (sender, receiver) = tokio::sync::mpsc::channel(4);
@@ -164,11 +169,21 @@ where
             sender,
         };
 
+        // TODO Split the two hashmaps once we fill in the hook
+        // payload structs in messages.rs
+        let mut rpcmethods: HashMap<String, Callback<S>> =
+            HashMap::from_iter(self.rpcmethods.drain().map(|(k, v)| (k, v.callback)));
+        rpcmethods.extend(self.hooks.clone().drain().map(|(k, v)| (k, v.callback)));
+
         // Start the PluginDriver to handle plugin IO
         tokio::spawn(
             PluginDriver {
                 plugin: plugin.clone(),
                 rpcmethods,
+                hooks: HashMap::from_iter(self.hooks.drain().map(|(k, v)| (k, v.callback))),
+                subscriptions: HashMap::from_iter(
+                    self.subscriptions.drain().map(|(k, v)| (k, v.callback)),
+                ),
             }
             .run(receiver, input, output),
         );
@@ -192,6 +207,8 @@ where
 
         messages::GetManifestResponse {
             options: self.options.clone(),
+            subscriptions: self.subscriptions.keys().map(|s| s.clone()).collect(),
+            hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
         }
     }
@@ -221,6 +238,7 @@ where
 }
 
 type Callback<S> = Box<fn(Plugin<S>, &serde_json::Value) -> Result<serde_json::Value, Error>>;
+type NotificationCallback<S> = Box<fn(Plugin<S>, &serde_json::Value) -> Result<(), Error>>;
 
 /// A struct collecting the metadata required to register a custom
 /// rpcmethod with the main daemon upon init. It'll get deconstructed
@@ -232,6 +250,21 @@ where
     callback: Callback<S>,
     description: String,
     name: String,
+}
+
+struct Subscription<S>
+where
+    S: Clone + Send,
+{
+    callback: NotificationCallback<S>,
+}
+
+#[derive(Clone)]
+struct Hook<S>
+where
+    S: Clone + Send,
+{
+    callback: Callback<S>,
 }
 
 #[derive(Clone)]
@@ -258,9 +291,13 @@ struct PluginDriver<S>
 where
     S: Send + Clone,
 {
-    #[allow(dead_code)]
+
     plugin: Plugin<S>,
     rpcmethods: HashMap<String, Callback<S>>,
+
+    #[allow(dead_code)] // Unused until we fill in the Hook structs.
+    hooks: HashMap<String, Callback<S>>,
+    subscriptions: HashMap<String, NotificationCallback<S>>,
 }
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -281,9 +318,9 @@ where
     {
         loop {
             tokio::select! {
-                _ = self.dispatch_one(&mut input, &self.plugin) => {},
-		v = receiver.recv() => {output.lock().await.send(v.unwrap()).await?},
-            }
+                    _ = self.dispatch_one(&mut input, &self.plugin) => {},
+            v = receiver.recv() => {output.lock().await.send(v.unwrap()).await?},
+                }
         }
     }
 
@@ -305,7 +342,7 @@ where
                         PluginDriver::<S>::dispatch_request(id, p, plugin).await
                     }
                     messages::JsonRpc::Notification(n) => {
-                        PluginDriver::<S>::dispatch_notification(n, plugin).await
+                        self.dispatch_notification(n, plugin).await
                     }
                     messages::JsonRpc::CustomRequest(id, p) => {
                         match self.dispatch_custom_request(id, p, plugin).await {
@@ -330,7 +367,7 @@ where
                         }
                     }
                     messages::JsonRpc::CustomNotification(n) => {
-                        PluginDriver::<S>::dispatch_custom_notification(n, plugin).await
+                        self.dispatch_custom_notification(n, plugin).await
                     }
                 }
             }
@@ -340,23 +377,24 @@ where
     }
 
     async fn dispatch_request(
-        id: usize,
-        request: messages::Request,
+        _id: usize,
+        _request: messages::Request,
         _plugin: &Plugin<S>,
     ) -> Result<(), Error> {
-        panic!("Unexpected request {:?} with id {}", request, id);
+        todo!("This is unreachable until we start filling in messages:Request. Until then the custom dispatcher below is used exclusively.")
     }
 
     async fn dispatch_notification(
-        notification: messages::Notification,
+        &self,
+        _notification: messages::Notification,
         _plugin: &Plugin<S>,
     ) -> Result<(), Error>
     where
         S: Send + Clone,
     {
-        trace!("Dispatching notification {:?}", notification);
-        unimplemented!()
+        todo!("As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used.")
     }
+
     async fn dispatch_custom_request(
         &self,
         _id: usize,
@@ -386,14 +424,35 @@ where
     }
 
     async fn dispatch_custom_notification(
+        &self,
         notification: serde_json::Value,
-        _plugin: &Plugin<S>,
+        plugin: &Plugin<S>,
     ) -> Result<(), Error>
     where
         S: Send + Clone,
     {
-        trace!("Dispatching notification {:?}", notification);
-        unimplemented!()
+        trace!("Dispatching custom notification {:?}", notification);
+        let method = notification
+            .get("method")
+            .context("Missing 'method' in notification")?
+            .as_str()
+            .context("'method' is not a string")?;
+        let params = notification
+            .get("params")
+            .context("Missing 'params' field in notification")?;
+        let callback = self
+            .subscriptions
+            .get(method)
+            .with_context(|| anyhow!("No handler for method '{}' registered", method))?;
+        trace!(
+            "Dispatching custom request: method={}, params={}",
+            method,
+            params
+        );
+        if let Err(e) = callback(plugin.clone(), params) {
+            log::error!("Error in notification handler '{}': {}", method, e);
+        }
+        Ok(())
     }
 }
 
@@ -421,17 +480,6 @@ where
             .context("error waiting for shutdown")
     }
 }
-
-/// A container for all the configure hooks. It is just a collection
-/// of callbacks that can be registered by the users of the
-/// library. Based on this configuration we can then generate the
-/// [`messages::GetManifestResponse`] from, populating our subscriptions
-#[derive(Debug, Default)]
-struct Hooks {}
-
-/// A container for all the configured notifications.
-#[derive(Debug, Default)]
-struct Subscriptions {}
 
 #[cfg(test)]
 mod test {
