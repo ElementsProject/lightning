@@ -1,5 +1,6 @@
 autoclean
 bcli
+bookkeeper
 fetchinvoice
 fundchannel
 funder
