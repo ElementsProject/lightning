@@ -1186,29 +1186,6 @@ static void add_announceable(struct wireaddr **announceable,
 	tal_arr_expand(announceable, *addr);
 }
 
-/*~ ccan/asort provides a type-safe sorting function; it requires a comparison
- * function, which takes an optional extra argument which is usually unused as
- * here, but deeply painful if you need it and don't have it! */
-static int wireaddr_cmp_type(const struct wireaddr *a,
-			     const struct wireaddr *b, void *unused)
-{
-	/* This works, but of course it's inefficient.  We don't
-	 * really care, since it's called only once at startup. */
-	u8 *a_wire = tal_arr(tmpctx, u8, 0), *b_wire = tal_arr(tmpctx, u8, 0);
-	int cmp, minlen;
-
-	towire_wireaddr(&a_wire, a);
-	towire_wireaddr(&b_wire, b);
-
-	minlen = tal_bytelen(a_wire) < tal_bytelen(b_wire)
-		? tal_bytelen(a_wire) : tal_bytelen(b_wire);
-	cmp = memcmp(a_wire, b_wire, minlen);
-	/* On a tie, shorter one goes first. */
-	if (cmp == 0)
-		return tal_bytelen(a_wire) - tal_bytelen(b_wire);
-	return cmp;
-}
-
 /* We need to have a bound address we can tell Tor to connect to */
 static const struct wireaddr *
 find_local_address(const struct listen_fd **listen_fds)
