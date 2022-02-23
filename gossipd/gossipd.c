@@ -672,7 +672,7 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 				     &daemon->id,
 				     daemon->rgb,
 				     daemon->alias,
-				     &daemon->announcable,
+				     &daemon->announceable,
 				     &dev_gossip_time,
 				     &dev_fast_gossip,
 				     &dev_fast_gossip_prune)) {

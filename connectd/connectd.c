@@ -1177,13 +1177,13 @@ static bool public_address(struct daemon *daemon, struct wireaddr *wireaddr)
 	return address_routable(wireaddr, daemon->dev_allow_localhost);
 }
 
-static void add_announcable(struct wireaddr **announcable,
-			    const struct wireaddr *addr)
+static void add_announceable(struct wireaddr **announceable,
+			     const struct wireaddr *addr)
 {
 	/*~ utils.h contains a convenience macro tal_arr_expand which
 	 * reallocates a tal_arr to make it one longer, then returns a pointer
 	 * to the (new) last element. */
-	tal_arr_expand(announcable, *addr);
+	tal_arr_expand(announceable, *addr);
 }
 
 /*~ ccan/asort provides a type-safe sorting function; it requires a comparison
@@ -1238,7 +1238,7 @@ static bool want_tor(const struct wireaddr_internal *proposed_wireaddr)
  * announce, ones we announce but don't bind to, and ones we bind to and
  * announce if they seem to be public addresses.
  *
- * This routine sorts out the mess: it populates the *announcable array,
+ * This routine sorts out the mess: it populates the *announceable array,
  * and returns the addresses we bound to (by convention, return is allocated
  * off `ctx` argument).
  *
@@ -1254,7 +1254,7 @@ setup_listeners(const tal_t *ctx,
 		/* For each one, listen, announce or both */
 		const enum addr_listen_announce *proposed_listen_announce,
 		const char *tor_password,
-		struct wireaddr **announcable,
+		struct wireaddr **announceable,
 		char **errstr)
 {
 	struct sockaddr_un addrun;
@@ -1267,7 +1267,7 @@ setup_listeners(const tal_t *ctx,
 
 	/* Start with empty arrays, for tal_arr_expand() */
 	listen_fds = tal_arr(ctx, const struct listen_fd *, 0);
-	*announcable = tal_arr(ctx, struct wireaddr, 0);
+	*announceable = tal_arr(ctx, struct wireaddr, 0);
 
 	/* Add addresses we've explicitly been told to *first*: implicit
 	 * addresses will be discarded then if we have multiple. */
@@ -1282,7 +1282,7 @@ setup_listeners(const tal_t *ctx,
 		/* You can only announce wiretypes, not internal formats! */
 		assert(proposed_wireaddr[i].itype
 		       == ADDR_INTERNAL_WIREADDR);
-		add_announcable(announcable, &wa.u.wireaddr);
+		add_announceable(announceable, &wa.u.wireaddr);
 	}
 
 	/* Now look for listening addresses. */
@@ -1338,8 +1338,8 @@ setup_listeners(const tal_t *ctx,
 					       tal_steal(listen_fds, lfd));
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
-					add_announcable(announcable,
-							&wa.u.wireaddr);
+					add_announceable(announceable,
+							 &wa.u.wireaddr);
 			}
 			ipv6_ok = (lfd != NULL);
 
@@ -1356,7 +1356,7 @@ setup_listeners(const tal_t *ctx,
 					       tal_steal(listen_fds, lfd));
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
-					add_announcable(announcable,
+					add_announceable(announceable,
 							&wa.u.wireaddr);
 			} else if (!ipv6_ok) {
 				/* Both failed, return now, errstr set. */
@@ -1372,7 +1372,7 @@ setup_listeners(const tal_t *ctx,
 				return NULL;
 			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
 			if (announce && public_address(daemon, &wa.u.wireaddr))
-				add_announcable(announcable, &wa.u.wireaddr);
+				add_announceable(announceable, &wa.u.wireaddr);
 			continue;
 		case ADDR_INTERNAL_FORPROXY:
 			break;
@@ -1425,10 +1425,10 @@ setup_listeners(const tal_t *ctx,
 				 *     there is also at least one address of
 				 *     different type.
 				 */
-				if (tal_count(*announcable) != 0) {
+				if (tal_count(*announceable) != 0) {
 					wireaddr_from_websocket(&addr.u.wireaddr,
 							daemon->websocket_port);
-					add_announcable(announcable,
+					add_announceable(announceable,
 							&addr.u.wireaddr);
 				} else {
 					status_unusual("Bound to websocket %s,"
@@ -1469,7 +1469,7 @@ setup_listeners(const tal_t *ctx,
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
 			continue;
 		};
-		add_announcable(announcable, toraddr);
+		add_announceable(announceable, toraddr);
 	}
 
 	/* Now we have bindings, set up any Tor static addresses: we will point
@@ -1516,7 +1516,7 @@ setup_listeners(const tal_t *ctx,
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
 				continue;
 		};
-		add_announcable(announcable, toraddr);
+		add_announceable(announceable, toraddr);
 	}
 
 	/*~ The spec used to ban more than one address of each type, but
@@ -1527,7 +1527,7 @@ setup_listeners(const tal_t *ctx,
 	 *...
 	 *   - MUST place address descriptors in ascending order.
 	 */
-	asort(*announcable, tal_count(*announcable), wireaddr_cmp_type, NULL);
+	asort(*announceable, tal_count(*announceable), wireaddr_cmp_type, NULL);
 
 	*errstr = NULL;
 	return listen_fds;
@@ -1543,7 +1543,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	struct wireaddr_internal *binding;
 	struct wireaddr_internal *proposed_wireaddr;
 	enum addr_listen_announce *proposed_listen_announce;
-	struct wireaddr *announcable;
+	struct wireaddr *announceable;
 	char *tor_password;
 	bool dev_fast_gossip;
 	bool dev_disconnect;
@@ -1602,7 +1602,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 					     proposed_wireaddr,
 					     proposed_listen_announce,
 					     tor_password,
-					     &announcable,
+					     &announceable,
 					     &errstr);
 
 	/* Free up old allocations */
@@ -1623,13 +1623,13 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	daemon_conn_send(daemon->master,
 			 take(towire_connectd_init_reply(NULL,
 							 binding,
-							 announcable,
+							 announceable,
 							 errstr)));
 	/*~ Who cares about a little once-off memory leak?  Turns out we do!
 	 * We have a memory leak checker which scans for allocated memory
 	 * with no pointers to it (a tell-tale leak sign, though with tal it's
 	 * not always a real problem), and this would (did!) trigger it. */
-	tal_free(announcable);
+	tal_free(announceable);
 
 #if DEVELOPER
 	if (dev_disconnect)

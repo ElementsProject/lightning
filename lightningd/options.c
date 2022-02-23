@@ -304,7 +304,7 @@ static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 
 	/* Can't announce anything that's not a normal wireaddr. */
 	if (ld->proposed_wireaddr[n].itype != ADDR_INTERNAL_WIREADDR)
-		return tal_fmt(NULL, "address '%s' is not announcable",
+		return tal_fmt(NULL, "address '%s' is not announceable",
 			       arg);
 
 	return NULL;

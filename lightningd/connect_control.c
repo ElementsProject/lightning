@@ -469,7 +469,7 @@ static void connect_init_done(struct subd *connectd,
 	log_debug(connectd->log, "connectd_init_done");
 	if (!fromwire_connectd_init_reply(ld, reply,
 					  &ld->binding,
-					  &ld->announcable,
+					  &ld->announceable,
 					  &errmsg))
 		fatal("Bad connectd_init_reply: %s",
 		      tal_hex(reply, reply));

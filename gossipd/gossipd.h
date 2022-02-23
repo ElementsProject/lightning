@@ -45,7 +45,7 @@ struct daemon {
 	u8 rgb[3];
 
 	/* What addresses we can actually announce. */
-	struct wireaddr *announcable;
+	struct wireaddr *announceable;
 
 	/* Timer until we can send an updated node_announcement */
 	struct oneshot *node_announce_timer;

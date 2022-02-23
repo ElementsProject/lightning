@@ -1723,8 +1723,8 @@ static struct command_result *json_getinfo(struct command *cmd,
     if (cmd->ld->listen) {
         /* These are the addresses we're announcing */
         json_array_start(response, "address");
-        for (size_t i = 0; i < tal_count(cmd->ld->announcable); i++)
-            json_add_address(response, NULL, cmd->ld->announcable+i);
+        for (size_t i = 0; i < tal_count(cmd->ld->announceable); i++)
+            json_add_address(response, NULL, cmd->ld->announceable+i);
         json_array_end(response);
 
         /* This is what we're actually bound to. */
