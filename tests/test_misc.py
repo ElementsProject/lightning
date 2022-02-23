@@ -1155,7 +1155,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     # Reorg changes short_channel_id 103x1x0 to 104x1x0, l1 sees it, restarts channeld
     bitcoind.simple_reorg(103, 1)                   # heights 103 - 108
-    # But now it's height 104, we need another block to make it announcable.
+    # But now it's height 104, we need another block to make it announceable.
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(r'Peer transient failure .* short_channel_id changed to 104x1x0 \(was 103x1x0\)')
 

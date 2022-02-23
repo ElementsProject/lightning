@@ -29,8 +29,8 @@ msgdata,connectd_init,dev_disconnect,bool,
 msgtype,connectd_init_reply,2100
 msgdata,connectd_init_reply,num_bindings,u16,
 msgdata,connectd_init_reply,bindings,wireaddr_internal,num_bindings
-msgdata,connectd_init_reply,num_announcable,u16,
-msgdata,connectd_init_reply,announcable,wireaddr,num_announcable
+msgdata,connectd_init_reply,num_announceable,u16,
+msgdata,connectd_init_reply,announceable,wireaddr,num_announceable
 msgdata,connectd_init_reply,failmsg,?wirestring,
 
 # Activate the connect daemon, so others can connect.
@@ -75,7 +75,7 @@ msgdata,connectd_peer_connected,features,u8,flen
 msgtype,connectd_peer_disconnected,2015
 msgdata,connectd_peer_disconnected,id,node_id,
 
-# master -> connectd: give message to peer and disconnect. 
+# master -> connectd: give message to peer and disconnect.
 msgtype,connectd_peer_final_msg,2003
 msgdata,connectd_peer_final_msg,id,node_id,
 msgdata,connectd_peer_final_msg,len,u16,

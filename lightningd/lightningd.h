@@ -144,9 +144,9 @@ struct lightningd {
 	/* Setup: And the bitset for each, whether to listen, announce or both */
 	enum addr_listen_announce *proposed_listen_announce;
 
-	/* Actual bindings and announcables from gossipd */
+	/* Actual bindings and announceables from gossipd */
 	struct wireaddr_internal *binding;
-	struct wireaddr *announcable;
+	struct wireaddr *announceable;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;

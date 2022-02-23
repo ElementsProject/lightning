@@ -258,7 +258,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    &ld->id,
 	    ld->rgb,
 	    ld->alias,
-	    ld->announcable,
+	    ld->announceable,
 	    IFDEV(ld->dev_gossip_time ? &ld->dev_gossip_time: NULL, NULL),
 	    IFDEV(ld->dev_fast_gossip, false),
 	    IFDEV(ld->dev_fast_gossip_prune, false));

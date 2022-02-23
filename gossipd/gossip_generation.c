@@ -38,8 +38,8 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 	if (!sig)
 		sig = talz(tmpctx, secp256k1_ecdsa_signature);
 
-	for (i = 0; i < tal_count(daemon->announcable); i++)
-		towire_wireaddr(&addresses, &daemon->announcable[i]);
+	for (i = 0; i < tal_count(daemon->announceable); i++)
+		towire_wireaddr(&addresses, &daemon->announceable[i]);
 
 	na_tlv = tlv_node_ann_tlvs_new(tmpctx);
 	na_tlv->option_will_fund = cast_const(struct lease_rates *, rates);
