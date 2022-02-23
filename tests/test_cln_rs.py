@@ -25,6 +25,7 @@ def test_plugin_start(node_factory):
     """
     bin_path = Path.cwd() / "target" / "debug" / "examples" / "cln-plugin-startup"
     l1 = node_factory.get_node(options={"plugin": str(bin_path), 'test-option': 31337})
+    l2 = node_factory.get_node()
 
     cfg = l1.rpc.listconfigs()
     p = cfg['plugins'][0]
@@ -52,3 +53,7 @@ def test_plugin_start(node_factory):
     }
 
     assert l1.rpc.testmethod() == "Hello"
+
+    l1.connect(l2)
+    l1.daemon.wait_for_log(r'Got a connect hook call')
+    l1.daemon.wait_for_log(r'Got a connect notification')

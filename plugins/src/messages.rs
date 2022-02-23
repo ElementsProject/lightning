@@ -12,50 +12,49 @@ pub(crate) enum Request {
     // Builtin
     Getmanifest(GetManifestCall),
     Init(InitCall),
-
     // Hooks
-    PeerConnected,
-    CommitmentRevocation,
-    DbWrite,
-    InvoicePayment,
-    Openchannel,
-    Openchannel2,
-    Openchannel2Changed,
-    Openchannel2Sign,
-    RbfChannel,
-    HtlcAccepted,
-    RpcCommand,
-    Custommsg,
-    OnionMessage,
-    OnionMessageBlinded,
-    OnionMessageOurpath,
+    //     PeerConnected,
+    //     CommitmentRevocation,
+    //     DbWrite,
+    //     InvoicePayment,
+    //     Openchannel,
+    //     Openchannel2,
+    //     Openchannel2Changed,
+    //     Openchannel2Sign,
+    //     RbfChannel,
+    //     HtlcAccepted,
+    //     RpcCommand,
+    //     Custommsg,
+    //     OnionMessage,
+    //     OnionMessageBlinded,
+    //     OnionMessageOurpath,
 
     // Bitcoin backend
-    Getchaininfo,
-    Estimatefees,
-    Getrawblockbyheight,
-    Getutxout,
-    Sendrawtransaction,
+    //     Getchaininfo,
+    //     Estimatefees,
+    //     Getrawblockbyheight,
+    //     Getutxout,
+    //     Sendrawtransaction,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "method", content = "params")]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Notification {
-    ChannelOpened,
-    ChannelOpenFailed,
-    ChannelStateChanged,
-    Connect,
-    Disconnect,
-    InvoicePayment,
-    InvoiceCreation,
-    Warning,
-    ForwardEvent,
-    SendpaySuccess,
-    SendpayFailure,
-    CoinMovement,
-    OpenchannelPeerSigs,
-    Shutdown,
+//     ChannelOpened,
+//     ChannelOpenFailed,
+//     ChannelStateChanged,
+//     Connect,
+//     Disconnect,
+//     InvoicePayment,
+//     InvoiceCreation,
+//     Warning,
+//     ForwardEvent,
+//     SendpaySuccess,
+//     SendpayFailure,
+//     CoinMovement,
+//     OpenchannelPeerSigs,
+//     Shutdown,
 }
 
 #[derive(Deserialize, Debug)]
@@ -128,6 +127,8 @@ pub(crate) struct RpcMethod {
 pub(crate) struct GetManifestResponse {
     pub(crate) options: Vec<ConfigOption>,
     pub(crate) rpcmethods: Vec<RpcMethod>,
+    pub(crate) subscriptions: Vec<String>,
+    pub(crate) hooks: Vec<String>,
 }
 
 #[derive(Serialize, Default, Debug)]
