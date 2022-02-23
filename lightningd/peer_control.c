@@ -1107,6 +1107,53 @@ peer_connected_hook_deserialize(struct peer_connected_hook_payload *payload,
 	return true;
 }
 
+/* Compare and store `remote_addr` and the `peer_id` that reported it.
+ * If new address was reported by at least one other, do node_announcement */
+static void update_remote_addr(struct lightningd *ld,
+			       const struct wireaddr *remote_addr,
+			       const struct node_id peer_id)
+{
+	switch (remote_addr->type) {
+	case ADDR_TYPE_IPV4:
+		/* init pointers first time */
+		if (ld->remote_addr_v4 == NULL) {
+			ld->remote_addr_v4 = tal_dup(ld, struct wireaddr,
+						     remote_addr);
+			ld->remote_addr_v4_peer = peer_id;
+		}
+		/* if updated by the same peer just remember the latest addr */
+		if (node_id_eq(&ld->remote_addr_v4_peer, &peer_id)) {
+			*ld->remote_addr_v4 = *remote_addr;
+			break;
+		}
+		/* store latest values */
+		*ld->remote_addr_v4 = *remote_addr;
+		ld->remote_addr_v4_peer = peer_id;
+		break;
+	case ADDR_TYPE_IPV6:
+		/* same code :s/4/6/ without the comments ;) */
+		if (ld->remote_addr_v6 == NULL) {
+			ld->remote_addr_v6 = tal_dup(ld, struct wireaddr,
+						     remote_addr);
+			ld->remote_addr_v6_peer = peer_id;
+		}
+		if (node_id_eq(&ld->remote_addr_v6_peer, &peer_id)) {
+			*ld->remote_addr_v6 = *remote_addr;
+			break;
+		}
+		*ld->remote_addr_v6 = *remote_addr;
+		ld->remote_addr_v6_peer = peer_id;
+		break;
+
+	/* ignore all other cases */
+	case ADDR_TYPE_TOR_V2_REMOVED:
+	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_DNS:
+	case ADDR_TYPE_WEBSOCKET:
+		break;
+	}
+}
+
 REGISTER_PLUGIN_HOOK(peer_connected,
 		     peer_connected_hook_deserialize,
 		     peer_connected_hook_final,
@@ -1158,12 +1205,14 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	if (!hook_payload->channel)
 		hook_payload->channel = peer_unsaved_channel(peer);
 
-	/* Log remote_addr for now */
-	if (hook_payload->remote_addr && (
-	    hook_payload->remote_addr->type == ADDR_TYPE_IPV4 ||
-	    hook_payload->remote_addr->type == ADDR_TYPE_IPV6)) {
+	/* Log and update remote_addr for Nat/IP discovery. */
+	if (hook_payload->remote_addr) {
 		log_info(ld->log, "Peer says it sees our address as: %s",
 			 fmt_wireaddr(tmpctx, hook_payload->remote_addr));
+		/* Currently only from peers we have a channel with, until we
+		 * do stuff like probing for remote_addr to a random node. */
+		if (hook_payload->channel)
+			update_remote_addr(ld, hook_payload->remote_addr, id);
 	}
 
 	plugin_hook_call_peer_connected(ld, hook_payload);
