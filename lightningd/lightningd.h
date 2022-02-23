@@ -148,6 +148,12 @@ struct lightningd {
 	struct wireaddr_internal *binding;
 	struct wireaddr *announceable;
 
+	/* unverified remote_addr as reported by recent peers */
+	struct wireaddr *remote_addr_v4;
+	struct wireaddr *remote_addr_v6;
+	struct node_id remote_addr_v4_peer;
+	struct node_id remote_addr_v6_peer;
+
 	/* Bearer of all my secrets. */
 	int hsm_fd;
 	struct subd *hsm;

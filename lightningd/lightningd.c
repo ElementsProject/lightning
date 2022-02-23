@@ -203,6 +203,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * NULL.  So we start with a zero-length array. */
 	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
 	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
+
+	ld->remote_addr_v4 = NULL;
+	ld->remote_addr_v6 = NULL;
 	ld->listen = true;
 	ld->autolisten = true;
 	ld->reconnect = true;
