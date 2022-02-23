@@ -4,9 +4,13 @@
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
 #include <common/memleak.h>
-#include <common/node_id.h>
 #include <common/type_to_string.h>
+#include <db/exec.h>
 #include <plugins/bkpr/db.h>
+#include <plugins/bkpr/account.h>
+#include <plugins/bkpr/chain_event.h>
+#include <plugins/bkpr/channel_event.h>
+#include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
 
 #define CHAIN_MOVE "chain_mvt"
@@ -43,7 +47,6 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 {
 	const char *err;
 	size_t i;
-	struct node_id node_id;
 	u32 blockheight;
 	u64 timestamp;
 	struct account_snap *snaps;
@@ -57,10 +60,8 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			   json_tok_full(buf, params));
 
 	err = json_scan(cmd, buf, snap_tok,
-			"{node_id:%"
-			",blockheight:%"
+			"{blockheight:%"
 			",timestamp:%}",
-			JSON_SCAN(json_to_node_id, &node_id),
 			JSON_SCAN(json_to_number, &blockheight),
 			JSON_SCAN(json_to_u64, &timestamp));
 
@@ -69,11 +70,6 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			   "`balance_snapshot` payload did not scan %s: %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
-
-	plugin_log(cmd->plugin, LOG_DBG, "balances for node %s at %d"
-		   " (%"PRIu64")",
-		   type_to_string(tmpctx, struct node_id, &node_id),
-		   blockheight, timestamp);
 
 	accounts_tok = json_get_member(buf, snap_tok, "accounts");
 	if (accounts_tok == NULL || accounts_tok->type != JSMN_ARRAY)
@@ -114,19 +110,17 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 static const char *parse_and_log_chain_move(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *params,
-					    const struct node_id *node_id,
 					    const char *acct_name STEALS,
 					    const struct amount_msat credit,
 					    const struct amount_msat debit,
 					    const char *coin_type STEALS,
-					    const u32 timestamp,
+					    const u64 timestamp,
 					    const enum mvt_tag *tags)
 {
-	struct bitcoin_outpoint outpt;
-	static struct amount_msat output_value;
-	struct sha256 *payment_hash = tal(tmpctx, struct sha256);
-	struct bitcoin_txid *spending_txid = tal(tmpctx, struct bitcoin_txid);
-	u32 blockheight;
+	struct chain_event *e = tal(cmd, struct chain_event);
+	struct sha256 *payment_hash = tal(cmd, struct sha256);
+	struct bitcoin_txid *spending_txid = tal(cmd, struct bitcoin_txid);
+	struct account *acct;
 	const char *err;
 
 	/* Fields we expect on *every* chain movement */
@@ -137,10 +131,10 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 			",output_msat:%"
 			",blockheight:%"
 			"}}",
-			JSON_SCAN(json_to_txid, &outpt.txid),
-			JSON_SCAN(json_to_number, &outpt.n),
-			JSON_SCAN(json_to_msat, &output_value),
-			JSON_SCAN(json_to_number, &blockheight));
+			JSON_SCAN(json_to_txid, &e->outpoint.txid),
+			JSON_SCAN(json_to_number, &e->outpoint.n),
+			JSON_SCAN(json_to_msat, &e->output_value),
+			JSON_SCAN(json_to_number, &e->blockheight));
 
 	if (err)
 		return err;
@@ -155,6 +149,8 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 	if (err)
 		spending_txid = tal_free(spending_txid);
 
+	e->spending_txid = tal_steal(e, spending_txid);
+
 	/* Now try to get out the optional parts */
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:"
@@ -165,25 +161,49 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 	if (err)
 		payment_hash = tal_free(payment_hash);
 
-	// FIXME: enter into database
+	e->payment_id = tal_steal(e, payment_hash);
+
+	e->credit = credit;
+	e->debit = debit;
+	e->currency = tal_steal(e, coin_type);
+	e->timestamp = timestamp;
+	e->tag = mvt_tag_str(tags[0]);
+
+	db_begin_transaction(db);
+	acct = find_account(cmd, db, acct_name);
+
+	if (!acct) {
+		/* FIXME: lookup the peer id for this channel! */
+		acct = new_account(cmd, acct_name, NULL);
+		account_add(db, acct);
+	}
+
+	log_chain_event(db, acct, e);
+
+	/* This event *might* have implications for account;
+	 * update as necessary */
+	maybe_update_account(db, acct, e, tags);
+
+	/* Can we calculate any onchain fees now? */
+
+	/* FIXME: maybe mark channel as 'onchain_resolved' */
+	db_commit_transaction(db);
+
 	return NULL;
 }
 
 static const char *parse_and_log_channel_move(struct command *cmd,
 					      const char *buf,
 					      const jsmntok_t *params,
-					      const struct node_id *node_id,
 					      const char *acct_name STEALS,
 					      const struct amount_msat credit,
 					      const struct amount_msat debit,
 					      const char *coin_type STEALS,
-					      const u32 timestamp,
+					      const u64 timestamp,
 					      const enum mvt_tag *tags)
 {
-	struct sha256 payment_hash;
-	u64 part_id;
-	struct amount_msat fees;
-
+	struct channel_event *e = tal(cmd, struct channel_event);
+	struct account *acct;
 	const char *err;
 
 	err = json_scan(tmpctx, buf, params,
@@ -191,8 +211,8 @@ static const char *parse_and_log_channel_move(struct command *cmd,
 			"{payment_hash:%"
 			",fees:%"
 			"}}",
-			JSON_SCAN(json_to_sha256, &payment_hash),
-			JSON_SCAN(json_to_msat, &fees));
+			JSON_SCAN(json_to_sha256, &e->payment_id),
+			JSON_SCAN(json_to_msat, &e->fees));
 
 	if (err)
 		return err;
@@ -200,11 +220,27 @@ static const char *parse_and_log_channel_move(struct command *cmd,
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:"
 			"{part_id:%}}",
-			JSON_SCAN(json_to_u64, &part_id));
+			JSON_SCAN(json_to_number, &e->part_id));
 	if (err)
-		part_id = 0;
+		e->part_id = 0;
 
-	// FIXME: enter into database?
+	e->credit = credit;
+	e->debit = debit;
+	e->currency = tal_steal(e, coin_type);
+	e->timestamp = timestamp;
+	e->tag = mvt_tag_str(tags[0]);
+
+	/* Go find the account for this event */
+	db_begin_transaction(db);
+	acct = find_account(cmd, db, acct_name);
+	if (!acct)
+		plugin_err(cmd->plugin,
+			   "Received channel event,"
+			   " but no account exists %s",
+			   acct_name);
+
+	log_channel_event(db, acct, e);
+	db_commit_transaction(db);
 
 	return NULL;
 }
@@ -235,7 +271,6 @@ static struct command_result * json_coin_moved(struct command *cmd,
 					       const jsmntok_t *params)
 {
 	const char *err, *mvt_type, *acct_name, *coin_type;
-	struct node_id node_id;
 	u32 version;
 	u64 timestamp;
 	struct amount_msat credit, debit;
@@ -244,7 +279,6 @@ static struct command_result * json_coin_moved(struct command *cmd,
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:"
 			"{version:%"
-			",node_id:%"
 			",type:%"
 			",account_id:%"
 			",credit_msat:%"
@@ -253,7 +287,6 @@ static struct command_result * json_coin_moved(struct command *cmd,
 			",timestamp:%"
 			"}}",
 			JSON_SCAN(json_to_number, &version),
-			JSON_SCAN(json_to_node_id, &node_id),
 			JSON_SCAN_TAL(tmpctx, json_strdup, &mvt_type),
 			JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
 			JSON_SCAN(json_to_msat, &credit),
@@ -286,13 +319,13 @@ static struct command_result * json_coin_moved(struct command *cmd,
 		   mvt_type, timestamp);
 
 	if (streq(mvt_type, CHAIN_MOVE))
-		err = parse_and_log_chain_move(cmd, buf, params, &node_id,
+		err = parse_and_log_chain_move(cmd, buf, params,
 					       acct_name, credit, debit,
 					       coin_type, timestamp,
 					       tags);
 	else {
 		assert(streq(mvt_type, CHANNEL_MOVE));
-		err = parse_and_log_channel_move(cmd, buf, params, &node_id,
+		err = parse_and_log_channel_move(cmd, buf, params,
 						 acct_name, credit, debit,
 						 coin_type, timestamp,
 						 tags);
