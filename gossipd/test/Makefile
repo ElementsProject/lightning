@@ -9,6 +9,7 @@ GOSSIPD_TEST_PROGRAMS := $(GOSSIPD_TEST_OBJS:.o=)
 GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
 	common/autodata.o			\
+	common/base32.o				\
 	common/coin_mvt.o			\
 	common/bigsize.o			\
 	common/blindedpath.o			\
@@ -25,6 +26,7 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/sphinx.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
+	common/wireaddr.o			\
 	gossipd/gossip_store_wiregen.o		\
 	wire/peer$(EXP)_wiregen.o		\
 	wire/onion$(EXP)_wiregen.o		\

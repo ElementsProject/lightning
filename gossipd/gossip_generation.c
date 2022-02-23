@@ -1,6 +1,7 @@
 /* Routines to make our own gossip messages.  Not as in "we're the gossip
  * generation, man!" */
 #include "config.h"
+#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <common/daemon_conn.h>
@@ -19,6 +20,15 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/wire_sync.h>
 
+static bool wireaddr_arr_contains(const struct wireaddr *was,
+				  const struct wireaddr *wa)
+{
+	for (size_t i = 0; i < tal_count(was); i++)
+		if (wireaddr_eq(&was[i], wa))
+			return true;
+	return false;
+}
+
 /* Create a node_announcement with the given signature. It may be NULL in the
  * case we need to create a provisional announcement for the HSM to sign.
  * This is called twice: once with the dummy signature to get it signed and a
@@ -30,16 +40,39 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 				    u32 timestamp,
 				    const struct lease_rates *rates)
 {
+	struct wireaddr *was;
 	u8 *addresses = tal_arr(tmpctx, u8, 0);
 	u8 *announcement;
 	struct tlv_node_ann_tlvs *na_tlv;
 	size_t i;
 
+	/* add all announceable addresses */
+	was = tal_arr(tmpctx, struct wireaddr, 0);
+	for (i = 0; i < tal_count(daemon->announceable); i++)
+		tal_arr_expand(&was, daemon->announceable[i]);
+
+	/* add reported `remote_addr` v4 and v6 of our self */
+	if (daemon->remote_addr_v4 != NULL &&
+	    !wireaddr_arr_contains(was, daemon->remote_addr_v4))
+		tal_arr_expand(&was, *daemon->remote_addr_v4);
+	if (daemon->remote_addr_v6 != NULL &&
+	    !wireaddr_arr_contains(was, daemon->remote_addr_v6))
+		tal_arr_expand(&was, *daemon->remote_addr_v6);
+
+	/* Sort by address type again, as we added dynamic remote_addr v4/v6. */
+	/* BOLT #7:
+	 *
+	 * The origin node:
+	 *...
+	 *   - MUST place address descriptors in ascending order.
+	 */
+	asort(was, tal_count(was), wireaddr_cmp_type, NULL);
+
 	if (!sig)
 		sig = talz(tmpctx, secp256k1_ecdsa_signature);
 
-	for (i = 0; i < tal_count(daemon->announceable); i++)
-		towire_wireaddr(&addresses, &daemon->announceable[i]);
+	for (i = 0; i < tal_count(was); i++)
+		towire_wireaddr(&addresses, &was[i]);
 
 	na_tlv = tlv_node_ann_tlvs_new(tmpctx);
 	na_tlv->option_will_fund = cast_const(struct lease_rates *, rates);

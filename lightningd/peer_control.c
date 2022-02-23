@@ -35,6 +35,7 @@
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
@@ -1126,6 +1127,11 @@ static void update_remote_addr(struct lightningd *ld,
 			*ld->remote_addr_v4 = *remote_addr;
 			break;
 		}
+		/* tell gossip we have a valid update */
+		if (wireaddr_eq_without_port(ld->remote_addr_v4, remote_addr))
+			subd_send_msg(ld->gossip, towire_gossipd_remote_addr(
+							  tmpctx,
+							  ld->remote_addr_v4));
 		/* store latest values */
 		*ld->remote_addr_v4 = *remote_addr;
 		ld->remote_addr_v4_peer = peer_id;
@@ -1141,6 +1147,10 @@ static void update_remote_addr(struct lightningd *ld,
 			*ld->remote_addr_v6 = *remote_addr;
 			break;
 		}
+		if (wireaddr_eq_without_port(ld->remote_addr_v6, remote_addr))
+			subd_send_msg(ld->gossip, towire_gossipd_remote_addr(
+							  tmpctx,
+							  ld->remote_addr_v6));
 		*ld->remote_addr_v6 = *remote_addr;
 		ld->remote_addr_v6_peer = peer_id;
 		break;

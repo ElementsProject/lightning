@@ -736,6 +736,9 @@ u8 *towire_final_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expir
 /* Generated stub for towire_final_incorrect_htlc_amount */
 u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_msat incoming_htlc_amt UNNEEDED)
 { fprintf(stderr, "towire_final_incorrect_htlc_amount called!\n"); abort(); }
+/* Generated stub for towire_gossipd_remote_addr */
+u8 *towire_gossipd_remote_addr(const tal_t *ctx UNNEEDED, const struct wireaddr *remote_addr UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_remote_addr called!\n"); abort(); }
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
