@@ -69,6 +69,7 @@ struct wireaddr {
 };
 
 bool wireaddr_eq(const struct wireaddr *a, const struct wireaddr *b);
+bool wireaddr_eq_without_port(const struct wireaddr *a, const struct wireaddr *b);
 
 /* We use wireaddr to tell gossipd both what to listen on, and what to
  * announce */
@@ -196,5 +197,8 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr);
 
 /* Decode an array of serialized addresses from node_announcement */
 struct wireaddr *fromwire_wireaddr_array(const tal_t *ctx, const u8 *ser);
+
+int wireaddr_cmp_type(const struct wireaddr *a,
+		      const struct wireaddr *b, void *unused);
 
 #endif /* LIGHTNING_COMMON_WIREADDR_H */
