@@ -16,13 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.6
-
       - name: Install dependencies
         run: |
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.9/bin:$PATH"
           export BITCOIN_VERSION=0.20.1
           brew install wget python autoconf automake libtool python3 gmp gnu-sed gettext libsodium
 
@@ -56,32 +52,9 @@ jobs:
           TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
           TEST_GROUP: ${{ matrix.TEST_GROUP }}
         run: |
-          export PATH="/usr/local/opt:/Users/runner/.local/bin:$PATH"
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.9/bin:$PATH"
           export LDFLAGS="-L/usr/local/opt/sqlite/lib"
           export CPPFLAGS="-I/usr/local/opt/sqlite/include"
-
-          pip3 install --user -U \
-            -r requirements.lock
-
-          pip3 install --user --no-index \
-            --use-feature=in-tree-build \
-            ./contrib/pyln-spec/bolt7 \
-            ./contrib/pyln-client \
-            ./contrib/pyln-proto \
-            ./contrib/pyln-testing
-
-          # Install utilities that aren't dependencies, but make
-          # running tests easier/feasible on CI (and pytest which
-          # keeps breaking the rerunfailures plugin).
-          pip3 install --user -U \
-            blinker \
-            flake8 \
-            flaky \
-            mako \
-            pytest-sentry \
-            pytest-test-groups==1.0.3 \
-            pytest-custom-exit-code==0.3.0 \
-            pytest-json-report
 
           cat << EOF > pytest.ini
           [pytest]
@@ -92,11 +65,3 @@ jobs:
 
           ./configure
           make
-
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
-          path: report.*
-          if-no-files-found: ignore
