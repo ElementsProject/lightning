@@ -1,6 +1,7 @@
 ---
 name: Mac OS pytest
-on: [pull_request]
+on:
+  pull_request:
 jobs:
   smoke-test:
     name: Smoke Test macOS
