@@ -16,7 +16,7 @@ remote_pubkey = PublicKey(unhexlify(
     b'03b31e5bbf2cdbe115b485a2b480e70a1ef3951a0dc6df4b1232e0e56f3dce18d6'
 ))
 
-lc = connect(ls_privkey, remote_pubkey, '127.0.0.1', 9375)
+lc = connect(ls_privkey, remote_pubkey, '127.0.0.1', 9735)
 
 # Send an init message, with no global features, and 0b10101010 as local
 # features.
