@@ -100,7 +100,12 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		switch (tlvs->remote_addr->type) {
 		case ADDR_TYPE_IPV4:
 		case ADDR_TYPE_IPV6:
-			remote_addr = tal_steal(peer, tlvs->remote_addr);
+#if DEVELOPER		/* ignore private addresses (non-DEVELOPER builds) */
+			if (address_routable(tlvs->remote_addr, true))
+#else
+			if (address_routable(tlvs->remote_addr, false))
+#endif /* DEVELOPER */
+				remote_addr = tal_steal(peer, tlvs->remote_addr);
 			break;
 		/* We are only interested in IP addresses */
 		case ADDR_TYPE_TOR_V2_REMOVED:

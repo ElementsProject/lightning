@@ -452,6 +452,7 @@ def test_plugin_connected_hook_chaining(node_factory):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT1 remote_addr #917")
+@pytest.mark.developer("localhost remote_addr will be filtered without DEVELOEPR")
 def test_peer_connected_remote_addr(node_factory):
     """This tests the optional tlv `remote_addr` being passed to a plugin.
 

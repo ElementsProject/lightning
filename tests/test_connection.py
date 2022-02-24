@@ -10,7 +10,7 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr,
-    EXPERIMENTAL_FEATURES, mine_funding_to_announce
+    DEVELOPER, EXPERIMENTAL_FEATURES, mine_funding_to_announce
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
@@ -23,7 +23,7 @@ import unittest
 import websocket
 
 
-def test_connect(node_factory):
+def test_connect_basic(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
     # These should be in openingd.
@@ -46,8 +46,9 @@ def test_connect(node_factory):
     assert len(l1.rpc.listpeers()) == 1
     assert len(l2.rpc.listpeers()) == 1
 
-    if EXPERIMENTAL_FEATURES:
-        l1.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
+    if EXPERIMENTAL_FEATURES:  # BOLT1 remote_addr #917
+        if DEVELOPER:
+            print(l1.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}"))
 
     # Should get reasonable error if unknown addr for peer.
     with pytest.raises(RpcError, match=r'Unable to connect, no address known'):
