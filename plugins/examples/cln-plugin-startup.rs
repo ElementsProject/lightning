@@ -13,15 +13,15 @@ async fn main() -> Result<(), anyhow::Error> {
             options::Value::Integer(42),
             "a test-option with default 42",
         ))
-        .rpcmethod("testmethod", "This is a test", Box::new(testmethod))
+        .rpcmethod("testmethod", "This is a test", testmethod)
         .subscribe("connect", Box::new(connect_handler))
-        .hook("peer_connected", Box::new(peer_connected_handler))
+        //.hook("peer_connected", Box::new(peer_connected_handler))
         .start()
         .await?;
     plugin.join().await
 }
 
-fn testmethod(_p: Plugin<()>, _v: &serde_json::Value) -> Result<serde_json::Value, Error> {
+async fn testmethod(_p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
     Ok(json!("Hello"))
 }
 

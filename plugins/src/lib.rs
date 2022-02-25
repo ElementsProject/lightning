@@ -4,6 +4,8 @@ use futures::sink::SinkExt;
 extern crate log;
 use log::trace;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::Mutex;
@@ -84,18 +86,18 @@ where
 
     /// Register a custom RPC method for the RPC passthrough from the
     /// main daemon
-    pub fn rpcmethod(
-        mut self,
-        name: &str,
-        description: &str,
-        callback: Callback<S>,
-    ) -> Builder<S, I, O> {
+    pub fn rpcmethod<C, F>(mut self, name: &str, description: &str, callback: C) -> Builder<S, I, O>
+    where
+        C: Send + Sync + 'static,
+        C: Fn(Plugin<S>, Request) -> F + 'static,
+        F: Future<Output = Response> + Send + Sync + 'static,
+    {
         self.rpcmethods.insert(
             name.to_string(),
             RpcMethod {
                 name: name.to_string(),
                 description: description.to_string(),
-                callback,
+                callback: Box::new(move |p, r| Box::pin(callback(p, r))),
             },
         );
         self
@@ -171,9 +173,10 @@ where
 
         // TODO Split the two hashmaps once we fill in the hook
         // payload structs in messages.rs
-        let mut rpcmethods: HashMap<String, Callback<S>> =
+        let mut rpcmethods: HashMap<String, AsyncCallback<S>> =
             HashMap::from_iter(self.rpcmethods.drain().map(|(k, v)| (k, v.callback)));
-        rpcmethods.extend(self.hooks.clone().drain().map(|(k, v)| (k, v.callback)));
+        // TODO re-enable once hooks are async again
+        //rpcmethods.extend(self.hooks.clone().drain().map(|(k, v)| (k, v.callback)));
 
         // Start the PluginDriver to handle plugin IO
         tokio::spawn(
@@ -237,8 +240,14 @@ where
     }
 }
 
-type Callback<S> = Box<fn(Plugin<S>, &serde_json::Value) -> Result<serde_json::Value, Error>>;
-type NotificationCallback<S> = Box<fn(Plugin<S>, &serde_json::Value) -> Result<(), Error>>;
+// Just some type aliases so we don't get confused in a lisp-like sea
+// of parentheses.
+type Request = serde_json::Value;
+type Response = Result<serde_json::Value, Error>;
+type Callback<S> = Box<fn(Plugin<S>, &Request) -> Response>;
+type AsyncCallback<S> =
+    Box<dyn Fn(Plugin<S>, Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+type NotificationCallback<S> = Box<fn(Plugin<S>, &Request) -> Result<(), Error>>;
 
 /// A struct collecting the metadata required to register a custom
 /// rpcmethod with the main daemon upon init. It'll get deconstructed
@@ -247,7 +256,7 @@ struct RpcMethod<S>
 where
     S: Clone + Send,
 {
-    callback: Callback<S>,
+    callback: AsyncCallback<S>,
     description: String,
     name: String,
 }
@@ -291,9 +300,8 @@ struct PluginDriver<S>
 where
     S: Send + Clone,
 {
-
     plugin: Plugin<S>,
-    rpcmethods: HashMap<String, Callback<S>>,
+    rpcmethods: HashMap<String, AsyncCallback<S>>,
 
     #[allow(dead_code)] // Unused until we fill in the Hook structs.
     hooks: HashMap<String, Callback<S>>,
@@ -420,7 +428,7 @@ where
             method,
             params
         );
-        callback(plugin.clone(), params)
+        callback(plugin.clone(), params.clone()).await
     }
 
     async fn dispatch_custom_notification(
