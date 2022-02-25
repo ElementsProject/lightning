@@ -79,8 +79,18 @@ where
     }
 
     /// Add a subscription to a given `hookname`
-    pub fn hook(mut self, hookname: &str, callback: Callback<S>) -> Self {
-        self.hooks.insert(hookname.to_string(), Hook { callback });
+    pub fn hook<C, F>(mut self, hookname: &str, callback: C) -> Self
+    where
+        C: Send + Sync + 'static,
+        C: Fn(Plugin<S>, Request) -> F + 'static,
+        F: Future<Output = Response> + Send + Sync + 'static,
+    {
+        self.hooks.insert(
+            hookname.to_string(),
+            Hook {
+                callback: Box::new(move |p, r| Box::pin(callback(p, r))),
+            },
+        );
         self
     }
 
@@ -175,15 +185,14 @@ where
         // payload structs in messages.rs
         let mut rpcmethods: HashMap<String, AsyncCallback<S>> =
             HashMap::from_iter(self.rpcmethods.drain().map(|(k, v)| (k, v.callback)));
-        // TODO re-enable once hooks are async again
-        //rpcmethods.extend(self.hooks.clone().drain().map(|(k, v)| (k, v.callback)));
+        rpcmethods.extend(self.hooks.drain().map(|(k, v)| (k, v.callback)));
 
         // Start the PluginDriver to handle plugin IO
         tokio::spawn(
             PluginDriver {
                 plugin: plugin.clone(),
                 rpcmethods,
-                hooks: HashMap::from_iter(self.hooks.drain().map(|(k, v)| (k, v.callback))),
+                hooks: HashMap::new(),
                 subscriptions: HashMap::from_iter(
                     self.subscriptions.drain().map(|(k, v)| (k, v.callback)),
                 ),
@@ -244,7 +253,6 @@ where
 // of parentheses.
 type Request = serde_json::Value;
 type Response = Result<serde_json::Value, Error>;
-type Callback<S> = Box<fn(Plugin<S>, &Request) -> Response>;
 type AsyncCallback<S> =
     Box<dyn Fn(Plugin<S>, Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
 type NotificationCallback<S> = Box<fn(Plugin<S>, &Request) -> Result<(), Error>>;
@@ -268,12 +276,11 @@ where
     callback: NotificationCallback<S>,
 }
 
-#[derive(Clone)]
 struct Hook<S>
 where
     S: Clone + Send,
 {
-    callback: Callback<S>,
+    callback: AsyncCallback<S>,
 }
 
 #[derive(Clone)]
@@ -304,7 +311,7 @@ where
     rpcmethods: HashMap<String, AsyncCallback<S>>,
 
     #[allow(dead_code)] // Unused until we fill in the Hook structs.
-    hooks: HashMap<String, Callback<S>>,
+    hooks: HashMap<String, AsyncCallback<S>>,
     subscriptions: HashMap<String, NotificationCallback<S>>,
 }
 

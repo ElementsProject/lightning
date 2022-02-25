@@ -15,7 +15,7 @@ async fn main() -> Result<(), anyhow::Error> {
         ))
         .rpcmethod("testmethod", "This is a test", testmethod)
         .subscribe("connect", Box::new(connect_handler))
-        //.hook("peer_connected", Box::new(peer_connected_handler))
+        .hook("peer_connected", peer_connected_handler)
         .start()
         .await?;
     plugin.join().await
@@ -30,7 +30,7 @@ fn connect_handler(_p: Plugin<()>, v: &serde_json::Value) -> Result<(), Error> {
     Ok(())
 }
 
-fn peer_connected_handler(_p: Plugin<()>, v: &serde_json::Value) -> Result<serde_json::Value, Error> {
+async fn peer_connected_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<serde_json::Value, Error> {
     log::info!("Got a connect hook call: {}", v);
     Ok(json!({"result": "continue"}))
 }
