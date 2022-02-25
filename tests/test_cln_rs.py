@@ -55,5 +55,5 @@ def test_plugin_start(node_factory):
     assert l1.rpc.testmethod() == "Hello"
 
     l1.connect(l2)
-    l1.daemon.wait_for_log(r'Got a connect hook call')
+    #l1.daemon.wait_for_log(r'Got a connect hook call')
     l1.daemon.wait_for_log(r'Got a connect notification')
