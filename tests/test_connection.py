@@ -1,4 +1,3 @@
-from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
@@ -19,7 +18,6 @@ import os
 import pytest
 import random
 import re
-import shutil
 import time
 import unittest
 import websocket
@@ -583,47 +581,6 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
     l1.rpc.close(l2.info['id'], 0)
     l2.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
     l1.daemon.wait_for_log(r"CLOSINGD_COMPLETE")
-
-
-def test_connect_stresstest(node_factory, executor):
-    # This test is unreliable, but it's better than nothing.
-    l1, l2, l3 = node_factory.get_nodes(3, opts={'may_reconnect': True})
-
-    # Hack l3 into a clone of l2, to stress reconnect code.
-    l3.stop()
-    shutil.copyfile(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'hsm_secret'),
-                    os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, 'hsm_secret'))
-    l3.start()
-    l3.info = l3.rpc.getinfo()
-
-    assert l3.info['id'] == l2.info['id']
-
-    # We fire off random connect/disconnect commands.
-    actions = [
-        (l2.rpc.connect, l1.info['id'], 'localhost', l1.port),
-        (l3.rpc.connect, l1.info['id'], 'localhost', l1.port),
-        (l1.rpc.connect, l2.info['id'], 'localhost', l2.port),
-        (l1.rpc.connect, l3.info['id'], 'localhost', l3.port),
-        (l1.rpc.disconnect, l2.info['id'])
-    ]
-    args = [random.choice(actions) for _ in range(1000)]
-
-    # We get them all to connect to each other.
-    futs = []
-    for a in args:
-        futs.append(executor.submit(*a))
-
-    # We don't actually care if they fail, since some will.
-    successes = 0
-    failures = 0
-    for f in futs:
-        if f.exception():
-            failures += 1
-        else:
-            f.result()
-            successes += 1
-
-    assert successes > failures
 
 
 @pytest.mark.developer
@@ -2912,101 +2869,6 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
     bitcoind.generate_block(100)
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     l3.daemon.wait_for_log('onchaind complete, forgetting peer')
-
-
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
-@pytest.mark.slow_test
-def test_restart_many_payments(node_factory, bitcoind):
-    l1 = node_factory.get_node(may_reconnect=True)
-
-    # On my laptop, these take 89 seconds and 12 seconds
-    if node_factory.valgrind:
-        num = 2
-    else:
-        num = 5
-
-    nodes = node_factory.get_nodes(num * 2, opts={'may_reconnect': True})
-    innodes = nodes[:num]
-    outnodes = nodes[num:]
-
-    # Fund up-front to save some time.
-    dests = {l1.rpc.newaddr()['bech32']: (10**6 + 1000000) / 10**8 * num}
-    for n in innodes:
-        dests[n.rpc.newaddr()['bech32']] = (10**6 + 1000000) / 10**8
-    bitcoind.rpc.sendmany("", dests)
-    bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [l1] + innodes)
-
-    # Nodes with channels into the main node
-    for n in innodes:
-        n.rpc.connect(l1.info['id'], 'localhost', l1.port)
-        n.rpc.fundchannel(l1.info['id'], 10**6)
-
-    # Nodes with channels out of the main node
-    for n in outnodes:
-        l1.rpc.connect(n.info['id'], 'localhost', n.port)
-        # OK to use change from previous fundings
-        l1.rpc.fundchannel(n.info['id'], 10**6, minconf=0)
-
-    # Now mine them, get scids
-    mine_funding_to_announce(bitcoind, [l1] + nodes,
-                             num_blocks=6, wait_for_mempool=num * 2)
-
-    wait_for(lambda: [only_one(n.rpc.listpeers()['peers'])['channels'][0]['state'] for n in nodes] == ['CHANNELD_NORMAL'] * len(nodes))
-
-    inchans = []
-    for n in innodes:
-        inchans.append(only_one(n.rpc.listpeers()['peers'])['channels'][0]['short_channel_id'])
-
-    outchans = []
-    for n in outnodes:
-        outchans.append(only_one(n.rpc.listpeers()['peers'])['channels'][0]['short_channel_id'])
-
-    # Now make sure every node sees every channel.
-    for n in nodes + [l1]:
-        wait_for(lambda: [c['public'] for c in n.rpc.listchannels()['channels']] == [True] * len(nodes) * 2)
-
-    # Manually create routes, get invoices
-    Payment = namedtuple('Payment', ['innode', 'route', 'payment_hash', 'payment_secret'])
-
-    to_pay = []
-    for i in range(len(innodes)):
-        # This one will cause WIRE_INCORRECT_CLTV_EXPIRY from l1.
-        route = [{'msatoshi': 100001001,
-                  'id': l1.info['id'],
-                  'delay': 10,
-                  'channel': inchans[i]},
-                 {'msatoshi': 100000000,
-                  'id': outnodes[i].info['id'],
-                  'delay': 5,
-                  'channel': outchans[i]}]
-        inv = outnodes[i].rpc.invoice(100000000, "invoice", "invoice")
-        payment_hash = inv['payment_hash']
-        to_pay.append(Payment(innodes[i], route, payment_hash, inv['payment_secret']))
-
-        # This one should be routed through to the outnode.
-        route = [{'msatoshi': 100001001,
-                  'id': l1.info['id'],
-                  'delay': 11,
-                  'channel': inchans[i]},
-                 {'msatoshi': 100000000,
-                  'id': outnodes[i].info['id'],
-                  'delay': 5,
-                  'channel': outchans[i]}]
-        inv = outnodes[i].rpc.invoice(100000000, "invoice2", "invoice2")
-        payment_hash = inv['payment_hash']
-        to_pay.append(Payment(innodes[i], route, payment_hash, inv['payment_secret']))
-
-    # sendpay is async.
-    for p in to_pay:
-        p.innode.rpc.sendpay(p.route, p.payment_hash, p.payment_secret)
-
-    # Now restart l1 while traffic is flowing...
-    l1.restart()
-
-    # Wait for them to finish.
-    for n in innodes:
-        wait_for(lambda: 'pending' not in [p['status'] for p in n.rpc.listsendpays()['payments']])
 
 
 @pytest.mark.skip('needs blackhold support')
