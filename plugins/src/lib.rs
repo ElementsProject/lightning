@@ -224,6 +224,9 @@ where
                 ),
             }
             .run(receiver, input, output),
+	    // TODO Use the broadcast to distribute any error that we
+	    // might receive here to anyone listening. (Shutdown
+	    // signal)
         );
 
         Ok(plugin)
@@ -362,10 +365,21 @@ where
         O: Send + AsyncWriteExt + Unpin,
     {
         loop {
+	    // If we encounter any error reading or writing from/to
+	    // the master we hand them up, so we can return control to
+	    // the user-code, which may require some cleanups or
+	    // similar.
             tokio::select! {
-                    _ = self.dispatch_one(&mut input, &self.plugin) => {},
-            v = receiver.recv() => {output.lock().await.send(v.unwrap()).await?},
-                }
+                e = self.dispatch_one(&mut input, &self.plugin) => {
+		    //Hand any error up.
+		    e?;
+		},
+		v = receiver.recv() => {
+		    output.lock().await.send(
+			v.context("internal communication error")?
+		    ).await?;
+		},
+            }
         }
     }
 
@@ -417,7 +431,7 @@ where
                 }
             }
             Some(Err(e)) => Err(anyhow!("Error reading command: {}", e)),
-            None => Ok(()),
+            None => Err(anyhow!("Error reading from master")),
         }
     }
 
