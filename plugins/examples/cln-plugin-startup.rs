@@ -3,7 +3,6 @@
 #[macro_use]
 extern crate serde_json;
 use cln_plugin::{options, Builder, Error, Plugin};
-use std::pin::Pin;
 use tokio;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -14,7 +13,7 @@ async fn main() -> Result<(), anyhow::Error> {
             "a test-option with default 42",
         ))
         .rpcmethod("testmethod", "This is a test", testmethod)
-        .subscribe("connect", Box::new(connect_handler))
+        .subscribe("connect", connect_handler)
         .hook("peer_connected", peer_connected_handler)
         .start()
         .await?;
@@ -25,7 +24,7 @@ async fn testmethod(_p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json:
     Ok(json!("Hello"))
 }
 
-fn connect_handler(_p: Plugin<()>, v: &serde_json::Value) -> Result<(), Error> {
+async fn connect_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
     log::info!("Got a connect notification: {}", v);
     Ok(())
 }
