@@ -187,68 +187,6 @@ def test_closing_id(node_factory):
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
 
-@pytest.mark.slow_test
-def test_closing_torture(node_factory, executor, bitcoind):
-    # We set up a fully-connected mesh of N nodes, then try
-    # closing them all at once.
-    amount = 10**6
-
-    num_nodes = 10  # => 45 channels (36 seconds on my laptop)
-    if node_factory.valgrind:
-        num_nodes -= 4  # => 15 (135 seconds)
-
-    nodes = node_factory.get_nodes(num_nodes)
-
-    # Make sure bitcoind has plenty of utxos
-    bitcoind.generate_block(num_nodes)
-
-    # Give them all plenty of UTXOs, make sure they see them
-    for i in range(len(nodes)):
-        for j in range(i + 1, len(nodes)):
-            addr = nodes[i].rpc.newaddr()['bech32']
-            bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
-    bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, nodes)
-
-    txs = []
-    for i in range(len(nodes)):
-        for j in range(i + 1, len(nodes)):
-            nodes[i].rpc.connect(nodes[j].info['id'], 'localhost', nodes[j].port)
-            txs.append(nodes[i].rpc.fundchannel(nodes[j].info['id'], amount)['txid'])
-
-    # Make sure they're all in, then lock them in.
-    bitcoind.generate_block(1, wait_for_mempool=txs)
-
-    # Wait for them all to be CHANNELD_NORMAL
-    for n in nodes:
-        wait_for(lambda: all(p['channels'][0]['state'] == 'CHANNELD_NORMAL' for p in n.rpc.listpeers()['peers']))
-
-    # Start closers: can take a long time under valgrind!
-    futures = []
-    for i in range(len(nodes)):
-        for j in range(i + 1, len(nodes)):
-            futures.append(executor.submit(nodes[i].rpc.close, nodes[j].info['id']))
-            futures.append(executor.submit(nodes[j].rpc.close, nodes[i].info['id']))
-
-    # Wait for close to finish
-    close_txs = set()
-    for f in futures:
-        # If one side completes closing, we'll get an error here 'Peer has no active channel'
-        try:
-            close_txs.add(f.result(TIMEOUT)['txid'])
-        except RpcError as err:
-            assert err.error['message'] == 'Peer has no active channel'
-
-    # Should have one close for each open.
-    assert len(close_txs) == len(txs)
-    # Get closes confirmed
-    bitcoind.generate_block(100, wait_for_mempool=list(close_txs))
-
-    # And make sure they hangup.
-    for n in nodes:
-        wait_for(lambda: n.rpc.listpeers()['peers'] == [])
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'FIXME: broken under elements')
 @pytest.mark.slow_test
 def test_closing_different_fees(node_factory, bitcoind, executor):
