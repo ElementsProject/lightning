@@ -558,7 +558,6 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	memtable = memleak_find_allocations(tmpctx, msg_in, msg_in);
 
 	/* Now delete clients and anything they point to. */
-	memleak_remove_region(memtable, c, tal_bytelen(c));
 	memleak_remove_region(memtable,
 			      dbid_zero_clients, sizeof(dbid_zero_clients));
 	memleak_remove_uintmap(memtable, &clients);
