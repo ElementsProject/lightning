@@ -84,9 +84,11 @@ unreserve_done(struct command *cmd UNUSED,
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
 
+	tal_free(open);
 	return command_done();
 }
 
+/* Frees open (eventually, in unreserve_done callback) */
 static void unreserve_psbt(struct pending_open *open)
 {
 	struct out_req *req;
@@ -102,6 +104,11 @@ static void unreserve_psbt(struct pending_open *open)
 				    open);
 	json_add_psbt(req->js, "psbt", open->psbt);
 	send_outreq(open->p, req);
+
+	/* We will free this in callback, but remove from list *now*
+	 * to avoid calling twice! */
+	list_del_from(&pending_opens, &open->list);
+	notleak(open);
 }
 
 static void cleanup_peer_pending_opens(const struct node_id *id)
@@ -110,22 +117,8 @@ static void cleanup_peer_pending_opens(const struct node_id *id)
 	list_for_each_safe(&pending_opens, i, next, list) {
 		if (node_id_eq(&i->peer_id, id)) {
 			unreserve_psbt(i);
-			list_del(&i->list);
 		}
 	}
-}
-
-static struct pending_open *
-cleanup_channel_pending_open(const struct channel_id *cid)
-{
-	struct pending_open *open;
-	open = find_channel_pending_open(cid);
-
-	if (!open)
-		return NULL;
-
-	list_del(&open->list);
-	return open;
 }
 
 static struct command_result *
@@ -162,7 +155,10 @@ signpsbt_done(struct command *cmd,
 			   err, json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
-	cleanup_channel_pending_open(&open->channel_id);
+	/* This finishes the open (successfully!) */
+	list_del_from(&pending_opens, &open->list);
+	tal_free(open);
+
 	return command_hook_cont_psbt(cmd, signed_psbt);
 }
 
@@ -757,7 +753,7 @@ static struct command_result *json_channel_open_failed(struct command *cmd,
 		   "Cleaning up inflight for channel_id %s",
 		   type_to_string(tmpctx, struct channel_id, &cid));
 
-	open = cleanup_channel_pending_open(&cid);
+	open = find_channel_pending_open(&cid);
 	if (open)
 		unreserve_psbt(open);
 
