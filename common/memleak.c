@@ -271,11 +271,11 @@ static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
 			const struct memleak_helper *mh = i;
 			mh->cb(memtable, p);
 		} else if (name && strends(name, " **NOTLEAK**")) {
-			pointer_referenced(memtable, p);
-			memleak_remove_region(memtable, p, tal_bytelen(p));
+			pointer_referenced(memtable, i);
+			memleak_remove_region(memtable, i, tal_bytelen(i));
 		} else if (name && strends(name, " **NOTLEAK_IGNORE_CHILDREN**")) {
-			remove_with_children(memtable, p);
-			memleak_remove_region(memtable, p, tal_bytelen(p));
+			remove_with_children(memtable, i);
+			memleak_remove_region(memtable, i, tal_bytelen(i));
 		} else if (name && strends(name, "_notleak")) {
 			pointer_referenced(memtable, i);
 			call_memleak_helpers(memtable, i);
