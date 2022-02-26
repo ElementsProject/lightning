@@ -442,7 +442,7 @@ static char *decode_r(struct bolt11 *b11,
 	size_t rlen = data_length * 5 / 8;
 	u8 *r8 = tal_arr(tmpctx, u8, rlen);
 	size_t n = 0;
-	struct route_info *r = tal_arr(tmpctx, struct route_info, n);
+	struct route_info *r = tal_arr(b11->routes, struct route_info, n);
 	const u8 *cursor = r8;
 
 	/* Route hops don't split in 5 bit boundaries, so convert whole thing */
@@ -457,7 +457,7 @@ static char *decode_r(struct bolt11 *b11,
 	} while (rlen);
 
 	/* Append route */
-	tal_arr_expand(&b11->routes, tal_steal(b11, r));
+	tal_arr_expand(&b11->routes, r);
 	return NULL;
 }
 
