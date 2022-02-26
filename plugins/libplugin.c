@@ -87,6 +87,8 @@ struct plugin {
 
 	/* Feature set for lightningd */
 	struct feature_set *our_features;
+	/* Features we want to add to lightningd */
+	const struct feature_set *desired_features;
 
 	/* Location of the RPC filename in case we need to defer RPC
 	 * initialization or need to recover from a disconnect. */
@@ -663,10 +665,10 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	}
 	json_array_end(params);
 
-	if (p->our_features != NULL) {
+	if (p->desired_features != NULL) {
 		json_object_start(params, "featurebits");
 		for (size_t i = 0; i < NUM_FEATURE_PLACE; i++) {
-			u8 *f = p->our_features->bits[i];
+			u8 *f = p->desired_features->bits[i];
 			const char *fieldname = feature_place_names[i];
 			if (fieldname == NULL)
 				continue;
@@ -1464,7 +1466,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->next_outreq_id = 0;
 	uintmap_init(&p->out_reqs);
 
-	p->our_features = tal_steal(p, features);
+	p->desired_features = tal_steal(p, features);
 	if (init_rpc) {
 		/* Sync RPC FIXME: maybe go full async ? */
 		p->rpc_conn = tal(p, struct rpc_conn);
