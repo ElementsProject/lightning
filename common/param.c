@@ -8,13 +8,14 @@
 struct param {
 	const char *name;
 	bool is_set;
-	bool required;
+	enum param_style style;
 	param_cbx cbx;
 	void *arg;
 };
 
 static bool param_add(struct param **params,
-		      const char *name, bool required,
+		      const char *name,
+		      enum param_style style,
 		      param_cbx cbx, void *arg)
 {
 #if DEVELOPER
@@ -25,7 +26,7 @@ static bool param_add(struct param **params,
 
 	last.is_set = false;
 	last.name = name;
-	last.required = required;
+	last.style = style;
 	last.cbx = cbx;
 	last.arg = arg;
 
@@ -38,6 +39,10 @@ static struct command_result *make_callback(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *tok)
 {
+	/* If it had a default, free that now to avoid leak */
+	if (def->style == PARAM_OPTIONAL_WITH_DEFAULT && !def->is_set)
+		tal_free(*(void **)def->arg);
+
 	def->is_set = true;
 
 	return def->cbx(cmd, def->name, buffer, tok, def->arg);
@@ -50,7 +55,7 @@ static struct command_result *post_check(struct command *cmd,
 	struct param *last = first + tal_count(params);
 
 	/* Make sure required params were provided. */
-	while (first != last && first->required) {
+	while (first != last && first->style == PARAM_REQUIRED) {
 		if (!first->is_set) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "missing required parameter: %s",
@@ -169,7 +174,7 @@ static int comp_by_arg(const struct param *a, const struct param *b,
 static int comp_req_order(const struct param *a, const struct param *b,
 			  void *unused)
 {
-	if (!a->required && b->required)
+	if (a->style != PARAM_REQUIRED && b->style == PARAM_REQUIRED)
 		return 0;
 	return 1;
 }
@@ -234,7 +239,7 @@ static char *param_usage(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(params); i++) {
 		if (i != 0)
 			tal_append_fmt(&usage, " ");
-		if (params[i].required)
+		if (params[i].style == PARAM_REQUIRED)
 			tal_append_fmt(&usage, "%s", params[i].name);
 		else
 			tal_append_fmt(&usage, "[%s]", params[i].name);
@@ -271,7 +276,7 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 	const char *arg, **names = tal_arr(tmpctx, const char *, 1);
 	const char *subcmd;
 
-	param_add(&params, "subcommand", true, (void *)param_string, &subcmd);
+	param_add(&params, "subcommand", PARAM_REQUIRED, (void *)param_string, &subcmd);
 	names[0] = name;
 	va_start(ap, name);
 	while ((arg = va_arg(ap, const char *)) != NULL)
@@ -315,14 +320,14 @@ bool param(struct command *cmd, const char *buffer,
 
 	va_start(ap, tokens);
 	while ((name = va_arg(ap, const char *)) != NULL) {
-		bool required = va_arg(ap, int);
+		enum param_style style = va_arg(ap, enum param_style);
 		param_cbx cbx = va_arg(ap, param_cbx);
 		void *arg = va_arg(ap, void *);
 		if (streq(name, "")) {
 			allow_extra = true;
 			continue;
 		}
-		if  (!param_add(&params, name, required, cbx, arg)) {
+		if (!param_add(&params, name, style, cbx, arg)) {
 			/* We really do ignore this return! */
 			struct command_result *ignore;
 			ignore = command_fail(cmd, PARAM_DEV_ERROR,
