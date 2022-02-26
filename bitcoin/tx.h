@@ -97,7 +97,7 @@ struct wally_tx_output *wally_tx_output(const tal_t *ctx,
 
 /* Add one output to tx. */
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
-			  u8 *wscript,
+			  const u8 *wscript,
 			  struct amount_sat amount);
 
 /* Set the locktime for a transaction */
