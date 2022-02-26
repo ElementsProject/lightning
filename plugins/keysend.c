@@ -3,6 +3,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_tok.h>
+#include <common/memleak.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin-pay.h>
 #include <sodium.h>
@@ -223,7 +224,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->label = tal_steal(p, label);
 	payment_start(p);
 	/* We're keeping this around now */
-	tal_steal(cmd->plugin, p);
+	tal_steal(cmd->plugin, notleak(p));
 	return command_still_pending(cmd);
 }
 
