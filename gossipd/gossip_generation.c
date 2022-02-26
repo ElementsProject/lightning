@@ -536,9 +536,11 @@ static void sign_timestamp_and_apply_update(struct daemon *daemon,
 /* We don't want to thrash the gossip network, so we often defer sending an
  * update.  We track them here. */
 struct deferred_update {
-	struct daemon *daemon;
-	/* Off daemon->deferred_updates */
+	/* Off daemon->deferred_updates (our leak detection needs this as
+	 * first element in struct, because it's dumb!) */
 	struct list_node list;
+	/* The daemon */
+	struct daemon *daemon;
 	/* Channel it's for (and owner) */
 	const struct chan *chan;
 	int direction;
