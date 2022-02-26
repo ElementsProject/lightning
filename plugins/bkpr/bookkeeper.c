@@ -10,6 +10,7 @@
 #include <common/memleak.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
+#include <errno.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
 #include <plugins/bkpr/chain_event.h>
@@ -19,6 +20,8 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define CHAIN_MOVE "chain_mvt"
 #define CHANNEL_MOVE "channel_mvt"
@@ -26,8 +29,8 @@
 /* The database that we store all the accounting data in */
 static struct db *db ;
 
-// FIXME: make relative to directory we're loaded into
 static char *db_dsn = "sqlite3://accounts.sqlite3";
+static char *datadir;
 
 static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 					 struct bitcoin_txid *txid)
@@ -1387,7 +1390,17 @@ static const struct plugin_command commands[] = {
 
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
-	// FIXME: pass in database DSN as an option??
+	/* Switch to bookkeeper-dir, if specified */
+	if (datadir && chdir(datadir) != 0) {
+		if (mkdir(datadir, 0700) != 0 && errno != EEXIST)
+			plugin_err(p,
+				   "Unable to create 'bookkeeper-dir'=%s",
+				   datadir);
+		if (chdir(datadir) != 0)
+			plugin_err(p,
+				   "Unable to switch to 'bookkeeper-dir'=%s",
+				   datadir);
+	}
 	db = notleak(db_setup(p, p, db_dsn));
 
 	return NULL;
@@ -1397,11 +1410,17 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 
+	/* No datadir is default */
+	datadir = NULL;
 	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    NULL, 0,
 		    NULL, 0,
+		    plugin_option("bookkeeper-dir",
+				  "string",
+				  "Location for bookkeeper records.",
+				  charp_option, &datadir),
 		    NULL);
 	return 0;
 }

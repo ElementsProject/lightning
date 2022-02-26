@@ -48,6 +48,7 @@ On success, an object is returned, containing:
 - **rpc-file** (string, optional): `rpc-file` field from config or cmdline, or default
 - **disable-plugin** (array of strings, optional):
   - `disable-plugin` field from config or cmdline
+- **bookkeeper-dir** (string, optional): `bookkeeper-dir` field from config or cmdline, or default
 - **always-use-proxy** (boolean, optional): `always-use-proxy` field from config or cmdline, or default
 - **daemon** (boolean, optional): `daemon` field from config or cmdline, or default
 - **wallet** (string, optional): `wallet` field from config or cmdline, or default
@@ -210,4 +211,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:ebc37d1f9cb452d312285a8168d2bb6da2d1dba08db56bbb8d3d7f47b58d7fa4)
+[comment]: # ( SHA256STAMP:6c3081abddb9fd4f5d8fe167936c26196a4729e92a8618a1e527a1e99f4db179)

@@ -214,6 +214,10 @@ authenticate with username `user` and password `pass`, and then use the
 database `db_name`. The database must exist, but the schema will be managed
 automatically by `lightningd`.
 
+ **bookkeeper-dir**=*DIR*
+Directory to keep the accounts.sqlite3 database file in.
+Defaults to lightning-dir.
+
  **encrypted-hsm**
 If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
 Note that once you encrypt the `hsm_secret` this option will be mandatory for

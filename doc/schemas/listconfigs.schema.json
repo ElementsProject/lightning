@@ -93,6 +93,10 @@
         "description": "`disable-plugin` field from config or cmdline"
       }
     },
+    "bookkeeper-dir": {
+      "type": "string",
+      "description": "`bookkeeper-dir` field from config or cmdline, or default"
+    },
     "always-use-proxy": {
       "type": "boolean",
       "description": "`always-use-proxy` field from config or cmdline, or default"
