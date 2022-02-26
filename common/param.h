@@ -68,12 +68,18 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 			     const jsmntok_t tokens[],
 			     const char *name, ...) LAST_ARG_NULL;
 
+enum param_style {
+	PARAM_REQUIRED,
+	PARAM_OPTIONAL,
+	PARAM_OPTIONAL_WITH_DEFAULT,
+};
+
 /*
  * Add a required parameter.
  */
 #define p_req(name, cbx, arg)				     \
 	      name"",                                        \
-	      true,                                          \
+	      PARAM_REQUIRED,                                \
 	      (param_cbx)(cbx),				     \
 	      (arg) + 0*sizeof((cbx)((struct command *)NULL, \
 			       (const char *)NULL,           \
@@ -86,7 +92,7 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
  */
 #define p_opt(name, cbx, arg)                                   \
 	      name"",                                           \
-	      false,                                            \
+	      PARAM_OPTIONAL,                                   \
 	      (param_cbx)(cbx),                                 \
 	      ({ *arg = NULL;                                   \
 		 (arg) + 0*sizeof((cbx)((struct command *)NULL, \
@@ -100,7 +106,7 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
  */
 #define p_opt_def(name, cbx, arg, def)				    \
 		  name"",					    \
-		  false,					    \
+		  PARAM_OPTIONAL_WITH_DEFAULT,			    \
 		  (param_cbx)(cbx),				    \
 		  ({ (*arg) = tal((cmd), typeof(**arg));            \
 		     (**arg) = (def);                               \
@@ -111,5 +117,5 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 				   (arg)) == (struct command_result *)NULL); })
 
 /* Special flag for 'check' which allows any parameters. */
-#define p_opt_any() "", false, NULL, NULL
+#define p_opt_any() "", PARAM_OPTIONAL, NULL, NULL
 #endif /* LIGHTNING_COMMON_PARAM_H */
