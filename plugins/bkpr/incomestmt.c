@@ -1,11 +1,14 @@
 #include "config.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/type_to_string.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
+#include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
 #include <plugins/bkpr/chain_event.h>
@@ -13,6 +16,9 @@
 #include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
+#include <time.h>
+
+#define ONCHAIN_FEE "onchain_fee"
 
 static struct account *get_account(struct account **accts,
 				   u64 acct_db_id)
@@ -83,7 +89,7 @@ static struct income_event *onchainfee_to_income(const tal_t *ctx,
 	struct income_event *inc = tal(ctx, struct income_event);
 
 	inc->acct_name = tal_strdup(inc, fee->acct_name);
-	inc->tag = tal_fmt(inc, "%s", "onchain_fee");
+	inc->tag = tal_fmt(inc, "%s", ONCHAIN_FEE);
 	/* We swap these, as they're actually opposite */
 	inc->credit = fee->debit;
 	inc->debit = fee->credit;
@@ -370,4 +376,413 @@ void json_add_income_event(struct json_stream *out, struct income_event *ev)
 		json_add_sha256(out, "payment_id", ev->payment_id);
 
 	json_object_end(out);
+}
+
+const char *csv_filename(const tal_t *ctx, const struct csv_fmt *fmt)
+{
+	return tal_fmt(ctx, "cln_incomestmt_%s_%zu.csv",
+		       fmt->fmt_name,
+		       time_now().ts.tv_sec);
+}
+
+static char *convert_asset_type(struct income_event *ev)
+{
+	/* We use the bech32 human readable part which is "bc"
+	 * for mainnet -> map to 'BTC' for cointracker */
+	if (streq(ev->currency, "bc"))
+		return "btc";
+
+	return ev->currency;
+}
+
+static void cointrack_header(FILE *csvf)
+{
+	fprintf(csvf,
+		"Date"
+		",Received Quantity"
+		",Received Currency"
+		",Sent Quantity"
+		",Sent Currency"
+		",Fee Amount"
+		",Fee Currency"
+		",Tag"
+		",Account");
+}
+
+static char *income_event_cointrack_type(const struct income_event *ev)
+{
+	/*  ['gift', 'lost', 'mined', 'airdrop', 'payment',
+	 *  'fork', 'donation', 'staked'] */
+	if (!amount_msat_zero(ev->debit)
+	    && streq(ev->tag, "penalty"))
+		return "lost";
+
+	if (streq(ev->tag, "invoice")
+	    || streq(ev->tag, "routed"))
+		return "payment";
+
+	/* Default to empty */
+	return "";
+}
+
+static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
+{
+	/* Date mm/dd/yyyy HH:MM:SS UTC */
+	time_t tv;
+	tv = ev->timestamp;
+	char timebuf[sizeof("mm/dd/yyyy HH:MM:SS")];
+	strftime(timebuf, sizeof(timebuf), "%m/%d/%Y %T", gmtime(&tv));
+	fprintf(csvf, "%s", timebuf);
+	fprintf(csvf, ",");
+
+	/* Received Quantity + Received Currency */
+	if (!amount_msat_zero(ev->credit)) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
+		fprintf(csvf, ",");
+		fprintf(csvf, "%s", convert_asset_type(ev));
+	} else
+		fprintf(csvf, ",");
+
+	fprintf(csvf, ",");
+
+	/* "Sent Quantity,Sent Currency," */
+	if (!amount_msat_zero(ev->debit)
+	    && !streq(ev->tag, ONCHAIN_FEE)) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
+		fprintf(csvf, ",");
+		fprintf(csvf, "%s", convert_asset_type(ev));
+	} else
+		fprintf(csvf, ",");
+
+	fprintf(csvf, ",");
+
+	/* "Fee Amount,Fee Currency," */
+	if (!amount_msat_zero(ev->debit)
+	    && streq(ev->tag, ONCHAIN_FEE)) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
+		fprintf(csvf, ",");
+		fprintf(csvf, "%s", convert_asset_type(ev));
+	} else
+		fprintf(csvf, ",");
+
+	fprintf(csvf, ",");
+
+	/* Tag */
+	fprintf(csvf, "%s", income_event_cointrack_type(ev));
+	fprintf(csvf, ",");
+
+	/* Account */
+	fprintf(csvf, "%s", ev->acct_name);
+}
+
+static void koinly_header(FILE *csvf)
+{
+	fprintf(csvf,
+		"Date"
+		",Sent Amount"
+		",Sent Currency"
+		",Received Amount"
+		",Received Currency"
+		",Fee Amount"
+		",Fee Currency"
+		",Label"
+		",Description"
+		",TxHash");
+}
+
+static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
+{
+	/* Date */
+	time_t tv;
+	tv = ev->timestamp;
+	/* 2018-01-01 14:25 UTC */
+	char timebuf[sizeof("yyyy-mm-dd HH:MM UTC")];
+	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M UTC", gmtime(&tv));
+	fprintf(csvf, "%s", timebuf);
+	fprintf(csvf, ",");
+
+	/* "Sent Amount,Sent Currency," */
+	if (!amount_msat_zero(ev->debit)
+	    && !streq(ev->tag, ONCHAIN_FEE)) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
+		fprintf(csvf, ",");
+		fprintf(csvf, "%s", convert_asset_type(ev));
+	} else
+		fprintf(csvf, ",");
+
+	fprintf(csvf, ",");
+
+	/* Received Amount, Received Currency */
+	if (!amount_msat_zero(ev->credit)) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
+		fprintf(csvf, ",");
+		fprintf(csvf, "%s", convert_asset_type(ev));
+	} else
+		fprintf(csvf, ",");
+
+	fprintf(csvf, ",");
+
+
+	/* "Fee Amount,Fee Currency," */
+	if (!amount_msat_zero(ev->debit)
+	    && streq(ev->tag, ONCHAIN_FEE)) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
+		fprintf(csvf, ",");
+		fprintf(csvf, "%s", convert_asset_type(ev));
+	} else
+		fprintf(csvf, ",");
+
+	fprintf(csvf, ",");
+
+	/* Label */
+	fprintf(csvf, "%s", ev->tag);
+	fprintf(csvf, ",");
+
+	/* Description */
+	fprintf(csvf, "%s: account %s", ev->tag, ev->acct_name);
+	fprintf(csvf, ",");
+
+	/* TxHash */
+	if (ev->txid)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct bitcoin_txid, ev->txid));
+	else if (ev->payment_id)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct sha256, ev->payment_id));
+	else if (ev->outpoint)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct bitcoin_outpoint,
+				       ev->outpoint));
+}
+
+static void harmony_header(FILE *csvf)
+{
+	/* Type Declaration */
+	fprintf(csvf, "HarmonyCSV v0.2");
+	/* Add 9 extra blank cols
+	 * (so ea row has same # cols, which is csv spec) */
+	fprintf(csvf, ",,,,,,,,,\n");
+
+	/* Header Declarations */
+	fprintf(csvf, "Provenance,cln-bookkeeper");
+	/* Only 8 extra blank cols */
+	fprintf(csvf, ",,,,,,,,\n");
+
+	/* Blank Line */
+	fprintf(csvf, ",,,,,,,,,\n");
+	/* Entries */
+	fprintf(csvf,
+		"Timestamp" 	/* ISO-8601 */
+		",Venue"
+		",Type"
+		",Amount"
+		",Asset" 	/* currency */
+		",Transaction ID"
+		",Order ID" 	/* payment hash, if any */
+		",Account"
+		",Network ID"	/* outpoint */
+		",Note"		/* tag */
+		);
+}
+
+static char *income_event_harmony_type(const struct income_event *ev)
+{
+	/* From the v0.2 version of types:subtypes
+	 * https://github.com/harmony-csv/harmony#entry-types */
+	if (streq(ONCHAIN_FEE, ev->tag))
+		return "fee:network";
+
+	if (!amount_msat_zero(ev->credit)) {
+		if (streq(WALLET_ACCT, ev->acct_name))
+			return tal_fmt(ev, "transfer:%s", ev->tag);
+
+		return tal_fmt(ev, "income:%s", ev->tag);
+	}
+
+	/* Ok otherwise it's a debit */
+	if (streq("penalty", ev->tag)) {
+		return "loss:penalty";
+	}
+	if (streq(WALLET_ACCT, ev->acct_name))
+		return tal_fmt(ev, "transfer:%s", ev->tag);
+
+	/* FIXME: add "fee:transfer" to invoice routing fees */
+
+	return tal_fmt(ev, "expense:%s", ev->tag);
+}
+
+static void harmony_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
+{
+	time_t tv;
+	tv = ev->timestamp;
+	/* datefmt: ISO-8601 */
+	char timebuf[sizeof("yyyy-mm-ddTHH:MM:SSZ")];
+	strftime(timebuf, sizeof(timebuf), "%Y-%m-%dT%TZ", gmtime(&tv));
+	fprintf(csvf, "%s", timebuf);
+	fprintf(csvf, ",");
+
+	/* ",Venue" */
+	/* FIXME: use node_id ? */
+	fprintf(csvf, "cln");
+	fprintf(csvf, ",");
+
+	/* ",Type" */
+	fprintf(csvf, "%s", income_event_harmony_type(ev));
+	fprintf(csvf, ",");
+
+	/* ",Amount" */
+	if (!amount_msat_zero(ev->debit)) {
+		/* Debits are negative */
+		fprintf(csvf, "-");
+		fprintf(csvf, "%s",
+			fmt_amount_msat_btc(ctx, ev->debit, false));
+	} else
+		fprintf(csvf, "%s",
+			fmt_amount_msat_btc(ctx, ev->credit, false));
+
+	fprintf(csvf, ",");
+
+	/* ",Asset"  */
+	fprintf(csvf, "%s", convert_asset_type(ev));
+	fprintf(csvf, ",");
+
+	/* ",Transaction ID" */
+	/* Some of this data is duplicated in other fields.
+	 * We don't have a standard 'txid' for every event though */
+	if (ev->txid)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct bitcoin_txid, ev->txid));
+	else if (ev->payment_id)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct sha256, ev->payment_id));
+	else if (ev->outpoint)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct bitcoin_outpoint,
+				       ev->outpoint));
+	fprintf(csvf, ",");
+
+	/* ",Order ID"  payment hash, if any */
+	if (ev->payment_id)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct sha256, ev->payment_id));
+	fprintf(csvf, ",");
+
+	/* ",Account" */
+	fprintf(csvf, "%s", ev->acct_name);
+	fprintf(csvf, ",");
+
+	/* ",Network ID"  outpoint */
+	if (ev->outpoint)
+		fprintf(csvf, "%s",
+			type_to_string(ctx, struct bitcoin_outpoint,
+				       ev->outpoint));
+	fprintf(csvf, ",");
+
+	/* ",Note"  account tag */
+	fprintf(csvf, "%s %s", ev->acct_name, ev->tag);
+}
+
+static void quickbooks_header(FILE *csvf)
+{
+	fprintf(csvf,
+		"Date"
+		",Description"
+		",Credit"
+		",Debit"
+		);
+}
+
+static void quickbooks_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
+{
+	/* "Make sure the dates are in one format.
+	 * We recommend you use: dd/mm/yyyy."
+	 * from: https://quickbooks.intuit.com/learn-support/global/bank-transactions/import-bank-transactions-using-excel-csv-files/00/381530 */
+	time_t tv;
+	tv = ev->timestamp;
+	/* datefmt: dd/mm/yyyy */
+	char timebuf[sizeof("dd/mm/yyyy")];
+	strftime(timebuf, sizeof(timebuf), "%d/%m/%Y", gmtime(&tv));
+	fprintf(csvf, "%s", timebuf);
+	fprintf(csvf, ",");
+
+	/* Description */
+	fprintf(csvf, "%s (%s) in %s",
+		ev->tag, ev->acct_name, ev->currency);
+	fprintf(csvf, ",");
+
+	/* Credit */
+	if (!amount_msat_zero(ev->credit))
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
+
+	fprintf(csvf, ",");
+
+	/* Debit */
+	if (!amount_msat_zero(ev->debit))
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
+}
+
+const struct csv_fmt csv_fmts[] = {
+	{
+		.fmt_name = "cointracker",
+		.emit_header = cointrack_header,
+		.emit_entry = cointrack_entry,
+	},
+	{
+		.fmt_name = "koinly",
+		.emit_header = koinly_header,
+		.emit_entry = koinly_entry,
+	},
+	{
+		.fmt_name = "harmony",
+		.emit_header = harmony_header,
+		.emit_entry = harmony_entry,
+	},
+	{
+		.fmt_name = "quickbooks",
+		.emit_header = quickbooks_header,
+		.emit_entry = quickbooks_entry,
+	},
+};
+
+const struct csv_fmt *csv_match_token(const char *buffer, const jsmntok_t *tok)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(csv_fmts); i++) {
+		if (json_tok_streq(buffer, tok, csv_fmts[i].fmt_name))
+			return &csv_fmts[i];
+	}
+
+	return NULL;
+}
+
+const char *csv_list_fmts(const tal_t *ctx)
+{
+	char *fmtlist = tal(ctx, char);
+	for (size_t i = 0; i < ARRAY_SIZE(csv_fmts); i++) {
+		if (i > 0)
+			tal_append_fmt(&fmtlist, ",");
+		tal_append_fmt(&fmtlist, "\"%s\"", csv_fmts[i].fmt_name);
+	}
+	return (const char *) fmtlist;
+}
+
+
+char *csv_print_income_events(const tal_t *ctx,
+			      const struct csv_fmt *csvfmt,
+			      const char *filename,
+			      struct income_event **evs)
+{
+	FILE *csvf;
+
+	csvf = fopen(filename, "w");
+	if (!csvf)
+		return tal_fmt(ctx, "Failed to open csv file %s", filename);
+
+	csvfmt->emit_header(csvf);
+	for (size_t i = 0; i < tal_count(evs); i++) {
+		fprintf(csvf, "\n");
+		csvfmt->emit_entry(ctx, csvf, evs[i]);
+	}
+
+	fclose(csvf);
+	return NULL;
 }
