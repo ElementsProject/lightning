@@ -1195,6 +1195,9 @@ static void memleak_check(struct plugin *plugin, struct command *cmd)
 	/* Now delete plugin and anything it has pointers to. */
 	memleak_remove_region(memtable, plugin, sizeof(*plugin));
 
+	/* Memleak needs some help to see into intmaps */
+	memleak_remove_uintmap(memtable, &plugin->out_reqs);
+
 	/* We know usage strings are referred to. */
 	memleak_remove_strmap(memtable, &cmd->plugin->usagemap);
 
