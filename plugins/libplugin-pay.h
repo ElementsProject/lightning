@@ -160,11 +160,12 @@ struct payment_constraints {
 };
 
 struct payment {
+	/* Usually in global payments list */
+	struct list_node list;
 	/* The command that triggered this payment. Only set for the root
 	 * payment. */
 	struct command *cmd;
 	struct plugin *plugin;
-	struct list_node list;
 	struct node_id *local_id;
 
 	const char *json_buffer;
