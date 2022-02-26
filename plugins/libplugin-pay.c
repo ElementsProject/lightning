@@ -766,7 +766,7 @@ static struct route_hop *route(const tal_t *ctx,
 		/* Try using disabled channels too */
 		/* FIXME: is there somewhere we can annotate this for paystatus? */
 		can_carry = payment_route_can_carry_even_disabled;
-		dij = dijkstra(ctx, gossmap, dst, amount, riskfactor,
+		dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
 			       can_carry, route_score, p);
 		r = route_from_dijkstra(ctx, gossmap, dij, src,
 					amount, final_delay);
@@ -2122,6 +2122,8 @@ void payment_abort(struct payment *p, const char *fmt, ...) {
 	payment_set_step(p, PAYMENT_STEP_FAILED);
 	p->end_time = time_now();
 
+	/* We can fail twice, it seems. */
+	tal_free(p->failreason);
 	va_start(ap, fmt);
 	p->failreason = tal_vfmt(p, fmt, ap);
 	va_end(ap);
@@ -2147,6 +2149,8 @@ void payment_fail(struct payment *p, const char *fmt, ...)
 	va_list ap;
 	p->end_time = time_now();
 	payment_set_step(p, PAYMENT_STEP_FAILED);
+	/* We can fail twice, it seems. */
+	tal_free(p->failreason);
 	va_start(ap, fmt);
 	p->failreason = tal_vfmt(p, fmt, ap);
 	va_end(ap);
