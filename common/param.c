@@ -313,7 +313,7 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 bool param(struct command *cmd, const char *buffer,
 	   const jsmntok_t tokens[], ...)
 {
-	struct param *params = tal_arr(cmd, struct param, 0);
+	struct param *params = tal_arr(tmpctx, struct param, 0);
 	const char *name;
 	va_list ap;
 	bool allow_extra = false;
