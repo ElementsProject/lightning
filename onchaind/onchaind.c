@@ -592,7 +592,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 			     NULL, out->sat, NULL, wscript);
 
 	bitcoin_tx_add_output(
-	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), NULL, out->sat);
+	    tx, scriptpubkey_p2wpkh(tmpctx, &our_wallet_pubkey), NULL, out->sat);
 
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(wscript);
