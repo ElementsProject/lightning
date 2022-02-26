@@ -2476,12 +2476,10 @@ static struct command_result *json_paymod(struct command *cmd,
 
 	if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
 			     *maxfee_pct_millionths / 100)) {
-		tal_free(p);
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Overflow when computing fee budget, fee rate too high.");
 	}
-	p->constraints.cltv_budget = *maxdelay;
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
 	shadow_route = payment_mod_shadowroute_get_data(p);
