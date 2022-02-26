@@ -1162,7 +1162,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	    hook_payload->remote_addr->type == ADDR_TYPE_IPV4 ||
 	    hook_payload->remote_addr->type == ADDR_TYPE_IPV6)) {
 		log_info(ld->log, "Peer says it sees our address as: %s",
-			 fmt_wireaddr(peer, hook_payload->remote_addr));
+			 fmt_wireaddr(tmpctx, hook_payload->remote_addr));
 	}
 
 	plugin_hook_call_peer_connected(ld, hook_payload);
