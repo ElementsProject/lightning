@@ -104,16 +104,20 @@ static struct command_result *json_list_income(struct command *cmd,
 	struct json_stream *res;
 	struct income_event **evs;
 	bool *consolidate_fees;
+	u64 *start_time, *end_time;
 
 	if (!param(cmd, buf, params,
 		   p_opt_def("consolidate_fees", param_bool,
 			     &consolidate_fees, true),
+		   p_opt_def("start_time", param_u64, &start_time, 0),
+		   p_opt_def("end_time", param_u64, &end_time, SQLITE_MAX_UINT),
 		   NULL))
 		return command_param_failed();
 
 	/* Ok, go find me some income events! */
 	db_begin_transaction(db);
-	evs = list_income_events_all(cmd, db, *consolidate_fees);
+	evs = list_income_events(cmd, db, *start_time, *end_time,
+				 *consolidate_fees);
 	db_commit_transaction(db);
 
 	res = jsonrpc_stream_success(cmd);
