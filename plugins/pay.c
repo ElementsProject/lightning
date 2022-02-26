@@ -12,6 +12,7 @@
 #include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
+#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin-pay.h>
@@ -1928,6 +1929,13 @@ static struct command_result *json_listpays(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+#if DEVELOPER
+static void memleak_mark_payments(struct plugin *p, struct htable *memtable)
+{
+	memleak_remove_region(memtable, &payments, sizeof(payments));
+}
+#endif
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -1940,6 +1948,9 @@ static const char *init(struct plugin *p,
 		 JSON_SCAN(json_to_number, &maxdelay_default),
 		 JSON_SCAN(json_to_bool, &exp_offers));
 
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark_payments);
+#endif
 	return NULL;
 }
 
@@ -1987,7 +1998,6 @@ static void on_payment_success(struct payment *payment)
 		json_add_string(ret, "status", "complete");
 		if (command_finished(p->cmd, ret)) {/* Ignore result. */}
 		p->cmd = NULL;
-		list_del(&p->list);
 	}
 }
 
@@ -2139,7 +2149,6 @@ static void on_payment_failure(struct payment *payment)
 			if (command_finished(cmd, ret)) { /* Ignore result. */}
 		}
 		p->cmd = NULL;
-		list_del(&p->list);
 	}
 }
 
@@ -2293,6 +2302,11 @@ struct payment_modifier *paymod_mods[] = {
 	NULL,
 };
 
+static void destroy_payment(struct payment *p)
+{
+	list_del(&p->list);
+}
+
 static struct command_result *json_paymod(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
@@ -2347,7 +2361,7 @@ static struct command_result *json_paymod(struct command *cmd,
 
 	if (!bolt12_has_prefix(b11str)) {
 		b11 =
-		    bolt11_decode(p, b11str, plugin_feature_set(cmd->plugin),
+		    bolt11_decode(tmpctx, b11str, plugin_feature_set(cmd->plugin),
 				  NULL, chainparams, &b11_fail);
 		if (b11 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -2362,7 +2376,9 @@ static struct command_result *json_paymod(struct command *cmd,
 		p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 		p->payment_secret =
 			tal_dup_or_null(p, struct secret, b11->payment_secret);
-		p->routes = tal_steal(p, b11->routes);
+		/* FIXME: libplugin-pay plays with this array, and there are many FIXMEs
+		 * about it.  But it looks like a leak, so we suppress it here. */
+		p->routes = notleak_with_children(tal_steal(p, b11->routes));
 		p->min_final_cltv_expiry = b11->min_final_cltv_expiry;
 		p->features = tal_steal(p, b11->features);
 		/* Sanity check */
@@ -2373,7 +2389,7 @@ static struct command_result *json_paymod(struct command *cmd,
 			    "Invalid bolt11:"
 			    " sets feature var_onion with no secret");
 	} else {
-		b12 = invoice_decode(p, b11str, strlen(b11str),
+		b12 = invoice_decode(tmpctx, b11str, strlen(b11str),
 				     plugin_feature_set(cmd->plugin),
 				     chainparams, &b12_fail);
 		if (b12 == NULL)
@@ -2452,7 +2468,7 @@ static struct command_result *json_paymod(struct command *cmd,
 					    "msatoshi parameter unnecessary");
 		}
 		p->amount = *invmsat;
-
+		tal_free(invmsat);
 	} else {
 		if (!msat) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -2471,17 +2487,23 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->json_toks = params;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
+	tal_free(maxdelay);
 	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
+	tal_free(retryfor);
 	p->getroute->riskfactorppm = *riskfactor_millionths;
+	tal_free(riskfactor_millionths);
 
+	/* We free unneeded params as we use them, to keep memleak happy. */
 	if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
 			     *maxfee_pct_millionths / 100)) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Overflow when computing fee budget, fee rate too high.");
 	}
+	tal_free(maxfee_pct_millionths);
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
+	tal_free(exemptfee);
 	shadow_route = payment_mod_shadowroute_get_data(p);
 	payment_mod_presplit_get_data(p)->disable = disablempp;
 	payment_mod_adaptive_splitter_get_data(p)->disable = disablempp;
@@ -2491,9 +2513,11 @@ static struct command_result *json_paymod(struct command *cmd,
 	shadow_route->fuzz_amount = false;
 #if DEVELOPER
 	shadow_route->use_shadow = *use_shadow;
+	tal_free(use_shadow);
 #endif
 	p->label = tal_steal(p, label);
 	list_add_tail(&payments, &p->list);
+	tal_add_destructor(p, destroy_payment);
 	/* We're keeping this around now */
 	tal_steal(cmd->plugin, p);
 
