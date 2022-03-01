@@ -53,6 +53,7 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld);
 /* Once this is set, we dump fatal with a backtrace to this log */
 extern struct log *crashlog;
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
+void NORETURN fatal_vfmt(const char *fmt, va_list ap);
 
 void log_backtrace_print(const char *fmt, ...);
 void log_backtrace_exit(void);

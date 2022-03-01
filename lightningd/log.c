@@ -809,22 +809,25 @@ void log_backtrace_exit(void)
 	}
 }
 
+void fatal_vfmt(const char *fmt, va_list ap)
+{
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+
+	if (!crashlog)
+		exit(1);
+
+	logv(crashlog, LOG_BROKEN, NULL, true, fmt, ap);
+	abort();
+}
+
 void fatal(const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	fprintf(stderr, "\n");
+	fatal_vfmt(fmt, ap);
 	va_end(ap);
-
-	if (!crashlog)
-		exit(1);
-
-	va_start(ap, fmt);
-	logv(crashlog, LOG_BROKEN, NULL, true, fmt, ap);
-	va_end(ap);
-	abort();
 }
 
 struct log_info {

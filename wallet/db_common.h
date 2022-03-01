@@ -6,11 +6,6 @@
 #include <ccan/strset/strset.h>
 #include <common/autodata.h>
 
-/* For testing, we want to catch fatal messages. */
-#ifndef db_fatal
-#define db_fatal fatal
-#endif
-
 struct db {
 	char *filename;
 	const char *in_transaction;
@@ -162,6 +157,9 @@ struct db_config {
 
 /* Provide a way for DB backends to register themselves */
 AUTODATA_TYPE(db_backends, struct db_config);
+
+void db_fatal(const char *fmt, ...)
+	PRINTF_FMT(1, 2);
 
 /**
  * Report a statement that changes the wallet

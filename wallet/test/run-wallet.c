@@ -1,14 +1,33 @@
 #include "config.h"
   #include <lightningd/log.h>
 
-static void wallet_test_fatal(const char *fmt, ...);
-#define db_fatal wallet_test_fatal
 #include "test_utils.h"
+#include <ccan/tal/str/str.h>
+#include <wallet/db_common.h>
 
 static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const struct node_id *node_id UNUSED, bool call_notifier UNUSED, const char *fmt UNUSED, ...)
 {
 }
 #define log_ db_log_
+
+#ifndef DB_FATAL
+#define DB_FATAL
+static char *wallet_err;
+void db_fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	/* Fail hard if we're complaining about not being in transaction */
+	assert(!strstarts(fmt, "No longer in transaction"));
+
+	/* Fail hard if we're complaining about not being in transaction */
+	assert(!strstarts(fmt, "No longer in transaction"));
+
+	va_start(ap, fmt);
+	wallet_err = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+}
+#endif /* DB_FATAL */
 
 #include "wallet/wallet.c"
 #include "lightningd/htlc_end.c"
@@ -835,22 +854,6 @@ bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED,
 	basepoints->htlc = pk;
 	basepoints->delayed_payment = pk;
 	return true;
-}
-
-static char *wallet_err;
-static void wallet_test_fatal(const char *fmt, ...)
-{
-	va_list ap;
-
-	/* Fail hard if we're complaining about not being in transaction */
-	assert(!strstarts(fmt, "No longer in transaction"));
-
-	/* Fail hard if we're complaining about not being in transaction */
-	assert(!strstarts(fmt, "No longer in transaction"));
-
-	va_start(ap, fmt);
-	wallet_err = tal_vfmt(NULL, fmt, ap);
-	va_end(ap);
 }
 
 #define transaction_wrap(db, ...)					\
