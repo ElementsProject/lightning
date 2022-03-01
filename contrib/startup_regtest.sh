@@ -134,8 +134,11 @@ start_ln() {
 	# Kick it out of initialblockdownload if necessary
 	if bitcoin-cli -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
 		# Modern bitcoind needs createwallet
+		echo "Making \"default\" bitcoind wallet."
 		bitcoin-cli -regtest createwallet default >/dev/null 2>&1
 		bitcoin-cli -regtest generatetoaddress 1 "$(bitcoin-cli -regtest getnewaddress)" > /dev/null
+	else
+		bitcoin-cli -regtest loadwallet default
 	fi
 	alias bt-cli='bitcoin-cli -regtest'
 
@@ -145,7 +148,105 @@ start_ln() {
 		nodes="$1"
 	fi
 	start_nodes "$nodes" regtest
-	echo "	bt-cli, stop_ln"
+	echo "	bt-cli, stop_ln, fund_nodes"
+}
+
+ensure_bitcoind_funds() {
+
+	if [ -z "$ADDRESS" ]; then
+		ADDRESS=$(bitcoin-cli "$WALLET" -regtest getnewaddress)
+	fi
+
+	balance=$(bitcoin-cli -regtest "$WALLET" getbalance)
+
+	if [ 1 -eq "$(echo "$balance"'<1' | bc -l)" ]; then
+
+		printf "%s" "Mining into address " "$ADDRESS""... "
+
+		bitcoin-cli -regtest generatetoaddress 100 "$ADDRESS" > /dev/null
+
+		echo "done."
+	fi
+}
+
+fund_nodes() {
+
+	WALLET="default"
+	NODES=""
+
+	for var in "$@"; do
+		case $var in
+			-w=*|--wallet=*)
+				WALLET="${var#*=}"
+				;;
+			*)
+				NODES="${NODES:+${NODES} }${var}"
+				;;
+		esac
+	done
+
+	if [ -z "$NODES" ]; then
+		NODES=$(seq $node_count)
+	fi
+
+	WALLET="-rpcwallet=$WALLET"
+
+	ADDRESS=$(bitcoin-cli "$WALLET" -regtest getnewaddress)
+
+	ensure_bitcoind_funds
+
+	echo "bitcoind balance:" "$(bitcoin-cli -regtest "$WALLET" getbalance)"
+
+	last_node=""
+
+	for i in $NODES; do
+
+		if [ -z "$last_node" ]; then
+			last_node=$i
+			continue
+		fi
+
+		node1=$last_node
+		node2=$i
+		last_node=$i
+
+		L2_NODE_ID=$($LCLI -F --lightning-dir=/tmp/l"$node2"-regtest getinfo | sed -n 's/^id=\(.*\)/\1/p')
+		L2_NODE_PORT=$($LCLI -F --lightning-dir=/tmp/l"$node2"-regtest getinfo | sed -n 's/^binding\[0\].port=\(.*\)/\1/p')
+
+		$LCLI -H --lightning-dir=/tmp/l"$node1"-regtest connect "$L2_NODE_ID"@localhost:"$L2_NODE_PORT" > /dev/null
+
+		L1_WALLET_ADDR=$($LCLI -F --lightning-dir=/tmp/l"$node1"-regtest newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
+
+		ensure_bitcoind_funds
+
+		bitcoin-cli -regtest "$WALLET" sendtoaddress "$L1_WALLET_ADDR" 1 > /dev/null
+
+		bitcoin-cli -regtest generatetoaddress 1 "$ADDRESS" > /dev/null
+
+		printf "%s" "Waiting for lightning node funds... "
+
+		while ! $LCLI -F --lightning-dir=/tmp/l"$node1"-regtest listfunds | grep -q "outputs"
+		do
+			sleep 1
+		done
+
+		echo "found."
+
+		printf "%s" "Funding channel from node " "$node1" " to node " "$node2"". "
+
+		$LCLI --lightning-dir=/tmp/l"$node1"-regtest fundchannel "$L2_NODE_ID" 1000000 > /dev/null
+
+		bitcoin-cli -regtest generatetoaddress 6 "$ADDRESS" > /dev/null
+
+		printf "%s" "Waiting for confirmation... "
+
+		while ! $LCLI -F --lightning-dir=/tmp/l"$node1"-regtest listchannels | grep -q "channels"
+		do
+			sleep 1
+		done
+
+		echo "done."
+	done
 }
 
 stop_nodes() {
