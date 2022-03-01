@@ -8,15 +8,13 @@ WALLET_LIB_SRC :=		\
 	wallet/walletrpc.c
 
 WALLET_LIB_SRC_NOHDR :=			\
-	wallet/reservation.c		\
-	wallet/db_queries_postgres.c	\
-	wallet/db_queries_sqlite3.c
+	wallet/reservation.c
 
 WALLET_DB_QUERIES  := 			\
 	wallet/db_sqlite3_sqlgen.c 	\
 	wallet/db_postgres_sqlgen.c
 
-WALLET_SRC := $(WALLET_LIB_SRC) $(WALLET_LIB_SRC_NOHDR)
+WALLET_SRC := $(WALLET_LIB_SRC) $(WALLET_LIB_SRC_NOHDR) $(WALLET_DB_QUERIES)
 WALLET_HDRS := $(WALLET_LIB_SRC:.c=.h)
 
 WALLET_OBJS := $(WALLET_SRC:.c=.o)
@@ -24,10 +22,6 @@ WALLET_OBJS := $(WALLET_SRC:.c=.o)
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(WALLET_SRC) $(WALLET_DB_QUERIES)
 ALL_C_HEADERS += $(WALLET_HDRS)
-
-# Query sets depend on the rewritten queries
-wallet/db_queries_sqlite3.o: $(WALLET_DB_QUERIES)
-wallet/db_queries_postgres.o: $(WALLET_DB_QUERIES)
 
 # The following files contain SQL-annotated statements that we need to extact
 WALLET_SQL_FILES := 			\
