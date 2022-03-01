@@ -548,7 +548,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
 
     bitcoind.generate_block(100)
 
-    sync_blockheight(bitcoind, [l2])
+    sync_blockheight(bitcoind, [l1, l2])
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
     # Do one last pass over the logs to extract the reactions l2 sent
@@ -677,7 +677,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     # 100 blocks later, all resolved.
     bitcoind.generate_block(100)
 
-    sync_blockheight(bitcoind, [l2])
+    sync_blockheight(bitcoind, [l1, l2])
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
     # Do one last pass over the logs to extract the reactions l2 sent
