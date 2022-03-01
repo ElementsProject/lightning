@@ -45,6 +45,21 @@ struct channel_state_param {
 	const enum channel_state_bucket state;
 };
 
+/* Implement db_fatal, as a wrapper around fatal.
+ * We use a ifndef block so that it can get be
+ * implemented in a test file first, if necessary */
+#ifndef DB_FATAL
+#define DB_FATAL
+void db_fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	fatal_vfmt(fmt, ap);
+	va_end(ap);
+}
+#endif /* DB_FATAL */
+
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
