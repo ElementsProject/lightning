@@ -1,15 +1,6 @@
 c-lightning
 ----------------------------------------------------------------
 
-Setup
-
-    # Add an "upstream" reference and fetch all tags (needed for pyln-{proto,client,testing})
-    git remote add upstream git@github.com:ElementsProject/lightning.git
-    git fetch upstream --tags
-
-    (cd contrib/remote_hsmd && \
-    ln -s ../../../validating-lightning-signer/lightning-signer-server/src/server/remotesigner.proto)
-
 Additional Dependencies (needed after applying steps in `doc/INSTALL`):
 
 On Ubuntu:
@@ -20,22 +11,42 @@ On Fedora:
 
     sudo dnf install -y grpc-devel grpc-plugins
 
-Building
+Python packages:
 
+    pip3 install --user base58 bitstring secp256k1 mrkd
+
+    # In c-lightning root, remote-hsmd branch:
+    pip3 install --user -r requirements.txt
+
+    # Temporarily downgrade markupsafe to avoid breaking dependencies
+    pip3 install --user markupsafe==2.0.1
+
+Validating Lightning Signer:
+
+    # In parent directory of c-lightning root
+    git clone git@gitlab.com:lightning-signer/validating-lightning-signer.git
+    cargo build --features log_pretty_print,debug_enforcement_state
+
+C-Lightning:
+
+    # Add an "upstream" reference and fetch all tags (needed for pyln-{proto,client,testing})
+    # Use the HTTPS pointer if you have authentication issues with git
+    git remote add upstream git@github.com:ElementsProject/lightning.git
+    git fetch upstream --tags
+
+    (cd contrib/remote_hsmd && \
+    ln -s ../../../validating-lightning-signer/lightning-signer-server/src/server/remotesigner.proto)
+    # Then do ls -alt contrib/remote_hsmd/remotesigner.proto and make sure the link is valid
+
+    # Build c-lightning
     make distclean
     ./configure --enable-developer
     make
 
-Build libsecp256k1 with `./configure --enable-module-recovery`, see
-https://github.com/golemfactory/golem/issues/2168 for background.
-
-    pip3 install --user base58
-    pip3 install --user bitstring
-    pip3 install --user secp256k1
-    pip3 install --user mrkd
+Tests:
     
-    # in c-lightning root:
-    pip3 install --user -r requirements.txt
+    # Run this single test to check that everything is set up correctly:
+    ./contrib/remote_hsmd/scripts/run-one-test tests/test_pay.py::test_pay_no_secret
 
 Run all of the integration tests:
 
