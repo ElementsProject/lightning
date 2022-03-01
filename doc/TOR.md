@@ -9,7 +9,7 @@ If Tor is not installed you can install it on Debian based Linux systems (Ubuntu
 ```bash
 sudo apt install tor
 ```
-then `/etc/init.d/tor start` or `sudo systemctl start tor` depending
+then `/etc/init.d/tor start` or `sudo systemctl enable --now tor` depending
 on your system configuration.
 
 Most default setting should be sufficient.
