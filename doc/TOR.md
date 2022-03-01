@@ -204,7 +204,7 @@ Tor service.  Both types of addresses can coexist on the same node.
 
 Save the file and restart the Tor service. In linux:
 
-`/etc/init.d/tor restart` or `sudo systemctl start tor` depending
+`/etc/init.d/tor restart` or `sudo systemctl restart tor` depending
 on the configuration of your system.
 
 You will find the newly created address (myaddress.onion) with:
