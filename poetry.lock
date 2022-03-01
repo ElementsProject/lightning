@@ -337,15 +337,22 @@ python-versions = ">=3.5"
 [[package]]
 name = "mrkd"
 version = "0.2.0"
-description = "Write man pages using Markdown, and convert them to Roff or HTML"
+description = ""
 category = "main"
 optional = false
 python-versions = "*"
+develop = false
 
 [package.dependencies]
 Jinja2 = "*"
-mistune = "*"
+mistune = "0.8.4"
 pygments = "*"
+
+[package.source]
+type = "git"
+url = "https://github.com/refi64/mrkd.git"
+reference = "781f05eb9898ca652f18eed29b3c956389e6a2a7"
+resolved_reference = "781f05eb9898ca652f18eed29b3c956389e6a2a7"
 
 [[package]]
 name = "mypy"
@@ -726,7 +733,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "ca73a2bafa306cda115372944c4bd9a62e8ac63916a101d004162223123ce01c"
+content-hash = "279c769b5a15faf494173d6b71dca50d90493534646f9c5e3506b8c52abfe3b5"
 
 [metadata.files]
 asn1crypto = [
@@ -1041,10 +1048,7 @@ more-itertools = [
     {file = "more-itertools-8.12.0.tar.gz", hash = "sha256:7dc6ad46f05f545f900dd59e8dfb4e84a4827b97b3cfecb175ea0c7d247f6064"},
     {file = "more_itertools-8.12.0-py3-none-any.whl", hash = "sha256:43e6dd9942dffd72661a2c4ef383ad7da1e6a3e968a927ad7a6083ab410a688b"},
 ]
-mrkd = [
-    {file = "mrkd-0.2.0-py3-none-any.whl", hash = "sha256:4cb47bb9eb8933a34ea2f2110529f33a07abcf1da43b7e77328538b7ee6164a0"},
-    {file = "mrkd-0.2.0.tar.gz", hash = "sha256:456f8c1be99da268554b29c6b5383532e58119def5a65d85270bc6a0ecc26aaf"},
-]
+mrkd = []
 mypy = [
     {file = "mypy-0.931-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:3c5b42d0815e15518b1f0990cff7a705805961613e701db60387e6fb663fe78a"},
     {file = "mypy-0.931-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:c89702cac5b302f0c5d33b172d2b55b5df2bede3344a2fbed99ff96bddb2cf00"},
