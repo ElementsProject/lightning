@@ -13,7 +13,7 @@ packages = [
 python = "^3.7"
 pytest = "^7.0.1"
 ephemeral-port-reserve = "^1.1.4"
-psycopg2 = "^2.9.3"
+psycopg2-binary = "^2.9.3"
 python-bitcoinlib = "^0.11.0"
 jsonschema = "^4.4.0"
 pyln-client = { path = "../pyln-client" }
