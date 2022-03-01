@@ -54,11 +54,13 @@ RUN apt-get update -qq && \
         automake \
         build-essential \
         ca-certificates \
+        curl \
         dirmngr \
         gettext \
         git \
         gnupg \
         libtool \
+        libffi-dev \
         python3 \
         python3-mako \
         python3-pip \
@@ -97,7 +99,8 @@ RUN git clone --recursive /tmp/lightning . && \
 ARG DEVELOPER=0
 ENV PYTHON_VERSION=3
 RUN apt-get install -y --no-install-recommends python3-dev
-RUN pip3 install -U pip && pip3 install -r requirements.lock
+RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python3 -
+RUN /root/.poetry/bin/poetry install
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 

@@ -10,14 +10,13 @@ python = "^3.7"
 pyln-client = { path = "contrib/pyln-client" }
 pyln-proto = { path = "contrib/pyln-proto" }
 Mako = "^1.1.6"
-mrkd = "^0.2.0"
+mrkd = { git = "https://github.com/refi64/mrkd.git", rev = "781f05eb9898ca652f18eed29b3c956389e6a2a7" }
 websocket-client = "^1.2.3"
 
 [tool.poetry.dev-dependencies]
 # Test dependencies and inherited dependencies belong here
 crc32c = "^2.2.post0"  # Belongs to lnprototest
 pytest-xdist = "^2.5.0"
-mistune = "0.8.4"  # Belongs to pyln-proto
 pytest-test-groups = "^1.0.3"
 pytest-timeout = "^2.1.0"
 flake8 = "^4.0.1"
