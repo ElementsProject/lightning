@@ -115,7 +115,7 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx,
 			 struct amount_sat amount, const u8 *scriptPubkey,
 			 const u8 *input_wscript);
 
-/* This helps is useful because wally uses a raw byte array for txids */
+/* This is useful because wally uses a raw byte array for txids */
 bool wally_tx_input_spends(const struct wally_tx_input *input,
 			   const struct bitcoin_outpoint *outpoint);
 
