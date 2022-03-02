@@ -6,6 +6,7 @@ BOOKKEEPER_PLUGIN_SRC := 			\
 	plugins/bkpr/bookkeeper.c		\
 	plugins/bkpr/chain_event.c		\
 	plugins/bkpr/channel_event.c		\
+	plugins/bkpr/channelsapy.c		\
 	plugins/bkpr/db.c			\
 	plugins/bkpr/incomestmt.c		\
 	plugins/bkpr/onchain_fee.c		\
@@ -21,6 +22,7 @@ BOOKKEEPER_HEADER := 				\
 	plugins/bkpr/account_entry.h		\
 	plugins/bkpr/chain_event.h		\
 	plugins/bkpr/channel_event.h		\
+	plugins/bkpr/channelsapy.h		\
 	plugins/bkpr/db.h			\
 	plugins/bkpr/incomestmt.h		\
 	plugins/bkpr/onchain_fee.h		\
