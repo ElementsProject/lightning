@@ -1,7 +1,10 @@
 c-lightning
 ----------------------------------------------------------------
 
-Additional Dependencies (needed after applying steps in `doc/INSTALL`):
+Basic Setup:
+
+1. Follow instructions in `doc/INSTALL.md`
+2. Follow instructions in the "Build and Development" section in `doc/HACKING.md`
 
 On Ubuntu:
 
