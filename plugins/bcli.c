@@ -94,14 +94,17 @@ struct bitcoin_cli {
 };
 
 /* Add the n'th arg to *args, incrementing n and keeping args of size n+1 */
-static void add_arg(const char ***args, const char *arg)
+static void add_arg(const char ***args, const char *arg TAKES)
 {
+	if (taken(arg))
+		tal_steal(*args, arg);
 	tal_arr_expand(args, arg);
 }
 
-static const char **gather_args(const tal_t *ctx, const char *cmd, const char **cmd_args)
+static const char **gather_argsv(const tal_t *ctx, const char *cmd, va_list ap)
 {
 	const char **args = tal_arr(ctx, const char *, 1);
+	const char *arg;
 
 	args[0] = bitcoind->cli ? bitcoind->cli : chainparams->cli;
 	if (chainparams->cli_args)
@@ -121,11 +124,24 @@ static const char **gather_args(const tal_t *ctx, const char *cmd, const char **
 			tal_fmt(args, "-rpcpassword=%s", bitcoind->rpcpass));
 
 	add_arg(&args, cmd);
-	for (size_t i = 0; i < tal_count(cmd_args); i++)
-		add_arg(&args, cmd_args[i]);
+	while ((arg = va_arg(ap, char *)) != NULL)
+		add_arg(&args, arg);
 	add_arg(&args, NULL);
 
 	return args;
+}
+
+static LAST_ARG_NULL const char **
+gather_args(const tal_t *ctx, const char *cmd, ...)
+{
+	va_list ap;
+	const char **ret;
+
+	va_start(ap, cmd);
+	ret = gather_argsv(ctx, cmd, ap);
+	va_end(ap);
+
+	return ret;
 }
 
 static struct io_plan *read_more(struct io_conn *conn, struct bitcoin_cli *bcli)
@@ -299,16 +315,15 @@ static void next_bcli(enum bitcoind_prio prio)
 	tal_add_destructor(bcli, destroy_bcli);
 }
 
-/* If ctx is non-NULL, and is freed before we return, we don't call process().
- * process returns false() if it's a spurious error, and we should retry. */
 static void
-start_bitcoin_cli(const tal_t *ctx,
-		  struct command *cmd,
-		  struct command_result *(*process)(struct bitcoin_cli *),
-		  bool nonzero_exit_ok,
-		  enum bitcoind_prio prio,
-		  char *method, const char **method_args,
-		  void *stash)
+start_bitcoin_cliv(const tal_t *ctx,
+		   struct command *cmd,
+		   struct command_result *(*process)(struct bitcoin_cli *),
+		   bool nonzero_exit_ok,
+		   enum bitcoind_prio prio,
+		   void *stash,
+		   const char *method,
+		   va_list ap)
 {
 	struct bitcoin_cli *bcli = tal(bitcoind, struct bitcoin_cli);
 
@@ -321,11 +336,31 @@ start_bitcoin_cli(const tal_t *ctx,
 	else
 		bcli->exitstatus = NULL;
 
-	bcli->args = gather_args(bcli, method, method_args);
+	bcli->args = gather_argsv(bcli, method, ap);
 	bcli->stash = stash;
 
 	list_add_tail(&bitcoind->pending[bcli->prio], &bcli->list);
 	next_bcli(bcli->prio);
+}
+
+/* If ctx is non-NULL, and is freed before we return, we don't call process().
+ * process returns false() if it's a spurious error, and we should retry. */
+static void LAST_ARG_NULL
+start_bitcoin_cli(const tal_t *ctx,
+		  struct command *cmd,
+		  struct command_result *(*process)(struct bitcoin_cli *),
+		  bool nonzero_exit_ok,
+		  enum bitcoind_prio prio,
+		  void *stash,
+		  const char *method,
+		  ...)
+{
+	va_list ap;
+
+	va_start(ap, method);
+	start_bitcoin_cliv(ctx, cmd, process, nonzero_exit_ok, prio, stash, method,
+			   ap);
+	va_end(ap);
 }
 
 static void strip_trailing_whitespace(char *str, size_t len)
@@ -539,7 +574,6 @@ getrawblockbyheight_notfound(struct bitcoin_cli *bcli)
 
 static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 {
-	const char **params;
 	struct getrawblock_stash *stash = bcli->stash;
 
 	/* If it failed with error 8, give an empty response. */
@@ -556,12 +590,13 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 		return command_err_bcli_badjson(bcli, "bad blockhash");
 	}
 
-	params = tal_arr(bcli->cmd, const char *, 2);
-	params[0] = stash->block_hash;
-	/* Non-verbose: raw block. */
-	params[1] = "0";
 	start_bitcoin_cli(NULL, bcli->cmd, process_getrawblock, false,
-			  BITCOIND_HIGH_PRIO, "getblock", params, stash);
+			  BITCOIND_HIGH_PRIO, stash,
+			  "getblock",
+			  stash->block_hash,
+			  /* Non-verbose: raw block. */
+			  "0",
+			  NULL);
 
 	return command_still_pending(bcli->cmd);
 }
@@ -576,7 +611,6 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
 {
 	struct getrawblock_stash *stash;
 	u32 *height;
-	const char **params;
 
 	/* bitcoin-cli wants a string. */
 	if (!param(cmd, buf, toks,
@@ -586,11 +620,13 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
 
 	stash = tal(cmd, struct getrawblock_stash);
 	stash->block_height = *height;
+	tal_free(height);
 
-	params = tal_arr(cmd, const char *, 1);
-	params[0] = tal_fmt(params, "%u", *height);
 	start_bitcoin_cli(NULL, cmd, process_getblockhash, true,
-			  BITCOIND_LOW_PRIO, "getblockhash", params, stash);
+			  BITCOIND_LOW_PRIO, stash,
+			  "getblockhash",
+			  take(tal_fmt(NULL, "%u", stash->block_height)),
+			  NULL);
 
 	return command_still_pending(cmd);
 }
@@ -604,10 +640,11 @@ static struct command_result *getchaininfo(struct command *cmd,
                                            const jsmntok_t *toks UNUSED)
 {
 	if (!param(cmd, buf, toks, NULL))
-	    return command_param_failed();
+		return command_param_failed();
 
 	start_bitcoin_cli(NULL, cmd, process_getblockchaininfo, false,
-			  BITCOIND_HIGH_PRIO, "getblockchaininfo", NULL, NULL);
+			  BITCOIND_HIGH_PRIO, NULL,
+			  "getblockchaininfo", NULL);
 
 	return command_still_pending(cmd);
 }
@@ -633,12 +670,13 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	struct json_stream *response;
 
 	if (stash->cursor < ARRAY_SIZE(stash->perkb)) {
-		const char **params = tal_arr(cmd, const char *, 2);
-
-		params[0] = tal_fmt(params, "%u", estimatefee_params[stash->cursor].blocks);
-		params[1] = estimatefee_params[stash->cursor].style;
 		start_bitcoin_cli(NULL, cmd, estimatefees_done, true,
-				  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
+				  BITCOIND_LOW_PRIO, stash,
+				  "estimatesmartfee",
+				  take(tal_fmt(NULL, "%u",
+					       estimatefee_params[stash->cursor].blocks)),
+				  estimatefee_params[stash->cursor].style,
+				  NULL);
 
 		return command_still_pending(cmd);
 	}
@@ -708,12 +746,12 @@ static struct command_result *sendrawtransaction(struct command *cmd,
                                                  const char *buf,
                                                  const jsmntok_t *toks)
 {
-	const char **params = tal_arr(cmd, const char *, 1);
+	const char *tx, *highfeesarg;
 	bool *allowhighfees;
 
 	/* bitcoin-cli wants strings. */
 	if (!param(cmd, buf, toks,
-	           p_req("tx", param_string, &params[0]),
+	           p_req("tx", param_string, &tx),
 		   p_req("allowhighfees", param_bool, &allowhighfees),
 	           NULL))
 		return command_param_failed();
@@ -724,16 +762,19 @@ static struct command_result *sendrawtransaction(struct command *cmd,
 			 * maxfeerate, which when set to 0 means
 			 * no max feerate.
 			 */
-			tal_arr_expand(&params, "0");
+			highfeesarg = "0";
 		else
 			/* in older versions, second arg is allowhighfees,
 			 * set to true to allow high fees.
 			 */
-			tal_arr_expand(&params, "true");
-	}
+			highfeesarg = "true";
+	} else
+		highfeesarg = NULL;
 
 	start_bitcoin_cli(NULL, cmd, process_sendrawtransaction, true,
-			  BITCOIND_HIGH_PRIO, "sendrawtransaction", params, NULL);
+			  BITCOIND_HIGH_PRIO, NULL,
+			  "sendrawtransaction",
+			  tx, highfeesarg, NULL);
 
 	return command_still_pending(cmd);
 }
@@ -742,17 +783,18 @@ static struct command_result *getutxout(struct command *cmd,
                                        const char *buf,
                                        const jsmntok_t *toks)
 {
-	const char **params = tal_arr(cmd, const char *, 2);
+	const char *txid, *vout;
 
 	/* bitcoin-cli wants strings. */
 	if (!param(cmd, buf, toks,
-	           p_req("txid", param_string, &params[0]),
-	           p_req("vout", param_string, &params[1]),
+	           p_req("txid", param_string, &txid),
+	           p_req("vout", param_string, &vout),
 	           NULL))
 		return command_param_failed();
 
 	start_bitcoin_cli(NULL, cmd, process_getutxout, true,
-			  BITCOIND_HIGH_PRIO, "gettxout", params, NULL);
+			  BITCOIND_HIGH_PRIO, NULL,
+			  "gettxout", txid, vout, NULL);
 
 	return command_still_pending(cmd);
 }
