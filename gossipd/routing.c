@@ -421,6 +421,25 @@ static bool node_announce_predates_channels(const struct node *node)
 	return true;
 }
 
+/* Move this node's announcement to the tail of the gossip_store, to
+ * make everyone send it again. */
+void force_node_announce_rexmit(struct routing_state *rstate,
+				struct node *node)
+{
+	const u8 *announce;
+	bool is_local = node_id_eq(&node->id, &rstate->local_id);
+	announce = gossip_store_get(tmpctx, rstate->gs, node->bcast.index);
+
+	gossip_store_delete(rstate->gs,
+			    &node->bcast,
+			    WIRE_NODE_ANNOUNCEMENT);
+	node->bcast.index = gossip_store_add(rstate->gs,
+					     announce,
+					     node->bcast.timestamp,
+					     is_local,
+					     NULL);
+}
+
 static void remove_chan_from_node(struct routing_state *rstate,
 				  struct node *node, const struct chan *chan)
 {
@@ -458,23 +477,11 @@ static void remove_chan_from_node(struct routing_state *rstate,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
 	} else if (node_announce_predates_channels(node)) {
-		const u8 *announce;
-
-		announce = gossip_store_get(tmpctx, rstate->gs,
-					    node->bcast.index);
-
 		/* node announcement predates all channel announcements?
 		 * Move to end (we could, in theory, move to just past next
 		 * channel_announce, but we don't care that much about spurious
 		 * retransmissions in this corner case */
-		gossip_store_delete(rstate->gs,
-				    &node->bcast,
-				    WIRE_NODE_ANNOUNCEMENT);
-		node->bcast.index = gossip_store_add(rstate->gs,
-						     announce,
-						     node->bcast.timestamp,
-						     false,
-						     NULL);
+		force_node_announce_rexmit(rstate, node);
 	}
 }
 
