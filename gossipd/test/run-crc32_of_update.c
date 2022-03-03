@@ -54,6 +54,9 @@ struct peer *find_peer(struct daemon *daemon UNNEEDED, const struct node_id *id 
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
+/* Generated stub for force_node_announce_rexmit */
+void force_node_announce_rexmit(struct routing_state *rstate UNNEEDED, struct node *node UNNEEDED)
+{ fprintf(stderr, "force_node_announce_rexmit called!\n"); abort(); }
 /* Generated stub for fromwire_gossipd_dev_set_max_scids_encode_size */
 bool fromwire_gossipd_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_dev_set_max_scids_encode_size called!\n"); abort(); }
