@@ -464,12 +464,22 @@ static void connect_init_done(struct subd *connectd,
 			      void *unused UNUSED)
 {
 	struct lightningd *ld = connectd->ld;
+	char *errmsg;
 
+	log_debug(connectd->log, "connectd_init_done");
 	if (!fromwire_connectd_init_reply(ld, reply,
-					    &ld->binding,
-					    &ld->announcable))
+					  &ld->binding,
+					  &ld->announcable,
+					  &errmsg))
 		fatal("Bad connectd_activate_reply: %s",
 		      tal_hex(reply, reply));
+
+	/* connectd can fail in *informative* ways: don't use fatal() here and
+	 * confuse things with a backtrace! */
+	if (errmsg) {
+		log_broken(connectd->log, "%s", errmsg);
+		exit(1);
+	}
 
 	/* Break out of loop, so we can begin */
 	io_break(connectd);
