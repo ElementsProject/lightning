@@ -265,36 +265,18 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 		      "Tor protocolinfo did not give auth");
 }
 
-/* We need to have a bound address we can tell Tor to connect to */
-const struct wireaddr *
-find_local_address(const struct wireaddr_internal *bindings)
-{
-	for (size_t i = 0; i < tal_count(bindings); i++) {
-		if (bindings[i].itype != ADDR_INTERNAL_WIREADDR)
-			continue;
-		if (bindings[i].u.wireaddr.type != ADDR_TYPE_IPV4
-		    && bindings[i].u.wireaddr.type != ADDR_TYPE_IPV6)
-			continue;
-		return &bindings[i].u.wireaddr;
-	}
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "No local address found to tell Tor to connect to");
-}
-
 struct wireaddr *tor_autoservice(const tal_t *ctx,
 				 const struct wireaddr_internal *tor_serviceaddr,
 				 const char *tor_password,
-				 const struct wireaddr_internal *bindings,
+				 const struct wireaddr *laddr,
 				 const bool use_v3_autotor)
 {
 	int fd;
-	const struct wireaddr *laddr;
 	struct wireaddr *onion;
 	struct addrinfo *ai_tor;
 	struct rbuf rbuf;
 	char *buffer;
 
-	laddr = find_local_address(bindings);
 	ai_tor = wireaddr_to_addrinfo(tmpctx, &tor_serviceaddr->u.torservice.address);
 
 	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);
