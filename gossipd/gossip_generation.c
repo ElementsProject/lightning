@@ -219,7 +219,8 @@ static void update_own_node_announcement_after_startup(struct daemon *daemon);
  * the routing.c code like any other `node_announcement`.  Such announcements
  * are only accepted if there is an announced channel associated with that node
  * (to prevent spam), so we only call this once we've announced a channel. */
-static void update_own_node_announcement(struct daemon *daemon, bool startup)
+/* Returns true if this sent one, or has arranged to send one in future. */
+static bool update_own_node_announcement(struct daemon *daemon, bool startup)
 {
 	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
 	u8 *nannounce;
@@ -245,8 +246,9 @@ static void update_own_node_announcement(struct daemon *daemon, bool startup)
 		bool only_missing_tlv;
 
 		if (!nannounce_different(daemon->rstate->gs, self, nannounce,
-					 &only_missing_tlv))
-			return;
+					 &only_missing_tlv)) {
+			return false;
+		}
 
 		/* Missing liquidity_ad, maybe we'll get plugin callback */
 		if (startup && only_missing_tlv) {
@@ -260,7 +262,7 @@ static void update_own_node_announcement(struct daemon *daemon, bool startup)
 					       time_from_sec(delay),
 					       update_own_node_announcement_after_startup,
 					       daemon);
-			return;
+			return true;
 		}
 		/* BOLT #7:
 		 *
@@ -282,16 +284,27 @@ static void update_own_node_announcement(struct daemon *daemon, bool startup)
 					       time_from_sec(next - timestamp),
 					       update_own_node_announcement_after_startup,
 					       daemon);
-			return;
+			return true;
 		}
 	}
 
 	sign_and_send_nannounce(daemon, nannounce, timestamp);
+	return true;
+}
+
+/* This retransmits the existing node announcement */
+static void force_self_nannounce_rexmit(struct daemon *daemon)
+{
+	struct node *self = get_node(daemon->rstate, &daemon->id);
+
+	force_node_announce_rexmit(daemon->rstate, self);
 }
 
 static void update_own_node_announcement_after_startup(struct daemon *daemon)
 {
-	update_own_node_announcement(daemon, false);
+	/* If that doesn't send one, arrange rexmit anyway */
+	if (!update_own_node_announcement(daemon, false))
+		force_self_nannounce_rexmit(daemon);
 }
 
 /* Should we announce our own node?  Called at strategic places. */
@@ -304,7 +317,11 @@ void maybe_send_own_node_announce(struct daemon *daemon, bool startup)
 	if (!daemon->rstate->local_channel_announced)
 		return;
 
-	update_own_node_announcement(daemon, startup);
+	/* If we didn't send one, arrange rexmit of existing at startup */
+	if (!update_own_node_announcement(daemon, startup)) {
+		if (startup)
+			force_self_nannounce_rexmit(daemon);
+	}
 }
 
 /* Fast accessors for channel_update fields */
