@@ -1023,6 +1023,15 @@ next:
 	try_connect_one_addr(connect);
 }
 
+/*~ Sometimes it's nice to have an explicit enum instead of a bool to make
+ * arguments clearer: it kind of hacks around C's lack of naming formal
+ * arguments in callers (e.g. in Python we'd simply call func(websocket=False)).
+ */
+enum is_websocket {
+	NORMAL_SOCKET,
+	WEBSOCKET,
+};
+
 /*~ connectd is responsible for incoming connections, but it's the process of
  * setting up the listening ports which gives us information we need for startup
  * (such as our own address).  So we perform setup in two phases: first we bind
@@ -1031,28 +1040,33 @@ next:
  *
  * This stores the fds we're going to listen on: */
 struct listen_fd {
+	/* This is usually an IPv4/v6 address, but we also support local
+	 * domain sockets (i.e. filesystem) */
+	struct wireaddr_internal wi;
+	/* The actual fd, ready to listen() on */
 	int fd;
 	/* If we bind() IPv6 then IPv4 to same port, we *may* fail to listen()
 	 * on the IPv4 socket: under Linux, by default, the IPv6 listen()
 	 * covers IPv4 too.  Normally we'd consider failing to listen on a
 	 * port to be fatal, so we note this when setting up addresses. */
 	bool mayfail;
-	/* Callback to use for the listening: either connection_in, or for
-	 * our much-derided WebSocket ability, websocket_connection_in! */
-	struct io_plan *(*in_cb)(struct io_conn *conn, struct daemon *daemon);
+	/* Is this a websocket? */
+	enum is_websocket is_websocket;
 };
 
-static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail,
-			  struct io_plan *(*in_cb)(struct io_conn *,
-						   struct daemon *))
+static void add_listen_fd(struct daemon *daemon,
+			  const struct wireaddr_internal *wi,
+			  int fd, bool mayfail,
+			  enum is_websocket is_websocket)
 {
 	/*~ utils.h contains a convenience macro tal_arr_expand which
 	 * reallocates a tal_arr to make it one longer, then returns a pointer
 	 * to the (new) last element. */
 	struct listen_fd l;
+	l.wi = *wi;
 	l.fd = fd;
 	l.mayfail = mayfail;
-	l.in_cb = in_cb;
+	l.is_websocket = is_websocket;
 	tal_arr_expand(&daemon->listen_fds, l);
 }
 
@@ -1118,19 +1132,13 @@ fail:
 static bool handle_wireaddr_listen(const tal_t *ctx,
 				   struct daemon *daemon,
 				   const struct wireaddr_internal *wi,
-				   bool websocket,
+				   enum is_websocket is_websocket,
 				   char **errstr)
 {
 	int fd;
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
 	const struct wireaddr *wireaddr;
-	struct io_plan *(*in_cb)(struct io_conn *, struct daemon *);
-
-	if (websocket)
-		in_cb = websocket_connection_in;
-	else
-		in_cb = connection_in;
 
 	assert(wi->itype == ADDR_INTERNAL_WIREADDR);
 	wireaddr = &wi->u.wireaddr;
@@ -1144,9 +1152,9 @@ static bool handle_wireaddr_listen(const tal_t *ctx,
 		fd = make_listen_fd(ctx, daemon, wi, AF_INET, &addr, sizeof(addr), errstr);
 		if (fd >= 0) {
 			status_debug("Created IPv4 %slistener on port %u",
-				     websocket ? "websocket ": "",
+				     is_websocket ? "websocket ": "",
 				     wireaddr->port);
-			add_listen_fd(daemon, fd, errstr == NULL, in_cb);
+			add_listen_fd(daemon, wi, fd, errstr == NULL, is_websocket);
 			return true;
 		}
 		return false;
@@ -1155,9 +1163,9 @@ static bool handle_wireaddr_listen(const tal_t *ctx,
 		fd = make_listen_fd(ctx, daemon, wi, AF_INET6, &addr6, sizeof(addr6), errstr);
 		if (fd >= 0) {
 			status_debug("Created IPv6 %slistener on port %u",
-				     websocket ? "websocket ": "",
+				     is_websocket ? "websocket ": "",
 				     wireaddr->port);
-			add_listen_fd(daemon, fd, errstr == NULL, in_cb);
+			add_listen_fd(daemon, wi, fd, errstr == NULL, is_websocket);
 			return true;
 		}
 		return false;
@@ -1288,7 +1296,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				return NULL;
 			status_debug("Created socket listener on file %s",
 				     addrun.sun_path);
-			add_listen_fd(daemon, fd, false, connection_in);
+			add_listen_fd(daemon, &wa, fd, false, NORMAL_SOCKET);
 			/* We don't announce socket names, though we allow
 			 * them to lazily specify --addr=/socket. */
 			add_binding(&binding, &wa);
@@ -1312,7 +1320,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			memset(wa.u.wireaddr.addr, 0,
 			       sizeof(wa.u.wireaddr.addr));
 
-			ipv6_ok = handle_wireaddr_listen(ctx, daemon, &wa, false, NULL);
+			ipv6_ok = handle_wireaddr_listen(ctx, daemon, &wa,
+							 NORMAL_SOCKET, NULL);
 			if (ipv6_ok) {
 				add_binding(&binding, &wa);
 				if (announce
@@ -1327,7 +1336,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			memset(wa.u.wireaddr.addr, 0,
 			       sizeof(wa.u.wireaddr.addr));
 			/* OK if this fails, as long as one succeeds! */
-			if (handle_wireaddr_listen(ctx, daemon, &wa, false, ipv6_ok ? NULL : errstr)) {
+			if (handle_wireaddr_listen(ctx, daemon, &wa,
+						   NORMAL_SOCKET, ipv6_ok ? NULL : errstr)) {
 				add_binding(&binding, &wa);
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
@@ -1341,7 +1351,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		}
 		/* This is a vanilla wireaddr as per BOLT #7 */
 		case ADDR_INTERNAL_WIREADDR:
-			if (!handle_wireaddr_listen(ctx, daemon, &wa, false, errstr))
+			if (!handle_wireaddr_listen(ctx, daemon, &wa,
+						    NORMAL_SOCKET, errstr))
 				return NULL;
 			add_binding(&binding, &wa);
 			if (announce && public_address(daemon, &wa.u.wireaddr))
@@ -1372,7 +1383,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			addr = binding[i];
 			addr.u.wireaddr.port = daemon->websocket_port;
 			/* FIXME: catch errors here! */
-			if (handle_wireaddr_listen(ctx, daemon, &addr, true, NULL))
+			if (handle_wireaddr_listen(ctx, daemon, &addr,
+						   WEBSOCKET, NULL))
 				announced_some = true;
 			/* FIXME: We don't report these bindings to
 			 * lightningd, so they don't appear in
@@ -1564,6 +1576,22 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 #endif
 }
 
+/* Returning functions in C is ugly! */
+static struct io_plan *(*get_in_cb(enum is_websocket is_websocket))(struct io_conn *, struct daemon *)
+
+{
+	/*~ This switch and fall pattern serves a specific purpose:
+	 * gcc will warn if we don't handle every case! */
+	switch (is_websocket) {
+	case WEBSOCKET:
+		return websocket_connection_in;
+	case NORMAL_SOCKET:
+		return connection_in;
+	}
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Invalid is_websocket %u", is_websocket);
+}
+
 /*~ lightningd tells us to go! */
 static void connect_activate(struct daemon *daemon, const u8 *msg)
 {
@@ -1575,21 +1603,24 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 	/* If we're --offline, lightningd tells us not to actually listen. */
 	if (do_listen) {
 		for (size_t i = 0; i < tal_count(daemon->listen_fds); i++) {
-			/* On Linux, at least, we may bind to all addresses
-			 * for IPv4 and IPv6, but we'll fail to listen. */
 			if (listen(daemon->listen_fds[i].fd, 64) != 0) {
 				if (daemon->listen_fds[i].mayfail)
 					continue;
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "Failed to listen on socket: %s",
+					      "Failed to listen on socket %s: %s",
+					      type_to_string(tmpctx,
+							     struct wireaddr_internal,
+							     &daemon->listen_fds[i].wi),
 					      strerror(errno));
 			}
 			notleak(io_new_listener(daemon,
 						daemon->listen_fds[i].fd,
-						daemon->listen_fds[i].in_cb,
+						get_in_cb(daemon->listen_fds[i]
+							  .is_websocket),
 						daemon));
 		}
 	}
+
 	/* Free, with NULL assignment just as an extra sanity check. */
 	daemon->listen_fds = tal_free(daemon->listen_fds);
 
