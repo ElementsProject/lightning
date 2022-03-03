@@ -1227,6 +1227,31 @@ static int wireaddr_cmp_type(const struct wireaddr *a,
 	return cmp;
 }
 
+/* We need to have a bound address we can tell Tor to connect to */
+static const struct wireaddr *
+find_local_address(const struct wireaddr_internal *bindings)
+{
+	for (size_t i = 0; i < tal_count(bindings); i++) {
+		if (bindings[i].itype != ADDR_INTERNAL_WIREADDR)
+			continue;
+		if (bindings[i].u.wireaddr.type != ADDR_TYPE_IPV4
+		    && bindings[i].u.wireaddr.type != ADDR_TYPE_IPV6)
+			continue;
+		return &bindings[i].u.wireaddr;
+	}
+	return NULL;
+}
+
+static bool want_tor(const struct wireaddr_internal *proposed_wireaddr)
+{
+	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
+		if (proposed_wireaddr[i].itype == ADDR_INTERNAL_STATICTOR
+		    || proposed_wireaddr[i].itype == ADDR_INTERNAL_AUTOTOR)
+			return true;
+	}
+	return false;
+}
+
 /*~ The user can specify three kinds of addresses: ones we bind to but don't
  * announce, ones we announce but don't bind to, and ones we bind to and
  * announce if they seem to be public addresses.
@@ -1249,6 +1274,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	struct sockaddr_un addrun;
 	int fd;
 	struct wireaddr_internal *binding;
+	const struct wireaddr *localaddr;
 	const char *blob = NULL;
 	struct secret random;
 	struct pubkey pb;
@@ -1367,6 +1393,15 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			      proposed_wireaddr[i].itype);
 	}
 
+	/* Make sure we have at least one non-websocket address to send to,
+	 * for Tor */
+	localaddr = find_local_address(binding);
+	if (want_tor(proposed_wireaddr) && !localaddr) {
+		*errstr = "Need to bind at least one local address,"
+			" to send Tor connections to";
+		return NULL;
+	}
+
 	/* If we want websockets to match IPv4/v6, set it up now. */
 	if (daemon->websocket_port) {
 		bool announced_some = false;
@@ -1417,7 +1452,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		toraddr = tor_autoservice(tmpctx,
 					  &proposed_wireaddr[i],
 					  tor_password,
-					  binding,
+					  localaddr,
 					  daemon->use_v3_autotor);
 
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
@@ -1462,7 +1497,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 					    &proposed_wireaddr[i],
 					    tor_password,
 					    blob,
-					    find_local_address(binding),
+					    localaddr,
 					    0);
 		/* get rid of blob data on our side of tor and add jitter */
 		randombytes_buf((void * const)proposed_wireaddr[i].u.torservice.blob, TOR_V3_BLOBLEN);
