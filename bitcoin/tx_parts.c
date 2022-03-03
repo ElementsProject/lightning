@@ -94,6 +94,19 @@ struct tx_parts *tx_parts_from_wally_tx(const tal_t *ctx,
 		if (output != -1 && output != i)
 			continue;
 		txp->outputs[i] = clone_output(&wtx->outputs[i]);
+
+		/* Cheat a bit by also setting the numeric satoshi
+		 * value, otherwise we end up converting a
+		 * number of times */
+		if (chainparams->is_elements) {
+			struct amount_asset asset;
+			struct amount_sat sats;
+			asset = wally_tx_output_get_amount(txp->outputs[i]);
+			/* FIXME: non l-btc assets */
+			assert(amount_asset_is_main(&asset));
+			sats = amount_asset_to_sat(&asset);
+			txp->outputs[i]->satoshi = sats.satoshis; /* Raw: wally conversion */
+		}
 	}
 	tal_wally_end(txp);
 
@@ -281,6 +294,9 @@ static struct wally_tx_output *fromwire_wally_tx_output(const tal_t *ctx,
 			 surjectionproof, tal_bytelen(surjectionproof),
 			 rangeproof, tal_bytelen(rangeproof),
 			 &out);
+
+		/* As a convenience, we sent the value over as satoshis */
+		out->satoshi = fromwire_u64(cursor, max);
 	} else {
 		u64 satoshi;
 		satoshi = fromwire_u64(cursor, max);
@@ -348,6 +364,8 @@ static void towire_wally_tx_output(u8 **pptr, const struct wally_tx_output *out)
 				out->surjectionproof_len);
 		towire_u32(pptr, out->rangeproof_len);
 		towire_u8_array(pptr, out->rangeproof, out->rangeproof_len);
+		/* Copy the value over, as a convenience */
+		towire_u64(pptr, out->satoshi);
 	} else {
 		towire_u64(pptr, out->satoshi);
 	}
