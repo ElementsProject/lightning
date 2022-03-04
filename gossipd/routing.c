@@ -33,10 +33,10 @@ struct pending_node_announce {
 	struct peer *peer_softref;
 };
 
-/* We consider a reasonable gossip rate to be 1 per day, with burst of
+/* We consider a reasonable gossip rate to be 2 per day, with burst of
  * 4 per day.  So we use a granularity of one hour. */
-#define TOKENS_PER_MSG 24
-#define TOKEN_MAX (24 * 4)
+#define TOKENS_PER_MSG 12
+#define TOKEN_MAX (12 * 4)
 
 static u8 update_tokens(const struct routing_state *rstate,
 			u8 tokens, u32 prev_timestamp, u32 new_timestamp)
