@@ -1419,20 +1419,34 @@ setup_listeners(const tal_t *ctx,
 			if (!lfd)
 				continue;
 
-			announced_some = true;
+			if (!announced_some) {
+				/* BOLT-websocket #7:
+				 *   - MUST NOT add a `type 6` address unless
+				 *     there is also at least one address of
+				 *     different type.
+				 */
+				if (tal_count(*announcable) != 0) {
+					wireaddr_from_websocket(&addr.u.wireaddr,
+							daemon->websocket_port);
+					add_announcable(announcable,
+							&addr.u.wireaddr);
+				} else {
+					status_unusual("Bound to websocket %s,"
+						       " but we cannot announce"
+						       " the websocket as we don't"
+						       " announce anything else!",
+					       type_to_string(tmpctx,
+						      struct wireaddr_internal,
+						      &addr));
+				}
+				announced_some = true;
+			}
+
 			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
 		}
 
-		/* We add the websocket port to the announcement if we made one
-		 * *and* we have other announced addresses. */
-		/* BOLT-websocket #7:
-		 *   - MUST NOT add a `type 6` address unless there is also at
-		 *     least one address of different type.
-		 */
-		if (announced_some && tal_count(*announcable) != 0) {
-			wireaddr_from_websocket(&addr.u.wireaddr, daemon->websocket_port);
-			add_announcable(announcable, &addr.u.wireaddr);
-		} else
+		/* If none of those was possible, it's a configuration error? */
+		if (tal_count(listen_fds) == num_nonws_listens)
 			return NULL;
 	}
 
