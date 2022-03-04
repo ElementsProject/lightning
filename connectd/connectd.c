@@ -1054,51 +1054,47 @@ struct listen_fd {
 	enum is_websocket is_websocket;
 };
 
-static void add_listen_fd(struct daemon *daemon,
-			  const struct wireaddr_internal *wi,
-			  int fd, bool mayfail,
-			  enum is_websocket is_websocket)
+static struct listen_fd *listen_fd_new(const tal_t *ctx,
+				       const struct wireaddr_internal *wi,
+				       int fd, bool mayfail,
+				       enum is_websocket is_websocket)
 {
-	/*~ utils.h contains a convenience macro tal_arr_expand which
-	 * reallocates a tal_arr to make it one longer, then returns a pointer
-	 * to the (new) last element. */
-	struct listen_fd l;
-	l.wi = *wi;
-	l.fd = fd;
-	l.mayfail = mayfail;
-	l.is_websocket = is_websocket;
-	tal_arr_expand(&daemon->listen_fds, l);
+	struct listen_fd *l = tal(ctx, struct listen_fd);
+
+	l->wi = *wi;
+	l->fd = fd;
+	l->mayfail = mayfail;
+	l->is_websocket = is_websocket;
+	return l;
 }
 
 /*~ Helper routine to create and bind a socket of a given type; like many
  * daemons we set it SO_REUSEADDR so we won't have to wait 2 minutes to reuse
  * it on restart.
  *
- * I generally avoid "return -1 on error", but for file-descriptors it's the
- * UNIX standard, so it's not as offensive here as it would be in other
- * contexts.
- *
  * Note that it's generally an antipattern to have a function which
- * returns an allocated object (here, errstr) without an explicit tal ctx so the
- * caller is aware.
- */
-static int make_listen_fd(const tal_t *ctx,
-			  struct daemon *daemon,
-			  const struct wireaddr_internal *wi,
-			  int domain, void *addr, socklen_t len,
-			  char **errstr)
+ * returns an allocated object without an explicit tal ctx so the
+ * caller is aware. */
+static struct listen_fd *make_listen_fd(const tal_t *ctx,
+					const struct wireaddr_internal *wi,
+					int domain, void *addr, socklen_t len,
+					bool listen_mayfail,
+					enum is_websocket is_websocket,
+					char **errstr)
 {
 	int fd = socket(domain, SOCK_STREAM, 0);
 	int on = 1;
 
 	if (fd < 0) {
-		if (errstr)
-			*errstr = tal_fmt(ctx, "Failed to create socket for %s: %s",
-					  type_to_string(tmpctx, struct wireaddr_internal, wi),
-					  strerror(errno));
+		*errstr = tal_fmt(ctx, "Failed to create socket for %s%s: %s",
+				  is_websocket ? "websocket " : "",
+				  type_to_string(tmpctx,
+						 struct wireaddr_internal,
+						 wi),
+				  strerror(errno));
 		status_debug("Failed to create %u socket: %s",
 			     domain, strerror(errno));
-		return -1;
+		return NULL;
 	}
 
 	/* Re-use, please.. */
@@ -1107,35 +1103,38 @@ static int make_listen_fd(const tal_t *ctx,
 			       strerror(errno));
 
 	if (bind(fd, addr, len) != 0) {
-		if (errstr)
-			*errstr = tal_fmt(ctx, "Failed to bind socket for %s: %s",
-					  type_to_string(tmpctx, struct wireaddr_internal, wi),
-					  strerror(errno));
+		*errstr = tal_fmt(ctx, "Failed to bind socket for %s%s: %s",
+				  is_websocket ? "websocket " : "",
+				  type_to_string(tmpctx,
+						 struct wireaddr_internal,
+						 wi),
+				  strerror(errno));
 		status_debug("Failed to create %u socket: %s",
 			     domain, strerror(errno));
 		goto fail;
 	}
 
-	if (errstr)
-		*errstr = NULL;
-	return fd;
+	*errstr = NULL;
+	status_debug("Created %slistener on %s",
+		     is_websocket ? "websocket ": "",
+		     type_to_string(tmpctx, struct wireaddr_internal, wi));
+	return listen_fd_new(ctx, wi, fd, listen_mayfail, is_websocket);
 
 fail:
 	/*~ ccan/noerr contains convenient routines which don't clobber the
 	 * errno global; in this case, the caller can report errno. */
 	close_noerr(fd);
-	return -1;
+	return NULL;
 }
 
 /* Return true if it created socket successfully.  If errstr is non-NULL,
  * allocate off ctx if return false, otherwise it implies it's OK to fail. */
-static bool handle_wireaddr_listen(const tal_t *ctx,
-				   struct daemon *daemon,
-				   const struct wireaddr_internal *wi,
-				   enum is_websocket is_websocket,
-				   char **errstr)
+static struct listen_fd *handle_wireaddr_listen(const tal_t *ctx,
+						const struct wireaddr_internal *wi,
+						bool listen_mayfail,
+						enum is_websocket is_websocket,
+						char **errstr)
 {
-	int fd;
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
 	const struct wireaddr *wireaddr;
@@ -1149,26 +1148,12 @@ static bool handle_wireaddr_listen(const tal_t *ctx,
 	case ADDR_TYPE_IPV4:
 		wireaddr_to_ipv4(wireaddr, &addr);
 		/* We might fail if IPv6 bound to port first */
-		fd = make_listen_fd(ctx, daemon, wi, AF_INET, &addr, sizeof(addr), errstr);
-		if (fd >= 0) {
-			status_debug("Created IPv4 %slistener on port %u",
-				     is_websocket ? "websocket ": "",
-				     wireaddr->port);
-			add_listen_fd(daemon, wi, fd, errstr == NULL, is_websocket);
-			return true;
-		}
-		return false;
+		return make_listen_fd(ctx, wi, AF_INET, &addr, sizeof(addr),
+				      listen_mayfail, is_websocket, errstr);
 	case ADDR_TYPE_IPV6:
 		wireaddr_to_ipv6(wireaddr, &addr6);
-		fd = make_listen_fd(ctx, daemon, wi, AF_INET6, &addr6, sizeof(addr6), errstr);
-		if (fd >= 0) {
-			status_debug("Created IPv6 %slistener on port %u",
-				     is_websocket ? "websocket ": "",
-				     wireaddr->port);
-			add_listen_fd(daemon, wi, fd, errstr == NULL, is_websocket);
-			return true;
-		}
-		return false;
+		return make_listen_fd(ctx, wi, AF_INET6, &addr6, sizeof(addr6),
+				      listen_mayfail, is_websocket, errstr);
 	/* Handle specially by callers. */
 	case ADDR_TYPE_WEBSOCKET:
 	case ADDR_TYPE_TOR_V2_REMOVED:
@@ -1195,13 +1180,10 @@ static bool public_address(struct daemon *daemon, struct wireaddr *wireaddr)
 static void add_announcable(struct wireaddr **announcable,
 			    const struct wireaddr *addr)
 {
+	/*~ utils.h contains a convenience macro tal_arr_expand which
+	 * reallocates a tal_arr to make it one longer, then returns a pointer
+	 * to the (new) last element. */
 	tal_arr_expand(announcable, *addr);
-}
-
-static void add_binding(struct wireaddr_internal **binding,
-			const struct wireaddr_internal *addr)
-{
-	tal_arr_expand(binding, *addr);
 }
 
 /*~ ccan/asort provides a type-safe sorting function; it requires a comparison
@@ -1229,15 +1211,15 @@ static int wireaddr_cmp_type(const struct wireaddr *a,
 
 /* We need to have a bound address we can tell Tor to connect to */
 static const struct wireaddr *
-find_local_address(const struct wireaddr_internal *bindings)
+find_local_address(const struct listen_fd **listen_fds)
 {
-	for (size_t i = 0; i < tal_count(bindings); i++) {
-		if (bindings[i].itype != ADDR_INTERNAL_WIREADDR)
+	for (size_t i = 0; i < tal_count(listen_fds); i++) {
+		if (listen_fds[i]->wi.itype != ADDR_INTERNAL_WIREADDR)
 			continue;
-		if (bindings[i].u.wireaddr.type != ADDR_TYPE_IPV4
-		    && bindings[i].u.wireaddr.type != ADDR_TYPE_IPV6)
+		if (listen_fds[i]->wi.u.wireaddr.type != ADDR_TYPE_IPV4
+		    && listen_fds[i]->wi.u.wireaddr.type != ADDR_TYPE_IPV6)
 			continue;
-		return &bindings[i].u.wireaddr;
+		return &listen_fds[i]->wi.u.wireaddr;
 	}
 	return NULL;
 }
@@ -1256,32 +1238,35 @@ static bool want_tor(const struct wireaddr_internal *proposed_wireaddr)
  * announce, ones we announce but don't bind to, and ones we bind to and
  * announce if they seem to be public addresses.
  *
- * This routine sorts out the mess: it populates the daemon->announcable array,
+ * This routine sorts out the mess: it populates the *announcable array,
  * and returns the addresses we bound to (by convention, return is allocated
  * off `ctx` argument).
+ *
+ * Note the important difference between returning a zero-element array, and
+ * returning NULL!  The latter means failure here, the former simply means
+ * we don't want to listen to anything.
  */
-static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
-						 struct daemon *daemon,
-						 /* The proposed address. */
-						 const struct wireaddr_internal *proposed_wireaddr,
-						 /* For each one, listen,
-						    announce or both */
-						 const enum addr_listen_announce *proposed_listen_announce,
-						 const char *tor_password,
-						 struct wireaddr **announcable,
-						 char **errstr)
+static const struct listen_fd **
+setup_listeners(const tal_t *ctx,
+		struct daemon *daemon,
+		/* The proposed address. */
+		const struct wireaddr_internal *proposed_wireaddr,
+		/* For each one, listen, announce or both */
+		const enum addr_listen_announce *proposed_listen_announce,
+		const char *tor_password,
+		struct wireaddr **announcable,
+		char **errstr)
 {
 	struct sockaddr_un addrun;
-	int fd;
-	struct wireaddr_internal *binding;
-	const struct wireaddr *localaddr;
+	const struct listen_fd **listen_fds, *lfd;
 	const char *blob = NULL;
 	struct secret random;
 	struct pubkey pb;
 	struct wireaddr *toraddr;
+	const struct wireaddr *localaddr;
 
 	/* Start with empty arrays, for tal_arr_expand() */
-	binding = tal_arr(ctx, struct wireaddr_internal, 0);
+	listen_fds = tal_arr(ctx, const struct listen_fd *, 0);
 	*announcable = tal_arr(ctx, struct wireaddr, 0);
 
 	/* Add addresses we've explicitly been told to *first*: implicit
@@ -1315,17 +1300,16 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			       sizeof(addrun.sun_path));
 			/* Remove any existing one. */
 			unlink(wa.u.sockname);
-			fd = make_listen_fd(ctx, daemon, &wa, AF_UNIX, &addrun, sizeof(addrun),
-					    errstr);
+			lfd = make_listen_fd(ctx, &wa, AF_UNIX,
+					     &addrun, sizeof(addrun),
+					     false, NORMAL_SOCKET,
+					     errstr);
 			/* Don't bother freeing here; we'll exit */
-			if (fd < 0)
+			if (!lfd)
 				return NULL;
-			status_debug("Created socket listener on file %s",
-				     addrun.sun_path);
-			add_listen_fd(daemon, &wa, fd, false, NORMAL_SOCKET);
 			/* We don't announce socket names, though we allow
 			 * them to lazily specify --addr=/socket. */
-			add_binding(&binding, &wa);
+			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
 			continue;
 		case ADDR_INTERNAL_AUTOTOR:
 			/* We handle these after we have all bindings. */
@@ -1346,25 +1330,30 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			memset(wa.u.wireaddr.addr, 0,
 			       sizeof(wa.u.wireaddr.addr));
 
-			ipv6_ok = handle_wireaddr_listen(ctx, daemon, &wa,
-							 NORMAL_SOCKET, NULL);
-			if (ipv6_ok) {
-				add_binding(&binding, &wa);
+			/* This may fail due to no IPv6 support. */
+			lfd = handle_wireaddr_listen(ctx, &wa, false,
+						     NORMAL_SOCKET, errstr);
+			if (lfd) {
+				tal_arr_expand(&listen_fds,
+					       tal_steal(listen_fds, lfd));
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
 					add_announcable(announcable,
 							&wa.u.wireaddr);
 			}
+			ipv6_ok = (lfd != NULL);
 
 			/* Now, create wildcard IPv4 address. */
 			wa.u.wireaddr.type = ADDR_TYPE_IPV4;
 			wa.u.wireaddr.addrlen = 4;
 			memset(wa.u.wireaddr.addr, 0,
 			       sizeof(wa.u.wireaddr.addr));
-			/* OK if this fails, as long as one succeeds! */
-			if (handle_wireaddr_listen(ctx, daemon, &wa,
-						   NORMAL_SOCKET, ipv6_ok ? NULL : errstr)) {
-				add_binding(&binding, &wa);
+			/* This listen *may* fail, as long as IPv6 succeeds! */
+			lfd = handle_wireaddr_listen(ctx, &wa, ipv6_ok,
+						     NORMAL_SOCKET, errstr);
+			if (lfd) {
+				tal_arr_expand(&listen_fds,
+					       tal_steal(listen_fds, lfd));
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
 					add_announcable(announcable,
@@ -1377,10 +1366,11 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		}
 		/* This is a vanilla wireaddr as per BOLT #7 */
 		case ADDR_INTERNAL_WIREADDR:
-			if (!handle_wireaddr_listen(ctx, daemon, &wa,
-						    NORMAL_SOCKET, errstr))
+			lfd = handle_wireaddr_listen(ctx, &wa, false,
+						     NORMAL_SOCKET, errstr);
+			if (!lfd)
 				return NULL;
-			add_binding(&binding, &wa);
+			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
 			if (announce && public_address(daemon, &wa.u.wireaddr))
 				add_announcable(announcable, &wa.u.wireaddr);
 			continue;
@@ -1395,7 +1385,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 
 	/* Make sure we have at least one non-websocket address to send to,
 	 * for Tor */
-	localaddr = find_local_address(binding);
+	localaddr = find_local_address(listen_fds);
 	if (want_tor(proposed_wireaddr) && !localaddr) {
 		*errstr = "Need to bind at least one local address,"
 			" to send Tor connections to";
@@ -1406,24 +1396,31 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	if (daemon->websocket_port) {
 		bool announced_some = false;
 		struct wireaddr_internal addr;
+		/* Only consider bindings added before this! */
+		size_t num_nonws_listens = tal_count(listen_fds);
 
 		/* If not overriden below, this is the default. */
-		*errstr = "Cannot advertize websocket: no IPv4/6 addresses advertized";
-		for (size_t i = 0; i < tal_count(binding); i++) {
+		*errstr = "Cannot listen on websocket: not listening on any IPv4/6 addresses";
+		for (size_t i = 0; i < num_nonws_listens; i++) {
 			/* Ignore UNIX sockets */
-			if (binding[i].itype != ADDR_INTERNAL_WIREADDR)
+			if (listen_fds[i]->wi.itype != ADDR_INTERNAL_WIREADDR)
 				continue;
 
 			/* Override with websocket port */
-			addr = binding[i];
+			addr = listen_fds[i]->wi;
 			addr.u.wireaddr.port = daemon->websocket_port;
-			/* FIXME: catch errors here! */
-			if (handle_wireaddr_listen(ctx, daemon, &addr,
-						   WEBSOCKET, NULL))
-				announced_some = true;
-			/* FIXME: We don't report these bindings to
-			 * lightningd, so they don't appear in
-			 * getinfo. */
+
+			/* We set mayfail on all but the first websocket;
+			 * it's quite common to have multple overlapping
+			 * addresses. */
+			lfd = handle_wireaddr_listen(ctx, &addr,
+						     announced_some,
+						     WEBSOCKET, errstr);
+			if (!lfd)
+				continue;
+
+			announced_some = true;
+			tal_arr_expand(&listen_fds, tal_steal(listen_fds, lfd));
 		}
 
 		/* We add the websocket port to the announcement if we made one
@@ -1519,7 +1516,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	asort(*announcable, tal_count(*announcable), wireaddr_cmp_type, NULL);
 
 	*errstr = NULL;
-	return binding;
+	return listen_fds;
 }
 
 
@@ -1587,17 +1584,26 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	}
 
 	/* Figure out our addresses. */
-	binding = setup_listeners(tmpctx, daemon,
-				  proposed_wireaddr,
-				  proposed_listen_announce,
-				  tor_password,
-				  &announcable,
-				  &errstr);
+	daemon->listen_fds = setup_listeners(daemon, daemon,
+					     proposed_wireaddr,
+					     proposed_listen_announce,
+					     tor_password,
+					     &announcable,
+					     &errstr);
 
 	/* Free up old allocations */
 	tal_free(proposed_wireaddr);
 	tal_free(proposed_listen_announce);
 	tal_free(tor_password);
+
+	/* Create binding array to send to lightningd */
+	binding = tal_arr(tmpctx, struct wireaddr_internal, 0);
+	for (size_t i = 0; i < tal_count(daemon->listen_fds); i++) {
+		/* FIXME: Tell it about websockets! */
+		if (daemon->listen_fds[i]->is_websocket)
+			continue;
+		tal_arr_expand(&binding, daemon->listen_fds[i]->wi);
+	}
 
 	/* Tell it we're ready, handing it the addresses we have. */
 	daemon_conn_send(daemon->master,
@@ -1605,6 +1611,12 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 							 binding,
 							 announcable,
 							 errstr)));
+	/*~ Who cares about a little once-off memory leak?  Turns out we do!
+	 * We have a memory leak checker which scans for allocated memory
+	 * with no pointers to it (a tell-tale leak sign, though with tal it's
+	 * not always a real problem), and this would (did!) trigger it. */
+	tal_free(announcable);
+
 #if DEVELOPER
 	if (dev_disconnect)
 		dev_disconnect_init(5);
@@ -1638,20 +1650,20 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 	/* If we're --offline, lightningd tells us not to actually listen. */
 	if (do_listen) {
 		for (size_t i = 0; i < tal_count(daemon->listen_fds); i++) {
-			if (listen(daemon->listen_fds[i].fd, 64) != 0) {
-				if (daemon->listen_fds[i].mayfail)
+			if (listen(daemon->listen_fds[i]->fd, 64) != 0) {
+				if (daemon->listen_fds[i]->mayfail)
 					continue;
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
 					      "Failed to listen on socket %s: %s",
 					      type_to_string(tmpctx,
 							     struct wireaddr_internal,
-							     &daemon->listen_fds[i].wi),
+							     &daemon->listen_fds[i]->wi),
 					      strerror(errno));
 			}
 			notleak(io_new_listener(daemon,
-						daemon->listen_fds[i].fd,
+						daemon->listen_fds[i]->fd,
 						get_in_cb(daemon->listen_fds[i]
-							  .is_websocket),
+							  ->is_websocket),
 						daemon));
 		}
 	}
@@ -2100,7 +2112,6 @@ int main(int argc, char *argv[])
 	peer_htable_init(&daemon->peers);
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
-	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossip_store_fd = -1;
 
