@@ -47,8 +47,11 @@ struct daemon {
 	/* What addresses we can actually announce. */
 	struct wireaddr *announcable;
 
-	/* Timer until we can send a new node_announcement */
+	/* Timer until we can send an updated node_announcement */
 	struct oneshot *node_announce_timer;
+
+	/* Timer until we should force a new new node_announcement */
+	struct oneshot *node_announce_regen_timer;
 
 	/* Channels we have an announce for, but aren't deep enough. */
 	struct short_channel_id *deferred_txouts;
