@@ -1657,6 +1657,7 @@ static struct io_plan *(*get_in_cb(enum is_websocket is_websocket))(struct io_co
 static void connect_activate(struct daemon *daemon, const u8 *msg)
 {
 	bool do_listen;
+	char *errmsg = NULL;
 
 	if (!fromwire_connectd_activate(msg, &do_listen))
 		master_badmsg(WIRE_CONNECTD_ACTIVATE, msg);
@@ -1667,12 +1668,13 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 			if (listen(daemon->listen_fds[i]->fd, 64) != 0) {
 				if (daemon->listen_fds[i]->mayfail)
 					continue;
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "Failed to listen on socket %s: %s",
-					      type_to_string(tmpctx,
-							     struct wireaddr_internal,
-							     &daemon->listen_fds[i]->wi),
-					      strerror(errno));
+				errmsg = tal_fmt(tmpctx,
+						 "Failed to listen on socket %s: %s",
+						 type_to_string(tmpctx,
+								struct wireaddr_internal,
+								&daemon->listen_fds[i]->wi),
+						 strerror(errno));
+				break;
 			}
 			notleak(io_new_listener(daemon,
 						daemon->listen_fds[i]->fd,
@@ -1687,7 +1689,7 @@ static void connect_activate(struct daemon *daemon, const u8 *msg)
 
 	/* OK, we're ready! */
 	daemon_conn_send(daemon->master,
-			 take(towire_connectd_activate_reply(NULL)));
+			 take(towire_connectd_activate_reply(NULL, errmsg)));
 }
 
 /* BOLT #10:

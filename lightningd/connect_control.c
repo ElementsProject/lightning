@@ -471,7 +471,7 @@ static void connect_init_done(struct subd *connectd,
 					  &ld->binding,
 					  &ld->announcable,
 					  &errmsg))
-		fatal("Bad connectd_activate_reply: %s",
+		fatal("Bad connectd_init_reply: %s",
 		      tal_hex(reply, reply));
 
 	/* connectd can fail in *informative* ways: don't use fatal() here and
@@ -549,10 +549,22 @@ int connectd_init(struct lightningd *ld)
 }
 
 static void connect_activate_done(struct subd *connectd,
-				  const u8 *reply UNUSED,
+				  const u8 *reply,
 				  const int *fds UNUSED,
 				  void *unused UNUSED)
 {
+	char *errmsg;
+	if (!fromwire_connectd_activate_reply(reply, reply, &errmsg))
+		fatal("Bad connectd_activate_reply: %s",
+		      tal_hex(reply, reply));
+
+	/* connectd can fail in *informative* ways: don't use fatal() here and
+	 * confuse things with a backtrace! */
+	if (errmsg) {
+		log_broken(connectd->log, "%s", errmsg);
+		exit(1);
+	}
+
 	/* Break out of loop, so we can begin */
 	io_break(connectd);
 }
