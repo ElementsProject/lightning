@@ -1059,6 +1059,7 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->peers);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->node_announce_timer = NULL;
+	daemon->node_announce_regen_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
 	daemon->rates = NULL;
 	list_head_init(&daemon->deferred_updates);
