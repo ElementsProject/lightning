@@ -165,7 +165,7 @@ struct daemon {
 	struct sockaddr *broken_resolver_response;
 
 	/* File descriptors to listen on once we're activated. */
-	struct listen_fd *listen_fds;
+	const struct listen_fd **listen_fds;
 
 	/* Allow to define the default behavior of tor services calls*/
 	bool use_v3_autotor;
