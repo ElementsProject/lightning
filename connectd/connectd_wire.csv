@@ -40,6 +40,7 @@ msgdata,connectd_activate,listen,bool,
 
 # Connectd->master, I am ready.
 msgtype,connectd_activate_reply,2125
+msgdata,connectd_activate_reply,failmsg,?wirestring,
 
 # connectd->master: disconnect this peer please (due to reconnect).
 msgtype,connectd_reconnected,2112
