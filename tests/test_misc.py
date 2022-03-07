@@ -1049,7 +1049,6 @@ def test_daemon_option(node_factory):
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't have repeatable random seeding")
 def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
