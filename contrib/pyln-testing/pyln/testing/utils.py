@@ -573,7 +573,11 @@ class ValidatingLightningSignerD(TailableProc):
             '--port={}'.format(vlsd_port),
             '--initial-allowlist-file={}'.format(env('REMOTE_SIGNER_ALLOWLIST',
                                                      'contrib/remote_hsmd/TESTING_ALLOWLIST')),
-        ]
+            '--rpc=http://{}:{}@127.0.0.1:{}'.format(
+                BITCOIND_CONFIG['rpcuser'],
+                BITCOIND_CONFIG['rpcpassword'],
+                BITCOIND_CONFIG['rpcport']),
+            ]
         self.prefix = 'vlsd'
         self.vlsd_port = vlsd_port
 
