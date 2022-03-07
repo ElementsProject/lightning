@@ -25,7 +25,7 @@ def hex_bits(features):
 
 def expected_peer_features(wumbo_channels=False, extra=[]):
     """Return the expected peer features hexstring for this configuration"""
-    features = [1, 5, 7, 9, 11, 13, 14, 17, 27]
+    features = [1, 5, 7, 8, 11, 13, 14, 17, 27]
     if EXPERIMENTAL_FEATURES:
         # OPT_ONION_MESSAGES
         features += [39]
@@ -47,7 +47,7 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
 # features for the 'node' and the 'peer' feature sets
 def expected_node_features(wumbo_channels=False, extra=[]):
     """Return the expected node features hexstring for this configuration"""
-    features = [1, 5, 7, 9, 11, 13, 14, 17, 27, 55]
+    features = [1, 5, 7, 8, 11, 13, 14, 17, 27, 55]
     if EXPERIMENTAL_FEATURES:
         # OPT_ONION_MESSAGES
         features += [39]
