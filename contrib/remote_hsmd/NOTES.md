@@ -5,6 +5,7 @@ Basic Setup:
 
 1. Follow instructions in `doc/INSTALL.md`
 2. Follow instructions in the "Build and Development" section in `doc/HACKING.md`
+3. Make sure you have cloned this repository
 
 On Ubuntu:
 
@@ -14,16 +15,6 @@ On Fedora:
 
     sudo dnf install -y grpc-devel grpc-plugins
 
-Python packages:
-
-    pip3 install --user base58 bitstring secp256k1 mrkd
-
-    # In c-lightning root, remote-hsmd branch:
-    pip3 install --user -r requirements.txt
-
-    # Temporarily downgrade markupsafe to avoid breaking dependencies
-    pip3 install --user markupsafe==2.0.1
-
 Validating Lightning Signer:
 
     # In parent directory of c-lightning root
@@ -32,7 +23,7 @@ Validating Lightning Signer:
 
 C-Lightning:
 
-    # Add an "upstream" reference and fetch all tags (needed for pyln-{proto,client,testing})
+    # Standing in c-lightning root, add an "upstream" reference and fetch all tags (needed for pyln-{proto,client,testing})
     # Use the HTTPS pointer if you have authentication issues with git
     git remote add upstream git@github.com:ElementsProject/lightning.git
     git fetch upstream --tags
@@ -40,6 +31,15 @@ C-Lightning:
     (cd contrib/remote_hsmd && \
     ln -s ../../../validating-lightning-signer/lightning-signer-server/src/server/remotesigner.proto)
     # Then do ls -alt contrib/remote_hsmd/remotesigner.proto and make sure the link is valid
+
+    # Then install some python dependencies
+    pip3 install --user base58 bitstring secp256k1 mrkd
+
+    # In c-lightning root, remote-hsmd branch:
+    pip3 install --user -r requirements.txt
+
+    # Temporarily downgrade markupsafe to avoid breaking dependencies
+    pip3 install --user markupsafe==2.0.1
 
     # Build c-lightning
     make distclean
