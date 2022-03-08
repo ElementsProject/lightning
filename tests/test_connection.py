@@ -928,8 +928,7 @@ def test_shutdown_awaiting_lockin(node_factory, bitcoind):
     chanid = l1.rpc.fundchannel(l2.info['id'], 10**6)['channel_id']
 
     # Technically, this is async to fundchannel.
-    l1.daemon.wait_for_log('sendrawtx exit 0')
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
 
     l1.rpc.close(chanid)
 
@@ -945,9 +944,8 @@ def test_shutdown_awaiting_lockin(node_factory, bitcoind):
     # CLOSINGD_COMPLETE may come first).
     l1.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
     l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
-    assert bitcoind.rpc.getmempoolinfo()['size'] == 1
 
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
 
