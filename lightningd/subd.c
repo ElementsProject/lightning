@@ -138,11 +138,11 @@ static void disable_cb(void *disabler UNUSED, struct subd_req *sr)
 	sr->disabler = NULL;
 }
 
-static void add_req(const tal_t *ctx,
-		    struct subd *sd, int type, size_t num_fds_in,
-		    void (*replycb)(struct subd *, const u8 *, const int *,
-				    void *),
-		    void *replycb_data)
+static struct subd_req *add_req(const tal_t *ctx,
+				struct subd *sd, int type, size_t num_fds_in,
+				void (*replycb)(struct subd *, const u8 *, const int *,
+						void *),
+				void *replycb_data)
 {
 	struct subd_req *sr = tal(sd, struct subd_req);
 
@@ -164,6 +164,8 @@ static void add_req(const tal_t *ctx,
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
 	list_add_tail(&sd->reqs, &sr->list);
 	tal_add_destructor(sr, destroy_subd_req);
+
+	return sr;
 }
 
 /* Caller must free. */
@@ -840,12 +842,12 @@ void subd_send_fd(struct subd *sd, int fd)
 	msg_enqueue_fd(sd->outq, fd);
 }
 
-void subd_req_(const tal_t *ctx,
-	       struct subd *sd,
-	       const u8 *msg_out,
-	       int fd_out, size_t num_fds_in,
-	       void (*replycb)(struct subd *, const u8 *, const int *, void *),
-	       void *replycb_data)
+struct subd_req *subd_req_(const tal_t *ctx,
+			   struct subd *sd,
+			   const u8 *msg_out,
+			   int fd_out, size_t num_fds_in,
+			   void (*replycb)(struct subd *, const u8 *, const int *, void *),
+			   void *replycb_data)
 {
 	/* Grab type now in case msg_out is taken() */
 	int type = fromwire_peektype(msg_out);
@@ -854,7 +856,7 @@ void subd_req_(const tal_t *ctx,
 	if (fd_out >= 0)
 		subd_send_fd(sd, fd_out);
 
-	add_req(ctx, sd, type, num_fds_in, replycb, replycb_data);
+	return add_req(ctx, sd, type, num_fds_in, replycb, replycb_data);
 }
 
 /* SIGALRM terminates by default: we just want it to interrupt waitpid(),

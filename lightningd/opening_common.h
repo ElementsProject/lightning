@@ -127,10 +127,4 @@ void handle_reestablish(struct lightningd *ld,
 			const u8 *reestablish,
 			struct peer_fd *peer_fd);
 
-#if DEVELOPER
-struct command;
-/* Calls report_leak_info() async. */
-void opening_dev_memleak(struct command *cmd);
-#endif
-
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_COMMON_H */

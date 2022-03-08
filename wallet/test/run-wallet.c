@@ -163,6 +163,9 @@ bool fromwire_hsmd_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitco
 /* Generated stub for fromwire_onchaind_dev_memleak_reply */
 bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_onchaind_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_openingd_dev_memleak_reply */
+bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
+{ fprintf(stderr, "fromwire_openingd_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -609,9 +612,6 @@ void payment_store(struct lightningd *ld UNNEEDED, struct wallet_payment *paymen
 void payment_succeeded(struct lightningd *ld UNNEEDED, struct htlc_out *hout UNNEEDED,
 		       const struct preimage *rval UNNEEDED)
 { fprintf(stderr, "payment_succeeded called!\n"); abort(); }
-/* Generated stub for peer_memleak_done */
-void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDED)
-{ fprintf(stderr, "peer_memleak_done called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */
 void peer_restart_dualopend(struct peer *peer UNNEEDED,
 			    struct peer_fd *peer_fd UNNEEDED,
@@ -645,6 +645,9 @@ struct route_step *process_onionpacket(
 	bool has_realm
 	)
 { fprintf(stderr, "process_onionpacket called!\n"); abort(); }
+/* Generated stub for report_subd_memleak */
+void report_subd_memleak(struct leak_detect *leak_detect UNNEEDED, struct subd *leaker UNNEEDED)
+{ fprintf(stderr, "report_subd_memleak called!\n"); abort(); }
 /* Generated stub for resolve_close_command */
 void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
 			   bool cooperative UNNEEDED)
@@ -654,11 +657,15 @@ u8 *serialize_onionpacket(
 	const tal_t *ctx UNNEEDED,
 	const struct onionpacket *packet UNNEEDED)
 { fprintf(stderr, "serialize_onionpacket called!\n"); abort(); }
+/* Generated stub for start_leak_request */
+void start_leak_request(const struct subd_req *req UNNEEDED,
+			struct leak_detect *leak_detect UNNEEDED)
+{ fprintf(stderr, "start_leak_request called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
 void subd_release_channel(struct subd *owner UNNEEDED, const void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }
 /* Generated stub for subd_req_ */
-void subd_req_(const tal_t *ctx UNNEEDED,
+struct subd_req *subd_req_(const tal_t *ctx UNNEEDED,
 	       struct subd *sd UNNEEDED,
 	       const u8 *msg_out UNNEEDED,
 	       int fd_out UNNEEDED, size_t num_fds_in UNNEEDED,
@@ -763,6 +770,9 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_onchaind_known_preimage */
 u8 *towire_onchaind_known_preimage(const tal_t *ctx UNNEEDED, const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "towire_onchaind_known_preimage called!\n"); abort(); }
+/* Generated stub for towire_openingd_dev_memleak */
+u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
 /* Generated stub for towire_permanent_channel_failure */
 u8 *towire_permanent_channel_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_permanent_channel_failure called!\n"); abort(); }

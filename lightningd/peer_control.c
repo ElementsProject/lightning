@@ -62,6 +62,7 @@
 #include <lightningd/subd.h>
 #include <limits.h>
 #include <onchaind/onchaind_wiregen.h>
+#include <openingd/openingd_wiregen.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <wally_bip32.h>
@@ -2323,104 +2324,76 @@ static const struct json_command dev_forget_channel_command = {
 };
 AUTODATA(json_command, &dev_forget_channel_command);
 
-static void subd_died_forget_memleak(struct subd *openingd, struct command *cmd)
-{
-	/* FIXME: We ignore the remaining per-peer daemons in this case. */
-	peer_memleak_done(cmd, NULL);
-}
-
-/* Mutual recursion */
-static void peer_memleak_req_next(struct command *cmd, struct channel *prev);
-static void peer_memleak_req_done(struct subd *subd, bool found_leak,
-				  struct command *cmd)
-{
-	struct channel *c = subd->channel;
-
-	if (found_leak)
-		peer_memleak_done(cmd, subd);
-	else
-		peer_memleak_req_next(cmd, c);
-}
-
 static void channeld_memleak_req_done(struct subd *channeld,
 				      const u8 *msg, const int *fds UNUSED,
-				      struct command *cmd)
+				      struct leak_detect *leaks)
 {
 	bool found_leak;
 
-	tal_del_destructor2(channeld, subd_died_forget_memleak, cmd);
-	if (!fromwire_channeld_dev_memleak_reply(msg, &found_leak)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Bad channel_dev_memleak"));
-		return;
-	}
-	peer_memleak_req_done(channeld, found_leak, cmd);
+	if (!fromwire_channeld_dev_memleak_reply(msg, &found_leak))
+		fatal("Bad channel_dev_memleak");
+
+	if (found_leak)
+		report_subd_memleak(leaks, channeld);
 }
 
 static void onchaind_memleak_req_done(struct subd *onchaind,
 				      const u8 *msg, const int *fds UNUSED,
-				      struct command *cmd)
+				      struct leak_detect *leaks)
 {
 	bool found_leak;
 
-	tal_del_destructor2(onchaind, subd_died_forget_memleak, cmd);
-	if (!fromwire_onchaind_dev_memleak_reply(msg, &found_leak)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Bad onchain_dev_memleak"));
-		return;
-	}
-	peer_memleak_req_done(onchaind, found_leak, cmd);
+	if (!fromwire_onchaind_dev_memleak_reply(msg, &found_leak))
+		fatal("Bad onchaind_dev_memleak");
+
+	if (found_leak)
+		report_subd_memleak(leaks, onchaind);
 }
 
-static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
+static void openingd_memleak_req_done(struct subd *open_daemon,
+				     const u8 *msg, const int *fds UNUSED,
+				     struct leak_detect *leaks)
+{
+	bool found_leak;
+
+	if (!fromwire_openingd_dev_memleak_reply(msg, &found_leak))
+		fatal("Bad opening_dev_memleak");
+
+	if (found_leak)
+		report_subd_memleak(leaks, open_daemon);
+}
+
+void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks)
 {
 	struct peer *p;
 
-	list_for_each(&cmd->ld->peers, p, list) {
+	list_for_each(&ld->peers, p, list) {
 		struct channel *c;
+		if (p->uncommitted_channel) {
+			struct subd *openingd = p->uncommitted_channel->open_daemon;
+			start_leak_request(subd_req(openingd, openingd,
+						    take(towire_openingd_dev_memleak(NULL)),
+						    -1, 0, openingd_memleak_req_done, leaks),
+					   leaks);
+		}
 
 		list_for_each(&p->channels, c, list) {
-			if (c == prev) {
-				prev = NULL;
-				continue;
-			}
-
 			if (!c->owner)
 				continue;
-
-			if (prev != NULL)
-				continue;
-
-			/* Note: closingd and dualopend do their own
-			 * checking automatically */
-			if (channel_unsaved(c))
-				continue;
-
 			if (streq(c->owner->name, "channeld")) {
-				subd_req(c, c->owner,
+				start_leak_request(subd_req(c, c->owner,
 					 take(towire_channeld_dev_memleak(NULL)),
-					 -1, 0, channeld_memleak_req_done, cmd);
-				tal_add_destructor2(c->owner,
-						    subd_died_forget_memleak,
-						    cmd);
-				return;
-			}
-			if (streq(c->owner->name, "onchaind")) {
-				subd_req(c, c->owner,
+					 -1, 0, channeld_memleak_req_done, leaks),
+					leaks);
+			} else if (streq(c->owner->name, "onchaind")) {
+				start_leak_request(subd_req(c, c->owner,
 					 take(towire_onchaind_dev_memleak(NULL)),
-					 -1, 0, onchaind_memleak_req_done, cmd);
-				tal_add_destructor2(c->owner,
-						    subd_died_forget_memleak,
-						    cmd);
-				return;
+					 -1, 0, onchaind_memleak_req_done, leaks),
+					leaks);
 			}
+			/* FIXME: dualopend doesn't support memleak
+			 * when we ask */
 		}
 	}
-	peer_memleak_done(cmd, NULL);
-}
-
-void peer_dev_memleak(struct command *cmd)
-{
-	peer_memleak_req_next(cmd, NULL);
 }
 #endif /* DEVELOPER */

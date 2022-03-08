@@ -190,7 +190,7 @@ void subd_send_fd(struct subd *sd, int fd);
 				      struct subd *,			\
 				      const u8 *, const int *),		\
 		       (replycb_data))
-void subd_req_(const tal_t *ctx,
+struct subd_req *subd_req_(const tal_t *ctx,
 	       struct subd *sd,
 	       const u8 *msg_out,
 	       int fd_out, size_t num_fds_in,
