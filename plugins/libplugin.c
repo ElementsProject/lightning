@@ -1735,9 +1735,6 @@ static bool json_to_route_hop_inplace(struct route_hop *dst, const char *buffer,
 	json_to_int(buffer, directiontok, &dst->direction);
 	json_to_msat(buffer, amounttok, &dst->amount);
 	json_to_number(buffer, delaytok, &dst->delay);
-	dst->style = json_tok_streq(buffer, styletok, "legacy")
-			 ? ROUTE_HOP_LEGACY
-			 : ROUTE_HOP_TLV;
 	return true;
 }
 

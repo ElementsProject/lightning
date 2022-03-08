@@ -63,14 +63,7 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 	size_t hopcount;
 
 	/* On the root payment we perform the featurebit check. */
-	if (p->parent == NULL && p->step == PAYMENT_STEP_INITIALIZED) {
-		if (!payment_root(p)->destination_has_tlv)
-			return payment_fail(
-			    p,
-			    "Recipient %s does not support keysend payments "
-			    "(no TLV support)",
-			    node_id_to_hexstr(tmpctx, p->destination));
-	} else if (p->step == PAYMENT_STEP_FAILED) {
+	if (p->step == PAYMENT_STEP_FAILED) {
 		/* Now we can look at the error, and the failing node,
 		   and determine whether they didn't like our
 		   attempt. This is required since most nodes don't
@@ -184,7 +177,6 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->json_buffer = tal_dup_talarr(p, const char, buf);
 	p->json_toks = params;
 	p->destination = tal_steal(p, destination);
-	p->destination_has_tlv = true;
 	p->payment_secret = NULL;
 	p->amount = *msat;
 	p->routes = tal_steal(p, hints);

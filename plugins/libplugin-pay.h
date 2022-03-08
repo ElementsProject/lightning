@@ -16,10 +16,7 @@ struct legacy_payload {
 /* struct holding the information necessary to call createonion */
 struct createonion_hop {
 	struct node_id pubkey;
-
-	enum route_hop_style style;
 	struct tlv_tlv_payload *tlv_payload;
-	struct legacy_payload *legacy_payload;
 };
 
 struct createonion_request {
@@ -176,8 +173,6 @@ struct payment {
 
 	/* Real destination we want to route to */
 	struct node_id *destination;
-	/* Do we know for sure that this supports OPT_VAR_ONION? */
-	bool destination_has_tlv;
 
 	/* Payment hash extracted from the invoice if any. */
 	struct sha256 *payment_hash;

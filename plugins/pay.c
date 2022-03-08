@@ -2371,8 +2371,6 @@ static struct command_result *json_paymod(struct command *cmd,
 		invexpiry = b11->timestamp + b11->expiry;
 
 		p->destination = tal_dup(p, struct node_id, &b11->receiver_id);
-		p->destination_has_tlv =
-		    feature_offered(b11->features, OPT_VAR_ONION);
 		p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 		p->payment_secret =
 			tal_dup_or_null(p, struct secret, b11->payment_secret);
@@ -2420,7 +2418,6 @@ static struct command_result *json_paymod(struct command *cmd,
 		p->destination = tal(p, struct node_id);
 		gossmap_guess_node_id(get_gossmap(cmd->plugin), b12->node_id,
 				      p->destination);
-		p->destination_has_tlv = true;
 		p->payment_hash = tal_dup(p, struct sha256, b12->payment_hash);
 		if (b12->recurrence_counter && !label)
 			return command_fail(

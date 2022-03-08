@@ -94,21 +94,6 @@ static bool can_carry(const struct gossmap *map,
 	return true;
 }
 
-static void json_add_route_hop_style(struct json_stream *response,
-				     const char *fieldname,
-				     enum route_hop_style style)
-{
-	switch (style) {
-	case ROUTE_HOP_LEGACY:
-		json_add_string(response, fieldname, "legacy");
-		return;
-	case ROUTE_HOP_TLV:
-		json_add_string(response, fieldname, "tlv");
-		return;
-	}
-	abort();
-}
-
 /* Output a route hop */
 static void json_add_route_hop(struct json_stream *js,
 			       const char *fieldname,
@@ -121,7 +106,7 @@ static void json_add_route_hop(struct json_stream *js,
 	json_add_num(js, "direction", r->direction);
 	json_add_amount_msat_compat(js, r->amount, "msatoshi", "amount_msat");
 	json_add_num(js, "delay", r->delay);
-	json_add_route_hop_style(js, "style", r->style);
+	json_add_string(js, "style", "tlv");
 	json_object_end(js);
 }
 

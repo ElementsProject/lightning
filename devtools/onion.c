@@ -71,7 +71,6 @@ static void do_generate(int argc, char **argv,
 		} else {
 			struct short_channel_id scid;
 			struct amount_msat amt;
-			bool use_tlv = streq(argv[1 + i] + klen, "/tlv");
 
 			/* FIXME: support secret and and total_msat */
 			memset(&scid, i, sizeof(scid));
@@ -79,14 +78,12 @@ static void do_generate(int argc, char **argv,
 			if (i == num_hops - 1)
 				sphinx_add_hop(sp, &path[i],
 					       take(onion_final_hop(NULL,
-								    use_tlv,
 								    amt, i, amt,
 								    NULL, NULL,
 								    NULL)));
 			else
 				sphinx_add_hop(sp, &path[i],
 					       take(onion_nonfinal_hop(NULL,
-								       use_tlv,
 								       &scid,
 								       amt, i,
 								       NULL,
@@ -273,7 +270,6 @@ static void runtest(const char *filename)
 	decodetok = json_get_member(buffer, toks, "decode");
 
 	json_for_each_arr(i, hop, decodetok) {
-		enum onion_payload_type type;
 		bool valid;
 
 		hexprivkey = json_strdup(ctx, buffer, hop);
@@ -284,9 +280,8 @@ static void runtest(const char *filename)
 			errx(1, "Error serializing message.");
 		onion_payload_length(step->raw_payload,
 				     tal_bytelen(step->raw_payload),
-				     true, &valid, &type);
+				     true, &valid);
 		assert(valid);
-		printf("  Type: %d\n", type);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
 		printf("  Next onion: %s\n", tal_hex(ctx, serialized));
 		printf("  Next HMAC: %s\n",

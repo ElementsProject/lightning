@@ -46,7 +46,9 @@ def test_onion(directory, oniontool):
         out = subprocess.check_output([oniontool, 'decode', tempfile, pk]).decode('ASCII').strip().split('\n')
         store_onion(out[-1][5:])
 
-    assert(out == ['payload=000000000000000000000000000000000400000004000000000000000000000000'])
+    # Final payload:
+    # amt_to_forward=4,outgoing_cltv_value=4
+    assert(out == ['payload=06020104040104'])
 
 
 def test_rendezvous_onion(directory, oniontool):
@@ -82,4 +84,6 @@ def test_rendezvous_onion(directory, oniontool):
         out = subprocess.check_output([oniontool, 'decode', tempfile, pk]).decode('ASCII').strip().split('\n')
         store_onion(out[-1][5:])
 
-    assert(out == ['payload=000000000000000000000000000000000400000004000000000000000000000000'])
+    # Final payload:
+    # amt_to_forward=4,outgoing_cltv_value=4
+    assert(out == ['payload=06020104040104'])
