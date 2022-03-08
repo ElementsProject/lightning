@@ -46,9 +46,8 @@ def test_connect_basic(node_factory):
     assert len(l1.rpc.listpeers()) == 1
     assert len(l2.rpc.listpeers()) == 1
 
-    if EXPERIMENTAL_FEATURES:  # BOLT1 remote_addr #917
-        if DEVELOPER:
-            print(l1.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}"))
+    if DEVELOPER:
+        print(l1.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}"))
 
     # Should get reasonable error if unknown addr for peer.
     with pytest.raises(RpcError, match=r'Unable to connect, no address known'):
@@ -64,7 +63,6 @@ def test_connect_basic(node_factory):
 
 
 @pytest.mark.developer("needs DEVELOPER=1 for having localhost remote_addr and fast gossip")
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT1 remote_addr #917")
 def test_remote_addr(node_factory, bitcoind):
     """Check address discovery (BOLT1 #917) init remote_addr works as designed:
 

@@ -10,7 +10,7 @@ from utils import (
     DEPRECATED_APIS, expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
-    mine_funding_to_announce, EXPERIMENTAL_FEATURES
+    mine_funding_to_announce
 )
 
 import ast
@@ -451,7 +451,6 @@ def test_plugin_connected_hook_chaining(node_factory):
     assert not l1.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT1 remote_addr #917")
 @pytest.mark.developer("localhost remote_addr will be filtered without DEVELOEPR")
 def test_peer_connected_remote_addr(node_factory):
     """This tests the optional tlv `remote_addr` being passed to a plugin.
