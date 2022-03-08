@@ -40,11 +40,6 @@ void get_channel_basepoints(struct lightningd *ld UNNEEDED,
 			    struct basepoints *local_basepoints UNNEEDED,
 			    struct pubkey *local_funding_pubkey UNNEEDED)
 { fprintf(stderr, "get_channel_basepoints called!\n"); abort(); }
-/* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
-		    const struct node_id *default_node_id UNNEEDED,
-		    const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "new_log called!\n"); abort(); }
 /* Generated stub for towire_hsmd_get_channel_basepoints */
 u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_channel_basepoints called!\n"); abort(); }

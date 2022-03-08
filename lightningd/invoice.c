@@ -175,14 +175,12 @@ static void invoice_payment_add_tlvs(struct json_stream *stream,
 				     struct htlc_set *hset)
 {
 	struct htlc_in *hin;
-	struct tlv_tlv_payload *tlvs;
+	const struct tlv_tlv_payload *tlvs;
 	assert(tal_count(hset->htlcs) > 0);
 
 	/* Pick the first HTLC as representative for the entire set. */
 	hin = hset->htlcs[0];
 
-	if (hin->payload->type != ONION_TLV_PAYLOAD)
-		return;
 	tlvs = hin->payload->tlv;
 
 	json_array_start(stream, "extratlvs");

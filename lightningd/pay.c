@@ -751,18 +751,6 @@ static struct command_result *wait_payment(struct lightningd *ld,
 	abort();
 }
 
-static bool should_use_tlv(enum route_hop_style style)
-{
-	switch (style) {
-	case ROUTE_HOP_TLV:
-		return true;
-		/* Otherwise fall thru */
-	case ROUTE_HOP_LEGACY:
-		return false;
-	}
-	abort();
-}
-
 /* Returns failmsg on failure, tallocated off ctx */
 static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 			    const struct onionpacket *packet,
@@ -1126,7 +1114,7 @@ send_payment(struct lightningd *ld,
 	struct short_channel_id *channels;
 	struct sphinx_path *path;
 	struct pubkey pubkey;
-	bool final_tlv, ret;
+	bool ret;
 	u8 *onion;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
@@ -1144,7 +1132,6 @@ send_payment(struct lightningd *ld,
 
 		sphinx_add_hop(path, &pubkey,
 			       take(onion_nonfinal_hop(NULL,
-					should_use_tlv(route[i].style),
 					&route[i + 1].scid,
 					route[i + 1].amount,
 					base_expiry + route[i + 1].delay,
@@ -1157,25 +1144,15 @@ send_payment(struct lightningd *ld,
 	ret = pubkey_from_node_id(&pubkey, &ids[i]);
 	assert(ret);
 
-	final_tlv = should_use_tlv(route[i].style);
 	/* BOLT #4:
 	 * - Unless `node_announcement`, `init` message or the
 	 *   [BOLT #11](11-payment-encoding.md#tagged-fields) offers feature
 	 *   `var_onion_optin`:
 	 *    - MUST use the legacy payload format instead.
 	 */
-	/* In our case, we don't use it unless we also have a payment_secret;
-	 * everyone should support this eventually */
-	if (!final_tlv && payment_secret)
-		final_tlv = true;
-
-	/* Parallel payments are invalid for legacy. */
-	if (partid && !final_tlv)
-		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
-				    "Cannot do parallel payments to legacy node");
+	/* FIXME: This requirement is now obsolete, and we should remove it! */
 
 	onion = onion_final_hop(cmd,
-				final_tlv,
 				route[i].amount,
 				base_expiry + route[i].delay,
 				total_msat, route[i].blinding, route[i].enctlv,
@@ -1326,23 +1303,19 @@ AUTODATA(json_command, &sendonion_command);
 JSON-RPC sendpay interface
 -----------------------------------------------------------------------------*/
 
+/* FIXME: We accept his parameter for now, will deprecate eventually */
 static struct command_result *param_route_hop_style(struct command *cmd,
 						    const char *name,
 						    const char *buffer,
 						    const jsmntok_t *tok,
-						    enum route_hop_style **style)
+						    int **unused)
 {
-	*style = tal(cmd, enum route_hop_style);
-	if (json_tok_streq(buffer, tok, "legacy")) {
-		**style = ROUTE_HOP_LEGACY;
-		return NULL;
-	} else if (json_tok_streq(buffer, tok, "tlv")) {
-		**style = ROUTE_HOP_TLV;
+	if (json_tok_streq(buffer, tok, "tlv")) {
 		return NULL;
 	}
 
 	return command_fail_badparam(cmd, name, buffer, tok,
-			    "should be 'legacy' or 'tlv'");
+			    "should be 'tlv' ('legacy' not supported)");
 }
 
 static struct command_result *param_route_hops(struct command *cmd,
@@ -1366,7 +1339,7 @@ static struct command_result *param_route_hops(struct command *cmd,
 		unsigned *delay, *direction;
 		struct pubkey *blinding;
 		u8 *enctlv;
-		enum route_hop_style *style, default_style;
+		int *ignored;
 
 		if (!param(cmd, buffer, t,
 			   /* Only *one* of these is required */
@@ -1378,7 +1351,7 @@ static struct command_result *param_route_hops(struct command *cmd,
 			   p_opt("channel", param_short_channel_id, &channel),
 			   /* Allowed (getroute supplies it) but ignored */
 			   p_opt("direction", param_number, &direction),
-			   p_opt("style", param_route_hop_style, &style),
+			   p_opt("style", param_route_hop_style, &ignored),
 			   p_opt("blinding", param_pubkey, &blinding),
 			   p_opt("encrypted_recipient_data", param_bin_from_hex, &enctlv),
 			   NULL))
@@ -1405,21 +1378,12 @@ static struct command_result *param_route_hops(struct command *cmd,
 		if (!msat)
 			msat = amount_msat;
 
-		if (blinding || enctlv) {
-			if (style && *style == ROUTE_HOP_LEGACY)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "%s[%zi]: Can't have blinding or enctlv with legacy", name, i);
-			default_style = ROUTE_HOP_TLV;
-		} else
-			default_style = ROUTE_HOP_LEGACY;
-
 		(*hops)[i].amount = *msat;
 		(*hops)[i].node_id = *id;
 		(*hops)[i].delay = *delay;
 		(*hops)[i].scid = *channel;
 		(*hops)[i].blinding = blinding;
 		(*hops)[i].enctlv = enctlv;
-		(*hops)[i].style = style ? *style : default_style;
 	}
 
 	return NULL;

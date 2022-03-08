@@ -945,15 +945,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 
 	json_add_hex_talarr(s, "payload", rs->raw_payload);
 	if (p->payload) {
-		switch (p->payload->type) {
-		case ONION_V0_PAYLOAD:
-			json_add_string(s, "type", "legacy");
-			break;
-
-		case ONION_TLV_PAYLOAD:
-			json_add_string(s, "type", "tlv");
-			break;
-		}
+		json_add_string(s, "type", "tlv");
 
 		if (p->payload->forward_channel)
 			json_add_short_channel_id(s, "short_channel_id",
