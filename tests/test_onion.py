@@ -83,13 +83,3 @@ def test_rendezvous_onion(directory, oniontool):
         store_onion(out[-1][5:])
 
     assert(out == ['payload=000000000000000000000000000000000400000004000000000000000000000000'])
-
-
-def test_onion_vectors(oniontool):
-    tests = [
-        'onion-test-multi-frame.json',
-        'onion-test-v0.json']
-
-    for t in tests:
-        p = os.path.join(os.path.dirname(__file__), 'vectors', t)
-        print(subprocess.check_output([oniontool, 'runtest', p]).decode('ASCII'))

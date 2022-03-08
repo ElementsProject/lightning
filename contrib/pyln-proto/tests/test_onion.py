@@ -64,7 +64,7 @@ def test_tu_fields():
 
 
 dirname = os.path.dirname(__file__)
-vector_base = os.path.join(dirname, '..', '..', '..', 'tests', 'vectors')
+vector_base = os.path.join(dirname, '..', 'vectors')
 have_vectors = os.path.exists(os.path.join(vector_base, 'onion-test-v0.json'))
 
 
@@ -181,7 +181,7 @@ def sphinx_path_from_test_vector(filename: str) -> Tuple[onion.SphinxPath, dict]
     """Loads a sphinx test vector from the repo root.
     """
     path = os.path.dirname(__file__)
-    root = os.path.join(path, '..', '..', '..')
+    root = os.path.join(path, '..')
     filename = os.path.join(root, filename)
     v = json.load(open(filename, 'r'))
     session_key = onion.Secret(bytes.fromhex(v['generate']['session_key']))
