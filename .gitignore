@@ -68,3 +68,8 @@ doc/lightning*.[1578]
 # Rust targets
 target
 Cargo.lock
+
+# Rust autogen files
+cln-rpc/src/model.rs
+cln-grpc/proto/node.proto
+cln-grpc/src/convert.rs
