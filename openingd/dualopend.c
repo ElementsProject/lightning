@@ -881,18 +881,23 @@ static bool is_segwit_output(struct wally_tx_output *output,
  * at closing time, rather than when it askes.
  */
 #if DEVELOPER
-static void dualopend_dev_memleak(struct state *state)
+static void handle_dev_memleak(struct state *state, const u8 *msg)
 {
 	struct htable *memtable;
+	bool found_leak;
 
-	/* Populate a hash table with all our allocations. */
-	memtable = memleak_find_allocations(tmpctx, NULL, NULL);
+	/* Populate a hash table with all our allocations (except msg, which
+	 * is in use right now). */
+	memtable = memleak_find_allocations(tmpctx, msg, msg);
 
 	/* Now delete state and things it has pointers to. */
 	memleak_remove_region(memtable, state, tal_bytelen(state));
 
 	/* If there's anything left, dump it to logs, and return true. */
-	dump_memleak(memtable, memleak_status_broken);
+	found_leak = dump_memleak(memtable, memleak_status_broken);
+	wire_sync_write(REQ_FD,
+			take(towire_dualopend_dev_memleak_reply(NULL,
+							        found_leak)));
 }
 #endif /* DEVELOPER */
 
@@ -1053,7 +1058,14 @@ fetch_psbt_changes(struct state *state,
 					    psbt);
 
 	wire_sync_write(REQ_FD, take(msg));
+
 	msg = wire_sync_read(tmpctx, REQ_FD);
+#if DEVELOPER
+	while (fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
+#endif
 
 	if (fromwire_dualopend_fail(msg, msg, &err)) {
 		open_err_warn(state, "%s", err);
@@ -3601,6 +3613,11 @@ static u8 *handle_master_in(struct state *state)
 	enum dualopend_wire t = fromwire_peektype(msg);
 
 	switch (t) {
+	case WIRE_DUALOPEND_DEV_MEMLEAK:
+#if DEVELOPER
+		handle_dev_memleak(state, msg);
+#endif
+		return NULL;
 	case WIRE_DUALOPEND_OPENER_INIT:
 		opener_start(state, msg);
 		return NULL;
@@ -3627,6 +3644,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
 	case WIRE_DUALOPEND_RBF_VALID:
 	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:
+	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 
 	/* Messages we send */
 	case WIRE_DUALOPEND_GOT_OFFER:
@@ -3948,11 +3966,6 @@ int main(int argc, char *argv[])
 	status_debug("Sent %s with fds",
 		     dualopend_wire_name(fromwire_peektype(msg)));
 	tal_free(msg);
-
-#if DEVELOPER
-	/* Now look for memory leaks. */
-	dualopend_dev_memleak(state);
-#endif /* DEVELOPER */
 
 	/* This frees the entire tal tree. */
 	tal_free(state);

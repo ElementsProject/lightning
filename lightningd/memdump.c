@@ -129,9 +129,19 @@ static void finish_report(const struct leak_detect *leaks)
 	struct htable *memtable;
 	const tal_t *i;
 	const uintptr_t *backtrace;
-	struct command *cmd = leaks->cmd;
-	struct lightningd *ld = cmd->ld;
-	struct json_stream *response = json_stream_success(cmd);
+	struct command *cmd;
+	struct lightningd *ld;
+	struct json_stream *response;
+
+	/* If it timed out, we free ourselved and exit! */
+	if (!leaks->cmd) {
+		tal_free(leaks);
+		return;
+	}
+
+	/* Convenience variables */
+	cmd = leaks->cmd;
+	ld = cmd->ld;
 
 	/* Enter everything, except this cmd and its jcon */
 	memtable = memleak_find_allocations(cmd, cmd, cmd->jcon);
@@ -146,6 +156,7 @@ static void finish_report(const struct leak_detect *leaks)
 	/* Now delete ld and those which it has pointers to. */
 	memleak_remove_region(memtable, ld, sizeof(*ld));
 
+	response = json_stream_success(cmd);
 	json_array_start(response, "leaks");
 	while ((i = memleak_get(memtable, &backtrace)) != NULL) {
 		const tal_t *p;
@@ -174,6 +185,12 @@ static void finish_report(const struct leak_detect *leaks)
 
 	/* Command is now done. */
 	was_pending(command_success(cmd, response));
+}
+
+static void leak_detect_timeout(struct leak_detect *leak_detect)
+{
+	finish_report(leak_detect);
+	leak_detect->cmd = NULL;
 }
 
 static void leak_detect_req_done(const struct subd_req *req,
@@ -274,6 +291,10 @@ static struct command_result *json_memleak(struct command *cmd,
 
 	/* Ask all per-peer daemons */
 	peer_dev_memleak(ld, leaks);
+
+	/* Set timer: dualopend doesn't always listen! */
+	notleak(new_reltimer(ld->timers, leaks, time_from_sec(20),
+			     leak_detect_timeout, leaks));
 	return command_still_pending(cmd);
 }
 

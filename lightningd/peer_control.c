@@ -62,6 +62,7 @@
 #include <lightningd/subd.h>
 #include <limits.h>
 #include <onchaind/onchaind_wiregen.h>
+#include <openingd/dualopend_wiregen.h>
 #include <openingd/openingd_wiregen.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -2363,6 +2364,19 @@ static void openingd_memleak_req_done(struct subd *open_daemon,
 		report_subd_memleak(leaks, open_daemon);
 }
 
+static void dualopend_memleak_req_done(struct subd *dualopend,
+				     const u8 *msg, const int *fds UNUSED,
+				     struct leak_detect *leaks)
+{
+	bool found_leak;
+
+	if (!fromwire_dualopend_dev_memleak_reply(msg, &found_leak))
+		fatal("Bad dualopend_dev_memleak");
+
+	if (found_leak)
+		report_subd_memleak(leaks, dualopend);
+}
+
 void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks)
 {
 	struct peer *p;
@@ -2390,9 +2404,12 @@ void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks)
 					 take(towire_onchaind_dev_memleak(NULL)),
 					 -1, 0, onchaind_memleak_req_done, leaks),
 					leaks);
+			} else if (streq(c->owner->name, "dualopend")) {
+				start_leak_request(subd_req(c, c->owner,
+					 take(towire_dualopend_dev_memleak(NULL)),
+					 -1, 0, dualopend_memleak_req_done, leaks),
+					leaks);
 			}
-			/* FIXME: dualopend doesn't support memleak
-			 * when we ask */
 		}
 	}
 }

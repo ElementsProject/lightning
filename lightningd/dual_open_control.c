@@ -3026,6 +3026,8 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_SEND_TX_SIGS:
 		case WIRE_DUALOPEND_SEND_SHUTDOWN:
 		case WIRE_DUALOPEND_DEPTH_REACHED:
+		case WIRE_DUALOPEND_DEV_MEMLEAK:
+		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 			break;
 	}
 
