@@ -7,6 +7,7 @@
 static const char *tags[] = {
 	"journal_entry",
 	"penalty_adj",
+	"invoice_fee",
 };
 
 const char *account_entry_tag_str(enum account_entry_tag tag)

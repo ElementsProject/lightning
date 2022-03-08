@@ -189,6 +189,16 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 	return NULL;
 }
 
+static struct income_event *paid_invoice_fee(const tal_t *ctx,
+					     struct channel_event *ev)
+{
+	struct income_event *iev;
+	iev = channel_to_income(ctx, ev, AMOUNT_MSAT(0), ev->fees);
+	iev->tag = tal_free(ev->tag);
+	iev->tag = (char *)account_entry_tag_str(INVOICEFEE);
+	return iev;
+}
+
 static struct income_event *maybe_channel_income(const tal_t *ctx,
 						 struct channel_event *ev)
 {
@@ -202,7 +212,17 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 	}
 
 	if (streq(ev->tag, "invoice")) {
-		/* FIXME: add a sub-category for fees paid */
+		/* If it's a payment, we note fees separately */
+		if (!amount_msat_zero(ev->debit)) {
+			struct amount_msat paid;
+			bool ok;
+			ok = amount_msat_sub(&paid, ev->debit, ev->fees);
+			assert(ok);
+			return channel_to_income(ctx, ev,
+						 ev->credit,
+						 paid);
+		}
+
 		return channel_to_income(ctx, ev,
 					 ev->credit,
 					 ev->debit);
@@ -336,6 +356,13 @@ struct income_event **list_income_events(const tal_t *ctx,
 			ev = maybe_channel_income(evs, chan);
 			if (ev)
 				tal_arr_expand(&evs, ev);
+
+			/* Breakout fees on sent payments */
+			if (streq(chan->tag, "invoice")
+			    && !amount_msat_zero(chan->debit)) {
+				ev = paid_invoice_fee(evs, chan);
+				tal_arr_expand(&evs, ev);
+			}
 
 			j++;
 			continue;

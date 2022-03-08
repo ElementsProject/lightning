@@ -40,6 +40,8 @@ void json_add_channel_event(struct json_stream *out,
 	json_add_string(out, "tag", ev->tag);
 	json_add_amount_msat_only(out, "credit", ev->credit);
 	json_add_amount_msat_only(out, "debit", ev->debit);
+	if (!amount_msat_zero(ev->fees))
+		json_add_amount_msat_only(out, "fees", ev->fees);
 	json_add_string(out, "currency", ev->currency);
 	if (ev->payment_id)
 		json_add_sha256(out, "payment_id", ev->payment_id);
