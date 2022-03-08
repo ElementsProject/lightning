@@ -8,6 +8,7 @@
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
+#include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/onchain_control.h>
@@ -621,6 +622,17 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		reason = REASON_UNKNOWN;  /* will use last cause as reason */
 
 	channel_fail_permanent(channel, reason, "Funding transaction spent");
+
+	/* If we haven't posted the open event yet, post an open */
+	if (!channel->scid || !channel->remote_funding_locked) {
+		u32 blkh;
+		/* Note that blockheight will be zero if it's not in chain
+		 * yet */
+		blkh = wallet_transaction_height(channel->peer->ld->wallet,
+						 &channel->funding.txid);
+		channel_record_open(channel, blkh);
+	}
+
 
 	/* We could come from almost any state. */
 	/* NOTE(mschmoock) above comment is wrong, since we failed above! */

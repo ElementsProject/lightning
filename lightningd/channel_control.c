@@ -128,15 +128,12 @@ void notify_feerate_change(struct lightningd *ld)
 	 * peer.  We *could* do so, however. */
 }
 
-void channel_record_open(struct channel *channel)
+void channel_record_open(struct channel *channel, u32 blockheight)
 {
 	struct chain_coin_mvt *mvt;
-	u32 blockheight;
 	struct amount_msat start_balance;
 	bool is_pushed = !amount_msat_zero(channel->push);
 	bool is_leased = channel->lease_expiry > 0;
-
-	blockheight = short_channel_id_blocknum(channel->scid);
 
 	/* If funds were pushed, add/sub them from the starting balance */
 	if (channel->opener == LOCAL) {
@@ -211,7 +208,8 @@ static void lockin_complete(struct channel *channel)
 
 	/* Only record this once we get a real confirmation. */
 	if (channel->scid)
-		channel_record_open(channel);
+		channel_record_open(channel,
+				    short_channel_id_blocknum(channel->scid));
 }
 
 bool channel_on_funding_locked(struct channel *channel,
@@ -866,7 +864,8 @@ bool channel_tell_depth(struct lightningd *ld,
 		    get_block_height(channel->peer->ld->topology));
 
 		/* Only record this once we get a real confirmation. */
-		channel_record_open(channel);
+		channel_record_open(channel,
+				    short_channel_id_blocknum(channel->scid));
 	}
 	return true;
 }

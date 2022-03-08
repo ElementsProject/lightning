@@ -3,6 +3,7 @@
  * saves and funding tx watching for a channel open */
 
 #include "config.h"
+#include <bitcoin/short_channel_id.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
@@ -1702,7 +1703,8 @@ static void handle_channel_locked(struct subd *dualopend,
 			  CHANNELD_NORMAL,
 			  REASON_UNKNOWN,
 			  "Lockin complete");
-	channel_record_open(channel);
+	channel_record_open(channel,
+			    short_channel_id_blocknum(channel->scid));
 
 	/* Empty out the inflights */
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
