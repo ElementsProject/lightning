@@ -94,7 +94,8 @@ struct amount_msat channel_amount_receivable(const struct channel *channel);
 struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld);
 
 #if DEVELOPER
-void peer_dev_memleak(struct command *cmd);
+struct leak_detect;
+void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks);
 #endif /* DEVELOPER */
 
 /* Triggered at each new block.  */

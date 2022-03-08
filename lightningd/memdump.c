@@ -124,14 +124,14 @@ static void json_add_backtrace(struct json_stream *response,
 	json_array_end(response);
 }
 
-static void scan_mem(struct command *cmd,
-		     struct json_stream *response,
-		     struct lightningd *ld,
-		     const struct subd *leaking_subd)
+static void finish_report(const struct leak_detect *leaks)
 {
 	struct htable *memtable;
 	const tal_t *i;
 	const uintptr_t *backtrace;
+	struct command *cmd = leaks->cmd;
+	struct lightningd *ld = cmd->ld;
+	struct json_stream *response = json_stream_success(cmd);
 
 	/* Enter everything, except this cmd and its jcon */
 	memtable = memleak_find_allocations(cmd, cmd, cmd->jcon);
@@ -165,126 +165,67 @@ static void scan_mem(struct command *cmd,
 		json_object_end(response);
 	}
 
-	if (leaking_subd) {
+	for (size_t i = 0; i < tal_count(leaks->leakers); i++) {
 		json_object_start(response, NULL);
-		json_add_string(response, "subdaemon", leaking_subd->name);
+		json_add_string(response, "subdaemon", leaks->leakers[i]);
 		json_object_end(response);
 	}
 	json_array_end(response);
+
+	/* Command is now done. */
+	was_pending(command_success(cmd, response));
 }
 
-struct leak_info {
-	struct command *cmd;
-	struct subd *leaker;
-};
-
-static void report_leak_info2(struct leak_info *leak_info)
+static void leak_detect_req_done(const struct subd_req *req,
+				 struct leak_detect *leak_detect)
 {
-	struct json_stream *response = json_stream_success(leak_info->cmd);
-
-	scan_mem(leak_info->cmd, response, leak_info->cmd->ld, leak_info->leaker);
-
-	was_pending(command_success(leak_info->cmd, response));
+	leak_detect->num_outstanding_requests--;
+	if (leak_detect->num_outstanding_requests == 0)
+		finish_report(leak_detect);
 }
 
-static void report_leak_info(struct command *cmd, struct subd *leaker)
+/* Start a leak request: decrements num_outstanding_requests when freed. */
+void start_leak_request(const struct subd_req *req,
+			struct leak_detect *leak_detect)
 {
-	struct leak_info *leak_info = tal(cmd, struct leak_info);
+	leak_detect->num_outstanding_requests++;
+	/* When req is freed, request finished. */
+	tal_add_destructor2(req, leak_detect_req_done, leak_detect);
+}
 
-	leak_info->cmd = cmd;
-	leak_info->leaker = leaker;
-
-	/* Leak detection in a reply handler thinks we're leaking conn. */
-	notleak(new_reltimer(leak_info->cmd->ld->timers, leak_info->cmd,
-			     time_from_sec(0),
-			     report_leak_info2, leak_info));
+/* Yep, found a leak in this subd. */
+void report_subd_memleak(struct leak_detect *leak_detect, struct subd *leaker)
+{
+	tal_arr_expand(&leak_detect->leakers,
+		       tal_strdup(leak_detect, leaker->name));
 }
 
 static void gossip_dev_memleak_done(struct subd *gossipd,
 				    const u8 *reply,
 				    const int *fds UNUSED,
-				    struct command *cmd)
+				    struct leak_detect *leaks)
 {
 	bool found_leak;
 
-	if (!fromwire_gossipd_dev_memleak_reply(reply, &found_leak)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Bad gossip_dev_memleak"));
-		return;
-	}
+	if (!fromwire_gossipd_dev_memleak_reply(reply, &found_leak))
+		fatal("Bad gossip_dev_memleak");
 
-	report_leak_info(cmd, found_leak ? gossipd : NULL);
+	if (found_leak)
+		report_subd_memleak(leaks, gossipd);
 }
 
 static void connect_dev_memleak_done(struct subd *connectd,
 				     const u8 *reply,
 				     const int *fds UNUSED,
-				     struct command *cmd)
+				     struct leak_detect *leaks)
 {
 	bool found_leak;
 
-	if (!fromwire_connectd_dev_memleak_reply(reply, &found_leak)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Bad connect_dev_memleak"));
-		return;
-	}
+	if (!fromwire_connectd_dev_memleak_reply(reply, &found_leak))
+		fatal("Bad connect_dev_memleak");
 
-	if (found_leak) {
-		report_leak_info(cmd, connectd);
-		return;
-	}
-
-	/* No leak?  Ask openingd. */
-	opening_dev_memleak(cmd);
-}
-
-static void hsm_dev_memleak_done(struct subd *hsmd,
-				 const u8 *reply,
-				 struct command *cmd)
-{
-	struct lightningd *ld = cmd->ld;
-	bool found_leak;
-
-	if (!fromwire_hsmd_dev_memleak_reply(reply, &found_leak)) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Bad hsm_dev_memleak"));
-		return;
-	}
-
-	if (found_leak) {
-		report_leak_info(cmd, hsmd);
-		return;
-	}
-
-	/* No leak?  Ask gossipd. */
-	subd_req(ld->gossip, ld->gossip, take(towire_gossipd_dev_memleak(NULL)),
-		 -1, 0, gossip_dev_memleak_done, cmd);
-}
-
-void peer_memleak_done(struct command *cmd, struct subd *leaker)
-{
-	if (leaker)
-		report_leak_info(cmd, leaker);
-	else {
-		/* No leak there, try hsmd (we talk to hsm sync) */
-		u8 *msg = towire_hsmd_dev_memleak(NULL);
-		if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
-			fatal("Could not write to HSM: %s", strerror(errno));
-
-		hsm_dev_memleak_done(cmd->ld->hsm,
-				     wire_sync_read(tmpctx, cmd->ld->hsm_fd),
-				     cmd);
-	}
-}
-
-void opening_memleak_done(struct command *cmd, struct subd *leaker)
-{
-	if (leaker)
-		report_leak_info(cmd, leaker);
-	else {
-		/* No leak there, try normal peers. */
-		peer_dev_memleak(cmd);
-	}
+	if (found_leak)
+		report_subd_memleak(leaks, connectd);
 }
 
 static struct command_result *json_memleak(struct command *cmd,
@@ -293,6 +234,9 @@ static struct command_result *json_memleak(struct command *cmd,
 					   const jsmntok_t *params)
 {
 	struct lightningd *ld = cmd->ld;
+	u8 *msg;
+	bool found_leak;
+	struct leak_detect *leaks;
 
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
@@ -302,11 +246,34 @@ static struct command_result *json_memleak(struct command *cmd,
 				    "Leak detection needs $LIGHTNINGD_DEV_MEMLEAK");
 	}
 
-	/* Start by asking connectd, which is always async. */
-	subd_req(ld->connectd, ld->connectd,
-		 take(towire_connectd_dev_memleak(NULL)),
-		 -1, 0, connect_dev_memleak_done, cmd);
+	leaks = tal(cmd, struct leak_detect);
+	leaks->cmd = cmd;
+	leaks->num_outstanding_requests = 0;
+	leaks->leakers = tal_arr(leaks, const char *, 0);
 
+	/* hsmd is sync, so do that first. */
+	if (!wire_sync_write(ld->hsm_fd,
+			     take(towire_hsmd_dev_memleak(NULL))))
+		fatal("Could not write to HSM: %s", strerror(errno));
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!fromwire_hsmd_dev_memleak_reply(msg, &found_leak))
+		fatal("Bad HSMD_DEV_MEMLEAK_REPLY: %s", tal_hex(tmpctx, msg));
+
+	if (found_leak)
+		report_subd_memleak(leaks, ld->hsm);
+
+	/* Now do all the async ones. */
+	start_leak_request(subd_req(ld->connectd, ld->connectd,
+				    take(towire_connectd_dev_memleak(NULL)),
+				    -1, 0, connect_dev_memleak_done, leaks),
+			   leaks);
+	start_leak_request(subd_req(ld->gossip, ld->gossip,
+				    take(towire_gossipd_dev_memleak(NULL)),
+				    -1, 0, gossip_dev_memleak_done, leaks),
+			   leaks);
+
+	/* Ask all per-peer daemons */
+	peer_dev_memleak(ld, leaks);
 	return command_still_pending(cmd);
 }
 
