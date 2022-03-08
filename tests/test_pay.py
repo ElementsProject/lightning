@@ -1,4 +1,3 @@
-from binascii import hexlify
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
@@ -2697,24 +2696,15 @@ def test_sendonion_rpc(node_factory):
     first_hop = route[0]
     blockheight = l1.rpc.getinfo()['blockheight']
 
-    def serialize_payload(n):
-        block, tx, out = n['channel'].split('x')
-        payload = hexlify(struct.pack(
-            "!BQQL",
-            0,
-            int(block) << 40 | int(tx) << 16 | int(out),
-            int(n['amount_msat']),
-            blockheight + n['delay'])).decode('ASCII')
-        payload += "00" * 12
-        return payload
+    def truncate_encode(i: int):
+        """Encode a tu64 (or tu32 etc) value"""
+        ret = struct.pack("!Q", i)
+        while ret.startswith(b'\0'):
+            ret = ret[1:]
+        return ret
 
-    def serialize_payload_final_tlv(n, payment_secret: str):
-        def truncate_encode(i: int):
-            """Encode a tu64 (or tu32 etc) value"""
-            ret = struct.pack("!Q", i)
-            while ret.startswith(b'\0'):
-                ret = ret[1:]
-            return ret
+    def serialize_payload_tlv(n):
+        block, tx, out = n['channel'].split('x')
 
         payload = TlvPayload()
         # BOLT #4:
@@ -2729,7 +2719,32 @@ def test_sendonion_rpc(node_factory):
         #    2. data:
         #        * [`tu32`:`outgoing_cltv_value`]
         b = BytesIO()
-        b.write(truncate_encode(n['delay']))
+        b.write(truncate_encode(blockheight + n['delay']))
+        payload.add_field(4, b.getvalue())
+        # BOLT #4:
+        #    1. type: 6 (`short_channel_id`)
+        #    2. data:
+        #        * [`short_channel_id`:`short_channel_id`]
+        b = BytesIO()
+        b.write(struct.pack("!Q", int(block) << 40 | int(tx) << 16 | int(out)))
+        payload.add_field(6, b.getvalue())
+        return payload.to_bytes().hex()
+
+    def serialize_payload_final_tlv(n, payment_secret: str):
+        payload = TlvPayload()
+        # BOLT #4:
+        #     1. type: 2 (`amt_to_forward`)
+        #     2. data:
+        #         * [`tu64`:`amt_to_forward`]
+        b = BytesIO()
+        b.write(truncate_encode(int(n['amount_msat'])))
+        payload.add_field(2, b.getvalue())
+        # BOLT #4:
+        #    1. type: 4 (`outgoing_cltv_value`)
+        #    2. data:
+        #        * [`tu32`:`outgoing_cltv_value`]
+        b = BytesIO()
+        b.write(truncate_encode(blockheight + n['delay']))
         payload.add_field(4, b.getvalue())
         # BOLT #4:
         #    1. type: 8 (`payment_data`)
@@ -2748,7 +2763,7 @@ def test_sendonion_rpc(node_factory):
         # We tell the node h about the parameters to use for n (a.k.a. h + 1)
         hops.append({
             "pubkey": h['id'],
-            "payload": serialize_payload(n)
+            "payload": serialize_payload_tlv(n)
         })
 
     # The last hop has a special payload:
