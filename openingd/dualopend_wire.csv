@@ -220,6 +220,12 @@ msgtype,dualopend_fail_fallen_behind,1028
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
 msgtype,dualopend_shutdown_complete,7025
 
+# master -> dualopend: do you have a memleak?
+msgtype,dualopend_dev_memleak,7033
+
+msgtype,dualopend_dev_memleak_reply,7133
+msgdata,dualopend_dev_memleak_reply,leak,bool,
+
 # dualopend -> master: this was a dry run, here's some info about this open
 msgtype,dualopend_dry_run,7026
 msgdata,dualopend_dry_run,channel_id,channel_id,
