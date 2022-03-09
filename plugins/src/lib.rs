@@ -331,6 +331,19 @@ where
     sender: tokio::sync::mpsc::Sender<serde_json::Value>,
 }
 
+impl<S> Plugin<S>
+where
+    S: Clone + Send,
+{
+    pub fn option(&self, name: &str) -> Option<options::Value> {
+        self.options
+            .iter()
+            .filter(|o| o.name() == name)
+            .next()
+            .map(|co| co.value.clone().unwrap_or(co.default().clone()))
+    }
+}
+
 /// The [PluginDriver] is used to run the IO loop, reading messages
 /// from the Lightning daemon, dispatching calls and notifications to
 /// the plugin, and returning responses to the the daemon. We also use

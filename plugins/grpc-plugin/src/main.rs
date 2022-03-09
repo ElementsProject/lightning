@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
 use cln_plugin::{options, Builder};
 use log::{debug, warn};
@@ -10,7 +10,6 @@ mod tls;
 #[derive(Clone, Debug)]
 struct PluginState {
     rpc_path: PathBuf,
-    bind_address: SocketAddr,
     identity: tls::Identity,
     ca_cert: Vec<u8>,
 }
@@ -19,14 +18,12 @@ struct PluginState {
 async fn main() -> Result<()> {
     debug!("Starting grpc plugin");
     let path = Path::new("lightning-rpc");
-    let addr: SocketAddr = "0.0.0.0:50051".parse().unwrap();
 
     let directory = std::env::current_dir()?;
     let (identity, ca_cert) = tls::init(&directory)?;
 
     let state = PluginState {
         rpc_path: path.into(),
-        bind_address: addr,
         identity,
         ca_cert,
     };
@@ -34,14 +31,21 @@ async fn main() -> Result<()> {
     let plugin = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "grpc-port",
-            options::Value::Integer(29735),
+            options::Value::Integer(50051),
             "Which port should the grpc plugin listen for incoming connections?",
         ))
         .start()
         .await?;
 
+    let bind_port = match plugin.option("grpc-port") {
+        Some(options::Value::Integer(i)) => i,
+        None => return Err(anyhow!("Missing 'grpc-port' option")),
+        Some(o) => return Err(anyhow!("grpc-port is not a valid integer: {:?}", o)),
+    };
+    let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
+
     tokio::spawn(async move {
-        if let Err(e) = run_interface(state).await {
+        if let Err(e) = run_interface(bind_addr, state).await {
             warn!("Error running the grpc interface: {}", e);
         }
     });
@@ -49,12 +53,7 @@ async fn main() -> Result<()> {
     plugin.join().await
 }
 
-async fn run_interface(state: PluginState) -> Result<()> {
-    debug!(
-        "Connecting to {:?} and serving grpc on {:?}",
-        &state.rpc_path, &state.bind_address
-    );
-
+async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> {
     let identity = state.identity.to_tonic_identity();
     let ca_cert = tonic::transport::Certificate::from_pem(state.ca_cert);
 
@@ -62,7 +61,7 @@ async fn run_interface(state: PluginState) -> Result<()> {
         .identity(identity)
         .client_ca_root(ca_cert);
 
-    tonic::transport::Server::builder()
+    let server = tonic::transport::Server::builder()
         .tls_config(tls)
         .context("configuring tls")?
         .add_service(NodeServer::new(
@@ -70,9 +69,14 @@ async fn run_interface(state: PluginState) -> Result<()> {
                 .await
                 .context("creating NodeServer instance")?,
         ))
-        .serve(state.bind_address)
-        .await
-        .context("serving requests")?;
+        .serve(bind_addr);
+
+    debug!(
+        "Connecting to {:?} and serving grpc on {:?}",
+        &state.rpc_path, &bind_addr
+    );
+
+    server.await.context("serving requests")?;
 
     Ok(())
 }
