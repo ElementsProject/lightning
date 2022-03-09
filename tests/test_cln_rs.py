@@ -2,6 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from node_pb2_grpc import NodeStub
 from pathlib import Path
 from pyln.testing.utils import env, TEST_NETWORK
+from ephemeral_port_reserve import reserve
 import grpc
 import node_pb2 as nodepb
 import pytest
@@ -67,8 +68,9 @@ def test_plugin_start(node_factory):
 
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
+    grpc_port = reserve()
     bin_path = Path.cwd() / "target" / "debug" / "grpc-plugin"
-    l1 = node_factory.get_node(options={"plugin": str(bin_path)})
+    l1 = node_factory.get_node(options={"plugin": str(bin_path), "grpc-port": str(grpc_port)})
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
     cert_path = p / "client.pem"
@@ -80,8 +82,9 @@ def test_grpc_connect(node_factory):
         certificate_chain=cert_path.open('rb').read()
     )
 
+    l1.daemon.wait_for_log(r'serving grpc on 0.0.0.0:')
     channel = grpc.secure_channel(
-        "localhost:50051",
+        f"localhost:{grpc_port}",
         creds,
         options=(('grpc.ssl_target_name_override', 'cln'),)
     )
@@ -101,9 +104,11 @@ def test_grpc_generate_certificate(node_factory):
      - If we have certs, we they should just get loaded
      - If we delete one cert or its key it should get regenerated.
     """
+    grpc_port = reserve()
     bin_path = Path.cwd() / "target" / "debug" / "grpc-plugin"
     l1 = node_factory.get_node(options={
         "plugin": str(bin_path),
+        "grpc-port": str(grpc_port),
     }, start=False)
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
@@ -140,8 +145,13 @@ def test_grpc_wrong_auth(node_factory):
     We create two instances, each generates its own certs and keys,
     and then we try to cross the wires.
     """
+    grpc_port = reserve()
     bin_path = Path.cwd() / "target" / "debug" / "grpc-plugin"
-    l1, l2 = node_factory.get_nodes(2, opts={"plugin": str(bin_path), "start": False})
+    l1, l2 = node_factory.get_nodes(2, opts={
+        "plugin": str(bin_path),
+        "start": False,
+        "grpc-port": str(grpc_port),
+    })
     l1.start()
     l1.daemon.wait_for_log(r'serving grpc on 0.0.0.0:')
 
@@ -159,7 +169,7 @@ def test_grpc_wrong_auth(node_factory):
         )
 
         channel = grpc.secure_channel(
-            "localhost:50051",
+            f"localhost:{grpc_port}",
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
