@@ -1116,6 +1116,10 @@ static void update_remote_addr(struct lightningd *ld,
 			       const struct wireaddr *remote_addr,
 			       const struct node_id peer_id)
 {
+	/* failsafe to prevent privacy leakage. */
+	if (ld->always_use_proxy)
+		return;
+
 	switch (remote_addr->type) {
 	case ADDR_TYPE_IPV4:
 		/* init pointers first time */
