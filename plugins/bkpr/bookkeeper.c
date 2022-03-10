@@ -1402,8 +1402,9 @@ static struct command_result * json_coin_moved(struct command *cmd,
 	/* We expect version 2 of coin movements */
 	assert(version == 2);
 
-	plugin_log(cmd->plugin, LOG_DBG, "coin_move %d %s -%s %s %"PRIu64,
+	plugin_log(cmd->plugin, LOG_DBG, "coin_move %d (%s) %s -%s %s %"PRIu64,
 		   version,
+		   mvt_tag_str(tags[0]),
 		   type_to_string(tmpctx, struct amount_msat, &credit),
 		   type_to_string(tmpctx, struct amount_msat, &debit),
 		   mvt_type, timestamp);
