@@ -518,6 +518,12 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	passwd_confirmation = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 	if (!passwd_confirmation)
 		return err_msg;
+
+	if (!streq(passwd, passwd_confirmation)) {
+		opt_exitcode = HSM_BAD_PASSWORD;
+		return "Passwords confirmation mismatch.";
+	}
+
 	printf("\n");
 
 	ld->config.keypass = tal(NULL, struct secret);
