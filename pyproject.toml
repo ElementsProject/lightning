@@ -12,6 +12,7 @@ pyln-proto = { path = "./contrib/pyln-proto", develop = true }
 Mako = "^1.1.6"
 mrkd = { git = "https://github.com/refi64/mrkd.git", rev = "781f05eb9898ca652f18eed29b3c956389e6a2a7" }
 websocket-client = "^1.2.3"
+grpcio-tools = "^1.44.0"
 
 [tool.poetry.dev-dependencies]
 # Test dependencies and inherited dependencies belong here
