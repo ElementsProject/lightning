@@ -10,18 +10,17 @@
 #include <common/configdir.h>
 #include <common/derive_basepoints.h>
 #include <common/descriptor_checksum.h>
+#include <common/errcode.h>
 #include <common/hsm_encryption.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>
 
-#define ERROR_HSM_FILE errno
 #define ERROR_USAGE 2
 #define ERROR_LIBSODIUM 3
 #define ERROR_LIBWALLY 4
@@ -147,16 +146,24 @@ static void get_channel_seed(struct secret *channel_seed, struct node_id *peer_i
 /* We detect an encrypted hsm_secret as a hsm_secret which is 73-bytes long. */
 static bool hsm_secret_is_encrypted(const char *hsm_secret_path)
 {
-	struct stat st;
+        switch (is_hsm_secret_encrypted(hsm_secret_path)) {
+		case -1:
+			err(ERROR_HSM_FILE, "Cannot open '%s'", hsm_secret_path);
+		case 1:
+			return true;
+	        case 0: {
+			/* Extra sanity check on HSM file! */
+			struct stat st;
+			stat(hsm_secret_path, &st);
+			if (st.st_size != 32)
+				errx(ERROR_HSM_FILE,
+				     "Invalid hsm_secret '%s' (neither plaintext "
+				     "nor encrypted).", hsm_secret_path);
+			return false;
+		}
+	}
 
-	if (stat(hsm_secret_path, &st) != 0)
-		errx(ERROR_HSM_FILE, "Could not stat hsm_secret");
-
-	if (st.st_size != 32 && st.st_size != ENCRYPTED_HSM_SECRET_LEN)
-		errx(ERROR_HSM_FILE, "Invalid hsm_secret (neither plaintext "
-				     "nor encrypted).");
-
-	return st.st_size == ENCRYPTED_HSM_SECRET_LEN;
+	abort();
 }
 
 static int decrypt_hsm(const char *hsm_secret_path)

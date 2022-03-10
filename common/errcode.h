@@ -14,5 +14,6 @@ typedef s32 errcode_t;
 #define HSM_ERROR_IS_ENCRYPT 21
 #define HSM_BAD_PASSWORD 22
 #define HSM_PASSWORD_INPUT_ERR 23
+#define ERROR_HSM_FILE 24
 
 #endif /* LIGHTNING_COMMON_ERRCODE_H */

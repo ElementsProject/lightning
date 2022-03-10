@@ -1,6 +1,8 @@
 #include "config.h"
+#include <ccan/tal/str/str.h>
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
+#include <errno.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -77,6 +79,17 @@ bool decrypt_hsm_secret(const struct secret *encryption_key,
 		return false;
 
 	return true;
+}
+
+/* Returns -1 on error (and sets errno), 0 if not encrypted, 1 if it is */
+int is_hsm_secret_encrypted(const char *path)
+{
+	struct stat st;
+
+        if (stat(path, &st) != 0)
+		return -1;
+
+        return st.st_size == ENCRYPTED_HSM_SECRET_LEN;
 }
 
 void discard_key(struct secret *key TAKES)

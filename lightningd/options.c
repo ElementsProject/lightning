@@ -502,6 +502,12 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
 	char *passwd, *passwd_confirmation, *err_msg;
+	int is_encrypted;
+
+        is_encrypted = is_hsm_secret_encrypted("hsm_secret");
+	if (is_encrypted == -1)
+		return tal_fmt(NULL, "Could not access 'hsm_secret': %s",
+			       strerror(errno));
 
 	printf("The hsm_secret is encrypted with a password. In order to "
 	       "decrypt it and start the node you must provide the password.\n");
@@ -513,17 +519,19 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	passwd = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 	if (!passwd)
 		return err_msg;
-	printf("Confirm hsm_secret password:\n");
-	fflush(stdout);
-	passwd_confirmation = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
-	if (!passwd_confirmation)
-		return err_msg;
+	if (!is_encrypted) {
+		printf("Confirm hsm_secret password:\n");
+		fflush(stdout);
+		passwd_confirmation = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
+		if (!passwd_confirmation)
+			return err_msg;
 
-	if (!streq(passwd, passwd_confirmation)) {
-		opt_exitcode = HSM_BAD_PASSWORD;
-		return "Passwords confirmation mismatch.";
+		if (!streq(passwd, passwd_confirmation)) {
+			opt_exitcode = HSM_BAD_PASSWORD;
+			return "Passwords confirmation mismatch.";
+		}
+		free(passwd_confirmation);
 	}
-
 	printf("\n");
 
 	ld->config.keypass = tal(NULL, struct secret);
@@ -534,7 +542,6 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 
 	ld->encrypted_hsm = true;
 	free(passwd);
-	free(passwd_confirmation);
 
 	return NULL;
 }
