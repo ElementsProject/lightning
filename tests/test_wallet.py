@@ -1039,8 +1039,6 @@ def test_hsm_secret_encryption(node_factory):
                     wait_for_initialized=False)
     l1.daemon.wait_for_log(r'Enter hsm_secret password')
     write_all(master_fd, password[2:].encode("utf-8"))
-    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    write_all(master_fd, password[2:].encode("utf-8"))
     assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == HSM_BAD_PASSWORD)
     assert(l1.daemon.is_in_log("Wrong password for encrypted hsm_secret."))
 
@@ -1048,15 +1046,12 @@ def test_hsm_secret_encryption(node_factory):
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
     write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     assert id == l1.rpc.getinfo()["id"]
     l1.stop()
 
     # We can restore the same wallet with the same password provided through stdin
     l1.daemon.start(stdin=subprocess.PIPE, wait_for_initialized=False)
-    l1.daemon.proc.stdin.write(password.encode("utf-8"))
     l1.daemon.proc.stdin.write(password.encode("utf-8"))
     l1.daemon.proc.stdin.flush()
     l1.daemon.wait_for_log("Server started with public key")
@@ -1137,8 +1132,6 @@ def test_hsmtool_secret_decryption(node_factory):
                     wait_for_initialized=False)
 
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
-    write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     print(node_id, l1.rpc.getinfo()["id"])

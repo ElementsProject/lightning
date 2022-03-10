@@ -96,11 +96,9 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	 * not passed, don't let hsmd use the first 32 bytes of the cypher as the
 	 * actual secret. */
 	if (!ld->config.keypass) {
-		struct stat st;
-		if (stat("hsm_secret", &st) == 0 &&
-			 st.st_size == ENCRYPTED_HSM_SECRET_LEN)
+		if (is_hsm_secret_encrypted("hsm_secret") == 1)
 			errx(HSM_ERROR_IS_ENCRYPT, "hsm_secret is encrypted, you need to pass the "
-			        "--encrypted-hsm startup option.");
+			     "--encrypted-hsm startup option.");
 	}
 
 	ld->hsm_fd = fds[0];

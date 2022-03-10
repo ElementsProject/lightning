@@ -4,6 +4,7 @@
 #include <bitcoin/privkey.h>
 #include <ccan/tal/tal.h>
 #include <sodium.h>
+#include <sys/stat.h>
 
 /* Length of the encrypted hsm secret header. */
 #define HS_HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
@@ -63,4 +64,6 @@ void discard_key(struct secret *key TAKES);
  */
 char *read_stdin_pass_with_exit_code(char **reason, int *exit_code);
 
+/** Returns -1 on error (and sets errno), 0 if not encrypted, 1 if it is */
+int is_hsm_secret_encrypted(const char *path);
 #endif /* LIGHTNING_COMMON_HSM_ENCRYPTION_H */
