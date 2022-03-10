@@ -78,13 +78,9 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 	struct db_stmt *stmt = db_prepare_v2(
 	    db, SQL("SELECT intval FROM vars WHERE name= ? LIMIT 1"));
 	db_bind_text(stmt, 0, varname);
-	if (!db_query_prepared(stmt))
-		goto done;
-
-	if (db_step(stmt))
+	if (db_query_prepared(stmt) && db_step(stmt))
 		res = db_col_int(stmt, "intval");
 
-done:
 	tal_free(stmt);
 	return res;
 }
