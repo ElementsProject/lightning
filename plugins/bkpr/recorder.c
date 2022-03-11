@@ -206,6 +206,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 char *account_get_balance(const tal_t *ctx,
 			  struct db *db,
 			  const char *acct_name,
+			  bool calc_sum,
 			  struct acct_balance ***balances)
 {
 	struct db_stmt *stmt;
@@ -284,6 +285,9 @@ char *account_get_balance(const tal_t *ctx,
 		}
 	}
 	tal_free(stmt);
+
+	if (!calc_sum)
+		return NULL;
 
 	for (size_t i = 0; i < tal_count(*balances); i++) {
 		struct acct_balance *bal = (*balances)[i];
@@ -953,7 +957,7 @@ finished:
 	return err;
 }
 
-void log_chain_event(struct db *db,
+bool log_chain_event(struct db *db,
 		     const struct account *acct,
 		     struct chain_event *e)
 {
@@ -962,7 +966,7 @@ void log_chain_event(struct db *db,
 	/* We're responsible for de-duping chain events! */
 	if (find_chain_event(e, db, acct,
 			     &e->outpoint, e->spending_txid))
-		return;
+		return false;
 
 	stmt = db_prepare_v2(db, SQL("INSERT INTO chain_events"
 				     " ("
@@ -980,7 +984,7 @@ void log_chain_event(struct db *db,
 				     ", spending_txid"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
 	db_bind_text(stmt, 1, e->tag);
@@ -1008,4 +1012,5 @@ void log_chain_event(struct db *db,
 	e->acct_db_id = acct->db_id;
 	e->acct_name = tal_strdup(e, acct->name);
 	tal_free(stmt);
+	return true;
 }

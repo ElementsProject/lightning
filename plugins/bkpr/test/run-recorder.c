@@ -884,7 +884,7 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	/* Add same chain event to a different account, shouldn't show */
 	log_chain_event(db, acct2, ev1);
 
-	err = account_get_balance(ctx, db, acct->name,
+	err = account_get_balance(ctx, db, acct->name, true,
 				  &balances);
 	CHECK_MSG(!err, err);
 	db_commit_transaction(db);
@@ -906,10 +906,14 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	ev1->currency = "chf";
 	log_chain_event(db, acct, ev1);
 
-	err = account_get_balance(ctx, db, acct->name,
+	err = account_get_balance(ctx, db, acct->name, true,
 				  &balances);
 	CHECK_MSG(err != NULL, "Expected err message");
 	CHECK(streq(err, "chf channel balance is negative? 5000msat - 5001msat"));
+
+	err = account_get_balance(ctx, db, acct->name, false,
+				  &balances);
+	CHECK_MSG(!err, err);
 	db_commit_transaction(db);
 
 	return true;

@@ -3,6 +3,7 @@
 BOOKKEEPER_PLUGIN_SRC := 			\
 	plugins/bkpr/account.c			\
 	plugins/bkpr/bookkeeper.c		\
+	plugins/bkpr/channel_event.c		\
 	plugins/bkpr/db.c			\
 	plugins/bkpr/recorder.c
 
