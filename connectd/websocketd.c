@@ -5,6 +5,7 @@
 #include <ccan/base64/base64.h>
 #include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
+#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
@@ -326,6 +327,7 @@ int main(int argc, char *argv[])
 		errx(1, "Usage: %s", argv[0]);
 
 	/* Do HTTP-style negotiation to get into websocket frames. */
+	io_fd_block(STDIN_FILENO, true);
 	http_upgrade(STDIN_FILENO);
 
 	pfds[0].fd = STDIN_FILENO;
