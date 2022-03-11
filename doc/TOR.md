@@ -47,6 +47,12 @@ Tor provides NAT-traversal for free, so even if you or your ISP has a complex
 network between you and the Internet, as long as you can use Tor you can
 be connected to.
 
+Note: c-lightning also support IPv4/6 address discovery behind NAT routers.
+For this to work you need to forward the TCP port 9735 to your node.
+In this case you don't need TOR to punch through your firewall.
+This usually has the benefit of quicker and more stable connections but does not
+offer additional privacy.
+
 On most Linux distributions, making a standard installation of `tor` will
 automatically set it up to have a SOCKS5 proxy at port 9050.
 As well, you have to set up the Tor Control Port.
