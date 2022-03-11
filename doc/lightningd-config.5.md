@@ -350,6 +350,10 @@ right thing: for the mainnet (bitcoin) network it will try to bind to
 port 9735 on IPv4 and IPv6, and will announce it to peers if it seems
 like a public address.
 
+c-lightning also support IPv4/6 address discovery behind NAT routers.
+If your node detects an new public address, it will update its announcement.
+For this to work you need to forward the TCP port 9735 to your node.
+
 You can instead use *addr* to override this (eg. to change the port), or
 precisely control where to bind and what to announce with the
 *bind-addr* and *announce-addr* options. These will **disable** the
