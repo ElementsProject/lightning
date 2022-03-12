@@ -292,6 +292,7 @@ static struct chain_event *make_chain_event(const tal_t *ctx,
 	ev->currency = "btc";
 	ev->timestamp = 1919191;
 	ev->blockheight = blockheight;
+	ev->ignored = false;
 	memset(&ev->outpoint.txid, outpoint_char, sizeof(struct bitcoin_txid));
 	ev->outpoint.n = outnum;
 
@@ -893,6 +894,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev1->currency = "btc";
 	ev1->timestamp = 1919191;
 	ev1->blockheight = 1919191;
+	ev1->ignored = false;
 	memset(&ev1->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
 	ev1->outpoint.n = 1;
 	ev1->spending_txid = tal(ctx, struct bitcoin_txid);
@@ -912,6 +914,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev2->currency = "btc";
 	ev2->timestamp = 1919191;
 	ev2->blockheight = 1919191;
+	ev2->ignored = false;
 	memset(&ev2->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
 	ev2->outpoint.n = 1;
 	ev2->spending_txid = NULL;
@@ -928,6 +931,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev3->currency = "btc";
 	ev3->timestamp = 3939393;
 	ev3->blockheight = 3939393;
+	ev3->ignored = false;
 	memset(&ev3->outpoint.txid, 'E', sizeof(struct bitcoin_txid));
 	ev3->outpoint.n = 1;
 	ev3->spending_txid = tal(ctx, struct bitcoin_txid);
@@ -1015,15 +1019,16 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 					 AMOUNT_MSAT(1000),
 					 1019,
 					 'A', 1, '*'));
+	ev1 = make_chain_event(ctx, "two",
+			       AMOUNT_MSAT(0), AMOUNT_MSAT(999),
+			       AMOUNT_MSAT(999),
+			       1020, 'A', 2, '*');
+
+	/* Make this an ignored event */
+	ev1->ignored = true;
 
 	/* -999btc */
-	log_chain_event(db, acct,
-			make_chain_event(ctx, "two",
-					 AMOUNT_MSAT(0),
-					 AMOUNT_MSAT(999),
-					 AMOUNT_MSAT(999),
-					 1020,
-					 'A', 2, '*'));
+	log_chain_event(db, acct, ev1);
 
 	/* -440btc */
 	log_channel_event(db, acct,
@@ -1050,7 +1055,7 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	/* Add same chain event to a different account, shouldn't show */
 	log_chain_event(db, acct2, ev1);
 
-	err = account_get_balance(ctx, db, acct->name, true,
+	err = account_get_balance(ctx, db, acct->name, true, false,
 				  &balances);
 	CHECK_MSG(!err, err);
 	db_commit_transaction(db);
@@ -1073,14 +1078,21 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	ev1->currency = "chf";
 	log_chain_event(db, acct, ev1);
 
-	err = account_get_balance(ctx, db, acct->name, true,
+	err = account_get_balance(ctx, db, acct->name, true, false,
 				  &balances);
 	CHECK_MSG(err != NULL, "Expected err message");
 	CHECK(streq(err, "chf channel balance is negative? 5000msat - 5001msat"));
 
-	err = account_get_balance(ctx, db, acct->name, false,
+	err = account_get_balance(ctx, db, acct->name, false, false,
 				  &balances);
 	CHECK_MSG(!err, err);
+
+	/* Now with ignored events */
+	err = account_get_balance(ctx, db, acct->name, true, true,
+				  &balances);
+	CHECK(streq(balances[0]->currency, "btc"));
+	CHECK(amount_msat_eq(balances[0]->balance,
+			     AMOUNT_MSAT(500 - 440 + 1000)));
 	db_commit_transaction(db);
 
 	return true;
@@ -1144,6 +1156,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	ev1->currency = "btc";
 	ev1->timestamp = 1919191;
 	ev1->blockheight = 1919191;
+	ev1->ignored = false;
 	memset(&ev1->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
 	ev1->outpoint.n = 1;
 	ev1->spending_txid = tal(ctx, struct bitcoin_txid);

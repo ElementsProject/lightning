@@ -26,6 +26,9 @@ struct chain_event {
 	/* Tag describing the event */
 	const char *tag;
 
+	/* Is the node's wallet ignoring this? */
+	bool ignored;
+
 	/* Amount we received in this event */
 	struct amount_msat credit;
 

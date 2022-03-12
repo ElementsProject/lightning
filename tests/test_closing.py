@@ -591,8 +591,8 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     if anchor_expected():
         expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -718,8 +718,8 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     if anchor_expected():
         expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -975,6 +975,10 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     # l3 cleans up their to-self after their lease expires
     assert l3.daemon.is_in_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
+
+    # We were making a journal_entry for anchors, but now we ignore them
+    incomes = l2.rpc.listincome()['income_events']
+    assert 'journal_entry' not in [x['tag'] for x in incomes]
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -1276,8 +1280,8 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     if anchor_expected():
         expected_2['B'].append(('external', ['anchor'], None, None))
         expected_3['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
-        expected_3['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_3['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
     check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
@@ -1496,8 +1500,8 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     if anchor_expected():
         expected_2['B'].append(('external', ['anchor'], None, None))
         expected_3['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
-        expected_3['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_3['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
     check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
@@ -1622,7 +1626,7 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
 
     if anchor_expected():
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     check_utxos_channel(l2, [channel_id], expected_2)
 
@@ -1743,7 +1747,7 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
 
     if anchor_expected():
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     check_utxos_channel(l2, [channel_id], expected_2)
 
@@ -2075,8 +2079,8 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     if anchor_expected():
         expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -2194,8 +2198,8 @@ def test_onchain_middleman_simple(node_factory, bitcoind):
     if anchor_expected():
         expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     chan2_id = first_channel_id(l2, l3)
     tags = check_utxos_channel(l2, [channel_id, chan2_id], expected_2)
@@ -2314,8 +2318,8 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     if anchor_expected():
         expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     chan2_id = first_channel_id(l2, l3)
     tags = check_utxos_channel(l2, [channel_id, chan2_id], expected_2)
@@ -2404,8 +2408,8 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
     if anchor_expected():
         expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
@@ -2607,8 +2611,8 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     if anchor_expected():
         expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor'], None, None))
+        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
 
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
