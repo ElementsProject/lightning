@@ -245,38 +245,38 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 
 static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 						   struct db *db,
-						   struct onchain_fee **fees TAKES)
+						   u64 start_time,
+						   u64 end_time)
 {
 	struct fee_sum **sums;
-	struct onchain_fee **updated_fees
+	struct onchain_fee **fee_sums
 		= tal_arr(ctx, struct onchain_fee *, 0);
 
 	sums = calculate_onchain_fee_sums(ctx, db);
 
 	for (size_t i = 0; i < tal_count(sums); i++) {
 		/* Find the last matching feerate's data */
-		for (size_t j = tal_count(fees); j > 0; j--) {
-			struct onchain_fee *fee;
-			if (bitcoin_txid_eq(&fees[j - 1]->txid,
-					    sums[i]->txid)
-			    && fees[j - 1]->acct_db_id == sums[i]->acct_db_id) {
-				fee = tal_steal(updated_fees, fees[j - 1]);
-				fee->credit = sums[i]->fees_paid;
-				fee->debit = AMOUNT_MSAT(0);
-				tal_arr_expand(&updated_fees, fee);
-				fees[j - 1] = NULL;
-				break;
-			}
-		}
+		struct onchain_fee *fee;
 
-		/* It's possible there weren't any fee events
-		 * for this txid in the time period we've selected */
+		if (amount_msat_zero(sums[i]->fees_paid))
+			continue;
+
+		fee = tal(fee_sums, struct onchain_fee);
+		fee->credit = sums[i]->fees_paid;
+		fee->debit = AMOUNT_MSAT(0);
+		fee->currency = tal_steal(fee, sums[i]->currency);
+		fee->acct_name = tal_steal(fee, sums[i]->acct_name);
+		fee->txid = *sums[i]->txid;
+
+		fee->timestamp =
+			onchain_fee_last_timestamp(db, sums[i]->acct_db_id,
+						   sums[i]->txid);
+
+		tal_arr_expand(&fee_sums, fee);
 	}
 
-	if (taken(fees))
-		tal_free(fees);
-
-	return updated_fees;
+	tal_free(sums);
+	return fee_sums;
 }
 
 struct income_event **list_income_events(const tal_t *ctx,
@@ -295,12 +295,15 @@ struct income_event **list_income_events(const tal_t *ctx,
 	channel_events = list_channel_events_timebox(ctx, db,
 						     start_time, end_time);
 	chain_events = list_chain_events_timebox(ctx, db, start_time, end_time);
-	onchain_fees = list_chain_fees_timebox(ctx, db, start_time, end_time);
 	accts = list_accounts(ctx, db);
 
-	if (consolidate_fees)
+	if (consolidate_fees) {
 		onchain_fees = find_consolidated_fees(ctx, db,
-						      take(onchain_fees));
+						      start_time,
+						      end_time);
+	} else
+		onchain_fees = list_chain_fees_timebox(ctx, db,
+						       start_time, end_time);
 
 	evs = tal_arr(ctx, struct income_event *, 0);
 

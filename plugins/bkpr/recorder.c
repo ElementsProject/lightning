@@ -214,12 +214,18 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 	struct db_stmt *stmt;
 	struct fee_sum **sums;
 	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  txid"
-				     ", account_id"
-				     ", SUM(credit)"
-				     ", SUM(debit)"
-				     " FROM onchain_fees"
-				     " GROUP BY txid, account_id"
+				     "  of.txid"
+				     ", of.account_id"
+				     ", a.name"
+				     ", of.currency"
+				     ", CAST(SUM(of.credit) AS BIGINT) - CAST(SUM(of.debit) AS BIGINT) as fees"
+				     " FROM onchain_fees of"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON of.account_id = a.id"
+				     " GROUP BY of.txid"
+				     ", of.account_id"
+				     ", a.name"
+				     ", of.currency"
 				     " ORDER BY txid, account_id"));
 
 	db_query_prepared(stmt);
@@ -227,23 +233,49 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 	sums = tal_arr(ctx, struct fee_sum *, 0);
 	while (db_step(stmt)) {
 		struct fee_sum *sum;
-		struct amount_msat amt;
-		bool ok;
 
 		sum = tal(sums, struct fee_sum);
 		sum->txid = tal(sum, struct bitcoin_txid);
-		db_col_txid(stmt, "txid", sum->txid);
-		sum->acct_db_id = db_col_u64(stmt, "account_id");
 
-		db_col_amount_msat(stmt, "SUM(credit)", &sum->fees_paid);
-		db_col_amount_msat(stmt, "SUM(debit)", &amt);
-		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid, amt);
-		assert(ok);
+		db_col_txid(stmt, "of.txid", sum->txid);
+		sum->acct_db_id = db_col_u64(stmt, "of.account_id");
+		sum->acct_name = db_col_strdup(sum, stmt, "a.name");
+		sum->currency = db_col_strdup(sum, stmt, "of.currency");
+		db_col_amount_msat(stmt, "fees", &sum->fees_paid);
+
 		tal_arr_expand(&sums, sum);
 	}
 
 	tal_free(stmt);
 	return sums;
+}
+
+u64 onchain_fee_last_timestamp(struct db *db,
+			       u64 acct_db_id,
+			       struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt;
+	u64 timestamp;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  timestamp"
+				     " FROM onchain_fees"
+				     " WHERE account_id = ?"
+				     " AND txid = ?"
+				     " ORDER BY timestamp DESC"));
+
+
+	db_bind_u64(stmt, 0, acct_db_id);
+	db_bind_txid(stmt, 1, txid);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt))
+		timestamp = db_col_u64(stmt, "timestamp");
+	else
+		timestamp = 0;
+
+	tal_free(stmt);
+	return timestamp;
 }
 
 struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
