@@ -105,6 +105,9 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 	mvt->outpoint = outpoint;
 	mvt->originating_acct = NULL;
 
+	/* Most chain event's don't have a peer (only channel_opens) */
+	mvt->peer_id = NULL;
+
 	/* for htlc's that are filled onchain, we also have a
 	 * preimage, NULL otherwise */
 	mvt->payment_hash = tal_dup_or_null(mvt, struct sha256, payment_hash);
@@ -195,6 +198,7 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     const struct channel_id *chan_id,
 					     const struct bitcoin_outpoint *out,
+					     const struct node_id *peer_id,
 					     u32 blockheight,
 					     const struct amount_msat amount,
 					     const struct amount_sat output_val,
@@ -207,6 +211,7 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 				 take(new_tag_arr(NULL, CHANNEL_OPEN)), amount,
 				 true, output_val, 0);
 	mvt->account_name = type_to_string(mvt, struct channel_id, chan_id);
+	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
@@ -359,6 +364,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	mvt->blockheight = chain_mvt->blockheight;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = node_id;
+	mvt->peer_id = chain_mvt->peer_id;
 
 	return mvt;
 }
@@ -391,6 +397,7 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->timestamp = timestamp;
 	mvt->version = COIN_MVT_VERSION;
 	mvt->node_id = tal_dup(mvt, struct node_id, node_id);
+	mvt->peer_id = NULL;
 
 	return mvt;
 }
@@ -432,6 +439,12 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 	towire_amount_msat(pptr, mvt->debit);
 	towire_amount_sat(pptr, mvt->output_val);
 	towire_u32(pptr, mvt->output_count);
+
+	if (mvt->peer_id) {
+		towire_bool(pptr, true);
+		towire_node_id(pptr, mvt->peer_id);
+	} else
+		towire_bool(pptr, false);
 }
 
 void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt)
@@ -475,4 +488,11 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 	mvt->debit = fromwire_amount_msat(cursor, max);
 	mvt->output_val = fromwire_amount_sat(cursor, max);
 	mvt->output_count = fromwire_u32(cursor, max);
+
+	if (fromwire_bool(cursor, max)) {
+		struct node_id peer_id;
+		fromwire_node_id(cursor, max, &peer_id);
+		mvt->peer_id = tal_dup(mvt, struct node_id, &peer_id);
+	} else
+		mvt->peer_id = NULL;
 }

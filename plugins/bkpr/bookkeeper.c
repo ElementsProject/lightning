@@ -8,6 +8,7 @@
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/memleak.h>
+#include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
 #include <errno.h>
@@ -490,6 +491,12 @@ static struct command_result *json_list_balances(struct command *cmd,
 		json_object_start(res, NULL);
 
 		json_add_string(res, "account", accts[i]->name);
+		if (accts[i]->peer_id) {
+			json_add_node_id(res, "peer_id", accts[i]->peer_id);
+			json_add_bool(res, "account_resolved",
+				      accts[i]->onchain_resolved_block > 0);
+		}
+
 		json_array_start(res, "balances");
 		for (size_t j = 0; j < tal_count(balances); j++) {
 			json_object_start(res, NULL);
@@ -550,6 +557,18 @@ static bool new_missed_channel_account(struct command *cmd,
 	assert(peer_arr_tok->type == JSMN_ARRAY);
 	/* There should only be one peer */
 	json_for_each_arr(i, curr_peer, peer_arr_tok) {
+		const char *err;
+		struct node_id peer_id;
+
+		err = json_scan(cmd, buf, curr_peer, "{id:%}",
+				JSON_SCAN(json_to_node_id, &peer_id));
+
+		if (err)
+			plugin_err(cmd->plugin,
+				   "failure scanning listpeer"
+				   " result: %s", err);
+
+		json_get_member(buf, curr_peer, "id");
 		chan_arr_tok = json_get_member(buf, curr_peer,
 					       "channels");
 		assert(chan_arr_tok->type == JSMN_ARRAY);
@@ -558,7 +577,6 @@ static bool new_missed_channel_account(struct command *cmd,
 			struct amount_msat amt, remote_amt, push_amt,
 					   push_credit, push_debit;
 			char *opener, *chan_id;
-			const char *err;
 			enum mvt_tag *tags;
 			bool ok;
 
@@ -625,7 +643,8 @@ static bool new_missed_channel_account(struct command *cmd,
 			chain_ev->credit = amt;
 			db_begin_transaction(db);
 			log_chain_event(db, acct, chain_ev);
-			maybe_update_account(db, acct, chain_ev, tags, 0);
+			maybe_update_account(db, acct, chain_ev,
+					     tags, 0, &peer_id);
 			maybe_update_onchain_fees(cmd, db, &opt.txid);
 
 			/* We won't count the close's fees if we're
@@ -1121,6 +1140,7 @@ parse_and_log_chain_move(struct command *cmd,
 	struct chain_event *e = tal(cmd, struct chain_event);
 	struct sha256 *payment_hash = tal(cmd, struct sha256);
 	struct bitcoin_txid *spending_txid = tal(cmd, struct bitcoin_txid);
+	struct node_id *peer_id;
 	struct account *acct;
 	u32 closed_count;
 	const char *err;
@@ -1181,6 +1201,17 @@ parse_and_log_chain_move(struct command *cmd,
 		err = tal_free(err);
 	}
 
+	peer_id = tal(cmd, struct node_id);
+	err = json_scan(tmpctx, buf, params,
+			"{coin_movement:"
+			"{peer_id:%}}",
+			JSON_SCAN(json_to_node_id, peer_id));
+
+	if (err) {
+		peer_id = tal_free(peer_id);
+		err = tal_free(err);
+	}
+
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:"
 			"{output_count:%}}",
@@ -1220,7 +1251,8 @@ parse_and_log_chain_move(struct command *cmd,
 
 	/* This event *might* have implications for account;
 	 * update as necessary */
-	maybe_update_account(db, acct, e, tags, closed_count);
+	maybe_update_account(db, acct, e, tags, closed_count,
+			     peer_id);
 
 	/* Can we calculate any onchain fees now? */
 	err = maybe_update_onchain_fees(cmd, db,

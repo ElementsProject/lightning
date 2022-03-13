@@ -157,6 +157,7 @@ void channel_record_open(struct channel *channel, u32 blockheight)
 	mvt = new_coin_channel_open(tmpctx,
 				    &channel->cid,
 				    &channel->funding,
+				    &channel->peer->id,
 				    blockheight,
 				    start_balance,
 				    channel->funding_sats,
