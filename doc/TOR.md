@@ -9,7 +9,7 @@ If Tor is not installed you can install it on Debian based Linux systems (Ubuntu
 ```bash
 sudo apt install tor
 ```
-then `/etc/init.d/tor start` or `sudo systemctl start tor` depending
+then `/etc/init.d/tor start` or `sudo systemctl enable --now tor` depending
 on your system configuration.
 
 Most default setting should be sufficient.
@@ -210,7 +210,7 @@ Tor service.  Both types of addresses can coexist on the same node.
 
 Save the file and restart the Tor service. In linux:
 
-`/etc/init.d/tor restart` or `sudo systemctl start tor` depending
+`/etc/init.d/tor restart` or `sudo systemctl restart tor` depending
 on the configuration of your system.
 
 You will find the newly created address (myaddress.onion) with:
