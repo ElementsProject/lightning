@@ -4710,6 +4710,7 @@ def do_test_sendinvoice(node_factory, bitcoind, disable):
     assert 'pay_index' in out
     assert out['msatoshi_received'] == 100000000
     assert out['amount_received_msat'] == Millisatoshi(100000000)
+    l1.daemon.wait_for_log('Payed out 100000000msat for offer')
 
     # Note, if we're slow, this fails with "Offer no longer available",
     # *but* if it hasn't heard about payment success yet, l2 will fail
@@ -4738,6 +4739,7 @@ def do_test_sendinvoice(node_factory, bitcoind, disable):
     l1.rpc.call('sendinvoice', {'offer': refund['bolt12'],
                                 'label': 'test sendinvoice refund'})
     wait_for(lambda: only_one(l2.rpc.call('listoffers', [refund['offer_id']])['offers'])['used'] is True)
+    l2.daemon.wait_for_log('Payed out 100msat for offer')
 
     # Offer with issuer: we must not copy issuer into our invoice!
     offer = l1.rpc.call('offerout', {'amount': '10000sat',
@@ -4759,6 +4761,11 @@ def do_test_sendinvoice(node_factory, bitcoind, disable):
     assert 'pay_index' in out
     assert out['msatoshi_received'] == 10000000
     assert out['amount_received_msat'] == Millisatoshi(10000000)
+
+    # If we shutdown l1 while the pay plugin is still attempting
+    # a route, we'll get memleak errors. Instead, let's wait til
+    # l1 says they're done.
+    l1.daemon.wait_for_log('Payed out 10000000msat for offer')
 
 
 def test_sendinvoice(node_factory, bitcoind):
