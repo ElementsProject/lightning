@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "pyln-bolt2"
-version = "1.0.1.187"
+version = "1.0.2.187.post0"
 description = "A pure python implementation of BOLT2"
-authors = ["Rusty Russell <@rustyrussell>"]
+authors = ["Rusty Russell <rusty@blockstream.com>"]
 license = "MIT"
 
 packages = [
@@ -11,9 +11,9 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.7"
-pyln-proto = {path = "../../pyln-proto"}
 
 [tool.poetry.dev-dependencies]
+pyln-proto = "^0.10.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

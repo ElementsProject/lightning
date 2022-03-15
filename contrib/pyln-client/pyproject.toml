@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-client"
-version = "0.10.2"
+version = "0.10.2.post1"
 description = "Client library and plugin library for c-lightning"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
@@ -11,8 +11,8 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.7"
-pyln-proto = { path = "../pyln-proto" }
-pyln-bolt7 = { path = "../pyln-spec/bolt7" }
+pyln-bolt7 = "^1.0.186"
+pyln-proto = "^0.10.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0.1"
