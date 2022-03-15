@@ -1,6 +1,6 @@
 # A grpc model
 from .model import ArrayField, Field, CompositeField, EnumField, PrimitiveField, Service
-from typing import TextIO, List
+from typing import TextIO, List, Dict, Any
 from textwrap import indent, dedent
 import re
 import logging
@@ -44,15 +44,66 @@ class GrpcGenerator:
     """A generator that generates protobuf files.
     """
 
-    def __init__(self, dest: TextIO):
+    def __init__(self, dest: TextIO, meta: Dict[str, Any]):
         self.dest = dest
         self.logger = logging.getLogger("msggen.grpc.GrpcGenerator")
+        self.meta = meta
 
     def write(self, text: str, cleanup: bool = True) -> None:
         if cleanup:
             self.dest.write(dedent(text))
         else:
             self.dest.write(text)
+
+    def field2number(self, field):
+        m = self.meta['grpc-field-map']
+        # Simple case first: if we've already assigned a number let's reuse that
+        if field.path in m:
+            return m[field.path]
+
+        # Now let's find the highest number we have in the parent
+        # context
+        parent = '.'.join(field.path.split('.')[:-1])
+        maxnum = 0
+        for k, v in m.items():
+            parent2 = '.'.join(k.split('.')[:-1])
+            if parent2 == parent:
+                maxnum = max(maxnum, v)
+
+        self.meta['grpc-field-map'][field.path] = maxnum + 1
+        self.logger.warn(f"Assigning new field number to {field.path} => {m[field.path]}")
+
+        return self.meta['grpc-field-map'][field.path]
+
+    def enumerate_fields(self, fields):
+        """Use the meta map to identify which number this field will get.
+        """
+        for f in fields:
+            yield (self.field2number(f), f)
+
+    def enumvar2number(self, typename, variant):
+        """Find an existing variant number of generate a new one.
+
+        If we don't have a variant number yet we'll just take the
+        largest one assigned so far and increment it by 1.  """
+        m = self.meta['grpc-enum-map']
+        variant = str(variant)
+        if typename not in m:
+            m[typename] = {}
+
+        variants = m[typename]
+        if variant in variants:
+            return variants[variant]
+
+        # Now find the maximum and increment once
+        n = max(variants.values()) if len(variants) else -1
+
+        m[typename][variant] = n + 1
+        return m[typename][variant]
+
+    def enumerate_enum(self, typename, variants):
+        for v in variants:
+            yield (self.enumvar2number(typename, v), v)
 
     def gather_types(self, service):
         """Gather all types that might need to be defined.
@@ -100,7 +151,7 @@ class GrpcGenerator:
         self.write(f"{prefix}// {e.path}\n", False)
         self.write(f"{prefix}enum {e.typename} {{\n", False)
 
-        for i, v in enumerate(e.variants):
+        for i, v in self.enumerate_enum(e.typename, e.variants):
             self.logger.debug(f"Generating enum variant {v}")
             self.write(f"{prefix}\t{v.normalized()} = {i};\n", False)
 
@@ -115,11 +166,11 @@ class GrpcGenerator:
         """)
 
         # Declare enums inline so they are scoped correctly in C++
-        for i, f in enumerate(message.fields):
+        for _, f in enumerate(message.fields):
             if isinstance(f, EnumField) and f.path not in overrides.keys():
                 self.generate_enum(f, indent=1)
 
-        for i, f in enumerate(message.fields):
+        for i, f in self.enumerate_fields(message.fields):
             if overrides.get(f.path, "") is None:
                 continue
 
@@ -128,17 +179,17 @@ class GrpcGenerator:
                 typename = typemap.get(f.itemtype.typename, f.itemtype.typename)
                 if f.path in overrides:
                     typename = overrides[f.path]
-                self.write(f"\trepeated {typename} {f.normalized()} = {i+1};\n", False)
+                self.write(f"\trepeated {typename} {f.normalized()} = {i};\n", False)
             elif isinstance(f, PrimitiveField):
                 typename = typemap.get(f.typename, f.typename)
                 if f.path in overrides:
                     typename = overrides[f.path]
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i+1};\n", False)
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
             elif isinstance(f, EnumField):
                 typename = f.typename
                 if f.path in overrides:
                     typename = overrides[f.path]
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i+1};\n", False)
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
 
         self.write(f"""}}
         """)

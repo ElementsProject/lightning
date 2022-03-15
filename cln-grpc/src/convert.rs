@@ -110,6 +110,7 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             short_channel_id: c.short_channel_id.clone(),
             channel_id: c.channel_id.as_ref().map(|v| hex::decode(&v).unwrap()),
             funding_txid: c.funding_txid.as_ref().map(|v| hex::decode(&v).unwrap()),
+            funding_outnum: c.funding_outnum.clone(),
             initial_feerate: c.initial_feerate.clone(),
             last_feerate: c.last_feerate.clone(),
             next_feerate: c.next_feerate.clone(),
@@ -222,6 +223,7 @@ impl From<&responses::ListchannelsChannels> for pb::ListchannelsChannels {
         Self {
             source: hex::decode(&c.source).unwrap(),
             destination: hex::decode(&c.destination).unwrap(),
+            short_channel_id: c.short_channel_id.clone(),
             public: c.public.clone(),
             amount_msat: Some(c.amount_msat.into()),
             message_flags: c.message_flags.into(),

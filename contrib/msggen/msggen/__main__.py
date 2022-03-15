@@ -126,12 +126,12 @@ def load_jsonrpc_service():
     return service
 
 
-def gengrpc(service):
+def gengrpc(service, meta):
     """Load all mapped RPC methods, wrap them in a Service, and split them into messages.
     """
     fname = repo_root() / "cln-grpc" / "proto" / "node.proto"
     dest = open(fname, "w")
-    GrpcGenerator(dest).generate(service)
+    GrpcGenerator(dest, meta).generate(service)
 
     fname = repo_root() / "cln-grpc" / "src" / "convert.rs"
     dest = open(fname, "w")
@@ -149,10 +149,22 @@ def genrustjsonrpc(service):
     RustGenerator(dest).generate(service)
 
 
+def load_msggen_meta():
+    meta = json.load(open('.msggen.json', 'r'))
+    return meta
+
+
+def write_msggen_meta(meta):
+    with open('.msggen.json', 'w') as f:
+        json.dump(meta, f, sort_keys=True, indent=4)
+
+
 def run():
     service = load_jsonrpc_service()
-    gengrpc(service)
+    meta = load_msggen_meta()
+    gengrpc(service, meta)
     genrustjsonrpc(service)
+    write_msggen_meta(meta)
 
 
 if __name__ == "__main__":

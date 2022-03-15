@@ -31,13 +31,20 @@ message GetinfoResponse {
 	uint32 num_inactive_channels = 7;
 	string version = 8;
 	string lightning_dir = 9;
-	uint32 blockheight = 10;
-	string network = 11;
-	Amount fees_collected_msat = 12;
-	repeated GetinfoAddress address = 13;
-	repeated GetinfoBinding binding = 14;
-	optional string warning_bitcoind_sync = 15;
-	optional string warning_lightningd_sync = 16;
+	uint32 blockheight = 11;
+	string network = 12;
+	Amount fees_collected_msat = 13;
+	repeated GetinfoAddress address = 14;
+	repeated GetinfoBinding binding = 15;
+	optional string warning_bitcoind_sync = 16;
+	optional string warning_lightningd_sync = 17;
+}
+
+message GetinfoOur_features {
+	bytes init = 1;
+	bytes node = 2;
+	bytes channel = 3;
+	bytes invoice = 4;
 }
 
 message GetinfoAddress {
@@ -76,7 +83,7 @@ message ListpeersRequest {
 }
 
 message ListpeersResponse {
-	repeated ListpeersPeers peers = 1;
+	repeated ListpeersPeers peers = 3;
 }
 
 message ListpeersPeers {
@@ -129,43 +136,44 @@ message ListpeersPeersChannels {
 	optional string short_channel_id = 5;
 	optional bytes channel_id = 6;
 	optional bytes funding_txid = 7;
-	optional string initial_feerate = 8;
-	optional string last_feerate = 9;
-	optional string next_feerate = 10;
-	optional uint32 next_fee_step = 11;
-	repeated ListpeersPeersChannelsInflight inflight = 12;
-	optional bytes close_to = 13;
-	optional bool private = 14;
-	ChannelSide opener = 15;
-	optional ChannelSide closer = 16;
-	repeated string features = 17;
-	optional Amount to_us_msat = 19;
-	optional Amount min_to_us_msat = 20;
-	optional Amount max_to_us_msat = 21;
-	optional Amount total_msat = 22;
-	optional Amount fee_base_msat = 23;
-	optional uint32 fee_proportional_millionths = 24;
-	optional Amount dust_limit_msat = 25;
-	optional Amount max_total_htlc_in_msat = 26;
-	optional Amount their_reserve_msat = 27;
-	optional Amount our_reserve_msat = 28;
-	optional Amount spendable_msat = 29;
-	optional Amount receivable_msat = 30;
-	optional Amount minimum_htlc_in_msat = 31;
-	optional uint32 their_to_self_delay = 32;
-	optional uint32 our_to_self_delay = 33;
-	optional uint32 max_accepted_htlcs = 34;
-	repeated string status = 36;
-	optional uint64 in_payments_offered = 37;
-	optional Amount in_offered_msat = 38;
-	optional uint64 in_payments_fulfilled = 39;
-	optional Amount in_fulfilled_msat = 40;
-	optional uint64 out_payments_offered = 41;
-	optional Amount out_offered_msat = 42;
-	optional uint64 out_payments_fulfilled = 43;
-	optional Amount out_fulfilled_msat = 44;
-	repeated ListpeersPeersChannelsHtlcs htlcs = 45;
-	optional string close_to_addr = 46;
+	optional uint32 funding_outnum = 8;
+	optional string initial_feerate = 9;
+	optional string last_feerate = 10;
+	optional string next_feerate = 11;
+	optional uint32 next_fee_step = 12;
+	repeated ListpeersPeersChannelsInflight inflight = 13;
+	optional bytes close_to = 14;
+	optional bool private = 15;
+	ChannelSide opener = 16;
+	optional ChannelSide closer = 17;
+	repeated string features = 18;
+	optional Amount to_us_msat = 20;
+	optional Amount min_to_us_msat = 21;
+	optional Amount max_to_us_msat = 22;
+	optional Amount total_msat = 23;
+	optional Amount fee_base_msat = 24;
+	optional uint32 fee_proportional_millionths = 25;
+	optional Amount dust_limit_msat = 26;
+	optional Amount max_total_htlc_in_msat = 27;
+	optional Amount their_reserve_msat = 28;
+	optional Amount our_reserve_msat = 29;
+	optional Amount spendable_msat = 30;
+	optional Amount receivable_msat = 31;
+	optional Amount minimum_htlc_in_msat = 32;
+	optional uint32 their_to_self_delay = 33;
+	optional uint32 our_to_self_delay = 34;
+	optional uint32 max_accepted_htlcs = 35;
+	repeated string status = 37;
+	optional uint64 in_payments_offered = 38;
+	optional Amount in_offered_msat = 39;
+	optional uint64 in_payments_fulfilled = 40;
+	optional Amount in_fulfilled_msat = 41;
+	optional uint64 out_payments_offered = 42;
+	optional Amount out_offered_msat = 43;
+	optional uint64 out_payments_fulfilled = 44;
+	optional Amount out_fulfilled_msat = 45;
+	repeated ListpeersPeersChannelsHtlcs htlcs = 46;
+	optional string close_to_addr = 47;
 }
 
 message ListpeersPeersChannelsFeerate {
@@ -185,6 +193,7 @@ message ListpeersPeersChannelsInflight {
 message ListpeersPeersChannelsFunding {
 	Amount local_msat = 1;
 	Amount remote_msat = 2;
+	Amount pushed_msat = 3;
 }
 
 message ListpeersPeersChannelsHtlcs {
@@ -221,8 +230,8 @@ message ListfundsRequest {
 }
 
 message ListfundsResponse {
-	repeated ListfundsOutputs outputs = 1;
-	repeated ListfundsChannels channels = 2;
+	repeated ListfundsOutputs outputs = 2;
+	repeated ListfundsChannels channels = 3;
 }
 
 message ListfundsOutputs {
@@ -260,24 +269,25 @@ message ListchannelsRequest {
 }
 
 message ListchannelsResponse {
-	repeated ListchannelsChannels channels = 1;
+	repeated ListchannelsChannels channels = 4;
 }
 
 message ListchannelsChannels {
 	bytes source = 1;
 	bytes destination = 2;
-	bool public = 3;
-	Amount amount_msat = 4;
-	uint32 message_flags = 5;
-	uint32 channel_flags = 6;
-	bool active = 7;
-	uint32 last_update = 8;
-	uint32 base_fee_millisatoshi = 9;
-	uint32 fee_per_millionth = 10;
-	uint32 delay = 11;
-	Amount htlc_minimum_msat = 12;
-	optional Amount htlc_maximum_msat = 13;
-	bytes features = 14;
+	string short_channel_id = 3;
+	bool public = 4;
+	Amount amount_msat = 5;
+	uint32 message_flags = 6;
+	uint32 channel_flags = 7;
+	bool active = 8;
+	uint32 last_update = 9;
+	uint32 base_fee_millisatoshi = 10;
+	uint32 fee_per_millionth = 11;
+	uint32 delay = 12;
+	Amount htlc_minimum_msat = 13;
+	optional Amount htlc_maximum_msat = 14;
+	bytes features = 15;
 }
 
 message AddgossipRequest {
@@ -293,9 +303,9 @@ message AutocleaninvoiceRequest {
 }
 
 message AutocleaninvoiceResponse {
-	bool enabled = 1;
-	optional uint64 expired_by = 2;
-	optional uint64 cycle_seconds = 3;
+	bool enabled = 3;
+	optional uint64 expired_by = 1;
+	optional uint64 cycle_seconds = 2;
 }
 
 message CheckmessageRequest {
@@ -305,8 +315,8 @@ message CheckmessageRequest {
 }
 
 message CheckmessageResponse {
-	bool verified = 1;
-	optional bytes pubkey = 2;
+	bool verified = 4;
+	optional bytes pubkey = 3;
 }
 
 message CloseRequest {
@@ -325,7 +335,7 @@ message CloseResponse {
 		UNILATERAL = 1;
 		UNOPENED = 2;
 	}
-	CloseType item_type = 1;
-	optional bytes tx = 2;
-	optional bytes txid = 3;
+	CloseType item_type = 7;
+	optional bytes tx = 8;
+	optional bytes txid = 9;
 }
