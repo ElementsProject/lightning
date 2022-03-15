@@ -123,6 +123,18 @@ pub mod responses {
     #[allow(unused_imports)]
     use serde::{{Deserialize, Serialize}};
 
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GetinfoOur_features {
+	    #[serde(alias = "init")]
+	    pub init: String,
+	    #[serde(alias = "node")]
+	    pub node: String,
+	    #[serde(alias = "channel")]
+	    pub channel: String,
+	    #[serde(alias = "invoice")]
+	    pub invoice: String,
+	}
+
 	/// Type of connection
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 	#[serde(rename_all = "lowercase")]
@@ -345,6 +357,8 @@ pub mod responses {
 	    pub local_msat: Amount,
 	    #[serde(alias = "remote_msat")]
 	    pub remote_msat: Amount,
+	    #[serde(alias = "pushed_msat")]
+	    pub pushed_msat: Amount,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -453,6 +467,8 @@ pub mod responses {
 	    pub channel_id: Option<String>,
 	    #[serde(alias = "funding_txid", skip_serializing_if = "Option::is_none")]
 	    pub funding_txid: Option<String>,
+	    #[serde(alias = "funding_outnum", skip_serializing_if = "Option::is_none")]
+	    pub funding_outnum: Option<u32>,
 	    #[serde(alias = "initial_feerate", skip_serializing_if = "Option::is_none")]
 	    pub initial_feerate: Option<String>,
 	    #[serde(alias = "last_feerate", skip_serializing_if = "Option::is_none")]
@@ -461,7 +477,7 @@ pub mod responses {
 	    pub next_feerate: Option<String>,
 	    #[serde(alias = "next_fee_step", skip_serializing_if = "Option::is_none")]
 	    pub next_fee_step: Option<u32>,
-	    #[serde(alias = "inflight[]")]
+	    #[serde(alias = "inflight")]
 	    pub inflight: Vec<ListpeersPeersChannelsInflight>,
 	    #[serde(alias = "close_to", skip_serializing_if = "Option::is_none")]
 	    pub close_to: Option<String>,
@@ -471,7 +487,7 @@ pub mod responses {
 	    #[serde(rename = "opener")]
 	    pub opener: ChannelSide,
 	    pub closer: Option<ChannelSide>,
-	    #[serde(alias = "features[]")]
+	    #[serde(alias = "features")]
 	    pub features: Vec<String>,
 	    #[serde(alias = "to_us_msat", skip_serializing_if = "Option::is_none")]
 	    pub to_us_msat: Option<Amount>,
@@ -505,9 +521,9 @@ pub mod responses {
 	    pub our_to_self_delay: Option<u32>,
 	    #[serde(alias = "max_accepted_htlcs", skip_serializing_if = "Option::is_none")]
 	    pub max_accepted_htlcs: Option<u32>,
-	    #[serde(alias = "state_changes[]")]
+	    #[serde(alias = "state_changes")]
 	    pub state_changes: Vec<ListpeersPeersChannelsState_changes>,
-	    #[serde(alias = "status[]")]
+	    #[serde(alias = "status")]
 	    pub status: Vec<String>,
 	    #[serde(alias = "in_payments_offered", skip_serializing_if = "Option::is_none")]
 	    pub in_payments_offered: Option<u64>,
@@ -525,7 +541,7 @@ pub mod responses {
 	    pub out_payments_fulfilled: Option<u64>,
 	    #[serde(alias = "out_fulfilled_msat", skip_serializing_if = "Option::is_none")]
 	    pub out_fulfilled_msat: Option<Amount>,
-	    #[serde(alias = "htlcs[]")]
+	    #[serde(alias = "htlcs")]
 	    pub htlcs: Vec<ListpeersPeersChannelsHtlcs>,
 	    #[serde(alias = "close_to_addr", skip_serializing_if = "Option::is_none")]
 	    pub close_to_addr: Option<String>,
@@ -537,11 +553,11 @@ pub mod responses {
 	    pub id: String,
 	    #[serde(alias = "connected")]
 	    pub connected: bool,
-	    #[serde(alias = "log[]")]
+	    #[serde(alias = "log")]
 	    pub log: Vec<ListpeersPeersLog>,
-	    #[serde(alias = "channels[]")]
+	    #[serde(alias = "channels")]
 	    pub channels: Vec<ListpeersPeersChannels>,
-	    #[serde(alias = "netaddr[]")]
+	    #[serde(alias = "netaddr")]
 	    pub netaddr: Vec<String>,
 	    #[serde(alias = "features", skip_serializing_if = "Option::is_none")]
 	    pub features: Option<String>,
@@ -549,7 +565,7 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersResponse {
-	    #[serde(alias = "peers[]")]
+	    #[serde(alias = "peers")]
 	    pub peers: Vec<ListpeersPeers>,
 	}
 
@@ -628,6 +644,8 @@ pub mod responses {
 	    pub source: String,
 	    #[serde(alias = "destination")]
 	    pub destination: String,
+	    #[serde(alias = "short_channel_id")]
+	    pub short_channel_id: String,
 	    #[serde(alias = "public")]
 	    pub public: bool,
 	    #[serde(alias = "amount_msat")]
