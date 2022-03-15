@@ -1,6 +1,5 @@
 use anyhow::Context;
 use cln_rpc::{model::GetinfoRequest, ClnRpc, Request};
-use log::info;
 use std::env::args;
 use std::path::Path;
 use tokio;

@@ -5,7 +5,6 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use cln_rpc::model::requests;
 use log::debug;
-use crate::convert::*;
 use tonic::{Code, Status};
 
 #[derive(Clone)]
