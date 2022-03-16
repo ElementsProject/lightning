@@ -2104,6 +2104,7 @@ def test_3847_repro(node_factory, bitcoind):
     l1.rpc.paystatus(i1)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "trouble managing remotesigner when node killed this way")
 def test_important_plugin(node_factory):
     # Cache it here.
     pluginsdir = os.path.join(os.path.dirname(__file__), "plugins")
