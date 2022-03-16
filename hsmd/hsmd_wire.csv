@@ -138,6 +138,21 @@ msgdata,hsmd_sign_commitment_tx,commit_num,u64,
 msgtype,hsmd_sign_commitment_tx_reply,105
 msgdata,hsmd_sign_commitment_tx_reply,sig,bitcoin_signature,
 
+# Validate the counterparty's commitment signatures.
+msgtype,hsmd_validate_commitment_tx,35
+msgdata,hsmd_validate_commitment_tx,tx,bitcoin_tx,
+msgdata,hsmd_validate_commitment_tx,num_htlcs,u16,
+msgdata,hsmd_validate_commitment_tx,htlcs,simple_htlc,num_htlcs
+msgdata,hsmd_validate_commitment_tx,commit_num,u64,
+msgdata,hsmd_validate_commitment_tx,feerate,u32,
+msgdata,hsmd_validate_commitment_tx,sig,bitcoin_signature,
+msgdata,hsmd_validate_commitment_tx,num_htlc_sigs,u16,
+msgdata,hsmd_validate_commitment_tx,htlc_sigs,bitcoin_signature,num_htlc_sigs
+
+msgtype,hsmd_validate_commitment_tx_reply,135
+msgdata,hsmd_validate_commitment_tx_reply,old_commitment_secret,?secret,
+msgdata,hsmd_validate_commitment_tx_reply,next_per_commitment_point,pubkey,
+
 # Vaidate the counterparty's revocation secret
 msgtype,hsmd_validate_revocation,36
 msgdata,hsmd_validate_revocation,revoke_num,u64,

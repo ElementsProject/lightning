@@ -701,6 +701,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 		goto fail;
 	}
 
+	validate_initial_commitment_signature(HSM_FD, *tx, sig);
+
 	if (!check_tx_sig(*tx, 0, NULL, wscript, &state->their_funding_pubkey, sig)) {
 		peer_failed_err(state->pps, &state->channel_id,
 				"Bad signature %s on tx %s using key %s (channel_type=%s)",
@@ -1132,6 +1134,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				   "Could not meet our fees and reserve: %s", err_reason);
 		return NULL;
 	}
+
+	validate_initial_commitment_signature(HSM_FD, local_commit, &theirsig);
 
 	if (!check_tx_sig(local_commit, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {

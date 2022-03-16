@@ -4,6 +4,8 @@
 #include "config.h"
 
 struct amount_sat;
+struct bitcoin_tx;
+struct bitcoin_signature;
 struct channel_config;
 
 
@@ -21,4 +23,8 @@ bool check_config_bounds(const tal_t *ctx,
 u8 *no_upfront_shutdown_script(const tal_t *ctx,
 			       struct feature_set *our_features,
 			       const u8 *their_features);
+
+void validate_initial_commitment_signature(int hsm_fd,
+					   struct bitcoin_tx *tx,
+					   struct bitcoin_signature *sig);
 #endif /* LIGHTNING_OPENINGD_COMMON_H */

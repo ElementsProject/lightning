@@ -31,7 +31,6 @@ HSMD_COMMON_OBJS :=				\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
-	common/status_wiregen.o			\
 	common/hash_u5.o			\
 	common/hsm_encryption.o			\
 	common/htlc_wire.o			\
@@ -47,6 +46,7 @@ HSMD_COMMON_OBJS :=				\
 	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\
+	common/status_wiregen.o			\
 	common/subdaemon.o			\
 	common/type_to_string.o			\
 	common/utils.o				\

@@ -994,22 +994,12 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 	return reply;
 }
 
-/* Returns HTLC sigs, sets commit_sig */
-static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
-						  const struct peer *peer,
-						  struct bitcoin_tx **txs,
-						  const u8 *funding_wscript,
-						  const struct htlc **htlc_map,
-						  u64 commit_index,
-						  struct bitcoin_signature *commit_sig)
+/* Collect the htlcs for call to hsmd. */
+static struct simple_htlc **collect_htlcs(const tal_t *ctx, const struct htlc **htlc_map)
 {
-	size_t i;
-	struct pubkey local_htlckey;
-	const u8 *msg;
-	struct bitcoin_signature *htlc_sigs;
+	struct simple_htlc **htlcs;
 
-	/* Collect the htlcs for call to hsmd. */
-	struct simple_htlc **htlcs = tal_arr(tmpctx, struct simple_htlc *, 0);
+	htlcs = tal_arr(ctx, struct simple_htlc *, 0);
 	size_t num_entries = tal_count(htlc_map);
 	for (size_t ndx = 0; ndx < num_entries; ++ndx) {
 		struct htlc const *hh = htlc_map[ndx];
@@ -1023,7 +1013,25 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 			tal_arr_expand(&htlcs, simple);
 		}
 	}
+	return htlcs;
+}
 
+/* Returns HTLC sigs, sets commit_sig */
+static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
+						  const struct peer *peer,
+						  struct bitcoin_tx **txs,
+						  const u8 *funding_wscript,
+						  const struct htlc **htlc_map,
+						  u64 commit_index,
+						  struct bitcoin_signature *commit_sig)
+{
+	struct simple_htlc **htlcs;
+	size_t i;
+	struct pubkey local_htlckey;
+	const u8 *msg;
+	struct bitcoin_signature *htlc_sigs;
+
+	htlcs = collect_htlcs(tmpctx, htlc_map);
 	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
 						   &peer->remote_per_commit,
@@ -1442,6 +1450,17 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
 				     point);
 }
 
+static u8 *make_revocation_msg_from_secret(const struct peer *peer,
+					   u64 revoke_index,
+					   struct pubkey *point,
+					   const struct secret *old_commit_secret,
+					   const struct pubkey *next_point)
+{
+	*point = *next_point;
+	return towire_revoke_and_ack(peer, &peer->channel_id,
+				     old_commit_secret, next_point);
+}
+
 /* Convert changed htlcs into parts which lightningd expects. */
 static void marshall_htlc_info(const tal_t *ctx,
 			       const struct htlc **changed_htlcs,
@@ -1501,12 +1520,15 @@ static void send_revocation(struct peer *peer,
 			    const struct bitcoin_signature *commit_sig,
 			    const struct bitcoin_signature *htlc_sigs,
 			    const struct htlc **changed_htlcs,
-			    const struct bitcoin_tx *committx)
+			    const struct bitcoin_tx *committx,
+			    const struct secret *old_secret,
+			    const struct pubkey *next_point)
 {
 	struct changed_htlc *changed;
 	struct fulfilled_htlc *fulfilled;
 	const struct failed_htlc **failed;
 	struct added_htlc *added;
+	const u8 *msg;
 	const u8 *msg_for_master;
 
 	/* Marshall it now before channel_sending_revoke_and_ack changes htlcs */
@@ -1519,8 +1541,9 @@ static void send_revocation(struct peer *peer,
 			   &added);
 
 	/* Revoke previous commit, get new point. */
-	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-1,
-				      &peer->next_local_per_commit);
+	msg = make_revocation_msg_from_secret(peer, peer->next_index[LOCAL]-1,
+					      &peer->next_local_per_commit,
+					      old_secret, next_point);
 
 	/* From now on we apply changes to the next commitment */
 	peer->next_index[LOCAL]++;
@@ -1564,6 +1587,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	const struct htlc **htlc_map, **changed_htlcs;
 	const u8 *funding_wscript;
 	size_t i;
+	struct simple_htlc **htlcs;
+	const u8 * msg2;
 
 	changed_htlcs = tal_arr(msg, const struct htlc *, 0);
 	if (!channel_rcvd_commit(peer->channel, &changed_htlcs)) {
@@ -1685,8 +1710,26 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	status_debug("Received commit_sig with %zu htlc sigs",
 		     tal_count(htlc_sigs));
 
-	send_revocation(peer,
-			&commit_sig, htlc_sigs, changed_htlcs, txs[0]);
+	/* Validate the counterparty's signatures, returns prior per_commitment_secret. */
+	htlcs = collect_htlcs(NULL, htlc_map);
+	msg2 = towire_hsmd_validate_commitment_tx(NULL,
+						  txs[0],
+						  (const struct simple_htlc **) htlcs,
+						  peer->next_index[LOCAL],
+						  channel_feerate(peer->channel, LOCAL),
+						  &commit_sig,
+						  htlc_sigs);
+	tal_free(htlcs);
+	msg2 = hsm_req(tmpctx, take(msg2));
+	struct secret *old_secret;
+	struct pubkey next_point;
+	if (!fromwire_hsmd_validate_commitment_tx_reply(tmpctx, msg2, &old_secret, &next_point))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading validate_commitment_tx reply: %s",
+			      tal_hex(tmpctx, msg2));
+
+	send_revocation(peer, &commit_sig, htlc_sigs, changed_htlcs, txs[0],
+			old_secret, &next_point);
 
 	/* We may now be quiescent on our side. */
 	maybe_send_stfu(peer);
