@@ -1,0 +1,23 @@
+#!/usr/bin/sh
+
+echo "accepts log w/ failures on stdin"
+
+TESTS=`awk '/^FAILED tests/ {print $2}'`
+
+# scale the parallelism to number of processors
+NPROC=$(nproc)
+TPAR=$((NPROC * 2))
+
+PYTHONPATH=\
+$PWD/contrib/pyln-client:\
+$PWD/contrib/pyln-testing:\
+$PWD/contrib/pyln-proto \
+TEST_DEBUG=1 \
+DEVELOPER=1 \
+VALGRIND=0 \
+SUBDAEMON='hsmd:remote_hsmd' \
+REMOTE_SIGNER_CMD=$(pwd)/../validating-lightning-signer/target/debug/vlsd \
+REMOTE_SIGNER_ALLOWLIST=$(pwd)/contrib/remote_hsmd/TESTING_ALLOWLIST \
+pytest \
+$TESTS \
+-n=$TPAR --timeout=300 --timeout_method=thread -v

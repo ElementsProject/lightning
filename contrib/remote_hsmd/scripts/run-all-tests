@@ -1,0 +1,17 @@
+#!/usr/bin/sh
+
+# scale the parallelism to number of processors
+JPAR=$(nproc)
+TPAR=$((JPAR * 2))
+
+SUBDAEMON='hsmd:remote_hsmd' \
+REMOTE_SIGNER_CMD=$(pwd)/../validating-lightning-signer/target/debug/vlsd \
+REMOTE_SIGNER_ALLOWLIST=$(pwd)/contrib/remote_hsmd/TESTING_ALLOWLIST \
+make \
+-j$JPAR PYTEST_PAR=$TPAR \
+DEVELOPER=1 \
+VALGRIND=0 \
+SLOW_MACHINE=0 \
+PYTEST_MOREOPTS='--timeout=300 --timeout_method=thread' \
+pytest
+

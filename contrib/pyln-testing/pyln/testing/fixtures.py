@@ -92,7 +92,7 @@ def directory(request, test_base_dir, test_name):
     outcome = 'passed' if rep_call is None else rep_call.outcome
     failed = not outcome or request.node.has_errors or outcome != 'passed'
 
-    if not failed:
+    if not failed and not bool(int(os.getenv('TEST_KEEPDIR', '0'))):
         try:
             shutil.rmtree(directory)
         except OSError:

@@ -1,0 +1,10 @@
+#!/usr/bin/sh
+
+rm -rf /tmp/ltests-*
+rm -rf /tmp/lnpt-cl-*
+rm -rf /tmp/tmp*
+rm -rf /tmp/.tmp*
+rm -rf /tmp/vgdb-pipe-*
+rm -rf /tmp/git-difftool.*
+killall bitcoind
+killall vlsd

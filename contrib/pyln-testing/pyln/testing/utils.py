@@ -81,6 +81,7 @@ TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
 SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
 DEPRECATED_APIS = env("DEPRECATED_APIS", "0") == "1"
 TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
+SUBDAEMON = env("SUBDAEMON", "")
 EXPERIMENTAL_DUAL_FUND = env("EXPERIMENTAL_DUAL_FUND", "0") == "1"
 
 
@@ -560,6 +561,40 @@ class ElementsD(BitcoinD):
         return info['unconfidential']
 
 
+class ValidatingLightningSignerD(TailableProc):
+    def __init__(self, vlsd_dir, vlsd_port):
+        TailableProc.__init__(self, vlsd_dir)
+        self.executable = env("REMOTE_SIGNER_CMD", 'vlsd')
+        self.opts = [
+            '--log-level-console=DEBUG',
+            '--log-level-disk=DEBUG',
+            '--network={}'.format(TEST_NETWORK),
+            '--datadir={}'.format(vlsd_dir),
+            '--port={}'.format(vlsd_port),
+            '--initial-allowlist-file={}'.format(env('REMOTE_SIGNER_ALLOWLIST',
+                                                     'contrib/remote_hsmd/TESTING_ALLOWLIST')),
+        ]
+        self.prefix = 'vlsd'
+        self.vlsd_port = vlsd_port
+
+    @property
+    def cmd_line(self):
+        return [self.executable] + self.opts
+
+    def start(self, stdin=None, stdout=None, stderr=None,
+              wait_for_initialized=True):
+        TailableProc.start(self, stdin, stdout, stderr)
+        # We need to always wait for initialization
+        self.wait_for_log("vlsd [0-9]* ready on .*:{}".format(self.vlsd_port))
+        logging.info("vlsd started")
+
+    def stop(self, timeout=10):
+        logging.info("stopping vlsd")
+        rc = TailableProc.stop(self, timeout)
+        logging.info("vlsd stopped")
+        return rc
+
+
 class LightningD(TailableProc):
     def __init__(
             self,
@@ -577,6 +612,9 @@ class LightningD(TailableProc):
         self.port = port
         self.cmd_prefix = []
         self.disconnect_file = None
+        self.lightning_dir = lightning_dir
+        self.use_vlsd = False;
+        self.vlsd_dir = os.path.join(lightning_dir, "vlsd")
 
         self.rpcproxy = bitcoindproxy
         self.env['CLN_PLUGIN_LOG'] = "gl_plugin=trace,gl_rpc=trace,gl_grpc=trace,debug"
@@ -599,11 +637,20 @@ class LightningD(TailableProc):
         if grpc_port is not None:
             opts['grpc-port'] = grpc_port
 
+        if SUBDAEMON:
+            opts['subdaemon'] = SUBDAEMON
+            if SUBDAEMON == 'hsmd:remote_hsmd':
+                self.use_vlsd = True
+                
         for k, v in opts.items():
             self.opts[k] = v
 
         if not os.path.exists(os.path.join(lightning_dir, TEST_NETWORK)):
             os.makedirs(os.path.join(lightning_dir, TEST_NETWORK))
+
+        if self.use_vlsd:
+            if not os.path.exists(self.vlsd_dir):
+                os.makedirs(self.vlsd_dir)
 
         # Last 32-bytes of final part of dir -> seed.
         seed = (bytes(re.search('([^/]+)/*$', lightning_dir).group(1), encoding='utf-8') + bytes(32))[:32]
@@ -621,6 +668,11 @@ class LightningD(TailableProc):
         self.early_opts = []
 
     def cleanup(self):
+        if self.use_vlsd:
+            if self.use_vlsd:
+                # Make sure the remotesigner is shutdown
+                self.vlsd.stop()
+
         # To force blackhole to exit, disconnect file must be truncated!
         if self.disconnect_file:
             with open(self.disconnect_file, "w") as f:
@@ -642,11 +694,38 @@ class LightningD(TailableProc):
         return self.cmd_prefix + [self.executable] + self.early_opts + opts
 
     def start(self, stdin=None, wait_for_initialized=True, stderr_redir=False):
-        self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
-        TailableProc.start(self, stdin, stdout_redir=False, stderr_redir=stderr_redir)
-        if wait_for_initialized:
-            self.wait_for_log("Server started with public key")
-        logging.info("LightningD started")
+        try:
+            if self.use_vlsd:
+                # Start the remote signer first
+                vlsd_port = reserve()
+                self.vlsd = ValidatingLightningSignerD(self.vlsd_dir, vlsd_port)
+                self.vlsd.start(stdin, stdout, stderr, wait_for_initialized)
+
+                # We can't do this in the constructor because we need a new port on each restart.
+                self.env['REMOTE_HSMD_ENDPOINT'] = '127.0.0.1:{}'.format(vlsd_port)
+
+            self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
+            TailableProc.start(self, stdin, stdout_redir=False, stderr_redir=stderr_redir)
+            if wait_for_initialized:
+                self.wait_for_log("Server started with public key")
+            logging.info("LightningD started")
+        except Exception:
+            if self.use_vlsd:
+                # LightningD didn't start, stop the remotesigner
+                self.vlsd.stop()
+            raise
+
+    def stop(self, timeout=10):
+        if self.use_vlsd:
+            # Stop the remote signer first
+            self.vlsd.stop(timeout)
+        return TailableProc.stop(self, timeout)
+
+    def kill(self):
+        if self.use_vlsd:
+            # Kill the remote signer first
+            self.vlsd.kill()
+        TailableProc.kill(self)
 
     def wait(self, timeout=TIMEOUT):
         """Wait for the daemon to stop for up to timeout seconds

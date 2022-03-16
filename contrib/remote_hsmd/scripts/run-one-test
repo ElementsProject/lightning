@@ -1,0 +1,19 @@
+#!/usr/bin/sh
+
+THETEST=$1
+
+PYTHONPATH=\
+$PWD/contrib/pyln-client:\
+$PWD/contrib/pyln-testing:\
+$PWD/contrib/pyln-proto \
+TEST_KEEPDIR=1 \
+TEST_DEBUG=1 \
+DEVELOPER=1 \
+VALGRIND=0 \
+SLOW_MACHINE=0 \
+SUBDAEMON='hsmd:remote_hsmd' \
+REMOTE_SIGNER_CMD=$(pwd)/../validating-lightning-signer/target/debug/vlsd \
+REMOTE_SIGNER_ALLOWLIST=$(pwd)/contrib/remote_hsmd/TESTING_ALLOWLIST \
+pytest \
+$THETEST \
+-v --timeout=300 --timeout_method=thread -x -s
