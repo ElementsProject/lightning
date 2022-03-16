@@ -96,6 +96,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
+	case WIRE_HSMD_VALIDATE_COMMITMENT_TX:
 	case WIRE_HSMD_VALIDATE_REVOCATION:
 		return (client->capabilities & HSM_CAP_SIGN_REMOTE_TX) != 0;
 
@@ -133,6 +134,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_INIT_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
+	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_REVOCATION_REPLY:
 	case WIRE_HSMD_SIGN_TX_REPLY:
 	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY:
@@ -1339,6 +1341,56 @@ static u8 *handle_sign_commitment_tx(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_sign_commitment_tx_reply(NULL, &sig);
 }
 
+/* ~This stub implementation is overriden by fully validating signers
+ * that need to independently verify the peer's signatures. */
+static u8 *handle_validate_commitment_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct bitcoin_tx *tx;
+	struct simple_htlc **htlc;
+	u64 commit_num;
+	u32 feerate;
+	struct bitcoin_signature sig;
+	struct bitcoin_signature *htlc_sigs;
+	struct secret channel_seed;
+	struct sha256 shaseed;
+	struct secret *old_secret;
+	struct pubkey next_per_commitment_point;
+
+	if (!fromwire_hsmd_validate_commitment_tx(tmpctx, msg_in,
+						  &tx, &htlc,
+						  &commit_num, &feerate,
+						  &sig, &htlc_sigs))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* Stub implementation */
+
+	/* The signatures are not checked in this stub because they
+	 * are already checked by the caller.  However, the returned
+	 * old_secret and next_per_commitment_point are used.
+	 */
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return hsmd_status_bad_request(c, msg_in, "bad derive_shaseed");
+
+	if (!per_commit_point(&shaseed, &next_per_commitment_point, commit_num + 1))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "bad per_commit_point %" PRIu64, commit_num + 1);
+
+	if (commit_num >= 1) {
+		old_secret = tal(tmpctx, struct secret);
+		if (!per_commit_secret(&shaseed, old_secret, commit_num - 1)) {
+			return hsmd_status_bad_request_fmt(
+			    c, msg_in, "Cannot derive secret %" PRIu64, commit_num - 1);
+		}
+	} else {
+		old_secret = NULL;
+	}
+
+	return towire_hsmd_validate_commitment_tx_reply(
+		NULL, old_secret, &next_per_commitment_point);
+}
+
 /* This stub implementation is overriden by fully validating signers
  * that need to independently verify that the latest state is
  * commited. */
@@ -1533,6 +1585,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_penalty_to_us(client, msg);
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 		return handle_sign_commitment_tx(client, msg);
+	case WIRE_HSMD_VALIDATE_COMMITMENT_TX:
+		return handle_validate_commitment_tx(client, msg);
 	case WIRE_HSMD_VALIDATE_REVOCATION:
 		return handle_validate_revocation(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
@@ -1553,6 +1607,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_INIT_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
+	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_REVOCATION_REPLY:
 	case WIRE_HSMD_SIGN_TX_REPLY:
 	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY:
