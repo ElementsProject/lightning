@@ -1,4 +1,4 @@
-x86_64-linux-gnu
+/x86_64-redhat-linux
 aarch64-linux-gnu
 arm-linux-gnueabihf
 x86_64-pc-linux-gnu
@@ -15,3 +15,4 @@ libsecp256k1.a
 libsecp256k1.la
 libwallycore.a
 libwallycore.la
+x86_64-linux-gnu
