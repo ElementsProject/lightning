@@ -10,6 +10,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
+#include <ccan/closefrom/closefrom.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/tal/str/str.h>
@@ -41,6 +42,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <sodium.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -569,7 +571,6 @@ static struct io_plan *websocket_connection_in(struct io_conn *conn,
 		goto close_execfail_fail;
 
 	if (childpid == 0) {
-		size_t max;
 		close(childmsg[0]);
 		close(execfail[0]);
 
@@ -582,9 +583,7 @@ static struct io_plan *websocket_connection_in(struct io_conn *conn,
 			goto child_errno_fail;
 
 		/* Make (fairly!) sure all other fds are closed. */
-		max = sysconf(_SC_OPEN_MAX);
-		for (size_t i = STDERR_FILENO + 1; i < max; i++)
-			close(i);
+		closefrom(STDERR_FILENO + 1);
 
 		/* Tell websocket helper what we read so far. */
 		execlp(daemon->websocket_helper, daemon->websocket_helper,
@@ -2116,6 +2115,10 @@ int main(int argc, char *argv[])
 	/* This tells the status_* subsystem to use this connection to send
 	 * our status_ and failed messages. */
 	status_setup_async(daemon->master);
+
+	/* Don't leave around websocketd zombies.  Technically not portable,
+	 * but OK for Linux and BSD, so... */
+	signal(SIGCHLD, SIG_IGN);
 
 	/* This streams gossip to and from gossipd */
 	daemon->gossipd = daemon_conn_new(daemon, GOSSIPCTL_FD,
