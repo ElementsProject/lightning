@@ -160,16 +160,14 @@ lightning funds.
 
 Build and Development
 ---------------------
-Install `valgrind` and the python dependencies for best results:
+Install the following dependencies for best results:
 
 ```
 sudo apt update
 sudo apt install valgrind cppcheck shellcheck libsecp256k1-dev libpq-dev
-pip3 install --upgrade pip
-pip3 install --user -r requirements.txt
 ```
 
-Re-run `configure` for the python dependencies and build using `make`.
+Re-run `configure` and build using `make`:
 
 ```
 ./configure --enable-developer
