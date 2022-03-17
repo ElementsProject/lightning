@@ -3,8 +3,8 @@ c-lightning
 
 Basic Setup:
 
-1. Follow instructions in `doc/INSTALL.md`
-2. Follow instructions in the "Build and Development" section in `doc/HACKING.md`
+1. Follow instructions in [`doc/INSTALL.md`](../../doc/INSTALL.md)
+2. Follow instructions in the "Build and Development" section in [`doc/HACKING.md`](../../doc/HACKING.md)
 3. Make sure you have cloned this repository
 
 On Ubuntu:
@@ -19,7 +19,7 @@ Validating Lightning Signer:
 
     # In parent directory of c-lightning root
     git clone git@gitlab.com:lightning-signer/validating-lightning-signer.git
-    cargo build --features log_pretty_print,debug_enforcement_state
+    cargo build
 
 C-Lightning:
 
@@ -30,16 +30,8 @@ C-Lightning:
 
     (cd contrib/remote_hsmd && \
     ln -s ../../../validating-lightning-signer/lightning-signer-server/src/server/remotesigner.proto)
-    # Then do ls -alt contrib/remote_hsmd/remotesigner.proto and make sure the link is valid
-
-    # Then install some python dependencies
-    pip3 install --user base58 bitstring secp256k1 mrkd
-
-    # In c-lightning root, remote-hsmd branch:
-    pip3 install --user -r requirements.txt
-
-    # Temporarily downgrade markupsafe to avoid breaking dependencies
-    pip3 install --user markupsafe==2.0.1
+    # Then make sure the link is valid
+    if [ -f contrib/remote_hsmd/remotesigner.proto ]; then echo "Symbolic link successful"; else echo "Symbolic link failed"; fi
 
     # Build c-lightning
     make distclean
