@@ -223,7 +223,8 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 				     ", of.account_id"
 				     ", a.name"
 				     ", of.currency"
-				     ", CAST(SUM(of.credit) AS BIGINT) - CAST(SUM(of.debit) AS BIGINT) as fees"
+				     ", CAST(SUM(of.credit) AS BIGINT) as credit"
+				     ", CAST(SUM(of.debit) AS BIGINT) as debit"
 				     " FROM onchain_fees of"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON of.account_id = a.id"
@@ -238,6 +239,8 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 	sums = tal_arr(ctx, struct fee_sum *, 0);
 	while (db_step(stmt)) {
 		struct fee_sum *sum;
+		struct amount_msat debit;
+		bool ok;
 
 		sum = tal(sums, struct fee_sum);
 		sum->txid = tal(sum, struct bitcoin_txid);
@@ -246,8 +249,12 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 		sum->acct_db_id = db_col_u64(stmt, "of.account_id");
 		sum->acct_name = db_col_strdup(sum, stmt, "a.name");
 		sum->currency = db_col_strdup(sum, stmt, "of.currency");
-		db_col_amount_msat(stmt, "fees", &sum->fees_paid);
+		db_col_amount_msat(stmt, "credit", &sum->fees_paid);
+		db_col_amount_msat(stmt, "debit", &debit);
 
+		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid,
+				     debit);
+		assert(ok);
 		tal_arr_expand(&sums, sum);
 	}
 
