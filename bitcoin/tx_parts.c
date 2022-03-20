@@ -154,7 +154,7 @@ fromwire_wally_tx_witness_stack(const tal_t *ctx,
 
 	tal_add_destructor(ws, destroy_wally_tx_witness_stack);
 out:
-	tal_wally_end(tal_steal(ctx, ws));
+	tal_wally_end_onto(ctx, ws, struct wally_tx_witness_stack);
 	return ws;
 }
 
@@ -252,7 +252,7 @@ static struct wally_tx_input *fromwire_wally_tx_input(const tal_t *ctx,
 		tal_add_destructor(in, destroy_wally_tx_input);
 	}
 
-	tal_wally_end(tal_steal(ctx, in));
+	tal_wally_end_onto(ctx, in, struct wally_tx_input);
 	return in;
 }
 
@@ -310,7 +310,7 @@ static struct wally_tx_output *fromwire_wally_tx_output(const tal_t *ctx,
 	} else {
 		tal_add_destructor(out, destroy_wally_tx_output);
 	}
-	tal_wally_end(tal_steal(ctx, out));
+	tal_wally_end_onto(ctx, out, struct wally_tx_output);
 
 	return out;
 }

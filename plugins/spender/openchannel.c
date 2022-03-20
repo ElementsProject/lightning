@@ -76,7 +76,7 @@ static bool update_parent_psbt(const tal_t *ctx,
 	tal_wally_start();
 	if (wally_psbt_clone_alloc(*parent_psbt, 0, &clone) != WALLY_OK)
 		abort();
-	tal_wally_end(tal_steal(ctx, clone));
+	tal_wally_end_onto(ctx, clone, struct wally_psbt);
 
 	/* This makes it such that we can reparent/steal added
 	 * inputs/outputs without impacting the 'original'. We
@@ -261,7 +261,7 @@ static bool update_node_psbt(const tal_t *ctx,
 	/* Only failure is alloc */
 	if (wally_psbt_clone_alloc(parent_psbt, 0, &clone) != WALLY_OK)
 		abort();
-	tal_wally_end(tal_steal(ctx, clone));
+	tal_wally_end_onto(ctx, clone, struct wally_psbt);
 
 	/* For every peer's input/output, flip the serial id
 	 * on the clone. They should all be present. */
@@ -958,7 +958,7 @@ openchannel_init_ok(struct command *cmd,
 	 * logic in `perform_openchannel_update` the same. */
 	tal_wally_start();
 	wally_psbt_clone_alloc(dest->updated_psbt, 0, &dest->psbt);
-	tal_wally_end(tal_steal(mfc, dest->updated_psbt));
+	tal_wally_end_onto(mfc, dest->updated_psbt, struct wally_psbt);
 	return openchannel_init_done(dest);
 }
 
@@ -998,7 +998,7 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 	/* Copy the original parent down */
 	tal_wally_start();
 	wally_psbt_clone_alloc(mfc->psbt, 0, &dest->psbt);
-	tal_wally_end(tal_steal(mfc, dest->psbt));
+	tal_wally_end_onto(mfc, dest->psbt, struct wally_psbt);
 
 	json_add_psbt(req->js, "initialpsbt", dest->psbt);
 	if (mfc->cmtmt_feerate_str)

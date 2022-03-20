@@ -26,7 +26,7 @@ static char *to_base58(const tal_t *ctx, u8 version,
 				    total_length, BASE58_FLAG_CHECKSUM, &out)
 	    != WALLY_OK)
 		out = NULL;
-	tal_wally_end(tal_steal(ctx, out));
+	tal_wally_end_onto(ctx, out, char);
 
 	return out;
 }
