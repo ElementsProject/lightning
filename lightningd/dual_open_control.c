@@ -1470,7 +1470,9 @@ static void send_funding_tx(struct channel *channel,
 		wally_tx_clone_alloc(wtx, 0,
 				     cast_const2(struct wally_tx **,
 						 &cs->wtx));
-		tal_wally_end(tal_steal(cs, cs->wtx));
+		tal_wally_end_onto(cs,
+				   cast_const(struct wally_tx *,
+					      cs->wtx), struct wally_tx);
 	}
 
 	wally_txid(wtx, &txid);
@@ -2405,7 +2407,7 @@ json_openchannel_signed(struct command *cmd,
 
 	/* Make memleak happy, (otherwise cleaned up with `cmd`) */
 	tal_free(psbt);
-	tal_wally_end(tal_steal(inflight, inflight->funding_psbt));
+	tal_wally_end_onto(inflight, inflight->funding_psbt, struct wally_psbt);
 
 	/* Update the PSBT on disk */
 	wallet_inflight_save(cmd->ld->wallet, inflight);

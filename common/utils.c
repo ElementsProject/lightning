@@ -34,18 +34,27 @@ void tal_wally_end(const tal_t *parent)
 {
 	tal_t *p;
 	while ((p = tal_first(wally_tal_ctx)) != NULL) {
-		if (p != parent) {
+		/* Refuse to make a loop! */
+		assert(p != parent);
 #if DEVELOPER
-			/* Don't steal backtrace from wally_tal_ctx! */
-			if (tal_name(p) && streq(tal_name(p), "backtrace")) {
-				tal_free(p);
-				continue;
-			}
-#endif /* DEVELOPER */
-			tal_steal(parent, p);
+		/* Don't steal backtrace from wally_tal_ctx! */
+		if (tal_name(p) && streq(tal_name(p), "backtrace")) {
+			tal_free(p);
+			continue;
 		}
+#endif /* DEVELOPER */
+		tal_steal(parent, p);
 	}
 	wally_tal_ctx = tal_free(wally_tal_ctx);
+}
+
+void tal_wally_end_onto_(const tal_t *parent,
+			 tal_t *from_wally,
+			 const char *from_wally_name)
+{
+	if (from_wally)
+		tal_set_name_(from_wally, from_wally_name, 1);
+	tal_wally_end(tal_steal(parent, from_wally));
 }
 
 #if DEVELOPER

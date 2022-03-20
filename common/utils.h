@@ -105,9 +105,20 @@ void clean_tmpctx(void);
 
 /* Call this before any libwally function which allocates. */
 void tal_wally_start(void);
-/* Then call this to reparent everything onto this parent (which must
- * have been tal_steal() if it was allocated by libwally here) */
+
+/* Then call this to reparent everything onto this parent */
 void tal_wally_end(const tal_t *parent);
+
+/* ... or this if you want to reparent onto something which is
+ * allocated by libwally here.  Fixes up this from_wally obj to have a
+ * proper tal_name, too! */
+#define tal_wally_end_onto(parent, from_wally, type)			\
+	tal_wally_end_onto_((parent),					\
+			    (from_wally) + 0*sizeof((from_wally) == (type *)0), \
+			    stringify(type))
+void tal_wally_end_onto_(const tal_t *parent,
+			 tal_t *from_wally,
+			 const char *from_wally_name);
 
 /* Define sha256_eq. */
 STRUCTEQ_DEF(sha256, 0, u);

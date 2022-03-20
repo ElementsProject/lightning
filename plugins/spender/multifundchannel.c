@@ -179,7 +179,7 @@ mfc_cleanup_psbt(struct command *cmd,
 	tal_wally_start();
 	if (wally_psbt_clone_alloc(psbt, 0, &pruned_psbt) != WALLY_OK)
 		abort();
-	tal_wally_end(tal_steal(NULL, pruned_psbt));
+	tal_wally_end_onto(NULL, pruned_psbt, struct wally_psbt);
 
 	for (size_t i = pruned_psbt->num_inputs - 1;
 	     i < pruned_psbt->num_inputs;
