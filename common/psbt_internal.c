@@ -9,6 +9,8 @@ psbt_input_set_final_witness_stack(const tal_t *ctx,
 				   struct wally_psbt_input *in,
 				   const struct witness_element **elements)
 {
+	wally_tx_witness_stack_free(in->final_witness);
+
 	tal_wally_start();
 	wally_tx_witness_stack_init_alloc(tal_count(elements),
 					  &in->final_witness);
