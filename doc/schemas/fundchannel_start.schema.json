@@ -4,12 +4,13 @@
   "additionalProperties": false,
   "required": [
     "funding_address",
-    "scriptpubkey"
+    "scriptpubkey",
+    "warning_usage"
   ],
   "properties": {
     "funding_address": {
       "type": "string",
-      "description": "The address to send funding to for the channel"
+      "description": "The address to send funding to for the channel. DO NOT SEND COINS TO THIS ADDRESS YET."
     },
     "scriptpubkey": {
       "type": "hex",
@@ -18,6 +19,10 @@
     "close_to": {
       "type": "hex",
       "description": "The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`"
+    },
+    "warning_usage": {
+      "type": "string",
+      "description": "A warning not to prematurely broadcast the funding transaction (always present!)"
     }
   }
 }

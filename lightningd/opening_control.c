@@ -284,6 +284,8 @@ static void funding_started_success(struct funding_channel *fc)
 				    fc->funding_scriptpubkey);
 		if (fc->our_upfront_shutdown_script)
 			json_add_hex_talarr(response, "close_to", fc->our_upfront_shutdown_script);
+		json_add_string(response, "warning_usage",
+				"The funding transaction MUST NOT be broadcast until after channel establishment has been successfully completed by running `fundchannel_complete`");
 	}
 
 	/* Clear this so cancel doesn't think it's still in progress */
