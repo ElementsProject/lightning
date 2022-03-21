@@ -5,6 +5,7 @@
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
@@ -306,6 +307,48 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	return channel;
 }
 
+/*
+ * The maximum msat that this node could possibly accept for an htlc.
+ * It's the default htlc_maximum_msat in channel_updates, if none is
+ * explicitly set (and the cap on what can be set!).
+ *
+ * We advertize the maximum value possible, defined as the smaller
+ * of the remote's maximum in-flight HTLC or the total channel
+ * capacity the reserve we have to keep.
+ * FIXME: does this need fuzz?
+ */
+static struct amount_msat htlc_max_possible_send(const struct channel *channel)
+{
+	struct amount_sat lower_bound;
+	struct amount_msat lower_bound_msat;
+
+	/* These shouldn't fail */
+	if (!amount_sat_sub(&lower_bound, channel->funding_sats,
+			    channel->channel_info.their_config.channel_reserve)) {
+		log_broken(channel->log, "%s: their reserve %s > funding %s!",
+			   __func__,
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->funding_sats),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->channel_info.their_config.channel_reserve));
+		return AMOUNT_MSAT(0);
+	}
+
+	if (!amount_sat_to_msat(&lower_bound_msat, lower_bound)) {
+		log_broken(channel->log, "%s: impossible size channel %s!",
+			   __func__,
+			   type_to_string(tmpctx, struct amount_sat,
+					  &lower_bound));
+		return AMOUNT_MSAT(0);
+	}
+
+	if (amount_msat_less(channel->channel_info.their_config.max_htlc_value_in_flight,
+			     lower_bound_msat))
+		lower_bound_msat = channel->channel_info.their_config.max_htlc_value_in_flight;
+
+	return lower_bound_msat;
+}
+
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
@@ -366,9 +409,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 lease_expiry,
 			    secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 			    u32 lease_chan_max_msat,
-			    u16 lease_chan_max_ppt)
+			    u16 lease_chan_max_ppt,
+			    struct amount_msat htlc_maximum_msat)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
+	struct amount_msat htlc_max;
 
 	assert(dbid != 0);
 	channel->peer = peer;
@@ -463,6 +508,14 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->lease_chan_max_ppt = lease_chan_max_ppt;
 	channel->blockheight_states = dup_height_states(channel, height_states);
 	channel->channel_update = NULL;
+
+	/* DB migration, for example, sets this to bignum; correct
+	 * here */
+	htlc_max = htlc_max_possible_send(channel);
+	if (amount_msat_less(htlc_max, htlc_maximum_msat))
+		channel->htlc_maximum_msat = htlc_max;
+	else
+		channel->htlc_maximum_msat = htlc_maximum_msat;
 
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;
