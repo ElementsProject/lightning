@@ -418,6 +418,10 @@
                   "type": "msat",
                   "description": "the minimum amount HTLC we accept"
                 },
+                "maximum_htlc_out_msat": {
+                  "type": "msat",
+                  "description": "the maximum amount HTLC we will send"
+                },
                 "their_to_self_delay": {
                   "type": "u32",
                   "description": "the number of blocks before they can take their funds if they unilateral close"
@@ -772,6 +776,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},
                       "their_to_self_delay": {},
@@ -859,6 +864,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},
                       "their_to_self_delay": {},
@@ -947,6 +953,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},
                       "their_to_self_delay": {},
@@ -1034,6 +1041,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},
                       "their_to_self_delay": {},

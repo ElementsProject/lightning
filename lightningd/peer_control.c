@@ -861,6 +861,9 @@ static void json_add_channel(struct lightningd *ld,
 				    channel->our_config.htlc_minimum,
 				    "htlc_minimum_msat",
 				    "minimum_htlc_in_msat");
+	json_add_amount_msat_only(response,
+				  "maximum_htlc_out_msat",
+				  channel->htlc_maximum_msat);
 
 	/* The `to_self_delay` is imposed on the *other*
 	 * side, so our configuration `to_self_delay` is
