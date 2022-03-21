@@ -2966,8 +2966,7 @@ static struct command_result *shadow_route_extend(struct shadow_route_data *d,
 	req = jsonrpc_request_start(p->plugin, NULL, "listchannels",
 				    shadow_route_listchannels,
 				    payment_rpc_failure, p);
-	json_add_string(req->js, "source",
-			type_to_string(req, struct node_id, &d->destination));
+	json_add_node_id(req->js, "source", &d->destination);
 	return send_outreq(p->plugin, req);
 }
 
