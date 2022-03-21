@@ -61,7 +61,7 @@ routehint_candidates(const tal_t *ctx,
 		struct amount_msat capacity;
 		const char *err;
 		struct routehint_candidate candidate;
-		struct amount_msat fee_base;
+		struct amount_msat fee_base, htlc_max;
 		struct route_info *r;
 		struct peer *peer;
 		bool is_public;
@@ -74,6 +74,7 @@ routehint_candidates(const tal_t *ctx,
 				",fee_base_msat:%"
 				",fee_proportional_millionths:%"
 				",cltv_expiry_delta:%"
+				",htlc_max_msat:%"
 				",incoming_capacity_msat:%"
 				"}",
 				JSON_SCAN(json_to_node_id, &r->pubkey),
@@ -83,6 +84,7 @@ routehint_candidates(const tal_t *ctx,
 				JSON_SCAN(json_to_u32,
 					  &r->fee_proportional_millionths),
 				JSON_SCAN(json_to_u16, &r->cltv_expiry_delta),
+				JSON_SCAN(json_to_msat, &htlc_max),
 				JSON_SCAN(json_to_msat, &capacity));
 
 		if (err) {
@@ -112,7 +114,13 @@ routehint_candidates(const tal_t *ctx,
 			continue;
 		}
 
+		/* If they set an htlc_maximum_msat, consider that the
+		 * capacity ceiling.  We *could* do multiple HTLCs,
+		 * but presumably that would defeat the spirit of the
+		 * limit anyway */
 		candidate.capacity = channel_amount_receivable(candidate.c);
+		if (amount_msat_greater(candidate.capacity, htlc_max))
+			candidate.capacity = htlc_max;
 
 		/* Now we can tell if it's public.  If so (even if it's otherwise
 		 * unusable), we *don't* expose private channels! */

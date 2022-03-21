@@ -2153,6 +2153,12 @@ def test_setchannel_routing(node_factory, bitcoind):
     l1.rpc.sendpay(route_ok, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
 
+    # Check that this one warns about capacity!
+    inv = l3.rpc.call('invoice', {'msatoshi': 4001793,
+                                  'label': 'test_setchannel_3',
+                                  'description': 'desc'})
+    assert 'warning_capacity' in inv
+
 
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannel_zero(node_factory, bitcoind):

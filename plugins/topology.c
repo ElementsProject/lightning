@@ -607,6 +607,9 @@ static struct command_result *json_listincoming(struct command *cmd,
 		json_add_amount_msat_only(js, "fee_base_msat",
 					  amount_msat(ourchan->half[!dir]
 						      .base_fee));
+		json_add_amount_msat_only(js, "htlc_max_msat",
+					  amount_msat(fp16_to_u64(ourchan->half[!dir]
+								  .htlc_max)));
 		json_add_u32(js, "fee_proportional_millionths",
 			     ourchan->half[!dir].proportional_fee);
 		json_add_u32(js, "cltv_expiry_delta", ourchan->half[!dir].delay);
