@@ -97,6 +97,7 @@ c-lightning Documentation
    lightning-sendonionmessage <lightning-sendonionmessage.7.md>
    lightning-sendpay <lightning-sendpay.7.md>
    lightning-sendpsbt <lightning-sendpsbt.7.md>
+   lightning-setchannel <lightning-setchannel.7.md>
    lightning-setchannelfee <lightning-setchannelfee.7.md>
    lightning-signmessage <lightning-signmessage.7.md>
    lightning-signpsbt <lightning-signpsbt.7.md>

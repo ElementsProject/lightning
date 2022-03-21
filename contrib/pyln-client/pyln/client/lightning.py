@@ -1176,6 +1176,31 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("setchannelfee", payload)
 
+    def setchannel(self, id, feebase=None, feeppm=None, htlcmax=None, enforcedelay=None):
+        """Set configuration a channel/peer {id} (or 'all').
+
+        {feebase} is a value in millisatoshi that is added as base fee
+        to any routed payment.
+
+        {feeppm} is a value added proportionally per-millionths to any
+        routed payment volume in satoshi.
+
+        {htlcmax} is the maximum (outgoing) htlc amount to allow and
+        advertize.
+
+        {enforcedelay} is the number of seconds before enforcing this
+        change.
+
+        """
+        payload = {
+            "id": id,
+            "feebase": feebase,
+            "feeppm": feeppm,
+            "htlcmax": htlcmax,
+            "enforcedelay": enforcedelay,
+        }
+        return self.call("setchannel", payload)
+
     def stop(self):
         """
         Shut down the lightningd process.

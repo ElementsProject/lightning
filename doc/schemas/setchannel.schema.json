@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channels"
+  ],
+  "properties": {
+    "channels": {
+      "type": "array",
+      "description": "channel(s) set, and their resulting configuration",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "peer_id",
+          "channel_id",
+          "fee_base_msat",
+          "fee_proportional_millionths",
+          "maximum_htlc_out_msat"
+        ],
+        "properties": {
+          "peer_id": {
+            "type": "pubkey",
+            "description": "The node_id of the peer"
+          },
+          "channel_id": {
+            "type": "hex",
+            "description": "The channel_id of the channel",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "short_channel_id": {
+            "type": "short_channel_id",
+            "description": "the short_channel_id (if locked in)"
+          },
+          "fee_base_msat": {
+            "type": "msat",
+            "description": "The resulting feebase (this is the BOLT #7 name)"
+          },
+          "fee_proportional_millionths": {
+            "type": "u32",
+            "description": "The resulting feeppm (this is the BOLT #7 name)"
+          },
+          "maximum_htlc_out_msat": {
+            "type": "msat",
+            "description": "The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)"
+          }
+        }
+      }
+    }
+  }
+}
