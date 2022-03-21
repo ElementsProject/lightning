@@ -656,6 +656,18 @@ static void forward_htlc(struct htlc_in *hin,
 			 "Allowing payment using older feerate");
 	}
 
+	if (amount_msat_greater(amt_to_forward, next->htlc_maximum_msat)) {
+		/* Are we in old-max grace-period? */
+		if (!time_before(time_now(), next->old_feerate_timeout)
+		    || amount_msat_greater(amt_to_forward, next->old_htlc_maximum_msat)) {
+			failmsg = towire_temporary_channel_failure(tmpctx,
+								   get_channel_update(next));
+			goto fail;
+		}
+		log_info(hin->key.channel->log,
+			 "Allowing large htlc using older htlc_maximum_msat");
+	}
+
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,
 			ld->config.cltv_expiry_delta)) {
 		failmsg = towire_incorrect_cltv_expiry(tmpctx, cltv_expiry,

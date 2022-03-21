@@ -2015,6 +2015,7 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 			= timeabs_add(time_now(), time_from_sec(delaysecs));
 		channel->old_feerate_base = channel->feerate_base;
 		channel->old_feerate_ppm = channel->feerate_ppm;
+		channel->old_htlc_maximum_msat = channel->htlc_maximum_msat;
 	}
 
 	/* set new values */
