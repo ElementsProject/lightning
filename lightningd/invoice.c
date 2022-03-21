@@ -708,7 +708,7 @@ add_routehints(struct invoice_info *info,
 	struct amount_msat total, needed;
 
 	/* Dev code can force routes. */
-	if (tal_count(info->b11->routes) != 0) {
+	if (info->b11->routes) {
 	       *warning_mpp = *warning_capacity = *warning_deadends
 		       = *warning_offline = *warning_private_unused
 		       = false;

@@ -2082,7 +2082,8 @@ def test_setchannel_routing(node_factory, bitcoind):
 
     l1, l2, l3 = node_factory.line_graph(
         3, announce_channels=True, wait_for_announce=True,
-        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM,
+              'disable-mpp': None})
 
     # get short channel id for 2->3
     scid = l2.get_channel_scid(l3)
@@ -2102,10 +2103,22 @@ def test_setchannel_routing(node_factory, bitcoind):
     # pay l2 the fee it specified in the l2->l3 `channel_update`, calculated as
     # per [HTLC Fees](#htlc_fees):  base + amt * pm / 10**6
 
-    # FIXME!
-#    # Should refuse to route this!
-#    with pytest.raises(RpcError, match=r'Could not find a route'):
-#        l1.rpc.getroute(l3.info['id'], 4000001, 1, fuzzpercent=0)["route"]
+    # Note: we use fp16 internally for channel max, so we overestimate:
+    # from devtools/fp16 4000000: fp16:5fa1 min 3999744 max 4001791
+    # Since it rounds up, it will use 4001792 as max capacity.
+
+    # Should refuse to route this!
+    with pytest.raises(RpcError, match=r'Could not find a route'):
+        l1.rpc.getroute(l3.info['id'], 4001793, 1, fuzzpercent=0)["route"]
+
+    # We should consider this unroutable!  (MPP is disabled!)
+    inv = l3.rpc.call('invoice', {'msatoshi': 4001793,
+                                  'label': 'test_setchannel_1',
+                                  'description': 'desc',
+                                  'dev-routes': []})
+    with pytest.raises(RpcError) as routefail:
+        l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
+    assert routefail.value.error['attempts'][0]['failreason'] == 'No path found'
 
     # 1337 + 4000000 * 137 / 1000000 = 1885
     route_ok = l1.rpc.getroute(l3.info['id'], 4000000, 1)["route"]
@@ -2126,7 +2139,7 @@ def test_setchannel_routing(node_factory, bitcoind):
     wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['htlc_maximum_msat'], c['active']) for c in l3.rpc.listchannels(scid)['channels']] == [(1337, 137, 4000000, True), (DEF_BASE, DEF_PPM, MAX_HTLC, True)])
 
     # do and check actual payment
-    inv = l3.rpc.invoice(4000000, 'test_setchannel_1', 'desc')
+    inv = l3.rpc.invoice(4000000, 'test_setchannel_2', 'desc')
     # Check that routehint from l3 incorporated new feerate!
     decoded = l1.rpc.decodepay(inv['bolt11'])
     assert decoded['routes'] == [[{'pubkey': l2.info['id'], 'short_channel_id': scid, 'fee_base_msat': 1337, 'fee_proportional_millionths': 137, 'cltv_expiry_delta': 6}]]
