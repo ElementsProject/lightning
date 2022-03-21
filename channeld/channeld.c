@@ -119,8 +119,12 @@ struct peer {
 
 	/* CLTV delta to announce to peers */
 	u16 cltv_delta;
+
+	/* We only really know these because we're the ones who create
+	 * the channel_updates. */
 	u32 fee_base;
 	u32 fee_per_satoshi;
+	struct amount_msat htlc_maximum_msat;
 
 	/* The scriptpubkey to use for shutting down. */
 	u32 *final_index;
@@ -210,42 +214,6 @@ const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 		exit(0);
 
 	return msg;
-}
-
-/*
- * The maximum msat that this node will accept for an htlc.
- * It's flagged as an optional field in `channel_update`.
- *
- * We advertize the maximum value possible, defined as the smaller
- * of the remote's maximum in-flight HTLC or the total channel
- * capacity the reserve we have to keep.
- * FIXME: does this need fuzz?
- */
-static struct amount_msat advertized_htlc_max(const struct channel *channel)
-{
-	struct amount_sat lower_bound;
-	struct amount_msat lower_bound_msat;
-
-	/* This shouldn't fail */
-	if (!amount_sat_sub(&lower_bound, channel->funding_sats,
-			    channel->config[REMOTE].channel_reserve)) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "funding %s - remote reserve %s?",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->funding_sats),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->config[REMOTE]
-					     .channel_reserve));
-	}
-
-	if (!amount_sat_to_msat(&lower_bound_msat, lower_bound)) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "lower_bound %s invalid?",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &lower_bound));
-	}
-
-	return lower_bound_msat;
 }
 
 #if EXPERIMENTAL_FEATURES
@@ -396,7 +364,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  peer->channel->config[REMOTE].htlc_minimum,
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
-						  advertized_htlc_max(peer->channel));
+						  peer->htlc_maximum_msat);
 	wire_sync_write(MASTER_FD, take(msg));
 }
 
@@ -3731,6 +3699,7 @@ static void init_channel(struct peer *peer)
 				    &opener,
 				    &peer->fee_base,
 				    &peer->fee_per_satoshi,
+				    &peer->htlc_maximum_msat,
 				    &local_msat,
 				    &points[LOCAL],
 				    &funding_pubkey[LOCAL],
