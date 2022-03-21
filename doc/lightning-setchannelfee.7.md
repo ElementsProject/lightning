@@ -4,7 +4,7 @@ lightning-setchannelfee -- Command for setting specific routing fees on a lightn
 SYNOPSIS
 --------
 
-**setchannelfee** *id* [*base*] [*ppm*] [*enforcedelay*]
+(DEPRECATED) **setchannelfee** *id* [*base*] [*ppm*] [*enforcedelay*]
 
 DESCRIPTION
 -----------
@@ -73,8 +73,7 @@ responsible for the c-lightning project.
 SEE ALSO
 --------
 
-lightningd-config(5), lightning-fundchannel(7),
-lightning-listchannels(7), lightning-listpeers(7)
+lightningd-setchannel(7)
 
 RESOURCES
 ---------

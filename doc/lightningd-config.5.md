@@ -236,14 +236,14 @@ Default: 1000. The base fee to charge for every payment which passes
 through. Note that millisatoshis are a very, very small unit! Changing
 this value will only affect new channels and not existing ones. If you
 want to change fees for existing channels, use the RPC call
-lightning-setchannelfee(7).
+lightning-setchannel(7).
 
  **fee-per-satoshi**=*MILLIONTHS*
 Default: 10 (0.001%). This is the proportional fee to charge for every
 payment which passes through. As percentages are too coarse, it's in
 millionths, so 10000 is 1%, 1000 is 0.1%. Changing this value will only
 affect new channels and not existing ones. If you want to change fees
-for existing channels, use the RPC call lightning-setchannelfee(7).
+for existing channels, use the RPC call lightning-setchannel(7).
 
  **min-capacity-sat**=*SATOSHI*
 Default: 10000. This value defines the minimal effective channel
@@ -563,7 +563,7 @@ actually implementing these options.
 SEE ALSO
 --------
 
-lightning-listconfigs(7) lightning-setchannelfee(7) lightningd(8)
+lightning-listconfigs(7) lightning-setchannel(7) lightningd(8)
 lightning-hsmtool(8)
 
 RESOURCES
