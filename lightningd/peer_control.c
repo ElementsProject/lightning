@@ -2135,7 +2135,8 @@ static const struct json_command setchannelfee_command = {
 	"and a {ppm} (proportional per millionth) value. "
 	"If values for {base} or {ppm} are left out, defaults will be used. "
 	"{base} can also be defined in other units, for example '1sat'. "
-	"If {id} is 'all', the fees will be applied for all channels. "
+	"If {id} is 'all', the fees will be applied for all channels. ",
+	true /* deprecated */
 };
 AUTODATA(json_command, &setchannelfee_command);
 

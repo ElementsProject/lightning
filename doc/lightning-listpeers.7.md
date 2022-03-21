@@ -370,7 +370,7 @@ SEE ALSO
 --------
 
 lightning-connect(7), lightning-fundchannel\_start(7),
-lightning-setchannelfee(7)
+lightning-setchannel(7)
 
 RESOURCES
 ---------

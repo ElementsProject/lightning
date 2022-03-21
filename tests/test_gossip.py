@@ -1583,7 +1583,7 @@ def setup_gossip_store_test(node_factory, bitcoind):
     wait_for(lambda: ['alias' in n for n in l2.rpc.listnodes()['nodes']] == [True, True])
 
     # Now, replace the one channel_update, so it's past the node announcements.
-    l2.rpc.setchannelfee(l3.info['id'], 20, 1000)
+    l2.rpc.setchannel(l3.info['id'], 20, 1000)
     # Old base feerate is 1.
     wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l2.rpc.listchannels()['channels']]) == 21)
 
@@ -1592,12 +1592,12 @@ def setup_gossip_store_test(node_factory, bitcoind):
 
     # Now insert channel_update for previous channel; now they're both past the
     # node announcements.
-    l3.rpc.setchannelfee(l2.info['id'], 20, 1000)
+    l3.rpc.setchannel(l2.info['id'], feebase=20, feeppm=1000)
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid23)['channels']] == [20, 20])
 
     # Replace both (private) updates for scid12.
-    l1.rpc.setchannelfee(l2.info['id'], 20, 1000)
-    l2.rpc.setchannelfee(l1.info['id'], 20, 1000)
+    l1.rpc.setchannel(l2.info['id'], feebase=20, feeppm=1000)
+    l2.rpc.setchannel(l1.info['id'], feebase=20, feeppm=1000)
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid12)['channels']] == [20, 20])
 
     # Records in store now looks (something) like:
