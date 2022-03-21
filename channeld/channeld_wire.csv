@@ -216,10 +216,11 @@ msgtype,channeld_fail_fallen_behind,1028
 # This is NULL if option_static_remotekey.
 msgdata,channeld_fail_fallen_behind,remote_per_commitment_point,?pubkey,
 
-# Handle a channel specific feerate base ppm configuration
-msgtype,channeld_specific_feerates,1029
-msgdata,channeld_specific_feerates,feerate_base,u32,
-msgdata,channeld_specific_feerates,feerate_ppm,u32,
+# Handle a channel-specific configuration change
+msgtype,channeld_config_channel,1029
+msgdata,channeld_config_channel,feerate_base,?u32,
+msgdata,channeld_config_channel,feerate_ppm,?u32,
+msgdata,channeld_config_channel,htlc_maximum,?amount_msat,
 
 # When we receive announcement_signatures for channel announce
 msgtype,channeld_got_announcement,1017

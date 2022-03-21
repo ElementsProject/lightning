@@ -2028,7 +2028,8 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 	/* tell channeld to make a send_channel_update */
 	if (channel->owner && streq(channel->owner->name, "channeld"))
 		subd_send_msg(channel->owner,
-				take(towire_channeld_specific_feerates(NULL, base, ppm)));
+			      take(towire_channeld_config_channel(NULL, &base, &ppm,
+								  NULL)));
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);
