@@ -481,4 +481,5 @@ struct htlc_out *channel_has_htlc_out(struct channel *channel);
 
 const u8 *get_channel_update(struct channel *channel);
 
+struct amount_msat htlc_max_possible_send(const struct channel *channel);
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_H */

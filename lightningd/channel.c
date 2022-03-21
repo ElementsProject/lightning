@@ -317,7 +317,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
  * capacity the reserve we have to keep.
  * FIXME: does this need fuzz?
  */
-static struct amount_msat htlc_max_possible_send(const struct channel *channel)
+struct amount_msat htlc_max_possible_send(const struct channel *channel)
 {
 	struct amount_sat lower_bound;
 	struct amount_msat lower_bound_msat;
