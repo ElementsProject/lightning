@@ -1597,7 +1597,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 					     &lease_blockheight_start),
 			   100,
 			   lease_commit_sig,
-			   7777, 22);
+			   7777, 22,
+			   AMOUNT_MSAT(-1ULL));
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 	wallet_channel_insert(w, chan);
