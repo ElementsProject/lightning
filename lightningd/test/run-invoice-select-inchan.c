@@ -247,6 +247,9 @@ bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     enum side side UNNEEDED,
 		     bool option_anchor_outputs UNNEEDED)
 { fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
+/* Generated stub for htlc_max_possible_send */
+struct amount_msat htlc_max_possible_send(const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "htlc_max_possible_send called!\n"); abort(); }
 /* Generated stub for htlc_set_fail */
 void htlc_set_fail(struct htlc_set *set UNNEEDED, const u8 *failmsg TAKES UNNEEDED)
 { fprintf(stderr, "htlc_set_fail called!\n"); abort(); }

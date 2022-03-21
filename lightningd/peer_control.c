@@ -2019,7 +2019,7 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 			       struct json_stream *response,
 			       bool add_details)
 {
-	bool warn_cannot_set_min = false;
+	bool warn_cannot_set_min = false, warn_cannot_set_max = false;
 
 	/* We only need to defer values if we *increase* fees (or drop
 	 * max, increase min); we always allow users to overpay fees. */
@@ -2053,8 +2053,17 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 		} else
 			channel->htlc_minimum_msat = *htlc_min;
 	}
-	if (htlc_max)
-		channel->htlc_maximum_msat = *htlc_max;
+	if (htlc_max) {
+		struct amount_msat actual_max;
+
+		/* Can't set it greater than actual capacity. */
+		actual_max = htlc_max_possible_send(channel);
+		if (amount_msat_greater(*htlc_max, actual_max)) {
+			warn_cannot_set_max = true;
+			channel->htlc_maximum_msat = actual_max;
+		} else
+			channel->htlc_maximum_msat = *htlc_max;
+	}
 
 	/* tell channeld to make a send_channel_update */
 	if (channel->owner && streq(channel->owner->name, "channeld"))
@@ -2088,6 +2097,9 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 		json_add_amount_msat_only(response,
 					  "maximum_htlc_out_msat",
 					  channel->htlc_maximum_msat);
+		if (warn_cannot_set_max)
+			json_add_string(response, "warning_htlcmax_too_high",
+					"Set maximum_htlc_out_msat to maximum possible in channel");
 	}
 	json_object_end(response);
 }
@@ -2187,6 +2199,13 @@ static struct command_result *json_setchannel(struct command *cmd,
 		   p_opt_def("enforcedelay", param_number, &delaysecs, 600),
 		   NULL))
 		return command_param_failed();
+
+	/* Prevent obviously incorrect things! */
+	if (htlc_min && htlc_max
+	    && amount_msat_less(*htlc_max, *htlc_min)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "htlcmax cannot be less than htlcmin");
+	}
 
 	if (channel
 	    && channel->state != CHANNELD_NORMAL

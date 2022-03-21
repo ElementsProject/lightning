@@ -71,6 +71,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **short_channel_id** (short_channel_id, optional): the short_channel_id (if locked in)
 - the following warnings are possible:
   - **warning_htlcmin_too_low**: The requested htlcmin was too low for this peer, so we set it to the minimum they will allow
+  - **warning_htlcmax_too_high**: The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -100,4 +101,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0f153e7dddce61bc921b3743472f11316c5984b9b1459cac1b201d6f51ec1be1)
+[comment]: # ( SHA256STAMP:a38b5ea12566d9e40eab07b95a90007bf66373ac1189f458d1678634522575b3)

@@ -54,6 +54,10 @@
           "maximum_htlc_out_msat": {
             "type": "msat",
             "description": "The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)"
+          },
+          "warning_htlcmax_too_high": {
+            "type": "string",
+            "description": "The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity"
           }
         }
       }
