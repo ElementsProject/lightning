@@ -2007,13 +2007,20 @@ static struct command_result *param_msat_u32(struct command *cmd,
 	return NULL;
 }
 
-static void set_channel_fees(struct command *cmd, struct channel *channel,
-			     u32 base, u32 ppm, u32 delaysecs,
-			     struct json_stream *response)
+static void set_channel_config(struct command *cmd, struct channel *channel,
+			       u32 *base,
+			       u32 *ppm,
+			       struct amount_msat *htlc_max,
+			       u32 delaysecs,
+			       struct json_stream *response,
+			       bool add_details)
 {
-	/* We only need to defer values if we *increase* them; we always
-	 * allow users to overpay fees. */
-	if (base > channel->feerate_base || ppm > channel->feerate_ppm) {
+	/* We only need to defer values if we *increase* fees (or drop
+	 * max); we always allow users to overpay fees. */
+	if ((base && *base > channel->feerate_base)
+	    || (ppm && *ppm > channel->feerate_ppm)
+	    || (htlc_max
+		&& amount_msat_less(*htlc_max, channel->htlc_maximum_msat))) {
 		channel->old_feerate_timeout
 			= timeabs_add(time_now(), time_from_sec(delaysecs));
 		channel->old_feerate_base = channel->feerate_base;
@@ -2022,14 +2029,18 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 	}
 
 	/* set new values */
-	channel->feerate_base = base;
-	channel->feerate_ppm = ppm;
+	if (base)
+		channel->feerate_base = *base;
+	if (ppm)
+		channel->feerate_ppm = *ppm;
+	if (htlc_max)
+		channel->htlc_maximum_msat = *htlc_max;
 
 	/* tell channeld to make a send_channel_update */
 	if (channel->owner && streq(channel->owner->name, "channeld"))
 		subd_send_msg(channel->owner,
-			      take(towire_channeld_config_channel(NULL, &base, &ppm,
-								  NULL)));
+			      take(towire_channeld_config_channel(NULL, base, ppm,
+								  htlc_max)));
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);
@@ -2041,6 +2052,17 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 			type_to_string(tmpctx, struct channel_id, &channel->cid));
 	if (channel->scid)
 		json_add_short_channel_id(response, "short_channel_id", channel->scid);
+
+	/* setchannel lists these explicitly */
+	if (add_details) {
+		json_add_amount_msat_only(response, "fee_base_msat",
+					  amount_msat(channel->feerate_base));
+		json_add_u32(response, "fee_proportional_millionths",
+			     channel->feerate_ppm);
+		json_add_amount_msat_only(response,
+					  "maximum_htlc_out_msat",
+					  channel->htlc_maximum_msat);
+	}
 	json_object_end(response);
 }
 
@@ -2088,14 +2110,14 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 			    channel->state != CHANNELD_AWAITING_LOCKIN &&
 			    channel->state != DUALOPEND_AWAITING_LOCKIN)
 				continue;
-			set_channel_fees(cmd, channel, *base, *ppm, *delaysecs,
-					 response);
+			set_channel_config(cmd, channel, base, ppm, NULL,
+					   *delaysecs, response, false);
 		}
 
 	/* single channel should be updated */
 	} else {
-		set_channel_fees(cmd, channel, *base, *ppm, *delaysecs,
-				 response);
+		set_channel_config(cmd, channel, base, ppm, NULL,
+				   *delaysecs, response, false);
 	}
 
 	/* Close and return response */
@@ -2116,6 +2138,75 @@ static const struct json_command setchannelfee_command = {
 	"If {id} is 'all', the fees will be applied for all channels. "
 };
 AUTODATA(json_command, &setchannelfee_command);
+
+static struct command_result *json_setchannel(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *obj UNNEEDED,
+					      const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct peer *peer;
+	struct channel *channel;
+	u32 *base, *ppm, *delaysecs;
+	struct amount_msat *htlc_max;
+
+	/* Parse the JSON command */
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_channel_or_all, &channel),
+		   p_opt("feebase", param_msat_u32, &base),
+		   p_opt("feeppm", param_number, &ppm),
+		   p_opt("htlcmax", param_msat, &htlc_max),
+		   p_opt_def("enforcedelay", param_number, &delaysecs, 600),
+		   NULL))
+		return command_param_failed();
+
+	if (channel
+	    && channel->state != CHANNELD_NORMAL
+	    && channel->state != CHANNELD_AWAITING_LOCKIN
+	    && channel->state != DUALOPEND_AWAITING_LOCKIN)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel is in state %s", channel_state_name(channel));
+
+	/* Open JSON response object for later iteration */
+	response = json_stream_success(cmd);
+	json_array_start(response, "channels");
+
+	/* If the users requested 'all' channels we need to iterate */
+	if (channel == NULL) {
+		list_for_each(&cmd->ld->peers, peer, list) {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			if (channel->state != CHANNELD_NORMAL &&
+			    channel->state != CHANNELD_AWAITING_LOCKIN &&
+			    channel->state != DUALOPEND_AWAITING_LOCKIN)
+				continue;
+			set_channel_config(cmd, channel, base, ppm, htlc_max,
+					   *delaysecs, response, true);
+		}
+
+	/* single channel should be updated */
+	} else {
+		set_channel_config(cmd, channel, base, ppm, htlc_max,
+				   *delaysecs, response, true);
+	}
+
+	/* Close and return response */
+	json_array_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command setchannel_command = {
+	"setchannel",
+	"channels",
+	json_setchannel,
+	"Sets fees and/or htlc_max for channel with {id} "
+	"(either peer ID, channel ID, short channel ID or 'all'). "
+	"If {feebase}, {feeppm} or {htlcmax} is missing, it is unchanged."
+	"{base} can also be defined in other units, for example '1sat'. "
+	"If {id} is 'all', the fees will be applied for all channels. "
+};
+AUTODATA(json_command, &setchannel_command);
 
 #if DEVELOPER
 static struct command_result *json_sign_last_tx(struct command *cmd,
