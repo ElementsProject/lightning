@@ -2213,6 +2213,7 @@ def test_setchannel_zero(node_factory, bitcoind):
     # - payment can be done using zero fees
     DEF_BASE = 1
     DEF_PPM = 10
+    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
 
     l1, l2, l3 = node_factory.line_graph(
         3, announce_channels=True, wait_for_announce=True,
@@ -2241,6 +2242,14 @@ def test_setchannel_zero(node_factory, bitcoind):
     result = l1.rpc.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 4999999
+
+    # FIXME: hack something up to advertize min_htlc > 0, then test mintoolow.
+    with pytest.raises(RpcError, match="htlcmax cannot be less than htlcmin"):
+        l2.rpc.setchannel(scid, htlcmin=100000, htlcmax=99999)
+
+    ret = l2.rpc.setchannel(scid, htlcmax=FUNDAMOUNT * 1000)
+    assert 'warning_htlcmax_too_high' in only_one(ret['channels'])
+    assert only_one(ret['channels'])['maximum_htlc_out_msat'] == MAX_HTLC
 
 
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")
