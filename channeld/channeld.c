@@ -3426,18 +3426,31 @@ static void handle_blockheight(struct peer *peer, const u8 *inmsg)
 	}
 }
 
-static void handle_specific_feerates(struct peer *peer, const u8 *inmsg)
+static void handle_config_channel(struct peer *peer, const u8 *inmsg)
 {
-	u32 base_old = peer->fee_base;
-	u32 per_satoshi_old = peer->fee_per_satoshi;
+	u32 *base, *ppm;
+	struct amount_msat *htlc_max;
+	bool changed;
 
-	if (!fromwire_channeld_specific_feerates(inmsg,
-				       &peer->fee_base,
-				       &peer->fee_per_satoshi))
-		master_badmsg(WIRE_CHANNELD_SPECIFIC_FEERATES, inmsg);
+	if (!fromwire_channeld_config_channel(inmsg, inmsg, &base, &ppm, &htlc_max))
+		master_badmsg(WIRE_CHANNELD_CONFIG_CHANNEL, inmsg);
 
 	/* only send channel updates if values actually changed */
-	if (peer->fee_base != base_old || peer->fee_per_satoshi != per_satoshi_old)
+	changed = false;
+	if (base && *base != peer->fee_base) {
+		peer->fee_base = *base;
+		changed = true;
+	}
+	if (ppm && *ppm != peer->fee_per_satoshi) {
+		peer->fee_per_satoshi = *ppm;
+		changed = true;
+	}
+	if (htlc_max && !amount_msat_eq(*htlc_max, peer->htlc_maximum_msat)) {
+		peer->htlc_maximum_msat = *htlc_max;
+		changed = true;
+	}
+
+	if (changed)
 		send_channel_update(peer, 0);
 }
 
@@ -3627,10 +3640,10 @@ static void req_in(struct peer *peer, const u8 *msg)
 			return;
 		handle_fail(peer, msg);
 		return;
-	case WIRE_CHANNELD_SPECIFIC_FEERATES:
+	case WIRE_CHANNELD_CONFIG_CHANNEL:
 		if (handle_master_request_later(peer, msg))
 			return;
-		handle_specific_feerates(peer, msg);
+		handle_config_channel(peer, msg);
 		return;
 	case WIRE_CHANNELD_SEND_SHUTDOWN:
 		handle_shutdown_cmd(peer, msg);
