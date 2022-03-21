@@ -87,6 +87,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **spendable_msat** (msat, optional): total we could send through channel
   - **receivable_msat** (msat, optional): total peer could send through channel
   - **minimum_htlc_in_msat** (msat, optional): the minimum amount HTLC we accept
+  - **minimum_htlc_out_msat** (msat, optional): the minimum amount HTLC we will send
   - **maximum_htlc_out_msat** (msat, optional): the maximum amount HTLC we will send
   - **their_to_self_delay** (u32, optional): the number of blocks before they can take their funds if they unilateral close
   - **our_to_self_delay** (u32, optional): the number of blocks before we can take our funds if we unilateral close
@@ -379,4 +380,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:8e30caf48aed46acc7c053a355867dc8b8624035dba4ea7668d30d86b8d827cd)
+[comment]: # ( SHA256STAMP:147b7008c8f4acb031df625e0731614339a75ee5861cb9f40cd542b1017e3660)

@@ -410,10 +410,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 			    u32 lease_chan_max_msat,
 			    u16 lease_chan_max_ppt,
+			    struct amount_msat htlc_minimum_msat,
 			    struct amount_msat htlc_maximum_msat)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
-	struct amount_msat htlc_max;
+	struct amount_msat htlc_min, htlc_max;
 
 	assert(dbid != 0);
 	channel->peer = peer;
@@ -509,8 +510,12 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->blockheight_states = dup_height_states(channel, height_states);
 	channel->channel_update = NULL;
 
-	/* DB migration, for example, sets this to bignum; correct
-	 * here */
+	/* DB migration, for example, sets min to 0, max to large: fixup */
+	htlc_min = channel->channel_info.their_config.htlc_minimum;
+	if (amount_msat_greater(htlc_min, htlc_minimum_msat))
+		channel->htlc_minimum_msat = htlc_min;
+	else
+		channel->htlc_minimum_msat = htlc_minimum_msat;
 	htlc_max = htlc_max_possible_send(channel);
 	if (amount_msat_less(htlc_max, htlc_maximum_msat))
 		channel->htlc_maximum_msat = htlc_max;

@@ -871,6 +871,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD lease_fee BIGINT DEFAULT 0"), NULL},
     /* Default is too big; we set to max after loading */
     {SQL("ALTER TABLE channels ADD htlc_maximum_msat BIGINT DEFAULT 2100000000000000"), NULL},
+    {SQL("ALTER TABLE channels ADD htlc_minimum_msat BIGINT DEFAULT 0"), NULL},
 };
 
 /**

@@ -694,7 +694,7 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 u8 *towire_channel_disabled(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_disabled called!\n"); abort(); }
 /* Generated stub for towire_channeld_config_channel */
-u8 *towire_channeld_config_channel(const tal_t *ctx UNNEEDED, u32 *feerate_base UNNEEDED, u32 *feerate_ppm UNNEEDED, struct amount_msat *htlc_maximum UNNEEDED)
+u8 *towire_channeld_config_channel(const tal_t *ctx UNNEEDED, u32 *feerate_base UNNEEDED, u32 *feerate_ppm UNNEEDED, struct amount_msat *htlc_minimum UNNEEDED, struct amount_msat *htlc_maximum UNNEEDED)
 { fprintf(stderr, "towire_channeld_config_channel called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
@@ -1598,6 +1598,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   100,
 			   lease_commit_sig,
 			   7777, 22,
+			   AMOUNT_MSAT(0),
 			   AMOUNT_MSAT(-1ULL));
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);

@@ -1882,7 +1882,7 @@ def test_setchannel_usage(node_factory, bitcoind):
 
     def channel_get_config(scid):
         return l1.db.query(
-            'SELECT feerate_base, feerate_ppm, htlc_maximum_msat FROM channels '
+            'SELECT feerate_base, feerate_ppm, htlc_minimum_msat, htlc_maximum_msat FROM channels '
             'WHERE short_channel_id=\'{}\';'.format(scid))
 
     # get short channel id
@@ -1900,8 +1900,8 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert peers[0]['channels'][0]['fee_proportional_millionths'] == DEF_PPM
     assert peers[0]['channels'][0]['maximum_htlc_out_msat'] == MAX_HTLC
 
-    # custom setchannel scid <feebase> <feeppm> <htlcmax>
-    result = l1.rpc.setchannel(scid, 1337, 137, 133337)
+    # custom setchannel scid <feebase> <feeppm> <htlcmin> <htlcmax>
+    result = l1.rpc.setchannel(scid, 1337, 137, 17, 133337)
 
     # check result format
     assert(len(result['channels']) == 1)
@@ -1910,22 +1910,26 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert(result['channels'][0]['short_channel_id'] == scid)
     assert(result['channels'][0]['fee_base_msat'] == 1337)
     assert(result['channels'][0]['fee_proportional_millionths'] == 137)
+    assert(result['channels'][0]['minimum_htlc_out_msat'] == 17)
     assert(result['channels'][0]['maximum_htlc_out_msat'] == 133337)
 
     # check if custom values made it into the database
     db_fees = channel_get_config(scid)
     assert(db_fees[0]['feerate_base'] == 1337)
     assert(db_fees[0]['feerate_ppm'] == 137)
+    assert(db_fees[0]['htlc_minimum_msat'] == 17)
     assert(db_fees[0]['htlc_maximum_msat'] == 133337)
     # also check for updated values in `listpeers`
     peers = l1.rpc.listpeers()['peers']
     assert peers[0]['channels'][0]['fee_base_msat'] == Millisatoshi(1337)
     assert peers[0]['channels'][0]['fee_proportional_millionths'] == 137
+    assert peers[0]['channels'][0]['minimum_htlc_out_msat'] == 17
     assert peers[0]['channels'][0]['maximum_htlc_out_msat'] == 133337
 
     # wait for gossip and check if l1 sees new fees in listchannels
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_BASE, 1337])
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_PPM, 137])
+    wait_for(lambda: [c['htlc_minimum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [0, 17])
     wait_for(lambda: [c['htlc_maximum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [MAX_HTLC, 133337])
 
     # also test with named and missing parameters
@@ -1935,6 +1939,7 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert(result['channels'][0]['short_channel_id'] == scid)
     assert(result['channels'][0]['fee_base_msat'] == 1337)
     assert(result['channels'][0]['fee_proportional_millionths'] == 42)
+    assert result['channels'][0]['minimum_htlc_out_msat'] == 17
     assert(result['channels'][0]['maximum_htlc_out_msat'] == 133337)
 
     result = l1.rpc.setchannel(feebase=43, id=scid)
@@ -1943,6 +1948,16 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert(result['channels'][0]['short_channel_id'] == scid)
     assert(result['channels'][0]['fee_base_msat'] == 43)
     assert(result['channels'][0]['fee_proportional_millionths'] == 42)
+    assert result['channels'][0]['minimum_htlc_out_msat'] == 17
+    assert(result['channels'][0]['maximum_htlc_out_msat'] == 133337)
+
+    result = l1.rpc.setchannel(htlcmin=45, id=scid)
+    assert(len(result['channels']) == 1)
+    assert(re.match('^[0-9a-f]{64}$', result['channels'][0]['channel_id']))
+    assert(result['channels'][0]['short_channel_id'] == scid)
+    assert(result['channels'][0]['fee_base_msat'] == 43)
+    assert(result['channels'][0]['fee_proportional_millionths'] == 42)
+    assert result['channels'][0]['minimum_htlc_out_msat'] == 45
     assert(result['channels'][0]['maximum_htlc_out_msat'] == 133337)
 
     result = l1.rpc.setchannel(htlcmax=43333, id=scid)
@@ -1951,6 +1966,7 @@ def test_setchannel_usage(node_factory, bitcoind):
     assert(result['channels'][0]['short_channel_id'] == scid)
     assert(result['channels'][0]['fee_base_msat'] == 43)
     assert(result['channels'][0]['fee_proportional_millionths'] == 42)
+    assert result['channels'][0]['minimum_htlc_out_msat'] == 45
     assert(result['channels'][0]['maximum_htlc_out_msat'] == 43333)
 
     # check if negative fees raise error and DB keeps values
@@ -2079,6 +2095,7 @@ def test_setchannel_routing(node_factory, bitcoind):
     DEF_BASE = 1
     DEF_PPM = 10
     MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
+    MIN_HTLC = Millisatoshi(0)
 
     l1, l2, l3 = node_factory.line_graph(
         3, announce_channels=True, wait_for_announce=True,
@@ -2089,11 +2106,12 @@ def test_setchannel_routing(node_factory, bitcoind):
     scid = l2.get_channel_scid(l3)
 
     # TEST CUSTOM VALUES
-    l2.rpc.setchannel(scid, 1337, 137, 4000000, enforcedelay=0)
+    l2.rpc.setchannel(scid, 1337, 137, 17, 4000000, enforcedelay=0)
 
     # wait for l1 to see updated channel via gossip
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [1337, DEF_BASE])
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [137, DEF_PPM])
+    wait_for(lambda: [c['htlc_minimum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [17, MIN_HTLC])
     wait_for(lambda: [c['htlc_maximum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [4000000, MAX_HTLC])
 
     # test fees are applied to HTLC forwards
@@ -2136,7 +2154,7 @@ def test_setchannel_routing(node_factory, bitcoind):
 
     # In case l3 includes a routehint, we need to make sure they also know
     # about the new fees, otherwise we may end up with the old feerate
-    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['htlc_maximum_msat'], c['active']) for c in l3.rpc.listchannels(scid)['channels']] == [(1337, 137, 4000000, True), (DEF_BASE, DEF_PPM, MAX_HTLC, True)])
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['htlc_minimum_msat'], c['htlc_maximum_msat'], c['active']) for c in l3.rpc.listchannels(scid)['channels']] == [(1337, 137, 17, 4000000, True), (DEF_BASE, DEF_PPM, MIN_HTLC, MAX_HTLC, True)])
 
     # do and check actual payment
     inv = l3.rpc.invoice(4000000, 'test_setchannel_2', 'desc')
@@ -2153,9 +2171,33 @@ def test_setchannel_routing(node_factory, bitcoind):
     l1.rpc.sendpay(route_ok, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
 
+    # Now try below minimum
+    route_ok = l1.rpc.getroute(l3.info['id'], 17, 1)["route"]
+    assert len(route_ok) == 2
+    assert route_ok[0]['msatoshi'] == 1337 + 17
+    assert route_ok[1]['msatoshi'] == 17
+
+    route_bad = copy.deepcopy(route_ok)
+    route_bad[0]['msatoshi'] = 1337 + 16
+    route_bad[1]['msatoshi'] = 16
+    route_bad[0]['amount_msat'] = Millisatoshi(1337 + 16)
+    route_bad[1]['amount_msat'] = Millisatoshi(16)
+    assert route_bad != route_ok
+
+    inv = l3.rpc.invoice(17, 'test_setchannel_3', 'desc')
+
+    # This will fail.
+    l1.rpc.sendpay(route_bad, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    with pytest.raises(RpcError, match='WIRE_TEMPORARY_CHANNEL_FAILURE'):
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # This will succeed
+    l1.rpc.sendpay(route_ok, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+
     # Check that this one warns about capacity!
     inv = l3.rpc.call('invoice', {'msatoshi': 4001793,
-                                  'label': 'test_setchannel_3',
+                                  'label': 'test_setchannel_4',
                                   'description': 'desc'})
     assert 'warning_capacity' in inv
 
@@ -2213,6 +2255,7 @@ def test_setchannel_restart(node_factory, bitcoind):
     # - l1 routing can be made to l3 and global (1 10) fees are applied
     DEF_BASE = 1
     DEF_PPM = 10
+    MIN_HTLC = Millisatoshi(0)
     MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
     OPTS = {'may_reconnect': True, 'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM}
 
@@ -2223,7 +2266,7 @@ def test_setchannel_restart(node_factory, bitcoind):
     scid23 = l2.get_channel_scid(l3)
 
     # l2 set custom fees
-    l2.rpc.setchannel(scid23, 1337, 137, 500001)
+    l2.rpc.setchannel(scid23, 1337, 137, 17, 500001)
 
     # restart l2 and reconnect
     l2.restart()
@@ -2234,11 +2277,11 @@ def test_setchannel_restart(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(scid12)['channels']] == [True, True])
 
     # l1 wait for channel update from l2
-    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['htlc_maximum_msat'], c['active']) for c in l1.rpc.listchannels(scid23)['channels']] == [(1337, 137, 500001, True), (DEF_BASE, DEF_PPM, MAX_HTLC, True)])
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['htlc_minimum_msat'], c['htlc_maximum_msat'], c['active']) for c in l1.rpc.listchannels(scid23)['channels']] == [(1337, 137, 17, 500001, True), (DEF_BASE, DEF_PPM, MIN_HTLC, MAX_HTLC, True)])
 
     # In case l3 includes a routehint, we need to make sure they also know
     # about the new fees, otherwise we may end up with the old feerate
-    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['htlc_maximum_msat'], c['active']) for c in l3.rpc.listchannels(scid23)['channels']] == [(1337, 137, 500001, True), (DEF_BASE, DEF_PPM, MAX_HTLC, True)])
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['htlc_minimum_msat'], c['htlc_maximum_msat'], c['active']) for c in l3.rpc.listchannels(scid23)['channels']] == [(1337, 137, 17, 500001, True), (DEF_BASE, DEF_PPM, MIN_HTLC, MAX_HTLC, True)])
 
     # l1 can make payment to l3 with custom fees being applied
     # Note: BOLT #7 math works out to 1405 msat fees
@@ -2269,7 +2312,7 @@ def test_setchannel_all(node_factory, bitcoind):
     scid3 = l1.get_channel_scid(l3)
 
     # now try to set all (two) channels using wildcard syntax
-    result = l1.rpc.setchannel("all", 0xDEAD, 0xBEEF, 0xCAFE)
+    result = l1.rpc.setchannel("all", 0xDEAD, 0xBEEF, 0xBAD, 0xCAFE)
 
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_BASE, 0xDEAD])
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid2)['channels']] == [DEF_PPM, 0xBEEF])
@@ -2281,11 +2324,13 @@ def test_setchannel_all(node_factory, bitcoind):
     assert result['channels'][0]['short_channel_id'] == scid2
     assert result['channels'][0]['fee_base_msat'] == 0xDEAD
     assert result['channels'][0]['fee_proportional_millionths'] == 0xBEEF
+    assert result['channels'][0]['minimum_htlc_out_msat'] == 0xBAD
     assert result['channels'][0]['maximum_htlc_out_msat'] == 0xCAFE
     assert result['channels'][1]['peer_id'] == l3.info['id']
     assert result['channels'][1]['short_channel_id'] == scid3
     assert result['channels'][1]['fee_base_msat'] == 0xDEAD
     assert result['channels'][1]['fee_proportional_millionths'] == 0xBEEF
+    assert result['channels'][1]['minimum_htlc_out_msat'] == 0xBAD
     assert result['channels'][1]['maximum_htlc_out_msat'] == 0xCAFE
 
 
