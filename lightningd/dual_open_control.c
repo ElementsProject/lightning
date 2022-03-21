@@ -1110,6 +1110,7 @@ wallet_update_channel(struct lightningd *ld,
 	channel->msat_to_us_min = our_msat;
 	channel->msat_to_us_max = our_msat;
 	channel->lease_expiry = lease_expiry;
+	channel->htlc_minimum_msat = channel->channel_info.their_config.htlc_minimum;
 	channel->htlc_maximum_msat = htlc_max_possible_send(channel);
 
 	tal_free(channel->lease_commit_sig);
@@ -1253,6 +1254,7 @@ wallet_commit_channel(struct lightningd *ld,
 
 	channel->lease_chan_max_msat = lease_chan_max_msat;
 	channel->lease_chan_max_ppt = lease_chan_max_ppt;
+	channel->htlc_minimum_msat = channel_info->their_config.htlc_minimum;
 	channel->htlc_maximum_msat = htlc_max_possible_send(channel);
 
 	/* Now we finally put it in the database. */

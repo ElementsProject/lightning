@@ -124,7 +124,9 @@ struct peer {
 	 * the channel_updates. */
 	u32 fee_base;
 	u32 fee_per_satoshi;
-	struct amount_msat htlc_maximum_msat;
+	/* Note: the real min constraint is channel->config[REMOTE].htlc_minimum:
+	 * they could kill the channel if we violate that! */
+	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
 
 	/* The scriptpubkey to use for shutting down. */
 	u32 *final_index;
@@ -361,7 +363,7 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  disable_flag
 						  == ROUTING_FLAGS_DISABLED,
 						  peer->cltv_delta,
-						  peer->channel->config[REMOTE].htlc_minimum,
+						  peer->htlc_minimum_msat,
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
 						  peer->htlc_maximum_msat);
@@ -3386,10 +3388,13 @@ static void handle_blockheight(struct peer *peer, const u8 *inmsg)
 static void handle_config_channel(struct peer *peer, const u8 *inmsg)
 {
 	u32 *base, *ppm;
-	struct amount_msat *htlc_max;
+	struct amount_msat *htlc_min, *htlc_max;
 	bool changed;
 
-	if (!fromwire_channeld_config_channel(inmsg, inmsg, &base, &ppm, &htlc_max))
+	if (!fromwire_channeld_config_channel(inmsg, inmsg,
+					      &base, &ppm,
+					      &htlc_min,
+					      &htlc_max))
 		master_badmsg(WIRE_CHANNELD_CONFIG_CHANNEL, inmsg);
 
 	/* only send channel updates if values actually changed */
@@ -3400,6 +3405,10 @@ static void handle_config_channel(struct peer *peer, const u8 *inmsg)
 	}
 	if (ppm && *ppm != peer->fee_per_satoshi) {
 		peer->fee_per_satoshi = *ppm;
+		changed = true;
+	}
+	if (htlc_min && !amount_msat_eq(*htlc_min, peer->htlc_minimum_msat)) {
+		peer->htlc_minimum_msat = *htlc_min;
 		changed = true;
 	}
 	if (htlc_max && !amount_msat_eq(*htlc_max, peer->htlc_maximum_msat)) {
@@ -3712,6 +3721,7 @@ static void init_channel(struct peer *peer)
 				    &opener,
 				    &peer->fee_base,
 				    &peer->fee_per_satoshi,
+				    &peer->htlc_minimum_msat,
 				    &peer->htlc_maximum_msat,
 				    &local_msat,
 				    &points[LOCAL],

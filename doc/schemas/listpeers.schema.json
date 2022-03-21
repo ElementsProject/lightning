@@ -418,6 +418,10 @@
                   "type": "msat",
                   "description": "the minimum amount HTLC we accept"
                 },
+                "minimum_htlc_out_msat": {
+                  "type": "msat",
+                  "description": "the minimum amount HTLC we will send"
+                },
                 "maximum_htlc_out_msat": {
                   "type": "msat",
                   "description": "the maximum amount HTLC we will send"
@@ -776,6 +780,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "minimum_htlc_out_msat": {},
                       "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},
@@ -864,6 +869,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "minimum_htlc_out_msat": {},
                       "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},
@@ -953,6 +959,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "minimum_htlc_out_msat": {},
                       "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},
@@ -1041,6 +1048,7 @@
                       "spendable_msat": {},
                       "receivable_msat": {},
                       "minimum_htlc_in_msat": {},
+                      "minimum_htlc_out_msat": {},
                       "maximum_htlc_out_msat": {},
                       "spendable_msatoshi": {},
                       "receivable_msatoshi": {},

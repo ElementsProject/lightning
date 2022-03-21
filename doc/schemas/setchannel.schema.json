@@ -17,6 +17,7 @@
           "channel_id",
           "fee_base_msat",
           "fee_proportional_millionths",
+          "minimum_htlc_out_msat",
           "maximum_htlc_out_msat"
         ],
         "properties": {
@@ -41,6 +42,14 @@
           "fee_proportional_millionths": {
             "type": "u32",
             "description": "The resulting feeppm (this is the BOLT #7 name)"
+          },
+          "minimum_htlc_out_msat": {
+            "type": "msat",
+            "description": "The resulting htlcmin we will advertize (the BOLT #7 name is htlc_minimum_msat)"
+          },
+          "warning_htlcmin_too_low": {
+            "type": "string",
+            "description": "The requested htlcmin was too low for this peer, so we set it to the minimum they will allow"
           },
           "maximum_htlc_out_msat": {
             "type": "msat",

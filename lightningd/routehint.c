@@ -114,6 +114,8 @@ routehint_candidates(const tal_t *ctx,
 			continue;
 		}
 
+		/* FIXME: we don't actually check htlc_minimum_msat! */
+
 		/* If they set an htlc_maximum_msat, consider that the
 		 * capacity ceiling.  We *could* do multiple HTLCs,
 		 * but presumably that would defeat the spirit of the

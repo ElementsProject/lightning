@@ -1,19 +1,23 @@
-lightning-setchannel -- Command for configuring fees / maximum htlc on a lightning channel
+lightning-setchannel -- Command for configuring fees / htlc range advertized for a channel
 ===========================================================================================
 
 SYNOPSIS
 --------
 
-**setchannel** *id* [*feebase*] [*feeppm*] [*htlcmax*] [*enforcedelay*]
+**setchannel** *id* [*feebase*] [*feeppm*] [*htlcmin*] [*htlcmax*] [*enforcedelay*]
 
 DESCRIPTION
 -----------
 
 The **setchannel** RPC command sets channel specific routing fees, and
-`htlc_maximum_msat` as defined in BOLT \#7. The channel has to be in
+`htlc_minimum_msat` or `htlc_maximum_msat` as defined in BOLT \#7. The channel has to be in
 normal or awaiting state.  This can be checked by **listpeers**
 reporting a *state* of CHANNELD\_NORMAL or CHANNELD\_AWAITING\_LOCKIN
 for the channel.
+
+These changes (for a public channel) will be broadcast to the rest of
+the network (though many nodes limit the rate of such changes they
+will accept: we allow 2 a day, with a few extra occasionally).
 
 *id* is required and should contain a scid (short channel ID), channel
 id or peerid (pubkey) of the channel to be modified. If *id* is set to
@@ -30,6 +34,13 @@ ending in *sat*, or a number with 1 to 11 decimal places ending in
 to any routed payment volume in satoshi. For example, if ppm is 1,000
 and 1,000,000 satoshi is being routed through the channel, an
 proportional fee of 1,000 satoshi is added, resulting in a 0.1% fee.
+
+*htlcmin* is an optional value that limits how small an HTLC we will
+send: if omitted, it is unchanged (the default is no lower limit). It
+can be a whole number, or a whole number ending in *msat* or *sat*, or
+a number with three decimal places ending in *sat*, or a number with 1
+to 11 decimal places ending in *btc*.  The peer also enforces a
+minimum for the channel: setting it below will be ignored.
 
 *htlcmax* is an optional value that limits how large an HTLC we will
 send: if omitted, it is unchanged (the default is no effective
@@ -55,8 +66,11 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **channel_id** (hex): The channel_id of the channel (always 64 characters)
 - **fee_base_msat** (msat): The resulting feebase (this is the BOLT #7 name)
 - **fee_proportional_millionths** (u32): The resulting feeppm (this is the BOLT #7 name)
+- **minimum_htlc_out_msat** (msat): The resulting htlcmin we will advertize (the BOLT #7 name is htlc_minimum_msat)
 - **maximum_htlc_out_msat** (msat): The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)
 - **short_channel_id** (short_channel_id, optional): the short_channel_id (if locked in)
+- the following warnings are possible:
+  - **warning_htlcmin_too_low**: The requested htlcmin was too low for this peer, so we set it to the minimum they will allow
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -86,4 +100,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:25c6733af784e8a21a8eed4bcb0f12767ae49d16fe623187ae5313b5bb5cdd80)
+[comment]: # ( SHA256STAMP:0f153e7dddce61bc921b3743472f11316c5984b9b1459cac1b201d6f51ec1be1)

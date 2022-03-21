@@ -35,6 +35,7 @@ msgdata,channeld_init,old_remote_per_commit,pubkey,
 msgdata,channeld_init,opener,enum side,
 msgdata,channeld_init,fee_base,u32,
 msgdata,channeld_init,fee_proportional,u32,
+msgdata,channeld_init,htlc_minimum_msat,amount_msat,
 msgdata,channeld_init,htlc_maximum_msat,amount_msat,
 msgdata,channeld_init,local_msatoshi,amount_msat,
 msgdata,channeld_init,our_basepoints,basepoints,
@@ -220,6 +221,7 @@ msgdata,channeld_fail_fallen_behind,remote_per_commitment_point,?pubkey,
 msgtype,channeld_config_channel,1029
 msgdata,channeld_config_channel,feerate_base,?u32,
 msgdata,channeld_config_channel,feerate_ppm,?u32,
+msgdata,channeld_config_channel,htlc_minimum,?amount_msat,
 msgdata,channeld_config_channel,htlc_maximum,?amount_msat,
 
 # When we receive announcement_signatures for channel announce

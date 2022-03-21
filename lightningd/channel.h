@@ -196,8 +196,8 @@ struct channel {
 	 * peer via option_data_loss_protect? */
 	const struct pubkey *future_per_commitment_point;
 
-	/* Max htlc amount allowed in channel. */
-	struct amount_msat htlc_maximum_msat;
+	/* Min/max htlc amount allowed in channel. */
+	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
 
 	/* Feerate per channel */
 	u32 feerate_base, feerate_ppm;
@@ -205,7 +205,7 @@ struct channel {
 	/* But allow these feerates/htlcs up until this time. */
 	struct timeabs old_feerate_timeout;
 	u32 old_feerate_base, old_feerate_ppm;
-	struct amount_msat old_htlc_maximum_msat;
+	struct amount_msat old_htlc_minimum_msat, old_htlc_maximum_msat;
 
 	/* If they used option_upfront_shutdown_script. */
 	const u8 *remote_upfront_shutdown_script;
@@ -315,6 +315,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 			    u32 lease_chan_max_msat,
 			    u16 lease_chan_max_ppt,
+			    struct amount_msat htlc_minimum_msat,
 			    struct amount_msat htlc_maximum_msat);
 
 /* new_inflight - Create a new channel_inflight for a channel */
