@@ -27,6 +27,11 @@ void printwire_u64(const char *fieldname, const u64 *v)
 	printf("%"PRIu64"\n", *v);
 }
 
+void printwire_wireaddr(const char *fieldname, const struct wireaddr *wireaddr)
+{
+	printf("%s\n", fmt_wireaddr(tmpctx, wireaddr));
+}
+
 /* Returns false if we ran out of data. */
 static bool print_hexstring(const u8 **cursor, size_t *plen, size_t len)
 {
