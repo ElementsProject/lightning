@@ -417,7 +417,7 @@ static struct command_result *check_previous_invoice(struct command *cmd,
 }
 
 /* BOLT-offers #12:
- *  - MUST fail the request if `payer_signature` is not correct.
+ *  - MUST fail the request if `signature` is not correct.
  */
 static bool check_payer_sig(const struct tlv_invoice_request *invreq,
 			    const struct point32 *payer_key,
@@ -425,6 +425,17 @@ static bool check_payer_sig(const struct tlv_invoice_request *invreq,
 {
 	struct sha256 merkle, sighash;
 	merkle_tlv(invreq->fields, &merkle);
+	sighash_from_merkle("invoice_request", "signature", &merkle, &sighash);
+
+	if (secp256k1_schnorrsig_verify(secp256k1_ctx,
+					sig->u8,
+					sighash.u.u8, &payer_key->pubkey) == 1)
+		return true;
+
+	if (!deprecated_apis)
+		return false;
+
+	/* Try old name */
 	sighash_from_merkle("invoice_request", "payer_signature",
 			    &merkle, &sighash);
 
@@ -714,13 +725,13 @@ static struct command_result *listoffers_done(struct command *cmd,
 			return err;
 	}
 
-	err = invreq_must_have(cmd, ir, payer_signature);
+	err = invreq_must_have(cmd, ir, signature);
 	if (err)
 		return err;
 	if (!check_payer_sig(ir->invreq,
 			     ir->invreq->payer_key,
-			     ir->invreq->payer_signature)) {
-		return fail_invreq(cmd, ir, "bad payer_signature");
+			     ir->invreq->signature)) {
+		return fail_invreq(cmd, ir, "bad signature");
 	}
 
 	if (ir->offer->recurrence) {
@@ -806,7 +817,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	ir->inv->payment_hash = tal(ir->inv, struct sha256);
 	sha256(ir->inv->payment_hash, &ir->preimage, sizeof(ir->preimage));
 
-	ir->inv->cltv = tal_dup(ir->inv, u32, &cltv_final);
+	ir->inv->cltv = tal_dup(ir->inv, u16, &cltv_final);
 
 	ir->inv->created_at = tal(ir->inv, u64);
 	*ir->inv->created_at = time_now().ts.tv_sec;

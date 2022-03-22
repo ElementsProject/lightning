@@ -16,7 +16,7 @@
 #include <plugins/offers_offer.h>
 
 struct point32 id;
-u32 cltv_final;
+u16 cltv_final;
 bool offers_enabled;
 
 static struct command_result *finished(struct command *cmd,
@@ -679,7 +679,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	if (invoice->fallbacks)
 		valid &= json_add_fallbacks(js,
 					    invoice->chain,
-					    invoice->fallbacks->fallbacks);
+					    invoice->fallbacks);
 
 	/* BOLT-offers #12:
 	 * - if the offer contained `refund_for`:
@@ -769,23 +769,38 @@ static void json_add_invoice_request(struct json_stream *js,
 				 tal_bytelen(invreq->payer_note));
 
 	/* BOLT-offers #12:
-	 *  - MUST fail the request if there is no `payer_signature` field.
-	 *  - MUST fail the request if `payer_signature` is not correct.
+	 *  - MUST fail the request if there is no `signature` field.
+	 *  - MUST fail the request if `signature` is not correct.
 	 */
-	if (invreq->payer_signature) {
+	if (invreq->signature) {
 		if (invreq->payer_key
 		    && !bolt12_check_signature(invreq->fields,
 					       "invoice_request",
-					       "payer_signature",
+					       "signature",
 					       invreq->payer_key,
-					       invreq->payer_signature)) {
-			json_add_string(js, "warning_invoice_request_invalid_payer_signature",
-					"Bad payer_signature");
-			valid = false;
+					       invreq->signature)) {
+			bool sig_valid;
+
+			if (deprecated_apis) {
+				/* The old name? */
+				sig_valid = bolt12_check_signature(invreq->fields,
+								   "invoice_request",
+								   "payer_signature",
+								   invreq->payer_key,
+								   invreq->signature);
+			} else {
+				sig_valid = false;
+			}
+
+			if (!sig_valid) {
+				json_add_string(js, "warning_invoice_request_invalid_signature",
+						"Bad signature");
+				valid = false;
+			}
 		}
 	} else {
-		json_add_string(js, "warning_invoice_request_missing_payer_signature",
-				"Missing payer_signature");
+		json_add_string(js, "warning_invoice_request_missing_signature",
+				"Missing signature");
 		valid = false;
 	}
 
@@ -836,7 +851,7 @@ static const char *init(struct plugin *p,
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{cltv-final:%,experimental-offers:%}",
-		 JSON_SCAN(json_to_number, &cltv_final),
+		 JSON_SCAN(json_to_u16, &cltv_final),
 		 JSON_SCAN(json_to_bool, &offers_enabled));
 
 	return NULL;

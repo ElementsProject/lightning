@@ -205,7 +205,7 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
  * Merkle-root; "lightning" is the literal 9-byte ASCII string,
  * `messagename` is the name of the TLV stream being signed (i.e. "offer",
  * "invoice_request" or "invoice") and the `fieldname` is the TLV field
- * containing the signature (e.g. "signature" or "payer_signature").
+ * containing the signature (e.g. "signature" or "refund_signature").
  */
 void sighash_from_merkle(const char *messagename,
 			 const char *fieldname,
