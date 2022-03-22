@@ -108,7 +108,7 @@ static bool print_hexstring(const u8 **cursor, size_t *plen, size_t len)
 	return true;
 }
 
-static bool printwire_alias(const u8 **cursor, size_t *plen, size_t len)
+bool printwire_utf8_array(const char *fieldname, const u8 **cursor, size_t *plen, size_t len)
 {
 	struct utf8_state utf8 = UTF8_STATE_INIT;
 	const char *p = (const char *)*cursor;
@@ -217,7 +217,7 @@ static bool printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 bool printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, size_t len)
 {
 	if (streq(fieldname, "node_announcement.alias"))
-		return printwire_alias(cursor, plen, len);
+		return printwire_utf8_array(fieldname, cursor, plen, len);
 
 	if (streq(fieldname, "node_announcement.addresses"))
 		return printwire_addresses(cursor, plen, len);
@@ -316,10 +316,12 @@ fail:
 #define PRINTWIRE_STRUCT_TYPE_TO_STRING(T) \
 	PRINTWIRE_TYPE_TO_STRING(struct T, T)
 
+PRINTWIRE_STRUCT_TYPE_TO_STRING(bip340sig)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bitcoin_blkid)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(bitcoin_txid)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(channel_id)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(node_id)
+PRINTWIRE_STRUCT_TYPE_TO_STRING(point32)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(preimage)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(pubkey)
 PRINTWIRE_STRUCT_TYPE_TO_STRING(sha256)
