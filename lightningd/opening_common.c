@@ -103,7 +103,7 @@ void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 				    enum log_level level,
 				    const char *desc)
 {
-	u8 *msg = towire_connectd_peer_disconnected(tmpctx, &uc->peer->id);
+	u8 *msg = towire_connectd_discard_peer(tmpctx, &uc->peer->id);
 	log_(uc->log, level, NULL, false, "%s", desc);
 	/* NULL when we're shutting down */
 	if (uc->peer->ld->connectd)

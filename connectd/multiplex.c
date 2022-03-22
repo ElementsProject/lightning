@@ -715,7 +715,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return read_hdr_from_peer(peer_conn, peer);
 
        /* Don't process packets while we're closing */
-       if (peer->told_to_close)
+       if (peer->ready_to_die)
 	       return read_hdr_from_peer(peer_conn, peer);
 
        /* If we swallow this, just try again. */
@@ -825,14 +825,14 @@ static void destroy_subd(struct subd *subd)
 	io_wake(&peer->peer_in);
 
 	/* If no peer, finally time to close */
-	if (!peer->to_peer && peer->told_to_close)
+	if (!peer->to_peer && peer->ready_to_die)
 		peer_conn_closed(peer);
 }
 
 void close_peer_conn(struct peer *peer)
 {
 	/* Make write_to_peer do flush after writing */
-	peer->told_to_close = true;
+	peer->ready_to_die = true;
 
 	/* Already dead? */
 	if (!peer->subds && !peer->to_peer) {
@@ -883,7 +883,7 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 		return;
 	}
 
-	if (peer->told_to_close)
+	if (peer->ready_to_die)
 		peer_conn_closed(peer);
 }
 
@@ -905,7 +905,7 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 
 void multiplex_final_msg(struct peer *peer, const u8 *final_msg TAKES)
 {
-	peer->told_to_close = true;
+	peer->ready_to_die = true;
 	peer->final_msg = tal_dup_talarr(peer, u8, final_msg);
 	if (!peer->subds)
 		io_wake(peer->peer_outq);
