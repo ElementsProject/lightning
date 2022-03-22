@@ -1522,6 +1522,8 @@ def test_funding_close_upfront(node_factory, bitcoind):
     remote_valid_addr = 'bcrt1q7gtnxmlaly9vklvmfj06amfdef3rtnrdazdsvw'
 
     def has_normal_channels(l1, l2):
+        if l1.rpc.listpeers(l2.info['id'])['peers'] == []:
+            return False
         return any([c['state'] == 'CHANNELD_AWAITING_LOCKIN'
                     or c['state'] == 'CHANNELD_NORMAL'
                     for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']])
