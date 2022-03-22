@@ -5,6 +5,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/timer/timer.h>
+#include <common/channel_id.h>
 #include <common/crypto_state.h>
 #include <common/node_id.h>
 #include <common/pseudorand.h>
@@ -52,8 +53,8 @@ struct peer {
 	/* Connection to the peer */
 	struct io_conn *to_peer;
 
-	/* Connection to the subdaemon */
-	struct io_conn *to_subd;
+	/* Connections to the subdaemons */
+	struct subd **subds;
 
 	/* Final message to send to peer (and hangup) */
 	u8 *final_msg;
@@ -64,11 +65,11 @@ struct peer {
 	/* When socket has Nagle overridden */
 	bool urgent;
 
-	/* Input buffers. */
-	u8 *subd_in, *peer_in;
+	/* Input buffer. */
+	u8 *peer_in;
 
-	/* Output buffers. */
-	struct msg_queue *subd_outq, *peer_outq;
+	/* Output buffer. */
+	struct msg_queue *peer_outq;
 
 	/* Peer sent buffer (for freeing after sending) */
 	const u8 *sent_to_peer;
