@@ -119,13 +119,19 @@ ${print_fieldset(msg.fields.values())}
 }
 % endfor
 
+% for tlv in tlvs.values():
+bool printwire_${tlv.name}(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	return printwire_tlvs(fieldname, cursor, plen, print_tlvs_${tlv.name}, ARRAY_SIZE(print_tlvs_${tlv.name}));
+}
+% endfor
+
 % if bool(tlvs):
 bool print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg) {
 	size_t len = tal_count(msg);
     % for tlv in tlvs.values():
-	if (strcmp(tlv_name, "${tlv.name}") == 0) {
-		return printwire_tlvs(tlv_name, &msg, &len, print_tlvs_${tlv.name}, ARRAY_SIZE(print_tlvs_${tlv.name}));
-	}
+	if (strcmp(tlv_name, "${tlv.name}") == 0)
+		return printwire_${tlv.name}(tlv_name, &msg, &len);
     % endfor
 	return false;
 }
