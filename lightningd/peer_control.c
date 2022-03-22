@@ -982,6 +982,9 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	 * subd). */
 	tal_steal(tmpctx, payload);
 
+	/* Notify anyone who cares */
+	notify_connect(ld, &peer->id, payload->incoming, &addr);
+
 	/* Check for specific errors of a hook */
 	if (payload->error) {
 		error = payload->error;
@@ -1046,21 +1049,12 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		abort();
 	}
 
-	notify_connect(ld, &peer->id, payload->incoming, &addr);
-
+	/* If we get here, it means we have no channel */
+	assert(!channel);
 	if (feature_negotiated(ld->our_features,
 			       peer->their_features,
 			       OPT_DUAL_FUND)) {
-		if (channel && !list_empty(&channel->inflights)) {
-			assert(!channel->owner);
-			assert(channel->state == DUALOPEND_OPEN_INIT
-			       || channel->state == DUALOPEND_AWAITING_LOCKIN
-			       || channel->state == AWAITING_UNILATERAL);
-			channel->peer->addr = addr;
-			channel->peer->connected_incoming = payload->incoming;
-			peer_restart_dualopend(peer, payload->peer_fd, channel);
-		} else
-			peer_start_dualopend(peer, payload->peer_fd);
+		peer_start_dualopend(peer, payload->peer_fd);
 	} else
 		peer_start_openingd(peer, payload->peer_fd);
 	return;
