@@ -471,7 +471,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	 *  [Signature Calculation](#signature-calculation) using the `payer_key`.
 	 */
 	/* This populates the ->fields from our entries */
-	invreq->fields = tlv_make_fields(invreq, invoice_request);
+	invreq->fields = tlv_make_fields(invreq, tlv_invoice_request);
 	merkle_tlv(invreq->fields, &merkle);
 	invreq->signature = tal(invreq, struct bip340sig);
 	if (deprecated_apis)

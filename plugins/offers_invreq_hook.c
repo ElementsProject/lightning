@@ -62,7 +62,7 @@ fail_invreq_level(struct command *cmd,
 	/* FIXME: Add suggested_value / erroneous_field! */
 
 	errdata = tal_arr(cmd, u8, 0);
-	towire_invoice_error(&errdata, err);
+	towire_tlv_invoice_error(&errdata, err);
 	return send_onion_reply(cmd, invreq->reply_path,
 				"invoice_error", errdata);
 }
@@ -855,7 +855,7 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	ir->reply_path = tal_steal(ir, reply_path);
 
 	ir->invreq = tlv_invoice_request_new(cmd);
-	if (!fromwire_invoice_request(&invreqbin, &len, ir->invreq)) {
+	if (!fromwire_tlv_invoice_request(&invreqbin, &len, ir->invreq)) {
 		return fail_invreq(cmd, ir,
 				   "Invalid invreq %s",
 				   tal_hex(tmpctx, invreqbin));

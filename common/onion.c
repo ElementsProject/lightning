@@ -22,7 +22,7 @@ static u8 *make_tlv_hop(const tal_t *ctx,
 	/* We can't have over 64k anyway */
 	u8 *tlvs = tal_arr(ctx, u8, 3);
 
-	towire_tlv_payload(&tlvs, tlv);
+	towire_tlv_tlv_payload(&tlvs, tlv);
 
 	switch (bigsize_put(tlvs, tal_bytelen(tlvs) - 3)) {
 	case 1:
@@ -195,7 +195,7 @@ static struct tlv_tlv_payload *decrypt_tlv(const tal_t *ctx,
 	tlv = tlv_tlv_payload_new(ctx);
 	cursor = dec;
 	max = tal_bytelen(dec);
-	if (!fromwire_tlv_payload(&cursor, &max, tlv))
+	if (!fromwire_tlv_tlv_payload(&cursor, &max, tlv))
 		return tal_free(tlv);
 
 	return tlv;
@@ -220,7 +220,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		goto general_fail;
 
 	tlv = tlv_tlv_payload_new(p);
-	if (!fromwire_tlv_payload(&cursor, &max, tlv)) {
+	if (!fromwire_tlv_tlv_payload(&cursor, &max, tlv)) {
 		/* FIXME: Fill in correct thing here! */
 		goto general_fail;
 	}

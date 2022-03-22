@@ -59,18 +59,6 @@ bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_fail */
 void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_fail called!\n"); abort(); }
-/* Generated stub for fromwire_invoice */
-bool fromwire_invoice(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			  struct tlv_invoice * record UNNEEDED)
-{ fprintf(stderr, "fromwire_invoice called!\n"); abort(); }
-/* Generated stub for fromwire_invoice_request */
-bool fromwire_invoice_request(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			  struct tlv_invoice_request * record UNNEEDED)
-{ fprintf(stderr, "fromwire_invoice_request called!\n"); abort(); }
-/* Generated stub for fromwire_offer */
-bool fromwire_offer(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			  struct tlv_offer * record UNNEEDED)
-{ fprintf(stderr, "fromwire_offer called!\n"); abort(); }
 /* Generated stub for fromwire_secp256k1_ecdsa_signature */
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 					secp256k1_ecdsa_signature *signature UNNEEDED)
@@ -82,6 +70,18 @@ void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sh
 u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
 		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
+/* Generated stub for fromwire_tlv_invoice */
+bool fromwire_tlv_invoice(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			  struct tlv_invoice * record UNNEEDED)
+{ fprintf(stderr, "fromwire_tlv_invoice called!\n"); abort(); }
+/* Generated stub for fromwire_tlv_invoice_request */
+bool fromwire_tlv_invoice_request(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			  struct tlv_invoice_request * record UNNEEDED)
+{ fprintf(stderr, "fromwire_tlv_invoice_request called!\n"); abort(); }
+/* Generated stub for fromwire_tlv_offer */
+bool fromwire_tlv_offer(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			  struct tlv_offer * record UNNEEDED)
+{ fprintf(stderr, "fromwire_tlv_offer called!\n"); abort(); }
 /* Generated stub for fromwire_u32 */
 u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
@@ -132,15 +132,6 @@ void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 /* Generated stub for towire_bool */
 void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 { fprintf(stderr, "towire_bool called!\n"); abort(); }
-/* Generated stub for towire_invoice */
-void towire_invoice(u8 **pptr UNNEEDED, const struct tlv_invoice *record UNNEEDED)
-{ fprintf(stderr, "towire_invoice called!\n"); abort(); }
-/* Generated stub for towire_invoice_request */
-void towire_invoice_request(u8 **pptr UNNEEDED, const struct tlv_invoice_request *record UNNEEDED)
-{ fprintf(stderr, "towire_invoice_request called!\n"); abort(); }
-/* Generated stub for towire_offer */
-void towire_offer(u8 **pptr UNNEEDED, const struct tlv_offer *record UNNEEDED)
-{ fprintf(stderr, "towire_offer called!\n"); abort(); }
 /* Generated stub for towire_secp256k1_ecdsa_signature */
 void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 			      const secp256k1_ecdsa_signature *signature UNNEEDED)
@@ -148,6 +139,15 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
+/* Generated stub for towire_tlv_invoice */
+void towire_tlv_invoice(u8 **pptr UNNEEDED, const struct tlv_invoice *record UNNEEDED)
+{ fprintf(stderr, "towire_tlv_invoice called!\n"); abort(); }
+/* Generated stub for towire_tlv_invoice_request */
+void towire_tlv_invoice_request(u8 **pptr UNNEEDED, const struct tlv_invoice_request *record UNNEEDED)
+{ fprintf(stderr, "towire_tlv_invoice_request called!\n"); abort(); }
+/* Generated stub for towire_tlv_offer */
+void towire_tlv_offer(u8 **pptr UNNEEDED, const struct tlv_offer *record UNNEEDED)
+{ fprintf(stderr, "towire_tlv_offer called!\n"); abort(); }
 /* Generated stub for towire_u32 */
 void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
 { fprintf(stderr, "towire_u32 called!\n"); abort(); }

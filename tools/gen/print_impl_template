@@ -141,9 +141,9 @@ ${print_fieldset(msg.fields.values(), False, '&cursor', '&plen')}
 % if bool(tlvs):
 void print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg) {
 	size_t plen = tal_count(msg);
-    % for tlv_name in tlvs:
-	if (strcmp(tlv_name, "${tlv_name}") == 0) {
-		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_${tlv_name}, ARRAY_SIZE(print_tlvs_${tlv_name}));
+    % for tlv in tlvs.values():
+	if (strcmp(tlv_name, "${tlv.name}") == 0) {
+		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_${tlv.name}, ARRAY_SIZE(print_tlvs_${tlv.name}));
 	}
     % endfor
 }

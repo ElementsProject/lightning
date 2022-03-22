@@ -156,7 +156,7 @@ static u8 *json_to_enctlvs(const tal_t *ctx,
 		}
 	}
 	ret = tal_arr(ctx, u8, 0);
-	towire_encrypted_data_tlv(&ret, enctlv);
+	towire_tlv_encrypted_data_tlv(&ret, enctlv);
 	towire_u8_array(&ret, appended, tal_bytelen(appended));
 	return ret;
 }

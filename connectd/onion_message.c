@@ -102,7 +102,7 @@ void handle_onion_message(struct daemon *daemon,
 	}
 
 	om = tlv_onionmsg_payload_new(msg);
-	if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
+	if (!fromwire_tlv_onionmsg_payload(&cursor, &maxlen, om)) {
 		status_peer_debug(&peer->id, "onion msg: invalid onionmsg_payload %s",
 				  tal_hex(tmpctx, rs->raw_payload));
 		return;
