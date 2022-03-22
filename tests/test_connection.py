@@ -3864,3 +3864,20 @@ def test_multichan(node_factory, executor, bitcoind):
     assert chan23a['short_channel_id'] == scid23a
     assert chan23b['amount_msat'] == Millisatoshi(1001000000)
     assert chan23b['short_channel_id'] == scid23b
+
+    # We can close one, other one is still fine.
+    with pytest.raises(RpcError, match="Peer has multiple channels"):
+        l2.rpc.close(l3.info['id'])
+
+    l2.rpc.close(scid23b)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Gossip works as expected.
+    wait_for(lambda: len(l1.rpc.listchannels(source=l3.info['id'])['channels']) == 1)
+    assert only_one(l1.rpc.listchannels(source=l3.info['id'])['channels'])['short_channel_id'] == scid23a
+
+    # We can actually pay by *closed* scid (at least until it's completely forgotten)
+    route[1]['channel'] = scid23a
+    inv = l3.rpc.invoice(100000000, "invoice3", "invoice3")
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
