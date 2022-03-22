@@ -931,7 +931,7 @@ static void err_and_reconnect(struct channel *channel,
 	channel_set_owner(channel, NULL);
 
 	/* Their address only useful if we connected to them */
-	try_reconnect(channel, seconds_before_reconnect,
+	try_reconnect(channel, channel->peer, seconds_before_reconnect,
 		      channel->peer->connected_incoming
 		      ? NULL
 		      : &channel->peer->addr);

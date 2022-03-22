@@ -1789,12 +1789,7 @@ static void setup_peer(struct peer *peer, u32 delay)
 	struct channel *channel;
 	struct channel_inflight *inflight;
 	struct lightningd *ld = peer->ld;
-
-	/* We can only have one active channel: make sure connectd
-	 * knows to try reconnecting. */
-	channel = peer_active_channel(peer);
-	if (channel)
-		try_reconnect(channel, delay, &peer->addr);
+	bool connect = false;
 
 	list_for_each(&peer->channels, channel, list) {
 		if (channel_unsaved(channel))
@@ -1812,7 +1807,14 @@ static void setup_peer(struct peer *peer, u32 delay)
 
 			channel_watch_inflight(ld, channel, inflight);
 		}
+		if (channel_active(channel))
+			connect = true;
 	}
+
+	/* Make sure connectd knows to try reconnecting. */
+	if (connect)
+		try_reconnect(peer, peer, delay, &peer->addr);
+
 }
 
 void setup_peers(struct lightningd *ld)
