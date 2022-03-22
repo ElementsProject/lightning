@@ -36,6 +36,10 @@ Connecting to a node is just the first step in opening a channel with
 another node. Once the peer is connected a channel can be opened with
 lightning-fundchannel(7).
 
+If there are active channels with the peer, **connect** returns once
+all the subdaemons are in place to handle the channels, not just once
+it's connected.
+
 RETURN VALUE
 ------------
 
