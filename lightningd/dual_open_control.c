@@ -46,8 +46,6 @@ static void channel_disconnect(struct channel *channel,
 	log_(channel->log, level, NULL, false, "%s", desc);
 	channel_cleanup_commands(channel, desc);
 
-	notify_disconnect(channel->peer->ld, &channel->peer->id);
-
 	if (!reconnect)
 		channel_set_owner(channel, NULL);
 	else

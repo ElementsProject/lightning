@@ -110,7 +110,6 @@ void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 		subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc && uc->fc->cmd)
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
-	notify_disconnect(uc->peer->ld, &uc->peer->id);
 }
 
 
