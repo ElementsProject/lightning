@@ -16,6 +16,8 @@ int main(int argc, char *argv[])
 	const u8 *m;
 	bool onion = false;
 	char *tlv_name = NULL;
+	bool ok = true;
+
 	setup_locale();
 
 	opt_register_noarg("--onion", opt_set_bool, &onion,
@@ -40,13 +42,13 @@ int main(int argc, char *argv[])
 
 		if (onion)
 			if (tlv_name)
-				printonion_wire_tlv_message(tlv_name, m);
+				ok &= printonion_wire_tlv_message(tlv_name, m);
 			else
-				printonion_wire_message(m);
+				ok &= printonion_wire_message(m);
 		else if (tlv_name)
-			printpeer_wire_tlv_message(tlv_name, m);
+			ok &= printpeer_wire_tlv_message(tlv_name, m);
 		else
-			printpeer_wire_message(m);
+			ok &= printpeer_wire_message(m);
 	} else {
 		u8 *f = grab_fd(NULL, STDIN_FILENO);
 		size_t off = 0;
@@ -56,28 +58,31 @@ int main(int argc, char *argv[])
 
 			if (off + sizeof(len) > tal_count(f)) {
 				warnx("Truncated file");
+				ok = false;
 				break;
 			}
 			memcpy(&len, f + off, sizeof(len));
 			off += sizeof(len);
 			if (off + be16_to_cpu(len) > tal_count(f)) {
 				warnx("Truncated file");
+				ok = false;
 				break;
 			}
 			m = tal_dup_arr(f, u8, f + off, be16_to_cpu(len), 0);
 			if (onion)
 				if (tlv_name)
-					printonion_wire_tlv_message(tlv_name, m);
+					ok &= printonion_wire_tlv_message(tlv_name, m);
 				else
-					printonion_wire_message(m);
+					ok &= printonion_wire_message(m);
 			else if (tlv_name)
-				printpeer_wire_tlv_message(tlv_name, m);
+				ok &= printpeer_wire_tlv_message(tlv_name, m);
 			else
-				printpeer_wire_message(m);
+				ok &= printpeer_wire_message(m);
 			off += be16_to_cpu(len);
 			tal_free(m);
 		}
 	}
 	printf("\n");
-	return 0;
+
+	return ok ? 0 : 1;
 }
