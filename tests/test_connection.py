@@ -401,8 +401,19 @@ def test_disconnect_opener(node_factory):
     l1.rpc.fundchannel(l2.info['id'], 25000)
 
     # Should still only have one peer!
-    assert len(l1.rpc.listpeers()) == 1
-    assert len(l2.rpc.listpeers()) == 1
+    assert len(l1.rpc.listpeers()['peers']) == 1
+    assert len(l2.rpc.listpeers()['peers']) == 1
+
+
+def test_remote_disconnect(node_factory):
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    assert l2.rpc.listpeers()['peers'] != []
+    l2.rpc.disconnect(l1.info['id'])
+
+    # l1 should notice!
+    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
 
 
 @pytest.mark.developer
