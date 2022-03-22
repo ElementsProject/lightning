@@ -3,11 +3,11 @@
 #include <common/json_command.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
-#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/connect_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
@@ -31,6 +31,7 @@ static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 
 	uc->peer->uncommitted_channel = NULL;
 
+	maybe_disconnect_peer(uc->peer->ld, uc->peer);
 	maybe_delete_peer(uc->peer);
 }
 
@@ -104,11 +105,7 @@ void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 				    enum log_level level,
 				    const char *desc)
 {
-	u8 *msg = towire_connectd_discard_peer(tmpctx, &uc->peer->id);
 	log_(uc->log, level, NULL, false, "%s", desc);
-	/* NULL when we're shutting down */
-	if (uc->peer->ld->connectd)
-		subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc && uc->fc->cmd)
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 }

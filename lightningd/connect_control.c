@@ -601,6 +601,31 @@ void connectd_activate(struct lightningd *ld)
 	io_loop(NULL, NULL);
 }
 
+void maybe_disconnect_peer(struct lightningd *ld, struct peer *peer)
+{
+	struct channel *channel;
+
+	/* Any channels left which want to talk? */
+	if (peer->uncommitted_channel)
+		return;
+
+	list_for_each(&peer->channels, channel, list) {
+		if (!channel->owner)
+			continue;
+		if (channel->owner->talks_to_peer)
+			return;
+	}
+
+	/* If shutting down, connectd no longer exists */
+	if (!ld->connectd) {
+		peer->is_connected = false;
+		return;
+	}
+
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_discard_peer(NULL, &peer->id)));
+}
+
 static struct command_result *json_sendcustommsg(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *obj UNNEEDED,

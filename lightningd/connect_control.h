@@ -21,4 +21,7 @@ void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 		       bool incoming,
 		       const struct wireaddr_internal *addr);
 
+/* Disconnect a peer (if no subds want to talk any more) */
+void maybe_disconnect_peer(struct lightningd *ld, struct peer *peer);
+
 #endif /* LIGHTNING_LIGHTNINGD_CONNECT_CONTROL_H */

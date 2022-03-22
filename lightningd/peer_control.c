@@ -1962,11 +1962,9 @@ static struct command_result *json_disconnect(struct command *cmd,
 		disconnected = true;
 	}
 
-	if (!disconnected) {
-		/* It's just sitting in connectd. */
-		subd_send_msg(cmd->ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, id)));
-	}
+	/* It's just sitting in connectd? */
+	if (!disconnected)
+		maybe_disconnect_peer(cmd->ld, peer);
 
 	/* Connectd tells us when it's finally disconnected */
 	dc = tal(cmd, struct disconnect_command);
