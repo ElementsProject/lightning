@@ -477,14 +477,6 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	remote_commit->chainparams = chainparams;
 
-	/* openingd should never accept them funding channel in this case. */
-	if (peer_any_active_channel(uc->peer, NULL)) {
-		uncommitted_channel_disconnect(uc,
-					       LOG_BROKEN,
-					       "already have active channel");
-		goto failed;
-	}
-
 	derive_channel_id(&cid, &funding);
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
@@ -768,14 +760,6 @@ static void opening_got_offer(struct subd *openingd,
 			      struct uncommitted_channel *uc)
 {
 	struct openchannel_hook_payload *payload;
-
-	/* Tell them they can't open, if we already have open channel. */
-	if (peer_any_active_channel(uc->peer, NULL)) {
-		subd_send_msg(openingd,
-			      take(towire_openingd_got_offer_reply(
-					   NULL, "Already have active channel", NULL, NULL)));
-		return;
-	}
 
 	payload = tal(openingd, struct openchannel_hook_payload);
 	payload->openingd = openingd;
@@ -1066,7 +1050,6 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
 	struct node_id *id;
 	struct peer *peer;
-	struct channel *channel;
 	bool *announce_channel;
 	u32 *feerate_per_kw;
 
@@ -1126,12 +1109,6 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	if (!peer->is_connected)
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
-
-	channel = peer_any_active_channel(peer, NULL);
-	if (channel) {
-		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
-				    channel_state_name(channel));
-	}
 
 	if (!peer->uncommitted_channel) {
 		if (feature_negotiated(cmd->ld->our_features,
