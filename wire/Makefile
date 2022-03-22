@@ -11,6 +11,7 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 		wire/onion$(EXP)_wiregen.h	\
 		wire/bolt12$(EXP)_wiregen.h	\
 		wire/channel_type_wiregen.h	\
+		wire/bolt12$(EXP)_printgen.h	\
 		wire/peer$(EXP)_printgen.h	\
 		wire/onion$(EXP)_printgen.h
 
@@ -29,6 +30,7 @@ WIRE_SRC := wire/wire_sync.c			\
 WIRE_PRINT_SRC :=				\
 		wire/onion$(EXP)_printgen.c	\
 		wire/peer$(EXP)_printgen.c	\
+		wire/bolt12$(EXP)_printgen.c	\
 		wire/channel_type_printgen.c
 
 WIRE_OBJS := $(WIRE_SRC:.c=.o)
@@ -135,9 +137,15 @@ wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
 wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request
 wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_wiregen.c_args)
+
+wire/bolt12_printgen.c_args := --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --include='wire/onion$(EXP)_wiregen.h'  --include='wire/onion$(EXP)_printgen.h'
+wire/bolt12_printgen.h_args := --include='wire/bolt12$(EXP)_wiregen.h' --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request
+
 # Same for _exp versions
 wire/bolt12_exp_wiregen.h_args := $(wire/bolt12_wiregen.h_args)
 wire/bolt12_exp_wiregen.c_args := $(wire/bolt12_wiregen.c_args)
+wire/bolt12_exp_printgen.h_args := $(wire/bolt12_printgen.h_args)
+wire/bolt12_exp_printgen.c_args := $(wire/bolt12_printgen.c_args)
 
 wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=tlv_n1 --expose-tlv-type=tlv_n2
 
