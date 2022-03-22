@@ -549,26 +549,44 @@ const char *channel_state_str(enum channel_state state)
 	return "unknown";
 }
 
-struct channel *peer_unsaved_channel(struct peer *peer)
+struct channel *peer_any_active_channel(struct peer *peer, bool *others)
 {
-	struct channel *channel;
+	struct channel *channel, *ret = NULL;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_unsaved(channel))
-			return channel;
+		if (!channel_active(channel))
+			continue;
+		/* Already found one? */
+		if (ret) {
+			if (others)
+				*others = true;
+		} else {
+			if (others)
+				*others = false;
+			ret = channel;
+		}
 	}
-	return NULL;
+	return ret;
 }
 
-struct channel *peer_active_channel(struct peer *peer)
+struct channel *peer_any_unsaved_channel(struct peer *peer, bool *others)
 {
-	struct channel *channel;
+	struct channel *channel, *ret = NULL;
 
 	list_for_each(&peer->channels, channel, list) {
-		if (channel_active(channel))
-			return channel;
+		if (!channel_unsaved(channel))
+			continue;
+		/* Already found one? */
+		if (ret) {
+			if (others)
+				*others = true;
+		} else {
+			if (others)
+				*others = false;
+			ret = channel;
+		}
 	}
-	return NULL;
+	return ret;
 }
 
 struct channel_inflight *channel_inflight_find(struct channel *channel,
@@ -581,42 +599,6 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 	}
 
 	return NULL;
-}
-
-struct channel *peer_normal_channel(struct peer *peer)
-{
-	struct channel *channel;
-
-	list_for_each(&peer->channels, channel, list) {
-		if (channel->state == CHANNELD_NORMAL)
-			return channel;
-	}
-	return NULL;
-}
-
-struct channel *active_channel_by_id(struct lightningd *ld,
-				     const struct node_id *id,
-				     struct uncommitted_channel **uc)
-{
-	struct peer *peer = peer_by_id(ld, id);
-	if (!peer) {
-		if (uc)
-			*uc = NULL;
-		return NULL;
-	}
-
-	if (uc)
-		*uc = peer->uncommitted_channel;
-	return peer_active_channel(peer);
-}
-
-struct channel *unsaved_channel_by_id(struct lightningd *ld,
-				      const struct node_id *id)
-{
-	struct peer *peer = peer_by_id(ld, id);
-	if (!peer)
-		return NULL;
-	return peer_unsaved_channel(peer);
 }
 
 struct channel *active_channel_by_scid(struct lightningd *ld,

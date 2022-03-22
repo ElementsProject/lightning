@@ -295,8 +295,7 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	/* If we have an active channel, then reconnect. */
 	peer = peer_by_id(ld, &id);
 	if (peer) {
-		struct channel *channel = peer_active_channel(peer);
-		if (channel)
+		if (peer_any_active_channel(peer, NULL))
 			try_reconnect(peer, peer, seconds_to_delay, addrhint);
 	}
 }
@@ -332,22 +331,34 @@ static void peer_already_connected(struct lightningd *ld, const u8 *msg)
 static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	struct channel *c;
-	struct uncommitted_channel *uc;
+	struct peer *peer;
+	struct channel *c, **channels;
 
 	if (!fromwire_connectd_reconnected(msg, &id))
 		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
 
-	c = active_channel_by_id(ld, &id, &uc);
-	if (uc)
-		kill_uncommitted_channel(uc, "Reconnected");
-	else if (c) {
-		channel_cleanup_commands(c, "Reconnected");
-		channel_fail_reconnect(c, "Reconnected");
-	}
-	else if ((c = unsaved_channel_by_id(ld, &id))) {
-		log_info(c->log, "Killing opening daemon: Reconnected");
-		channel_unsaved_close_conn(c, "Reconnected");
+	peer = peer_by_id(ld, &id);
+	if (!peer)
+		return;
+
+	/* Freeing channels can free peer, so gather first. */
+	channels = tal_arr(tmpctx, struct channel *, 0);
+	list_for_each(&peer->channels, c, list)
+		tal_arr_expand(&channels, c);
+
+	if (peer->uncommitted_channel)
+		kill_uncommitted_channel(peer->uncommitted_channel,
+					 "Reconnected");
+
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		c = channels[i];
+		if (channel_active(c)) {
+			channel_cleanup_commands(c, "Reconnected");
+			channel_fail_reconnect(c, "Reconnected");
+		} else if (channel_unsaved(c)) {
+			log_info(c->log, "Killing opening daemon: Reconnected");
+			channel_unsaved_close_conn(c, "Reconnected");
+		}
 	}
 }
 

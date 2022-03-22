@@ -1884,8 +1884,9 @@ static struct command_result *json_disconnect(struct command *cmd,
 	struct node_id *id;
 	struct disconnect_command *dc;
 	struct peer *peer;
-	struct channel *channel;
+	struct channel *channel, **channels;
 	bool *force;
+	bool disconnected = false;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
@@ -1900,32 +1901,69 @@ static struct command_result *json_disconnect(struct command *cmd,
 	if (!peer->is_connected) {
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
-	channel = peer_active_channel(peer);
-	if (channel) {
-		if (*force) {
-			channel_fail_reconnect(channel,
-					       "disconnect command force=true");
-			goto wait_for_connectd;
-		}
-		return command_fail(cmd, LIGHTNINGD, "Peer is in state %s",
+
+	channel = peer_any_active_channel(peer, NULL);
+	if (channel && !*force) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Peer has (at least one) channel in state %s",
 				    channel_state_name(channel));
 	}
-	channel = peer_unsaved_channel(peer);
-	if (channel) {
-		channel_unsaved_close_conn(channel, "disconnect command");
-		goto wait_for_connectd;
+
+	/* Careful here!  Disconnecting can free peer! */
+	channels = tal_arr(cmd, struct channel *, 0);
+	list_for_each(&peer->channels, channel, list) {
+		if (!channel->owner)
+			continue;
+		if (!channel->owner->talks_to_peer)
+			continue;
+
+		switch (channel->state) {
+		case DUALOPEND_OPEN_INIT:
+		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_NORMAL:
+		case CHANNELD_SHUTTING_DOWN:
+		case DUALOPEND_AWAITING_LOCKIN:
+		case CLOSINGD_SIGEXCHANGE:
+			tal_arr_expand(&channels, channel);
+			continue;
+		case CLOSINGD_COMPLETE:
+		case AWAITING_UNILATERAL:
+		case FUNDING_SPEND_SEEN:
+		case ONCHAIN:
+		case CLOSED:
+			/* We don't expect these to have owners who connect! */
+			log_broken(channel->log,
+				   "Don't expect owner %s in state %s",
+				   channel->owner->name,
+				   channel_state_name(channel));
+			continue;
+		}
+		abort();
 	}
+
+	/* This can free peer too! */
 	if (peer->uncommitted_channel) {
 		kill_uncommitted_channel(peer->uncommitted_channel,
 					 "disconnect command");
-		goto wait_for_connectd;
+		disconnected = true;
 	}
 
-	/* It's just sitting in connectd. */
-	subd_send_msg(cmd->ld->connectd,
-		      take(towire_connectd_discard_peer(NULL, id)));
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		if (channel_unsaved(channels[i]))
+			channel_unsaved_close_conn(channels[i],
+						   "disconnect command");
+		else
+			channel_fail_reconnect(channels[i],
+					       "disconnect command");
+		disconnected = true;
+	}
 
-wait_for_connectd:
+	if (!disconnected) {
+		/* It's just sitting in connectd. */
+		subd_send_msg(cmd->ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, id)));
+	}
+
 	/* Connectd tells us when it's finally disconnected */
 	dc = tal(cmd, struct disconnect_command);
 	dc->cmd = cmd;
@@ -2459,6 +2497,7 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	struct peer *peer;
 	struct json_stream *response;
 	struct channel *channel;
+	bool more_than_one;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &peerid),
@@ -2470,10 +2509,10 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not find peer with that id");
 	}
-	channel = peer_active_channel(peer);
-	if (!channel) {
+	channel = peer_any_active_channel(peer, &more_than_one);
+	if (!channel || more_than_one) {
 		return command_fail(cmd, LIGHTNINGD,
-				    "Could not find active channel");
+				    "Could not find single active channel");
 	}
 
 	response = json_stream_success(cmd);
@@ -2521,6 +2560,7 @@ static struct command_result *json_dev_fail(struct command *cmd,
 	struct node_id *peerid;
 	struct peer *peer;
 	struct channel *channel;
+	bool more_than_one;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &peerid),
@@ -2533,10 +2573,10 @@ static struct command_result *json_dev_fail(struct command *cmd,
 				    "Could not find peer with that id");
 	}
 
-	channel = peer_active_channel(peer);
-	if (!channel) {
+	channel = peer_any_active_channel(peer, &more_than_one);
+	if (!channel || more_than_one) {
 		return command_fail(cmd, LIGHTNINGD,
-				    "Could not find active channel with peer");
+				    "Could not find single active channel with peer");
 	}
 
 	channel_fail_permanent(channel,
@@ -2570,6 +2610,7 @@ static struct command_result *json_dev_reenable_commit(struct command *cmd,
 	struct peer *peer;
 	u8 *msg;
 	struct channel *channel;
+	bool more_than_one;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &peerid),
@@ -2582,8 +2623,8 @@ static struct command_result *json_dev_reenable_commit(struct command *cmd,
 				    "Could not find peer with that id");
 	}
 
-	channel = peer_active_channel(peer);
-	if (!channel) {
+	channel = peer_any_active_channel(peer, &more_than_one);
+	if (!channel || more_than_one) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer has no active channel");
 	}
