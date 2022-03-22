@@ -14,7 +14,7 @@ int fromwire_peektype(const u8 *cursor UNNEEDED)
 void printwire_amount_msat(const char *fieldname UNNEEDED, const struct amount_msat *msat UNNEEDED)
 { fprintf(stderr, "printwire_amount_msat called!\n"); abort(); }
 /* Generated stub for printwire_tlvs */
-void printwire_tlvs(const char *tlv_name UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED,
+bool printwire_tlvs(const char *tlv_name UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED,
 		    const struct tlv_print_record_type types[] UNNEEDED, size_t num_types UNNEEDED)
 { fprintf(stderr, "printwire_tlvs called!\n"); abort(); }
 /* Generated stub for printwire_u16 */

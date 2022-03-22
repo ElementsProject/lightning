@@ -9,18 +9,18 @@
 ${i}
 % endfor
 
-void print${options.enum_name}_message(const u8 *msg);
+bool print${options.enum_name}_message(const u8 *msg);
 
-void print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg);
+bool print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg);
 
 % for msg in messages:
-void printwire_${msg.name}(const char *fieldname, const u8 *cursor);
+bool printwire_${msg.name}(const char *fieldname, const u8 *cursor);
 
 % endfor
 
 % if options.expose_subtypes:
 % for subtype in subtypes:
-void printwire_${subtype.name}(const char *fieldname, const u8 **cursor, size_t *plen);
+bool printwire_${subtype.name}(const char *fieldname, const u8 **cursor, size_t *plen);
 % endfor
 % endif
 #endif /* LIGHTNING_${idem} */

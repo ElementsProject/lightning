@@ -180,7 +180,7 @@ find_print_record_type(u64 type,
 	return NULL;
 }
 
-void printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
+bool printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
 		    const struct tlv_print_record_type types[],
 		    size_t num_types)
 {
@@ -212,10 +212,11 @@ void printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
 			printf("**TYPE #%"PRIu64" UNKNOWN for TLV %s**\n", type, fieldname);
 		*plen -= length;
 	}
-	return;
+	return true;
 
 fail:
 	printf("**TRUNCATED TLV %s**\n", fieldname);
+	return false;
 }
 
 #define PRINTWIRE_TYPE_TO_STRING(T, N)					\
