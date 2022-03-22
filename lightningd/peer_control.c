@@ -1784,7 +1784,7 @@ command_find_channel(struct command *cmd,
 	}
 }
 
-static void activate_peer(struct peer *peer, u32 delay)
+static void setup_peer(struct peer *peer, u32 delay)
 {
 	struct channel *channel;
 	struct channel_inflight *inflight;
@@ -1815,14 +1815,14 @@ static void activate_peer(struct peer *peer, u32 delay)
 	}
 }
 
-void activate_peers(struct lightningd *ld)
+void setup_peers(struct lightningd *ld)
 {
 	struct peer *p;
 	/* Avoid thundering herd: after first five, delay by 1 second. */
 	int delay = -5;
 
 	list_for_each(&ld->peers, p, list) {
-		activate_peer(p, delay > 0 ? delay : 0);
+		setup_peer(p, delay > 0 ? delay : 0);
 		delay++;
 	}
 }

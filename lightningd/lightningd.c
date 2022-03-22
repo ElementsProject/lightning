@@ -1151,7 +1151,7 @@ int main(int argc, char *argv[])
 	/*~ This is where we ask connectd to reconnect to any peers who have
 	 * live channels with us, and makes sure we're watching the funding
 	 * tx. */
-	activate_peers(ld);
+	setup_peers(ld);
 
 	/*~ Now that all the notifications for transactions are in place, we
 	 *  can start the poll loop which queries bitcoind for new blocks. */
