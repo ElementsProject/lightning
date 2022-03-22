@@ -1079,6 +1079,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	struct amount_sat *amount;
 	struct amount_msat *push_msat;
 	u32 *upfront_shutdown_script_wallet_index;
+	struct channel_id tmp_channel_id;
 
 	fc->cmd = cmd;
 	fc->cancels = tal_arr(fc, struct command *, 0);
@@ -1207,6 +1208,8 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	} else
 		upfront_shutdown_script_wallet_index = NULL;
 
+	temporary_channel_id(&tmp_channel_id);
+
 	fc->open_msg
 		= towire_openingd_funder_start(fc,
 					  *amount,
@@ -1214,12 +1217,13 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 					  fc->our_upfront_shutdown_script,
 					  upfront_shutdown_script_wallet_index,
 					  *feerate_per_kw,
+					  &tmp_channel_id,
 					  fc->channel_flags);
 
 	/* Tell connectd to make this active; when it does, we can continue */
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_peer_make_active(NULL, &peer->id,
-							    NULL)));
+							    &tmp_channel_id)));
 	return command_still_pending(cmd);
 }
 

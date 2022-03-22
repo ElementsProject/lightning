@@ -79,7 +79,7 @@ msgdata,connectd_peer_disconnect_done,id,node_id,
 # Master -> connectd: make peer active immediately (we want to talk)
 msgtype,connectd_peer_make_active,2004
 msgdata,connectd_peer_make_active,id,node_id,
-msgdata,connectd_peer_make_active,channel_id,?channel_id,
+msgdata,connectd_peer_make_active,channel_id,channel_id,
 
 # Connectd -> master: peer said something interesting (or you said make_active)
 # Plus fd for peer daemon.

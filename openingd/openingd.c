@@ -240,10 +240,6 @@ static bool setup_channel_funder(struct state *state)
 	 * could do it for the we-are-funding case. */
 	set_reserve(state, state->localconf.dust_limit);
 
-	/*~ Grab a random ID until the funding tx is created (we can't do that
-	 * until we know their funding_pubkey) */
-	temporary_channel_id(&state->channel_id);
-
 #if DEVELOPER
 	/* --dev-force-tmp-channel-id specified */
 	if (dev_force_tmp_channel_id)
@@ -1308,6 +1304,7 @@ static u8 *handle_master_in(struct state *state)
 						    &state->upfront_shutdown_script[LOCAL],
 						    &state->local_upfront_shutdown_wallet_index,
 						    &state->feerate_per_kw,
+						    &state->channel_id,
 						    &channel_flags))
 			master_badmsg(WIRE_OPENINGD_FUNDER_START, msg);
 		msg = funder_channel_start(state, channel_flags);

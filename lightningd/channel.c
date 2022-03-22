@@ -235,7 +235,6 @@ struct channel *new_unsaved_channel(struct peer *peer,
 			       "chan#%"PRIu64,
 			       channel->unsaved_dbid);
 
-	memset(&channel->cid, 0xFF, sizeof(channel->cid));
 	channel->our_config.id = 0;
 	channel->open_attempt = NULL;
 

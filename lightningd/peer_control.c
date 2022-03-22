@@ -1374,6 +1374,7 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
+		channel->cid = *channel_id;
 		peer_start_dualopend(peer, peer_fd, channel);
 	} else {
 		peer->uncommitted_channel = new_uncommitted_channel(peer);
