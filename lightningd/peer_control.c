@@ -1408,6 +1408,7 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 	/* If we still have peer, it's disconnected now */
 	p = peer_by_id(ld, &id);
 	if (p) {
+		log_peer_debug(ld->log, &id, "peer_disconnect_done");
 		p->is_connected = false;
 		/* If we only cared about peer because of connectd, free it. */
 		if (list_empty(&p->channels) && !p->uncommitted_channel) {
