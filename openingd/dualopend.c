@@ -404,9 +404,9 @@ static void handle_peer_shutdown(struct state *state, u8 *msg)
 {
 	u8 *scriptpubkey;
 	struct channel_id cid;
-	struct tlv_shutdown_tlvs *tlvs = tlv_shutdown_tlvs_new(msg);
+	struct tlv_shutdown_tlvs *tlvs;
 
-	if (!fromwire_shutdown(tmpctx, msg, &cid, &scriptpubkey, tlvs))
+	if (!fromwire_shutdown(tmpctx, msg, &cid, &scriptpubkey, &tlvs))
 		open_err_warn(state, "Bad shutdown %s", tal_hex(msg, msg));
 
 	if (tal_count(state->upfront_shutdown_script[REMOTE])
@@ -2037,9 +2037,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	struct tx_state *tx_state = state->tx_state;
 
 	state->our_role = TX_ACCEPTER;
-	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
-	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
+	if (!fromwire_open_channel2(tmpctx, oc2_msg, &chain_hash,
 				    &cid,
 				    &tx_state->feerate_per_kw_funding,
 				    &state->feerate_per_kw_commitment,
@@ -2057,7 +2056,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				    &state->their_points.htlc,
 				    &state->first_per_commitment_point[REMOTE],
 				    &state->channel_flags,
-				    open_tlv))
+				    &open_tlv))
 		open_err_fatal(state, "Parsing open_channel2 %s",
 			       tal_hex(tmpctx, oc2_msg));
 
@@ -2748,8 +2747,7 @@ static void opener_start(struct state *state, u8 *msg)
 	if (!msg)
 		return;
 
-	a_tlv = notleak(tlv_accept_tlvs_new(state));
-	if (!fromwire_accept_channel2(msg, &cid,
+	if (!fromwire_accept_channel2(state, msg, &cid,
 				      &tx_state->accepter_funding,
 				      &tx_state->remoteconf.dust_limit,
 				      &tx_state->remoteconf.max_htlc_value_in_flight,
@@ -2763,9 +2761,11 @@ static void opener_start(struct state *state, u8 *msg)
 				      &state->their_points.delayed_payment,
 				      &state->their_points.htlc,
 				      &state->first_per_commitment_point[REMOTE],
-				      a_tlv))
+				      &a_tlv))
 		open_err_fatal(state,  "Parsing accept_channel2 %s",
 			       tal_hex(msg, msg));
+	/* FIXME: why? */
+	notleak(a_tlv);
 
 	if (!channel_id_eq(&cid, &state->channel_id)) {
 		struct channel_id future_chan_id;
@@ -3559,22 +3559,25 @@ static void do_reconnect_dance(struct state *state)
 				   msg));
 
 	if (!fromwire_channel_reestablish
+#if EXPERIMENTAL_FEATURES
+			(tmpctx, msg, &cid,
+			 &next_commitment_number,
+			 &next_revocation_number,
+			 &last_local_per_commit_secret,
+			 &remote_current_per_commit_point,
+			 &tlvs)
+#else
 			(msg, &cid,
 			 &next_commitment_number,
 			 &next_revocation_number,
 			 &last_local_per_commit_secret,
-			 &remote_current_per_commit_point
-#if EXPERIMENTAL_FEATURES
-			 , tlvs
+			 &remote_current_per_commit_point)
 #endif
-				))
+				)
 		open_err_fatal(state, "Bad reestablish msg: %s %s",
 			       peer_wire_name(fromwire_peektype(msg)),
 			       tal_hex(msg, msg));
 
-#if EXPERIMENTAL_FEATURES
-	tal_free(tlvs);
-#endif /* EXPERIMENTAL_FEATURES */
 	check_channel_id(state, &cid, &state->channel_id);
 
 	status_debug("Got dualopend reestablish commit=%"PRIu64

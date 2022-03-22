@@ -10,7 +10,6 @@
 /* Generated stub for fromwire_peektype */
 int fromwire_peektype(const u8 *cursor UNNEEDED)
 { fprintf(stderr, "fromwire_peektype called!\n"); abort(); }
-/* Could not find declaration for fromwire_test_enum */
 /* Generated stub for printwire_amount_msat */
 bool printwire_amount_msat(const char *fieldname UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
 { fprintf(stderr, "printwire_amount_msat called!\n"); abort(); }

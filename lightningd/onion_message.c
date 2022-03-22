@@ -148,8 +148,8 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 
 	submsglen = tal_bytelen(submsg);
 	subptr = submsg;
-	payload->om = tlv_onionmsg_payload_new(payload);
-	if (!fromwire_tlv_onionmsg_payload(&subptr, &submsglen, payload->om)) {
+	payload->om = fromwire_tlv_onionmsg_payload(payload, &subptr, &submsglen);
+	if (!payload->om) {
 		log_broken(ld->log, "bad got_onionmsg_tous om: %s",
 			   tal_hex(tmpctx, msg));
 		return;

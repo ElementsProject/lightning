@@ -1564,12 +1564,11 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		tal_steal(tmpctx, msg);
 
 	/* Note: validity of node_id is already checked. */
-	na_tlv = tlv_node_ann_tlvs_new(tmpctx);
 	if (!fromwire_node_announcement(tmpctx, msg,
 					&signature, &features, &timestamp,
 					&node_id, rgb_color, alias,
 					&addresses,
-					na_tlv)) {
+					&na_tlv)) {
 		return false;
 	}
 
@@ -1705,12 +1704,11 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		*was_unknown = false;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
-	na_tlv = tlv_node_ann_tlvs_new(tmpctx);
 	if (!fromwire_node_announcement(tmpctx, serialized,
 					&signature, &features, &timestamp,
 					&node_id, rgb_color, alias,
 					&addresses,
-					na_tlv)) {
+					&na_tlv)) {
 		/* BOLT #7:
 		 *
 		 *   - if `node_id` is NOT a valid compressed public key:

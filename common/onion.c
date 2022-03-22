@@ -173,7 +173,6 @@ static struct tlv_tlv_payload *decrypt_tlv(const tal_t *ctx,
 	const u8 *cursor;
 	size_t max;
 	int ret;
-	struct tlv_tlv_payload *tlv;
 
 	subkey_from_hmac("rho", blinding_ss, &rho);
 	if (tal_bytelen(enc) < crypto_aead_chacha20poly1305_ietf_ABYTES)
@@ -192,13 +191,9 @@ static struct tlv_tlv_payload *decrypt_tlv(const tal_t *ctx,
 	if (ret != 0)
 		return NULL;
 
-	tlv = tlv_tlv_payload_new(ctx);
 	cursor = dec;
 	max = tal_bytelen(dec);
-	if (!fromwire_tlv_tlv_payload(&cursor, &max, tlv))
-		return tal_free(tlv);
-
-	return tlv;
+	return fromwire_tlv_tlv_payload(ctx, &cursor, &max);
 }
 #endif /* EXPERIMENTAL_FEATURES */
 
@@ -219,8 +214,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	if (!pull_payload_length(&cursor, &max, true, &len))
 		goto general_fail;
 
-	tlv = tlv_tlv_payload_new(p);
-	if (!fromwire_tlv_tlv_payload(&cursor, &max, tlv)) {
+	tlv = fromwire_tlv_tlv_payload(p, &cursor, &max);
+	if (!tlv) {
 		/* FIXME: Fill in correct thing here! */
 		goto general_fail;
 	}

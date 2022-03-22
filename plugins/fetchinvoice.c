@@ -113,14 +113,14 @@ static struct command_result *handle_error(struct command *cmd,
 
 	data = json_tok_bin_from_hex(cmd, buf, errtok);
 	dlen = tal_bytelen(data);
-	err = tlv_invoice_error_new(cmd);
 	details = json_out_new(cmd);
 
 	plugin_log(cmd->plugin, LOG_DBG, "errtok = %.*s",
 		   json_tok_full_len(errtok),
 		   json_tok_full(buf, errtok));
 	json_out_start(details, NULL, '{');
-	if (!fromwire_tlv_invoice_error(&data, &dlen, err)) {
+	err = fromwire_tlv_invoice_error(cmd, &data, &dlen);
+	if (!err) {
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "Invalid invoice_error %.*s",
 			   json_tok_full_len(errtok),
@@ -185,8 +185,8 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 
 	invbin = json_tok_bin_from_hex(cmd, buf, invtok);
 	len = tal_bytelen(invbin);
-	inv = tlv_invoice_new(cmd);
- 	if (!fromwire_tlv_invoice(&invbin, &len, inv)) {
+ 	inv = fromwire_tlv_invoice(cmd, &invbin, &len);
+	if (!inv) {
 		badfield = "invoice";
 		goto badinv;
 	}
@@ -1083,8 +1083,8 @@ force_payer_secret(struct command *cmd,
 	towire_tlv_invoice_request(&msg, invreq);
 	p = msg;
 	len = tal_bytelen(msg);
-	sent->invreq = tlv_invoice_request_new(cmd);
-	if (!fromwire_tlv_invoice_request(&p, &len, sent->invreq))
+	sent->invreq = fromwire_tlv_invoice_request(cmd, &p, &len);
+	if (!sent->invreq)
 		plugin_err(cmd->plugin,
 			   "Could not remarshall invreq %s", tal_hex(tmpctx, msg));
 
@@ -1469,8 +1469,8 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	towire_tlv_invoice(&msg, sent->inv);
 	p = msg;
 	len = tal_bytelen(msg);
-	sent->inv = tlv_invoice_new(cmd);
-	if (!fromwire_tlv_invoice(&p, &len, sent->inv))
+	sent->inv = fromwire_tlv_invoice(cmd, &p, &len);
+	if (!sent->inv)
 		plugin_err(cmd->plugin,
 			   "Could not remarshall %s", tal_hex(tmpctx, msg));
 

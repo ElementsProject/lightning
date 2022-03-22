@@ -83,10 +83,9 @@ static u32 get_node_announce_timestamp(const u8 *msg)
 	u8 *features, *addresses;
 	struct tlv_node_ann_tlvs *na_tlvs;
 
-	na_tlvs = tlv_node_ann_tlvs_new(tmpctx);
 	if (fromwire_node_announcement(tmpctx, msg, &sig, &features, &timestamp,
 				       &id, rgb_color, alias, &addresses,
-				       na_tlvs))
+				       &na_tlvs))
 		return timestamp;
 
 	errx(1, "Invalid node_announcement");

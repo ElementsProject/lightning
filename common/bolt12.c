@@ -166,17 +166,18 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 			       const struct chainparams *must_be_chain,
 			       char **fail)
 {
-	struct tlv_offer *offer = tlv_offer_new(ctx);
+	struct tlv_offer *offer;
 	const u8 *data;
 	size_t dlen;
 
 	data = string_to_data(tmpctx, b12, b12len, "lno", &dlen, fail);
 	if (!data)
-		return tal_free(offer);
+		return NULL;;
 
-	if (!fromwire_tlv_offer(&data, &dlen, offer)) {
+	offer = fromwire_tlv_offer(ctx, &data, &dlen);
+	if (!offer) {
 		*fail = tal_fmt(ctx, "invalid offer data");
-		return tal_free(offer);
+		return NULL;
 	}
 
 	*fail = check_features_and_chain(ctx,
@@ -219,17 +220,18 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 					      const struct chainparams *must_be_chain,
 					      char **fail)
 {
-	struct tlv_invoice_request *invrequest = tlv_invoice_request_new(ctx);
+	struct tlv_invoice_request *invrequest;
 	const u8 *data;
 	size_t dlen;
 
 	data = string_to_data(tmpctx, b12, b12len, "lnr", &dlen, fail);
 	if (!data)
-		return tal_free(invrequest);
+		return NULL;
 
-	if (!fromwire_tlv_invoice_request(&data, &dlen, invrequest)) {
+	invrequest = fromwire_tlv_invoice_request(ctx, &data, &dlen);
+	if (!invrequest) {
 		*fail = tal_fmt(ctx, "invalid invoice_request data");
-		return tal_free(invrequest);
+		return NULL;
 	}
 
 	*fail = check_features_and_chain(ctx,
@@ -258,17 +260,18 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 					 const struct chainparams *must_be_chain,
 					 char **fail)
 {
-	struct tlv_invoice *invoice = tlv_invoice_new(ctx);
+	struct tlv_invoice *invoice;
 	const u8 *data;
 	size_t dlen;
 
 	data = string_to_data(tmpctx, b12, b12len, "lni", &dlen, fail);
 	if (!data)
-		return tal_free(invoice);
+		return NULL;
 
-	if (!fromwire_tlv_invoice(&data, &dlen, invoice)) {
+	invoice = fromwire_tlv_invoice(ctx, &data, &dlen);
+	if (!invoice) {
 		*fail = tal_fmt(ctx, "invalid invoice data");
-		return tal_free(invoice);
+		return NULL;
 	}
 
 	*fail = check_features_and_chain(ctx,

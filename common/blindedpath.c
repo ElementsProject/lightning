@@ -197,8 +197,8 @@ static struct tlv_encrypted_data_tlv *decrypt_encmsg(const tal_t *ctx,
 	 * - if the `enctlv` is not a valid TLV...
 	 *   - MUST drop the message.
 	 */
-	encmsg = tlv_encrypted_data_tlv_new(ctx);
-	if (!fromwire_tlv_encrypted_data_tlv(&cursor, &maxlen, encmsg)
+	encmsg = fromwire_tlv_encrypted_data_tlv(ctx, &cursor, &maxlen);
+	if (!encmsg
 	    || !tlv_fields_valid(encmsg->fields, NULL, NULL))
 		return tal_free(encmsg);
 

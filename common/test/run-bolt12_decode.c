@@ -68,16 +68,16 @@ u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
 		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
 /* Generated stub for fromwire_tlv_invoice */
-bool fromwire_tlv_invoice(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			  struct tlv_invoice * record UNNEEDED)
+struct tlv_invoice *fromwire_tlv_invoice(const tal_t *ctx UNNEEDED,
+						  const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_tlv_invoice called!\n"); abort(); }
 /* Generated stub for fromwire_tlv_invoice_request */
-bool fromwire_tlv_invoice_request(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			  struct tlv_invoice_request * record UNNEEDED)
+struct tlv_invoice_request *fromwire_tlv_invoice_request(const tal_t *ctx UNNEEDED,
+						  const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_tlv_invoice_request called!\n"); abort(); }
 /* Generated stub for fromwire_tlv_offer */
-bool fromwire_tlv_offer(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			  struct tlv_offer * record UNNEEDED)
+struct tlv_offer *fromwire_tlv_offer(const tal_t *ctx UNNEEDED,
+						  const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_tlv_offer called!\n"); abort(); }
 /* Generated stub for fromwire_u32 */
 u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
@@ -110,15 +110,6 @@ void sighash_from_merkle(const char *messagename UNNEEDED,
 			 const struct sha256 *merkle UNNEEDED,
 			 struct sha256 *sighash UNNEEDED)
 { fprintf(stderr, "sighash_from_merkle called!\n"); abort(); }
-/* Generated stub for tlv_invoice_new */
-struct tlv_invoice *tlv_invoice_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "tlv_invoice_new called!\n"); abort(); }
-/* Generated stub for tlv_invoice_request_new */
-struct tlv_invoice_request *tlv_invoice_request_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "tlv_invoice_request_new called!\n"); abort(); }
-/* Generated stub for tlv_offer_new */
-struct tlv_offer *tlv_offer_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "tlv_offer_new called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }

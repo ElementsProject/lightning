@@ -358,7 +358,7 @@ class Type(FieldSet):
     def is_varsize(self):
         """ A type is variably sized if it's marked as such (in varsize_types)
             or it contains a field of variable length """
-        return self.name in self.varsize_types or self.has_len_fields()
+        return self.name in self.varsize_types or self.has_len_fields() or self.is_tlv()
 
     def add_comments(self, comments):
         self.type_comments = comments

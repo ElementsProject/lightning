@@ -93,8 +93,8 @@ struct ${tlv.struct_name()} *${tlv.struct_name()}_new(const tal_t *ctx);
  * current namespace are stored in the `fields` member. Validity can be
  * checked using ${tlv.name}_is_valid.
  */
-bool fromwire_${tlv.name}(const u8 **cursor, size_t *max,
-			  struct ${tlv.struct_name()} * record);
+struct ${tlv.struct_name()} *fromwire_${tlv.name}(const tal_t *ctx,
+						  const u8 **cursor, size_t *max);
 
 /**
  * Serialize a TLV stream for the ${tlv.name} namespace.
