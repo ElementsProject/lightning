@@ -293,8 +293,6 @@ void channel_errmsg(struct channel *channel,
 		    bool warning,
 		    const u8 *err_for_them)
 {
-	notify_disconnect(channel->peer->ld, &channel->peer->id);
-
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
 
@@ -1266,6 +1264,9 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 	p = peer_by_id(ld, &id);
 	if (p)
 		p->is_connected = false;
+
+	/* Fire off plugin notifications */
+	notify_disconnect(ld, &id);
 
 	/* Wake any disconnect commands (removes self from list) */
 	list_for_each_safe(&ld->disconnect_commands, i, next, list) {
