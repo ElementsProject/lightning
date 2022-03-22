@@ -907,18 +907,6 @@ void channel_notify_new_block(struct lightningd *ld,
 	tal_free(to_forget);
 }
 
-struct channel *find_channel_by_id(const struct peer *peer,
-				   const struct channel_id *cid)
-{
-	struct channel *c;
-
-	list_for_each(&peer->channels, c, list) {
-		if (channel_id_eq(&c->cid, cid))
-			return c;
-	}
-	return NULL;
-}
-
 /* Since this could vanish while we're checking with bitcoind, we need to save
  * the details and re-lookup.
  *

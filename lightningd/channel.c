@@ -678,6 +678,29 @@ struct channel *channel_by_cid(struct lightningd *ld,
 	return NULL;
 }
 
+struct channel *find_channel_by_id(const struct peer *peer,
+				   const struct channel_id *cid)
+{
+	struct channel *c;
+
+	list_for_each(&peer->channels, c, list) {
+		if (channel_id_eq(&c->cid, cid))
+			return c;
+	}
+	return NULL;
+}
+
+struct channel *find_channel_by_scid(const struct peer *peer,
+				     const struct short_channel_id *scid)
+{
+	struct channel *c;
+
+	list_for_each(&peer->channels, c, list) {
+		if (c->scid && short_channel_id_eq(c->scid, scid))
+			return c;
+	}
+	return NULL;
+}
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
