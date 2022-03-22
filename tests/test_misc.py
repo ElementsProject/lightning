@@ -1303,7 +1303,7 @@ def test_reserve_enforcement(node_factory, executor):
         'Peer transient failure in CHANNELD_NORMAL: channeld.*'
         ' CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED'
     )
-    assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is False)
 
 
 def test_ipv4_and_ipv6(node_factory):

@@ -193,8 +193,6 @@ void handle_reestablish(struct lightningd *ld,
 				      "Unknown channel for reestablish");
 		log_debug(ld->log, "Reestablish on UNKNOWN channel %s",
 			  type_to_string(tmpctx, struct channel_id, channel_id));
-		if (peer)
-			peer->connected = false;
 		/* Unless we're shutting down */
 		if (ld->connectd)
 			subd_send_msg(ld->connectd,
