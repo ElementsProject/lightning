@@ -17,6 +17,7 @@
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
@@ -45,6 +46,9 @@ struct subd {
 
 	/* In passing, we can have a temporary one, too. */
 	struct channel_id *temporary_channel_id;
+
+	/* The opening revocation basepoint, for v2 channel_id. */
+	struct pubkey *opener_revocation_basepoint;
 
 	/* The actual connection to talk to it */
 	struct io_conn *conn;
@@ -627,6 +631,176 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 	return false;
 }
 
+/* Move "channel_id" to temporary. */
+static void move_channel_id_to_temp(struct subd *subd)
+{
+	tal_free(subd->temporary_channel_id);
+	subd->temporary_channel_id
+		= tal_dup(subd, struct channel_id, &subd->channel_id);
+}
+
+/* Only works for open_channel2 and accept_channel2 */
+static struct pubkey *extract_revocation_basepoint(const tal_t *ctx,
+						   const u8 *msg)
+{
+	const u8 *cursor = msg;
+	size_t max = tal_bytelen(msg);
+	enum peer_wire t;
+	struct pubkey pubkey;
+
+	t = fromwire_u16(&cursor, &max);
+
+	switch (t) {
+ 	case WIRE_OPEN_CHANNEL2:
+		/* BOLT-dualfund #2:
+		 * 1. type: 64 (`open_channel2`)
+		 * 2. data:
+		 *    * [`chain_hash`:`chain_hash`]
+		 *    * [`channel_id`:`zerod_channel_id`]
+		 *    * [`u32`:`funding_feerate_perkw`]
+		 *    * [`u32`:`commitment_feerate_perkw`]
+		 *    * [`u64`:`funding_satoshis`]
+		 *    * [`u64`:`dust_limit_satoshis`]
+		 *    * [`u64`:`max_htlc_value_in_flight_msat`]
+		 *    * [`u64`:`htlc_minimum_msat`]
+		 *    * [`u16`:`to_self_delay`]
+		 *    * [`u16`:`max_accepted_htlcs`]
+		 *    * [`u32`:`locktime`]
+		 *    * [`point`:`funding_pubkey`]
+		 *    * [`point`:`revocation_basepoint`]
+		 */
+		fromwire_pad(&cursor, &max,
+			     sizeof(struct bitcoin_blkid)
+			     + sizeof(struct channel_id)
+			     + sizeof(u32)
+			     + sizeof(u32)
+			     + sizeof(u64)
+			     + sizeof(u64)
+			     + sizeof(u64)
+			     + sizeof(u64)
+			     + sizeof(u16)
+			     + sizeof(u16)
+			     + sizeof(u32)
+			     + PUBKEY_CMPR_LEN);
+		break;
+ 	case WIRE_ACCEPT_CHANNEL2:
+		/* BOLT-dualfund #2:
+		 * 1. type: 65 (`accept_channel2`)
+		 * 2. data:
+		 *     * [`channel_id`:`zerod_channel_id`]
+		 *     * [`u64`:`funding_satoshis`]
+		 *     * [`u64`:`dust_limit_satoshis`]
+		 *     * [`u64`:`max_htlc_value_in_flight_msat`]
+		 *     * [`u64`:`htlc_minimum_msat`]
+		 *     * [`u32`:`minimum_depth`]
+		 *     * [`u16`:`to_self_delay`]
+		 *     * [`u16`:`max_accepted_htlcs`]
+		 *     * [`point`:`funding_pubkey`]
+		 *     * [`point`:`revocation_basepoint`]
+		 */
+		fromwire_pad(&cursor, &max,
+			     sizeof(struct channel_id)
+			     + sizeof(u64)
+			     + sizeof(u64)
+			     + sizeof(u64)
+			     + sizeof(u64)
+			     + sizeof(u32)
+			     + sizeof(u16)
+			     + sizeof(u16)
+			     + PUBKEY_CMPR_LEN);
+		break;
+	default:
+		abort();
+	}
+
+	fromwire_pubkey(&cursor, &max, &pubkey);
+	if (!cursor)
+		return NULL;
+	return tal_dup(ctx, struct pubkey, &pubkey);
+}
+
+/* Only works for funding_created */
+static bool extract_funding_created_funding(const u8 *funding_created,
+					    struct bitcoin_outpoint *outp)
+{
+	const u8 *cursor = funding_created;
+	size_t max = tal_bytelen(funding_created);
+	enum peer_wire t;
+
+	t = fromwire_u16(&cursor, &max);
+
+	switch (t) {
+ 	case WIRE_FUNDING_CREATED:
+	/* BOLT #2:
+	 * 1. type: 34 (`funding_created`)
+	 * 2. data:
+	 *     * [`32*byte`:`temporary_channel_id`]
+	 *     * [`sha256`:`funding_txid`]
+	 *     * [`u16`:`funding_output_index`]
+	 */
+		fromwire_pad(&cursor, &max, 32);
+		fromwire_bitcoin_txid(&cursor, &max, &outp->txid);
+		outp->n = fromwire_u16(&cursor, &max);
+		break;
+	default:
+		abort();
+	}
+
+	return cursor != NULL;
+}
+
+static void update_v1_channelid(struct subd *subd, const u8 *funding_created)
+{
+	struct bitcoin_outpoint outp;
+
+	if (!extract_funding_created_funding(funding_created, &outp)) {
+		status_peer_unusual(&subd->peer->id, "WARNING: funding_created no tx info?");
+		return;
+	}
+	move_channel_id_to_temp(subd);
+	derive_channel_id(&subd->channel_id, &outp);
+}
+
+static void update_v2_channelid(struct subd *subd, const u8 *accept_channel2)
+{
+	struct pubkey *acc_basepoint;
+
+	acc_basepoint = extract_revocation_basepoint(tmpctx, accept_channel2);
+	if (!acc_basepoint) {
+		status_peer_unusual(&subd->peer->id, "WARNING: accept_channel2 no revocation_basepoint?");
+		return;
+	}
+	if (!subd->opener_revocation_basepoint) {
+		status_peer_unusual(&subd->peer->id, "WARNING: accept_channel2 without open_channel2?");
+		return;
+	}
+
+	move_channel_id_to_temp(subd);
+	derive_channel_id_v2(&subd->channel_id,
+			     subd->opener_revocation_basepoint, acc_basepoint);
+}
+
+/* We maintain channel_id matching for subds by snooping: we set it manually
+ * for first packet (open_channel or open_channel2). */
+static void maybe_update_channelid(struct subd *subd, const u8 *msg)
+{
+	switch (fromwire_peektype(msg)) {
+	case WIRE_OPEN_CHANNEL:
+		extract_channel_id(msg, &subd->channel_id);
+		break;
+	case WIRE_OPEN_CHANNEL2:
+		subd->opener_revocation_basepoint
+			= extract_revocation_basepoint(subd, msg);
+		break;
+	case WIRE_ACCEPT_CHANNEL2:
+		update_v2_channelid(subd, msg);
+		break;
+	case WIRE_FUNDING_CREATED:
+		update_v1_channelid(subd, msg);
+		break;
+	}
+}
+
 static void close_timeout(struct peer *peer)
 {
 	/* BROKEN means we'll trigger CI if we see it, though it's possible */
@@ -706,6 +880,8 @@ static struct io_plan *read_from_subd(struct io_conn *subd_conn,
 static struct io_plan *read_from_subd_done(struct io_conn *subd_conn,
 					   struct subd *subd)
 {
+	maybe_update_channelid(subd, subd->in);
+
 	/* Tell them to encrypt & write. */
 	msg_enqueue(subd->peer->peer_outq, take(subd->in));
 	subd->in = NULL;
@@ -748,12 +924,34 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 	return io_write_wire(subd_conn, take(msg), write_to_subd, subd);
 }
 
-/* FIXME: We only currently have one subd */
 static struct subd *find_subd(struct peer *peer,
 			      const struct channel_id *channel_id)
 {
 	if (tal_count(peer->subds) == 0)
 		return NULL;
+
+	for (size_t i = 0; i < tal_count(peer->subds); i++) {
+		struct subd *subd = peer->subds[i];
+
+		/* Once we see a message using the real channel_id, we
+		 * clear the temporary_channel_id */
+		if (channel_id_eq(&subd->channel_id, channel_id)) {
+			subd->temporary_channel_id
+				= tal_free(subd->temporary_channel_id);
+			return subd;
+		}
+		if (subd->temporary_channel_id
+		    && channel_id_eq(subd->temporary_channel_id, channel_id)) {
+			return subd;
+		}
+	}
+
+	status_peer_broken(&peer->id, "channel_id %s does not match peer %s (temp=%s)",
+			   type_to_string(tmpctx, struct channel_id, channel_id),
+			   type_to_string(tmpctx, struct channel_id, &peer->subds[0]->channel_id),
+			   peer->subds[0]->temporary_channel_id
+			   ? type_to_string(tmpctx, struct channel_id, peer->subds[0]->temporary_channel_id)
+			   : "none");
 	return peer->subds[0];
 }
 
@@ -833,6 +1031,9 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       if (!subd)
 		       return io_close(peer_conn);
        }
+
+       /* Even if we just created it, call this to catch open_channel2 */
+       maybe_update_channelid(subd, decrypted);
 
        /* Tell them to write. */
        msg_enqueue(subd->outq, take(decrypted));
@@ -942,6 +1143,7 @@ static struct subd *multiplex_subd_setup(struct peer *peer,
 	subd->outq = msg_queue_new(subd, false);
 	subd->channel_id = *channel_id;
 	subd->temporary_channel_id = NULL;
+	subd->opener_revocation_basepoint = NULL;
 	/* This sets subd->conn inside subd_conn_init */
 	io_new_conn(peer, fds[0], subd_conn_init, subd);
 	/* When conn dies, subd is freed. */
