@@ -81,6 +81,10 @@ msgdata,connectd_peer_final_msg,id,node_id,
 msgdata,connectd_peer_final_msg,len,u16,
 msgdata,connectd_peer_final_msg,msg,u8,len
 
+# connectd->master: You said to connect, but we already were.
+msgtype,connectd_peer_already_connected,2007
+msgdata,connectd_peer_already_connected,id,node_id,
+
 # master -> connectd: do you have a memleak?
 msgtype,connectd_dev_memleak,2033
 

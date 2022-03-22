@@ -1793,8 +1793,14 @@ static void try_connect_peer(struct daemon *daemon,
 		/* If it's exiting now, we've raced: reconnect after */
 		if (tal_count(existing->subds) != 0
 		    && existing->to_peer
-		    && !existing->ready_to_die)
+		    && !existing->ready_to_die) {
+			/* Tell it it's already connected so it doesn't
+			 * wait forever. */
+			daemon_conn_send(daemon->master,
+					 take(towire_connectd_peer_already_connected
+					      (NULL, id)));
 			return;
+		}
 	}
 
 	/* If we're trying to connect it right now, that's OK. */
@@ -2030,6 +2036,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
 	case WIRE_CONNECTD_PEER_CONNECTED:
+	case WIRE_CONNECTD_PEER_ALREADY_CONNECTED:
 	case WIRE_CONNECTD_RECONNECTED:
 	case WIRE_CONNECTD_CONNECT_FAILED:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
