@@ -191,6 +191,10 @@ u8 *featurebits_or(const tal_t *ctx UNNEEDED, const u8 *f1 TAKES UNNEEDED, const
 struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
 				   const struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "find_channel_by_id called!\n"); abort(); }
+/* Generated stub for find_channel_by_scid */
+struct channel *find_channel_by_scid(const struct peer *peer UNNEEDED,
+				     const struct short_channel_id *scid UNNEEDED)
+{ fprintf(stderr, "find_channel_by_scid called!\n"); abort(); }
 /* Generated stub for find_plugin_for_command */
 struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 				       const char *cmd_name UNNEEDED)
@@ -585,9 +589,6 @@ struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name 
 /* Generated stub for peer_active_channel */
 struct channel *peer_active_channel(struct peer *peer UNNEEDED)
 { fprintf(stderr, "peer_active_channel called!\n"); abort(); }
-/* Generated stub for peer_normal_channel */
-struct channel *peer_normal_channel(struct peer *peer UNNEEDED)
-{ fprintf(stderr, "peer_normal_channel called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */
 void peer_restart_dualopend(struct peer *peer UNNEEDED,
 			    struct peer_fd *peer_fd UNNEEDED,
