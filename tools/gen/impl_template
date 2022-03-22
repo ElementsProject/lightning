@@ -9,6 +9,9 @@
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
 #include <stdio.h>
+% for i in includes:
+${i}
+% endfor
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
