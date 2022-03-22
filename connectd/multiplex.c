@@ -60,6 +60,27 @@ struct subd {
 	struct msg_queue *outq;
 };
 
+static struct subd *find_subd(struct peer *peer,
+			      const struct channel_id *channel_id)
+{
+	for (size_t i = 0; i < tal_count(peer->subds); i++) {
+		struct subd *subd = peer->subds[i];
+
+		/* Once we see a message using the real channel_id, we
+		 * clear the temporary_channel_id */
+		if (channel_id_eq(&subd->channel_id, channel_id)) {
+			subd->temporary_channel_id
+				= tal_free(subd->temporary_channel_id);
+			return subd;
+		}
+		if (subd->temporary_channel_id
+		    && channel_id_eq(subd->temporary_channel_id, channel_id)) {
+			return subd;
+		}
+	}
+	return NULL;
+}
+
 void inject_peer_msg(struct peer *peer, const u8 *msg TAKES)
 {
 	status_peer_io(LOG_IO_OUT, &peer->id, msg);
@@ -410,7 +431,7 @@ static struct subd *multiplex_subd_setup(struct peer *peer,
 					 const struct channel_id *channel_id,
 					 int *fd_for_subd);
 
-static struct subd *activate_peer(struct peer *peer,
+static struct subd *activate_subd(struct peer *peer,
 				  const enum peer_wire *type,
 				  const struct channel_id *channel_id)
 {
@@ -461,10 +482,10 @@ void peer_make_active(struct daemon *daemon, const u8 *msg)
 		return;
 
 	/* Could be made active already by receiving a message (esp reestablish!) */
-	if (tal_count(peer->subds) != 0)
+	if (find_subd(peer, &channel_id))
 		return;
 
-	if (!activate_peer(peer, NULL, &channel_id))
+	if (!activate_subd(peer, NULL, &channel_id))
 		tal_free(peer);
 }
 
@@ -924,37 +945,6 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 	return io_write_wire(subd_conn, take(msg), write_to_subd, subd);
 }
 
-static struct subd *find_subd(struct peer *peer,
-			      const struct channel_id *channel_id)
-{
-	if (tal_count(peer->subds) == 0)
-		return NULL;
-
-	for (size_t i = 0; i < tal_count(peer->subds); i++) {
-		struct subd *subd = peer->subds[i];
-
-		/* Once we see a message using the real channel_id, we
-		 * clear the temporary_channel_id */
-		if (channel_id_eq(&subd->channel_id, channel_id)) {
-			subd->temporary_channel_id
-				= tal_free(subd->temporary_channel_id);
-			return subd;
-		}
-		if (subd->temporary_channel_id
-		    && channel_id_eq(subd->temporary_channel_id, channel_id)) {
-			return subd;
-		}
-	}
-
-	status_peer_broken(&peer->id, "channel_id %s does not match peer %s (temp=%s)",
-			   type_to_string(tmpctx, struct channel_id, channel_id),
-			   type_to_string(tmpctx, struct channel_id, &peer->subds[0]->channel_id),
-			   peer->subds[0]->temporary_channel_id
-			   ? type_to_string(tmpctx, struct channel_id, peer->subds[0]->temporary_channel_id)
-			   : "none");
-	return peer->subds[0];
-}
-
 static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 					  struct peer *peer);
 static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
@@ -1014,20 +1004,10 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        /* If we don't find a subdaemon for this, activate a new one. */
        subd = find_subd(peer, &channel_id);
        if (!subd) {
-	       struct channel_id channel_id;
 	       enum peer_wire t = fromwire_peektype(decrypted);
-
-	       if (!extract_channel_id(decrypted, &channel_id)) {
-		       send_warning(peer, "Unrecognized message %s: %s",
-				    peer_wire_name(t),
-				    tal_hex(tmpctx, decrypted));
-		       tal_free(decrypted);
-		       io_wake(peer->peer_outq);
-		       return read_hdr_from_peer(peer_conn, peer);
-	       }
 	       status_peer_debug(&peer->id, "Activating for message %s",
 				 peer_wire_name(t));
-	       subd = activate_peer(peer, &t, &channel_id);
+	       subd = activate_subd(peer, &t, &channel_id);
 	       if (!subd)
 		       return io_close(peer_conn);
        }
