@@ -999,8 +999,8 @@ def test_funding_fail(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], int(funds / 10))
 
     # channels disconnect on failure
-    assert len(l1.rpc.listpeers()['peers']) == 0
-    assert len(l2.rpc.listpeers()['peers']) == 0
+    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
     # Restart l2 without ridiculous locktime.
     del l2.daemon.opts['watchtime-blocks']
