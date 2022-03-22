@@ -997,23 +997,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		}
 #endif
 
-		switch (channel->state) {
-		case CLOSED:
-			/* Channel should not have been loaded */
-			abort();
-		case ONCHAIN:
-		case FUNDING_SPEND_SEEN:
-		case CLOSINGD_COMPLETE:
-		case AWAITING_UNILATERAL:
-			/* We don't send anything here; if they talk about
-			 * this channel they'll get an error. */
-			continue;
-		case DUALOPEND_OPEN_INIT:
-		case DUALOPEND_AWAITING_LOCKIN:
-		case CHANNELD_AWAITING_LOCKIN:
-		case CHANNELD_NORMAL:
-		case CHANNELD_SHUTTING_DOWN:
-		case CLOSINGD_SIGEXCHANGE:
+		if (channel_active(channel)) {
 			log_debug(channel->log, "Peer has reconnected, state %s: telling connectd to make active",
 				  channel_state_name(channel));
 
@@ -1021,11 +1005,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			subd_send_msg(ld->connectd,
 				      take(towire_connectd_peer_make_active(NULL, &peer->id,
 									    &channel->cid)));
-			continue;
 		}
-
-		/* Oops, channel->state is corrupted? */
-		abort();
 	}
 	return;
 
@@ -1149,6 +1129,20 @@ REGISTER_PLUGIN_HOOK(peer_connected,
 		     peer_connected_serialize,
 		     struct peer_connected_hook_payload *);
 
+/* Returns true if we're still waiting for subds for active channels */
+static bool peer_subds_pending(const struct peer *peer)
+{
+	struct channel *channel;
+
+	list_for_each(&peer->channels, channel, list) {
+		if (!channel_active(channel))
+			continue;
+		if (!channel->owner)
+			return true;
+	}
+	return false;
+}
+
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_disconnected. */
 void peer_connected(struct lightningd *ld, const u8 *msg)
@@ -1184,8 +1178,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
 
-	/* Complete any outstanding connect commands. */
-	connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
+	/* Complete any outstanding connect commands: as a hack, we delay here if we
+	 * are going to make them active (so when connect returns, the channels are ready).
+	 * So we also wake these up if the connection dies before that! */
+	if (!peer_subds_pending(peer))
+		connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
@@ -1217,7 +1214,6 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 	u8 *error;
 	struct peer_fd *peer_fd = new_peer_fd(tmpctx, fd);
 
-	/* FIXME: Use msgtype to determine what to do! */
 	if (!fromwire_connectd_peer_active(msg, msg, &id, &msgtype, &channel_id))
 		fatal("Connectd gave bad CONNECTD_PEER_ACTIVE message %s",
 		      tal_hex(msg, msg));
@@ -1261,13 +1257,13 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 			    && channel->open_attempt->open_msg) {
 				if (peer_start_dualopend(peer, peer_fd, channel))
 					subd_send_msg(channel->owner, channel->open_attempt->open_msg);
-				return;
+				goto subd_setup_done;
 			}
 			/* Fall through. */
 		case DUALOPEND_AWAITING_LOCKIN:
 			assert(!channel->owner);
 			peer_restart_dualopend(peer, peer_fd, channel);
-			return;
+			goto subd_setup_done;
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
@@ -1277,7 +1273,7 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 					    peer_fd,
 					    NULL, true,
 					    NULL);
-			return;
+			goto subd_setup_done;
 		}
 		abort();
 	}
@@ -1377,6 +1373,13 @@ send_error:
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
 							  error)));
+	return;
+
+subd_setup_done:
+	/* We deferred connect_succeeded to here, so subd would be ready once
+	 * `connect` returns. */
+	if (!peer_subds_pending(peer))
+		connect_succeeded(ld, peer, peer->connected_incoming, &peer->addr);
 }
 
 struct disconnect_command {
