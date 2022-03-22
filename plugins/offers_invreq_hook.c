@@ -38,12 +38,15 @@ fail_invreq_level(struct command *cmd,
 	struct tlv_invoice_error *err;
 	u8 *errdata;
 
-	full_fmt = tal_fmt(tmpctx, "Failed invoice_request %s",
-			   invrequest_encode(tmpctx, invreq->invreq));
-	if (invreq->invreq->offer_id)
-		tal_append_fmt(&full_fmt, " for offer %s",
-			       type_to_string(tmpctx, struct sha256,
-					      invreq->invreq->offer_id));
+	full_fmt = tal_fmt(tmpctx, "Failed invoice_request");
+	if (invreq->invreq) {
+		tal_append_fmt(&full_fmt, " %s",
+			       invrequest_encode(tmpctx, invreq->invreq));
+		if (invreq->invreq->offer_id)
+			tal_append_fmt(&full_fmt, " for offer %s",
+				       type_to_string(tmpctx, struct sha256,
+						      invreq->invreq->offer_id));
+	}
 	tal_append_fmt(&full_fmt, ": %s", fmt);
 
 	msg = tal_vfmt(tmpctx, full_fmt, ap);
