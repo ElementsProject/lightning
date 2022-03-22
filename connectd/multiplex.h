@@ -10,9 +10,6 @@ struct peer;
 struct io_conn;
 struct feature_set;
 
-/* Set up peer->to_subd; sets fd_for_subd to pass to lightningd. */
-bool multiplex_subd_setup(struct peer *peer, int *fd_for_subd);
-
 /* Take over peer_conn as peer->to_peer */
 struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 				     struct peer *peer);
@@ -37,4 +34,7 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg);
 
 /* When lightningd says to send a custom message (from a plugin) */
 void send_custommsg(struct daemon *daemon, const u8 *msg);
+
+/* Lightningd wants to talk to you. */
+void peer_make_active(struct daemon *daemon, const u8 *msg);
 #endif /* LIGHTNING_CONNECTD_MULTIPLEX_H */

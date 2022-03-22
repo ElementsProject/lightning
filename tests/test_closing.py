@@ -3448,7 +3448,8 @@ def test_you_forgot_closed_channel(node_factory, executor):
     assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
 
     # l1 reconnects, it should succeed.
-    l1.rpc.disconnect(l2.info['id'], force=True)
+    if only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']:
+        l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     fut.result(TIMEOUT)
 

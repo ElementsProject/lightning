@@ -1,4 +1,5 @@
 #include <bitcoin/block.h>
+#include <common/channel_id.h>
 #include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/node_id.h>
@@ -62,7 +63,7 @@ msgdata,connectd_connect_failed,failreason,wirestring,
 msgdata,connectd_connect_failed,seconds_to_delay,u32,
 msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 
-# Connectd -> master: we got a peer. Plus fd for peer daemon
+# Connectd -> master: we got a peer.
 msgtype,connectd_peer_connected,2002
 msgdata,connectd_peer_connected,id,node_id,
 msgdata,connectd_peer_connected,addr,wireaddr_internal,
@@ -74,6 +75,18 @@ msgdata,connectd_peer_connected,features,u8,flen
 # connectd -> master: peer disconnected.
 msgtype,connectd_peer_disconnect_done,2006
 msgdata,connectd_peer_disconnect_done,id,node_id,
+
+# Master -> connectd: make peer active immediately (we want to talk)
+msgtype,connectd_peer_make_active,2004
+msgdata,connectd_peer_make_active,id,node_id,
+msgdata,connectd_peer_make_active,channel_id,?channel_id,
+
+# Connectd -> master: peer said something interesting (or you said make_active)
+# Plus fd for peer daemon.
+msgtype,connectd_peer_active,2005
+msgdata,connectd_peer_active,id,node_id,
+msgdata,connectd_peer_active,msgtype,?u16,
+msgdata,connectd_peer_active,channel_id,?channel_id,
 
 # master -> connectd: peer no longer wanted, you can disconnect.
 msgtype,connectd_discard_peer,2015

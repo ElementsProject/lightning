@@ -2337,6 +2337,7 @@ def test_listforwards(node_factory, bitcoind):
     assert len(c24_forwards) == 1
 
 
+@pytest.mark.openchannel('v1')
 def test_version_reexec(node_factory, bitcoind):
     badopeningd = os.path.join(os.path.dirname(__file__), "plugins", "badopeningd.sh")
     version = subprocess.check_output(['lightningd/lightningd',
@@ -2358,7 +2359,12 @@ def test_version_reexec(node_factory, bitcoind):
                               'fff6'))          # type
         f.write(bytes('badversion\0', encoding='utf8'))
 
+    # Opening a channel will fire subd.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    try:
+        l1.fundchannel(l2)
+    except RpcError:
+        pass
 
     l1.daemon.wait_for_log("openingd.*version 'badversion' not '{}': restarting".format(version))
 

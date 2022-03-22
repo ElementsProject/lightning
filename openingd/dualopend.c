@@ -3932,9 +3932,6 @@ int main(int argc, char *argv[])
 	 * N'th per-commitment point.  But since N=0, it won't give us one. */
 	assert(none == NULL);
 
-	/*~ Turns out this is useful for testing, to make sure we're ready. */
-	status_debug("Handed peer, entering loop");
-
 	/*~ We manually run a little poll() loop here.  With only two fds */
 	pollfd[0].fd = REQ_FD;
 	pollfd[0].events = POLLIN;

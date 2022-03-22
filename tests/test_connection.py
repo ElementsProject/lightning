@@ -409,7 +409,7 @@ def test_remote_disconnect(node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    assert l2.rpc.listpeers()['peers'] != []
+    wait_for(lambda: l2.rpc.listpeers()['peers'] != [])
     l2.rpc.disconnect(l1.info['id'])
 
     # l1 should notice!
@@ -2576,9 +2576,9 @@ def test_disconnectpeer(node_factory, bitcoind):
     wait_for(lambda: l2.rpc.getpeer(l1.info['id']) is None)
 
     # Make sure you cannot disconnect after disconnecting
-    with pytest.raises(RpcError, match=r'Peer not connected'):
+    with pytest.raises(RpcError, match=r'Unknown peer'):
         l1.rpc.disconnect(l2.info['id'])
-    with pytest.raises(RpcError, match=r'Peer not connected'):
+    with pytest.raises(RpcError, match=r'Unknown peer'):
         l2.rpc.disconnect(l1.info['id'])
 
     # Fund channel l1 -> l3

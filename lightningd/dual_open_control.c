@@ -15,6 +15,7 @@
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/chaintopology.h>
@@ -2525,7 +2526,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	struct open_attempt *oa;
 	struct lease_rates *rates;
 	struct command_result *res;
-	u8 *msg;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
@@ -2591,9 +2591,12 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	}
 
 	channel = peer_unsaved_channel(peer);
-	if (!channel || !channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
+	if (!channel) {
+		channel = new_unsaved_channel(peer,
+					      peer->ld->config.fee_base,
+					      peer->ld->config.fee_per_satoshi);
+	}
+
 	if (channel->open_attempt
 	     || !list_empty(&channel->inflights))
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -2670,7 +2673,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	} else
 		our_upfront_shutdown_script_wallet_index = NULL;
 
-	msg = towire_dualopend_opener_init(NULL,
+	oa->open_msg = towire_dualopend_opener_init(oa,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
 					   our_upfront_shutdown_script_wallet_index,
@@ -2682,7 +2685,10 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 					   false,
 					   rates);
 
-	subd_send_msg(channel->owner, take(msg));
+	/* Tell connectd to hand us this so we can start dualopend */
+	subd_send_msg(peer->ld->connectd,
+		      take(towire_connectd_peer_make_active(NULL, &peer->id,
+							    NULL)));
 	return command_still_pending(cmd);
 }
 
@@ -3056,7 +3062,6 @@ static struct command_result *json_queryrates(struct command *cmd,
 	struct wally_psbt *psbt;
 	struct open_attempt *oa;
 	u32 *our_upfront_shutdown_script_wallet_index;
-	u8 *msg;
 	struct command_result *res;
 
 	if (!param(cmd, buffer, params,
@@ -3077,6 +3082,10 @@ static struct command_result *json_queryrates(struct command *cmd,
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
+	if (!peer->is_connected)
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
+
 	/* We can't query rates for a peer we have a channel with */
 	channel = peer_active_channel(peer);
 	if (channel)
@@ -3086,9 +3095,12 @@ static struct command_result *json_queryrates(struct command *cmd,
 				    channel_state_name(channel));
 
 	channel = peer_unsaved_channel(peer);
-	if (!channel || !channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
+	if (!channel) {
+		channel = new_unsaved_channel(peer,
+					      peer->ld->config.fee_base,
+					      peer->ld->config.fee_per_satoshi);
+	}
+
 	if (channel->open_attempt
 	     || !list_empty(&channel->inflights))
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -3140,7 +3152,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	} else
 		our_upfront_shutdown_script_wallet_index = NULL;
 
-	msg = towire_dualopend_opener_init(NULL,
+	oa->open_msg = towire_dualopend_opener_init(oa,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
 					   our_upfront_shutdown_script_wallet_index,
@@ -3152,7 +3164,10 @@ static struct command_result *json_queryrates(struct command *cmd,
 					   true,
 					   NULL);
 
-	subd_send_msg(channel->owner, take(msg));
+	/* Tell connectd to hand us this so we can start dualopend */
+	subd_send_msg(peer->ld->connectd,
+		      take(towire_connectd_peer_make_active(NULL, &peer->id,
+							    NULL)));
 	return command_still_pending(cmd);
 
 }
@@ -3212,9 +3227,9 @@ AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 AUTODATA(json_command, &openchannel_abort_command);
 
-static void start_fresh_dualopend(struct peer *peer,
-				  struct peer_fd *peer_fd,
-				  struct channel *channel)
+bool peer_start_dualopend(struct peer *peer,
+			  struct peer_fd *peer_fd,
+			  struct channel *channel)
 {
 	int hsmfd;
 	u32 max_to_self_delay;
@@ -3242,7 +3257,7 @@ static void start_fresh_dualopend(struct peer *peer,
 		channel_internal_error(channel,
 				       "Running lightningd_dualopend: %s",
 				       strerror(errno));
-		return;
+		return false;
 	}
 
 	channel_config(peer->ld, &channel->our_config,
@@ -3268,7 +3283,7 @@ static void start_fresh_dualopend(struct peer *peer,
 				    &channel->local_funding_pubkey,
 				    channel->minimum_depth);
 	subd_send_msg(channel->owner, take(msg));
-
+	return true;
 }
 
 void peer_restart_dualopend(struct peer *peer,
@@ -3284,7 +3299,7 @@ void peer_restart_dualopend(struct peer *peer,
 	u8 *msg;
 
 	if (channel_unsaved(channel)) {
-		start_fresh_dualopend(peer, peer_fd, channel);
+		peer_start_dualopend(peer, peer_fd, channel);
 		return;
 	}
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
@@ -3373,17 +3388,4 @@ void peer_restart_dualopend(struct peer *peer,
 
 
 	subd_send_msg(channel->owner, take(msg));
-}
-
-void peer_start_dualopend(struct peer *peer, struct peer_fd *peer_fd)
-{
-	struct channel *channel;
-
-	/* And we never touch this. */
-	assert(!peer_unsaved_channel(peer));
-	channel = new_unsaved_channel(peer,
-				      peer->ld->config.fee_base,
-				      peer->ld->config.fee_per_satoshi);
-
-	start_fresh_dualopend(peer, peer_fd, channel);
 }

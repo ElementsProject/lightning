@@ -71,6 +71,7 @@ new_uncommitted_channel(struct peer *peer)
 	tal_add_destructor(uc, destroy_uncommitted_channel);
 
 	uc->got_offer = false;
+	uc->open_daemon = NULL;
 
 	return uc;
 }

@@ -205,6 +205,7 @@ struct open_attempt *new_channel_open_attempt(struct channel *channel)
 	oa->our_upfront_shutdown_script = NULL;
 	oa->cmd = NULL;
 	oa->aborted = false;
+	oa->open_msg = NULL;
 
 	return oa;
 }

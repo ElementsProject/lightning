@@ -312,6 +312,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
 	peer->ready_to_die = false;
+	peer->active = false;
 	peer->peer_outq = msg_queue_new(peer, false);
 
 #if DEVELOPER
@@ -320,11 +321,6 @@ static struct peer *new_peer(struct daemon *daemon,
 #endif
 
 	peer->to_peer = conn;
-
-	/* Aim for connection to shuffle data back and forth: sets up
-	 * peer->subds[0] */
-	if (!multiplex_subd_setup(peer, fd_for_subd))
-		return tal_free(peer);
 
 	/* Now we own it */
 	tal_steal(peer, peer->to_peer);
@@ -424,9 +420,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
-	 * we have connected, and give the peer fd. */
+	 * we have connected.  Once it says something interesting, we tell
+	 * it that, too. */
 	daemon_conn_send(daemon->master, take(msg));
-	daemon_conn_send_fd(daemon->master, subd_fd);
 
 	/*~ Now we set up this connection to read/write from subd */
 	return multiplex_peer_setup(conn, peer);
@@ -1791,7 +1787,7 @@ static void try_connect_peer(struct daemon *daemon,
 	existing = peer_htable_get(&daemon->peers, id);
 	if (existing) {
 		/* If it's exiting now, we've raced: reconnect after */
-		if (tal_count(existing->subds) != 0
+		if ((tal_count(existing->subds) != 0 || !existing->active)
 		    && existing->to_peer
 		    && !existing->ready_to_die) {
 			/* Tell it it's already connected so it doesn't
@@ -1897,9 +1893,11 @@ void peer_conn_closed(struct peer *peer)
 	struct connecting *connect = find_connecting(peer->daemon, &peer->id);
 
 	/* These should be closed already! */
-	assert(!peer->subds);
+	assert(tal_count(peer->subds) == 0);
 	assert(!peer->to_peer);
-	assert(peer->ready_to_die);
+	assert(peer->ready_to_die || !peer->active);
+
+	status_peer_debug(&peer->id, "peer_conn_closed");
 
 	/* Tell gossipd to stop asking this peer gossip queries */
 	daemon_conn_send(peer->daemon->gossipd,
@@ -1923,32 +1921,24 @@ void peer_conn_closed(struct peer *peer)
 		try_connect_one_addr(connect);
 }
 
-/* A peer is gone: clean things up. */
-static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
-{
-	struct peer *peer;
-
-	/* We should stay in sync with lightningd at all times. */
-	peer = peer_htable_get(&daemon->peers, id);
-	if (!peer)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "peer_disconnected unknown peer: %s",
-			      type_to_string(tmpctx, struct node_id, id));
-	status_peer_debug(id, "disconnect");
-
-	/* When it's finished, it will call peer_conn_closed() */
-	close_peer_conn(peer);
-}
-
 /* lightningd tells us a peer should be disconnected. */
 static void peer_discard(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
+	struct peer *peer;
 
 	if (!fromwire_connectd_discard_peer(msg, &id))
 		master_badmsg(WIRE_CONNECTD_DISCARD_PEER, msg);
 
-	cleanup_dead_peer(daemon, &id);
+	/* We should stay in sync with lightningd, but this can happen
+	 * under stress. */
+	peer = peer_htable_get(&daemon->peers, &id);
+	if (!peer)
+		return;
+	status_peer_debug(&id, "disconnect");
+
+	/* When it's finished, it will call peer_conn_closed() */
+	close_peer_conn(peer);
 }
 
 /* lightningd tells us to send a msg and disconnect. */
@@ -2031,6 +2021,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		send_custommsg(daemon, msg);
 		goto out;
 
+	case WIRE_CONNECTD_PEER_MAKE_ACTIVE:
+		peer_make_active(daemon, msg);
+		goto out;
+
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 #if DEVELOPER
 		dev_connect_memleak(daemon, msg);
@@ -2041,6 +2035,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
 	case WIRE_CONNECTD_PEER_CONNECTED:
 	case WIRE_CONNECTD_PEER_ALREADY_CONNECTED:
+	case WIRE_CONNECTD_PEER_ACTIVE:
 	case WIRE_CONNECTD_RECONNECTED:
 	case WIRE_CONNECTD_CONNECT_FAILED:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:

@@ -401,6 +401,67 @@ void send_custommsg(struct daemon *daemon, const u8 *msg)
 		inject_peer_msg(peer, take(custommsg));
 }
 
+/* FIXME: fwd decl */
+static struct subd *multiplex_subd_setup(struct peer *peer, int *fd_for_subd);
+
+static struct subd *activate_peer(struct peer *peer,
+				  const enum peer_wire *type,
+				  const struct channel_id *channel_id)
+{
+	int fd_for_subd;
+	u16 t, *tp;
+	struct subd *subd;
+
+	/* If it wasn't active before, it is now! */
+	peer->active = true;
+
+	subd = multiplex_subd_setup(peer, &fd_for_subd);
+	if (!subd)
+		return NULL;
+
+	/* wire routines want a u16, not an enum */
+	if (type) {
+		t = *type;
+		tp = &t;
+	} else {
+		tp = NULL;
+	}
+
+	/* We tell lightningd to fire up a subdaemon to handle this! */
+	daemon_conn_send(peer->daemon->master,
+			 take(towire_connectd_peer_active(NULL, &peer->id,
+							  tp,
+							  channel_id)));
+	daemon_conn_send_fd(peer->daemon->master, fd_for_subd);
+	return subd;
+}
+
+void peer_make_active(struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+	struct peer *peer;
+	struct channel_id *channel_id;
+
+	if (!fromwire_connectd_peer_make_active(msg, msg, &id, &channel_id))
+		master_badmsg(WIRE_CONNECTD_PEER_MAKE_ACTIVE, msg);
+
+	/* Races can happen: this might be gone by now. */
+	peer = peer_htable_get(&daemon->peers, &id);
+	if (!peer)
+		return;
+
+	/* Could be disconnecting now */
+	if (!peer->to_peer)
+		return;
+
+	/* Could be made active already by receiving a message (esp reestablish!) */
+	if (tal_count(peer->subds) != 0)
+		return;
+
+	if (!activate_peer(peer, NULL, channel_id))
+		tal_free(peer);
+}
+
 static void handle_ping_in(struct peer *peer, const u8 *msg)
 {
 	u8 *pong;
@@ -593,7 +654,7 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	msg = msg_dequeue(peer->peer_outq);
 
 	/* Is it time to send final? */
-	if (!msg && peer->final_msg && !peer->subds) {
+	if (!msg && peer->final_msg && tal_count(peer->subds) == 0) {
 		/* OK, send this then close. */
 		msg = peer->final_msg;
 		peer->final_msg = NULL;
@@ -603,8 +664,10 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 
 	/* Still nothing to send? */
 	if (!msg) {
-		/* We close once subds are all closed. */
-		if (!peer->subds) {
+		/* We close once subds are all closed; or if we're not
+		   active, when told to die.  */
+		if ((peer->active || peer->ready_to_die)
+		    && tal_count(peer->subds) == 0) {
 			set_closing_timer(peer, peer_conn);
 			return io_sock_shutdown(peer_conn);
 		}
@@ -748,10 +811,19 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return read_hdr_from_peer(peer_conn, peer);
        }
 
-       /* If we don't find a subdaemon for this, discard and keep reading. */
+       /* If we don't find a subdaemon for this, activate a new one. */
        subd = find_subd(peer, &channel_id);
-       if (!subd)
-	       return read_hdr_from_peer(peer_conn, peer);
+       if (!subd) {
+	       struct channel_id channel_id;
+	       enum peer_wire t = fromwire_peektype(decrypted);
+	       bool has_channel_id = extract_channel_id(decrypted, &channel_id);
+	       status_peer_debug(&peer->id, "Activating for message %s",
+				 peer_wire_name(t));
+	       subd = activate_peer(peer, &t,
+				    has_channel_id ? &channel_id : NULL);
+	       if (!subd)
+		       return io_close(peer_conn);
+       }
 
        /* Tell them to write. */
        msg_enqueue(subd->outq, take(decrypted));
@@ -806,19 +878,18 @@ static void destroy_subd(struct subd *subd)
 	struct peer *peer = subd->peer;
 	size_t pos;
 
+	status_peer_debug(&peer->id,
+			  "destroy_subd: %zu subds, to_peer conn %p, read_to_die = %u",
+			  tal_count(peer->subds), peer->to_peer,
+			  peer->ready_to_die);
 	for (pos = 0; peer->subds[pos] != subd; pos++)
 		assert(pos < tal_count(peer->subds));
 
 	tal_arr_remove(&peer->subds, pos);
 
-	/* Last one out frees array, sets to NULL as an indicator */
-	if (tal_count(peer->subds) == 0) {
-		peer->subds = tal_free(peer->subds);
-
-		/* In case they were waiting for this to send final_msg */
-		if (peer->final_msg)
-			msg_wake(peer->peer_outq);
-	}
+	/* In case they were waiting for this to send final_msg */
+	if (tal_count(peer->subds) == 0 && peer->final_msg)
+		msg_wake(peer->peer_outq);
 
 	/* Make sure we try to keep reading from peer, so we know if
 	 * it hangs up! */
@@ -835,7 +906,7 @@ void close_peer_conn(struct peer *peer)
 	peer->ready_to_die = true;
 
 	/* Already dead? */
-	if (!peer->subds && !peer->to_peer) {
+	if (tal_count(peer->subds) == 0 && !peer->to_peer) {
 		peer_conn_closed(peer);
 		return;
 	}
@@ -844,7 +915,7 @@ void close_peer_conn(struct peer *peer)
 	msg_wake(peer->peer_outq);
 }
 
-bool multiplex_subd_setup(struct peer *peer, int *fd_for_subd)
+static struct subd *multiplex_subd_setup(struct peer *peer, int *fd_for_subd)
 {
 	int fds[2];
 	struct subd *subd;
@@ -852,7 +923,7 @@ bool multiplex_subd_setup(struct peer *peer, int *fd_for_subd)
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		status_broken("Failed to create socketpair: %s",
 			      strerror(errno));
-		return false;
+		return NULL;
 	}
 
 	subd = tal(peer->subds, struct subd);
@@ -868,7 +939,7 @@ bool multiplex_subd_setup(struct peer *peer, int *fd_for_subd)
 	tal_add_destructor(subd, destroy_subd);
 
 	*fd_for_subd = fds[1];
-	return true;
+	return subd;
 }
 
 static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
@@ -876,14 +947,15 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 	assert(peer->to_peer == peer_conn);
 	peer->to_peer = NULL;
 
-	/* Flush internal connections if not already. */
-	if (peer->subds) {
+	/* Flush internal connections if any. */
+	if (tal_count(peer->subds) != 0) {
 		for (size_t i = 0; i < tal_count(peer->subds); i++)
 			msg_wake(peer->subds[i]->outq);
 		return;
 	}
 
-	if (peer->ready_to_die)
+	/* If lightningd says we're ready, or we were never had a subd, finish */
+	if (peer->ready_to_die || !peer->active)
 		peer_conn_closed(peer);
 }
 
@@ -898,6 +970,9 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 	peer->expecting_pong = PONG_UNEXPECTED;
 	set_ping_timer(peer);
 
+	/* This used to be in openingd; don't break tests. */
+	status_peer_debug(&peer->id, "Handed peer, entering loop");
+
 	return io_duplex(peer_conn,
 			 read_hdr_from_peer(peer_conn, peer),
 			 write_to_peer(peer_conn, peer));
@@ -907,7 +982,7 @@ void multiplex_final_msg(struct peer *peer, const u8 *final_msg TAKES)
 {
 	peer->ready_to_die = true;
 	peer->final_msg = tal_dup_talarr(peer, u8, final_msg);
-	if (!peer->subds)
+	if (tal_count(peer->subds) == 0)
 		io_wake(peer->peer_outq);
 }
 
