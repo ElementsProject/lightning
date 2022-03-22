@@ -14,6 +14,7 @@ struct tlv_print_record_type {
 
 typedef u64 bigsize;
 #define printwire_bigsize printwire_u64
+struct wireaddr;
 
 void printwire_u8(const char *fieldname, const u8 *v);
 void printwire_u16(const char *fieldname, const u16 *v);
@@ -24,6 +25,7 @@ void printwire_tlvs(const char *tlv_name, const u8 **cursor, size_t *plen,
 		    const struct tlv_print_record_type types[], size_t num_types);
 
 void printwire_bitcoin_blkid(const char *fieldname, const struct bitcoin_blkid *bitcoin_blkid);
+void printwire_wireaddr(const char *fieldname, const struct wireaddr *wireaddr);
 void printwire_bitcoin_txid(const char *fieldname, const struct bitcoin_txid *bitcoin_txid);
 void printwire_channel_id(const char *fieldname, const struct channel_id *channel_id);
 void printwire_amount_sat(const char *fieldname, const struct amount_sat *sat);
