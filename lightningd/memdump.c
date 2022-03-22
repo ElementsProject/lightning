@@ -189,6 +189,9 @@ static void finish_report(const struct leak_detect *leaks)
 
 static void leak_detect_timeout(struct leak_detect *leak_detect)
 {
+	/* We actually *do* leak the leak_detect, but cmd is about
+	 * to exit. */
+	notleak(tal_steal(NULL, leak_detect));
 	finish_report(leak_detect);
 	leak_detect->cmd = NULL;
 }
