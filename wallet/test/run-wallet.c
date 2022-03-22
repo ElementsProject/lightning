@@ -448,6 +448,9 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for maybe_disconnect_peer */
+void maybe_disconnect_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
+{ fprintf(stderr, "maybe_disconnect_peer called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
 						     struct htlc_in *hin UNNEEDED,
@@ -733,9 +736,6 @@ u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amo
 /* Generated stub for towire_channeld_sending_commitsig_reply */
 u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_sending_commitsig_reply called!\n"); abort(); }
-/* Generated stub for towire_connectd_discard_peer */
-u8 *towire_connectd_discard_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "towire_connectd_discard_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_final_msg */
 u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_final_msg called!\n"); abort(); }

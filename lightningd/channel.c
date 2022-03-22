@@ -20,11 +20,6 @@
 #include <wallet/txfilter.h>
 #include <wire/wire_sync.h>
 
-static bool connects_to_peer(struct subd *owner)
-{
-	return owner && owner->talks_to_peer;
-}
-
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {
 	struct subd *old_owner = channel->owner;
@@ -32,20 +27,10 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 
 	if (old_owner) {
 		subd_release_channel(old_owner, channel);
-		if (channel->connected && !connects_to_peer(owner)) {
-			/* If shutting down, connectd no longer exists */
-			if (channel->peer->ld->connectd) {
-				u8 *msg;
-				msg = towire_connectd_discard_peer(
-						NULL,
-						&channel->peer->id);
-				subd_send_msg(channel->peer->ld->connectd,
-					      take(msg));
-			} else
-				channel->peer->is_connected = false;
-		}
+		if (channel->connected)
+			maybe_disconnect_peer(channel->peer->ld, channel->peer);
 	}
-	channel->connected = connects_to_peer(owner);
+	channel->connected = (owner && owner->talks_to_peer);
 }
 
 struct htlc_out *channel_has_htlc_out(struct channel *channel)

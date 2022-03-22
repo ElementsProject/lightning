@@ -450,6 +450,9 @@ void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
+/* Generated stub for maybe_disconnect_peer */
+void maybe_disconnect_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
+{ fprintf(stderr, "maybe_disconnect_peer called!\n"); abort(); }
 /* Generated stub for merkle_tlv */
 void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
 { fprintf(stderr, "merkle_tlv called!\n"); abort(); }
@@ -654,9 +657,6 @@ u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channeld_dev_reenable_commit */
 u8 *towire_channeld_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_reenable_commit called!\n"); abort(); }
-/* Generated stub for towire_connectd_discard_peer */
-u8 *towire_connectd_discard_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "towire_connectd_discard_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_final_msg */
 u8 *towire_connectd_peer_final_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_final_msg called!\n"); abort(); }
