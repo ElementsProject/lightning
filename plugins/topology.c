@@ -460,7 +460,6 @@ static void json_add_node(struct json_stream *js,
 		struct json_escape *esc;
 		struct tlv_node_ann_tlvs *na_tlvs;
 
-		na_tlvs = tlv_node_ann_tlvs_new(tmpctx);
 		if (!fromwire_node_announcement(nannounce, nannounce,
 						&signature,
 						&features,
@@ -469,7 +468,7 @@ static void json_add_node(struct json_stream *js,
 						rgb_color,
 						alias,
 						&addresses,
-						na_tlvs)) {
+						&na_tlvs)) {
 			plugin_log(plugin, LOG_BROKEN,
 				   "Cannot parse stored node_announcement"
 				   " for %s at %u: %s",

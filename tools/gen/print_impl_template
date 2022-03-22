@@ -48,7 +48,7 @@ bool print${options.enum_name}_message(const u8 *msg)
     % endif	
 	printf("${f.name}=");
     % if f.type_obj.is_tlv():
-	printwire_tlvs(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen, print_tlvs_${f.type_obj.tlv.name}, ARRAY_SIZE(print_tlvs_${f.type_obj.tlv.name}));
+	printwire_${f.type_obj.tlv.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen);
     % elif f.is_array() or f.is_varlen():
 	% if f.type_obj.has_array_helper():
 	printwire_${f.type_obj.name}_array(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen, ${f.size('*plen')});

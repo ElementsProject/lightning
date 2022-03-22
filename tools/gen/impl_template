@@ -266,9 +266,12 @@ void towire_${tlv.name}(u8 **pptr, const struct ${tlv.struct_name()} *record)
 }
 
 
-bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_name()} *record)
+struct ${tlv.name} *fromwire_${tlv.name}(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
-	return fromwire_tlv(cursor, max, tlvs_${tlv.name}, ${len(tlv.messages)}, record, &record->fields);
+	struct ${tlv.name} *record = ${tlv.name}_new(ctx);
+	if (!fromwire_tlv(cursor, max, tlvs_${tlv.name}, ${len(tlv.messages)}, record, &record->fields))
+		return tal_free(record);
+	return record;
 }
 
 bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record, size_t *err_index)
@@ -345,7 +348,7 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}
 	    if f.type_obj.is_varsize():
 		typename = typename + ' *'
 	    type_ = f.type_obj.name
-	    varsized = f.type_obj.is_varsize()
+	    varsized = f.type_obj.is_varsize() or f.type_obj.is_tlv()
 	%> \
 	    % for c in f.field_comments:
 	/*${c} */
@@ -357,7 +360,9 @@ bool fromwire_${msg.name}(${'const tal_t *ctx, ' if msg.needs_context() else ''}
 	% if f.len_field_of:
 	${f.name} = fromwire_${type_}(&cursor, &plen);
 	% elif f.type_obj.is_tlv():
-	fromwire_${f.type_obj.tlv.name}(&cursor, &plen, ${f.name});
+	*${f.name} = fromwire_${f.type_obj.tlv.name}(ctx, &cursor, &plen);
+	if (!*${f.name})
+		return false;
 	% elif f.is_array() or f.is_varlen():
 	    % if f.type_obj.has_array_helper():
 	fromwire_${type_}_array(&cursor, &plen, ${'*' if f.is_varlen() else ''}${f.name}, ${f.size('plen')});

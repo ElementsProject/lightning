@@ -664,17 +664,21 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	enum channel_add_err add_err;
 	struct htlc *htlc;
 #if EXPERIMENTAL_FEATURES
-	struct tlv_update_add_tlvs *tlvs = tlv_update_add_tlvs_new(msg);
+	struct tlv_update_add_tlvs *tlvs;
 #endif
 	struct pubkey *blinding = NULL;
 
-	if (!fromwire_update_add_htlc(msg, &channel_id, &id, &amount,
-				      &payment_hash, &cltv_expiry,
-				      onion_routing_packet
+	if (!fromwire_update_add_htlc
 #if EXPERIMENTAL_FEATURES
-				      , tlvs
+	    (msg, msg, &channel_id, &id, &amount,
+	     &payment_hash, &cltv_expiry,
+	     onion_routing_packet, &tlvs)
+#else
+	    (msg, &channel_id, &id, &amount,
+	     &payment_hash, &cltv_expiry,
+	     onion_routing_packet)
 #endif
-		    ))
+		)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad peer_add_htlc %s", tal_hex(msg, msg));
 
@@ -1987,14 +1991,14 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 {
 	struct channel_id channel_id;
 	u8 *scriptpubkey;
-	struct tlv_shutdown_tlvs *tlvs = tlv_shutdown_tlvs_new(tmpctx);
+	struct tlv_shutdown_tlvs *tlvs;
 	struct bitcoin_outpoint *wrong_funding;
 
 	/* Disable the channel. */
 	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 
 	if (!fromwire_shutdown(tmpctx, shutdown, &channel_id, &scriptpubkey,
-			       tlvs))
+			       &tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad shutdown %s", tal_hex(peer, shutdown));
 
@@ -2112,18 +2116,26 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 	struct secret your_last_per_commitment_secret;
 	struct pubkey my_current_per_commitment_point;
 #if EXPERIMENTAL_FEATURES
-	struct tlv_channel_reestablish_tlvs *tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+	struct tlv_channel_reestablish_tlvs *tlvs;
 #endif
 
-	if (!fromwire_channel_reestablish(msg, &channel_id,
-					  &next_commitment_number,
-					  &next_revocation_number,
-					  &your_last_per_commitment_secret,
-					  &my_current_per_commitment_point
+
+	if (!fromwire_channel_reestablish
 #if EXPERIMENTAL_FEATURES
-					  , tlvs
+	    (tmpctx, msg, &channel_id,
+	     &next_commitment_number,
+	     &next_revocation_number,
+	     &your_last_per_commitment_secret,
+	     &my_current_per_commitment_point,
+	     &tlvs)
+#else
+	    (msg, &channel_id,
+	     &next_commitment_number,
+	     &next_revocation_number,
+	     &your_last_per_commitment_secret,
+	     &my_current_per_commitment_point)
 #endif
-		    ))
+		)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad channel_reestablish %s", tal_hex(peer, msg));
 
@@ -2838,6 +2850,7 @@ skip_tlvs:
 		 capture_premature_msg(&premature_msgs, msg));
 
 #if EXPERIMENTAL_FEATURES
+	/* Initialize here in case we don't read it below! */
 	recv_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
 
 	/* FIXME: v0.10.1 would send a different tlv set, due to older spec.
@@ -2856,13 +2869,13 @@ skip_tlvs:
 					 "bad reestablish msg: %s %s",
 					 peer_wire_name(fromwire_peektype(msg)),
 					 tal_hex(msg, msg));
-	} else if (!fromwire_channel_reestablish(msg,
+	} else if (!fromwire_channel_reestablish(tmpctx, msg,
 						 &channel_id,
 						 &next_commitment_number,
 						 &next_revocation_number,
 						 &last_local_per_commitment_secret,
 						 &remote_current_per_commitment_point,
-						 recv_tlvs)) {
+						 &recv_tlvs)) {
 			peer_failed_warn(peer->pps,
 					 &peer->channel_id,
 					 "bad reestablish msg: %s %s",

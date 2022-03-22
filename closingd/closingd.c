@@ -278,10 +278,9 @@ receive_offer(struct per_peer_state *pps,
 	} while (!msg);
 
 	their_sig.sighash_type = SIGHASH_ALL;
-	close_tlvs = tlv_closing_signed_tlvs_new(msg);
-	if (!fromwire_closing_signed(msg, &their_channel_id,
+	if (!fromwire_closing_signed(msg, msg, &their_channel_id,
 				     &received_fee, &their_sig.s,
-				     close_tlvs))
+				     &close_tlvs))
 		peer_failed_warn(pps, channel_id,
 				 "Expected closing_signed: %s",
 				 tal_hex(tmpctx, msg));

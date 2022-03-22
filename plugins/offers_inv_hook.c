@@ -329,8 +329,8 @@ struct command_result *handle_invoice(struct command *cmd,
 
 	inv->reply_path = tal_steal(inv, reply_path);
 
-	inv->inv = tlv_invoice_new(cmd);
-	if (!fromwire_tlv_invoice(&invbin, &len, inv->inv)) {
+	inv->inv = fromwire_tlv_invoice(cmd, &invbin, &len);
+	if (!inv->inv) {
 		return fail_inv(cmd, inv,
 				"Invalid invoice %s",
 				tal_hex(tmpctx, invbin));

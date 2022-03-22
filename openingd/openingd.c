@@ -376,8 +376,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
 	 *    valid secp256k1 pubkeys in compressed format.
 	 */
-	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
-	if (!fromwire_accept_channel(msg, &id_in,
+	if (!fromwire_accept_channel(tmpctx, msg, &id_in,
 				     &state->remoteconf.dust_limit,
 				     &state->remoteconf.max_htlc_value_in_flight,
 				     &state->remoteconf.channel_reserve,
@@ -391,7 +390,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				     &state->their_points.delayed_payment,
 				     &state->their_points.htlc,
 				     &state->first_per_commitment_point[REMOTE],
-				     accept_tlvs)) {
+				     &accept_tlvs)) {
 		peer_failed_err(state->pps,
 				&state->channel_id,
 				"Parsing accept_channel %s", tal_hex(msg, msg));
@@ -774,8 +773,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
 	struct tlv_accept_channel_tlvs *accept_tlvs;
-	struct tlv_open_channel_tlvs *open_tlvs
-		= tlv_open_channel_tlvs_new(tmpctx);
+	struct tlv_open_channel_tlvs *open_tlvs;
 
 	/* BOLT #2:
 	 *
@@ -785,7 +783,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
 	 *     secp256k1 pubkeys in compressed format.
 	 */
-	if (!fromwire_open_channel(open_channel_msg, &chain_hash,
+	if (!fromwire_open_channel(tmpctx, open_channel_msg, &chain_hash,
 			    &state->channel_id,
 			    &state->funding_sats,
 			    &state->push_msat,
@@ -803,7 +801,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			    &theirs.htlc,
 			    &state->first_per_commitment_point[REMOTE],
 			    &channel_flags,
-			    open_tlvs))
+			    &open_tlvs))
 		    peer_failed_err(state->pps,
 				    &state->channel_id,
 				    "Parsing open_channel %s", tal_hex(tmpctx, open_channel_msg));

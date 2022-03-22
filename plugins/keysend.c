@@ -351,13 +351,13 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 		return htlc_accepted_continue(cmd, NULL);
 
 	max = tal_bytelen(rawpayload);
-	payload = tlv_tlv_payload_new(cmd);
 
 	s = fromwire_bigsize(&rawpayload, &max);
 	if (s != max) {
 		return htlc_accepted_continue(cmd, NULL);
 	}
-	if (!fromwire_tlv_tlv_payload(&rawpayload, &max, payload)) {
+	payload = fromwire_tlv_tlv_payload(cmd, &rawpayload, &max);
+	if (!payload) {
 		plugin_log(
 		    cmd->plugin, LOG_UNUSUAL, "Malformed TLV payload %.*s",
 		    json_tok_full_len(params),

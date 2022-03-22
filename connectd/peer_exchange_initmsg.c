@@ -47,7 +47,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 {
 	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
 	u8 *globalfeatures, *features;
-	struct tlv_init_tlvs *tlvs = tlv_init_tlvs_new(msg);
+	struct tlv_init_tlvs *tlvs;
 	struct wireaddr *remote_addr;
 
 	if (!msg)
@@ -64,7 +64,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	if (unlikely(is_unknown_msg_discardable(msg)))
 		return read_init(conn, peer);
 
-	if (!fromwire_init(tmpctx, msg, &globalfeatures, &features, tlvs)) {
+	if (!fromwire_init(tmpctx, msg, &globalfeatures, &features, &tlvs)) {
 		status_peer_debug(&peer->id,
 				  "bad fromwire_init '%s', closing",
 				  tal_hex(tmpctx, msg));

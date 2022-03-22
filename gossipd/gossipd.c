@@ -154,13 +154,12 @@ static bool get_node_announcement(const tal_t *ctx,
 	msg = gossip_store_get(tmpctx, daemon->rstate->gs, n->bcast.index);
 
 	/* Note: validity of node_id is already checked. */
-	na_tlvs = tlv_node_ann_tlvs_new(ctx);
 	if (!fromwire_node_announcement(ctx, msg,
 					&signature, features,
 					&timestamp,
 					&id, rgb_color, alias,
 					&addresses,
-					na_tlvs)) {
+					&na_tlvs)) {
 		status_broken("Bad local node_announcement @%u: %s",
 			      n->bcast.index, tal_hex(tmpctx, msg));
 		return false;

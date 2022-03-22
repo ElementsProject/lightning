@@ -107,6 +107,7 @@ struct msg_update_fulfill_htlc {
 struct msg_shutdown {
 	struct channel_id channel_id;
 	u8 *scriptpubkey;
+	struct tlv_shutdown_tlvs *tlvs;
 };
 struct msg_funding_signed {
 	struct channel_id temporary_channel_id;
@@ -218,6 +219,7 @@ struct msg_update_add_htlc {
 	u32 expiry;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	struct tlv_update_add_tlvs *tlvs;
 };
 struct msg_update_fee {
 	struct channel_id channel_id;
@@ -288,9 +290,8 @@ static void *towire_struct_open_channel(const tal_t *ctx,
 static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, const void *p)
 {
 	struct msg_open_channel *s = tal(ctx, struct msg_open_channel);
-	s->tlvs = tlv_open_channel_tlvs_new(s);
 
-	if (fromwire_open_channel(p,
+	if (fromwire_open_channel(s, p,
 				  &s->chain_hash,
 				  &s->temporary_channel_id,
 				  &s->funding_satoshis,
@@ -309,7 +310,7 @@ static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, c
 				  &s->htlc_basepoint,
 				  &s->first_per_commitment_point,
 				  &s->channel_flags,
-				  s->tlvs))
+				  &s->tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -338,9 +339,8 @@ static void *towire_struct_accept_channel(const tal_t *ctx,
 static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ctx, const void *p)
 {
 	struct msg_accept_channel *s = tal(ctx, struct msg_accept_channel);
-	s->tlvs = tlv_accept_channel_tlvs_new(s);
 
-	if (fromwire_accept_channel(p,
+	if (fromwire_accept_channel(s, p,
 				    &s->temporary_channel_id,
 				    &s->dust_limit_satoshis,
 				    &s->max_htlc_value_in_flight_msat,
@@ -355,7 +355,7 @@ static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ct
 				    &s->htlc_basepoint,
 				    &s->delayed_payment_basepoint,
 				    &s->first_per_commitment_point,
-				    s->tlvs))
+				    &s->tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -377,7 +377,6 @@ static void *towire_struct_node_announcement(const tal_t *ctx,
 static struct msg_node_announcement *fromwire_struct_node_announcement(const tal_t *ctx, const void *p)
 {
 	struct msg_node_announcement *s = tal(ctx, struct msg_node_announcement);
-	s->tlvs = tlv_node_ann_tlvs_new(s);
 	if (!fromwire_node_announcement(s, p,
 				       &s->signature,
 					&s->features,
@@ -386,7 +385,7 @@ static struct msg_node_announcement *fromwire_struct_node_announcement(const tal
 				       s->rgb_color,
 				       s->alias,
 				       &s->addresses,
-				       s->tlvs))
+				       &s->tlvs))
 		return tal_free(s);
 	return s;
 }
@@ -628,12 +627,11 @@ static struct msg_closing_signed *fromwire_struct_closing_signed(const tal_t *ct
 	struct msg_closing_signed *s = tal(ctx, struct msg_closing_signed);
 	struct tlv_closing_signed_tlvs *close_tlvs;
 
-	close_tlvs = tlv_closing_signed_tlvs_new(ctx);
-	if (fromwire_closing_signed(p,
+	if (fromwire_closing_signed(ctx, p,
 				    &s->channel_id,
 				    &s->fee_satoshis,
 				    &s->signature,
-				    close_tlvs))
+				    &close_tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -654,7 +652,7 @@ static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const voi
 	if (!fromwire_shutdown(s, p,
 			       &s->channel_id,
 			       &s->scriptpubkey,
-			       NULL))
+			       &s->tlvs))
 		return tal_free(s);
 	return s;
 }
@@ -721,15 +719,24 @@ static struct msg_update_add_htlc *fromwire_struct_update_add_htlc(const tal_t *
 {
 	struct msg_update_add_htlc *s = tal(ctx, struct msg_update_add_htlc);
 
-	if (fromwire_update_add_htlc(p,
+	if (fromwire_update_add_htlc
+#if EXPERIMENTAL_FEATURES
+				    (s,	p,
+				     &s->channel_id,
+				     &s->id,
+				     &s->amount_msat,
+				     &s->payment_hash,
+				     &s->expiry,
+				     s->onion_routing_packet,
+				     &s->tlvs
+#else
+				    (p,
 				     &s->channel_id,
 				     &s->id,
 				     &s->amount_msat,
 				     &s->payment_hash,
 				     &s->expiry,
 				     s->onion_routing_packet
-#if EXPERIMENTAL_FEATURES
-				     ,NULL
 #endif
 		    ))
 		return s;
@@ -768,12 +775,11 @@ static void *towire_struct_init(const tal_t *ctx,
 static struct msg_init *fromwire_struct_init(const tal_t *ctx, const void *p)
 {
 	struct msg_init *s = tal(ctx, struct msg_init);
-	s->tlvs = tlv_init_tlvs_new(s);
 
 	if (!fromwire_init(s, p,
 			  &s->globalfeatures,
 			  &s->localfeatures,
-			  s->tlvs))
+			  &s->tlvs))
 		return tal_free(s);
 
 	return s;

@@ -242,11 +242,10 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	u8 *encoded;
 	struct short_channel_id *scids;
 	bigsize_t *flags;
-	struct tlv_query_short_channel_ids_tlvs *tlvs
-		= tlv_query_short_channel_ids_tlvs_new(tmpctx);
+	struct tlv_query_short_channel_ids_tlvs *tlvs;
 
 	if (!fromwire_query_short_channel_ids(tmpctx, msg, &chain, &encoded,
-					      tlvs)) {
+					      &tlvs)) {
 		return towire_warningfmt(peer, NULL,
 					 "Bad query_short_channel_ids w/tlvs %s",
 					 tal_hex(tmpctx, msg));
@@ -645,12 +644,11 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	struct bitcoin_blkid chain_hash;
 	u32 first_blocknum, number_of_blocks;
 	enum query_option_flags query_option_flags;
-	struct tlv_query_channel_range_tlvs *tlvs
-		= tlv_query_channel_range_tlvs_new(msg);
+	struct tlv_query_channel_range_tlvs *tlvs;
 
-	if (!fromwire_query_channel_range(msg, &chain_hash,
+	if (!fromwire_query_channel_range(msg, msg, &chain_hash,
 					  &first_blocknum, &number_of_blocks,
-					  tlvs)) {
+					  &tlvs)) {
 		return towire_warningfmt(peer, NULL,
 					 "Bad query_channel_range w/tlvs %s",
 					 tal_hex(tmpctx, msg));
@@ -741,12 +739,11 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	void (*cb)(struct peer *peer,
 		   u32 first_blocknum, u32 number_of_blocks,
 		   const struct range_query_reply *replies);
-	struct tlv_reply_channel_range_tlvs *tlvs
-		= tlv_reply_channel_range_tlvs_new(tmpctx);
+	struct tlv_reply_channel_range_tlvs *tlvs;
 
 	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
 					  &number_of_blocks, &sync_complete,
-					  &encoded, tlvs)) {
+					  &encoded, &tlvs)) {
 		return towire_warningfmt(peer, NULL,
 					 "Bad reply_channel_range w/tlvs %s",
 					 tal_hex(tmpctx, msg));
