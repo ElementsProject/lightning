@@ -1681,7 +1681,7 @@ def test_multifunding_v1_v2_mixed(node_factory, bitcoind):
                      "amount": 50000}]
 
     l1.rpc.multifundchannel(destinations)
-    bitcoind.generate_block(6, wait_for_mempool=1)
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4], wait_for_mempool=1)
 
     for node in [l1, l2, l3, l4]:
         node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
