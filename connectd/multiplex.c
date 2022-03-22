@@ -670,7 +670,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 {
        u8 *decrypted;
 
-       decrypted = cryptomsg_decrypt_body(NULL, &peer->cs,
+       decrypted = cryptomsg_decrypt_body(tmpctx, &peer->cs,
 					  peer->peer_in);
        if (!decrypted) {
 	       status_peer_debug(&peer->id, "Bad encrypted packet len %zu",
@@ -680,28 +680,20 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        tal_free(peer->peer_in);
 
        /* dev_disconnect can disable read */
-       if (!IFDEV(peer->dev_read_enabled, true)) {
-	       tal_free(decrypted);
+       if (!IFDEV(peer->dev_read_enabled, true))
 	       return read_hdr_from_peer(peer_conn, peer);
-       }
 
        /* Don't process packets while we're closing */
-       if (peer->told_to_close) {
-	       tal_free(decrypted);
+       if (peer->told_to_close)
 	       return read_hdr_from_peer(peer_conn, peer);
-       }
 
        /* If we swallow this, just try again. */
-       if (handle_message_locally(peer, decrypted)) {
-	       tal_free(decrypted);
+       if (handle_message_locally(peer, decrypted))
 	       return read_hdr_from_peer(peer_conn, peer);
-       }
 
        /* If there's no subd, discard and keep reading. */
-       if (!peer->to_subd) {
-	       tal_free(decrypted);
+       if (!peer->to_subd)
 	       return read_hdr_from_peer(peer_conn, peer);
-       }
 
        /* Tell them to write. */
        msg_enqueue(peer->subd_outq, take(decrypted));
