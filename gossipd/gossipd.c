@@ -707,6 +707,15 @@ struct peer *random_peer(struct daemon *daemon,
 	return best;
 }
 
+/* This is called when lightningd or connectd closes its connection to
+ * us.  We simply exit. */
+static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
+{
+	daemon_shutdown();
+	/* Can't tell master, it's gone. */
+	exit(2);
+}
+
 /*~ Parse init message from lightningd: starts the daemon properly. */
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
@@ -763,6 +772,7 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
 					   connectd_req,
 					   maybe_send_query_responses, daemon);
+	tal_add_destructor(daemon->connectd, master_or_connectd_gone);
 
 	/* OK, we are ready. */
 	daemon_conn_send(daemon->master,
@@ -1090,15 +1100,6 @@ done:
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
-/* This is called when lightningd closes its connection to us.  We simply
- * exit. */
-static void master_gone(struct daemon_conn *master UNUSED)
-{
-	daemon_shutdown();
-	/* Can't tell master, it's gone. */
-	exit(2);
-}
-
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -1131,7 +1132,7 @@ int main(int argc, char *argv[])
 	/* Our daemons always use STDIN for commands from lightningd. */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO,
 					 recv_req, NULL, daemon);
-	tal_add_destructor(daemon->master, master_gone);
+	tal_add_destructor(daemon->master, master_or_connectd_gone);
 
 	status_setup_async(daemon->master);
 
