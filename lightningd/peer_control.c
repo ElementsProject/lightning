@@ -944,7 +944,6 @@ struct peer_connected_hook_payload {
 	struct wireaddr *remote_addr;
 	bool incoming;
 	struct peer *peer;
-	struct peer_fd *peer_fd;
 	u8 *error;
 };
 
@@ -1028,11 +1027,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		}
 		case DUALOPEND_OPEN_INIT:
 		case DUALOPEND_AWAITING_LOCKIN:
-			assert(!channel->owner);
-			channel->peer->addr = addr;
-			channel->peer->connected_incoming = payload->incoming;
-			peer_restart_dualopend(peer, payload->peer_fd, channel);
-			return;
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
@@ -1040,31 +1034,31 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			assert(!channel->owner);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
-			peer_start_channeld(channel, payload->peer_fd, NULL, true,
-					    NULL);
-			return;
+			goto make_active;
 		}
 		abort();
 	}
 
 	/* If we get here, it means we have no channel */
 	assert(!channel);
-	if (feature_negotiated(ld->our_features,
-			       peer->their_features,
-			       OPT_DUAL_FUND)) {
-		peer_start_dualopend(peer, payload->peer_fd);
-	} else
-		peer_start_openingd(peer, payload->peer_fd);
 	return;
 
 send_error:
-	log_debug(ld->log, "Telling connectd to send error %s",
-		  tal_hex(tmpctx, error));
+	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
+		       tal_hex(tmpctx, error));
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
 							  error)));
-	tal_free(payload->peer_fd);
+	return;
+
+make_active:
+	log_peer_debug(ld->log, &peer->id,
+		       "Telling connectd to make active, state %s",
+		       channel_state_name(channel));
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_make_active(NULL, &peer->id,
+							    &channel->cid)));
 }
 
 static bool
@@ -1179,8 +1173,8 @@ REGISTER_PLUGIN_HOOK(peer_connected,
 		     struct peer_connected_hook_payload *);
 
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
- * it holds them until we say peer_died. */
-void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
+ * it holds them until we say peer_disconnected. */
+void peer_connected(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
 	u8 *their_features;
@@ -1197,8 +1191,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 					      &their_features))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
-
-	hook_payload->peer_fd = new_peer_fd(hook_payload, peer_fd);
 
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
@@ -1237,6 +1229,137 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	plugin_hook_call_peer_connected(ld, hook_payload);
 }
 
+/* connectd tells us a peer has an interesting message, and hands us an
+ * fd to give to the correct subdaemon.  Unlike peer_connected, this is racy:
+ * we might have just told it to disconnect peer. */
+void peer_active(struct lightningd *ld, const u8 *msg, int fd)
+{
+	struct node_id id;
+	u16 *msgtype;
+	struct channel *channel;
+	struct channel_id *channel_id;
+	struct peer *peer;
+	bool dual_fund;
+	u8 *error;
+	struct peer_fd *peer_fd = new_peer_fd(tmpctx, fd);
+
+	/* FIXME: Use msgtype to determine what to do! */
+	if (!fromwire_connectd_peer_active(msg, msg, &id, &msgtype, &channel_id))
+		fatal("Connectd gave bad CONNECTD_PEER_ACTIVE message %s",
+		      tal_hex(msg, msg));
+
+	peer = peer_by_id(ld, &id);
+	if (!peer) {
+		/* This race is possible, but I want to see it in CI. */
+		log_broken(ld->log, "Unknown active peer %s",
+			   type_to_string(tmpctx, struct node_id, &id));
+		return;
+	}
+
+	channel = peer_active_channel(peer);
+
+	/* It might be v2 opening, though, since we hang onto these */
+	if (!channel)
+		channel = peer_unsaved_channel(peer);
+
+	if (channel) {
+		switch (channel->state) {
+		case ONCHAIN:
+		case FUNDING_SPEND_SEEN:
+		case CLOSINGD_COMPLETE:
+			/* Channel is supposed to be active!*/
+			abort();
+		case CLOSED:
+			/* Channel should not have been loaded */
+			abort();
+
+		/* We consider this "active" but we only send an error */
+		case AWAITING_UNILATERAL: {
+			/* channel->error is not saved in db, so this can
+			 * happen if we restart. */
+			error = towire_errorfmt(tmpctx, &channel->cid,
+						"Awaiting unilateral close");
+			goto send_error;
+		}
+		case DUALOPEND_OPEN_INIT:
+			/* We asked for this, to open? */
+			if (!msgtype
+			    && channel->open_attempt
+			    && channel->open_attempt->open_msg) {
+				if (peer_start_dualopend(peer, peer_fd, channel))
+					subd_send_msg(channel->owner, channel->open_attempt->open_msg);
+				return;
+			}
+			/* Fall through. */
+		case DUALOPEND_AWAITING_LOCKIN:
+			assert(!channel->owner);
+			peer_restart_dualopend(peer, peer_fd, channel);
+			return;
+		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_NORMAL:
+		case CHANNELD_SHUTTING_DOWN:
+		case CLOSINGD_SIGEXCHANGE:
+			assert(!channel->owner);
+			peer_start_channeld(channel,
+					    peer_fd,
+					    NULL, true,
+					    NULL);
+			return;
+		}
+		abort();
+	}
+
+	dual_fund = feature_negotiated(ld->our_features,
+				       peer->their_features,
+				       OPT_DUAL_FUND);
+
+	/* Did we ask for this? */
+	if (!msgtype) {
+		/* If it was dual_fund, it will have peer_unsaved_channel above */
+		if (dual_fund) {
+			log_broken(ld->log, "Unsolicited active df peer %s?",
+				   type_to_string(tmpctx, struct node_id,
+						  &peer->id));
+		} else {
+			const struct uncommitted_channel *uc
+				= peer->uncommitted_channel;
+
+			if (!uc->open_daemon
+			    && uc->fc
+			    && uc->fc->open_msg) {
+				if (peer_start_openingd(peer, peer_fd)) {
+					subd_send_msg(uc->open_daemon,
+						      uc->fc->open_msg);
+				}
+			} else {
+				log_broken(ld->log, "Unsolicited active peer %s?",
+					   type_to_string(tmpctx, struct node_id,
+							  &peer->id));
+			}
+		}
+	} else {
+		/* OK, it's unsolicited.  What kind of open do they want? */
+		if (dual_fund) {
+			channel = new_unsaved_channel(peer,
+						      peer->ld->config.fee_base,
+						      peer->ld->config.fee_per_satoshi);
+			peer_start_dualopend(peer, peer_fd, channel);
+		} else {
+			peer->uncommitted_channel = new_uncommitted_channel(peer);
+			peer_start_openingd(peer, peer_fd);
+		}
+	}
+	return;
+
+send_error:
+	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
+		       tal_hex(tmpctx, error));
+	/* Get connectd to send error and close. */
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
+							  error)));
+}
+
 struct disconnect_command {
 	struct list_node list;
 	/* Command structure. This is the parent of the close command. */
@@ -1262,8 +1385,13 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 
 	/* If we still have peer, it's disconnected now */
 	p = peer_by_id(ld, &id);
-	if (p)
+	if (p) {
 		p->is_connected = false;
+		/* If we only cared about peer because of connectd, free it. */
+		if (list_empty(&p->channels) && !p->uncommitted_channel) {
+			tal_free(p);
+		}
+	}
 
 	/* Fire off plugin notifications */
 	notify_disconnect(ld, &id);
@@ -1744,6 +1872,9 @@ static struct command_result *json_disconnect(struct command *cmd,
 
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
+		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
+	}
+	if (!peer->is_connected) {
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
 	channel = peer_active_channel(peer);
@@ -1761,11 +1892,15 @@ static struct command_result *json_disconnect(struct command *cmd,
 		channel_unsaved_close_conn(channel, "disconnect command");
 		goto wait_for_connectd;
 	}
-	if (!peer->uncommitted_channel) {
-		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
+	if (peer->uncommitted_channel) {
+		kill_uncommitted_channel(peer->uncommitted_channel,
+					 "disconnect command");
+		goto wait_for_connectd;
 	}
-	kill_uncommitted_channel(peer->uncommitted_channel,
-				 "disconnect command");
+
+	/* It's just sitting in connectd. */
+	subd_send_msg(cmd->ld->connectd,
+		      take(towire_connectd_discard_peer(NULL, id)));
 
 wait_for_connectd:
 	/* Connectd tells us when it's finally disconnected */

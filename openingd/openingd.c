@@ -313,6 +313,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	char *err_reason;
 
+	status_debug("funder_channel_start");
 	if (!setup_channel_funder(state))
 		return NULL;
 
@@ -1427,9 +1428,6 @@ int main(int argc, char *argv[])
 	/*~ The HSM gives us the N-2'th per-commitment secret when we get the
 	 * N'th per-commitment point.  But since N=0, it won't give us one. */
 	assert(none == NULL);
-
-	/*~ Turns out this is useful for testing, to make sure we're ready. */
-	status_debug("Handed peer, entering loop");
 
 	/*~ We manually run a little poll() loop here.  With only three fds */
 	pollfd[0].fd = REQ_FD;

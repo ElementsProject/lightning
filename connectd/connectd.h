@@ -63,6 +63,9 @@ struct peer {
 	 * it's done). */
 	bool ready_to_die;
 
+	/* Has this ever been active?  (i.e. ever had a subd attached?) */
+	bool active;
+
 	/* When socket has Nagle overridden */
 	bool urgent;
 

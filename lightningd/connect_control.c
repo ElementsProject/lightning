@@ -419,6 +419,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DISCARD_PEER:
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
+	case WIRE_CONNECTD_PEER_MAKE_ACTIVE:
 	case WIRE_CONNECTD_PING:
 	case WIRE_CONNECTD_SEND_ONIONMSG:
 	case WIRE_CONNECTD_CUSTOMMSG_OUT:
@@ -434,9 +435,13 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
+		peer_connected(connectd->ld, msg);
+		break;
+
+	case WIRE_CONNECTD_PEER_ACTIVE:
 		if (tal_count(fds) != 1)
 			return 1;
-		peer_connected(connectd->ld, msg, fds[0]);
+		peer_active(connectd->ld, msg, fds[0]);
 		break;
 
 	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
@@ -629,8 +634,7 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 				    type_to_string(cmd, struct node_id, dest));
 	}
 
-	/* FIXME: This won't work once connectd keeps peers */
-	if (!peer_get_owning_subd(peer)) {
+	if (!peer->is_connected) {
 		return command_fail(cmd, JSONRPC2_INVALID_REQUEST,
 				    "Peer is not connected: %s",
 				    type_to_string(cmd, struct node_id, dest));

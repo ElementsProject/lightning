@@ -87,6 +87,9 @@ struct funding_channel {
 	/* Whether or not this is in the middle of getting funded */
 	bool inflight;
 
+	/* Initial openingd_funder_start msg */
+	const u8 *open_msg;
+
 	/* Any commands trying to cancel us. */
 	struct command **cancels;
 
@@ -95,8 +98,7 @@ struct funding_channel {
 	struct peer_fd *peer_fd;
 };
 
-struct uncommitted_channel *
-new_uncommitted_channel(struct peer *peer);
+struct uncommitted_channel *new_uncommitted_channel(struct peer *peer);
 
 void opend_channel_errmsg(struct uncommitted_channel *uc,
 			  struct peer_fd *peer_fd,
