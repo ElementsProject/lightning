@@ -117,14 +117,14 @@ generate-bolt-csv-patch: bolt-precheck
 # tlvs_n1 and n2 are used for test vectors, thus not referenced: expose them
 # for testing and to prevent compile error about them being unused.
 # This will be easier if test vectors are moved to separate files.
-wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2
+wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=tlv_n1 --expose-tlv-type=tlv_n2
 
-wire/peer_wiregen.c_args := -s --expose-tlv-type=n1 --expose-tlv-type=n2
+wire/peer_wiregen.c_args := -s --expose-tlv-type=tlv_n1 --expose-tlv-type=tlv_n2
 
 # The tlv_payload isn't parsed in a fromwire, so we need to expose it.
-wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' -s --expose-tlv-type=tlv_payload
+wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' -s --expose-tlv-type=tlv_tlv_payload
 
-wire/onion_wiregen.c_args := -s --expose-tlv-type=tlv_payload
+wire/onion_wiregen.c_args := -s --expose-tlv-type=tlv_tlv_payload
 
 # Same for _exp versions
 wire/peer_exp_wiregen.h_args := $(wire/peer_wiregen.h_args) --include='wire/channel_type_wiregen.h'
@@ -133,13 +133,13 @@ wire/peer_exp_printgen.h_args := --include='wire/channel_type_printgen.h'
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
-wire/bolt12_wiregen.c_args := -s --expose-tlv-type=blinded_path --expose-tlv-type=invoice_request
+wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request
 wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_wiregen.c_args)
 # Same for _exp versions
 wire/bolt12_exp_wiregen.h_args := $(wire/bolt12_wiregen.h_args)
 wire/bolt12_exp_wiregen.c_args := $(wire/bolt12_wiregen.c_args)
 
-wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2
+wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=tlv_n1 --expose-tlv-type=tlv_n2
 
 wire/channel_type_wiregen.h_args := -s
 wire/channel_type_wiregen.c_args := $(wire/channel_type_wiregen.h_args)

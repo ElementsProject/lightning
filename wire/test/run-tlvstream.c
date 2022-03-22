@@ -467,13 +467,13 @@ int main(int argc, char *argv[])
 		orig_p = stream(tmpctx, invalid_streams_either[i].hex);
 		max = tal_count(orig_p);
 		p = orig_p;
-		assert((!fromwire_n1(&p, &max, tlv_n1) && !p) ||
-		       !n1_is_valid(tlv_n1, NULL));
+		assert((!fromwire_tlv_n1(&p, &max, tlv_n1) && !p) ||
+		       !tlv_n1_is_valid(tlv_n1, NULL));
 		assert(strstr(invalid_streams_either[i].reason, reason));
 		max = tal_count(orig_p);
 		p = orig_p;
-		assert((!fromwire_n2(&p, &max, tlv_n2) && !p) ||
-		       !n2_is_valid(tlv_n2, NULL));
+		assert((!fromwire_tlv_n2(&p, &max, tlv_n2) && !p) ||
+		       !tlv_n2_is_valid(tlv_n2, NULL));
 		assert(strstr(invalid_streams_either[i].reason, reason));
 	}
 
@@ -484,8 +484,8 @@ int main(int argc, char *argv[])
 
 		p = stream(tmpctx, invalid_streams_n1[i].hex);
 		max = tal_count(p);
-		assert((!fromwire_n1(&p, &max, tlv_n1) && !p) ||
-		       !n1_is_valid(tlv_n1, NULL));
+		assert((!fromwire_tlv_n1(&p, &max, tlv_n1) && !p) ||
+		       !tlv_n1_is_valid(tlv_n1, NULL));
 		assert(strstr(invalid_streams_n1[i].reason, reason));
 	}
 
@@ -496,8 +496,8 @@ int main(int argc, char *argv[])
 
 		p = stream(tmpctx, invalid_streams_n1_combo[i].hex);
 		max = tal_count(p);
-		assert((!fromwire_n1(&p, &max, tlv_n1) && !p) ||
-		       !n1_is_valid(tlv_n1, NULL));
+		assert((!fromwire_tlv_n1(&p, &max, tlv_n1) && !p) ||
+		       !tlv_n1_is_valid(tlv_n1, NULL));
 		assert(strstr(invalid_streams_n1_combo[i].reason, reason));
 	}
 
@@ -508,8 +508,8 @@ int main(int argc, char *argv[])
 
 		p = stream(tmpctx, invalid_streams_n2_combo[i].hex);
 		max = tal_count(p);
-		assert((!fromwire_n2(&p, &max, tlv_n2) && !p) ||
-		       !n2_is_valid(tlv_n2, NULL));
+		assert((!fromwire_tlv_n2(&p, &max, tlv_n2) && !p) ||
+		       !tlv_n2_is_valid(tlv_n2, NULL));
 		assert(strstr(invalid_streams_n2_combo[i].reason, reason));
 	}
 
@@ -523,8 +523,8 @@ int main(int argc, char *argv[])
 
 		max = tal_count(orig_p);
 		p = orig_p;
-		assert(fromwire_n1(&p, &max, tlv_n1) &&
-		       n1_is_valid(tlv_n1, NULL));
+		assert(fromwire_tlv_n1(&p, &max, tlv_n1) &&
+		       tlv_n1_is_valid(tlv_n1, NULL));
 		assert(max == 0);
 		assert(tlv_n1_eq(tlv_n1, &valid_streams[i].expect));
 
@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		p2 = tal_arr(tmpctx, u8, 0);
-		towire_n1(&p2, tlv_n1);
+		towire_tlv_n1(&p2, tlv_n1);
 		assert(memeq(p2, tal_count(p2), orig_p, tal_count(orig_p)));
 	}
 
@@ -555,12 +555,12 @@ int main(int argc, char *argv[])
 					 invalid_streams_either[i].hex);
 			max = tal_count(orig_p);
 			p = orig_p;
-			assert((!fromwire_n1(&p, &max, tlv_n1) && !p) ||
-			       !n1_is_valid(tlv_n1, NULL));
+			assert((!fromwire_tlv_n1(&p, &max, tlv_n1) && !p) ||
+			       !tlv_n1_is_valid(tlv_n1, NULL));
 			max = tal_count(orig_p);
 			p = orig_p;
-			assert((!fromwire_n2(&p, &max, tlv_n2) && !p) ||
-			       !n2_is_valid(tlv_n2, NULL));
+			assert((!fromwire_tlv_n2(&p, &max, tlv_n2) && !p) ||
+			       !tlv_n2_is_valid(tlv_n2, NULL));
 		}
 	}
 
@@ -573,8 +573,8 @@ int main(int argc, char *argv[])
 			p = stream2(tmpctx, valid_streams[j].hex,
 				    invalid_streams_n1[i].hex);
 			max = tal_count(p);
-			assert((!fromwire_n1(&p, &max, tlv_n1) && !p) ||
-			       !n1_is_valid(tlv_n1, NULL));
+			assert((!fromwire_tlv_n1(&p, &max, tlv_n1) && !p) ||
+			       !tlv_n1_is_valid(tlv_n1, NULL));
 		}
 	}
 
@@ -587,8 +587,8 @@ int main(int argc, char *argv[])
 			p = stream2(tmpctx, valid_streams[j].hex,
 				    invalid_streams_n1_combo[i].hex);
 			max = tal_count(p);
-			assert((!fromwire_n1(&p, &max, tlv_n1) && !p) ||
-			       !n1_is_valid(tlv_n1, NULL));
+			assert((!fromwire_tlv_n1(&p, &max, tlv_n1) && !p) ||
+			       !tlv_n1_is_valid(tlv_n1, NULL));
 		}
 	}
 
@@ -617,8 +617,8 @@ int main(int argc, char *argv[])
 			expect_success = pull_type(valid_streams[i].hex)
 				< pull_type(valid_streams[j].hex);
 
-			assert(fromwire_n1(&p, &max, tlv_n1) &&
-			       n1_is_valid(tlv_n1, NULL) == expect_success);
+			assert(fromwire_tlv_n1(&p, &max, tlv_n1) &&
+			       tlv_n1_is_valid(tlv_n1, NULL) == expect_success);
 
 			if (!expect_success)
 				continue;
@@ -630,7 +630,7 @@ int main(int argc, char *argv[])
 				continue;
 
 			u8 *p2 = tal_arr(tmpctx, u8, 0);
-			towire_n1(&p2, tlv_n1);
+			towire_tlv_n1(&p2, tlv_n1);
 			assert(memeq(orig_p, tal_count(orig_p),
 				     p2, tal_count(p2)));
 		}

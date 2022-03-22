@@ -56,7 +56,7 @@ fail_inv_level(struct command *cmd,
 	/* FIXME: Add suggested_value / erroneous_field! */
 
 	errdata = tal_arr(cmd, u8, 0);
-	towire_invoice_error(&errdata, err);
+	towire_tlv_invoice_error(&errdata, err);
 	return send_onion_reply(cmd, inv->reply_path, "invoice_error", errdata);
 }
 
@@ -329,7 +329,7 @@ struct command_result *handle_invoice(struct command *cmd,
 	inv->reply_path = tal_steal(inv, reply_path);
 
 	inv->inv = tlv_invoice_new(cmd);
-	if (!fromwire_invoice(&invbin, &len, inv->inv)) {
+	if (!fromwire_tlv_invoice(&invbin, &len, inv->inv)) {
 		return fail_inv(cmd, inv,
 				"Invalid invoice %s",
 				tal_hex(tmpctx, invbin));

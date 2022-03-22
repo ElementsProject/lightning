@@ -357,7 +357,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	if (s != max) {
 		return htlc_accepted_continue(cmd, NULL);
 	}
-	if (!fromwire_tlv_payload(&rawpayload, &max, payload)) {
+	if (!fromwire_tlv_tlv_payload(&rawpayload, &max, payload)) {
 		plugin_log(
 		    cmd->plugin, LOG_UNUSUAL, "Malformed TLV payload %.*s",
 		    json_tok_full_len(params),

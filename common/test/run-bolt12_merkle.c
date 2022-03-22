@@ -114,11 +114,11 @@ static void merkle_n1(const struct tlv_n1 *n1, struct sha256 *test_m)
 
 	/* Linearize to populate ->fields */
 	v = tal_arr(tmpctx, u8, 0);
-	towire_n1(&v, n1);
+	towire_tlv_n1(&v, n1);
 
 	len = tal_bytelen(v);
 	tmp = tlv_n1_new(tmpctx);
-	if (!fromwire_n1(cast_const2(const u8 **, &v), &len, tmp))
+	if (!fromwire_tlv_n1(cast_const2(const u8 **, &v), &len, tmp))
 		abort();
 	assert(len == 0);
 

@@ -122,7 +122,7 @@ static u8 *enctlv_from_encmsg(const tal_t *ctx,
 			      struct pubkey *node_alias)
 {
 	u8 *encmsg_raw = tal_arr(NULL, u8, 0);
-	towire_encrypted_data_tlv(&encmsg_raw, encmsg);
+	towire_tlv_encrypted_data_tlv(&encmsg_raw, encmsg);
 	return enctlv_from_encmsg_raw(ctx, blinding, node, take(encmsg_raw),
 				      next_blinding, node_alias);
 }
@@ -198,7 +198,7 @@ static struct tlv_encrypted_data_tlv *decrypt_encmsg(const tal_t *ctx,
 	 *   - MUST drop the message.
 	 */
 	encmsg = tlv_encrypted_data_tlv_new(ctx);
-	if (!fromwire_encrypted_data_tlv(&cursor, &maxlen, encmsg)
+	if (!fromwire_tlv_encrypted_data_tlv(&cursor, &maxlen, encmsg)
 	    || !tlv_fields_valid(encmsg->fields, NULL, NULL))
 		return tal_free(encmsg);
 

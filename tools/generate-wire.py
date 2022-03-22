@@ -401,7 +401,7 @@ class Message(FieldSet):
 
 class Tlv(object):
     def __init__(self, name):
-        self.name = name
+        self.name = 'tlv_' + name
         self.messages = {}
 
     def add_message(self, tokens, comments=[]):
@@ -415,7 +415,7 @@ class Tlv(object):
         return 'struct ' + self.struct_name()
 
     def struct_name(self):
-        return "tlv_{}".format(self.name)
+        return self.name
 
     def find_message(self, name):
         return self.messages[name]

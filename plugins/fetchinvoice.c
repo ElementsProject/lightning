@@ -120,7 +120,7 @@ static struct command_result *handle_error(struct command *cmd,
 		   json_tok_full_len(errtok),
 		   json_tok_full(buf, errtok));
 	json_out_start(details, NULL, '{');
-	if (!fromwire_invoice_error(&data, &dlen, err)) {
+	if (!fromwire_tlv_invoice_error(&data, &dlen, err)) {
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "Invalid invoice_error %.*s",
 			   json_tok_full_len(errtok),
@@ -186,7 +186,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	invbin = json_tok_bin_from_hex(cmd, buf, invtok);
 	len = tal_bytelen(invbin);
 	inv = tlv_invoice_new(cmd);
- 	if (!fromwire_invoice(&invbin, &len, inv)) {
+ 	if (!fromwire_tlv_invoice(&invbin, &len, inv)) {
 		badfield = "invoice";
 		goto badinv;
 	}
@@ -719,7 +719,7 @@ send_modern_message(struct command *cmd,
 		json_object_start(req->js, NULL);
 		json_add_pubkey(req->js, "id", &node_alias[i]);
 		tlv = tal_arr(tmpctx, u8, 0);
-		towire_onionmsg_payload(&tlv, payloads[i]);
+		towire_tlv_onionmsg_payload(&tlv, payloads[i]);
 		json_add_hex_talarr(req->js, "tlv", tlv);
 		json_object_end(req->js);
 	}
@@ -830,7 +830,7 @@ sendinvreq_after_connect(struct command *cmd,
 			 struct sent *sent)
 {
 	u8 *rawinvreq = tal_arr(tmpctx, u8, 0);
-	towire_invoice_request(&rawinvreq, sent->invreq);
+	towire_tlv_invoice_request(&rawinvreq, sent->invreq);
 
 	return send_message(cmd, sent, "invoice_request", rawinvreq,
 			    sendonionmsg_done);
@@ -1091,11 +1091,11 @@ force_payer_secret(struct command *cmd,
 
 	/* Linearize populates ->fields */
 	msg = tal_arr(tmpctx, u8, 0);
-	towire_invoice_request(&msg, invreq);
+	towire_tlv_invoice_request(&msg, invreq);
 	p = msg;
 	len = tal_bytelen(msg);
 	sent->invreq = tlv_invoice_request_new(cmd);
-	if (!fromwire_invoice_request(&p, &len, sent->invreq))
+	if (!fromwire_tlv_invoice_request(&p, &len, sent->invreq))
 		plugin_err(cmd->plugin,
 			   "Could not remarshall invreq %s", tal_hex(tmpctx, msg));
 
@@ -1379,7 +1379,7 @@ sendinvoice_after_connect(struct command *cmd,
 			  struct sent *sent)
 {
 	u8 *rawinv = tal_arr(tmpctx, u8, 0);
-	towire_invoice(&rawinv, sent->inv);
+	towire_tlv_invoice(&rawinv, sent->inv);
 	return send_message(cmd, sent, "invoice", rawinv, prepare_inv_timeout);
 }
 
@@ -1474,11 +1474,11 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 	/* Linearize populates ->fields */
 	msg = tal_arr(tmpctx, u8, 0);
-	towire_invoice(&msg, sent->inv);
+	towire_tlv_invoice(&msg, sent->inv);
 	p = msg;
 	len = tal_bytelen(msg);
 	sent->inv = tlv_invoice_new(cmd);
-	if (!fromwire_invoice(&p, &len, sent->inv))
+	if (!fromwire_tlv_invoice(&p, &len, sent->inv))
 		plugin_err(cmd->plugin,
 			   "Could not remarshall %s", tal_hex(tmpctx, msg));
 

@@ -79,7 +79,7 @@ send_onion_reply(struct command *cmd,
 			}
 		}
 		tlv = tal_arr(tmpctx, u8, 0);
-		towire_onionmsg_payload(&tlv, omp);
+		towire_tlv_onionmsg_payload(&tlv, omp);
 		json_add_hex_talarr(req->js, "tlv", tlv);
 		json_object_end(req->js);
 	}
