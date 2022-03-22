@@ -3779,7 +3779,7 @@ def test_ping_timeout(node_factory):
 @pytest.mark.openchannel('v2')
 def test_multichan(node_factory, executor, bitcoind):
     """Test multiple channels between same nodes"""
-    l1, l2, l3 = node_factory.line_graph(3)
+    l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True})
 
     scid12 = l1.get_channel_scid(l2)
     scid23a = l2.get_channel_scid(l3)
@@ -3829,6 +3829,12 @@ def test_multichan(node_factory, executor, bitcoind):
     else:
         chan23a_idx = 1
         chan23b_idx = 0
+
+    # Gratuitous reconnect
+    with pytest.raises(RpcError, match=r"Peer has \(at least one\) channel"):
+        l3.rpc.disconnect(l2.info['id'])
+    l3.rpc.disconnect(l2.info['id'], force=True)
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Check it used the larger channel!
     assert before[chan23a_idx]['to_us_msat'] == after[chan23a_idx]['to_us_msat']
@@ -3881,3 +3887,10 @@ def test_multichan(node_factory, executor, bitcoind):
     inv = l3.rpc.invoice(100000000, "invoice3", "invoice3")
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # Restart with multiple channels works.
+    l3.restart()
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    inv = l3.rpc.invoice(100000000, "invoice4", "invoice4")
+    l1.rpc.pay(inv['bolt11'])
