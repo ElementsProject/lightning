@@ -13,87 +13,85 @@ ${i}
 % endfor
 
 % if enum_sets:
-void print${options.enum_name}_message(const u8 *msg)
+bool print${options.enum_name}_message(const u8 *msg)
 {
 	switch ((enum ${options.enum_name})fromwire_peektype(msg)) {
 % for msg in enum_sets[0]['set']:
 		case ${msg.enum_name()}:
 			printf("${msg.enum_name()}:\n");
-			printwire_${msg.name}("${msg.name}", msg);
-			return;
+			return printwire_${msg.name}("${msg.name}", msg);
 % endfor
 	}
 
 	printf("UNKNOWN: %s\\n", tal_hex(msg, msg));
+	return false;
 }
 % endif
 
 ## 'component' for 'truncate check 
-<%def name="truncate_check(nested=False)">
-	if (!${ '*' if nested else '' }cursor) {
+<%def name="truncate_check()">
+	if (!*cursor) {
 		printf("**TRUNCATED**\n");
-		return;
+		return false;
 	}
 </%def> \
 ## definition for printing field sets
-<%def name="print_fieldset(fields, nested, cursor, plen)">
+<%def name="print_fieldset(fields)">
 % for f in fields:
     % if f.is_extension():
-	if (plen <= 0)
-		return;
+	if (*plen == 0)
+		return true;
 	printf("(${','.join(f.extension_names)}):");
     % endif
     % if f.len_field_of:
-	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(${cursor}, ${plen});${truncate_check(nested)} <% continue %> \
+	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(cursor, plen);${truncate_check()} <% continue %> \
     % endif	
 	printf("${f.name}=");
     % if f.type_obj.is_tlv():
-	printwire_tlvs(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen}, print_tlvs_${f.type_obj.tlv.name}, ARRAY_SIZE(print_tlvs_${f.type_obj.tlv.name}));
+	printwire_tlvs(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen, print_tlvs_${f.type_obj.tlv.name}, ARRAY_SIZE(print_tlvs_${f.type_obj.tlv.name}));
     % elif f.is_array() or f.is_varlen():
 	% if f.type_obj.has_array_helper():
-	printwire_${f.type_obj.name}_array(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen}, ${f.size('*' + plen)});
+	printwire_${f.type_obj.name}_array(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen, ${f.size('*plen')});
 	% else:
 	printf("[");
             % if f.is_implicit_len():
-	for (size_t i = 0; i < *${plen}; i++) {
+	while (*plen) {
 	    % else:
 	for (size_t i = 0; i < ${f.size()}; i++) {
 	    % endif
+	    printf("{\n");
 	    % if f.type_obj.is_subtype() or f.type_obj.is_varsize():
 		printf("{\n");
-		printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen});
+		printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen);
 		printf("}\n");
 	    % else:
 		${f.type_obj.type_name()} v;
 		% if f.type_obj.is_assignable():
-		v = fromwire_${f.type_obj.name}(${cursor}, ${plen});
+		v = fromwire_${f.type_obj.name}(cursor, plen);
 		% else:
-		fromwire_${f.type_obj.name}(${cursor}, ${plen}, &v);
+		fromwire_${f.type_obj.name}(cursor, plen, &v);
 		% endif
-		if (!*cursor) {
-			printf("**TRUNCATED**\n");
-			return;
-		}
+		${truncate_check()}
 <% typename = f.type_obj.name if not f.type_obj.is_truncated() else f.type_obj.name[1:] %>\
 		printwire_${typename}(tal_fmt(NULL, "%s.${f.name}", fieldname), &v);
 	    % endif
 	}
 	printf("]");
 	% endif
-${truncate_check(nested)} \
+${truncate_check()} \
     % elif f.type_obj.is_subtype() or f.type_obj.is_varsize():
 	printf("{\n");
-	printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), ${cursor}, ${plen});
+	printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen);
 	printf("}\n");
     % else:
 	    % if f.type_obj.is_assignable():
-	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(${cursor}, ${plen});
+	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(cursor, plen);
 	    % else:
 	${f.type_obj.type_name()} ${f.name};
-	fromwire_${f.type_obj.name}(${cursor}, ${plen}, &${f.name});
+	fromwire_${f.type_obj.name}(cursor, plen, &${f.name});
 	    % endif
 	<% typename = f.type_obj.name if not f.type_obj.is_truncated() else f.type_obj.name[1:] %>
-	printwire_${typename}(tal_fmt(NULL, "%s.${f.name}", fieldname), &${f.name}); ${truncate_check(nested)} \
+	printwire_${typename}(tal_fmt(NULL, "%s.${f.name}", fieldname), &${f.name}); ${truncate_check()} \
     % endif
 % endfor
 </%def> \
@@ -103,18 +101,20 @@ ${truncate_check(nested)} \
 <%
     static = '' if options.expose_subtypes else 'static '
 %>\
-${static}void printwire_${subtype.name}(const char *fieldname, const u8 **cursor, size_t *plen)
+${static}bool printwire_${subtype.name}(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	${print_fieldset(subtype.fields.values(), True, 'cursor', 'plen')}
+	${print_fieldset(subtype.fields.values())}
+	return true;
 }
 % endfor
 % for tlv in tlvs.values():
 
     % for msg in tlv.messages.values():
-static void printwire_${msg.struct_name()}(const char *fieldname, const u8 **cursor, size_t *plen)
+static bool printwire_${msg.struct_name()}(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "${msg.name}");
-	${print_fieldset(msg.fields.values(), True, 'cursor', 'plen')}
+	${print_fieldset(msg.fields.values())}
+	return true;
 }
     % endfor
 
@@ -125,29 +125,33 @@ static const struct tlv_print_record_type print_tlvs_${tlv.name}[] = {
 };
 % endfor
 % for msg in messages:
-void printwire_${msg.name}(const char *fieldname, const u8 *cursor)
+bool printwire_${msg.name}(const char *fieldname, const u8 *msg)
 {
+	size_t msglen = tal_count(msg);
+	const u8 **cursor = &msg;
+	size_t *plen = &msglen;
 
-	size_t plen = tal_count(cursor);
-	if (fromwire_u16(&cursor, &plen) != ${msg.enum_name()}) {
+	if (fromwire_u16(cursor, plen) != ${msg.enum_name()}) {
 		printf("WRONG TYPE?!\n");
-		return;
+		return false;
 	}
-${print_fieldset(msg.fields.values(), False, '&cursor', '&plen')}
+${print_fieldset(msg.fields.values())}
 
 ## Length check
-	if (plen != 0)
-		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
+	if (*plen != 0)
+		printf("EXTRA: %s\n", tal_hexstr(NULL, *cursor, *plen));
+	return *cursor != NULL;
 }
 % endfor
 
 % if bool(tlvs):
-void print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg) {
-	size_t plen = tal_count(msg);
+bool print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg) {
+	size_t len = tal_count(msg);
     % for tlv in tlvs.values():
 	if (strcmp(tlv_name, "${tlv.name}") == 0) {
-		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_${tlv.name}, ARRAY_SIZE(print_tlvs_${tlv.name}));
+		return printwire_tlvs(tlv_name, &msg, &len, print_tlvs_${tlv.name}, ARRAY_SIZE(print_tlvs_${tlv.name}));
 	}
     % endfor
+	return false;
 }
 % endif
