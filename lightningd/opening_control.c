@@ -574,6 +574,8 @@ static void openingd_failed(struct subd *openingd, const u8 *msg,
 
 	/* Noop if we're not funder. */
 	opening_funder_failed_cancel_commands(uc, desc);
+	/* Detaches from ->peer */
+	tal_free(uc);
 }
 
 struct openchannel_hook_payload {
