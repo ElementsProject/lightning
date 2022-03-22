@@ -418,6 +418,10 @@ struct channel *channel_by_cid(struct lightningd *ld,
 struct channel *find_channel_by_id(const struct peer *peer,
 				   const struct channel_id *cid);
 
+/* Find this channel within peer */
+struct channel *find_channel_by_scid(const struct peer *peer,
+				     const struct short_channel_id *scid);
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig,
