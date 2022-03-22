@@ -307,13 +307,12 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->id = *id;
 	peer->cs = *cs;
 	peer->final_msg = NULL;
-	peer->subd_in = NULL;
+	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
 	peer->told_to_close = false;
 	peer->peer_outq = msg_queue_new(peer, false);
-	peer->subd_outq = msg_queue_new(peer, false);
 
 #if DEVELOPER
 	peer->dev_writes_enabled = NULL;
@@ -323,7 +322,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->to_peer = conn;
 
 	/* Aim for connection to shuffle data back and forth: sets up
-	 * peer->to_subd */
+	 * peer->subds[0] */
 	if (!multiplex_subd_setup(peer, fd_for_subd))
 		return tal_free(peer);
 
@@ -1792,7 +1791,7 @@ static void try_connect_peer(struct daemon *daemon,
 	existing = peer_htable_get(&daemon->peers, id);
 	if (existing) {
 		/* If it's exiting now, we've raced: reconnect after */
-		if (existing->to_subd
+		if (tal_count(existing->subds) != 0
 		    && existing->to_peer
 		    && !existing->told_to_close)
 			return;
@@ -1892,7 +1891,7 @@ void peer_conn_closed(struct peer *peer)
 	struct connecting *connect = find_connecting(peer->daemon, &peer->id);
 
 	/* These should be closed already! */
-	assert(!peer->to_subd);
+	assert(!peer->subds);
 	assert(!peer->to_peer);
 	assert(peer->told_to_close);
 
