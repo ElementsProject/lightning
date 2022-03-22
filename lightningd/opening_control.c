@@ -561,22 +561,25 @@ opening_funder_failed_cancel_commands(struct uncommitted_channel *uc,
 	 */
 	uc->fc = tal_free(uc->fc);
 }
-static void opening_funder_failed(struct subd *openingd, const u8 *msg,
-				  struct uncommitted_channel *uc)
+
+static void openingd_failed(struct subd *openingd, const u8 *msg,
+			    struct uncommitted_channel *uc)
 {
 	char *desc;
 
-	if (!fromwire_openingd_funder_failed(msg, msg, &desc)) {
+	if (!fromwire_openingd_failed(msg, msg, &desc)) {
 		log_broken(uc->log,
-			   "bad OPENING_FUNDER_FAILED %s",
+			   "bad OPENINGD_FAILED %s",
 			   tal_hex(tmpctx, msg));
-		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
-					 "bad OPENING_FUNDER_FAILED %s",
-					 tal_hex(uc->fc->cmd, msg)));
+		if (uc->fc)
+			was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
+						 "bad OPENINGD_FAILED %s",
+						 tal_hex(uc->fc->cmd, msg)));
 		tal_free(uc);
 		return;
 	}
 
+	/* Noop if we're not funder. */
 	opening_funder_failed_cancel_commands(uc, desc);
 }
 
@@ -853,14 +856,8 @@ static unsigned int openingd_msg(struct subd *openingd,
 		}
 		opening_funder_start_replied(openingd, msg, fds, uc->fc);
 		return 0;
-	case WIRE_OPENINGD_FUNDER_FAILED:
-		if (!uc->fc) {
-			log_unusual(openingd->log, "Unexpected FUNDER_FAILED %s",
-				   tal_hex(tmpctx, msg));
-			tal_free(openingd);
-			return 0;
-		}
-		opening_funder_failed(openingd, msg, uc);
+	case WIRE_OPENINGD_FAILED:
+		openingd_failed(openingd, msg, uc);
 		return 0;
 
 	case WIRE_OPENINGD_FUNDEE:

@@ -104,8 +104,8 @@ msgdata,openingd_funder_complete,channel_type,channel_type,
 msgtype,openingd_funder_cancel,6013
 
 # Openingd->master: we failed to negotiation channel
-msgtype,openingd_funder_failed,6004
-msgdata,openingd_funder_failed,reason,wirestring,
+msgtype,openingd_failed,6004
+msgdata,openingd_failed,reason,wirestring,
 
 # Openingd->master: they offered channel.
 # This gives their txid and info, means we can send funding_signed: we're done.

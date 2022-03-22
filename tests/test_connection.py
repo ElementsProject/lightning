@@ -998,13 +998,9 @@ def test_funding_fail(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'to_self_delay \d+ larger than \d+'):
         l1.rpc.fundchannel(l2.info['id'], int(funds / 10))
 
-    # dual-funded channels disconnect on failure
-    if not l1.config('experimental-dual-fund'):
-        assert only_one(l1.rpc.listpeers()['peers'])['connected']
-        assert only_one(l2.rpc.listpeers()['peers'])['connected']
-    else:
-        assert len(l1.rpc.listpeers()['peers']) == 0
-        assert len(l2.rpc.listpeers()['peers']) == 0
+    # channels disconnect on failure
+    assert len(l1.rpc.listpeers()['peers']) == 0
+    assert len(l2.rpc.listpeers()['peers']) == 0
 
     # Restart l2 without ridiculous locktime.
     del l2.daemon.opts['watchtime-blocks']
@@ -1217,7 +1213,9 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.txdiscard(wrongaddr['txid'])
 
     l1.rpc.fundchannel_cancel(l2.info['id'])
-    # Should be able to 'restart' after canceling
+
+    # Cancelling causes disconnection.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount2 = 1000000
     funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount2)['funding_address']
 
