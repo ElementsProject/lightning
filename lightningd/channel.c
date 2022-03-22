@@ -42,7 +42,7 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 			channel->peer->connected = false;
 			if (channel->peer->ld->connectd) {
 				u8 *msg;
-				msg = towire_connectd_peer_disconnected(
+				msg = towire_connectd_discard_peer(
 						NULL,
 						&channel->peer->id);
 				subd_send_msg(channel->peer->ld->connectd,

@@ -59,8 +59,9 @@ struct peer {
 	/* Final message to send to peer (and hangup) */
 	u8 *final_msg;
 
-	/* Set when we want to close. */
-	bool told_to_close;
+	/* Set once lightningd says it's OK to close (subd tells it
+	 * it's done). */
+	bool ready_to_die;
 
 	/* When socket has Nagle overridden */
 	bool urgent;

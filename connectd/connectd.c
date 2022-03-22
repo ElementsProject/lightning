@@ -311,7 +311,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
-	peer->told_to_close = false;
+	peer->ready_to_die = false;
 	peer->peer_outq = msg_queue_new(peer, false);
 
 #if DEVELOPER
@@ -1793,7 +1793,7 @@ static void try_connect_peer(struct daemon *daemon,
 		/* If it's exiting now, we've raced: reconnect after */
 		if (tal_count(existing->subds) != 0
 		    && existing->to_peer
-		    && !existing->told_to_close)
+		    && !existing->ready_to_die)
 			return;
 	}
 
@@ -1893,7 +1893,7 @@ void peer_conn_closed(struct peer *peer)
 	/* These should be closed already! */
 	assert(!peer->subds);
 	assert(!peer->to_peer);
-	assert(peer->told_to_close);
+	assert(peer->ready_to_die);
 
 	/* Tell gossipd to stop asking this peer gossip queries */
 	daemon_conn_send(peer->daemon->gossipd,
@@ -1930,13 +1930,13 @@ static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
 	close_peer_conn(peer);
 }
 
-/* lightningd tells us a peer has disconnected. */
-static void peer_disconnected(struct daemon *daemon, const u8 *msg)
+/* lightningd tells us a peer should be disconnected. */
+static void peer_discard(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 
-	if (!fromwire_connectd_peer_disconnected(msg, &id))
-		master_badmsg(WIRE_CONNECTD_PEER_DISCONNECTED, msg);
+	if (!fromwire_connectd_discard_peer(msg, &id))
+		master_badmsg(WIRE_CONNECTD_DISCARD_PEER, msg);
 
 	cleanup_dead_peer(daemon, &id);
 }
@@ -2001,8 +2001,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		connect_to_peer(daemon, msg);
 		goto out;
 
-	case WIRE_CONNECTD_PEER_DISCONNECTED:
-		peer_disconnected(daemon, msg);
+	case WIRE_CONNECTD_DISCARD_PEER:
+		peer_discard(daemon, msg);
 		goto out;
 
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
