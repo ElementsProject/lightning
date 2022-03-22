@@ -92,6 +92,10 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 /* If this channel has a "wrong funding" shutdown, watch that too. */
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);
 
+/* How much can we spend in this channel? */
+struct amount_msat channel_amount_spendable(const struct channel *channel);
+
+/* How much can we receive in this channel? */
 struct amount_msat channel_amount_receivable(const struct channel *channel);
 
 /* Pull peers, channels and HTLCs from db, and wire them up.

@@ -601,15 +601,6 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 	return NULL;
 }
 
-struct channel *active_channel_by_scid(struct lightningd *ld,
-				       const struct short_channel_id *scid)
-{
-	struct channel *chan = any_channel_by_scid(ld, scid);
-	if (chan && !channel_active(chan))
-		chan = NULL;
-	return chan;
-}
-
 struct channel *any_channel_by_scid(struct lightningd *ld,
 				    const struct short_channel_id *scid)
 {

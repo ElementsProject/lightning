@@ -546,7 +546,7 @@ static void subtract_received_htlcs(const struct channel *channel,
 	}
 }
 
-static struct amount_msat channel_amount_spendable(const struct channel *channel)
+struct amount_msat channel_amount_spendable(const struct channel *channel)
 {
 	struct amount_msat spendable;
 
@@ -1770,14 +1770,18 @@ command_find_channel(struct command *cmd,
 				    tok->end - tok->start,
 				    buffer + tok->start);
 	} else if (json_to_short_channel_id(buffer, tok, &scid)) {
-		*channel = active_channel_by_scid(ld, &scid);
-		if (*channel)
-			return NULL;
-
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Short channel ID not found: '%.*s'",
-				    tok->end - tok->start,
-				    buffer + tok->start);
+		*channel = any_channel_by_scid(ld, &scid);
+		if (!*channel)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Short channel ID not found: '%.*s'",
+					    tok->end - tok->start,
+					    buffer + tok->start);
+	 	if (!channel_active(*channel))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Short channel ID not active: '%.*s'",
+					    tok->end - tok->start,
+					    buffer + tok->start);
+		return NULL;
 	} else {
 		return command_fail_badparam(cmd, "id", buffer, tok,
 					     "should be a channel ID or short channel ID");

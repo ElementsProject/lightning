@@ -3784,11 +3784,11 @@ def test_multichan(node_factory, executor, bitcoind):
     scid12 = l1.get_channel_scid(l2)
     scid23a = l2.get_channel_scid(l3)
 
-    # Now fund *second* channel l2->l3.
+    # Now fund *second* channel l2->l3 (slightly larger)
     bitcoind.rpc.sendtoaddress(l2.rpc.newaddr()['bech32'], 0.1)
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l2])
-    l2.rpc.fundchannel(l3.info['id'], '0.05btc')
+    l2.rpc.fundchannel(l3.info['id'], '0.01001btc')
     assert(len(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']) == 2)
     assert(len(only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels']) == 2)
 
@@ -3830,9 +3830,9 @@ def test_multichan(node_factory, executor, bitcoind):
         chan23a_idx = 1
         chan23b_idx = 0
 
-    # Check it used the right scid!
-    assert before[chan23a_idx]['to_us_msat'] != after[chan23a_idx]['to_us_msat']
-    assert before[chan23b_idx]['to_us_msat'] == after[chan23b_idx]['to_us_msat']
+    # Check it used the larger channel!
+    assert before[chan23a_idx]['to_us_msat'] == after[chan23a_idx]['to_us_msat']
+    assert before[chan23b_idx]['to_us_msat'] != after[chan23b_idx]['to_us_msat']
 
     before = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
     route[1]['channel'] = scid23b
@@ -3843,9 +3843,9 @@ def test_multichan(node_factory, executor, bitcoind):
     wait_for(lambda: [c['htlcs'] for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']] == [[], []])
     after = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
 
-    # Check it used the right scid!
-    assert before[chan23a_idx]['to_us_msat'] == after[chan23a_idx]['to_us_msat']
-    assert before[chan23b_idx]['to_us_msat'] != after[chan23b_idx]['to_us_msat']
+    # Now the first channel is larger!
+    assert before[chan23a_idx]['to_us_msat'] != after[chan23a_idx]['to_us_msat']
+    assert before[chan23b_idx]['to_us_msat'] == after[chan23b_idx]['to_us_msat']
 
     # Make sure gossip works.
     bitcoind.generate_block(5)
@@ -3862,5 +3862,5 @@ def test_multichan(node_factory, executor, bitcoind):
 
     assert chan23a['amount_msat'] == Millisatoshi(1000000000)
     assert chan23a['short_channel_id'] == scid23a
-    assert chan23b['amount_msat'] == Millisatoshi(5000000000)
+    assert chan23b['amount_msat'] == Millisatoshi(1001000000)
     assert chan23b['short_channel_id'] == scid23b
