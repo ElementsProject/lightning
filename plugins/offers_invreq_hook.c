@@ -419,7 +419,8 @@ static struct command_result *check_previous_invoice(struct command *cmd,
 /* BOLT-offers #12:
  *  - MUST fail the request if `signature` is not correct.
  */
-static bool check_payer_sig(const struct tlv_invoice_request *invreq,
+static bool check_payer_sig(struct command *cmd,
+			    const struct tlv_invoice_request *invreq,
 			    const struct point32 *payer_key,
 			    const struct bip340sig *sig)
 {
@@ -436,6 +437,8 @@ static bool check_payer_sig(const struct tlv_invoice_request *invreq,
 		return false;
 
 	/* Try old name */
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Testing invoice_request with old name 'payer_signature'");
 	sighash_from_merkle("invoice_request", "payer_signature",
 			    &merkle, &sighash);
 
@@ -728,7 +731,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	err = invreq_must_have(cmd, ir, signature);
 	if (err)
 		return err;
-	if (!check_payer_sig(ir->invreq,
+	if (!check_payer_sig(cmd, ir->invreq,
 			     ir->invreq->payer_key,
 			     ir->invreq->signature)) {
 		return fail_invreq(cmd, ir, "bad signature");

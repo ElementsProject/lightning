@@ -4454,6 +4454,20 @@ def test_offer(node_factory, bitcoind):
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
 
 
+def test_deprecated_offer(node_factory, bitcoind):
+    """Test that we allow old invreq name `payer_signature` with deprecated_apis"""
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
+                                              'allow-deprecated-apis': True})
+
+    offer = l2.rpc.call('offer', {'amount': 10000,
+                                  'description': 'test'})['bolt12']
+
+    inv = l1.rpc.call('fetchinvoice', {'offer': offer})['invoice']
+    l2.daemon.wait_for_log("Testing invoice_request with old name 'payer_signature'")
+
+    l1.rpc.pay(inv)
+
+
 @pytest.mark.developer("dev-no-modern-onion is DEVELOPER-only")
 def test_fetchinvoice_3hop(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
