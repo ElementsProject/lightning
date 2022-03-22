@@ -139,20 +139,13 @@ static struct command_result *json_connect(struct command *cmd,
 
 	/* If we know about peer, see if it's already connected. */
 	peer = peer_by_id(cmd->ld, &id);
-	if (peer) {
-		struct channel *channel = peer_active_channel(peer);
-
-		if (!channel)
-			channel = peer_unsaved_channel(peer);
-
-		if (peer->uncommitted_channel
-		    || (channel && channel->connected)) {
-			log_debug(cmd->ld->log, "Already connected via %s",
-				  type_to_string(tmpctx, struct wireaddr_internal, &peer->addr));
-			return connect_cmd_succeed(cmd, peer,
-						   peer->connected_incoming,
-						   &peer->addr);
-		}
+	if (peer && peer->connected) {
+		log_debug(cmd->ld->log, "Already connected via %s",
+			  type_to_string(tmpctx, struct wireaddr_internal,
+					 &peer->addr));
+		return connect_cmd_succeed(cmd, peer,
+					   peer->connected_incoming,
+					   &peer->addr);
 	}
 
 	/* Was there parseable host name? */

@@ -38,6 +38,8 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 			 * Only transfer to connectd if connectd is
 			 * there to be transferred to.
 			 */
+			assert(channel->peer->connected);
+			channel->peer->connected = false;
 			if (channel->peer->ld->connectd) {
 				u8 *msg;
 				msg = towire_connectd_peer_disconnected(

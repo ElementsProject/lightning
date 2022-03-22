@@ -30,6 +30,9 @@ struct peer {
 	/* Our channels */
 	struct list_head channels;
 
+	/* Are we connected? */
+	bool connected;
+
 	/* Our (only) uncommitted channel, still opening. */
 	struct uncommitted_channel *uncommitted_channel;
 

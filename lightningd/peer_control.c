@@ -100,6 +100,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->their_features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
+	peer->connected = false;
 #if DEVELOPER
 	peer->ignore_htlcs = false;
 #endif
@@ -1067,6 +1068,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 send_error:
 	log_debug(ld->log, "Telling connectd to send error %s",
 		  tal_hex(tmpctx, error));
+	peer->connected = false;
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
@@ -1213,6 +1215,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
 				hook_payload->incoming);
+	peer->connected = true;
 
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
@@ -1487,27 +1490,17 @@ static void json_add_peer(struct lightningd *ld,
 			  struct peer *p,
 			  const enum log_level *ll)
 {
-	bool connected;
 	struct channel *channel;
 
 	json_object_start(response, NULL);
 	json_add_node_id(response, "id", &p->id);
 
-	/* Channel is also connected if uncommitted channel */
-	if (p->uncommitted_channel)
-		connected = true;
-	else {
-		channel = peer_active_channel(p);
-		if (!channel)
-			channel = peer_unsaved_channel(p);
-		connected = channel && channel->connected;
-	}
-	json_add_bool(response, "connected", connected);
+	json_add_bool(response, "connected", p->connected);
 
 	/* If it's not connected, features are unreliable: we don't
 	 * store them in the database, and they would only reflect
 	 * their features *last* time they connected. */
-	if (connected) {
+	if (p->connected) {
 		json_array_start(response, "netaddr");
 		json_add_string(response, NULL,
 				type_to_string(tmpctx,
