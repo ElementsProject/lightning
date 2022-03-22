@@ -402,7 +402,9 @@ void send_custommsg(struct daemon *daemon, const u8 *msg)
 }
 
 /* FIXME: fwd decl */
-static struct subd *multiplex_subd_setup(struct peer *peer, int *fd_for_subd);
+static struct subd *multiplex_subd_setup(struct peer *peer,
+					 const struct channel_id *channel_id,
+					 int *fd_for_subd);
 
 static struct subd *activate_peer(struct peer *peer,
 				  const enum peer_wire *type,
@@ -415,7 +417,7 @@ static struct subd *activate_peer(struct peer *peer,
 	/* If it wasn't active before, it is now! */
 	peer->active = true;
 
-	subd = multiplex_subd_setup(peer, &fd_for_subd);
+	subd = multiplex_subd_setup(peer, channel_id, &fd_for_subd);
 	if (!subd)
 		return NULL;
 
@@ -816,11 +818,18 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        if (!subd) {
 	       struct channel_id channel_id;
 	       enum peer_wire t = fromwire_peektype(decrypted);
-	       bool has_channel_id = extract_channel_id(decrypted, &channel_id);
+
+	       if (!extract_channel_id(decrypted, &channel_id)) {
+		       send_warning(peer, "Unrecognized message %s: %s",
+				    peer_wire_name(t),
+				    tal_hex(tmpctx, decrypted));
+		       tal_free(decrypted);
+		       io_wake(peer->peer_outq);
+		       return read_hdr_from_peer(peer_conn, peer);
+	       }
 	       status_peer_debug(&peer->id, "Activating for message %s",
 				 peer_wire_name(t));
-	       subd = activate_peer(peer, &t,
-				    has_channel_id ? &channel_id : NULL);
+	       subd = activate_peer(peer, &t, &channel_id);
 	       if (!subd)
 		       return io_close(peer_conn);
        }
@@ -915,7 +924,9 @@ void close_peer_conn(struct peer *peer)
 	msg_wake(peer->peer_outq);
 }
 
-static struct subd *multiplex_subd_setup(struct peer *peer, int *fd_for_subd)
+static struct subd *multiplex_subd_setup(struct peer *peer,
+					 const struct channel_id *channel_id,
+					 int *fd_for_subd)
 {
 	int fds[2];
 	struct subd *subd;
@@ -929,6 +940,8 @@ static struct subd *multiplex_subd_setup(struct peer *peer, int *fd_for_subd)
 	subd = tal(peer->subds, struct subd);
 	subd->peer = peer;
 	subd->outq = msg_queue_new(subd, false);
+	subd->channel_id = *channel_id;
+	subd->temporary_channel_id = NULL;
 	/* This sets subd->conn inside subd_conn_init */
 	io_new_conn(peer, fds[0], subd_conn_init, subd);
 	/* When conn dies, subd is freed. */

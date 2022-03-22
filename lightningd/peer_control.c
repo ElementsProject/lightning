@@ -1237,7 +1237,7 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 	struct node_id id;
 	u16 *msgtype;
 	struct channel *channel;
-	struct channel_id *channel_id;
+	struct channel_id channel_id;
 	struct peer *peer;
 	bool dual_fund;
 	u8 *error;
@@ -1342,8 +1342,8 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 
 	/* It's possible that they want to reestablish a channel, but
 	 * it's closed? */
-	if (*msgtype == WIRE_CHANNEL_REESTABLISH && channel_id) {
-		channel = find_channel_by_id(peer, channel_id);
+	if (*msgtype == WIRE_CHANNEL_REESTABLISH) {
+		channel = find_channel_by_id(peer, &channel_id);
 		if (channel && channel_closed(channel)) {
 			log_debug(channel->log,
 				  "Reestablish on %s channel: using channeld to reply",
@@ -1351,12 +1351,12 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 			peer_start_channeld(channel, peer_fd, NULL, true, true);
 			return;
 		} else {
-			const u8 *err = towire_errorfmt(tmpctx, channel_id,
+			const u8 *err = towire_errorfmt(tmpctx, &channel_id,
 						"Unknown channel for reestablish");
 			log_peer_debug(ld->log, &peer->id,
 				       "Reestablish on UNKNOWN channel %s",
 				       type_to_string(tmpctx, struct channel_id,
-						      channel_id));
+						      &channel_id));
 			/* Unless we're shutting down, tell connectd to send err */
 			if (ld->connectd)
 				subd_send_msg(ld->connectd,
@@ -1374,7 +1374,7 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
-		channel->cid = *channel_id;
+		channel->cid = channel_id;
 		peer_start_dualopend(peer, peer_fd, channel);
 	} else {
 		peer->uncommitted_channel = new_uncommitted_channel(peer);
