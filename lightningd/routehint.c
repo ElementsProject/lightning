@@ -99,14 +99,25 @@ routehint_candidates(const tal_t *ctx,
 		if (!peer) {
 			log_debug(ld->log, "%s: unknown peer",
 				  type_to_string(tmpctx,
-						 struct short_channel_id,
-						 &r->short_channel_id));
+						 struct node_id,
+						 &r->pubkey));
 			continue;
 		}
 
-		/* Does it have a channel in state CHANNELD_NORMAL */
-		candidate.c = peer_normal_channel(peer);
+		/* Check channel is in CHANNELD_NORMAL */
+		candidate.c = find_channel_by_scid(peer, &r->short_channel_id);
 		if (!candidate.c) {
+			log_debug(ld->log, "%s: channel not found in peer %s",
+				  type_to_string(tmpctx,
+						 struct short_channel_id,
+						 &r->short_channel_id),
+				  type_to_string(tmpctx,
+						 struct node_id,
+						 &r->pubkey));
+			continue;
+		}
+
+		if (candidate.c->state != CHANNELD_NORMAL) {
 			log_debug(ld->log, "%s: abnormal channel",
 				  type_to_string(tmpctx,
 						 struct short_channel_id,
@@ -120,6 +131,7 @@ routehint_candidates(const tal_t *ctx,
 		 * capacity ceiling.  We *could* do multiple HTLCs,
 		 * but presumably that would defeat the spirit of the
 		 * limit anyway */
+		/* FIXME: Present max capacity of multiple channels? */
 		candidate.capacity = channel_amount_receivable(candidate.c);
 		if (amount_msat_greater(candidate.capacity, htlc_max))
 			candidate.capacity = htlc_max;
