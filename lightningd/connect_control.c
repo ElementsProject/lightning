@@ -77,7 +77,6 @@ static struct command_result *connect_cmd_succeed(struct command *cmd,
 static void try_connect(const tal_t *ctx,
 			struct lightningd *ld,
 			const struct node_id *id,
-			struct channel *channel,
 			u32 seconds_delay,
 			const struct wireaddr_internal *addrhint);
 
@@ -157,7 +156,7 @@ static struct command_result *json_connect(struct command *cmd,
 	} else
 		addr = NULL;
 
-	try_connect(cmd, cmd->ld, &id, NULL, 0, addr);
+	try_connect(cmd, cmd->ld, &id, 0, addr);
 
 	/* Leave this here for peer_connected or connect_failed. */
 	new_connect(cmd->ld, &id, cmd);
@@ -178,8 +177,6 @@ AUTODATA(json_command, &connect_command);
 struct delayed_reconnect {
 	struct lightningd *ld;
 	struct node_id id;
-	/* May be unset if there's no associated channel */
-	struct channel *channel;
 	u32 seconds_delayed;
 	struct wireaddr_internal *addrhint;
 };
@@ -195,12 +192,6 @@ static void gossipd_got_addrs(struct subd *subd,
 	if (!fromwire_gossipd_get_addrs_reply(tmpctx, msg, &addrs))
 		fatal("Gossipd gave bad GOSSIPD_GET_ADDRS_REPLY %s",
 		      tal_hex(msg, msg));
-
-	/* Might have gone onchain (if it was actually freed, we were too). */
-	if (d->channel && !channel_active(d->channel)) {
-		tal_free(d);
-		return;
-	}
 
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &d->id,
@@ -219,20 +210,19 @@ static void do_connect(struct delayed_reconnect *d)
 	subd_req(d, d->ld->gossip, take(msg), -1, 0, gossipd_got_addrs, d);
 }
 
-/* channel may be NULL here */
+/* peer may be NULL here */
 static void try_connect(const tal_t *ctx,
 			struct lightningd *ld,
 			const struct node_id *id,
-			struct channel *channel,
 			u32 seconds_delay,
 			const struct wireaddr_internal *addrhint)
 {
 	struct delayed_reconnect *d;
+	struct peer *peer;
 
 	d = tal(ctx, struct delayed_reconnect);
 	d->ld = ld;
 	d->id = *id;
-	d->channel = channel;
 	d->seconds_delayed = seconds_delay;
 	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
 
@@ -241,14 +231,22 @@ static void try_connect(const tal_t *ctx,
 		return;
 	}
 
-	/* We never have a delay when connecting without a channel */
-	assert(channel);
-	channel_set_billboard(channel, false,
-			      tal_fmt(tmpctx,
-				      "Will attempt reconnect "
-				      "in %u seconds", seconds_delay));
-	log_debug(channel->log, "Will try reconnect in %u seconds",
-		  seconds_delay);
+	log_peer_debug(ld->log, id, "Will try reconnect in %u seconds",
+		       seconds_delay);
+	/* Update any channel billboards */
+	peer = peer_by_id(ld, id);
+	if (peer) {
+		struct channel *channel;
+		list_for_each(&peer->channels, channel, list) {
+			if (!channel_active(channel))
+				continue;
+			channel_set_billboard(channel, false,
+					      tal_fmt(tmpctx,
+						      "Will attempt reconnect "
+						      "in %u seconds",
+						      seconds_delay));
+		}
+	}
 
 	/* We fuzz the timer by up to 1 second, to avoid getting into
 	 * simultanous-reconnect deadlocks with peer. */
@@ -258,17 +256,17 @@ static void try_connect(const tal_t *ctx,
 			     do_connect, d));
 }
 
-void try_reconnect(struct channel *channel,
+void try_reconnect(const tal_t *ctx,
+		   struct peer *peer,
 		   u32 seconds_delay,
 		   const struct wireaddr_internal *addrhint)
 {
-	if (!channel->peer->ld->reconnect)
+	if (!peer->ld->reconnect)
 		return;
 
-	try_connect(channel,
-		    channel->peer->ld,
-		    &channel->peer->id,
-		    channel,
+	try_connect(ctx,
+		    peer->ld,
+		    &peer->id,
 		    seconds_delay,
 		    addrhint);
 }
@@ -281,7 +279,7 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	struct connect *c;
 	u32 seconds_to_delay;
 	struct wireaddr_internal *addrhint;
-	struct channel *channel;
+	struct peer *peer;
 
 	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg,
 						&seconds_to_delay, &addrhint))
@@ -295,9 +293,12 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	}
 
 	/* If we have an active channel, then reconnect. */
-	channel = active_channel_by_id(ld, &id, NULL);
-	if (channel)
-		try_reconnect(channel, seconds_to_delay, addrhint);
+	peer = peer_by_id(ld, &id);
+	if (peer) {
+		struct channel *channel = peer_active_channel(peer);
+		if (channel)
+			try_reconnect(peer, peer, seconds_to_delay, addrhint);
+	}
 }
 
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
