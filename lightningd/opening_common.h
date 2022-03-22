@@ -123,10 +123,4 @@ void channel_config(struct lightningd *ld,
 		    u32 *max_to_self_delay,
 		    struct amount_msat *min_effective_htlc_capacity);
 
-void handle_reestablish(struct lightningd *ld,
-			const struct node_id *peer_id,
-			const struct channel_id *channel_id,
-			const u8 *reestablish,
-			struct peer_fd *peer_fd);
-
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_COMMON_H */

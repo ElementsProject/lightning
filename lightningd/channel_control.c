@@ -568,7 +568,7 @@ void peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
 			 const u8 *fwd_msg,
 			 bool reconnected,
-			 const u8 *reestablish_only)
+			 bool reestablish_only)
 {
 	u8 *initmsg;
 	int hsmfd;

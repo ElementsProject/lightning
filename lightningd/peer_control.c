@@ -1337,17 +1337,47 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 							  &peer->id));
 			}
 		}
-	} else {
-		/* OK, it's unsolicited.  What kind of open do they want? */
-		if (dual_fund) {
-			channel = new_unsaved_channel(peer,
-						      peer->ld->config.fee_base,
-						      peer->ld->config.fee_per_satoshi);
-			peer_start_dualopend(peer, peer_fd, channel);
+		return;
+	}
+
+	/* It's possible that they want to reestablish a channel, but
+	 * it's closed? */
+	if (*msgtype == WIRE_CHANNEL_REESTABLISH && channel_id) {
+		channel = find_channel_by_id(peer, channel_id);
+		if (channel && channel_closed(channel)) {
+			log_debug(channel->log,
+				  "Reestablish on %s channel: using channeld to reply",
+				  channel_state_name(channel));
+			peer_start_channeld(channel, peer_fd, NULL, true, true);
+			return;
 		} else {
-			peer->uncommitted_channel = new_uncommitted_channel(peer);
-			peer_start_openingd(peer, peer_fd);
+			const u8 *err = towire_errorfmt(tmpctx, channel_id,
+						"Unknown channel for reestablish");
+			log_peer_debug(ld->log, &peer->id,
+				       "Reestablish on UNKNOWN channel %s",
+				       type_to_string(tmpctx, struct channel_id,
+						      channel_id));
+			/* Unless we're shutting down, tell connectd to send err */
+			if (ld->connectd)
+				subd_send_msg(ld->connectd,
+				      take(towire_connectd_peer_final_msg(NULL,
+									  &peer->id,
+									  err)));
+			else
+				peer->is_connected = false;
+			return;
 		}
+	}
+
+	/* OK, it's unsolicited.  What kind of open do they want? */
+	if (dual_fund) {
+		channel = new_unsaved_channel(peer,
+					      peer->ld->config.fee_base,
+					      peer->ld->config.fee_per_satoshi);
+		peer_start_dualopend(peer, peer_fd, channel);
+	} else {
+		peer->uncommitted_channel = new_uncommitted_channel(peer);
+		peer_start_openingd(peer, peer_fd);
 	}
 	return;
 

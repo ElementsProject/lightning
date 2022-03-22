@@ -1251,11 +1251,6 @@ static u8 *handle_peer_in(struct state *state)
 
 	extracted = extract_channel_id(msg, &channel_id);
 
-	/* Reestablish on some now-closed channel?  Be nice. */
-	if (extracted && fromwire_peektype(msg) == WIRE_CHANNEL_REESTABLISH) {
-		return towire_openingd_got_reestablish(NULL,
-						       &channel_id, msg);
-	}
 	peer_write(state->pps,
 			  take(towire_warningfmt(NULL,
 						 extracted ? &channel_id : NULL,
@@ -1352,7 +1347,6 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENINGD_FAILED:
 	case WIRE_OPENINGD_GOT_OFFER:
 	case WIRE_OPENINGD_GOT_OFFER_REPLY:
-	case WIRE_OPENINGD_GOT_REESTABLISH:
 		break;
 	}
 
