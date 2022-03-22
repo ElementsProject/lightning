@@ -86,7 +86,7 @@ msgdata,connectd_peer_make_active,channel_id,channel_id,
 msgtype,connectd_peer_active,2005
 msgdata,connectd_peer_active,id,node_id,
 msgdata,connectd_peer_active,msgtype,?u16,
-msgdata,connectd_peer_active,channel_id,?channel_id,
+msgdata,connectd_peer_active,channel_id,channel_id,
 
 # master -> connectd: peer no longer wanted, you can disconnect.
 msgtype,connectd_discard_peer,2015
