@@ -3,7 +3,7 @@
 #include "config.h"
 #include <plugins/libplugin.h>
 
-extern u32 cltv_final;
+extern u16 cltv_final;
 
 /* We got an onionmessage with an invreq! */
 struct command_result *handle_invoice_request(struct command *cmd,

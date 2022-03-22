@@ -64,8 +64,8 @@ tlvtype,invoice_request,payer_info,50
 tlvdata,invoice_request,payer_info,blob,byte,...
 tlvtype,invoice_request,replace_invoice,56
 tlvdata,invoice_request,replace_invoice,payment_hash,sha256,
-tlvtype,invoice_request,payer_signature,240
-tlvdata,invoice_request,payer_signature,sig,bip340sig,
+tlvtype,invoice_request,signature,240
+tlvdata,invoice_request,signature,sig,bip340sig,
 tlvtype,invoice,chain,3
 tlvdata,invoice,chain,chain,chain_hash,
 tlvtype,invoice,offer_id,4
@@ -101,8 +101,6 @@ tlvtype,invoice,payer_key,38
 tlvdata,invoice,payer_key,key,point32,
 tlvtype,invoice,payer_note,39
 tlvdata,invoice,payer_note,note,utf8,...
-tlvtype,invoice,payer_info,50
-tlvdata,invoice,payer_info,blob,byte,...
 tlvtype,invoice,created_at,40
 tlvdata,invoice,created_at,timestamp,tu64,
 tlvtype,invoice,payment_hash,42
@@ -110,10 +108,11 @@ tlvdata,invoice,payment_hash,payment_hash,sha256,
 tlvtype,invoice,relative_expiry,44
 tlvdata,invoice,relative_expiry,seconds_from_creation,tu32,
 tlvtype,invoice,cltv,46
-tlvdata,invoice,cltv,min_final_cltv_expiry,tu32,
+tlvdata,invoice,cltv,min_final_cltv_expiry,tu16,
 tlvtype,invoice,fallbacks,48
-tlvdata,invoice,fallbacks,num,byte,
-tlvdata,invoice,fallbacks,fallbacks,fallback_address,num
+tlvdata,invoice,fallbacks,fallbacks,fallback_address,...
+tlvtype,invoice,payer_info,50
+tlvdata,invoice,payer_info,blob,byte,...
 tlvtype,invoice,refund_signature,52
 tlvdata,invoice,refund_signature,payer_signature,bip340sig,
 tlvtype,invoice,replace_invoice,56
