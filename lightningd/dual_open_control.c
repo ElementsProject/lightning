@@ -2595,6 +2595,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
+
+		/* We derive initial channel_id *now*, so we can tell it to
+		 * connectd. */
+		derive_tmp_channel_id(&channel->cid,
+				      &channel->local_basepoints.revocation);
 	}
 
 	if (channel->open_attempt
@@ -2688,7 +2693,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	/* Tell connectd to hand us this so we can start dualopend */
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_peer_make_active(NULL, &peer->id,
-							    NULL)));
+							    &channel->cid)));
 	return command_still_pending(cmd);
 }
 
@@ -3099,6 +3104,11 @@ static struct command_result *json_queryrates(struct command *cmd,
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
+
+		/* We derive initial channel_id *now*, so we can tell it to
+		 * connectd. */
+		derive_tmp_channel_id(&channel->cid,
+				      &channel->local_basepoints.revocation);
 	}
 
 	if (channel->open_attempt
@@ -3167,7 +3177,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	/* Tell connectd to hand us this so we can start dualopend */
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_peer_make_active(NULL, &peer->id,
-							    NULL)));
+							    &channel->cid)));
 	return command_still_pending(cmd);
 
 }

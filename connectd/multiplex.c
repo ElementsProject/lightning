@@ -440,9 +440,9 @@ void peer_make_active(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	struct peer *peer;
-	struct channel_id *channel_id;
+	struct channel_id channel_id;
 
-	if (!fromwire_connectd_peer_make_active(msg, msg, &id, &channel_id))
+	if (!fromwire_connectd_peer_make_active(msg, &id, &channel_id))
 		master_badmsg(WIRE_CONNECTD_PEER_MAKE_ACTIVE, msg);
 
 	/* Races can happen: this might be gone by now. */
@@ -458,7 +458,7 @@ void peer_make_active(struct daemon *daemon, const u8 *msg)
 	if (tal_count(peer->subds) != 0)
 		return;
 
-	if (!activate_peer(peer, NULL, channel_id))
+	if (!activate_peer(peer, NULL, &channel_id))
 		tal_free(peer);
 }
 
