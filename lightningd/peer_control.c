@@ -2145,35 +2145,46 @@ static struct command_result *param_channel_or_all(struct command *cmd,
 					     const char *name,
 					     const char *buffer,
 					     const jsmntok_t *tok,
-					     struct channel **channel)
+					     struct channel ***channels)
 {
 	struct command_result *res;
 	struct peer *peer;
 
 	/* early return the easy case */
 	if (json_tok_streq(buffer, tok, "all")) {
-		*channel = NULL;
+		*channels = NULL;
 		return NULL;
 	}
 
-	/* Find channel by peer_id */
+	/* Find channels by peer_id */
 	peer = peer_from_json(cmd->ld, buffer, tok);
 	if (peer) {
-		*channel = peer_active_channel(peer);
-		if (!*channel)
-			return command_fail(cmd, LIGHTNINGD,
-					"Could not find active channel of peer with that id");
-		return NULL;
+		struct channel *channel;
+		*channels = tal_arr(cmd, struct channel *, 0);
+		list_for_each(&peer->channels, channel, list) {
+			if (channel->state != CHANNELD_NORMAL
+			    && channel->state != CHANNELD_AWAITING_LOCKIN
+			    && channel->state != DUALOPEND_AWAITING_LOCKIN)
+				continue;
 
+			tal_arr_expand(channels, channel);
+		}
+		if (tal_count(*channels) == 0)
+			return command_fail(cmd, LIGHTNINGD,
+					    "Could not find any active channels of peer with that id");
+		return NULL;
 	/* Find channel by id or scid */
 	} else {
-		res = command_find_channel(cmd, buffer, tok, channel);
+		struct channel *channel;
+		res = command_find_channel(cmd, buffer, tok, &channel);
 		if (res)
 			return res;
 		/* check channel is found and in valid state */
-		if (!*channel)
+		if (!channel)
 			return command_fail(cmd, LIGHTNINGD,
 					"Could not find channel with that id");
+		*channels = tal_arr(cmd, struct channel *, 1);
+		(*channels)[0] = channel;
 		return NULL;
 	}
 }
@@ -2304,12 +2315,12 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 {
 	struct json_stream *response;
 	struct peer *peer;
-	struct channel *channel;
+	struct channel **channels;
 	u32 *base, *ppm, *delaysecs;
 
 	/* Parse the JSON command */
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_channel_or_all, &channel),
+		   p_req("id", param_channel_or_all, &channels),
 		   p_opt_def("base", param_msat_u32,
 			     &base, cmd->ld->config.fee_base),
 		   p_opt_def("ppm", param_number, &ppm,
@@ -2318,13 +2329,6 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	if (channel
-	    && channel->state != CHANNELD_NORMAL
-	    && channel->state != CHANNELD_AWAITING_LOCKIN
-	    && channel->state != DUALOPEND_AWAITING_LOCKIN)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Channel is in state %s", channel_state_name(channel));
-
 	/* Open JSON response object for later iteration */
 	response = json_stream_success(cmd);
 	json_add_num(response, "base", *base);
@@ -2332,8 +2336,9 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	json_array_start(response, "channels");
 
 	/* If the users requested 'all' channels we need to iterate */
-	if (channel == NULL) {
+	if (channels == NULL) {
 		list_for_each(&cmd->ld->peers, peer, list) {
+			struct channel *channel;
 			list_for_each(&peer->channels, channel, list) {
 				if (channel->state != CHANNELD_NORMAL &&
 				    channel->state != CHANNELD_AWAITING_LOCKIN &&
@@ -2343,10 +2348,12 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 						   *delaysecs, response, false);
 			}
 		}
-	/* single channel should be updated */
+	/* single peer should be updated */
 	} else {
-		set_channel_config(cmd, channel, base, ppm, NULL, NULL,
-				   *delaysecs, response, false);
+		for (size_t i = 0; i < tal_count(channels); i++) {
+			set_channel_config(cmd, channels[i], base, ppm, NULL, NULL,
+					   *delaysecs, response, false);
+		}
 	}
 
 	/* Close and return response */
@@ -2376,13 +2383,13 @@ static struct command_result *json_setchannel(struct command *cmd,
 {
 	struct json_stream *response;
 	struct peer *peer;
-	struct channel *channel;
+	struct channel **channels;
 	u32 *base, *ppm, *delaysecs;
 	struct amount_msat *htlc_min, *htlc_max;
 
 	/* Parse the JSON command */
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_channel_or_all, &channel),
+		   p_req("id", param_channel_or_all, &channels),
 		   p_opt("feebase", param_msat_u32, &base),
 		   p_opt("feeppm", param_number, &ppm),
 		   p_opt("htlcmin", param_msat, &htlc_min),
@@ -2398,37 +2405,31 @@ static struct command_result *json_setchannel(struct command *cmd,
 				    "htlcmax cannot be less than htlcmin");
 	}
 
-	if (channel
-	    && channel->state != CHANNELD_NORMAL
-	    && channel->state != CHANNELD_AWAITING_LOCKIN
-	    && channel->state != DUALOPEND_AWAITING_LOCKIN)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Channel is in state %s", channel_state_name(channel));
-
 	/* Open JSON response object for later iteration */
 	response = json_stream_success(cmd);
 	json_array_start(response, "channels");
 
 	/* If the users requested 'all' channels we need to iterate */
-	if (channel == NULL) {
+	if (channels == NULL) {
 		list_for_each(&cmd->ld->peers, peer, list) {
-			channel = peer_active_channel(peer);
-			if (!channel)
-				continue;
-			if (channel->state != CHANNELD_NORMAL &&
-			    channel->state != CHANNELD_AWAITING_LOCKIN &&
-			    channel->state != DUALOPEND_AWAITING_LOCKIN)
-				continue;
-			set_channel_config(cmd, channel, base, ppm,
+			struct channel *channel;
+			list_for_each(&peer->channels, channel, list) {
+				if (channel->state != CHANNELD_NORMAL &&
+				    channel->state != CHANNELD_AWAITING_LOCKIN &&
+				    channel->state != DUALOPEND_AWAITING_LOCKIN)
+					continue;
+				set_channel_config(cmd, channel, base, ppm,
+						   htlc_min, htlc_max,
+						   *delaysecs, response, true);
+			}
+		}
+	/* single peer should be updated */
+	} else {
+		for (size_t i = 0; i < tal_count(channels); i++) {
+			set_channel_config(cmd, channels[i], base, ppm,
 					   htlc_min, htlc_max,
 					   *delaysecs, response, true);
 		}
-
-	/* single channel should be updated */
-	} else {
-		set_channel_config(cmd, channel, base, ppm,
-				   htlc_min, htlc_max,
-				   *delaysecs, response, true);
 	}
 
 	/* Close and return response */

@@ -12,12 +12,14 @@ DESCRIPTION
 The **setchannelfee** RPC command sets channel specific routing fees as
 defined in BOLT \#7. The channel has to be in normal or awaiting state.
 This can be checked by **listpeers** reporting a *state* of
-CHANNELD\_NORMAL or CHANNELD\_AWAITING\_LOCKIN for the channel.
+CHANNELD\_NORMAL, CHANNELD\_AWAITING\_LOCKIN or DUALOPEND_AWAITING_LOCKIN for the channel.
 
 *id* is required and should contain a scid (short channel ID), channel
 id or peerid (pubkey) of the channel to be modified. If *id* is set to
 "all", the fees for all channels are updated that are in state
-CHANNELD\_NORMAL or CHANNELD\_AWAITING\_LOCKIN.
+CHANNELD\_NORMAL, CHANNELD\_AWAITING\_LOCKIN or
+DUALOPEND_AWAITING_LOCKIN.  If *id* is a peerid, all channels with the
+peer in those states are changed.
 
 *base* is an optional value in millisatoshi that is added as base fee to
 any routed payment. If the parameter is left out, the global config
