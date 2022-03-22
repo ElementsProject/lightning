@@ -166,38 +166,3 @@ void channel_config(struct lightningd *ld,
 	 /* This is filled in by lightning_openingd, for consistency. */
 	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
 }
-
-void handle_reestablish(struct lightningd *ld,
-			const struct node_id *peer_id,
-			const struct channel_id *channel_id,
-			const u8 *reestablish,
-			struct peer_fd *peer_fd)
-{
-	struct peer *peer;
-	struct channel *c;
-
-	/* We very carefully re-xmit the last reestablish, so they can get
-	 * their secrets back.  We don't otherwise touch them. */
-	peer = peer_by_id(ld, peer_id);
-	if (peer)
-		c = find_channel_by_id(peer, channel_id);
-	else
-		c = NULL;
-
-	if (c && channel_closed(c)) {
-		log_debug(c->log, "Reestablish on %s channel: using channeld to reply",
-			  channel_state_name(c));
-		peer_start_channeld(c, peer_fd, NULL, true, reestablish);
-	} else {
-		const u8 *err = towire_errorfmt(tmpctx, channel_id,
-				      "Unknown channel for reestablish");
-		log_debug(ld->log, "Reestablish on UNKNOWN channel %s",
-			  type_to_string(tmpctx, struct channel_id, channel_id));
-		/* Unless we're shutting down */
-		if (ld->connectd)
-			subd_send_msg(ld->connectd,
-				      take(towire_connectd_peer_final_msg(NULL, peer_id,
-									  err)));
-		tal_free(peer_fd);
-	}
-}

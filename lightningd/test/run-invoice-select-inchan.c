@@ -187,6 +187,10 @@ bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
 /* Generated stub for featurebits_or */
 u8 *featurebits_or(const tal_t *ctx UNNEEDED, const u8 *f1 TAKES UNNEEDED, const u8 *f2 TAKES UNNEEDED)
 { fprintf(stderr, "featurebits_or called!\n"); abort(); }
+/* Generated stub for find_channel_by_id */
+struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
+				   const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "find_channel_by_id called!\n"); abort(); }
 /* Generated stub for find_plugin_for_command */
 struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 				       const char *cmd_name UNNEEDED)
@@ -594,7 +598,7 @@ void peer_start_channeld(struct channel *channel UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED,
 			 const u8 *fwd_msg UNNEEDED,
 			 bool reconnected UNNEEDED,
-			 const u8 *reestablish_only UNNEEDED)
+			 bool reestablish_only UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UNNEEDED,

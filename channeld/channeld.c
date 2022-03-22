@@ -2682,7 +2682,7 @@ static bool fromwire_channel_reestablish_notlvs(const void *p, struct channel_id
 
 static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret,
-			   u8 *reestablish_only)
+			   bool reestablish_only)
 {
 	struct channel_id channel_id;
 	/* Note: BOLT #2 uses these names! */
@@ -2820,23 +2820,23 @@ skip_tlvs:
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
 
-	/* If they sent reestablish, we analyze it for courtesy, but also
-	 * in case *they* are ahead of us! */
-	if (reestablish_only) {
-		msg = reestablish_only;
-		goto got_reestablish;
-	}
-
 	/* Read until they say something interesting (don't forward
 	 * gossip *to* them yet: we might try sending channel_update
 	 * before we've reestablished channel). */
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, peer->pps);
+
+		/* connectd promised us the msg was reestablish? */
+		if (reestablish_only) {
+			if (fromwire_peektype(msg) != WIRE_CHANNEL_REESTABLISH)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Expected reestablish, got: %s",
+					      tal_hex(tmpctx, msg));
+		}
 	} while (handle_peer_error(peer->pps, &peer->channel_id, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
-got_reestablish:
 #if EXPERIMENTAL_FEATURES
 	recv_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
 
@@ -3730,7 +3730,7 @@ static void init_channel(struct peer *peer)
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
 	struct penalty_base *pbases;
-	u8 *reestablish_only;
+	bool reestablish_only;
 	struct channel_type *channel_type;
 	u32 *dev_disable_commit; /* Always NULL */
 	bool dev_fast_gossip;

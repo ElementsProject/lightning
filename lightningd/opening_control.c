@@ -804,32 +804,6 @@ static void opening_got_offer(struct subd *openingd,
 	plugin_hook_call_openchannel(openingd->ld, payload);
 }
 
-static void opening_got_reestablish(struct subd *openingd, const u8 *msg,
-				    const int fds[2],
-				    struct uncommitted_channel *uc)
-{
-	struct lightningd *ld = openingd->ld;
-	struct node_id peer_id = uc->peer->id;
-	struct channel_id channel_id;
-	u8 *reestablish;
-	struct peer_fd *peer_fd;
-
-	peer_fd = new_peer_fd_arr(tmpctx, fds);
-
-	if (!fromwire_openingd_got_reestablish(tmpctx, msg, &channel_id,
-					       &reestablish)) {
-		log_broken(openingd->log, "Malformed opening_got_reestablish %s",
-			   tal_hex(tmpctx, msg));
-		tal_free(openingd);
-		return;
-	}
-
-	/* This could free peer */
-	tal_free(uc);
-
-	handle_reestablish(ld, &peer_id, &channel_id, reestablish, peer_fd);
-}
-
 static unsigned int openingd_msg(struct subd *openingd,
 				 const u8 *msg, const int *fds)
 {
@@ -869,12 +843,6 @@ static unsigned int openingd_msg(struct subd *openingd,
 
 	case WIRE_OPENINGD_GOT_OFFER:
 		opening_got_offer(openingd, msg, uc);
-		return 0;
-
-	case WIRE_OPENINGD_GOT_REESTABLISH:
-		if (tal_count(fds) != 1)
-			return 1;
-		opening_got_reestablish(openingd, msg, fds, uc);
 		return 0;
 
 	/* We send these! */
