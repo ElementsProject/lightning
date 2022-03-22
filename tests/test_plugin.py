@@ -935,7 +935,7 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'local')
     if EXPERIMENTAL_DUAL_FUND:
         l1.daemon.wait_for_log(r'Peer has reconnected, state')
-        l2.daemon.wait_for_log(r'Peer has reconnected, state')
+        l2.daemon.wait_for_log(r'Telling connectd to send error')
 
     # l1 will receive error, and go into AWAITING_UNILATERAL
     # FIXME: l2 should re-xmit shutdown, but it doesn't until it's mined :(

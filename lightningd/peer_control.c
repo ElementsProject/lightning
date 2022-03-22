@@ -939,7 +939,6 @@ static void json_add_channel(struct lightningd *ld,
 
 struct peer_connected_hook_payload {
 	struct lightningd *ld;
-	struct channel *channel;
 	struct wireaddr_internal addr;
 	struct wireaddr *remote_addr;
 	bool incoming;
@@ -969,7 +968,7 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 static void peer_connected_hook_final(struct peer_connected_hook_payload *payload STEALS)
 {
 	struct lightningd *ld = payload->ld;
-	struct channel *channel = payload->channel;
+	struct channel *channel;
 	struct wireaddr_internal addr = payload->addr;
 	struct peer *peer = payload->peer;
 	u8 *error;
@@ -988,16 +987,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		goto send_error;
 	}
 
-	if (channel) {
-		log_debug(channel->log, "Peer has reconnected, state %s",
-			  channel_state_name(channel));
-
-		/* If we have a canned error, deliver it now. */
-		if (channel->error) {
-			error = channel->error;
-			goto send_error;
-		}
-
+	list_for_each(&peer->channels, channel, list) {
 #if DEVELOPER
 		if (dev_disconnect_permanent(ld)) {
 			channel_fail_permanent(channel, REASON_LOCAL,
@@ -1008,39 +998,38 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 #endif
 
 		switch (channel->state) {
-		case ONCHAIN:
-		case FUNDING_SPEND_SEEN:
-		case CLOSINGD_COMPLETE:
-			/* Channel is supposed to be active!*/
-			abort();
 		case CLOSED:
 			/* Channel should not have been loaded */
 			abort();
-
-		/* We consider this "active" but we only send an error */
-		case AWAITING_UNILATERAL: {
-			/* channel->error is not saved in db, so this can
-			 * happen if we restart. */
-			error = towire_errorfmt(tmpctx, &channel->cid,
-						"Awaiting unilateral close");
-			goto send_error;
-		}
+		case ONCHAIN:
+		case FUNDING_SPEND_SEEN:
+		case CLOSINGD_COMPLETE:
+		case AWAITING_UNILATERAL:
+			/* We don't send anything here; if they talk about
+			 * this channel they'll get an error. */
+			continue;
 		case DUALOPEND_OPEN_INIT:
 		case DUALOPEND_AWAITING_LOCKIN:
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
 		case CLOSINGD_SIGEXCHANGE:
+			log_debug(channel->log, "Peer has reconnected, state %s: telling connectd to make active",
+				  channel_state_name(channel));
+
 			assert(!channel->owner);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
-			goto make_active;
+
+			subd_send_msg(ld->connectd,
+				      take(towire_connectd_peer_make_active(NULL, &peer->id,
+									    &channel->cid)));
+			continue;
 		}
+
+		/* Oops, channel->state is corrupted? */
 		abort();
 	}
-
-	/* If we get here, it means we have no channel */
-	assert(!channel);
 	return;
 
 send_error:
@@ -1050,15 +1039,6 @@ send_error:
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
 							  error)));
-	return;
-
-make_active:
-	log_peer_debug(ld->log, &peer->id,
-		       "Telling connectd to make active, state %s",
-		       channel_state_name(channel));
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_make_active(NULL, &peer->id,
-							    &channel->cid)));
 }
 
 static bool
@@ -1210,11 +1190,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
-	hook_payload->channel = peer_active_channel(peer);
-
-	/* It might be v2 opening, though, since we hang onto these */
-	if (!hook_payload->channel)
-		hook_payload->channel = peer_unsaved_channel(peer);
 
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
@@ -1222,7 +1197,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 			 fmt_wireaddr(tmpctx, hook_payload->remote_addr));
 		/* Currently only from peers we have a channel with, until we
 		 * do stuff like probing for remote_addr to a random node. */
-		if (hook_payload->channel)
+		if (!list_empty(&peer->channels))
 			update_remote_addr(ld, hook_payload->remote_addr, id);
 	}
 
@@ -1259,6 +1234,12 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 	/* Do we know what channel they're talking about? */
 	channel = find_channel_by_id(peer, &channel_id);
 	if (channel) {
+		/* If we have a canned error for this channel, send it now */
+		if (channel->error) {
+			error = channel->error;
+			goto send_error;
+		}
+
 		switch (channel->state) {
 		case ONCHAIN:
 		case FUNDING_SPEND_SEEN:
@@ -1777,11 +1758,12 @@ command_find_channel(struct command *cmd,
 
 	if (json_tok_channel_id(buffer, tok, &cid)) {
 		list_for_each(&ld->peers, peer, list) {
-			*channel = peer_active_channel(peer);
-			if (!*channel)
-				continue;
-			if (channel_id_eq(&(*channel)->cid, &cid))
-				return NULL;
+			list_for_each(&peer->channels, (*channel), list) {
+				if (!channel_active(*channel))
+					continue;
+				if (channel_id_eq(&(*channel)->cid, &cid))
+					return NULL;
+			}
 		}
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Channel ID not found: '%.*s'",
@@ -2350,17 +2332,15 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	/* If the users requested 'all' channels we need to iterate */
 	if (channel == NULL) {
 		list_for_each(&cmd->ld->peers, peer, list) {
-			channel = peer_active_channel(peer);
-			if (!channel)
-				continue;
-			if (channel->state != CHANNELD_NORMAL &&
-			    channel->state != CHANNELD_AWAITING_LOCKIN &&
-			    channel->state != DUALOPEND_AWAITING_LOCKIN)
-				continue;
-			set_channel_config(cmd, channel, base, ppm, NULL, NULL,
-					   *delaysecs, response, false);
+			list_for_each(&peer->channels, channel, list) {
+				if (channel->state != CHANNELD_NORMAL &&
+				    channel->state != CHANNELD_AWAITING_LOCKIN &&
+				    channel->state != DUALOPEND_AWAITING_LOCKIN)
+					continue;
+				set_channel_config(cmd, channel, base, ppm, NULL, NULL,
+						   *delaysecs, response, false);
+			}
 		}
-
 	/* single channel should be updated */
 	} else {
 		set_channel_config(cmd, channel, base, ppm, NULL, NULL,
