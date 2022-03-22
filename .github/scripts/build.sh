@@ -31,8 +31,6 @@ poetry install
 git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 git submodule update --init --recursive
 
-wget -q --directory-prefix=contrib/remote_hsmd https://gitlab.com/lightning-signer/validating-lightning-signer/-/raw/master/src/server/remotesigner.proto
-
 ./configure CC="$CC"
 cat config.vars
 
