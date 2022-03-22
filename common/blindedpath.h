@@ -105,36 +105,4 @@ bool decrypt_final_enctlv(const tal_t *ctx,
 			  struct secret **path_id)
 	NON_NULL_ARGS(1, 2, 4, 5);
 
-/* Obsolete variants */
-u8 *create_obs2_enctlv(const tal_t *ctx,
-		       const struct privkey *blinding,
-		       const struct pubkey *node,
-		       const struct pubkey *next_node,
-		       size_t padlen,
-		       const struct pubkey *override_blinding,
-		       struct privkey *next_blinding,
-		       struct pubkey *node_alias)
-	NON_NULL_ARGS(2, 3, 4, 7, 8);
-u8 *create_obs2_final_enctlv(const tal_t *ctx,
-			     const struct privkey *blinding,
-			     const struct pubkey *final_node,
-			     size_t padlen,
-			     const struct secret *self_id,
-			     struct pubkey *node_alias)
-	NON_NULL_ARGS(2, 3, 6);
-bool decrypt_obs2_enctlv(const struct pubkey *blinding,
-			 const struct secret *ss,
-			 const u8 *enctlv,
-			 struct pubkey *next_node,
-			 struct pubkey *next_blinding)
-	NON_NULL_ARGS(1, 2, 4, 5);
-bool decrypt_obs2_final_enctlv(const tal_t *ctx,
-			       const struct pubkey *blinding,
-			       const struct secret *ss,
-			       const u8 *enctlv,
-			       const struct pubkey *my_id,
-			       struct pubkey *alias,
-			       struct secret **self_id)
-	NON_NULL_ARGS(1, 2, 4, 5);
-
 #endif /* LIGHTNING_COMMON_BLINDEDPATH_H */

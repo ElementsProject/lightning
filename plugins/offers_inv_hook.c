@@ -12,7 +12,6 @@ struct inv {
 	struct tlv_invoice *inv;
 
 	/* May be NULL */
-	struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path;
 	struct tlv_onionmsg_payload_reply_path *reply_path;
 
 	/* The offer, once we've looked it up. */
@@ -41,7 +40,7 @@ fail_inv_level(struct command *cmd,
 	plugin_log(cmd->plugin, l, "%s", msg);
 
 	/* Only reply if they gave us a path */
-	if (!inv->reply_path && !inv->obs2_reply_path)
+	if (!inv->reply_path)
 		return command_hook_success(cmd);
 
 	/* Don't send back internal error details. */
@@ -55,8 +54,7 @@ fail_inv_level(struct command *cmd,
 
 	errdata = tal_arr(cmd, u8, 0);
 	towire_invoice_error(&errdata, err);
-	return send_onion_reply(cmd, inv->reply_path, inv->obs2_reply_path,
-				"invoice_error", errdata);
+	return send_onion_reply(cmd, inv->reply_path, "invoice_error", errdata);
 }
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -316,8 +314,7 @@ static struct command_result *listoffers_error(struct command *cmd,
 
 struct command_result *handle_invoice(struct command *cmd,
 				      const u8 *invbin,
-				      struct tlv_onionmsg_payload_reply_path *reply_path STEALS,
-				      struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path STEALS)
+				      struct tlv_onionmsg_payload_reply_path *reply_path STEALS)
 {
 	size_t len = tal_count(invbin);
 	struct inv *inv = tal(cmd, struct inv);
@@ -326,7 +323,6 @@ struct command_result *handle_invoice(struct command *cmd,
 	int bad_feature;
 	struct sha256 m, shash;
 
-	inv->obs2_reply_path = tal_steal(inv, obs2_reply_path);
 	inv->reply_path = tal_steal(inv, reply_path);
 
 	inv->inv = tlv_invoice_new(cmd);
