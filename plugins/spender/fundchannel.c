@@ -93,6 +93,9 @@ json_fundchannel(struct command *cmd,
 	if (utxos)
 		json_add_tok(req->js, "utxos", utxos, buf);
 
+	/* Stop memleak from complaining */
+	tal_free(id);
+
 	return send_outreq(cmd->plugin, req);
 }
 

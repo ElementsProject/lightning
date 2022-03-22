@@ -1931,6 +1931,13 @@ param_destinations_array(struct command *cmd, const char *name,
 		dest->request_amt = *request_amt;
 		dest->rates = tal_steal(*dests, rates);
 
+		/* Stop leak detection from complaining. */
+		tal_free(id);
+		tal_free(amount);
+		tal_free(push_msat);
+		tal_free(request_amt);
+		tal_free(announce);
+
 		/* Only one destination can have "all" indicator.  */
 		if (dest->all) {
 			if (has_all)
@@ -2027,6 +2034,9 @@ json_multifundchannel(struct command *cmd,
 	mfc->final_txid = NULL;
 
 	mfc->sigs_collected = false;
+
+	/* Stop memleak from complaining */
+	tal_free(minconf);
 
 	return perform_multifundchannel(mfc);
 }
