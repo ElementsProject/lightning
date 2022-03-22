@@ -1018,9 +1018,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 				  channel_state_name(channel));
 
 			assert(!channel->owner);
-			channel->peer->addr = addr;
-			channel->peer->connected_incoming = payload->incoming;
-
 			subd_send_msg(ld->connectd,
 				      take(towire_connectd_peer_make_active(NULL, &peer->id,
 									    &channel->cid)));
@@ -1179,11 +1176,13 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
 				hook_payload->incoming);
 	peer->is_connected = true;
+	/* Update peer address and direction */
+	peer->addr = hook_payload->addr;
+	peer->connected_incoming = hook_payload->incoming;
+	peer_update_features(peer, their_features);
 
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
-
-	peer_update_features(peer, their_features);
 
 	/* Complete any outstanding connect commands. */
 	connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
