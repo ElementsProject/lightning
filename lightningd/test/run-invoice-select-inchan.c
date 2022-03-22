@@ -586,9 +586,9 @@ struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name 
 				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				 uint64_t **num UNNEEDED)
 { fprintf(stderr, "param_u64 called!\n"); abort(); }
-/* Generated stub for peer_active_channel */
-struct channel *peer_active_channel(struct peer *peer UNNEEDED)
-{ fprintf(stderr, "peer_active_channel called!\n"); abort(); }
+/* Generated stub for peer_any_active_channel */
+struct channel *peer_any_active_channel(struct peer *peer UNNEEDED, bool *others UNNEEDED)
+{ fprintf(stderr, "peer_any_active_channel called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */
 void peer_restart_dualopend(struct peer *peer UNNEEDED,
 			    struct peer_fd *peer_fd UNNEEDED,
@@ -609,9 +609,6 @@ bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UN
 bool peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
-/* Generated stub for peer_unsaved_channel */
-struct channel *peer_unsaved_channel(struct peer *peer UNNEEDED)
-{ fprintf(stderr, "peer_unsaved_channel called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)

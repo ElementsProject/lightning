@@ -1782,7 +1782,7 @@ static void accepter_got_offer(struct subd *dualopend,
 {
 	struct openchannel2_payload *payload;
 
-	if (peer_active_channel(channel->peer)) {
+	if (peer_any_active_channel(channel->peer, NULL)) {
 		subd_send_msg(dualopend,
 				take(towire_dualopend_fail(NULL,
 					"Already have active channel")));
@@ -2584,13 +2584,13 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
-	channel = peer_active_channel(peer);
+	channel = peer_any_active_channel(peer, NULL);
 	if (channel) {
 		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
 				    channel_state_name(channel));
 	}
 
-	channel = peer_unsaved_channel(peer);
+	channel = peer_any_unsaved_channel(peer, NULL);
 	if (!channel) {
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,
@@ -2839,18 +2839,6 @@ static void handle_commit_received(struct subd *dualopend,
 			       total_funding);
 
 	if (channel->state == DUALOPEND_OPEN_INIT) {
-		if (peer_active_channel(channel->peer)) {
-			channel_saved_err_broken_reconn(channel,
-						  "Already have active"
-						  " channel with %s",
-						  type_to_string(tmpctx,
-							 struct node_id,
-							 &channel->peer->id));
-			channel->open_attempt
-				= tal_free(channel->open_attempt);
-			return;
-		}
-
 		if (!(inflight = wallet_commit_channel(ld, channel,
 						       remote_commit,
 						       &remote_commit_sig,
@@ -3091,15 +3079,8 @@ static struct command_result *json_queryrates(struct command *cmd,
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
-	/* We can't query rates for a peer we have a channel with */
-	channel = peer_active_channel(peer);
-	if (channel)
-		return command_fail(cmd, LIGHTNINGD, "Peer in state %s,"
-				    " can't query peer's rates if already"
-				    " have a channel",
-				    channel_state_name(channel));
-
-	channel = peer_unsaved_channel(peer);
+	/* FIXME: This is wrong: we should always create a new channel? */
+	channel = peer_any_unsaved_channel(peer, NULL);
 	if (!channel) {
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,

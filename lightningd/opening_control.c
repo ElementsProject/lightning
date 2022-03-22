@@ -478,7 +478,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	remote_commit->chainparams = chainparams;
 
 	/* openingd should never accept them funding channel in this case. */
-	if (peer_active_channel(uc->peer)) {
+	if (peer_any_active_channel(uc->peer, NULL)) {
 		uncommitted_channel_disconnect(uc,
 					       LOG_BROKEN,
 					       "already have active channel");
@@ -770,7 +770,7 @@ static void opening_got_offer(struct subd *openingd,
 	struct openchannel_hook_payload *payload;
 
 	/* Tell them they can't open, if we already have open channel. */
-	if (peer_active_channel(uc->peer)) {
+	if (peer_any_active_channel(uc->peer, NULL)) {
 		subd_send_msg(openingd,
 			      take(towire_openingd_got_offer_reply(
 					   NULL, "Already have active channel", NULL, NULL)));
@@ -935,7 +935,6 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	struct node_id *id;
 	struct bitcoin_txid *funding_txid;
 	struct peer *peer;
-	struct channel *channel;
 	struct wally_psbt *funding_psbt;
 	u32 *funding_txout_num = NULL;
 	struct funding_channel *fc;
@@ -950,11 +949,6 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	if (!peer) {
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
-
-	channel = peer_active_channel(peer);
-	if (channel)
-		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
-				    channel_state_name(channel));
 
 	if (!peer->is_connected)
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
@@ -1133,7 +1127,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
-	channel = peer_active_channel(peer);
+	channel = peer_any_active_channel(peer, NULL);
 	if (channel) {
 		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
 				    channel_state_name(channel));

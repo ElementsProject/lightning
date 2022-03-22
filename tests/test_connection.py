@@ -2586,7 +2586,7 @@ def test_disconnectpeer(node_factory, bitcoind):
     mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
     # disconnecting a non gossiping peer results in error
-    with pytest.raises(RpcError, match=r'Peer is in state CHANNELD_NORMAL'):
+    with pytest.raises(RpcError, match=r'Peer has \(at least one\) channel in state CHANNELD_NORMAL'):
         l1.rpc.disconnect(l3.info['id'])
 
 

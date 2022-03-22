@@ -826,6 +826,23 @@ static struct command_result *check_offer_usage(struct command *cmd,
 	return NULL;
 }
 
+static struct channel *find_channel_for_htlc_add(struct lightningd *ld,
+						 const struct node_id *node)
+{
+	struct channel *channel;
+	struct peer *peer = peer_by_id(ld, node);
+	if (!peer)
+		return NULL;
+
+	list_for_each(&peer->channels, channel, list) {
+		if (channel_can_add_htlc(channel)) {
+			return channel;
+		}
+	}
+
+	return NULL;
+}
+
 /* destination/route_channels/route_nodes are NULL (and path_secrets may be NULL)
  * if we're sending a raw onion. */
 static struct command_result *
@@ -1014,8 +1031,8 @@ send_payment_core(struct lightningd *ld,
 	if (offer_err)
 		return offer_err;
 
-	channel = active_channel_by_id(ld, &first_hop->node_id, NULL);
-	if (!channel || !channel_can_add_htlc(channel)) {
+	channel = find_channel_for_htlc_add(ld, &first_hop->node_id);
+	if (!channel) {
 		struct json_stream *data
 			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,
 					   "No connection to first "

@@ -577,9 +577,14 @@ static struct command_result *json_close(struct command *cmd,
 		return command_param_failed();
 
 	peer = peer_from_json(cmd->ld, buffer, idtok);
-	if (peer)
-		channel = peer_active_channel(peer);
-	else {
+	if (peer) {
+		bool more_than_one;
+		channel = peer_any_active_channel(peer, &more_than_one);
+		if (channel && more_than_one) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "Peer has multiple channels: use channel_id or short_channel_id");
+		}
+	} else {
 		struct command_result *res;
 		res = command_find_channel(cmd, buffer, idtok, &channel);
 		if (res)
@@ -587,13 +592,19 @@ static struct command_result *json_close(struct command *cmd,
 	}
 
 	if (!channel && peer) {
+		bool more_than_one;
 		struct uncommitted_channel *uc = peer->uncommitted_channel;
 		if (uc) {
 			/* Easy case: peer can simply be forgotten. */
 			kill_uncommitted_channel(uc, "close command called");
 			goto discard_unopened;
 		}
-		if ((channel = peer_unsaved_channel(peer))) {
+		channel = peer_any_unsaved_channel(peer, &more_than_one);
+		if (channel) {
+			if (more_than_one) {
+				return command_fail(cmd, LIGHTNINGD,
+						    "Peer has multiple channels: use channel_id or short_channel_id");
+			}
 			channel_unsaved_close_conn(channel,
 						   "close command called");
 			goto discard_unopened;
