@@ -648,6 +648,9 @@ bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UN
 bool peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
+/* Generated stub for peer_wire_name */
+const char *peer_wire_name(int e UNNEEDED)
+{ fprintf(stderr, "peer_wire_name called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
