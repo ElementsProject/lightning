@@ -641,93 +641,11 @@ struct sending {
 	struct sent *sent;
 	const char *msgfield;
 	const u8 *msgval;
-	struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path;
 	struct command_result *(*done)(struct command *cmd,
 				       const char *buf UNUSED,
 				       const jsmntok_t *result UNUSED,
 				       struct sent *sent);
 };
-
-static struct command_result *
-send_obs2_message(struct command *cmd,
-		  const char *buf,
-		  const jsmntok_t *result,
-		  struct sending *sending)
-{
-	struct sent *sent = sending->sent;
-	struct privkey blinding_iter;
-	struct pubkey fwd_blinding, *node_alias;
-	size_t nhops = tal_count(sent->path);
-	struct tlv_obs2_onionmsg_payload **payloads;
-	struct out_req *req;
-
-	/* Now create enctlvs for *forward* path. */
-	randombytes_buf(&blinding_iter, sizeof(blinding_iter));
-	if (!pubkey_from_privkey(&blinding_iter, &fwd_blinding))
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could not convert blinding %s to pubkey!",
-				    type_to_string(tmpctx, struct privkey,
-						   &blinding_iter));
-
-	/* We overallocate: this node (0) doesn't have payload or alias */
-	payloads = tal_arr(cmd, struct tlv_obs2_onionmsg_payload *, nhops);
-	node_alias = tal_arr(cmd, struct pubkey, nhops);
-
-	for (size_t i = 1; i < nhops - 1; i++) {
-		payloads[i] = tlv_obs2_onionmsg_payload_new(payloads);
-		payloads[i]->enctlv = create_obs2_enctlv(payloads[i],
-							 &blinding_iter,
-							 &sent->path[i],
-							 &sent->path[i+1],
-							 /* FIXME: Pad? */
-							 0,
-							 NULL,
-							 &blinding_iter,
-							 &node_alias[i]);
-	}
-	/* Final payload contains the actual data. */
-	payloads[nhops-1] = tlv_obs2_onionmsg_payload_new(payloads);
-
-	/* We don't include enctlv in final, but it gives us final alias */
-	if (!create_obs2_final_enctlv(tmpctx, &blinding_iter, &sent->path[nhops-1],
-				      /* FIXME: Pad? */ 0,
-				      NULL,
-				      &node_alias[nhops-1])) {
-		/* Should not happen! */
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could create final enctlv");
-	}
-
-	/* FIXME: This interface is a string for sendobsonionmessage! */
-	if (streq(sending->msgfield, "invoice_request")) {
-		payloads[nhops-1]->invoice_request
-			= cast_const(u8 *, sending->msgval);
-	} else {
-		assert(streq(sending->msgfield, "invoice"));
-		payloads[nhops-1]->invoice
-			= cast_const(u8 *, sending->msgval);
-	}
-	payloads[nhops-1]->reply_path = sending->obs2_reply_path;
-
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobs2onionmessage",
-				    sending->done,
-				    forward_error,
-				    sending->sent);
-	json_add_pubkey(req->js, "first_id", &sent->path[1]);
-	json_add_pubkey(req->js, "blinding", &fwd_blinding);
-	json_array_start(req->js, "hops");
-	for (size_t i = 1; i < nhops; i++) {
-		u8 *tlv;
-		json_object_start(req->js, NULL);
-		json_add_pubkey(req->js, "id", &node_alias[i]);
-		tlv = tal_arr(tmpctx, u8, 0);
-		towire_obs2_onionmsg_payload(&tlv, payloads[i]);
-		json_add_hex_talarr(req->js, "tlv", tlv);
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	return send_outreq(cmd->plugin, req);
-}
 
 static struct command_result *
 send_modern_message(struct command *cmd,
@@ -790,10 +708,9 @@ send_modern_message(struct command *cmd,
 	payloads[nhops-1]->reply_path = reply_path;
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
-				    /* Try sending older version next */
-				    send_obs2_message,
+				    sending->done,
 				    forward_error,
-				    sending);
+				    sending->sent);
 	json_add_pubkey(req->js, "first_id", &sent->path[1]);
 	json_add_pubkey(req->js, "blinding", &fwd_blinding);
 	json_array_start(req->js, "hops");
@@ -824,15 +741,6 @@ static struct command_result *use_reply_path(struct command *cmd,
 	if (!rpath)
 		plugin_err(cmd->plugin,
 			   "could not parse reply path %.*s?",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-
-	sending->obs2_reply_path = json_to_obs2_reply_path(cmd, buf,
-							   json_get_member(buf, result,
-									   "obs2blindedpath"));
-	if (!sending->obs2_reply_path)
-		plugin_err(cmd->plugin,
-			   "could not parse obs2 reply path %.*s?",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
