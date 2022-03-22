@@ -439,6 +439,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		peer_connected(connectd->ld, msg, fds[0]);
 		break;
 
+	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
+		peer_disconnect_done(connectd->ld, msg);
+		break;
+
 	case WIRE_CONNECTD_PEER_ALREADY_CONNECTED:
 		peer_already_connected(connectd->ld, msg);
 		break;

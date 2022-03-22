@@ -31,7 +31,7 @@ struct peer {
 	struct list_head channels;
 
 	/* Are we connected? */
-	bool connected;
+	bool is_connected;
 
 	/* Our (only) uncommitted channel, still opening. */
 	struct uncommitted_channel *uncommitted_channel;
@@ -68,6 +68,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const jsmntok_t *peeridtok);
 
 void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd);
+void peer_disconnect_done(struct lightningd *ld, const u8 *msg);
 
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL

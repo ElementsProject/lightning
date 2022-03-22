@@ -100,7 +100,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->their_features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
-	peer->connected = false;
+	peer->is_connected = false;
 #if DEVELOPER
 	peer->ignore_htlcs = false;
 #endif
@@ -1062,7 +1062,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 send_error:
 	log_debug(ld->log, "Telling connectd to send error %s",
 		  tal_hex(tmpctx, error));
-	peer->connected = false;
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
@@ -1209,7 +1208,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
 				hook_payload->incoming);
-	peer->connected = true;
+	peer->is_connected = true;
 
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
@@ -1238,6 +1237,44 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	}
 
 	plugin_hook_call_peer_connected(ld, hook_payload);
+}
+
+struct disconnect_command {
+	struct list_node list;
+	/* Command structure. This is the parent of the close command. */
+	struct command *cmd;
+	/* node being disconnected. */
+	struct node_id id;
+};
+
+static void destroy_disconnect_command(struct disconnect_command *dc)
+{
+	list_del(&dc->list);
+}
+
+void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id id;
+	struct disconnect_command *i, *next;
+	struct peer *p;
+
+	if (!fromwire_connectd_peer_disconnect_done(msg, &id))
+		fatal("Connectd gave bad PEER_DISCONNECT_DONE message %s",
+		      tal_hex(msg, msg));
+
+	/* If we still have peer, it's disconnected now */
+	p = peer_by_id(ld, &id);
+	if (p)
+		p->is_connected = false;
+
+	/* Wake any disconnect commands (removes self from list) */
+	list_for_each_safe(&ld->disconnect_commands, i, next, list) {
+		if (!node_id_eq(&i->id, &id))
+			continue;
+
+		was_pending(command_success(i->cmd,
+					    json_stream_success(i->cmd)));
+	}
 }
 
 static bool check_funding_details(const struct bitcoin_tx *tx,
@@ -1489,12 +1526,12 @@ static void json_add_peer(struct lightningd *ld,
 	json_object_start(response, NULL);
 	json_add_node_id(response, "id", &p->id);
 
-	json_add_bool(response, "connected", p->connected);
+	json_add_bool(response, "connected", p->is_connected);
 
 	/* If it's not connected, features are unreliable: we don't
 	 * store them in the database, and they would only reflect
 	 * their features *last* time they connected. */
-	if (p->connected) {
+	if (p->is_connected) {
 		json_array_start(response, "netaddr");
 		json_add_string(response, NULL,
 				type_to_string(tmpctx,
@@ -1693,6 +1730,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 					      const jsmntok_t *params)
 {
 	struct node_id *id;
+	struct disconnect_command *dc;
 	struct peer *peer;
 	struct channel *channel;
 	bool *force;
@@ -1712,7 +1750,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 		if (*force) {
 			channel_fail_reconnect(channel,
 					       "disconnect command force=true");
-			return command_success(cmd, json_stream_success(cmd));
+			goto wait_for_connectd;
 		}
 		return command_fail(cmd, LIGHTNINGD, "Peer is in state %s",
 				    channel_state_name(channel));
@@ -1720,14 +1758,23 @@ static struct command_result *json_disconnect(struct command *cmd,
 	channel = peer_unsaved_channel(peer);
 	if (channel) {
 		channel_unsaved_close_conn(channel, "disconnect command");
-		return command_success(cmd, json_stream_success(cmd));
+		goto wait_for_connectd;
 	}
 	if (!peer->uncommitted_channel) {
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
 	kill_uncommitted_channel(peer->uncommitted_channel,
 				 "disconnect command");
-	return command_success(cmd, json_stream_success(cmd));
+
+wait_for_connectd:
+	/* Connectd tells us when it's finally disconnected */
+	dc = tal(cmd, struct disconnect_command);
+	dc->cmd = cmd;
+	dc->id = *id;
+	list_add_tail(&cmd->ld->disconnect_commands, &dc->list);
+	tal_add_destructor(dc, destroy_disconnect_command);
+
+	return command_still_pending(cmd);
 }
 
 static const struct json_command disconnect_command = {

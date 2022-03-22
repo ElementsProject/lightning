@@ -1905,6 +1905,10 @@ void peer_conn_closed(struct peer *peer)
 	daemon_conn_send(peer->daemon->gossipd,
 			 take(towire_gossipd_peer_gone(NULL, &peer->id)));
 
+	/* Tell lightningd it's really disconnected */
+	daemon_conn_send(peer->daemon->master,
+			 take(towire_connectd_peer_disconnect_done(NULL,
+								   &peer->id)));
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
 	io_wake(peer);
 
@@ -2043,6 +2047,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_PING_REPLY:
 	case WIRE_CONNECTD_GOT_ONIONMSG_TO_US:
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
+	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
 		break;
 	}
 

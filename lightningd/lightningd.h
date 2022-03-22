@@ -193,6 +193,8 @@ struct lightningd {
 	struct list_head close_commands;
 	/* Outstanding ping commands. */
 	struct list_head ping_commands;
+	/* Outstanding disconnect commands. */
+	struct list_head disconnect_commands;
 
 	/* Maintained by invoices.c */
 	struct invoices *invoices;

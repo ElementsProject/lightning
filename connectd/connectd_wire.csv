@@ -71,6 +71,10 @@ msgdata,connectd_peer_connected,incoming,bool,
 msgdata,connectd_peer_connected,flen,u16,
 msgdata,connectd_peer_connected,features,u8,flen
 
+# connectd -> master: peer disconnected.
+msgtype,connectd_peer_disconnect_done,2006
+msgdata,connectd_peer_disconnect_done,id,node_id,
+
 # master -> connectd: peer no longer wanted, you can disconnect.
 msgtype,connectd_discard_peer,2015
 msgdata,connectd_discard_peer,id,node_id,
