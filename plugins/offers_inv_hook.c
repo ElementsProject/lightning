@@ -25,8 +25,8 @@ fail_inv_level(struct command *cmd,
 	       const char *fmt, va_list ap)
 {
 	char *full_fmt, *msg;
+	struct tlv_onionmsg_payload *payload;
 	struct tlv_invoice_error *err;
-	u8 *errdata;
 
 	full_fmt = tal_fmt(tmpctx, "Failed invoice");
 	if (inv->inv) {
@@ -55,9 +55,10 @@ fail_inv_level(struct command *cmd,
 	err->error = tal_dup_arr(err, char, msg, strlen(msg), 0);
 	/* FIXME: Add suggested_value / erroneous_field! */
 
-	errdata = tal_arr(cmd, u8, 0);
-	towire_tlv_invoice_error(&errdata, err);
-	return send_onion_reply(cmd, inv->reply_path, "invoice_error", errdata);
+	payload = tlv_onionmsg_payload_new(tmpctx);
+	payload->invoice_error = tal_arr(payload, u8, 0);
+	towire_tlv_invoice_error(&payload->invoice_error, err);
+	return send_onion_reply(cmd, inv->reply_path, payload);
 }
 
 static struct command_result *WARN_UNUSED_RESULT

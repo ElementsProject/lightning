@@ -35,8 +35,8 @@ fail_invreq_level(struct command *cmd,
 		  const char *fmt, va_list ap)
 {
 	char *full_fmt, *msg;
+	struct tlv_onionmsg_payload *payload;
 	struct tlv_invoice_error *err;
-	u8 *errdata;
 
 	full_fmt = tal_fmt(tmpctx, "Failed invoice_request");
 	if (invreq->invreq) {
@@ -61,10 +61,10 @@ fail_invreq_level(struct command *cmd,
 	err->error = tal_dup_arr(err, char, msg, strlen(msg), 0);
 	/* FIXME: Add suggested_value / erroneous_field! */
 
-	errdata = tal_arr(cmd, u8, 0);
-	towire_tlv_invoice_error(&errdata, err);
-	return send_onion_reply(cmd, invreq->reply_path,
-				"invoice_error", errdata);
+	payload = tlv_onionmsg_payload_new(tmpctx);
+	payload->invoice_error = tal_arr(payload, u8, 0);
+	towire_tlv_invoice_error(&payload->invoice_error, err);
+	return send_onion_reply(cmd, invreq->reply_path, payload);
 }
 
 static struct command_result *WARN_UNUSED_RESULT PRINTF_FMT(3,4)
@@ -171,6 +171,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 {
 	char *hrp;
 	u8 *rawinv;
+	struct tlv_onionmsg_payload *payload;
 	const jsmntok_t *t;
 
 	/* We have a signed invoice, use it as a reply. */
@@ -183,7 +184,9 @@ static struct command_result *createinvoice_done(struct command *cmd,
 					json_tok_full(buf, t));
 	}
 
-	return send_onion_reply(cmd, ir->reply_path, "invoice", rawinv);
+	payload = tlv_onionmsg_payload_new(tmpctx);
+	payload->invoice = rawinv;
+	return send_onion_reply(cmd, ir->reply_path, payload);
 }
 
 static struct command_result *createinvoice_error(struct command *cmd,
