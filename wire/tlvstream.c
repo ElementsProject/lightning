@@ -82,6 +82,34 @@ void tlvstream_set_tu32(struct tlv_field **stream, u64 type, u32 value)
 	tlvstream_set_raw(stream, type, take(ser), tal_bytelen(ser));
 }
 
+/* Get the offset of this field: returns size of msg if not found (or
+ * tlv malformed) */
+size_t tlv_field_offset(const u8 *tlvstream, size_t tlvlen, u64 fieldtype)
+{
+	size_t max = tlvlen;
+	while (max > 0) {
+		u64 type, length;
+		size_t field_off = tlvlen - max;
+
+		type = fromwire_bigsize(&tlvstream, &max);
+		length = fromwire_bigsize(&tlvstream, &max);
+
+		if (!tlvstream)
+			break;
+
+		/* Found it! */
+		if (type == fieldtype)
+			return field_off;
+
+		if (length > max)
+			break;
+
+		max -= length;
+		tlvstream += length;
+	}
+	return tlvlen;
+}
+
 bool fromwire_tlv(const u8 **cursor, size_t *max,
 		  const struct tlv_record_type *types, size_t num_types,
 		  void *record, struct tlv_field **fields)

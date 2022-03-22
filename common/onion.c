@@ -214,17 +214,22 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	const u8 *cursor = rs->raw_payload;
 	size_t max = tal_bytelen(cursor), len;
 	struct tlv_tlv_payload *tlv;
+	size_t badfield;
 
 	if (!pull_payload_length(&cursor, &max, true, &len))
-		return tal_free(p);
+		goto general_fail;
 
 	tlv = tlv_tlv_payload_new(p);
-	if (!fromwire_tlv_payload(&cursor, &max, tlv))
-		goto fail;
+	if (!fromwire_tlv_payload(&cursor, &max, tlv)) {
+		/* FIXME: Fill in correct thing here! */
+		goto general_fail;
+	}
 
-	if (!tlv_fields_valid(tlv->fields, accepted_extra_tlvs, failtlvpos)) {
-		*failtlvtype = tlv->fields[*failtlvpos].numtype;
-		goto fail;
+	/* FIXME: This API makes it really hard to get the actual
+	 * offset of field. */
+	if (!tlv_fields_valid(tlv->fields, accepted_extra_tlvs, &badfield)) {
+		*failtlvtype = tlv->fields[badfield].numtype;
+		goto field_bad;
 	}
 
 	/* BOLT #4:
@@ -233,8 +238,14 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *   - MUST return an error if `amt_to_forward` or
 	 *     `outgoing_cltv_value` are not present.
 	 */
-	if (!tlv->amt_to_forward || !tlv->outgoing_cltv_value)
-		goto fail;
+	if (!tlv->amt_to_forward) {
+		*failtlvtype = TLV_TLV_PAYLOAD_AMT_TO_FORWARD;
+		goto field_bad;
+	}
+	if (!tlv->outgoing_cltv_value) {
+		*failtlvtype = TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE;
+		goto field_bad;
+	}
 
 	p->amt_to_forward = amount_msat(*tlv->amt_to_forward);
 	p->outgoing_cltv = *tlv->outgoing_cltv_value;
@@ -247,8 +258,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *    - MUST include `short_channel_id`
 	 */
 	if (rs->nextcase == ONION_FORWARD) {
-		if (!tlv->short_channel_id)
-			goto fail;
+		if (!tlv->short_channel_id) {
+			*failtlvtype = TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID;
+			goto field_bad;
+		}
 		p->forward_channel = tal_dup(p, struct short_channel_id,
 					     tlv->short_channel_id);
 		p->total_msat = NULL;
@@ -283,18 +296,30 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (rs->nextcase == ONION_FORWARD) {
 			struct tlv_tlv_payload *ntlv;
 
-			if (!tlv->encrypted_recipient_data)
-				goto fail;
+			if (!tlv->encrypted_recipient_data) {
+				*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+				goto field_bad;
+			}
 
 			ntlv = decrypt_tlv(tmpctx,
 					   &p->blinding_ss,
 					   tlv->encrypted_recipient_data);
-			if (!ntlv)
-				goto fail;
+			if (!ntlv) {
+				*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+				goto field_bad;
+			}
 
 			/* Must override short_channel_id */
-			if (!ntlv->short_channel_id)
+			if (!ntlv->short_channel_id) {
+				*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+				/* Place error at *end* of enctlv,
+				 * indicating missing field. */
+				*failtlvpos = tlv_field_offset(rs->raw_payload,
+							       tal_bytelen(rs->raw_payload),
+							       *failtlvtype)
+					+ tal_bytelen(tlv->encrypted_recipient_data);
 				goto fail;
+			}
 
 			*p->forward_channel
 				= *ntlv->short_channel_id;
@@ -313,6 +338,15 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	p->tlv = tal_steal(p, tlv);
 	return p;
 
+field_bad:
+	*failtlvpos = tlv_field_offset(rs->raw_payload, tal_bytelen(rs->raw_payload),
+				       *failtlvtype);
+	goto fail;
+
+general_fail:
+	*failtlvtype = 0;
+	*failtlvpos = tal_bytelen(rs->raw_payload);
+	goto fail;
 fail:
 	tal_free(tlv);
 	tal_free(p);

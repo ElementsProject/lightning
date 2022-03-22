@@ -62,6 +62,9 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for tlv_field_offset */
+size_t tlv_field_offset(const u8 *tlvstream UNNEEDED, size_t tlvlen UNNEEDED, u64 fieldtype UNNEEDED)
+{ fprintf(stderr, "tlv_field_offset called!\n"); abort(); }
 /* Generated stub for tlv_fields_valid */
 bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
 		      size_t *err_index UNNEEDED)

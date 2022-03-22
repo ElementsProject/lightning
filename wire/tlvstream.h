@@ -48,6 +48,10 @@ void towire_tlv(u8 **pptr,
 bool tlv_fields_valid(const struct tlv_field *fields, u64 *allow_extra,
 		      size_t *err_index);
 
+/* Get the offset of this field: returns size of msg if not found (or
+ * tlv malformed) */
+size_t tlv_field_offset(const u8 *tlvstream, size_t tlvlen, u64 fieldtype);
+
 /* Generic primitive setters for tlvstreams. */
 void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value TAKES, size_t valuelen);
 void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
