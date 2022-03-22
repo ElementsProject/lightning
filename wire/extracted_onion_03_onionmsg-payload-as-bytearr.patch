@@ -1,0 +1,19 @@
+diff --git b/wire/onion_wire.csv a/wire/onion_wire.csv
+index 5c52fe9a1..2ac0c4cff 100644
+--- b/wire/onion_wire.csv
++++ a/wire/onion_wire.csv
+@@ -49,11 +49,11 @@ tlvdata,onionmsg_payload,reply_path,path,onionmsg_path,...
+ tlvtype,onionmsg_payload,encrypted_data_tlv,4
+ tlvdata,onionmsg_payload,encrypted_data_tlv,encrypted_data_tlv,byte,...
+ tlvtype,onionmsg_payload,invoice_request,64
+-tlvdata,onionmsg_payload,invoice_request,invoice_request,tlv_invoice_request,
++tlvdata,onionmsg_payload,invoice_request,invoice_request,byte,...
+ tlvtype,onionmsg_payload,invoice,66
+-tlvdata,onionmsg_payload,invoice,invoice,tlv_invoice,
++tlvdata,onionmsg_payload,invoice,invoice,byte,...
+ tlvtype,onionmsg_payload,invoice_error,68
+-tlvdata,onionmsg_payload,invoice_error,invoice_error,tlv_invoice_error,
++tlvdata,onionmsg_payload,invoice_error,invoice_error,byte,...
+ subtype,onionmsg_path
+ subtypedata,onionmsg_path,node_id,point,
+ subtypedata,onionmsg_path,enclen,u16,
