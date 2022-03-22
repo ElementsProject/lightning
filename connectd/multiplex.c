@@ -577,6 +577,8 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 		/* OK, send this then close. */
 		msg = peer->final_msg;
 		peer->final_msg = NULL;
+		/* Wasn't logged earlier, so do it now */
+		status_peer_io(LOG_IO_OUT, &peer->id, msg);
 	}
 
 	/* Still nothing to send? */
