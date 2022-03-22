@@ -1,7 +1,11 @@
 [package]
 edition = "2021"
-name = "grpc-plugin"
+name = "cln-grpc-plugin"
 version = "0.1.0"
+
+[[bin]]
+name = "cln-grpc"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0"
