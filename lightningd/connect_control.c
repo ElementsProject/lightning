@@ -95,7 +95,6 @@ static struct command_result *json_connect(struct command *cmd,
 	const char *name;
 	struct wireaddr_internal *addr;
 	const char *err_msg;
-	struct peer *peer;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_tok, (const jsmntok_t **) &idtok),
@@ -135,17 +134,6 @@ static struct command_result *json_connect(struct command *cmd,
 	if (port && !name) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Can't specify port without host");
-	}
-
-	/* If we know about peer, see if it's already connected. */
-	peer = peer_by_id(cmd->ld, &id);
-	if (peer && peer->connected) {
-		log_debug(cmd->ld->log, "Already connected via %s",
-			  type_to_string(tmpctx, struct wireaddr_internal,
-					 &peer->addr));
-		return connect_cmd_succeed(cmd, peer,
-					   peer->connected_incoming,
-					   &peer->addr);
 	}
 
 	/* Was there parseable host name? */
@@ -325,6 +313,21 @@ void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 	}
 }
 
+static void peer_already_connected(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id id;
+	struct peer *peer;
+
+	if (!fromwire_connectd_peer_already_connected(msg, &id))
+		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
+
+	peer = peer_by_id(ld, &id);
+	if (peer)
+		connect_succeeded(ld, peer,
+				  peer->connected_incoming,
+				  &peer->addr);
+}
+
 static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
@@ -434,6 +437,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		if (tal_count(fds) != 1)
 			return 1;
 		peer_connected(connectd->ld, msg, fds[0]);
+		break;
+
+	case WIRE_CONNECTD_PEER_ALREADY_CONNECTED:
+		peer_already_connected(connectd->ld, msg);
 		break;
 
 	case WIRE_CONNECTD_CONNECT_FAILED:
