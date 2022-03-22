@@ -3773,3 +3773,94 @@ def test_ping_timeout(node_factory):
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False, timeout=45 + 45 + 5)
     wait_for(lambda: (l1.daemon.is_in_log('Last ping unreturned: hanging up')
                       or l2.daemon.is_in_log('Last ping unreturned: hanging up')))
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_multichan(node_factory, executor, bitcoind):
+    """Test multiple channels between same nodes"""
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    scid12 = l1.get_channel_scid(l2)
+    scid23a = l2.get_channel_scid(l3)
+
+    # Now fund *second* channel l2->l3.
+    bitcoind.rpc.sendtoaddress(l2.rpc.newaddr()['bech32'], 0.1)
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.fundchannel(l3.info['id'], '0.05btc')
+    assert(len(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']) == 2)
+    assert(len(only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels']) == 2)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Dance around to get the *other* scid.
+    wait_for(lambda: all(['short_channel_id' in c for c in l3.rpc.listpeers()['peers'][0]['channels']]))
+    scids = [c['short_channel_id'] for c in l3.rpc.listpeers()['peers'][0]['channels']]
+    assert len(scids) == 2
+
+    if scids[0] == scid23a:
+        scid23b = scids[1]
+    else:
+        assert scids[1] == scid23a
+        scid23b = scids[0]
+
+    # Test paying by each,
+    route = [{'msatoshi': 100001001,
+              'id': l2.info['id'],
+              'delay': 11,
+              # Unneeded
+              'channel': scid12},
+             {'msatoshi': 100000000,
+              'id': l3.info['id'],
+              'delay': 5,
+              'channel': scid23a}]
+    before = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
+    inv = l3.rpc.invoice(100000000, "invoice", "invoice")
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+    # Wait until HTLCs fully settled
+    wait_for(lambda: [c['htlcs'] for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']] == [[], []])
+    after = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
+
+    if before[0]['short_channel_id'] == scid23a:
+        chan23a_idx = 0
+        chan23b_idx = 1
+    else:
+        chan23a_idx = 1
+        chan23b_idx = 0
+
+    # Check it used the right scid!
+    assert before[chan23a_idx]['to_us_msat'] != after[chan23a_idx]['to_us_msat']
+    assert before[chan23b_idx]['to_us_msat'] == after[chan23b_idx]['to_us_msat']
+
+    before = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
+    route[1]['channel'] = scid23b
+    inv = l3.rpc.invoice(100000000, "invoice2", "invoice2")
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+    # Wait until HTLCs fully settled
+    wait_for(lambda: [c['htlcs'] for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']] == [[], []])
+    after = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
+
+    # Check it used the right scid!
+    assert before[chan23a_idx]['to_us_msat'] == after[chan23a_idx]['to_us_msat']
+    assert before[chan23b_idx]['to_us_msat'] != after[chan23b_idx]['to_us_msat']
+
+    # Make sure gossip works.
+    bitcoind.generate_block(5)
+
+    wait_for(lambda: len(l1.rpc.listchannels(source=l3.info['id'])['channels']) == 2)
+
+    chans = l1.rpc.listchannels(source=l3.info['id'])['channels']
+    if chans[0]['short_channel_id'] == scid23a:
+        chan23a = chans[0]
+        chan23b = chans[1]
+    else:
+        chan23a = chans[1]
+        chan23b = chans[0]
+
+    assert chan23a['amount_msat'] == Millisatoshi(1000000000)
+    assert chan23a['short_channel_id'] == scid23a
+    assert chan23b['amount_msat'] == Millisatoshi(5000000000)
+    assert chan23b['short_channel_id'] == scid23b

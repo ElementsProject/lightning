@@ -1782,13 +1782,6 @@ static void accepter_got_offer(struct subd *dualopend,
 {
 	struct openchannel2_payload *payload;
 
-	if (peer_any_active_channel(channel->peer, NULL)) {
-		subd_send_msg(dualopend,
-				take(towire_dualopend_fail(NULL,
-					"Already have active channel")));
-		return;
-	}
-
 	if (channel->open_attempt) {
 		subd_send_msg(dualopend,
 				take(towire_dualopend_fail(NULL,
@@ -2582,12 +2575,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
-	}
-
-	channel = peer_any_active_channel(peer, NULL);
-	if (channel) {
-		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
-				    channel_state_name(channel));
 	}
 
 	channel = peer_any_unsaved_channel(peer, NULL);
