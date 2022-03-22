@@ -117,15 +117,14 @@ void notify_feerate_change(struct lightningd *ld)
 	/* FIXME: We should notify onchaind about NORMAL fee change in case
 	 * it's going to generate more txs. */
 	list_for_each(&ld->peers, peer, list) {
-		struct channel *channel = peer_active_channel(peer);
+		struct channel *channel;
 
-		if (!channel)
-			continue;
-
-		/* FIXME: We choose not to drop to chain if we can't contact
-		 * peer.  We *could* do so, however. */
-		try_update_feerates(ld, channel);
+		list_for_each(&peer->channels, channel, list)
+			try_update_feerates(ld, channel);
 	}
+
+	/* FIXME: We choose not to drop to chain if we can't contact
+	 * peer.  We *could* do so, however. */
 }
 
 void channel_record_open(struct channel *channel)

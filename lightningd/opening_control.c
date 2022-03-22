@@ -1252,16 +1252,3 @@ static const struct json_command fundchannel_complete_command = {
     "with {psbt}. Returns true on success, false otherwise."
 };
 AUTODATA(json_command, &fundchannel_complete_command);
-
-struct subd *peer_get_owning_subd(struct peer *peer)
-{
-	struct channel *channel;
-	channel = peer_active_channel(peer);
-
-	if (channel != NULL) {
-		return channel->owner;
-	} else if (peer->uncommitted_channel != NULL) {
-		return peer->uncommitted_channel->open_daemon;
-	}
-	return NULL;
-}
