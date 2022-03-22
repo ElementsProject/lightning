@@ -59,39 +59,14 @@ bool print${options.enum_name}_message(const u8 *msg)
 	    % else:
 	for (size_t i = 0; i < ${f.size()}; i++) {
 	    % endif
-	    printf("{\n");
-	    % if f.type_obj.is_subtype() or f.type_obj.is_varsize():
-		printf("{\n");
-		printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen);
-		printf("}\n");
-	    % else:
-		${f.type_obj.type_name()} v;
-		% if f.type_obj.is_assignable():
-		v = fromwire_${f.type_obj.name}(cursor, plen);
-		% else:
-		fromwire_${f.type_obj.name}(cursor, plen, &v);
-		% endif
-		${truncate_check()}
-<% typename = f.type_obj.name if not f.type_obj.is_truncated() else f.type_obj.name[1:] %>\
-		printwire_${typename}(tal_fmt(NULL, "%s.${f.name}", fieldname), &v);
-	    % endif
+		if (!printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen))
+			return false;
 	}
 	printf("]");
 	% endif
-${truncate_check()} \
-    % elif f.type_obj.is_subtype() or f.type_obj.is_varsize():
-	printf("{\n");
-	printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen);
-	printf("}\n");
     % else:
-	    % if f.type_obj.is_assignable():
-	${f.type_obj.type_name()} ${f.name} = fromwire_${f.type_obj.name}(cursor, plen);
-	    % else:
-	${f.type_obj.type_name()} ${f.name};
-	fromwire_${f.type_obj.name}(cursor, plen, &${f.name});
-	    % endif
-	<% typename = f.type_obj.name if not f.type_obj.is_truncated() else f.type_obj.name[1:] %>
-	printwire_${typename}(tal_fmt(NULL, "%s.${f.name}", fieldname), &${f.name}); ${truncate_check()} \
+	if (!printwire_${f.type_obj.name}(tal_fmt(NULL, "%s.${f.name}", fieldname), cursor, plen))
+		return false;
     % endif
 % endfor
 </%def> \
