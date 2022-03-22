@@ -8,6 +8,9 @@
 #include <common/utils.h>
 #include <inttypes.h>
 #include <stdio.h>
+% for i in includes:
+${i}
+% endfor
 
 % if enum_sets:
 void print${options.enum_name}_message(const u8 *msg)
