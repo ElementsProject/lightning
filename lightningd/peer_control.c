@@ -1256,24 +1256,17 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 		return;
 	}
 
-	channel = peer_active_channel(peer);
-
-	/* It might be v2 opening, though, since we hang onto these */
-	if (!channel)
-		channel = peer_unsaved_channel(peer);
-
+	/* Do we know what channel they're talking about? */
+	channel = find_channel_by_id(peer, &channel_id);
 	if (channel) {
 		switch (channel->state) {
 		case ONCHAIN:
 		case FUNDING_SPEND_SEEN:
 		case CLOSINGD_COMPLETE:
-			/* Channel is supposed to be active!*/
-			abort();
+			goto channel_is_closed;
 		case CLOSED:
 			/* Channel should not have been loaded */
 			abort();
-
-		/* We consider this "active" but we only send an error */
 		case AWAITING_UNILATERAL: {
 			/* channel->error is not saved in db, so this can
 			 * happen if we restart. */
@@ -1340,47 +1333,62 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 		return;
 	}
 
-	/* It's possible that they want to reestablish a channel, but
-	 * it's closed? */
-	if (*msgtype == WIRE_CHANNEL_REESTABLISH) {
-		channel = find_channel_by_id(peer, &channel_id);
-		if (channel && channel_closed(channel)) {
-			log_debug(channel->log,
-				  "Reestablish on %s channel: using channeld to reply",
-				  channel_state_name(channel));
-			peer_start_channeld(channel, peer_fd, NULL, true, true);
-			return;
-		} else {
-			const u8 *err = towire_errorfmt(tmpctx, &channel_id,
-						"Unknown channel for reestablish");
-			log_peer_debug(ld->log, &peer->id,
-				       "Reestablish on UNKNOWN channel %s",
-				       type_to_string(tmpctx, struct channel_id,
-						      &channel_id));
-			/* Unless we're shutting down, tell connectd to send err */
-			if (ld->connectd)
-				subd_send_msg(ld->connectd,
-				      take(towire_connectd_peer_final_msg(NULL,
-									  &peer->id,
-									  err)));
-			else
-				peer->is_connected = false;
-			return;
+	/* OK, it's an unknown channel.  Create a new one if they're trying. */
+	switch (*msgtype) {
+	case WIRE_OPEN_CHANNEL:
+		if (dual_fund) {
+			error = towire_errorfmt(tmpctx, &channel_id,
+						"OPT_DUAL_FUND: cannot use open_channel");
+			goto send_error;
 		}
-	}
-
-	/* OK, it's unsolicited.  What kind of open do they want? */
-	if (dual_fund) {
+		if (peer->uncommitted_channel) {
+			error = towire_errorfmt(tmpctx, &channel_id,
+						"Multiple simulteneous opens not supported");
+			goto send_error;
+		}
+		peer->uncommitted_channel = new_uncommitted_channel(peer);
+		peer_start_openingd(peer, peer_fd);
+		break;
+	case WIRE_OPEN_CHANNEL2:
+		if (!dual_fund) {
+			error = towire_errorfmt(tmpctx, &channel_id,
+						"Didn't negotiate OPT_DUAL_FUND: cannot use open_channel2");
+			goto send_error;
+		}
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
 		channel->cid = channel_id;
 		peer_start_dualopend(peer, peer_fd, channel);
-	} else {
-		peer->uncommitted_channel = new_uncommitted_channel(peer);
-		peer_start_openingd(peer, peer_fd);
+		break;
+	default:
+		log_peer_unusual(ld->log, &peer->id,
+				 "Unknown channel %s for %s",
+				 type_to_string(tmpctx, struct channel_id,
+						&channel_id),
+				 peer_wire_name(*msgtype));
+		error = towire_errorfmt(tmpctx, &channel_id,
+					"Unknown channel for %s", peer_wire_name(*msgtype));
+		goto send_error;
+		break;
 	}
 	return;
+
+channel_is_closed:
+	if (msgtype && *msgtype == WIRE_CHANNEL_REESTABLISH) {
+		log_debug(channel->log,
+			  "Reestablish on %s channel: using channeld to reply",
+			  channel_state_name(channel));
+		peer_start_channeld(channel, peer_fd, NULL, true, true);
+		return;
+	}
+
+	/* Retransmit error if we have one.  Otherwise generic error. */
+	error = channel->error;
+	if (!error)
+		error = towire_errorfmt(tmpctx, &channel_id,
+					"channel in state %s",
+					channel_state_name(channel));
 
 send_error:
 	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
