@@ -45,7 +45,7 @@ struct tlv_field *tlv_make_fields_(const struct tlv_record_type *types,
  * @types / @num_types: table of known tlv types
  * @record: the tlv to hand to @type-specific decode
  * @fields: the fields array to populate
- * @extra_types: tal_arr or NULL of unknown types to allow
+ * @extra_types: tal_arr of unknown types to allow, or NULL, or FROMWIRE_TLV_ANY_TYPE.
  * @err_off: NULL, or set to offset in tlv stream which failed.
  * @err_type: NULL, or set to tlv type which failed (or 0 if malformed)
  */
@@ -60,6 +60,9 @@ void towire_tlv(u8 **pptr,
 /* Get the offset of this field: returns size of msg if not found (or
  * tlv malformed) */
 size_t tlv_field_offset(const u8 *tlvstream, size_t tlvlen, u64 fieldtype);
+
+/* Constant for fromwire_tlv to allow absolutely any unknown type. */
+extern const u64 *FROMWIRE_TLV_ANY_TYPE;
 
 /* Generic primitive setters for tlvstreams. */
 void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value TAKES, size_t valuelen);

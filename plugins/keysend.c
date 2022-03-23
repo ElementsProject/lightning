@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_tok.h>
 #include <common/memleak.h>
@@ -342,7 +343,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	struct out_req *req;
 	struct timeabs now = time_now();
 	const char *err;
-	u64 *allowed = tal_arr(cmd, u64, 1);
+	u64 *allowed;
 	size_t err_off;
 	u64 err_type;
 
@@ -360,8 +361,15 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 		return htlc_accepted_continue(cmd, NULL);
 	}
 
+#if EXPERIMENTAL_FEATURES
+	/* Note: This is a magic pointer value, not an actual array */
+	allowed = cast_const(u64 *, FROMWIRE_TLV_ANY_TYPE);
+#else
 	/* We explicitly allow our type. */
-	allowed[0] = 5482373484;
+	allowed = tal_arr(cmd, u64, 1);
+	allowed[0] = PREIMAGE_TLV_TYPE;
+#endif
+
 	payload = tlv_tlv_payload_new(cmd);
 	if (!fromwire_tlv(&rawpayload, &max, tlvs_tlv_tlv_payload, TLVS_ARRAY_SIZE_tlv_tlv_payload,
 			  payload, &payload->fields, allowed, &err_off, &err_type)) {
@@ -380,6 +388,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 			preimage_field = field;
 			break;
 		} else if (field->numtype % 2 == 0 && field->meta == NULL) {
+			/* This can only happen with FROMWIRE_TLV_ANY_TYPE! */
 			unknown_field = field;
 		}
 	}
@@ -390,19 +399,10 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 		return htlc_accepted_continue(cmd, NULL);
 
 	if (unknown_field != NULL) {
-#if !EXPERIMENTAL_FEATURES
-		plugin_log(cmd->plugin, LOG_UNUSUAL,
-			   "Payload contains unknown even TLV-type %" PRIu64
-			   ", can't safely accept the keysend. Deferring to "
-			   "other plugins.",
-			   unknown_field->numtype);
-		return htlc_accepted_continue(cmd, NULL);
-#else
 		plugin_log(cmd->plugin, LOG_INFORM,
 			   "Experimental: Accepting the keysend payment "
 			   "despite having unknown even TLV type %" PRIu64 ".",
 			   unknown_field->numtype);
-#endif
 	}
 
 	/* If malformed (amt is compulsory), let lightningd handle it. */
