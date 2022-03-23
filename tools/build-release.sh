@@ -8,7 +8,7 @@ if [ "$1" = "--inside-docker" ]; then
     cd /build
     ./configure
     make
-    make install DESTDIR=/"$VER"
+    make install DESTDIR=/"$VER" RUST_PROFILE=release
     cd /"$VER" && tar cvfz /release/clightning-"$VER".tar.gz -- *
     exit 0
 fi
