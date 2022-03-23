@@ -38,6 +38,16 @@ static char *opt_set_onionprint(bool (**printwire)(const u8 *msg))
 	return NULL;
 }
 
+static char *opt_list_tlvnames(void *unused)
+{
+	for (size_t i = 0; tlvs_printpeer_wire_byname[i].name; i++)
+		printf("  %s\n", tlvs_printpeer_wire_byname[i].name);
+
+	for (size_t i = 0; tlvs_printonion_wire_byname[i].name; i++)
+		printf("  %s\n", tlvs_printonion_wire_byname[i].name);
+	exit(0);
+}
+
 int main(int argc, char *argv[])
 {
 	const u8 *m;
@@ -51,6 +61,8 @@ int main(int argc, char *argv[])
 			   "Decode an error message instead of a peer message");
 	opt_register_arg("--tlv", opt_set_tlvname, NULL, &printtlv,
 			"Decode a TLV of this type instead of a peer message");
+	opt_register_noarg("--list-tlvs", opt_list_tlvnames, NULL,
+			   "List all --tlv names supported");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "[<hexmsg>]"
 			   "Decode a lightning spec wire message from hex, or a series of messages from stdin",
