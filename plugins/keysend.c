@@ -342,6 +342,9 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	struct out_req *req;
 	struct timeabs now = time_now();
 	const char *err;
+	u64 *allowed = tal_arr(cmd, u64, 1);
+	size_t err_off;
+	u64 err_type;
 
 	err = json_scan(tmpctx, buf, params,
 			"{onion:{payload:%},htlc:{payment_hash:%}}",
@@ -356,10 +359,15 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	if (s != max) {
 		return htlc_accepted_continue(cmd, NULL);
 	}
-	payload = fromwire_tlv_tlv_payload(cmd, &rawpayload, &max);
-	if (!payload) {
+
+	/* We explicitly allow our type. */
+	allowed[0] = 5482373484;
+	payload = tlv_tlv_payload_new(cmd);
+	if (!fromwire_tlv(&rawpayload, &max, tlvs_tlv_tlv_payload, TLVS_ARRAY_SIZE_tlv_tlv_payload,
+			  payload, &payload->fields, allowed, &err_off, &err_type)) {
 		plugin_log(
-		    cmd->plugin, LOG_UNUSUAL, "Malformed TLV payload %.*s",
+		    cmd->plugin, LOG_UNUSUAL, "Malformed TLV payload type %"PRIu64" at off %zu %.*s",
+		    err_type, err_off,
 		    json_tok_full_len(params),
 		    json_tok_full(buf, params));
 		return htlc_accepted_continue(cmd, NULL);

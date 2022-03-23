@@ -57,7 +57,8 @@ bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_tlv */
 bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
-		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED)
+		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
+		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
@@ -65,10 +66,6 @@ bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id U
 /* Generated stub for tlv_field_offset */
 size_t tlv_field_offset(const u8 *tlvstream UNNEEDED, size_t tlvlen UNNEEDED, u64 fieldtype UNNEEDED)
 { fprintf(stderr, "tlv_field_offset called!\n"); abort(); }
-/* Generated stub for tlv_fields_valid */
-bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
-		      size_t *err_index UNNEEDED)
-{ fprintf(stderr, "tlv_fields_valid called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
