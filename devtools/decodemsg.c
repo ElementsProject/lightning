@@ -11,20 +11,46 @@
   #include <wire/peer_printgen.h>
 #endif
 
+static char *opt_set_tlvname(const char *arg,
+			     bool (**printwire)(const char *fieldname,
+						const u8 **cursor,
+						size_t *plen))
+{
+	for (size_t i = 0; tlvs_printpeer_wire_byname[i].name; i++) {
+		if (streq(arg, tlvs_printpeer_wire_byname[i].name)) {
+			*printwire = tlvs_printpeer_wire_byname[i].print;
+			return NULL;
+		}
+	}
+
+	for (size_t i = 0; tlvs_printonion_wire_byname[i].name; i++) {
+		if (streq(arg, tlvs_printonion_wire_byname[i].name)) {
+			*printwire = tlvs_printonion_wire_byname[i].print;
+			return NULL;
+		}
+	}
+	return "Unknown tlv name";
+}
+
+static char *opt_set_onionprint(bool (**printwire)(const u8 *msg))
+{
+	*printwire = printonion_wire_message;
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	const u8 *m;
-	bool onion = false;
-	char *tlv_name = NULL;
+	bool (*printtlv)(const char *fieldname, const u8 **cursor, size_t *plen) = NULL;
+	bool (*printwire)(const u8 *msg) = printpeer_wire_message;
 	bool ok = true;
 
 	setup_locale();
 
-	opt_register_noarg("--onion", opt_set_bool, &onion,
+	opt_register_noarg("--onion", opt_set_onionprint, &printwire,
 			   "Decode an error message instead of a peer message");
-	opt_register_arg("--tlv", opt_set_charp, opt_show_charp,
-			&tlv_name,
-			"Deocde a TLV of this type instead of a peer message");
+	opt_register_arg("--tlv", opt_set_tlvname, NULL, &printtlv,
+			"Decode a TLV of this type instead of a peer message");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "[<hexmsg>]"
 			   "Decode a lightning spec wire message from hex, or a series of messages from stdin",
@@ -40,15 +66,12 @@ int main(int argc, char *argv[])
 		if (!m)
 			errx(1, "'%s' is not valid hex", argv[1]);
 
-		if (onion)
-			if (tlv_name)
-				ok &= printonion_wire_tlv_message(tlv_name, m);
-			else
-				ok &= printonion_wire_message(m);
-		else if (tlv_name)
-			ok &= printpeer_wire_tlv_message(tlv_name, m);
-		else
-			ok &= printpeer_wire_message(m);
+		if (printtlv) {
+			size_t len = tal_bytelen(m);
+			ok &= printtlv("", &m, &len);
+		} else {
+			ok &= printwire(m);
+		}
 	} else {
 		u8 *f = grab_fd(NULL, STDIN_FILENO);
 		size_t off = 0;
@@ -69,15 +92,12 @@ int main(int argc, char *argv[])
 				break;
 			}
 			m = tal_dup_arr(f, u8, f + off, be16_to_cpu(len), 0);
-			if (onion)
-				if (tlv_name)
-					ok &= printonion_wire_tlv_message(tlv_name, m);
-				else
-					ok &= printonion_wire_message(m);
-			else if (tlv_name)
-				ok &= printpeer_wire_tlv_message(tlv_name, m);
-			else
-				ok &= printpeer_wire_message(m);
+			if (printtlv) {
+				size_t len = tal_bytelen(m);
+				ok &= printtlv("", &m, &len);
+			} else {
+				ok &= printwire(m);
+			}
 			off += be16_to_cpu(len);
 			tal_free(m);
 		}

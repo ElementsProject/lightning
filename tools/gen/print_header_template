@@ -27,4 +27,12 @@ bool printwire_${tlv.name}(const char *fieldname, const u8 **cursor, size_t *ple
 bool printwire_${subtype.name}(const char *fieldname, const u8 **cursor, size_t *plen);
 % endfor
 % endif
+
+/* NULL-terminated map of TLV names -> print functions */
+struct tlv_print${options.enum_name}_byname {
+	const char *name;
+	bool (*print)(const char *fieldname, const u8 **cursor, size_t *plen);
+};
+extern const struct tlv_print${options.enum_name}_byname tlvs_print${options.enum_name}_byname[];
+
 #endif /* LIGHTNING_${idem} */
