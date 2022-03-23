@@ -1119,11 +1119,16 @@ char *bolt11_encode_(const tal_t *ctx,
 	/* Thus we do built-in fields, then extras last. */
 	encode_p(&data, &b11->payment_hash);
 
-	if (b11->description)
-		encode_d(&data, b11->description);
-
+	/* BOLT #11:
+	 * A writer:
+	 *...
+	 *    - MUST include either exactly one `d` or exactly one `h` field.
+	 */
+	/* We sometimes keep description around (to put in db), so prefer hash */
 	if (b11->description_hash)
 		encode_h(&data, b11->description_hash);
+	else if (b11->description)
+		encode_d(&data, b11->description);
 
 	if (n_field)
 		encode_n(&data, &b11->receiver_id);
