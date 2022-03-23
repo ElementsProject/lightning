@@ -3624,6 +3624,7 @@ def test_openchannel_init_alternate(node_factory, executor):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "upgrade not yet supported by VLS")
 @pytest.mark.developer("dev-force-features required")
 def test_upgrade_statickey(node_factory, executor):
     """l1 doesn't have option_static_remotekey, l2 offers it."""
@@ -3654,6 +3655,7 @@ def test_upgrade_statickey(node_factory, executor):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "upgrade not yet supported by VLS")
 @pytest.mark.developer("dev-force-features required")
 def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     """We test penalty before/after, and unilateral before/after"""
@@ -3780,6 +3782,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "upgrade not yet supported by VLS")
 @pytest.mark.developer("dev-force-features, dev-disconnect required")
 def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     """We reconnect at all points during retransmit, and we won't upgrade."""
