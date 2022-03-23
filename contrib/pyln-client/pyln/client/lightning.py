@@ -566,13 +566,14 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("delexpiredinvoice", payload)
 
-    def delinvoice(self, label, status):
+    def delinvoice(self, label, status, desconly=None):
         """
-        Delete unpaid invoice {label} with {status}.
+        Delete unpaid invoice {label} with {status} (or, with {desconly} true, remove its description).
         """
         payload = {
             "label": label,
-            "status": status
+            "status": status,
+            "desconly": desconly,
         }
         return self.call("delinvoice", payload)
 

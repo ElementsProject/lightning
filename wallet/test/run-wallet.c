@@ -212,6 +212,10 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 bool invoices_delete(struct invoices *invoices UNNEEDED,
 		     struct invoice invoice UNNEEDED)
 { fprintf(stderr, "invoices_delete called!\n"); abort(); }
+/* Generated stub for invoices_delete_description */
+bool invoices_delete_description(struct invoices *invoices UNNEEDED,
+				 struct invoice invoice UNNEEDED)
+{ fprintf(stderr, "invoices_delete_description called!\n"); abort(); }
 /* Generated stub for invoices_delete_expired */
 void invoices_delete_expired(struct invoices *invoices UNNEEDED,
 			     u64 max_expiry_time UNNEEDED)
@@ -232,9 +236,9 @@ bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
 			  const struct sha256 *rhash UNNEEDED)
 { fprintf(stderr, "invoices_find_unpaid called!\n"); abort(); }
 /* Generated stub for invoices_get_details */
-const struct invoice_details *invoices_get_details(const tal_t *ctx UNNEEDED,
-						   struct invoices *invoices UNNEEDED,
-						   struct invoice invoice UNNEEDED)
+struct invoice_details *invoices_get_details(const tal_t *ctx UNNEEDED,
+					     struct invoices *invoices UNNEEDED,
+					     struct invoice invoice UNNEEDED)
 { fprintf(stderr, "invoices_get_details called!\n"); abort(); }
 /* Generated stub for invoices_iterate */
 bool invoices_iterate(struct invoices *invoices UNNEEDED,

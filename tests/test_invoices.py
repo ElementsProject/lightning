@@ -733,3 +733,10 @@ def test_invoice_deschash(node_factory, chainparams):
 
     # Make sure we can pay it!
     l1.rpc.pay(inv['bolt11'])
+
+    # Try removing description.
+    l2.rpc.delinvoice('label', "paid", desconly=True)
+    assert 'description' not in only_one(l2.rpc.listinvoices()['invoices'])
+
+    with pytest.raises(RpcError, match=r'description already removed'):
+        l2.rpc.delinvoice('label', "paid", desconly=True)

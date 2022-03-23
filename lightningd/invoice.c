@@ -1382,15 +1382,17 @@ static struct command_result *json_delinvoice(struct command *cmd,
 					      const jsmntok_t *params)
 {
 	struct invoice i;
-	const struct invoice_details *details;
+	struct invoice_details *details;
 	struct json_stream *response;
 	const char *status, *actual_status;
 	struct json_escape *label;
 	struct wallet *wallet = cmd->ld->wallet;
+	bool *deldesc;
 
 	if (!param(cmd, buffer, params,
 		   p_req("label", param_label, &label),
 		   p_req("status", param_string, &status),
+		   p_opt_def("desconly", param_bool, &deldesc, false),
 		   NULL))
 		return command_param_failed();
 
@@ -1415,12 +1417,27 @@ static struct command_result *json_delinvoice(struct command *cmd,
 		return command_failed(cmd, js);
 	}
 
-	if (!wallet_invoice_delete(wallet, i)) {
-		log_broken(cmd->ld->log,
-			   "Error attempting to remove invoice %"PRIu64,
-			   i.id);
-		/* FIXME: allocate a generic DATABASE_ERROR code.  */
-		return command_fail(cmd, LIGHTNINGD, "Database error");
+	if (*deldesc) {
+		if (!details->description)
+			return command_fail(cmd, INVOICE_NO_DESCRIPTION,
+					    "Invoice description already removed");
+
+		if (!wallet_invoice_delete_description(wallet, i)) {
+			log_broken(cmd->ld->log,
+				   "Error attempting to delete description of invoice %"PRIu64,
+				   i.id);
+			/* FIXME: allocate a generic DATABASE_ERROR code.  */
+			return command_fail(cmd, LIGHTNINGD, "Database error");
+		}
+		details->description = tal_free(details->description);
+	} else {
+		if (!wallet_invoice_delete(wallet, i)) {
+			log_broken(cmd->ld->log,
+				   "Error attempting to remove invoice %"PRIu64,
+				   i.id);
+			/* FIXME: allocate a generic DATABASE_ERROR code.  */
+			return command_fail(cmd, LIGHTNINGD, "Database error");
+		}
 	}
 
 	response = json_stream_success(cmd);

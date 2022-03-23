@@ -893,6 +893,9 @@ bool wallet_invoice_find_unpaid(struct wallet *wallet,
 bool wallet_invoice_delete(struct wallet *wallet,
 			   struct invoice invoice);
 
+bool wallet_invoice_delete_description(struct wallet *wallet,
+				       struct invoice invoice);
+
 /**
  * wallet_invoice_delete_expired - Delete all expired invoices
  * with expiration time less than or equal to the given.
@@ -999,9 +1002,9 @@ void wallet_invoice_waitone(const tal_t *ctx,
  * @invoice - the invoice to get details on.
  * @return pointer to the invoice details allocated off of `ctx`.
  */
-const struct invoice_details *wallet_invoice_details(const tal_t *ctx,
-						     struct wallet *wallet,
-						     struct invoice invoice);
+struct invoice_details *wallet_invoice_details(const tal_t *ctx,
+					       struct wallet *wallet,
+					       struct invoice invoice);
 
 /**
  * wallet_htlc_stubs - Retrieve HTLC stubs for the given channel

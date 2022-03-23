@@ -2850,6 +2850,11 @@ bool wallet_invoice_delete(struct wallet *wallet,
 {
 	return invoices_delete(wallet->invoices, invoice);
 }
+bool wallet_invoice_delete_description(struct wallet *wallet,
+				       struct invoice invoice)
+{
+	return invoices_delete_description(wallet->invoices, invoice);
+}
 void wallet_invoice_delete_expired(struct wallet *wallet, u64 e)
 {
 	invoices_delete_expired(wallet->invoices, e);
@@ -2888,9 +2893,9 @@ void wallet_invoice_waitone(const tal_t *ctx,
 	invoices_waitone(ctx, wallet->invoices, invoice, cb, cbarg);
 }
 
-const struct invoice_details *wallet_invoice_details(const tal_t *ctx,
-						     struct wallet *wallet,
-						     struct invoice invoice)
+struct invoice_details *wallet_invoice_details(const tal_t *ctx,
+					       struct wallet *wallet,
+					       struct invoice invoice)
 {
 	return invoices_get_details(ctx, wallet->invoices, invoice);
 }

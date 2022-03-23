@@ -109,6 +109,17 @@ bool invoices_delete(struct invoices *invoices,
 		     struct invoice invoice);
 
 /**
+ * invoices_delete_description - Remove description from an invoice
+ *
+ * @invoices - the invoice handler.
+ * @invoice - the invoice to remove description from.
+ *
+ * Return false on failure.
+ */
+bool invoices_delete_description(struct invoices *invoices,
+				 struct invoice invoice);
+
+/**
  * invoices_delete_expired - Delete all expired invoices
  * with expiration time less than or equal to the given.
  *
@@ -213,8 +224,8 @@ void invoices_waitone(const tal_t *ctx,
  * @invoice - the invoice to get details on.
  * @return pointer to the invoice details allocated off of `ctx`.
  */
-const struct invoice_details *invoices_get_details(const tal_t *ctx,
-						   struct invoices *invoices,
-						   struct invoice invoice);
+struct invoice_details *invoices_get_details(const tal_t *ctx,
+					     struct invoices *invoices,
+					     struct invoice invoice);
 
 #endif /* LIGHTNING_WALLET_INVOICES_H */
