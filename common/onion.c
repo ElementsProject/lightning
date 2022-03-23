@@ -209,22 +209,21 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	const u8 *cursor = rs->raw_payload;
 	size_t max = tal_bytelen(cursor), len;
 	struct tlv_tlv_payload *tlv;
-	size_t badfield;
 
-	if (!pull_payload_length(&cursor, &max, true, &len))
-		goto general_fail;
-
-	tlv = fromwire_tlv_tlv_payload(p, &cursor, &max);
-	if (!tlv) {
-		/* FIXME: Fill in correct thing here! */
-		goto general_fail;
+	if (!pull_payload_length(&cursor, &max, true, &len)) {
+		*failtlvtype = 0;
+		*failtlvpos = tal_bytelen(rs->raw_payload);
+		goto fail_no_tlv;
 	}
 
-	/* FIXME: This API makes it really hard to get the actual
-	 * offset of field. */
-	if (!tlv_fields_valid(tlv->fields, accepted_extra_tlvs, &badfield)) {
-		*failtlvtype = tlv->fields[badfield].numtype;
-		goto field_bad;
+	/* We do this manually so we can accept extra types, and get
+	 * error off and type. */
+	tlv = tlv_tlv_payload_new(p);
+	if (!fromwire_tlv(&cursor, &max, tlvs_tlv_tlv_payload,
+			  TLVS_ARRAY_SIZE_tlv_tlv_payload,
+			  tlv, &tlv->fields, accepted_extra_tlvs,
+			  failtlvpos, failtlvtype)) {
+		goto fail;
 	}
 
 	/* BOLT #4:
@@ -336,14 +335,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 field_bad:
 	*failtlvpos = tlv_field_offset(rs->raw_payload, tal_bytelen(rs->raw_payload),
 				       *failtlvtype);
-	goto fail;
-
-general_fail:
-	*failtlvtype = 0;
-	*failtlvpos = tal_bytelen(rs->raw_payload);
-	goto fail;
 fail:
 	tal_free(tlv);
+
+fail_no_tlv:
 	tal_free(p);
 	return NULL;
 }

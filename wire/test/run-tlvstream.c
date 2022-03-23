@@ -468,12 +468,12 @@ int main(int argc, char *argv[])
 		max = tal_count(orig_p);
 		p = orig_p;
 		tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-		assert((!tlv_n1 && !p) || !tlv_n1_is_valid(tlv_n1, NULL));
+		assert(!tlv_n1 && !p);
 		assert(strstr(invalid_streams_either[i].reason, reason));
 		max = tal_count(orig_p);
 		p = orig_p;
 		tlv_n2 = fromwire_tlv_n2(tmpctx, &p, &max);
-		assert((!tlv_n2 && !p) || !tlv_n2_is_valid(tlv_n2, NULL));
+		assert(!tlv_n2 && !p);
 		assert(strstr(invalid_streams_either[i].reason, reason));
 	}
 
@@ -485,7 +485,7 @@ int main(int argc, char *argv[])
 		p = stream(tmpctx, invalid_streams_n1[i].hex);
 		max = tal_count(p);
 		tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-		assert((!tlv_n1 && !p) || !tlv_n1_is_valid(tlv_n1, NULL));
+		assert(!tlv_n1 && !p);
 		assert(strstr(invalid_streams_n1[i].reason, reason));
 	}
 
@@ -497,7 +497,7 @@ int main(int argc, char *argv[])
 		p = stream(tmpctx, invalid_streams_n1_combo[i].hex);
 		max = tal_count(p);
 		tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-		assert((!tlv_n1 && !p) || !tlv_n1_is_valid(tlv_n1, NULL));
+		assert(!tlv_n1 && !p);
 		assert(strstr(invalid_streams_n1_combo[i].reason, reason));
 	}
 
@@ -509,8 +509,7 @@ int main(int argc, char *argv[])
 		p = stream(tmpctx, invalid_streams_n2_combo[i].hex);
 		max = tal_count(p);
 		tlv_n2 = fromwire_tlv_n2(tmpctx, &p, &max);
-		assert((!tlv_n2 && !p) ||
-		       !tlv_n2_is_valid(tlv_n2, NULL));
+		assert(!tlv_n2 && !p);
 		assert(strstr(invalid_streams_n2_combo[i].reason, reason));
 	}
 
@@ -525,8 +524,7 @@ int main(int argc, char *argv[])
 		max = tal_count(orig_p);
 		p = orig_p;
 		tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-		assert(tlv_n1 &&
-		       tlv_n1_is_valid(tlv_n1, NULL));
+		assert(tlv_n1);
 		assert(max == 0);
 		assert(tlv_n1_eq(tlv_n1, &valid_streams[i].expect));
 
@@ -558,13 +556,11 @@ int main(int argc, char *argv[])
 			max = tal_count(orig_p);
 			p = orig_p;
 			tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-			assert((!tlv_n1 && !p) ||
-			       !tlv_n1_is_valid(tlv_n1, NULL));
+			assert(!tlv_n1 && !p);
 			max = tal_count(orig_p);
 			p = orig_p;
 			tlv_n2 = fromwire_tlv_n2(tmpctx, &p, &max);
-			assert((!tlv_n2 && !p) ||
-			       !tlv_n2_is_valid(tlv_n2, NULL));
+			assert(!tlv_n2 && !p);
 		}
 	}
 
@@ -578,8 +574,7 @@ int main(int argc, char *argv[])
 				    invalid_streams_n1[i].hex);
 			max = tal_count(p);
 			tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-			assert((!tlv_n1 && !p) ||
-			       !tlv_n1_is_valid(tlv_n1, NULL));
+			assert(!tlv_n1 && !p);
 		}
 	}
 
@@ -593,8 +588,7 @@ int main(int argc, char *argv[])
 				    invalid_streams_n1_combo[i].hex);
 			max = tal_count(p);
 			tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-			assert((!tlv_n1 && !p) ||
-			       !tlv_n1_is_valid(tlv_n1, NULL));
+			assert(!tlv_n1 && !p);
 		}
 	}
 
@@ -624,11 +618,12 @@ int main(int argc, char *argv[])
 				< pull_type(valid_streams[j].hex);
 
 			tlv_n1 = fromwire_tlv_n1(tmpctx, &p, &max);
-			assert(tlv_n1 &&
-			       tlv_n1_is_valid(tlv_n1, NULL) == expect_success);
-
-			if (!expect_success)
+			if (!expect_success) {
+				assert(!tlv_n1);
 				continue;
+			}
+
+			assert(tlv_n1);
 
 			/* Re-encoding should give the same results (except
 			 * ignored fields tests!) */

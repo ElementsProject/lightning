@@ -188,7 +188,6 @@ static struct tlv_encrypted_data_tlv *decrypt_encmsg(const tal_t *ctx,
 						     const struct secret *ss,
 						     const u8 *enctlv)
 {
-	struct tlv_encrypted_data_tlv *encmsg;
 	const u8 *cursor = decrypt_encmsg_raw(tmpctx, blinding, ss, enctlv);
 	size_t maxlen = tal_bytelen(cursor);
 
@@ -197,12 +196,7 @@ static struct tlv_encrypted_data_tlv *decrypt_encmsg(const tal_t *ctx,
 	 * - if the `enctlv` is not a valid TLV...
 	 *   - MUST drop the message.
 	 */
-	encmsg = fromwire_tlv_encrypted_data_tlv(ctx, &cursor, &maxlen);
-	if (!encmsg
-	    || !tlv_fields_valid(encmsg->fields, NULL, NULL))
-		return tal_free(encmsg);
-
-	return encmsg;
+	return fromwire_tlv_encrypted_data_tlv(ctx, &cursor, &maxlen);
 }
 
 bool decrypt_enctlv(const struct pubkey *blinding,

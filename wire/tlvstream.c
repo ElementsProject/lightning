@@ -110,10 +110,39 @@ size_t tlv_field_offset(const u8 *tlvstream, size_t tlvlen, u64 fieldtype)
 	return tlvlen;
 }
 
+static bool tlv_type_is_allowed(const struct tlv_field *f,
+				const u64 *extra_types)
+{
+	/* Simple case: it's an odd field. */
+	if (f->numtype % 2 != 0)
+		return true;
+
+	/* Now iterate through the extras and see if we should make an
+	 * exception. */
+	for (size_t i = 0; i < tal_count(extra_types); i++)
+		if (extra_types[i] == f->numtype)
+			return true;
+	return false;
+}
+
+/* Update err_off to point to current offset. */
+static void update_err_off(size_t *err_off, size_t initial_len, size_t max)
+{
+	if (err_off)
+		*err_off = initial_len - max;
+}
+
 bool fromwire_tlv(const u8 **cursor, size_t *max,
 		  const struct tlv_record_type *types, size_t num_types,
-		  void *record, struct tlv_field **fields)
+		  void *record, struct tlv_field **fields,
+		  const u64 *extra_types,
+		  size_t *err_off, u64 *err_type)
 {
+	bool first = true;
+	u64 prev_type = 0;
+	size_t initial_len = *max;
+
+	update_err_off(err_off, initial_len, *max);
 	while (*max > 0) {
 		struct tlv_field field;
 
@@ -129,8 +158,52 @@ bool fromwire_tlv(const u8 **cursor, size_t *max,
 		 */
 		if (!*cursor) {
 			SUPERVERBOSE("type");
+			if (err_type)
+				*err_type = 0;
 			goto fail;
 		}
+
+		/* BOLT #1:
+		 *  - if decoded `type`s are not strictly-increasing
+		 *    (including situations when two or more occurrences
+		 *    of the same `type` are met):
+		 *    - MUST fail to parse the `tlv_stream`.
+		 */
+		if (!first && field.numtype <= prev_type) {
+			if (field.numtype == prev_type)
+				SUPERVERBOSE("duplicate tlv type");
+			else
+				SUPERVERBOSE("invalid ordering");
+			if (err_type)
+				*err_type = field.numtype;
+			goto fail;
+		}
+		first = false;
+		prev_type = field.numtype;
+
+		/* BOLT #1:
+		 * - if `type` is known:
+		 *   - MUST decode the next `length` bytes using the known
+		 *     encoding for `type`.
+		 */
+		field.meta = NULL;
+		for (size_t i = 0; i < num_types; i++) {
+			if (types[i].type == field.numtype) {
+				field.meta = &types[i];
+				break;
+			}
+		}
+
+		if (!field.meta && !tlv_type_is_allowed(&field, extra_types)) {
+			SUPERVERBOSE("unknown even");
+			if (err_type != NULL)
+				*err_type = field.numtype;
+			goto fail;
+		}
+
+		/* We're happy with type field.  Move on. */
+		update_err_off(err_off, initial_len, *max);
+
 		field.length = fromwire_bigsize(cursor, max);
 
 		/* BOLT #1:
@@ -139,6 +212,8 @@ bool fromwire_tlv(const u8 **cursor, size_t *max,
 		 */
 		if (!*cursor) {
 			SUPERVERBOSE("length");
+			if (err_type)
+				*err_type = field.numtype;
 			goto fail;
 		}
 
@@ -149,28 +224,31 @@ bool fromwire_tlv(const u8 **cursor, size_t *max,
 		 */
 		if (field.length > *max) {
 			SUPERVERBOSE("value");
+			if (err_type)
+				*err_type = field.numtype;
 			goto fail;
 		}
-		field.value = tal_dup_arr(record, u8, *cursor, field.length, 0);
 
-		/* BOLT #1:
-		 * - if `type` is known:
-		 *   - MUST decode the next `length` bytes using the known
-		 *     encoding for `type`.
-		 */
-		field.meta = NULL;
-		for (size_t i = 0; i < num_types; i++) {
-			if (types[i].type == field.numtype)
-				field.meta = &types[i];
-		}
+		/* We're happy with length field.  Move on. */
+		update_err_off(err_off, initial_len, *max);
+
+		field.value = tal_dup_arr(record, u8, *cursor, field.length, 0);
 
 		if (field.meta) {
 			/* Length of message can't exceed 16 bits anyway. */
 			size_t tlvlen = field.length;
+
+			/* We're happy with type field.  Move on. */
+			update_err_off(err_off, initial_len, *max);
+
+			/* FIXME: We could add an err_off in here for more accuracy. */
 			field.meta->fromwire(cursor, &tlvlen, record);
 
-			if (!*cursor)
+			if (!*cursor) {
+				if (err_type != NULL)
+					*err_type = field.numtype;
 				goto fail;
+			}
 
 			/* BOLT #1:
 			 *  - if `length` is not exactly equal to that required
@@ -178,79 +256,31 @@ bool fromwire_tlv(const u8 **cursor, size_t *max,
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (tlvlen != 0) {
+				if (err_type != NULL)
+					*err_type = field.numtype;
 				SUPERVERBOSE("greater than encoding length");
 				goto fail;
 			}
 		} else {
+			/* We're happy with type field.  Move on. */
+			update_err_off(err_off, initial_len, *max);
+
 			/* We didn't read from *cursor through a fromwire, so
 			 * update manually. */
 			*cursor += field.length;
 		}
 		/* We've read bytes in ->fromwire, so update max */
 		*max -= field.length;
+
+		/* We're happy with contents.  Move on. */
+		update_err_off(err_off, initial_len, *max);
+
 		tal_arr_expand(fields, field);
 	}
 	return true;
 fail:
 	fromwire_fail(cursor, max);
 	return false;
-}
-
-static bool tlv_type_is_allowed(const struct tlv_field *f, u64 *extra_types) {
-	/* Simple case: we have internal meta fields or it's an odd field. */
-	if (f->numtype % 2 != 0 || f->meta != NULL)
-		return true;
-
-	if (extra_types == NULL)
-		return false;
-
-	/* Now iterate through the extras and see if we should make an
-	 * exception. */
-	for (size_t i = 0; i < tal_count(extra_types); i++)
-		if (extra_types[i] == f->numtype)
-			return true;
-	return false;
-}
-
-bool tlv_fields_valid(const struct tlv_field *fields, u64 *allow_extra,
-		      size_t *err_index)
-{
-	size_t numfields = tal_count(fields);
-	bool first = true;
-	u64 prev_type = 0;
-	for (int i=0; i<numfields; i++) {
-		const struct tlv_field *f = &fields[i];
-		if (!tlv_type_is_allowed(f, allow_extra)) {
-			/* BOLT #1:
-			 * - otherwise, if `type` is unknown:
-			 *   - if `type` is even:
-			 *     - MUST fail to parse the `tlv_stream`.
-			 *   - otherwise, if `type` is odd:
-			 *     - MUST discard the next `length` bytes.
-			 */
-			SUPERVERBOSE("unknown even");
-			if (err_index != NULL)
-				*err_index = i;
-			return false;
-		} else if (!first && f->numtype <= prev_type) {
-			/* BOLT #1:
-			 *  - if decoded `type`s are not strictly-increasing
-			 *    (including situations when two or more occurrences
-			 *    of the same `type` are met):
-			 *    - MUST fail to parse the `tlv_stream`.
-			 */
-			if (f->numtype == prev_type)
-				SUPERVERBOSE("duplicate tlv type");
-			else
-				SUPERVERBOSE("invalid ordering");
-			if (err_index != NULL)
-				*err_index = i;
-			return false;
-		}
-		first = false;
-		prev_type = f->numtype;
-	}
-	return true;
 }
 
 void towire_tlv(u8 **pptr,

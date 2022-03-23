@@ -24,15 +24,12 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_tlv */
 bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
-		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED)
+		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
+		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
 /* Generated stub for fromwire_wireaddr */
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
-/* Generated stub for tlv_fields_valid */
-bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
-		      size_t *err_index UNNEEDED)
-{ fprintf(stderr, "tlv_fields_valid called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

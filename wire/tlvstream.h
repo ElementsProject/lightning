@@ -38,15 +38,24 @@ struct tlv_field *tlv_make_fields_(const struct tlv_record_type *types,
 				   size_t num_types,
 				   const void *record);
 
-/* Generic TLV decode/encode */
+/**
+ * fromwire_tlv: generic TLV decode engine
+ * @cursor: cursor to update (set to NULL if we fail).
+ * @max: max len to update (always set to 0 if we succeed).
+ * @types / @num_types: table of known tlv types
+ * @record: the tlv to hand to @type-specific decode
+ * @fields: the fields array to populate
+ * @extra_types: tal_arr or NULL of unknown types to allow
+ * @err_off: NULL, or set to offset in tlv stream which failed.
+ * @err_type: NULL, or set to tlv type which failed (or 0 if malformed)
+ */
 bool fromwire_tlv(const u8 **cursor, size_t *max,
 		  const struct tlv_record_type *types, size_t num_types,
-		  void *record, struct tlv_field **fields);
+		  void *record, struct tlv_field **fields,
+		  const u64 *extra_types, size_t *err_off, u64 *err_type);
 void towire_tlv(u8 **pptr,
 		const struct tlv_record_type *types, size_t num_types,
 		const void *record);
-bool tlv_fields_valid(const struct tlv_field *fields, u64 *allow_extra,
-		      size_t *err_index);
 
 /* Get the offset of this field: returns size of msg if not found (or
  * tlv malformed) */

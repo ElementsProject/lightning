@@ -269,16 +269,10 @@ void towire_${tlv.name}(u8 **pptr, const struct ${tlv.struct_name()} *record)
 struct ${tlv.name} *fromwire_${tlv.name}(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
 	struct ${tlv.name} *record = ${tlv.name}_new(ctx);
-	if (!fromwire_tlv(cursor, max, tlvs_${tlv.name}, ${len(tlv.messages)}, record, &record->fields))
+	if (!fromwire_tlv(cursor, max, tlvs_${tlv.name}, ${len(tlv.messages)}, record, &record->fields, NULL, NULL, NULL))
 		return tal_free(record);
 	return record;
 }
-
-bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record, size_t *err_index)
-{
-	return tlv_fields_valid(record->fields, NULL, err_index);
-}
-
 % endfor ##  END TLV's
 % for msg in messages: ## START Wire Messages
 
