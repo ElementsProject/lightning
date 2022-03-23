@@ -284,7 +284,7 @@ On success, an object containing **route** is returned.  It is an array of objec
 - **direction** (u32): 0 if this channel is traversed from lesser to greater **id**, otherwise 1
 - **amount_msat** (msat): The amount expected by the node at the end of this hop
 - **delay** (u32): The total CLTV expected by the node at the end of this hop
-- **style** (string): The features understood by the destination node (one of "legacy", "tlv")
+- **style** (string): The features understood by the destination node (always "tlv")
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -309,4 +309,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0c1f92ff24ae0277fed3cf3fd41f2f45e4a57558a4b61fc51a1a698b4f3d8f01)
+[comment]: # ( SHA256STAMP:3494cb4003abfe32e8942ec5d92d0c464815d5e65edf29087cd2193eb414d694)
