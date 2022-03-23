@@ -2064,7 +2064,6 @@ def test_setchannel_state(node_factory, bitcoind):
 
     # Disconnect and unilaterally close from l2 to l1
     l2.rpc.disconnect(l1.info['id'], force=True)
-    l1.rpc.disconnect(l2.info['id'], force=True)
     result = l2.rpc.close(scid, 1)
     assert result['type'] == 'unilateral'
 
