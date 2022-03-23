@@ -421,6 +421,23 @@ bool invoices_delete(struct invoices *invoices, struct invoice invoice)
 	return true;
 }
 
+bool invoices_delete_description(struct invoices *invoices, struct invoice invoice)
+{
+	struct db_stmt *stmt;
+	int changes;
+
+	stmt = db_prepare_v2(invoices->db, SQL("UPDATE invoices"
+					       "   SET description = NULL"
+					       " WHERE ID = ?;"));
+	db_bind_u64(stmt, 0, invoice.id);
+	db_exec_prepared_v2(stmt);
+
+	changes = db_count_changes(stmt);
+	tal_free(stmt);
+
+	return changes == 1;
+}
+
 void invoices_delete_expired(struct invoices *invoices,
 			     u64 max_expiry_time)
 {
@@ -648,9 +665,9 @@ void invoices_waitone(const tal_t *ctx,
 			   false, invoice.id, cb, cbarg);
 }
 
-const struct invoice_details *invoices_get_details(const tal_t *ctx,
-						   struct invoices *invoices,
-						   struct invoice invoice)
+struct invoice_details *invoices_get_details(const tal_t *ctx,
+					     struct invoices *invoices,
+					     struct invoice invoice)
 {
 	struct db_stmt *stmt;
 	bool res;

@@ -1,19 +1,23 @@
-lightning-delinvoice -- Command for removing an invoice
-=======================================================
+lightning-delinvoice -- Command for removing an invoice (or just its description)
+=================================================================================
 
 SYNOPSIS
 --------
 
-**delinvoice** *label* *status*
+**delinvoice** *label* *status* [*desconly*]
 
 DESCRIPTION
 -----------
 
 The **delinvoice** RPC command removes an invoice with *status* as given
-in **listinvoices**.
+in **listinvoices**, or with *desconly* set, removes its description.
 
 The caller should be particularly aware of the error case caused by the
 *status* changing just before this command is invoked!
+
+If *desconly* is set, the invoice is not deleted, but has its
+description removed (this can save space with very large descriptions,
+as would be used with lightning-invoice(7) *deschashonly*.
 
 RETURN VALUE
 ------------
@@ -55,6 +59,7 @@ The following errors may be reported:
   *current_status* and *expected_status* fields.
   This is most likely due to the *status* of the invoice
   changing just before this command is invoked.
+- 908: The invoice already has no description, and *desconly* was set.
 
 AUTHOR
 ------
@@ -73,4 +78,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:cd3b009a6ef0c220ca21c6d8e3a5716ca2080997016cf00a2e26defc03cfac73)
+[comment]: # ( SHA256STAMP:73d9097734e85d438de90844ab78bdd737e6df53620542887170c7564a86b90b)

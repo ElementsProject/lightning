@@ -753,14 +753,18 @@ bool wallet_invoice_create(struct wallet *wallet UNNEEDED,
 bool wallet_invoice_delete(struct wallet *wallet UNNEEDED,
 			   struct invoice invoice UNNEEDED)
 { fprintf(stderr, "wallet_invoice_delete called!\n"); abort(); }
+/* Generated stub for wallet_invoice_delete_description */
+bool wallet_invoice_delete_description(struct wallet *wallet UNNEEDED,
+				       struct invoice invoice UNNEEDED)
+{ fprintf(stderr, "wallet_invoice_delete_description called!\n"); abort(); }
 /* Generated stub for wallet_invoice_delete_expired */
 void wallet_invoice_delete_expired(struct wallet *wallet UNNEEDED,
 				   u64 max_expiry_time UNNEEDED)
 { fprintf(stderr, "wallet_invoice_delete_expired called!\n"); abort(); }
 /* Generated stub for wallet_invoice_details */
-const struct invoice_details *wallet_invoice_details(const tal_t *ctx UNNEEDED,
-						     struct wallet *wallet UNNEEDED,
-						     struct invoice invoice UNNEEDED)
+struct invoice_details *wallet_invoice_details(const tal_t *ctx UNNEEDED,
+					       struct wallet *wallet UNNEEDED,
+					       struct invoice invoice UNNEEDED)
 { fprintf(stderr, "wallet_invoice_details called!\n"); abort(); }
 /* Generated stub for wallet_invoice_find_by_label */
 bool wallet_invoice_find_by_label(struct wallet *wallet UNNEEDED,

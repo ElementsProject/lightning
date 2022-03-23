@@ -13,7 +13,6 @@
         "additionalProperties": true,
         "required": [
           "label",
-          "description",
           "payment_hash",
           "status",
           "expires_at"
