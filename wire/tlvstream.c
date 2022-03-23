@@ -8,6 +8,11 @@
 #define SUPERVERBOSE(...)
 #endif
 
+/* This simply needs to be an address which is neither NULL nor a
+ * tal_arr return */
+static const u64 dummy;
+const u64 *FROMWIRE_TLV_ANY_TYPE = &dummy;
+
 static int tlv_field_cmp(const struct tlv_field *a, const struct tlv_field *b,
 			 void *x)
 {
@@ -115,6 +120,9 @@ static bool tlv_type_is_allowed(const struct tlv_field *f,
 {
 	/* Simple case: it's an odd field. */
 	if (f->numtype % 2 != 0)
+		return true;
+
+	if (extra_types == FROMWIRE_TLV_ANY_TYPE)
 		return true;
 
 	/* Now iterate through the extras and see if we should make an
