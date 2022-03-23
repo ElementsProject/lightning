@@ -126,13 +126,9 @@ bool printwire_${tlv.name}(const char *fieldname, const u8 **cursor, size_t *ple
 }
 % endfor
 
-% if bool(tlvs):
-bool print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg) {
-	size_t len = tal_count(msg);
+const struct tlv_print${options.enum_name}_byname tlvs_print${options.enum_name}_byname[] = {
     % for tlv in tlvs.values():
-	if (strcmp(tlv_name, "${tlv.name}") == 0)
-		return printwire_${tlv.name}(tlv_name, &msg, &len);
+	{ "${tlv.name}", printwire_${tlv.name} },
     % endfor
-	return false;
-}
-% endif
+	{ NULL, NULL }        
+};
