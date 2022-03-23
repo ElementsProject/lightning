@@ -101,6 +101,7 @@
           "payment_hash": {},
           "pay_index": {},
           "amount_received_msat": {},
+          "msatoshi_received": {},
           "paid_at": {},
           "payment_preimage": {}
         }
@@ -144,6 +145,9 @@
           "amount_received_msat": {
             "type": "msat",
             "description": "how much was actually received"
+          },
+          "msatoshi_received": {
+            "deprecated": "true"
           },
           "paid_at": {
             "type": "u64",
