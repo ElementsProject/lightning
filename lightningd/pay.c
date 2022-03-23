@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -1330,6 +1331,10 @@ static struct command_result *param_route_hop_style(struct command *cmd,
 	if (json_tok_streq(buffer, tok, "tlv")) {
 		return NULL;
 	}
+
+	/* We still let you *specify* this, but we ignore it! */
+	if (deprecated_apis && json_tok_streq(buffer, tok, "legacy"))
+		return NULL;
 
 	return command_fail_badparam(cmd, name, buffer, tok,
 			    "should be 'tlv' ('legacy' not supported)");

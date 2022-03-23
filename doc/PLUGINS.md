@@ -1358,7 +1358,6 @@ The payload of the hook call has the following format:
 {
   "onion": {
     "payload": "",
-    "type": "legacy",
     "short_channel_id": "1x2x3",
     "forward_amount": "42msat",
     "outgoing_cltv_value": 500014,
@@ -1379,7 +1378,6 @@ For detailed information about each field please refer to [BOLT 04 of the specif
  - `onion`:
    - `payload` contains the unparsed payload that was sent to us from the
    sender of the payment.
-   - `type` is `legacy` for realm 0 payments, `tlv` for realm > 1.
    - `short_channel_id` determines the channel that the sender is hinting
        should be used next.  Not present if we're the final destination.
    - `forward_amount` is the amount we should be forwarding to the next hop,

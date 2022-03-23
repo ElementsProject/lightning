@@ -48,7 +48,6 @@
             "type": "string",
             "description": "The features understood by the destination node",
             "enum": [
-              "legacy",
               "tlv"
             ]
           }
