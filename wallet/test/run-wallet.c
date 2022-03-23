@@ -536,7 +536,7 @@ struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
 				   const struct route_step *rs UNNEEDED,
 				   const struct pubkey *blinding UNNEEDED,
 				   const struct secret *blinding_ss UNNEEDED,
-				   u64 *accepted_extra_tlvs UNNEEDED,
+				   const u64 *accepted_extra_tlvs UNNEEDED,
 				   u64 *failtlvtype UNNEEDED,
 				   size_t *failtlvpos UNNEEDED)
 { fprintf(stderr, "onion_decode called!\n"); abort(); }
