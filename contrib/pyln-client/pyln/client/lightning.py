@@ -828,7 +828,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("help", payload)
 
     def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None,
-                preimage=None, exposeprivatechannels=None, cltv=None):
+                preimage=None, exposeprivatechannels=None, cltv=None, deschashonly=None):
         """
         Create an invoice for {msatoshi} with {label} and {description} with
         optional {expiry} seconds (default 1 week).
@@ -842,6 +842,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "preimage": preimage,
             "exposeprivatechannels": exposeprivatechannels,
             "cltv": cltv,
+            "deschashonly": deschashonly,
         }
         return self.call("invoice", payload)
 

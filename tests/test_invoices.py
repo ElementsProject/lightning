@@ -712,3 +712,24 @@ def test_listinvoices_filter(node_factory):
     for q in queries:
         r = l1.rpc.listinvoices(**q)
         assert len(r['invoices']) == 0
+
+
+def test_invoice_deschash(node_factory, chainparams):
+    l1, l2 = node_factory.line_graph(2)
+
+    # BOLT #11:
+    # * `h`: tagged field: hash of description
+    #  * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
+    #  * `8yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs`: SHA256 of 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
+    inv = l2.rpc.invoice(42, 'label', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon', deschashonly=True)
+    assert '8yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs' in inv['bolt11']
+
+    b11 = l2.rpc.decodepay(inv['bolt11'])
+    assert 'description' not in b11
+    assert b11['description_hash'] == '3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1'
+
+    listinv = only_one(l2.rpc.listinvoices()['invoices'])
+    assert listinv['description'] == 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
+
+    # Make sure we can pay it!
+    l1.rpc.pay(inv['bolt11'])

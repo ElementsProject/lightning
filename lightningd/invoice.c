@@ -1135,6 +1135,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	u32 *cltv;
 	struct jsonrpc_request *req;
 	struct plugin *plugin;
+	bool *hashonly;
 #if DEVELOPER
 	const jsmntok_t *routes;
 #endif
@@ -1153,6 +1154,7 @@ static struct command_result *json_invoice(struct command *cmd,
 			 &info->chanhints),
 		   p_opt_def("cltv", param_number, &cltv,
 			     cmd->ld->config.cltv_final),
+		   p_opt_def("deschashonly", param_bool, &hashonly, false),
 #if DEVELOPER
 		   p_opt("dev-routes", param_array, &routes),
 #endif
@@ -1165,7 +1167,7 @@ static struct command_result *json_invoice(struct command *cmd,
 				    INVOICE_MAX_LABEL_LEN);
 	}
 
-	if (strlen(desc_val) > BOLT11_FIELD_BYTE_LIMIT) {
+	if (strlen(desc_val) > BOLT11_FIELD_BYTE_LIMIT && !*hashonly) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Descriptions greater than %d bytes "
 				    "not yet supported "
@@ -1207,7 +1209,18 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->min_final_cltv_expiry = *cltv;
 	info->b11->expiry = *expiry;
 	info->b11->description = tal_steal(info->b11, desc_val);
-	info->b11->description_hash = NULL;
+	/* BOLT #11:
+	 * * `h` (23): `data_length` 52. 256-bit description of purpose of payment (SHA256).
+	 *...
+	 * A writer:
+	 *...
+	 *    - MUST include either exactly one `d` or exactly one `h` field.
+	 */
+	if (*hashonly) {
+		info->b11->description_hash = tal(info->b11, struct sha256);
+		sha256(info->b11->description_hash, desc_val, strlen(desc_val));
+	} else
+		info->b11->description_hash = NULL;
 	info->b11->payment_secret = tal_dup(info->b11, struct secret,
 					    &payment_secret);
 	info->b11->features = tal_dup_talarr(info->b11, u8,
