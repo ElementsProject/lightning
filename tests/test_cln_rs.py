@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from node_pb2_grpc import NodeStub
 from pathlib import Path
-from pyln.testing.utils import env, TEST_NETWORK
+from pyln.testing.utils import env, TEST_NETWORK, wait_for
 from ephemeral_port_reserve import reserve
 import grpc
 import node_pb2 as nodepb
@@ -69,7 +69,7 @@ def test_plugin_start(node_factory):
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     grpc_port = reserve()
-    bin_path = Path.cwd() / "target" / "debug" / "grpc-plugin"
+    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
     l1 = node_factory.get_node(options={"plugin": str(bin_path), "grpc-port": str(grpc_port)})
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
@@ -105,7 +105,7 @@ def test_grpc_generate_certificate(node_factory):
      - If we delete one cert or its key it should get regenerated.
     """
     grpc_port = reserve()
-    bin_path = Path.cwd() / "target" / "debug" / "grpc-plugin"
+    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
     l1 = node_factory.get_node(options={
         "plugin": str(bin_path),
         "grpc-port": str(grpc_port),
@@ -139,6 +139,18 @@ def test_grpc_generate_certificate(node_factory):
     assert contents[-1] != files[-1].open().read()
 
 
+def test_grpc_no_auto_start(node_factory):
+    """Ensure that we do not start cln-grpc unless a port is configured.
+    """
+    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
+    l1, = node_factory.get_nodes(1, opts={
+        "plugin": str(bin_path),
+    })
+
+    wait_for(lambda: [p for p in l1.rpc.plugin('list')['plugins'] if 'cln-grpc' in p['name']] == [])
+    assert l1.daemon.is_in_log(r'plugin-cln-grpc: Killing plugin: exited during normal operation')
+
+
 def test_grpc_wrong_auth(node_factory):
     """An mTLS client certificate should only be usable with its node
 
@@ -146,7 +158,7 @@ def test_grpc_wrong_auth(node_factory):
     and then we try to cross the wires.
     """
     grpc_port = reserve()
-    bin_path = Path.cwd() / "target" / "debug" / "grpc-plugin"
+    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
     l1, l2 = node_factory.get_nodes(2, opts={
         "plugin": str(bin_path),
         "start": False,

@@ -31,13 +31,17 @@ async fn main() -> Result<()> {
     let plugin = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "grpc-port",
-            options::Value::Integer(50051),
+            options::Value::Integer(-1),
             "Which port should the grpc plugin listen for incoming connections?",
         ))
         .start()
         .await?;
 
     let bind_port = match plugin.option("grpc-port") {
+        Some(options::Value::Integer(-1)) => {
+            log::info!("`grpc-port` option is not configured, exiting.");
+            return Ok(());
+        }
         Some(options::Value::Integer(i)) => i,
         None => return Err(anyhow!("Missing 'grpc-port' option")),
         Some(o) => return Err(anyhow!("grpc-port is not a valid integer: {:?}", o)),
