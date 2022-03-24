@@ -1138,6 +1138,7 @@ static struct command_result *json_invoice(struct command *cmd,
 #if DEVELOPER
 	const jsmntok_t *routes;
 #endif
+	struct sha256 desc_hash;
 
 	info = tal(cmd, struct invoice_info);
 	info->cmd = cmd;
@@ -1207,7 +1208,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->min_final_cltv_expiry = *cltv;
 	info->b11->expiry = *expiry;
 	info->b11->description = tal_steal(info->b11, desc_val);
-	info->b11->description_hash = NULL;
+	info->b11->description_hash = sha256(&desc_hash, desc_val, sizeof(*desc_val));
 	info->b11->payment_secret = tal_dup(info->b11, struct secret,
 					    &payment_secret);
 	info->b11->features = tal_dup_talarr(info->b11, u8,
