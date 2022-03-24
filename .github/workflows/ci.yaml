@@ -104,6 +104,7 @@ jobs:
       EXPERIMENTAL_FEATURES: 1
       COMPAT: 0
       PYTEST_PAR: 2
+      PYTEST_OPTS: "--timeout=300"
       TEST_CMD: "make check-protos"
       TEST_GROUP: 1
       TEST_GROUP_COUNT: 1
@@ -134,6 +135,7 @@ jobs:
           NETWORK: ${{ matrix.network }}
           TARGET_HOST: ${{ matrix.TARGET_HOST }}
           VALGRIND: ${{ matrix.valgrind }}
+          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
         run: |
           bash -x .github/scripts/build.sh
 
