@@ -688,6 +688,7 @@ def test_openchannel_hook(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100001)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "this test frequently hangs w/ VLSD")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_openchannel_hook_error_handling(node_factory, bitcoind):
