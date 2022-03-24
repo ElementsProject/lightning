@@ -1314,9 +1314,9 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     # the balance on l3 should equal the invoice
     bal = only_one(only_one(l3.rpc.listbalances()['accounts'])['balances'])['balance']
     assert incomes[0]['tag'] == 'invoice'
-    assert bal == incomes[0]['debit']
+    assert Millisatoshi(bal) == incomes[0]['debit_msat']
     inve = only_one([e for e in l1.rpc.listaccountevents()['events'] if e['tag'] == 'invoice'])
-    assert Millisatoshi(inve['debit']) == Millisatoshi(incomes[0]['debit']) + Millisatoshi(incomes[1]['debit'])
+    assert inve['debit_msat'] == incomes[0]['debit_msat'] + incomes[1]['debit_msat']
 
 
 @pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
