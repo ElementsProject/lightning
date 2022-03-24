@@ -233,4 +233,5 @@ int main(int argc, char *argv[])
 	assert(IsIPv6(&wa));
 
 	common_shutdown();
+	return 0;
 }
