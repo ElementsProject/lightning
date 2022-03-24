@@ -1387,9 +1387,15 @@ static struct command_result *json_pay(struct command *cmd,
 static void utc_timestring(const struct timeabs *time, char str[UTC_TIMELEN])
 {
 	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
+	struct tm *t = gmtime(&time->ts.tv_sec);
 
-	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ",
-		 gmtime(&time->ts.tv_sec));
+	/* Shouldn't happen, but see
+	 *  https://github.com/ElementsProject/lightning/issues/4991 :( */
+	if (!t) {
+		snprintf(str, UTC_TIMELEN, "1970-01-01T00:00:00.000Z");
+		return;
+	}
+	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", t);
 	snprintf(str, UTC_TIMELEN, iso8601_msec_fmt,
 		 (int) time->ts.tv_nsec / 1000000);
 }
