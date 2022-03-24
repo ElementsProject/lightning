@@ -212,7 +212,7 @@ void json_sendpay_fail_fields(struct json_stream *js,
 		json_add_payment_fields(js, payment);
 	if (pay_errcode == PAY_UNPARSEABLE_ONION && onionreply)
 		json_add_hex_talarr(js, "onionreply", onionreply->contents);
-	else
+	else if (fail)
 		json_add_routefail_info(js,
 					fail->erring_index,
 					fail->failcode,
