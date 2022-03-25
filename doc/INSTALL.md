@@ -38,9 +38,12 @@ Get dependencies:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev \
-      python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
+      python3 python3-pip python3-testresources net-tools zlib1g-dev libsodium-dev gettext
     pip3 install --upgrade pip
     pip3 install --user poetry
+    # ALERT: disable the viartualenvs only if you use external python plugins
+    # if you need to run only the test, skip the next line!
+    poetry config virtualenvs.create true
     poetry install
 
 If you don't have Bitcoin installed locally you'll need to install that
