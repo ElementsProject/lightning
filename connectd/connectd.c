@@ -1517,7 +1517,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	struct wireaddr *announceable;
 	char *tor_password;
 	bool dev_fast_gossip;
-	bool dev_disconnect;
+	bool dev_disconnect, dev_no_ping_timer;
 	char *errstr;
 
 	/* Fields which require allocation are allocated off daemon */
@@ -1536,15 +1536,17 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		&daemon->websocket_helper,
 		&daemon->websocket_port,
 		&dev_fast_gossip,
-		&dev_disconnect)) {
+		&dev_disconnect,
+		&dev_no_ping_timer)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
 	}
 
 #if DEVELOPER
-	/*~ Clearly mark this as a developer-only flag! */
+	/*~ Clearly mark these as developer-only flags! */
 	daemon->dev_fast_gossip = dev_fast_gossip;
+	daemon->dev_no_ping_timer = dev_no_ping_timer;
 #endif
 
 	if (!pubkey_from_node_id(&daemon->mykey, &daemon->id))

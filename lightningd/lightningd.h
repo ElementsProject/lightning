@@ -267,6 +267,9 @@ struct lightningd {
 
 	/* Tell channeld to disable commits after this many. */
 	int dev_disable_commit;
+
+	/* Tell channeld not to worry about pings. */
+	bool dev_no_ping_timer;
 #endif /* DEVELOPER */
 
 	/* tor support */
