@@ -191,6 +191,8 @@ struct daemon {
 #if DEVELOPER
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;
+	/* Hack to avoid ping timeouts */
+	bool dev_no_ping_timer;
 #endif
 };
 

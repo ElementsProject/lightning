@@ -558,7 +558,8 @@ int connectd_init(struct lightningd *ld)
 	    websocket_helper_path,
 	    ld->websocket_port,
 	    IFDEV(ld->dev_fast_gossip, false),
-	    IFDEV(ld->dev_disconnect_fd >= 0, false));
+	    IFDEV(ld->dev_disconnect_fd >= 0, false),
+	    IFDEV(ld->dev_no_ping_timer, false));
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

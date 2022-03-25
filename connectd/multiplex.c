@@ -391,6 +391,10 @@ static void send_ping(struct peer *peer);
 
 static void set_ping_timer(struct peer *peer)
 {
+	if (IFDEV(peer->daemon->dev_no_ping_timer, false)) {
+		peer->ping_timer = NULL;
+		return;
+	}
 	peer->ping_timer = new_reltimer(&peer->daemon->timers, peer,
 					time_from_sec(15 + pseudorand(30)),
 					send_ping, peer);
