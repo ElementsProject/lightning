@@ -123,6 +123,7 @@ jobs:
           -e EXPERIMENTAL_FEATURES=1 \
           -e COMPA=0 \
           -e PYTEST_PAR=2 \
+          -e PYTEST_OPTS="--timeout=300" \
           -e TEST_CMD="make check-protos" \
           -e TEST_GROUP=1 \
           -e TEST_GROUP_COUNT=1 \
