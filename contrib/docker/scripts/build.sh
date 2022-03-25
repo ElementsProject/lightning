@@ -21,6 +21,7 @@ export VALGRIND=${VALGRIND:-0}
 export FUZZING=${FUZZING:-0}
 export LIGHTNINGD_POSTGRES_NO_VACUUM=1
 
+pip3 install --upgrade pip
 pip3 install --user poetry
 poetry config virtualenvs.create false --local
 poetry install
@@ -28,8 +29,12 @@ poetry install
 git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc
 git submodule update --init --recursive
 
+# Used in docker image
+cd /work || return
+ls -la
+
 ./configure CC="$CC"
-cat config.vars
+# cat config.vars
 
 cat << EOF > pytest.ini
 [pytest]
