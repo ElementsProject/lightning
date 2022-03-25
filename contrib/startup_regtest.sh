@@ -14,16 +14,12 @@
 ##
 ##  $ start_ln 3
 ##
-##  Let's connect the nodes.
+##  Let's connect the nodes. The `connect a b` command connects node a to b.
 ##
-##  $ l2-cli getinfo | jq .id
-##    "02b96b03e42d9126cb5228752c575c628ad09bdb7a138ec5142bbca21e244ddceb"
-##  $ l2-cli getinfo | jq .binding[0].port
-##    9090
-##  $ l1-cli connect 02b96b03e42d9126cb5228752c575c628ad09bdb7a138ec5142bbca21e244ddceb@localhost:9090
-##    {
-##      "id" : "030b02fc3d043d2d47ae25a9306d98d2abb7fc9bee824e68b8ce75d6d8f09d5eb7"
-##    }
+##  $ connect 1 2
+##  {
+##    "id" : "030b02fc3d043d2d47ae25a9306d98d2abb7fc9bee824e68b8ce75d6d8f09d5eb7"
+##  }
 ##
 ##  When you're finished, clean up or stop
 ##
@@ -317,4 +313,13 @@ stop_elem() {
 
 	unset LN_NODES
 	unalias et-cli
+}
+
+connect() {
+	if [ -z "$1" ] || [ -z "$2" ]; then
+		printf "usage: connect 1 2\n"
+	else
+		to=$($LCLI --lightning-dir="/tmp/l$2-$network" -F getinfo | grep '^\(id\|binding\[0\]\.\(address\|port\)\)' | cut -d= -f2- | tr '\n' ' ' | (read -r ID ADDR PORT; echo "$ID@${ADDR}:$PORT"))
+		$LCLI --lightning-dir="/tmp/l$1-$network" connect "$to"
+	fi
 }
