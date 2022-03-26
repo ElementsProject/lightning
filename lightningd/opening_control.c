@@ -211,8 +211,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      take(new_height_states(NULL, uc->fc ? LOCAL : REMOTE,
 						     &lease_start_blockheight)),
 			      0, NULL, 0, 0, /* No leases on v1s */
-			      AMOUNT_MSAT(0), /* No htlc_minimum_msat */
-			      AMOUNT_MSAT(-1ULL)); /* No htlc_maximum_msat */
+			      ld->config.htlc_minimum_msat,
+			      ld->config.htlc_maximum_msat);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);

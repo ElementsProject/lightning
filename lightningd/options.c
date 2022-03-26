@@ -757,6 +757,10 @@ static const struct config testnet_config = {
 	/* Testnet blockspace is free. */
 	.max_concurrent_htlcs = 483,
 
+	/* channel defaults for htlc min/max values */
+	.htlc_minimum_msat = AMOUNT_MSAT(0),
+	.htlc_maximum_msat = AMOUNT_MSAT(-1ULL),  /* no limit */
+
 	/* Max amount of dust allowed per channel (50ksat) */
 	.max_dust_htlc_exposure_msat = AMOUNT_MSAT(50000000),
 
@@ -779,6 +783,9 @@ static const struct config testnet_config = {
 	.rescan = 30,
 
 	.use_dns = true,
+
+	/* Turn off IP address announcement discovered via peer `remote_addr` */
+	.disable_ip_discovery = false,
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
@@ -805,6 +812,10 @@ static const struct config mainnet_config = {
 
 	/* While up to 483 htlcs are possible we do 30 by default (as eclair does) to save blockspace */
 	.max_concurrent_htlcs = 30,
+
+	/* defaults for htlc min/max values */
+	.htlc_minimum_msat = AMOUNT_MSAT(0),
+	.htlc_maximum_msat = AMOUNT_MSAT(-1ULL),  /* no limit */
 
 	/* Max amount of dust allowed per channel (50ksat) */
 	.max_dust_htlc_exposure_msat = AMOUNT_MSAT(50000000),
@@ -838,6 +849,9 @@ static const struct config mainnet_config = {
 	.rescan = 15,
 
 	.use_dns = true,
+
+	/* Turn off IP address announcement discovered via peer `remote_addr` */
+	.disable_ip_discovery = false,
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
@@ -1102,6 +1116,12 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-per-satoshi", opt_set_u32, opt_show_u32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
+	opt_register_arg("--htlc-minimum-msat", opt_set_msat, NULL,
+			 &ld->config.htlc_minimum_msat,
+			 "The default minimal value an HTLC must carry in order to be forwardable for new channels");
+	opt_register_arg("--htlc-maximum-msat", opt_set_msat, NULL,
+			 &ld->config.htlc_maximum_msat,
+			 "The default maximal value an HTLC must carry in order to be forwardable for new channel");
 	opt_register_arg("--max-concurrent-htlcs", opt_set_u32, opt_show_u32,
 			 &ld->config.max_concurrent_htlcs,
 			 "Number of HTLCs one channel can handle concurrently. Should be between 1 and 483");
@@ -1120,6 +1140,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--announce-addr", opt_add_announce_addr, NULL,
 			 ld,
 			 "Set an IP address (v4 or v6) or .onion v3 to announce, but not listen on");
+	opt_register_noarg("--disable-ip-discovery", opt_set_bool,
+			 &ld->config.disable_ip_discovery,
+			 "Turn off announcement of discovered public IPs");
 
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
