@@ -33,6 +33,10 @@ struct config {
 	/* htlcs per channel */
 	u32 max_concurrent_htlcs;
 
+	/* htlc min/max values */
+	struct amount_msat htlc_minimum_msat;
+	struct amount_msat htlc_maximum_msat;
+
 	/* Max amount of dust allowed per channel */
 	struct amount_msat max_dust_htlc_exposure_msat;
 
@@ -51,6 +55,9 @@ struct config {
 
 	/* Are we allowed to use DNS lookup for peers. */
 	bool use_dns;
+
+	/* Turn off IP address announcement discovered via peer `remote_addr` */
+	bool disable_ip_discovery;
 
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;

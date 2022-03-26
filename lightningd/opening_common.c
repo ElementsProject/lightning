@@ -147,7 +147,7 @@ void channel_config(struct lightningd *ld,
 		= ld->config.max_dust_htlc_exposure_msat;
 
 	/* Don't care */
-	ours->htlc_minimum = AMOUNT_MSAT(0);
+	ours->htlc_minimum = ld->config.htlc_minimum_msat;
 
 	/* BOLT #2:
 	 *

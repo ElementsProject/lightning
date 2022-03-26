@@ -1076,7 +1076,7 @@ static void update_remote_addr(struct lightningd *ld,
 			       const struct node_id peer_id)
 {
 	/* failsafe to prevent privacy leakage. */
-	if (ld->always_use_proxy)
+	if (ld->always_use_proxy || ld->config.disable_ip_discovery)
 		return;
 
 	switch (remote_addr->type) {
