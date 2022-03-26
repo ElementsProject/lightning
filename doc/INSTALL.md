@@ -43,6 +43,11 @@ Get dependencies:
     pip3 install --user poetry
     poetry install
 
+If you are getting errors that `/home/<your username>/.local/bin/` is not in `PATH`, you will need to add it.
+
+    echo -e "\n\n"'export PATH="/home/<your username>/.local/bin:$PATH"' >>~/.bashrc
+    source ~/.bashrc
+
 If you don't have Bitcoin installed locally you'll need to install that
 as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
 
@@ -65,7 +70,7 @@ For development or running tests, get additional dependencies:
 Build lightning:
 
     ./configure
-    make
+    poetry run make
     sudo make install
 
 Running lightning:
