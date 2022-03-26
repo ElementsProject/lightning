@@ -71,6 +71,8 @@ On success, an object is returned, containing:
 - **rescan** (integer, optional): `rescan` field from config or cmdline, or default
 - **fee-per-satoshi** (u32, optional): `fee-per-satoshi` field from config or cmdline, or default
 - **max-concurrent-htlcs** (u32, optional): `max-concurrent-htlcs` field from config or cmdline, or default
+- **htlc-minimum-msat** (msat, optional): `htlc-minimum-msat` field from config or cmdline, or default
+- **htlc-maximum-msat** (msat, optional): `htlc-maximum-msat` field from config or cmdline, or default
 - **max-dust-htlc-exposure-msat** (msat, optional): `max-dust-htlc-exposure-mast` field from config or cmdline, or default
 - **min-capacity-sat** (u64, optional): `min-capacity-sat` field from config or cmdline, or default
 - **addr** (string, optional): `addr` field from config or cmdline (can be more than one)
@@ -80,6 +82,7 @@ On success, an object is returned, containing:
 - **autolisten** (boolean, optional): `autolisten` field from config or cmdline, or default
 - **proxy** (string, optional): `proxy` field from config or cmdline, or default
 - **disable-dns** (boolean, optional): `true` if `disable-dns` was set in config or cmdline
+- **disable-ip-discovery** (boolean, optional): `true` if `disable-ip-discovery` was set in config or cmdline
 - **encrypted-hsm** (boolean, optional): `true` if `encrypted-hsm` was set in config or cmdline
 - **rpc-file-mode** (string, optional): `rpc-file-mode` field from config or cmdline, or default
 - **log-level** (string, optional): `log-level` field from config or cmdline, or default
@@ -208,4 +211,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:59b197ad256bd701744ed5aa9f663166e48ef6320cf3a1538af0bd855daa3186)
+[comment]: # ( SHA256STAMP:ebc37d1f9cb452d312285a8168d2bb6da2d1dba08db56bbb8d3d7f47b58d7fa4)

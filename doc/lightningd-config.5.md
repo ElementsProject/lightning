@@ -278,6 +278,23 @@ values), and the order is "opening", "mutual_close", "unilateral_close",
 You would usually put this option in the per-chain config file, to avoid
 setting it on Bitcoin mainnet!  e.g. `~rusty/.lightning/regtest/config`.
 
+ **htlc-minimum-msat**=*MILLISATOSHI*
+Default: 0. Sets the minimal allowed HTLC value for newly created channels.
+If you want to change the `htlc_minimum_msat` for existing channels, use the
+RPC call lightning-setchannel(7).
+
+ **htlc-maximum-msat**=*MILLISATOSHI*
+Default: unset (no limit). Sets the maximum allowed HTLC value for newly created
+channels. If you want to change the `htlc_maximum_msat` for existing channels,
+use the RPC call lightning-setchannel(7).
+
+ **disable-ip-discovery**
+Turn off public IP discovery to send `node_announcement` updates that contain
+the discovered IP with TCP port 9735 as announced address. If unset and you
+open TCP port 9735 on your router towords your node, your node will remain
+connectable on changing IP addresses.  Note: Will always be disabled if you use
+'always-use-proxy'.
+
 ### Lightning channel and HTLC options
 
  **large-channels**

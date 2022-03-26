@@ -187,6 +187,14 @@
       "type": "u32",
       "description": "`max-concurrent-htlcs` field from config or cmdline, or default"
     },
+    "htlc-minimum-msat": {
+      "type": "msat",
+      "description": "`htlc-minimum-msat` field from config or cmdline, or default"
+    },
+    "htlc-maximum-msat": {
+      "type": "msat",
+      "description": "`htlc-maximum-msat` field from config or cmdline, or default"
+    },
     "max-dust-htlc-exposure-msat": {
       "type": "msat",
       "description": "`max-dust-htlc-exposure-mast` field from config or cmdline, or default"
@@ -222,6 +230,10 @@
     "disable-dns": {
       "type": "boolean",
       "description": "`true` if `disable-dns` was set in config or cmdline"
+    },
+    "disable-ip-discovery": {
+      "type": "boolean",
+      "description": "`true` if `disable-ip-discovery` was set in config or cmdline"
     },
     "encrypted-hsm": {
       "type": "boolean",

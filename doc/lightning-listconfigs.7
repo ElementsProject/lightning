@@ -122,6 +122,10 @@ On success, an object is returned, containing:
 .IP \[bu]
 \fBmax-concurrent-htlcs\fR (u32, optional): \fBmax-concurrent-htlcs\fR field from config or cmdline, or default
 .IP \[bu]
+\fBhtlc-minimum-msat\fR (msat, optional): \fBhtlc-minimum-msat\fR field from config or cmdline, or default
+.IP \[bu]
+\fBhtlc-maximum-msat\fR (msat, optional): \fBhtlc-maximum-msat\fR field from config or cmdline, or default
+.IP \[bu]
 \fBmax-dust-htlc-exposure-msat\fR (msat, optional): \fBmax-dust-htlc-exposure-mast\fR field from config or cmdline, or default
 .IP \[bu]
 \fBmin-capacity-sat\fR (u64, optional): \fBmin-capacity-sat\fR field from config or cmdline, or default
@@ -139,6 +143,8 @@ On success, an object is returned, containing:
 \fBproxy\fR (string, optional): \fBproxy\fR field from config or cmdline, or default
 .IP \[bu]
 \fBdisable-dns\fR (boolean, optional): \fBtrue\fR if \fBdisable-dns\fR was set in config or cmdline
+.IP \[bu]
+\fBdisable-ip-discovery\fR (boolean, optional): \fBtrue\fR if \fBdisable-ip-discovery\fR was set in config or cmdline
 .IP \[bu]
 \fBencrypted-hsm\fR (boolean, optional): \fBtrue\fR if \fBencrypted-hsm\fR was set in config or cmdline
 .IP \[bu]
@@ -276,4 +282,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:759090c2619cd40cba89b670ea16d4885f9aea520588d30d0ee8041369d5b91e
+\" SHA256STAMP:8d8f73010f55f3af6e050c944cf7670109224b3cf3166cc754047f6e20beef20
