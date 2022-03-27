@@ -114,6 +114,19 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	return ret;
 }
 
+static u8 *enctlv_from_obs2_encmsg(const tal_t *ctx,
+				   const struct privkey *blinding,
+				   const struct pubkey *node,
+				   const struct tlv_obs2_encmsg_tlvs *encmsg,
+				   struct privkey *next_blinding,
+				   struct pubkey *node_alias)
+{
+	u8 *encmsg_raw = tal_arr(NULL, u8, 0);
+	towire_tlv_obs2_encmsg_tlvs(&encmsg_raw, encmsg);
+	return enctlv_from_encmsg_raw(ctx, blinding, node, take(encmsg_raw),
+				      next_blinding, node_alias);
+}
+
 static u8 *enctlv_from_encmsg(const tal_t *ctx,
 			      const struct privkey *blinding,
 			      const struct pubkey *node,
@@ -181,6 +194,22 @@ static u8 *decrypt_encmsg_raw(const tal_t *ctx,
 		return tal_free(dec);
 
 	return dec;
+}
+
+static struct tlv_obs2_encmsg_tlvs *decrypt_obs2_encmsg(const tal_t *ctx,
+							const struct pubkey *blinding,
+							const struct secret *ss,
+							const u8 *enctlv)
+{
+	const u8 *cursor = decrypt_encmsg_raw(tmpctx, blinding, ss, enctlv);
+	size_t maxlen = tal_bytelen(cursor);
+
+	/* BOLT-onion-message #4:
+	 *
+	 * - if the `enctlv` is not a valid TLV...
+	 *   - MUST drop the message.
+	 */
+	return fromwire_tlv_obs2_encmsg_tlvs(ctx, &cursor, &maxlen);
 }
 
 static struct tlv_encrypted_data_tlv *decrypt_encmsg(const tal_t *ctx,
@@ -324,4 +353,132 @@ u8 *create_final_enctlv(const tal_t *ctx,
 
 	return enctlv_from_encmsg(ctx, blinding, final_node, encmsg,
 				  &unused_next_blinding, node_alias);
+}
+
+/* Obsolete variants */
+bool decrypt_obs2_enctlv(const struct pubkey *blinding,
+			 const struct secret *ss,
+			 const u8 *enctlv,
+			 struct pubkey *next_node,
+			 struct pubkey *next_blinding)
+{
+	struct tlv_obs2_encmsg_tlvs *encmsg;
+
+	encmsg = decrypt_obs2_encmsg(tmpctx, blinding, ss, enctlv);
+	if (!encmsg)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 *
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if the `enctlv` ... does not contain
+	 *      `next_node_id`:
+	 *      - MUST drop the message.
+	 */
+	if (!encmsg->next_node_id)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if the `enctlv` contains `self_id`:
+	 *      - MUST drop the message.
+	 */
+	if (encmsg->self_id)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if `blinding` is specified in the `enctlv`:
+	 *       - MUST pass that as `blinding` in the `onion_message`
+	 *    - otherwise:
+	 *       - MUST pass `blinding` derived as in
+	 *         [Route Blinding][route-blinding] (i.e.
+	 *         `E(i+1) = H(E(i) || ss(i)) * E(i)`).
+	 */
+	*next_node = *encmsg->next_node_id;
+	if (encmsg->next_blinding)
+		*next_blinding = *encmsg->next_blinding;
+	else {
+		/* E(i-1) = H(E(i) || ss(i)) * E(i) */
+		struct sha256 h;
+		blinding_hash_e_and_ss(blinding, ss, &h);
+		blinding_next_pubkey(blinding, &h, next_blinding);
+	}
+	return true;
+}
+
+bool decrypt_obs2_final_enctlv(const tal_t *ctx,
+			       const struct pubkey *blinding,
+			       const struct secret *ss,
+			       const u8 *enctlv,
+			       const struct pubkey *my_id,
+			       struct pubkey *alias,
+			       struct secret **self_id)
+{
+	struct tlv_obs2_encmsg_tlvs *encmsg;
+	struct secret node_id_blinding;
+
+	/* Repeat the tweak to get the alias it was using for us */
+	subkey_from_hmac("blinded_node_id", ss, &node_id_blinding);
+	*alias = *my_id;
+	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
+					  &alias->pubkey,
+					  node_id_blinding.data) != 1)
+		return false;
+
+	encmsg = decrypt_obs2_encmsg(tmpctx, blinding, ss, enctlv);
+	if (!encmsg)
+		return false;
+
+	if (tal_bytelen(encmsg->self_id) == sizeof(**self_id)) {
+		*self_id = tal(ctx, struct secret);
+		memcpy(*self_id, encmsg->self_id, sizeof(**self_id));
+	} else
+		*self_id = NULL;
+
+	return true;
+}
+
+u8 *create_obs2_enctlv(const tal_t *ctx,
+		       const struct privkey *blinding,
+		       const struct pubkey *node,
+		       const struct pubkey *next_node,
+		       size_t padlen,
+		       const struct pubkey *override_blinding,
+		       struct privkey *next_blinding,
+		       struct pubkey *node_alias)
+{
+	struct tlv_obs2_encmsg_tlvs *encmsg = tlv_obs2_encmsg_tlvs_new(tmpctx);
+	if (padlen)
+		encmsg->padding = tal_arrz(encmsg, u8, padlen);
+	encmsg->next_node_id = cast_const(struct pubkey *, next_node);
+	encmsg->next_blinding = cast_const(struct pubkey *, override_blinding);
+
+	return enctlv_from_obs2_encmsg(ctx, blinding, node, encmsg,
+				       next_blinding, node_alias);
+}
+
+u8 *create_obs2_final_enctlv(const tal_t *ctx,
+			     const struct privkey *blinding,
+			     const struct pubkey *final_node,
+			     size_t padlen,
+			     const struct secret *self_id,
+			     struct pubkey *node_alias)
+{
+	struct tlv_obs2_encmsg_tlvs *encmsg = tlv_obs2_encmsg_tlvs_new(tmpctx);
+	struct privkey unused_next_blinding;
+
+	if (padlen)
+		encmsg->padding = tal_arrz(encmsg, u8, padlen);
+	if (self_id)
+		encmsg->self_id = (u8 *)tal_dup(encmsg, struct secret, self_id);
+
+	return enctlv_from_obs2_encmsg(ctx, blinding, final_node, encmsg,
+				       &unused_next_blinding, node_alias);
 }

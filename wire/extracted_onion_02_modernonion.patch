@@ -1,9 +1,9 @@
 --- wire/onion_wire.csv	2021-11-16 15:17:39.446494580 +1030
 +++ wire/onion_wire.csv.raw	2021-11-16 15:36:00.046441058 +1030
 @@ -8,10 +8,36 @@
- tlvtype,tlv_payload,payment_data,8
- tlvdata,tlv_payload,payment_data,payment_secret,byte,32
- tlvdata,tlv_payload,payment_data,total_msat,tu64,
+ tlvdata,obs2_encmsg_tlvs,next_blinding,blinding,point,
+ tlvtype,obs2_encmsg_tlvs,self_id,14
+ tlvdata,obs2_encmsg_tlvs,self_id,data,byte,...
 +tlvtype,tlv_payload,encrypted_recipient_data,10
 +tlvdata,tlv_payload,encrypted_recipient_data,encrypted_data,byte,...
 +tlvtype,tlv_payload,blinding_point,12
