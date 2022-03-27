@@ -10,5 +10,7 @@ struct command;
 struct command_result *WARN_UNUSED_RESULT
 send_onion_reply(struct command *cmd,
 		 struct tlv_onionmsg_payload_reply_path *reply_path,
-		 struct tlv_onionmsg_payload *payload);
+		 struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path,
+		 const char *replyfield,
+		 const u8 *replydata);
 #endif /* LIGHTNING_PLUGINS_OFFERS_H */

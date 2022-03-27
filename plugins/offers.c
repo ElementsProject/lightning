@@ -41,13 +41,64 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+/* FIXME: replyfield string interface is to accomodate obsolete API */
+static struct command_result *
+send_obs2_onion_reply(struct command *cmd,
+		      struct tlv_obs2_onionmsg_payload_reply_path *reply_path,
+		      const char *replyfield,
+		      const u8 *replydata)
+{
+	struct out_req *req;
+	size_t nhops = tal_count(reply_path->path);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobs2onionmessage",
+				    finished, sendonionmessage_error, NULL);
+
+	json_add_pubkey(req->js, "first_id", &reply_path->first_node_id);
+	json_add_pubkey(req->js, "blinding", &reply_path->blinding);
+	json_array_start(req->js, "hops");
+	for (size_t i = 0; i < nhops; i++) {
+		struct tlv_obs2_onionmsg_payload *omp;
+		u8 *tlv;
+
+		json_object_start(req->js, NULL);
+		json_add_pubkey(req->js, "id", &reply_path->path[i]->node_id);
+
+		omp = tlv_obs2_onionmsg_payload_new(tmpctx);
+		omp->enctlv = reply_path->path[i]->encrypted_recipient_data;
+
+		/* Put payload in last hop. */
+		if (i == nhops - 1) {
+			if (streq(replyfield, "invoice")) {
+				omp->invoice = cast_const(u8 *, replydata);
+			} else {
+				assert(streq(replyfield, "invoice_error"));
+				omp->invoice_error = cast_const(u8 *, replydata);
+			}
+		}
+		tlv = tal_arr(tmpctx, u8, 0);
+		towire_tlv_obs2_onionmsg_payload(&tlv, omp);
+		json_add_hex_talarr(req->js, "tlv", tlv);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	return send_outreq(cmd->plugin, req);
+}
+
 struct command_result *
 send_onion_reply(struct command *cmd,
 		 struct tlv_onionmsg_payload_reply_path *reply_path,
-		 struct tlv_onionmsg_payload *payload)
+		 struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path,
+		 const char *replyfield,
+		 const u8 *replydata)
 {
 	struct out_req *req;
 	size_t nhops;
+
+	/* Exactly one must be set! */
+	assert(!reply_path != !obs2_reply_path);
+	if (obs2_reply_path)
+		return send_obs2_onion_reply(cmd, obs2_reply_path, replyfield, replydata);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
 				    finished, sendonionmessage_error, NULL);
@@ -64,14 +115,18 @@ send_onion_reply(struct command *cmd,
 		json_object_start(req->js, NULL);
 		json_add_pubkey(req->js, "id", &reply_path->path[i]->node_id);
 
-		/* Put payload in last hop. */
-		if (i == nhops - 1)
-			omp = payload;
-		else
-			omp = tlv_onionmsg_payload_new(tmpctx);
-
+		omp = tlv_onionmsg_payload_new(tmpctx);
 		omp->encrypted_data_tlv = reply_path->path[i]->encrypted_recipient_data;
 
+		/* Put payload in last hop. */
+		if (i == nhops - 1) {
+			if (streq(replyfield, "invoice")) {
+				omp->invoice = cast_const(u8 *, replydata);
+			} else {
+				assert(streq(replyfield, "invoice_error"));
+				omp->invoice_error = cast_const(u8 *, replydata);
+			}
+		}
 		tlv = tal_arr(tmpctx, u8, 0);
 		towire_tlv_onionmsg_payload(&tlv, omp);
 		json_add_hex_talarr(req->js, "tlv", tlv);
@@ -86,6 +141,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 							const jsmntok_t *params)
 {
 	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
+	struct tlv_obs2_onionmsg_payload_reply_path *obs2_reply_path = NULL;
 	struct tlv_onionmsg_payload_reply_path *reply_path = NULL;
 
 	if (!offers_enabled)
@@ -94,20 +150,31 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 	om = json_get_member(buf, params, "onion_message");
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
-		reply_path = json_to_reply_path(cmd, buf, replytok);
-		if (!reply_path)
-			plugin_err(cmd->plugin, "Invalid reply path %.*s?",
-				   json_tok_full_len(replytok),
-				   json_tok_full(buf, replytok));
+		bool obs2;
+		json_to_bool(buf, json_get_member(buf, om, "obs2"), &obs2);
+		if (obs2) {
+			obs2_reply_path = json_to_obs2_reply_path(cmd, buf, replytok);
+			if (!obs2_reply_path)
+				plugin_err(cmd->plugin, "Invalid obs2 reply path %.*s?",
+					   json_tok_full_len(replytok),
+					   json_tok_full(buf, replytok));
+		} else {
+			reply_path = json_to_reply_path(cmd, buf, replytok);
+			if (!reply_path)
+				plugin_err(cmd->plugin, "Invalid reply path %.*s?",
+					   json_tok_full_len(replytok),
+					   json_tok_full(buf, replytok));
+		}
 	}
 
 	invreqtok = json_get_member(buf, om, "invoice_request");
 	if (invreqtok) {
 		const u8 *invreqbin = json_tok_bin_from_hex(tmpctx, buf, invreqtok);
-		if (reply_path)
+		if (reply_path || obs2_reply_path)
 			return handle_invoice_request(cmd,
 						      invreqbin,
-						      reply_path);
+						      reply_path,
+						      obs2_reply_path);
 		else
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "invoice_request without reply_path");
@@ -117,7 +184,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 	if (invtok) {
 		const u8 *invbin = json_tok_bin_from_hex(tmpctx, buf, invtok);
 		if (invbin)
-			return handle_invoice(cmd, invbin, reply_path);
+			return handle_invoice(cmd, invbin, reply_path, obs2_reply_path);
 	}
 
 	return command_hook_success(cmd);

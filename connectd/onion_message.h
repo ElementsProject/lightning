@@ -3,7 +3,9 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 
-/* Onion message comes in from peer */
+/* Various messages come in from peer */
+void handle_obs2_onion_message(struct daemon *daemon,
+			       struct peer *peer, const u8 *msg);
 void handle_onion_message(struct daemon *daemon,
 			  struct peer *peer, const u8 *msg);
 
