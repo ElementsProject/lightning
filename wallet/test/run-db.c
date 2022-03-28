@@ -262,10 +262,13 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 	ld->config = test_config;
 
-	ok &= test_empty_db_migrate(ld);
-	ok &= test_vars(ld);
-	ok &= test_primitives();
-	ok &= test_manip_columns();
+	/* We do a runtime test here, so we still check compile! */
+	if (HAVE_SQLITE3) {
+		ok &= test_empty_db_migrate(ld);
+		ok &= test_vars(ld);
+		ok &= test_primitives();
+		ok &= test_manip_columns();
+	}
 
 	tal_free(ld);
 	common_shutdown();

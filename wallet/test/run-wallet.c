@@ -1906,15 +1906,18 @@ int main(int argc, const char *argv[])
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 
-	ok &= test_shachain_crud(ld, tmpctx);
-	ok &= test_channel_crud(ld, tmpctx);
-	ok &= test_channel_inflight_crud(ld, tmpctx);
-	ok &= test_channel_config_crud(ld, tmpctx);
-	ok &= test_channel_inflight_crud(ld, tmpctx);
-	ok &= test_wallet_outputs(ld, tmpctx);
-	ok &= test_htlc_crud(ld, tmpctx);
-	ok &= test_payment_crud(ld, tmpctx);
-	ok &= test_wallet_payment_status_enum();
+	/* We do a runtime test here, so we still check compile! */
+	if (HAVE_SQLITE3) {
+		ok &= test_shachain_crud(ld, tmpctx);
+		ok &= test_channel_crud(ld, tmpctx);
+		ok &= test_channel_inflight_crud(ld, tmpctx);
+		ok &= test_channel_config_crud(ld, tmpctx);
+		ok &= test_channel_inflight_crud(ld, tmpctx);
+		ok &= test_wallet_outputs(ld, tmpctx);
+		ok &= test_htlc_crud(ld, tmpctx);
+		ok &= test_payment_crud(ld, tmpctx);
+		ok &= test_wallet_payment_status_enum();
+	}
 
 	/* Do not clean up in the case of an error, we might want to debug the
 	 * database. */
