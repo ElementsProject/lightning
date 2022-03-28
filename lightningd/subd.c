@@ -690,7 +690,8 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 			 msg_send_next(conn, sd));
 }
 
-static struct subd *new_subd(struct lightningd *ld,
+static struct subd *new_subd(const tal_t *ctx,
+			     struct lightningd *ld,
 			     const char *name,
 			     void *channel,
 			     const struct node_id *node_id,
@@ -710,7 +711,7 @@ static struct subd *new_subd(struct lightningd *ld,
 						 const char *happenings),
 			     va_list *ap)
 {
-	struct subd *sd = tal(ld, struct subd);
+	struct subd *sd = tal(ctx, struct subd);
 	int msg_fd;
 	const char *debug_subd = NULL;
 	const char *shortname;
@@ -791,7 +792,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, NULL, NULL, false,
+	sd = new_subd(ld, ld, name, NULL, NULL, NULL, false,
 		      msgname, msgcb, NULL, NULL, &ap);
 	va_end(ap);
 
@@ -799,7 +800,8 @@ struct subd *new_global_subd(struct lightningd *ld,
 	return sd;
 }
 
-struct subd *new_channel_subd_(struct lightningd *ld,
+struct subd *new_channel_subd_(const tal_t *ctx,
+			       struct lightningd *ld,
 			       const char *name,
 			       void *channel,
 			       const struct node_id *node_id,
@@ -822,7 +824,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, billboardcb);
-	sd = new_subd(ld, name, channel, node_id, base_log,
+	sd = new_subd(ctx, ld, name, channel, node_id, base_log,
 		      talks_to_peer, msgname, msgcb, errcb, billboardcb, &ap);
 	va_end(ap);
 	return sd;

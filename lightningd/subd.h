@@ -104,6 +104,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 
 /**
  * new_channel_subd - create a new subdaemon for a specific channel.
+ * @ctx: context to allocate from (usually peer or channel)
  * @ld: global state
  * @name: basename of daemon
  * @channel: channel to associate.
@@ -120,7 +121,8 @@ struct subd *new_global_subd(struct lightningd *ld,
  * that many @fds are received before calling again.  If it returns -1, the
  * subdaemon is shutdown.
  */
-struct subd *new_channel_subd_(struct lightningd *ld,
+struct subd *new_channel_subd_(const tal_t *ctx,
+			       struct lightningd *ld,
 			       const char *name,
 			       void *channel,
 			       const struct node_id *node_id,
@@ -139,10 +141,10 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 						   const char *happenings),
 			       ...);
 
-#define new_channel_subd(ld, name, channel, node_id, log, 		\
+#define new_channel_subd(ctx, ld, name, channel, node_id, log, 		\
 			 talks_to_peer, msgname, msgcb, errcb, 		\
 			 billboardcb, ...)				\
-	new_channel_subd_((ld), (name), (channel), (node_id), 		\
+	new_channel_subd_((ctx), (ld), (name), (channel), (node_id),	\
 			  (log), (talks_to_peer),			\
 			  (msgname), (msgcb),				\
 			  typesafe_cb_postargs(void, void *, (errcb),	\

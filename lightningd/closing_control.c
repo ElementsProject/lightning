@@ -364,7 +364,7 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 				  | HSM_CAP_COMMITMENT_POINT);
 
 	channel_set_owner(channel,
-			  new_channel_subd(ld,
+			  new_channel_subd(channel, ld,
 					   "lightning_closingd",
 					   channel, &channel->peer->id,
 					   channel->log, true,
