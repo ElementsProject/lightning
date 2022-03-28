@@ -619,7 +619,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  HSM_CAP_SIGN_ONCHAIN_TX
 				  | HSM_CAP_COMMITMENT_POINT);
 
-	channel_set_owner(channel, new_channel_subd(ld,
+	channel_set_owner(channel, new_channel_subd(channel, ld,
 						    "lightning_onchaind",
 						    channel,
 						    &channel->peer->id,

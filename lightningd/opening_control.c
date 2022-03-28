@@ -867,7 +867,7 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 				  HSM_CAP_COMMITMENT_POINT
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
-	uc->open_daemon = new_channel_subd(peer->ld,
+	uc->open_daemon = new_channel_subd(peer, peer->ld,
 					"lightning_openingd",
 					uc, &peer->id, uc->log,
 					true, openingd_wire_name,

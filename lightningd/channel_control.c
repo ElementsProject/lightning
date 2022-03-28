@@ -590,7 +590,7 @@ void peer_start_channeld(struct channel *channel,
 				  | HSM_CAP_SIGN_ONCHAIN_TX);
 
 	channel_set_owner(channel,
-			  new_channel_subd(ld,
+			  new_channel_subd(channel, ld,
 					   "lightning_channeld",
 					   channel,
 					   &channel->peer->id,

@@ -3219,7 +3219,8 @@ bool peer_start_dualopend(struct peer *peer,
 				  | HSM_CAP_SIGN_REMOTE_TX
 				  | HSM_CAP_SIGN_WILL_FUND_OFFER);
 
-	channel->owner = new_channel_subd(peer->ld,
+	channel->owner = new_channel_subd(channel,
+					  peer->ld,
 					  "lightning_dualopend",
 					  channel,
 					  &peer->id,
@@ -3286,7 +3287,8 @@ void peer_restart_dualopend(struct peer *peer,
 				  | HSM_CAP_SIGN_WILL_FUND_OFFER);
 
 	channel_set_owner(channel,
-			  new_channel_subd(peer->ld, "lightning_dualopend",
+			  new_channel_subd(channel, peer->ld,
+					   "lightning_dualopend",
 					   channel,
 					   &peer->id,
 					   channel->log, true,
