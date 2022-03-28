@@ -470,9 +470,9 @@ static bool update_channel(struct gossmap *map, size_t cupdate_off)
 
 	scid.u64 = map_be64(map, scid_off);
 	chan = gossmap_find_chan(map, &scid);
+	/* This can happen if channel gets deleted! */
 	if (!chan)
-		errx(1, "update for channel %s not found!",
-		     type_to_string(tmpctx, struct short_channel_id, &scid));
+		return false;
 
 	/* We round this *down*, since too-low min is more conservative */
 	hc.htlc_min = u64_to_fp16(map_be64(map, htlc_minimum_off), false);
