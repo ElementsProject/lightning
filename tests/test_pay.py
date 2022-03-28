@@ -312,6 +312,40 @@ def test_pay_get_error_with_update(node_factory):
     wait_for(lambda: not l1.is_channel_active(chanid2))
 
 
+@pytest.mark.developer("needs DEVELOPER=1 for dev_suppress_gossip, dev-routes")
+def test_pay_error_update_fees(node_factory):
+    """We should process an update inside a temporary_channel_failure"""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
+
+    # Don't include any routehints in first invoice.
+    inv1 = l3.rpc.call('invoice',
+                       {'msatoshi': 123000,
+                        'label': 'test_pay_error_update_fees',
+                        'description': 'description',
+                        'dev-routes': []})
+
+    inv2 = l3.rpc.invoice(123000, 'test_pay_error_update_fees2', 'desc')  # noqa: F841
+
+    # Make sure l2 doesn't tell l1 directly that channel fee is changed.
+    l2.rpc.dev_suppress_gossip()
+    l2.rpc.setchannel(l3.info['id'], 1337, 137, enforcedelay=0)
+
+    # Should bounce off and retry...
+    l1.rpc.pay(inv1['bolt11'])
+    attempts = only_one(l1.rpc.paystatus(inv1['bolt11'])['pay'])['attempts']
+    assert len(attempts) == 2
+    # WIRE_FEE_INSUFFICIENT = UPDATE|12
+    assert attempts[0]['failure']['data']['failcode'] == 4108
+
+    # FIXME: We *DO NOT* handle misleading routehints!
+    # # Should ignore old routehint and do the same...
+    # l1.rpc.pay(inv2['bolt11'])
+    # attempts = only_one(l1.rpc.paystatus(inv2['bolt11'])['pay'])['attempts']
+    # assert len(attempts) == 2
+    # # WIRE_FEE_INSUFFICIENT = UPDATE|12
+    # assert attempts[0]['failure']['data']['failcode'] == 4108
+
+
 @pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_optional_args(node_factory, compat):
     l1, l2 = node_factory.line_graph(2)
