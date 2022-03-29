@@ -4,6 +4,7 @@ version = "0.10.2"
 description = "Test your c-lightning integration, plugins or whatever you want"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
+readme = "README.md"
 
 packages = [
   { include = "pyln/testing" },

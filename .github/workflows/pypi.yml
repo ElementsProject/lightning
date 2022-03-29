@@ -38,35 +38,37 @@ jobs:
       with:
         python-version: 3.7
 
-    - name: Install pypa/build
+    - name: Install pypa/build and poetry
       run: >-
-        python -m pip install build --user
+        python -m pip install build poetry --user
 
     - name: Build a binary wheel and a source tarball
       env:
         WORKDIR: ${{ matrix.WORKDIR }}
-      run: >-
-        cd ${{ env.WORKDIR}} &&
-        python -m build --sdist --wheel --outdir dist/ .
+      run: |
+        export VERSION=$(git describe --abbrev=0).post$(git describe --abbrev=1 | awk -F "-" '{print $2}')
+        cd ${{ env.WORKDIR}}
+        poetry version $VERSION
+        poetry build
 
     - name: Publish distribution 📦 to Test PyPI
       if: github.repository == 'ElementsProject/lightning'
-      uses: pypa/gh-action-pypi-publish@master
       env:
+        POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TEST_PYPI_API_TOKEN }}
         WORKDIR: ${{ matrix.WORKDIR }}
-      with:
-        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
-        packages_dir: "${{ env.WORKDIR}}/dist"
-        skip_existing: true
+      run: |
+        cd ${{ env.WORKDIR}}
+        poetry config repositories.testpypi https://test.pypi.org/legacy/
+        poetry publish --repository testpypi --no-interaction
 
     - name: Publish distribution 📦 to PyPI
       if: startsWith(github.ref, 'refs/tags') && github.repository == 'ElementsProject/lightning'
-      uses: pypa/gh-action-pypi-publish@master
       env:
+        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
         WORKDIR: ${{ matrix.WORKDIR }}
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
-        packages_dir: "${{ env.WORKDIR}}/dist"
-        # We should never have a conflict here, the version tags are unique
-        skip_existing: false
+      run: |
+        cd ${{ env.WORKDIR}}
+        export VERSION=$(git describe --abbrev=0)
+        poetry version $VERSION
+        poetry config repositories.testpypi https://test.pypi.org/legacy/
+        poetry publish --repository testpypi --no-interaction
