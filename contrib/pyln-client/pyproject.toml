@@ -4,6 +4,7 @@ version = "0.10.2.post1"
 description = "Client library and plugin library for c-lightning"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
+readme = "README.md"
 
 packages = [
   { include = "pyln/client" },
