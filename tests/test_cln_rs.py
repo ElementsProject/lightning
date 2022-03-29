@@ -15,6 +15,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def wait_for_grpc_start(node):
+    """This can happen before "public key" which start() swallows"""
+    wait_for(lambda: node.daemon.is_in_log(r'serving grpc on 0.0.0.0:'))
+
+
 def test_rpc_client(node_factory):
     l1 = node_factory.get_node()
     bin_path = Path.cwd() / "target" / "debug" / "examples" / "cln-rpc-getinfo"
@@ -82,7 +87,7 @@ def test_grpc_connect(node_factory):
         certificate_chain=cert_path.open('rb').read()
     )
 
-    l1.daemon.wait_for_log(r'serving grpc on 0.0.0.0:')
+    wait_for_grpc_start(l1)
     channel = grpc.secure_channel(
         f"localhost:{grpc_port}",
         creds,
@@ -165,7 +170,7 @@ def test_grpc_wrong_auth(node_factory):
         "grpc-port": str(grpc_port),
     })
     l1.start()
-    l1.daemon.wait_for_log(r'serving grpc on 0.0.0.0:')
+    wait_for_grpc_start(l1)
 
     def connect(node):
         p = Path(node.daemon.lightning_dir) / TEST_NETWORK
@@ -193,7 +198,7 @@ def test_grpc_wrong_auth(node_factory):
 
     l1.stop()
     l2.start()
-    l2.daemon.wait_for_log(r'serving grpc on 0.0.0.0:')
+    wait_for_grpc_start(l2)
 
     # This should not work, it's a different node
     with pytest.raises(Exception, match=r'Socket closed|StatusCode.UNAVAILABLE'):
