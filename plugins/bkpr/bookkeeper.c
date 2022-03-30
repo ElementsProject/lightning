@@ -489,8 +489,14 @@ static struct command_result *json_list_balances(struct command *cmd,
 		json_add_string(res, "account", accts[i]->name);
 		if (accts[i]->peer_id) {
 			json_add_node_id(res, "peer_id", accts[i]->peer_id);
+			json_add_bool(res, "we_opened", accts[i]->we_opened);
+			json_add_bool(res, "account_closed",
+				     !(!accts[i]->closed_event_db_id));
 			json_add_bool(res, "account_resolved",
 				      accts[i]->onchain_resolved_block > 0);
+			if (accts[i]->onchain_resolved_block > 0)
+				json_add_u32(res, "resolved_at_block",
+					     accts[i]->onchain_resolved_block);
 		}
 
 		json_array_start(res, "balances");
