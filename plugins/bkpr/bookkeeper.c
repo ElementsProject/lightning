@@ -863,7 +863,9 @@ static char *do_account_close_checks(const tal_t *ctx,
 	db_begin_transaction(db);
 
 	/* If is an external acct event, might be close channel related */
-	if (!is_channel_account(acct) && !e->spending_txid)
+	if (!is_channel_account(acct) && e->origin_acct) {
+		closed_acct = find_account(ctx, db, e->origin_acct);
+	} else if (!is_channel_account(acct) && !e->spending_txid)
 		closed_acct = find_close_account(ctx, db, &e->outpoint.txid);
 	else
 		closed_acct = acct;
