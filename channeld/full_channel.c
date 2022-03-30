@@ -1498,14 +1498,16 @@ bool channel_force_htlcs(struct channel *channel,
 
 		status_debug("Restoring HTLC %zu/%zu:"
 			     " id=%"PRIu64" amount=%s cltv=%u"
-			     " payment_hash=%s",
+			     " payment_hash=%s %s",
 			     i, tal_count(htlcs),
 			     htlcs[i]->id,
 			     type_to_string(tmpctx, struct amount_msat,
 					    &htlcs[i]->amount),
 			     htlcs[i]->cltv_expiry,
 			     type_to_string(tmpctx, struct sha256,
-					    &htlcs[i]->payment_hash));
+					    &htlcs[i]->payment_hash),
+			     htlcs[i]->payment_preimage ? "(have preimage)"
+			     : htlcs[i]->failed ? "(failed)" : "");
 
 		e = add_htlc(channel, htlcs[i]->state,
 			     htlcs[i]->id, htlcs[i]->amount,
