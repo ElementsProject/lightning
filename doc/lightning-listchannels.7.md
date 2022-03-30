@@ -45,7 +45,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **fee_per_millionth** (u32): Proportional fee changed by *source* to use this channel, in parts-per-million
 - **delay** (u32): The number of blocks delay required by *source* to use this channel
 - **htlc_minimum_msat** (msat): The smallest payment *source* will allow via this channel
-- **features** (hex): BOLT #9 features bitmap for this channel in channel_announcement message
+- **features** (hex): BOLT #9 features bitmap for this channel
 - **htlc_maximum_msat** (msat, optional): The largest payment *source* will allow via this channel
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -78,4 +78,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:e27d51a95411739ee10b082beaca55e33de4b2177b0e39df2223700c3141bc02)
+[comment]: # ( SHA256STAMP:37059659698456e1b9b7d8653f5141ca4b750793741bf5ec5547d8a47c739b2b)

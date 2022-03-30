@@ -50,7 +50,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **id** (pubkey): the peer we connected to
-- **features** (hex): BOLT 9 features bitmap offered by peer in init message (globalfeatures and features combined)
+- **features** (hex): BOLT 9 features bitmap offered by peer
 - **direction** (string): Whether they initiated connection or we did (one of "in", "out")
 - **address** (object): Address information (mainly useful if **direction** is *out*):
   - **type** (string): Type of connection (*torv2*/*torv3* only if **direction** is *out*) (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
@@ -97,4 +97,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:540ce22f5d912b59732b8b2659e4a950d1344eb926901e26476a246d9eb473b8)
+[comment]: # ( SHA256STAMP:010fe7ea3ccc23e22d5b16af94c0c81cb8a808c93e9db6a26241bf14a0422607)
