@@ -3631,3 +3631,40 @@ def test_close_weight_estimate(node_factory, bitcoind):
     signed_weight = int(bitcoind.rpc.decoderawtransaction(tx)['weight'])
     assert signed_weight <= actual_weight
     assert signed_weight >= actual_weight - 2
+
+
+@pytest.mark.developer("needs dev_disconnect")
+def test_onchain_close_upstream(node_factory, bitcoind, executor):
+    """https://github.com/ElementsProject/lightning/issues/4649
+
+We send an HTLC, and peer unilaterally closes: do we close upstream?
+    """
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {},
+                                               {'disconnect': ['-WIRE_REVOKE_AND_ACK', 'permfail']}])
+
+    # Start payment
+    inv = l3.rpc.invoice(msatoshi=10000, label='x', description='desc')['bolt11']
+    fut = executor.submit(l1.rpc.pay, inv)
+
+    # l3 goes onchain, without htlc
+    l3.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
+    l3.daemon.wait_for_log('sendrawtransaction')
+
+    # Mine it
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # l2 tells onchaind to look for missing HTLC.
+    l2.daemon.wait_for_logs(['Their unilateral tx',
+                             r'We want to know if htlc 0 is missing \(later\)'])
+
+    # After three blocks, onchaind says: definitely missing htlc
+    bitcoind.generate_block(3)
+    l2.daemon.wait_for_log('Sending 1 missing htlc messages')
+
+    # l2 will tell l1 it has failed the htlc.
+    l1.daemon.wait_for_log('peer_in WIRE_UPDATE_FAIL_HTLC')
+
+    with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE \(reply from remote\)'):
+        fut.result(TIMEOUT)
