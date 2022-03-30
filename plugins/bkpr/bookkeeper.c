@@ -231,13 +231,9 @@ static struct command_result *json_inspect(struct command *cmd,
 
 	/* Only available for channel accounts? */
 	if (!param(cmd, buf, params,
-		   p_opt("account", param_string, &acct_name),
+		   p_req("account", param_string, &acct_name),
 		   NULL))
 		return command_param_failed();
-
-	if (!acct_name)
-		return command_fail(cmd, PLUGIN_ERROR,
-				    "Account not provided");
 
 	if (streq(acct_name, WALLET_ACCT)
 	    || streq(acct_name, EXTERNAL_ACCT))
