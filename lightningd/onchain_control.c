@@ -390,6 +390,14 @@ static void handle_missing_htlc_output(struct channel *channel, const u8 *msg)
 		return;
 	}
 
+	/* We only set tell_if_missing on LOCAL htlcs */
+	if (htlc.owner != LOCAL) {
+		channel_internal_error(channel,
+				       "onchaind_missing_htlc_output: htlc %"PRIu64" is not local!",
+				       htlc.id);
+		return;
+	}
+
 	/* BOLT #5:
 	 *
 	 *   - for any committed HTLC that does NOT have an output in this
@@ -400,7 +408,7 @@ static void handle_missing_htlc_output(struct channel *channel, const u8 *msg)
 	 *       corresponding to the HTLC.
 	 *       - MAY fail the corresponding incoming HTLC sooner.
 	 */
-	onchain_failed_our_htlc(channel, &htlc, "missing in commitment tx");
+	onchain_failed_our_htlc(channel, &htlc, "missing in commitment tx", false);
 }
 
 static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
@@ -412,6 +420,14 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 		return;
 	}
 
+	/* It should tell us about timeouts on our LOCAL htlcs */
+	if (htlc.owner != LOCAL) {
+		channel_internal_error(channel,
+				       "onchaind_htlc_timeout: htlc %"PRIu64" is not local!",
+				       htlc.id);
+		return;
+	}
+
 	/* BOLT #5:
 	 *
 	 *   - if the commitment transaction HTLC output has *timed out* and
@@ -419,7 +435,7 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 	 *     - MUST *resolve* the output by spending it using the HTLC-timeout
 	 *     transaction.
 	 */
-	onchain_failed_our_htlc(channel, &htlc, "timed out");
+	onchain_failed_our_htlc(channel, &htlc, "timed out", true);
 }
 
 static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg UNUSED)

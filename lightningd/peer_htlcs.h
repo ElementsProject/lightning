@@ -54,7 +54,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 
 void onchain_failed_our_htlc(const struct channel *channel,
 			     const struct htlc_stub *htlc,
-			     const char *why);
+			     const char *why,
+			     bool should_exist);
 void onchain_fulfilled_htlc(struct channel *channel,
 			    const struct preimage *preimage);
 
