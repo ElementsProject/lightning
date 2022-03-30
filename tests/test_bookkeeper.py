@@ -48,7 +48,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     sync_blockheight(bitcoind, [l1])
     l1.daemon.wait_for_log(r'All outputs resolved.*')
 
-    evs = l1.rpc.listaccountevents()['events']
+    evs = l1.rpc.bkpr_listaccountevents()['events']
     close = find_first_tag(evs, 'channel_close')
     delayed_to = find_first_tag(evs, 'delayed_to_us')
 
@@ -59,7 +59,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
 
     # l2's fees should equal the trimmed htlc out
-    evs = l2.rpc.listaccountevents()['events']
+    evs = l2.rpc.bkpr_listaccountevents()['events']
     close = find_first_tag(evs, 'channel_close')
     deposit = find_first_tag(evs, 'deposit')
     fees = find_tags(evs, 'onchain_fee')
@@ -89,7 +89,7 @@ def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(80)
 
     sync_blockheight(bitcoind, [l1, l2])
-    evs = l1.rpc.listaccountevents()['events']
+    evs = l1.rpc.bkpr_listaccountevents()['events']
     # check that closing equals onchain deposits + fees
     close = find_first_tag(evs, 'channel_close')
     delayed_to = find_first_tag(evs, 'delayed_to_us')
@@ -98,7 +98,7 @@ def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     assert len(close_fee) == 1
     assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
 
-    evs = l2.rpc.listaccountevents()['events']
+    evs = l2.rpc.bkpr_listaccountevents()['events']
     close = find_first_tag(evs, 'channel_close')
     deposit = find_first_tag(evs, 'deposit')
     fees = find_tags(evs, 'onchain_fee')
@@ -134,7 +134,7 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     withdrawal = [u for u in unspent if u['txid'] == out['txid']]
 
     assert withdrawal[0]['amount'] == Decimal('0.00555555')
-    incomes = l1.rpc.listincome()['income_events']
+    incomes = l1.rpc.bkpr_listincome()['income_events']
     # There should only be two income events: deposits to wallet
     # for {amount}
     assert len(incomes) == 2
@@ -142,13 +142,13 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
         assert inc['account'] == 'wallet'
         assert inc['tag'] == 'deposit'
         assert inc['credit_msat'] == amount_msat
-    # The event should show up in the 'listaccountevents' however
-    events = l1.rpc.listaccountevents()['events']
+    # The event should show up in the 'bkpr_listaccountevents' however
+    events = l1.rpc.bkpr_listaccountevents()['events']
     assert len(events) == 3
     external = [e for e in events if e['account'] == 'external'][0]
     assert external['credit_msat'] == Millisatoshi(amount // 2 * 1000)
 
-    btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
+    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
     assert btc_balance['balance_msat'] == amount_msat * 2
 
     # Restart the node, issues a balance snapshot
@@ -157,15 +157,15 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     l1.restart()
 
     # the number of account + income events should be unchanged
-    incomes = l1.rpc.listincome()['income_events']
+    incomes = l1.rpc.bkpr_listincome()['income_events']
     assert len(find_tags(incomes, 'journal_entry')) == 0
     assert len(incomes) == 2
-    events = l1.rpc.listaccountevents()['events']
+    events = l1.rpc.bkpr_listaccountevents()['events']
     assert len(events) == 3
     assert len(find_tags(events, 'journal_entry')) == 0
 
     # the wallet balance should be unchanged
-    btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
+    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
     assert btc_balance['balance_msat'] == amount_msat * 2
 
     # ok now we mine a block
@@ -174,7 +174,7 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
 
     # expect the withdrawal to appear in the incomes
     # and there should be an onchain fee
-    incomes = l1.rpc.listincome()['income_events']
+    incomes = l1.rpc.bkpr_listincome()['income_events']
     # 2 wallet deposits, 1 wallet withdrawal, 1 onchain_fee
     assert len(incomes) == 4
     withdraw_amt = find_tags(incomes, 'withdrawal')[0]['debit_msat']
@@ -185,7 +185,7 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     fees = fee_events[0]['debit_msat']
 
     # wallet balance is decremented now
-    btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
+    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
     assert btc_balance['balance_msat'] == amount_msat * 2 - withdraw_amt - fees
 
 
@@ -214,9 +214,9 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
     l1.rpc.withdraw(waddr, amount // 2)
 
     # There should only be two income events: deposits to wallet
-    assert len(l1.rpc.listincome()['income_events']) == 2
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == 2
     # There are three account events: 2 wallet deposits, 1 external deposit
-    assert len(l1.rpc.listaccountevents()['events']) == 3
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 3
 
     # Stop node and remove the accounts data
     l1.stop()
@@ -224,15 +224,15 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
     l1.start()
 
     # the number of income events should be unchanged
-    assert len(l1.rpc.listincome()['income_events']) == 2
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == 2
     # we're now missing the external deposit
-    events = l1.rpc.listaccountevents()['events']
+    events = l1.rpc.bkpr_listaccountevents()['events']
     assert len(events) == 2
     assert len([e for e in events if e['account'] == 'external']) == 0
     assert len(find_tags(events, 'journal_entry')) == 0
 
     # the wallet balance should be unchanged
-    btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
+    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
     assert btc_balance['balance_msat'] == amount_msat * 2
 
     # ok now we mine a block
@@ -241,7 +241,7 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
 
     # expect the withdrawal to appear in the incomes
     # and there should be an onchain fee
-    incomes = l1.rpc.listincome()['income_events']
+    incomes = l1.rpc.bkpr_listincome()['income_events']
     # 2 wallet deposits, 1 onchain_fee
     assert len(incomes) == 3
     assert len(find_tags(incomes, 'withdrawal')) == 0
@@ -252,7 +252,7 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
     assert fees > Millisatoshi(amount // 2 * 1000)
 
     # wallet balance is decremented now
-    bal = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
+    bal = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
     assert bal['balance_msat'] == amount_msat * 2 - fees
 
 
@@ -269,8 +269,8 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
-    assert len(l1.rpc.listaccountevents()['events']) == 1
-    assert len(l1.rpc.listincome()['income_events']) == 1
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 1
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == 1
 
     # Ok, now we send some funds to an external address
     waddr = l1.bitcoin.rpc.getnewaddress()
@@ -280,8 +280,8 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     assert out1['txid'] in list(mempool.keys())
 
     # another account event, still one income event
-    assert len(l1.rpc.listaccountevents()['events']) == 2
-    assert len(l1.rpc.listincome()['income_events']) == 1
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 2
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == 1
 
     # unreserve the existing output
     l1.rpc.unreserveinputs(out1['psbt'], 200)
@@ -293,14 +293,14 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     assert out2['txid'] in list(mempool.keys())
 
     # another account event, still one income event
-    assert len(l1.rpc.listaccountevents()['events']) == 3
-    assert len(l1.rpc.listincome()['income_events']) == 1
+    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 3
+    assert len(l1.rpc.bkpr_listincome()['income_events']) == 1
 
     # ok now we mine a block
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
 
-    acct_evs = l1.rpc.listaccountevents()['events']
+    acct_evs = l1.rpc.bkpr_listaccountevents()['events']
     externs = [e for e in acct_evs if e['account'] == 'external']
     assert len(externs) == 2
     assert externs[0]['outpoint'][:-2] == out1['txid']
@@ -308,7 +308,7 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     assert externs[1]['outpoint'][:-2] == out2['txid']
     assert externs[1]['blockheight'] > 0
 
-    withdraws = find_tags(l1.rpc.listincome()['income_events'], 'withdrawal')
+    withdraws = find_tags(l1.rpc.bkpr_listincome()['income_events'], 'withdrawal')
     assert len(withdraws) == 1
     assert withdraws[0]['outpoint'][:-2] == out2['txid']
 
@@ -318,7 +318,7 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     for fee in fees:
         assert fee['txid'] == out2['txid']
 
-    fees = find_tags(l1.rpc.listincome(consolidate_fees=False)['income_events'], 'onchain_fee')
+    fees = find_tags(l1.rpc.bkpr_listincome(consolidate_fees=False)['income_events'], 'onchain_fee')
     assert len(fees) == 2
-    fees = find_tags(l1.rpc.listincome(consolidate_fees=True)['income_events'], 'onchain_fee')
+    fees = find_tags(l1.rpc.bkpr_listincome(consolidate_fees=True)['income_events'], 'onchain_fee')
     assert len(fees) == 1
