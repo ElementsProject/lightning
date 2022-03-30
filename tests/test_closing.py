@@ -3634,22 +3634,45 @@ def test_close_weight_estimate(node_factory, bitcoind):
 
 
 @pytest.mark.developer("needs dev_disconnect")
-def test_onchain_close_upstream(node_factory, bitcoind, executor):
+def test_onchain_close_upstream(node_factory, bitcoind):
     """https://github.com/ElementsProject/lightning/issues/4649
 
 We send an HTLC, and peer unilaterally closes: do we close upstream?
     """
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts=[{},
-                                               {},
-                                               {'disconnect': ['-WIRE_REVOKE_AND_ACK', 'permfail']}])
+                                         opts=[{'feerates': (7500, 7500, 7500, 7500)},
+                                               # Second commitment_signed is to l3
+                                               {'disconnect': ['xWIRE_COMMITMENT_SIGNED*2'],
+                                                # We want htlc killed by timeout, not a close due to ping timer.
+                                                'dev-no-ping-timer': None},
+                                               {'dev-no-ping-timer': None}])
 
-    # Start payment
-    inv = l3.rpc.invoice(msatoshi=10000, label='x', description='desc')['bolt11']
-    fut = executor.submit(l1.rpc.pay, inv)
+    ph1 = l3.rpc.invoice(msatoshi="10000sat", label='x1', description='desc2')['payment_hash']
+    ph2 = l3.rpc.invoice(msatoshi="10000sat", label='x2', description='desc2')['payment_hash']
 
-    # l3 goes onchain, without htlc
-    l3.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
+    route = l1.rpc.getroute(l3.info['id'], 1, 1)['route']
+
+    # Start a payment
+    l1.rpc.sendpay(route, ph1)
+
+    # l3 sends commitment_signed, then silence.
+    l2.daemon.wait_for_log('dev_disconnect: xWIRE_COMMITMENT_SIGNED')
+
+    # Send another payment, this times out.
+    l1.rpc.sendpay(route, ph2)
+
+    # This can take 30 seconds...
+    l2.daemon.wait_for_log('Adding HTLC 1 too slow: killing connection',
+                           timeout=TIMEOUT + 30)
+    l2.daemon.wait_for_log('Failing HTLC 1 due to peer death')
+
+    with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE \(reply from remote\)'):
+        l1.rpc.waitsendpay(ph2, timeout=TIMEOUT)
+
+    # l3 closes unilaterally.
+    wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+    l3.rpc.close(l2.info['id'], 1)
+
     l3.daemon.wait_for_log('sendrawtransaction')
 
     # Mine it
@@ -3659,12 +3682,19 @@ We send an HTLC, and peer unilaterally closes: do we close upstream?
     l2.daemon.wait_for_logs(['Their unilateral tx',
                              r'We want to know if htlc 0 is missing \(later\)'])
 
+#    # l1 disconnects now
+#    l1.rpc.disconnect(l2.info['id'], force=True)
+#    # Restart now, and reconnect
+#    l2.restart()
+#    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
     # After three blocks, onchaind says: definitely missing htlc
     bitcoind.generate_block(3)
     l2.daemon.wait_for_log('Sending 1 missing htlc messages')
 
     # l2 will tell l1 it has failed the htlc.
+#    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('peer_in WIRE_UPDATE_FAIL_HTLC')
 
     with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE \(reply from remote\)'):
-        fut.result(TIMEOUT)
+        l1.rpc.waitsendpay(ph1, timeout=TIMEOUT)
