@@ -343,8 +343,8 @@ void json_add_channel_apy(struct json_stream *res,
 				tal_fmt(apy, "%.4f%%", utilization * 100));
 	}
 
-	blocks_elapsed = apy->end_blockheight - apy->start_blockheight;
-	assert(blocks_elapsed > 0);
+	/* Can't divide by zero */
+	blocks_elapsed = apy->end_blockheight - apy->start_blockheight + 1;
 
 	/* APY (outbound) */
 	ok = calc_apy(apy->fees_out, apy->total_start_bal,
