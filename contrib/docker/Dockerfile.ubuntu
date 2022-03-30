@@ -31,6 +31,9 @@ RUN apt-get -qq update && \
     build-essential libssl-dev libffi-dev \
     python3-dev cargo
 
+# move the script in the root of the directory
+RUN cp contrib/docker/scripts/*.sh .
+
 RUN ls -la
 
 CMD ["./contrib/docker/scripts/entrypoint.sh"]
