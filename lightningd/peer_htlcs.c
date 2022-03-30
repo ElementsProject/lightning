@@ -1418,13 +1418,23 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_out *hout;
 
+	log_debug(channel->log, "onchain_failed_our_htlc");
 	hout = find_htlc_out(&ld->htlcs_out, channel, htlc->id);
-	if (!hout)
+	if (!hout) {
+		log_broken(channel->log, "HTLC id %"PRIu64" not found!",
+			   htlc->id);
 		return;
+	}
 
 	/* Don't fail twice (or if already succeeded)! */
-	if (hout->failonion || hout->failmsg || hout->preimage)
+	if (hout->failonion || hout->failmsg || hout->preimage) {
+		log_debug(channel->log, "HTLC id %"PRIu64" failonion = %p, failmsg = %p, preimage = %p",
+			  htlc->id,
+			  hout->failonion,
+			  hout->failmsg,
+			  hout->preimage);
 		return;
+	}
 
 	hout->failmsg = towire_permanent_channel_failure(hout);
 
@@ -1441,6 +1451,8 @@ void onchain_failed_our_htlc(const struct channel *channel,
 			   hout->failmsg, &we_filled);
 
 	if (hout->am_origin) {
+		log_debug(channel->log, "HTLC id %"PRIu64" am origin",
+			  htlc->id);
 		assert(why != NULL);
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_wire_name(WIRE_PERMANENT_CHANNEL_FAILURE),
@@ -1448,6 +1460,8 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		payment_failed(ld, hout, localfail);
 		tal_free(localfail);
 	} else if (hout->in) {
+		log_debug(channel->log, "HTLC id %"PRIu64" has incoming",
+			  htlc->id);
 		local_fail_in_htlc(hout->in,
 				   take(towire_permanent_channel_failure(NULL)));
 		wallet_forwarded_payment_add(hout->key.channel->peer->ld->wallet,
@@ -1456,7 +1470,9 @@ void onchain_failed_our_htlc(const struct channel *channel,
 					 hout->failmsg
 					 ? fromwire_peektype(hout->failmsg)
 					 : 0);
-	}
+	} else
+		log_broken(channel->log, "HTLC id %"PRIu64" is from nowhere?",
+			   htlc->id);
 }
 
 static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
