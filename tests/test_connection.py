@@ -120,6 +120,38 @@ def test_remote_addr(node_factory, bitcoind):
     assert address['port'] == 9735
 
 
+@pytest.mark.developer("needs DEVELOPER=1 for having localhost remote_addr and fast gossip")
+def test_remote_addr_disabled(node_factory, bitcoind):
+    """Simply tests that IP address discovery annoucements can be turned off
+    """
+    opts = {'announce-addr': [], 'disable-ip-discovery': None, 'may_reconnect': True}
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    # l1->l2
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
+    l1.fundchannel(l2)
+    bitcoind.generate_block(5)
+    l1.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
+    # l2->l3
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
+    l2.fundchannel(l3)
+    bitcoind.generate_block(5)
+
+    # restart both and wait for channels to be ready
+    l1.restart()
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.daemon.wait_for_log("Already have funding locked in")
+    l3.restart()
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l2.daemon.wait_for_log("Already have funding locked in")
+
+    # if ip discovery would have been enabled, we would have send an updated
+    # node_annoucement by now. Check we didn't...
+    assert not l2.daemon.is_in_log("Update our node_announcement for discovered address")
+
+
 def test_connect_standard_addr(node_factory):
     """Test standard node@host:port address
     """
