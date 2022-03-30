@@ -39,6 +39,7 @@ static const char *mvt_tags[] = {
 	"opener",
 	"lease_fee",
 	"leased",
+	"stealable",
 };
 
 const char *mvt_tag_str(enum mvt_tag tag)
@@ -252,6 +253,19 @@ struct chain_coin_mvt *new_onchain_htlc_withdraw(const tal_t *ctx,
 				      amount, true);
 }
 
+struct chain_coin_mvt *new_coin_external_spend_tags(const tal_t *ctx,
+						    const struct bitcoin_outpoint *outpoint,
+						    const struct bitcoin_txid *txid,
+						    u32 blockheight,
+						    struct amount_sat amount,
+						    enum mvt_tag *tags)
+{
+	return new_chain_coin_mvt(ctx, EXTERNAL, txid,
+				  outpoint, NULL, blockheight,
+				  tags,
+				  AMOUNT_MSAT(0), true, amount, 0);
+}
+
 struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       const struct bitcoin_outpoint *outpoint,
 					       const struct bitcoin_txid *txid,
@@ -259,10 +273,9 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       struct amount_sat amount,
 					       enum mvt_tag tag)
 {
-	return new_chain_coin_mvt(ctx, EXTERNAL, txid,
-				  outpoint, NULL, blockheight,
-				  take(new_tag_arr(NULL, tag)),
-				  AMOUNT_MSAT(0), true, amount, 0);
+	return new_coin_external_spend_tags(ctx, outpoint,
+					    txid, blockheight, amount,
+					    new_tag_arr(NULL, tag));
 }
 
 struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,

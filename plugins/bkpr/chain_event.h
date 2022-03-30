@@ -29,6 +29,10 @@ struct chain_event {
 	/* Is the node's wallet ignoring this? */
 	bool ignored;
 
+	/* Is this chain output stealable? If so
+	 * we'll need to watch it for longer */
+	bool stealable;
+
 	/* Amount we received in this event */
 	struct amount_msat credit;
 

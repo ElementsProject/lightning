@@ -56,6 +56,7 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 		e->spending_txid = NULL;
 
 	e->ignored = db_col_int(stmt, "e.ignored") == 1;
+	e->stealable = db_col_int(stmt, "e.stealable") == 1;
 
 	return e;
 }
@@ -128,6 +129,7 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.ignored"
+				     ", e.stealable"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -168,6 +170,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.ignored"
+				     ", e.stealable"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -201,6 +204,7 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.ignored"
+				     ", e.stealable"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -473,10 +477,12 @@ bool find_txo_chain(const tal_t *ctx,
 			    && !streq(pr->spend->tag, "to_miner")
 			    && !txid_in_list(txids, pr->spend->spending_txid)
 			    /* We dont trace utxos for non related accts */
-			    && pr->spend->acct_db_id == acct->db_id) {
+			    && (pr->spend->acct_db_id == acct->db_id
+				/* Unless it's stealable, in which case
+				 * we track the resolution of the htlc tx */
+				|| pr->spend->stealable))
 				tal_arr_expand(&txids,
 					       pr->spend->spending_txid);
-			}
 		}
 
 		if (sets)
@@ -604,6 +610,7 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.ignored"
+				     ", e.stealable"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -649,6 +656,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.spending_txid"
 					     ", e.payment_id"
 					     ", e.ignored"
+					     ", e.stealable"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -676,6 +684,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.spending_txid"
 					     ", e.payment_id"
 					     ", e.ignored"
+					     ", e.stealable"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -1203,6 +1212,7 @@ void maybe_update_account(struct db *db,
 			case STOLEN:
 			case TO_MINER:
 			case LEASE_FEE:
+			case STEALABLE:
 				/* Ignored */
 				break;
 		}
@@ -1319,6 +1329,7 @@ static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.ignored"
+				     ", e.stealable"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -1808,9 +1819,10 @@ bool log_chain_event(struct db *db,
 				     ", payment_id"
 				     ", spending_txid"
 				     ", ignored"
+				     ", stealable"
 				     ")"
 				     " VALUES "
-				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
 	if (e->origin_acct)
@@ -1838,6 +1850,7 @@ bool log_chain_event(struct db *db,
 		db_bind_null(stmt, 12);
 
 	db_bind_int(stmt, 13, e->ignored ? 1 : 0);
+	db_bind_int(stmt, 14, e->stealable ? 1 : 0);
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
 	e->acct_db_id = acct->db_id;

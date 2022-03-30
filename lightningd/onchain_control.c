@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/feerate.h>
+#include <ccan/tal/str/str.h>
 #include <common/key_derive.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>
@@ -640,7 +641,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 			  channel->state,
 			  FUNDING_SPEND_SEEN,
 			  reason,
-			  "Onchain funding spend");
+			  tal_fmt(tmpctx, "Onchain funding spend"));
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
