@@ -2126,26 +2126,32 @@ static void wait_for_resolved(struct tracked_output **outs)
 			take(towire_onchaind_all_irrevocably_resolved(outs)));
 }
 
-static int cmp_htlc_cltv(const struct htlc_stub *a,
-			 const struct htlc_stub *b, void *unused)
-{
-	if (a->cltv_expiry < b->cltv_expiry)
-		return -1;
-	else if (a->cltv_expiry > b->cltv_expiry)
-		return 1;
-	return 0;
-}
-
 struct htlcs_info {
 	struct htlc_stub *htlcs;
 	bool *tell_if_missing;
 	bool *tell_immediately;
 };
 
+struct htlc_with_tells {
+	struct htlc_stub htlc;
+	bool tell_if_missing, tell_immediately;
+};
+
+static int cmp_htlc_with_tells_cltv(const struct htlc_with_tells *a,
+				    const struct htlc_with_tells *b, void *unused)
+{
+	if (a->htlc.cltv_expiry < b->htlc.cltv_expiry)
+		return -1;
+	else if (a->htlc.cltv_expiry > b->htlc.cltv_expiry)
+		return 1;
+	return 0;
+}
+
 static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 {
 	struct htlcs_info *htlcs_info = tal(ctx, struct htlcs_info);
 	u8 *msg;
+	struct htlc_with_tells *htlcs;
 
 	/* commit_num is 0 for mutual close, but we don't care about HTLCs
 	 * then anyway. */
@@ -2159,7 +2165,7 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 	/* Read in htlcs */
 	for (;;) {
 		msg = wire_sync_read(queued_msgs, REQ_FD);
-		if (fromwire_onchaind_htlcs(htlcs_info, msg,
+		if (fromwire_onchaind_htlcs(tmpctx, msg,
 					    &htlcs_info->htlcs,
 					    &htlcs_info->tell_if_missing,
 					    &htlcs_info->tell_immediately)) {
@@ -2171,14 +2177,26 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 		tal_arr_expand(&queued_msgs, msg);
 	}
 
-	/* We want htlcs to be a valid tal parent, so make it a zero-length
-	 * array if NULL (fromwire makes it NULL if there are no entries) */
-	if (!htlcs_info->htlcs)
-		htlcs_info->htlcs = tal_arr(htlcs_info, struct htlc_stub, 0);
+	/* One convenient structure, so we sort them together! */
+	htlcs = tal_arr(tmpctx, struct htlc_with_tells, tal_count(htlcs_info->htlcs));
+	for (size_t i = 0; i < tal_count(htlcs); i++) {
+		htlcs[i].htlc = htlcs_info->htlcs[i];
+		htlcs[i].tell_if_missing = htlcs_info->tell_if_missing[i];
+		htlcs[i].tell_immediately = htlcs_info->tell_immediately[i];
+	}
 
 	/* Sort by CLTV, so matches are in CLTV order (and easy to skip dups) */
-	asort(htlcs_info->htlcs, tal_count(htlcs_info->htlcs),
-	      cmp_htlc_cltv, NULL);
+	asort(htlcs, tal_count(htlcs), cmp_htlc_with_tells_cltv, NULL);
+
+	/* Now put them back (prev were allocated off tmpctx) */
+	htlcs_info->htlcs = tal_arr(htlcs_info, struct htlc_stub, tal_count(htlcs));
+	htlcs_info->tell_if_missing = tal_arr(htlcs_info, bool, tal_count(htlcs));
+	htlcs_info->tell_immediately = tal_arr(htlcs_info, bool, tal_count(htlcs));
+	for (size_t i = 0; i < tal_count(htlcs); i++) {
+		htlcs_info->htlcs[i] = htlcs[i].htlc;
+		htlcs_info->tell_if_missing[i] = htlcs[i].tell_if_missing;
+		htlcs_info->tell_immediately[i] = htlcs[i].tell_immediately;
+	}
 
 	return htlcs_info;
 }
