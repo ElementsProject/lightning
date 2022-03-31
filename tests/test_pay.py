@@ -5208,6 +5208,7 @@ def test_legacyonion(node_factory, bitcoind):
                  "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"})
 
     wait_for(lambda: only_one(l3.rpc.listinvoices()['invoices'])['status'] == 'paid')
+    assert only_one(l2.rpc.listforwards()['forwards'])['style'] == 'legacy'
 
 
 def test_pay_manual_exclude(node_factory, bitcoind):

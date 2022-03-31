@@ -52,6 +52,14 @@
             "description": "payment hash sought by HTLC",
             "maxLength": 64,
             "minLength": 64
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "tlv"
+            ],
+            "description": "Either a legacy onion format or a modern tlv format"
           }
         },
         "allOf": [
@@ -72,6 +80,7 @@
                 "in_msatoshi": {},
                 "in_msat": {},
                 "status": {},
+                "style": {},
                 "received_time": {},
                 "resolved_time": {},
                 "out_channel": {},
@@ -102,6 +111,7 @@
                 "in_msatoshi": {},
                 "in_msat": {},
                 "status": {},
+                "style": {},
                 "received_time": {},
                 "resolved_time": {},
                 "payment_hash": {},
@@ -132,6 +142,7 @@
                 "in_msatoshi": {},
                 "in_msat": {},
                 "status": {},
+                "style": {},
                 "received_time": {},
                 "out_channel": {},
                 "payment_hash": {},
@@ -154,6 +165,7 @@
                 "in_msatoshi": {},
                 "in_msat": {},
                 "status": {},
+                "style": {},
                 "received_time": {},
                 "out_channel": {},
                 "payment_hash": {},
@@ -186,6 +198,7 @@
                 "in_msatoshi": {},
                 "in_msat": {},
                 "status": {},
+                "style": {},
                 "received_time": {},
                 "out_channel": {},
                 "payment_hash": {},
@@ -212,6 +225,7 @@
                 "in_msatoshi": {},
                 "in_msat": {},
                 "status": {},
+                "style": {},
                 "received_time": {},
                 "out_channel": {},
                 "payment_hash": {},

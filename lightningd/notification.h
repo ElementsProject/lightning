@@ -67,7 +67,8 @@ void notify_forward_event(struct lightningd *ld,
 			  const struct amount_msat *amount_out,
 			  enum forward_status state,
 			  enum onion_wire failcode,
-			  struct timeabs *resolved_time);
+			  struct timeabs *resolved_time,
+			  enum forward_style forward_style);
 
 void notify_sendpay_success(struct lightningd *ld,
 			    const struct wallet_payment *payment);

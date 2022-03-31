@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "db.h"
+#include <common/onion.h>
 #include <common/penalty_base.h>
 #include <common/utxo.h>
 #include <common/wallet.h>
@@ -159,6 +160,45 @@ static inline const char* forward_status_name(enum forward_status status)
 
 bool string_to_forward_status(const char *status_str, enum forward_status *status);
 
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
+enum forward_style {
+	FORWARD_STYLE_LEGACY = ONION_V0_PAYLOAD,
+	FORWARD_STYLE_TLV = ONION_TLV_PAYLOAD,
+	FORWARD_STYLE_UNKNOWN = 2, /* Not actually in db, safe to renumber! */
+};
+
+/* Wrapper to ensure types don't change, and we don't insert/extract
+ * invalid ones from db */
+static inline enum forward_style forward_style_in_db(enum forward_style o)
+{
+	switch (o) {
+	case FORWARD_STYLE_LEGACY:
+		BUILD_ASSERT(FORWARD_STYLE_LEGACY == 0);
+		return o;
+	case FORWARD_STYLE_TLV:
+		BUILD_ASSERT(FORWARD_STYLE_TLV == 1);
+		return o;
+	case FORWARD_STYLE_UNKNOWN:
+		/* Not recorded in DB! */
+		break;
+	}
+	fatal("%s: %u is invalid", __func__, o);
+}
+
+static inline const char *forward_style_name(enum forward_style style)
+{
+	switch (style) {
+	case FORWARD_STYLE_UNKNOWN:
+		return "UNKNOWN";
+	case FORWARD_STYLE_TLV:
+		return "tlv";
+	case FORWARD_STYLE_LEGACY:
+		return "legacy";
+	}
+	abort();
+}
+
 /* DB wrapper to check htlc_state */
 static inline enum htlc_state htlc_state_in_db(enum htlc_state s)
 {
@@ -234,6 +274,7 @@ struct forwarding {
 	struct short_channel_id channel_in, channel_out;
 	struct amount_msat msat_in, msat_out, fee;
 	struct sha256 *payment_hash;
+	enum forward_style forward_style;
 	enum forward_status status;
 	enum onion_wire failcode;
 	struct timeabs received_time;
@@ -1308,6 +1349,7 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
  * Add of update a forwarded_payment
  */
 void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
+				  enum forward_style forward_style,
 				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
