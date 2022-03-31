@@ -91,7 +91,8 @@ struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents 
 /* Generated stub for onion_payload_length */
 size_t onion_payload_length(const u8 *raw_payload UNNEEDED, size_t len UNNEEDED,
 			    bool has_realm UNNEEDED,
-			    bool *valid UNNEEDED)
+			    bool *valid UNNEEDED,
+			    enum onion_payload_type *type UNNEEDED)
 { fprintf(stderr, "onion_payload_length called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)

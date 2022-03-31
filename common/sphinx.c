@@ -627,7 +627,7 @@ struct route_step *process_onionpacket(
 	payload_size = onion_payload_length(paddedheader,
 					    tal_bytelen(msg->routinginfo),
 					    has_realm,
-					    &valid);
+					    &valid, NULL);
 
 	/* Can't decode?  Treat it as terminal. */
 	if (!valid) {

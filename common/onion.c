@@ -109,10 +109,11 @@ u8 *onion_final_hop(const tal_t *ctx,
 	return make_tlv_hop(ctx, tlv);
 }
 
-/* Returns true if valid, and fills in len. */
+/* Returns true if valid, and fills in type. */
 static bool pull_payload_length(const u8 **cursor,
 				size_t *max,
 				bool has_realm,
+				enum onion_payload_type *type,
 				size_t *len)
 {
 	/* *len will incorporate bytes we read from cursor */
@@ -126,6 +127,19 @@ static bool pull_payload_length(const u8 **cursor,
 	*len = fromwire_bigsize(cursor, max);
 	if (!cursor)
 		return false;
+
+	/* BOLT #4:
+	 * - Legacy `hop_data` format, identified by a single `0x00` byte for
+	 *   length. In this case the `hop_payload_length` is defined to be 32
+	 *   bytes.
+	 */
+	if (has_realm && *len == 0) {
+		if (type)
+			*type = ONION_V0_PAYLOAD;
+		assert(*cursor - start == 1);
+		*len = 1 + 32;
+		return true;
+	}
 
 	/* BOLT #4:
 	 * - `tlv_payload` format, identified by any length over `1`. In this
@@ -142,6 +156,8 @@ static bool pull_payload_length(const u8 **cursor,
 				return false;
 		}
 
+		if (type)
+			*type = ONION_TLV_PAYLOAD;
 		*len += (*cursor - start);
 		return true;
 	}
@@ -150,10 +166,11 @@ static bool pull_payload_length(const u8 **cursor,
 }
 
 size_t onion_payload_length(const u8 *raw_payload, size_t len, bool has_realm,
-			    bool *valid)
+			    bool *valid,
+			    enum onion_payload_type *type)
 {
 	size_t max = len, payload_len;
-	*valid = pull_payload_length(&raw_payload, &max, has_realm, &payload_len);
+	*valid = pull_payload_length(&raw_payload, &max, has_realm, type, &payload_len);
 
 	/* If it's not valid, copy the entire thing. */
 	if (!*valid)
@@ -210,10 +227,29 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	size_t max = tal_bytelen(cursor), len;
 	struct tlv_tlv_payload *tlv;
 
-	if (!pull_payload_length(&cursor, &max, true, &len)) {
+	if (!pull_payload_length(&cursor, &max, true, &p->type, &len)) {
 		*failtlvtype = 0;
 		*failtlvpos = tal_bytelen(rs->raw_payload);
 		goto fail_no_tlv;
+	}
+
+	/* Very limited legacy handling: forward only. */
+	if (p->type == ONION_V0_PAYLOAD && rs->nextcase == ONION_FORWARD) {
+		p->forward_channel = tal(p, struct short_channel_id);
+		fromwire_short_channel_id(&cursor, &max, p->forward_channel);
+		p->total_msat = NULL;
+		p->amt_to_forward = fromwire_amount_msat(&cursor, &max);
+		p->outgoing_cltv = fromwire_u32(&cursor, &max);
+		p->payment_secret = NULL;
+		p->blinding = NULL;
+		/* We can't handle blinding with a legacy payload */
+		if (blinding)
+			return tal_free(p);
+		/* If they somehow got an invalid onion this far, fail. */
+		if (!cursor)
+			return tal_free(p);
+		p->tlv = NULL;
+		return p;
 	}
 
 	/* We do this manually so we can accept extra types, and get
