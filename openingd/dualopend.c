@@ -3458,7 +3458,7 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` or `option_anchors` applies to the commitment transaction:
+ *  - if `option_static_remotekey` applies to the commitment transaction:
  *    - if `next_revocation_number` is greater than expected above, AND
  *    `your_last_per_commitment_secret` is correct for that
  *    `next_revocation_number` minus 1:
@@ -3504,7 +3504,7 @@ check_future_dataloss_fields(struct state *state,
 
 	/* BOLT #2:
 	 * - MUST NOT broadcast its commitment transaction.
-	 * - SHOULD fail the channel.
+	 * - SHOULD send an `error` to request the peer to fail the channel.
 	 */
 	wire_sync_write(REQ_FD,
 			take(towire_dualopend_fail_fallen_behind(NULL)));

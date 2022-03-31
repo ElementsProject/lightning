@@ -707,8 +707,10 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 	/* BOLT #2:
 	 *   - if the message contains a `fee_range`:
 	 *     - if there is no overlap between that and its own `fee_range`:
-	 *       - SHOULD fail the connection
+	 *       - SHOULD send a warning
+	 *       - MUST fail the channel if it doesn't receive a satisfying `fee_range` after a reasonable amount of time
 	 */
+	/* (Note we satisfy the "MUST fail" by our close command unilteraltimeout) */
 	if (!get_overlap(our_feerange, their_feerange, &overlap)) {
 		peer_failed_warn(pps, channel_id,
 			       "Unable to agree on a feerate."

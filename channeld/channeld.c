@@ -1107,7 +1107,7 @@ static struct bitcoin_signature *unraw_sigs(const tal_t *ctx,
 		 *...
 		 * * if `option_anchors` applies to this commitment
 		 *   transaction, `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is
-		 *   used.
+		 *   used as described in [BOLT #5]
 		 */
 		if (option_anchor_outputs)
 			sigs[i].sighash_type = SIGHASH_SINGLE|SIGHASH_ANYONECANPAY;
@@ -2468,8 +2468,7 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` or `option_anchors` applies to the
- *    commitment transaction:
+ *  - if `option_static_remotekey` applies to the commitment transaction:
  *    - if `next_revocation_number` is greater than expected above, AND
  *    `your_last_per_commitment_secret` is correct for that
  *    `next_revocation_number` minus 1:
@@ -2515,7 +2514,7 @@ static void check_future_dataloss_fields(struct peer *peer,
 
 	/* BOLT #2:
 	 * - MUST NOT broadcast its commitment transaction.
-	 * - SHOULD fail the channel.
+	 * - SHOULD send an `error` to request the peer to fail the channel.
 	 * - SHOULD store `my_current_per_commitment_point` to
 	 *   retrieve funds should the sending node broadcast its
 	 *   commitment transaction on-chain.
@@ -2532,8 +2531,7 @@ static void check_future_dataloss_fields(struct peer *peer,
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` or `option_anchors` applies to the
- *    commitment transaction:
+ *  - if `option_static_remotekey` applies to the commitment transaction:
  * ...
  *  - if `your_last_per_commitment_secret` does not match the expected values:
  *     - SHOULD send an `error` and fail the channel.
@@ -2797,7 +2795,7 @@ skip_tlvs:
 	 *     of the next `commitment_signed` it expects to receive.
 	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
-	 *   - if `option_static_remotekey` or `option_anchors` applies to the commitment transaction:
+	 *   - if `option_static_remotekey` applies to the commitment transaction:
 	 *     - MUST set `my_current_per_commitment_point` to a valid point.
 	 *   - otherwise:
 	 *     - MUST set `my_current_per_commitment_point` to its commitment
