@@ -48,7 +48,7 @@ static struct tlv_field *tlvstream_get_raw(struct tlv_field *stream, u64 type)
 	return NULL;
 }
 
-void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value TAKES, size_t valuelen)
+void tlvstream_set_raw(struct tlv_field **stream, u64 type, const void *value TAKES, size_t valuelen)
 {
 	struct tlv_field f, *e = tlvstream_get_raw(*stream, type);
 
