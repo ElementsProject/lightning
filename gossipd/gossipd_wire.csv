@@ -46,9 +46,6 @@ msgdata,gossipd_get_txout_reply,outscript,u8,len
 msgtype,gossipd_outpoint_spent,3024
 msgdata,gossipd_outpoint_spent,short_channel_id,short_channel_id,
 
-# master -> gossipd: stop gossip timers.
-msgtype,gossipd_dev_suppress,3032
-
 # master -> gossipd: do you have a memleak?
 msgtype,gossipd_dev_memleak,3033
 

@@ -153,3 +153,7 @@ msgtype,connectd_custommsg_out,2011
 msgdata,connectd_custommsg_out,id,node_id,
 msgdata,connectd_custommsg_out,msg_len,u16,
 msgdata,connectd_custommsg_out,msg,u8,msg_len
+
+# master -> connect: stop sending gossip.
+msgtype,connectd_dev_suppress_gossip,2032
+

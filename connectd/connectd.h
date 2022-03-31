@@ -193,6 +193,8 @@ struct daemon {
 	bool dev_fast_gossip;
 	/* Hack to avoid ping timeouts */
 	bool dev_no_ping_timer;
+	/* Hack to no longer send gossip */
+	bool dev_suppress_gossip;
 #endif
 };
 
