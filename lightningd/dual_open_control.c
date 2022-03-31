@@ -15,6 +15,7 @@
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
+#include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
@@ -1324,13 +1325,21 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 	 * A receiving node:
 	 *...
 	 *  - if the `scriptpubkey` is not in one of the above forms:
-	 *    - SHOULD fail the connection.
+	 *    - SHOULD send a `warning`
 	 */
 	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit, anchors)) {
-		channel_fail_permanent(channel,
-				       REASON_PROTOCOL,
-				       "Bad shutdown scriptpubkey %s",
-				       tal_hex(channel, scriptpubkey));
+		u8 *warning = towire_warningfmt(NULL,
+						&channel->cid,
+						"Bad shutdown scriptpubkey %s",
+						tal_hex(tmpctx, scriptpubkey));
+
+		/* Get connectd to send warning, and then allow reconnect. */
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_final_msg(NULL,
+								  &channel->peer->id,
+								  warning)));
+		channel_fail_reconnect(channel, "Bad shutdown scriptpubkey %s",
+				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}
 

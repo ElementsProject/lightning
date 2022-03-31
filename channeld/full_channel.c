@@ -559,7 +559,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *...
 	 *  - if sending node sets `cltv_expiry` to greater or equal to
 	 *    500000000:
-	 *    - SHOULD fail the channel.
+	 *    - SHOULD send a `warning` and close the connection, or send an
+	 *      `error` and fail the channel.
 	 */
 	if (!blocks_to_abs_locktime(cltv_expiry, &htlc->expiry)) {
 		return CHANNEL_ERR_INVALID_EXPIRY;
@@ -584,7 +585,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * A receiving node:
 	 *  - receiving an `amount_msat` equal to 0, OR less than its own
 	 *    `htlc_minimum_msat`:
-	 *    - SHOULD fail the channel.
+	 *        - SHOULD send a `warning` and close the connection, or send an
+	 *        `error` and fail the channel.
 	 */
 	if (amount_msat_eq(htlc->amount, AMOUNT_MSAT(0))) {
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
@@ -652,7 +654,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *   - if a sending node... adds more than receiver
 	 *     `max_htlc_value_in_flight_msat` worth of offered HTLCs to its
 	 *     local commitment transaction:
-	 *     - SHOULD fail the channel.
+	 *     - SHOULD send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 
 	/* We don't enforce this for channel_force_htlcs: some might already
@@ -670,7 +673,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *  - receiving an `amount_msat` that the sending node cannot afford at
 	 *    the current `feerate_per_kw` (while maintaining its channel
 	 *    reserve and any `to_local_anchor` and `to_remote_anchor` costs):
-	 *    - SHOULD fail the channel.
+	 *      - SHOULD send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	if (enforce_aggregate_limits) {
 		struct amount_msat remainder;
@@ -894,7 +898,8 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	 *
 	 *  - if the `payment_preimage` value in `update_fulfill_htlc`
 	 *  doesn't SHA256 hash to the corresponding HTLC `payment_hash`:
-	 *    - MUST fail the channel.
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	if (!sha256_eq(&hash, &htlc->rhash))
 		return CHANNEL_ERR_BAD_PREIMAGE;
@@ -905,7 +910,8 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	 *
 	 *  - if the `id` does not correspond to an HTLC in its current
 	 *    commitment transaction:
-	 *    - MUST fail the channel.
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	if (!htlc_has(htlc, HTLC_FLAG(!htlc_owner(htlc), HTLC_F_COMMITTED))) {
 		status_unusual("channel_fulfill_htlc: %"PRIu64" in state %s",
@@ -957,7 +963,8 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 	 * A receiving node:
 	 *   - if the `id` does not correspond to an HTLC in its current
 	 *     commitment transaction:
-	 *     - MUST fail the channel.
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	if (!htlc_has(htlc, HTLC_FLAG(!htlc_owner(htlc), HTLC_F_COMMITTED))) {
 		status_unusual("channel_fail_htlc: %"PRIu64" in state %s",
@@ -1145,7 +1152,8 @@ static int change_htlcs(struct channel *channel,
  *...
  *   - if the sender cannot afford the new fee rate on the receiving node's
  *     current commitment transaction:
- *      - SHOULD fail the channel,
+ *     - SHOULD send a `warning` and close the connection, or send an
+ *       `error` and fail the channel.
  */
 u32 approx_max_feerate(const struct channel *channel)
 {
@@ -1257,7 +1265,8 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 	 *
 	 *   - if the sender cannot afford the new fee rate on the receiving
 	 *     node's current commitment transaction:
-	 *     - SHOULD fail the channel
+	 *     - SHOULD send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	/* Note: sender == opener */
 

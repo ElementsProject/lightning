@@ -886,7 +886,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 {
 	struct pending_cannouncement *pending;
 	struct bitcoin_blkid chain_hash;
-	u8 *features, *err;
+	u8 *features, *warn;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 	struct chan *chan;
@@ -911,7 +911,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 					   &pending->node_id_2,
 					   &pending->bitcoin_key_1,
 					   &pending->bitcoin_key_2)) {
-		err = towire_warningfmt(rstate, NULL,
+		warn = towire_warningfmt(rstate, NULL,
 					"Malformed channel_announcement %s",
 					tal_hex(pending, pending->announce));
 		goto malformed;
@@ -991,7 +991,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	}
 
 	/* Note that if node_id_1 or node_id_2 are malformed, it's caught here */
-	err = check_channel_announcement(rstate,
+	warn = check_channel_announcement(rstate,
 					 &pending->node_id_1,
 					 &pending->node_id_2,
 					 &pending->bitcoin_key_1,
@@ -1001,13 +1001,15 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 					 &bitcoin_signature_1,
 					 &bitcoin_signature_2,
 					 pending->announce);
-	if (err) {
+	if (warn) {
 		/* BOLT #7:
 		 *
 		 * - if `bitcoin_signature_1`, `bitcoin_signature_2`,
 		 *   `node_signature_1` OR `node_signature_2` are invalid OR NOT
 		 *    correct:
-		 *    - SHOULD fail the connection.
+		 *   - SHOULD send a `warning`.
+		 *   - MAY close the connection.
+		 *   - MUST ignore the message.
 		 */
 		goto malformed;
 	}
@@ -1049,7 +1051,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 malformed:
 	tal_free(pending);
 	*scid = NULL;
-	return err;
+	return warn;
 
 ignored:
 	tal_free(pending);
@@ -1458,7 +1460,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	struct bitcoin_blkid chain_hash;
 	u8 direction;
 	struct pending_cannouncement *pending;
-	u8 *err;
+	u8 *warn;
 
 	serialized = tal_dup_talarr(tmpctx, u8, update);
 	if (!fromwire_channel_update(serialized, &signature,
@@ -1467,10 +1469,10 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 				     &channel_flags, &expiry,
 				     &htlc_minimum, &fee_base_msat,
 				     &fee_proportional_millionths)) {
-		err = towire_warningfmt(rstate, NULL,
-					"Malformed channel_update %s",
-					tal_hex(tmpctx, serialized));
-		return err;
+		warn = towire_warningfmt(rstate, NULL,
+					 "Malformed channel_update %s",
+					 tal_hex(tmpctx, serialized));
+		return warn;
 	}
 	direction = channel_flags & 0x1;
 
@@ -1523,18 +1525,18 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return NULL;
 	}
 
-	err = check_channel_update(rstate, owner, &signature, serialized);
-	if (err) {
+	warn = check_channel_update(rstate, owner, &signature, serialized);
+	if (warn) {
 		/* BOLT #7:
 		 *
 		 * - if `signature` is not a valid signature, using `node_id`
 		 *  of the double-SHA256 of the entire message following the
 		 *  `signature` field (including unknown fields following
 		 *  `fee_proportional_millionths`):
+		 *    - SHOULD send a `warning` and close the connection.
 		 *    - MUST NOT process the message further.
-		 *    - SHOULD fail the connection.
 		 */
-		return err;
+		return warn;
 	}
 
 	routing_add_channel_update(rstate, take(serialized), 0, peer, force);
@@ -1712,13 +1714,14 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		/* BOLT #7:
 		 *
 		 *   - if `node_id` is NOT a valid compressed public key:
-		 *    - SHOULD fail the connection.
+		 *    - SHOULD send a `warning`.
+		 *    - MAY close the connection.
 		 *    - MUST NOT process the message further.
 		 */
-		u8 *err = towire_warningfmt(rstate, NULL,
+		u8 *warn = towire_warningfmt(rstate, NULL,
 					    "Malformed node_announcement %s",
 					    tal_hex(tmpctx, node_ann));
-		return err;
+		return warn;
 	}
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
@@ -1731,10 +1734,10 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
                  *   message following the `signature` field
                  *   (including unknown fields following
                  *   `fee_proportional_millionths`):
-		 *    - MUST NOT process the message further.
-		 *    - SHOULD fail the connection.
+                 *     - SHOULD send a `warning` and close the connection.
+                 *     - MUST NOT process the message further.
 		 */
-		u8 *err = towire_warningfmt(rstate, NULL,
+		u8 *warn = towire_warningfmt(rstate, NULL,
 					    "Bad signature for %s hash %s"
 					    " on node_announcement %s",
 					    type_to_string(tmpctx,
@@ -1744,7 +1747,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 							   struct sha256_double,
 							   &hash),
 					    tal_hex(tmpctx, node_ann));
-		return err;
+		return warn;
 	}
 
 	wireaddrs = fromwire_wireaddr_array(tmpctx, addresses);
@@ -1753,13 +1756,14 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		 *
 		 * - if `addrlen` is insufficient to hold the address
 		 *  descriptors of the known types:
-		 *    - SHOULD fail the connection.
+		 *    - SHOULD send a `warning`.
+		 *    - MAY close the connection.
 		 */
-		u8 *err = towire_warningfmt(rstate, NULL,
+		u8 *warn = towire_warningfmt(rstate, NULL,
 					    "Malformed wireaddrs %s in %s.",
 					    tal_hex(tmpctx, wireaddrs),
 					    tal_hex(tmpctx, node_ann));
-		return err;
+		return warn;
 	}
 
 	/* May still fail, if we don't know the node. */

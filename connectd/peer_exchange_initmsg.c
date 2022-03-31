@@ -75,7 +75,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 * The receiving node:
 	 * ...
 	 *  - upon receiving `networks` containing no common chains
-	 *    - MAY fail the connection.
+	 *    - MAY close the connection.
 	 */
 	if (tlvs->networks) {
 		if (!contains_common_chain(tlvs->networks)) {

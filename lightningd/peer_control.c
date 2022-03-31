@@ -329,24 +329,30 @@ void channel_errmsg(struct channel *channel,
 	 *
 	 * A sending node:
 	 *...
-	 *   - when `channel_id` is 0:
-	 *    - MUST fail all channels with the receiving node.
-	 *    - MUST close the connection.
+	 *   - when sending `error`:
+	 *     - MUST fail the channel(s) referred to by the error message.
+	 *     - MAY set `channel_id` to all zero to indicate all channels.
 	 */
 	/* FIXME: Close if it's an all-channels error sent or rcvd */
 
 	/* BOLT #1:
 	 *
 	 * A sending node:
+	 *...
 	 *  - when sending `error`:
-	 *    - MUST fail the channel referred to by the error message.
+	 *    - MUST fail the channel(s) referred to by the error message.
+	 *    - MAY set `channel_id` to all zero to indicate all channels.
 	 *...
 	 * The receiving node:
 	 *  - upon receiving `error`:
-	 *    - MUST fail the channel referred to by the error message,
-	 *      if that channel is with the sending node.
+	 *    - if `channel_id` is all zero:
+	 *       - MUST fail all channels with the sending node.
+	 *    - otherwise:
+	 *      - MUST fail the channel referred to by `channel_id`, if that channel is with the
+	 *        sending node.
 	 */
 
+	/* FIXME: We don't close all channels */
 	/* We should immediately forget the channel if we receive error during
 	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
 	if (!err_for_them && channel->opener == REMOTE

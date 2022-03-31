@@ -123,7 +123,8 @@ static const struct dependency feature_deps[] = {
 	 * `option_anchor_outputs` | ...      | ...      | `option_static_remotekey`
 	 */
 	{ OPT_ANCHOR_OUTPUTS, OPT_STATIC_REMOTEKEY },
-	/* BOLT #9:
+	/* FIXME: This dep was added later! */
+	/* BOLT-master #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 *...
 	 * `option_anchors_zero_fee_htlc_tx` | ...      | ...      | `option_static_remotekey`

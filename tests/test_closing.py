@@ -1,5 +1,4 @@
 from fixtures import *  # noqa: F401,F403
-from flaky import flaky
 from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
 from pyln.testing.utils import SLOW_MACHINE
@@ -3186,31 +3185,27 @@ def test_shutdown(node_factory):
     l1.rpc.stop()
 
 
-@flaky
 @pytest.mark.developer("needs to set upfront_shutdown_script")
 def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
-    # There's a workaround in channeld, that it treats incoming errors
-    # before both sides are locked in as warnings; this happens in
-    # this test, so l1 reports the error as a warning!
     l1 = node_factory.get_node(start=False, allow_warning=True)
     # Insist on upfront script we're not going to match.
     # '0014' + l1.rpc.call('dev-listaddrs', [10])['addresses'][-1]['bech32_redeemscript']
     l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8"
     l1.start()
 
-    l2 = node_factory.get_node()
+    l2 = node_factory.get_node(allow_warning=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 1000000, False)
 
-    # This will block, as l12 will send an error but l2 will retry.
+    # This will block, as l1 will send a warning but l2 will retry.
     fut = executor.submit(l1.rpc.close, l2.info['id'])
 
-    # l2 will close unilaterally when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
+    # l2 will send a warning when it dislikes shutdown script.
+    l1.daemon.wait_for_log(r'WARNING.*scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
 
-    # Clear channel.
-    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
-    bitcoind.generate_block(1)
+    # Close from l2's side and clear channel.
+    l2.rpc.close(l1.info['id'], unilateraltimeout=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     fut.result(TIMEOUT)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
     wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
@@ -3219,14 +3214,12 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 1000000, False)
 
-    l2.rpc.close(l1.info['id'])
+    l2.rpc.close(l1.info['id'], unilateraltimeout=5)
 
-    # l2 will close unilaterally when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
+    # l2 will send warning unilaterally when it dislikes shutdown script.
+    l1.daemon.wait_for_log(r'WARNING.*scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
 
-    # Clear channel.
-    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
     wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
 

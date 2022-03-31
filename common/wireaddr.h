@@ -26,10 +26,7 @@ struct sockaddr_un;
  *
  *   * `1`: ipv4; data = `[4:ipv4_addr][2:port]` (length 6)
  *   * `2`: ipv6; data = `[16:ipv6_addr][2:port]` (length 18)
- *   * `3`: Tor v2 onion service; data = `[10:onion_addr][2:port]` (length 12)
- *       * version 2 onion service addresses; Encodes an 80-bit, truncated `SHA-1` hash
- *         of a 1024-bit `RSA` public key for the onion service (a.k.a. Tor
- *	   hidden service).
+ *   * `3`: Deprecated (length 12). Used to contain Tor v2 onion services.
  *   * `4`: Tor v3 onion service; data = `[35:onion_addr][2:port]` (length 37)
  *       * version 3 ([prop224](https://gitweb.torproject.org/torspec.git/tree/proposals/224-rend-spec-ng.txt))
  *         onion service addresses; Encodes:

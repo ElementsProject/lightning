@@ -258,7 +258,8 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 		 *  - if the incoming message includes
 		 *    `query_short_channel_ids_tlvs`:
 		 *    - if `encoding_type` is not a known encoding type:
-		 *      - MAY fail the connection
+		 *      - MAY send a `warning`.
+		 *      - MAY close the connection.
 		 */
 		flags = decode_scid_query_flags(tmpctx, tlvs->query_flags);
 		if (!flags) {
@@ -288,7 +289,8 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	 * - if it has not sent `reply_short_channel_ids_end` to a
 	 *   previously received `query_short_channel_ids` from this
 	 *   sender:
-	 *    - MAY fail the connection.
+	 *    - MAY send a `warning`.
+	 *    - MAY close the connection.
 	 */
 	if (peer->scid_queries || peer->scid_query_nodes) {
 		return towire_warningfmt(peer, NULL,
@@ -308,7 +310,8 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	 *...
 	 *    - if `encoded_query_flags` does not decode to exactly one flag per
 	 *      `short_channel_id`:
-	 *      - MAY fail the connection.
+	 *     - MAY send a `warning`.
+	 *     - MAY close the connection.
 	 */
 	if (!flags) {
 		/* Pretend they asked for everything. */

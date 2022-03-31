@@ -1225,7 +1225,6 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 	/* BOLT #1:
 	 *
 	 * A node receiving a `ping` message:
-	 *...
 	 *  - if `num_pong_bytes` is less than 65532:
 	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
 	 *      to `num_pong_bytes`.

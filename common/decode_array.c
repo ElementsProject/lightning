@@ -33,10 +33,12 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 	 * The receiver:
 	 *   - if the first byte of `encoded_short_ids` is not a known encoding
 	 *     type:
-	 *     - MAY fail the connection
+	 *     - MAY send a `warning`.
+	 *     - MAY close the connection.
 	 *   - if `encoded_short_ids` does not decode into a whole number of
 	 *     `short_channel_id`:
-	 *     - MAY fail the connection
+	 *     - MAY send a `warning`.
+	 *     - MAY close the connection.
 	 */
 	type = fromwire_u8(&encoded, &max);
 	switch (type) {
@@ -75,10 +77,12 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx,
 	 *...
 	 *  - if the incoming message includes `query_short_channel_ids_tlvs`:
 	 *    - if `encoding_type` is not a known encoding type:
-	 *      - MAY fail the connection
+	 *      - MAY send a `warning`.
+	 *      - MAY close the connection.
 	 *    - if `encoded_query_flags` does not decode to exactly one flag per
 	 *      `short_channel_id`:
-	 *      - MAY fail the connection.
+	 *      - MAY send a `warning`.
+	 *      - MAY close the connection.
 	 */
 	switch (qf->encoding_type) {
 	case ARR_ZLIB:
