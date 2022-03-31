@@ -5169,7 +5169,6 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
 
 
-@pytest.mark.xfail("needs lecacy onion support")
 def test_legacyonion(node_factory, bitcoind):
     # We have to replicate the topology we created onion with, exactly.
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)

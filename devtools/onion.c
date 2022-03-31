@@ -280,7 +280,7 @@ static void runtest(const char *filename)
 			errx(1, "Error serializing message.");
 		onion_payload_length(step->raw_payload,
 				     tal_bytelen(step->raw_payload),
-				     true, &valid);
+				     true, &valid, NULL);
 		assert(valid);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
 		printf("  Next onion: %s\n", tal_hex(ctx, serialized));
