@@ -363,7 +363,8 @@ static void handle_localpay(struct htlc_in *hin,
 			    struct amount_msat amt_to_forward,
 			    u32 outgoing_cltv_value,
 			    struct amount_msat total_msat,
-			    const struct secret *payment_secret)
+			    const struct secret *payment_secret,
+			    const u8 *payment_metadata)
 {
 	const u8 *failmsg;
 	struct lightningd *ld = hin->key.channel->peer->ld;
@@ -421,6 +422,27 @@ static void handle_localpay(struct htlc_in *hin,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
 		failmsg = failmsg_incorrect_or_unknown(NULL, ld, hin);
+		goto fail;
+	}
+
+	/* We don't expect payment_metadata; reject here */
+	if (payment_metadata) {
+		log_debug(hin->key.channel->log,
+			  "Unexpected payment_metadata %s",
+			  tal_hex(tmpctx, payment_metadata));
+		/* BOLT #4:
+		 * 1. type: PERM|22 (`invalid_onion_payload`)
+		 * 2. data:
+		 *    * [`bigsize`:`type`]
+		 *    * [`u16`:`offset`]
+		 *
+		 * The decrypted onion per-hop payload was not understood by the processing node
+		 * or is incomplete. If the failure can be narrowed down to a specific tlv type in
+		 * the payload, the erring node may include that `type` and its byte `offset` in
+		 * the decrypted byte stream.
+		 */
+		failmsg = towire_invalid_onion_payload(NULL, TLV_TLV_PAYLOAD_PAYMENT_METADATA,
+						       /* FIXME: offset? */ 0);
 		goto fail;
 	}
 
@@ -1033,6 +1055,10 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 			json_add_secret(s, "payment_secret",
 					p->payload->payment_secret);
 		}
+		if (p->payload->payment_metadata) {
+			json_add_hex_talarr(s, "payment_metadata",
+					    p->payload->payment_metadata);
+		}
 	}
 	json_add_hex_talarr(s, "next_onion", p->next_onion);
 	json_add_secret(s, "shared_secret", hin->shared_secret);
@@ -1082,7 +1108,8 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 				request->payload->amt_to_forward,
 				request->payload->outgoing_cltv,
 				*request->payload->total_msat,
-				request->payload->payment_secret);
+				request->payload->payment_secret,
+				request->payload->payment_metadata);
 
 	tal_free(request);
 }

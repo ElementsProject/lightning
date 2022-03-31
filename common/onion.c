@@ -241,6 +241,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		p->amt_to_forward = fromwire_amount_msat(&cursor, &max);
 		p->outgoing_cltv = fromwire_u32(&cursor, &max);
 		p->payment_secret = NULL;
+		p->payment_metadata = NULL;
 		p->blinding = NULL;
 		/* We can't handle blinding with a legacy payload */
 		if (blinding)
@@ -365,6 +366,12 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		*p->total_msat
 			= amount_msat(tlv->payment_data->total_msat);
 	}
+	if (tlv->payment_metadata)
+		p->payment_metadata
+			= tal_dup_talarr(p, u8, tlv->payment_metadata);
+	else
+		p->payment_metadata = NULL;
+
 	p->tlv = tal_steal(p, tlv);
 	return p;
 
