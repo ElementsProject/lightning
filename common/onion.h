@@ -19,6 +19,7 @@ struct onion_payload {
 	struct amount_msat *total_msat;
 	struct short_channel_id *forward_channel;
 	struct secret *payment_secret;
+	u8 *payment_metadata;
 
 	/* If blinding is set, blinding_ss is the shared secret.*/
 	struct pubkey *blinding;
