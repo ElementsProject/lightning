@@ -3893,7 +3893,11 @@ def test_multichan(node_factory, executor, bitcoind):
 
     # Restart with multiple channels works.
     l3.restart()
-    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # FIXME: race against autoconnect can cause spurious failure (but we connect!)
+    try:
+        l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    except RpcError:
+        wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'])
 
     inv = l3.rpc.invoice(100000000, "invoice4", "invoice4")
     l1.rpc.pay(inv['bolt11'])
