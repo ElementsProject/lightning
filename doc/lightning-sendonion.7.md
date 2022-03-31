@@ -98,6 +98,7 @@ On success, an object is returned, containing:
 - **label** (string, optional): the label, if given to sendpay
 - **bolt11** (string, optional): the bolt11 string (if supplied)
 - **bolt12** (string, optional): the bolt12 string (if supplied: **experimental-offers** only).
+- **partid** (u64, optional): the partid (if supplied) to sendonion/sendpay
 
 If **status** is "complete":
   - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
@@ -127,4 +128,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-[comment]: # ( SHA256STAMP:d588d85b79f709a57441479504ee8761331c852284ebb8effeab91a557437517)
+[comment]: # ( SHA256STAMP:b8fd5d1c31eb2db10b2f32960752ae1c90150ffeb470c5ea635cb1034e8b1438)
