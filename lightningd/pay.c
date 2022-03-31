@@ -1122,7 +1122,8 @@ send_payment(struct lightningd *ld,
 	     const char *label TAKES,
 	     const char *invstring TAKES,
 	     const struct sha256 *local_offer_id,
-	     const struct secret *payment_secret)
+	     const struct secret *payment_secret,
+	     const u8 *payment_metadata)
 {
 	unsigned int base_expiry;
 	struct onionpacket *packet;
@@ -1174,7 +1175,7 @@ send_payment(struct lightningd *ld,
 				route[i].amount,
 				base_expiry + route[i].delay,
 				total_msat, route[i].blinding, route[i].enctlv,
-				payment_secret);
+				payment_secret, payment_metadata);
 	if (!onion) {
 		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
 				    "Destination does not support"
@@ -1422,7 +1423,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 	const char *invstring, *label;
 	u64 *partid, *group;
 	struct secret *payment_secret;
-	struct sha256 *local_offer_id = NULL;
+	struct sha256 *local_offer_id;
+	u8 *payment_metadata;
 
 	/* For generating help, give new-style. */
 	if (!param(cmd, buffer, params,
@@ -1436,6 +1438,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_opt_def("partid", param_u64, &partid, 0),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
 		   p_opt("groupid", param_u64, &group),
+		   p_opt("payment_metadata", param_bin_from_hex, &payment_metadata),
 		   NULL))
 		return command_param_failed();
 
@@ -1485,7 +1488,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 			    route,
 			    final_amount,
 			    msat ? *msat : final_amount,
-			    label, invstring, local_offer_id, payment_secret);
+			    label, invstring, local_offer_id,
+			    payment_secret, payment_metadata);
 }
 
 static const struct json_command sendpay_command = {

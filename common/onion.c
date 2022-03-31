@@ -71,7 +71,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 		    struct amount_msat total_msat,
 		    const struct pubkey *blinding,
 		    const u8 *enctlv,
-		    const struct secret *payment_secret)
+		    const struct secret *payment_secret,
+		    const u8 *payment_metadata)
 {
 	struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
 	struct tlv_tlv_payload_payment_data tlv_pdata;
@@ -102,6 +103,7 @@ u8 *onion_final_hop(const tal_t *ctx,
 		tlv_pdata.total_msat = total_msat.millisatoshis; /* Raw: TLV convert */
 		tlv->payment_data = &tlv_pdata;
 	}
+	tlv->payment_metadata = cast_const(u8 *, payment_metadata);
 #if EXPERIMENTAL_FEATURES
 	tlv->blinding_point = cast_const(struct pubkey *, blinding);
 	tlv->encrypted_recipient_data = cast_const(u8 *, enctlv);
