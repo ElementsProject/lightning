@@ -3194,7 +3194,8 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     # this test, so l1 reports the error as a warning!
     l1 = node_factory.get_node(start=False, allow_warning=True)
     # Insist on upfront script we're not going to match.
-    l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac"
+    # '0014' + l1.rpc.call('dev-listaddrs', [10])['addresses'][-1]['bech32_redeemscript']
+    l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8"
     l1.start()
 
     l2 = node_factory.get_node()
@@ -3205,7 +3206,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     fut = executor.submit(l1.rpc.close, l2.info['id'])
 
     # l2 will close unilaterally when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
+    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
 
     # Clear channel.
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)
@@ -3221,7 +3222,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     l2.rpc.close(l1.info['id'])
 
     # l2 will close unilaterally when it dislikes shutdown script.
-    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac\)')
+    l1.daemon.wait_for_log(r'scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
 
     # Clear channel.
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) != 0)

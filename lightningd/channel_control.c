@@ -275,6 +275,12 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	bool anysegwit = feature_negotiated(ld->our_features,
 					    channel->peer->their_features,
 					    OPT_SHUTDOWN_ANYSEGWIT);
+	bool anchors = feature_negotiated(ld->our_features,
+					  channel->peer->their_features,
+					  OPT_ANCHOR_OUTPUTS)
+		|| feature_negotiated(ld->our_features,
+				      channel->peer->their_features,
+				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	if (!fromwire_channeld_got_shutdown(channel, msg, &scriptpubkey,
 					    &wrong_funding)) {
@@ -287,7 +293,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	tal_free(channel->shutdown_scriptpubkey[REMOTE]);
 	channel->shutdown_scriptpubkey[REMOTE] = scriptpubkey;
 
-	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit)) {
+	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit, anchors)) {
 		channel_fail_permanent(channel,
 				       REASON_PROTOCOL,
 				       "Bad shutdown scriptpubkey %s",

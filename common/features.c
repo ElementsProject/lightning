@@ -80,6 +80,10 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_ANCHORS_ZERO_FEE_HTLC_TX,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_DUAL_FUND,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -119,6 +123,12 @@ static const struct dependency feature_deps[] = {
 	 * `option_anchor_outputs` | ...      | ...      | `option_static_remotekey`
 	 */
 	{ OPT_ANCHOR_OUTPUTS, OPT_STATIC_REMOTEKEY },
+	/* BOLT #9:
+	 * Name                | Description  | Context  | Dependencies  |
+	 *...
+	 * `option_anchors_zero_fee_htlc_tx` | ...      | ...      | `option_static_remotekey`
+	 */
+	{ OPT_ANCHORS_ZERO_FEE_HTLC_TX, OPT_STATIC_REMOTEKEY },
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 * ...

@@ -1289,6 +1289,12 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 	bool anysegwit = feature_negotiated(ld->our_features,
 					    channel->peer->their_features,
 					    OPT_SHUTDOWN_ANYSEGWIT);
+	bool anchors = feature_negotiated(ld->our_features,
+					  channel->peer->their_features,
+					  OPT_ANCHOR_OUTPUTS)
+		|| feature_negotiated(ld->our_features,
+				      channel->peer->their_features,
+				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	/* We shouldn't get this message while we're waiting to finish */
 	if (channel_unsaved(channel)) {
@@ -1320,7 +1326,7 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 	 *  - if the `scriptpubkey` is not in one of the above forms:
 	 *    - SHOULD fail the connection.
 	 */
-	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit)) {
+	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit, anchors)) {
 		channel_fail_permanent(channel,
 				       REASON_PROTOCOL,
 				       "Bad shutdown scriptpubkey %s",

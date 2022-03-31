@@ -276,6 +276,12 @@ static void set_remote_upfront_shutdown(struct state *state,
 	bool anysegwit = feature_negotiated(state->our_features,
 					    state->their_features,
 					    OPT_SHUTDOWN_ANYSEGWIT);
+	bool anchors = feature_negotiated(state->our_features,
+					  state->their_features,
+					  OPT_ANCHOR_OUTPUTS)
+		|| feature_negotiated(state->our_features,
+				      state->their_features,
+				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
 	/* BOLT #2:
 	 *
@@ -291,7 +297,7 @@ static void set_remote_upfront_shutdown(struct state *state,
 		= tal_steal(state, shutdown_scriptpubkey);
 
 	if (shutdown_scriptpubkey
-	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit))
+	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit, anchors))
 		peer_failed_err(state->pps,
 				&state->channel_id,
 				"Unacceptable upfront_shutdown_script %s",

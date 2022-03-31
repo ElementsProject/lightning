@@ -8,6 +8,7 @@
 #include <closingd/closingd_wiregen.h>
 #include <common/close_tx.h>
 #include <common/closing_fee.h>
+#include <common/configdir.h>
 #include <common/fee_states.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_command.h>
@@ -684,11 +685,11 @@ static struct command_result *json_close(struct command *cmd,
 				       channel->peer->their_features,
 				       OPT_SHUTDOWN_ANYSEGWIT);
 	if (!valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey[LOCAL],
-					 anysegwit)) {
+					 anysegwit, !deprecated_apis)) {
 		/* Explicit check for future segwits. */
 		if (!anysegwit &&
 		    valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey
-						[LOCAL], true)) {
+						[LOCAL], true, !deprecated_apis)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Peer does not allow v1+ shutdown addresses");
 		}
