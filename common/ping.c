@@ -16,7 +16,6 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 	/* BOLT #1:
 	 *
 	 * A node receiving a `ping` message:
-	 *...
 	 *  - if `num_pong_bytes` is less than 65532:
 	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
 	 *      to `num_pong_bytes`.

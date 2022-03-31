@@ -728,7 +728,8 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	 * A receiving node:
 	 *...
 	 *  - if the sender is not responsible for paying the Bitcoin fee:
-	 *    - MUST fail the channel.
+	 *    - MUST send a `warning` and close the connection, or send an
+	 *      `error` and fail the channel.
 	 */
 	if (peer->channel->opener != REMOTE)
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -742,7 +743,8 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	 * A receiving node:
 	 *   - if the `update_fee` is too low for timely processing, OR is
 	 *     unreasonably large:
-	 *     - SHOULD fail the channel.
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	if (!feerate_same_or_better(peer->channel, feerate,
 				    peer->feerate_min, peer->feerate_max))
@@ -757,7 +759,8 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	 *
 	 *  - if the sender cannot afford the new fee rate on the receiving
 	 *    node's current commitment transaction:
-	 *    - SHOULD fail the channel,
+	 *    - SHOULD send a `warning` and close the connection, or send an
+	 *      `error` and fail the channel.
 	 *      - but MAY delay this check until the `update_fee` is committed.
 	 */
 	if (!channel_update_feerate(peer->channel, feerate))
@@ -1627,7 +1630,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	 *  - once all pending updates are applied:
 	 *    - if `signature` is not valid for its local commitment transaction
 	 *      OR non-compliant with LOW-S-standard rule...:
-	 *      - MUST fail the channel.
+	 *      - MUST send a `warning` and close the connection, or send an
+	 *        `error` and fail the channel.
 	 */
 	if (!check_tx_sig(txs[0], 0, NULL, funding_wscript,
 			  &peer->channel->funding_pubkey[REMOTE], &commit_sig)) {
@@ -1651,7 +1655,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	 *...
 	 *    - if `num_htlcs` is not equal to the number of HTLC outputs in the
 	 * local commitment transaction:
-	 *      - MUST fail the channel.
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	if (tal_count(htlc_sigs) != tal_count(txs) - 1)
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -1662,7 +1667,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	 *
 	 *   - if any `htlc_signature` is not valid for the corresponding HTLC
 	 *     transaction OR non-compliant with LOW-S-standard rule...:
-	 *     - MUST fail the channel.
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
 		u8 *wscript;
@@ -1813,13 +1819,13 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	 * A receiving node:
 	 *  - if `per_commitment_secret` is not a valid secret key or does not
 	 *    generate the previous `per_commitment_point`:
-	 *    - MUST fail the channel.
+	 *     - MUST send an `error` and fail the channel.
 	 */
 	memcpy(&privkey, &old_commit_secret, sizeof(privkey));
 	if (!pubkey_from_privkey(&privkey, &per_commit_point)) {
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Bad privkey %s",
-				 type_to_string(msg, struct privkey, &privkey));
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Bad privkey %s",
+				type_to_string(msg, struct privkey, &privkey));
 	}
 	if (!pubkey_eq(&per_commit_point, &peer->old_remote_per_commit)) {
 		peer_failed_err(peer->pps, &peer->channel_id,
@@ -1957,7 +1963,8 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	 *
 	 *   - if the `BADONION` bit in `failure_code` is not set for
 	 *    `update_fail_malformed_htlc`:
-	 *      - MUST fail the channel.
+	 *      - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	if (!(failure_code & BADONION)) {
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -2011,6 +2018,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	 * feature, and the receiving node received a non-zero-length
 	 * `shutdown_scriptpubkey` in `open_channel` or `accept_channel`, and
 	 * that `shutdown_scriptpubkey` is not equal to `scriptpubkey`:
+	 *    - MAY send a `warning`.
 	 *    - MUST fail the connection.
 	 */
 	/* openingd only sets this if feature was negotiated at opening. */
@@ -2018,10 +2026,10 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	    && !memeq(scriptpubkey, tal_count(scriptpubkey),
 		      peer->remote_upfront_shutdown_script,
 		      tal_count(peer->remote_upfront_shutdown_script)))
-		peer_failed_err(peer->pps, &peer->channel_id,
-				"scriptpubkey %s is not as agreed upfront (%s)",
-			    tal_hex(peer, scriptpubkey),
-			    tal_hex(peer, peer->remote_upfront_shutdown_script));
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "scriptpubkey %s is not as agreed upfront (%s)",
+				 tal_hex(peer, scriptpubkey),
+				 tal_hex(peer, peer->remote_upfront_shutdown_script));
 
 	/* We only accept an wrong_funding if:
 	 * 1. It was negotiated.
@@ -2528,12 +2536,12 @@ static void check_future_dataloss_fields(struct peer *peer,
  *    commitment transaction:
  * ...
  *  - if `your_last_per_commitment_secret` does not match the expected values:
- *     - SHOULD fail the channel.
+ *     - SHOULD send an `error` and fail the channel.
  *  - otherwise, if it supports `option_data_loss_protect`:
  *...
  *    - otherwise (`your_last_per_commitment_secret` or
  *     `my_current_per_commitment_point` do not match the expected values):
- *      - SHOULD fail the channel.
+ *      - SHOULD send an `error` and fail the channel.
  */
 static void check_current_dataloss_fields(struct peer *peer,
 			u64 next_revocation_number,
@@ -2950,10 +2958,10 @@ skip_tlvs:
 	 *    - if `next_revocation_number` is not equal to 1 greater
 	 *      than the commitment number of the last `revoke_and_ack` the
 	 *      receiving node has sent:
-	 *      - SHOULD fail the channel.
+	 *      - SHOULD send an `error` and fail the channel.
 	 *    - if it has not sent `revoke_and_ack`, AND
 	 *      `next_revocation_number` is not equal to 0:
-	 *      - SHOULD fail the channel.
+	 *      - SHOULD send an `error` and fail the channel.
 	 */
 	if (next_revocation_number == peer->next_index[LOCAL] - 2) {
 		/* Don't try to retransmit revocation index -1! */
@@ -3021,7 +3029,7 @@ skip_tlvs:
 	 *     - if `next_commitment_number` is not 1 greater than the
 	 *       commitment number of the last `commitment_signed` message the
 	 *       receiving node has sent:
-	 *       - SHOULD fail the channel.
+	 *       - SHOULD send an `error` and fail the channel.
 	 */
 	} else if (next_commitment_number != peer->next_index[REMOTE])
 		peer_failed_err(peer->pps,

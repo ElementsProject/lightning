@@ -364,7 +364,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	 *  - upon receiving unknown _odd_ feature bits that are non-zero:
 	 *    - MUST ignore the bit.
 	 *  - upon receiving unknown _even_ feature bits that are non-zero:
-	 *    - MUST fail the connection.
+	 *    - MUST close the connection.
 	 */
 	unsup = features_unsupported(daemon->our_features, their_features,
 				     INIT_FEATURE);

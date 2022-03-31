@@ -9,6 +9,7 @@
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/chaintopology.h>
@@ -289,17 +290,31 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* FIXME: Add to spec that we must allow repeated shutdown! */
-	tal_free(channel->shutdown_scriptpubkey[REMOTE]);
-	channel->shutdown_scriptpubkey[REMOTE] = scriptpubkey;
-
+	/* BOLT #2:
+	 * A receiving node:
+	 *...
+	 *   - if the `scriptpubkey` is not in one of the above forms:
+	 *     - SHOULD send a `warning`.
+	 */
 	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit, anchors)) {
-		channel_fail_permanent(channel,
-				       REASON_PROTOCOL,
-				       "Bad shutdown scriptpubkey %s",
+		u8 *warning = towire_warningfmt(NULL,
+						&channel->cid,
+						"Bad shutdown scriptpubkey %s",
+						tal_hex(tmpctx, scriptpubkey));
+
+		/* Get connectd to send warning, and then allow reconnect. */
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_final_msg(NULL,
+								  &channel->peer->id,
+								  warning)));
+		channel_fail_reconnect(channel, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}
+
+	/* FIXME: Add to spec that we must allow repeated shutdown! */
+	tal_free(channel->shutdown_scriptpubkey[REMOTE]);
+	channel->shutdown_scriptpubkey[REMOTE] = scriptpubkey;
 
 	/* If we weren't already shutting down, we are now */
 	if (channel->state != CHANNELD_SHUTTING_DOWN)

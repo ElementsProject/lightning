@@ -33,17 +33,24 @@ bool is_peer_error(const tal_t *ctx, const u8 *msg,
 	 * 0 (i.e. all bytes are 0), in which case it refers to all channels.
 	 * ...
 	 * The receiving node:
-	 *   - upon receiving `error`:
-	 *    - MUST fail the channel referred to by the error message, if that
-	 *      channel is with the sending node.
-	 *  - if no existing channel is referred to by the message:
-	 *    - MUST ignore the message.
+	 *  - upon receiving `error`:
+	 *     - if `channel_id` is all zero:
+	 *       - MUST fail all channels with the sending node.
+	 *     - otherwise:
+	 *       - MUST fail the channel referred to by `channel_id`, if that channel is with the sending node.
+	 *   - upon receiving `warning`:
+	 *     - SHOULD log the message for later diagnosis.
+	 *     - MAY disconnect.
+	 *     - MAY reconnect after some delay to retry.
+	 *     - MAY attempt `shutdown` if permitted at this point.
+	 *   - if no existing channel is referred to by `channel_id`:
+	 *     - MUST ignore the message.
 	 */
-	/* FIXME: The spec changed, so for *errors* all 0 is not special.
-	 * But old gossipd would send these, so we turn them into warnings */
-	if (channel_id_is_all(&err_chanid))
-		*warning = true;
-	else if (!channel_id_eq(&err_chanid, channel_id))
+
+	/* FIXME: We don't actually free all channels at once, they'll
+	 * have to error each in turn. */
+	if (!channel_id_is_all(&err_chanid)
+	    && !channel_id_eq(&err_chanid, channel_id))
 		*desc = tal_free(*desc);
 
 	return true;

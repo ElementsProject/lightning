@@ -192,8 +192,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 				  &err, &warning)) {
 			/* BOLT #1:
 			 *
-			 *  - if no existing channel is referred to by the
-			 *    message:
+			 *  - if no existing channel is referred to by `channel_id`:
 			 *    - MUST ignore the message.
 			 */
 			/* In this case, is_peer_error returns true, but sets
@@ -1107,7 +1106,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * The recipient:
 	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard
 	 *     rule...:
-	 *     - MUST fail the channel.
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->first_per_commitment_point[LOCAL],
@@ -1125,7 +1125,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			  &theirsig)) {
 		/* BOLT #1:
 		 *
-		 * ### The `error` Message
+		 * ### The `error` and `warning` Messages
 		 *...
 		 * - when failure was caused by an invalid signature check:
 		 *    - SHOULD include the raw, hex-encoded transaction in reply
