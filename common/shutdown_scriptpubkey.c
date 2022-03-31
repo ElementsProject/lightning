@@ -3,7 +3,7 @@
 #include <common/shutdown_scriptpubkey.h>
 
 /* BOLT #2:
- * 5. if (and only if) `option_shutdown_anysegwit` is negotiated:
+ * 3. if (and only if) `option_shutdown_anysegwit` is negotiated:
  *      * `OP_1` through `OP_16` inclusive, followed by a single
  *         push of 2 to 40 bytes
  *         (witness program versions 1 through 16)
@@ -47,11 +47,16 @@ static bool is_valid_witnessprog(const u8 *scriptpubkey)
 }
 
 bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
-				 bool anysegwit)
+				 bool anysegwit,
+				 bool anchors)
 {
-	return is_p2pkh(scriptpubkey, NULL)
-		|| is_p2sh(scriptpubkey, NULL)
-		|| is_p2wpkh(scriptpubkey, NULL)
+	if (!anchors) {
+		if (is_p2pkh(scriptpubkey, NULL)
+		    || is_p2sh(scriptpubkey, NULL))
+			return true;
+	}
+
+	return is_p2wpkh(scriptpubkey, NULL)
 		|| is_p2wsh(scriptpubkey, NULL)
 		|| (anysegwit && is_valid_witnessprog(scriptpubkey));
 }
