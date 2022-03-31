@@ -97,6 +97,14 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_PAYMENT_METADATA,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_DONT_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_DONT_REPRESENT,
+			  /* Note: we don't actually set this in invoices, since
+			   * we don't need to use it, but if we don't set it here
+			   * we refuse to parse it. */
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 };
 
 struct dependency {
@@ -416,7 +424,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_provide_peer_backup", /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
 		NULL,
 		NULL,
-		NULL,
+		"option_payment_metadata",
 		NULL, /* 50/51 */
 		NULL,
 		"option_keysend",

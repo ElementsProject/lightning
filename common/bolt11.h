@@ -76,6 +76,9 @@ struct bolt11 {
 	/* Features bitmap, if any. */
 	u8 *features;
 
+	/* Optional metadata to send with payment. */
+	u8 *metadata;
+
 	struct list_head extra_fields;
 };
 

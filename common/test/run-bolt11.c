@@ -565,6 +565,52 @@ int main(int argc, char *argv[])
 	test_b11("lnbc9678785340p1pwmna7lpp5gc3xfm08u9qy06djf8dfflhugl6p7lgza6dsjxq454gxhj9t7a0sd8dgfkx7cmtwd68yetpd5s9xar0wfjn5gpc8qhrsdfq24f5ggrxdaezqsnvda3kkum5wfjkzmfqf3jkgem9wgsyuctwdus9xgrcyqcjcgpzgfskx6eqf9hzqnteypzxz7fzypfhg6trddjhygrcyqezcgpzfysywmm5ypxxjemgw3hxjmn8yptk7untd9hxwg3q2d6xjcmtv4ezq7pqxgsxzmnyyqcjqmt0wfjjq6t5v4khxsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsxqyjw5qcqp2rzjq0gxwkzc8w6323m55m4jyxcjwmy7stt9hwkwe2qxmy8zpsgg7jcuwz87fcqqeuqqqyqqqqlgqqqqn3qq9q9qrsgqrvgkpnmps664wgkp43l22qsgdw4ve24aca4nymnxddlnp8vh9v2sdxlu5ywdxefsfvm0fq3sesf08uf6q9a2ke0hc9j6z6wlxg5z5kqpu2v9wz", b11, NULL);
 
 	/* BOLT #11:
+	 * > ### Please send 0.01 BTC with payment metadata 0x01fafaf0
+	 * > lnbc10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgq7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqpd05wjc
+	 *
+	 * Breakdown:
+	 *
+	 * * `lnbc`: prefix, Lightning on Bitcoin mainnet
+	 * * `10m`: amount (10 milli-bitcoin)
+	 * * `1`: Bech32 separator
+	 * * `pvjluez`: timestamp (1496314658)
+	 * * `p`: payment hash
+	 *   * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
+	 *   * `qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypq`: payment hash 0001020304050607080900010203040506070809000102030405060708090102
+	 * * `d`: short description
+	 *   * `p9`: `data_length` (`p` = 1, `9` = 5; 1 * 32 + 5 == 37)
+	 *   * `wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2`: 'payment metadata inside'
+	 * * `m`: metadata
+	 *   * `q8`: `data_length` (`q` = 0, `8` = 7; 0 * 32 + 7 == 7)
+	 *   * `q8a04uq`: 0x01fafaf0
+	 * * `s`: payment secret
+	 *   * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
+	 *   * `zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs`: 0x1111111111111111111111111111111111111111111111111111111111111111
+	 * * `9`: features
+	 *   * `q2`: `data_length` (`q` = 0, `2` = 10; 0 * 32 + 10 == 10)
+	 *   * `gqqqqqqsgq`: [b01000000000000000000000000000000000100000100000000] = 8 + 14 + 48
+	 * * `7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqp`: signature
+	 * * `d05wjc`: Bech32 checksum
+	 */
+	msatoshi = AMOUNT_MSAT(1000000000);
+	b11 = new_bolt11(tmpctx, &msatoshi);
+	b11->chain = chainparams_for_network("bitcoin");
+	b11->timestamp = 1496314658;
+	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
+			strlen("0001020304050607080900010203040506070809000102030405060708090102"),
+			&b11->payment_hash, sizeof(b11->payment_hash)))
+		abort();
+	b11->receiver_id = node;
+	b11->description = "payment metadata inside";
+	b11->metadata = tal_hexdata(b11, "01fafaf0", strlen("01fafaf0"));
+	set_feature_bit(&b11->features, 8);
+	set_feature_bit(&b11->features, 14);
+	set_feature_bit(&b11->features, 48);
+	b11->payment_secret = tal(b11, struct secret);
+	memset(b11->payment_secret, 0x11, sizeof(*b11->payment_secret));
+	test_b11("lnbc10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgq7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqpd05wjc", b11, NULL);
+
+	/* BOLT #11:
 	 *
 	 * > ### Bech32 checksum is invalid.
 	 * > lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpquwpc4curk03c9wlrswe78q4eyqc7d8d0xqzpuyk0sg5g70me25alkluzd2x62aysf2pyy8edtjeevuv4p2d5p76r4zkmneet7uvyakky2zr4cusd45tftc9c5fh0nnqpnl2jfll544esqchsrnt

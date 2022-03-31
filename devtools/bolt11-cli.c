@@ -163,6 +163,10 @@ int main(int argc, char *argv[])
 		printf("\n");
 	}
 
+	if (b11->metadata)
+		printf("metadata: %s\n",
+		       tal_hex(ctx, b11->metadata));
+
 	list_for_each(&b11->extra_fields, extra, list) {
 		char *data = tal_arr(ctx, char, tal_count(extra->data)+1);
 

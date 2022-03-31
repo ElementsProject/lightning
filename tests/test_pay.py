@@ -5236,3 +5236,9 @@ def test_pay_manual_exclude(node_factory, bitcoind):
     # Exclude direct channel id
     with pytest.raises(RpcError, match=r'is not reachable directly and all routehints were unusable.'):
         l2.rpc.pay(inv, exclude=[scid23])
+
+
+def test_pay_bolt11_metadata(node_factory, bitcoind):
+    l1 = node_factory.get_node()
+
+    l1.rpc.decode('lnbcrt10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqcqpjsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgqrk6hdutpaetmm3afjn0vfczgeyv0cy739rr939kwd4h5j3khxcskhgf59eaqy8wyq82tsnaqc5y32ed4jg34jw7rmeva9u6kfhymawgptmy5f6')

@@ -66,6 +66,8 @@ void json_add_bolt11(struct json_stream *response,
                                 b11->payment_secret);
 	if (b11->features)
 		json_add_hex_talarr(response, "features", b11->features);
+	if (b11->metadata)
+		json_add_hex_talarr(response, "payment_metadata", b11->metadata);
         if (tal_count(b11->fallbacks)) {
 		json_array_start(response, "fallbacks");
 		for (size_t i = 0; i < tal_count(b11->fallbacks); i++)

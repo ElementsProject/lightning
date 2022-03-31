@@ -746,6 +746,8 @@
         ],
         "additionalProperties": false,
         "properties": {
+          "type": {},
+          "valid": {},
           "currency": {
             "type": "string",
             "description": "the BIP173 name for the currency"
@@ -803,6 +805,10 @@
           "features": {
             "type": "hex",
             "description": "the features bitmap for this invoice"
+          },
+          "payment_metadata": {
+            "type": "hex",
+            "description": "the payment_metadata to put in the payment"
           },
           "fallbacks": {
             "type": "array",
