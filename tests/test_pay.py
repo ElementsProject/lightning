@@ -5169,6 +5169,48 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
 
 
+@pytest.mark.xfail("needs lecacy onion support")
+def test_legacyonion(node_factory, bitcoind):
+    # We have to replicate the topology we created onion with, exactly.
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+
+    # We need this scid to match canned onion (110x1x0), so no change.
+    addr = l2.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 10**6 / 10**8)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.fundchannel(l3.info['id'], "all")['txid']
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    # We don't actually need gossip!  But make sure blockheight is correct.
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    l3.rpc.invoice(10000, 'test_invoice', 'description', preimage='00' * 32)['bolt11']
+
+    # Here's one I created using an old c-lightning: l2 gets legacy.
+    l1.rpc.call('sendonion',
+                {"onion": "000279f8e85e661936e01c91d49ed42e776a80741047403b9292e2ef66d977bce0adaf4e773d4750cc8e7359a53107413ec2c9956fb7c7ef2ffba6b588880557efb9cdb6cbc2231c517c1ed83c8aa136e2294b82cd2df382b794128792d86f8ac155966ad0bc7610df86bf5c2dfaf685be237a5056db0cabbf09ac6ca9686a8152b3a2157c1b3bb08b29321ef0d8970ef761d29b1e3305ee3b96195911c0486dbfdd48fa747b802ff7aafbcb396f4bdf3bbc2c72aeea9cd621767d883d6206aec82cd744c571157cf367680f5a91106bfd49e1febf7190cba2868b50cdebefcaaace9ec00083d5b32fc2b4f8db0022c59d361296ebf5c47a09dd633da15cf21bc24b6efbcf7202127fda27b704d6c255e4d240bb56dbd7351d0b6299682f4b4f98dee4aa185b757948a7c80053bec14fc91d813e913c79253de25a1b1fa031eccf0abe52db4f4562a797bc5066202284b070ca35f92cae9d0ea22f5a88aaae9e63b775e10f3f54fa0069a03e554e72bb0c3ead07eb3bf0895531b580123c308fd2450a3698328e71756dee32ae90c4872c296183bbfb08bb2bedbbab9a46ebab05674d53d06dcec6879b994fbd8f828fbccd6766c76255553bb4605f7fe3767f1bb6e8e4341a120574d30de715b27fbcdfec4f590877653bec0ad410d243ebd09e1b1e9929bba99dd8c7bff26201970c8ffeb1e2773eb18ec29bc9b13c8f3dcfc77935b5afd788e1e4ca4a31102d645db575211799bf54c42f2152f227796fdafc7ad6708dd18553d7a9c8bd582655230a3920c25286705353b513de4e2ef3dd84335b9236560f503a9198dc2d730a950c01cd6cf0aee5bc5b2c060de23cd8f2dda92dcfaee0c4e29d5efe12ca1139d0c86b6d22ea58bb3076b953577d86969702176010690e9eb3afda4db3c8e2304494c5f43cdf1487ab6daa740d4645c6d9ed796f0b210e18f751249fa87137bbfb8b332e97ad7e6d73130838b94680a0c999a0ec0c90c3807af60c6db7a3ed2a7ddfbe7c7b293870d9bc003512a3b64607661fcc94df7e9f2bfc875b447b8cedc38d8a55566246761e02932e9308e1f26cf9724f5432fe391b88bd4af4f7b9f7599529035791b475b10eb4cf1efb56bfab75fc75a1cb73308120dbd52e635dd0207df882488ee005eedae5cc3245e6ccb49770ace2868f205f76640b38e55b23e23ca94559c200f94b06d498332675a0ee0fe57551d1dd2343934f20daa60b025992350c7d8de192139d786b5db3ec21c7a772571c61a66b3eff2a424464291e183bd382b0560efab3fc3ccf88cb4b9a3695f35590937b611d98856db8bf46d6716672a1f0efa8cd3e4b49bf1dc0cea35dce1465dc36fd94db0592cfee01a90d96766c8b08a6e79d2b3b3f8a133f3a01aad6d8adbf8aee4dba09232424faae516f0498705c1514f570d3e3e6c9f0a9457a6230847bbdce1d6a427538a82e9025ee7f90901bb73c6819fc02cf8d14c0246a44af8efa2a49ba11cf61a09204dd4a1d925b32ac327d525ff189ffa833d0e1c5e6999a9268a2526c4e9a6fdb95ab6b134e30946923af361a5ef543e77621675d25a60a0e0d691088e68112f18be4fa66d10cf68c65f8c4034fab58aaff2d02076078b7d392a3a72268da5124884fabd0880072d080fa6235d2155c4160c7d1d4a5054a1e27be381d1048d47a4e7abb936f170ff1b210f09214ecb645b1c2d5d77f286afcc4f6716b788e223e82501ee544836605e32074e465923858cde71163ad700947c94381611eda017a6632c782a377a2c506d0392a6e1a7f6e5988f7893776bdadf28e4648ef48672190d9de0e94523c208dbdaee274c6d0ce9a27a40afd1cc3e86936c2e2e96565a052a7581a807a4fbc8abdaac9e8f32dc04789b47fd8d5e874112e2308dedff5a76b6e092cb42c1bd9a082",
+                 "first_hop": {
+                     "amount_msat": "10001msat",
+                     "delay": 29,
+                     "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
+                 },
+                 "payment_hash": "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
+                 "msatoshi": "10000msat",
+                 "shared_secrets": [
+                     "bd29a24ea1fa5cab1677b22f4980f6aa115d470c2e3052cb08ca7d636441bfd5",
+                     "7d70d337a6b898373386d7d2cff05ca8f4d81123f63cf911aa064a6d8849f972"
+                 ],
+                 "partid": 1,
+                 "groupid": 1,
+                 "bolt11": "lnbcrt100n1p3y8xl3pp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdqjv3jhxcmjd9c8g6t0dcxqyjw5qcqp9sp5q8g040f9rl9mu2unkjuj0vn262s6nyrhz5hythk3ueu2lfzahmzsrzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqdcqqqqgqqqqqqqqpqqqqqzsqqc9qgsqqqyssq47lyzhlmfw6hdcrklz3nw774p6nueggm6sxvrg734yrzdl0rn4p8rfl4ql2hexcufafgpstjkag2ywfycg08kuz5k5qszz7ecypqeugpnapu7t",
+                 "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"})
+
+    wait_for(lambda: only_one(l3.rpc.listinvoices()['invoices'])['status'] == 'paid')
+
+
 def test_pay_manual_exclude(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
     l1_id = l1.rpc.getinfo()['id']
