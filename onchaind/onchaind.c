@@ -410,16 +410,16 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 		 *
 		 * The fee for an HTLC-timeout transaction:
 		 *   - If `option_anchors_zero_fee_htlc_tx` applies:
-		 *     1. MUST BE 0.
-		 *   - Otherwise, MUST BE calculated to match:
+		 *     1. MUST be 0.
+		 *   - Otherwise, MUST be calculated to match:
 		 *     1. Multiply `feerate_per_kw` by 663
 		 *        (666 if `option_anchor_outputs` applies)
 		 *        and divide by 1000 (rounding down).
 		 *
 		 * The fee for an HTLC-success transaction:
 		 *  - If `option_anchors_zero_fee_htlc_tx` applies:
-		 *    1. MUST BE 0.
-		 *  - MUST BE calculated to match:
+		 *    1. MUST be 0.
+		 *  - Otherwise, MUST be calculated to match:
 		 *     1. Multiply `feerate_per_kw` by 703
 		 *        (706 if `option_anchor_outputs` applies)
 		 *        and divide by 1000 (rounding down).
@@ -461,8 +461,8 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	 *
 	 * The fee for an HTLC-timeout transaction:
 	 *  - If `option_anchors_zero_fee_htlc_tx` applies:
-	 *    1. MUST BE 0.
-	 *  - Otherwise, MUST BE calculated to match:
+	 *    1. MUST be 0.
+	 *  - Otherwise, MUST be calculated to match:
 	 *    1. Multiply `feerate_per_kw` by 663 (666 if `option_anchor_outputs`
 	 *       applies) and divide by 1000 (rounding down).
 	 */
@@ -509,8 +509,8 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 	 *
 	 * The fee for an HTLC-success transaction:
 	 * - If `option_anchors_zero_fee_htlc_tx` applies:
-	 *   1. MUST BE 0.
-	 * - MUST BE calculated to match:
+	 *   1. MUST be 0.
+	 * - Otherwise, MUST be calculated to match:
 	 *   1. Multiply `feerate_per_kw` by 703 (706 if `option_anchor_outputs`
 	 *      applies) and divide by 1000 (rounding down).
 	 */
