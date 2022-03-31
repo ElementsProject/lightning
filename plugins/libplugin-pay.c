@@ -1581,7 +1581,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 /* Temporary serialization method for the tlv_payload.data until we rework the
  * API that is generated from the specs to use the setter/getter interface. */
 static void tlvstream_set_tlv_payload_data(struct tlv_field **stream,
-					   struct secret *payment_secret,
+					   const struct secret *payment_secret,
 					   u64 total_msat)
 {
 	u8 *ser = tal_arr(NULL, u8, 0);
@@ -1596,7 +1596,8 @@ static void payment_add_hop_onion_payload(struct payment *p,
 					  struct route_hop *node,
 					  struct route_hop *next,
 					  bool final,
-					  struct secret *payment_secret)
+					  struct secret *payment_secret,
+					  const u8 *payment_metadata)
 {
 	struct createonion_request *cr = p->createonion_request;
 	u32 cltv = p->start_block + next->delay + 1;
@@ -1626,6 +1627,11 @@ static void payment_add_hop_onion_payload(struct payment *p,
 		tlvstream_set_tlv_payload_data(
 			fields, payment_secret,
 			root->amount.millisatoshis); /* Raw: TLV payload generation*/
+	}
+	if (payment_metadata != NULL) {
+		assert(final);
+		tlvstream_set_raw(fields, TLV_TLV_PAYLOAD_PAYMENT_METADATA,
+				  payment_metadata, tal_bytelen(payment_metadata));
 	}
 }
 
@@ -1665,7 +1671,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 		 * i+1 */
 		payment_add_hop_onion_payload(p, &cr->hops[i], &p->route[i],
 					      &p->route[i + 1], false,
-					      NULL);
+					      NULL, NULL);
 		tal_append_fmt(&routetxt, "%s -> ",
 			       type_to_string(tmpctx, struct short_channel_id,
 					      &p->route[i].scid));
@@ -1675,7 +1681,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 	payment_add_hop_onion_payload(
 	    p, &cr->hops[hopcount - 1], &p->route[hopcount - 1],
 	    &p->route[hopcount - 1], true,
-	    root->payment_secret);
+	    root->payment_secret, root->payment_metadata);
 	tal_append_fmt(&routetxt, "%s",
 		       type_to_string(tmpctx, struct short_channel_id,
 				      &p->route[hopcount - 1].scid));

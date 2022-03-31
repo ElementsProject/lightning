@@ -5238,7 +5238,24 @@ def test_pay_manual_exclude(node_factory, bitcoind):
         l2.rpc.pay(inv, exclude=[scid23])
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_bolt11_metadata(node_factory, bitcoind):
-    l1 = node_factory.get_node()
+    l1, l2 = node_factory.line_graph(2)
 
-    l1.rpc.decode('lnbcrt10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqcqpjsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgqrk6hdutpaetmm3afjn0vfczgeyv0cy739rr939kwd4h5j3khxcskhgf59eaqy8wyq82tsnaqc5y32ed4jg34jw7rmeva9u6kfhymawgptmy5f6')
+    # BOLT #11:
+    # > ### Please send 0.01 BTC with payment metadata 0x01fafaf0
+    # > lnbc10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgq7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqpd05wjc
+
+    b11 = l1.rpc.decode('lnbc10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgq7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqpd05wjc')
+    assert b11['payment_metadata'] == '01fafaf0'
+
+    # I previously hacked lightningd to add "this is metadata" to metadata.
+    # After CI started failing, I *also* hacked it to set expiry to BIGNUM.
+    inv = "lnbcrt1230n1p3yzgcxsp5q8g040f9rl9mu2unkjuj0vn262s6nyrhz5hythk3ueu2lfzahmzspp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdq8v3jhxccmq6w35xjueqd9ejqmt9w3skgct5vyxqxra2q2qcqp99q2sqqqqqysgqfw6efxpzk5x5vfj8se46yg667x5cvhyttnmuqyk0q7rmhx3gs249qhtdggnek8c5adm2pztkjddlwyn2art2zg9xap2ckczzl3fzz4qqsej6mf"
+    # Make l2 "know" about this invoice.
+    l2.rpc.invoice(msatoshi='123000', label='label1', description='desc', preimage='00' * 32)
+
+    with pytest.raises(RpcError, match=r'WIRE_INVALID_ONION_PAYLOAD'):
+        l1.rpc.pay(inv)
+
+    l2.daemon.wait_for_log("Unexpected payment_metadata {}".format(b'this is metadata'.hex()))
