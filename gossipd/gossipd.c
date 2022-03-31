@@ -805,16 +805,6 @@ static void new_blockheight(struct daemon *daemon, const u8 *msg)
 }
 
 #if DEVELOPER
-/* Another testing hack */
-static void dev_gossip_suppress(struct daemon *daemon, const u8 *msg)
-{
-	if (!fromwire_gossipd_dev_suppress(msg))
-		master_badmsg(WIRE_GOSSIPD_DEV_SUPPRESS, msg);
-
-	status_unusual("Suppressing all gossip");
-	dev_suppress_gossip = true;
-}
-
 static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 {
 	struct htable *memtable;
@@ -1058,9 +1048,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		dev_set_max_scids_encode_size(daemon, msg);
 		goto done;
-	case WIRE_GOSSIPD_DEV_SUPPRESS:
-		dev_gossip_suppress(daemon, msg);
-		goto done;
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 		dev_gossip_memleak(daemon, msg);
 		goto done;
@@ -1072,7 +1059,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		goto done;
 #else
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIPD_DEV_SUPPRESS:
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
 	case WIRE_GOSSIPD_DEV_SET_TIME:

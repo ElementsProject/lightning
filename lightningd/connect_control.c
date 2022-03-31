@@ -430,6 +430,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_CONNECT_TO_PEER:
 	case WIRE_CONNECTD_DISCARD_PEER:
 	case WIRE_CONNECTD_DEV_MEMLEAK:
+	case WIRE_CONNECTD_DEV_SUPPRESS_GOSSIP:
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
 	case WIRE_CONNECTD_PEER_MAKE_ACTIVE:
 	case WIRE_CONNECTD_PING:
@@ -711,3 +712,27 @@ static const struct json_command dev_sendcustommsg_command = {
 AUTODATA(json_command, &dev_sendcustommsg_command);
 #endif  /* DEVELOPER */
 #endif /* COMPAT_V0100 */
+
+#if DEVELOPER
+static struct command_result *json_dev_suppress_gossip(struct command *cmd,
+						       const char *buffer,
+						       const jsmntok_t *obj UNNEEDED,
+						       const jsmntok_t *params)
+{
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	subd_send_msg(cmd->ld->connectd,
+		      take(towire_connectd_dev_suppress_gossip(NULL)));
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command dev_suppress_gossip = {
+	"dev-suppress-gossip",
+	"developer",
+	json_dev_suppress_gossip,
+	"Stop this node from sending any more gossip."
+};
+AUTODATA(json_command, &dev_suppress_gossip);
+#endif /* DEVELOPER */

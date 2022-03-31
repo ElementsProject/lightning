@@ -157,7 +157,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_OUTPOINT_SPENT:
 	case WIRE_GOSSIPD_NEW_LEASE_RATES:
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIPD_DEV_SUPPRESS:
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
@@ -502,27 +501,6 @@ static const struct json_command dev_set_max_scids_encode_size = {
 	"Set {max} bytes of short_channel_ids per reply_channel_range"
 };
 AUTODATA(json_command, &dev_set_max_scids_encode_size);
-
-static struct command_result *json_dev_suppress_gossip(struct command *cmd,
-						       const char *buffer,
-						       const jsmntok_t *obj UNNEEDED,
-						       const jsmntok_t *params)
-{
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
-
-	subd_send_msg(cmd->ld->gossip, take(towire_gossipd_dev_suppress(NULL)));
-
-	return command_success(cmd, json_stream_success(cmd));
-}
-
-static const struct json_command dev_suppress_gossip = {
-	"dev-suppress-gossip",
-	"developer",
-	json_dev_suppress_gossip,
-	"Stop this node from sending any more gossip."
-};
-AUTODATA(json_command, &dev_suppress_gossip);
 
 static void dev_compact_gossip_store_reply(struct subd *gossip UNUSED,
 					   const u8 *reply,
