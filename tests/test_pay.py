@@ -2376,6 +2376,29 @@ def test_setchannel_all(node_factory, bitcoind):
     assert result['channels'][1]['maximum_htlc_out_msat'] == 0xCAFE
 
 
+@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
+def test_setchannel_startup_opts(node_factory, bitcoind):
+    """Tests that custom config/cmdline options are applied correctly when set
+    """
+    opts = {
+        'fee-base': 2,
+        'fee-per-satoshi': 3,
+        'htlc-minimum-msat': '4msat',
+        'htlc-maximum-msat': '5msat'
+    }
+    l1, l2 = node_factory.line_graph(2, opts=opts, wait_for_announce=True)
+
+    result = l2.rpc.listchannels()['channels']
+    assert result[0]['base_fee_millisatoshi'] == 2
+    assert result[0]['fee_per_millionth'] == 3
+    assert result[0]['htlc_minimum_msat'] == Millisatoshi(4)
+    assert result[0]['htlc_maximum_msat'] == Millisatoshi(5)
+    assert result[1]['base_fee_millisatoshi'] == 2
+    assert result[1]['fee_per_millionth'] == 3
+    assert result[1]['htlc_minimum_msat'] == Millisatoshi(4)
+    assert result[1]['htlc_maximum_msat'] == Millisatoshi(5)
+
+
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_channel_spendable(node_factory, bitcoind):
     """Test that spendable_msat is accurate"""
