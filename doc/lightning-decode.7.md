@@ -143,6 +143,7 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
   - **description_hash** (hex, optional): the hash of the description, in place of *description* (always 64 characters)
   - **payment_secret** (hex, optional): the secret to hand to the payee node (always 64 characters)
   - **features** (hex, optional): the features bitmap for this invoice
+  - **payment_metadata** (hex, optional): the payment_metadata to put in the payment
   - **fallbacks** (array of objects, optional): onchain addresses:
     - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
     - **hex** (hex): Raw encoded address
@@ -180,4 +181,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d05b5fc1bf230b3bbd03e2023fb0c6bbefb700f7c3cfb43512da48dbce45f005)
+[comment]: # ( SHA256STAMP:6ccf1b9195e64f897f65198a81c47bbd7e16387e4bdc74d624e2ec04a24e9873)

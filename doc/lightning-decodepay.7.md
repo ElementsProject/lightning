@@ -29,6 +29,7 @@ On success, an object is returned, containing:
 - **description_hash** (hex, optional): the hash of the description, in place of *description* (always 64 characters)
 - **payment_secret** (hex, optional): the secret to hand to the payee node (always 64 characters)
 - **features** (hex, optional): the features bitmap for this invoice
+- **payment_metadata** (hex, optional): the payment_metadata to put in the payment
 - **fallbacks** (array of objects, optional): onchain addresses:
   - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
   - **hex** (hex): Raw encoded address
@@ -69,4 +70,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d92e1197708fff40f8ad71ccec3c0d8122d8088da1803c02bb042b09dbf2ee33)
+[comment]: # ( SHA256STAMP:17cb6c66c75e907f3a2583d702aec2fc6e5a7b6026d05a3ed9957304799c9aef)

@@ -8,6 +8,8 @@ tlvdata,tlv_payload,short_channel_id,short_channel_id,short_channel_id,
 tlvtype,tlv_payload,payment_data,8
 tlvdata,tlv_payload,payment_data,payment_secret,byte,32
 tlvdata,tlv_payload,payment_data,total_msat,tu64,
+tlvtype,tlv_payload,payment_metadata,16
+tlvdata,tlv_payload,payment_metadata,payment_metadata,byte,...
 tlvtype,obs2_onionmsg_payload,reply_path,2
 tlvdata,obs2_onionmsg_payload,reply_path,first_node_id,point,
 tlvdata,obs2_onionmsg_payload,reply_path,blinding,point,

@@ -516,6 +516,33 @@ static char *decode_9(struct bolt11 *b11,
 	return NULL;
 }
 
+/* BOLT #11:
+ *
+ * `m` (27): `data_length` variable. Additional metadata to attach to
+ * the payment. Note that the size of this field is limited by the
+ * maximum hop payload size. Long metadata fields reduce the maximum
+ * route length.
+ */
+static char *decode_m(struct bolt11 *b11,
+		      struct hash_u5 *hu5,
+		      u5 **data, size_t *data_len,
+		      size_t data_length,
+		      bool *have_m)
+{
+	size_t mlen = (data_length * 5) / 8;
+
+	if (*have_m)
+		return unknown_field(b11, hu5, data, data_len, 'm',
+				     data_length);
+
+	b11->metadata = tal_arr(b11, u8, mlen);
+	pull_bits_certain(hu5, data, data_len, b11->metadata,
+			  data_length * 5, false);
+
+	*have_m = true;
+	return NULL;
+}
+
 struct bolt11 *new_bolt11(const tal_t *ctx,
 			  const struct amount_msat *msat TAKES)
 {
@@ -535,6 +562,7 @@ struct bolt11 *new_bolt11(const tal_t *ctx,
 	 */
 	b11->min_final_cltv_expiry = 18;
 	b11->payment_secret = NULL;
+	b11->metadata = NULL;
 
 	if (msat)
 		b11->msat = tal_dup(b11, struct amount_msat, msat);
@@ -557,7 +585,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	struct bolt11 *b11 = new_bolt11(ctx, NULL);
 	struct hash_u5 hu5;
 	bool have_p = false, have_d = false, have_h = false,
-		have_x = false, have_c = false, have_s = false;
+		have_x = false, have_c = false, have_s = false, have_m = false;
 
 	*have_n = false;
 	b11->routes = tal_arr(b11, struct route_info *, 0);
@@ -760,6 +788,10 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 			problem = decode_s(b11, &hu5, &data, &data_len,
 					   data_length, &have_s);
 			break;
+		case 'm':
+			problem = decode_m(b11, &hu5, &data, &data_len,
+					   data_length, &have_m);
+			break;
 		default:
 			unknown_field(b11, &hu5, &data, &data_len,
 				      bech32_charset[type], data_length);
@@ -936,6 +968,11 @@ static void encode_p(u5 **data, const struct sha256 *hash)
 	push_field(data, 'p', hash, 256);
 }
 
+static void encode_m(u5 **data, const u8 *metadata)
+{
+	push_field(data, 'm', metadata, tal_bytelen(metadata) * CHAR_BIT);
+}
+
 static void encode_d(u5 **data, const char *description)
 {
 	push_field(data, 'd', description, strlen(description) * CHAR_BIT);
@@ -1011,13 +1048,20 @@ static void encode_r(u5 **data, const struct route_info *r)
 	tal_free(rinfo);
 }
 
-static void maybe_encode_9(u5 **data, const u8 *features)
+static void maybe_encode_9(u5 **data, const u8 *features,
+			   bool have_payment_metadata)
 {
 	u5 *f5 = tal_arr(NULL, u5, 0);
 
 	for (size_t i = 0; i < tal_count(features) * CHAR_BIT; i++) {
 		if (!feature_is_set(features, i))
 			continue;
+
+		/* Don't set option_payment_metadata unless we acually use it */
+		if (!have_payment_metadata
+		    && COMPULSORY_FEATURE(i) == OPT_PAYMENT_METADATA)
+			continue;
+
 		/* We expand it out so it makes a BE 5-bit/btye bitfield */
 		set_feature_bit(&f5, (i / 5) * 8 + (i % 5));
 	}
@@ -1136,6 +1180,9 @@ char *bolt11_encode_(const tal_t *ctx,
 	if (b11->expiry != DEFAULT_X)
 		encode_x(&data, b11->expiry);
 
+	if (b11->metadata)
+		encode_m(&data, b11->metadata);
+
 	/* BOLT #11:
 	 *   - MUST include one `c` field (`min_final_cltv_expiry`).
 	 */
@@ -1150,7 +1197,7 @@ char *bolt11_encode_(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(b11->routes); i++)
 		encode_r(&data, b11->routes[i]);
 
-	maybe_encode_9(&data, b11->features);
+	maybe_encode_9(&data, b11->features, b11->metadata != NULL);
 
 	list_for_each(&b11->extra_fields, extra, list)
 		if (!encode_extra(&data, extra))

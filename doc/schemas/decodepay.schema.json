@@ -70,6 +70,10 @@
       "type": "hex",
       "description": "the features bitmap for this invoice"
     },
+    "payment_metadata": {
+      "type": "hex",
+      "description": "the payment_metadata to put in the payment"
+    },
     "fallbacks": {
       "type": "array",
       "description": "onchain addresses",

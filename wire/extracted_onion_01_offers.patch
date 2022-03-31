@@ -1,9 +1,9 @@
 --- wire/extracted_onion_wire_csv	2020-03-25 10:24:12.861645774 +1030
 +++ -	2020-03-26 13:47:13.498294435 +1030
 @@ -8,6 +8,30 @@
- tlvtype,tlv_payload,payment_data,8
- tlvdata,tlv_payload,payment_data,payment_secret,byte,32
  tlvdata,tlv_payload,payment_data,total_msat,tu64,
+ tlvtype,tlv_payload,payment_metadata,16
+ tlvdata,tlv_payload,payment_metadata,payment_metadata,byte,...
 +tlvtype,obs2_onionmsg_payload,reply_path,2
 +tlvdata,obs2_onionmsg_payload,reply_path,first_node_id,point,
 +tlvdata,obs2_onionmsg_payload,reply_path,blinding,point,
