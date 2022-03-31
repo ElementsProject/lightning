@@ -810,8 +810,6 @@ static u8 *convert_failcode(const tal_t *ctx,
 		return towire_permanent_node_failure(ctx);
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
 		return towire_required_node_feature_missing(ctx);
-	case WIRE_CHANNEL_DISABLED:
-		return towire_channel_disabled(ctx);
 	case WIRE_PERMANENT_CHANNEL_FAILURE:
 		return towire_permanent_channel_failure(ctx);
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:

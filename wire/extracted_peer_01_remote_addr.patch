@@ -1,0 +1,13 @@
+diff --git a/wire/peer_wire.csv b/wire/peer_wire.csv
+index a028ddc66..4043c6350 100644
+--- a/wire/peer_wire.csv
++++ b/wire/peer_wire.csv
+@@ -6,6 +6,8 @@ msgdata,init,features,byte,flen
+ msgdata,init,tlvs,init_tlvs,
+ tlvtype,init_tlvs,networks,1
+ tlvdata,init_tlvs,networks,chains,chain_hash,...
++tlvtype,init_tlvs,remote_addr,3
++tlvdata,init_tlvs,remote_addr,remote_addr,wireaddr,
+ msgtype,error,17
+ msgdata,error,channel_id,channel_id,
+ msgdata,error,len,u16,
