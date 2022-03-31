@@ -108,6 +108,9 @@ struct pay_command {
 	/* Payment secret, if specified by invoice. */
 	const char *payment_secret;
 
+	/* Payment metadata, if specified by invoice. */
+	const char *payment_metadata;
+
 	/* Description, if any. */
 	const char *label;
 
@@ -849,6 +852,8 @@ static struct command_result *getroute_done(struct command *cmd,
 		json_add_string(req->js, "label", pc->label);
 	if (pc->payment_secret)
 		json_add_string(req->js, "payment_secret", pc->payment_secret);
+	if (pc->payment_metadata)
+		json_add_string(req->js, "payment_metadata", pc->payment_metadata);
 
 	return send_outreq(cmd->plugin, req);
 }
@@ -1368,6 +1373,11 @@ static struct command_result *json_pay(struct command *cmd,
 						sizeof(*b11->payment_secret));
 	else
 		pc->payment_secret = NULL;
+	if (b11->metadata)
+		pc->payment_metadata = tal_hex(pc, b11->metadata);
+	else
+		pc->payment_metadata = NULL;
+
 	/* We try first without using routehint */
 	pc->current_routehint = NULL;
 	pc->routehints = filter_routehints(pc, b11->routes);
@@ -2380,6 +2390,10 @@ static struct command_result *json_paymod(struct command *cmd,
 		p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 		p->payment_secret =
 			tal_dup_or_null(p, struct secret, b11->payment_secret);
+		if (b11->metadata)
+			p->payment_metadata = tal_dup_talarr(p, u8, b11->metadata);
+		else
+			p->payment_metadata = NULL;
 		/* FIXME: libplugin-pay plays with this array, and there are many FIXMEs
 		 * about it.  But it looks like a leak, so we suppress it here. */
 		p->routes = notleak_with_children(tal_steal(p, b11->routes));
@@ -2439,6 +2453,7 @@ static struct command_result *json_paymod(struct command *cmd,
 			BUILD_ASSERT(sizeof(*p->payment_secret) ==
 				     sizeof(merkle));
 		}
+		p->payment_metadata = NULL;
 		p->routes = NULL;
 		/* FIXME: paths! */
 		if (b12->cltv)

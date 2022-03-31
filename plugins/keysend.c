@@ -179,6 +179,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->json_toks = params;
 	p->destination = tal_steal(p, destination);
 	p->payment_secret = NULL;
+	p->payment_metadata = NULL;
 	p->amount = *msat;
 	p->routes = tal_steal(p, hints);
 	// 22 is the Rust-Lightning default and the highest minimum we know of.

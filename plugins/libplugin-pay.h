@@ -180,6 +180,9 @@ struct payment {
 	/* Payment secret, from the invoice if any. */
 	struct secret *payment_secret;
 
+	/* Payment metadata, from the invoice if any. */
+	u8 *payment_metadata;
+
 	u64 groupid;
 	u32 partid;
 	u32 next_partid;
