@@ -36,14 +36,15 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		       const struct pubkey *blinding,
 		       const u8 *enctlv);
 
-/* Note that this can fail if we supply payment_secret and !use_tlv! */
+/* Note that this can fail if we supply payment_secret or payment_metadata and !use_tlv! */
 u8 *onion_final_hop(const tal_t *ctx,
 		    struct amount_msat forward,
 		    u32 outgoing_cltv,
 		    struct amount_msat total_msat,
 		    const struct pubkey *blinding,
 		    const u8 *enctlv,
-		    const struct secret *payment_secret);
+		    const struct secret *payment_secret,
+		    const u8 *payment_metadata);
 
 /**
  * onion_payload_length: measure payload length in decrypted onion.

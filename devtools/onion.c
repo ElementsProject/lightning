@@ -80,7 +80,7 @@ static void do_generate(int argc, char **argv,
 					       take(onion_final_hop(NULL,
 								    amt, i, amt,
 								    NULL, NULL,
-								    NULL)));
+								    NULL, NULL)));
 			else
 				sphinx_add_hop(sp, &path[i],
 					       take(onion_nonfinal_hop(NULL,
