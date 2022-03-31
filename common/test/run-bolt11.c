@@ -49,7 +49,6 @@ static void test_b11(const char *b11str,
 {
 	struct bolt11 *b11;
 	char *fail;
-	char *reproduce;
 	struct bolt11_field *b11_extra, *expect_extra;
 
 	b11 = bolt11_decode(tmpctx, b11str, NULL, hashed_desc,
@@ -115,20 +114,22 @@ static void test_b11(const char *b11str,
 	assert(!expect_extra);
 
 	/* FIXME: Spec changed to require c fields, but test vectors don't! */
-	if (b11->min_final_cltv_expiry == 18)
-		return;
+
+#if DEVELOPER
+	char *reproduce;
+
+	dev_bolt11_no_c_generation = (b11->min_final_cltv_expiry == 18);
 
 	/* Also blockstream store example signature doesn't match? */
 	/* Re-encode to check */
 	reproduce = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
-#if 0
 	for (size_t i = 0; i < strlen(reproduce); i++) {
 		if (reproduce[i] != b11str[i]
 		    && reproduce[i] != tolower(b11str[i]))
 			abort();
 	}
-#endif
 	assert(strlen(reproduce) == strlen(b11str));
+#endif
 }
 
 int main(int argc, char *argv[])
@@ -478,8 +479,13 @@ int main(int argc, char *argv[])
 	set_feature_bit(&b11->features, 100);
 	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 
-	/* FIXME: above has missing c field! */
-	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeescqpjsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q4psqqqqqqqqqqqqqqqqsgqjckhuumq7mk7pdua9s6umdg34sjhlju9qgcvclxl35guw3dhhyrrtnmudz3kspyqk6k6r7thyzyrleq9s9lmgh59zlc49mc3nd7ngecqllqtym"));
+	/* Needs DEVELOPER to munge this into BOLT example order! */
+#if DEVELOPER
+	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q4psqqqqqqqqqqqqqqqqsgqtqyx5vggfcsll4wu246hz02kp85x4katwsk9639we5n5yngc3yhqkm35jnjw4len8vrnqnf5ejh0mzj9n3vz2px97evektfm2l6wqccp3y7372"));
+#else
+	assert(streq(badstr, "lnbc25m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeescqpj9q4psqqqqqqqqqqqqqqqqsgqf0nf0agw8xncpemlreh8wl0z5exhz3pky094lu7pf62nvcxq2vljzhhw69xfdftrgm0jklut3h25nlsfw5prz4c0pjy46xyer0k85hqpnathfq"));
+#endif
+
 	/* Empty set of allowed bits, ensures this fails! */
 	fset = tal(tmpctx, struct feature_set);
 	fset->bits[BOLT11_FEATURE] = tal_arr(fset, u8, 0);
