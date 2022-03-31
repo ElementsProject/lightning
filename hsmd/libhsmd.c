@@ -1124,7 +1124,7 @@ static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
 	 * * if `option_anchors` applies to this commitment transaction,
-	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
+	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used as described in [BOLT #5]
 	 */
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      option_anchor_outputs
@@ -1177,7 +1177,7 @@ static u8 *handle_sign_remote_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
 	 * * if `option_anchors` applies to this commitment transaction,
-	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
+	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used as described in [BOLT #5]
 	 */
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
 		      option_anchor_outputs
@@ -1446,7 +1446,7 @@ static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
 	 * * if `option_anchors` applies to this commitment transaction,
-	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
+	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used as described in [BOLT #5]
 	 */
 	return handle_sign_to_us_tx(
 	    c, msg_in, tx, &privkey, wscript,

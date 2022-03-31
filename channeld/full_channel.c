@@ -617,7 +617,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *
 	 *   - if a sending node adds more than receiver `max_accepted_htlcs`
 	 *     HTLCs to its local commitment transaction...
-	 *     - SHOULD fail the channel.
+	 *         - SHOULD send a `warning` and close the connection, or send an
+	 *         `error` and fail the channel.
 	 */
 	if (htlc_count + 1 > channel->config[recipient].max_accepted_htlcs) {
 		return CHANNEL_ERR_TOO_MANY_HTLCS;
