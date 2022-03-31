@@ -2534,6 +2534,7 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	in->status = NULL;
 	/* FIXME: save blinding in db !*/
 	in->blinding = NULL;
+	in->payload = NULL;
 
 	db_col_sha256(stmt, "payment_hash", &in->payment_hash);
 
@@ -4228,7 +4229,8 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 					    const struct htlc_out *out,
 					    enum forward_status state,
 					    enum onion_wire failcode,
-					    struct timeabs *resolved_time)
+					    struct timeabs *resolved_time,
+					    enum forward_style forward_style)
 {
 	struct db_stmt *stmt;
 	bool changed;
@@ -4244,6 +4246,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 				 ", state=?"
 				 ", resolved_time=?"
 				 ", failcode=?"
+				 ", forward_style=?"
 				 " WHERE in_htlc_id=?"));
 	db_bind_amount_msat(stmt, 0, &in->msat);
 
@@ -4268,7 +4271,12 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 		db_bind_null(stmt, 4);
 	}
 
-	db_bind_u64(stmt, 5, in->dbid);
+	/* This can happen for malformed onions, reload from db. */
+	if (forward_style == FORWARD_STYLE_UNKNOWN)
+		db_bind_null(stmt, 5);
+	else
+		db_bind_int(stmt, 5, forward_style_in_db(forward_style));
+	db_bind_u64(stmt, 6, in->dbid);
 	db_exec_prepared_v2(stmt);
 	changed = db_count_changes(stmt) != 0;
 	tal_free(stmt);
@@ -4277,6 +4285,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 }
 
 void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
+				  enum forward_style forward_style,
 				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
@@ -4292,7 +4301,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		resolved_time = NULL;
 	}
 
-	if (wallet_forwarded_payment_update(w, in, out, state, failcode, resolved_time))
+	if (wallet_forwarded_payment_update(w, in, out, state, failcode, resolved_time, forward_style))
 		goto notify;
 
 	stmt = db_prepare_v2(w->db,
@@ -4307,7 +4316,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				 ", received_time"
 				 ", resolved_time"
 				 ", failcode"
-				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 ", forward_style"
+				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_u64(stmt, 0, in->dbid);
 
 	if (out) {
@@ -4341,12 +4351,17 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	} else {
 		db_bind_null(stmt, 9);
 	}
+	/* This can happen for malformed onions, reload from db! */
+	if (forward_style == FORWARD_STYLE_UNKNOWN)
+		db_bind_null(stmt, 10);
+	else
+		db_bind_int(stmt, 10, forward_style_in_db(forward_style));
 
 	db_exec_prepared_v2(take(stmt));
 
 notify:
 	notify_forward_event(w->ld, in, scid_out, out ? &out->msat : NULL,
-			     state, failcode, resolved_time);
+			     state, failcode, resolved_time, forward_style);
 }
 
 struct amount_msat wallet_total_forward_fees(struct wallet *w)
@@ -4414,6 +4429,7 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		", f.received_time"
 		", f.resolved_time"
 		", f.failcode "
+		", f.forward_style "
 		"FROM forwarded_payments f "
 		"LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) "
 		"WHERE (1 = ? OR f.state = ?) AND "
@@ -4510,6 +4526,12 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			cur->failcode = db_col_int(stmt, "f.failcode");
 		} else {
 			cur->failcode = 0;
+		}
+		if (db_col_is_null(stmt, "f.forward_style")) {
+			cur->forward_style = FORWARD_STYLE_UNKNOWN;
+		} else {
+			cur->forward_style
+				= forward_style_in_db(db_col_int(stmt, "f.forward_style"));
 		}
 	}
 	tal_free(stmt);

@@ -528,7 +528,8 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  const struct amount_msat *amount_out UNNEEDED,
 			  enum forward_status state UNNEEDED,
 			  enum onion_wire failcode UNNEEDED,
-			  struct timeabs *resolved_time UNNEEDED)
+			  struct timeabs *resolved_time UNNEEDED,
+			  enum forward_style forward_style UNNEEDED)
 { fprintf(stderr, "notify_forward_event called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,

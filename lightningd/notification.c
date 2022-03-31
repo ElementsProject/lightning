@@ -296,7 +296,8 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 						 const struct amount_msat *amount_out,
 						 enum forward_status state,
 						 enum onion_wire failcode,
-						 struct timeabs *resolved_time)
+						 struct timeabs *resolved_time,
+						 enum forward_style forward_style)
 {
 	/* Here is more neat to initial a forwarding structure than
 	 * to pass in a bunch of parameters directly*/
@@ -324,6 +325,7 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 	cur->failcode = failcode;
 	cur->received_time = in->received_time;
 	cur->resolved_time = tal_steal(cur, resolved_time);
+	cur->forward_style = forward_style;
 
 	json_format_forwarding_object(stream, "forward_event", cur);
 }
@@ -337,7 +339,8 @@ void notify_forward_event(struct lightningd *ld,
 			  const struct amount_msat *amount_out,
 			  enum forward_status state,
 			  enum onion_wire failcode,
-			  struct timeabs *resolved_time)
+			  struct timeabs *resolved_time,
+			  enum forward_style forward_style)
 {
 	void (*serialize)(struct json_stream *,
 			  const struct htlc_in *,
@@ -345,11 +348,12 @@ void notify_forward_event(struct lightningd *ld,
 			  const struct amount_msat *,
 			  enum forward_status,
 			  enum onion_wire,
-			  struct timeabs *) = forward_event_notification_gen.serialize;
+			  struct timeabs *,
+			  enum forward_style) = forward_event_notification_gen.serialize;
 
 	struct jsonrpc_notification *n
 		= jsonrpc_notification_start(NULL, forward_event_notification_gen.topic);
-	serialize(n->stream, in, scid_out, amount_out, state, failcode, resolved_time);
+	serialize(n->stream, in, scid_out, amount_out, state, failcode, resolved_time, forward_style);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
