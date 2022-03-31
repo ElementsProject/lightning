@@ -711,9 +711,6 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 					  void *arg) UNNEEDED,
 			       void *arg UNNEEDED)
 { fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
-/* Generated stub for towire_channel_disabled */
-u8 *towire_channel_disabled(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_disabled called!\n"); abort(); }
 /* Generated stub for towire_channeld_config_channel */
 u8 *towire_channeld_config_channel(const tal_t *ctx UNNEEDED, u32 *feerate_base UNNEEDED, u32 *feerate_ppm UNNEEDED, struct amount_msat *htlc_minimum UNNEEDED, struct amount_msat *htlc_maximum UNNEEDED)
 { fprintf(stderr, "towire_channeld_config_channel called!\n"); abort(); }
