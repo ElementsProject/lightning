@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "pubkey"
+    },
+    "len": {
+      "type": "number"
+    },
+    "pongbytes": {
+      "type": "number"
+    }
+  }
+}
