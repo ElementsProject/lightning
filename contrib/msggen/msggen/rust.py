@@ -35,7 +35,7 @@ typemap = {
     'msat': 'Amount',
     'msat_or_all': 'AmountOrAll',
     'msat_or_any': 'AmountOrAny',
-    'number': 'i64',
+    'number': 'f64',
     'pubkey': 'Pubkey',
     'short_channel_id': 'ShortChannelId',
     'signature': 'String',
