@@ -3,7 +3,7 @@ from pathlib import Path
 from pyln.testing.utils import env, TEST_NETWORK, wait_for
 from ephemeral_port_reserve import reserve
 import grpc
-from primitives_pb2 import AmountOrAny
+from primitives_pb2 import AmountOrAny, Amount
 import pytest
 import subprocess
 
@@ -112,6 +112,15 @@ def test_grpc_connect(node_factory):
         cltv=24
     ))
     print(inv)
+
+    # Test a failing RPC call, so we know that errors are returned correctly.
+    with pytest.raises(Exception, match=r'Duplicate label'):
+        # This request creates a label collision
+        stub.Invoice(nodepb.InvoiceRequest(
+            msatoshi=AmountOrAny(amount=Amount(msat=12345)),
+            description="hello",
+            label="lbl1",
+        ))
 
 
 def test_grpc_generate_certificate(node_factory):

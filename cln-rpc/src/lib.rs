@@ -1,7 +1,7 @@
 use crate::codec::JsonCodec;
 use crate::codec::JsonRpc;
-use anyhow::{Context, Result};
 pub use anyhow::Error;
+use anyhow::Result;
 use futures_util::sink::SinkExt;
 use futures_util::StreamExt;
 use log::{debug, trace};
@@ -21,6 +21,7 @@ pub mod primitives;
 pub use crate::{
     model::{Request, Response},
     notifications::Notification,
+    primitives::RpcError,
 };
 
 ///
@@ -54,30 +55,54 @@ impl ClnRpc {
         })
     }
 
-    pub async fn call(&mut self, req: Request) -> Result<Response, Error> {
+    pub async fn call(&mut self, req: Request) -> Result<Response, RpcError> {
         trace!("Sending request {:?}", req);
 
         // Wrap the raw request in a well-formed JSON-RPC outer dict.
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let req: JsonRpc<Notification, Request> = JsonRpc::Request(id, req);
-        let req = serde_json::to_value(req)?;
+        let req = serde_json::to_value(req).map_err(|e| RpcError {
+            code: None,
+            message: format!("Error parsing request: {}", e),
+        })?;
         let req2 = req.clone();
-        self.write.send(req).await?;
+        self.write.send(req).await.map_err(|e| RpcError {
+            code: None,
+            message: format!("Error passing request to lightningd: {}", e),
+        })?;
 
         let mut response = self
             .read
             .next()
             .await
-            .context("no response from lightningd")?
-            .context("reading response from socket")?;
+            .ok_or_else(|| RpcError {
+                code: None,
+                message: "no response from lightningd".to_string(),
+            })?
+            .map_err(|_| RpcError {
+                code: None,
+                message: "reading response from socket".to_string(),
+            })?;
         trace!("Read response {:?}", response);
 
         // Annotate the response with the method from the request, so
         // serde_json knows which variant of [`Request`] should be
         // used.
         response["method"] = req2["method"].clone();
-	log::warn!("XXX {:?}", response);
-        serde_json::from_value(response).context("converting response into enum")
+        if let Some(_) = response.get("result") {
+            serde_json::from_value(response).map_err(|e| RpcError {
+                code: None,
+                message: format!("Malformed response from lightningd: {}", e),
+            })
+        } else if let Some(e) = response.get("error") {
+            let e: RpcError = serde_json::from_value(e.clone()).unwrap();
+            Err(e)
+        } else {
+            Err(RpcError {
+                code: None,
+                message: format!("Malformed response from lightningd: {}", response),
+            })
+        }
     }
 }
 
