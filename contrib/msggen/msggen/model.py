@@ -100,7 +100,7 @@ class CompositeField(Field):
     def from_js(cls, js, path):
         typename = path2type(path)
 
-        properties = js["properties"]
+        properties = js.get("properties", {})
         # Ok, let's flatten the conditional properties. We do this by
         # reformatting the outer conditions into the `allOf` format.
         top = {
