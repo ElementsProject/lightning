@@ -320,7 +320,7 @@ def test_channel_abandon(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], SATS, feerate='1875perkw')
 
     opening_utxo = only_one([o for o in l1.rpc.listfunds()['outputs'] if o['reserved']])
-    psbt = l1.rpc.utxopsbt(0, "253perkw", 0, [opening_utxo['txid'] + ':' + str(opening_utxo['output'])], reserve=False, reservedok=True)['psbt']
+    psbt = l1.rpc.utxopsbt(0, "253perkw", 0, [opening_utxo['txid'] + ':' + str(opening_utxo['output'])], reserve=0, reservedok=True)['psbt']
 
     # We expect a reservation for 2016 blocks; unreserve it.
     reservations = only_one(l1.rpc.unreserveinputs(psbt, reserve=2015)['reservations'])
@@ -1178,7 +1178,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
 
     # Some random (valid) psbt
-    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=False)['psbt']
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
 
     with pytest.raises(RpcError, match=r'Unknown peer'):
         l1.rpc.fundchannel_start(l2.info['id'], amount)
@@ -1296,7 +1296,7 @@ def test_funding_v2_corners(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
 
     # Some random (valid) psbt
-    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=False)['psbt']
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
     nonexist_chanid = '11' * 32
 
     with pytest.raises(RpcError, match=r'Unknown peer'):
@@ -1324,7 +1324,7 @@ def test_funding_v2_corners(node_factory, bitcoind):
     # Should be able to 'restart' after canceling
     amount2 = 1000000
     l1.rpc.unreserveinputs(psbt)
-    psbt = l1.rpc.fundpsbt(amount2, '253perkw', 250, reserve=False)['psbt']
+    psbt = l1.rpc.fundpsbt(amount2, '253perkw', 250, reserve=0)['psbt']
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     start = l1.rpc.openchannel_init(l2.info['id'], amount2, psbt)
 
@@ -1455,7 +1455,7 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
 
     for count, n in enumerate(nodes):
         l1.rpc.connect(n.info['id'], 'localhost', n.port)
-        psbt = l1.rpc.fundpsbt(amount, '7500perkw', 250, reserve=False,
+        psbt = l1.rpc.fundpsbt(amount, '7500perkw', 250, reserve=0,
                                excess_as_change=True,
                                min_witness_weight=110)['psbt']
         start = l1.rpc.openchannel_init(n.info['id'], amount, psbt)

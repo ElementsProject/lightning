@@ -33,10 +33,9 @@ added any inputs.
 *minconf* specifies the minimum number of confirmations that used
 outputs should have. Default is 1.
 
-*reserve* is either boolean or a number: if *true* or a non-zero
-number then *reserveinputs* is called (successfully, with
-*exclusive* true) on the returned PSBT for this number of blocks (or
-72 blocks if *reserve* is simply *true*).
+If *reserve* if not zero, then *reserveinputs* is called (successfully, with
+*exclusive* true) on the returned PSBT for this number of blocks (default
+72 blocks if unspecified).
 
 *locktime* is an optional locktime: if not set, it is set to a recent
 block height.

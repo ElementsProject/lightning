@@ -455,7 +455,6 @@ listfunds_success(struct command *cmd,
 				    &psbt_funded,
 				    &psbt_fund_failed,
 				    info);
-	json_add_bool(req->js, "reserve", true);
 	json_add_string(req->js, "satoshi",
 			type_to_string(tmpctx, struct amount_sat,
 				       &info->our_funding));
