@@ -642,3 +642,11 @@ pub struct Routehint {
 pub struct RoutehintList {
     pub hints: Vec<Routehint>,
 }
+
+/// An error returned by the lightningd RPC consisting of a code and a
+/// message
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct RpcError {
+    pub code: Option<i32>,
+    pub message: String,
+}
