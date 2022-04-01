@@ -7,10 +7,10 @@
   ],
   "properties": {
     "destination": {
-      "type": "pubkey"
+      "type": "string"
     },
     "satoshi": {
-      "type": "msat|all"
+      "type": "msat_or_all"
     },
     "feerate": {
       "type": "feerate"
@@ -21,7 +21,7 @@
     "utxos": {
       "type": "array",
       "items": {
-        "type": "utxo"
+        "type": "outpoint"
       }
     }
   }

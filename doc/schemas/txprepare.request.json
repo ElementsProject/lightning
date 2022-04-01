@@ -6,10 +6,10 @@
     "outputs"
   ],
   "properties": {
-    "outptus": {
+    "outputs": {
       "type": "array",
       "items": {
-        "type": "OutputDesc"
+        "type": "outputdesc"
       }
     },
     "feerate": {
@@ -21,7 +21,7 @@
     "utxos": {
       "type": "array",
       "items": {
-        "type": "utxo"
+        "type": "outpoint"
       }
     }
   }

@@ -16,29 +16,29 @@
       "type": "feerate"
     },
     "startweight": {
-      "type": "number"
+      "type": "u32"
     },
     "utxos": {
       "type": "array",
       "items": {
-        "type": "utxo"
+        "type": "outpoint"
       }
     },
     "reserve": {
-      "type": "number",
+      "type": "u32",
       "description": "reserve is a number: if non-zero number then reserveinputs is called (successfully, with exclusive true) on the returned PSBT for this number of blocks (default: 72)."
     },
     "reservedok": {
-      "type": "bool"
+      "type": "boolean"
     },
     "locktime": {
-      "type": "number"
+      "type": "u32"
     },
     "min_witness_weight": {
       "type": "u32"
     },
     "excess_as_change": {
-      "type": "bool"
+      "type": "boolean"
     }
   }
 }

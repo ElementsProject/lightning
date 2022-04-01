@@ -50,6 +50,12 @@
     },
     "partid": {
       "type": "u16"
+    },
+    "localofferid": {
+      "type": "hex"
+    },
+    "groupid": {
+      "type": "u64"
     }
   }
 }

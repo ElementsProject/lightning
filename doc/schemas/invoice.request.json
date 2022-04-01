@@ -9,7 +9,7 @@
   ],
   "properties": {
     "msatoshi": {
-      "type": "msat|any",
+      "type": "msat_or_any",
       "description": ""
     },
     "description": {
@@ -17,11 +17,19 @@
       "description": ""
     },
     "label": {
-      "type": "string",
-      "description": ""
+      "oneOf": [
+        {
+          "type": "string",
+          "description": ""
+        },
+        {
+          "type": "integer",
+          "description": ""
+        }
+      ]
     },
     "expiry": {
-      "type": "",
+      "type": "u64",
       "description": ""
     },
     "fallbacks": {
@@ -36,11 +44,28 @@
       "description": ""
     },
     "exposeprivatechannels": {
-      "type": "bool",
-      "description": ""
+      "oneOf": [
+        {
+          "type": "boolean",
+          "description": ""
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "short_channel_id"
+          }
+        },
+        {
+          "type": "short_channel_id"
+        }
+      ]
     },
     "cltv": {
       "type": "u32",
+      "description": ""
+    },
+    "deschashonly": {
+      "type": "boolean",
       "description": ""
     }
   }

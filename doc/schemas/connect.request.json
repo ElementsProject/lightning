@@ -7,7 +7,7 @@
   ],
   "properties": {
     "id": {
-      "type": "pubkey",
+      "type": "string",
       "description": ""
     },
     "host": {

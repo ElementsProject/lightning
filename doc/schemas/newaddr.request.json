@@ -8,7 +8,8 @@
       "type": "string",
       "enum": [
         "bech32",
-        "p2sh-segwit"
+        "p2sh-segwit",
+        "all"
       ]
     }
   }

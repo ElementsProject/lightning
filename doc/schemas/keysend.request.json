@@ -17,16 +17,55 @@
       "type": "string"
     },
     "maxfeepercent": {
-      "type": "float"
+      "type": "number"
     },
     "retry_for": {
-      "type": "number"
+      "type": "u32"
     },
     "maxdelay": {
-      "type": "number"
+      "type": "u32"
     },
     "exemptfee": {
       "type": "msat"
+    },
+    "routehints": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "scid",
+            "feebase",
+            "feeprop",
+            "expirydelta"
+          ],
+          "properties": {
+            "id": {
+              "type": "pubkey"
+            },
+            "scid": {
+              "type": "short_channel_id"
+            },
+            "feebase": {
+              "type": "msat"
+            },
+            "feeprop": {
+              "type": "u32"
+            },
+            "expirydelta": {
+              "type": "u16"
+            }
+          }
+        }
+      }
+    },
+    "extratlvs": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": []
     }
   }
 }
