@@ -186,7 +186,7 @@ def test_connection_moved(node_factory, executor):
     log = l1.daemon.wait_for_log('listening for connections')
     match = re.search(r'on port (\d*)', log)
     assert match and len(match.groups()) == 1
-    hang_port = match.groups()[0]
+    hang_port = int(match.groups()[0])
 
     # Attempt connection
     fut_hang = executor.submit(l1.rpc.connect, l2.info['id'],

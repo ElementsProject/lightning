@@ -15,7 +15,7 @@ def test_invoice(node_factory, chainparams):
     addr1 = l2.rpc.newaddr('bech32')['bech32']
     addr2 = l2.rpc.newaddr('p2sh-segwit')['p2sh-segwit']
     before = int(time.time())
-    inv = l1.rpc.invoice(123000, 'label', 'description', '3700', [addr1, addr2])
+    inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
     after = int(time.time())
     b11 = l1.rpc.decodepay(inv['bolt11'])
     assert b11['currency'] == chainparams['bip173_prefix']
@@ -55,7 +55,7 @@ def test_invoice(node_factory, chainparams):
     assert 'warning_capacity' in inv
 
     # Test cltv option.
-    inv = l1.rpc.invoice(123000, 'label3', 'description', '3700', cltv=99)
+    inv = l1.rpc.invoice(123000, 'label3', 'description', 3700, cltv=99)
     b11 = l1.rpc.decodepay(inv['bolt11'])
     assert b11['min_final_cltv_expiry'] == 99
 
