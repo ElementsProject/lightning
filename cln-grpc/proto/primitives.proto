@@ -40,3 +40,8 @@ message Feerate {
 		uint32 perkw = 5;
 	}
 }
+
+message OutputDesc {
+	string address = 1;
+	Amount amount = 2;
+}

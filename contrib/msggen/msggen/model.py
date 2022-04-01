@@ -232,6 +232,7 @@ class PrimitiveField(Field):
         "number",
         "feerate",
         "utxo",  # A string representing the tuple (txid, outnum)
+        "OutputDesc",  # A dict that maps an address to an amount (bitcoind style)
     ]
 
     def __init__(self, typename, path, description):

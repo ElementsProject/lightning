@@ -1,6 +1,8 @@
 tonic::include_proto!("cln");
 
-use cln_rpc::primitives::{Amount as JAmount, Utxo as JUtxo};
+use cln_rpc::primitives::{
+    Amount as JAmount, Feerate as JFeerate, OutputDesc as JOutputDesc, Utxo as JUtxo,
+};
 
 impl From<JAmount> for Amount {
     fn from(a: JAmount) -> Self {
@@ -34,7 +36,6 @@ impl From<&Utxo> for JUtxo {
 
 impl From<&Feerate> for cln_rpc::primitives::Feerate {
     fn from(f: &Feerate) -> cln_rpc::primitives::Feerate {
-        use cln_rpc::primitives::Feerate as JFeerate;
         use feerate::Style;
         match f.style.clone().unwrap() {
             Style::Slow(_) => JFeerate::Slow,
@@ -42,6 +43,15 @@ impl From<&Feerate> for cln_rpc::primitives::Feerate {
             Style::Urgent(_) => JFeerate::Urgent,
             Style::Perkw(i) => JFeerate::PerKw(i),
             Style::Perkb(i) => JFeerate::PerKb(i),
+        }
+    }
+}
+
+impl From<&OutputDesc> for JOutputDesc {
+    fn from(od: &OutputDesc) -> JOutputDesc {
+        JOutputDesc {
+            address: od.address.clone(),
+            amount: od.amount.as_ref().unwrap().into(),
         }
     }
 }
