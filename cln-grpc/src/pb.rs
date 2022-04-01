@@ -2,7 +2,7 @@ tonic::include_proto!("cln");
 
 use cln_rpc::primitives::{
     Amount as JAmount, AmountOrAll as JAmountOrAll, AmountOrAny as JAmountOrAny,
-    Feerate as JFeerate, OutputDesc as JOutputDesc, Utxo as JUtxo,
+    Feerate as JFeerate, OutputDesc as JOutputDesc, Outpoint as JOutpoint,
 };
 
 impl From<JAmount> for Amount {
@@ -17,18 +17,18 @@ impl From<&Amount> for JAmount {
     }
 }
 
-impl From<JUtxo> for Utxo {
-    fn from(a: JUtxo) -> Self {
-        Utxo {
+impl From<JOutpoint> for Outpoint {
+    fn from(a: JOutpoint) -> Self {
+        Outpoint {
             txid: a.txid,
             outnum: a.outnum,
         }
     }
 }
 
-impl From<&Utxo> for JUtxo {
-    fn from(a: &Utxo) -> Self {
-        JUtxo {
+impl From<&Outpoint> for JOutpoint {
+    fn from(a: &Outpoint) -> Self {
+        JOutpoint {
             txid: a.txid.clone(),
             outnum: a.outnum,
         }
