@@ -70,6 +70,13 @@ def load_jsonrpc_service():
         "NewAddr",
         "Withdraw",
         "KeySend",
+        "FundPsbt",
+        "SendPsbt",
+        "SignPsbt",
+        "UtxoPsbt",
+        "TxDiscard",
+        "TxPrepare",
+        "TxSend",
         # "decodepay",
         # "decode",
         # "delpay",
@@ -110,15 +117,11 @@ def load_jsonrpc_service():
         # "setchannelfee",
         # "signmessage",
         # "signpsbt",
-        # "txdiscard",
-        # "txprepare",
-        # "txsend",
         # "unreserveinputs",
         # "waitblockheight",
         # "ListConfigs",
         # "check",  # No point in mapping this one
         # "Stop",  # Breaks a core assumption (root is an object) can't map unless we change this
-        # "UtxoPsbt",  # Breaks since the utxos array has dynamic keys which we can't map as is
         # "notifications",  # No point in mapping this
         # "help",
     ]

@@ -926,4 +926,214 @@ async fn key_send(
 
 }
 
+async fn fund_psbt(
+    &self,
+    request: tonic::Request<pb::FundpsbtRequest>,
+) -> Result<tonic::Response<pb::FundpsbtResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::FundpsbtRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::FundPsbt(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method FundPsbt: {:?}", e)))?;
+    match result {
+        Response::FundPsbt(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call FundPsbt",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn send_psbt(
+    &self,
+    request: tonic::Request<pb::SendpsbtRequest>,
+) -> Result<tonic::Response<pb::SendpsbtResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SendpsbtRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SendPsbt(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SendPsbt: {:?}", e)))?;
+    match result {
+        Response::SendPsbt(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SendPsbt",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn sign_psbt(
+    &self,
+    request: tonic::Request<pb::SignpsbtRequest>,
+) -> Result<tonic::Response<pb::SignpsbtResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SignpsbtRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SignPsbt(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SignPsbt: {:?}", e)))?;
+    match result {
+        Response::SignPsbt(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SignPsbt",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn utxo_psbt(
+    &self,
+    request: tonic::Request<pb::UtxopsbtRequest>,
+) -> Result<tonic::Response<pb::UtxopsbtResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::UtxopsbtRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::UtxoPsbt(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method UtxoPsbt: {:?}", e)))?;
+    match result {
+        Response::UtxoPsbt(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call UtxoPsbt",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn tx_discard(
+    &self,
+    request: tonic::Request<pb::TxdiscardRequest>,
+) -> Result<tonic::Response<pb::TxdiscardResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::TxdiscardRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::TxDiscard(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method TxDiscard: {:?}", e)))?;
+    match result {
+        Response::TxDiscard(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call TxDiscard",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn tx_prepare(
+    &self,
+    request: tonic::Request<pb::TxprepareRequest>,
+) -> Result<tonic::Response<pb::TxprepareResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::TxprepareRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::TxPrepare(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method TxPrepare: {:?}", e)))?;
+    match result {
+        Response::TxPrepare(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call TxPrepare",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn tx_send(
+    &self,
+    request: tonic::Request<pb::TxsendRequest>,
+) -> Result<tonic::Response<pb::TxsendResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::TxsendRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::TxSend(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method TxSend: {:?}", e)))?;
+    match result {
+        Response::TxSend(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call TxSend",
+                r
+            )
+        )),
+    }
+
+}
+
 }

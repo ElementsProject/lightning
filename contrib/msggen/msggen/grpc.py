@@ -395,6 +395,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'pubkey?': f'c.{name}.clone().map(|v| hex::encode(v))',
                     'msat': f'c.{name}.as_ref().unwrap().into()',
                     'msat?': f'c.{name}.as_ref().map(|a| a.into())',
+                    'feerate': f'c.{name}.as_ref().unwrap().into()',
                     'feerate?': f'c.{name}.as_ref().map(|a| a.into())',
                 }.get(
                     typ,
