@@ -15,7 +15,7 @@
       "description": "unique ID for this payment attempt"
     },
     "payment_hash": {
-      "type": "hex",
+      "type": "hash",
       "description": "the hash of the *payment_preimage* which will prove payment",
       "maxLength": 64,
       "minLength": 64
@@ -100,7 +100,7 @@
           "bolt12": {},
           "partid": {},
           "payment_preimage": {
-            "type": "hex",
+            "type": "secret",
             "description": "the proof of payment: SHA256 of this **payment_hash**",
             "maxLength": 64,
             "minLength": 64

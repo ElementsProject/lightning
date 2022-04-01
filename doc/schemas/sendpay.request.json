@@ -34,7 +34,7 @@
       }
     },
     "payment_hash": {
-      "type": "hex"
+      "type": "hash"
     },
     "label": {
       "type": "string"
@@ -46,7 +46,7 @@
       "type": "string"
     },
     "payment_secret": {
-      "type": "hex"
+      "type": "secret"
     },
     "partid": {
       "type": "u16"

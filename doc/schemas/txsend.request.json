@@ -7,7 +7,7 @@
   ],
   "properties": {
     "txid": {
-      "type": "hex"
+      "type": "txid"
     }
   }
 }

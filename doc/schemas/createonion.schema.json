@@ -15,7 +15,7 @@
       "type": "array",
       "description": "one shared secret for each node in the *hops* parameter",
       "items": {
-        "type": "hex",
+        "type": "secret",
         "description": "the shared secret with this hop",
         "maxLength": 64,
         "minLength": 64

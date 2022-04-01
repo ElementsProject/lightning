@@ -53,7 +53,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **perkb** (u32): Feerate per 1000 virtual bytes
   - **owner** (string, optional): The current subdaemon controlling this connection
   - **short_channel_id** (short_channel_id, optional): The short_channel_id (once locked in)
-  - **channel_id** (hex, optional): The full channel_id (always 64 characters)
+  - **channel_id** (hash, optional): The full channel_id (always 64 characters)
   - **funding_txid** (txid, optional): ID of the funding transaction
   - **funding_outnum** (u32, optional): The 0-based output number of the funding transaction which opens the channel
   - **initial_feerate** (string, optional): For inflight opens, the first feerate used to initiate the channel open
@@ -113,7 +113,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **id** (u64): Unique ID for this htlc on this channel in this direction
     - **amount_msat** (msat): Amount send/received for this HTLC
     - **expiry** (u32): Block this HTLC expires at
-    - **payment_hash** (hex): the hash of the payment_preimage which will prove payment (always 64 characters)
+    - **payment_hash** (hash): the hash of the payment_preimage which will prove payment (always 64 characters)
     - **local_trimmed** (boolean, optional): if this is too small to enforce onchain (always *true*)
     - **status** (string, optional): set if this HTLC is currently waiting on a hook (and shows what plugin)
 
@@ -380,4 +380,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:147b7008c8f4acb031df625e0731614339a75ee5861cb9f40cd542b1017e3660)
+[comment]: # ( SHA256STAMP:6b0ec5c899c8685487190209f594635030205a275e1dc6d61a7b057adbf66192)

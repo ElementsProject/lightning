@@ -226,7 +226,7 @@
                   "description": "The short_channel_id (once locked in)"
                 },
                 "channel_id": {
-                  "type": "hex",
+                  "type": "hash",
                   "description": "The full channel_id",
                   "minLength": 64,
                   "maxLength": 64
@@ -632,7 +632,7 @@
                         "description": "Block this HTLC expires at"
                       },
                       "payment_hash": {
-                        "type": "hex",
+                        "type": "hash",
                         "description": "the hash of the payment_preimage which will prove payment",
                         "maxLength": 64,
                         "minLength": 64

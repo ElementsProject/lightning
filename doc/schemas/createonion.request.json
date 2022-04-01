@@ -32,7 +32,7 @@
       "description": ""
     },
     "session_key": {
-      "type": "hex"
+      "type": "secret"
     },
     "onion_size": {
       "type": "u16"

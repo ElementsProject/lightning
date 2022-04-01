@@ -8,7 +8,7 @@
       "type": "string"
     },
     "payment_hash": {
-      "type": "hex"
+      "type": "hash"
     },
     "status": {
       "type": "string",
