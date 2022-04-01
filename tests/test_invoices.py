@@ -437,36 +437,11 @@ def test_invoice_expiry(node_factory, executor):
     # all invoices are expired and should be deleted
     assert len(l2.rpc.listinvoices()['invoices']) == 0
 
-    # Test expiry suffixes.
     start = int(time.time())
-    inv = l2.rpc.invoice(msatoshi=123000, label='inv_s', description='description', expiry='1s')['bolt11']
+    inv = l2.rpc.invoice(msatoshi=123000, label='inv_s', description='description', expiry=1)['bolt11']
     end = int(time.time())
     expiry = only_one(l2.rpc.listinvoices('inv_s')['invoices'])['expires_at']
     assert expiry >= start + 1 and expiry <= end + 1
-
-    start = int(time.time())
-    inv = l2.rpc.invoice(msatoshi=123000, label='inv_m', description='description', expiry='1m')['bolt11']
-    end = int(time.time())
-    expiry = only_one(l2.rpc.listinvoices('inv_m')['invoices'])['expires_at']
-    assert expiry >= start + 60 and expiry <= end + 60
-
-    start = int(time.time())
-    inv = l2.rpc.invoice(msatoshi=123000, label='inv_h', description='description', expiry='1h')['bolt11']
-    end = int(time.time())
-    expiry = only_one(l2.rpc.listinvoices('inv_h')['invoices'])['expires_at']
-    assert expiry >= start + 3600 and expiry <= end + 3600
-
-    start = int(time.time())
-    inv = l2.rpc.invoice(msatoshi=123000, label='inv_d', description='description', expiry='1d')['bolt11']
-    end = int(time.time())
-    expiry = only_one(l2.rpc.listinvoices('inv_d')['invoices'])['expires_at']
-    assert expiry >= start + 24 * 3600 and expiry <= end + 24 * 3600
-
-    start = int(time.time())
-    inv = l2.rpc.invoice(msatoshi=123000, label='inv_w', description='description', expiry='1w')['bolt11']
-    end = int(time.time())
-    expiry = only_one(l2.rpc.listinvoices('inv_w')['invoices'])['expires_at']
-    assert expiry >= start + 7 * 24 * 3600 and expiry <= end + 7 * 24 * 3600
 
 
 @pytest.mark.developer("Too slow without --dev-fast-gossip")
