@@ -2,7 +2,7 @@ tonic::include_proto!("cln");
 
 use cln_rpc::primitives::{
     Amount as JAmount, AmountOrAll as JAmountOrAll, AmountOrAny as JAmountOrAny,
-    Feerate as JFeerate, OutputDesc as JOutputDesc, Outpoint as JOutpoint,
+    Feerate as JFeerate, Outpoint as JOutpoint, OutputDesc as JOutputDesc,
 };
 
 impl From<JAmount> for Amount {
@@ -98,6 +98,31 @@ impl From<&AmountOrAny> for JAmountOrAny {
             Some(amount_or_any::Value::Amount(a)) => JAmountOrAny::Amount(a.into()),
             Some(amount_or_any::Value::Any(_)) => JAmountOrAny::Any,
             None => panic!("AmountOrAll is neither amount nor any: {:?}", a),
+        }
+    }
+}
+impl From<RouteHop> for cln_rpc::primitives::Routehop {
+    fn from(c: RouteHop) -> Self {
+        Self {
+            id: hex::encode(c.id),
+            scid: c.short_channel_id,
+            feebase: c.feebase.as_ref().unwrap().into(),
+            feeprop: c.feeprop,
+            expirydelta: c.expirydelta as u16,
+        }
+    }
+}
+impl From<Routehint> for cln_rpc::primitives::Routehint {
+    fn from(c: Routehint) -> Self {
+        Self {
+            hops: c.hops.into_iter().map(|h| h.into()).collect(),
+        }
+    }
+}
+impl From<RoutehintList> for cln_rpc::primitives::RoutehintList {
+    fn from(c: RoutehintList) -> Self {
+        Self {
+            hints: c.hints.into_iter().map(|h| h.into()).collect(),
         }
     }
 }

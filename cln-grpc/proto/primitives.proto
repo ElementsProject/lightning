@@ -59,3 +59,17 @@ message OutputDesc {
 	string address = 1;
 	Amount amount = 2;
 }
+
+message RouteHop {
+	bytes id = 1;
+        string short_channel_id = 2;
+	Amount feebase = 3;
+        uint32 feeprop = 4;
+	uint32 expirydelta = 5;
+}
+message Routehint {
+	repeated RouteHop hops = 1;
+}
+message RoutehintList {
+	repeated Routehint hints = 2;
+}

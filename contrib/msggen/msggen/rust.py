@@ -165,7 +165,7 @@ def gen_array(a):
         return ("", "")  # Override said not to include
 
     itemtype = typemap.get(itemtype, itemtype)
-    alias = a.name.normalized()[:-2]  # Strip the `[]` suffix for arrays.
+    alias = a.name.normalized()
     defi = f"    #[serde(alias = \"{alias}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
 
     return (defi, decl)

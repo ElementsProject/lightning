@@ -377,7 +377,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
             if isinstance(f, ArrayField):
                 typ = f.itemtype.typename
                 mapping = {
-                    'hex': f'hex::decode(s).unwrap()',
+                    'hex': f'hex::encode(s)',
                     'u32': f's.clone()',
                 }.get(typ, f's.into()')
                 self.write(f"{name}: c.{name}.iter().map(|s| {mapping}).collect(),\n", numindent=3)
@@ -410,6 +410,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'msat|any?': f'c.{name}.as_ref().map(|a| a.into())',
                     'feerate': f'c.{name}.as_ref().unwrap().into()',
                     'feerate?': f'c.{name}.as_ref().map(|a| a.into())',
+                    'RoutehintList?': f'c.{name}.clone().map(|rl| rl.into())',
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment
