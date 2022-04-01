@@ -31,3 +31,17 @@ impl From<&Utxo> for JUtxo {
         }
     }
 }
+
+impl From<&Feerate> for cln_rpc::primitives::Feerate {
+    fn from(f: &Feerate) -> cln_rpc::primitives::Feerate {
+        use cln_rpc::primitives::Feerate as JFeerate;
+        use feerate::Style;
+        match f.style.clone().unwrap() {
+            Style::Slow(_) => JFeerate::Slow,
+            Style::Normal(_) => JFeerate::Normal,
+            Style::Urgent(_) => JFeerate::Urgent,
+            Style::Perkw(i) => JFeerate::PerKw(i),
+            Style::Perkb(i) => JFeerate::PerKb(i),
+        }
+    }
+}

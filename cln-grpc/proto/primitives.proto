@@ -30,3 +30,13 @@ message Utxo {
 	bytes txid = 1;
 	uint32 outnum = 2;
 }
+
+message Feerate {
+	oneof style {
+		bool slow = 1;
+		bool normal = 2;
+		bool urgent = 3;
+		uint32 perkb = 4;
+		uint32 perkw = 5;
+	}
+}

@@ -23,6 +23,7 @@ typemap = {
     'f32': 'float',
     'integer': 'sint64',
     "utxo": "Utxo",
+    "feerate": "Feerate",
 }
 
 
@@ -394,6 +395,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'pubkey?': f'c.{name}.clone().map(|v| hex::encode(v))',
                     'msat': f'c.{name}.as_ref().unwrap().into()',
                     'msat?': f'c.{name}.as_ref().map(|a| a.into())',
+                    'feerate?': f'c.{name}.as_ref().map(|a| a.into())',
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment

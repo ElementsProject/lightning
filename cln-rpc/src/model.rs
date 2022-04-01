@@ -464,6 +464,8 @@ pub mod requests {
 	    pub destination: String,
 	    #[serde(alias = "satoshi", skip_serializing_if = "Option::is_none")]
 	    pub satoshi: Option<Amount>,
+	    #[serde(alias = "feerate", skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
 	    #[serde(alias = "minconf", skip_serializing_if = "Option::is_none")]
 	    pub minconf: Option<u16>,
 	    #[serde(alias = "utxos")]
