@@ -1035,6 +1035,9 @@ static struct command_result *param_time(struct command *cmd, const char *name,
 		{ 'd', 24*60*60 },
 		{ 'w', 7*24*60*60 } };
 
+	if (!deprecated_apis)
+		return param_u64(cmd, name, buffer, tok, secs);
+
 	mul = 1;
 	if (timetok.end == timetok.start)
 		s = '\0';
@@ -1059,7 +1062,7 @@ static struct command_result *param_time(struct command *cmd, const char *name,
 	}
 
 	return command_fail_badparam(cmd, name, buffer, tok,
-				     "should be a number with optional {s,m,h,d,w} suffix");
+				     "should be a number");
 }
 
 static struct command_result *param_chanhints(struct command *cmd,

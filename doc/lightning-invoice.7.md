@@ -33,10 +33,8 @@ viewable by any node you send this invoice to (unless *deschashonly* is
 true as described below). It must be UTF-8, and cannot use *\\u* JSON 
 escape codes.
 
-The *expiry* is optionally the time the invoice is valid for; without a
-suffix it is interpreted as seconds, otherwise suffixes *s*, *m*, *h*,
-*d*, *w* indicate seconds, minutes, hours, days and weeks respectively.
-If no value is provided the default of 604800 (1w) is used.
+The *expiry* is optionally the time the invoice is valid for, in seconds.
+If no value is provided the default of 604800 (1 week) is used.
 
 The *fallbacks* array is one or more fallback addresses to include in
 the invoice (in order from most-preferred to least): note that these
