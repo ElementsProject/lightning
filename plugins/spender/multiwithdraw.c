@@ -369,7 +369,6 @@ static struct command_result *start_mw(struct multiwithdraw_command *mw)
 					    mw);
 		json_add_u32(req->js, "minconf", *mw->minconf);
 	}
-	json_add_bool(req->js, "reserve", true);
 	if (mw->has_all)
 		json_add_string(req->js, "satoshi", "all");
 	else {

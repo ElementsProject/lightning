@@ -4,6 +4,7 @@
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -444,14 +445,16 @@ static struct command_result *param_reserve_num(struct command *cmd,
 {
 	bool flag;
 
-	/* "reserve=true" means 6 hours */
-	if (json_to_bool(buffer, tok, &flag)) {
-		*num = tal(cmd, unsigned int);
-		if (flag)
-			**num = RESERVATION_DEFAULT;
-		else
-			**num = 0;
-		return NULL;
+	if (deprecated_apis) {
+		/* "reserve=true" means 6 hours */
+		if (json_to_bool(buffer, tok, &flag)) {
+			*num = tal(cmd, unsigned int);
+			if (flag)
+				**num = RESERVATION_DEFAULT;
+			else
+				**num = 0;
+			return NULL;
+		}
 	}
 
 	return param_number(cmd, name, buffer, tok, num);

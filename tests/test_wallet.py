@@ -507,7 +507,7 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     feerate = '7500perkw'
 
     # Should get one input, plus some excess
-    funding = l1.rpc.fundpsbt(amount // 2, feerate, 0, reserve=False)
+    funding = l1.rpc.fundpsbt(amount // 2, feerate, 0, reserve=0)
     psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
     # We can fuzz this up to 99 blocks back.
     assert psbt['tx']['locktime'] > bitcoind.rpc.getblockcount() - 100
@@ -520,7 +520,7 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     assert 'reservations' not in funding
 
     # This should add 99 to the weight, but otherwise be identical (might choose different inputs though!) except for locktime.
-    funding2 = l1.rpc.fundpsbt(amount // 2, feerate, 99, reserve=False, locktime=bitcoind.rpc.getblockcount() + 1)
+    funding2 = l1.rpc.fundpsbt(amount // 2, feerate, 99, reserve=0, locktime=bitcoind.rpc.getblockcount() + 1)
     psbt2 = bitcoind.rpc.decodepsbt(funding2['psbt'])
     assert psbt2['tx']['locktime'] == bitcoind.rpc.getblockcount() + 1
     assert len(psbt2['tx']['vin']) == 1
@@ -537,7 +537,7 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     with pytest.raises(RpcError, match=r"not afford"):
         l1.rpc.fundpsbt(amount // 2, feerate, 0, minconf=2)
 
-    funding3 = l1.rpc.fundpsbt(amount // 2, feerate, 0, reserve=False, excess_as_change=True)
+    funding3 = l1.rpc.fundpsbt(amount // 2, feerate, 0, reserve=0, excess_as_change=True)
     assert funding3['excess_msat'] == Millisatoshi(0)
     # Should have the excess msat as the output value (minus fee for change)
     psbt = bitcoind.rpc.decodepsbt(funding3['psbt'])
@@ -550,7 +550,7 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     assert funding['excess_msat'] == change + change_fee
 
     # Should get two inputs.
-    psbt = bitcoind.rpc.decodepsbt(l1.rpc.fundpsbt(amount, feerate, 0, reserve=False)['psbt'])
+    psbt = bitcoind.rpc.decodepsbt(l1.rpc.fundpsbt(amount, feerate, 0, reserve=0)['psbt'])
     assert len(psbt['tx']['vin']) == 2
 
     # Should not use reserved outputs.
@@ -594,7 +594,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
     # Explicitly spend the first output above.
     funding = l1.rpc.utxopsbt(amount // 2, feerate, 0,
                               ['{}:{}'.format(outputs[0][0], outputs[0][1])],
-                              reserve=False)
+                              reserve=0)
     psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
     # We can fuzz this up to 99 blocks back.
     assert psbt['tx']['locktime'] > bitcoind.rpc.getblockcount() - 100
@@ -610,7 +610,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
     start_weight = 99
     funding2 = l1.rpc.utxopsbt(amount // 2, feerate, start_weight,
                                ['{}:{}'.format(outputs[0][0], outputs[0][1])],
-                               reserve=False, locktime=bitcoind.rpc.getblockcount() + 1)
+                               reserve=0, locktime=bitcoind.rpc.getblockcount() + 1)
     psbt2 = bitcoind.rpc.decodepsbt(funding2['psbt'])
     assert psbt2['tx']['locktime'] == bitcoind.rpc.getblockcount() + 1
     assert psbt2['tx']['vin'] == psbt['tx']['vin']
@@ -638,7 +638,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
 
     funding3 = l1.rpc.utxopsbt(amount // 2, feerate, 0,
                                ['{}:{}'.format(outputs[0][0], outputs[0][1])],
-                               reserve=False,
+                               reserve=0,
                                excess_as_change=True)
     assert funding3['excess_msat'] == Millisatoshi(0)
     # Should have the excess msat as the output value (minus fee for change)
@@ -655,7 +655,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
     funding4 = l1.rpc.utxopsbt(amount - 3500,
                                feerate, 0,
                                ['{}:{}'.format(outputs[0][0], outputs[0][1])],
-                               reserve=False,
+                               reserve=0,
                                excess_as_change=True)
     assert 'change_outnum' not in funding4
 
@@ -713,8 +713,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Make a PSBT out of our inputs
     funding = l1.rpc.fundpsbt(satoshi=out_total,
                               feerate=7500,
-                              startweight=42,
-                              reserve=True)
+                              startweight=42)
     assert len([x for x in l1.rpc.listfunds()['outputs'] if x['reserved']]) == 4
     psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
     saved_input = psbt['tx']['vin'][0]
@@ -778,8 +777,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == total_outs)
     l2_funding = l2.rpc.fundpsbt(satoshi=out_total,
                                  feerate=7500,
-                                 startweight=42,
-                                 reserve=True)
+                                 startweight=42)
 
     # Try to get L1 to sign it
     with pytest.raises(RpcError, match=r"No wallet inputs to sign"):
@@ -792,8 +790,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Add some of our own PSBT inputs to it
     l1_funding = l1.rpc.fundpsbt(satoshi=out_total,
                                  feerate=7500,
-                                 startweight=42,
-                                 reserve=True)
+                                 startweight=42)
     l1_num_inputs = len(bitcoind.rpc.decodepsbt(l1_funding['psbt'])['tx']['vin'])
     l2_num_inputs = len(bitcoind.rpc.decodepsbt(l2_funding['psbt'])['tx']['vin'])
 
@@ -833,8 +830,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Send a PSBT that's not ours
     l2_funding = l2.rpc.fundpsbt(satoshi=out_total,
                                  feerate=7500,
-                                 startweight=42,
-                                 reserve=True)
+                                 startweight=42)
     out_amt = Millisatoshi(l2_funding['excess_msat'])
     output_psbt = bitcoind.rpc.createpsbt([],
                                           [{addr: float((out_total + out_amt).to_btc())}])

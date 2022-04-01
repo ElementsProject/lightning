@@ -23,10 +23,9 @@ the resulting transaction plus *startweight* at the given *feerate*,
 with at least *satoshi* left over (unless *satoshi* is **all**, which
 is equivalent to setting it to zero).
 
-*reserve* is either boolean or a number: if *true* or a non-zero
-number then *reserveinputs* is called (successfully, with
-*exclusive* true) on the returned PSBT for this number of blocks (or
-72 blocks if *reserve* is simply *true*).
+If *reserve* if not zero, then *reserveinputs* is called (successfully, with
+*exclusive* true) on the returned PSBT for this number of blocks (default
+72 blocks if unspecified).
 
 Unless *reservedok* is set to true (default is false) it will also fail
 if any of the *utxos* are already reserved.
