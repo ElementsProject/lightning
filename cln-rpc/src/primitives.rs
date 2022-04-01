@@ -368,8 +368,60 @@ mod test {
         for (input, output) in tests.into_iter() {
             let parsed: Feerate = input.try_into().unwrap();
             assert_eq!(parsed, output);
-	    let serialized: String = (&parsed).into();
-	    assert_eq!(serialized, input);
+            let serialized: String = (&parsed).into();
+            assert_eq!(serialized, input);
         }
+    }
+
+    #[test]
+    fn test_parse_output_desc() {
+        let a = r#"{"address":"1234msat"}"#;
+        let od = serde_json::from_str(a).unwrap();
+
+        assert_eq!(
+            OutputDesc {
+                address: "address".to_string(),
+                amount: Amount { msat: 1234 }
+            },
+            od
+        );
+        let serialized: String = serde_json::to_string(&od).unwrap();
+        assert_eq!(a, serialized);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct OutputDesc {
+    pub address: String,
+    pub amount: Amount,
+}
+
+impl<'de> Deserialize<'de> for OutputDesc {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let map: std::collections::HashMap<String, Amount> =
+            Deserialize::deserialize(deserializer)?;
+
+        let (address, amount) = map.iter().next().unwrap();
+
+        Ok(OutputDesc {
+            address: address.to_string(),
+            amount: *amount,
+        })
+    }
+}
+
+impl Serialize for OutputDesc {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(1))?;
+        map.serialize_key(&self.address)?;
+        map.serialize_value(&self.amount)?;
+        map.end()
     }
 }
