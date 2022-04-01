@@ -445,7 +445,7 @@ class GrpcServerGenerator(GrpcConverterGenerator):
         use anyhow::Result;
         use std::path::{{Path, PathBuf}};
         use cln_rpc::model::requests;
-        use log::debug;
+        use log::{{debug, trace}};
         use tonic::{{Code, Status}};
 
         #[derive(Clone)]
@@ -480,7 +480,8 @@ class GrpcServerGenerator(GrpcConverterGenerator):
             ) -> Result<tonic::Response<pb::{method.response.typename}>, tonic::Status> {{
                 let req = request.into_inner();
                 let req: requests::{method.request.typename} = (&req).into();
-                debug!("Client asked for getinfo");
+                debug!("Client asked for {name}");
+                trace!("{name} request: {{:?}}", req);
                 let mut rpc = ClnRpc::new(&self.rpc_path)
                     .await
                     .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
@@ -490,9 +491,10 @@ class GrpcServerGenerator(GrpcConverterGenerator):
                        Code::Unknown,
                        format!("Error calling method {method.name}: {{:?}}", e)))?;
                 match result {{
-                    Response::{method.name}(r) => Ok(
-                        tonic::Response::new((&r).into())
-                    ),
+                    Response::{method.name}(r) => {{
+                       trace!("{name} response: {{:?}}", r);
+                       Ok(tonic::Response::new((&r).into()))
+                    }},
                     r => Err(Status::new(
                         Code::Internal,
                         format!(
