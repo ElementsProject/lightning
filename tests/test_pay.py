@@ -29,7 +29,7 @@ def test_pay(node_factory):
 
     inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
     before = int(time.time())
-    details = l1.rpc.dev_pay(inv, use_shadow=False)
+    details = l1.dev_pay(inv, use_shadow=False)
     after = time.time()
     preimage = details['payment_preimage']
     assert details['status'] == 'complete'
@@ -44,7 +44,7 @@ def test_pay(node_factory):
     assert invoice['status'] == 'paid' and invoice['paid_at'] >= before and invoice['paid_at'] <= after
 
     # Repeat payments are NOPs (if valid): we can hand null.
-    l1.rpc.dev_pay(inv, use_shadow=False)
+    l1.dev_pay(inv, use_shadow=False)
     # This won't work: can't provide an amount (even if correct!)
     with pytest.raises(RpcError):
         l1.rpc.pay(inv, 123000)
@@ -62,7 +62,7 @@ def test_pay(node_factory):
         # Must provide an amount!
         with pytest.raises(RpcError):
             l1.rpc.pay(inv2)
-        l1.rpc.dev_pay(inv2, random.randint(1000, 999999), use_shadow=False)
+        l1.dev_pay(inv2, random.randint(1000, 999999), use_shadow=False)
 
     # Should see 6 completed payments
     assert len(l1.rpc.listsendpays()['payments']) == 6
@@ -82,7 +82,7 @@ def test_pay_amounts(node_factory):
     assert isinstance(invoice['amount_msat'], Millisatoshi)
     assert invoice['amount_msat'] == Millisatoshi(123000)
 
-    l1.rpc.dev_pay(inv, use_shadow=False)
+    l1.dev_pay(inv, use_shadow=False)
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
     assert isinstance(invoice['amount_received_msat'], Millisatoshi)
@@ -129,8 +129,8 @@ def test_pay_limits(node_factory, compat):
     assert(status[0]['failure']['code'] == 205)
 
     # This works, because fee is less than exemptfee.
-    l1.rpc.dev_pay(inv['bolt11'], msatoshi=100000, maxfeepercent=0.0001,
-                   exemptfee=2000, use_shadow=False)
+    l1.dev_pay(inv['bolt11'], msatoshi=100000, maxfeepercent=0.0001,
+               exemptfee=2000, use_shadow=False)
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][2]['attempts']
     assert len(status) == 1
     assert status[0]['strategy'] == "Initial attempt"
@@ -351,13 +351,13 @@ def test_pay_optional_args(node_factory, compat):
     l1, l2 = node_factory.line_graph(2)
 
     inv1 = l2.rpc.invoice(123000, 'test_pay', 'desc')['bolt11']
-    l1.rpc.dev_pay(inv1, label='desc', use_shadow=False)
+    l1.dev_pay(inv1, label='desc', use_shadow=False)
     payment1 = l1.rpc.listsendpays(inv1)['payments']
     assert len(payment1) and payment1[0]['msatoshi_sent'] == 123000
     assert payment1[0]['label'] == 'desc'
 
     inv2 = l2.rpc.invoice(321000, 'test_pay2', 'description')['bolt11']
-    l1.rpc.dev_pay(inv2, riskfactor=5.0, use_shadow=False)
+    l1.dev_pay(inv2, riskfactor=5.0, use_shadow=False)
     payment2 = l1.rpc.listsendpays(inv2)['payments']
     assert(len(payment2) == 1)
     # The pay plugin uses `sendonion` since 0.9.0 and `lightningd` doesn't
@@ -365,7 +365,7 @@ def test_pay_optional_args(node_factory, compat):
     # root of a payment tree with the bolt11 invoice).
 
     anyinv = l2.rpc.invoice('any', 'any_pay', 'desc')['bolt11']
-    l1.rpc.dev_pay(anyinv, label='desc', msatoshi='500', use_shadow=False)
+    l1.dev_pay(anyinv, label='desc', msatoshi='500', use_shadow=False)
     payment3 = l1.rpc.listsendpays(anyinv)['payments']
     assert len(payment3) == 1
     assert payment3[0]['label'] == 'desc'
@@ -398,7 +398,7 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
 
     # Fire off a pay request, it'll get interrupted by a restart
-    executor.submit(l1.rpc.dev_pay, inv1['bolt11'], use_shadow=False)
+    executor.submit(l1.dev_pay, inv1['bolt11'], use_shadow=False)
 
     l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
@@ -422,8 +422,10 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     l1.wait_channel_active(chanid)
 
     # A duplicate should succeed immediately (nop) and return correct preimage.
-    preimage = l1.rpc.dev_pay(inv1['bolt11'],
-                              use_shadow=False)['payment_preimage']
+    preimage = l1.dev_pay(
+        inv1['bolt11'],
+        use_shadow=False
+    )['payment_preimage']
     assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
 
 
@@ -1756,7 +1758,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     fut = executor.submit(listpays_nofail, inv['bolt11'])
 
     # Pay l1->l5 should succeed via straight line (eventually)
-    l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
+    l1.dev_pay(inv['bolt11'], use_shadow=False)
 
     # This should be OK.
     fut.result()
@@ -1771,7 +1773,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     # Finally, fails to find a route.
     inv = l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11']
     with pytest.raises(RpcError, match=r'4 attempts'):
-        l1.rpc.dev_pay(inv, use_shadow=False)
+        l1.dev_pay(inv, use_shadow=False)
 
 
 @pytest.mark.developer("needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
@@ -1811,7 +1813,7 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
     assert only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
 
     # Now we should be able to pay it.
-    l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
+    l1.dev_pay(inv['bolt11'], use_shadow=False)
 
     # Status should show all the gory details.
     status = l1.rpc.call('paystatus', [inv['bolt11']])
@@ -1846,7 +1848,7 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
                                       'label': 'test_pay_routeboost2',
                                       'description': 'test_pay_routeboost2',
                                       'dev-routes': [routel3l4l5]})
-        l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
+        l1.dev_pay(inv['bolt11'], use_shadow=False)
         status = l1.rpc.call('paystatus', [inv['bolt11']])
         pay = only_one(status['pay'])
         attempts = pay['attempts']
@@ -1868,8 +1870,8 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
                                       'label': 'test_pay_routeboost5',
                                       'description': 'test_pay_routeboost5',
                                       'dev-routes': [routel3l4l5, routel3l5]})
-        l1.rpc.dev_pay(inv['bolt11'], label="paying test_pay_routeboost5",
-                       use_shadow=False)
+        l1.dev_pay(inv['bolt11'], label="paying test_pay_routeboost5",
+                   use_shadow=False)
 
         status = l1.rpc.call('paystatus', [inv['bolt11']])
         assert only_one(status['pay'])['bolt11'] == inv['bolt11']
@@ -2092,7 +2094,7 @@ def test_setchannel_state(node_factory, bitcoind):
 
     l0.wait_for_route(l2)
     inv = l2.rpc.invoice(100000, 'test_setchannel_state', 'desc')['bolt11']
-    result = l0.rpc.dev_pay(inv, use_shadow=False)
+    result = l0.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 100042
 
@@ -2168,7 +2170,7 @@ def test_setchannel_routing(node_factory, bitcoind):
                                   'description': 'desc',
                                   'dev-routes': []})
     with pytest.raises(RpcError) as routefail:
-        l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
+        l1.dev_pay(inv['bolt11'], use_shadow=False)
     assert routefail.value.error['attempts'][0]['failreason'] == 'No path found'
 
     # 1337 + 4000000 * 137 / 1000000 = 1885
@@ -2272,7 +2274,7 @@ def test_setchannel_zero(node_factory, bitcoind):
 
     # do and check actual payment
     inv = l3.rpc.invoice(4999999, 'test_setchannel_3', 'desc')['bolt11']
-    result = l1.rpc.dev_pay(inv, use_shadow=False)
+    result = l1.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 4999999
 
@@ -2328,7 +2330,7 @@ def test_setchannel_restart(node_factory, bitcoind):
     # l1 can make payment to l3 with custom fees being applied
     # Note: BOLT #7 math works out to 1405 msat fees
     inv = l3.rpc.invoice(499999, 'test_setchannel_1', 'desc')['bolt11']
-    result = l1.rpc.dev_pay(inv, use_shadow=False)
+    result = l1.dev_pay(inv, use_shadow=False)
     assert result['status'] == 'complete'
     assert result['msatoshi_sent'] == 501404
 
@@ -3320,7 +3322,7 @@ def test_blockheight_disagreement(node_factory, bitcoind, executor):
 
     # Have l1 pay l2
     def pay(l1, inv):
-        l1.rpc.dev_pay(inv, use_shadow=False)
+        l1.dev_pay(inv, use_shadow=False)
     fut = executor.submit(pay, l1, inv)
 
     # Make sure l1 sends out the HTLC.
@@ -3634,10 +3636,10 @@ def test_pay_exemptfee(node_factory, compat):
     err = r'Ran out of routes to try'
 
     with pytest.raises(RpcError, match=err):
-        l1.rpc.dev_pay(l3.rpc.invoice(1, "lbl1", "desc")['bolt11'], use_shadow=False)
+        l1.dev_pay(l3.rpc.invoice(1, "lbl1", "desc")['bolt11'], use_shadow=False)
 
     # If we tell our node that 5001msat is ok this should work
-    l1.rpc.dev_pay(l3.rpc.invoice(1, "lbl2", "desc")['bolt11'], use_shadow=False, exemptfee=5001)
+    l1.dev_pay(l3.rpc.invoice(1, "lbl2", "desc")['bolt11'], use_shadow=False, exemptfee=5001)
 
     # Given the above network this is the smallest amount that passes without
     # the fee-exemption (notice that we let it through on equality).
@@ -3645,10 +3647,10 @@ def test_pay_exemptfee(node_factory, compat):
 
     # This should be just below the fee-exemption and is the first value that is allowed through
     with pytest.raises(RpcError, match=err):
-        l1.rpc.dev_pay(l3.rpc.invoice(threshold - 1, "lbl3", "desc")['bolt11'], use_shadow=False)
+        l1.dev_pay(l3.rpc.invoice(threshold - 1, "lbl3", "desc")['bolt11'], use_shadow=False)
 
     # While this'll work just fine
-    l1.rpc.dev_pay(l3.rpc.invoice(int(5001 * 200), "lbl4", "desc")['bolt11'], use_shadow=False)
+    l1.dev_pay(l3.rpc.invoice(int(5001 * 200), "lbl4", "desc")['bolt11'], use_shadow=False)
 
 
 @pytest.mark.developer("Requires use_shadow flag")
@@ -3688,7 +3690,7 @@ def test_pay_peer(node_factory, bitcoind):
     for i in range(0, direct):
         inv = l2.rpc.invoice(amt.millisatoshis, "lbl{}".format(i),
                              "desc{}".format(i))['bolt11']
-        l1.rpc.dev_pay(inv, use_shadow=False)
+        l1.dev_pay(inv, use_shadow=False)
 
     # We should not have more than amt in the direct channel anymore
     assert(spendable(l1, l2) < amt)
@@ -3696,7 +3698,7 @@ def test_pay_peer(node_factory, bitcoind):
 
     # Next one should take the alternative, but it should still work
     inv = l2.rpc.invoice(amt.millisatoshis, "final", "final")['bolt11']
-    l1.rpc.dev_pay(inv, use_shadow=False)
+    l1.dev_pay(inv, use_shadow=False)
 
 
 def test_mpp_presplit(node_factory):
@@ -4058,7 +4060,7 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
 
     # Have l1 pay l3
     def pay(l1, inv):
-        l1.rpc.dev_pay(inv, use_shadow=False)
+        l1.dev_pay(inv, use_shadow=False)
     fut = executor.submit(pay, l1, inv)
 
     # Make sure l1 sends out the HTLC.
