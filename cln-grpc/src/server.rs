@@ -296,4 +296,94 @@ async fn connect_peer(
 
 }
 
+async fn datastore(
+    &self,
+    request: tonic::Request<pb::DatastoreRequest>,
+) -> Result<tonic::Response<pb::DatastoreResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DatastoreRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Datastore(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Datastore: {:?}", e)))?;
+    match result {
+        Response::Datastore(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Datastore",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn del_datastore(
+    &self,
+    request: tonic::Request<pb::DeldatastoreRequest>,
+) -> Result<tonic::Response<pb::DeldatastoreResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DeldatastoreRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DelDatastore(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DelDatastore: {:?}", e)))?;
+    match result {
+        Response::DelDatastore(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DelDatastore",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn list_datastore(
+    &self,
+    request: tonic::Request<pb::ListdatastoreRequest>,
+) -> Result<tonic::Response<pb::ListdatastoreResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListdatastoreRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListDatastore(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListDatastore: {:?}", e)))?;
+    match result {
+        Response::ListDatastore(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListDatastore",
+                r
+            )
+        )),
+    }
+
+}
+
 }

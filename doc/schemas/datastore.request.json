@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "key"
+  ],
+  "properties": {
+    "key": {
+      "type": "array",
+      "description": "key is an array of values (though a single value is treated as a one-element array), to form a heirarchy. Using the first element of the key as the plugin name (e.g. [ 'summary' ]) is recommended. A key can either have children or a value, never both: parents are created and removed automatically.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hex": {
+      "type": "hex",
+      "description": ""
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "must-create",
+        "must-replace",
+        "create-or-replace",
+        "must-append",
+        "create-or-append"
+      ],
+      "description": ""
+    },
+    "generation": {
+      "type": "u64",
+      "description": "If specified, means that the update will fail if the previously-existing data is not exactly that generation. This allows for simple atomicity. This is only legal with mode “must-replace” or “must-append”."
+    }
+  }
+}
