@@ -47,6 +47,8 @@ typemap = {
     'feerate': 'Feerate',
     'outpoint': 'Outpoint',
     'outputdesc': 'OutputDesc',
+    'hash': 'Sha256',
+    'secret': 'Secret',
 }
 
 header = f"""#![allow(non_camel_case_types)]

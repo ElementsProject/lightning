@@ -180,10 +180,90 @@ impl ShortChannelId {
     }
 }
 
-pub type Secret = [u8; 32];
-pub type Txid = [u8; 32];
-pub type Hash = [u8; 32];
-pub type NodeId = Pubkey;
+#[derive(Clone, Debug)]
+pub struct Secret([u8; 32]);
+
+impl TryFrom<Vec<u8>> for Secret {
+    type Error = crate::Error;
+    fn try_from(v: Vec<u8>) -> Result<Self, crate::Error> {
+        if v.len() != 32 {
+            Err(anyhow!("Unexpected secret length: {}", hex::encode(v)))
+        } else {
+            Ok(Secret(v.try_into().unwrap()))
+        }
+    }
+}
+
+impl Serialize for Secret {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(&self.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for Secret {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let h = hex::decode(s).map_err(|_| Error::custom("not a valid hex string"))?;
+        Ok(Secret(h.try_into().map_err(|_| {
+            Error::custom("not a valid hex-encoded hash")
+        })?))
+    }
+}
+
+impl Secret {
+    pub fn to_vec(self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Sha256([u8; 32]);
+impl Sha256 {
+    pub fn to_vec(self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
+impl TryFrom<Vec<u8>> for Sha256 {
+    type Error = crate::Error;
+    fn try_from(v: Vec<u8>) -> Result<Self, crate::Error> {
+        if v.len() != 32 {
+            Err(anyhow!("Unexpected hash length: {}", hex::encode(v)))
+        } else {
+            Ok(Sha256(v.try_into().unwrap()))
+        }
+    }
+}
+
+impl Serialize for Sha256 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(&self.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for Sha256 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let h = hex::decode(s).map_err(|_| Error::custom("not a valid hex string"))?;
+        Ok(Sha256(h.try_into().map_err(|_| {
+            Error::custom("not a valid hex-encoded hash")
+        })?))
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Outpoint {

@@ -316,6 +316,13 @@ def _extra_validator(is_request: bool):
             return False
         return instance[0:2] == "02" or instance[0:2] == "03"
 
+    def is_32byte_hex(self, instance):
+        """Fixed size 32 byte hex string
+
+        This matches a variety of hex types: secrets, hashes, txid
+        """
+        return self.is_type(instance, "hex") and len(instance) == 64
+
     def is_point32(checker, instance):
         """x-only BIP-340 public key"""
         if not checker.is_type(instance, "hex"):
@@ -389,6 +396,8 @@ def _extra_validator(is_request: bool):
         is_msat = is_msat_response
     type_checker = jsonschema.Draft7Validator.TYPE_CHECKER.redefine_many({
         "hex": is_hex,
+        "hash": is_32byte_hex,
+        "secret": is_32byte_hex,
         "u64": is_u64,
         "u32": is_u32,
         "u16": is_u16,

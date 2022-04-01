@@ -27,6 +27,8 @@ typemap = {
     "outpoint": "Outpoint",
     "feerate": "Feerate",
     "outputdesc": "OutputDesc",
+    "secret": "bytes",
+    "hash": "bytes",
 }
 
 
@@ -274,10 +276,11 @@ class GrpcConverterGenerator:
                 # array. The current item is called `i`
                 mapping = {
                     'hex': f'hex::decode(i).unwrap()',
+                    'secret': f'i.clone().to_vec()',
                 }.get(typ, f'i.into()')
 
                 if f.required:
-                    self.write(f"{name}: c.{name}.iter().map(|i| {mapping}).collect(), // Rule #3 \n", numindent=3)
+                    self.write(f"{name}: c.{name}.iter().map(|i| {mapping}).collect(), // Rule #3 for type {typ} \n", numindent=3)
                 else:
                     self.write(f"{name}: c.{name}.as_ref().map(|arr| arr.iter().map(|i| {mapping}).collect()).unwrap_or(vec![]), // Rule #3 \n", numindent=3)
             elif isinstance(f, EnumField):
@@ -306,6 +309,10 @@ class GrpcConverterGenerator:
                     'txid?': f'c.{name}.as_ref().map(|v| hex::decode(&v).unwrap())',
                     'short_channel_id': f'c.{name}.to_string()',
                     'short_channel_id?': f'c.{name}.as_ref().map(|v| v.to_string())',
+                    'hash': f'c.{name}.clone().to_vec()',
+                    'hash?': f'c.{name}.clone().map(|v| v.to_vec())',
+                    'secret': f'c.{name}.clone().to_vec()',
+                    'secret?': f'c.{name}.clone().map(|v| v.to_vec())',
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment
@@ -385,6 +392,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 mapping = {
                     'hex': f'hex::encode(s)',
                     'u32': f's.clone()',
+                    'secret': f's.clone().try_into().unwrap()'
                 }.get(typ, f's.into()')
                 if f.required:
                     self.write(f"{name}: c.{name}.iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
@@ -422,6 +430,11 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'RoutehintList?': f'c.{name}.clone().map(|rl| rl.into())',
                     'short_channel_id': f'cln_rpc::primitives::ShortChannelId::from_str(&c.{name}).unwrap()',
                     'short_channel_id?': f'c.{name}.as_ref().map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())',
+                    'secret': f'c.{name}.clone().try_into().unwrap()',
+                    'secret?': f'c.{name}.clone().map(|v| v.try_into().unwrap())',
+                    'hash': f'c.{name}.clone().try_into().unwrap()',
+                    'hash?': f'c.{name}.clone().map(|v| v.try_into().unwrap())',
+                    'txid': f'hex::encode(&c.{name})',
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment
