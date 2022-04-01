@@ -55,8 +55,16 @@ class GrpcGenerator:
         else:
             self.dest.write(text)
 
-    def field2number(self, field):
+    def field2number(self, message_name, field):
         m = self.meta['grpc-field-map']
+
+        # Wrap each field mapping by the message_name, since otherwise
+        # requests and responses share the same number space (just
+        # cosmetic really, but why not do it?)
+        if message_name not in m:
+            m[message_name] = {}
+        m = m[message_name]
+
         # Simple case first: if we've already assigned a number let's reuse that
         if field.path in m:
             return m[field.path]
@@ -70,16 +78,16 @@ class GrpcGenerator:
             if parent2 == parent:
                 maxnum = max(maxnum, v)
 
-        self.meta['grpc-field-map'][field.path] = maxnum + 1
+        m[field.path] = maxnum + 1
         self.logger.warn(f"Assigning new field number to {field.path} => {m[field.path]}")
 
-        return self.meta['grpc-field-map'][field.path]
+        return m[field.path]
 
-    def enumerate_fields(self, fields):
+    def enumerate_fields(self, message_name, fields):
         """Use the meta map to identify which number this field will get.
         """
         for f in fields:
-            yield (self.field2number(f), f)
+            yield (self.field2number(message_name, f), f)
 
     def enumvar2number(self, typename, variant):
         """Find an existing variant number of generate a new one.
@@ -170,7 +178,7 @@ class GrpcGenerator:
             if isinstance(f, EnumField) and f.path not in overrides.keys():
                 self.generate_enum(f, indent=1)
 
-        for i, f in self.enumerate_fields(message.fields):
+        for i, f in self.enumerate_fields(message.typename, message.fields):
             if overrides.get(f.path, "") is None:
                 continue
 
