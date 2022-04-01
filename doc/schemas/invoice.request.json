@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "msatoshi",
+    "label",
+    "description"
+  ],
+  "properties": {
+    "msatoshi": {
+      "type": "msat",
+      "description": ""
+    },
+    "description": {
+      "type": "string",
+      "description": ""
+    },
+    "label": {
+      "type": "string",
+      "description": ""
+    },
+    "expiry": {
+      "type": "",
+      "description": ""
+    },
+    "fallbacks": {
+      "type": "array",
+      "description": "",
+      "items": {
+        "type": "string"
+      }
+    },
+    "preimage": {
+      "type": "hex",
+      "description": ""
+    },
+    "exposeprivatechannels": {
+      "type": "bool",
+      "description": ""
+    },
+    "cltv": {
+      "type": "u32",
+      "description": ""
+    }
+  }
+}

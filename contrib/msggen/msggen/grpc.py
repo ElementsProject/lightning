@@ -362,7 +362,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
 
             elif isinstance(f, EnumField):
                 if f.required:
-                    self.write(f"{name}: c.{name}.into(),\n", numindent=3)
+                    self.write(f"{name}: c.{name}.try_into().unwrap(),\n", numindent=3)
                 else:
                     self.write(f"{name}: c.{name}.map(|v| v.try_into().unwrap()),\n", numindent=3)
                 pass

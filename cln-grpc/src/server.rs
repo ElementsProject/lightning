@@ -296,6 +296,36 @@ async fn connect_peer(
 
 }
 
+async fn create_invoice(
+    &self,
+    request: tonic::Request<pb::CreateinvoiceRequest>,
+) -> Result<tonic::Response<pb::CreateinvoiceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::CreateinvoiceRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::CreateInvoice(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method CreateInvoice: {:?}", e)))?;
+    match result {
+        Response::CreateInvoice(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call CreateInvoice",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn datastore(
     &self,
     request: tonic::Request<pb::DatastoreRequest>,
@@ -356,6 +386,96 @@ async fn del_datastore(
 
 }
 
+async fn del_expired_invoice(
+    &self,
+    request: tonic::Request<pb::DelexpiredinvoiceRequest>,
+) -> Result<tonic::Response<pb::DelexpiredinvoiceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DelexpiredinvoiceRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DelExpiredInvoice(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DelExpiredInvoice: {:?}", e)))?;
+    match result {
+        Response::DelExpiredInvoice(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DelExpiredInvoice",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn del_invoice(
+    &self,
+    request: tonic::Request<pb::DelinvoiceRequest>,
+) -> Result<tonic::Response<pb::DelinvoiceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DelinvoiceRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DelInvoice(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DelInvoice: {:?}", e)))?;
+    match result {
+        Response::DelInvoice(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DelInvoice",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn invoice(
+    &self,
+    request: tonic::Request<pb::InvoiceRequest>,
+) -> Result<tonic::Response<pb::InvoiceResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::InvoiceRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Invoice(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Invoice: {:?}", e)))?;
+    match result {
+        Response::Invoice(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Invoice",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn list_datastore(
     &self,
     request: tonic::Request<pb::ListdatastoreRequest>,
@@ -379,6 +499,36 @@ async fn list_datastore(
             Code::Internal,
             format!(
                 "Unexpected result {:?} to method call ListDatastore",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn list_invoices(
+    &self,
+    request: tonic::Request<pb::ListinvoicesRequest>,
+) -> Result<tonic::Response<pb::ListinvoicesResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListinvoicesRequest = (&req).into();
+    debug!("Client asked for getinfo");
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListInvoices(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListInvoices: {:?}", e)))?;
+    match result {
+        Response::ListInvoices(r) => Ok(
+            tonic::Response::new((&r).into())
+        ),
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListInvoices",
                 r
             )
         )),

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invstring",
+    "label",
+    "preimage"
+  ],
+  "properties": {
+    "invstring": {
+      "type": "string",
+      "description": ""
+    },
+    "label": {
+      "type": "string",
+      "description": ""
+    },
+    "preimage": {
+      "type": "hex",
+      "description": ""
+    }
+  }
+}
