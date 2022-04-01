@@ -33,11 +33,11 @@ typemap = {
     'boolean': 'bool',
     'hex': 'String',
     'msat': 'Amount',
-    'msat|all': 'AmountOrAll',
-    'msat|any': 'AmountOrAny',
+    'msat_or_all': 'AmountOrAll',
+    'msat_or_any': 'AmountOrAny',
     'number': 'i64',
-    'pubkey': 'String',
-    'short_channel_id': 'String',
+    'pubkey': 'Pubkey',
+    'short_channel_id': 'ShortChannelId',
     'signature': 'String',
     'string': 'String',
     'txid': 'String',
@@ -166,7 +166,10 @@ def gen_array(a):
 
     itemtype = typemap.get(itemtype, itemtype)
     alias = a.name.normalized()
-    defi = f"    #[serde(alias = \"{alias}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
+    if a.required:
+        defi = f"    #[serde(alias = \"{alias}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
+    else:
+        defi = f"    #[serde(alias = \"{alias}\", skip_serializing_if = \"Option::is_none\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
 
     return (defi, decl)
 

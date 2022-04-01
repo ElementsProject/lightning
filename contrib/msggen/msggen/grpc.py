@@ -10,8 +10,8 @@ typemap = {
     'boolean': 'bool',
     'hex': 'bytes',
     'msat': 'Amount',
-    'msat|all': 'AmountOrAll',
-    'msat|any': 'AmountOrAny',
+    'msat_or_all': 'AmountOrAll',
+    'msat_or_any': 'AmountOrAny',
     'number': 'sint64',
     'pubkey': 'bytes',
     'short_channel_id': 'string',
@@ -275,8 +275,10 @@ class GrpcConverterGenerator:
                     'hex': f'hex::decode(i).unwrap()',
                 }.get(typ, f'i.into()')
 
-                self.write(f"{name}: c.{name}.iter().map(|i| {mapping}).collect(),\n", numindent=3)
-
+                if f.required:
+                    self.write(f"{name}: c.{name}.iter().map(|i| {mapping}).collect(), // Rule #3 \n", numindent=3)
+                else:
+                    self.write(f"{name}: c.{name}.as_ref().map(|arr| arr.iter().map(|i| {mapping}).collect()).unwrap_or(vec![]), // Rule #3 \n", numindent=3)
             elif isinstance(f, EnumField):
                 if f.required:
                     self.write(f"{name}: c.{name} as i32,\n", numindent=3)
@@ -295,12 +297,14 @@ class GrpcConverterGenerator:
                     'u16?': f'c.{name}.map(|v| v.into())',
                     'msat': f'Some(c.{name}.into())',
                     'msat?': f'c.{name}.map(|f| f.into())',
-                    'pubkey': f'hex::decode(&c.{name}).unwrap()',
-                    'pubkey?': f'c.{name}.as_ref().map(|v| hex::decode(&v).unwrap())',
+                    'pubkey': f'c.{name}.to_vec()',
+                    'pubkey?': f'c.{name}.as_ref().map(|v| v.to_vec())',
                     'hex': f'hex::decode(&c.{name}).unwrap()',
                     'hex?': f'c.{name}.as_ref().map(|v| hex::decode(&v).unwrap())',
                     'txid': f'hex::decode(&c.{name}).unwrap()',
                     'txid?': f'c.{name}.as_ref().map(|v| hex::decode(&v).unwrap())',
+                    'short_channel_id': f'c.{name}.to_string()',
+                    'short_channel_id?': f'c.{name}.as_ref().map(|v| v.to_string())',
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment
@@ -335,6 +339,7 @@ class GrpcConverterGenerator:
         #[allow(unused_imports)]
         use cln_rpc::model::{responses,requests};
         use crate::pb;
+        use std::str::FromStr;
 
         """)
 
@@ -380,7 +385,10 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'hex': f'hex::encode(s)',
                     'u32': f's.clone()',
                 }.get(typ, f's.into()')
-                self.write(f"{name}: c.{name}.iter().map(|s| {mapping}).collect(),\n", numindent=3)
+                if f.required:
+                    self.write(f"{name}: c.{name}.iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
+                else:
+                    self.write(f"{name}: Some(c.{name}.iter().map(|s| {mapping}).collect()), // Rule #4\n", numindent=3)
 
             elif isinstance(f, EnumField):
                 if f.required:
@@ -400,17 +408,19 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'hex': f'hex::encode(&c.{name})',
                     'hex?': f'c.{name}.clone().map(|v| hex::encode(v))',
                     'txid?': f'c.{name}.clone().map(|v| hex::encode(v))',
-                    'pubkey': f'hex::encode(&c.{name})',
-                    'pubkey?': f'c.{name}.clone().map(|v| hex::encode(v))',
+                    'pubkey': f'cln_rpc::primitives::Pubkey::from_slice(&c.{name}).unwrap()',
+                    'pubkey?': f'c.{name}.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap())',
                     'msat': f'c.{name}.as_ref().unwrap().into()',
                     'msat?': f'c.{name}.as_ref().map(|a| a.into())',
-                    'msat|all': f'c.{name}.as_ref().unwrap().into()',
-                    'msat|all?': f'c.{name}.as_ref().map(|a| a.into())',
-                    'msat|any': f'c.{name}.as_ref().unwrap().into()',
-                    'msat|any?': f'c.{name}.as_ref().map(|a| a.into())',
+                    'msat_or_all': f'c.{name}.as_ref().unwrap().into()',
+                    'msat_or_all?': f'c.{name}.as_ref().map(|a| a.into())',
+                    'msat_or_any': f'c.{name}.as_ref().unwrap().into()',
+                    'msat_or_any?': f'c.{name}.as_ref().map(|a| a.into())',
                     'feerate': f'c.{name}.as_ref().unwrap().into()',
                     'feerate?': f'c.{name}.as_ref().map(|a| a.into())',
                     'RoutehintList?': f'c.{name}.clone().map(|rl| rl.into())',
+                    'short_channel_id': f'cln_rpc::primitives::ShortChannelId::from_str(&c.{name}).unwrap()',
+                    'short_channel_id?': f'c.{name}.as_ref().map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())',
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment

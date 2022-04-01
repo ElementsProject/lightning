@@ -1,6 +1,7 @@
 use crate::codec::JsonCodec;
 use crate::codec::JsonRpc;
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Result};
+pub use anyhow::Error;
 use futures_util::sink::SinkExt;
 use futures_util::StreamExt;
 use log::{debug, trace};
