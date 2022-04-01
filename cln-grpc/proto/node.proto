@@ -17,9 +17,14 @@ service Node {
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
 	rpc Close(CloseRequest) returns (CloseResponse) {}
 	rpc ConnectPeer(ConnectRequest) returns (ConnectResponse) {}
+	rpc CreateInvoice(CreateinvoiceRequest) returns (CreateinvoiceResponse) {}
 	rpc Datastore(DatastoreRequest) returns (DatastoreResponse) {}
 	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
+	rpc DelExpiredInvoice(DelexpiredinvoiceRequest) returns (DelexpiredinvoiceResponse) {}
+	rpc DelInvoice(DelinvoiceRequest) returns (DelinvoiceResponse) {}
+	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
 	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
+	rpc ListInvoices(ListinvoicesRequest) returns (ListinvoicesResponse) {}
 }
 
 message GetinfoRequest {
@@ -376,6 +381,35 @@ message ConnectAddress {
 	optional uint32 port = 4;
 }
 
+message CreateinvoiceRequest {
+	string invstring = 1;
+	string label = 2;
+	bytes preimage = 3;
+}
+
+message CreateinvoiceResponse {
+	// CreateInvoice.status
+	enum CreateinvoiceStatus {
+		PAID = 0;
+		EXPIRED = 1;
+		UNPAID = 2;
+	}
+	string label = 1;
+	optional string bolt11 = 2;
+	optional string bolt12 = 3;
+	bytes payment_hash = 4;
+	optional Amount amount_msat = 5;
+	CreateinvoiceStatus status = 6;
+	string description = 7;
+	uint64 expires_at = 8;
+	optional uint64 pay_index = 9;
+	optional Amount amount_received_msat = 10;
+	optional uint64 paid_at = 11;
+	optional bytes payment_preimage = 12;
+	optional bytes local_offer_id = 13;
+	optional string payer_note = 14;
+}
+
 message DatastoreRequest {
 	// Datastore.mode
 	enum DatastoreMode {
@@ -410,6 +444,64 @@ message DeldatastoreResponse {
 	optional string string = 4;
 }
 
+message DelexpiredinvoiceRequest {
+	uint32 maxexpirytime = 1;
+}
+
+message DelexpiredinvoiceResponse {
+}
+
+message DelinvoiceRequest {
+	// DelInvoice.status
+	enum DelinvoiceStatus {
+		PAID = 0;
+		EXPIRED = 1;
+		UNPAID = 2;
+	}
+	string label = 1;
+	DelinvoiceStatus status = 2;
+}
+
+message DelinvoiceResponse {
+	// DelInvoice.status
+	enum DelinvoiceStatus {
+		PAID = 0;
+		EXPIRED = 1;
+		UNPAID = 2;
+	}
+	string label = 1;
+	optional string bolt11 = 2;
+	optional string bolt12 = 3;
+	optional Amount amount_msat = 4;
+	optional string description = 5;
+	bytes payment_hash = 6;
+	DelinvoiceStatus status = 7;
+	uint64 expires_at = 8;
+	optional bytes local_offer_id = 9;
+	optional string payer_note = 10;
+}
+
+message InvoiceRequest {
+	Amount msatoshi = 1;
+	string description = 2;
+	string label = 3;
+	repeated string fallbacks = 4;
+	optional bytes preimage = 5;
+	optional uint32 cltv = 6;
+}
+
+message InvoiceResponse {
+	string bolt11 = 1;
+	bytes payment_hash = 2;
+	bytes payment_secret = 3;
+	uint64 expires_at = 4;
+	optional string warning_capacity = 5;
+	optional string warning_offline = 6;
+	optional string warning_deadends = 7;
+	optional string warning_private_unused = 8;
+	optional string warning_mpp = 9;
+}
+
 message ListdatastoreRequest {
 	repeated string key = 1;
 }
@@ -423,4 +515,38 @@ message ListdatastoreDatastore {
 	optional uint64 generation = 2;
 	optional bytes hex = 3;
 	optional string string = 4;
+}
+
+message ListinvoicesRequest {
+	optional string label = 1;
+	optional string invstring = 2;
+	optional bytes payment_hash = 3;
+	optional string offer_id = 4;
+}
+
+message ListinvoicesResponse {
+	repeated ListinvoicesInvoices invoices = 1;
+}
+
+message ListinvoicesInvoices {
+	// ListInvoices.invoices[].status
+	enum ListinvoicesInvoicesStatus {
+		UNPAID = 0;
+		PAID = 1;
+		EXPIRED = 2;
+	}
+	string label = 1;
+	string description = 2;
+	bytes payment_hash = 3;
+	ListinvoicesInvoicesStatus status = 4;
+	uint64 expires_at = 5;
+	optional Amount amount_msat = 6;
+	optional string bolt11 = 7;
+	optional string bolt12 = 8;
+	optional bytes local_offer_id = 9;
+	optional string payer_note = 10;
+	optional uint64 pay_index = 11;
+	optional Amount amount_received_msat = 12;
+	optional uint64 paid_at = 13;
+	optional bytes payment_preimage = 14;
 }

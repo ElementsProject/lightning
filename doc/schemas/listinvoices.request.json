@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "label": {
+      "type": "string",
+      "description": ""
+    },
+    "invstring": {
+      "type": "string",
+      "description": ""
+    },
+    "payment_hash": {
+      "type": "hex",
+      "description": ""
+    },
+    "offer_id": {
+      "type": "string",
+      "description": ""
+    }
+  }
+}

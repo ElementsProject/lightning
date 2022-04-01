@@ -301,6 +301,28 @@ impl From<&responses::ConnectResponse> for pb::ConnectResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
+    fn from(c: &responses::CreateinvoiceResponse) -> Self {
+        Self {
+            label: c.label.clone(),
+            bolt11: c.bolt11.clone(),
+            bolt12: c.bolt12.clone(),
+            payment_hash: hex::decode(&c.payment_hash).unwrap(),
+            amount_msat: c.amount_msat.map(|f| f.into()),
+            status: c.status as i32,
+            description: c.description.clone(),
+            expires_at: c.expires_at.clone(),
+            pay_index: c.pay_index.clone(),
+            amount_received_msat: c.amount_received_msat.map(|f| f.into()),
+            paid_at: c.paid_at.clone(),
+            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()),
+            local_offer_id: c.local_offer_id.as_ref().map(|v| hex::decode(&v).unwrap()),
+            payer_note: c.payer_note.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&responses::DatastoreResponse> for pb::DatastoreResponse {
     fn from(c: &responses::DatastoreResponse) -> Self {
         Self {
@@ -325,6 +347,49 @@ impl From<&responses::DeldatastoreResponse> for pb::DeldatastoreResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::DelexpiredinvoiceResponse> for pb::DelexpiredinvoiceResponse {
+    fn from(c: &responses::DelexpiredinvoiceResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::DelinvoiceResponse> for pb::DelinvoiceResponse {
+    fn from(c: &responses::DelinvoiceResponse) -> Self {
+        Self {
+            label: c.label.clone(),
+            bolt11: c.bolt11.clone(),
+            bolt12: c.bolt12.clone(),
+            amount_msat: c.amount_msat.map(|f| f.into()),
+            description: c.description.clone(),
+            payment_hash: hex::decode(&c.payment_hash).unwrap(),
+            status: c.status as i32,
+            expires_at: c.expires_at.clone(),
+            local_offer_id: c.local_offer_id.as_ref().map(|v| hex::decode(&v).unwrap()),
+            payer_note: c.payer_note.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::InvoiceResponse> for pb::InvoiceResponse {
+    fn from(c: &responses::InvoiceResponse) -> Self {
+        Self {
+            bolt11: c.bolt11.clone(),
+            payment_hash: hex::decode(&c.payment_hash).unwrap(),
+            payment_secret: hex::decode(&c.payment_secret).unwrap(),
+            expires_at: c.expires_at.clone(),
+            warning_capacity: c.warning_capacity.clone(),
+            warning_offline: c.warning_offline.clone(),
+            warning_deadends: c.warning_deadends.clone(),
+            warning_private_unused: c.warning_private_unused.clone(),
+            warning_mpp: c.warning_mpp.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&responses::ListdatastoreDatastore> for pb::ListdatastoreDatastore {
     fn from(c: &responses::ListdatastoreDatastore) -> Self {
         Self {
@@ -341,6 +406,37 @@ impl From<&responses::ListdatastoreResponse> for pb::ListdatastoreResponse {
     fn from(c: &responses::ListdatastoreResponse) -> Self {
         Self {
             datastore: c.datastore.iter().map(|s| s.into()).collect(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
+    fn from(c: &responses::ListinvoicesInvoices) -> Self {
+        Self {
+            label: c.label.clone(),
+            description: c.description.clone(),
+            payment_hash: hex::decode(&c.payment_hash).unwrap(),
+            status: c.status as i32,
+            expires_at: c.expires_at.clone(),
+            amount_msat: c.amount_msat.map(|f| f.into()),
+            bolt11: c.bolt11.clone(),
+            bolt12: c.bolt12.clone(),
+            local_offer_id: c.local_offer_id.as_ref().map(|v| hex::decode(&v).unwrap()),
+            payer_note: c.payer_note.clone(),
+            pay_index: c.pay_index.clone(),
+            amount_received_msat: c.amount_received_msat.map(|f| f.into()),
+            paid_at: c.paid_at.clone(),
+            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListinvoicesResponse> for pb::ListinvoicesResponse {
+    fn from(c: &responses::ListinvoicesResponse) -> Self {
+        Self {
+            invoices: c.invoices.iter().map(|s| s.into()).collect(),
         }
     }
 }
@@ -439,6 +535,17 @@ impl From<&pb::ConnectRequest> for requests::ConnectRequest {
 }
 
 #[allow(unused_variables)]
+impl From<&pb::CreateinvoiceRequest> for requests::CreateinvoiceRequest {
+    fn from(c: &pb::CreateinvoiceRequest) -> Self {
+        Self {
+            invstring: c.invstring.clone(),
+            label: c.label.clone(),
+            preimage: hex::encode(&c.preimage),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&pb::DatastoreRequest> for requests::DatastoreRequest {
     fn from(c: &pb::DatastoreRequest) -> Self {
         Self {
@@ -461,10 +568,55 @@ impl From<&pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
 }
 
 #[allow(unused_variables)]
+impl From<&pb::DelexpiredinvoiceRequest> for requests::DelexpiredinvoiceRequest {
+    fn from(c: &pb::DelexpiredinvoiceRequest) -> Self {
+        Self {
+            maxexpirytime: c.maxexpirytime.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
+    fn from(c: &pb::DelinvoiceRequest) -> Self {
+        Self {
+            label: c.label.clone(),
+            status: c.status.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::InvoiceRequest> for requests::InvoiceRequest {
+    fn from(c: &pb::InvoiceRequest) -> Self {
+        Self {
+            msatoshi: c.msatoshi.as_ref().unwrap().into(),
+            description: c.description.clone(),
+            label: c.label.clone(),
+            fallbacks: c.fallbacks.iter().map(|s| s.into()).collect(),
+            preimage: c.preimage.clone().map(|v| hex::encode(v)),
+            cltv: c.cltv.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&pb::ListdatastoreRequest> for requests::ListdatastoreRequest {
     fn from(c: &pb::ListdatastoreRequest) -> Self {
         Self {
             key: c.key.iter().map(|s| s.into()).collect(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::ListinvoicesRequest> for requests::ListinvoicesRequest {
+    fn from(c: &pb::ListinvoicesRequest) -> Self {
+        Self {
+            label: c.label.clone(),
+            invstring: c.invstring.clone(),
+            payment_hash: c.payment_hash.clone().map(|v| hex::encode(v)),
+            offer_id: c.offer_id.clone(),
         }
     }
 }

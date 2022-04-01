@@ -16,12 +16,22 @@
             "in": 0,
             "out": 1
         },
+        "CreateinvoiceStatus": {
+            "expired": 1,
+            "paid": 0,
+            "unpaid": 2
+        },
         "DatastoreMode": {
             "create-or-append": 4,
             "create-or-replace": 2,
             "must-append": 3,
             "must-create": 0,
             "must-replace": 1
+        },
+        "DelinvoiceStatus": {
+            "expired": 1,
+            "paid": 0,
+            "unpaid": 2
         },
         "GetinfoAddressType": {
             "dns": 0,
@@ -42,6 +52,11 @@
             "confirmed": 1,
             "spent": 2,
             "unconfirmed": 0
+        },
+        "ListinvoicesInvoicesStatus": {
+            "expired": 2,
+            "paid": 1,
+            "unpaid": 0
         },
         "ListpeersPeersChannelsHtlcsDirection": {
             "in": 0,
@@ -134,6 +149,27 @@
             "Connect.features": 2,
             "Connect.id": 1
         },
+        "CreateinvoiceRequest": {
+            "CreateInvoice.invstring": 1,
+            "CreateInvoice.label": 2,
+            "CreateInvoice.preimage": 3
+        },
+        "CreateinvoiceResponse": {
+            "CreateInvoice.amount_msat": 5,
+            "CreateInvoice.amount_received_msat": 10,
+            "CreateInvoice.bolt11": 2,
+            "CreateInvoice.bolt12": 3,
+            "CreateInvoice.description": 7,
+            "CreateInvoice.expires_at": 8,
+            "CreateInvoice.label": 1,
+            "CreateInvoice.local_offer_id": 13,
+            "CreateInvoice.paid_at": 11,
+            "CreateInvoice.pay_index": 9,
+            "CreateInvoice.payer_note": 14,
+            "CreateInvoice.payment_hash": 4,
+            "CreateInvoice.payment_preimage": 12,
+            "CreateInvoice.status": 6
+        },
         "DatastoreRequest": {
             "Datastore.generation": 4,
             "Datastore.hex": 2,
@@ -155,6 +191,25 @@
             "DelDatastore.hex": 3,
             "DelDatastore.key[]": 1,
             "DelDatastore.string": 4
+        },
+        "DelexpiredinvoiceRequest": {
+            "DelExpiredInvoice.maxexpirytime": 1
+        },
+        "DelinvoiceRequest": {
+            "DelInvoice.label": 1,
+            "DelInvoice.status": 2
+        },
+        "DelinvoiceResponse": {
+            "DelInvoice.amount_msat": 4,
+            "DelInvoice.bolt11": 2,
+            "DelInvoice.bolt12": 3,
+            "DelInvoice.description": 5,
+            "DelInvoice.expires_at": 8,
+            "DelInvoice.label": 1,
+            "DelInvoice.local_offer_id": 9,
+            "DelInvoice.payer_note": 10,
+            "DelInvoice.payment_hash": 6,
+            "DelInvoice.status": 7
         },
         "GetinfoAddress": {
             "Getinfo.address[].address": 3,
@@ -191,6 +246,25 @@
             "Getinfo.version": 8,
             "Getinfo.warning_bitcoind_sync": 16,
             "Getinfo.warning_lightningd_sync": 17
+        },
+        "InvoiceRequest": {
+            "Invoice.cltv": 6,
+            "Invoice.description": 2,
+            "Invoice.fallbacks[]": 4,
+            "Invoice.label": 3,
+            "Invoice.msatoshi": 1,
+            "Invoice.preimage": 5
+        },
+        "InvoiceResponse": {
+            "Invoice.bolt11": 1,
+            "Invoice.expires_at": 4,
+            "Invoice.payment_hash": 2,
+            "Invoice.payment_secret": 3,
+            "Invoice.warning_capacity": 5,
+            "Invoice.warning_deadends": 7,
+            "Invoice.warning_mpp": 9,
+            "Invoice.warning_offline": 6,
+            "Invoice.warning_private_unused": 8
         },
         "ListchannelsChannels": {
             "ListChannels.channels[].active": 8,
@@ -255,6 +329,31 @@
         "ListfundsResponse": {
             "ListFunds.channels[]": 2,
             "ListFunds.outputs[]": 1
+        },
+        "ListinvoicesInvoices": {
+            "ListInvoices.invoices[].amount_msat": 6,
+            "ListInvoices.invoices[].amount_received_msat": 12,
+            "ListInvoices.invoices[].bolt11": 7,
+            "ListInvoices.invoices[].bolt12": 8,
+            "ListInvoices.invoices[].description": 2,
+            "ListInvoices.invoices[].expires_at": 5,
+            "ListInvoices.invoices[].label": 1,
+            "ListInvoices.invoices[].local_offer_id": 9,
+            "ListInvoices.invoices[].paid_at": 13,
+            "ListInvoices.invoices[].pay_index": 11,
+            "ListInvoices.invoices[].payer_note": 10,
+            "ListInvoices.invoices[].payment_hash": 3,
+            "ListInvoices.invoices[].payment_preimage": 14,
+            "ListInvoices.invoices[].status": 4
+        },
+        "ListinvoicesRequest": {
+            "ListInvoices.invstring": 2,
+            "ListInvoices.label": 1,
+            "ListInvoices.offer_id": 4,
+            "ListInvoices.payment_hash": 3
+        },
+        "ListinvoicesResponse": {
+            "ListInvoices.invoices[]": 1
         },
         "ListpeersPeers": {
             "ListPeers.peers[].channels[]": 4,
