@@ -69,12 +69,12 @@ impl Amount {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Utxo {
+pub struct Outpoint {
     pub txid: Vec<u8>,
     pub outnum: u32,
 }
 
-impl Serialize for Utxo {
+impl Serialize for Outpoint {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -83,7 +83,7 @@ impl Serialize for Utxo {
     }
 }
 
-impl<'de> Deserialize<'de> for Utxo {
+impl<'de> Deserialize<'de> for Outpoint {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for Utxo {
             .parse()
             .map_err(|e| Error::custom(format!("{} is not a valid number: {}", s, e)))?;
 
-        Ok(Utxo { txid, outnum })
+        Ok(Outpoint { txid, outnum })
     }
 }
 

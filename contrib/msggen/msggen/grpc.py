@@ -24,8 +24,9 @@ typemap = {
     'u16': 'uint32',  # Yeah, I know...
     'f32': 'float',
     'integer': 'sint64',
-    "utxo": "Utxo",
+    "outpoint": "Outpoint",
     "feerate": "Feerate",
+    "outputdesc": "OutputDesc",
 }
 
 
@@ -40,6 +41,7 @@ overrides = {
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
 }
+
 
 method_name_overrides = {
     "Connect": "ConnectPeer",
@@ -373,7 +375,12 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
         for f in field.fields:
             name = f.normalized()
             if isinstance(f, ArrayField):
-                self.write(f"{name}: c.{name}.iter().map(|s| s.into()).collect(),\n", numindent=3)
+                typ = f.itemtype.typename
+                mapping = {
+                    'hex': f'hex::decode(s).unwrap()',
+                    'u32': f's.clone()',
+                }.get(typ, f's.into()')
+                self.write(f"{name}: c.{name}.iter().map(|s| {mapping}).collect(),\n", numindent=3)
 
             elif isinstance(f, EnumField):
                 if f.required:

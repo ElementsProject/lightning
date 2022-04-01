@@ -25,6 +25,7 @@ overrides = {
     'ListPeers.peers[].channels[].features[]': "string",
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
+    'Invoice.exposeprivatechannels': None,
 }
 
 # A map of schema type to rust primitive types.
@@ -43,6 +44,8 @@ typemap = {
     'float': 'f32',
     'utxo': 'Utxo',
     'feerate': 'Feerate',
+    'outpoint': 'Outpoint',
+    'outputdesc': 'OutputDesc',
 }
 
 header = f"""#![allow(non_camel_case_types)]
@@ -123,7 +126,7 @@ def gen_enum(e):
     if e.required:
         defi = f"    // Path `{e.path}`\n    #[serde(rename = \"{e.name}\")]\n    pub {e.name.normalized()}: {typename},\n"
     else:
-        defi = f'    #[serde(skip_serializing_if = "Option::is_none")]'
+        defi = f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
         defi = f"    pub {e.name.normalized()}: Option<{typename}>,\n"
 
     return defi, decl
@@ -148,16 +151,15 @@ def gen_array(a):
     logger.debug(f"Generating array field {a.name} -> {name} ({a.path})")
     _, decl = gen_field(a.itemtype)
 
-    if isinstance(a.itemtype, PrimitiveField):
+    if a.path in overrides:
+        decl = ""  # No declaration if we have an override
+        itemtype = overrides[a.path]
+    elif isinstance(a.itemtype, PrimitiveField):
         itemtype = a.itemtype.typename
     elif isinstance(a.itemtype, CompositeField):
         itemtype = a.itemtype.typename
     elif isinstance(a.itemtype, EnumField):
         itemtype = a.itemtype.typename
-
-    if a.path in overrides:
-        decl = ""  # No declaration if we have an override
-        itemtype = overrides[a.path]
 
     if itemtype is None:
         return ("", "")  # Override said not to include

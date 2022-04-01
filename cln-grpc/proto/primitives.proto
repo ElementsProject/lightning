@@ -40,7 +40,7 @@ enum ChannelState {
 
 message ChannelStateChangeCause {}
 
-message Utxo {
+message Outpoint {
 	bytes txid = 1;
 	uint32 outnum = 2;
 }
