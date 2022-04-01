@@ -33,6 +33,10 @@
             "paid": 0,
             "unpaid": 2
         },
+        "FeeratesStyle": {
+            "perkb": 0,
+            "perkw": 1
+        },
         "GetinfoAddressType": {
             "dns": 0,
             "ipv4": 1,
@@ -48,8 +52,27 @@
             "torv2": 3,
             "torv3": 4
         },
+        "GetrouteRouteStyle": {
+            "tlv": 0
+        },
         "KeysendStatus": {
             "complete": 0
+        },
+        "ListforwardsForwardsStatus": {
+            "failed": 3,
+            "local_failed": 2,
+            "offered": 0,
+            "settled": 1
+        },
+        "ListforwardsForwardsStyle": {
+            "legacy": 0,
+            "tlv": 1
+        },
+        "ListforwardsStatus": {
+            "failed": 3,
+            "local_failed": 2,
+            "offered": 0,
+            "settled": 1
         },
         "ListfundsOutputsStatus": {
             "confirmed": 1,
@@ -68,6 +91,16 @@
             "torv2": 3,
             "torv3": 4,
             "websocket": 5
+        },
+        "ListpaysPaysStatus": {
+            "complete": 2,
+            "failed": 1,
+            "pending": 0
+        },
+        "ListpaysStatus": {
+            "complete": 1,
+            "failed": 2,
+            "pending": 0
         },
         "ListpeersPeersChannelsHtlcsDirection": {
             "in": 0,
@@ -144,6 +177,7 @@
             "withdraw": 2
         },
         "NewaddrAddresstype": {
+            "all": 2,
             "bech32": 0,
             "p2sh-segwit": 1
         },
@@ -197,6 +231,7 @@
         "CloseRequest": {
             "Close.destination": 3,
             "Close.fee_negotiation_step": 4,
+            "Close.feerange[]": 7,
             "Close.force_lease_closed": 6,
             "Close.id": 1,
             "Close.unilateraltimeout": 2,
@@ -262,22 +297,27 @@
         "DatastoreRequest": {
             "Datastore.generation": 4,
             "Datastore.hex": 2,
+            "Datastore.key": 5,
             "Datastore.key[]": 1,
-            "Datastore.mode": 3
+            "Datastore.mode": 3,
+            "Datastore.string": 6
         },
         "DatastoreResponse": {
             "Datastore.generation": 2,
             "Datastore.hex": 3,
+            "Datastore.key": 5,
             "Datastore.key[]": 1,
             "Datastore.string": 4
         },
         "DeldatastoreRequest": {
             "DelDatastore.generation": 2,
+            "DelDatastore.key": 3,
             "DelDatastore.key[]": 1
         },
         "DeldatastoreResponse": {
             "DelDatastore.generation": 2,
             "DelDatastore.hex": 3,
+            "DelDatastore.key": 5,
             "DelDatastore.key[]": 1,
             "DelDatastore.string": 4
         },
@@ -285,6 +325,7 @@
             "DelExpiredInvoice.maxexpirytime": 1
         },
         "DelinvoiceRequest": {
+            "DelInvoice.desconly": 3,
             "DelInvoice.label": 1,
             "DelInvoice.status": 2
         },
@@ -300,7 +341,48 @@
             "DelInvoice.payment_hash": 6,
             "DelInvoice.status": 7
         },
+        "DisconnectRequest": {
+            "Disconnect.force": 2,
+            "Disconnect.id": 1
+        },
+        "FeeratesOnchain_fee_estimates": {
+            "Feerates.onchain_fee_estimates.htlc_success_satoshis": 5,
+            "Feerates.onchain_fee_estimates.htlc_timeout_satoshis": 4,
+            "Feerates.onchain_fee_estimates.mutual_close_satoshis": 2,
+            "Feerates.onchain_fee_estimates.opening_channel_satoshis": 1,
+            "Feerates.onchain_fee_estimates.unilateral_close_satoshis": 3
+        },
+        "FeeratesPerkb": {
+            "Feerates.perkb.delayed_to_us": 6,
+            "Feerates.perkb.htlc_resolution": 7,
+            "Feerates.perkb.max_acceptable": 2,
+            "Feerates.perkb.min_acceptable": 1,
+            "Feerates.perkb.mutual_close": 4,
+            "Feerates.perkb.opening": 3,
+            "Feerates.perkb.penalty": 8,
+            "Feerates.perkb.unilateral_close": 5
+        },
+        "FeeratesPerkw": {
+            "Feerates.perkw.delayed_to_us": 6,
+            "Feerates.perkw.htlc_resolution": 7,
+            "Feerates.perkw.max_acceptable": 2,
+            "Feerates.perkw.min_acceptable": 1,
+            "Feerates.perkw.mutual_close": 4,
+            "Feerates.perkw.opening": 3,
+            "Feerates.perkw.penalty": 8,
+            "Feerates.perkw.unilateral_close": 5
+        },
+        "FeeratesRequest": {
+            "Feerates.style": 1
+        },
+        "FeeratesResponse": {
+            "Feerates.onchain_fee_estimates": 4,
+            "Feerates.perkb": 2,
+            "Feerates.perkw": 3,
+            "Feerates.warning_missing_feerates": 1
+        },
         "FundpsbtRequest": {
+            "FundPsbt.excess_as_change": 8,
             "FundPsbt.feerate": 2,
             "FundPsbt.locktime": 6,
             "FundPsbt.min_witness_weight": 7,
@@ -360,9 +442,33 @@
             "Getinfo.warning_bitcoind_sync": 16,
             "Getinfo.warning_lightningd_sync": 17
         },
+        "GetrouteRequest": {
+            "GetRoute.cltv": 4,
+            "GetRoute.exclude[]": 7,
+            "GetRoute.fromid": 5,
+            "GetRoute.fuzzpercent": 6,
+            "GetRoute.id": 1,
+            "GetRoute.maxhops": 8,
+            "GetRoute.msatoshi": 2,
+            "GetRoute.riskfactor": 3
+        },
+        "GetrouteResponse": {
+            "GetRoute.route[]": 1
+        },
+        "GetrouteRoute": {
+            "GetRoute.route[].amount_msat": 4,
+            "GetRoute.route[].channel": 2,
+            "GetRoute.route[].delay": 5,
+            "GetRoute.route[].direction": 3,
+            "GetRoute.route[].id": 1,
+            "GetRoute.route[].style": 6
+        },
         "InvoiceRequest": {
             "Invoice.cltv": 6,
+            "Invoice.deschashonly": 9,
             "Invoice.description": 2,
+            "Invoice.expiry": 7,
+            "Invoice.exposeprivatechannels": 8,
             "Invoice.fallbacks[]": 4,
             "Invoice.label": 3,
             "Invoice.msatoshi": 1,
@@ -382,11 +488,13 @@
         "KeysendRequest": {
             "KeySend.destination": 1,
             "KeySend.exemptfee": 7,
+            "KeySend.extratlvs": 9,
             "KeySend.label": 3,
             "KeySend.maxdelay": 6,
             "KeySend.maxfeepercent": 4,
             "KeySend.msatoshi": 2,
-            "KeySend.retry_for": 5
+            "KeySend.retry_for": 5,
+            "KeySend.routehints": 8
         },
         "KeysendResponse": {
             "KeySend.amount_msat": 6,
@@ -431,10 +539,30 @@
             "ListDatastore.datastore[].string": 4
         },
         "ListdatastoreRequest": {
+            "ListDatastore.key": 2,
             "ListDatastore.key[]": 1
         },
         "ListdatastoreResponse": {
             "ListDatastore.datastore[]": 1
+        },
+        "ListforwardsForwards": {
+            "ListForwards.forwards[].fee_msat": 7,
+            "ListForwards.forwards[].in_channel": 1,
+            "ListForwards.forwards[].in_msat": 2,
+            "ListForwards.forwards[].out_channel": 5,
+            "ListForwards.forwards[].out_msat": 8,
+            "ListForwards.forwards[].payment_hash": 6,
+            "ListForwards.forwards[].received_time": 4,
+            "ListForwards.forwards[].status": 3,
+            "ListForwards.forwards[].style": 9
+        },
+        "ListforwardsRequest": {
+            "ListForwards.in_channel": 2,
+            "ListForwards.out_channel": 3,
+            "ListForwards.status": 1
+        },
+        "ListforwardsResponse": {
+            "ListForwards.forwards[]": 1
         },
         "ListfundsChannels": {
             "ListFunds.channels[].amount_msat": 3,
@@ -507,6 +635,26 @@
         "ListnodesResponse": {
             "ListNodes.nodes[]": 1
         },
+        "ListpaysPays": {
+            "ListPays.pays[].amount_msat": 8,
+            "ListPays.pays[].amount_sent_msat": 9,
+            "ListPays.pays[].bolt11": 6,
+            "ListPays.pays[].bolt12": 7,
+            "ListPays.pays[].created_at": 4,
+            "ListPays.pays[].destination": 3,
+            "ListPays.pays[].erroronion": 10,
+            "ListPays.pays[].label": 5,
+            "ListPays.pays[].payment_hash": 1,
+            "ListPays.pays[].status": 2
+        },
+        "ListpaysRequest": {
+            "ListPays.bolt11": 1,
+            "ListPays.payment_hash": 2,
+            "ListPays.status": 3
+        },
+        "ListpaysResponse": {
+            "ListPays.pays[]": 1
+        },
         "ListpeersPeers": {
             "ListPeers.peers[].channels[]": 4,
             "ListPeers.peers[].connected": 2,
@@ -539,8 +687,10 @@
             "ListPeers.peers[].channels[].max_accepted_htlcs": 35,
             "ListPeers.peers[].channels[].max_to_us_msat": 22,
             "ListPeers.peers[].channels[].max_total_htlc_in_msat": 27,
+            "ListPeers.peers[].channels[].maximum_htlc_out_msat": 49,
             "ListPeers.peers[].channels[].min_to_us_msat": 21,
             "ListPeers.peers[].channels[].minimum_htlc_in_msat": 32,
+            "ListPeers.peers[].channels[].minimum_htlc_out_msat": 48,
             "ListPeers.peers[].channels[].next_fee_step": 12,
             "ListPeers.peers[].channels[].next_feerate": 11,
             "ListPeers.peers[].channels[].opener": 16,
@@ -668,8 +818,10 @@
         },
         "PayRequest": {
             "Pay.bolt11": 1,
+            "Pay.exclude": 10,
             "Pay.exemptfee": 7,
             "Pay.label": 3,
+            "Pay.localofferid": 9,
             "Pay.maxdelay": 6,
             "Pay.maxfeepercent": 4,
             "Pay.msatoshi": 2,
@@ -687,14 +839,31 @@
             "Pay.status": 9,
             "Pay.warning_partial_completion": 8
         },
+        "PingRequest": {
+            "Ping.id": 1,
+            "Ping.len": 2,
+            "Ping.pongbytes": 3
+        },
+        "PingResponse": {
+            "Ping.totlen": 1
+        },
         "SendonionFirst_hop": {
             "SendOnion.first_hop.amount_msat": 2,
             "SendOnion.first_hop.delay": 3,
             "SendOnion.first_hop.id": 1
         },
         "SendonionRequest": {
+            "SendOnion.bolt11": 7,
+            "SendOnion.destination": 9,
             "SendOnion.first_hop": 2,
-            "SendOnion.onion": 1
+            "SendOnion.groupid": 11,
+            "SendOnion.label": 4,
+            "SendOnion.localofferid": 10,
+            "SendOnion.msatoshi": 8,
+            "SendOnion.onion": 1,
+            "SendOnion.partid": 6,
+            "SendOnion.payment_hash": 3,
+            "SendOnion.shared_secrets[]": 5
         },
         "SendonionResponse": {
             "SendOnion.amount_msat": 4,
@@ -706,13 +875,16 @@
             "SendOnion.id": 1,
             "SendOnion.label": 8,
             "SendOnion.message": 12,
+            "SendOnion.partid": 13,
             "SendOnion.payment_hash": 2,
             "SendOnion.payment_preimage": 11,
             "SendOnion.status": 3
         },
         "SendpayRequest": {
             "SendPay.bolt11": 5,
+            "SendPay.groupid": 9,
             "SendPay.label": 3,
+            "SendPay.localofferid": 8,
             "SendPay.msatoshi": 4,
             "SendPay.partid": 7,
             "SendPay.payment_hash": 2,
@@ -742,11 +914,20 @@
             "SendPay.route[].msatoshi": 1
         },
         "SendpsbtRequest": {
-            "SendPsbt.psbt": 1
+            "SendPsbt.psbt": 1,
+            "SendPsbt.reserve": 2
         },
         "SendpsbtResponse": {
             "SendPsbt.tx": 1,
             "SendPsbt.txid": 2
+        },
+        "SignmessageRequest": {
+            "SignMessage.message": 1
+        },
+        "SignmessageResponse": {
+            "SignMessage.recid": 2,
+            "SignMessage.signature": 1,
+            "SignMessage.zbase": 3
         },
         "SignpsbtRequest": {
             "SignPsbt.psbt": 1,
@@ -766,6 +947,7 @@
             "TxPrepare.feerate": 2,
             "TxPrepare.minconf": 3,
             "TxPrepare.outptus[]": 1,
+            "TxPrepare.outputs[]": 5,
             "TxPrepare.utxos[]": 4
         },
         "TxprepareResponse": {
@@ -782,10 +964,12 @@
             "TxSend.txid": 3
         },
         "UtxopsbtRequest": {
+            "UtxoPsbt.excess_as_change": 9,
             "UtxoPsbt.feerate": 2,
             "UtxoPsbt.locktime": 6,
             "UtxoPsbt.min_witness_weight": 7,
             "UtxoPsbt.reserve": 5,
+            "UtxoPsbt.reservedok": 8,
             "UtxoPsbt.satoshi": 1,
             "UtxoPsbt.startweight": 3,
             "UtxoPsbt.utxos[]": 4
@@ -841,6 +1025,7 @@
             "WaitInvoice.status": 4
         },
         "WaitsendpayRequest": {
+            "WaitSendPay.groupid": 4,
             "WaitSendPay.partid": 2,
             "WaitSendPay.payment_hash": 1,
             "WaitSendPay.timeout": 3
