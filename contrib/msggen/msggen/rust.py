@@ -40,6 +40,7 @@ typemap = {
     'txid': 'String',
     'float': 'f32',
     'utxo': 'Utxo',
+    'feerate': 'Feerate',
 }
 
 header = f"""#![allow(non_camel_case_types)]

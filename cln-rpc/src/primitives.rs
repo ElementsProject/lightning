@@ -218,6 +218,77 @@ impl From<Amount> for String {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Feerate {
+    Slow,
+    Normal,
+    Urgent,
+    PerKb(u32),
+    PerKw(u32),
+}
+
+impl TryFrom<&str> for Feerate {
+    type Error = Error;
+    fn try_from(s: &str) -> Result<Feerate> {
+        let number: u32 = s
+            .chars()
+            .map(|c| c.to_digit(10))
+            .take_while(|opt| opt.is_some())
+            .fold(0, |acc, digit| acc * 10 + (digit.unwrap() as u32));
+
+        let s = s.to_lowercase();
+        if s.ends_with("perkw") {
+            Ok(Feerate::PerKw(number))
+        } else if s.ends_with("perkb") {
+            Ok(Feerate::PerKb(number))
+        } else if s == "slow" {
+            Ok(Feerate::Slow)
+        } else if s == "normal" {
+            Ok(Feerate::Normal)
+        } else if s == "urgent" {
+            Ok(Feerate::Urgent)
+        } else {
+            Err(anyhow!("Unable to parse feerate from string: {}", s))
+        }
+    }
+}
+
+impl From<&Feerate> for String {
+    fn from(f: &Feerate) -> String {
+        match f {
+            Feerate::Slow => "slow".to_string(),
+            Feerate::Normal => "normal".to_string(),
+            Feerate::Urgent => "urgent".to_string(),
+            Feerate::PerKb(v) => format!("{}perkb", v),
+            Feerate::PerKw(v) => format!("{}perkw", v),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Feerate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let res: Feerate = s
+            .as_str()
+            .try_into()
+            .map_err(|e| serde::de::Error::custom(format!("{}", e)))?;
+        Ok(res)
+    }
+}
+
+impl Serialize for Feerate {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+	let s: String = self.into();
+        serializer.serialize_str(&s)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -282,5 +353,23 @@ mod test {
             serialized,
             r#"{"all":"all","not_all":"31337msat","any":"any","not_any":"42msat"}"#
         );
+    }
+
+    #[test]
+    fn test_parse_feerate() {
+        let tests = vec![
+            ("slow", Feerate::Slow),
+            ("normal", Feerate::Normal),
+            ("urgent", Feerate::Urgent),
+            ("12345perkb", Feerate::PerKb(12345)),
+            ("54321perkw", Feerate::PerKw(54321)),
+        ];
+
+        for (input, output) in tests.into_iter() {
+            let parsed: Feerate = input.try_into().unwrap();
+            assert_eq!(parsed, output);
+	    let serialized: String = (&parsed).into();
+	    assert_eq!(serialized, input);
+        }
     }
 }

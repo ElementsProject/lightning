@@ -1052,6 +1052,7 @@ impl From<&pb::WithdrawRequest> for requests::WithdrawRequest {
         Self {
             destination: hex::encode(&c.destination), // Rule #1 for type pubkey
             satoshi: c.satoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            feerate: c.feerate.as_ref().map(|a| a.into()), // Rule #1 for type feerate?
             minconf: c.minconf.map(|v| v as u16), // Rule #1 for type u16?
             utxos: c.utxos.iter().map(|s| s.into()).collect(),
         }

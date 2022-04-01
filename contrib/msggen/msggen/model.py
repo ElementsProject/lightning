@@ -230,6 +230,7 @@ class PrimitiveField(Field):
         "integer",
         "u16",
         "number",
+        "feerate",
         "utxo",  # A string representing the tuple (txid, outnum)
     ]
 

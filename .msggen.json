@@ -774,6 +774,7 @@
         },
         "WithdrawRequest": {
             "Withdraw.destination": 1,
+            "Withdraw.feerate": 5,
             "Withdraw.minconf": 3,
             "Withdraw.satoshi": 2,
             "Withdraw.utxos[]": 4
