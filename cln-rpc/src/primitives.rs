@@ -284,7 +284,7 @@ impl Serialize for Feerate {
     where
         S: Serializer,
     {
-	let s: String = self.into();
+        let s: String = self.into();
         serializer.serialize_str(&s)
     }
 }
@@ -424,4 +424,23 @@ impl Serialize for OutputDesc {
         map.serialize_value(&self.amount)?;
         map.end()
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Routehop {
+    pub id: String,
+    pub scid: String,
+    pub feebase: Amount,
+    pub feeprop: u32,
+    pub expirydelta: u16,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Routehint {
+    pub hops: Vec<Routehop>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RoutehintList {
+    pub hints: Vec<Routehint>,
 }

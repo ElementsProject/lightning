@@ -340,6 +340,7 @@ InvoiceLabelField = PrimitiveField("string", None, None)
 DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None), dims=1, path=None, description=None)
 InvoiceExposeprivatechannelsField = PrimitiveField("boolean", None, None)
 PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None), dims=1, path=None, description=None)
+RoutehintListField = PrimitiveField("RoutehintList", None, None)
 # Override fields with manually managed types, fieldpath -> field mapping
 overrides = {
     'Invoice.label': InvoiceLabelField,
@@ -350,6 +351,7 @@ overrides = {
     'ListDatastore.key': DatastoreKeyField,
     'Invoice.exposeprivatechannels': InvoiceExposeprivatechannelsField,
     'Pay.exclude': PayExclude,
+    'KeySend.routehints': RoutehintListField,
 }
 
 
