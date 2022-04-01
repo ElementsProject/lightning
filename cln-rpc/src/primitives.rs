@@ -23,6 +23,7 @@ pub enum ChannelState {
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
+#[serde(rename_all = "lowercase")]
 pub enum ChannelStateChangeCause {
     UNKNOWN,
     LOCAL,
@@ -223,6 +224,7 @@ impl<'de> Deserialize<'de> for Outpoint {
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum ChannelSide {
     LOCAL,
     REMOTE,

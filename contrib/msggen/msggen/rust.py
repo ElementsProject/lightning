@@ -86,15 +86,18 @@ def gen_field(field):
 def gen_enum(e):
     defi, decl = "", ""
 
+    if e.path in overrides and overrides[e.path] is None:
+        return "", ""
+
     if e.description != "":
         decl += f"/// {e.description}\n"
 
-    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize)]\n#[serde(rename_all = \"lowercase\")]\npub enum {e.typename} {{\n"
+    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize)]\npub enum {e.typename} {{\n"
     for v in e.variants:
         if v is None:
             continue
         norm = v.normalized()
-        # decl += f"    #[serde(rename = \"{v}\")]\n"
+        decl += f"    #[serde(rename = \"{v}\")]\n"
         decl += f"    {norm},\n"
     decl += "}\n\n"
 
