@@ -318,11 +318,10 @@ def test_pay_error_update_fees(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
 
     # Don't include any routehints in first invoice.
-    inv1 = l3.rpc.call('invoice',
-                       {'msatoshi': 123000,
-                        'label': 'test_pay_error_update_fees',
-                        'description': 'description',
-                        'dev-routes': []})
+    inv1 = l3.dev_invoice(msatoshi=123000,
+                          label='test_pay_error_update_fees',
+                          description='description',
+                          dev_routes=[])
 
     inv2 = l3.rpc.invoice(123000, 'test_pay_error_update_fees2', 'desc')  # noqa: F841
 
@@ -1844,10 +1843,10 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
                         'fee_base_msat': 1000,
                         'fee_proportional_millionths': 10,
                         'cltv_expiry_delta': 6}]
-        inv = l5.rpc.call('invoice', {'msatoshi': 10**5,
-                                      'label': 'test_pay_routeboost2',
-                                      'description': 'test_pay_routeboost2',
-                                      'dev-routes': [routel3l4l5]})
+        inv = l5.dev_invoice(msatoshi=10**5,
+                             label='test_pay_routeboost2',
+                             description='test_pay_routeboost2',
+                             dev_routes=[routel3l4l5])
         l1.dev_pay(inv['bolt11'], use_shadow=False)
         status = l1.rpc.call('paystatus', [inv['bolt11']])
         pay = only_one(status['pay'])
@@ -1866,10 +1865,10 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
                       'fee_base_msat': 1000,
                       'fee_proportional_millionths': 10,
                       'cltv_expiry_delta': 6}]
-        inv = l5.rpc.call('invoice', {'msatoshi': 10**5,
-                                      'label': 'test_pay_routeboost5',
-                                      'description': 'test_pay_routeboost5',
-                                      'dev-routes': [routel3l4l5, routel3l5]})
+        inv = l5.dev_invoice(msatoshi=10**5,
+                             label='test_pay_routeboost5',
+                             description='test_pay_routeboost5',
+                             dev_routes=[routel3l4l5, routel3l5])
         l1.dev_pay(inv['bolt11'], label="paying test_pay_routeboost5",
                    use_shadow=False)
 
@@ -2165,10 +2164,10 @@ def test_setchannel_routing(node_factory, bitcoind):
         l1.rpc.getroute(l3.info['id'], 4001793, 1, fuzzpercent=0)["route"]
 
     # We should consider this unroutable!  (MPP is disabled!)
-    inv = l3.rpc.call('invoice', {'msatoshi': 4001793,
-                                  'label': 'test_setchannel_1',
-                                  'description': 'desc',
-                                  'dev-routes': []})
+    inv = l3.dev_invoice(msatoshi=4001793,
+                         label='test_setchannel_1',
+                         description='desc',
+                         dev_routes=[])
     with pytest.raises(RpcError) as routefail:
         l1.dev_pay(inv['bolt11'], use_shadow=False)
     assert routefail.value.error['attempts'][0]['failreason'] == 'No path found'
@@ -2701,14 +2700,14 @@ def test_tlv_or_legacy(node_factory, bitcoind):
 
     # We need to force l3 to provide route hint from l2 (it won't normally,
     # since it sees l2 as a dead end).
-    inv = l3.rpc.call('invoice', {"msatoshi": 10000,
-                                  "label": "test_tlv1",
-                                  "description": "test_tlv1",
-                                  "dev-routes": [[{'id': l2.info['id'],
-                                                   'short_channel_id': scid23,
-                                                   'fee_base_msat': 1,
-                                                   'fee_proportional_millionths': 10,
-                                                   'cltv_expiry_delta': 6}]]})['bolt11']
+    inv = l3.dev_invoice(msatoshi=10000,
+                         label="test_tlv1",
+                         description="test_tlv1",
+                         dev_routes=[[{'id': l2.info['id'],
+                                       'short_channel_id': scid23,
+                                       'fee_base_msat': 1,
+                                       'fee_proportional_millionths': 10,
+                                       'cltv_expiry_delta': 6}]])['bolt11']
     l1.rpc.pay(inv)
 
     # Since L1 hasn't seen broadcast, it doesn't know L2 isn't TLV, but invoice tells it about L3
@@ -2732,7 +2731,6 @@ def test_tlv_or_legacy(node_factory, bitcoind):
     l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
 
 
-@pytest.mark.developer('Needs dev-routes')
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)

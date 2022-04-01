@@ -1146,6 +1146,21 @@ class LightningNode(object):
                                 maxfeepercent, retry_for,
                                 maxdelay, exemptfee, use_shadow, exclude)
 
+    def dev_invoice(self, msatoshi, label, description, expiry=None, fallbacks=None, preimage=None, exposeprivatechannels=None, cltv=None, dev_routes=None):
+        """Wrapper for rpc.invoice() with dev-routes option"""
+        payload = {
+            "msatoshi": msatoshi,
+            "label": label,
+            "description": description,
+            "expiry": expiry,
+            "fallbacks": fallbacks,
+            "preimage": preimage,
+            "exposeprivatechannels": exposeprivatechannels,
+            "cltv": cltv,
+            "dev-routes": dev_routes,
+        }
+        return self.rpc.call("invoice", payload)
+
 
 @contextmanager
 def flock(directory: Path):
