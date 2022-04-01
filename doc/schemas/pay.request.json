@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "bolt11"
+  ],
+  "properties": {
+    "bolt11": {
+      "type": "string"
+    },
+    "msatoshi": {
+      "type": "msat"
+    },
+    "label": {
+      "type": "string"
+    },
+    "riskfactor": {
+      "type": "float"
+    },
+    "maxfeepercent": {
+      "type": "f32"
+    },
+    "retry_for": {
+      "type": "u16"
+    },
+    "maxdelay": {
+      "type": "u16"
+    },
+    "exemptfee": {
+      "type": "f32"
+    }
+  }
+}

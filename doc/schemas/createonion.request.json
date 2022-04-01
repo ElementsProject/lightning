@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "hops",
+    "assocdata"
+  ],
+  "properties": {
+    "hops": {
+      "type": "array",
+      "description": "",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pubkey",
+          "payload"
+        ],
+        "properties": {
+          "pubkey": {
+            "type": "pubkey"
+          },
+          "payload": {
+            "type": "hex"
+          }
+        }
+      }
+    },
+    "assocdata": {
+      "type": "hex",
+      "description": ""
+    },
+    "session_key": {
+      "type": "hex"
+    },
+    "onion_size": {
+      "type": "u16"
+    }
+  }
+}

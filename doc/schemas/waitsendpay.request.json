@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "payment_hash"
+  ],
+  "properties": {
+    "payment_hash": {
+      "type": "hex"
+    },
+    "partid": {
+      "type": "u16"
+    },
+    "timeout": {
+      "type": "u32"
+    }
+  }
+}

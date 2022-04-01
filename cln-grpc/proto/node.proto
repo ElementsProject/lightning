@@ -11,6 +11,7 @@ service Node {
 	rpc Getinfo(GetinfoRequest) returns (GetinfoResponse) {}
 	rpc ListPeers(ListpeersRequest) returns (ListpeersResponse) {}
 	rpc ListFunds(ListfundsRequest) returns (ListfundsResponse) {}
+	rpc SendPay(SendpayRequest) returns (SendpayResponse) {}
 	rpc ListChannels(ListchannelsRequest) returns (ListchannelsResponse) {}
 	rpc AddGossip(AddgossipRequest) returns (AddgossipResponse) {}
 	rpc AutoCleanInvoice(AutocleaninvoiceRequest) returns (AutocleaninvoiceResponse) {}
@@ -19,12 +20,24 @@ service Node {
 	rpc ConnectPeer(ConnectRequest) returns (ConnectResponse) {}
 	rpc CreateInvoice(CreateinvoiceRequest) returns (CreateinvoiceResponse) {}
 	rpc Datastore(DatastoreRequest) returns (DatastoreResponse) {}
+	rpc CreateOnion(CreateonionRequest) returns (CreateonionResponse) {}
 	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
 	rpc DelExpiredInvoice(DelexpiredinvoiceRequest) returns (DelexpiredinvoiceResponse) {}
 	rpc DelInvoice(DelinvoiceRequest) returns (DelinvoiceResponse) {}
 	rpc Invoice(InvoiceRequest) returns (InvoiceResponse) {}
 	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
 	rpc ListInvoices(ListinvoicesRequest) returns (ListinvoicesResponse) {}
+	rpc SendOnion(SendonionRequest) returns (SendonionResponse) {}
+	rpc ListSendPays(ListsendpaysRequest) returns (ListsendpaysResponse) {}
+	rpc ListTransactions(ListtransactionsRequest) returns (ListtransactionsResponse) {}
+	rpc Pay(PayRequest) returns (PayResponse) {}
+	rpc ListNodes(ListnodesRequest) returns (ListnodesResponse) {}
+	rpc WaitAnyInvoice(WaitanyinvoiceRequest) returns (WaitanyinvoiceResponse) {}
+	rpc WaitInvoice(WaitinvoiceRequest) returns (WaitinvoiceResponse) {}
+	rpc WaitSendPay(WaitsendpayRequest) returns (WaitsendpayResponse) {}
+	rpc NewAddr(NewaddrRequest) returns (NewaddrResponse) {}
+	rpc Withdraw(WithdrawRequest) returns (WithdrawResponse) {}
+	rpc KeySend(KeysendRequest) returns (KeysendResponse) {}
 }
 
 message GetinfoRequest {
@@ -271,6 +284,45 @@ message ListfundsChannels {
 	optional string short_channel_id = 8;
 }
 
+message SendpayRequest {
+	repeated SendpayRoute route = 1;
+	bytes payment_hash = 2;
+	optional string label = 3;
+	optional Amount msatoshi = 4;
+	optional string bolt11 = 5;
+	optional bytes payment_secret = 6;
+	optional uint32 partid = 7;
+}
+
+message SendpayResponse {
+	// SendPay.status
+	enum SendpayStatus {
+		PENDING = 0;
+		COMPLETE = 1;
+	}
+	uint64 id = 1;
+	optional uint64 groupid = 2;
+	bytes payment_hash = 3;
+	SendpayStatus status = 4;
+	optional Amount amount_msat = 5;
+	optional bytes destination = 6;
+	uint64 created_at = 7;
+	Amount amount_sent_msat = 8;
+	optional string label = 9;
+	optional uint64 partid = 10;
+	optional string bolt11 = 11;
+	optional string bolt12 = 12;
+	optional bytes payment_preimage = 13;
+	optional string message = 14;
+}
+
+message SendpayRoute {
+	Amount msatoshi = 1;
+	bytes id = 2;
+	uint32 delay = 3;
+	string channel = 4;
+}
+
 message ListchannelsRequest {
 	optional string short_channel_id = 1;
 	optional bytes source = 2;
@@ -432,6 +484,23 @@ message DatastoreResponse {
 	optional string string = 4;
 }
 
+message CreateonionRequest {
+	repeated CreateonionHops hops = 1;
+	bytes assocdata = 2;
+	optional bytes session_key = 3;
+	optional uint32 onion_size = 4;
+}
+
+message CreateonionResponse {
+	bytes onion = 1;
+	repeated bytes shared_secrets = 2;
+}
+
+message CreateonionHops {
+	bytes pubkey = 1;
+	bytes payload = 2;
+}
+
 message DeldatastoreRequest {
 	repeated string key = 1;
 	optional uint64 generation = 2;
@@ -549,4 +618,324 @@ message ListinvoicesInvoices {
 	optional Amount amount_received_msat = 12;
 	optional uint64 paid_at = 13;
 	optional bytes payment_preimage = 14;
+}
+
+message SendonionRequest {
+	bytes onion = 1;
+}
+
+message SendonionResponse {
+	// SendOnion.status
+	enum SendonionStatus {
+		PENDING = 0;
+		COMPLETE = 1;
+	}
+	uint64 id = 1;
+	bytes payment_hash = 2;
+	SendonionStatus status = 3;
+	optional Amount amount_msat = 4;
+	optional bytes destination = 5;
+	uint64 created_at = 6;
+	Amount amount_sent_msat = 7;
+	optional string label = 8;
+	optional string bolt11 = 9;
+	optional string bolt12 = 10;
+	optional bytes payment_preimage = 11;
+	optional string message = 12;
+}
+
+message SendonionFirst_hop {
+	bytes id = 1;
+	Amount amount_msat = 2;
+	uint32 delay = 3;
+}
+
+message ListsendpaysRequest {
+	// ListSendPays.status
+	enum ListsendpaysStatus {
+		PENDING = 0;
+		COMPLETE = 1;
+		FAILED = 2;
+	}
+	optional string bolt11 = 1;
+	optional bytes payment_hash = 2;
+	optional ListsendpaysStatus status = 3;
+}
+
+message ListsendpaysResponse {
+	repeated ListsendpaysPayments payments = 1;
+}
+
+message ListsendpaysPayments {
+	// ListSendPays.payments[].status
+	enum ListsendpaysPaymentsStatus {
+		PENDING = 0;
+		FAILED = 1;
+		COMPLETE = 2;
+	}
+	uint64 id = 1;
+	optional uint64 groupid = 2;
+	bytes payment_hash = 3;
+	ListsendpaysPaymentsStatus status = 4;
+	optional Amount amount_msat = 5;
+	optional bytes destination = 6;
+	uint64 created_at = 7;
+	Amount amount_sent_msat = 8;
+	optional string label = 9;
+	optional string bolt11 = 10;
+	optional string bolt12 = 11;
+	optional bytes payment_preimage = 12;
+	optional bytes erroronion = 13;
+}
+
+message ListtransactionsRequest {
+}
+
+message ListtransactionsResponse {
+	repeated ListtransactionsTransactions transactions = 1;
+}
+
+message ListtransactionsTransactions {
+	bytes hash = 1;
+	bytes rawtx = 2;
+	uint32 blockheight = 3;
+	uint32 txindex = 4;
+	optional string channel = 6;
+	uint32 locktime = 7;
+	uint32 version = 8;
+	repeated ListtransactionsTransactionsInputs inputs = 9;
+	repeated ListtransactionsTransactionsOutputs outputs = 10;
+}
+
+message ListtransactionsTransactionsInputs {
+	// ListTransactions.transactions[].inputs[].type
+	enum ListtransactionsTransactionsInputsType {
+		THEIRS = 0;
+		DEPOSIT = 1;
+		WITHDRAW = 2;
+		CHANNEL_FUNDING = 3;
+		CHANNEL_MUTUAL_CLOSE = 4;
+		CHANNEL_UNILATERAL_CLOSE = 5;
+		CHANNEL_SWEEP = 6;
+		CHANNEL_HTLC_SUCCESS = 7;
+		CHANNEL_HTLC_TIMEOUT = 8;
+		CHANNEL_PENALTY = 9;
+		CHANNEL_UNILATERAL_CHEAT = 10;
+	}
+	bytes txid = 1;
+	uint32 index = 2;
+	uint32 sequence = 3;
+	optional ListtransactionsTransactionsInputsType item_type = 4;
+	optional string channel = 5;
+}
+
+message ListtransactionsTransactionsOutputs {
+	// ListTransactions.transactions[].outputs[].type
+	enum ListtransactionsTransactionsOutputsType {
+		THEIRS = 0;
+		DEPOSIT = 1;
+		WITHDRAW = 2;
+		CHANNEL_FUNDING = 3;
+		CHANNEL_MUTUAL_CLOSE = 4;
+		CHANNEL_UNILATERAL_CLOSE = 5;
+		CHANNEL_SWEEP = 6;
+		CHANNEL_HTLC_SUCCESS = 7;
+		CHANNEL_HTLC_TIMEOUT = 8;
+		CHANNEL_PENALTY = 9;
+		CHANNEL_UNILATERAL_CHEAT = 10;
+	}
+	uint32 index = 1;
+	Amount msat = 2;
+	bytes scriptPubKey = 3;
+	optional ListtransactionsTransactionsOutputsType item_type = 4;
+	optional string channel = 5;
+}
+
+message PayRequest {
+	string bolt11 = 1;
+	optional Amount msatoshi = 2;
+	optional string label = 3;
+	optional float riskfactor = 8;
+	optional float maxfeepercent = 4;
+	optional uint32 retry_for = 5;
+	optional uint32 maxdelay = 6;
+	optional float exemptfee = 7;
+}
+
+message PayResponse {
+	// Pay.status
+	enum PayStatus {
+		COMPLETE = 0;
+		PENDING = 1;
+		FAILED = 2;
+	}
+	bytes payment_preimage = 1;
+	optional bytes destination = 2;
+	bytes payment_hash = 3;
+	sint64 created_at = 4;
+	uint32 parts = 5;
+	Amount amount_msat = 6;
+	Amount amount_sent_msat = 7;
+	optional string warning_partial_completion = 8;
+	PayStatus status = 9;
+}
+
+message ListnodesRequest {
+	optional bytes id = 1;
+}
+
+message ListnodesResponse {
+	repeated ListnodesNodes nodes = 1;
+}
+
+message ListnodesNodes {
+	bytes nodeid = 1;
+	optional uint32 last_timestamp = 2;
+	optional string alias = 3;
+	optional bytes color = 4;
+	optional bytes features = 5;
+	repeated ListnodesNodesAddresses addresses = 6;
+}
+
+message ListnodesNodesAddresses {
+	// ListNodes.nodes[].addresses[].type
+	enum ListnodesNodesAddressesType {
+		DNS = 0;
+		IPV4 = 1;
+		IPV6 = 2;
+		TORV2 = 3;
+		TORV3 = 4;
+		WEBSOCKET = 5;
+	}
+	ListnodesNodesAddressesType item_type = 1;
+	uint32 port = 2;
+	optional string address = 3;
+}
+
+message WaitanyinvoiceRequest {
+	optional sint64 lastpay_index = 1;
+	optional sint64 timeout = 2;
+}
+
+message WaitanyinvoiceResponse {
+	// WaitAnyInvoice.status
+	enum WaitanyinvoiceStatus {
+		PAID = 0;
+		EXPIRED = 1;
+	}
+	string label = 1;
+	string description = 2;
+	bytes payment_hash = 3;
+	WaitanyinvoiceStatus status = 4;
+	uint64 expires_at = 5;
+	optional Amount amount_msat = 6;
+	optional string bolt11 = 7;
+	optional string bolt12 = 8;
+	optional uint64 pay_index = 9;
+	optional Amount amount_received_msat = 10;
+	optional uint64 paid_at = 11;
+	optional bytes payment_preimage = 12;
+}
+
+message WaitinvoiceRequest {
+	string label = 1;
+}
+
+message WaitinvoiceResponse {
+	// WaitInvoice.status
+	enum WaitinvoiceStatus {
+		PAID = 0;
+		EXPIRED = 1;
+	}
+	string label = 1;
+	string description = 2;
+	bytes payment_hash = 3;
+	WaitinvoiceStatus status = 4;
+	uint64 expires_at = 5;
+	optional Amount amount_msat = 6;
+	optional string bolt11 = 7;
+	optional string bolt12 = 8;
+	optional uint64 pay_index = 9;
+	optional Amount amount_received_msat = 10;
+	optional uint64 paid_at = 11;
+	optional bytes payment_preimage = 12;
+}
+
+message WaitsendpayRequest {
+	bytes payment_hash = 1;
+	optional uint32 partid = 2;
+	optional uint32 timeout = 3;
+}
+
+message WaitsendpayResponse {
+	// WaitSendPay.status
+	enum WaitsendpayStatus {
+		COMPLETE = 0;
+	}
+	uint64 id = 1;
+	optional uint64 groupid = 2;
+	bytes payment_hash = 3;
+	WaitsendpayStatus status = 4;
+	optional Amount amount_msat = 5;
+	optional bytes destination = 6;
+	uint64 created_at = 7;
+	Amount amount_sent_msat = 8;
+	optional string label = 9;
+	optional uint64 partid = 10;
+	optional string bolt11 = 11;
+	optional string bolt12 = 12;
+	optional bytes payment_preimage = 13;
+}
+
+message NewaddrRequest {
+	// NewAddr.addresstype
+	enum NewaddrAddresstype {
+		BECH32 = 0;
+		P2SH_SEGWIT = 1;
+	}
+	optional NewaddrAddresstype addresstype = 1;
+}
+
+message NewaddrResponse {
+	optional string bech32 = 1;
+	optional string p2sh_segwit = 2;
+}
+
+message WithdrawRequest {
+	bytes destination = 1;
+	optional Amount satoshi = 2;
+	optional uint32 minconf = 3;
+	repeated Utxo utxos = 4;
+}
+
+message WithdrawResponse {
+	bytes tx = 1;
+	bytes txid = 2;
+	string psbt = 3;
+}
+
+message KeysendRequest {
+	bytes destination = 1;
+	Amount msatoshi = 2;
+	optional string label = 3;
+	optional float maxfeepercent = 4;
+	optional sint64 retry_for = 5;
+	optional sint64 maxdelay = 6;
+	optional Amount exemptfee = 7;
+}
+
+message KeysendResponse {
+	// KeySend.status
+	enum KeysendStatus {
+		COMPLETE = 0;
+	}
+	bytes payment_preimage = 1;
+	optional bytes destination = 2;
+	bytes payment_hash = 3;
+	sint64 created_at = 4;
+	uint32 parts = 5;
+	Amount amount_msat = 6;
+	Amount amount_sent_msat = 7;
+	optional string warning_partial_completion = 8;
+	KeysendStatus status = 9;
 }

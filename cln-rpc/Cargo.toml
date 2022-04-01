@@ -17,6 +17,7 @@ tokio-util = { version = "0.6.9", features = ["codec"] }
 tokio = { version = "1", features = ["net"]}
 native-tls = { version = "*", features = ["vendored"] }
 futures-util = { version = "*", features = [ "sink" ] }
+hex = "0.4.3"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread"]}

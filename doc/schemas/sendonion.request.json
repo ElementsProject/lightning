@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "onion",
+    "first_hop",
+    "payment_hash"
+  ],
+  "properties": {
+    "onion": {
+      "type": "hex"
+    },
+    "first_hop": {
+      "type": "object",
+      "required": [
+        "id",
+        "amount_msat",
+        "delay"
+      ],
+      "properties": {
+        "id": {
+          "type": "pubkey"
+        },
+        "amount_msat": {
+          "type": "msat"
+        },
+        "delay": {
+          "type": "u16"
+        }
+      },
+      "payment_hash": {
+        "type": "hex"
+      },
+      "label": {
+        "type": "string"
+      },
+      "shared_secrets": {
+        "type": "array",
+        "itemtype": {
+          "type": "hex"
+        }
+      },
+      "partid": {
+        "type": "u16"
+      },
+      "bolt11": {
+        "type": "string"
+      },
+      "msatoshi": {
+        "type": "msat"
+      },
+      "destination": {
+        "type": "pubkey"
+      }
+    }
+  }
+}

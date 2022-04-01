@@ -20,7 +20,9 @@ typemap = {
     'u32': 'uint32',
     'u64': 'uint64',
     'u16': 'uint32',  # Yeah, I know...
+    'f32': 'float',
     'integer': 'sint64',
+    "utxo": "Utxo",
 }
 
 
@@ -33,6 +35,7 @@ overrides = {
     'ListPeers.peers[].channels[].closer': "ChannelSide",
     'ListPeers.peers[].channels[].features[]': "string",
     'ListFunds.channels[].state': 'ChannelState',
+    'ListTransactions.transactions[].type[]': None,
 }
 
 method_name_overrides = {
@@ -258,6 +261,7 @@ class GrpcConverterGenerator:
                 continue
 
             name = f.normalized()
+            name = re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
             if isinstance(f, ArrayField):
                 typ = f.itemtype.typename
                 # The inner conversion applied to each element in the
@@ -296,7 +300,8 @@ class GrpcConverterGenerator:
                     typ,
                     f'c.{name}.clone()'  # default to just assignment
                 )
-                self.write(f"{name}: {rhs},\n", numindent=3)
+
+                self.write(f"{name}: {rhs}, // Rule #2 for type {typ}\n", numindent=3)
 
         self.write(f"""\
                 }}
@@ -387,12 +392,13 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'txid?': f'c.{name}.clone().map(|v| hex::encode(v))',
                     'pubkey': f'hex::encode(&c.{name})',
                     'pubkey?': f'c.{name}.clone().map(|v| hex::encode(v))',
-                    'msat': f'c.{name}.as_ref().unwrap().into()'
+                    'msat': f'c.{name}.as_ref().unwrap().into()',
+                    'msat?': f'c.{name}.as_ref().map(|a| a.into())',
                 }.get(
                     typ,
                     f'c.{name}.clone()'  # default to just assignment
                 )
-                self.write(f"{name}: {rhs},\n", numindent=3)
+                self.write(f"{name}: {rhs}, // Rule #1 for type {typ}\n", numindent=3)
 
         self.write(f"""\
                 }}
