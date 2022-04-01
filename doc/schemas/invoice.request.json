@@ -9,7 +9,7 @@
   ],
   "properties": {
     "msatoshi": {
-      "type": "msat",
+      "type": "msat|any",
       "description": ""
     },
     "description": {

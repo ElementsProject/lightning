@@ -75,7 +75,7 @@ impl ClnRpc {
         // serde_json knows which variant of [`Request`] should be
         // used.
         response["method"] = req2["method"].clone();
-
+	log::warn!("XXX {:?}", response);
         serde_json::from_value(response).context("converting response into enum")
     }
 }

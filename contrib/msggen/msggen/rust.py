@@ -32,6 +32,8 @@ typemap = {
     'boolean': 'bool',
     'hex': 'String',
     'msat': 'Amount',
+    'msat|all': 'AmountOrAll',
+    'msat|any': 'AmountOrAny',
     'number': 'i64',
     'pubkey': 'String',
     'short_channel_id': 'String',

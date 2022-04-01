@@ -9,7 +9,7 @@
       "type": "pubkey"
     },
     "satoshi": {
-      "type": "msat"
+      "type": "msat|all"
     },
     "feerate": {
       "type": "feerate"

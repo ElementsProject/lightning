@@ -321,7 +321,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InvoiceRequest {
 	    #[serde(alias = "msatoshi")]
-	    pub msatoshi: Amount,
+	    pub msatoshi: AmountOrAny,
 	    #[serde(alias = "description")]
 	    pub description: String,
 	    #[serde(alias = "label")]
@@ -477,7 +477,7 @@ pub mod requests {
 	    #[serde(alias = "destination")]
 	    pub destination: String,
 	    #[serde(alias = "satoshi", skip_serializing_if = "Option::is_none")]
-	    pub satoshi: Option<Amount>,
+	    pub satoshi: Option<AmountOrAll>,
 	    #[serde(alias = "feerate", skip_serializing_if = "Option::is_none")]
 	    pub feerate: Option<Feerate>,
 	    #[serde(alias = "minconf", skip_serializing_if = "Option::is_none")]

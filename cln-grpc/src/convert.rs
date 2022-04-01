@@ -1028,7 +1028,7 @@ impl From<&pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
 impl From<&pb::InvoiceRequest> for requests::InvoiceRequest {
     fn from(c: &pb::InvoiceRequest) -> Self {
         Self {
-            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat
+            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat|any
             description: c.description.clone(), // Rule #1 for type string
             label: c.label.clone(), // Rule #1 for type string
             fallbacks: c.fallbacks.iter().map(|s| s.into()).collect(),
@@ -1156,7 +1156,7 @@ impl From<&pb::WithdrawRequest> for requests::WithdrawRequest {
     fn from(c: &pb::WithdrawRequest) -> Self {
         Self {
             destination: hex::encode(&c.destination), // Rule #1 for type pubkey
-            satoshi: c.satoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            satoshi: c.satoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat|all?
             feerate: c.feerate.as_ref().map(|a| a.into()), // Rule #1 for type feerate?
             minconf: c.minconf.map(|v| v as u16), // Rule #1 for type u16?
             utxos: c.utxos.iter().map(|s| s.into()).collect(),
