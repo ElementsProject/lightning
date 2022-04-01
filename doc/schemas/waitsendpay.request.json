@@ -9,11 +9,14 @@
     "payment_hash": {
       "type": "hex"
     },
-    "partid": {
-      "type": "u16"
-    },
     "timeout": {
       "type": "u32"
+    },
+    "partid": {
+      "type": "u64"
+    },
+    "groupid": {
+      "type": "u64"
     }
   }
 }

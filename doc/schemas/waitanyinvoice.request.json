@@ -5,10 +5,10 @@
   "required": [],
   "properties": {
     "lastpay_index": {
-      "type": "number"
+      "type": "u64"
     },
     "timeout": {
-      "type": "number"
+      "type": "u64"
     }
   }
 }

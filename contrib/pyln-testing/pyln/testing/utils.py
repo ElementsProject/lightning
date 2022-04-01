@@ -1159,7 +1159,12 @@ class LightningNode(object):
             "cltv": cltv,
             "dev-routes": dev_routes,
         }
-        return self.rpc.call("invoice", payload)
+        # FIXME? dev options are not in schema
+        old_check = self.rpc.check_request_schemas
+        self.rpc.check_request_schemas = False
+        ret = self.rpc.call("invoice", payload)
+        self.rpc.check_request_schemas = old_check
+        return ret
 
 
 @contextmanager

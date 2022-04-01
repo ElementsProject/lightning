@@ -10,7 +10,7 @@
       "type": "string"
     },
     "reserve": {
-      "type": "bool"
+      "type": "boolean"
     }
   }
 }

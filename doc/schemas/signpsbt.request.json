@@ -8,6 +8,12 @@
   "properties": {
     "psbt": {
       "type": "string"
+    },
+    "signonly": {
+      "type": "array",
+      "items": {
+        "type": "u32"
+      }
     }
   }
 }

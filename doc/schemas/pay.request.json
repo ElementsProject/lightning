@@ -16,10 +16,10 @@
       "type": "string"
     },
     "riskfactor": {
-      "type": "float"
+      "type": "number"
     },
     "maxfeepercent": {
-      "type": "f32"
+      "type": "number"
     },
     "retry_for": {
       "type": "u16"
@@ -28,7 +28,23 @@
       "type": "u16"
     },
     "exemptfee": {
-      "type": "f32"
+      "type": "msat"
+    },
+    "localofferid": {
+      "type": "hex"
+    },
+    "exclude": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "short_channel_id_dir"
+          },
+          {
+            "type": "pubkey"
+          }
+        ]
+      }
     }
   }
 }

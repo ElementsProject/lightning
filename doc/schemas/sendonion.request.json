@@ -28,31 +28,37 @@
         "delay": {
           "type": "u16"
         }
-      },
-      "payment_hash": {
-        "type": "hex"
-      },
-      "label": {
-        "type": "string"
-      },
-      "shared_secrets": {
-        "type": "array",
-        "itemtype": {
-          "type": "hex"
-        }
-      },
-      "partid": {
-        "type": "u16"
-      },
-      "bolt11": {
-        "type": "string"
-      },
-      "msatoshi": {
-        "type": "msat"
-      },
-      "destination": {
-        "type": "pubkey"
       }
+    },
+    "payment_hash": {
+      "type": "hex"
+    },
+    "label": {
+      "type": "string"
+    },
+    "shared_secrets": {
+      "type": "array",
+      "items": {
+        "type": "hex"
+      }
+    },
+    "partid": {
+      "type": "u16"
+    },
+    "bolt11": {
+      "type": "string"
+    },
+    "msatoshi": {
+      "type": "msat"
+    },
+    "destination": {
+      "type": "pubkey"
+    },
+    "localofferid": {
+      "type": "hash"
+    },
+    "groupid": {
+      "type": "u64"
     }
   }
 }

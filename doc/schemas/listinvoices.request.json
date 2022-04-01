@@ -5,8 +5,16 @@
   "required": [],
   "properties": {
     "label": {
-      "type": "string",
-      "description": ""
+      "oneOf": [
+        {
+          "type": "string",
+          "description": ""
+        },
+        {
+          "type": "integer",
+          "description": ""
+        }
+      ]
     },
     "invstring": {
       "type": "string",
