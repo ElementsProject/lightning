@@ -218,6 +218,7 @@ class EnumField(Field):
         values = ",".join([v for v in self.values if v is not None])
         return f"Enum[path={self.path}, required={self.required}, values=[{values}]]"
 
+
 class UnionField(Field):
     """A type that can be one of a number of types.
 
@@ -278,6 +279,8 @@ class PrimitiveField(Field):
         "feerate",
         "utxo",  # A string representing the tuple (txid, outnum)
         "outputdesc",  # A dict that maps an address to an amount (bitcoind style)
+        "secret",
+        "hash",
     ]
 
     def __init__(self, typename, path, description):
