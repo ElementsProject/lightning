@@ -5,6 +5,7 @@ from pyln.testing.utils import env, TEST_NETWORK, wait_for
 from ephemeral_port_reserve import reserve
 import grpc
 import node_pb2 as nodepb
+from primitives_pb2 import AmountOrAny
 import pytest
 import subprocess
 
@@ -100,6 +101,15 @@ def test_grpc_connect(node_factory):
 
     response = stub.ListFunds(nodepb.ListfundsRequest())
     print(response)
+
+    inv = stub.Invoice(nodepb.InvoiceRequest(
+        msatoshi=AmountOrAny(any=True),
+        description="hello",
+        label="lbl1",
+        preimage=b"\x00" * 32,
+        cltv=24
+    ))
+    print(inv)
 
 
 def test_grpc_generate_certificate(node_factory):

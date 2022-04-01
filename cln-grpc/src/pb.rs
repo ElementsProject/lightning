@@ -1,7 +1,8 @@
 tonic::include_proto!("cln");
 
 use cln_rpc::primitives::{
-    Amount as JAmount, Feerate as JFeerate, OutputDesc as JOutputDesc, Utxo as JUtxo,
+    Amount as JAmount, AmountOrAll as JAmountOrAll, AmountOrAny as JAmountOrAny,
+    Feerate as JFeerate, OutputDesc as JOutputDesc, Utxo as JUtxo,
 };
 
 impl From<JAmount> for Amount {
@@ -52,6 +53,51 @@ impl From<&OutputDesc> for JOutputDesc {
         JOutputDesc {
             address: od.address.clone(),
             amount: od.amount.as_ref().unwrap().into(),
+        }
+    }
+}
+
+impl From<JAmountOrAll> for AmountOrAll {
+    fn from(a: JAmountOrAll) -> Self {
+        match a {
+            JAmountOrAll::Amount(a) => AmountOrAll {
+                value: Some(amount_or_all::Value::Amount(a.into())),
+            },
+            JAmountOrAll::All => AmountOrAll {
+                value: Some(amount_or_all::Value::All(true)),
+            },
+        }
+    }
+}
+
+impl From<&AmountOrAll> for JAmountOrAll {
+    fn from(a: &AmountOrAll) -> Self {
+        match &a.value {
+            Some(amount_or_all::Value::Amount(a)) => JAmountOrAll::Amount(a.into()),
+            Some(amount_or_all::Value::All(_)) => JAmountOrAll::All,
+            None => panic!("AmountOrAll is neither amount nor all: {:?}", a),
+        }
+    }
+}
+
+impl From<JAmountOrAny> for AmountOrAny {
+    fn from(a: JAmountOrAny) -> Self {
+        match a {
+            JAmountOrAny::Amount(a) => AmountOrAny {
+                value: Some(amount_or_any::Value::Amount(a.into())),
+            },
+            JAmountOrAny::Any => AmountOrAny {
+                value: Some(amount_or_any::Value::Any(true)),
+            },
+        }
+    }
+}
+impl From<&AmountOrAny> for JAmountOrAny {
+    fn from(a: &AmountOrAny) -> Self {
+        match &a.value {
+            Some(amount_or_any::Value::Amount(a)) => JAmountOrAny::Amount(a.into()),
+            Some(amount_or_any::Value::Any(_)) => JAmountOrAny::Any,
+            None => panic!("AmountOrAll is neither amount nor any: {:?}", a),
         }
     }
 }

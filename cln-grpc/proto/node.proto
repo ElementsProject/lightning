@@ -558,7 +558,7 @@ message DelinvoiceResponse {
 }
 
 message InvoiceRequest {
-	Amount msatoshi = 1;
+	AmountOrAny msatoshi = 1;
 	string description = 2;
 	string label = 3;
 	repeated string fallbacks = 4;
@@ -910,7 +910,7 @@ message NewaddrResponse {
 
 message WithdrawRequest {
 	bytes destination = 1;
-	optional Amount satoshi = 2;
+	optional AmountOrAll satoshi = 2;
 	optional Feerate feerate = 5;
 	optional uint32 minconf = 3;
 	repeated Utxo utxos = 4;

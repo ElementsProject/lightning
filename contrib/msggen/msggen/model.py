@@ -224,6 +224,8 @@ class PrimitiveField(Field):
         "pubkey",
         "signature",
         "msat",
+        "msat|any",
+        "msat|all",
         "hex",
         "short_channel_id",
         "txid",

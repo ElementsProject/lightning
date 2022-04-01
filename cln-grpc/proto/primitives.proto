@@ -5,6 +5,20 @@ message Amount {
 	uint64 msat = 1;
 }
 
+message AmountOrAll {
+	oneof value {
+		Amount amount = 1;
+		bool all = 2;
+	}
+}
+
+message AmountOrAny {
+	oneof value {
+		Amount amount = 1;
+		bool any = 2;
+	}
+}
+
 enum ChannelSide {
 	IN = 0;
 	OUT = 1;
