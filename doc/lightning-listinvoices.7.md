@@ -23,7 +23,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **invoices** is returned.  It is an array of objects, where each object contains:
 - **label** (string): unique label supplied at invoice creation
-- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): Whether it's paid, unpaid or unpayable (one of "unpaid", "paid", "expired")
 - **expires_at** (u64): UNIX timestamp of when it will become / became unpayable
 - **description** (string, optional): description used in the invoice
@@ -37,7 +37,7 @@ If **status** is "paid":
   - **pay_index** (u64): Unique incrementing index for this payment
   - **amount_received_msat** (msat): the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)
   - **paid_at** (u64): UNIX timestamp of when it was paid
-  - **payment_preimage** (hex): proof of payment (always 64 characters)
+  - **payment_preimage** (secret): proof of payment (always 64 characters)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -56,4 +56,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d1328ecc2a4e76ede8c9adc3a63d18ce36be305ddcee7cf717039f79642cfd41)
+[comment]: # ( SHA256STAMP:1178a5178a20b2aca9c52fe39e332bd1d6c4f20fa302639bed0fbfc6eb348c40)

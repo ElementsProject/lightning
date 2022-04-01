@@ -14,13 +14,13 @@
       "description": "the bolt11 string"
     },
     "payment_hash": {
-      "type": "hex",
+      "type": "hash",
       "description": "the hash of the *payment_preimage* which will prove payment",
       "maxLength": 64,
       "minLength": 64
     },
     "payment_secret": {
-      "type": "hex",
+      "type": "secret",
       "description": "the *payment_secret* to place in the onion",
       "maxLength": 64,
       "minLength": 64

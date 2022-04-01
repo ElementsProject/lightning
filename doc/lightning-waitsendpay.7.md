@@ -35,7 +35,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **id** (u64): unique ID for this payment attempt
-- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (always "complete")
 - **created_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **amount_sent_msat** (msat): The amount sent
@@ -48,7 +48,7 @@ On success, an object is returned, containing:
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 
 If **status** is "complete":
-  - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+  - **payment_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -101,4 +101,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:3f89cf80acc1e9363509f0a053a617f8b381790823f8cd05fa6c708eb72fcc7e)
+[comment]: # ( SHA256STAMP:96e5cfd0bd6f2d6b7a25a60f846283592404cee07ef142e58cd56929cc6923c9)

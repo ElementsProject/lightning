@@ -78,8 +78,8 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **bolt11** (string): the bolt11 string
-- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
-- **payment_secret** (hex): the *payment_secret* to place in the onion (always 64 characters)
+- **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment_secret** (secret): the *payment_secret* to place in the onion (always 64 characters)
 - **expires_at** (u64): UNIX timestamp of when invoice expires
 
 The following warnings may also be returned:
@@ -117,4 +117,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:f7d82473482e5454fc03641fddcfa97984e6a597e7ad377ced2cbed1512e91ed)
+[comment]: # ( SHA256STAMP:834b9d7b84845d423a677662b66b9109b3b8c4b7219a91d98f2817561d68a8cd)

@@ -31,7 +31,7 @@
       }
     },
     "payment_hash": {
-      "type": "hex"
+      "type": "hash"
     },
     "label": {
       "type": "string"
@@ -39,7 +39,7 @@
     "shared_secrets": {
       "type": "array",
       "items": {
-        "type": "hex"
+        "type": "secret"
       }
     },
     "partid": {

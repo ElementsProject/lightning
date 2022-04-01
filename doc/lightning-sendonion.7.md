@@ -89,7 +89,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **id** (u64): unique ID for this payment attempt
-- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
 - **created_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **amount_sent_msat** (msat): The amount sent
@@ -101,7 +101,7 @@ On success, an object is returned, containing:
 - **partid** (u64, optional): the partid (if supplied) to sendonion/sendpay
 
 If **status** is "complete":
-  - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+  - **payment_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 
 If **status** is "pending":
   - **message** (string, optional): Monitor status with listpays or waitsendpay
@@ -128,4 +128,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-[comment]: # ( SHA256STAMP:b8fd5d1c31eb2db10b2f32960752ae1c90150ffeb470c5ea635cb1034e8b1438)
+[comment]: # ( SHA256STAMP:d2f4991d271147dd8c13859376f36f2d8843a96034e818a434555a09bf6fd003)

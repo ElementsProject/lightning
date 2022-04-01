@@ -7,7 +7,7 @@
   ],
   "properties": {
     "payment_hash": {
-      "type": "hex"
+      "type": "hash"
     },
     "timeout": {
       "type": "u32"

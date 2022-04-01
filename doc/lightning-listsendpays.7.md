@@ -25,7 +25,7 @@ Note that the returned array is ordered by increasing *id*.
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **payments** is returned.  It is an array of objects, where each object contains:
 - **id** (u64): unique ID for this payment attempt
-- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
 - **created_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **amount_sent_msat** (msat): The amount sent
@@ -37,7 +37,7 @@ On success, an object containing **payments** is returned.  It is an array of ob
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 
 If **status** is "complete":
-  - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+  - **payment_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 
 If **status** is "failed":
   - **erroronion** (hex, optional): the onion message returned
@@ -60,4 +60,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:1dfcb495e0004b9dadffd7f69b58275bf9168c9f4007675b390ebbaea07ffde6)
+[comment]: # ( SHA256STAMP:b03c2f306bafb1919f0933ebc695657bd691591484ddcb39b1e8706335593cd2)

@@ -27,7 +27,7 @@
             "description": "description used in the invoice"
           },
           "payment_hash": {
-            "type": "hex",
+            "type": "hash",
             "description": "the hash of the *payment_preimage* which will prove payment",
             "maxLength": 64,
             "minLength": 64
@@ -119,7 +119,7 @@
                   "description": "UNIX timestamp of when it was paid"
                 },
                 "payment_preimage": {
-                  "type": "hex",
+                  "type": "secret",
                   "description": "proof of payment",
                   "maxLength": 64,
                   "minLength": 64

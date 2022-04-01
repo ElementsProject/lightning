@@ -19,7 +19,7 @@
       "description": "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash"
     },
     "payment_hash": {
-      "type": "hex",
+      "type": "hash",
       "description": "the hash of the *payment_preimage* which will prove payment",
       "maxLength": 64,
       "minLength": 64
@@ -104,7 +104,7 @@
           "bolt11": {},
           "bolt12": {},
           "payment_preimage": {
-            "type": "hex",
+            "type": "secret",
             "description": "the proof of payment: SHA256 of this **payment_hash**",
             "maxLength": 64,
             "minLength": 64
