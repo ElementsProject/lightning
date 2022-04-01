@@ -1138,6 +1138,14 @@ class LightningNode(object):
         except RpcError:
             return None
 
+    def dev_pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
+                maxfeepercent=None, retry_for=None,
+                maxdelay=None, exemptfee=None, use_shadow=True, exclude=[]):
+        """Wrapper for rpc.dev_pay which suppresses the request schema"""
+        return self.rpc.dev_pay(bolt11, msatoshi, label, riskfactor,
+                                maxfeepercent, retry_for,
+                                maxdelay, exemptfee, use_shadow, exclude)
+
 
 @contextmanager
 def flock(directory: Path):
