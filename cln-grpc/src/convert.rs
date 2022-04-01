@@ -7,6 +7,7 @@ use std::convert::From;
 #[allow(unused_imports)]
 use cln_rpc::model::{responses,requests};
 use crate::pb;
+use std::str::FromStr;
 
 #[allow(unused_variables)]
 impl From<&responses::GetinfoAddress> for pb::GetinfoAddress {
@@ -35,7 +36,7 @@ impl From<&responses::GetinfoBinding> for pb::GetinfoBinding {
 impl From<&responses::GetinfoResponse> for pb::GetinfoResponse {
     fn from(c: &responses::GetinfoResponse) -> Self {
         Self {
-            id: hex::decode(&c.id).unwrap(), // Rule #2 for type pubkey
+            id: c.id.to_vec(), // Rule #2 for type pubkey
             alias: c.alias.clone(), // Rule #2 for type string
             color: hex::decode(&c.color).unwrap(), // Rule #2 for type hex
             num_peers: c.num_peers.clone(), // Rule #2 for type u32
@@ -47,8 +48,8 @@ impl From<&responses::GetinfoResponse> for pb::GetinfoResponse {
             blockheight: c.blockheight.clone(), // Rule #2 for type u32
             network: c.network.clone(), // Rule #2 for type string
             fees_collected_msat: Some(c.fees_collected_msat.into()), // Rule #2 for type msat
-            address: c.address.iter().map(|i| i.into()).collect(),
-            binding: c.binding.iter().map(|i| i.into()).collect(),
+            address: c.address.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            binding: c.binding.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             warning_bitcoind_sync: c.warning_bitcoind_sync.clone(), // Rule #2 for type string?
             warning_lightningd_sync: c.warning_lightningd_sync.clone(), // Rule #2 for type string?
         }
@@ -64,7 +65,7 @@ impl From<&responses::ListpeersPeersLog> for pb::ListpeersPeersLog {
             time: c.time.clone(), // Rule #2 for type string?
             source: c.source.clone(), // Rule #2 for type string?
             log: c.log.clone(), // Rule #2 for type string?
-            node_id: c.node_id.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
+            node_id: c.node_id.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             data: c.data.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
         }
     }
@@ -92,10 +93,9 @@ impl From<&responses::ListpeersPeersChannelsHtlcs> for pb::ListpeersPeersChannel
             id: c.id.clone(), // Rule #2 for type u64
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             expiry: c.expiry.clone(), // Rule #2 for type u32
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             local_trimmed: c.local_trimmed.clone(), // Rule #2 for type boolean?
             status: c.status.clone(), // Rule #2 for type string?
-            state: c.state as i32,
         }
     }
 }
@@ -107,20 +107,19 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             state: c.state as i32,
             scratch_txid: c.scratch_txid.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type txid?
             owner: c.owner.clone(), // Rule #2 for type string?
-            short_channel_id: c.short_channel_id.clone(), // Rule #2 for type short_channel_id?
-            channel_id: c.channel_id.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            short_channel_id: c.short_channel_id.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            channel_id: c.channel_id.clone().map(|v| v.to_vec()), // Rule #2 for type hash?
             funding_txid: c.funding_txid.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type txid?
             funding_outnum: c.funding_outnum.clone(), // Rule #2 for type u32?
             initial_feerate: c.initial_feerate.clone(), // Rule #2 for type string?
             last_feerate: c.last_feerate.clone(), // Rule #2 for type string?
             next_feerate: c.next_feerate.clone(), // Rule #2 for type string?
             next_fee_step: c.next_fee_step.clone(), // Rule #2 for type u32?
-            inflight: c.inflight.iter().map(|i| i.into()).collect(),
+            inflight: c.inflight.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             close_to: c.close_to.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             private: c.private.clone(), // Rule #2 for type boolean?
             opener: c.opener as i32,
-            closer: c.closer.map(|v| v as i32),
-            features: c.features.iter().map(|i| i.into()).collect(),
+            features: c.features.iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeersPeersChannelsFeatures 
             to_us_msat: c.to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             min_to_us_msat: c.min_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             max_to_us_msat: c.max_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -134,10 +133,12 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             spendable_msat: c.spendable_msat.map(|f| f.into()), // Rule #2 for type msat?
             receivable_msat: c.receivable_msat.map(|f| f.into()), // Rule #2 for type msat?
             minimum_htlc_in_msat: c.minimum_htlc_in_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_htlc_out_msat: c.minimum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
+            maximum_htlc_out_msat: c.maximum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
             their_to_self_delay: c.their_to_self_delay.clone(), // Rule #2 for type u32?
             our_to_self_delay: c.our_to_self_delay.clone(), // Rule #2 for type u32?
             max_accepted_htlcs: c.max_accepted_htlcs.clone(), // Rule #2 for type u32?
-            status: c.status.iter().map(|i| i.into()).collect(),
+            status: c.status.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             in_payments_offered: c.in_payments_offered.clone(), // Rule #2 for type u64?
             in_offered_msat: c.in_offered_msat.map(|f| f.into()), // Rule #2 for type msat?
             in_payments_fulfilled: c.in_payments_fulfilled.clone(), // Rule #2 for type u64?
@@ -146,7 +147,7 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             out_offered_msat: c.out_offered_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_payments_fulfilled: c.out_payments_fulfilled.clone(), // Rule #2 for type u64?
             out_fulfilled_msat: c.out_fulfilled_msat.map(|f| f.into()), // Rule #2 for type msat?
-            htlcs: c.htlcs.iter().map(|i| i.into()).collect(),
+            htlcs: c.htlcs.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             close_to_addr: c.close_to_addr.clone(), // Rule #2 for type string?
         }
     }
@@ -156,11 +157,11 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
 impl From<&responses::ListpeersPeers> for pb::ListpeersPeers {
     fn from(c: &responses::ListpeersPeers) -> Self {
         Self {
-            id: hex::decode(&c.id).unwrap(), // Rule #2 for type pubkey
+            id: c.id.to_vec(), // Rule #2 for type pubkey
             connected: c.connected.clone(), // Rule #2 for type boolean
-            log: c.log.iter().map(|i| i.into()).collect(),
-            channels: c.channels.iter().map(|i| i.into()).collect(),
-            netaddr: c.netaddr.iter().map(|i| i.into()).collect(),
+            log: c.log.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            channels: c.channels.iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeersPeersChannels 
+            netaddr: c.netaddr.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             features: c.features.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
         }
     }
@@ -170,7 +171,7 @@ impl From<&responses::ListpeersPeers> for pb::ListpeersPeers {
 impl From<&responses::ListpeersResponse> for pb::ListpeersResponse {
     fn from(c: &responses::ListpeersResponse) -> Self {
         Self {
-            peers: c.peers.iter().map(|i| i.into()).collect(),
+            peers: c.peers.iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeersPeers 
         }
     }
 }
@@ -195,14 +196,14 @@ impl From<&responses::ListfundsOutputs> for pb::ListfundsOutputs {
 impl From<&responses::ListfundsChannels> for pb::ListfundsChannels {
     fn from(c: &responses::ListfundsChannels) -> Self {
         Self {
-            peer_id: hex::decode(&c.peer_id).unwrap(), // Rule #2 for type pubkey
+            peer_id: c.peer_id.to_vec(), // Rule #2 for type pubkey
             our_amount_msat: Some(c.our_amount_msat.into()), // Rule #2 for type msat
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
             funding_output: c.funding_output.clone(), // Rule #2 for type u32
             connected: c.connected.clone(), // Rule #2 for type boolean
             state: c.state as i32,
-            short_channel_id: c.short_channel_id.clone(), // Rule #2 for type short_channel_id?
+            short_channel_id: c.short_channel_id.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
 }
@@ -211,8 +212,8 @@ impl From<&responses::ListfundsChannels> for pb::ListfundsChannels {
 impl From<&responses::ListfundsResponse> for pb::ListfundsResponse {
     fn from(c: &responses::ListfundsResponse) -> Self {
         Self {
-            outputs: c.outputs.iter().map(|i| i.into()).collect(),
-            channels: c.channels.iter().map(|i| i.into()).collect(),
+            outputs: c.outputs.iter().map(|i| i.into()).collect(), // Rule #3 for type ListfundsOutputs 
+            channels: c.channels.iter().map(|i| i.into()).collect(), // Rule #3 for type ListfundsChannels 
         }
     }
 }
@@ -223,17 +224,17 @@ impl From<&responses::SendpayResponse> for pb::SendpayResponse {
         Self {
             id: c.id.clone(), // Rule #2 for type u64
             groupid: c.groupid.clone(), // Rule #2 for type u64?
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            destination: c.destination.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
+            destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at.clone(), // Rule #2 for type u64
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label.clone(), // Rule #2 for type string?
             partid: c.partid.clone(), // Rule #2 for type u64?
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
             message: c.message.clone(), // Rule #2 for type string?
         }
     }
@@ -243,9 +244,9 @@ impl From<&responses::SendpayResponse> for pb::SendpayResponse {
 impl From<&responses::ListchannelsChannels> for pb::ListchannelsChannels {
     fn from(c: &responses::ListchannelsChannels) -> Self {
         Self {
-            source: hex::decode(&c.source).unwrap(), // Rule #2 for type pubkey
-            destination: hex::decode(&c.destination).unwrap(), // Rule #2 for type pubkey
-            short_channel_id: c.short_channel_id.clone(), // Rule #2 for type short_channel_id
+            source: c.source.to_vec(), // Rule #2 for type pubkey
+            destination: c.destination.to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
             public: c.public.clone(), // Rule #2 for type boolean
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             message_flags: c.message_flags.into(), // Rule #2 for type u8
@@ -266,7 +267,7 @@ impl From<&responses::ListchannelsChannels> for pb::ListchannelsChannels {
 impl From<&responses::ListchannelsResponse> for pb::ListchannelsResponse {
     fn from(c: &responses::ListchannelsResponse) -> Self {
         Self {
-            channels: c.channels.iter().map(|i| i.into()).collect(),
+            channels: c.channels.iter().map(|i| i.into()).collect(), // Rule #3 for type ListchannelsChannels 
         }
     }
 }
@@ -295,7 +296,7 @@ impl From<&responses::CheckmessageResponse> for pb::CheckmessageResponse {
     fn from(c: &responses::CheckmessageResponse) -> Self {
         Self {
             verified: c.verified.clone(), // Rule #2 for type boolean
-            pubkey: c.pubkey.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
+            pubkey: c.pubkey.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
         }
     }
 }
@@ -315,7 +316,7 @@ impl From<&responses::CloseResponse> for pb::CloseResponse {
 impl From<&responses::ConnectResponse> for pb::ConnectResponse {
     fn from(c: &responses::ConnectResponse) -> Self {
         Self {
-            id: hex::decode(&c.id).unwrap(), // Rule #2 for type pubkey
+            id: c.id.to_vec(), // Rule #2 for type pubkey
             features: hex::decode(&c.features).unwrap(), // Rule #2 for type hex
             direction: c.direction as i32,
         }
@@ -329,7 +330,7 @@ impl From<&responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
             label: c.label.clone(), // Rule #2 for type string
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             status: c.status as i32,
             description: c.description.clone(), // Rule #2 for type string
@@ -337,7 +338,7 @@ impl From<&responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
             pay_index: c.pay_index.clone(), // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at.clone(), // Rule #2 for type u64?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
             local_offer_id: c.local_offer_id.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             payer_note: c.payer_note.clone(), // Rule #2 for type string?
         }
@@ -348,7 +349,7 @@ impl From<&responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
 impl From<&responses::DatastoreResponse> for pb::DatastoreResponse {
     fn from(c: &responses::DatastoreResponse) -> Self {
         Self {
-            key: c.key.iter().map(|i| i.into()).collect(),
+            key: c.key.iter().map(|i| i.into()).collect(), // Rule #3 for type string 
             generation: c.generation.clone(), // Rule #2 for type u64?
             hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             string: c.string.clone(), // Rule #2 for type string?
@@ -361,7 +362,7 @@ impl From<&responses::CreateonionResponse> for pb::CreateonionResponse {
     fn from(c: &responses::CreateonionResponse) -> Self {
         Self {
             onion: hex::decode(&c.onion).unwrap(), // Rule #2 for type hex
-            shared_secrets: c.shared_secrets.iter().map(|i| hex::decode(i).unwrap()).collect(),
+            shared_secrets: c.shared_secrets.iter().map(|i| i.clone().to_vec()).collect(), // Rule #3 for type secret 
         }
     }
 }
@@ -370,7 +371,7 @@ impl From<&responses::CreateonionResponse> for pb::CreateonionResponse {
 impl From<&responses::DeldatastoreResponse> for pb::DeldatastoreResponse {
     fn from(c: &responses::DeldatastoreResponse) -> Self {
         Self {
-            key: c.key.iter().map(|i| i.into()).collect(),
+            key: c.key.iter().map(|i| i.into()).collect(), // Rule #3 for type string 
             generation: c.generation.clone(), // Rule #2 for type u64?
             hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             string: c.string.clone(), // Rule #2 for type string?
@@ -395,7 +396,7 @@ impl From<&responses::DelinvoiceResponse> for pb::DelinvoiceResponse {
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             description: c.description.clone(), // Rule #2 for type string?
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             expires_at: c.expires_at.clone(), // Rule #2 for type u64
             local_offer_id: c.local_offer_id.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
@@ -409,8 +410,8 @@ impl From<&responses::InvoiceResponse> for pb::InvoiceResponse {
     fn from(c: &responses::InvoiceResponse) -> Self {
         Self {
             bolt11: c.bolt11.clone(), // Rule #2 for type string
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
-            payment_secret: hex::decode(&c.payment_secret).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
+            payment_secret: c.payment_secret.clone().to_vec(), // Rule #2 for type secret
             expires_at: c.expires_at.clone(), // Rule #2 for type u64
             warning_capacity: c.warning_capacity.clone(), // Rule #2 for type string?
             warning_offline: c.warning_offline.clone(), // Rule #2 for type string?
@@ -425,7 +426,7 @@ impl From<&responses::InvoiceResponse> for pb::InvoiceResponse {
 impl From<&responses::ListdatastoreDatastore> for pb::ListdatastoreDatastore {
     fn from(c: &responses::ListdatastoreDatastore) -> Self {
         Self {
-            key: c.key.iter().map(|i| i.into()).collect(),
+            key: c.key.iter().map(|i| i.into()).collect(), // Rule #3 for type string 
             generation: c.generation.clone(), // Rule #2 for type u64?
             hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             string: c.string.clone(), // Rule #2 for type string?
@@ -437,7 +438,7 @@ impl From<&responses::ListdatastoreDatastore> for pb::ListdatastoreDatastore {
 impl From<&responses::ListdatastoreResponse> for pb::ListdatastoreResponse {
     fn from(c: &responses::ListdatastoreResponse) -> Self {
         Self {
-            datastore: c.datastore.iter().map(|i| i.into()).collect(),
+            datastore: c.datastore.iter().map(|i| i.into()).collect(), // Rule #3 for type ListdatastoreDatastore 
         }
     }
 }
@@ -448,7 +449,7 @@ impl From<&responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
         Self {
             label: c.label.clone(), // Rule #2 for type string
             description: c.description.clone(), // Rule #2 for type string
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             expires_at: c.expires_at.clone(), // Rule #2 for type u64
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -459,7 +460,7 @@ impl From<&responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
             pay_index: c.pay_index.clone(), // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at.clone(), // Rule #2 for type u64?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
         }
     }
 }
@@ -468,7 +469,7 @@ impl From<&responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
 impl From<&responses::ListinvoicesResponse> for pb::ListinvoicesResponse {
     fn from(c: &responses::ListinvoicesResponse) -> Self {
         Self {
-            invoices: c.invoices.iter().map(|i| i.into()).collect(),
+            invoices: c.invoices.iter().map(|i| i.into()).collect(), // Rule #3 for type ListinvoicesInvoices 
         }
     }
 }
@@ -478,16 +479,16 @@ impl From<&responses::SendonionResponse> for pb::SendonionResponse {
     fn from(c: &responses::SendonionResponse) -> Self {
         Self {
             id: c.id.clone(), // Rule #2 for type u64
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            destination: c.destination.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
+            destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at.clone(), // Rule #2 for type u64
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label.clone(), // Rule #2 for type string?
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
             message: c.message.clone(), // Rule #2 for type string?
         }
     }
@@ -499,16 +500,16 @@ impl From<&responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
         Self {
             id: c.id.clone(), // Rule #2 for type u64
             groupid: c.groupid.clone(), // Rule #2 for type u64?
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            destination: c.destination.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
+            destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at.clone(), // Rule #2 for type u64
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label.clone(), // Rule #2 for type string?
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
             erroronion: c.erroronion.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
         }
     }
@@ -518,7 +519,7 @@ impl From<&responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
 impl From<&responses::ListsendpaysResponse> for pb::ListsendpaysResponse {
     fn from(c: &responses::ListsendpaysResponse) -> Self {
         Self {
-            payments: c.payments.iter().map(|i| i.into()).collect(),
+            payments: c.payments.iter().map(|i| i.into()).collect(), // Rule #3 for type ListsendpaysPayments 
         }
     }
 }
@@ -531,7 +532,7 @@ impl From<&responses::ListtransactionsTransactionsInputs> for pb::Listtransactio
             index: c.index.clone(), // Rule #2 for type u32
             sequence: c.sequence.clone(), // Rule #2 for type u32
             item_type: c.item_type.map(|v| v as i32),
-            channel: c.channel.clone(), // Rule #2 for type short_channel_id?
+            channel: c.channel.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
 }
@@ -544,7 +545,7 @@ impl From<&responses::ListtransactionsTransactionsOutputs> for pb::Listtransacti
             msat: Some(c.msat.into()), // Rule #2 for type msat
             script_pub_key: hex::decode(&c.script_pub_key).unwrap(), // Rule #2 for type hex
             item_type: c.item_type.map(|v| v as i32),
-            channel: c.channel.clone(), // Rule #2 for type short_channel_id?
+            channel: c.channel.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
         }
     }
 }
@@ -557,11 +558,11 @@ impl From<&responses::ListtransactionsTransactions> for pb::ListtransactionsTran
             rawtx: hex::decode(&c.rawtx).unwrap(), // Rule #2 for type hex
             blockheight: c.blockheight.clone(), // Rule #2 for type u32
             txindex: c.txindex.clone(), // Rule #2 for type u32
-            channel: c.channel.clone(), // Rule #2 for type short_channel_id?
+            channel: c.channel.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             locktime: c.locktime.clone(), // Rule #2 for type u32
             version: c.version.clone(), // Rule #2 for type u32
-            inputs: c.inputs.iter().map(|i| i.into()).collect(),
-            outputs: c.outputs.iter().map(|i| i.into()).collect(),
+            inputs: c.inputs.iter().map(|i| i.into()).collect(), // Rule #3 for type ListtransactionsTransactionsInputs 
+            outputs: c.outputs.iter().map(|i| i.into()).collect(), // Rule #3 for type ListtransactionsTransactionsOutputs 
         }
     }
 }
@@ -570,7 +571,7 @@ impl From<&responses::ListtransactionsTransactions> for pb::ListtransactionsTran
 impl From<&responses::ListtransactionsResponse> for pb::ListtransactionsResponse {
     fn from(c: &responses::ListtransactionsResponse) -> Self {
         Self {
-            transactions: c.transactions.iter().map(|i| i.into()).collect(),
+            transactions: c.transactions.iter().map(|i| i.into()).collect(), // Rule #3 for type ListtransactionsTransactions 
         }
     }
 }
@@ -579,9 +580,9 @@ impl From<&responses::ListtransactionsResponse> for pb::ListtransactionsResponse
 impl From<&responses::PayResponse> for pb::PayResponse {
     fn from(c: &responses::PayResponse) -> Self {
         Self {
-            payment_preimage: hex::decode(&c.payment_preimage).unwrap(), // Rule #2 for type hex
-            destination: c.destination.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_preimage: c.payment_preimage.clone().to_vec(), // Rule #2 for type secret
+            destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             created_at: c.created_at.clone(), // Rule #2 for type number
             parts: c.parts.clone(), // Rule #2 for type u32
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
@@ -607,12 +608,12 @@ impl From<&responses::ListnodesNodesAddresses> for pb::ListnodesNodesAddresses {
 impl From<&responses::ListnodesNodes> for pb::ListnodesNodes {
     fn from(c: &responses::ListnodesNodes) -> Self {
         Self {
-            nodeid: hex::decode(&c.nodeid).unwrap(), // Rule #2 for type pubkey
+            nodeid: c.nodeid.to_vec(), // Rule #2 for type pubkey
             last_timestamp: c.last_timestamp.clone(), // Rule #2 for type u32?
             alias: c.alias.clone(), // Rule #2 for type string?
             color: c.color.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             features: c.features.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
-            addresses: c.addresses.iter().map(|i| i.into()).collect(),
+            addresses: c.addresses.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
         }
     }
 }
@@ -621,7 +622,7 @@ impl From<&responses::ListnodesNodes> for pb::ListnodesNodes {
 impl From<&responses::ListnodesResponse> for pb::ListnodesResponse {
     fn from(c: &responses::ListnodesResponse) -> Self {
         Self {
-            nodes: c.nodes.iter().map(|i| i.into()).collect(),
+            nodes: c.nodes.iter().map(|i| i.into()).collect(), // Rule #3 for type ListnodesNodes 
         }
     }
 }
@@ -632,7 +633,7 @@ impl From<&responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
         Self {
             label: c.label.clone(), // Rule #2 for type string
             description: c.description.clone(), // Rule #2 for type string
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             expires_at: c.expires_at.clone(), // Rule #2 for type u64
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -641,7 +642,7 @@ impl From<&responses::WaitanyinvoiceResponse> for pb::WaitanyinvoiceResponse {
             pay_index: c.pay_index.clone(), // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at.clone(), // Rule #2 for type u64?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
         }
     }
 }
@@ -652,7 +653,7 @@ impl From<&responses::WaitinvoiceResponse> for pb::WaitinvoiceResponse {
         Self {
             label: c.label.clone(), // Rule #2 for type string
             description: c.description.clone(), // Rule #2 for type string
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             expires_at: c.expires_at.clone(), // Rule #2 for type u64
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -661,7 +662,7 @@ impl From<&responses::WaitinvoiceResponse> for pb::WaitinvoiceResponse {
             pay_index: c.pay_index.clone(), // Rule #2 for type u64?
             amount_received_msat: c.amount_received_msat.map(|f| f.into()), // Rule #2 for type msat?
             paid_at: c.paid_at.clone(), // Rule #2 for type u64?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
         }
     }
 }
@@ -672,17 +673,17 @@ impl From<&responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
         Self {
             id: c.id.clone(), // Rule #2 for type u64
             groupid: c.groupid.clone(), // Rule #2 for type u64?
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            destination: c.destination.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
+            destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at.clone(), // Rule #2 for type u64
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label.clone(), // Rule #2 for type string?
             partid: c.partid.clone(), // Rule #2 for type u64?
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
-            payment_preimage: c.payment_preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
         }
     }
 }
@@ -712,9 +713,9 @@ impl From<&responses::WithdrawResponse> for pb::WithdrawResponse {
 impl From<&responses::KeysendResponse> for pb::KeysendResponse {
     fn from(c: &responses::KeysendResponse) -> Self {
         Self {
-            payment_preimage: hex::decode(&c.payment_preimage).unwrap(), // Rule #2 for type hex
-            destination: c.destination.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type pubkey?
-            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            payment_preimage: c.payment_preimage.clone().to_vec(), // Rule #2 for type secret
+            destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
+            payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             created_at: c.created_at.clone(), // Rule #2 for type number
             parts: c.parts.clone(), // Rule #2 for type u32
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
@@ -747,7 +748,7 @@ impl From<&responses::FundpsbtResponse> for pb::FundpsbtResponse {
             estimated_final_weight: c.estimated_final_weight.clone(), // Rule #2 for type u32
             excess_msat: Some(c.excess_msat.into()), // Rule #2 for type msat
             change_outnum: c.change_outnum.clone(), // Rule #2 for type u32?
-            reservations: c.reservations.iter().map(|i| i.into()).collect(),
+            reservations: c.reservations.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
         }
     }
 }
@@ -793,7 +794,7 @@ impl From<&responses::UtxopsbtResponse> for pb::UtxopsbtResponse {
             estimated_final_weight: c.estimated_final_weight.clone(), // Rule #2 for type u32
             excess_msat: Some(c.excess_msat.into()), // Rule #2 for type msat
             change_outnum: c.change_outnum.clone(), // Rule #2 for type u32?
-            reservations: c.reservations.iter().map(|i| i.into()).collect(),
+            reservations: c.reservations.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
         }
     }
 }
@@ -831,6 +832,118 @@ impl From<&responses::TxsendResponse> for pb::TxsendResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::DisconnectResponse> for pb::DisconnectResponse {
+    fn from(c: &responses::DisconnectResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::FeeratesResponse> for pb::FeeratesResponse {
+    fn from(c: &responses::FeeratesResponse) -> Self {
+        Self {
+            warning_missing_feerates: c.warning_missing_feerates.clone(), // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::GetrouteRoute> for pb::GetrouteRoute {
+    fn from(c: &responses::GetrouteRoute) -> Self {
+        Self {
+            id: c.id.to_vec(), // Rule #2 for type pubkey
+            channel: c.channel.to_string(), // Rule #2 for type short_channel_id
+            direction: c.direction.clone(), // Rule #2 for type u32
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            delay: c.delay.clone(), // Rule #2 for type u32
+            style: c.style as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::GetrouteResponse> for pb::GetrouteResponse {
+    fn from(c: &responses::GetrouteResponse) -> Self {
+        Self {
+            route: c.route.iter().map(|i| i.into()).collect(), // Rule #3 for type GetrouteRoute 
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListforwardsForwards> for pb::ListforwardsForwards {
+    fn from(c: &responses::ListforwardsForwards) -> Self {
+        Self {
+            in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
+            in_msat: Some(c.in_msat.into()), // Rule #2 for type msat
+            status: c.status as i32,
+            received_time: c.received_time.clone(), // Rule #2 for type number
+            out_channel: c.out_channel.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            payment_hash: c.payment_hash.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            fee_msat: c.fee_msat.map(|f| f.into()), // Rule #2 for type msat?
+            out_msat: c.out_msat.map(|f| f.into()), // Rule #2 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListforwardsResponse> for pb::ListforwardsResponse {
+    fn from(c: &responses::ListforwardsResponse) -> Self {
+        Self {
+            forwards: c.forwards.iter().map(|i| i.into()).collect(), // Rule #3 for type ListforwardsForwards 
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListpaysPays> for pb::ListpaysPays {
+    fn from(c: &responses::ListpaysPays) -> Self {
+        Self {
+            payment_hash: hex::decode(&c.payment_hash).unwrap(), // Rule #2 for type hex
+            status: c.status as i32,
+            destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
+            created_at: c.created_at.clone(), // Rule #2 for type u64
+            label: c.label.clone(), // Rule #2 for type string?
+            bolt11: c.bolt11.clone(), // Rule #2 for type string?
+            bolt12: c.bolt12.clone(), // Rule #2 for type string?
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
+            erroronion: c.erroronion.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListpaysResponse> for pb::ListpaysResponse {
+    fn from(c: &responses::ListpaysResponse) -> Self {
+        Self {
+            pays: c.pays.iter().map(|i| i.into()).collect(), // Rule #3 for type ListpaysPays 
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::PingResponse> for pb::PingResponse {
+    fn from(c: &responses::PingResponse) -> Self {
+        Self {
+            totlen: c.totlen.into(), // Rule #2 for type u16
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::SignmessageResponse> for pb::SignmessageResponse {
+    fn from(c: &responses::SignmessageResponse) -> Self {
+        Self {
+            signature: hex::decode(&c.signature).unwrap(), // Rule #2 for type hex
+            recid: hex::decode(&c.recid).unwrap(), // Rule #2 for type hex
+            zbase: c.zbase.clone(), // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&pb::GetinfoRequest> for requests::GetinfoRequest {
     fn from(c: &pb::GetinfoRequest) -> Self {
         Self {
@@ -842,7 +955,7 @@ impl From<&pb::GetinfoRequest> for requests::GetinfoRequest {
 impl From<&pb::ListpeersRequest> for requests::ListpeersRequest {
     fn from(c: &pb::ListpeersRequest) -> Self {
         Self {
-            id: c.id.clone().map(|v| hex::encode(v)), // Rule #1 for type pubkey?
+            id: c.id.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
             level: c.level.clone(), // Rule #1 for type string?
         }
     }
@@ -862,9 +975,9 @@ impl From<&pb::SendpayRoute> for requests::SendpayRoute {
     fn from(c: &pb::SendpayRoute) -> Self {
         Self {
             msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat
-            id: hex::encode(&c.id), // Rule #1 for type pubkey
+            id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             delay: c.delay as u16, // Rule #1 for type u16
-            channel: c.channel.clone(), // Rule #1 for type short_channel_id
+            channel: cln_rpc::primitives::ShortChannelId::from_str(&c.channel).unwrap(), // Rule #1 for type short_channel_id
         }
     }
 }
@@ -873,13 +986,15 @@ impl From<&pb::SendpayRoute> for requests::SendpayRoute {
 impl From<&pb::SendpayRequest> for requests::SendpayRequest {
     fn from(c: &pb::SendpayRequest) -> Self {
         Self {
-            route: c.route.iter().map(|s| s.into()).collect(),
-            payment_hash: hex::encode(&c.payment_hash), // Rule #1 for type hex
+            route: c.route.iter().map(|s| s.into()).collect(), // Rule #4
+            payment_hash: c.payment_hash.clone().try_into().unwrap(), // Rule #1 for type hash
             label: c.label.clone(), // Rule #1 for type string?
             msatoshi: c.msatoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             bolt11: c.bolt11.clone(), // Rule #1 for type string?
-            payment_secret: c.payment_secret.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
+            payment_secret: c.payment_secret.clone().map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
             partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
+            localofferid: c.localofferid.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
+            groupid: c.groupid.clone(), // Rule #1 for type u64?
         }
     }
 }
@@ -888,9 +1003,9 @@ impl From<&pb::SendpayRequest> for requests::SendpayRequest {
 impl From<&pb::ListchannelsRequest> for requests::ListchannelsRequest {
     fn from(c: &pb::ListchannelsRequest) -> Self {
         Self {
-            short_channel_id: c.short_channel_id.clone(), // Rule #1 for type short_channel_id?
-            source: c.source.clone().map(|v| hex::encode(v)), // Rule #1 for type pubkey?
-            destination: c.destination.clone().map(|v| hex::encode(v)), // Rule #1 for type pubkey?
+            short_channel_id: c.short_channel_id.as_ref().map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            source: c.source.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
+            destination: c.destination.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
         }
     }
 }
@@ -920,7 +1035,7 @@ impl From<&pb::CheckmessageRequest> for requests::CheckmessageRequest {
         Self {
             message: c.message.clone(), // Rule #1 for type string
             zbase: c.zbase.clone(), // Rule #1 for type string
-            pubkey: c.pubkey.clone().map(|v| hex::encode(v)), // Rule #1 for type pubkey?
+            pubkey: c.pubkey.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
         }
     }
 }
@@ -929,12 +1044,13 @@ impl From<&pb::CheckmessageRequest> for requests::CheckmessageRequest {
 impl From<&pb::CloseRequest> for requests::CloseRequest {
     fn from(c: &pb::CloseRequest) -> Self {
         Self {
-            id: hex::encode(&c.id), // Rule #1 for type pubkey
+            id: c.id.clone(), // Rule #1 for type string
             unilateraltimeout: c.unilateraltimeout.clone(), // Rule #1 for type u32?
             destination: c.destination.clone(), // Rule #1 for type string?
             fee_negotiation_step: c.fee_negotiation_step.clone(), // Rule #1 for type string?
             wrong_funding: c.wrong_funding.clone().map(|v| hex::encode(v)), // Rule #1 for type txid?
             force_lease_closed: c.force_lease_closed.clone(), // Rule #1 for type boolean?
+            feerange: Some(c.feerange.iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
 }
@@ -943,7 +1059,7 @@ impl From<&pb::CloseRequest> for requests::CloseRequest {
 impl From<&pb::ConnectRequest> for requests::ConnectRequest {
     fn from(c: &pb::ConnectRequest) -> Self {
         Self {
-            id: hex::encode(&c.id), // Rule #1 for type pubkey
+            id: c.id.clone(), // Rule #1 for type string
             host: c.host.clone(), // Rule #1 for type string?
             port: c.port.map(|v| v as u16), // Rule #1 for type u16?
         }
@@ -965,7 +1081,8 @@ impl From<&pb::CreateinvoiceRequest> for requests::CreateinvoiceRequest {
 impl From<&pb::DatastoreRequest> for requests::DatastoreRequest {
     fn from(c: &pb::DatastoreRequest) -> Self {
         Self {
-            key: c.key.iter().map(|s| s.into()).collect(),
+            key: c.key.iter().map(|s| s.into()).collect(), // Rule #4
+            string: c.string.clone(), // Rule #1 for type string?
             hex: c.hex.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
             mode: c.mode.map(|v| v.try_into().unwrap()),
             generation: c.generation.clone(), // Rule #1 for type u64?
@@ -977,7 +1094,7 @@ impl From<&pb::DatastoreRequest> for requests::DatastoreRequest {
 impl From<&pb::CreateonionHops> for requests::CreateonionHops {
     fn from(c: &pb::CreateonionHops) -> Self {
         Self {
-            pubkey: hex::encode(&c.pubkey), // Rule #1 for type pubkey
+            pubkey: cln_rpc::primitives::Pubkey::from_slice(&c.pubkey).unwrap(), // Rule #1 for type pubkey
             payload: hex::encode(&c.payload), // Rule #1 for type hex
         }
     }
@@ -987,9 +1104,9 @@ impl From<&pb::CreateonionHops> for requests::CreateonionHops {
 impl From<&pb::CreateonionRequest> for requests::CreateonionRequest {
     fn from(c: &pb::CreateonionRequest) -> Self {
         Self {
-            hops: c.hops.iter().map(|s| s.into()).collect(),
+            hops: c.hops.iter().map(|s| s.into()).collect(), // Rule #4
             assocdata: hex::encode(&c.assocdata), // Rule #1 for type hex
-            session_key: c.session_key.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
+            session_key: c.session_key.clone().map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
             onion_size: c.onion_size.map(|v| v as u16), // Rule #1 for type u16?
         }
     }
@@ -999,7 +1116,7 @@ impl From<&pb::CreateonionRequest> for requests::CreateonionRequest {
 impl From<&pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
     fn from(c: &pb::DeldatastoreRequest) -> Self {
         Self {
-            key: c.key.iter().map(|s| s.into()).collect(),
+            key: c.key.iter().map(|s| s.into()).collect(), // Rule #4
             generation: c.generation.clone(), // Rule #1 for type u64?
         }
     }
@@ -1009,7 +1126,7 @@ impl From<&pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
 impl From<&pb::DelexpiredinvoiceRequest> for requests::DelexpiredinvoiceRequest {
     fn from(c: &pb::DelexpiredinvoiceRequest) -> Self {
         Self {
-            maxexpirytime: c.maxexpirytime.clone(), // Rule #1 for type u32
+            maxexpirytime: c.maxexpirytime.clone(), // Rule #1 for type u64?
         }
     }
 }
@@ -1028,11 +1145,13 @@ impl From<&pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
 impl From<&pb::InvoiceRequest> for requests::InvoiceRequest {
     fn from(c: &pb::InvoiceRequest) -> Self {
         Self {
-            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat|any
+            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat_or_any
             description: c.description.clone(), // Rule #1 for type string
             label: c.label.clone(), // Rule #1 for type string
-            fallbacks: c.fallbacks.iter().map(|s| s.into()).collect(),
+            expiry: c.expiry.clone(), // Rule #1 for type u64?
+            fallbacks: Some(c.fallbacks.iter().map(|s| s.into()).collect()), // Rule #4
             preimage: c.preimage.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
+            exposeprivatechannels: c.exposeprivatechannels.clone(), // Rule #1 for type boolean?
             cltv: c.cltv.clone(), // Rule #1 for type u32?
         }
     }
@@ -1042,7 +1161,7 @@ impl From<&pb::InvoiceRequest> for requests::InvoiceRequest {
 impl From<&pb::ListdatastoreRequest> for requests::ListdatastoreRequest {
     fn from(c: &pb::ListdatastoreRequest) -> Self {
         Self {
-            key: c.key.iter().map(|s| s.into()).collect(),
+            key: Some(c.key.iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
 }
@@ -1064,6 +1183,13 @@ impl From<&pb::SendonionRequest> for requests::SendonionRequest {
     fn from(c: &pb::SendonionRequest) -> Self {
         Self {
             onion: hex::encode(&c.onion), // Rule #1 for type hex
+            payment_hash: c.payment_hash.clone().try_into().unwrap(), // Rule #1 for type hash
+            label: c.label.clone(), // Rule #1 for type string?
+            shared_secrets: Some(c.shared_secrets.iter().map(|s| s.clone().try_into().unwrap()).collect()), // Rule #4
+            partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
+            bolt11: c.bolt11.clone(), // Rule #1 for type string?
+            msatoshi: c.msatoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            destination: c.destination.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
         }
     }
 }
@@ -1073,7 +1199,7 @@ impl From<&pb::ListsendpaysRequest> for requests::ListsendpaysRequest {
     fn from(c: &pb::ListsendpaysRequest) -> Self {
         Self {
             bolt11: c.bolt11.clone(), // Rule #1 for type string?
-            payment_hash: c.payment_hash.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
+            payment_hash: c.payment_hash.clone().map(|v| v.try_into().unwrap()), // Rule #1 for type hash?
             status: c.status.map(|v| v.try_into().unwrap()),
         }
     }
@@ -1094,11 +1220,13 @@ impl From<&pb::PayRequest> for requests::PayRequest {
             bolt11: c.bolt11.clone(), // Rule #1 for type string
             msatoshi: c.msatoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             label: c.label.clone(), // Rule #1 for type string?
-            riskfactor: c.riskfactor.clone(), // Rule #1 for type float?
-            maxfeepercent: c.maxfeepercent.clone(), // Rule #1 for type f32?
+            riskfactor: c.riskfactor.clone(), // Rule #1 for type number?
+            maxfeepercent: c.maxfeepercent.clone(), // Rule #1 for type number?
             retry_for: c.retry_for.map(|v| v as u16), // Rule #1 for type u16?
             maxdelay: c.maxdelay.map(|v| v as u16), // Rule #1 for type u16?
-            exemptfee: c.exemptfee.clone(), // Rule #1 for type f32?
+            exemptfee: c.exemptfee.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            localofferid: c.localofferid.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
+            exclude: Some(c.exclude.iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
 }
@@ -1107,7 +1235,7 @@ impl From<&pb::PayRequest> for requests::PayRequest {
 impl From<&pb::ListnodesRequest> for requests::ListnodesRequest {
     fn from(c: &pb::ListnodesRequest) -> Self {
         Self {
-            id: c.id.clone().map(|v| hex::encode(v)), // Rule #1 for type pubkey?
+            id: c.id.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
         }
     }
 }
@@ -1116,8 +1244,8 @@ impl From<&pb::ListnodesRequest> for requests::ListnodesRequest {
 impl From<&pb::WaitanyinvoiceRequest> for requests::WaitanyinvoiceRequest {
     fn from(c: &pb::WaitanyinvoiceRequest) -> Self {
         Self {
-            lastpay_index: c.lastpay_index.clone(), // Rule #1 for type number?
-            timeout: c.timeout.clone(), // Rule #1 for type number?
+            lastpay_index: c.lastpay_index.clone(), // Rule #1 for type u64?
+            timeout: c.timeout.clone(), // Rule #1 for type u64?
         }
     }
 }
@@ -1135,9 +1263,10 @@ impl From<&pb::WaitinvoiceRequest> for requests::WaitinvoiceRequest {
 impl From<&pb::WaitsendpayRequest> for requests::WaitsendpayRequest {
     fn from(c: &pb::WaitsendpayRequest) -> Self {
         Self {
-            payment_hash: hex::encode(&c.payment_hash), // Rule #1 for type hex
-            partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
+            payment_hash: c.payment_hash.clone().try_into().unwrap(), // Rule #1 for type hash
             timeout: c.timeout.clone(), // Rule #1 for type u32?
+            partid: c.partid.clone(), // Rule #1 for type u64?
+            groupid: c.groupid.clone(), // Rule #1 for type u64?
         }
     }
 }
@@ -1155,11 +1284,11 @@ impl From<&pb::NewaddrRequest> for requests::NewaddrRequest {
 impl From<&pb::WithdrawRequest> for requests::WithdrawRequest {
     fn from(c: &pb::WithdrawRequest) -> Self {
         Self {
-            destination: hex::encode(&c.destination), // Rule #1 for type pubkey
-            satoshi: c.satoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat|all?
+            destination: c.destination.clone(), // Rule #1 for type string
+            satoshi: c.satoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat_or_all?
             feerate: c.feerate.as_ref().map(|a| a.into()), // Rule #1 for type feerate?
             minconf: c.minconf.map(|v| v as u16), // Rule #1 for type u16?
-            utxos: c.utxos.iter().map(|s| s.into()).collect(),
+            utxos: Some(c.utxos.iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
 }
@@ -1168,13 +1297,14 @@ impl From<&pb::WithdrawRequest> for requests::WithdrawRequest {
 impl From<&pb::KeysendRequest> for requests::KeysendRequest {
     fn from(c: &pb::KeysendRequest) -> Self {
         Self {
-            destination: hex::encode(&c.destination), // Rule #1 for type pubkey
+            destination: cln_rpc::primitives::Pubkey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
             msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat
             label: c.label.clone(), // Rule #1 for type string?
-            maxfeepercent: c.maxfeepercent.clone(), // Rule #1 for type float?
-            retry_for: c.retry_for.clone(), // Rule #1 for type number?
-            maxdelay: c.maxdelay.clone(), // Rule #1 for type number?
+            maxfeepercent: c.maxfeepercent.clone(), // Rule #1 for type number?
+            retry_for: c.retry_for.clone(), // Rule #1 for type u32?
+            maxdelay: c.maxdelay.clone(), // Rule #1 for type u32?
             exemptfee: c.exemptfee.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            routehints: c.routehints.clone().map(|rl| rl.into()), // Rule #1 for type RoutehintList?
         }
     }
 }
@@ -1185,11 +1315,12 @@ impl From<&pb::FundpsbtRequest> for requests::FundpsbtRequest {
         Self {
             satoshi: c.satoshi.as_ref().unwrap().into(), // Rule #1 for type msat
             feerate: c.feerate.as_ref().unwrap().into(), // Rule #1 for type feerate
-            startweight: c.startweight.clone(), // Rule #1 for type number
-            minconf: c.minconf.clone(), // Rule #1 for type number?
-            reserve: c.reserve.clone(), // Rule #1 for type number?
-            locktime: c.locktime.clone(), // Rule #1 for type number?
+            startweight: c.startweight.clone(), // Rule #1 for type u32
+            minconf: c.minconf.clone(), // Rule #1 for type u32?
+            reserve: c.reserve.clone(), // Rule #1 for type u32?
+            locktime: c.locktime.clone(), // Rule #1 for type u32?
             min_witness_weight: c.min_witness_weight.clone(), // Rule #1 for type u32?
+            excess_as_change: c.excess_as_change.clone(), // Rule #1 for type boolean?
         }
     }
 }
@@ -1199,6 +1330,7 @@ impl From<&pb::SendpsbtRequest> for requests::SendpsbtRequest {
     fn from(c: &pb::SendpsbtRequest) -> Self {
         Self {
             psbt: c.psbt.clone(), // Rule #1 for type string
+            reserve: c.reserve.clone(), // Rule #1 for type boolean?
         }
     }
 }
@@ -1208,6 +1340,7 @@ impl From<&pb::SignpsbtRequest> for requests::SignpsbtRequest {
     fn from(c: &pb::SignpsbtRequest) -> Self {
         Self {
             psbt: c.psbt.clone(), // Rule #1 for type string
+            signonly: Some(c.signonly.iter().map(|s| s.clone()).collect()), // Rule #4
         }
     }
 }
@@ -1218,11 +1351,13 @@ impl From<&pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
         Self {
             satoshi: c.satoshi.as_ref().unwrap().into(), // Rule #1 for type msat
             feerate: c.feerate.as_ref().unwrap().into(), // Rule #1 for type feerate
-            startweight: c.startweight.clone(), // Rule #1 for type number
-            utxos: c.utxos.iter().map(|s| s.into()).collect(),
-            reserve: c.reserve.clone(), // Rule #1 for type number?
-            locktime: c.locktime.clone(), // Rule #1 for type number?
+            startweight: c.startweight.clone(), // Rule #1 for type u32
+            utxos: c.utxos.iter().map(|s| s.into()).collect(), // Rule #4
+            reserve: c.reserve.clone(), // Rule #1 for type u32?
+            reservedok: c.reservedok.clone(), // Rule #1 for type boolean?
+            locktime: c.locktime.clone(), // Rule #1 for type u32?
             min_witness_weight: c.min_witness_weight.clone(), // Rule #1 for type u32?
+            excess_as_change: c.excess_as_change.clone(), // Rule #1 for type boolean?
         }
     }
 }
@@ -1231,7 +1366,7 @@ impl From<&pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
 impl From<&pb::TxdiscardRequest> for requests::TxdiscardRequest {
     fn from(c: &pb::TxdiscardRequest) -> Self {
         Self {
-            txid: hex::encode(&c.txid), // Rule #1 for type hex
+            txid: hex::encode(&c.txid), // Rule #1 for type txid
         }
     }
 }
@@ -1240,10 +1375,10 @@ impl From<&pb::TxdiscardRequest> for requests::TxdiscardRequest {
 impl From<&pb::TxprepareRequest> for requests::TxprepareRequest {
     fn from(c: &pb::TxprepareRequest) -> Self {
         Self {
-            outptus: c.outptus.iter().map(|s| s.into()).collect(),
+            outputs: c.outputs.iter().map(|s| s.into()).collect(), // Rule #4
             feerate: c.feerate.as_ref().map(|a| a.into()), // Rule #1 for type feerate?
             minconf: c.minconf.clone(), // Rule #1 for type u32?
-            utxos: c.utxos.iter().map(|s| s.into()).collect(),
+            utxos: Some(c.utxos.iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
 }
@@ -1252,7 +1387,84 @@ impl From<&pb::TxprepareRequest> for requests::TxprepareRequest {
 impl From<&pb::TxsendRequest> for requests::TxsendRequest {
     fn from(c: &pb::TxsendRequest) -> Self {
         Self {
-            txid: hex::encode(&c.txid), // Rule #1 for type hex
+            txid: hex::encode(&c.txid), // Rule #1 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::DisconnectRequest> for requests::DisconnectRequest {
+    fn from(c: &pb::DisconnectRequest) -> Self {
+        Self {
+            id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            force: c.force.clone(), // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::FeeratesRequest> for requests::FeeratesRequest {
+    fn from(c: &pb::FeeratesRequest) -> Self {
+        Self {
+            style: c.style.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::GetrouteRequest> for requests::GetrouteRequest {
+    fn from(c: &pb::GetrouteRequest) -> Self {
+        Self {
+            id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat
+            riskfactor: c.riskfactor.clone(), // Rule #1 for type u64
+            cltv: c.cltv.clone(), // Rule #1 for type number?
+            fromid: c.fromid.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
+            fuzzpercent: c.fuzzpercent.clone(), // Rule #1 for type u32?
+            exclude: Some(c.exclude.iter().map(|s| s.into()).collect()), // Rule #4
+            maxhops: c.maxhops.clone(), // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::ListforwardsRequest> for requests::ListforwardsRequest {
+    fn from(c: &pb::ListforwardsRequest) -> Self {
+        Self {
+            status: c.status.map(|v| v.try_into().unwrap()),
+            in_channel: c.in_channel.as_ref().map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            out_channel: c.out_channel.as_ref().map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::ListpaysRequest> for requests::ListpaysRequest {
+    fn from(c: &pb::ListpaysRequest) -> Self {
+        Self {
+            bolt11: c.bolt11.clone(), // Rule #1 for type string?
+            payment_hash: c.payment_hash.clone().map(|v| v.try_into().unwrap()), // Rule #1 for type hash?
+            status: c.status.map(|v| v.try_into().unwrap()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::PingRequest> for requests::PingRequest {
+    fn from(c: &pb::PingRequest) -> Self {
+        Self {
+            id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            len: c.len.clone(), // Rule #1 for type number?
+            pongbytes: c.pongbytes.clone(), // Rule #1 for type number?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::SignmessageRequest> for requests::SignmessageRequest {
+    fn from(c: &pb::SignmessageRequest) -> Self {
+        Self {
+            message: c.message.clone(), // Rule #1 for type string?
         }
     }
 }
