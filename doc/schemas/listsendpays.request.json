@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [],
+  "properties": {
+    "bolt11": {
+      "type": "string"
+    },
+    "payment_hash": {
+      "type": "hex"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "complete",
+        "failed"
+      ]
+    }
+  }
+}

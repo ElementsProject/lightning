@@ -25,3 +25,8 @@ enum ChannelState {
 }
 
 message ChannelStateChangeCause {}
+
+message Utxo {
+	bytes txid = 1;
+	uint32 outnum = 2;
+}

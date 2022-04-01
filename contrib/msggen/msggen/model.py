@@ -218,6 +218,8 @@ class PrimitiveField(Field):
         "u32",
         "u64",
         "u8",
+        "f32",
+        "float",
         "string",
         "pubkey",
         "signature",
@@ -228,6 +230,7 @@ class PrimitiveField(Field):
         "integer",
         "u16",
         "number",
+        "utxo",  # A string representing the tuple (txid, outnum)
     ]
 
     def __init__(self, typename, path, description):

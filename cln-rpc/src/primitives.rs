@@ -68,6 +68,44 @@ impl Amount {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Utxo {
+    pub txid: Vec<u8>,
+    pub outnum: u32,
+}
+
+impl Serialize for Utxo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{}:{}", hex::encode(&self.txid), self.outnum))
+    }
+}
+
+impl<'de> Deserialize<'de> for Utxo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s: String = Deserialize::deserialize(deserializer)?;
+
+        let splits: Vec<&str> = s.split(':').collect();
+        if splits.len() != 2 {
+            return Err(Error::custom("not a valid txid:output tuple"));
+        }
+
+        let txid =
+            hex::decode(splits[0]).map_err(|_| Error::custom("not a valid hex encoded txid"))?;
+        let outnum: u32 = splits[1]
+            .parse()
+            .map_err(|e| Error::custom(format!("{} is not a valid number: {}", s, e)))?;
+
+        Ok(Utxo { txid, outnum })
+    }
+}
+
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum ChannelSide {
     LOCAL,

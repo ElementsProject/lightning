@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [],
+  "properties": {
+    "addresstype": {
+      "type": "string",
+      "enum": [
+        "bech32",
+        "p2sh-segwit"
+      ]
+    }
+  }
+}

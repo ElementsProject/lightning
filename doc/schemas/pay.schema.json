@@ -57,7 +57,9 @@
     "status": {
       "type": "string",
       "enum": [
-        "complete"
+        "complete",
+        "pending",
+        "failed"
       ],
       "description": "status of payment"
     }

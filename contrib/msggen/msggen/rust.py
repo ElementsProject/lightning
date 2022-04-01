@@ -3,6 +3,7 @@ from typing import Tuple
 from textwrap import dedent, indent
 import logging
 import sys
+import re
 
 from .model import (ArrayField, CompositeField, EnumField,
                     PrimitiveField, Service)
@@ -23,6 +24,7 @@ overrides = {
     'ListPeers.peers[].channels[].closer': "ChannelSide",
     'ListPeers.peers[].channels[].features[]': "string",
     'ListFunds.channels[].state': 'ChannelState',
+    'ListTransactions.transactions[].type[]': None,
 }
 
 # A map of schema type to rust primitive types.
@@ -36,6 +38,8 @@ typemap = {
     'signature': 'String',
     'string': 'String',
     'txid': 'String',
+    'float': 'f32',
+    'utxo': 'Utxo',
 }
 
 header = f"""#![allow(non_camel_case_types)]
@@ -56,6 +60,7 @@ def normalize_varname(field):
     """
     # Dashes are not valid names
     field.path = field.path.replace("-", "_")
+    field.path = re.sub(r'(?<!^)(?=[A-Z])', '_', field.path).lower()
     return field
 
 
@@ -138,7 +143,6 @@ def gen_primitive(p):
 def gen_array(a):
     name = a.name.normalized().replace("[]", "")
     logger.debug(f"Generating array field {a.name} -> {name} ({a.path})")
-
     _, decl = gen_field(a.itemtype)
 
     if isinstance(a.itemtype, PrimitiveField):
@@ -151,6 +155,9 @@ def gen_array(a):
     if a.path in overrides:
         decl = ""  # No declaration if we have an override
         itemtype = overrides[a.path]
+
+    if itemtype is None:
+        return ("", "")  # Override said not to include
 
     itemtype = typemap.get(itemtype, itemtype)
     alias = a.name.normalized()[:-2]  # Strip the `[]` suffix for arrays.

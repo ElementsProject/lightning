@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "destination"
+  ],
+  "properties": {
+    "destination": {
+      "type": "pubkey"
+    },
+    "satoshi": {
+      "type": "msat"
+    },
+    "feerate": {
+      "type": "feerate"
+    },
+    "minconf": {
+      "type": "u16"
+    },
+    "utxos": {
+      "type": "array",
+      "items": {
+        "type": "utxo"
+      }
+    }
+  }
+}
