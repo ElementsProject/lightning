@@ -364,7 +364,7 @@ def test_pay_optional_args(node_factory, compat):
     # root of a payment tree with the bolt11 invoice).
 
     anyinv = l2.rpc.invoice('any', 'any_pay', 'desc')['bolt11']
-    l1.dev_pay(anyinv, label='desc', msatoshi='500', use_shadow=False)
+    l1.dev_pay(anyinv, label='desc', msatoshi=500, use_shadow=False)
     payment3 = l1.rpc.listsendpays(anyinv)['payments']
     assert len(payment3) == 1
     assert payment3[0]['label'] == 'desc'
@@ -539,7 +539,7 @@ def test_pay_maxfee_shadow(node_factory):
         # maxfeepercent.
         amount = 20000
         bolt11 = l2.rpc.invoice(amount, "big.{}".format(i), "bigger")["bolt11"]
-        pay_status = l1.rpc.pay(bolt11, maxfeepercent="0.000001")
+        pay_status = l1.rpc.pay(bolt11, maxfeepercent=0.001)
         assert pay_status["amount_msat"] == Millisatoshi(amount)
 
 
@@ -5220,7 +5220,7 @@ def test_pay_manual_exclude(node_factory, bitcoind):
     chan23 = l2.rpc.listpeers(l3_id)['peers'][0]['channels'][0]
     scid12 = chan12['short_channel_id'] + '/' + str(chan12['direction'])
     scid23 = chan23['short_channel_id'] + '/' + str(chan23['direction'])
-    inv = l3.rpc.invoice(msatoshi='123000', label='label1', description='desc')['bolt11']
+    inv = l3.rpc.invoice(msatoshi=123000, label='label1', description='desc')['bolt11']
     # Exclude the payer node id
     with pytest.raises(RpcError, match=r'Payer is manually excluded'):
         l1.rpc.pay(inv, exclude=[l1_id])
