@@ -38,6 +38,13 @@ service Node {
 	rpc NewAddr(NewaddrRequest) returns (NewaddrResponse) {}
 	rpc Withdraw(WithdrawRequest) returns (WithdrawResponse) {}
 	rpc KeySend(KeysendRequest) returns (KeysendResponse) {}
+	rpc FundPsbt(FundpsbtRequest) returns (FundpsbtResponse) {}
+	rpc SendPsbt(SendpsbtRequest) returns (SendpsbtResponse) {}
+	rpc SignPsbt(SignpsbtRequest) returns (SignpsbtResponse) {}
+	rpc UtxoPsbt(UtxopsbtRequest) returns (UtxopsbtResponse) {}
+	rpc TxDiscard(TxdiscardRequest) returns (TxdiscardResponse) {}
+	rpc TxPrepare(TxprepareRequest) returns (TxprepareResponse) {}
+	rpc TxSend(TxsendRequest) returns (TxsendResponse) {}
 }
 
 message GetinfoRequest {
@@ -939,4 +946,107 @@ message KeysendResponse {
 	Amount amount_sent_msat = 7;
 	optional string warning_partial_completion = 8;
 	KeysendStatus status = 9;
+}
+
+message FundpsbtRequest {
+	Amount satoshi = 1;
+	Feerate feerate = 2;
+	sint64 startweight = 3;
+	optional sint64 minconf = 4;
+	optional sint64 reserve = 5;
+	optional sint64 locktime = 6;
+	optional uint32 min_witness_weight = 7;
+}
+
+message FundpsbtResponse {
+	string psbt = 1;
+	uint32 feerate_per_kw = 2;
+	uint32 estimated_final_weight = 3;
+	Amount excess_msat = 4;
+	optional uint32 change_outnum = 5;
+	repeated FundpsbtReservations reservations = 6;
+}
+
+message FundpsbtReservations {
+	bytes txid = 1;
+	uint32 vout = 2;
+	bool was_reserved = 3;
+	bool reserved = 4;
+	uint32 reserved_to_block = 5;
+}
+
+message SendpsbtRequest {
+	string psbt = 1;
+}
+
+message SendpsbtResponse {
+	bytes tx = 1;
+	bytes txid = 2;
+}
+
+message SignpsbtRequest {
+	string psbt = 1;
+}
+
+message SignpsbtResponse {
+	string signed_psbt = 1;
+}
+
+message UtxopsbtRequest {
+	Amount satoshi = 1;
+	Feerate feerate = 2;
+	sint64 startweight = 3;
+	repeated Utxo utxos = 4;
+	optional sint64 reserve = 5;
+	optional sint64 locktime = 6;
+	optional uint32 min_witness_weight = 7;
+}
+
+message UtxopsbtResponse {
+	string psbt = 1;
+	uint32 feerate_per_kw = 2;
+	uint32 estimated_final_weight = 3;
+	Amount excess_msat = 4;
+	optional uint32 change_outnum = 5;
+	repeated UtxopsbtReservations reservations = 6;
+}
+
+message UtxopsbtReservations {
+	bytes txid = 1;
+	uint32 vout = 2;
+	bool was_reserved = 3;
+	bool reserved = 4;
+	uint32 reserved_to_block = 5;
+}
+
+message TxdiscardRequest {
+	bytes txid = 1;
+}
+
+message TxdiscardResponse {
+	bytes unsigned_tx = 1;
+	bytes txid = 2;
+}
+
+message TxprepareRequest {
+	repeated OutputDesc outptus = 1;
+	optional Feerate feerate = 2;
+	optional uint32 minconf = 3;
+	repeated Utxo utxos = 4;
+}
+
+message TxprepareResponse {
+	string psbt = 1;
+	bytes unsigned_tx = 2;
+	bytes txid = 3;
+}
+
+message TxsendRequest {
+	bytes txid = 1;
+}
+
+message TxsendResponse {
+	string psbt = 1;
+	bytes tx = 2;
+	bytes txid = 3;
 }

@@ -726,6 +726,111 @@ impl From<&responses::KeysendResponse> for pb::KeysendResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::FundpsbtReservations> for pb::FundpsbtReservations {
+    fn from(c: &responses::FundpsbtReservations) -> Self {
+        Self {
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+            vout: c.vout.clone(), // Rule #2 for type u32
+            was_reserved: c.was_reserved.clone(), // Rule #2 for type boolean
+            reserved: c.reserved.clone(), // Rule #2 for type boolean
+            reserved_to_block: c.reserved_to_block.clone(), // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::FundpsbtResponse> for pb::FundpsbtResponse {
+    fn from(c: &responses::FundpsbtResponse) -> Self {
+        Self {
+            psbt: c.psbt.clone(), // Rule #2 for type string
+            feerate_per_kw: c.feerate_per_kw.clone(), // Rule #2 for type u32
+            estimated_final_weight: c.estimated_final_weight.clone(), // Rule #2 for type u32
+            excess_msat: Some(c.excess_msat.into()), // Rule #2 for type msat
+            change_outnum: c.change_outnum.clone(), // Rule #2 for type u32?
+            reservations: c.reservations.iter().map(|i| i.into()).collect(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::SendpsbtResponse> for pb::SendpsbtResponse {
+    fn from(c: &responses::SendpsbtResponse) -> Self {
+        Self {
+            tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::SignpsbtResponse> for pb::SignpsbtResponse {
+    fn from(c: &responses::SignpsbtResponse) -> Self {
+        Self {
+            signed_psbt: c.signed_psbt.clone(), // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::UtxopsbtReservations> for pb::UtxopsbtReservations {
+    fn from(c: &responses::UtxopsbtReservations) -> Self {
+        Self {
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+            vout: c.vout.clone(), // Rule #2 for type u32
+            was_reserved: c.was_reserved.clone(), // Rule #2 for type boolean
+            reserved: c.reserved.clone(), // Rule #2 for type boolean
+            reserved_to_block: c.reserved_to_block.clone(), // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::UtxopsbtResponse> for pb::UtxopsbtResponse {
+    fn from(c: &responses::UtxopsbtResponse) -> Self {
+        Self {
+            psbt: c.psbt.clone(), // Rule #2 for type string
+            feerate_per_kw: c.feerate_per_kw.clone(), // Rule #2 for type u32
+            estimated_final_weight: c.estimated_final_weight.clone(), // Rule #2 for type u32
+            excess_msat: Some(c.excess_msat.into()), // Rule #2 for type msat
+            change_outnum: c.change_outnum.clone(), // Rule #2 for type u32?
+            reservations: c.reservations.iter().map(|i| i.into()).collect(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::TxdiscardResponse> for pb::TxdiscardResponse {
+    fn from(c: &responses::TxdiscardResponse) -> Self {
+        Self {
+            unsigned_tx: hex::decode(&c.unsigned_tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::TxprepareResponse> for pb::TxprepareResponse {
+    fn from(c: &responses::TxprepareResponse) -> Self {
+        Self {
+            psbt: c.psbt.clone(), // Rule #2 for type string
+            unsigned_tx: hex::decode(&c.unsigned_tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::TxsendResponse> for pb::TxsendResponse {
+    fn from(c: &responses::TxsendResponse) -> Self {
+        Self {
+            psbt: c.psbt.clone(), // Rule #2 for type string
+            tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&pb::GetinfoRequest> for requests::GetinfoRequest {
     fn from(c: &pb::GetinfoRequest) -> Self {
         Self {
@@ -1070,6 +1175,84 @@ impl From<&pb::KeysendRequest> for requests::KeysendRequest {
             retry_for: c.retry_for.clone(), // Rule #1 for type number?
             maxdelay: c.maxdelay.clone(), // Rule #1 for type number?
             exemptfee: c.exemptfee.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::FundpsbtRequest> for requests::FundpsbtRequest {
+    fn from(c: &pb::FundpsbtRequest) -> Self {
+        Self {
+            satoshi: c.satoshi.as_ref().unwrap().into(), // Rule #1 for type msat
+            feerate: c.feerate.as_ref().unwrap().into(), // Rule #1 for type feerate
+            startweight: c.startweight.clone(), // Rule #1 for type number
+            minconf: c.minconf.clone(), // Rule #1 for type number?
+            reserve: c.reserve.clone(), // Rule #1 for type number?
+            locktime: c.locktime.clone(), // Rule #1 for type number?
+            min_witness_weight: c.min_witness_weight.clone(), // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::SendpsbtRequest> for requests::SendpsbtRequest {
+    fn from(c: &pb::SendpsbtRequest) -> Self {
+        Self {
+            psbt: c.psbt.clone(), // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::SignpsbtRequest> for requests::SignpsbtRequest {
+    fn from(c: &pb::SignpsbtRequest) -> Self {
+        Self {
+            psbt: c.psbt.clone(), // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
+    fn from(c: &pb::UtxopsbtRequest) -> Self {
+        Self {
+            satoshi: c.satoshi.as_ref().unwrap().into(), // Rule #1 for type msat
+            feerate: c.feerate.as_ref().unwrap().into(), // Rule #1 for type feerate
+            startweight: c.startweight.clone(), // Rule #1 for type number
+            utxos: c.utxos.iter().map(|s| s.into()).collect(),
+            reserve: c.reserve.clone(), // Rule #1 for type number?
+            locktime: c.locktime.clone(), // Rule #1 for type number?
+            min_witness_weight: c.min_witness_weight.clone(), // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::TxdiscardRequest> for requests::TxdiscardRequest {
+    fn from(c: &pb::TxdiscardRequest) -> Self {
+        Self {
+            txid: hex::encode(&c.txid), // Rule #1 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::TxprepareRequest> for requests::TxprepareRequest {
+    fn from(c: &pb::TxprepareRequest) -> Self {
+        Self {
+            outptus: c.outptus.iter().map(|s| s.into()).collect(),
+            feerate: c.feerate.as_ref().map(|a| a.into()), // Rule #1 for type feerate?
+            minconf: c.minconf.clone(), // Rule #1 for type u32?
+            utxos: c.utxos.iter().map(|s| s.into()).collect(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::TxsendRequest> for requests::TxsendRequest {
+    fn from(c: &pb::TxsendRequest) -> Self {
+        Self {
+            txid: hex::encode(&c.txid), // Rule #1 for type hex
         }
     }
 }

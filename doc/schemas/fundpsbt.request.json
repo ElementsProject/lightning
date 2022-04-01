@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "satoshi",
+    "feerate",
+    "startweight"
+  ],
+  "properties": {
+    "satoshi": {
+      "type": "msat"
+    },
+    "feerate": {
+      "type": "feerate"
+    },
+    "startweight": {
+      "type": "number"
+    },
+    "minconf": {
+      "type": "number"
+    },
+    "reserve": {
+      "type": "number",
+      "description": "reserve is a number: if non-zero number then reserveinputs is called (successfully, with exclusive true) on the returned PSBT for this number of blocks (default: 72)."
+    },
+    "locktime": {
+      "type": "number"
+    },
+    "min_witness_weight": {
+      "type": "u32"
+    },
+    "excess_as_change": {
+      "type": "bool"
+    }
+  }
+}

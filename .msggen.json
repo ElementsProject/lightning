@@ -300,6 +300,30 @@
             "DelInvoice.payment_hash": 6,
             "DelInvoice.status": 7
         },
+        "FundpsbtRequest": {
+            "FundPsbt.feerate": 2,
+            "FundPsbt.locktime": 6,
+            "FundPsbt.min_witness_weight": 7,
+            "FundPsbt.minconf": 4,
+            "FundPsbt.reserve": 5,
+            "FundPsbt.satoshi": 1,
+            "FundPsbt.startweight": 3
+        },
+        "FundpsbtReservations": {
+            "FundPsbt.reservations[].reserved": 4,
+            "FundPsbt.reservations[].reserved_to_block": 5,
+            "FundPsbt.reservations[].txid": 1,
+            "FundPsbt.reservations[].vout": 2,
+            "FundPsbt.reservations[].was_reserved": 3
+        },
+        "FundpsbtResponse": {
+            "FundPsbt.change_outnum": 5,
+            "FundPsbt.estimated_final_weight": 3,
+            "FundPsbt.excess_msat": 4,
+            "FundPsbt.feerate_per_kw": 2,
+            "FundPsbt.psbt": 1,
+            "FundPsbt.reservations[]": 6
+        },
         "GetinfoAddress": {
             "Getinfo.address[].address": 3,
             "Getinfo.address[].port": 2,
@@ -716,6 +740,70 @@
             "SendPay.route[].delay": 3,
             "SendPay.route[].id": 2,
             "SendPay.route[].msatoshi": 1
+        },
+        "SendpsbtRequest": {
+            "SendPsbt.psbt": 1
+        },
+        "SendpsbtResponse": {
+            "SendPsbt.tx": 1,
+            "SendPsbt.txid": 2
+        },
+        "SignpsbtRequest": {
+            "SignPsbt.psbt": 1,
+            "SignPsbt.signonly[]": 2
+        },
+        "SignpsbtResponse": {
+            "SignPsbt.signed_psbt": 1
+        },
+        "TxdiscardRequest": {
+            "TxDiscard.txid": 1
+        },
+        "TxdiscardResponse": {
+            "TxDiscard.txid": 2,
+            "TxDiscard.unsigned_tx": 1
+        },
+        "TxprepareRequest": {
+            "TxPrepare.feerate": 2,
+            "TxPrepare.minconf": 3,
+            "TxPrepare.outptus[]": 1,
+            "TxPrepare.utxos[]": 4
+        },
+        "TxprepareResponse": {
+            "TxPrepare.psbt": 1,
+            "TxPrepare.txid": 3,
+            "TxPrepare.unsigned_tx": 2
+        },
+        "TxsendRequest": {
+            "TxSend.txid": 1
+        },
+        "TxsendResponse": {
+            "TxSend.psbt": 1,
+            "TxSend.tx": 2,
+            "TxSend.txid": 3
+        },
+        "UtxopsbtRequest": {
+            "UtxoPsbt.feerate": 2,
+            "UtxoPsbt.locktime": 6,
+            "UtxoPsbt.min_witness_weight": 7,
+            "UtxoPsbt.reserve": 5,
+            "UtxoPsbt.satoshi": 1,
+            "UtxoPsbt.startweight": 3,
+            "UtxoPsbt.utxos[]": 4
+        },
+        "UtxopsbtReservations": {
+            "UtxoPsbt.reservations[].reserved": 4,
+            "UtxoPsbt.reservations[].reserved_to_block": 5,
+            "UtxoPsbt.reservations[].txid": 1,
+            "UtxoPsbt.reservations[].vout": 2,
+            "UtxoPsbt.reservations[].was_reserved": 3
+        },
+        "UtxopsbtResponse": {
+            "UtxoPsbt.change_outnum": 5,
+            "UtxoPsbt.estimated_final_weight": 3,
+            "UtxoPsbt.excess_msat": 4,
+            "UtxoPsbt.feerate_per_kw": 2,
+            "UtxoPsbt.psbt": 1,
+            "UtxoPsbt.reservations[]": 6
         },
         "WaitanyinvoiceRequest": {
             "WaitAnyInvoice.lastpay_index": 1,

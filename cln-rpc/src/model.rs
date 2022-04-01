@@ -46,6 +46,13 @@ pub enum Request {
 	NewAddr(requests::NewaddrRequest),
 	Withdraw(requests::WithdrawRequest),
 	KeySend(requests::KeysendRequest),
+	FundPsbt(requests::FundpsbtRequest),
+	SendPsbt(requests::SendpsbtRequest),
+	SignPsbt(requests::SignpsbtRequest),
+	UtxoPsbt(requests::UtxopsbtRequest),
+	TxDiscard(requests::TxdiscardRequest),
+	TxPrepare(requests::TxprepareRequest),
+	TxSend(requests::TxsendRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -82,6 +89,13 @@ pub enum Response {
 	NewAddr(responses::NewaddrResponse),
 	Withdraw(responses::WithdrawResponse),
 	KeySend(responses::KeysendResponse),
+	FundPsbt(responses::FundpsbtResponse),
+	SendPsbt(responses::SendpsbtResponse),
+	SignPsbt(responses::SignpsbtResponse),
+	UtxoPsbt(responses::UtxopsbtResponse),
+	TxDiscard(responses::TxdiscardResponse),
+	TxPrepare(responses::TxprepareResponse),
+	TxSend(responses::TxsendResponse),
 }
 
 pub mod requests {
@@ -488,6 +502,78 @@ pub mod requests {
 	    pub maxdelay: Option<i64>,
 	    #[serde(alias = "exemptfee", skip_serializing_if = "Option::is_none")]
 	    pub exemptfee: Option<Amount>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundpsbtRequest {
+	    #[serde(alias = "satoshi")]
+	    pub satoshi: Amount,
+	    #[serde(alias = "feerate")]
+	    pub feerate: Feerate,
+	    #[serde(alias = "startweight")]
+	    pub startweight: i64,
+	    #[serde(alias = "minconf", skip_serializing_if = "Option::is_none")]
+	    pub minconf: Option<i64>,
+	    #[serde(alias = "reserve", skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<i64>,
+	    #[serde(alias = "locktime", skip_serializing_if = "Option::is_none")]
+	    pub locktime: Option<i64>,
+	    #[serde(alias = "min_witness_weight", skip_serializing_if = "Option::is_none")]
+	    pub min_witness_weight: Option<u32>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendpsbtRequest {
+	    #[serde(alias = "psbt")]
+	    pub psbt: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SignpsbtRequest {
+	    #[serde(alias = "psbt")]
+	    pub psbt: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UtxopsbtRequest {
+	    #[serde(alias = "satoshi")]
+	    pub satoshi: Amount,
+	    #[serde(alias = "feerate")]
+	    pub feerate: Feerate,
+	    #[serde(alias = "startweight")]
+	    pub startweight: i64,
+	    #[serde(alias = "utxos")]
+	    pub utxos: Vec<Utxo>,
+	    #[serde(alias = "reserve", skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<i64>,
+	    #[serde(alias = "locktime", skip_serializing_if = "Option::is_none")]
+	    pub locktime: Option<i64>,
+	    #[serde(alias = "min_witness_weight", skip_serializing_if = "Option::is_none")]
+	    pub min_witness_weight: Option<u32>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct TxdiscardRequest {
+	    #[serde(alias = "txid")]
+	    pub txid: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct TxprepareRequest {
+	    #[serde(alias = "outptus")]
+	    pub outptus: Vec<OutputDesc>,
+	    #[serde(alias = "feerate", skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(alias = "minconf", skip_serializing_if = "Option::is_none")]
+	    pub minconf: Option<u32>,
+	    #[serde(alias = "utxos")]
+	    pub utxos: Vec<Utxo>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct TxsendRequest {
+	    #[serde(alias = "txid")]
+	    pub txid: String,
 	}
 
 }
@@ -1985,6 +2071,108 @@ pub mod responses {
 	    // Path `KeySend.status`
 	    #[serde(rename = "status")]
 	    pub status: KeysendStatus,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundpsbtReservations {
+	    #[serde(alias = "txid")]
+	    pub txid: String,
+	    #[serde(alias = "vout")]
+	    pub vout: u32,
+	    #[serde(alias = "was_reserved")]
+	    pub was_reserved: bool,
+	    #[serde(alias = "reserved")]
+	    pub reserved: bool,
+	    #[serde(alias = "reserved_to_block")]
+	    pub reserved_to_block: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundpsbtResponse {
+	    #[serde(alias = "psbt")]
+	    pub psbt: String,
+	    #[serde(alias = "feerate_per_kw")]
+	    pub feerate_per_kw: u32,
+	    #[serde(alias = "estimated_final_weight")]
+	    pub estimated_final_weight: u32,
+	    #[serde(alias = "excess_msat")]
+	    pub excess_msat: Amount,
+	    #[serde(alias = "change_outnum", skip_serializing_if = "Option::is_none")]
+	    pub change_outnum: Option<u32>,
+	    #[serde(alias = "reservations")]
+	    pub reservations: Vec<FundpsbtReservations>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendpsbtResponse {
+	    #[serde(alias = "tx")]
+	    pub tx: String,
+	    #[serde(alias = "txid")]
+	    pub txid: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SignpsbtResponse {
+	    #[serde(alias = "signed_psbt")]
+	    pub signed_psbt: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UtxopsbtReservations {
+	    #[serde(alias = "txid")]
+	    pub txid: String,
+	    #[serde(alias = "vout")]
+	    pub vout: u32,
+	    #[serde(alias = "was_reserved")]
+	    pub was_reserved: bool,
+	    #[serde(alias = "reserved")]
+	    pub reserved: bool,
+	    #[serde(alias = "reserved_to_block")]
+	    pub reserved_to_block: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct UtxopsbtResponse {
+	    #[serde(alias = "psbt")]
+	    pub psbt: String,
+	    #[serde(alias = "feerate_per_kw")]
+	    pub feerate_per_kw: u32,
+	    #[serde(alias = "estimated_final_weight")]
+	    pub estimated_final_weight: u32,
+	    #[serde(alias = "excess_msat")]
+	    pub excess_msat: Amount,
+	    #[serde(alias = "change_outnum", skip_serializing_if = "Option::is_none")]
+	    pub change_outnum: Option<u32>,
+	    #[serde(alias = "reservations")]
+	    pub reservations: Vec<UtxopsbtReservations>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct TxdiscardResponse {
+	    #[serde(alias = "unsigned_tx")]
+	    pub unsigned_tx: String,
+	    #[serde(alias = "txid")]
+	    pub txid: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct TxprepareResponse {
+	    #[serde(alias = "psbt")]
+	    pub psbt: String,
+	    #[serde(alias = "unsigned_tx")]
+	    pub unsigned_tx: String,
+	    #[serde(alias = "txid")]
+	    pub txid: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct TxsendResponse {
+	    #[serde(alias = "psbt")]
+	    pub psbt: String,
+	    #[serde(alias = "tx")]
+	    pub tx: String,
+	    #[serde(alias = "txid")]
+	    pub txid: String,
 	}
 
 }
