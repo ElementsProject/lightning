@@ -1,6 +1,10 @@
+use anyhow::Context;
 use anyhow::{anyhow, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
+use std::str::FromStr;
+use std::string::ToString;
+
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
 pub enum ChannelState {
@@ -67,6 +71,118 @@ impl Amount {
         self.msat
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct Pubkey([u8; 33]);
+
+impl Serialize for Pubkey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(&self.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for Pubkey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(Self::from_str(&s).map_err(|e| Error::custom(e.to_string()))?)
+    }
+}
+
+impl FromStr for Pubkey {
+    type Err = crate::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let raw =
+            hex::decode(&s).with_context(|| format!("{} is not a valid hex-encoded pubkey", s))?;
+
+        Ok(Pubkey(raw.try_into().map_err(|_| {
+            anyhow!("could not convert {} into pubkey", s)
+        })?))
+    }
+}
+impl ToString for Pubkey {
+    fn to_string(&self) -> String {
+        hex::encode(self.0)
+    }
+}
+impl Pubkey {
+    pub fn from_slice(data: &[u8]) -> Result<Pubkey, crate::Error> {
+        Ok(Pubkey(
+            data.try_into().with_context(|| "Not a valid pubkey")?,
+        ))
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ShortChannelId(u64);
+
+impl Serialize for ShortChannelId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for ShortChannelId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(Self::from_str(&s).map_err(|e| Error::custom(e.to_string()))?)
+    }
+}
+
+impl FromStr for ShortChannelId {
+    type Err = crate::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Result<Vec<u64>, _> = s.split('x').map(|p| p.parse()).collect();
+        let parts = parts.with_context(|| format!("Malformed short_channel_id: {}", s))?;
+        if parts.len() != 3 {
+            return Err(anyhow!(
+                "Malformed short_channel_id: element count mismatch"
+            ));
+        }
+
+        Ok(ShortChannelId(
+            (parts[0] << 40) | (parts[1] << 16) | (parts[2] << 0),
+        ))
+    }
+}
+impl ToString for ShortChannelId {
+    fn to_string(&self) -> String {
+        format!("{}x{}x{}", self.block(), self.txindex(), self.outnum())
+    }
+}
+impl ShortChannelId {
+    pub fn block(&self) -> u32 {
+        (self.0 >> 40) as u32 & 0xFFFFFF
+    }
+    pub fn txindex(&self) -> u32 {
+        (self.0 >> 16) as u32 & 0xFFFFFF
+    }
+    pub fn outnum(&self) -> u16 {
+        self.0 as u16 & 0xFFFF
+    }
+}
+
+pub type Secret = [u8; 32];
+pub type Txid = [u8; 32];
+pub type Hash = [u8; 32];
+pub type NodeId = Pubkey;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Outpoint {
@@ -428,8 +544,8 @@ impl Serialize for OutputDesc {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Routehop {
-    pub id: String,
-    pub scid: String,
+    pub id: Pubkey,
+    pub scid: ShortChannelId,
     pub feebase: Amount,
     pub feeprop: u32,
     pub expirydelta: u16,

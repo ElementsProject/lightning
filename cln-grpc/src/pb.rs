@@ -1,4 +1,5 @@
 tonic::include_proto!("cln");
+use std::str::FromStr;
 
 use cln_rpc::primitives::{
     Amount as JAmount, AmountOrAll as JAmountOrAll, AmountOrAny as JAmountOrAny,
@@ -104,8 +105,8 @@ impl From<&AmountOrAny> for JAmountOrAny {
 impl From<RouteHop> for cln_rpc::primitives::Routehop {
     fn from(c: RouteHop) -> Self {
         Self {
-            id: hex::encode(c.id),
-            scid: c.short_channel_id,
+            id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(),
+            scid: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(),
             feebase: c.feebase.as_ref().unwrap().into(),
             feeprop: c.feeprop,
             expirydelta: c.expirydelta as u16,
