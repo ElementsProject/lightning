@@ -206,7 +206,7 @@ def throttler(test_base_dir):
     yield Throttler(test_base_dir)
 
 
-def _extra_validator():
+def _extra_validator(is_request: bool):
     """JSON Schema validator with additions for our specialized types"""
     def is_hex(checker, instance):
         """Hex string"""
@@ -340,7 +340,15 @@ def _extra_validator():
             return False
         return True
 
-    def is_msat(checker, instance):
+    def is_msat_request(checker, instance):
+        """msat fields can be raw integers, sats, btc."""
+        try:
+            Millisatoshi(instance)
+            return True
+        except TypeError:
+            return False
+
+    def is_msat_response(checker, instance):
         """String number ending in msat"""
         return type(instance) is Millisatoshi
 
@@ -374,6 +382,11 @@ def _extra_validator():
             return True
         return is_msat_request(checker, instance)
 
+    # "msat" for request can be many forms
+    if is_request:
+        is_msat = is_msat_request
+    else:
+        is_msat = is_msat_response
     type_checker = jsonschema.Draft7Validator.TYPE_CHECKER.redefine_many({
         "hex": is_hex,
         "u64": is_u64,
@@ -399,15 +412,15 @@ def _extra_validator():
                                         type_checker=type_checker)
 
 
-def _load_schema(filename):
+def _load_schema(filename, is_request):
     """Load the schema from @filename and create a validator for it"""
     with open(filename, 'r') as f:
-        return _extra_validator()(json.load(f))
+        return _extra_validator(is_request)(json.load(f))
 
 
 @pytest.fixture(autouse=True)
 def jsonschemas():
-    """Load schema files if they exist"""
+    """Load schema files if they exist: returns request/response schemas by pairs"""
     try:
         schemafiles = os.listdir('doc/schemas')
     except FileNotFoundError:
@@ -415,10 +428,20 @@ def jsonschemas():
 
     schemas = {}
     for fname in schemafiles:
-        if not fname.endswith('.schema.json'):
+        if fname.endswith('.schema.json'):
+            base = fname.rpartition('.schema')[0]
+            is_request = False
+            index = 1
+        elif fname.endswith('.request.json'):
+            base = fname.rpartition('.request')[0]
+            is_request = True
+            index = 0
+        else:
             continue
-        schemas[fname.rpartition('.schema')[0]] = _load_schema(os.path.join('doc/schemas',
-                                                                            fname))
+        if base not in schemas:
+            schemas[base] = [None, None]
+        schemas[base][index] = _load_schema(os.path.join('doc/schemas', fname),
+                                            is_request)
     return schemas
 
 

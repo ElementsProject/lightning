@@ -586,11 +586,13 @@ def test_sendpay(node_factory):
     assert invoice_unpaid(l2, 'testpayment2')
 
     # Bad ID.
+    l1.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         rs = copy.deepcopy(routestep)
         rs['id'] = '00000000000000000000000000000000'
         l1.rpc.sendpay([rs], rhash, payment_secret=inv['payment_secret'])
     assert invoice_unpaid(l2, 'testpayment2')
+    l1.rpc.check_request_schemas = True
 
     # Bad payment_secret
     l1.rpc.sendpay([routestep], rhash, payment_secret="00" * 32)

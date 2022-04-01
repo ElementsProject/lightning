@@ -628,22 +628,36 @@ class PrettyPrintingLightningRpc(LightningRpc):
             patch_json,
         )
         self.jsonschemas = jsonschemas
+        self.check_request_schemas = True
 
     def call(self, method, payload=None):
         id = self.next_id
+        schemas = self.jsonschemas.get(method)
         self.logger.debug(json.dumps({
             "id": id,
             "method": method,
             "params": payload
         }, indent=2))
+
+        # We only check payloads which are dicts, which is what we
+        # usually use: there are some cases which tests [] params,
+        # which we ignore.
+        if schemas and schemas[0] and isinstance(payload, dict) and self.check_request_schemas:
+            # fields which are None are explicitly removed, so do that now
+            testpayload = {}
+            for k, v in payload.items():
+                if v is not None:
+                    testpayload[k] = v
+            schemas[0].validate(testpayload)
+
         res = LightningRpc.call(self, method, payload)
         self.logger.debug(json.dumps({
             "id": id,
             "result": res
         }, indent=2))
 
-        if method in self.jsonschemas:
-            self.jsonschemas[method].validate(res)
+        if schemas and schemas[1]:
+            schemas[1].validate(res)
 
         return res
 
@@ -1142,9 +1156,14 @@ class LightningNode(object):
                 maxfeepercent=None, retry_for=None,
                 maxdelay=None, exemptfee=None, use_shadow=True, exclude=[]):
         """Wrapper for rpc.dev_pay which suppresses the request schema"""
-        return self.rpc.dev_pay(bolt11, msatoshi, label, riskfactor,
-                                maxfeepercent, retry_for,
-                                maxdelay, exemptfee, use_shadow, exclude)
+        # FIXME? dev options are not in schema
+        old_check = self.rpc.check_request_schemas
+        self.rpc.check_request_schemas = False
+        ret = self.rpc.dev_pay(bolt11, msatoshi, label, riskfactor,
+                               maxfeepercent, retry_for,
+                               maxdelay, exemptfee, use_shadow, exclude)
+        self.rpc.check_request_schemas = old_check
+        return ret
 
     def dev_invoice(self, msatoshi, label, description, expiry=None, fallbacks=None, preimage=None, exposeprivatechannels=None, cltv=None, dev_routes=None):
         """Wrapper for rpc.invoice() with dev-routes option"""
