@@ -259,7 +259,14 @@ class GrpcConverterGenerator:
 
             name = f.normalized()
             if isinstance(f, ArrayField):
-                self.write(f"{name}: c.{name}.iter().map(|s| s.into()).collect(),\n", numindent=3)
+                typ = f.itemtype.typename
+                # The inner conversion applied to each element in the
+                # array. The current item is called `i`
+                mapping = {
+                    'hex': f'hex::decode(i).unwrap()',
+                }.get(typ, f'i.into()')
+
+                self.write(f"{name}: c.{name}.iter().map(|i| {mapping}).collect(),\n", numindent=3)
 
             elif isinstance(f, EnumField):
                 if f.required:

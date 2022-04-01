@@ -47,8 +47,8 @@ impl From<&responses::GetinfoResponse> for pb::GetinfoResponse {
             blockheight: c.blockheight.clone(),
             network: c.network.clone(),
             fees_collected_msat: Some(c.fees_collected_msat.into()),
-            address: c.address.iter().map(|s| s.into()).collect(),
-            binding: c.binding.iter().map(|s| s.into()).collect(),
+            address: c.address.iter().map(|i| i.into()).collect(),
+            binding: c.binding.iter().map(|i| i.into()).collect(),
             warning_bitcoind_sync: c.warning_bitcoind_sync.clone(),
             warning_lightningd_sync: c.warning_lightningd_sync.clone(),
         }
@@ -115,12 +115,12 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             last_feerate: c.last_feerate.clone(),
             next_feerate: c.next_feerate.clone(),
             next_fee_step: c.next_fee_step.clone(),
-            inflight: c.inflight.iter().map(|s| s.into()).collect(),
+            inflight: c.inflight.iter().map(|i| i.into()).collect(),
             close_to: c.close_to.as_ref().map(|v| hex::decode(&v).unwrap()),
             private: c.private.clone(),
             opener: c.opener as i32,
             closer: c.closer.map(|v| v as i32),
-            features: c.features.iter().map(|s| s.into()).collect(),
+            features: c.features.iter().map(|i| i.into()).collect(),
             to_us_msat: c.to_us_msat.map(|f| f.into()),
             min_to_us_msat: c.min_to_us_msat.map(|f| f.into()),
             max_to_us_msat: c.max_to_us_msat.map(|f| f.into()),
@@ -137,7 +137,7 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             their_to_self_delay: c.their_to_self_delay.clone(),
             our_to_self_delay: c.our_to_self_delay.clone(),
             max_accepted_htlcs: c.max_accepted_htlcs.clone(),
-            status: c.status.iter().map(|s| s.into()).collect(),
+            status: c.status.iter().map(|i| i.into()).collect(),
             in_payments_offered: c.in_payments_offered.clone(),
             in_offered_msat: c.in_offered_msat.map(|f| f.into()),
             in_payments_fulfilled: c.in_payments_fulfilled.clone(),
@@ -146,7 +146,7 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             out_offered_msat: c.out_offered_msat.map(|f| f.into()),
             out_payments_fulfilled: c.out_payments_fulfilled.clone(),
             out_fulfilled_msat: c.out_fulfilled_msat.map(|f| f.into()),
-            htlcs: c.htlcs.iter().map(|s| s.into()).collect(),
+            htlcs: c.htlcs.iter().map(|i| i.into()).collect(),
             close_to_addr: c.close_to_addr.clone(),
         }
     }
@@ -158,9 +158,9 @@ impl From<&responses::ListpeersPeers> for pb::ListpeersPeers {
         Self {
             id: hex::decode(&c.id).unwrap(),
             connected: c.connected.clone(),
-            log: c.log.iter().map(|s| s.into()).collect(),
-            channels: c.channels.iter().map(|s| s.into()).collect(),
-            netaddr: c.netaddr.iter().map(|s| s.into()).collect(),
+            log: c.log.iter().map(|i| i.into()).collect(),
+            channels: c.channels.iter().map(|i| i.into()).collect(),
+            netaddr: c.netaddr.iter().map(|i| i.into()).collect(),
             features: c.features.as_ref().map(|v| hex::decode(&v).unwrap()),
         }
     }
@@ -170,7 +170,7 @@ impl From<&responses::ListpeersPeers> for pb::ListpeersPeers {
 impl From<&responses::ListpeersResponse> for pb::ListpeersResponse {
     fn from(c: &responses::ListpeersResponse) -> Self {
         Self {
-            peers: c.peers.iter().map(|s| s.into()).collect(),
+            peers: c.peers.iter().map(|i| i.into()).collect(),
         }
     }
 }
@@ -211,8 +211,8 @@ impl From<&responses::ListfundsChannels> for pb::ListfundsChannels {
 impl From<&responses::ListfundsResponse> for pb::ListfundsResponse {
     fn from(c: &responses::ListfundsResponse) -> Self {
         Self {
-            outputs: c.outputs.iter().map(|s| s.into()).collect(),
-            channels: c.channels.iter().map(|s| s.into()).collect(),
+            outputs: c.outputs.iter().map(|i| i.into()).collect(),
+            channels: c.channels.iter().map(|i| i.into()).collect(),
         }
     }
 }
@@ -244,7 +244,7 @@ impl From<&responses::ListchannelsChannels> for pb::ListchannelsChannels {
 impl From<&responses::ListchannelsResponse> for pb::ListchannelsResponse {
     fn from(c: &responses::ListchannelsResponse) -> Self {
         Self {
-            channels: c.channels.iter().map(|s| s.into()).collect(),
+            channels: c.channels.iter().map(|i| i.into()).collect(),
         }
     }
 }
@@ -326,7 +326,7 @@ impl From<&responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
 impl From<&responses::DatastoreResponse> for pb::DatastoreResponse {
     fn from(c: &responses::DatastoreResponse) -> Self {
         Self {
-            key: c.key.iter().map(|s| s.into()).collect(),
+            key: c.key.iter().map(|i| i.into()).collect(),
             generation: c.generation.clone(),
             hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()),
             string: c.string.clone(),
@@ -338,7 +338,7 @@ impl From<&responses::DatastoreResponse> for pb::DatastoreResponse {
 impl From<&responses::DeldatastoreResponse> for pb::DeldatastoreResponse {
     fn from(c: &responses::DeldatastoreResponse) -> Self {
         Self {
-            key: c.key.iter().map(|s| s.into()).collect(),
+            key: c.key.iter().map(|i| i.into()).collect(),
             generation: c.generation.clone(),
             hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()),
             string: c.string.clone(),
@@ -393,7 +393,7 @@ impl From<&responses::InvoiceResponse> for pb::InvoiceResponse {
 impl From<&responses::ListdatastoreDatastore> for pb::ListdatastoreDatastore {
     fn from(c: &responses::ListdatastoreDatastore) -> Self {
         Self {
-            key: c.key.iter().map(|s| s.into()).collect(),
+            key: c.key.iter().map(|i| i.into()).collect(),
             generation: c.generation.clone(),
             hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()),
             string: c.string.clone(),
@@ -405,7 +405,7 @@ impl From<&responses::ListdatastoreDatastore> for pb::ListdatastoreDatastore {
 impl From<&responses::ListdatastoreResponse> for pb::ListdatastoreResponse {
     fn from(c: &responses::ListdatastoreResponse) -> Self {
         Self {
-            datastore: c.datastore.iter().map(|s| s.into()).collect(),
+            datastore: c.datastore.iter().map(|i| i.into()).collect(),
         }
     }
 }
@@ -436,7 +436,7 @@ impl From<&responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
 impl From<&responses::ListinvoicesResponse> for pb::ListinvoicesResponse {
     fn from(c: &responses::ListinvoicesResponse) -> Self {
         Self {
-            invoices: c.invoices.iter().map(|s| s.into()).collect(),
+            invoices: c.invoices.iter().map(|i| i.into()).collect(),
         }
     }
 }
