@@ -133,18 +133,21 @@ class CompositeField(Field):
                 logger.warning(f"Unmanaged {fpath}, it is deprecated")
                 continue
 
-            if "type" not in ftype:
+            if 'oneOf' in ftype:
+                field = UnionField.from_js(ftype, fpath)
+
+            elif "type" not in ftype:
                 logger.warning(f"Unmanaged {fpath}, it doesn't have a type")
                 continue
 
-            # TODO Remove the `['string', 'null']` match once
-            # `listpeers.peers[].channels[].closer` no longer has this
-            # type
-            if ftype["type"] == ["string", "null"]:
+            elif ftype["type"] == ["string", "null"]:
+                # TODO Remove the `['string', 'null']` match once
+                # `listpeers.peers[].channels[].closer` no longer has this
+                # type
                 ftype["type"] = "string"
 
             # Peek into the type so we know how to decode it
-            if ftype["type"] in ["string", ["string", "null"]] and "enum" in ftype:
+            elif ftype["type"] in ["string", ["string", "null"]] and "enum" in ftype:
                 field = EnumField.from_js(ftype, fpath)
 
             elif ftype["type"] == "object":
@@ -210,6 +213,39 @@ class EnumField(Field):
         values = ",".join([v for v in self.values if v is not None])
         return f"Enum[path={self.path}, required={self.required}, values=[{values}]]"
 
+class UnionField(Field):
+    """A type that can be one of a number of types.
+
+    Corresponds to the `oneOf` type in JSON-Schema, an `enum` in Rust
+    and a `oneof` in protobuf.
+
+    """
+    def __init__(self, path, description, variants):
+        Field.__init__(self, path, description)
+        self.variants = variants
+        self.typename = path2type(path)
+
+    @classmethod
+    def from_js(cls, js, path):
+        assert('oneOf' in js)
+        variants = []
+        for child_js in js['oneOf']:
+            if child_js["type"] == "object":
+                itemtype = CompositeField.from_js(child_js, path)
+
+            elif child_js["type"] == "string" and "enum" in child_js:
+                itemtype = EnumField.from_js(child_js, path)
+
+            elif child_js["type"] in PrimitiveField.types:
+                itemtype = PrimitiveField(
+                    child_js["type"], path, child_js.get("description", "")
+                )
+            elif child_js["type"] == "array":
+                itemtype = ArrayField.from_js(path, child_js)
+            variants.append(itemtype)
+
+        return UnionField(path, js.get('description', None), variants)
+
 
 class PrimitiveField(Field):
     # Leaf types that we expect the binding languages to provide
@@ -228,13 +264,15 @@ class PrimitiveField(Field):
         "msat|all",
         "hex",
         "short_channel_id",
+        "short_channel_id_dir",
         "txid",
         "integer",
+        "outpoint",
         "u16",
         "number",
         "feerate",
         "utxo",  # A string representing the tuple (txid, outnum)
-        "OutputDesc",  # A dict that maps an address to an amount (bitcoind style)
+        "outputdesc",  # A dict that maps an address to an amount (bitcoind style)
     ]
 
     def __init__(self, typename, path, description):
@@ -257,12 +295,16 @@ class ArrayField(Field):
         # Determine how nested we are
         dims = 1
         child_js = js["items"]
-        while child_js["type"] == "array":
+        while child_js.get("type", None) == "array":
             dims += 1
             child_js = child_js["items"]
 
         path += "[]" * dims
-        if child_js["type"] == "object":
+        if 'oneOf' in child_js:
+            assert('type' not in child_js)
+            itemtype = UnionField.from_js(child_js, path)
+
+        elif child_js["type"] == "object":
             itemtype = CompositeField.from_js(child_js, path)
 
         elif child_js["type"] == "string" and "enum" in child_js:
