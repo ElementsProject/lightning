@@ -113,6 +113,9 @@ def test_grpc_connect(node_factory):
     ))
     print(inv)
 
+    rates = stub.Feerates(nodepb.FeeratesRequest(style='PERKB'))
+    print(rates)
+
     # Test a failing RPC call, so we know that errors are returned correctly.
     with pytest.raises(Exception, match=r'Duplicate label'):
         # This request creates a label collision

@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "id",
+    "msatoshi",
+    "riskfactor"
+  ],
+  "properties": {
+    "id": {
+      "type": "pubkey",
+      "description": ""
+    },
+    "msatoshi": {
+      "type": "msat",
+      "description": ""
+    },
+    "riskfactor": {
+      "type": "u64",
+      "description": ""
+    },
+    "cltv": {
+      "type": "number",
+      "description": ""
+    },
+    "fromid": {
+      "type": "pubkey",
+      "description": ""
+    },
+    "fuzzpercent": {
+      "type": "u32",
+      "description": ""
+    },
+    "exclude": {
+      "type": "array",
+      "description": "",
+      "items": {
+        "type": "string"
+      }
+    },
+    "maxhops": {
+      "type": "u32",
+      "description": ""
+    }
+  }
+}
