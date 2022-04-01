@@ -20,6 +20,7 @@ overrides = {
     'ListPeers.peers[].channels[].state_changes[].old_state': "ChannelState",
     'ListPeers.peers[].channels[].state_changes[].new_state': "ChannelState",
     'ListPeers.peers[].channels[].state_changes[].cause': "ChannelStateChangeCause",
+    'ListPeers.peers[].channels[].htlcs[].state': None,
     'ListPeers.peers[].channels[].opener': "ChannelSide",
     'ListPeers.peers[].channels[].closer': "ChannelSide",
     'ListPeers.peers[].channels[].features[]': "string",

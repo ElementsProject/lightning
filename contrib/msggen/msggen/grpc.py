@@ -35,6 +35,7 @@ overrides = {
     # Truncate the tree here, it's a complex structure with identitcal
     # types
     'ListPeers.peers[].channels[].state_changes[]': None,
+    'ListPeers.peers[].channels[].htlcs[].state': None,
     'ListPeers.peers[].channels[].opener': "ChannelSide",
     'ListPeers.peers[].channels[].closer': "ChannelSide",
     'ListPeers.peers[].channels[].features[]': "string",
