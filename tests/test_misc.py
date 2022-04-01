@@ -493,6 +493,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
 
     waddr = l1.bitcoin.getnewaddress()
     # Now attempt to withdraw some (making sure we collect multiple inputs)
+    l1.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         l1.rpc.withdraw('not an address', amount)
     with pytest.raises(RpcError):
@@ -501,6 +502,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
         l1.rpc.withdraw(waddr, -amount)
     with pytest.raises(RpcError, match=r'Could not afford'):
         l1.rpc.withdraw(waddr, amount * 100)
+    l1.rpc.check_request_schemas = True
 
     out = l1.rpc.withdraw(waddr, amount)
 
@@ -1516,6 +1518,7 @@ def test_configfile_before_chdir(node_factory):
 def test_json_error(node_factory):
     """Must return valid json even if it quotes our weirdness"""
     l1 = node_factory.get_node()
+    l1.rpc.check_request_schemas = False
     with pytest.raises(RpcError, match=r'id: should be a channel ID or short channel ID: invalid token'):
         l1.rpc.close({"tx": "020000000001011490f737edd2ea2175a032b58ea7cd426dfc244c339cd044792096da3349b18a0100000000ffffffff021c900300000000001600140e64868e2f752314bc82a154c8c5bf32f3691bb74da00b00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cd0247304402202b2e3195a35dc694bbbc58942dc9ba59cc01d71ba55c9b0ad0610ccd6a65633702201a849254453d160205accc00843efb0ad1fe0e186efa6a7cee1fb6a1d36c736a012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf00000000", "txid": "2128c10f0355354479514f4a23eaa880d94e099406d419bbb0d800143accddbb", "channel_id": "bbddcc3a1400d8b0bb19d40694094ed980a8ea234a4f5179443555030fc12820"})
 

@@ -44,6 +44,9 @@ def test_withdraw(node_factory, bitcoind):
 
     waddr = l1.bitcoin.rpc.getnewaddress()
     # Now attempt to withdraw some (making sure we collect multiple inputs)
+
+    # These violate schemas!
+    l1.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         l1.rpc.withdraw('not an address', amount)
     with pytest.raises(RpcError):
@@ -52,6 +55,7 @@ def test_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw(waddr, -amount)
     with pytest.raises(RpcError, match=r'Could not afford'):
         l1.rpc.withdraw(waddr, amount * 100)
+    l1.rpc.check_request_schemas = True
 
     out = l1.rpc.withdraw(waddr, 2 * amount)
 
@@ -216,6 +220,9 @@ def test_minconf_withdraw(node_factory, bitcoind):
     bitcoind.generate_block(1)
 
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
+    # This violates the request schema!
+    l1.rpc.check_request_schemas = False
+
     with pytest.raises(RpcError):
         l1.rpc.withdraw(destination=addr, satoshi=10000, feerate='normal', minconf=9999999)
 
@@ -1373,6 +1380,9 @@ def test_repro_4258(node_factory, bitcoind):
 
     addr = bitcoind.rpc.getnewaddress()
 
+    # These violate the request schema!
+    l1.rpc.check_request_schemas = False
+
     # Missing array parentheses for outputs
     with pytest.raises(RpcError, match=r"Expected an array of outputs"):
         l1.rpc.txprepare(
@@ -1390,6 +1400,8 @@ def test_repro_4258(node_factory, bitcoind):
             minconf=1,
             utxos="{txid}:{output}".format(**out)
         )
+
+    l1.rpc.check_request_schemas = True
 
     tx = l1.rpc.txprepare(
         outputs=[{addr: "all"}],

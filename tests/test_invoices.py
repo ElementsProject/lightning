@@ -529,6 +529,7 @@ def test_waitanyinvoice(node_factory, executor):
     r = executor.submit(l2.rpc.waitanyinvoice, pay_index, 0).result(timeout=5)
     assert r['label'] == 'inv4'
 
+    l2.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         l2.rpc.waitanyinvoice('non-number')
 
