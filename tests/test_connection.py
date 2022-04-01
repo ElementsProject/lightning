@@ -2926,11 +2926,11 @@ def test_opener_simple_reconnect(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
-@pytest.mark.developer("needs LIGHTNINGD_DEV_LOG_IO")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_dataloss_protection(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True, options={'log-level': 'io'},
+                               allow_warning=True,
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True, options={'log-level': 'io'},
                                feerates=(7500, 7500, 7500, 7500), allow_broken_log=True)
@@ -2998,13 +2998,15 @@ def test_dataloss_protection(node_factory, bitcoind):
     # l2 should freak out!
     l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Awaiting unilateral close")
 
-    # l1 should drop to chain.
-    l1.wait_for_channel_onchain(l2.info['id'])
-
     # l2 must NOT drop to chain.
     l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")
     assert not l2.daemon.is_in_log('sendrawtx exit 0',
                                    start=l2.daemon.logsearch_start)
+
+    # l1 should drop to chain, but doesn't always receive ERROR before it sends warning.
+    # We have to reconnect once
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.wait_for_channel_onchain(l2.info['id'])
 
     closetxid = only_one(bitcoind.rpc.getrawmempool(False))
 
@@ -3022,6 +3024,66 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     # l2 should have it in wallet.
     assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@pytest.mark.developer("needs dev-disconnect, dev-no-reconnect")
+def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
+    # If l2 sends an old version, but *doesn't* send an error, l1 should not broadcast tx.
+    # (https://github.com/lightning/bolts/issues/934)
+    l1 = node_factory.get_node(may_reconnect=True,
+                               feerates=(7500, 7500, 7500, 7500),
+                               allow_warning=True,
+                               options={'dev-no-reconnect': None})
+    l2 = node_factory.get_node(may_reconnect=True,
+                               feerates=(7500, 7500, 7500, 7500), allow_broken_log=True,
+                               disconnect=['-WIRE_ERROR'],
+                               options={'dev-no-reconnect': None})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**6)
+    l2.stop()
+
+    # Save copy of the db.
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
+    orig_db = open(dbpath, "rb").read()
+    l2.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # After an htlc, we should get different results (two more commits)
+    l1.pay(l2, 200000000)
+
+    # Make sure both sides consider it completely settled (has received both
+    # REVOKE_AND_ACK)
+    l1.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+    l2.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+
+    # Now, move l2 back in time.
+    l2.stop()
+    # Save new db
+    new_db = open(dbpath, "rb").read()
+    # Overwrite with OLD db.
+    open(dbpath, "wb").write(orig_db)
+    l2.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l2 should freak out!
+    l2.daemon.wait_for_logs(["Peer permanent failure in CHANNELD_NORMAL: Awaiting unilateral close"])
+
+    # l1 should NOT drop to chain, since it didn't receive an error.
+    time.sleep(5)
+    assert bitcoind.rpc.getrawmempool(False) == []
+
+    # fix up l2.
+    l2.stop()
+    open(dbpath, "wb").write(new_db)
+    l2.start()
+
+    # All is forgiven
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.pay(l2, 200000000)
 
 
 @pytest.mark.developer("needs dev_disconnect")

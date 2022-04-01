@@ -3002,12 +3002,14 @@ skip_tlvs:
 		}
 		retransmit_revoke_and_ack = true;
 	} else if (next_revocation_number < peer->next_index[LOCAL] - 1) {
-		peer_failed_err(peer->pps,
-				&peer->channel_id,
-				"bad reestablish revocation_number: %"PRIu64
-				" vs %"PRIu64,
-				next_revocation_number,
-				peer->next_index[LOCAL]);
+		/* Send a warning here!  Because this is what it looks like if peer is
+		 * in the past, and they might still recover. */
+		peer_failed_warn(peer->pps,
+				 &peer->channel_id,
+				 "bad reestablish revocation_number: %"PRIu64
+				 " vs %"PRIu64,
+				 next_revocation_number,
+				 peer->next_index[LOCAL]);
 	} else if (next_revocation_number > peer->next_index[LOCAL] - 1) {
 		if (!check_extra_fields)
 			/* They don't support option_data_loss_protect or
