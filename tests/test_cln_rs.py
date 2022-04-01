@@ -3,7 +3,6 @@ from pathlib import Path
 from pyln.testing.utils import env, TEST_NETWORK, wait_for
 from ephemeral_port_reserve import reserve
 import grpc
-from primitives_pb2 import AmountOrAny, Amount
 import pytest
 import subprocess
 
@@ -75,6 +74,7 @@ def test_grpc_connect(node_factory):
     # These only exist if we have rust!
     from node_pb2_grpc import NodeStub  # noqa: E402
     import node_pb2 as nodepb  # noqa: E402
+    from primitives_pb2 import AmountOrAny, Amount  # noqa: E402
 
     grpc_port = reserve()
     bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
