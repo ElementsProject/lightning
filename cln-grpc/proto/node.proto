@@ -17,6 +17,9 @@ service Node {
 	rpc CheckMessage(CheckmessageRequest) returns (CheckmessageResponse) {}
 	rpc Close(CloseRequest) returns (CloseResponse) {}
 	rpc ConnectPeer(ConnectRequest) returns (ConnectResponse) {}
+	rpc Datastore(DatastoreRequest) returns (DatastoreResponse) {}
+	rpc DelDatastore(DeldatastoreRequest) returns (DeldatastoreResponse) {}
+	rpc ListDatastore(ListdatastoreRequest) returns (ListdatastoreResponse) {}
 }
 
 message GetinfoRequest {
@@ -84,7 +87,7 @@ message ListpeersRequest {
 }
 
 message ListpeersResponse {
-	repeated ListpeersPeers peers = 3;
+	repeated ListpeersPeers peers = 1;
 }
 
 message ListpeersPeers {
@@ -231,8 +234,8 @@ message ListfundsRequest {
 }
 
 message ListfundsResponse {
-	repeated ListfundsOutputs outputs = 2;
-	repeated ListfundsChannels channels = 3;
+	repeated ListfundsOutputs outputs = 1;
+	repeated ListfundsChannels channels = 2;
 }
 
 message ListfundsOutputs {
@@ -270,7 +273,7 @@ message ListchannelsRequest {
 }
 
 message ListchannelsResponse {
-	repeated ListchannelsChannels channels = 4;
+	repeated ListchannelsChannels channels = 1;
 }
 
 message ListchannelsChannels {
@@ -304,9 +307,9 @@ message AutocleaninvoiceRequest {
 }
 
 message AutocleaninvoiceResponse {
-	bool enabled = 3;
-	optional uint64 expired_by = 1;
-	optional uint64 cycle_seconds = 2;
+	bool enabled = 1;
+	optional uint64 expired_by = 2;
+	optional uint64 cycle_seconds = 3;
 }
 
 message CheckmessageRequest {
@@ -316,8 +319,8 @@ message CheckmessageRequest {
 }
 
 message CheckmessageResponse {
-	bool verified = 4;
-	optional bytes pubkey = 3;
+	bool verified = 1;
+	optional bytes pubkey = 2;
 }
 
 message CloseRequest {
@@ -336,9 +339,9 @@ message CloseResponse {
 		UNILATERAL = 1;
 		UNOPENED = 2;
 	}
-	CloseType item_type = 7;
-	optional bytes tx = 8;
-	optional bytes txid = 9;
+	CloseType item_type = 1;
+	optional bytes tx = 2;
+	optional bytes txid = 3;
 }
 
 message ConnectRequest {
@@ -371,4 +374,53 @@ message ConnectAddress {
 	optional string socket = 2;
 	optional string address = 3;
 	optional uint32 port = 4;
+}
+
+message DatastoreRequest {
+	// Datastore.mode
+	enum DatastoreMode {
+		MUST_CREATE = 0;
+		MUST_REPLACE = 1;
+		CREATE_OR_REPLACE = 2;
+		MUST_APPEND = 3;
+		CREATE_OR_APPEND = 4;
+	}
+	repeated string key = 1;
+	optional bytes hex = 2;
+	optional DatastoreMode mode = 3;
+	optional uint64 generation = 4;
+}
+
+message DatastoreResponse {
+	repeated string key = 1;
+	optional uint64 generation = 2;
+	optional bytes hex = 3;
+	optional string string = 4;
+}
+
+message DeldatastoreRequest {
+	repeated string key = 1;
+	optional uint64 generation = 2;
+}
+
+message DeldatastoreResponse {
+	repeated string key = 1;
+	optional uint64 generation = 2;
+	optional bytes hex = 3;
+	optional string string = 4;
+}
+
+message ListdatastoreRequest {
+	repeated string key = 1;
+}
+
+message ListdatastoreResponse {
+	repeated ListdatastoreDatastore datastore = 1;
+}
+
+message ListdatastoreDatastore {
+	repeated string key = 1;
+	optional uint64 generation = 2;
+	optional bytes hex = 3;
+	optional string string = 4;
 }

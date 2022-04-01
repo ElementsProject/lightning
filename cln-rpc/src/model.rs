@@ -25,6 +25,9 @@ pub enum Request {
 	CheckMessage(requests::CheckmessageRequest),
 	Close(requests::CloseRequest),
 	ConnectPeer(requests::ConnectRequest),
+	Datastore(requests::DatastoreRequest),
+	DelDatastore(requests::DeldatastoreRequest),
+	ListDatastore(requests::ListdatastoreRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,6 +43,9 @@ pub enum Response {
 	CheckMessage(responses::CheckmessageResponse),
 	Close(responses::CloseResponse),
 	ConnectPeer(responses::ConnectResponse),
+	Datastore(responses::DatastoreResponse),
+	DelDatastore(responses::DeldatastoreResponse),
+	ListDatastore(responses::ListdatastoreResponse),
 }
 
 pub mod requests {
@@ -124,6 +130,54 @@ pub mod requests {
 	    pub host: Option<String>,
 	    #[serde(alias = "port", skip_serializing_if = "Option::is_none")]
 	    pub port: Option<u16>,
+	}
+
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[serde(rename_all = "lowercase")]
+	pub enum DatastoreMode {
+	    MUST_CREATE,
+	    MUST_REPLACE,
+	    CREATE_OR_REPLACE,
+	    MUST_APPEND,
+	    CREATE_OR_APPEND,
+	}
+
+	impl TryFrom<i32> for DatastoreMode {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<DatastoreMode, anyhow::Error> {
+	        match c {
+	    0 => Ok(DatastoreMode::MUST_CREATE),
+	    1 => Ok(DatastoreMode::MUST_REPLACE),
+	    2 => Ok(DatastoreMode::CREATE_OR_REPLACE),
+	    3 => Ok(DatastoreMode::MUST_APPEND),
+	    4 => Ok(DatastoreMode::CREATE_OR_APPEND),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum DatastoreMode", o)),
+	        }
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DatastoreRequest {
+	    #[serde(alias = "key")]
+	    pub key: Vec<String>,
+	    #[serde(alias = "hex", skip_serializing_if = "Option::is_none")]
+	    pub hex: Option<String>,
+	    pub mode: Option<DatastoreMode>,
+	    #[serde(alias = "generation", skip_serializing_if = "Option::is_none")]
+	    pub generation: Option<u64>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DeldatastoreRequest {
+	    #[serde(alias = "key")]
+	    pub key: Vec<String>,
+	    #[serde(alias = "generation", skip_serializing_if = "Option::is_none")]
+	    pub generation: Option<u64>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListdatastoreRequest {
+	    #[serde(alias = "key")]
+	    pub key: Vec<String>,
 	}
 
 }
@@ -751,6 +805,16 @@ pub mod responses {
 	    OUT,
 	}
 
+	impl TryFrom<i32> for ConnectDirection {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ConnectDirection, anyhow::Error> {
+	        match c {
+	    0 => Ok(ConnectDirection::IN),
+	    1 => Ok(ConnectDirection::OUT),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectDirection", o)),
+	        }
+	    }
+	}
 	/// Type of connection (*torv2*/*torv3* only if **direction** is *out*)
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 	#[serde(rename_all = "lowercase")]
@@ -762,6 +826,19 @@ pub mod responses {
 	    TORV3,
 	}
 
+	impl TryFrom<i32> for ConnectAddressType {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ConnectAddressType, anyhow::Error> {
+	        match c {
+	    0 => Ok(ConnectAddressType::LOCAL_SOCKET),
+	    1 => Ok(ConnectAddressType::IPV4),
+	    2 => Ok(ConnectAddressType::IPV6),
+	    3 => Ok(ConnectAddressType::TORV2),
+	    4 => Ok(ConnectAddressType::TORV3),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectAddressType", o)),
+	        }
+	    }
+	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ConnectAddress {
 	    // Path `Connect.address.type`
@@ -784,6 +861,48 @@ pub mod responses {
 	    // Path `Connect.direction`
 	    #[serde(rename = "direction")]
 	    pub direction: ConnectDirection,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DatastoreResponse {
+	    #[serde(alias = "key")]
+	    pub key: Vec<String>,
+	    #[serde(alias = "generation", skip_serializing_if = "Option::is_none")]
+	    pub generation: Option<u64>,
+	    #[serde(alias = "hex", skip_serializing_if = "Option::is_none")]
+	    pub hex: Option<String>,
+	    #[serde(alias = "string", skip_serializing_if = "Option::is_none")]
+	    pub string: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DeldatastoreResponse {
+	    #[serde(alias = "key")]
+	    pub key: Vec<String>,
+	    #[serde(alias = "generation", skip_serializing_if = "Option::is_none")]
+	    pub generation: Option<u64>,
+	    #[serde(alias = "hex", skip_serializing_if = "Option::is_none")]
+	    pub hex: Option<String>,
+	    #[serde(alias = "string", skip_serializing_if = "Option::is_none")]
+	    pub string: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListdatastoreDatastore {
+	    #[serde(alias = "key")]
+	    pub key: Vec<String>,
+	    #[serde(alias = "generation", skip_serializing_if = "Option::is_none")]
+	    pub generation: Option<u64>,
+	    #[serde(alias = "hex", skip_serializing_if = "Option::is_none")]
+	    pub hex: Option<String>,
+	    #[serde(alias = "string", skip_serializing_if = "Option::is_none")]
+	    pub string: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListdatastoreResponse {
+	    #[serde(alias = "datastore")]
+	    pub datastore: Vec<ListdatastoreDatastore>,
 	}
 
 }

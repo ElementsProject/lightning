@@ -8,8 +8,8 @@ impl From<JAmount> for Amount {
     }
 }
 
-impl From<Amount> for JAmount {
-    fn from(a: Amount) -> Self {
-        JAmount::from_msat(a.msat)
+impl From<&Amount> for JAmount {
+    fn from(a: &Amount) -> Self {
+	JAmount::from_msat(a.msat)
     }
 }

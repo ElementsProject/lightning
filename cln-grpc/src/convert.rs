@@ -301,6 +301,51 @@ impl From<&responses::ConnectResponse> for pb::ConnectResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::DatastoreResponse> for pb::DatastoreResponse {
+    fn from(c: &responses::DatastoreResponse) -> Self {
+        Self {
+            key: c.key.iter().map(|s| s.into()).collect(),
+            generation: c.generation.clone(),
+            hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()),
+            string: c.string.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::DeldatastoreResponse> for pb::DeldatastoreResponse {
+    fn from(c: &responses::DeldatastoreResponse) -> Self {
+        Self {
+            key: c.key.iter().map(|s| s.into()).collect(),
+            generation: c.generation.clone(),
+            hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()),
+            string: c.string.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListdatastoreDatastore> for pb::ListdatastoreDatastore {
+    fn from(c: &responses::ListdatastoreDatastore) -> Self {
+        Self {
+            key: c.key.iter().map(|s| s.into()).collect(),
+            generation: c.generation.clone(),
+            hex: c.hex.as_ref().map(|v| hex::decode(&v).unwrap()),
+            string: c.string.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::ListdatastoreResponse> for pb::ListdatastoreResponse {
+    fn from(c: &responses::ListdatastoreResponse) -> Self {
+        Self {
+            datastore: c.datastore.iter().map(|s| s.into()).collect(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&pb::GetinfoRequest> for requests::GetinfoRequest {
     fn from(c: &pb::GetinfoRequest) -> Self {
         Self {
@@ -388,7 +433,38 @@ impl From<&pb::ConnectRequest> for requests::ConnectRequest {
         Self {
             id: hex::encode(&c.id),
             host: c.host.clone(),
-            port: c.port.map(|i| i as u16),
+            port: c.port.map(|v| v as u16),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::DatastoreRequest> for requests::DatastoreRequest {
+    fn from(c: &pb::DatastoreRequest) -> Self {
+        Self {
+            key: c.key.iter().map(|s| s.into()).collect(),
+            hex: c.hex.clone().map(|v| hex::encode(v)),
+            mode: c.mode.map(|v| v.try_into().unwrap()),
+            generation: c.generation.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
+    fn from(c: &pb::DeldatastoreRequest) -> Self {
+        Self {
+            key: c.key.iter().map(|s| s.into()).collect(),
+            generation: c.generation.clone(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::ListdatastoreRequest> for requests::ListdatastoreRequest {
+    fn from(c: &pb::ListdatastoreRequest) -> Self {
+        Self {
+            key: c.key.iter().map(|s| s.into()).collect(),
         }
     }
 }
