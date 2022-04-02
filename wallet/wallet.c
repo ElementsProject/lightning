@@ -3033,8 +3033,9 @@ void wallet_payment_store(struct wallet *wallet,
 		    "  total_msat,"
 		    "  partid,"
 		    "  local_offer_id,"
-		    "  groupid"
-		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		    "  groupid,"
+		    "  paydescription"
+		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_int(stmt, 0, payment->status);
 	db_bind_sha256(stmt, 1, &payment->payment_hash);
@@ -3082,6 +3083,11 @@ void wallet_payment_store(struct wallet *wallet,
 		db_bind_null(stmt, 13);
 
 	db_bind_u64(stmt, 14, payment->groupid);
+
+	if (payment->description != NULL)
+		db_bind_text(stmt, 15, payment->description);
+	else
+		db_bind_null(stmt, 15);
 
 	db_exec_prepared_v2(stmt);
 	payment->id = db_last_insert_id_v2(stmt);
@@ -3177,6 +3183,11 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	else
 		payment->label = NULL;
 
+	if (!db_col_is_null(stmt, "paydescription"))
+		payment->description = db_col_strdup(payment, stmt, "paydescription");
+	else
+		payment->description = NULL;
+
 	if (!db_col_is_null(stmt, "bolt11"))
 		payment->invstring = db_col_strdup(payment, stmt, "bolt11");
 	else
@@ -3236,6 +3247,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 					     ", msatoshi_sent"
 					     ", description"
 					     ", bolt11"
+					     ", paydescription"
 					     ", failonionreply"
 					     ", total_msat"
 					     ", partid"
@@ -3472,6 +3484,7 @@ wallet_payment_list(const tal_t *ctx,
 				      ", msatoshi_sent"
 				      ", description"
 				      ", bolt11"
+				      ", paydescription"
 				      ", failonionreply"
 				      ", total_msat"
 				      ", partid"
@@ -3538,6 +3551,7 @@ wallet_payments_by_offer(const tal_t *ctx,
 					     ", msatoshi_sent"
 					     ", description"
 					     ", bolt11"
+					     ", paydescription"
 					     ", failonionreply"
 					     ", total_msat"
 					     ", partid"

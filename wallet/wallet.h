@@ -358,6 +358,9 @@ struct wallet_payment {
 	/* The label of the payment. Must support `tal_len` */
 	const char *label;
 
+	/* The description of the payment (used if invstring has hash). */
+	const char *description;
+
 	/* If we could not decode the fail onion, just add it here. */
 	const u8 *failonion;
 

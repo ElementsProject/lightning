@@ -873,6 +873,8 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD htlc_maximum_msat BIGINT DEFAULT 2100000000000000"), NULL},
     {SQL("ALTER TABLE channels ADD htlc_minimum_msat BIGINT DEFAULT 0"), NULL},
     {SQL("ALTER TABLE forwarded_payments ADD forward_style INTEGER DEFAULT NULL"), NULL},
+    /* "description" is used for label, so we use "paydescription" here */
+    {SQL("ALTER TABLE payments ADD paydescription TEXT;"), NULL},
 };
 
 /**

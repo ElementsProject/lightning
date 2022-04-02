@@ -65,6 +65,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->temp_exclusion = NULL;
 	p->failroute_retry = false;
 	p->invstring = NULL;
+	p->description = NULL;
 	p->routetxt = NULL;
 	p->max_htlcs = UINT32_MAX;
 	p->aborterror = NULL;
@@ -1567,6 +1568,9 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	if (p->invstring)
 		/* FIXME: rename parameter to invstring */
 		json_add_string(req->js, "bolt11", p->invstring);
+
+	if (p->description)
+		json_add_string(req->js, "description", p->description);
 
 	if (p->destination)
 		json_add_node_id(req->js, "destination", p->destination);
@@ -3559,6 +3563,8 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			 * they'll be used when aggregating the payments
 			 * again. */
 			c->invstring = tal_strdup(c, p->invstring);
+			if (p->description)
+				c->description = tal_strdup(c, p->description);
 
 			/* Get ~ target, but don't exceed amt */
 			c->amount = fuzzed_near(target, amt);
