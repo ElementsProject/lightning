@@ -926,7 +926,7 @@ static struct command_result *json_pay(struct command *cmd,
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
 	struct amount_msat *exemptfee, *msat, *maxfee;
-	const char *label;
+	const char *label, *description;
 	unsigned int *retryfor;
 	u64 *riskfactor_millionths;
 	struct shadow_route_data *shadow_route;
@@ -959,6 +959,7 @@ static struct command_result *json_pay(struct command *cmd,
 		   p_opt("localofferid", param_sha256, &local_offer_id),
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),
 		   p_opt("maxfee", param_msat, &maxfee),
+		   p_opt("description", param_string, &description),
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
 #endif
@@ -971,7 +972,7 @@ static struct command_result *json_pay(struct command *cmd,
 	if (!bolt12_has_prefix(b11str)) {
 		b11 =
 		    bolt11_decode(tmpctx, b11str, plugin_feature_set(cmd->plugin),
-				  NULL, chainparams, &b11_fail);
+				  description, chainparams, &b11_fail);
 		if (b11 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt11: %s", b11_fail);
@@ -999,6 +1000,24 @@ static struct command_result *json_pay(struct command *cmd,
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "Invalid bolt11:"
 			    " sets feature var_onion with no secret");
+
+		/* BOLT #11:
+		 * A reader:
+		 *...
+		 * - MUST check that the SHA2 256-bit hash in the `h` field
+		 *   exactly matches the hashed description.
+		 */
+		if (!b11->description && !deprecated_apis) {
+			if (!b11->description_hash) {
+				return command_fail(cmd,
+						    JSONRPC2_INVALID_PARAMS,
+						    "Invalid bolt11: missing description");
+			}
+			if (!description)
+				return command_fail(cmd,
+						    JSONRPC2_INVALID_PARAMS,
+						    "bolt11 uses description_hash, but you did not provide description parameter");
+		}
 	} else {
 		b12 = invoice_decode(tmpctx, b11str, strlen(b11str),
 				     plugin_feature_set(cmd->plugin),

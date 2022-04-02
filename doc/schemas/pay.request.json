@@ -48,6 +48,9 @@
     },
     "maxfee": {
       "type": "msat"
+    },
+    "description": {
+      "type": "string"
     }
   }
 }

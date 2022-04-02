@@ -398,7 +398,7 @@ def test_pay_plugin(node_factory):
     # Make sure usage messages are present.
     msg = 'pay bolt11 [msatoshi] [label] [riskfactor] [maxfeepercent] '\
           '[retry_for] [maxdelay] [exemptfee] [localofferid] [exclude] '\
-          '[maxfee]'
+          '[maxfee] [description]'
     if DEVELOPER:
         msg += ' [use_shadow]'
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
