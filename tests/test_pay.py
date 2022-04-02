@@ -7,7 +7,7 @@ from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES, env, VALGRIND, mine_funding_to_announce
+    EXPERIMENTAL_FEATURES, VALGRIND, mine_funding_to_announce
 )
 import copy
 import os
@@ -90,7 +90,7 @@ def test_pay_amounts(node_factory):
 
 
 @pytest.mark.developer("needs to deactivate shadow routing")
-def test_pay_limits(node_factory, compat):
+def test_pay_limits(node_factory):
     """Test that we enforce fee max percentage and max delay"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
@@ -346,7 +346,7 @@ def test_pay_error_update_fees(node_factory):
 
 
 @pytest.mark.developer("needs to deactivate shadow routing")
-def test_pay_optional_args(node_factory, compat):
+def test_pay_optional_args(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
     inv1 = l2.rpc.invoice(123000, 'test_pay', 'desc')['bolt11']
@@ -1779,7 +1779,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
 
 @pytest.mark.developer("needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
 @pytest.mark.slow_test
-def test_pay_routeboost(node_factory, bitcoind, compat):
+def test_pay_routeboost(node_factory, bitcoind):
     """Make sure we can use routeboost information. """
     # l1->l2->l3--private-->l4
     l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
@@ -3448,7 +3448,7 @@ def test_sendpay_blinding(node_factory):
     l1.rpc.waitsendpay(inv['payment_hash'])
 
 
-def test_excluded_adjacent_routehint(node_factory, bitcoind, compat):
+def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """Test case where we try have a routehint which leads to an adjacent
     node, but the result exceeds our maxfee; we crashed trying to find
     what part of the path was most expensive in that case
@@ -3615,7 +3615,7 @@ def test_invalid_onion_channel_update(node_factory):
 
 
 @pytest.mark.developer("Requires use_shadow")
-def test_pay_exemptfee(node_factory, compat):
+def test_pay_exemptfee(node_factory):
     """Tiny payment, huge fee
 
     l1 -> l2 -> l3
@@ -3970,46 +3970,6 @@ def test_listpay_result_with_paymod(node_factory, bitcoind):
     assert 'payment_hash' in l1.rpc.listpays()['pays'][0]
     assert 'destination' in l1.rpc.listpays()['pays'][0]
     assert 'destination' in l2.rpc.listpays()['pays'][0]
-
-
-@unittest.skipIf(env('COMPAT') != 1, "legacypay requires COMPAT=1")
-def test_listpays_ongoing_attempt(node_factory, bitcoind, executor):
-    """Test to reproduce issue #3915.
-
-    The issue is that the bolt11 string is not initialized if the root payment
-    was split (no attempt with the bolt11 annotation ever hit `lightningd`,
-    hence we cannot filter by that. In addition keysends never have a bolt11
-    string, so we need to switch to payment_hash comparisons anyway.
-    """
-    plugin = os.path.join(os.path.dirname(__file__), 'plugins', 'hold_htlcs.py')
-    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {}, {'plugin': plugin}],
-                                         wait_for_announce=True)
-
-    f = executor.submit(l1.rpc.keysend, l3.info['id'], 100)
-    l3.daemon.wait_for_log(r'Holding onto an incoming htlc')
-    l1.rpc.listpays()
-    f.result()
-
-    inv = l2.rpc.invoice(10**6, 'legacy', 'desc')['bolt11']
-    l1.rpc.legacypay(inv)
-    l1.rpc.listpays()
-
-    # Produce loads of parts to increase probability of hitting the issue,
-    # should result in 100 splits at least
-    inv = l3.rpc.invoice(10**9, 'mpp invoice', 'desc')['bolt11']
-
-    # Start the payment, it'll get stuck for 10 seconds at l3
-    executor.submit(l1.rpc.pay, inv)
-    l1.daemon.wait_for_log(r'Split into [0-9]+ sub-payments due to initial size')
-    l3.daemon.wait_for_log(r'Holding onto an incoming htlc')
-
-    # While that is going on, check in with `listpays` to see if aggregation
-    # is working.
-    l1.rpc.listpays()
-
-    # Now restart and see if we still can aggregate things correctly.
-    l1.restart()
-    l1.rpc.listpays()
 
 
 def test_listsendpays_and_listpays_order(node_factory):
