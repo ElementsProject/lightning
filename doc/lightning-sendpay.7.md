@@ -5,7 +5,8 @@ SYNOPSIS
 --------
 
 **sendpay** *route* *payment\_hash* [*label*] [*msatoshi*]
-[*bolt11*] [*payment_secret*] [*partid*] [*localofferid*] [*groupid*] [*payment_metadata*]
+[*bolt11*] [*payment_secret*] [*partid*] [*localofferid*] [*groupid*]
+[*payment_metadata*] [*description*]
 
 DESCRIPTION
 -----------

@@ -48,6 +48,10 @@
             "type": "string",
             "description": "the bolt11 string (if pay supplied one)"
           },
+          "description": {
+            "type": "string",
+            "description": "the description matching the bolt11 description hash (if pay supplied one)"
+          },
           "bolt12": {
             "type": "string",
             "description": "the bolt12 string (if supplied for pay: **experimental-offers** only)."
@@ -78,6 +82,7 @@
                 "created_at": {},
                 "label": {},
                 "bolt11": {},
+                "description": {},
                 "bolt12": {},
                 "preimage": {},
                 "number_of_parts": {},
@@ -115,6 +120,7 @@
                 "created_at": {},
                 "label": {},
                 "bolt11": {},
+                "description": {},
                 "bolt12": {},
                 "amount_msat": {},
                 "amount_sent_msat": {},
@@ -152,6 +158,7 @@
                 "created_at": {},
                 "label": {},
                 "bolt11": {},
+                "description": {},
                 "bolt12": {},
                 "amount_sent_msat": {},
                 "erroronion": {

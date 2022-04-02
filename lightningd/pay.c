@@ -154,6 +154,8 @@ void json_add_payment_fields(struct json_stream *response,
 		else
 			json_add_string(response, "bolt11", t->invstring);
 	}
+	if (t->description)
+		json_add_string(response, "description", t->description);
 
 	if (t->failonion)
 		json_add_hex(response, "erroronion", t->failonion,
@@ -857,6 +859,7 @@ send_payment_core(struct lightningd *ld,
 		  struct amount_msat total_msat,
 		  const char *label TAKES,
 		  const char *invstring TAKES,
+		  const char *description TAKES,
 		  const struct onionpacket *packet,
 		  const struct node_id *destination,
 		  struct node_id *route_nodes TAKES,
@@ -1100,6 +1103,10 @@ send_payment_core(struct lightningd *ld,
 		payment->invstring = tal_strdup(payment, invstring);
 	else
 		payment->invstring = NULL;
+	if (description != NULL)
+		payment->description = tal_strdup(payment, description);
+	else
+		payment->description = NULL;
 	payment->local_offer_id = tal_dup_or_null(payment, struct sha256,
 						  local_offer_id);
 
@@ -1121,6 +1128,7 @@ send_payment(struct lightningd *ld,
 	     struct amount_msat total_msat,
 	     const char *label TAKES,
 	     const char *invstring TAKES,
+	     const char *description TAKES,
 	     const struct sha256 *local_offer_id,
 	     const struct secret *payment_secret,
 	     const u8 *payment_metadata)
@@ -1194,7 +1202,7 @@ send_payment(struct lightningd *ld,
 	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
 	return send_payment_core(ld, cmd, rhash, partid, group, &route[0],
 				 msat, total_msat,
-				 label, invstring,
+				 label, invstring, description,
 				 packet, &ids[n_hops - 1], ids,
 				 channels, path_secrets, local_offer_id);
 }
@@ -1265,7 +1273,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct route_hop *first_hop;
 	struct sha256 *payment_hash;
 	struct lightningd *ld = cmd->ld;
-	const char *label, *invstring;
+	const char *label, *invstring, *description;
 	struct node_id *destination;
 	struct secret *path_secrets;
 	struct amount_msat *msat;
@@ -1285,6 +1293,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt("destination", param_node_id, &destination),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
 		   p_opt("groupid", param_u64, &group),
+		   p_opt("description", param_string, &description),
 		   NULL))
 		return command_param_failed();
 
@@ -1306,7 +1315,8 @@ static struct command_result *json_sendonion(struct command *cmd,
 
 	return send_payment_core(ld, cmd, payment_hash, *partid, *group,
 				 first_hop, *msat, AMOUNT_MSAT(0),
-				 label, invstring, packet, destination, NULL, NULL,
+				 label, invstring, description,
+				 packet, destination, NULL, NULL,
 				 path_secrets, local_offer_id);
 }
 
@@ -1420,7 +1430,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct sha256 *rhash;
 	struct route_hop *route;
 	struct amount_msat *msat;
-	const char *invstring, *label;
+	const char *invstring, *label, *description;
 	u64 *partid, *group;
 	struct secret *payment_secret;
 	struct sha256 *local_offer_id;
@@ -1439,6 +1449,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_opt("localofferid", param_sha256, &local_offer_id),
 		   p_opt("groupid", param_u64, &group),
 		   p_opt("payment_metadata", param_bin_from_hex, &payment_metadata),
+		   p_opt("description", param_string, &description),
 		   NULL))
 		return command_param_failed();
 
@@ -1488,7 +1499,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			    route,
 			    final_amount,
 			    msat ? *msat : final_amount,
-			    label, invstring, local_offer_id,
+			    label, invstring, description, local_offer_id,
 			    payment_secret, payment_metadata);
 }
 

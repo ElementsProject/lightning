@@ -273,6 +273,8 @@ struct pay_mpp {
 
 	/* Optional label (of first one!) */
 	const jsmntok_t *label;
+	/* Optional description (used for bolt11 with description_hash) */
+	const jsmntok_t *description;
 	/* Optional preimage (iff status is successful) */
 	const jsmntok_t *preimage;
 	/* Only counts "complete" or "pending" payments. */
@@ -373,7 +375,8 @@ static void add_new_entry(struct json_stream *ret,
 	json_object_start(ret, NULL);
 	if (pm->invstring)
 		json_add_invstring(ret, pm->invstring);
-
+	if (pm->description)
+		json_add_tok(ret, "description", pm->description, buf);
 	if (pm->destination)
 		json_add_tok(ret, "destination", pm->destination, buf);
 
@@ -465,6 +468,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->invstring = tal_steal(pm, invstr);
 			pm->destination = json_get_member(buf, t, "destination");
 			pm->label = json_get_member(buf, t, "label");
+			pm->description = json_get_member(buf, t, "description");
 			pm->preimage = NULL;
 			pm->amount_sent = AMOUNT_MSAT(0);
 			pm->amount = talz(pm, struct amount_msat);
@@ -968,6 +972,7 @@ static struct command_result *json_pay(struct command *cmd,
 
 	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
 	p->invstring = tal_steal(p, b11str);
+	p->description = tal_steal(p, description);
 
 	if (!bolt12_has_prefix(b11str)) {
 		b11 =

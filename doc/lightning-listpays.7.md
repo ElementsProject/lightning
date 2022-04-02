@@ -24,6 +24,7 @@ On success, an object containing **pays** is returned.  It is an array of object
 - **destination** (pubkey, optional): the final destination of the payment if known
 - **label** (string, optional): the label, if given to sendpay
 - **bolt11** (string, optional): the bolt11 string (if pay supplied one)
+- **description** (string, optional): the description matching the bolt11 description hash (if pay supplied one)
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 
 If **status** is "pending" or "complete":
@@ -56,4 +57,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:6ffbb1273de04f356cf79dab9a988ab030eee3317cb22e10d12d1c672249fc67)
+[comment]: # ( SHA256STAMP:3c158259410ff8eb81669e26eca9ee53017002d739f89e7f0e2fd8e61edb8a14)

@@ -716,6 +716,16 @@ def test_invoice_deschash(node_factory, chainparams):
 
     l1.rpc.pay(inv['bolt11'], description=listinv['description'])
 
+    # Description will be in some.
+    found = False
+    for p in l1.rpc.listsendpays()['payments']:
+        if 'description' in p:
+            found = True
+            assert p['description'] == listinv['description']
+    assert found
+
+    assert only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['description'] == listinv['description']
+
     # Try removing description.
     l2.rpc.delinvoice('label', "paid", desconly=True)
     assert 'description' not in only_one(l2.rpc.listinvoices()['invoices'])

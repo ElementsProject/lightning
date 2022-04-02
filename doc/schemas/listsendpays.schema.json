@@ -72,6 +72,10 @@
             "type": "string",
             "description": "the bolt11 string (if pay supplied one)"
           },
+          "description": {
+            "type": "string",
+            "description": "the description matching the bolt11 description hash (if pay supplied one)"
+          },
           "bolt12": {
             "type": "string",
             "description": "the bolt12 string (if supplied for pay: **experimental-offers** only)."
@@ -108,6 +112,7 @@
                 "amount_sent_msat": {},
                 "label": {},
                 "bolt11": {},
+                "description": {},
                 "bolt12": {},
                 "payment_preimage": {
                   "type": "secret",
@@ -146,6 +151,7 @@
                 "amount_sent_msat": {},
                 "label": {},
                 "bolt11": {},
+                "description": {},
                 "bolt12": {},
                 "erroronion": {
                   "type": "hex",
@@ -182,6 +188,7 @@
                 "amount_sent_msat": {},
                 "label": {},
                 "bolt11": {},
+                "description": {},
                 "bolt12": {}
               }
             }
