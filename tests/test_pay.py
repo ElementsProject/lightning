@@ -128,10 +128,15 @@ def test_pay_limits(node_factory):
     assert(len(status) == 2)
     assert(status[0]['failure']['code'] == 205)
 
+    # This fails!
+    err = r'Fee exceeds our fee budget: 2msat > 1msat, discarding route'
+    with pytest.raises(RpcError, match=err) as err:
+        l1.rpc.pay(bolt11=inv['bolt11'], msatoshi=100000, maxfee=1)
+
     # This works, because fee is less than exemptfee.
     l1.dev_pay(inv['bolt11'], msatoshi=100000, maxfeepercent=0.0001,
                exemptfee=2000, use_shadow=False)
-    status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][2]['attempts']
+    status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][3]['attempts']
     assert len(status) == 1
     assert status[0]['strategy'] == "Initial attempt"
 

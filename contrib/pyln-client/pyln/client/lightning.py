@@ -997,7 +997,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
             maxfeepercent=None, retry_for=None,
-            maxdelay=None, exemptfee=None, localofferid=None, exclude=None):
+            maxdelay=None, exemptfee=None, localofferid=None, exclude=None,
+            maxfee=None):
         """
         Send payment specified by {bolt11} with {msatoshi}
         (ignored if {bolt11} has an amount), optional {label}
@@ -1014,6 +1015,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "exemptfee": exemptfee,
             "localofferid": localofferid,
             "exclude": exclude,
+            "maxfee": maxfee,
         }
         return self.call("pay", payload)
 
