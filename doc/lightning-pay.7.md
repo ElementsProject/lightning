@@ -6,7 +6,7 @@ SYNOPSIS
 
 **pay** *bolt11* [*msatoshi*] [*label*] [*riskfactor*]
 [*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*]
-[*exclude*]
+[*localofferid*] [*exclude*]
 
 DESCRIPTION
 -----------
@@ -31,6 +31,11 @@ option can be used for tiny payments which would be dominated by the fee
 leveraged by forwarding nodes. Setting `exemptfee` allows the
 `maxfeepercent` check to be skipped on fees that are smaller than
 `exemptfee` (default: 5000 millisatoshi).
+
+`localofferid` is used by offers to link a payment attempt to a local
+`send_invoice` offer created by lightningd-offerout(7).  This ensures
+that we only make a single payment for an offer, and that the offer is
+marked `used` once paid.
 
 The response will occur when the payment fails or succeeds. Once a
 payment has succeeded, calls to **pay** with the same *bolt11* will
