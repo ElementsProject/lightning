@@ -707,8 +707,14 @@ def test_invoice_deschash(node_factory, chainparams):
     listinv = only_one(l2.rpc.listinvoices()['invoices'])
     assert listinv['description'] == 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
 
-    # Make sure we can pay it!
-    l1.rpc.pay(inv['bolt11'])
+    # To pay it we need to provide the (correct!) description.
+    with pytest.raises(RpcError, match=r'you did not provide description parameter'):
+        l1.rpc.pay(inv['bolt11'])
+
+    with pytest.raises(RpcError, match=r'does not match description'):
+        l1.rpc.pay(inv['bolt11'], description=listinv['description'][:-1])
+
+    l1.rpc.pay(inv['bolt11'], description=listinv['description'])
 
     # Try removing description.
     l2.rpc.delinvoice('label', "paid", desconly=True)
