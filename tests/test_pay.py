@@ -5255,7 +5255,7 @@ def test_pay_bolt11_metadata(node_factory, bitcoind):
     # After CI started failing, I *also* hacked it to set expiry to BIGNUM.
     inv = "lnbcrt1230n1p3yzgcxsp5q8g040f9rl9mu2unkjuj0vn262s6nyrhz5hythk3ueu2lfzahmzspp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdq8v3jhxccmq6w35xjueqd9ejqmt9w3skgct5vyxqxra2q2qcqp99q2sqqqqqysgqfw6efxpzk5x5vfj8se46yg667x5cvhyttnmuqyk0q7rmhx3gs249qhtdggnek8c5adm2pztkjddlwyn2art2zg9xap2ckczzl3fzz4qqsej6mf"
     # Make l2 "know" about this invoice.
-    l2.rpc.invoice(msatoshi='123000', label='label1', description='desc', preimage='00' * 32)
+    l2.rpc.invoice(msatoshi=123000, label='label1', description='desc', preimage='00' * 32)
 
     with pytest.raises(RpcError, match=r'WIRE_INVALID_ONION_PAYLOAD'):
         l1.rpc.pay(inv)
