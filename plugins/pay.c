@@ -925,7 +925,7 @@ static struct command_result *json_pay(struct command *cmd,
 	char *b11_fail, *b12_fail;
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
-	struct amount_msat *exemptfee, *msat;
+	struct amount_msat *exemptfee, *msat, *maxfee;
 	const char *label;
 	unsigned int *retryfor;
 	u64 *riskfactor_millionths;
@@ -950,14 +950,15 @@ static struct command_result *json_pay(struct command *cmd,
 		   p_opt("label", param_string, &label),
 		   p_opt_def("riskfactor", param_millionths,
 			     &riskfactor_millionths, 10000000),
-		   p_opt_def("maxfeepercent", param_millionths,
-			     &maxfee_pct_millionths, 500000),
+		   p_opt("maxfeepercent", param_millionths,
+			 &maxfee_pct_millionths),
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     maxdelay_default),
-		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
+		   p_opt("exemptfee", param_msat, &exemptfee),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),
+		   p_opt("maxfee", param_msat, &maxfee),
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
 #endif
@@ -1103,17 +1104,35 @@ static struct command_result *json_pay(struct command *cmd,
 	p->getroute->riskfactorppm = *riskfactor_millionths;
 	tal_free(riskfactor_millionths);
 
-	/* We free unneeded params as we use them, to keep memleak happy. */
-	if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
-			     *maxfee_pct_millionths / 100)) {
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_PARAMS,
-		    "Overflow when computing fee budget, fee rate too high.");
-	}
-	tal_free(maxfee_pct_millionths);
+	if (maxfee) {
+		if (maxfee_pct_millionths || exemptfee) {
+			return command_fail(
+				cmd, JSONRPC2_INVALID_PARAMS,
+				"If you specify maxfee, cannot specify maxfeepercent or exemptfee.");
+		}
+		p->constraints.fee_budget = *maxfee;
+		payment_mod_exemptfee_get_data(p)->amount = AMOUNT_MSAT(0);
+	} else {
+		u64 maxppm;
 
-	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
-	tal_free(exemptfee);
+		if (maxfee_pct_millionths)
+			maxppm = *maxfee_pct_millionths / 100;
+		else
+			maxppm = 500000 / 100;
+		if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
+				     maxppm)) {
+			return command_fail(
+				cmd, JSONRPC2_INVALID_PARAMS,
+				"Overflow when computing fee budget, fee rate too high.");
+		}
+		payment_mod_exemptfee_get_data(p)->amount
+			= exemptfee ? *exemptfee : AMOUNT_MSAT(5000);
+
+		/* We free unneeded params now to keep memleak happy. */
+		tal_free(maxfee_pct_millionths);
+		tal_free(exemptfee);
+	}
+
 	shadow_route = payment_mod_shadowroute_get_data(p);
 	payment_mod_presplit_get_data(p)->disable = disablempp;
 	payment_mod_adaptive_splitter_get_data(p)->disable = disablempp;

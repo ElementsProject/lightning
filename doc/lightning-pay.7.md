@@ -5,8 +5,8 @@ SYNOPSIS
 --------
 
 **pay** *bolt11* [*msatoshi*] [*label*] [*riskfactor*]
-[*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*]
-[*localofferid*] [*exclude*]
+[*maxfeepercent*] [*retry_for*] [*maxdelay*] [*exemptfee*]
+[*localofferid*] [*exclude*] [*maxfee*]
 
 DESCRIPTION
 -----------
@@ -36,6 +36,12 @@ leveraged by forwarding nodes. Setting `exemptfee` allows the
 `send_invoice` offer created by lightningd-offerout(7).  This ensures
 that we only make a single payment for an offer, and that the offer is
 marked `used` once paid.
+
+*maxfee* overrides both *maxfeepercent* and *exemptfee* defaults (and
+if you specify *maxfee* you cannot specify either of those), and
+creates an absolute limit on what fee we will pay.  This allows you to
+implement your own heuristics rather than the primitive ones used
+here.
 
 The response will occur when the payment fails or succeeds. Once a
 payment has succeeded, calls to **pay** with the same *bolt11* will
