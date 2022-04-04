@@ -15,7 +15,7 @@ This release named by Simon Vrouwe; this marks the name change to core-lightning
 ### Added
 
  - Protocol: we now support opening multiple channels with the same peer. ([#5078])
- - Protocol: we send/receive IP addresses in `init`, and send updated node_announcement when two peers report the same remote_addr. ([#5052])
+ - Protocol: we send/receive IP addresses in `init`, and send updated node_announcement when two peers report the same remote_addr (`disable-ip-discovery` suppresses this announcement). ([#5052])
  - Plugins: `cln-grpc` first class GRPC interface for remotely controlling nodes over mTLS authentication; set `grpc-port` to activate ([#5013])
  - Database: With the `sqlite3://` scheme for `--wallet` option, you can now specify a second file path for real-time database backup by separating it from the main file path with a `:` character. ([#4890])
  - Protocol: `pay` (and decode, etc) supports bolt11 payment_metadata a-la https://github.com/lightning/bolts/pull/912 ([#5086])
@@ -25,6 +25,7 @@ This release named by Simon Vrouwe; this marks the name change to core-lightning
  - JSON-RPC: `listforwards` has new entry `style`, currently "legacy" or "tlv". ([#5146])
  - JSON-RPC: `delinvoice` has a new parameter `desconly` to remove description. ([#5121])
  - JSON-RPC: new `setchannel` command generalizes `setchannelfee`: you can now alter the `htlc_minimum_msat` and `htlc_maximum_msat` your node advertizes. ([#5103])
+ - Config: `htlc-minimum-msat` and `htlc-maximum-msat` to set default values to  advertizes for new channels. ([#5136])
  - JSON-RPC: `listpeers` now includes a `pushed_msat` value. For leased channels, is the total lease_fee. ([#5043])
  - JSON-RPC: `getinfo` result now includes `our_features` (bits) for various Bolt #9 contexts ([#5047])
  - Docker build for ARM defaults to `bitcoin`, but can be overridden with the `LIGHTNINGD_NETWORK` envvar. ([#4896])
@@ -138,6 +139,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5121]: https://github.com/ElementsProject/lightning/pull/5121
 [#5122]: https://github.com/ElementsProject/lightning/pull/5122
 [#5130]: https://github.com/ElementsProject/lightning/pull/5130
+[#5136]: https://github.com/ElementsProject/lightning/pull/5136
 [#5146]: https://github.com/ElementsProject/lightning/pull/5146
 [0.11.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.0
 
