@@ -480,6 +480,13 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			// First time we see the groupid we add it to the order
 			// array, so we can retrieve them in the correct order.
 			tal_arr_expand(&order, pm->sortkey);
+		} else {
+			/* Not all payments have bolt11/bolt12 or
+			 * description, as an optimization */
+			if (!pm->invstring)
+				pm->invstring = tal_steal(pm, invstr);
+			if (!pm->description)
+				pm->description = json_get_member(buf, t, "description");
 		}
 
 		status = json_get_member(buf, t, "status");

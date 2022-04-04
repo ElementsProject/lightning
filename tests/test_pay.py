@@ -3799,6 +3799,9 @@ def test_mpp_adaptive(node_factory, bitcoind):
     pprint(p)
     pprint(l1.rpc.paystatus(inv))
 
+    # listpays() shows bolt11 string
+    assert 'bolt11' in only_one(l1.rpc.listpays()['pays'])
+
 
 def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
     '''

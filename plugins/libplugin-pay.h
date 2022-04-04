@@ -255,6 +255,10 @@ struct payment {
 	 * true. Set only on the root payment. */
 	bool abort;
 
+	/* We only set invstring/description on one of our sendpays per group,
+	 * so we track when we've done that. */
+	bool invstring_used;
+
 	/* Serialized bolt11/12 string, kept attachd to the root so we can filter
 	 * by the invoice. */
 	const char *invstring;

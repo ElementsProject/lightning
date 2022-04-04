@@ -186,6 +186,8 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->min_final_cltv_expiry = 22;
 	p->features = NULL;
 	p->invstring = NULL;
+	/* Don't try to use invstring to hand to sendonion! */
+	p->invstring_used = true;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
 	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
