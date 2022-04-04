@@ -61,11 +61,10 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->failreason = NULL;
 	p->getroute->riskfactorppm = 10000000;
 	p->abort = false;
+	p->invstring_used = false;
 	p->route = NULL;
 	p->temp_exclusion = NULL;
 	p->failroute_retry = false;
-	p->invstring = NULL;
-	p->description = NULL;
 	p->routetxt = NULL;
 	p->max_htlcs = UINT32_MAX;
 	p->aborterror = NULL;
@@ -94,6 +93,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->local_id = parent->local_id;
 		p->local_offer_id = parent->local_offer_id;
 		p->groupid = parent->groupid;
+		p->invstring = parent->invstring;
+		p->description = parent->description;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -102,6 +103,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->channel_hints = tal_arr(p, struct channel_hint, 0);
 		p->excluded_nodes = tal_arr(p, struct node_id, 0);
 		p->id = next_id++;
+		p->description = NULL;
 		/* Caller must set this.  */
 		p->local_id = NULL;
 		p->local_offer_id = NULL;
@@ -1536,6 +1538,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	struct out_req *req;
 	struct route_hop *first = &p->route[0];
 	struct secret *secrets;
+	struct payment *root = payment_root(p);
 
 	p->createonion_response = json_to_createonion_response(p, buffer, toks);
 
@@ -1565,12 +1568,15 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	if (p->label)
 		json_add_string(req->js, "label", p->label);
 
-	if (p->invstring)
+	if (!root->invstring_used) {
 		/* FIXME: rename parameter to invstring */
 		json_add_string(req->js, "bolt11", p->invstring);
 
-	if (p->description)
-		json_add_string(req->js, "description", p->description);
+		if (p->description)
+			json_add_string(req->js, "description", p->description);
+
+		root->invstring_used = true;
+	}
 
 	if (p->destination)
 		json_add_node_id(req->js, "destination", p->destination);
@@ -3558,13 +3564,6 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 
 			struct payment *c =
 			    payment_new(p, NULL, p, p->modifiers);
-
-			/* Annotate the subpayments with the bolt11 string,
-			 * they'll be used when aggregating the payments
-			 * again. */
-			c->invstring = tal_strdup(c, p->invstring);
-			if (p->description)
-				c->description = tal_strdup(c, p->description);
 
 			/* Get ~ target, but don't exceed amt */
 			c->amount = fuzzed_near(target, amt);
