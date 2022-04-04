@@ -4,6 +4,164 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+<!--
+TODO: Insert version codename, and username of the contributor that named the release.
+-->
+
+## [v0.11.0rc1] - 2022-04-04: Simon's Carefully Chosen Release Name
+
+This release named by Simon Vrouwe; this marks the name change to core-lightning (#CLN).
+
+### Added
+
+ - Protocol: we now support opening multiple channels with the same peer. ([#5078])
+ - Protocol: we send/receive IP addresses in `init`, and send updated node_announcement when two peers report the same remote_addr. ([#5052])
+ - Plugins: `cln-grpc` first class GRPC interface for remotely controlling nodes over mTLS authentication; set `grpc-port` to activate ([#5013])
+ - Database: With the `sqlite3://` scheme for `--wallet` option, you can now specify a second file path for real-time database backup by separating it from the main file path with a `:` character. ([#4890])
+ - Protocol: `pay` (and decode, etc) supports bolt11 payment_metadata a-la https://github.com/lightning/bolts/pull/912 ([#5086])
+ - JSON-RPC: `invoice` has a new parameter `deschashonly` to put hash of description in bolt11. ([#5121])
+ - JSON-RPC: `pay` has new parameter `description`, will be required if bolt11 only has a hash. ([#5122])
+ - JSON-RPC: `pay` has new parameter `maxfee` for setting absolute fee (instead of using `maxfeepercent` and/or `exemptfee`) ([#5122])
+ - JSON-RPC: `listforwards` has new entry `style`, currently "legacy" or "tlv". ([#5146])
+ - JSON-RPC: `delinvoice` has a new parameter `desconly` to remove description. ([#5121])
+ - JSON-RPC: new `setchannel` command generalizes `setchannelfee`: you can now alter the `htlc_minimum_msat` and `htlc_maximum_msat` your node advertizes. ([#5103])
+ - JSON-RPC: `listpeers` now includes a `pushed_msat` value. For leased channels, is the total lease_fee. ([#5043])
+ - JSON-RPC: `getinfo` result now includes `our_features` (bits) for various Bolt #9 contexts ([#5047])
+ - Docker build for ARM defaults to `bitcoin`, but can be overridden with the `LIGHTNINGD_NETWORK` envvar. ([#4896])
+ - Developer: A new Rust library called `cln-rpc` can be used to interact with the JSON-RPC ([#5010])
+ - JSON-RPC: A new `msggen` library allows easy generation of language bindings for the JSON-RPC from the JSON schemas ([#5010])
+ - JSON-RPC: `listchannels` now includes the `funding_outnum` ([#5016])
+ - JSON-RPC: `coin_movement` to 'external' accounts now include an 'originating_account' field ([#5019])
+ - JSON-RPC: Add `exclude` option for `pay` command to manually exclude channels or nodes when finding a route. ([#4906])
+ - Database: Speed up loading of pending HTLCs during startup by using a partial index. ([#4925])
+
+
+### Changed
+
+ - JSON-RPC: `close` by peer id will fail if there is more than one live channel (use `channel_id` or `short_channel_id` as id arg). ([#5078])
+ - JSON_RPC: `sendcustommsg` now works with any connected peer, even when shutting down a channel. ([#4985])
+ - JSON_RPC: `ping` now works with connected peers, even without a channel. ([#4985])
+ - cli: Addition of HSM specific error code in lightning-cli ([#4908])
+ - config: If the port is unspecified, the default port is chosen according to used network similarly to Bitcoin Core. ([#4900])
+ - Plugins: `shutdown` notification is now send when lightningd is almost completely shutdown, RPC calls then fail with error code -5. ([#4897])
+ - Protocol: `signet` addresses and invoices now use `tbs` instead of `tb`. ([#4929])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `pay` for a bolt11 which uses a `description_hash`, without setting `description`. ([#5122])
+ - JSON-RPC: `invoice` `expiry` no longer allowed to be a string with suffix, use an integer number of seconds. ([#5104])
+ - JSON-RPC: `fundpsbt`/`utxopsbt` `reserve` must be a number, not bool (for `true` use 72/don't specify, for `false` use 0).  Numbers have been allowed since v0.10.1. ([#5104])
+ - JSON-RPC: `shutdown` no longer allows p2pkh or p2sh addresses. ([#5086])
+ - JSON-RPC: `sendpay` `route` argument `style` "legacy" (don't use it at all, we ignore it now and always use "tlv" anyway). ([#5120])
+ - JSON-RPC: `setchannelfee` (use `setchannel`). ([#5103])
+
+
+### Removed
+
+ - JSON-RPC: `legacypay` (`pay` replaced it in 0.9.0). ([#5122])
+ - Protocol: support for legacy onion format removed, since everyone supports the new one. ([#5058])
+ - Protocol: ... but we still forward legacy HTLC onions for now. ([#5146])
+ - Plugins:  The `message` field on the `custommsg` hook (deprecated in v0.10.0) ([#4902])
+ - JSON-RPC: `fundchannel_complete` `txid` and `txout` parameters (deprecated in v0.10.0) ([#4902])
+
+
+### Fixed
+
+ - onchaind: we sometimes failed to close upstream htlcs if more than one HTLC is in flight during unilateral close. ([#5130])
+ - JSON-RPC: `listpays` always includes `bolt11` or `bolt12` field. ([#5122])
+ - cli: don't ask to confirm the password if the `hsm_secret` is already encrypted. ([#5085])
+ - cli: check if the `hsm_secret` password and the confirmation match from the command line ([#5085])
+ - JSON-RPC: `connect` notification now called even if we already have a live channel. ([#5078])
+ - docker: The docker image is now built with postgresql support ([#5081])
+ - hsmd: Fixed a significant memory leak ([#5051])
+ - closingd: more accurate weight estimation helps mutual closing near min/max feerates. ([#5004])
+ - Protocol: Always flush sockets to increase chance that final message get to peer (esp. error packets). ([#4984])
+ - JSON-RPC: listincoming showed incoming_capacity_msat field 1000 times actual value. ([#4913])
+ - Options: Respect --always-use-proxy AND --disable-dns when parsing wireaddresses to listen on. ([#4829])
+ - lightningd: remove slow memory leak in DEVELOPER builds. ([#4931])
+ - JSON-RPC: `paystatus` entries no longer have two identical `amount_msat` entries. ([#4911])
+ - We really do allow providing multiple addresses of the same type. ([#4902])
+
+
+### EXPERIMENTAL
+
+ - Fixex `experimental-websocket` intermittent read errors ([#5090])
+ - Fixed `experimental-websocket-port` not to leave zombie processes. ([#5101])
+ - Config option `--lease-fee-base-msat` renamed to `--lease-fee-base-sat` ([#5047])
+ - Config option `--lease-fee-base-msat` deprecated and will be removed next release ([#5047])
+ - Fixex `experimental-websocket-port` to work with default addresses. ([#4945])
+ - Protocol: removed support for v0.10.1 onion messages. ([#4921])
+ - Protocol: Ability to announce DNS addresses ([#4829])
+
+
+
+[#4829]: https://github.com/ElementsProject/lightning/pull/4829
+[#5085]: https://github.com/ElementsProject/lightning/pull/5085
+[#5103]: https://github.com/ElementsProject/lightning/pull/5103
+[#5086]: https://github.com/ElementsProject/lightning/pull/5086
+[#5103]: https://github.com/ElementsProject/lightning/pull/5103
+[#4985]: https://github.com/ElementsProject/lightning/pull/4985
+[#5078]: https://github.com/ElementsProject/lightning/pull/5078
+[#4896]: https://github.com/ElementsProject/lightning/pull/4896
+[#4931]: https://github.com/ElementsProject/lightning/pull/4931
+[#5104]: https://github.com/ElementsProject/lightning/pull/5104
+[#4984]: https://github.com/ElementsProject/lightning/pull/4984
+[#5078]: https://github.com/ElementsProject/lightning/pull/5078
+[#5013]: https://github.com/ElementsProject/lightning/pull/5013
+[#5013]: https://github.com/ElementsProject/lightning/pull/5013
+[#5086]: https://github.com/ElementsProject/lightning/pull/5086
+[#4906]: https://github.com/ElementsProject/lightning/pull/4906
+[#5122]: https://github.com/ElementsProject/lightning/pull/5122
+[#4925]: https://github.com/ElementsProject/lightning/pull/4925
+[#5146]: https://github.com/ElementsProject/lightning/pull/5146
+[#4911]: https://github.com/ElementsProject/lightning/pull/4911
+[#5103]: https://github.com/ElementsProject/lightning/pull/5103
+[#5051]: https://github.com/ElementsProject/lightning/pull/5051
+[#5019]: https://github.com/ElementsProject/lightning/pull/5019
+[#4829]: https://github.com/ElementsProject/lightning/pull/4829
+[#5121]: https://github.com/ElementsProject/lightning/pull/5121
+[#5081]: https://github.com/ElementsProject/lightning/pull/5081
+[#5130]: https://github.com/ElementsProject/lightning/pull/5130
+[#5120]: https://github.com/ElementsProject/lightning/pull/5120
+[#5010]: https://github.com/ElementsProject/lightning/pull/5010
+[#5104]: https://github.com/ElementsProject/lightning/pull/5104
+[#4900]: https://github.com/ElementsProject/lightning/pull/4900
+[#4921]: https://github.com/ElementsProject/lightning/pull/4921
+[#4897]: https://github.com/ElementsProject/lightning/pull/4897
+[#5016]: https://github.com/ElementsProject/lightning/pull/5016
+[#4929]: https://github.com/ElementsProject/lightning/pull/4929
+[#5121]: https://github.com/ElementsProject/lightning/pull/5121
+[#5058]: https://github.com/ElementsProject/lightning/pull/5058
+[#5052]: https://github.com/ElementsProject/lightning/pull/5052
+[#5010]: https://github.com/ElementsProject/lightning/pull/5010
+[#4902]: https://github.com/ElementsProject/lightning/pull/4902
+[#5047]: https://github.com/ElementsProject/lightning/pull/5047
+[#5004]: https://github.com/ElementsProject/lightning/pull/5004
+[#5146]: https://github.com/ElementsProject/lightning/pull/5146
+[#5043]: https://github.com/ElementsProject/lightning/pull/5043
+[#5122]: https://github.com/ElementsProject/lightning/pull/5122
+[#5122]: https://github.com/ElementsProject/lightning/pull/5122
+[#4985]: https://github.com/ElementsProject/lightning/pull/4985
+[#5047]: https://github.com/ElementsProject/lightning/pull/5047
+[#5090]: https://github.com/ElementsProject/lightning/pull/5090
+[#5078]: https://github.com/ElementsProject/lightning/pull/5078
+[#4864]: https://github.com/ElementsProject/lightning/pull/4864
+[#4945]: https://github.com/ElementsProject/lightning/pull/4945
+[#4902]: https://github.com/ElementsProject/lightning/pull/4902
+[#4902]: https://github.com/ElementsProject/lightning/pull/4902
+[#5047]: https://github.com/ElementsProject/lightning/pull/5047
+[#4913]: https://github.com/ElementsProject/lightning/pull/4913
+[#5122]: https://github.com/ElementsProject/lightning/pull/5122
+[#4890]: https://github.com/ElementsProject/lightning/pull/4890
+[#5101]: https://github.com/ElementsProject/lightning/pull/5101
+[#5085]: https://github.com/ElementsProject/lightning/pull/5085
+[#4908]: https://github.com/ElementsProject/lightning/pull/4908
+[#5122]: https://github.com/ElementsProject/lightning/pull/5122
+[0.11.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.0
+
 ## [0.10.2] - 2021-11-03: Bitcoin Dust Consensus Rule
 
 This release named by @vincenzopalazzo.
