@@ -3730,6 +3730,24 @@ def test_mpp_presplit(node_factory):
 
     assert(inv['msatoshi'] == inv['msatoshi_received'])
 
+    # Make sure that bolt11 isn't duplicated for every part
+    bolt11s = 0
+    count = 0
+    for p in l1.rpc.listsendpays()['payments']:
+        if 'bolt11' in p:
+            bolt11s += 1
+        count += 1
+
+    # You were supposed to mpp!
+    assert count > 1
+    # Not every one should have the bolt11 string
+    assert bolt11s < count
+    # In fact, only one should
+    assert bolt11s == 1
+
+    # But listpays() gathers it:
+    assert only_one(l1.rpc.listpays()['pays'])['bolt11'] == inv['bolt11']
+
 
 def test_mpp_adaptive(node_factory, bitcoind):
     """We have two paths, both too small on their own, let's combine them.
@@ -3798,6 +3816,19 @@ def test_mpp_adaptive(node_factory, bitcoind):
     from pprint import pprint
     pprint(p)
     pprint(l1.rpc.paystatus(inv))
+
+    # Make sure that bolt11 isn't duplicated for every part
+    bolt11s = 0
+    count = 0
+    for p in l1.rpc.listsendpays()['payments']:
+        if 'bolt11' in p:
+            bolt11s += 1
+        count += 1
+
+    # You were supposed to mpp!
+    assert count > 1
+    # Not every one should have the bolt11 string
+    assert bolt11s < count
 
     # listpays() shows bolt11 string
     assert 'bolt11' in only_one(l1.rpc.listpays()['pays'])
