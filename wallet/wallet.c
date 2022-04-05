@@ -2648,21 +2648,12 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 		u64 in_id = db_col_u64(stmt, "origin_htlc");
 		struct htlc_in *hin;
 
+		/* If it failed / succeeded already, we could have
+		 * closed incoming htlc */
 		hin = remove_htlc_in_by_dbid(unconnected_htlcs_in, in_id);
 		if (hin)
 			htlc_out_connect_htlc_in(out, hin);
 		out->am_origin = false;
-		if (!out->in && !out->preimage) {
-#ifdef COMPAT_V061
-			log_broken(wallet->log,
-				   "Missing preimage for orphaned HTLC; replacing with zeros");
-			out->preimage = talz(out, struct preimage);
-#else
-			fatal("Unable to find corresponding htlc_in %"PRIu64
-			      " for unfulfilled htlc_out %"PRIu64,
-			      in_id, out->dbid);
-#endif
-		}
 		db_col_ignore(stmt, "partid");
 		db_col_ignore(stmt, "groupid");
 	} else {
