@@ -52,14 +52,14 @@ then
     export STRIP="$TARGET_HOST"-strip
     export CONFIGURATION_WRAPPER=qemu-"${TARGET_HOST%%-*}"-static
 
-    wget -q https://zlib.net/zlib-1.2.11.tar.gz
-    tar xf zlib-1.2.11.tar.gz
-    cd zlib-1.2.11 || exit 1
+    wget -q https://zlib.net/zlib-1.2.12.tar.gz
+    tar xf zlib-1.2.12.tar.gz
+    cd zlib-1.2.12 || exit 1
     ./configure --prefix="$QEMU_LD_PREFIX"
     make
     sudo make install
     cd .. || exit 1
-    rm zlib-1.2.11.tar.gz && rm -rf zlib-1.2.11
+    rm zlib-1.2.12.tar.gz && rm -rf zlib-1.2.12
 
     wget -q https://www.sqlite.org/2018/sqlite-src-3260000.zip
     unzip -q sqlite-src-3260000.zip

@@ -62,12 +62,12 @@ STRIP=${target_host}-strip \
 QEMU_LD_PREFIX=/usr/${target_host} \
 HOST=${target_host}
 
-RUN wget -q https://zlib.net/zlib-1.2.11.tar.gz \
-&& tar xvf zlib-1.2.11.tar.gz \
-&& cd zlib-1.2.11 \
+RUN wget -q https://zlib.net/zlib-1.2.12.tar.gz \
+&& tar xvf zlib-1.2.12.tar.gz \
+&& cd zlib-1.2.12 \
 && ./configure --prefix=$QEMU_LD_PREFIX \
 && make \
-&& make install && cd .. && rm zlib-1.2.11.tar.gz && rm -rf zlib-1.2.11
+&& make install && cd .. && rm zlib-1.2.12.tar.gz && rm -rf zlib-1.2.12
 
 RUN apt-get install -y --no-install-recommends unzip tclsh \
 && wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip \

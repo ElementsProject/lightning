@@ -343,9 +343,9 @@ Obtain and install cross-compiled versions of sqlite3, gmp and zlib:
 
 Download and build zlib:
 
-    wget https://zlib.net/zlib-1.2.11.tar.gz
-    tar xvf zlib-1.2.11.tar.gz
-    cd zlib-1.2.11
+    wget https://zlib.net/zlib-1.2.12.tar.gz
+    tar xvf zlib-1.2.12.tar.gz
+    cd zlib-1.2.12
     ./configure --prefix=$QEMU_LD_PREFIX
     make
     make install
