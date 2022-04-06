@@ -61,6 +61,10 @@ For development or running tests, get additional dependencies:
     sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
       libsecp256k1-dev jq
 
+If you want to build the Rust plugins (currently, cln-grpc):
+
+	sudo apt-get install -y cargo rustfmt
+
 Build lightning:
 
     poetry install
@@ -73,8 +77,6 @@ Running lightning:
     bitcoind &
     ./lightningd/lightningd &
     ./cli/lightning-cli help
-
-**Note**: You may need to include `testnet=1` in `bitcoin.conf`
 
 To Build on Fedora
 ---------------------
