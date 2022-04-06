@@ -61,7 +61,7 @@ csv = [
     "msgdata,reply_channel_range,chain_hash,chain_hash,",
     "msgdata,reply_channel_range,first_blocknum,u32,",
     "msgdata,reply_channel_range,number_of_blocks,u32,",
-    "msgdata,reply_channel_range,full_information,byte,",
+    "msgdata,reply_channel_range,sync_complete,byte,",
     "msgdata,reply_channel_range,len,u16,",
     "msgdata,reply_channel_range,encoded_short_ids,byte,len",
     "msgdata,reply_channel_range,tlvs,reply_channel_range_tlvs,",

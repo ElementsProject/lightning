@@ -8,6 +8,8 @@ csv = [
     "tlvtype,tlv_payload,payment_data,8",
     "tlvdata,tlv_payload,payment_data,payment_secret,byte,32",
     "tlvdata,tlv_payload,payment_data,total_msat,tu64,",
+    "tlvtype,tlv_payload,payment_metadata,16",
+    "tlvdata,tlv_payload,payment_metadata,payment_metadata,byte,...",
     "msgtype,invalid_realm,PERM|1",
     "msgtype,temporary_node_failure,NODE|2",
     "msgtype,permanent_node_failure,PERM|NODE|2",
