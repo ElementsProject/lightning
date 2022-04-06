@@ -225,7 +225,7 @@ There are four kinds of tests:
 
   `make check-python`
 
-Our Travis CI instance (see `.travis.yml`) runs all these for each
+Our Github Actions instance (see `.github/workflows/*.yml`) runs all these for each
 pull request.
 
 #### Additional Environment Variables
