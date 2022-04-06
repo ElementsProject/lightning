@@ -191,7 +191,7 @@ A modern desktop can build and run through all the tests in a couple of minutes 
 
 Adjust `-j` and `PYTEST_PAR` accordingly for your hardware.
 
-There are three kinds of tests:
+There are four kinds of tests:
 
 * **source tests** - run by `make check-source`, looks for whitespace,
   header order, and checks formatted quotes from BOLTs if BOLTDIR
