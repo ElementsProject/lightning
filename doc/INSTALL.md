@@ -243,6 +243,7 @@ If you need Python 3.x for mako (or get a mako build error):
     $ source ~/.bash_profile
     $ pyenv install 3.7.4
     $ pip install --upgrade pip
+    $ pip install poetry
 
 If you don't have bitcoind installed locally you'll need to install that
 as well:
@@ -259,16 +260,11 @@ Clone lightning:
     $ git clone https://github.com/ElementsProject/lightning.git
     $ cd lightning
 
-Configure Python 3.x & get mako:
-
-    $ pyenv local 3.7.4
-    $ pip install mako
-
 Build lightning:
 
-    $ pip install -r requirements.txt
+    $ poetry install
     $ ./configure
-    $ make
+    $ poetry run make
 
 Running lightning:
 
