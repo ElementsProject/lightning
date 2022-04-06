@@ -169,8 +169,13 @@ plugins/fetchinvoice: bitcoin/chainparams.o $(PLUGIN_FETCHINVOICE_OBJS) $(PLUGIN
 plugins/funder: bitcoin/chainparams.o bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
 ifneq ($(RUST),0)
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) target/${RUST_PROFILE}/cln-grpc
-PLUGINS += target/${RUST_PROFILE}/cln-grpc
+# Builtin plugins must be in this plugins dir to work when we're executed
+# *without* make install.
+plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
+	@cp $< $@
+
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
+PLUGINS += plugins/cln-grpc
 endif
 
 # Generated from PLUGINS definition in plugins/Makefile
