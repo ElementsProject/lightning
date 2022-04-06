@@ -212,7 +212,7 @@ def sphinx_path_from_test_vector(filename: str) -> Tuple[onion.SphinxPath, dict]
 def test_hop_params():
     """Test that we generate the onion parameters correctly.
 
-    Extracted from running the c-lightning implementation:
+    Extracted from running the Core Lightning implementation:
 
     ```bash
     devtools/onion runtest tests/vectors/onion-test-multi-frame.json

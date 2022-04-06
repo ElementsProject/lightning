@@ -304,7 +304,7 @@ static const struct json_command plugin_control_command = {
 	"Control plugins (start, stop, startdir, rescan, list)",
 	.verbose = "Usage :\n"
 	"plugin start /path/to/a/plugin\n"
-	"	adds a new plugin to c-lightning\n"
+	"	adds a new plugin to Core Lightning\n"
 	"plugin stop plugin_name\n"
 	"	stops an already registered plugin\n"
 	"plugin startdir /path/to/a/plugin_dir/\n"

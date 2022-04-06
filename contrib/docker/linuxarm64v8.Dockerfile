@@ -1,7 +1,7 @@
 # This dockerfile is meant to cross compile with a x64 machine for a arm64v8 host
 # It is using multi stage build: 
-# * downloader: Download litecoin/bitcoin and qemu binaries needed for c-lightning
-# * builder: Cross compile c-lightning dependencies, then c-lightning itself with static linking
+# * downloader: Download litecoin/bitcoin and qemu binaries needed for Core Lightning
+# * builder: Cross compile Core Lightning dependencies, then Core Lightning itself with static linking
 # * final: Copy the binaries required at runtime
 # The resulting image uploaded to dockerhub will only contain what is needed for runtime.
 # From the root of the repository, run "docker build -t yourimage:yourtag -f contrib/linuxarm64v8.Dockerfile ."

@@ -1,11 +1,11 @@
-# pyln-testing: A library to write tests against c-lightning
+# pyln-testing: A library to write tests against Core Lightning
 
 This library implements a number of utilities that help building tests for
-c-lightning nodes. In particular it provides a number of pytest fixtures that
+Core Lightning nodes. In particular it provides a number of pytest fixtures that
 allow the management of a test network of a given topology and then execute a
 test scenarion.
 
-`pyln-testing` is used by c-lightning for its internal tests, and by the
+`pyln-testing` is used by Core Lightning for its internal tests, and by the
 community plugin directory to exercise the plugins.
 
 ## Installation
@@ -17,7 +17,7 @@ pip install pyln-testing
 ```
 
 Alternatively you can also install the development version to get access to
-currently unreleased features by checking out the c-lightning source code and
+currently unreleased features by checking out the Core Lightning source code and
 installing into your python3 environment:
 
 ```bash

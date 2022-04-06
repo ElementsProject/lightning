@@ -462,7 +462,7 @@ static bool htlc_dust(const struct channel *channel,
  * leads to the channel starving at the feast!  This was reported by
  * ACINQ's @t-bast
  * (https://github.com/lightningnetwork/lightning-rfc/issues/728) and
- * demonstrated with c-lightning by @m-schmoock
+ * demonstrated with Core Lightning by @m-schmoock
  * (https://github.com/ElementsProject/lightning/pull/3498).
  *
  * To mostly avoid this situation, at least from our side, we apply an

@@ -91,7 +91,7 @@ Here's a list of parts, with notes:
 Debugging
 ---------
 
-You can build c-lightning with DEVELOPER=1 to use dev commands listed in
+You can build Core Lightning with DEVELOPER=1 to use dev commands listed in
 ``cli/lightning-cli help``. ``./configure --enable-developer`` will do that.
 You can log console messages with log_info() in lightningd and status_debug()
 in other subdaemons.
@@ -110,7 +110,7 @@ subdaemon will be stopped (it sends itself a SIGSTOP); you'll need to
 Database
 --------
 
-c-lightning state is persisted in `lightning-dir`.
+Core Lightning state is persisted in `lightning-dir`.
 It is a sqlite database stored in the `lightningd.sqlite3` file, typically
 under `~/.lightning/<network>/`.
 You can run queries against this file like so:

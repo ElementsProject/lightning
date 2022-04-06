@@ -1,5 +1,5 @@
 //! This is a test plugin used to verify that we can compile and run
-//! plugins using the Rust API against c-lightning.
+//! plugins using the Rust API against Core Lightning.
 #[macro_use]
 extern crate serde_json;
 use cln_plugin::{options, Builder, Error, Plugin};

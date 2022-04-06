@@ -1,4 +1,4 @@
-lightning-getinfo -- Command to receive all information about the c-lightning node.
+lightning-getinfo -- Command to receive all information about the Core Lightning node.
 ============================================================
 
 SYNOPSIS

@@ -16,7 +16,7 @@ along the route on how to behave. Normally these instructions are indications
 on where to forward a payment and what parameters to use, or contain details
 of the payment for the final hop. However, it is possible to add arbitrary
 information for hops in the custom onion, allowing for custom extensions that
-are not directly supported by c-lightning.
+are not directly supported by Core Lightning.
 
 The onion is specific to the route that is being used and the *payment_hash*
 used to construct, and therefore cannot be reused for other payments or to
@@ -28,10 +28,10 @@ by either of the tools that can generate onions. It contains the payloads
 destined for each hop and some metadata. Please refer to [BOLT 04][bolt04] for
 further details.
 
-The *first_hop* parameter instructs c-lightning which peer to send the onion
+The *first_hop* parameter instructs Core Lightning which peer to send the onion
 to. It is a JSON dictionary that corresponds to the first element of the route
 array returned by *getroute*. The following is a minimal example telling
-c-lightning to use any available channel to `022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59`
+Core Lightning to use any available channel to `022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59`
 to add an HTLC for 1002 millisatoshis and a delay of 21 blocks on top of the current blockheight:
 
 ```json
@@ -50,13 +50,13 @@ The *label* parameter can be used to provide a human readable reference to
 retrieve the payment at a later time.
 
 The *shared_secrets* parameter is a JSON list of 32 byte hex-encoded secrets
-that were used when creating the onion. c-lightning can send a payment with a
+that were used when creating the onion. Core Lightning can send a payment with a
 custom onion without the knowledge of these secrets, however it will not be
 able to parse an eventual error message since that is encrypted with the
-shared secrets used in the onion. If *shared_secrets* is provided c-lightning
+shared secrets used in the onion. If *shared_secrets* is provided Core Lightning
 will decrypt the error, act accordingly, e.g., add a `channel_update` included
 in the error to its network view, and set the details in *listsendpays*
-correctly. If it is not provided c-lightning will store the encrypted onion,
+correctly. If it is not provided Core Lightning will store the encrypted onion,
 and expose it in *listsendpays* allowing the caller to decrypt it
 externally. The following is an example of a 3 hop onion:
 
@@ -68,7 +68,7 @@ externally. The following is an example of a 3 hop onion:
 ]
 ```
 
-If *shared_secrets* is not provided the c-lightning node does not know how
+If *shared_secrets* is not provided the Core Lightning node does not know how
 long the route is, which channels or nodes are involved, and what an eventual
 error could have been. It can therefore be used for oblivious payments.
 

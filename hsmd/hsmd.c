@@ -309,7 +309,7 @@ static void create_hsm(int fd)
 	}
 }
 
-/*~ We store our root secret in a "hsm_secret" file (like all of c-lightning,
+/*~ We store our root secret in a "hsm_secret" file (like all of Core Lightning,
  * we run in the user's .lightning directory). */
 static void maybe_create_new_hsm(const struct secret *encryption_key,
                                  bool random_hsm)

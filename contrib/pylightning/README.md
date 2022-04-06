@@ -18,7 +18,7 @@ pip install pylightning
 ```
 
 Alternatively you can also install the development version to get access to
-currently unreleased features by checking out the c-lightning source code and
+currently unreleased features by checking out the Core Lightning source code and
 installing into your python3 environment:
 
 ```bash
@@ -43,7 +43,7 @@ Generate invoice on one daemon and pay it on the other
 from lightning import LightningRpc
 import random
 
-# Create two instances of the LightningRpc object using two different c-lightning daemons on your computer
+# Create two instances of the LightningRpc object using two different Core Lightning daemons on your computer
 l1 = LightningRpc("/tmp/lightning1/lightning-rpc")
 l5 = LightningRpc("/tmp/lightning5/lightning-rpc")
 

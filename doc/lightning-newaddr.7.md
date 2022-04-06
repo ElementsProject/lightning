@@ -1,5 +1,5 @@
-lightning-newaddr -- Command for generating a new address to be used by c-lightning
-===================================================================================
+lightning-newaddr -- Command for generating a new address to be used by Core Lightning
+======================================================================================
 
 SYNOPSIS
 --------
@@ -10,7 +10,7 @@ DESCRIPTION
 -----------
 
 The **newaddr** RPC command generates a new address which can
-subsequently be used to fund channels managed by the c-lightning node.
+subsequently be used to fund channels managed by the Core Lightning node.
 
 The funding transaction needs to be confirmed before funds can be used.
 

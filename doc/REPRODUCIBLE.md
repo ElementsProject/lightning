@@ -1,6 +1,6 @@
-# Reproducible builds for c-lightning
+# Reproducible builds for Core Lightning
 
-This document describes the steps involved to build c-lightning in a
+This document describes the steps involved to build Core Lightning in a
 reproducible way. Reproducible builds close the final gap in the lifecycle of
 open-source projects by allowing maintainers to verify and certify that a
 given binary was indeed produced by compiling an unmodified version of the
@@ -8,7 +8,7 @@ publicly available source. In particular the maintainer certifies that the
 binary corresponds a) to the exact version of the and b) that no malicious
 changes have been applied before or after the compilation.
 
-c-lightning has provided a manifest of the binaries included in a release,
+Core Lightning has provided a manifest of the binaries included in a release,
 along with signatures from the maintainers since version 0.6.2.
 
 The steps involved in creating reproducible builds are:
@@ -109,7 +109,7 @@ DISTRIB_DESCRIPTION="Ubuntu 18.04 LTS"
 ## Builder image setup
 
 Once we have the clean base image we need to customize it to be able to build
-c-lightning. This includes disabling the update repositories, downloading the
+Core Lightning. This includes disabling the update repositories, downloading the
 build dependencies and specifying the steps required to perform the build.
 
 For this purpose we have a number of Dockerfiles in the

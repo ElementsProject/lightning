@@ -519,7 +519,7 @@ static void handle_ping_reply(struct peer *peer, const u8 *msg)
 		status_peer_unusual(&peer->id, "Got malformed ping reply %s",
 				    tal_hex(tmpctx, msg));
 
-	/* We print this because dev versions of c-lightning embed
+	/* We print this because dev versions of Core Lightning embed
 	 * version here: see check_ping_make_pong! */
 	for (i = 0; i < tal_count(ignored); i++) {
 		if (ignored[i] < ' ' || ignored[i] == 127)

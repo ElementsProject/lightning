@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "pyln-client"
 version = "0.10.2.post1"
-description = "Client library and plugin library for c-lightning"
+description = "Client library and plugin library for Core Lightning"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
 readme = "README.md"

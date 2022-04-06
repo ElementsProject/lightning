@@ -1,6 +1,6 @@
-# Setting up TOR with c-lightning
+# Setting up TOR with Core Lightning
 
-To use any Tor features with c-lightning you must have Tor installed and running.
+To use any Tor features with Core Lightning you must have Tor installed and running.
 
 Note that we only support Tor v3: you can check your installed Tor version with `tor --version` or `sudo tor --version`
 
@@ -19,13 +19,13 @@ just check that this line is present in the Tor config file `/etc/tor/torrc`:
 
 `ExitPolicy reject *:* # no exits allowed`
 
-This does not affect c-lightning connect, listen, etc..
+This does not affect Core Lightning connect, listen, etc..
 It will only prevent your node from becoming a Tor exit node.
 Only enable this if you are sure about the implications.
 
 If you don't want to create .onion addresses this should be enough.
 
-There are several ways by which a c-lightning node can accept or make connections over Tor.
+There are several ways by which a Core Lightning node can accept or make connections over Tor.
 
 The node can be reached over Tor by connecting to its .onion address.
 
@@ -47,7 +47,7 @@ Tor provides NAT-traversal for free, so even if you or your ISP has a complex
 network between you and the Internet, as long as you can use Tor you can
 be connected to.
 
-Note: c-lightning also support IPv4/6 address discovery behind NAT routers.
+Note: Core Lightning also support IPv4/6 address discovery behind NAT routers.
 For this to work you need to forward the TCP port 9735 to your node.
 In this case you don't need TOR to punch through your firewall.
 This usually has the benefit of quicker and more stable connections but does not
@@ -113,12 +113,12 @@ the user that will run `lightningd` and check this command:
 cat /run/tor/control.authcookie > /dev/null
 ```
 
-If the above prints nothing and returns, then C-Lightning "should" work
+If the above prints nothing and returns, then Core Lightning "should" work
 with your Tor.
 If it prints an error, some configuration problem will likely prevent
-C-Lightning from working with your Tor.
+Core Lightning from working with your Tor.
 
-Then make sure these are in your `${LIGHTNING_DIR}/config` or other C-Lightning configuration
+Then make sure these are in your `${LIGHTNING_DIR}/config` or other Core Lightning configuration
 (or prepend `--` to each of them and add them to your `lightningd` invocation
 command line):
 
@@ -129,25 +129,25 @@ addr=statictor:127.0.0.1:9051
 always-use-proxy=true
 ```
 
-1.  `proxy` informs C-Lightning that you have a SOCKS5 proxy at port 9050.
-    C-Lightning will assume that this is a Tor proxy, port 9050 is the
+1.  `proxy` informs Core Lightning that you have a SOCKS5 proxy at port 9050.
+    Core Lightning will assume that this is a Tor proxy, port 9050 is the
     default in most Linux distributions; you can double-check `/etc/tor/torrc`
     for a `SocksPort` entry to confirm the port number.
-2.  `bind-addr` informs C-Lightning to bind itself to port 9735.
+2.  `bind-addr` informs Core Lightning to bind itself to port 9735.
     This is needed for the subsequent `statictor` to work.
     9735 is the normal Lightning Network port, so this setting may already be present.
     If you add a second `bind-addr=...` you may get errors, so choose this new one
     or keep the old one, but don't keep both.
     This has to appear before any `statictor:` setting.
-3.  `addr=statictor:` informs C-Lightning that you want to create a persistent
+3.  `addr=statictor:` informs Core Lightning that you want to create a persistent
     hidden service that is based on your node private key.
-    This informs C-Lightning as well that the Tor Control Port is 9051.
+    This informs Core Lightning as well that the Tor Control Port is 9051.
     You can also use `bind-addr=statictor:` instead to not announce the
     persistent hidden service, but if anyone wants to make a channel with
     you, you either have to connect to them, or you have to reveal your
     address to them explicitly (i.e. autopilots and the like will likely
     never connect to you).
-4.  `always-use-proxy` informs C-Lightning to always use Tor even when
+4.  `always-use-proxy` informs Core Lightning to always use Tor even when
     connecting to nodes with public IPs.
     You can set this to `false` or remove it,
     if you are not privacy-conscious **and** find Tor is too slow for you.
@@ -162,7 +162,7 @@ Tor Browser will run a built-in Tor instance, but with the proxy at port
 port at 9051).
 The mobile Orbot uses the same defaults as Tor Browser (9150 and 9151).
 
-You can then use these settings for C-Lightning:
+You can then use these settings for Core Lightning:
 
 ```
 proxy=127.0.0.1:9150
@@ -171,30 +171,30 @@ addr=statictor:127.0.0.1:9151
 always-use-proxy=true
 ```
 
-You will have to run C-Lightning after launching Tor Browser or Orbot,
-and keep Tor Browser or Orbot open as long as C-Lightning is running,
+You will have to run Core Lightning after launching Tor Browser or Orbot,
+and keep Tor Browser or Orbot open as long as Core Lightning is running,
 but this is a setup which allows others to connect and fund channels
 to you, anywhere (no port forwarding! works wherever Tor works!), and
 you do not have to do anything more complicated than download and
 install Tor Browser.
 This may be useful for operating system distributions that do not have
-Tor in their repositories, assuming we can ever get C-Lightning running
+Tor in their repositories, assuming we can ever get Core Lightning running
 on those.
 
 ### Detailed Discussion
 
-#### Three Ways to Create .onion Addresses for C-lightning
+#### Three Ways to Create .onion Addresses for Core Lightning
 
 You have have Tor create an onion address for you, and tell
-c-lightning to use that, or you can have c-lightning tell Tor to
+Core Lightning to use that, or you can have Core Lightning tell Tor to
 create the same onion address every time it starts up, or you can have
-c-lightning tell Tor to create a new onion address every time.
+Core Lightning tell Tor to create a new onion address every time.
 
 #### Tor-Created .onion Address
 
 Having Tor create an onion address lets you run other services (e.g.
 a web server) at that same address, and you just tell that address to
-c-lightning and it doesn't have to talk to the Tor server at all.
+Core Lightning and it doesn't have to talk to the Tor server at all.
 
 Put the following in your `/etc/tor/torrc` file:
 
@@ -218,14 +218,14 @@ You will find the newly created address (myaddress.onion) with:
 sudo cat /var/lib/tor/lightningd-service_v3/hostname
 ```
 
-Now you need to tell c-lightning to advertize that onion hostname and
+Now you need to tell Core Lightning to advertize that onion hostname and
 port, by placing `announce-addr=myaddress.onion` in your lightning
 config.
 
-#### Letting C-lightning Control Tor
+#### Letting Core Lightning Control Tor
 
-To have c-lightning control your Tor addresses, you have to tell Tor
-to accept control commands from c-lightning, either by using a cookie,
+To have Core Lightning control your Tor addresses, you have to tell Tor
+to accept control commands from Core Lightning, either by using a cookie,
 or a password.
 
 ##### Service authenticated by cookie
@@ -269,7 +269,7 @@ Save the file and restart the Tor service.
 Put `tor-service-password=yourpassword` (not the hash) in your
 lightning configuration file.
 
-##### C-Lightning Creating Persistent Hidden Addresses
+##### Core Lightning Creating Persistent Hidden Addresses
 
 This is usually better than transient addresses, as nodes won't have
 to wait for gossip propagation to find out your new address each time
@@ -281,7 +281,7 @@ to add *two* lines in your lightningd config file:
 1. A local address which lightningd can tell Tor to connect to when
    connections come in, e.g. `bind-addr=127.0.0.1:9735`.
 2. After that, a `addr=statictor:127.0.0.1:9051` to tell 
-   c-lightning to set up and announce a Tor onion address (and tell
+   Core Lightning to set up and announce a Tor onion address (and tell
    Tor to send connections to our real address, above).
 
 You can use `bind-addr` if you want to set up the onion address and
@@ -303,9 +303,9 @@ for fresh gossip messages if you announce it, before they can connect.
 | ------- | ------------- | ------------------------- |-------------------------
 | 1       | Public        | NO                        | Outgoing               |
 | 2       | Public        | FIXED BY TOR              | Incoming [1]           |
-| 3       | Public        | FIXED BY C-LIGHTNING      | Incoming [1]           |
+| 3       | Public        | FIXED BY CORE LIGHTNING   | Incoming [1]           |
 | 4       | Not Announced | FIXED BY TOR              | Incoming [1]           |
-| 5       | Not Announced | FIXED BY C-LIGHTNING      | Incoming [1]           |
+| 5       | Not Announced | FIXED BY CORE LIGHTNING   | Incoming [1]           |
 
 
 NOTE:
@@ -362,7 +362,7 @@ If they match you can use the `--addr` command line option.
 Other nodes can connect to you entirely over Tor, and the Tor address
 doesn't change every time you restart.
 
-You simply tell c-lightning to advertize both addresses (you can use
+You simply tell Core Lightning to advertize both addresses (you can use
 `sudo cat /var/lib/tor/lightningd-service_v3/hostname` to get your
 Tor-assigned onion address).
 
@@ -380,12 +380,12 @@ addr=yourIPAddress:port
 announce-addr=your.onionAddress:port
 ```
 
-#### Case #3: Public IP address, and a fixed Tor address set by C-lightning
+#### Case #3: Public IP address, and a fixed Tor address set by Core Lightning
 
 Other nodes can connect to you entirely over Tor, and the Tor address
 doesn't change every time you restart.
 
-See "Letting C-lightning Control Tor" for how to get c-lightning
+See "Letting Core Lightning Control Tor" for how to get Core Lightning
 talking to Tor.
 
 If you have an internal IP address:
@@ -406,7 +406,7 @@ addr=statictor:127.0.0.1:9051
 
 Other nodes can only connect to you over Tor.
 
-You simply tell c-lightning to advertize the Tor address (you can use
+You simply tell Core Lightning to advertize the Tor address (you can use
 `sudo cat /var/lib/tor/lightningd-service_v3/hostname` to get your
 Tor-assigned onion address).
 
@@ -416,11 +416,11 @@ proxy=127.0.0.1:9050
 always-use-proxy=true
 ```
 
-#### Case #4: Unannounced IP address, and a fixed Tor address set by C-lightning
+#### Case #4: Unannounced IP address, and a fixed Tor address set by Core Lightning
 
 Other nodes can only connect to you over Tor.
 
-See "Letting C-lightning Control Tor" for how to get c-lightning
+See "Letting Core Lightning Control Tor" for how to get Core Lightning
 talking to Tor.
 
 ```
