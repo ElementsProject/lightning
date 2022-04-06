@@ -1,4 +1,4 @@
-lightning-listfunds -- Command showing all funds currently managed by the c-lightning node
+lightning-listfunds -- Command showing all funds currently managed by the Core Lightning node
 ==========================================================================================
 
 SYNOPSIS

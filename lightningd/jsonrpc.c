@@ -886,7 +886,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	// Adding a deprecated phase to make sure that all the c-lightning wrapper
+	// Adding a deprecated phase to make sure that all the Core Lightning wrapper
 	// can migrate all the frameworks
 	if (!deprecated_apis) {
 		const jsmntok_t *jsonrpc = json_get_member(jcon->buffer, tok, "jsonrpc");

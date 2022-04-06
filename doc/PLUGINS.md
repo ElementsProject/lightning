@@ -1,7 +1,7 @@
 # Plugins
 
 Plugins are a simple yet powerful way to extend the functionality
-provided by c-lightning. They are subprocesses that are started by the
+provided by Core Lightning. They are subprocesses that are started by the
 main `lightningd` daemon and can interact with `lightningd` in a
 variety of ways:
 
@@ -873,7 +873,7 @@ rely on the shutdown notification always been send.
 ## Hooks
 
 Hooks allow a plugin to define custom behavior for `lightningd`
-without having to modify the c-lightning source code itself. A plugin
+without having to modify the Core Lightning source code itself. A plugin
 declares that it'd like to be consulted on what to do next for certain
 events in the daemon. A hook can then decide how `lightningd` should
 react to the given event.
@@ -1555,7 +1555,7 @@ The `custommsg` plugin hook is the receiving counterpart to the
 [`sendcustommsg`][sendcustommsg] RPC method and allows plugins to handle
 messages that are not handled internally. The goal of these two components is
 to allow the implementation of custom protocols or prototypes on top of a
-c-lightning node, without having to change the node's implementation itself.
+Core Lightning node, without having to change the node's implementation itself.
 
 The payload for a call follows this format:
 
@@ -1569,12 +1569,12 @@ The payload for a call follows this format:
 This payload would have been sent by the peer with the `node_id` matching
 `peer_id`, and the message has type `0x1337` and contents `ffffffff`. Notice
 that the messages are currently limited to odd-numbered types and must not
-match a type that is handled internally by c-lightning. These limitations are
+match a type that is handled internally by Core Lightning. These limitations are
 in place in order to avoid conflicts with the internal state tracking, and
 avoiding disconnections or channel closures, since odd-numbered message can be
 ignored by nodes (see ["it's ok to be odd" in the specification][oddok] for
 details). The plugin must implement the parsing of the message, including the
-type prefix, since c-lightning does not know how to parse the message.
+type prefix, since Core Lightning does not know how to parse the message.
 
 Because this is a chained hook, the daemon expects the result to be
 `{'result': 'continue'}`. It will fail if something else is returned.
@@ -1625,7 +1625,7 @@ will cause the message not to be handed to any other hooks.
 
 ## Bitcoin backend
 
-C-lightning communicates with the Bitcoin network through a plugin. It uses the
+Core Lightning communicates with the Bitcoin network through a plugin. It uses the
 `bcli` plugin by default but you can use a custom one, multiple custom ones for
 different operations, or write your own for your favourite Bitcoin data source!
 

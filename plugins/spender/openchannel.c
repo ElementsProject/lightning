@@ -46,7 +46,7 @@ find_dest_by_channel_id(struct channel_id *cid)
  * the PSBT input/outputs in such a way that we can Do The
  * Right Thing for each of our peers.
  *
- * c-lightning will make sure that our peer isn't removing/adding
+ * Core Lightning will make sure that our peer isn't removing/adding
  * any updates that it's not allowed to (i.e. ours or a different
  * node's that we're pretending are 'ours').
  *

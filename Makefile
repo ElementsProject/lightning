@@ -17,6 +17,7 @@ SUPPRESS_OUTPUT :=
 endif
 
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
+# Changing this could break installs!
 PKGNAME = c-lightning
 
 # We use our own internal ccan copy.

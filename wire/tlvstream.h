@@ -16,7 +16,7 @@ struct tlv_record_type {
 
 /* A single TLV field, consisting of the data and its associated metadata. */
 struct tlv_field {
-	/* If this is a type that is known to c-lightning we have a pointer to
+	/* If this is a type that is known to Core Lightning we have a pointer to
 	 * the metadata. */
 	const struct tlv_record_type *meta;
 

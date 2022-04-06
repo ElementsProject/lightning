@@ -1,6 +1,6 @@
 /*~ Welcome, wonderful reader!
  *
- * This is the core of c-lightning: the main file of the master daemon
+ * This is the Core of um, Core Lightning: the main file of the master daemon
  * `lightningd`.  It's mainly cluttered with the miscellany of setup,
  * and a few startup sanity checks.
  *
@@ -247,7 +247,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	/*~ We run a number of plugins (subprocesses that we talk JSON-RPC with)
 	 * alongside this process. This allows us to have an easy way for users
-	 * to add their own tools without having to modify the c-lightning source
+	 * to add their own tools without having to modify the Core Lightning source
 	 * code. Here we initialize the context that will keep track and control
 	 * the plugins.
 	 */

@@ -71,7 +71,7 @@ jobs:
           if-no-files-found: ignore
 
   check-dock:
-    name: Check c-lightning doc
+    name: Check core-lightning doc
     runs-on: ubuntu-20.04
     env:
       DEVELOPER: 1

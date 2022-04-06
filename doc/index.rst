@@ -1,5 +1,5 @@
-c-lightning Documentation
-=========================
+Core Lightning Documentation
+============================
 
 .. toctree::
    :maxdepth: 1

@@ -141,7 +141,7 @@ where
 
     /// Build and start the plugin loop. This performs the handshake
     /// and spawns a new task that accepts incoming messages from
-    /// c-lightning and dispatches them to the handlers. It only
+    /// Core Lightning and dispatches them to the handlers. It only
     /// returns after completing the handshake to ensure that the
     /// configuration and initialization was successfull.
     pub async fn start(mut self) -> Result<Plugin<S>, anyhow::Error> {
@@ -159,7 +159,7 @@ where
         )));
 
         // Now configure the logging, so any `log` call is wrapped
-        // in a JSON-RPC notification and sent to c-lightning
+        // in a JSON-RPC notification and sent to Core Lightning
         crate::logging::init(output.clone()).await?;
         trace!("Plugin logging initialized");
 
@@ -267,7 +267,7 @@ where
                     (OValue::Integer(_), JValue::Number(n)) => OValue::Integer(n.as_i64().unwrap()),
                     (OValue::Boolean(_), JValue::Bool(n)) => OValue::Boolean(*n),
 
-                    // It's ok to panic, if we get here c-lightning
+                    // It's ok to panic, if we get here Core Lightning
                     // has not enforced the option type.
                     (_, _) => panic!("Mismatching types in options: {:?} != {:?}", opt, val),
                 });

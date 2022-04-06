@@ -92,7 +92,7 @@ bool psbt_finalize(struct wally_psbt *psbt);
  */
 struct wally_tx *psbt_final_tx(const tal_t *ctx, const struct wally_psbt *psbt);
 
-/* psbt_make_key - Create a new, proprietary c-lightning key
+/* psbt_make_key - Create a new, proprietary Core Lightning key
  *
  * @ctx - allocation context
  * @key_subtype - type for this key

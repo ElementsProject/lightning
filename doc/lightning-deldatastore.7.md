@@ -10,7 +10,7 @@ DESCRIPTION
 -----------
 
 The **deldatastore** RPC command allows plugins to delete data it has
-stored in the c-lightning database.
+stored in the Core Lightning database.
 
 The command fails if the *key* isn't present, or if *generation*
 is specified and the generation of the data does not exactly match.

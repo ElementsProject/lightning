@@ -138,7 +138,7 @@ To Build on FreeBSD
 
 OS version: FreeBSD 11.1-RELEASE or above
 
-c-lightning is in the FreeBSD ports, so install it as any other port
+Core Lightning is in the FreeBSD ports, so install it as any other port
 (dependencies are handled automatically):
 
     # pkg install c-lightning
@@ -285,7 +285,7 @@ To cross-compile for Android
 
 Make a standalone toolchain as per
 https://developer.android.com/ndk/guides/standalone_toolchain.html.
-For c-lightning you must target an API level of 24 or higher.
+For Core Lightning you must target an API level of 24 or higher.
 
 Depending on your toolchain location and target arch, source env variables
 such as:
@@ -370,7 +370,7 @@ Download and build gmp:
     make
     make install
 
-Then, build c-lightning with the following commands:
+Then, build Core Lightning with the following commands:
 
     ./configure
     make
@@ -381,7 +381,7 @@ For all the other Pi devices out there, consider using [Armbian](https://www.arm
 
 You can compile in `customize-image.sh` using the instructions for Ubuntu.
 
-A working example that compiles both bitcoind and c-lightning for Armbian can
+A working example that compiles both bitcoind and Core Lightning for Armbian can
 be found [here](https://github.com/Sjors/armbian-bitcoin-core).
 
 To compile for Alpine

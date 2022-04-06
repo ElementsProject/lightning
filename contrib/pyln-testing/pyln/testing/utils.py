@@ -53,7 +53,7 @@ def env(name, default=None):
     """Access to environment variables
 
     Allows access to environment variables, falling back to config.vars (part
-    of c-lightning's `./configure` output), and finally falling back to a
+    of Core Lightning's `./configure` output), and finally falling back to a
     default value.
 
     """

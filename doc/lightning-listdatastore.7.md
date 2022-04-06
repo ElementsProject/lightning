@@ -10,7 +10,7 @@ DESCRIPTION
 -----------
 
 The **listdatastore** RPC command allows plugins to fetch data which was
-stored in the c-lightning database.
+stored in the Core Lightning database.
 
 All immediate children of the *key* (or root children) are returned:
 a *key* with children won't have a *hex* or *generation* entry.

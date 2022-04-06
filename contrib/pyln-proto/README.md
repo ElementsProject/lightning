@@ -15,7 +15,7 @@ pip install pyln-proto
 ```
 
 Alternatively you can also install the development version to get access to
-currently unreleased features by checking out the c-lightning source code and
+currently unreleased features by checking out the Core Lightning source code and
 installing into your python3 environment:
 
 ```bash

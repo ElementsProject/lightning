@@ -512,7 +512,7 @@ python-versions = ">=3.7,<4.0"
 [[package]]
 name = "pyln-client"
 version = "0.10.2.post1"
-description = "Client library and plugin library for c-lightning"
+description = "Client library and plugin library for Core Lightning"
 category = "main"
 optional = false
 python-versions = "^3.7"
@@ -549,7 +549,7 @@ url = "contrib/pyln-proto"
 [[package]]
 name = "pyln-testing"
 version = "0.10.2"
-description = "Test your c-lightning integration, plugins or whatever you want"
+description = "Test your Core Lightning integration, plugins or whatever you want"
 category = "dev"
 optional = false
 python-versions = "^3.7"

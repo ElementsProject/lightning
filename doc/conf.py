@@ -59,7 +59,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'c-lightning'
-author = 'c-lightning Developers'
+author = 'Core Lightning Developers'
 copyright = datetime.now().strftime('2015 — %Y, {}'.format(author))
 
 # The version info for the project you're documenting, acts as replacement for
@@ -143,7 +143,7 @@ html_theme = 'sphinx_rtd_theme'
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
 #
-html_title = 'c-lightning ' + version
+html_title = 'Core Lightning ' + version
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #

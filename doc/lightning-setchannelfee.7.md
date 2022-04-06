@@ -70,7 +70,7 @@ AUTHOR
 
 Michael Schmoock <<michael@schmoock.net>> is the author of this
 feature. Rusty Russell <<rusty@rustcorp.com.au>> is mainly
-responsible for the c-lightning project.
+responsible for the Core Lightning project.
 
 SEE ALSO
 --------

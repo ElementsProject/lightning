@@ -15,7 +15,7 @@ that is shared by all channels.
 
 If not already connected, **multifundchannel** will automatically attempt
 to connect; you may provide a *@host:port* hint appended to the node ID
-so that c-lightning can learn how to connect to the node;
+so that Core Lightning can learn how to connect to the node;
 see lightning-connect(7).
 
 Once the transaction is confirmed, normal channel operations may begin.
@@ -134,7 +134,7 @@ the channel funding process will cancel the funding locally, but
 the peer thinks the channel is already waiting for funding lockin.
 In that case, the next time we connect to the peer, our node will
 tell the peer to forget the channel, but some nodes (in particular,
-c-lightning nodes) will disconnect when our node tells them to
+Core Lightning nodes) will disconnect when our node tells them to
 forget the channel.
 If you immediately **multifundchannel** with that peer, it could
 trigger this connect-forget-disconnect behavior, causing the

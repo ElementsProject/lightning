@@ -1,5 +1,5 @@
 #! /bin/sh
-# Simple configure script for c-lightning.
+# Simple configure script for Core Lightning.
 
 set -e
 

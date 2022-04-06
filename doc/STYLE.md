@@ -218,7 +218,7 @@ cautiously as too many parameters get unwieldy quickly.
 ## Github Workflows
 
 We have adopted a number of workflows to facilitate the development of
-c-lightning, and to make things more pleasant for contributors.
+Core Lightning, and to make things more pleasant for contributors.
 
 ### Changelog Entries in Commit Messages
 

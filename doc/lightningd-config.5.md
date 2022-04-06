@@ -367,7 +367,7 @@ right thing: for the mainnet (bitcoin) network it will try to bind to
 port 9735 on IPv4 and IPv6, and will announce it to peers if it seems
 like a public address.
 
-c-lightning also support IPv4/6 address discovery behind NAT routers.
+Core Lightning also support IPv4/6 address discovery behind NAT routers.
 If your node detects an new public address, it will update its announcement.
 For this to work you need to forward the TCP port 9735 to your node.
 
@@ -478,7 +478,7 @@ plugins along with any immediate subdirectories). You can specify
 additional paths too:
 
  **plugin**=*PATH*
-Specify a plugin to run as part of c-lightning. This can be specified
+Specify a plugin to run as part of Core Lightning. This can be specified
 multiple times to add multiple plugins.  Note that unless plugins themselves
 specify ordering requirements for being called on various hooks, plugins will
 be ordered by commandline, then config file.
@@ -505,13 +505,13 @@ disabling a single plugin inside a directory.  You can still explicitly
 load plugins which have been disabled, using lightning-plugin(7) `start`.
 
  **important-plugin**=*PLUGIN*
-Speciy a plugin to run as part of C-lightning.
+Speciy a plugin to run as part of Core Lightning.
 This can be specified multiple times to add multiple plugins.
 Plugins specified via this option are considered so important, that if the
 plugin stops for any reason (including via lightning-plugin(7) `stop`),
-C-lightning will also stop running.
+Core Lightning will also stop running.
 This way, you can monitor crashes of important plugins by simply monitoring
-if C-lightning terminates.
+if Core Lightning terminates.
 Built-in plugins, which are installed with lightningd(8), are automatically
 considered important.
 

@@ -10,7 +10,7 @@ DESCRIPTION
 -----------
 
 The **txprepare** RPC command creates an unsigned transaction which
-spends funds from c-lightning's internal wallet to the outputs specified
+spends funds from Core Lightning's internal wallet to the outputs specified
 in *outputs*.
 
 The *outputs* is the array of output that include *destination*
