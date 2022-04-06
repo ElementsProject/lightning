@@ -635,10 +635,10 @@ static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 		}
 	}
 
-	if (!secp256k1_schnorrsig_sign(secp256k1_ctx, sig.u8,
+	if (!secp256k1_schnorrsig_sign32(secp256k1_ctx, sig.u8,
 				       sha.u.u8,
 				       &kp,
-				       NULL, NULL)) {
+				       NULL)) {
 		return hsmd_status_bad_request_fmt(c, msg_in,
 						   "Failed to sign bolt12");
 	}
