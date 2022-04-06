@@ -89,11 +89,11 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### EXPERIMENTAL
 
- - Fixex `experimental-websocket` intermittent read errors ([#5090])
+ - Fixed `experimental-websocket` intermittent read errors ([#5090])
  - Fixed `experimental-websocket-port` not to leave zombie processes. ([#5101])
  - Config option `--lease-fee-base-msat` renamed to `--lease-fee-base-sat` ([#5047])
  - Config option `--lease-fee-base-msat` deprecated and will be removed next release ([#5047])
- - Fixex `experimental-websocket-port` to work with default addresses. ([#4945])
+ - Fixed `experimental-websocket-port` to work with default addresses. ([#4945])
  - Protocol: removed support for v0.10.1 onion messages. ([#4921])
  - Protocol: Ability to announce DNS addresses ([#4829])
 
