@@ -226,8 +226,6 @@ You should also configure with `--enable-developer` to get additional checks and
 
 [blockstream-store-blog]: https://blockstream.com/2018/01/16/en-lightning-charge/
 [std]: https://github.com/lightningnetwork/lightning-rfc
-[travis-ci]: https://travis-ci.org/ElementsProject/lightning.svg?branch=master
-[travis-ci-link]: https://travis-ci.org/ElementsProject/lightning
 [prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
 [prs-link]: http://makeapullrequest.com
 [IRC]: https://img.shields.io/badge/chat-on%20libera-brightgreen.svg
