@@ -98,9 +98,11 @@ A node:
 
 A recipient node:
   - if the `short_channel_id` is NOT correct:
-    - SHOULD fail the channel.
+    - SHOULD send a `warning` and close the connection, or send an
+      `error` and fail the channel.
   - if the `node_signature` OR the `bitcoin_signature` is NOT correct:
-    - MAY fail the channel.
+    - MAY send a `warning` and close the connection, or send an
+      `error` and fail the channel.
   - if it has sent AND received a valid `announcement_signatures` message:
     - SHOULD queue the `channel_announcement` message for its peers.
   - if it has not sent funding_locked:
@@ -202,7 +204,9 @@ The receiving node:
   - otherwise:
     - if `bitcoin_signature_1`, `bitcoin_signature_2`, `node_signature_1` OR
     `node_signature_2` are invalid OR NOT correct:
-      - SHOULD fail the connection.
+      - SHOULD send a `warning`.
+      - MAY close the connection.
+      - MUST ignore the message.
     - otherwise:
       - if `node_id_1` OR `node_id_2` are blacklisted:
         - SHOULD ignore the message.
@@ -277,10 +281,7 @@ The following `address descriptor` types are defined:
 
    * `1`: ipv4; data = `[4:ipv4_addr][2:port]` (length 6)
    * `2`: ipv6; data = `[16:ipv6_addr][2:port]` (length 18)
-   * `3`: Tor v2 onion service; data = `[10:onion_addr][2:port]` (length 12)
-       * version 2 onion service addresses; Encodes an 80-bit, truncated `SHA-1`
-       hash of a 1024-bit `RSA` public key for the onion service (a.k.a. Tor
-       hidden service).
+   * `3`: Deprecated (length 12). Used to contain Tor v2 onion services.
    * `4`: Tor v3 onion service; data = `[35:onion_addr][2:port]` (length 37)
        * version 3 ([prop224](https://gitweb.torproject.org/torspec.git/tree/proposals/224-rend-spec-ng.txt))
          onion service addresses; Encodes:
@@ -313,15 +314,18 @@ The origin node:
   - MUST set `features` according to [BOLT #9](09-features.md#assigned-features-flags)
   - SHOULD set `flen` to the minimum length required to hold the `features`
   bits it sets.
+  - SHOULD not announce a Tor v2 onion service.
 
 The receiving node:
   - if `node_id` is NOT a valid compressed public key:
-    - SHOULD fail the connection.
+    - SHOULD send a `warning`.
+    - MAY close the connection.
     - MUST NOT process the message further.
   - if `signature` is NOT a valid signature (using `node_id` of the
   double-SHA256 of the entire message following the `signature` field, including
 any future fields appended to the end):
-    - SHOULD fail the connection.
+    - SHOULD send a `warning`.
+    - MAY close the connection.
     - MUST NOT process the message further.
   - if `features` field contains _unknown even bits_:
     - SHOULD NOT connect to the node.
@@ -332,7 +336,8 @@ any future fields appended to the end):
   defined above.
   - if `addrlen` is insufficient to hold the address descriptors of the
   known types:
-    - SHOULD fail the connection.
+    - SHOULD send a `warning`.
+    - MAY close the connection.
   - if `port` is equal to 0:
     - SHOULD ignore `ipv6_addr` OR `ipv4_addr`.
   - if `node_id` is NOT previously known from a `channel_announcement` message,
@@ -346,6 +351,7 @@ any future fields appended to the end):
       - MAY choose NOT to queue messages longer than the minimum expected length.
   - MAY use `rgb_color` AND `alias` to reference nodes in interfaces.
     - SHOULD insinuate their self-signed origins.
+  - SHOULD ignore Tor v2 onion services.
 
 ### Rationale
 
@@ -495,8 +501,8 @@ The receiving node:
   - if `signature` is not a valid signature, using `node_id` of the
   double-SHA256 of the entire message following the `signature` field (including
   unknown fields following `fee_proportional_millionths`):
+    - SHOULD send a `warning` and close the connection.
     - MUST NOT process the message further.
-    - SHOULD fail the connection.
   - if the specified `chain_hash` value is unknown (meaning it isn't active on
   the specified chain):
     - MUST ignore the channel update.
@@ -506,7 +512,7 @@ The receiving node:
       - MAY blacklist this `node_id`.
       - MAY forget all channels associated with it.
     - if the fields below `timestamp` are equal:
-      - SHOULD ignore this message	
+      - SHOULD ignore this message
   - if `timestamp` is lower than that of the last-received
   `channel_update` for this `short_channel_id` AND for `node_id`:
     - SHOULD ignore the message.
@@ -565,21 +571,17 @@ of extended queries for gossip synchronization.  These explicitly
 request what gossip should be received.
 
 There are several messages which contain a long array of
-`short_channel_id`s (called `encoded_short_ids`) so we utilize a
-simple compression scheme: the first byte indicates the encoding, the
-rest contains the data.
+`short_channel_id`s (called `encoded_short_ids`) so we include an encoding byte
+which allows for different encoding schemes to be defined in the future, if they
+provide benefit.
 
 Encoding types:
 * `0`: uncompressed array of `short_channel_id` types, in ascending order.
-* `1`: array of `short_channel_id` types, in ascending order, compressed with zlib deflate<sup>[1](#reference-1)</sup>
+* `1`: Previously used for zlib compression, this encoding MUST NOT be used.
 
-This encoding is also used for arrays of other types (timestamps, flags, ...), and specified with an `encoded_` prefix. For example, `encoded_timestamps` is an array of timestamps than can be either compressed (with a `1` prefix) or uncompressed (with a `0` prefix).
-
-Note that a 65535-byte zlib message can decompress into 67632120
-bytes<sup>[2](#reference-2)</sup>, but since the only valid contents
-are unique 8-byte values, no more than 14 bytes can be duplicated
-across the stream: as each duplicate takes at least 2 bits, no valid
-contents could decompress to more than 3669960 bytes.
+This encoding is also used for arrays of other types (timestamps, flags, ...),
+and specified with an `encoded_` prefix. For example, `encoded_timestamps` is
+an array of timestamps with a `0` prefix.
 
 Query messages can be extended with optional fields that can help reduce the number of messages needed to synchronize routing tables by enabling:
 
@@ -646,16 +648,21 @@ The sender:
 
 The receiver:
   - if the first byte of `encoded_short_ids` is not a known encoding type:
-    - MAY fail the connection
+    - MAY send a `warning`.
+    - MAY close the connection.
   - if `encoded_short_ids` does not decode into a whole number of `short_channel_id`:
-    - MAY fail the connection.
+    - MAY send a `warning`.
+    - MAY close the connection.
   - if it has not sent `reply_short_channel_ids_end` to a previously received `query_short_channel_ids` from this sender:
-    - MAY fail the connection.
+    - MAY send a `warning`.
+    - MAY close the connection.
   - if the incoming message includes `query_short_channel_ids_tlvs`:
     - if `encoding_type` is not a known encoding type:
-      - MAY fail the connection
+      - MAY send a `warning`.
+      - MAY close the connection.
     - if `encoded_query_flags` does not decode to exactly one flag per `short_channel_id`:
-      - MAY fail the connection.
+      - MAY send a `warning`.
+      - MAY close the connection.
   - MUST respond to each known `short_channel_id`:
     - if the incoming message does not include `encoded_query_flags`:
       - with a `channel_announcement` and the latest `channel_update` for each end
@@ -775,20 +782,21 @@ The sender of `query_channel_range`:
 
 The receiver of `query_channel_range`:
   - if it has not sent all `reply_channel_range` to a previously received `query_channel_range` from this sender:
-    - MAY fail the connection.
+    - MAY send a `warning`.
+    - MAY close the connection.
   - MUST respond with one or more `reply_channel_range`:
     - MUST set with `chain_hash` equal to that of `query_channel_range`,
     - MUST limit `number_of_blocks` to the maximum number of blocks whose
       results could fit in `encoded_short_ids`
     - MAY split block contents across multiple `reply_channel_range`.
     - the first `reply_channel_range` message:
-	  - MUST set `first_blocknum` less than or equal to the `first_blocknum` in `query_channel_range`
-	  - MUST set `first_blocknum` plus `number_of_blocks` greater than `first_blocknum` in `query_channel_range`.
-	- successive `reply_channel_range` message:
-	  - MUST have `first_blocknum` equal or greater than the previous `first_blocknum`.
+      - MUST set `first_blocknum` less than or equal to the `first_blocknum` in `query_channel_range`
+      - MUST set `first_blocknum` plus `number_of_blocks` greater than `first_blocknum` in `query_channel_range`.
+    - successive `reply_channel_range` message:
+      - MUST have `first_blocknum` equal or greater than the previous `first_blocknum`.
     - MUST set `sync_complete` to `false` if this is not the final `reply_channel_range`.
-	- the final `reply_channel_range` message:
-	  - MUST have `first_blocknum` plus `number_of_blocks` equal or greater than the `query_channel_range` `first_blocknum` plus `number_of_blocks`.
+    - the final `reply_channel_range` message:
+      - MUST have `first_blocknum` plus `number_of_blocks` equal or greater than the `query_channel_range` `first_blocknum` plus `number_of_blocks`.
     - MUST set `sync_complete` to `true`.
 
 If the incoming message includes `query_option`, the receiver MAY append additional information to its reply:
@@ -1094,7 +1102,7 @@ per [HTLC Fees](#htlc-fees):
 
         200 + ( 4999999 * 2000 / 1000000 ) = 10199
 
-Similarly, it would need to add B->C's `channel_update` `cltv_expiry` (20), C's
+Similarly, it would need to add B->C's `channel_update` `cltv_expiry_delta` (20), C's
 requested `min_final_cltv_expiry` (9), and the cost for the _shadow route_ (42).
 Thus, A->B's `update_add_htlc` message would be:
 
@@ -1118,10 +1126,6 @@ A->D's `update_add_htlc` message would be:
 And D->C's `update_add_htlc` would again be the same as B->C's direct payment
 above.
 
-## References
-
-1. <a id="reference-1">[RFC 1950 "ZLIB Compressed Data Format Specification version 3.3](https://www.ietf.org/rfc/rfc1950.txt)</a>
-2. <a id="reference-2">[Maximum Compression Factor](https://zlib.net/zlib_tech.html)</a>
 
 ![Creative Commons License](https://i.creativecommons.org/l/by/4.0/88x31.png "License CC-BY")
 <br>
