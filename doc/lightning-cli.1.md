@@ -89,7 +89,8 @@ this is to avoid having lightningd intrepret the position of an arguement.
 
 Arguments may be integer numbers (composed entirely of digits), floating-point 
 numbers (has a radix point but otherwise composed of digits), *true*, *false*,
-or *null*. Other arguments are treated as strings.
+or *null*. Arguments which begin with *{*, *[* or *"* are also considered
+raw JSON and are passed through.  Other arguments are treated as strings.
 
 Some commands have optional arguments. You may use *null* to skip
 optional arguments to provide later arguments, although this is not encouraged.

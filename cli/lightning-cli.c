@@ -276,7 +276,7 @@ static bool is_literal(const char *arg)
 	if (arglen == 0) {
 		return false;
 	}
-	return strspn(arg, "0123456789") == arglen
+	return strspn(arg, "0123456789.") == arglen
 		|| streq(arg, "true")
 		|| streq(arg, "false")
 		|| streq(arg, "null")
