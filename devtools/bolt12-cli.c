@@ -321,6 +321,7 @@ static bool print_signature(const char *messagename,
 	if (secp256k1_schnorrsig_verify(secp256k1_ctx,
 					sig->u8,
 					shash.u.u8,
+					sizeof(shash.u.u8),
 					&node_id->pubkey) != 1) {
 		fprintf(stderr, "%s: INVALID\n", fieldname);
 		return false;

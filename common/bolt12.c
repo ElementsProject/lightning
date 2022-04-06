@@ -83,6 +83,7 @@ bool bolt12_check_signature(const struct tlv_field *fields,
 	return secp256k1_schnorrsig_verify(secp256k1_ctx,
 					   sig->u8,
 					   shash.u.u8,
+					   sizeof(shash.u.u8),
 					   &key->pubkey) == 1;
 }
 

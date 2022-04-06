@@ -77,7 +77,7 @@ static void hsm_sign_b12(struct lightningd *ld,
 	/* Now we sanity-check! */
 	sighash_from_merkle(messagename, fieldname, merkle, &sighash);
 	if (secp256k1_schnorrsig_verify(secp256k1_ctx, sig->u8,
-					sighash.u.u8, &key->pubkey) != 1)
+					sighash.u.u8, sizeof(sighash.u.u8), &key->pubkey) != 1)
 		fatal("HSM gave bad signature %s for pubkey %s",
 		      type_to_string(tmpctx, struct bip340sig, sig),
 		      type_to_string(tmpctx, struct point32, key));

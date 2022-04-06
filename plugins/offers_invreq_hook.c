@@ -433,7 +433,7 @@ static bool check_payer_sig(struct command *cmd,
 
 	if (secp256k1_schnorrsig_verify(secp256k1_ctx,
 					sig->u8,
-					sighash.u.u8, &payer_key->pubkey) == 1)
+					sighash.u.u8, sizeof(sighash.u.u8), &payer_key->pubkey) == 1)
 		return true;
 
 	if (!deprecated_apis)
@@ -447,7 +447,7 @@ static bool check_payer_sig(struct command *cmd,
 
 	return secp256k1_schnorrsig_verify(secp256k1_ctx,
 					   sig->u8,
-					   sighash.u.u8, &payer_key->pubkey) == 1;
+					   sighash.u.u8, sizeof(sighash.u.u8), &payer_key->pubkey) == 1;
 }
 
 static struct command_result *invreq_amount_by_quantity(struct command *cmd,
