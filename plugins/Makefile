@@ -168,6 +168,11 @@ plugins/fetchinvoice: bitcoin/chainparams.o $(PLUGIN_FETCHINVOICE_OBJS) $(PLUGIN
 
 plugins/funder: bitcoin/chainparams.o bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
+ifneq ($(RUST),0)
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) target/${RUST_PROFILE}/cln-grpc
+PLUGINS += target/${RUST_PROFILE}/cln-grpc
+endif
+
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
@@ -181,9 +186,5 @@ ${CLN_PLUGIN_EXAMPLES}: ${CLN_PLUGIN_SRC}
 
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-grpc
-
-ifneq ($(RUST),0)
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) target/${RUST_PROFILE}/cln-grpc
-endif
 
 include plugins/test/Makefile
