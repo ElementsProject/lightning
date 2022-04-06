@@ -41,7 +41,6 @@ Get dependencies:
       python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
     pip3 install --upgrade pip
     pip3 install --user poetry
-    poetry install
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
@@ -64,8 +63,9 @@ For development or running tests, get additional dependencies:
 
 Build lightning:
 
+    poetry install
     ./configure
-    make
+    poetry run make
     sudo make install
 
 Running lightning:
