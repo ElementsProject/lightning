@@ -702,6 +702,7 @@ message ListsendpaysPayments {
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional string bolt11 = 10;
+	optional string description = 14;
 	optional string bolt12 = 11;
 	optional bytes payment_preimage = 12;
 	optional bytes erroronion = 13;
@@ -781,6 +782,8 @@ message PayRequest {
 	optional Amount exemptfee = 7;
 	optional bytes localofferid = 9;
 	repeated string exclude = 10;
+	optional Amount maxfee = 11;
+	optional string description = 12;
 }
 
 message PayResponse {
@@ -1225,6 +1228,7 @@ message ListpaysPays {
 	uint64 created_at = 4;
 	optional string label = 5;
 	optional string bolt11 = 6;
+	optional string description = 11;
 	optional string bolt12 = 7;
 	optional Amount amount_msat = 8;
 	optional Amount amount_sent_msat = 9;

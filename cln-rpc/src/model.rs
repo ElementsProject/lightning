@@ -478,6 +478,10 @@ pub mod requests {
 	    pub localofferid: Option<String>,
 	    #[serde(alias = "exclude", skip_serializing_if = "Option::is_none")]
 	    pub exclude: Option<Vec<String>>,
+	    #[serde(alias = "maxfee", skip_serializing_if = "Option::is_none")]
+	    pub maxfee: Option<Amount>,
+	    #[serde(alias = "description", skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1860,6 +1864,8 @@ pub mod responses {
 	    pub label: Option<String>,
 	    #[serde(alias = "bolt11", skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
+	    #[serde(alias = "description", skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	    #[serde(alias = "bolt12", skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(alias = "payment_preimage", skip_serializing_if = "Option::is_none")]
@@ -2643,6 +2649,8 @@ pub mod responses {
 	    pub label: Option<String>,
 	    #[serde(alias = "bolt11", skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
+	    #[serde(alias = "description", skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	    #[serde(alias = "bolt12", skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
