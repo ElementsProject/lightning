@@ -468,6 +468,10 @@ Disable the DNS bootstrapping mechanism to find a node by its node ID.
 Set a Tor control password, which may be needed for *autotor:* to
 authenticate to the Tor control port.
 
+  **grpc-port**=*PORT*
+Set the port where the GRPC server will listen incoming request, if
+it is not specified, the GRPC server is disabled.
+
 ### Lightning Plugins
 
 lightningd(8) supports plugins, which offer additional configuration

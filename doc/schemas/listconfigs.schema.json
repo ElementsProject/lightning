@@ -129,6 +129,10 @@
       "type": "u16",
       "description": "`experimental-websocket-port` field from config or cmdline, or default"
     },
+    "grpc-port": {
+      "type": "u64",
+      "description": "`grpc-port` field from config or cmdline, or default"
+    },
     "rgb": {
       "type": "hex",
       "description": "`rgb` field from config or cmdline, or default",
