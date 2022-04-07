@@ -30,7 +30,7 @@ PLUGIN_OFFERS_HEADER := $(PLUGIN_OFFERS_SRC:.c=.h)
 
 PLUGIN_FETCHINVOICE_SRC := plugins/fetchinvoice.c
 PLUGIN_FETCHINVOICE_OBJS := $(PLUGIN_FETCHINVOICE_SRC:.c=.o)
-PLUGIN_FETCHINVOICE_HEADER := 
+PLUGIN_FETCHINVOICE_HEADER :=
 
 PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/fundchannel.c		\
@@ -168,16 +168,6 @@ plugins/fetchinvoice: bitcoin/chainparams.o $(PLUGIN_FETCHINVOICE_OBJS) $(PLUGIN
 
 plugins/funder: bitcoin/chainparams.o bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
-ifneq ($(RUST),0)
-# Builtin plugins must be in this plugins dir to work when we're executed
-# *without* make install.
-plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
-	@cp $< $@
-
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
-PLUGINS += plugins/cln-grpc
-endif
-
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
@@ -191,5 +181,15 @@ ${CLN_PLUGIN_EXAMPLES}: ${CLN_PLUGIN_SRC}
 
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-grpc
+
+ifneq ($(RUST),0)
+# Builtin plugins must be in this plugins dir to work when we're executed
+# *without* make install.
+plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
+	@cp $< $@
+
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
+PLUGINS += plugins/cln-grpc
+endif
 
 include plugins/test/Makefile
