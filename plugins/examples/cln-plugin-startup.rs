@@ -21,10 +21,7 @@ async fn main() -> Result<(), anyhow::Error> {
     plugin.join().await
 }
 
-async fn testmethod(
-    _p: Plugin<()>,
-    _v: serde_json::Value,
-) -> Result<serde_json::Value, Error> {
+async fn testmethod(_p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
     Ok(json!("Hello"))
 }
 

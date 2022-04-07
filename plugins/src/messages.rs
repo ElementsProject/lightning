@@ -132,9 +132,9 @@ pub(crate) struct GetManifestResponse {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub(crate) struct InitResponse{
+pub(crate) struct InitResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) disabled: Option<String>,
+    pub(crate) disable: Option<String>,
 }
 
 pub trait Response: Serialize + Debug {}
