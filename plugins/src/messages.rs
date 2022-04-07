@@ -41,7 +41,7 @@ pub(crate) enum Request {
 #[serde(tag = "method", content = "params")]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Notification {
-//     ChannelOpened,
+    //     ChannelOpened,
 //     ChannelOpenFailed,
 //     ChannelStateChanged,
 //     Connect,
@@ -131,12 +131,10 @@ pub(crate) struct GetManifestResponse {
     pub(crate) hooks: Vec<String>,
 }
 
-#[derive(Serialize, Default, Debug)]
-pub(crate) struct InitResponse {
-    /// enable the possibility to disable the plugins
-    /// when are marked as important.
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub(crate) struct InitResponse{
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) disable: Option<String>,
+    pub(crate) disabled: Option<String>,
 }
 
 pub trait Response: Serialize + Debug {}

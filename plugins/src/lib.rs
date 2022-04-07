@@ -2,7 +2,7 @@ use crate::codec::{JsonCodec, JsonRpcCodec};
 pub use anyhow::{anyhow, Context};
 use futures::sink::SinkExt;
 extern crate log;
-use log::trace;
+use log::{info, trace};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -44,20 +44,15 @@ where
 
     hooks: HashMap<String, Hook<S>>,
     options: Vec<ConfigOption>,
+    rpc_init: Option<InternalAsyncCallback<S>>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
-}
-
-pub trait PluginState {
-    fn disable_reason(&self) -> Option<String> {
-        None
-    }
 }
 
 impl<S, I, O> Builder<S, I, O>
 where
     O: Send + AsyncWrite + Unpin + 'static,
-    S: PluginState + Clone + Sync + Send + Clone + 'static,
+    S: Clone + Sync + Send + Clone + 'static,
     I: AsyncRead + Send + Unpin + 'static,
 {
     pub fn new(state: S, input: I, output: O) -> Self {
@@ -68,6 +63,7 @@ where
             hooks: HashMap::new(),
             subscriptions: HashMap::new(),
             options: vec![],
+            rpc_init: None,
             rpcmethods: HashMap::new(),
         }
     }
@@ -145,6 +141,16 @@ where
         self
     }
 
+    pub fn on_init<C, F>(mut self, callback: C) -> Builder<S, I, O>
+    where
+        C: Send + Sync + 'static,
+        C: Fn(S, Request) -> F + 'static,
+        F: Future<Output = Response> + Send + Sync + 'static,
+    {
+        self.rpc_init = Some(Box::new(move |p, r| Box::pin(callback(p, r))));
+        self
+    }
+
     /// Build and start the plugin loop. This performs the handshake
     /// and spawns a new task that accepts incoming messages from
     /// c-lightning and dispatches them to the handlers. It only
@@ -192,7 +198,7 @@ where
                     .await
                     .send(json!({
                         "jsonrpc": "2.0",
-                        "result": self.handle_init(m)?,
+                        "result": self.handle_init(m).await?,
                         "id": id,
                     }))
                     .await?
@@ -230,9 +236,9 @@ where
                 ),
             }
             .run(receiver, input, output),
-	    // TODO Use the broadcast to distribute any error that we
-	    // might receive here to anyone listening. (Shutdown
-	    // signal)
+            // TODO Use the broadcast to distribute any error that we
+            // might receive here to anyone listening. (Shutdown
+            // signal)
         );
 
         Ok(plugin)
@@ -260,7 +266,10 @@ where
         }
     }
 
-    fn handle_init(&mut self, call: messages::InitCall) -> Result<messages::InitResponse, Error> {
+    async fn handle_init(
+        &mut self,
+        call: messages::InitCall,
+    ) -> Result<messages::InitResponse, Error> {
         use options::Value as OValue;
         use serde_json::Value as JValue;
 
@@ -280,10 +289,23 @@ where
             }
         }
 
-        let init_resp = messages::InitResponse{
-            disable: self.state.disable_reason(),
-        };
-        Ok(init_resp)
+        match &self.rpc_init {
+            Some(callback) => {
+                let resp = callback(self.state.clone(), serde_json::to_value(&call.options)?).await;
+                match resp {
+                    Ok(result) => {
+                        let init_resp = serde_json::from_value::<messages::InitResponse>(result).unwrap();
+                        info!(
+                            "send custom init response {:?}",
+                            json!(&init_resp)
+                        );
+                        Ok(init_resp.clone())
+                    }
+                    Err(_) => Ok(messages::InitResponse::default()),
+                }
+            }
+            None => Ok(messages::InitResponse::default()),
+        }
     }
 }
 
@@ -293,6 +315,8 @@ type Request = serde_json::Value;
 type Response = Result<serde_json::Value, Error>;
 type AsyncCallback<S> =
     Box<dyn Fn(Plugin<S>, Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+type InternalAsyncCallback<S> =
+    Box<dyn Fn(S, Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
 type AsyncNotificationCallback<S> = Box<
     dyn Fn(Plugin<S>, Request) -> Pin<Box<dyn Future<Output = Result<(), Error>> + Send>>
         + Send
@@ -387,21 +411,21 @@ where
         O: Send + AsyncWriteExt + Unpin,
     {
         loop {
-	    // If we encounter any error reading or writing from/to
-	    // the master we hand them up, so we can return control to
-	    // the user-code, which may require some cleanups or
-	    // similar.
+            // If we encounter any error reading or writing from/to
+            // the master we hand them up, so we can return control to
+            // the user-code, which may require some cleanups or
+            // similar.
             tokio::select! {
-                e = self.dispatch_one(&mut input, &self.plugin) => {
-		    //Hand any error up.
-		    e?;
-		},
-		v = receiver.recv() => {
-		    output.lock().await.send(
-			v.context("internal communication error")?
-		    ).await?;
-		},
-            }
+                    e = self.dispatch_one(&mut input, &self.plugin) => {
+                //Hand any error up.
+                e?;
+            },
+            v = receiver.recv() => {
+                output.lock().await.send(
+                v.context("internal communication error")?
+                ).await?;
+            },
+                }
         }
     }
 
@@ -547,7 +571,9 @@ where
     pub fn state(&self) -> &S {
         &self.state
     }
-    pub fn mut_state(&mut self) -> &mut S {&mut self.state}
+    pub fn mut_state(&mut self) -> &mut S {
+        &mut self.state
+    }
 }
 
 impl<S> Plugin<S>

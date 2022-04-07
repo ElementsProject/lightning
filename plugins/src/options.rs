@@ -1,5 +1,5 @@
 use serde::ser::{SerializeStruct, Serializer};
-use serde::{Serialize};
+use serde::Serialize;
 
 #[derive(Clone, Debug)]
 pub enum Value {
