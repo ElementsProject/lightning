@@ -40,19 +40,22 @@ async fn main() -> Result<()> {
     let bind_port = match plugin.option("grpc-port") {
         Some(options::Value::Integer(-1)) => {
             log::info!("`grpc-port` option is not configured, exiting.");
-            return Ok(());
+            None
         }
-        Some(options::Value::Integer(i)) => i,
+        Some(options::Value::Integer(i)) => Some(i),
         None => return Err(anyhow!("Missing 'grpc-port' option")),
         Some(o) => return Err(anyhow!("grpc-port is not a valid integer: {:?}", o)),
     };
-    let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
 
-    tokio::spawn(async move {
-        if let Err(e) = run_interface(bind_addr, state).await {
-            warn!("Error running the grpc interface: {}", e);
-        }
-    });
+    if let Some(bind_port) = bind_port {
+        let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
+
+        tokio::spawn(async move {
+            if let Err(e) = run_interface(bind_addr, state).await {
+                warn!("Error running the grpc interface: {}", e);
+            }
+        });
+    }
 
     plugin.join().await
 }
