@@ -132,6 +132,11 @@ pub(crate) struct GetManifestResponse {
 }
 
 #[derive(Serialize, Default, Debug)]
-pub struct InitResponse {}
+pub(crate) struct InitResponse {
+    /// enable the possibility to disable the plugins
+    /// when are marked as important.
+    #[serde(default)]
+    pub(crate) disable: Option<String>,
+}
 
 pub trait Response: Serialize + Debug {}

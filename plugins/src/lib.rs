@@ -48,10 +48,16 @@ where
     subscriptions: HashMap<String, Subscription<S>>,
 }
 
+pub trait PluginState {
+    fn disable_reason(&self) -> Option<String> {
+        None
+    }
+}
+
 impl<S, I, O> Builder<S, I, O>
 where
     O: Send + AsyncWrite + Unpin + 'static,
-    S: Clone + Sync + Send + Clone + 'static,
+    S: PluginState + Clone + Sync + Send + Clone + 'static,
     I: AsyncRead + Send + Unpin + 'static,
 {
     pub fn new(state: S, input: I, output: O) -> Self {
@@ -274,7 +280,16 @@ where
             }
         }
 
-        Ok(messages::InitResponse::default())
+        match self.state.disable_reason() {
+            Some(reason) => {
+                let init_resp = messages::InitResponse{
+                    disable: Some(reason),
+                };
+                Ok(init_resp)
+            },
+            None => Ok(messages::InitResponse::default()),
+        }
+
     }
 }
 
@@ -538,6 +553,7 @@ where
     pub fn state(&self) -> &S {
         &self.state
     }
+    pub fn mut_state(&mut self) -> &mut S {&mut self.state}
 }
 
 impl<S> Plugin<S>
