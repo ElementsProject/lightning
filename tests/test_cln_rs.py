@@ -177,7 +177,7 @@ def test_grpc_no_auto_start(node_factory):
     })
 
     wait_for(lambda: [p for p in l1.rpc.plugin('list')['plugins'] if 'cln-grpc' in p['name']] == [])
-    assert l1.daemon.is_in_log(r'plugin-cln-grpc: Killing plugin: exited during normal operation')
+    assert l1.daemon.is_in_log(r'plugin-cln-grpc: Killing plugin: disabled itself at init')
 
 
 def test_grpc_wrong_auth(node_factory):

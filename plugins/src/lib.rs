@@ -294,12 +294,14 @@ where
                 let resp = callback(self.state.clone(), serde_json::to_value(&call.options)?).await;
                 match resp {
                     Ok(result) => {
-                        let init_resp = serde_json::from_value::<messages::InitResponse>(result).unwrap();
-                        info!(
-                            "send custom init response {:?}",
-                            json!(&init_resp)
-                        );
-                        Ok(init_resp.clone())
+                        let init_resp = serde_json::from_value::<messages::InitResponse>(result);
+                        match init_resp {
+                            Ok(response) => {
+                                info!("send custom init response {:?}", response);
+                                Ok(response.clone())
+                            }
+                            Err(_) => Ok(messages::InitResponse::default()),
+                        }
                     }
                     Err(_) => Ok(messages::InitResponse::default()),
                 }

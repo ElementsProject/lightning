@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
 use cln_plugin::{options, Builder, Error};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -60,15 +60,23 @@ async fn on_init(
     _state: PluginState,
     payload: serde_json::Value,
 ) -> Result<serde_json::Value, Error> {
-    let opts= payload.as_object().unwrap();
-    let mut init_reps = serde_json::Map::<String, serde_json::Value>::new();
-    if !opts.contains_key("grpc-port") {
-        init_reps.insert(
-            "disabled".to_string(),
-            serde_json::Value::String("disable grpc-plugin due the missing grpc-port inside the conf or cmdline".to_string()),
-        );
+    let opts = payload.as_object().unwrap();
+    info!("{:?}", opts);
+    if opts.contains_key("grpc-port") {
+        let val = opts.get("grpc-port").unwrap().as_i64().unwrap();
+        if val < 0 {
+            let mut init_reps = serde_json::Map::<String, serde_json::Value>::new();
+            init_reps.insert(
+                "disable".to_string(),
+                serde_json::Value::String(
+                    "disable grpc-plugin due the missing grpc-port inside the conf or cmdline"
+                        .to_string(),
+                ),
+            );
+            return Ok(serde_json::Value::from(init_reps));
+        }
     }
-    Ok(serde_json::Value::Object(init_reps))
+    Ok(serde_json::Value::from({}))
 }
 
 async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> {
