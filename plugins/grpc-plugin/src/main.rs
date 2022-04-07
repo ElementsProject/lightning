@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
-use cln_plugin::{options, Builder};
+use cln_plugin::{options, Builder, Error};
 use log::{debug, warn};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -12,13 +12,6 @@ struct PluginState {
     rpc_path: PathBuf,
     identity: tls::Identity,
     ca_cert: Vec<u8>,
-    disabled: Option<String>,
-}
-
-impl cln_plugin::PluginState for PluginState {
-    fn disable_reason(&self) -> Option<String> {
-        self.disabled.clone()
-    }
 }
 
 #[tokio::main]
@@ -33,15 +26,15 @@ async fn main() -> Result<()> {
         rpc_path: path.into(),
         identity,
         ca_cert,
-        disabled: None,
     };
 
-    let mut plugin = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
+    let plugin = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "grpc-port",
             options::Value::Integer(-1),
             "Which port should the grpc plugin listen for incoming connections?",
         ))
+        .on_init(on_init)
         .start()
         .await?;
 
@@ -50,6 +43,7 @@ async fn main() -> Result<()> {
         None => return Err(anyhow!("Missing 'grpc-port' option")),
         Some(o) => return Err(anyhow!("grpc-port is not a valid integer: {:?}", o)),
     };
+
     if bind_port >= 0 {
         let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
 
@@ -58,11 +52,23 @@ async fn main() -> Result<()> {
                 warn!("Error running the grpc interface: {}", e);
             }
         });
-    } else {
-        plugin.mut_state().disabled =
-            Some("GRPC server disabled due the missing port in the lightningd conf".to_string());
     }
     plugin.join().await
+}
+
+async fn on_init(
+    _state: PluginState,
+    payload: serde_json::Value,
+) -> Result<serde_json::Value, Error> {
+    let opts= payload.as_object().unwrap();
+    let mut init_reps = serde_json::Map::<String, serde_json::Value>::new();
+    if !opts.contains_key("grpc-port") {
+        init_reps.insert(
+            "disabled".to_string(),
+            serde_json::Value::String("disable grpc-plugin due the missing grpc-port inside the conf or cmdline".to_string()),
+        );
+    }
+    Ok(serde_json::Value::Object(init_reps))
 }
 
 async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> {
