@@ -30,6 +30,7 @@ showing default values (\fBdev-\fR options are not shown)\.
 
 On success, an object is returned, containing:
 
+
 .RS
 .IP \[bu]
 \fB# version\fR (string, optional): Special field indicating the current version
@@ -93,6 +94,8 @@ On success, an object is returned, containing:
 \fBexperimental-shutdown-wrong-funding\fR (boolean, optional): \fBexperimental-shutdown-wrong-funding\fR field from config or cmdline, or default
 .IP \[bu]
 \fBexperimental-websocket-port\fR (u16, optional): \fBexperimental-websocket-port\fR field from config or cmdline, or default
+.IP \[bu]
+\fBgrpc-port\fR (u64, optional): \fBgrpc-port\fR field from config or cmdline, or default
 .IP \[bu]
 \fBrgb\fR (hex, optional): \fBrgb\fR field from config or cmdline, or default (always 6 characters)
 .IP \[bu]
@@ -169,6 +172,7 @@ On success, an object is returned, containing:
 .RE
 
 On failure, one of the following error codes may be returned:
+
 
 .RS
 .IP \[bu]
@@ -282,4 +286,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:8d8f73010f55f3af6e050c944cf7670109224b3cf3166cc754047f6e20beef20
+\" SHA256STAMP:ab721971acdc262075500c3f6b9cbe3d85f10bf50303f221ff1995e7f30986ef

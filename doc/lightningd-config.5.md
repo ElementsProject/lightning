@@ -465,12 +465,12 @@ all DNS lookups, to avoid leaking information.
 Disable the DNS bootstrapping mechanism to find a node by its node ID.
 
  **tor-service-password**=*PASSWORD*
-Set a Tor control password, which may be needed for *autotor:* to
+Set a Tor control password, which may be needed for *autotor:** to
 authenticate to the Tor control port.
 
-  **grpc-port**=*PORT*
-Set the port where the GRPC server will listen incoming request, if
-it is not specified, the GRPC server is disabled.
+ **grpc-port**=*PORT*
+Set the port where the GRPC server will listen incoming request, if it
+is not set no server is started.
 
 ### Lightning Plugins
 
