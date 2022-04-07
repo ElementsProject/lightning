@@ -176,7 +176,7 @@ def test_grpc_no_auto_start(node_factory):
         "plugin": str(bin_path),
     })
 
-    wait_for(lambda: [p for p in l1.rpc.plugin('list')['plugins'] if 'cln-grpc' in p['name']] == [])
+    l1.daemon.logsearch_start = 0
     assert l1.daemon.is_in_log(r'plugin-cln-grpc: Killing plugin: exited during normal operation')
 
 
