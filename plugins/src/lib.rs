@@ -176,7 +176,8 @@ where
                     }))
                     .await?
             }
-            o => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
+            Some(o) => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
+            None => return Err(anyhow!("Lost connection to lightning expecting getmanifest")),
         };
 
         match input.next().await {
@@ -192,7 +193,12 @@ where
                     .await?
             }
 
-            o => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
+            Some(o) => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
+            None => {
+		// If we are being called with --help we will get
+		// disconnected here. That's expected, so don't
+		// complain about it.
+	    }
         };
 
         let (wait_handle, _) = tokio::sync::broadcast::channel(1);
