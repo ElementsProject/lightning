@@ -509,6 +509,7 @@ impl From<&responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label.clone(), // Rule #2 for type string?
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
+            description: c.description.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
             payment_preimage: c.payment_preimage.clone().map(|v| v.to_vec()), // Rule #2 for type secret?
             erroronion: c.erroronion.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
@@ -908,6 +909,7 @@ impl From<&responses::ListpaysPays> for pb::ListpaysPays {
             created_at: c.created_at.clone(), // Rule #2 for type u64
             label: c.label.clone(), // Rule #2 for type string?
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
+            description: c.description.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -1233,6 +1235,8 @@ impl From<&pb::PayRequest> for requests::PayRequest {
             exemptfee: c.exemptfee.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             localofferid: c.localofferid.clone().map(|v| hex::encode(v)), // Rule #1 for type hex?
             exclude: Some(c.exclude.iter().map(|s| s.into()).collect()), // Rule #4
+            maxfee: c.maxfee.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            description: c.description.clone(), // Rule #1 for type string?
         }
     }
 }
