@@ -135,7 +135,7 @@ pub(crate) struct GetManifestResponse {
 pub(crate) struct InitResponse {
     /// enable the possibility to disable the plugins
     /// when are marked as important.
-    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) disable: Option<String>,
 }
 

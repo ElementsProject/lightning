@@ -280,16 +280,10 @@ where
             }
         }
 
-        match self.state.disable_reason() {
-            Some(reason) => {
-                let init_resp = messages::InitResponse{
-                    disable: Some(reason),
-                };
-                Ok(init_resp)
-            },
-            None => Ok(messages::InitResponse::default()),
-        }
-
+        let init_resp = messages::InitResponse{
+            disable: self.state.disable_reason(),
+        };
+        Ok(init_resp)
     }
 }
 
