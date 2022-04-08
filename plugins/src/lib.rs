@@ -139,12 +139,7 @@ where
         self
     }
 
-    /// Build and start the plugin loop. This performs the handshake
-    /// and spawns a new task that accepts incoming messages from
-    /// Core Lightning and dispatches them to the handlers. It only
-    /// returns after completing the handshake to ensure that the
-    /// configuration and initialization was successfull.
-    pub async fn start(mut self) -> Result<Plugin<S>, anyhow::Error> {
+    pub async fn configure(mut self) -> Result<ConfiguredPlugin<S, I, O>, anyhow::Error> {
         let mut input = FramedRead::new(self.input.take().unwrap(), JsonRpcCodec::default());
 
         // Sadly we need to wrap the output in a mutex in order to
@@ -177,28 +172,25 @@ where
                     .await?
             }
             Some(o) => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
-            None => return Err(anyhow!("Lost connection to lightning expecting getmanifest")),
+            None => {
+                return Err(anyhow!(
+                    "Lost connection to lightning expecting getmanifest"
+                ))
+            }
         };
-
-        match input.next().await {
+        let init_id = match input.next().await {
             Some(Ok(messages::JsonRpc::Request(id, messages::Request::Init(m)))) => {
-                output
-                    .lock()
-                    .await
-                    .send(json!({
-                        "jsonrpc": "2.0",
-                        "result": self.handle_init(m)?,
-                        "id": id,
-                    }))
-                    .await?
+                self.handle_init(m)?;
+                id
             }
 
             Some(o) => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
             None => {
-		// If we are being called with --help we will get
-		// disconnected here. That's expected, so don't
-		// complain about it.
-	    }
+                // If we are being called with --help we will get
+                // disconnected here. That's expected, so don't
+                // complain about it.
+                0
+            }
         };
 
         let (wait_handle, _) = tokio::sync::broadcast::channel(1);
@@ -219,23 +211,33 @@ where
             HashMap::from_iter(self.rpcmethods.drain().map(|(k, v)| (k, v.callback)));
         rpcmethods.extend(self.hooks.drain().map(|(k, v)| (k, v.callback)));
 
-        // Start the PluginDriver to handle plugin IO
-        tokio::spawn(
-            PluginDriver {
+        // Leave the `init` reply pending, so we can disable based on
+        // the options if required.
+        Ok(ConfiguredPlugin {
+            // The JSON-RPC `id` field so we can reply correctly.
+            init_id,
+            input,
+            output,
+            receiver,
+            driver: PluginDriver {
                 plugin: plugin.clone(),
                 rpcmethods,
                 hooks: HashMap::new(),
                 subscriptions: HashMap::from_iter(
                     self.subscriptions.drain().map(|(k, v)| (k, v.callback)),
                 ),
-            }
-            .run(receiver, input, output),
-	    // TODO Use the broadcast to distribute any error that we
-	    // might receive here to anyone listening. (Shutdown
-	    // signal)
-        );
+            },
+            plugin,
+        })
+    }
 
-        Ok(plugin)
+    /// Build and start the plugin loop. This performs the handshake
+    /// and spawns a new task that accepts incoming messages from
+    /// Core Lightning and dispatches them to the handlers. It only
+    /// returns after completing the handshake to ensure that the
+    /// configuration and initialization was successfull.
+    pub async fn start(self) -> Result<Plugin<S>, anyhow::Error> {
+        self.configure().await?.start().await
     }
 
     fn handle_get_manifest(
@@ -322,6 +324,22 @@ where
     callback: AsyncCallback<S>,
 }
 
+/// A plugin that has registered with the lightning daemon, and gotten
+/// its options filled, however has not yet acknowledged the `init`
+/// message. This is a mid-state allowing a plugin to disable itself,
+/// based on the options.
+pub struct ConfiguredPlugin<S, I, O>
+where
+    S: Clone + Send,
+{
+    init_id: usize,
+    input: FramedRead<I, JsonRpcCodec>,
+    output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
+    plugin: Plugin<S>,
+    driver: PluginDriver<S>,
+    receiver: tokio::sync::mpsc::Receiver<serde_json::Value>,
+}
+
 #[derive(Clone)]
 pub struct Plugin<S>
 where
@@ -347,6 +365,67 @@ where
             .filter(|o| o.name() == name)
             .next()
             .map(|co| co.value.clone().unwrap_or(co.default().clone()))
+    }
+}
+
+impl<S, I, O> ConfiguredPlugin<S, I, O>
+where
+    S: Send + Clone + Sync + 'static,
+    I: AsyncRead + Send + Unpin + 'static,
+    O: Send + AsyncWrite + Unpin + 'static,
+{
+    #[allow(unused_mut)]
+    pub async fn start(mut self) -> Result<Plugin<S>, anyhow::Error> {
+        let driver = self.driver;
+        let plugin = self.plugin;
+        let output = self.output;
+        let input = self.input;
+        let receiver = self.receiver; // Now reply to the `init` message that `configure` left pending.
+        output
+            .lock()
+            .await
+            .send(json!(
+                {
+                    "jsonrpc": "2.0",
+                    "id": self.init_id,
+            "result": crate::messages::InitResponse{disable: None}
+                }
+            ))
+            .await
+            .context("sending init response")?;
+        // Start the PluginDriver to handle plugin IO
+        tokio::spawn(
+            driver.run(receiver, input, output),
+            // TODO Use the broadcast to distribute any error that we
+            // might receive here to anyone listening. (Shutdown
+            // signal)
+        );
+        Ok(plugin)
+    }
+
+    /// Abort the plugin startup. Communicate that we're about to exit
+    /// voluntarily, and this is not an error.
+    #[allow(unused_mut)]
+    pub async fn disable(mut self, reason: &str) -> Result<(), anyhow::Error> {
+        self.output
+            .lock()
+            .await
+            .send(json!(
+                {
+                    "jsonrpc": "2.0",
+                    "id": self.init_id,
+            "result": crate::messages::InitResponse{
+            disable: Some(reason.to_string())
+            }
+                }
+            ))
+            .await
+            .context("sending init response")?;
+        Ok(())
+    }
+
+    pub fn option(&self, name: &str) -> Option<options::Value> {
+        self.plugin.option(name)
     }
 }
 
@@ -384,21 +463,21 @@ where
         O: Send + AsyncWriteExt + Unpin,
     {
         loop {
-	    // If we encounter any error reading or writing from/to
-	    // the master we hand them up, so we can return control to
-	    // the user-code, which may require some cleanups or
-	    // similar.
+            // If we encounter any error reading or writing from/to
+            // the master we hand them up, so we can return control to
+            // the user-code, which may require some cleanups or
+            // similar.
             tokio::select! {
-                e = self.dispatch_one(&mut input, &self.plugin) => {
-		    //Hand any error up.
-		    e?;
-		},
-		v = receiver.recv() => {
-		    output.lock().await.send(
-			v.context("internal communication error")?
-		    ).await?;
-		},
-            }
+                    e = self.dispatch_one(&mut input, &self.plugin) => {
+                //Hand any error up.
+                e?;
+            },
+            v = receiver.recv() => {
+                output.lock().await.send(
+                v.context("internal communication error")?
+                ).await?;
+            },
+                }
         }
     }
 
