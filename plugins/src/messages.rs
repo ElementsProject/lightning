@@ -132,6 +132,9 @@ pub(crate) struct GetManifestResponse {
 }
 
 #[derive(Serialize, Default, Debug)]
-pub struct InitResponse {}
+pub struct InitResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disable: Option<String>,
+}
 
 pub trait Response: Serialize + Debug {}
