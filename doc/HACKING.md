@@ -18,7 +18,7 @@ It's in C, to encourage alternate implementations.  Patches are welcome!
 You should read our [Style Guide](STYLE.md).
 
 To read the code, you should start from
-[lightningd.c](../lightningd/lightningd.c) and hop your way through
+[lightningd.c](https://github.com/ElementsProject/lightning/blob/master/lightningd/lightningd.c) and hop your way through
 the '~' comments at the head of each daemon in the suggested
 order.
 
