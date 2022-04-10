@@ -6,7 +6,7 @@ use cln_plugin::{options, Builder, Error, Plugin};
 use tokio;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let plugin = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
+    if let Some(plugin) = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "test-option",
             options::Value::Integer(42),
@@ -16,8 +16,12 @@ async fn main() -> Result<(), anyhow::Error> {
         .subscribe("connect", connect_handler)
         .hook("peer_connected", peer_connected_handler)
         .start()
-        .await?;
-    plugin.join().await
+        .await?
+    {
+        plugin.join().await
+    } else {
+        Ok(())
+    }
 }
 
 async fn testmethod(_p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
@@ -29,7 +33,10 @@ async fn connect_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Err
     Ok(())
 }
 
-async fn peer_connected_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<serde_json::Value, Error> {
+async fn peer_connected_handler(
+    _p: Plugin<()>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, Error> {
     log::info!("Got a connect hook call: {}", v);
     Ok(json!({"result": "continue"}))
 }

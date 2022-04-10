@@ -139,7 +139,13 @@ where
         self
     }
 
-    pub async fn configure(mut self) -> Result<ConfiguredPlugin<S, I, O>, anyhow::Error> {
+    /// Communicate with `lightningd` to tell it about our options,
+    /// RPC methods and subscribe to hooks, and then process the
+    /// initialization, configuring the plugin.
+    ///
+    /// Returns `None` if we were invoked with `--help` and thus
+    /// should exit after this handshake
+    pub async fn configure(mut self) -> Result<Option<ConfiguredPlugin<S, I, O>>, anyhow::Error> {
         let mut input = FramedRead::new(self.input.take().unwrap(), JsonRpcCodec::default());
 
         // Sadly we need to wrap the output in a mutex in order to
@@ -189,7 +195,7 @@ where
                 // If we are being called with --help we will get
                 // disconnected here. That's expected, so don't
                 // complain about it.
-                0
+                return Ok(None);
             }
         };
 
@@ -213,7 +219,7 @@ where
 
         // Leave the `init` reply pending, so we can disable based on
         // the options if required.
-        Ok(ConfiguredPlugin {
+        Ok(Some(ConfiguredPlugin {
             // The JSON-RPC `id` field so we can reply correctly.
             init_id,
             input,
@@ -228,7 +234,7 @@ where
                 ),
             },
             plugin,
-        })
+        }))
     }
 
     /// Build and start the plugin loop. This performs the handshake
@@ -236,8 +242,17 @@ where
     /// Core Lightning and dispatches them to the handlers. It only
     /// returns after completing the handshake to ensure that the
     /// configuration and initialization was successfull.
-    pub async fn start(self) -> Result<Plugin<S>, anyhow::Error> {
-        self.configure().await?.start().await
+    ///
+    /// If `lightningd` was called with `--help` we won't get a
+    /// `Plugin` instance and return `None` instead. This signals that
+    /// we should exit, and not continue running. `start()` returns in
+    /// order to allow user code to perform cleanup if necessary.
+    pub async fn start(self) -> Result<Option<Plugin<S>>, anyhow::Error> {
+        if let Some(cp) = self.configure().await? {
+            Ok(Some(cp.start().await?))
+        } else {
+            Ok(None)
+        }
     }
 
     fn handle_get_manifest(
