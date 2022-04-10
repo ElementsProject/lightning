@@ -28,19 +28,25 @@ async fn main() -> Result<()> {
         ca_cert,
     };
 
-    let plugin = Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
+    let plugin = match Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "grpc-port",
             options::Value::Integer(-1),
             "Which port should the grpc plugin listen for incoming connections?",
         ))
         .configure()
-        .await?;
+        .await?
+    {
+        Some(p) => p,
+        None => return Ok(()),
+    };
 
     let bind_port = match plugin.option("grpc-port") {
         Some(options::Value::Integer(-1)) => {
             log::info!("`grpc-port` option is not configured, exiting.");
-            plugin.disable("`grpc-port` option is not configured.").await?;
+            plugin
+                .disable("`grpc-port` option is not configured.")
+                .await?;
             return Ok(());
         }
         Some(options::Value::Integer(i)) => i,
