@@ -684,15 +684,10 @@ static void json_add_channel(struct lightningd *ld,
 	struct amount_sat peer_funded_sats;
 	struct state_change_entry *state_changes;
 	u32 feerate;
-	bool peer_connected;
-
-	// FIXME(vincenzopalazzo): that the peer is online but it is wrong
-	// just to rebase
-	peer_connected = true;
 
 	json_object_start(response, key);
 	json_add_node_id(response, "peer_id", &peer->id);
-	json_add_bool(response, "peer_connected", peer_connected);
+	json_add_bool(response, "peer_connected", &peer->is_connected);
 	json_add_string(response, "state", channel_state_name(channel));
 	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
 		struct bitcoin_txid txid;

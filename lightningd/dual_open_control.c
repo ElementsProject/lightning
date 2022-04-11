@@ -110,7 +110,6 @@ void json_add_unsaved_channel(struct json_stream *response,
 {
 	struct amount_msat total;
 	struct open_attempt *oa;
-	bool peer_connected;
 
 	if (!channel)
 		return;
@@ -124,14 +123,11 @@ void json_add_unsaved_channel(struct json_stream *response,
 	if (!channel->owner)
 		return;
 
-	// FIXME(vincenzopalazzo): remove this code and make directly true in the peer_connected
-	peer_connected = true;
-
 	oa = channel->open_attempt;
 
 	json_object_start(response, NULL);
 	json_add_node_id(response, "peer_id", &peer->id);
-	json_add_bool(response, "peer_connected", peer_connected);
+	json_add_bool(response, "peer_connected", &peer->is_connected);
 	json_add_string(response, "state", channel_state_name(channel));
 	json_add_string(response, "owner", channel->owner->name);
 	json_add_string(response, "opener", channel->opener == LOCAL ?
