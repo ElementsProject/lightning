@@ -128,7 +128,6 @@ message ListpeersPeers {
 	bytes id = 1;
 	bool connected = 2;
 	repeated ListpeersPeersLog log = 3;
-	repeated ListpeersPeersChannels channels = 4;
 	repeated string netaddr = 5;
 	optional string remote_addr = 7;
 	optional bytes features = 6;

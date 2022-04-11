@@ -161,7 +161,6 @@ impl From<&responses::ListpeersPeers> for pb::ListpeersPeers {
             id: c.id.to_vec(), // Rule #2 for type pubkey
             connected: c.connected.clone(), // Rule #2 for type boolean
             log: c.log.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
-            channels: c.channels.iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeersPeersChannels 
             netaddr: c.netaddr.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             remote_addr: c.remote_addr.clone(), // Rule #2 for type string?
             features: c.features.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
