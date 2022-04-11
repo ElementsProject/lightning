@@ -7,8 +7,7 @@ from utils import (
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
     scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
     check_utxos_channel, anchor_expected, check_coin_moves,
-    check_balance_snaps, mine_funding_to_announce, check_inspect_channel,
-    first_scid
+    trace_pay_command, first_scid
 )
 
 import os
@@ -32,16 +31,16 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
 
     assert bitcoind.rpc.getmempoolinfo()['size'] == 0
 
-    billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
     assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
-    billboard = only_one(l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status']
+    billboard = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['status']
     assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
 
     bitcoind.generate_block(5)
 
     wait_for(lambda: len(l1.getactivechannels()) == 2)
     wait_for(lambda: len(l2.getactivechannels()) == 2)
-    billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
     # This may either be from a local_update or an announce, so just
     # check for the substring
     assert 'CHANNELD_NORMAL:Funding transaction locked.' in billboard[0]
@@ -67,7 +66,7 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     # Now grab the close transaction
     closetxid = only_one(bitcoind.rpc.getrawmempool(False))
 
-    billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
     assert billboard == [
         'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, closetxid),
     ]
@@ -80,14 +79,14 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
     assert closetxid in set([o['txid'] for o in l2.rpc.listfunds()['outputs']])
 
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status'] == [
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'] == [
         'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, closetxid),
         'ONCHAIN:Tracking mutual close transaction',
         'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'
     ])
 
     bitcoind.generate_block(9)
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status'] == [
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'] == [
         'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, closetxid),
         'ONCHAIN:Tracking mutual close transaction',
         'ONCHAIN:All outputs resolved: waiting 90 more blocks before forgetting channel'
@@ -172,7 +171,7 @@ def test_closing_id(node_factory):
     # Close by full channel ID.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**6)
-    cid = l2.rpc.listpeers()['peers'][0]['channels'][0]['channel_id']
+    cid = l2.rpc.listpeerchannels()['channels'][0]['channel_id']
     l2.rpc.close(cid)
     # Technically, l2 disconnects before l1 finishes analyzing the final msg.
     # Wait for them to both consider it closed!
@@ -245,7 +244,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     bitcoind.generate_block(1)
     for p in peers:
         p.daemon.wait_for_log(' to ONCHAIN')
-        wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status'])
+        wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(p.rpc.listpeerchannels(l1.info['id'])['channels'])['status'])
 
     l1.daemon.wait_for_logs([' to ONCHAIN'] * num_peers)
 
@@ -306,7 +305,7 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
     # Now grab the close transaction
     closetxs = {}
     for i, n in enumerate([l2, l3, l4]):
-        billboard = only_one(l1.rpc.listpeers(n.info['id'])['peers'][0]['channels'])['status'][0]
+        billboard = only_one(l1.rpc.listpeerchannels(n.info['id'])['channels'])['status'][0]
         m = re.search(r'CLOSINGD_SIGEXCHANGE.* tx:([a-f0-9]{64})', billboard)
         closetxs[n] = m.group(1)
 
@@ -371,8 +370,7 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
 
     def get_fee_from_status(node, peer_id, i):
         nonlocal fees_from_status
-        peer = only_one(node.rpc.listpeers(peer_id)['peers'])
-        channel = only_one(peer['channels'])
+        channel = only_one(node.rpc.listpeerchannels(peer_id)['channels'])
         status = channel['status'][0]
 
         m = status_agreed_regex.search(status)
@@ -802,9 +800,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
     # This should be the accepter's amount
     fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
-    assert Millisatoshi(amount * 1000) == fundings['remote_funds_msat']
-    assert Millisatoshi(est_fees + amount * 1000) == fundings['local_funds_msat']
-    assert Millisatoshi(est_fees) == fundings['fee_paid_msat']
+    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['remote_msat'])
 
     bitcoind.generate_block(6)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
@@ -928,8 +924,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     # This should be the accepter's amount
     fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
-    assert Millisatoshi(amount * 1000) == Millisatoshi(fundings['remote_funds_msat'])
-    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['local_funds_msat'])
+    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['remote_msat'])
 
     bitcoind.generate_block(6)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
@@ -1192,7 +1187,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
     # push some money so that 1 + 4 can both send htlcs
     inv = l2.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l1.rpc.pay(inv['bolt11'])
+    trace_pay_command(lambda: l1.rpc.pay(inv['bolt11']), l1)
     l1.rpc.waitsendpay(inv['payment_hash'])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
@@ -1206,7 +1201,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     l4.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
-    wait_for(lambda: len(l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]['htlcs']) == 1)
+    wait_for(lambda: len(l2.rpc.listpeerchannels(l3.info['id'])['channels'][0]['htlcs']) == 1)
 
     # make database snapshot of l2
     l2.stop()
@@ -1394,7 +1389,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     l4.rpc.sendpay(route, sticky_inv_2['payment_hash'], payment_secret=sticky_inv_2['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
-    wait_for(lambda: len(l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]['htlcs']) == 2)
+    wait_for(lambda: len(l2.rpc.listpeerchannels(l3.info['id'])['channels'][0]['htlcs']) == 2)
 
     # make database snapshot of l2
     l2.stop()
@@ -3137,12 +3132,12 @@ def test_permfail(node_factory, bitcoind):
     l2.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) after 5 blocks')
 
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
              == ['ONCHAIN:Tracking their unilateral close',
                  'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
     def check_billboard():
-        billboard = only_one(l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status']
+        billboard = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['status']
         return (
             len(billboard) == 2
             and billboard[0] == 'ONCHAIN:Tracking our own unilateral close'
@@ -3169,7 +3164,7 @@ def test_permfail(node_factory, bitcoind):
     bitcoind.generate_block(95)
     wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
 
-    wait_for(lambda: only_one(l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status'] == [
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['status'] == [
         'ONCHAIN:Tracking our own unilateral close',
         'ONCHAIN:All outputs resolved: waiting 5 more blocks before forgetting channel'
     ])
@@ -3227,8 +3222,8 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     l2.rpc.close(l1.info['id'], unilateraltimeout=1)
     bitcoind.generate_block(1, wait_for_mempool=1)
     fut.result(TIMEOUT)
-    wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
-    wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN'])
+    wait_for(lambda: [c['state'] for c in l1.rpc.listpeerchannels()['channels']] == ['ONCHAIN'])
+    wait_for(lambda: [c['state'] for c in l2.rpc.listpeerchannels()['channels']] == ['ONCHAIN'])
 
     # Works when l2 closes channel, too.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3243,8 +3238,8 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     fut.result(TIMEOUT)
 
     bitcoind.generate_block(1, wait_for_mempool=1)
-    wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
-    wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
+    wait_for(lambda: [c['state'] for c in l1.rpc.listpeerchannels()['channels']] == ['ONCHAIN', 'ONCHAIN'])
+    wait_for(lambda: [c['state'] for c in l2.rpc.listpeerchannels()['channels']] == ['ONCHAIN', 'ONCHAIN'])
 
     # Figure out what address it will try to use.
     keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip32_max_index';")[0]['intval'])
@@ -3266,7 +3261,7 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel(l2.info['id'], 1000000)
     l1.rpc.close(l2.info['id'])
-    wait_for(lambda: sorted([c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']]) == ['CLOSINGD_COMPLETE', 'ONCHAIN', 'ONCHAIN'])
+    wait_for(lambda: sorted([c['state'] for c in l1.rpc.listpeerchannels()['channels']]) == ['CLOSINGD_COMPLETE', 'ONCHAIN', 'ONCHAIN'])
 
 
 @pytest.mark.developer("needs to set upfront_shutdown_script")
@@ -3394,8 +3389,8 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
         fut.result(TIMEOUT)
 
     # But we still complete negotiation!
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: l1.rpc.listpeerchannels()['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: l2.rpc.listpeerchannels()['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
 
 
 @unittest.skipIf(True, "Test is extremely flaky")
@@ -3431,8 +3426,8 @@ def test_htlc_rexmit_while_closing(node_factory, executor):
 
     # Now l2 should be in CLOSINGD_SIGEXCHANGE, l1 still waiting on
     # WIRE_REVOKE_AND_ACK.
-    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE')
-    assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CHANNELD_SHUTTING_DOWN'
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE')
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_SHUTTING_DOWN'
 
     # They don't realize they're not talking, so disconnect and reconnect.
     l1.rpc.disconnect(l2.info['id'], force=True)
@@ -3461,8 +3456,8 @@ def test_you_forgot_closed_channel(node_factory, executor):
     fut = executor.submit(l1.rpc.close, l2.info['id'])
 
     # l2 considers the closing done, l1 does not
-    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
-    assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
 
     # l1 won't send anything else until we reconnect, then it should succeed.
     l1.rpc.disconnect(l2.info['id'], force=True)
@@ -3486,8 +3481,8 @@ def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
     fut = executor.submit(l1.rpc.close, l2.info['id'])
 
     # l2 considers the closing done, l1 does not
-    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
-    assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
 
     # l1 does not see any new blocks.
     def no_new_blocks(req):
@@ -3498,7 +3493,7 @@ def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
     # Close transaction mined
     bitcoind.generate_block(1, wait_for_mempool=1)
 
-    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'ONCHAIN')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'ONCHAIN')
 
     # l1 reconnects, it should succeed.
     l1.rpc.disconnect(l2.info['id'], force=True)
@@ -3531,11 +3526,11 @@ def test_segwit_anyshutdown(node_factory, bitcoind, executor):
         # because the resulting tx is too small!  Balance channel so close
         # has two outputs.
         bitcoind.generate_block(1, wait_for_mempool=1)
-        wait_for(lambda: any([c['state'] == 'CHANNELD_NORMAL' for c in only_one(l1.rpc.listpeers()['peers'])['channels']]))
+        wait_for(lambda: any([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels()['channels']]))
         l1.pay(l2, 10**9 // 2)
         l1.rpc.close(l2.info['id'], destination=addr)
         bitcoind.generate_block(1, wait_for_mempool=1)
-        wait_for(lambda: all([c['state'] == 'ONCHAIN' for c in only_one(l1.rpc.listpeers()['peers'])['channels']]))
+        wait_for(lambda: all([c['state'] == 'ONCHAIN' for c in l1.rpc.listpeerchannels()['channels']]))
 
 
 @pytest.mark.developer("needs to manipulate features")
@@ -3558,7 +3553,7 @@ def test_anysegwit_close_needs_feature(node_factory, bitcoind):
     # Now it will work!
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.close(l2.info['id'], destination='bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56')
-    wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
     bitcoind.generate_block(1, wait_for_mempool=1)
 
 

@@ -80,6 +80,7 @@ Core Lightning Documentation
    lightning-listnodes <lightning-listnodes.7.md>
    lightning-listoffers <lightning-listoffers.7.md>
    lightning-listpays <lightning-listpays.7.md>
+   lightning-listpeerchannels <lightning-listpeerchannels.7.md>
    lightning-listpeers <lightning-listpeers.7.md>
    lightning-listsendpays <lightning-listsendpays.7.md>
    lightning-listtransactions <lightning-listtransactions.7.md>

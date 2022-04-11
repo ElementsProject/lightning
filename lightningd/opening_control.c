@@ -46,6 +46,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
 	json_add_string(response, "opener", "local");
+	json_add_bool(response, "peer_connected", true);
 	if (uc->transient_billboard) {
 		json_array_start(response, "status");
 		json_add_string(response, NULL, uc->transient_billboard);

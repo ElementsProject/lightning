@@ -397,6 +397,7 @@ void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for json_add_unsaved_channel */
 void json_add_unsaved_channel(struct json_stream *response UNNEEDED,
+			      const struct peer *peer UNNEEDED,
 			      const struct channel *channel UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
 /* Generated stub for json_array_end */

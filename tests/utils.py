@@ -1,7 +1,7 @@
 from pyln.testing.utils import TEST_NETWORK, TIMEOUT, VALGRIND, DEVELOPER, DEPRECATED_APIS  # noqa: F401
 from pyln.testing.utils import env, only_one, wait_for, write_config, TailableProc, sync_blockheight, wait_channel_quiescent, get_tx_p2wsh_outnum, mine_funding_to_announce  # noqa: F401
 import bitstring
-from pyln.client import Millisatoshi
+from pyln.client import Millisatoshi, RpcError
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 import time
 
@@ -409,7 +409,7 @@ def check_utxos_channel(n, chans, expected, exp_tag_list=None, filter_channel=No
 
 
 def first_channel_id(n1, n2):
-    return only_one(only_one(n1.rpc.listpeers(n2.info['id'])['peers'])['channels'])['channel_id']
+    return only_one(n1.rpc.listpeerchannels(n2.info['id'])['channels'])['channel_id']
 
 
 def first_scid(n1, n2):
@@ -438,3 +438,16 @@ def scriptpubkey_addr(scriptpubkey):
         # Modern bitcoin (at least, git master)
         return scriptpubkey['address']
     return None
+
+
+def trace_pay_command(rpc_pay_call, node):
+    """Utility function that run the function and prints information
+    about the channels, and payment status to catch some unrelated error
+    otherwise return the result of the lambda function.
+    """
+    try:
+        return rpc_pay_call()
+    except RpcError as rpc_err:
+        print(node.rpc.listfunds())
+        print(node.rpc.paystatus())
+        raise rpc_err
