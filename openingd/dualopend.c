@@ -3061,6 +3061,13 @@ static void rbf_wrap_up(struct state *state,
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
+#if DEVELOPER
+	while (fromwire_dualopend_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+		msg = wire_sync_read(tmpctx, REQ_FD);
+	}
+#endif
+
 	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
