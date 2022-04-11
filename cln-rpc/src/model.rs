@@ -1025,52 +1025,6 @@ pub mod responses {
 	    pub data: Option<String>,
 	}
 
-	/// the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-	pub enum ListpeersPeersChannelsState {
-	    #[serde(rename = "OPENINGD")]
-	    OPENINGD,
-	    #[serde(rename = "CHANNELD_AWAITING_LOCKIN")]
-	    CHANNELD_AWAITING_LOCKIN,
-	    #[serde(rename = "CHANNELD_NORMAL")]
-	    CHANNELD_NORMAL,
-	    #[serde(rename = "CHANNELD_SHUTTING_DOWN")]
-	    CHANNELD_SHUTTING_DOWN,
-	    #[serde(rename = "CLOSINGD_SIGEXCHANGE")]
-	    CLOSINGD_SIGEXCHANGE,
-	    #[serde(rename = "CLOSINGD_COMPLETE")]
-	    CLOSINGD_COMPLETE,
-	    #[serde(rename = "AWAITING_UNILATERAL")]
-	    AWAITING_UNILATERAL,
-	    #[serde(rename = "FUNDING_SPEND_SEEN")]
-	    FUNDING_SPEND_SEEN,
-	    #[serde(rename = "ONCHAIN")]
-	    ONCHAIN,
-	    #[serde(rename = "DUALOPEND_OPEN_INIT")]
-	    DUALOPEND_OPEN_INIT,
-	    #[serde(rename = "DUALOPEND_AWAITING_LOCKIN")]
-	    DUALOPEND_AWAITING_LOCKIN,
-	}
-
-	impl TryFrom<i32> for ListpeersPeersChannelsState {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<ListpeersPeersChannelsState, anyhow::Error> {
-	        match c {
-	    0 => Ok(ListpeersPeersChannelsState::OPENINGD),
-	    1 => Ok(ListpeersPeersChannelsState::CHANNELD_AWAITING_LOCKIN),
-	    2 => Ok(ListpeersPeersChannelsState::CHANNELD_NORMAL),
-	    3 => Ok(ListpeersPeersChannelsState::CHANNELD_SHUTTING_DOWN),
-	    4 => Ok(ListpeersPeersChannelsState::CLOSINGD_SIGEXCHANGE),
-	    5 => Ok(ListpeersPeersChannelsState::CLOSINGD_COMPLETE),
-	    6 => Ok(ListpeersPeersChannelsState::AWAITING_UNILATERAL),
-	    7 => Ok(ListpeersPeersChannelsState::FUNDING_SPEND_SEEN),
-	    8 => Ok(ListpeersPeersChannelsState::ONCHAIN),
-	    9 => Ok(ListpeersPeersChannelsState::DUALOPEND_OPEN_INIT),
-	    10 => Ok(ListpeersPeersChannelsState::DUALOPEND_AWAITING_LOCKIN),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeersPeersChannelsState", o)),
-	        }
-	    }
-	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersChannelsFeerate {
 	    #[serde(alias = "perkw")]
