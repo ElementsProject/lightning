@@ -77,8 +77,7 @@ def test_grpc_connect(node_factory):
     from primitives_pb2 import AmountOrAny, Amount  # noqa: E402
 
     grpc_port = reserve()
-    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
-    l1 = node_factory.get_node(options={"plugin": str(bin_path), "grpc-port": str(grpc_port)})
+    l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
 
     p = Path(l1.daemon.lightning_dir) / TEST_NETWORK
     cert_path = p / "client.pem"
@@ -134,9 +133,7 @@ def test_grpc_generate_certificate(node_factory):
      - If we delete one cert or its key it should get regenerated.
     """
     grpc_port = reserve()
-    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
     l1 = node_factory.get_node(options={
-        "plugin": str(bin_path),
         "grpc-port": str(grpc_port),
     }, start=False)
 
@@ -171,10 +168,7 @@ def test_grpc_generate_certificate(node_factory):
 def test_grpc_no_auto_start(node_factory):
     """Ensure that we do not start cln-grpc unless a port is configured.
     """
-    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
-    l1, = node_factory.get_nodes(1, opts={
-        "plugin": str(bin_path),
-    })
+    l1 = node_factory.get_node()
 
     wait_for(lambda: [p for p in l1.rpc.plugin('list')['plugins'] if 'cln-grpc' in p['name']] == [])
     assert l1.daemon.is_in_log(r'plugin-cln-grpc: Killing plugin: disabled itself at init')
@@ -191,9 +185,7 @@ def test_grpc_wrong_auth(node_factory):
     import node_pb2 as nodepb  # noqa: E402
 
     grpc_port = reserve()
-    bin_path = Path.cwd() / "target" / "debug" / "cln-grpc"
     l1, l2 = node_factory.get_nodes(2, opts={
-        "plugin": str(bin_path),
         "start": False,
         "grpc-port": str(grpc_port),
     })
