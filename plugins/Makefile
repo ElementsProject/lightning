@@ -95,7 +95,6 @@ ifneq ($(RUST),0)
 plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
 	@cp $< $@
 
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
 PLUGINS += plugins/cln-grpc
 endif
 
@@ -193,5 +192,9 @@ ${CLN_PLUGIN_EXAMPLES}: ${CLN_PLUGIN_SRC}
 
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-grpc
+
+ifneq ($(RUST),0)
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc
+endif
 
 include plugins/test/Makefile
