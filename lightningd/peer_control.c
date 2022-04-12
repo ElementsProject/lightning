@@ -687,7 +687,7 @@ static void json_add_channel(struct lightningd *ld,
 
 	json_object_start(response, key);
 	json_add_node_id(response, "peer_id", &peer->id);
-	json_add_bool(response, "peer_connected", &peer->is_connected);
+	json_add_bool(response, "peer_connected", peer->is_connected);
 	json_add_string(response, "state", channel_state_name(channel));
 	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
 		struct bitcoin_txid txid;
