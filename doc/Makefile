@@ -155,7 +155,7 @@ clean: doc-clean
 check: check-manpages
 
 # This needs plugins, too.
-check-manpages: all-programs check-config-docs
+check-manpages: all-programs check-config-docs default-targets
 	@tools/check-manpage.sh cli/lightning-cli doc/lightning-cli.1.md
 	@tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.md
 
