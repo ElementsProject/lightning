@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [v0.11.0rc2] - 2022-04-04: Simon's Carefully Chosen Release Name
+## [v0.11.0rc3] - 2022-04-04: Simon's Carefully Chosen Release Name
 
 This release named by Simon Vrouwe; this marks the name change to core-lightning (#CLN).
 
