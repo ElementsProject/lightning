@@ -1870,13 +1870,15 @@ static void channel_watch_inflight(struct lightningd *ld,
 		  funding_spent);
 }
 
+static void json_add_peerchannels(struct lightningd *ld,
+				  struct json_stream *response,
+				  struct peer *peer);
+
 static void json_add_peer(struct lightningd *ld,
 			  struct json_stream *response,
 			  struct peer *p,
 			  const enum log_level *ll)
 {
-	struct channel *channel;
-
 	json_object_start(response, NULL);
 	json_add_node_id(response, "id", &p->id);
 
@@ -1901,14 +1903,7 @@ static void json_add_peer(struct lightningd *ld,
 
 	if (deprecated_apis) {
 		json_array_start(response, "channels");
-		json_add_uncommitted_channel(response, p->uncommitted_channel);
-
-		list_for_each(&p->channels, channel, list) {
-			if (channel_unsaved(channel))
-				json_add_unsaved_channel(response, p, channel);
-			else
-				json_add_channel(ld, response, NULL, p, channel);
-		}
+		json_add_peerchannels(ld, response, p);
 		json_array_end(response);
 	}
 

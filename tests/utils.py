@@ -4,6 +4,7 @@ import bitstring
 from pyln.client import Millisatoshi, RpcError
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 import time
+import logging
 
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
@@ -448,6 +449,9 @@ def trace_pay_command(rpc_pay_call, node):
     try:
         return rpc_pay_call()
     except RpcError as rpc_err:
-        print(node.rpc.listfunds())
-        print(node.rpc.paystatus())
+        # Enable the trace with --log-cli-level=INFO
+        # and void to put other info inside the normal console log.
+        logging.info(node.rpc.listfunds())
+        logging.info(node.rpc.paystatus())
+        logging.info(node.rpc.listpeerchannels())
         raise rpc_err

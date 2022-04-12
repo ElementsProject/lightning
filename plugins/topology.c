@@ -299,6 +299,13 @@ static void json_add_halfchan(struct json_stream *response,
 	}
 }
 
+struct listchannels_opts {
+	struct node_id *source;
+	struct node_id *destination;
+	struct short_channel_id *scid;
+};
+
+
 /* We record which local channels are valid; we could record which are
  * invalid, but our testsuite has some weirdness where it has local
  * channels in the store it knows nothing about. */
@@ -307,17 +314,17 @@ static struct node_map *local_connected(const tal_t *ctx,
 				        const jsmntok_t *result)
 {
 	size_t i;
-	const jsmntok_t *c, *channels = json_get_member(buf, result, "channels");
+	const jsmntok_t *channel, *channels = json_get_member(buf, result, "channels");
 	struct node_map *connected = tal(ctx, struct node_map);
 
 	node_map_init(connected);
 
-	json_for_each_arr(i, c, channels) {
+	json_for_each_arr(i, channel, channels) {
 		struct node_id id;
 		bool is_connected, normal_chan;
 		const char *err;
 
-		err = json_scan(tmpctx, buf, c,
+		err = json_scan(tmpctx, buf, channel,
 				"{peer_id:%,peer_connected:%}",
 				JSON_SCAN(json_to_node_id, &id),
 				JSON_SCAN(json_to_bool, &is_connected));
@@ -332,7 +339,7 @@ static struct node_map *local_connected(const tal_t *ctx,
 
 		/* Must also have a channel in CHANNELD_NORMAL */
 		normal_chan = json_tok_streq(buf,
-				   json_get_member(buf, c, "state"),
+				   json_get_member(buf, channel, "state"),
 					     "CHANNELD_NORMAL");
 
 		if (normal_chan)
@@ -342,12 +349,6 @@ static struct node_map *local_connected(const tal_t *ctx,
 
 	return connected;
 }
-
-struct listchannels_opts {
-	struct node_id *source;
-	struct node_id *destination;
-	struct short_channel_id *scid;
-};
 
 /* We want to combine local knowledge to we know which are actually inactive! */
 static struct command_result *listpeerchannels_done(struct command *cmd,
