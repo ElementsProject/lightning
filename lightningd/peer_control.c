@@ -1007,7 +1007,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			log_debug(channel->log, "Peer has reconnected, state %s: telling connectd to make active",
 				  channel_state_name(channel));
 
-			assert(!channel->owner);
 			subd_send_msg(ld->connectd,
 				      take(towire_connectd_peer_make_active(NULL, &peer->id,
 									    &channel->cid)));
