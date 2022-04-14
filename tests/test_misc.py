@@ -1819,9 +1819,13 @@ def test_list_features_only(node_factory):
         expected += ['option_shutdown_anysegwit/odd']
         expected += ['option_quiesce/odd']
         expected += ['option_onion_messages/odd']
+        expected += ['option_scid_alias/odd']
+        expected += ['option_zeroconf/odd']
         expected += ['supports_open_accept_channel_type']
     else:
         expected += ['option_shutdown_anysegwit/odd']
+        expected += ['option_scid_alias/odd']
+        expected += ['option_zeroconf/odd']
     assert features == expected
 
 

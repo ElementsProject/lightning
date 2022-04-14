@@ -89,6 +89,26 @@ static const struct feature_style feature_styles[] = {
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+	/* FIXME: Currently not explicitly signalled, but we do
+	 * support it for zeroconf */
+	{ OPT_SCID_ALIAS,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+
+	/* Zeroconf is always signalled in `init`, but we still
+	 * negotiate on a per-channel basis when calling `fundchannel`
+	 * with the `mindepth` parameter, and accept a channel with
+	 * the `open_channel` hook and its return value for
+	 * `mindepth`.
+	 */
+	{ OPT_ZEROCONF,
+	  .copy_style = {
+		          [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 	{ OPT_SHUTDOWN_ANYSEGWIT,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -422,9 +442,9 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
 		"option_provide_peer_backup", /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
 		NULL,
-		NULL,
+		"option_scid_alias", /* https://github.com/lightning/bolts/pull/910 */
 		"option_payment_metadata",
-		NULL, /* 50/51 */
+		"option_zeroconf", /* 50/51, https://github.com/lightning/bolts/pull/910 */
 		NULL,
 		"option_keysend",
 		NULL,
@@ -545,4 +565,15 @@ const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits)
 		}
 	}
 	return fmt;
+}
+
+struct feature_set *feature_set_dup(const tal_t *ctx,
+				    const struct feature_set *other)
+{
+	struct feature_set *res = tal(ctx, struct feature_set);
+
+	for (size_t i = 0; i < ARRAY_SIZE(res->bits); i++)
+		res->bits[i] = tal_dup_talarr(res, u8, other->bits[i]);
+
+	return res;
 }
