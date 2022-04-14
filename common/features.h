@@ -81,6 +81,9 @@ bool featurebits_eq(const u8 *f1, const u8 *f2);
 /* Good for debugging: returns comma-separated string of bits. */
 const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
 
+struct feature_set *feature_set_dup(const tal_t *ctx,
+				    const struct feature_set *other);
+
 /* BOLT #9:
  *
  * Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
@@ -133,6 +136,13 @@ const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
  * | 28/29 | `option_dual_fund` | ... IN9 ...
  */
 #define OPT_DUAL_FUND 				28
+
+/* BOLT-519be05f61e2c35ddf95b731203f89b4ee0946c3 #9:
+ * | 46/47 | `option_scid_alias`              | ... IN ...
+ * | 50/51 | `option_eroconf`                | ... IN ...
+ */
+#define OPT_SCID_ALIAS                          46
+#define OPT_ZEROCONF                            50
 
 /* BOLT-quiescent #9:
  * | 34/35 | `option_quiesce` | ... IN ...
