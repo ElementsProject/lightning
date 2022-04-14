@@ -48,6 +48,10 @@ new_uncommitted_channel(struct peer *peer)
 	uc->transient_billboard = NULL;
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
 
+	/* Need to have a copy since these might end up being
+	 * peer-specific. */
+	uc->our_features = feature_set_dup(uc, ld->our_features);
+
 	uc->log = new_log(uc, ld->log_book, &uc->peer->id,
 			  "chan#%"PRIu64, uc->dbid);
 
@@ -162,4 +166,11 @@ void channel_config(struct lightningd *ld,
 
 	 /* This is filled in by lightning_openingd, for consistency. */
 	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
+}
+
+bool opening_zeroconf_allow(struct lightningd *ld, struct node_id *peer)
+{
+	/* FIXME: Actually read the options from `ld` and return
+	 * `true` if we were configured to do so. */
+	return true;
 }

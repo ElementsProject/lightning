@@ -7,6 +7,7 @@
 #include <common/addr.h>
 #include <common/blockheight_states.h>
 #include <common/configdir.h>
+#include <common/features.h>
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -895,7 +896,11 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
 	 *     reasonable to avoid double-spending of the funding transaction.
 	 */
-	uc->minimum_depth = peer->ld->config.anchor_confirms;
+	if (opening_zeroconf_allow(peer->ld, &peer->id)) {
+		uc->minimum_depth = 0;
+	} else {
+		uc->minimum_depth = peer->ld->config.anchor_confirms;
+	}
 
 	msg = towire_openingd_init(NULL,
 				  chainparams,
