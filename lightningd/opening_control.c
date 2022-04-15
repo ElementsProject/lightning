@@ -897,14 +897,17 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 	 *     reasonable to avoid double-spending of the funding transaction.
 	 */
 	uc->minimum_depth = peer->ld->config.anchor_confirms;
-#ifdef EXPERIMENTAL_FEATURES /* zeroconf */
-	if (opening_zeroconf_allow(peer->ld, &peer->id)) {
+	if (zeroconf_allow_peer(peer->ld->config.zeroconf, &peer->id)) {
 		uc->minimum_depth = 0;
+	} else {
+		/* Unset the bit for ZEROCONF, since we don't want to signal
+		 * support and then reject when they try to use it. */
+		featurebits_unset(&uc->our_features->bits[INIT_FEATURE], OPT_ZEROCONF);
 	}
 
 	msg = towire_openingd_init(NULL,
 				  chainparams,
-				  peer->ld->our_features,
+				  uc->our_features,
 				  peer->their_features,
 				  &uc->our_config,
 				  max_to_self_delay,
