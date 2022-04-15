@@ -127,18 +127,4 @@ void channel_config(struct lightningd *ld,
 		    u32 *max_to_self_delay,
 		    struct amount_msat *min_effective_htlc_capacity);
 
-/**
- * Are we ok with this peer opening a zeroconf channel?
- *
- * Determines whether we'd be happy to open or accept a zeroconf
- * channel with this peers. It is used to selectively apply the
- * `option_zeroconf` to the `init` message we'll send to the peer when
- * a connection is established. This is sticky, as in it applies to
- * all channels we'll open or accept on this connection. Notice that
- * this does not differentiate between opening of accepting a channel,
- * and that's because the accepter doesn't get a say in the channel
- * negotiation.
- */
-bool opening_zeroconf_allow(struct lightningd *ld, struct node_id *peer);
-
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_COMMON_H */
