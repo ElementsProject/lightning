@@ -73,6 +73,8 @@ void set_feature_bit(u8 **ptr, u32 bit);
 
 /* Given two featurebit vectors, combine them by applying a logical OR. */
 u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
+/* Unset a given bit in a featurebits string */
+void featurebits_unset(u8 **ptr, size_t bit);
 
 /* Are these two feature bitsets functionally equal (one may have
  * trailing zeroes)? */
