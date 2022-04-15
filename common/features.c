@@ -516,6 +516,17 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES)
 	return result;
 }
 
+void featurebits_unset(u8 **ptr, size_t bit)
+{
+	size_t len = tal_count(*ptr);
+	if (bit / 8 >= len)
+		return;
+
+	(*ptr)[len - 1 - bit / 8] &= (0 << (bit % 8));
+
+	trim_features(ptr);
+}
+
 bool featurebits_eq(const u8 *f1, const u8 *f2)
 {
 	size_t len = tal_bytelen(f1);
