@@ -133,7 +133,7 @@ def gen_enum(e):
         defi = f"    // Path `{e.path}`\n    #[serde(rename = \"{e.name}\")]\n    pub {e.name.normalized()}: {typename},\n"
     else:
         defi = f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
-        defi = f"    pub {e.name.normalized()}: Option<{typename}>,\n"
+        defi += f"    pub {e.name.normalized()}: Option<{typename}>,\n"
 
     return defi, decl
 
