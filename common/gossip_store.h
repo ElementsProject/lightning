@@ -46,6 +46,7 @@ struct gossip_hdr {
 u8 *gossip_store_next(const tal_t *ctx,
 		      int *gossip_store_fd,
 		      u32 timestamp_min, u32 timestamp_max,
+		      bool push_only,
 		      size_t *off, size_t *end);
 
 /**
