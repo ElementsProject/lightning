@@ -108,9 +108,21 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 					 const struct feature_set *our_features,
 					 const u8 *their_features)
 {
-	struct channel_type *ctype;
-	static const size_t feats[] = { OPT_ANCHOR_OUTPUTS,
-					OPT_STATIC_REMOTEKEY };
+	struct channel_type *ctype, proposed;
+	/* Need to copy since we're going to blank variant bits for equality. */
+	proposed.features = tal_dup_talarr(tmpctx, u8, t);
+
+	static const size_t feats[] = {
+		OPT_ANCHOR_OUTPUTS,
+		OPT_STATIC_REMOTEKEY,
+		OPT_ZEROCONF,
+	};
+
+	/* The basic channel_types can have any number of the
+	 * following optional bits. */
+	static const size_t variants[] = {
+		OPT_ZEROCONF,
+	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(feats); i++) {
 		size_t f = feats[i];
@@ -128,15 +140,22 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 		}
 	}
 
+	/* Blank variants so we can just check for equality. */
+	for (size_t i = 0; i< ARRAY_SIZE(variants); i++)
+		featurebits_unset(&proposed.features, variants[i]);
+
 	/* Otherwise, just needs to be a known channel type. */
-	ctype = channel_type_none(tmpctx);
-	if (featurebits_eq(t, ctype->features))
-		return tal_steal(ctx, ctype);
-	ctype = channel_type_static_remotekey(tmpctx);
-	if (featurebits_eq(t, ctype->features))
-		return tal_steal(ctx, ctype);
-	ctype = channel_type_anchor_outputs(tmpctx);
-	if (featurebits_eq(t, ctype->features))
-		return tal_steal(ctx, ctype);
+	if (channel_type_eq(&proposed, channel_type_none(tmpctx)) ||
+	    channel_type_eq(&proposed,
+			    channel_type_static_remotekey(tmpctx)) ||
+	    channel_type_eq(&proposed, channel_type_anchor_outputs(tmpctx))) {
+		/* At this point we know it matches, and maybe has
+		 * a couple of extra options. So let's just reply
+		 * with their proposal. */
+		ctype = tal(ctx, struct channel_type);
+		ctype->features = tal_dup_talarr(ctx, u8, t);
+		return ctype;
+	}
+
 	return NULL;
 }
