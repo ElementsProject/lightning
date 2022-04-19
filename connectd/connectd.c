@@ -269,7 +269,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	pr->id = *id;
 	pr->cs = *cs;
 	pr->addr = *addr;
-	pr->remote_addr = remote_addr;
+	pr->remote_addr = tal_dup_or_null(pr, struct wireaddr, remote_addr);
 	pr->incoming = incoming;
 
 	/*~ Note that tal_dup_talarr() will do handle the take() of features
