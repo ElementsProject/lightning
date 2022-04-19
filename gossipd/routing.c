@@ -1614,6 +1614,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 	if (node->bcast.index) {
 		bool only_tlv_diff;
+		u32 redundant_time;
 
 		if (index != 0) {
 			status_broken("gossip_store node_announcement %u replaces %u!",
@@ -1627,8 +1628,9 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			return index == 0;
 		}
 
-		/* Allow redundant updates once every 7 days */
-		if (timestamp < node->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 2
+		/* Allow redundant updates once a day (faster in dev-fast-gossip-prune mode) */
+		redundant_time = GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 14;
+		if (timestamp < node->bcast.timestamp + redundant_time
 		    && !nannounce_different(rstate->gs, node, msg,
 					    &only_tlv_diff)) {
 			SUPERVERBOSE(
