@@ -57,6 +57,10 @@ On success, an object is returned, containing:
 - **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default
 - **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default
 - **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default
+- **experimental-zeroconf** (boolean, optional): Is the zeroconf support enabled?
+- **zeroconf-allow-all** (boolean, optional): Whether we trust all potential peers to open a zeroconf channel with.
+- **zeroconf-allow** (array of pubkeys, optional): Nodes that are allowed to open a zeroconf channel:
+  - 
 - **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters)
 - **alias** (string, optional): `alias` field from config or cmdline, or default
 - **pid-file** (string, optional): `pid-file` field from config or cmdline, or default
@@ -211,4 +215,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:ebc37d1f9cb452d312285a8168d2bb6da2d1dba08db56bbb8d3d7f47b58d7fa4)
+[comment]: # ( SHA256STAMP:eccf65b1d98498cae90116351301de5e5af3346d2d140ac18349ea81f45d9fe1)

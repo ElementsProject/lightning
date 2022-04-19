@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #define LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #include "config.h"
+#include <common/zeroconf.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
 #include <signal.h>
@@ -73,6 +74,9 @@ struct config {
 
 	/* EXPERIMENTAL: offers support */
 	bool exp_offers;
+
+	/* Zeroconf related configs, serializable so we can share it with sub-daemons */
+	struct zeroconf_options *zeroconf;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;

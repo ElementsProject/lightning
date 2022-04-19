@@ -129,7 +129,24 @@
       "type": "u16",
       "description": "`experimental-websocket-port` field from config or cmdline, or default"
     },
-    "rgb": {
+      "experimental-zeroconf": {
+	  "type": "boolean",
+	  "description": "Is the zeroconf support enabled?"
+      },
+      "zeroconf-allow-all": {
+	  "type": "boolean",
+	  "description": "Whether we trust all potential peers to open a zeroconf channel with."
+      },
+      "zeroconf-allow": {
+	  "type": "array",
+	  "items": {
+	      "type": "pubkey",
+	      "description": ""
+	  },
+	  "description": "Nodes that are allowed to open a zeroconf channel"
+      },
+
+      "rgb": {
       "type": "hex",
       "description": "`rgb` field from config or cmdline, or default",
       "maxLength": 6,

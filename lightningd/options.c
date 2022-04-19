@@ -18,6 +18,7 @@
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
+#include <common/zeroconf.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/chaintopology.h>
@@ -994,6 +995,29 @@ static char *opt_set_dual_fund(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_zeroconf(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(
+			   NULL, OPTIONAL_FEATURE(OPT_ZEROCONF))));
+	return NULL;
+}
+
+static char *opt_zeroconf_allow(const char *arg, struct lightningd *ld)
+{
+	struct node_id n;
+	if (!node_id_from_hexstr(arg, strlen(arg), &n))
+		return tal_fmt(NULL, "'%s' is not a valid hex-encoded node_id", arg);
+	tal_arr_expand(&ld->config.zeroconf->allowlist, n);
+	return NULL;
+}
+
+static char *opt_zeroconf_all(struct lightningd *ld)
+{
+	ld->config.zeroconf->allow_all = true;
+	return NULL;
+}
+
 static char *opt_set_onion_messages(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
@@ -1062,6 +1086,13 @@ static void register_opts(struct lightningd *ld)
 				 "experimental: Advertise dual-funding"
 				 " and allow peers to establish channels"
 				 " via v2 channel open protocol.");
+	opt_register_early_noarg("--experimental-zeroconf",
+			   opt_set_zeroconf, ld,
+			   "experimental: Enable zeroconf support");
+	opt_register_arg("--zeroconf-allow", opt_zeroconf_allow, NULL, ld,
+			 "Add a node_id to the list of allowed zeroconf peers (can be used multiple times). Implies some trust in the peer");
+	opt_register_noarg("--zeroconf-allow-all", opt_zeroconf_all, ld,
+			   "Allow zeroconf channel opens from/to all nodes");
 
 	/* This affects our features, so set early. */
 	opt_register_early_noarg("--experimental-onion-messages",
@@ -1348,6 +1379,8 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	else
 		ld->config = mainnet_config;
 
+	ld->config.zeroconf = zeroconf_options_new(ld);
+
 	/* Now we can initialize wallet_dsn */
 	ld->wallet_dsn = tal_fmt(ld, "sqlite3://%s/lightningd.sqlite3",
 				 ld->config_netdir);
@@ -1523,6 +1556,17 @@ static void add_config(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_DUAL_FUND));
+
+		} else if (opt->cb == (void *)opt_set_zeroconf) {
+			json_add_bool(response, name0,
+				      feature_offered(ld->our_features
+						      ->bits[INIT_FEATURE],
+						      OPT_ZEROCONF));
+		} else if (opt->cb == (void *)opt_zeroconf_all) {
+
+			json_add_bool(response, name0,
+				      ld->config.zeroconf->allow_all);
+
 		} else if (opt->cb == (void *)opt_set_onion_messages) {
 			json_add_bool(response, name0,
 				      feature_offered(ld->our_features
@@ -1616,6 +1660,17 @@ static void add_config(struct lightningd *ld,
 				json_add_u32(response, name0,
 					     ld->websocket_port);
 			return;
+
+		} else if (opt->cb_arg == (void *)opt_zeroconf_allow) {
+			json_array_start(response, "zeroconf-allow");
+			for (size_t i = 0;
+			     i < tal_count(ld->config.zeroconf->allowlist); i++)
+				json_add_node_id(
+				    response, NULL,
+				    &ld->config.zeroconf->allowlist[i]);
+			json_array_end(response);
+			return;
+
 		} else if (opt->cb_arg == (void *)opt_important_plugin) {
 			/* Do nothing, this is already handled by
 			 * opt_add_plugin.  */

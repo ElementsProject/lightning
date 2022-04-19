@@ -30,6 +30,7 @@ showing default values (\fBdev-\fR options are not shown)\.
 
 On success, an object is returned, containing:
 
+
 .RS
 .IP \[bu]
 \fB# version\fR (string, optional): Special field indicating the current version
@@ -93,6 +94,13 @@ On success, an object is returned, containing:
 \fBexperimental-shutdown-wrong-funding\fR (boolean, optional): \fBexperimental-shutdown-wrong-funding\fR field from config or cmdline, or default
 .IP \[bu]
 \fBexperimental-websocket-port\fR (u16, optional): \fBexperimental-websocket-port\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-zeroconf\fR (boolean, optional): Is the zeroconf support enabled?
+.IP \[bu]
+\fBzeroconf-allow-all\fR (boolean, optional): Whether we trust all potential peers to open a zeroconf channel with\.
+.IP \[bu]
+.SH \fBzeroconf-allow\fR (array of pubkeys, optional): Nodes that are allowed to open a zeroconf channel:
+
 .IP \[bu]
 \fBrgb\fR (hex, optional): \fBrgb\fR field from config or cmdline, or default (always 6 characters)
 .IP \[bu]
@@ -169,6 +177,7 @@ On success, an object is returned, containing:
 .RE
 
 On failure, one of the following error codes may be returned:
+
 
 .RS
 .IP \[bu]
@@ -282,4 +291,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:8d8f73010f55f3af6e050c944cf7670109224b3cf3166cc754047f6e20beef20
+\" SHA256STAMP:03dbffa04305383194a2ceded20e3db25730a2074c3fce7faca12b4f39cddd88
