@@ -365,6 +365,26 @@ the MPP support is enabled, but it can be desirable to disable in situations
 in which each payment should result in a single HTLC being forwarded in the
 network.
 
+ **experimental-zeroconf** 
+Enable zeroconf channel support. This allows channels to trusted peers
+to be usable even before the funding transaction confirms. The channel
+accepter trusts the funder not to double-spend the funding
+transaction, hence the peers with which zeroconf channels are enabled
+have to be allowlisted using **zeroconf-allow** or
+**zeroconf-allow-all**.
+
+ **zeroconf-allow**=*NODE_ID*
+Allow the node with the given *NODE_ID* to open a zeroconf channel to
+us. This option can be given multiple times to add multiple nodes to
+the allowlist. The outgoing channel open attempts will also try to
+create a zeroconf channel.
+
+ **zeroconf-allow-all**
+Allow any node to open a zeroconf channel with us, and make all
+outgoing channel opens zeroconf as well. Whether or not a zeroconf
+channel is created depends on whether the counterparty also allowlists
+us.
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the

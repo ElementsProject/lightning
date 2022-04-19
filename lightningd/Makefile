@@ -131,6 +131,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wallet.o				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
+	common/zeroconf.o			\
 	db/bindings.o				\
 	db/exec.o				\
 
