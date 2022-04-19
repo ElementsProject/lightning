@@ -423,8 +423,8 @@ static bool node_announce_predates_channels(const struct node *node)
 
 /* Move this node's announcement to the tail of the gossip_store, to
  * make everyone send it again. */
-void force_node_announce_rexmit(struct routing_state *rstate,
-				struct node *node)
+static void force_node_announce_rexmit(struct routing_state *rstate,
+				       struct node *node)
 {
 	const u8 *announce;
 	bool is_local = node_id_eq(&node->id, &rstate->local_id);
