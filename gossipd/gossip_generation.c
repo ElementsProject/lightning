@@ -356,11 +356,19 @@ static void force_self_nannounce_regen(struct daemon *daemon)
  * 24 hours. */
 static void setup_force_nannounce_regen_timer(struct daemon *daemon)
 {
+	struct timerel regen_time;
+
+	/* For developers we can force a regen every 24 seconds to test */
+	if (IFDEV(daemon->rstate->dev_fast_gossip_prune, false))
+		regen_time = time_from_sec(24);
+	else
+		regen_time = time_from_sec(24 * 3600);
+
 	tal_free(daemon->node_announce_regen_timer);
 	daemon->node_announce_regen_timer
 		= new_reltimer(&daemon->timers,
 			       daemon,
-			       time_from_sec(24 * 3600),
+			       regen_time,
 			       force_self_nannounce_regen,
 			       daemon);
 }
