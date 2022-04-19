@@ -367,6 +367,7 @@ again:
 	msg = gossip_store_next(ctx, &peer->daemon->gossip_store_fd,
 				peer->gs.timestamp_min,
 				peer->gs.timestamp_max,
+				false,
 				&peer->gs.off,
 				&peer->daemon->gossip_store_end);
 	/* Don't send back gossip they sent to us! */

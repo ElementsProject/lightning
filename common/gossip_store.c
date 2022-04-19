@@ -53,6 +53,7 @@ static size_t reopen_gossip_store(int *gossip_store_fd, const u8 *msg)
 u8 *gossip_store_next(const tal_t *ctx,
 		      int *gossip_store_fd,
 		      u32 timestamp_min, u32 timestamp_max,
+		      bool push_only,
 		      size_t *off, size_t *end)
 {
 	u8 *msg = NULL;
@@ -108,6 +109,8 @@ u8 *gossip_store_next(const tal_t *ctx,
 		} else if (!push &&
 			 !timestamp_filter(timestamp_min, timestamp_max,
 					   timestamp)) {
+			msg = tal_free(msg);
+		} else if (!push && push_only) {
 			msg = tal_free(msg);
 		}
 	}
