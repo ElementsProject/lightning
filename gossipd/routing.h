@@ -406,8 +406,4 @@ void remove_all_gossip(struct routing_state *rstate);
 /* This scid is dead to us. */
 void add_to_txout_failures(struct routing_state *rstate,
 			   const struct short_channel_id *scid);
-
-/* Move this node's announcement to the tail of the gossip_store, to
- * make everyone send it again. */
-void force_node_announce_rexmit(struct routing_state *rstate, struct node *node);
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
