@@ -392,9 +392,6 @@ again:
 				&peer->daemon->gossip_store_end);
 	/* Don't send back gossip they sent to us! */
 	if (msg) {
-		status_peer_debug(&peer->id,
-				  "Sending gossip %s",
-				  peer_wire_name(fromwire_peektype(msg)));
 		if (gossip_rcvd_filter_del(peer->gs.grf, msg)) {
 			msg = tal_free(msg);
 			goto again;
@@ -582,7 +579,7 @@ static void handle_gossip_in(struct peer *peer, const u8 *msg)
 	daemon_conn_send(peer->daemon->gossipd, take(gmsg));
 }
 
-static void handle_gossip_timetamp_filter_in(struct peer *peer, const u8 *msg)
+static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_blkid chain_hash;
 	u32 first_timestamp, timestamp_range;
@@ -650,7 +647,7 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		gossip_rcvd_filter_add(peer->gs.grf, msg);
 
 	if (type == WIRE_GOSSIP_TIMESTAMP_FILTER) {
-		handle_gossip_timetamp_filter_in(peer, msg);
+		handle_gossip_timestamp_filter_in(peer, msg);
 		return true;
 	} else if (type == WIRE_PING) {
 		handle_ping_in(peer, msg);
