@@ -201,9 +201,6 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				return corrupt(abortstr,
 					       "Output failmsg, input preimage");
 		} else if (hout->failmsg) {
-			if (hout->in->failonion)
-				return corrupt(abortstr,
-					       "Output failmsg, input failonion");
 			if (hout->in->preimage)
 				return corrupt(abortstr,
 					       "Output failmsg, input preimage");
