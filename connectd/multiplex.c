@@ -356,7 +356,27 @@ static u8 *maybe_from_gossip_store(const tal_t *ctx, struct peer *peer)
 {
 	u8 *msg;
 
-	/* Not streaming yet? */
+	/* dev-mode can suppress all gossip */
+	if (IFDEV(peer->daemon->dev_suppress_gossip, false))
+		return NULL;
+
+	/* BOLT #7:
+	 *   - if the `gossip_queries` feature is negotiated:
+	 *     - MUST NOT relay any gossip messages it did not generate itself,
+	 *       unless explicitly requested.
+	 */
+
+	/* So, even if they didn't send us a timestamp_filter message,
+	 * we *still* send our own gossip. */
+	if (!peer->gs.gossip_timer) {
+		return gossip_store_next(ctx, &peer->daemon->gossip_store_fd,
+					 0, 0xFFFFFFFF,
+					 true,
+					 &peer->gs.off,
+					 &peer->daemon->gossip_store_end);
+	}
+
+	/* Not streaming right now? */
 	if (!peer->gs.active)
 		return NULL;
 
