@@ -9,6 +9,7 @@
 #include <common/param.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
+#include <common/zeroconf.h>
 #include <connectd/connectd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
@@ -546,21 +547,25 @@ int connectd_init(struct lightningd *ld)
 	}
 
 	msg = towire_connectd_init(
-	    tmpctx, chainparams,
-	    ld->our_features,
-	    &ld->id,
-	    wireaddrs,
-	    listen_announce,
-	    ld->proxyaddr, ld->always_use_proxy || ld->pure_tor_setup,
-	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
-	    ld->tor_service_password ? ld->tor_service_password : "",
-	    ld->config.use_v3_autotor,
-	    ld->config.connection_timeout_secs,
-	    websocket_helper_path,
-	    ld->websocket_port,
-	    IFDEV(ld->dev_fast_gossip, false),
-	    IFDEV(ld->dev_disconnect_fd >= 0, false),
-	    IFDEV(ld->dev_no_ping_timer, false));
+		tmpctx,
+		chainparams,
+		ld->our_features,
+		&ld->id,
+		wireaddrs,
+		listen_announce,
+		ld->proxyaddr,
+		ld->always_use_proxy || ld->pure_tor_setup,
+		IFDEV(ld->dev_allow_localhost, false),
+		ld->config.use_dns,
+		ld->tor_service_password ? ld->tor_service_password : "",
+		ld->config.use_v3_autotor,
+		ld->config.connection_timeout_secs,
+		websocket_helper_path,
+		ld->websocket_port,
+		IFDEV(ld->dev_fast_gossip, false),
+		IFDEV(ld->dev_disconnect_fd >= 0, false),
+		IFDEV(ld->dev_no_ping_timer, false),
+		ld->config.zeroconf);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

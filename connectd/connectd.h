@@ -10,6 +10,7 @@
 #include <common/node_id.h>
 #include <common/pseudorand.h>
 #include <common/wireaddr.h>
+#include <common/zeroconf.h>
 
 struct io_conn;
 struct connecting;
@@ -196,6 +197,7 @@ struct daemon {
 	/* Hack to no longer send gossip */
 	bool dev_suppress_gossip;
 #endif
+	struct zeroconf_options *zeroconf_options;
 };
 
 /* Called by io_tor_connect once it has a connection out. */
