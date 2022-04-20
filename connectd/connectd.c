@@ -1524,26 +1524,30 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	bool dev_fast_gossip;
 	bool dev_disconnect, dev_no_ping_timer;
 	char *errstr;
+	daemon->zeroconf_options = tal(daemon, struct zeroconf_options);
 
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectd_init(
-		daemon, msg,
-		&chainparams,
-		&daemon->our_features,
-		&daemon->id,
-		&proposed_wireaddr,
-		&proposed_listen_announce,
-		&proxyaddr, &daemon->always_use_proxy,
-		&daemon->dev_allow_localhost, &daemon->use_dns,
-		&tor_password,
-		&daemon->use_v3_autotor,
-		&daemon->timeout_secs,
-		&daemon->websocket_helper,
-		&daemon->websocket_port,
-		&daemon->announce_websocket,
-		&dev_fast_gossip,
-		&dev_disconnect,
-		&dev_no_ping_timer)) {
+		    daemon,
+		    msg,
+		    &chainparams,
+		    &daemon->our_features,
+		    &daemon->id,
+		    &proposed_wireaddr,
+		    &proposed_listen_announce,
+		    &proxyaddr, &daemon->always_use_proxy,
+		    &daemon->dev_allow_localhost,
+		    &daemon->use_dns,
+		    &tor_password,
+		    &daemon->use_v3_autotor,
+		    &daemon->timeout_secs,
+		    &daemon->websocket_helper,
+		    &daemon->websocket_port,
+		    &daemon->announce_websocket,
+		    &dev_fast_gossip,
+		    &dev_disconnect,
+		    &dev_no_ping_timer,
+		    daemon->zeroconf_options)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);

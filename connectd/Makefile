@@ -78,6 +78,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wireaddr.o			\
 	common/wire_error.o			\
+	common/zeroconf.o			\
 	gossipd/gossipd_wiregen.o		\
 	gossipd/gossip_store_wiregen.o		\
 	wire/onion$(EXP)_wiregen.o
