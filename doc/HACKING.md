@@ -318,7 +318,7 @@ wire/extracted_onion_wire_csv).  You can regenerate these by
 first deleting the local copy(if any) at directory .tmp.lightning-rfc,
 setting `BOLTDIR` and `BOLTVERSION` appropriately, and finally running `make
 extract-bolt-csv`. By default the bolts will be retrieved from the
-directory `../lightning-rfc` and a recent git version.
+directory `../bolts` and a recent git version.
 
 e.g., `make extract-bolt-csv BOLTDIR=../bolts BOLTVERSION=ee76043271f79f45b3392e629fd35e47f1268dc8`
 
