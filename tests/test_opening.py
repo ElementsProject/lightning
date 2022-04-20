@@ -1202,7 +1202,6 @@ def test_zeroconf_negotiation(node_factory):
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     l1.daemon.opts['zeroconf-allow'] = l2.info["id"]
     l1.restart()  # Restart so the zeroconf-allow takes effect
-    breakpoint()
 
     l1.connect(l2)
     line = l1.daemon.wait_for_log(r'Sending init with global_features=[a-f0-9]+ and init_features=([a-f0-9]+)')
