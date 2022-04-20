@@ -2,9 +2,11 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/io/io.h>
 #include <common/dev_disconnect.h>
+#include <common/features.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/wire_error.h>
+#include <common/zeroconf.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_wiregen.h>
 #include <connectd/netaddress.h>
@@ -191,12 +193,23 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	struct early_peer *peer = tal(conn, struct early_peer);
 	struct io_plan *(*next)(struct io_conn *, struct early_peer *);
 	struct tlv_init_tlvs *tlvs;
+	struct feature_set *features;
 
 	peer->daemon = daemon;
 	peer->id = *id;
 	peer->addr = *addr;
 	peer->cs = *cs;
 	peer->incoming = incoming;
+
+	/* Customize the features we want to share with this peer. */
+	/* FIXME: We can likely avoid this customization once we
+	 * figure out how to signal that we don't want to accept
+	 * zeroconf as an accepting party despite the opener proposing
+	 * it. */
+	features = feature_set_dup(tmpctx, our_features);
+	if (!zeroconf_allow_peer(daemon->zeroconf_options, id)) {
+		featurebits_unset(&features->bits[INIT_FEATURE], OPT_ZEROCONF);
+	}
 
 	/* Attach timer to early peer, so it gets freed with it. */
 	notleak(tal_steal(peer, timeout));
@@ -258,10 +271,13 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 *
 	 * Finally, we agreed that bits below 13 could be put in both, but
 	 * from now on they'll all go in initfeatures. */
-	peer->msg = towire_init(NULL,
-				our_features->bits[GLOBAL_INIT_FEATURE],
-				our_features->bits[INIT_FEATURE],
-				tlvs);
+	status_debug(
+	    "Sending init with global_features=%s and init_features=%s",
+	    tal_hex(tmpctx, our_features->bits[GLOBAL_INIT_FEATURE]),
+	    tal_hex(tmpctx, features->bits[INIT_FEATURE]));
+
+	peer->msg = towire_init(NULL, our_features->bits[GLOBAL_INIT_FEATURE],
+				features->bits[INIT_FEATURE], tlvs);
 	status_peer_io(LOG_IO_OUT, &peer->id, peer->msg);
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
 

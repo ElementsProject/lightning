@@ -1,10 +1,10 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee
 )
-
 import pytest
 import re
 import unittest
@@ -1187,3 +1187,41 @@ def test_funder_contribution_limits(node_factory, bitcoind):
     l1.fundchannel(l3, 10**7)
     assert l3.daemon.is_in_log('Policy .* returned funding amount of 50000sat')
     assert l3.daemon.is_in_log(r'calling `signpsbt` .* 7 inputs')
+
+
+def test_zeroconf_negotiation(node_factory, bitcoind):
+    """Test that zeroconf opt-in works correctly.
+
+    l1 trusts l2, but not l3, while l2 and l3 trust everybody.
+    """
+    option_zeroconf = 50
+    plugin_path = Path(__file__).parent / "plugins" / "coin_movements.py"
+    l2_id = '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+    opts = [
+        {
+            'experimental-zeroconf': None,
+            'zeroconf-allow': l2_id,
+            'plugin': str(plugin_path),
+        },
+        {'experimental-zeroconf': None, 'zeroconf-allow-all': None},
+        {'experimental-zeroconf': None, 'zeroconf-allow-all': None},
+    ]
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    l1.connect(l2)
+    line = l1.daemon.wait_for_log(r'Sending init with global_features=[a-f0-9]+ and init_features=([a-f0-9]+)')
+    m = re.search('init_features=([a-f0-9]+)', line)
+    assert (int(m[1], 16) >> option_zeroconf) & 0x03 == 0x02
+
+    l1.connect(l3)
+    line = l1.daemon.wait_for_log(r'Sending init with global_features=[a-f0-9]+ and init_features=([a-f0-9]+)')
+    m = re.search('init_features=([a-f0-9]+)', line)
+    assert (int(m[1], 16) >> option_zeroconf) & 0x03 == 0x00
+
+    # Check that we also identify the peer features correctly, l1 sees
+    # zeroconf, but l2 and l3 must only see it if they are in the
+    # allowlist
+    p2 = l2.rpc.listpeers(l1.info['id'])['peers'][0]
+    p3 = l3.rpc.listpeers(l1.info['id'])['peers'][0]
+    assert int(p2['features'], 16) >> 50 & 0x03 == 0x02  # l2 is allowed
+    assert int(p3['features'], 16) >> 50 & 0x03 == 0x00  # l3 isn't
