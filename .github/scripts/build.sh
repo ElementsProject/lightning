@@ -2,7 +2,7 @@
 
 echo "Running in $(pwd)"
 export ARCH=${ARCH:-64}
-export BOLTDIR=lightning-rfc
+export BOLTDIR=bolts
 export CC=${COMPILER:-gcc}
 export COMPAT=${COMPAT:-1}
 export TEST_CHECK_DBSTMTS=${TEST_CHECK_DBSTMTS:-0}
@@ -25,7 +25,7 @@ pip3 install --user poetry
 poetry config virtualenvs.create false --local
 poetry install
 
-git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc
+git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 git submodule update --init --recursive
 
 ./configure CC="$CC"
