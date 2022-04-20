@@ -22,7 +22,7 @@ are returned.
 If *destination* is a node id, then only channels leading to that node id
 are returned.
 
-Only one of *short\_channgel\_id*, *source* or *destination* can be supplied.
+Only one of *short\_channel\_id*, *source* or *destination* can be supplied.
 If nothing is supplied, data on all lightning channels known to this
 node, are returned. These can be local channels or public channels
 broadcast on the gossip network.
