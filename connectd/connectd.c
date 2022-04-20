@@ -1397,10 +1397,15 @@ setup_listeners(const tal_t *ctx,
 				 *     different type.
 				 */
 				if (tal_count(*announceable) != 0) {
-					wireaddr_from_websocket(&addr.u.wireaddr,
-							daemon->websocket_port);
-					add_announceable(announceable,
-							&addr.u.wireaddr);
+					/* See https://github.com/lightningnetwork/lnd/issues/6432:
+					 * if we add websocket to the node_announcement, it doesn't propagate.
+					 * So we do not do this for now in general! */
+					if (daemon->announce_websocket) {
+						wireaddr_from_websocket(&addr.u.wireaddr,
+									daemon->websocket_port);
+						add_announceable(announceable,
+								 &addr.u.wireaddr);
+					}
 				} else {
 					status_unusual("Bound to websocket %s,"
 						       " but we cannot announce"
@@ -1535,6 +1540,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		&daemon->timeout_secs,
 		&daemon->websocket_helper,
 		&daemon->websocket_port,
+		&daemon->announce_websocket,
 		&dev_fast_gossip,
 		&dev_disconnect,
 		&dev_no_ping_timer)) {

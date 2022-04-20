@@ -188,6 +188,9 @@ struct daemon {
 	int gossip_store_fd;
 	size_t gossip_store_end;
 
+	/* We only announce websocket addresses if !deprecated_apis */
+	bool announce_websocket;
+
 #if DEVELOPER
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;

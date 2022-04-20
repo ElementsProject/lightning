@@ -558,6 +558,7 @@ int connectd_init(struct lightningd *ld)
 	    ld->config.connection_timeout_secs,
 	    websocket_helper_path,
 	    ld->websocket_port,
+	    !deprecated_apis,
 	    IFDEV(ld->dev_fast_gossip, false),
 	    IFDEV(ld->dev_disconnect_fd >= 0, false),
 	    IFDEV(ld->dev_no_ping_timer, false));
