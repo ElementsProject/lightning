@@ -587,7 +587,7 @@ static void channel_announcement_negotiate(struct peer *peer)
 static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 {
 	struct channel_id chanid;
-
+	struct tlv_funding_locked_tlvs *tlvs;
 	/* BOLT #2:
 	 *
 	 * A node:
@@ -603,8 +603,8 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 		return;
 
 	peer->old_remote_per_commit = peer->remote_per_commit;
-	if (!fromwire_funding_locked(msg, &chanid,
-				     &peer->remote_per_commit))
+	if (!fromwire_funding_locked(msg, msg, &chanid,
+				     &peer->remote_per_commit, &tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad funding_locked %s", tal_hex(msg, msg));
 
@@ -2928,13 +2928,14 @@ skip_tlvs:
 	    && peer->next_index[LOCAL] == 1
 	    && next_commitment_number == 1) {
 		u8 *msg;
+		struct tlv_funding_locked_tlvs *tlvs = tlv_funding_locked_tlvs_new(tmpctx);
 
 		status_debug("Retransmitting funding_locked for channel %s",
 		             type_to_string(tmpctx, struct channel_id, &peer->channel_id));
 		/* Contains per commit point #1, for first post-opening commit */
 		msg = towire_funding_locked(NULL,
 					    &peer->channel_id,
-					    &peer->next_local_per_commit);
+					    &peer->next_local_per_commit, tlvs);
 		peer_write(peer->pps, take(msg));
 	}
 
@@ -3234,9 +3235,12 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 				     peer->next_index[LOCAL],
 				     type_to_string(tmpctx, struct pubkey,
 						    &peer->next_local_per_commit));
-			msg = towire_funding_locked(NULL,
-						    &peer->channel_id,
-						    &peer->next_local_per_commit);
+			struct tlv_funding_locked_tlvs *tlvs =
+			    tlv_funding_locked_tlvs_new(tmpctx);
+
+			msg = towire_funding_locked(
+			    NULL, &peer->channel_id,
+			    &peer->next_local_per_commit, tlvs);
 			peer_write(peer->pps, take(msg));
 
 			peer->funding_locked[LOCAL] = true;

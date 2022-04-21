@@ -1132,8 +1132,9 @@ static u8 *handle_funding_locked(struct state *state, u8 *msg)
 {
 	struct channel_id cid;
 	struct pubkey remote_per_commit;
+	struct tlv_funding_locked_tlvs *tlvs;
 
-	if (!fromwire_funding_locked(msg, &cid, &remote_per_commit))
+	if (!fromwire_funding_locked(tmpctx, msg, &cid, &remote_per_commit, &tlvs))
 		open_err_fatal(state, "Bad funding_locked %s",
 			       tal_hex(msg, msg));
 
@@ -3392,13 +3393,12 @@ static void send_funding_locked(struct state *state)
 {
 	u8 *msg;
 	struct pubkey next_local_per_commit;
-
+	struct tlv_funding_locked_tlvs *tlvs = tlv_funding_locked_tlvs_new(tmpctx);
 	/* Figure out the next local commit */
 	hsm_per_commitment_point(1, &next_local_per_commit);
 
-	msg = towire_funding_locked(NULL,
-				    &state->channel_id,
-				    &next_local_per_commit);
+	msg = towire_funding_locked(NULL, &state->channel_id,
+				    &next_local_per_commit, tlvs);
 	peer_write(state->pps, take(msg));
 
 	state->funding_locked[LOCAL] = true;
