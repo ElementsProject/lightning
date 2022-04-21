@@ -1798,7 +1798,7 @@ def test_multifunding_simple(node_factory, bitcoind):
         l1.rpc.pay(inv)
 
 
-@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_listpeers_crash(node_factory, bitcoind, executor):
     '''

@@ -120,6 +120,11 @@ void json_add_unsaved_channel(struct json_stream *response,
 	if (!channel->open_attempt)
 		return;
 
+	/* If we're calling out to connectd to activate peer to start the
+	 * process, this will be NULL */
+	if (!channel->owner)
+		return;
+
 	oa = channel->open_attempt;
 
 	json_object_start(response, NULL);
