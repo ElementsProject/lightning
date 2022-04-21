@@ -3,7 +3,6 @@ import sys
 from typing import TextIO, Tuple
 from textwrap import dedent, indent
 import logging
-import importlib.metadata
 from .model import (ArrayField, CompositeField, EnumField,
                     PrimitiveField, Service)
 
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 typemap = {
     'boolean': 'bool',
     'hex': 'string',
-    'msat': 'LNMoney',
+    'msat': 'int64<msat>',
     'msat_or_all': 'AmountOrAll',
     'msat_or_any': 'AmountOrAny',
     'number': 'int64',
@@ -65,8 +64,6 @@ overrides = {
     'Invoice.exposeprivatechannels': None,
 }
 
-version = importlib.metadata.version("msggen")
-
 header = f"""
 /// This file was automatically generated using following command:
 /// ```bash
@@ -114,6 +111,7 @@ def gen_enum(e):
     if e.description != "":
         decl += f"/// {e.description}\n"
 
+    decl += f'[<System.CodeDom.Compiler.GeneratedCode(\"{" ".join(sys.argv)}\", \"\")>]\n'
     decl += f"type {e.typename} =\n"
 
     for i, v in enumerate(e.variants):
@@ -192,7 +190,7 @@ def gen_composite(c) -> Tuple[str, str]:
     if len(fields) == 0:
         r += f'type {c.typename} = unit\n'
     else:
-        r += f'[<System.CodeDom.Compiler.GeneratedCode(\"{" ".join(sys.argv)}\", \"{version}\")>]\n'
+        r += f'[<System.CodeDom.Compiler.GeneratedCode(\"{" ".join(sys.argv)}\", \"\")>]\n'
         r += '[<CLIMutable>]\n'
         r += f"type {c.typename} ="
         r += " {\n"
@@ -215,7 +213,7 @@ class FSharpGenerator:
     def generate_requests(self, service: Service):
         """"""
 
-        self.write(f'[<System.CodeDom.Compiler.GeneratedCode(\"{" ".join(sys.argv)}\", \"{version}\")>]\n')
+        self.write(f'[<System.CodeDom.Compiler.GeneratedCode(\"{" ".join(sys.argv)}\", \"\")>]\n')
         self.write("module Requests =\n")
 
         for method in service.methods:
@@ -225,7 +223,7 @@ class FSharpGenerator:
         self.write("\n\n")
 
     def generate_responses(self, service: Service):
-        self.write(f'[<System.CodeDom.Compiler.GeneratedCode(\"{" ".join(sys.argv)}\", \"{version}\")>]\n')
+        self.write(f'[<System.CodeDom.Compiler.GeneratedCode(\"{" ".join(sys.argv)}\", \"\")>]\n')
         self.write("module Responses = \n")
         for method in service.methods:
             _, decl = gen_composite(method.response)
@@ -237,7 +235,7 @@ class FSharpGenerator:
         """The reqeust and Response enums serve as parsing primitives.
         """
         self.write(f"""
-        [<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "{version}")>]
+        [<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "")>]
         type internal Request =
         """)
 
@@ -257,7 +255,7 @@ class FSharpGenerator:
         self.write("\n")
 
         self.write(f"""
-        [<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "{version}")>]
+        [<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "")>]
         type private Response =
         """)
 
@@ -270,10 +268,6 @@ class FSharpGenerator:
         opens = """
 open System.Text.Json
 open System.Text.Json.Serialization
-
-open NBitcoin
-open NBitcoin.Scripting
-open DotNetLightning.Utils
 
 """
         self.write(opens)
@@ -298,7 +292,7 @@ class FSharpClientExtensionGenerator:
     def generate_methods(self, service: Service):
         self.write(f"""
 
-[<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "{version}")>]
+[<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "")>]
 [<Extension;AbstractClass;Sealed>]
 type ClnClientExtensions =
 """)
