@@ -1798,6 +1798,31 @@ def test_multifunding_simple(node_factory, bitcoind):
         l1.rpc.pay(inv)
 
 
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v2')
+def test_listpeers_crash(node_factory, bitcoind, executor):
+    '''
+    Test for listpeers crash during dual-funding start
+    '''
+    l1, l2 = node_factory.get_nodes(2)
+
+    do_listpeers = True
+
+    # Do lots of listpeers while this is happening
+    def lots_of_listpeers(node):
+        while do_listpeers:
+            node.rpc.listpeers()
+
+    fut = executor.submit(lots_of_listpeers, l1)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundwallet(10**6 + 1000000)
+    l1.rpc.fundchannel(l2.info['id'], 10**6)['tx']
+
+    do_listpeers = False
+    fut.result()
+
+
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_multifunding_one(node_factory, bitcoind):
