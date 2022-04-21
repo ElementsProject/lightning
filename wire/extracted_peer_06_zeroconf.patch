@@ -1,0 +1,14 @@
+diff --git a/wire/peer_wire.csv b/wire/peer_wire.csv
+index a028ddc66..fc24b61ef 100644
+--- a/wire/peer_wire.csv
++++ b/wire/peer_wire.csv
+@@ -126,6 +126,9 @@ msgdata,funding_signed,signature,signature,
+ msgtype,funding_locked,36
+ msgdata,funding_locked,channel_id,channel_id,
+ msgdata,funding_locked,next_per_commitment_point,point,
++msgdata,funding_locked,tlvs,funding_locked_tlvs,
++tlvtype,funding_locked_tlvs,alias,1
++tlvdata,funding_locked_tlvs,alias,scid,short_channel_id,
+ msgtype,open_channel2,64
+ msgdata,open_channel2,chain_hash,chain_hash,
+ msgdata,open_channel2,channel_id,channel_id,
