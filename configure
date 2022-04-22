@@ -177,7 +177,7 @@ usage()
     usage_with_default "--enable/disable-ub-sanitizer" "$UBSAN" "enable" "disable"
     echo "    Compile with undefined behaviour sanitizer"
     usage_with_default "--enable/disable-fuzzing" "$FUZZING" "enable" "disable"
-    echo "    ***something about fuzzing***"
+    echo "    Compile with fuzzing"
     usage_with_default "--enable/disable-rust" "$RUST" "enable" "disable"
     echo "    Compile with Rust support"
     exit 1
