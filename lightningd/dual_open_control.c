@@ -33,6 +33,7 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
+#include <sodium/randombytes.h>
 
 struct commit_rcvd {
 	struct channel *channel;
@@ -1238,6 +1239,12 @@ wallet_commit_channel(struct lightningd *ld,
 		channel->shutdown_scriptpubkey[LOCAL]
 			= p2wpkh_for_keyidx(channel, channel->peer->ld,
 					    channel->final_key_idx);
+
+	 /* Can't have gotten their alias for this channel yet. */
+	channel->alias[REMOTE] = NULL;
+	/* We do generate one ourselves however. */
+	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
+	randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
 
 	channel->remote_upfront_shutdown_script
 		= tal_steal(channel, remote_upfront_shutdown_script);

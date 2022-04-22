@@ -135,6 +135,12 @@ struct channel {
 	/* Channel if locked locally. */
 	struct short_channel_id *scid;
 
+	/* Alias used for option_zeroconf, or option_scid_alias, if
+	 * present. LOCAL are all the alias we told the peer about and
+	 * REMOTE is one of the aliases we got from the peer and we'll
+	 * use in a routehint. */
+	struct short_channel_id *alias[NUM_SIDES];
+
 	struct channel_id cid;
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
@@ -278,6 +284,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid STEALS,
+			    struct short_channel_id *alias_local STEALS,
+			    struct short_channel_id *alias_remote STEALS,
 			    struct channel_id *cid,
 			    struct amount_msat our_msatoshi,
 			    struct amount_msat msatoshi_to_us_min,

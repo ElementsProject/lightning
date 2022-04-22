@@ -875,6 +875,14 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE forwarded_payments ADD forward_style INTEGER DEFAULT NULL"), NULL},
     /* "description" is used for label, so we use "paydescription" here */
     {SQL("ALTER TABLE payments ADD paydescription TEXT;"), NULL},
+    /* Alias we sent to the remote side, for zeroconf and
+     * option_scid_alias, can be a list of short_channel_ids if
+     * required, but keeping it a single SCID for now. */
+    {SQL("ALTER TABLE channels ADD alias_local BIGINT DEFAULT NULL"), NULL},
+    /* Alias we received from the peer, and which we should be using
+     * in routehints in invoices. The peer will remember all the
+     * aliases, but we only ever need one. */
+    {SQL("ALTER TABLE channels ADD alias_remote BIGINT DEFAULT NULL"), NULL},
 };
 
 /**

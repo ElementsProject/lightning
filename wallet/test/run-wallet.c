@@ -1589,6 +1589,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   funding_sats, AMOUNT_MSAT(0),
 			   our_sats,
 			   0, false,
+			   NULL, /* alias[LOCAL] */
+			   NULL, /* alias[REMOTE] */
 			   &cid,
 			   AMOUNT_MSAT(3333333000),
 			   AMOUNT_MSAT(33333),
