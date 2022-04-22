@@ -1245,7 +1245,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct channel_info channel_info;
 	struct fee_states *fee_states;
 	struct height_states *height_states;
-	struct short_channel_id *scid;
+	struct short_channel_id *scid, *alias[NUM_SIDES];
 	struct channel_id cid;
 	struct channel *chan;
 	u64 peer_dbid;
@@ -1284,6 +1284,22 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			return NULL;
 	} else {
 		scid = NULL;
+	}
+
+	if (!db_col_is_null(stmt, "alias_local")) {
+		alias[LOCAL] = tal(tmpctx, struct short_channel_id);
+		if (!db_col_short_channel_id_str(stmt, "alias_local", alias[LOCAL]))
+			return NULL;
+	} else {
+		alias[LOCAL] = NULL;
+	}
+
+	if (!db_col_is_null(stmt, "alias_remote")) {
+		alias[REMOTE] = tal(tmpctx, struct short_channel_id);
+		if (!db_col_short_channel_id_str(stmt, "alias_remote", alias[REMOTE]))
+			return NULL;
+	} else {
+		alias[REMOTE] = NULL;
 	}
 
 	ok &= wallet_shachain_load(w, db_col_u64(stmt, "shachain_remote_id"),
@@ -1444,6 +1460,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   our_funding_sat,
 			   db_col_int(stmt, "funding_locked_remote") != 0,
 			   scid,
+			   alias[LOCAL],
+			   alias[REMOTE],
 			   &cid,
 			   our_msat,
 			   msat_to_us_min, /* msatoshi_to_us_min */
@@ -1578,6 +1596,8 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", lease_chan_max_ppt"
 					", htlc_minimum_msat"
 					", htlc_maximum_msat"
+					", alias_local"
+					", alias_remote"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, 0, CLOSED);
@@ -1859,8 +1879,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  lease_chan_max_msat=?," // 40
 					"  lease_chan_max_ppt=?," // 41
 					"  htlc_minimum_msat=?," // 42
-					"  htlc_maximum_msat=?" // 43
-					" WHERE id=?")); // 44
+					"  htlc_maximum_msat=?," // 43
+					"  alias_local=?," // 44
+					"  alias_remote=?" // 45
+					" WHERE id=?")); // 46
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, 1, chan->scid);
@@ -1925,7 +1947,18 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	}
 	db_bind_amount_msat(stmt, 42, &chan->htlc_minimum_msat);
 	db_bind_amount_msat(stmt, 43, &chan->htlc_maximum_msat);
-	db_bind_u64(stmt, 44, chan->dbid);
+
+	if (chan->alias[LOCAL] != NULL)
+		db_bind_short_channel_id(stmt, 44, chan->alias[LOCAL]);
+	else
+		db_bind_null(stmt, 44);
+
+	if (chan->alias[REMOTE] != NULL)
+		db_bind_short_channel_id(stmt, 45, chan->alias[REMOTE]);
+	else
+		db_bind_null(stmt, 45);
+
+	db_bind_u64(stmt, 46, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);
