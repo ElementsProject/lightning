@@ -85,8 +85,11 @@ msgdata,channeld_init,channel_update_len,u16,
 msgdata,channeld_init,channel_update,u8,channel_update_len
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
+# alias != NULL if zeroconf and short_channel_id == NULL
+# short_channel_id != NULL once we have 3+ confirmations
 msgtype,channeld_funding_depth,1002
 msgdata,channeld_funding_depth,short_channel_id,?short_channel_id,
+msgdata,channeld_funding_depth,alias_local,?short_channel_id,
 msgdata,channeld_funding_depth,depth,u32,
 
 # Tell channel to offer this htlc
@@ -117,6 +120,7 @@ msgdata,channeld_fail_htlc,failed_htlc,failed_htlc,
 # When we receive funding_locked.
 msgtype,channeld_got_funding_locked,1019
 msgdata,channeld_got_funding_locked,next_per_commit_point,pubkey,
+msgdata,channeld_got_funding_locked,alias,?short_channel_id,
 
 #include <common/penalty_base.h>
 
