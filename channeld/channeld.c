@@ -617,9 +617,15 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 
 	peer->tx_sigs_allowed = false;
 	peer->funding_locked[REMOTE] = true;
+	if (tlvs->alias != NULL) {
+		status_debug(
+		    "Peer told us that they'll use alias=%s for this channel",
+		    type_to_string(tmpctx, struct short_channel_id,
+				   tlvs->alias));
+	}
 	wire_sync_write(MASTER_FD,
-			take(towire_channeld_got_funding_locked(NULL,
-						&peer->remote_per_commit)));
+			take(towire_channeld_got_funding_locked(
+			    NULL, &peer->remote_per_commit, tlvs->alias)));
 
 	channel_announcement_negotiate(peer);
 	billboard_update(peer);
@@ -3208,12 +3214,14 @@ skip_tlvs:
 static void handle_funding_depth(struct peer *peer, const u8 *msg)
 {
 	u32 depth;
-	struct short_channel_id *scid;
+	struct short_channel_id *scid, *alias_local;
+	struct tlv_funding_locked_tlvs *tlvs;
 
 	if (!fromwire_channeld_funding_depth(tmpctx,
-					    msg,
-					    &scid,
-					    &depth))
+					     msg,
+					     &scid,
+					     &alias_local,
+					     &depth))
 		master_badmsg(WIRE_CHANNELD_FUNDING_DEPTH, msg);
 
 	/* Too late, we're shutting down! */
@@ -3235,8 +3243,8 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 				     peer->next_index[LOCAL],
 				     type_to_string(tmpctx, struct pubkey,
 						    &peer->next_local_per_commit));
-			struct tlv_funding_locked_tlvs *tlvs =
-			    tlv_funding_locked_tlvs_new(tmpctx);
+			tlvs = tlv_funding_locked_tlvs_new(tmpctx);
+			tlvs->alias = alias_local;
 
 			msg = towire_funding_locked(
 			    NULL, &peer->channel_id,

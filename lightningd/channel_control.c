@@ -230,9 +230,10 @@ bool channel_on_funding_locked(struct channel *channel,
 static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 {
 	struct pubkey next_per_commitment_point;
+	struct short_channel_id *alias_remote;
 
-	if (!fromwire_channeld_got_funding_locked(msg,
-						 &next_per_commitment_point)) {
+	if (!fromwire_channeld_got_funding_locked(tmpctx,
+		msg, &next_per_commitment_point, &alias_remote)) {
 		channel_internal_error(channel,
 				       "bad channel_got_funding_locked %s",
 				       tal_hex(channel, msg));
@@ -242,11 +243,13 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 	if (!channel_on_funding_locked(channel, &next_per_commitment_point))
 		return;
 
+	if (channel->alias[REMOTE] == NULL && alias_remote != NULL)
+		channel->alias[REMOTE] = tal_steal(channel, alias_remote);
+
+	/* Remember that we got the lockin */
+	wallet_channel_save(channel->peer->ld->wallet, channel);
 	if (channel->scid)
 		lockin_complete(channel);
-	else
-		/* Remember that we got the lockin */
-		wallet_channel_save(channel->peer->ld->wallet, channel);
 }
 
 static void peer_got_announcement(struct channel *channel, const u8 *msg)
@@ -823,8 +826,8 @@ bool channel_tell_depth(struct lightningd *ld,
 	}
 
 	subd_send_msg(channel->owner,
-		      take(towire_channeld_funding_depth(NULL, channel->scid,
-							 depth)));
+		      take(towire_channeld_funding_depth(
+			  NULL, channel->scid, channel->alias[LOCAL], depth)));
 
 	if (channel->remote_funding_locked
 	    && channel->state == CHANNELD_AWAITING_LOCKIN
