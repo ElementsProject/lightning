@@ -1,7 +1,7 @@
 from msggen.model import Method, CompositeField, Service
 from msggen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.rust import RustGenerator
-from msggen.fsharp import FSharpGenerator, FSharpClientExtensionGenerator
+from msggen.fsharp import FSharpGenerator
 from pathlib import Path
 import subprocess
 import json
@@ -152,15 +152,9 @@ def genrustjsonrpc(service):
 
 
 def genfsharpjsonrpc(service):
-    request_file_name = repo_root() / "contrib" / "ClnSharp" / "Requests.fs"
+    request_file_name = repo_root() / "contrib" / "Model.fs"
     dest1 = open(request_file_name, "w")
     FSharpGenerator(dest1).generate(service)
-
-
-def genfsharpclient(service):
-    client_file_name = repo_root() / "contrib" / "ClnSharp" / "Client.Methods.fs"
-    dest1 = open(client_file_name, "w")
-    FSharpClientExtensionGenerator(dest1).generate(service)
 
 
 def load_msggen_meta():
@@ -179,7 +173,6 @@ def run():
     gengrpc(service, meta)
     genrustjsonrpc(service)
     genfsharpjsonrpc(service)
-    genfsharpclient(service)
     write_msggen_meta(meta)
 
 

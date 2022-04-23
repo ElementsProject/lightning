@@ -236,7 +236,7 @@ class FSharpGenerator:
         """
         self.write(f"""
         [<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "")>]
-        type internal Request =
+        type Request =
         """)
 
         for method in service.methods:
@@ -256,7 +256,7 @@ class FSharpGenerator:
 
         self.write(f"""
         [<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "")>]
-        type private Response =
+        type Response =
         """)
 
         for method in service.methods:
@@ -270,73 +270,295 @@ open System.Text.Json
 open System.Text.Json.Serialization
 
 """
+        primitives = """
+open System
+
+type ChannelState =
+    | OPENINGD = 0
+    | CHANNELD_AWAITING_LOCKIN = 1
+    | CHANNELD_NORMAL = 2
+    | CHANNELD_SHUTTING_DOWN = 3
+    | CLOSINGD_SIGEXCHANGE = 4
+    | CLOSINGD_COMPLETE = 5
+    | AWAITING_UNILATERAL = 6
+    | FUNDING_SPEND_SEEN = 7
+    | ONCHAIN = 8
+    | DUALOPEND_OPEN_INIT = 9
+    | DUALOPEND_AWAITING_LOCKIN = 10
+
+type ChannelStateChangeCause =
+    | [<System.Runtime.Serialization.EnumMember(Value = "unknown")>] UNKNOWN = 0
+    | [<System.Runtime.Serialization.EnumMember(Value = "local")>] LOCAL = 1
+    | [<System.Runtime.Serialization.EnumMember(Value = "user")>] USER = 2
+    | [<System.Runtime.Serialization.EnumMember(Value = "remote")>] REMOTE = 3
+    | [<System.Runtime.Serialization.EnumMember(Value = "protocol")>] PROTOCOL = 4
+    | [<System.Runtime.Serialization.EnumMember(Value = "onchain")>] ONCHAIN = 5
+
+type [<Measure>] msat
+
+type AmountOrAny =
+    | Amount of int64<msat>
+    | Any
+
+type AmountOrAll =
+    | Amount of int64<msat>
+    | All
+
+type Feerate =
+    | Slow
+    | Normal
+    | Urgent
+    | PerKb of uint32
+    | PerKw of uint32
+
+    with
+    override this.ToString() =
+        match this with
+        | Slow -> "slow"
+        | Normal -> "normal"
+        | Urgent -> "urgent"
+        | PerKb v -> $"{v} perkb"
+        | PerKw v -> $"{v} perkw"
+
+type ChannelSide =
+    | [<System.Runtime.Serialization.EnumMember(Value = "local")>] LOCAL = 0
+    | [<System.Runtime.Serialization.EnumMember(Value = "remote")>] REMOTE = 1
+
+[<Struct>]
+type ShortChannelId = ShortChannelId of string
+  with
+  member this.Value = let (ShortChannelId v) = this in v
+  override this.ToString() = this.Value
+
+[<Struct>]
+type PrivKey = PrivKey of byte[]
+  with
+  member this.Value = let (PrivKey v) = this in v
+  override this.ToString() = this.Value |> Convert.ToHexString
+
+[<Struct>]
+type PubKey = PubKey of byte[]
+  with
+  member this.Value = let (PubKey v) = this in v
+  override this.ToString() = this.Value |> Convert.ToHexString
+
+[<Struct>]
+type OutputDescriptor = OutputDescriptor of string
+  with
+  member this.Value = let (OutputDescriptor v) = this in v
+  override this.ToString() = this.Value
+
+[<Struct>]
+type Hash = Hash of byte[]
+  with
+  member this.Value = let (Hash v) = this in v
+  override this.ToString() = this.Value |> Convert.ToHexString
+
+[<Struct>]
+type OutPoint = {
+  VOut: uint32
+  PrevHash: byte[]
+}
+  with
+  override this.ToString() = $"{this.PrevHash |> Convert.ToHexString}:{this.VOut}"
+"""
         self.write(opens)
+        self.write(primitives)
+
+        json_converters = """
+open System.Runtime.CompilerServices
+
+[<AutoOpen>]
+module private PrimitiveExtensions =
+    let parseClnAmount(s: string): int64<msat> =
+        if s |> String.IsNullOrWhiteSpace then
+            raise <| FormatException($"Invalid string for money. null")
+        else if s.EndsWith("msat") then
+            s.Substring(0, s.Length - 4) |> int64 |> unbox
+        else if s.EndsWith("sat") then
+            s.Substring(0, s.Length - 3) |> int64 |> unbox
+        else if s.EndsWith("btc") then
+            s.Substring(0, s.Length - 3) |> int64 |> unbox
+        else
+            raise <| FormatException $"Invalid string for money {s}"
+
+
+type MSatJsonConverter() =
+    inherit JsonConverter<int64<msat>>()
+    override this.Write(writer, value, options) =
+        writer.WriteStringValue(value.ToString() + "msat")
+    override this.Read(reader, _typeToConvert, _options) =
+        reader.GetString()
+        |> parseClnAmount
+
+type PubKeyJsonConverter() =
+    inherit JsonConverter<PubKey>()
+
+    override this.Write(writer, value, _options) =
+        value.ToString()
+        |> writer.WriteStringValue
+    override this.Read(reader, _typeToConvert, _options) =
+        let b = reader.GetString() |> Convert.FromHexString
+        if b.Length <> 33 then
+          raise <| JsonException($"Invalid length for pubkey: {b.Length}, it must be 33")
+        else
+          b |> PubKey
+
+type ShortChannelIdJsonConverter() =
+  inherit JsonConverter<ShortChannelId>()
+  override this.Write(writer, value, _options) =
+    value.ToString()
+    |> writer.WriteStringValue
+  override this.Read(reader, _typeToConvert, _options) =
+    reader.GetString() |> ShortChannelId
+
+type PrivKeyJsonConverter() =
+  inherit JsonConverter<PrivKey>()
+
+  override this.Write(writer, value, _options) =
+    value.ToString()
+    |> writer.WriteStringValue
+
+  override this.Read(reader, _typeToConvert, _options) =
+    let b = reader.GetString() |> Convert.FromHexString
+    PrivKey b
+
+type HashJsonConverter() =
+  inherit JsonConverter<Hash>()
+  override this.Write(writer, value, _options) =
+    value.ToString()
+    |> writer.WriteStringValue
+
+  override this.Read(reader, _typeToConvert, _options) =
+    reader.GetString()
+    |> Convert.FromHexString
+    |> Hash
+
+type AmountOrAnyJsonConverter() =
+    inherit JsonConverter<AmountOrAny>()
+
+    override this.Write(writer, value, options) =
+        match value with
+        | AmountOrAny.Any ->
+            writer.WriteStringValue "any"
+        | AmountOrAny.Amount a ->
+            writer.WriteStringValue(a.ToString() + "msat")
+    override this.Read(reader, _typeToConvert, _options) =
+        match reader.GetString() with
+        | "any" ->
+            AmountOrAny.Any
+        | x ->
+            parseClnAmount x
+            |> AmountOrAny.Amount
+
+type AmountOrAllJsonConverter() =
+    inherit JsonConverter<AmountOrAll>()
+
+    override this.Write(writer, value, options) =
+        match value with
+        | AmountOrAll.All ->
+            writer.WriteStringValue "all"
+        | AmountOrAll.Amount a ->
+            writer.WriteStringValue(a.ToString() + "msat")
+    override this.Read(reader, _typeToConvert, _options) =
+        match reader.GetString() with
+        | "all" ->
+            AmountOrAll.All
+        | x ->
+            parseClnAmount x
+            |> AmountOrAll.Amount
+
+type OutPointJsonConverter() =
+    inherit JsonConverter<OutPoint>()
+
+    override this.Write(writer, value, options) =
+      writer.WriteStringValue(value.ToString())
+
+    override this.Read(reader, _typeToConvert, _options) =
+        let splits = reader.GetString().Split ":"
+        if splits.Length <> 2 then
+            raise <| JsonException("not a valid txid:output tuple")
+        else
+          {
+            OutPoint.PrevHash = splits.[0] |> Convert.FromHexString
+            VOut = splits.[1] |> uint32
+          }
+
+type FeerateJsonConverter() =
+    inherit JsonConverter<Feerate>()
+
+    override this.Write(writer, value, options) =
+        value.ToString() |> writer.WriteStringValue
+
+    override this.Read(reader, _typeToConvert, _options) =
+        let s = reader.GetString()
+        let number =
+            s
+            |> Seq.choose(fun c -> match UInt32.TryParse($"{c}") with | true, v -> Some v | _ -> None)
+            |> Seq.fold(fun acc d -> acc * 10u + d) 0u
+
+        let s = s.ToLowerInvariant()
+        if s.EndsWith "perkw" then
+            Feerate.PerKw(number)
+        else if s.EndsWith "perkb" then
+            Feerate.PerKb number
+        else if s = "slow" then
+            Feerate.Slow
+        else if s = "normal" then
+            Feerate.Normal
+        else if s = "urgent" then
+            Feerate.Urgent
+        else
+            raise <| JsonException $"Unable to parse feerate from string {s}"
+
+type OutputDescriptorJsonConverter() =
+    inherit JsonConverter<OutputDescriptor>()
+
+    override this.Write(writer, value, options) =
+        value.ToString() |> writer.WriteStringValue
+
+    override this.Read(reader, _typeToConvert, _options) =
+        reader.GetString()
+        |> OutputDescriptor
+
+[<CLIMutable>]
+type RouteHop = {
+    [<JsonPropertyName "id">]
+    [<JsonConverter(typeof<PubKeyJsonConverter>)>]
+    Id: PubKey
+
+    [<JsonPropertyName "scid">]
+    [<JsonConverter(typeof<ShortChannelIdJsonConverter>)>]
+    Scid: ShortChannelId
+
+    [<JsonPropertyName "feebase">]
+    [<JsonConverter(typeof<MSatJsonConverter>)>]
+    Feebase: int64<msat>
+
+    [<JsonPropertyName "feeprop">]
+    Feeprop: uint32
+
+    [<JsonPropertyName "expirydelta">]
+    Expirydelta: uint16
+}
+
+[<CLIMutable>]
+type Routehint = {
+    [<JsonPropertyName "hops">]
+    Hops: RouteHop[]
+}
+
+[<CLIMutable>]
+type RoutehintList = {
+    [<JsonPropertyName "hints">]
+    Hints: Routehint []
+}
+
+"""
+        self.write(json_converters)
 
     def generate(self, service: Service):
         self.write_header()
         self.generate_requests(service)
         self.generate_responses(service)
         self.generate_enums(service)
-
-
-class FSharpClientExtensionGenerator:
-    def __init__(self, dest: TextIO):
-        self.dest = dest
-
-    def write(self, text: str, numindent: int = 0) -> None:
-        raw = dedent(text)
-        if numindent > 0:
-            raw = indent(text, "    " * numindent)
-        self.dest.write(raw)
-
-    def generate_methods(self, service: Service):
-        self.write(f"""
-
-[<System.CodeDom.Compiler.GeneratedCode("{" ".join(sys.argv)}", "")>]
-[<Extension;AbstractClass;Sealed>]
-type ClnClientExtensions =
-""")
-
-        for method in service.methods:
-            req_fields = []
-            resp_fields = []
-            for f in method.request.fields:
-                req_fields.append(gen_field(f))
-            for f in method.response.fields:
-                resp_fields.append(gen_field(f))
-            self.write("[<Extension>]\n", numindent=1)
-            if len(req_fields) == 0:
-                self.write(
-                    f"static member {method.name}Async(this: ClnClient, [<Optional;DefaultParameterValue(CancellationToken())>] ct: CancellationToken) =\n",
-                    numindent=1)
-                if len(resp_fields) == 0:
-                    self.write(f"this.SendCommandAsync(\"{method.name.lower()}\", null, ct=ct) :> Task\n", numindent=2)
-                else:
-                    self.write(
-                        f"this.SendCommandAsync<Responses.{method.response.typename}>(\"{method.name.lower()}\", null, ct=ct)\n",
-                        numindent=2)
-            else:
-                self.write(
-                    f"static member {method.name}Async(this: ClnClient, req: Requests.{method.request.typename}, [<Optional;DefaultParameterValue(CancellationToken())>] ct: CancellationToken) =\n",
-                    numindent=1)
-                if len(resp_fields) == 0:
-                    self.write(f"this.SendCommandAsync(Request.{method.name} req, ct=ct) :> Task\n", numindent=2)
-                else:
-                    self.write(
-                        f"this.SendCommandAsync<Responses.{method.response.typename}>(Request.{method.name} req, ct=ct)\n",
-                        numindent=2)
-
-    def write_header(self):
-        self.write(header)
-        opens = """
-open System.Runtime.InteropServices
-open System.Runtime.CompilerServices
-open System.Threading
-open System.Threading.Tasks
-
-"""
-        self.write(opens)
-
-    def generate(self, service: Service):
-        self.write_header()
-        self.generate_methods(service)
