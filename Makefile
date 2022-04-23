@@ -4,7 +4,7 @@
 VERSION=$(shell git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|\1|gp')
 
 ifeq ($(VERSION),)
-$(error "ERROR: git is required for generating version information")
+$(error "ERROR: git is required for generating version information. If you have git installed, try to run the following command: git config --system --add safe.directory `pwd`'/*'")
 endif
 
 # --quiet / -s means quiet, dammit!
