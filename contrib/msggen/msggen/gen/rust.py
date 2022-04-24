@@ -5,8 +5,9 @@ import logging
 import sys
 import re
 
-from .model import (ArrayField, CompositeField, EnumField,
-                    PrimitiveField, Service)
+from msggen.model import (ArrayField, CompositeField, EnumField,
+                          PrimitiveField, Service)
+from msggen.gen.generator import IGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +197,7 @@ def gen_composite(c) -> Tuple[str, str]:
     return ("", r)
 
 
-class RustGenerator:
+class RustGenerator(IGenerator):
     def __init__(self, dest: TextIO):
         self.dest = dest
 
