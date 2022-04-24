@@ -1,5 +1,6 @@
 # A grpc model
-from .model import ArrayField, Field, CompositeField, EnumField, PrimitiveField, Service
+from msggen.model import ArrayField, Field, CompositeField, EnumField, PrimitiveField, Service
+from msggen.gen import IGenerator
 from typing import TextIO, List, Dict, Any
 from textwrap import indent, dedent
 import re
@@ -51,7 +52,7 @@ method_name_overrides = {
 }
 
 
-class GrpcGenerator:
+class GrpcGenerator(IGenerator):
     """A generator that generates protobuf files.
     """
 
@@ -235,7 +236,7 @@ class GrpcGenerator:
             self.generate_message(message)
 
 
-class GrpcConverterGenerator:
+class GrpcConverterGenerator(IGenerator):
     def __init__(self, dest: TextIO):
         self.dest = dest
         self.logger = logging.getLogger("msggen.grpc.GrpcConversionGenerator")
