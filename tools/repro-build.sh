@@ -135,6 +135,34 @@ a7d59420134a8307eb11ef79b68e2b35cadc794a60f82c87f4583e37c763fd01  /var/cache/apt
 9cd69c847d7b12bd9cb2c58afe8bd17fb3973361716af71eb45c0f2b6d7e6884  /var/cache/apt/archives/zlib1g-dev_1%3a1.2.11.dfsg-2ubuntu1_amd64.deb
 EOF
 	;;
+    Ubuntu-22.04)
+	if grep ^deb /etc/apt/sources.list | grep -- '-\(updates\|security\)'; then
+	    echo Please disable security and updates in /etc/apt/sources.list >&2
+	    exit 1
+	fi
+	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
+	PKGS='autoconf automake libtool make gcc libgmp-dev libsqlite3-dev zlib1g-dev libsodium-dev'
+	INST='sudo dpkg -i'
+	cat > /tmp/SHASUMS <<EOF
+96b528889794c4134015a63c75050f93d8aecdf5e3f2a20993c1433f4c61b80e  /var/cache/apt/archives/autoconf_2.71-2_all.deb
+db854b9af0f94eded5039830177f57a5b2d529f76e2b5b0de8ec0b26f7aedc83  /var/cache/apt/archives/gcc-11-base_11.2.0-19ubuntu1_amd64.deb
+0320b98a2d4664b10f6de2ec3f3e2409cb8c3dbec8c32d938a6beaa78e1fed76  /var/cache/apt/archives/gcc-11_11.2.0-19ubuntu1_amd64.deb
+0fbbb920bb9b3b24c357cca9035671fcfee5f9ed49175f6145db979406dbc532  /var/cache/apt/archives/libc-bin_2.35-0ubuntu3_amd64.deb
+cc37cab5c60bcfe4bbf289a8002f369949a41ed46e8b51a0503a001099370c56  /var/cache/apt/archives/libc6-dev_2.35-0ubuntu3_amd64.deb
+2f52cdc0aca888bb3995d871a65282107dc7c2a0a4d78f60680f709bdc0875aa  /var/cache/apt/archives/libcc1-0_12-20220319-1ubuntu1_amd64.deb
+a79be2f6e45823dcc09e04d5e98c88ec88d07d5b8895d05b875a8ade8b345efa  /var/cache/apt/archives/libcrypt-dev_1%3a4.4.27-1_amd64.deb
+adae5a301c7899c1bce8ae26b5423716a47e516df25c09d6d536607bc34853bc  /var/cache/apt/archives/libgcc-11-dev_11.2.0-19ubuntu1_amd64.deb
+e4ce547c5c5e4efd98854d06559349b3a03272eb343f1bd8e4ccac7b783229a3  /var/cache/apt/archives/libgmp-dev_2%3a6.2.1+dfsg-3ubuntu1_amd64.deb
+d8b8653388e676a3ae2fcf565c2b1a42a01a1104062317f641e8d24f0eaff9c3  /var/cache/apt/archives/libpq-dev_14.2-1ubuntu1_amd64.deb
+542dcee1409c74d03ecdd4ca4a0cfd467e5d2804d9985b58e39d3c5889a409e3  /var/cache/apt/archives/libpq5_14.2-1ubuntu1_amd64.deb
+885ee09c37d0e37ef6042e8cb4a22ccbab92101f21ab0c8f51ae961e4484407c  /var/cache/apt/archives/libsodium23_1.0.18-1build2_amd64.deb
+000a1d5c0df0373c75fadbfea604afb6b1325bf866a3ce637ae0138abe6d556d  /var/cache/apt/archives/libsqlite3-0_3.37.2-2_amd64.deb
+1b2a93020593c9e94a25f750ce442da5a6e8ff48a20f52cec92dfc3fa35336d8  /var/cache/apt/archives/linux-libc-dev_5.15.0-25.25_amd64.deb
+572a544d2c18bf49d25c465720c570cd8e6e38731386ac9c0a7f29bed2486f3e  /var/cache/apt/archives/m4_1.4.18-5ubuntu2_amd64.deb
+080b79a1a1623a2e6c6eead37d62b15fdf2c3dbfeafe8ecf5e31c54eb09eadcc  /var/cache/apt/archives/make_4.3-4.1build1_amd64.deb
+52449467942cc943d651fd16867014e9339f3657935fc09b75b3347aa5a78066  /var/cache/apt/archives/zlib1g_1%3a1.2.11.dfsg-2ubuntu9_amd64.deb
+EOF
+	;;
     *)
 	echo Unsupported platform "$PLATFORM" >&2
 	exit 1
