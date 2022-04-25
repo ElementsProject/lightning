@@ -46,7 +46,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **state** (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
   - **opener** (string): Who initiated the channel (one of "local", "remote")
   - **features** (array of strings):
-    - BOLT #9 features which apply to this channel (one of "option_static_remotekey", "option_anchor_outputs")
+    - BOLT #9 features which apply to this channel (one of "option_static_remotekey", "option_anchor_outputs", "option_zeroconf")
   - **scratch_txid** (txid, optional): The txid we would use if we went onchain now
   - **feerate** (object, optional): Feerates for the current tx:
     - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
@@ -380,4 +380,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:4f76b5ac19d3dfdaf3d04f5dd5de2312a2ab0ccffe779508c416aaf6e644612a)
+[comment]: # ( SHA256STAMP:65b83fce3f21b31fb12fe3793e9e77e1192c76bf3dbe827647ffc11ad9d49e45)
