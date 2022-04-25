@@ -19,31 +19,35 @@ check: check-source check-pytest
 check-source: check-flake8 check-mypy
 
 check-flake8:
-	flake8 --ignore=E501,E731,W503,E741
+	flake8 --ignore=E501,E731,W503,E741 pyln tests
 
 check-pytest:
 	pytest tests
 
 check-mypy:
-	#mypy --namespace-packages tests pyln
-	echo mypy disabled for pyln-proto
+#	MYPYPATH=$(PYTHONPATH) mypy --namespace-packages --follow-imports=skip tests pyln
 
-$(SDIST_FILE):
-	python3 setup.py sdist
+pyproject.toml: pyln/${PKG}/__init__.py
+	poetry version ${VERSION}
 
-$(BDIST_FILE):
-	python3 setup.py bdist_wheel
+$(SDIST_FILE) $(BDIST_FILE): pyproject.toml
+	poetry build
 
-test-release: check $(ARTEFACTS)
-	python3 -m twine upload --repository testpypi --skip-existing $(ARTEFACTS)
+test-release: check $(ARTEFACTS) pyproject.toml
+	# No way of saying "it's ok if files exist" yet
+	poetry publish --repository testpypi || /bin/true
+	echo Sleeping for PyPI index to update
+	sleep 10
+
+	# Generate a requirements.txt file, needed for us to download requirements from the prod pypi instead of the test pypi, since some packages are not published to test pypi.
+	poetry export -f requirements.txt --output requirements.txt --without-hashes
 
 	# Create a test virtualenv, install from the testpypi and run the
 	# tests against it (make sure not to use any virtualenv that may have
 	# pyln-${PKG} already installed).
 	virtualenv testpypi --python=/usr/bin/python3 --download --always-copy --clear
-	# Install the requirements from the prod repo, they are not being kept up to date on the test repo
 	testpypi/bin/python3 -m pip install -r requirements.txt flaky pytest-timeout
-	testpypi/bin/python3 -m pip install -I --index-url https://test.pypi.org/simple/ --no-deps pyln-${PKG}
+	testpypi/bin/python3 -m pip install -I --index-url https://test.pypi.org/simple/ --no-deps pyln-${PKG}==${VERSION}
 	testpypi/bin/python3 -c "from pyln import ${PKG};assert(${PKG}.__version__ == '$(VERSION)')"
 	testpypi/bin/pytest tests
 	rm -rf testpypi
