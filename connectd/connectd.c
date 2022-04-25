@@ -1743,7 +1743,36 @@ static bool wireaddr_int_equals_wireaddr(const struct wireaddr_internal *addr_a,
 	return wireaddr_eq(&addr_a->u.wireaddr, addr_b);
 }
 
-/*~ Orders the addresses which lightningd gave us. */
+/*~ Adds just one address type.
+ *
+ * Ignores deprecated and the `addrhint`. */
+static void add_gossip_addrs_bytype(struct wireaddr_internal **addrs,
+				    const struct wireaddr *normal_addrs,
+				    const struct wireaddr_internal *addrhint,
+				    const enum wire_addr_type type)
+{
+	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
+		if (normal_addrs[i].type == ADDR_TYPE_TOR_V2_REMOVED)
+			continue;
+		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
+			continue;
+		if (normal_addrs[i].type != type)
+			continue;
+		struct wireaddr_internal addr;
+		addr.itype = ADDR_INTERNAL_WIREADDR;
+		addr.u.wireaddr = normal_addrs[i];
+		tal_arr_expand(addrs, addr);
+	}
+
+}
+
+
+/*~ Orders the addresses which lightningd gave us.
+ *
+ * Ignores deprecated protocols and the `addrhint` that is assumed to be
+ * already added first. Adds all IPv6 addresses, followed by IPv4 and then TOR.
+ * This ensures we are modern and use IPv6 when possible, falling back to
+ * direct (faster) IPv4 and finally (less stable) TOR connections. */
 static void add_gossip_addrs(struct wireaddr_internal **addrs,
 			     const struct wireaddr *normal_addrs,
 			     const struct wireaddr_internal *addrhint)
@@ -1753,28 +1782,22 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 		/* This is not supported, ignore. */
 		if (normal_addrs[i].type == ADDR_TYPE_TOR_V2_REMOVED)
 			continue;
-
-		/* add TOR addresses in a second loop */
+		/* The hint was already added earlier */
+		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
+			continue;
+		/* We add IPv4 and TOR in separate loops to prefer IPv6 */
+		if (normal_addrs[i].type == ADDR_TYPE_IPV4)
+			continue;
 		if (normal_addrs[i].type == ADDR_TYPE_TOR_V3)
 			continue;
-		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
-			continue;
 		struct wireaddr_internal addr;
 		addr.itype = ADDR_INTERNAL_WIREADDR;
 		addr.u.wireaddr = normal_addrs[i];
 		tal_arr_expand(addrs, addr);
 	}
-	/* so connectd prefers direct connections if possible. */
-	for (size_t i = 0; i < tal_count(normal_addrs); i++) {
-		if (normal_addrs[i].type != ADDR_TYPE_TOR_V3)
-			continue;
-		if (wireaddr_int_equals_wireaddr(addrhint, &normal_addrs[i]))
-			continue;
-		struct wireaddr_internal addr;
-		addr.itype = ADDR_INTERNAL_WIREADDR;
-		addr.u.wireaddr = normal_addrs[i];
-		tal_arr_expand(addrs, addr);
-	}
+	/* Do the loop for skipped protocols in preferred order. */
+	add_gossip_addrs_bytype(addrs, normal_addrs, addrhint, ADDR_TYPE_IPV4);
+	add_gossip_addrs_bytype(addrs, normal_addrs, addrhint, ADDR_TYPE_TOR_V3);
 }
 
 /*~ Consumes addrhint if not NULL.
