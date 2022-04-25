@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [v0.11.0] - 2022-04-04: Simon's Carefully Chosen Release Name
+## [0.11.0.1] - 2022-04-04: Simon's Carefully Chosen Release Name
 
 This release would have been named by Simon Vrouwe, had he responded to my emails!
 

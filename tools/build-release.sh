@@ -80,11 +80,11 @@ for target in $TARGETS; do
     [ "$platform" != "$target" ] || continue
     case $platform in
 	Fedora-28-amd64)
-	    DOCKERFILE=contrib/Dockerfile.builder.fedora
+	    DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
 	    TAG=fedora
 	    ;;
 	Ubuntu-16.04-amd64)
-	    DOCKERFILE=contrib/Dockerfile.builder
+	    DOCKERFILE=contrib/docker/Dockerfile.builder
 	    TAG=ubuntu-amd64
 	    ;;
 	*)
