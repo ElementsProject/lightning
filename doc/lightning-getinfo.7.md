@@ -42,7 +42,7 @@ On success, an object is returned, containing:
 - **our_features** (object, optional): Our BOLT #9 feature bits (as hexstring) for various contexts:
   - **init** (hex): features (incl. globalfeatures) in our init message, these also restrict what we offer in open_channel or accept in accept_channel
   - **node** (hex): features in our node_announcement message
-  - **channel** (hex): negotiated channel features we — as channel initiator — publish in the channel_announcement message
+  - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel_announcement message
   - **invoice** (hex): features in our BOLT11 invoices
 - **address** (array of objects, optional): The addresses we announce to the world:
   - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
@@ -128,4 +128,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:f7c85915ae8da7e9cabd2c72a31157801524b53f6bf8463da1743a0ee71e7c88)
+[comment]: # ( SHA256STAMP:52175b0eced3ed2992d27b983b50afe080134702874116ce0c8355a8adddd440)

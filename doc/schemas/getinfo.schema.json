@@ -77,7 +77,7 @@
         },
         "channel": {
           "type": "hex",
-          "description": "negotiated channel features we — as channel initiator — publish in the channel_announcement message"
+          "description": "negotiated channel features we (as channel initiator) publish in the channel_announcement message"
         },
         "invoice": {
           "type": "hex",
