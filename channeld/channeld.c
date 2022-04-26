@@ -3235,8 +3235,14 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 	} else {
 		peer->depth_togo = 0;
 
-		assert(scid);
-		peer->short_channel_ids[LOCAL] = *scid;
+		/* If we know an actual short_channel_id prefer to use
+		 * that, otherwise fill in the alias. From channeld's
+		 * point of view switching from zeroconf to an actual
+		 * funding scid is just a reorg. */
+		if (scid)
+			peer->short_channel_ids[LOCAL] = *scid;
+		else if (alias_local)
+			peer->short_channel_ids[LOCAL] = *alias_local;
 
 		if (!peer->funding_locked[LOCAL]) {
 			status_debug("funding_locked: sending commit index"
