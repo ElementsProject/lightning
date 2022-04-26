@@ -10,7 +10,7 @@ from msggen.model import Service
 
 class IGenerator(ABC):
     """
-    Change of responsibility handler that need to be
+    Chain of responsibility handler that need to be
     implemented by all the generators.
     """
 
@@ -21,7 +21,7 @@ class IGenerator(ABC):
 
 class GeneratorChain:
     """
-    Chain responsibility patter implementation to generalize
+    Chain responsibility pattern implementation to generalize
     the generation method.
     """
 
