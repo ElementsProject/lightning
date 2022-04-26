@@ -3,10 +3,6 @@
 # Extract version from git, or if we're from a zipfile, use dirname
 VERSION=$(shell git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|\1|gp')
 
-ifeq ($(VERSION),)
-$(error "ERROR: git is required for generating version information")
-endif
-
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
 ECHO := :
@@ -583,9 +579,17 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
+# Without a working git, you can't generate this file, so assume if it exists
+# it is ok (fixes "sudo make install").
+ifeq ($(VERSION),)
+version_gen.h:
+	echo "ERROR: git is required for generating version information" >&2
+	exit 1
+else
 version_gen.h: $(FORCE)
 	@(echo "#define VERSION \"$(VERSION)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Version updated; fi
+endif
 
 # That forces this rule to be run every time, too.
 header_versions_gen.h: tools/headerversions
@@ -790,11 +794,13 @@ installcheck: all-programs
 	installcheck ncc bin-tarball show-flags
 
 # Make a tarball of opt/clightning/, optionally with label for distribution.
+ifneq ($(VERSION),)
 bin-tarball: clightning-$(VERSION)-$(DISTRO).tar.xz
 clightning-$(VERSION)-$(DISTRO).tar.xz: DESTDIR=$(shell pwd)/
 clightning-$(VERSION)-$(DISTRO).tar.xz: prefix=opt/clightning
 clightning-$(VERSION)-$(DISTRO).tar.xz: install
 	trap "rm -rf opt" 0; tar cvfa $@ opt/
+endif
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
