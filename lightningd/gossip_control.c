@@ -344,15 +344,26 @@ void tell_gossipd_local_private_channel(struct lightningd *ld,
 					struct amount_sat capacity,
 					const u8 *features)
 {
+	/* Which short_channel_id should we use to refer to this channel when
+	 * creating invoices? */
+	struct short_channel_id *scid;
+
 	/* As we're shutting down, ignore */
 	if (!ld->gossip)
 		return;
 
+	if (channel->scid != NULL) {
+		scid = channel->scid;
+	} else {
+		scid = channel->alias[REMOTE];
+	}
+
+	assert(scid != NULL);
 	subd_send_msg(ld->gossip,
 		      take(towire_gossipd_local_private_channel
 			   (NULL, &channel->peer->id,
 			    capacity,
-			    channel->scid,
+			    scid,
 			    features)));
 }
 
