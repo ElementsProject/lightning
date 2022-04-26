@@ -365,6 +365,18 @@ void tell_gossipd_local_private_channel(struct lightningd *ld,
 			    capacity,
 			    scid,
 			    features)));
+
+	/* If we have no real scid, and there are two different
+	 * aliases, then we need to add both as single direction
+	 * channels to the local gossip_store. */
+	if ((!channel->scid && channel->alias[LOCAL]) &&
+	    !short_channel_id_eq(channel->alias[REMOTE],
+				 channel->alias[LOCAL])) {
+		subd_send_msg(ld->gossip,
+			      take(towire_gossipd_local_private_channel(
+				  NULL, &channel->peer->id, capacity,
+				  channel->alias[LOCAL], features)));
+	}
 }
 
 static struct command_result *json_setleaserates(struct command *cmd,

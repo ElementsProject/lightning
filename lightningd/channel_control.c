@@ -785,11 +785,9 @@ void peer_start_channeld(struct channel *channel,
 	}
 
 	/* Artificial confirmation event for zeroconf */
-	if (channel_type_has(channel->type, OPT_ZEROCONF))
-		subd_send_msg(
-		    channel->owner,
-		    take(towire_channeld_funding_depth(
-			NULL, channel->scid, channel->alias[LOCAL], 0)));
+	subd_send_msg(channel->owner,
+		      take(towire_channeld_funding_depth(
+			  NULL, channel->scid, channel->alias[LOCAL], 0)));
 }
 
 bool channel_tell_depth(struct lightningd *ld,
