@@ -5,7 +5,7 @@ from msggen.gen.generator import GeneratorChain
 from msggen.utils import repo_root, load_jsonrpc_service
 
 
-def gengrpc(generator_chain: GeneratorChain, meta):
+def add_handler_gen_grpc(generator_chain: GeneratorChain, meta):
     """Load all mapped RPC methods, wrap them in a Service, and split them into messages.
     """
     fname = repo_root() / "cln-grpc" / "proto" / "node.proto"
@@ -22,7 +22,7 @@ def gengrpc(generator_chain: GeneratorChain, meta):
     generator_chain.add_generator(GrpcServerGenerator(dest))
 
 
-def genrustjsonrpc(generator_chain: GeneratorChain):
+def add_handler_gen_rust_jsonrpc(generator_chain: GeneratorChain):
     fname = repo_root() / "cln-rpc" / "src" / "model.rs"
     dest = open(fname, "w")
     generator_chain.add_generator(RustGenerator(dest))
@@ -43,8 +43,8 @@ def run():
     meta = load_msggen_meta()
     generator_chain = GeneratorChain()
 
-    gengrpc(generator_chain, meta)
-    genrustjsonrpc(generator_chain)
+    add_handler_gen_grpc(generator_chain, meta)
+    add_handler_gen_rust_jsonrpc(generator_chain)
 
     generator_chain.generate(service)
 
