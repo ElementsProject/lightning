@@ -622,6 +622,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 		    "Peer told us that they'll use alias=%s for this channel",
 		    type_to_string(tmpctx, struct short_channel_id,
 				   tlvs->alias));
+		peer->short_channel_ids[REMOTE] = *tlvs->alias;
 	}
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_got_funding_locked(
