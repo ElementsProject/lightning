@@ -472,6 +472,20 @@
                 "htlc_minimum_msat": {
                   "deprecated": true
                 },
+                "alias": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "local": {
+                      "type": "short_channel_id",
+                      "description": "An alias assigned by this node to this channel, used for outgoing payments"
+                    },
+                    "remote": {
+                      "type": "short_channel_id",
+                      "description": "An alias assigned by the remote node to this channel, usable in routehints and invoices"
+                    }
+                  }
+                },
                 "state_changes": {
                   "type": "array",
                   "description": "Prior state changes",
@@ -675,6 +689,7 @@
                             "payment_hash": {},
                             "local_trimmed": {},
                             "status": {},
+                            "alias": {},
                             "state": {
                               "type": "string",
                               "enum": [
@@ -762,6 +777,7 @@
                       "funding_outnum": {},
                       "close_to": {},
                       "private": {},
+                      "alias": {},
                       "opener": {},
                       "closer": {},
                       "features": {},
@@ -841,6 +857,7 @@
                     ],
                     "properties": {
                       "state": {},
+                      "alias": {},
                       "scratch_txid": {},
                       "feerate": {},
                       "owner": {},
@@ -930,6 +947,7 @@
                       "direction"
                     ],
                     "properties": {
+                      "alias": {},
                       "state": {},
                       "scratch_txid": {},
                       "feerate": {},
@@ -1024,6 +1042,7 @@
                       "scratch_txid": {},
                       "feerate": {},
                       "owner": {},
+                      "alias": {},
                       "short_channel_id": {},
                       "channel_id": {},
                       "funding_txid": {},

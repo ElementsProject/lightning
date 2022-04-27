@@ -749,6 +749,17 @@ static void json_add_channel(struct lightningd *ld,
 	else if (deprecated_apis)
 		json_add_null(response, "closer");
 
+	if (channel->alias[LOCAL] || channel->alias[REMOTE]) {
+		json_object_start(response, "alias");
+		if (channel->alias[LOCAL])
+			json_add_short_channel_id(response, "local",
+						  channel->alias[LOCAL]);
+		if (channel->alias[REMOTE])
+			json_add_short_channel_id(response, "remote",
+						  channel->alias[REMOTE]);
+		json_object_end(response);
+	}
+
 	json_array_start(response, "features");
 	if (channel_has(channel, OPT_STATIC_REMOTEKEY))
 		json_add_string(response, NULL, "option_static_remotekey");

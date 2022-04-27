@@ -92,6 +92,9 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **their_to_self_delay** (u32, optional): the number of blocks before they can take their funds if they unilateral close
   - **our_to_self_delay** (u32, optional): the number of blocks before we can take our funds if we unilateral close
   - **max_accepted_htlcs** (u32, optional): Maximum number of incoming HTLC we will accept at once
+  - **alias** (object, optional):
+    - **local** (short_channel_id, optional): An alias assigned by this node to this channel, used for outgoing payments
+    - **remote** (short_channel_id, optional): An alias assigned by the remote node to this channel, usable in routehints and invoices
   - **state_changes** (array of objects, optional): Prior state changes:
     - **timestamp** (string): UTC timestamp of form YYYY-mm-ddTHH:MM:SS.%03dZ
     - **old_state** (string): Previous state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
@@ -380,4 +383,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:c2682899defbca3de412d6e2ceda70581cf545a2f977fa4bb4cf0f7307156faf)
+[comment]: # ( SHA256STAMP:70633b2330df55509851d67aea3b40e037dabaa7855708bd80810e48b929bbcf)
