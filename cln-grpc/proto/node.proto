@@ -234,6 +234,11 @@ message ListpeersPeersChannelsFunding {
 	Amount pushed_msat = 3;
 }
 
+message ListpeersPeersChannelsAlias {
+	optional string local = 1;
+	optional string remote = 2;
+}
+
 message ListpeersPeersChannelsHtlcs {
 	// ListPeers.peers[].channels[].htlcs[].direction
 	enum ListpeersPeersChannelsHtlcsDirection {

@@ -1072,6 +1072,14 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListpeersPeersChannelsAlias {
+	    #[serde(alias = "local", skip_serializing_if = "Option::is_none")]
+	    pub local: Option<ShortChannelId>,
+	    #[serde(alias = "remote", skip_serializing_if = "Option::is_none")]
+	    pub remote: Option<ShortChannelId>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersChannelsState_changes {
 	    #[serde(alias = "timestamp")]
 	    pub timestamp: String,
