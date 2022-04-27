@@ -669,6 +669,7 @@
             "ListPeers.peers[].netaddr[]": 5
         },
         "ListpeersPeersChannels": {
+            "ListPeers.peers[].channels[].alias": 50,
             "ListPeers.peers[].channels[].channel_id": 6,
             "ListPeers.peers[].channels[].close_to": 14,
             "ListPeers.peers[].channels[].close_to_addr": 47,
@@ -718,6 +719,10 @@
             "ListPeers.peers[].channels[].their_to_self_delay": 33,
             "ListPeers.peers[].channels[].to_us_msat": 20,
             "ListPeers.peers[].channels[].total_msat": 23
+        },
+        "ListpeersPeersChannelsAlias": {
+            "ListPeers.peers[].channels[].alias.local": 1,
+            "ListPeers.peers[].channels[].alias.remote": 2
         },
         "ListpeersPeersChannelsFeerate": {
             "ListPeers.peers[].channels[].feerate.perkb": 2,
