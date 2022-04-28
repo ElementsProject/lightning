@@ -4331,6 +4331,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 {
 	struct db_stmt *stmt;
 	struct timeabs *resolved_time;
+	struct channel *outchan;
 
 	if (state == FORWARD_SETTLED || state == FORWARD_FAILED) {
 		resolved_time = tal(tmpctx, struct timeabs);
@@ -4359,8 +4360,18 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	db_bind_u64(stmt, 0, in->dbid);
 
 	if (out) {
+		outchan = out->key.channel;
 		db_bind_u64(stmt, 1, out->dbid);
-		db_bind_u64(stmt, 3, out->key.channel->scid->u64);
+
+		/* IF we forward we must have a name for this
+		 * channel. It can be either a locally assigned alias,
+		 * or the real scid. */
+		assert(outchan->scid != NULL || outchan->alias[LOCAL]);
+		if (out->key.channel->scid)
+			db_bind_u64(stmt, 3, outchan->scid->u64);
+		else
+			db_bind_u64(stmt, 3, outchan->alias[LOCAL]->u64);
+
 		db_bind_amount_msat(stmt, 5, &out->msat);
 	} else {
 		/* FORWARD_LOCAL_FAILED may occur before we get htlc_out */
