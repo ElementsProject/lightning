@@ -49,6 +49,188 @@ void psbt_finalize_input(const tal_t *ctx,
 	}
 }
 
+static size_t index_of_pubkey_in_multisig(const unsigned char *pubkey,
+					  size_t pubkey_len,
+					  const unsigned char *witness_script,
+					  size_t witness_script_len)
+{
+	if(!witness_script_len)
+		return SIZE_MAX;
+
+	/* Currently only support 1-16 required signatures
+	 *
+	 * 0x51: OP_1
+	 * 0x60: OP_16 */
+	if(*witness_script < 0x51 || *witness_script > 0x60)
+		return SIZE_MAX;
+
+	size_t pubkey_index = 0;
+
+	for(int i = 1; i < witness_script_len; ) {
+
+		unsigned char item_size = witness_script[i];
+
+		 /* item_size must be a raw push data */
+		if(item_size < 0x01 || item_size > 0x4b)
+			break;
+
+		if(++i + item_size >= witness_script_len)
+			break;
+
+		/* Check for pubkey binary match */
+		if(item_size == pubkey_len)
+			if(0 == memcmp(witness_script + i,
+				       pubkey,
+				       item_size))
+				return pubkey_index;
+
+		pubkey_index++;
+		i += item_size;
+	}
+
+	return SIZE_MAX;
+}
+
+int psbt_finalize_multisig_signatures(const tal_t *ctx,
+				      struct wally_psbt_input *in)
+{
+	int result = 0;
+
+	tal_wally_start();
+
+	if(!in->final_witness)
+		wally_tx_witness_stack_init_alloc(1,
+						  &in->final_witness);
+
+	/* If this is our first pass, add the empty first signature and
+	 * the witness script
+	 */
+
+	if(!in->final_witness->num_items) {
+
+		wally_tx_witness_stack_add(in->final_witness,
+					   NULL,
+					   0);
+
+		wally_tx_witness_stack_add(in->final_witness,
+					   in->witness_script,
+					   in->witness_script_len);
+	}
+
+	/* Add signatures to the witness stack */
+
+	for(int i = 0; i < in->signatures.num_items; i++) {
+
+		u8 der[EC_SIGNATURE_DER_MAX_LEN + 1];
+		struct wally_map_item *item = &in->signatures.items[i];
+		unsigned char *value = item->value;
+		size_t value_len = item->value_len;
+
+		size_t pubkey_index =
+			index_of_pubkey_in_multisig(item->key,
+						    item->key_len,
+						    in->witness_script,
+						    in->witness_script_len);
+
+		/* If the public key is not found in the witness script, skip */
+		if(pubkey_index == SIZE_MAX)
+			continue;
+
+		/* Because the first signature is always an empty one, we move
+		 * the real signatures over by one */
+
+		pubkey_index++;
+
+		/* We want to return the number of signatures that would have
+		 * been added, regardless of if its already present. This makes
+		 * the result value more useful as a success/failure mechanism.
+		 */
+
+		result++;
+
+		/* If the signature is not DER encoded, let's encode it */
+		if(item->value_len == sizeof(secp256k1_ecdsa_signature)) {
+
+			secp256k1_ecdsa_signature *sig;
+
+			sig = (secp256k1_ecdsa_signature *)item->value;
+
+			size_t der_len = sizeof(der);
+
+			secp256k1_ecdsa_signature_serialize_der(secp256k1_ctx,
+								der, &der_len, sig);
+
+			/* Append sighash type */
+			der[der_len++] = SIGHASH_ALL;
+
+			value = der;
+			value_len = der_len;
+		}
+
+		/* Search through witness stack to see if the signature is
+		 * already present */
+
+		bool is_already_present = false;
+
+		for(int j = 0; j < in->final_witness->num_items; j++) {
+
+			struct wally_tx_witness_item *cmp_item =
+				&in->final_witness->items[j];
+
+			if(value_len != cmp_item->witness_len)
+				continue;
+
+			if(0 == memcmp(value,
+				       cmp_item->witness,
+				       value_len))
+				is_already_present = true;
+		}
+
+		if(is_already_present)
+			continue;
+
+		/* wally current has no witness stack insert, so we must
+		 * hobble one together with the available methods.
+		 *
+		 * We'll add a second witness script on the end and then
+		 * copy each item to the stack item above it until we
+		 * have the correct spot to insert the new signature.
+		 */
+
+		wally_tx_witness_stack_add(in->final_witness,
+					   in->witness_script,
+					   in->witness_script_len);
+
+		int index = in->final_witness->num_items - 1;
+
+		do {
+
+			struct wally_tx_witness_item *lower_item =
+				&in->final_witness->items[index - 1];
+
+			wally_tx_witness_stack_set(in->final_witness,
+						   index,
+						   lower_item->witness,
+						   lower_item->witness_len);
+
+			index--;
+
+		} while(index > pubkey_index);
+
+		/* index is now the appropriate spot in the stack to add the
+		 * sig, so let's add it there */
+
+		wally_tx_witness_stack_set(in->final_witness,
+					   index,
+					   value,
+					   value_len);
+	}
+
+	tal_wally_end(ctx);
+
+	return result;
+}
+
 const struct witness_stack **
 psbt_to_witness_stacks(const tal_t *ctx,
 		       const struct wally_psbt *psbt,
