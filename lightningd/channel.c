@@ -664,6 +664,18 @@ struct channel *find_channel_by_scid(const struct peer *peer,
 	return NULL;
 }
 
+struct channel *find_channel_by_alias(const struct peer *peer,
+				      const struct short_channel_id *alias,
+				      enum side side)
+{
+	struct channel *c;
+	list_for_each(&peer->channels, c, list) {
+		if (c->alias[side] && short_channel_id_eq(c->alias[side], alias))
+			return c;
+	}
+	return NULL;
+}
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig,
