@@ -600,6 +600,11 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 			if (chan->scid
 			    && short_channel_id_eq(scid, chan->scid))
 				return chan;
+			/* We also want to find the channel by its local alias
+			 * when we forward. */
+			if (chan->alias[LOCAL] &&
+			    short_channel_id_eq(scid, chan->alias[LOCAL]))
+				return chan;
 		}
 	}
 	return NULL;
