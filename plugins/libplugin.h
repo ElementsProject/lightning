@@ -10,6 +10,7 @@
 #include <ccan/timer/timer.h>
 #include <common/errcode.h>
 #include <common/features.h>
+#include <common/htlc.h>
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -318,6 +319,7 @@ struct listpeers_channel {
 	bool private;
 	struct bitcoin_txid funding_txid;
 	const char *state;
+	struct short_channel_id *alias[NUM_SIDES];
 	struct short_channel_id *scid;
 	int *direction;
 	struct amount_msat total_msat;

@@ -417,6 +417,11 @@ struct channel *find_channel_by_id(const struct peer *peer,
 struct channel *find_channel_by_scid(const struct peer *peer,
 				     const struct short_channel_id *scid);
 
+/* Find a channel by its alias, either local or remote. */
+struct channel *find_channel_by_alias(const struct peer *peer,
+				      const struct short_channel_id *alias,
+				      enum side side);
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig,

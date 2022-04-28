@@ -3226,9 +3226,17 @@ static struct command_result *direct_pay_listpeers(struct command *cmd,
 			if (!streq(chan->state, "CHANNELD_NORMAL"))
 			    continue;
 
+			/* Must have either a local alias for zeroconf
+			 * channels or a final scid. */
+			assert(chan->alias[LOCAL] || chan->scid);
 			d->chan = tal(d, struct short_channel_id_dir);
-			d->chan->scid = *chan->scid;
-			d->chan->dir = *chan->direction;
+			if (chan->scid) {
+				d->chan->scid = *chan->scid;
+				d->chan->dir = *chan->direction;
+			} else {
+				d->chan->scid = *chan->alias[LOCAL];
+				d->chan->dir = 0; /* Don't care. */
+			}
 		}
 	}
 cont:

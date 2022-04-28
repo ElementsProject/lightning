@@ -187,6 +187,11 @@ bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
 /* Generated stub for featurebits_or */
 u8 *featurebits_or(const tal_t *ctx UNNEEDED, const u8 *f1 TAKES UNNEEDED, const u8 *f2 TAKES UNNEEDED)
 { fprintf(stderr, "featurebits_or called!\n"); abort(); }
+/* Generated stub for find_channel_by_alias */
+struct channel *find_channel_by_alias(const struct peer *peer UNNEEDED,
+				      const struct short_channel_id *alias UNNEEDED,
+				      enum side side UNNEEDED)
+{ fprintf(stderr, "find_channel_by_alias called!\n"); abort(); }
 /* Generated stub for find_channel_by_id */
 struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
 				   const struct channel_id *cid UNNEEDED)

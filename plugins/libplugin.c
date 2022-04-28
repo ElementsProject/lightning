@@ -1581,10 +1581,10 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 			*scidtok =
 			    json_get_member(buffer, tok, "short_channel_id"),
 			*dirtok = json_get_member(buffer, tok, "direction"),
-			*tmsattok =
-			    json_get_member(buffer, tok, "total_msat"),
+			*tmsattok = json_get_member(buffer, tok, "total_msat"),
 			*smsattok =
-			    json_get_member(buffer, tok, "spendable_msat");
+			    json_get_member(buffer, tok, "spendable_msat"),
+			*aliastok = json_get_member(buffer, tok, "alias");
 
 	if (privtok == NULL || privtok->type != JSMN_PRIMITIVE ||
 	    statetok == NULL || statetok->type != JSMN_STRING ||
@@ -1610,6 +1610,25 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 		assert(dirtok == NULL);
 		chan->scid = NULL;
 		chan->direction = NULL;
+	}
+	if (aliastok != NULL) {
+		const jsmntok_t *loctok =
+				    json_get_member(buffer, aliastok, "local"),
+				*remtok =
+				    json_get_member(buffer, aliastok, "remote");
+		if (loctok) {
+			chan->alias[LOCAL] = tal(chan, struct short_channel_id);
+			json_to_short_channel_id(buffer, loctok,
+						 chan->alias[LOCAL]);
+		} else
+			chan->alias[LOCAL] = NULL;
+
+		if (remtok) {
+			chan->alias[REMOTE] = tal(chan, struct short_channel_id);
+			json_to_short_channel_id(buffer, loctok,
+						 chan->alias[REMOTE]);
+		} else
+			chan->alias[REMOTE] = NULL;
 	}
 
 	json_to_msat(buffer, tmsattok, &chan->total_msat);
