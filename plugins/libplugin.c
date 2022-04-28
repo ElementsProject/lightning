@@ -1629,6 +1629,9 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 						 chan->alias[REMOTE]);
 		} else
 			chan->alias[REMOTE] = NULL;
+	} else {
+		chan->alias[LOCAL] = NULL;
+		chan->alias[REMOTE] = NULL;
 	}
 
 	json_to_msat(buffer, tmsattok, &chan->total_msat);
