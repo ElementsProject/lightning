@@ -179,8 +179,13 @@ void channel_record_open(struct channel *channel)
 
 static void lockin_complete(struct channel *channel)
 {
-	/* We set this once we're locked in. */
-	assert(channel->scid);
+	if (!channel->scid &&
+	    (!channel->alias[REMOTE] || !channel->alias[LOCAL])) {
+		log_debug(channel->log, "Attempted lockin, but neither scid "
+					"nor aliases are set, ignoring");
+		return;
+	}
+
 	/* We set this once they're locked in. */
 	assert(channel->remote_funding_locked);
 
@@ -203,7 +208,10 @@ static void lockin_complete(struct channel *channel)
 
 	try_update_blockheight(channel->peer->ld, channel,
 			       get_block_height(channel->peer->ld->topology));
-	channel_record_open(channel);
+
+	/* Only record this once we get a real confirmation. */
+	if (channel->scid)
+		channel_record_open(channel);
 }
 
 bool channel_on_funding_locked(struct channel *channel,
@@ -248,8 +256,7 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
-	if (channel->scid)
-		lockin_complete(channel);
+	lockin_complete(channel);
 }
 
 static void peer_got_announcement(struct channel *channel, const u8 *msg)
