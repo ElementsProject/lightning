@@ -49,8 +49,10 @@ endif
 EXTERNAL_LDLIBS := -L${TARGET_DIR} $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
 submodcheck: $(FORCE)
+ifneq ($(VERSION),)
 	@tools/refresh-submodules.sh $(SUBMODULES)
 	@cd external/libwally-core && ../../tools/refresh-submodules.sh src/secp256k1
+endif
 
 $(EXTERNAL_HEADERS): submodcheck
 
