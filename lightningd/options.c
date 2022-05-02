@@ -1537,8 +1537,8 @@ static void add_config(struct lightningd *ld,
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
 		} else if (opt->show) {
-			strcpy(buf + OPT_SHOW_LEN, "...");
 			opt->show(buf, opt->u.carg);
+			strcpy(buf + OPT_SHOW_LEN - 1, "...");
 
 			if (streq(buf, "true") || streq(buf, "false")
 			    || strspn(buf, "0123456789.") == strlen(buf)) {
