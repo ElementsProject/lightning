@@ -617,7 +617,7 @@ class LightningD(TailableProc):
         self.cmd_prefix = []
         self.disconnect_file = None
         self.lightning_dir = lightning_dir
-        self.use_vlsd = False;
+        self.use_vlsd = False
         self.vlsd_dir = os.path.join(lightning_dir, "vlsd")
 
         self.rpcproxy = bitcoindproxy
@@ -642,7 +642,16 @@ class LightningD(TailableProc):
             opts['grpc-port'] = grpc_port
 
         if SUBDAEMON:
-            opts['subdaemon'] = SUBDAEMON
+            assert node_id > 0
+            subdaemons = SUBDAEMON.split(',')
+            if node_id > len(subdaemons):
+                # use the last element if not as many specifiers as nodes
+                opts['subdaemon'] = subdaemons[-1]
+            else:
+                # use the matching specifier
+                opts['subdaemon'] = subdaemons[node_id - 1]
+
+            print(f"starting node {node_id} with subdaemon {opts['subdaemon']}")
             if SUBDAEMON == 'hsmd:remote_hsmd':
                 self.use_vlsd = True
                 
