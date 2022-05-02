@@ -3816,8 +3816,8 @@ def test_websocket(node_factory):
             break
 
     # Check node_announcement has websocket
-    assert (only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['addresses']
-            == [{'type': 'ipv4', 'address': '127.0.0.1', 'port': port2}, {'type': 'websocket', 'port': ws_port}])
+    ws_address = {'type': 'websocket', 'port': ws_port}
+    assert ws_address in only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['addresses']
 
 
 @pytest.mark.developer("dev-disconnect required")
