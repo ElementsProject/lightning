@@ -614,7 +614,8 @@ static char *arg_log_prefix(const char *arg, struct log *log)
 
 static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
 {
-	strncpy(buf, log->prefix->prefix, OPT_SHOW_LEN);
+	strncpy(buf, log->prefix->prefix, OPT_SHOW_LEN - 1);
+	buf[OPT_SHOW_LEN - 1] = '\0';
 }
 
 static int signalfds[2];
