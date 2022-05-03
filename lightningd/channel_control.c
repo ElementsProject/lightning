@@ -841,11 +841,30 @@ bool channel_tell_depth(struct lightningd *ld,
 		      take(towire_channeld_funding_depth(
 			  NULL, channel->scid, channel->alias[LOCAL], depth)));
 
-	if (channel->remote_funding_locked
-	    && channel->state == CHANNELD_AWAITING_LOCKIN
-	    && depth >= channel->minimum_depth)
+	if (channel->remote_funding_locked &&
+		 channel->state == CHANNELD_AWAITING_LOCKIN &&
+		 depth >= channel->minimum_depth)
 		lockin_complete(channel);
 
+	else if (depth == 1 && channel->minimum_depth == 0) {
+		/* If we have a zeroconf channel, i.e., no scid yet
+		 * but have exchange `channel_ready` messages, then we
+		 * need to fire a second time, in order to trigger the
+		 * `coin_movement` event. This is a subset of the
+		 * `lockin_complete` function below. */
+
+		assert(channel->scid != NULL);
+		/* Fees might have changed (and we use IMMEDIATE once we're
+		 * funded), so update now. */
+		try_update_feerates(channel->peer->ld, channel);
+
+		try_update_blockheight(
+		    channel->peer->ld, channel,
+		    get_block_height(channel->peer->ld->topology));
+
+		/* Only record this once we get a real confirmation. */
+		channel_record_open(channel);
+	}
 	return true;
 }
 
