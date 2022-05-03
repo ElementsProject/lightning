@@ -118,7 +118,7 @@ static u8 *mk_private_channelmsg(const tal_t *ctx,
 /* The upgrade from version 7 is trivial */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion == 7 || oldversion == 8;
+	return oldversion == 7 || oldversion == 8 || oldversion == 9;
 }
 
 static bool upgrade_field(u8 oldversion,

@@ -1127,7 +1127,7 @@ def test_gossip_store_load(node_factory):
     """Make sure we can read canned gossip store"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1159,7 +1159,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
     """Make sure we can read canned gossip store with node_announce before update.  This happens when a channel_update gets replaced, leaving node_announce before it"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1202,7 +1202,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
     l1 = node_factory.get_node(start=False, allow_broken_log=True)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1669,7 +1669,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     # A channel announcement with no channel_update.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1696,7 +1696,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.rpc.call('dev-compact-gossip-store')
 
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("09")
+        assert bytearray(f.read()) == bytearray.fromhex("0a")
 
 
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")

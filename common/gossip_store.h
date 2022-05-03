@@ -11,7 +11,7 @@ struct gossip_rcvd_filter;
 /**
  * gossip_store -- On-disk storage related information
  */
-#define GOSSIP_STORE_VERSION 9
+#define GOSSIP_STORE_VERSION 10
 
 /**
  * Bit of length we use to mark a deleted record.
@@ -23,9 +23,15 @@ struct gossip_rcvd_filter;
  */
 #define GOSSIP_STORE_LEN_PUSH_BIT 0x40000000U
 
+/**
+ * Bit of length used to define a rate-limited record (do not rebroadcast)
+ */
+ #define GOSSIP_STORE_LEN_RATELIMIT_BIT 0x20000000U
+
 /* Mask for extracting just the length part of len field */
 #define GOSSIP_STORE_LEN_MASK \
-	(~(GOSSIP_STORE_LEN_PUSH_BIT | GOSSIP_STORE_LEN_DELETED_BIT))
+	(~(GOSSIP_STORE_LEN_PUSH_BIT | GOSSIP_STORE_LEN_DELETED_BIT | \
+	GOSSIP_STORE_LEN_RATELIMIT_BIT))
 
 /**
  * gossip_hdr -- On-disk format header.
@@ -47,6 +53,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 		      int *gossip_store_fd,
 		      u32 timestamp_min, u32 timestamp_max,
 		      bool push_only,
+		      bool with_spam,
 		      size_t *off, size_t *end);
 
 /**

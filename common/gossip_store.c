@@ -53,6 +53,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 		      int *gossip_store_fd,
 		      u32 timestamp_min, u32 timestamp_max,
 		      bool push_only,
+		      bool with_spam,
 		      size_t *off, size_t *end)
 {
 	u8 *msg = NULL;
@@ -60,7 +61,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 	while (!msg) {
 		struct gossip_hdr hdr;
 		u32 msglen, checksum, timestamp;
-		bool push;
+		bool push, ratelimited;
 		int type, r;
 
 		r = pread(*gossip_store_fd, &hdr, sizeof(hdr), *off);
@@ -69,6 +70,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 
 		msglen = be32_to_cpu(hdr.len);
 		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
+		ratelimited = (msglen & GOSSIP_STORE_LEN_RATELIMIT_BIT);
 		msglen &= GOSSIP_STORE_LEN_MASK;
 
 		/* Skip any deleted entries. */
@@ -114,6 +116,8 @@ u8 *gossip_store_next(const tal_t *ctx,
 			   && type != WIRE_NODE_ANNOUNCEMENT) {
 			msg = tal_free(msg);
 		} else if (!push && push_only) {
+			msg = tal_free(msg);
+		} else if (!with_spam && ratelimited) {
 			msg = tal_free(msg);
 		}
 	}

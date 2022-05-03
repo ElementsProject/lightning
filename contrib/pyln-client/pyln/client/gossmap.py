@@ -9,7 +9,7 @@ import io
 import struct
 
 # These duplicate constants in lightning/common/gossip_store.h
-GOSSIP_STORE_VERSION = 9
+GOSSIP_STORE_VERSIONS = [0x09, 0x0a]
 GOSSIP_STORE_LEN_DELETED_BIT = 0x80000000
 GOSSIP_STORE_LEN_PUSH_BIT = 0x40000000
 GOSSIP_STORE_LEN_MASK = (~(GOSSIP_STORE_LEN_PUSH_BIT
@@ -171,9 +171,9 @@ class Gossmap(object):
         self.nodes: Dict[GossmapNodeId, GossmapNode] = {}
         self.channels: Dict[ShortChannelId, GossmapChannel] = {}
         self._last_scid: Optional[str] = None
-        version = self.store_file.read(1)
-        if version[0] != GOSSIP_STORE_VERSION:
-            raise ValueError("Invalid gossip store version {}".format(int(version)))
+        version = self.store_file.read(1)[0]
+        if version not in GOSSIP_STORE_VERSIONS:
+            raise ValueError("Invalid gossip store version {}".format(version))
         self.bytes_read = 1
         self.refresh()
 
