@@ -1603,14 +1603,19 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 	if (scidtok != NULL) {
 		assert(dirtok != NULL);
 		chan->scid = tal(chan, struct short_channel_id);
-		chan->direction = tal(chan, int);
 		json_to_short_channel_id(buffer, scidtok, chan->scid);
-		json_to_int(buffer, dirtok, chan->direction);
-	}else {
-		assert(dirtok == NULL);
+	} else {
 		chan->scid = NULL;
 		chan->direction = NULL;
 	}
+
+	if (dirtok != NULL) {
+		chan->direction = tal(chan, int);
+		json_to_int(buffer, dirtok, chan->direction);
+	} else {
+		chan->direction = NULL;
+	}
+
 	if (aliastok != NULL) {
 		const jsmntok_t *loctok =
 				    json_get_member(buffer, aliastok, "local"),

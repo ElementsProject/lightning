@@ -653,12 +653,17 @@ static void json_add_channel(struct lightningd *ld,
 	if (channel->owner)
 		json_add_string(response, "owner", channel->owner->name);
 
-	if (channel->scid) {
+	if (channel->scid)
 		json_add_short_channel_id(response, "short_channel_id",
 					  channel->scid);
+
+	/* If there is any way we can use the channel we'd better have
+	 * a direction attached. Technically we could always add it,
+	 * as it's just the lexicographic order between node_ids, but
+	 * why bother if we can't use it? */
+	if (channel->scid || channel->alias[LOCAL] || channel->alias[REMOTE])
 		json_add_num(response, "direction",
 			     node_id_idx(&ld->id, &channel->peer->id));
-	}
 
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &channel->cid));
