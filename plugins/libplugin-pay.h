@@ -60,6 +60,11 @@ struct payment_result {
  * get remove on failure. Success keeps the capacities, since the capacities
  * changed due to the successful HTLCs. */
 struct channel_hint {
+	/* The short_channel_id we're going to use when referring to
+	 * this channel. This can either be the real scid, or the
+	 * local alias. The `pay` algorithm doesn't really care which
+	 * one it is, but we'll prefer the scid as that's likely more
+	 * readable than the alias. */
 	struct short_channel_id_dir scid;
 
 	/* Upper bound on remove channels inferred from payment failures. */
