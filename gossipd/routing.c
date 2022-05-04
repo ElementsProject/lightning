@@ -437,6 +437,7 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 					     announce,
 					     node->bcast.timestamp,
 					     is_local,
+					     false,
 					     NULL);
 }
 
@@ -790,6 +791,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 						     channel_announce,
 						     chan->bcast.timestamp,
 						     is_local,
+						     false,
 						     addendum);
 	rstate->local_channel_announced |= is_local;
 }
@@ -1255,6 +1257,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct unupdated_channel *uc;
 	u8 direction;
 	struct amount_sat sat;
+	bool spam;
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(update))
@@ -1360,16 +1363,19 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		if (!ratelimit(rstate,
 			       &hc->tokens, hc->bcast.timestamp, timestamp)) {
 			status_peer_debug(peer ? &peer->id : NULL,
-					  "Ignoring spammy update for %s/%u"
+					  "Spammy update for %s/%u flagged"
 					  " (last %u, now %u)",
 					  type_to_string(tmpctx,
 							 struct short_channel_id,
 							 &short_channel_id),
 					  direction,
 					  hc->bcast.timestamp, timestamp);
-			/* Ignoring != failing */
-			return true;
+			spam = true;
+		} else {
+			spam = false;
 		}
+	} else {
+		spam = false;
 	}
 
 	chan->half[direction].bcast.timestamp = timestamp;
@@ -1414,7 +1420,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			= gossip_store_add(rstate->gs, update,
 					   hc->bcast.timestamp,
 					   local_direction(rstate, chan, NULL),
-					   NULL);
+					   spam, NULL);
 		if (hc->bcast.timestamp > rstate->last_timestamp
 		    && hc->bcast.timestamp < time_now().ts.tv_sec)
 			rstate->last_timestamp = hc->bcast.timestamp;
@@ -1581,6 +1587,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	u8 alias[32];
 	u8 *features, *addresses;
 	struct tlv_node_ann_tlvs *na_tlv;
+	bool spam;
 
 	if (was_unknown)
 		*was_unknown = false;
@@ -1670,15 +1677,18 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		if (!ratelimit(rstate,
 			       &node->tokens, node->bcast.timestamp, timestamp)) {
 			status_peer_debug(peer ? &peer->id : NULL,
-					  "Ignoring spammy nannounce for %s"
+					  "Spammy nannounce for %s flagged"
 					  " (last %u, now %u)",
 					  type_to_string(tmpctx,
 							 struct node_id,
 							 &node_id),
 					  node->bcast.timestamp, timestamp);
-			/* Ignoring != failing */
-			return true;
+			spam = true;
+		} else {
+			spam = false;
 		}
+	} else {
+		spam = false;
 	}
 
 	/* Harmless if it was never added */
@@ -1699,6 +1709,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 					   node->bcast.timestamp,
 					   node_id_eq(&node_id,
 						      &rstate->local_id),
+					   spam,
 					   NULL);
 		peer_supplied_good_gossip(peer, 1);
 	}
@@ -1919,7 +1930,7 @@ bool routing_add_private_channel(struct routing_state *rstate,
 		u8 *msg = towire_gossip_store_private_channel(tmpctx,
 							      capacity,
 							      chan_ann);
-		index = gossip_store_add(rstate->gs, msg, 0, false, NULL);
+		index = gossip_store_add(rstate->gs, msg, 0, false, false, NULL);
 	}
 	chan->bcast.index = index;
 	return true;
