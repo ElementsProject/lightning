@@ -12,8 +12,10 @@ import struct
 GOSSIP_STORE_VERSIONS = [0x09, 0x0a]
 GOSSIP_STORE_LEN_DELETED_BIT = 0x80000000
 GOSSIP_STORE_LEN_PUSH_BIT = 0x40000000
+GOSSIP_STORE_LEN_RATELIMIT_BIT = 0x20000000
 GOSSIP_STORE_LEN_MASK = (~(GOSSIP_STORE_LEN_PUSH_BIT
-                           | GOSSIP_STORE_LEN_DELETED_BIT))
+                           | GOSSIP_STORE_LEN_DELETED_BIT
+                           | GOSSIP_STORE_LEN_RATELIMIT_BIT))
 
 # These duplicate constants in lightning/gossipd/gossip_store_wiregen.h
 WIRE_GOSSIP_STORE_PRIVATE_CHANNEL = 4104

@@ -52,10 +52,11 @@ int main(int argc, char *argv[])
 		struct short_channel_id scid;
 		u32 msglen = be32_to_cpu(hdr.len);
 		u8 *msg, *inner;
-		bool deleted, push;
+		bool deleted, push, ratelimit;
 
 		deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
 		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
+		ratelimit = (msglen & GOSSIP_STORE_LEN_RATELIMIT_BIT);
 
 		msglen &= GOSSIP_STORE_LEN_MASK;
 		msg = tal_arr(NULL, u8, msglen);
@@ -66,9 +67,10 @@ int main(int argc, char *argv[])
 		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			warnx("Checksum verification failed");
 
-		printf("%zu: %s%s", off,
+		printf("%zu: %s%s%s", off,
 		       deleted ? "DELETED " : "",
-		       push ? "PUSH " : "");
+		       push ? "PUSH " : "",
+		       ratelimit ? "RATE-LIMITED " : "");
 		if (deleted && !print_deleted) {
 			printf("\n");
 			goto end;
