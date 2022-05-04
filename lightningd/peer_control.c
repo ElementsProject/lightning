@@ -1170,8 +1170,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
-		log_info(ld->log, "Peer says it sees our address as: %s",
-			 fmt_wireaddr(tmpctx, hook_payload->remote_addr));
+		log_peer_info(ld->log, &id, "Peer says it sees our address as: %s",
+			      fmt_wireaddr(tmpctx, hook_payload->remote_addr));
 		/* Currently only from peers we have a channel with, until we
 		 * do stuff like probing for remote_addr to a random node. */
 		if (!list_empty(&peer->channels))
