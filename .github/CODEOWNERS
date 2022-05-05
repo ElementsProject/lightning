@@ -4,12 +4,20 @@
 # also can optionally require approval from a code owner before the
 # author can merge a pull request in the repository.
 
-wallet/                 @cdecker
-*.py                    @cdecker
+cln-grpc/               @cdecker
+cln-rpc/                @cdecker
+plugins/src/            @cdecker
+plugins/grpc-plugin/    @cdecker
+contrib/reprobuild/     @cdecker
+contrib/msggen/         @cdecker
+contrib/pyln-client/    @cdecker
+contrib/pyln-testing/   @cdecker
+# Needed to ensure hsmd wire compatibility between releases
+hsmd/hsmd_wire.csv      @cdecker
 
-wallet/invoices.*       @ZmnSCPxj
+wallet/invoices.*          @ZmnSCPxj
 plugins/multifundchannel.c @ZmnSCPxj
-doc/BACKUP.md           @ZmnSCPxj @cdecker
+doc/BACKUP.md              @ZmnSCPxj
 
 # See https://help.github.com/articles/about-codeowners/ for more
 # information
