@@ -476,6 +476,15 @@ static inline bool channel_has(const struct channel *channel, int f)
 	return channel_type_has(channel->type, f);
 }
 
+/**
+ * Either returns the short_channel_id if it is known or the local alias.
+ *
+ * This is used to refer to a channel by its scid. But sometimes we
+ * don't have a scid yet, e.g., for `zeroconf` channels, so we resort
+ * to referencing it by the local alias, which we have in that case.
+ */
+struct short_channel_id *channel_scid_or_local_alias(const struct channel *chan);
+
 void get_channel_basepoints(struct lightningd *ld,
 			    const struct node_id *peer_id,
 			    const u64 dbid,
