@@ -25,7 +25,7 @@ bool route_can_carry(const struct gossmap *map,
 		       struct amount_msat amount,
 		       void *arg)
 {
-	if (!c->half[dir].enabled || !c->half[!dir].enabled)
+	if (!c->half[dir].enabled)
 		return false;
 	return route_can_carry_even_disabled(map, c, dir, amount, arg);
 }
