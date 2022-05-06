@@ -1863,7 +1863,8 @@ def test_gossip_ratelimit(node_factory, bitcoind):
             '0102c479b7684b9db496b844f6925f4ffd8a27c5840a020d1b537623c1545dcd8e195776381bbf51213e541a853a4a49a0faf84316e7ccca5e7074901a96bbabe04e06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f00006700000100015d77400201010006000000000000000000000014000003eb000000003b023380',
             # timestamp=1568096259, fee_proportional_millionths=1004
             '01024b866012d995d3d7aec7b7218a283de2d03492dbfa21e71dd546ec2e36c3d4200453420aa02f476f99c73fe1e223ea192f5fa544b70a8319f2a216f1513d503d06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f00006700000100015d77400301010006000000000000000000000014000003ec000000003b023380',
-            # update 5 marks you as a nasty spammer, but we listen to you anyway now! fee_proportional_millionths=1005
+            # update 5 marks you as a nasty spammer, but the routing graph is
+            # updated with this even though the gossip is not broadcast.
             '01025b5b5a0daed874ab02bd3356d38190ff46bbaf5f10db5067da70f3ca203480ca78059e6621c6143f3da4e454d0adda6d01a9980ed48e71ccd0c613af73570a7106226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f00006700000100015d77400401010006000000000000000000000014000003ed000000003b023380'
         ],
         timeout=TIMEOUT
@@ -1887,6 +1888,7 @@ def test_gossip_ratelimit(node_factory, bitcoind):
                              check=True,
                              timeout=TIMEOUT,
                              stdout=subprocess.PIPE).stdout.decode('utf8')
+    assert("fee_proportional_millionths=1004" in decoded)
     # Used in routing graph, but not passed to gossip peers.
     assert("fee_proportional_millionths=1005" not in decoded)
 

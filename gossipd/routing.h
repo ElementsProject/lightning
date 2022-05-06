@@ -20,8 +20,12 @@ struct peer;
 struct routing_state;
 
 struct half_chan {
-	/* Timestamp and index into store file */
+	/* Timestamp and index into store file - safe to broadcast */
 	struct broadcastable bcast;
+
+	/* Most recent gossip for the routing graph - may be rate-limited and
+	 * non-broadcastable. If there is no spam, rgraph == bcast. */
+	struct broadcastable rgraph;
 
 	/* Token bucket */
 	u8 tokens;
@@ -104,6 +108,10 @@ struct node {
 
 	/* Timestamp and index into store file */
 	struct broadcastable bcast;
+
+	/* Possibly spam flagged. Nonbroadcastable, but used for routing graph.
+	 * If there is no current spam, rgraph == bcast. */
+	struct broadcastable rgraph;
 
 	/* Token bucket */
 	u8 tokens;
