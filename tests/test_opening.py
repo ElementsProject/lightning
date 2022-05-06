@@ -1218,6 +1218,9 @@ def test_zeroconf_negotiation(node_factory, bitcoind):
     m = re.search('init_features=([a-f0-9]+)', line)
     assert (int(m[1], 16) >> option_zeroconf) & 0x03 == 0x00
 
+    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 2)
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 1)
+    wait_for(lambda: len(l3.rpc.listpeers()['peers']) == 1)
     # Check that we also identify the peer features correctly, l1 sees
     # zeroconf, but l2 and l3 must only see it if they are in the
     # allowlist
@@ -1225,3 +1228,75 @@ def test_zeroconf_negotiation(node_factory, bitcoind):
     p3 = l3.rpc.listpeers(l1.info['id'])['peers'][0]
     assert int(p2['features'], 16) >> 50 & 0x03 == 0x02  # l2 is allowed
     assert int(p3['features'], 16) >> 50 & 0x03 == 0x00  # l3 isn't
+
+    l1.fundwallet(10**7)
+    l1.fundwallet(10**7)
+
+    l1.rpc.fundchannel(l2.info['id'], 10**6)  # Should be zeroconf
+    l1.rpc.fundchannel(l3.info['id'], 10**6)  # Should be non-zeroconf
+
+    peers = l1.rpc.listpeers()['peers']
+    wait_for(lambda: peers[0]['channels'][0]['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: len(l1.rpc.listincoming()['incoming']) == 1)
+
+    # We should switch over to the real scid once we confirm the channel
+    bitcoind.generate_block(1)
+
+    # Check that we learn the short_channel_id on confirmation.
+    l1.daemon.wait_for_log(r'lightningd: Adding block 104')
+    wait_for(lambda: 'short_channel_id' in l1.rpc.listpeers(l2_id)['peers'][0]['channels'][0])
+
+
+def test_zeroconf_direct_pay(node_factory):
+    """Test that we can use the alias when paying a peer directly.
+    """
+    opts = [
+        {'experimental-zeroconf': None, 'zeroconf-allow-all': None},
+        {'experimental-zeroconf': None, 'zeroconf-allow-all': None},
+    ]
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+
+    l1.connect(l2)
+    l1.fundwallet(10**7)
+    l1.rpc.fundchannel(l2.info['id'], 10**6)  # Should be zeroconf
+
+    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
+    wait_for(lambda: l1.rpc.listincoming()['incoming'] != [])
+
+    inv = l2.rpc.invoice(1234, 'inv1', 'desc')['bolt11']
+    l1.rpc.pay(inv)
+
+
+def test_zeroconf_forward(node_factory, bitcoind):
+    """Recipient l3 is using a zeroconf channel to receive
+
+    Test that we add routehints using the zeroconf channel, and then
+    ensure that l2 uses the alias from the routehint to forward the
+    payment.
+
+    """
+    opts = [
+        {},
+        {'experimental-zeroconf': None, 'zeroconf-allow-all': None},
+        {"experimental-zeroconf": None, 'zeroconf-allow-all': None},
+    ]
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    l1.connect(l2)
+    l1.fundchannel(l2, 10**6)
+    bitcoind.generate_block(6)
+
+    l2.connect(l3)
+    l2.fundwallet(10**7)
+    l2.rpc.fundchannel(l3.info['id'], 10**6)
+    wait_for(lambda: l3.rpc.listincoming()['incoming'] != [])
+
+    inv = l3.rpc.invoice(42 * 10**6, 'inv1', 'desc')['bolt11']
+    l1.rpc.pay(inv)
+
+    # And now try the other way around: zeroconf channel first
+    # followed by a public one.
+    inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
+    l3.rpc.pay(inv)
+
+    # If we get here the payments went through alright.
