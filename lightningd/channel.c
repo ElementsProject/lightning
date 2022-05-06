@@ -956,3 +956,12 @@ void channel_fail_reconnect(struct channel *channel, const char *fmt, ...)
 	err_and_reconnect(channel, tal_vfmt(tmpctx, fmt, ap), 1);
 	va_end(ap);
 }
+
+struct short_channel_id *channel_scid_or_local_alias(const struct channel *chan)
+{
+	assert(chan->scid != NULL || chan->alias[LOCAL] != NULL);
+	if (chan->scid != NULL)
+		return chan->scid;
+	else
+		return chan->alias[LOCAL];
+}
