@@ -4334,7 +4334,6 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 {
 	struct db_stmt *stmt;
 	struct timeabs *resolved_time;
-	struct channel *outchan;
 
 	if (state == FORWARD_SETTLED || state == FORWARD_FAILED) {
 		resolved_time = tal(tmpctx, struct timeabs);
@@ -4363,18 +4362,12 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	db_bind_u64(stmt, 0, in->dbid);
 
 	if (out) {
-		outchan = out->key.channel;
 		db_bind_u64(stmt, 1, out->dbid);
 
-		/* IF we forward we must have a name for this
+		/* If we forward we must have a name for this
 		 * channel. It can be either a locally assigned alias,
 		 * or the real scid. */
-		assert(outchan->scid != NULL || outchan->alias[LOCAL]);
-		if (out->key.channel->scid)
-			db_bind_u64(stmt, 3, outchan->scid->u64);
-		else
-			db_bind_u64(stmt, 3, outchan->alias[LOCAL]->u64);
-
+		db_bind_u64(stmt, 3, channel_scid_or_local_alias(out->key.channel)->u64);
 		db_bind_amount_msat(stmt, 5, &out->msat);
 	} else {
 		/* FORWARD_LOCAL_FAILED may occur before we get htlc_out */
@@ -4385,7 +4378,12 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		db_bind_null(stmt, 5);
 	}
 
-	db_bind_u64(stmt, 2, in->key.channel->scid->u64);
+	/* We use the LOCAL alias, since that's under our control, and
+	 * we keep it stable, whereas the REMOTE alias is likely what
+	 * the sender used to specify the channel, but that's under
+	 * control of the remote end. */
+	assert(in->key.channel->scid != NULL || in->key.channel->alias[LOCAL]);
+	db_bind_u64(stmt, 2, channel_scid_or_local_alias(in->key.channel)->u64);
 
 	db_bind_amount_msat(stmt, 4, &in->msat);
 

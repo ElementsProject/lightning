@@ -303,7 +303,13 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 	/* Here is more neat to initial a forwarding structure than
 	 * to pass in a bunch of parameters directly*/
 	struct forwarding *cur = tal(tmpctx, struct forwarding);
-	cur->channel_in = *in->key.channel->scid;
+
+	/* We use the LOCAL alias, not the REMOTE, despite the route
+	 * the the sender is using probably using the REMOTE
+	 * alias. The LOCAL one is controlled by us, and we keep it
+	 * stable. */
+	cur->channel_in = *channel_scid_or_local_alias(in->key.channel);
+
 	cur->msat_in = in->msat;
 	if (scid_out) {
 		cur->channel_out = *scid_out;
