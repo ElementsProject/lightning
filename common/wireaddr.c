@@ -899,3 +899,12 @@ int wireaddr_cmp_type(const struct wireaddr *a,
 		return tal_bytelen(a_wire) - tal_bytelen(b_wire);
 	return cmp;
 }
+
+bool wireaddr_arr_contains(const struct wireaddr *was,
+			   const struct wireaddr *wa)
+{
+	for (size_t i = 0; i < tal_count(was); i++)
+		if (wireaddr_eq(&was[i], wa))
+			return true;
+	return false;
+}

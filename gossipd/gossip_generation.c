@@ -20,15 +20,6 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/wire_sync.h>
 
-static bool wireaddr_arr_contains(const struct wireaddr *was,
-				  const struct wireaddr *wa)
-{
-	for (size_t i = 0; i < tal_count(was); i++)
-		if (wireaddr_eq(&was[i], wa))
-			return true;
-	return false;
-}
-
 /* Create a node_announcement with the given signature. It may be NULL in the
  * case we need to create a provisional announcement for the HSM to sign.
  * This is called twice: once with the dummy signature to get it signed and a
