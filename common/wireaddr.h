@@ -197,4 +197,7 @@ struct wireaddr *fromwire_wireaddr_array(const tal_t *ctx, const u8 *ser);
 int wireaddr_cmp_type(const struct wireaddr *a,
 		      const struct wireaddr *b, void *unused);
 
+bool wireaddr_arr_contains(const struct wireaddr *was,
+			   const struct wireaddr *wa);
+
 #endif /* LIGHTNING_COMMON_WIREADDR_H */
