@@ -2014,6 +2014,12 @@ static struct command_result *json_getinfo(struct command *cmd,
         json_array_start(response, "address");
         for (size_t i = 0; i < tal_count(cmd->ld->announceable); i++)
             json_add_address(response, NULL, cmd->ld->announceable+i);
+	if (cmd->ld->remote_addr_v4 != NULL &&
+	    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v4))
+		json_add_address(response, NULL, cmd->ld->remote_addr_v4);
+	if (cmd->ld->remote_addr_v6 != NULL &&
+	    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v6))
+		json_add_address(response, NULL, cmd->ld->remote_addr_v6);
         json_array_end(response);
 
         /* This is what we're actually bound to. */
