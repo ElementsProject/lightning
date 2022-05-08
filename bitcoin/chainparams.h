@@ -22,6 +22,14 @@ struct chainparams {
 	const char *bip70_name;
 	const struct bitcoin_blkid genesis_blockhash;
 	const int rpc_port;
+	/**
+	 * BOLT 1: The default TCP port depends on the network used. The most common networks are:
+	 *
+	 * - Bitcoin mainet with port number 9735 or the corresponding hexadecimal `0x2607`;
+	 * - Bitcoin testnet with port number 19735 (`0x4D17`);
+	 * - Bitcoin signet with port number 39735 (`0xF87`).
+	 */
+	const int ln_port;
 	const char *cli;
 	const char *cli_args;
 	/* The min numeric version of cli supported */

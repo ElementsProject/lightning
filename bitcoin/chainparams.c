@@ -36,6 +36,7 @@ const struct chainparams networks[] = {
 				      0x5a, 0x08, 0x9c, 0x68, 0xd6, 0x19, 0x00,
 				      0x00, 0x00, 0x00, 0x00}}}},
      .rpc_port = 8332,
+     .ln_port = 9735,
      .cli = "bitcoin-cli",
      .cli_args = NULL,
      .cli_min_supported_version = 150000,
@@ -67,6 +68,7 @@ const struct chainparams networks[] = {
 				      0x33, 0x2a, 0x1f, 0xc7, 0xb2, 0xb7, 0x3c,
 				      0xf1, 0x88, 0x91, 0x0f}}}},
      .rpc_port = 18443,
+     .ln_port = 9735,
      .cli = "bitcoin-cli",
      .cli_args = "-regtest",
      .cli_min_supported_version = 150000,
@@ -92,6 +94,7 @@ const struct chainparams networks[] = {
 				      0x2c, 0x42, 0x25, 0xe9, 0x73, 0x98, 0x81,
 				      0x08, 0x00, 0x00, 0x00}}}},
      .rpc_port = 38332,
+     .ln_port = 39735,
      .cli = "bitcoin-cli",
      .cli_args = "-signet",
      .cli_min_supported_version = 150000,
@@ -115,6 +118,7 @@ const struct chainparams networks[] = {
 				      0xe9, 0x0e, 0xad, 0x01, 0xea, 0x33, 0x09,
 				      0x00, 0x00, 0x00, 0x00}}}},
      .rpc_port = 18332,
+     .ln_port = 19735,
      .cli = "bitcoin-cli",
      .cli_args = "-testnet",
      .cli_min_supported_version = 150000,
@@ -138,6 +142,7 @@ const struct chainparams networks[] = {
 				      0x1e, 0xda, 0xba, 0x59, 0x40, 0xfd, 0x1f,
 				      0xe3, 0x65, 0xa7, 0x12}}}},
      .rpc_port = 9332,
+     .ln_port = 9735,
      .cli = "litecoin-cli",
      .cli_args = NULL,
      .cli_min_supported_version = 150000,
@@ -162,6 +167,7 @@ const struct chainparams networks[] = {
 				      0x13, 0xee, 0xfd, 0xd9, 0x51, 0x28, 0x4b,
 				      0x5a, 0x62, 0x66, 0x49}}}},
      .rpc_port = 19332,
+     .ln_port = 9735,
      .cli = "litecoin-cli",
      .cli_args = "-testnet",
      .cli_min_supported_version = 150000,
@@ -186,6 +192,7 @@ const struct chainparams networks[] = {
 				      0xfe, 0x14, 0x68, 0x01, 0x16, 0x23, 0x93,
 				      0x36, 0x42, 0x86, 0xc6}}}},
      .rpc_port = 19332,
+     .ln_port = 9735,
      .cli = "elements-cli",
      .cli_args = "-chain=liquid-regtest",
      .dust_limit = {546},
@@ -209,6 +216,7 @@ const struct chainparams networks[] = {
 				      0x68, 0x8d, 0x2c, 0x37, 0x92, 0x96, 0x88,
 				      0x8a, 0x20, 0x60, 0x03}}}},
      .rpc_port = 7041,
+     .ln_port = 9735,
      .cli = "elements-cli",
      .cli_args = "-chain=liquidv1",
      .dust_limit = {546},
@@ -261,4 +269,3 @@ const char *chainparams_get_network_names(const tal_t *ctx)
         tal_append_fmt(&networks_string, ", %s", networks[i].network_name);
     return networks_string;
 }
-
