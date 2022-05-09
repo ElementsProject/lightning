@@ -1984,6 +1984,7 @@ def test_multifunding_wumbo(node_factory):
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
 @pytest.mark.developer("uses dev-fail")
 @pytest.mark.openchannel('v1')  # v2 the weight calculation is off by 3
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "flakes too frequently w/ VLS")
 def test_multifunding_feerates(node_factory, bitcoind):
     '''
     Test feerate parameters for multifundchannel
