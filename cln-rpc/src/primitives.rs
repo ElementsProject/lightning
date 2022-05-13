@@ -78,7 +78,7 @@ impl Amount {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct ShortChannelId(u64);
 
 impl Serialize for ShortChannelId {
@@ -134,7 +134,7 @@ impl ShortChannelId {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Secret([u8; 32]);
 
 impl TryFrom<Vec<u8>> for Secret {
@@ -177,7 +177,7 @@ impl Secret {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Outpoint {
     pub txid: Sha256,
     pub outnum: u32,
