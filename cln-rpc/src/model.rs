@@ -148,7 +148,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersRequest {
 	    #[serde(alias = "id", skip_serializing_if = "Option::is_none")]
-	    pub id: Option<Pubkey>,
+	    pub id: Option<PublicKey>,
 	    #[serde(alias = "level", skip_serializing_if = "Option::is_none")]
 	    pub level: Option<String>,
 	}
@@ -184,7 +184,7 @@ pub mod requests {
 	    #[serde(alias = "amount_msat")]
 	    pub amount_msat: Amount,
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "delay")]
 	    pub delay: u16,
 	    #[serde(alias = "channel")]
@@ -228,9 +228,9 @@ pub mod requests {
 	    #[serde(alias = "short_channel_id", skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id: Option<ShortChannelId>,
 	    #[serde(alias = "source", skip_serializing_if = "Option::is_none")]
-	    pub source: Option<Pubkey>,
+	    pub source: Option<PublicKey>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	}
 
 	impl From<ListchannelsRequest> for Request {
@@ -284,7 +284,7 @@ pub mod requests {
 	    #[serde(alias = "zbase")]
 	    pub zbase: String,
 	    #[serde(alias = "pubkey", skip_serializing_if = "Option::is_none")]
-	    pub pubkey: Option<Pubkey>,
+	    pub pubkey: Option<PublicKey>,
 	}
 
 	impl From<CheckmessageRequest> for Request {
@@ -419,7 +419,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateonionHops {
 	    #[serde(alias = "pubkey")]
-	    pub pubkey: Pubkey,
+	    pub pubkey: PublicKey,
 	    #[serde(alias = "payload")]
 	    pub payload: String,
 	}
@@ -595,7 +595,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendonionFirst_hop {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "amount_msat")]
 	    pub amount_msat: Amount,
 	    #[serde(alias = "delay")]
@@ -619,7 +619,7 @@ pub mod requests {
 	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "localofferid", skip_serializing_if = "Option::is_none")]
 	    pub localofferid: Option<Sha256>,
 	    #[serde(alias = "groupid", skip_serializing_if = "Option::is_none")]
@@ -732,7 +732,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesRequest {
 	    #[serde(alias = "id", skip_serializing_if = "Option::is_none")]
-	    pub id: Option<Pubkey>,
+	    pub id: Option<PublicKey>,
 	}
 
 	impl From<ListnodesRequest> for Request {
@@ -869,7 +869,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct KeysendRequest {
 	    #[serde(alias = "destination")]
-	    pub destination: Pubkey,
+	    pub destination: PublicKey,
 	    #[serde(alias = "amount_msat")]
 	    pub amount_msat: Amount,
 	    #[serde(alias = "label", skip_serializing_if = "Option::is_none")]
@@ -1051,7 +1051,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DisconnectRequest {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "force", skip_serializing_if = "Option::is_none")]
 	    pub force: Option<bool>,
 	}
@@ -1104,7 +1104,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelRequest {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "amount")]
 	    pub amount: AmountOrAll,
 	    #[serde(alias = "feerate", skip_serializing_if = "Option::is_none")]
@@ -1142,7 +1142,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetrouteRequest {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "amount_msat")]
 	    pub amount_msat: Amount,
 	    #[serde(alias = "riskfactor")]
@@ -1150,7 +1150,7 @@ pub mod requests {
 	    #[serde(alias = "cltv", skip_serializing_if = "Option::is_none")]
 	    pub cltv: Option<f64>,
 	    #[serde(alias = "fromid", skip_serializing_if = "Option::is_none")]
-	    pub fromid: Option<Pubkey>,
+	    pub fromid: Option<PublicKey>,
 	    #[serde(alias = "fuzzpercent", skip_serializing_if = "Option::is_none")]
 	    pub fuzzpercent: Option<u32>,
 	    #[serde(alias = "exclude", skip_serializing_if = "crate::is_none_or_empty")]
@@ -1257,7 +1257,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PingRequest {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "len", skip_serializing_if = "Option::is_none")]
 	    pub len: Option<f64>,
 	    #[serde(alias = "pongbytes", skip_serializing_if = "Option::is_none")]
@@ -1412,7 +1412,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoResponse {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "alias")]
 	    pub alias: String,
 	    #[serde(alias = "color")]
@@ -1453,7 +1453,7 @@ pub mod responses {
 	            Response::Getinfo(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
@@ -1503,7 +1503,7 @@ pub mod responses {
 	    #[serde(alias = "log", skip_serializing_if = "Option::is_none")]
 	    pub log: Option<String>,
 	    #[serde(alias = "node_id", skip_serializing_if = "Option::is_none")]
-	    pub node_id: Option<Pubkey>,
+	    pub node_id: Option<PublicKey>,
 	    #[serde(alias = "data", skip_serializing_if = "Option::is_none")]
 	    pub data: Option<String>,
 	}
@@ -1762,7 +1762,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeers {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "connected")]
 	    pub connected: bool,
 	    #[serde(alias = "log", skip_serializing_if = "crate::is_none_or_empty")]
@@ -1791,7 +1791,7 @@ pub mod responses {
 	            Response::ListPeers(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
@@ -1841,7 +1841,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListfundsChannels {
 	    #[serde(alias = "peer_id")]
-	    pub peer_id: Pubkey,
+	    pub peer_id: PublicKey,
 	    #[serde(alias = "our_amount_msat")]
 	    pub our_amount_msat: Amount,
 	    #[serde(alias = "amount_msat")]
@@ -1875,7 +1875,7 @@ pub mod responses {
 	            Response::ListFunds(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// status of the payment (could be complete if already sent previously)
@@ -1911,7 +1911,7 @@ pub mod responses {
 	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "created_at")]
 	    pub created_at: u64,
 	    #[serde(alias = "completed_at", skip_serializing_if = "Option::is_none")]
@@ -1940,15 +1940,15 @@ pub mod responses {
 	            Response::SendPay(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListchannelsChannels {
 	    #[serde(alias = "source")]
-	    pub source: Pubkey,
+	    pub source: PublicKey,
 	    #[serde(alias = "destination")]
-	    pub destination: Pubkey,
+	    pub destination: PublicKey,
 	    #[serde(alias = "short_channel_id")]
 	    pub short_channel_id: ShortChannelId,
 	    #[serde(alias = "public")]
@@ -1991,7 +1991,7 @@ pub mod responses {
 	            Response::ListChannels(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2006,7 +2006,7 @@ pub mod responses {
 	            Response::AddGossip(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2027,7 +2027,7 @@ pub mod responses {
 	            Response::AutoCleanInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2035,7 +2035,7 @@ pub mod responses {
 	    #[serde(alias = "verified")]
 	    pub verified: bool,
 	    #[serde(alias = "pubkey")]
-	    pub pubkey: Pubkey,
+	    pub pubkey: PublicKey,
 	}
 
 	impl TryFrom<Response> for CheckmessageResponse {
@@ -2046,7 +2046,7 @@ pub mod responses {
 	            Response::CheckMessage(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel
@@ -2090,7 +2090,7 @@ pub mod responses {
 	            Response::Close(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// Whether they initiated connection or we did
@@ -2156,7 +2156,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ConnectResponse {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "features")]
 	    pub features: String,
 	    // Path `Connect.direction`
@@ -2172,7 +2172,7 @@ pub mod responses {
 	            Response::Connect(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// Whether it has been paid, or can no longer be paid
@@ -2238,7 +2238,7 @@ pub mod responses {
 	            Response::CreateInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2261,7 +2261,7 @@ pub mod responses {
 	            Response::Datastore(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2280,7 +2280,7 @@ pub mod responses {
 	            Response::CreateOnion(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2303,7 +2303,7 @@ pub mod responses {
 	            Response::DelDatastore(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2318,7 +2318,7 @@ pub mod responses {
 	            Response::DelExpiredInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// State of invoice
@@ -2376,7 +2376,7 @@ pub mod responses {
 	            Response::DelInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2409,7 +2409,7 @@ pub mod responses {
 	            Response::Invoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2438,7 +2438,7 @@ pub mod responses {
 	            Response::ListDatastore(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// Whether it's paid, unpaid or unpayable
@@ -2510,7 +2510,7 @@ pub mod responses {
 	            Response::ListInvoices(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// status of the payment (could be complete if already sent previously)
@@ -2544,7 +2544,7 @@ pub mod responses {
 	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "created_at")]
 	    pub created_at: u64,
 	    #[serde(alias = "amount_sent_msat")]
@@ -2571,7 +2571,7 @@ pub mod responses {
 	            Response::SendOnion(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// status of the payment
@@ -2610,7 +2610,7 @@ pub mod responses {
 	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "created_at")]
 	    pub created_at: u64,
 	    #[serde(alias = "amount_sent_msat")]
@@ -2643,7 +2643,7 @@ pub mod responses {
 	            Response::ListSendPays(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// the purpose of this input (*EXPERIMENTAL_FEATURES* only)
@@ -2802,7 +2802,7 @@ pub mod responses {
 	            Response::ListTransactions(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// status of payment
@@ -2832,7 +2832,7 @@ pub mod responses {
 	    #[serde(alias = "payment_preimage")]
 	    pub payment_preimage: Secret,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "payment_hash")]
 	    pub payment_hash: Sha256,
 	    #[serde(alias = "created_at")]
@@ -2858,7 +2858,7 @@ pub mod responses {
 	            Response::Pay(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// Type of connection
@@ -2906,7 +2906,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesNodes {
 	    #[serde(alias = "nodeid")]
-	    pub nodeid: Pubkey,
+	    pub nodeid: PublicKey,
 	    #[serde(alias = "last_timestamp", skip_serializing_if = "Option::is_none")]
 	    pub last_timestamp: Option<u32>,
 	    #[serde(alias = "alias", skip_serializing_if = "Option::is_none")]
@@ -2933,7 +2933,7 @@ pub mod responses {
 	            Response::ListNodes(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// Whether it's paid or expired
@@ -2992,7 +2992,7 @@ pub mod responses {
 	            Response::WaitAnyInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// Whether it's paid or expired
@@ -3051,7 +3051,7 @@ pub mod responses {
 	            Response::WaitInvoice(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// status of the payment
@@ -3084,7 +3084,7 @@ pub mod responses {
 	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "created_at")]
 	    pub created_at: u64,
 	    #[serde(alias = "completed_at", skip_serializing_if = "Option::is_none")]
@@ -3111,7 +3111,7 @@ pub mod responses {
 	            Response::WaitSendPay(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3130,7 +3130,7 @@ pub mod responses {
 	            Response::NewAddr(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3151,7 +3151,7 @@ pub mod responses {
 	            Response::Withdraw(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// status of payment
@@ -3175,7 +3175,7 @@ pub mod responses {
 	    #[serde(alias = "payment_preimage")]
 	    pub payment_preimage: Secret,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "payment_hash")]
 	    pub payment_hash: Sha256,
 	    #[serde(alias = "created_at")]
@@ -3201,7 +3201,7 @@ pub mod responses {
 	            Response::KeySend(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3242,7 +3242,7 @@ pub mod responses {
 	            Response::FundPsbt(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3261,7 +3261,7 @@ pub mod responses {
 	            Response::SendPsbt(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3278,7 +3278,7 @@ pub mod responses {
 	            Response::SignPsbt(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3319,7 +3319,7 @@ pub mod responses {
 	            Response::UtxoPsbt(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3338,7 +3338,7 @@ pub mod responses {
 	            Response::TxDiscard(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3359,7 +3359,7 @@ pub mod responses {
 	            Response::TxPrepare(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3380,7 +3380,7 @@ pub mod responses {
 	            Response::TxSend(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3395,7 +3395,7 @@ pub mod responses {
 	            Response::Disconnect(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3466,7 +3466,7 @@ pub mod responses {
 	            Response::Feerates(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3493,7 +3493,7 @@ pub mod responses {
 	            Response::FundChannel(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// The features understood by the destination node
@@ -3515,7 +3515,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetrouteRoute {
 	    #[serde(alias = "id")]
-	    pub id: Pubkey,
+	    pub id: PublicKey,
 	    #[serde(alias = "channel")]
 	    pub channel: ShortChannelId,
 	    #[serde(alias = "direction")]
@@ -3543,7 +3543,7 @@ pub mod responses {
 	            Response::GetRoute(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// still ongoing, completed, failed locally, or failed after forwarding
@@ -3629,7 +3629,7 @@ pub mod responses {
 	            Response::ListForwards(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	/// status of the payment
@@ -3662,7 +3662,7 @@ pub mod responses {
 	    #[serde(rename = "status")]
 	    pub status: ListpaysPaysStatus,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
-	    pub destination: Option<Pubkey>,
+	    pub destination: Option<PublicKey>,
 	    #[serde(alias = "created_at")]
 	    pub created_at: u64,
 	    #[serde(alias = "completed_at", skip_serializing_if = "Option::is_none")]
@@ -3697,7 +3697,7 @@ pub mod responses {
 	            Response::ListPays(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3714,7 +3714,7 @@ pub mod responses {
 	            Response::Ping(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3735,7 +3735,7 @@ pub mod responses {
 	            Response::SignMessage(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3750,7 +3750,7 @@ pub mod responses {
 	            Response::Stop(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
-	    } 
+	    }
 	}
 
 }
