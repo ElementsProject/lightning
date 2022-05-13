@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 use std::str::FromStr;
 use std::string::ToString;
+use bitcoin_hashes::Hash as BitcoinHash;
+
+pub use bitcoin_hashes::sha256::Hash as Sha256;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
@@ -224,51 +227,9 @@ impl Secret {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Sha256([u8; 32]);
-impl Sha256 {
-    pub fn to_vec(self) -> Vec<u8> {
-        self.0.to_vec()
-    }
-}
-
-impl TryFrom<Vec<u8>> for Sha256 {
-    type Error = crate::Error;
-    fn try_from(v: Vec<u8>) -> Result<Self, crate::Error> {
-        if v.len() != 32 {
-            Err(anyhow!("Unexpected hash length: {}", hex::encode(v)))
-        } else {
-            Ok(Sha256(v.try_into().unwrap()))
-        }
-    }
-}
-
-impl Serialize for Sha256 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&hex::encode(&self.0))
-    }
-}
-
-impl<'de> Deserialize<'de> for Sha256 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        let h = hex::decode(s).map_err(|_| Error::custom("not a valid hex string"))?;
-        Ok(Sha256(h.try_into().map_err(|_| {
-            Error::custom("not a valid hex-encoded hash")
-        })?))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Outpoint {
-    pub txid: Vec<u8>,
+    pub txid: Sha256,
     pub outnum: u32,
 }
 
@@ -294,8 +255,11 @@ impl<'de> Deserialize<'de> for Outpoint {
             return Err(Error::custom("not a valid txid:output tuple"));
         }
 
-        let txid =
+        let txid_bytes =
             hex::decode(splits[0]).map_err(|_| Error::custom("not a valid hex encoded txid"))?;
+
+        let txid= Sha256::from_slice(&txid_bytes).map_err(|e| Error::custom(format!("Invalid TxId: {}", e)))?;
+
         let outnum: u32 = splits[1]
             .parse()
             .map_err(|e| Error::custom(format!("{} is not a valid number: {}", s, e)))?;

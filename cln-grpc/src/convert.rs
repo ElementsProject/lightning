@@ -8,6 +8,8 @@ use std::convert::From;
 use cln_rpc::model::{responses,requests};
 use crate::pb;
 use std::str::FromStr;
+use bitcoin_hashes::sha256::Hash as Sha256;
+use bitcoin_hashes::Hash;
 
 #[allow(unused_variables)]
 impl From<responses::GetinfoAddress> for pb::GetinfoAddress {
@@ -1020,7 +1022,7 @@ impl From<pb::SendpayRequest> for requests::SendpayRequest {
     fn from(c: pb::SendpayRequest) -> Self {
         Self {
             route: c.route.into_iter().map(|s| s.into()).collect(), // Rule #4
-            payment_hash: c.payment_hash.try_into().unwrap(), // Rule #1 for type hash
+            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
             label: c.label, // Rule #1 for type string?
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             bolt11: c.bolt11, // Rule #1 for type string?
@@ -1218,14 +1220,14 @@ impl From<pb::SendonionRequest> for requests::SendonionRequest {
     fn from(c: pb::SendonionRequest) -> Self {
         Self {
             onion: hex::encode(&c.onion), // Rule #1 for type hex
-            payment_hash: c.payment_hash.try_into().unwrap(), // Rule #1 for type hash
+            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
             label: c.label, // Rule #1 for type string?
             shared_secrets: Some(c.shared_secrets.into_iter().map(|s| s.try_into().unwrap()).collect()), // Rule #4
             partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
             bolt11: c.bolt11, // Rule #1 for type string?
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             destination: c.destination.map(|v| cln_rpc::primitives::Pubkey::from_slice(&v[..]).unwrap()), // Rule #1 for type pubkey?
-            localofferid: c.localofferid.map(|v| v.try_into().unwrap()), // Rule #1 for type hash?
+            localofferid: c.localofferid.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             groupid: c.groupid, // Rule #1 for type u64?
         }
     }
@@ -1236,7 +1238,7 @@ impl From<pb::ListsendpaysRequest> for requests::ListsendpaysRequest {
     fn from(c: pb::ListsendpaysRequest) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #1 for type string?
-            payment_hash: c.payment_hash.map(|v| v.try_into().unwrap()), // Rule #1 for type hash?
+            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             status: c.status.map(|v| v.try_into().unwrap()),
         }
     }
@@ -1302,7 +1304,7 @@ impl From<pb::WaitinvoiceRequest> for requests::WaitinvoiceRequest {
 impl From<pb::WaitsendpayRequest> for requests::WaitsendpayRequest {
     fn from(c: pb::WaitsendpayRequest) -> Self {
         Self {
-            payment_hash: c.payment_hash.try_into().unwrap(), // Rule #1 for type hash
+            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
             timeout: c.timeout, // Rule #1 for type u32?
             partid: c.partid, // Rule #1 for type u64?
             groupid: c.groupid, // Rule #1 for type u64?
@@ -1502,7 +1504,7 @@ impl From<pb::ListpaysRequest> for requests::ListpaysRequest {
     fn from(c: pb::ListpaysRequest) -> Self {
         Self {
             bolt11: c.bolt11, // Rule #1 for type string?
-            payment_hash: c.payment_hash.map(|v| v.try_into().unwrap()), // Rule #1 for type hash?
+            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             status: c.status.map(|v| v.try_into().unwrap()),
         }
     }
