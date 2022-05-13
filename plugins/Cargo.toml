@@ -2,6 +2,9 @@
 name = "cln-plugin"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/ElementsProject/lightning/tree/master/plugins"
+description = "A CLN plugin library. Write your plugin in Rust."
 
 [[example]]
 name = "cln-plugin-startup"
@@ -17,7 +20,7 @@ tokio-util = { version = "0.6.9", features = ["codec"] }
 tokio = { version="1", features = ['io-std', 'rt', 'sync'] }
 tokio-stream = "*"
 futures = "0.3"
-cln-rpc = { path = "../cln-rpc" }
+cln-rpc = { path = "../cln-rpc", version = "0.1.0" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", ] }
