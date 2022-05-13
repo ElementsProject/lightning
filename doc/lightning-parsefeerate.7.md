@@ -33,7 +33,7 @@ not recognized.
 TRIVIA
 ------
 
-In C-lightning we like to call the weight unit "sipa"
+In CLN we like to call the weight unit "sipa"
 in honor of Pieter Wuille,
 who uses the name "sipa" on IRC and elsewhere.
 Internally we call the *perkw* style as "feerate per kilosipa".
