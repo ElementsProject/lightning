@@ -78,6 +78,26 @@ impl Amount {
     }
 }
 
+impl std::ops::Add for Amount {
+    type Output = Amount;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Amount {
+            msat: self.msat + rhs.msat
+        }
+    }
+}
+
+impl std::ops::Sub for Amount {
+    type Output = Amount;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Amount {
+            msat: self.msat - rhs.msat
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ShortChannelId(u64);
 
