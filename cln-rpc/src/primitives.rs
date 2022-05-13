@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use anyhow::Context;
 use anyhow::{anyhow, Error, Result};
 use serde::{Deserialize, Serialize};
@@ -671,3 +672,15 @@ pub struct RpcError {
     pub code: Option<i32>,
     pub message: String,
 }
+
+impl Display for RpcError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(code) = self.code {
+            write!(f, "Error code {}: {}", code, self.message)
+        } else {
+            write!(f, "Error: {}", self.message)
+        }
+    }
+}
+
+impl std::error::Error for RpcError {}
