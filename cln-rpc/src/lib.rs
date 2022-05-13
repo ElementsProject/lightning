@@ -24,6 +24,7 @@ pub use crate::{
     notifications::Notification,
     primitives::RpcError,
 };
+use crate::model::IntoRequest;
 
 ///
 pub struct ClnRpc {
@@ -105,6 +106,13 @@ impl ClnRpc {
             })
         }
     }
+
+    pub async fn call_typed<R: IntoRequest>(&mut self, request: R) -> Result<R::Response, RpcError> {
+        Ok(self.call(request.into())
+            .await?
+            .try_into()
+            .expect("CLN will reply correctly"))
+    }
 }
 
 /// Used to skip optional arrays when serializing requests.
@@ -139,6 +147,25 @@ mod test {
 
         assert_eq!(
             json!({"id": "1", "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
+            read_req
+        );
+    }
+
+    #[tokio::test]
+    async fn test_typed_call() {
+        let req = requests::GetinfoRequest {};
+        let (uds1, uds2) = UnixStream::pair().unwrap();
+        let mut cln = ClnRpc::from_stream(uds1).unwrap();
+
+        let mut read = FramedRead::new(uds2, JsonCodec::default());
+        tokio::task::spawn(async move {
+            let _: GetinfoResponse = cln.call_typed(req).await.unwrap();
+        });
+
+        let read_req = dbg!(read.next().await.unwrap().unwrap());
+
+        assert_eq!(
+            json!({"id": 1, "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
             read_req
         );
     }
