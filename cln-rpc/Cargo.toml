@@ -9,6 +9,7 @@ path = "examples/getinfo.rs"
 
 [dependencies]
 anyhow = "1.0.51"
+bitcoin_hashes = { version = "0.10.0", features = [ "serde" ] }
 bytes = "1.1.0"
 log = "0.4.14"
 serde = { version = "1.0.131", features = ["derive"] }

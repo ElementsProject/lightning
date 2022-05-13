@@ -349,6 +349,8 @@ class GrpcConverterGenerator(IGenerator):
         use cln_rpc::model::{responses,requests};
         use crate::pb;
         use std::str::FromStr;
+        use bitcoin_hashes::sha256::Hash as Sha256;
+        use bitcoin_hashes::Hash;
 
         """)
 
@@ -434,8 +436,8 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'short_channel_id?': f'c.{name}.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())',
                     'secret': f'c.{name}.try_into().unwrap()',
                     'secret?': f'c.{name}.map(|v| v.try_into().unwrap())',
-                    'hash': f'c.{name}.try_into().unwrap()',
-                    'hash?': f'c.{name}.map(|v| v.try_into().unwrap())',
+                    'hash': f'Sha256::from_slice(&c.{name}).unwrap()',
+                    'hash?': f'c.{name}.map(|v| Sha256::from_slice(&v).unwrap())',
                     'txid': f'hex::encode(&c.{name})',
                 }.get(
                     typ,
