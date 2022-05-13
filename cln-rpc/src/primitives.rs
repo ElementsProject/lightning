@@ -8,6 +8,7 @@ use std::string::ToString;
 use bitcoin_hashes::Hash as BitcoinHash;
 
 pub use bitcoin_hashes::sha256::Hash as Sha256;
+pub use secp256k1::PublicKey;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
@@ -74,57 +75,6 @@ impl Amount {
 
     pub fn msat(&self) -> u64 {
         self.msat
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Pubkey([u8; 33]);
-
-impl Serialize for Pubkey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&hex::encode(&self.0))
-    }
-}
-
-impl<'de> Deserialize<'de> for Pubkey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(Self::from_str(&s).map_err(|e| Error::custom(e.to_string()))?)
-    }
-}
-
-impl FromStr for Pubkey {
-    type Err = crate::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let raw =
-            hex::decode(&s).with_context(|| format!("{} is not a valid hex-encoded pubkey", s))?;
-
-        Ok(Pubkey(raw.try_into().map_err(|_| {
-            anyhow!("could not convert {} into pubkey", s)
-        })?))
-    }
-}
-impl ToString for Pubkey {
-    fn to_string(&self) -> String {
-        hex::encode(self.0)
-    }
-}
-impl Pubkey {
-    pub fn from_slice(data: &[u8]) -> Result<Pubkey, crate::Error> {
-        Ok(Pubkey(
-            data.try_into().with_context(|| "Not a valid pubkey")?,
-        ))
-    }
-
-    pub fn to_vec(&self) -> Vec<u8> {
-        self.0.to_vec()
     }
 }
 
@@ -612,7 +562,7 @@ impl Serialize for OutputDesc {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Routehop {
-    pub id: Pubkey,
+    pub id: PublicKey,
     pub scid: ShortChannelId,
     pub feebase: Amount,
     pub feeprop: u32,
