@@ -27,6 +27,7 @@ On success, an object is returned, containing:
   - **amount_msat** (msat): the amount of the output
   - **scriptpubkey** (hex): the scriptPubkey of the output
   - **status** (string) (one of "unconfirmed", "confirmed", "spent")
+  - **reserved** (boolean): whether this UTXO is currently reserved for an in-flight tx
   - **address** (string, optional): the bitcoin address of the output
   - **redeemscript** (hex, optional): the redeemscript, only if it's p2sh-wrapped
 
@@ -67,4 +68,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:959d54ed855f9f5d64148f5acf4a0bbb4bc1503e610ddae5ab4c04fd397af0b3)
+[comment]: # ( SHA256STAMP:e2b4f817ca6032ab4421fccaba226c03e0995c8dbfbfeb2f7c8572987ffe7dc4)

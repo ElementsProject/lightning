@@ -56,6 +56,10 @@
               "confirmed",
               "spent"
             ]
+          },
+          "reserved": {
+            "type": "boolean",
+            "description": "whether this UTXO is currently reserved for an in-flight tx"
           }
         },
         "allOf": [
