@@ -211,36 +211,29 @@ static void peer_connected_in(struct daemon *daemon,
 	tal_free(connect);
 }
 
-/*~ This is an ad-hoc marshalling structure where we store arguments so we
- * can call peer_connected again. */
-struct peer_reconnected {
-	struct daemon *daemon;
-	struct node_id id;
-	struct wireaddr_internal addr;
-	const struct wireaddr *remote_addr;
-	struct crypto_state cs;
-	const u8 *their_features;
-	bool incoming;
-};
-
 /*~ For simplicity, lightningd only ever deals with a single connection per
  * peer.  So if we already know about a peer, we tell lightning to disconnect
  * the old one and retry once it does. */
 static struct io_plan *retry_peer_connected(struct io_conn *conn,
 					    struct peer_reconnected *pr)
 {
-	struct io_plan *plan;
-
 	/*~ As you can see, we've had issues with this code before :( */
 	status_peer_debug(&pr->id, "processing now old peer gone");
 
-	/*~ Usually the pattern is to return this directly, but we have to free
-	 * our temporary structure. */
-	plan = peer_connected(conn, pr->daemon, &pr->id, &pr->addr,
+	/* If this fails (still waiting), pr will be freed, so reparent onto
+	 * tmpctx so it gets freed either way. */
+	tal_steal(tmpctx, pr);
+
+	/*~ Usually the pattern is to return this directly. */
+	return peer_connected(conn, pr->daemon, &pr->id, &pr->addr,
 			      pr->remote_addr,
 			      &pr->cs, take(pr->their_features), pr->incoming);
-	tal_free(pr);
-	return plan;
+}
+
+/*~ A common use for destructors is to remove themselves from a data structure */
+static void destroy_peer_reconnected(struct peer_reconnected *pr)
+{
+	peer_reconnected_htable_del(&pr->daemon->reconnected, pr);
 }
 
 /*~ If we already know about this peer, we tell lightningd and it disconnects
@@ -259,6 +252,13 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 
 	status_peer_debug(id, "reconnect");
 
+	/* If we have a previous reconnection, we replace it. */
+	pr = peer_reconnected_htable_get(&daemon->reconnected, id);
+	if (pr) {
+		peer_reconnected_htable_del(&daemon->reconnected, pr);
+		tal_free(pr);
+	}
+
 	/* Tell master to kill it: will send peer_disconnect */
 	msg = towire_connectd_reconnected(NULL, id);
 	daemon_conn_send(daemon->master, take(msg));
@@ -271,6 +271,8 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	pr->addr = *addr;
 	pr->remote_addr = tal_dup_or_null(pr, struct wireaddr, remote_addr);
 	pr->incoming = incoming;
+	peer_reconnected_htable_add(&daemon->reconnected, pr);
+	tal_add_destructor(pr, destroy_peer_reconnected);
 
 	/*~ Note that tal_dup_talarr() will do handle the take() of features
 	 * (turning it into a simply tal_steal() in those cases). */
@@ -280,11 +282,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	 * the peer set.  When someone calls `io_wake()` on that address, it
 	 * will call retry_peer_connected above. */
 	return io_wait(conn, peer_htable_get(&daemon->peers, id),
-			/*~ The notleak() wrapper is a DEVELOPER-mode hack so
-			 * that our memory leak detection doesn't consider 'pr'
-			 * (which is not referenced from our code) to be a
-			 * memory leak. */
-		       retry_peer_connected, notleak(pr));
+		       retry_peer_connected, pr);
 }
 
 /*~ When we free a peer, we remove it from the daemon's hashtable */
@@ -1981,6 +1979,7 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_remove_region(memtable, daemon, sizeof(daemon));
 	memleak_remove_htable(memtable, &daemon->peers.raw);
+	memleak_remove_htable(memtable, &daemon->reconnected.raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
@@ -2127,6 +2126,7 @@ int main(int argc, char *argv[])
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);
 	peer_htable_init(&daemon->peers);
+	peer_reconnected_htable_init(&daemon->reconnected);
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
 	timers_init(&daemon->timers, time_mono());
