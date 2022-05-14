@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
+## [0.11.1] - 2022-05-13: Simon's Carefully Chosen Release Name II
+
+Single change which fixed a bug introduced in 0.11.0 which could cause
+unwanted unilateral closes (`bad reestablish revocation_number: 0 vs 3`)
+
+### Fixed
+
+ - connectd: make sure we don't keep stale reconnections around. ([#5256])
+ - connectd: fix assert which we could trigger. ([#5256])
+
+[#5256]: https://github.com/ElementsProject/lightning/pull/5256
+
 ## [0.11.0.1] - 2022-04-04: Simon's Carefully Chosen Release Name
 
 This release would have been named by Simon Vrouwe, had he responded to my emails!
