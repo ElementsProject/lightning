@@ -1900,7 +1900,6 @@ void peer_conn_closed(struct peer *peer)
 	struct connecting *connect = find_connecting(peer->daemon, &peer->id);
 
 	/* These should be closed already! */
-	assert(tal_count(peer->subds) == 0);
 	assert(!peer->to_peer);
 	assert(peer->ready_to_die || !peer->active);
 
