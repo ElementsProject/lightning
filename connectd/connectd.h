@@ -126,6 +126,37 @@ HTABLE_DEFINE_TYPE(struct peer,
 		   peer_eq_node_id,
 		   peer_htable);
 
+/*~ This is an ad-hoc marshalling structure where we store arguments so we
+ * can call peer_connected again. */
+struct peer_reconnected {
+	struct daemon *daemon;
+	struct node_id id;
+	struct wireaddr_internal addr;
+	const struct wireaddr *remote_addr;
+	struct crypto_state cs;
+	const u8 *their_features;
+	bool incoming;
+};
+
+static const struct node_id *
+peer_reconnected_keyof(const struct peer_reconnected *pr)
+{
+	return &pr->id;
+}
+
+static bool peer_reconnected_eq_node_id(const struct peer_reconnected *pr,
+					const struct node_id *id)
+{
+	return node_id_eq(&pr->id, id);
+}
+
+/*~ This defines 'struct peer_reconnected_htable'. */
+HTABLE_DEFINE_TYPE(struct peer_reconnected,
+		   peer_reconnected_keyof,
+		   node_id_hash,
+		   peer_reconnected_eq_node_id,
+		   peer_reconnected_htable);
+
 /*~ This is the global state, like `struct lightningd *ld` in lightningd. */
 struct daemon {
 	/* Who am I? */
@@ -141,6 +172,9 @@ struct daemon {
 	/* Peers that we've handed to `lightningd`, which it hasn't told us
 	 * have disconnected. */
 	struct peer_htable peers;
+
+	/* Peers which have reconnected, waiting for us to kill existing conns */
+	struct peer_reconnected_htable reconnected;
 
 	/* Peers we are trying to reach */
 	struct list_head connecting;
