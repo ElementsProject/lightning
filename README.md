@@ -28,7 +28,7 @@ This implementation has been in production use on the Bitcoin mainnet since earl
 We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
-Don't hesitate to reach out to us on IRC at [#lightning-dev @ libera.chat][irc1], [#c-lightning @ libera.chat][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2].
+Don't hesitate to reach out to us on IRC at [#lightning-dev @ libera.chat][irc1], [#c-lightning @ libera.chat][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2], or on Discord [core-lightning][discord], or on Telegram [Core Lightning][telegram].
 
 ## Getting Started
 
@@ -234,6 +234,8 @@ You should also configure with `--enable-developer` to get additional checks and
 [irc2]: https://web.libera.chat/#c-lightning
 [ml1]: https://lists.ozlabs.org/listinfo/c-lightning
 [ml2]: https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev
+[discord]: https://discord.gg/mE9s4rc5un
+[telegram]: https://t.me/lightningd
 [docs]: https://lightning.readthedocs.org
 [ppa]: https://launchpad.net/~lightningnetwork/+archive/ubuntu/ppa
 [releases]: https://github.com/ElementsProject/lightning/releases
