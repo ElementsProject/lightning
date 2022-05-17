@@ -188,7 +188,6 @@ EXAMPLE JSON RESPONSE
    "autolisten": true,
    "proxy": "127.0.0.1:9050",
    "disable-dns": "false",
-   "enable-autotor-v2-mode": "false",
    "encrypted-hsm": false,
    "rpc-file-mode": "0600",
    "log-level": "DEBUG",
