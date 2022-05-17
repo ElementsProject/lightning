@@ -558,8 +558,6 @@ static void json_transaction_details(struct json_stream *response,
 			json_object_start(response, NULL);
 
 			json_add_u32(response, "index", i);
-			if (deprecated_apis)
-				json_add_amount_sat_only(response, "satoshis", sat);
 			json_add_amount_sat_only(response, "msat", sat);
 
 #if EXPERIMENTAL_FEATURES

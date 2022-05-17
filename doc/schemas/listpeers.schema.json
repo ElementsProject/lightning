@@ -314,17 +314,12 @@
                   "description": "Who initiated the channel"
                 },
                 "closer": {
-                  "FIXME": "deprecated_apis turns off null!",
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "enum": [
                     "local",
-                    "remote",
-                    null
+                    "remote"
                   ],
-                  "description": "Who initiated the channel close (`null` is deprecated!)"
+                  "description": "Who initiated the channel close"
                 },
                 "features": {
                   "type": "array",
@@ -359,12 +354,6 @@
                       "description": "Amount pushed from opener to peer"
                     }
                   }
-                },
-                "funding_allocation_msat": {
-                  "deprecated": true
-                },
-                "funding_msat": {
-                  "deprecated": true
                 },
                 "to_us_msat": {
                   "type": "msat",
@@ -765,8 +754,6 @@
                       "closer": {},
                       "features": {},
                       "funding": {},
-                      "funding_allocation_msat": {},
-                      "funding_msat": {},
                       "to_us_msat": {},
                       "min_to_us_msat": {},
                       "max_to_us_msat": {},
@@ -817,7 +804,6 @@
                       "last_feerate": {},
                       "next_feerate": {},
                       "inflight": {},
-                      "last_tx_fee": {},
                       "last_tx_fee_msat": {},
                       "direction": {},
                       "close_to_addr": {
@@ -854,8 +840,6 @@
                       "closer": {},
                       "features": {},
                       "funding": {},
-                      "funding_allocation_msat": {},
-                      "funding_msat": {},
                       "to_us_msat": {},
                       "min_to_us_msat": {},
                       "max_to_us_msat": {},
@@ -907,9 +891,6 @@
                       "next_feerate": {},
                       "close_to_addr": {},
                       "direction": {},
-                      "last_tx_fee": {
-                        "deprecated": true
-                      },
                       "last_tx_fee_msat": {
                         "type": "msat",
                         "description": "fee attached to this the current tx"
@@ -944,8 +925,6 @@
                       "closer": {},
                       "features": {},
                       "funding": {},
-                      "funding_allocation_msat": {},
-                      "funding_msat": {},
                       "to_us_msat": {},
                       "min_to_us_msat": {},
                       "max_to_us_msat": {},
@@ -995,7 +974,6 @@
                       "initial_feerate": {},
                       "last_feerate": {},
                       "next_feerate": {},
-                      "last_tx_fee": {},
                       "close_to_addr": {},
                       "last_tx_fee_msat": {},
                       "direction": {
@@ -1033,8 +1011,6 @@
                       "closer": {},
                       "features": {},
                       "funding": {},
-                      "funding_allocation_msat": {},
-                      "funding_msat": {},
                       "to_us_msat": {},
                       "min_to_us_msat": {},
                       "max_to_us_msat": {},
@@ -1082,7 +1058,6 @@
                       "out_msatoshi_fulfilled": {},
                       "htlcs": {},
                       "inflight": {},
-                      "last_tx_fee": {},
                       "close_to_addr": {},
                       "direction": {},
                       "last_tx_fee_msat": {},
@@ -1129,7 +1104,6 @@
                 "connected": {},
                 "htlcs": {},
                 "log": {},
-                "last_tx_fee": {},
                 "netaddr": {
                   "type": "array",
                   "minItems": 1,

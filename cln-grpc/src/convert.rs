@@ -119,6 +119,7 @@ impl From<&responses::ListpeersPeersChannels> for pb::ListpeersPeersChannels {
             close_to: c.close_to.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             private: c.private.clone(), // Rule #2 for type boolean?
             opener: c.opener as i32,
+            closer: c.closer.map(|v| v as i32),
             features: c.features.iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeersPeersChannelsFeatures 
             to_us_msat: c.to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             min_to_us_msat: c.min_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?

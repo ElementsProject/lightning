@@ -181,6 +181,7 @@ message ListpeersPeersChannels {
 	optional bytes close_to = 14;
 	optional bool private = 15;
 	ChannelSide opener = 16;
+	optional ChannelSide closer = 17;
 	repeated string features = 18;
 	optional Amount to_us_msat = 20;
 	optional Amount min_to_us_msat = 21;
