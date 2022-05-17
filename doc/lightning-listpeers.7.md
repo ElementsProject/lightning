@@ -69,7 +69,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **scratch_txid** (txid): The commitment transaction txid we would use if we went onchain now
   - **close_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
   - **private** (boolean, optional): if False, we will not announce this channel
-  - **closer** (string, optional): Who initiated the channel close (`null` is deprecated!) (one of "local", "remote", *null*)
+  - **closer** (string, optional): Who initiated the channel close (one of "local", "remote")
   - **funding** (object, optional):
     - **local_msat** (msat): Amount of channel we funded
     - **remote_msat** (msat): Amount of channel they funded
@@ -380,4 +380,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:6b0ec5c899c8685487190209f594635030205a275e1dc6d61a7b057adbf66192)
+[comment]: # ( SHA256STAMP:4f76b5ac19d3dfdaf3d04f5dd5de2312a2ab0ccffe779508c416aaf6e644612a)

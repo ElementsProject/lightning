@@ -628,7 +628,6 @@ static void json_add_channel(struct lightningd *ld,
 	struct channel_stats channel_stats;
 	struct amount_msat funding_msat, peer_msats, our_msats;
 	struct amount_sat peer_funded_sats;
-	struct peer *p = channel->peer;
 	struct state_change_entry *state_changes;
 	u32 feerate;
 
@@ -639,9 +638,6 @@ static void json_add_channel(struct lightningd *ld,
 		bitcoin_txid(channel->last_tx, &txid);
 
 		json_add_txid(response, "scratch_txid", &txid);
-		if (deprecated_apis)
-			json_add_amount_sat_only(response, "last_tx_fee",
-						 bitcoin_tx_compute_fee(channel->last_tx));
 		json_add_amount_sat_only(response, "last_tx_fee_msat",
 					 bitcoin_tx_compute_fee(channel->last_tx));
 	}
@@ -746,8 +742,6 @@ static void json_add_channel(struct lightningd *ld,
 	if (channel->closer != NUM_SIDES)
 		json_add_string(response, "closer", channel->closer == LOCAL ?
 						    "local" : "remote");
-	else if (deprecated_apis)
-		json_add_null(response, "closer");
 
 	json_array_start(response, "features");
 	if (channel_has(channel, OPT_STATIC_REMOTEKEY))
@@ -779,24 +773,6 @@ static void json_add_channel(struct lightningd *ld,
 			   type_to_string(tmpctx, struct amount_sat,
 					  &channel->our_funds));
 		our_msats = AMOUNT_MSAT(0);
-	}
-
-	if (deprecated_apis) {
-		json_object_start(response, "funding_allocation_msat");
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
-			     peer_msats.millisatoshis); /* Raw: JSON field */
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
-			     our_msats.millisatoshis); /* Raw: JSON field */
-		json_object_end(response);
-
-		json_object_start(response, "funding_msat");
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &p->id),
-				  peer_funded_sats);
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &ld->id),
-				  channel->our_funds);
-		json_object_end(response);
 	}
 
 	json_object_start(response, "funding");
