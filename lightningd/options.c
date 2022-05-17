@@ -793,8 +793,6 @@ static const struct config testnet_config = {
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
 
-	.use_v3_autotor = true,
-
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
 
@@ -858,9 +856,6 @@ static const struct config mainnet_config = {
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
-
-	/* Allow to define the default behavior of tor services calls*/
-	.use_v3_autotor = true,
 
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
@@ -1167,10 +1162,6 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_early_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 				 "Disable DNS lookups of peers");
-
-	if (deprecated_apis)
-		opt_register_noarg("--enable-autotor-v2-mode", opt_set_invbool, &ld->config.use_v3_autotor,
-				   opt_hidden);
 
 	opt_register_noarg("--encrypted-hsm", opt_set_hsm_password, ld,
 					  "Set the password to encrypt hsm_secret with. If no password is passed through command line, "

@@ -206,9 +206,6 @@ struct daemon {
 	/* File descriptors to listen on once we're activated. */
 	const struct listen_fd **listen_fds;
 
-	/* Allow to define the default behavior of tor services calls*/
-	bool use_v3_autotor;
-
 	/* Our features, as lightningd told us */
 	struct feature_set *our_features;
 

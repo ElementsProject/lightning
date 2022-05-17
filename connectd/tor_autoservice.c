@@ -86,7 +86,6 @@ static void discard_remaining_response(struct rbuf *rbuf)
 static struct wireaddr *make_onion(const tal_t *ctx,
 				   struct rbuf *rbuf,
 				   const struct wireaddr *local,
-				   bool use_v3_autotor,
 				   u16 port)
 {
 	char *line;
@@ -101,25 +100,18 @@ static struct wireaddr *make_onion(const tal_t *ctx,
 		if (!strstarts(line, "VERSION Tor="))
 			continue;
 
-		if (use_v3_autotor)
-			if (strstr(line, "\"0.0") ||
-				strstr(line, "\"0.1") ||
-				strstr(line, "\"0.2") ||
-				strstr(line, "\"0.3")) {
-						use_v3_autotor = false;
-						status_unusual("Autotor: fallback to try a V2 onion service, your Tor version is smaller than 0.4.x.x");
-			}
-	};
+		if (strstr(line, "\"0.0") ||
+		    strstr(line, "\"0.1") ||
+		    strstr(line, "\"0.2") ||
+		    strstr(line, "\"0.3")) {
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Autotor: your Tor version is smaller than 0.4.x.x");
+		}
+	}
 
-	if (!use_v3_autotor) {
-		tor_send_cmd(rbuf,
-		     tal_fmt(tmpctx, "ADD_ONION NEW:RSA1024 Port=%d,%s Flags=DiscardPK,Detach",
-			     port, fmt_wireaddr(tmpctx, local)));
-	} else {
-		tor_send_cmd(rbuf,
+	tor_send_cmd(rbuf,
 		     tal_fmt(tmpctx, "ADD_ONION NEW:ED25519-V3 Port=%d,%s Flags=DiscardPK,Detach",
 			     port, fmt_wireaddr(tmpctx, local)));
-	}
 
 	while ((line = tor_response_line(rbuf)) != NULL) {
 		const char *name;
@@ -268,8 +260,7 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 struct wireaddr *tor_autoservice(const tal_t *ctx,
 				 const struct wireaddr_internal *tor_serviceaddr,
 				 const char *tor_password,
-				 const struct wireaddr *laddr,
-				 const bool use_v3_autotor)
+				 const struct wireaddr *laddr)
 {
 	int fd;
 	struct wireaddr *onion;
@@ -290,7 +281,7 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
 
 	negotiate_auth(&rbuf, tor_password);
-	onion = make_onion(ctx, &rbuf, laddr, use_v3_autotor, tor_serviceaddr->u.torservice.port);
+	onion = make_onion(ctx, &rbuf, laddr, tor_serviceaddr->u.torservice.port);
 
 	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */
 	//because when we run with Detach flag as we now do every start of LN creates a new addr while the old

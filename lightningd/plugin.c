@@ -1853,7 +1853,7 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	json_add_string(req->stream, "network", chainparams->network_name);
 	if (ld->proxyaddr) {
 		json_add_address(req->stream, "proxy", ld->proxyaddr);
-		json_add_bool(req->stream, "torv3-enabled", ld->config.use_v3_autotor);
+		json_add_bool(req->stream, "torv3-enabled", true);
 		json_add_bool(req->stream, "always_use_proxy", ld->always_use_proxy);
 		if (deprecated_apis)
 			json_add_bool(req->stream, "use_proxy_always",

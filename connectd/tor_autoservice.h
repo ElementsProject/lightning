@@ -9,8 +9,7 @@
 struct wireaddr *tor_autoservice(const tal_t *ctx,
 				 const struct wireaddr_internal *tor_serviceaddr,
 				 const char *tor_password,
-				 const struct wireaddr *localaddr,
-				 const bool use_v3_autotor);
+				 const struct wireaddr *localaddr);
 
 struct wireaddr *tor_fixed_service(const tal_t *ctx,
 				 const struct wireaddr_internal *tor_serviceaddr,

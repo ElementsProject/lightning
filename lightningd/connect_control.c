@@ -554,7 +554,6 @@ int connectd_init(struct lightningd *ld)
 	    ld->proxyaddr, ld->always_use_proxy || ld->pure_tor_setup,
 	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
 	    ld->tor_service_password ? ld->tor_service_password : "",
-	    ld->config.use_v3_autotor,
 	    ld->config.connection_timeout_secs,
 	    websocket_helper_path,
 	    ld->websocket_port,
