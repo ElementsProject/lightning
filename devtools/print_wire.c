@@ -189,7 +189,7 @@ static bool printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 		case ARR_UNCOMPRESSED:
 			printf(" (UNCOMPRESSED)");
 			break;
-		case ARR_ZLIB:
+		case ARR_ZLIB_DEPRECATED:
 			printf(" (ZLIB)");
 			break;
 		default:
@@ -202,7 +202,7 @@ static bool printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t 
 		/* If it was unknown, that's different from corrupt */
 		if (len == 0
 		    || arr[0] == ARR_UNCOMPRESSED
-		    || arr[0] == ARR_ZLIB) {
+		    || arr[0] == ARR_ZLIB_DEPRECATED) {
 			printf(" **CORRUPT**");
 			return true;
 		} else {

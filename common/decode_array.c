@@ -42,7 +42,7 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 	 */
 	type = fromwire_u8(&encoded, &max);
 	switch (type) {
-	case ARR_ZLIB:
+	case ARR_ZLIB_DEPRECATED:
 		encoded = unzlib(tmpctx, encoded, max);
 		if (!encoded)
 			return NULL;
@@ -85,7 +85,7 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx,
 	 *      - MAY close the connection.
 	 */
 	switch (qf->encoding_type) {
-	case ARR_ZLIB:
+	case ARR_ZLIB_DEPRECATED:
 		encoded = unzlib(tmpctx, encoded, max);
 		if (!encoded)
 			return NULL;
@@ -119,7 +119,7 @@ decode_channel_update_timestamps(const tal_t *ctx,
 	/* FIXME: BOLT #7 should have a requirements like it does for
 	 * query_short_channel_ids_tlvs! */
 	switch (timestamps_tlv->encoding_type) {
-	case ARR_ZLIB:
+	case ARR_ZLIB_DEPRECATED:
 		encoded = unzlib(tmpctx, encoded, max);
 		if (!encoded)
 			return NULL;

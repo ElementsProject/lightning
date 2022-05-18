@@ -291,7 +291,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 *
 	 * 9. Sort the outputs into [BIP 69+CLTV
-	 *    order](#transaction-input-and-output-ordering)
+	 *    order](#transaction-output-ordering)
 	 */
 	permute_outputs(tx, NULL, output_order);
 

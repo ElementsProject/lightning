@@ -23,9 +23,8 @@ static u32 dev_max_encoding_bytes = -1U;
 /* BOLT #7:
  *
  * There are several messages which contain a long array of
- * `short_channel_id`s (called `encoded_short_ids`) so we utilize a
- * simple compression scheme: the first byte indicates the encoding, the
- * rest contains the data.
+ * `short_channel_id`s (called `encoded_short_ids`) so we include an encoding
+ *  byte which allows for different encoding schemes to be defined in the future
  */
 static u8 *encoding_start(const tal_t *ctx, bool prepend_encoding)
 {
@@ -117,7 +116,6 @@ bool query_short_channel_ids(struct daemon *daemon,
 		 * Encoding types:
 		 * * `0`: uncompressed array of `short_channel_id` types, in
 		 *   ascending order.
-		 * * `1`: array of `short_channel_id` types, in ascending order
 		 */
 		assert(i == 0 || scids[i].u64 > scids[i-1].u64);
 		encoding_add_short_channel_id(&encoded, &scids[i]);
