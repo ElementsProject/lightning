@@ -259,8 +259,7 @@ static struct command_result *json_plugin_control(struct command *cmd,
 		}
 		if (access(plugin_path, X_OK) != 0)
 			plugin_path = path_join(cmd,
-					path_join(cmd, cmd->ld->config_basedir, "plugins/"),
-					plugin_path);
+					cmd->ld->plugins->default_dir, plugin_path);
 		if (access(plugin_path, X_OK) == 0)
 			return plugin_dynamic_start(pcmd, plugin_path,
 						    buffer, mod_params);
