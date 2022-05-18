@@ -52,52 +52,6 @@ static void encoding_add_query_flag(u8 **encoded, bigsize_t flag)
 	towire_bigsize(encoded, flag);
 }
 
-/* Greg Maxwell asked me privately about using zlib for communicating a set,
- * and suggested that we'd be better off using Golomb-Rice coding a-la BIP
- * 158.  However, naively using Rice encoding isn't a win: we have to get
- * more complex and use separate streams.  The upside is that it's between
- * 2 and 5 times smaller (assuming optimal Rice encoding + gzip).  We can add
- * that later. */
-static u8 *zencode(const tal_t *ctx, const u8 *scids, size_t len)
-{
-	u8 *z;
-	int err;
-	unsigned long compressed_len = len;
-
-#ifdef ZLIB_EVEN_IF_EXPANDS
-	/* Needed for test vectors */
-	compressed_len = 128 * 1024;
-#endif
-	/* Prefer to fail if zlib makes it larger */
-	z = tal_arr(ctx, u8, compressed_len);
-	err = compress2(z, &compressed_len, scids, len, Z_DEFAULT_COMPRESSION);
-	if (err == Z_OK) {
-		tal_resize(&z, compressed_len);
-		return z;
-	}
-	return NULL;
-}
-
-/* Try compressing *encoded: fails if result would be longer.
- * @off is offset to place result in *encoded.
- */
-static bool encoding_end_zlib(u8 **encoded, size_t off)
-{
-	u8 *z;
-	size_t len = tal_count(*encoded);
-
-	z = zencode(tmpctx, *encoded, len);
-	if (!z)
-		return false;
-
-	/* Successful: copy over and trim */
-	tal_resize(encoded, off + tal_count(z));
-	memcpy(*encoded + off, z, tal_count(z));
-
-	tal_free(z);
-	return true;
-}
-
 static void encoding_end_no_compress(u8 **encoded, size_t off)
 {
 	size_t len = tal_count(*encoded);
@@ -110,12 +64,8 @@ static void encoding_end_no_compress(u8 **encoded, size_t off)
  * Prepends encoding type to @encoding. */
 static bool encoding_end_prepend_type(u8 **encoded, size_t max_bytes)
 {
-	if (encoding_end_zlib(encoded, 1))
-		**encoded = ARR_ZLIB;
-	else {
-		encoding_end_no_compress(encoded, 1);
-		**encoded = ARR_UNCOMPRESSED;
-	}
+	encoding_end_no_compress(encoded, 1);
+	**encoded = ARR_UNCOMPRESSED;
 
 #if DEVELOPER
 	if (tal_count(*encoded) > dev_max_encoding_bytes)
@@ -127,12 +77,8 @@ static bool encoding_end_prepend_type(u8 **encoded, size_t max_bytes)
 /* Try compressing, leaving type external */
 static bool encoding_end_external_type(u8 **encoded, u8 *type, size_t max_bytes)
 {
-	if (encoding_end_zlib(encoded, 0))
-		*type = ARR_ZLIB;
-	else {
-		encoding_end_no_compress(encoded, 0);
-		*type = ARR_UNCOMPRESSED;
-	}
+	encoding_end_no_compress(encoded, 0);
+	*type = ARR_UNCOMPRESSED;
 
 	return tal_count(*encoded) <= max_bytes;
 }
