@@ -872,7 +872,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                            filters=['0109', '0012'])
     assert len(msgs) == 2
 
-    # This should actually be large enough for zlib to kick in!
+    # This used to be large enough for zlib to kick in, but no longer!
     scid34, _ = l3.fundchannel(l4, 10**5)
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
     l2.daemon.wait_for_log('Received node_announcement for node ' + l4.info['id'])
@@ -886,7 +886,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                            genesis_blockhash,
                            0, 65535,
                            filters=['0109', '0012'])
-    encoded = subprocess.run(['devtools/mkencoded', '--scids', '01', scid12, scid23, scid34],
+    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23, scid34],
                              check=True,
                              timeout=TIMEOUT,
                              stdout=subprocess.PIPE).stdout.strip().decode()

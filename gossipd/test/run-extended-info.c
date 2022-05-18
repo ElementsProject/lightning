@@ -1,7 +1,5 @@
 #include "config.h"
 
-#define ZLIB_EVEN_IF_EXPANDS 1
-
 #include "../queries.c"
 #include <ccan/str/hex/hex.h>
 #include <common/blinding.h>
@@ -112,7 +110,8 @@ void status_fmt(enum log_level level UNNEEDED,
 {
 }
 
-static const char *test_vectors[] = {
+/* These we can reproduce */
+static const char *test_vectors_nozlib[] = {
 	"{\n"
 	"  \"msg\" : {\n"
 	"    \"type\" : \"QueryChannelRange\",\n"
@@ -132,34 +131,6 @@ static const char *test_vectors[] = {
 	"    \"extensions\" : [ \"WANT_TIMESTAMPS | WANT_CHECKSUMS\" ]\n"
 	"  },\n"
 	"  \"hex\" : \"01070f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206000088b800000064010103\"\n"
-	"}\n",
-	"{\n"
-	"  \"msg\" : {\n"
-	"    \"type\" : \"ReplyChannelRange\",\n"
-	"    \"chainHash\" : \"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206\",\n"
-	"    \"firstBlockNum\" : 756230,\n"
-	"    \"numberOfBlocks\" : 1500,\n"
-	"    \"complete\" : 1,\n"
-	"    \"shortChannelIds\" : {\n"
-	"      \"encoding\" : \"UNCOMPRESSED\",\n"
-	"      \"array\" : [ \"0x0x142\", \"0x0x15465\", \"0x69x42692\" ]\n"
-	"    }\n"
-	"  },\n"
-	"  \"hex\" : \"01080f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206000b8a06000005dc01001900000000000000008e0000000000003c69000000000045a6c4\"\n"
-	"}\n",
-	"{\n"
-	"  \"msg\" : {\n"
-	"    \"type\" : \"ReplyChannelRange\",\n"
-	"    \"chainHash\" : \"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206\",\n"
-	"    \"firstBlockNum\" : 1600,\n"
-	"    \"numberOfBlocks\" : 110,\n"
-	"    \"complete\" : 1,\n"
-	"    \"shortChannelIds\" : {\n"
-	"      \"encoding\" : \"COMPRESSED_ZLIB\",\n"
-	"      \"array\" : [ \"0x0x142\", \"0x0x15465\", \"0x4x3318\" ]\n"
-	"    }\n"
-	"  },\n"
-	"  \"hex\" : \"01080f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206000006400000006e01001601789c636000833e08659309a65878be010010a9023a\"\n"
 	"}\n",
 	"{\n"
 	"  \"msg\" : {\n"
@@ -202,45 +173,6 @@ static const char *test_vectors[] = {
 	"}\n",
 	"{\n"
 	"  \"msg\" : {\n"
-	"    \"type\" : \"ReplyChannelRange\",\n"
-	"    \"chainHash\" : \"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206\",\n"
-	"    \"firstBlockNum\" : 122334,\n"
-	"    \"numberOfBlocks\" : 1500,\n"
-	"    \"complete\" : 1,\n"
-	"    \"shortChannelIds\" : {\n"
-	"      \"encoding\" : \"COMPRESSED_ZLIB\",\n"
-	"      \"array\" : [ \"0x0x12355\", \"0x7x30934\", \"0x70x57793\" ]\n"
-	"    },\n"
-	"    \"timestamps\" : {\n"
-	"      \"encoding\" : \"COMPRESSED_ZLIB\",\n"
-	"      \"timestamps\" : [ {\n"
-	"        \"timestamp1\" : 164545,\n"
-	"        \"timestamp2\" : 948165\n"
-	"      }, {\n"
-	"        \"timestamp1\" : 489645,\n"
-	"        \"timestamp2\" : 4786864\n"
-	"      }, {\n"
-	"        \"timestamp1\" : 46456,\n"
-	"        \"timestamp2\" : 9788415\n"
-	"      } ]\n"
-	"    },\n"
-	"    \"checksums\" : {\n"
-	"      \"checksums\" : [ {\n"
-	"        \"checksum1\" : 1111,\n"
-	"        \"checksum2\" : 2222\n"
-	"      }, {\n"
-	"        \"checksum1\" : 3333,\n"
-	"        \"checksum2\" : 4444\n"
-	"      }, {\n"
-	"        \"checksum1\" : 5555,\n"
-	"        \"checksum2\" : 6666\n"
-	"      } ]\n"
-	"    }\n"
-	"  },\n"
-	"  \"hex\" : \"01080f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e22060001ddde000005dc01001801789c63600001036730c55e710d4cbb3d3c080017c303b1012201789c63606a3ac8c0577e9481bd622d8327d7060686ad150c53a3ff0300554707db031800000457000008ae00000d050000115c000015b300001a0a\"\n"
-	"}\n",
-	"{\n"
-	"  \"msg\" : {\n"
 	"    \"type\" : \"QueryShortChannelIds\",\n"
 	"    \"chainHash\" : \"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206\",\n"
 	"    \"shortChannelIds\" : {\n"
@@ -250,48 +182,6 @@ static const char *test_vectors[] = {
 	"    \"extensions\" : [ ]\n"
 	"  },\n"
 	"  \"hex\" : \"01050f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206001900000000000000008e0000000000003c69000000000045a6c4\"\n"
-	"}\n",
-	"{\n"
-	"  \"msg\" : {\n"
-	"    \"type\" : \"QueryShortChannelIds\",\n"
-	"    \"chainHash\" : \"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206\",\n"
-	"    \"shortChannelIds\" : {\n"
-	"      \"encoding\" : \"COMPRESSED_ZLIB\",\n"
-	"      \"array\" : [ \"0x0x4564\", \"0x2x47550\", \"0x69x42692\" ]\n"
-	"    },\n"
-	"    \"extensions\" : [ ]\n"
-	"  },\n"
-	"  \"hex\" : \"01050f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206001801789c63600001c12b608a69e73e30edbaec0800203b040e\"\n"
-	"}\n",
-	"{\n"
-	"  \"msg\" : {\n"
-	"    \"type\" : \"QueryShortChannelIds\",\n"
-	"    \"chainHash\" : \"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206\",\n"
-	"    \"shortChannelIds\" : {\n"
-	"      \"encoding\" : \"UNCOMPRESSED\",\n"
-	"      \"array\" : [ \"0x0x12232\", \"0x0x15556\", \"0x69x42692\" ]\n"
-	"    },\n"
-	"    \"extensions\" : [ {\n"
-	"      \"encoding\" : \"COMPRESSED_ZLIB\",\n"
-	"      \"array\" : [ 1, 2, 4 ]\n"
-	"    } ]\n"
-	"  },\n"
-	"  \"hex\" : \"01050f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e22060019000000000000002fc80000000000003cc4000000000045a6c4010c01789c6364620100000e0008\"\n"
-	"}\n",
-	"{\n"
-	"  \"msg\" : {\n"
-	"    \"type\" : \"QueryShortChannelIds\",\n"
-	"    \"chainHash\" : \"0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206\",\n"
-	"    \"shortChannelIds\" : {\n"
-	"      \"encoding\" : \"COMPRESSED_ZLIB\",\n"
-	"      \"array\" : [ \"0x0x14200\", \"0x0x46645\", \"0x69x42692\" ]\n"
-	"    },\n"
-	"    \"extensions\" : [ {\n"
-	"      \"encoding\" : \"COMPRESSED_ZLIB\",\n"
-	"      \"array\" : [ 1, 2, 4 ]\n"
-	"    } ]\n"
-	"  },\n"
-	"  \"hex\" : \"01050f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206001801789c63600001f30a30c5b0cd144cb92e3b020017c6034a010c01789c6364620100000e0008\"\n"
 	"}\n",
 };
 
@@ -323,14 +213,9 @@ static u8 *get_scid_array(const tal_t *ctx,
 		assert(json_to_short_channel_id(test_vector, t, &scid));
 		encoding_add_short_channel_id(&encoded, &scid);
 	}
-	if (json_tok_streq(test_vector, encoding, "UNCOMPRESSED")) {
-		encoding_end_no_compress(&encoded, 1);
-		encoded[0] = ARR_UNCOMPRESSED;
-	} else {
-		assert(json_tok_streq(test_vector, encoding, "COMPRESSED_ZLIB"));
-		assert(encoding_end_zlib(&encoded, 1));
-		encoded[0] = ARR_ZLIB;
-	}
+	assert(json_tok_streq(test_vector, encoding, "UNCOMPRESSED"));
+	encoding_end_no_compress(&encoded, 1);
+	encoded[0] = ARR_UNCOMPRESSED;
 
 	return encoded;
 }
@@ -404,17 +289,10 @@ static u8 *test_reply_channel_range(const char *test_vector, const jsmntok_t *ob
 					      &ts.timestamp_node_id_2));
 			encoding_add_timestamps(&tlvs->timestamps_tlv->encoded_timestamps, &ts);
 		}
-		if (json_tok_streq(test_vector, encodingtok, "UNCOMPRESSED")) {
-			encoding_end_no_compress(&tlvs->timestamps_tlv->encoded_timestamps,
-						 0);
-			tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
-		} else {
-			assert(json_tok_streq(test_vector, encodingtok,
-					      "COMPRESSED_ZLIB"));
-			assert(encoding_end_zlib(&tlvs->timestamps_tlv->encoded_timestamps,
-						 0));
-			tlvs->timestamps_tlv->encoding_type = ARR_ZLIB;
-		}
+		assert(json_tok_streq(test_vector, encodingtok, "UNCOMPRESSED"));
+		encoding_end_no_compress(&tlvs->timestamps_tlv->encoded_timestamps,
+					 0);
+		tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
 	}
 
 	opt = json_get_member(test_vector, obj, "checksums");
@@ -464,14 +342,9 @@ get_query_flags_array(const tal_t *ctx,
 		assert(json_to_u64(test_vector, t, &f));
 		encoding_add_query_flag(&tlv->encoded_query_flags, f);
 	}
-	if (json_tok_streq(test_vector, encoding, "UNCOMPRESSED")) {
-		encoding_end_no_compress(&tlv->encoded_query_flags, 0);
-		tlv->encoding_type = ARR_UNCOMPRESSED;
-	} else {
-		assert(json_tok_streq(test_vector, encoding, "COMPRESSED_ZLIB"));
-		assert(encoding_end_zlib(&tlv->encoded_query_flags, 0));
-		tlv->encoding_type = ARR_ZLIB;
-	}
+	assert(json_tok_streq(test_vector, encoding, "UNCOMPRESSED"));
+	encoding_end_no_compress(&tlv->encoded_query_flags, 0);
+	tlv->encoding_type = ARR_UNCOMPRESSED;
 
 	return tlv;
 }
@@ -509,7 +382,7 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	for (size_t i = 0; i < ARRAY_SIZE(test_vectors); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(test_vectors_nozlib); i++) {
 		jsmn_parser parser;
 		u8 *m;
 		const char *hex_m;
@@ -517,22 +390,22 @@ int main(int argc, char *argv[])
 
 		jsmn_init(&parser);
 		assert(jsmn_parse(&parser,
-				  test_vectors[i], strlen(test_vectors[i]),
+				  test_vectors_nozlib[i], strlen(test_vectors_nozlib[i]),
 				  toks, tal_count(toks)) > 0);
 
-		msg = json_get_member(test_vectors[i], toks, "msg");
-		hex = json_get_member(test_vectors[i], toks, "hex");
-		type = json_get_member(test_vectors[i], msg, "type");
-		if (json_tok_streq(test_vectors[i], type, "QueryChannelRange"))
-			m = test_query_channel_range(test_vectors[i], msg);
-		else if (json_tok_streq(test_vectors[i], type, "ReplyChannelRange"))
-			m = test_reply_channel_range(test_vectors[i], msg);
-		else if (json_tok_streq(test_vectors[i], type, "QueryShortChannelIds"))
-			m = test_query_short_channel_ids(test_vectors[i], msg);
+		msg = json_get_member(test_vectors_nozlib[i], toks, "msg");
+		hex = json_get_member(test_vectors_nozlib[i], toks, "hex");
+		type = json_get_member(test_vectors_nozlib[i], msg, "type");
+		if (json_tok_streq(test_vectors_nozlib[i], type, "QueryChannelRange"))
+			m = test_query_channel_range(test_vectors_nozlib[i], msg);
+		else if (json_tok_streq(test_vectors_nozlib[i], type, "ReplyChannelRange"))
+			m = test_reply_channel_range(test_vectors_nozlib[i], msg);
+		else if (json_tok_streq(test_vectors_nozlib[i], type, "QueryShortChannelIds"))
+			m = test_query_short_channel_ids(test_vectors_nozlib[i], msg);
 		else
 			abort();
 		hex_m = tal_hex(m, m);
-		assert(json_tok_streq(test_vectors[i], hex, hex_m));
+		assert(json_tok_streq(test_vectors_nozlib[i], hex, hex_m));
 		tal_free(m);
 	}
 	tal_free(toks);
