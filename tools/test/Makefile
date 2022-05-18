@@ -50,7 +50,7 @@ tools/test/print_gen.c: $(TOOLS_WIRE_DEPS)
 	echo '#include "test_gen.h"' > $@
 	$(BOLT_GEN) -P --page impl ${@:.c=.h} test_type < tools/test/test_cases >> $@
 
-ALL_TEST_PROGRAMS += $(TOOL_TEST_PROGRAMS)
+#ALL_TEST_PROGRAMS += $(TOOL_TEST_PROGRAMS)
 
 check-tools: $(TOOL_TEST_PROGRAMS:%=unittest/%)
 endif # HAVE_PYTHON3_MAKO
