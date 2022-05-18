@@ -206,7 +206,7 @@ static u8 *get_scid_array(const tal_t *ctx,
 	scids = json_get_member(test_vector, obj, "shortChannelIds");
 	arr = json_get_member(test_vector, scids, "array");
 
-	encoded = encoding_start(ctx);
+	encoded = encoding_start(ctx, true);
 	encoding = json_get_member(test_vector, scids, "encoding");
 	json_for_each_arr(i, t, arr) {
 		struct short_channel_id scid;
@@ -214,8 +214,6 @@ static u8 *get_scid_array(const tal_t *ctx,
 		encoding_add_short_channel_id(&encoded, &scid);
 	}
 	assert(json_tok_streq(test_vector, encoding, "UNCOMPRESSED"));
-	encoding_end_no_compress(&encoded, 1);
-	encoded[0] = ARR_UNCOMPRESSED;
 
 	return encoded;
 }
@@ -274,7 +272,7 @@ static u8 *test_reply_channel_range(const char *test_vector, const jsmntok_t *ob
 			= tal(tlvs, struct tlv_reply_channel_range_tlvs_timestamps_tlv);
 
 		tlvs->timestamps_tlv->encoded_timestamps
-			= encoding_start(tlvs->timestamps_tlv);
+			= encoding_start(tlvs->timestamps_tlv, false);
 		encodingtok = json_get_member(test_vector, opt, "encoding");
 		tstok = json_get_member(test_vector, opt, "timestamps");
 		json_for_each_arr(i, t, tstok) {
@@ -290,8 +288,6 @@ static u8 *test_reply_channel_range(const char *test_vector, const jsmntok_t *ob
 			encoding_add_timestamps(&tlvs->timestamps_tlv->encoded_timestamps, &ts);
 		}
 		assert(json_tok_streq(test_vector, encodingtok, "UNCOMPRESSED"));
-		encoding_end_no_compress(&tlvs->timestamps_tlv->encoded_timestamps,
-					 0);
 		tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
 	}
 
@@ -335,7 +331,7 @@ get_query_flags_array(const tal_t *ctx,
 
 	arr = json_get_member(test_vector, opt, "array");
 
-	tlv->encoded_query_flags = encoding_start(tlv);
+	tlv->encoded_query_flags = encoding_start(tlv, false);
 	encoding = json_get_member(test_vector, opt, "encoding");
 	json_for_each_arr(i, t, arr) {
 		bigsize_t f;
@@ -343,7 +339,6 @@ get_query_flags_array(const tal_t *ctx,
 		encoding_add_query_flag(&tlv->encoded_query_flags, f);
 	}
 	assert(json_tok_streq(test_vector, encoding, "UNCOMPRESSED"));
-	encoding_end_no_compress(&tlv->encoded_query_flags, 0);
 	tlv->encoding_type = ARR_UNCOMPRESSED;
 
 	return tlv;
