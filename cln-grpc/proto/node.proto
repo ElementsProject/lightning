@@ -272,6 +272,7 @@ message ListfundsOutputs {
 	optional string address = 5;
 	optional bytes redeemscript = 6;
 	ListfundsOutputsStatus status = 7;
+	bool reserved = 9;
 	optional uint32 blockheight = 8;
 }
 

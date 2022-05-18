@@ -1286,6 +1286,8 @@ pub mod responses {
 	    // Path `ListFunds.outputs[].status`
 	    #[serde(rename = "status")]
 	    pub status: ListfundsOutputsStatus,
+	    #[serde(alias = "reserved")]
+	    pub reserved: bool,
 	    #[serde(alias = "blockheight", skip_serializing_if = "Option::is_none")]
 	    pub blockheight: Option<u32>,
 	}
