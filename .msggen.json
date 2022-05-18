@@ -580,6 +580,7 @@
             "ListFunds.outputs[].blockheight": 8,
             "ListFunds.outputs[].output": 2,
             "ListFunds.outputs[].redeemscript": 6,
+            "ListFunds.outputs[].reserved": 9,
             "ListFunds.outputs[].scriptpubkey": 4,
             "ListFunds.outputs[].status": 7,
             "ListFunds.outputs[].txid": 1

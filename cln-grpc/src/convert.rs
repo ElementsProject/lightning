@@ -188,6 +188,7 @@ impl From<&responses::ListfundsOutputs> for pb::ListfundsOutputs {
             address: c.address.clone(), // Rule #2 for type string?
             redeemscript: c.redeemscript.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             status: c.status as i32,
+            reserved: c.reserved.clone(), // Rule #2 for type boolean
             blockheight: c.blockheight.clone(), // Rule #2 for type u32?
         }
     }
