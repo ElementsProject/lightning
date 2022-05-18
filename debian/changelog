@@ -1,3 +1,10 @@
+lightningd (0.11.1ubuntu1) stable; urgency=medium
+
+  * connectd: make sure we don't keep stale reconnections around. (#5256)
+  * connectd: fix assert which we could trigger. (#5256)
+
+ -- Christian Decker <cdecker@blockstream.com>  Wed, 18 May 2022 12:04:12 +0200
+
 lightningd (0.11.0.1ubuntu2) stable; urgency=medium
 
   * Protocol: we now support opening multiple channels with the same peer. (#5078)

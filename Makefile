@@ -1,6 +1,6 @@
 #! /usr/bin/make
 VERSION_NAME="Bitcoin Dust Consensus Rule"
-VERSION=0.10.2
+VERSION=0.11.1
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
