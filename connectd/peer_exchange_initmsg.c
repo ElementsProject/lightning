@@ -91,29 +91,37 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	/* fetch optional tlv `remote_addr` */
 	remote_addr = NULL;
 
-	/* BOLT-remote-address #1:
+	/* BOLT #1:
 	 * The receiving node:
 	 * ...
-	 *  - MAY use the `remote_addr` to update its `node_annoucement`
+	 *  - MAY use the `remote_addr` to update its `node_announcement`
 	 */
 	if (tlvs->remote_addr) {
-		switch (tlvs->remote_addr->type) {
-		case ADDR_TYPE_IPV4:
-		case ADDR_TYPE_IPV6:
+		const u8 *cursor = tlvs->remote_addr;
+		size_t len = tal_bytelen(tlvs->remote_addr);
+
+		remote_addr = tal(peer, struct wireaddr);
+		if (fromwire_wireaddr(&cursor, &len, remote_addr)) {
+			switch (remote_addr->type) {
+			case ADDR_TYPE_IPV4:
+			case ADDR_TYPE_IPV6:
 #if DEVELOPER		/* ignore private addresses (non-DEVELOPER builds) */
-			if (address_routable(tlvs->remote_addr, true))
+				if (!address_routable(remote_addr, true))
 #else
-			if (address_routable(tlvs->remote_addr, false))
+				if (!address_routable(remote_addr, false))
 #endif /* DEVELOPER */
-				remote_addr = tal_steal(peer, tlvs->remote_addr);
-			break;
-		/* We are only interested in IP addresses */
-		case ADDR_TYPE_TOR_V2_REMOVED:
-		case ADDR_TYPE_TOR_V3:
-		case ADDR_TYPE_DNS:
-		case ADDR_TYPE_WEBSOCKET:
-			break;
-		}
+					remote_addr = tal_free(remote_addr);
+				break;
+			/* We are only interested in IP addresses */
+			case ADDR_TYPE_TOR_V2_REMOVED:
+			case ADDR_TYPE_TOR_V3:
+			case ADDR_TYPE_DNS:
+			case ADDR_TYPE_WEBSOCKET:
+				remote_addr = tal_free(remote_addr);
+				break;
+			}
+		} else
+			remote_addr = tal_free(remote_addr);
 	}
 
 	/* The globalfeatures field is now unused, but there was a
@@ -217,7 +225,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	/* set optional tlv `remote_addr` on incoming IP connections */
 	tlvs->remote_addr = NULL;
 
-	/* BOLT-remote-address #1:
+	/* BOLT #1:
 	 * The sending node:
 	 * ...
 	 *  - SHOULD set `remote_addr` to reflect the remote IP address (and port) of an
@@ -229,8 +237,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 		switch (addr->u.wireaddr.type) {
 		case ADDR_TYPE_IPV4:
 		case ADDR_TYPE_IPV6:
-			tlvs->remote_addr = tal(tlvs, struct wireaddr);
-			*tlvs->remote_addr = addr->u.wireaddr;
+			tlvs->remote_addr = tal_arr(tlvs, u8, 0);
+			towire_wireaddr(&tlvs->remote_addr, &addr->u.wireaddr);
 			break;
 		/* Only report IP addresses back for now */
 		case ADDR_TYPE_TOR_V2_REMOVED:
