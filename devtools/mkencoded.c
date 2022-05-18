@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 
 	if (encoding == ARR_UNCOMPRESSED)
 		printf("%02x%s\n", encoding, tal_hex(NULL, data));
-	else if (encoding == ARR_ZLIB) {
+	else if (encoding == ARR_ZLIB_DEPRECATED) {
 		/* https://www.zlib.net/zlib_tech.html:
 		 *   the only expansion is an overhead of five bytes per 16 KB
 		 *   block (about 0.03%), plus a one-time overhead of six bytes

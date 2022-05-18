@@ -1000,8 +1000,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	accept_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
 	/* BOLT #2:
-	 * - if it sets `channel_type`:
-	 *    - MUST set it to the `channel_type` from `open_channel`
+	 * - if `option_channel_type` was negotiated:
+	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
 	 */
 	accept_tlvs->channel_type = state->channel_type->features;
 
