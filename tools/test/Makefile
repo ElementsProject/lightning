@@ -35,9 +35,6 @@ TOOLS_WIRE_DEPS := $(BOLT_DEPS) tools/test/test_cases $(wildcard tools/gen/*_tem
 $(TOOL_TEST_OBJS) $(TOOL_GEN_OBJS): $(TOOL_GEN_HEADER)
 $(TOOL_TEST_PROGRAMS): $(TOOL_TEST_COMMON_OBJS) $(TOOL_GEN_SRC:.c=.o) tools/test/enum.o
 
-tools/test/test_gen.h: $(TOOLS_WIRE_DEPS) tools/test/Makefile
-	$(BOLT_GEN) --page header $@ test_type < tools/test/test_cases > $@
-
 .INTERMEDIATE: tools/test/test_gen.c.tmp.c
 # Parallel make sometimes tries to use file before update-mocks, so split.
 tools/test/test_gen.c.tmp.c: $(TOOLS_WIRE_DEPS)
