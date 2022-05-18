@@ -11,11 +11,12 @@ gadd = git.bake("add")
 # Read the gitmodules file
 submodules = {}
 
+print("Listing submodules to materialize")
 for l in git("submodule").split("\n"):
     if " " not in l:
         continue
-    h, d = l.split(" ")
-    h = h[1:]
+    s = l.strip().split(" ")
+    h, d = s[0], s[1]
     submodules[d] = {"path": d, "hash": h, "name": None, "url": None}
 
 curr = None
