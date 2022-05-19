@@ -122,6 +122,18 @@ struct command_result *param_sha256(struct command *cmd, const char *name,
 				     "should be a 32 byte hex value");
 }
 
+struct command_result *param_u32(struct command *cmd, const char *name,
+				 const char *buffer, const jsmntok_t *tok,
+				 uint32_t **num)
+{
+	*num = tal(cmd, uint32_t);
+	if (json_to_u32(buffer, tok, *num))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be an unsigned 32 bit integer");
+}
+
 struct command_result *param_u64(struct command *cmd, const char *name,
 				 const char *buffer, const jsmntok_t *tok,
 				 uint64_t **num)
