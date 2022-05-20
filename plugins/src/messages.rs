@@ -140,3 +140,55 @@ pub struct InitResponse {
 }
 
 pub trait Response: Serialize + Debug {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::messages;
+    use serde_json::json;
+
+    #[test]
+    fn test_init_message_parsing() {
+        let value = json!({
+            "jsonrpc": "2.0",
+            "method": "init",
+            "params": {
+                "options": {
+                    "greeting": "World",
+                    "number": [0]
+                },
+                "configuration": {
+                    "lightning-dir": "/home/user/.lightning/testnet",
+                    "rpc-file": "lightning-rpc",
+                    "startup": true,
+                    "network": "testnet",
+                    "feature_set": {
+                        "init": "02aaa2",
+                        "node": "8000000002aaa2",
+                        "channel": "",
+                        "invoice": "028200"
+                    },
+                    "proxy": {
+                        "type": "ipv4",
+                        "address": "127.0.0.1",
+                        "port": 9050
+                    },
+                    "torv3-enabled": true,
+                    "always_use_proxy": false
+                }
+            },
+            "id": 10,
+        });
+        let req: JsonRpc<Notification, Request> = serde_json::from_value(value).unwrap();
+        match req {
+            messages::JsonRpc::Request(_, messages::Request::Init(init)) => {
+                assert_eq!(init.options["greeting"], "World");
+                assert_eq!(
+                    init.configuration.lightning_dir,
+                    String::from("/home/user/.lightning/testnet")
+                );
+            }
+            _ => panic!("Couldn't parse init message"),
+        }
+    }
+}
