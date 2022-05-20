@@ -1113,11 +1113,15 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 		json_add_string(req->js, "feerate", mfc->cmtmt_feerate_str);
 	else if (mfc->feerate_str)
 		json_add_string(req->js, "feerate", mfc->feerate_str);
+
 	json_add_bool(req->js, "announce", dest->announce);
 	json_add_string(req->js, "push_msat",
 			fmt_amount_msat(tmpctx, dest->push_msat));
 	if (dest->close_to_str)
 		json_add_string(req->js, "close_to", dest->close_to_str);
+
+	if (dest->mindepth)
+		json_add_u32(req->js, "mindepth", *dest->mindepth);
 
 	send_outreq(cmd->plugin, req);
 }
@@ -1890,6 +1894,7 @@ param_destinations_array(struct command *cmd, const char *name,
 			   p_opt_def("request_amt", param_sat, &request_amt,
 				     AMOUNT_SAT(0)),
 			   p_opt("compact_lease", param_lease_hex, &rates),
+			   p_opt("mindepth", param_u32, &dest->mindepth),
 			   NULL))
 			return command_param_failed();
 

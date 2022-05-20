@@ -23,6 +23,10 @@
     "warning_usage": {
       "type": "string",
       "description": "A warning not to prematurely broadcast the funding transaction (always present!)"
+    },
+    "mindepth": {
+      "type": "u32",
+      "description": "Number of confirmations before we consider the channel active."
     }
   }
 }

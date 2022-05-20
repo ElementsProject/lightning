@@ -149,6 +149,9 @@ struct multifundchannel_destination {
 
 	/* Channel lease rates that we expect the peer to respond with */
 	struct lease_rates *rates;
+
+	/* Number of blocks to wait before sending `channel_ready`. */
+	u32 *mindepth;
 };
 
 
