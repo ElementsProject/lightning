@@ -312,6 +312,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	struct tlv_open_channel_tlvs *open_tlvs;
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	char *err_reason;
+	u32 their_mindepth;
 
 	status_debug("funder_channel_start");
 	if (!setup_channel_funder(state))
@@ -385,7 +386,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				     &state->remoteconf.max_htlc_value_in_flight,
 				     &state->remoteconf.channel_reserve,
 				     &state->remoteconf.htlc_minimum,
-				     &state->minimum_depth,
+				     &their_mindepth,
 				     &state->remoteconf.to_self_delay,
 				     &state->remoteconf.max_accepted_htlcs,
 				     &state->their_funding_pubkey,
@@ -400,6 +401,17 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				"Parsing accept_channel %s", tal_hex(msg, msg));
 	}
 	set_remote_upfront_shutdown(state, accept_tlvs->upfront_shutdown_script);
+
+	status_debug(
+	    "accept_channel: max_htlc_value_in_flight=%s, channel_reserve=%s, "
+	    "htlc_minimum=%s, minimum_depth=%d",
+	    type_to_string(tmpctx, struct amount_msat,
+			   &state->remoteconf.max_htlc_value_in_flight),
+	    type_to_string(tmpctx, struct amount_sat,
+			   &state->remoteconf.channel_reserve),
+	    type_to_string(tmpctx, struct amount_msat,
+			   &state->remoteconf.htlc_minimum),
+	    their_mindepth);
 
 	/* BOLT #2:
 	 * - if `channel_type` is set, and `channel_type` was set in
@@ -460,6 +472,20 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				   bitcoin_redeem_2of2(tmpctx,
 						       &state->our_funding_pubkey,
 						       &state->their_funding_pubkey));
+
+	/* If we have negotiated `option_zeroconf` then we're allowed
+	 * to send `channel_ready` whenever we want. So ignore their
+	 * `minimum_depth` and use ours instead. Otherwise we use the
+	 * old behavior of using their value and both side will wait
+	 * for that number of confirmations. */
+	if (feature_negotiated(state->our_features, state->their_features,
+			       OPT_ZEROCONF)) {
+		status_debug(
+		    "We negotiated option_zeroconf, using our minimum_depth=%d",
+		    state->minimum_depth);
+	} else {
+		state->minimum_depth = their_mindepth;
+	}
 
 	/* Update the billboard with our infos */
 	peer_billboard(false,
