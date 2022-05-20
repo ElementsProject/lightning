@@ -53,6 +53,13 @@ new_uncommitted_channel(struct peer *peer)
 
 	uc->fc = NULL;
 	uc->our_config.id = 0;
+	/* BOLT #2:
+	 *
+	 * The sender:
+	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
+	 *     reasonable to avoid double-spending of the funding transaction.
+	 */
+	uc->minimum_depth = ld->config.anchor_confirms;
 
 	memset(&uc->cid, 0xFF, sizeof(uc->cid));
 

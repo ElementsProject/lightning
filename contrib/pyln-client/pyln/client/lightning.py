@@ -704,7 +704,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def fundchannel(self, node_id, amount, feerate=None, announce=True,
                     minconf=None, utxos=None, push_msat=None, close_to=None,
-                    request_amt=None, compact_lease=None):
+                    request_amt=None, compact_lease=None,
+                    mindepth: Optional[int] = None):
         """
         Fund channel with {id} using {amount} satoshis with feerate
         of {feerate} (uses default feerate if unset).
@@ -729,11 +730,12 @@ class LightningRpc(UnixDomainSocketRpc):
             "close_to": close_to,
             "request_amt": request_amt,
             "compact_lease": compact_lease,
+            "mindepth": mindepth,
         }
         return self.call("fundchannel", payload)
 
     def fundchannel_start(self, node_id, amount, feerate=None, announce=True,
-                          close_to=None):
+                          close_to=None, mindepth: Optional[int] = None):
         """
         Start channel funding with {id} for {amount} satoshis
         with feerate of {feerate} (uses default feerate if unset).
@@ -749,6 +751,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "feerate": feerate,
             "announce": announce,
             "close_to": close_to,
+            "mindepth": mindepth,
         }
         return self.call("fundchannel_start", payload)
 
