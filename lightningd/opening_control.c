@@ -891,13 +891,6 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
-	/* BOLT #2:
-	 *
-	 * The sender:
-	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
-	 *     reasonable to avoid double-spending of the funding transaction.
-	 */
-	uc->minimum_depth = peer->ld->config.anchor_confirms;
 
 	msg = towire_openingd_init(NULL,
 				  chainparams,
@@ -1057,7 +1050,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	struct node_id *id;
 	struct peer *peer;
 	bool *announce_channel;
-	u32 *feerate_per_kw;
+	u32 *feerate_per_kw, *mindepth;
 
 	struct amount_sat *amount;
 	struct amount_msat *push_msat;
@@ -1077,6 +1070,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
 		   p_opt("push_msat", param_msat, &push_msat),
+		   p_opt_def("mindepth", param_u32, &mindepth, cmd->ld->config.anchor_confirms),
 		   NULL))
 		return command_param_failed();
 
@@ -1166,6 +1160,15 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
+
+	/* BOLT #2:
+	 *
+	 * The sender:
+	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
+	 *     reasonable to avoid double-spending of the funding transaction.
+	 */
+	assert(mindepth != NULL);
+	fc->uc->minimum_depth = *mindepth;
 
 	/* Needs to be stolen away from cmd */
 	if (fc->our_upfront_shutdown_script)

@@ -46,6 +46,7 @@ On success, an object is returned, containing:
 - **funding_address** (string): The address to send funding to for the channel. DO NOT SEND COINS TO THIS ADDRESS YET.
 - **scriptpubkey** (hex): The raw scriptPubkey for the address
 - **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+- **mindepth** (u32, optional): Number of confirmations before we consider the channel active.
 
 The following warnings may also be returned:
 - **warning_usage**: A warning not to prematurely broadcast the funding transaction (always present!)
@@ -82,4 +83,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:acbd9ffb07219bc10e06e8f8bc6772d12ec62650bd30b6ee1084a24f53da2ac2)
+[comment]: # ( SHA256STAMP:6dc3dd4d3d65baa617b285fd3f6e746d62e2806635a8f8852fd3a94ef6fe3e6a)

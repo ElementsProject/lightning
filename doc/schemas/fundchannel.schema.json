@@ -30,6 +30,10 @@
     "close_to": {
       "type": "hex",
       "description": "The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`"
+    },
+    "mindepth": {
+      "type": "u32",
+      "description": "Number of confirmations before we consider the channel active."
     }
   }
 }

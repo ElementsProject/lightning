@@ -89,6 +89,7 @@ On success, an object is returned, containing:
 - **outnum** (u32): The 0-based output index showing which output funded the channel
 - **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
 - **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+- **mindepth** (u32, optional): Number of confirmations before we consider the channel active.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -113,4 +114,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:4a8d7c524cfe257f961531929d14d3589efb6ecd182a33e92aade30af90406f8)
+[comment]: # ( SHA256STAMP:4bde4785d98f4fdb74ea2415b89ddc864fdf09bd9a30f8056a376aaa668a84b8)
