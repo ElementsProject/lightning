@@ -3,6 +3,7 @@ pub use anyhow::{anyhow, Context};
 use futures::sink::SinkExt;
 extern crate log;
 use log::trace;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -44,6 +45,7 @@ where
 
     hooks: HashMap<String, Hook<S>>,
     options: Vec<ConfigOption>,
+    configuration: Option<Configuration>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
 }
@@ -62,6 +64,7 @@ where
             hooks: HashMap::new(),
             subscriptions: HashMap::new(),
             options: vec![],
+            configuration: None,
             rpcmethods: HashMap::new(),
         }
     }
@@ -207,6 +210,7 @@ where
         let plugin = Plugin {
             state: self.state,
             options: self.options,
+            configuration: self.configuration.unwrap(), // OK to unwrap, set in handle_init
             wait_handle,
             sender,
         };
@@ -297,6 +301,8 @@ where
             }
         }
 
+        self.configuration = Some(call.configuration);
+
         Ok(messages::InitResponse::default())
     }
 }
@@ -363,7 +369,7 @@ where
     /// The state gets cloned for each request
     state: S,
     options: Vec<ConfigOption>,
-
+    configuration: Configuration,
     /// A signal that allows us to wait on the plugin's shutdown.
     wait_handle: tokio::sync::broadcast::Sender<()>,
 
@@ -635,6 +641,9 @@ where
     pub fn options(&self) -> Vec<ConfigOption> {
         self.options.clone()
     }
+    pub fn configuration(&self) -> Configuration {
+        self.configuration.clone()
+    }
     pub fn state(&self) -> &S {
         &self.state
     }
@@ -651,6 +660,12 @@ where
             .await
             .context("error waiting for shutdown")
     }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Configuration {
+    #[serde(rename = "lightning-dir")]
+    pub lightning_dir: String,
 }
 
 #[cfg(test)]

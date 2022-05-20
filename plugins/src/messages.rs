@@ -1,4 +1,5 @@
 use crate::options::ConfigOption;
+use crate::Configuration;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -63,6 +64,7 @@ pub struct GetManifestCall {}
 #[derive(Deserialize, Debug)]
 pub(crate) struct InitCall {
     pub(crate) options: HashMap<String, Value>,
+    pub(crate) configuration: Configuration,
 }
 
 #[derive(Debug)]
