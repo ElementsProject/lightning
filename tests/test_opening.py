@@ -5,6 +5,7 @@ from utils import (
     only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee
 )
 
+from pathlib import Path
 import pytest
 import re
 import unittest
@@ -1187,3 +1188,49 @@ def test_funder_contribution_limits(node_factory, bitcoind):
     l1.fundchannel(l3, 10**7)
     assert l3.daemon.is_in_log('Policy .* returned funding amount of 50000sat')
     assert l3.daemon.is_in_log(r'calling `signpsbt` .* 7 inputs')
+
+
+def test_zeroconf_mindepth(bitcoind, node_factory):
+    """Check that funder/fundee can customize mindepth.
+
+    Zeroconf will use this to set the mindepth to 0, which coupled
+    with an artificial depth=0 event that will result in an immediate
+    `channel_ready` being sent.
+
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {},
+        {
+            'plugin': str(plugin_path),
+            'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+            'zeroconf-mindepth': '2',
+        },
+    ])
+
+    # Try to open a mindepth=6 channel
+    l1.fundwallet(10**6)
+
+    l1.connect(l2)
+    assert (int(l1.rpc.listpeers()['peers'][0]['features'], 16) >> 50) & 0x02 != 0
+
+    # Now start the negotiation, l1 should have negotiated zeroconf,
+    # and use their own mindepth=6, while l2 uses mindepth=2 from the
+    # plugin
+    l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=6)
+
+    assert l1.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 6}]
+    assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 2}]
+
+    bitcoind.generate_block(2, wait_for_mempool=1)  # Confirm on the l2 side.
+    l2.daemon.wait_for_log(r'peer_out WIRE_FUNDING_LOCKED')
+    # l1 should not be sending funding_locked/channel_ready yet, it is
+    # configured to wait for 6 confirmations.
+    assert not l1.daemon.is_in_log(r'peer_out WIRE_FUNDING_LOCKED')
+
+    bitcoind.generate_block(4)  # Confirm on the l2 side.
+    l1.daemon.wait_for_log(r'peer_out WIRE_FUNDING_LOCKED')
+
+    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
+    wait_for(lambda: l2.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
