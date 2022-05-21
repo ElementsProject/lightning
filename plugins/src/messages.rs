@@ -1,5 +1,4 @@
 use crate::options::ConfigOption;
-use crate::Configuration;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -65,6 +64,29 @@ pub struct GetManifestCall {}
 pub(crate) struct InitCall {
     pub(crate) options: HashMap<String, Value>,
     pub(crate) configuration: Configuration,
+}
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct Configuration {
+    #[serde(rename = "lightning-dir")]
+    pub lightning_dir: String,
+    #[serde(rename = "rpc-file")]
+    pub rpc_file: String,
+    pub startup: bool,
+    pub network: String,
+    pub feature_set: HashMap<String, String>,
+    pub proxy: ProxyInfo,
+    #[serde(rename = "torv3-enabled")]
+    pub torv3_enabled: bool,
+    pub always_use_proxy: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ProxyInfo {
+    #[serde(alias = "type")]
+    pub typ: String,
+    pub address: String,
+    pub port: i64,
 }
 
 #[derive(Debug)]

@@ -3,7 +3,7 @@ pub use anyhow::{anyhow, Context};
 use futures::sink::SinkExt;
 extern crate log;
 use log::trace;
-use serde::Deserialize;
+use messages::Configuration;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -210,7 +210,9 @@ where
         let plugin = Plugin {
             state: self.state,
             options: self.options,
-            configuration: self.configuration.unwrap(), // OK to unwrap, set in handle_init
+            configuration: self
+                .configuration
+                .ok_or(anyhow!("Plugin configuration missing"))?,
             wait_handle,
             sender,
         };
@@ -368,7 +370,9 @@ where
 {
     /// The state gets cloned for each request
     state: S,
+    /// "options" field of "init" message sent by cln
     options: Vec<ConfigOption>,
+    /// "configuration" field of "init" message sent by cln
     configuration: Configuration,
     /// A signal that allows us to wait on the plugin's shutdown.
     wait_handle: tokio::sync::broadcast::Sender<()>,
@@ -660,12 +664,6 @@ where
             .await
             .context("error waiting for shutdown")
     }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct Configuration {
-    #[serde(rename = "lightning-dir")]
-    pub lightning_dir: String,
 }
 
 #[cfg(test)]
