@@ -1,5 +1,6 @@
 #include "config.h"
 #include <common/bech32.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <errno.h>
@@ -133,6 +134,12 @@ static void listnodes_done(const char *buffer,
 	if (t)
 		t = json_get_member(buffer, t, "nodes");
 
+	if (!deprecated_apis && (!t || t->size == 0)) {
+		was_pending(command_fail(can->cmd, SIGNMESSAGE_PUBKEY_NOT_FOUND,
+					 "pub key not found in the graph, expected pubkey is %s",
+					 node_id_to_hexstr(tmpctx, &can->id)));
+		return;
+	}
 	response = json_stream_success(can->cmd);
 	json_add_node_id(response, "pubkey", &can->id);
 	json_add_bool(response, "verified", t && t->size == 1);

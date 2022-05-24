@@ -100,6 +100,9 @@ static const errcode_t DATASTORE_UPDATE_WRONG_GENERATION = 1204;
 static const errcode_t DATASTORE_UPDATE_HAS_CHILDREN = 1205;
 static const errcode_t DATASTORE_UPDATE_NO_CHILDREN = 1206;
 
+/* Errors from signmessage command */
+static const errcode_t SIGNMESSAGE_PUBKEY_NOT_FOUND = 1301;
+
 /* Errors from wait* commands */
 static const errcode_t WAIT_TIMEOUT = 2000;
 
