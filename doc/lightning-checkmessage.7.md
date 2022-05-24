@@ -20,6 +20,10 @@ known node key (as per *listnodes*), and verification succeeds if it
 matches for any one of them.  Note: this is implemented far more
 efficiently than trying each one, so performance is not a concern.
 
+On failure, an error is returned and core lightning exit with the following error code:
+- -32602: Parameter missed or malformed;
+- 1301: *pubkey* not found in the graph.
+
 RETURN VALUE
 ------------
 
