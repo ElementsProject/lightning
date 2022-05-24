@@ -44,6 +44,7 @@ COMMON_SRC_NOGEN :=				\
 	common/htlc_trim.c			\
 	common/htlc_tx.c			\
 	common/htlc_wire.c			\
+	common/interactivetx.c			\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
 	common/iso4217.c			\
