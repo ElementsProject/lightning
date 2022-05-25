@@ -70,7 +70,7 @@ def normalize_varname(field):
     """Make sure that the variable name of this field is valid.
     """
     # Dashes are not valid names
-    field.path = field.path.replace("-", "_")
+    field.path = field.path.replace("-", "_").replace("#", "").lstrip()
     field.path = re.sub(r'(?<!^)(?=[A-Z])', '_', field.path).lower()
     return field
 

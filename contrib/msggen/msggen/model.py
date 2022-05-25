@@ -19,7 +19,7 @@ class FieldName:
             "type": "item_type"
         }.get(self.name, self.name)
 
-        name = name.replace(' ', '_').replace('-', '_').replace('[]', '')
+        name = name.replace(' ', '_').replace('-', '_').replace('[]', '').lstrip("#_")
         return name
 
     def __str__(self):
