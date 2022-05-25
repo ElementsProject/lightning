@@ -1302,4 +1302,39 @@ def test_zeroconf_open(bitcoind, node_factory):
 
 
 
+def test_zeroconf_forward(node_factory, bitcoind):
+    """Ensure that we can use zeroconf channels in forwards.
+
+    Test that we add routehints using the zeroconf channel, and then
+    ensure that l2 uses the alias from the routehint to forward the
+    payment. Then do the inverse by sending from l3 to l1, first hop
+    being the zeroconf channel
+
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    opts = [
+        {},
+        {},
+        {
+            'plugin': str(plugin_path),
+            'zeroconf-allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+        }
+    ]
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    l1.connect(l2)
+    l1.fundchannel(l2, 10**6)
+    bitcoind.generate_block(6)
+
+    l2.connect(l3)
+    l2.fundwallet(10**7)
+    l2.rpc.fundchannel(l3.info['id'], 10**6, mindepth=0)
+    wait_for(lambda: l3.rpc.listincoming()['incoming'] != [])
+
+    inv = l3.rpc.invoice(42 * 10**6, 'inv1', 'desc')['bolt11']
     l1.rpc.pay(inv)
+
+    # And now try the other way around: zeroconf channel first
+    # followed by a public one.
+    inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
+    l3.rpc.pay(inv)
