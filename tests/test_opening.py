@@ -1301,6 +1301,58 @@ def test_zeroconf_open(bitcoind, node_factory):
     l2.rpc.pay(inv)
 
 
+@pytest.mark.xfail(strict=True, reason="Peers do not recognize the final scid yet")
+def test_zeroconf_public(bitcoind, node_factory):
+    """Test that we transition correctly from zeroconf to public
+
+    The differences being that a public channel MUST use the public
+    scid. l1 and l2 open a zeroconf channel, then l3 learns about it
+    after 6 confirmations.
+
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[
+        {},
+        {
+            'plugin': str(plugin_path),
+            'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
+        },
+        {}
+    ])
+    l1.fundwallet(10**6)
+    l1.connect(l2)
+    l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0)
+
+    # Wait for the update to be signed (might not be the most reliable
+    # signal)
+    l1.daemon.wait_for_log(r'Got WIRE_HSMD_CUPDATE_SIG_REQ')
+    l2.daemon.wait_for_log(r'Got WIRE_HSMD_CUPDATE_SIG_REQ')
+
+    l1chan = l1.rpc.listpeers()['peers'][0]['channels'][0]
+    l2chan = l2.rpc.listpeers()['peers'][0]['channels'][0]
+
+    # We have no confirmation yet, so no `short_channel_id`
+    assert('short_channel_id' not in l1chan)
+    assert('short_channel_id' not in l2chan)
+
+    # Now add 1 confirmation, we should get a `short_channel_id`
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log(r'Funding tx [a-f0-9]{64} depth 1 of 0')
+    l2.daemon.wait_for_log(r'Funding tx [a-f0-9]{64} depth 1 of 0')
+
+    l1chan = l1.rpc.listpeers()['peers'][0]['channels'][0]
+    l2chan = l2.rpc.listpeers()['peers'][0]['channels'][0]
+    assert('short_channel_id' in l1chan)
+    assert('short_channel_id' in l2chan)
+
+    # Now make it public, we should be switching over to the real
+    # scid.
+    bitcoind.generate_block(5)
+    # Wait for l3 to learn about the channel, it'll have checked the
+    # funding outpoint, scripts, etc.
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+
 
 def test_zeroconf_forward(node_factory, bitcoind):
     """Ensure that we can use zeroconf channels in forwards.
