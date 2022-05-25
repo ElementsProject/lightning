@@ -43,6 +43,7 @@ typemap = {
     'signature': 'String',
     'string': 'String',
     'txid': 'String',
+    'integer': 'i64',
     'float': 'f32',
     'utxo': 'Utxo',
     'feerate': 'Feerate',
