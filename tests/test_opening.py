@@ -6,6 +6,7 @@ from utils import (
 )
 
 from pathlib import Path
+from pprint import pprint
 import pytest
 import re
 import unittest
@@ -1234,3 +1235,71 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
 
     wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
     wait_for(lambda: l2.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
+
+
+def test_zeroconf_open(bitcoind, node_factory):
+    """Let's open a zeroconf channel
+
+    Just test that both parties opting in results in a channel that is
+    immediately usable.
+
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {},
+        {
+            'plugin': str(plugin_path),
+            'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
+        },
+    ])
+
+    # Try to open a mindepth=0 channel
+    l1.fundwallet(10**6)
+
+    l1.connect(l2)
+    assert (int(l1.rpc.listpeers()['peers'][0]['features'], 16) >> 50) & 0x02 != 0
+
+    # Now start the negotiation, l1 should have negotiated zeroconf,
+    # and use their own mindepth=6, while l2 uses mindepth=2 from the
+    # plugin
+    l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0)
+
+    assert l1.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
+    assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
+
+    l1.daemon.wait_for_logs([
+        r'peer_in WIRE_FUNDING_LOCKED',
+        r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
+    ])
+    l2.daemon.wait_for_logs([
+        r'peer_in WIRE_FUNDING_LOCKED',
+        r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
+    ])
+
+    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: l2.rpc.listpeers()['peers'][0]['channels'][0]['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: l2.rpc.listincoming()['incoming'] != [])
+
+    inv = l2.rpc.invoice(10**8, 'lbl', 'desc')['bolt11']
+    details = l1.rpc.decodepay(inv)
+    pprint(details)
+    assert('routes' in details and len(details['routes']) == 1)
+    hop = details['routes'][0][0]  # First (and only) hop of hint 0
+    l1alias = l1.rpc.listpeers()['peers'][0]['channels'][0]['alias']['local']
+    assert(hop['pubkey'] == l1.info['id'])  # l1 is the entrypoint
+    assert(hop['short_channel_id'] == l1alias)  # Alias has to make sense to entrypoint
+    l1.rpc.pay(inv)
+
+    # Ensure lightningd knows about the balance change before
+    # attempting the other way around.
+    l2.daemon.wait_for_log(r'Balance [0-9]+msat -> [0-9]+msat')
+
+    # Inverse payments should work too
+    pprint(l2.rpc.listpeers())
+    inv = l1.rpc.invoice(10**5, 'lbl', 'desc')['bolt11']
+    l2.rpc.pay(inv)
+
+
+
+    l1.rpc.pay(inv)
