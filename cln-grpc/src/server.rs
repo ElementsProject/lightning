@@ -1210,6 +1210,70 @@ async fn tx_send(
 
 }
 
+async fn decode(
+    &self,
+    request: tonic::Request<pb::DecodeRequest>,
+) -> Result<tonic::Response<pb::DecodeResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DecodeRequest = (&req).into();
+    debug!("Client asked for decode");
+    trace!("decode request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Decode(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Decode: {:?}", e)))?;
+    match result {
+        Response::Decode(r) => {
+           trace!("decode response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Decode",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn del_pay(
+    &self,
+    request: tonic::Request<pb::DelpayRequest>,
+) -> Result<tonic::Response<pb::DelpayResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::DelpayRequest = (&req).into();
+    debug!("Client asked for del_pay");
+    trace!("del_pay request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::DelPay(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method DelPay: {:?}", e)))?;
+    match result {
+        Response::DelPay(r) => {
+           trace!("del_pay response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call DelPay",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn disconnect(
     &self,
     request: tonic::Request<pb::DisconnectRequest>,
@@ -1267,6 +1331,38 @@ async fn feerates(
             Code::Internal,
             format!(
                 "Unexpected result {:?} to method call Feerates",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn fund_channel(
+    &self,
+    request: tonic::Request<pb::FundchannelRequest>,
+) -> Result<tonic::Response<pb::FundchannelResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::FundchannelRequest = (&req).into();
+    debug!("Client asked for fund_channel");
+    trace!("fund_channel request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::FundChannel(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method FundChannel: {:?}", e)))?;
+    match result {
+        Response::FundChannel(r) => {
+           trace!("fund_channel response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call FundChannel",
                 r
             )
         )),
@@ -1370,6 +1466,38 @@ async fn list_pays(
 
 }
 
+async fn multi_withdraw(
+    &self,
+    request: tonic::Request<pb::MultiwithdrawRequest>,
+) -> Result<tonic::Response<pb::MultiwithdrawResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::MultiwithdrawRequest = (&req).into();
+    debug!("Client asked for multi_withdraw");
+    trace!("multi_withdraw request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::MultiWithdraw(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method MultiWithdraw: {:?}", e)))?;
+    match result {
+        Response::MultiWithdraw(r) => {
+           trace!("multi_withdraw response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call MultiWithdraw",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn ping(
     &self,
     request: tonic::Request<pb::PingRequest>,
@@ -1402,6 +1530,38 @@ async fn ping(
 
 }
 
+async fn send_custom_msg(
+    &self,
+    request: tonic::Request<pb::SendcustommsgRequest>,
+) -> Result<tonic::Response<pb::SendcustommsgResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SendcustommsgRequest = (&req).into();
+    debug!("Client asked for send_custom_msg");
+    trace!("send_custom_msg request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SendCustomMsg(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SendCustomMsg: {:?}", e)))?;
+    match result {
+        Response::SendCustomMsg(r) => {
+           trace!("send_custom_msg response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SendCustomMsg",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn sign_message(
     &self,
     request: tonic::Request<pb::SignmessageRequest>,
@@ -1427,6 +1587,38 @@ async fn sign_message(
             Code::Internal,
             format!(
                 "Unexpected result {:?} to method call SignMessage",
+                r
+            )
+        )),
+    }
+
+}
+
+async fn list_configs(
+    &self,
+    request: tonic::Request<pb::ListconfigsRequest>,
+) -> Result<tonic::Response<pb::ListconfigsResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListconfigsRequest = (&req).into();
+    debug!("Client asked for list_configs");
+    trace!("list_configs request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListConfigs(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListConfigs: {:?}", e)))?;
+    match result {
+        Response::ListConfigs(r) => {
+           trace!("list_configs response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListConfigs",
                 r
             )
         )),

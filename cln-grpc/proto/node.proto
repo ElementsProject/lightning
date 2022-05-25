@@ -45,13 +45,19 @@ service Node {
 	rpc TxDiscard(TxdiscardRequest) returns (TxdiscardResponse) {}
 	rpc TxPrepare(TxprepareRequest) returns (TxprepareResponse) {}
 	rpc TxSend(TxsendRequest) returns (TxsendResponse) {}
+	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
+	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
+	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
+	rpc MultiWithdraw(MultiwithdrawRequest) returns (MultiwithdrawResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
+	rpc SendCustomMsg(SendcustommsgRequest) returns (SendcustommsgResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
+	rpc ListConfigs(ListconfigsRequest) returns (ListconfigsResponse) {}
 }
 
 message GetinfoRequest {
@@ -1081,6 +1087,152 @@ message TxsendResponse {
 	bytes txid = 3;
 }
 
+message DecodeRequest {
+	string string = 1;
+}
+
+message DecodeResponse {
+	// Decode.type
+	enum DecodeType {
+		BOLT12_OFFER = 0;
+		BOLT12_INVOICE = 1;
+		BOLT12_INVOICE_REQUEST = 2;
+		BOLT11_INVOICE = 3;
+	}
+	DecodeType item_type = 1;
+	bool valid = 2;
+	optional bytes offer_id = 3;
+	repeated bytes chains = 4;
+	optional string currency = 5;
+	optional uint32 minor_unit = 6;
+	optional string warning_offer_unknown_currency = 7;
+	optional uint64 amount = 8;
+	optional Amount amount_msat = 9;
+	optional bool send_invoice = 10;
+	optional bytes refund_for = 11;
+	optional string description = 12;
+	optional string vendor = 13;
+	optional bytes features = 14;
+	optional uint64 absolute_expiry = 15;
+	repeated DecodePaths paths = 16;
+	optional uint64 quantity_min = 17;
+	optional uint64 quantity_max = 18;
+	optional string warning_offer_missing_description = 20;
+	optional bytes chain = 21;
+	optional uint64 quantity = 22;
+	optional uint32 recurrence_counter = 23;
+	optional uint32 recurrence_start = 24;
+	optional uint32 recurrence_basetime = 25;
+	optional bytes payer_info = 26;
+	optional uint64 created_at = 27;
+	optional bytes payment_hash = 28;
+	optional uint32 relative_expiry = 29;
+	optional uint32 min_final_cltv_expiry = 30;
+	repeated DecodeFallbacks fallbacks = 31;
+	optional string warning_invoice_missing_amount = 32;
+	optional string warning_invoice_missing_description = 33;
+	optional string warning_invoice_missing_blinded_payinfo = 34;
+	optional string warning_invoice_invalid_blinded_payinfo = 35;
+	optional string warning_invoice_missing_recurrence_basetime = 36;
+	optional string warning_invoice_missing_created_at = 37;
+	optional string warning_invoice_missing_payment_hash = 38;
+	optional string warning_invoice_refund_signature_missing_payer_key = 39;
+	optional string warning_invoice_refund_signature_invalid = 40;
+	optional string warning_invoice_refund_missing_signature = 41;
+	optional string warning_invoice_request_missing_offer_id = 42;
+	optional string warning_invoice_request_missing_payer_key = 43;
+	optional string warning_invoice_request_missing_recurrence_signature = 44;
+	optional string warning_invoice_request_invalid_recurrence_signature = 45;
+	optional uint64 expiry = 46;
+	optional bytes payee = 47;
+	optional bytes description_hash = 48;
+	optional bytes payment_secret = 49;
+	optional bytes payment_metadata = 50;
+	repeated DecodeRoutes routes = 51;
+	repeated DecodeExtra extra = 52;
+}
+
+message DecodePaths {
+	bytes blinding = 1;
+	repeated DecodePathsPath path = 2;
+}
+
+message DecodePathsPath {
+	bytes node_id = 1;
+	bytes encrypted_recipient_data = 2;
+}
+
+message DecodeRecurrence {
+	uint32 time_unit = 1;
+	optional string time_unit_name = 2;
+	uint32 period = 3;
+	optional uint64 basetime = 4;
+	optional uint64 start_any_period = 5;
+	optional uint32 limit = 6;
+}
+
+message DecodeRecurrencePaywindow {
+	uint32 seconds_before = 1;
+	uint32 seconds_after = 2;
+	optional bool proportional_amount = 3;
+}
+
+message DecodeFallbacks {
+	uint32 version = 1;
+	bytes hex = 2;
+	optional string address = 3;
+}
+
+message DecodeRoutes {
+	bytes pubkey = 1;
+	string short_channel_id = 2;
+	uint32 fee_base_msat = 3;
+	uint32 fee_proportional_millionths = 4;
+	uint32 cltv_expiry_delta = 5;
+}
+
+message DecodeExtra {
+	string tag = 1;
+	string data = 2;
+}
+
+message DelpayRequest {
+	// DelPay.status
+	enum DelpayStatus {
+		COMPLETE = 0;
+		FAILED = 1;
+	}
+	bytes payment_hash = 1;
+	DelpayStatus status = 2;
+}
+
+message DelpayResponse {
+	repeated DelpayPayments payments = 1;
+}
+
+message DelpayPayments {
+	// DelPay.payments[].status
+	enum DelpayPaymentsStatus {
+		PENDING = 0;
+		FAILED = 1;
+		COMPLETE = 2;
+	}
+	uint64 id = 1;
+	bytes payment_hash = 2;
+	DelpayPaymentsStatus status = 3;
+	Amount amount_sent_msat = 4;
+	optional uint64 partid = 5;
+	optional bytes destination = 6;
+	optional Amount amount_msat = 7;
+	uint64 created_at = 8;
+	optional uint64 groupid = 9;
+	optional bytes payment_preimage = 10;
+	optional string label = 11;
+	optional string bolt11 = 12;
+	optional string bolt12 = 13;
+	optional bytes erroronion = 14;
+}
+
 message DisconnectRequest {
 	bytes id = 1;
 	optional bool force = 2;
@@ -1130,6 +1282,27 @@ message FeeratesOnchain_fee_estimates {
 	uint64 unilateral_close_satoshis = 3;
 	uint64 htlc_timeout_satoshis = 4;
 	uint64 htlc_success_satoshis = 5;
+}
+
+message FundchannelRequest {
+	bytes id = 1;
+	Amount amount = 2;
+	optional Feerate feerate = 3;
+	optional bool announce = 4;
+	optional uint32 minconf = 5;
+	repeated Outpoint utxos = 6;
+	optional Amount push_msat = 7;
+	optional bytes close_to = 8;
+	optional Amount request_amt = 9;
+	optional bytes compact_lease = 10;
+}
+
+message FundchannelResponse {
+	bytes tx = 1;
+	bytes txid = 2;
+	uint32 outnum = 3;
+	bytes channel_id = 4;
+	optional bytes close_to = 5;
 }
 
 message GetrouteRequest {
@@ -1237,6 +1410,21 @@ message ListpaysPays {
 	optional bytes erroronion = 10;
 }
 
+message MultiwithdrawRequest {
+	repeated MultiwithdrawOutputs outputs = 1;
+	optional Feerate feerate = 2;
+	optional uint32 minconf = 3;
+	optional Outpoint utxos = 4;
+}
+
+message MultiwithdrawResponse {
+	bytes tx = 1;
+	bytes txid = 2;
+}
+
+message MultiwithdrawOutputs {
+}
+
 message PingRequest {
 	bytes id = 1;
 	optional double len = 2;
@@ -1247,6 +1435,15 @@ message PingResponse {
 	uint32 totlen = 1;
 }
 
+message SendcustommsgRequest {
+	bytes id = 1;
+	bytes msg = 2;
+}
+
+message SendcustommsgResponse {
+	string status = 1;
+}
+
 message SignmessageRequest {
 	string message = 1;
 }
@@ -1255,4 +1452,81 @@ message SignmessageResponse {
 	bytes signature = 1;
 	bytes recid = 2;
 	string zbase = 3;
+}
+
+message ListconfigsRequest {
+	optional string config = 1;
+}
+
+message ListconfigsResponse {
+	optional string version = 1;
+	repeated ListconfigsPlugins plugins = 2;
+	repeated ListconfigsImportantPlugins important_plugins = 3;
+	optional string conf = 4;
+	optional string lightning_dir = 5;
+	optional string network = 6;
+	optional bool allow_deprecated_apis = 7;
+	optional string rpc_file = 8;
+	repeated string disable_plugin = 9;
+	optional bool always_use_proxy = 10;
+	optional bool daemon = 11;
+	optional string wallet = 12;
+	optional bool large_channels = 13;
+	optional bool experimental_dual_fund = 14;
+	optional bool experimental_onion_messages = 15;
+	optional bool experimental_offers = 16;
+	optional bool experimental_shutdown_wrong_funding = 17;
+	optional uint32 experimental_websocket_port = 18;
+	optional bytes rgb = 19;
+	optional string alias = 20;
+	optional string pid_file = 21;
+	optional bool ignore_fee_limits = 22;
+	optional uint32 watchtime_blocks = 23;
+	optional uint32 max_locktime_blocks = 24;
+	optional uint32 funding_confirms = 25;
+	optional uint32 cltv_delta = 26;
+	optional uint32 cltv_final = 27;
+	optional uint32 commit_time = 28;
+	optional uint32 fee_base = 29;
+	optional sint64 rescan = 30;
+	optional uint32 fee_per_satoshi = 31;
+	optional uint32 max_concurrent_htlcs = 32;
+	optional Amount htlc_minimum_msat = 33;
+	optional Amount htlc_maximum_msat = 34;
+	optional Amount max_dust_htlc_exposure_msat = 35;
+	optional uint64 min_capacity_sat = 36;
+	optional string addr = 37;
+	optional string announce_addr = 38;
+	optional string bind_addr = 39;
+	optional bool offline = 40;
+	optional bool autolisten = 41;
+	optional string proxy = 42;
+	optional bool disable_dns = 43;
+	optional bool disable_ip_discovery = 44;
+	optional bool encrypted_hsm = 45;
+	optional string rpc_file_mode = 46;
+	optional string log_level = 47;
+	optional string log_prefix = 48;
+	optional string log_file = 49;
+	optional bool log_timestamps = 50;
+	optional string force_feerates = 51;
+	optional string subdaemon = 52;
+	optional bool fetchinvoice_noconnect = 53;
+	optional string tor_service_password = 54;
+}
+
+message ListconfigsPlugins {
+	string path = 1;
+	string name = 2;
+}
+
+message ListconfigsPluginsOptions {
+}
+
+message ListconfigsImportantPlugins {
+	string path = 1;
+	string name = 2;
+}
+
+message ListconfigsImportantPluginsOptions {
 }
