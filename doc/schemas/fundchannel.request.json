@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "id",
+    "amount"
+  ],
+  "dependentRequired": {
+    "request_amt": "compact_lease"
+  },
+  "properties": {
+    "id": {
+      "type": "pubkey",
+      "description": "node id for the channel counterparty"
+    },
+    "amount": {
+      "type": "msat",
+      "description": "The amount of the channel balance we want to fund."
+    },
+    "feerate": {
+      "type": "feerate",
+      "description": "on-chain feerate we use for fudning tx"
+    },
+    "announce": {
+      "type": "boolean",
+      "description": "announce this channel to a public network. default is true"
+    },
+    "minconf": {
+      "type": "u32",
+      "description": "utxos under this value is not used as an input to the funding tx."
+    },
+    "utxos": {
+      "type": "array",
+      "items": {
+        "type": "outpoint"
+      }
+    },
+    "push_msat": {
+      "type": "msat",
+      "description": "value to unconditionally spend to the counterparty when openning the channel."
+    },
+    "close_to": {
+      "type": "hex",
+      "description": "The raw scriptPubkey which mutual close will go to; only works if the peer supports `option_upfront_shutdown_script`"
+    },
+    "request_amt": {
+      "type": "msat",
+      "description": "amount of liquidity you'd like to lease from the peer. If peer supports `option_will_fund`, indicates to them to include this much liquidity into the channel. Must also pass in compact_lease"
+    },
+    "compact_lease": {
+      "type": "hex",
+      "description": "compact representation of the peer's expected channel lease terms. If the peer's terms don't match this set, we will fail to open the channel."
+    }
+  }
+}

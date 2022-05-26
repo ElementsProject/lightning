@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "id",
+    "msg"
+  ],
+  "properties": {
+    "id": {
+      "type": "pubkey",
+      "description": "The node id to send custom msg. We must have a direct connection for `sendcustommsg` rpc to work, otherwise we need `sendonion` or `createonion`"
+    },
+    "msg": {
+      "type": "hex",
+      "description": "hex encoded message. including 2-byte type prefix."
+    }
+  }
+}

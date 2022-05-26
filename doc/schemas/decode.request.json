@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "string"
+  ],
+  "properties": {
+    "string": {
+      "type": "string",
+      "description": "string value for one of [bolt11 invoice|bolt12 offer|bolt12 invoice|bolt11 invoice_request]"
+    }
+  }
+}
