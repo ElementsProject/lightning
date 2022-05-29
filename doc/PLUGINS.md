@@ -29,7 +29,7 @@ register one or more plugins that should be started. In case you wish
 to start several plugins you have to use the `--plugin=` argument
 once for each plugin (or `--plugin-dir` or place them in the default
 plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and
-`~/.lightningd/plugins`). An example call might look like:
+`~/.lightning/plugins`). An example call might look like:
 
 ```
 lightningd --plugin=/path/to/plugin1 --plugin=path/to/plugin2
