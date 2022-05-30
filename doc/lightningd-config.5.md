@@ -535,6 +535,11 @@ be listed with `lightningd --list-features-only`.
 Specifying this enables sending, forwarding and receiving onion messages,
 which are in draft status in the BOLT specifications.
 
+ **experimental-all-onion-messages**
+
+Specifying this enables the same as **experimental-onion-messages**,
+but also allows even numbered messages to be sent.
+
  **experimental-offers**
 
 Specifying this enables the `offers` and `fetchinvoice` plugins and

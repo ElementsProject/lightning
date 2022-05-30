@@ -54,6 +54,7 @@ On success, an object is returned, containing:
 - **large-channels** (boolean, optional): `large-channels` field from config or cmdline, or default
 - **experimental-dual-fund** (boolean, optional): `experimental-dual-fund` field from config or cmdline, or default
 - **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default
+- **experimental-all-onion-messages** (boolean, optional): `experimental-all-onion-messages` field from config or cmdline, or default
 - **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default
 - **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default
 - **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default

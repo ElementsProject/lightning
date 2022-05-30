@@ -16,8 +16,9 @@ top, not for direct use by end-users.
 
 The message must be a hex encoded well-formed message, including the 2-byte
 type prefix, but excluding the length prefix which will be added by the RPC
-method. The messages must not use even-numbered types, since these may require
-synchronous handling on the receiving side, and can cause the connection to be
+method. The messages must not use even-numbered types, unless using
+`--experimental-all-onion-messages`, since these may require synchronous
+handling on the receiving side, and can cause the connection to be
 dropped. The message types may also not use one of the internally handled
 types, since that may cause issues with the internal state tracking of
 Core Lightning.

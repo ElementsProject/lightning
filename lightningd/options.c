@@ -797,6 +797,8 @@ static const struct config testnet_config = {
 	.connection_timeout_secs = 60,
 
 	.exp_offers = IFEXPERIMENTAL(true, false),
+
+	.allow_even_custom_messages = false,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -861,6 +863,8 @@ static const struct config mainnet_config = {
 	.connection_timeout_secs = 60,
 
 	.exp_offers = IFEXPERIMENTAL(true, false),
+
+	.allow_even_custom_messages = false,
 };
 
 static void check_config(struct lightningd *ld)
@@ -997,6 +1001,12 @@ static char *opt_set_onion_messages(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_all_onion_messages(struct lightningd *ld)
+{
+	ld->config.allow_even_custom_messages = true;
+	return opt_set_onion_messages(ld);
+}
+
 static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
@@ -1063,6 +1073,10 @@ static void register_opts(struct lightningd *ld)
 				 opt_set_onion_messages, ld,
 				 "EXPERIMENTAL: enable send, receive and relay"
 				 " of onion messages");
+	opt_register_early_noarg("--experimental-all-onion-messages",
+				 opt_set_all_onion_messages, ld,
+				 "EXPERIMENTAL: enable send, receive and relay"
+				 " of all onion messages");
 	opt_register_early_noarg("--experimental-offers",
 				 opt_set_offers, ld,
 				 "EXPERIMENTAL: enable send and receive of offers"
@@ -1519,6 +1533,8 @@ static void add_config(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_ONION_MESSAGES));
+		} else if (opt->cb == (void *)opt_set_all_onion_messages) {
+			json_add_bool(response, name0, ld->config.allow_even_custom_messages);
 		} else if (opt->cb == (void *)opt_set_offers) {
 			json_add_bool(response, name0, ld->config.exp_offers);
 		} else if (opt->cb == (void *)opt_set_shutdown_wrong_funding) {

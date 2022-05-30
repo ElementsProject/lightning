@@ -70,6 +70,9 @@ struct config {
 
 	/* EXPERIMENTAL: offers support */
 	bool exp_offers;
+
+	/* Do we allow even custom messages to be sent */
+	bool allow_even_custom_messages;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;

@@ -117,6 +117,10 @@
       "type": "boolean",
       "description": "`experimental-onion-messages` field from config or cmdline, or default"
     },
+    "experimental-all-onion-messages": {
+      "type": "boolean",
+      "description": "`experimental-all-onion-messages` field from config or cmdline, or default"
+    },
     "experimental-offers": {
       "type": "boolean",
       "description": "`experimental-offers` field from config or cmdline, or default"

@@ -622,6 +622,7 @@ static bool handle_custommsg(struct daemon *daemon,
 			     const u8 *msg)
 {
 	enum peer_wire type = fromwire_peektype(msg);
+	// fixme use allow_even_custom_messages config here
 	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
 		/* The message is not part of the messages we know how to
 		 * handle. Assuming this is a custommsg, we just forward it to the

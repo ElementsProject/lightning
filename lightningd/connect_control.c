@@ -656,13 +656,15 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 		    type, peer_wire_name(type));
 	}
 
-	if (type % 2 == 0) {
+	if (type % 2 == 0 && !cmd->ld->config.allow_even_custom_messages) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_REQUEST,
 		    "Cannot send even-typed %d custom message. Currently "
 		    "custom messages are limited to odd-numbered message "
 		    "types, as even-numbered types might result in "
-		    "disconnections.",
+		    "disconnections. If you really want to send even custom "
+                    "messages, add the --experimental-all-onion-messages "
+                    "to the lightningd configuration",
 		    type);
 	}
 

@@ -2209,6 +2209,59 @@ def test_sendcustommsg(node_factory):
     ])
 
 
+def test_even_sendcustommsg(node_factory):
+    """Check that we can send even custommsgs to peers in various states.
+
+    `l2` is the node under test. `l1` has a channel with `l2` and should
+    therefore be attached to `channeld`. `l4` is just connected, so it should
+    be attached to `openingd`. `l3` has a channel open, but is disconnected
+    and we can't send to it.
+
+    """
+    opts = {'log-level': 'io', 'experimental-all-onion-messages': None,
+            'experimental-accept-extra-tlv-types': '43690', 'plugin': [
+        os.path.join(os.path.dirname(__file__), "plugins", "custommsg_b.py"),
+        os.path.join(os.path.dirname(__file__), "plugins", "custommsg_a.py")
+    ]}
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
+    node_factory.join_nodes([l1, l2, l3])
+    l2.connect(l4)
+    l3.stop()
+
+    # Even-numbered message
+    msg = hex(43690)[2:] + ('ff' * 30) + 'bb'
+
+    # This should work since the peer is currently owned by `channeld`
+    l2.rpc.sendcustommsg(l1.info['id'], msg)
+    l2.daemon.wait_for_log(
+        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
+            owner='channeld', msg=msg, peer_id=l1.info['id']
+        )
+    )
+    l1.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
+    l1.daemon.wait_for_logs([
+        r'Got custommessage_a {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id']),
+        r'Got custommessage_b {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id'])
+    ])
+
+    # This should work since the peer is currently owned by `openingd`
+    l2.rpc.sendcustommsg(l4.info['id'], msg)
+    l2.daemon.wait_for_log(
+        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
+            owner='openingd', msg=msg, peer_id=l4.info['id']
+        )
+    )
+    l4.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
+    l4.daemon.wait_for_logs([
+        r'Got custommessage_a {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id']),
+        r'Got custommessage_b {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id']),
+    ])
+
+
 @pytest.mark.developer("needs --dev-force-privkey")
 def test_getsharedsecret(node_factory):
     """
