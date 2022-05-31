@@ -1056,10 +1056,10 @@ send_payment_core(struct lightningd *ld,
 			     group, channel, &hout);
 
 	if (failmsg) {
-		fail = immediate_routing_failure(cmd, ld,
-						 fromwire_peektype(failmsg),
-						 channel->scid,
-						 &channel->peer->id);
+		fail = immediate_routing_failure(
+		    cmd, ld, fromwire_peektype(failmsg),
+		    channel_scid_or_local_alias(channel),
+		    &channel->peer->id);
 
 		return sendpay_fail(
 		    cmd, old_payment, PAY_TRY_OTHER_ROUTE, NULL, fail,
