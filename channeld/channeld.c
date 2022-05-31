@@ -3217,6 +3217,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 	u32 depth;
 	struct short_channel_id *scid, *alias_local;
 	struct tlv_funding_locked_tlvs *tlvs;
+	struct pubkey point;
 
 	if (!fromwire_channeld_funding_depth(tmpctx,
 					     msg,
@@ -3253,9 +3254,13 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 			tlvs = tlv_funding_locked_tlvs_new(tmpctx);
 			tlvs->alias = alias_local;
 
-			msg = towire_funding_locked(
-			    NULL, &peer->channel_id,
-			    &peer->next_local_per_commit, tlvs);
+			/* Need to retrieve the first point again, even if we
+			 * moved on, as funding_locked explicitly includes the
+			 * first one. */
+			get_per_commitment_point(1, &point, NULL);
+
+			msg = towire_funding_locked(NULL, &peer->channel_id,
+						    &point, tlvs);
 			peer_write(peer->pps, take(msg));
 
 			peer->funding_locked[LOCAL] = true;
