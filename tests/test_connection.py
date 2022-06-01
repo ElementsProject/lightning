@@ -10,7 +10,7 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr,
-    DEVELOPER, EXPERIMENTAL_FEATURES, mine_funding_to_announce
+    EXPERIMENTAL_FEATURES, mine_funding_to_announce
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
@@ -46,9 +46,6 @@ def test_connect_basic(node_factory):
     assert len(l1.rpc.listpeers()) == 1
     assert len(l2.rpc.listpeers()) == 1
 
-    if DEVELOPER:
-        print(l1.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}"))
-
     # Should get reasonable error if unknown addr for peer.
     with pytest.raises(RpcError, match=r'Unable to connect, no address known'):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
@@ -62,7 +59,7 @@ def test_connect_basic(node_factory):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for having localhost remote_addr and fast gossip")
+@pytest.mark.developer("needs DEVELOPER=1 for fast gossip and --dev-allow-localhost for local remote_addr")
 def test_remote_addr(node_factory, bitcoind):
     """Check address discovery (BOLT1 #917) init remote_addr works as designed:
 
@@ -70,17 +67,33 @@ def test_remote_addr(node_factory, bitcoind):
         - at least two peers
         - we have a channel with
         - report the same `remote_addr`
+
+        We perform logic tests on L2, setup:
+         l1 --> [l2] <-- l3
     """
     # don't announce anything per se
-    opts = {'announce-addr': [], 'may_reconnect': True}
-    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    opts = {'may_reconnect': True,
+            'dev-allow-localhost': None,
+            'dev-no-reconnect': None}
+    l1, l2, l3 = node_factory.get_nodes(3, opts)
+
+    # Disable announcing local autobind addresses with dev-allow-localhost.
+    # We need to have l2 opts 'bind-addr' to the (generated) value of 'addr'.
+    # So we stop, set 'bind-addr' option, delete 'addr' and restart first.
+    l2.stop()
+    l2.daemon.opts['bind-addr'] = l2.daemon.opts['addr']
+    del l2.daemon.opts['addr']
+    l2.start()
+
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
 
     # Fund first channel so initial node_announcement is send
+    # and also check no addresses have been announced yet
     l1.fundchannel(l2)
     bitcoind.generate_block(5)
     l1.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
+    assert(len(l1.rpc.listnodes(l2.info['id'])['nodes'][0]['addresses']) == 0)
 
     # when we restart l1 with a channel and reconnect, node_annoucement update
     # must not yet be send as we need the same `remote_addr` confirmed from a
@@ -91,9 +104,8 @@ def test_remote_addr(node_factory, bitcoind):
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
 
-    # now only l1 sees l2 without announced addresses (disabled by opts)
+    # Now l1 sees l2 but without announced addresses.
     assert(len(l1.rpc.listnodes(l2.info['id'])['nodes'][0]['addresses']) == 0)
-    assert(len(l3.rpc.listnodes(l2.info['id'])['nodes']) == 0)
     assert not l2.daemon.is_in_log("Update our node_announcement for discovered address: 127.0.0.1:9735")
 
     # connect second node. This will not yet trigger `node_annoucement` update,
@@ -120,12 +132,18 @@ def test_remote_addr(node_factory, bitcoind):
     assert address['port'] == 9735
 
 
-@pytest.mark.developer("needs DEVELOPER=1 for having localhost remote_addr and fast gossip")
+@pytest.mark.developer("needs DEVELOPER=1 for fast gossip and --dev-allow-localhost for local remote_addr")
 def test_remote_addr_disabled(node_factory, bitcoind):
     """Simply tests that IP address discovery annoucements can be turned off
+
+       We perform logic tests on L2, setup:
+        l1 --> [l2] <-- l3
     """
-    opts = {'announce-addr': [], 'disable-ip-discovery': None, 'may_reconnect': True}
-    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    opts = {'dev-allow-localhost': None,
+            'disable-ip-discovery': None,
+            'may_reconnect': True,
+            'dev-no-reconnect': None}
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[opts, opts, opts])
 
     # l1->l2
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)

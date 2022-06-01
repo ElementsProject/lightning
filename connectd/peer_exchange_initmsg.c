@@ -105,11 +105,10 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			switch (remote_addr->type) {
 			case ADDR_TYPE_IPV4:
 			case ADDR_TYPE_IPV6:
-#if DEVELOPER		/* ignore private addresses (non-DEVELOPER builds) */
-				if (!address_routable(remote_addr, true))
-#else
-				if (!address_routable(remote_addr, false))
-#endif /* DEVELOPER */
+				/* Drop non-public addresses when not testing */
+				if (!address_routable(remote_addr,
+						      IFDEV(peer->daemon->dev_allow_localhost,
+						      false)))
 					remote_addr = tal_free(remote_addr);
 				break;
 			/* We are only interested in IP addresses */
