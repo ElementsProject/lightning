@@ -256,7 +256,9 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
-	lockin_complete(channel);
+
+	if (channel->depth >= channel->minimum_depth)
+		lockin_complete(channel);
 }
 
 static void peer_got_announcement(struct channel *channel, const u8 *msg)
@@ -805,6 +807,7 @@ bool channel_tell_depth(struct lightningd *ld,
 	const char *txidstr;
 
 	txidstr = type_to_string(tmpctx, struct bitcoin_txid, txid);
+	channel->depth = depth;
 
 	if (!channel->owner) {
 		log_debug(channel->log,

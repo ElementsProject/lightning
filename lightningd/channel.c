@@ -430,6 +430,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->channel_flags = channel_flags;
 	channel->our_config = *our_config;
 	channel->minimum_depth = minimum_depth;
+	channel->depth = 0;
 	channel->next_index[LOCAL] = next_index_local;
 	channel->next_index[REMOTE] = next_index_remote;
 	channel->next_htlc_id = next_htlc_id;

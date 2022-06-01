@@ -119,6 +119,12 @@ struct channel {
 	/* Minimum funding depth (specified by us if they fund). */
 	u32 minimum_depth;
 
+	/* Depth of the funding TX as reported by the txout
+	 * watch. Only used while we're in state
+	 * CHANNELD_AWAITING_LOCKING, afterwards the watches do not
+	 * trigger anymore. */
+	u32 depth;
+
 	/* Tracking commitment transaction numbers. */
 	u64 next_index[NUM_SIDES];
 	u64 next_htlc_id;
