@@ -458,7 +458,10 @@ def test_peer_connected_remote_addr(node_factory):
 
     The optional tlv `remote_addr` should only be visible to the initiator l1.
     """
-    l1, l2 = node_factory.get_nodes(2, opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/peer_connected_logger_a.py')})
+    pluginpath = os.path.join(os.getcwd(), 'tests/plugins/peer_connected_logger_a.py')
+    l1, l2 = node_factory.get_nodes(2, opts={
+        'plugin': pluginpath,
+        'dev-allow-localhost': None})
     l1id = l1.info['id']
     l2id = l2.info['id']
 
