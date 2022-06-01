@@ -86,7 +86,9 @@ def test_remote_addr(node_factory, bitcoind):
     l2.start()
 
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
+    logmsg = l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
+    # check 'listpeers' contains the 'remote_addr' as logged
+    assert logmsg.endswith(l2.rpc.listpeers()['peers'][0]['remote_addr'])
 
     # Fund first channel so initial node_announcement is send
     # and also check no addresses have been announced yet

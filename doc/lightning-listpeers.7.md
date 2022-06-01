@@ -159,6 +159,7 @@ If **connected** is *true*:
   - **netaddr** (array of strings): A single entry array:
     - address, e.g. 1.2.3.4:1234
   - **features** (hex): bitmap of BOLT #9 features from peer's INIT message
+  - **remote_addr** (string, optional): The public IPv4/6 address the peer sees us from, e.g. 1.2.3.4:1234
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -380,4 +381,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:4f76b5ac19d3dfdaf3d04f5dd5de2312a2ab0ccffe779508c416aaf6e644612a)
+[comment]: # ( SHA256STAMP:e6829e8ced923131b95bcfa4f366dd04286fe85485039e9ebc89e79899937df6)

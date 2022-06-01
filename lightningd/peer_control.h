@@ -40,6 +40,9 @@ struct peer {
 	struct wireaddr_internal addr;
 	bool connected_incoming;
 
+	/* They send what they see as our address as remote_addr */
+	struct wireaddr *remote_addr;
+
 	/* We keep a copy of their feature bits */
 	const u8 *their_features;
 

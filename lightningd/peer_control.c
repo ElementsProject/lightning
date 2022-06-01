@@ -97,6 +97,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->uncommitted_channel = NULL;
 	peer->addr = *addr;
 	peer->connected_incoming = connected_incoming;
+	peer->remote_addr = NULL;
 	peer->their_features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
@@ -1154,6 +1155,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	/* Update peer address and direction */
 	peer->addr = hook_payload->addr;
 	peer->connected_incoming = hook_payload->incoming;
+	if (peer->remote_addr)
+		tal_free(peer->remote_addr);
+	peer->remote_addr = NULL;
 	peer_update_features(peer, their_features);
 
 	tal_steal(peer, hook_payload);
@@ -1172,6 +1176,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	if (hook_payload->remote_addr) {
 		log_peer_info(ld->log, &id, "Peer says it sees our address as: %s",
 			      fmt_wireaddr(tmpctx, hook_payload->remote_addr));
+		peer->remote_addr = tal_dup(peer, struct wireaddr,
+					    hook_payload->remote_addr);
 		/* Currently only from peers we have a channel with, until we
 		 * do stuff like probing for remote_addr to a random node. */
 		if (!list_empty(&peer->channels))
@@ -1671,6 +1677,10 @@ static void json_add_peer(struct lightningd *ld,
 					       struct wireaddr_internal,
 					       &p->addr));
 		json_array_end(response);
+		/* If peer reports our IP remote_addr, add that here */
+		if (p->remote_addr)
+			json_add_string(response, "remote_addr",
+					fmt_wireaddr(response, p->remote_addr));
 		json_add_hex_talarr(response, "features", p->their_features);
 	}
 
