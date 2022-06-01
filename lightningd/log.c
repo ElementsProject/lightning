@@ -601,7 +601,8 @@ static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 		l = *log->lr->default_print_level;
 	else
 		l = DEFAULT_LOGLEVEL;
-	strncpy(buf, log_level_name(l), OPT_SHOW_LEN-1);
+	strncpy(buf, log_level_name(l), OPT_SHOW_LEN - 1);
+	buf[OPT_SHOW_LEN - 1] = '\0';
 }
 
 static char *arg_log_prefix(const char *arg, struct log *log)
