@@ -1065,6 +1065,8 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_object_end(s);
 
 	json_object_start(s, "htlc");
+	json_add_short_channel_id(s, "short_channel_id", hin->key.channel->scid);
+	json_add_u64(s, "id", hin->key.id);
 	json_add_amount_msat_only(s, "amount", hin->msat);
 	json_add_u32(s, "cltv_expiry", expiry);
 	json_add_s32(s, "cltv_expiry_relative", expiry - blockheight);
