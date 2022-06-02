@@ -1365,6 +1365,8 @@ The payload of the hook call has the following format:
     "next_onion": "[1365bytes of serialized onion]"
   },
   "htlc": {
+    "short_channel_id": "4x5x6",
+    "id": 27,
     "amount": "43msat",
     "cltv_expiry": 500028,
     "cltv_expiry_relative": 10,
@@ -1393,6 +1395,8 @@ For detailed information about each field please refer to [BOLT 04 of the specif
    - `shared_secret` is the shared secret we used to decrypt the incoming
      onion. It is shared with the sender that constructed the onion.
  - `htlc`:
+   - `short_channel_id` is the channel this payment is coming from.
+   - `id` is the low-level sequential HTLC id integer as sent by the channel peer.
    - `amount` is the amount that we received with the HTLC. This amount minus
      the `forward_amount` is the fee that will stay with us.
    - `cltv_expiry` determines when the HTLC reverts back to the
