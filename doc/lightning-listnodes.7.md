@@ -30,26 +30,24 @@ RETURN VALUE
 On success, an object containing **nodes** is returned.  It is an array of objects, where each object contains:
 - **nodeid** (pubkey): the public key of the node
 - **last_timestamp** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
+- **option_will_fund** (object, optional): A liquidity ad announcement has been received for this node:
+  - **lease_fee_base_msat** (msat): the fixed fee for a lease (whole number of satoshis)
+  - **lease_fee_basis** (u32): the proportional fee in basis points (parts per 10,000) for a lease
+  - **funding_weight** (u32): the onchain weight you'll have to pay for a lease
+  - **channel_fee_max_base_msat** (msat): the maximum base routing fee this node will charge during the lease
+  - **channel_fee_max_proportional_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
+  - **compact_lease** (hex): the lease as represented in the node_announcement
 
 If **last_timestamp** is present:
   - **alias** (string): The fun alias this node advertized (up to 32 characters)
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
-  - **features** (hex): BOLT #9 features bitmap this node advertized in node_announcement message
+  - **features** (hex): BOLT #9 features bitmap this node advertized
   - **addresses** (array of objects): The addresses this node advertized:
     - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
     - **port** (u16): port number
 
     If **type** is "dns", "ipv4", "ipv6", "torv2" or "torv3":
       - **address** (string): address in expected format for **type**
-
-If **option_will_fund** is present:
-  - **option_will_fund** (object):
-    - **lease_fee_base_msat** (msat): the fixed fee for a lease (whole number of satoshis)
-    - **lease_fee_basis** (u32): the proportional fee in basis points (parts per 10,000) for a lease
-    - **funding_weight** (u32): the onchain weight you'll have to pay for a lease
-    - **channel_fee_max_base_msat** (msat): the maximum base routing fee this node will charge during the lease
-    - **channel_fee_max_proportional_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
-    - **compact_lease** (hex): the lease as represented in the node_announcement
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -95,4 +93,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:85400c9c1741943e2e02935b4f14fd187a7db6056410e42adec07ef3c6772f5f)
+[comment]: # ( SHA256STAMP:9b1f940088c35054205287fa3e539939054ab035947ae3c78fee195faa35a7d7)
