@@ -2154,6 +2154,8 @@ pub mod responses {
 	    pub features: Option<String>,
 	    #[serde(alias = "addresses", skip_serializing_if = "Option::is_none")]
 	    pub addresses: Option<Vec<ListnodesNodesAddresses>>,
+		// This would need to get some codegen'd version of:
+		// pub option_will_fund: Option<ListnodesNodesOption_will_fund>
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2510,6 +2512,7 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesOnchain_fee_estimates {
+		// ^^ Similar naming/casing pattern
 	    #[serde(alias = "opening_channel_satoshis")]
 	    pub opening_channel_satoshis: u64,
 	    #[serde(alias = "mutual_close_satoshis")]
