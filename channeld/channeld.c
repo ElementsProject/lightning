@@ -185,6 +185,16 @@ struct peer {
 	/* We allow a 'tx-sigs' message between reconnect + funding_locked */
 	bool tx_sigs_allowed;
 
+	/* Have we announced the real scid with a
+	 * local_channel_announcement? This can be different from the
+	 * `channel_local_active` flag in case we are using zeroconf,
+	 * in which case we'll have announced the channels with the
+	 * two aliases (LOCAL and REMOTE) but not with the real scid
+	 * just yet. If we get a funding depth change, with a scid,
+	 * and the two flags not equal we know we have to announce the
+	 * channel with the real scid. */
+	bool gossip_scid_announced;
+
 	/* Most recent channel_update message. */
 	u8 *channel_update;
 };
@@ -534,6 +544,14 @@ static void channel_announcement_negotiate(struct peer *peer)
 
 	if (!peer->channel_local_active) {
 		peer->channel_local_active = true;
+		make_channel_local_active(peer);
+	} else if(!peer->gossip_scid_announced) {
+		/* So we know a short_channel_id, i.e., a point on
+		 * chain, but haven't added it to our local view of
+		 * the gossip yet. We need to add it now (and once
+		 * only), so our `channel_update` we'll send a couple
+		 * of lines down has something to attach to. */
+		peer->gossip_scid_announced = true;
 		make_channel_local_active(peer);
 	}
 
@@ -3984,6 +4002,7 @@ int main(int argc, char *argv[])
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->announce_depth_reached = false;
 	peer->channel_local_active = false;
+	peer->gossip_scid_announced = false;
 	peer->from_master = msg_queue_new(peer, true);
 	peer->shutdown_sent[LOCAL] = false;
 	peer->shutdown_wrong_funding = NULL;
