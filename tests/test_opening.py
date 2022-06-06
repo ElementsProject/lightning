@@ -1350,6 +1350,7 @@ def test_zeroconf_public(bitcoind, node_factory):
     bitcoind.generate_block(5)
     # Wait for l3 to learn about the channel, it'll have checked the
     # funding outpoint, scripts, etc.
+    l3.connect(l1)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
 
