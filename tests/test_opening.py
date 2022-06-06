@@ -1301,7 +1301,6 @@ def test_zeroconf_open(bitcoind, node_factory):
     l2.rpc.pay(inv)
 
 
-@pytest.mark.xfail(strict=True, reason="Peers do not recognize the final scid yet")
 def test_zeroconf_public(bitcoind, node_factory):
     """Test that we transition correctly from zeroconf to public
 
@@ -1351,6 +1350,7 @@ def test_zeroconf_public(bitcoind, node_factory):
     bitcoind.generate_block(5)
     # Wait for l3 to learn about the channel, it'll have checked the
     # funding outpoint, scripts, etc.
+    l3.connect(l1)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
 
