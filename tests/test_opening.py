@@ -1301,7 +1301,6 @@ def test_zeroconf_open(bitcoind, node_factory):
     l2.rpc.pay(inv)
 
 
-@pytest.mark.xfail(strict=True, reason="Peers do not recognize the final scid yet")
 def test_zeroconf_public(bitcoind, node_factory):
     """Test that we transition correctly from zeroconf to public
 
