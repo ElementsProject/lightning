@@ -209,6 +209,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.FeeratesRequest.SerializeToString,
                 response_deserializer=node__pb2.FeeratesResponse.FromString,
                 )
+        self.FundChannel = channel.unary_unary(
+                '/cln.Node/FundChannel',
+                request_serializer=node__pb2.FundchannelRequest.SerializeToString,
+                response_deserializer=node__pb2.FundchannelResponse.FromString,
+                )
         self.GetRoute = channel.unary_unary(
                 '/cln.Node/GetRoute',
                 request_serializer=node__pb2.GetrouteRequest.SerializeToString,
@@ -473,6 +478,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FundChannel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetRoute(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -700,6 +711,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Feerates,
                     request_deserializer=node__pb2.FeeratesRequest.FromString,
                     response_serializer=node__pb2.FeeratesResponse.SerializeToString,
+            ),
+            'FundChannel': grpc.unary_unary_rpc_method_handler(
+                    servicer.FundChannel,
+                    request_deserializer=node__pb2.FundchannelRequest.FromString,
+                    response_serializer=node__pb2.FundchannelResponse.SerializeToString,
             ),
             'GetRoute': grpc.unary_unary_rpc_method_handler(
                     servicer.GetRoute,
@@ -1396,6 +1412,23 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/Feerates',
             node__pb2.FeeratesRequest.SerializeToString,
             node__pb2.FeeratesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FundChannel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/FundChannel',
+            node__pb2.FundchannelRequest.SerializeToString,
+            node__pb2.FundchannelResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

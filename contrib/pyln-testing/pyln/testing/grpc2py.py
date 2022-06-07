@@ -769,6 +769,16 @@ def feerates2py(m):
     })
 
 
+def fundchannel2py(m):
+    return remove_default({
+        "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
+        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
+        "outnum": m.outnum,  # PrimitiveField in generate_composite
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
+    })
+
+
 def getroute_route2py(m):
     return remove_default({
         "id": hexlify(m.id),  # PrimitiveField in generate_composite

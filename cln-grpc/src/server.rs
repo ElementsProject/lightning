@@ -1274,6 +1274,38 @@ async fn feerates(
 
 }
 
+async fn fund_channel(
+    &self,
+    request: tonic::Request<pb::FundchannelRequest>,
+) -> Result<tonic::Response<pb::FundchannelResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::FundchannelRequest = (&req).into();
+    debug!("Client asked for fund_channel");
+    trace!("fund_channel request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::FundChannel(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method FundChannel: {:?}", e)))?;
+    match result {
+        Response::FundChannel(r) => {
+           trace!("fund_channel response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call FundChannel",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn get_route(
     &self,
     request: tonic::Request<pb::GetrouteRequest>,
