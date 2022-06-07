@@ -268,18 +268,20 @@ bool psbt_input_set_signature(struct wally_psbt *psbt, size_t in,
 			      const struct bitcoin_signature *sig)
 {
 	u8 pk_der[PUBKEY_CMPR_LEN];
+	u8 sig_der[73];
+	size_t sig_len;
 	bool ok;
 
 	assert(in < psbt->num_inputs);
 
 	/* we serialize the compressed version of the key, wally likes this */
 	pubkey_to_der(pk_der, pubkey);
+	sig_len = signature_to_der(sig_der, sig);
 	tal_wally_start();
 	wally_psbt_input_set_sighash(&psbt->inputs[in], sig->sighash_type);
 	ok = wally_psbt_input_add_signature(&psbt->inputs[in],
 					    pk_der, sizeof(pk_der),
-					    sig->s.data,
-					    sizeof(sig->s.data)) == WALLY_OK;
+					    sig_der, sig_len) == WALLY_OK;
 	tal_wally_end(psbt);
 	return ok;
 }

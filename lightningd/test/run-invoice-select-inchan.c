@@ -485,9 +485,6 @@ struct channel *new_unsaved_channel(struct peer *peer UNNEEDED,
 /* Generated stub for node_id_cmp */
 int node_id_cmp(const struct node_id *a UNNEEDED, const struct node_id *b UNNEEDED)
 { fprintf(stderr, "node_id_cmp called!\n"); abort(); }
-/* Generated stub for node_id_to_hexstr */
-char *node_id_to_hexstr(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "node_id_to_hexstr called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED,
 		    const struct node_id *nodeid UNNEEDED,
