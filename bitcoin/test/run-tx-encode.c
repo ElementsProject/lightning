@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <bitcoin/psbt.c>
 #include <bitcoin/shadouble.c>
+#include <bitcoin/signature.c>
 #include <bitcoin/tx.c>
 #include <bitcoin/varint.c>
 #include <ccan/str/hex/hex.h>
@@ -47,12 +48,22 @@ const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy 
 /* Generated stub for fromwire_fail */
 void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_fail called!\n"); abort(); }
+/* Generated stub for fromwire_secp256k1_ecdsa_signature */
+void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+					secp256k1_ecdsa_signature *signature UNNEEDED)
+{ fprintf(stderr, "fromwire_secp256k1_ecdsa_signature called!\n"); abort(); }
 /* Generated stub for fromwire_sha256 */
 void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "fromwire_sha256 called!\n"); abort(); }
 /* Generated stub for fromwire_u32 */
 u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
+/* Generated stub for fromwire_u8 */
+u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_u8 called!\n"); abort(); }
+/* Generated stub for fromwire_u8_array */
+void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr UNNEEDED, size_t num UNNEEDED)
+{ fprintf(stderr, "fromwire_u8_array called!\n"); abort(); }
 /* Generated stub for is_anchor_witness_script */
 bool is_anchor_witness_script(const u8 *script UNNEEDED, size_t script_len UNNEEDED)
 { fprintf(stderr, "is_anchor_witness_script called!\n"); abort(); }
@@ -68,12 +79,19 @@ void script_push_bytes(u8 **scriptp UNNEEDED, const void *mem UNNEEDED, size_t l
 /* Generated stub for scriptpubkey_p2wsh */
 u8 *scriptpubkey_p2wsh(const tal_t *ctx UNNEEDED, const u8 *witnessscript UNNEEDED)
 { fprintf(stderr, "scriptpubkey_p2wsh called!\n"); abort(); }
+/* Generated stub for towire_secp256k1_ecdsa_signature */
+void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
+			      const secp256k1_ecdsa_signature *signature UNNEEDED)
+{ fprintf(stderr, "towire_secp256k1_ecdsa_signature called!\n"); abort(); }
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
 /* Generated stub for towire_u32 */
 void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
 { fprintf(stderr, "towire_u32 called!\n"); abort(); }
+/* Generated stub for towire_u8 */
+void towire_u8(u8 **pptr UNNEEDED, u8 v UNNEEDED)
+{ fprintf(stderr, "towire_u8 called!\n"); abort(); }
 /* Generated stub for towire_u8_array */
 void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "towire_u8_array called!\n"); abort(); }
