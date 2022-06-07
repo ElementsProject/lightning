@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "amount"
+  ],
+  "properties": {
+    "id": {
+      "type": "pubkey",
+      "description": "id is the peer id obtained from connect."
+    },
+    "amount": {
+      "type": "msat_or_all"
+    },
+    "feerate": {
+      "type": "feerate"
+    },
+    "announce": {
+      "type": "boolean"
+    },
+    "minconf": {
+      "type": "number"
+    },
+    "push_msat": {
+      "type": "msat"
+    },
+    "close_to": {
+      "type": "string"
+    },
+    "request_amt": {
+      "type": "msat"
+    },
+    "compact_lease": {
+      "type": "string"
+    },
+    "utxos": {
+      "type": "array",
+      "items": {
+        "type": "outpoint"
+      }
+    }
+  }
+}

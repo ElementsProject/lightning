@@ -853,6 +853,19 @@ impl From<&responses::FeeratesResponse> for pb::FeeratesResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::FundchannelResponse> for pb::FundchannelResponse {
+    fn from(c: &responses::FundchannelResponse) -> Self {
+        Self {
+            tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
+            txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
+            outnum: c.outnum.clone(), // Rule #2 for type u32
+            channel_id: hex::decode(&c.channel_id).unwrap(), // Rule #2 for type hex
+            close_to: c.close_to.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&responses::GetrouteRoute> for pb::GetrouteRoute {
     fn from(c: &responses::GetrouteRoute) -> Self {
         Self {
@@ -1419,6 +1432,24 @@ impl From<&pb::FeeratesRequest> for requests::FeeratesRequest {
     fn from(c: &pb::FeeratesRequest) -> Self {
         Self {
             style: c.style.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::FundchannelRequest> for requests::FundchannelRequest {
+    fn from(c: &pb::FundchannelRequest) -> Self {
+        Self {
+            id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            amount: c.amount.as_ref().unwrap().into(), // Rule #1 for type msat_or_all
+            feerate: c.feerate.as_ref().map(|a| a.into()), // Rule #1 for type feerate?
+            announce: c.announce.clone(), // Rule #1 for type boolean?
+            minconf: c.minconf.clone(), // Rule #1 for type number?
+            push_msat: c.push_msat.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            close_to: c.close_to.clone(), // Rule #1 for type string?
+            request_amt: c.request_amt.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            compact_lease: c.compact_lease.clone(), // Rule #1 for type string?
+            utxos: Some(c.utxos.iter().map(|s| s.into()).collect()), // Rule #4
         }
     }
 }

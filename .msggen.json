@@ -381,6 +381,26 @@
             "Feerates.perkw": 3,
             "Feerates.warning_missing_feerates": 1
         },
+        "FundchannelRequest": {
+            "FundChannel.amount": 1,
+            "FundChannel.announce": 3,
+            "FundChannel.close_to": 6,
+            "FundChannel.compact_lease": 8,
+            "FundChannel.feerate": 2,
+            "FundChannel.id": 9,
+            "FundChannel.minconf": 10,
+            "FundChannel.minconf[]": 4,
+            "FundChannel.push_msat": 5,
+            "FundChannel.request_amt": 7,
+            "FundChannel.utxos[]": 11
+        },
+        "FundchannelResponse": {
+            "FundChannel.channel_id": 4,
+            "FundChannel.close_to": 5,
+            "FundChannel.outnum": 3,
+            "FundChannel.tx": 1,
+            "FundChannel.txid": 2
+        },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
             "FundPsbt.feerate": 2,

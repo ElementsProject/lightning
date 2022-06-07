@@ -47,6 +47,7 @@ service Node {
 	rpc TxSend(TxsendRequest) returns (TxsendResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
+	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
 	rpc GetRoute(GetrouteRequest) returns (GetrouteResponse) {}
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
@@ -1130,6 +1131,27 @@ message FeeratesOnchain_fee_estimates {
 	uint64 unilateral_close_satoshis = 3;
 	uint64 htlc_timeout_satoshis = 4;
 	uint64 htlc_success_satoshis = 5;
+}
+
+message FundchannelRequest {
+	bytes id = 9;
+	AmountOrAll amount = 1;
+	optional Feerate feerate = 2;
+	optional bool announce = 3;
+	optional double minconf = 10;
+	optional Amount push_msat = 5;
+	optional string close_to = 6;
+	optional Amount request_amt = 7;
+	optional string compact_lease = 8;
+	repeated Outpoint utxos = 11;
+}
+
+message FundchannelResponse {
+	bytes tx = 1;
+	bytes txid = 2;
+	uint32 outnum = 3;
+	bytes channel_id = 4;
+	optional bytes close_to = 5;
 }
 
 message GetrouteRequest {

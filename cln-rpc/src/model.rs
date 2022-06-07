@@ -55,6 +55,7 @@ pub enum Request {
 	TxSend(requests::TxsendRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
+	FundChannel(requests::FundchannelRequest),
 	GetRoute(requests::GetrouteRequest),
 	ListForwards(requests::ListforwardsRequest),
 	ListPays(requests::ListpaysRequest),
@@ -105,6 +106,7 @@ pub enum Response {
 	TxSend(responses::TxsendResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
+	FundChannel(responses::FundchannelResponse),
 	GetRoute(responses::GetrouteResponse),
 	ListForwards(responses::ListforwardsResponse),
 	ListPays(responses::ListpaysResponse),
@@ -696,6 +698,30 @@ pub mod requests {
 	    // Path `Feerates.style`
 	    #[serde(rename = "style")]
 	    pub style: FeeratesStyle,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelRequest {
+	    #[serde(alias = "id")]
+	    pub id: Pubkey,
+	    #[serde(alias = "amount")]
+	    pub amount: AmountOrAll,
+	    #[serde(alias = "feerate", skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(alias = "announce", skip_serializing_if = "Option::is_none")]
+	    pub announce: Option<bool>,
+	    #[serde(alias = "minconf", skip_serializing_if = "Option::is_none")]
+	    pub minconf: Option<f64>,
+	    #[serde(alias = "push_msat", skip_serializing_if = "Option::is_none")]
+	    pub push_msat: Option<Amount>,
+	    #[serde(alias = "close_to", skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(alias = "request_amt", skip_serializing_if = "Option::is_none")]
+	    pub request_amt: Option<Amount>,
+	    #[serde(alias = "compact_lease", skip_serializing_if = "Option::is_none")]
+	    pub compact_lease: Option<String>,
+	    #[serde(alias = "utxos", skip_serializing_if = "Option::is_none")]
+	    pub utxos: Option<Vec<Outpoint>>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2510,6 +2536,20 @@ pub mod responses {
 	pub struct FeeratesResponse {
 	    #[serde(alias = "warning_missing_feerates", skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_feerates: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelResponse {
+	    #[serde(alias = "tx")]
+	    pub tx: String,
+	    #[serde(alias = "txid")]
+	    pub txid: String,
+	    #[serde(alias = "outnum")]
+	    pub outnum: u32,
+	    #[serde(alias = "channel_id")]
+	    pub channel_id: String,
+	    #[serde(alias = "close_to", skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
 	}
 
 	/// The features understood by the destination node
