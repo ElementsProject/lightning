@@ -562,7 +562,7 @@ class ElementsD(BitcoinD):
 
 
 class ValidatingLightningSignerD(TailableProc):
-    def __init__(self, vlsd_dir, vlsd_port):
+    def __init__(self, vlsd_dir, vlsd_port, node_id):
         TailableProc.__init__(self, vlsd_dir)
         self.executable = env("REMOTE_SIGNER_CMD", 'vlsd')
         self.opts = [
@@ -578,7 +578,7 @@ class ValidatingLightningSignerD(TailableProc):
                 BITCOIND_CONFIG['rpcpassword'],
                 BITCOIND_CONFIG['rpcport']),
             ]
-        self.prefix = 'vlsd'
+        self.prefix = 'vlsd-%d' % (node_id)
         self.vlsd_port = vlsd_port
 
     @property
@@ -619,6 +619,7 @@ class LightningD(TailableProc):
         self.lightning_dir = lightning_dir
         self.use_vlsd = False
         self.vlsd_dir = os.path.join(lightning_dir, "vlsd")
+        self.node_id = node_id
 
         self.rpcproxy = bitcoindproxy
         self.env['CLN_PLUGIN_LOG'] = "gl_plugin=trace,gl_rpc=trace,gl_grpc=trace,debug"
@@ -711,7 +712,7 @@ class LightningD(TailableProc):
             if self.use_vlsd:
                 # Start the remote signer first
                 vlsd_port = reserve()
-                self.vlsd = ValidatingLightningSignerD(self.vlsd_dir, vlsd_port)
+                self.vlsd = ValidatingLightningSignerD(self.vlsd_dir, vlsd_port, self.node_id)
                 self.vlsd.start(stdin, stdout, stderr, wait_for_initialized)
 
                 # We can't do this in the constructor because we need a new port on each restart.
