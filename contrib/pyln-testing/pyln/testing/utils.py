@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
+from pyln.testing.gossip import GossipStore
 from collections import OrderedDict
 from decimal import Decimal
 from pyln.client import LightningRpc
@@ -698,6 +699,8 @@ class LightningNode(object):
         socket_path = os.path.join(lightning_dir, TEST_NETWORK, "lightning-rpc").format(node_id)
         self.rpc = PrettyPrintingLightningRpc(socket_path, self.executor, jsonschemas=jsonschemas)
 
+        self.gossip_store = GossipStore(Path(lightning_dir, TEST_NETWORK, "gossip_store"))
+
         self.daemon = LightningD(
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
             port=port, random_hsm=random_hsm, node_id=node_id
@@ -841,6 +844,7 @@ class LightningNode(object):
         self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
         self.port = self.info['binding'][0]['port']
+        self.gossip_store.open()  # Reopen the gossip_store now that we should have one
         if wait_for_bitcoind_sync and not self.is_synced_with_bitcoin(self.info):
             wait_for(lambda: self.is_synced_with_bitcoin())
 
