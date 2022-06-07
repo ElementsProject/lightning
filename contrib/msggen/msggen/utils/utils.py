@@ -82,7 +82,7 @@ def load_jsonrpc_service(schema_dir: str = None):
         # "fetchinvoice",
         # "fundchannel_cancel",
         # "fundchannel_complete",
-        # "fundchannel",
+        "FundChannel",
         # "fundchannel_start",
         # "funderupdate",
         # "getlog",
