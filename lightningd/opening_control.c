@@ -732,6 +732,7 @@ openchannel_hook_deserialize(struct openchannel_hook_payload *payload,
 	const jsmntok_t *t_errmsg  = json_get_member(buffer, toks, "error_message");
 	const jsmntok_t *t_closeto = json_get_member(buffer, toks, "close_to");
 	const jsmntok_t *t_mindepth = json_get_member(buffer, toks, "mindepth");
+	const jsmntok_t *t_reserve = json_get_member(buffer, toks, "reserve");
 
 	if (!t_result)
 		fatal("Plugin returned an invalid response to the"
@@ -791,6 +792,16 @@ openchannel_hook_deserialize(struct openchannel_hook_payload *payload,
 		    "Setting mindepth=%d for this channel as requested by "
 		    "the openchannel hook",
 		    payload->uc->minimum_depth);
+	}
+
+	if (t_reserve != NULL) {
+		payload->uc->reserve = tal(payload->uc, struct amount_sat);
+		json_to_sat(buffer, t_reserve, payload->uc->reserve);
+		log_debug(openingd->ld->log,
+			  "Setting reserve=%s for this channel as requested by "
+			  "the openchannel hook",
+			  type_to_string(tmpctx, struct amount_sat,
+					 payload->uc->reserve));
 	}
 
 	return true;

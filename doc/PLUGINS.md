@@ -1198,13 +1198,29 @@ e.g.
 {
     "result": "continue",
     "close_to": "bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2"
+	"mindepth": 0,
+	"reserve": "1234sat"
 }
 ```
 
 Note that `close_to` must be a valid address for the current chain,
 an invalid address will cause the node to exit with an error.
 
-Note that `openchannel` is a chained hook. Therefore `close_to` will only be
+ - `mindepth` is the number of confirmations to require before making
+   the channel usable. Notice that setting this to 0 (`zeroconf`) or
+   some other low value might expose you to double-spending issues, so
+   only lower this value from the default if you trust the peer not to
+   double-spend, or you reject incoming payments, including forwards,
+   until the funding is confirmed.
+
+ - `reserve` is an absolute value for the amount in the channel that
+   the peer must keep on their side. This ensures that they always
+   have something to lose, so only lower this below the 1% of funding
+   amount if you trust the peer. The protocol requires this to be
+   larger than the dust limit, hence it will be adjusted to be the
+   dust limit if the specified value is below.
+
+Note that `openchannel` is a chained hook. Therefore `close_to`, `reserve` will only be
 evaluated for the first plugin that sets it. If more than one plugin tries to
 set a `close_to` address an error will be logged.
 
