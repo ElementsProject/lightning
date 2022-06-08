@@ -1464,6 +1464,7 @@ impl From<&pb::FundchannelRequest> for requests::FundchannelRequest {
             compact_lease: c.compact_lease.clone(), // Rule #1 for type string?
             utxos: Some(c.utxos.iter().map(|s| s.into()).collect()), // Rule #4
             mindepth: c.mindepth.clone(), // Rule #1 for type u32?
+            reserve: c.reserve.as_ref().map(|a| a.into()), // Rule #1 for type msat?
         }
     }
 }

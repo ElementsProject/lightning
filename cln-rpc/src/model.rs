@@ -726,6 +726,8 @@ pub mod requests {
 	    pub utxos: Option<Vec<Outpoint>>,
 	    #[serde(alias = "mindepth", skip_serializing_if = "Option::is_none")]
 	    pub mindepth: Option<u32>,
+	    #[serde(alias = "reserve", skip_serializing_if = "Option::is_none")]
+	    pub reserve: Option<Amount>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

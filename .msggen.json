@@ -393,6 +393,7 @@
             "FundChannel.mindepth": 12,
             "FundChannel.push_msat": 5,
             "FundChannel.request_amt": 7,
+            "FundChannel.reserve": 13,
             "FundChannel.utxos[]": 11
         },
         "FundchannelResponse": {

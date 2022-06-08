@@ -112,6 +112,8 @@ struct multifundchannel_destination {
 	bool all;
 	struct amount_sat amount;
 
+	struct amount_sat *reserve;
+
 	/* the output index for this destination.  */
 	unsigned int outnum;
 

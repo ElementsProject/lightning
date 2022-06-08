@@ -1095,7 +1095,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	bool *announce_channel;
 	u32 *feerate_per_kw, *mindepth;
 	int fds[2];
-	struct amount_sat *amount;
+	struct amount_sat *amount, *reserve;
 	struct amount_msat *push_msat;
 	u32 *upfront_shutdown_script_wallet_index;
 	struct channel_id tmp_channel_id;
@@ -1114,6 +1114,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		   p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
 		   p_opt("push_msat", param_msat, &push_msat),
 		   p_opt_def("mindepth", param_u32, &mindepth, cmd->ld->config.anchor_confirms),
+		   p_opt("reserve", param_sat, &reserve),
 		   NULL))
 		return command_param_failed();
 
@@ -1222,6 +1223,8 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	 */
 	assert(mindepth != NULL);
 	fc->uc->minimum_depth = *mindepth;
+
+	fc->uc->reserve = reserve;
 
 	/* Needs to be stolen away from cmd */
 	if (fc->our_upfront_shutdown_script)
