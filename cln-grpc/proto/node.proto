@@ -1158,6 +1158,7 @@ message FundchannelRequest {
 	optional string compact_lease = 8;
 	repeated Outpoint utxos = 11;
 	optional uint32 mindepth = 12;
+	optional Amount reserve = 13;
 }
 
 message FundchannelResponse {

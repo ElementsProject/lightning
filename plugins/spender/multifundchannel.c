@@ -1125,6 +1125,11 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 	if (dest->mindepth)
 		json_add_u32(req->js, "mindepth", *dest->mindepth);
 
+	if (dest->reserve)
+		json_add_string(
+		    req->js, "reserve",
+		    type_to_string(tmpctx, struct amount_sat, dest->reserve));
+
 	send_outreq(cmd->plugin, req);
 }
 
@@ -1914,6 +1919,7 @@ param_destinations_array(struct command *cmd, const char *name,
 				     AMOUNT_SAT(0)),
 			   p_opt("compact_lease", param_lease_hex, &rates),
 			   p_opt("mindepth", param_u32, &dest->mindepth),
+			   p_opt("reserve", param_sat, &dest->reserve),
 			   NULL))
 			return command_param_failed();
 

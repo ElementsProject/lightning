@@ -58,6 +58,12 @@ struct uncommitted_channel {
 
 	/* Our channel config. */
 	struct channel_config our_config;
+
+	/* Reserve we will impose on the other side. If this is NULL
+	 * we will use our default of 1% of the funding
+	 * amount. Otherwise it will be used by openingd as absolute
+	 * value (clamped to dust limit). */
+	struct amount_sat *reserve;
 };
 
 struct funding_channel {
@@ -66,6 +72,7 @@ struct funding_channel {
 	struct wallet_tx *wtx;
 	struct amount_msat push;
 	struct amount_sat funding_sats;
+
 	u8 channel_flags;
 	const u8 *our_upfront_shutdown_script;
 
