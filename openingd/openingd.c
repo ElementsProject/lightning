@@ -814,6 +814,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct penalty_base *pbase;
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	struct tlv_open_channel_tlvs *open_tlvs;
+	struct amount_sat *reserve;
 
 	/* BOLT #2:
 	 *
@@ -1013,8 +1014,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* We don't allocate off tmpctx, because that's freed inside
 	 * opening_negotiate_msg */
 	if (!fromwire_openingd_got_offer_reply(state, msg, &err_reason,
-					      &state->upfront_shutdown_script[LOCAL],
-					      &state->local_upfront_shutdown_wallet_index))
+					       &state->upfront_shutdown_script[LOCAL],
+					       &state->local_upfront_shutdown_wallet_index,
+					       &reserve))
 		master_badmsg(WIRE_OPENINGD_GOT_OFFER_REPLY, msg);
 
 	/* If they give us a reason to reject, do so. */
@@ -1029,6 +1031,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			= no_upfront_shutdown_script(state,
 						     state->our_features,
 						     state->their_features);
+
+	if (reserve != NULL) {
+		set_reserve_absolute(state, state->remoteconf.dust_limit,
+				     *reserve);
+	}
 
 	/* OK, we accept! */
 	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
