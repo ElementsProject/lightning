@@ -138,12 +138,10 @@ static void NORETURN negotiation_failed(struct state *state,
 	negotiation_aborted(state, errmsg);
 }
 
-/* We always set channel_reserve_satoshis to 1%, rounded down. */
-static void set_reserve(struct state *state, const struct amount_sat dust_limit)
+static void set_reserve_absolute(struct state * state, const struct amount_sat dust_limit, struct amount_sat reserve_sat)
 {
-	state->localconf.channel_reserve
-		= amount_sat_div(state->funding_sats, 100);
-
+	status_debug("Setting their reserve to %s",
+		     type_to_string(tmpctx, struct amount_sat, &reserve_sat));
 	/* BOLT #2:
 	 *
 	 * The sending node:
@@ -151,10 +149,23 @@ static void set_reserve(struct state *state, const struct amount_sat dust_limit)
 	 * - MUST set `channel_reserve_satoshis` greater than or equal to
          *   `dust_limit_satoshis` from the `open_channel` message.
 	 */
-	if (amount_sat_greater(dust_limit,
-			       state->localconf.channel_reserve))
+	if (amount_sat_greater(dust_limit, reserve_sat)) {
+		status_debug(
+		    "Their reserve is too small, bumping to dust_limit: %s < %s",
+		    type_to_string(tmpctx, struct amount_sat, &reserve_sat),
+		    type_to_string(tmpctx, struct amount_sat, &dust_limit));
 		state->localconf.channel_reserve
 			= dust_limit;
+	} else {
+		state->localconf.channel_reserve = reserve_sat;
+	}
+}
+
+/* We always set channel_reserve_satoshis to 1%, rounded down. */
+static void set_reserve(struct state *state, const struct amount_sat dust_limit)
+{
+	set_reserve_absolute(state, dust_limit,
+			     amount_sat_div(state->funding_sats, 100));
 }
 
 /*~ Handle random messages we might get during opening negotiation, (eg. gossip)
