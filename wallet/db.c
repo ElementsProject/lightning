@@ -883,6 +883,9 @@ static struct migration dbmigrations[] = {
      * in routehints in invoices. The peer will remember all the
      * aliases, but we only ever need one. */
     {SQL("ALTER TABLE channels ADD alias_remote BIGINT DEFAULT NULL"), NULL},
+    /* Cheeky immediate completion as best effort approximation of real completion time */
+    {SQL("ALTER TABLE payments ADD completed_at INTEGER DEFAULT NULL;"), NULL},
+    {SQL("UPDATE payments SET completed_at = timestamp WHERE status != 0;"), NULL}
 };
 
 /**
