@@ -22,6 +22,18 @@ used as protocol on top of the two streams, with the plugin acting as
 server and `lightningd` acting as client. The plugin file needs to be
 executable (e.g. use `chmod a+x plugin_name`)
 
+### Warning
+
+As noted, `lightningd` uses `stdin` as an intake mechanism.  This can
+cause unexpected behavior if one is not careful.  To wit, care should 
+be taken to ensure that debug/logging statements must be routed to 
+`stderr` or directly to a file.  Activities that are benign in other 
+contexts (`println!`, `dbg!`, etc) will cause the plugin to be killed
+with an error along the lines of:
+
+`UNUSUAL plugin-cln-plugin-startup: Killing plugin: JSON-RPC message 
+does not contain "jsonrpc" field`
+
 ## A day in the life of a plugin
 
 During startup of `lightningd` you can use the `--plugin=` option to
