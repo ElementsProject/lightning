@@ -334,6 +334,7 @@ struct wallet_payment {
 	struct list_node list;
 	u64 id;
 	u32 timestamp;
+	u32 *completed_at;
 
 	/* The combination of these three fields is unique: */
 	struct sha256 payment_hash;

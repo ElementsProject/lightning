@@ -3948,6 +3948,7 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     assert(pays[0]["bolt11"] == invl1)
     assert('amount_msat' in pays[0] and pays[0]['amount_msat'] == amt)
     assert('created_at' in pays[0])
+    assert('completed_at' in pays[0])
 
 
 def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):

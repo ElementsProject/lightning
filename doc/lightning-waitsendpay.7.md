@@ -43,6 +43,7 @@ On success, an object is returned, containing:
 - **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash
 - **amount\_msat** (msat, optional): The amount delivered to destination (if known)
 - **destination** (pubkey, optional): the final destination of the payment if known
+- **completed\_at** (number, optional): the UNIX timestamp showing when this payment was completed
 - **label** (string, optional): the label, if given to sendpay
 - **partid** (u64, optional): the *partid*, if given to sendpay
 - **bolt11** (string, optional): the bolt11 string (if pay supplied one)
@@ -103,4 +104,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:b87ddb42fd2b1182ef11101f0298be2e4de9b942fd3b8b4b169d1bdc849f48a8)
+[comment]: # ( SHA256STAMP:f4dbe3ecc88a294f7bb983a2f2b8e9613e440e4564580e51dd30fc83ba218a91)

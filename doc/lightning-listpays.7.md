@@ -23,15 +23,11 @@ On success, an object containing **pays** is returned.  It is an array of object
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **destination** (pubkey, optional): the final destination of the payment if known
+- **completed\_at** (u64, optional): the UNIX timestamp showing when this payment was completed
 - **label** (string, optional): the label, if given to sendpay
 - **bolt11** (string, optional): the bolt11 string (if pay supplied one)
 - **description** (string, optional): the description matching the bolt11 description hash (if pay supplied one)
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
-
-If **status** is "pending" or "complete":
-
-  - **amount\_sent\_msat** (msat): the amount we actually sent, including fees
-  - **amount\_msat** (msat, optional): the amount the destination received, if known
 
 If **status** is "complete":
 
@@ -61,4 +57,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:64fd1d2a8673b2a4189623aa42d44384061ff66ba7c8918af40baf92ac29a889)
+[comment]: # ( SHA256STAMP:1175415c0f9398e1087d68dd75266bf894249053a4e57f16b8ee16cf5ffa414f)
