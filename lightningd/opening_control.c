@@ -1256,15 +1256,16 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	} else
 		upfront_shutdown_script_wallet_index = NULL;
 
-	fc->open_msg
-		= towire_openingd_funder_start(fc,
-					  *amount,
-					  fc->push,
-					  fc->our_upfront_shutdown_script,
-					  upfront_shutdown_script_wallet_index,
-					  *feerate_per_kw,
-					  &tmp_channel_id,
-					  fc->channel_flags);
+	fc->open_msg = towire_openingd_funder_start(
+			fc,
+			*amount,
+			fc->push,
+			fc->our_upfront_shutdown_script,
+			upfront_shutdown_script_wallet_index,
+			*feerate_per_kw,
+			&tmp_channel_id,
+			fc->channel_flags,
+			fc->uc->reserve);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		return command_fail(cmd, FUND_MAX_EXCEEDED,
