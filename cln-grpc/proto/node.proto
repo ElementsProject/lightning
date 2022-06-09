@@ -324,6 +324,7 @@ message SendpayResponse {
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
 	uint64 created_at = 7;
+	optional uint64 completed_at = 15;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional uint64 partid = 10;
@@ -918,6 +919,7 @@ message WaitsendpayResponse {
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
 	uint64 created_at = 7;
+	optional double completed_at = 14;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional uint64 partid = 10;
@@ -1263,6 +1265,7 @@ message ListpaysPays {
 	ListpaysPaysStatus status = 2;
 	optional bytes destination = 3;
 	uint64 created_at = 4;
+	optional uint64 completed_at = 12;
 	optional string label = 5;
 	optional string bolt11 = 6;
 	optional string description = 11;

@@ -128,7 +128,9 @@ void json_add_payment_fields(struct json_stream *response,
 
 	json_add_amount_msat_compat(response, t->msatoshi_sent,
 				    "msatoshi_sent", "amount_sent_msat");
-	json_add_u64(response, "created_at", t->timestamp);
+	json_add_u32(response, "created_at", t->timestamp);
+	if (t->completed_at)
+		json_add_u32(response, "completed_at", *t->completed_at);
 
 	switch (t->status) {
 	case PAYMENT_PENDING:
@@ -1101,6 +1103,8 @@ send_payment_core(struct lightningd *ld,
 	payment->route_nodes = tal_steal(payment, route_nodes);
 	payment->route_channels = tal_steal(payment, route_channels);
 	payment->failonion = NULL;
+	payment->completed_at = NULL;
+
 	if (label != NULL)
 		payment->label = tal_strdup(payment, label);
 	else

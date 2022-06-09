@@ -232,6 +232,7 @@ impl From<&responses::SendpayResponse> for pb::SendpayResponse {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at.clone(), // Rule #2 for type u64
+            completed_at: c.completed_at.clone(), // Rule #2 for type u64?
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label.clone(), // Rule #2 for type string?
             partid: c.partid.clone(), // Rule #2 for type u64?
@@ -683,6 +684,7 @@ impl From<&responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at.clone(), // Rule #2 for type u64
+            completed_at: c.completed_at.clone(), // Rule #2 for type number?
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             label: c.label.clone(), // Rule #2 for type string?
             partid: c.partid.clone(), // Rule #2 for type u64?
@@ -924,6 +926,7 @@ impl From<&responses::ListpaysPays> for pb::ListpaysPays {
             status: c.status as i32,
             destination: c.destination.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
             created_at: c.created_at.clone(), // Rule #2 for type u64
+            completed_at: c.completed_at.clone(), // Rule #2 for type u64?
             label: c.label.clone(), // Rule #2 for type string?
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
             description: c.description.clone(), // Rule #2 for type string?
