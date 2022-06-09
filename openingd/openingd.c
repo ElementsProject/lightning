@@ -99,6 +99,8 @@ struct state {
 	struct channel_type *channel_type;
 
 	struct feature_set *our_features;
+
+	struct amount_sat *reserve;
 };
 
 /*~ If we can't agree on parameters, we fail to open the channel.
@@ -245,10 +247,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 
 static bool setup_channel_funder(struct state *state)
 {
-	/*~ For symmetry, we calculate our own reserve even though lightningd
-	 * could do it for the we-are-funding case. */
-	set_reserve(state, state->localconf.dust_limit);
-
 #if DEVELOPER
 	/* --dev-force-tmp-channel-id specified */
 	if (dev_force_tmp_channel_id)
@@ -328,6 +326,15 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	status_debug("funder_channel_start");
 	if (!setup_channel_funder(state))
 		return NULL;
+
+	/* If we have a reserve override we use that, otherwise we'll
+	 * use our default of 1% of the funding value. */
+	if (state->reserve != NULL) {
+		set_reserve_absolute(state, state->localconf.dust_limit,
+				     *state->reserve);
+	} else {
+		set_reserve(state, state->localconf.dust_limit);
+	}
 
 	if (!state->upfront_shutdown_script[LOCAL])
 		state->upfront_shutdown_script[LOCAL]
@@ -1352,7 +1359,8 @@ static u8 *handle_master_in(struct state *state)
 						    &state->local_upfront_shutdown_wallet_index,
 						    &state->feerate_per_kw,
 						    &state->channel_id,
-						    &channel_flags))
+						    &channel_flags,
+						    &state->reserve))
 			master_badmsg(WIRE_OPENINGD_FUNDER_START, msg);
 		msg = funder_channel_start(state, channel_flags);
 
