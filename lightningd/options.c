@@ -458,11 +458,14 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 {
+	struct plugin *p;
 	if (plugin_blacklisted(ld->plugins, arg)) {
 		log_info(ld->log, "%s: disabled via disable-plugin", arg);
 		return NULL;
 	}
-	plugin_register(ld->plugins, arg, NULL, false, NULL, NULL);
+	p = plugin_register(ld->plugins, arg, NULL, false, NULL, NULL);
+	if (!p)
+		return tal_fmt(NULL, "Failed to register %s: %s", arg, strerror(errno));
 	return NULL;
 }
 
@@ -485,11 +488,14 @@ static char *opt_clear_plugins(struct lightningd *ld)
 
 static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 {
+	struct plugin *p;
 	if (plugin_blacklisted(ld->plugins, arg)) {
 		log_info(ld->log, "%s: disabled via disable-plugin", arg);
 		return NULL;
 	}
-	plugin_register(ld->plugins, arg, NULL, true, NULL, NULL);
+	p = plugin_register(ld->plugins, arg, NULL, true, NULL, NULL);
+	if (!p)
+		return tal_fmt(NULL, "Failed to register %s: %s", arg, strerror(errno));
 	return NULL;
 }
 

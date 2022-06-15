@@ -253,11 +253,16 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 			       const jsmntok_t *params STEALS)
 {
 	struct plugin *p, *p_temp;
+	char* abspath;
 	u32 chksum;
 
+	abspath = path_canon(tmpctx, path);
+	if (!abspath) {
+		return NULL;
+	}
 	/* Don't register an already registered plugin */
 	list_for_each(&plugins->plugins, p_temp, list) {
-		if (streq(path, p_temp->cmd)) {
+		if (streq(abspath, p_temp->cmd)) {
 			/* If added as "important", upgrade to "important".  */
 			if (important)
 				p_temp->important = true;
@@ -276,7 +281,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 
 	p = tal(plugins, struct plugin);
 	p->plugins = plugins;
-	p->cmd = tal_strdup(p, path);
+	p->cmd = tal_steal(p, abspath);
 	p->checksum = file_checksum(plugins->ld, p->cmd);
 	p->shortname = path_basename(p, p->cmd);
 	p->start_cmd = start_cmd;
@@ -912,6 +917,11 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 
 	popt->name = tal_fmt(popt, "--%.*s", nametok->end - nametok->start,
 			     buffer + nametok->start);
+
+	/* an "|" alias could circumvent the unique-option-name check */
+	if (strchr(popt->name, '|'))
+		return tal_fmt(plugin, "Option \"name\" may not contain '|'");
+
 	popt->description = NULL;
 	if (deptok) {
 		if (!json_to_bool(buffer, deptok, &popt->deprecated))
