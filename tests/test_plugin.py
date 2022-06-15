@@ -30,8 +30,10 @@ def test_option_passthrough(node_factory, directory):
     """ Ensure that registering options works.
 
     First attempts without the plugin and then with the plugin.
+    Then a plugin tries to register the same option "name" again, fails startup.
     """
     plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
+    plugin_path2 = os.path.join(os.getcwd(), 'tests/plugins/options.py')
 
     help_out = subprocess.check_output([
         'lightningd/lightningd',
@@ -52,6 +54,18 @@ def test_option_passthrough(node_factory, directory):
     # option didn't exist
     n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
     n.stop()
+
+    with pytest.raises(subprocess.CalledProcessError):
+        err_out = subprocess.run([
+            'lightningd/lightningd',
+            '--lightning-dir={}'.format(directory),
+            '--plugin={}'.format(plugin_path),
+            '--plugin={}'.format(plugin_path2),
+            '--help'
+        ], capture_output=True, check=True).stderr.decode('utf-8')
+
+        # first come first serve
+        assert("error starting plugin '{}': option name '--greeting' is already taken".format(plugin_path2) in err_out)
 
 
 def test_option_types(node_factory):

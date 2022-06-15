@@ -22,4 +22,6 @@ plugin.add_flag_option('flag_opt', 'an example flag type option')
 plugin.add_option('str_optm', None, 'an example string option', multi=True)
 plugin.add_option('int_optm', 7, 'an example int type option', opt_type='int', multi=True)
 
+plugin.add_option('greeting', 7, 'option _names_ should be unique', opt_type='int', multi=True)
+
 plugin.run()
