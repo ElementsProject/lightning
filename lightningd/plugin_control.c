@@ -71,8 +71,8 @@ plugin_dynamic_start(struct plugin_command *pcmd, const char *plugin_path,
 
 	if (!p)
 		return command_fail(pcmd->cmd, JSONRPC2_INVALID_PARAMS,
-				    "%s: already registered",
-				    plugin_path);
+				    "%s: %s", plugin_path,
+					    errno ? strerror(errno) : "already registered");
 
 	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
 	err = plugin_send_getmanifest(p);

@@ -2074,10 +2074,11 @@ def test_important_plugin(node_factory):
     n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
                               may_fail=True, expect_fail=True,
                               allow_broken_log=True, start=False)
+
     n.daemon.start(wait_for_initialized=False)
     # Will exit with failure code.
     assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr(r"error starting plugin '.*nonexistent'")
+    assert n.daemon.is_in_stderr(r"Failed to register .*nonexistent: No such file or directory")
 
     # Check we exit if the important plugin dies.
     n.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "fail_by_itself.py")
