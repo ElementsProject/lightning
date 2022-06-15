@@ -90,6 +90,7 @@ $ sudo dnf update -y && \
                 'C Development Tools and Libraries' \
                 'Development Tools' && \
         sudo dnf install -y \
+	        perl \
                 clang \
                 gettext \
                 git \
