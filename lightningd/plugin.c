@@ -1521,7 +1521,8 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 	if (!err)
 		err = plugin_add_params(plugin);
 
-	plugin->plugin_state = NEEDS_INIT;
+	if (!err)
+		plugin->plugin_state = NEEDS_INIT;
 	return err;
 }
 
