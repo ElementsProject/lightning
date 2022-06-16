@@ -120,7 +120,7 @@ void gossip_rcvd_filter_add(struct gossip_rcvd_filter *f, const u8 *msg)
 	if (extract_msg_key(msg, &key)) {
 		htable_add(f->cur, key, int2ptr(key));
 		/* Don't let it fill up forever. */
-		if (htable_count(f->cur) > 10000)
+		if (htable_count(f->cur) > 500)
 			gossip_rcvd_filter_age(f);
 	}
 }
