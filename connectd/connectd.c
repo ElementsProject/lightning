@@ -19,7 +19,6 @@
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
-#include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>

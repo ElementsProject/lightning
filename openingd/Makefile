@@ -47,7 +47,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
 	common/features.o			\
 	common/fee_states.o			\
-	common/gossip_rcvd_filter.o		\
 	common/gossip_store.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\

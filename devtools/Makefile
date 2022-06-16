@@ -25,7 +25,6 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/decode_array.o			\
 	common/features.o			\
 	common/fee_states.o			\
-	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
 	common/hmac.o				\
 	common/htlc_state.o			\

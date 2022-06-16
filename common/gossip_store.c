@@ -1,6 +1,5 @@
 #include "config.h"
 #include <ccan/crc32c/crc32c.h>
-#include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>

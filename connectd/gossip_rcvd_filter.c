@@ -1,9 +1,9 @@
 #include "config.h"
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
-#include <common/gossip_rcvd_filter.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <connectd/gossip_rcvd_filter.h>
 #include <wire/peer_wire.h>
 
 static u64 msg_key(const u8 *msg)
