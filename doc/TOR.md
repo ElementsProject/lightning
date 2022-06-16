@@ -185,10 +185,9 @@ on those.
 
 #### Three Ways to Create .onion Addresses for Core Lightning
 
-You have have Tor create an onion address for you, and tell
-Core Lightning to use that, or you can have Core Lightning tell Tor to
-create the same onion address every time it starts up, or you can have
-Core Lightning tell Tor to create a new onion address every time.
+1. You can configure Tor to create an onion address for you, and tell Core Lightning to use that address
+2. You can have Core Lightning tell Tor to create a new onion address every time
+3. You can configure Core Lightning to tell Tor to create the same onion address every time it starts up
 
 #### Tor-Created .onion Address
 
