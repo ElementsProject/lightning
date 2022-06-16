@@ -1,7 +1,7 @@
 /* This implements a cheap gossip cache, so we can recognize what gossip
  * msgs this peer sent us, thus avoid retransmitting gossip it sent. */
-#ifndef LIGHTNING_COMMON_GOSSIP_RCVD_FILTER_H
-#define LIGHTNING_COMMON_GOSSIP_RCVD_FILTER_H
+#ifndef LIGHTNING_CONNECTD_GOSSIP_RCVD_FILTER_H
+#define LIGHTNING_CONNECTD_GOSSIP_RCVD_FILTER_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -19,4 +19,4 @@ bool gossip_rcvd_filter_del(struct gossip_rcvd_filter *map, const u8 *msg);
 /* Flush out old entries. */
 void gossip_rcvd_filter_age(struct gossip_rcvd_filter *map);
 
-#endif /* LIGHTNING_COMMON_GOSSIP_RCVD_FILTER_H */
+#endif /* LIGHTNING_CONNECTD_GOSSIP_RCVD_FILTER_H */

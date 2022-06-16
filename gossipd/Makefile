@@ -44,7 +44,6 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/status_wiregen.o			\
-	common/gossip_rcvd_filter.o		\
 	common/key_derive.o			\
 	common/lease_rates.o			\
 	common/memleak.o			\

@@ -14,7 +14,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
 #include <common/fee_states.h>
-#include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/initial_channel.h>
 #include <common/memleak.h>

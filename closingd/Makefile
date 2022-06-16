@@ -30,7 +30,6 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
-	common/gossip_rcvd_filter.o		\
 	common/gossip_store.o			\
 	common/htlc_wire.o			\
 	common/key_derive.o			\

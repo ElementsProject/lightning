@@ -48,7 +48,6 @@ CHANNELD_COMMON_OBJS :=				\
 	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/fee_states.o			\
-	common/gossip_rcvd_filter.o		\
 	common/peer_io.o			\
 	common/peer_status_wiregen.o		\
 	common/status_wiregen.o			\

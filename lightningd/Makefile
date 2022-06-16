@@ -92,7 +92,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/peer_status_wiregen.o		\
 	common/status_levels.o			\
 	common/status_wiregen.o			\
-	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
 	common/hmac.o				\
 	common/hsm_encryption.o			\
