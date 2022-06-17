@@ -2,12 +2,12 @@
 #include <assert.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <wally_psbt.h>
 #include <wire/wire.h>
-#include <bitcoin/tx.h>
 
 struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
 					struct amount_sat amount,

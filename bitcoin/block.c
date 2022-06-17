@@ -1,11 +1,11 @@
 #include "config.h"
 #include <assert.h>
+#include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/tx.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
-#include <bitcoin/block.h>
 
 /* Sets *cursor to NULL and returns NULL when a pull fails. */
 static const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
