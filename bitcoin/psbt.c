@@ -618,11 +618,11 @@ bool psbt_finalize(struct wally_psbt *psbt)
 		/* BOLT #3:
 		 * #### `to_remote` Output
 		 *
-		 * If `option_anchor_outputs` applies to the commitment
+		 * If `option_anchors` applies to the commitment
 		 * transaction, the `to_remote` output is encumbered by a one
 		 * block csv lock.
 		 *
-		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
+		 *    <remotepubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
 		 *
 		 * The output is spent by an input with `nSequence`
 		 * field set to `1` and witness:
