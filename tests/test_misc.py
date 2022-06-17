@@ -1866,6 +1866,9 @@ def test_signmessage(node_factory):
     checknokey = l2.rpc.checkmessage(message="message for you", zbase=zm)
     assert checknokey['pubkey'] == l1.info['id']
     assert checknokey['verified']
+    # check that checkmassage used with a wrong zbase format throws an RPC exception
+    with pytest.raises(RpcError, match="zbase is not valid zbase32"):
+        l2.rpc.checkmessage(message="wrong zbase format", zbase="wrong zbase format")
 
 
 def test_include(node_factory):

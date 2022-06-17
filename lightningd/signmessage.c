@@ -56,8 +56,7 @@ static const u8 *from_zbase32(const tal_t *ctx, const char *msg)
 	if (!bech32_convert_bits(u8arr, &len, 8,
 				 u5arr, tal_bytelen(u5arr), 5, false))
 		return tal_free(u8arr);
-	assert(len == tal_bytelen(u8arr));
-	return u8arr;
+	return len == tal_bytelen(u8arr) ? u8arr : tal_free(u8arr);
 }
 
 static struct command_result *json_signmessage(struct command *cmd,
@@ -235,4 +234,3 @@ static const struct json_command json_checkmessage_cmd = {
 	"Verify a digital signature {zbase} of {message} signed with {pubkey}",
 };
 AUTODATA(json_command, &json_checkmessage_cmd);
-
