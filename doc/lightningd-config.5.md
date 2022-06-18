@@ -372,7 +372,8 @@ network.
 Note that for simple setups, the implicit *autolisten* option does the
 right thing: for the mainnet (bitcoin) network it will try to bind to
 port 9735 on IPv4 and IPv6, and will announce it to peers if it seems
-like a public address.
+like a public address (and other default ports for other networks,
+as described below).
 
 Core Lightning also support IPv4/6 address discovery behind NAT routers.
 If your node detects an new public address, it will update its announcement.
