@@ -23,7 +23,9 @@ struct chainparams {
 	const struct bitcoin_blkid genesis_blockhash;
 	const int rpc_port;
 	/**
-	 * BOLT 1: The default TCP port depends on the network used. The most common networks are:
+	 * BOLT 1:
+	 *
+	 * The default TCP port depends on the network used. The most common networks are:
 	 *
 	 * - Bitcoin mainet with port number 9735 or the corresponding hexadecimal `0x2607`;
 	 * - Bitcoin testnet with port number 19735 (`0x4D17`);
