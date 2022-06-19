@@ -1,6 +1,8 @@
 #include "config.h"
 #include <ccan/asort/asort.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_tok.h>
 #include <common/param.h>
@@ -106,9 +108,15 @@ static struct param *find_param(struct param *params, const char *start,
 	struct param *last = first + tal_count(params);
 
 	while (first != last) {
-		if (strncmp(first->name, start, n) == 0)
-			if (strlen(first->name) == n)
-				return first;
+		size_t arglen = strcspn(first->name, "|");
+		if (memeq(first->name, arglen, start, n))
+			return first;
+		if (deprecated_apis
+		    && first->name[arglen]
+		    && memeq(first->name + arglen + 1,
+			     strlen(first->name + arglen + 1),
+			     start, n))
+			return first;
 		first++;
 	}
 	return NULL;
@@ -237,12 +245,14 @@ static char *param_usage(const tal_t *ctx,
 {
 	char *usage = tal_strdup(ctx, "");
 	for (size_t i = 0; i < tal_count(params); i++) {
+		/* Don't print |deprecated part! */
+		int len = strcspn(params[i].name, "|");
 		if (i != 0)
 			tal_append_fmt(&usage, " ");
 		if (params[i].style == PARAM_REQUIRED)
-			tal_append_fmt(&usage, "%s", params[i].name);
+			tal_append_fmt(&usage, "%.*s", len, params[i].name);
 		else
-			tal_append_fmt(&usage, "[%s]", params[i].name);
+			tal_append_fmt(&usage, "[%.*s]", len, params[i].name);
 	}
 	return usage;
 }

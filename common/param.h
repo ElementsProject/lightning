@@ -19,7 +19,7 @@
  *
  * 	if (!param(cmd, buffer, params,
  * 		   p_req("cltv", json_tok_number, &cltv),
- * 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+ * 		   p_opt("amount_msat|msatoshi", json_tok_u64, &msatoshi),
  * 		   p_opt("note", json_tok_tok, &note),
  * 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
  * 		   NULL))
@@ -76,6 +76,7 @@ enum param_style {
 
 /*
  * Add a required parameter.
+ * name can be <normal>|<deprecated> if it's been renamed.
  */
 #define p_req(name, cbx, arg)				     \
 	      name"",                                        \
@@ -89,6 +90,7 @@ enum param_style {
 
 /*
  * Add an optional parameter.  *arg is set to NULL if it isn't found.
+ * name can be <normal>|<deprecated> if it's been renamed.
  */
 #define p_opt(name, cbx, arg)                                   \
 	      name"",                                           \
@@ -103,6 +105,7 @@ enum param_style {
 
 /*
  * Add an optional parameter.  *arg is set to @def if it isn't found.
+ * name can be <normal>|<deprecated> if it's been renamed.
  */
 #define p_opt_def(name, cbx, arg, def)				    \
 		  name"",					    \
