@@ -511,7 +511,7 @@ json_openchannel2_call(struct command *cmd,
 			"{openchannel2:"
 			"{id:%"
 			",channel_id:%"
-			",their_funding:%"
+			",their_funding_msat:%"
 			",max_htlc_value_in_flight_msat:%"
 			",htlc_minimum_msat:%"
 			",funding_feerate_per_kw:%"
@@ -768,15 +768,15 @@ static void json_add_policy(struct json_stream *stream,
 			funder_opt_name(policy->opt));
 	json_add_num(stream, "policy_mod", policy->mod);
 	json_add_bool(stream, "leases_only", policy->leases_only);
-	json_add_amount_sat_only(stream, "min_their_funding_msat",
+	json_add_amount_sat_msat(stream, "min_their_funding_msat",
 				 policy->min_their_funding);
-	json_add_amount_sat_only(stream, "max_their_funding_msat",
+	json_add_amount_sat_msat(stream, "max_their_funding_msat",
 				 policy->max_their_funding);
-	json_add_amount_sat_only(stream, "per_channel_min_msat",
+	json_add_amount_sat_msat(stream, "per_channel_min_msat",
 				 policy->per_channel_min);
-	json_add_amount_sat_only(stream, "per_channel_max_msat",
+	json_add_amount_sat_msat(stream, "per_channel_max_msat",
 				 policy->per_channel_max);
-	json_add_amount_sat_only(stream, "reserve_tank_msat",
+	json_add_amount_sat_msat(stream, "reserve_tank_msat",
 				 policy->reserve_tank);
 	json_add_num(stream, "fuzz_percent", policy->fuzz_factor);
 	json_add_num(stream, "fund_probability", policy->fund_probability);

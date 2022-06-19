@@ -22,6 +22,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bolt11.o				\
 	common/blockheight_states.o		\
 	common/channel_id.o			\
+	common/configdir.o			\
 	common/decode_array.o			\
 	common/features.o			\
 	common/fee_states.o			\

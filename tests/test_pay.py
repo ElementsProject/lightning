@@ -3111,7 +3111,7 @@ def test_partial_payment(node_factory, bitcoind, executor):
     for i in range(2):
         line = l4.daemon.wait_for_log('print_htlc_onion.py: Got onion')
         assert "'type': 'tlv'" in line
-        assert "'forward_amount': '499msat'" in line or "'forward_amount': '501msat'" in line
+        assert "'forward_msat': '499msat'" in line or "'forward_msat': '501msat'" in line
         assert "'total_msat': '1000msat'" in line
         assert "'payment_secret': '{}'".format(paysecret) in line
 

@@ -639,7 +639,7 @@ static void json_add_channel(struct lightningd *ld,
 		bitcoin_txid(channel->last_tx, &txid);
 
 		json_add_txid(response, "scratch_txid", &txid);
-		json_add_amount_sat_only(response, "last_tx_fee_msat",
+		json_add_amount_sat_msat(response, "last_tx_fee_msat",
 					 bitcoin_tx_compute_fee(channel->last_tx));
 	}
 
@@ -708,10 +708,10 @@ static void json_add_channel(struct lightningd *ld,
 						inflight->funding->feerate,
 						feerate_style_name(
 							FEERATE_PER_KSIPA)));
-			json_add_amount_sat_only(response,
+			json_add_amount_sat_msat(response,
 						 "total_funding_msat",
 						 inflight->funding->total_funds);
-			json_add_amount_sat_only(response,
+			json_add_amount_sat_msat(response,
 						 "our_funding_msat",
 						 inflight->funding->our_funds);
 			/* Add the expected commitment tx id also */

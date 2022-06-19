@@ -302,12 +302,12 @@ void json_add_amount_sat_compat(struct json_stream *result UNNEEDED,
 				const char *msatfieldname)
 
 { fprintf(stderr, "json_add_amount_sat_compat called!\n"); abort(); }
-/* Generated stub for json_add_amount_sat_only */
-void json_add_amount_sat_only(struct json_stream *result UNNEEDED,
-			 const char *msatfieldname UNNEEDED,
-			 struct amount_sat sat)
+/* Generated stub for json_add_amount_sat_msat */
+void json_add_amount_sat_msat(struct json_stream *result UNNEEDED,
+			      const char *msatfieldname UNNEEDED,
+			      struct amount_sat sat)
 
-{ fprintf(stderr, "json_add_amount_sat_only called!\n"); abort(); }
+{ fprintf(stderr, "json_add_amount_sat_msat called!\n"); abort(); }
 /* Generated stub for json_add_bool */
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
@@ -356,7 +356,7 @@ void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const struct short_channel_id *id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_string */
-void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
+void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value TAKES UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
 /* Generated stub for json_add_timeabs */
 void json_add_timeabs(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,

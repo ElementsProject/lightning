@@ -1044,7 +1044,11 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 		if (p->payload->forward_channel)
 			json_add_short_channel_id(s, "short_channel_id",
 						  p->payload->forward_channel);
-		json_add_amount_msat_only(s, "forward_amount",
+		if (deprecated_apis)
+			json_add_string(s, "forward_amount",
+					fmt_amount_msat(tmpctx,
+							p->payload->amt_to_forward));
+		json_add_amount_msat_only(s, "forward_msat",
 					  p->payload->amt_to_forward);
 		json_add_u32(s, "outgoing_cltv_value", p->payload->outgoing_cltv);
 		/* These are specified together in TLV, so only print total_msat

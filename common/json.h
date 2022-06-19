@@ -185,7 +185,7 @@ const char *json_scanv(const tal_t *ctx,
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
  * any non-printable chars into JSON escapes, but leaves existing escapes alone.
  */
-void json_add_string(struct json_stream *result, const char *fieldname, const char *value);
+void json_add_string(struct json_stream *result, const char *fieldname, const char *value TAKES);
 
 /* '"fieldname" : "value[:value_len]"' or '"value[:value_len]"' if
  * fieldname is NULL.  Turns any non-printable chars into JSON

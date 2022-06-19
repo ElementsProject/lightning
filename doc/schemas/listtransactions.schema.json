@@ -126,7 +126,7 @@
               "additionalProperties": false,
               "required": [
                 "index",
-                "msat",
+                "amount_msat",
                 "scriptPubKey"
               ],
               "properties": {
@@ -134,9 +134,12 @@
                   "type": "u32",
                   "description": "the 0-based output number"
                 },
-                "msat": {
+                "amount_msat": {
                   "type": "msat",
                   "description": "the amount of the output"
+                },
+                "msat": {
+                  "deprecated": true
                 },
                 "scriptPubKey": {
                   "type": "hex",

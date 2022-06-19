@@ -45,6 +45,8 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx UNNEEDED,
 /* Generated stub for decode_short_ids */
 struct short_channel_id *decode_short_ids(const tal_t *ctx UNNEEDED, const u8 *encoded UNNEEDED)
 { fprintf(stderr, "decode_short_ids called!\n"); abort(); }
+/* Generated stub for deprecated_apis */
+bool deprecated_apis;
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }

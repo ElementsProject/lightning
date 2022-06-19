@@ -205,7 +205,7 @@ static void channel_opened_notification_serialize(struct json_stream *stream,
 {
 	json_object_start(stream, "channel_opened");
 	json_add_node_id(stream, "id", node_id);
-	json_add_amount_sat_only(stream, "amount", *funding_sat);
+	json_add_amount_sats_deprecated(stream, "amount", "funding_msat", *funding_sat);
 	json_add_txid(stream, "funding_txid", funding_txid);
 	json_add_bool(stream, "funding_locked", funding_locked);
 	json_object_end(stream);
@@ -482,8 +482,9 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 	json_add_amount_msat_only(stream, "debit", mvt->debit);
 	/* Only chain movements */
 	if (mvt->output_val)
-		json_add_amount_sat_only(stream, "output_value",
-					 *mvt->output_val);
+		json_add_amount_sats_deprecated(stream, "output_value",
+						"output_msat",
+						*mvt->output_val);
 	if (mvt->output_count > 0)
 		json_add_num(stream, "output_count",
 			     mvt->output_count);

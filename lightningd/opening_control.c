@@ -605,14 +605,14 @@ static void openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	struct uncommitted_channel *uc = payload->openingd->channel;
 	json_object_start(stream, "openchannel");
 	json_add_node_id(stream, "id", &uc->peer->id);
-	json_add_amount_sat_only(stream, "funding_satoshis",
-				 payload->funding_satoshis);
+	json_add_amount_sats_deprecated(stream, "funding_satoshis", "funding_msat",
+					payload->funding_satoshis);
 	json_add_amount_msat_only(stream, "push_msat", payload->push_msat);
-	json_add_amount_sat_only(stream, "dust_limit_satoshis",
-				 payload->dust_limit_satoshis);
+	json_add_amount_sats_deprecated(stream, "dust_limit_satoshis", "dust_limit_msat",
+					payload->dust_limit_satoshis);
 	json_add_amount_msat_only(stream, "max_htlc_value_in_flight_msat",
 				  payload->max_htlc_value_in_flight_msat);
-	json_add_amount_sat_only(stream, "channel_reserve_satoshis",
+	json_add_amount_sats_deprecated(stream, "channel_reserve_satoshis", "channel_reserve_msat",
 				 payload->channel_reserve_satoshis);
 	json_add_amount_msat_only(stream, "htlc_minimum_msat",
 				  payload->htlc_minimum_msat);

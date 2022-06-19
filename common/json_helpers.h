@@ -167,10 +167,23 @@ void json_add_amount_msat_only(struct json_stream *result,
 	NO_NULL_ARGS;
 
 /* Adds an 'msat' field */
-void json_add_amount_sat_only(struct json_stream *result,
-			 const char *msatfieldname,
-			 struct amount_sat sat)
+void json_add_amount_sat_msat(struct json_stream *result,
+			      const char *msatfieldname,
+			      struct amount_sat sat)
 	NO_NULL_ARGS;
+
+/* Adds an 'msat' field, and an older deprecated field. */
+void json_add_amount_sats_deprecated(struct json_stream *result,
+				     const char *fieldname,
+				     const char *msatfieldname,
+				     struct amount_sat sat)
+	NO_NULL_ARGS;
+
+/* This is used to create requests, *never* for output (output is always
+ * msat!) */
+void json_add_sats(struct json_stream *result,
+		   const char *fieldname,
+		   struct amount_sat sat);
 
 void json_add_sha256(struct json_stream *result, const char *fieldname,
 		     const struct sha256 *hash);

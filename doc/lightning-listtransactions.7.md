@@ -40,7 +40,7 @@ On success, an object containing **transactions** is returned.  It is an array o
   - **channel** (short_channel_id, optional): the channel this input is associated with (*EXPERIMENTAL_FEATURES* only)
 - **outputs** (array of objects): Each output, in order:
   - **index** (u32): the 0-based output number
-  - **msat** (msat): the amount of the output
+  - **amount_msat** (msat): the amount of the output
   - **scriptPubKey** (hex): the scriptPubKey
   - **type** (string, optional): the purpose of this output (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
   - **channel** (short_channel_id, optional): the channel this output is associated with (*EXPERIMENTAL_FEATURES* only)
@@ -104,4 +104,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:bd9c33dd27be0f25b0212b4115714768ffbec2ff6e72f083613a4464a3f98bc0)
+[comment]: # ( SHA256STAMP:74408f25dcf548f1389ab41123748297ba3116ad75afb41b86ecca453b95fec8)

@@ -806,6 +806,7 @@
             "ListTransactions.transactions[].inputs[].type": 4
         },
         "ListtransactionsTransactionsOutputs": {
+            "ListTransactions.transactions[].outputs[].amount_msat": 6,
             "ListTransactions.transactions[].outputs[].channel": 5,
             "ListTransactions.transactions[].outputs[].index": 1,
             "ListTransactions.transactions[].outputs[].msat": 2,
