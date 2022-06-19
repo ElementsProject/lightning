@@ -971,9 +971,14 @@ static struct io_plan *start_json_stream(struct io_conn *conn,
 					 struct json_connection *jcon)
 {
 	/* If something has created an output buffer, start streaming. */
-	if (tal_count(jcon->js_arr))
+	if (tal_count(jcon->js_arr)) {
+		size_t len;
+		const char *p = json_out_contents(jcon->js_arr[0]->jout, &len);
+		if (len)
+			log_io(jcon->log, LOG_IO_OUT, NULL, "", p, len);
 		return json_stream_output(jcon->js_arr[0], conn,
 					  stream_out_complete, jcon);
+	}
 
 	/* Tell reader it can run next command. */
 	io_wake(conn);
