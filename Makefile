@@ -490,7 +490,7 @@ check-markdown:
 check-spelling:
 	@tools/check-spelling.sh
 
-PYSRC=$(shell git ls-files "*.py" | grep -v /text.py) contrib/pylightning/lightning-pay
+PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
 
 # Some tests in pyln will need to find lightningd to run, so have a PATH that
 # allows it to find that
