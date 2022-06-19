@@ -62,6 +62,7 @@ On most Linux distributions there will be commented-out settings below in the
 ```
 ControlPort 9051
 CookieAuthentication 1
+CookieAuthFile /var/lib/tor/control_auth_cookie
 CookieAuthFileGroupReadable 1
 ```
 
