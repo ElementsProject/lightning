@@ -18,6 +18,16 @@ bool amount_sat_to_msat(struct amount_msat *msat,
 	return true;
 }
 
+bool amount_msat_to_sat(struct amount_sat *sat,
+			struct amount_msat msat)
+{
+	if (msat.millisatoshis % MSAT_PER_SAT)
+		return false;
+	sat->satoshis = msat.millisatoshis / MSAT_PER_SAT;
+	return true;
+}
+
+
 /* You can always truncate millisatoshis->satoshis. */
 struct amount_sat amount_msat_to_sat_round_down(struct amount_msat msat)
 {

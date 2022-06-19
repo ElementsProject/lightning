@@ -53,6 +53,10 @@ struct amount_sat amount_sat(u64 satoshis);
 WARN_UNUSED_RESULT bool amount_sat_to_msat(struct amount_msat *msat,
 					   struct amount_sat sat);
 
+/* You may not always be able to convert millisatoshis->satoshis without rounding. */
+WARN_UNUSED_RESULT bool amount_msat_to_sat(struct amount_sat *sat,
+					   struct amount_msat msat);
+
 /* You can always truncate millisatoshis->satoshis. */
 struct amount_sat amount_msat_to_sat_round_down(struct amount_msat msat);
 
