@@ -626,7 +626,7 @@ def test_openchannel_hook(node_factory, bitcoind):
     # Make sure plugin got all the vars we expect
     expected = {
         'channel_flags': '1',
-        'dust_limit_satoshis': '546000msat',
+        'dust_limit_msat': '546000msat',
         'htlc_minimum_msat': '0msat',
         'id': l1.info['id'],
         'max_accepted_htlcs': '483',
@@ -643,14 +643,14 @@ def test_openchannel_hook(node_factory, bitcoind):
             'feerate_our_max': '150000',
             'feerate_our_min': '1875',
             'locktime': '.*',
-            'their_funding': '100000000msat',
+            'their_funding_msat': '100000000msat',
             'channel_max_msat': '16777215000msat',
         })
     else:
         expected.update({
-            'channel_reserve_satoshis': '1000000msat',
+            'channel_reserve_msat': '1000000msat',
             'feerate_per_kw': '7500',
-            'funding_satoshis': '100000000msat',
+            'funding_msat': '100000000msat',
             'push_msat': '0msat',
         })
 
@@ -1148,7 +1148,7 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     assert onion['type'] == 'tlv'
     assert re.match(r'^11020203e80401..0608................$', onion['payload'])
     assert len(onion['shared_secret']) == 64
-    assert onion['forward_amount'] == '1000msat'
+    assert onion['forward_msat'] == '1000msat'
     assert len(onion['next_onion']) == 2 * (1300 + 32 + 33 + 1)
 
     f1.result()

@@ -401,7 +401,7 @@ static struct command_result *json_setleaserates(struct command *cmd,
 		      take(towire_gossipd_new_lease_rates(NULL, rates)));
 
 	res = json_stream_success(cmd);
-	json_add_amount_sat_only(res, "lease_fee_base_msat",
+	json_add_amount_sat_msat(res, "lease_fee_base_msat",
 				 amount_sat(rates->lease_fee_base_sat));
 	json_add_num(res, "lease_fee_basis", rates->lease_fee_basis);
 	json_add_num(res, "funding_weight", rates->funding_weight);

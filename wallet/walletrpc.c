@@ -558,7 +558,7 @@ static void json_transaction_details(struct json_stream *response,
 			json_object_start(response, NULL);
 
 			json_add_u32(response, "index", i);
-			json_add_amount_sat_only(response, "msat", sat);
+			json_add_amount_sats_deprecated(response, "msat", "amount_msat", sat);
 
 #if EXPERIMENTAL_FEATURES
 			struct tx_annotation *ann = &tx->output_annotations[i];

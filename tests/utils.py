@@ -189,7 +189,7 @@ def extract_utxos(moves):
             for ev in evs:
                 if ev[0]['vout'] == m['vout']:
                     ev[1] = m
-                    assert ev[0]['output_value'] == m['output_value']
+                    assert ev[0]['output_msat'] == m['output_msat']
                     break
     return utxos
 

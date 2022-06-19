@@ -767,7 +767,7 @@ message ListtransactionsTransactionsOutputs {
 		CHANNEL_UNILATERAL_CHEAT = 10;
 	}
 	uint32 index = 1;
-	Amount msat = 2;
+	Amount amount_msat = 6;
 	bytes scriptPubKey = 3;
 	optional ListtransactionsTransactionsOutputsType item_type = 4;
 	optional string channel = 5;

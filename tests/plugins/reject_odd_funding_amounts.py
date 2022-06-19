@@ -21,7 +21,7 @@ def on_openchannel(openchannel, plugin, **kwargs):
     print("{} VARS".format(len(openchannel.keys())))
     for k in sorted(openchannel.keys()):
         print("{}={}".format(k, openchannel[k]))
-    return run_check(openchannel['funding_satoshis'])
+    return run_check(openchannel['funding_msat'])
 
 
 @plugin.hook('openchannel2')
@@ -30,7 +30,7 @@ def on_openchannel2(openchannel2, plugin, **kwargs):
     for k in sorted(openchannel2.keys()):
         print("{}={}".format(k, openchannel2[k]))
 
-    return run_check(openchannel2['their_funding'])
+    return run_check(openchannel2['their_funding_msat'])
 
 
 plugin.run()

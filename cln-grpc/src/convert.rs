@@ -546,7 +546,7 @@ impl From<&responses::ListtransactionsTransactionsOutputs> for pb::Listtransacti
     fn from(c: &responses::ListtransactionsTransactionsOutputs) -> Self {
         Self {
             index: c.index.clone(), // Rule #2 for type u32
-            msat: Some(c.msat.into()), // Rule #2 for type msat
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             script_pub_key: hex::decode(&c.script_pub_key).unwrap(), // Rule #2 for type hex
             item_type: c.item_type.map(|v| v as i32),
             channel: c.channel.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?

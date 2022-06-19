@@ -1,7 +1,9 @@
 #include "config.h"
 #include <arpa/inet.h>
+#include <assert.h>
 #include <bitcoin/psbt.h>
 #include <ccan/ccan/str/hex/hex.h>
+#include <common/configdir.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/type_to_string.h>
@@ -417,17 +419,41 @@ void json_add_amount_sat_compat(struct json_stream *result,
 				const char *msatfieldname)
 {
 	json_add_u64(result, rawfieldname, sat.satoshis); /* Raw: low-level helper */
-	json_add_amount_sat_only(result, msatfieldname, sat);
+	json_add_amount_sat_msat(result, msatfieldname, sat);
 }
 
-void json_add_amount_sat_only(struct json_stream *result,
-			 const char *msatfieldname,
-			 struct amount_sat sat)
+void json_add_amount_sat_msat(struct json_stream *result,
+			      const char *msatfieldname,
+			      struct amount_sat sat)
 {
 	struct amount_msat msat;
+	assert(strends(msatfieldname, "_msat"));
 	if (amount_sat_to_msat(&msat, sat))
 		json_add_string(result, msatfieldname,
 				type_to_string(tmpctx, struct amount_msat, &msat));
+}
+
+/* When I noticed that we were adding "XXXmsat" fields *not* ending in _msat */
+void json_add_amount_sats_deprecated(struct json_stream *result,
+				     const char *fieldname,
+				     const char *msatfieldname,
+				     struct amount_sat sat)
+{
+	if (deprecated_apis) {
+		struct amount_msat msat;
+		assert(!strends(fieldname, "_msat"));
+		if (amount_sat_to_msat(&msat, sat))
+			json_add_string(result, fieldname,
+					take(fmt_amount_msat(NULL, msat)));
+	}
+	json_add_amount_sat_msat(result, msatfieldname, sat);
+}
+
+void json_add_sats(struct json_stream *result,
+		   const char *fieldname,
+		   struct amount_sat sat)
+{
+	json_add_string(result, fieldname, take(fmt_amount_sat(NULL, sat)));
 }
 
 void json_add_secret(struct json_stream *response, const char *fieldname,
@@ -451,7 +477,7 @@ void json_add_preimage(struct json_stream *result, const char *fieldname,
 void json_add_lease_rates(struct json_stream *result,
 			  const struct lease_rates *rates)
 {
-	json_add_amount_sat_only(result, "lease_fee_base_msat",
+	json_add_amount_sat_msat(result, "lease_fee_base_msat",
 				 amount_sat(rates->lease_fee_base_sat));
 	json_add_num(result, "lease_fee_basis", rates->lease_fee_basis);
 	json_add_num(result, "funding_weight", rates->funding_weight);

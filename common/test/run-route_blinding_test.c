@@ -53,6 +53,14 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat UNNEEDED, const u
 /* Generated stub for amount_tx_fee */
 struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 { fprintf(stderr, "amount_tx_fee called!\n"); abort(); }
+/* Generated stub for deprecated_apis */
+bool deprecated_apis;
+/* Generated stub for fmt_amount_msat */
+const char *fmt_amount_msat(const tal_t *ctx UNNEEDED, struct amount_msat msat UNNEEDED)
+{ fprintf(stderr, "fmt_amount_msat called!\n"); abort(); }
+/* Generated stub for fmt_amount_sat */
+const char *fmt_amount_sat(const tal_t *ctx UNNEEDED, struct amount_sat sat UNNEEDED)
+{ fprintf(stderr, "fmt_amount_sat called!\n"); abort(); }
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }

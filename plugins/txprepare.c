@@ -378,7 +378,7 @@ static struct command_result *txprepare_continue(struct command *cmd,
 	}
 
 	if (txp->all_output_idx == -1)
-		json_add_amount_sat_only(req->js, "satoshi", txp->output_total);
+		json_add_sats(req->js, "satoshi", txp->output_total);
 	else
 		json_add_string(req->js, "satoshi", "all");
 

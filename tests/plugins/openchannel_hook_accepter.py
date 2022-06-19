@@ -52,13 +52,13 @@ def run_openchannel(funding_sats_str, plugin):
 
 @plugin.hook('openchannel')
 def on_openchannel(openchannel, plugin, **kwargs):
-    return run_openchannel(openchannel['funding_satoshis'], plugin)
+    return run_openchannel(openchannel['funding_msat'], plugin)
 
 
 @plugin.hook('openchannel2')
 def on_openchannel2(openchannel2, plugin, **kwargs):
     """ Support for v2 channel opens """
-    return run_openchannel(openchannel2['their_funding'], plugin)
+    return run_openchannel(openchannel2['their_funding_msat'], plugin)
 
 
 plugin.run()

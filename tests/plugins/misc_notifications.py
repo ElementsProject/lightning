@@ -18,7 +18,7 @@ def init(plugin, options, configuration):
 def channel_opened(plugin, channel_opened, **kwargs):
     plugin.log("A channel was opened to us by {}, with an amount"
                " of {} and the following funding transaction id: {}"
-               .format(channel_opened["id"], channel_opened["amount"],
+               .format(channel_opened["id"], channel_opened["funding_msat"],
                        channel_opened["funding_txid"]))
 
 

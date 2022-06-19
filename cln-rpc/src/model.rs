@@ -1999,8 +1999,8 @@ pub mod responses {
 	pub struct ListtransactionsTransactionsOutputs {
 	    #[serde(alias = "index")]
 	    pub index: u32,
-	    #[serde(alias = "msat")]
-	    pub msat: Amount,
+	    #[serde(alias = "amount_msat")]
+	    pub amount_msat: Amount,
 	    #[serde(alias = "scriptPubKey")]
 	    pub script_pub_key: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]

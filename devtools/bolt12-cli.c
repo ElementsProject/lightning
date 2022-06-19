@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
 #include <common/bolt12_merkle.h>
+#include <common/configdir.h>
 #include <common/features.h>
 #include <common/iso4217.h>
 #include <common/setup.h>
@@ -20,7 +21,6 @@
 #define ERROR_USAGE 3
 
 static bool well_formed = true;
-bool deprecated_apis = true;
 
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
@@ -463,6 +463,7 @@ int main(int argc, char *argv[])
 	char *fail;
 
 	common_setup(argv[0]);
+	deprecated_apis = true;
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
