@@ -130,7 +130,7 @@ static struct command_result *json_getroute(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &destination),
-		   p_req("msatoshi", param_msat, &msat),
+		   p_req("amount_msat|msatoshi", param_msat, &msat),
 		   p_req("riskfactor", param_millionths, &riskfactor_millionths),
 		   p_opt_def("cltv", param_number, &cltv, 9),
 		   p_opt_def("fromid", param_node_id, &source, local_id),

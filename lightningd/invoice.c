@@ -1147,7 +1147,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->cmd = cmd;
 
 	if (!param(cmd, buffer, params,
-		   p_req("msatoshi", param_positive_msat_or_any, &msatoshi_val),
+		   p_req("amount_msat|msatoshi", param_positive_msat_or_any, &msatoshi_val),
 		   p_req("label", param_label, &info->label),
 		   p_req("description", param_escaped_string, &desc_val),
 		   p_opt_def("expiry", param_time, &expiry, 3600*24*7),

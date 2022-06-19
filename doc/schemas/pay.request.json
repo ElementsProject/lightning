@@ -9,7 +9,7 @@
     "bolt11": {
       "type": "string"
     },
-    "msatoshi": {
+    "amount_msat": {
       "type": "msat"
     },
     "label": {

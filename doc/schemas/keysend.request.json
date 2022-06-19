@@ -4,13 +4,13 @@
   "additionalProperties": false,
   "required": [
     "destination",
-    "msatoshi"
+    "amount_msat"
   ],
   "properties": {
     "destination": {
       "type": "pubkey"
     },
-    "msatoshi": {
+    "amount_msat": {
       "type": "msat"
     },
     "label": {

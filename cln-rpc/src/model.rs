@@ -138,8 +138,8 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRoute {
-	    #[serde(alias = "msatoshi")]
-	    pub msatoshi: Amount,
+	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "id")]
 	    pub id: Pubkey,
 	    #[serde(alias = "delay")]
@@ -156,8 +156,8 @@ pub mod requests {
 	    pub payment_hash: Sha256,
 	    #[serde(alias = "label", skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
-	    #[serde(alias = "msatoshi", skip_serializing_if = "Option::is_none")]
-	    pub msatoshi: Option<Amount>,
+	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "bolt11", skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
 	    #[serde(alias = "payment_secret", skip_serializing_if = "Option::is_none")]
@@ -351,8 +351,8 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InvoiceRequest {
-	    #[serde(alias = "msatoshi")]
-	    pub msatoshi: AmountOrAny,
+	    #[serde(alias = "amount_msat")]
+	    pub amount_msat: AmountOrAny,
 	    #[serde(alias = "description")]
 	    pub description: String,
 	    #[serde(alias = "label")]
@@ -413,8 +413,8 @@ pub mod requests {
 	    pub partid: Option<u16>,
 	    #[serde(alias = "bolt11", skip_serializing_if = "Option::is_none")]
 	    pub bolt11: Option<String>,
-	    #[serde(alias = "msatoshi", skip_serializing_if = "Option::is_none")]
-	    pub msatoshi: Option<Amount>,
+	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<Pubkey>,
 	    #[serde(alias = "localofferid", skip_serializing_if = "Option::is_none")]
@@ -462,8 +462,8 @@ pub mod requests {
 	pub struct PayRequest {
 	    #[serde(alias = "bolt11")]
 	    pub bolt11: String,
-	    #[serde(alias = "msatoshi", skip_serializing_if = "Option::is_none")]
-	    pub msatoshi: Option<Amount>,
+	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "label", skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    #[serde(alias = "riskfactor", skip_serializing_if = "Option::is_none")]
@@ -567,8 +567,8 @@ pub mod requests {
 	pub struct KeysendRequest {
 	    #[serde(alias = "destination")]
 	    pub destination: Pubkey,
-	    #[serde(alias = "msatoshi")]
-	    pub msatoshi: Amount,
+	    #[serde(alias = "amount_msat")]
+	    pub amount_msat: Amount,
 	    #[serde(alias = "label", skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    #[serde(alias = "maxfeepercent", skip_serializing_if = "Option::is_none")]
@@ -702,8 +702,8 @@ pub mod requests {
 	pub struct GetrouteRequest {
 	    #[serde(alias = "id")]
 	    pub id: Pubkey,
-	    #[serde(alias = "msatoshi")]
-	    pub msatoshi: Amount,
+	    #[serde(alias = "amount_msat")]
+	    pub amount_msat: Amount,
 	    #[serde(alias = "riskfactor")]
 	    pub riskfactor: u64,
 	    #[serde(alias = "cltv", skip_serializing_if = "Option::is_none")]

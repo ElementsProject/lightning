@@ -155,7 +155,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 #endif
 	if (!param(cmd, buf, params,
 		   p_req("destination", param_node_id, &destination),
-		   p_req("msatoshi", param_msat, &msat),
+		   p_req("amount_msat|msatoshi", param_msat, &msat),
 		   p_opt("label", param_string, &label),
 		   p_opt_def("maxfeepercent", param_millionths,
 			     &maxfee_pct_millionths, 500000),
@@ -460,7 +460,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 				    ki);
 
 	plugin_log(cmd->plugin, LOG_INFORM, "Inserting a new invoice for keysend with payment_hash %s", type_to_string(tmpctx, struct sha256, &payment_hash));
-	json_add_string(req->js, "msatoshi", "any");
+	json_add_string(req->js, "amount_msat", "any");
 	json_add_string(req->js, "label", ki->label);
 	json_add_string(req->js, "description", "Spontaneous incoming payment through keysend");
 	json_add_preimage(req->js, "preimage", &ki->payment_preimage);

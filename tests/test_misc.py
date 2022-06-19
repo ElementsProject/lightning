@@ -2074,7 +2074,7 @@ def test_unicode_rpc(node_factory, executor, bitcoind):
     node = node_factory.get_node()
     desc = "Some candy 🍬 and a nice glass of milk 🥛."
 
-    node.rpc.invoice(msatoshi=42, label=desc, description=desc)
+    node.rpc.invoice(amount_msat=42, label=desc, description=desc)
     invoices = node.rpc.listinvoices()['invoices']
     assert(len(invoices) == 1)
     assert(invoices[0]['description'] == desc)

@@ -957,7 +957,7 @@ static struct command_result *json_pay(struct command *cmd,
 	if (!param(cmd, buf, params,
 		   /* FIXME: parameter should be invstring now */
 		   p_req("bolt11", param_string, &b11str),
-		   p_opt("msatoshi", param_msat, &msat),
+		   p_opt("amount_msat|msatoshi", param_msat, &msat),
 		   p_opt("label", param_string, &label),
 		   p_opt_def("riskfactor", param_millionths,
 			     &riskfactor_millionths, 10000000),
