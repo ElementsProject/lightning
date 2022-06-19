@@ -1252,7 +1252,8 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
 		case CLOSINGD_SIGEXCHANGE:
-			assert(!channel->owner);
+			/* Maybe old owner was too slow exiting? */
+			tal_free(channel->owner);
 			peer_start_channeld(channel,
 					    peer_fd,
 					    NULL, true,
