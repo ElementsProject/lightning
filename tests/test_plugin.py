@@ -1921,26 +1921,26 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     """Verify that channel coin movements are triggered correctly.  """
 
     l1_l2_mvts = [
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tags': ['channel_open']},
-        {'type': 'channel_mvt', 'credit': 100001001, 'debit': 0, 'tags': ['routed'], 'fees': '1001msat'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tags': ['routed'], 'fees': '501msat'},
-        {'type': 'channel_mvt', 'credit': 100000000, 'debit': 0, 'tags': ['invoice'], 'fees': '0msat'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000000, 'tags': ['invoice'], 'fees': '0msat'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 100001001, 'tags': ['channel_close']},
+        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 0, 'tags': ['channel_open']},
+        {'type': 'channel_mvt', 'credit_msat': 100001001, 'debit_msat': 0, 'tags': ['routed'], 'fees_msat': '1001msat'},
+        {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 50000000, 'tags': ['routed'], 'fees_msat': '501msat'},
+        {'type': 'channel_mvt', 'credit_msat': 100000000, 'debit_msat': 0, 'tags': ['invoice'], 'fees_msat': '0msat'},
+        {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 50000000, 'tags': ['invoice'], 'fees_msat': '0msat'},
+        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 100001001, 'tags': ['channel_close']},
     ]
 
     l2_l3_mvts = [
-        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tags': ['channel_open', 'opener']},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tags': ['routed'], 'fees': '1001msat'},
-        {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tags': ['routed'], 'fees': '501msat'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 950000501, 'tags': ['channel_close']},
+        {'type': 'chain_mvt', 'credit_msat': 1000000000, 'debit_msat': 0, 'tags': ['channel_open', 'opener']},
+        {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 100000000, 'tags': ['routed'], 'fees_msat': '1001msat'},
+        {'type': 'channel_mvt', 'credit_msat': 50000501, 'debit_msat': 0, 'tags': ['routed'], 'fees_msat': '501msat'},
+        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 950000501, 'tags': ['channel_close']},
     ]
 
     l3_l2_mvts = [
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tags': ['channel_open']},
-        {'type': 'channel_mvt', 'credit': 100000000, 'debit': 0, 'tags': ['invoice'], 'fees': '0msat'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 50000501, 'tags': ['invoice'], 'fees': '501msat'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 49999499, 'tags': ['channel_close']},
+        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 0, 'tags': ['channel_open']},
+        {'type': 'channel_mvt', 'credit_msat': 100000000, 'debit_msat': 0, 'tags': ['invoice'], 'fees_msat': '0msat'},
+        {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 50000501, 'tags': ['invoice'], 'fees_msat': '501msat'},
+        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 49999499, 'tags': ['channel_close']},
     ]
 
     coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')

@@ -1,4 +1,5 @@
 #include "config.h"
+#include <common/configdir.h>
 #include <common/json_helpers.h>
 #include <common/type_to_string.h>
 #include <lightningd/channel.h>
@@ -478,8 +479,13 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 		json_add_string(stream, "originating_account",
 				mvt->originating_acct);
 	json_mvt_id(stream, mvt->type, &mvt->id);
-	json_add_amount_msat_only(stream, "credit", mvt->credit);
-	json_add_amount_msat_only(stream, "debit", mvt->debit);
+	if (deprecated_apis) {
+		json_add_amount_msat_only(stream, "credit", mvt->credit);
+		json_add_amount_msat_only(stream, "debit", mvt->debit);
+	}
+	json_add_amount_msat_only(stream, "credit_msat", mvt->credit);
+	json_add_amount_msat_only(stream, "debit_msat", mvt->debit);
+
 	/* Only chain movements */
 	if (mvt->output_val)
 		json_add_amount_sats_deprecated(stream, "output_value",
@@ -489,9 +495,13 @@ static void coin_movement_notification_serialize(struct json_stream *stream,
 		json_add_num(stream, "output_count",
 			     mvt->output_count);
 
-	if (mvt->fees)
-		json_add_amount_msat_only(stream, "fees",
+	if (mvt->fees) {
+		if (deprecated_apis)
+			json_add_amount_msat_only(stream, "fees",
+						  *mvt->fees);
+		json_add_amount_msat_only(stream, "fees_msat",
 					  *mvt->fees);
+	}
 
 	json_array_start(stream, "tags");
 	for (size_t i = 0; i < tal_count(mvt->tags); i++)
@@ -535,7 +545,10 @@ static void balance_snapshot_notification_serialize(struct json_stream *stream, 
 		json_object_start(stream, NULL);
 		json_add_string(stream, "account_id",
 				snap->accts[i]->acct_id);
-		json_add_amount_msat_only(stream, "balance",
+		if (deprecated_apis)
+			json_add_amount_msat_only(stream, "balance",
+						  snap->accts[i]->balance);
+		json_add_amount_msat_only(stream, "balance_msat",
 					  snap->accts[i]->balance);
 		json_add_string(stream, "coin_type", snap->accts[i]->bip173_name);
 		json_object_end(stream);
