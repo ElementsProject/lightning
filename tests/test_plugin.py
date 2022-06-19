@@ -396,7 +396,7 @@ def test_pay_plugin(node_factory):
         l1.rpc.call('pay')
 
     # Make sure usage messages are present.
-    msg = 'pay bolt11 [msatoshi] [label] [riskfactor] [maxfeepercent] '\
+    msg = 'pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] '\
           '[retry_for] [maxdelay] [exemptfee] [localofferid] [exclude] '\
           '[maxfee] [description]'
     if DEVELOPER:
@@ -1076,7 +1076,7 @@ def test_htlc_accepted_hook_resolve(node_factory):
         {}
     ], wait_for_announce=True)
 
-    inv = l3.rpc.invoice(msatoshi=1000, label="lbl", description="desc", preimage="00" * 32)['bolt11']
+    inv = l3.rpc.invoice(amount_msat=1000, label="lbl", description="desc", preimage="00" * 32)['bolt11']
     l1.rpc.pay(inv)
 
     # And the invoice must still be unpaid
@@ -1093,7 +1093,7 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
          'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')}
     ])
 
-    i1 = l2.rpc.invoice(msatoshi=1000, label="direct", description="desc")['bolt11']
+    i1 = l2.rpc.invoice(amount_msat=1000, label="direct", description="desc")['bolt11']
     f1 = executor.submit(l1.rpc.pay, i1)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
@@ -1126,7 +1126,7 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
         {'may_reconnect': True},
     ], wait_for_announce=True)
 
-    i1 = l3.rpc.invoice(msatoshi=1000, label="direct", description="desc")['bolt11']
+    i1 = l3.rpc.invoice(amount_msat=1000, label="direct", description="desc")['bolt11']
     f1 = executor.submit(l1.dev_pay, i1, use_shadow=False)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
@@ -2054,7 +2054,7 @@ def test_3847_repro(node_factory, bitcoind):
     amt = 20 * 1000 * 1000
 
     i1 = l3.rpc.invoice(
-        msatoshi=amt, label="direct", description="desc"
+        amount_msat=amt, label="direct", description="desc"
     )['bolt11']
     with pytest.raises(RpcError):
         l1.rpc.pay(i1, retry_for=10)

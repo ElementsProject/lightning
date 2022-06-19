@@ -980,7 +980,7 @@ impl From<&pb::ListfundsRequest> for requests::ListfundsRequest {
 impl From<&pb::SendpayRoute> for requests::SendpayRoute {
     fn from(c: &pb::SendpayRoute) -> Self {
         Self {
-            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat
+            amount_msat: c.amount_msat.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             delay: c.delay as u16, // Rule #1 for type u16
             channel: cln_rpc::primitives::ShortChannelId::from_str(&c.channel).unwrap(), // Rule #1 for type short_channel_id
@@ -995,7 +995,7 @@ impl From<&pb::SendpayRequest> for requests::SendpayRequest {
             route: c.route.iter().map(|s| s.into()).collect(), // Rule #4
             payment_hash: c.payment_hash.clone().try_into().unwrap(), // Rule #1 for type hash
             label: c.label.clone(), // Rule #1 for type string?
-            msatoshi: c.msatoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            amount_msat: c.amount_msat.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             bolt11: c.bolt11.clone(), // Rule #1 for type string?
             payment_secret: c.payment_secret.clone().map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
             partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
@@ -1152,7 +1152,7 @@ impl From<&pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
 impl From<&pb::InvoiceRequest> for requests::InvoiceRequest {
     fn from(c: &pb::InvoiceRequest) -> Self {
         Self {
-            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat_or_any
+            amount_msat: c.amount_msat.as_ref().unwrap().into(), // Rule #1 for type msat_or_any
             description: c.description.clone(), // Rule #1 for type string
             label: c.label.clone(), // Rule #1 for type string
             expiry: c.expiry.clone(), // Rule #1 for type u64?
@@ -1196,7 +1196,7 @@ impl From<&pb::SendonionRequest> for requests::SendonionRequest {
             shared_secrets: Some(c.shared_secrets.iter().map(|s| s.clone().try_into().unwrap()).collect()), // Rule #4
             partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
             bolt11: c.bolt11.clone(), // Rule #1 for type string?
-            msatoshi: c.msatoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            amount_msat: c.amount_msat.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             destination: c.destination.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?
             localofferid: c.localofferid.clone().map(|v| v.try_into().unwrap()), // Rule #1 for type hash?
             groupid: c.groupid.clone(), // Rule #1 for type u64?
@@ -1228,7 +1228,7 @@ impl From<&pb::PayRequest> for requests::PayRequest {
     fn from(c: &pb::PayRequest) -> Self {
         Self {
             bolt11: c.bolt11.clone(), // Rule #1 for type string
-            msatoshi: c.msatoshi.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            amount_msat: c.amount_msat.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             label: c.label.clone(), // Rule #1 for type string?
             riskfactor: c.riskfactor.clone(), // Rule #1 for type number?
             maxfeepercent: c.maxfeepercent.clone(), // Rule #1 for type number?
@@ -1310,7 +1310,7 @@ impl From<&pb::KeysendRequest> for requests::KeysendRequest {
     fn from(c: &pb::KeysendRequest) -> Self {
         Self {
             destination: cln_rpc::primitives::Pubkey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
-            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat
+            amount_msat: c.amount_msat.as_ref().unwrap().into(), // Rule #1 for type msat
             label: c.label.clone(), // Rule #1 for type string?
             maxfeepercent: c.maxfeepercent.clone(), // Rule #1 for type number?
             retry_for: c.retry_for.clone(), // Rule #1 for type u32?
@@ -1428,7 +1428,7 @@ impl From<&pb::GetrouteRequest> for requests::GetrouteRequest {
     fn from(c: &pb::GetrouteRequest) -> Self {
         Self {
             id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
-            msatoshi: c.msatoshi.as_ref().unwrap().into(), // Rule #1 for type msat
+            amount_msat: c.amount_msat.as_ref().unwrap().into(), // Rule #1 for type msat
             riskfactor: c.riskfactor.clone(), // Rule #1 for type u64
             cltv: c.cltv.clone(), // Rule #1 for type number?
             fromid: c.fromid.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap()), // Rule #1 for type pubkey?

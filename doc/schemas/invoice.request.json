@@ -3,12 +3,12 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "msatoshi",
+    "amount_msat",
     "label",
     "description"
   ],
   "properties": {
-    "msatoshi": {
+    "amount_msat": {
       "type": "msat_or_any",
       "description": ""
     },

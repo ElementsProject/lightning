@@ -443,6 +443,7 @@
             "Getinfo.warning_lightningd_sync": 17
         },
         "GetrouteRequest": {
+            "GetRoute.amount_msat": 9,
             "GetRoute.cltv": 4,
             "GetRoute.exclude[]": 7,
             "GetRoute.fromid": 5,
@@ -464,6 +465,7 @@
             "GetRoute.route[].style": 6
         },
         "InvoiceRequest": {
+            "Invoice.amount_msat": 10,
             "Invoice.cltv": 6,
             "Invoice.deschashonly": 9,
             "Invoice.description": 2,
@@ -486,6 +488,7 @@
             "Invoice.warning_private_unused": 8
         },
         "KeysendRequest": {
+            "KeySend.amount_msat": 10,
             "KeySend.destination": 1,
             "KeySend.exemptfee": 7,
             "KeySend.extratlvs": 9,
@@ -821,6 +824,7 @@
             "NewAddr.p2sh-segwit": 2
         },
         "PayRequest": {
+            "Pay.amount_msat": 13,
             "Pay.bolt11": 1,
             "Pay.description": 12,
             "Pay.exclude": 10,
@@ -859,6 +863,7 @@
             "SendOnion.first_hop.id": 1
         },
         "SendonionRequest": {
+            "SendOnion.amount_msat": 12,
             "SendOnion.bolt11": 7,
             "SendOnion.destination": 9,
             "SendOnion.first_hop": 2,
@@ -887,6 +892,7 @@
             "SendOnion.status": 3
         },
         "SendpayRequest": {
+            "SendPay.amount_msat": 10,
             "SendPay.bolt11": 5,
             "SendPay.groupid": 9,
             "SendPay.label": 3,
@@ -914,6 +920,7 @@
             "SendPay.status": 4
         },
         "SendpayRoute": {
+            "SendPay.route[].amount_msat": 5,
             "SendPay.route[].channel": 4,
             "SendPay.route[].delay": 3,
             "SendPay.route[].id": 2,

@@ -104,7 +104,7 @@ def test_grpc_connect(node_factory):
     print(response)
 
     inv = stub.Invoice(nodepb.InvoiceRequest(
-        msatoshi=AmountOrAny(any=True),
+        amount_msat=AmountOrAny(any=True),
         description="hello",
         label="lbl1",
         preimage=b"\x00" * 32,
@@ -119,7 +119,7 @@ def test_grpc_connect(node_factory):
     with pytest.raises(Exception, match=r'Duplicate label'):
         # This request creates a label collision
         stub.Invoice(nodepb.InvoiceRequest(
-            msatoshi=AmountOrAny(amount=Amount(msat=12345)),
+            amount_msat=AmountOrAny(amount=Amount(msat=12345)),
             description="hello",
             label="lbl1",
         ))

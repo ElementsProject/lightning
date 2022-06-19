@@ -12,14 +12,16 @@
       "items": {
         "type": "object",
         "required": [
-          "msatoshi",
           "id",
           "delay",
           "channel"
         ],
         "properties": {
-          "msatoshi": {
+          "amount_msat": {
             "type": "msat"
+          },
+          "msatoshi": {
+            "deprecated": "true"
           },
           "id": {
             "type": "pubkey"
@@ -39,7 +41,7 @@
     "label": {
       "type": "string"
     },
-    "msatoshi": {
+    "amount_msat": {
       "type": "msat"
     },
     "bolt11": {

@@ -2735,10 +2735,10 @@ def setup_multihtlc_test(node_factory, bitcoind):
     nodes[-1].rpc.dev_ignore_htlcs(id=nodes[-2].info['id'], ignore=True)
 
     preimage = "0" * 64
-    inv = nodes[0].rpc.invoice(msatoshi=10**8, label='x', description='desc',
+    inv = nodes[0].rpc.invoice(amount_msat=10**8, label='x', description='desc',
                                preimage=preimage)
     h = inv['payment_hash']
-    nodes[-1].rpc.invoice(msatoshi=10**8, label='x', description='desc',
+    nodes[-1].rpc.invoice(amount_msat=10**8, label='x', description='desc',
                           preimage=preimage)['payment_hash']
 
     # First, the failed attempts (paying wrong node).  CLTV1
@@ -3641,8 +3641,8 @@ We send an HTLC, and peer unilaterally closes: do we close upstream?
                                                 'dev-no-ping-timer': None},
                                                {'dev-no-ping-timer': None}])
 
-    ph1 = l3.rpc.invoice(msatoshi="10000sat", label='x1', description='desc2')['payment_hash']
-    ph2 = l3.rpc.invoice(msatoshi="10000sat", label='x2', description='desc2')['payment_hash']
+    ph1 = l3.rpc.invoice(amount_msat="10000sat", label='x1', description='desc2')['payment_hash']
+    ph2 = l3.rpc.invoice(amount_msat="10000sat", label='x2', description='desc2')['payment_hash']
 
     route = l1.rpc.getroute(l3.info['id'], 1, 1)['route']
 

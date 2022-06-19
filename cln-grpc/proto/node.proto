@@ -291,7 +291,7 @@ message SendpayRequest {
 	repeated SendpayRoute route = 1;
 	bytes payment_hash = 2;
 	optional string label = 3;
-	optional Amount msatoshi = 4;
+	optional Amount amount_msat = 10;
 	optional string bolt11 = 5;
 	optional bytes payment_secret = 6;
 	optional uint32 partid = 7;
@@ -322,7 +322,7 @@ message SendpayResponse {
 }
 
 message SendpayRoute {
-	Amount msatoshi = 1;
+	optional Amount amount_msat = 5;
 	bytes id = 2;
 	uint32 delay = 3;
 	string channel = 4;
@@ -559,7 +559,7 @@ message DelinvoiceResponse {
 }
 
 message InvoiceRequest {
-	AmountOrAny msatoshi = 1;
+	AmountOrAny amount_msat = 10;
 	string description = 2;
 	string label = 3;
 	optional uint64 expiry = 7;
@@ -638,7 +638,7 @@ message SendonionRequest {
 	repeated bytes shared_secrets = 5;
 	optional uint32 partid = 6;
 	optional string bolt11 = 7;
-	optional Amount msatoshi = 8;
+	optional Amount amount_msat = 12;
 	optional bytes destination = 9;
 	optional bytes localofferid = 10;
 	optional uint64 groupid = 11;
@@ -775,7 +775,7 @@ message ListtransactionsTransactionsOutputs {
 
 message PayRequest {
 	string bolt11 = 1;
-	optional Amount msatoshi = 2;
+	optional Amount amount_msat = 13;
 	optional string label = 3;
 	optional double riskfactor = 8;
 	optional double maxfeepercent = 4;
@@ -945,7 +945,7 @@ message WithdrawResponse {
 
 message KeysendRequest {
 	bytes destination = 1;
-	Amount msatoshi = 2;
+	Amount amount_msat = 10;
 	optional string label = 3;
 	optional double maxfeepercent = 4;
 	optional uint32 retry_for = 5;
@@ -1134,7 +1134,7 @@ message FeeratesOnchain_fee_estimates {
 
 message GetrouteRequest {
 	bytes id = 1;
-	Amount msatoshi = 2;
+	Amount amount_msat = 9;
 	uint64 riskfactor = 3;
 	optional double cltv = 4;
 	optional bytes fromid = 5;
