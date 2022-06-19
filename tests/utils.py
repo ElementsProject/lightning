@@ -74,18 +74,18 @@ def expected_channel_features(wumbo_channels=False, extra=[]):
 def move_matches(exp, mv):
     if mv['type'] != exp['type']:
         return False
-    if mv['credit'] != "{}msat".format(exp['credit']):
+    if Millisatoshi(mv['credit_msat']) != Millisatoshi(exp['credit_msat']):
         return False
-    if mv['debit'] != "{}msat".format(exp['debit']):
+    if Millisatoshi(mv['debit_msat']) != Millisatoshi(exp['debit_msat']):
         return False
     if mv['tags'] != exp['tags']:
         return False
-    if 'fees' in exp:
-        if 'fees' not in mv:
+    if 'fees_msat' in exp:
+        if 'fees_msat' not in mv:
             return False
-        if mv['fees'] != exp['fees']:
+        if Millisatoshi(mv['fees_msat']) != Millisatoshi(exp['fees_msat']):
             return False
-    elif 'fees' in mv:
+    elif 'fees_msat' in mv:
         return False
     return True
 
@@ -103,8 +103,8 @@ def check_balance_snaps(n, expected_bals):
         assert snap['blockheight'] == exp['blockheight']
         for acct, exp_acct in zip(snap['accounts'], exp['accounts']):
             # FIXME: also check 'account_id's (these change every run)
-            for item in ['balance']:
-                assert acct[item] == exp_acct[item]
+            for item in ['balance_msat']:
+                assert Millisatoshi(acct[item]) == Millisatoshi(exp_acct[item])
 
 
 def check_coin_moves(n, account_id, expected_moves, chainparams):
@@ -125,12 +125,12 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
     node_id = n.info['id']
     acct_moves = [m for m in moves if m['account_id'] == account_id]
     for mv in acct_moves:
-        print("{{'type': '{}', 'credit': {}, 'debit': {}, 'tags': '{}' , ['fees'?: '{}']}},"
+        print("{{'type': '{}', 'credit_msat': {}, 'debit_msat': {}, 'tags': '{}' , ['fees_msat'?: '{}']}},"
               .format(mv['type'],
-                      Millisatoshi(mv['credit']).millisatoshis,
-                      Millisatoshi(mv['debit']).millisatoshis,
+                      Millisatoshi(mv['credit_msat']).millisatoshis,
+                      Millisatoshi(mv['debit_msat']).millisatoshis,
                       mv['tags'],
-                      mv['fees'] if 'fees' in mv else ''))
+                      mv['fees_msat'] if 'fees_msat' in mv else ''))
         assert mv['version'] == 2
         assert mv['node_id'] == node_id
         assert mv['timestamp'] > 0
@@ -165,10 +165,10 @@ def account_balance(n, account_id):
     moves = dedupe_moves(n.rpc.call('listcoinmoves_plugin')['coin_moves'])
     chan_moves = [m for m in moves if m['account_id'] == account_id]
     assert len(chan_moves) > 0
-    m_sum = 0
+    m_sum = Millisatoshi(0)
     for m in chan_moves:
-        m_sum += int(m['credit'][:-4])
-        m_sum -= int(m['debit'][:-4])
+        m_sum += Millisatoshi(m['credit_msat'])
+        m_sum -= Millisatoshi(m['debit_msat'])
     return m_sum
 
 

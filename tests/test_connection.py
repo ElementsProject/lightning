@@ -1157,12 +1157,12 @@ def test_funding_push(node_factory, bitcoind, chainparams):
 
     chanid = first_channel_id(l2, l1)
     channel_mvts_1 = [
-        {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tags': ['channel_open', 'opener']},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 20000000, 'tags': ['pushed'], 'fees': '0msat'},
+        {'type': 'chain_mvt', 'credit_msat': 16777215000, 'debit_msat': 0, 'tags': ['channel_open', 'opener']},
+        {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 20000000, 'tags': ['pushed'], 'fees_msat': '0msat'},
     ]
     channel_mvts_2 = [
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tags': ['channel_open']},
-        {'type': 'channel_mvt', 'credit': 20000000, 'debit': 0, 'tags': ['pushed'], 'fees': '0msat'},
+        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 0, 'tags': ['channel_open']},
+        {'type': 'channel_mvt', 'credit_msat': 20000000, 'debit_msat': 0, 'tags': ['pushed'], 'fees_msat': '0msat'},
     ]
     check_coin_moves(l1, chanid, channel_mvts_1, chainparams)
     check_coin_moves(l2, chanid, channel_mvts_2, chainparams)
