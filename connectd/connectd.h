@@ -212,7 +212,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct wireaddr *remote_addr,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
-			       bool incoming);
+			       bool incoming,
+			       bool retrying);
 
 /* Called when peer->peer_conn is finally freed */
 void peer_conn_closed(struct peer *peer);

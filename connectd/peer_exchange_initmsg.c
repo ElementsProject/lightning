@@ -137,7 +137,8 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			      remote_addr,
 			      &peer->cs,
 			      take(features),
-			      peer->incoming);
+			      peer->incoming,
+			      false);
 }
 
 static struct io_plan *peer_init_hdr_received(struct io_conn *conn,
