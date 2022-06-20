@@ -277,7 +277,7 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 	oldlen = lseek(old_fd, SEEK_END, 0);
 	newlen = lseek(new_fd, SEEK_END, 0);
 	append_msg(old_fd, towire_gossip_store_ended(tmpctx, newlen),
-		   0, false, &oldlen);
+		   0, true, &oldlen);
 	close(old_fd);
 	status_debug("gossip_store_compact_offline: %zu deleted, %zu copied",
 		     deleted, count);
@@ -565,7 +565,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 
 	/* Write end marker now new one is ready */
 	append_msg(gs->fd, towire_gossip_store_ended(tmpctx, len),
-		   0, false, &gs->len);
+		   0, true, &gs->len);
 
 	gs->count = count;
 	gs->deleted = 0;
