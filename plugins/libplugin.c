@@ -1591,8 +1591,8 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 	    ftxidtok == NULL || ftxidtok->type != JSMN_STRING ||
 	    (scidtok != NULL && scidtok->type != JSMN_STRING) ||
 	    (dirtok != NULL && dirtok->type != JSMN_PRIMITIVE) ||
-	    tmsattok == NULL || tmsattok->type != JSMN_STRING ||
-	    smsattok == NULL || smsattok->type != JSMN_STRING)
+	    tmsattok == NULL ||
+	    smsattok == NULL)
 		return NULL;
 
 	chan = tal(ctx, struct listpeers_channel);
