@@ -74,4 +74,9 @@ const struct chainparams *chainparams_by_chainhash(const struct bitcoin_blkid *c
  */
 const char *chainparams_get_network_names(const tal_t *ctx);
 
+/**
+ * chainparams_get_ln_port - Return the lightning network default port by
+ * network if the chainparams is initialized, otherwise 9735 as mock port
+ */
+int chainparams_get_ln_port(const struct chainparams *params);
 #endif /* LIGHTNING_BITCOIN_CHAINPARAMS_H */

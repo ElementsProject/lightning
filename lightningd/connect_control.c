@@ -141,7 +141,7 @@ static struct command_result *json_connect(struct command *cmd,
 		/* Is there a port? */
 		if (!port) {
 			port = tal(cmd, u32);
-			*port = chainparams->ln_port;
+			*port = chainparams_get_ln_port(chainparams);
 		}
 		addr = tal(cmd, struct wireaddr_internal);
 		if (!parse_wireaddr_internal(name, addr, *port, false,

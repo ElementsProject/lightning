@@ -1,4 +1,5 @@
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
@@ -268,4 +269,10 @@ const char *chainparams_get_network_names(const tal_t *ctx)
     for (size_t i = 1; i < ARRAY_SIZE(networks); ++i)
         tal_append_fmt(&networks_string, ", %s", networks[i].network_name);
     return networks_string;
+}
+
+int chainparams_get_ln_port(const struct chainparams *params)
+{
+	assert(params);
+	return params->ln_port;
 }

@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <wire/peer_wire.h>
 
+#define chainparams_get_ln_port simple_get_ln_port
 #define io_write_ simple_write
 #define io_read_ simple_read
 #define io_close simple_close
@@ -45,7 +46,12 @@ static struct io_plan *simple_close(struct io_conn *conn)
 	return NULL;
 }
 
-  #include "../connectd/handshake.c"
+static int simple_get_ln_port(const struct chainparams *params UNNEEDED)
+{
+	return 9735;
+}
+
+ #include "../connectd/handshake.c"
 
 /* This makes the handshake prototypes work. */
 struct io_conn {
@@ -322,7 +328,7 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Invalid id %.*s",
 				    (int)(at - argv[1]), argv[1]);
 
-	if (!parse_wireaddr_internal(at+1, &addr, DEFAULT_PORT, NULL,
+	if (!parse_wireaddr_internal(at+1, &addr, simple_get_ln_port(NULL), NULL,
 				     true, false, true, &err_msg))
 		opt_usage_exit_fail("%s '%s'", err_msg, argv[1]);
 
@@ -376,4 +382,3 @@ int main(int argc, char *argv[])
 			    handshake_success, argv+2);
 	exit(0);
 }
-
