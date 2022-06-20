@@ -410,7 +410,7 @@ if the funding transaction has been included into a block.
 {
   "channel_opened": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-    "funding_msat": "100000000msat",
+    "funding_msat": 100000000,
     "funding_txid": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
     "funding_locked": false
   }
@@ -506,7 +506,7 @@ A notification for topic `invoice_payment` is sent every time an invoice is paid
   "invoice_payment": {
     "label": "unique-label-for-invoice",
     "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-    "msat": "10000msat"
+    "amount_msat": 10000
   }
 }
 
@@ -520,7 +520,7 @@ A notification for topic `invoice_creation` is sent every time an invoice is cre
   "invoice_creation": {
     "label": "unique-label-for-invoice",
     "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-    "msat": "10000msat"
+    "amount_msat": 10000
   }
 }
 ```
@@ -565,12 +565,9 @@ of a forward payment is set. The json format is same as the API
     "payment_hash": "f5a6a059a25d1e329d9b094aeeec8c2191ca037d3f5b0662e21ae850debe8ea2",
     "in_channel": "103x2x1",
     "out_channel": "103x1x1",
-    "in_msatoshi": 100001001,
-    "in_msat": "100001001msat",
-    "out_msatoshi": 100000000,
-    "out_msat": "100000000msat",
-    "fee": 1001,
-    "fee_msat": "1001msat",
+    "in_msat": 100001001,
+    "out_msat": 100000000,
+    "fee_msat": 1001,
     "status": "settled",
     "received_time": 1560696342.368,
     "resolved_time": 1560696342.556
@@ -585,12 +582,9 @@ or
     "payment_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
     "in_channel": "103x2x1",
     "out_channel": "110x1x0",
-    "in_msatoshi": 100001001,
-    "in_msat": "100001001msat",
-    "out_msatoshi": 100000000,
-    "out_msat": "100000000msat",
-    "fee": 1001,
-    "fee_msat": "1001msat",
+    "in_msat": 100001001,
+    "out_msat": 100000000,
+    "fee_msat": 1001,
     "status": "local_failed",
     "failcode": 16392,
     "failreason": "WIRE_PERMANENT_CHANNEL_FAILURE",
@@ -648,10 +642,8 @@ the commands `sendpay`/`waitsendpay` when these commands succeed.
     "id": 1,
     "payment_hash": "5c85bf402b87d4860f4a728e2e58a2418bda92cd7aea0ce494f11670cfbfb206",
     "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-    "msatoshi": 100000000,
-    "amount_msat": "100000000msat",
-    "msatoshi_sent": 100001001,
-    "amount_sent_msat": "100001001msat",
+    "amount_msat": 100000000,
+    "amount_sent_msat": 100001001,
     "created_at": 1561390572,
     "status": "complete",
     "payment_preimage": "9540d98095fd7f37687ebb7759e733934234d4f934e34433d4998a37de3733ee"
@@ -678,10 +670,8 @@ the commands `sendpay`/`waitsendpay` when these commands fail.
       "id": 2,
       "payment_hash": "9036e3bdbd2515f1e653cb9f22f8e4c49b73aa2c36e937c926f43e33b8db8851",
       "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-      "msatoshi": 100000000,
-      "amount_msat": "100000000msat",
-      "msatoshi_sent": 100001001,
-      "amount_sent_msat": "100001001msat",
+      "amount_msat": 100000000,
+      "amount_sent_msat": 100001001,
       "created_at": 1561395134,
       "status": "failed",
       "erring_index": 1,
@@ -719,11 +709,11 @@ i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
 		"vout":1, // (`chain_mvt` only)
 		"payment_hash": "xxx", // (either type, optional on both)
 		"part_id": 0, // (`channel_mvt` only, optional)
-		"credit":"2000000000msat",
-		"debit":"0msat",
-		"output_msat": "2000000000msat", // ('chain_mvt' only)
+		"credit_msat":2000000000,
+		"debit_msat":0,
+		"output_msat": 2000000000, // ('chain_mvt' only)
 		"output_count": 2, // ('chain_mvt' only, typically only channel closes)
-		"fees": "382msat", // ('channel_mvt' only)
+		"fees_msat": 382, // ('channel_mvt' only)
 		"tags": ["deposit"],
 		"blockheight":102, // 'chain_mvt' only
 		"timestamp":1585948198,
@@ -1112,7 +1102,7 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
   "payment": {
     "label": "unique-label-for-invoice",
     "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
-    "msat": "10000msat"
+    "amount_msat": 10000
   }
 }
 ```
@@ -1134,12 +1124,12 @@ the v1 protocol, and it has passed basic sanity checks:
 {
   "openchannel": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
-    "funding_satoshis": "100000000msat",
-    "push_msat": "0msat",
-    "dust_limit_satoshis": "546000msat",
-    "max_htlc_value_in_flight_msat": "18446744073709551615msat",
-    "channel_reserve_satoshis": "1000000msat",
-    "htlc_minimum_msat": "0msat",
+    "funding_msat": 100000000,
+    "push_msat": 0,
+    "dust_limit_msat": 546000,
+    "max_htlc_value_in_flight_msat": 18446744073709551615,
+    "channel_reserve_msat": 1000000,
+    "htlc_minimum_msat": 0,
     "feerate_per_kw": 7500,
     "to_self_delay": 5,
     "max_accepted_htlcs": 483,
@@ -1185,10 +1175,10 @@ the v2 protocol, and it has passed basic sanity checks:
   "openchannel2": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
     "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-    "their_funding_msat": "100000000msat",
-    "dust_limit_msat": "546000msat",
-    "max_htlc_value_in_flight_msat": "18446744073709551615msat",
-    "htlc_minimum_msat": "0msat",
+    "their_funding_msat": 100000000,
+    "dust_limit_msat": 546000,
+    "max_htlc_value_in_flight_msat": 18446744073709551615,
+    "htlc_minimum_msat": 0,
     "funding_feerate_per_kw": 7500,
     "commitment_feerate_per_kw": 7500,
     "feerate_our_max": 10000,
@@ -1197,8 +1187,8 @@ the v2 protocol, and it has passed basic sanity checks:
     "max_accepted_htlcs": 483,
     "channel_flags": 1
     "locktime": 2453,
-    "channel_max_msat": "16777215000msat",
-    "requested_lease_msat": "100000000msat",
+    "channel_max_msat": 16777215000,
+    "requested_lease_msat": 100000000,
     "lease_blockheight_start": 683990,
     "node_blockheight": 683990
   }
@@ -1236,7 +1226,7 @@ e.g.
     "result": "continue",
     "close_to": "bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2"
     "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZrrw28Oed52hTw3N7t0HbIyZhFdcZRH3+61AQAAAAD9////AGYAAAAAAQDfAgAAAAABARtaSZufCbC+P+/G23XVaQ8mDwZQFW1vlCsCYhLbmVrpAAAAAAD+////AvJs5ykBAAAAFgAUT6ORgb3CgFsbwSOzNLzF7jQS5s+AhB4AAAAAABepFNi369DMyAJmqX2agouvGHcDKsZkhwJHMEQCIHELIyqrqlwRjyzquEPvqiorzL2hrvdu9EBxsqppeIKiAiBykC6De/PDElnqWw49y2vTqauSJIVBgGtSc+vq5BQd+gEhAg0f8WITWvA8o4grxNKfgdrNDncqreMLeRFiteUlne+GZQAAAAEBIICEHgAAAAAAF6kU2Lfr0MzIAmapfZqCi68YdwMqxmSHAQQWABQB+tkKvNZml+JZIWRyLeSpXr7hZQz8CWxpZ2h0bmluZwEIexhVcpJl8ugM/AlsaWdodG5pbmcCAgABAA==",
-    "our_funding_msat": "39999000msat"
+    "our_funding_msat": 39999000
 }
 ```
 
@@ -1323,11 +1313,11 @@ requests an RBF for a channel funding transaction.
   "rbf_channel": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
     "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
-    "their_funding_msat": "100000000msat",
+    "their_funding_msat": 100000000,
     "funding_feerate_per_kw": 7500,
     "feerate_our_max": 10000,
     "feerate_our_min": 253,
-    "channel_max_msat": "16777215000msat",
+    "channel_max_msat": 16777215000,
     "locktime": 2453
   }
 }
@@ -1353,7 +1343,7 @@ to calculate.
 {
     "result": "continue",
     "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZrrw28Oed52hTw3N7t0HbIyZhFdcZRH3+61AQAAAAD9////AGYAAAAAAQDfAgAAAAABARtaSZufCbC+P+/G23XVaQ8mDwZQFW1vlCsCYhLbmVrpAAAAAAD+////AvJs5ykBAAAAFgAUT6ORgb3CgFsbwSOzNLzF7jQS5s+AhB4AAAAAABepFNi369DMyAJmqX2agouvGHcDKsZkhwJHMEQCIHELIyqrqlwRjyzquEPvqiorzL2hrvdu9EBxsqppeIKiAiBykC6De/PDElnqWw49y2vTqauSJIVBgGtSc+vq5BQd+gEhAg0f8WITWvA8o4grxNKfgdrNDncqreMLeRFiteUlne+GZQAAAAEBIICEHgAAAAAAF6kU2Lfr0MzIAmapfZqCi68YdwMqxmSHAQQWABQB+tkKvNZml+JZIWRyLeSpXr7hZQz8CWxpZ2h0bmluZwEIexhVcpJl8ugM/AlsaWdodG5pbmcCAgABAA==",
-    "our_funding_msat": "39999000msat"
+    "our_funding_msat": 39999000
 }
 ```
 
@@ -1371,7 +1361,7 @@ The payload of the hook call has the following format:
   "onion": {
     "payload": "",
     "short_channel_id": "1x2x3",
-    "forward_amount": "42msat",
+    "forward_msat": 42,
     "outgoing_cltv_value": 500014,
     "shared_secret": "0000000000000000000000000000000000000000000000000000000000000000",
     "next_onion": "[1365bytes of serialized onion]"
@@ -1379,7 +1369,7 @@ The payload of the hook call has the following format:
   "htlc": {
     "short_channel_id": "4x5x6",
     "id": 27,
-    "amount_msat": "43msat",
+    "amount_msat": 43,
     "cltv_expiry": 500028,
     "cltv_expiry_relative": 10,
     "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000"
