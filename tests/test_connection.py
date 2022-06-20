@@ -257,10 +257,10 @@ def test_balance(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=True)
     p1 = only_one(l1.rpc.getpeer(peer_id=l2.info['id'], level='info')['channels'])
     p2 = only_one(l2.rpc.getpeer(l1.info['id'], 'info')['channels'])
-    assert p1['msatoshi_to_us'] == 10**6 * 1000
-    assert p1['msatoshi_total'] == 10**6 * 1000
-    assert p2['msatoshi_to_us'] == 0
-    assert p2['msatoshi_total'] == 10**6 * 1000
+    assert p1['to_us_msat'] == 10**6 * 1000
+    assert p1['total_msat'] == 10**6 * 1000
+    assert p2['to_us_msat'] == 0
+    assert p2['total_msat'] == 10**6 * 1000
 
 
 @pytest.mark.openchannel('v1')
@@ -1024,7 +1024,7 @@ def test_funding_all_too_much(node_factory):
     pending = only_one([o for o in outputs if o['status'] != 'confirmed'])
     assert pending['status'] == 'unconfirmed'
     assert pending['reserved'] is False
-    assert only_one(l1.rpc.listfunds()['channels'])['channel_total_sat'] == 2**24 - 1
+    assert only_one(l1.rpc.listfunds()['channels'])['amount_msat'] == Millisatoshi(str(2**24 - 1) + "sat")
 
 
 @pytest.mark.openchannel('v1')
@@ -1135,7 +1135,7 @@ def test_funding_push(node_factory, bitcoind, chainparams):
 
     # Send funds.
     amount = 2**24
-    push_sat = 20000
+    push_msat = 20000 * 1000
     bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
 
@@ -1144,16 +1144,16 @@ def test_funding_push(node_factory, bitcoind, chainparams):
 
     # Fail to open (try to push too much)
     with pytest.raises(RpcError, match=r'Requested to push_msat of 20000000msat is greater than available funding amount 10000sat'):
-        l1.rpc.fundchannel(l2.info['id'], 10000, push_msat=push_sat * 1000)
+        l1.rpc.fundchannel(l2.info['id'], 10000, push_msat=push_msat)
 
     # This should work.
     amount = amount - 1
-    l1.rpc.fundchannel(l2.info['id'], amount, push_msat=push_sat * 1000)
+    l1.rpc.fundchannel(l2.info['id'], amount, push_msat=push_msat)
 
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
     funds = only_one(l1.rpc.listfunds()['channels'])
-    assert funds['channel_sat'] + push_sat == funds['channel_total_sat']
+    assert funds['our_amount_msat'] + push_msat == funds['amount_msat']
 
     chanid = first_channel_id(l2, l1)
     channel_mvts_1 = [
@@ -1167,7 +1167,7 @@ def test_funding_push(node_factory, bitcoind, chainparams):
     check_coin_moves(l1, chanid, channel_mvts_1, chainparams)
     check_coin_moves(l2, chanid, channel_mvts_2, chainparams)
 
-    assert account_balance(l1, chanid) == (amount - push_sat) * 1000
+    assert account_balance(l1, chanid) == amount * 1000 - push_msat
 
 
 @pytest.mark.openchannel('v1')
@@ -1596,7 +1596,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
         for node in [l1, l2]:
             channel = node.rpc.listpeers()['peers'][0]['channels'][-1]
-            assert amount * 1000 == channel['msatoshi_total']
+            assert amount * 1000 == channel['total_msat']
 
     def _close(src, dst, addr=None):
         """Close the channel from src to dst, with the specified address.
@@ -1694,7 +1694,7 @@ def test_funding_external_wallet(node_factory, bitcoind):
     for node in [l1, l2]:
         node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
         channel = node.rpc.listpeers()['peers'][0]['channels'][0]
-        assert amount * 1000 == channel['msatoshi_total']
+        assert amount * 1000 == channel['total_msat']
 
     # Test that we don't crash if peer disconnects after fundchannel_start
     l2.connect(l3)
@@ -2235,7 +2235,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 1)
 
     # Wait for the restored HTLC to finish
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['msatoshi_to_us'] == 99990000)
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['to_us_msat'] == 99990000)
 
     wait_for(lambda: len([p for p in l1.rpc.listpeers()['peers'] if p['connected']]))
     wait_for(lambda: len([p for p in l2.rpc.listpeers()['peers'] if p['connected']]))
@@ -2243,14 +2243,14 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # Now make sure this is really functional by sending a payment
     l1.pay(l2, 10000)
 
-    # L1 doesn't actually update msatoshi_to_us until it receives
+    # L1 doesn't actually update to_us_msat until it receives
     # revoke_and_ack from L2, which can take a little bit.
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['msatoshi_to_us'] == 99980000)
-    assert only_one(l2.rpc.listpeers()['peers'][0]['channels'])['msatoshi_to_us'] == 20000
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['to_us_msat'] == 99980000)
+    assert only_one(l2.rpc.listpeers()['peers'][0]['channels'])['to_us_msat'] == 20000
 
     # Finally restart l1, and make sure it remembers
     l1.restart()
-    assert only_one(l1.rpc.listpeers()['peers'][0]['channels'])['msatoshi_to_us'] == 99980000
+    assert only_one(l1.rpc.listpeers()['peers'][0]['channels'])['to_us_msat'] == 99980000
 
     # Now make sure l1 is watching for unilateral closes
     l2.rpc.dev_fail(l1.info['id'])

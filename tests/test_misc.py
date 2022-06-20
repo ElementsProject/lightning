@@ -2325,7 +2325,7 @@ def test_listforwards(node_factory, bitcoind):
     # status=settled
     settled_forwards = l2.rpc.listforwards(status='settled')['forwards']
     assert len(settled_forwards) == 2
-    assert sum(x['out_msatoshi'] for x in settled_forwards) == 3000
+    assert sum(x['out_msat'] for x in settled_forwards) == 3000
 
     # status=local_failed
     failed_forwards = l2.rpc.listforwards(status='local_failed')['forwards']
