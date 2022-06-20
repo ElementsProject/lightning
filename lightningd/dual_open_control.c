@@ -747,8 +747,7 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		payload->our_shutdown_scriptpubkey = shutdown_script;
 
 
-	struct amount_sat sats;
-	struct amount_msat msats;
+	struct amount_msat fee_base, fee_max_base;
 	payload->rates = tal(payload, struct lease_rates);
 	err = json_scan(payload, buffer, toks,
 			"{lease_fee_base_msat:%"
@@ -756,10 +755,10 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 			",channel_fee_max_base_msat:%"
 			",channel_fee_max_proportional_thousandths:%"
 			",funding_weight:%}",
-			JSON_SCAN(json_to_sat, &sats),
+			JSON_SCAN(json_to_msat, &fee_base),
 			JSON_SCAN(json_to_u16,
 				  &payload->rates->lease_fee_basis),
-			JSON_SCAN(json_to_msat, &msats),
+			JSON_SCAN(json_to_msat, &fee_max_base),
 			JSON_SCAN(json_to_u16,
 				  &payload->rates->channel_fee_max_proportional_thousandths),
 			JSON_SCAN(json_to_u16,
@@ -771,11 +770,11 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 
 	/* Convert to u32s */
 	if (payload->rates &&
-	    !lease_rates_set_lease_fee_sat(payload->rates, sats))
-		fatal("Plugin sent overflowing `lease_fee_base_msat`");
+	    !lease_rates_set_lease_fee_msat(payload->rates, fee_base))
+		fatal("Plugin sent overflowing/non-sat `lease_fee_base_msat`");
 
 	if (payload->rates &&
-	    !lease_rates_set_chan_fee_base_msat(payload->rates, msats))
+	    !lease_rates_set_chan_fee_base_msat(payload->rates, fee_max_base))
 		fatal("Plugin sent overflowing `channel_fee_max_base_msat`");
 
 	/* Add a serial_id to everything that doesn't have one yet */

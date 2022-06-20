@@ -81,11 +81,14 @@ bool lease_rates_set_chan_fee_base_msat(struct lease_rates *rates,
 				   amt.millisatoshis); /* Raw: conversion */
 }
 
-bool lease_rates_set_lease_fee_sat(struct lease_rates *rates,
-				   struct amount_sat amt)
+bool lease_rates_set_lease_fee_msat(struct lease_rates *rates,
+				    struct amount_msat amt)
 {
+	struct amount_sat sat;
+	if (!amount_msat_to_sat(&sat, amt))
+		return false;
 	return assign_overflow_u32(&rates->lease_fee_base_sat,
-				   amt.satoshis); /* Raw: conversion */
+				   sat.satoshis); /* Raw: conversion */
 }
 
 char *lease_rates_tohex(const tal_t *ctx, const struct lease_rates *rates)
