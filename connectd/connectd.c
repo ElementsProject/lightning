@@ -8,6 +8,7 @@
  * it.
  */
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/closefrom/closefrom.h>
@@ -1707,7 +1708,7 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 
 	for (size_t i = 0; i < tal_count(hostnames); i++) {
 		status_peer_debug(id, "Resolving %s", hostnames[i]);
-		new_addrs = wireaddr_from_hostname(tmpctx, hostnames[i], DEFAULT_PORT,
+		new_addrs = wireaddr_from_hostname(tmpctx, hostnames[i], chainparams_get_ln_port(chainparams),
 		                                   NULL, broken_reply, NULL);
 		if (new_addrs) {
 			for (size_t j = 0; j < tal_count(new_addrs); j++) {
@@ -1859,7 +1860,7 @@ static void try_connect_peer(struct daemon *daemon,
 			for (size_t i = 0; i < tal_count(hostnames); i++) {
 				wireaddr_from_unresolved(&unresolved,
 				                         hostnames[i],
-				                         DEFAULT_PORT);
+				                         chainparams_get_ln_port(chainparams));
 				tal_arr_expand(&addrs, unresolved);
 			}
 		} else if (daemon->use_dns) {

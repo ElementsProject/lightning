@@ -350,8 +350,8 @@ static void handle_remote_addr(struct daemon *daemon, const u8 *msg)
 	if (!fromwire_gossipd_remote_addr(msg, &remote_addr))
 		master_badmsg(WIRE_GOSSIPD_REMOTE_ADDR, msg);
 
-	/* current best guess is that we use DEFAULT_PORT on public internet */
-	remote_addr.port = DEFAULT_PORT;
+	/* current best guess is that we use default port on public internet */
+	remote_addr.port = chainparams_get_ln_port(chainparams);
 
 	switch (remote_addr.type) {
 	case ADDR_TYPE_IPV4:

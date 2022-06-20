@@ -970,7 +970,7 @@ int main(int argc, char *argv[])
 
 	/*~ Set the default portnum according to the used network
 	 * similarly to what Bitcoin Core does to ports by default. */
-	ld->portnum = chainparams->ln_port;
+	ld->portnum = chainparams_get_ln_port(chainparams);
 
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
