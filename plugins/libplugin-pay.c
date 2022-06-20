@@ -916,7 +916,7 @@ static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 	/* Initial sanity checks, all these fields must exist. */
 	if (idtok == NULL || idtok->type != JSMN_PRIMITIVE ||
 	    hashtok == NULL || hashtok->type != JSMN_STRING ||
-	    senttok == NULL || senttok->type != JSMN_STRING ||
+	    senttok == NULL ||
 	    statustok == NULL || statustok->type != JSMN_STRING) {
 		return NULL;
 	}
