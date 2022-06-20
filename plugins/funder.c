@@ -1049,16 +1049,15 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 					struct lease_rates *rates)
 {
 	struct json_out *jout;
-	struct amount_sat val;
 	struct amount_msat mval;
 
 	/* Tell lightningd with our lease rates*/
 	jout = json_out_new(NULL);
 	json_out_start(jout, NULL, '{');
 
-	val = amount_sat(rates->lease_fee_base_sat);
+	mval = amount_msat(rates->lease_fee_base_sat * 1000);
 	json_out_addstr(jout, "lease_fee_base_msat",
-			type_to_string(tmpctx, struct amount_sat, &val));
+			type_to_string(tmpctx, struct amount_msat, &mval));
 	json_out_add(jout, "lease_fee_basis", false,
 		     "%d", rates->lease_fee_basis);
 
@@ -1077,7 +1076,7 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 	rpc_scan(p, "setleaserates", take(jout),
 		 /* Unused */
 		 "{lease_fee_base_msat:%}",
-		 JSON_SCAN(json_to_msat_as_sats, &val));
+		 JSON_SCAN(json_to_msat, &mval));
 
 }
 

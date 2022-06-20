@@ -363,12 +363,11 @@ static struct command_result *json_setleaserates(struct command *cmd,
 {
 	struct json_stream *res;
 	struct lease_rates *rates;
-	struct amount_sat *lease_base_sat;
-	struct amount_msat *channel_fee_base_msat;
+	struct amount_msat *channel_fee_base_msat, *lease_base_msat;
 	u32 *lease_basis, *channel_fee_max_ppt, *funding_weight;
 
 	if (!param(cmd, buffer, params,
-		   p_req("lease_fee_base_msat", param_sat, &lease_base_sat),
+		   p_req("lease_fee_base_msat", param_msat, &lease_base_msat),
 		   p_req("lease_fee_basis", param_number, &lease_basis),
 		   p_req("funding_weight", param_number, &funding_weight),
 		   p_req("channel_fee_max_base_msat", param_msat,
@@ -380,7 +379,7 @@ static struct command_result *json_setleaserates(struct command *cmd,
 
 	rates = tal(tmpctx, struct lease_rates);
 	rates->lease_fee_basis = *lease_basis;
-	rates->lease_fee_base_sat = lease_base_sat->satoshis; /* Raw: conversion */
+	rates->lease_fee_base_sat = lease_base_msat->millisatoshis / 1000; /* Raw: conversion */
 	rates->channel_fee_max_base_msat = channel_fee_base_msat->millisatoshis; /* Raw: conversion */
 
 	rates->funding_weight = *funding_weight;
@@ -388,7 +387,7 @@ static struct command_result *json_setleaserates(struct command *cmd,
 		= *channel_fee_max_ppt;
 
 	/* Gotta check that we didn't overflow */
-	if (lease_base_sat->satoshis > rates->lease_fee_base_sat) /* Raw: comparison */
+	if (lease_base_msat->millisatoshis != rates->lease_fee_base_sat * (u64)1000) /* Raw: comparison */
 		return command_fail_badparam(cmd, "lease_fee_base_msat",
 					     buffer, params, "Overflow");
 
