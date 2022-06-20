@@ -316,10 +316,31 @@ impl<'de> Deserialize<'de> for Amount {
         D: Deserializer<'de>,
     {
         use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        let ss: &str = &s;
-        ss.try_into()
-            .map_err(|_e| Error::custom("could not parse amount"))
+
+        let any: serde_json::Value = Deserialize::deserialize(deserializer)?;
+
+        // Amount fields used to be a string with the unit "msat" or
+        // "sat" as a suffix. The great consolidation in PR #5306
+        // changed that to always be a `u64`, but for backwards
+        // compatibility we need to handle both cases.
+        let ires: Option<u64> = any.as_u64();
+        // TODO(cdecker): Remove string parsing support once the great msat purge is complete
+        let sres: Option<&str> = any.as_str();
+
+        match (ires, sres) {
+            (Some(i), _) => {
+                // Notice that this assumes the field is denominated in `msat`
+                Ok(Amount::from_msat(i))
+            }
+            (_, Some(s)) => s
+                .try_into()
+                .map_err(|_e| Error::custom("could not parse amount")),
+            (None, _) => {
+                // We reuse the integer parsing error as that's the
+                // default after the great msat purge of 2022.
+                Err(Error::custom("could not parse amount"))
+            }
+        }
     }
 }
 
