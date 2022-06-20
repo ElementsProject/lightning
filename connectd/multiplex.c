@@ -344,6 +344,9 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 /* Kicks off write_to_peer() to look for more gossip to send from store */
 static void wake_gossip(struct peer *peer)
 {
+	/* Don't remember sent per-peer gossip forever. */
+	gossip_rcvd_filter_age(peer->gs.grf);
+
 	peer->gs.active = IFDEV(!peer->daemon->dev_suppress_gossip, true);
 	io_wake(peer->peer_outq);
 
