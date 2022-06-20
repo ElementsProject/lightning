@@ -401,9 +401,8 @@ void json_add_amount_msat_compat(struct json_stream *result,
 				 const char *rawfieldname,
 				 const char *msatfieldname)
 {
-	json_add_u64(result, rawfieldname, msat.millisatoshis); /* Raw: low-level helper */
-	if (!deprecated_apis)
-		assert(strends(msatfieldname, "_msat"));
+	if (deprecated_apis)
+		json_add_u64(result, rawfieldname, msat.millisatoshis); /* Raw: low-level helper */
 	json_add_amount_msat_only(result, msatfieldname, msat);
 }
 
@@ -422,7 +421,8 @@ void json_add_amount_sat_compat(struct json_stream *result,
 				const char *rawfieldname,
 				const char *msatfieldname)
 {
-	json_add_u64(result, rawfieldname, sat.satoshis); /* Raw: low-level helper */
+	if (deprecated_apis)
+		json_add_u64(result, rawfieldname, sat.satoshis); /* Raw: low-level helper */
 	json_add_amount_sat_msat(result, msatfieldname, sat);
 }
 
@@ -433,8 +433,7 @@ void json_add_amount_sat_msat(struct json_stream *result,
 	struct amount_msat msat;
 	assert(strends(msatfieldname, "_msat"));
 	if (amount_sat_to_msat(&msat, sat))
-		json_add_string(result, msatfieldname,
-				type_to_string(tmpctx, struct amount_msat, &msat));
+		json_add_amount_msat_only(result, msatfieldname, msat);
 }
 
 /* When I noticed that we were adding "XXXmsat" fields *not* ending in _msat */

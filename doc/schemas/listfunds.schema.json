@@ -33,10 +33,6 @@
             "type": "msat",
             "description": "the amount of the output"
           },
-          "value": {
-            "type": "u64",
-            "deprecated": true
-          },
           "scriptpubkey": {
             "type": "hex",
             "description": "the scriptPubkey of the output"
