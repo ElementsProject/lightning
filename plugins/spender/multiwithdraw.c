@@ -410,6 +410,7 @@ mw_after_fundpsbt(struct command *cmd,
 	u32 feerate_per_kw;
 	u32 estimated_final_weight;
 	struct amount_sat excess_sat;
+	struct amount_msat excess_msat;
 	bool ok = true;
 
 	/* Extract results.  */
@@ -430,7 +431,8 @@ mw_after_fundpsbt(struct command *cmd,
 
 	field = ok ? json_get_member(buf, result, "excess_msat") : NULL;
 	ok = ok && field;
-	ok = ok && json_to_sat(buf, field, &excess_sat);
+	ok = ok && json_to_msat(buf, field, &excess_msat);
+	ok = ok && amount_msat_to_sat(&excess_sat, excess_msat);
 
 	if (!ok)
 		plugin_err(mw->cmd->plugin,

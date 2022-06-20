@@ -1316,6 +1316,7 @@ after_fundpsbt(struct command *cmd,
 	       struct multifundchannel_command *mfc)
 {
 	const jsmntok_t *field;
+	struct amount_msat msat;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": %s done.",
@@ -1341,9 +1342,10 @@ after_fundpsbt(struct command *cmd,
 
 	/* msat LOL.  */
 	field = json_get_member(buf, result, "excess_msat");
-	if (!field || !parse_amount_sat(&mfc->excess_sat,
-					buf + field->start,
-					field->end - field->start))
+	if (!field || !parse_amount_msat(&msat,
+					 buf + field->start,
+					 field->end - field->start)
+	    || !amount_msat_to_sat(&mfc->excess_sat, msat))
 		goto fail;
 
 	if (has_all(mfc))
