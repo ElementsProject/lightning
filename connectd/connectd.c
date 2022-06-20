@@ -227,7 +227,8 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	/*~ Usually the pattern is to return this directly. */
 	return peer_connected(conn, pr->daemon, &pr->id, &pr->addr,
 			      pr->remote_addr,
-			      &pr->cs, take(pr->their_features), pr->incoming);
+			      &pr->cs, take(pr->their_features), pr->incoming,
+			      true);
 }
 
 /*~ A common use for destructors is to remove themselves from a data structure */
@@ -337,7 +338,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct wireaddr *remote_addr,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
-			       bool incoming)
+			       bool incoming,
+			       bool retrying)
 {
 	u8 *msg;
 	struct peer *peer;
@@ -347,9 +349,18 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	bool option_gossip_queries;
 
 	peer = peer_htable_get(&daemon->peers, id);
-	if (peer)
+	if (peer) {
+		/* If we were already retrying, we only get one chance: there
+		 * can be multiple reconnections, and we must not keep around
+		 * stale ones */
+		if (retrying) {
+			if (taken(their_features))
+				tal_free(their_features);
+			return io_close(conn);
+		}
 		return peer_reconnected(conn, daemon, id, addr, remote_addr, cs,
 					their_features, incoming);
+	}
 
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
 	if (taken(their_features))
