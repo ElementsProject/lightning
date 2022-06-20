@@ -358,6 +358,16 @@ psbt_fund_failed(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+/* They give msats, we want sats */
+static bool json_to_msat_as_sats(const char *buffer, const jsmntok_t *tok,
+				 struct amount_sat *sat)
+{
+	struct amount_msat msat;
+	if (!json_to_msat(buffer, tok, &msat))
+		return false;
+	return amount_msat_to_sat(sat, msat);
+}
+
 static struct command_result *
 listfunds_success(struct command *cmd,
 		  const char *buf,
@@ -388,7 +398,7 @@ listfunds_success(struct command *cmd,
 				"{amount_msat:%"
 				",status:%"
 				",reserved:%}",
-				JSON_SCAN(json_to_sat, &val),
+				JSON_SCAN(json_to_msat_as_sats, &val),
 				JSON_SCAN_TAL(cmd, json_strdup, &status),
 				JSON_SCAN(json_to_bool, &is_reserved));
 		if (err)
@@ -524,7 +534,7 @@ json_openchannel2_call(struct command *cmd,
 			",locktime:%}}",
 			JSON_SCAN(json_to_node_id, &info->id),
 			JSON_SCAN(json_to_channel_id, &info->cid),
-			JSON_SCAN(json_to_sat, &info->their_funding),
+			JSON_SCAN(json_to_msat_as_sats, &info->their_funding),
 			JSON_SCAN(json_to_msat, &max_htlc_inflight),
 			JSON_SCAN(json_to_msat, &htlc_minimum),
 			JSON_SCAN(json_to_u64, &info->funding_feerate_perkw),
@@ -547,7 +557,7 @@ json_openchannel2_call(struct command *cmd,
 			"requested_lease_msat:%"
 			",lease_blockheight_start:%"
 			",node_blockheight:%}}",
-			JSON_SCAN(json_to_sat, &info->requested_lease),
+			JSON_SCAN(json_to_msat_as_sats, &info->requested_lease),
 			JSON_SCAN(json_to_u32, &info->node_blockheight),
 			JSON_SCAN(json_to_u32, &info->lease_blockheight));
 
@@ -561,7 +571,7 @@ json_openchannel2_call(struct command *cmd,
 	/* If there's no channel_max, it's actually infinity */
 	err = json_scan(tmpctx, buf, params,
 			"{openchannel2:{channel_max_msat:%}}",
-			JSON_SCAN(json_to_sat, &info->channel_max));
+			JSON_SCAN(json_to_msat_as_sats, &info->channel_max));
 	if (err)
 		info->channel_max = AMOUNT_SAT(UINT64_MAX);
 
@@ -651,14 +661,14 @@ json_rbf_channel_call(struct command *cmd,
 			"{rbf_channel:"
 			"{id:%"
 			",channel_id:%"
-			",their_funding:%"
+			",their_funding_msat:%"
 			",funding_feerate_per_kw:%"
 			",feerate_our_max:%"
 			",feerate_our_min:%"
 			",locktime:%}}",
 			JSON_SCAN(json_to_node_id, &info->id),
 			JSON_SCAN(json_to_channel_id, &info->cid),
-			JSON_SCAN(json_to_sat, &info->their_funding),
+			JSON_SCAN(json_to_msat_as_sats, &info->their_funding),
 			JSON_SCAN(json_to_u64, &info->funding_feerate_perkw),
 			JSON_SCAN(json_to_u64, &feerate_our_max),
 			JSON_SCAN(json_to_u64, &feerate_our_min),
@@ -673,7 +683,7 @@ json_rbf_channel_call(struct command *cmd,
 	/* If there's no channel_max, it's actually infinity */
 	err = json_scan(tmpctx, buf, params,
 			"{rbf_channel:{channel_max_msat:%}}",
-			JSON_SCAN(json_to_sat, &info->channel_max));
+			JSON_SCAN(json_to_msat_as_sats, &info->channel_max));
 	if (err)
 		info->channel_max = AMOUNT_SAT(UINT64_MAX);
 
@@ -1050,7 +1060,7 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 	rpc_scan(p, "setleaserates", take(jout),
 		 /* Unused */
 		 "{lease_fee_base_msat:%}",
-		 JSON_SCAN(json_to_sat, &val));
+		 JSON_SCAN(json_to_msat_as_sats, &val));
 
 }
 
