@@ -1856,7 +1856,7 @@ def test_onchaind_replay(node_factory, bitcoind):
     inv = l2.rpc.invoice(10**8, 'onchaind_replay', 'desc')
     rhash = inv['payment_hash']
     routestep = {
-        'msatoshi': 10**8 - 1,
+        'amount_msat': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 101,
         'channel': '1x1x1'
@@ -1916,7 +1916,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     inv = l2.rpc.invoice(1, 'onchain_dust_out', 'desc')
     rhash = inv['payment_hash']
     routestep = {
-        'msatoshi': 1,
+        'amount_msat': 1,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'
@@ -1988,7 +1988,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     rhash = inv['payment_hash']
     # We underpay, so it fails.
     routestep = {
-        'msatoshi': 10**8 - 1,
+        'amount_msat': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'
@@ -2460,7 +2460,7 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
     rhash = inv['payment_hash']
     # We underpay, so it fails.
     routestep = {
-        'msatoshi': 10**8 - 1,
+        'amount_msat': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'
@@ -2545,7 +2545,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     rhash = inv['payment_hash']
     # We underpay, so it fails.
     routestep = {
-        'msatoshi': 10**7 - 1,
+        'amount_msat': 10**7 - 1,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'

@@ -1366,7 +1366,7 @@ static struct command_result *param_route_hops(struct command *cmd,
 
 	*hops = tal_arr(cmd, struct route_hop, tok->size);
 	json_for_each_arr(i, t, tok) {
-		struct amount_msat *msat, *amount_msat;
+		struct amount_msat *amount_msat;
 		struct node_id *id;
 		struct short_channel_id *channel;
 		unsigned *delay, *direction;
@@ -1375,13 +1375,10 @@ static struct command_result *param_route_hops(struct command *cmd,
 		int *ignored;
 
 		if (!param(cmd, buffer, t,
-			   /* Only *one* of these is required */
-			   p_opt("msatoshi", param_msat, &msat),
-			   p_opt("amount_msat", param_msat, &amount_msat),
-			   /* These three actually required */
-			   p_opt("id", param_node_id, &id),
-			   p_opt("delay", param_number, &delay),
-			   p_opt("channel", param_short_channel_id, &channel),
+			   p_req("amount_msat|msatoshi", param_msat, &amount_msat),
+			   p_req("id", param_node_id, &id),
+			   p_req("delay", param_number, &delay),
+			   p_req("channel", param_short_channel_id, &channel),
 			   /* Allowed (getroute supplies it) but ignored */
 			   p_opt("direction", param_number, &direction),
 			   p_opt("style", param_route_hop_style, &ignored),
@@ -1390,28 +1387,7 @@ static struct command_result *param_route_hops(struct command *cmd,
 			   NULL))
 			return command_param_failed();
 
-		if (!msat && !amount_msat)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "%s[%zi]: must have msatoshi"
-					    " or amount_msat", name, i);
-		if (!id || !channel || !delay)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "%s[%zi]: must have id, channel"
-					    " and delay", name, i);
-		if (msat && amount_msat && !amount_msat_eq(*msat, *amount_msat))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "%s[%zi]: msatoshi %s != amount_msat %s",
-					    name, i,
-					    type_to_string(tmpctx,
-							   struct amount_msat,
-							   msat),
-					    type_to_string(tmpctx,
-							   struct amount_msat,
-							   amount_msat));
-		if (!msat)
-			msat = amount_msat;
-
-		(*hops)[i].amount = *msat;
+		(*hops)[i].amount = *amount_msat;
 		(*hops)[i].node_id = *id;
 		(*hops)[i].delay = *delay;
 		(*hops)[i].scid = *channel;

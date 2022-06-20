@@ -12,6 +12,7 @@
       "items": {
         "type": "object",
         "required": [
+          "amount_msat",
           "id",
           "delay",
           "channel"

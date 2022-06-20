@@ -980,7 +980,7 @@ impl From<&pb::ListfundsRequest> for requests::ListfundsRequest {
 impl From<&pb::SendpayRoute> for requests::SendpayRoute {
     fn from(c: &pb::SendpayRoute) -> Self {
         Self {
-            amount_msat: c.amount_msat.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            amount_msat: c.amount_msat.as_ref().unwrap().into(), // Rule #1 for type msat
             id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             delay: c.delay as u16, // Rule #1 for type u16
             channel: cln_rpc::primitives::ShortChannelId::from_str(&c.channel).unwrap(), // Rule #1 for type short_channel_id

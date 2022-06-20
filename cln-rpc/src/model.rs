@@ -138,8 +138,8 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRoute {
-	    #[serde(alias = "amount_msat", skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
+	    #[serde(alias = "amount_msat")]
+	    pub amount_msat: Amount,
 	    #[serde(alias = "id")]
 	    pub id: Pubkey,
 	    #[serde(alias = "delay")]
