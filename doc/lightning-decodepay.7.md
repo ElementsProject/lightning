@@ -38,7 +38,7 @@ On success, an object is returned, containing:
   - hops in the route:
     - **pubkey** (pubkey): the public key of the node
     - **short_channel_id** (short_channel_id): a channel to the next peer
-    - **fee_base_msat** (u32): the base fee for payments
+    - **fee_base_msat** (msat): the base fee for payments
     - **fee_proportional_millionths** (u32): the parts-per-million fee for payments
     - **cltv_expiry_delta** (u32): the CLTV delta across this hop
 - **extra** (array of objects, optional): Any extra fields we didn't know how to parse:
@@ -70,4 +70,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:17cb6c66c75e907f3a2583d702aec2fc6e5a7b6026d05a3ed9957304799c9aef)
+[comment]: # ( SHA256STAMP:a606b0d0594d48c619a8d34c7c0d0996982db10f1423841f269e89004a19fa98)
