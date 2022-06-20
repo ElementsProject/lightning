@@ -1379,7 +1379,7 @@ The payload of the hook call has the following format:
   "htlc": {
     "short_channel_id": "4x5x6",
     "id": 27,
-    "amount": "43msat",
+    "amount_msat": "43msat",
     "cltv_expiry": 500028,
     "cltv_expiry_relative": 10,
     "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000"
