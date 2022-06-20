@@ -322,7 +322,7 @@ message SendpayResponse {
 }
 
 message SendpayRoute {
-	optional Amount amount_msat = 5;
+	Amount amount_msat = 5;
 	bytes id = 2;
 	uint32 delay = 3;
 	string channel = 4;

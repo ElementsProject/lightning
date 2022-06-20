@@ -1290,11 +1290,11 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     fee = amount * 10 // 1000000 + 1
     c12 = l1.get_channel_scid(l2)
     c25 = l2.get_channel_scid(l5)
-    route = [{'msatoshi': amount + fee - 1,
+    route = [{'amount_msat': amount + fee - 1,
               'id': l2.info['id'],
               'delay': 12,
               'channel': c12},
-             {'msatoshi': amount - 1,
+             {'amount_msat': amount - 1,
               'id': l5.info['id'],
               'delay': 5,
               'channel': c25}]

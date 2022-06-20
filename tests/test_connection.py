@@ -743,7 +743,7 @@ def test_reconnect_sender_add1(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('test_reconnect_sender_add1')['invoices'])['status'] == 'unpaid'
 
-    route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
 
     for i in range(0, len(disconnects)):
         with pytest.raises(RpcError):
@@ -782,7 +782,7 @@ def test_reconnect_sender_add(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment')['invoices'])['status'] == 'unpaid'
 
-    route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
 
     # This will send commit, so will reconnect as required.
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
@@ -816,7 +816,7 @@ def test_reconnect_receiver_add(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
-    route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
@@ -846,7 +846,7 @@ def test_reconnect_receiver_fulfill(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
-    route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
@@ -3189,9 +3189,9 @@ def test_feerate_stress(node_factory, executor):
     scid12 = l1.get_channel_scid(l2)
     scid23 = l2.get_channel_scid(l3)
 
-    routel1l3 = [{'msatoshi': '10002msat', 'id': l2.info['id'], 'delay': 11, 'channel': scid12},
-                 {'msatoshi': '10000msat', 'id': l3.info['id'], 'delay': 5, 'channel': scid23}]
-    routel2l1 = [{'msatoshi': '10000msat', 'id': l1.info['id'], 'delay': 5, 'channel': scid12}]
+    routel1l3 = [{'amount_msat': '10002msat', 'id': l2.info['id'], 'delay': 11, 'channel': scid12},
+                 {'amount_msat': '10000msat', 'id': l3.info['id'], 'delay': 5, 'channel': scid23}]
+    routel2l1 = [{'amount_msat': '10000msat', 'id': l1.info['id'], 'delay': 5, 'channel': scid12}]
 
     rate = 1875
     NUM_ATTEMPTS = 25
@@ -3245,7 +3245,7 @@ def test_pay_disconnect_stress(node_factory, executor):
                                                                   '-WIRE_COMMITMENT_SIGNED']}])
 
         scid12 = l1.get_channel_scid(l2)
-        routel2l1 = [{'msatoshi': '10000msat', 'id': l1.info['id'], 'delay': 5, 'channel': scid12}]
+        routel2l1 = [{'amount_msat': '10000msat', 'id': l1.info['id'], 'delay': 5, 'channel': scid12}]
 
         # Get invoice from l1 to pay.
         inv = l1.rpc.invoice(10000, "invoice", "invoice")
@@ -3414,7 +3414,7 @@ def test_htlc_retransmit_order(node_factory, executor):
     invoices = [l2.rpc.invoice(1000, str(x), str(x)) for x in range(NUM_HTLCS)]
 
     routestep = {
-        'msatoshi': 1000,
+        'amount_msat': 1000,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
@@ -3534,7 +3534,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
 
     # Make sure another commitment happens, sending failed payment.
     routestep = {
-        'msatoshi': 1,
+        'amount_msat': 1,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
@@ -3658,7 +3658,7 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
                                                'hold-result': 'fail'}])
 
     # This HTLC will fail
-    l1.rpc.sendpay([{'msatoshi': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32, payment_secret='00' * 32)
+    l1.rpc.sendpay([{'amount_msat': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32, payment_secret='00' * 32)
 
     # Each one should cause one disconnection, no upgrade.
     for d in l1_disconnects + l2_disconnects:
@@ -3731,7 +3731,7 @@ def test_htlc_failed_noclose(node_factory):
 
     inv = l2.rpc.invoice(1000, "test", "test")
     routestep = {
-        'msatoshi': FUNDAMOUNT * 1000,
+        'amount_msat': FUNDAMOUNT * 1000,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
@@ -3886,12 +3886,12 @@ def test_multichan(node_factory, executor, bitcoind):
         scid23b = scids[0]
 
     # Test paying by each,
-    route = [{'msatoshi': 100001001,
+    route = [{'amount_msat': 100001001,
               'id': l2.info['id'],
               'delay': 11,
               # Unneeded
               'channel': scid12},
-             {'msatoshi': 100000000,
+             {'amount_msat': 100000000,
               'id': l3.info['id'],
               'delay': 5,
               'channel': scid23a}]

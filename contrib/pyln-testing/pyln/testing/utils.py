@@ -1026,7 +1026,7 @@ class LightningNode(object):
         assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
         routestep = {
-            'msatoshi': amt,
+            'amount_msat': amt,
             'id': dst_id,
             'delay': 5,
             'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments

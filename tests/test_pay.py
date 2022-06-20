@@ -226,7 +226,7 @@ def test_pay0(node_factory):
     rhash = inv['payment_hash']
 
     routestep = {
-        'msatoshi': 0,
+        'amount_msat': 0,
         'id': l2.info['id'],
         'delay': 10,
         'channel': chanid
@@ -560,7 +560,7 @@ def test_sendpay(node_factory):
         return len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
     routestep = {
-        'msatoshi': amt,
+        'amount_msat': amt,
         'id': l2.info['id'],
         'delay': 5,
         'channel': '1x1x1'
@@ -569,7 +569,7 @@ def test_sendpay(node_factory):
     # Insufficient funds.
     with pytest.raises(RpcError):
         rs = copy.deepcopy(routestep)
-        rs['msatoshi'] = rs['msatoshi'] - 1
+        rs['amount_msat'] = rs['amount_msat'] - 1
         l1.rpc.sendpay([rs], rhash, payment_secret=inv['payment_secret'])
         l1.rpc.waitsendpay(rhash)
     assert invoice_unpaid(l2, 'testpayment2')
@@ -577,7 +577,7 @@ def test_sendpay(node_factory):
     # Gross overpayment (more than factor of 2)
     with pytest.raises(RpcError):
         rs = copy.deepcopy(routestep)
-        rs['msatoshi'] = rs['msatoshi'] * 2 + 1
+        rs['amount_msat'] = rs['amount_msat'] * 2 + 1
         l1.rpc.sendpay([rs], rhash, payment_secret=inv['payment_secret'])
         l1.rpc.waitsendpay(rhash)
     assert invoice_unpaid(l2, 'testpayment2')
@@ -633,7 +633,7 @@ def test_sendpay(node_factory):
     # Check receiver
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['pay_index'] == 1
-    assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['amount_received_msat'] == rs['msatoshi']
+    assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['amount_received_msat'] == rs['amount_msat']
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['payment_preimage'] == preimage
 
     # Balances should reflect it.
@@ -656,13 +656,13 @@ def test_sendpay(node_factory):
     assert preimage == preimage2
     l1.daemon.wait_for_log('Payment ./.: .* COMPLETE')
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
-    assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['amount_received_msat'] == rs['msatoshi']
+    assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['amount_received_msat'] == rs['amount_msat']
 
     # Overpaying by "only" a factor of 2 succeeds.
     inv = l2.rpc.invoice(amt, 'testpayment3', 'desc')
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['status'] == 'unpaid'
-    routestep = {'msatoshi': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}
+    routestep = {'amount_msat': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}
     l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     preimage3 = l1.rpc.waitsendpay(rhash)['payment_preimage']
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['status'] == 'paid'
@@ -1082,11 +1082,11 @@ def test_forward(node_factory, bitcoind):
     amt = 100000000
     fee = amt * 10 // 1000000 + 1
 
-    baseroute = [{'msatoshi': amt + fee,
+    baseroute = [{'amount_msat': amt + fee,
                   'id': l2.info['id'],
                   'delay': 12,
                   'channel': chanid1},
-                 {'msatoshi': amt,
+                 {'amount_msat': amt,
                   'id': l3.info['id'],
                   'delay': 6,
                   'channel': chanid2}]
@@ -1487,11 +1487,11 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     payment_hash = inv['payment_hash']
     fee = amount * 10 // 1000000 + 1
 
-    route = [{'msatoshi': amount,
+    route = [{'amount_msat': amount,
               'id': l2.info['id'],
               'delay': 12,
               'channel': c12},
-             {'msatoshi': amount,
+             {'amount_msat': amount,
               'id': l4.info['id'],
               'delay': 6,
               'channel': c24}]
@@ -1513,11 +1513,11 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     payment_hash = inv['payment_hash']
     fee = amount * 10 // 1000000 + 1
 
-    route = [{'msatoshi': amount + fee,
+    route = [{'amount_msat': amount + fee,
               'id': l2.info['id'],
               'delay': 12,
               'channel': c12},
-             {'msatoshi': amount,
+             {'amount_msat': amount,
               'id': l5.info['id'],
               'delay': 6,
               'channel': c25}]
@@ -1563,11 +1563,11 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     fee = amount * 10 // 1000000 + 1
 
     # We underpay, so it fails.
-    route = [{'msatoshi': amount + fee - 1,
+    route = [{'amount_msat': amount + fee - 1,
               'id': l2.info['id'],
               'delay': 12,
               'channel': c12},
-             {'msatoshi': amount - 1,
+             {'amount_msat': amount - 1,
               'id': l4.info['id'],
               'delay': 5,
               'channel': c24}]
@@ -1702,7 +1702,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
         lbl = ''.join(random.choice(string.ascii_letters) for _ in range(20))
         inv = peer.rpc.invoice(maxpay, lbl, "exhaust_channel")
         routestep = {
-            'msatoshi': maxpay,
+            'amount_msat': maxpay,
             'id': peer.info['id'],
             'delay': 10,
             'channel': scid
@@ -2686,7 +2686,7 @@ def test_error_returns_blockheight(node_factory, bitcoind):
     """Test that incorrect_or_unknown_payment_details returns block height"""
     l1, l2 = node_factory.line_graph(2)
 
-    l1.rpc.sendpay([{'msatoshi': 100,
+    l1.rpc.sendpay([{'amount_msat': 100,
                      'id': l2.info['id'],
                      'delay': 10,
                      'channel': l1.get_channel_scid(l2)}],
