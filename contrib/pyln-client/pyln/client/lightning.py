@@ -453,11 +453,10 @@ class LightningRpc(UnixDomainSocketRpc):
             if isinstance(obj, dict):
                 for k, v in obj.items():
                     if k.endswith('msat'):
-                        if isinstance(v, str) and v.endswith('msat'):
-                            obj[k] = Millisatoshi(v)
-                        # Special case for array of msat values
-                        elif isinstance(v, list) and all(isinstance(e, str) and e.endswith('msat') for e in v):
+                        if isinstance(v, list):
                             obj[k] = [Millisatoshi(e) for e in v]
+                        else:
+                            obj[k] = Millisatoshi(v)
                     else:
                         obj[k] = LightningRpc.LightningJSONDecoder.replace_amounts(v)
             elif isinstance(obj, list):
