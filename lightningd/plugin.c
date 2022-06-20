@@ -886,10 +886,24 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 	return NULL;
 }
 
+/* Returns true if "name" was already registered and now overwritten. */
+static bool plugin_opt_register(struct plugin_opt *popt)
+{
+	bool was_registered = opt_unregister(popt->name);
+	if (streq(popt->type, "flag"))
+		opt_register_noarg(popt->name, plugin_opt_flag_set, popt,
+				   popt->description);
+	else
+		opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
+				 popt->description);
+
+	return was_registered;
+}
+
 static void destroy_plugin_opt(struct plugin_opt *opt)
 {
-	if (!opt_unregister(opt->name))
-		fatal("Could not unregister %s", opt->name);
+	/* does nothing when "name" registration replaced its double */
+	opt_unregister(opt->name);
 	list_del(&opt->list);
 }
 
@@ -978,13 +992,10 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 
 	list_add_tail(&plugin->plugin_opts, &popt->list);
 
-	if (streq(popt->type, "flag"))
-		opt_register_noarg(popt->name, plugin_opt_flag_set, popt,
-				   popt->description);
-
-	else
-		opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
-				 popt->description);
+	/* Command line options are parsed only during ld's startup and each "name"
+	 * only once. Always registers to satisfy destructor */
+	if (plugin_opt_register(popt) && plugin->plugins->startup)
+		fatal("error starting plugin '%s': option name '%s' is already taken", plugin->cmd, popt->name);
 
 	tal_add_destructor(popt, destroy_plugin_opt);
 	return NULL;
