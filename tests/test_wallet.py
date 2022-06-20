@@ -945,7 +945,7 @@ def test_transaction_annotations(node_factory, bitcoind):
     assert(len(outputs) == 1 and outputs[0]['status'] == 'confirmed')
     out = outputs[0]
     idx = out['output']
-    assert(idx in [0, 1] and out['value'] == 10**6)
+    assert(idx in [0, 1] and out['amount_msat'] == Millisatoshi("{}sat".format(10**6)))
 
     # ... and it should have an annotation on the output reading 'deposit'
     txs = l1.rpc.listtransactions()['transactions']

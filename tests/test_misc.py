@@ -969,7 +969,6 @@ def test_cli(node_factory):
                      '   "invoices": [',
                      '      {',
                      r'         "label": "l\"[]{}",',
-                     '         "msatoshi": 123000,',
                      '         "amount_msat": "123000msat",',
                      '         "status": "unpaid",',
                      r'         "description": "d\"[]{}",',

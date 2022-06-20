@@ -1292,11 +1292,9 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     assert route[1]['delay'] == 9
 
     # Modify so we overpay, overdo the cltv.
-    route[0]['msatoshi'] += 2000
-    route[0]['amount_msat'] = Millisatoshi(route[0]['msatoshi'])
+    route[0]['amount_msat'] += 2000
     route[0]['delay'] += 20
-    route[1]['msatoshi'] += 1000
-    route[1]['amount_msat'] = Millisatoshi(route[1]['msatoshi'])
+    route[1]['amount_msat'] += 1000
     route[1]['delay'] += 10
 
     # This should work.
@@ -2174,13 +2172,11 @@ def test_setchannel_routing(node_factory, bitcoind):
     # 1337 + 4000000 * 137 / 1000000 = 1885
     route_ok = l1.rpc.getroute(l3.info['id'], 4000000, 1)["route"]
     assert len(route_ok) == 2
-    assert route_ok[0]['msatoshi'] == 4001885
-    assert route_ok[1]['msatoshi'] == 4000000
+    assert route_ok[0]['amount_msat'] == 4001885
+    assert route_ok[1]['amount_msat'] == 4000000
 
     # Make variant that tries to pay more than allowed htlc!
     route_bad = copy.deepcopy(route_ok)
-    route_bad[0]['msatoshi'] = 4001887
-    route_bad[1]['msatoshi'] = 4000001
     route_bad[0]['amount_msat'] = Millisatoshi(4001887)
     route_bad[1]['amount_msat'] = Millisatoshi(4000001)
     assert route_bad != route_ok
@@ -2211,8 +2207,6 @@ def test_setchannel_routing(node_factory, bitcoind):
     assert route_ok[1]['amount_msat'] == 17
 
     route_bad = copy.deepcopy(route_ok)
-    route_bad[0]['msatoshi'] = 1337 + 16
-    route_bad[1]['msatoshi'] = 16
     route_bad[0]['amount_msat'] = Millisatoshi(1337 + 16)
     route_bad[1]['amount_msat'] = Millisatoshi(16)
     assert route_bad != route_ok
