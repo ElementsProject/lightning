@@ -282,6 +282,7 @@ static struct command_result *psbt_created(struct command *cmd,
 {
 	const jsmntok_t *psbttok;
 	struct out_req *req;
+	struct amount_msat excess_msat;
 	struct amount_sat excess;
 	u32 weight;
 
@@ -300,8 +301,9 @@ static struct command_result *psbt_created(struct command *cmd,
 				    result->end - result->start,
 				    buf + result->start);
 
-	if (!json_to_sat(buf, json_get_member(buf, result, "excess_msat"),
-			 &excess))
+	if (!json_to_msat(buf, json_get_member(buf, result, "excess_msat"),
+			  &excess_msat)
+	    || !amount_msat_to_sat(&excess, excess_msat))
 		return command_fail(cmd, LIGHTNINGD,
 				    "Unparsable excess_msat: '%.*s'",
 				    result->end - result->start,
