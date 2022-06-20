@@ -77,8 +77,16 @@ u8 *gossip_store_next(const tal_t *ctx,
 			continue;
 		}
 
-		checksum = be32_to_cpu(hdr.crc);
+		/* Skip any timestamp filtered */
 		timestamp = be32_to_cpu(hdr.timestamp);
+		if (!push &&
+		    !timestamp_filter(timestamp_min, timestamp_max,
+				      timestamp)) {
+			*off += r + msglen;
+			continue;
+		}
+
+		checksum = be32_to_cpu(hdr.crc);
 		msg = tal_arr(ctx, u8, msglen);
 		r = pread(*gossip_store_fd, msg, msglen, *off + r);
 		if (r != msglen)
@@ -104,10 +112,6 @@ u8 *gossip_store_next(const tal_t *ctx,
 		} else if (type != WIRE_CHANNEL_ANNOUNCEMENT
 			   && type != WIRE_CHANNEL_UPDATE
 			   && type != WIRE_NODE_ANNOUNCEMENT) {
-			msg = tal_free(msg);
-		} else if (!push &&
-			 !timestamp_filter(timestamp_min, timestamp_max,
-					   timestamp)) {
 			msg = tal_free(msg);
 		} else if (!push && push_only) {
 			msg = tal_free(msg);
