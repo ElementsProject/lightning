@@ -368,6 +368,23 @@ static bool json_to_msat_as_sats(const char *buffer, const jsmntok_t *tok,
 	return amount_msat_to_sat(sat, msat);
 }
 
+static struct command_result *param_msat_as_sat(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						struct amount_sat **sat)
+{
+	struct amount_msat msat;
+
+	*sat = tal(cmd, struct amount_sat);
+	if (parse_amount_msat(&msat, buffer + tok->start, tok->end - tok->start)
+	    && amount_msat_to_sat(*sat, msat))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a millisatoshi amount");
+}
+
 static struct command_result *
 listfunds_success(struct command *cmd,
 		  const char *buf,
@@ -936,19 +953,19 @@ json_funderupdate(struct command *cmd,
 			     current_policy->mod),
 		   p_opt_def("leases_only", param_bool, &leases_only,
 			     current_policy->leases_only),
-		   p_opt_def("min_their_funding_msat", param_sat,
+		   p_opt_def("min_their_funding_msat", param_msat_as_sat,
 			     &min_their_funding,
 			     current_policy->min_their_funding),
-		   p_opt_def("max_their_funding_msat", param_sat,
+		   p_opt_def("max_their_funding_msat", param_msat_as_sat,
 			     &max_their_funding,
 			     current_policy->max_their_funding),
-		   p_opt_def("per_channel_min_msat", param_sat,
+		   p_opt_def("per_channel_min_msat", param_msat_as_sat,
 			     &per_channel_min,
 			     current_policy->per_channel_min),
-		   p_opt_def("per_channel_max_msat", param_sat,
+		   p_opt_def("per_channel_max_msat", param_msat_as_sat,
 			     &per_channel_max,
 			     current_policy->per_channel_max),
-		   p_opt_def("reserve_tank_msat", param_sat, &reserve_tank,
+		   p_opt_def("reserve_tank_msat", param_msat_as_sat, &reserve_tank,
 			     current_policy->reserve_tank),
 		   p_opt_def("fuzz_percent", param_number,
 			     &fuzz_factor,
@@ -956,7 +973,7 @@ json_funderupdate(struct command *cmd,
 		   p_opt_def("fund_probability", param_number,
 			     &fund_probability,
 			     current_policy->fund_probability),
-		   p_opt("lease_fee_base_msat", param_sat, &lease_fee_sats),
+		   p_opt("lease_fee_base_msat", param_msat_as_sat, &lease_fee_sats),
 		   p_opt("lease_fee_basis", param_number, &lease_fee_basis),
 		   p_opt("funding_weight", param_number, &funding_weight),
 		   p_opt("channel_fee_max_base_msat", param_msat,
