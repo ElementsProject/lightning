@@ -14,6 +14,8 @@ struct command_result *command_finished(struct command *cmd UNNEEDED, struct jso
 /* Generated stub for command_still_pending */
 struct command_result *command_still_pending(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_still_pending called!\n"); abort(); }
+/* Generated stub for deprecated_apis */
+bool deprecated_apis;
 /* Generated stub for feature_offered */
 bool feature_offered(const u8 *features UNNEEDED, size_t f UNNEEDED)
 { fprintf(stderr, "feature_offered called!\n"); abort(); }

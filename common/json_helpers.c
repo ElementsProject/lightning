@@ -402,6 +402,8 @@ void json_add_amount_msat_compat(struct json_stream *result,
 				 const char *msatfieldname)
 {
 	json_add_u64(result, rawfieldname, msat.millisatoshis); /* Raw: low-level helper */
+	if (!deprecated_apis)
+		assert(strends(msatfieldname, "_msat"));
 	json_add_amount_msat_only(result, msatfieldname, msat);
 }
 
@@ -409,6 +411,8 @@ void json_add_amount_msat_only(struct json_stream *result,
 			  const char *msatfieldname,
 			  struct amount_msat msat)
 {
+	if (!deprecated_apis)
+		assert(strends(msatfieldname, "_msat"));
 	json_add_string(result, msatfieldname,
 			type_to_string(tmpctx, struct amount_msat, &msat));
 }

@@ -1825,7 +1825,9 @@ static void payment_add_attempt(struct json_stream *s, const char *fieldname, st
 		json_add_string(s, "failreason", p->failreason);
 
 	json_add_u64(s, "partid", p->partid);
-	json_add_amount_msat_only(s, "amount", p->amount);
+	if (deprecated_apis)
+		json_add_amount_msat_only(s, "amount", p->amount);
+	json_add_amount_msat_only(s, "amount_msat", p->amount);
 	if (p->parent != NULL)
 		json_add_u64(s, "parent_partid", p->parent->partid);
 

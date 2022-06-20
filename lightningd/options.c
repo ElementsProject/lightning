@@ -1616,7 +1616,13 @@ static void add_config(struct lightningd *ld,
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
 		} else if (opt->cb_arg == (void *)opt_set_msat) {
-			json_add_amount_msat_only(response, name0, ld->config.max_dust_htlc_exposure_msat);
+			/* We allow -msat not _msat here, unlike
+			 * json_add_amount_msat_only */
+			assert(strends(name0, "-msat"));
+			json_add_string(response, name0,
+					fmt_amount_msat(tmpctx,
+							*(struct amount_msat *)
+							opt->u.carg));
 #if EXPERIMENTAL_FEATURES
 		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
                         /* TODO Actually print the option */
