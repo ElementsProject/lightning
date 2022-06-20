@@ -627,7 +627,6 @@ def test_amountless_invoice(node_factory):
     inv = l2.rpc.invoice('any', 'lbl', 'desc')['bolt11']
     i = l2.rpc.listinvoices()['invoices']
     assert(len(i) == 1)
-    assert('msatoshi_received' not in i[0])
     assert('amount_received_msat' not in i[0])
     assert(i[0]['status'] == 'unpaid')
     details = l1.rpc.decodepay(inv)
@@ -637,7 +636,6 @@ def test_amountless_invoice(node_factory):
 
     i = l2.rpc.listinvoices()['invoices']
     assert(len(i) == 1)
-    assert(i[0]['msatoshi_received'] == 1337)
     assert(i[0]['amount_received_msat'] == Millisatoshi(1337))
     assert(i[0]['status'] == 'paid')
 
