@@ -969,7 +969,7 @@ def test_cli(node_factory):
                      '   "invoices": [',
                      '      {',
                      r'         "label": "l\"[]{}",',
-                     '         "amount_msat": "123000msat",',
+                     '         "amount_msat": 123000,',
                      '         "status": "unpaid",',
                      r'         "description": "d\"[]{}",',
                      '      }',
