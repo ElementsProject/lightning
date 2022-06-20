@@ -4708,7 +4708,7 @@ def test_fetchinvoice(node_factory, bitcoind):
                                      'description': 'USD test'})['bolt12']
 
     inv = l1.rpc.call('fetchinvoice', {'offer': offerusd})
-    assert inv['changes']['msat'] == Millisatoshi(int(10.05 * 5000))
+    assert inv['changes']['amount_msat'] == Millisatoshi(int(10.05 * 5000))
 
     # If we remove plugin, it can no longer give us an invoice.
     l3.rpc.plugin_stop(plugin)

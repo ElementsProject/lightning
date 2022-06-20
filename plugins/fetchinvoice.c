@@ -345,9 +345,13 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	 */
 	/* We always tell them this unless it's trivial to calc and
 	 * exactly as expected. */
-	if (!expected_amount || *inv->amount != *expected_amount)
-		json_add_amount_msat_only(out, "msat",
+	if (!expected_amount || *inv->amount != *expected_amount) {
+		if (deprecated_apis)
+			json_add_amount_msat_only(out, "msat",
+						  amount_msat(*inv->amount));
+		json_add_amount_msat_only(out, "amount_msat",
 					  amount_msat(*inv->amount));
+	}
 	json_object_end(out);
 
 	/* We tell them about next period at this point, if any. */
