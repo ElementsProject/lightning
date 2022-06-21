@@ -17,12 +17,14 @@ which especially hurt larger nodes.
  - routing: Fixed an issue where we would exclude the entire channel if either direction was disabled, or we hadn't seen an update yet. ([#5286])
  - connectd: large memory usage with many peers fixed. ([#5312])
  - connectd: reduce initial CPU load when connecting to peers. ([#5328])
+ - lightnind: fix failed startup "Could not load channels from the database" if old TORv2 addresses were present. ([#5331])
 
 [#5286]: https://github.com/ElementsProject/lightning/pull/5286
 [#5300]: https://github.com/ElementsProject/lightning/pull/5300
 [#5312]: https://github.com/ElementsProject/lightning/pull/5312
 [#5326]: https://github.com/ElementsProject/lightning/pull/5326
 [#5328]: https://github.com/ElementsProject/lightning/pull/5328
+[#5331]: https://github.com/ElementsProject/lightning/pull/5331
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 
 ## [0.11.1] - 2022-05-13: Simon's Carefully Chosen Release Name II
