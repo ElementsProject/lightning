@@ -2605,3 +2605,13 @@ def test_datastore_keylist(node_factory):
                                                                          'string': 'ab2val2',
                                                                          'generation': 1,
                                                                          'hex': b'ab2val2'.hex()}]}
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3',
+                 "This test requires sqlite3")
+def test_torv2_in_db(node_factory):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    l1.stop()
+    l1.db_manip("UPDATE peers SET address='3fyb44wdhnd2ghhl.onion:1234';")
+    l1.start()
