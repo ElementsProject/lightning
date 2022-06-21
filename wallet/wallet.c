@@ -836,10 +836,15 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 
 	db_col_node_id(stmt, "node_id", &id);
 
+	/* This can happen for peers last seen on Torv2! */
 	addrstr = db_col_strdup(tmpctx, stmt, "address");
 	if (!parse_wireaddr_internal(addrstr, &addr, DEFAULT_PORT,
-				     false, false, true, true, NULL))
-		goto done;
+				     false, false, true, true, NULL)) {
+		log_unusual(w->log, "Unparsable peer address %s: replacing",
+			    addrstr);
+		parse_wireaddr_internal("127.0.0.1:1", &addr, DEFAULT_PORT,
+					false, false, true, true, NULL);
+	}
 
 	/* FIXME: save incoming in db! */
 	peer = new_peer(w->ld, db_col_u64(stmt, "id"), &id, &addr, false);
