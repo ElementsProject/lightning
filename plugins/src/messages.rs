@@ -75,10 +75,13 @@ pub struct Configuration {
     pub startup: bool,
     pub network: String,
     pub feature_set: HashMap<String, String>,
-    pub proxy: ProxyInfo,
+
+    // The proxy related options are only populated if a proxy was
+    // configured.
+    pub proxy: Option<ProxyInfo>,
     #[serde(rename = "torv3-enabled")]
-    pub torv3_enabled: bool,
-    pub always_use_proxy: bool,
+    pub torv3_enabled: Option<bool>,
+    pub always_use_proxy: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
