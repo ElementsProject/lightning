@@ -101,6 +101,8 @@ struct state {
 	struct feature_set *our_features;
 
 	struct amount_sat *reserve;
+
+	bool allowdustreserve;
 };
 
 /*~ If we can't agree on parameters, we fail to open the channel.
@@ -960,7 +962,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* This reserves 1% of the channel (rounded up) */
 	set_reserve(state, state->remoteconf.dust_limit);
 
-#ifndef ZERORESERVE
 	/* Pending proposal to remove these limits. */
 	/* BOLT #2:
 	 *
@@ -982,18 +983,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 						  &state->remoteconf.dust_limit));
 		return NULL;
 	}
-	if (amount_sat_greater(state->localconf.dust_limit,
-			       state->remoteconf.channel_reserve)) {
-		negotiation_failed(state,
-				   "Our dust limit %s"
-				   " would be above their reserve %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->localconf.dust_limit),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->remoteconf.channel_reserve));
-		return NULL;
-	}
-#endif
 
 	/* These checks are the same whether we're opener or accepter... */
 	if (!check_config_bounds(tmpctx, state->funding_sats,
@@ -1434,17 +1423,18 @@ int main(int argc, char *argv[])
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_openingd_init(state, msg,
-				   &chainparams,
-				   &state->our_features,
-				   &state->their_features,
-				   &state->localconf,
-				   &state->max_to_self_delay,
-				   &state->min_effective_htlc_capacity,
-				   &state->our_points,
-				   &state->our_funding_pubkey,
-				   &state->minimum_depth,
-				   &state->min_feerate, &state->max_feerate,
-				   &force_tmp_channel_id))
+				    &chainparams,
+				    &state->our_features,
+				    &state->their_features,
+				    &state->localconf,
+				    &state->max_to_self_delay,
+				    &state->min_effective_htlc_capacity,
+				    &state->our_points,
+				    &state->our_funding_pubkey,
+				    &state->minimum_depth,
+				    &state->min_feerate, &state->max_feerate,
+				    &force_tmp_channel_id,
+				    &state->allowdustreserve))
 		master_badmsg(WIRE_OPENINGD_INIT, msg);
 
 #if DEVELOPER

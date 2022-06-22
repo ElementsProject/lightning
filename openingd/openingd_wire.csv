@@ -24,6 +24,10 @@ msgdata,openingd_init,minimum_depth,u32,
 msgdata,openingd_init,min_feerate,u32,
 msgdata,openingd_init,max_feerate,u32,
 msgdata,openingd_init,dev_temporary_channel_id,?byte,32
+# Do we allow `fundchannel` or the `openchannel` hook to set sub-dust
+# reserves? This is explicitly required by the spec for safety
+# reasons, but some implementations and users keep asking for it.
+msgdata,openingd_init,allowdustreserve,bool,
 
 # Openingd->master: they offered channel, should we continue?
 msgtype,openingd_got_offer,6005
