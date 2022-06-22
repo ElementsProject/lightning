@@ -8,11 +8,12 @@ Install
 5. [OpenBSD](#to-build-on-openbsd)
 6. [NixOS](#to-build-on-nixos)
 7. [macOS](#to-build-on-macos)
-8. [Android](#to-cross-compile-for-android)
-9. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
-10. [Armbian](#to-compile-for-armbian)
-11. [Alpine](#to-compile-for-alpine)
-12. [Additional steps](#additional-steps)
+8. [Arch Linux](#to-build-on-arch-linux)
+9. [Android](#to-cross-compile-for-android)
+10. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
+11. [Armbian](#to-compile-for-armbian)
+12. [Alpine](#to-compile-for-alpine)
+13. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -304,6 +305,36 @@ need to include `testnet=1`
     bitcoind &
     ./lightningd/lightningd &
     ./cli/lightning-cli help
+
+To Build on Arch Linux
+---------------------
+
+Install dependencies:
+
+```
+pacman --sync autoconf automake gcc git make python-pip
+pip install --user poetry
+```
+
+Clone Core Lightning:
+```
+$ git clone https://github.com/ElementsProject/lightning.git
+$ cd lightning
+```
+
+Build Core Lightning:
+
+```
+~/.local/bin/poetry install
+./configure
+~/.local/bin/poetry run make
+```
+
+Launch Core Lightning:
+
+```
+./lightningd/lightningd
+```
 
 To cross-compile for Android
 --------------------
