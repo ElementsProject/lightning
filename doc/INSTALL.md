@@ -317,6 +317,7 @@ pip install --user poetry
 ```
 
 Clone Core Lightning:
+
 ```
 $ git clone https://github.com/ElementsProject/lightning.git
 $ cd lightning
