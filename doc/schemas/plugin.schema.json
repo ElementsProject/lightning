@@ -57,7 +57,7 @@
                 },
                 "active": {
                   "type": "boolean",
-                  "description": "status; since plugins are configured asynchronously, a freshly started plugin may not appear immediately."
+                  "description": "status; plugin completed init and is operational, plugins are configured asynchronously."
                 }
               }
             }

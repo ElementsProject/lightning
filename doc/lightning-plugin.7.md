@@ -4,35 +4,46 @@ lightning-plugin -- Manage plugins with RPC
 SYNOPSIS
 --------
 
-**plugin** command [*parameter*] [*second\_parameter*]
+**plugin** *subcommand* [plugin|directory] [*options*] ...
+
 
 DESCRIPTION
 -----------
 
-The **plugin** RPC command allows to manage plugins without having to
-restart lightningd. It takes 1 to 3 parameters: a command
-(start/stop/startdir/rescan/list) which describes the action to take and
-optionally one or two parameters which describes the plugin on which the
-action has to be taken.
+The **plugin** RPC command command can be used to control dynamic plugins,
+i.e. plugins that declared themself "dynamic" (in getmanifest).
 
-The *start* command takes a path as the first parameter and will load
-the plugin available from this path. The path can be a full path to a
-plugin or a relative path to a plugin that is located in or below the
-default plugins directory. Any additional parameters are passed to the
-plugin. It will wait for the plugin to complete the handshake with
-`lightningd` for 20 seconds at the most.
+*subcommand* can be **start**, **stop**, **startdir**, **rescan** or **list** and
+determines what action is taken
 
-The *stop* command takes a plugin name as parameter. It will kill and
-unload the specified plugin.
+*plugin* is the *path* or *name* of a plugin executable to start or stop
 
-The *startdir* command takes a directory path as first parameter and will
-load all plugins this directory contains. It will wait for each plugin to
-complete the handshake with `lightningd` for 20 seconds at the most.
+*directory* is the *path* of a directory containing plugins
 
-The *rescan* command starts all not-already-loaded plugins from the
-default plugins directory (by default *~/.lightning/plugins*).
+*options* are optional *keyword=value* options passed to plugin, can be repeated
 
-The *list* command will return all the active plugins.
+*subcommand* **start** takes a *path* to an executable as argument and starts it as plugin.
+*path* may be an absolute path or a path relative to the plugins directory (default *~/.lightning/plugins*).
+If the plugin is already running and the executable (checksum) has changed, the plugin is
+killed and restarted except if its an important (or builtin) plugin.
+If the plugin doesn't complete the "getmanifest" and "init" handshakes within 60 seconds,
+the command will timeout and kill the plugin.
+Additional *options* may be passed to the plugin, but requires all parameters to
+be passed as keyword=value pairs, for example:
+ `lightning-cli -k plugin subcommand=start plugin=helloworld.py greeting='A crazy'`
+(using the `-k|--keyword` option is recommended)
+
+*subcommand* **stop** takes a plugin executable *path* or *name* as argument and stops the plugin.
+If the plugin subscribed to "shutdown", it may take up to 30 seconds before this
+command returns. If the plugin is important and dynamic, this will shutdown `lightningd`.
+
+*subcommand* **startdir** starts all executables it can find in *directory* (excl. subdirectories)
+as plugins. Checksum and timeout behavior as in **start** applies.
+
+*subcommand* **rescan** starts all plugins in the default plugins directory (default *~/.lightning/plugins*)
+that are not already running. Checksum and timeout behavior as in **start** applies.
+
+*subcommand* **list** lists all running plugins (incl. non-dynamic)
 
 RETURN VALUE
 ------------
@@ -44,7 +55,7 @@ On success, an object is returned, containing:
 If **command** is "start", "startdir", "rescan" or "list":
   - **plugins** (array of objects):
     - **name** (string): full pathname of the plugin
-    - **active** (boolean): status; since plugins are configured asynchronously, a freshly started plugin may not appear immediately.
+    - **active** (boolean): status; plugin completed init and is operational, plugins are configured asynchronously.
 
 If **command** is "stop":
   - **result** (string): A message saying it successfully stopped
@@ -53,6 +64,10 @@ If **command** is "stop":
 
 On error, the reason why the action could not be taken upon the
 plugin is returned.
+
+SEE ALSO
+--------
+lightning-cli(1), lightning-listconfigs(1), [writing plugins][writing plugins]
 
 AUTHOR
 ------
@@ -64,4 +79,5 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a07c71d232c39c0b959d07b9391d107413841753b67443d5f3698e1afd9cd2e4)
+[writing plugins]: PLUGINS.md
+[comment]: # ( SHA256STAMP:ee9c974be30d7870cb6a7785956548700b95d2d6b3fe4f18f7757afdfa015553)
