@@ -946,18 +946,19 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 
 
 	msg = towire_openingd_init(NULL,
-				  chainparams,
-				  peer->ld->our_features,
-				  peer->their_features,
-				  &uc->our_config,
-				  max_to_self_delay,
-				  min_effective_htlc_capacity,
-				  &uc->local_basepoints,
-				  &uc->local_funding_pubkey,
-				  uc->minimum_depth,
-				  feerate_min(peer->ld, NULL),
-				  feerate_max(peer->ld, NULL),
-				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL));
+				   chainparams,
+				   peer->ld->our_features,
+				   peer->their_features,
+				   &uc->our_config,
+				   max_to_self_delay,
+				   min_effective_htlc_capacity,
+				   &uc->local_basepoints,
+				   &uc->local_funding_pubkey,
+				   uc->minimum_depth,
+				   feerate_min(peer->ld, NULL),
+				   feerate_max(peer->ld, NULL),
+				   IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
+				   peer->ld->config.allowdustreserve);
 	subd_send_msg(uc->open_daemon, take(msg));
 	return true;
 }

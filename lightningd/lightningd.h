@@ -70,6 +70,12 @@ struct config {
 
 	/* EXPERIMENTAL: offers support */
 	bool exp_offers;
+
+	/* Allow dust reserves (including 0) when being called via
+	 * `fundchannel` or in the `openchannel` hook. This is a
+	 * slight spec incompatibility, but implementations do this
+	 * already. */
+	bool allowdustreserve;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;
