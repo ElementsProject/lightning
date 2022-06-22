@@ -7,7 +7,7 @@ variety of ways:
 
  - **Command line option passthrough** allows plugins to register their
    own command line options that are exposed through `lightningd` so
-   that only the main process needs to be configured.
+   that only the main process needs to be configured[^options].
  - **JSON-RPC command passthrough** adds a way for plugins to add their
    own commands to the JSON-RPC interface.
  - **Event stream subscriptions** provide plugins with a push-based
@@ -22,16 +22,25 @@ used as protocol on top of the two streams, with the plugin acting as
 server and `lightningd` acting as client. The plugin file needs to be
 executable (e.g. use `chmod a+x plugin_name`)
 
+A `helloworld.py` example plugin based on [pyln-client][pyln-client]
+can be found [here](../contrib/plugins/helloworld.py). There is also a
+[repository](https://github.com/lightningd/plugins) with a collection of
+actively maintained plugins and finally, `lightningd`'s own internal
+[tests](../tests) can be a useful (and most reliable) resource.
+
+[^options]:  Only for plugins that start when `lightningd` starts, option
+    values are not remembered when a plugin is stopped or killed.
+
 ### Warning
 
 As noted, `lightningd` uses `stdin` as an intake mechanism.  This can
-cause unexpected behavior if one is not careful.  To wit, care should 
-be taken to ensure that debug/logging statements must be routed to 
-`stderr` or directly to a file.  Activities that are benign in other 
+cause unexpected behavior if one is not careful.  To wit, care should
+be taken to ensure that debug/logging statements must be routed to
+`stderr` or directly to a file.  Activities that are benign in other
 contexts (`println!`, `dbg!`, etc) will cause the plugin to be killed
 with an error along the lines of:
 
-`UNUSUAL plugin-cln-plugin-startup: Killing plugin: JSON-RPC message 
+`UNUSUAL plugin-cln-plugin-startup: Killing plugin: JSON-RPC message
 does not contain "jsonrpc" field`
 
 ## A day in the life of a plugin
@@ -47,7 +56,8 @@ plugin dirs, usually `/usr/local/libexec/c-lightning/plugins` and
 lightningd --plugin=/path/to/plugin1 --plugin=path/to/plugin2
 ```
 
-`lightningd` will run your plugins from the `--lightning-dir`/networkname, then
+`lightningd` will run your plugins from the `--lightning-dir`/networkname
+as working directory and env variables "LIGHTNINGD_PLUGIN" and "LIGHTNINGD_VERSION" set, then
 will write JSON-RPC requests to the plugin's `stdin` and
 will read replies from its `stdout`. To initialize the plugin two RPC
 methods are required:
@@ -66,6 +76,13 @@ Once those two methods were called `lightningd` will start passing
 through incoming JSON-RPC commands that were registered and the plugin
 may interact with `lightningd` using the JSON-RPC over Unix-Socket
 interface.
+
+Above is generally valid for plugins that start when `lightningd` starts.
+For dynamic plugins that start via the [plugin][lightning-plugin] JSON-RPC command there
+is some difference, mainly in options passthrough (see note in [Types of Options](#types-of-options)).
+
+ - `shutdown` (optional): if subscribed to "shutdown" notification, a plugin can
+   exit cleanly when `lightningd` is shutting down or when stopped via `plugin stop`.
 
 ### The `getmanifest` method
 
@@ -123,8 +140,8 @@ example:
 }
 ```
 
-The `options` will be added to the list of command line options that
-`lightningd` accepts. The above will add a `--greeting` option with a
+During startup the `options` will be added to the list of command line options that
+`lightningd` accepts. If any `options` "name" is already taken startup will abort. The above will add a `--greeting` option with a
 default value of `World` and the specified description. *Notice that
 currently string, integers, bool, and flag options are supported.*
 
@@ -142,8 +159,8 @@ you plan on removing them: this will disable them if the user sets
 right?).
 
 The `dynamic` indicates if the plugin can be managed after `lightningd`
-has been started. Critical plugins that should not be stopped should set it
-to false.
+has been started using the [plugin][lightning-plugin] JSON-RPC command. Critical plugins that should not be stopped should set it
+to false. Plugin `options` can be passed to dynamic plugins as argument to the `plugin` command .
 
 If a `disable` member exists, the plugin will be disabled and the contents
 of this member is the reason why.  This allows plugins to disable themselves
@@ -175,7 +192,7 @@ Plugins are free to register any `name` for their `rpcmethod` as long
 as the name was not previously registered. This includes both built-in
 methods, such as `help` and `getinfo`, as well as methods registered
 by other plugins. If there is a conflict then `lightningd` will report
-an error and exit.
+an error and kill the plugin, this aborts startup if the plugin is *important*.
 
 #### Types of Options
 
@@ -229,6 +246,12 @@ Here's an example option set, as sent in response to `getmanifest`
     }
   ],
 ```
+
+**Note**: `lightningd` command line options are only parsed during startup and their
+values are not remembered when the plugin is stopped or killed.
+For dynamic plugins started with `plugin start`, options can be
+passed as extra arguments to that [command][lightning-plugin].
+
 
 #### Custom notifications
 
@@ -327,6 +350,12 @@ of this member is the reason why.
 
 The `startup` field allows a plugin to detect if it was started at
 `lightningd` startup (true), or at runtime (false).
+
+### Timeouts
+During startup ("startup" is true), the plugin has 60 seconds to
+return `getmanifest` and another 60 seconds to return `init`, or gets killed.
+When started dynamically via the [plugin][lightning-plugin] JSON-RPC command, both `getmanifest`
+and `init` should be completed within 60 seconds.
 
 ## JSON-RPC passthrough
 
@@ -1488,7 +1517,7 @@ handled the remaining plugins will be skipped.
 ### `rpc_command`
 
 The `rpc_command` hook allows a plugin to take over any RPC command. It sends
-the received JSON-RPC request to the registered plugin,
+the received JSON-RPC request (for any method!) to the registered plugin,
 
 ```json
 {
@@ -1716,3 +1745,5 @@ The plugin must broadcast it and respond with the following fields:
 [oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
 [spec]: [https://github.com/lightningnetwork/lightning-rfc]
 [bolt9]: https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md
+[lightning-plugin]: lightning-plugin.7.md
+[pyln-client]: ../contrib/pyln-client

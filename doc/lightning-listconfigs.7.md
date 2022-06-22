@@ -9,7 +9,9 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **listconfigs** RPC command to list all configuration options, or with *config*, just that one.
+*config* (optional) is a configuration option name, or "plugin" to show plugin options
+
+The **listconfigs** RPC command to list all configuration options, or with *config* only a selection.
 
 The returned values reflect the current configuration, including
 showing default values (`dev-` options are not shown).
