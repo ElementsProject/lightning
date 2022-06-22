@@ -60,6 +60,10 @@ doc/lightning*.[1578]
 *_wiregen.[ch]
 *_printgen.[ch]
 *_gettextgen.po
+tests/node_pb2.py
+tests/node_pb2_grpc.py
+tests/primitives_pb2.py
+tests/primitives_pb2_grpc.py
 
 # Ignore unrelated stuff
 .DS_Store
@@ -68,3 +72,4 @@ doc/lightning*.[1578]
 # Rust targets
 target
 Cargo.lock
+plugins/cln-grpc
