@@ -122,7 +122,7 @@ static struct io_plan *bad_req_fmt(struct io_conn *conn,
 	char *str;
 
 	va_start(ap, fmt);
-	str = tal_fmt(tmpctx, fmt, ap);
+	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
 	/*~ If the client was actually lightningd, it's Game Over; we actually
