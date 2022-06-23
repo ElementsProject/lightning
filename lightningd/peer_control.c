@@ -1189,9 +1189,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	if (!peer_subds_pending(peer))
 		connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
 
-	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
-	assert(!peer->uncommitted_channel);
-
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
 		log_info(ld->log, "Peer says it sees our address as: %s",
