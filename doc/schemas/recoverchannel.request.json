@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scb"
+  ],
+  "scb": {
+    "type": "array",
+    "description": "SCB of the channels in an array",
+    "items": {
+      "type": "hexstr"
+    }
+  }
+}

@@ -24,6 +24,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-delpay.7 \
 	doc/lightning-disableoffer.7 \
 	doc/lightning-disconnect.7 \
+	doc/lightning-emergencyrecover.7 \
 	doc/lightning-feerates.7 \
 	doc/lightning-fetchinvoice.7 \
 	doc/lightning-fundchannel.7 \
@@ -46,6 +47,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listpays.7 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-listsendpays.7 \
+	doc/lightning-makesecret.7 \
 	doc/lightning-multifundchannel.7 \
 	doc/lightning-multiwithdraw.7 \
 	doc/lightning-newaddr.7 \
@@ -60,6 +62,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-pay.7 \
 	doc/lightning-parsefeerate.7 \
 	doc/lightning-plugin.7 \
+	doc/lightning-recoverchannel.7 \
 	doc/lightning-reserveinputs.7 \
 	doc/lightning-sendinvoice.7 \
 	doc/lightning-sendonion.7 \
@@ -69,6 +72,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-setchannelfee.7 \
 	doc/lightning-sendcustommsg.7 \
 	doc/lightning-signmessage.7 \
+	doc/lightning-staticbackup.7 \
 	doc/lightning-txprepare.7 \
 	doc/lightning-txdiscard.7 \
 	doc/lightning-txsend.7 \
