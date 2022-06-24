@@ -281,3 +281,11 @@ msgdata,hsmd_sign_option_will_fund_offer,channel_fee_proportional_basis_max,u16,
 
 msgtype,hsmd_sign_option_will_fund_offer_reply,126
 msgdata,hsmd_sign_option_will_fund_offer_reply,rsig,secp256k1_ecdsa_signature,
+
+# Reply with the derived secret
+msgtype,hsmd_derive_secret_reply,27
+msgdata,hsmd_derive_secret_reply,secret,secret,
+
+msgtype,hsmd_derive_secret,127
+msgdata,hsmd_derive_secret,len,u16,
+msgdata,hsmd_derive_secret,info,u8,len
