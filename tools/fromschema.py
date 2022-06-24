@@ -127,6 +127,17 @@ def output_members(sub, indent=''):
 
     # Remove deprecated and stub properties, collect warnings
     # (Stubs required to keep additionalProperties: false happy)
+
+    # FIXME: It fails for schemas which have only an array type with
+    # no properties, ex:
+    # "abcd": {
+    #  "type": "array",
+    #   "items": {
+    #    "type": "whatever",
+    #    "description": "efgh"
+    #   }
+    # }
+    # Checkout the schema of `staticbackup`.
     for p in list(sub['properties'].keys()):
         if len(sub['properties'][p]) == 0 or 'deprecated' in sub['properties'][p]:
             del sub['properties'][p]
