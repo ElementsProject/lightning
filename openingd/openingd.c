@@ -146,27 +146,28 @@ static void set_reserve_absolute(struct state * state, const struct amount_sat d
 {
 	status_debug("Setting their reserve to %s",
 		     type_to_string(tmpctx, struct amount_sat, &reserve_sat));
-#ifdef ZERORESERVE
-	state->localconf.channel_reserve = reserve_sat;
-#else
-	/* BOLT #2:
-	 *
-	 * The sending node:
-	 *...
-	 * - MUST set `channel_reserve_satoshis` greater than or equal to
-         *   `dust_limit_satoshis` from the `open_channel` message.
-	 */
-	if (amount_sat_greater(dust_limit, reserve_sat)) {
-		status_debug(
-		    "Their reserve is too small, bumping to dust_limit: %s < %s",
-		    type_to_string(tmpctx, struct amount_sat, &reserve_sat),
-		    type_to_string(tmpctx, struct amount_sat, &dust_limit));
-		state->localconf.channel_reserve
-			= dust_limit;
-	} else {
+	if (state->allowdustreserve) {
 		state->localconf.channel_reserve = reserve_sat;
+	} else {
+		/* BOLT #2:
+		 *
+		 * The sending node:
+		 *...
+		 * - MUST set `channel_reserve_satoshis` greater than or equal
+		 *to `dust_limit_satoshis` from the `open_channel` message.
+		 */
+		if (amount_sat_greater(dust_limit, reserve_sat)) {
+			status_debug("Their reserve is too small, bumping to "
+				     "dust_limit: %s < %s",
+				     type_to_string(tmpctx, struct amount_sat,
+						    &reserve_sat),
+				     type_to_string(tmpctx, struct amount_sat,
+						    &dust_limit));
+			state->localconf.channel_reserve = dust_limit;
+		} else {
+			state->localconf.channel_reserve = reserve_sat;
+		}
 	}
-#endif
 }
 
 /* We always set channel_reserve_satoshis to 1%, rounded down. */
@@ -464,8 +465,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				type_to_string(msg, struct channel_id,
 					       &state->channel_id));
 
-#ifndef ZERORESERVE
-	if (amount_sat_greater(state->remoteconf.dust_limit,
+	if (!state->allowdustreserve &&
+	    amount_sat_greater(state->remoteconf.dust_limit,
 			       state->localconf.channel_reserve)) {
 		negotiation_failed(state,
 				   "dust limit %s"
@@ -476,7 +477,6 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 						  &state->localconf.channel_reserve));
 		return NULL;
 	}
-#endif
 
 	if (!check_config_bounds(tmpctx, state->funding_sats,
 				 state->feerate_per_kw,
@@ -972,7 +972,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * - MUST set `dust_limit_satoshis` less than or equal to
          *   `channel_reserve_satoshis` from the `open_channel` message.
 	 */
-	if (amount_sat_greater(state->remoteconf.dust_limit,
+	if (!state->allowdustreserve &&
+	    amount_sat_greater(state->remoteconf.dust_limit,
 			       state->localconf.channel_reserve)) {
 		negotiation_failed(state,
 				   "Our channel reserve %s"
