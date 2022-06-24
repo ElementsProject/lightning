@@ -534,6 +534,12 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
 				  take(p2wpkh_for_keyidx(NULL, peer->ld,
 							 channel->final_key_idx)));
+	/* scid is NULL when opening a new channel so we don't
+	 * need to set error in that case as well */
+	if (is_stub_scid(scid))
+		channel->error = towire_errorfmt(peer->ld,
+						 &channel->cid,
+						 "We can't be together anymore.");
 
 	return channel;
 }
@@ -779,6 +785,11 @@ void channel_fail_permanent(struct channel *channel,
 			    const char *fmt,
 			    ...)
 {
+	/* Don't do anything if it's an stub channel because
+	 * peer has already closed it unilatelrally. */
+	if (is_stub_scid(channel->scid))
+		return;
+
 	struct lightningd *ld = channel->peer->ld;
 	va_list ap;
 	char *why;
