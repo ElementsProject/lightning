@@ -23,11 +23,13 @@ struct secret *dev_force_bip32_seed;
 #endif
 
 /*~ Nobody will ever find it here!  hsm_secret is our root secret, the bip32
- * tree and bolt12 payer_id keys are derived from that, and cached here. */
+ * tree, bolt12 payer_id keys and derived_secret are derived from that, and
+ * cached here. */
 struct {
 	struct secret hsm_secret;
 	struct ext_key bip32;
 	secp256k1_keypair bolt12;
+	struct secret derived_secret;
 } secretstuff;
 
 /* Have we initialized the secretstuff? */
@@ -117,6 +119,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_SIGN_BOLT12:
+	case WIRE_HSMD_DERIVE_SECRET:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -145,6 +148,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
+	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 		break;
 	}
 	return false;
@@ -255,6 +259,22 @@ static void hsm_channel_secret_base(struct secret *channel_seed_base)
 		     * generation here, so we need to keep it that way for
 		     * existing clients, rather than using "channel seed". */
 		    "peer seed", strlen("peer seed"));
+}
+
+/* This will derive pseudorandom secret Key from a derived key */
+static u8 *handle_derive_secret(struct hsmd_client *c, const u8 *msg_in)
+{
+	u8 *info;
+	struct secret secret;
+
+	if (!fromwire_hsmd_derive_secret(tmpctx, msg_in, &info))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	hkdf_sha256(&secret, sizeof(struct secret), NULL, 0,
+		    &secretstuff.derived_secret, sizeof(&secretstuff.derived_secret),
+		    info, tal_bytelen(info));
+
+	return towire_hsmd_derive_secret_reply(NULL, &secret);
 }
 
 /*~ This gets the seed for this particular channel. */
@@ -1593,9 +1613,12 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_remote_htlc_to_us(client, msg);
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 		return handle_sign_delayed_payment_to_us(client, msg);
+	case WIRE_HSMD_DERIVE_SECRET:
+		return handle_derive_secret(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
+	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_CUPDATE_SIG_REPLY:
 	case WIRE_HSMD_CLIENT_HSMFD_REPLY:
@@ -1759,6 +1782,12 @@ u8 *hsmd_init(struct secret hsm_secret,
 		    &secretstuff.hsm_secret,
 		    sizeof(secretstuff.hsm_secret),
 		    "onion reply secret", strlen("onion reply secret"));
+
+	/* We derive the derived_secret key for generating pseudorandom keys
+	 * by taking input string from the makesecret RPC */
+	hkdf_sha256(&secretstuff.derived_secret, sizeof(struct secret), NULL, 0,
+		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
+		    "derived secrets", strlen("derived secrets"));
 
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
 	 * not the secrets!  So we're not actually handing them out here!
