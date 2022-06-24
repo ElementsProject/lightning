@@ -37,6 +37,13 @@ static inline u32 short_channel_id_blocknum(const struct short_channel_id *scid)
 	return scid->u64 >> 40;
 }
 
+static inline bool is_stub_scid(const struct short_channel_id *scid)
+{
+	return scid ? scid->u64 >> 40 == 1 &&
+		((scid->u64 >> 16) & 0x00FFFFFF) == 1 &&
+		(scid->u64 & 0xFFFF) == 1 : false;
+}
+
 static inline u32 short_channel_id_txnum(const struct short_channel_id *scid)
 {
 	return (scid->u64 >> 16) & 0x00FFFFFF;

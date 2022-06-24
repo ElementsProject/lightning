@@ -1536,8 +1536,9 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	const char *txidstr;
 	struct short_channel_id scid;
 
-	/* Sanity check */
-	if (!check_funding_tx(tx, channel)) {
+	/* Sanity check, but we'll have to make an exception
+	 * for stub channels(1x1x1) */
+	if (!check_funding_tx(tx, channel) && !is_stub_scid(channel->scid)) {
 		channel_internal_error(channel, "Bad tx %s: %s",
 				       type_to_string(tmpctx,
 						      struct bitcoin_txid, txid),
@@ -1592,13 +1593,15 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 			return DELETE_WATCH;
 		}
 
-		/* If we restart, we could already have peer->scid from database */
+		/* If we restart, we could already have peer->scid from database,
+		 * we don't need to update scid for stub channels(1x1x1) */
 		if (!channel->scid) {
 			channel->scid = tal(channel, struct short_channel_id);
 			*channel->scid = scid;
 			wallet_channel_save(ld->wallet, channel);
 
-		} else if (!short_channel_id_eq(channel->scid, &scid)) {
+		} else if (!short_channel_id_eq(channel->scid, &scid) &&
+			   !is_stub_scid(channel->scid)) {
 			/* This normally restarts channeld, initialized with updated scid
 			 * and also adds it (at least our halve_chan) to rtable. */
 			channel_fail_reconnect(channel,

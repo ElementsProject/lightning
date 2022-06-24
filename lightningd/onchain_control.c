@@ -669,8 +669,17 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 			   channel->final_key_idx);
 		return KEEP_WATCHING;
 	}
-	/* This could be a mutual close, but it doesn't matter. */
-	bitcoin_txid(channel->last_tx, &our_last_txid);
+
+	/* This could be a mutual close, but it doesn't matter.
+	 * We don't need this for stub channels as well */
+	if (!is_stub_scid(channel->scid))
+		bitcoin_txid(channel->last_tx, &our_last_txid);
+	else
+	/* Dummy txid for stub channel to make valgrind happy. */
+		bitcoin_txid_from_hex("80cea306607b708a03a1854520729d"
+				"a884e4317b7b51f3d4a622f88176f5e034",
+				64,
+				&our_last_txid);
 
 	/* We try to get the feerate for each transaction type, 0 if estimation
 	 * failed. */

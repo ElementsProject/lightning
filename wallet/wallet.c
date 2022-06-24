@@ -1930,7 +1930,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_talarr(stmt, 17, chan->shutdown_scriptpubkey[REMOTE]);
 	db_bind_u64(stmt, 18, chan->final_key_idx);
 	db_bind_u64(stmt, 19, chan->our_config.id);
-	db_bind_psbt(stmt, 20, chan->last_tx->psbt);
+	if (chan->last_tx)
+		db_bind_psbt(stmt, 20, chan->last_tx->psbt);
+	else
+		db_bind_null(stmt, 20);
 	db_bind_signature(stmt, 21, &chan->last_sig.s);
 	db_bind_int(stmt, 22, chan->last_was_revoke);
 	db_bind_int(stmt, 23, chan->min_possible_feerate);
