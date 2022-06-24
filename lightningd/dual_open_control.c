@@ -1228,6 +1228,14 @@ wallet_commit_channel(struct lightningd *ld,
 					     &commitment_feerate);
 	channel->min_possible_feerate = commitment_feerate;
 	channel->max_possible_feerate = commitment_feerate;
+	channel->scb = tal(channel, struct scb_chan);
+	channel->scb->id = channel->dbid;
+	channel->scb->addr = channel->peer->addr;
+	channel->scb->node_id = channel->peer->id;
+	channel->scb->funding = *funding;
+	channel->scb->cid = channel->cid;
+	channel->scb->funding_sats = total_funding;
+	channel->scb->type = channel_type_dup(channel->scb, channel->type);
 
 	/* We are connected */
 	channel->connected = true;

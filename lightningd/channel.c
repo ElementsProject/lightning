@@ -212,6 +212,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->openchannel_signed_cmd = NULL;
 	channel->state = DUALOPEND_OPEN_INIT;
 	channel->owner = NULL;
+	channel->scb = NULL;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_fmt(channel, "%s",
 					       "Empty channel init'd");
@@ -419,6 +420,14 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->owner = NULL;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_strdup(channel, transient_billboard);
+	channel->scb = tal(channel, struct scb_chan);
+	channel->scb->id = dbid;
+	channel->scb->addr = peer->addr;
+	channel->scb->node_id = peer->id;
+	channel->scb->funding = *funding;
+	channel->scb->cid = *cid;
+	channel->scb->funding_sats = funding_sats;
+	channel->scb->type = channel_type_dup(channel->scb, type);
 
 	if (!log) {
 		channel->log = new_log(channel,
@@ -447,9 +456,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = msat_to_us_min;
 	channel->msat_to_us_max = msat_to_us_max;
-	channel->last_tx = tal_steal(channel, last_tx);
-	channel->last_tx->chainparams = chainparams;
-	channel->last_tx_type = TX_UNKNOWN;
+        channel->last_tx = tal_steal(channel, last_tx);
+	if (channel->last_tx) {
+		channel->last_tx->chainparams = chainparams;
+		channel->last_tx_type = TX_UNKNOWN;
+	}
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
 	channel->channel_info = *channel_info;
