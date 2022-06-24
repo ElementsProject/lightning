@@ -694,6 +694,9 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
+/* Generated stub for towire_scb_chan */
+void towire_scb_chan(u8 **p UNNEEDED, const struct scb_chan *scb_chan UNNEEDED)
+{ fprintf(stderr, "towire_scb_chan called!\n"); abort(); }
 /* Generated stub for towire_warningfmt */
 u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
