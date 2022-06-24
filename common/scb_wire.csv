@@ -1,0 +1,21 @@
+#include <common/node_id.h>
+#include <common/channel_id.h>
+#include <common/wireaddr.h>
+#include <common/channel_type.h>
+#include <common/amount.h>
+#include <bitcoin/tx.h>
+
+# scb_chan stores min. info required to sweep the peer's force close.
+subtype,scb_chan
+subtypedata,scb_chan,id,u64,
+subtypedata,scb_chan,cid,channel_id,
+subtypedata,scb_chan,node_id,node_id,
+subtypedata,scb_chan,addr,wireaddr_internal,
+subtypedata,scb_chan,funding,bitcoin_outpoint,
+subtypedata,scb_chan,funding_sats,amount_sat,
+subtypedata,scb_chan,type,channel_type,
+msgtype,static_chan_backup,6135,
+msgdata,static_chan_backup,version,u64,
+msgdata,static_chan_backup,timestamp,u32,
+msgdata,static_chan_backup,num,u16,
+msgdata,static_chan_backup,channels,scb_chan,num

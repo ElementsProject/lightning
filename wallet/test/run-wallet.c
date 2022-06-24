@@ -809,6 +809,9 @@ u8 *towire_required_channel_feature_missing(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_required_node_feature_missing */
 u8 *towire_required_node_feature_missing(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_required_node_feature_missing called!\n"); abort(); }
+/* Generated stub for towire_scb_chan */
+void towire_scb_chan(u8 **p UNNEEDED, const struct scb_chan *scb_chan UNNEEDED)
+{ fprintf(stderr, "towire_scb_chan called!\n"); abort(); }
 /* Generated stub for towire_temporary_channel_failure */
 u8 *towire_temporary_channel_failure(const tal_t *ctx UNNEEDED, const u8 *channel_update UNNEEDED)
 { fprintf(stderr, "towire_temporary_channel_failure called!\n"); abort(); }
