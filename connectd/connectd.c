@@ -756,6 +756,7 @@ static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
 				      &connect->addrs[connect->addrnum]),
 		       connect->connstate, errstr));
 	connect->addrnum++;
+	connect->conn = NULL;
 	try_connect_one_addr(connect);
 }
 
@@ -857,8 +858,7 @@ static void try_connect_one_addr(struct connecting *connect)
 	struct sockaddr_in6 *sa6;
 #endif
 
-	/* In case we fail without a connection, make destroy_io_conn happy */
-	connect->conn = NULL;
+	assert(!connect->conn);
 
 	/* Out of addresses? */
 	if (connect->addrnum == tal_count(connect->addrs)) {
@@ -1879,6 +1879,7 @@ static void try_connect_peer(struct daemon *daemon,
 	connect->seconds_waited = seconds_waited;
 	connect->addrhint = tal_steal(connect, addrhint);
 	connect->errors = tal_strdup(connect, "");
+	connect->conn = NULL;
 	list_add_tail(&daemon->connecting, &connect->list);
 	tal_add_destructor(connect, destroy_connecting);
 
@@ -1931,7 +1932,7 @@ void peer_conn_closed(struct peer *peer)
 	tal_free(peer);
 
 	/* If we wanted to connect to it, but found it was exiting, try again */
-	if (connect)
+	if (connect && !connect->conn)
 		try_connect_one_addr(connect);
 }
 
