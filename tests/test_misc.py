@@ -2271,6 +2271,66 @@ def test_getsharedsecret(node_factory):
             == l2.rpc.getsharedsecret(l1.info["id"])["shared_secret"])
 
 
+@pytest.mark.developer("needs --dev-force-privkey")
+def test_makesecret(node_factory):
+    """
+    Test makesecret command.
+    """
+
+    l1 = node_factory.get_node(options={"dev-force-privkey": "1212121212121212121212121212121212121212121212121212121212121212"})
+    secret = l1.rpc.makesecret("73636220736563726574")["secret"]
+
+    assert (secret == "04fe01631fcedc8d91f39ab43244e63afebaed68ee21d2f1c325fd1242726a18")
+
+
+def test_staticbackup(node_factory):
+    """
+    Test staticbackup
+    """
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, {}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    c12, _ = l1.fundchannel(l2, 10**5)
+
+    # Comparing the channelID, scb_chan has the channel ID starting from the 8th byte
+    # and it's own length is 32 byte, hence 16 + 64.
+    assert (len(l1.rpc.staticbackup()["scb"]) == 1
+            and l1.rpc.staticbackup()["scb"][0][16: 16 + 64] == _["channel_id"])
+
+
+def test_recoverchannel(node_factory):
+    """
+    Test recoverchannel
+    """
+    l1 = node_factory.get_node()
+    stubs = l1.rpc.recoverchannel(["0000000000000001c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d5904017f0000019f0bc3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a0000000000000000000186a000021000"])["stubs"]
+
+    assert len(stubs) == 1
+    assert stubs[0] == "c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a"
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+def test_emergencyrecover(node_factory, bitcoind):
+    """
+    Test emergencyrecover
+    """
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, {}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    c12, _ = l1.fundchannel(l2, 10**5)
+
+    l1.stop()
+
+    os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
+
+    l1.start()
+    assert l1.daemon.is_in_log('Server started with public key')
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert len(stubs) == 1
+    assert stubs[0] == _["channel_id"]
+
+    listfunds = l1.rpc.listfunds()["channels"][0]
+    assert listfunds["short_channel_id"] == "1x1x1"
+
+
 def test_commitfee_option(node_factory):
     """Sanity check for the --commit-fee startup option."""
     l1, l2 = node_factory.get_nodes(2, opts=[{"commit-fee": "200"}, {}])
