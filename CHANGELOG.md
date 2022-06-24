@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.2] - 2022-06-20: Simon's Carefully Chosen Release Name III
+## [0.11.2] - 2022-06-24: Simon's Carefully Chosen Release Name III
 
 Regressions since 0.10.2 which could not wait for the 0.12 release,
 which especially hurt larger nodes.
@@ -13,6 +13,7 @@ which especially hurt larger nodes.
 
  - Protocol: treat LND "internal error" as warnings, not force close events (like v0.10) ([#5326])
  - connectd: no longer occasional crashes when peers reconnect. ([#5300])
+ - connectd: another crash fix on trying to reconnect to disconnecting peer. ([#5340])
  - topology: Under some circumstances we were considering the limits on the wrong direction for a channel ([#5286])
  - routing: Fixed an issue where we would exclude the entire channel if either direction was disabled, or we hadn't seen an update yet. ([#5286])
  - connectd: large memory usage with many peers fixed. ([#5312])
@@ -25,6 +26,8 @@ which especially hurt larger nodes.
 [#5326]: https://github.com/ElementsProject/lightning/pull/5326
 [#5328]: https://github.com/ElementsProject/lightning/pull/5328
 [#5331]: https://github.com/ElementsProject/lightning/pull/5331
+[#5340]: https://github.com/ElementsProject/lightning/pull/5340
+
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 
 ## [0.11.1] - 2022-05-13: Simon's Carefully Chosen Release Name II
