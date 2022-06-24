@@ -3,6 +3,7 @@
 #include "config.h"
 #include <common/channel_id.h>
 #include <common/channel_type.h>
+#include <common/scb_wiregen.h>
 #include <common/tx_roles.h>
 #include <common/utils.h>
 #include <lightningd/channel_state.h>
@@ -260,6 +261,10 @@ struct channel {
 
 	/* Latest channel_update, for use in error messages. */
 	u8 *channel_update;
+
+	/* `Channel-shell` of this channel
+	 * (Minimum information required to backup this channel). */
+	struct scb_chan *scb;
 };
 
 /* For v2 opens, a channel that has not yet been committed/saved to disk */
