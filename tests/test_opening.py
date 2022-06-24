@@ -1807,4 +1807,35 @@ def test_zeroreserve(node_factory, bitcoind):
     # dropped below dust again.
     c = l2.rpc.close(l1.info['id'])
     decoded = bitcoind.rpc.decoderawtransaction(c['tx'])
-    assert len(decoded['vout']) == 1
+    # Elements has a change output always
+    assert len(decoded['vout']) == 1 if TEST_NETWORK == 'regtest' else 2
+
+
+def test_zeroreserve_mixed(node_factory, bitcoind):
+    """l1 runs with zeroreserve, l2 and l3 without, should still work
+
+    Basically tests that l1 doesn't get upset when l2 allows us to
+    drop below dust.
+
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroreserve.py"
+    opts = [
+        {
+            'plugin': str(plugin_path),
+            'reserve': '0sat',
+            'dev-allowdustreserve': True,
+        }, {
+            'dev-allowdustreserve': False,
+        }, {
+            'dev-allowdustreserve': False,
+        }
+    ]
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    l1.fundwallet(10**7)
+    l3.fundwallet(10**7)
+
+    l1.connect(l2)
+    l3.connect(l1)
+
+    l1.rpc.fundchannel(l2.info['id'], 10**6, reserve='0sat')
+    l3.rpc.fundchannel(l1.info['id'], 10**6)
