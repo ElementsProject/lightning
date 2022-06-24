@@ -99,6 +99,7 @@ On success, an object is returned, containing:
 - **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
 - **fetchinvoice-noconnect** (boolean, optional): `featchinvoice-noconnect` fileds from config or cmdline, or default
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
+- **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -216,4 +217,5 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:dcab86f29b946fed925de5e05cb79faa03cc4421cefeab3561a596ed5e64962d)
+
+[comment]: # ( SHA256STAMP:310cc00ef62e7075d5d2588b0492c2dd96f507cc739f67d56ccc6c4f3135bca5)

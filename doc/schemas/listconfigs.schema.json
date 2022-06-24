@@ -286,6 +286,10 @@
     "tor-service-password": {
       "type": "string",
       "description": "`tor-service-password` field from config or cmdline, if any"
+    },
+    "dev-allowdustreserve": {
+      "type": "boolean",
+      "description": "Whether we allow setting dust reserves"
     }
   }
 }

@@ -1740,17 +1740,20 @@ def test_zeroreserve(node_factory, bitcoind):
      - l2 enforces default reserve
      - l3 enforces sub-dust reserves
     """
-    ZEROCONF = True
     plugin_path = Path(__file__).parent / "plugins" / "zeroreserve.py"
     opts = [
         {
             'plugin': str(plugin_path),
             'reserve': '0sat',
+            'dev-allowdustreserve': True,
         },
-        {},
+        {
+            'dev-allowdustreserve': True,
+        },
         {
             'plugin': str(plugin_path),
-            'reserve': '123sat'
+            'reserve': '123sat',
+            'dev-allowdustreserve': True,
         }
     ]
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
@@ -1780,16 +1783,16 @@ def test_zeroreserve(node_factory, bitcoind):
     l1c3 = l1.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
 
     # l1 imposed a 0sat reserve on l2, while l2 imposed the default 1% reserve on l1
-    assert l1c1['their_channel_reserve_satoshis'] == l2c1['our_channel_reserve_satoshis'] == (0 if ZEROCONF else 546)
-    assert l1c1['our_channel_reserve_satoshis'] == l2c1['their_channel_reserve_satoshis'] == 10000
+    assert l1c1['their_reserve_msat'] == l2c1['our_reserve_msat'] == Millisatoshi('0sat')
+    assert l1c1['our_reserve_msat'] == l2c1['their_reserve_msat'] == Millisatoshi('10000sat')
 
     # l2 imposed the default 1% on l3, while l3 imposed a custom 123sat fee on l2
-    assert l2c2['their_channel_reserve_satoshis'] == l3c2['our_channel_reserve_satoshis'] == 10000
-    assert l2c2['our_channel_reserve_satoshis'] == l3c2['their_channel_reserve_satoshis'] == (123 if ZEROCONF else 546)
+    assert l2c2['their_reserve_msat'] == l3c2['our_reserve_msat'] == Millisatoshi('10000sat')
+    assert l2c2['our_reserve_msat'] == l3c2['their_reserve_msat'] == Millisatoshi('123sat')
 
     # l3 imposed a custom 321sat fee on l1, while l1 imposed a custom 0sat fee on l3
-    assert l3c3['their_channel_reserve_satoshis'] == l1c3['our_channel_reserve_satoshis'] == (321 if ZEROCONF else 546)
-    assert l3c3['our_channel_reserve_satoshis'] == l1c3['their_channel_reserve_satoshis'] == (0 if ZEROCONF else 546)
+    assert l3c3['their_reserve_msat'] == l1c3['our_reserve_msat'] == Millisatoshi('321sat')
+    assert l3c3['our_reserve_msat'] == l1c3['their_reserve_msat'] == Millisatoshi('0sat')
 
     # Now do some drain tests on c1, as that should be drainable
     # completely by l2 being the fundee
