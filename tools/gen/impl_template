@@ -151,7 +151,7 @@ ${static}void towire_${subtype.name}(u8 **p, const ${subtype.type_name()} *${sub
 ${static}${subtype.type_name()} *
 fromwire_${subtype.name}(const tal_t *ctx, const u8 **cursor, size_t *plen)
 % else:
-${static}void fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.needs_context() else ''}const u8 **cursor, size_t *plen, ${subtype.type_name()} *${subtype.name})
+${static}bool fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.needs_context() else ''}const u8 **cursor, size_t *plen, ${subtype.type_name()} *${subtype.name})
 % endif
 {
 % if subtype.is_varsize():
@@ -175,6 +175,9 @@ ${static}void fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.needs_c
 % if subtype.is_varsize():
 
 	return ${subtype.name};
+% else:
+
+	return *cursor != NULL;
 % endif
 }
 % endfor ## END Subtypes
