@@ -643,6 +643,11 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		return NULL;
 	}
 
+	if (plugin->toks->type != JSMN_OBJECT)
+		return tal_fmt(
+		    plugin,
+		    "JSON-RPC message is not a valid JSON object type");
+
 	jrtok = json_get_member(plugin->buffer, plugin->toks, "jsonrpc");
 	idtok = json_get_member(plugin->buffer, plugin->toks, "id");
 
