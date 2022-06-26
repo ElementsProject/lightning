@@ -94,7 +94,7 @@ def test_option_types(node_factory):
     }, expect_fail=True, may_fail=True)
 
     # the node should fail to start, and we get a stderr msg
-    assert not n.daemon.running
+    assert n.daemon.wait() == 1
     wait_for(lambda: n.daemon.is_in_stderr('bool_opt: ! does not parse as type bool'))
 
     # What happens if we give it a bad int-option?
@@ -106,7 +106,7 @@ def test_option_types(node_factory):
     }, may_fail=True, expect_fail=True)
 
     # the node should fail to start, and we get a stderr msg
-    assert not n.daemon.running
+    assert n.daemon.wait() == 1
     assert n.daemon.is_in_stderr('--int_opt: notok does not parse as type int')
 
     # Flag opts shouldn't allow any input
@@ -119,7 +119,7 @@ def test_option_types(node_factory):
     }, may_fail=True, expect_fail=True)
 
     # the node should fail to start, and we get a stderr msg
-    assert not n.daemon.running
+    assert n.daemon.wait() == 1
     assert n.daemon.is_in_stderr("--flag_opt: doesn't allow an argument")
 
     n = node_factory.get_node(options={
@@ -1500,9 +1500,10 @@ def test_libplugin(node_factory):
     l1.stop()
     l1.daemon.opts["name-deprecated"] = "test_opt"
 
-    # This actually dies while waiting for the logs.
-    with pytest.raises(ValueError):
-        l1.start()
+    l1.daemon.start(wait_for_initialized=False)
+    # Will exit with failure code.
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr(r"name-deprecated: deprecated option")
 
     del l1.daemon.opts["name-deprecated"]
     l1.start()
@@ -1646,24 +1647,20 @@ def test_bitcoin_backend(node_factory, bitcoind):
     # We don't start if we haven't all the required methods registered.
     plugin = os.path.join(os.getcwd(), "tests/plugins/bitcoin/part1.py")
     l1.daemon.opts["plugin"] = plugin
-    try:
-        l1.daemon.start()
-    except ValueError:
-        assert l1.daemon.is_in_log("Missing a Bitcoin plugin command")
-        # Now we should start if all the commands are registered, even if they
-        # are registered by two distincts plugins.
-        del l1.daemon.opts["plugin"]
-        l1.daemon.opts["plugin-dir"] = os.path.join(os.getcwd(),
-                                                    "tests/plugins/bitcoin/")
-        try:
-            l1.daemon.start()
-        except ValueError:
-            msg = "All Bitcoin plugin commands registered"
-            assert l1.daemon.is_in_log(msg)
-        else:
-            raise Exception("We registered all commands but couldn't start!")
-    else:
-        raise Exception("We could start without all commands registered !!")
+    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.wait_for_log("Missing a Bitcoin plugin command")
+    # Will exit with failure code.
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr(r"Could not access the plugin for sendrawtransaction")
+    # Now we should start if all the commands are registered, even if they
+    # are registered by two distincts plugins.
+    del l1.daemon.opts["plugin"]
+    l1.daemon.opts["plugin-dir"] = os.path.join(os.getcwd(),
+                                                "tests/plugins/bitcoin/")
+    # (it fails when it tries to use them, so startup fails)
+    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.wait_for_log("All Bitcoin plugin commands registered")
+    assert l1.daemon.wait() == 1
 
     # But restarting with just bcli is ok
     del l1.daemon.opts["plugin-dir"]
@@ -2074,73 +2071,55 @@ def test_important_plugin(node_factory):
     n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
                               may_fail=True, expect_fail=True,
                               allow_broken_log=True, start=False)
-    n.daemon.start(wait_for_initialized=False, stderr=subprocess.PIPE)
-    wait_for(lambda: not n.daemon.running)
-
+    n.daemon.start(wait_for_initialized=False)
+    # Will exit with failure code.
+    assert n.daemon.wait() == 1
     assert n.daemon.is_in_stderr(r"error starting plugin '.*nonexistent'")
-
-    # We use a log file, since our wait_for_log is unreliable when the
-    # daemon actually dies.
-    def get_logfile_match(logpath, regex):
-        if not os.path.exists(logpath):
-            return None
-        with open(logpath, 'r') as f:
-            for line in f.readlines():
-                m = re.search(regex, line)
-                if m is not None:
-                    return m
-        return None
-
-    logpath = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, 'logfile')
-    n.daemon.opts['log-file'] = 'logfile'
 
     # Check we exit if the important plugin dies.
     n.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "fail_by_itself.py")
 
     n.daemon.start(wait_for_initialized=False)
-    wait_for(lambda: not n.daemon.running)
-
-    assert get_logfile_match(logpath,
-                             r'fail_by_itself.py: Plugin marked as important, shutting down lightningd')
-    os.remove(logpath)
+    # Will exit with failure code.
+    assert n.daemon.wait() == 1
+    n.daemon.wait_for_log(r'fail_by_itself.py: Plugin marked as important, shutting down lightningd')
 
     # Check if the important plugin is disabled, we run as normal.
     n.daemon.opts['disable-plugin'] = "fail_by_itself.py"
-    del n.daemon.opts['log-file']
     n.daemon.start()
     # Make sure we can call into a plugin RPC (this is from `bcli`) even
     # if fail_by_itself.py is disabled.
     n.rpc.call("estimatefees", {})
-    # Make sure we are still running.
-    assert n.daemon.running
     n.stop()
 
     # Check if an important plugin dies later, we fail.
     del n.daemon.opts['disable-plugin']
-    n.daemon.opts['log-file'] = 'logfile'
     n.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "suicidal_plugin.py")
 
-    n.daemon.start(wait_for_initialized=False)
-    wait_for(lambda: get_logfile_match(logpath, "Server started with public key"))
+    n.start()
 
     with pytest.raises(RpcError):
         n.rpc.call("die", {})
 
-    wait_for(lambda: not n.daemon.running)
-    assert get_logfile_match(logpath, 'suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
-    os.remove(logpath)
+    # Should exit with exitcode 1
+    n.daemon.wait_for_log('suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
+    assert n.daemon.wait() == 1
+    n.stop()
 
     # Check that if a builtin plugin dies, we fail.
-    n.daemon.start(wait_for_initialized=False)
-
-    wait_for(lambda: get_logfile_match(logpath, r'.*started\(([0-9]*)\).*plugins/pay'))
-    pidstr = get_logfile_match(logpath, r'.*started\(([0-9]*)\).*plugins/pay').group(1)
+    start = n.daemon.logsearch_start
+    n.start()
+    # Reset logsearch_start, since this will predate message that start() looks for.
+    n.daemon.logsearch_start = start
+    line = n.daemon.wait_for_log(r'.*started\([0-9]*\).*plugins/pay')
+    pidstr = re.search(r'.*started\(([0-9]*)\).*plugins/pay', line).group(1)
 
     # Kill pay.
     os.kill(int(pidstr), signal.SIGKILL)
-    wait_for(lambda: not n.daemon.running)
-
-    assert get_logfile_match(logpath, 'pay: Plugin marked as important, shutting down lightningd')
+    n.daemon.wait_for_log('pay: Plugin marked as important, shutting down lightningd')
+    # Should exit with exitcode 1
+    assert n.daemon.wait() == 1
+    n.stop()
 
 
 @pytest.mark.developer("tests developer-only option.")
