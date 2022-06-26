@@ -215,9 +215,9 @@ int main(int argc, char *argv[])
 		       0, 10, 5);
 
 	/* {'active': True, 'short_id': '6990:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 0, 'destination': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'source': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'last_update': 1504064344}, */
-	add_connection(store_fd, &b, &c, "6990x2x1",
-		       AMOUNT_MSAT(100), AMOUNT_MSAT(1000),
-		       0, 10, 5);
+	update_connection(store_fd, &b, &c, "6990x2x1",
+			  AMOUNT_MSAT(100), AMOUNT_MSAT(1000),
+			  0, 10, 5, false);
 
 	/* {'active': True, 'short_id': '6989:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}]} */
 	update_connection(store_fd, &a, &b, "6989x2x1",

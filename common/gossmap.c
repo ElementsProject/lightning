@@ -398,6 +398,7 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
 	size_t feature_len;
 	size_t plus_scid_off;
+	struct short_channel_id scid;
 	struct node_id node_id[2];
 	struct gossmap_node *n[2];
 	struct gossmap_chan *chan;
@@ -408,6 +409,16 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 
 	map_nodeid(map, cannounce_off + plus_scid_off + 8, &node_id[0]);
 	map_nodeid(map, cannounce_off + plus_scid_off + 8 + PUBKEY_CMPR_LEN, &node_id[1]);
+
+	/* We can have a channel upgrade from private->public, but
+	 * that's the only time we get duplicates */
+	scid.u64 = map_be64(map, cannounce_off + plus_scid_off);
+	chan = gossmap_find_chan(map, &scid);
+	if (chan) {
+		assert(chan->private);
+		assert(!private);
+		gossmap_remove_chan(map, chan);
+	}
 
 	/* We carefully map pointers to indexes, since new_node can move them! */
 	n[0] = gossmap_find_node(map, &node_id[0]);
