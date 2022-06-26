@@ -3869,6 +3869,8 @@ def test_multichan(node_factory, executor, bitcoind):
     assert(len(only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels']) == 2)
 
     bitcoind.generate_block(1, wait_for_mempool=1)
+    # Make sure new channel is also CHANNELD_NORMAL
+    wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']] == ["CHANNELD_NORMAL", "CHANNELD_NORMAL"])
 
     # Dance around to get the *other* scid.
     wait_for(lambda: all(['short_channel_id' in c for c in l3.rpc.listpeers()['peers'][0]['channels']]))
