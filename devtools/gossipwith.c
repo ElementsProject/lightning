@@ -21,13 +21,13 @@
 #include <stdio.h>
 #include <wire/peer_wire.h>
 
-#define chainparams_get_ln_port simple_get_ln_port
 #define io_write_ simple_write
 #define io_read_ simple_read
 #define io_close simple_close
 static bool stream_stdin = false;
 static bool no_init = false;
 static bool hex = false;
+static bool explicit_network = false;
 static int timeout_after = -1;
 static u8 *features;
 
@@ -44,11 +44,6 @@ static struct io_plan *simple_read(struct io_conn *conn,
 static struct io_plan *simple_close(struct io_conn *conn)
 {
 	return NULL;
-}
-
-static int simple_get_ln_port(const struct chainparams *params UNNEEDED)
-{
-	return 9735;
 }
 
  #include "../connectd/handshake.c"
@@ -83,6 +78,7 @@ static char *opt_set_network(const char *arg, void *unused)
 	chainparams = chainparams_for_network(arg);
 	if (!chainparams)
 		return tal_fmt(NULL, "Unknown network name '%s'", arg);
+	explicit_network = true;
 	return NULL;
 }
 
@@ -184,12 +180,12 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 
 	if (!no_init) {
 		struct tlv_init_tlvs *tlvs = NULL;
-		if (chainparams) {
+		if (explicit_network) {
 			tlvs = tlv_init_tlvs_new(NULL);
 			tlvs->networks = tal_arr(tlvs, struct bitcoin_blkid, 1);
 			tlvs->networks[0] = chainparams->genesis_blockhash;
 		}
-			msg = towire_init(NULL, NULL, features, tlvs);
+		msg = towire_init(NULL, NULL, features, tlvs);
 
 		sync_crypto_write(peer_fd, cs, take(msg));
 		/* Ignore their init message. */
@@ -287,6 +283,7 @@ int main(int argc, char *argv[])
 
 	memset(&notsosecret, 0x42, sizeof(notsosecret));
 	features = tal_arr(conn, u8, 0);
+	chainparams = chainparams_for_network("bitcoin");
 
 	opt_register_noarg("--initial-sync", opt_set_bool, &initial_sync,
 			   "Stream complete gossip history at start");
@@ -328,7 +325,7 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Invalid id %.*s",
 				    (int)(at - argv[1]), argv[1]);
 
-	if (!parse_wireaddr_internal(at+1, &addr, simple_get_ln_port(NULL), NULL,
+	if (!parse_wireaddr_internal(at+1, &addr, chainparams_get_ln_port(chainparams), NULL,
 				     true, false, true, &err_msg))
 		opt_usage_exit_fail("%s '%s'", err_msg, argv[1]);
 
