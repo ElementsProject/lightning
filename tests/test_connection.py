@@ -3892,15 +3892,18 @@ def test_ping_timeout(node_factory):
 
     l1, l2 = node_factory.get_nodes(2, opts=[{'dev-no-reconnect': None,
                                               'disconnect': l1_disconnects},
-                                             {}])
+                                             {'dev-no-ping-timer': None}])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    # Takes 15-45 seconds, then another to try second ping
-    # Because of ping timer randomness we don't know which side hangs up first
-    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [],
-             timeout=45 + 45 + 5)
-    wait_for(lambda: (l1.daemon.is_in_log('Last ping unreturned: hanging up')
-                      or l2.daemon.is_in_log('Last ping unreturned: hanging up')))
+    # This can take 10 seconds (dev-fast-gossip means timer fires every 5 seconds)
+    l1.daemon.wait_for_log('seeker: startup peer finished', timeout=15)
+    # Ping timers runs at 15-45 seconds, *but* only fires if also 60 seconds
+    # after previous traffic.
+    l1.daemon.wait_for_log('dev_disconnect: xWIRE_PING', timeout=60 + 45 + 5)
+
+    # Next pign will cause hangup
+    l1.daemon.wait_for_log('Last ping unreturned: hanging up', timeout=45 + 5)
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
 
 
 @pytest.mark.openchannel('v1')

@@ -87,6 +87,9 @@ struct peer {
 	/* Random ping timer, to detect dead connections. */
 	struct oneshot *ping_timer;
 
+	/* Last time we received traffic */
+	struct timeabs last_recv_time;
+
 #if DEVELOPER
 	bool dev_read_enabled;
 	/* If non-NULL, this counts down; 0 means disable */
