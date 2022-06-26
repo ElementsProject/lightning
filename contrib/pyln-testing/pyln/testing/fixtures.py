@@ -14,6 +14,7 @@ import shutil
 import string
 import sys
 import tempfile
+import time
 
 
 # A dict in which we count how often a particular test has run so far. Used to
@@ -94,10 +95,14 @@ def directory(request, test_base_dir, test_name):
     if not failed:
         try:
             shutil.rmtree(directory)
-        except (OSError, Exception):
+        except OSError:
+            # Usually, this means that e.g. valgrind is still running.  Wait
+            # a little and retry.
             files = [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
-            print("Directory still contains files:", files)
-            raise
+            print("Directory still contains files: ", files)
+            print("... sleeping then retrying")
+            time.sleep(10)
+            shutil.rmtree(directory)
     else:
         logging.debug("Test execution failed, leaving the test directory {} intact.".format(directory))
 
