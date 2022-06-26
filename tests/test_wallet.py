@@ -2,7 +2,6 @@ from bitcoin.rpc import JSONRPCError
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES,
@@ -1295,13 +1294,10 @@ def test_withdraw_nlocktime(node_factory):
     assert nlocktime > 0 and nlocktime <= tip
 
 
-@flaky
 @unittest.skipIf(VALGRIND, "A big loop is used to check fuzz.")
 def test_withdraw_nlocktime_fuzz(node_factory, bitcoind):
     """
     Test that we eventually fuzz nLockTime for withdrawal transactions.
-    Marked flaky "just in case" as we fuzz from 0 to 100 with a 10%
-    probability.
     """
     l1 = node_factory.get_node(1)
     l1.fundwallet(10**8)

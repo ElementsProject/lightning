@@ -2,7 +2,6 @@ from bitcoin.rpc import RawProxy
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import LightningNode, TEST_NETWORK
-from flaky import flaky  # noqa: F401
 from pyln.client import RpcError
 from threading import Event
 from pyln.testing.utils import (
@@ -1031,7 +1030,6 @@ def test_daemon_option(node_factory):
         assert 'No child process' not in f.read()
 
 
-@flaky
 @pytest.mark.developer("needs DEVELOPER=1")
 def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
@@ -1276,7 +1274,6 @@ def test_bitcoind_goes_backwards(node_factory, bitcoind):
     l1.daemon.wait_for_log('Adding block 111')
 
 
-@flaky
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_reserve_enforcement(node_factory, executor):

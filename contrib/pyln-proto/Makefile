@@ -46,7 +46,7 @@ test-release: check $(ARTEFACTS) pyproject.toml
 	# tests against it (make sure not to use any virtualenv that may have
 	# pyln-${PKG} already installed).
 	virtualenv testpypi --python=/usr/bin/python3 --download --always-copy --clear
-	testpypi/bin/python3 -m pip install -r requirements.txt flaky pytest-timeout
+	testpypi/bin/python3 -m pip install -r requirements.txt pytest-timeout
 	testpypi/bin/python3 -m pip install -I --index-url https://test.pypi.org/simple/ --no-deps pyln-${PKG}==${VERSION}
 	testpypi/bin/python3 -c "from pyln import ${PKG};assert(${PKG}.__version__ == '$(VERSION)')"
 	testpypi/bin/pytest tests

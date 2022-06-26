@@ -1,6 +1,5 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from flaky import flaky  # noqa: F401
 from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
@@ -2765,13 +2764,11 @@ def test_pay_no_secret(node_factory, bitcoind):
         l1.rpc.pay(inv_nosecret)
 
 
-@flaky
 def test_shadow_routing(node_factory):
     """
     Test the value randomization through shadow routing
 
-    Since there is a very low (0.5**10) probability that it fails we mark it
-    as flaky.
+    Note there is a very low (0.5**10) probability that it fails.
     """
     # We need l3 for random walk
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)

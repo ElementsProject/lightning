@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from datetime import datetime
 from fixtures import *  # noqa: F401,F403
-from flaky import flaky  # noqa: F401
 from hashlib import sha256
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
