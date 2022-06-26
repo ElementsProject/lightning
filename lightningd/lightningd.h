@@ -110,7 +110,7 @@ struct lightningd {
 	struct log_book *log_book;
 	/* Log for general stuff. */
 	struct log *log;
-	const char *logfile;
+	const char **logfiles;
 
 	/* This is us. */
 	struct node_id id;

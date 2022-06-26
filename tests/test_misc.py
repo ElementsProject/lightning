@@ -1475,6 +1475,24 @@ def test_logging(node_factory):
     wait_for(lambda: os.path.exists(logpath))
     wait_for(check_new_log)
 
+    # Multiple log files
+    l2 = node_factory.get_node(options={'log-file': ['logfile1', 'logfile2']}, start=False)
+    logpath1 = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'logfile1')
+    logpath2 = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'logfile2')
+    l2.daemon.start(wait_for_initialized=False)
+
+    wait_for(lambda: os.path.exists(logpath1))
+    wait_for(lambda: os.path.exists(logpath2))
+    wait_for(lambda: os.path.exists(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightning-rpc")))
+    lines = subprocess.check_output(['cli/lightning-cli',
+                                     '--network={}'.format(TEST_NETWORK),
+                                     '--lightning-dir={}'
+                                     .format(l2.daemon.lightning_dir),
+                                     '-H',
+                                     'listconfigs']).decode('utf-8').splitlines()
+    assert 'log-file=logfile1' in lines
+    assert 'log-file=logfile2' in lines
+
 
 @unittest.skipIf(VALGRIND,
                  "Valgrind sometimes fails assert on injected SEGV")

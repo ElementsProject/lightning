@@ -39,7 +39,9 @@ struct log_book {
 	/* Non-null once it's been initialized */
 	enum log_level *default_print_level;
 	struct timeabs init_time;
-	FILE *outf;
+
+	/* Array of log files: one per ld->logfiles[] */
+	FILE **outfiles;
 	bool print_timestamps;
 
 	struct log_entry *log;
@@ -128,17 +130,18 @@ static const char *level_prefix(enum log_level level)
 	abort();
 }
 
-static void log_to_file(const char *prefix,
-			enum log_level level,
-			const struct node_id *node_id,
-			const struct timeabs *time,
-			const char *str,
-			const u8 *io,
-			size_t io_len,
-			bool print_timestamps,
-			FILE *logf)
+static void log_to_files(const char *prefix,
+			 enum log_level level,
+			 const struct node_id *node_id,
+			 const struct timeabs *time,
+			 const char *str,
+			 const u8 *io,
+			 size_t io_len,
+			 bool print_timestamps,
+			 FILE **outfiles)
 {
 	char tstamp[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ ")];
+	char *entry;
 
 	if (print_timestamps) {
 		char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ ")];
@@ -151,25 +154,34 @@ static void log_to_file(const char *prefix,
 		const char *dir = level == LOG_IO_IN ? "[IN]" : "[OUT]";
 		char *hex = tal_hexstr(NULL, io, io_len);
 		if (!node_id)
-			fprintf(logf, "%s%s: %s%s %s\n",
-				tstamp, prefix, str, dir, hex);
+			entry = tal_fmt(tmpctx, "%s%s: %s%s %s\n",
+					tstamp, prefix, str, dir, hex);
 		else
-			fprintf(logf, "%s%s-%s: %s%s %s\n",
-				tstamp,
-				node_id_to_hexstr(tmpctx, node_id),
-				prefix, str, dir, hex);
+			entry = tal_fmt(tmpctx, "%s%s-%s: %s%s %s\n",
+					tstamp,
+					node_id_to_hexstr(tmpctx, node_id),
+					prefix, str, dir, hex);
 		tal_free(hex);
 	} else {
 		if (!node_id)
-			fprintf(logf, "%s%s %s: %s\n",
-				tstamp, level_prefix(level), prefix, str);
+			entry = tal_fmt(tmpctx, "%s%s %s: %s\n",
+					tstamp, level_prefix(level), prefix, str);
 		else
-			fprintf(logf, "%s%s %s-%s: %s\n",
-				tstamp, level_prefix(level),
-				node_id_to_hexstr(tmpctx, node_id),
-				prefix, str);
+			entry = tal_fmt(tmpctx, "%s%s %s-%s: %s\n",
+					tstamp, level_prefix(level),
+					node_id_to_hexstr(tmpctx, node_id),
+					prefix, str);
 	}
-	fflush(logf);
+
+	/* Default if nothing set is stdout */
+	if (!outfiles) {
+		fwrite(entry, strlen(entry), 1, stdout);
+		fflush(stdout);
+	}
+	for (size_t i = 0; i < tal_count(outfiles); i++) {
+		fwrite(entry, strlen(entry), 1, outfiles[i]);
+		fflush(outfiles[i]);
+	}
 }
 
 static size_t mem_used(const struct log_entry *e)
@@ -264,7 +276,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	lr->mem_used = 0;
 	lr->num_entries = 0;
 	lr->max_mem = max_mem;
-	lr->outf = stdout;
+	lr->outfiles = NULL;
 	lr->default_print_level = NULL;
 	list_head_init(&lr->print_filters);
 	lr->init_time = time_now();
@@ -389,12 +401,12 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 static void maybe_print(struct log *log, const struct log_entry *l)
 {
 	if (l->level >= log_print_level(log))
-		log_to_file(log->prefix->prefix, l->level,
-			    l->nc ? &l->nc->node_id : NULL,
-			    &l->time, l->log,
-			    l->io, tal_bytelen(l->io),
-			    log->lr->print_timestamps,
-			    log->lr->outf);
+		log_to_files(log->prefix->prefix, l->level,
+			     l->nc ? &l->nc->node_id : NULL,
+			     &l->time, l->log,
+			     l->io, tal_bytelen(l->io),
+			     log->lr->print_timestamps,
+			     log->lr->outfiles);
 }
 
 void logv(struct log *log, enum log_level level,
@@ -439,12 +451,12 @@ void log_io(struct log *log, enum log_level dir,
 
 	/* Print first, in case we need to truncate. */
 	if (l->level >= log_print_level(log))
-		log_to_file(log->prefix->prefix, l->level,
-			    l->nc ? &l->nc->node_id : NULL,
-			    &l->time, str,
-			    data, len,
-			    log->lr->print_timestamps,
-			    log->lr->outf);
+		log_to_files(log->prefix->prefix, l->level,
+			     l->nc ? &l->nc->node_id : NULL,
+			     &l->time, str,
+			     data, len,
+			     log->lr->print_timestamps,
+			     log->lr->outfiles);
 
 	/* Save a tal header, by using raw malloc. */
 	l->log = strdup(str);
@@ -608,7 +620,7 @@ static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 static char *arg_log_prefix(const char *arg, struct log *log)
 {
 	/* log->lr owns this, since it keeps a pointer to it. */
-	tal_free(log->prefix);
+	log_prefix_drop(log->prefix);
 	log->prefix = log_prefix_new(log->lr, arg);
 	return NULL;
 }
@@ -635,11 +647,14 @@ static struct io_plan *setup_read(struct io_conn *conn, struct lightningd *ld);
 static struct io_plan *rotate_log(struct io_conn *conn, struct lightningd *ld)
 {
 	log_info(ld->log, "Ending log due to SIGHUP");
-	fclose(ld->log->lr->outf);
-
-	ld->log->lr->outf = fopen(ld->logfile, "a");
-	if (!ld->log->lr->outf)
-		err(1, "failed to reopen log file %s", ld->logfile);
+	for (size_t i = 0; i < tal_count(ld->log->lr->outfiles); i++) {
+		if (streq(ld->logfiles[i], "-"))
+			continue;
+		fclose(ld->log->lr->outfiles[i]);
+		ld->log->lr->outfiles[i] = fopen(ld->logfiles[i], "a");
+		if (!ld->log->lr->outfiles[i])
+			err(1, "failed to reopen log file %s", ld->logfiles[i]);
+	}
 
 	log_info(ld->log, "Started log due to SIGHUP");
 	return setup_read(conn, ld);
@@ -688,22 +703,29 @@ static void setup_log_rotation(struct lightningd *ld)
 char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
 	int size;
+	FILE *outf;
 
-	if (ld->logfile) {
-		fclose(ld->log->lr->outf);
-		ld->logfile = tal_free(ld->logfile);
-	} else
+	if (!ld->logfiles) {
 		setup_log_rotation(ld);
+		ld->logfiles = tal_arr(ld, const char *, 0);
+		ld->log->lr->outfiles = tal_arr(ld->log->lr, FILE *, 0);
+	}
 
-	ld->logfile = tal_strdup(ld, arg);
-	ld->log->lr->outf = fopen(arg, "a");
-	if (!ld->log->lr->outf)
-		return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
+	if (streq(arg, "-"))
+		outf = stdout;
+	else {
+		outf = fopen(arg, "a");
+		if (!outf)
+			return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
+	}
+
+	tal_arr_expand(&ld->logfiles, tal_strdup(ld->logfiles, arg));
+	tal_arr_expand(&ld->log->lr->outfiles, outf);
 
 	/* For convenience make a block of empty lines just like Bitcoin Core */
-	size = ftell(ld->log->lr->outf);
+	size = ftell(outf);
 	if (size > 0)
-		fprintf(ld->log->lr->outf, "\n\n\n\n");
+		fprintf(outf, "\n\n\n\n");
 
 	log_debug(ld->log, "Opened log file %s", arg);
 	return NULL;
@@ -721,7 +743,7 @@ void opt_register_logging(struct lightningd *ld)
 			       ld->log,
 			       "log prefix");
 	opt_register_early_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
-			       "log to file instead of stdout");
+			       "Also log to file (- for stdout)");
 }
 
 void logging_options_parsed(struct log_book *lr)
@@ -737,12 +759,12 @@ void logging_options_parsed(struct log_book *lr)
 		const struct log_entry *l = &lr->log[i];
 
 		if (l->level >= filter_level(lr, l->prefix))
-			log_to_file(l->prefix->prefix, l->level,
-				    l->nc ? &l->nc->node_id : NULL,
-				    &l->time, l->log,
-				    l->io, tal_bytelen(l->io),
-				    lr->print_timestamps,
-				    lr->outf);
+			log_to_files(l->prefix->prefix, l->level,
+				     l->nc ? &l->nc->node_id : NULL,
+				     &l->time, l->log,
+				     l->io, tal_bytelen(l->io),
+				     lr->print_timestamps,
+				     lr->outfiles);
 	}
 }
 

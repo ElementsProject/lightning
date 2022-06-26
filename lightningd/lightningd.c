@@ -184,7 +184,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * allocation function): ld->log will be implicitly freed when ld
 	 * is. */
 	ld->log = new_log(ld, ld->log_book, NULL, "lightningd");
-	ld->logfile = NULL;
+	ld->logfiles = NULL;
 
 	/*~ We explicitly set these to NULL: if they're still NULL after option
 	 * parsing, we know they're to be set to the defaults. */
