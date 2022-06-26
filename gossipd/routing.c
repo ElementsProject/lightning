@@ -493,18 +493,23 @@ static void destroy_chan_check(struct chan *chan)
 }
 #endif
 
-/* We used to make this a tal_add_destructor2, but that costs 40 bytes per
- * chan, and we only ever explicitly free it anyway. */
-void free_chan(struct routing_state *rstate, struct chan *chan)
+static void free_chans_from_node(struct routing_state *rstate, struct chan *chan)
 {
 	remove_chan_from_node(rstate, chan->nodes[0], chan);
 	remove_chan_from_node(rstate, chan->nodes[1], chan);
 
-	uintmap_del(&rstate->chanmap, chan->scid.u64);
-
 #if DEVELOPER
 	chan->sat.satoshis = (unsigned long)chan; /* Raw: dev-hack */
 #endif
+}
+
+/* We used to make this a tal_add_destructor2, but that costs 40 bytes per
+ * chan, and we only ever explicitly free it anyway. */
+void free_chan(struct routing_state *rstate, struct chan *chan)
+{
+	free_chans_from_node(rstate, chan);
+	uintmap_del(&rstate->chanmap, chan->scid.u64);
+
 	tal_free(chan);
 }
 
@@ -789,13 +794,45 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 	rstate->local_channel_announced |= is_local;
 }
 
+static void delete_chan_messages_from_store(struct routing_state *rstate,
+					    struct chan *chan)
+{
+	int update_type, announcment_type;
+
+	if (is_chan_public(chan)) {
+		update_type = WIRE_CHANNEL_UPDATE;
+		announcment_type = WIRE_CHANNEL_ANNOUNCEMENT;
+	} else {
+		update_type = WIRE_GOSSIP_STORE_PRIVATE_UPDATE;
+		announcment_type = WIRE_GOSSIP_STORE_PRIVATE_CHANNEL;
+	}
+
+	/* If these aren't in the store, these are noops. */
+	gossip_store_delete(rstate->gs,
+			    &chan->bcast, announcment_type);
+	gossip_store_delete(rstate->gs,
+			    &chan->half[0].bcast, update_type);
+	gossip_store_delete(rstate->gs,
+			    &chan->half[1].bcast, update_type);
+}
+
+void remove_channel_from_store(struct routing_state *rstate,
+			       struct chan *chan)
+{
+	/* Put in tombstone marker */
+	gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
+
+	/* Now delete old entries. */
+	delete_chan_messages_from_store(rstate, chan);
+}
+
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES,
 				      struct amount_sat sat,
 				      u32 index,
 				      struct peer *peer)
 {
-	struct chan *chan;
+	struct chan *oldchan;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 	u8 *features;
@@ -821,34 +858,35 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* The channel may already exist if it was non-public from
 	 * local_add_channel(); normally we don't accept new
 	 * channel_announcements.  See handle_channel_announcement. */
-	chan = get_channel(rstate, &scid);
+	oldchan = get_channel(rstate, &scid);
 
 	/* private updates will exist in the store before the announce: we
 	 * can't index those for broadcast since they would predate it, so we
 	 * add fresh ones. */
-	if (chan) {
+	if (oldchan) {
 		/* If this was in the gossip_store, gossip_store is bad! */
 		if (index) {
 			status_broken("gossip_store channel_announce"
 				      " %u replaces %u!",
-				      index, chan->bcast.index);
+				      index, oldchan->bcast.index);
 			return false;
 		}
 
 		/* Reload any private updates */
-		if (chan->half[0].bcast.index)
+		if (oldchan->half[0].bcast.index)
 			private_updates[0]
 				= gossip_store_get_private_update(NULL,
 						   rstate->gs,
-						   chan->half[0].bcast.index);
-		if (chan->half[1].bcast.index)
+						   oldchan->half[0].bcast.index);
+		if (oldchan->half[1].bcast.index)
 			private_updates[1]
 				= gossip_store_get_private_update(NULL,
 						   rstate->gs,
-						   chan->half[1].bcast.index);
+						   oldchan->half[1].bcast.index);
 
-		remove_channel_from_store(rstate, chan);
-		free_chan(rstate, chan);
+		/* We don't delete it from store until *after* we've put the
+		 * other one in! */
+		uintmap_del(&rstate->chanmap, oldchan->scid.u64);
 	}
 
 	uc = tal(rstate, struct unupdated_channel);
@@ -874,6 +912,15 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	if (private_updates[1])
 		routing_add_channel_update(rstate, take(private_updates[1]), 0,
 					   peer, false);
+
+	/* Now we can finish cleanup of gossip store, so there's no window where
+	 * channel (or nodes) vanish. */
+	if (oldchan) {
+		/* Mark private messages deleted, but don't tombstone the channel! */
+		delete_chan_messages_from_store(rstate, oldchan);
+		free_chans_from_node(rstate, oldchan);
+		tal_free(oldchan);
+	}
 
 	return true;
 }
@@ -1417,29 +1464,6 @@ static const struct node_id *get_channel_owner(struct routing_state *rstate,
 	if (uc)
 		return &uc->id[direction];
 	return NULL;
-}
-
-void remove_channel_from_store(struct routing_state *rstate,
-			       struct chan *chan)
-{
-	int update_type, announcment_type;
-
-	if (is_chan_public(chan)) {
-		update_type = WIRE_CHANNEL_UPDATE;
-		announcment_type = WIRE_CHANNEL_ANNOUNCEMENT;
-	} else {
-		update_type = WIRE_GOSSIP_STORE_PRIVATE_UPDATE;
-		announcment_type = WIRE_GOSSIP_STORE_PRIVATE_CHANNEL;
-	}
-	gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
-
-	/* If these aren't in the store, these are noops. */
-	gossip_store_delete(rstate->gs,
-			    &chan->bcast, announcment_type);
-	gossip_store_delete(rstate->gs,
-			    &chan->half[0].bcast, update_type);
-	gossip_store_delete(rstate->gs,
-			    &chan->half[1].bcast, update_type);
 }
 
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
