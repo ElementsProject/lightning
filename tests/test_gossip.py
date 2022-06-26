@@ -264,7 +264,8 @@ def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     after_12 = int(time.time())
 
     # Make another one, different timestamp.
-    time.sleep(1)
+    time.sleep(10)
+    before_23 = int(time.time())
     chan23, _ = l2.fundchannel(l3, 10**5)
     bitcoind.generate_block(5)
 
@@ -310,8 +311,8 @@ def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     # Now choose range which will only give second update.
     msgs = l4.query_gossip('gossip_timestamp_filter',
                            genesis_blockhash,
-                           after_12 - backdate,
-                           after_23 - after_12 + 1,
+                           before_23 - backdate,
+                           after_23 - before_23 + 1,
                            filters=['0109', '0012'])
 
     # 0x0100 = channel_announcement
