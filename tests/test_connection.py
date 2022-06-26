@@ -1978,6 +1978,9 @@ def test_multifunding_feerates(node_factory, bitcoind):
     entry = bitcoind.rpc.getmempoolentry(res['txid'])
     weight = entry['weight']
 
+    # If signature is unexpectedly short, we get a spurious failure here!
+    res = bitcoind.rpc.decoderawtransaction(res['tx'])
+    weight += 71 - len(res['vin'][0]['txinwitness'][0]) // 2
     expected_fee = int(funding_tx_feerate[:-5]) * weight // 1000
     assert expected_fee == entry['fees']['base'] * 10 ** 8
 
