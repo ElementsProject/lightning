@@ -7,10 +7,10 @@ from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
 from collections import OrderedDict
 from decimal import Decimal
-from ephemeral_port_reserve import reserve  # type: ignore
 from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
 
+import ephemeral_port_reserve  # type: ignore
 import json
 import logging
 import lzma
@@ -144,6 +144,27 @@ def get_tx_p2wsh_outnum(bitcoind, tx, amount):
                 return out['n']
 
     return None
+
+
+unused_port_lock = threading.Lock()
+unused_port_set = set()
+
+
+def reserve_unused_port():
+    """Get an unused port: avoids handing out the same port unless it's been
+    returned"""
+    with unused_port_lock:
+        while True:
+            port = ephemeral_port_reserve.reserve()
+            if port not in unused_port_set:
+                break
+        unused_port_set.add(port)
+
+    return port
+
+
+def drop_unused_port(port):
+    unused_port_set.remove(port)
 
 
 class TailableProc(object):
@@ -367,7 +388,10 @@ class BitcoinD(TailableProc):
         TailableProc.__init__(self, bitcoin_dir, verbose=False)
 
         if rpcport is None:
-            rpcport = reserve()
+            self.reserved_rpcport = reserve_unused_port()
+            rpcport = self.reserved_rpcport
+        else:
+            self.reserved_rpcport = None
 
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
@@ -397,6 +421,10 @@ class BitcoinD(TailableProc):
         write_config(self.conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST)
         self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
         self.proxies = []
+
+    def __del__(self):
+        if self.reserved_rpcport is not None:
+            drop_unused_port(self.reserved_rpcport)
 
     def start(self):
         TailableProc.start(self)
@@ -1281,6 +1309,7 @@ class NodeFactory(object):
         self.testname = testname
         self.next_id = 1
         self.nodes = []
+        self.reserved_ports = []
         self.executor = executor
         self.bitcoind = bitcoind
         self.directory = directory
@@ -1312,10 +1341,6 @@ class NodeFactory(object):
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
         return node_opts, cli_opts
-
-    def get_next_port(self):
-        with self.lock:
-            return reserve()
 
     def get_node_id(self):
         """Generate a unique numeric ID for a lightning node
@@ -1361,7 +1386,7 @@ class NodeFactory(object):
                  expect_fail=False, cleandir=True, **kwargs):
         self.throttler.wait()
         node_id = self.get_node_id() if not node_id else node_id
-        port = self.get_next_port()
+        port = reserve_unused_port()
 
         lightning_dir = os.path.join(
             self.directory, "lightning-{}/".format(node_id))
@@ -1383,6 +1408,7 @@ class NodeFactory(object):
         node.set_feerates(feerates, False)
 
         self.nodes.append(node)
+        self.reserved_ports.append(port)
         if dbfile:
             out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
                                     'lightningd.sqlite3'), 'xb')
@@ -1494,5 +1520,8 @@ class NodeFactory(object):
                     self.nodes[i].daemon.lightning_dir,
                     json.dumps(leaks, sort_keys=True, indent=4)
                 ))
+
+        for p in self.reserved_ports:
+            drop_unused_port(p)
 
         return not unexpected_fail, err_msgs
