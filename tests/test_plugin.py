@@ -91,9 +91,10 @@ def test_option_types(node_factory):
         'str_opt': 'ok',
         'int_opt': 22,
         'bool_opt': '!',
-    }, expect_fail=True, may_fail=True)
+    }, may_fail=True, start=False)
 
-    # the node should fail to start, and we get a stderr msg
+    # the node should fail after start, and we get a stderr msg
+    n.daemon.start(wait_for_initialized=False)
     assert n.daemon.wait() == 1
     wait_for(lambda: n.daemon.is_in_stderr('bool_opt: ! does not parse as type bool'))
 
@@ -103,9 +104,10 @@ def test_option_types(node_factory):
         'str_opt': 'ok',
         'int_opt': 'notok',
         'bool_opt': 1,
-    }, may_fail=True, expect_fail=True)
+    }, may_fail=True, start=False)
 
-    # the node should fail to start, and we get a stderr msg
+    # the node should fail after start, and we get a stderr msg
+    n.daemon.start(wait_for_initialized=False)
     assert n.daemon.wait() == 1
     assert n.daemon.is_in_stderr('--int_opt: notok does not parse as type int')
 
@@ -116,9 +118,10 @@ def test_option_types(node_factory):
         'int_opt': 11,
         'bool_opt': 1,
         'flag_opt': True,
-    }, may_fail=True, expect_fail=True)
+    }, may_fail=True, start=False)
 
-    # the node should fail to start, and we get a stderr msg
+    # the node should fail after start, and we get a stderr msg
+    n.daemon.start(wait_for_initialized=False)
     assert n.daemon.wait() == 1
     assert n.daemon.is_in_stderr("--flag_opt: doesn't allow an argument")
 
