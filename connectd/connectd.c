@@ -1077,14 +1077,14 @@ static struct listen_fd *make_listen_fd(const tal_t *ctx,
 	int on = 1;
 
 	if (fd < 0) {
+		const char *es = strerror(errno);
 		*errstr = tal_fmt(ctx, "Failed to create socket for %s%s: %s",
 				  is_websocket ? "websocket " : "",
 				  type_to_string(tmpctx,
 						 struct wireaddr_internal,
 						 wi),
-				  strerror(errno));
-		status_debug("Failed to create %u socket: %s",
-			     domain, strerror(errno));
+				  es);
+		status_debug("Failed to create %u socket: %s", domain, es);
 		return NULL;
 	}
 
@@ -1094,14 +1094,14 @@ static struct listen_fd *make_listen_fd(const tal_t *ctx,
 			       strerror(errno));
 
 	if (bind(fd, addr, len) != 0) {
+		const char *es = strerror(errno);
 		*errstr = tal_fmt(ctx, "Failed to bind socket for %s%s: %s",
 				  is_websocket ? "websocket " : "",
 				  type_to_string(tmpctx,
 						 struct wireaddr_internal,
 						 wi),
-				  strerror(errno));
-		status_debug("Failed to create %u socket: %s",
-			     domain, strerror(errno));
+				  es);
+		status_debug("Failed to bind %u socket: %s", domain, es);
 		goto fail;
 	}
 
