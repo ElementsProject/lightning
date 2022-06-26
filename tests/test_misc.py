@@ -1007,8 +1007,11 @@ def test_daemon_option(node_factory):
     l1.stop()
 
     os.unlink(l1.rpc.socket_path)
+    # Stop it from logging to stdout!
     logfname = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "log-daemon")
-    subprocess.run(l1.daemon.cmd_line + ['--daemon', '--log-file={}'.format(logfname)], env=l1.daemon.env,
+    l1.daemon.opts['log-file'] = logfname
+    l1.daemon.opts['daemon'] = None
+    subprocess.run(l1.daemon.cmd_line, env=l1.daemon.env,
                    check=True)
 
     # Test some known output (wait for rpc to be ready)
@@ -2399,7 +2402,10 @@ def test_version_reexec(node_factory, bitcoind):
 
 
 def test_notimestamp_logging(node_factory):
-    l1 = node_factory.get_node(options={'log-timestamps': False})
+    l1 = node_factory.get_node(start=False)
+    # Make sure this is specified *before* other options!
+    l1.daemon.early_opts = ['--log-timestamps=false']
+    l1.start()
     assert l1.daemon.logs[0].startswith("DEBUG")
 
     assert l1.rpc.listconfigs()['log-timestamps'] is False

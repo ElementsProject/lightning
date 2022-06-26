@@ -493,6 +493,16 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+/* Test code looks in logs, so we print prompts to log as well as stdout */
+static void prompt(struct lightningd *ld, const char *str)
+{
+	printf("%s\n", str);
+	log_debug(ld->log, "PROMPT: %s", str);
+	/* If we don't flush we might end up being buffered and we might seem
+	 * to hang while we wait for the password. */
+	fflush(stdout);
+}
+
 /* Prompt the user to enter a password, from which will be derived the key used
  * for `hsm_secret` encryption.
  * The algorithm used to derive the key is Argon2(id), to which libsodium
@@ -509,18 +519,15 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 		return tal_fmt(NULL, "Could not access 'hsm_secret': %s",
 			       strerror(errno));
 
-	printf("The hsm_secret is encrypted with a password. In order to "
-	       "decrypt it and start the node you must provide the password.\n");
-	printf("Enter hsm_secret password:\n");
-	/* If we don't flush we might end up being buffered and we might seem
-	 * to hang while we wait for the password. */
-	fflush(stdout);
+	prompt(ld, "The hsm_secret is encrypted with a password. In order to "
+	       "decrypt it and start the node you must provide the password.");
+	prompt(ld, "Enter hsm_secret password:");
 
 	passwd = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 	if (!passwd)
 		return err_msg;
 	if (!is_encrypted) {
-		printf("Confirm hsm_secret password:\n");
+		prompt(ld, "Confirm hsm_secret password:");
 		fflush(stdout);
 		passwd_confirmation = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
 		if (!passwd_confirmation)
@@ -532,7 +539,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 		}
 		free(passwd_confirmation);
 	}
-	printf("\n");
+	prompt(ld, "");
 
 	ld->config.keypass = tal(NULL, struct secret);
 

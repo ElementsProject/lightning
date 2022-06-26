@@ -199,15 +199,24 @@ class TailableProc(object):
         # pass it to the log matcher and not print it to stdout).
         self.log_filter = lambda line: False
 
-    def start(self, stdin=None):
-        """Start the underlying process and start monitoring it.
+    def start(self, stdin=None, stdout_redir=True):
+        """Start the underlying process and start monitoring it. If
+        stdout_redir is false, you have to make sure logs go into
+        outputDir/log
+
         """
         logging.debug("Starting '%s'", " ".join(self.cmd_line))
-        self.proc = subprocess.Popen(self.cmd_line,
-                                     stdin=stdin,
-                                     stdout=self.stdout_write,
-                                     stderr=self.stderr_write,
-                                     env=self.env)
+        if stdout_redir:
+            self.proc = subprocess.Popen(self.cmd_line,
+                                         stdin=stdin,
+                                         stdout=self.stdout_write,
+                                         stderr=self.stderr_write,
+                                         env=self.env)
+        else:
+            self.proc = subprocess.Popen(self.cmd_line,
+                                         stdin=stdin,
+                                         stderr=self.stderr_write,
+                                         env=self.env)
 
     def stop(self, timeout=10):
         self.proc.terminate()
@@ -529,7 +538,8 @@ class ElementsD(BitcoinD):
 
 class LightningD(TailableProc):
     def __init__(self, lightning_dir, bitcoindproxy, port=9735, random_hsm=False, node_id=0):
-        TailableProc.__init__(self, lightning_dir)
+        # We handle our own version of verbose, below.
+        TailableProc.__init__(self, lightning_dir, verbose=False)
         self.executable = 'lightningd'
         self.lightning_dir = lightning_dir
         self.port = port
@@ -568,6 +578,10 @@ class LightningD(TailableProc):
             self.opts['dev-fast-gossip'] = None
             self.opts['dev-bitcoind-poll'] = 1
         self.prefix = 'lightningd-%d' % (node_id)
+        # Log to stdout so we see it in failure cases, and log file for TailableProc.
+        self.opts['log-file'] = ['-', os.path.join(lightning_dir, "log")]
+        # In case you want specific ordering!
+        self.early_opts = []
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
@@ -588,11 +602,11 @@ class LightningD(TailableProc):
             else:
                 opts.append("--{}={}".format(k, v))
 
-        return self.cmd_prefix + [self.executable] + opts
+        return self.cmd_prefix + [self.executable] + self.early_opts + opts
 
     def start(self, stdin=None, wait_for_initialized=True):
         self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
-        TailableProc.start(self, stdin)
+        TailableProc.start(self, stdin, stdout_redir=False)
         if wait_for_initialized:
             self.wait_for_log("Server started with public key")
         logging.info("LightningD started")
