@@ -155,8 +155,10 @@ Prefix for log lines: this can be customized if you want to merge logs
 with multiple daemons.
 
  **log-file**=*PATH*
-Log to this file instead of stdout. Sending lightningd(8) SIGHUP will
-cause it to reopen this file (useful for log rotation).
+Log to this file (instead of stdout).  If you specify this more than once
+you'll get more than one log file: **-** is used to mean stdout.  Sending
+lightningd(8) SIGHUP will cause it to reopen each file (useful for log
+rotation).
 
  **log-timestamps**=*BOOL*
 Set this to false to turn off timestamp prefixes (they will still appear

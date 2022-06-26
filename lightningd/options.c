@@ -880,7 +880,7 @@ static void check_config(struct lightningd *ld)
 	if (ld->always_use_proxy && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
 
-	if (ld->daemon_parent_fd != -1 && !ld->logfile)
+	if (ld->daemon_parent_fd != -1 && !ld->logfiles)
 		fatal("--daemon needs --log-file");
 }
 
@@ -1438,6 +1438,14 @@ static void json_add_opt_addrs(struct json_stream *response,
 	}
 }
 
+static void json_add_opt_log_to_files(struct json_stream *response,
+			       const char *name0,
+			       const char **logfiles)
+{
+	for (size_t i = 0; i < tal_count(logfiles); i++)
+		json_add_string(response, name0, logfiles[i]);
+}
+
 struct json_add_opt_alt_subdaemon_args {
 	const char *name0;
 	struct json_stream *response;
@@ -1568,7 +1576,8 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_set_alias) {
 			answer = (const char *)ld->alias;
 		} else if (opt->cb_arg == (void *)arg_log_to_file) {
-			answer = ld->logfile;
+			if (ld->logfiles)
+				json_add_opt_log_to_files(response, name0, ld->logfiles);
 		} else if (opt->cb_arg == (void *)opt_add_addr) {
 			json_add_opt_addrs(response, name0,
 					   ld->proposed_wireaddr,
