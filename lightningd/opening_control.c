@@ -11,6 +11,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
+#include <common/memleak.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
@@ -675,7 +676,8 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	} else
 		upfront_shutdown_script_wallet_index = NULL;
 
-
+	/* In case peer goes away right now, mark openingd notleak() */
+	notleak(openingd);
 	subd_send_msg(openingd,
 		      take(towire_openingd_got_offer_reply(NULL, errmsg,
 							   our_upfront_shutdown_script,
