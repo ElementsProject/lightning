@@ -109,13 +109,13 @@ def test_bitcoin_failure(node_factory, bitcoind):
     # Ignore BROKEN log message about blocksonly mode.
     l2 = node_factory.get_node(start=False, expect_fail=True,
                                allow_broken_log=True)
-    with pytest.raises(ValueError):
-        l2.start(stderr=subprocess.PIPE)
+    l2.daemon.start(wait_for_initialized=False)
+    # Will exit with failure code.
+    assert l2.daemon.wait() == 1
     assert l2.daemon.is_in_stderr(r".*deactivating transaction relay is not"
-                                  " supported.") is not None
-    # wait_for_log gets upset since daemon is not running.
-    wait_for(lambda: l2.daemon.is_in_log('deactivating transaction'
-                                         ' relay is not supported'))
+                                  " supported.")
+    assert l2.daemon.is_in_log('deactivating transaction'
+                               ' relay is not supported')
 
 
 def test_bitcoin_ibd(node_factory, bitcoind):
@@ -1207,8 +1207,10 @@ def test_rescan(node_factory, bitcoind):
     l1.daemon.opts['rescan'] = -500000
     l1.stop()
     bitcoind.generate_block(4)
-    with pytest.raises(ValueError):
-        l1.start()
+    l1.daemon.start(wait_for_initialized=False)
+    # Will exit with failure code.
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr(r"bitcoind has gone backwards from 500000 to 105 blocks!")
 
     # Restarting with future absolute blockheight is fine if we can find it.
     l1.daemon.opts['rescan'] = -105
@@ -1236,14 +1238,19 @@ def test_bitcoind_goes_backwards(node_factory, bitcoind):
     bitcoind.start()
 
     # Will simply refuse to start.
-    with pytest.raises(ValueError):
-        l1.start()
+    l1.daemon.start(wait_for_initialized=False)
+    # Will exit with failure code.
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr('bitcoind has gone backwards')
 
     # Nor will it start with if we ask for a reindex of fewer blocks.
     l1.daemon.opts['rescan'] = 3
 
-    with pytest.raises(ValueError):
-        l1.start()
+    # Will simply refuse to start.
+    l1.daemon.start(wait_for_initialized=False)
+    # Will exit with failure code.
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr('bitcoind has gone backwards')
 
     # This will force it, however.
     l1.daemon.opts['rescan'] = -100
@@ -1690,7 +1697,7 @@ def test_newaddr(node_factory, chainparams):
     assert both['bech32'].startswith(chainparams['bip173_prefix'])
 
 
-def test_bitcoind_fail_first(node_factory, bitcoind, executor):
+def test_bitcoind_fail_first(node_factory, bitcoind):
     """Make sure we handle spurious bitcoin-cli failures during startup
 
     See [#2687](https://github.com/ElementsProject/lightning/issues/2687) for
@@ -1699,7 +1706,9 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     """
     # Do not start the lightning node since we need to instrument bitcoind
     # first.
-    l1 = node_factory.get_node(start=False)
+    l1 = node_factory.get_node(start=False,
+                               allow_broken_log=True,
+                               may_fail=True)
 
     # Instrument bitcoind to fail some queries first.
     def mock_fail(*args):
@@ -1708,21 +1717,16 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     l1.daemon.rpcproxy.mock_rpc('getblockhash', mock_fail)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_fail)
 
-    f = executor.submit(l1.start)
-
-    wait_for(lambda: l1.daemon.running)
-    # Make sure it fails on the first `getblock` call (need to use `is_in_log`
-    # since the `wait_for_log` in `start` sets the offset)
-    wait_for(lambda: l1.daemon.is_in_log(
-        r'getblockhash [a-z0-9]* exited with status 1'))
-    wait_for(lambda: l1.daemon.is_in_log(
-        r'Unable to estimate opening fees'))
+    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.wait_for_logs([r'getblockhash [a-z0-9]* exited with status 1',
+                             r'Unable to estimate opening fees',
+                             r'BROKEN.*we have been retrying command for --bitcoin-retry-timeout=60 seconds'])
+    # Will exit with failure code.
+    assert l1.daemon.wait() == 1
 
     # Now unset the mock, so calls go through again
     l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
-
-    f.result()
 
 
 @pytest.mark.developer("needs --dev-force-bip32-seed")
@@ -2077,8 +2081,9 @@ def test_new_node_is_mainnet(node_factory):
     del l1.daemon.opts['network']
 
     # Wrong chain, will fail to start, but that's OK.
-    with pytest.raises(ValueError):
-        l1.start()
+    l1.daemon.start(wait_for_initialized=False)
+    # Will exit with failure code.
+    assert l1.daemon.wait() == 1
 
     # Should create these
     assert os.path.isfile(os.path.join(netdir, "hsm_secret"))
