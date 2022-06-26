@@ -704,9 +704,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                              num_blocks=6,
                              wait_for_mempool=1)
 
-    # Make sure l2 has received all the gossip.
-    l2.daemon.wait_for_logs(['Received node_announcement for node ' + l1.info['id'],
-                             'Received node_announcement for node ' + l3.info['id']])
+    # Make sure l4 has received all the gossip.
+    l4.daemon.wait_for_logs(['Received node_announcement for node ' + n.info['id'] for n in (l1, l2, l3)])
 
     scid12 = only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'][0]['short_channel_id']
     scid23 = only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels'][0]['short_channel_id']
@@ -715,8 +714,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
 
     assert block23 == block12 + 1
 
-    # Asks l2 for all channels, gets both.
-    msgs = l2.query_gossip('query_channel_range',
+    # Asks l4 for all channels, gets both.
+    msgs = l4.query_gossip('query_channel_range',
                            chainparams['chain_hash'],
                            0, 1000000,
                            filters=['0109', '0012'])
@@ -735,7 +734,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     + encoded]
 
     # Does not include scid12
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            0, block12,
                            filters=['0109', '0012'])
@@ -749,7 +748,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     '000100']
 
     # Does include scid12
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            0, block12 + 1,
                            filters=['0109', '0012'])
@@ -768,7 +767,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     + encoded]
 
     # Doesn't include scid23
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            0, block23,
                            filters=['0109', '0012'])
@@ -787,7 +786,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     + encoded]
 
     # Does include scid23
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            block12, block23 - block12 + 1,
                            filters=['0109', '0012'])
@@ -806,7 +805,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     + encoded]
 
     # Only includes scid23
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            block23, 1,
                            filters=['0109', '0012'])
@@ -825,7 +824,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     + encoded]
 
     # Past both
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            block23 + 1, 1000000,
                            filters=['0109', '0012'])
@@ -838,16 +837,16 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     # encoded_short_ids
                     + '000100']
 
-    # Make l2 split reply into two (technically async)
-    l2.rpc.dev_set_max_scids_encode_size(max=9)
-    l2.daemon.wait_for_log('Set max_scids_encode_bytes to 9')
+    # Make l4 split reply into two (technically async)
+    l4.rpc.dev_set_max_scids_encode_size(max=9)
+    l4.daemon.wait_for_log('Set max_scids_encode_bytes to 9')
 
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            0, 1000000,
                            filters=['0109', '0012'])
     # It should definitely have split
-    l2.daemon.wait_for_log('reply_channel_range: splitting 0-1 of 2')
+    l4.daemon.wait_for_log('reply_channel_range: splitting 0-1 of 2')
 
     start = 0
     scids = '00'
@@ -867,39 +866,11 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
     assert scids == encoded
 
     # Test overflow case doesn't split forever; should still only get 2 for this
-    msgs = l2.query_gossip('query_channel_range',
+    msgs = l4.query_gossip('query_channel_range',
                            genesis_blockhash,
                            1, 429496000,
                            filters=['0109', '0012'])
     assert len(msgs) == 2
-
-    # This used to be large enough for zlib to kick in, but no longer!
-    scid34, _ = l3.fundchannel(l4, 10**5)
-    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
-    l2.daemon.wait_for_log('Received node_announcement for node ' + l4.info['id'])
-
-    # Restore infinite encode size.
-    l2.rpc.dev_set_max_scids_encode_size(max=(2**32 - 1))
-    l2.daemon.wait_for_log('Set max_scids_encode_bytes to {}'
-                           .format(2**32 - 1))
-
-    msgs = l2.query_gossip('query_channel_range',
-                           genesis_blockhash,
-                           0, 65535,
-                           filters=['0109', '0012'])
-    encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23, scid34],
-                             check=True,
-                             timeout=TIMEOUT,
-                             stdout=subprocess.PIPE).stdout.strip().decode()
-    # reply_channel_range == 264
-    assert msgs == ['0108'
-                    # blockhash
-                    + genesis_blockhash
-                    # first_blocknum, number_of_blocks, complete
-                    + format(0, '08x') + format(65535, '08x') + '01'
-                    # encoded_short_ids
-                    + format(len(encoded) // 2, '04x')
-                    + encoded]
 
 
 # Long test involving 4 lightningd instances.
