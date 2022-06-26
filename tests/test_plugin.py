@@ -95,7 +95,7 @@ def test_option_types(node_factory):
 
     # the node should fail to start, and we get a stderr msg
     assert not n.daemon.running
-    assert n.daemon.is_in_stderr('bool_opt: ! does not parse as type bool')
+    wait_for(lambda: n.daemon.is_in_stderr('bool_opt: ! does not parse as type bool'))
 
     # What happens if we give it a bad int-option?
     n = node_factory.get_node(options={

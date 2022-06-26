@@ -244,7 +244,7 @@ def test_only_announce_one_dns(node_factory, bitcoind):
     # and test that we can't announce more than one DNS address
     l1 = node_factory.get_node(may_fail=True, expect_fail=True,
                                options={'announce-addr': ['localhost.localdomain:12345', 'example.com:12345']})
-    assert l1.daemon.is_in_stderr("Only one DNS can be announced")
+    wait_for(lambda: l1.daemon.is_in_stderr("Only one DNS can be announced"))
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
