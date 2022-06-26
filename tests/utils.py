@@ -8,6 +8,7 @@ import time
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
 
+
 def default_ln_port(network: str) -> int:
     network_map = {
         "bitcoin": 9735,
@@ -15,9 +16,10 @@ def default_ln_port(network: str) -> int:
         "regtest": 19846,
         "signet": 39735,
         "liquid-regtest": 20735,
-        "liquid": 9735, 
+        "liquid": 9735,
     }
     return network_map[network]
+
 
 def anchor_expected():
     return EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND
