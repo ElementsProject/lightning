@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, wait_for, TIMEOUT, only_one, sync_blockheight,
     expected_node_features, COMPAT, EXPERIMENTAL_FEATURES,
-    mine_funding_to_announce
+    mine_funding_to_announce, default_ln_port
 )
 
 import json
@@ -1928,7 +1928,7 @@ def test_statictor_onions(node_factory):
 
     assert l1.daemon.is_in_log('127.0.0.1:{}'.format(l1.port))
     # Did not specify torport, so it's the default.
-    assert l1.daemon.is_in_log('.onion:{}'.format(9735))
+    assert l1.daemon.is_in_log('.onion:{}'.format(default_ln_port(l1.info["network"])))
     assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:{},127.0.0.1:{}'.format(9736, l2.port))
 
 
