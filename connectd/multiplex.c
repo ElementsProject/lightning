@@ -423,16 +423,23 @@ static void set_ping_timer(struct peer *peer)
 
 static void send_ping(struct peer *peer)
 {
-	/* Already have a ping in flight? */
-	if (peer->expecting_pong != PONG_UNEXPECTED) {
-		status_peer_debug(&peer->id, "Last ping unreturned: hanging up");
-		if (peer->to_peer)
-			io_close(peer->to_peer);
-		return;
+	/* If it's still sending us traffic, maybe ping reply is backed up?
+	 * That's OK, ping is just to make sure it's still alive, and clearly
+	 * it is. */
+	if (time_before(peer->last_recv_time,
+			timeabs_sub(time_now(), time_from_sec(60)))) {
+		/* Already have a ping in flight? */
+		if (peer->expecting_pong != PONG_UNEXPECTED) {
+			status_peer_debug(&peer->id, "Last ping unreturned: hanging up");
+			if (peer->to_peer)
+				io_close(peer->to_peer);
+			return;
+		}
+
+		inject_peer_msg(peer, take(make_ping(NULL, 1, 0)));
+		peer->expecting_pong = PONG_EXPECTED_PROBING;
 	}
 
-	inject_peer_msg(peer, take(make_ping(NULL, 1, 0)));
-	peer->expecting_pong = PONG_EXPECTED_PROBING;
 	set_ping_timer(peer);
 }
 
@@ -990,6 +997,9 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        /* dev_disconnect can disable read */
        if (!IFDEV(peer->dev_read_enabled, true))
 	       return read_hdr_from_peer(peer_conn, peer);
+
+       /* We got something! */
+       peer->last_recv_time = time_now();
 
        /* Don't process packets while we're closing */
        if (peer->ready_to_die)

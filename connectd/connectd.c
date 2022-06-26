@@ -310,6 +310,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->ready_to_die = false;
 	peer->active = false;
 	peer->peer_outq = msg_queue_new(peer, false);
+	peer->last_recv_time = time_now();
 
 #if DEVELOPER
 	peer->dev_writes_enabled = NULL;
