@@ -2135,9 +2135,16 @@ def test_waitblockheight(node_factory, executor, bitcoind):
     node.rpc.waitblockheight(blockheight - 1)
     node.rpc.waitblockheight(blockheight)
 
+    # Developer mode polls bitcoind every second, so 60 seconds is plenty.
+    # But non-developer mode polls every 30 seconds, so try 120.
+    if DEVELOPER:
+        time = 60
+    else:
+        time = 120
+
     # Should not succeed yet.
-    fut2 = executor.submit(node.rpc.waitblockheight, blockheight + 2)
-    fut1 = executor.submit(node.rpc.waitblockheight, blockheight + 1)
+    fut2 = executor.submit(node.rpc.waitblockheight, blockheight + 2, time)
+    fut1 = executor.submit(node.rpc.waitblockheight, blockheight + 1, time)
     assert not fut1.done()
     assert not fut2.done()
 
