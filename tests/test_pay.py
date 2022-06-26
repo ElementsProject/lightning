@@ -5267,7 +5267,6 @@ def test_pay_bolt11_metadata(node_factory, bitcoind):
     l2.daemon.wait_for_log("Unexpected payment_metadata {}".format(b'this is metadata'.hex()))
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("needs to dev-disconnect")
 def test_pay_middle_fail(node_factory, bitcoind, executor):
     """Test the case where a HTLC is failed, but not on peer's side, then
@@ -5308,5 +5307,5 @@ def test_pay_middle_fail(node_factory, bitcoind, executor):
     bitcoind.generate_block(3, wait_for_mempool=1)
 
     # And that will fail upstream
-    with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE'):
+    with pytest.raises(RpcError, match=r'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
         l1.rpc.waitsendpay('00' * 32)

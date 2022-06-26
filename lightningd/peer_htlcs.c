@@ -1573,6 +1573,18 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		return;
 	}
 
+	/* We can have hout->failonion (which gets set when we process the
+	 * received commitment_signed), but not failed hin yet, because the peer
+	 * hadn't revoke_and_acked our own commitment without that htlc. */
+	if (hout->failonion && hout->in
+	    && hout->in->badonion == 0
+	    && !hout->in->failonion
+	    && !hout->in->preimage) {
+		log_debug(channel->log, "HTLC out %"PRIu64" can now fail HTLC upstream!",
+			  htlc->id);
+		fail_in_htlc(hout->in, hout->failonion);
+	}
+
 	/* Don't fail twice (or if already succeeded)! */
 	if (hout->failonion || hout->failmsg || hout->preimage) {
 		log_debug(channel->log, "HTLC id %"PRIu64" failonion = %p, failmsg = %p, preimage = %p",
