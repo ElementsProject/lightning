@@ -611,7 +611,7 @@ class LightningD(TailableProc):
             self.wait_for_log("Server started with public key")
         logging.info("LightningD started")
 
-    def wait(self, timeout=10):
+    def wait(self, timeout=TIMEOUT):
         """Wait for the daemon to stop for up to timeout seconds
 
         Returns the returncode of the process, None if the process did
