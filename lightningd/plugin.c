@@ -159,9 +159,10 @@ static void check_plugins_manifests(struct plugins *plugins)
 	}
 
 	/* As startup, we break out once all getmanifest are returned */
-	if (plugins->startup)
+	if (plugins->startup) {
+		log_debug(plugins->ld->log, "io_break: %s", __func__);
 		io_break(plugins);
-	else
+	} else
 		/* Otherwise we go straight into configuring them */
 		plugins_config(plugins);
 }
@@ -214,8 +215,10 @@ static void destroy_plugin(struct plugin *p)
 	/* Daemon shutdown overrules plugin's importance; aborts init checks */
 	if (p->plugins->ld->state == LD_STATE_SHUTDOWN) {
 		/* But return if this was the last plugin! */
-		if (list_empty(&p->plugins->plugins))
+		if (list_empty(&p->plugins->plugins)) {
+			log_debug(p->plugins->ld->log, "io_break: %s", __func__);
 			io_break(destroy_plugin);
+		}
 		return;
 	}
 
@@ -1761,8 +1764,12 @@ void plugins_init(struct plugins *plugins)
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
 
-	if (plugins_send_getmanifest(plugins))
-		io_loop_with_timers(plugins->ld);
+	if (plugins_send_getmanifest(plugins)) {
+		void *ret;
+		ret = io_loop_with_timers(plugins->ld);
+		log_debug(plugins->ld->log, "io_loop_with_timers: %s", __func__);
+		assert(ret == plugins);
+	}
 }
 
 static void plugin_config_cb(const char *buffer,
@@ -2058,6 +2065,7 @@ void *plugins_exclusive_loop(struct plugin **plugins)
 
 	/* We don't service timers here, either! */
 	ret = io_loop(NULL, NULL);
+	log_debug(plugins[0]->plugins->ld->log, "io_loop: %s", __func__);
 
 	for (i = 0; i < tal_count(plugins); ++i) {
 		io_conn_out_exclusive(plugins[i]->stdin_conn, false);

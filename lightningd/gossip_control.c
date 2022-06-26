@@ -229,6 +229,7 @@ static void gossipd_init_done(struct subd *gossipd,
 			      void *unused)
 {
 	/* Break out of loop, so we can begin */
+	log_debug(gossipd->ld->log, "io_break: %s", __func__);
 	io_break(gossipd);
 }
 
@@ -238,6 +239,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 {
 	u8 *msg;
 	int hsmfd;
+	void *ret;
 
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH|HSM_CAP_SIGN_GOSSIP);
 
@@ -267,7 +269,9 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 		 gossipd_init_done, NULL);
 
 	/* Wait for gossipd_init_reply */
-	io_loop(NULL, NULL);
+	ret = io_loop(NULL, NULL);
+	log_debug(ld->log, "io_loop: %s", __func__);
+	assert(ret == ld->gossip);
 }
 
 void gossipd_notify_spend(struct lightningd *ld,

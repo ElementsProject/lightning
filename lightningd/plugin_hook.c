@@ -332,6 +332,7 @@ static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 		return;
 
 	/* We're done, exit exclusive loop. */
+	log_debug(dwh_req->plugin->plugins->ld->log, "io_break: %s", __func__);
 	io_break(dwh_req->ph_req);
 }
 
@@ -392,6 +393,7 @@ void plugin_hook_db_sync(struct db *db)
 	if (ret != ph_req) {
 		void *ret2 = plugins_exclusive_loop(plugins);
 		assert(ret2 == ph_req);
+		log_debug(plugins[0]->plugins->ld->log, "io_break: %s", __func__);
 		io_break(ret);
 	}
 	assert(num_hooks == 0);

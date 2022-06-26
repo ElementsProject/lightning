@@ -183,6 +183,7 @@ static struct command_result *json_stop(struct command *cmd,
 	/* With rpc_command_hook, jcon might have closed in the meantime! */
 	if (!cmd->jcon) {
 		/* Return us to toplevel lightningd.c */
+		log_debug(cmd->ld->log, "io_break: %s", __func__);
 		io_break(cmd->ld);
 		return command_still_pending(cmd);
 	}
@@ -986,6 +987,7 @@ static struct io_plan *start_json_stream(struct io_conn *conn,
 	/* Once the stop_conn conn is drained, we can shut down. */
 	if (jcon->ld->stop_conn == conn && jcon->ld->state == LD_STATE_RUNNING) {
 		/* Return us to toplevel lightningd.c */
+		log_debug(jcon->ld->log, "io_break: %s", __func__);
 		io_break(jcon->ld);
 		/* We never come back. */
 		return io_out_wait(conn, conn, io_never, conn);

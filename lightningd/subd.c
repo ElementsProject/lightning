@@ -463,6 +463,7 @@ static bool handle_version(struct subd *sd, const u8 *msg)
 			   ver, version());
 		sd->ld->try_reexec = true;
 		/* Return us to toplevel lightningd.c */
+		log_debug(sd->ld->log, "io_break: %s", __func__);
 		io_break(sd->ld);
 		return false;
 	}

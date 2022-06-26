@@ -40,12 +40,14 @@ static void plugin_config_cb(const char *buffer,
 			     struct plugin *plugin)
 {
 	plugin->plugin_state = INIT_COMPLETE;
+	log_debug(plugin->plugins->ld->log, "io_break: %s", __func__);
 	io_break(plugin);
 }
 
 static void config_plugin(struct plugin *plugin)
 {
 	struct jsonrpc_request *req;
+	void *ret;
 
 	req = jsonrpc_request_start(plugin, "init", plugin->log,
 	                            NULL, plugin_config_cb, plugin);
@@ -55,7 +57,9 @@ static void config_plugin(struct plugin *plugin)
 
 	tal_add_destructor(plugin, bitcoin_destructor);
 
-	io_loop_with_timers(plugin->plugins->ld);
+	ret = io_loop_with_timers(plugin->plugins->ld);
+	log_debug(plugin->plugins->ld->log, "io_loop_with_timers: %s", __func__);
+	assert(ret == plugin);
 }
 
 static void wait_plugin(struct bitcoind *bitcoind, const char *method,
