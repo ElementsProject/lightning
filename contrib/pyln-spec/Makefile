@@ -58,7 +58,7 @@ test-release-bolt%: $(ARTEFACTS)
 	# pyln-proto already installed).
 	virtualenv testpypi-$* --python=/usr/bin/python3 --download --always-copy --clear
 	# Install the requirements from the prod repo, they are not being kept up to date on the test repo
-	testpypi-$*/bin/python3 -m pip install -r requirements.txt pytest flaky pytest-timeout
+	testpypi-$*/bin/python3 -m pip install -r requirements.txt pytest pytest-timeout
 	testpypi-$*/bin/python3 -m pip install -I --index-url https://test.pypi.org/simple/ --no-deps pyln-bolt$*
 	testpypi-$*/bin/python3 -c "from pyln.spec import bolt$* as bolt;assert(bolt.__version__ == '$(call version,$*)')"
 	testpypi-$*/bin/pytest bolt$*/tests
