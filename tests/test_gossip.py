@@ -1263,6 +1263,8 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
                            # And pings.
                            filters=['0109', '0107', '0102', '0100', '0012'])
 
+    # May send its own announcement *twice*, since it always spams us.
+    msgs = list(set(msgs))
     assert len(msgs) == 2
     assert (bytes("SENIORBEAM", encoding="utf8").hex() in msgs[0]
             or bytes("SENIORBEAM", encoding="utf8").hex() in msgs[1])
@@ -1277,6 +1279,9 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
                             # channel_announcement and channel_updates.
                             # And pings.
                             filters=['0109', '0107', '0102', '0100', '0012'])
+
+    # May send its own announcement *twice*, since it always spams us.
+    msgs2 = list(set(msgs2))
     assert msgs == msgs2
     # Won't have queued up another one, either.
     assert not l1.daemon.is_in_log('node_announcement: delaying')
@@ -1295,6 +1300,7 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
     assert ad['channel_fee_max_base_msat'] == Millisatoshi('2000msat')
     assert ad['channel_fee_max_proportional_thousandths'] == 22
 
+    # May send its own announcement *twice*, since it always spams us.
     msgs2 = l1.query_gossip('gossip_timestamp_filter',
                             genesis_blockhash,
                             '0', '0xFFFFFFFF',
@@ -1302,6 +1308,7 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
                             # channel_announcement and channel_updates.
                             # And pings.
                             filters=['0109', '0107', '0102', '0100', '0012'])
+    msgs2 = list(set(msgs2))
     assert msgs != msgs2
 
 
