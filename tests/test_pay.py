@@ -5265,3 +5265,48 @@ def test_pay_bolt11_metadata(node_factory, bitcoind):
         l1.rpc.pay(inv)
 
     l2.daemon.wait_for_log("Unexpected payment_metadata {}".format(b'this is metadata'.hex()))
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("needs to dev-disconnect")
+def test_pay_middle_fail(node_factory, bitcoind, executor):
+    """Test the case where a HTLC is failed, but not on peer's side, then
+    we go onchain"""
+    # Set feerates the same so we don't have update_fee interfering.
+    # We want to disconnect on revoke-and-ack we send for failing htlc.
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{'feerates': (1500,) * 4},
+                                               {'feerates': (1500,) * 4},
+                                               {'feerates': (1500,) * 4,
+                                                'disconnect': ['-WIRE_REVOKE_AND_ACK*2']}])
+
+    chanid12 = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['short_channel_id']
+    chanid23 = only_one(l2.rpc.getpeer(l3.info['id'])['channels'])['short_channel_id']
+
+    # Make a failing payment.
+    route = [{'amount_msat': 1011,
+              'id': l2.info['id'],
+              'delay': 20,
+              'channel': chanid12},
+             {'amount_msat': 1000,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': chanid23}]
+
+    # Start payment, it will fail.
+    l1.rpc.sendpay(route, payment_hash='00' * 32)
+
+    wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+
+    # After this (cltv is actually +11, and we give it 1 block grace)
+    # l2 will go onchain since HTLC is not resolved.
+    bitcoind.generate_block(12)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+    # Three blocks and it will resolve the parent.
+    bitcoind.generate_block(3, wait_for_mempool=1)
+
+    # And that will fail upstream
+    with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE'):
+        l1.rpc.waitsendpay('00' * 32)
