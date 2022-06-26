@@ -3841,12 +3841,15 @@ def test_ping_timeout(node_factory):
     # Disconnects after this, but doesn't know it.
     l1_disconnects = ['xWIRE_PING']
 
-    l1, l2 = node_factory.line_graph(2, opts=[{'dev-no-reconnect': None,
-                                               'disconnect': l1_disconnects},
-                                              {}])
+    l1, l2 = node_factory.get_nodes(2, opts=[{'dev-no-reconnect': None,
+                                              'disconnect': l1_disconnects},
+                                             {}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
     # Takes 15-45 seconds, then another to try second ping
     # Because of ping timer randomness we don't know which side hangs up first
-    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False, timeout=45 + 45 + 5)
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [],
+             timeout=45 + 45 + 5)
     wait_for(lambda: (l1.daemon.is_in_log('Last ping unreturned: hanging up')
                       or l2.daemon.is_in_log('Last ping unreturned: hanging up')))
 
