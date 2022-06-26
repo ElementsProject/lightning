@@ -303,7 +303,10 @@ static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok)
 		fatal("Plugin '%s' returned an invalid response to the "
-		      "db_write hook: %s", dwh_req->plugin->cmd, buffer);
+		      "db_write hook: %.*s",
+		      dwh_req->plugin->cmd,
+		      json_tok_full_len(toks),
+		      json_tok_full(buffer, toks));
 
 	/* We expect result: { 'result' : 'continue' }.
 	 * Anything else we abort.
@@ -311,14 +314,16 @@ static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 	resulttok = json_get_member(buffer, resulttok, "result");
 	if (resulttok) {
 		if (!json_tok_streq(buffer, resulttok, "continue"))
-			fatal("Plugin '%s' returned failed db_write: %s.",
+			fatal("Plugin '%s' returned failed db_write: %.*s.",
 			      dwh_req->plugin->cmd,
-			      buffer);
+			      json_tok_full_len(toks),
+			      json_tok_full(buffer, toks));
 	} else
 		fatal("Plugin '%s' returned an invalid result to the db_write "
-		      "hook: %s",
+		      "hook: %.*s",
 		      dwh_req->plugin->cmd,
-		      buffer);
+		      json_tok_full_len(toks),
+		      json_tok_full(buffer, toks));
 
 	assert((*dwh_req->num_hooks) != 0);
 	--(*dwh_req->num_hooks);
