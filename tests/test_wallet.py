@@ -12,6 +12,7 @@ from utils import (
 import os
 import pytest
 import subprocess
+import time
 import unittest
 
 
@@ -1043,6 +1044,12 @@ def test_hsm_secret_encryption(node_factory):
     write_all(master_fd, password[2:].encode("utf-8"))
     assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == HSM_BAD_PASSWORD)
     assert(l1.daemon.is_in_log("Wrong password for encrypted hsm_secret."))
+
+    # Not sure why this helps, but seems to reduce flakiness where
+    # tail() thread in testing/utils.py gets 'ValueError: readline of
+    # closed file' and we get `ValueError: Process died while waiting for logs`
+    # when waiting for "Server started with public key" below.
+    time.sleep(10)
 
     # Test we can restore the same wallet with the same password
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
