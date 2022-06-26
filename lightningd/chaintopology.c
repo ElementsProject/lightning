@@ -38,6 +38,7 @@ static void maybe_completed_init(struct chain_topology *topo)
 		return;
 	if (!topo->root)
 		return;
+	log_debug(topo->ld->log, "io_break: %s", __func__);
 	io_break(topo);
 }
 
@@ -1087,6 +1088,7 @@ static void retry_check_chain(struct chain_topology *topo)
 void setup_topology(struct chain_topology *topo,
 		    u32 min_blockheight, u32 max_blockheight)
 {
+	void *ret;
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 
 	topo->min_blockheight = min_blockheight;
@@ -1107,7 +1109,9 @@ void setup_topology(struct chain_topology *topo,
 	start_fee_estimate(topo);
 
 	/* Once it gets initial block, it calls io_break() and we return. */
-	io_loop_with_timers(topo->ld);
+	ret = io_loop_with_timers(topo->ld);
+	assert(ret == topo);
+	log_debug(topo->ld->log, "io_loop_with_timers: %s", __func__);
 }
 
 void begin_topology(struct chain_topology *topo)

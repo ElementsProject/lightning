@@ -504,6 +504,7 @@ static void connect_init_done(struct subd *connectd,
 	}
 
 	/* Break out of loop, so we can begin */
+	log_debug(connectd->ld->log, "io_break: %s", __func__);
 	io_break(connectd);
 }
 
@@ -515,6 +516,7 @@ int connectd_init(struct lightningd *ld)
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
 	const char *websocket_helper_path;
+	void *ret;
 
 	websocket_helper_path = subdaemon_path(tmpctx, ld,
 					       "lightning_websocketd");
@@ -566,7 +568,9 @@ int connectd_init(struct lightningd *ld)
 		 connect_init_done, NULL);
 
 	/* Wait for init_reply */
-	io_loop(NULL, NULL);
+	ret = io_loop(NULL, NULL);
+	log_debug(ld->log, "io_loop: %s", __func__);
+	assert(ret == ld->connectd);
 
 	return fds[0];
 }
@@ -589,18 +593,22 @@ static void connect_activate_done(struct subd *connectd,
 	}
 
 	/* Break out of loop, so we can begin */
+	log_debug(connectd->ld->log, "io_break: %s", __func__);
 	io_break(connectd);
 }
 
 void connectd_activate(struct lightningd *ld)
 {
+	void *ret;
 	const u8 *msg = towire_connectd_activate(NULL, ld->listen);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_activate_done, NULL);
 
 	/* Wait for activate_reply */
-	io_loop(NULL, NULL);
+	ret = io_loop(NULL, NULL);
+	log_debug(ld->log, "io_loop: %s", __func__);
+	assert(ret == ld->connectd);
 }
 
 void maybe_disconnect_peer(struct lightningd *ld, struct peer *peer)

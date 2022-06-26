@@ -856,6 +856,7 @@ void lightningd_exit(struct lightningd *ld, int exit_code)
 {
 	ld->exit_code = tal(ld, int);
 	*ld->exit_code = exit_code;
+	log_debug(ld->log, "io_break: %s", __func__);
 	io_break(ld);
 }
 
@@ -1184,6 +1185,7 @@ int main(int argc, char *argv[])
 	 *  shut down.
 	 */
 	assert(io_loop_ret == ld);
+	log_debug(ld->log, "io_loop_with_timers: %s", __func__);
 
 	/* Fail JSON RPC requests and ignore plugin's responses */
 	ld->state = LD_STATE_SHUTDOWN;
