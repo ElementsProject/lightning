@@ -1452,15 +1452,15 @@ class NodeFactory(object):
 
         bitcoind.generate_block(5)
 
-        # Make sure everyone sees all channels: we can cheat and
-        # simply check the ends (since it's a line).
-        nodes[0].wait_channel_active(scids[-1])
-        nodes[-1].wait_channel_active(scids[0])
-
-        # Make sure we have all node announcements, too (just check ends)
+        # Make sure everyone sees all channels, all other nodes
         for n in nodes:
-            for end in (nodes[0], nodes[-1]):
-                wait_for(lambda: 'alias' in only_one(end.rpc.listnodes(n.info['id'])['nodes']))
+            for scid in scids:
+                n.wait_channel_active(scid)
+
+        # Make sure we have all node announcements, too
+        for n in nodes:
+            for n2 in nodes:
+                wait_for(lambda: 'alias' in only_one(n.rpc.listnodes(n2.info['id'])['nodes']))
 
     def line_graph(self, num_nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, opts=None, announce_channels=True):
         """ Create nodes, connect them and optionally fund channels.
