@@ -846,7 +846,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     l1.rpc.close(chan)
     l2.daemon.wait_for_log('State changed from CLOSINGD_SIGEXCHANGE to CLOSINGD_COMPLETE')
 
-    bitcoind.generate_block(2)
+    bitcoind.generate_block(2, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
     l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
     l2.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
