@@ -924,7 +924,7 @@ def test_report_routing_failure(node_factory, bitcoind):
 
 @pytest.mark.developer("needs fast gossip")
 def test_query_short_channel_id(node_factory, bitcoind, chainparams):
-    l1, l2, l3 = node_factory.get_nodes(3)
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     chain_hash = chainparams['chain_hash']
@@ -950,15 +950,21 @@ def test_query_short_channel_id(node_factory, bitcoind, chainparams):
     scid23, _ = l2.fundchannel(l3, 10**5)
     mine_funding_to_announce(bitcoind, [l1, l2, l3])
 
-    # It will know about everything.
-    l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l3.info['id']))
+    # Attach node which won't spam us (since it's not their channel).
+    l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    # Make sure it sees all channels, then node announcements.
+    wait_for(lambda: len(l4.rpc.listchannels()['channels']) == 4)
+    wait_for(lambda: all('alias' in n for n in l4.rpc.listnodes()['nodes']))
 
     # This query should get channel announcements, channel updates, and node announcements.
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00', scid23],
                              check=True,
                              timeout=TIMEOUT,
                              stdout=subprocess.PIPE).stdout.strip().decode()
-    msgs = l1.query_gossip('query_short_channel_ids',
+    msgs = l4.query_gossip('query_short_channel_ids',
                            chain_hash,
                            encoded,
                            filters=['0109', '0107', '0012'])
@@ -978,7 +984,7 @@ def test_query_short_channel_id(node_factory, bitcoind, chainparams):
                              check=True,
                              timeout=TIMEOUT,
                              stdout=subprocess.PIPE).stdout.strip().decode()
-    msgs = l1.query_gossip('query_short_channel_ids',
+    msgs = l4.query_gossip('query_short_channel_ids',
                            chain_hash,
                            encoded,
                            filters=['0109', '0107', '0012'])
