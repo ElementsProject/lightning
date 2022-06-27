@@ -1857,6 +1857,7 @@ def test_replacement_payload(node_factory):
     assert l2.daemon.wait_for_log("Attept to pay.*with wrong secret")
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
 @pytest.mark.developer("Requires dev_sign_last_tx")
 def test_watchtower(node_factory, bitcoind, directory, chainparams):
     """Test watchtower hook.

@@ -480,6 +480,7 @@ def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
 @pytest.mark.developer("needs dev-disable-commit-after")
 def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
@@ -602,6 +603,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
 @pytest.mark.developer("needs dev-disable-commit-after")
 def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an outgoing HTLC"""
