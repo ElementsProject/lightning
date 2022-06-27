@@ -35,20 +35,24 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 	u8 *addresses = tal_arr(tmpctx, u8, 0);
 	u8 *announcement;
 	struct tlv_node_ann_tlvs *na_tlv;
-	size_t i;
+	size_t i, count_announceable;
 
 	/* add all announceable addresses */
+	count_announceable = tal_count(daemon->announceable);
 	was = tal_arr(tmpctx, struct wireaddr, 0);
-	for (i = 0; i < tal_count(daemon->announceable); i++)
+	for (i = 0; i < count_announceable; i++)
 		tal_arr_expand(&was, daemon->announceable[i]);
 
-	/* add reported `remote_addr` v4 and v6 of our self */
-	if (daemon->remote_addr_v4 != NULL &&
-	    !wireaddr_arr_contains(was, daemon->remote_addr_v4))
-		tal_arr_expand(&was, *daemon->remote_addr_v4);
-	if (daemon->remote_addr_v6 != NULL &&
-	    !wireaddr_arr_contains(was, daemon->remote_addr_v6))
-		tal_arr_expand(&was, *daemon->remote_addr_v6);
+	/* Add IP discovery `remote_addr` v4 and v6 of our self. */
+	/* Only do that if we don't have addresses announced. */
+	if (count_announceable == 0) {
+		if (daemon->remote_addr_v4 != NULL &&
+		    !wireaddr_arr_contains(was, daemon->remote_addr_v4))
+			tal_arr_expand(&was, *daemon->remote_addr_v4);
+		if (daemon->remote_addr_v6 != NULL &&
+		    !wireaddr_arr_contains(was, daemon->remote_addr_v6))
+			tal_arr_expand(&was, *daemon->remote_addr_v6);
+	}
 
 	/* Sort by address type again, as we added dynamic remote_addr v4/v6. */
 	/* BOLT #7:
