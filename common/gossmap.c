@@ -176,25 +176,25 @@ u32 gossmap_chan_idx(const struct gossmap *map, const struct gossmap_chan *chan)
 	return chan - map->chan_arr;
 }
 
-/* htable can't handle NULL values, so we add 1 */
+/* htable can't handle NULL or 1 values, so we add 2 */
 static struct gossmap_chan *ptrint2chan(const ptrint_t *pidx)
 {
-	return map->chan_arr + ptr2int(pidx) - 1;
+	return map->chan_arr + ptr2int(pidx) - 2;
 }
 
 static ptrint_t *chan2ptrint(const struct gossmap_chan *chan)
 {
-	return int2ptr(chan - map->chan_arr + 1);
+	return int2ptr(chan - map->chan_arr + 2);
 }
 
 static struct gossmap_node *ptrint2node(const ptrint_t *pidx)
 {
-	return map->node_arr + ptr2int(pidx) - 1;
+	return map->node_arr + ptr2int(pidx) - 2;
 }
 
 static ptrint_t *node2ptrint(const struct gossmap_node *node)
 {
-	return int2ptr(node - map->node_arr + 1);
+	return int2ptr(node - map->node_arr + 2);
 }
 
 static struct short_channel_id chanidx_id(const ptrint_t *pidx)
