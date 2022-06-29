@@ -666,7 +666,8 @@
             "ListPeers.peers[].features": 6,
             "ListPeers.peers[].id": 1,
             "ListPeers.peers[].log[]": 3,
-            "ListPeers.peers[].netaddr[]": 5
+            "ListPeers.peers[].netaddr[]": 5,
+            "ListPeers.peers[].remote_addr": 7
         },
         "ListpeersPeersChannels": {
             "ListPeers.peers[].channels[].alias": 50,
