@@ -231,4 +231,6 @@ int main(int argc, char *argv[])
 	assert(!IsValid(&wa));
 	assert(!IsIPv4(&wa));
 	assert(IsIPv6(&wa));
+
+	common_shutdown();
 }
