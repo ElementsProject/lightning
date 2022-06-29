@@ -32,6 +32,7 @@ jobs:
           - CFG: "make-EXPERIMENTAL-check"
             TEST_CMD: "make check-source check-units installcheck check-gen-updated"
             EXPERIMENTAL_FEATURES: 1
+            VALGRIND: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
@@ -96,6 +97,33 @@ jobs:
           pip install mako
           ./configure
           make check-doc
+
+  check-rust:
+    name: Check Rust file diff
+    runs-on: ubuntu-20.04
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: bash -x .github/scripts/setup.sh
+
+      - name: Check Rust diff file
+        run: |
+          pip install mako
+          ./configure
+          make check-rust
+
 
   proto-test:
     name: Protocol Test Config
