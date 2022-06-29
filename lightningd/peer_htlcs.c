@@ -1069,7 +1069,9 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_object_end(s);
 
 	json_object_start(s, "htlc");
-	json_add_short_channel_id(s, "short_channel_id", hin->key.channel->scid);
+	json_add_short_channel_id(
+	    s, "short_channel_id",
+	    channel_scid_or_local_alias(hin->key.channel));
 	json_add_u64(s, "id", hin->key.id);
 	if (deprecated_apis)
 		json_add_amount_msat_only(s, "amount", hin->msat);
