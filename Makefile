@@ -526,7 +526,7 @@ check-pytest-pyln-proto:
 	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-rust:
-	git diff --exit-code .msggen.json || echo "diff in rust file, need to be updated by enabling rust" && exit 1
+	git diff --exit-code .msggen.json || (echo "diff in rust file, need to be updated by enabling rust"; exit 1)
 
 check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
