@@ -28,9 +28,10 @@ jobs:
             ARCH: 32
             TEST_CMD: "make check-source check-units installcheck"
             DEVELOPER: 0
-          - CFG: "make-EXPERIMENTAL-check"
+          - CFG: "make-EXPERIMENTAL-check w/ VALGRIND"
             TEST_CMD: "make check-source check-units installcheck check-gen-updated"
             EXPERIMENTAL_FEATURES: 1
+	    VALGRIND: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
