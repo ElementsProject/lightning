@@ -325,20 +325,20 @@ async fn connect_peer(
     let mut rpc = ClnRpc::new(&self.rpc_path)
         .await
         .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
-    let result = rpc.call(Request::ConnectPeer(req))
+    let result = rpc.call(Request::Connect(req))
         .await
         .map_err(|e| Status::new(
            Code::Unknown,
-           format!("Error calling method ConnectPeer: {:?}", e)))?;
+           format!("Error calling method Connect: {:?}", e)))?;
     match result {
-        Response::ConnectPeer(r) => {
+        Response::Connect(r) => {
            trace!("connect_peer response: {:?}", r);
            Ok(tonic::Response::new((&r).into()))
         },
         r => Err(Status::new(
             Code::Internal,
             format!(
-                "Unexpected result {:?} to method call ConnectPeer",
+                "Unexpected result {:?} to method call Connect",
                 r
             )
         )),
