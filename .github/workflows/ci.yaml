@@ -19,8 +19,9 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - CFG: "make"
-            TEST_CMD: "make"
+          - CFG: "make and unit test w/ VALGRIND"
+            TEST_CMD: "make default check-source"
+            VALGRIND: 1
           - CFG: "make-O3-check"
             TEST_CMD: "make check-source check-units installcheck check-gen-updated"
             COPTFLAGS: "-O3"
@@ -28,10 +29,9 @@ jobs:
             ARCH: 32
             TEST_CMD: "make check-source check-units installcheck"
             DEVELOPER: 0
-          - CFG: "make-EXPERIMENTAL-check w/ VALGRIND"
+          - CFG: "make-EXPERIMENTAL-check"
             TEST_CMD: "make check-source check-units installcheck check-gen-updated"
             EXPERIMENTAL_FEATURES: 1
-	    VALGRIND: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
