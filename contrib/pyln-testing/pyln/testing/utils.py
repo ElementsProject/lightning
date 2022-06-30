@@ -10,6 +10,7 @@ from collections import OrderedDict
 from decimal import Decimal
 from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
+from pyln.testing import grpc
 
 import ephemeral_port_reserve  # type: ignore
 import json
@@ -538,7 +539,15 @@ class ElementsD(BitcoinD):
 
 
 class LightningD(TailableProc):
-    def __init__(self, lightning_dir, bitcoindproxy, port=9735, random_hsm=False, node_id=0):
+    def __init__(
+            self,
+            lightning_dir,
+            bitcoindproxy,
+            port=9735,
+            random_hsm=False,
+            node_id=0,
+            grpc_port=None
+    ):
         # We handle our own version of verbose, below.
         TailableProc.__init__(self, lightning_dir, verbose=False)
         self.executable = 'lightningd'
@@ -563,6 +572,9 @@ class LightningD(TailableProc):
             # Make sure we don't touch any existing config files in the user's $HOME
             'bitcoin-datadir': lightning_dir,
         }
+
+        if grpc_port is not None:
+            opts['grpc-port'] = grpc_port
 
         for k, v in opts.items():
             self.opts[k] = v
@@ -693,19 +705,22 @@ class LightningNode(object):
         self.allow_bad_gossip = allow_bad_gossip
         self.allow_warning = allow_warning
         self.db = db
+        self.lightning_dir = Path(lightning_dir)
 
         # Assume successful exit
         self.rc = 0
 
-        socket_path = os.path.join(lightning_dir, TEST_NETWORK, "lightning-rpc").format(node_id)
-        self.rpc = PrettyPrintingLightningRpc(socket_path, self.executor, jsonschemas=jsonschemas)
+        # Ensure we have an RPC we can use to talk to the node
+        self._create_rpc(jsonschemas)
 
         self.gossip_store = GossipStore(Path(lightning_dir, TEST_NETWORK, "gossip_store"))
 
         self.daemon = LightningD(
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
-            port=port, random_hsm=random_hsm, node_id=node_id
+            port=port, random_hsm=random_hsm, node_id=node_id,
+            grpc_port=self.grpc_port,
         )
+
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
             self.daemon.disconnect_file = os.path.join(lightning_dir, TEST_NETWORK, "dev_disconnect")
@@ -750,6 +765,47 @@ class LightningNode(object):
             # Reduce precision of errors, speeding startup and reducing memory greatly:
             if SLOW_MACHINE:
                 self.daemon.cmd_prefix += ['--read-inline-info=no']
+
+    def _create_rpc(self, jsonschemas):
+        """Prepares anything related to the RPC.
+        """
+        if os.environ.get('CLN_TEST_GRPC') == '1':
+            logging.info("Switching to GRPC based RPC for tests")
+            self._create_grpc_rpc()
+        else:
+            self._create_jsonrpc_rpc(jsonschemas)
+
+    def _create_grpc_rpc(self):
+        self.grpc_port = reserve_unused_port()
+        d = self.lightning_dir / TEST_NETWORK
+        d.mkdir(parents=True, exist_ok=True)
+
+        # Copy all the certificates and keys into place:
+        with (d / "ca.pem").open(mode='wb') as f:
+            f.write(grpc.DUMMY_CA_PEM)
+
+        with (d / "ca-key.pem").open(mode='wb') as f:
+            f.write(grpc.DUMMY_CA_KEY_PEM)
+
+        # Now the node will actually start up and use them, so we can
+        # create the RPC instance.
+        self.rpc = grpc.LightningGrpc(
+            host='localhost',
+            port=self.grpc_port,
+            root_certificates=grpc.DUMMY_CA_PEM,
+            private_key=grpc.DUMMY_CLIENT_KEY_PEM,
+            certificate_chain=grpc.DUMMY_CLIENT_PEM
+        )
+
+    def _create_jsonrpc_rpc(self, jsonschemas):
+        socket_path = self.lightning_dir / TEST_NETWORK / "lightning-rpc"
+        self.grpc_port = None
+
+        self.rpc = PrettyPrintingLightningRpc(
+            str(socket_path),
+            self.executor,
+            jsonschemas=jsonschemas
+        )
 
     def connect(self, remote_node):
         self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
