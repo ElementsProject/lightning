@@ -70,7 +70,7 @@ which the above *hops* parameter was generated:
  - The final payload is a copy of the last payload sans `channel`
 
 These rules are directly derived from the onion construction. Please refer
-[BOLT 04][bolt04] for details and rationale.
+[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md) for details and rationale.
 
 The *assocdata* parameter specifies the associated data that the onion should
 commit to. If the onion is to be used to send a payment later it MUST match
@@ -132,5 +132,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md
 [comment]: # ( SHA256STAMP:eabebca3c38ac8e01fb9a0891bde7913ce2832b7ee179c0b4617d104a0e6c009)
