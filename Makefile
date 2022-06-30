@@ -383,15 +383,19 @@ ifneq ($(RUST),0)
 	include cln-rpc/Makefile
 	include cln-grpc/Makefile
 
-GRPC_GEN = tests/node_pb2.py \
-	tests/node_pb2_grpc.py \
-	tests/primitives_pb2.py
+GRPC_GEN = contrib/pyln-testing/pyln/testing/node_pb2.py \
+	contrib/pyln-testing/pyln/testing/node_pb2_grpc.py \
+	contrib/pyln-testing/pyln/testing/primitives_pb2.py
 
 ALL_TEST_GEN += $(GRPC_GEN)
 
 $(GRPC_GEN): cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
-	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=tests/ --grpc_python_out=tests/ --experimental_allow_proto3_optional
-	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=tests/ --grpc_python_out=tests/ --experimental_allow_proto3_optional
+	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=contrib/pyln-testing/pyln/testing/ --grpc_python_out=contrib/pyln-testing/pyln/testing/ --experimental_allow_proto3_optional
+	python -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=contrib/pyln-testing/pyln/testing/ --experimental_allow_proto3_optional
+	# The compiler assumes that the proto files are in the same
+	# directory structure as the generated files will be. Since we
+	# don't do that we need to path the files up.
+	find contrib/pyln-testing/pyln/testing/ -type f -name "*.py" -print0 | xargs -0 sed -i 's/^import \(.*\)_pb2 as .*__pb2/from . import \1_pb2 as \1__pb2/g'
 
 endif
 
