@@ -427,13 +427,19 @@ where
             ))
             .await
             .context("sending init response")?;
+
+        let joiner = plugin.wait_handle.clone();
         // Start the PluginDriver to handle plugin IO
-        tokio::spawn(
-            driver.run(receiver, input, output),
-            // TODO Use the broadcast to distribute any error that we
-            // might receive here to anyone listening. (Shutdown
-            // signal)
-        );
+        tokio::spawn(async move {
+            if let Err(e) = driver.run(receiver, input, output).await {
+		log::warn!("Plugin loop returned error {:?}", e);
+	    }
+
+            // Now that we have left the reader loop its time to
+            // notify any waiting tasks. This most likely will cause
+            // the main task to exit and the plugin to terminate.
+            joiner.send(())
+        });
         Ok(plugin)
     }
 
@@ -502,16 +508,17 @@ where
             // the user-code, which may require some cleanups or
             // similar.
             tokio::select! {
-                    e = self.dispatch_one(&mut input, &self.plugin) => {
-                //Hand any error up.
-                e?;
-            },
-            v = receiver.recv() => {
-                output.lock().await.send(
-                v.context("internal communication error")?
-                ).await?;
-            },
-                }
+                e = self.dispatch_one(&mut input, &self.plugin) => {
+                    if let Err(e) = e {
+			return Err(e)
+                    }
+		},
+		v = receiver.recv() => {
+                    output.lock().await.send(
+			v.context("internal communication error")?
+                    ).await?;
+		},
+            }
         }
     }
 

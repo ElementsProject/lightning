@@ -14,7 +14,7 @@ struct PluginState {
     ca_cert: Vec<u8>,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     debug!("Starting grpc plugin");
     let path = Path::new("lightning-rpc");
@@ -58,13 +58,18 @@ async fn main() -> Result<()> {
 
     let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
 
-    tokio::spawn(async move {
-        if let Err(e) = run_interface(bind_addr, state).await {
-            warn!("Error running the grpc interface: {}", e);
+    tokio::select! {
+        _ = plugin.join() => {
+	    // This will likely never be shown, if we got here our
+	    // parent process is exiting and not processing out log
+	    // messages anymore.
+            debug!("Plugin loop terminated")
         }
-    });
-
-    plugin.join().await
+        e = run_interface(bind_addr, state) => {
+            warn!("Error running grpc interface: {:?}", e)
+        }
+    }
+    Ok(())
 }
 
 async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> {
