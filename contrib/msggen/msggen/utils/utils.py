@@ -4,12 +4,6 @@ from pathlib import Path
 
 from msggen.model import Method, CompositeField, Service
 
-# Sometimes we want to rename a method, due to a name clash
-# FIXME: need to be generalized?
-method_name_override = {
-    "Connect": "ConnectPeer",
-}
-
 
 def repo_root():
     path = subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
@@ -34,7 +28,7 @@ def load_jsonrpc_method(name, schema_dir: str = None):
     response.typename += "Response"
 
     return Method(
-        name=method_name_override.get(name, name),
+        name,
         request=request,
         response=response,
     )
