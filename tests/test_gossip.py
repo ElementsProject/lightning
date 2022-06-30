@@ -1281,8 +1281,7 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
                             filters=['0109', '0107', '0102', '0100', '0012'])
 
     # May send its own announcement *twice*, since it always spams us.
-    msgs2 = list(set(msgs2))
-    assert msgs == msgs2
+    assert set(msgs) == set(msgs2)
     # Won't have queued up another one, either.
     assert not l1.daemon.is_in_log('node_announcement: delaying')
 
@@ -1308,8 +1307,7 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
                             # channel_announcement and channel_updates.
                             # And pings.
                             filters=['0109', '0107', '0102', '0100', '0012'])
-    msgs2 = list(set(msgs2))
-    assert msgs != msgs2
+    assert set(msgs) != set(msgs2)
 
 
 def test_gossipwith(node_factory):
