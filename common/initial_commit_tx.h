@@ -68,7 +68,6 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
  * initial_commit_tx: create (unsigned) commitment tx to spend the funding tx output
  * @ctx: context to allocate transaction and @htlc_map from.
  * @funding, @funding_sats: funding outpoint and amount
- * @funding_wscript: scriptPubkey of the funding output
  * @funding_keys: funding bitcoin keys
  * @opener: is the LOCAL or REMOTE paying the fee?
  * @keyset: keys derived for this commit tx.
