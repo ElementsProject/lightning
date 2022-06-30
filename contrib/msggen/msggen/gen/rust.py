@@ -176,7 +176,7 @@ def gen_array(a):
     if a.required:
         defi = f"    #[serde(alias = \"{alias}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
     else:
-        defi = f"    #[serde(alias = \"{alias}\", skip_serializing_if = \"Option::is_none\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
+        defi = f"    #[serde(alias = \"{alias}\", skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
 
     return (defi, decl)
 
