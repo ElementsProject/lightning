@@ -1,7 +1,10 @@
+from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
+from pyln.testing import node_pb2 as nodepb
+from pyln.testing import node_pb2_grpc as nodegrpc
+from pyln.testing import primitives_pb2 as primitivespb
 from pyln.testing.utils import env, TEST_NETWORK, wait_for
-from ephemeral_port_reserve import reserve
 import grpc
 import pytest
 import subprocess
@@ -72,9 +75,6 @@ def test_plugin_start(node_factory):
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     # These only exist if we have rust!
-    from node_pb2_grpc import NodeStub  # noqa: E402
-    import node_pb2 as nodepb  # noqa: E402
-    from primitives_pb2 import AmountOrAny, Amount  # noqa: E402
 
     grpc_port = reserve()
     l1 = node_factory.get_node(options={"grpc-port": str(grpc_port)})
@@ -95,7 +95,7 @@ def test_grpc_connect(node_factory):
         creds,
         options=(('grpc.ssl_target_name_override', 'cln'),)
     )
-    stub = NodeStub(channel)
+    stub = nodegrpc.NodeStub(channel)
 
     response = stub.Getinfo(nodepb.GetinfoRequest())
     print(response)
@@ -104,7 +104,7 @@ def test_grpc_connect(node_factory):
     print(response)
 
     inv = stub.Invoice(nodepb.InvoiceRequest(
-        amount_msat=AmountOrAny(any=True),
+        amount_msat=primitivespb.AmountOrAny(any=True),
         description="hello",
         label="lbl1",
         preimage=b"\x00" * 32,
@@ -119,7 +119,7 @@ def test_grpc_connect(node_factory):
     with pytest.raises(Exception, match=r'Duplicate label'):
         # This request creates a label collision
         stub.Invoice(nodepb.InvoiceRequest(
-            amount_msat=AmountOrAny(amount=Amount(msat=12345)),
+            amount_msat=primitivespb.AmountOrAny(amount=primitivespb.Amount(msat=12345)),
             description="hello",
             label="lbl1",
         ))
@@ -181,8 +181,6 @@ def test_grpc_wrong_auth(node_factory):
     and then we try to cross the wires.
     """
     # These only exist if we have rust!
-    from node_pb2_grpc import NodeStub  # noqa: E402
-    import node_pb2 as nodepb  # noqa: E402
 
     grpc_port = reserve()
     l1, l2 = node_factory.get_nodes(2, opts={
@@ -210,7 +208,7 @@ def test_grpc_wrong_auth(node_factory):
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
-        return NodeStub(channel)
+        return nodegrpc.NodeStub(channel)
 
     stub = connect(l1)
     # This should work, it's the correct node
