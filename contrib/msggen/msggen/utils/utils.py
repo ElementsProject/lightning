@@ -112,7 +112,7 @@ def load_jsonrpc_service(schema_dir: str = None):
         # "waitblockheight",
         # "ListConfigs",
         # "check",  # No point in mapping this one
-        # "Stop",  # Breaks a core assumption (root is an object) can't map unless we change this
+        "Stop",
         # "notifications",  # No point in mapping this
         # "help",
     ]

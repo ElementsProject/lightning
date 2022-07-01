@@ -1466,4 +1466,36 @@ async fn sign_message(
 
 }
 
+async fn stop(
+    &self,
+    request: tonic::Request<pb::StopRequest>,
+) -> Result<tonic::Response<pb::StopResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::StopRequest = (&req).into();
+    debug!("Client asked for stop");
+    trace!("stop request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::Stop(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method Stop: {:?}", e)))?;
+    match result {
+        Response::Stop(r) => {
+           trace!("stop response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call Stop",
+                r
+            )
+        )),
+    }
+
+}
+
 }
