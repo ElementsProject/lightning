@@ -21,7 +21,7 @@
       "type": "boolean"
     },
     "minconf": {
-      "type": "number"
+      "type": "u32"
     },
     "push_msat": {
       "type": "msat"
