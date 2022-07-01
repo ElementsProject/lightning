@@ -1420,50 +1420,19 @@ static void handle_local_private_channel(struct subd *dualopend,
 struct channel_send {
 	const struct wally_tx *wtx;
 	struct channel *channel;
+	const char *err_msg;
 };
 
-static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
-			     bool success, const char *msg,
-			     struct channel_send *cs)
+static void handle_tx_broadcast(struct channel_send *cs)
 {
 	struct lightningd *ld = cs->channel->peer->ld;
-	struct channel *channel = cs->channel;
 	const struct wally_tx *wtx = cs->wtx;
+	struct channel *channel = cs->channel;
+	struct command *cmd = channel->openchannel_signed_cmd;
 	struct json_stream *response;
 	struct bitcoin_txid txid;
 	struct amount_sat unused;
 	int num_utxos;
-	struct command *cmd = channel->openchannel_signed_cmd;
-	channel->openchannel_signed_cmd = NULL;
-
-	if (!cmd && channel->opener == LOCAL)
-		log_unusual(channel->log,
-			    "No outstanding command for channel %s,"
-			    " funding sent was success? %d",
-			    type_to_string(tmpctx, struct channel_id,
-					   &channel->cid),
-			    success);
-
-	if (!success) {
-		if (cmd)
-			was_pending(command_fail(cmd,
-						 FUNDING_BROADCAST_FAIL,
-						 "Error broadcasting funding "
-						 "tx: %s. Unsent tx discarded "
-						 "%s.",
-						 msg,
-						 type_to_string(tmpctx,
-								struct wally_tx,
-								wtx)));
-		log_unusual(channel->log,
-			    "Error broadcasting funding "
-			    "tx: %s. Unsent tx discarded "
-			    "%s.",
-			    msg,
-			    type_to_string(tmpctx, struct wally_tx, wtx));
-		tal_free(cs);
-		return;
-	}
 
 	/* This might have spent UTXOs from our wallet */
 	num_utxos = wallet_extract_owned_outputs(ld->wallet,
@@ -1479,9 +1448,76 @@ static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
 		json_add_txid(response, "txid", &txid);
 		json_add_channel_id(response, "channel_id", &channel->cid);
 		was_pending(command_success(cmd, response));
+
+		cs->channel->openchannel_signed_cmd = NULL;
 	}
+}
+
+static void check_utxo_block(struct bitcoind *bitcoind UNUSED,
+			     const struct bitcoin_tx_output *txout,
+			     void *arg)
+{
+	struct channel_send *cs = arg;
+	struct command *cmd = cs->channel->openchannel_signed_cmd;
+	const struct wally_tx *wtx = cs->wtx;
+
+	/* note: if this tx has been included in a block *and spent*
+	 * then this will also fail... */
+	if (!txout) {
+		if (cmd) {
+			was_pending(command_fail(cmd,
+						 FUNDING_BROADCAST_FAIL,
+						 "Error broadcasting funding "
+						 "tx: %s. Unsent tx discarded "
+						 "%s.",
+						 cs->err_msg,
+						 type_to_string(tmpctx,
+								struct wally_tx,
+								wtx)));
+			cs->channel->openchannel_signed_cmd = NULL;
+		}
+
+		log_unusual(cs->channel->log,
+			    "Error broadcasting funding "
+			    "tx: %s. Unsent tx discarded "
+			    "%s.",
+			    cs->err_msg,
+			    type_to_string(tmpctx, struct wally_tx, wtx));
+	} else
+		handle_tx_broadcast(cs);
 
 	tal_free(cs);
+}
+
+static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
+			     bool success, const char *msg,
+			     struct channel_send *cs)
+{
+	struct lightningd *ld = cs->channel->peer->ld;
+	struct channel *channel = cs->channel;
+	struct command *cmd = channel->openchannel_signed_cmd;
+
+	if (!cmd && channel->opener == LOCAL)
+		log_unusual(channel->log,
+			    "No outstanding command for channel %s,"
+			    " funding sent was success? %d",
+			    type_to_string(tmpctx, struct channel_id,
+					   &channel->cid),
+			    success);
+
+	if (success) {
+		handle_tx_broadcast(cs);
+		tal_free(cs);
+	} else {
+		/* If the tx was mined into a block, it's possible
+		 * that the broadcast would fail. Verify that's not
+		 * the case here. */
+		cs->err_msg = tal_strdup(cs, msg);
+		bitcoind_getutxout(ld->topology->bitcoind,
+				   &channel->funding,
+				   check_utxo_block,
+				   cs);
+	}
 }
 
 
