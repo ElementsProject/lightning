@@ -1,13 +1,15 @@
 """A drop-in replacement for the JSON-RPC LightningRpc
 """
 
-from pyln.testing import node_pb2_grpc as pbgrpc
-from pyln.testing import node_pb2 as pb
-import grpc
-import json
-from google.protobuf.json_format import MessageToJson
-from pyln.testing import grpc2py
+import logging
+from binascii import unhexlify
+from typing import List, Optional, Tuple
 
+import grpc
+from pyln.testing import grpc2py
+from pyln.testing import node_pb2 as pb
+from pyln.testing import node_pb2_grpc as pbgrpc
+from pyln.testing import primitives_pb2 as primpb
 
 DUMMY_CA_PEM = b"""-----BEGIN CERTIFICATE-----
 MIIBcTCCARigAwIBAgIJAJhah1bqO05cMAoGCCqGSM49BAMCMBYxFDASBgNVBAMM
@@ -46,6 +48,26 @@ Hh6kK99RAiAKOQOkGnoAICjBmBJeC/iC4/+hhhkWZtFgbC3Jg5JD0w==
 -----END CERTIFICATE-----"""
 
 
+def int2msat(amount: int) -> primpb.Amount:
+    return primpb.Amount(msat=amount)
+
+
+def int2amount_or_all(amount: Tuple[int, str]) -> primpb.AmountOrAll:
+    if amount == "all":
+        return primpb.AmountOrAll(all=True)
+    else:
+        assert isinstance(amount, int)
+        return primpb.AmountOrAll(amount=int2msat(amount))
+
+
+def int2amount_or_any(amount: Tuple[int, str]) -> primpb.AmountOrAny:
+    if amount == "any":
+        return primpb.AmountOrAny(any=True)
+    else:
+        assert isinstance(amount, int)
+        return primpb.AmountOrAny(amount=int2msat(amount))
+
+
 class LightningGrpc(object):
     def __init__(
         self,
@@ -55,11 +77,13 @@ class LightningGrpc(object):
         private_key: bytes = DUMMY_CLIENT_KEY_PEM,
         certificate_chain: bytes = DUMMY_CLIENT_PEM,
     ):
+        self.logger = logging.getLogger("LightningGrpc")
         self.credentials = grpc.ssl_channel_credentials(
             root_certificates=root_certificates,
             private_key=private_key,
             certificate_chain=certificate_chain,
         )
+        self.logger.debug(f"Connecting to grpc interface at {host}:{port}")
         self.channel = grpc.secure_channel(
             f"{host}:{port}",
             self.credentials,
@@ -68,17 +92,131 @@ class LightningGrpc(object):
         self.stub = pbgrpc.NodeStub(self.channel)
 
     def getinfo(self):
-        return grpc2py.getinfo2py(
-            self.stub.Getinfo(pb.GetinfoRequest())
-        )
+        return grpc2py.getinfo2py(self.stub.Getinfo(pb.GetinfoRequest()))
 
     def connect(self, peer_id, host=None, port=None):
         """
         Connect to {peer_id} at {host} and {port}.
         """
-        payload = pb.ConnectRequest(
-            id=peer_id,
-            host=host,
-            port=port
-        )
+        payload = pb.ConnectRequest(id=peer_id, host=host, port=port)
         return grpc2py.connect2py(self.stub.ConnectPeer(payload))
+
+    def listpeers(self, peerid=None, level=None):
+        payload = pb.ListpeersRequest(
+            id=unhexlify(peerid) if peerid is not None else None,
+            level=level,
+        )
+        return grpc2py.listpeers2py(self.stub.ListPeers(payload))
+
+    def getpeer(self, peer_id, level=None):
+        """
+        Show peer with {peer_id}, if {level} is set, include {log}s.
+        """
+        res = self.listpeers(peer_id, level)
+        return res.get("peers") and res["peers"][0] or None
+
+    def newaddr(self, addresstype=None):
+        """Get a new address of type {addresstype} of the internal wallet."""
+        enum = {
+            None: 0,
+            "BECH32": 0,
+            "P2SH_SEGWIT": 1,
+            "P2SH-SEGWIT": 1,
+            "ALL": 2
+        }
+        if addresstype is not None:
+            addresstype = addresstype.upper()
+        atype = enum.get(addresstype, None)
+        if atype is None:
+            raise ValueError(
+                f"Unknown addresstype {addresstype}, known values are {enum.values()}"
+            )
+
+        payload = pb.NewaddrRequest(addresstype=atype)
+        res = grpc2py.newaddr2py(self.stub.NewAddr(payload))
+
+        # Need to remap the bloody spelling of p2sh-segwit to match
+        # addresstype.
+        if 'p2sh_segwit' in res:
+            res['p2sh-segwit'] = res['p2sh_segwit']
+            del res['p2sh_segwit']
+        return res
+
+    def listfunds(self, spent=None):
+        payload = pb.ListfundsRequest(spent=spent)
+        return grpc2py.listfunds2py(self.stub.ListFunds(payload))
+
+    def fundchannel(
+        self,
+        node_id: str,
+        amount: int,
+        # TODO map the following arguments
+        # feerate=None,
+        announce: Optional[bool] = True,
+        minconf: Optional[int] = None,
+        # utxos=None,
+        # push_msat=None,
+        close_to: Optional[str] = None,
+        # request_amt=None,
+        compact_lease: Optional[str] = None,
+    ):
+        payload = pb.FundchannelRequest(
+            id=unhexlify(node_id),
+            amount=int2amount_or_all(amount * 1000),  # This is satoshis after all
+            # TODO Parse and insert `feerate`
+            announce=announce,
+            utxos=None,
+            minconf=minconf,
+            close_to=close_to,
+            compact_lease=compact_lease,
+        )
+        return grpc2py.fundchannel2py(self.stub.FundChannel(payload))
+
+    def listchannels(self, short_channel_id=None, source=None, destination=None):
+        payload = pb.ListchannelsRequest(
+            short_channel_id=short_channel_id,
+            source=unhexlify(source) if source else None,
+            destination=unhexlify(destination) if destination else None,
+        )
+        return grpc2py.listchannels2py(self.stub.ListChannels(payload))
+
+    def pay(
+        self,
+        bolt11: str,
+        amount_msat: Optional[int] = None,
+        label: Optional[str] = None,
+        riskfactor: Optional[float] = None,
+        maxfeepercent: Optional[float] = None,
+        retry_for: Optional[int] = None,
+        maxdelay: Optional[int] = None,
+        exemptfee: Optional[int] = None,
+        localofferid: Optional[str] = None,
+        # TODO map the following arguments
+        # exclude: Optional[List[str]] = None,
+        # maxfee=None,
+        description: Optional[str] = None,
+        msatoshi: Optional[int] = None,
+    ):
+        payload = pb.PayRequest(
+            bolt11=bolt11,
+            amount_msat=int2msat(amount_msat),
+            label=label,
+            riskfactor=riskfactor,
+            maxfeepercent=maxfeepercent,
+            retry_for=retry_for,
+            maxdelay=maxdelay,
+            exemptfee=exemptfee,
+            localofferid=localofferid,
+            # Needs conversion
+            # exclude=exclude,
+            # maxfee=maxfee
+            description=description,
+        )
+        return grpc2py.pay2py(self.stub.Pay(payload))
+
+    def stop(self):
+        payload = pb.StopRequest()
+        try:
+            self.stub.Stop(payload)
+        except Exception:
+            pass
