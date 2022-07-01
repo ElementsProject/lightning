@@ -2681,7 +2681,7 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     # is much slower in VALGRIND mode and wait_for_log
     # could time out before lightningd processes all the
     # blocks.
-    blocks = 200
+    blocks = 50
     # opener
     l1 = node_factory.get_node()
     # peer
@@ -2690,14 +2690,16 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
 
     # Give opener some funds.
     l1.fundwallet(10**7)
-    # Let blocks settle.
-    time.sleep(1)
 
     def mock_sendrawtransaction(r):
         return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
 
+    def mock_donothing(r):
+        return {'id': r['id'], 'result': {'success': True}}
+
     # Prevent opener from broadcasting funding tx (any tx really).
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_donothing)
 
     # Fund the channel.
     # The process will complete, but opener will be unable
@@ -2709,7 +2711,8 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     bitcoind.generate_block(blocks)
 
     # fundee will forget channel!
-    l2.daemon.wait_for_log('Forgetting channel: It has been {} blocks'.format(blocks))
+    # (Note that we let the last number be anything (hence the {}\d)
+    l2.daemon.wait_for_log(r'Forgetting channel: It has been {}\d blocks'.format(str(blocks)[:-1]))
 
     # fundee will also forget and disconnect from peer.
     assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
