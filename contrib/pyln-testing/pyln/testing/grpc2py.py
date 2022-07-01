@@ -850,3 +850,8 @@ def signmessage2py(m):
         "recid": hexlify(m.recid),  # PrimitiveField in generate_composite
         "zbase": m.zbase,  # PrimitiveField in generate_composite
     })
+
+
+def stop2py(m):
+    return remove_default({
+    })

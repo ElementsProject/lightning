@@ -53,6 +53,7 @@ service Node {
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
+	rpc Stop(StopRequest) returns (StopResponse) {}
 }
 
 message GetinfoRequest {
@@ -1283,4 +1284,10 @@ message SignmessageResponse {
 	bytes signature = 1;
 	bytes recid = 2;
 	string zbase = 3;
+}
+
+message StopRequest {
+}
+
+message StopResponse {
 }

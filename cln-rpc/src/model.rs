@@ -61,6 +61,7 @@ pub enum Request {
 	ListPays(requests::ListpaysRequest),
 	Ping(requests::PingRequest),
 	SignMessage(requests::SignmessageRequest),
+	Stop(requests::StopRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -112,6 +113,7 @@ pub enum Response {
 	ListPays(responses::ListpaysResponse),
 	Ping(responses::PingResponse),
 	SignMessage(responses::SignmessageResponse),
+	Stop(responses::StopResponse),
 }
 
 pub mod requests {
@@ -823,6 +825,10 @@ pub mod requests {
 	pub struct SignmessageRequest {
 	    #[serde(alias = "message")]
 	    pub message: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct StopRequest {
 	}
 
 }
@@ -2743,6 +2749,10 @@ pub mod responses {
 	    pub recid: String,
 	    #[serde(alias = "zbase")]
 	    pub zbase: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct StopResponse {
 	}
 
 }

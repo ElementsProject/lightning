@@ -964,6 +964,14 @@ impl From<&responses::SignmessageResponse> for pb::SignmessageResponse {
 }
 
 #[allow(unused_variables)]
+impl From<&responses::StopResponse> for pb::StopResponse {
+    fn from(c: &responses::StopResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<&pb::GetinfoRequest> for requests::GetinfoRequest {
     fn from(c: &pb::GetinfoRequest) -> Self {
         Self {
@@ -1509,6 +1517,14 @@ impl From<&pb::SignmessageRequest> for requests::SignmessageRequest {
     fn from(c: &pb::SignmessageRequest) -> Self {
         Self {
             message: c.message.clone(), // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::StopRequest> for requests::StopRequest {
+    fn from(c: &pb::StopRequest) -> Self {
+        Self {
         }
     }
 }
