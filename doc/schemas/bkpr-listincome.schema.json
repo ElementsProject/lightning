@@ -44,6 +44,10 @@
             "type": "u32",
             "description": "Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp"
           },
+          "description": {
+            "type": "string",
+            "description": "More information about this event. If a `invoice` type, typically the bolt11/bolt12 description"
+          },
           "outpoint": {
             "type": "string",
             "description": "The txid:outnum for this event, if applicable"

@@ -36,7 +36,7 @@ ALL_C_SOURCES += $(BOOKKEEPER_SRC)
 ALL_C_HEADERS += $(BOOKKEEPER_HEADER)
 ALL_PROGRAMS += plugins/bookkeeper
 
-plugins/bookkeeper: common/coin_mvt.o $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJTS) $(CCAN_OBJS) $(PLUGIN_COMMON_OBJS) $(WIRE_OBJS) $(DB_OBJS)
+plugins/bookkeeper: common/bolt12.o common/bolt12_merkle.o $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJTS) $(CCAN_OBJS) $(PLUGIN_COMMON_OBJS) $(WIRE_OBJS) $(DB_OBJS)
 
 # The following files contain SQL-annotated statements that we need to extact
 BOOKKEEPER_SQL_FILES := 			\

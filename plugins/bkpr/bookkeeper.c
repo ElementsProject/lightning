@@ -2,7 +2,10 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
+#include <common/bolt11.h>
+#include <common/bolt12.h>
 #include <common/coin_mvt.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
@@ -624,6 +627,7 @@ static bool new_missed_channel_account(struct command *cmd,
 			chain_ev->payment_id = NULL;
 			chain_ev->ignored = false;
 			chain_ev->stealable = false;
+			chain_ev->desc = NULL;
 
 			/* Update the account info too */
 			tags = tal_arr(chain_ev, enum mvt_tag, 1);
@@ -799,7 +803,7 @@ static struct command_result *log_error(struct command *cmd,
 					void *arg UNNEEDED)
 {
 	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "error calling `listpeers`: %.*s",
+		   "error calling rpc: %.*s",
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
@@ -898,70 +902,6 @@ static char *do_account_close_checks(const tal_t *ctx,
 
 	return NULL;
 }
-
-struct event_info {
-	struct chain_event *ev;
-	struct account *acct;
-};
-
-static struct command_result *
-listpeers_done(struct command *cmd, const char *buf,
-	       const jsmntok_t *result, struct event_info *info)
-{
-	struct acct_balance **balances, *bal;
-	struct amount_msat credit_diff, debit_diff;
-	const char *err;
-	/* Make sure to clean up when we're done */
-	tal_steal(cmd, info);
-
-	if (new_missed_channel_account(cmd, buf, result,
-					info->acct,
-					info->ev->currency,
-					info->ev->timestamp)) {
-		db_begin_transaction(db);
-		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, false, &balances);
-		db_commit_transaction(db);
-
-		if (err)
-			plugin_err(cmd->plugin, err);
-
-		/* FIXME: multiple currencies per account? */
-		if (tal_count(balances) > 0)
-			bal = balances[0];
-		else {
-			bal = tal(balances, struct acct_balance);
-			bal->credit = AMOUNT_MSAT(0);
-			bal->debit = AMOUNT_MSAT(0);
-		}
-		assert(tal_count(balances) == 1);
-
-		/* The expected current balance is zero, since
-		 * we just got the channel close event */
-		err = msat_find_diff(AMOUNT_MSAT(0),
-				     bal->credit,
-				     bal->debit,
-				     &credit_diff, &debit_diff);
-		if (err)
-			plugin_err(cmd->plugin, err);
-
-		log_journal_entry(info->acct,
-				  info->ev->currency,
-				  info->ev->timestamp - 1,
-				  credit_diff, debit_diff);
-	} else
-		plugin_log(cmd->plugin, LOG_BROKEN,
-			   "Unable to find account %s in listpeers",
-			   info->acct->name);
-
-	/* Maybe mark acct as onchain resolved */
-	err = do_account_close_checks(cmd, info->ev, info->acct);
-	if (err)
-		plugin_err(cmd->plugin, err);
-
-	return notification_handled(cmd);
-}
-
 
 static struct command_result *json_balance_snapshot(struct command *cmd,
 						    const char *buf,
@@ -1146,6 +1086,232 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 }
 
 static struct command_result *
+listinvoice_done(struct command *cmd, const char *buf,
+		 const jsmntok_t *result, struct sha256 *payment_hash)
+{
+	size_t i;
+	const jsmntok_t *inv_arr_tok, *inv_tok;
+	const char *desc;
+	inv_arr_tok = json_get_member(buf, result, "invoices");
+	assert(inv_arr_tok->type == JSMN_ARRAY);
+
+	/* Did we find a matching entry? */
+	desc = NULL;
+	json_for_each_arr(i, inv_tok, inv_arr_tok) {
+		const char *err;
+
+		/* All i want is the "description" field */
+		err = json_scan(cmd, buf, inv_tok, "{description:%}",
+				JSON_SCAN_TAL(cmd, json_strdup, &desc));
+		if (err)
+			plugin_err(cmd->plugin,
+				   "failure scanning listinvoices"
+				   " result: %s (%.*s)", err,
+				   result->end - result->start, buf);
+
+		break;
+	}
+
+	db_begin_transaction(db);
+	maybe_add_payment_hash_desc(db, payment_hash, desc);
+	db_commit_transaction(db);
+
+	if (!desc)
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "unable to find invoice w/ payment_hash"
+			   " %s in listinvoices: %.*s",
+			   type_to_string(cmd, struct sha256,
+					  payment_hash),
+			   result->end - result->start, buf);
+
+	return notification_handled(cmd);
+}
+
+static struct command_result *
+listsendpays_done(struct command *cmd, const char *buf,
+		  const jsmntok_t *result, struct sha256 *payment_hash)
+{
+	size_t i;
+	const jsmntok_t *pays_arr_tok, *pays_tok;
+	const char *desc;
+	pays_arr_tok = json_get_member(buf, result, "payments");
+	assert(pays_arr_tok->type == JSMN_ARRAY);
+
+	/* Did we find a matching entry? */
+	desc = NULL;
+	json_for_each_arr(i, pays_tok, pays_arr_tok) {
+		const char *err;
+		char *bolt;
+
+		/* All i want is the "description" field */
+		err = json_scan(cmd, buf, pays_tok, "{bolt11:%}",
+				JSON_SCAN_TAL(cmd, json_strdup, &bolt));
+
+		/* It's a bolt11! Parse it out to a desc */
+		if (!err) {
+			struct bolt11 *bolt11;
+			u5 *sigdata;
+			struct sha256 hash;
+			bool have_n;
+			char *fail;
+
+			bolt11 = bolt11_decode_nosig(cmd, bolt,
+					       /* No desc/features/chain checks */
+					       NULL, NULL, NULL,
+					       &hash, &sigdata, &have_n,
+					       &fail);
+
+			if (bolt11) {
+				if (bolt11->description)
+					desc = tal_strdup(cmd, bolt11->description);
+				if (bolt11->description_hash)
+					desc = type_to_string(cmd,
+							      struct sha256,
+							      bolt11->description_hash);
+			} else
+				plugin_log(cmd->plugin, LOG_BROKEN,
+					   "failed to parse bolt11 for payment_hash %s: %s",
+					   type_to_string(tmpctx, struct sha256,
+							  payment_hash),
+					   fail);
+
+			break;
+		}
+
+		/* Otherwise check for a bolt12 */
+		err = json_scan(cmd, buf, pays_tok, "{bolt12:%}",
+				JSON_SCAN_TAL(cmd, json_strdup, &bolt));
+
+		/* It's a bolt12! Parse out a desc */
+		if (!err) {
+			struct tlv_invoice *bolt12;
+			char *fail;
+
+			bolt12 = invoice_decode_nosig(cmd, bolt, strlen(bolt),
+						      /* No features/chain checks */
+						      NULL, NULL,
+						      &fail);
+			if (bolt12 && bolt12->description)
+				desc = tal_strndup(cmd,
+					cast_signed(char *, bolt12->description),
+					tal_bytelen(bolt12->description));
+			else
+				plugin_log(cmd->plugin, LOG_BROKEN,
+					   "failed to parse bolt12 for payment_hash %s: %s (%s)",
+					   type_to_string(tmpctx, struct sha256,
+							  payment_hash),
+					   fail, bolt);
+
+			break;
+		}
+
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "listpays: bolt11/bolt12 not found:"
+			   "(%.*s)",
+			   result->end - result->start, buf);
+	}
+
+	db_begin_transaction(db);
+	maybe_add_payment_hash_desc(db, payment_hash, desc);
+	db_commit_transaction(db);
+
+	return notification_handled(cmd);
+}
+
+static struct command_result *lookup_invoice_desc(struct command *cmd,
+						  struct amount_msat credit,
+						  struct amount_msat debit,
+						  struct sha256 *payment_hash)
+{
+	struct out_req *req;
+
+	if (!amount_msat_zero(credit))
+		req = jsonrpc_request_start(cmd->plugin, cmd,
+					    "listinvoices",
+					    listinvoice_done,
+					    log_error,
+					    payment_hash);
+	else
+		req = jsonrpc_request_start(cmd->plugin, cmd,
+					    "listsendpays",
+					    listsendpays_done,
+					    log_error,
+					    payment_hash);
+
+	json_add_sha256(req->js, "payment_hash", payment_hash);
+	send_outreq(cmd->plugin, req);
+	return command_still_pending(cmd);
+}
+
+struct event_info {
+	struct chain_event *ev;
+	struct account *acct;
+};
+
+static struct command_result *
+listpeers_done(struct command *cmd, const char *buf,
+	       const jsmntok_t *result, struct event_info *info)
+{
+	struct acct_balance **balances, *bal;
+	struct amount_msat credit_diff, debit_diff;
+	const char *err;
+	/* Make sure to clean up when we're done */
+	tal_steal(cmd, info);
+
+	if (new_missed_channel_account(cmd, buf, result,
+					info->acct,
+					info->ev->currency,
+					info->ev->timestamp)) {
+		db_begin_transaction(db);
+		err = account_get_balance(tmpctx, db, info->acct->name,
+					  false, false, &balances);
+		db_commit_transaction(db);
+
+		if (err)
+			plugin_err(cmd->plugin, err);
+
+		/* FIXME: multiple currencies per account? */
+		if (tal_count(balances) > 0)
+			bal = balances[0];
+		else {
+			bal = tal(balances, struct acct_balance);
+			bal->credit = AMOUNT_MSAT(0);
+			bal->debit = AMOUNT_MSAT(0);
+		}
+		assert(tal_count(balances) == 1);
+
+		/* The expected current balance is zero, since
+		 * we just got the channel close event */
+		err = msat_find_diff(AMOUNT_MSAT(0),
+				     bal->credit,
+				     bal->debit,
+				     &credit_diff, &debit_diff);
+		if (err)
+			plugin_err(cmd->plugin, err);
+
+		log_journal_entry(info->acct,
+				  info->ev->currency,
+				  info->ev->timestamp - 1,
+				  credit_diff, debit_diff);
+	} else
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Unable to find account %s in listpeers",
+			   info->acct->name);
+
+	/* Maybe mark acct as onchain resolved */
+	err = do_account_close_checks(cmd, info->ev, info->acct);
+	if (err)
+		plugin_err(cmd->plugin, err);
+
+	if (info->ev->payment_id &&
+	    streq(info->ev->tag, mvt_tag_str(INVOICE)))
+		return lookup_invoice_desc(cmd, info->ev->credit,
+					   info->ev->debit,
+					   info->ev->payment_id);
+
+	return notification_handled(cmd);
+}
+static struct command_result *
 parse_and_log_chain_move(struct command *cmd,
 			 const char *buf,
 			 const jsmntok_t *params,
@@ -1154,7 +1320,8 @@ parse_and_log_chain_move(struct command *cmd,
 			 const struct amount_msat debit,
 			 const char *coin_type STEALS,
 			 const u64 timestamp,
-			 const enum mvt_tag *tags)
+			 const enum mvt_tag *tags,
+			 const char *desc)
 {
 	struct chain_event *e = tal(cmd, struct chain_event);
 	struct sha256 *payment_hash = tal(cmd, struct sha256);
@@ -1248,6 +1415,7 @@ parse_and_log_chain_move(struct command *cmd,
 	e->currency = tal_steal(e, coin_type);
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
+	e->desc = tal_steal(e, desc);
 
 	e->ignored = false;
 	e->stealable = false;
@@ -1255,7 +1423,6 @@ parse_and_log_chain_move(struct command *cmd,
 		e->ignored |= tags[i] == IGNORED;
 		e->stealable |= tags[i] == STEALABLE;
 	}
-
 
 	db_begin_transaction(db);
 	acct = find_account(cmd, db, acct_name);
@@ -1350,6 +1517,18 @@ parse_and_log_chain_move(struct command *cmd,
 	if (err)
 		plugin_err(cmd->plugin, err);
 
+	/* Check for invoice desc data, necessary */
+	if (e->payment_id) {
+		for (size_t i = 0; i < tal_count(tags); i++) {
+			if (tags[i] != INVOICE)
+				continue;
+
+			return lookup_invoice_desc(cmd, e->credit,
+						   e->debit,
+						   e->payment_id);
+		}
+	}
+
 	return notification_handled(cmd);;
 }
 
@@ -1362,7 +1541,8 @@ parse_and_log_channel_move(struct command *cmd,
 			   const struct amount_msat debit,
 			   const char *coin_type STEALS,
 			   const u64 timestamp,
-			   const enum mvt_tag *tags)
+			   const enum mvt_tag *tags,
+			   const char *desc)
 {
 	struct channel_event *e = tal(cmd, struct channel_event);
 	struct account *acct;
@@ -1398,6 +1578,7 @@ parse_and_log_channel_move(struct command *cmd,
 	e->currency = tal_steal(e, coin_type);
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
+	e->desc = tal_steal(e, desc);
 
 	/* Go find the account for this event */
 	db_begin_transaction(db);
@@ -1410,6 +1591,18 @@ parse_and_log_channel_move(struct command *cmd,
 
 	log_channel_event(db, acct, e);
 	db_commit_transaction(db);
+
+	/* Check for invoice desc data, necessary */
+	if (e->payment_id) {
+		for (size_t i = 0; i < tal_count(tags); i++) {
+			if (tags[i] != INVOICE)
+				continue;
+
+			return lookup_invoice_desc(cmd, e->credit,
+						   e->debit,
+						   e->payment_id);
+		}
+	}
 
 	return notification_handled(cmd);
 }
@@ -1435,9 +1628,9 @@ static char *parse_tags(const tal_t *ctx,
 	return NULL;
 }
 
-static struct command_result * json_coin_moved(struct command *cmd,
-					       const char *buf,
-					       const jsmntok_t *params)
+static struct command_result *json_coin_moved(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *params)
 {
 	const char *err, *mvt_type, *acct_name, *coin_type;
 	u32 version;
@@ -1491,13 +1684,15 @@ static struct command_result * json_coin_moved(struct command *cmd,
 	if (streq(mvt_type, CHAIN_MOVE))
 		return parse_and_log_chain_move(cmd, buf, params,
 					        acct_name, credit, debit,
-					        coin_type, timestamp, tags);
+					        coin_type, timestamp, tags,
+						NULL);
 
 
 	assert(streq(mvt_type, CHANNEL_MOVE));
 	return parse_and_log_channel_move(cmd, buf, params,
 					  acct_name, credit, debit,
-					  coin_type, timestamp, tags);
+					  coin_type, timestamp, tags,
+					  NULL);
 }
 
 const struct plugin_notification notifs[] = {

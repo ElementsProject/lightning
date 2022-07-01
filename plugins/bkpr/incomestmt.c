@@ -46,16 +46,13 @@ static struct income_event *chain_to_income(const tal_t *ctx,
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = tal_dup(inc, struct bitcoin_outpoint, &ev->outpoint);
 
-	if (ev->spending_txid)
-		inc->txid = tal_dup(inc, struct bitcoin_txid,
-				    ev->spending_txid);
+	if (ev->desc)
+		inc->desc = tal_strdup(inc, ev->desc);
 	else
-		inc->txid = NULL;
+		inc->desc = NULL;
 
-	if (ev->payment_id)
-		inc->payment_id = tal_dup(inc, struct sha256, ev->payment_id);
-	else
-		inc->payment_id = NULL;
+	inc->txid = tal_dup_or_null(inc, struct bitcoin_txid, ev->spending_txid);
+	inc->payment_id = tal_dup_or_null(inc, struct sha256, ev->payment_id);
 
 	return inc;
 }
@@ -75,10 +72,11 @@ static struct income_event *channel_to_income(const tal_t *ctx,
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = NULL;
 	inc->txid = NULL;
-	if (ev->payment_id)
-		inc->payment_id = tal_dup(inc, struct sha256, ev->payment_id);
+	if (ev->desc)
+		inc->desc = tal_strdup(inc, ev->desc);
 	else
-		inc->payment_id = NULL;
+		inc->desc = NULL;
+	inc->payment_id = tal_dup_or_null(inc, struct sha256, ev->payment_id);
 
 	return inc;
 }
@@ -98,6 +96,7 @@ static struct income_event *onchainfee_to_income(const tal_t *ctx,
 	inc->txid = tal_dup(inc, struct bitcoin_txid, &fee->txid);
 	inc->outpoint = NULL;
 	inc->payment_id = NULL;
+	inc->desc = NULL;
 
 	return inc;
 }
@@ -396,6 +395,9 @@ void json_add_income_event(struct json_stream *out, struct income_event *ev)
 	json_add_string(out, "currency", ev->currency);
 	json_add_u64(out, "timestamp", ev->timestamp);
 
+	if (ev->desc)
+		json_add_string(out, "description", ev->desc);
+
 	if (ev->outpoint)
 		json_add_outpoint(out, "outpoint", ev->outpoint);
 
@@ -569,7 +571,8 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	fprintf(csvf, ",");
 
 	/* Description */
-	fprintf(csvf, "%s: account %s", ev->tag, ev->acct_name);
+	if (ev->desc)
+		fprintf(csvf, "%s", ev->desc);
 	fprintf(csvf, ",");
 
 	/* TxHash */
@@ -708,8 +711,8 @@ static void harmony_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 				       ev->outpoint));
 	fprintf(csvf, ",");
 
-	/* ",Note"  account tag */
-	fprintf(csvf, "%s %s", ev->acct_name, ev->tag);
+	/* ",Note"  description (may be NULL) */
+	fprintf(csvf, "%s", ev->desc ? ev->desc : "");
 }
 
 static void quickbooks_header(FILE *csvf)
@@ -732,12 +735,17 @@ static void quickbooks_entry(const tal_t *ctx, FILE *csvf, struct income_event *
 	/* datefmt: dd/mm/yyyy */
 	char timebuf[sizeof("dd/mm/yyyy")];
 	strftime(timebuf, sizeof(timebuf), "%d/%m/%Y", gmtime(&tv));
+
+	/* New line! */
+	fprintf(csvf, "\n");
+
 	fprintf(csvf, "%s", timebuf);
 	fprintf(csvf, ",");
 
 	/* Description */
-	fprintf(csvf, "%s (%s) in %s",
-		ev->tag, ev->acct_name, ev->currency);
+	fprintf(csvf, "%s (%s) %s: %s",
+		ev->tag, ev->acct_name, ev->currency,
+		ev->desc ? ev->desc : "no desc");
 	fprintf(csvf, ",");
 
 	/* Credit */

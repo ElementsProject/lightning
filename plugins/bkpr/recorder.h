@@ -184,6 +184,14 @@ char *update_channel_onchain_fees(const tal_t *ctx,
  * The point of this is to allow us to prune data, eventually */
 void maybe_mark_account_onchain(struct db *db, struct account *acct);
 
+/* We fetch invoice desc data after the fact and then maybe update it
+ * Updates both the chain_event and channel_event tables for all
+ * matching payment_hashes
+ * */
+void maybe_add_payment_hash_desc(struct db *db,
+				 struct sha256 *payment_hash,
+				 const char *desc);
+
 /* When we make external deposits from the wallet, we don't
  * count them until any output that was spent *into* them is
  * confirmed onchain.

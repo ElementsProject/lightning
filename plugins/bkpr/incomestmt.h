@@ -8,6 +8,7 @@
 struct income_event {
 	char *acct_name;
 	char *tag;
+	char *desc;
 	struct amount_msat credit;
 	struct amount_msat debit;
 	char *currency;

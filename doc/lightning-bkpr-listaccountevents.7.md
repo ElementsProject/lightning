@@ -38,6 +38,7 @@ If **type** is "chain":
   - **origin** (string, optional): The account this movement originated from
   - **payment_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
   - **txid** (txid, optional): The txid of the transaction that created this event
+  - **description** (string, optional): The description of this event
 
 If **type** is "onchain_fee":
   - **txid** (txid): The txid of the transaction that created this event
@@ -65,4 +66,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:25c4f45bd0ce9d35c029bae5f93e167a2eed43de568f51893789d2d0c4030983)
+[comment]: # ( SHA256STAMP:257756c8483eb264327ab2239fe5e6ecb2faa09d17a2a9944097c86dd21a284a)

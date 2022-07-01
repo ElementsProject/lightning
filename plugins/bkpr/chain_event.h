@@ -59,6 +59,9 @@ struct chain_event {
 
 	/* Sometimes chain events resolve payments */
 	struct sha256 *payment_id;
+
+	/* Desc of event (maybe useful for printing notes) */
+	const char *desc;
 };
 
 void json_add_chain_event(struct json_stream *out,
