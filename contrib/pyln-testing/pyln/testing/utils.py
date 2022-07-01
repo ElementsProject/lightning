@@ -1047,7 +1047,7 @@ class LightningNode(object):
         }
 
         # sendpay is async now
-        self.rpc.sendpay([routestep], rhash, payment_secret=psecret)
+        self.rpc.sendpay([routestep], rhash, payment_secret=psecret, bolt11=inv['bolt11'])
         # wait for sendpay to comply
         result = self.rpc.waitsendpay(rhash)
         assert(result.get('status') == 'complete')
