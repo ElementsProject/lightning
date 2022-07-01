@@ -713,7 +713,7 @@ pub mod requests {
 	    #[serde(alias = "announce", skip_serializing_if = "Option::is_none")]
 	    pub announce: Option<bool>,
 	    #[serde(alias = "minconf", skip_serializing_if = "Option::is_none")]
-	    pub minconf: Option<f64>,
+	    pub minconf: Option<u32>,
 	    #[serde(alias = "push_msat", skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(alias = "close_to", skip_serializing_if = "Option::is_none")]

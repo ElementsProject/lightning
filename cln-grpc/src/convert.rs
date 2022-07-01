@@ -1453,7 +1453,7 @@ impl From<&pb::FundchannelRequest> for requests::FundchannelRequest {
             amount: c.amount.as_ref().unwrap().into(), // Rule #1 for type msat_or_all
             feerate: c.feerate.as_ref().map(|a| a.into()), // Rule #1 for type feerate?
             announce: c.announce.clone(), // Rule #1 for type boolean?
-            minconf: c.minconf.clone(), // Rule #1 for type number?
+            minconf: c.minconf.clone(), // Rule #1 for type u32?
             push_msat: c.push_msat.as_ref().map(|a| a.into()), // Rule #1 for type msat?
             close_to: c.close_to.clone(), // Rule #1 for type string?
             request_amt: c.request_amt.as_ref().map(|a| a.into()), // Rule #1 for type msat?

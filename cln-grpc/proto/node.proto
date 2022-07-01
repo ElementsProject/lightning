@@ -1145,7 +1145,7 @@ message FundchannelRequest {
 	AmountOrAll amount = 1;
 	optional Feerate feerate = 2;
 	optional bool announce = 3;
-	optional double minconf = 10;
+	optional uint32 minconf = 10;
 	optional Amount push_msat = 5;
 	optional string close_to = 6;
 	optional Amount request_amt = 7;
