@@ -5,6 +5,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
 use messages::Configuration;
+use options::ConfigOption;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -14,7 +15,6 @@ use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
-use options::ConfigOption;
 
 pub mod codec;
 pub mod logging;
@@ -24,7 +24,6 @@ mod messages;
 extern crate serde_json;
 
 pub mod options;
-
 
 /// Need to tell us about something that went wrong? Use this error
 /// type to do that. Use this alias to be safe from future changes in
@@ -329,16 +328,25 @@ where
         // Match up the ConfigOptions and fill in their values if we
         // have a matching entry.
         for opt in self.options.iter_mut() {
-            if let Some(val) = call.options.get(opt.name()) {
-                opt.value = Some(match (opt.default(), &val) {
-                    (OValue::String(_), JValue::String(s)) => OValue::String(s.clone()),
-                    (OValue::Integer(_), JValue::Number(n)) => OValue::Integer(n.as_i64().unwrap()),
-                    (OValue::Boolean(_), JValue::Bool(n)) => OValue::Boolean(*n),
+            let val = call.options.get(opt.name());
+            opt.value = match (&opt, &opt.default(), &val) {
+                (_, OValue::String(_), Some(JValue::String(s))) => Some(OValue::String(s.clone())),
+                (_, OValue::OptString, Some(JValue::String(s))) => Some(OValue::String(s.clone())),
+                (_, OValue::OptString, None) => None,
 
-                    // It's ok to panic, if we get here Core Lightning
-                    // has not enforced the option type.
-                    (_, _) => panic!("Mismatching types in options: {:?} != {:?}", opt, val),
-                });
+                (_, OValue::Integer(_), Some(JValue::Number(s))) => {
+                    Some(OValue::Integer(s.as_i64().unwrap()))
+                }
+                (_, OValue::OptInteger, Some(JValue::Number(s))) => {
+                    Some(OValue::Integer(s.as_i64().unwrap()))
+                }
+                (_, OValue::OptInteger, None) => None,
+
+                (_, OValue::Boolean(_), Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
+                (_, OValue::OptBoolean, Some(JValue::Bool(s))) => Some(OValue::Boolean(*s)),
+                (_, OValue::OptBoolean, None) => None,
+
+                (o, _, _) => panic!("Type mismatch for option {:?}", o),
             }
         }
 

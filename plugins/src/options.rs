@@ -1,11 +1,14 @@
 use serde::ser::{SerializeStruct, Serializer};
-use serde::{Serialize};
+use serde::Serialize;
 
 #[derive(Clone, Debug)]
 pub enum Value {
     String(String),
     Integer(i64),
     Boolean(bool),
+    OptString,
+    OptInteger,
+    OptBoolean,
 }
 
 /// An stringly typed option that is passed to
@@ -45,10 +48,18 @@ impl Serialize for ConfigOption {
                 s.serialize_field("type", "int")?;
                 s.serialize_field("default", i)?;
             }
-
             Value::Boolean(b) => {
                 s.serialize_field("type", "bool")?;
                 s.serialize_field("default", b)?;
+            }
+            Value::OptString => {
+                s.serialize_field("type", "string")?;
+            }
+            Value::OptInteger => {
+                s.serialize_field("type", "int")?;
+            }
+            Value::OptBoolean => {
+                s.serialize_field("type", "bool")?;
             }
         }
 
