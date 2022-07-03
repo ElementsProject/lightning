@@ -1065,8 +1065,7 @@ void json_add_literal(struct json_stream *result, const char *fieldname,
 {
 	/* Literal may contain quotes, so bypass normal checks */
 	char *dest = json_member_direct(result, fieldname, len);
-	if (dest)
-		memcpy(dest, literal, len);
+	memcpy(dest, literal, len);
 }
 
 void json_add_stringn(struct json_stream *result, const char *fieldname,
@@ -1100,12 +1099,10 @@ void json_add_hex(struct json_stream *js, const char *fieldname,
 	char *dest;
 
 	dest = json_member_direct(js, fieldname, 1 + hexlen + 1);
-	if (dest) {
-		dest[0] = '"';
-		if (!hex_encode(data, len, dest + 1, hexlen + 1))
-			abort();
-		dest[1+hexlen] = '"';
-	}
+	dest[0] = '"';
+	if (!hex_encode(data, len, dest + 1, hexlen + 1))
+		abort();
+	dest[1+hexlen] = '"';
 }
 
 void json_add_hex_talarr(struct json_stream *result,
@@ -1122,11 +1119,9 @@ void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 	char *dest = json_member_direct(result,	fieldname,
 					1 + strlen(esc->s) + 1);
 
-	if (dest) {
-		dest[0] = '"';
-		memcpy(dest + 1, esc->s, strlen(esc->s));
-		dest[1+strlen(esc->s)] = '"';
-	}
+	dest[0] = '"';
+	memcpy(dest + 1, esc->s, strlen(esc->s));
+	dest[1+strlen(esc->s)] = '"';
 	if (taken(esc))
 		tal_free(esc);
 }

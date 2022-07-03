@@ -11,7 +11,6 @@ struct io_conn;
 struct log;
 
 struct json_stream {
-	/* NULL if we ran OOM! */
 	struct json_out *jout;
 
 	/* Who is writing to this buffer now; NULL if nobody is. */
@@ -73,8 +72,6 @@ void json_object_start(struct json_stream *ks, const char *fieldname);
 void json_array_end(struct json_stream *js);
 /* '},' */
 void json_object_end(struct json_stream *js);
-/* ' },' */
-void json_object_compat_end(struct json_stream *js);
 
 /**
  * json_stream_append - literally insert this string into the json_stream.
@@ -117,7 +114,7 @@ void json_add_jsonstr(struct json_stream *js,
  * @fieldname: fieldname (if in object), otherwise must be NULL.
  * @extra: the space to reserve.
  *
- * Returns NULL if oom, otherwise returns a ptr to @extra bytes.
+ * Returns a ptr to @extra bytes.
  */
 char *json_member_direct(struct json_stream *js,
 			 const char *fieldname, size_t extra);

@@ -459,7 +459,7 @@ struct command_result *command_success(struct command *cmd,
 	assert(cmd);
 	assert(cmd->json_stream == result);
 	json_object_end(result);
-	json_object_compat_end(result);
+	json_object_end(result);
 
 	return command_raw_complete(cmd, result);
 }
@@ -470,7 +470,7 @@ struct command_result *command_failed(struct command *cmd,
 	assert(cmd->json_stream == result);
 	/* Have to close error */
 	json_object_end(result);
-	json_object_compat_end(result);
+	json_object_end(result);
 
 	return command_raw_complete(cmd, result);
 }
@@ -516,7 +516,7 @@ static void json_command_malformed(struct json_connection *jcon,
 	json_add_member(js, "code", false, "%" PRIerrcode, JSONRPC2_INVALID_REQUEST);
 	json_add_string(js, "message", error);
 	json_object_end(js);
-	json_object_compat_end(js);
+	json_object_end(js);
 
 	json_stream_close(js, NULL);
 }
@@ -748,13 +748,13 @@ static void rpc_command_hook_final(struct rpc_command_hook_payload *p STEALS)
 	if (p->custom_result != NULL) {
 		struct json_stream *s = json_start(p->cmd);
 		json_add_jsonstr(s, "result", p->custom_result);
-		json_object_compat_end(s);
+		json_object_end(s);
 		return was_pending(command_raw_complete(p->cmd, s));
 	}
 	if (p->custom_error != NULL) {
 		struct json_stream *s = json_start(p->cmd);
 		json_add_jsonstr(s, "error", p->custom_error);
-		json_object_compat_end(s);
+		json_object_end(s);
 		return was_pending(command_raw_complete(p->cmd, s));
 	}
 	if (p->custom_replace != NULL)

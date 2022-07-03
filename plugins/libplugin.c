@@ -177,7 +177,7 @@ const struct feature_set *plugin_feature_set(const struct plugin *p)
 
 static void jsonrpc_finish_and_send(struct plugin *p, struct json_stream *js)
 {
-	json_object_compat_end(js);
+	json_object_end(js);
 	json_stream_close(js, NULL);
 	ld_send(p, js);
 }
@@ -228,7 +228,7 @@ static struct command_result *command_complete(struct command *cmd,
 					       struct json_stream *result)
 {
 	/* Global object */
-	json_object_compat_end(result);
+	json_object_end(result);
 	json_stream_close(result, cmd);
 	ld_send(cmd->plugin, result);
 	tal_free(cmd);
@@ -571,7 +571,7 @@ send_outreq(struct plugin *plugin, const struct out_req *req)
 {
 	/* The "param" object. */
 	json_object_end(req->js);
-	json_object_compat_end(req->js);
+	json_object_end(req->js);
 	json_stream_close(req->js, req->cmd);
 
 	ld_rpc_send(plugin, req->js);
