@@ -4,7 +4,9 @@
 #include <common/ecdh.h>
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
+#include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
 #include <errno.h>
@@ -145,6 +147,47 @@ static struct command_result *json_getsharedsecret(struct command *cmd,
 	json_add_secret(response, "shared_secret", &ss);
 	return command_success(cmd, response);
 }
+
+static struct command_result *json_getsecret(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
+{
+	const char *info;
+	struct json_stream *response;
+	struct secret secret;
+
+	if (!param(cmd, buffer, params,
+		   p_req("info", param_string, &info),
+		   NULL))
+		return command_param_failed();
+
+	u8 *point = tal_dup_arr(cmd, u8, (u8*)info, strlen(info), 0);
+
+	u8 *msg = towire_hsmd_derive_secret(cmd, point);
+	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
+		return command_fail(cmd, LIGHTNINGD,
+                     "Could not write to HSM: %s", strerror(errno));
+
+
+	msg = wire_sync_read(tmpctx, cmd->ld->hsm_fd);
+	if (!fromwire_hsmd_derive_secret_reply(msg, &secret))
+		return command_fail(cmd, LIGHTNINGD,
+                     "Bad reply from HSM: %s", strerror(errno));
+
+
+	response = json_stream_success(cmd);
+	json_add_secret(response, "secret", &secret);
+	return command_success(cmd, response);
+}
+
+static const struct json_command getsecret_command = {
+	"makesecret",
+	"utility",
+	&json_getsecret,
+	"Get a pseudorandom secret key, using an info string."
+};
+AUTODATA(json_command, &getsecret_command);
 
 static const struct json_command getsharedsecret_command = {
 	"getsharedsecret",
