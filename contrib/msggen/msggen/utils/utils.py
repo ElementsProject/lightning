@@ -93,7 +93,6 @@ def load_jsonrpc_service(schema_dir: str = None):
         # "funderupdate",
         # "getlog",
         "GetRoute",
-        # "getsharedsecret",
         "ListForwards",
         # "listoffers",
         "ListPays",

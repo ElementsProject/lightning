@@ -33,7 +33,6 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-funderupdate.7 \
 	doc/lightning-fundpsbt.7 \
 	doc/lightning-getroute.7 \
-	doc/lightning-getsharedsecret.7 \
 	doc/lightning-hsmtool.8 \
 	doc/lightning-invoice.7 \
 	doc/lightning-keysend.7 \

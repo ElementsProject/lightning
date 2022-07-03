@@ -58,7 +58,6 @@ Core Lightning Documentation
    lightning-getinfo <lightning-getinfo.7.md>
    lightning-getlog <lightning-getlog.7.md>
    lightning-getroute <lightning-getroute.7.md>
-   lightning-getsharedsecret <lightning-getsharedsecret.7.md>
    lightning-help <lightning-help.7.md>
    lightning-hsmtool <lightning-hsmtool.8.md>
    lightning-invoice <lightning-invoice.7.md>
