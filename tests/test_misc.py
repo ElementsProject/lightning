@@ -1569,8 +1569,10 @@ def test_check_command(node_factory):
     with pytest.raises(RpcError, match=r'missing required parameter'):
         l1.rpc.check(command_to_check='connect', host='x', port=77)
     # Makes sure parameter types are correct.
-    with pytest.raises(RpcError, match=r'should be an integer'):
-        l1.rpc.check(command_to_check='connect', id='test', host='x', port="abcd")
+    with pytest.raises(RpcError, match=r'should be a 16-bit integer'):
+        l1.rpc.check(command_to_check='connect',
+                     id='022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                     host='x', port="abcd")
 
     # FIXME: python wrapper doesn't let us test array params.
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
