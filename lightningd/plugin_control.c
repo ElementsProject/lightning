@@ -34,6 +34,7 @@ static struct command_result *plugin_dynamic_list_plugins(struct plugin_command 
 		json_add_string(response, "name", p->cmd);
 		json_add_bool(response, "active",
 		              p->plugin_state == INIT_COMPLETE);
+		json_add_bool(response, "dynamic", p->dynamic);
 		json_object_end(response);
 	}
 	json_array_end(response);

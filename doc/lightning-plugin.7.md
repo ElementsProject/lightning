@@ -56,6 +56,7 @@ If **command** is "start", "startdir", "rescan" or "list":
   - **plugins** (array of objects):
     - **name** (string): full pathname of the plugin
     - **active** (boolean): status; plugin completed init and is operational, plugins are configured asynchronously.
+    - **dynamic** (boolean): plugin can be stopped or started without restarting lightningd
 
 If **command** is "stop":
   - **result** (string): A message saying it successfully stopped
@@ -80,4 +81,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [writing plugins]: PLUGINS.md
-[comment]: # ( SHA256STAMP:ee9c974be30d7870cb6a7785956548700b95d2d6b3fe4f18f7757afdfa015553)
+[comment]: # ( SHA256STAMP:5c3b25ecb137bfe7a81f80f0b4183a9e1282530ebfac3b1bc05fc5406f59cfc7)

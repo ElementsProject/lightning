@@ -48,7 +48,8 @@
               "additionalProperties": false,
               "required": [
                 "name",
-                "active"
+                "active",
+                "dynamic"
               ],
               "properties": {
                 "name": {
@@ -58,6 +59,10 @@
                 "active": {
                   "type": "boolean",
                   "description": "status; plugin completed init and is operational, plugins are configured asynchronously."
+                },
+                "dynamic": {
+                  "type": "boolean",
+                  "description": "plugin can be stopped or started without restarting lightningd"
                 }
               }
             }
