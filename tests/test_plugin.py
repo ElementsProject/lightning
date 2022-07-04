@@ -2539,17 +2539,18 @@ def test_commando(node_factory, executor):
     with pytest.raises(concurrent.futures.TimeoutError):
         fut.result(10)
 
-    l1.rpc.commando_rune()
-
+    rune = l1.rpc.commando_rune()['rune']
     # This works
     res = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
+                               'rune': rune,
                                'method': 'listpeers'})
     assert len(res['peers']) == 1
     assert res['peers'][0]['id'] == l2.info['id']
 
     res = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
+                               'rune': rune,
                                'method': 'listpeers',
                                'params': {'id': l2.info['id']}})
     assert len(res['peers']) == 1
@@ -2558,16 +2559,19 @@ def test_commando(node_factory, executor):
     with pytest.raises(RpcError, match='missing required parameter'):
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
+                             'rune': rune,
                              'method': 'withdraw'})
 
     with pytest.raises(RpcError, match='unknown parameter: foobar'):
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
                              'method': 'invoice',
+                             'rune': rune,
                              'params': {'foobar': 1}})
 
     ret = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
+                               'rune': rune,
                                'method': 'ping',
                                'params': {'id': l2.info['id']}})
     assert 'totlen' in ret
@@ -2575,6 +2579,7 @@ def test_commando(node_factory, executor):
     # Now, reply will go over a multiple messages!
     ret = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
+                               'rune': rune,
                                'method': 'getlog',
                                'params': {'level': 'io'}})
 
@@ -2583,6 +2588,7 @@ def test_commando(node_factory, executor):
     # Command will go over multiple messages.
     ret = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
+                               'rune': rune,
                                'method': 'invoice',
                                'params': {'amount_msat': 'any',
                                           'label': 'label',
@@ -2595,6 +2601,7 @@ def test_commando(node_factory, executor):
     with pytest.raises(RpcError, match='No connection to first peer found') as exc_info:
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
+                             'rune': rune,
                              'method': 'sendpay',
                              'params': {'route': [{'amount_msat': 1000,
                                                    'id': l1.info['id'],
@@ -2635,3 +2642,62 @@ def test_commando_rune(node_factory):
     rune5 = l1.rpc.commando_rune(rune4['rune'], "pnamelevel!|pnamelevel/io")
     assert rune5['rune'] == 'Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
     assert rune5['unique_id'] == '3'
+
+    # Replace rune3 with a more useful timestamp!
+    expiry = int(time.time()) + 15
+    rune3 = l1.rpc.commando_rune(restrictions="time<{}".format(expiry))
+    successes = ((rune1, "listpeers", {}),
+                 (rune2, "listpeers", {}),
+                 (rune2, "getinfo", {}),
+                 (rune2, "getinfo", {}),
+                 (rune3, "getinfo", {}),
+                 (rune4, "listpeers", {}),
+                 (rune5, "listpeers", {'id': l2.info['id']}),
+                 (rune5, "listpeers", {'id': l2.info['id'], 'level': 'broken'}))
+    failures = ((rune2, "withdraw", {}),
+                (rune2, "plugin", {'subcommand': 'list'}),
+                (rune3, "getinfo", {}),
+                (rune4, "listnodes", {}),
+                (rune5, "listpeers", {'id': l2.info['id'], 'level': 'io'}))
+
+    for rune, cmd, params in successes:
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': rune['rune'],
+                             'method': cmd,
+                             'params': params})
+
+    while time.time() < expiry:
+        time.sleep(1)
+
+    for rune, cmd, params in failures:
+        print("{} {}".format(cmd, params))
+        with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+            l2.rpc.call(method='commando',
+                        payload={'peer_id': l1.info['id'],
+                                 'rune': rune['rune'],
+                                 'method': cmd,
+                                 'params': params})
+        assert exc_info.value.error['code'] == 0x4c51
+
+    # rune5 can only be used by l2:
+    l3 = node_factory.get_node()
+    l3.connect(l1)
+    with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+        l3.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': rune5['rune'],
+                             'method': "listpeers",
+                             'params': {}})
+    assert exc_info.value.error['code'] == 0x4c51
+        
+    # Remote doesn't allow array parameters.
+    l2.rpc.check_request_schemas = False
+    with pytest.raises(RpcError, match='Params must be object') as exc_info:
+            l2.rpc.call(method='commando',
+                        payload={'peer_id': l1.info['id'],
+                                 'rune': rune5['rune'],
+                                 'method': "listpeers",
+                                 'params': [l2.info['id'], 'io']})
+    assert exc_info.value.error['code'] == 0x4c50
+    l2.rpc.check_request_schemas = True
