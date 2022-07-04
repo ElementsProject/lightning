@@ -38,7 +38,7 @@ being run:
 RESTRICTION FORMAT
 ------------------
 
-Restrictions are one or more altneratives, separated by `|`.  Each
+Restrictions are one or more alternatives, separated by `|`.  Each
 alternative is *name* *operator* *value*.  The valid names are shown
 above.  If a value contains `|`, `&` or `\\`, it must be preceeded by
 a `\\`.
