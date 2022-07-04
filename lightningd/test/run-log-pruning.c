@@ -32,12 +32,6 @@ void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 			 const char *fieldname UNNEEDED,
 			 const tal_t *data UNNEEDED)
 { fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
-/* Generated stub for json_add_member */
-void json_add_member(struct json_stream *js UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     bool quote UNNEEDED,
-		     const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "json_add_member called!\n"); abort(); }
 /* Generated stub for json_add_node_id */
 void json_add_node_id(struct json_stream *response UNNEEDED,
 				const char *fieldname UNNEEDED,
@@ -47,6 +41,11 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_str_fmt */
+void json_add_str_fmt(struct json_stream *js UNNEEDED,
+		      const char *fieldname UNNEEDED,
+		      const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "json_add_str_fmt called!\n"); abort(); }
 /* Generated stub for json_add_string */
 void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value TAKES UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }

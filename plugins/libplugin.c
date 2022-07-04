@@ -208,7 +208,7 @@ struct json_stream *jsonrpc_stream_fail(struct command *cmd,
 	struct json_stream *js = jsonrpc_stream_start(cmd);
 
 	json_object_start(js, "error");
-	json_add_member(js, "code", false, "%d", code);
+	json_add_primitive_fmt(js, "code", "%d", code);
 	json_add_string(js, "message", err);
 
 	return js;

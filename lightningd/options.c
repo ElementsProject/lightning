@@ -1563,8 +1563,7 @@ static void add_config(struct lightningd *ld,
 			    || (!streq(buf, "") && strspn(buf, "0123456789.") == strlen(buf))) {
 				/* Let pure numbers and true/false through as
 				 * literals. */
-				json_add_literal(response, name0,
-						 buf, strlen(buf));
+				json_add_primitive(response, name0, buf);
 				return;
 			}
 

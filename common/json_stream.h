@@ -107,19 +107,50 @@ void json_object_end(struct json_stream *js);
 void json_stream_append(struct json_stream *js, const char *str, size_t len);
 
 /**
- * json_add_member - add a generic member.
+ * json_add_primitive_fmt - add an unquoted literal member.
  * @js: the json_stream.
  * @fieldname: fieldname (if in object), otherwise must be NULL.
- * @quote: true if should be escaped and wrapped in "".
  * @fmt...: the printf-style format
- *
- * The resulting string from @fmt is escaped if quote is true:
- * see json_member_direct to avoid quoting.
  */
-void json_add_member(struct json_stream *js,
+void json_add_primitive_fmt(struct json_stream *js,
+			    const char *fieldname,
+			    const char *fmt, ...) PRINTF_FMT(3,4);
+
+/**
+ * json_add_primitive - add an unquoted literal member.
+ * @js: the json_stream.
+ * @fieldname: fieldname (if in object), otherwise must be NULL.
+ * @val: the primitive
+ */
+void json_add_primitive(struct json_stream *js,
+			const char *fieldname,
+			const char *val TAKES);
+
+/**
+ * json_add_str_fmt - add a string member (printf-style).
+ * @js: the json_stream.
+ * @fieldname: fieldname (if in object), otherwise must be NULL.
+ * @fmt...: the printf-style format
+ */
+void json_add_str_fmt(struct json_stream *js,
+		      const char *fieldname,
+		      const char *fmt, ...) PRINTF_FMT(3,4);
+
+/**
+ * json_add_string - add a string member.
+ * @js: the json_stream.
+ * @fieldname: fieldname (if in object), otherwise must be NULL.
+ * @str: the string
+ */
+void json_add_string(struct json_stream *js,
 		     const char *fieldname,
-		     bool quote,
-		     const char *fmt, ...) PRINTF_FMT(4,5);
+		     const char *str TAKES);
+
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  String must
+ * already be JSON escaped as necessary. */
+void json_add_escaped_string(struct json_stream *result,
+			     const char *fieldname,
+			     const struct json_escape *esc TAKES);
 
 /**
  * json_add_jsonstr - add a JSON entity in a string that is already
@@ -132,17 +163,6 @@ void json_add_member(struct json_stream *js,
 void json_add_jsonstr(struct json_stream *js,
 		      const char *fieldname,
 		      const char *jsonstr);
-
-/**
- * json_member_direct - start a generic member.
- * @js: the json_stream.
- * @fieldname: fieldname (if in object), otherwise must be NULL.
- * @extra: the space to reserve.
- *
- * Returns a ptr to @extra bytes.
- */
-char *json_member_direct(struct json_stream *js,
-			 const char *fieldname, size_t extra);
 
 /**
  * json_stream_output - start writing out a json_stream to this conn.

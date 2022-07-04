@@ -634,7 +634,7 @@ static struct command_result *convert_currency(struct command *cmd,
 	json_add_stringn(req->js, "currency",
 			 (const char *)ir->offer->currency,
 			 tal_bytelen(ir->offer->currency));
-	json_add_member(req->js, "amount", false, "%f", double_amount);
+	json_add_primitive_fmt(req->js, "amount", "%f", double_amount);
 	return send_outreq(cmd->plugin, req);
 }
 
