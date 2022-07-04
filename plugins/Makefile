@@ -13,6 +13,9 @@ PLUGIN_TXPREPARE_OBJS := $(PLUGIN_TXPREPARE_SRC:.c=.o)
 PLUGIN_BCLI_SRC := plugins/bcli.c
 PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:.c=.o)
 
+PLUGIN_COMMANDO_SRC := plugins/commando.c
+PLUGIN_COMMANDO_OBJS := $(PLUGIN_COMMANDO_SRC:.c=.o)
+
 PLUGIN_KEYSEND_SRC := plugins/keysend.c
 PLUGIN_KEYSEND_OBJS := $(PLUGIN_KEYSEND_SRC:.c=.o)
 
@@ -56,6 +59,7 @@ PLUGIN_FUNDER_OBJS := $(PLUGIN_FUNDER_SRC:.c=.o)
 PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_AUTOCLEAN_SRC)			\
 	$(PLUGIN_BCLI_SRC)			\
+	$(PLUGIN_COMMANDO_SRC)			\
 	$(PLUGIN_FETCHINVOICE_SRC)		\
 	$(PLUGIN_FUNDER_SRC)			\
 	$(PLUGIN_TOPOLOGY_SRC)			\
@@ -78,6 +82,7 @@ PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 C_PLUGINS :=					\
 	plugins/autoclean			\
 	plugins/bcli				\
+	plugins/commando			\
 	plugins/fetchinvoice			\
 	plugins/funder				\
 	plugins/topology			\
@@ -159,6 +164,8 @@ $(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER)
 plugins/pay: bitcoin/chainparams.o $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossmap.o common/fp16.o common/route.o common/dijkstra.o common/bolt12.o common/bolt12_merkle.o wire/bolt12$(EXP)_wiregen.o bitcoin/block.o
 
 plugins/autoclean: bitcoin/chainparams.o $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+
+plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) bitcoin/chainparams.o 
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
