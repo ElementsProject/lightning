@@ -1,6 +1,6 @@
 #include "config.h"
 #include <common/bolt11.h>
-#include <common/json_helpers.h>
+#include <common/json_parse.h>
 #include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <lightningd/channel.h>

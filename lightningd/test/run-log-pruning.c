@@ -27,6 +27,11 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
+/* Generated stub for json_add_hex_talarr */
+void json_add_hex_talarr(struct json_stream *result UNNEEDED,
+			 const char *fieldname UNNEEDED,
+			 const tal_t *data UNNEEDED)
+{ fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
 /* Generated stub for json_add_member */
 void json_add_member(struct json_stream *js UNNEEDED,
 		     const char *fieldname UNNEEDED,
@@ -38,16 +43,23 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 				const char *fieldname UNNEEDED,
 				const struct node_id *id UNNEEDED)
 { fprintf(stderr, "json_add_node_id called!\n"); abort(); }
+/* Generated stub for json_add_num */
+void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  unsigned int value UNNEEDED)
+{ fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_string */
+void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value TAKES UNNEEDED)
+{ fprintf(stderr, "json_add_string called!\n"); abort(); }
+/* Generated stub for json_add_time */
+void json_add_time(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+			  struct timespec ts UNNEEDED)
+{ fprintf(stderr, "json_add_time called!\n"); abort(); }
 /* Generated stub for json_array_end */
 void json_array_end(struct json_stream *js UNNEEDED)
 { fprintf(stderr, "json_array_end called!\n"); abort(); }
 /* Generated stub for json_array_start */
 void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_member_direct */
-char *json_member_direct(struct json_stream *js UNNEEDED,
-			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
-{ fprintf(stderr, "json_member_direct called!\n"); abort(); }
 /* Generated stub for json_object_end */
 void json_object_end(struct json_stream *js UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }

@@ -12,9 +12,7 @@
 #include <common/fee_states.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
-#include <common/param.h>
+#include <common/json_param.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>

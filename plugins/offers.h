@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_PLUGINS_OFFERS_H
 #define LIGHTNING_PLUGINS_OFFERS_H
 #include "config.h"
-#include <common/json.h>
 
 struct command_result;
 struct command;

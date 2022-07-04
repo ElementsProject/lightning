@@ -4,11 +4,36 @@
 #ifndef LIGHTNING_COMMON_JSON_STREAM_H
 #define LIGHTNING_COMMON_JSON_STREAM_H
 #include "config.h"
+
+#define JSMN_STRICT 1
+# include <external/jsmn/jsmn.h>
+
+#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <ccan/time/time.h>
+#include <common/amount.h>
+#include <common/errcode.h>
 
 struct command;
 struct io_conn;
 struct log;
+struct json_escape;
+struct pubkey;
+struct point32;
+struct bip340sig;
+struct secret;
+struct node_id;
+struct channel_id;
+struct bitcoin_txid;
+struct bitcoin_outpoint;
+struct short_channel_id;
+struct sha256;
+struct preimage;
+struct bitcoin_tx;
+struct wally_psbt;
+struct lease_rates;
+struct wireaddr;
+struct wireaddr_internal;
 
 struct json_stream {
 	struct json_out *jout;
@@ -146,4 +171,196 @@ struct io_plan *json_stream_output_(struct json_stream *js,
 void json_stream_double_cr(struct json_stream *js);
 void json_stream_flush(struct json_stream *js);
 
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
+ * any non-printable chars into JSON escapes, but leaves existing escapes alone.
+ */
+void json_add_string(struct json_stream *result, const char *fieldname, const char *value);
+
+/* '"fieldname" : "value[:value_len]"' or '"value[:value_len]"' if
+ * fieldname is NULL.  Turns any non-printable chars into JSON
+ * escapes, but leaves existing escapes alone.
+ */
+void json_add_stringn(struct json_stream *result, const char *fieldname,
+		      const char *value TAKES, size_t value_len);
+
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  String must
+ * already be JSON escaped as necessary. */
+void json_add_escaped_string(struct json_stream *result,
+			     const char *fieldname,
+			     const struct json_escape *esc TAKES);
+
+/* '"fieldname" : literal' or 'literal' if fieldname is NULL*/
+void json_add_literal(struct json_stream *result, const char *fieldname,
+		      const char *literal, int len);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_num(struct json_stream *result, const char *fieldname,
+		  unsigned int value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_u64(struct json_stream *result, const char *fieldname,
+		  uint64_t value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_s64(struct json_stream *result, const char *fieldname,
+		  int64_t value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_u32(struct json_stream *result, const char *fieldname,
+		  uint32_t value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_s32(struct json_stream *result, const char *fieldname,
+		  int32_t value);
+/* '"fieldname" : true|false' or 'true|false' if fieldname is NULL */
+void json_add_bool(struct json_stream *result, const char *fieldname,
+		   bool value);
+
+/* '"fieldname" : null' or 'null' if fieldname is NULL */
+void json_add_null(struct json_stream *stream, const char *fieldname);
+
+/* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
+void json_add_hex(struct json_stream *result, const char *fieldname,
+		  const void *data, size_t len);
+/* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
+void json_add_hex_talarr(struct json_stream *result,
+			 const char *fieldname,
+			 const tal_t *data);
+
+void json_add_timeabs(struct json_stream *result, const char *fieldname,
+		      struct timeabs t);
+
+/* used in log.c and notification.c*/
+void json_add_time(struct json_stream *result, const char *fieldname,
+			  struct timespec ts);
+
+/* Add ISO_8601 timestamp string, i.e. "2019-09-07T15:50+01:00" */
+void json_add_timeiso(struct json_stream *result,
+		      const char *fieldname,
+		      struct timeabs *time);
+
+/* Add any json token */
+void json_add_tok(struct json_stream *result, const char *fieldname,
+                  const jsmntok_t *tok, const char *buffer);
+
+/* Add an error code */
+void json_add_errcode(struct json_stream *result, const char *fieldname,
+		      errcode_t code);
+
+/* Add "bolt11" or "bolt12" field, depending on invstring. */
+void json_add_invstring(struct json_stream *result, const char *invstring);
+
+/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
+void json_add_pubkey(struct json_stream *response,
+		     const char *fieldname,
+		     const struct pubkey *key);
+
+/* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
+void json_add_point32(struct json_stream *response,
+		       const char *fieldname,
+		       const struct point32 *key);
+
+/* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
+void json_add_bip340sig(struct json_stream *response,
+			const char *fieldname,
+			const struct bip340sig *sig);
+
+/* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
+void json_add_secret(struct json_stream *response,
+		     const char *fieldname,
+		     const struct secret *secret);
+
+/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
+void json_add_node_id(struct json_stream *response,
+				const char *fieldname,
+				const struct node_id *id);
+
+/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
+void json_add_channel_id(struct json_stream *response,
+			 const char *fieldname,
+			 const struct channel_id *cid);
+
+/* '"fieldname" : <hexrev>' or "<hexrev>" if fieldname is NULL */
+void json_add_txid(struct json_stream *result, const char *fieldname,
+		   const struct bitcoin_txid *txid);
+
+/* '"fieldname" : "txid:n" */
+void json_add_outpoint(struct json_stream *result, const char *fieldname,
+		       const struct bitcoin_outpoint *out);
+
+/* '"fieldname" : "1234:5:6"' */
+void json_add_short_channel_id(struct json_stream *response,
+			       const char *fieldname,
+			       const struct short_channel_id *id);
+
+/* JSON serialize a network address for a node */
+void json_add_address(struct json_stream *response, const char *fieldname,
+		      const struct wireaddr *addr);
+
+/* JSON serialize a network address for a node. */
+void json_add_address_internal(struct json_stream *response,
+			       const char *fieldname,
+			       const struct wireaddr_internal *addr);
+
+/* Adds both a 'raw' number field and an 'amount_msat' field */
+void json_add_amount_msat_compat(struct json_stream *result,
+				 struct amount_msat msat,
+				 const char *rawfieldname,
+				 const char *msatfieldname)
+	NO_NULL_ARGS;
+
+/* Adds both a 'raw' number field and an 'amount_msat' field */
+void json_add_amount_sat_compat(struct json_stream *result,
+				struct amount_sat sat,
+				const char *rawfieldname,
+				const char *msatfieldname)
+	NO_NULL_ARGS;
+
+/* Adds an 'msat' field */
+void json_add_amount_msat_only(struct json_stream *result,
+			  const char *msatfieldname,
+			  struct amount_msat msat)
+	NO_NULL_ARGS;
+
+/* Adds an 'msat' field */
+void json_add_amount_sat_only(struct json_stream *result,
+			 const char *msatfieldname,
+			 struct amount_sat sat)
+	NO_NULL_ARGS;
+
+/* Adds an 'msat' field */
+void json_add_amount_sat_msat(struct json_stream *result,
+			      const char *msatfieldname,
+			      struct amount_sat sat)
+	NO_NULL_ARGS;
+
+/* Adds an 'msat' field, and an older deprecated field. */
+void json_add_amount_sats_deprecated(struct json_stream *result,
+				     const char *fieldname,
+				     const char *msatfieldname,
+				     struct amount_sat sat)
+	NO_NULL_ARGS;
+
+/* This is used to create requests, *never* for output (output is always
+ * msat!) */
+void json_add_sats(struct json_stream *result,
+		   const char *fieldname,
+		   struct amount_sat sat)
+	NO_NULL_ARGS;
+
+void json_add_sha256(struct json_stream *result, const char *fieldname,
+		     const struct sha256 *hash);
+
+void json_add_preimage(struct json_stream *result, const char *fieldname,
+		     const struct preimage *preimage);
+
+/* '"fieldname" : "010000000001..."' or "010000000001..." if fieldname is NULL */
+void json_add_tx(struct json_stream *result,
+		 const char *fieldname,
+		 const struct bitcoin_tx *tx);
+
+/* '"fieldname" : "cHNidP8BAJoCAAAAAljo..." or "cHNidP8BAJoCAAAAAljo..." if fieldname is NULL */
+void json_add_psbt(struct json_stream *stream,
+		   const char *fieldname,
+		   const struct wally_psbt *psbt);
+
+/* Add fields from the lease_rates to a json stream.
+ * Note that field names are set */
+void json_add_lease_rates(struct json_stream *result,
+			  const struct lease_rates *rates);
 #endif /* LIGHTNING_COMMON_JSON_STREAM_H */

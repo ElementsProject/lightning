@@ -10,8 +10,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
 #include <common/gossmap.h>
+#include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>

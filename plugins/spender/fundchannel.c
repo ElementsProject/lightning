@@ -1,7 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/json_tok.h>
 #include <plugins/spender/fundchannel.h>
 
 static struct command_result *

@@ -1,6 +1,5 @@
 #include "config.h"
 #include <common/configdir.h>
-#include <common/json_helpers.h>
 #include <common/type_to_string.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>

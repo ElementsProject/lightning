@@ -20,11 +20,9 @@
 #include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
+#include <common/json_param.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
-#include <common/param.h>
 #include <common/scb_wiregen.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>

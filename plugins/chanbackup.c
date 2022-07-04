@@ -8,9 +8,8 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/hsm_encryption.h>
-#include <common/json.h>
+#include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/json_tok.h>
 #include <common/scb_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>

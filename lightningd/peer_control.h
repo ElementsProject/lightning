@@ -6,7 +6,7 @@
 #include <ccan/list/list.h>
 #include <common/channel_config.h>
 #include <common/htlc.h>
-#include <common/json.h>
+#include <common/json_parse.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
 #include <wallet/wallet.h>

@@ -331,23 +331,38 @@ void json_add_amount_sat_msat(struct json_stream *result UNNEEDED,
 void json_add_bolt11(struct json_stream *response UNNEEDED,
 		     const struct bolt11 *b11 UNNEEDED)
 { fprintf(stderr, "json_add_bolt11 called!\n"); abort(); }
+/* Generated stub for json_add_bool */
+void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		   bool value UNNEEDED)
+{ fprintf(stderr, "json_add_bool called!\n"); abort(); }
+/* Generated stub for json_add_escaped_string */
+void json_add_escaped_string(struct json_stream *result UNNEEDED,
+			     const char *fieldname UNNEEDED,
+			     const struct json_escape *esc TAKES UNNEEDED)
+{ fprintf(stderr, "json_add_escaped_string called!\n"); abort(); }
+/* Generated stub for json_add_hex_talarr */
+void json_add_hex_talarr(struct json_stream *result UNNEEDED,
+			 const char *fieldname UNNEEDED,
+			 const tal_t *data UNNEEDED)
+{ fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
+/* Generated stub for json_add_invstring */
+void json_add_invstring(struct json_stream *result UNNEEDED, const char *invstring UNNEEDED)
+{ fprintf(stderr, "json_add_invstring called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
 		  const struct log_book *lr UNNEEDED,
 		  const struct node_id *node_id UNNEEDED,
 		  enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
-/* Generated stub for json_add_member */
-void json_add_member(struct json_stream *js UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     bool quote UNNEEDED,
-		     const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "json_add_member called!\n"); abort(); }
 /* Generated stub for json_add_node_id */
 void json_add_node_id(struct json_stream *response UNNEEDED,
 				const char *fieldname UNNEEDED,
 				const struct node_id *id UNNEEDED)
 { fprintf(stderr, "json_add_node_id called!\n"); abort(); }
+/* Generated stub for json_add_num */
+void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  unsigned int value UNNEEDED)
+{ fprintf(stderr, "json_add_num called!\n"); abort(); }
 /* Generated stub for json_add_preimage */
 void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct preimage *preimage UNNEEDED)
@@ -366,6 +381,18 @@ void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
 			       const struct short_channel_id *id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_add_string */
+void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value TAKES UNNEEDED)
+{ fprintf(stderr, "json_add_string called!\n"); abort(); }
+/* Generated stub for json_add_stringn */
+void json_add_stringn(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		      const char *value TAKES UNNEEDED, size_t value_len UNNEEDED)
+{ fprintf(stderr, "json_add_stringn called!\n"); abort(); }
+/* Generated stub for json_add_timeiso */
+void json_add_timeiso(struct json_stream *result UNNEEDED,
+		      const char *fieldname UNNEEDED,
+		      struct timeabs *time UNNEEDED)
+{ fprintf(stderr, "json_add_timeiso called!\n"); abort(); }
 /* Generated stub for json_add_tx */
 void json_add_tx(struct json_stream *result UNNEEDED,
 		 const char *fieldname UNNEEDED,
@@ -375,6 +402,14 @@ void json_add_tx(struct json_stream *result UNNEEDED,
 void json_add_txid(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "json_add_txid called!\n"); abort(); }
+/* Generated stub for json_add_u32 */
+void json_add_u32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  uint32_t value UNNEEDED)
+{ fprintf(stderr, "json_add_u32 called!\n"); abort(); }
+/* Generated stub for json_add_u64 */
+void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
+		  uint64_t value UNNEEDED)
+{ fprintf(stderr, "json_add_u64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
 void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED)
@@ -389,16 +424,19 @@ void json_array_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_member_direct */
-char *json_member_direct(struct json_stream *js UNNEEDED,
-			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
-{ fprintf(stderr, "json_member_direct called!\n"); abort(); }
 /* Generated stub for json_object_end */
 void json_object_end(struct json_stream *js UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }
 /* Generated stub for json_object_start */
 void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for json_scan */
+const char *json_scan(const tal_t *ctx UNNEEDED,
+		      const char *buffer UNNEEDED,
+		      const jsmntok_t *tok UNNEEDED,
+		      const char *guide UNNEEDED,
+		      ...)
+{ fprintf(stderr, "json_scan called!\n"); abort(); }
 /* Generated stub for json_stream_fail */
 struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
 				     errcode_t code UNNEEDED,
@@ -421,10 +459,21 @@ bool json_to_msat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
 { fprintf(stderr, "json_to_node_id called!\n"); abort(); }
+/* Generated stub for json_to_number */
+bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		    unsigned int *num UNNEEDED)
+{ fprintf(stderr, "json_to_number called!\n"); abort(); }
 /* Generated stub for json_to_short_channel_id */
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_to_u16 */
+bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+                 uint16_t *num UNNEEDED)
+{ fprintf(stderr, "json_to_u16 called!\n"); abort(); }
+/* Generated stub for json_tok_bin_from_hex */
+u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
 /* Generated stub for json_tok_channel_id */
 bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			 struct channel_id *cid UNNEEDED)

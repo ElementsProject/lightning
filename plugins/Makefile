@@ -134,14 +134,13 @@ PLUGIN_COMMON_OBJS :=				\
 	common/daemon.o				\
 	common/features.o			\
 	common/hash_u5.o			\
-	common/json.o				\
-	common/json_helpers.o			\
+	common/json_param.o			\
+	common/json_parse.o			\
+	common/json_parse_simple.o		\
 	common/json_stream.o			\
-	common/json_tok.o			\
 	common/lease_rates.o			\
 	common/memleak.o			\
 	common/node_id.o			\
-	common/param.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\

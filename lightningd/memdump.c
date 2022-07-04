@@ -4,8 +4,8 @@
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
+#include <common/json_param.h>
 #include <common/memleak.h>
-#include <common/param.h>
 #include <common/timeout.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>

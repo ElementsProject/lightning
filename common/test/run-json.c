@@ -1,5 +1,6 @@
 #include "config.h"
-#include "../json_helpers.c"
+#include "../json_parse.c"
+#include "../json_parse_simple.c"
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>

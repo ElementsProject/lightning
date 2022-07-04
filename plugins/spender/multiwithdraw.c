@@ -4,8 +4,8 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
+#include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/json_tok.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>

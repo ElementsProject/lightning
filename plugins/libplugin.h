@@ -3,6 +3,7 @@
 #define LIGHTNING_PLUGINS_LIBPLUGIN_H
 #include "config.h"
 
+#include <bitcoin/tx.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/membuf/membuf.h>
 #include <ccan/strmap/strmap.h>
@@ -11,12 +12,9 @@
 #include <common/errcode.h>
 #include <common/features.h>
 #include <common/htlc.h>
-#include <common/json.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/node_id.h>
-#include <common/param.h>
 #include <common/status_levels.h>
 #include <common/utils.h>
 

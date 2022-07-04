@@ -2,10 +2,9 @@
 #include <ccan/cast/cast.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
+#include <common/json_param.h>
+#include <common/json_stream.h>
 #include <common/memleak.h>
-#include <common/param.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>

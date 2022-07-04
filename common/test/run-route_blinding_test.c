@@ -7,8 +7,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/channel_id.h>
-#include <common/json.h>
-#include <common/json_helpers.h>
+#include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/setup.h>
 #include <common/wireaddr.h>
@@ -21,9 +20,6 @@ bool amount_asset_is_main(struct amount_asset *asset UNNEEDED)
 /* Generated stub for amount_asset_to_sat */
 struct amount_sat amount_asset_to_sat(struct amount_asset *asset UNNEEDED)
 { fprintf(stderr, "amount_asset_to_sat called!\n"); abort(); }
-/* Generated stub for amount_msat */
-struct amount_msat amount_msat(u64 millisatoshis UNNEEDED)
-{ fprintf(stderr, "amount_msat called!\n"); abort(); }
 /* Generated stub for amount_sat */
 struct amount_sat amount_sat(u64 satoshis UNNEEDED)
 { fprintf(stderr, "amount_sat called!\n"); abort(); }
@@ -53,17 +49,6 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat UNNEEDED, const u
 /* Generated stub for amount_tx_fee */
 struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 { fprintf(stderr, "amount_tx_fee called!\n"); abort(); }
-/* Generated stub for deprecated_apis */
-bool deprecated_apis;
-/* Generated stub for fmt_amount_msat */
-const char *fmt_amount_msat(const tal_t *ctx UNNEEDED, struct amount_msat msat UNNEEDED)
-{ fprintf(stderr, "fmt_amount_msat called!\n"); abort(); }
-/* Generated stub for fmt_amount_sat */
-const char *fmt_amount_sat(const tal_t *ctx UNNEEDED, struct amount_sat sat UNNEEDED)
-{ fprintf(stderr, "fmt_amount_sat called!\n"); abort(); }
-/* Generated stub for fmt_wireaddr_without_port */
-char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
-{ fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
 /* Generated stub for fromwire_amount_msat */
 struct amount_msat fromwire_amount_msat(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_amount_msat called!\n"); abort(); }
@@ -77,31 +62,34 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
-/* Generated stub for json_add_member */
-void json_add_member(struct json_stream *js UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     bool quote UNNEEDED,
-		     const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "json_add_member called!\n"); abort(); }
-/* Generated stub for json_member_direct */
-char *json_member_direct(struct json_stream *js UNNEEDED,
-			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
-{ fprintf(stderr, "json_member_direct called!\n"); abort(); }
-/* Generated stub for json_object_end */
-void json_object_end(struct json_stream *js UNNEEDED)
-{ fprintf(stderr, "json_object_end called!\n"); abort(); }
-/* Generated stub for json_object_start */
-void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
-{ fprintf(stderr, "json_object_start called!\n"); abort(); }
-/* Generated stub for node_id_from_hexstr */
-bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct node_id *id UNNEEDED)
-{ fprintf(stderr, "node_id_from_hexstr called!\n"); abort(); }
-/* Generated stub for parse_amount_msat */
-bool parse_amount_msat(struct amount_msat *msat UNNEEDED, const char *s UNNEEDED, size_t slen UNNEEDED)
-{ fprintf(stderr, "parse_amount_msat called!\n"); abort(); }
-/* Generated stub for parse_amount_sat */
-bool parse_amount_sat(struct amount_sat *sat UNNEEDED, const char *s UNNEEDED, size_t slen UNNEEDED)
-{ fprintf(stderr, "parse_amount_sat called!\n"); abort(); }
+/* Generated stub for json_get_member */
+const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
+				 const char *label UNNEEDED)
+{ fprintf(stderr, "json_get_member called!\n"); abort(); }
+/* Generated stub for json_next */
+const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_next called!\n"); abort(); }
+/* Generated stub for json_to_pubkey */
+bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		    struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
+/* Generated stub for json_to_secret */
+bool json_to_secret(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct secret *dest UNNEEDED)
+{ fprintf(stderr, "json_to_secret called!\n"); abort(); }
+/* Generated stub for json_to_short_channel_id */
+bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			      struct short_channel_id *scid UNNEEDED)
+{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_tok_bin_from_hex */
+u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
+/* Generated stub for json_tok_startswith */
+bool json_tok_startswith(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			 const char *prefix UNNEEDED)
+{ fprintf(stderr, "json_tok_startswith called!\n"); abort(); }
+/* Generated stub for json_tok_streq */
+bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
+{ fprintf(stderr, "json_tok_streq called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }

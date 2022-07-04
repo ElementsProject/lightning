@@ -6,7 +6,6 @@
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
-#include <common/json_helpers.h>
 #include <common/json_stream.h>
 
 static void json_add_fallback(struct json_stream *response,

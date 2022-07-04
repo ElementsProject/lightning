@@ -101,17 +101,16 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/keyset.o				\
-	common/json.o				\
-	common/json_helpers.o			\
+	common/json_param.o			\
+	common/json_parse.o			\
+	common/json_parse_simple.o		\
 	common/json_stream.o			\
-	common/json_tok.o			\
 	common/lease_rates.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
 	common/onion.o				\
 	common/onionreply.o			\
-	common/param.o				\
 	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\

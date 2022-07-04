@@ -2,7 +2,7 @@
 #include "../amount.c"
 #include "../bigsize.c"
 #include "../bolt12_merkle.c"
-#include "../json.c"
+#include "../json_parse.c"
 #include "../../wire/fromwire.c"
 #include "../../wire/tlvstream.c"
 #if EXPERIMENTAL_FEATURES
@@ -28,16 +28,47 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 /* Generated stub for fromwire_onionmsg_path */
 struct onionmsg_path *fromwire_onionmsg_path(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
 { fprintf(stderr, "fromwire_onionmsg_path called!\n"); abort(); }
-/* Generated stub for json_add_member */
-void json_add_member(struct json_stream *js UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     bool quote UNNEEDED,
-		     const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "json_add_member called!\n"); abort(); }
-/* Generated stub for json_member_direct */
-char *json_member_direct(struct json_stream *js UNNEEDED,
-			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
-{ fprintf(stderr, "json_member_direct called!\n"); abort(); }
+/* Generated stub for json_get_arr */
+const jsmntok_t *json_get_arr(const jsmntok_t tok[] UNNEEDED, size_t index UNNEEDED)
+{ fprintf(stderr, "json_get_arr called!\n"); abort(); }
+/* Generated stub for json_get_member */
+const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
+				 const char *label UNNEEDED)
+{ fprintf(stderr, "json_get_member called!\n"); abort(); }
+/* Generated stub for json_get_membern */
+const jsmntok_t *json_get_membern(const char *buffer UNNEEDED,
+				  const jsmntok_t tok[] UNNEEDED,
+				  const char *label UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_get_membern called!\n"); abort(); }
+/* Generated stub for json_next */
+const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_next called!\n"); abort(); }
+/* Generated stub for json_strdup */
+char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_strdup called!\n"); abort(); }
+/* Generated stub for json_to_u32 */
+bool json_to_u32(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		 uint32_t *num UNNEEDED)
+{ fprintf(stderr, "json_to_u32 called!\n"); abort(); }
+/* Generated stub for json_to_u64 */
+bool json_to_u64(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		 uint64_t *num UNNEEDED)
+{ fprintf(stderr, "json_to_u64 called!\n"); abort(); }
+/* Generated stub for json_tok_full */
+const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEEDED)
+{ fprintf(stderr, "json_tok_full called!\n"); abort(); }
+/* Generated stub for json_tok_full_len */
+int json_tok_full_len(const jsmntok_t *t UNNEEDED)
+{ fprintf(stderr, "json_tok_full_len called!\n"); abort(); }
+/* Generated stub for json_tok_streq */
+bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
+{ fprintf(stderr, "json_tok_streq called!\n"); abort(); }
+/* Generated stub for mvt_tag_str */
+const char *mvt_tag_str(enum mvt_tag tag UNNEEDED)
+{ fprintf(stderr, "mvt_tag_str called!\n"); abort(); }
+/* Generated stub for node_id_from_hexstr */
+bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct node_id *id UNNEEDED)
+{ fprintf(stderr, "node_id_from_hexstr called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
