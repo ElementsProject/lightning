@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
+#include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
@@ -36,6 +37,8 @@ struct commando {
 static struct plugin *plugin;
 static struct commando **outgoing_commands;
 static struct commando **incoming_commands;
+static u64 *rune_counter;
+static struct rune *master_rune;
 
 /* NULL peer: don't care about peer.  NULL id: don't care about id */
 static struct commando *find_commando(struct commando **arr,
@@ -258,6 +261,8 @@ static void handle_incmd(struct node_id *peer,
 			 bool terminal)
 {
 	struct commando *incmd;
+
+	/* FIXME: don't do *anything* unless they've set up a rune. */
 
 	incmd = find_commando(incoming_commands, peer, NULL);
 	/* Don't let them buffer multiple commands: discard old. */
@@ -517,18 +522,40 @@ static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
 	memleak_remove_region(memtable, outgoing_commands, tal_bytelen(outgoing_commands));
 	memleak_remove_region(memtable, incoming_commands, tal_bytelen(incoming_commands));
+	if (rune_counter)
+		memleak_remove_region(memtable, rune_counter, sizeof(*rune_counter));
 }
 #endif
 
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
+	struct secret rune_secret;
+
 	outgoing_commands = tal_arr(p, struct commando *, 0);
 	incoming_commands = tal_arr(p, struct commando *, 0);
 	plugin = p;
 #if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark_globals);
 #endif
+
+	rune_counter = tal(p, u64);
+	if (!rpc_scan_datastore_str(plugin, "commando/rune_counter",
+				    JSON_SCAN(json_to_u64, rune_counter)))
+		rune_counter = tal_free(rune_counter);
+
+	/* Old python commando used to store secret */
+	if (!rpc_scan_datastore_hex(plugin, "commando/secret",
+				    JSON_SCAN(json_to_secret, &rune_secret))) {
+		rpc_scan(plugin, "makesecret",
+			 take(json_out_obj(NULL, "info", "commando")),
+			 "{secret:%}",
+			 JSON_SCAN(json_to_secret, &rune_secret));
+	}
+
+	master_rune = rune_new(plugin, rune_secret.data, ARRAY_SIZE(rune_secret.data),
+			       NULL);
+
 	return NULL;
 }
 
