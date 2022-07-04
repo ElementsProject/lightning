@@ -399,7 +399,7 @@ static void sendpay_failure_notification_serialize(struct json_stream *stream,
 
 	/* In line with the format of json error returned
 	 * by sendpay_fail(). */
-	json_add_member(stream, "code", false, "%" PRIerrcode, pay_errcode);
+	json_add_errcode(stream, "code", pay_errcode);
 	json_add_string(stream, "message", errmsg);
 
 	json_object_start(stream, "data");

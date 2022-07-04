@@ -506,9 +506,9 @@ static void json_command_malformed(struct json_connection *jcon,
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_literal(js, "id", id, strlen(id));
+	json_add_primitive(js, "id", id);
 	json_object_start(js, "error");
-	json_add_member(js, "code", false, "%" PRIerrcode, JSONRPC2_INVALID_REQUEST);
+	json_add_errcode(js, "code", JSONRPC2_INVALID_REQUEST);
 	json_add_string(js, "message", error);
 	json_object_end(js);
 	json_object_end(js);
@@ -578,7 +578,7 @@ static struct json_stream *json_start(struct command *cmd)
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_literal(js, "id", cmd->id, strlen(cmd->id));
+	json_add_jsonstr(js, "id", cmd->id);
 	return js;
 }
 
@@ -598,7 +598,7 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 	assert(code);
 
 	json_object_start(js, "error");
-	json_add_member(js, "code", false, "%" PRIerrcode, code);
+	json_add_errcode(js, "code", code);
 	json_add_string(js, "message", errmsg);
 
 	return js;
