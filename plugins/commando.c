@@ -262,7 +262,8 @@ static void handle_incmd(struct node_id *peer,
 {
 	struct commando *incmd;
 
-	/* FIXME: don't do *anything* unless they've set up a rune. */
+	if (!rune_counter)
+		return;
 
 	incmd = find_commando(incoming_commands, peer, NULL);
 	/* Don't let them buffer multiple commands: discard old. */
