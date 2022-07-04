@@ -3214,10 +3214,13 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 1000000, False)
 
-    l2.rpc.close(l1.info['id'], unilateraltimeout=5)
+    fut = executor.submit(l2.rpc.close, l1.info['id'])
 
     # l2 will send warning unilaterally when it dislikes shutdown script.
     l1.daemon.wait_for_log(r'WARNING.*scriptpubkey .* is not as agreed upfront \(00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8\)')
+
+    l2.rpc.close(l1.info['id'], unilateraltimeout=1)
+    fut.result(TIMEOUT)
 
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: [c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']] == ['ONCHAIN', 'ONCHAIN'])
