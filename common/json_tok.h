@@ -114,17 +114,6 @@ struct command_result *param_short_channel_id(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct short_channel_id **scid);
 
-/*
- * Set the address of @out to @tok.  Used as a callback by handlers that
- * want to unmarshal @tok themselves.
- *
- * Usage of this is discouraged.  Writing a local static bespoke handler is
- * preferred.
- */
-struct command_result *param_tok(struct command *cmd, const char *name,
-				 const char *buffer, const jsmntok_t * tok,
-				 const jsmntok_t **out);
-
 /* Ignore the token.  Not usually used. */
 struct command_result *param_ignore(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
