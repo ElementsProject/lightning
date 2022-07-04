@@ -15,7 +15,9 @@
 #define COMMANDO_ERROR_REMOTE_AUTH 0x4c51
 
 enum commando_msgtype {
-	COMMANDO_MSG_CMD = 0x4c4f,
+	/* Requests are split across multiple CONTINUES, then TERM. */
+	COMMANDO_MSG_CMD_CONTINUES = 0x4c4d,
+	COMMANDO_MSG_CMD_TERM = 0x4c4f,
 	/* Replies are split across multiple CONTINUES, then TERM. */
 	COMMANDO_MSG_REPLY_CONTINUES = 0x594b,
 	COMMANDO_MSG_REPLY_TERM = 0x594d,
@@ -32,6 +34,7 @@ struct commando {
 
 static struct plugin *plugin;
 static struct commando **outgoing_commands;
+static struct commando **incoming_commands;
 
 /* NULL peer: don't care about peer.  NULL id: don't care about id */
 static struct commando *find_commando(struct commando **arr,
@@ -248,6 +251,43 @@ static void try_command(struct node_id *peer,
 	send_outreq(plugin, req);
 }
 
+static void handle_incmd(struct node_id *peer,
+			 u64 idnum,
+			 const u8 *msg, size_t msglen,
+			 bool terminal)
+{
+	struct commando *incmd;
+
+	incmd = find_commando(incoming_commands, peer, NULL);
+	/* Don't let them buffer multiple commands: discard old. */
+	if (incmd && incmd->id != idnum)
+		incmd = tal_free(incmd);
+
+	if (!incmd) {
+		incmd = tal(plugin, struct commando);
+		incmd->id = idnum;
+		incmd->cmd = NULL;
+		incmd->peer = *peer;
+		incmd->contents = tal_arr(incmd, u8, 0);
+		tal_arr_expand(&incoming_commands, incmd);
+		tal_add_destructor2(incmd, destroy_commando, &incoming_commands);
+	}
+
+	/* 1MB should be enough for anybody! */
+	append_contents(incmd, msg, msglen, 1024*1024);
+
+	if (!terminal)
+		return;
+
+	if (!incmd->contents) {
+		plugin_log(plugin, LOG_UNUSUAL, "%s: ignoring oversize request",
+			   node_id_to_hexstr(tmpctx, peer));
+		return;
+	}
+
+	try_command(peer, idnum, incmd->contents, tal_bytelen(incmd->contents));
+}
+
 static struct command_result *handle_reply(struct node_id *peer,
 					   u64 idnum,
 					   const u8 *msg, size_t msglen,
@@ -343,8 +383,10 @@ static struct command_result *handle_custommsg(struct command *cmd,
 
 	if (msg) {
 		switch (mtype) {
-		case COMMANDO_MSG_CMD:
-			try_command(&peer, idnum, msg, len);
+		case COMMANDO_MSG_CMD_CONTINUES:
+		case COMMANDO_MSG_CMD_TERM:
+			handle_incmd(&peer, idnum, msg, len,
+				     mtype == COMMANDO_MSG_CMD_TERM);
 			break;
 		case COMMANDO_MSG_REPLY_CONTINUES:
 		case COMMANDO_MSG_REPLY_TERM:
@@ -364,14 +406,31 @@ static const struct plugin_hook hooks[] = {
 	},
 };
 
-static struct command_result *send_success(struct command *command,
-					   const char *buf,
-					   const jsmntok_t *result,
-					   struct commando *incoming)
-{
-	return command_still_pending(command);
-}
+struct outgoing {
+	struct node_id peer;
+	size_t msg_off;
+	u8 **msgs;
+};
 
+static struct command_result *send_more_cmd(struct command *cmd,
+					    const char *buf UNUSED,
+					    const jsmntok_t *result UNUSED,
+					    struct outgoing *outgoing)
+{
+	struct out_req *req;
+
+	if (outgoing->msg_off == tal_count(outgoing->msgs)) {
+		tal_free(outgoing);
+		return command_still_pending(cmd);
+	}
+
+	req = jsonrpc_request_start(plugin, cmd, "sendcustommsg",
+				    send_more_cmd, forward_error, outgoing);
+	json_add_node_id(req->js, "node_id", &outgoing->peer);
+	json_add_hex_talarr(req->js, "msg", outgoing->msgs[outgoing->msg_off++]);
+
+	return send_outreq(plugin, req);
+}
 
 static struct command_result *json_commando(struct command *cmd,
 					    const char *buffer,
@@ -381,9 +440,9 @@ static struct command_result *json_commando(struct command *cmd,
 	const char *method, *cparams;
 	const char *rune;
 	struct commando	*ocmd;
-	struct out_req *req;
-	u8 *cmd_msg;
+	struct outgoing *outgoing;
 	char *json;
+	size_t jsonlen;
 
 	if (!param(cmd, buffer, params,
 		   p_req("peer_id", param_node_id, &peer),
@@ -415,23 +474,39 @@ static struct command_result *json_commando(struct command *cmd,
 		tal_append_fmt(&json, ",\"rune\":\"%s\"", rune);
 	tal_append_fmt(&json, "}");
 
-	cmd_msg = tal_arr(NULL, u8, 0);
-	towire_u16(&cmd_msg, COMMANDO_MSG_CMD);
-	towire_u64(&cmd_msg, ocmd->id);
-	towire(&cmd_msg, json, strlen(json));
-	req = jsonrpc_request_start(plugin, NULL, "sendcustommsg",
-				    send_success, forward_error, ocmd);
-	json_add_node_id(req->js, "node_id", &ocmd->peer);
-	json_add_hex_talarr(req->js, "msg", cmd_msg);
-	tal_free(cmd_msg);
+	/* This is not a leak, but we don't keep a pointer. */
+	outgoing = notleak(tal(cmd, struct outgoing));
+	outgoing->peer = *peer;
+	outgoing->msg_off = 0;
+	/* 65000 per message gives sufficient headroom. */
+	jsonlen = tal_bytelen(json)-1;
+	outgoing->msgs = notleak(tal_arr(cmd, u8 *, (jsonlen + 64999) / 65000));
+	for (size_t i = 0; i < tal_count(outgoing->msgs); i++) {
+		u8 *cmd_msg = tal_arr(outgoing, u8, 0);
+		bool terminal = (i == tal_count(outgoing->msgs) - 1);
+		size_t off = i * 65000, len;
 
-	return send_outreq(plugin, req);
+		if (terminal)
+			len = jsonlen - off;
+		else
+			len = 65000;
+
+		towire_u16(&cmd_msg,
+			   terminal ? COMMANDO_MSG_CMD_TERM
+			   : COMMANDO_MSG_CMD_CONTINUES);
+		towire_u64(&cmd_msg, ocmd->id);
+		towire(&cmd_msg, json + off, len);
+		outgoing->msgs[i] = cmd_msg;
+	}
+
+	return send_more_cmd(cmd, NULL, NULL, outgoing);
 }
 
 #if DEVELOPER
 static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
 	memleak_remove_region(memtable, outgoing_commands, tal_bytelen(outgoing_commands));
+	memleak_remove_region(memtable, incoming_commands, tal_bytelen(incoming_commands));
 }
 #endif
 
@@ -439,6 +514,7 @@ static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	outgoing_commands = tal_arr(p, struct commando *, 0);
+	incoming_commands = tal_arr(p, struct commando *, 0);
 	plugin = p;
 #if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark_globals);
