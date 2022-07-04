@@ -86,14 +86,16 @@ void htable_init(struct htable *ht,
 	ht->table = &ht->common_bits;
 }
 
+/* Fill to 87.5% */
 static inline size_t ht_max(const struct htable *ht)
 {
-	return ((size_t)3 << ht->bits) / 4;
+	return ((size_t)7 << ht->bits) / 8;
 }
 
-static inline size_t ht_max_with_deleted(const struct htable *ht)
+/* Clean deleted if we're full, and more than 12.5% deleted */
+static inline size_t ht_max_deleted(const struct htable *ht)
 {
-	return ((size_t)9 << ht->bits) / 10;
+	return ((size_t)1 << ht->bits) / 8;
 }
 
 bool htable_init_sized(struct htable *ht,
@@ -103,7 +105,7 @@ bool htable_init_sized(struct htable *ht,
 	htable_init(ht, rehash, priv);
 
 	/* Don't go insane with sizing. */
-	for (ht->bits = 1; ((size_t)3 << ht->bits) / 4 < expect; ht->bits++) {
+	for (ht->bits = 1; ht_max(ht) < expect; ht->bits++) {
 		if (ht->bits == 30)
 			break;
 	}
@@ -195,10 +197,81 @@ void *htable_prev_(const struct htable *ht, struct htable_iter *i)
 	for (;;) {
 		if (!i->off)
 			return NULL;
-		i->off --;
+		i->off--;
 		if (entry_is_valid(ht->table[i->off]))
 			return get_raw_ptr(ht, ht->table[i->off]);
 	}
+}
+
+/* Another bit currently in mask needs to be exposed, so that a bucket with p in
+ * it won't appear invalid */
+static COLD void unset_another_common_bit(struct htable *ht,
+					  uintptr_t *maskdiff,
+					  const void *p)
+{
+	size_t i;
+
+	for (i = sizeof(uintptr_t) * CHAR_BIT - 1; i > 0; i--) {
+		if (((uintptr_t)p & ((uintptr_t)1 << i))
+		    && ht->common_mask & ~*maskdiff & ((uintptr_t)1 << i))
+			break;
+	}
+	/* There must have been one, right? */
+	assert(i > 0);
+
+	*maskdiff |= ((uintptr_t)1 << i);
+}
+
+/* We want to change the common mask: this fixes up the table */
+static COLD void fixup_table_common(struct htable *ht, uintptr_t maskdiff)
+{
+	size_t i;
+	uintptr_t bitsdiff;
+
+again:
+	bitsdiff = ht->common_bits & maskdiff;
+
+	for (i = 0; i < (size_t)1 << ht->bits; i++) {
+		uintptr_t e;
+		if (!entry_is_valid(e = ht->table[i]))
+			continue;
+
+		/* Clear the bits no longer in the mask, set them as
+		 * expected. */
+		e &= ~maskdiff;
+		e |= bitsdiff;
+		/* If this made it invalid, restart with more exposed */
+		if (!entry_is_valid(e)) {
+			unset_another_common_bit(ht, &maskdiff, get_raw_ptr(ht, e));
+			goto again;
+		}
+		ht->table[i] = e;
+	}
+
+	/* Take away those bits from our mask, bits and perfect bit. */
+	ht->common_mask &= ~maskdiff;
+	ht->common_bits &= ~maskdiff;
+	if (ht_perfect_mask(ht) & maskdiff)
+		ht->perfect_bitnum = NO_PERFECT_BIT;
+}
+
+/* Limited recursion */
+static void ht_add(struct htable *ht, const void *new, size_t h);
+
+/* We tried to add this entry, but it looked invalid!  We need to
+ * let another pointer bit through mask */
+static COLD void update_common_fix_invalid(struct htable *ht, const void *p, size_t h)
+{
+	uintptr_t maskdiff;
+
+	assert(ht->elems != 0);
+
+	maskdiff = 0;
+	unset_another_common_bit(ht, &maskdiff, p);
+	fixup_table_common(ht, maskdiff);
+
+	/* Now won't recurse */
+	ht_add(ht, p, h);
 }
 
 /* This does not expand the hash table, that's up to caller. */
@@ -214,6 +287,8 @@ static void ht_add(struct htable *ht, const void *new, size_t h)
 		i = (i + 1) & ((1 << ht->bits)-1);
 	}
 	ht->table[i] = make_hval(ht, new, get_hash_ptr_bits(ht, h)|perfect);
+	if (!entry_is_valid(ht->table[i]))
+		update_common_fix_invalid(ht, new, h);
 }
 
 static COLD bool double_table(struct htable *ht)
@@ -283,20 +358,10 @@ static COLD void rehash_table(struct htable *ht)
 /* We stole some bits, now we need to put them back... */
 static COLD void update_common(struct htable *ht, const void *p)
 {
-	unsigned int i;
-	uintptr_t maskdiff, bitsdiff;
+	uintptr_t maskdiff;
 
 	if (ht->elems == 0) {
-		/* Always reveal one bit of the pointer in the bucket,
-		 * so it's not zero or HTABLE_DELETED (1), even if
-		 * hash happens to be 0.  Assumes (void *)1 is not a
-		 * valid pointer. */
-		for (i = sizeof(uintptr_t)*CHAR_BIT - 1; i > 0; i--) {
-			if ((uintptr_t)p & ((uintptr_t)1 << i))
-				break;
-		}
-
-		ht->common_mask = ~((uintptr_t)1 << i);
+		ht->common_mask = -1;
 		ht->common_bits = ((uintptr_t)p & ht->common_mask);
 		ht->perfect_bitnum = 0;
 		(void)htable_debug(ht, HTABLE_LOC);
@@ -306,33 +371,25 @@ static COLD void update_common(struct htable *ht, const void *p)
 	/* Find bits which are unequal to old common set. */
 	maskdiff = ht->common_bits ^ ((uintptr_t)p & ht->common_mask);
 
-	/* These are the bits which go there in existing entries. */
-	bitsdiff = ht->common_bits & maskdiff;
-
-	for (i = 0; i < (size_t)1 << ht->bits; i++) {
-		if (!entry_is_valid(ht->table[i]))
-			continue;
-		/* Clear the bits no longer in the mask, set them as
-		 * expected. */
-		ht->table[i] &= ~maskdiff;
-		ht->table[i] |= bitsdiff;
-	}
-
-	/* Take away those bits from our mask, bits and perfect bit. */
-	ht->common_mask &= ~maskdiff;
-	ht->common_bits &= ~maskdiff;
-	if (ht_perfect_mask(ht) & maskdiff)
-		ht->perfect_bitnum = NO_PERFECT_BIT;
+	fixup_table_common(ht, maskdiff);
 	(void)htable_debug(ht, HTABLE_LOC);
 }
 
 bool htable_add_(struct htable *ht, size_t hash, const void *p)
 {
-	if (ht->elems+1 > ht_max(ht) && !double_table(ht))
-		return false;
-	if (ht->elems+1 + ht->deleted > ht_max_with_deleted(ht))
-		rehash_table(ht);
+	/* Cannot insert NULL, or (void *)1. */
 	assert(p);
+	assert(entry_is_valid((uintptr_t)p));
+
+	/* Getting too full? */
+	if (ht->elems+1 + ht->deleted > ht_max(ht)) {
+		/* If we're more than 1/8 deleted, clean those,
+		 * otherwise double table size. */
+		if (ht->deleted > ht_max_deleted(ht))
+			rehash_table(ht);
+		else if (!double_table(ht))
+			return false;
+	}
 	if (((uintptr_t)p & ht->common_mask) != ht->common_bits)
 		update_common(ht, p);
 
@@ -361,8 +418,12 @@ void htable_delval_(struct htable *ht, struct htable_iter *i)
 	assert(entry_is_valid(ht->table[i->off]));
 
 	ht->elems--;
-	ht->table[i->off] = HTABLE_DELETED;
-	ht->deleted++;
+	/* Cheap test: if the next bucket is empty, don't need delete marker */
+	if (ht->table[hash_bucket(ht, i->off+1)] != 0) {
+		ht->table[i->off] = HTABLE_DELETED;
+		ht->deleted++;
+	} else
+		ht->table[i->off] = 0;
 }
 
 void *htable_pick_(const struct htable *ht, size_t seed, struct htable_iter *i)

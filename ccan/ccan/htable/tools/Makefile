@@ -4,9 +4,10 @@ CFLAGS=-Wall -Werror -O3 -I$(CCANDIR)
 
 CCAN_OBJS:=ccan-tal.o ccan-tal-str.o ccan-tal-grab_file.o ccan-take.o ccan-time.o ccan-str.o ccan-noerr.o ccan-list.o
 
-all: speed stringspeed hsearchspeed
+all: speed stringspeed hsearchspeed density
 
 speed: speed.o hash.o $(CCAN_OBJS)
+density: density.o hash.o $(CCAN_OBJS)
 
 speed.o: speed.c ../htable.h ../htable.c
 

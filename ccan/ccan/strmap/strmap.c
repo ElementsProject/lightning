@@ -17,9 +17,8 @@ struct node {
 };
 
 /* Closest member to this in a non-empty map. */
-static struct strmap *closest(struct strmap *n, const char *member)
+static struct strmap *closest(struct strmap *n, const char *member, size_t len)
 {
-	size_t len = strlen(member);
 	const u8 *bytes = (const u8 *)member;
 
 	/* Anything with NULL value is a node. */
@@ -35,18 +34,24 @@ static struct strmap *closest(struct strmap *n, const char *member)
 	return n;
 }
 
-void *strmap_get_(const struct strmap *map, const char *member)
+void *strmap_getn_(const struct strmap *map,
+		   const char *member, size_t memberlen)
 {
 	struct strmap *n;
 
 	/* Not empty map? */
 	if (map->u.n) {
-		n = closest((struct strmap *)map, member);
-		if (streq(member, n->u.s))
+		n = closest((struct strmap *)map, member, memberlen);
+		if (!strncmp(member, n->u.s, memberlen) && !n->u.s[memberlen])
 			return n->v;
 	}
 	errno = ENOENT;
 	return NULL;
+}
+
+void *strmap_get_(const struct strmap *map, const char *member)
+{
+	return strmap_getn_(map, member, strlen(member));
 }
 
 bool strmap_add_(struct strmap *map, const char *member, const void *value)
@@ -68,7 +73,7 @@ bool strmap_add_(struct strmap *map, const char *member, const void *value)
 	}
 
 	/* Find closest existing member. */
-	n = closest(map, member);
+	n = closest(map, member, len);
 
 	/* Find where they differ. */
 	for (byte_num = 0; n->u.s[byte_num] == member[byte_num]; byte_num++) {

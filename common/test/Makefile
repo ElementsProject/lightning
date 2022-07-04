@@ -63,6 +63,14 @@ common/test/run-gossmap_local:				\
 	wire/tlvstream.o				\
 	wire/towire.o
 
+common/test/run-gossmap_canned:				\
+	common/base32.o					\
+	common/wireaddr.o				\
+	wire/fromwire.o					\
+	wire/peer$(EXP)_wiregen.o			\
+	wire/tlvstream.o				\
+	wire/towire.o
+
 common/test/run-bolt12_merkle:				\
 	common/amount.o					\
 	common/bigsize.o				\
