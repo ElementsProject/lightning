@@ -118,6 +118,8 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 								       void *arg),
 				       void *arg);
 
+/* This variant has callbacks received whole obj, not "result" or
+ * "error" members. */
 #define jsonrpc_request_start(plugin, cmd, method, cb, errcb, arg)	\
 	jsonrpc_request_start_((plugin), (cmd), (method),		\
 		     typesafe_cb_preargs(struct command_result *, void *, \
@@ -132,6 +134,18 @@ struct out_req *jsonrpc_request_start_(struct plugin *plugin,
 					 const jsmntok_t *result),	\
 		     (arg))
 
+
+/* This variant has callbacks received whole obj, not "result" or
+ * "error" members.  It also doesn't start params{}. */
+#define jsonrpc_request_whole_object_start(plugin, cmd, method, cb, arg) \
+	jsonrpc_request_start_((plugin), (cmd), (method),		\
+			       typesafe_cb_preargs(struct command_result *, void *, \
+						   (cb), (arg),		\
+						   struct command *command, \
+						   const char *buf,	\
+						   const jsmntok_t *result), \
+			       NULL,					\
+			       (arg))
 
 /* Helper to create a JSONRPC2 response stream with a "result" object. */
 struct json_stream *jsonrpc_stream_success(struct command *cmd);

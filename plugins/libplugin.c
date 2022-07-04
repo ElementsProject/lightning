@@ -165,7 +165,8 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	json_add_string(out->js, "jsonrpc", "2.0");
 	json_add_u64(out->js, "id", out->id);
 	json_add_string(out->js, "method", method);
-	json_object_start(out->js, "params");
+	if (out->errcb)
+		json_object_start(out->js, "params");
 
 	return out;
 }
@@ -551,16 +552,26 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 	uintmap_del(&plugin->out_reqs, out->id);
 
 	contenttok = json_get_member(plugin->rpc_buffer, toks, "error");
-	if (contenttok)
-		res = out->errcb(out->cmd, plugin->rpc_buffer,
-				 contenttok, out->arg);
-	else {
+	if (contenttok) {
+		if (out->errcb)
+			res = out->errcb(out->cmd, plugin->rpc_buffer,
+					 contenttok, out->arg);
+		else
+			res = out->cb(out->cmd, plugin->rpc_buffer,
+				      toks, out->arg);
+	} else {
 		contenttok = json_get_member(plugin->rpc_buffer, toks, "result");
 		if (!contenttok)
 			plugin_err(plugin, "Bad JSONRPC, no 'error' nor 'result': '%.*s'",
 				   json_tok_full_len(toks),
 				   json_tok_full(plugin->rpc_buffer, toks));
-		res = out->cb(out->cmd, plugin->rpc_buffer, contenttok, out->arg);
+		/* errcb is NULL if it's a single whole-object callback */
+		if (out->errcb)
+			res = out->cb(out->cmd, plugin->rpc_buffer, contenttok,
+				      out->arg);
+		else
+			res = out->cb(out->cmd, plugin->rpc_buffer, toks,
+				      out->arg);
 	}
 
 	assert(res == &pending || res == &complete);
@@ -570,7 +581,8 @@ struct command_result *
 send_outreq(struct plugin *plugin, const struct out_req *req)
 {
 	/* The "param" object. */
-	json_object_end(req->js);
+	if (req->errcb)
+		json_object_end(req->js);
 	json_object_compat_end(req->js);
 	json_stream_close(req->js, req->cmd);
 
