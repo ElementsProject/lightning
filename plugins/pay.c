@@ -290,6 +290,10 @@ struct pay_mpp {
 	/* Timestamp of the first part */
 	u32 timestamp;
 
+	/* Completion timestamp. The lowest `completed_at` value for a
+	 * successful part. */
+	u64 success_at;
+
 	/* The destination of the payment, if specified. */
 	const jsmntok_t *destination;
 
@@ -391,6 +395,9 @@ static void add_new_entry(struct json_stream *ret,
 
 	json_add_u32(ret, "created_at", pm->timestamp);
 
+	if (pm->success_at < UINT64_MAX)
+		json_add_u64(ret, "completed_at", pm->success_at);
+
 	if (pm->label)
 		json_add_tok(ret, "label", pm->label, buf);
 	if (pm->preimage)
@@ -430,10 +437,12 @@ static struct command_result *listsendpays_done(struct command *cmd,
 				    "Unexpected non-array result from listsendpays");
 
 	json_for_each_arr(i, t, arr) {
-		const jsmntok_t *status, *invstrtok, *hashtok, *createdtok, *grouptok;
+		const jsmntok_t *status, *invstrtok, *hashtok, *createdtok,
+		    *completedtok, *grouptok;
 		const char *invstr = invstring;
 		struct sha256 payment_hash;
 		u32 created_at;
+		u64 completed_at;
 		u64 groupid;
 		struct pay_sort_key key;
 
@@ -442,8 +451,14 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			invstrtok = json_get_member(buf, t, "bolt12");
 		hashtok = json_get_member(buf, t, "payment_hash");
 		createdtok = json_get_member(buf, t, "created_at");
+		completedtok = json_get_member(buf, t, "completed_at");
 		assert(hashtok != NULL);
 		assert(createdtok != NULL);
+
+		if (completedtok != NULL)
+			json_to_u64(buf, completedtok, &completed_at);
+		else
+			completed_at = UINT64_MAX;
 
 		grouptok = json_get_member(buf, t, "groupid");
 		if (grouptok != NULL)
@@ -475,6 +490,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->timestamp = created_at;
 			pm->sortkey.payment_hash = pm->payment_hash;
 			pm->sortkey.groupid = groupid;
+			pm->success_at = UINT64_MAX;
 			pay_map_add(&pay_map, pm);
 			// First time we see the groupid we add it to the order
 			// array, so we can retrieve them in the correct order.
@@ -495,6 +511,11 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->preimage
 				= json_get_member(buf, t, "payment_preimage");
 			pm->state |= PAYMENT_COMPLETE;
+
+			/* We count down from UINT64_MAX. */
+			if (pm->success_at > completed_at)
+				pm->success_at = completed_at;
+
 		} else if (json_tok_streq(buf, status, "pending")) {
 			add_amount_sent(cmd->plugin, pm->invstring, pm, buf, t);
 			pm->num_nonfailed_parts++;
