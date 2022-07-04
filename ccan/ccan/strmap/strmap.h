@@ -72,7 +72,7 @@ static inline bool strmap_empty_(const struct strmap *map)
 /**
  * strmap_get - get a value from a string map
  * @map: the typed strmap to search.
- * @member: the string to search for.
+ * @member: the string to search for (nul terminated)
  *
  * Returns the value, or NULL if it isn't in the map (and sets errno = ENOENT).
  *
@@ -84,6 +84,23 @@ static inline bool strmap_empty_(const struct strmap *map)
 #define strmap_get(map, member) \
 	tcon_cast((map), canary, strmap_get_(tcon_unwrap(map), (member)))
 void *strmap_get_(const struct strmap *map, const char *member);
+
+/**
+ * strmap_getn - get a value from a string map
+ * @map: the typed strmap to search.
+ * @member: the string to search for.
+ * @memberlen: the length of @member.
+ *
+ * Returns the value, or NULL if it isn't in the map (and sets errno = ENOENT).
+ *
+ * Example:
+ *	val = strmap_getn(&map, "hello", 5);
+ *	if (val)
+ *		printf("hello => %i\n", *val);
+ */
+#define strmap_getn(map, member, n)					\
+	tcon_cast((map), canary, strmap_getn_(tcon_unwrap(map), (member), (n)))
+void *strmap_getn_(const struct strmap *map, const char *member, size_t n);
 
 /**
  * strmap_add - place a member in the string map.

@@ -416,7 +416,6 @@ struct io_plan *io_out_always_(struct io_conn *conn,
  *    // Freed if conn closes normally.
  *    timeout = tal(conn, struct timeout_timer);
  *    timeout->conn = conn;
- *    timeout->t = conn;
  *    timer_addrel(&timers, &timeout->t, time_from_sec(5));
  *    return io_sock_shutdown(conn);
  * }
@@ -814,5 +813,14 @@ struct timemono (*io_time_override(struct timemono (*now)(void)))(void);
  * to ccan/io).  Returns the old one.
  */
 int (*io_poll_override(int (*poll)(struct pollfd *fds, nfds_t nfds, int timeout)))(struct pollfd *, nfds_t, int);
+
+/**
+ * io_have_fd - do we own this file descriptor?
+ * @fd: the file descriptor.
+ * @listener: if non-NULL, set to true if it's a listening socket (io_listener).
+ *
+ * Returns NULL if we don't own it, otherwise a struct io_conn * or struct io_listener *.
+ */
+const void *io_have_fd(int fd, bool *listener);
 
 #endif /* CCAN_IO_H */

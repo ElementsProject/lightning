@@ -132,7 +132,7 @@ bool htable_copy_(struct htable *dst, const struct htable *src);
  * htable_add - add a pointer into a hash table.
  * @ht: the htable
  * @hash: the hash value of the object
- * @p: the non-NULL pointer
+ * @p: the non-NULL pointer (also cannot be (void *)1).
  *
  * Also note that this can only fail due to allocation failure.  Otherwise, it
  * returns true.

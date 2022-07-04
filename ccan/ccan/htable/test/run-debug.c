@@ -107,7 +107,7 @@ static bool check_mask(struct htable *ht, uint64_t val[], unsigned num)
 
 int main(void)
 {
-	unsigned int i, weight;
+	unsigned int i;
 	uintptr_t perfect_bit;
 	struct htable ht;
 	uint64_t val[NUM_VALS];
@@ -131,14 +131,7 @@ int main(void)
 	add_vals(&ht, val, 0, 1);
 	ok1(ht.bits == 1);
 	ok1(ht_max(&ht) == 1);
-	weight = 0;
-	for (i = 0; i < sizeof(ht.common_mask) * CHAR_BIT; i++) {
-		if (ht.common_mask & ((uintptr_t)1 << i)) {
-			weight++;
-		}
-	}
-	/* Only one bit should be clear. */
-	ok1(weight == i-1);
+	ok1(ht.common_mask == -1);
 
 	/* Mask should be set. */
 	ok1(check_mask(&ht, val, 1));
