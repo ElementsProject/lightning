@@ -3328,6 +3328,10 @@ void wallet_payment_set_status(struct wallet *wallet,
 {
 	struct db_stmt *stmt;
 	struct wallet_payment *payment;
+	u32 completed_at = 0;
+
+	if (newstatus != PAYMENT_PENDING)
+		completed_at = time_now().ts.tv_sec;
 
 	/* We can only fail an unstored payment! */
 	payment = find_unstored_payment(wallet, payment_hash, partid);
@@ -3338,13 +3342,18 @@ void wallet_payment_set_status(struct wallet *wallet,
 	}
 
 	stmt = db_prepare_v2(wallet->db,
-			     SQL("UPDATE payments SET status=? "
+			     SQL("UPDATE payments SET status=?, completed_at=? "
 				 "WHERE payment_hash=? AND partid=? AND groupid=?"));
 
 	db_bind_int(stmt, 0, wallet_payment_status_in_db(newstatus));
-	db_bind_sha256(stmt, 1, payment_hash);
-	db_bind_u64(stmt, 2, partid);
-	db_bind_u64(stmt, 3, groupid);
+	if (completed_at != 0) {
+		db_bind_u64(stmt, 1, completed_at);
+	} else {
+		db_bind_null(stmt, 1);
+	}
+	db_bind_sha256(stmt, 2, payment_hash);
+	db_bind_u64(stmt, 3, partid);
+	db_bind_u64(stmt, 4, groupid);
 	db_exec_prepared_v2(take(stmt));
 
 	if (preimage) {
