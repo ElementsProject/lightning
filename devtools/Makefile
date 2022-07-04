@@ -29,14 +29,13 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/hash_u5.o			\
 	common/hmac.o				\
 	common/htlc_state.o			\
+	common/json_parse.o			\
+	common/json_parse_simple.o		\
 	common/memleak.o			\
 	common/node_id.o			\
 	common/per_peer_state.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
-	common/json.o				\
-	common/json_helpers.o			\
-	common/json_stream.o			\
 	common/setup.o				\
 	common/type_to_string.o			\
 	common/utils.o				\

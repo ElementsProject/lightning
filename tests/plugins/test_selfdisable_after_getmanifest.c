@@ -2,7 +2,7 @@
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
-#include <common/json.h>
+#include <common/json_parse.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <unistd.h>

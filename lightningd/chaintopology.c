@@ -7,8 +7,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/htlc_tx.h>
 #include <common/json_command.h>
+#include <common/json_param.h>
 #include <common/memleak.h>
-#include <common/param.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <db/exec.h>

@@ -46,10 +46,10 @@ COMMON_SRC_NOGEN :=				\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
 	common/iso4217.c			\
-	common/json.c				\
-	common/json_helpers.c			\
+	common/json_param.c			\
+	common/json_parse.c			\
+	common/json_parse_simple.c		\
 	common/json_stream.c			\
-	common/json_tok.c			\
 	common/key_derive.c			\
 	common/keyset.c				\
 	common/lease_rates.c			\
@@ -58,7 +58,6 @@ COMMON_SRC_NOGEN :=				\
 	common/node_id.c			\
 	common/onion.c				\
 	common/onionreply.c			\
-	common/param.c				\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\
 	common/peer_io.c			\

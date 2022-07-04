@@ -7,9 +7,8 @@
 #include <ccan/tal/link/link.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
+#include <common/json_param.h>
 #include <common/memleak.h>
-#include <common/param.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/log.h>

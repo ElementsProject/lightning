@@ -6,10 +6,8 @@
 #include <ccan/mem/mem.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
+#include <common/json_param.h>
 #include <common/key_derive.h>
-#include <common/param.h>
 #include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/json.h>

@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
-#include <common/json_tok.h>
+#include <common/json_param.h>
+#include <common/json_stream.h>
 #include <plugins/libplugin.h>
 
 static u64 cycle_seconds = 0, expired_by = 86400;

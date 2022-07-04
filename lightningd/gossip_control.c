@@ -3,9 +3,8 @@
 #include <ccan/ptrint/ptrint.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
-#include <common/param.h>
+#include <common/json_param.h>
+#include <common/json_stream.h>
 #include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>

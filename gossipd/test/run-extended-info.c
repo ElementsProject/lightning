@@ -5,7 +5,7 @@
 #include <common/blinding.h>
 #include <common/channel_type.h>
 #include <common/ecdh.h>
-#include <common/json_helpers.h>
+#include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/onionreply.h>
 #include <common/setup.h>
@@ -45,8 +45,6 @@ bigsize_t *decode_scid_query_flags(const tal_t *ctx UNNEEDED,
 /* Generated stub for decode_short_ids */
 struct short_channel_id *decode_short_ids(const tal_t *ctx UNNEEDED, const u8 *encoded UNNEEDED)
 { fprintf(stderr, "decode_short_ids called!\n"); abort(); }
-/* Generated stub for deprecated_apis */
-bool deprecated_apis;
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }
@@ -67,22 +65,6 @@ const u8 *gossip_store_get(const tal_t *ctx UNNEEDED,
 			   struct gossip_store *gs UNNEEDED,
 			   u64 offset UNNEEDED)
 { fprintf(stderr, "gossip_store_get called!\n"); abort(); }
-/* Generated stub for json_add_member */
-void json_add_member(struct json_stream *js UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     bool quote UNNEEDED,
-		     const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "json_add_member called!\n"); abort(); }
-/* Generated stub for json_member_direct */
-char *json_member_direct(struct json_stream *js UNNEEDED,
-			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
-{ fprintf(stderr, "json_member_direct called!\n"); abort(); }
-/* Generated stub for json_object_end */
-void json_object_end(struct json_stream *js UNNEEDED)
-{ fprintf(stderr, "json_object_end called!\n"); abort(); }
-/* Generated stub for json_object_start */
-void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
-{ fprintf(stderr, "json_object_start called!\n"); abort(); }
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }

@@ -17,8 +17,6 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/features.o			\
 	common/hmac.o				\
 	common/node_id.o			\
-	common/json.o				\
-	common/json_helpers.o			\
 	common/lease_rates.o			\
 	common/onion.o				\
 	common/pseudorand.o			\
@@ -46,6 +44,10 @@ gossipd/test/run-onion_message:			\
 	common/onion.o				\
 	common/sphinx.o				\
 
+# JSON needed for this test
+gossipd/test/run-extended-info:			\
+	common/json_parse.o			\
+	common/json_parse_simple.o
 
 $(GOSSIPD_TEST_PROGRAMS): $(GOSSIPD_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 

@@ -15,7 +15,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\
-	common/json.o				\
+	common/json_parse_simple.o		\
 	common/key_derive.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\

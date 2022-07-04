@@ -9,11 +9,9 @@
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
+#include <common/json_param.h>
 #include <common/onion.h>
 #include <common/overflows.h>
-#include <common/param.h>
 #include <common/random_select.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>

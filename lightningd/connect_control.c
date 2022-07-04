@@ -4,10 +4,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
+#include <common/json_param.h>
 #include <common/memleak.h>
-#include <common/param.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
@@ -17,7 +15,6 @@
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/opening_common.h>

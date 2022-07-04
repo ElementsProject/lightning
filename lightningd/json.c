@@ -1,8 +1,8 @@
 #include "config.h"
+#include <bitcoin/pubkey.h>
 #include <ccan/str/hex/hex.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
+#include <common/json_param.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/json.h>
 

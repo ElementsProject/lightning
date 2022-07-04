@@ -2,9 +2,7 @@
 #include <ccan/mem/mem.h>
 #include <common/blindedpath.h>
 #include <common/json_command.h>
-#include <common/json_helpers.h>
-#include <common/json_tok.h>
-#include <common/param.h>
+#include <common/json_param.h>
 #include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <lightningd/channel.h>

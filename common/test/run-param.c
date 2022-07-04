@@ -1,6 +1,7 @@
 #include "config.h"
-#include "../json_tok.c"
-#include "../param.c"
+#include "../json_parse.c"
+#include "../json_parse_simple.c"
+#include "../json_param.c"
 #include <ccan/array_size/array_size.h>
 #include <common/channel_type.h>
 #include <common/setup.h>
@@ -42,34 +43,6 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
-/* Generated stub for json_to_channel_id */
-bool json_to_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			struct channel_id *cid UNNEEDED)
-{ fprintf(stderr, "json_to_channel_id called!\n"); abort(); }
-/* Generated stub for json_to_msat */
-bool json_to_msat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct amount_msat *msat UNNEEDED)
-{ fprintf(stderr, "json_to_msat called!\n"); abort(); }
-/* Generated stub for json_to_node_id */
-bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			       struct node_id *id UNNEEDED)
-{ fprintf(stderr, "json_to_node_id called!\n"); abort(); }
-/* Generated stub for json_to_outpoint */
-bool json_to_outpoint(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		      struct bitcoin_outpoint *op UNNEEDED)
-{ fprintf(stderr, "json_to_outpoint called!\n"); abort(); }
-/* Generated stub for json_to_pubkey */
-bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		    struct pubkey *pubkey UNNEEDED)
-{ fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
-/* Generated stub for json_to_short_channel_id */
-bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			      struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
-/* Generated stub for json_to_txid */
-bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "json_to_txid called!\n"); abort(); }
 /* Generated stub for segwit_addr_decode */
 int segwit_addr_decode(
     int* ver UNNEEDED,
