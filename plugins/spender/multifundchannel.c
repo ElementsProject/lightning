@@ -1993,6 +1993,18 @@ param_positive_number(struct command *cmd,
 	return NULL;
 }
 
+static struct command_result *param_utxos_str(struct command *cmd, const char *name,
+					      const char * buffer, const jsmntok_t *tok,
+					      const char **str)
+{
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array");
+	*str = tal_strndup(cmd, buffer + tok->start,
+			   tok->end - tok->start);
+	return NULL;
+}
+
 /*-----------------------------------------------------------------------------
 Command Entry Point
 -----------------------------------------------------------------------------*/
@@ -2002,27 +2014,25 @@ json_multifundchannel(struct command *cmd,
 		      const jsmntok_t *params)
 {
 	struct multifundchannel_destination *dests;
-	const char *feerate_str, *cmtmt_feerate_str;
 	u32 *minconf;
-	const jsmntok_t *utxos_tok;
 	u32 *minchannels;
 
 	struct multifundchannel_command *mfc;
 
+	mfc = tal(cmd, struct multifundchannel_command);
 	if (!param(cmd, buf, params,
 		   p_req("destinations", param_destinations_array, &dests),
-		   p_opt("feerate", param_string, &feerate_str),
+		   p_opt("feerate", param_string, &mfc->feerate_str),
 		   p_opt_def("minconf", param_number, &minconf, 1),
-		   p_opt("utxos", param_tok, &utxos_tok),
+		   p_opt("utxos", param_utxos_str, &mfc->utxos_str),
 		   p_opt("minchannels", param_positive_number, &minchannels),
-		   p_opt("commitment_feerate", param_string, &cmtmt_feerate_str),
+		   p_opt("commitment_feerate", param_string, &mfc->cmtmt_feerate_str),
 		   NULL))
 		return command_param_failed();
 
 	/* Should exist; it would only nonexist if it were a notification.  */
 	assert(cmd->id);
 
-	mfc = tal(cmd, struct multifundchannel_command);
 	mfc->id = *cmd->id;
 	mfc->cmd = cmd;
 
@@ -2031,14 +2041,7 @@ json_multifundchannel(struct command *cmd,
 	for (size_t i = 0; i < tal_count(mfc->destinations); i++)
 		mfc->destinations[i].mfc = mfc;
 
-	mfc->feerate_str = feerate_str;
-	mfc->cmtmt_feerate_str = cmtmt_feerate_str;
 	mfc->minconf = *minconf;
-	if (utxos_tok)
-		mfc->utxos_str = tal_strndup(mfc, json_tok_full(buf, utxos_tok),
-					     json_tok_full_len(utxos_tok));
-	else
-		mfc->utxos_str = NULL;
 	/* Default is that all must succeed. */
 	mfc->minchannels = minchannels ? *minchannels : tal_count(mfc->destinations);
 	mfc->removeds = tal_arr(mfc, struct multifundchannel_removed, 0);
