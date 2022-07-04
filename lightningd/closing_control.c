@@ -27,7 +27,6 @@
 #include <lightningd/closing_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>

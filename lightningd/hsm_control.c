@@ -11,7 +11,6 @@
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>

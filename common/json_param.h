@@ -268,11 +268,6 @@ struct command_result *param_secrets_array(struct command *cmd,
 					   const jsmntok_t *tok,
 					   struct secret **secrets);
 
-struct command_result *param_feerate_val(struct command *cmd,
-					 const char *name, const char *buffer,
-					 const jsmntok_t *tok,
-					 u32 **feerate_per_kw);
-
 struct command_result *param_txid(struct command *cmd,
 				  const char *name,
 				  const char *buffer,
@@ -343,4 +338,9 @@ struct command_result *param_lease_hex(struct command *cmd,
 				       const char *buffer,
 				       const jsmntok_t *tok,
 				       struct lease_rates **rates);
+
+struct command_result *param_pubkey(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    struct pubkey **pubkey);
+
 #endif /* LIGHTNING_COMMON_JSON_PARAM_H */
