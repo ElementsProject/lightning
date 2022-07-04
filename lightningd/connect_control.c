@@ -81,86 +81,146 @@ static void try_connect(const tal_t *ctx,
 			u32 seconds_delay,
 			const struct wireaddr_internal *addrhint);
 
-static struct command_result *json_connect(struct command *cmd,
-					   const char *buffer,
-					   const jsmntok_t *obj UNNEEDED,
-					   const jsmntok_t *params)
-{
-	u32 *port;
-	jsmntok_t *idtok;
+struct id_and_addr {
 	struct node_id id;
+	const char *host;
+	const u16 *port;
+};
+
+static struct command_result *param_id_maybe_addr(struct command *cmd,
+						  const char *name,
+						  const char *buffer,
+						  const jsmntok_t *tok,
+						  struct id_and_addr *id_addr)
+{
 	char *id_str;
 	char *atptr;
-	char *ataddr = NULL;
-	const char *name;
-	struct wireaddr_internal *addr;
-	const char *err_msg;
-
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_tok, (const jsmntok_t **) &idtok),
-		   p_opt("host", param_string, &name),
-		   p_opt("port", param_number, &port),
-		   NULL))
-		return command_param_failed();
+	char *ataddr = NULL, *host;
+	u16 port;
+	jsmntok_t idtok = *tok;
 
 	/* Check for id@addrport form */
-	id_str = json_strdup(cmd, buffer, idtok);
+	id_str = json_strdup(cmd, buffer, &idtok);
 	atptr = strchr(id_str, '@');
 	if (atptr) {
 		int atidx = atptr - id_str;
 		ataddr = tal_strdup(cmd, atptr + 1);
 		/* Cut id. */
-		idtok->end = idtok->start + atidx;
+		idtok.end = idtok.start + atidx;
 	}
 
-	if (!json_to_node_id(buffer, idtok, &id)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "id %.*s not valid",
-				    json_tok_full_len(idtok),
-				    json_tok_full(buffer, idtok));
-	}
+	if (!json_to_node_id(buffer, &idtok, &id_addr->id))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be a node id");
 
-	if (name && ataddr) {
+	if (!atptr)
+		return NULL;
+
+	/* We could parse port/host in any order, using keyword params. */
+	if (id_addr->host) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Can't specify host as both xxx@yyy "
 				    "and separate argument");
 	}
 
-	/* Get parseable host if provided somehow */
-	if (!name && ataddr)
-		name = ataddr;
-
-	/* Port without host name? */
-	if (port && !name) {
+	port = 0;
+	if (!separate_address_and_port(cmd, ataddr, &host, &port))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Can't specify port without host");
+				    "malformed host @part");
+
+	id_addr->host = host;
+	if (port) {
+		if (id_addr->port) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Can't specify port as both xxx@yyy:port "
+					    "and separate argument");
+		}
+		id_addr->port = tal_dup(cmd, u16, &port);
+	}
+	return NULL;
+}
+
+static struct command_result *param_id_addr_string(struct command *cmd,
+						   const char *name,
+						   const char *buffer,
+						   const jsmntok_t *tok,
+						   const char **addr)
+{
+	if (*addr) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can't specify host as both xxx@yyy "
+				    "and separate argument");
+	}
+	return param_string(cmd, name, buffer, tok, addr);
+}
+
+static struct command_result *param_id_addr_u16(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						const u16 **port)
+{
+	u16 val;
+	if (*port) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can't specify port as both xxx@yyy:port "
+				    "and separate argument");
+	}
+	if (json_to_u16(buffer, tok, &val)) {
+		if (val == 0)
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "should be non-zero");
+		*port = tal_dup(cmd, u16, &val);
+		return NULL;
 	}
 
-	/* Was there parseable host name? */
-	if (name) {
-		/* Is there a port? */
-		if (!port) {
-			port = tal(cmd, u32);
-			*port = chainparams_get_ln_port(chainparams);
-		}
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a 16-bit integer");
+}
+
+static struct command_result *json_connect(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
+{
+	struct wireaddr_internal *addr;
+	const char *err_msg;
+	struct id_and_addr id_addr;
+
+	id_addr.host = NULL;
+	id_addr.port = NULL;
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_id_maybe_addr, &id_addr),
+		   p_opt("host", param_id_addr_string, &id_addr.host),
+		   p_opt("port", param_id_addr_u16, &id_addr.port),
+		   NULL))
+		return command_param_failed();
+
+	/* If we have a host, convert */
+	if (id_addr.host) {
+		u16 port = id_addr.port ? *id_addr.port : chainparams_get_ln_port(chainparams);
 		addr = tal(cmd, struct wireaddr_internal);
-		if (!parse_wireaddr_internal(name, addr, *port, false,
+		if (!parse_wireaddr_internal(id_addr.host, addr, port, false,
 					     !cmd->ld->always_use_proxy
 					     && !cmd->ld->pure_tor_setup,
 					     true, deprecated_apis,
 					     &err_msg)) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Host %s:%u not valid: %s",
-					    name, *port,
-					    err_msg ? err_msg : "port is 0");
+					    id_addr.host, port, err_msg);
 		}
-	} else
+	} else {
 		addr = NULL;
+		/* Port without host name? */
+		if (id_addr.port)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Can't specify port without host");
+	}
 
-	try_connect(cmd, cmd->ld, &id, 0, addr);
+	try_connect(cmd, cmd->ld, &id_addr.id, 0, addr);
 
 	/* Leave this here for peer_connected or connect_failed. */
-	new_connect(cmd->ld, &id, cmd);
+	new_connect(cmd->ld, &id_addr.id, cmd);
 	return command_still_pending(cmd);
 }
 
