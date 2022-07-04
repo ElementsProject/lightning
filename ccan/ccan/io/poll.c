@@ -464,3 +464,15 @@ void *io_loop(struct timers *timers, struct timer **expired)
 
 	return ret;
 }
+
+const void *io_have_fd(int fd, bool *listener)
+{
+	for (size_t i = 0; i < num_fds; i++) {
+		if (fds[i]->fd != fd)
+			continue;
+		if (listener)
+			*listener = fds[i]->listener;
+		return fds[i];
+	}
+	return NULL;
+}

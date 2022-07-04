@@ -90,6 +90,7 @@ FEATURES :=
 
 CCAN_OBJS :=					\
 	ccan-asort.o				\
+	ccan-base64.o				\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
@@ -125,6 +126,8 @@ CCAN_OBJS :=					\
 	ccan-ptr_valid.o			\
 	ccan-rbuf.o				\
 	ccan-read_write_all.o			\
+	ccan-rune-coding.o			\
+	ccan-rune-rune.o			\
 	ccan-str-base32.o			\
 	ccan-str-hex.o				\
 	ccan-str.o				\
@@ -193,6 +196,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/ptrint/ptrint.h			\
 	$(CCANDIR)/ccan/rbuf/rbuf.h			\
 	$(CCANDIR)/ccan/read_write_all/read_write_all.h	\
+	$(CCANDIR)/ccan/rune/internal.h			\
+	$(CCANDIR)/ccan/rune/rune.h			\
 	$(CCANDIR)/ccan/short_types/short_types.h	\
 	$(CCANDIR)/ccan/str/base32/base32.h		\
 	$(CCANDIR)/ccan/str/hex/hex.h			\
@@ -808,6 +813,8 @@ endif
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+ccan-base64.o: $(CCANDIR)/ccan/base64/base64.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
@@ -907,4 +914,8 @@ ccan-json_escape.o: $(CCANDIR)/ccan/json_escape/json_escape.c
 ccan-json_out.o: $(CCANDIR)/ccan/json_out/json_out.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-closefrom.o: $(CCANDIR)/ccan/closefrom/closefrom.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+ccan-rune-rune.o: $(CCANDIR)/ccan/rune/rune.c
+	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+ccan-rune-coding.o: $(CCANDIR)/ccan/rune/coding.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
