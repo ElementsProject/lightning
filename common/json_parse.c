@@ -717,3 +717,12 @@ json_to_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 
 	return rpath;
 }
+
+
+bool
+json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
+		    struct channel_id *cid)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  cid, sizeof(*cid));
+}

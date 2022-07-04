@@ -10,13 +10,13 @@ LIGHTNINGD_SRC :=				\
 	lightningd/dual_open_control.c		\
 	lightningd/connect_control.c		\
 	lightningd/onion_message.c		\
+	lightningd/feerate.c			\
 	lightningd/gossip_control.c		\
 	lightningd/hsm_control.c		\
 	lightningd/htlc_end.c			\
 	lightningd/htlc_set.c			\
 	lightningd/invoice.c			\
 	lightningd/io_loop_with_timers.c	\
-	lightningd/json.c			\
 	lightningd/jsonrpc.c			\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\

@@ -4,7 +4,6 @@
 #include <common/json_param.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <lightningd/json.h>
 #include <lightningd/plugin.h>
 #include <wire/wire_sync.h>
 

@@ -18,7 +18,6 @@
 #include <lightningd/coin_mvts.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/io_loop_with_timers.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -309,33 +308,6 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 				   &unconfirmed[i]->outpoint.txid,
 				   closeinfo_txid_confirmed));
 	}
-}
-
-const char *feerate_name(enum feerate feerate)
-{
-	switch (feerate) {
-	case FEERATE_OPENING: return "opening";
-	case FEERATE_MUTUAL_CLOSE: return "mutual_close";
-	case FEERATE_UNILATERAL_CLOSE: return "unilateral_close";
-	case FEERATE_DELAYED_TO_US: return "delayed_to_us";
-	case FEERATE_HTLC_RESOLUTION: return "htlc_resolution";
-	case FEERATE_PENALTY: return "penalty";
-	case FEERATE_MIN: return "min_acceptable";
-	case FEERATE_MAX: return "max_acceptable";
-	}
-	abort();
-}
-
-struct command_result *param_feerate_estimate(struct command *cmd,
-					      u32 **feerate_per_kw,
-					      enum feerate feerate)
-{
-	*feerate_per_kw = tal(cmd, u32);
-	**feerate_per_kw = try_get_feerate(cmd->ld->topology, feerate);
-	if (!**feerate_per_kw)
-		return command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
-
-	return NULL;
 }
 
 /* Mutual recursion via timer. */

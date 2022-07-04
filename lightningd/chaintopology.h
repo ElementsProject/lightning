@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/block.h>
 #include <ccan/list/list.h>
+#include <lightningd/feerate.h>
 #include <lightningd/watch.h>
 
 struct bitcoin_tx;
@@ -11,20 +12,6 @@ struct command;
 struct lightningd;
 struct peer;
 struct txwatch;
-
-/* FIXME: move all feerate stuff out to new lightningd/feerate.[ch] files */
-enum feerate {
-	/* DO NOT REORDER: force-feerates uses this order! */
-	FEERATE_OPENING,
-	FEERATE_MUTUAL_CLOSE,
-	FEERATE_UNILATERAL_CLOSE,
-	FEERATE_DELAYED_TO_US,
-	FEERATE_HTLC_RESOLUTION,
-	FEERATE_PENALTY,
-	FEERATE_MIN,
-	FEERATE_MAX,
-};
-#define NUM_FEERATES (FEERATE_MAX+1)
 
 /* We keep the last three in case there are outliers (for min/max) */
 #define FEE_HISTORY_NUM 3
@@ -163,13 +150,6 @@ u32 unilateral_feerate(struct chain_topology *topo);
 u32 delayed_to_us_feerate(struct chain_topology *topo);
 u32 htlc_resolution_feerate(struct chain_topology *topo);
 u32 penalty_feerate(struct chain_topology *topo);
-
-const char *feerate_name(enum feerate feerate);
-
-/* Set feerate_per_kw to this estimate & return NULL, or fail cmd */
-struct command_result *param_feerate_estimate(struct command *cmd,
-					      u32 **feerate_per_kw,
-					      enum feerate feerate);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */

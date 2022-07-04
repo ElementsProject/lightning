@@ -685,40 +685,6 @@ struct command_result *param_secrets_array(struct command *cmd,
 	return NULL;
 }
 
-struct command_result *param_feerate_val(struct command *cmd,
-					 const char *name, const char *buffer,
-					 const jsmntok_t *tok,
-					 u32 **feerate_per_kw)
-{
-	jsmntok_t base = *tok;
-	enum feerate_style style;
-	unsigned int num;
-
-	if (json_tok_endswith(buffer, tok,
-			      feerate_style_name(FEERATE_PER_KBYTE))) {
-		style = FEERATE_PER_KBYTE;
-		base.end -= strlen(feerate_style_name(FEERATE_PER_KBYTE));
-	} else if (json_tok_endswith(buffer, tok,
-				     feerate_style_name(FEERATE_PER_KSIPA))) {
-		style = FEERATE_PER_KSIPA;
-		base.end -= strlen(feerate_style_name(FEERATE_PER_KSIPA));
-	} else
-		style = FEERATE_PER_KBYTE;
-
-	if (!json_to_number(buffer, &base, &num)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' should be an integer with optional perkw/perkb, not '%.*s'",
-				    name, base.end - base.start,
-				    buffer + base.start);
-	}
-
-	*feerate_per_kw = tal(cmd, u32);
-	**feerate_per_kw = feerate_from_style(num, style);
-	if (**feerate_per_kw < FEERATE_FLOOR)
-		**feerate_per_kw = FEERATE_FLOOR;
-	return NULL;
-}
-
 /**
  * segwit_addr_net_decode - Try to decode a Bech32 address and detect
  * testnet/mainnet/regtest/signet
@@ -1093,3 +1059,16 @@ struct command_result *param_lease_hex(struct command *cmd,
 				    json_tok_full(buffer, tok));
 	return NULL;
 }
+
+struct command_result *param_pubkey(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    struct pubkey **pubkey)
+{
+	*pubkey = tal(cmd, struct pubkey);
+	if (json_to_pubkey(buffer, tok, *pubkey))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a compressed pubkey");
+}
+

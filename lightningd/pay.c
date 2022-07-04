@@ -11,7 +11,6 @@
 #include <common/type_to_string.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
-#include <lightningd/json.h>
 #include <lightningd/notification.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
