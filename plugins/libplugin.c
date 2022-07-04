@@ -490,20 +490,18 @@ static struct json_out *start_json_request(const tal_t *ctx,
 	return jout;
 }
 
-/* Synchronous routine to send command and extract fields from response */
-void rpc_scan(struct plugin *plugin,
-	      const char *method,
-	      const struct json_out *params TAKES,
-	      const char *guide,
-	      ...)
+static const char *rpc_scan_core(const tal_t *ctx,
+				 struct plugin *plugin,
+				 const char *method,
+				 const struct json_out *params TAKES,
+				 const char *guide,
+				 va_list ap)
 {
 	bool error;
-	const char *err;
 	const jsmntok_t *contents;
 	int reqlen;
 	const char *p;
 	struct json_out *jout;
-	va_list ap;
 
 	jout = start_json_request(tmpctx, 0, method, params);
 	finish_and_send_json(plugin->rpc_conn->fd, jout);
@@ -514,15 +512,116 @@ void rpc_scan(struct plugin *plugin,
 		     method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
 	p = membuf_consume(&plugin->rpc_conn->mb, reqlen);
+	return json_scanv(ctx, p, contents, guide, ap);
+}
+
+/* Synchronous routine to send command and extract fields from response */
+void rpc_scan(struct plugin *plugin,
+	      const char *method,
+	      const struct json_out *params TAKES,
+	      const char *guide,
+	      ...)
+{
+	const char *err;
+	va_list ap;
 
 	va_start(ap, guide);
-	err = json_scanv(tmpctx, p, contents, guide, ap);
+	err = rpc_scan_core(tmpctx, plugin, method, params, guide, ap);
 	va_end(ap);
 
 	if (err)
-		plugin_err(plugin, "Could not parse %s in reply to %s: %s: '%.*s'",
-			   guide, method, err,
-			   reqlen, membuf_elems(&plugin->rpc_conn->mb));
+		plugin_err(plugin, "Could not parse %s in reply to %s: %s",
+			   guide, method, err);
+}
+
+static void json_add_keypath(struct json_out *jout, const char *fieldname, const char *path)
+{
+	char **parts = tal_strsplit(tmpctx, path, "/", STR_EMPTY_OK);
+
+	json_out_start(jout, fieldname, '[');
+	for (size_t i = 0; parts[i]; parts++)
+		json_out_addstr(jout, NULL, parts[i]);
+	json_out_end(jout, ']');
+}
+
+static bool rpc_scan_datastore(struct plugin *plugin,
+			       const char *path,
+			       const char *hex_or_string,
+			       va_list ap)
+{
+	const char *guide;
+	struct json_out *params;
+	const char *err;
+
+	params = json_out_new(NULL);
+	json_out_start(params, NULL, '{');
+	json_add_keypath(params, "key", path);
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	guide = tal_fmt(tmpctx, "{datastore:[0:{%s:%%}]}", hex_or_string);
+	/* FIXME: Could be some other error, but that's probably a caller bug! */
+	err = rpc_scan_core(tmpctx, plugin, "listdatastore", take(params), guide, ap);
+	if (!err)
+		return true;
+	plugin_log(plugin, LOG_DBG, "listdatastore error %s: %s", path, err);
+	return false;
+}
+
+bool rpc_scan_datastore_str(struct plugin *plugin,
+			    const char *path,
+			    ...)
+{
+	bool ret;
+	va_list ap;
+
+	va_start(ap, path);
+	ret = rpc_scan_datastore(plugin, path, "string", ap);
+	va_end(ap);
+	return ret;
+}
+
+/* This variant scans the hex encoding, not the string */
+bool rpc_scan_datastore_hex(struct plugin *plugin,
+			    const char *path,
+			    ...)
+{
+	bool ret;
+	va_list ap;
+
+	va_start(ap, path);
+	ret = rpc_scan_datastore(plugin, path, "hex", ap);
+	va_end(ap);
+	return ret;
+}
+
+struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
+					      struct command *cmd,
+					      const char *path,
+					      const void *value,
+					      bool value_is_string,
+					      const char *mode,
+					      struct command_result *(*cb)(struct command *command,
+									   const char *buf,
+									   const jsmntok_t *result,
+									   void *arg),
+					      struct command_result *(*errcb)(struct command *command,
+									      const char *buf,
+									      const jsmntok_t *result,
+									      void *arg),
+					      void *arg)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(plugin, cmd, "datastore", cb, errcb, arg);
+
+	json_add_keypath(req->js->jout, "key", path);
+	if (value_is_string)
+		json_add_string(req->js, "string", value);
+	else
+		json_add_hex_talarr(req->js, "hex", value);
+	json_add_string(req->js, "mode", mode);
+	return send_outreq(plugin, req);
 }
 
 static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
