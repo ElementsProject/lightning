@@ -517,11 +517,152 @@ static struct command_result *json_commando(struct command *cmd,
 	return send_more_cmd(cmd, NULL, NULL, outgoing);
 }
 
+static struct command_result *param_rune(struct command *cmd, const char *name,
+					 const char * buffer, const jsmntok_t *tok,
+					 struct rune **rune)
+{
+	*rune = rune_from_base64n(cmd, buffer + tok->start, tok->end - tok->start);
+	if (!*rune)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be base64 string");
+
+	return NULL;
+}
+
+static struct rune_restr **readonly_restrictions(const tal_t *ctx)
+{
+	struct rune_restr **restrs = tal_arr(ctx, struct rune_restr *, 2);
+
+	/* Any list*, get*, or summary:
+	 *  method^list|method^get|method=summary
+	 */
+	restrs[0] = rune_restr_new(restrs);
+	rune_restr_add_altern(restrs[0],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_BEGINS,
+						   "list")));
+	rune_restr_add_altern(restrs[0],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_BEGINS,
+						   "get")));
+	rune_restr_add_altern(restrs[0],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_EQUAL,
+						   "summary")));
+	/* But not listdatastore!
+	 *  method/listdatastore
+	 */
+	restrs[1] = rune_restr_new(restrs);
+	rune_restr_add_altern(restrs[1],
+			      take(rune_altern_new(NULL,
+						   "method",
+						   RUNE_COND_NOT_EQUAL,
+						   "listdatastore")));
+
+	return restrs;
+}
+
+static struct command_result *param_restrictions(struct command *cmd,
+						 const char *name,
+						 const char *buffer,
+						 const jsmntok_t *tok,
+						 struct rune_restr ***restrs)
+{
+	if (json_tok_streq(buffer, tok, "readonly"))
+		*restrs = readonly_restrictions(cmd);
+	else if (tok->type == JSMN_ARRAY) {
+		size_t i;
+		const jsmntok_t *t;
+
+		*restrs = tal_arr(cmd, struct rune_restr *, tok->size);
+		json_for_each_arr(i, t, tok) {
+			(*restrs)[i] = rune_restr_from_string(*restrs,
+							      buffer + t->start,
+							      t->end - t->start);
+			if (!(*restrs)[i])
+				return command_fail_badparam(cmd, name, buffer, t,
+							     "not a valid restriction");
+		}
+	} else {
+		*restrs = tal_arr(cmd, struct rune_restr *, 1);
+		(*restrs)[0] = rune_restr_from_string(*restrs,
+						      buffer + tok->start,
+						      tok->end - tok->start);
+		if (!(*restrs)[0])
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "not a valid restriction");
+	}
+	return NULL;
+}
+
+static struct command_result *reply_with_rune(struct command *cmd,
+					      const char *buf UNUSED,
+					      const jsmntok_t *result UNUSED,
+					      struct rune *rune)
+{
+	struct json_stream *js = jsonrpc_stream_success(cmd);
+
+	json_add_string(js, "rune", rune_to_base64(tmpctx, rune));
+	json_add_string(js, "unique_id", rune->unique_id);
+	return command_finished(cmd, js);
+}
+
+static struct command_result *json_commando_rune(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *params)
+{
+	struct rune *rune;
+	struct rune_restr **restrs;
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("rune", param_rune, &rune),
+		   p_opt("restrictions", param_restrictions, &restrs),
+		   NULL))
+		return command_param_failed();
+
+	if (rune) {
+		for (size_t i = 0; i < tal_count(restrs); i++)
+			rune_add_restr(rune, restrs[i]);
+		return reply_with_rune(cmd, NULL, NULL, rune);
+	}
+
+	rune = rune_derive_start(cmd, master_rune,
+				 tal_fmt(tmpctx, "%"PRIu64,
+					 rune_counter ? *rune_counter : 0));
+	for (size_t i = 0; i < tal_count(restrs); i++)
+		rune_add_restr(rune, restrs[i]);
+
+	/* Now update datastore, before returning rune */
+	req = jsonrpc_request_start(plugin, cmd, "datastore",
+				    reply_with_rune, forward_error, rune);
+	json_array_start(req->js, "key");
+	json_add_string(req->js, NULL, "commando");
+	json_add_string(req->js, NULL, "rune_counter");
+	json_array_end(req->js);
+	if (rune_counter) {
+		(*rune_counter)++;
+		json_add_string(req->js, "mode", "must-replace");
+	} else {
+		/* This used to say "🌩🤯🧨🔫!" but our log filters are too strict :( */
+		plugin_log(plugin, LOG_INFORM, "Commando powers enabled: BOOM!");
+		rune_counter = tal(plugin, u64);
+		*rune_counter = 1;
+		json_add_string(req->js, "mode", "must-create");
+	}
+	json_add_u64(req->js, "string", *rune_counter);
+	return send_outreq(plugin, req);
+}
+
 #if DEVELOPER
 static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
 	memleak_remove_region(memtable, outgoing_commands, tal_bytelen(outgoing_commands));
 	memleak_remove_region(memtable, incoming_commands, tal_bytelen(incoming_commands));
+	memleak_remove_region(memtable, master_rune, sizeof(*master_rune));
 	if (rune_counter)
 		memleak_remove_region(memtable, rune_counter, sizeof(*rune_counter));
 }
@@ -565,7 +706,13 @@ static const struct plugin_command commands[] = { {
 	"Send a commando message to a direct peer, wait for response",
 	"Sends {peer_id} {method} with optional {params} and {rune}",
 	json_commando,
-	}
+	}, {
+	"commando-rune",
+	"utility",
+	"Create or restrict a rune",
+	"Takes an optional {rune} with optional {restrictions} and returns {rune}",
+	json_commando_rune,
+	},
 };
 
 int main(int argc, char *argv[])
