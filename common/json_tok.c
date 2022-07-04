@@ -146,14 +146,6 @@ struct command_result *param_u64(struct command *cmd, const char *name,
 				     "should be an unsigned 64 bit integer");
 }
 
-struct command_result *param_tok(struct command *cmd, const char *name,
-				 const char *buffer, const jsmntok_t * tok,
-				 const jsmntok_t **out)
-{
-	*out = tok;
-	return NULL;
-}
-
 struct command_result *param_msat(struct command *cmd, const char *name,
 				  const char *buffer, const jsmntok_t *tok,
 				  struct amount_msat **msat)

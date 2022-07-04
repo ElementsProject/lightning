@@ -220,6 +220,14 @@ static void sanity(void)
 	}
 }
 
+static struct command_result *param_tok(struct command *cmd, const char *name,
+					const char *buffer, const jsmntok_t * tok,
+					const jsmntok_t **out)
+{
+	*out = tok;
+	return NULL;
+}
+
 /*
  * Make sure toks are passed through correctly, and also make sure
  * optional missing toks are set to NULL.
