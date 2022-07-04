@@ -354,11 +354,10 @@ static void json_add_help_command(struct command *cmd,
 }
 
 static const struct json_command *find_command(struct json_command **commands,
-					       const char *buffer,
-					       const jsmntok_t *cmdtok)
+					       const char *cmdname)
 {
 	for (size_t i = 0; i < tal_count(commands); i++) {
-		if (json_tok_streq(buffer, cmdtok, commands[i]->name))
+		if (streq(cmdname, commands[i]->name))
 			return commands[i];
 	}
 	return NULL;
@@ -376,28 +375,26 @@ static struct command_result *json_help(struct command *cmd,
 					const jsmntok_t *params)
 {
 	struct json_stream *response;
-	const jsmntok_t *cmdtok;
+	const char *cmdname;
 	struct json_command **commands;
 	const struct json_command *one_cmd;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("command", param_tok, &cmdtok),
+		   p_opt("command", param_string, &cmdname),
 		   NULL))
 		return command_param_failed();
 
 	commands = cmd->ld->jsonrpc->commands;
-	if (cmdtok) {
-		one_cmd = find_command(commands, buffer, cmdtok);
+	if (cmdname) {
+		one_cmd = find_command(commands, cmdname);
 		if (!one_cmd)
 			return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
-					    "Unknown command '%.*s'",
-					    cmdtok->end - cmdtok->start,
-					    buffer + cmdtok->start);
+					    "Unknown command %s",
+					    cmdname);
 		if (!deprecated_apis && one_cmd->deprecated)
 			return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
-					    "Deprecated command '%.*s'",
-					    json_tok_full_len(cmdtok),
-					    json_tok_full(buffer, cmdtok));
+					    "Deprecated command %s",
+					    cmdname);
 	} else
 		one_cmd = NULL;
 

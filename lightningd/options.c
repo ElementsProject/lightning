@@ -1672,14 +1672,14 @@ static struct command_result *json_listconfigs(struct command *cmd,
 {
 	size_t i;
 	struct json_stream *response = NULL;
-	const jsmntok_t *configtok;
+	const char *configname;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("config", param_tok, &configtok),
+		   p_opt("config", param_string, &configname),
 		   NULL))
 		return command_param_failed();
 
-	if (!configtok) {
+	if (!configname) {
 		response = json_stream_success(cmd);
 		json_add_string(response, "# version", version());
 	}
@@ -1699,9 +1699,8 @@ static struct command_result *json_listconfigs(struct command *cmd,
 			if (name[0] != '-')
 				continue;
 
-			if (configtok
-			    && !memeq(buffer + configtok->start,
-				      configtok->end - configtok->start,
+			if (configname
+			    && !memeq(configname, strlen(configname),
 				      name + 1, len - 1))
 				continue;
 
@@ -1715,11 +1714,10 @@ static struct command_result *json_listconfigs(struct command *cmd,
 		}
 	}
 
-	if (configtok && !response) {
+	if (configname && !response) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Unknown config option '%.*s'",
-				    json_tok_full_len(configtok),
-				    json_tok_full(buffer, configtok));
+				    "Unknown config option %s",
+				    configname);
 	}
 	return command_success(cmd, response);
 }

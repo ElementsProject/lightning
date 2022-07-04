@@ -100,16 +100,16 @@ struct command_result *param_sha256(struct command *cmd UNNEEDED, const char *na
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    struct sha256 **hash UNNEEDED)
 { fprintf(stderr, "param_sha256 called!\n"); abort(); }
+/* Generated stub for param_string */
+struct command_result *param_string(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    const char **str UNNEEDED)
+{ fprintf(stderr, "param_string called!\n"); abort(); }
 /* Generated stub for param_subcommand */
 const char *param_subcommand(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 			     const jsmntok_t tokens[] UNNEEDED,
 			     const char *name UNNEEDED, ...)
 { fprintf(stderr, "param_subcommand called!\n"); abort(); }
-/* Generated stub for param_tok */
-struct command_result *param_tok(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				 const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
-				 const jsmntok_t **out UNNEEDED)
-{ fprintf(stderr, "param_tok called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
