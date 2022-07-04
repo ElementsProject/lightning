@@ -356,7 +356,7 @@ static struct command_result *start_mw(struct multiwithdraw_command *mw)
 					    &mw_forward_error,
 					    mw);
 		json_add_bool(req->js, "reservedok", false);
-		json_add_jsonstr(req->js, "utxos", mw->utxos);
+		json_add_jsonstr(req->js, "utxos", mw->utxos, strlen(mw->utxos));
 	} else {
 		plugin_log(mw->cmd->plugin, LOG_DBG,
 			   "multiwithdraw %"PRIu64": fundpsbt.",
