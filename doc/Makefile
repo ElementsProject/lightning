@@ -13,6 +13,8 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-checkmessage.7 \
 	doc/lightning-close.7 \
 	doc/lightning-connect.7 \
+	doc/lightning-commando.7 \
+	doc/lightning-commando-rune.7 \
 	doc/lightning-createonion.7 \
 	doc/lightning-createinvoice.7 \
 	doc/lightning-datastore.7 \
