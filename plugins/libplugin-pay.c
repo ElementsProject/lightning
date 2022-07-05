@@ -809,6 +809,10 @@ static struct command_result *payment_getroute(struct payment *p)
 	const char *errstr;
 	struct gossmap *gossmap;
 
+	/* If we retry the getroute call we might already have a route, so
+	 * free an eventual stale route. */
+	p->route = tal_free(p->route);
+
 	gossmap = get_gossmap(p->plugin);
 
 	dst = gossmap_find_node(gossmap, p->getroute->destination);
