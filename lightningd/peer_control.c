@@ -1437,13 +1437,14 @@ static bool check_funding_details(const struct bitcoin_tx *tx,
 				  struct amount_sat funding,
 				  u32 funding_outnum)
 {
-	struct amount_asset asset =
-	    bitcoin_tx_output_get_amount(tx, funding_outnum);
-
-	if (!amount_asset_is_main(&asset))
-		return false;
+	struct amount_asset asset;
 
 	if (funding_outnum >= tx->wtx->num_outputs)
+		return false;
+
+	asset = bitcoin_tx_output_get_amount(tx, funding_outnum);
+
+	if (!amount_asset_is_main(&asset))
 		return false;
 
 	if (!amount_sat_eq(amount_asset_to_sat(&asset), funding))
