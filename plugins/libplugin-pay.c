@@ -515,8 +515,8 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 		/* For all channels we check that they have a
 		 * sufficiently large estimated capacity to have some
 		 * chance of succeeding. */
-		apply &= amount_msat_greater(curhint->estimated_capacity,
-					     curhop->amount);
+		apply &= amount_msat_greater_eq(curhint->estimated_capacity,
+						curhop->amount);
 
 		if (!apply) {
 			/* This can happen in case of multiple
@@ -530,6 +530,15 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 				   type_to_string(tmpctx,
 						  struct short_channel_id_dir,
 						  &curhint->scid));
+			paymod_log(
+			    p, LOG_DBG,
+			    "Capacity: estimated_capacity=%s, hop_amount=%s. "
+			    "HTLC Budget: htlc_budget=%d, local=%d",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &curhint->estimated_capacity),
+			    type_to_string(tmpctx, struct amount_msat,
+					   &curhop->amount),
+			    curhint->htlc_budget, curhint->local);
 			return false;
 		}
 	}
