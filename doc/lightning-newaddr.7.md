@@ -24,6 +24,8 @@ for the same underlying key.
 
 If no *addresstype* is specified the address generated is a *bech32* address.
 
+To send an on-chain payment _from_ the Core Lightning node wallet, use `withdraw`. 
+
 RETURN VALUE
 ------------
 
