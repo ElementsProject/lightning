@@ -777,27 +777,29 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
 
     event1 = wait_for_event(l1)
     event2 = wait_for_event(l2)
-    if l1.config('experimental-dual-fund'):
-        # Dual funded channels have an extra state change
-        assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
-        assert(event1['channel_id'] == cid)
-        assert(event1['short_channel_id'] is None)
-        assert(event1['old_state'] == "DUALOPEND_OPEN_INIT")
-        assert(event1['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
-        assert(event1['cause'] == "user")
-        assert(event1['message'] == "Sigs exchanged, waiting for lock-in")
-        event1 = wait_for_event(l1)
-        assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
-        assert(event2['channel_id'] == cid)
-        assert(event2['short_channel_id'] is None)
-        assert(event2['old_state'] == "DUALOPEND_OPEN_INIT")
-        assert(event2['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
-        assert(event2['cause'] == "remote")
-        assert(event2['message'] == "Sigs exchanged, waiting for lock-in")
-        event2 = wait_for_event(l2)
-
     assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
     assert(event1['channel_id'] == cid)
+    assert(event1['short_channel_id'] is None)  # None until locked in
+    assert(event1['cause'] == "user")
+
+    assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
+    assert(event2['channel_id'] == cid)
+    assert(event2['short_channel_id'] is None)  # None until locked in
+    assert(event2['cause'] == "remote")
+
+    for ev in [event1, event2]:
+        # Dual funded channels
+        if l1.config('experimental-dual-fund'):
+            assert(ev['old_state'] == "DUALOPEND_OPEN_INIT")
+            assert(ev['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
+            assert(ev['message'] == "Sigs exchanged, waiting for lock-in")
+        else:
+            assert(ev['old_state'] == "unknown")
+            assert(ev['new_state'] == "CHANNELD_AWAITING_LOCKIN")
+            assert(ev['message'] == "new channel opened")
+
+    event1 = wait_for_event(l1)
+    event2 = wait_for_event(l2)
     assert(event1['short_channel_id'] == scid)
     if l1.config('experimental-dual-fund'):
         assert(event1['old_state'] == "DUALOPEND_AWAITING_LOCKIN")
@@ -807,8 +809,6 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event1['cause'] == "user")
     assert(event1['message'] == "Lockin complete")
 
-    assert(event2['peer_id'] == l1_id)
-    assert(event2['channel_id'] == cid)
     assert(event2['short_channel_id'] == scid)
     if l1.config('experimental-dual-fund'):
         assert(event2['old_state'] == "DUALOPEND_AWAITING_LOCKIN")
@@ -911,18 +911,21 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
         return event
 
     event2 = wait_for_event(l2)
+    assert(event2['peer_id'] == l1_id)
+    assert(event2['channel_id'] == cid)
+    assert(event2['short_channel_id'] is None)
+    assert(event2['cause'] == "remote")
+
     if l2.config('experimental-dual-fund'):
-        assert(event2['peer_id'] == l1_id)
-        assert(event2['channel_id'] == cid)
-        assert(event2['short_channel_id'] is None)
         assert(event2['old_state'] == "DUALOPEND_OPEN_INIT")
         assert(event2['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
-        assert(event2['cause'] == "remote")
         assert(event2['message'] == "Sigs exchanged, waiting for lock-in")
-        event2 = wait_for_event(l2)
+    else:
+        assert(event2['old_state'] == "unknown")
+        assert(event2['new_state'] == "CHANNELD_AWAITING_LOCKIN")
+        assert(event2['message'] == "new channel opened")
 
-    assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
-    assert(event2['channel_id'] == cid)
+    event2 = wait_for_event(l2)
     assert(event2['short_channel_id'] == scid)
     if l2.config('experimental-dual-fund'):
         assert(event2['old_state'] == "DUALOPEND_AWAITING_LOCKIN")

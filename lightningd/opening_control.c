@@ -101,6 +101,7 @@ wallet_commit_channel(struct lightningd *ld,
 	u64 static_remotekey_start;
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
 	struct short_channel_id *alias_local;
+	struct timeabs timestamp;
 
 	/* We cannot both be the fundee *and* have a `fundchannel_start`
 	 * command running!
@@ -224,6 +225,17 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
+
+	/* Notify that channel state changed (from non existant to existant) */
+	timestamp = time_now();
+	notify_channel_state_changed(ld, &channel->peer->id,
+				     &channel->cid,
+				     channel->scid, /* NULL */
+				     &timestamp,
+				     0, /* No prior state */
+				     channel->state,
+				     channel->state_change_cause,
+				     "new channel opened");
 
 	return channel;
 }
