@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
@@ -1113,7 +1114,9 @@ listinvoice_done(struct command *cmd, const char *buf,
 	}
 
 	db_begin_transaction(db);
-	maybe_add_payment_hash_desc(db, payment_hash, desc);
+	maybe_add_payment_hash_desc(db, payment_hash,
+				    json_escape_unescape(cmd,
+							 (struct json_escape *)desc));
 	db_commit_transaction(db);
 
 	if (!desc)

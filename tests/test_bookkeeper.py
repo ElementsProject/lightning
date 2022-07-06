@@ -386,7 +386,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None})
 
     # Send l2 funds via the channel
-    bolt11_desc = "test bolt11 description"
+    bolt11_desc = 'test "bolt11" description, 🥰🪢'
     l1.pay(l2, 11000000, label=bolt11_desc)
     l1.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -11000000msat')
     l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 11000000msat')
@@ -402,7 +402,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     assert inv['description'] == bolt11_desc
 
     # Make an offer (l1)
-    bolt12_desc = "test bolt12 description"
+    bolt12_desc = 'test "bolt12" description, 🥰🪢'
     offer = l1.rpc.call('offer', [100, bolt12_desc])
     invoice = l2.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
     paid = l2.rpc.pay(invoice['invoice'])
@@ -418,3 +418,19 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     l2_inc_ev = l2.rpc.bkpr_listincome()['income_events']
     inv = only_one([ev for ev in l2_inc_ev if 'payment_id' in ev and ev['payment_id'] == paid['payment_hash'] and ev['tag'] == 'invoice'])
     assert inv['description'] == bolt12_desc
+
+    # Check the CSVs look groovy
+    l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
+    l2.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
+    koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
+    l1_koinly_csv = open(koinly_path, 'rb').read()
+    bolt11_exp = bytes('invoice,"test \'bolt11\' description, 🥰🪢",', 'utf-8')
+    bolt12_exp = bytes('invoice,"test \'bolt12\' description, 🥰🪢",', 'utf-8')
+
+    assert l1_koinly_csv.find(bolt11_exp) >= 0
+    assert l1_koinly_csv.find(bolt12_exp) >= 0
+
+    koinly_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
+    l2_koinly_csv = open(koinly_path, 'rb').read()
+    assert l2_koinly_csv.find(bolt11_exp) >= 0
+    assert l2_koinly_csv.find(bolt12_exp) >= 0
