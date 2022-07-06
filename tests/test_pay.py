@@ -1126,6 +1126,15 @@ def test_forward(node_factory, bitcoind):
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(rhash)
 
+    # Check that invoice payment and fee are tracked appropriately
+    l1.daemon.wait_for_log('coin_move .* [(]invoice[)]')
+    l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
+
+    koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
+    koinly_csv = open(koinly_path, 'rb').read()
+    expected_line = r'0.00100000000,.*,,,0.00000001001,.*,invoice'
+    assert only_one(re.findall(expected_line, str(koinly_csv)))
+
 
 @pytest.mark.developer("needs --dev-fast-gossip")
 def test_forward_different_fees_and_cltv(node_factory, bitcoind):
