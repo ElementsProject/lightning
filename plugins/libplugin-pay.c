@@ -584,10 +584,8 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 		if (!hint->enabled)
 			tal_arr_expand(&res, hint->scid);
 
-		else if (amount_msat_greater_eq(p->amount,
-						hint->estimated_capacity))
-			/* We exclude on equality because we've set the
-			 * estimate to the smallest failed attempt. */
+		else if (amount_msat_greater(p->amount,
+					     hint->estimated_capacity))
 			tal_arr_expand(&res, hint->scid);
 
 		else if (hint->local && hint->htlc_budget == 0)
@@ -1248,6 +1246,7 @@ handle_intermediate_failure(struct command *cmd,
 			    enum onion_wire failcode)
 {
 	struct payment *root = payment_root(p);
+	struct amount_msat estimated;
 
 	paymod_log(p, LOG_DBG,
 		   "Intermediate node %s reported %04x (%s) at %s on route %s",
@@ -1288,11 +1287,20 @@ handle_intermediate_failure(struct command *cmd,
 		break;
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
+		estimated = errchan->amount;
+
+		/* Subtract one msat more, since we know that the amount did not
+		 * work. This allows us to then allow on equality, this is for
+		 * example necessary for local channels where exact matches
+		 * should be allowed. */
+		if (!amount_msat_sub(&estimated, estimated, AMOUNT_MSAT(1)))
+			abort();
+
 		/* These are an indication that the capacity was insufficient,
 		 * remember the amount we tried as an estimate. */
 		channel_hints_update(root, errchan->scid,
 				     errchan->direction, true, false,
-				     &errchan->amount, NULL);
+				     &estimated, NULL);
 		goto error;
 	}
 
