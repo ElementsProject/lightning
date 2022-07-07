@@ -91,7 +91,7 @@ COMMON_SRC_NOGEN :=				\
 	common/wire_error.c
 
 
-COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c
+COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c common/scb_wiregen.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/closing_fee.h				\
