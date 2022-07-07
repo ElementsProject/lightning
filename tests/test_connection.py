@@ -2718,6 +2718,47 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
 
 
+@pytest.mark.developer("needs --dev-max-funding-unconfirmed-blocks")
+@pytest.mark.openchannel('v2')
+def test_fundee_node_unconfirmed(node_factory, bitcoind):
+    """Test that fundee will successfully broadcast and
+    funder still has correct UTXOs/correctly advances the channel
+    """
+    # opener
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    # Give opener some funds.
+    l1.fundwallet(10**7)
+
+    start_amount = only_one(l1.rpc.listfunds()['outputs'])['amount_msat']
+
+    def mock_sendrawtransaction(r):
+        return {'id': r['id'], 'error': {'code': 100, 'message': 'sendrawtransaction disabled'}}
+
+    def mock_donothing(r):
+        time.sleep(10)
+        return bitcoind.rpc.sendrawtransaction(r['params'][0])
+
+    # Prevent both from broadcasting funding tx (any tx really).
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_donothing)
+
+    # Fund the channel.
+    # The process will complete, but opener will be unable
+    # to broadcast and confirm funding tx.
+    with pytest.raises(RpcError, match=r'sendrawtransaction disabled'):
+        l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+    # Generate blocks until unconfirmed.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Check that l1 opened the channel
+    wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CHANNELD_NORMAL')
+    end_amount = only_one(l1.rpc.listfunds()['outputs'])['amount_msat']
+    # We should be out the onchaind fees
+    assert start_amount > end_amount + Millisatoshi(10 ** 7 * 100)
+
+
 @pytest.mark.developer("needs dev_fail")
 def test_no_fee_estimate(node_factory, bitcoind, executor):
     l1 = node_factory.get_node(start=False, options={'dev-no-fake-fees': True})
