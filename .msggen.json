@@ -397,6 +397,7 @@
         "FundchannelResponse": {
             "FundChannel.channel_id": 4,
             "FundChannel.close_to": 5,
+            "FundChannel.mindepth": 6,
             "FundChannel.outnum": 3,
             "FundChannel.tx": 1,
             "FundChannel.txid": 2
