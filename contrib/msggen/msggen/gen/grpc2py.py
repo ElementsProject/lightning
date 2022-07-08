@@ -17,7 +17,7 @@ def decamelcase(c):
 
 
 override = {
-
+    'ListPeers.peers[].channels[].state_changes[]': None,
 }
 
 
@@ -92,6 +92,8 @@ class Grpc2PyGenerator(IGenerator):
             self.converters[field.path] = "str(m.{{name}})"
 
     def generate_composite(self, prefix, field: CompositeField):
+        if override.get(field.path, "") is None:
+            return
         name = field.name.normalized()
         if prefix:
             prefix = f"{prefix}_{str(name).lower()}"
@@ -129,6 +131,8 @@ class Grpc2PyGenerator(IGenerator):
                 self.write(f'        "{name}": [{rhs} for i in {rhs}], # ArrayField[primitive] in generate_composite\n', cleanup=False)
 
             elif isinstance(f, ArrayField):
+                if override.get(f.path, "") is None:
+                    continue
                 rhs = self.converters[f.path]
 
                 self.write(f'        "{name}": [{rhs} for i in m.{name}],  # ArrayField[composite] in generate_composite\n', cleanup=False)
