@@ -17,6 +17,10 @@
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
+#if GOSSMAP_PERMISSIVE
+#include <stdio.h>
+#endif
+
 /* We need this global to decode indexes for hash functions */
 static struct gossmap *map;
 
@@ -415,8 +419,16 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	scid.u64 = map_be64(map, cannounce_off + plus_scid_off);
 	chan = gossmap_find_chan(map, &scid);
 	if (chan) {
+#if GOSSMAP_PERMISSIVE
+		fprintf(stderr,
+			"GOSSMAP: replacing channel scid=%s: chan->private=%d "
+			"-> private=%d\n",
+			short_channel_id_to_str(tmpctx, &scid), chan->private,
+			private);
+#else
 		assert(chan->private);
 		assert(!private);
+#endif
 		gossmap_remove_chan(map, chan);
 	}
 
