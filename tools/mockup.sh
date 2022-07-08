@@ -40,13 +40,18 @@ if [ $# -eq 0 ]; then
 fi
 
 for SYMBOL; do
+    STUB=""
     # If there are multiple declarations, pick first (eg. common/memleak.h
     # has notleak_ as a declaration, and then an inline).
     # Also, prefer local headers over generic ones.
     WHERE=$(shopt -s nullglob; grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" "$UPDIRNAME"/*.h ./*/*.h | head -n1)
     if [ -z "$WHERE" ]; then
-	echo "/* Could not find declaration for $SYMBOL */"
-	continue
+	WHERE=$(shopt -s nullglob; grep -nH "^extern [a-zA-Z0-9_ (),]* [*]*$SYMBOL;" "$UPDIRNAME"/*.h ./*/*.h | head -n1)
+	STUB=";"
+	if [ -z "$WHERE" ]; then
+	    echo "/* Could not find declaration for $SYMBOL */"
+	    continue
+	fi
     fi
 
     FILE=${WHERE%%:*}
@@ -55,13 +60,15 @@ for SYMBOL; do
     END=$(tail -n "+${LINE}" < "$FILE" | grep -n ';$');
     NUM=${END%%:*}
 
-    if grep -q "$SYMBOL.*mock empty" "$FILE"; then
-	STUB="{ }"
-    else
-	# \n on RHS is a GNU extension, and we want to work on FreeBSD
-	# shellcheck disable=SC1004
-	STUB='\
+    if [ -z "$STUB" ]; then
+	if grep -q "$SYMBOL.*mock empty" "$FILE"; then
+	    STUB="{ }"
+	else
+	    # \n on RHS is a GNU extension, and we want to work on FreeBSD
+	    # shellcheck disable=SC1004
+	    STUB='\
 { fprintf(stderr, "'$SYMBOL' called!\\n"); abort(); }'
+	fi
     fi
 
     echo "/* Generated stub for $SYMBOL */"
