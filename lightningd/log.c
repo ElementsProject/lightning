@@ -291,13 +291,15 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 }
 
 static enum log_level filter_level(struct log_book *lr,
-				   const struct log_prefix *lp)
+				   const struct log_prefix *lp,
+				   const struct node_id *node_id)
 {
 	struct print_filter *i;
+	const char *node_id_str = node_id ? node_id_to_hexstr(tmpctx, node_id) : "";
 
 	assert(lr->default_print_level != NULL);
 	list_for_each(&lr->print_filters, i, list) {
-		if (strstr(lp->prefix, i->prefix))
+		if (strstr(lp->prefix, i->prefix) || strstr(node_id_str, i->prefix))
 			return i->level;
 	}
 	return *lr->default_print_level;
@@ -331,14 +333,14 @@ const char *log_prefix(const struct log *log)
 	return log->prefix->prefix;
 }
 
-enum log_level log_print_level(struct log *log)
+enum log_level log_print_level(struct log *log, const struct node_id *node_id)
 {
 	if (!log->print_level) {
 		/* Not set globally yet?  Print UNUSUAL / BROKEN messages only */
 		if (!log->lr->default_print_level)
 			return LOG_UNUSUAL;
 		log->print_level = tal(log, enum log_level);
-		*log->print_level = filter_level(log->lr, log->prefix);
+		*log->print_level = filter_level(log->lr, log->prefix, node_id);
 	}
 	return *log->print_level;
 }
@@ -400,7 +402,7 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 
 static void maybe_print(struct log *log, const struct log_entry *l)
 {
-	if (l->level >= log_print_level(log))
+	if (l->level >= log_print_level(log, l->nc ? &l->nc->node_id : NULL))
 		log_to_files(log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
 			     &l->time, l->log,
@@ -450,7 +452,7 @@ void log_io(struct log *log, enum log_level dir,
 	assert(dir == LOG_IO_IN || dir == LOG_IO_OUT);
 
 	/* Print first, in case we need to truncate. */
-	if (l->level >= log_print_level(log))
+	if (l->level >= log_print_level(log, node_id))
 		log_to_files(log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
 			     &l->time, str,
@@ -758,7 +760,7 @@ void logging_options_parsed(struct log_book *lr)
 	for (size_t i = 0; i < lr->num_entries; i++) {
 		const struct log_entry *l = &lr->log[i];
 
-		if (l->level >= filter_level(lr, l->prefix))
+		if (l->level >= filter_level(lr, l->prefix, NULL))
 			log_to_files(l->prefix->prefix, l->level,
 				     l->nc ? &l->nc->node_id : NULL,
 				     &l->time, l->log,

@@ -44,7 +44,7 @@ void logv(struct log *log, enum log_level level, const struct node_id *node_id,
 	  bool call_notifier, const char *fmt, va_list ap);
 
 const char *log_prefix(const struct log *log);
-enum log_level log_print_level(struct log *log);
+enum log_level log_print_level(struct log *log, const struct node_id *node_id);
 
 void opt_register_logging(struct lightningd *ld);
 
