@@ -1768,7 +1768,7 @@ def test_gossip_announce_unknown_block(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1])
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
+@unittest.skipIf(DEVELOPER, "Developer gossip too fast!")
 def test_gossip_no_backtalk(node_factory):
     # l3 connects, gets gossip, but should *not* play it back.
     l1, l2, l3 = node_factory.get_nodes(3,
@@ -1781,8 +1781,8 @@ def test_gossip_no_backtalk(node_factory):
                              r'\[IN\] 0102', r'\[IN\] 0102',
                              r'\[IN\] 0101', r'\[IN\] 0101'])
 
-    # With DEVELOPER, this is long enough for gossip flush.
-    time.sleep(2)
+    # Will flush every 60 seconds, so definitely should by this time!
+    time.sleep(90)
     assert not l3.daemon.is_in_log(r'\[OUT\] 0100')
 
 
