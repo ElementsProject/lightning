@@ -35,7 +35,7 @@
 /* The database that we store all the accounting data in */
 static struct db *db ;
 
-static char *db_dsn = "sqlite3://accounts.sqlite3";
+static char *db_dsn;
 static char *datadir;
 
 static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
@@ -1771,7 +1771,14 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 				   "Unable to switch to 'bookkeeper-dir'=%s",
 				   datadir);
 	}
+
+	/* No user suppled db_dsn, set one up here */
+	if (!db_dsn)
+		db_dsn = tal_fmt(NULL, "sqlite3://accounts.sqlite3");
+
+	plugin_log(p, LOG_DBG, "Setting up database at %s", db_dsn);
 	db = notleak(db_setup(p, p, db_dsn));
+	db_dsn = tal_free(db_dsn);
 
 	return NULL;
 }
@@ -1782,6 +1789,8 @@ int main(int argc, char *argv[])
 
 	/* No datadir is default */
 	datadir = NULL;
+	db_dsn = NULL;
+
 	plugin_main(argv, init, PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
@@ -1791,6 +1800,11 @@ int main(int argc, char *argv[])
 				  "string",
 				  "Location for bookkeeper records.",
 				  charp_option, &datadir),
+		    plugin_option("bookkeeper-db",
+				  "string",
+				  "Location of the bookkeeper database",
+				  charp_option, &db_dsn),
 		    NULL);
+
 	return 0;
 }
