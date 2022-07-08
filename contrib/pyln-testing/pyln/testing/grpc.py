@@ -214,9 +214,60 @@ class LightningGrpc(object):
         )
         return grpc2py.pay2py(self.stub.Pay(payload))
 
+    def invoice(
+            self,
+            amount_msat: Optional[int] = None,
+            label: str = None,
+            description: str = None,
+            expiry: Optional[int] = None,
+            fallbacks: Optional[List[str]] = None,
+            preimage: Optional[str] = None,
+            exposeprivatechannels: Optional[bool] = None,
+            cltv: Optional[int] = None,
+            deschashonly: Optional[bool] = None,
+            # msatoshi=None
+    ):
+        payload = pb.InvoiceRequest(
+            amount_msat=int2amount_or_any(amount_msat),
+            label=label,
+            description=description,
+            expiry=expiry,
+            fallbacks=fallbacks,
+            preimage=unhexlify(preimage) if preimage else None,
+            exposeprivatechannels=exposeprivatechannels,
+            cltv=cltv,
+            deschashonly=deschashonly,
+        )
+        return grpc2py.invoice2py(self.stub.Invoice(payload))
+
     def stop(self):
         payload = pb.StopRequest()
         try:
             self.stub.Stop(payload)
         except Exception:
             pass
+
+    def listnodes(self, node_id=None):
+        payload = pb.ListnodesRequest(id=unhexlify(node_id) if node_id else None)
+        return grpc2py.listnodes2py(self.stub.ListNodes(payload))
+
+    def close(
+            self,
+            peer_id: str,
+            unilateraltimeout: Optional[int] = None,
+            destination: Optional[str] = None,
+            fee_negotiation_step: Optional[str] = None,
+            force_lease_closed: Optional[bool] = None,
+            # TODO: not mapped yet
+            # feerange: Optional[List[str]]=None
+    ):
+        payload = pb.CloseRequest(
+            id=peer_id,
+            unilateraltimeout=unilateraltimeout,
+            destination=destination,
+            fee_negotiation_step=fee_negotiation_step,
+            # wrong_funding,
+            force_lease_closed=force_lease_closed,
+            # feerange,
+        )
+        return grpc2py.close2py(self.stub.Close(payload))
