@@ -1611,13 +1611,21 @@ connect_ok(struct command *cmd,
 			   json_tok_full_len(features_tok),
 			   json_tok_full(buf, features_tok));
 
+	dest->state = MULTIFUNDCHANNEL_CONNECTED;
+
 	/* Set the open protocol to use now */
 	if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
 			       dest->their_features,
 			       OPT_DUAL_FUND))
 		dest->protocol = OPEN_CHANNEL;
+	else if (!amount_sat_zero(dest->request_amt) || !(!dest->rates))
+		/* Return an error */
+		fail_destination_msg(dest, FUNDING_V2_NOT_SUPPORTED,
+				     "Tried to buy a liquidity ad"
+				     " but we(?) don't have"
+				     " experimental-dual-fund"
+				     " enabled");
 
-	dest->state = MULTIFUNDCHANNEL_CONNECTED;
 	return connect_done(dest);
 }
 
