@@ -581,6 +581,7 @@ class LightningD(TailableProc):
         self.prefix = 'lightningd-%d' % (node_id)
         # Log to stdout so we see it in failure cases, and log file for TailableProc.
         self.opts['log-file'] = ['-', os.path.join(lightning_dir, "log")]
+        self.opts['log-prefix'] = self.prefix + ' '
         # In case you want specific ordering!
         self.early_opts = []
 
