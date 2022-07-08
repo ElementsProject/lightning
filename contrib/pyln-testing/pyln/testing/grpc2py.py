@@ -105,6 +105,13 @@ def listpeers_peers_channels_funding2py(m):
     })
 
 
+def listpeers_peers_channels_alias2py(m):
+    return remove_default({
+        "local": m.local,  # PrimitiveField in generate_composite
+        "remote": m.remote,  # PrimitiveField in generate_composite
+    })
+
+
 def listpeers_peers_channels_state_changes2py(m):
     return remove_default({
         "timestamp": m.timestamp,  # PrimitiveField in generate_composite
@@ -776,6 +783,7 @@ def fundchannel2py(m):
         "outnum": m.outnum,  # PrimitiveField in generate_composite
         "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
         "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
+        "mindepth": m.mindepth,  # PrimitiveField in generate_composite
     })
 
 

@@ -862,6 +862,7 @@ impl From<&responses::FundchannelResponse> for pb::FundchannelResponse {
             outnum: c.outnum.clone(), // Rule #2 for type u32
             channel_id: hex::decode(&c.channel_id).unwrap(), // Rule #2 for type hex
             close_to: c.close_to.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            mindepth: c.mindepth.clone(), // Rule #2 for type u32?
         }
     }
 }

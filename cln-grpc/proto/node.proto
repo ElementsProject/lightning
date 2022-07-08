@@ -1159,6 +1159,7 @@ message FundchannelResponse {
 	uint32 outnum = 3;
 	bytes channel_id = 4;
 	optional bytes close_to = 5;
+	optional uint32 mindepth = 6;
 }
 
 message GetrouteRequest {

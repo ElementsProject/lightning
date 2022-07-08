@@ -2566,6 +2566,8 @@ pub mod responses {
 	    pub channel_id: String,
 	    #[serde(alias = "close_to", skip_serializing_if = "Option::is_none")]
 	    pub close_to: Option<String>,
+	    #[serde(alias = "mindepth", skip_serializing_if = "Option::is_none")]
+	    pub mindepth: Option<u32>,
 	}
 
 	/// The features understood by the destination node
