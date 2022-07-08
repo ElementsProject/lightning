@@ -570,6 +570,12 @@ static void openingd_failed(struct subd *openingd, const u8 *msg,
 {
 	char *desc;
 
+	/* Since we're detaching from uc, we'll be unreferenced until
+	 * our imminent exit (as will our parent, openingd->conn). */
+	notleak(openingd);
+	/* openingd->conn is set to NULL temporarily for this call, so: */
+	notleak(tal_parent(openingd));
+
 	if (!fromwire_openingd_failed(msg, msg, &desc)) {
 		log_broken(uc->log,
 			   "bad OPENINGD_FAILED %s",
@@ -683,8 +689,6 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	} else
 		upfront_shutdown_script_wallet_index = NULL;
 
-	/* In case peer goes away right now, mark openingd notleak() */
-	notleak(openingd);
 	subd_send_msg(openingd,
 		      take(towire_openingd_got_offer_reply(NULL, errmsg,
 							   our_upfront_shutdown_script,
