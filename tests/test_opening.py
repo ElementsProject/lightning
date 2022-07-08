@@ -1391,3 +1391,22 @@ def test_zeroconf_forward(node_factory, bitcoind):
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
     inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
     l3.rpc.pay(inv)
+
+
+@pytest.mark.openchannel('v1')
+def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
+    """ Test that you can't actually request amt for a
+    node that doesn' support v2 opens """
+
+    l1, l2, = node_factory.get_nodes(2)
+    amount = 500000
+    feerate = 2000
+
+    l1.fundwallet(amount * 100)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l1 leases a channel from l2
+    with pytest.raises(RpcError, match=r"Tried to buy a liquidity ad but we[(][?][)] don't have experimental-dual-fund enabled"):
+        l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                           feerate='{}perkw'.format(feerate),
+                           compact_lease='029a002d000000004b2003e8')
