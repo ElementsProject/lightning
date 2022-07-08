@@ -2435,6 +2435,14 @@ def test_getlog(node_factory):
     assert [l for l in logs if l['type'] == 'SKIPPED'] == []
 
 
+def test_log_filter(node_factory):
+    """Test the log-level option with subsystem filters"""
+    # This actually suppresses debug!
+    l1, l2 = node_factory.line_graph(2, opts=[{'log-level': ['debug', 'broken:022d223620']}, {}])
+
+    assert not l1.daemon.is_in_log(r'-chan#[0-9]*:')
+
+
 def test_force_feerates(node_factory):
     l1 = node_factory.get_node(options={'force-feerates': 1111})
     assert l1.rpc.listconfigs()['force-feerates'] == '1111'

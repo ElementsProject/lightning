@@ -742,7 +742,7 @@ static struct subd *new_subd(const tal_t *ctx,
 		       &msg_fd,
 		       /* We only turn on subdaemon io logging if we're going
 			* to print it: too stressful otherwise! */
-		       log_print_level(sd->log) < LOG_DBG,
+		       log_print_level(sd->log, node_id) < LOG_DBG,
 		       ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
