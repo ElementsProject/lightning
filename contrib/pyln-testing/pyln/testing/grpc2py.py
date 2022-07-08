@@ -112,16 +112,6 @@ def listpeers_peers_channels_alias2py(m):
     })
 
 
-def listpeers_peers_channels_state_changes2py(m):
-    return remove_default({
-        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
-        "old_state": str(m.old_state),  # EnumField in generate_composite
-        "new_state": str(m.new_state),  # EnumField in generate_composite
-        "cause": str(m.cause),  # EnumField in generate_composite
-        "message": m.message,  # PrimitiveField in generate_composite
-    })
-
-
 def listpeers_peers_channels_htlcs2py(m):
     return remove_default({
         "direction": str(m.direction),  # EnumField in generate_composite
@@ -172,7 +162,6 @@ def listpeers_peers_channels2py(m):
         "their_to_self_delay": m.their_to_self_delay,  # PrimitiveField in generate_composite
         "our_to_self_delay": m.our_to_self_delay,  # PrimitiveField in generate_composite
         "max_accepted_htlcs": m.max_accepted_htlcs,  # PrimitiveField in generate_composite
-        "state_changes": [listpeers_peers_channels_state_changes2py(i) for i in m.state_changes],  # ArrayField[composite] in generate_composite
         "status": [m.status for i in m.status], # ArrayField[primitive] in generate_composite
         "in_payments_offered": m.in_payments_offered,  # PrimitiveField in generate_composite
         "in_offered_msat": amount2msat(m.in_offered_msat),  # PrimitiveField in generate_composite
