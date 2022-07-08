@@ -2102,20 +2102,20 @@ def test_addgossip(node_factory):
     nann1 = l1.daemon.is_in_log(r"\[OUT\] 0101.*")
     nann2 = l2.daemon.is_in_log(r"\[OUT\] 0101.*")
 
-    # Feed them to l3 (Each one starts with TIMESTAMP chanid-xxx: [OUT] ...)
-    l3.rpc.addgossip(ann.split()[3])
+    # Feed them to l3 (Each one starts with PREFIX TIMESTAMP chanid-xxx: [OUT] ...)
+    l3.rpc.addgossip(ann.split()[4])
 
-    l3.rpc.addgossip(upd1.split()[3])
-    l3.rpc.addgossip(upd2.split()[3])
-    l3.rpc.addgossip(nann1.split()[3])
-    l3.rpc.addgossip(nann2.split()[3])
+    l3.rpc.addgossip(upd1.split()[4])
+    l3.rpc.addgossip(upd2.split()[4])
+    l3.rpc.addgossip(nann1.split()[4])
+    l3.rpc.addgossip(nann2.split()[4])
 
     # In this case, it can actually have to wait, since it does scid lookup.
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
     wait_for(lambda: len(l3.rpc.listnodes()['nodes']) == 2)
 
     # Now corrupt an update
-    badupdate = upd1.split()[3]
+    badupdate = upd1.split()[4]
     if badupdate.endswith('f'):
         badupdate = badupdate[:-1] + 'e'
     else:

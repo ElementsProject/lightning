@@ -45,6 +45,8 @@ struct log_book {
 	bool print_timestamps;
 
 	struct log_entry *log;
+	/* Prefix this to every entry as you output */
+	const char *prefix;
 
 	/* Although log_book will copy log entries to parent log_book
 	 * (the log_book belongs to lightningd), a pointer to lightningd
@@ -130,7 +132,8 @@ static const char *level_prefix(enum log_level level)
 	abort();
 }
 
-static void log_to_files(const char *prefix,
+static void log_to_files(const char *log_prefix,
+			 const char *entry_prefix,
 			 enum log_level level,
 			 const struct node_id *node_id,
 			 const struct timeabs *time,
@@ -154,23 +157,23 @@ static void log_to_files(const char *prefix,
 		const char *dir = level == LOG_IO_IN ? "[IN]" : "[OUT]";
 		char *hex = tal_hexstr(NULL, io, io_len);
 		if (!node_id)
-			entry = tal_fmt(tmpctx, "%s%s: %s%s %s\n",
-					tstamp, prefix, str, dir, hex);
+			entry = tal_fmt(tmpctx, "%s%s%s: %s%s %s\n",
+					log_prefix, tstamp, entry_prefix, str, dir, hex);
 		else
-			entry = tal_fmt(tmpctx, "%s%s-%s: %s%s %s\n",
-					tstamp,
+			entry = tal_fmt(tmpctx, "%s%s%s-%s: %s%s %s\n",
+					log_prefix, tstamp,
 					node_id_to_hexstr(tmpctx, node_id),
-					prefix, str, dir, hex);
+					entry_prefix, str, dir, hex);
 		tal_free(hex);
 	} else {
 		if (!node_id)
-			entry = tal_fmt(tmpctx, "%s%s %s: %s\n",
-					tstamp, level_prefix(level), prefix, str);
+			entry = tal_fmt(tmpctx, "%s%s%s %s: %s\n",
+					log_prefix, tstamp, level_prefix(level), entry_prefix, str);
 		else
-			entry = tal_fmt(tmpctx, "%s%s %s-%s: %s\n",
-					tstamp, level_prefix(level),
+			entry = tal_fmt(tmpctx, "%s%s%s %s-%s: %s\n",
+					log_prefix, tstamp, level_prefix(level),
 					node_id_to_hexstr(tmpctx, node_id),
-					prefix, str);
+					entry_prefix, str);
 	}
 
 	/* Default if nothing set is stdout */
@@ -278,6 +281,8 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	lr->max_mem = max_mem;
 	lr->outfiles = NULL;
 	lr->default_print_level = NULL;
+	/* We have to allocate this, since we tal_free it on resetting */
+	lr->prefix = tal_strdup(lr, "");
 	list_head_init(&lr->print_filters);
 	lr->init_time = time_now();
 	lr->ld = ld;
@@ -403,7 +408,7 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level,
 static void maybe_print(struct log *log, const struct log_entry *l)
 {
 	if (l->level >= log_print_level(log, l->nc ? &l->nc->node_id : NULL))
-		log_to_files(log->prefix->prefix, l->level,
+		log_to_files(log->lr->prefix, log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
 			     &l->time, l->log,
 			     l->io, tal_bytelen(l->io),
@@ -453,7 +458,7 @@ void log_io(struct log *log, enum log_level dir,
 
 	/* Print first, in case we need to truncate. */
 	if (l->level >= log_print_level(log, node_id))
-		log_to_files(log->prefix->prefix, l->level,
+		log_to_files(log->lr->prefix, log->prefix->prefix, l->level,
 			     l->nc ? &l->nc->node_id : NULL,
 			     &l->time, str,
 			     data, len,
@@ -619,17 +624,16 @@ static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 	buf[OPT_SHOW_LEN - 1] = '\0';
 }
 
-static char *arg_log_prefix(const char *arg, struct log *log)
+static char *arg_log_prefix(const char *arg, struct log_book *log_book)
 {
-	/* log->lr owns this, since it keeps a pointer to it. */
-	log_prefix_drop(log->prefix);
-	log->prefix = log_prefix_new(log->lr, arg);
+	tal_free(log_book->prefix);
+	log_book->prefix = tal_strdup(log_book, arg);
 	return NULL;
 }
 
-static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
+static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log_book *log_book)
 {
-	strncpy(buf, log->prefix->prefix, OPT_SHOW_LEN - 1);
+	strncpy(buf, log_book->prefix, OPT_SHOW_LEN - 1);
 	buf[OPT_SHOW_LEN - 1] = '\0';
 }
 
@@ -742,7 +746,7 @@ void opt_register_logging(struct lightningd *ld)
 			       opt_set_bool_arg, opt_show_bool, &ld->log->lr->print_timestamps,
 			       "prefix log messages with timestamp");
 	opt_register_early_arg("--log-prefix", arg_log_prefix, show_log_prefix,
-			       ld->log,
+			       ld->log_book,
 			       "log prefix");
 	opt_register_early_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
 			       "Also log to file (- for stdout)");
@@ -761,7 +765,7 @@ void logging_options_parsed(struct log_book *lr)
 		const struct log_entry *l = &lr->log[i];
 
 		if (l->level >= filter_level(lr, l->prefix, NULL))
-			log_to_files(l->prefix->prefix, l->level,
+			log_to_files(lr->prefix, l->prefix->prefix, l->level,
 				     l->nc ? &l->nc->node_id : NULL,
 				     &l->time, l->log,
 				     l->io, tal_bytelen(l->io),

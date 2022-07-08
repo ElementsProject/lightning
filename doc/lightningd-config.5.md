@@ -153,8 +153,9 @@ IO logging on channel number 55 (or 550, for that matter).
 (or any node id containing that string).
 
  **log-prefix**=*PREFIX*
-Prefix for log lines: this can be customized if you want to merge logs
-with multiple daemons.
+Prefix for all log lines: this can be customized if you want to merge logs
+with multiple daemons.  Usually you want to include a space at the end of *PREFIX*,
+as the timestamp follows immediately.
 
  **log-file**=*PATH*
 Log to this file (instead of stdout).  If you specify this more than once
