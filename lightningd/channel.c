@@ -237,6 +237,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->shutdown_wrong_funding = NULL;
 	channel->closing_feerate_range = NULL;
 	channel->channel_update = NULL;
+	channel->alias[LOCAL] = channel->alias[REMOTE] = NULL;
 
 	/* Channel is connected! */
 	channel->connected = true;
