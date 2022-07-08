@@ -33,13 +33,18 @@ class LightningNode(utils.LightningNode):
         # If we opted into checking the DB statements we will attach the dblog
         # plugin before starting the node
         check_dblog = os.environ.get("TEST_CHECK_DBSTMTS", None) == "1"
-        db = os.environ.get("TEST_DB_PROVIDER", "sqlite3")
-        if db == 'sqlite3' and check_dblog:
+        db_type = os.environ.get("TEST_DB_PROVIDER", "sqlite3")
+        if db_type == 'sqlite3' and check_dblog:
             dblog = os.path.join(os.path.dirname(__file__), 'plugins', 'dblog.py')
             has_dblog = len([o for o in self.daemon.cmd_line if 'dblog.py' in o]) > 0
             if not has_dblog:
                 # Add as an expanded option so we don't clobber other options.
                 self.daemon.opts['plugin={}'.format(dblog)] = None
+
+        # FIXME: make sure bookkeeper is not disabled
+        if db_type == 'postgres':
+            accts_db = self.db.provider.get_db('', 'accounts', 0)
+            self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
 
         # Yes, we really want to test the local development version, not
         # something in out path.
