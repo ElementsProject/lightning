@@ -1383,7 +1383,6 @@ def test_forward_stats(node_factory, bitcoind):
     assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("too slow without --dev-fast-gossip")
 @pytest.mark.slow_test
 def test_forward_local_failed_stats(node_factory, bitcoind, executor):

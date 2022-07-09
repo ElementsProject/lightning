@@ -45,7 +45,7 @@
           },
           "out_channel": {
             "type": "short_channel_id",
-            "description": "the channel that the HTLC was forwarded to"
+            "description": "the channel that the HTLC (trying to) forward to"
           },
           "payment_hash": {
             "type": "hex",
@@ -66,14 +66,15 @@
           {
             "if": {
               "required": [
-                "out_channel"
+                "out_msat"
               ]
             },
             "then": {
               "additionalProperties": false,
               "required": [
                 "fee_msat",
-                "out_msat"
+                "out_msat",
+                "out_channel"
               ],
               "properties": {
                 "in_channel": {},
@@ -116,7 +117,8 @@
                 "resolved_time": {},
                 "payment_hash": {},
                 "failcode": {},
-                "failreason": {}
+                "failreason": {},
+                "out_channel": {}
               }
             }
           },

@@ -27,11 +27,11 @@ On success, an object containing **forwards** is returned.  It is an array of ob
 - **in_msat** (msat): the value of the incoming HTLC
 - **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
 - **received_time** (number): the UNIX timestamp when this was received
-- **out_channel** (short_channel_id, optional): the channel that the HTLC was forwarded to
+- **out_channel** (short_channel_id, optional): the channel that the HTLC (trying to) forward to
 - **payment_hash** (hex, optional): payment hash sought by HTLC (always 64 characters)
 - **style** (string, optional): Either a legacy onion format or a modern tlv format (one of "legacy", "tlv")
 
-If **out_channel** is present:
+If **out_msat** is present:
   - **fee_msat** (msat): the amount this paid in fees
   - **out_msat** (msat): the amount we sent out the *out_channel*
 
@@ -59,4 +59,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:131410f052b8a1845c8d3c7eb2d48df0fc7638e7d26817f56863815be86d8f1e)
+[comment]: # ( SHA256STAMP:c8adfa0a6dcae939c5da919d7996261db8663a871210e33b426c3b40c30d7b29)

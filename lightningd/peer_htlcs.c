@@ -538,11 +538,11 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			fail_in_htlc(hout->in, failonion);
 
 			/* here we haven't called connect_htlc_out(),
-			 * so set htlc field with NULL */
+			 * so set htlc field with NULL (db wants it to exist!) */
 			wallet_forwarded_payment_add(ld->wallet,
 					 hout->in,
 					 get_onion_style(hout->in),
-					 NULL, NULL,
+					 channel_scid_or_local_alias(hout->key.channel), NULL,
 					 FORWARD_LOCAL_FAILED,
 						     fromwire_peektype(hout->failmsg));
 		}
