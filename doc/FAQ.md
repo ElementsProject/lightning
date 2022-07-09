@@ -161,7 +161,18 @@ double-spent, however it is safe to do it anyway, just in case.
 
 Then wait for the transaction moving the funds to confirm. This
 ensures any pending funding transaction can no longer be
-confirmed. Now you can use the `dev-forget-channel` command to remove
+confirmed. 
+
+As an additional step you can also force-close the unconfirmed channel:
+
+```bash
+lightning-cli close $PEERID 10  # Force close after 10 seconds
+```
+
+This will store a unilateral close TX in the DB as last resort means
+of recovery should the channel unexpectedly confirm anyway.
+
+Now you can use the `dev-forget-channel` command to remove
 the DB entries from the database.
 
 ```bash
@@ -175,11 +186,40 @@ that this command is only available if CLN was compiled with
 
 ### My channel is stuck in state `CHANNELD_AWAITING_LOCKIN`
 
-This state means that we are waiting for the funding transaction to
-confirm. Confirmations may take a long time, especially when the fees
-used for the funding transaction were low. You can check if the
-transaction is still going to confirm by looking the funding
-transaction on a block explorer:
+There are two root causes to this issue:
+ - Funding transaction isn't confirmed yet. In this case we have to
+   wait longer, or, in the case of a transaction that'll never
+   confirm, forget the channel safely.
+ - The peer hasn't sent a lockin message. This message ackowledges
+   that the node has seen sufficiently many confirmations to consider
+   the channel funded.
+
+In the case of a confirmed funding transaction but a missing lockin
+message, a simple reconnection may be sufficient to nudge it to
+acknowledge the confirmation:
+
+```bash
+lightning-cli disconnect $PEERID true  # force a disconnect
+lightning-cli connect $PEERID
+```
+
+The lack of funding locked messages is a bug we are trying to debug
+here at issue [#5366][5366], if you have encountered this issue please
+drop us a comment and any information that may be helpful.
+
+If this didn't work it could be that the peer is simply not caught up
+with the blockchain and hasn't seen the funding confirm yet. In this
+case we can either wait or force a unilateral close:
+
+```bash
+lightning-cli close $PEERID 10  # Force a unilateral after 10 seconds
+```
+
+If the funding transaction is not confirmed we may either wait or
+attempt to double-spend it. Confirmations may take a long time,
+especially when the fees used for the funding transaction were
+low. You can check if the transaction is still going to confirm by
+looking the funding transaction on a block explorer:
 
 ```bash
 TXID=$(lightning-cli listpeers $PEERID | jq -r ''.peers[].channels[].funding_txid')
@@ -241,6 +281,7 @@ funds into that wallet.
 
 [spec-features]: https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md
 [mandelbit-recovery]: https://github.com/mandelbit/bitcoin-tutorials/blob/master/CLightningRecoverFunds.md
+[5366]: https://github.com/ElementsProject/lightning/issues/5366
 
 ## Technical Questions
 
