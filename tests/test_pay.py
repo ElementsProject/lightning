@@ -1383,6 +1383,7 @@ def test_forward_stats(node_factory, bitcoind):
     assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("too slow without --dev-fast-gossip")
 @pytest.mark.slow_test
 def test_forward_local_failed_stats(node_factory, bitcoind, executor):
@@ -1607,6 +1608,10 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
     assert 'received_time' in stats['forwards'][3] and 'resolved_time' not in stats['forwards'][3]
     assert 'received_time' in stats['forwards'][3] and 'resolved_time' not in stats['forwards'][4]
+
+    # Correct in and out channels
+    assert [s['in_channel'] for s in stats['forwards']] == [c12] * 5
+    assert [s.get('out_channel') for s in stats['forwards']] == [c23, c24, c25, None, c24]
 
 
 @pytest.mark.developer("too slow without --dev-fast-gossip")
