@@ -2779,7 +2779,7 @@ void json_format_forwarding_object(struct json_stream *response,
 				    "in_msatoshi", "in_msat");
 
 	/* These can be unset (aka zero) if we failed before channel lookup */
-	if (cur->channel_out.u64 != 0) {
+	if (!amount_msat_eq(cur->msat_out, AMOUNT_MSAT(0))) {
 		json_add_amount_msat_compat(response,
 					    cur->msat_out,
 					    "out_msatoshi",  "out_msat");
