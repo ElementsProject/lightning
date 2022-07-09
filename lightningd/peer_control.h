@@ -121,4 +121,7 @@ command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct channel **channel);
 
+/* Ancient (0.7.0 and before) releases could create invalid commitment txs! */
+bool invalid_last_tx(const struct bitcoin_tx *tx);
+
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

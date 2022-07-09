@@ -220,7 +220,7 @@ static void remove_sig(struct bitcoin_tx *signed_tx)
 	bitcoin_tx_input_set_witness(signed_tx, 0, NULL);
 }
 
-static bool invalid_last_tx(const struct bitcoin_tx *tx)
+bool invalid_last_tx(const struct bitcoin_tx *tx)
 {
 	/* This problem goes back further, but was discovered just before the
 	 * 0.7.1 release. */
