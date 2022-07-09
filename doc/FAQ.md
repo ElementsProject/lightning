@@ -131,9 +131,71 @@ Tools for replication are currently in active development, using the `db_write`
 [plugin hook](https://lightning.readthedocs.io/PLUGINS.html#db-write).
 
 
-## Loss
+## Channel Management
 
-### Rescanning the block chain for lost utxos
+### How to forget about a channel? <a name="forget-channel"></a>
+
+Channels may end up stuck during funding and never confirm
+on-chain. There is a variety of causes, the most common ones being
+that the funds have been double-spent, or the funding fee was too low
+to be confirmed. This is unlikely to happen in normal operation, as
+CLN tries to use sane defaults and prevents double-spends whenever
+possible, but using custom feerates or when the bitcoin backend has no
+good fee estimates it is still possible.
+
+Before forgetting about a channel it is important to ensure that the
+funding transaction will never be confirmable by double-spending the
+funds. To do so you have to rescan the UTXOs using
+[`dev-rescan-outputs`](#rescanning) to reset any funds that may have
+been used in the funding transaction, then move all the funds to a new
+address:
+
+```bash
+lightning-cli dev-rescan-outputs
+ADDR=$(lightning-cli newaddr bech32 | jq .bech32)
+lightning-cli withdraw $ADDR all
+```
+
+This step is not required if the funding transaction was already
+double-spent, however it is safe to do it anyway, just in case.
+
+Then wait for the transaction moving the funds to confirm. This
+ensures any pending funding transaction can no longer be
+confirmed. Now you can use the `dev-forget-channel` command to remove
+the DB entries from the database.
+
+```bash
+lightning-cli dev-forget-channel $NODEID
+```
+
+This will perform additional checks on whether it is safe to forget
+the channel, and only then removes the channel from the DB. Notice
+that this command is only available if CLN was compiled with
+`DEVELOPER=1`.
+
+### My channel is stuck in state `CHANNELD_AWAITING_LOCKIN`
+
+This state means that we are waiting for the funding transaction to
+confirm. Confirmations may take a long time, especially when the fees
+used for the funding transaction were low. You can check if the
+transaction is still going to confirm by looking the funding
+transaction on a block explorer:
+
+```bash
+TXID=$(lightning-cli listpeers $PEERID | jq -r ''.peers[].channels[].funding_txid')
+```
+
+This will give you the funding transaction ID that can be looked up in
+any explorer.
+
+If you don't want to wait for the channel to confirm, you could forget
+the channel (see [How to forget about a channel?](#forget-channel) for
+details), however be careful as that may be dangerous and you'll need
+to rescan and double-spend the outputs so the funding cannot confirm.
+
+## Loss of funds
+
+### Rescanning the block chain for lost utxos <a name="rescanning"></a>
 
 There are 3 types of 'rescans' you can make:
 - `rescanblockchain`: A `bitcoind` RPC call which rescans the blockchain
