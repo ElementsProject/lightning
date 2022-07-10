@@ -1,0 +1,60 @@
+.TH "LIGHTNING-NEWADDR" "7" "" "" "lightning-newaddr"
+.SH NAME
+lightning-newaddr - Command for generating a new address to be used by Core Lightning
+.SH SYNOPSIS
+
+\fBnewaddr\fR [ \fIaddresstype\fR ]
+
+.SH DESCRIPTION
+
+The \fBnewaddr\fR RPC command generates a new address which can
+subsequently be used to fund channels managed by the Core Lightning node\.
+
+
+The funding transaction needs to be confirmed before funds can be used\.
+
+
+\fIaddresstype\fR specifies the type of address wanted; i\.e\. \fIp2sh-segwit\fR
+(e\.g\. \fB2MxaozoqWwiUcuD9KKgUSrLFDafLqimT9Ta\fR on bitcoin testnet or
+\fB3MZxzq3jBSKNQ2e7dzneo9hy4FvNzmMmt3\fR on bitcoin mainnet) or \fIbech32\fR
+(e\.g\. \fBtb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg\fR on bitcoin testnet
+or \fBbc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej\fR on
+bitcoin mainnet)\. The special value \fIall\fR generates both address types
+for the same underlying key\.
+
+
+If no \fIaddresstype\fR is specified the address generated is a \fIbech32\fR address\.
+
+
+To send an on-chain payment \fIfrom\fR the Core Lightning node wallet, use \fBwithdraw\fR\. 
+
+.SH RETURN VALUE
+
+On success, an object is returned, containing:
+
+
+.RS
+.IP \[bu]
+\fBbech32\fR (string, optional): The bech32 (native segwit) address
+.IP \[bu]
+\fBp2sh-segwit\fR (string, optional): The p2sh-wrapped address
+
+.RE
+.SH ERRORS
+
+If an unrecognized address type is requested an error message will be
+returned\.
+
+.SH AUTHOR
+
+Felix \fI<fixone@gmail.com\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-listfunds\fR(7), \fBlightning-fundchannel\fR(7), \fBlightning-withdraw\fR(7), \fBlightning-listtransactions\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:51dfdd41da7c5ff7dc82c1782f3f8f8448a99f9d0d243fb57443cf1b2d929372
