@@ -48,6 +48,7 @@ where
     configuration: Option<Configuration>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
+    dynamic: bool,
 }
 
 impl<S, I, O> Builder<S, I, O>
@@ -66,6 +67,7 @@ where
             options: vec![],
             configuration: None,
             rpcmethods: HashMap::new(),
+            dynamic: false,
         }
     }
 
@@ -139,6 +141,12 @@ where
                 callback: Box::new(move |p, r| Box::pin(callback(p, r))),
             },
         );
+        self
+    }
+
+    /// Send true value for "dynamic" field in "getmanifest" response
+    pub fn dynamic(mut self) -> Builder<S, I, O> {
+        self.dynamic = true;
         self
     }
 
@@ -280,6 +288,7 @@ where
             subscriptions: self.subscriptions.keys().map(|s| s.clone()).collect(),
             hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
+            dynamic: self.dynamic,
         }
     }
 
