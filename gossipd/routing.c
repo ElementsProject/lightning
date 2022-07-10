@@ -431,6 +431,7 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 	bool is_local = node_id_eq(&node->id, &rstate->local_id);
 	announce = gossip_store_get(tmpctx, rstate->gs, node->bcast.index);
 
+	u32 initial_bcast_index = node->bcast.index;
 	gossip_store_delete(rstate->gs,
 			    &node->bcast,
 			    WIRE_NODE_ANNOUNCEMENT);
@@ -440,6 +441,20 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 					     is_local,
 					     false,
 					     NULL);
+	if (node->rgraph.index == initial_bcast_index){
+		node->rgraph.index = node->bcast.index;
+	} else {
+		announce = gossip_store_get(tmpctx, rstate->gs, node->rgraph.index);
+		gossip_store_delete(rstate->gs,
+				    &node->rgraph,
+				    WIRE_NODE_ANNOUNCEMENT);
+		node->rgraph.index = gossip_store_add(rstate->gs,
+						      announce,
+						      node->rgraph.timestamp,
+						      is_local,
+						      false,
+						      NULL);
+	}
 }
 
 static void remove_chan_from_node(struct routing_state *rstate,
@@ -463,6 +478,10 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Last channel?  Simply delete node (and associated announce) */
 	if (num_chans == 0) {
+		if(node->rgraph.index != node->bcast.index)
+			gossip_store_delete(rstate->gs,
+					    &node->rgraph,
+					    WIRE_NODE_ANNOUNCEMENT);
 		gossip_store_delete(rstate->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
@@ -475,6 +494,10 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	/* Removed only public channel?  Remove node announcement. */
 	if (!node_has_broadcastable_channels(node)) {
+		if(node->rgraph.index != node->bcast.index)
+			gossip_store_delete(rstate->gs,
+					    &node->rgraph,
+					    WIRE_NODE_ANNOUNCEMENT);
 		gossip_store_delete(rstate->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
@@ -744,7 +767,8 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		if (!routing_add_node_announcement(rstate,
 						   pna->node_announcement,
 						   pna->index,
-						   pna->peer_softref, NULL))
+						   pna->peer_softref, NULL,
+						   false))
 			status_unusual("pending node_announcement %s too old?",
 				       tal_hex(tmpctx, pna->node_announcement));
 		/* Never send this again. */
@@ -814,8 +838,14 @@ static void delete_chan_messages_from_store(struct routing_state *rstate,
 	/* If these aren't in the store, these are noops. */
 	gossip_store_delete(rstate->gs,
 			    &chan->bcast, announcment_type);
+	if (chan->half[0].rgraph.index != chan->half[0].bcast.index)
+		gossip_store_delete(rstate->gs,
+				    &chan->half[0].rgraph, update_type);
 	gossip_store_delete(rstate->gs,
 			    &chan->half[0].bcast, update_type);
+	if (chan->half[1].rgraph.index != chan->half[1].bcast.index)
+		gossip_store_delete(rstate->gs,
+				    &chan->half[1].rgraph, update_type);
 	gossip_store_delete(rstate->gs,
 			    &chan->half[1].bcast, update_type);
 }
@@ -912,10 +942,10 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* If we had private updates, they'll immediately create the channel. */
 	if (private_updates[0])
 		routing_add_channel_update(rstate, take(private_updates[0]), 0,
-					   peer, false);
+					   peer, false, false);
 	if (private_updates[1])
 		routing_add_channel_update(rstate, take(private_updates[1]), 0,
-					   peer, false);
+					   peer, false, false);
 
 	/* Now we can finish cleanup of gossip store, so there's no window where
 	 * channel (or nodes) vanish. */
@@ -1243,7 +1273,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
 				struct peer *peer,
-				bool ignore_timestamp)
+				bool ignore_timestamp,
+				bool force_spam_flag)
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -1335,11 +1366,20 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	hc = &chan->half[direction];
 
 	if (is_halfchan_defined(hc) && !ignore_timestamp) {
-		/* If we're loading from store, duplicate entries are a bug. */
-		if (index != 0) {
-			status_broken("gossip_store channel_update %u replaces %u!",
-				      index, hc->bcast.index);
-			return false;
+		/* The gossip_store should contain a single broadcastable entry
+		 * and potentially one rate-limited entry. Any more is a bug */
+		if (index){
+			if (!force_spam_flag){
+				status_broken("gossip_store broadcastable "
+					      "channel_update %u replaces %u!",
+					      index, hc->bcast.index);
+				return false;
+			} else if (hc->bcast.index != hc->rgraph.index){
+				status_broken("gossip_store rate-limited "
+					      "channel_update %u replaces %u!",
+					      index, hc->bcast.index);
+				return false;
+			}
 		}
 
 		if (timestamp <= hc->rgraph.timestamp) {
@@ -1379,6 +1419,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	} else {
 		spam = false;
 	}
+	if (force_spam_flag)
+		spam = true;
 	/* Routing graph always uses the latest message. */
 	hc->rgraph.timestamp = timestamp;
 	if (spam) {
@@ -1394,14 +1436,14 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		hc->bcast.timestamp = timestamp;
 		/* Remove prior spam update if one exists. */
 		if (hc->rgraph.index != hc->bcast.index) {
-			/* Safe even if was never added, but if it's a
-			 * private channel it would be a
+			/* If it's a private channel it would be a
 			 * WIRE_GOSSIP_STORE_PRIVATE_UPDATE. */
 			gossip_store_delete(rstate->gs, &hc->rgraph,
 					    is_chan_public(chan)
 					    ? WIRE_CHANNEL_UPDATE
 					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
 		}
+		/* Harmless if it was never added. */
 		gossip_store_delete(rstate->gs, &hc->bcast,
 				    is_chan_public(chan)
 				    ? WIRE_CHANNEL_UPDATE
@@ -1598,7 +1640,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return warn;
 	}
 
-	routing_add_channel_update(rstate, take(serialized), 0, peer, force);
+	routing_add_channel_update(rstate, take(serialized), 0, peer, force, false);
 	return NULL;
 }
 
@@ -1606,7 +1648,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
 				   struct peer *peer,
-				   bool *was_unknown)
+				   bool *was_unknown,
+				   bool force_spam_flag)
 {
 	struct node *node;
 	secp256k1_ecdsa_signature signature;
@@ -1676,10 +1719,20 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		bool only_tlv_diff;
 		u32 redundant_time;
 
-		if (index != 0) {
-			status_broken("gossip_store node_announcement %u replaces %u!",
-				      index, node->bcast.index);
-			return false;
+		/* The gossip_store should contain a single broadcastable entry
+		 * and potentially one rate-limited entry. Any more is a bug */
+		if (index){
+			if (!force_spam_flag){
+				status_broken("gossip_store broadcastable "
+					      "node_announcement %u replaces %u!",
+					      index, node->bcast.index);
+				return false;
+			} else if (node->bcast.index != node->rgraph.index){
+				status_broken("gossip_store rate-limited "
+					      "node_announcement %u replaces %u!",
+					      index, node->bcast.index);
+				return false;
+			}
 		}
 
 		if (node->rgraph.timestamp >= timestamp) {
@@ -1719,6 +1772,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 	} else {
 		spam = false;
 	}
+	if (force_spam_flag)
+		spam = true;
 
 	/* Routing graph always references the latest message. */
 	node->rgraph.timestamp = timestamp;
@@ -1726,10 +1781,10 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		node->bcast.timestamp = timestamp;
 		/* remove prior spam update if one exists */
 		if (node->rgraph.index != node->bcast.index) {
-			/* Harmless if it was never added */
 			gossip_store_delete(rstate->gs, &node->rgraph,
 					    WIRE_NODE_ANNOUNCEMENT);
 		}
+		/* Harmless if it was never added */
 		gossip_store_delete(rstate->gs, &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
 	/* Remove prior spam update. */
@@ -1848,7 +1903,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	}
 
 	/* May still fail, if we don't know the node. */
-	routing_add_node_announcement(rstate, serialized, 0, peer, was_unknown);
+	routing_add_node_announcement(rstate, serialized, 0, peer, was_unknown, false);
 	return NULL;
 }
 

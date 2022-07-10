@@ -363,7 +363,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
 				struct peer *peer,
-				bool ignore_timestamp);
+				bool ignore_timestamp,
+				bool force_spam_flag);
 /**
  * Add a node_announcement to the network view without checking it
  *
@@ -375,7 +376,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
 				   struct peer *peer,
-				   bool *was_unknown);
+				   bool *was_unknown,
+				   bool force_spam_flag);
 
 
 /**
