@@ -617,13 +617,17 @@ static struct route_info **select_inchan(const tal_t *ctx,
 
 static int cmp_rr_number(const struct routehint_candidate *a,
 			 const struct routehint_candidate *b,
-			 void *unused)
+			 struct lightningd *ld)
 {
-	/* They're unique, so can't be equal */
 	if (a->c->rr_number > b->c->rr_number)
 		return 1;
-	assert(a->c->rr_number < b->c->rr_number);
-	return -1;
+	if (a->c->rr_number < b->c->rr_number)
+		return -1;
+
+	/* They're unique, so can't be equal */
+	log_broken(ld->log, "Two equal candidates %p and %p, channels %p and %p, rr_number %"PRIu64" and %"PRIu64,
+		   a, b, a->c, b->c, a->c->rr_number, b->c->rr_number);
+	return 0;
 }
 
 /** select_inchan_mpp
@@ -650,7 +654,7 @@ static struct route_info **select_inchan_mpp(const tal_t *ctx,
 	routehints = tal_arr(ctx, struct route_info *, 0);
 
 	/* Sort by rr_number, so we get fresh channels. */
-	asort(candidates, tal_count(candidates), cmp_rr_number, NULL);
+	asort(candidates, tal_count(candidates), cmp_rr_number, ld);
 	for (size_t i = 0; i < tal_count(candidates); i++) {
 		if (amount_msat_greater_eq(gathered, amount_needed))
 			break;
