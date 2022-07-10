@@ -25,7 +25,7 @@ static const char *reason;
 /* Generated stub for chainparams_by_chainhash */
 const struct chainparams *chainparams_by_chainhash(const struct bitcoin_blkid *chain_hash UNNEEDED)
 { fprintf(stderr, "chainparams_by_chainhash called!\n"); abort(); }
-/* Generate std for chainparams_get_ln_port */
+/* Generated stub for chainparams_get_ln_port */
 int chainparams_get_ln_port(const struct chainparams *params UNNEEDED)
 { fprintf(stderr, "chainparams_get_ln_port called!\n"); abort(); }
 /* Generated stub for fromwire_channel_id */
