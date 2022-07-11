@@ -380,7 +380,8 @@ as described below).
 
 Core Lightning also support IPv4/6 address discovery behind NAT routers.
 If your node detects an new public address, it will update its announcement.
-For this to work you need to forward the TCP port 9735 to your node.
+For this to work you need to forward the default TCP port 9735 to your node.
+IP discovery is only active if no other addresses are announced.
 
 You can instead use *addr* to override this (eg. to change the port), or
 precisely control where to bind and what to announce with the
