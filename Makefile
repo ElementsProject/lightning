@@ -81,7 +81,11 @@ endif
 PYTEST_OPTS := -v -p no:logging $(PYTEST_OPTS)
 MY_CHECK_PYTHONPATH=$${PYTHONPATH}$${PYTHONPATH:+:}$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/external/lnprototest:$(shell pwd)/contrib/pyln-spec/bolt1:$(shell pwd)/contrib/pyln-spec/bolt2:$(shell pwd)/contrib/pyln-spec/bolt4:$(shell pwd)/contrib/pyln-spec/bolt7
 # Collect generated python files to be excluded from lint checks
-PYTHON_GENERATED=
+PYTHON_GENERATED= \
+	contrib/pyln-testing/pyln/testing/primitives_pb2.py \
+	contrib/pyln-testing/pyln/testing/node_pb2_grpc.py \
+	contrib/pyln-testing/pyln/testing/node_pb2.py \
+	contrib/pyln-testing/pyln/testing/grpc2py.py
 
 # Options to pass to cppcheck. Mostly used to exclude files that are
 # generated with external tools that we don't have control over
