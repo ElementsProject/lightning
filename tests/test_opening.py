@@ -526,8 +526,8 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
 @pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
-    disconnects = ['-WIRE_INIT_RBF',
-                   '+WIRE_INIT_RBF']
+    disconnects = ['-WIRE_TX_INIT_RBF',
+                   '+WIRE_TX_INIT_RBF']
 
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'disconnect': disconnects,
@@ -576,8 +576,8 @@ def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
 @pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
-    disconnects = ['-WIRE_ACK_RBF',
-                   '+WIRE_ACK_RBF']
+    disconnects = ['-WIRE_TX_ACK_RBF',
+                   '+WIRE_TX_ACK_RBF']
 
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'may_reconnect': True},

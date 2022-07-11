@@ -355,6 +355,7 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
+	case WIRE_TX_ABORT:
 	case WIRE_TX_SIGNATURES:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
@@ -363,8 +364,8 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_CHANNEL_READY:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-	case WIRE_INIT_RBF:
-	case WIRE_ACK_RBF:
+	case WIRE_TX_INIT_RBF:
+	case WIRE_TX_ACK_RBF:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_UPDATE_ADD_HTLC:

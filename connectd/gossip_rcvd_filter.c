@@ -84,10 +84,11 @@ static bool is_msg_gossip_broadcast(const u8 *cursor)
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
 	case WIRE_TX_SIGNATURES:
+	case WIRE_TX_INIT_RBF:
+	case WIRE_TX_ACK_RBF:
+	case WIRE_TX_ABORT:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-	case WIRE_INIT_RBF:
-	case WIRE_ACK_RBF:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
 #endif
