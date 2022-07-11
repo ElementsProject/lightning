@@ -71,8 +71,9 @@ static bool public_msg_type(enum peer_wire type)
 	case WIRE_CHANNEL_READY:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
-	case WIRE_INIT_RBF:
-	case WIRE_ACK_RBF:
+	case WIRE_TX_INIT_RBF:
+	case WIRE_TX_ACK_RBF:
+	case WIRE_TX_ABORT:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_UPDATE_ADD_HTLC:

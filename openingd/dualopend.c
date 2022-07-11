@@ -231,7 +231,6 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
-		u8 *script;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
 			abort();
@@ -239,17 +238,9 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 		const u8 *prevtx = linearize_wtx(ctx,
 						 in->input.utxo);
 
-		if (in->input.redeem_script_len)
-			script = tal_dup_arr(ctx, u8,
-					     in->input.redeem_script,
-					     in->input.redeem_script_len, 0);
-		else
-			script = NULL;
-
 		msg = towire_tx_add_input(ctx, cid, serial_id,
 					  prevtx, in->tx_input.index,
-					  in->tx_input.sequence,
-					  script);
+					  in->tx_input.sequence);
 
 		tal_arr_remove(&set->added_ins, 0);
 		return msg;
@@ -866,15 +857,9 @@ static char *check_balances(const tal_t *ctx,
 	return NULL;
 }
 
-static bool is_segwit_output(struct wally_tx_output *output,
-			     const u8 *redeemscript)
+static bool is_segwit_output(struct wally_tx_output *output)
 {
-	const u8 *wit_prog;
-	if (tal_bytelen(redeemscript) > 0)
-		wit_prog = redeemscript;
-	else
-		wit_prog = wally_tx_output_get_script(tmpctx, output);
-
+	const u8 *wit_prog = wally_tx_output_get_script(tmpctx, output);
 	return is_p2wsh(wit_prog, NULL) || is_p2wpkh(wit_prog, NULL);
 }
 
@@ -1264,7 +1249,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 			if (shutdown_complete(state))
 				dualopen_shutdown(state);
 			return NULL;
-		case WIRE_INIT_RBF:
+		case WIRE_TX_INIT_RBF:
 		case WIRE_OPEN_CHANNEL2:
 		case WIRE_INIT:
 		case WIRE_ERROR:
@@ -1291,7 +1276,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_TX_ADD_OUTPUT:
 		case WIRE_TX_REMOVE_OUTPUT:
 		case WIRE_TX_COMPLETE:
-		case WIRE_ACK_RBF:
+		case WIRE_TX_ABORT:
+		case WIRE_TX_ACK_RBF:
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 		case WIRE_CHANNEL_UPDATE:
 		case WIRE_NODE_ANNOUNCEMENT:
@@ -1338,7 +1324,7 @@ static bool run_tx_interactive(struct state *state,
 		t = fromwire_peektype(msg);
 		switch (t) {
 		case WIRE_TX_ADD_INPUT: {
-			const u8 *tx_bytes, *redeemscript;
+			const u8 *tx_bytes;
 			u32 sequence;
 			size_t len;
 			struct bitcoin_tx *tx;
@@ -1349,9 +1335,7 @@ static bool run_tx_interactive(struct state *state,
 						   &serial_id,
 						   cast_const2(u8 **,
 							       &tx_bytes),
-						   &outpoint.n, &sequence,
-						   cast_const2(u8 **,
-							       &redeemscript)))
+						   &outpoint.n, &sequence))
 				open_err_fatal(state,
 					       "Parsing tx_add_input %s",
 					       tal_hex(tmpctx, msg));
@@ -1406,8 +1390,7 @@ static bool run_tx_interactive(struct state *state,
 			 *   - the `prevtx_out` input of `prevtx` is
 			 *   not an `OP_0` to `OP_16` followed by a single push
 			 */
-			if (!is_segwit_output(&tx->wtx->outputs[outpoint.n],
-					      redeemscript))
+			if (!is_segwit_output(&tx->wtx->outputs[outpoint.n]))
 				open_err_warn(state,
 					      "Invalid tx sent. Not SegWit %s",
 					      type_to_string(tmpctx,
@@ -1439,8 +1422,7 @@ static bool run_tx_interactive(struct state *state,
 			struct wally_psbt_input *in =
 				psbt_append_input(psbt, &outpoint,
 						  sequence, NULL,
-						  NULL,
-						  redeemscript);
+						  NULL, NULL);
 			if (!in)
 				open_err_warn(state,
 					      "Unable to add input %s",
@@ -1608,6 +1590,9 @@ static bool run_tx_interactive(struct state *state,
 			check_channel_id(state, &cid, &state->channel_id);
 			they_complete = true;
 			break;
+		case WIRE_TX_ABORT:
+			// FIXME: end open negotiation
+			break;
 		case WIRE_INIT:
 		case WIRE_ERROR:
 		case WIRE_WARNING:
@@ -1633,8 +1618,8 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_TX_SIGNATURES:
 		case WIRE_OPEN_CHANNEL2:
 		case WIRE_ACCEPT_CHANNEL2:
-		case WIRE_INIT_RBF:
-		case WIRE_ACK_RBF:
+		case WIRE_TX_INIT_RBF:
+		case WIRE_TX_ACK_RBF:
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 		case WIRE_CHANNEL_UPDATE:
 		case WIRE_NODE_ANNOUNCEMENT:
@@ -2066,9 +2051,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		open_err_fatal(state, "Parsing open_channel2 %s",
 			       tal_hex(tmpctx, oc2_msg));
 
-	if (open_tlv->option_upfront_shutdown_script) {
-		state->upfront_shutdown_script[REMOTE] = tal_steal(state,
-			open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey);
+	if (open_tlv->upfront_shutdown_script) {
+		state->upfront_shutdown_script[REMOTE] =
+			tal_steal(state, open_tlv->upfront_shutdown_script);
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
@@ -2282,9 +2267,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						     state->their_features);
 
 	if (tal_bytelen(state->upfront_shutdown_script[LOCAL])) {
-		a_tlv->option_upfront_shutdown_script
-			= tal(a_tlv, struct tlv_accept_tlvs_option_upfront_shutdown_script);
-		a_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey
+		a_tlv->upfront_shutdown_script
 			= tal_dup_arr(a_tlv, u8,
 				      state->upfront_shutdown_script[LOCAL],
 				      tal_count(state->upfront_shutdown_script[LOCAL]),
@@ -2711,11 +2694,10 @@ static void opener_start(struct state *state, u8 *msg)
 						     state->their_features);
 
 	if (tal_bytelen(state->upfront_shutdown_script[LOCAL])) {
-		open_tlv->option_upfront_shutdown_script =
-			tal(open_tlv,
-			    struct tlv_opening_tlvs_option_upfront_shutdown_script);
-		open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey =
-			state->upfront_shutdown_script[LOCAL];
+		open_tlv->upfront_shutdown_script =
+			tal_dup_arr(open_tlv, u8,
+				    state->upfront_shutdown_script[LOCAL],
+				    tal_bytelen(state->upfront_shutdown_script[LOCAL]), 0);
 	}
 
 	if (state->requested_lease) {
@@ -2795,12 +2777,10 @@ static void opener_start(struct state *state, u8 *msg)
 		}
 	}
 
-	if (a_tlv->option_upfront_shutdown_script) {
+	if (a_tlv->upfront_shutdown_script)
 		state->upfront_shutdown_script[REMOTE]
-			= tal_steal(state,
-				    a_tlv->option_upfront_shutdown_script
-					 ->shutdown_scriptpubkey);
-	} else
+			= tal_steal(state, a_tlv->upfront_shutdown_script);
+	else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
 	/* Now we know the 'real channel id' */
@@ -3161,8 +3141,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	}
 
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
-	msg = towire_init_rbf(tmpctx, &state->channel_id,
-			      tx_state->opener_funding,
+	msg = towire_tx_init_rbf(tmpctx, &state->channel_id,
 			      tx_state->tx_locktime,
 			      tx_state->feerate_per_kw_funding);
 
@@ -3175,9 +3154,8 @@ static void rbf_local_start(struct state *state, u8 *msg)
 		goto free_rbf_ctx;
 	}
 
-	if (!fromwire_ack_rbf(msg, &cid,
-			      &tx_state->accepter_funding))
-		open_err_fatal(state, "Parsing ack_rbf %s",
+	if (!fromwire_tx_ack_rbf(msg, &cid))
+		open_err_fatal(state, "Parsing tx_ack_rbf %s",
 			       tal_hex(tmpctx, msg));
 
 	peer_billboard(false, "channel rbf: ack received");
@@ -3266,11 +3244,10 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	/* We need a new tx_state! */
 	tx_state = new_tx_state(rbf_ctx);
 
-	if (!fromwire_init_rbf(rbf_msg, &cid,
-			       &tx_state->opener_funding,
-			       &tx_state->tx_locktime,
-			       &tx_state->feerate_per_kw_funding))
-		open_err_fatal(state, "Parsing init_rbf %s",
+	if (!fromwire_tx_init_rbf(rbf_msg, &cid,
+				  &tx_state->tx_locktime,
+				  &tx_state->feerate_per_kw_funding))
+		open_err_fatal(state, "Parsing tx_init_rbf %s",
 			       tal_hex(tmpctx, rbf_msg));
 
 	/* Is this the correct channel? */
@@ -3378,10 +3355,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 		goto free_rbf_ctx;
 	}
 
-	msg = towire_ack_rbf(tmpctx, &state->channel_id,
-			     state->our_role == TX_INITIATOR ?
-				tx_state->opener_funding :
-				tx_state->accepter_funding);
+	msg = towire_tx_ack_rbf(tmpctx, &state->channel_id);
 	peer_write(state->pps, msg);
 	peer_billboard(false, "channel rbf: ack sent, waiting for reply");
 
@@ -3739,8 +3713,11 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(state, msg);
 		return NULL;
-	case WIRE_INIT_RBF:
+	case WIRE_TX_INIT_RBF:
 		rbf_remote_start(state, msg);
+		return NULL;
+	case WIRE_TX_ABORT:
+		/* FIXME: handle this */
 		return NULL;
 	/* Otherwise we fall through */
 	case WIRE_INIT:
@@ -3768,7 +3745,7 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_TX_ADD_OUTPUT:
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
-	case WIRE_ACK_RBF:
+	case WIRE_TX_ACK_RBF:
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:
