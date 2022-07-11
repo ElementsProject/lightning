@@ -48,8 +48,9 @@ network between you and the Internet, as long as you can use Tor you can
 be connected to.
 
 Note: Core Lightning also support IPv4/6 address discovery behind NAT routers.
-For this to work you need to forward the TCP port 9735 to your node.
+For this to work you need to forward the default TCP port 9735 to your node.
 In this case you don't need TOR to punch through your firewall.
+IP discovery is only active if no other addresses are announced.
 This usually has the benefit of quicker and more stable connections but does not
 offer additional privacy.
 
