@@ -5315,7 +5315,6 @@ def test_pay_middle_fail(node_factory, bitcoind, executor):
         l1.rpc.waitsendpay('00' * 32)
 
 
-@pytest.mark.xfail(strict=True)
 def test_sendpay_dual_amounts(node_factory):
     """Test that handing *both* msatoshi and amount_msat to sendpay works"""
     l1 = node_factory.get_node(options={'allow-deprecated-apis': True})

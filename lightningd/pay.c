@@ -1375,7 +1375,8 @@ static struct command_result *param_route_hops(struct command *cmd,
 		int *ignored;
 
 		if (!param(cmd, buffer, t,
-			   p_req("amount_msat|msatoshi", param_msat, &amount_msat),
+			   /* deprecated: getroute gives both, so we allow both! */
+			   p_req_dup_ok("amount_msat|msatoshi", param_msat, &amount_msat),
 			   p_req("id", param_node_id, &id),
 			   p_req("delay", param_number, &delay),
 			   p_req("channel", param_short_channel_id, &channel),

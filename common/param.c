@@ -36,6 +36,12 @@ static bool param_add(struct param **params,
 	return true;
 }
 
+/* FIXME: To support the deprecated p_req_dup_ok */
+static bool is_required(enum param_style style)
+{
+	return style == PARAM_REQUIRED || style == PARAM_REQUIRED_ALLOW_DUPS;
+}
+
 static struct command_result *make_callback(struct command *cmd,
 					     struct param *def,
 					     const char *buffer,
@@ -57,7 +63,7 @@ static struct command_result *post_check(struct command *cmd,
 	struct param *last = first + tal_count(params);
 
 	/* Make sure required params were provided. */
-	while (first != last && first->style == PARAM_REQUIRED) {
+	while (first != last && is_required(first->style)) {
 		if (!first->is_set) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "missing required parameter: %s",
@@ -145,6 +151,8 @@ static struct command_result *parse_by_name(struct command *cmd,
 			struct command_result *res;
 
 			if (p->is_set) {
+				if (p->style == PARAM_REQUIRED_ALLOW_DUPS)
+					continue;
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "duplicate json names: %s",
 						    p->name);
@@ -182,7 +190,7 @@ static int comp_by_arg(const struct param *a, const struct param *b,
 static int comp_req_order(const struct param *a, const struct param *b,
 			  void *unused)
 {
-	if (a->style != PARAM_REQUIRED && b->style == PARAM_REQUIRED)
+	if (!is_required(a->style) && is_required(b->style))
 		return 0;
 	return 1;
 }
@@ -249,7 +257,7 @@ static char *param_usage(const tal_t *ctx,
 		int len = strcspn(params[i].name, "|");
 		if (i != 0)
 			tal_append_fmt(&usage, " ");
-		if (params[i].style == PARAM_REQUIRED)
+		if (is_required(params[i].style))
 			tal_append_fmt(&usage, "%.*s", len, params[i].name);
 		else
 			tal_append_fmt(&usage, "[%.*s]", len, params[i].name);

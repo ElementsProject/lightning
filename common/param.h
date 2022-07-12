@@ -70,6 +70,7 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 
 enum param_style {
 	PARAM_REQUIRED,
+	PARAM_REQUIRED_ALLOW_DUPS,
 	PARAM_OPTIONAL,
 	PARAM_OPTIONAL_WITH_DEFAULT,
 };
@@ -95,6 +96,20 @@ enum param_style {
 #define p_opt(name, cbx, arg)                                   \
 	      name"",                                           \
 	      PARAM_OPTIONAL,                                   \
+	      (param_cbx)(cbx),                                 \
+	      ({ *arg = NULL;                                   \
+		 (arg) + 0*sizeof((cbx)((struct command *)NULL, \
+		                  (const char *)NULL,           \
+				  (const char *)NULL,           \
+				  (const jsmntok_t *)NULL,      \
+				  (arg)) == (struct command_result *)NULL); })
+
+/*
+ * Add an required parameter, like p_req, but ignore duplicates.
+ */
+#define p_req_dup_ok(name, cbx, arg)                            \
+	      name"",                                           \
+	      PARAM_REQUIRED_ALLOW_DUPS,                        \
 	      (param_cbx)(cbx),                                 \
 	      ({ *arg = NULL;                                   \
 		 (arg) + 0*sizeof((cbx)((struct command *)NULL, \
