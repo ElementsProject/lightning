@@ -565,7 +565,18 @@ full-check: check check-source
 #
 # Do not run on your development tree since it will complain if you
 # have a dirty tree.
-check-gen-updated: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES) wallet/statements_gettextgen.po $(MANPAGES)
+CHECK_GEN_ALL = \
+	$(CLN_GRPC_GENALL) \
+	$(CLN_RPC_GENALL) \
+	$(MANPAGES) \
+	$(WALLET_DB_QUERIES) \
+	$(PYTHON_GENERATED) \
+	$(ALL_GEN_HEADERS) \
+	$(ALL_GEN_SOURCES) \
+	wallet/statements_gettextgen.po \
+	.msggen.json
+
+check-gen-updated:  $(CHECK_GEN_ALL)
 	@echo "Checking for generated files being changed by make"
 	git diff --exit-code HEAD $?
 
