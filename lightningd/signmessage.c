@@ -135,9 +135,12 @@ static void listnodes_done(const char *buffer,
 		t = json_get_member(buffer, t, "nodes");
 
 	if (!deprecated_apis && (!t || t->size == 0)) {
-		was_pending(command_fail(can->cmd, SIGNMESSAGE_PUBKEY_NOT_FOUND,
-					 "pub key not found in the graph, expected pubkey is %s",
-					 node_id_to_hexstr(tmpctx, &can->id)));
+		struct json_stream *response;
+		response = json_stream_fail(can->cmd, SIGNMESSAGE_PUBKEY_NOT_FOUND,
+							"pubkey not found in the graph");
+		json_add_node_id(response, "claimed_key", &can->id);
+		json_object_end(response);
+		was_pending(command_failed(can->cmd, response));
 		return;
 	}
 	response = json_stream_success(can->cmd);
