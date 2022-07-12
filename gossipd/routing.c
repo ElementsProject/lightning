@@ -501,6 +501,8 @@ static void remove_chan_from_node(struct routing_state *rstate,
 		gossip_store_delete(rstate->gs,
 				    &node->bcast,
 				    WIRE_NODE_ANNOUNCEMENT);
+		node->rgraph.index = node->bcast.index = 0;
+		node->rgraph.timestamp = node->bcast.timestamp = 0;
 	} else if (node_announce_predates_channels(node)) {
 		/* node announcement predates all channel announcements?
 		 * Move to end (we could, in theory, move to just past next
@@ -1377,7 +1379,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			} else if (hc->bcast.index != hc->rgraph.index){
 				status_broken("gossip_store rate-limited "
 					      "channel_update %u replaces %u!",
-					      index, hc->bcast.index);
+					      index, hc->rgraph.index);
 				return false;
 			}
 		}
@@ -1730,7 +1732,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			} else if (node->bcast.index != node->rgraph.index){
 				status_broken("gossip_store rate-limited "
 					      "node_announcement %u replaces %u!",
-					      index, node->bcast.index);
+					      index, node->rgraph.index);
 				return false;
 			}
 		}
