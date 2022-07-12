@@ -672,7 +672,9 @@
             "ListPays.pays[].destination": 3,
             "ListPays.pays[].erroronion": 10,
             "ListPays.pays[].label": 5,
+            "ListPays.pays[].number_of_parts": 14,
             "ListPays.pays[].payment_hash": 1,
+            "ListPays.pays[].preimage": 13,
             "ListPays.pays[].status": 2
         },
         "ListpaysRequest": {

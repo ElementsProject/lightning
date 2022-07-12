@@ -931,8 +931,8 @@ impl From<&responses::ListpaysPays> for pb::ListpaysPays {
             bolt11: c.bolt11.clone(), // Rule #2 for type string?
             description: c.description.clone(), // Rule #2 for type string?
             bolt12: c.bolt12.clone(), // Rule #2 for type string?
-            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
+            preimage: c.preimage.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            number_of_parts: c.number_of_parts.clone(), // Rule #2 for type u64?
             erroronion: c.erroronion.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
         }
     }
