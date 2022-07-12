@@ -622,10 +622,10 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind, chainparams):
     # l2 sends CHANNEL_ANNOUNCEMENT to l1, then disconnects/
     l2.daemon.wait_for_log('dev_disconnect')
     l1.daemon.wait_for_log(r'\[IN\] 0100')
+    wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
 
     # l1 won't relay it (make sure it has time to digest though)
     time.sleep(2)
-    assert l1.rpc.listchannels()['channels'] == []
     encoded = subprocess.run(['devtools/mkencoded', '--scids', '00'],
                              check=True,
                              timeout=TIMEOUT,

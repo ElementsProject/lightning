@@ -344,8 +344,21 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 /* Kicks off write_to_peer() to look for more gossip to send from store */
 static void wake_gossip(struct peer *peer)
 {
+	bool flush_gossip_filter = true;
+
+#if DEVELOPER
+	/* With dev-fast-gossip, we clean every 2 seconds, which is too
+	 * fast for our slow tests!  So we only call this one time in 5
+	 * actually twice that, as it's not per-peer! */
+	static int gossip_age_count;
+
+	if (peer->daemon->dev_fast_gossip && gossip_age_count++ % 5 != 0)
+		flush_gossip_filter = false;
+#endif
+
 	/* Don't remember sent per-peer gossip forever. */
-	gossip_rcvd_filter_age(peer->gs.grf);
+	if (flush_gossip_filter)
+		gossip_rcvd_filter_age(peer->gs.grf);
 
 	peer->gs.active = IFDEV(!peer->daemon->dev_suppress_gossip, true);
 	io_wake(peer->peer_outq);
