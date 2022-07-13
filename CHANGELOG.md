@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
+## [0.99.1] - 1970-01-01: End of World edition
+
 ## [0.11.1] - 2022-05-13: Simon's Carefully Chosen Release Name II
 
 Single change which fixed a bug introduced in 0.11.0 which could cause
