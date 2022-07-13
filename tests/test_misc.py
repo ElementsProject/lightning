@@ -1852,6 +1852,7 @@ def test_relative_config_dir(node_factory):
 def test_signmessage(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
                                      opts={'allow-deprecated-apis': True})
+    l1.rpc.jsonschemas = {}
 
     corpus = [[None,
                "this is a test!",
