@@ -2,6 +2,8 @@ FROM bionic
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV RUST_PROFILE=release
+ENV PATH=/root/.cargo/bin:/root/.pyenv/shims:/root/.pyenv/bin:$PATH
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
     sed -i '/security/d' /etc/apt/sources.list
@@ -25,7 +27,6 @@ RUN apt-get update \
 # Need to fetch a python version that is >= 3.7 since that's the
 # lowest version supported by pyln. This is just temporary until we
 # drop support for ubuntu 18.04
-ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:$PATH
 RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv \
     && apt-get install -y --no-install-recommends \
       libbz2-dev \
@@ -40,6 +41,11 @@ RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv \
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && python3 /tmp/get-pip.py \
 	&& rm /tmp/get-pip.py \
 	&& pip install poetry
+
+RUN wget https://sh.rustup.rs -O rustup-install.sh && \
+    bash rustup-install.sh --default-toolchain none --quiet -y && \
+    rm rustup-install.sh && \
+    /root/.cargo/bin/rustup install 1.62
 
 RUN mkdir /build
 WORKDIR /build
