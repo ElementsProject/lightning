@@ -1246,6 +1246,8 @@ pub mod responses {
 	    pub channels: Vec<ListpeersPeersChannels>,
 	    #[serde(alias = "netaddr", skip_serializing_if = "Option::is_none")]
 	    pub netaddr: Option<Vec<String>>,
+	    #[serde(alias = "remote_addr", skip_serializing_if = "Option::is_none")]
+	    pub remote_addr: Option<String>,
 	    #[serde(alias = "features", skip_serializing_if = "Option::is_none")]
 	    pub features: Option<String>,
 	}
