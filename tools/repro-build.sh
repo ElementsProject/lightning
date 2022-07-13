@@ -161,6 +161,9 @@ d8b8653388e676a3ae2fcf565c2b1a42a01a1104062317f641e8d24f0eaff9c3  /var/cache/apt
 572a544d2c18bf49d25c465720c570cd8e6e38731386ac9c0a7f29bed2486f3e  /var/cache/apt/archives/m4_1.4.18-5ubuntu2_amd64.deb
 080b79a1a1623a2e6c6eead37d62b15fdf2c3dbfeafe8ecf5e31c54eb09eadcc  /var/cache/apt/archives/make_4.3-4.1build1_amd64.deb
 52449467942cc943d651fd16867014e9339f3657935fc09b75b3347aa5a78066  /var/cache/apt/archives/zlib1g_1%3a1.2.11.dfsg-2ubuntu9_amd64.deb
+5722d6ef8435a9dc3736e474040b4c7e6512b889ad9f74b6d52cdf11eec7e219  /var/cache/apt/archives/libsqlite3-dev_3.37.2-2_amd64.deb
+ddbadadcbfe2669de79eabac36a990f0f1666bb86a87d1a9cd56fd72620ca2db  /var/cache/apt/archives/zlib1g-dev_1%3a1.2.11.dfsg-2ubuntu9_amd64.deb
+59e3890fc8407bcf8ccc9f709d6513156346d5c942e8c624dc90435e58f6f978  /var/cache/apt/archives/automake_1%3a1.16.5-1.3_all.deb
 EOF
 	;;
     *)
