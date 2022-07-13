@@ -16,7 +16,8 @@ RUN apt-get update \
 	file \
 	gettext \
 	git \
-	libgmp-dev \
+        libgmp-dev \
+        libsqlite3-dev \
 	libpq-dev \
 	libsodium23 \
 	libtool \
