@@ -2,6 +2,8 @@ FROM focal
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV RUST_PROFILE=release
+ENV PATH=/root/.cargo/bin:$PATH
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
     sed -i '/security/d' /etc/apt/sources.list
@@ -28,6 +30,11 @@ RUN apt-get update \
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && python3 /tmp/get-pip.py \
     && rm /tmp/get-pip.py \
     && pip install poetry
+
+RUN wget https://sh.rustup.rs -O rustup-install.sh && \
+    bash rustup-install.sh --default-toolchain none --quiet -y && \
+    rm rustup-install.sh && \
+    /root/.cargo/bin/rustup install 1.62
 
 RUN mkdir /build
 WORKDIR /build
