@@ -1,3 +1,6 @@
+[profile.release]
+strip = "debuginfo"
+
 [workspace]
 members = [
   "cln-rpc",
