@@ -34,7 +34,7 @@ On success, an object containing **nodes** is returned.  It is an array of objec
 If **last_timestamp** is present:
   - **alias** (string): The fun alias this node advertized (up to 32 characters)
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
-  - **features** (hex): BOLT #9 features bitmap this node advertized in node_announcement message
+  - **features** (hex): BOLT #9 features bitmap this node advertized
   - **addresses** (array of objects): The addresses this node advertized:
     - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
     - **port** (u16): port number
@@ -95,4 +95,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:85400c9c1741943e2e02935b4f14fd187a7db6056410e42adec07ef3c6772f5f)
+[comment]: # ( SHA256STAMP:df4e056ac91672041b38811329eb7555636c7b4d4985456894255a7b8e11bf54)
