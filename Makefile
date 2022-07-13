@@ -370,7 +370,7 @@ include devtools/Makefile
 include tools/Makefile
 include plugins/Makefile
 include tests/plugins/Makefile
-include contrib/libhsmd_python/Makefile
+
 ifneq ($(FUZZING),0)
 	include tests/fuzz/Makefile
 endif
