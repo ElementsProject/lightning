@@ -32,7 +32,7 @@ Don't hesitate to reach out to us on IRC at [#lightning-dev @ libera.chat][irc1]
 
 ## Getting Started
 
-Core Lightning only works on Linux and Mac OS, and requires a locally (or remotely) running `bitcoind` (version 0.16 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`).
+Core Lightning only works on Linux and macOS, and requires a locally (or remotely) running `bitcoind` (version 0.16 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`).
 Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](#pruning) for more details.
 
 ### Installation
@@ -40,7 +40,7 @@ Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](
 There are 4 supported installation options:
 
  - Installation from the [Ubuntu PPA][ppa].
- - Installation of a pre-compiled binary from the [release page][releases] on Github.
+ - Installation of a pre-compiled binary from the [release page][releases] on GitHub.
  - Using one of the [provided docker images][dockerhub] on the Docker Hub.
  - Compiling the source code yourself as described in the [installation documentation](doc/INSTALL.md).
 
