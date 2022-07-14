@@ -495,6 +495,28 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
     map_node_error(nf.nodes, lambda n: n.daemon.is_in_log(r'Accessing a null column'), "Accessing a null column")
     map_node_error(nf.nodes, checkMemleak, "had memleak messages")
     map_node_error(nf.nodes, lambda n: n.rc != 0 and not n.may_fail, "Node exited with return code {n.rc}")
+    if not ok:
+        map_node_error(nf.nodes, prinErrlog, "some node failed unexpected, non-empty errlog file")
+
+
+def getErrlog(node):
+    for error_file in os.listdir(node.daemon.lightning_dir):
+        if not re.fullmatch(r"errlog", error_file):
+            continue
+        with open(os.path.join(node.daemon.lightning_dir, error_file), 'r') as f:
+            errors = f.read().strip()
+            if errors:
+                return errors, error_file
+    return None, None
+
+
+def prinErrlog(node):
+    errors, fname = getErrlog(node)
+    if errors:
+        print("-" * 31, "stderr of node {} captured in {} file".format(node.daemon.prefix, fname), "-" * 32)
+        print(errors)
+        print("-" * 80)
+    return 1 if errors else 0
 
 
 def getValgrindErrors(node):
