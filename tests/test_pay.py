@@ -2703,7 +2703,6 @@ def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
         l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
 
 
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "fee above maximum: 81720 > 80000")
 @pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_htlc_too_dusty_incoming(node_factory, bitcoind):
     """ Try to hit the 'too much dust' limit, should fail the HTLC """

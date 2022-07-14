@@ -1523,7 +1523,6 @@ def test_logging(node_factory):
 
 @unittest.skipIf(VALGRIND,
                  "Valgrind sometimes fails assert on injected SEGV")
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "temporary, until fedora-34 gets crashlog libs fixed")
 def test_crashlog(node_factory):
     l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
 
