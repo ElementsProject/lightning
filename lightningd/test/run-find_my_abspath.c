@@ -185,6 +185,9 @@ struct plugins *plugins_new(const tal_t *ctx UNNEEDED, struct log_book *log_book
 void plugins_set_builtin_plugins_dir(struct plugins *plugins UNNEEDED,
 				     const char *dir UNNEEDED)
 { fprintf(stderr, "plugins_set_builtin_plugins_dir called!\n"); abort(); }
+/* Generated stub for resend_closing_transactions */
+void resend_closing_transactions(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "resend_closing_transactions called!\n"); abort(); }
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }

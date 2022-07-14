@@ -287,6 +287,21 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	resolve_close_command(ld, channel, cooperative);
 }
 
+void resend_closing_transactions(struct lightningd *ld)
+{
+	struct peer *peer;
+	struct channel *channel;
+
+	list_for_each(&ld->peers, peer, list) {
+		list_for_each(&peer->channels, channel, list) {
+			if (channel->state == CLOSINGD_COMPLETE)
+				drop_to_chain(ld, channel, true);
+			else if (channel->state == AWAITING_UNILATERAL)
+				drop_to_chain(ld, channel, false);
+		}
+	}
+}
+
 void channel_errmsg(struct channel *channel,
 		    struct peer_fd *peer_fd,
 		    const struct channel_id *channel_id UNUSED,

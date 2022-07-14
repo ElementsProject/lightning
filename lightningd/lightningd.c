@@ -1153,6 +1153,12 @@ int main(int argc, char *argv[])
 			 "/dev/fd (if running in chroot) if you are "
 			 "approaching that many channels.");
 
+	/*~ If we have channels closing, make sure we re-xmit the last
+	 * transaction, in case bitcoind lost it. */
+	db_begin_transaction(ld->wallet->db);
+	resend_closing_transactions(ld);
+	db_commit_transaction(ld->wallet->db);
+
 	/*~ This is where we ask connectd to reconnect to any peers who have
 	 * live channels with us, and makes sure we're watching the funding
 	 * tx. */

@@ -3697,7 +3697,6 @@ We send an HTLC, and peer unilaterally closes: do we close upstream?
         l1.rpc.waitsendpay(ph1, timeout=TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 def test_onchain_rexmit_tx(node_factory, bitcoind):
     """Make sure we re-xmit last tx if we restart and channel is AWAITING_UNILATERAL"""
     l1, l2 = node_factory.line_graph(2)
