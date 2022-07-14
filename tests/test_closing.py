@@ -3695,3 +3695,26 @@ We send an HTLC, and peer unilaterally closes: do we close upstream?
 
     with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE \(reply from remote\)'):
         l1.rpc.waitsendpay(ph1, timeout=TIMEOUT)
+
+
+@pytest.mark.xfail(strict=True)
+def test_onchain_rexmit_tx(node_factory, bitcoind):
+    """Make sure we re-xmit last tx if we restart and channel is AWAITING_UNILATERAL"""
+    l1, l2 = node_factory.line_graph(2)
+
+    def ignore_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', ignore_sendrawtx)
+
+    l2.stop()
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+
+    wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'AWAITING_UNILATERAL')
+    l1.stop()
+
+    assert bitcoind.rpc.getrawmempool() == []
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+
+    l1.start()
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
