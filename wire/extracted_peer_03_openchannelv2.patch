@@ -1,6 +1,6 @@
---- wire/peer_wire.csv	2022-05-16 13:44:14.131975828 -0500
-+++ -	2022-05-16 13:44:55.193718105 -0500
-@@ -37,6 +31,52 @@
+--- wire/peer_wire.csv	2022-05-19 14:25:25.346839996 -0500
++++ -	2022-05-19 14:26:13.327293456 -0500
+@@ -37,6 +31,54 @@
  tlvdata,n2,tlv1,amount_msat,tu64,
  tlvtype,n2,tlv2,11
  tlvdata,n2,tlv2,cltv_expiry,tu32,
@@ -40,10 +40,12 @@
 +msgdata,tx_init_rbf,channel_id,channel_id,
 +msgdata,tx_init_rbf,locktime,u32,
 +msgdata,tx_init_rbf,feerate,u32,
++msgdata,tx_init_rbf,tlvs,tx_init_rbf_tlvs,
 +tlvtype,tx_init_rbf_tlvs,funding_output_contribution,0
 +tlvdata,tx_init_rbf_tlvs,funding_output_contribution,satoshis,tu64,
 +msgtype,tx_ack_rbf,73
 +msgdata,tx_ack_rbf,channel_id,channel_id,
++msgdata,tx_ack_rbf,tlvs,tx_ack_rbf_tlvs,
 +tlvtype,tx_ack_rbf_tlvs,funding_output_contribution,0
 +tlvdata,tx_ack_rbf_tlvs,funding_output_contribution,satoshis,tu64,
 +msgtype,tx_abort,74
@@ -53,7 +55,7 @@
  msgtype,open_channel,32
  msgdata,open_channel,chain_hash,chain_hash,
  msgdata,open_channel,temporary_channel_id,byte,32
-@@ -92,6 +116,56 @@
+@@ -92,6 +130,50 @@
  msgdata,channel_ready,tlvs,channel_ready_tlvs,
  tlvtype,channel_ready_tlvs,short_channel_id,1
  tlvdata,channel_ready_tlvs,short_channel_id,alias,short_channel_id,
