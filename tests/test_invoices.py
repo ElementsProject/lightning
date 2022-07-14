@@ -559,7 +559,6 @@ def test_waitanyinvoice_reversed(node_factory, executor):
     assert r['label'] == 'inv1'
 
 
-@pytest.mark.xfail(strict=True)
 def test_autocleaninvoice(node_factory):
     l1 = node_factory.get_node()
 
