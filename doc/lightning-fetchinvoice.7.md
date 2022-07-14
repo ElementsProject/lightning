@@ -50,7 +50,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
-- **invoice** (string): The BOLT12 invoice we fetched
+- **invoice** (string): The BOLT11 invoice we fetched
 - **changes** (object): Summary of changes from offer:
   - **description_appended** (string, optional): extra characters appended to the *description* field.
   - **description** (string, optional): a completely replaced *description* field
@@ -88,4 +88,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e0033e40d86355e51abb48472f802a9a713ed5b2725828467515f9541207dac5)
+[comment]: # ( SHA256STAMP:9020698c9f60e1363e7c3f2edf69a27c1e0c3bfa2206d78b0eeede8a262fd1ed)

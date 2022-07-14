@@ -9,7 +9,7 @@
   "properties": {
     "invoice": {
       "type": "string",
-      "description": "The BOLT12 invoice we fetched"
+      "description": "The BOLT11 invoice we fetched"
     },
     "changes": {
       "type": "object",
