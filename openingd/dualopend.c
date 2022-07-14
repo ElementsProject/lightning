@@ -3105,6 +3105,9 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	struct amount_sat total;
 	char *err_reason;
+	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
+	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
+
 	/* tmpctx gets cleaned midway, so we have a context for this fn */
 	char *rbf_ctx = notleak_with_children(tal(state, char));
 
@@ -3114,6 +3117,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	 * the reserve will be the same */
 	tx_state->localconf = state->tx_state->localconf;
 	tx_state->remoteconf = state->tx_state->remoteconf;
+	init_rbf_tlvs = tlv_tx_init_rbf_tlvs_new(tmpctx);
 
 	if (!fromwire_dualopend_rbf_init(tx_state, msg,
 					 &tx_state->opener_funding,
@@ -3141,9 +3145,17 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	}
 
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
+
+	/* For now, we always just echo/send the funding amount */
+	init_rbf_tlvs->funding_output_contribution
+		= tal(init_rbf_tlvs, u64);
+	*init_rbf_tlvs->funding_output_contribution
+	       = tx_state->opener_funding.satoshis; /* Raw: wire conversion */
+
 	msg = towire_tx_init_rbf(tmpctx, &state->channel_id,
-			      tx_state->tx_locktime,
-			      tx_state->feerate_per_kw_funding);
+				 tx_state->tx_locktime,
+				 tx_state->feerate_per_kw_funding,
+				 init_rbf_tlvs);
 
 	peer_write(state->pps, take(msg));
 
@@ -3154,12 +3166,26 @@ static void rbf_local_start(struct state *state, u8 *msg)
 		goto free_rbf_ctx;
 	}
 
-	if (!fromwire_tx_ack_rbf(msg, &cid))
+	if (!fromwire_tx_ack_rbf(tmpctx, msg, &cid, &ack_rbf_tlvs))
 		open_err_fatal(state, "Parsing tx_ack_rbf %s",
 			       tal_hex(tmpctx, msg));
 
 	peer_billboard(false, "channel rbf: ack received");
 	check_channel_id(state, &cid, &state->channel_id);
+
+	if (ack_rbf_tlvs && ack_rbf_tlvs->funding_output_contribution) {
+		tx_state->accepter_funding =
+			amount_sat(*ack_rbf_tlvs->funding_output_contribution);
+
+		if (!amount_sat_eq(state->tx_state->accepter_funding,
+				   tx_state->accepter_funding))
+			status_debug("RBF: accepter amt changed %s->%s",
+				     type_to_string(tmpctx, struct amount_sat,
+						    &state->tx_state->accepter_funding),
+				     type_to_string(tmpctx, struct amount_sat,
+						    &tx_state->accepter_funding));
+	} else
+		tx_state->accepter_funding = state->tx_state->accepter_funding;
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -3237,16 +3263,21 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	char *err_reason;
 	struct amount_sat total;
 	enum dualopend_wire msg_type;
+	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
+	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
+
 	u8 *msg;
 	/* tmpctx gets cleaned midway, so we have a context for this fn */
 	char *rbf_ctx = notleak_with_children(tal(state, char));
 
 	/* We need a new tx_state! */
 	tx_state = new_tx_state(rbf_ctx);
+	ack_rbf_tlvs = tlv_tx_ack_rbf_tlvs_new(tmpctx);
 
-	if (!fromwire_tx_init_rbf(rbf_msg, &cid,
+	if (!fromwire_tx_init_rbf(tmpctx, rbf_msg, &cid,
 				  &tx_state->tx_locktime,
-				  &tx_state->feerate_per_kw_funding))
+				  &tx_state->feerate_per_kw_funding,
+				  &init_rbf_tlvs))
 		open_err_fatal(state, "Parsing tx_init_rbf %s",
 			       tal_hex(tmpctx, rbf_msg));
 
@@ -3264,6 +3295,22 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 		open_err_warn(state, "%s",
 			      "Last funding attempt not complete:"
 			      " missing your funding tx_sigs");
+
+	/* Maybe they want a different funding amount! */
+	if (init_rbf_tlvs && init_rbf_tlvs->funding_output_contribution) {
+		tx_state->opener_funding =
+			amount_sat(*init_rbf_tlvs->funding_output_contribution);
+
+		if (!amount_sat_eq(tx_state->opener_funding,
+				   state->tx_state->opener_funding))
+			status_debug("RBF: opener amt changed %s->%s",
+				     type_to_string(tmpctx, struct amount_sat,
+						    &state->tx_state->opener_funding),
+				     type_to_string(tmpctx, struct amount_sat,
+						    &tx_state->opener_funding));
+	} else
+		/* Otherwise we use the last known funding amount */
+		tx_state->opener_funding = state->tx_state->opener_funding;
 
 	/* Copy over the channel config info -- everything except
 	 * the reserve will be the same */
@@ -3300,9 +3347,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	}
 
 	if (!fromwire_dualopend_got_rbf_offer_reply(state, msg,
-						    state->our_role == TX_INITIATOR ?
-							&tx_state->opener_funding :
-							&tx_state->accepter_funding,
+						    &tx_state->accepter_funding,
 						    &tx_state->psbt))
 		master_badmsg(WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY, msg);
 
@@ -3312,13 +3357,26 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
-			    tx_state->accepter_funding)) {
-		open_err_warn(state, "Amount overflow. Local sats %s. "
-			      "Remote sats %s",
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->accepter_funding),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &tx_state->opener_funding));
+			    tx_state->accepter_funding))
+		open_err_fatal(state,
+			       "Amount overflow. Local sats %s. Remote sats %s",
+			       type_to_string(tmpctx, struct amount_sat,
+					      &tx_state->accepter_funding),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &tx_state->opener_funding));
+
+	/* Now that we know the total of the channel, we can set the reserve */
+	set_reserve(tx_state, total, state->our_role);
+
+	if (!check_config_bounds(tmpctx, total,
+				 state->feerate_per_kw_commitment,
+				 state->max_to_self_delay,
+				 state->min_effective_htlc_capacity,
+				 &tx_state->remoteconf,
+				 &tx_state->localconf,
+				 true, /* v2 means we use anchor outputs */
+				 &err_reason)) {
+		negotiation_failed(state, "%s", err_reason);
 		goto free_rbf_ctx;
 	}
 
@@ -3340,22 +3398,13 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 		goto free_rbf_ctx;
 	}
 
-	/* Now that we know the total of the channel, we can set the reserve */
-	set_reserve(tx_state, total, state->our_role);
+	/* We always send the funding amount */
+	ack_rbf_tlvs->funding_output_contribution
+		= tal(ack_rbf_tlvs, u64);
+	*ack_rbf_tlvs->funding_output_contribution
+	       = tx_state->accepter_funding.satoshis; /* Raw: wire conversion */
 
-	if (!check_config_bounds(tmpctx, total,
-				 state->feerate_per_kw_commitment,
-				 state->max_to_self_delay,
-				 state->min_effective_htlc_capacity,
-				 &tx_state->remoteconf,
-				 &tx_state->localconf,
-				 true, /* v2 means we use anchor outputs */
-				 &err_reason)) {
-		open_err_warn(state, "%s", err_reason);
-		goto free_rbf_ctx;
-	}
-
-	msg = towire_tx_ack_rbf(tmpctx, &state->channel_id);
+	msg = towire_tx_ack_rbf(tmpctx, &state->channel_id, ack_rbf_tlvs);
 	peer_write(state->pps, msg);
 	peer_billboard(false, "channel rbf: ack sent, waiting for reply");
 
