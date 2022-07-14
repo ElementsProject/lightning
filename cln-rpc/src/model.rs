@@ -724,6 +724,8 @@ pub mod requests {
 	    pub compact_lease: Option<String>,
 	    #[serde(alias = "utxos", skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
+	    #[serde(alias = "mindepth", skip_serializing_if = "Option::is_none")]
+	    pub mindepth: Option<u32>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

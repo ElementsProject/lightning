@@ -390,6 +390,7 @@
             "FundChannel.id": 9,
             "FundChannel.minconf": 10,
             "FundChannel.minconf[]": 4,
+            "FundChannel.mindepth": 12,
             "FundChannel.push_msat": 5,
             "FundChannel.request_amt": 7,
             "FundChannel.utxos[]": 11
