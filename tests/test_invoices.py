@@ -130,7 +130,7 @@ def test_invoice_weirdstring(node_factory):
     l1.rpc.delinvoice(weird_label, "unpaid")
 
 
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "VLS policies catch two-invoice-one-preimage ahead of the node")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "VLS policies catch two-invoice-one-preimage ahead of the node") # FIXME - should work with VLS_PERMISSIVE
 def test_invoice_preimage(node_factory):
     """Test explicit invoice 'preimage'.
     """
