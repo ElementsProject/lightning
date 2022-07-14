@@ -618,6 +618,8 @@ impl From<&responses::ListnodesNodes> for pb::ListnodesNodes {
             color: c.color.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             features: c.features.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
             addresses: c.addresses.as_ref().map(|arr| arr.iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            // Also need codegen'd
+            // option_will_fund: c.option_will_fund.<I'm not certain what goes here>
         }
     }
 }

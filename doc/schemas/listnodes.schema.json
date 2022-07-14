@@ -22,6 +22,45 @@
           "last_timestamp": {
             "type": "u32",
             "description": "A node_announcement has been received for this node (UNIX timestamp)"
+          },
+          "option_will_fund": {
+            "type": "object",
+            "description": "A liquidity ad announcement has been received for this node", 
+            "properties": {
+              "lease_fee_base_msat": {
+                "type": "msat",
+                "description": "the fixed fee for a lease (whole number of satoshis)"
+              },
+              "lease_fee_basis": {
+                "type": "u32",
+                "description": "the proportional fee in basis points (parts per 10,000) for a lease"
+              },
+              "funding_weight": {
+                "type": "u32",
+                "description": "the onchain weight you'll have to pay for a lease"
+              },
+              "channel_fee_max_base_msat": {
+                "type": "msat",
+                "description": "the maximum base routing fee this node will charge during the lease"
+              },
+              "channel_fee_max_proportional_thousandths": {
+                "type": "u32",
+                "description": "the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)"
+              },
+              "compact_lease": {
+                "type": "hex",
+                "description": "the lease as represented in the node_announcement"
+              }
+          },
+          "additionalProperties": false,
+            "required": [
+              "lease_fee_base_msat",
+              "lease_fee_basis",
+              "funding_weight",
+              "channel_fee_max_base_msat",
+              "channel_fee_max_proportional_thousandths",
+              "compact_lease"
+            ]
           }
         },
         "allOf": [
@@ -32,7 +71,7 @@
               ]
             },
             "then": {
-              "additionalProperties": false,
+              "additionalProperties": true,
               "required": [
                 "nodeid",
                 "last_timestamp",
@@ -137,59 +176,6 @@
               "additionalProperties": false,
               "properties": {
                 "nodeid": {}
-              }
-            }
-          },
-          {
-            "if": {
-              "required": [
-                "option_will_fund"
-              ]
-            },
-            "then": {
-              "additionalProperties": true,
-              "required": [
-                "option_will_fund"
-              ],
-              "properties": {
-                "option_will_fund": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "lease_fee_base_msat",
-                    "lease_fee_basis",
-                    "funding_weight",
-                    "channel_fee_max_base_msat",
-                    "channel_fee_max_proportional_thousandths",
-                    "compact_lease"
-                  ],
-                  "properties": {
-                    "lease_fee_base_msat": {
-                      "type": "msat",
-                      "description": "the fixed fee for a lease (whole number of satoshis)"
-                    },
-                    "lease_fee_basis": {
-                      "type": "u32",
-                      "description": "the proportional fee in basis points (parts per 10,000) for a lease"
-                    },
-                    "funding_weight": {
-                      "type": "u32",
-                      "description": "the onchain weight you'll have to pay for a lease"
-                    },
-                    "channel_fee_max_base_msat": {
-                      "type": "msat",
-                      "description": "the maximum base routing fee this node will charge during the lease"
-                    },
-                    "channel_fee_max_proportional_thousandths": {
-                      "type": "u32",
-                      "description": "the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)"
-                    },
-                    "compact_lease": {
-                      "type": "hex",
-                      "description": "the lease as represented in the node_announcement"
-                    }
-                  }
-                }
               }
             }
           }

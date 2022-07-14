@@ -2090,6 +2090,22 @@ pub mod responses {
 	    pub status: PayStatus,
 	}
 
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListnodesNodesOption_will_fund {
+	    #[serde(alias = "lease_fee_base_msat")]
+	    pub lease_fee_base_msat: Amount,
+	    #[serde(alias = "lease_fee_basis")]
+	    pub lease_fee_basis: u32,
+	    #[serde(alias = "funding_weight")]
+	    pub funding_weight: u32,
+	    #[serde(alias = "channel_fee_max_base_msat")]
+	    pub channel_fee_max_base_msat: Amount,
+	    #[serde(alias = "channel_fee_max_proportional_thousandths")]
+	    pub channel_fee_max_proportional_thousandths: u32,
+	    #[serde(alias = "compact_lease")]
+	    pub compact_lease: String,
+	}
+
 	/// Type of connection
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 	pub enum ListnodesNodesAddressesType {
@@ -2146,6 +2162,8 @@ pub mod responses {
 	    pub features: Option<String>,
 	    #[serde(alias = "addresses", skip_serializing_if = "Option::is_none")]
 	    pub addresses: Option<Vec<ListnodesNodesAddresses>>,
+		// This would need to get some codegen'd version of:
+		// pub option_will_fund: Option<ListnodesNodesOption_will_fund>
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2502,6 +2520,7 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesOnchain_fee_estimates {
+		// ^^ Similar naming/casing pattern
 	    #[serde(alias = "opening_channel_satoshis")]
 	    pub opening_channel_satoshis: u64,
 	    #[serde(alias = "mutual_close_satoshis")]

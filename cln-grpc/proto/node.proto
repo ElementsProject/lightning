@@ -828,6 +828,15 @@ message ListnodesNodes {
 	repeated ListnodesNodesAddresses addresses = 6;
 }
 
+message ListnodesNodesOption_will_fund {
+	Amount lease_fee_base_msat = 1;
+	uint32 lease_fee_basis = 2;
+	uint32 funding_weight = 3;
+	Amount channel_fee_max_base_msat = 4;
+	uint32 channel_fee_max_proportional_thousandths = 5;
+	bytes compact_lease = 6;
+}
+
 message ListnodesNodesAddresses {
 	// ListNodes.nodes[].addresses[].type
 	enum ListnodesNodesAddressesType {
