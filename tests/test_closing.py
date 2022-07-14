@@ -480,7 +480,7 @@ def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
 @pytest.mark.developer("needs dev-disable-commit-after")
 def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an incoming HTLC"""
@@ -603,7 +603,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "dev_sign_last_tx causes subsequent validate_holder_commitment_tx failure")
 @pytest.mark.developer("needs dev-disable-commit-after")
 def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     """Test penalty transaction with an outgoing HTLC"""
@@ -1538,7 +1538,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
 
 
 @pytest.mark.developer("uses dev_sign_last_tx")
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "exceeds max fee policy")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "exceeds max fee policy")
 def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
     '''
     Test that penalty transactions are RBFed.
@@ -1663,7 +1663,7 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
 
 
 @pytest.mark.developer("uses dev_sign_last_tx")
-@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "exceeds max fee policy")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "exceeds max fee policy")
 def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     '''
     Test that penalty transactions are RBFed and we are willing to burn
