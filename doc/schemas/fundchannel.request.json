@@ -40,6 +40,10 @@
       "items": {
         "type": "outpoint"
       }
+    },
+    "mindepth": {
+      "description": "Number of confirmations required before we consider the channel active",
+      "type": "u32"
     }
   }
 }
