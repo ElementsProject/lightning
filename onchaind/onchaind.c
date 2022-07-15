@@ -1727,12 +1727,12 @@ static void output_spent(struct tracked_output ***outs,
 			break;
 
 		case THEIR_HTLC:
-			record_external_deposit(out, out->tx_blockheight,
-						HTLC_TIMEOUT);
-			record_external_spend(&tx_parts->txid, out,
-					      tx_blockheight, HTLC_TIMEOUT);
-
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
+				record_external_deposit(out, out->tx_blockheight,
+							HTLC_TIMEOUT);
+				record_external_spend(&tx_parts->txid, out,
+						      tx_blockheight, HTLC_TIMEOUT);
+
 				/* we've actually got a 'new' output here */
 				steal_htlc_tx(out, outs, tx_parts,
 					      tx_blockheight,
