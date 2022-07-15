@@ -63,4 +63,10 @@ u8 *gossip_store_next(const tal_t *ctx,
  */
 size_t find_gossip_store_end(int gossip_store_fd, size_t old_end);
 
+/**
+ * Return offset of first entry >= this timestamp.
+ */
+size_t find_gossip_store_by_timestamp(int gossip_store_fd,
+				      size_t off,
+				      u32 timestamp);
 #endif /* LIGHTNING_COMMON_GOSSIP_STORE_H */
