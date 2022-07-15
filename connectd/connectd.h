@@ -187,6 +187,8 @@ struct daemon {
 	/* The gossip_store */
 	int gossip_store_fd;
 	size_t gossip_store_end;
+	u32 gossip_recent_time;
+	size_t gossip_store_recent_off;
 
 	/* We only announce websocket addresses if !deprecated_apis */
 	bool announce_websocket;

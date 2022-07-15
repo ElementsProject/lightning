@@ -129,6 +129,26 @@ static struct oneshot *gossip_stream_timer(struct peer *peer)
 			    wake_gossip, peer);
 }
 
+/* It's so common to ask for "recent" gossip (we ask for 10 minutes
+ * ago, LND and Eclair ask for now, LDK asks for 1 hour ago) that it's
+ * worth keeping track of where that starts, so we can skip most of
+ * the store. */
+static void update_recent_timestamp(struct daemon *daemon)
+{
+	/* 2 hours allows for some clock drift, not too much gossip */
+	u32 recent = time_now().ts.tv_sec - 7200;
+
+	/* Only update every minute */
+	if (daemon->gossip_recent_time + 60 > recent)
+		return;
+
+	daemon->gossip_recent_time = recent;
+	daemon->gossip_store_recent_off
+		= find_gossip_store_by_timestamp(daemon->gossip_store_fd,
+						 daemon->gossip_store_recent_off,
+						 daemon->gossip_recent_time);
+}
+
 /* This is called once we need it: otherwise, the gossip_store may not exist,
  * since we start at the same time as gossipd itself. */
 static void setup_gossip_store(struct daemon *daemon)
@@ -138,10 +158,16 @@ static void setup_gossip_store(struct daemon *daemon)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Opening gossip_store %s: %s",
 			      GOSSIP_STORE_FILENAME, strerror(errno));
+
+	daemon->gossip_recent_time = 0;
+	daemon->gossip_store_recent_off = 1;
+	update_recent_timestamp(daemon);
+
 	/* gossipd will be writing to this, and it's not atomic!  Safest
 	 * way to find the "end" is to walk through. */
 	daemon->gossip_store_end
-		= find_gossip_store_end(daemon->gossip_store_fd, 1);
+		= find_gossip_store_end(daemon->gossip_store_fd,
+					daemon->gossip_store_recent_off);
 }
 
 void setup_peer_gossip_store(struct peer *peer,
@@ -636,8 +662,15 @@ static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 	 * both set first_timestamp to 0xFFFFFFFF to indicate that. */
 	if (peer->gs.timestamp_min == UINT32_MAX)
 		peer->gs.off = peer->daemon->gossip_store_end;
-	else
-		peer->gs.off = 1;
+	else {
+		/* Second optimation: it's common to ask for "recent" gossip,
+		 * so we don't have to start at beginning of store. */
+		update_recent_timestamp(peer->daemon);
+		if (peer->gs.timestamp_min >= peer->daemon->gossip_recent_time)
+			peer->gs.off = peer->daemon->gossip_store_recent_off;
+		else
+			peer->gs.off = 1;
+	}
 
 	/* BOLT #7:
 	 *    - MAY wait for the next outgoing gossip flush to send these.
