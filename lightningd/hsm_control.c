@@ -128,26 +128,6 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	return bip32_base;
 }
 
-static struct command_result *json_getsharedsecret(struct command *cmd,
-					   const char *buffer,
-					   const jsmntok_t *obj UNNEEDED,
-					   const jsmntok_t *params)
-{
-	struct pubkey *point;
-	struct secret ss;
-	struct json_stream *response;
-
-	if (!param(cmd, buffer, params,
-		   p_req("point", &param_pubkey, &point),
-		   NULL))
-		return command_param_failed();
-
-	ecdh(point, &ss);
-	response = json_stream_success(cmd);
-	json_add_secret(response, "shared_secret", &ss);
-	return command_success(cmd, response);
-}
-
 static struct command_result *json_makesecret(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -186,12 +166,3 @@ static const struct json_command makesecret_command = {
 	"Get a pseudorandom secret key, using some {hex} data."
 };
 AUTODATA(json_command, &makesecret_command);
-
-static const struct json_command getsharedsecret_command = {
-	"getsharedsecret",
-	"utility", /* FIXME: Or "crypto"?  */
-	&json_getsharedsecret,
-	"Compute the hash of the Elliptic Curve Diffie Hellman shared secret point from "
-	"this node private key and an input {point}."
-};
-AUTODATA(json_command, &getsharedsecret_command);
