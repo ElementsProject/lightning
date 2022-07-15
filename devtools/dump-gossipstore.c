@@ -17,10 +17,13 @@ int main(int argc, char *argv[])
 	struct gossip_hdr hdr;
 	size_t off;
 	bool print_deleted = false;
+	bool print_timestamp = false;
 
 	setup_locale();
 	opt_register_noarg("--print-deleted", opt_set_bool, &print_deleted,
 			   "Print deleted entries too");
+	opt_register_noarg("--print-timestamps", opt_set_bool, &print_timestamp,
+			   "Print timestamp with entries");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "[<gossip_store>]"
 			   "Dump all gossip messages in the store",
@@ -71,6 +74,8 @@ int main(int argc, char *argv[])
 		       deleted ? "DELETED " : "",
 		       push ? "PUSH " : "",
 		       ratelimit ? "RATE-LIMITED " : "");
+		if (print_timestamp)
+			printf("T=%u ", be32_to_cpu(hdr.timestamp));
 		if (deleted && !print_deleted) {
 			printf("\n");
 			goto end;
