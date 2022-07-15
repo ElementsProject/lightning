@@ -632,7 +632,12 @@ static void handle_gossip_timestamp_filter_in(struct peer *peer, const u8 *msg)
 	if (peer->gs.timestamp_max < peer->gs.timestamp_min)
 		peer->gs.timestamp_max = UINT32_MAX;
 
-	peer->gs.off = 1;
+	/* Optimization: they don't want anything.  LND and us (at least),
+	 * both set first_timestamp to 0xFFFFFFFF to indicate that. */
+	if (peer->gs.timestamp_min == UINT32_MAX)
+		peer->gs.off = peer->daemon->gossip_store_end;
+	else
+		peer->gs.off = 1;
 
 	/* BOLT #7:
 	 *    - MAY wait for the next outgoing gossip flush to send these.
