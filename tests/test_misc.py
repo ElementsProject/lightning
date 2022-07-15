@@ -2282,6 +2282,14 @@ def test_makesecret(node_factory):
 
     assert (secret == "04fe01631fcedc8d91f39ab43244e63afebaed68ee21d2f1c325fd1242726a18")
 
+    # Same if we do it by parameter name
+    assert l1.rpc.makesecret(hex="73636220736563726574")["secret"] == secret
+
+    # Changing seed changes secret!
+    assert l1.rpc.makesecret(hex="73636220736563726575")["secret"] != secret
+    assert l1.rpc.makesecret(hex="736362207365637265")["secret"] != secret
+    assert l1.rpc.makesecret(hex="7363622073656372657401")["secret"] != secret
+
 
 def test_staticbackup(node_factory):
     """

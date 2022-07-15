@@ -158,7 +158,7 @@ static struct command_result *json_makesecret(struct command *cmd,
 	struct secret secret;
 
 	if (!param(cmd, buffer, params,
-		   p_req("info_hex", param_bin_from_hex, &info),
+		   p_req("hex", param_bin_from_hex, &info),
 		   NULL))
 		return command_param_failed();
 
@@ -183,7 +183,7 @@ static const struct json_command makesecret_command = {
 	"makesecret",
 	"utility",
 	&json_makesecret,
-	"Get a pseudorandom secret key, using an info string."
+	"Get a pseudorandom secret key, using some {hex} data."
 };
 AUTODATA(json_command, &makesecret_command);
 

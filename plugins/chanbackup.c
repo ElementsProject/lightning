@@ -376,7 +376,7 @@ static const char *init(struct plugin *p,
 		 "{scb:%}", JSON_SCAN(json_to_scb_chan, &scb_chan));
 
 	rpc_scan(p, "makesecret",
-		 take(json_out_obj(NULL, "info_hex",
+		 take(json_out_obj(NULL, "hex",
 		 		   tal_hexstr(tmpctx,
 				   	      info_hex,
 					      tal_bytelen(info_hex)))),
