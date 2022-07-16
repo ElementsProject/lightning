@@ -538,9 +538,6 @@ static struct subd *activate_subd(struct peer *peer,
 	u16 t, *tp;
 	struct subd *subd;
 
-	/* If it wasn't active before, it is now! */
-	peer->active = true;
-
 	subd = multiplex_subd_setup(peer, channel_id, &fd_for_subd);
 	if (!subd)
 		return NULL;
@@ -968,14 +965,6 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 			return io_sock_shutdown(peer_conn);
 		}
 
-		/* We close once subds are all closed; or if we're not
-		   active, when told to die.  */
-		if ((peer->active || peer->ready_to_die)
-		    && tal_count(peer->subds) == 0) {
-			set_closing_timer(peer, peer_conn);
-			return io_sock_shutdown(peer_conn);
-		}
-
 		/* If they want us to send gossip, do so now. */
 		msg = maybe_from_gossip_store(NULL, peer);
 		if (!msg) {
@@ -1078,7 +1067,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        peer->last_recv_time = time_now();
 
        /* Don't process packets while we're closing */
-       if (peer->ready_to_die)
+       if (peer->draining)
 	       return read_hdr_from_peer(peer_conn, peer);
 
        /* If we swallow this, just try again. */
@@ -1180,37 +1169,14 @@ static void destroy_subd(struct subd *subd)
 	struct peer *peer = subd->peer;
 	size_t pos;
 
-	status_peer_debug(&peer->id,
-			  "destroy_subd: %zu subds, to_peer conn %p, read_to_die = %u",
-			  tal_count(peer->subds), peer->to_peer,
-			  peer->ready_to_die);
 	for (pos = 0; peer->subds[pos] != subd; pos++)
 		assert(pos < tal_count(peer->subds));
 
 	tal_arr_remove(&peer->subds, pos);
 
-	/* Make sure we try to keep reading from peer, so we know if
-	 * it hangs up! */
+	/* Make sure we try to keep reading from peer (might
+	 * have been waiting for write_to_subd) */
 	io_wake(&peer->peer_in);
-
-	/* If no peer, finally time to close */
-	if (!peer->to_peer && peer->ready_to_die)
-		peer_conn_closed(peer);
-}
-
-void close_peer_conn(struct peer *peer)
-{
-	/* Make write_to_peer do flush after writing */
-	peer->ready_to_die = true;
-
-	/* Already dead? */
-	if (tal_count(peer->subds) == 0 && !peer->to_peer) {
-		peer_conn_closed(peer);
-		return;
-	}
-
-	/* In case it's not currently writing, wake write_to_peer */
-	msg_wake(peer->peer_outq);
 }
 
 static struct subd *multiplex_subd_setup(struct peer *peer,
@@ -1250,22 +1216,22 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 	assert(peer->to_peer == peer_conn);
 	peer->to_peer = NULL;
 
-	/* Flush internal connections if any. */
+	/* Flush internal connections if any: last one out will free peer. */
 	if (tal_count(peer->subds) != 0) {
 		for (size_t i = 0; i < tal_count(peer->subds); i++)
 			msg_wake(peer->subds[i]->outq);
 		return;
 	}
 
-	/* If lightningd says we're ready, or we were never had a subd, finish */
-	if (peer->ready_to_die || !peer->active)
-		peer_conn_closed(peer);
+	/* We never had any subds?  Free peer (might already be being freed,
+	 * as it's our parent, but that's allowed by tal). */
+	tal_free(peer);
 }
 
 struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 				     struct peer *peer)
 {
-	/*~ If conn closes, we close the subd connections and wait for
+	/*~ If conn closes, we drain the subd connections and wait for
 	 * lightningd to tell us to close with the peer */
 	tal_add_destructor2(peer_conn, destroy_peer_conn, peer);
 
