@@ -668,8 +668,11 @@ void maybe_disconnect_peer(struct lightningd *ld, struct peer *peer)
 		return;
 	}
 
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_discard_peer(NULL, &peer->id)));
+	/* If connectd was the one who told us to cleanup peer, don't
+	 * tell it to discard again: it might have reconnected! */
+	if (peer->is_connected)
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, &peer->id)));
 }
 
 static struct command_result *json_sendcustommsg(struct command *cmd,
