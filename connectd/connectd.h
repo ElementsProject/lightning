@@ -59,13 +59,6 @@ struct peer {
 	/* Connections to the subdaemons */
 	struct subd **subds;
 
-	/* Set once lightningd says it's OK to close (subd tells it
-	 * it's done). */
-	bool ready_to_die;
-
-	/* Has this ever been active?  (i.e. ever had a subd attached?) */
-	bool active;
-
 	/* When socket has Nagle overridden */
 	bool urgent;
 
@@ -220,10 +213,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       bool incoming,
 			       bool retrying);
 
-/* Called when peer->peer_conn is finally freed */
-void peer_conn_closed(struct peer *peer);
-
-/* Removes peer from hash table */
+/* Removes peer from hash table, tells gossipd and lightningd. */
 void destroy_peer(struct peer *peer);
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_H */

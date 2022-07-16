@@ -26,9 +26,6 @@ void setup_peer_gossip_store(struct peer *peer,
 			     const struct feature_set *our_features,
 			     const u8 *their_features);
 
-/* Start the process of flushing and closing the peer_conn */
-void close_peer_conn(struct peer *peer);
-
 /* When lightningd says to send a ping */
 void send_manual_ping(struct daemon *daemon, const u8 *msg);
 

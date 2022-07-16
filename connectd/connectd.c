@@ -315,8 +315,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
-	peer->ready_to_die = false;
-	peer->active = false;
 	peer->draining = false;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
@@ -1832,17 +1830,12 @@ static void try_connect_peer(struct daemon *daemon,
 	/* Already existing? */
 	existing = peer_htable_get(&daemon->peers, id);
 	if (existing) {
-		/* If it's exiting now, we've raced: reconnect after */
-		if ((tal_count(existing->subds) != 0 || !existing->active)
-		    && existing->to_peer
-		    && !existing->ready_to_die) {
-			/* Tell it it's already connected so it doesn't
-			 * wait forever. */
-			daemon_conn_send(daemon->master,
-					 take(towire_connectd_peer_already_connected
-					      (NULL, id)));
-			return;
-		}
+		/* FIXME: Tell it it's already connected so it doesn't
+		 * wait forever. */
+		daemon_conn_send(daemon->master,
+				 take(towire_connectd_peer_already_connected
+				      (NULL, id)));
+		return;
 	}
 
 	/* If we're trying to connect it right now, that's OK. */
@@ -1935,30 +1928,6 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	try_connect_peer(daemon, &id, seconds_waited, addrs, addrhint);
 }
 
-void peer_conn_closed(struct peer *peer)
-{
-	struct connecting *connect = find_connecting(peer->daemon, &peer->id);
-
-	/* These should be closed already! */
-	assert(!peer->to_peer);
-	assert(peer->ready_to_die || !peer->active);
-
-	status_peer_debug(&peer->id, "peer_conn_closed");
-
-	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
-	io_wake(peer);
-
-	/* Note: deleting from a htable (a-la node_set_del) does not free it:
-	 * htable doesn't assume it's a tal object at all.  That's why we have
-	 * a destructor attached to peer (called destroy_peer by
-	 * convention). */
-	tal_free(peer);
-
-	/* If we wanted to connect to it, but found it was exiting, try again */
-	if (connect && !connect->conn)
-		try_connect_one_addr(connect);
-}
-
 /* lightningd tells us a peer should be disconnected. */
 static void peer_discard(struct daemon *daemon, const u8 *msg)
 {
@@ -1974,9 +1943,7 @@ static void peer_discard(struct daemon *daemon, const u8 *msg)
 	if (!peer)
 		return;
 	status_peer_debug(&id, "disconnect");
-
-	/* When it's finished, it will call peer_conn_closed() */
-	close_peer_conn(peer);
+	tal_free(peer);
 }
 
 /* lightningd tells us to send a msg and disconnect. */
