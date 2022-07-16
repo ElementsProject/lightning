@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "rune": {
+      "type": "string",
+      "description": "optional rune to add to"
+    },
+    "restrictions": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "array of restrictions to add to rune",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string",
+          "description": "single restrictions to add to rune, or readonly."
+        }
+      ]
+    }
+  }
+}
