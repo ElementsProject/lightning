@@ -61,8 +61,6 @@ new_uncommitted_channel(struct peer *peer)
 	 */
 	uc->minimum_depth = ld->config.anchor_confirms;
 
-	memset(&uc->cid, 0xFF, sizeof(uc->cid));
-
 	/* Declare the new channel to the HSM. */
 	new_channel_msg = towire_hsmd_new_channel(NULL, &uc->peer->id, uc->dbid);
 	if (!wire_sync_write(ld->hsm_fd, take(new_channel_msg)))
