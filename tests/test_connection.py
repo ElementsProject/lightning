@@ -3796,6 +3796,46 @@ def test_htlc_failed_noclose(node_factory):
     assert l1.rpc.getpeer(l2.info['id'])['connected']
 
 
+@pytest.mark.openchannel('v2')
+@pytest.mark.developer("dev-no-reconnect required")
+def test_multichan_stress(node_factory, executor, bitcoind):
+    """Test multiple channels between same nodes"""
+    l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True,
+                                                  'dev-no-reconnect': None})
+
+    # Now fund *second* channel l2->l3 (slightly larger)
+    bitcoind.rpc.sendtoaddress(l2.rpc.newaddr()['bech32'], 0.1)
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.fundchannel(l3.info['id'], '0.01001btc')
+    assert(len(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']) == 2)
+    assert(len(only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels']) == 2)
+
+    # Make sure gossip works.
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listchannels(source=l3.info['id'])['channels']) == 2)
+
+    def send_many_payments():
+        for i in range(30):
+            inv = l3.rpc.invoice(100, "label-" + str(i), "desc")['bolt11']
+            try:
+                l1.rpc.pay(inv)
+            except RpcError:
+                pass
+
+    # Send a heap of payments, while reconnecting...
+    fut = executor.submit(send_many_payments)
+
+    for i in range(10):
+        l3.rpc.disconnect(l2.info['id'], force=True)
+        l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    fut.result(TIMEOUT)
+
+    wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+    inv = l3.rpc.invoice(50000000, "invoice4", "invoice4")
+    l1.rpc.pay(inv['bolt11'])
+
+
 @pytest.mark.developer("dev-no-reconnect required")
 def test_old_feerate(node_factory):
     """Test retransmission of old, now-unacceptable, feerate"""
