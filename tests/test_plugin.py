@@ -2673,6 +2673,59 @@ def test_commando_rune(node_factory):
     assert rune9['rune'] == 'O8Zr-ULTBKO3_pKYz0QKE9xYl1vQ4Xx9PtlHuist9Rk9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
     assert rune9['unique_id'] == '4'
 
+    runedecodes = ((rune1, []),
+                   (rune2, [{'alternatives': ['method^list', 'method^get', 'method=summary'],
+                             'summary': "method (of command) starts with 'list' OR method (of command) starts with 'get' OR method (of command) equal to 'summary'"},
+                            {'alternatives': ['method/listdatastore'],
+                             'summary': "method (of command) unequal to 'listdatastore'"}]),
+                   (rune4, [{'alternatives': ['id^022d223620a359a47ff7'],
+                             'summary': "id (of commanding peer) starts with '022d223620a359a47ff7'"},
+                            {'alternatives': ['method=listpeers'],
+                             'summary': "method (of command) equal to 'listpeers'"}]),
+                   (rune5, [{'alternatives': ['id^022d223620a359a47ff7'],
+                             'summary': "id (of commanding peer) starts with '022d223620a359a47ff7'"},
+                            {'alternatives': ['method=listpeers'],
+                             'summary': "method (of command) equal to 'listpeers'"},
+                            {'alternatives': ['pnamelevel!', 'pnamelevel/io'],
+                             'summary': "pnamelevel (object parameter 'level') is missing OR pnamelevel (object parameter 'level') unequal to 'io'"}]),
+                   (rune6, [{'alternatives': ['id^022d223620a359a47ff7'],
+                             'summary': "id (of commanding peer) starts with '022d223620a359a47ff7'"},
+                            {'alternatives': ['method=listpeers'],
+                             'summary': "method (of command) equal to 'listpeers'"},
+                            {'alternatives': ['pnamelevel!', 'pnamelevel/io'],
+                             'summary': "pnamelevel (object parameter 'level') is missing OR pnamelevel (object parameter 'level') unequal to 'io'"},
+                            {'alternatives': ['parr1!', 'parr1/io'],
+                             'summary': "parr1 (array parameter #1) is missing OR parr1 (array parameter #1) unequal to 'io'"}]),
+                   (rune7, [{'alternatives': ['pnum=0'],
+                             'summary': "pnum (number of command parameters) equal to 0"}]),
+                   (rune8, [{'alternatives': ['pnum=0'],
+                             'summary': "pnum (number of command parameters) equal to 0"},
+                            {'alternatives': ['rate=3'],
+                             'summary': "rate (max per minute) equal to 3"}]),
+                   (rune9, [{'alternatives': ['pnum=0'],
+                             'summary': "pnum (number of command parameters) equal to 0"},
+                            {'alternatives': ['rate=3'],
+                             'summary': "rate (max per minute) equal to 3"},
+                            {'alternatives': ['rate=1'],
+                             'summary': "rate (max per minute) equal to 1"}]))
+    for decode in runedecodes:
+        rune = decode[0]
+        restrictions = decode[1]
+        decoded = l1.rpc.decode(rune['rune'])
+        assert decoded['type'] == 'rune'
+        assert decoded['unique_id'] == rune['unique_id']
+        assert decoded['valid'] is True
+        assert decoded['restrictions'] == restrictions
+
+    # Time handling is a bit special, since we annotate the timestamp with how far away it is.
+    decoded = l1.rpc.decode(rune3['rune'])
+    assert decoded['type'] == 'rune'
+    assert decoded['unique_id'] == rune3['unique_id']
+    assert decoded['valid'] is True
+    assert len(decoded['restrictions']) == 1
+    assert decoded['restrictions'][0]['alternatives'] == ['time>1656675211']
+    assert decoded['restrictions'][0]['summary'].startswith("time (in seconds since 1970) greater than 1656675211 (")
+
     # Replace rune3 with a more useful timestamp!
     expiry = int(time.time()) + 15
     rune3 = l1.rpc.commando_rune(restrictions="time<{}".format(expiry))

@@ -120,6 +120,56 @@ time in seconds:
        "unique_id": "3"
     }
 
+You can also use lightning-decode(7) to examine runes you have been given:
+
+    $ .lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y
+    {
+       "type": "rune",
+       "unique_id": "3",
+       "string": "b54f912e33220e9636534a375b5a05a306abdfa4451a95a5a0f6d6f7e46e65da:=3&id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605&method=listpeers&pnum=1&pnameid^024b9a1fa8e006f1e393|parr0^024b9a1fa8e006f1e393&time<1656920538&rate=2",
+       "restrictions": [
+          {
+             "alternatives": [
+                "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"
+             ],
+             "summary": "id (of commanding peer) equal to '024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605'"
+          },
+          {
+             "alternatives": [
+                "method=listpeers"
+             ],
+             "summary": "method (of command) equal to 'listpeers'"
+          },
+          {
+             "alternatives": [
+                "pnum=1"
+             ],
+             "summary": "pnum (number of command parameters) equal to 1"
+          },
+          {
+             "alternatives": [
+                "pnameid^024b9a1fa8e006f1e393",
+                "parr0^024b9a1fa8e006f1e393"
+             ],
+             "summary": "pnameid (object parameter 'id') starts with '024b9a1fa8e006f1e393' OR parr0 (array parameter #0) starts with '024b9a1fa8e006f1e393'"
+          },
+          {
+             "alternatives": [
+                "time<1656920538"
+             ],
+             "summary": "time (in seconds since 1970) less than 1656920538 (approximately 19 hours 18 minutes from now)"
+          },
+          {
+             "alternatives": [
+                "rate=2"
+             ],
+             "summary": "rate (max per minute) equal to 2"
+          }
+       ],
+       "valid": true
+    }
+
+
 SHARING RUNES
 -------------
 
@@ -157,7 +207,7 @@ excuses his previous adoption of the name "Eltoo".
 SEE ALSO
 --------
 
-lightning-commando(7)
+lightning-commando(7), lightning-decode(7)
 
 RESOURCES
 ---------
