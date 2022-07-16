@@ -1142,6 +1142,8 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
+	temporary_channel_id(&tmp_channel_id);
+
 	if (!peer->uncommitted_channel) {
 		if (feature_negotiated(cmd->ld->our_features,
 				       peer->their_features,
@@ -1167,6 +1169,8 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    "`open_channel` from "
 				    "peer");
 	}
+
+	peer->uncommitted_channel->cid = tmp_channel_id;
 
 	/* BOLT #2:
 	 *  - if both nodes advertised `option_support_large_channel`:
@@ -1219,8 +1223,6 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		*upfront_shutdown_script_wallet_index = found_wallet_index;
 	} else
 		upfront_shutdown_script_wallet_index = NULL;
-
-	temporary_channel_id(&tmp_channel_id);
 
 	fc->open_msg
 		= towire_openingd_funder_start(fc,

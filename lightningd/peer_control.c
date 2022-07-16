@@ -1339,6 +1339,7 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 			goto send_error;
 		}
 		peer->uncommitted_channel = new_uncommitted_channel(peer);
+		peer->uncommitted_channel->cid = channel_id;
 		peer_start_openingd(peer, peer_fd);
 		break;
 	case WIRE_OPEN_CHANNEL2:

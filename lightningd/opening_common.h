@@ -28,7 +28,7 @@ struct uncommitted_channel {
 	/* Reserved dbid for if we become a real struct channel */
 	u64 dbid;
 
-	/* Channel id, v2 opens only */
+	/* Channel id (temporary!) */
 	struct channel_id cid;
 
 	/* For logging */
