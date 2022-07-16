@@ -3,6 +3,7 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
@@ -204,6 +205,7 @@ struct decodable {
 	struct tlv_offer *offer;
 	struct tlv_invoice *invoice;
 	struct tlv_invoice_request *invreq;
+	struct rune *rune;
 };
 
 static struct command_result *param_decodable(struct command *cmd,
@@ -268,6 +270,13 @@ static struct command_result *param_decodable(struct command *cmd,
 				       likely_fail ? &fail : &likely_fail);
 	if (decodable->b11) {
 		decodable->type = "bolt11 invoice";
+		return NULL;
+	}
+
+	decodable->rune = rune_from_base64n(decodable, buffer + tok.start,
+					    tok.end - tok.start);
+	if (decodable->rune) {
+		decodable->type = "rune";
 		return NULL;
 	}
 
@@ -808,6 +817,156 @@ static void json_add_invoice_request(struct json_stream *js,
 	json_add_bool(js, "valid", valid);
 }
 
+static void json_add_rune(struct command *cmd, struct json_stream *js, const struct rune *rune)
+{
+	if (rune->unique_id)
+		json_add_string(js, "unique_id", rune->unique_id);
+	if (rune->version)
+		json_add_string(js, "version", rune->version);
+	json_add_string(js, "string", take(rune_to_string(NULL, rune)));
+
+	json_array_start(js, "restrictions");
+	for (size_t i = rune->unique_id ? 1 : 0; i < tal_count(rune->restrs); i++) {
+		const struct rune_restr *restr = rune->restrs[i];
+		char *summary = tal_strdup(tmpctx, "");
+		const char *sep = "";
+
+		json_object_start(js, NULL);
+		json_array_start(js, "alternatives");
+		for (size_t j = 0; j < tal_count(restr->alterns); j++) {
+			const struct rune_altern *alt = restr->alterns[j];
+			const char *annotation, *value;
+			bool int_val = false, time_val = false;
+
+			if (streq(alt->fieldname, "time")) {
+				annotation = "in seconds since 1970";
+				time_val = true;
+			} else if (streq(alt->fieldname, "id"))
+				annotation = "of commanding peer";
+			else if (streq(alt->fieldname, "method"))
+				annotation = "of command";
+			else if (streq(alt->fieldname, "pnum")) {
+				annotation = "number of command parameters";
+				int_val = true;
+			} else if (streq(alt->fieldname, "rate")) {
+				annotation = "max per minute";
+				int_val = true;
+			} else if (strstarts(alt->fieldname, "parr")) {
+				annotation = tal_fmt(tmpctx, "array parameter #%s", alt->fieldname+4);
+			} else if (strstarts(alt->fieldname, "pname"))
+				annotation = tal_fmt(tmpctx, "object parameter '%s'", alt->fieldname+5);
+			else
+				annotation = "unknown condition?";
+
+			tal_append_fmt(&summary, "%s", sep);
+
+			/* Where it's ambiguous, quote if it's not treated as an int */
+			if (int_val)
+				value = alt->value;
+			else if (time_val) {
+				u64 t = atol(alt->value);
+
+				if (t) {
+					u64 diff, now = time_now().ts.tv_sec;
+					/* Need a non-const during construction */
+					char *v;
+
+					if (now > t)
+						diff = now - t;
+					else
+						diff = t - now;
+					if (diff < 60)
+						v = tal_fmt(tmpctx, "%"PRIu64" seconds", diff);
+					else if (diff < 60 * 60)
+						v = tal_fmt(tmpctx, "%"PRIu64" minutes %"PRIu64" seconds",
+							    diff / 60, diff % 60);
+					else {
+						v = tal_strdup(tmpctx, "approximately ");
+						/* diff is in minutes */
+						diff /= 60;
+						if (diff < 48 * 60)
+							tal_append_fmt(&v, "%"PRIu64" hours %"PRIu64" minutes",
+								       diff / 60, diff % 60);
+						else {
+							/* hours */
+							diff /= 60;
+							if (diff < 60 * 24)
+								tal_append_fmt(&v, "%"PRIu64" days %"PRIu64" hours",
+									       diff / 24, diff % 24);
+							else {
+								/* days */
+								diff /= 24;
+								if (diff < 365 * 2)
+									tal_append_fmt(&v, "%"PRIu64" months %"PRIu64" days",
+										       diff / 30, diff % 30);
+								else {
+									/* months */
+									diff /= 30;
+									tal_append_fmt(&v, "%"PRIu64" years %"PRIu64" months",
+										       diff / 12, diff % 12);
+								}
+							}
+						}
+					}
+					if (now > t)
+						tal_append_fmt(&v, " ago");
+					else
+						tal_append_fmt(&v, " from now");
+					value = tal_fmt(tmpctx, "%s (%s)", alt->value, v);
+				} else
+					value = alt->value;
+			} else
+				value = tal_fmt(tmpctx, "'%s'", alt->value);
+
+			switch (alt->condition) {
+			case RUNE_COND_IF_MISSING:
+				tal_append_fmt(&summary, "%s (%s) is missing", alt->fieldname, annotation);
+				break;
+			case RUNE_COND_EQUAL:
+				tal_append_fmt(&summary, "%s (%s) equal to %s", alt->fieldname, annotation, value);
+				break;
+			case RUNE_COND_NOT_EQUAL:
+				tal_append_fmt(&summary, "%s (%s) unequal to %s", alt->fieldname, annotation, value);
+				break;
+			case RUNE_COND_BEGINS:
+				tal_append_fmt(&summary, "%s (%s) starts with '%s'", alt->fieldname, annotation, alt->value);
+				break;
+			case RUNE_COND_ENDS:
+				tal_append_fmt(&summary, "%s (%s) ends with '%s'", alt->fieldname, annotation, alt->value);
+				break;
+			case RUNE_COND_CONTAINS:
+				tal_append_fmt(&summary, "%s (%s) contains '%s'", alt->fieldname, annotation, alt->value);
+				break;
+			case RUNE_COND_INT_LESS:
+				tal_append_fmt(&summary, "%s (%s) less than %s", alt->fieldname, annotation,
+					       time_val ? value : alt->value);
+				break;
+			case RUNE_COND_INT_GREATER:
+				tal_append_fmt(&summary, "%s (%s) greater than %s", alt->fieldname, annotation,
+					       time_val ? value : alt->value);
+				break;
+			case RUNE_COND_LEXO_BEFORE:
+				tal_append_fmt(&summary, "%s (%s) sorts before '%s'", alt->fieldname, annotation, alt->value);
+				break;
+			case RUNE_COND_LEXO_AFTER:
+				tal_append_fmt(&summary, "%s (%s) sorts after '%s'", alt->fieldname, annotation, alt->value);
+				break;
+			case RUNE_COND_COMMENT:
+				tal_append_fmt(&summary, "[comment: %s%s]", alt->fieldname, alt->value);
+				break;
+			}
+			sep = " OR ";
+			json_add_str_fmt(js, NULL, "%s%c%s", alt->fieldname, alt->condition, alt->value);
+		}
+		json_array_end(js);
+		json_add_string(js, "summary", summary);
+		json_object_end(js);
+	}
+	json_array_end(js);
+	/* FIXME: do some sanity checks? */
+	json_add_bool(js, "valid", true);
+}
+
 static struct command_result *json_decode(struct command *cmd,
 					  const char *buffer,
 					  const jsmntok_t *params)
@@ -833,6 +992,8 @@ static struct command_result *json_decode(struct command *cmd,
 		json_add_bolt11(response, decodable->b11);
 		json_add_bool(response, "valid", true);
 	}
+	if (decodable->rune)
+		json_add_rune(cmd, response, decodable->rune);
 	return command_finished(cmd, response);
 }
 

@@ -12,7 +12,8 @@
         "bolt12 offer",
         "bolt12 invoice",
         "bolt12 invoice_request",
-        "bolt11 invoice"
+        "bolt11 invoice",
+        "rune"
       ],
       "description": "what kind of object it decoded to"
     },
@@ -903,6 +904,72 @@
                 "data": {
                   "type": "string",
                   "description": "The bech32 data for this field"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "rune"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "string",
+          "restrictions"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "unique_id": {
+            "type": "string",
+            "description": "unique id (always a numeric id on runes we create)"
+          },
+          "version": {
+            "type": "string",
+            "description": "rune version, not currently set on runes we create"
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "type": {},
+          "string": {
+            "type": "string",
+            "description": "the string encoding of the rune"
+          },
+          "restrictions": {
+            "type": "array",
+            "description": "restrictions built into the rune: all must pass",
+            "items": {
+              "type": "object",
+              "required": [
+                "alternatives",
+                "summary"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "alternatives": {
+                  "type": "array",
+                  "description": "each way restriction can be met: any can pass",
+                  "items": {
+                    "type": "string",
+                    "description": "the alternative of form fieldname condition fieldname"
+                  }
+                },
+                "summary": {
+                  "type": "string",
+                  "description": "human-readable summary of this restriction"
                 }
               }
             }

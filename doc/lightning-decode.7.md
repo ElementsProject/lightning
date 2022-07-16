@@ -9,17 +9,21 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **decode** RPC command checks and parses a *bolt11* or *bolt12*
-string (optionally prefixed by `lightning:` or `LIGHTNING:`) as
-specified by the BOLT 11 and BOLT 12 specifications.  It may decode
-other formats in future.
+The **decode** RPC command checks and parses:
+
+- a *bolt11* or *bolt12* string (optionally prefixed by `lightning:`
+  or `LIGHTNING:`) as specified by the BOLT 11 and BOLT 12
+  specifications.
+- a *rune* as created by lightning-commando-rune(7).
+
+It may decode other formats in future.
 
 RETURN VALUE
 ------------
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
-- **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice_request", "bolt11 invoice")
+- **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice_request", "bolt11 invoice", "rune")
 - **valid** (boolean): if this is false, you *MUST* not use the result except for diagnostics!
 
 If **type** is "bolt12 offer", and **valid** is *true*:
@@ -159,6 +163,16 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
     - **tag** (string): The bech32 letter which identifies this field (always 1 characters)
     - **data** (string): The bech32 data for this field
 
+If **type** is "rune":
+  - **string** (string): the string encoding of the rune
+  - **restrictions** (array of objects): restrictions built into the rune: all must pass:
+    - **alternatives** (array of strings): each way restriction can be met: any can pass:
+      - the alternative of form fieldname condition fieldname
+    - **summary** (string): human-readable summary of this restriction
+  - **unique_id** (string, optional): unique id (always a numeric id on runes we create)
+  - **version** (string, optional): rune version, not currently set on runes we create
+  - **valid** (boolean, optional) (always *true*)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -169,7 +183,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-pay(7), lightning-offer(7), lightning-offerout(7), lightning-fetchinvoice(7), lightning-sendinvoice(7)
+lightning-pay(7), lightning-offer(7), lightning-offerout(7), lightning-fetchinvoice(7), lightning-sendinvoice(7), lightning-commando-rune(7)
 
 [BOLT \#11](https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md).
 
@@ -181,4 +195,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:bc3778965137591623ce08ff51adf411bc42e6d1a4200692961b69962da39be7)
+[comment]: # ( SHA256STAMP:d1e1f044c2e67ec169728dbc551903c97f9a9daa1f42e9d2f1686fc692d25be8)
