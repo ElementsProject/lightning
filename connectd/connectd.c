@@ -1743,18 +1743,10 @@ static void try_connect_peer(struct daemon *daemon,
 	struct wireaddr_internal *addrs;
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
-	struct peer *existing;
 
-	/* Already existing? */
-	existing = peer_htable_get(&daemon->peers, id);
-	if (existing) {
-		/* FIXME: Tell it it's already connected so it doesn't
-		 * wait forever. */
-		daemon_conn_send(daemon->master,
-				 take(towire_connectd_peer_already_connected
-				      (NULL, id)));
+	/* Already existing?  Must have crossed over, it'll know soon. */
+	if (peer_htable_get(&daemon->peers, id))
 		return;
-	}
 
 	/* If we're trying to connect it right now, that's OK. */
 	if ((connect = find_connecting(daemon, id))) {
@@ -1826,8 +1818,7 @@ static void try_connect_peer(struct daemon *daemon,
 	tal_add_destructor(connect, destroy_connecting);
 
 	/* Now we kick it off by recursively trying connect->addrs[connect->addrnum] */
-	if (!existing)
-		try_connect_one_addr(connect);
+	try_connect_one_addr(connect);
 }
 
 /* lightningd tells us to connect to a peer by id, with optional addr hint. */
@@ -1967,7 +1958,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
 	case WIRE_CONNECTD_PEER_CONNECTED:
-	case WIRE_CONNECTD_PEER_ALREADY_CONNECTED:
 	case WIRE_CONNECTD_PEER_ACTIVE:
 	case WIRE_CONNECTD_CONNECT_FAILED:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:

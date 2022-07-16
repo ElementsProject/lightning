@@ -183,6 +183,7 @@ static struct command_result *json_connect(struct command *cmd,
 	struct wireaddr_internal *addr;
 	const char *err_msg;
 	struct id_and_addr id_addr;
+	struct peer *peer;
 
 	id_addr.host = NULL;
 	id_addr.port = NULL;
@@ -214,7 +215,18 @@ static struct command_result *json_connect(struct command *cmd,
 					    "Can't specify port without host");
 	}
 
-	try_connect(cmd, cmd->ld, &id_addr.id, 0, addr);
+	/* If we know about peer, see if it's already connected. */
+	peer = peer_by_id(cmd->ld, &id_addr.id);
+	if (peer && peer->is_connected) {
+		log_debug(cmd->ld->log, "Already connected via %s",
+			  type_to_string(tmpctx, struct wireaddr_internal,
+					 &peer->addr));
+		return connect_cmd_succeed(cmd, peer,
+					   peer->connected_incoming,
+					   &peer->addr);
+	}
+
+ 	try_connect(cmd, cmd->ld, &id_addr.id, 0, addr);
 
 	/* Leave this here for peer_connected or connect_failed. */
 	new_connect(cmd->ld, &id_addr.id, cmd);
@@ -371,21 +383,6 @@ void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 	}
 }
 
-static void peer_already_connected(struct lightningd *ld, const u8 *msg)
-{
-	struct node_id id;
-	struct peer *peer;
-
-	if (!fromwire_connectd_peer_already_connected(msg, &id))
-		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
-
-	peer = peer_by_id(ld, &id);
-	if (peer)
-		connect_succeeded(ld, peer,
-				  peer->connected_incoming,
-				  &peer->addr);
-}
-
 struct custommsg_payload {
 	struct node_id peer_id;
 	u8 *msg;
@@ -481,10 +478,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		peer_disconnect_done(connectd->ld, msg);
 		break;
 
-	case WIRE_CONNECTD_PEER_ALREADY_CONNECTED:
-		peer_already_connected(connectd->ld, msg);
-		break;
-
 	case WIRE_CONNECTD_CONNECT_FAILED:
 		connect_failed(connectd->ld, msg);
 		break;
@@ -508,7 +501,6 @@ static void connect_init_done(struct subd *connectd,
 	struct lightningd *ld = connectd->ld;
 	char *errmsg;
 
-	log_debug(connectd->log, "connectd_init_done");
 	if (!fromwire_connectd_init_reply(ld, reply,
 					  &ld->binding,
 					  &ld->announceable,
