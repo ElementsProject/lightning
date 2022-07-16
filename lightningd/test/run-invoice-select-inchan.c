@@ -147,6 +147,9 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 				       struct json_stream *response)
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
+/* Generated stub for connect_failed_disconnect */
+void connect_failed_disconnect(struct lightningd *ld UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "connect_failed_disconnect called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED,
 		       bool incoming UNNEEDED,

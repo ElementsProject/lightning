@@ -99,7 +99,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->their_features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
-	peer->is_connected = false;
+	peer->connected = PEER_DISCONNECTED;
 #if DEVELOPER
 	peer->ignore_htlcs = false;
 #endif
@@ -1020,14 +1020,26 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	 * subd). */
 	tal_steal(tmpctx, payload);
 
-	/* Notify anyone who cares */
-	notify_connect(ld, &peer->id, payload->incoming, &addr);
+	/* If we disconnected in the meantime, forget about it.
+	 * (disconnect will have failed any connect commands). */
+	if (peer->connected == PEER_DISCONNECTED)
+		return;
 
 	/* Check for specific errors of a hook */
 	if (payload->error) {
 		error = payload->error;
 		goto send_error;
 	}
+
+	/* Now we finally consider ourselves connected! */
+	assert(peer->connected == PEER_CONNECTING);
+	peer->connected = PEER_CONNECTED;
+
+	/* Succeed any connect() commands */
+	connect_succeeded(ld, peer, payload->incoming, &payload->addr);
+
+	/* Notify anyone who cares */
+	notify_connect(ld, &peer->id, payload->incoming, &addr);
 
 	list_for_each(&peer->channels, channel, list) {
 #if DEVELOPER
@@ -1196,7 +1208,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
 				hook_payload->incoming);
-	peer->is_connected = true;
+
+	/* We mark peer in "connecting" state until hooks have passed. */
+	assert(peer->connected == PEER_DISCONNECTED);
+	peer->connected = PEER_CONNECTING;
+
 	/* Update peer address and direction */
 	peer->addr = hook_payload->addr;
 	peer->connected_incoming = hook_payload->incoming;
@@ -1207,8 +1223,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
-
-	connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
 
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
@@ -1429,10 +1443,13 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 	p = peer_by_id(ld, &id);
 	if (p) {
 		log_peer_debug(ld->log, &id, "peer_disconnect_done");
-		p->is_connected = false;
+		p->connected = PEER_DISCONNECTED;
 
 		peer_channels_cleanup_on_disconnect(p);
 	}
+
+	/* If you were trying to connect, it failed. */
+	connect_failed_disconnect(ld, &id);
 
 	/* Fire off plugin notifications */
 	notify_disconnect(ld, &id);
@@ -1700,12 +1717,12 @@ static void json_add_peer(struct lightningd *ld,
 	json_object_start(response, NULL);
 	json_add_node_id(response, "id", &p->id);
 
-	json_add_bool(response, "connected", p->is_connected);
+	json_add_bool(response, "connected", p->connected == PEER_CONNECTED);
 
 	/* If it's not connected, features are unreliable: we don't
 	 * store them in the database, and they would only reflect
 	 * their features *last* time they connected. */
-	if (p->is_connected) {
+	if (p->connected == PEER_CONNECTED) {
 		json_array_start(response, "netaddr");
 		json_add_string(response, NULL,
 				type_to_string(tmpctx,
@@ -1982,7 +1999,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 	if (!peer) {
 		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
 	}
-	if (!peer->is_connected) {
+	if (peer->connected == PEER_DISCONNECTED) {
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
 

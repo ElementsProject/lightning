@@ -64,6 +64,7 @@ static const errcode_t FUNDING_STATE_INVALID = 312;
 /* `connect` errors */
 static const errcode_t CONNECT_NO_KNOWN_ADDRESS = 400;
 static const errcode_t CONNECT_ALL_ADDRESSES_FAILED = 401;
+static const errcode_t CONNECT_DISCONNECTED_DURING = 402;
 
 /* bitcoin-cli plugin errors */
 #define BCLI_ERROR                      400
