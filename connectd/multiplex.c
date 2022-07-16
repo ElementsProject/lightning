@@ -81,18 +81,32 @@ static struct subd *find_subd(struct peer *peer,
 	return NULL;
 }
 
+/* We try to send the final messages, but if buffer is full and they're
+ * not reading, we have to give up. */
+static void close_timeout(struct peer *peer)
+{
+	/* BROKEN means we'll trigger CI if we see it, though it's possible */
+	status_peer_broken(&peer->id, "Peer did not close, forcing close");
+	tal_free(peer);
+}
+
 /* We just want to send these messages out to the peer's connection,
  * then close.  We consider the peer dead to us (can be freed). */
 static void drain_peer(struct peer *peer)
 {
 	assert(!peer->draining);
 
-	/* FIXME: Don't drain forever! */
+	/* This is a 5-second leak, worst case! */
 	notleak(peer);
 
 	/* We no longer want subds feeding us more messages! */
 	peer->subds = tal_free(peer->subds);
 	peer->draining = true;
+
+	/* You have 5 seconds to drain... */
+	notleak(new_reltimer(&peer->daemon->timers,
+			     peer, time_from_sec(5),
+			     close_timeout, peer));
 
 	/* Clean peer from hashtable; we no longer exist. */
 	destroy_peer(peer);
@@ -929,22 +943,6 @@ static void maybe_update_channelid(struct subd *subd, const u8 *msg)
 	}
 }
 
-static void close_timeout(struct peer *peer)
-{
-	/* BROKEN means we'll trigger CI if we see it, though it's possible */
-	status_peer_broken(&peer->id, "Peer did not close, forcing close");
-	tal_free(peer->to_peer);
-}
-
-/* Close this in 5 seconds if it doesn't do so by itself. */
-static void set_closing_timer(struct peer *peer,
-			      struct io_conn *peer_conn)
-{
-	notleak(new_reltimer(&peer->daemon->timers,
-			     peer_conn, time_from_sec(5),
-			     close_timeout, peer));
-}
-
 static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				     struct peer *peer)
 {
@@ -960,10 +958,8 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	/* Still nothing to send? */
 	if (!msg) {
 		/* Draining?  We're done. */
-		if (peer->draining) {
-			set_closing_timer(peer, peer_conn);
+		if (peer->draining)
 			return io_sock_shutdown(peer_conn);
-		}
 
 		/* If they want us to send gossip, do so now. */
 		msg = maybe_from_gossip_store(NULL, peer);
