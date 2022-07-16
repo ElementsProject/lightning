@@ -284,9 +284,9 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 }
 
 /*~ When we free a peer, we remove it from the daemon's hashtable */
-static void destroy_peer(struct peer *peer, struct daemon *daemon)
+void destroy_peer(struct peer *peer)
 {
-	peer_htable_del(&daemon->peers, peer);
+	peer_htable_del(&peer->daemon->peers, peer);
 }
 
 /*~ This is where we create a new peer. */
@@ -302,13 +302,13 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->daemon = daemon;
 	peer->id = *id;
 	peer->cs = *cs;
-	peer->final_msg = NULL;
 	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
 	peer->ready_to_die = false;
 	peer->active = false;
+	peer->draining = false;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
 
@@ -322,7 +322,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	/* Now we own it */
 	tal_steal(peer, peer->to_peer);
 	peer_htable_add(&daemon->peers, peer);
-	tal_add_destructor2(peer, destroy_peer, daemon);
+	tal_add_destructor(peer, destroy_peer);
 
 	return peer;
 }
