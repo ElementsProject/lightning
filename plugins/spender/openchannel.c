@@ -346,7 +346,9 @@ openchannel_finished(struct multifundchannel_command *mfc)
 			json_add_node_id(out, "id", &dest->id);
 			json_add_string(out, "method", "openchannel_signed");
 			if (dest->error_data)
-				json_add_jsonstr(out, "data", dest->error_data);
+				json_add_jsonstr(out, "data",
+						 dest->error_data,
+						 strlen(dest->error_data));
 			json_object_end(out);
 
 			return mfc_finished(mfc, out);
