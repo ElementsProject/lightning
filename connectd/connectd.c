@@ -287,6 +287,15 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 void destroy_peer(struct peer *peer)
 {
 	peer_htable_del(&peer->daemon->peers, peer);
+
+	/* Tell gossipd to stop asking this peer gossip queries */
+	daemon_conn_send(peer->daemon->gossipd,
+			 take(towire_gossipd_peer_gone(NULL, &peer->id)));
+
+	/* Tell lightningd it's really disconnected */
+	daemon_conn_send(peer->daemon->master,
+			 take(towire_connectd_peer_disconnect_done(NULL,
+								   &peer->id)));
 }
 
 /*~ This is where we create a new peer. */
@@ -1936,14 +1945,6 @@ void peer_conn_closed(struct peer *peer)
 
 	status_peer_debug(&peer->id, "peer_conn_closed");
 
-	/* Tell gossipd to stop asking this peer gossip queries */
-	daemon_conn_send(peer->daemon->gossipd,
-			 take(towire_gossipd_peer_gone(NULL, &peer->id)));
-
-	/* Tell lightningd it's really disconnected */
-	daemon_conn_send(peer->daemon->master,
-			 take(towire_connectd_peer_disconnect_done(NULL,
-								   &peer->id)));
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
 	io_wake(peer);
 
