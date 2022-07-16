@@ -578,7 +578,7 @@ static struct json_stream *json_start(struct command *cmd)
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_jsonstr(js, "id", cmd->id);
+	json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
 	return js;
 }
 
@@ -742,13 +742,15 @@ static void rpc_command_hook_final(struct rpc_command_hook_payload *p STEALS)
 
 	if (p->custom_result != NULL) {
 		struct json_stream *s = json_start(p->cmd);
-		json_add_jsonstr(s, "result", p->custom_result);
+		json_add_jsonstr(s, "result",
+				 p->custom_result, strlen(p->custom_result));
 		json_object_end(s);
 		return was_pending(command_raw_complete(p->cmd, s));
 	}
 	if (p->custom_error != NULL) {
 		struct json_stream *s = json_start(p->cmd);
-		json_add_jsonstr(s, "error", p->custom_error);
+		json_add_jsonstr(s, "error",
+				 p->custom_error, strlen(p->custom_error));
 		json_object_end(s);
 		return was_pending(command_raw_complete(p->cmd, s));
 	}

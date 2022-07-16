@@ -157,12 +157,13 @@ void json_add_escaped_string(struct json_stream *result,
  * JSON-formatted.
  * @js: the json_stream.
  * @fieldname: fieldname (if in object), otherwise must be NULL.
- * @jsonstr: the JSON entity, must be non-NULL, a null-terminated
- * string that is already formatted in JSON.
+ * @jsonstr: the JSON entity
+ * @jsonstrlen: the length of @jsonstr
  */
 void json_add_jsonstr(struct json_stream *js,
 		      const char *fieldname,
-		      const char *jsonstr);
+		      const char *jsonstr,
+		      size_t jsonstrlen);
 
 /**
  * json_stream_output - start writing out a json_stream to this conn.

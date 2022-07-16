@@ -199,13 +199,13 @@ static char *json_member_direct(struct json_stream *js,
 
 void json_add_jsonstr(struct json_stream *js,
 		      const char *fieldname,
-		      const char *jsonstr)
+		      const char *jsonstr,
+		      size_t jsonstrlen)
 {
 	char *p;
-	size_t len = strlen(jsonstr);
 
-	p = json_member_direct(js, fieldname, len);
-	memcpy(p, jsonstr, len);
+	p = json_member_direct(js, fieldname, jsonstrlen);
+	memcpy(p, jsonstr, jsonstrlen);
 }
 
 /* This is where we read the json_stream and write it to conn */

@@ -499,7 +499,8 @@ multifundchannel_finished(struct multifundchannel_command *mfc)
 				mfc->removeds[i].error_message);
 		if (mfc->removeds[i].error_data)
 			json_add_jsonstr(out, "data",
-					 mfc->removeds[i].error_data);
+					 mfc->removeds[i].error_data,
+					 strlen(mfc->removeds[i].error_data));
 		json_object_end(out); /* End error object */
 		json_object_end(out);
 	}
@@ -1382,7 +1383,8 @@ perform_fundpsbt(struct multifundchannel_command *mfc, u32 feerate)
 					    &after_fundpsbt,
 					    &mfc_forward_error,
 					    mfc);
-		json_add_jsonstr(req->js, "utxos", mfc->utxos_str);
+		json_add_jsonstr(req->js, "utxos",
+				 mfc->utxos_str, strlen(mfc->utxos_str));
 		json_add_bool(req->js, "reservedok", false);
 	} else {
 		plugin_log(mfc->cmd->plugin, LOG_DBG,
@@ -1814,7 +1816,8 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 		json_add_string(out, "method", failing_method);
 		if (mfc->removeds[i].error_data)
 			json_add_jsonstr(out, "data",
-					 mfc->removeds[i].error_data);
+					 mfc->removeds[i].error_data,
+					 strlen(mfc->removeds[i].error_data));
 
 		/* Close 'data'.  */
 		json_object_end(out);
