@@ -201,30 +201,37 @@ static const char *check_condition(const tal_t *ctx,
 		return rune_alt_single_str(ctx, alt,
 					   cinfo->buf + cinfo->method->start,
 					   cinfo->method->end - cinfo->method->start);
+	} else if (streq(alt->fieldname, "pnum")) {
+		return rune_alt_single_int(ctx, alt, cinfo->params->size);
 	}
 
 	/* Rest are params looksup: generate this once! */
-	if (cinfo->params) {
-		/* Note: we require that params be an obj! */
+	if (strmap_empty(&cinfo->cached_params)) {
 		const jsmntok_t *t;
 		size_t i;
 
-		json_for_each_obj(i, t, cinfo->params) {
-			char *pmemname = tal_fmt(tmpctx,
-						 "pname%.*s",
-						 t->end - t->start,
-						 cinfo->buf + t->start);
-			size_t off = strlen("pname");
-			/* Remove punctuation! */
-			for (size_t n = off; pmemname[n]; n++) {
-				if (cispunct(pmemname[n]))
-					continue;
-				pmemname[off++] = pmemname[n];
+		if (cinfo->params->type == JSMN_OBJECT) {
+			json_for_each_obj(i, t, cinfo->params) {
+				char *pmemname = tal_fmt(tmpctx,
+							 "pname%.*s",
+							 t->end - t->start,
+							 cinfo->buf + t->start);
+				size_t off = strlen("pname");
+				/* Remove punctuation! */
+				for (size_t n = off; pmemname[n]; n++) {
+					if (cispunct(pmemname[n]))
+						continue;
+					pmemname[off++] = pmemname[n];
+				}
+				pmemname[off++] = '\0';
+				strmap_add(&cinfo->cached_params, pmemname, t+1);
 			}
-			pmemname[off++] = '\0';
-			strmap_add(&cinfo->cached_params, pmemname, t+1);
+		} else if (cinfo->params->type == JSMN_ARRAY) {
+			json_for_each_arr(i, t, cinfo->params) {
+				char *pmemname = tal_fmt(tmpctx, "parr%zu", i);
+				strmap_add(&cinfo->cached_params, pmemname, t);
+			}
 		}
-		cinfo->params = NULL;
 	}
 
 	ptok = strmap_get(&cinfo->cached_params, alt->fieldname);
@@ -300,9 +307,9 @@ static void try_command(struct node_id *peer,
 		return;
 	}
 	params = json_get_member(buf, toks, "params");
-	if (params && params->type != JSMN_OBJECT) {
+	if (!params || (params->type != JSMN_OBJECT && params->type != JSMN_ARRAY)) {
 		commando_error(incoming, COMMANDO_ERROR_REMOTE,
-			       "Params must be object");
+			       "Params must be object or array");
 		return;
 	}
 	rune = json_get_member(buf, toks, "rune");
@@ -323,15 +330,27 @@ static void try_command(struct node_id *peer,
 		size_t i;
 		const jsmntok_t *t;
 
-		json_object_start(req->js, "params");
 		/* FIXME: This is ugly! */
-		json_for_each_obj(i, t, params) {
-			json_add_jsonstr(req->js,
-					 json_strdup(tmpctx, buf, t),
-					 json_tok_full(buf, t+1),
-					 json_tok_full_len(t+1));
+		if (params->type == JSMN_OBJECT) {
+			json_object_start(req->js, "params");
+			json_for_each_obj(i, t, params) {
+				json_add_jsonstr(req->js,
+						 json_strdup(tmpctx, buf, t),
+						 json_tok_full(buf, t+1),
+						 json_tok_full_len(t+1));
+			}
+			json_object_end(req->js);
+		} else {
+			assert(params->type == JSMN_ARRAY);
+			json_array_start(req->js, "params");
+			json_for_each_arr(i, t, params) {
+				json_add_jsonstr(req->js,
+						 NULL,
+						 json_tok_full(buf, t),
+						 json_tok_full_len(t));
+			}
+			json_array_end(req->js);
 		}
-		json_object_end(req->js);
 	} else {
 		json_object_start(req->js, "params");
 		json_object_end(req->js);

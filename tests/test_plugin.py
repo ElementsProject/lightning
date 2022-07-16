@@ -2660,6 +2660,12 @@ def test_commando_rune(node_factory):
     rune5 = l1.rpc.commando_rune(rune4['rune'], "pnamelevel!|pnamelevel/io")
     assert rune5['rune'] == 'Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
     assert rune5['unique_id'] == '3'
+    rune6 = l1.rpc.commando_rune(rune5['rune'], "parr1!|parr1/io")
+    assert rune6['rune'] == '2Wh6F4R51D3esZzp-7WWG51OhzhfcYKaaI8qiIonaHE9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv'
+    assert rune6['unique_id'] == '3'
+    rune7 = l1.rpc.commando_rune(restrictions="pnum=0")
+    assert rune7['rune'] == 'QJonN6ySDFw-P5VnilZxlOGRs_tST1ejtd-bAYuZfjk9NCZwbnVtPTA='
+    assert rune7['unique_id'] == '4'
 
     # Replace rune3 with a more useful timestamp!
     expiry = int(time.time()) + 15
@@ -2671,12 +2677,19 @@ def test_commando_rune(node_factory):
                  (rune3, "getinfo", {}),
                  (rune4, "listpeers", {}),
                  (rune5, "listpeers", {'id': l2.info['id']}),
-                 (rune5, "listpeers", {'id': l2.info['id'], 'level': 'broken'}))
+                 (rune5, "listpeers", {'id': l2.info['id'], 'level': 'broken'}),
+                 (rune6, "listpeers", [l2.info['id'], 'broken']),
+                 (rune6, "listpeers", [l2.info['id']]),
+                 (rune7, "listpeers", []),
+                 (rune7, "getinfo", {}))
     failures = ((rune2, "withdraw", {}),
                 (rune2, "plugin", {'subcommand': 'list'}),
                 (rune3, "getinfo", {}),
                 (rune4, "listnodes", {}),
-                (rune5, "listpeers", {'id': l2.info['id'], 'level': 'io'}))
+                (rune5, "listpeers", {'id': l2.info['id'], 'level': 'io'}),
+                (rune6, "listpeers", [l2.info['id'], 'io']),
+                (rune7, "listpeers", [l2.info['id']]),
+                (rune7, "listpeers", {'id': l2.info['id']}))
 
     for rune, cmd, params in successes:
         l2.rpc.call(method='commando',
@@ -2708,14 +2721,3 @@ def test_commando_rune(node_factory):
                              'method': "listpeers",
                              'params': {}})
     assert exc_info.value.error['code'] == 0x4c51
-        
-    # Remote doesn't allow array parameters.
-    l2.rpc.check_request_schemas = False
-    with pytest.raises(RpcError, match='Params must be object') as exc_info:
-            l2.rpc.call(method='commando',
-                        payload={'peer_id': l1.info['id'],
-                                 'rune': rune5['rune'],
-                                 'method': "listpeers",
-                                 'params': [l2.info['id'], 'io']})
-    assert exc_info.value.error['code'] == 0x4c50
-    l2.rpc.check_request_schemas = True
