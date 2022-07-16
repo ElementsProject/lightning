@@ -31,7 +31,14 @@ struct peer {
 	struct list_head channels;
 
 	/* Are we connected? */
-	bool is_connected;
+	enum {
+		/* Connectd said we're connecting, we called hooks... */
+		PEER_CONNECTING,
+		/* Hooks succeeded, we're connected. */
+		PEER_CONNECTED,
+		/* Start state, also connectd told us we're disconnected */
+		PEER_DISCONNECTED,
+	} connected;
 
 	/* Our (only) uncommitted channel, still opening. */
 	struct uncommitted_channel *uncommitted_channel;
@@ -70,6 +77,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    const jsmntok_t *peeridtok);
 
+/* connectd tells us what peer is doing */
 void peer_connected(struct lightningd *ld, const u8 *msg);
 void peer_disconnect_done(struct lightningd *ld, const u8 *msg);
 void peer_active(struct lightningd *ld, const u8 *msg, int peer_fd);

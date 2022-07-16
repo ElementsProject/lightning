@@ -963,9 +963,11 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
-	if (!peer->is_connected)
+	if (peer->connected != PEER_CONNECTED)
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
+				    "Peer %s",
+				    peer->connected == PEER_DISCONNECTED
+				    ? "not connected" : "still connecting");
 
 	if (!peer->uncommitted_channel
 	    || !peer->uncommitted_channel->fc
@@ -1136,9 +1138,11 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
-	if (!peer->is_connected)
+	if (peer->connected != PEER_CONNECTED)
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
+				    "Peer %s",
+				    peer->connected == PEER_DISCONNECTED
+				    ? "not connected" : "still connecting");
 
 	temporary_channel_id(&tmp_channel_id);
 

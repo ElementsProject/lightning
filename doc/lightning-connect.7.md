@@ -76,6 +76,10 @@ will contain details about the failures:
 
     { "code" : 401, "message" : "..." }
 
+If the peer disconnected while we were connecting:
+
+    { "code" : 402, "message" : "..." }
+
 If the given parameters are wrong:
 
     { "code" : -32602, "message" : "..." }
