@@ -16,8 +16,16 @@
       "description": "method to invoke on peer"
     },
     "params": {
-      "type": "object",
-      "description": "parameters for method"
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "array of positional parameters"
+        },
+        {
+          "type": "object",
+          "description": "parameters for method"
+        }
+      ]
     },
     "rune": {
       "type": "string",
