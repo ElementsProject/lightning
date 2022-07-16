@@ -386,21 +386,6 @@ static void peer_already_connected(struct lightningd *ld, const u8 *msg)
 				  &peer->addr);
 }
 
-static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
-{
-	struct node_id id;
-	struct peer *peer;
-
-	if (!fromwire_connectd_reconnected(msg, &id))
-		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
-
-	peer = peer_by_id(ld, &id);
-	if (!peer)
-		return;
-
-	peer_channels_cleanup_on_disconnect(peer);
-}
-
 struct custommsg_payload {
 	struct node_id peer_id;
 	u8 *msg;
@@ -480,10 +465,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 	case WIRE_CONNECTD_PING_REPLY:
-		break;
-
-	case WIRE_CONNECTD_RECONNECTED:
-		peer_please_disconnect(connectd->ld, msg);
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:

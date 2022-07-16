@@ -210,8 +210,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct wireaddr *remote_addr,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
-			       bool incoming,
-			       bool retrying);
+			       bool incoming);
 
 /* Removes peer from hash table, tells gossipd and lightningd. */
 void destroy_peer(struct peer *peer);

@@ -93,18 +93,6 @@ struct connecting {
 	u32 seconds_waited;
 };
 
-/*~ This is an ad-hoc marshalling structure where we store arguments so we
- * can call peer_connected again. */
-struct peer_reconnected {
-	struct daemon *daemon;
-	struct node_id id;
-	struct wireaddr_internal addr;
-	const struct wireaddr *remote_addr;
-	struct crypto_state cs;
-	const u8 *their_features;
-	bool incoming;
-};
-
 /*~ C programs should generally be written bottom-to-top, with the root
  * function at the bottom, and functions it calls above it.  That avoids
  * us having to pre-declare functions; but in the case of mutual recursion
@@ -223,66 +211,6 @@ static void peer_connected_in(struct daemon *daemon,
 	tal_free(connect);
 }
 
-/*~ For simplicity, lightningd only ever deals with a single connection per
- * peer.  So if we already know about a peer, we tell lightning to disconnect
- * the old one and retry once it does. */
-static struct io_plan *retry_peer_connected(struct io_conn *conn,
-					    struct peer_reconnected *pr)
-{
-	/*~ As you can see, we've had issues with this code before :( */
-	status_peer_debug(&pr->id, "processing now old peer gone");
-
-	/* If this fails (still waiting), pr will be freed, so reparent onto
-	 * tmpctx so it gets freed either way. */
-	tal_steal(tmpctx, pr);
-
-	/*~ Usually the pattern is to return this directly. */
-	return peer_connected(conn, pr->daemon, &pr->id, &pr->addr,
-			      pr->remote_addr,
-			      &pr->cs, take(pr->their_features), pr->incoming,
-			      true);
-}
-
-/*~ If we already know about this peer, we tell lightningd and it disconnects
- * the old one.  We wait until it tells us that's happened. */
-static struct io_plan *peer_reconnected(struct io_conn *conn,
-					struct daemon *daemon,
-					const struct node_id *id,
-					const struct wireaddr_internal *addr,
-					const struct wireaddr *remote_addr,
-					const struct crypto_state *cs,
-					const u8 *their_features TAKES,
-					bool incoming)
-{
-	u8 *msg;
-	struct peer_reconnected *pr;
-
-	status_peer_debug(id, "reconnect");
-
-	/* Tell master to kill it: will send peer_disconnect */
-	msg = towire_connectd_reconnected(NULL, id);
-	daemon_conn_send(daemon->master, take(msg));
-
-	/* Save arguments for next time. */
-	pr = tal(conn, struct peer_reconnected);
-	pr->daemon = daemon;
-	pr->id = *id;
-	pr->cs = *cs;
-	pr->addr = *addr;
-	pr->remote_addr = tal_dup_or_null(pr, struct wireaddr, remote_addr);
-	pr->incoming = incoming;
-
-	/*~ Note that tal_dup_talarr() will do handle the take() of features
-	 * (turning it into a simply tal_steal() in those cases). */
-	pr->their_features = tal_dup_talarr(pr, u8, their_features);
-
-	/*~ ccan/io supports waiting on an address: in this case, the key in
-	 * the peer set.  When someone calls `io_wake()` on that address, it
-	 * will call retry_peer_connected above. */
-	return io_wait(conn, peer_htable_get(&daemon->peers, id),
-		       retry_peer_connected, pr);
-}
-
 /*~ When we free a peer, we remove it from the daemon's hashtable */
 void destroy_peer(struct peer *peer)
 {
@@ -343,8 +271,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct wireaddr *remote_addr,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
-			       bool incoming,
-			       bool retrying)
+			       bool incoming)
 {
 	u8 *msg;
 	struct peer *peer;
@@ -353,19 +280,10 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	int subd_fd;
 	bool option_gossip_queries;
 
+	/* We remove any previous connection, on the assumption it's dead */
 	peer = peer_htable_get(&daemon->peers, id);
-	if (peer) {
-		/* If we were already retrying, we only get one chance: there
-		 * can be multiple reconnections, and we must not keep around
-		 * stale ones */
-		if (retrying) {
-			if (taken(their_features))
-				tal_free(their_features);
-			return io_close(conn);
-		}
-		return peer_reconnected(conn, daemon, id, addr, remote_addr, cs,
-					their_features, incoming);
-	}
+	if (peer)
+		tal_free(peer);
 
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
 	if (taken(their_features))
@@ -2051,7 +1969,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_PEER_CONNECTED:
 	case WIRE_CONNECTD_PEER_ALREADY_CONNECTED:
 	case WIRE_CONNECTD_PEER_ACTIVE:
-	case WIRE_CONNECTD_RECONNECTED:
 	case WIRE_CONNECTD_CONNECT_FAILED:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 	case WIRE_CONNECTD_PING_REPLY:
