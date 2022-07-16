@@ -1205,14 +1205,14 @@ static struct subd *multiplex_subd_setup(struct peer *peer,
 		return NULL;
 	}
 
-	subd = tal(peer->subds, struct subd);
+	subd = tal(NULL, struct subd);
 	subd->peer = peer;
 	subd->outq = msg_queue_new(subd, false);
 	subd->channel_id = *channel_id;
 	subd->temporary_channel_id = NULL;
 	subd->opener_revocation_basepoint = NULL;
 	/* This sets subd->conn inside subd_conn_init */
-	io_new_conn(peer, fds[0], subd_conn_init, subd);
+	io_new_conn(peer->subds, fds[0], subd_conn_init, subd);
 	/* When conn dies, subd is freed. */
 	tal_steal(subd->conn, subd);
 
