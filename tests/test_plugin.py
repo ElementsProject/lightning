@@ -2544,3 +2544,46 @@ def test_plugin_shutdown(node_factory):
     l1.daemon.wait_for_logs(['test_libplugin: shutdown called',
                              'misc_notifications.py: via lightningd shutdown, datastore failed',
                              'test_libplugin: failed to self-terminate in time, killing.'])
+
+
+def test_commando(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    # This works
+    res = l2.rpc.call(method='commando',
+                      payload={'peer_id': l1.info['id'],
+                               'method': 'listpeers'})
+    assert len(res['peers']) == 1
+    assert res['peers'][0]['id'] == l2.info['id']
+
+    res = l2.rpc.call(method='commando',
+                      payload={'peer_id': l1.info['id'],
+                               'method': 'listpeers',
+                               'params': {'id': l2.info['id']}})
+    assert len(res['peers']) == 1
+    assert res['peers'][0]['id'] == l2.info['id']
+
+    with pytest.raises(RpcError, match='missing required parameter'):
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'method': 'withdraw'})
+
+    with pytest.raises(RpcError, match='unknown parameter: foobar'):
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'method': 'invoice',
+                             'params': {'foobar': 1}})
+
+    ret = l2.rpc.call(method='commando',
+                      payload={'peer_id': l1.info['id'],
+                               'method': 'ping',
+                               'params': {'id': l2.info['id']}})
+    assert 'totlen' in ret
+
+    # Now, reply will go over a multiple messages!
+    ret = l2.rpc.call(method='commando',
+                      payload={'peer_id': l1.info['id'],
+                               'method': 'getlog',
+                               'params': {'level': 'io'}})
+
+    assert len(json.dumps(ret)) > 65535
