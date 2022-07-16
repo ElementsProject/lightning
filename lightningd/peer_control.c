@@ -1170,20 +1170,6 @@ REGISTER_PLUGIN_HOOK(peer_connected,
 		     peer_connected_serialize,
 		     struct peer_connected_hook_payload *);
 
-/* Returns true if we're still waiting for subds for active channels */
-static bool peer_subds_pending(const struct peer *peer)
-{
-	struct channel *channel;
-
-	list_for_each(&peer->channels, channel, list) {
-		if (!channel_active(channel))
-			continue;
-		if (!channel->owner)
-			return true;
-	}
-	return false;
-}
-
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_disconnected. */
 void peer_connected(struct lightningd *ld, const u8 *msg)
@@ -1222,11 +1208,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
 
-	/* Complete any outstanding connect commands: as a hack, we delay here if we
-	 * are going to make them active (so when connect returns, the channels are ready).
-	 * So we also wake these up if the connection dies before that! */
-	if (!peer_subds_pending(peer))
-		connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
+	connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
 
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
@@ -1300,13 +1282,13 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 			    && channel->open_attempt->open_msg) {
 				if (peer_start_dualopend(peer, peer_fd, channel))
 					subd_send_msg(channel->owner, channel->open_attempt->open_msg);
-				goto subd_setup_done;
+				return;
 			}
 			/* Fall through. */
 		case DUALOPEND_AWAITING_LOCKIN:
 			assert(!channel->owner);
 			peer_restart_dualopend(peer, peer_fd, channel);
-			goto subd_setup_done;
+			return;
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
@@ -1317,7 +1299,7 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 					    peer_fd,
 					    NULL, true,
 					    NULL);
-			goto subd_setup_done;
+			return;
 		}
 		abort();
 	}
@@ -1418,13 +1400,6 @@ send_error:
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
 							  error)));
-	return;
-
-subd_setup_done:
-	/* We deferred connect_succeeded to here, so subd would be ready once
-	 * `connect` returns. */
-	if (!peer_subds_pending(peer))
-		connect_succeeded(ld, peer, peer->connected_incoming, &peer->addr);
 }
 
 struct disconnect_command {
