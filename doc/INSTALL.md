@@ -56,6 +56,10 @@ Clone lightning:
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
 
+Checkout a release tag:
+
+    git checkout v0.11.2
+
 For development or running tests, get additional dependencies:
 
     sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
@@ -112,6 +116,11 @@ Clone lightning:
 ```
 $ git clone https://github.com/ElementsProject/lightning.git
 $ cd lightning
+```
+
+Checkout a release tag:
+```
+$ git checkout v0.11.2
 ```
 
 Build and install lightning:
@@ -259,6 +268,10 @@ Clone lightning:
 
     $ git clone https://github.com/ElementsProject/lightning.git
     $ cd lightning
+
+Checkout a release tag:
+
+    $ git checkout v0.11.2
 
 Build lightning:
 
