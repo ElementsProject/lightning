@@ -1,0 +1,130 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * rune - Simple cookies you can extend (a-la Python runes class).
+ *
+ * This code is a form of cookies, but they are user-extensible, and
+ * contain a simple language to define what the cookie allows.
+ *
+ * A "rune" contains the hash of a secret (so the server can
+ * validate), such that you can add, but not subtract, conditions.
+ * This is a simplified form of Macaroons, See
+ * https://research.google/pubs/pub41892/ "Macaroons: Cookies with
+ * Contextual Caveats for Decentralized Authorization in the Cloud".
+ * It has one good idea, some extended ideas nobody implements, and
+ * lots and lots of words.
+ *
+ * License: BSD-MIT
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * Example:
+ * // Given "generate secret 1" outputs kr7AW-eJ2Munhv5ftu4rHqAnhxUpPQM8aOyWOmqiytk9MQ==
+ * // Given "add kr7AW-eJ2Munhv5ftu4rHqAnhxUpPQM8aOyWOmqiytk9MQ== uid=rusty" outputs Xyt5S6FKUnA2ppGB62c6HTPGojt2S7k2n7Cf7Tjj6zM9MSZ1aWQ9cnVzdHk=
+ * // Given "test secret Xyt5S6FKUnA2ppGB62c6HTPGojt2S7k2n7Cf7Tjj6zM9MSZ1aWQ9cnVzdHk= rusty" outputs PASSED
+ * // Given "test secret Xyt5S6FKUnA2ppGB62c6HTPGojt2S7k2n7Cf7Tjj6zM9MSZ1aWQ9cnVzdHk= notrusty" outputs FAILED: uid is not equal to rusty
+ * // Given "add Xyt5S6FKUnA2ppGB62c6HTPGojt2S7k2n7Cf7Tjj6zM9MSZ1aWQ9cnVzdHk= t\<1655958616" outputs _YBFmeAedqlLigWHAmvyyGGHRrnI40BRQGh2hWdSZ9E9MSZ1aWQ9cnVzdHkmdDwxNjU1OTU4NjE2
+ * // Given "test secret _YBFmeAedqlLigWHAmvyyGGHRrnI40BRQGh2hWdSZ9E9MSZ1aWQ9cnVzdHkmdDwxNjU1OTU4NjE2 rusty" outputs FAILED: t is greater or equal to 1655958616
+ * #include <ccan/err/err.h>
+ * #include <ccan/rune/rune.h>
+ * #include <ccan/str/str.h>
+ * #include <stdio.h>
+ * #include <sys/time.h>
+ * 
+ * // We support two values: current time (t), and user id (uid).
+ * static const char *check(const tal_t *ctx,
+ * 			    const struct rune *rune,
+ * 			    const struct rune_altern *alt,
+ * 			    char *uid)
+ * {
+ * 	// t= means current time, in seconds, as integer
+ * 	if (streq(alt->fieldname, "t")) {
+ * 		struct timeval now;
+ * 		gettimeofday(&now, NULL);
+ * 		return rune_alt_single_int(ctx, alt, now.tv_sec);
+ * 	}
+ * 	if (streq(alt->fieldname, "uid")) {
+ * 		return rune_alt_single_str(ctx, alt, uid, strlen(uid));
+ * 	}
+ * 	// Otherwise, field is missing
+ * 	return rune_alt_single_missing(ctx, alt);
+ * }
+ * 
+ * int main(int argc, char *argv[])
+ * {
+ * 	struct rune *master, *rune;
+ * 
+ * 	if (argc < 3)
+ * 		goto usage;
+ * 
+ * 	if (streq(argv[1], "generate")) {
+ * 		// Make master, derive a unique_id'd rune.
+ * 		if (argc != 3 && argc != 4)
+ * 			goto usage;
+ * 		master = rune_new(NULL, (u8 *)argv[2], strlen(argv[2]), NULL);
+ * 		rune = rune_derive_start(NULL, master, argv[3]);
+ * 	} else if (streq(argv[1], "add")) {
+ * 		// Add a restriction
+ * 		struct rune_restr *restr;
+ * 		if (argc != 4)
+ * 			goto usage;
+ * 		rune = rune_from_base64(NULL, argv[2]);
+ * 		if (!rune)
+ * 			errx(1, "Bad rune");
+ * 		restr = rune_restr_from_string(NULL, argv[3], strlen(argv[3]));
+ * 		if (!restr)
+ * 			errx(1, "Bad restriction string");
+ * 		rune_add_restr(rune, restr);
+ * 	} else if (streq(argv[1], "test")) {
+ * 		const char *err;
+ * 		if (argc != 5)
+ * 			goto usage;
+ * 		master = rune_new(NULL, (u8 *)argv[2], strlen(argv[2]), NULL);
+ * 		if (!master)
+ * 			errx(1, "Bad master rune");
+ * 		rune = rune_from_base64(NULL, argv[3]);
+ * 		if (!rune)
+ * 			errx(1, "Bad rune");
+ * 		err = rune_test(NULL, master, rune, check, argv[4]);
+ * 		if (err)
+ * 			printf("FAILED: %s\n", err);
+ * 		else
+ * 			printf("PASSED\n");
+ * 		return 0;
+ * 	} else
+ * 		goto usage;
+ * 
+ * 	printf("%s\n", rune_to_base64(NULL, rune));
+ * 	return 0;
+ * 
+ * usage:
+ * 	errx(1, "Usage: %s generate <secret> <uniqueid> OR\n"
+ * 	     "%s add <rune> <restriction> OR\n"
+ * 	     "%s test <secret> <rune> <uid>", argv[0], argv[0], argv[0]);
+ * }
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/base64\n");
+		printf("ccan/crypto/sha256\n");
+		printf("ccan/endian\n");
+		printf("ccan/mem\n");
+		printf("ccan/short_types\n");
+		printf("ccan/str/hex\n");
+		printf("ccan/tal/str\n");
+		printf("ccan/tal\n");
+		printf("ccan/typesafe_cb\n");
+		return 0;
+	}
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/tal/grab_file\n");
+		return 0;
+	}
+
+	return 1;
+}
