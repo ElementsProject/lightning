@@ -13,6 +13,7 @@ from utils import (
 )
 
 import ast
+import concurrent.futures
 import json
 import os
 import pytest
@@ -2548,6 +2549,15 @@ def test_plugin_shutdown(node_factory):
 
 def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    # Nothing works until we've issued a rune.
+    fut = executor.submit(l2.rpc.call, method='commando',
+                          payload={'peer_id': l1.info['id'],
+                                   'method': 'listpeers'})
+    with pytest.raises(concurrent.futures.TimeoutError):
+        fut.result(10)
+
+    l1.rpc.commando_rune()
 
     # This works
     res = l2.rpc.call(method='commando',
