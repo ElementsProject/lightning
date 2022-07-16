@@ -1,4 +1,4 @@
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16 devtools/rune
 ifeq ($(HAVE_SQLITE3),1)
 DEVTOOLS += devtools/checkchannels
 endif
@@ -47,6 +47,8 @@ DEVTOOLS_COMMON_OBJS :=				\
 	wire/tlvstream.o
 
 devtools/features: common/features.o common/utils.o wire/fromwire.o wire/towire.o devtools/features.o
+
+devtools/rune: common/utils.o common/autodata.o common/setup.o common/version.o wire/fromwire.o wire/towire.o devtools/rune.o
 
 devtools/fp16: common/fp16.o common/utils.o common/setup.o common/autodata.o devtools/fp16.o
 
