@@ -33,6 +33,7 @@ being run:
 * time: the current UNIX time, e.g. "time<1656759180".
 * id: the node_id of the peer, e.g. "id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605".
 * method: the command being run, e.g. "method=withdraw".
+* rate: the rate limit, per minute, e.g. "rate=60".
 * pnum: the number of parameters. e.g. "pnum<2".
 * pnameX: the parameter named X. e.g. "pnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T".
 * parrN: the N'th parameter. e.g. "parr0=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T".
@@ -108,13 +109,14 @@ This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pn
        "unique_id": "3"
     }
 
-Before we give this to our peer, let's add another restriction: that
-it only be usable for 24 hours from now.  `date +%s` can give us the
-current time in seconds:
+Before we give this to our peer, let's add two more restrictions: that
+it only be usable for 24 hours from now (`time<`), and that it can only
+be used twice a minute (`rate=2`).  `date +%s` can give us the current
+time in seconds:
 
-    $ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions="t<$(($(date +%s) + 24*60*60))"
+    $ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions='["time<'$(($(date +%s) + 24*60*60))'","rate=2"]'
     {
-       "rune": "Sh-jGdfO9UGByLvah2AHgc_VwgoNujckPNkxTx54ugg9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0PDE2NTY4OTc5MjU=",
+       "rune": "tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
        "unique_id": "3"
     }
 
@@ -125,6 +127,13 @@ Because anyone can add a restriction to a rune, you can always turn a
 normal rune into a read-only rune, or restrict access for 30 minutes
 from the time you give it to someone.  Adding restrictions before
 sharing runes is best practice.
+
+If a rune has a ratelimit, any derived rune will have the same id, and
+thus will compete for that ratelimit.  You might want to consider
+adding a tighter ratelimit to a rune before sharing it, so you will
+keep the remainder.  For example, if you rune has a limit of 60 times
+per minute, adding a limit of 5 times per minute and handing that rune
+out means you can still use your original rune 55 times per minute.
 
 RETURN VALUE
 ------------

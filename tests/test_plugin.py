@@ -2666,10 +2666,19 @@ def test_commando_rune(node_factory):
     rune7 = l1.rpc.commando_rune(restrictions="pnum=0")
     assert rune7['rune'] == 'QJonN6ySDFw-P5VnilZxlOGRs_tST1ejtd-bAYuZfjk9NCZwbnVtPTA='
     assert rune7['unique_id'] == '4'
+    rune8 = l1.rpc.commando_rune(rune7['rune'], "rate=3")
+    assert rune8['rune'] == 'kSYFx6ON9hr_ExcQLwVkm1ABnvc1TcMFBwLrAVee0EA9NCZwbnVtPTAmcmF0ZT0z'
+    assert rune8['unique_id'] == '4'
+    rune9 = l1.rpc.commando_rune(rune8['rune'], "rate=1")
+    assert rune9['rune'] == 'O8Zr-ULTBKO3_pKYz0QKE9xYl1vQ4Xx9PtlHuist9Rk9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
+    assert rune9['unique_id'] == '4'
 
     # Replace rune3 with a more useful timestamp!
     expiry = int(time.time()) + 15
     rune3 = l1.rpc.commando_rune(restrictions="time<{}".format(expiry))
+    ratelimit_successes = ((rune9, "getinfo", {}),
+                           (rune8, "getinfo", {}),
+                           (rune8, "getinfo", {}))
     successes = ((rune1, "listpeers", {}),
                  (rune2, "listpeers", {}),
                  (rune2, "getinfo", {}),
@@ -2681,7 +2690,7 @@ def test_commando_rune(node_factory):
                  (rune6, "listpeers", [l2.info['id'], 'broken']),
                  (rune6, "listpeers", [l2.info['id']]),
                  (rune7, "listpeers", []),
-                 (rune7, "getinfo", {}))
+                 (rune7, "getinfo", {})) + ratelimit_successes
     failures = ((rune2, "withdraw", {}),
                 (rune2, "plugin", {'subcommand': 'list'}),
                 (rune3, "getinfo", {}),
@@ -2689,7 +2698,9 @@ def test_commando_rune(node_factory):
                 (rune5, "listpeers", {'id': l2.info['id'], 'level': 'io'}),
                 (rune6, "listpeers", [l2.info['id'], 'io']),
                 (rune7, "listpeers", [l2.info['id']]),
-                (rune7, "listpeers", {'id': l2.info['id']}))
+                (rune7, "listpeers", {'id': l2.info['id']}),
+                (rune9, "getinfo", {}),
+                (rune8, "getinfo", {}))
 
     for rune, cmd, params in successes:
         l2.rpc.call(method='commando',
@@ -2721,3 +2732,13 @@ def test_commando_rune(node_factory):
                              'method': "listpeers",
                              'params': {}})
     assert exc_info.value.error['code'] == 0x4c51
+
+    # Now wait for ratelimit expiry, ratelimits should reset.
+    time.sleep(61)
+
+    for rune, cmd, params in ratelimit_successes:
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': rune['rune'],
+                             'method': cmd,
+                             'params': params})

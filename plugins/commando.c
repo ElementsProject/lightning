@@ -1,5 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/htable/htable_type.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/rune/rune.h>
@@ -41,6 +43,45 @@ static struct commando **outgoing_commands;
 static struct commando **incoming_commands;
 static u64 *rune_counter;
 static struct rune *master_rune;
+
+struct usage {
+	/* If you really issue more than 2^32 runes, they'll share ratelimit buckets */
+	u32 id;
+	u32 counter;
+};
+
+static u64 usage_id(const struct usage *u)
+{
+	return u->id;
+}
+
+static size_t id_hash(u64 id)
+{
+	return siphash24(siphash_seed(), &id, sizeof(id));
+}
+
+static bool usage_eq_id(const struct usage *u, u64 id)
+{
+	return u->id == id;
+}
+HTABLE_DEFINE_TYPE(struct usage, usage_id, id_hash, usage_eq_id, usage_table);
+static struct usage_table usage_table;
+
+/* Every minute we forget entries. */
+static void flush_usage_table(void *unused)
+{
+	struct usage *u;
+	struct usage_table_iter it;
+
+	for (u = usage_table_first(&usage_table, &it);
+	     u;
+	     u = usage_table_next(&usage_table, &it)) {
+		usage_table_delval(&usage_table, &it);
+		tal_free(u);
+	}
+
+	notleak(plugin_timer(plugin, time_from_sec(60), flush_usage_table, NULL));
+}
 
 /* NULL peer: don't care about peer.  NULL id: don't care about id */
 static struct commando *find_commando(struct commando **arr,
@@ -183,7 +224,39 @@ struct cond_info {
 	const jsmntok_t *method;
 	const jsmntok_t *params;
 	STRMAP(const jsmntok_t *) cached_params;
+	struct usage *usage;
 };
+
+static const char *rate_limit_check(const tal_t *ctx,
+				    const struct rune *rune,
+				    const struct rune_altern *alt,
+				    struct cond_info *cinfo)
+{
+	unsigned long r;
+	char *endp;
+	if (alt->condition != '=')
+		return "rate operator must be =";
+
+	r = strtoul(alt->value, &endp, 10);
+	if (endp == alt->value || *endp || r == 0 || r >= UINT32_MAX)
+		return "malformed rate";
+
+	/* We cache this: we only add usage counter if whole rune succeeds! */
+	if (!cinfo->usage) {
+		cinfo->usage = usage_table_get(&usage_table, atol(rune->unique_id));
+		if (!cinfo->usage) {
+			cinfo->usage = tal(plugin, struct usage);
+			cinfo->usage->id = atol(rune->unique_id);
+			cinfo->usage->counter = 0;
+			usage_table_add(&usage_table, cinfo->usage);
+		}
+	}
+
+	/* >= becuase if we allow this, counter will increment */
+	if (cinfo->usage->counter >= r)
+		return tal_fmt(ctx, "Rate of %lu per minute exceeded", r);
+	return NULL;
+}
 
 static const char *check_condition(const tal_t *ctx,
 				   const struct rune *rune,
@@ -203,6 +276,8 @@ static const char *check_condition(const tal_t *ctx,
 					   cinfo->method->end - cinfo->method->start);
 	} else if (streq(alt->fieldname, "pnum")) {
 		return rune_alt_single_int(ctx, alt, cinfo->params->size);
+	} else if (streq(alt->fieldname, "rate")) {
+		return rate_limit_check(ctx, rune, alt, cinfo);
 	}
 
 	/* Rest are params looksup: generate this once! */
@@ -267,12 +342,17 @@ static const char *check_rune(const tal_t *ctx,
 	cinfo.buf = buf;
 	cinfo.method = method;
 	cinfo.params = params;
+	cinfo.usage = NULL;
 	strmap_init(&cinfo.cached_params);
 	err = rune_test(ctx, master_rune, rune, check_condition, &cinfo);
 	/* Just in case they manage to make us speak non-JSON, escape! */
 	if (err)
 		err = json_escape(ctx, take(err))->s;
 	strmap_clear(&cinfo.cached_params);
+
+	/* If it succeeded, *now* we increment any associated usage counter. */
+	if (!err && cinfo.usage)
+		cinfo.usage->counter++;
 	return err;
 }
 
@@ -770,6 +850,7 @@ static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 	memleak_remove_region(memtable, outgoing_commands, tal_bytelen(outgoing_commands));
 	memleak_remove_region(memtable, incoming_commands, tal_bytelen(incoming_commands));
 	memleak_remove_region(memtable, master_rune, sizeof(*master_rune));
+	memleak_remove_htable(memtable, &usage_table.raw);
 	if (rune_counter)
 		memleak_remove_region(memtable, rune_counter, sizeof(*rune_counter));
 }
@@ -782,6 +863,7 @@ static const char *init(struct plugin *p,
 
 	outgoing_commands = tal_arr(p, struct commando *, 0);
 	incoming_commands = tal_arr(p, struct commando *, 0);
+	usage_table_init(&usage_table);
 	plugin = p;
 #if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark_globals);
@@ -814,6 +896,8 @@ static const char *init(struct plugin *p,
 	master_rune = rune_new(plugin, rune_secret.data, ARRAY_SIZE(rune_secret.data),
 			       NULL);
 
+	/* Start flush timer. */
+	flush_usage_table(NULL);
 	return NULL;
 }
 
