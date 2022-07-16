@@ -390,7 +390,6 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
 	struct peer *peer;
-	struct channel *c, **channels;
 
 	if (!fromwire_connectd_reconnected(msg, &id))
 		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
@@ -399,25 +398,7 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 	if (!peer)
 		return;
 
-	/* Freeing channels can free peer, so gather first. */
-	channels = tal_arr(tmpctx, struct channel *, 0);
-	list_for_each(&peer->channels, c, list)
-		tal_arr_expand(&channels, c);
-
-	if (peer->uncommitted_channel)
-		kill_uncommitted_channel(peer->uncommitted_channel,
-					 "Reconnected");
-
-	for (size_t i = 0; i < tal_count(channels); i++) {
-		c = channels[i];
-		if (channel_active(c)) {
-			channel_cleanup_commands(c, "Reconnected");
-			channel_fail_reconnect(c, "Reconnected");
-		} else if (channel_unsaved(c)) {
-			log_info(c->log, "Killing opening daemon: Reconnected");
-			channel_unsaved_close_conn(c, "Reconnected");
-		}
-	}
+	peer_channels_cleanup_on_disconnect(peer);
 }
 
 struct custommsg_payload {
