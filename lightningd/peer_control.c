@@ -136,6 +136,34 @@ void maybe_delete_peer(struct peer *peer)
 	delete_peer(peer);
 }
 
+void peer_channels_cleanup_on_disconnect(struct peer *peer)
+{
+	struct channel *c, **channels;
+
+	/* Freeing channels can free peer, so gather first. */
+	channels = tal_arr(tmpctx, struct channel *, 0);
+	list_for_each(&peer->channels, c, list)
+		tal_arr_expand(&channels, c);
+
+	if (peer->uncommitted_channel) {
+		/* Frees peer if no channels */
+		kill_uncommitted_channel(peer->uncommitted_channel,
+					 "Disconnected");
+	} else if (tal_count(channels) == 0)
+		/* Was completely idle. */
+		tal_free(peer);
+
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		c = channels[i];
+		if (channel_active(c)) {
+			channel_cleanup_commands(c, "Disconnected");
+			channel_fail_reconnect(c, "Disconnected");
+		} else if (channel_unsaved(c)) {
+			channel_unsaved_close_conn(c, "Disconnected");
+		}
+	}
+}
+
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)
 {
 	struct peer *p;
@@ -1427,10 +1455,8 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 	if (p) {
 		log_peer_debug(ld->log, &id, "peer_disconnect_done");
 		p->is_connected = false;
-		/* If we only cared about peer because of connectd, free it. */
-		if (list_empty(&p->channels) && !p->uncommitted_channel) {
-			tal_free(p);
-		}
+
+		peer_channels_cleanup_on_disconnect(p);
 	}
 
 	/* Fire off plugin notifications */

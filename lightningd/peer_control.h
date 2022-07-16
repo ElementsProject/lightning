@@ -73,6 +73,8 @@ struct peer *peer_from_json(struct lightningd *ld,
 void peer_connected(struct lightningd *ld, const u8 *msg);
 void peer_disconnect_done(struct lightningd *ld, const u8 *msg);
 void peer_active(struct lightningd *ld, const u8 *msg, int peer_fd);
+/* May delete peer! */
+void peer_channels_cleanup_on_disconnect(struct peer *peer);
 
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
