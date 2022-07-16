@@ -2546,7 +2546,7 @@ def test_plugin_shutdown(node_factory):
                              'test_libplugin: failed to self-terminate in time, killing.'])
 
 
-def test_commando(node_factory):
+def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
     # This works
@@ -2610,3 +2610,36 @@ def test_commando(node_factory):
                                                    'channel': '1x2x3'}],
                                         'payment_hash': '00' * 32}})
     assert exc_info.value.error['data']['erring_index'] == 0
+
+
+def test_commando_rune(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    # l1's commando secret is 1241faef85297127c2ac9bde95421b2c51e5218498ae4901dc670c974af4284b.
+    # I put that into a test node's commando.py to generate these runes (modified readonly to match ours):
+    # $ l1-cli commando-rune
+    #   "rune": "zKc2W88jopslgUBl0UE77aEe5PNCLn5WwqSusU_Ov3A9MA=="
+    # $ l1-cli commando-rune restrictions=readonly
+    #   "rune": "1PJnoR9a7u4Bhglj2s7rVOWqRQnswIwUoZrDVMKcLTY9MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl"
+    # $ l1-cli commando-rune restrictions='time>1656675211'
+    #   "rune": "RnlWC4lwBULFaObo6ZP8jfqYRyTbfWPqcMT3qW-Wmso9MiZ0aW1lPjE2NTY2NzUyMTE="
+    # $ l1-cli commando-rune restrictions='["id^022d223620a359a47ff7","method=listpeers"]'
+    #   "rune": "lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz"
+    # $ l1-cli commando-rune lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz 'pnamelevel!|pnamelevel/io'
+    #   "rune": "Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8="
+
+    rune1 = l1.rpc.commando_rune()
+    assert rune1['rune'] == 'zKc2W88jopslgUBl0UE77aEe5PNCLn5WwqSusU_Ov3A9MA=='
+    assert rune1['unique_id'] == '0'
+    rune2 = l1.rpc.commando_rune(restrictions="readonly")
+    assert rune2['rune'] == '1PJnoR9a7u4Bhglj2s7rVOWqRQnswIwUoZrDVMKcLTY9MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl'
+    assert rune2['unique_id'] == '1'
+    rune3 = l1.rpc.commando_rune(restrictions="time>1656675211")
+    assert rune3['rune'] == 'RnlWC4lwBULFaObo6ZP8jfqYRyTbfWPqcMT3qW-Wmso9MiZ0aW1lPjE2NTY2NzUyMTE='
+    assert rune3['unique_id'] == '2'
+    rune4 = l1.rpc.commando_rune(restrictions=["id^022d223620a359a47ff7", "method=listpeers"])
+    assert rune4['rune'] == 'lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz'
+    assert rune4['unique_id'] == '3'
+    rune5 = l1.rpc.commando_rune(rune4['rune'], "pnamelevel!|pnamelevel/io")
+    assert rune5['rune'] == 'Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
+    assert rune5['unique_id'] == '3'
