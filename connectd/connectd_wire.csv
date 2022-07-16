@@ -44,10 +44,6 @@ msgdata,connectd_activate,listen,bool,
 msgtype,connectd_activate_reply,2125
 msgdata,connectd_activate_reply,failmsg,?wirestring,
 
-# connectd->master: disconnect this peer please (due to reconnect).
-msgtype,connectd_reconnected,2112
-msgdata,connectd_reconnected,id,node_id,
-
 # Master -> connectd: connect to a peer.
 msgtype,connectd_connect_to_peer,2001
 msgdata,connectd_connect_to_peer,id,node_id,
