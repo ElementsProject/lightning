@@ -297,9 +297,9 @@ $ cd lightning
 Build Core Lightning:
 
 ```
-~/.local/bin/poetry install
+python -m poetry install
 ./configure
-~/.local/bin/poetry run make
+python -m poetry run make
 ```
 
 Launch Core Lightning:
