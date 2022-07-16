@@ -1133,10 +1133,6 @@ static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 {
 	assert(peer->to_peer == peer_conn);
 
-	/* If we're draining, ignore all incoming. */
-	if (peer->draining)
-		return io_halfclose(peer_conn);
-
 	/* BOLT #8:
 	 *
 	 * ### Receiving and Decrypting Messages
