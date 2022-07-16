@@ -677,12 +677,9 @@ void maybe_disconnect_peer(struct lightningd *ld, struct peer *peer)
 	if (peer->uncommitted_channel)
 		return;
 
-	list_for_each(&peer->channels, channel, list) {
-		if (!channel->owner)
-			continue;
-		if (channel->owner->talks_to_peer)
+	list_for_each(&peer->channels, channel, list)
+		if (channel_is_connected(channel))
 			return;
-	}
 
 	/* If shutting down, connectd no longer exists */
 	if (!ld->connectd) {

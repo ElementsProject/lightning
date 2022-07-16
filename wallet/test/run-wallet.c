@@ -1608,7 +1608,6 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   100, /* first_blocknum */
 			   100, /* min_possible_feerate */
 			   10000, /* max_possible_feerate */
-			   false,
 			   &basepoints,
 			   &pk, NULL,
 			   1000, 100,

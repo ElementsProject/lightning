@@ -1500,8 +1500,6 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_col_u64(stmt, "first_blocknum"),
 			   db_col_int(stmt, "min_possible_feerate"),
 			   db_col_int(stmt, "max_possible_feerate"),
-			   /* Not connected */
-			   false,
 			   &local_basepoints, &local_funding_pubkey,
 			   future_per_commitment_point,
 			   db_col_int(stmt, "feerate_base"),
