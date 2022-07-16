@@ -2914,7 +2914,7 @@ void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks)
 
 	list_for_each(&ld->peers, p, list) {
 		struct channel *c;
-		if (p->uncommitted_channel) {
+		if (p->uncommitted_channel && p->uncommitted_channel->open_daemon) {
 			struct subd *openingd = p->uncommitted_channel->open_daemon;
 			start_leak_request(subd_req(openingd, openingd,
 						    take(towire_openingd_dev_memleak(NULL)),
