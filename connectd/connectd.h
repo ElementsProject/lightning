@@ -53,11 +53,11 @@ struct peer {
 	/* Connection to the peer */
 	struct io_conn *to_peer;
 
+	/* Is this draining?  If so, just keep writing until queue empty */
+	bool draining;
+
 	/* Connections to the subdaemons */
 	struct subd **subds;
-
-	/* Final message to send to peer (and hangup) */
-	u8 *final_msg;
 
 	/* Set once lightningd says it's OK to close (subd tells it
 	 * it's done). */
@@ -222,5 +222,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 /* Called when peer->peer_conn is finally freed */
 void peer_conn_closed(struct peer *peer);
+
+/* Removes peer from hash table */
+void destroy_peer(struct peer *peer);
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_H */
