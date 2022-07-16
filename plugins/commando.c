@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -331,8 +332,10 @@ static struct command_result *handle_reply(struct node_id *peer,
 	err = json_get_member(replystr, toks, "error");
 	if (err) {
 		const jsmntok_t *code = json_get_member(replystr, err, "code");
-		int ecode;
 		const jsmntok_t *message = json_get_member(replystr, err, "message");
+		const jsmntok_t *datatok = json_get_member(replystr, err, "data");
+		struct json_out *data;
+		int ecode;
 		if (!code || !json_to_int(replystr, code, &ecode)) {
 			return command_fail(ocmd->cmd, COMMANDO_ERROR_LOCAL,
 					    "Error '%.*s' had no valid code",
@@ -343,10 +346,17 @@ static struct command_result *handle_reply(struct node_id *peer,
 			return command_fail(ocmd->cmd, COMMANDO_ERROR_LOCAL,
 					    "Error had no message");
 		}
-		/* FIXME: data! */
-		return command_fail(ocmd->cmd, ecode, "%.*s",
-				    message->end - message->start,
-				    replystr + message->start);
+		if (datatok) {
+			data = json_out_new(ocmd->cmd);
+			memcpy(json_out_direct(data, json_tok_full_len(datatok)),
+			       json_tok_full(replystr, datatok),
+			       json_tok_full_len(datatok));
+		} else
+			data = NULL;
+
+		return command_done_err(ocmd->cmd, ecode,
+					json_strdup(tmpctx, replystr, message),
+					data);
 	}
 
 	result = json_get_member(replystr, toks, "result");
