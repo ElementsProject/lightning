@@ -2598,3 +2598,15 @@ def test_commando(node_factory):
                                           'deschashonly': True}})
 
     assert 'bolt11' in ret
+
+    # This will fail, will include data.
+    with pytest.raises(RpcError, match='No connection to first peer found') as exc_info:
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'method': 'sendpay',
+                             'params': {'route': [{'amount_msat': 1000,
+                                                   'id': l1.info['id'],
+                                                   'delay': 12,
+                                                   'channel': '1x2x3'}],
+                                        'payment_hash': '00' * 32}})
+    assert exc_info.value.error['data']['erring_index'] == 0
