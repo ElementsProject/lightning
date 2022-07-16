@@ -1234,9 +1234,6 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->scb->funding_sats = total_funding;
 	channel->scb->type = channel_type_dup(channel->scb, channel->type);
 
-	/* We are connected */
-	channel->connected = true;
-
 	if (our_upfront_shutdown_script)
 		channel->shutdown_scriptpubkey[LOCAL]
 			= tal_steal(channel, our_upfront_shutdown_script);
