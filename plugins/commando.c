@@ -1,8 +1,10 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -175,14 +177,96 @@ static void commando_error(struct commando *incoming,
 	send_response(NULL, NULL, NULL, reply);
 }
 
-static const char *check_rune(struct commando *incoming,
+struct cond_info {
+	const struct node_id *peer;
+	const char *buf;
+	const jsmntok_t *method;
+	const jsmntok_t *params;
+	STRMAP(const jsmntok_t *) cached_params;
+};
+
+static const char *check_condition(const tal_t *ctx,
+				   const struct rune *rune,
+				   const struct rune_altern *alt,
+				   struct cond_info *cinfo)
+{
+	const jsmntok_t *ptok;
+
+	if (streq(alt->fieldname, "time")) {
+		return rune_alt_single_int(ctx, alt, time_now().ts.tv_sec);
+	} else if (streq(alt->fieldname, "id")) {
+		const char *id = node_id_to_hexstr(tmpctx, cinfo->peer);
+		return rune_alt_single_str(ctx, alt, id, strlen(id));
+	} else if (streq(alt->fieldname, "method")) {
+		return rune_alt_single_str(ctx, alt,
+					   cinfo->buf + cinfo->method->start,
+					   cinfo->method->end - cinfo->method->start);
+	}
+
+	/* Rest are params looksup: generate this once! */
+	if (cinfo->params) {
+		/* Note: we require that params be an obj! */
+		const jsmntok_t *t;
+		size_t i;
+
+		json_for_each_obj(i, t, cinfo->params) {
+			char *pmemname = tal_fmt(tmpctx,
+						 "pname%.*s",
+						 t->end - t->start,
+						 cinfo->buf + t->start);
+			size_t off = strlen("pname");
+			/* Remove punctuation! */
+			for (size_t n = off; pmemname[n]; n++) {
+				if (cispunct(pmemname[n]))
+					continue;
+				pmemname[off++] = pmemname[n];
+			}
+			pmemname[off++] = '\0';
+			strmap_add(&cinfo->cached_params, pmemname, t+1);
+		}
+		cinfo->params = NULL;
+	}
+
+	ptok = strmap_get(&cinfo->cached_params, alt->fieldname);
+	if (!ptok)
+		return rune_alt_single_missing(ctx, alt);
+
+	return rune_alt_single_str(ctx, alt,
+				   cinfo->buf + ptok->start,
+				   ptok->end - ptok->start);
+}
+
+static const char *check_rune(const tal_t *ctx,
+			      struct commando *incoming,
+			      const struct node_id *peer,
 			      const char *buf,
 			      const jsmntok_t *method,
 			      const jsmntok_t *params,
-			      const jsmntok_t *rune)
+			      const jsmntok_t *runetok)
 {
-	/* FIXME! */
-	return NULL;
+	struct rune *rune;
+	struct cond_info cinfo;
+	const char *err;
+
+	if (!runetok)
+		return "Missing rune";
+
+	rune = rune_from_base64n(tmpctx, buf + runetok->start,
+				 runetok->end - runetok->start);
+	if (!rune)
+		return "Invalid rune";
+
+	cinfo.peer = peer;
+	cinfo.buf = buf;
+	cinfo.method = method;
+	cinfo.params = params;
+	strmap_init(&cinfo.cached_params);
+	err = rune_test(ctx, master_rune, rune, check_condition, &cinfo);
+	/* Just in case they manage to make us speak non-JSON, escape! */
+	if (err)
+		err = json_escape(ctx, take(err))->s;
+	strmap_clear(&cinfo.cached_params);
+	return err;
 }
 
 static void try_command(struct node_id *peer,
@@ -223,7 +307,7 @@ static void try_command(struct node_id *peer,
 	}
 	rune = json_get_member(buf, toks, "rune");
 
-	failmsg = check_rune(incoming, buf, method, params, rune);
+	failmsg = check_rune(tmpctx, incoming, peer, buf, method, params, rune);
 	if (failmsg) {
 		commando_error(incoming, COMMANDO_ERROR_REMOTE_AUTH,
 			       "Not authorized: %s", failmsg);
