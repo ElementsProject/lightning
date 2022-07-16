@@ -10,6 +10,7 @@
 *.rej
 *.pyc
 *.tmp
+libccan.a
 .cppcheck-suppress
 .mypy_cache
 TAGS
