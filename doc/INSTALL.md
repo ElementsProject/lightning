@@ -1,19 +1,19 @@
 Install
 =======
 
-1. [Library Requirements](#library-requirements)
-2. [Ubuntu](#to-build-on-ubuntu)
-3. [Fedora](#to-build-on-fedora)
-4. [FreeBSD](#to-build-on-freebsd)
-5. [OpenBSD](#to-build-on-openbsd)
-6. [NixOS](#to-build-on-nixos)
-7. [macOS](#to-build-on-macos)
-8. [Arch Linux](#to-build-on-arch-linux)
-9. [Android](#to-cross-compile-for-android)
-10. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
-11. [Armbian](#to-compile-for-armbian)
-12. [Alpine](#to-compile-for-alpine)
-13. [Additional steps](#additional-steps)
+- [Library Requirements](#library-requirements)
+- [Ubuntu](#to-build-on-ubuntu)
+- [Fedora](#to-build-on-fedora)
+- [FreeBSD](#to-build-on-freebsd)
+- [OpenBSD](#to-build-on-openbsd)
+- [NixOS](#to-build-on-nixos)
+- [macOS](#to-build-on-macos)
+- [Arch Linux](#to-build-on-arch-linux)
+- [Android](#to-cross-compile-for-android)
+- [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
+- [Armbian](#to-compile-for-armbian)
+- [Alpine](#to-compile-for-alpine)
+- [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
