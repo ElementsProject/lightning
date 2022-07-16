@@ -2914,6 +2914,8 @@ static void opener_start(struct state *state, u8 *msg)
 		tx_state->lease_chan_max_ppt
 			= rates->channel_fee_max_proportional_thousandths;
 	}
+	/* Keep memleak detector happy! */
+	tal_free(expected_rates);
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
