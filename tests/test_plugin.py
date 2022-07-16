@@ -2587,3 +2587,14 @@ def test_commando(node_factory):
                                'params': {'level': 'io'}})
 
     assert len(json.dumps(ret)) > 65535
+
+    # Command will go over multiple messages.
+    ret = l2.rpc.call(method='commando',
+                      payload={'peer_id': l1.info['id'],
+                               'method': 'invoice',
+                               'params': {'amount_msat': 'any',
+                                          'label': 'label',
+                                          'description': 'A' * 200000,
+                                          'deschashonly': True}})
+
+    assert 'bolt11' in ret
