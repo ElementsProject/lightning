@@ -247,7 +247,6 @@ def test_only_announce_one_dns(node_factory, bitcoind):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
-@pytest.mark.xfail(strict=True, raises=AssertionError)
 def test_announce_dns_without_port(node_factory, bitcoind):
     """ Checks that the port of a DNS announcement is set to the corresponding
         network port. In this case regtest 19846
