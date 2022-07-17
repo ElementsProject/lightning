@@ -272,7 +272,10 @@ static char *opt_add_addr_withtype(const char *arg,
 		wi.u.wireaddr.addrlen = strlen(address);
 		strncpy((char * restrict)&wi.u.wireaddr.addr,
 			address, sizeof(wi.u.wireaddr.addr) - 1);
-		wi.u.wireaddr.port = port;
+		if (port == 0)
+			wi.u.wireaddr.port = ld->portnum;
+		else
+			wi.u.wireaddr.port = port;
 
 		tal_arr_expand(&ld->proposed_listen_announce, ADDR_ANNOUNCE);
 		tal_arr_expand(&ld->proposed_wireaddr, wi);
