@@ -239,12 +239,27 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_only_announce_one_dns(node_factory, bitcoind):
     # and test that we can't announce more than one DNS address
     l1 = node_factory.get_node(may_fail=True, expect_fail=True,
                                options={'announce-addr': ['localhost.localdomain:12345', 'example.com:12345']})
     wait_for(lambda: l1.daemon.is_in_stderr("Only one DNS can be announced"))
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
+@pytest.mark.xfail(strict=True, raises=AssertionError)
+def test_announce_dns_without_port(node_factory, bitcoind):
+    """ Checks that the port of a DNS announcement is set to the corresponding
+        network port. In this case regtest 19846
+    """
+    opts = {'announce-addr': ['example.com']}
+    l1 = node_factory.get_node(options=opts)
+
+    # 'address': [{'type': 'dns', 'address': 'example.com', 'port': 0}]
+    info = l1.rpc.getinfo()
+    assert info['address'][0]['type'] == 'dns'
+    assert info['address'][0]['address'] == 'example.com'
+    assert info['address'][0]['port'] == 19846
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
