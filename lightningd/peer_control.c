@@ -1202,8 +1202,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
-		log_peer_info(ld->log, &id, "Peer says it sees our address as: %s",
-			      fmt_wireaddr(tmpctx, hook_payload->remote_addr));
+		log_peer_debug(ld->log, &id, "Peer says it sees our address as: %s",
+			       fmt_wireaddr(tmpctx, hook_payload->remote_addr));
 		peer->remote_addr = tal_dup(peer, struct wireaddr,
 					    hook_payload->remote_addr);
 		/* Currently only from peers we have a channel with, until we
