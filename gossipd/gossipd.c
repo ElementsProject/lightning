@@ -300,8 +300,8 @@ static void handle_local_channel_announcement(struct daemon *daemon, const u8 *m
 	/* We treat it OK even if peer has disconnected since (unlikely though!) */
 	peer = find_peer(daemon, &id);
 	if (!peer)
-		status_broken("Unknown peer %s for local_channel_announcement",
-			      type_to_string(tmpctx, struct node_id, &id));
+		status_debug("Unknown peer %s for local_channel_announcement",
+			     type_to_string(tmpctx, struct node_id, &id));
 
 	err = handle_channel_announcement_msg(daemon, peer, cannouncement);
 	if (err) {
