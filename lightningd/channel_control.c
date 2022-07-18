@@ -319,7 +319,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 								  &channel->peer->id,
 								  channel->peer->connectd_counter,
 								  warning)));
-		channel_fail_reconnect(channel, "Bad shutdown scriptpubkey %s",
+		channel_fail_transient(channel, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}
@@ -638,8 +638,10 @@ bool peer_start_channeld(struct channel *channel,
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon channel: %s",
 			   strerror(errno));
-		channel_fail_reconnect_later(channel,
-					     "Failed to subdaemon channel");
+		/* Disconnect it. */
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, &channel->peer->id,
+								channel->peer->connectd_counter)));
 		return false;
 	}
 

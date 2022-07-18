@@ -17,6 +17,7 @@
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
@@ -377,8 +378,10 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon closing: %s",
 			    strerror(errno));
-		channel_fail_reconnect_later(channel,
-					     "Failed to subdaemon closing");
+		/* Disconnect it. */
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, &channel->peer->id,
+								channel->peer->connectd_counter)));
 		return;
 	}
 

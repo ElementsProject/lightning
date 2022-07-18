@@ -451,7 +451,8 @@ def test_disconnect_opener(node_factory):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError):
             l1.rpc.fundchannel(l2.info['id'], 25000)
-        assert l1.rpc.getpeer(l2.info['id']) is None
+        # First peer valishes, but later it just disconnects
+        wait_for(lambda: all([p['connected'] is False for p in l1.rpc.listpeers()['peers']]))
 
     # This one will succeed.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -495,7 +496,8 @@ def test_disconnect_fundee(node_factory):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError):
             l1.rpc.fundchannel(l2.info['id'], 25000)
-        assert l1.rpc.getpeer(l2.info['id']) is None
+        # First peer valishes, but later it just disconnects
+        wait_for(lambda: all([p['connected'] is False for p in l1.rpc.listpeers()['peers']]))
 
     # This one will succeed.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -541,8 +543,8 @@ def test_disconnect_fundee_v2(node_factory):
     l1.rpc.fundchannel(l2.info['id'], 25000)
 
     # Should still only have one peer!
-    assert len(l1.rpc.listpeers()) == 1
-    assert len(l2.rpc.listpeers()) == 1
+    assert len(l1.rpc.listpeers()['peers']) == 1
+    assert len(l2.rpc.listpeers()['peers']) == 1
 
 
 @pytest.mark.developer
@@ -564,8 +566,8 @@ def test_disconnect_half_signed(node_factory):
         l1.rpc.fundchannel(l2.info['id'], 25000)
 
     # Peer remembers, opener doesn't.
-    assert l1.rpc.getpeer(l2.info['id']) is None
-    assert l2.rpc.getpeer(l1.info['id'])['id'] == l1.info['id']
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
+    assert len(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels']) == 1
 
 
 @pytest.mark.developer
@@ -3606,7 +3608,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
                                    'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
     bitcoind.generate_block(100)
-    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    # This works even if they disconnect and listpeers() is empty:
+    wait_for(lambda: all([p['channels'] == [] for p in l2.rpc.listpeers()['peers']]))
 
     # TEST 2: Cheat from post-upgrade.
     node_factory.join_nodes([l1, l2])
@@ -3630,7 +3633,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
                                    'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
     bitcoind.generate_block(100)
-    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    # This works even if they disconnect and listpeers() is empty:
+    wait_for(lambda: all([p['channels'] == [] for p in l2.rpc.listpeers()['peers']]))
 
     # TEST 3: Unilateral close from pre-upgrade
     node_factory.join_nodes([l1, l2])
@@ -3658,7 +3662,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     bitcoind.generate_block(5)
     bitcoind.generate_block(100, wait_for_mempool=1)
 
-    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    # This works even if they disconnect and listpeers() is empty:
+    wait_for(lambda: all([p['channels'] == [] for p in l2.rpc.listpeers()['peers']]))
 
     # TEST 4: Unilateral close from post-upgrade
     node_factory.join_nodes([l1, l2])
@@ -3683,7 +3688,8 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     bitcoind.generate_block(5)
     bitcoind.generate_block(100, wait_for_mempool=1)
 
-    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    # This works even if they disconnect and listpeers() is empty:
+    wait_for(lambda: all([p['channels'] == [] for p in l2.rpc.listpeers()['peers']]))
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")

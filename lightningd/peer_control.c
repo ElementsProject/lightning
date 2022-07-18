@@ -166,7 +166,7 @@ static void peer_channels_cleanup(struct lightningd *ld,
 		c = channels[i];
 		if (channel_active(c)) {
 			channel_cleanup_commands(c, "Disconnected");
-			channel_fail_reconnect(c, "Disconnected");
+			channel_fail_transient(c, "Disconnected");
 		} else if (channel_unsaved(c)) {
 			channel_unsaved_close_conn(c, "Disconnected");
 		}
@@ -357,7 +357,7 @@ void channel_errmsg(struct channel *channel,
 	/* No peer_fd means a subd crash or disconnection. */
 	if (!peer_fd) {
 		/* If the channel is unsaved, we forget it */
-		channel_fail_reconnect(channel, "%s: %s",
+		channel_fail_transient(channel, "%s: %s",
 				       channel->owner->name, desc);
 		return;
 	}
@@ -371,8 +371,8 @@ void channel_errmsg(struct channel *channel,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
 	if (warning) {
-		channel_fail_reconnect_later(channel, "%s WARNING: %s",
-					     channel->owner->name, desc);
+		channel_fail_transient_delayreconnect(channel, "%s WARNING: %s",
+						      channel->owner->name, desc);
 		return;
 	}
 
@@ -1731,9 +1731,21 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 
 		} else if (!short_channel_id_eq(channel->scid, &scid) &&
 			   !is_stub_scid(channel->scid)) {
-			/* This normally restarts channeld, initialized with updated scid
+			/* Send warning: that will make connectd disconnect, and then we'll
+			 * try to reconnect. */
+			u8 *warning = towire_warningfmt(tmpctx, &channel->cid,
+							"short_channel_id changed to %s (was %s)",
+							short_channel_id_to_str(tmpctx, &scid),
+							short_channel_id_to_str(tmpctx, channel->scid));
+			if (channel->peer->connected != PEER_DISCONNECTED)
+				subd_send_msg(ld->connectd,
+					      take(towire_connectd_peer_final_msg(NULL,
+										  &channel->peer->id,
+										  channel->peer->connectd_counter,
+										  warning)));
+			/* When we restart channeld, it will be initialized with updated scid
 			 * and also adds it (at least our halve_chan) to rtable. */
-			channel_fail_reconnect(channel,
+			channel_fail_transient_delayreconnect(channel,
 					       "short_channel_id changed to %s (was %s)",
 					       short_channel_id_to_str(tmpctx, &scid),
 					       short_channel_id_to_str(tmpctx, channel->scid));

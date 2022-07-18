@@ -129,10 +129,6 @@ def test_multifunding_v2_best_effort(node_factory, bitcoind):
         for node in node_list:
             node.daemon.wait_for_log(r'to CLOSINGD_COMPLETE')
 
-        # Make sure disconnections are complete
-        if not failed_sign:
-            wait_for(lambda: all([c['connected'] is False for c in l1.rpc.listpeers()['peers']]))
-
     # With 2 down, it will fail to fund channel
     l2.stop()
     l3.stop()
