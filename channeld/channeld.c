@@ -3632,6 +3632,7 @@ static void handle_send_error(struct peer *peer, const u8 *msg)
 
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_send_error_reply(NULL)));
+	exit(0);
 }
 
 #if DEVELOPER
