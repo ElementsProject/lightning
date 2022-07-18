@@ -1112,7 +1112,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return read_hdr_from_peer(peer_conn, peer);
        }
 
-       /* If we don't find a subdaemon for this, crteat a new one. */
+       /* If we don't find a subdaemon for this, create a new one. */
        subd = find_subd(peer, &channel_id);
        if (!subd) {
 	       enum peer_wire t = fromwire_peektype(decrypted);
