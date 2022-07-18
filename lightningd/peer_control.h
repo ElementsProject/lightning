@@ -85,9 +85,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg);
 void peer_disconnect_done(struct lightningd *ld, const u8 *msg);
 void peer_spoke(struct lightningd *ld, const u8 *msg);
 
-/* May delete peer! */
-void peer_channels_cleanup_on_disconnect(struct peer *peer);
-
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
 
