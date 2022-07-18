@@ -27,6 +27,9 @@ struct peer {
 	/* ID of peer */
 	struct node_id id;
 
+	/* Connection counter from connectd. */
+	u64 connectd_counter;
+
 	/* Our channels */
 	struct list_head channels;
 

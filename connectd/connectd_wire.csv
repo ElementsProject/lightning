@@ -63,6 +63,7 @@ msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 # Connectd -> master: we got a peer.
 msgtype,connectd_peer_connected,2002
 msgdata,connectd_peer_connected,id,node_id,
+msgdata,connectd_peer_connected,counter,u64,
 msgdata,connectd_peer_connected,addr,wireaddr_internal,
 msgdata,connectd_peer_connected,remote_addr,?wireaddr,
 msgdata,connectd_peer_connected,incoming,bool,
@@ -72,25 +73,30 @@ msgdata,connectd_peer_connected,features,u8,flen
 # connectd -> master: peer disconnected.
 msgtype,connectd_peer_disconnect_done,2006
 msgdata,connectd_peer_disconnect_done,id,node_id,
+msgdata,connectd_peer_disconnect_done,counter,u64,
 
 # Master -> connectd: make peer active immediately (we want to talk) (+ fd to subd).
 msgtype,connectd_peer_connect_subd,2004
 msgdata,connectd_peer_connect_subd,id,node_id,
+msgdata,connectd_peer_connect_subd,counter,u64,
 msgdata,connectd_peer_connect_subd,channel_id,channel_id,
 
 # Connectd -> master: peer said something interesting
 msgtype,connectd_peer_spoke,2005
 msgdata,connectd_peer_spoke,id,node_id,
+msgdata,connectd_peer_spoke,counter,u64,
 msgdata,connectd_peer_spoke,msgtype,u16,
 msgdata,connectd_peer_spoke,channel_id,channel_id,
 
 # master -> connectd: peer no longer wanted, you can disconnect.
 msgtype,connectd_discard_peer,2015
 msgdata,connectd_discard_peer,id,node_id,
+msgdata,connectd_discard_peer,counter,u64,
 
 # master -> connectd: give message to peer and disconnect.
 msgtype,connectd_peer_final_msg,2003
 msgdata,connectd_peer_final_msg,id,node_id,
+msgdata,connectd_peer_final_msg,counter,u64,
 msgdata,connectd_peer_final_msg,len,u16,
 msgdata,connectd_peer_final_msg,msg,u8,len
 

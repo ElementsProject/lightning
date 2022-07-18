@@ -1079,6 +1079,7 @@ tell_connectd:
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_connect_subd(NULL,
 							     &channel->peer->id,
+							     channel->peer->connectd_counter,
 							     &channel->cid)));
 	subd_send_fd(ld->connectd, fds[1]);
 	return;
@@ -1089,6 +1090,7 @@ send_error:
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &channel->peer->id,
+							  channel->peer->connectd_counter,
 							  error)));
 }
 
@@ -1134,6 +1136,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 					       "dev_disconnect permfail");
 			subd_send_msg(ld->connectd,
 				      take(towire_connectd_peer_final_msg(NULL, &peer->id,
+									  peer->connectd_counter,
 									  channel->error)));
 		}
 		return;
@@ -1157,6 +1160,7 @@ send_error:
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
+							  peer->connectd_counter,
 							  error)));
 }
 
@@ -1279,12 +1283,14 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	u8 *their_features;
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
+	u64 connectd_counter;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
 	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
-					      &id, &hook_payload->addr,
+					      &id, &connectd_counter,
+					      &hook_payload->addr,
 					      &hook_payload->remote_addr,
 					      &hook_payload->incoming,
 					      &their_features))
@@ -1297,6 +1303,14 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
 				hook_payload->incoming);
+
+	/* We track this, because messages can race between connectd and us.
+	 * For example, we could tell it to attach a subd, but it's actually
+	 * already reconnected: we would tell it again when we read the
+	 * "peer_connected" message, and it would get upset (plus, our first
+	 * subd wouldn't die as expected.  So we echo this back to connectd
+	 * on peer commands, and it knows to ignore if it wrong. */
+	peer->connectd_counter = connectd_counter;
 
 	/* We mark peer in "connecting" state until hooks have passed. */
 	assert(peer->connected == PEER_DISCONNECTED);
@@ -1336,6 +1350,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
 	u16 msgtype;
+	u64 connectd_counter;
 	struct channel *channel;
 	struct channel_id channel_id;
 	struct peer *peer;
@@ -1343,17 +1358,13 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 	u8 *error;
 	int fds[2];
 
-	if (!fromwire_connectd_peer_spoke(msg, &id, &msgtype, &channel_id))
+	if (!fromwire_connectd_peer_spoke(msg, &id, &connectd_counter, &msgtype, &channel_id))
 		fatal("Connectd gave bad CONNECTD_PEER_SPOKE message %s",
 		      tal_hex(msg, msg));
 
+	/* We must know it, and it must be the right connectd_id */
 	peer = peer_by_id(ld, &id);
-	if (!peer) {
-		/* This race is possible, but I want to see it in CI. */
-		log_broken(ld->log, "Unknown active peer %s",
-			   type_to_string(tmpctx, struct node_id, &id));
-		return;
-	}
+	assert(peer->connectd_counter == connectd_counter);
 
 	/* Do we know what channel they're talking about? */
 	channel = find_channel_by_id(peer, &channel_id);
@@ -1470,12 +1481,15 @@ send_error:
 	/* Get connectd to send error and close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
+							  peer->connectd_counter,
 							  error)));
 	return;
 
 tell_connectd:
 	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL, &id, &channel_id)));
+		      take(towire_connectd_peer_connect_subd(NULL, &id,
+							     peer->connectd_counter,
+							     &channel_id)));
 	subd_send_fd(ld->connectd, fds[1]);
 }
 
@@ -1495,16 +1509,20 @@ static void destroy_disconnect_command(struct disconnect_command *dc)
 void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
+	u64 connectd_counter;
 	struct disconnect_command *i, *next;
 	struct peer *p;
 
-	if (!fromwire_connectd_peer_disconnect_done(msg, &id))
+	if (!fromwire_connectd_peer_disconnect_done(msg, &id, &connectd_counter))
 		fatal("Connectd gave bad PEER_DISCONNECT_DONE message %s",
 		      tal_hex(msg, msg));
 
 	/* If we still have peer, it's disconnected now */
+	/* FIXME: We should keep peers until it tells us they're disconnected,
+	 * and not free when no more channels. */
 	p = peer_by_id(ld, &id);
 	if (p) {
+		assert(p->connectd_counter == connectd_counter);
 		log_peer_debug(ld->log, &id, "peer_disconnect_done");
 		p->connected = PEER_DISCONNECTED;
 

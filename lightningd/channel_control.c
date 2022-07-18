@@ -317,6 +317,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_final_msg(NULL,
 								  &channel->peer->id,
+								  channel->peer->connectd_counter,
 								  warning)));
 		channel_fail_reconnect(channel, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));

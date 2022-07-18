@@ -1352,6 +1352,7 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_final_msg(NULL,
 								  &channel->peer->id,
+								  channel->peer->connectd_counter,
 								  warning)));
 		channel_fail_reconnect(channel, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));
@@ -2764,6 +2765,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_peer_connect_subd(NULL,
 							     &peer->id,
+							     peer->connectd_counter,
 							     &channel->cid)));
 	subd_send_fd(peer->ld->connectd, fds[1]);
 	return command_still_pending(cmd);
@@ -3250,6 +3252,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_peer_connect_subd(NULL,
 							     &peer->id,
+							     peer->connectd_counter,
 							     &channel->cid)));
 	subd_send_fd(peer->ld->connectd, fds[1]);
  	return command_still_pending(cmd);
