@@ -30,6 +30,9 @@ struct peer {
 	/* Connection counter from connectd. */
 	u64 connectd_counter;
 
+	/* Did we fail badly last time?  Don't reconnect too fast. */
+	bool delay_reconnect;
+
 	/* Our channels */
 	struct list_head channels;
 

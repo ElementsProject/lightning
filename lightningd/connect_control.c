@@ -346,7 +346,7 @@ static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
 			   errcode_t errcode,
 			   const char *errmsg,
-			   u32 seconds_to_delay,
+			   const u32 *seconds_to_delay,
 			   const struct wireaddr_internal *addrhint)
 {
 	struct peer *peer;
@@ -360,10 +360,16 @@ static void connect_failed(struct lightningd *ld,
 
 	/* If we have an active channel, then reconnect. */
 	peer = peer_by_id(ld, id);
-	if (peer) {
-		if (peer_any_active_channel(peer, NULL))
-			try_reconnect(peer, peer, seconds_to_delay, addrhint);
-	}
+	if (peer && peer_any_active_channel(peer, NULL)) {
+		u32 delay;
+		if (seconds_to_delay)
+			delay = *seconds_to_delay;
+		else
+			delay = peer->delay_reconnect ? 60 : 1;
+		log_peer_debug(ld->log, id, "Reconnecting in %u seconds", delay);
+		try_reconnect(peer, peer, delay, addrhint);
+	} else
+		log_peer_debug(ld->log, id, "Not reconnecting: %s", peer ? "no active channel" : "no channels");
 }
 
 void connect_failed_disconnect(struct lightningd *ld,
@@ -371,7 +377,7 @@ void connect_failed_disconnect(struct lightningd *ld,
 			       const struct wireaddr_internal *addrhint)
 {
 	connect_failed(ld, id, CONNECT_DISCONNECTED_DURING,
-		       "disconnected during connection", 1, addrhint);
+		       "disconnected during connection", NULL, addrhint);
 }
 
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
@@ -387,7 +393,7 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
-	connect_failed(ld, &id, errcode, errmsg, seconds_to_delay, addrhint);
+	connect_failed(ld, &id, errcode, errmsg, &seconds_to_delay, addrhint);
 }
 
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
