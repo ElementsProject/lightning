@@ -813,6 +813,10 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
     l1.rpc.pay(inv['bolt11'])
 
+    # make sure it's completely resolved before we generate blocks,
+    # otherwise it can close HTLC!
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['htlcs'] == [])
+
     # l2 attempts to close a channel that it leased, should fail
     with pytest.raises(RpcError, match=r'Peer leased this channel from us'):
         l2.rpc.close(l1.get_channel_scid(l2))
