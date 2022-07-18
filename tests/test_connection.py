@@ -1391,6 +1391,10 @@ def test_funding_v2_corners(node_factory, bitcoind):
 
     # Disconnect peer.
     l1.rpc.disconnect(l2.info['id'], force=True)
+    # FIXME: dualopend doesn't notice that connectd has closed peer conn
+    # (until we reconnect!)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.disconnect(l2.info['id'])
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
 
     with pytest.raises(RpcError, match=r'Unknown channel'):
