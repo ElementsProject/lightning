@@ -366,10 +366,12 @@ static void connect_failed(struct lightningd *ld,
 	}
 }
 
-void connect_failed_disconnect(struct lightningd *ld, const struct node_id *id)
+void connect_failed_disconnect(struct lightningd *ld,
+			       const struct node_id *id,
+			       const struct wireaddr_internal *addrhint)
 {
 	connect_failed(ld, id, CONNECT_DISCONNECTED_DURING,
-		       "disconnected during connection", 1, NULL);
+		       "disconnected during connection", 1, addrhint);
 }
 
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
