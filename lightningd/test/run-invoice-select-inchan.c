@@ -68,14 +68,14 @@ void channel_fail_permanent(struct channel *channel UNNEEDED,
 			    const char *fmt UNNEEDED,
 			    ...)
 { fprintf(stderr, "channel_fail_permanent called!\n"); abort(); }
-/* Generated stub for channel_fail_reconnect */
-void channel_fail_reconnect(struct channel *channel UNNEEDED,
+/* Generated stub for channel_fail_transient */
+void channel_fail_transient(struct channel *channel UNNEEDED,
 			    const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "channel_fail_reconnect called!\n"); abort(); }
-/* Generated stub for channel_fail_reconnect_later */
-void channel_fail_reconnect_later(struct channel *channel UNNEEDED,
-				  const char *fmt UNNEEDED,...)
-{ fprintf(stderr, "channel_fail_reconnect_later called!\n"); abort(); }
+{ fprintf(stderr, "channel_fail_transient called!\n"); abort(); }
+/* Generated stub for channel_fail_transient_delayreconnect */
+void channel_fail_transient_delayreconnect(struct channel *channel UNNEEDED,
+					   const char *fmt UNNEEDED,...)
+{ fprintf(stderr, "channel_fail_transient_delayreconnect called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */
 struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_in called!\n"); abort(); }

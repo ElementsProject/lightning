@@ -3667,8 +3667,7 @@ We send an HTLC, and peer unilaterally closes: do we close upstream?
     with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE \(reply from remote\)'):
         l1.rpc.waitsendpay(ph2, timeout=TIMEOUT)
 
-    # l3 closes unilaterally.
-    wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+    # Make close unilaterally.
     l3.rpc.close(l2.info['id'], 1)
 
     l3.daemon.wait_for_log('sendrawtransaction')

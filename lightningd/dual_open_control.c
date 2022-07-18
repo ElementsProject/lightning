@@ -21,6 +21,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
+#include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
@@ -46,14 +47,11 @@ static void channel_disconnect(struct channel *channel,
 	log_(channel->log, level, NULL, false, "%s", desc);
 	channel_cleanup_commands(channel, desc);
 
-	if (!reconnect)
-		channel_set_owner(channel, NULL);
-	else
-		channel_fail_reconnect(channel, "%s: %s",
-				       channel->owner ?
-						channel->owner->name :
-						"dualopend-dead",
-				       desc);
+	channel_fail_transient(channel, "%s: %s",
+			       channel->owner ?
+			       channel->owner->name :
+			       "dualopend-dead",
+			       desc);
 }
 
 void channel_unsaved_close_conn(struct channel *channel, const char *why)
@@ -1179,6 +1177,7 @@ wallet_commit_channel(struct lightningd *ld,
 {
 	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
+	bool any_active = peer_any_active_channel(channel->peer, NULL);
 
 	if (!amount_sat_to_msat(&our_msat, our_funding)) {
 		log_broken(channel->log, "Unable to convert funds");
@@ -1292,6 +1291,14 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->push);
 	wallet_inflight_add(ld->wallet, inflight);
 
+	/* We might have disconnected and decided we didn't need to
+	 * reconnect because no channels are active.  But the subd
+	 * just made it active! */
+	if (!any_active && channel->peer->connected == PEER_DISCONNECTED) {
+		try_reconnect(channel->peer, channel->peer, 1,
+			      &channel->peer->addr);
+	}
+
 	return inflight;
 }
 
@@ -1348,13 +1355,13 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 						"Bad shutdown scriptpubkey %s",
 						tal_hex(tmpctx, scriptpubkey));
 
-		/* Get connectd to send warning, and then allow reconnect. */
+		/* Get connectd to send warning, and kill subd. */
 		subd_send_msg(ld->connectd,
 			      take(towire_connectd_peer_final_msg(NULL,
 								  &channel->peer->id,
 								  channel->peer->connectd_counter,
 								  warning)));
-		channel_fail_reconnect(channel, "Bad shutdown scriptpubkey %s",
+		channel_fail_transient(channel, "Bad shutdown scriptpubkey %s",
 				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}
@@ -3408,8 +3415,10 @@ bool peer_restart_dualopend(struct peer *peer,
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon channel: %s",
 			   strerror(errno));
-		channel_fail_reconnect_later(channel,
-					     "Failed to subdaemon channel");
+		/* Disconnect it. */
+		subd_send_msg(peer->ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, &channel->peer->id,
+								channel->peer->connectd_counter)));
 		return false;
 	}
 

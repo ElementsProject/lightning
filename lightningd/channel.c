@@ -929,9 +929,9 @@ void channel_set_billboard(struct channel *channel, bool perm, const char *str)
 	}
 }
 
-static void err_and_reconnect(struct channel *channel,
-			      const char *why,
-			      u32 seconds_before_reconnect)
+static void channel_err(struct channel *channel,
+			const char *why,
+			u32 seconds_before_reconnect /* FIXME: use this! */)
 {
 	log_info(channel->log, "Peer transient failure in %s: %s",
 		 channel_state_name(channel), why);
@@ -946,29 +946,23 @@ static void err_and_reconnect(struct channel *channel,
 #endif
 
 	channel_set_owner(channel, NULL);
-
-	/* Their address only useful if we connected to them */
-	try_reconnect(channel, channel->peer, seconds_before_reconnect,
-		      channel->peer->connected_incoming
-		      ? NULL
-		      : &channel->peer->addr);
 }
 
-void channel_fail_reconnect_later(struct channel *channel, const char *fmt, ...)
+void channel_fail_transient_delayreconnect(struct channel *channel, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	err_and_reconnect(channel, tal_vfmt(tmpctx, fmt, ap), 60);
+	channel_err(channel, tal_vfmt(tmpctx, fmt, ap), 60);
 	va_end(ap);
 }
 
-void channel_fail_reconnect(struct channel *channel, const char *fmt, ...)
+void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	err_and_reconnect(channel, tal_vfmt(tmpctx, fmt, ap), 1);
+	channel_err(channel, tal_vfmt(tmpctx, fmt, ap), 1);
 	va_end(ap);
 }
 
