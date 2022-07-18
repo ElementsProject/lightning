@@ -251,7 +251,7 @@ def test_only_announce_one_dns(node_factory, bitcoind):
 def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     # Updates get backdated 5 seconds with --dev-fast-gossip.
     backdate = 5
-    l1, l2, l3, l4 = node_factory.line_graph(4, fundchannel=False)
+    l1, l2, l3, l4 = node_factory.line_graph(4, fundchannel=False, opts={'log-level': 'io'})
     genesis_blockhash = chainparams['chain_hash']
 
     before_anything = int(time.time())

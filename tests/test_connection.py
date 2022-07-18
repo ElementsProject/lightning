@@ -284,7 +284,7 @@ def test_bad_opening(node_factory):
     l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
 
-@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow, need dev-no-reconnect")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
@@ -319,10 +319,10 @@ def test_opening_tiny_channel(node_factory):
     l3_min_capacity = 10000           # the current default
     l4_min_capacity = 20000           # a server with more than default minimum
 
-    opts = [{'min-capacity-sat': 0},
-            {'min-capacity-sat': l2_min_capacity},
-            {'min-capacity-sat': l3_min_capacity},
-            {'min-capacity-sat': l4_min_capacity}]
+    opts = [{'min-capacity-sat': 0, 'dev-no-reconnect': None},
+            {'min-capacity-sat': l2_min_capacity, 'dev-no-reconnect': None},
+            {'min-capacity-sat': l3_min_capacity, 'dev-no-reconnect': None},
+            {'min-capacity-sat': l4_min_capacity, 'dev-no-reconnect': None}]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -330,16 +330,19 @@ def test_opening_tiny_channel(node_factory):
 
     with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l2, l2_min_capacity + overhead - 1)
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, l2_min_capacity + overhead)
 
     with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l3, l3_min_capacity + overhead - 1)
+    wait_for(lambda: l1.rpc.listpeers(l3.info['id'])['peers'] == [])
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fundchannel(l3, l3_min_capacity + overhead)
 
     with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l4, l4_min_capacity + overhead - 1)
+    wait_for(lambda: l1.rpc.listpeers(l4.info['id'])['peers'] == [])
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     l1.fundchannel(l4, l4_min_capacity + overhead)
 
@@ -348,6 +351,7 @@ def test_opening_tiny_channel(node_factory):
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r"channel capacity is .*, which is below .*sat"):
         l3.fundchannel(l2, l3_min_capacity + overhead - 1)
+    wait_for(lambda: l3.rpc.listpeers(l2.info['id'])['peers'] == [])
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l3.fundchannel(l2, l3_min_capacity + overhead)
 
@@ -1213,8 +1217,8 @@ def test_funding_by_utxos(node_factory, bitcoind):
 @pytest.mark.developer("needs dev_forget_channel")
 @pytest.mark.openchannel('v1')
 def test_funding_external_wallet_corners(node_factory, bitcoind):
-    l1 = node_factory.get_node(may_reconnect=True)
-    l2 = node_factory.get_node(may_reconnect=True)
+    l1, l2 = node_factory.get_nodes(2, opts={'may_reconnect': True,
+                                             'dev-no-reconnect': None})
 
     amount = 2**24
     l1.fundwallet(amount + 10000000)
@@ -1265,6 +1269,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.fundchannel_cancel(l2.info['id'])
 
     # Cancelling causes disconnection.
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount2 = 1000000
     funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount2)['funding_address']
@@ -1286,6 +1291,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     # But must unreserve inputs manually.
     l1.rpc.txdiscard(prep['txid'])
 
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
     prep = l1.rpc.txprepare([{funding_addr: amount}])
@@ -1307,6 +1313,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
              == 'CHANNELD_AWAITING_LOCKIN')
 
     # on reconnect, channel should get destroyed
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('Unknown channel .* for WIRE_CHANNEL_REESTABLISH')
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
@@ -1316,6 +1323,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.txdiscard(prep['txid'])
 
     # we have to connect again, because we got disconnected when everything errored
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
     prep = l1.rpc.txprepare([{funding_addr: amount}])
@@ -1891,9 +1899,10 @@ def test_multifunding_disconnect(node_factory):
     disconnects = ["-WIRE_INIT",
                    "-WIRE_ACCEPT_CHANNEL",
                    "+WIRE_ACCEPT_CHANNEL"]
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node(disconnect=disconnects)
-    l3 = node_factory.get_node()
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'dev-no-reconnect': None},
+                                                 {'dev-no-reconnect': None,
+                                                  'disconnect': disconnects},
+                                                 {'dev-no-reconnect': None}])
 
     l1.fundwallet(2000000)
 
@@ -1907,6 +1916,7 @@ def test_multifunding_disconnect(node_factory):
     for d in disconnects:
         with pytest.raises(RpcError):
             l1.rpc.multifundchannel(destinations)
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
 
     # TODO: failing at the fundchannel_complete phase
     # (-WIRE_FUNDING_SIGNED +-WIRE_FUNDING_SIGNED)
@@ -1945,6 +1955,9 @@ def test_multifunding_wumbo(node_factory):
                      "amount": 1 << 24}]
     with pytest.raises(RpcError, match='Amount exceeded'):
         l1.rpc.multifundchannel(destinations)
+
+    # Make sure it's disconnected from l2 before retrying.
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
 
     # This should succeed.
     destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
@@ -2538,6 +2551,7 @@ def test_multiple_channels(node_factory):
         l2.daemon.wait_for_log(
             r'State changed from CLOSINGD_SIGEXCHANGE to CLOSINGD_COMPLETE'
         )
+        wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
 
     channels = only_one(l1.rpc.listpeers()['peers'])['channels']
     assert len(channels) == 3
@@ -2567,7 +2581,7 @@ def test_forget_channel(node_factory):
 
     # Forcing should work
     l1.rpc.dev_forget_channel(l2.info['id'], True)
-    assert len(l1.rpc.listpeers()['peers']) == 0
+    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
 
     # And restarting should keep that peer forgotten
     l1.restart()
@@ -2715,7 +2729,7 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'Forgetting channel: It has been {}\d blocks'.format(str(blocks)[:-1]))
 
     # fundee will also forget and disconnect from peer.
-    assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
+    wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'] == [])
 
 
 @pytest.mark.developer("needs --dev-max-funding-unconfirmed-blocks")
