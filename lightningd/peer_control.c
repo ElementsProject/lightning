@@ -1305,7 +1305,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 
 	/* When a peer disconnects, we give subds time to clean themselves up
 	 * (this lets connectd ensure they've seen the final messages).  But
-	 * nowe it's reconnected, we've gotta force them out. */
+	 * now it's reconnected, we've gotta force them out. */
 	peer_channels_cleanup(ld, &id);
 
 	/* If we're already dealing with this peer, hand off to correct
@@ -1320,7 +1320,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	 * already reconnected: we would tell it again when we read the
 	 * "peer_connected" message, and it would get upset (plus, our first
 	 * subd wouldn't die as expected.  So we echo this back to connectd
-	 * on peer commands, and it knows to ignore if it wrong. */
+	 * on peer commands, and it knows to ignore if it's wrong. */
 	peer->connectd_counter = connectd_counter;
 
 	/* We mark peer in "connecting" state until hooks have passed. */
