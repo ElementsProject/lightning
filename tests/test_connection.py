@@ -4073,7 +4073,6 @@ def test_multichan(node_factory, executor, bitcoind):
     l1.rpc.pay(inv['bolt11'])
 
 
-@pytest.mark.xfail(reason="race in reconnect logic")
 @pytest.mark.developer("dev-no-reconnect required")
 def test_mutual_reconnect_race(node_factory, executor, bitcoind):
     """Test simultaneous reconnect between nodes"""
