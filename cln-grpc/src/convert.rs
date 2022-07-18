@@ -299,7 +299,7 @@ impl From<&responses::CheckmessageResponse> for pb::CheckmessageResponse {
     fn from(c: &responses::CheckmessageResponse) -> Self {
         Self {
             verified: c.verified.clone(), // Rule #2 for type boolean
-            pubkey: c.pubkey.as_ref().map(|v| v.to_vec()), // Rule #2 for type pubkey?
+            pubkey: c.pubkey.to_vec(), // Rule #2 for type pubkey
         }
     }
 }

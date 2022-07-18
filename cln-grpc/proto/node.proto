@@ -388,7 +388,7 @@ message CheckmessageRequest {
 
 message CheckmessageResponse {
 	bool verified = 1;
-	optional bytes pubkey = 2;
+	bytes pubkey = 2;
 }
 
 message CloseRequest {
