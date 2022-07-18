@@ -6,6 +6,7 @@
 #include <common/addr.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
@@ -1700,10 +1701,10 @@ perform_multiconnect(struct multifundchannel_command *mfc)
 
 
 /* Initiate the multifundchannel execution.  */
-static struct command_result *
+static void
 perform_multifundchannel(struct multifundchannel_command *mfc)
 {
-	return perform_multiconnect(mfc);
+	perform_multiconnect(mfc);
 }
 
 
@@ -1790,6 +1791,10 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 			*/
 			/* Re-add to new destinations.  */
 			tal_arr_expand(&new_destinations, *dest);
+			/* FIXME: If this were an array of pointers,
+			 * we could make dest itself the parent of
+			 * ->addrhint and not need this wart! */
+			tal_steal(new_destinations, dest->addrhint);
 		}
 	}
 	mfc->destinations = new_destinations;
@@ -1822,8 +1827,11 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 		return mfc_finished(mfc, out);
 	}
 
-	/* Okay, we still have destinations to try --- reinvoke.  */
-	return perform_multifundchannel(mfc);
+	/* Okay, we still have destinations to try: wait a second in case it
+	 * takes that long to disconnect from peer, then retry.  */
+	notleak(plugin_timer(mfc->cmd->plugin, time_from_sec(1),
+			     perform_multifundchannel, mfc));
+	return command_still_pending(mfc->cmd);
 }
 
 struct command_result *
@@ -2056,7 +2064,8 @@ json_multifundchannel(struct command *cmd,
 	/* Stop memleak from complaining */
 	tal_free(minconf);
 
-	return perform_multifundchannel(mfc);
+	perform_multifundchannel(mfc);
+	return command_still_pending(mfc->cmd);
 }
 
 const struct plugin_command multifundchannel_commands[] = {
