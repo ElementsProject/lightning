@@ -211,10 +211,15 @@ static void peer_connected_in(struct daemon *daemon,
 	tal_free(connect);
 }
 
-/*~ When we free a peer, we remove it from the daemon's hashtable */
+/*~ When we free a peer, we remove it from the daemon's hashtable.
+ * We also call this manually if we want to elegantly drain peer's
+ * queues. */
 void destroy_peer(struct peer *peer)
 {
-	peer_htable_del(&peer->daemon->peers, peer);
+	assert(!peer->draining);
+
+	if (!peer_htable_del(&peer->daemon->peers, peer))
+		abort();
 
 	/* Tell gossipd to stop asking this peer gossip queries */
 	daemon_conn_send(peer->daemon->gossipd,
@@ -225,6 +230,10 @@ void destroy_peer(struct peer *peer)
 			 take(towire_connectd_peer_disconnect_done(NULL,
 								   &peer->id,
 								   peer->counter)));
+	/* This makes multiplex.c routines not feed us more, but
+	 * *also* means that if we're freed directly, the ->to_peer
+	 * destructor won't call drain_peer(). */
+	peer->draining = true;
 }
 
 /*~ This is where we create a new peer. */
@@ -282,7 +291,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	int subd_fd;
 	bool option_gossip_queries;
 
-	/* We remove any previous connection, on the assumption it's dead */
+	/* We remove any previous connection immediately, on the assumption it's dead */
 	peer = peer_htable_get(&daemon->peers, id);
 	if (peer)
 		tal_free(peer);
@@ -1858,8 +1867,8 @@ static void peer_discard(struct daemon *daemon, const u8 *msg)
 	/* If it's reconnected already, it will learn soon. */
 	if (peer->counter != counter)
 		return;
-	status_peer_debug(&id, "disconnect");
-	tal_free(peer);
+	status_peer_debug(&id, "discard_peer");
+	drain_peer(peer);
 }
 
 /* lightningd tells us to send a msg and disconnect. */

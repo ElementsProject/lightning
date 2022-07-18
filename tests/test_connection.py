@@ -2869,8 +2869,8 @@ def test_opener_feerate_reconnect(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'dev_disconnect: \-WIRE_COMMITMENT_SIGNED')
 
     # Wait until they reconnect.
-    l1.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL')
-    l1.daemon.wait_for_log('peer_disconnect_done')
+    l1.daemon.wait_for_logs(['Peer transient failure in CHANNELD_NORMAL',
+                             'peer_disconnect_done'])
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
 
     # Should work normally.
