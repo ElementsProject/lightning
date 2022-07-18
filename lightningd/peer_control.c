@@ -136,9 +136,15 @@ void maybe_delete_peer(struct peer *peer)
 	delete_peer(peer);
 }
 
-void peer_channels_cleanup_on_disconnect(struct peer *peer)
+static void peer_channels_cleanup(struct lightningd *ld,
+				  const struct node_id *id)
 {
+	struct peer *peer;
 	struct channel *c, **channels;
+
+	peer = peer_by_id(ld, id);
+	if (!peer)
+		return;
 
 	/* Freeing channels can free peer, so gather first. */
 	channels = tal_arr(tmpctx, struct channel *, 0);
@@ -1297,6 +1303,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
+	/* When a peer disconnects, we give subds time to clean themselves up
+	 * (this lets connectd ensure they've seen the final messages).  But
+	 * nowe it's reconnected, we've gotta force them out. */
+	peer_channels_cleanup(ld, &id);
+
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);
@@ -1526,7 +1537,10 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 		log_peer_debug(ld->log, &id, "peer_disconnect_done");
 		p->connected = PEER_DISCONNECTED;
 
-		peer_channels_cleanup_on_disconnect(p);
+		/* If there are literally no channels, might as well
+		 * free immediately. */
+		if (!p->uncommitted_channel && list_empty(&p->channels))
+			tal_free(p);
 	}
 
 	/* If you were trying to connect, it failed. */
