@@ -1899,6 +1899,15 @@ static void dev_suppress_gossip(struct daemon *daemon, const u8 *msg)
 }
 #endif /* DEVELOPER */
 
+static struct io_plan *recv_peer_connect_subd(struct io_conn *conn,
+					      const u8 *msg,
+					      int fd,
+					      struct daemon *daemon)
+{
+	peer_connect_subd(daemon, msg, fd);
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn,
 				const u8 *msg,
 				struct daemon *daemon)
@@ -1940,9 +1949,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		send_custommsg(daemon, msg);
 		goto out;
 
-	case WIRE_CONNECTD_PEER_MAKE_ACTIVE:
-		peer_make_active(daemon, msg);
-		goto out;
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD:
+		/* This comes with an fd */
+		return daemon_conn_read_with_fd(conn, daemon->master,
+						recv_peer_connect_subd, daemon);
 
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 #if DEVELOPER
@@ -1958,7 +1968,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
 	case WIRE_CONNECTD_PEER_CONNECTED:
-	case WIRE_CONNECTD_PEER_ACTIVE:
+	case WIRE_CONNECTD_PEER_SPOKE:
 	case WIRE_CONNECTD_CONNECT_FAILED:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 	case WIRE_CONNECTD_PING_REPLY:

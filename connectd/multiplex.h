@@ -33,5 +33,5 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg);
 void send_custommsg(struct daemon *daemon, const u8 *msg);
 
 /* Lightningd wants to talk to you. */
-void peer_make_active(struct daemon *daemon, const u8 *msg);
+void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd);
 #endif /* LIGHTNING_CONNECTD_MULTIPLEX_H */

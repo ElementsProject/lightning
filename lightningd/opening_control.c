@@ -1083,7 +1083,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	struct peer *peer;
 	bool *announce_channel;
 	u32 *feerate_per_kw, *mindepth;
-
+	int fds[2];
 	struct amount_sat *amount;
 	struct amount_msat *push_msat;
 	u32 *upfront_shutdown_script_wallet_index;
@@ -1236,10 +1236,25 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 					  &tmp_channel_id,
 					  fc->channel_flags);
 
-	/* Tell connectd to make this active; when it does, we can continue */
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Failed to create socketpair: %s",
+				    strerror(errno));
+	}
+	if (!peer_start_openingd(peer, new_peer_fd(cmd, fds[0]))) {
+		close(fds[1]);
+		/* FIXME: gets completed by failure path above! */
+		return command_its_complicated("completed by peer_start_openingd");
+	}
+	/* Tell it to start funding */
+	subd_send_msg(peer->uncommitted_channel->open_daemon, fc->open_msg);
+
+	/* Tell connectd connect this to this channel id. */
 	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_peer_make_active(NULL, &peer->id,
-							    &tmp_channel_id)));
+		      take(towire_connectd_peer_connect_subd(NULL,
+							     &peer->id,
+							     &peer->uncommitted_channel->cid)));
+	subd_send_fd(peer->ld->connectd, fds[1]);
 	return command_still_pending(cmd);
 }
 

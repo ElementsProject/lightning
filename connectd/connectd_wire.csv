@@ -73,17 +73,16 @@ msgdata,connectd_peer_connected,features,u8,flen
 msgtype,connectd_peer_disconnect_done,2006
 msgdata,connectd_peer_disconnect_done,id,node_id,
 
-# Master -> connectd: make peer active immediately (we want to talk)
-msgtype,connectd_peer_make_active,2004
-msgdata,connectd_peer_make_active,id,node_id,
-msgdata,connectd_peer_make_active,channel_id,channel_id,
+# Master -> connectd: make peer active immediately (we want to talk) (+ fd to subd).
+msgtype,connectd_peer_connect_subd,2004
+msgdata,connectd_peer_connect_subd,id,node_id,
+msgdata,connectd_peer_connect_subd,channel_id,channel_id,
 
-# Connectd -> master: peer said something interesting (or you said make_active)
-# Plus fd for peer daemon.
-msgtype,connectd_peer_active,2005
-msgdata,connectd_peer_active,id,node_id,
-msgdata,connectd_peer_active,msgtype,?u16,
-msgdata,connectd_peer_active,channel_id,channel_id,
+# Connectd -> master: peer said something interesting
+msgtype,connectd_peer_spoke,2005
+msgdata,connectd_peer_spoke,id,node_id,
+msgdata,connectd_peer_spoke,msgtype,u16,
+msgdata,connectd_peer_spoke,channel_id,channel_id,
 
 # master -> connectd: peer no longer wanted, you can disconnect.
 msgtype,connectd_discard_peer,2015
