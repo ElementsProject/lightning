@@ -20,7 +20,9 @@ void try_reconnect(const tal_t *ctx,
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 		       bool incoming,
 		       const struct wireaddr_internal *addr);
-void connect_failed_disconnect(struct lightningd *ld, const struct node_id *id);
+void connect_failed_disconnect(struct lightningd *ld,
+			       const struct node_id *id,
+			       const struct wireaddr_internal *addr);
 
 /* Disconnect a peer (if no subds want to talk any more) */
 void maybe_disconnect_peer(struct lightningd *ld, struct peer *peer);

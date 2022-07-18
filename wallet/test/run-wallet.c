@@ -107,7 +107,9 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_failed_disconnect */
-void connect_failed_disconnect(struct lightningd *ld UNNEEDED, const struct node_id *id UNNEEDED)
+void connect_failed_disconnect(struct lightningd *ld UNNEEDED,
+			       const struct node_id *id UNNEEDED,
+			       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_failed_disconnect called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED,

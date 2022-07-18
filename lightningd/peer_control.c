@@ -1540,11 +1540,12 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 		/* If there are literally no channels, might as well
 		 * free immediately. */
 		if (!p->uncommitted_channel && list_empty(&p->channels))
-			tal_free(p);
+			p = tal_free(p);
 	}
 
 	/* If you were trying to connect, it failed. */
-	connect_failed_disconnect(ld, &id);
+	connect_failed_disconnect(ld, &id,
+				  p && !p->connected_incoming ? &p->addr : NULL);
 
 	/* Fire off plugin notifications */
 	notify_disconnect(ld, &id);
