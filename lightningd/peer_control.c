@@ -133,6 +133,9 @@ void maybe_delete_peer(struct peer *peer)
 		}
 		return;
 	}
+	/* Maybe it's reconnected / reconnecting? */
+	if (peer->connected != PEER_DISCONNECTED)
+		return;
 	delete_peer(peer);
 }
 
