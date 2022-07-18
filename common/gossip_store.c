@@ -150,7 +150,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 		msg = tal_arr(ctx, u8, msglen);
 		r = pread(*gossip_store_fd, msg, msglen, *off + r);
 		if (r != msglen)
-			return NULL;
+			return tal_free(msg);
 
 		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
