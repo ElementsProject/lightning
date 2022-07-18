@@ -22,10 +22,6 @@ void multiplex_final_msg(struct peer *peer,
  * this does io logging. */
 void inject_peer_msg(struct peer *peer, const u8 *msg TAKES);
 
-/* Start closing the peer: removes itself from hash table, frees itself
- * once done. */
-void drain_peer(struct peer *peer);
-
 void setup_peer_gossip_store(struct peer *peer,
 			     const struct feature_set *our_features,
 			     const u8 *their_features);

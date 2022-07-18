@@ -550,7 +550,7 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams):
     bitcoind.generate_block(100)
 
     sync_blockheight(bitcoind, [l1, l2])
-    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] == [])
 
     # Do one last pass over the logs to extract the reactions l2 sent
     l2.daemon.logsearch_start = needle
@@ -679,7 +679,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     bitcoind.generate_block(100)
 
     sync_blockheight(bitcoind, [l1, l2])
-    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] == [])
 
     # Do one last pass over the logs to extract the reactions l2 sent
     l2.daemon.logsearch_start = needle
@@ -3447,10 +3447,8 @@ def test_you_forgot_closed_channel(node_factory, executor):
     wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
     assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
 
-    # l2 closes on us.
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is False)
-
-    # l1 reconnects, it should succeed.
+    # l1 won't send anything else until we reconnect, then it should succeed.
+    l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     fut.result(TIMEOUT)
 
@@ -3486,8 +3484,7 @@ def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
     wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'ONCHAIN')
 
     # l1 reconnects, it should succeed.
-    # l1 will disconnect once it sees block
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is False)
+    l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     fut.result(TIMEOUT)
 

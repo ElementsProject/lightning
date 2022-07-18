@@ -1868,7 +1868,7 @@ static void peer_discard(struct daemon *daemon, const u8 *msg)
 	if (peer->counter != counter)
 		return;
 	status_peer_debug(&id, "discard_peer");
-	drain_peer(peer);
+	tal_free(peer);
 }
 
 /* lightningd tells us to send a msg and disconnect. */

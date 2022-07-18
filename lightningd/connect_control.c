@@ -641,33 +641,6 @@ void connectd_activate(struct lightningd *ld)
 	assert(ret == ld->connectd);
 }
 
-void maybe_disconnect_peer(struct lightningd *ld, struct peer *peer)
-{
-	struct channel *channel;
-
-	/* Any channels left which want to talk? */
-	if (peer->uncommitted_channel)
-		return;
-
-	list_for_each(&peer->channels, channel, list)
-		if (channel_is_connected(channel))
-			return;
-
-	/* If shutting down, connectd no longer exists.
-	 * FIXME: Call peer_disconnect_done(), but nobody cares. */
-	if (!ld->connectd) {
-		peer->connected = PEER_DISCONNECTED;
-		return;
-	}
-
-	/* If connectd was the one who told us to cleanup peer, don't
-	 * tell it to discard again: it might have reconnected! */
-	if (peer->connected == PEER_CONNECTED)
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_discard_peer(NULL, &peer->id,
-								peer->connectd_counter)));
-}
-
 static struct command_result *json_sendcustommsg(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *obj UNNEEDED,

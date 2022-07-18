@@ -1539,11 +1539,6 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 		assert(p->connectd_counter == connectd_counter);
 		log_peer_debug(ld->log, &id, "peer_disconnect_done");
 		p->connected = PEER_DISCONNECTED;
-
-		/* If there are literally no channels, might as well
-		 * free immediately. */
-		if (!p->uncommitted_channel && list_empty(&p->channels))
-			p = tal_free(p);
 	}
 
 	/* If you were trying to connect, it failed. */
@@ -1561,6 +1556,10 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 		was_pending(command_success(i->cmd,
 					    json_stream_success(i->cmd)));
 	}
+
+	/* If connection was only thing keeping it, this will delete it. */
+	if (p)
+		maybe_delete_peer(p);
 }
 
 static bool check_funding_details(const struct bitcoin_tx *tx,
@@ -2084,9 +2083,8 @@ static struct command_result *json_disconnect(struct command *cmd,
 	struct node_id *id;
 	struct disconnect_command *dc;
 	struct peer *peer;
-	struct channel *channel, **channels;
+	struct channel *channel;
 	bool *force;
-	bool disconnected = false;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
@@ -2109,58 +2107,11 @@ static struct command_result *json_disconnect(struct command *cmd,
 				    channel_state_name(channel));
 	}
 
-	/* Careful here!  Disconnecting can free peer! */
-	channels = tal_arr(cmd, struct channel *, 0);
-	list_for_each(&peer->channels, channel, list) {
-		if (!channel->owner)
-			continue;
-		if (!channel->owner->talks_to_peer)
-			continue;
-
-		switch (channel->state) {
-		case DUALOPEND_OPEN_INIT:
-		case CHANNELD_AWAITING_LOCKIN:
-		case CHANNELD_NORMAL:
-		case CHANNELD_SHUTTING_DOWN:
-		case DUALOPEND_AWAITING_LOCKIN:
-		case CLOSINGD_SIGEXCHANGE:
-			tal_arr_expand(&channels, channel);
-			continue;
-		case CLOSINGD_COMPLETE:
-		case AWAITING_UNILATERAL:
-		case FUNDING_SPEND_SEEN:
-		case ONCHAIN:
-		case CLOSED:
-			/* We don't expect these to have owners who connect! */
-			log_broken(channel->log,
-				   "Don't expect owner %s in state %s",
-				   channel->owner->name,
-				   channel_state_name(channel));
-			continue;
-		}
-		abort();
-	}
-
-	/* This can free peer too! */
-	if (peer->uncommitted_channel) {
-		kill_uncommitted_channel(peer->uncommitted_channel,
-					 "disconnect command");
-		disconnected = true;
-	}
-
-	for (size_t i = 0; i < tal_count(channels); i++) {
-		if (channel_unsaved(channels[i]))
-			channel_unsaved_close_conn(channels[i],
-						   "disconnect command");
-		else
-			channel_fail_reconnect(channels[i],
-					       "disconnect command");
-		disconnected = true;
-	}
-
-	/* It's just sitting in connectd? */
-	if (!disconnected)
-		maybe_disconnect_peer(cmd->ld, peer);
+	/* If it's not already disconnecting, tell connectd to disconnect */
+	if (peer->connected == PEER_CONNECTED)
+		subd_send_msg(peer->ld->connectd,
+			      take(towire_connectd_discard_peer(NULL, &peer->id,
+								peer->connectd_counter)));
 
 	/* Connectd tells us when it's finally disconnected */
 	dc = tal(cmd, struct disconnect_command);

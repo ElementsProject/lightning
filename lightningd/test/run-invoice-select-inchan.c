@@ -387,7 +387,9 @@ void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const struct short_channel_id *id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_string */
-void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value TAKES UNNEEDED)
+void json_add_string(struct json_stream *js UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
 /* Generated stub for json_add_stringn */
 void json_add_stringn(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
@@ -509,9 +511,6 @@ void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
-/* Generated stub for maybe_disconnect_peer */
-void maybe_disconnect_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
-{ fprintf(stderr, "maybe_disconnect_peer called!\n"); abort(); }
 /* Generated stub for merkle_tlv */
 void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
 { fprintf(stderr, "merkle_tlv called!\n"); abort(); }
@@ -716,6 +715,9 @@ u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channeld_dev_reenable_commit */
 u8 *towire_channeld_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_reenable_commit called!\n"); abort(); }
+/* Generated stub for towire_connectd_discard_peer */
+u8 *towire_connectd_discard_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED)
+{ fprintf(stderr, "towire_connectd_discard_peer called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_connect_subd */
 u8 *towire_connectd_peer_connect_subd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_connect_subd called!\n"); abort(); }
