@@ -173,8 +173,10 @@ def test_closing_id(node_factory):
     l1.fundchannel(l2, 10**6)
     cid = l2.rpc.listpeers()['peers'][0]['channels'][0]['channel_id']
     l2.rpc.close(cid)
-    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
-    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
+    # Technically, l2 disconnects before l1 finishes analyzing the final msg.
+    # Wait for them to both consider it closed!
+    wait_for(lambda: any([c['state'] == 'CLOSINGD_COMPLETE' for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']]))
+    wait_for(lambda: any([c['state'] == 'CLOSINGD_COMPLETE' for c in only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels']]))
 
     # Close by peer ID.
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
@@ -182,8 +184,8 @@ def test_closing_id(node_factory):
     l2.fundchannel(l1, 10**6)
     pid = l1.info['id']
     l2.rpc.close(pid)
-    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
-    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
+    wait_for(lambda: any([c['state'] == 'CLOSINGD_COMPLETE' for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']]))
+    wait_for(lambda: any([c['state'] == 'CLOSINGD_COMPLETE' for c in only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels']]))
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'FIXME: broken under elements')
@@ -776,7 +778,8 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-            'may_reconnect': True, 'plugin': coin_mvt_plugin}
+            'may_reconnect': True, 'plugin': coin_mvt_plugin,
+            'dev-no-reconnect': None}
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
 
@@ -1056,17 +1059,18 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', dev-no-reconnect")
 def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessor can recover funds if lessee cheats
     '''
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True, 'allow_broken_log': True},
+             'may_reconnect': True, 'dev-no-reconnect': None,
+             'allow_broken_log': True},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'may_reconnect': True}]
+             'may_reconnect': True, 'dev-no-reconnect': None}]
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -1098,7 +1102,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     l1_db_path_bak = os.path.join(l1.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
     copyfile(l1_db_path, l1_db_path_bak)
     l1.start()
-    l1.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     sync_blockheight(bitcoind, [l1])
 
     # push some money from l2->l1, so the commit counter advances
@@ -2669,8 +2673,8 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
 
     # Now, 100 blocks it should be done.
     bitcoind.generate_block(100)
-    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
-    wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'] == [])
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] == [])
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
@@ -3443,9 +3447,10 @@ def test_you_forgot_closed_channel(node_factory, executor):
     wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
     assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
 
+    # l2 closes on us.
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is False)
+
     # l1 reconnects, it should succeed.
-    if only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']:
-        l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     fut.result(TIMEOUT)
 
