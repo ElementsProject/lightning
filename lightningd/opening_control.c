@@ -1253,6 +1253,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_peer_connect_subd(NULL,
 							     &peer->id,
+							     peer->connectd_counter,
 							     &peer->uncommitted_channel->cid)));
 	subd_send_fd(peer->ld->connectd, fds[1]);
 	return command_still_pending(cmd);

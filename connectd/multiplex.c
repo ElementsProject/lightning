@@ -1079,6 +1079,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       /* We tell lightningd to fire up a subdaemon to handle this! */
 	       daemon_conn_send(peer->daemon->master,
 				take(towire_connectd_peer_spoke(NULL, &peer->id,
+								peer->counter,
 								t,
 								&channel_id)));
        }
@@ -1173,16 +1174,17 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 {
 	struct node_id id;
+	u64 counter;
 	struct peer *peer;
 	struct channel_id channel_id;
 	struct subd *subd;
 
-	if (!fromwire_connectd_peer_connect_subd(msg, &id, &channel_id))
+	if (!fromwire_connectd_peer_connect_subd(msg, &id, &counter, &channel_id))
 		master_badmsg(WIRE_CONNECTD_PEER_CONNECT_SUBD, msg);
 
-	/* Races can happen: this might be gone by now. */
+	/* Races can happen: this might be gone by now (or reconnected!). */
 	peer = peer_htable_get(&daemon->peers, &id);
-	if (!peer) {
+	if (!peer || peer->counter != counter) {
 		close(fd);
 		return;
 	}

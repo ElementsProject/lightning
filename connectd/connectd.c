@@ -223,7 +223,8 @@ void destroy_peer(struct peer *peer)
 	/* Tell lightningd it's really disconnected */
 	daemon_conn_send(peer->daemon->master,
 			 take(towire_connectd_peer_disconnect_done(NULL,
-								   &peer->id)));
+								   &peer->id,
+								   peer->counter)));
 }
 
 /*~ This is where we create a new peer. */
@@ -238,6 +239,7 @@ static struct peer *new_peer(struct daemon *daemon,
 
 	peer->daemon = daemon;
 	peer->id = *id;
+	peer->counter = daemon->connection_counter++;
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
@@ -347,7 +349,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	setup_peer_gossip_store(peer, daemon->our_features, their_features);
 
 	/* Create message to tell master peer has connected. */
-	msg = towire_connectd_peer_connected(NULL, id, addr, remote_addr,
+	msg = towire_connectd_peer_connected(NULL, id, peer->counter,
+					     addr, remote_addr,
 					     incoming, their_features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
@@ -1841,15 +1844,19 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 static void peer_discard(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
+	u64 counter;
 	struct peer *peer;
 
-	if (!fromwire_connectd_discard_peer(msg, &id))
+	if (!fromwire_connectd_discard_peer(msg, &id, &counter))
 		master_badmsg(WIRE_CONNECTD_DISCARD_PEER, msg);
 
 	/* We should stay in sync with lightningd, but this can happen
 	 * under stress. */
 	peer = peer_htable_get(&daemon->peers, &id);
 	if (!peer)
+		return;
+	/* If it's reconnected already, it will learn soon. */
+	if (peer->counter != counter)
 		return;
 	status_peer_debug(&id, "disconnect");
 	tal_free(peer);
@@ -1861,14 +1868,17 @@ static void peer_final_msg(struct io_conn *conn,
 {
 	struct peer *peer;
 	struct node_id id;
+	u64 counter;
 	u8 *finalmsg;
 
-	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &finalmsg))
+	if (!fromwire_connectd_peer_final_msg(tmpctx, msg, &id, &counter,
+					      &finalmsg))
 		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
 
-	/* This can happen if peer hung up on us. */
+	/* This can happen if peer hung up on us (or wrong counter
+	 * if it reconnected). */
 	peer = peer_htable_get(&daemon->peers, &id);
-	if (peer) {
+	if (peer && peer->counter == counter) {
 		/* Log message for peer. */
 		status_peer_io(LOG_IO_OUT, &id, finalmsg);
 		multiplex_final_msg(peer, take(finalmsg));
@@ -2039,6 +2049,7 @@ int main(int argc, char *argv[])
 
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);
+	daemon->connection_counter = 1;
 	peer_htable_init(&daemon->peers);
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);

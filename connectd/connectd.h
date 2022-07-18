@@ -53,6 +53,9 @@ struct peer {
 	/* Connection to the peer */
 	struct io_conn *to_peer;
 
+	/* Counter to distinguish this connection from the next re-connection */
+	u64 counter;
+
 	/* Is this draining?  If so, just keep writing until queue empty */
 	bool draining;
 
@@ -129,6 +132,9 @@ struct daemon {
 
 	/* pubkey equivalent. */
 	struct pubkey mykey;
+
+	/* Counter from which we derive connection identifiers. */
+	u64 connection_counter;
 
 	/* Base for timeout timers, and how long to wait for init msg */
 	struct timers timers;
