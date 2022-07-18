@@ -99,8 +99,10 @@ static void drain_peer(struct peer *peer)
 	/* This is a 5-second leak, worst case! */
 	notleak(peer);
 
-	/* We no longer want subds feeding us more messages! */
-	peer->subds = tal_free(peer->subds);
+	/* We no longer want subds feeding us more messages (they
+	 * remove themselves from array when freed) */
+	while (tal_count(peer->subds))
+		tal_free(peer->subds[0]);
 	peer->draining = true;
 
 	/* You have 5 seconds to drain... */
@@ -997,7 +999,7 @@ static struct subd *new_subd(struct peer *peer,
 {
 	struct subd *subd;
 
-	subd = tal(peer->subds, struct subd);
+	subd = tal(peer, struct subd);
 	subd->peer = peer;
 	subd->outq = msg_queue_new(subd, false);
 	subd->channel_id = *channel_id;
