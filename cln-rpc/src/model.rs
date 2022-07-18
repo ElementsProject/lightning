@@ -1441,8 +1441,8 @@ pub mod responses {
 	pub struct CheckmessageResponse {
 	    #[serde(alias = "verified")]
 	    pub verified: bool,
-	    #[serde(alias = "pubkey", skip_serializing_if = "Option::is_none")]
-	    pub pubkey: Option<Pubkey>,
+	    #[serde(alias = "pubkey")]
+	    pub pubkey: Pubkey,
 	}
 
 	/// Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel
