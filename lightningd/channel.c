@@ -22,14 +22,10 @@
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {
 	struct subd *old_owner = channel->owner;
-	bool was_connected = channel_is_connected(channel);
 	channel->owner = owner;
 
-	if (old_owner) {
+	if (old_owner)
 		subd_release_channel(old_owner, channel);
-		if (was_connected && !channel_is_connected(channel))
-			maybe_disconnect_peer(channel->peer->ld, channel->peer);
-	}
 }
 
 struct htlc_out *channel_has_htlc_out(struct channel *channel)

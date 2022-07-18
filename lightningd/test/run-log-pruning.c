@@ -47,7 +47,9 @@ void json_add_str_fmt(struct json_stream *js UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "json_add_str_fmt called!\n"); abort(); }
 /* Generated stub for json_add_string */
-void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value TAKES UNNEEDED)
+void json_add_string(struct json_stream *js UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
 /* Generated stub for json_add_time */
 void json_add_time(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,

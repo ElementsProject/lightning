@@ -31,7 +31,6 @@ static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 
 	uc->peer->uncommitted_channel = NULL;
 
-	maybe_disconnect_peer(uc->peer->ld, uc->peer);
 	maybe_delete_peer(uc->peer);
 }
 

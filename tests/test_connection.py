@@ -956,8 +956,10 @@ def test_shutdown_awaiting_lockin(node_factory, bitcoind):
     l2.daemon.wait_for_log(' to ONCHAIN')
 
     bitcoind.generate_block(100)
-    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
-    wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
+
+    # Won't disconnect!
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'] == [])
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] == [])
 
 
 @pytest.mark.openchannel('v1')
@@ -1308,12 +1310,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
     assert len(l1.rpc.listpeers()['peers']) == 0
 
-    # l2 still has the channel open/waiting
-    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state']
-             == 'CHANNELD_AWAITING_LOCKIN')
-
     # on reconnect, channel should get destroyed
-    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('Unknown channel .* for WIRE_CHANNEL_REESTABLISH')
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
@@ -2535,13 +2532,10 @@ def test_multiple_channels(node_factory):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
 
-    for i in range(3):
-        # FIXME: we shouldn't disconnect on close?
-        ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        assert ret['id'] == l2.info['id']
+    ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('Handed peer, entering loop')
-        l2.daemon.wait_for_log('Handed peer, entering loop')
+    for i in range(3):
         chan, _ = l1.fundchannel(l2, 10**6)
 
         l1.rpc.close(chan)
@@ -2551,7 +2545,6 @@ def test_multiple_channels(node_factory):
         l2.daemon.wait_for_log(
             r'State changed from CLOSINGD_SIGEXCHANGE to CLOSINGD_COMPLETE'
         )
-        wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
 
     channels = only_one(l1.rpc.listpeers()['peers'])['channels']
     assert len(channels) == 3
@@ -2581,7 +2574,7 @@ def test_forget_channel(node_factory):
 
     # Forcing should work
     l1.rpc.dev_forget_channel(l2.info['id'], True)
-    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'] == [])
 
     # And restarting should keep that peer forgotten
     l1.restart()
@@ -2637,13 +2630,12 @@ def test_peerinfo(node_factory, bitcoind):
     # Close the channel to forget the peer
     l1.rpc.close(chan)
 
-    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
-    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
-
     # Make sure close tx hits mempool before we mine blocks.
     bitcoind.generate_block(100, wait_for_mempool=1)
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+    assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] == []
+    assert only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'] == []
 
     # The only channel was closed, everybody should have forgotten the nodes
     assert l1.rpc.listnodes()['nodes'] == []
@@ -2728,8 +2720,8 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     # (Note that we let the last number be anything (hence the {}\d)
     l2.daemon.wait_for_log(r'Forgetting channel: It has been {}\d blocks'.format(str(blocks)[:-1]))
 
-    # fundee will also forget and disconnect from peer.
-    wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'] == [])
+    # fundee will also forget, but not disconnect from peer.
+    wait_for(lambda: only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'] == [])
 
 
 @pytest.mark.developer("needs --dev-max-funding-unconfirmed-blocks")

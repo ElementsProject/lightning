@@ -75,7 +75,9 @@ void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const struct short_channel_id *id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_string */
-void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value TAKES UNNEEDED)
+void json_add_string(struct json_stream *js UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
 /* Generated stub for json_add_timeabs */
 void json_add_timeabs(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
@@ -155,12 +157,10 @@ bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
                  uint16_t *num UNNEEDED)
 { fprintf(stderr, "json_to_u16 called!\n"); abort(); }
 /* Generated stub for json_to_u32 */
-bool json_to_u32(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		 uint32_t *num UNNEEDED)
+bool json_to_u32(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, u32 *num UNNEEDED)
 { fprintf(stderr, "json_to_u32 called!\n"); abort(); }
 /* Generated stub for json_to_u64 */
-bool json_to_u64(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		 uint64_t *num UNNEEDED)
+bool json_to_u64(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, u64 *num UNNEEDED)
 { fprintf(stderr, "json_to_u64 called!\n"); abort(); }
 /* Generated stub for json_tok_bin_from_hex */
 u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
