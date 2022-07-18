@@ -471,7 +471,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 	case WIRE_CONNECTD_DEV_SUPPRESS_GOSSIP:
 	case WIRE_CONNECTD_PEER_FINAL_MSG:
-	case WIRE_CONNECTD_PEER_MAKE_ACTIVE:
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD:
 	case WIRE_CONNECTD_PING:
 	case WIRE_CONNECTD_SEND_ONIONMSG:
 	case WIRE_CONNECTD_CUSTOMMSG_OUT:
@@ -486,10 +486,8 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		peer_connected(connectd->ld, msg);
 		break;
 
-	case WIRE_CONNECTD_PEER_ACTIVE:
-		if (tal_count(fds) != 1)
-			return 1;
-		peer_active(connectd->ld, msg, fds[0]);
+	case WIRE_CONNECTD_PEER_SPOKE:
+		peer_spoke(connectd->ld, msg);
 		break;
 
 	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:

@@ -50,7 +50,7 @@ struct subd {
 	/* The opening revocation basepoint, for v2 channel_id. */
 	struct pubkey *opener_revocation_basepoint;
 
-	/* The actual connection to talk to it */
+	/* The actual connection to talk to it (NULL if it's not connected yet)  */
 	struct io_conn *conn;
 
 	/* Input buffer */
@@ -539,66 +539,6 @@ void send_custommsg(struct daemon *daemon, const u8 *msg)
 		inject_peer_msg(peer, take(custommsg));
 }
 
-/* FIXME: fwd decl */
-static struct subd *multiplex_subd_setup(struct peer *peer,
-					 const struct channel_id *channel_id,
-					 int *fd_for_subd);
-
-static struct subd *activate_subd(struct peer *peer,
-				  const enum peer_wire *type,
-				  const struct channel_id *channel_id)
-{
-	int fd_for_subd;
-	u16 t, *tp;
-	struct subd *subd;
-
-	subd = multiplex_subd_setup(peer, channel_id, &fd_for_subd);
-	if (!subd)
-		return NULL;
-
-	/* wire routines want a u16, not an enum */
-	if (type) {
-		t = *type;
-		tp = &t;
-	} else {
-		tp = NULL;
-	}
-
-	/* We tell lightningd to fire up a subdaemon to handle this! */
-	daemon_conn_send(peer->daemon->master,
-			 take(towire_connectd_peer_active(NULL, &peer->id,
-							  tp,
-							  channel_id)));
-	daemon_conn_send_fd(peer->daemon->master, fd_for_subd);
-	return subd;
-}
-
-void peer_make_active(struct daemon *daemon, const u8 *msg)
-{
-	struct node_id id;
-	struct peer *peer;
-	struct channel_id channel_id;
-
-	if (!fromwire_connectd_peer_make_active(msg, &id, &channel_id))
-		master_badmsg(WIRE_CONNECTD_PEER_MAKE_ACTIVE, msg);
-
-	/* Races can happen: this might be gone by now. */
-	peer = peer_htable_get(&daemon->peers, &id);
-	if (!peer)
-		return;
-
-	/* Could be disconnecting now */
-	if (!peer->to_peer)
-		return;
-
-	/* Could be made active already by receiving a message (esp reestablish!) */
-	if (find_subd(peer, &channel_id))
-		return;
-
-	if (!activate_subd(peer, NULL, &channel_id))
-		tal_free(peer);
-}
-
 static void handle_ping_in(struct peer *peer, const u8 *msg)
 {
 	u8 *pong;
@@ -1037,6 +977,41 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 	return io_write_wire(subd_conn, take(msg), write_to_subd, subd);
 }
 
+static void destroy_subd(struct subd *subd)
+{
+	struct peer *peer = subd->peer;
+	size_t pos;
+
+	for (pos = 0; peer->subds[pos] != subd; pos++)
+		assert(pos < tal_count(peer->subds));
+
+	tal_arr_remove(&peer->subds, pos);
+
+	/* Make sure we try to keep reading from peer (might
+	 * have been waiting for write_to_subd) */
+	io_wake(&peer->peer_in);
+}
+
+static struct subd *new_subd(struct peer *peer,
+			     const struct channel_id *channel_id)
+{
+	struct subd *subd;
+
+	subd = tal(peer->subds, struct subd);
+	subd->peer = peer;
+	subd->outq = msg_queue_new(subd, false);
+	subd->channel_id = *channel_id;
+	subd->temporary_channel_id = NULL;
+	subd->opener_revocation_basepoint = NULL;
+	subd->conn = NULL;
+
+	/* Connect it to the peer */
+	tal_arr_expand(&peer->subds, subd);
+	tal_add_destructor(subd, destroy_subd);
+
+	return subd;
+}
+
 static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 					  struct peer *peer);
 static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
@@ -1094,15 +1069,18 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return read_hdr_from_peer(peer_conn, peer);
        }
 
-       /* If we don't find a subdaemon for this, activate a new one. */
+       /* If we don't find a subdaemon for this, crteat a new one. */
        subd = find_subd(peer, &channel_id);
        if (!subd) {
 	       enum peer_wire t = fromwire_peektype(decrypted);
 	       status_peer_debug(&peer->id, "Activating for message %s",
 				 peer_wire_name(t));
-	       subd = activate_subd(peer, &t, &channel_id);
-	       if (!subd)
-		       return io_close(peer_conn);
+	       subd = new_subd(peer, &channel_id);
+	       /* We tell lightningd to fire up a subdaemon to handle this! */
+	       daemon_conn_send(peer->daemon->master,
+				take(towire_connectd_peer_spoke(NULL, &peer->id,
+								t,
+								&channel_id)));
        }
 
        /* Even if we just created it, call this to catch open_channel2 */
@@ -1156,53 +1134,6 @@ static struct io_plan *subd_conn_init(struct io_conn *subd_conn,
 			 write_to_subd(subd_conn, subd));
 }
 
-static void destroy_subd(struct subd *subd)
-{
-	struct peer *peer = subd->peer;
-	size_t pos;
-
-	for (pos = 0; peer->subds[pos] != subd; pos++)
-		assert(pos < tal_count(peer->subds));
-
-	tal_arr_remove(&peer->subds, pos);
-
-	/* Make sure we try to keep reading from peer (might
-	 * have been waiting for write_to_subd) */
-	io_wake(&peer->peer_in);
-}
-
-static struct subd *multiplex_subd_setup(struct peer *peer,
-					 const struct channel_id *channel_id,
-					 int *fd_for_subd)
-{
-	int fds[2];
-	struct subd *subd;
-
-	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-		status_broken("Failed to create socketpair: %s",
-			      strerror(errno));
-		return NULL;
-	}
-
-	subd = tal(NULL, struct subd);
-	subd->peer = peer;
-	subd->outq = msg_queue_new(subd, false);
-	subd->channel_id = *channel_id;
-	subd->temporary_channel_id = NULL;
-	subd->opener_revocation_basepoint = NULL;
-	/* This sets subd->conn inside subd_conn_init */
-	io_new_conn(peer->subds, fds[0], subd_conn_init, subd);
-	/* When conn dies, subd is freed. */
-	tal_steal(subd->conn, subd);
-
-	/* Connect it to the peer */
-	tal_arr_expand(&peer->subds, subd);
-	tal_add_destructor(subd, destroy_subd);
-
-	*fd_for_subd = fds[1];
-	return subd;
-}
-
 static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 {
 	assert(peer->to_peer == peer_conn);
@@ -1239,6 +1170,38 @@ struct io_plan *multiplex_peer_setup(struct io_conn *peer_conn,
 			 write_to_peer(peer_conn, peer));
 }
 
+void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
+{
+	struct node_id id;
+	struct peer *peer;
+	struct channel_id channel_id;
+	struct subd *subd;
+
+	if (!fromwire_connectd_peer_connect_subd(msg, &id, &channel_id))
+		master_badmsg(WIRE_CONNECTD_PEER_CONNECT_SUBD, msg);
+
+	/* Races can happen: this might be gone by now. */
+	peer = peer_htable_get(&daemon->peers, &id);
+	if (!peer) {
+		close(fd);
+		return;
+	}
+
+	/* Could be disconnecting now */
+	if (!peer->to_peer) {
+		close(fd);
+		return;
+	}
+
+	/* If peer said something, we created this and queued msg. */
+	subd = find_subd(peer, &channel_id);
+	if (!subd)
+		subd = new_subd(peer, &channel_id);
+
+	assert(!subd->conn);
+	/* This sets subd->conn inside subd_conn_init */
+	io_new_conn(subd, fd, subd_conn_init, subd);
+}
 
 /* Lightningd says to send a ping */
 void send_manual_ping(struct daemon *daemon, const u8 *msg)

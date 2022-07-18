@@ -1007,6 +1007,91 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_object_end(stream); /* .peer */
 }
 
+/* Talk to connectd about an active channel */
+static void connect_activate_subd(struct lightningd *ld, struct channel *channel)
+{
+	const u8 *error;
+	int fds[2];
+
+	/* If we have a canned error for this channel, send it now */
+	if (channel->error) {
+		error = channel->error;
+		goto send_error;
+	}
+
+	switch (channel->state) {
+	case ONCHAIN:
+	case FUNDING_SPEND_SEEN:
+	case CLOSINGD_COMPLETE:
+	case CLOSED:
+		/* Channel is active */
+		abort();
+	case AWAITING_UNILATERAL:
+		/* channel->error is not saved in db, so this can
+		 * happen if we restart. */
+		error = towire_errorfmt(tmpctx, &channel->cid,
+					"Awaiting unilateral close");
+		goto send_error;
+
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_AWAITING_LOCKIN:
+		assert(!channel->owner);
+		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+			log_broken(channel->log,
+				   "Failed to create socketpair: %s",
+				   strerror(errno));
+			error = towire_warningfmt(tmpctx, &channel->cid,
+						  "Trouble in paradise?");
+			goto send_error;
+		}
+		if (peer_restart_dualopend(channel->peer,
+					   new_peer_fd(tmpctx, fds[0]),
+					   channel))
+			goto tell_connectd;
+		close(fds[1]);
+		return;
+
+	case CHANNELD_AWAITING_LOCKIN:
+	case CHANNELD_NORMAL:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+		assert(!channel->owner);
+		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+			log_broken(channel->log,
+				   "Failed to create socketpair: %s",
+				   strerror(errno));
+			error = towire_warningfmt(tmpctx, &channel->cid,
+						  "Trouble in paradise?");
+			goto send_error;
+		}
+		if (peer_start_channeld(channel,
+					new_peer_fd(tmpctx, fds[0]),
+					NULL, true,
+					NULL)) {
+			goto tell_connectd;
+		}
+		close(fds[1]);
+		return;
+	}
+	abort();
+
+tell_connectd:
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_connect_subd(NULL,
+							     &channel->peer->id,
+							     &channel->cid)));
+	subd_send_fd(ld->connectd, fds[1]);
+	return;
+
+send_error:
+	log_debug(channel->log, "Telling connectd to send error %s",
+		       tal_hex(tmpctx, error));
+	/* Get connectd to send error and close. */
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_final_msg(NULL, &channel->peer->id,
+							  error)));
+}
+
 static void peer_connected_hook_final(struct peer_connected_hook_payload *payload STEALS)
 {
 	struct lightningd *ld = payload->ld;
@@ -1041,23 +1126,27 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	/* Notify anyone who cares */
 	notify_connect(ld, &peer->id, payload->incoming, &addr);
 
-	list_for_each(&peer->channels, channel, list) {
 #if DEVELOPER
-		if (dev_disconnect_permanent(ld)) {
+	/* Developer hack to fail all channels on permfail line. */
+	if (dev_disconnect_permanent(ld)) {
+		list_for_each(&peer->channels, channel, list) {
 			channel_fail_permanent(channel, REASON_LOCAL,
 					       "dev_disconnect permfail");
-			error = channel->error;
-			goto send_error;
+			subd_send_msg(ld->connectd,
+				      take(towire_connectd_peer_final_msg(NULL, &peer->id,
+									  channel->error)));
 		}
+		return;
+	}
 #endif
 
+	/* connect appropriate subds for all (active) channels! */
+	list_for_each(&peer->channels, channel, list) {
 		if (channel_active(channel)) {
-			log_debug(channel->log, "Peer has reconnected, state %s: telling connectd to make active",
+			log_debug(channel->log, "Peer has reconnected, state %s: connecting subd",
 				  channel_state_name(channel));
 
-			subd_send_msg(ld->connectd,
-				      take(towire_connectd_peer_make_active(NULL, &peer->id,
-									    &channel->cid)));
+			connect_activate_subd(ld, channel);
 		}
 	}
 	return;
@@ -1239,22 +1328,23 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	plugin_hook_call_peer_connected(ld, hook_payload);
 }
 
-/* connectd tells us a peer has an interesting message, and hands us an
- * fd to give to the correct subdaemon.  Unlike peer_connected, this is racy:
- * we might have just told it to disconnect peer. */
-void peer_active(struct lightningd *ld, const u8 *msg, int fd)
+/* connectd tells us a peer has a message and we've not already attached
+ * a subd.  Normally this is a race, but it happens for real when opening
+ * a new channel, or referring to a channel we no longer want to talk to
+ * it about. */
+void peer_spoke(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	u16 *msgtype;
+	u16 msgtype;
 	struct channel *channel;
 	struct channel_id channel_id;
 	struct peer *peer;
 	bool dual_fund;
 	u8 *error;
-	struct peer_fd *peer_fd = new_peer_fd(tmpctx, fd);
+	int fds[2];
 
-	if (!fromwire_connectd_peer_active(msg, msg, &id, &msgtype, &channel_id))
-		fatal("Connectd gave bad CONNECTD_PEER_ACTIVE message %s",
+	if (!fromwire_connectd_peer_spoke(msg, &id, &msgtype, &channel_id))
+		fatal("Connectd gave bad CONNECTD_PEER_SPOKE message %s",
 		      tal_hex(msg, msg));
 
 	peer = peer_by_id(ld, &id);
@@ -1274,83 +1364,44 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 			goto send_error;
 		}
 
-		switch (channel->state) {
-		case ONCHAIN:
-		case FUNDING_SPEND_SEEN:
-		case CLOSINGD_COMPLETE:
-			goto channel_is_closed;
-		case CLOSED:
-			/* Channel should not have been loaded */
-			abort();
-		case AWAITING_UNILATERAL: {
-			/* channel->error is not saved in db, so this can
-			 * happen if we restart. */
-			error = towire_errorfmt(tmpctx, &channel->cid,
-						"Awaiting unilateral close");
-			goto send_error;
-		}
-		case DUALOPEND_OPEN_INIT:
-			/* We asked for this, to open? */
-			if (!msgtype
-			    && channel->open_attempt
-			    && channel->open_attempt->open_msg) {
-				if (peer_start_dualopend(peer, peer_fd, channel))
-					subd_send_msg(channel->owner, channel->open_attempt->open_msg);
-				return;
+		/* If channel is active, we raced, so ignore this:
+		 * subd will get it soon. */
+		if (channel_active(channel))
+			return;
+
+		if (msgtype == WIRE_CHANNEL_REESTABLISH) {
+			log_debug(channel->log,
+				  "Reestablish on %s channel: using channeld to reply",
+				  channel_state_name(channel));
+			if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+				log_broken(channel->log,
+					   "Failed to create socketpair: %s",
+					   strerror(errno));
+				error = towire_warningfmt(tmpctx, &channel->cid,
+							  "Trouble in paradise?");
+				goto send_error;
 			}
-			/* Fall through. */
-		case DUALOPEND_AWAITING_LOCKIN:
-			assert(!channel->owner);
-			peer_restart_dualopend(peer, peer_fd, channel);
-			return;
-		case CHANNELD_AWAITING_LOCKIN:
-		case CHANNELD_NORMAL:
-		case CHANNELD_SHUTTING_DOWN:
-		case CLOSINGD_SIGEXCHANGE:
-			/* Maybe old owner was too slow exiting? */
-			tal_free(channel->owner);
-			peer_start_channeld(channel,
-					    peer_fd,
-					    NULL, true,
-					    NULL);
+			if (peer_start_channeld(channel, new_peer_fd(tmpctx, fds[0]), NULL, true, true)) {
+				goto tell_connectd;
+			}
+			/* FIXME: Send informative error? */
+			close(fds[1]);
 			return;
 		}
-		abort();
+
+		/* Send generic error. */
+		error = towire_errorfmt(tmpctx, &channel_id,
+					"channel in state %s",
+					channel_state_name(channel));
+		goto send_error;
 	}
 
 	dual_fund = feature_negotiated(ld->our_features,
 				       peer->their_features,
 				       OPT_DUAL_FUND);
 
-	/* Did we ask for this? */
-	if (!msgtype) {
-		/* If it was dual_fund, it will have peer_unsaved_channel above */
-		if (dual_fund) {
-			log_broken(ld->log, "Unsolicited active df peer %s?",
-				   type_to_string(tmpctx, struct node_id,
-						  &peer->id));
-		} else {
-			const struct uncommitted_channel *uc
-				= peer->uncommitted_channel;
-
-			if (!uc->open_daemon
-			    && uc->fc
-			    && uc->fc->open_msg) {
-				if (peer_start_openingd(peer, peer_fd)) {
-					subd_send_msg(uc->open_daemon,
-						      uc->fc->open_msg);
-				}
-			} else {
-				log_broken(ld->log, "Unsolicited active peer %s?",
-					   type_to_string(tmpctx, struct node_id,
-							  &peer->id));
-			}
-		}
-		return;
-	}
-
 	/* OK, it's an unknown channel.  Create a new one if they're trying. */
-	switch (*msgtype) {
+	switch (msgtype) {
 	case WIRE_OPEN_CHANNEL:
 		if (dual_fund) {
 			error = towire_errorfmt(tmpctx, &channel_id,
@@ -1364,8 +1415,21 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 		}
 		peer->uncommitted_channel = new_uncommitted_channel(peer);
 		peer->uncommitted_channel->cid = channel_id;
-		peer_start_openingd(peer, peer_fd);
-		break;
+		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+			log_broken(ld->log,
+				   "Failed to create socketpair: %s",
+				   strerror(errno));
+			error = towire_warningfmt(tmpctx, &channel_id,
+						  "Trouble in paradise?");
+			goto send_error;
+		}
+		if (peer_start_openingd(peer, new_peer_fd(tmpctx, fds[0]))) {
+			goto tell_connectd;
+		}
+		/* FIXME: Send informative error? */
+		close(fds[1]);
+		return;
+
 	case WIRE_OPEN_CHANNEL2:
 		if (!dual_fund) {
 			error = towire_errorfmt(tmpctx, &channel_id,
@@ -1376,36 +1440,29 @@ void peer_active(struct lightningd *ld, const u8 *msg, int fd)
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
 		channel->cid = channel_id;
-		peer_start_dualopend(peer, peer_fd, channel);
-		break;
-	default:
-		log_peer_unusual(ld->log, &peer->id,
-				 "Unknown channel %s for %s",
-				 type_to_string(tmpctx, struct channel_id,
-						&channel_id),
-				 peer_wire_name(*msgtype));
-		error = towire_errorfmt(tmpctx, &channel_id,
-					"Unknown channel for %s", peer_wire_name(*msgtype));
-		goto send_error;
-		break;
-	}
-	return;
-
-channel_is_closed:
-	if (msgtype && *msgtype == WIRE_CHANNEL_REESTABLISH) {
-		log_debug(channel->log,
-			  "Reestablish on %s channel: using channeld to reply",
-			  channel_state_name(channel));
-		peer_start_channeld(channel, peer_fd, NULL, true, true);
+		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+			log_broken(ld->log,
+				   "Failed to create socketpair: %s",
+				   strerror(errno));
+			error = towire_warningfmt(tmpctx, &channel_id,
+						  "Trouble in paradise?");
+			goto send_error;
+		}
+		if (peer_start_dualopend(peer, new_peer_fd(tmpctx, fds[0]), channel))
+			goto tell_connectd;
+		/* FIXME: Send informative error? */
+		close(fds[1]);
 		return;
 	}
 
-	/* Retransmit error if we have one.  Otherwise generic error. */
-	error = channel->error;
-	if (!error)
-		error = towire_errorfmt(tmpctx, &channel_id,
-					"channel in state %s",
-					channel_state_name(channel));
+	/* Weird message?  Log and reply with error. */
+	log_peer_unusual(ld->log, &peer->id,
+			 "Unknown channel %s for %s",
+			 type_to_string(tmpctx, struct channel_id,
+					&channel_id),
+			 peer_wire_name(msgtype));
+	error = towire_errorfmt(tmpctx, &channel_id,
+				"Unknown channel for %s", peer_wire_name(msgtype));
 
 send_error:
 	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
@@ -1414,6 +1471,12 @@ send_error:
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
 							  error)));
+	return;
+
+tell_connectd:
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_connect_subd(NULL, &id, &channel_id)));
+	subd_send_fd(ld->connectd, fds[1]);
 }
 
 struct disconnect_command {

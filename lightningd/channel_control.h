@@ -10,7 +10,7 @@ struct lightningd;
 struct peer_fd;
 struct peer;
 
-void peer_start_channeld(struct channel *channel,
+bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
 			 const u8 *fwd_msg,
 			 bool reconnected,
