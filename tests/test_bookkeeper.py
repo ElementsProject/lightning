@@ -22,7 +22,7 @@ def find_first_tag(evs, tag):
 
 
 @pytest.mark.developer("dev-ignore-htlcs")
-def test_closing_trimmed_htlcs(node_factory, bitcoind, executor):
+def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2)
 
     # Send l2 funds via the channel
@@ -69,7 +69,7 @@ def test_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     assert Millisatoshi(close_fee[0]['credit']) + Millisatoshi(deposit['credit']) == Millisatoshi(close['debit'])
 
 
-def test_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
+def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     """Test closing balances when HTLCs are: sub 1-satoshi"""
     l1, l2 = node_factory.line_graph(2)
 
@@ -172,23 +172,14 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     # expect the withdrawal to appear in the incomes
     # and there should be an onchain fee
     incomes = l1.rpc.listincome()['income_events']
-    # 2 wallet deposits, 1 wallet withdrawal, 2 onchain_fees
-    assert len(incomes) == 5
+    # 2 wallet deposits, 1 wallet withdrawal, 1 onchain_fee
+    assert len(incomes) == 4
     withdraw_amt = Millisatoshi(find_tags(incomes, 'withdrawal')[0]['debit'])
     assert withdraw_amt == Millisatoshi(amount // 2 * 1000)
 
     fee_events = find_tags(incomes, 'onchain_fee')
-    fees = 0
-    for e in fee_events:
-        # Millisatoshis cant be negative, so we reverse
-        # the credit/debit on the chain fee events and
-        # deal with them as ints instead of millisatoshis
-        fees -= int(e['credit'][:-4])
-        fees += int(e['debit'][:-4])
-
-    # In sum, the fees are a net loss
-    assert fees > 0
-    fees = Millisatoshi(fees)
+    assert len(fee_events) == 1
+    fees = Millisatoshi(fee_events[0]['debit'])
 
     # wallet balance is decremented now
     btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
@@ -253,17 +244,8 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
     assert len(find_tags(incomes, 'withdrawal')) == 0
 
     fee_events = find_tags(incomes, 'onchain_fee')
-    fees = 0
-    for e in fee_events:
-        # Millisatoshis cant be negative, so we reverse
-        # the credit/debit on the chain fee events and
-        # deal with them as ints instead of millisatoshis
-        fees -= int(e['credit'][:-4])
-        fees += int(e['debit'][:-4])
-
-    # In sum, the fees are a net loss
-    assert fees > 0
-    fees = Millisatoshi(fees)
+    assert len(fee_events) == 1
+    fees = Millisatoshi(fee_events[0]['debit'])
     assert fees > Millisatoshi(amount // 2 * 1000)
 
     # wallet balance is decremented now
@@ -328,6 +310,11 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
 
     # make sure no onchain fees are counted for the replaced tx
     fees = find_tags(acct_evs, 'onchain_fee')
-    assert len(fees) > 0
+    assert len(fees) > 1
     for fee in fees:
         assert fee['txid'] == out2['txid']
+
+    fees = find_tags(l1.rpc.listincome(consolidate_fees=False)['income_events'], 'onchain_fee')
+    assert len(fees) == 2
+    fees = find_tags(l1.rpc.listincome(consolidate_fees=True)['income_events'], 'onchain_fee')
+    assert len(fees) == 1
