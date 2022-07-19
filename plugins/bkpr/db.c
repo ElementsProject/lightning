@@ -84,9 +84,12 @@ static struct migration db_migrations[] = {
 	{SQL("CREATE TABLE onchain_fees ("
 		"account_id BIGINT REFERENCES accounts(id)"
 		", txid BLOB"
-		", amount BIGINT"
+		", credit BIGINT"
+		", debit BIGINT"
 		", currency TEXT"
-		", PRIMARY KEY (account_id, txid)"
+		", timestamp BIGINT"
+		", update_count INT"
+		", PRIMARY KEY (account_id, txid, update_count)"
 		");"),
 	NULL},
 };
