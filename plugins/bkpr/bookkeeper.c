@@ -38,6 +38,64 @@ static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 	return NULL;
 }
 
+static struct command_result *param_csv_format(struct command *cmd, const char *name,
+					       const char *buffer, const jsmntok_t *tok,
+					       struct csv_fmt **csv_fmt)
+{
+	*csv_fmt = cast_const(struct csv_fmt *,
+			      csv_match_token(buffer, tok));
+	if (*csv_fmt)
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     tal_fmt(cmd,
+					     "should be one of: %s",
+					     csv_list_fmts(cmd)));
+}
+
+static struct command_result *json_dump_income(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct income_event **evs;
+	struct csv_fmt *csv_fmt;
+	const char *filename;
+	bool *consolidate_fees;
+	char *err;
+	u64 *start_time, *end_time;
+
+	if (!param(cmd, buf, params,
+		   p_req("csv_format", param_csv_format, &csv_fmt),
+		   p_opt("csv_file", param_string, &filename),
+		   p_opt_def("consolidate_fees", param_bool,
+			     &consolidate_fees, true),
+		   p_opt_def("start_time", param_u64, &start_time, 0),
+		   p_opt_def("end_time", param_u64, &end_time, SQLITE_MAX_UINT),
+		   NULL))
+		return command_param_failed();
+
+	/* Ok, go find me some income events! */
+	db_begin_transaction(db);
+	evs = list_income_events(cmd, db, *start_time, *end_time,
+				 *consolidate_fees);
+	db_commit_transaction(db);
+
+	if (!filename)
+		filename = csv_filename(cmd, csv_fmt);
+
+	err = csv_print_income_events(cmd, csv_fmt, filename, evs);
+	if (err)
+		return command_fail(cmd, PLUGIN_ERROR,
+				    "Unable to create csv file: %s",
+				    err);
+
+	res = jsonrpc_stream_success(cmd);
+	json_add_string(res, "csv_file", filename);
+	json_add_string(res, "csv_format", csv_fmt->fmt_name);
+	return command_finished(cmd, res);
+}
+
 static struct command_result *json_list_income(struct command *cmd,
 					       const char *buf,
 					       const jsmntok_t *params)
@@ -1309,6 +1367,16 @@ static const struct plugin_command commands[] = {
 		"List all income impacting events",
 		"List all events for this node that impacted income",
 		json_list_income
+	},
+	{
+		"dumpincomecsv",
+		"bookkeeping",
+		"Print out all the income events to a csv file in "
+		" {csv_format",
+		"Dump income statment data to {csv_file} in {csv_format}."
+		" Optionally, {consolidate_fee}s into single entries"
+		" (default: true)",
+		json_dump_income
 	},
 };
 
