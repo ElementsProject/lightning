@@ -102,7 +102,10 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	return e;
 }
 
-struct chain_event **list_chain_events(const tal_t *ctx, struct db *db)
+struct chain_event **list_chain_events_timebox(const tal_t *ctx,
+					       struct db *db,
+					       u64 start_time,
+					       u64 end_time)
 {
 	struct db_stmt *stmt;
 
@@ -125,9 +128,18 @@ struct chain_event **list_chain_events(const tal_t *ctx, struct db *db)
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
+				     " WHERE e.timestamp > ?"
+				     "  AND e.timestamp <= ?"
 				     " ORDER BY e.timestamp, e.id;"));
 
+	db_bind_u64(stmt, 0, start_time);
+	db_bind_u64(stmt, 1, end_time);
 	return find_chain_events(ctx, take(stmt));
+}
+
+struct chain_event **list_chain_events(const tal_t *ctx, struct db *db)
+{
+	return list_chain_events_timebox(ctx, db, 0, SQLITE_MAX_UINT);
 }
 
 struct chain_event **account_get_chain_events(const tal_t *ctx,
@@ -701,7 +713,11 @@ char *account_get_balance(const tal_t *ctx,
 	return NULL;
 }
 
-struct channel_event **list_channel_events(const tal_t *ctx, struct db *db)
+struct channel_event **list_channel_events_timebox(const tal_t *ctx,
+						   struct db *db,
+						   u64 start_time,
+						   u64 end_time)
+
 {
 	struct db_stmt *stmt;
 	struct channel_event **results;
@@ -721,8 +737,12 @@ struct channel_event **list_channel_events(const tal_t *ctx, struct db *db)
 				     " FROM channel_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
+				     " WHERE e.timestamp > ?"
+				     "  AND e.timestamp <= ?"
 				     " ORDER BY e.timestamp, e.id;"));
 
+	db_bind_u64(stmt, 0, start_time);
+	db_bind_u64(stmt, 1, end_time);
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct channel_event *, 0);
@@ -734,6 +754,12 @@ struct channel_event **list_channel_events(const tal_t *ctx, struct db *db)
 
 	return results;
 }
+
+struct channel_event **list_channel_events(const tal_t *ctx, struct db *db)
+{
+	return list_channel_events_timebox(ctx, db, 0, SQLITE_MAX_UINT);
+}
+
 
 struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct db *db,
@@ -827,7 +853,8 @@ struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 	return results;
 }
 
-struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
+struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
+					     u64 start_time, u64 end_time)
 {
 	struct db_stmt *stmt;
 	struct onchain_fee **results;
@@ -844,11 +871,16 @@ struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
 				     " FROM onchain_fees of"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = of.account_id"
+				     " WHERE timestamp > ?"
+				     "  AND timestamp <= ?"
 				     " ORDER BY "
 				     "  of.timestamp"
 				     ", of.account_id"
 				     ", of.txid"
 				     ", of.update_count"));
+
+	db_bind_u64(stmt, 0, start_time);
+	db_bind_u64(stmt, 1, end_time);
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct onchain_fee *, 0);
@@ -859,6 +891,11 @@ struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
 	tal_free(stmt);
 
 	return results;
+}
+
+struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
+{
+	return list_chain_fees_timebox(ctx, db, 0, SQLITE_MAX_UINT);
 }
 
 static struct account *stmt2account(const tal_t *ctx, struct db_stmt *stmt)

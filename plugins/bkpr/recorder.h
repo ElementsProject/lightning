@@ -14,6 +14,7 @@ struct onchain_fee;
 
 #define EXTERNAL_ACCT "external"
 #define WALLET_ACCT WALLET
+#define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 
 struct acct_balance {
 	char *currency;
@@ -53,13 +54,37 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 /* Get all channel events, ordered by timestamp */
 struct channel_event **list_channel_events(const tal_t *ctx, struct db *db);
 
+/* Get all channel events, order by timestamp.
+ *
+ * @ctx - context to allocate from
+ * @db  - database to query
+ * @start_time - UNIX timestamp to query after (exclusive)
+ * @end_time   - UNIX timestamp to query until (inclusive)
+ */
+struct channel_event **list_channel_events_timebox(const tal_t *ctx,
+						   struct db *db,
+						   u64 start_time,
+						   u64 end_time);
+
 /* Get all chain events for this account */
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct db *db,
 					      struct account *acct);
 
-/* Get all chain events, ordered by timestamp */
+/* Get all chain events, order by timestamp.  */
 struct chain_event **list_chain_events(const tal_t *ctx, struct db *db);
+
+/* Get all chain events, order by timestamp.
+ *
+ * @ctx - context to allocate from
+ * @db  - database to query
+ * @start_time - UNIX timestamp to query after (exclusive)
+ * @end_time   - UNIX timestamp to query until (inclusive)
+ */
+struct chain_event **list_chain_events_timebox(const tal_t *ctx,
+					       struct db *db,
+					       u64 start_time,
+					       u64 end_time);
 
 /* Calculate the balances for an account
  *
@@ -92,6 +117,16 @@ bool find_txo_chain(const tal_t *ctx,
 
 /* List all chain fees, for all accounts */
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);
+
+/* Get all chain fees, order by timestamp.
+ *
+ * @ctx - context to allocate from
+ * @db  - database to query
+ * @start_time - UNIX timestamp to query after (exclusive)
+ * @end_time   - UNIX timestamp to query until (inclusive)
+ */
+struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
+					     u64 start_time, u64 end_time);
 
 /* Returns a list of sums of the fees we've recorded for every txid
  * for the given account */
