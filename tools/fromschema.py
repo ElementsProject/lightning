@@ -148,13 +148,13 @@ def output_members(sub, indent=''):
     for p in sub['properties']:
         if p.startswith('warning'):
             continue
-        if p in sub['required']:
+        if 'required' in sub and p in sub['required']:
             output_member(p, sub['properties'][p], False, indent)
 
     for p in sub['properties']:
         if p.startswith('warning'):
             continue
-        if p not in sub['required']:
+        if 'required' not in sub or p not in sub['required']:
             output_member(p, sub['properties'][p], True, indent)
 
     if warnings != []:
