@@ -1111,8 +1111,16 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 
 		/* We only attribute fees to the wallet
 		 * if the wallet is the only game in town */
-		if (skip_wallet && last_id == wallet_id)
+		if (skip_wallet && last_id == wallet_id) {
+			/* But we might need to clean up any fees assigned
+			 * to the wallet from a previous round, where it
+			 * *was* the only game in town */
+			insert_chain_fees_diff(db, last_id, txid,
+					       AMOUNT_MSAT(0),
+					       events[i]->currency,
+					       events[i]->timestamp);
 			continue;
+		}
 
 		/* Add an extra msat onto plus_ones accts
 		 * so we don't lose any precision in
