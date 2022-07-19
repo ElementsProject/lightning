@@ -133,6 +133,12 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 		/* deposit to external is cost to us */
 		if (streq(ev->acct_name, EXTERNAL_ACCT)) {
 			struct income_event *iev;
+
+			/* External deposits w/o a blockheight
+			 * aren't confirmed yet */
+			if (ev->blockheight == 0)
+				return NULL;
+
 			iev = chain_to_income(ctx, ev,
 					      ev->origin_acct,
 					      ev->debit,
