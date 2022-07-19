@@ -12,6 +12,9 @@ struct db;
 enum mvt_tag;
 struct onchain_fee;
 
+#define EXTERNAL_ACCT "external"
+#define WALLET_ACCT WALLET
+
 struct acct_balance {
 	char *currency;
 	struct amount_msat credit;

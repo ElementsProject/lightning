@@ -784,6 +784,14 @@ parse_and_log_chain_move(struct command *cmd,
 		err = tal_free(err);
 	}
 
+	err = json_scan(tmpctx, buf, params,
+			"{coin_movement:"
+			"{originating_account:%}}",
+			JSON_SCAN_TAL(e, json_strdup, &e->origin_acct));
+
+	if (err)
+		e->origin_acct = NULL;
+
 	e->payment_id = tal_steal(e, payment_hash);
 
 	e->credit = credit;
