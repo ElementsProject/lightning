@@ -1305,17 +1305,17 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
 
     # Do some checks of the bookkeeper's records
     def _income_tagset(node, tagset):
-        incomes = node.rpc.listincome()['income_events']
+        incomes = node.rpc.bkpr_listincome()['income_events']
         return [e for e in incomes if e['tag'] in tagset]
 
     tags = ['invoice', 'invoice_fee']
     wait_for(lambda: len(_income_tagset(l1, tags)) == 2)
     incomes = _income_tagset(l1, tags)
     # the balance on l3 should equal the invoice
-    bal = only_one(only_one(l3.rpc.listbalances()['accounts'])['balances'])['balance']
+    bal = only_one(only_one(l3.rpc.bkpr_listbalances()['accounts'])['balances'])['balance_msat']
     assert incomes[0]['tag'] == 'invoice'
     assert Millisatoshi(bal) == incomes[0]['debit_msat']
-    inve = only_one([e for e in l1.rpc.listaccountevents()['events'] if e['tag'] == 'invoice'])
+    inve = only_one([e for e in l1.rpc.bkpr_listaccountevents()['events'] if e['tag'] == 'invoice'])
     assert inve['debit_msat'] == incomes[0]['debit_msat'] + incomes[1]['debit_msat']
 
 

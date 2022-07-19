@@ -31,6 +31,12 @@ Core Lightning Documentation
 
    lightning-addgossip <lightning-addgossip.7.md>
    lightning-autocleaninvoice <lightning-autocleaninvoice.7.md>
+   lightning-bkpr-channelsapy <lightning-bkpr-channelsapy.7.md>
+   lightning-bkpr-dumpincomecsv <lightning-bkpr-dumpincomecsv.7.md>
+   lightning-bkpr-inspect <lightning-bkpr-inspect.7.md>
+   lightning-bkpr-listaccountevents <lightning-bkpr-listaccountevents.7.md>
+   lightning-bkpr-listbalances <lightning-bkpr-listbalances.7.md>
+   lightning-bkpr-listincome <lightning-bkpr-listincome.7.md>
    lightning-check <lightning-check.7.md>
    lightning-checkmessage <lightning-checkmessage.7.md>
    lightning-cli <lightning-cli.1.md>
