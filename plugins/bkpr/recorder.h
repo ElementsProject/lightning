@@ -22,6 +22,21 @@ struct acct_balance {
 	struct amount_msat balance;
 };
 
+struct fee_sum {
+	struct bitcoin_txid *txid;
+	struct amount_msat fees_paid;
+};
+
+struct txo_pair {
+	struct chain_event *txo;
+	struct chain_event *spend;
+};
+
+struct txo_set {
+	struct bitcoin_txid *txid;
+	struct txo_pair **pairs;
+};
+
 /* Get all accounts */
 struct account **list_accounts(const tal_t *ctx, struct db *db);
 
@@ -65,8 +80,24 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 					   struct db *db,
 					   u64 event_db_id);
 
+/* Find the utxos for this account.
+ *
+ * Returns true if chain is complete:
+ * (all outputs terminate either to wallet or external)
+ */
+bool find_txo_chain(const tal_t *ctx,
+		    struct db *db,
+		    struct account *acct,
+		    struct txo_set ***sets);
+
 /* List all chain fees, for all accounts */
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);
+
+/* Returns a list of sums of the fees we've recorded for every txid
+ * for the given account */
+struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
+					   struct db *db,
+					   struct account *acct);
 
 /* Add the given account to the database */
 void account_add(struct db *db, struct account *acct);
