@@ -32,10 +32,17 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct db *db,
 						  struct account *acct);
 
+/* Get all channel events, ordered by timestamp */
+struct channel_event **list_channel_events(const tal_t *ctx, struct db *db);
+
 /* Get all chain events for this account */
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct db *db,
 					      struct account *acct);
+
+/* Get all chain events, ordered by timestamp */
+struct chain_event **list_chain_events(const tal_t *ctx, struct db *db);
+
 /* Calculate the balances for an account
  *
  * @calc_sum - compute the total balance. error if negative
@@ -45,6 +52,10 @@ char *account_get_balance(const tal_t *ctx,
 			  const char *acct_name,
 			  bool calc_sum,
 			  struct acct_balance ***balances);
+
+/* Get chain fees for account */
+struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
+					    struct account *acct);
 
 /* List all chain fees, for all accounts */
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);

@@ -97,6 +97,33 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	return e;
 }
 
+struct chain_event **list_chain_events(const tal_t *ctx, struct db *db)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  e.id"
+				     ", e.account_id"
+				     ", a.name"
+				     ", e.tag"
+				     ", e.credit"
+				     ", e.debit"
+				     ", e.output_value"
+				     ", e.currency"
+				     ", e.timestamp"
+				     ", e.blockheight"
+				     ", e.utxo_txid"
+				     ", e.outnum"
+				     ", e.spending_txid"
+				     ", e.payment_id"
+				     " FROM chain_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON e.account_id = a.id"
+				     " ORDER BY e.timestamp, e.id;"));
+
+	return find_chain_events(ctx, take(stmt));
+}
+
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct db *db,
 					      struct account *acct)
@@ -304,6 +331,40 @@ char *account_get_balance(const tal_t *ctx,
 	return NULL;
 }
 
+struct channel_event **list_channel_events(const tal_t *ctx, struct db *db)
+{
+	struct db_stmt *stmt;
+	struct channel_event **results;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  e.id"
+				     ", e.account_id"
+				     ", a.name"
+				     ", e.tag"
+				     ", e.credit"
+				     ", e.debit"
+				     ", e.fees"
+				     ", e.currency"
+				     ", e.payment_id"
+				     ", e.part_id"
+				     ", e.timestamp"
+				     " FROM channel_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON a.id = e.account_id"
+				     " ORDER BY e.timestamp, e.id;"));
+
+	db_query_prepared(stmt);
+
+	results = tal_arr(ctx, struct channel_event *, 0);
+	while (db_step(stmt)) {
+		struct channel_event *e = stmt2channel_event(results, stmt);
+		tal_arr_expand(&results, e);
+	}
+	tal_free(stmt);
+
+	return results;
+}
+
 struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct db *db,
 						  struct account *acct)
@@ -357,6 +418,43 @@ static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
 	of->update_count = db_col_int(stmt, "of.update_count");
 
 	return of;
+}
+
+struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
+					    struct account *acct)
+{
+	struct db_stmt *stmt;
+	struct onchain_fee **results;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  of.account_id"
+				     ", a.name"
+				     ", of.txid"
+				     ", of.credit"
+				     ", of.debit"
+				     ", of.currency"
+				     ", of.timestamp"
+				     ", of.update_count"
+				     " FROM onchain_fees of"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON a.id = of.account_id"
+				     " WHERE of.account_id = ?"
+				     " ORDER BY "
+				     "  of.timestamp"
+				     ", of.txid"
+				     ", of.update_count"));
+
+	db_bind_u64(stmt, 0, acct->db_id);
+	db_query_prepared(stmt);
+
+	results = tal_arr(ctx, struct onchain_fee *, 0);
+	while (db_step(stmt)) {
+		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
+		tal_arr_expand(&results, of);
+	}
+	tal_free(stmt);
+
+	return results;
 }
 
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
