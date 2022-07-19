@@ -242,6 +242,24 @@ struct new_account_info {
 	char *currency;
 };
 
+static void try_update_open_fees(struct command *cmd,
+				 struct account *acct)
+{
+	struct chain_event *ev;
+	char *err;
+
+	assert(acct->closed_event_db_id);
+	ev = find_chain_event_by_id(cmd, db, *acct->closed_event_db_id);
+	assert(ev);
+
+	err = maybe_update_onchain_fees(cmd, db, ev->spending_txid);
+	if (err)
+		plugin_err(cmd->plugin,
+			   "failure updating chain fees:"
+			   " %s", err);
+
+}
+
 static bool new_missed_channel_account(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *result,
@@ -333,6 +351,14 @@ static bool new_missed_channel_account(struct command *cmd,
 			db_begin_transaction(db);
 			log_chain_event(db, acct, chain_ev);
 			maybe_update_account(db, acct, chain_ev, tags);
+			maybe_update_onchain_fees(cmd, db, &opt.txid);
+
+			/* We won't count the close's fees if we're
+			 * *not* the opener, which we didn't know
+			 * until now, so now try to update the
+			 * fees for the close tx's spending_txid..*/
+			if (acct->closed_event_db_id)
+				try_update_open_fees(cmd, acct);
 
 			/* We log a channel event for the push amt */
 			if (!amount_msat_zero(push_amt)) {
