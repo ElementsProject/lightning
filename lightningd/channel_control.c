@@ -127,7 +127,7 @@ void notify_feerate_change(struct lightningd *ld)
 	 * peer.  We *could* do so, however. */
 }
 
-void channel_record_open(struct channel *channel, u32 blockheight)
+void channel_record_open(struct channel *channel, u32 blockheight, bool record_push)
 {
 	struct chain_coin_mvt *mvt;
 	struct amount_msat start_balance;
@@ -153,20 +153,31 @@ void channel_record_open(struct channel *channel, u32 blockheight)
 					     &channel->push));
 	}
 
-	mvt = new_coin_channel_open(tmpctx,
-				    &channel->cid,
-				    &channel->funding,
-				    &channel->peer->id,
-				    blockheight,
-				    start_balance,
-				    channel->funding_sats,
-				    channel->opener == LOCAL,
-				    is_leased);
+	/* If it's not in a block yet, send a proposal */
+	if (blockheight > 0)
+		mvt = new_coin_channel_open(tmpctx,
+					    &channel->cid,
+					    &channel->funding,
+					    &channel->peer->id,
+					    blockheight,
+					    start_balance,
+					    channel->funding_sats,
+					    channel->opener == LOCAL,
+					    is_leased);
+	else
+		mvt = new_coin_channel_open_proposed(tmpctx,
+					    &channel->cid,
+					    &channel->funding,
+					    &channel->peer->id,
+					    start_balance,
+					    channel->funding_sats,
+					    channel->opener == LOCAL,
+					    is_leased);
 
 	notify_chain_mvt(channel->peer->ld, mvt);
 
 	/* If we pushed sats, *now* record them */
-	if (is_pushed)
+	if (is_pushed && record_push)
 		notify_channel_mvt(channel->peer->ld,
 				   new_coin_channel_push(tmpctx, &channel->cid,
 							 channel->push,
@@ -206,10 +217,12 @@ static void lockin_complete(struct channel *channel)
 	try_update_blockheight(channel->peer->ld, channel,
 			       get_block_height(channel->peer->ld->topology));
 
-	/* Only record this once we get a real confirmation. */
-	if (channel->scid)
-		channel_record_open(channel,
-				    short_channel_id_blocknum(channel->scid));
+	/* Emit an event for the channel open (or channel proposal if blockheight
+	 * is zero) */
+	channel_record_open(channel,
+			    channel->scid ?
+			    short_channel_id_blocknum(channel->scid) : 0,
+			    true);
 }
 
 bool channel_on_funding_locked(struct channel *channel,
@@ -867,9 +880,10 @@ bool channel_tell_depth(struct lightningd *ld,
 		    channel->peer->ld, channel,
 		    get_block_height(channel->peer->ld->topology));
 
-		/* Only record this once we get a real confirmation. */
+		/* Emit channel_open event */
 		channel_record_open(channel,
-				    short_channel_id_blocknum(channel->scid));
+				    short_channel_id_blocknum(channel->scid),
+				    false);
 	}
 	return true;
 }

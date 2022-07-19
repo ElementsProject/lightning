@@ -40,6 +40,7 @@ static const char *mvt_tags[] = {
 	"lease_fee",
 	"leased",
 	"stealable",
+	"channel_proposed",
 };
 
 const char *mvt_tag_str(enum mvt_tag tag)
@@ -194,6 +195,33 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 				  amount, false,
 				  output_val,
 				  output_count);
+}
+
+struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
+						      const struct channel_id *chan_id,
+						      const struct bitcoin_outpoint *out,
+						      const struct node_id *peer_id,
+						      const struct amount_msat amount,
+						      const struct amount_sat output_val,
+						      bool is_opener,
+						      bool is_leased)
+{
+	struct chain_coin_mvt *mvt;
+
+	mvt = new_chain_coin_mvt(ctx, NULL, NULL, out, NULL, 0,
+				 take(new_tag_arr(NULL, CHANNEL_PROPOSED)),
+				 amount, true, output_val, 0);
+	mvt->account_name = type_to_string(mvt, struct channel_id, chan_id);
+	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
+
+	/* If we're the opener, add to the tag list */
+	if (is_opener)
+		tal_arr_expand(&mvt->tags, OPENER);
+
+	if (is_leased)
+		tal_arr_expand(&mvt->tags, LEASED);
+
+	return mvt;
 }
 
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,

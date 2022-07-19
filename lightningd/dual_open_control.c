@@ -1750,7 +1750,8 @@ static void handle_channel_locked(struct subd *dualopend,
 			  REASON_UNKNOWN,
 			  "Lockin complete");
 	channel_record_open(channel,
-			    short_channel_id_blocknum(channel->scid));
+			    short_channel_id_blocknum(channel->scid),
+			    true);
 
 	/* Empty out the inflights */
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);

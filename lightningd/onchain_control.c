@@ -627,11 +627,10 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	/* If we haven't posted the open event yet, post an open */
 	if (!channel->scid || !channel->remote_funding_locked) {
 		u32 blkh;
-		/* Note that blockheight will be zero if it's not in chain
-		 * yet */
+		/* Blockheight will be zero if it's not in chain */
 		blkh = wallet_transaction_height(channel->peer->ld->wallet,
 						 &channel->funding.txid);
-		channel_record_open(channel, blkh);
+		channel_record_open(channel, blkh, true);
 	}
 
 
