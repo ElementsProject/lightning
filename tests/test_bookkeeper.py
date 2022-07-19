@@ -22,6 +22,7 @@ def find_first_tag(evs, tag):
 
 
 @pytest.mark.developer("dev-ignore-htlcs")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2)
 
@@ -69,6 +70,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     assert Millisatoshi(close_fee[0]['credit']) + Millisatoshi(deposit['credit']) == Millisatoshi(close['debit'])
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     """Test closing balances when HTLCs are: sub 1-satoshi"""
     l1, l2 = node_factory.line_graph(2)
@@ -107,6 +109,7 @@ def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     assert Millisatoshi(close_fee[0]['credit']) + Millisatoshi(deposit['credit']) == Millisatoshi(close['debit'])
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     """ Withdrawals to an external address shouldn't be included
     in the income statements until confirmed"""
@@ -253,6 +256,7 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
     assert Millisatoshi(bal['balance']) == amount_msat * 2 - fees
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     """ If a withdraw to an external gets RBF'd,
         it should *not* show up in our income ever.
