@@ -42,25 +42,38 @@ static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 	return NULL;
 }
 
-static struct command_result *json_channel_apy(struct command *cmd,
-					       const char *buf,
-					       const jsmntok_t *params)
+struct apy_req {
+	u64 *start_time;
+	u64 *end_time;
+};
+
+static struct command_result *
+getblockheight_done(struct command *cmd, const char *buf,
+		    const jsmntok_t *result,
+		    struct apy_req *req)
 {
+	const jsmntok_t *blockheight_tok;
+	u32 blockheight;
 	struct json_stream *res;
 	struct channel_apy **apys, *net_apys;
-	u64 *start_time, *end_time;
 
-	if (!param(cmd, buf, params,
-		   p_opt_def("start_time", param_u64, &start_time, 0),
-		   p_opt_def("end_time", param_u64, &end_time, SQLITE_MAX_UINT),
-		   NULL))
-		return command_param_failed();
+	blockheight_tok = json_get_member(buf, result, "blockheight");
+	if (!blockheight_tok)
+		plugin_err(cmd->plugin, "getblockheight: "
+			   "getinfo gave no 'blockheight'? '%.*s'",
+			   result->end - result->start, buf);
+
+	if (!json_to_u32(buf, blockheight_tok, &blockheight))
+		plugin_err(cmd->plugin, "getblockheight: "
+			   "getinfo gave non-unsigned-32-bit 'blockheight'? '%.*s'",
+			   result->end - result->start, buf);
 
 	/* Get the income events */
 	db_begin_transaction(db);
-	apys = compute_channel_apys(cmd, db, *start_time, *end_time,
-				    /* FIXME: current blockheight */
-				    1414);
+	apys = compute_channel_apys(cmd, db,
+				    *req->start_time,
+				    *req->end_time,
+				    blockheight);
 	db_commit_transaction(db);
 
 	/* Setup the net_apys entry */
@@ -89,6 +102,28 @@ static struct command_result *json_channel_apy(struct command *cmd,
 	json_array_end(res);
 
 	return command_finished(cmd, res);
+}
+
+static struct command_result *json_channel_apy(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	struct out_req *req;
+	struct apy_req *apyreq = tal(cmd, struct apy_req);
+
+	if (!param(cmd, buf, params,
+		   p_opt_def("start_time", param_u64, &apyreq->start_time, 0),
+		   p_opt_def("end_time", param_u64, &apyreq->end_time,
+			     SQLITE_MAX_UINT),
+		   NULL))
+		return command_param_failed();
+
+	/* First get the current blockheight */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "getinfo",
+				    &getblockheight_done,
+				    forward_error,
+				    apyreq);
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *param_csv_format(struct command *cmd, const char *name,
