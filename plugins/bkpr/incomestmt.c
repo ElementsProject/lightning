@@ -105,6 +105,26 @@ static struct income_event *onchainfee_to_income(const tal_t *ctx,
 	return inc;
 }
 
+/* CSVs don't like ',' in the middle. We short circuit this
+ * by wrapping the desc in double-quotes ("). But what if
+ * there's already double-quotes? Well we swap these to
+ * single-quotes (') and then use the json_escape function */
+static char *csv_safe_str(const tal_t *ctx, char *input TAKES)
+{
+	struct json_escape *esc;
+	char *dupe;
+
+	/* Update the double-quotes in place */
+	dupe = tal_strdup(ctx, input);
+	for (size_t i = 0; dupe[i] != '\0'; i++) {
+		if (dupe[i] == '"')
+			dupe[i] = '\'';
+	}
+
+	esc = json_escape(ctx, dupe);
+	return tal_fmt(ctx, "\"%s\"", esc->s);
+}
+
 static struct income_event *maybe_chain_income(const tal_t *ctx,
 					       struct db *db,
 					       struct account *acct,
@@ -589,7 +609,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 
 	/* Description */
 	if (ev->desc)
-		fprintf(csvf, "%s", ev->desc);
+		fprintf(csvf, "%s", csv_safe_str(ev, ev->desc));
 	fprintf(csvf, ",");
 
 	/* TxHash */
@@ -733,7 +753,7 @@ static void harmony_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	fprintf(csvf, ",");
 
 	/* ",Note"  description (may be NULL) */
-	fprintf(csvf, "%s", ev->desc ? ev->desc : "");
+	fprintf(csvf, "%s", ev->desc ? csv_safe_str(ev, ev->desc) : "");
 }
 
 static void quickbooks_header(FILE *csvf)
@@ -766,7 +786,7 @@ static void quickbooks_entry(const tal_t *ctx, FILE *csvf, struct income_event *
 	/* Description */
 	fprintf(csvf, "%s (%s) %s: %s",
 		ev->tag, ev->acct_name, ev->currency,
-		ev->desc ? ev->desc : "no desc");
+		ev->desc ? csv_safe_str(ev, ev->desc) : "no desc");
 	fprintf(csvf, ",");
 
 	/* Credit */
