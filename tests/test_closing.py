@@ -984,7 +984,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     assert l3.daemon.is_in_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
 
     # We were making a journal_entry for anchors, but now we ignore them
-    incomes = l2.rpc.listincome()['income_events']
+    incomes = l2.rpc.bkpr_listincome()['income_events']
     assert 'journal_entry' not in [x['tag'] for x in incomes]
 
 
@@ -1760,7 +1760,7 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
     check_utxos_channel(l2, [channel_id], expected_2)
 
     # Make sure that l2's account is considered closed (has a fee output)
-    fees = [e for e in l2.rpc.listincome()['income_events'] if e['tag'] == 'onchain_fee']
+    fees = [e for e in l2.rpc.bkpr_listincome()['income_events'] if e['tag'] == 'onchain_fee']
     assert len(fees) == 1
 
 

@@ -9,6 +9,12 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightningd-config.5 \
 	doc/lightning-addgossip.7 \
 	doc/lightning-autocleaninvoice.7 \
+	doc/lightning-bkpr-channelsapy.7 \
+	doc/lightning-bkpr-dumpincomecsv.7 \
+	doc/lightning-bkpr-inspect.7 \
+	doc/lightning-bkpr-listaccountevents.7 \
+	doc/lightning-bkpr-listbalances.7 \
+	doc/lightning-bkpr-listincome.7 \
 	doc/lightning-check.7 \
 	doc/lightning-checkmessage.7 \
 	doc/lightning-close.7 \

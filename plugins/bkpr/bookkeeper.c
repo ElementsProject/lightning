@@ -85,7 +85,7 @@ getblockheight_done(struct command *cmd, const char *buf,
 	net_apys->total_start_bal = AMOUNT_MSAT(0);
 
 	res = jsonrpc_stream_success(cmd);
-	json_array_start(res, "channel_apys");
+	json_array_start(res, "channels_apy");
 	for (size_t i = 0; i < tal_count(apys); i++) {
 		json_add_channel_apy(res, apys[i]);
 
@@ -1474,14 +1474,14 @@ const struct plugin_notification notifs[] = {
 
 static const struct plugin_command commands[] = {
 	{
-		"listbalances",
+		"bkpr-listbalances",
 		"bookkeeping",
 		"List current account balances",
 		"List of current accounts and their balances",
 		json_list_balances
 	},
 	{
-		"listaccountevents",
+		"bkpr-listaccountevents",
 		"bookkeeping",
 		"List all events for an {account}",
 		"List all events for an {account} (or all accounts, if"
@@ -1489,21 +1489,21 @@ static const struct plugin_command commands[] = {
 		json_list_account_events
 	},
 	{
-		"inspect",
+		"bkpr-inspect",
 		"utilities",
 		"See the current on-chain graph of an {account}",
 		"Prints out the on-chain footprint of a given {account}.",
 		json_inspect
 	},
 	{
-		"listincome",
+		"bkpr-listincome",
 		"bookkeeping",
 		"List all income impacting events",
 		"List all events for this node that impacted income",
 		json_list_income
 	},
 	{
-		"dumpincomecsv",
+		"bkpr-dumpincomecsv",
 		"bookkeeping",
 		"Print out all the income events to a csv file in "
 		" {csv_format",
@@ -1513,7 +1513,7 @@ static const struct plugin_command commands[] = {
 		json_dump_income
 	},
 	{
-		"channelsapy",
+		"bkpr-channelsapy",
 		"bookkeeping",
 		"Stats on channel fund usage",
 		"Print out stats on chanenl fund usage",
