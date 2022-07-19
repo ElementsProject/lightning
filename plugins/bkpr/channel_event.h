@@ -43,6 +43,9 @@ struct channel_event {
 
 	/* What time did the event happen */
 	u64 timestamp;
+
+	/* Description, usually from invoice */
+	const char *desc;
 };
 
 struct channel_event *new_channel_event(const tal_t *ctx,

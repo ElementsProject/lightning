@@ -22,5 +22,7 @@ void json_add_chain_event(struct json_stream *out, struct chain_event *ev)
 		json_add_sha256(out, "payment_id", ev->payment_id);
 	json_add_u64(out, "timestamp", ev->timestamp);
 	json_add_u32(out, "blockheight", ev->blockheight);
+	if (ev->desc)
+		json_add_string(out, "description", ev->desc);
 	json_object_end(out);
 }

@@ -737,3 +737,8 @@ def test_invoice_deschash(node_factory, chainparams):
 
     with pytest.raises(RpcError, match=r'description already removed'):
         l2.rpc.delinvoice('label', "paid", desconly=True)
+
+    # desc-hashes lands in bookkeeper data (description)
+    wait_for(lambda: len([ev for ev in l1.rpc.bkpr_listincome()['income_events'] if ev['tag'] == 'invoice']) == 1)
+    inv = only_one([ev for ev in l1.rpc.bkpr_listincome()['income_events'] if ev['tag'] == 'invoice'])
+    assert inv['description'] == b11['description_hash']

@@ -58,6 +58,11 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 	e->ignored = db_col_int(stmt, "e.ignored") == 1;
 	e->stealable = db_col_int(stmt, "e.stealable") == 1;
 
+	if (!db_col_is_null(stmt, "e.ev_desc"))
+		e->desc = db_col_strdup(e, stmt, "e.ev_desc");
+	else
+		e->desc = NULL;
+
 	return e;
 }
 
@@ -102,6 +107,11 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	e->part_id = db_col_int(stmt, "e.part_id");
 	e->timestamp = db_col_u64(stmt, "e.timestamp");
 
+	if (!db_col_is_null(stmt, "e.ev_desc"))
+		e->desc = db_col_strdup(e, stmt, "e.ev_desc");
+	else
+		e->desc = NULL;
+
 	return e;
 }
 
@@ -130,6 +140,7 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.ignored"
 				     ", e.stealable"
+				     ", e.ev_desc"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -171,6 +182,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.ignored"
 				     ", e.stealable"
+				     ", e.ev_desc"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -205,6 +217,7 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.ignored"
 				     ", e.stealable"
+				     ", e.ev_desc"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -586,6 +599,31 @@ void maybe_mark_account_onchain(struct db *db, struct account *acct)
 	tal_free(ctx);
 }
 
+void add_payment_hash_desc(struct db *db,
+			   struct sha256 *payment_hash,
+			   const char *desc)
+{
+	struct db_stmt *stmt;
+
+	/* Ok, now we update the account with this blockheight */
+	stmt = db_prepare_v2(db, SQL("UPDATE channel_events SET"
+				     "  ev_desc = ?"
+				     " WHERE"
+				     " payment_id = ?"));
+	db_bind_text(stmt, 0, desc);
+	db_bind_sha256(stmt, 1, payment_hash);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Ok, now we update the account with this blockheight */
+	stmt = db_prepare_v2(db, SQL("UPDATE chain_events SET"
+				     "  ev_desc = ?"
+				     " WHERE"
+				     " payment_id = ?"));
+	db_bind_text(stmt, 0, desc);
+	db_bind_sha256(stmt, 1, payment_hash);
+	db_exec_prepared_v2(take(stmt));
+}
+
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 					   struct db *db,
 					   u64 event_db_id)
@@ -611,6 +649,7 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.ignored"
 				     ", e.stealable"
+				     ", e.ev_desc"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -657,6 +696,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.payment_id"
 					     ", e.ignored"
 					     ", e.stealable"
+					     ", e.ev_desc"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -685,6 +725,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.payment_id"
 					     ", e.ignored"
 					     ", e.stealable"
+					     ", e.ev_desc"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -836,6 +877,7 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
+				     ", e.ev_desc"
 				     " FROM channel_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -882,6 +924,7 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
+				     ", e.ev_desc"
 				     " FROM channel_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -1283,9 +1326,10 @@ void log_channel_event(struct db *db,
 				     ", payment_id"
 				     ", part_id"
 				     ", timestamp"
+				     ", ev_desc"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
 	db_bind_text(stmt, 1, e->tag);
@@ -1299,6 +1343,10 @@ void log_channel_event(struct db *db,
 		db_bind_null(stmt, 6);
 	db_bind_int(stmt, 7, e->part_id);
 	db_bind_u64(stmt, 8, e->timestamp);
+	if (e->desc)
+		db_bind_text(stmt, 9, e->desc);
+	else
+		db_bind_null(stmt, 9);
 
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
@@ -1330,6 +1378,7 @@ static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db
 				     ", e.payment_id"
 				     ", e.ignored"
 				     ", e.stealable"
+				     ", e.ev_desc"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -1820,9 +1869,10 @@ bool log_chain_event(struct db *db,
 				     ", spending_txid"
 				     ", ignored"
 				     ", stealable"
+				     ", ev_desc"
 				     ")"
 				     " VALUES "
-				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
 	if (e->origin_acct)
@@ -1851,6 +1901,10 @@ bool log_chain_event(struct db *db,
 
 	db_bind_int(stmt, 13, e->ignored ? 1 : 0);
 	db_bind_int(stmt, 14, e->stealable ? 1 : 0);
+	if (e->desc)
+		db_bind_text(stmt, 15, e->desc);
+	else
+		db_bind_null(stmt, 15);
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
 	e->acct_db_id = acct->db_id;

@@ -95,6 +95,10 @@
                 "txid": {
                   "type": "txid",
                   "description": "The txid of the transaction that created this event"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "The description of this event"
                 }
               },
               "required": [
@@ -124,6 +128,7 @@
                 "debit_msat": {},
                 "currency": {},
                 "timestamp": {},
+                "description": {},
                 "txid": {
                   "type": "txid",
                   "description": "The txid of the transaction that created this event"
@@ -155,6 +160,7 @@
                 "debit_msat": {},
                 "currency": {},
                 "timestamp": {},
+                "description": {},
                 "fees_msat": {
                   "type": "msat",
                   "description": "Amount paid in fees"

@@ -376,3 +376,45 @@ def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     assert len(funds['channels']) == 0
     outs = sum([out['amount_msat'] for out in funds['outputs']])
     assert outs == only_one(wallet_bal['balances'])['balance_msat']
+
+
+def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
+    """
+    When an 'invoice' type event comes through, we look up the description details
+    to include about the item. Particularly useful for CSV outputs etc.
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None})
+
+    # Send l2 funds via the channel
+    bolt11_desc = "test bolt11 description"
+    l1.pay(l2, 11000000, label=bolt11_desc)
+    l1.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -11000000msat')
+    l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 11000000msat')
+
+    # Test paying an bolt11 invoice (rcvr)
+    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
+    inv = only_one([ev for ev in l1_inc_ev if ev['tag'] == 'invoice'])
+    assert inv['description'] == bolt11_desc
+
+    # Test paying an bolt11 invoice (sender)
+    l2_inc_ev = l2.rpc.bkpr_listincome()['income_events']
+    inv = only_one([ev for ev in l2_inc_ev if ev['tag'] == 'invoice'])
+    assert inv['description'] == bolt11_desc
+
+    # Make an offer (l1)
+    bolt12_desc = "test bolt12 description"
+    offer = l1.rpc.call('offer', [100, bolt12_desc])
+    invoice = l2.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
+    paid = l2.rpc.pay(invoice['invoice'])
+    l1.daemon.wait_for_log('coin_move .* [(]invoice[)] 100msat')
+    l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -100msat')
+
+    # Test paying an offer (bolt12) (rcvr)
+    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
+    inv = only_one([ev for ev in l1_inc_ev if 'payment_id' in ev and ev['payment_id'] == paid['payment_hash']])
+    assert inv['description'] == bolt12_desc
+
+    # Test paying an offer (bolt12) (sender)
+    l2_inc_ev = l2.rpc.bkpr_listincome()['income_events']
+    inv = only_one([ev for ev in l2_inc_ev if 'payment_id' in ev and ev['payment_id'] == paid['payment_hash'] and ev['tag'] == 'invoice'])
+    assert inv['description'] == bolt12_desc
