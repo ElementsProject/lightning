@@ -1,7 +1,3 @@
-PLUGIN_BOOKKEEPER_SRC := plugins/bookkeeper.c
-PLUGIN_BOOKKEEPER_HEADER :=
-PLUGIN_BOOKKEEPER_OBJS := $(PLUGIN_BOOKKEEPER_SRC:.c=.o)
-
 PLUGIN_PAY_SRC := plugins/pay.c
 PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 
@@ -64,7 +60,6 @@ PLUGIN_FUNDER_HEADER :=				\
 PLUGIN_FUNDER_OBJS := $(PLUGIN_FUNDER_SRC:.c=.o)
 
 PLUGIN_ALL_SRC :=				\
-	$(PLUGIN_BOOKKEEPER_SRC)		\
 	$(PLUGIN_AUTOCLEAN_SRC)			\
 	$(PLUGIN_chanbackup_SRC)		\
 	$(PLUGIN_BCLI_SRC)			\
@@ -81,7 +76,6 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_SPENDER_SRC)
 
 PLUGIN_ALL_HEADER :=				\
-	$(PLUGIN_BOOKKEEPER_HEADER)		\
 	$(PLUGIN_LIB_HEADER)			\
 	$(PLUGIN_FUNDER_HEADER)			\
 	$(PLUGIN_PAY_LIB_HEADER)		\
@@ -93,7 +87,6 @@ C_PLUGINS :=					\
 	plugins/autoclean			\
 	plugins/chanbackup			\
 	plugins/bcli				\
-	plugins/bookkeeper			\
 	plugins/commando			\
 	plugins/fetchinvoice			\
 	plugins/funder				\
@@ -170,10 +163,10 @@ PLUGIN_COMMON_OBJS :=				\
 	wire/tlvstream.o			\
 	wire/towire.o
 
+include plugins/bkpr/Makefile
+
 # Make all plugins depend on all plugin headers, for simplicity.
 $(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER)
-
-plugins/bookkeeper: bitcoin/chainparams.o common/coin_mvt.o $(PLUGIN_BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJTS) $(PLUGIN_COMMON_OBJS) $(WIRE_OBJS)
 
 plugins/pay: bitcoin/chainparams.o $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossmap.o common/fp16.o common/route.o common/dijkstra.o common/bolt12.o common/bolt12_merkle.o wire/bolt12$(EXP)_wiregen.o bitcoin/block.o
 
