@@ -30,3 +30,8 @@ bool is_channel_account(const struct account *acct)
 	return !streq(acct->name, WALLET)
 	       && !streq(acct->name, "external");
 }
+
+bool is_external_account(const struct account *acct)
+{
+	return streq(acct->name, "external");
+}
