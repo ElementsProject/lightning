@@ -11,10 +11,12 @@
 #include <db/utils.h>
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
+#include <plugins/bkpr/account_entry.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
+
 
 static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *stmt)
 {
@@ -385,6 +387,37 @@ bool find_txo_chain(const tal_t *ctx,
 	}
 
 	return is_complete;
+}
+
+struct account *find_close_account(const tal_t *ctx,
+				   struct db *db,
+				   struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt;
+	struct account *close_acct;
+	char *acct_name;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  a.name"
+				     " FROM chain_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON e.account_id = a.id"
+				     " WHERE "
+				     "  e.tag = ?"
+				     "  AND e.spending_txid = ?"));
+
+	db_bind_text(stmt, 0, mvt_tag_str(CHANNEL_CLOSE));
+	db_bind_txid(stmt, 1, txid);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		acct_name = db_col_strdup(stmt, stmt, "a.name");
+		close_acct = find_account(ctx, db, acct_name);
+	} else
+		close_acct = NULL;
+
+	tal_free(stmt);
+	return close_acct;
 }
 
 void maybe_mark_account_onchain(struct db *db, struct account *acct)
@@ -1255,6 +1288,148 @@ static void insert_chain_fees_diff(struct db *db,
 	db_exec_prepared_v2(take(stmt));
 }
 
+char *update_channel_onchain_fees(const tal_t *ctx,
+				  struct db *db,
+				  struct account *acct)
+{
+	struct chain_event *close_ev, **events;
+	struct amount_msat onchain_amt;
+
+	assert(acct->onchain_resolved_block);
+	close_ev = find_chain_event_by_id(ctx, db,
+					  *acct->closed_event_db_id);
+	events = find_chain_events_bytxid(ctx, db,
+					  close_ev->spending_txid);
+
+	/* Starting balance is close-ev's debit amount */
+	onchain_amt = AMOUNT_MSAT(0);
+	for (size_t i = 0; i < tal_count(events); i++) {
+		struct chain_event *ev = events[i];
+
+		/* Ignore:
+		    - htlc_fufill (to me)
+		    - anchors (already exlc from output)
+		    - to_external (if !htlc_fulfill)
+		*/
+		if (is_channel_acct(ev)
+		    && streq("htlc_fulfill", ev->tag))
+			continue;
+
+		if (streq("anchor", ev->tag))
+			continue;
+
+		/* Ignore stuff it's paid to
+		 * the peer's account (external),
+		 * except for fulfilled htlcs (which originated
+		 * in our balance) */
+		if (streq(ev->acct_name, EXTERNAL_ACCT)
+		    && !streq("htlc_fulfill", ev->tag))
+			continue;
+
+		/* anything else we count? */
+		if (!amount_msat_add(&onchain_amt, onchain_amt,
+				     ev->credit))
+			return tal_fmt(ctx, "Unable to add"
+				       "onchain + %s's credit",
+				       ev->tag);
+	}
+
+	/* Was this an 'old state' tx, where we ended up
+	 * with more sats than we had on record? */
+	if (amount_msat_greater(onchain_amt, close_ev->debit)) {
+		struct channel_event *ev;
+		struct amount_msat diff;
+
+		if (!amount_msat_sub(&diff, onchain_amt,
+				     close_ev->debit))
+			return tal_fmt(ctx, "Unable to sub"
+				       "close debit from onchain_amt");
+		/* Add in/out journal entries for it */
+		ev = new_channel_event(ctx,
+				       tal_fmt(tmpctx, "%s",
+					       account_entry_tag_str(PENALTY_ADJ)),
+				       diff,
+				       AMOUNT_MSAT(0),
+				       AMOUNT_MSAT(0),
+				       close_ev->currency,
+				       NULL, 0,
+				       close_ev->timestamp);
+		log_channel_event(db, acct, ev);
+		ev = new_channel_event(ctx,
+				       tal_fmt(tmpctx, "%s",
+					       account_entry_tag_str(PENALTY_ADJ)),
+				       AMOUNT_MSAT(0),
+				       diff,
+				       AMOUNT_MSAT(0),
+				       close_ev->currency,
+				       NULL, 0,
+				       close_ev->timestamp);
+		log_channel_event(db, acct, ev);
+	} else {
+		struct amount_msat fees;
+		if (!amount_msat_sub(&fees, close_ev->debit,
+				     onchain_amt))
+			return tal_fmt(ctx, "Unable to sub"
+				       "onchain sum from %s",
+				       close_ev->tag);
+
+		insert_chain_fees_diff(db, acct->db_id,
+				       close_ev->spending_txid,
+				       fees, close_ev->currency,
+				       close_ev->timestamp);
+	}
+
+	return NULL;
+}
+
+static char *is_closed_channel_txid(const tal_t *ctx, struct db *db,
+				    struct chain_event *ev,
+				    struct bitcoin_txid *txid,
+				    bool *is_channel_close_tx)
+{
+	struct account *acct;
+	struct chain_event *closed;
+	u8 *inner_ctx = tal(NULL, u8);
+
+	/* Figure out if this is a channel close tx */
+	acct = find_account(inner_ctx, db, ev->acct_name);
+	assert(acct);
+
+	/* There's a separate process for figuring out
+	 * our onchain fees for channel closures */
+	if (!acct->closed_event_db_id) {
+		*is_channel_close_tx = false;
+		tal_free(inner_ctx);
+		return NULL;
+	}
+
+	/* is the closed utxo the same as the one
+	 * we're trying to find fees for now */
+	closed = find_chain_event_by_id(inner_ctx, db,
+			*acct->closed_event_db_id);
+	if (!closed) {
+		*is_channel_close_tx = false;
+		tal_free(inner_ctx);
+		return tal_fmt(ctx, "Unable to find"
+			      " db record (chain_evt)"
+			      " with id %"PRIu64,
+			      *acct->closed_event_db_id);
+	}
+
+	if (!closed->spending_txid) {
+		*is_channel_close_tx = false;
+		tal_free(inner_ctx);
+		return tal_fmt(ctx, "Marked a closing"
+			      " event that's not"
+			      " actually a spend");
+	}
+
+	*is_channel_close_tx =
+		bitcoin_txid_eq(txid, closed->spending_txid);
+	tal_free(inner_ctx);
+	return NULL;
+}
+
 char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 			        struct bitcoin_txid *txid)
 {
@@ -1278,40 +1453,19 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 		goto finished;
 
 	for (size_t i = 0; i < tal_count(events); i++) {
+		bool is_channel_close_tx;
+		err = is_closed_channel_txid(ctx, db,
+					     events[i], txid,
+					     &is_channel_close_tx);
+
+		if (err)
+			goto finished;
+
+		/* We skip channel close txs here! */
+		if (is_channel_close_tx)
+			goto finished;
+
 		if (events[i]->spending_txid) {
-			struct account *acct;
-			/* Figure out if this is a channel close
-			 * that we're not the opener for */
-			acct = find_account(inner_ctx, db,
-					    events[i]->acct_name);
-			assert(acct);
-
-			/* If any of the spending_txid accounts are
-			 * close accounts and we're not the opener,
-			 * we end things */
-			if (acct->closed_event_db_id && !acct->we_opened) {
-				struct chain_event *closed;
-				/* is the closed utxo the same as the one
-				 * we're trying to find fees for now */
-				closed = find_chain_event_by_id(inner_ctx,
-						db, *acct->closed_event_db_id);
-				if (!closed) {
-					err = tal_fmt(ctx, "Unable to find"
-						      " db record (chain_evt)"
-						      " with id %"PRIu64,
-						      *acct->closed_event_db_id);
-					goto finished;
-				}
-				if (!closed->spending_txid) {
-					err = tal_fmt(ctx, "Marked a closing"
-						      " event that's not"
-						      " actually a spend");
-					goto finished;
-				}
-
-				if (bitcoin_txid_eq(txid, closed->spending_txid))
-					goto finished;
-			}
 			if (!amount_msat_add(&withdraw_msat, withdraw_msat,
 					     events[i]->debit)) {
 				err = tal_fmt(ctx, "Overflow adding withdrawal debits for"
@@ -1366,9 +1520,6 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 	if (amount_msat_less(withdraw_msat, deposit_msat))
 		goto finished;
 
-	/* At this point, we have no way to know we've gotten all the data.
-	 * But that's what the 'onchain_resolved_block' marker on
-	 * accounts is for */
 	if (!amount_msat_sub(&fees_msat, withdraw_msat, deposit_msat)) {
 		err = tal_fmt(ctx, "Err subtracting withdraw %s from deposit %s"
 			      " for txid %s",
