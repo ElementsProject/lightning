@@ -335,10 +335,13 @@ static void record_ignored_wallet_deposit(struct tracked_output *out)
 
 static void record_anchor(struct tracked_output *out)
 {
-	send_coin_mvt(take(new_coin_wallet_deposit(NULL,
+	enum mvt_tag *tags = new_tag_arr(NULL, ANCHOR);
+	tal_arr_expand(&tags, IGNORED);
+	send_coin_mvt(take(new_coin_wallet_deposit_tagged(NULL,
 					&out->outpoint,
 					out->tx_blockheight,
-					out->sat, ANCHOR)));
+					out->sat,
+					tags)));
 }
 
 static void record_coin_movements(struct tracked_output *out,
