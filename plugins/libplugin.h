@@ -17,6 +17,7 @@
 #include <common/node_id.h>
 #include <common/status_levels.h>
 #include <common/utils.h>
+#include <stdarg.h>
 
 struct json_out;
 struct plugin;
@@ -225,6 +226,9 @@ struct command_result *command_param_failed(void);
 
 /* Call this on fatal error. */
 void NORETURN plugin_err(struct plugin *p, const char *fmt, ...);
+
+/* Call this on fatal error. */
+void NORETURN plugin_errv(struct plugin *p, const char *fmt, va_list ap);
 
 /* Normal exit (makes sure to flush output!). */
 void NORETURN plugin_exit(struct plugin *p, int exitcode);

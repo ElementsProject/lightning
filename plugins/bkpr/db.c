@@ -13,6 +13,8 @@ struct migration {
 	void (*func)(struct plugin *p, struct db *db);
 };
 
+static struct plugin *plugin;
+
 /* Do not reorder or remove elements from this array.
  * It is used to migrate existing databases from a prevoius state, based on
  * string indicies */
@@ -136,21 +138,21 @@ static bool db_migrate(struct plugin *p, struct db *db)
 void db_fatal(const char *fmt, ...)
 {
 	va_list ap;
-
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	fprintf(stderr, "\n");
+	plugin_errv(plugin, fmt, ap);
+	/* Won't actually exit, but va_end() required to balance va_start in standard. */
 	va_end(ap);
-
-	exit(1);
 }
 #endif /* DB_FATAL */
 
 struct db *db_setup(const tal_t *ctx, struct plugin *p, char *db_dsn)
 {
 	bool migrated;
-	struct db *db = db_open(ctx, db_dsn);
+	struct db *db;
 
+	/* Set global for db_fatal */
+	plugin = p;
+	db = db_open(ctx, db_dsn);
 	db->report_changes_fn = NULL;
 
 	db_begin_transaction(db);
