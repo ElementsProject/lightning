@@ -325,8 +325,11 @@ static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
 
 	of->acct_db_id = db_col_u64(stmt, "account_id");
 	db_col_txid(stmt, "txid", &of->txid);
-	db_col_amount_msat(stmt, "amount", &of->amount);
+	db_col_amount_msat(stmt, "credit", &of->credit);
+	db_col_amount_msat(stmt, "debit", &of->debit);
 	of->currency = db_col_strdup(of, stmt, "currency");
+	of->timestamp = db_col_u64(stmt, "timestamp");
+	of->update_count = db_col_int(stmt, "update_count");
 
 	return of;
 }
@@ -339,10 +342,15 @@ struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  account_id"
 				     ", txid"
-				     ", amount"
+				     ", credit"
+				     ", debit"
 				     ", currency"
+				     ", timestamp"
+				     ", update_count"
 				     " FROM onchain_fees"
-				     " ORDER BY account_id"));
+				     " ORDER BY account_id"
+				     ", txid"
+				     ", update_count"));
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct onchain_fee *, 0);
@@ -434,8 +442,11 @@ struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  account_id"
 				     ", txid"
-				     ", amount"
+				     ", credit"
+				     ", debit"
 				     ", currency"
+				     ", timestamp"
+				     ", update_count"
 				     " FROM onchain_fees"
 				     " WHERE account_id = ?;"));
 
@@ -678,58 +689,81 @@ static u64 find_acct_id(struct db *db, const char *name)
 	return acct_id;
 }
 
-static void update_or_insert_chain_fees(struct db *db,
-					u64 acct_id,
-					struct bitcoin_txid *txid,
-					struct amount_msat *amount,
-					const char *currency)
+static void insert_chain_fees_diff(struct db *db,
+				   u64 acct_id,
+				   struct bitcoin_txid *txid,
+				   struct amount_msat amount,
+				   const char *currency,
+				   u64 timestamp)
 {
 	struct db_stmt *stmt;
+	u32 update_count;
+	struct amount_msat current_amt, credit, debit;
 
 	/* First, look to see if there's an already existing
 	 * record to update */
 	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  1"
+				     "  update_count"
+				     ", credit"
+				     ", debit"
 				     " FROM onchain_fees"
 				     " WHERE txid = ?"
-				     " AND account_id = ?"));
+				     " AND account_id = ?"
+				     " ORDER BY update_count"));
 
 	db_bind_txid(stmt, 0, txid);
 	db_bind_u64(stmt, 1, acct_id);
 	db_query_prepared(stmt);
 
 	/* If there's no current record, add it */
-	if (!db_step(stmt)) {
-		tal_free(stmt);
+	current_amt = AMOUNT_MSAT(0);
+	update_count = 0;
+	while (db_step(stmt)) {
+		update_count = db_col_int(stmt, "update_count");
+		db_col_amount_msat(stmt, "credit", &credit);
+		db_col_amount_msat(stmt, "debit", &debit);
 
-		stmt = db_prepare_v2(db, SQL("INSERT INTO onchain_fees"
-					     " ("
-					     "  account_id"
-					     ", txid"
-					     ", amount"
-					     ", currency"
-					     ") VALUES"
-					     " (?, ?, ?, ?);"));
+		/* These should apply perfectly, as we sorted them by
+		 * insert order */
+		if (!amount_msat_add(&current_amt, current_amt, credit))
+			db_fatal("Overflow when adding onchain fees");
 
-		db_bind_u64(stmt, 0, acct_id);
-		db_bind_txid(stmt, 1, txid);
-		db_bind_amount_msat(stmt, 2, amount);
-		db_bind_text(stmt, 3, currency);
-		db_exec_prepared_v2(take(stmt));
-		return;
+		if (!amount_msat_sub(&current_amt, current_amt, debit))
+			db_fatal("Underflow when subtracting onchain fees");
+
 	}
-
-	/* Otherwise, we update the existing record */
-	db_col_ignore(stmt, "1");
 	tal_free(stmt);
-	stmt = db_prepare_v2(db, SQL("UPDATE onchain_fees SET"
-				     "  amount = ?"
-				     " WHERE txid = ?"
-				     " AND account_id = ?"));
 
-	db_bind_amount_msat(stmt, 0, amount);
+	/* If they're already equal, no need to update */
+	if (amount_msat_eq(current_amt, amount))
+		return;
+
+	if (!amount_msat_sub(&credit, amount, current_amt)) {
+		credit = AMOUNT_MSAT(0);
+		if (!amount_msat_sub(&debit, current_amt, amount))
+			db_fatal("shouldn't happen, unable to subtract");
+	} else
+		debit = AMOUNT_MSAT(0);
+
+	stmt = db_prepare_v2(db, SQL("INSERT INTO onchain_fees"
+				     " ("
+				     "  account_id"
+				     ", txid"
+				     ", credit"
+				     ", debit"
+				     ", currency"
+				     ", timestamp"
+				     ", update_count"
+				     ") VALUES"
+				     " (?, ?, ?, ?, ?, ?, ?);"));
+
+	db_bind_u64(stmt, 0, acct_id);
 	db_bind_txid(stmt, 1, txid);
-	db_bind_u64(stmt, 2, acct_id);
+	db_bind_amount_msat(stmt, 2, &credit);
+	db_bind_amount_msat(stmt, 3, &debit);
+	db_bind_text(stmt, 4, currency);
+	db_bind_u64(stmt, 5, timestamp);
+	db_bind_int(stmt, 6, ++update_count);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -872,9 +906,9 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 			fees = fee_part_msat;
 
 		/* FIXME: fee_currency property of acct? */
-		update_or_insert_chain_fees(db, last_id,
-					    txid, &fees,
-					    events[i]->currency);
+		insert_chain_fees_diff(db, last_id, txid, fees,
+				       events[i]->currency,
+				       events[i]->timestamp);
 
 	}
 
