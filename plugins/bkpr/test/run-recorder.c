@@ -363,6 +363,7 @@ static struct chain_event *make_chain_event(const tal_t *ctx,
 	ev->timestamp = 1919191;
 	ev->blockheight = blockheight;
 	ev->ignored = false;
+	ev->stealable = false;
 	memset(&ev->outpoint.txid, outpoint_char, sizeof(struct bitcoin_txid));
 	ev->outpoint.n = outnum;
 
@@ -965,6 +966,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev1->timestamp = 1919191;
 	ev1->blockheight = 1919191;
 	ev1->ignored = false;
+	ev1->stealable  = false;
 	memset(&ev1->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
 	ev1->outpoint.n = 1;
 	ev1->spending_txid = tal(ctx, struct bitcoin_txid);
@@ -985,6 +987,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev2->timestamp = 1919191;
 	ev2->blockheight = 1919191;
 	ev2->ignored = false;
+	ev2->stealable = false;
 	memset(&ev2->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
 	ev2->outpoint.n = 1;
 	ev2->spending_txid = NULL;
@@ -1002,6 +1005,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev3->timestamp = 3939393;
 	ev3->blockheight = 3939393;
 	ev3->ignored = false;
+	ev3->stealable = false;
 	memset(&ev3->outpoint.txid, 'E', sizeof(struct bitcoin_txid));
 	ev3->outpoint.n = 1;
 	ev3->spending_txid = tal(ctx, struct bitcoin_txid);
@@ -1228,6 +1232,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	ev1->timestamp = 1919191;
 	ev1->blockheight = 1919191;
 	ev1->ignored = false;
+	ev1->stealable = false;
 	memset(&ev1->outpoint.txid, 'D', sizeof(struct bitcoin_txid));
 	ev1->outpoint.n = 1;
 	ev1->spending_txid = tal(ctx, struct bitcoin_txid);

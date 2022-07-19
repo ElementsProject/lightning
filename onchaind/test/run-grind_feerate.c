@@ -154,6 +154,14 @@ struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx UNNEEDED,
 						 enum mvt_tag tag)
 
 { fprintf(stderr, "new_coin_external_deposit called!\n"); abort(); }
+/* Generated stub for new_coin_external_deposit_tags */
+struct chain_coin_mvt *new_coin_external_deposit_tags(const tal_t *ctx UNNEEDED,
+						      const struct bitcoin_outpoint *outpoint UNNEEDED,
+						      u32 blockheight UNNEEDED,
+						      struct amount_sat amount UNNEEDED,
+						      enum mvt_tag *tags)
+
+{ fprintf(stderr, "new_coin_external_deposit_tags called!\n"); abort(); }
 /* Generated stub for new_coin_external_spend */
 struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
@@ -163,6 +171,15 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx UNNEEDED,
 					       enum mvt_tag tag)
 
 { fprintf(stderr, "new_coin_external_spend called!\n"); abort(); }
+/* Generated stub for new_coin_external_spend_tags */
+struct chain_coin_mvt *new_coin_external_spend_tags(const tal_t *ctx UNNEEDED,
+						    const struct bitcoin_outpoint *outpoint UNNEEDED,
+						    const struct bitcoin_txid *txid UNNEEDED,
+						    u32 blockheight UNNEEDED,
+						    struct amount_sat amount UNNEEDED,
+						    enum mvt_tag *tags)
+
+{ fprintf(stderr, "new_coin_external_spend_tags called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit_tagged */
 struct chain_coin_mvt *new_coin_wallet_deposit_tagged(const tal_t *ctx UNNEEDED,
 						      const struct bitcoin_outpoint *outpoint UNNEEDED,

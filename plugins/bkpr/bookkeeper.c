@@ -618,6 +618,7 @@ static bool new_missed_channel_account(struct command *cmd,
 			chain_ev->spending_txid = NULL;
 			chain_ev->payment_id = NULL;
 			chain_ev->ignored = false;
+			chain_ev->stealable = false;
 
 			/* Update the account info too */
 			tags = tal_arr(chain_ev, enum mvt_tag, 1);
@@ -1234,8 +1235,12 @@ parse_and_log_chain_move(struct command *cmd,
 	e->tag = mvt_tag_str(tags[0]);
 
 	e->ignored = false;
-	for (size_t i = 0; i < tal_count(tags); i++)
+	e->stealable = false;
+	for (size_t i = 0; i < tal_count(tags); i++) {
 		e->ignored |= tags[i] == IGNORED;
+		e->stealable |= tags[i] == STEALABLE;
+	}
+
 
 	db_begin_transaction(db);
 	acct = find_account(cmd, db, acct_name);

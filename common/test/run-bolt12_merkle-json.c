@@ -47,12 +47,10 @@ const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
 char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_strdup called!\n"); abort(); }
 /* Generated stub for json_to_u32 */
-bool json_to_u32(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		 uint32_t *num UNNEEDED)
+bool json_to_u32(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, u32 *num UNNEEDED)
 { fprintf(stderr, "json_to_u32 called!\n"); abort(); }
 /* Generated stub for json_to_u64 */
-bool json_to_u64(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		 uint64_t *num UNNEEDED)
+bool json_to_u64(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, u64 *num UNNEEDED)
 { fprintf(stderr, "json_to_u64 called!\n"); abort(); }
 /* Generated stub for json_tok_full */
 const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEEDED)
