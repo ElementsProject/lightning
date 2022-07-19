@@ -171,6 +171,14 @@ char *update_channel_onchain_fees(const tal_t *ctx,
  * The point of this is to allow us to prune data, eventually */
 void maybe_mark_account_onchain(struct db *db, struct account *acct);
 
+/* When we make external deposits from the wallet, we don't
+ * count them until any output that was spent *into* them is
+ * confirmed onchain.
+ *
+ * This method updates the blockheight on these events to the
+ * height an input was spent into */
+void maybe_closeout_external_deposits(struct db *db, struct chain_event *ev);
+
 /* Log a channel event */
 void log_channel_event(struct db *db,
 		       const struct account *acct,

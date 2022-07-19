@@ -1638,6 +1638,44 @@ finished:
 	return err;
 }
 
+void maybe_closeout_external_deposits(struct db *db,
+			              struct chain_event *ev)
+{
+	struct db_stmt *stmt;
+
+	assert(ev->spending_txid);
+	stmt = db_prepare_v2(db, SQL("SELECT "
+				     "  e.id"
+				     " FROM chain_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON e.account_id = a.id"
+				     " WHERE e.blockheight = ?"
+				     " AND e.utxo_txid = ?"
+				     " AND a.name = ?"));
+
+	/* Blockheight for unconfirmeds is zero */
+	db_bind_int(stmt, 0, 0);
+	db_bind_txid(stmt, 1, ev->spending_txid);
+	db_bind_text(stmt, 2, EXTERNAL_ACCT);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct db_stmt *update_stmt;
+		u64 id;
+
+		id = db_col_u64(stmt, "e.id");
+		update_stmt = db_prepare_v2(db, SQL("UPDATE chain_events SET"
+						    " blockheight = ?"
+						    " WHERE id = ?"));
+
+		db_bind_int(update_stmt, 0, ev->blockheight);
+		db_bind_u64(update_stmt, 1, id);
+		db_exec_prepared_v2(take(update_stmt));
+	}
+
+	tal_free(stmt);
+}
+
 bool log_chain_event(struct db *db,
 		     const struct account *acct,
 		     struct chain_event *e)
