@@ -756,7 +756,11 @@ listpeers_done(struct command *cmd, const char *buf,
 			   "Unable to find account %s in listpeers",
 			   info->acct->name);
 
-	/* FIXME: maybe mark channel as 'onchain_resolved' */
+	/* Maybe mark acct as onchain resolved */
+	db_begin_transaction(db);
+	if (info->acct->closed_event_db_id)
+		maybe_mark_account_onchain(db, info->acct);
+	db_commit_transaction(db);
 	return notification_handled(cmd);
 }
 
@@ -1078,9 +1082,11 @@ parse_and_log_chain_move(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
-	/* FIXME: maybe mark channel as 'onchain_resolved' */
-	if (err)
-		plugin_err(cmd->plugin, err);
+	/* Maybe mark acct as onchain resolved */
+	db_begin_transaction(db);
+	if (acct->closed_event_db_id)
+		maybe_mark_account_onchain(db, acct);
+	db_commit_transaction(db);
 
 	return notification_handled(cmd);;
 }
