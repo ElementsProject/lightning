@@ -1447,6 +1447,7 @@ class NodeFactory(object):
         # Get the DB backend DSN we should be using for this test and this
         # node.
         db = self.db_provider.get_db(os.path.join(lightning_dir, TEST_NETWORK), self.testname, node_id)
+        db.provider = self.db_provider
         node = self.node_cls(
             node_id, lightning_dir, self.bitcoind, self.executor, self.valgrind, db=db,
             port=port, options=options, may_fail=may_fail or expect_fail,

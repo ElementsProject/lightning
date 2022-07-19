@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Union
 class Sqlite3Db(object):
     def __init__(self, path: str) -> None:
         self.path = path
+        self.provider = None
 
     def get_dsn(self) -> None:
         """SQLite3 doesn't provide a DSN, resulting in no CLI-option.
@@ -59,6 +60,7 @@ class PostgresDb(object):
     def __init__(self, dbname, port):
         self.dbname = dbname
         self.port = port
+        self.provider = None
 
         self.conn = psycopg2.connect("dbname={dbname} user=postgres host=localhost port={port}".format(
             dbname=dbname, port=port
