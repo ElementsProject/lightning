@@ -26,6 +26,7 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 	ev->payment_id = tal_steal(ev, payment_id);
 	ev->part_id = part_id;
 	ev->timestamp = timestamp;
+	ev->desc = NULL;
 
 	return ev;
 }
@@ -47,5 +48,7 @@ void json_add_channel_event(struct json_stream *out,
 		json_add_u32(out, "part_id", ev->part_id);
 	}
 	json_add_u64(out, "timestamp", ev->timestamp);
+	if (ev->desc)
+		json_add_string(out, "description", ev->desc);
 	json_object_end(out);
 }

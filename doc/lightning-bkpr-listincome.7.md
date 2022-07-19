@@ -33,6 +33,7 @@ On success, an object containing **income_events** is returned.  It is an array 
 - **debit_msat** (msat): Amount spent (expenses)
 - **currency** (string): human-readable bech32 part for this coin type
 - **timestamp** (u32): Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp
+- **description** (string, optional): More information about this event. If a `invoice` type, typically the bolt11/bolt12 description
 - **outpoint** (string, optional): The txid:outnum for this event, if applicable
 - **txid** (txid, optional): The txid of the transaction that created this event, if applicable
 - **payment_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
@@ -55,4 +56,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:400ac5e6719a7ae5ec7078a2cd220d91ab7e66ad45f08b46257e6ec04dcdeb4c)
+[comment]: # ( SHA256STAMP:ab8508af0f40587c5a804f6981591564fe2d18b4fe3fbe7793e6a489607f7e0a)
