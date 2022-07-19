@@ -68,6 +68,10 @@ struct chain_coin_mvt {
 	const struct bitcoin_txid *tx_txid;
 	const struct bitcoin_outpoint *outpoint;
 
+	/* The id of the peer we have this channel with.
+	 * Only on our channel_open events */
+	const struct node_id *peer_id;
+
 	/* some on-chain movements have a payment hash */
 	struct sha256 *payment_hash;
 
@@ -104,6 +108,9 @@ struct mvt_id {
 struct coin_mvt {
 	/* name of 'account': wallet, external, <channel_id> */
 	const char *account_id;
+
+	/* Peer that this event occurred with */
+	const struct node_id *peer_id;
 
 	/* if account_id is external, the account this 'impacted' */
 	const char *originating_acct;
@@ -183,6 +190,7 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     const struct channel_id *chan_id,
 					     const struct bitcoin_outpoint *out,
+					     const struct node_id *peer_id,
 					     u32 blockheight,
 					     const struct amount_msat amount,
 					     const struct amount_sat output_val,
