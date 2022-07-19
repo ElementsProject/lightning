@@ -39,6 +39,7 @@ static const char *mvt_tags[] = {
 	"opener",
 	"lease_fee",
 	"leased",
+	"stealable",
 };
 
 const char *mvt_tag_str(enum mvt_tag tag)
@@ -88,7 +89,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 						 const struct bitcoin_outpoint *outpoint,
 						 const struct sha256 *payment_hash TAKES,
 						 u32 blockheight,
-						 enum mvt_tag *tags TAKES,
+						 enum mvt_tag *tags,
 						 struct amount_msat amount,
 						 bool is_credit,
 						 struct amount_sat output_val,
@@ -252,6 +253,19 @@ struct chain_coin_mvt *new_onchain_htlc_withdraw(const tal_t *ctx,
 				      amount, true);
 }
 
+struct chain_coin_mvt *new_coin_external_spend_tags(const tal_t *ctx,
+						    const struct bitcoin_outpoint *outpoint,
+						    const struct bitcoin_txid *txid,
+						    u32 blockheight,
+						    struct amount_sat amount,
+						    enum mvt_tag *tags TAKES)
+{
+	return new_chain_coin_mvt(ctx, EXTERNAL, txid,
+				  outpoint, NULL, blockheight,
+				  take(tags),
+				  AMOUNT_MSAT(0), true, amount, 0);
+}
+
 struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       const struct bitcoin_outpoint *outpoint,
 					       const struct bitcoin_txid *txid,
@@ -259,11 +273,22 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       struct amount_sat amount,
 					       enum mvt_tag tag)
 {
-	return new_chain_coin_mvt(ctx, EXTERNAL, txid,
-				  outpoint, NULL, blockheight,
-				  take(new_tag_arr(NULL, tag)),
-				  AMOUNT_MSAT(0), true, amount, 0);
+	return new_coin_external_spend_tags(ctx, outpoint,
+					    txid, blockheight, amount,
+					    new_tag_arr(NULL, tag));
 }
+
+struct chain_coin_mvt *new_coin_external_deposit_tags(const tal_t *ctx,
+						 const struct bitcoin_outpoint *outpoint,
+						 u32 blockheight,
+						 struct amount_sat amount,
+						 enum mvt_tag *tags TAKES)
+{
+	return new_chain_coin_mvt_sat(ctx, EXTERNAL, NULL, outpoint, NULL,
+				      blockheight, take(tags),
+				      amount, true);
+}
+
 
 struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 						 const struct bitcoin_outpoint *outpoint,

@@ -235,6 +235,16 @@ static void record_external_spend(const struct bitcoin_txid *txid,
 						   out->sat, tag)));
 }
 
+static void record_external_spend_tags(const struct bitcoin_txid *txid,
+				       struct tracked_output *out,
+				       u32 blockheight,
+				       enum mvt_tag *tags TAKES)
+{
+	send_coin_mvt(take(new_coin_external_spend_tags(NULL, &out->outpoint,
+							txid, blockheight,
+							out->sat, tags)));
+}
+
 static void record_external_output(const struct bitcoin_outpoint *out,
 				   struct amount_sat amount,
 				   u32 blockheight,
@@ -249,6 +259,15 @@ static void record_external_deposit(const struct tracked_output *out,
 				    enum mvt_tag tag)
 {
 	record_external_output(&out->outpoint, out->sat, blockheight, tag);
+}
+
+static void record_external_deposit_tags(const struct tracked_output *out,
+					 u32 blockheight,
+					 enum mvt_tag *tags TAKES)
+{
+	send_coin_mvt(take(new_coin_external_deposit_tags(NULL, &out->outpoint,
+							  blockheight, out->sat,
+							  tags)));
 }
 
 static void record_mutual_close(const struct tx_parts *tx,
@@ -358,32 +377,36 @@ static void record_coin_movements(struct tracked_output *out,
 	 * AND so we can accurately calculate our on-chain fee burden */
 	if (out->tx_type == OUR_HTLC_TIMEOUT_TX
 	    || out->tx_type == OUR_HTLC_SUCCESS_TX)
-		record_channel_deposit(out, blockheight, HTLC_TX);
+		record_channel_deposit(out, out->tx_blockheight, HTLC_TX);
 
 	if (out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US)
-		record_channel_deposit(out, blockheight, HTLC_TIMEOUT);
+		record_channel_deposit(out, out->tx_blockheight, HTLC_TIMEOUT);
 
 	/* there is a case where we've fulfilled an htlc onchain,
 	 * in which case we log a deposit to the channel */
 	if (out->resolved->tx_type == THEIR_HTLC_FULFILL_TO_US
 	    || out->resolved->tx_type == OUR_HTLC_SUCCESS_TX)
-		record_to_us_htlc_fulfilled(out, blockheight);
+		record_to_us_htlc_fulfilled(out, out->tx_blockheight);
 
 	/* If it's our to-us and our close, we publish *another* tx
 	 * which spends the output when the timeout ends */
 	if (out->tx_type == OUR_UNILATERAL) {
 		if (out->output_type == DELAYED_OUTPUT_TO_US)
-			record_channel_deposit(out, blockheight, CHANNEL_TO_US);
+			record_channel_deposit(out, out->tx_blockheight,
+					       CHANNEL_TO_US);
 		else if (out->output_type == OUR_HTLC) {
-			record_channel_deposit(out, blockheight, HTLC_TIMEOUT);
-			record_channel_withdrawal(txid, out, blockheight, HTLC_TIMEOUT);
+			record_channel_deposit(out, out->tx_blockheight,
+					       HTLC_TIMEOUT);
+			record_channel_withdrawal(txid, out, blockheight,
+						  HTLC_TIMEOUT);
 		} else if (out->output_type == THEIR_HTLC)
-			record_channel_withdrawal(txid, out, blockheight, HTLC_FULFILL);
+			record_channel_withdrawal(txid, out, blockheight,
+						  HTLC_FULFILL);
 	}
 
 	if (out->tx_type == THEIR_REVOKED_UNILATERAL
 	    || out->resolved->tx_type == OUR_PENALTY_TX)
-		record_channel_deposit(out, blockheight, PENALTY);
+		record_channel_deposit(out, out->tx_blockheight, PENALTY);
 
 	if (out->resolved->tx_type == OUR_DELAYED_RETURN_TO_WALLET
 	    || out->resolved->tx_type == THEIR_HTLC_FULFILL_TO_US
@@ -1726,15 +1749,25 @@ static void output_spent(struct tracked_output ***outs,
 		case OUTPUT_TO_US:
 		case DELAYED_OUTPUT_TO_US:
 			unknown_spend(out, tx_parts);
-			record_external_deposit(out, tx_blockheight, PENALIZED);
+			record_external_deposit(out, out->tx_blockheight,
+						PENALIZED);
 			break;
 
 		case THEIR_HTLC:
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
-				record_external_deposit(out, out->tx_blockheight,
-							HTLC_TIMEOUT);
-				record_external_spend(&tx_parts->txid, out,
-						      tx_blockheight, HTLC_TIMEOUT);
+				enum mvt_tag *tags;
+				tags = new_tag_arr(NULL, HTLC_TIMEOUT);
+				tal_arr_expand(&tags, STEALABLE);
+
+				record_external_deposit_tags(out, out->tx_blockheight,
+							     /* This takes tags */
+							     tal_dup_talarr(NULL,
+									    enum mvt_tag,
+									    tags));
+				record_external_spend_tags(&tx_parts->txid,
+							   out,
+							   tx_blockheight,
+							   tags);
 
 				/* we've actually got a 'new' output here */
 				steal_htlc_tx(out, outs, tx_parts,
@@ -1768,16 +1801,24 @@ static void output_spent(struct tracked_output ***outs,
 			handle_htlc_onchain_fulfill(out, tx_parts,
 						    &htlc_outpoint);
 
-			record_to_them_htlc_fulfilled(out, tx_blockheight);
-			record_external_spend(&tx_parts->txid, out,
-					      tx_blockheight, HTLC_FULFILL);
+			record_to_them_htlc_fulfilled(out, out->tx_blockheight);
 
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
+				enum mvt_tag *tags = new_tag_arr(NULL,
+								 HTLC_FULFILL);
+				tal_arr_expand(&tags, STEALABLE);
+				record_external_spend_tags(&tx_parts->txid,
+							   out,
+							   tx_blockheight,
+							   tags);
 				steal_htlc_tx(out, outs, tx_parts,
 					      tx_blockheight,
 					      OUR_HTLC_FULFILL_TO_THEM,
 					      &htlc_outpoint);
 			} else {
+				record_external_spend(&tx_parts->txid, out,
+						      tx_blockheight,
+						      HTLC_FULFILL);
 				/* BOLT #5:
 				 *
 				 * ## HTLC Output Handling: Local Commitment,
@@ -1806,7 +1847,7 @@ static void output_spent(struct tracked_output ***outs,
 			resolved_by_other(out, &tx_parts->txid,
 					  THEIR_DELAYED_CHEAT);
 
-			record_external_deposit(out, tx_blockheight, STOLEN);
+			record_external_deposit(out, out->tx_blockheight, STOLEN);
 			break;
 		/* Um, we don't track these! */
 		case OUTPUT_TO_THEM:

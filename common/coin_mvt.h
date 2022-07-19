@@ -14,7 +14,7 @@ enum mvt_type {
 	CHANNEL_MVT = 1,
 };
 
-#define NUM_MVT_TAGS (LEASED + 1)
+#define NUM_MVT_TAGS (STEALABLE + 1)
 enum mvt_tag {
 	DEPOSIT = 0,
 	WITHDRAWAL = 1,
@@ -38,6 +38,7 @@ enum mvt_tag {
 	OPENER = 19,
 	LEASE_FEE = 20,
 	LEASED = 21,
+	STEALABLE = 22,
 };
 
 struct channel_coin_mvt {
@@ -234,6 +235,14 @@ struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
 						enum mvt_tag tag)
 	NON_NULL_ARGS(2, 3);
 
+struct chain_coin_mvt *new_coin_external_spend_tags(const tal_t *ctx,
+						    const struct bitcoin_outpoint *outpoint,
+						    const struct bitcoin_txid *txid,
+						    u32 blockheight,
+						    struct amount_sat amount,
+						    enum mvt_tag *tags)
+	NON_NULL_ARGS(2, 3);
+
 struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       const struct bitcoin_outpoint *outpoint,
 					       const struct bitcoin_txid *txid,
@@ -241,6 +250,13 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       struct amount_sat amount,
 					       enum mvt_tag tag)
 	NON_NULL_ARGS(2, 3);
+
+struct chain_coin_mvt *new_coin_external_deposit_tags(const tal_t *ctx,
+						      const struct bitcoin_outpoint *outpoint,
+						      u32 blockheight,
+						      struct amount_sat amount,
+						      enum mvt_tag *tags)
+	NON_NULL_ARGS(2, 5);
 
 struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 						 const struct bitcoin_outpoint *outpoint,
