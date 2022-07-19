@@ -1159,7 +1159,7 @@ parse_and_log_chain_move(struct command *cmd,
 	struct sha256 *payment_hash = tal(cmd, struct sha256);
 	struct bitcoin_txid *spending_txid = tal(cmd, struct bitcoin_txid);
 	struct node_id *peer_id;
-	struct account *acct;
+	struct account *acct, *orig_acct;
 	u32 closed_count;
 	const char *err;
 
@@ -1265,6 +1265,18 @@ parse_and_log_chain_move(struct command *cmd,
 		account_add(db, acct);
 	}
 
+	if (e->origin_acct) {
+		orig_acct = find_account(cmd, db, e->origin_acct);
+		/* Go fetch the originating account
+		 * (we might not have it) */
+		if (!orig_acct) {
+			orig_acct = new_account(cmd, e->origin_acct, NULL);
+			account_add(db, orig_acct);
+		}
+	} else
+		orig_acct = NULL;
+
+
 	if (!log_chain_event(db, acct, e)) {
 		db_commit_transaction(db);
 		/* This is not a new event, do nothing */
@@ -1301,24 +1313,27 @@ parse_and_log_chain_move(struct command *cmd,
 		db_commit_transaction(db);
 	}
 
-	/* If this is an account close event, it's possible
+	/* If this is a channel account event, it's possible
 	 * that we *never* got the open event. (This happens
 	 * if you add the plugin *after* you've closed the channel) */
-	if (!acct->open_event_db_id
-	    && acct->closed_event_db_id
-	    && *acct->closed_event_db_id == e->db_id) {
+	if ((!acct->open_event_db_id && is_channel_account(acct))
+	    || (orig_acct && is_channel_account(orig_acct)
+		&& !orig_acct->open_event_db_id)) {
 		/* Find the channel open info for this peer */
 		struct out_req *req;
 		struct event_info *info;
 
 		plugin_log(cmd->plugin, LOG_DBG,
-			   "`channel_close` but no open for channel %s."
+			   "channel event received but no open for channel %s."
 			   " Calling `listpeers` to fetch missing info",
 			   acct->name);
 
 		info = tal(NULL, struct event_info);
 		info->ev = tal_steal(info, e);
-		info->acct = tal_steal(info, acct);
+		info->acct = tal_steal(info,
+				       is_channel_account(acct) ?
+				       acct : orig_acct);
+
 		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "listpeers",
 					    listpeers_done,
