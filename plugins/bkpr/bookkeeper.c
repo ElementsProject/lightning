@@ -493,7 +493,7 @@ static bool new_missed_channel_account(struct command *cmd,
 			chain_ev->credit = amt;
 			db_begin_transaction(db);
 			log_chain_event(db, acct, chain_ev);
-			maybe_update_account(db, acct, chain_ev, tags);
+			maybe_update_account(db, acct, chain_ev, tags, 0);
 			maybe_update_onchain_fees(cmd, db, &opt.txid);
 
 			/* We won't count the close's fees if we're
@@ -958,6 +958,7 @@ parse_and_log_chain_move(struct command *cmd,
 	struct sha256 *payment_hash = tal(cmd, struct sha256);
 	struct bitcoin_txid *spending_txid = tal(cmd, struct bitcoin_txid);
 	struct account *acct;
+	u32 closed_count;
 	const char *err;
 
 	/* Fields we expect on *every* chain movement */
@@ -1011,8 +1012,20 @@ parse_and_log_chain_move(struct command *cmd,
 			"{originating_account:%}}",
 			JSON_SCAN_TAL(e, json_strdup, &e->origin_acct));
 
-	if (err)
+	if (err) {
 		e->origin_acct = NULL;
+		err = tal_free(err);
+	}
+
+	err = json_scan(tmpctx, buf, params,
+			"{coin_movement:"
+			"{output_count:%}}",
+			JSON_SCAN(json_to_number, &closed_count));
+
+	if (err) {
+		closed_count = 0;
+		err = tal_free(err);
+	}
 
 	e->payment_id = tal_steal(e, payment_hash);
 
@@ -1039,7 +1052,7 @@ parse_and_log_chain_move(struct command *cmd,
 
 	/* This event *might* have implications for account;
 	 * update as necessary */
-	maybe_update_account(db, acct, e, tags);
+	maybe_update_account(db, acct, e, tags, closed_count);
 
 	/* Can we calculate any onchain fees now? */
 	err = maybe_update_onchain_fees(cmd, db,
