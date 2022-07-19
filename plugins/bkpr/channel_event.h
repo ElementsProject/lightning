@@ -6,6 +6,7 @@
 #include <common/utils.h>
 
 struct amount_msat;
+struct json_stream;
 struct sha256;
 
 struct channel_event {
@@ -53,5 +54,8 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 					struct sha256 *payment_id STEALS,
 					u32 part_id,
 					u64 timestamp);
+
+void json_add_channel_event(struct json_stream *out,
+			    struct channel_event *ev);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_CHANNEL_EVENT_H */

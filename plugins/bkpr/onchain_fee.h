@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_BKPR_ONCHAIN_FEE_H
 
 #include "config.h"
+#include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 
 struct amount_msat;
@@ -31,5 +32,8 @@ struct onchain_fee {
 	/* Count of records we've recorded for this tx */
 	u32 update_count;
 };
+
+void json_add_onchain_fee(struct json_stream *out,
+			  struct onchain_fee *fee);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_ONCHAIN_FEE_H */
