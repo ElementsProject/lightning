@@ -217,11 +217,11 @@ authenticate with username `user` and password `pass`, and then use the
 database `db_name`. The database must exist, but the schema will be managed
 automatically by `lightningd`.
 
- **bookkeeper-dir**=*DIR*
+ **bookkeeper-dir**=*DIR* [plugin `bookkeeper`]
 Directory to keep the accounts.sqlite3 database file in.
 Defaults to lightning-dir.
 
- **bookkeeper-db**=*DSN*
+ **bookkeeper-db**=*DSN* [plugin `bookkeeper`]
 Identify the location of the bookkeeper data. This is a fully qualified data source
 name, including a scheme such as `sqlite3` or `postgres` followed by the
 connection parameters.
