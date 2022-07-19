@@ -164,7 +164,8 @@ void maybe_update_account(struct db *db,
 			  struct account *acct,
 			  struct chain_event *e,
 			  const enum mvt_tag *tags,
-			  u32 closed_count);
+			  u32 closed_count,
+			  struct node_id *peer_id);
 
 /* Update our onchain fees now? */
 char *maybe_update_onchain_fees(const tal_t *ctx,
