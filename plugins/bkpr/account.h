@@ -40,4 +40,7 @@ struct account {
 struct account *new_account(const tal_t *ctx,
 			    const char *name STEALS,
 			    struct node_id *peer_id);
+
+/* Is this a channel account? */
+bool is_channel_account(const struct account *acct);
 #endif /* LIGHTNING_PLUGINS_BKPR_ACCOUNT_H */

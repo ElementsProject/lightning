@@ -36,11 +36,14 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct db *db,
 					      struct account *acct);
-
-/* Calculate the balances for an account */
+/* Calculate the balances for an account
+ *
+ * @calc_sum - compute the total balance. error if negative
+ * */
 char *account_get_balance(const tal_t *ctx,
 			  struct db *db,
 			  const char *acct_name,
+			  bool calc_sum,
 			  struct acct_balance ***balances);
 
 /* List all chain fees, for all accounts */
@@ -70,8 +73,9 @@ void log_channel_event(struct db *db,
 		       const struct account *acct,
 		       struct channel_event *e);
 
-/* Log a chain event. */
-void log_chain_event(struct db *db,
+/* Log a chain event.
+ * Returns true if inserted, false if already exists */
+bool log_chain_event(struct db *db,
 		     const struct account *acct,
 		     struct chain_event *e);
 
