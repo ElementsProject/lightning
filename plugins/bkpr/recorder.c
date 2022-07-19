@@ -917,7 +917,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 {
 	size_t no_accts = 0, plus_ones;
 	u64 last_id = 0, wallet_id, extern_id;
-	bool contains_wallet = false, skip_wallet = true;
+	bool contains_wallet = false, skip_wallet = false;
 	struct chain_event **events;
 	struct amount_msat deposit_msat = AMOUNT_MSAT(0),
 			   withdraw_msat = AMOUNT_MSAT(0),
