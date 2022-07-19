@@ -9,6 +9,7 @@
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
+#include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
@@ -157,6 +158,46 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 
 	db_bind_int(stmt, 0, acct->db_id);
 	return find_chain_events(ctx, take(stmt));
+}
+
+struct chain_event *find_chain_event_by_id(const tal_t *ctx,
+					   struct db *db,
+					   u64 event_db_id)
+{
+	struct db_stmt *stmt;
+	struct chain_event *e;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  e.id"
+				     ", e.account_id"
+				     ", a.name"
+				     ", e.origin"
+				     ", e.tag"
+				     ", e.credit"
+				     ", e.debit"
+				     ", e.output_value"
+				     ", e.currency"
+				     ", e.timestamp"
+				     ", e.blockheight"
+				     ", e.utxo_txid"
+				     ", e.outnum"
+				     ", e.spending_txid"
+				     ", e.payment_id"
+				     " FROM chain_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON e.account_id = a.id"
+				     " WHERE "
+				     " e.id = ?"));
+
+	db_bind_u64(stmt, 0, event_db_id);
+	db_query_prepared(stmt);
+	if (db_step(stmt))
+		e = stmt2chain_event(ctx, stmt);
+	else
+		e = NULL;
+
+	tal_free(stmt);
+	return e;
 }
 
 static struct chain_event *find_chain_event(const tal_t *ctx,
@@ -936,6 +977,39 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 
 	for (size_t i = 0; i < tal_count(events); i++) {
 		if (events[i]->spending_txid) {
+			struct account *acct;
+			/* Figure out if this is a channel close
+			 * that we're not the opener for */
+			acct = find_account(inner_ctx, db,
+					    events[i]->acct_name);
+			assert(acct);
+
+			/* If any of the spending_txid accounts are
+			 * close accounts and we're not the opener,
+			 * we end things */
+			if (acct->closed_event_db_id && !acct->we_opened) {
+				struct chain_event *closed;
+				/* is the closed utxo the same as the one
+				 * we're trying to find fees for now */
+				closed = find_chain_event_by_id(inner_ctx,
+						db, *acct->closed_event_db_id);
+				if (!closed) {
+					err = tal_fmt(ctx, "Unable to find"
+						      " db record (chain_evt)"
+						      " with id %"PRIu64,
+						      *acct->closed_event_db_id);
+					goto finished;
+				}
+				if (!closed->spending_txid) {
+					err = tal_fmt(ctx, "Marked a closing"
+						      " event that's not"
+						      " actually a spend");
+					goto finished;
+				}
+
+				if (bitcoin_txid_eq(txid, closed->spending_txid))
+					goto finished;
+			}
 			if (!amount_msat_add(&withdraw_msat, withdraw_msat,
 					     events[i]->debit)) {
 				err = tal_fmt(ctx, "Overflow adding withdrawal debits for"
