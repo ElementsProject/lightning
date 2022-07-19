@@ -519,7 +519,7 @@ void log_chain_event(struct db *db,
 				     ", spending_txid"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
 	db_bind_text(stmt, 1, e->tag);
