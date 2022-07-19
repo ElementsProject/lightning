@@ -56,7 +56,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     fees = find_tags(evs, 'onchain_fee')
     close_fee = [e for e in fees if e['txid'] == close['txid']]
     assert len(close_fee) == 1
-    assert Millisatoshi(close_fee[0]['credit']) + Millisatoshi(delayed_to['credit']) == Millisatoshi(close['debit'])
+    assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
 
     # l2's fees should equal the trimmed htlc out
     evs = l2.rpc.listaccountevents()['events']
@@ -66,8 +66,8 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     close_fee = [e for e in fees if e['txid'] == close['txid']]
     assert len(close_fee) == 1
     # sent htlc was too small, we lose it, rounded up to nearest sat
-    assert close_fee[0]['credit'] == '101000msat'
-    assert Millisatoshi(close_fee[0]['credit']) + Millisatoshi(deposit['credit']) == Millisatoshi(close['debit'])
+    assert close_fee[0]['credit_msat'] == Millisatoshi('101000msat')
+    assert close_fee[0]['credit_msat'] + deposit['credit_msat'] == close['debit_msat']
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
@@ -96,7 +96,7 @@ def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     fees = find_tags(evs, 'onchain_fee')
     close_fee = [e for e in fees if e['txid'] == close['txid']]
     assert len(close_fee) == 1
-    assert Millisatoshi(close_fee[0]['credit']) + Millisatoshi(delayed_to['credit']) == Millisatoshi(close['debit'])
+    assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
 
     evs = l2.rpc.listaccountevents()['events']
     close = find_first_tag(evs, 'channel_close')
@@ -105,8 +105,8 @@ def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     close_fee = [e for e in fees if e['txid'] == close['txid']]
     assert len(close_fee) == 1
     # too small to fit, we lose them as miner fees
-    assert close_fee[0]['credit'] == '333msat'
-    assert Millisatoshi(close_fee[0]['credit']) + Millisatoshi(deposit['credit']) == Millisatoshi(close['debit'])
+    assert close_fee[0]['credit_msat'] == Millisatoshi('333msat')
+    assert close_fee[0]['credit_msat'] + deposit['credit_msat'] == close['debit_msat']
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
@@ -141,15 +141,15 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     for inc in incomes:
         assert inc['account'] == 'wallet'
         assert inc['tag'] == 'deposit'
-        assert Millisatoshi(inc['credit']) == amount_msat
+        assert inc['credit_msat'] == amount_msat
     # The event should show up in the 'listaccountevents' however
     events = l1.rpc.listaccountevents()['events']
     assert len(events) == 3
     external = [e for e in events if e['account'] == 'external'][0]
-    assert Millisatoshi(external['credit']) == Millisatoshi(amount // 2 * 1000)
+    assert external['credit_msat'] == Millisatoshi(amount // 2 * 1000)
 
     btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
-    assert Millisatoshi(btc_balance['balance']) == amount_msat * 2
+    assert btc_balance['balance_msat'] == amount_msat * 2
 
     # Restart the node, issues a balance snapshot
     # If we were counting these incorrectly,
@@ -166,7 +166,7 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
 
     # the wallet balance should be unchanged
     btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
-    assert Millisatoshi(btc_balance['balance']) == amount_msat * 2
+    assert btc_balance['balance_msat'] == amount_msat * 2
 
     # ok now we mine a block
     bitcoind.generate_block(1)
@@ -177,16 +177,16 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     incomes = l1.rpc.listincome()['income_events']
     # 2 wallet deposits, 1 wallet withdrawal, 1 onchain_fee
     assert len(incomes) == 4
-    withdraw_amt = Millisatoshi(find_tags(incomes, 'withdrawal')[0]['debit'])
+    withdraw_amt = find_tags(incomes, 'withdrawal')[0]['debit_msat']
     assert withdraw_amt == Millisatoshi(amount // 2 * 1000)
 
     fee_events = find_tags(incomes, 'onchain_fee')
     assert len(fee_events) == 1
-    fees = Millisatoshi(fee_events[0]['debit'])
+    fees = fee_events[0]['debit_msat']
 
     # wallet balance is decremented now
     btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
-    assert Millisatoshi(btc_balance['balance']) == amount_msat * 2 - withdraw_amt - fees
+    assert btc_balance['balance_msat'] == amount_msat * 2 - withdraw_amt - fees
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
@@ -233,7 +233,7 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
 
     # the wallet balance should be unchanged
     btc_balance = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
-    assert Millisatoshi(btc_balance['balance']) == amount_msat * 2
+    assert btc_balance['balance_msat'] == amount_msat * 2
 
     # ok now we mine a block
     bitcoind.generate_block(1)
@@ -248,12 +248,12 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
 
     fee_events = find_tags(incomes, 'onchain_fee')
     assert len(fee_events) == 1
-    fees = Millisatoshi(fee_events[0]['debit'])
+    fees = fee_events[0]['debit_msat']
     assert fees > Millisatoshi(amount // 2 * 1000)
 
     # wallet balance is decremented now
     bal = only_one(only_one(l1.rpc.listbalances()['accounts'])['balances'])
-    assert Millisatoshi(bal['balance']) == amount_msat * 2 - fees
+    assert bal['balance_msat'] == amount_msat * 2 - fees
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
