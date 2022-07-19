@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/coin_mvt.h>
 #include <common/json_param.h>
@@ -45,6 +46,7 @@ static struct command_result *json_list_balances(struct command *cmd,
 
 		err = account_get_balance(cmd, db,
 					  accts[i]->name,
+					  true,
 					  &balances);
 
 		if (err)
@@ -76,11 +78,317 @@ static struct command_result *json_list_balances(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
-struct account_snap {
-	char *name;
-	struct amount_msat amt;
-	char *coin_type;
+struct new_account_info {
+	struct account *acct;
+	struct amount_msat curr_bal;
+	u32 timestamp;
+	char *currency;
 };
+
+static bool new_missed_channel_account(struct command *cmd,
+				       const char *buf,
+				       const jsmntok_t *result,
+				       struct account *acct,
+				       const char *currency,
+				       u64 timestamp)
+{
+	struct chain_event *chain_ev;
+	size_t i, j;
+	const jsmntok_t *curr_peer, *curr_chan,
+	      *peer_arr_tok, *chan_arr_tok;
+
+	peer_arr_tok = json_get_member(buf, result, "peers");
+	assert(peer_arr_tok->type == JSMN_ARRAY);
+	/* There should only be one peer */
+	json_for_each_arr(i, curr_peer, peer_arr_tok) {
+		chan_arr_tok = json_get_member(buf, curr_peer,
+					       "channels");
+		assert(chan_arr_tok->type == JSMN_ARRAY);
+		json_for_each_arr(j, curr_chan, chan_arr_tok) {
+			struct bitcoin_outpoint opt;
+			struct amount_msat amt;
+			char *opener, *chan_id;
+			const char *err;
+			enum mvt_tag *tags;
+
+			err = json_scan(tmpctx, buf, curr_chan,
+					"{channel_id:%,"
+					"funding_txid:%,"
+					"funding_outnum:%,"
+					"funding:{local_msat:%},"
+					"opener:%}",
+					JSON_SCAN_TAL(tmpctx, json_strdup, &chan_id),
+					JSON_SCAN(json_to_txid, &opt.txid),
+					JSON_SCAN(json_to_number, &opt.n),
+					JSON_SCAN(json_to_msat, &amt),
+					JSON_SCAN_TAL(tmpctx, json_strdup, &opener));
+			if (err)
+				plugin_err(cmd->plugin,
+					   "failure scanning listpeer"
+					   " result: %s", err);
+
+			if (!streq(chan_id, acct->name))
+				continue;
+
+			chain_ev = tal(cmd, struct chain_event);
+			chain_ev->tag = "channel_open";
+			chain_ev->credit = amt;
+			chain_ev->debit = AMOUNT_MSAT(0);
+			chain_ev->output_value = AMOUNT_MSAT(0);
+			chain_ev->currency = tal_strdup(chain_ev, currency);
+			/* 2s before the channel opened, minimum */
+			chain_ev->timestamp = timestamp - 2;
+			chain_ev->blockheight = 0;
+			chain_ev->outpoint = opt;
+			chain_ev->spending_txid = NULL;
+			chain_ev->payment_id = NULL;
+
+			/* Update the account info too */
+			tags = tal_arr(chain_ev, enum mvt_tag, 1);
+			tags[1] = CHANNEL_OPEN;
+			if (streq(opener, "local"))
+				tal_arr_expand(&tags, OPENER);
+
+			db_begin_transaction(db);
+			log_chain_event(db, acct, chain_ev);
+			maybe_update_account(db, acct, chain_ev, tags);
+			db_commit_transaction(db);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/* Net out credit/debit --> basically find the diff */
+static char *msat_net(const tal_t *ctx,
+		      struct amount_msat credit,
+		      struct amount_msat debit,
+		      struct amount_msat *credit_net,
+		      struct amount_msat *debit_net)
+{
+	if (amount_msat_eq(credit, debit)) {
+		*credit_net = AMOUNT_MSAT(0);
+		*debit_net = AMOUNT_MSAT(0);
+	} else if (amount_msat_greater(credit, debit)) {
+		if (!amount_msat_sub(credit_net, credit, debit))
+			return tal_fmt(ctx, "unexpected fail, can't sub."
+				       " %s - %s",
+				       type_to_string(ctx, struct amount_msat,
+						      &credit),
+				       type_to_string(ctx, struct amount_msat,
+						      &debit));
+		*debit_net = AMOUNT_MSAT(0);
+	} else {
+		if (!amount_msat_sub(debit_net, debit, credit)) {
+			return tal_fmt(ctx, "unexpected fail, can't sub."
+				       " %s - %s",
+				       type_to_string(ctx,
+					       struct amount_msat,
+					       &debit),
+				       type_to_string(ctx,
+					       struct amount_msat,
+					       &credit));
+		}
+		*credit_net = AMOUNT_MSAT(0);
+	}
+
+	return NULL;
+}
+
+static char *msat_find_diff(struct amount_msat balance,
+			    struct amount_msat credits,
+			    struct amount_msat debits,
+			    struct amount_msat *credit_diff,
+			    struct amount_msat *debit_diff)
+{
+	struct amount_msat net_credit, net_debit;
+	char *err;
+
+	err = msat_net(tmpctx, credits, debits,
+		       &net_credit, &net_debit);
+	if (err)
+		return err;
+
+	/* If we're not missing events, debits == 0 */
+	if (!amount_msat_zero(net_debit)) {
+		assert(amount_msat_zero(net_credit));
+		if (!amount_msat_add(credit_diff, net_debit, balance))
+			return "Overflow finding credit_diff";
+		*debit_diff = AMOUNT_MSAT(0);
+	} else {
+		assert(amount_msat_zero(net_debit));
+		if (amount_msat_greater(net_credit, balance)) {
+			if (!amount_msat_sub(debit_diff, net_credit,
+					    balance))
+				return "Err net_credit - amt";
+			*credit_diff = AMOUNT_MSAT(0);
+		} else {
+			if (!amount_msat_sub(credit_diff, balance,
+					     net_credit))
+				return "Err amt - net_credit";
+
+			*debit_diff = AMOUNT_MSAT(0);
+		}
+	}
+
+	return NULL;
+}
+
+static void log_journal_entry(struct account *acct,
+			      const char *currency,
+			      u64 timestamp,
+			      struct amount_msat credit_diff,
+			      struct amount_msat debit_diff)
+{
+	struct channel_event *chan_ev;
+
+	/* No diffs to register, no journal needed */
+	if (amount_msat_zero(credit_diff)
+	    && amount_msat_zero(debit_diff))
+		return;
+
+	chan_ev = new_channel_event(tmpctx,
+				    tal_fmt(tmpctx, "journal_entry"),
+				    credit_diff,
+				    debit_diff,
+				    AMOUNT_MSAT(0),
+				    currency,
+				    NULL, 0,
+				    timestamp);
+	db_begin_transaction(db);
+	log_channel_event(db, acct, chan_ev);
+	db_commit_transaction(db);
+}
+
+static struct command_result *log_error(struct command *cmd,
+					const char *buf,
+					const jsmntok_t *error,
+					void *arg UNNEEDED)
+{
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "error calling `listpeers`: %.*s",
+		   json_tok_full_len(error),
+		   json_tok_full(buf, error));
+
+	return notification_handled(cmd);
+}
+
+static struct command_result *
+listpeers_multi_done(struct command *cmd,
+		     const char *buf,
+		     const jsmntok_t *result,
+		     struct new_account_info **new_accts)
+{
+	/* Let's register all these accounts! */
+	for (size_t i = 0; i < tal_count(new_accts); i++) {
+		struct new_account_info *info = new_accts[i];
+		struct acct_balance **balances, *bal;
+		struct amount_msat credit_diff, debit_diff;
+		char *err;
+
+		if (!new_missed_channel_account(cmd, buf, result,
+					        info->acct,
+					        info->currency,
+					        info->timestamp)) {
+			plugin_log(cmd->plugin, LOG_BROKEN,
+				   "Unable to find account %s in listpeers",
+				   info->acct->name);
+			continue;
+		}
+
+		db_begin_transaction(db);
+		err = account_get_balance(tmpctx, db, info->acct->name,
+					  false, &balances);
+		db_commit_transaction(db);
+
+		if (err)
+			plugin_err(cmd->plugin, err);
+
+		/* FIXME: multiple currencies */
+		if (tal_count(balances) > 0)
+			bal = balances[0];
+		else {
+			bal = tal(tmpctx, struct acct_balance);
+			bal->credit = AMOUNT_MSAT(0);
+			bal->debit= AMOUNT_MSAT(0);
+		}
+
+		err = msat_find_diff(info->curr_bal,
+				     bal->credit,
+				     bal->debit,
+				     &credit_diff, &debit_diff);
+		if (err)
+			plugin_err(cmd->plugin, err);
+
+		log_journal_entry(info->acct,
+				  info->currency,
+				  info->timestamp - 1,
+				  credit_diff, debit_diff);
+	}
+
+	return notification_handled(cmd);
+}
+
+struct event_info {
+	struct chain_event *ev;
+	struct account *acct;
+};
+
+static struct command_result *
+listpeers_done(struct command *cmd, const char *buf,
+	       const jsmntok_t *result, struct event_info *info)
+{
+	struct acct_balance **balances, *bal;
+	struct amount_msat credit_diff, debit_diff;
+	const char *err;
+	/* Make sure to clean up when we're done */
+	tal_steal(cmd, info);
+
+	if (new_missed_channel_account(cmd, buf, result,
+					info->acct,
+					info->ev->currency,
+					info->ev->timestamp)) {
+		db_begin_transaction(db);
+		err = account_get_balance(tmpctx, db, info->acct->name,
+					  false, &balances);
+		db_commit_transaction(db);
+
+		if (err)
+			plugin_err(cmd->plugin, err);
+
+		/* FIXME: multiple currencies per account? */
+		if (tal_count(balances) > 0)
+			bal = balances[0];
+		else {
+			bal = tal(balances, struct acct_balance);
+			bal->credit = AMOUNT_MSAT(0);
+			bal->debit = AMOUNT_MSAT(0);
+		}
+		assert(tal_count(balances) == 1);
+
+		/* The expected current balance is zero, since
+		 * we just got the channel close event */
+		err = msat_find_diff(AMOUNT_MSAT(0),
+				     bal->credit,
+				     bal->debit,
+				     &credit_diff, &debit_diff);
+		if (err)
+			plugin_err(cmd->plugin, err);
+
+		log_journal_entry(info->acct,
+				  info->ev->currency,
+				  info->ev->timestamp - 1,
+				  credit_diff, debit_diff);
+	} else
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Unable to find account %s in listpeers",
+			   info->acct->name);
+
+	/* FIXME: maybe mark channel as 'onchain_resolved' */
+	return notification_handled(cmd);
+}
+
 
 static struct command_result *json_balance_snapshot(struct command *cmd,
 						    const char *buf,
@@ -90,7 +398,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 	size_t i;
 	u32 blockheight;
 	u64 timestamp;
-	struct account_snap *snaps;
+	struct new_account_info **new_accts;
 	const jsmntok_t *accounts_tok, *acct_tok,
 	      *snap_tok = json_get_member(buf, params, "balance_snapshot");
 
@@ -120,22 +428,22 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			   json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
-	snaps = tal_arr(cmd, struct account_snap, accounts_tok->size);
+	new_accts = tal_arr(cmd, struct new_account_info *, 0);
 
 	db_begin_transaction(db);
 	json_for_each_arr(i, acct_tok, accounts_tok) {
-		struct acct_balance **balances;
-		struct amount_msat balance;
-		struct account_snap s = snaps[i];
+		struct acct_balance **balances, *bal;
+		struct amount_msat snap_balance, credit_diff, debit_diff;
+		char *acct_name, *currency;
 
 		err = json_scan(cmd, buf, acct_tok,
 				"{account_id:%"
 				",balance_msat:%"
 				",coin_type:%}",
-				JSON_SCAN_TAL(tmpctx, json_strdup, &s.name),
-				JSON_SCAN(json_to_msat, &s.amt),
+				JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
+				JSON_SCAN(json_to_msat, &snap_balance),
 				JSON_SCAN_TAL(tmpctx, json_strdup,
-					      &s.coin_type));
+					      &currency));
 		if (err)
 			plugin_err(cmd->plugin,
 				   "`balance_snapshot` payload did not"
@@ -144,87 +452,131 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   json_tok_full(buf, params));
 
 		plugin_log(cmd->plugin, LOG_DBG, "account %s has balance %s",
-			   s.name,
-			   type_to_string(tmpctx, struct amount_msat, &s.amt));
+			   acct_name,
+			   type_to_string(tmpctx, struct amount_msat,
+					  &snap_balance));
 
-		/* Find the account and verify the balance */
-		err = account_get_balance(cmd, db, s.name,
+		/* Find the account balances */
+		err = account_get_balance(cmd, db, acct_name,
+					  /* Don't error if negative */
+					  false,
 					  &balances);
 
 		if (err)
 			plugin_err(cmd->plugin,
 				   "Get account balance returned err"
 				   " for account %s: %s",
-				   s.name, err);
+				   acct_name, err);
 
 		/* FIXME: multiple currency balances */
-		balance = AMOUNT_MSAT(0);
-		for (size_t j = 0; j < tal_count(balances); j++) {
-			bool ok;
-			ok = amount_msat_add(&balance, balance,
-					     balances[j]->balance);
-			assert(ok);
+		if (tal_count(balances) > 0)
+			bal = balances[0];
+		else {
+			bal = tal(balances, struct acct_balance);
+			bal->credit = AMOUNT_MSAT(0);
+			bal->debit = AMOUNT_MSAT(0);
 		}
 
-		if (!amount_msat_eq(s.amt, balance)) {
+		/* Figure out what the net diff is btw reported & actual */
+		err = msat_find_diff(snap_balance,
+				     bal->credit,
+				     bal->debit,
+				     &credit_diff, &debit_diff);
+		if (err)
+			plugin_err(cmd->plugin,
+				   "Unable to find_diff for amounts: %s",
+				   err);
+
+		if (!amount_msat_zero(credit_diff)
+		    || !amount_msat_zero(debit_diff)) {
 			struct account *acct;
-			struct channel_event ev;
+			struct channel_event *ev;
+			u64 timestamp;
 
 			plugin_log(cmd->plugin, LOG_UNUSUAL,
 				   "Snapshot balance does not equal ondisk"
-				   " reported %s, on disk %s (account %s)."
+				   " reported %s, off by (+%s/-%s) (account %s)"
 				   " Logging journal entry.",
-				   type_to_string(tmpctx, struct amount_msat, &s.amt),
-				   type_to_string(tmpctx, struct amount_msat, &balance),
-				   s.name);
+				   type_to_string(tmpctx, struct amount_msat,
+						  &snap_balance),
+				   type_to_string(tmpctx, struct amount_msat,
+						  &debit_diff),
+				   type_to_string(tmpctx, struct amount_msat,
+						  &credit_diff),
+				   acct_name);
 
-			if (!amount_msat_sub(&ev.credit, s.amt, balance)) {
-				ev.credit = AMOUNT_MSAT(0);
-				if (!amount_msat_sub(&ev.debit, balance, s.amt))
-					plugin_err(cmd->plugin,
-						   "Unable to sub amt");
-			} else
-				ev.debit = AMOUNT_MSAT(0);
+			timestamp = time_now().ts.tv_sec;
 
 			/* Log a channel "journal entry" to get
 			 * the balances inline */
-			acct = find_account(cmd, db, s.name);
+			acct = find_account(cmd, db, acct_name);
 			if (!acct) {
+				struct new_account_info *info;
+
 				plugin_log(cmd->plugin, LOG_INFORM,
 					   "account %s not found, adding"
 					   " along with new balance",
-					   s.name);
+					   acct_name);
+
 				/* FIXME: lookup peer id for channel? */
-				acct = new_account(cmd, s.name, NULL);
+				acct = new_account(cmd, acct_name, NULL);
 				account_add(db, acct);
+
+				/* If we're entering a channel account,
+				 * from a balance entry, we need to
+				 * go find the channel open info*/
+				if (is_channel_account(acct)) {
+					info = tal(new_accts, struct new_account_info);
+					info->acct = tal_steal(info, acct);
+					info->curr_bal = snap_balance;
+					info->timestamp = timestamp;
+					info->currency =
+						tal_strdup(info, currency);
+
+					tal_arr_expand(&new_accts, info);
+					continue;
+				}
 			}
 
-			/* This is *not* a coin_mvt tag type */
-			ev.tag = "journal_entry";
-			ev.fees = AMOUNT_MSAT(0);
-			ev.currency = s.coin_type;
-			ev.part_id = 0;
-			ev.payment_id = NULL;
-			/* Use current time for this */
-			ev.timestamp = time_now().ts.tv_sec;
+			ev = new_channel_event(cmd,
+					       tal_fmt(tmpctx, "journal_entry"),
+					       credit_diff,
+					       debit_diff,
+					       AMOUNT_MSAT(0),
+					       currency,
+					       NULL, 0,
+					       timestamp);
 
-			log_channel_event(db, acct, &ev);
+			log_channel_event(db, acct, ev);
 		}
 	}
 	db_commit_transaction(db);
 
+	if (tal_count(new_accts) > 0) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd->plugin, NULL,
+					    "listpeers",
+					    listpeers_multi_done,
+					    log_error,
+					    new_accts);
+		send_outreq(cmd->plugin, req);
+		return command_still_pending(cmd);
+	}
+
 	return notification_handled(cmd);
 }
 
-static const char *parse_and_log_chain_move(struct command *cmd,
-					    const char *buf,
-					    const jsmntok_t *params,
-					    const char *acct_name STEALS,
-					    const struct amount_msat credit,
-					    const struct amount_msat debit,
-					    const char *coin_type STEALS,
-					    const u64 timestamp,
-					    const enum mvt_tag *tags)
+static struct command_result *
+parse_and_log_chain_move(struct command *cmd,
+			 const char *buf,
+			 const jsmntok_t *params,
+			 const char *acct_name STEALS,
+			 const struct amount_msat credit,
+			 const struct amount_msat debit,
+			 const char *coin_type STEALS,
+			 const u64 timestamp,
+			 const enum mvt_tag *tags)
 {
 	struct chain_event *e = tal(cmd, struct chain_event);
 	struct sha256 *payment_hash = tal(cmd, struct sha256);
@@ -246,7 +598,11 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 			JSON_SCAN(json_to_number, &e->blockheight));
 
 	if (err)
-		return err;
+		plugin_err(cmd->plugin,
+			   "`coin_movement` payload did"
+			   " not scan %s: %.*s",
+			   err, json_tok_full_len(params),
+			   json_tok_full(buf, params));
 
 	/* Now try to get out the optional parts */
 	err = json_scan(tmpctx, buf, params,
@@ -255,8 +611,10 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 			"}}",
 			JSON_SCAN(json_to_txid, spending_txid));
 
-	if (err)
+	if (err) {
 		spending_txid = tal_free(spending_txid);
+		err = tal_free(err);
+	}
 
 	e->spending_txid = tal_steal(e, spending_txid);
 
@@ -267,8 +625,10 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 			"}}",
 			JSON_SCAN(json_to_sha256, payment_hash));
 
-	if (err)
+	if (err) {
 		payment_hash = tal_free(payment_hash);
+		err = tal_free(err);
+	}
 
 	e->payment_id = tal_steal(e, payment_hash);
 
@@ -287,7 +647,11 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 		account_add(db, acct);
 	}
 
-	log_chain_event(db, acct, e);
+	if (!log_chain_event(db, acct, e)) {
+		db_commit_transaction(db);
+		/* This is not a new event, do nothing */
+		return notification_handled(cmd);
+	}
 
 	/* This event *might* have implications for account;
 	 * update as necessary */
@@ -302,22 +666,55 @@ static const char *parse_and_log_chain_move(struct command *cmd,
 	db_commit_transaction(db);
 
 	if (err)
-		return err;
+		plugin_err(cmd->plugin,
+			   "Unable to update onchain fees %s",
+			   err);
+
+	/* If this is an account close event, it's possible
+	 * that we *never* got the open event. (This happens
+	 * if you add the plugin *after* you've closed the channel) */
+	if (!acct->open_event_db_id
+	    && acct->closed_event_db_id
+	    && *acct->closed_event_db_id == e->db_id) {
+		/* Find the channel open info for this peer */
+		struct out_req *req;
+		struct event_info *info;
+
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "`channel_close` but no open for channel %s."
+			   " Calling `listpeers` to fetch missing info",
+			   acct->name);
+
+		info = tal(NULL, struct event_info);
+		info->ev = tal_steal(info, e);
+		info->acct = tal_steal(info, acct);
+		req = jsonrpc_request_start(cmd->plugin, NULL,
+					    "listpeers",
+					    listpeers_done,
+					    log_error,
+					    info);
+		/* FIXME: use the peer_id to reduce work here */
+		send_outreq(cmd->plugin, req);
+		return command_still_pending(cmd);
+	}
 
 	/* FIXME: maybe mark channel as 'onchain_resolved' */
+	if (err)
+		plugin_err(cmd->plugin, err);
 
-	return NULL;
+	return notification_handled(cmd);;
 }
 
-static const char *parse_and_log_channel_move(struct command *cmd,
-					      const char *buf,
-					      const jsmntok_t *params,
-					      const char *acct_name STEALS,
-					      const struct amount_msat credit,
-					      const struct amount_msat debit,
-					      const char *coin_type STEALS,
-					      const u64 timestamp,
-					      const enum mvt_tag *tags)
+static struct command_result *
+parse_and_log_channel_move(struct command *cmd,
+			   const char *buf,
+			   const jsmntok_t *params,
+			   const char *acct_name STEALS,
+			   const struct amount_msat credit,
+			   const struct amount_msat debit,
+			   const char *coin_type STEALS,
+			   const u64 timestamp,
+			   const enum mvt_tag *tags)
 {
 	struct channel_event *e = tal(cmd, struct channel_event);
 	struct account *acct;
@@ -327,20 +724,26 @@ static const char *parse_and_log_channel_move(struct command *cmd,
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:{payment_hash:%}}",
 			JSON_SCAN(json_to_sha256, e->payment_id));
-	if (err)
+	if (err) {
 		e->payment_id = tal_free(e->payment_id);
+		err = tal_free(err);
+	}
 
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:{part_id:%}}",
 			JSON_SCAN(json_to_number, &e->part_id));
-	if (err)
+	if (err) {
 		e->part_id = 0;
+		err = tal_free(err);
+	}
 
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:{fees_msat:%}}",
 			JSON_SCAN(json_to_msat, &e->fees));
-	if (err)
+	if (err) {
 		e->fees = AMOUNT_MSAT(0);
+		err = tal_free(err);
+	}
 
 	e->credit = credit;
 	e->debit = debit;
@@ -360,7 +763,7 @@ static const char *parse_and_log_channel_move(struct command *cmd,
 	log_channel_event(db, acct, e);
 	db_commit_transaction(db);
 
-	return NULL;
+	return notification_handled(cmd);
 }
 
 static char *parse_tags(const tal_t *ctx,
@@ -437,25 +840,15 @@ static struct command_result * json_coin_moved(struct command *cmd,
 		   mvt_type, timestamp);
 
 	if (streq(mvt_type, CHAIN_MOVE))
-		err = parse_and_log_chain_move(cmd, buf, params,
-					       acct_name, credit, debit,
-					       coin_type, timestamp,
-					       tags);
-	else {
-		assert(streq(mvt_type, CHANNEL_MOVE));
-		err = parse_and_log_channel_move(cmd, buf, params,
-						 acct_name, credit, debit,
-						 coin_type, timestamp,
-						 tags);
-	}
+		return parse_and_log_chain_move(cmd, buf, params,
+					        acct_name, credit, debit,
+					        coin_type, timestamp, tags);
 
-	if (err)
-		plugin_err(cmd->plugin,
-			   "`coin_movement` payload did not scan %s: %.*s",
-			   err, json_tok_full_len(params),
-			   json_tok_full(buf, params));
 
-	return notification_handled(cmd);
+	assert(streq(mvt_type, CHANNEL_MOVE));
+	return parse_and_log_channel_move(cmd, buf, params,
+					  acct_name, credit, debit,
+					  coin_type, timestamp, tags);
 }
 
 const struct plugin_notification notifs[] = {

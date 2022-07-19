@@ -1,5 +1,6 @@
 #include "config.h"
 
+#include <ccan/str/str.h>
 #include <common/coin_mvt.h>
 #include <common/node_id.h>
 #include <plugins/bkpr/account.h>
@@ -20,4 +21,10 @@ struct account *new_account(const tal_t *ctx,
 	a->closed_event_db_id = NULL;
 
 	return a;
+}
+
+bool is_channel_account(const struct account *acct)
+{
+	return !streq(acct->name, WALLET)
+	       && !streq(acct->name, "external");
 }

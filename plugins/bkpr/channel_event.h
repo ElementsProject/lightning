@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <common/utils.h>
 
 struct amount_msat;
 struct sha256;
@@ -42,5 +43,15 @@ struct channel_event {
 	/* What time did the event happen */
 	u64 timestamp;
 };
+
+struct channel_event *new_channel_event(const tal_t *ctx,
+					const char *tag,
+					struct amount_msat credit,
+					struct amount_msat debit,
+					struct amount_msat fees,
+					const char *currency,
+					struct sha256 *payment_id STEALS,
+					u32 part_id,
+					u64 timestamp);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_CHANNEL_EVENT_H */
