@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee
+    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
 )
 
 from pathlib import Path
@@ -1312,7 +1312,7 @@ def test_zeroconf_open(bitcoind, node_factory):
     l2.rpc.pay(inv)
 
 
-def test_zeroconf_public(bitcoind, node_factory):
+def test_zeroconf_public(bitcoind, node_factory, chainparams):
     """Test that we transition correctly from zeroconf to public
 
     The differences being that a public channel MUST use the public
@@ -1321,9 +1321,10 @@ def test_zeroconf_public(bitcoind, node_factory):
 
     """
     plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
 
     l1, l2, l3 = node_factory.get_nodes(3, opts=[
-        {},
+        {'plugin': str(coin_mvt_plugin)},
         {
             'plugin': str(plugin_path),
             'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
@@ -1346,6 +1347,13 @@ def test_zeroconf_public(bitcoind, node_factory):
     assert('short_channel_id' not in l1chan)
     assert('short_channel_id' not in l2chan)
 
+    # Channel is "proposed"
+    chan_val = 993198000 if chainparams['elements'] else 995673000
+    l1_mvts = [
+        {'type': 'chain_mvt', 'credit_msat': chan_val, 'debit_msat': 0, 'tags': ['channel_proposed', 'opener']},
+    ]
+    check_coin_moves(l1, l1chan['channel_id'], l1_mvts, chainparams)
+
     # Now add 1 confirmation, we should get a `short_channel_id`
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(r'Funding tx [a-f0-9]{64} depth 1 of 0')
@@ -1355,6 +1363,12 @@ def test_zeroconf_public(bitcoind, node_factory):
     l2chan = l2.rpc.listpeers()['peers'][0]['channels'][0]
     assert('short_channel_id' in l1chan)
     assert('short_channel_id' in l2chan)
+
+    # We also now have an 'open' event
+    l1_mvts += [
+        {'type': 'chain_mvt', 'credit_msat': chan_val, 'debit_msat': 0, 'tags': ['channel_open', 'opener']},
+    ]
+    check_coin_moves(l1, l1chan['channel_id'], l1_mvts, chainparams)
 
     # Now make it public, we should be switching over to the real
     # scid.

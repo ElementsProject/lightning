@@ -14,7 +14,7 @@ enum mvt_type {
 	CHANNEL_MVT = 1,
 };
 
-#define NUM_MVT_TAGS (STEALABLE + 1)
+#define NUM_MVT_TAGS (CHANNEL_PROPOSED + 1)
 enum mvt_tag {
 	DEPOSIT = 0,
 	WITHDRAWAL = 1,
@@ -39,6 +39,7 @@ enum mvt_tag {
 	LEASE_FEE = 20,
 	LEASED = 21,
 	STEALABLE = 22,
+	CHANNEL_PROPOSED = 23,
 };
 
 struct channel_coin_mvt {
@@ -186,6 +187,16 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 					      const struct amount_msat amount,
 					      const struct amount_sat output_val,
 					      u32 output_count)
+	NON_NULL_ARGS(2, 3);
+
+struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
+						      const struct channel_id *chan_id,
+						      const struct bitcoin_outpoint *out,
+						      const struct node_id *peer_id,
+						      const struct amount_msat amount,
+						      const struct amount_sat output_val,
+						      bool is_opener,
+						      bool is_leased)
 	NON_NULL_ARGS(2, 3);
 
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,

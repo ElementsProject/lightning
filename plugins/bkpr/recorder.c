@@ -1219,6 +1219,7 @@ void maybe_update_account(struct db *db,
 
 	for (size_t i = 0; i < tal_count(tags); i++) {
 		switch (tags[i]) {
+			case CHANNEL_PROPOSED:
 			case CHANNEL_OPEN:
 				updated = true;
 				acct->open_event_db_id = tal(acct, u64);
