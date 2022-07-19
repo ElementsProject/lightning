@@ -70,6 +70,16 @@ def test_pay(node_factory):
     payments = l1.rpc.listsendpays(inv)['payments']
     assert len(payments) == 1 and payments[0]['payment_preimage'] == preimage
 
+    # Check channels apy summary view of channel activity
+    apys_1 = l1.rpc.bkpr_channelsapy()['channels_apy']
+    apys_2 = l2.rpc.bkpr_channelsapy()['channels_apy']
+
+    assert apys_1[0]['channel_start_balance_msat'] == apys_2[0]['channel_start_balance_msat']
+    assert apys_1[0]['channel_start_balance_msat'] == apys_1[0]['our_start_balance_msat']
+    assert apys_2[0]['our_start_balance_msat'] == Millisatoshi(0)
+    assert apys_1[0]['routed_out_msat'] == apys_2[0]['routed_in_msat']
+    assert apys_1[0]['routed_in_msat'] == apys_2[0]['routed_out_msat']
+
 
 @pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_amounts(node_factory):
