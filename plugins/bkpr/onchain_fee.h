@@ -12,6 +12,9 @@ struct onchain_fee {
 	/* db_id of account this event belongs to */
 	u64 acct_db_id;
 
+	/* Name of the account this belongs to */
+	char *acct_name;
+
 	/* Transaction that we're recording fees for */
 	struct bitcoin_txid txid;
 
