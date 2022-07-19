@@ -1303,6 +1303,21 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     l1.rpc.waitsendpay(rhash)
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
 
+    # Do some checks of the bookkeeper's records
+    def _income_tagset(node, tagset):
+        incomes = node.rpc.listincome()['income_events']
+        return [e for e in incomes if e['tag'] in tagset]
+
+    tags = ['invoice', 'invoice_fee']
+    wait_for(lambda: len(_income_tagset(l1, tags)) == 2)
+    incomes = _income_tagset(l1, tags)
+    # the balance on l3 should equal the invoice
+    bal = only_one(only_one(l3.rpc.listbalances()['accounts'])['balances'])['balance']
+    assert incomes[0]['tag'] == 'invoice'
+    assert bal == incomes[0]['debit']
+    inve = only_one([e for e in l1.rpc.listaccountevents()['events'] if e['tag'] == 'invoice'])
+    assert Millisatoshi(inve['debit']) == Millisatoshi(incomes[0]['debit']) + Millisatoshi(incomes[1]['debit'])
+
 
 @pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_forward_stats(node_factory, bitcoind):
