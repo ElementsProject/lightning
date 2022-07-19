@@ -648,7 +648,9 @@ static bool new_missed_channel_account(struct command *cmd,
 			assert(ok);
 			chain_ev->credit = amt;
 			db_begin_transaction(db);
-			log_chain_event(db, acct, chain_ev);
+			if (!log_chain_event(db, acct, chain_ev))
+				goto done;
+
 			maybe_update_account(db, acct, chain_ev,
 					     tags, 0, &peer_id);
 			maybe_update_onchain_fees(cmd, db, &opt.txid);
@@ -679,6 +681,7 @@ static bool new_missed_channel_account(struct command *cmd,
 				log_channel_event(db, acct, chan_ev);
 			}
 
+done:
 			db_commit_transaction(db);
 			return true;
 		}
@@ -874,15 +877,19 @@ static char *do_account_close_checks(const tal_t *ctx,
 	} else if (!is_channel_account(acct) && !e->spending_txid)
 		closed_acct = find_close_account(ctx, db, &e->outpoint.txid);
 	else
-		closed_acct = acct;
+		/* Get most up to date account entry */
+		closed_acct = find_account(ctx, db, acct->name);
+
 
 	if (closed_acct && closed_acct->closed_event_db_id) {
 		maybe_mark_account_onchain(db, closed_acct);
 		if (closed_acct->onchain_resolved_block > 0) {
 			char *err;
 			err = update_channel_onchain_fees(ctx, db, closed_acct);
-			if (err)
+			if (err) {
+				db_commit_transaction(db);
 				return err;
+			}
 		}
 	}
 
