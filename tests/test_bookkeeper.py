@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from decimal import Decimal
-from pyln.client import Millisatoshi
+from pyln.client import Millisatoshi, RpcError
 from fixtures import TEST_NETWORK
 from utils import (
     sync_blockheight, wait_for, only_one
@@ -322,3 +322,57 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     assert len(fees) == 2
     fees = find_tags(l1.rpc.bkpr_listincome(consolidate_fees=True)['income_events'], 'onchain_fee')
     assert len(fees) == 1
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
+def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
+    """
+    Test for a channel that's closed, but whose close tx
+    re-appears in the rescan
+    """
+    l1, l2 = node_factory.line_graph(2,
+                                     wait_for_announce=True,
+                                     opts={'disable-plugin': 'bookkeeper'})
+
+    # Double check there's no bookkeeper plugin on
+    assert l1.daemon.opts['disable-plugin'] == 'bookkeeper'
+    with pytest.raises(RpcError):
+        l1.rpc.listincome()
+
+    # Send l2 funds via the channel
+    l1.pay(l2, 11000000)
+    bitcoind.generate_block(10)
+
+    # Amicably close the channel, mine 101 blocks (channel forgotten)
+    l1.rpc.close(l2.info['id'])
+    l1.wait_for_channel_onchain(l2.info['id'])
+
+    bitcoind.generate_block(101)
+    sync_blockheight(bitcoind, [l1])
+
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    # Now turn the bookkeeper on and restart
+    l1.stop()
+    del l1.daemon.opts['disable-plugin']
+    # Roll back -- close is picked up for a forgotten channel
+    l1.daemon.opts['rescan'] = 102
+    l1.start()
+
+    # Wait for the balance snapshot to fire/finish
+    l1.daemon.wait_for_log('Snapshot balances updated')
+
+    # We should have the deposit and then the journal entry
+    events = l1.rpc.bkpr_listaccountevents()['events']
+    assert len(events) == 2
+    assert events[0]['account'] == 'wallet'
+    assert events[0]['tag'] == 'deposit'
+    assert events[1]['account'] == 'wallet'
+    assert events[1]['tag'] == 'journal_entry'
+
+    wallet_bal = only_one(l1.rpc.bkpr_listbalances()['accounts'])
+    assert wallet_bal['account'] == 'wallet'
+    funds = l1.rpc.listfunds()
+    assert len(funds['channels']) == 0
+    outs = sum([out['amount_msat'] for out in funds['outputs']])
+    assert outs == only_one(wallet_bal['balances'])['balance_msat']
