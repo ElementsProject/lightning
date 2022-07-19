@@ -11,6 +11,9 @@ struct income_event {
 	char *desc;
 	struct amount_msat credit;
 	struct amount_msat debit;
+	/* Some CSVs require us to put fees on the
+	 * same line as another entry */
+	struct amount_msat fees;
 	char *currency;
 	u64 timestamp;
 
