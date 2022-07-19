@@ -14,6 +14,7 @@
 #include <plugins/bkpr/account_entry.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
+#include <plugins/bkpr/channelsapy.h>
 #include <plugins/bkpr/db.h>
 #include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
@@ -39,6 +40,55 @@ static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 			return sums[i];
 	}
 	return NULL;
+}
+
+static struct command_result *json_channel_apy(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct channel_apy **apys, *net_apys;
+	u64 *start_time, *end_time;
+
+	if (!param(cmd, buf, params,
+		   p_opt_def("start_time", param_u64, &start_time, 0),
+		   p_opt_def("end_time", param_u64, &end_time, SQLITE_MAX_UINT),
+		   NULL))
+		return command_param_failed();
+
+	/* Get the income events */
+	db_begin_transaction(db);
+	apys = compute_channel_apys(cmd, db, *start_time, *end_time,
+				    /* FIXME: current blockheight */
+				    1414);
+	db_commit_transaction(db);
+
+	/* Setup the net_apys entry */
+	net_apys = new_channel_apy(cmd);
+	net_apys->end_blockheight = 0;
+	net_apys->start_blockheight = UINT_MAX;
+	net_apys->our_start_bal = AMOUNT_MSAT(0);
+	net_apys->total_start_bal = AMOUNT_MSAT(0);
+
+	res = jsonrpc_stream_success(cmd);
+	json_array_start(res, "channel_apys");
+	for (size_t i = 0; i < tal_count(apys); i++) {
+		json_add_channel_apy(res, apys[i]);
+
+		/* Add to net/rollup APY */
+		if (!channel_apy_sum(net_apys, apys[i]))
+			return command_fail(cmd, PLUGIN_ERROR,
+					     "Overflow adding APYs net");
+	}
+
+	/* Append a net/rollup entry */
+	if (!amount_msat_zero(net_apys->total_start_bal)) {
+		net_apys->acct_name = tal_fmt(net_apys, "net");
+		json_add_channel_apy(res, net_apys);
+	}
+	json_array_end(res);
+
+	return command_finished(cmd, res);
 }
 
 static struct command_result *param_csv_format(struct command *cmd, const char *name,
@@ -1384,6 +1434,13 @@ static const struct plugin_command commands[] = {
 		" Optionally, {consolidate_fee}s into single entries"
 		" (default: true)",
 		json_dump_income
+	},
+	{
+		"channelsapy",
+		"bookkeeping",
+		"Stats on channel fund usage",
+		"Print out stats on chanenl fund usage",
+		json_channel_apy
 	},
 };
 
