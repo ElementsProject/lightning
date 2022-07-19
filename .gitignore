@@ -34,6 +34,8 @@ monkeytype.sqlite3
 !*/test/run-*.c
 */test/exp-run-*
 !*/test/exp-run-*.c
+*/*/test/run-*
+!*/*/test/run-*.c
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart

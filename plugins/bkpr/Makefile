@@ -41,3 +41,5 @@ bkpr-maintainer-clean:
 	$(RM) plugins/bkpr/statements.po
 	$(RM) plugins/bkpr/statements_gettextgen.po
 	$(RM) $(BOOKKEEPER_DB_QUERIES)
+
+include plugins/bkpr/test/Makefile
