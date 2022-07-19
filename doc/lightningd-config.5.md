@@ -221,6 +221,13 @@ automatically by `lightningd`.
 Directory to keep the accounts.sqlite3 database file in.
 Defaults to lightning-dir.
 
+ **bookkeeper-db**=*DSN*
+Identify the location of the bookkeeper data. This is a fully qualified data source
+name, including a scheme such as `sqlite3` or `postgres` followed by the
+connection parameters.
+Defaults to `sqlite3://accounts.sqlite3` in the `bookkeeper-dir`.
+
+
  **encrypted-hsm**
 If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
 Note that once you encrypt the `hsm_secret` this option will be mandatory for
