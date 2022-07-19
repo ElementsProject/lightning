@@ -315,6 +315,64 @@ def dedupe_moves(moves):
     return deduped_moves
 
 
+def inspect_check_actual(txids, channel_id, actual, exp):
+    assert len(actual['outputs']) == len(exp)
+    for e in exp:
+        # find the event in actual that matches
+        found = False
+        for a in actual['outputs']:
+            if e[0].startswith('cid'):
+                if a['account'] != channel_id:
+                    continue
+            elif a['account'] != e[0]:
+                continue
+
+            if e[1][0] != a['output_tag']:
+                continue
+            if e[2]:
+                assert e[2][0] == a['spend_tag']
+                txids.append((e[3], a['spending_txid']))
+            else:
+                assert 'spend_tag' not in a
+            found = True
+            break
+        assert found
+
+    return txids
+
+
+def check_inspect_channel(n, channel_id, expected_txs):
+    actual_txs = n.rpc.bkpr_inspect(channel_id)['txs']
+    assert len(actual_txs) == len(expected_txs.keys())
+    # start at the top
+    exp = list(expected_txs.values())[0]
+    actual = actual_txs[0]
+
+    txids = []
+
+    exp_counter = 1
+    inspect_check_actual(txids, channel_id, actual, exp)
+    actual_txs.remove(actual)
+
+    for (marker, txid) in txids:
+        actual = None
+        for a in actual_txs:
+            if a['txid'] == txid:
+                actual = a
+                break
+        assert actual
+        exp = expected_txs[marker]
+        inspect_check_actual(txids, channel_id, actual, exp)
+
+        # after we've inspected it, remove it
+        actual_txs.remove(actual)
+        exp_counter += 1
+
+    # Did we inspect everything?
+    assert len(actual_txs) == 0
+    assert exp_counter == len(expected_txs.keys())
+
+
 def check_utxos_channel(n, chans, expected, exp_tag_list=None, filter_channel=None):
     tag_list = {}
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']

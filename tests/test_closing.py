@@ -7,7 +7,7 @@ from utils import (
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
     scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
     check_utxos_channel, anchor_expected, check_coin_moves,
-    check_balance_snaps, mine_funding_to_announce
+    check_balance_snaps, mine_funding_to_announce, check_inspect_channel
 )
 
 import os
@@ -1514,6 +1514,15 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     tags = check_utxos_channel(l2, [channel_id], expected_2, filter_channel=channel_id)
     check_utxos_channel(l3, [channel_id], expected_3, tags, filter_channel=channel_id)
 
+    # Check that it's marked as resolved
+    for node in [l2, l3]:
+        bals = node.rpc.bkpr_listbalances()['accounts']
+        for acc in bals:
+            if acc['account'] == channel_id:
+                assert acc['account_closed']
+                assert acc['account_resolved']
+                assert acc['resolved_at_block'] > 0
+
 
 @pytest.mark.developer("uses dev_sign_last_tx")
 def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
@@ -2421,6 +2430,20 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
 
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
+
+    # Check 'bkpr-inspect' and 'bkpr-listbalances'
+    # The wallet events aren't in the channel's events
+    del expected_1['0']
+    expected_1['A'] = expected_1['A'][1:]
+    check_inspect_channel(l1, channel_id, expected_1)
+
+    for node in [l1, l2]:
+        bals = node.rpc.bkpr_listbalances()['accounts']
+        for acc in bals:
+            if acc['account'] == channel_id:
+                assert acc['account_closed']
+                assert acc['account_resolved']
+                assert acc['resolved_at_block'] > 0
 
 
 def test_listfunds_after_their_unilateral(node_factory, bitcoind):
