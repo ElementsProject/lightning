@@ -110,7 +110,7 @@ def colname_htable(query):
     for colnum, colname in enumerate(colnames):
         colname = colname.strip()
         # SELECT xxx AS yyy -> Y
-        as_clause = colname.upper().find(" AS ")
+        as_clause = colname.upper().rfind(" AS ")
         if as_clause != -1:
             colname = colname[as_clause + 4:].strip()
 
