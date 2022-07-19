@@ -160,6 +160,231 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 	return find_chain_events(ctx, take(stmt));
 }
 
+static struct chain_event **find_txos_for_tx(const tal_t *ctx,
+					     struct db *db,
+					     struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  e.id"
+				     ", e.account_id"
+				     ", a.name"
+				     ", e.origin"
+				     ", e.tag"
+				     ", e.credit"
+				     ", e.debit"
+				     ", e.output_value"
+				     ", e.currency"
+				     ", e.timestamp"
+				     ", e.blockheight"
+				     ", e.utxo_txid"
+				     ", e.outnum"
+				     ", e.spending_txid"
+				     ", e.payment_id"
+				     " FROM chain_events e"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON e.account_id = a.id"
+				     " WHERE e.utxo_txid = ?"
+				     " ORDER BY "
+				     "  e.utxo_txid"
+				     ", e.outnum"
+				     ", e.spending_txid NULLS FIRST"));
+
+	db_bind_txid(stmt, 0, txid);
+	return find_chain_events(ctx, take(stmt));
+}
+
+struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
+					   struct db *db,
+					   struct account *acct)
+{
+	struct db_stmt *stmt;
+	struct fee_sum **sums;
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  txid"
+				     ", CAST(SUM(credit) AS BIGINT) as credit"
+				     ", CAST(SUM(debit) AS BIGINT) as debit"
+				     " FROM onchain_fees"
+				     " WHERE account_id = ?"
+				     " GROUP BY txid"
+				     " ORDER BY txid, update_count"));
+
+	db_bind_u64(stmt, 0, acct->db_id);
+	db_query_prepared(stmt);
+
+	sums = tal_arr(ctx, struct fee_sum *, 0);
+	while (db_step(stmt)) {
+		struct fee_sum *sum;
+		struct amount_msat amt;
+		bool ok;
+
+		sum = tal(sums, struct fee_sum);
+		sum->txid = tal(sum, struct bitcoin_txid);
+		db_col_txid(stmt, "txid", sum->txid);
+
+		db_col_amount_msat(stmt, "credit", &sum->fees_paid);
+		db_col_amount_msat(stmt, "debit", &amt);
+		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid, amt);
+		assert(ok);
+		tal_arr_expand(&sums, sum);
+	}
+
+	return sums;
+}
+
+static struct txo_pair *new_txo_pair(const tal_t *ctx)
+{
+	struct txo_pair *pr = tal(ctx, struct txo_pair);
+	pr->txo = NULL;
+	pr->spend = NULL;
+	return pr;
+}
+
+static struct txo_set *find_txo_set(const tal_t *ctx,
+				    struct db *db,
+				    struct bitcoin_txid *txid,
+				    u64 *acct_db_id,
+				    bool *is_complete)
+{
+	struct txo_pair *pr;
+	struct chain_event **evs;
+	struct txo_set *txos = tal(ctx, struct txo_set);
+
+	/* In some special cases (the opening tx), we only
+	 * want the outputs that pertain to a given account,
+	 * most other times we want all utxos, regardless of account */
+	evs = find_txos_for_tx(ctx, db, txid);
+	txos->pairs = tal_arr(txos, struct txo_pair *, 0);
+	txos->txid = tal_dup(txos, struct bitcoin_txid, txid);
+
+	pr = NULL;
+
+	/* If there's nothing for this txid, we're missing data */
+	if (is_complete)
+		*is_complete = tal_count(evs) > 0;
+
+	for (size_t i = 0; i < tal_count(evs); i++) {
+		struct chain_event *ev = evs[i];
+
+		if (acct_db_id && ev->acct_db_id != *acct_db_id)
+			continue;
+
+		if (ev->spending_txid) {
+			if (!pr) {
+				/* We're missing data!! */
+				pr = new_txo_pair(txos->pairs);
+				if (is_complete)
+					*is_complete = false;
+			} else {
+				assert(pr->txo);
+				/* Make sure it's the same txo */
+				assert(bitcoin_outpoint_eq(&pr->txo->outpoint,
+							   &ev->outpoint));
+			}
+
+			pr->spend = tal_steal(pr, ev);
+			tal_arr_expand(&txos->pairs, pr);
+			pr = NULL;
+		} else {
+			/* We might not have a spend event
+			 * for everything */
+			if (pr)
+				tal_arr_expand(&txos->pairs, pr);
+			pr = new_txo_pair(txos->pairs);
+			pr->txo = tal_steal(pr, ev);
+		}
+	}
+
+	/* Might have a single entry 'pr' left over */
+	if (pr)
+		tal_arr_expand(&txos->pairs, pr);
+
+	return txos;
+}
+
+static bool is_channel_acct(struct chain_event *ev)
+{
+	return !streq(ev->acct_name, WALLET_ACCT)
+		&& !streq(ev->acct_name, EXTERNAL_ACCT);
+}
+
+static bool txid_in_list(struct bitcoin_txid **list,
+			 struct bitcoin_txid *txid)
+{
+	for (size_t i = 0; i < tal_count(list); i++) {
+		if (bitcoin_txid_eq(list[i], txid))
+			return true;
+	}
+
+	return false;
+}
+
+bool find_txo_chain(const tal_t *ctx,
+		    struct db *db,
+		    struct account *acct,
+		    struct txo_set ***sets)
+{
+	struct bitcoin_txid **txids;
+	struct chain_event *open_ev;
+	bool is_complete = true;
+	u64 *start_acct_id = tal(NULL, u64);
+
+	assert(acct->open_event_db_id);
+	open_ev = find_chain_event_by_id(ctx, db,
+					 *acct->open_event_db_id);
+
+	*sets = tal_arr(ctx, struct txo_set *, 0);
+	txids = tal_arr(ctx, struct bitcoin_txid *, 0);
+	tal_arr_expand(&txids, &open_ev->outpoint.txid);
+
+	/* We only want to filter by the account for the very
+	 * first utxo that we get the tree for, so we
+	 * start w/ this acct id... */
+	*start_acct_id = open_ev->acct_db_id;
+
+	for (size_t i = 0; i < tal_count(txids); i++) {
+		struct txo_set *set;
+		bool set_complete;
+
+		set = find_txo_set(ctx, db, txids[i],
+				   start_acct_id,
+				   &set_complete);
+
+		/* After first use, we free the acct dbid ptr,
+		 * which will pass in NULL and not filter by
+		 * account for any subsequent txo_set hunt */
+		if (start_acct_id)
+			start_acct_id = tal_free(start_acct_id);
+
+		is_complete &= set_complete;
+		for (size_t j = 0; j < tal_count(set->pairs); j++) {
+			struct txo_pair *pr = set->pairs[j];
+
+			/* Has this been resolved? */
+			if ((pr->txo
+			     && is_channel_acct(pr->txo))
+			     && !pr->spend)
+				is_complete = false;
+
+			/* wallet accts and zero-fee-htlc anchors
+			 * might overlap txids */
+			if (pr->spend
+			    && pr->spend->spending_txid
+			    && !txid_in_list(txids, pr->spend->spending_txid)
+			    /* We dont trace utxos for non related accts */
+			    && pr->spend->acct_db_id == acct->db_id) {
+				tal_arr_expand(&txids,
+					       pr->spend->spending_txid);
+			}
+		}
+
+		tal_arr_expand(sets, set);
+	}
+
+	return is_complete;
+}
+
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 					   struct db *db,
 					   u64 event_db_id)
