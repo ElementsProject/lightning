@@ -324,22 +324,22 @@ static const char *parse_and_log_channel_move(struct command *cmd,
 	const char *err;
 
 	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
-			"{payment_hash:%"
-			",fees:%"
-			"}}",
-			JSON_SCAN(json_to_sha256, &e->payment_id),
-			JSON_SCAN(json_to_msat, &e->fees));
-
+			"{coin_movement:{payment_hash:%}}",
+			JSON_SCAN(json_to_sha256, &e->payment_id));
 	if (err)
-		return err;
+		memset(&e->payment_id, 0, sizeof(struct sha256));
 
 	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
-			"{part_id:%}}",
+			"{coin_movement:{part_id:%}}",
 			JSON_SCAN(json_to_number, &e->part_id));
 	if (err)
 		e->part_id = 0;
+
+	err = json_scan(tmpctx, buf, params,
+			"{coin_movement:{fees_msat:%}}",
+			JSON_SCAN(json_to_msat, &e->fees));
+	if (err)
+		e->fees = AMOUNT_MSAT(0);
 
 	e->credit = credit;
 	e->debit = debit;
