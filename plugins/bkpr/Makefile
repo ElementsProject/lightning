@@ -1,15 +1,24 @@
 #! /usr/bin/make
 
 BOOKKEEPER_PLUGIN_SRC := 			\
+	plugins/bkpr/account.c			\
 	plugins/bkpr/bookkeeper.c		\
-	plugins/bkpr/db.c
+	plugins/bkpr/db.c			\
+	plugins/bkpr/recorder.c
 
 BOOKKEEPER_DB_QUERIES := 			\
 	plugins/bkpr/db_sqlite3_sqlgen.c 	\
 	plugins/bkpr/db_postgres_sqlgen.c
 
 BOOKKEEPER_SRC := $(BOOKKEEPER_PLUGIN_SRC) $(BOOKKEEPER_DB_QUERIES)
-BOOKKEEPER_HEADER := plugins/bkpr/db.h
+BOOKKEEPER_HEADER := 				\
+	plugins/bkpr/account.h			\
+	plugins/bkpr/chain_event.h		\
+	plugins/bkpr/channel_event.h		\
+	plugins/bkpr/db.h			\
+	plugins/bkpr/onchain_fee.h		\
+	plugins/bkpr/recorder.h
+
 BOOKKEEPER_OBJS := $(BOOKKEEPER_SRC:.c=.o)
 
 $(BOOKKEEPER_OBJS): $(PLUGIN_LIB_HEADER) $(BOOKKEEPER_HEADER)
@@ -23,7 +32,8 @@ plugins/bookkeeper: bitcoin/chainparams.o common/coin_mvt.o $(BOOKKEEPER_OBJS) $
 # The following files contain SQL-annotated statements that we need to extact
 BOOKKEEPER_SQL_FILES := 			\
 	$(DB_SQL_FILES)				\
-	plugins/bkpr/db.c
+	plugins/bkpr/db.c			\
+	plugins/bkpr/recorder.c
 
 plugins/bkpr/statements_gettextgen.po: $(BOOKKEEPER_SQL_FILES) $(FORCE)
 	@if $(call SHA256STAMP_CHANGED_ALL); then \

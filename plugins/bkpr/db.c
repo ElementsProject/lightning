@@ -45,8 +45,6 @@ static struct migration db_migrations[] = {
 		", is_wallet INTEGER"
 		", we_opened INTEGER"
 		", leased INTEGER"
-		", last_updated_ts BIGINT"
-		", last_updated_block INTEGER"
 		", PRIMARY KEY (id)"
 		");"),
 	NULL},
@@ -62,6 +60,7 @@ static struct migration db_migrations[] = {
 		", blockheight INTEGER"
 		", utxo_txid BLOB"
 		", outnum INTEGER"
+		", payment_id BLOB"
 		", spending_txid BLOB"
 		", PRIMARY KEY (id)"
 		");"),
@@ -84,6 +83,7 @@ static struct migration db_migrations[] = {
 		"account_id BIGINT REFERENCES accounts(id)"
 		", txid BLOB"
 		", amount BIGINT"
+		", currency TEXT"
 		", PRIMARY KEY (account_id, txid)"
 		");"),
 	NULL},
