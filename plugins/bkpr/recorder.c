@@ -187,6 +187,103 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 	return e;
 }
 
+char *account_get_balance(const tal_t *ctx,
+			  struct db *db,
+			  const char *acct_name,
+			  struct acct_balance ***balances)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
+				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
+				     ", ce.currency"
+				     " FROM chain_events ce"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON a.id = ce.account_id"
+				     " WHERE a.name = ?"
+				     " GROUP BY ce.currency"));
+
+	db_bind_text(stmt, 0, acct_name);
+	db_query_prepared(stmt);
+	*balances = tal_arr(ctx, struct acct_balance *, 0);
+
+	while (db_step(stmt)) {
+		struct acct_balance *bal;
+
+		bal = tal(*balances, struct acct_balance);
+
+		bal->currency = db_col_strdup(bal, stmt, "ce.currency");
+		db_col_amount_msat(stmt, "credit", &bal->credit);
+		db_col_amount_msat(stmt, "debit", &bal->debit);
+		tal_arr_expand(balances, bal);
+	}
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
+				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
+				     ", ce.currency"
+				     " FROM channel_events ce"
+				     " LEFT OUTER JOIN accounts a"
+				     " ON a.id = ce.account_id"
+				     " WHERE a.name = ?"
+				     " GROUP BY ce.currency"));
+	db_bind_text(stmt, 0, acct_name);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct amount_msat amt;
+		struct acct_balance *bal = NULL;
+		char *currency;
+
+		currency = db_col_strdup(ctx, stmt, "ce.currency");
+
+		/* Find the currency entry from above */
+		for (size_t i = 0; i < tal_count(*balances); i++) {
+			if (streq((*balances)[i]->currency, currency)) {
+				bal = (*balances)[i];
+				break;
+			}
+		}
+
+		if (!bal) {
+			bal = tal(*balances, struct acct_balance);
+			bal->credit = AMOUNT_MSAT(0);
+			bal->debit = AMOUNT_MSAT(0);
+			bal->currency = tal_steal(bal, currency);
+			tal_arr_expand(balances, bal);
+		}
+
+		db_col_amount_msat(stmt, "credit", &amt);
+		if (!amount_msat_add(&bal->credit, bal->credit, amt)) {
+			tal_free(stmt);
+			return "overflow adding channel_event credits";
+		}
+
+		db_col_amount_msat(stmt, "debit", &amt);
+		if (!amount_msat_add(&bal->debit, bal->debit, amt)) {
+			tal_free(stmt);
+			return "overflow adding channel_event debits";
+		}
+	}
+	tal_free(stmt);
+
+	for (size_t i = 0; i < tal_count(*balances); i++) {
+		struct acct_balance *bal = (*balances)[i];
+		if (!amount_msat_sub(&bal->balance, bal->credit, bal->debit))
+			return tal_fmt(ctx,
+				"%s channel balance is negative? %s - %s",
+				bal->currency,
+				type_to_string(ctx, struct amount_msat,
+					       &bal->credit),
+				type_to_string(ctx, struct amount_msat,
+					       &bal->debit));
+	}
+
+	return NULL;
+}
+
 struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct db *db,
 						  struct account *acct)

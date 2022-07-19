@@ -12,6 +12,13 @@ struct db;
 enum mvt_tag;
 struct onchain_fee;
 
+struct acct_balance {
+	char *currency;
+	struct amount_msat credit;
+	struct amount_msat debit;
+	struct amount_msat balance;
+};
+
 /* Get all accounts */
 struct account **list_accounts(const tal_t *ctx, struct db *db);
 
@@ -29,6 +36,12 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      struct db *db,
 					      struct account *acct);
+
+/* Calculate the balances for an account */
+char *account_get_balance(const tal_t *ctx,
+			  struct db *db,
+			  const char *acct_name,
+			  struct acct_balance ***balances);
 
 /* List all chain fees, for all accounts */
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);
