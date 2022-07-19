@@ -390,19 +390,44 @@ bool find_txo_chain(const tal_t *ctx,
 void maybe_mark_account_onchain(struct db *db, struct account *acct)
 {
 	const u8 *ctx = tal(NULL, u8);
-	if (find_txo_chain(ctx, db, acct, NULL)) {
+	struct txo_set **sets;
+	struct chain_event *close_ev;
+	struct db_stmt *stmt;
+
+	assert(acct->closed_count > 0);
+
+	close_ev = find_chain_event_by_id(ctx, db,
+					 *acct->closed_event_db_id);
+
+	if (find_txo_chain(ctx, db, acct, &sets)) {
 		/* Ok now we find the max block height of the
 		 * spending chain_events for this channel */
 		bool ok;
 
-		struct db_stmt *stmt = db_prepare_v2(db,
-				SQL("SELECT"
-				    " blockheight"
-				    " FROM chain_events"
-				    " WHERE account_id = ?"
-				    "  AND spending_txid IS NOT NULL"
-				    " ORDER BY blockheight DESC"
-				    " LIMIT 1"));
+		/* Have we accounted for all the outputs */
+		ok = false;
+		for (size_t i = 0; i < tal_count(sets); i++) {
+			if (bitcoin_txid_eq(sets[i]->txid,
+					    close_ev->spending_txid)) {
+
+				ok = tal_count(sets[i]->pairs)
+						== acct->closed_count;
+				break;
+			}
+		}
+
+		if (!ok) {
+			tal_free(ctx);
+			return;
+		}
+
+		stmt = db_prepare_v2(db, SQL("SELECT"
+				     " blockheight"
+				     " FROM chain_events"
+				     " WHERE account_id = ?"
+				     "  AND spending_txid IS NOT NULL"
+				     " ORDER BY blockheight DESC"
+				     " LIMIT 1"));
 
 		db_bind_u64(stmt, 0, acct->db_id);
 		db_query_prepared(stmt);
