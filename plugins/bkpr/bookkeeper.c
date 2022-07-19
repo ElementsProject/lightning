@@ -604,6 +604,10 @@ static bool new_missed_channel_account(struct command *cmd,
 			if (!streq(chan_id, acct->name))
 				continue;
 
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "Logging channel account from list %s",
+				   acct->name);
+
 			chain_ev = tal(cmd, struct chain_event);
 			chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
 			chain_ev->debit = AMOUNT_MSAT(0);
@@ -845,12 +849,14 @@ listpeers_multi_done(struct command *cmd,
 		if (err)
 			plugin_err(cmd->plugin, err);
 
+		plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
 		log_journal_entry(info->acct,
 				  info->currency,
 				  info->timestamp - 1,
 				  credit_diff, debit_diff);
 	}
 
+	plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
 	return notification_handled(cmd);
 }
 
@@ -1127,6 +1133,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
+	plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
 	return notification_handled(cmd);
 }
 
