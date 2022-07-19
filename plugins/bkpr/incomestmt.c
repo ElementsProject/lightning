@@ -43,6 +43,7 @@ static struct income_event *chain_to_income(const tal_t *ctx,
 	inc->tag = tal_strdup(inc, ev->tag);
 	inc->credit = credit;
 	inc->debit = debit;
+	inc->fees = AMOUNT_MSAT(0);
 	inc->currency = tal_strdup(inc, ev->currency);
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = tal_dup(inc, struct bitcoin_outpoint, &ev->outpoint);
@@ -69,6 +70,7 @@ static struct income_event *channel_to_income(const tal_t *ctx,
 	inc->tag = tal_strdup(inc, ev->tag);
 	inc->credit = credit;
 	inc->debit = debit;
+	inc->fees = ev->fees;
 	inc->currency = tal_strdup(inc, ev->currency);
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = NULL;
@@ -92,6 +94,7 @@ static struct income_event *onchainfee_to_income(const tal_t *ctx,
 	/* We swap these, as they're actually opposite */
 	inc->credit = fee->debit;
 	inc->debit = fee->credit;
+	inc->fees = AMOUNT_MSAT(0);
 	inc->currency = tal_strdup(inc, fee->currency);
 	inc->timestamp = fee->timestamp;
 	inc->txid = tal_dup(inc, struct bitcoin_txid, &fee->txid);
@@ -360,9 +363,10 @@ struct income_event **list_income_events(const tal_t *ctx,
 			if (ev)
 				tal_arr_expand(&evs, ev);
 
-			/* Breakout fees on sent payments */
+			/* Breakout fees on sent payments, if present */
 			if (streq(chan->tag, "invoice")
-			    && !amount_msat_zero(chan->debit)) {
+			    && !amount_msat_zero(chan->debit)
+			    && !amount_msat_zero(chan->fees)) {
 				ev = paid_invoice_fee(evs, chan);
 				tal_arr_expand(&evs, ev);
 			}
@@ -464,6 +468,13 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	time_t tv;
 	tv = ev->timestamp;
 	char timebuf[sizeof("mm/dd/yyyy HH:MM:SS")];
+
+	/* Cointrack counts invoice fee events inline */
+	if (streq(ev->tag, account_entry_tag_str(INVOICEFEE)))
+		return;
+
+	fprintf(csvf, "\n");
+
 	strftime(timebuf, sizeof(timebuf), "%m/%d/%Y %T", gmtime(&tv));
 	fprintf(csvf, "%s", timebuf);
 	fprintf(csvf, ",");
@@ -479,8 +490,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	fprintf(csvf, ",");
 
 	/* "Sent Quantity,Sent Currency," */
-	if (!amount_msat_zero(ev->debit)
-	    && !streq(ev->tag, ONCHAIN_FEE)) {
+	if (!amount_msat_zero(ev->debit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
@@ -490,9 +500,9 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	fprintf(csvf, ",");
 
 	/* "Fee Amount,Fee Currency," */
-	if (!amount_msat_zero(ev->debit)
-	    && streq(ev->tag, ONCHAIN_FEE)) {
-		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
+	if (!amount_msat_zero(ev->fees)
+	    && streq(ev->tag, mvt_tag_str(INVOICE))) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
 	} else
@@ -530,13 +540,19 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	tv = ev->timestamp;
 	/* 2018-01-01 14:25 UTC */
 	char timebuf[sizeof("yyyy-mm-dd HH:MM UTC")];
+
+	/* Koinly counts invoice fee events inline */
+	if (streq(ev->tag, account_entry_tag_str(INVOICEFEE)))
+		return;
+
+	fprintf(csvf, "\n");
+
 	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M UTC", gmtime(&tv));
 	fprintf(csvf, "%s", timebuf);
 	fprintf(csvf, ",");
 
 	/* "Sent Amount,Sent Currency," */
-	if (!amount_msat_zero(ev->debit)
-	    && !streq(ev->tag, ONCHAIN_FEE)) {
+	if (!amount_msat_zero(ev->debit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
@@ -557,9 +573,9 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 
 
 	/* "Fee Amount,Fee Currency," */
-	if (!amount_msat_zero(ev->debit)
-	    && streq(ev->tag, ONCHAIN_FEE)) {
-		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
+	if (!amount_msat_zero(ev->fees)
+	    && streq(ev->tag, mvt_tag_str(INVOICE))) {
+		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
 	} else
@@ -652,6 +668,10 @@ static void harmony_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	/* datefmt: ISO-8601 */
 	char timebuf[sizeof("yyyy-mm-ddTHH:MM:SSZ")];
 	strftime(timebuf, sizeof(timebuf), "%Y-%m-%dT%TZ", gmtime(&tv));
+
+	/* New line! */
+	fprintf(csvf, "\n");
+
 	fprintf(csvf, "%s", timebuf);
 	fprintf(csvf, ",");
 
@@ -817,10 +837,8 @@ char *csv_print_income_events(const tal_t *ctx,
 		return tal_fmt(ctx, "Failed to open csv file %s", filename);
 
 	csvfmt->emit_header(csvf);
-	for (size_t i = 0; i < tal_count(evs); i++) {
-		fprintf(csvf, "\n");
+	for (size_t i = 0; i < tal_count(evs); i++)
 		csvfmt->emit_entry(ctx, csvf, evs[i]);
-	}
 
 	fclose(csvf);
 	return NULL;
