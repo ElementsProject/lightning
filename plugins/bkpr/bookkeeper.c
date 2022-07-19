@@ -204,7 +204,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			ev.fees = AMOUNT_MSAT(0);
 			ev.currency = s.coin_type;
 			ev.part_id = 0;
-			memset(&ev.payment_id, 0, sizeof(struct sha256));
+			ev.payment_id = NULL;
 			/* Use current time for this */
 			ev.timestamp = time_now().ts.tv_sec;
 
@@ -323,11 +323,12 @@ static const char *parse_and_log_channel_move(struct command *cmd,
 	struct account *acct;
 	const char *err;
 
+	e->payment_id = tal(e, struct sha256);
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:{payment_hash:%}}",
-			JSON_SCAN(json_to_sha256, &e->payment_id));
+			JSON_SCAN(json_to_sha256, e->payment_id));
 	if (err)
-		memset(&e->payment_id, 0, sizeof(struct sha256));
+		e->payment_id = tal_free(e->payment_id);
 
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:{part_id:%}}",

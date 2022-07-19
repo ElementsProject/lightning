@@ -259,7 +259,9 @@ static bool channel_events_eq(struct channel_event *e1, struct channel_event *e2
 	CHECK(amount_msat_eq(e1->debit, e2->debit));
 	CHECK(amount_msat_eq(e1->fees, e2->fees));
 	CHECK(streq(e1->currency, e2->currency));
-	CHECK(sha256_eq(&e1->payment_id, &e2->payment_id));
+	CHECK((e1->payment_id != NULL) == (e2->payment_id != NULL));
+	if (e1->payment_id)
+		CHECK(sha256_eq(e1->payment_id, e2->payment_id));
 	CHECK(e1->part_id == e2->part_id);
 	CHECK(e1->timestamp == e2->timestamp);
 
@@ -298,7 +300,8 @@ static struct channel_event *make_channel_event(const tal_t *ctx,
 {
 	struct channel_event *ev = tal(ctx, struct channel_event);
 
-	memset(&ev->payment_id, payment_char, sizeof(struct sha256));
+	ev->payment_id = tal(ev, struct sha256);
+	memset(ev->payment_id, payment_char, sizeof(struct sha256));
 	ev->credit = credit;
 	ev->debit = debit;
 	ev->fees = AMOUNT_MSAT(104);
@@ -707,32 +710,35 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
-	memset(&ev1.payment_id, 'B', sizeof(struct sha256));
+	ev1.payment_id = tal(ctx, struct sha256);
+	memset(ev1.payment_id, 'B', sizeof(struct sha256));
 	ev1.credit = AMOUNT_MSAT(100);
 	ev1.debit = AMOUNT_MSAT(102);
 	ev1.fees = AMOUNT_MSAT(104);
 	ev1.currency = "btc";
-	ev1.timestamp = 1919191;
+	ev1.timestamp = 11111;
 	ev1.part_id = 19;
 
 	/* Passing unknown tags in should be ok */
 	ev1.tag = "hello";
 
-	memset(&ev2.payment_id, 'C', sizeof(struct sha256));
+	ev2.payment_id = tal(ctx, struct sha256);
+	memset(ev2.payment_id, 'C', sizeof(struct sha256));
 	ev2.credit = AMOUNT_MSAT(200);
 	ev2.debit = AMOUNT_MSAT(202);
 	ev2.fees = AMOUNT_MSAT(204);
 	ev2.currency = "brct";
-	ev2.timestamp = 1818181;
+	ev2.timestamp = 22222;
 	ev2.part_id = 0;
 	ev2.tag = tal_fmt(ctx, "deposit");
 
-	memset(&ev3.payment_id, 'D', sizeof(struct sha256));
+	ev3.payment_id = tal(ctx, struct sha256);
+	memset(ev3.payment_id, 'D', sizeof(struct sha256));
 	ev3.credit = AMOUNT_MSAT(300);
 	ev3.debit = AMOUNT_MSAT(302);
 	ev3.fees = AMOUNT_MSAT(304);
 	ev3.currency = "brct";
-	ev3.timestamp = 1717171;
+	ev3.timestamp = 33333;
 	ev3.part_id = 5;
 	ev3.tag = tal_fmt(ctx, "routed");
 
@@ -742,6 +748,11 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 
 	/* log a channel event to a different acct */
 	log_channel_event(db, acct2, &ev3);
+
+	/* log a channel event without a payment id */
+	ev3.payment_id = NULL;
+	log_channel_event(db, acct2, &ev3);
+
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
 
