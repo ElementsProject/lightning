@@ -3915,6 +3915,9 @@ int main(int argc, char *argv[])
 						  &funding, tx_blockheight,
 						  our_msat,
 						  funding_sats,
+						  is_elements(chainparams) ?
+						  /* Minus 1, fee output */
+						  tal_count(tx->outputs) - 1 :
 						  tal_count(tx->outputs))));
 
 	status_debug("Remote per-commit point: %s",
