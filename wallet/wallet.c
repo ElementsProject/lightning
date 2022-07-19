@@ -4197,9 +4197,10 @@ struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
 		return NULL;
 	}
 
-	if (db_col_is_null(stmt, "blockheight"))
+	if (db_col_is_null(stmt, "blockheight")) {
+		db_col_ignore(stmt, "txindex");
 		loc = NULL;
-	else {
+	} else {
 		loc = tal(ctx, struct txlocator);
 		loc->blkheight = db_col_int(stmt, "blockheight");
 		loc->index = db_col_int(stmt, "txindex");
