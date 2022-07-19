@@ -2126,6 +2126,7 @@ def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db
     lightning_dir = os.path.join(directory, "anode" + "far" * 30 + "away")
     os.makedirs(lightning_dir)
     db = db_provider.get_db(lightning_dir, "test_unix_socket_path_length", 1)
+    db.provider = db_provider
 
     l1 = LightningNode(1, lightning_dir, bitcoind, executor, VALGRIND, db=db, port=reserve())
 
