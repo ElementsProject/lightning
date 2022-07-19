@@ -1131,7 +1131,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 	if (tal_count(new_accts) > 0) {
 		struct out_req *req;
 
-		req = jsonrpc_request_start(cmd->plugin, NULL,
+		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "listpeers",
 					    listpeers_multi_done,
 					    log_error,
@@ -1319,7 +1319,7 @@ parse_and_log_chain_move(struct command *cmd,
 		info = tal(NULL, struct event_info);
 		info->ev = tal_steal(info, e);
 		info->acct = tal_steal(info, acct);
-		req = jsonrpc_request_start(cmd->plugin, NULL,
+		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "listpeers",
 					    listpeers_done,
 					    log_error,
