@@ -209,6 +209,43 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 	return find_chain_events(ctx, take(stmt));
 }
 
+struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
+{
+	struct db_stmt *stmt;
+	struct fee_sum **sums;
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  txid"
+				     ", account_id"
+				     ", SUM(credit)"
+				     ", SUM(debit)"
+				     " FROM onchain_fees"
+				     " GROUP BY txid, account_id"
+				     " ORDER BY txid, account_id"));
+
+	db_query_prepared(stmt);
+
+	sums = tal_arr(ctx, struct fee_sum *, 0);
+	while (db_step(stmt)) {
+		struct fee_sum *sum;
+		struct amount_msat amt;
+		bool ok;
+
+		sum = tal(sums, struct fee_sum);
+		sum->txid = tal(sum, struct bitcoin_txid);
+		db_col_txid(stmt, "txid", sum->txid);
+		sum->acct_db_id = db_col_u64(stmt, "account_id");
+
+		db_col_amount_msat(stmt, "SUM(credit)", &sum->fees_paid);
+		db_col_amount_msat(stmt, "SUM(debit)", &amt);
+		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid, amt);
+		assert(ok);
+		tal_arr_expand(&sums, sum);
+	}
+
+	tal_free(stmt);
+	return sums;
+}
+
 struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 					   struct db *db,
 					   struct account *acct)
@@ -234,6 +271,7 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 		bool ok;
 
 		sum = tal(sums, struct fee_sum);
+		sum->acct_db_id = acct->db_id;
 		sum->txid = tal(sum, struct bitcoin_txid);
 		db_col_txid(stmt, "txid", sum->txid);
 
@@ -244,6 +282,7 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 		tal_arr_expand(&sums, sum);
 	}
 
+	tal_free(stmt);
 	return sums;
 }
 

@@ -24,6 +24,7 @@ struct acct_balance {
 };
 
 struct fee_sum {
+	u64 acct_db_id;
 	struct bitcoin_txid *txid;
 	struct amount_msat fees_paid;
 };
@@ -133,6 +134,9 @@ struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
 struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 					   struct db *db,
 					   struct account *acct);
+
+/* Final all the onchain fees */
+struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db);
 
 /* Add the given account to the database */
 void account_add(struct db *db, struct account *acct);
