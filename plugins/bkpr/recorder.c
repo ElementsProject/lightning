@@ -386,6 +386,8 @@ bool find_txo_chain(const tal_t *ctx,
 			 * might overlap txids */
 			if (pr->spend
 			    && pr->spend->spending_txid
+			    /* 'to_miner' outputs are skipped */
+			    && !streq(pr->spend->tag, "to_miner")
 			    && !txid_in_list(txids, pr->spend->spending_txid)
 			    /* We dont trace utxos for non related accts */
 			    && pr->spend->acct_db_id == acct->db_id) {
