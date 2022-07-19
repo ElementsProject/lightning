@@ -4,8 +4,10 @@ BOOKKEEPER_PLUGIN_SRC := 			\
 	plugins/bkpr/account.c			\
 	plugins/bkpr/account_entry.c		\
 	plugins/bkpr/bookkeeper.c		\
+	plugins/bkpr/chain_event.c		\
 	plugins/bkpr/channel_event.c		\
 	plugins/bkpr/db.c			\
+	plugins/bkpr/onchain_fee.c		\
 	plugins/bkpr/recorder.c
 
 BOOKKEEPER_DB_QUERIES := 			\
