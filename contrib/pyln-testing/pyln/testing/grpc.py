@@ -271,3 +271,18 @@ class LightningGrpc(object):
             # feerange,
         )
         return grpc2py.close2py(self.stub.Close(payload))
+
+    def listinvoices(
+            self,
+            label=None,
+            payment_hash=None,
+            invstring=None,
+            offer_id=None
+    ):
+        payload = pb.ListinvoicesRequest(
+            label=label,
+            invstring=invstring,
+            payment_hash=unhexlify(payment_hash) if payment_hash else None,
+            offer_id=offer_id,
+        )
+        return grpc2py.listinvoices2py(self.stub.ListInvoices(payload))
