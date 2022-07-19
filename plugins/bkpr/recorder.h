@@ -106,6 +106,12 @@ struct account *find_account(const tal_t *ctx,
 			     struct db *db,
 			     const char *name);
 
+/* Find the account that was closed by this txid.
+ * Returns NULL if none  */
+struct account *find_close_account(const tal_t *ctx,
+				   struct db *db,
+				   struct bitcoin_txid *txid);
+
 /* Some events update account information */
 void maybe_update_account(struct db *db,
 			  struct account *acct,
@@ -117,6 +123,11 @@ void maybe_update_account(struct db *db,
 char *maybe_update_onchain_fees(const tal_t *ctx,
 			        struct db *db,
 			        struct bitcoin_txid *txid);
+
+/* We calculate onchain fees for channel closes a bit different */
+char *update_channel_onchain_fees(const tal_t *ctx,
+				  struct db *db,
+				  struct account *acct);
 
 /* Have all the outputs for this account's close tx
  * been resolved onchain? If so, update the account with the

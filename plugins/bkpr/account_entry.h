@@ -5,6 +5,7 @@
 #define NUM_ACCOUNT_ENTRY_TAGS (JOURNAL_ENTRY + 1)
 enum account_entry_tag {
 	JOURNAL_ENTRY = 0,
+	PENALTY_ADJ = 1,
 };
 
 /* Convert an enum into a string */
