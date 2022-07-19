@@ -55,6 +55,8 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 	} else
 		e->spending_txid = NULL;
 
+	e->ignored = db_col_int(stmt, "e.ignored") == 1;
+
 	return e;
 }
 
@@ -125,6 +127,7 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     ", e.outnum"
 				     ", e.spending_txid"
 				     ", e.payment_id"
+				     ", e.ignored"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -164,6 +167,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     ", e.outnum"
 				     ", e.spending_txid"
 				     ", e.payment_id"
+				     ", e.ignored"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -196,6 +200,7 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.outnum"
 				     ", e.spending_txid"
 				     ", e.payment_id"
+				     ", e.ignored"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -591,6 +596,7 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     ", e.outnum"
 				     ", e.spending_txid"
 				     ", e.payment_id"
+				     ", e.ignored"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON e.account_id = a.id"
@@ -635,6 +641,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.outnum"
 					     ", e.spending_txid"
 					     ", e.payment_id"
+					     ", e.ignored"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -661,6 +668,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.outnum"
 					     ", e.spending_txid"
 					     ", e.payment_id"
+					     ", e.ignored"
 					     " FROM chain_events e"
 					     " LEFT OUTER JOIN accounts a"
 					     " ON e.account_id = a.id"
@@ -689,6 +697,7 @@ char *account_get_balance(const tal_t *ctx,
 			  struct db *db,
 			  const char *acct_name,
 			  bool calc_sum,
+			  bool skip_ignored,
 			  struct acct_balance ***balances)
 {
 	struct db_stmt *stmt;
@@ -701,9 +710,13 @@ char *account_get_balance(const tal_t *ctx,
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = ce.account_id"
 				     " WHERE a.name = ?"
+				     " AND ce.ignored != ?"
 				     " GROUP BY ce.currency"));
 
 	db_bind_text(stmt, 0, acct_name);
+	/* We populate ignored with a 0 or 1,
+	 * if we want both 0+1, we just ignore everything with a 2 */
+	db_bind_int(stmt, 1, skip_ignored ? 1 : 2);
 	db_query_prepared(stmt);
 	*balances = tal_arr(ctx, struct acct_balance *, 0);
 
@@ -1287,6 +1300,7 @@ static struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db
 				     ", e.outnum"
 				     ", e.spending_txid"
 				     ", e.payment_id"
+				     ", e.ignored"
 				     " FROM chain_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -1775,9 +1789,10 @@ bool log_chain_event(struct db *db,
 				     ", outnum"
 				     ", payment_id"
 				     ", spending_txid"
+				     ", ignored"
 				     ")"
-				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " VALUES "
+				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
 	if (e->origin_acct)
@@ -1804,6 +1819,7 @@ bool log_chain_event(struct db *db,
 	else
 		db_bind_null(stmt, 12);
 
+	db_bind_int(stmt, 13, e->ignored ? 1 : 0);
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
 	e->acct_db_id = acct->db_id;

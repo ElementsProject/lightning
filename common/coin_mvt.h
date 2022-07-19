@@ -211,6 +211,13 @@ struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx,
 					       enum mvt_tag tag)
 	NON_NULL_ARGS(2);
 
+struct chain_coin_mvt *new_coin_wallet_deposit_tagged(const tal_t *ctx,
+						      const struct bitcoin_outpoint *outpoint,
+						      u32 blockheight,
+						      struct amount_sat amount,
+						      enum mvt_tag *tags TAKES)
+	NON_NULL_ARGS(2);
+
 struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
 						const struct bitcoin_txid *spend_txid,
 						const struct bitcoin_outpoint *outpoint,
