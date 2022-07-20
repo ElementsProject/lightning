@@ -51,6 +51,9 @@ Specify *password* if the `hsm_secret` is encrypted.
 **generatehsm** *hsm\_secret\_path*
 Generates a new hsm_secret using BIP39.
 
+**checkhsm** *hsm\_secret\_path*
+Checks that hsm_secret matchs a BIP39 pass phrase.
+
  **dumponchaindescriptors** *hsm_secret* \[*password*\] \[*network*\]
 Dump output descriptors for our onchain wallet.
 The descriptors can be used by external services to be able to generate
