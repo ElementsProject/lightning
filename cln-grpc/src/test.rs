@@ -248,7 +248,8 @@ fn test_keysend() {
                 "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
             )
             .unwrap(),
-            msatoshi: Some(Amount { msat: 10000 }),
+            amount_msat: Some(Amount { msat: 10000 }),
+
             label: Some("hello".to_string()),
             exemptfee: None,
             maxdelay: None,

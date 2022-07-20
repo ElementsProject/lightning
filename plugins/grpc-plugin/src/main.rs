@@ -22,13 +22,7 @@ async fn main() -> Result<()> {
     let directory = std::env::current_dir()?;
     let (identity, ca_cert) = tls::init(&directory)?;
 
-    let state = PluginState {
-        rpc_path: path.into(),
-        identity,
-        ca_cert,
-    };
-
-    let plugin = match Builder::new(state.clone(), tokio::io::stdin(), tokio::io::stdout())
+    let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "grpc-port",
             options::Value::Integer(-1),
@@ -54,7 +48,13 @@ async fn main() -> Result<()> {
         Some(o) => return Err(anyhow!("grpc-port is not a valid integer: {:?}", o)),
     };
 
-    let plugin = plugin.start().await?;
+    let state = PluginState {
+        rpc_path: path.into(),
+        identity,
+        ca_cert,
+    };
+
+    let plugin = plugin.start(state.clone()).await?;
 
     let bind_addr: SocketAddr = format!("0.0.0.0:{}", bind_port).parse().unwrap();
 
