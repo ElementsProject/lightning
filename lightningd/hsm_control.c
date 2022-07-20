@@ -83,21 +83,21 @@ struct ext_key *hsm_init(struct lightningd *ld)
 
 	/* We actually send requests synchronously: only status is async. */
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
-		err(HSM_GENERIC_ERROR, "Could not create hsm socketpair");
+		err(EXITCODE_HSM_GENERIC_ERROR, "Could not create hsm socketpair");
 
 	ld->hsm = new_global_subd(ld, "lightning_hsmd",
 				  hsmd_wire_name,
 				  hsm_msg,
 				  take(&fds[1]), NULL);
 	if (!ld->hsm)
-		err(HSM_GENERIC_ERROR, "Could not subd hsm");
+		err(EXITCODE_HSM_GENERIC_ERROR, "Could not subd hsm");
 
 	/* If hsm_secret is encrypted and the --encrypted-hsm startup option is
 	 * not passed, don't let hsmd use the first 32 bytes of the cypher as the
 	 * actual secret. */
 	if (!ld->config.keypass) {
 		if (is_hsm_secret_encrypted("hsm_secret") == 1)
-			errx(HSM_ERROR_IS_ENCRYPT, "hsm_secret is encrypted, you need to pass the "
+			errx(EXITCODE_HSM_ERROR_IS_ENCRYPT, "hsm_secret is encrypted, you need to pass the "
 			     "--encrypted-hsm startup option.");
 	}
 
@@ -110,7 +110,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 							 IFDEV(ld->dev_force_bip32_seed, NULL),
 							 IFDEV(ld->dev_force_channel_secrets, NULL),
 							 IFDEV(ld->dev_force_channel_secrets_shaseed, NULL))))
-		err(HSM_GENERIC_ERROR, "Writing init msg to hsm");
+		err(EXITCODE_HSM_GENERIC_ERROR, "Writing init msg to hsm");
 
 	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
@@ -119,8 +119,8 @@ struct ext_key *hsm_init(struct lightningd *ld)
 				      &ld->bolt12_base,
 				      &ld->onion_reply_secret)) {
 		if (ld->config.keypass)
-			errx(HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
-		errx(HSM_GENERIC_ERROR, "HSM did not give init reply");
+			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
+		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
 	}
 
 	return bip32_base;

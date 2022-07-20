@@ -14,16 +14,16 @@ int hsm_secret_encryption_key_with_exitcode(const char *pass, struct secret *key
 	/* Don't swap the encryption key ! */
 	if (sodium_mlock(key->data, sizeof(key->data)) != 0) {
 		*err_msg = "Could not lock hsm_secret encryption key memory.";
-		return HSM_GENERIC_ERROR;
+		return EXITCODE_HSM_GENERIC_ERROR;
 	}
 
 	/* Check bounds. */
 	if (strlen(pass) < crypto_pwhash_argon2id_PASSWD_MIN) {
 		*err_msg = "Password too short to be able to derive a key from it.";
-		return HSM_BAD_PASSWORD;
+		return EXITCODE_HSM_BAD_PASSWORD;
 	} else if (strlen(pass) > crypto_pwhash_argon2id_PASSWD_MAX) {
 		*err_msg = "Password too long to be able to derive a key from it.";
-		return HSM_BAD_PASSWORD;
+		return EXITCODE_HSM_BAD_PASSWORD;
 	}
 
 	/* Now derive the key. */
@@ -34,7 +34,7 @@ int hsm_secret_encryption_key_with_exitcode(const char *pass, struct secret *key
 			  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
 			  crypto_pwhash_ALG_ARGON2ID13) != 0) {
 		*err_msg = "Could not derive a key from the password.";
-		return HSM_BAD_PASSWORD;
+		return EXITCODE_HSM_BAD_PASSWORD;
 	}
 
 	return 0;
@@ -122,20 +122,20 @@ char *read_stdin_pass_with_exit_code(char **reason, int *exit_code)
 		/* Set a temporary term, same as current but with ECHO disabled. */
 		if (tcgetattr(fileno(stdin), &current_term) != 0) {
 			*reason = "Could not get current terminal options.";
-			*exit_code = HSM_PASSWORD_INPUT_ERR;
+			*exit_code = EXITCODE_HSM_PASSWORD_INPUT_ERR;
 			return NULL;
 		}
 		temp_term = current_term;
 		temp_term.c_lflag &= ~ECHO;
 		if (tcsetattr(fileno(stdin), TCSANOW, &temp_term) != 0) {
 			*reason = "Could not disable pass echoing.";
-			*exit_code = HSM_PASSWORD_INPUT_ERR;
+			*exit_code = EXITCODE_HSM_PASSWORD_INPUT_ERR;
 			return NULL;
 		}
 
 		if (!getline_stdin_pass(&passwd, &passwd_size)) {
 			*reason = "Could not read pass from stdin.";
-			*exit_code = HSM_PASSWORD_INPUT_ERR;
+			*exit_code = EXITCODE_HSM_PASSWORD_INPUT_ERR;
 			return NULL;
 		}
 
@@ -143,12 +143,12 @@ char *read_stdin_pass_with_exit_code(char **reason, int *exit_code)
 		if (tcsetattr(fileno(stdin), TCSANOW, &current_term) != 0) {
 			*reason = "Could not restore terminal options.";
 			free(passwd);
-			*exit_code = HSM_PASSWORD_INPUT_ERR;
+			*exit_code = EXITCODE_HSM_PASSWORD_INPUT_ERR;
 			return NULL;
 		}
 	} else if (!getline_stdin_pass(&passwd, &passwd_size)) {
 		*reason = "Could not read pass from stdin.";
-		*exit_code = HSM_PASSWORD_INPUT_ERR;
+		*exit_code = EXITCODE_HSM_PASSWORD_INPUT_ERR;
 		return NULL;
 	}
 	return passwd;

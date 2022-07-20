@@ -541,7 +541,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 			return err_msg;
 
 		if (!streq(passwd, passwd_confirmation)) {
-			opt_exitcode = HSM_BAD_PASSWORD;
+			opt_exitcode = EXITCODE_HSM_BAD_PASSWORD;
 			return "Passwords confirmation mismatch.";
 		}
 		free(passwd_confirmation);
