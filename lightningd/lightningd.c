@@ -400,10 +400,10 @@ void test_subdaemons(const struct lightningd *ld)
 
 		/*~ ccan/err is a wrapper around BSD's err.h, which defines
 		 * the convenience functions err() (error with message
-		 * followed by a string based on errno) and errx() (same,
+		 * followed by a string based on errno) and errx() (same,x
 		 * but no errno string). */
 		if (pid == -1)
-			err(1, "Could not run %s", dpath);
+			err(EXITCODE_SUBDAEMON_FAIL, "Could not run %s", dpath);
 
 		/*~ CCAN's grab_file module contains a routine to read into a
 		 * tallocated buffer until EOF */
@@ -415,7 +415,7 @@ void test_subdaemons(const struct lightningd *ld)
 		/*~ strstarts is from CCAN/str. */
 		if (!strstarts(verstring, version())
 		    || verstring[strlen(version())] != '\n')
-			errx(1, "%s: bad version '%s'",
+			errx(EXITCODE_SUBDAEMON_FAIL, "%s: bad version '%s'",
 			     subdaemons[i], verstring);
 		/*~ The child will be reaped by sigchld_rfd_in, so we don't
 		 * need to waitpid() here. */
@@ -654,7 +654,7 @@ static void pidfile_create(const struct lightningd *ld)
 	/* Lock PID file, so future lockf will fail. */
 	if (lockf(pid_fd, F_TLOCK, 0) < 0)
 		/* Problem locking file */
-		err(1, "lightningd already running? Error locking PID file");
+		err(EXITCODE_PIDFILE_LOCK, "lightningd already running? Error locking PID file");
 
 	/*~ As closing the file will remove the lock, we need to keep it open;
 	 * the OS will close it implicitly when we exit for any reason. */
@@ -959,7 +959,7 @@ int main(int argc, char *argv[])
 	/* Figure out where our daemons are first. */
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
 	if (!ld->daemon_dir)
-		errx(1, "Could not find daemons");
+		errx(EXITCODE_SUBDAEMON_FAIL, "Could not find daemons");
 
 	/* Set up the feature bits for what we support */
 	ld->our_features = default_features(ld);
@@ -1053,7 +1053,7 @@ int main(int argc, char *argv[])
 	 * We also check that our node_id is what we expect: otherwise a change
 	 * in hsm_secret will have strange consequences! */
 	if (!wallet_sanity_check(ld->wallet))
-		errx(1, "Wallet sanity check failed.");
+		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
 
 	/*~ Initialize the transaction filter with our pubkeys. */
 	init_txfilter(ld->wallet, ld->owned_txfilter);

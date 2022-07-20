@@ -156,10 +156,13 @@ ERRORS CODE
 ---
 
 - 1: Generic lightning-cli error
+- 10: Error executing subdaemons
+- 11: Error locking pidfile (often another lightningd running)
 - 20: Generic error related to HSM secret
 - 21: HSM secret is encrypted
 - 22: Bad password used to decrypt the HSM secred
 - 23: Error caused from the I/O operation during a HSM decryption/encryption operation
+- 30: Wallet database does not match (network or hsm secret)
 
 
 BUGS
