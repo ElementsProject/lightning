@@ -1220,8 +1220,7 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsmtool_generatehsm(node_factory):
-    l1 = node_factory.get_node()
-    l1.stop()
+    l1 = node_factory.get_node(start=False)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
                             "hsm_secret")
 
@@ -1248,6 +1247,7 @@ def test_hsmtool_generatehsm(node_factory):
 
     # We can start the node with this hsm_secret
     l1.start()
+    assert l1.info['id'] == '02244b73339edd004bc6dfbb953a87984c88e9e7c02ca14ef6ec593ca6be622ba7'
 
 
 # this test does a 'listtransactions' on a yet unconfirmed channel
