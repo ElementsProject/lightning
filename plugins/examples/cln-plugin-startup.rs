@@ -6,7 +6,9 @@ use cln_plugin::{options, Builder, Error, Plugin};
 use tokio;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    if let Some(plugin) = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
+    let state = ();
+
+    if let Some(plugin) = Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "test-option",
             options::Value::Integer(42),
@@ -15,7 +17,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .rpcmethod("testmethod", "This is a test", testmethod)
         .subscribe("connect", connect_handler)
         .hook("peer_connected", peer_connected_handler)
-        .start()
+        .start(state)
         .await?
     {
         plugin.join().await
