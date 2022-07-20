@@ -219,7 +219,7 @@ pub mod requests {
 	    #[serde(alias = "fee_negotiation_step", skip_serializing_if = "Option::is_none")]
 	    pub fee_negotiation_step: Option<String>,
 	    #[serde(alias = "wrong_funding", skip_serializing_if = "Option::is_none")]
-	    pub wrong_funding: Option<String>,
+	    pub wrong_funding: Option<Outpoint>,
 	    #[serde(alias = "force_lease_closed", skip_serializing_if = "Option::is_none")]
 	    pub force_lease_closed: Option<bool>,
 	    #[serde(alias = "feerange", skip_serializing_if = "crate::is_none_or_empty")]

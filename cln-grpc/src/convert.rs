@@ -1080,7 +1080,7 @@ impl From<&pb::CloseRequest> for requests::CloseRequest {
             unilateraltimeout: c.unilateraltimeout.clone(), // Rule #1 for type u32?
             destination: c.destination.clone(), // Rule #1 for type string?
             fee_negotiation_step: c.fee_negotiation_step.clone(), // Rule #1 for type string?
-            wrong_funding: c.wrong_funding.clone().map(|v| hex::encode(v)), // Rule #1 for type txid?
+            wrong_funding: c.wrong_funding.clone(), // Rule #1 for type outpoint?
             force_lease_closed: c.force_lease_closed.clone(), // Rule #1 for type boolean?
             feerange: Some(c.feerange.iter().map(|s| s.into()).collect()), // Rule #4
         }
