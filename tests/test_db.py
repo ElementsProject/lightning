@@ -2,7 +2,7 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, only_one
+from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, TIMEOUT, only_one
 
 import base64
 import os
@@ -413,3 +413,30 @@ def test_sqlite3_builtin_backup(bitcoind, node_factory):
 
     # Should still see the funds.
     assert(len(l1.rpc.listfunds()['outputs']) == 1)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Don't know how to swap dbs in Postgres")
+def test_db_sanity_checks(bitcoind, node_factory):
+    l1, l2 = node_factory.get_nodes(2, opts=[{'allow_broken_log': True,
+                                              'may_fail': True}, {}])
+
+    l1.stop()
+    l2.stop()
+
+    # Provide the --wallet option and start with wrong db
+    l1.daemon.opts['wallet'] = "sqlite3://" + l2.db.path
+    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* wallet: Wallet node_id does not match HSM')
+    # Will have exited with non-zero status.
+    assert l1.daemon.proc.wait(TIMEOUT) != 0
+    assert l1.daemon.is_in_stderr('Wallet sanity check failed')
+
+    # Now try wrong network,
+    l1.daemon.opts['wallet'] = "sqlite3://" + l1.db.path
+    l1.daemon.opts['network'] = "bitcoin"
+
+    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* wallet: Wallet blockchain hash does not match network blockchain hash')
+    # Will have exited with non-zero status.
+    assert l1.daemon.proc.wait(TIMEOUT) != 0
+    assert l1.daemon.is_in_stderr('Wallet sanity check failed')

@@ -1048,9 +1048,12 @@ int main(int argc, char *argv[])
 
 	/*~ Our default names, eg. for the database file, are not dependent on
 	 * the network.  Instead, the db knows what chain it belongs to, and we
-	 * simple barf here if it's wrong. */
-	if (!wallet_network_check(ld->wallet))
-		errx(1, "Wallet network check failed.");
+	 * simple barf here if it's wrong.
+	 *
+	 * We also check that our node_id is what we expect: otherwise a change
+	 * in hsm_secret will have strange consequences! */
+	if (!wallet_sanity_check(ld->wallet))
+		errx(1, "Wallet sanity check failed.");
 
 	/*~ Initialize the transaction filter with our pubkeys. */
 	init_txfilter(ld->wallet, ld->owned_txfilter);

@@ -3643,7 +3643,7 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 	}
 }
 
-bool wallet_network_check(struct wallet *w)
+bool wallet_sanity_check(struct wallet *w)
 {
 	struct bitcoin_blkid chainhash;
 	struct db_stmt *stmt = db_prepare_v2(
@@ -3674,6 +3674,34 @@ bool wallet_network_check(struct wallet *w)
 		stmt = db_prepare_v2(w->db, SQL("INSERT INTO vars (name, blobval) "
 						"VALUES ('genesis_hash', ?);"));
 		db_bind_sha256d(stmt, 0, &chainparams->genesis_blockhash.shad);
+		db_exec_prepared_v2(take(stmt));
+	}
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("SELECT blobval FROM vars WHERE name='node_id'"));
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		struct node_id id;
+		db_col_node_id(stmt, "blobval", &id);
+		tal_free(stmt);
+
+		if (!node_id_eq(&id, &w->ld->id)) {
+			log_broken(w->log, "Wallet node_id does not "
+					   "match HSM: %s "
+					   "!= %s. "
+					   "Did your hsm_secret change?",
+				   type_to_string(tmpctx, struct node_id, &id),
+				   type_to_string(tmpctx, struct node_id,
+						  &w->ld->id));
+			return false;
+		}
+	} else {
+		tal_free(stmt);
+		/* Still a pristine wallet, claim it for the node_id we are now */
+		stmt = db_prepare_v2(w->db, SQL("INSERT INTO vars (name, blobval) "
+						"VALUES ('node_id', ?);"));
+		db_bind_node_id(stmt, 0, &w->ld->id);
 		db_exec_prepared_v2(take(stmt));
 	}
 	return true;

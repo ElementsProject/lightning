@@ -1198,13 +1198,15 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 			   const struct bitcoin_signature *htlc_sigs);
 
 /**
- * wallet_network_check - Check that the wallet is setup for this chain
+ * wallet_sanity_check - Check that the wallet is setup for this node_id and chain
  *
  * Ensure that the genesis_hash from the chainparams matches the
- * genesis_hash with which the DB was initialized. Returns false if
- * the check failed, i.e., if the genesis hashes do not match.
+ * genesis_hash with which the DB was initialized, and that the HSM
+ * gave us the same node_id as the one is the db.
+ *
+ * Returns false if the checks failed.
  */
-bool wallet_network_check(struct wallet *w);
+bool wallet_sanity_check(struct wallet *w);
 
 /**
  * wallet_block_add - Add a block to the blockchain tracked by this wallet
