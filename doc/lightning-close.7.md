@@ -50,7 +50,7 @@ we quickly accept the peer's proposal.
  
 The default is "50%".
 
-*wrong_funding_txid* can only be specified if both sides have offered
+*wrong_funding* can only be specified if both sides have offered
 the "shutdown_wrong_funding" feature (enabled by the
 **experimental-shutdown-wrong-funding** option): it must be a
 transaction id followed by a colon then the output number.  Instead of

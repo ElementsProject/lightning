@@ -403,7 +403,7 @@ message CloseRequest {
 	optional uint32 unilateraltimeout = 2;
 	optional string destination = 3;
 	optional string fee_negotiation_step = 4;
-	optional bytes wrong_funding = 5;
+	optional Outpoint wrong_funding = 5;
 	optional bool force_lease_closed = 6;
 	repeated Feerate feerange = 7;
 }

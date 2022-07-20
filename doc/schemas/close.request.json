@@ -23,7 +23,7 @@
       "description": ""
     },
     "wrong_funding": {
-      "type": "txid",
+      "type": "outpoint",
       "description": ""
     },
     "force_lease_closed": {
