@@ -39,6 +39,7 @@ static void show_usage(const char *progname)
 	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 	       "<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
+	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors <path/to/hsm_secret> [network]\n");
 	exit(0);
 }
@@ -595,6 +596,60 @@ static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_p
 	return 0;
 }
 
+static int check_hsm(const char *hsm_secret_path)
+{
+	char mnemonic[BIP39_WORDLIST_LEN];
+	struct secret hsm_secret;
+	u8 bip32_seed[BIP39_SEED_LEN_512];
+	size_t bip32_seed_len;
+	int exit_code;
+	char *passphrase, *err;
+
+	/* This checks the file existence, too. */
+	if (hsm_secret_is_encrypted(hsm_secret_path)) {
+		char *passwd;
+
+		printf("Enter hsm_secret password:\n");
+		fflush(stdout);
+		passwd = read_stdin_pass_with_exit_code(&err, &exit_code);
+		if (!passwd)
+			errx(exit_code, "%s", err);
+
+		if (sodium_init() == -1)
+			errx(ERROR_LIBSODIUM,
+			     "Could not initialize libsodium. Not enough entropy ?");
+
+		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
+		/* Once the encryption key derived, we don't need it anymore. */
+		free(passwd);
+	} else
+		get_hsm_secret(&hsm_secret, hsm_secret_path);
+
+	printf("Warning: remember that different passphrases yield different "
+	       "bitcoin wallets.\n");
+	printf("If left empty, no password is used (echo is disabled).\n");
+	printf("Enter your passphrase: \n");
+	fflush(stdout);
+	passphrase = read_stdin_pass_with_exit_code(&err, &exit_code);
+	if (!passphrase)
+		errx(exit_code, "%s", err);
+	if (strlen(passphrase) == 0) {
+		free(passphrase);
+		passphrase = NULL;
+	}
+
+	read_mnemonic(mnemonic);
+	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
+		errx(ERROR_LIBWALLY, "Unable to derive BIP32 seed from BIP39 mnemonic");
+
+	/* We only use first 32 bytes */
+	if (memcmp(bip32_seed, hsm_secret.data, sizeof(hsm_secret.data)) != 0)
+		errx(ERROR_KEYDERIV, "resulting hsm_secret did not match");
+
+	printf("OK\n");
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *method;
@@ -680,6 +735,12 @@ int main(int argc, char *argv[])
 			is_testnet = false;
 
 		return dumponchaindescriptors(argv[2], NULL, is_testnet);
+	}
+
+	if (streq(method, "checkhsm")) {
+		if (argc < 3)
+			show_usage(argv[0]);
+		return check_hsm(argv[2]);
 	}
 
 	show_usage(argv[0]);

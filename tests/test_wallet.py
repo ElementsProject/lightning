@@ -1218,7 +1218,6 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
     assert len(bitcoind.rpc.listunspent(1, 1, [addr])) == 1
 
 
-@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsmtool_generatehsm(node_factory):
     l1 = node_factory.get_node(start=False)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
@@ -1242,8 +1241,47 @@ def test_hsmtool_generatehsm(node_factory):
               "cake have wedding\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Enter your passphrase:")
     write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    hsmtool.proc.wait(WAIT_TIMEOUT)
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     hsmtool.is_in_log(r"New hsm_secret file created")
+
+    # Check should pass.
+    hsmtool = HsmTool(node_factory.directory, "checkhsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Select your language:")
+    write_all(master_fd, "0\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
+              "cake have wedding\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"OK")
+
+    # Wrong mnemonic will fail.
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Select your language:")
+    write_all(master_fd, "0\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 5
+    hsmtool.is_in_log(r"resulting hsm_secret did not match")
+
+    # Wrong passphrase will fail.
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, "This is actually not a passphrase \n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Select your language:")
+    write_all(master_fd, "0\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
+              "cake have wedding\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 5
+    hsmtool.is_in_log(r"resulting hsm_secret did not match")
 
     # We can start the node with this hsm_secret
     l1.start()
