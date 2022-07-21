@@ -623,8 +623,10 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
 
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'disconnect': disconnects,
-                                           'may_reconnect': True},
-                                          {'may_reconnect': True}])
+                                           'may_reconnect': True,
+                                           'dev-no-reconnect': None},
+                                          {'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
