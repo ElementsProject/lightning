@@ -1716,6 +1716,11 @@ def test_gossip_store_load_no_channel_update(node_factory):
 def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
+    gs_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    gs = subprocess.run(['devtools/dump-gossipstore', '--print-deleted', gs_path],
+                        check=True, timeout=TIMEOUT, stdout=subprocess.PIPE)
+    print(gs.stdout.decode())
+
     l2.restart()
 
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store_compact_offline: [5-8] deleted, 9 copied'))
