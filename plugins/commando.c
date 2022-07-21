@@ -344,10 +344,11 @@ static const char *check_rune(const tal_t *ctx,
 	cinfo.params = params;
 	cinfo.usage = NULL;
 	strmap_init(&cinfo.cached_params);
-	err = rune_test(ctx, master_rune, rune, check_condition, &cinfo);
+	err = rune_test(tmpctx, master_rune, rune, check_condition, &cinfo);
 	/* Just in case they manage to make us speak non-JSON, escape! */
 	if (err)
-		err = json_escape(ctx, take(err))->s;
+		err = json_escape(ctx, err)->s;
+
 	strmap_clear(&cinfo.cached_params);
 
 	/* If it succeeded, *now* we increment any associated usage counter. */

@@ -2559,6 +2559,14 @@ def test_commando(node_factory, executor):
         fut.result(10)
 
     rune = l1.rpc.commando_rune()['rune']
+
+    # Bad rune fails
+    with pytest.raises(RpcError, match="Not authorized: Not derived from master"):
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': 'VXY4AAkrPyH2vzSvOHnI7PDVfS6O04bRQLUCIUFJD5Y9NjQmbWV0aG9kPWludm9pY2UmcmF0ZT0yMZ==',
+                             'method': 'listpeers'})
+
     # This works
     res = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
