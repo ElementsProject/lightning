@@ -3533,7 +3533,7 @@ static void do_reconnect_dance(struct state *state)
 	struct pubkey remote_current_per_commit_point;
 	struct tx_state *tx_state = state->tx_state;
 #if EXPERIMENTAL_FEATURES
-	struct tlv_channel_reestablish_tlvs *tlvs = tlv_channel_reestablish_tlvs_new(NULL);
+	struct tlv_channel_reestablish_tlvs *tlvs;
 #endif
 
 	/* BOLT #2:
@@ -3550,7 +3550,7 @@ static void do_reconnect_dance(struct state *state)
 		 &last_remote_per_commit_secret,
 		 &state->first_per_commitment_point[LOCAL]
 #if EXPERIMENTAL_FEATURES
-		 , tlvs
+		 , NULL
 #endif
 			);
 	peer_write(state->pps, take(msg));
