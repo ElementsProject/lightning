@@ -452,8 +452,11 @@ static void handle_incmd(struct node_id *peer,
 
 	incmd = find_commando(incoming_commands, peer, NULL);
 	/* Don't let them buffer multiple commands: discard old. */
-	if (incmd && incmd->id != idnum)
+	if (incmd && incmd->id != idnum) {
+		plugin_log(plugin, LOG_DBG, "New cmd from %s, replacing old",
+			   node_id_to_hexstr(tmpctx, peer));
 		incmd = tal_free(incmd);
+	}
 
 	if (!incmd) {
 		incmd = tal(plugin, struct commando);
@@ -705,6 +708,7 @@ static struct command_result *json_commando(struct command *cmd,
 	tal_free(peer);
 	tal_free(method);
 	tal_free(cparams);
+	tal_free(rune);
 
 	return send_more_cmd(cmd, NULL, NULL, outgoing);
 }
