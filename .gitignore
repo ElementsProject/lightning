@@ -72,5 +72,4 @@ tests/primitives_pb2_grpc.py
 
 # Rust targets
 target
-Cargo.lock
 plugins/cln-grpc
