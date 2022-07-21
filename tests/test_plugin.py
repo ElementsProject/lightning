@@ -2804,3 +2804,36 @@ def test_commando_rune(node_factory):
                              'rune': rune['rune'],
                              'method': cmd,
                              'params': params})
+
+
+@pytest.mark.slow_test
+def test_commando_stress(node_factory, executor):
+    """Stress test to slam commando with many large queries"""
+    nodes = node_factory.get_nodes(5)
+
+    rune = nodes[0].rpc.commando_rune()['rune']
+    for n in nodes[1:]:
+        n.connect(nodes[0])
+
+    futs = []
+    for i in range(1000):
+        node = random.choice(nodes[1:])
+        futs.append(executor.submit(node.rpc.call, method='commando',
+                                    payload={'peer_id': nodes[0].info['id'],
+                                             'rune': rune,
+                                             'method': 'invoice',
+                                             'params': {'amount_msat': 'any',
+                                                        'label': 'label{}'.format(i),
+                                                        'description': 'A' * 200000,
+                                                        'deschashonly': True}}))
+    discards = 0
+    for f in futs:
+        try:
+            f.result(TIMEOUT)
+        except RpcError as e:
+            assert(e.error['code'] == 0x4c50)
+            assert(e.error['message'] == "Invalid JSON")
+            discards += 1
+
+    # Should have exactly one discard msg from each discard
+    nodes[0].daemon.wait_for_logs([r"New cmd from .*, replacing old"] * discards)
