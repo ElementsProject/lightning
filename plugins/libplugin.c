@@ -135,6 +135,22 @@ static void ld_rpc_send(struct plugin *plugin, struct json_stream *stream)
 	io_wake(plugin->io_rpc_conn);
 }
 
+
+/* When cmd for request is gone, we use this as noop callback */
+static struct command_result *ignore_cb(struct command *command,
+					const char *buf,
+					const jsmntok_t *result,
+					void *arg)
+{
+	return command_done();
+}
+
+static void disable_request_cb(struct command *cmd, struct out_req *out)
+{
+	out->errcb = NULL;
+	out->cb = ignore_cb;
+}
+
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
 
 struct out_req *
@@ -159,6 +175,10 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	out->errcb = errcb;
 	out->arg = arg;
 	uintmap_add(&plugin->out_reqs, out->id, out);
+
+	/* If command goes away, don't call callbacks! */
+	if (out->cmd)
+		tal_add_destructor2(out->cmd, disable_request_cb, out);
 
 	out->js = new_json_stream(NULL, cmd, NULL);
 	json_object_start(out->js, NULL);
@@ -645,6 +665,10 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 		plugin_err(plugin, "JSON reply with unknown id '%.*s' (%"PRIu64")",
 			   json_tok_full_len(toks),
 			   json_tok_full(plugin->rpc_buffer, toks), id);
+
+	/* Remove destructor if one existed */
+	if (out->cmd)
+		tal_del_destructor2(out->cmd, disable_request_cb, out);
 
 	/* We want to free this if callback doesn't. */
 	tal_steal(tmpctx, out);
