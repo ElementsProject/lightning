@@ -2269,6 +2269,12 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     l1.restart()
     assert only_one(l1.rpc.listpeers()['peers'][0]['channels'])['to_us_msat'] == 99980000
 
+    # Keep l1 from sending its onchain tx
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
     # Now make sure l1 is watching for unilateral closes
     l2.rpc.dev_fail(l1.info['id'])
     l2.daemon.wait_for_log('Failing due to dev-fail command')
