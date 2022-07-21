@@ -241,8 +241,9 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
 def test_only_announce_one_dns(node_factory, bitcoind):
     # and test that we can't announce more than one DNS address
-    l1 = node_factory.get_node(may_fail=True, expect_fail=True,
+    l1 = node_factory.get_node(expect_fail=True, start=False,
                                options={'announce-addr': ['localhost.localdomain:12345', 'example.com:12345']})
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     wait_for(lambda: l1.daemon.is_in_stderr("Only one DNS can be announced"))
 
 

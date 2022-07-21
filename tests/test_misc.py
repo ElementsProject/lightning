@@ -109,7 +109,7 @@ def test_bitcoin_failure(node_factory, bitcoind):
     # Ignore BROKEN log message about blocksonly mode.
     l2 = node_factory.get_node(start=False, expect_fail=True,
                                allow_broken_log=True)
-    l2.daemon.start(wait_for_initialized=False)
+    l2.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
     assert l2.daemon.wait() == 1
     assert l2.daemon.is_in_stderr(r".*deactivating transaction relay is not"
@@ -1212,7 +1212,7 @@ def test_rescan(node_factory, bitcoind):
     l1.daemon.opts['rescan'] = -500000
     l1.stop()
     bitcoind.generate_block(4)
-    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
     assert l1.daemon.is_in_stderr(r"bitcoind has gone backwards from 500000 to 105 blocks!")
@@ -1243,7 +1243,7 @@ def test_bitcoind_goes_backwards(node_factory, bitcoind):
     bitcoind.start()
 
     # Will simply refuse to start.
-    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
     assert l1.daemon.is_in_stderr('bitcoind has gone backwards')
@@ -1252,7 +1252,7 @@ def test_bitcoind_goes_backwards(node_factory, bitcoind):
     l1.daemon.opts['rescan'] = 3
 
     # Will simply refuse to start.
-    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
     assert l1.daemon.is_in_stderr('bitcoind has gone backwards')

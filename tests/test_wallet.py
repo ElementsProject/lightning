@@ -1038,7 +1038,7 @@ def test_hsm_secret_encryption(node_factory):
 
     # Test we cannot restore the same wallet with another password
     l1.daemon.opts.update({"encrypted-hsm": None})
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
+    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False, stderr_redir=True)
     l1.daemon.wait_for_log(r'Enter hsm_secret password')
     write_all(master_fd, password[2:].encode("utf-8"))
     assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == HSM_BAD_PASSWORD)
