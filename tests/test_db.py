@@ -425,7 +425,7 @@ def test_db_sanity_checks(bitcoind, node_factory):
 
     # Provide the --wallet option and start with wrong db
     l1.daemon.opts['wallet'] = "sqlite3://" + l2.db.path
-    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     l1.daemon.wait_for_log(r'\*\*BROKEN\*\* wallet: Wallet node_id does not match HSM')
     # Will have exited with non-zero status.
     assert l1.daemon.proc.wait(TIMEOUT) != 0
@@ -435,7 +435,7 @@ def test_db_sanity_checks(bitcoind, node_factory):
     l1.daemon.opts['wallet'] = "sqlite3://" + l1.db.path
     l1.daemon.opts['network'] = "bitcoin"
 
-    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     l1.daemon.wait_for_log(r'\*\*BROKEN\*\* wallet: Wallet blockchain hash does not match network blockchain hash')
     # Will have exited with non-zero status.
     assert l1.daemon.proc.wait(TIMEOUT) != 0

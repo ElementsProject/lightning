@@ -200,7 +200,7 @@ class TailableProc(object):
         # pass it to the log matcher and not print it to stdout).
         self.log_filter = lambda line: False
 
-    def start(self, stdin=None, stdout_redir=True):
+    def start(self, stdin=None, stdout_redir=True, stderr_redir=True):
         """Start the underlying process and start monitoring it. If
         stdout_redir is false, you have to make sure logs go into
         outputDir/log
@@ -208,16 +208,21 @@ class TailableProc(object):
         """
         logging.debug("Starting '%s'", " ".join(self.cmd_line))
         if stdout_redir:
-            self.proc = subprocess.Popen(self.cmd_line,
-                                         stdin=stdin,
-                                         stdout=self.stdout_write,
-                                         stderr=self.stderr_write,
-                                         env=self.env)
+            stdout = self.stdout_write
         else:
-            self.proc = subprocess.Popen(self.cmd_line,
-                                         stdin=stdin,
-                                         stderr=self.stderr_write,
-                                         env=self.env)
+            stdout = None
+        if stderr_redir:
+            stderr = self.stderr_write
+            self.stderr_redir = True
+        else:
+            stderr = None
+            self.stderr_redir = False
+
+        self.proc = subprocess.Popen(self.cmd_line,
+                                     stdin=stdin,
+                                     stdout=stdout,
+                                     stderr=stderr,
+                                     env=self.env)
 
     def stop(self, timeout=10):
         self.proc.terminate()
@@ -267,6 +272,7 @@ class TailableProc(object):
     def is_in_stderr(self, regex):
         """Look for `regex` in stderr."""
 
+        assert self.stderr_redir
         self.logs_catchup()
         ex = re.compile(regex)
         for l in self.err_logs:
@@ -606,9 +612,9 @@ class LightningD(TailableProc):
 
         return self.cmd_prefix + [self.executable] + self.early_opts + opts
 
-    def start(self, stdin=None, wait_for_initialized=True):
+    def start(self, stdin=None, wait_for_initialized=True, stderr_redir=False):
         self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
-        TailableProc.start(self, stdin, stdout_redir=False)
+        TailableProc.start(self, stdin, stdout_redir=False, stderr_redir=stderr_redir)
         if wait_for_initialized:
             self.wait_for_log("Server started with public key")
         logging.info("LightningD started")
@@ -839,8 +845,8 @@ class LightningNode(object):
             info = self.rpc.getinfo()
         return 'warning_bitcoind_sync' not in info and 'warning_lightningd_sync' not in info
 
-    def start(self, wait_for_bitcoind_sync=True):
-        self.daemon.start()
+    def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
+        self.daemon.start(stderr_redir=stderr_redir)
         # Cache `getinfo`, we'll be using it a lot
         self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
