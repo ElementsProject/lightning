@@ -463,6 +463,10 @@ static void handle_incmd(struct node_id *peer,
 		incmd->contents = tal_arr(incmd, u8, 0);
 		tal_arr_expand(&incoming_commands, incmd);
 		tal_add_destructor2(incmd, destroy_commando, &incoming_commands);
+
+		/* More than 16 partial commands at once?  Free oldest */
+		if (tal_count(incoming_commands) > 16)
+			tal_free(incoming_commands[0]);
 	}
 
 	/* 1MB should be enough for anybody! */
