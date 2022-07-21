@@ -70,7 +70,7 @@ The following table lists the codenames of distributions that we
 currently support:
 
 | Distribution Version | Codename |
-|----------------------|----------|
+|:---------------------|:---------|
 | Ubuntu 18.04         | bionic   |
 | Ubuntu 20.04         | focal    |
 | Ubuntu 22.04         | jammy    |
@@ -116,7 +116,9 @@ We can then build the builder image by calling `docker build` and passing it
 the `Dockerfile`:
 
 ```bash
-sudo docker build -t cl-repro-bionic - < Dockerfile.bionic
+sudo docker build -t cl-repro-bionic - < contrib/reprobuild/Dockerfile.bionic
+sudo docker build -t cl-repro-focal - < contrib/reprobuild/Dockerfile.focal
+sudo docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
 ```
 
 Since we pass the `Dockerfile` through `stdin` the build command will not
@@ -146,6 +148,8 @@ repository (remember to checkout the tag you are trying to build):
 
 ```bash
 sudo docker run --rm -v $(pwd):/repo -ti cl-repro-bionic
+sudo docker run --rm -v $(pwd):/repo -ti cl-repro-focal
+sudo docker run --rm -v $(pwd):/repo -ti cl-repro-jammy
 ```
 
 The last few lines of output also contain the `sha256sum` hashes of all
