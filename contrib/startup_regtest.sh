@@ -84,6 +84,7 @@ start_nodes() {
 		log-level=debug
 		log-file=/tmp/l$i-$network/log
 		addr=localhost:$socket
+		allow-deprecated-apis=false
 		EOF
 
 		# If we've configured to use developer, add dev options
@@ -98,7 +99,7 @@ start_nodes() {
 			funder-min-their-funding=10000
 			funder-per-channel-max=100000
 			funder-fuzz-percent=0
-			lease-fee-base-msat=2sat
+			lease-fee-base-sat=2sat
 			lease-fee-basis=50
 			EOF
 		fi
