@@ -1390,6 +1390,8 @@ def test_zeroconf_forward(node_factory, bitcoind):
     l2.rpc.fundchannel(l3.info['id'], 10**6, mindepth=0)
     wait_for(lambda: l3.rpc.listincoming()['incoming'] != [])
 
+    # Make sure (esp in non-dev-mode) blockheights agree so we don't WIRE_EXPIRY_TOO_SOON...
+    sync_blockheight(bitcoind, [l1, l2, l3])
     inv = l3.rpc.invoice(42 * 10**6, 'inv1', 'desc')['bolt11']
     l1.rpc.pay(inv)
 
