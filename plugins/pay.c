@@ -399,11 +399,10 @@ static void add_new_entry(struct json_stream *ret,
 	/* This is only tallied for pending and successful payments, not
 	 * failures. */
 	if (pm->amount != NULL && pm->num_nonfailed_parts > 0)
-		json_add_string(ret, "amount_msat",
-				fmt_amount_msat(tmpctx, *pm->amount));
+		json_add_amount_msat_only(ret, "amount_msat", *pm->amount);
 
-	json_add_string(ret, "amount_sent_msat",
-			fmt_amount_msat(tmpctx, pm->amount_sent));
+	json_add_amount_msat_only(ret, "amount_sent_msat",
+				  pm->amount_sent);
 
 	if (pm->num_nonfailed_parts > 1)
 		json_add_u64(ret, "number_of_parts",
