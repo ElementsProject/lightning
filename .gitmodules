@@ -11,6 +11,7 @@
 	path = external/libwally-core
 	url = https://github.com/ElementsProject/libwally-core.git
 	ignore = dirty
+    branch = psbt_v2_merge
 [submodule "external/gheap"]
 	path = external/gheap
 	url = https://github.com/valyala/gheap

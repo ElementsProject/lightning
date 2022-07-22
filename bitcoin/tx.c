@@ -291,14 +291,16 @@ u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *t
 				    int outnum)
 {
 	struct wally_psbt_output *out;
+    const struct wally_map_item *output_witness_script;
 
 	assert(outnum < tx->psbt->num_outputs);
 	out = &tx->psbt->outputs[outnum];
 
-	if (out->witness_script_len == 0)
+    output_witness_script = wally_map_get_integer(&out->psbt_fields, PSBT_IN_REDEEM_SCRIPT);
+	if (output_witness_script->value_len == 0)
 		return NULL;
 
-	return tal_dup_arr(ctx, u8, out->witness_script, out->witness_script_len, 0);
+	return tal_dup_arr(ctx, u8, output_witness_script->value, output_witness_script->value_len, 0);
 }
 
 struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,

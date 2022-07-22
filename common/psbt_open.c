@@ -77,11 +77,11 @@ static const u8 *linearize_input(const tal_t *ctx,
 	wally_map_sort(&psbt->inputs[0].unknowns, 0);
 
 	/* signatures, keypaths, etc - we dont care if they change */
-	psbt->inputs[0].final_witness = NULL;
-	psbt->inputs[0].final_scriptsig_len = 0;
-	psbt->inputs[0].witness_script = NULL;
-	psbt->inputs[0].witness_script_len = 0;
-	psbt->inputs[0].redeem_script_len = 0;
+	//psbt->inputs[0].final_witness = NULL;
+    wally_psbt_input_set_final_witness(&psbt->inputs[0], NULL);
+    wally_psbt_input_set_final_scriptsig(&psbt->inputs[0], NULL, 0);
+    wally_psbt_input_set_witness_script(&psbt->inputs[0], NULL, 0);
+    wally_psbt_input_set_redeem_script(&psbt->inputs[0], NULL, 0);
 	psbt->inputs[0].keypaths.num_items = 0;
 	psbt->inputs[0].signatures.num_items = 0;
 
@@ -118,8 +118,8 @@ static const u8 *linearize_output(const tal_t *ctx,
 	/* We don't care if the keypaths change */
 	psbt->outputs[0].keypaths.num_items = 0;
 	/* And you can add scripts, no problem */
-	psbt->outputs[0].witness_script_len = 0;
-	psbt->outputs[0].redeem_script_len = 0;
+    wally_psbt_output_set_witness_script(&psbt->outputs[0], NULL, 0);
+    wally_psbt_output_set_redeem_script(&psbt->outputs[0], NULL, 0);
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
@@ -412,7 +412,7 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 		const u8 *outscript =
 			wally_tx_output_get_script(tmpctx,
 				&input->utxo->outputs[psbt->tx->inputs[i].index]);
-		if (is_p2sh(outscript, NULL) && input->redeem_script_len == 0)
+		if (is_p2sh(outscript, NULL) && wally_map_get_integer(&psbt->inputs[i].psbt_fields, PSBT_IN_REDEEM_SCRIPT)->value_len == 0)
 			return false;
 
 	}

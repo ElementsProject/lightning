@@ -227,6 +227,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
+        const struct wally_map_item *input_redeem_script = wally_map_get_integer(&in->input.psbt_fields, PSBT_IN_REDEEM_SCRIPT);
 		u8 *script;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
@@ -235,10 +236,10 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 		const u8 *prevtx = linearize_wtx(ctx,
 						 in->input.utxo);
 
-		if (in->input.redeem_script_len)
+		if (input_redeem_script->value)
 			script = tal_dup_arr(ctx, u8,
-					     in->input.redeem_script,
-					     in->input.redeem_script_len, 0);
+					     input_redeem_script->value,
+					     input_redeem_script->value_len, 0);
 		else
 			script = NULL;
 
@@ -532,12 +533,13 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 				size_t in)
 {
 	size_t weight;
+    const struct wally_map_item *input_redeem_script = wally_map_get_integer(&psbt->inputs[in].psbt_fields, PSBT_IN_REDEEM_SCRIPT);
 
 	/* txid + txout + sequence */
 	weight = (32 + 4 + 4) * 4;
 	weight +=
-		(psbt->inputs[in].redeem_script_len +
-			(varint_t) varint_size(psbt->inputs[in].redeem_script_len)) * 4;
+		(input_redeem_script->value_len +
+			(varint_t) varint_size(input_redeem_script->value_len)) * 4;
 
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #3:
 	 *
