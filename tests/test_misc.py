@@ -1716,9 +1716,11 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
     """
     # Do not start the lightning node since we need to instrument bitcoind
     # first.
+    timeout = 5 if 5 < TIMEOUT // 3 else TIMEOUT // 3
     l1 = node_factory.get_node(start=False,
                                allow_broken_log=True,
-                               may_fail=True)
+                               may_fail=True,
+                               options={'bitcoin-retry-timeout': timeout})
 
     # Instrument bitcoind to fail some queries first.
     def mock_fail(*args):
@@ -1730,7 +1732,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     l1.daemon.wait_for_logs([r'getblockhash [a-z0-9]* exited with status 1',
                              r'Unable to estimate opening fees',
-                             r'BROKEN.*we have been retrying command for --bitcoin-retry-timeout=60 seconds'])
+                             r'BROKEN.*we have been retrying command for --bitcoin-retry-timeout={} seconds'.format(timeout)])
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
 
