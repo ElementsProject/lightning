@@ -691,6 +691,10 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
 			   &ld->reconnect,
 			   "Disable automatic reconnect-attempts by this node, but accept incoming");
+	opt_register_noarg("--dev-fast-reconnect", opt_set_bool,
+			   &ld->dev_fast_reconnect,
+			   "Make default reconnect delay 3 (not 60) seconds");
+
 	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
 			   &ld->dev_subdaemon_fail, opt_hidden);
 	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,

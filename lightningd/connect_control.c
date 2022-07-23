@@ -364,8 +364,10 @@ static void connect_failed(struct lightningd *ld,
 		u32 delay;
 		if (seconds_to_delay)
 			delay = *seconds_to_delay;
+		else if (peer->delay_reconnect)
+			delay = DEV_FAST_RECONNECT(ld->dev_fast_reconnect, 3, 60);
 		else
-			delay = peer->delay_reconnect ? 60 : 1;
+			delay = 1;
 		log_peer_debug(ld->log, id, "Reconnecting in %u seconds", delay);
 		try_reconnect(peer, peer, delay, addrhint);
 	} else

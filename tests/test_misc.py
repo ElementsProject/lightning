@@ -1132,7 +1132,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'Deleting channel')
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1", "uses --dev-fast-reconnect")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_funding_reorg_remote_lags(node_factory, bitcoind):
@@ -1140,7 +1140,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     """
     # may_reconnect so channeld will restart; bad gossip can happen due to reorg
     opts = {'funding-confirms': 1, 'may_reconnect': True, 'allow_bad_gossip': True,
-            'allow_warning': True}
+            'allow_warning': True, 'dev-fast-reconnect': None}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
