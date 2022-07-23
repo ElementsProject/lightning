@@ -1727,7 +1727,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
     l1.daemon.rpcproxy.mock_rpc('getblockhash', mock_fail)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_fail)
 
-    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     l1.daemon.wait_for_logs([r'getblockhash [a-z0-9]* exited with status 1',
                              r'Unable to estimate opening fees',
                              r'BROKEN.*we have been retrying command for --bitcoin-retry-timeout=60 seconds'])
