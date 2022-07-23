@@ -1084,7 +1084,7 @@ def chan_active(node, scid, is_active):
     return [c['active'] for c in chans] == [is_active, is_active]
 
 
-@pytest.mark.developer("needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1", "uses dev-fast-reconnect")
 @pytest.mark.openchannel('v2')
 @pytest.mark.openchannel('v1')
 def test_funding_reorg_private(node_factory, bitcoind):
@@ -1096,7 +1096,8 @@ def test_funding_reorg_private(node_factory, bitcoind):
             'allow_bad_gossip': True,
             # gossipd send lightning update for original channel.
             'allow_broken_log': True,
-            'allow_warning': True}
+            'allow_warning': True,
+            'dev-fast-reconnect': None}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
