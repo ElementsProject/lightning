@@ -1077,8 +1077,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 					    listpeers_multi_done,
 					    log_error,
 					    new_accts);
-		send_outreq(cmd->plugin, req);
-		return command_still_pending(cmd);
+		return send_outreq(cmd->plugin, req);
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
@@ -1251,8 +1250,7 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 					    payment_hash);
 
 	json_add_sha256(req->js, "payment_hash", payment_hash);
-	send_outreq(cmd->plugin, req);
-	return command_still_pending(cmd);
+	return send_outreq(cmd->plugin, req);
 }
 
 struct event_info {
@@ -1520,8 +1518,7 @@ parse_and_log_chain_move(struct command *cmd,
 					    log_error,
 					    info);
 		/* FIXME: use the peer_id to reduce work here */
-		send_outreq(cmd->plugin, req);
-		return command_still_pending(cmd);
+		return send_outreq(cmd->plugin, req);
 	}
 
 	/* Maybe mark acct as onchain resolved */
