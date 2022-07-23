@@ -244,6 +244,9 @@ struct lightningd {
 	bool dev_fast_gossip;
 	bool dev_fast_gossip_prune;
 
+	/* Speedup reconnect delay, for testing. */
+	bool dev_fast_reconnect;
+
 	/* This is the forced private key for the node. */
 	struct privkey *dev_force_privkey;
 
