@@ -125,6 +125,11 @@ static const struct feature_style feature_styles[] = {
 			   * we refuse to parse it. */
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_CHANNEL_TYPE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 };
 
 struct dependency {
@@ -441,7 +446,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_onion_messages",  /* https://github.com/lightningnetwork/lightning-rfc/pull/759 */
 		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
 		"option_provide_peer_backup", /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
-		NULL,
+		"option_channel_type",
 		"option_scid_alias", /* https://github.com/lightning/bolts/pull/910 */
 		"option_payment_metadata",
 		"option_zeroconf", /* 50/51, https://github.com/lightning/bolts/pull/910 */
