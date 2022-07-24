@@ -652,6 +652,8 @@ static void connect_failed(struct daemon *daemon,
 	if (wait_seconds < INITIAL_WAIT_SECONDS)
 		wait_seconds = INITIAL_WAIT_SECONDS;
 
+	status_peer_debug(id, "Failed connected out: %s", errmsg);
+
 	/* lightningd may have a connect command waiting to know what
 	 * happened.  We leave it to lightningd to decide if it wants to try
 	 * again, with the wait_seconds as a hint of how long before
@@ -659,8 +661,6 @@ static void connect_failed(struct daemon *daemon,
 	msg = towire_connectd_connect_failed(NULL, id, errcode, errmsg,
 					       wait_seconds, addrhint);
 	daemon_conn_send(daemon->master, take(msg));
-
-	status_peer_debug(id, "Failed connected out: %s", errmsg);
 }
 
 /* add errors to error list */
@@ -1887,11 +1887,8 @@ static void peer_final_msg(struct io_conn *conn,
 	/* This can happen if peer hung up on us (or wrong counter
 	 * if it reconnected). */
 	peer = peer_htable_get(&daemon->peers, &id);
-	if (peer && peer->counter == counter) {
-		/* Log message for peer. */
-		status_peer_io(LOG_IO_OUT, &id, finalmsg);
+	if (peer && peer->counter == counter)
 		multiplex_final_msg(peer, take(finalmsg));
-	}
 }
 
 #if DEVELOPER
