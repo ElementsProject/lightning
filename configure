@@ -62,6 +62,9 @@ default_cwarnflags()
 	if [ -n "${1##*-O3*}" ] || [ "$3" != "1" ]; then
 	    F="$F -Wno-maybe-uninitialized"
 	fi
+	# Recent clang understands that, but at least our MacOS CI doesn't, so keep
+	# this gcc-only.
+	F="$F -Wshadow=local"
     fi
     echo "$F"
 }
@@ -222,6 +225,11 @@ for opt in "$@"; do
 	    # case DEVELOPER has changed.
 	    if [ x"$COPTFLAGS" = x"$DEFAULT_COPTFLAGS" ]; then
 		unset COPTFLAGS
+	    fi
+	    # If they didn't have -Wshadow=local, add it on --reconfigure
+	    # (we only added it later)
+	    if [ x"${CWARNFLAGS%*-Wshadow=local}" = x"$CWARNFLAGS" ]; then
+		unset CWARNFLAGS
 	    fi
 	    ;;
 	CC=*) CC="${opt#CC=}";;
