@@ -1021,15 +1021,15 @@ static struct command_result *handle_init(struct command *cmd,
 	opttok = json_get_member(buf, params, "options");
 	json_for_each_obj(i, t, opttok) {
 		char *opt = json_strdup(NULL, buf, t);
-		for (size_t i = 0; i < tal_count(p->opts); i++) {
+		for (size_t optnum = 0; optnum < tal_count(p->opts); optnum++) {
 			char *problem;
-			if (!streq(p->opts[i].name, opt))
+			if (!streq(p->opts[optnum].name, opt))
 				continue;
-			problem = p->opts[i].handle(json_strdup(opt, buf, t+1),
-						    p->opts[i].arg);
+			problem = p->opts[optnum].handle(json_strdup(opt, buf, t+1),
+							 p->opts[optnum].arg);
 			if (problem)
 				plugin_err(p, "option '%s': %s",
-					   p->opts[i].name, problem);
+					   p->opts[optnum].name, problem);
 			break;
 		}
 		tal_free(opt);

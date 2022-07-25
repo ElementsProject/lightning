@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
 	json_for_each_arr(i, t, unblinding_hops) {
 		struct privkey me;
 		struct secret ss;
-		struct pubkey blinding, expected_blinding;
+		struct pubkey blindingpub, expected_blinding;
 		struct pubkey onion_key, next_node;
 
 		assert(json_to_secret(json,
@@ -337,20 +337,20 @@ int main(int argc, char *argv[])
 		mykey = &me;
 		assert(json_to_pubkey(json,
 				      json_get_member(json, t, "ephemeral_pubkey"),
-				      &blinding));
+				      &blindingpub));
 
-		assert(unblind_onion(&blinding, test_ecdh, &onion_key, &ss));
+		assert(unblind_onion(&blindingpub, test_ecdh, &onion_key, &ss));
 		if (i != unblinding_hops->size - 1) {
-			assert(decrypt_enctlv(&blinding, &ss, encrypted_data[i], &next_node, &blinding));
+			assert(decrypt_enctlv(&blindingpub, &ss, encrypted_data[i], &next_node, &blindingpub));
 			assert(json_to_pubkey(json,
 					      json_get_member(json, t, "next_ephemeral_pubkey"),
 					      &expected_blinding));
-			assert(pubkey_eq(&blinding, &expected_blinding));
+			assert(pubkey_eq(&blindingpub, &expected_blinding));
 		} else {
 			struct secret *path_id;
 			struct pubkey my_id, alias;
 			assert(pubkey_from_privkey(&me, &my_id));
-			assert(decrypt_final_enctlv(tmpctx, &blinding, &ss,
+			assert(decrypt_final_enctlv(tmpctx, &blindingpub, &ss,
 						    encrypted_data[i],
 						    &my_id, &alias,
 						    &path_id));

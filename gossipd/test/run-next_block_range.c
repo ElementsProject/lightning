@@ -43,16 +43,17 @@ bool query_channel_range(struct daemon *daemon UNNEEDED,
 			 struct peer *peer UNNEEDED,
 			 u32 first_blocknum UNNEEDED, u32 number_of_blocks UNNEEDED,
 			 enum query_option_flags qflags UNNEEDED,
-			 void (*cb)(struct peer *peer UNNEEDED,
-				    u32 first_blocknum UNNEEDED, u32 number_of_blocks UNNEEDED,
-				    const struct range_query_reply *replies))
+			 void (*cb)(struct peer *peer_ UNNEEDED,
+				    u32 first_blocknum_ UNNEEDED,
+				    u32 number_of_blocks_ UNNEEDED,
+				    const struct range_query_reply *replies_))
 { fprintf(stderr, "query_channel_range called!\n"); abort(); }
 /* Generated stub for query_short_channel_ids */
 bool query_short_channel_ids(struct daemon *daemon UNNEEDED,
 			     struct peer *peer UNNEEDED,
 			     const struct short_channel_id *scids UNNEEDED,
 			     const u8 *query_flags UNNEEDED,
-			     void (*cb)(struct peer *peer UNNEEDED, bool complete))
+			     void (*cb)(struct peer *peer_ UNNEEDED, bool complete))
 { fprintf(stderr, "query_short_channel_ids called!\n"); abort(); }
 /* Generated stub for queue_peer_msg */
 void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)

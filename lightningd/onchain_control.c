@@ -704,10 +704,10 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		if (!feerates[i]) {
 			/* We have at least one data point: the last tx's feerate. */
 			struct amount_sat fee = channel->funding_sats;
-			for (size_t i = 0;
-			     i < channel->last_tx->wtx->num_outputs; i++) {
+			for (size_t j = 0;
+			     j < channel->last_tx->wtx->num_outputs; j++) {
 				struct amount_asset asset =
-					bitcoin_tx_output_get_amount(channel->last_tx, i);
+					bitcoin_tx_output_get_amount(channel->last_tx, j);
 				struct amount_sat amt;
 				assert(amount_asset_is_main(&asset));
 				amt = amount_asset_to_sat(&asset);

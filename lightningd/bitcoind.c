@@ -549,9 +549,9 @@ clean:
 
 void bitcoind_getutxout_(struct bitcoind *bitcoind,
 			 const struct bitcoin_outpoint *outpoint,
-			 void (*cb)(struct bitcoind *bitcoind,
-				    const struct bitcoin_tx_output *txout,
-				    void *arg),
+			 void (*cb)(struct bitcoind *,
+				    const struct bitcoin_tx_output *,
+				    void *),
 			 void *cb_arg)
 {
 	struct jsonrpc_request *req;

@@ -761,7 +761,7 @@ static void remove_tip(struct chain_topology *topo)
 {
 	struct block *b = topo->tip;
 	struct bitcoin_txid *txs;
-	size_t i, n;
+	size_t n;
 	const struct short_channel_id *removed_scids;
 
 	log_debug(topo->log, "Removing stale block %u: %s",
@@ -780,7 +780,7 @@ static void remove_tip(struct chain_topology *topo)
 	n = tal_count(txs);
 
 	/* Notify that txs are kicked out (their height will be set NULL in db) */
-	for (i = 0; i < n; i++)
+	for (size_t i = 0; i < n; i++)
 		txwatch_fire(topo, &txs[i], 0);
 
 	/* Grab these before we delete block from db */
@@ -795,7 +795,7 @@ static void remove_tip(struct chain_topology *topo)
 
 	/* These no longer exist, so gossipd drops any reference to them just
 	 * as if they were spent. */
-	for (size_t i=0; i<tal_count(removed_scids); i++)
+	for (size_t i = 0; i < tal_count(removed_scids); i++)
 		gossipd_notify_spend(topo->bitcoind->ld, &removed_scids[i]);
 }
 

@@ -914,8 +914,7 @@ static bool db_migrate(struct lightningd *ld, struct db *db,
 	while (current < available) {
 		current++;
 		if (dbmigrations[current].sql) {
-			struct db_stmt *stmt =
-			    db_prepare_v2(db, dbmigrations[current].sql);
+			stmt = db_prepare_v2(db, dbmigrations[current].sql);
 			db_exec_prepared_v2(stmt);
 			tal_free(stmt);
 		}

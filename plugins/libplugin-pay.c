@@ -326,7 +326,7 @@ static void channel_hints_update(struct payment *p,
 				 u16 *htlc_budget)
 {
 	struct payment *root = payment_root(p);
-	struct channel_hint hint;
+	struct channel_hint newhint;
 
 	/* If the channel is marked as enabled it must have an estimate. */
 	assert(!enabled || estimated_capacity != NULL);
@@ -372,25 +372,25 @@ static void channel_hints_update(struct payment *p,
 	}
 
 	/* No hint found, create one. */
-	hint.enabled = enabled;
-	hint.scid.scid = scid;
-	hint.scid.dir = direction;
-	hint.local = local;
+	newhint.enabled = enabled;
+	newhint.scid.scid = scid;
+	newhint.scid.dir = direction;
+	newhint.local = local;
 	if (estimated_capacity != NULL)
-		hint.estimated_capacity = *estimated_capacity;
+		newhint.estimated_capacity = *estimated_capacity;
 
 	if (htlc_budget != NULL)
-		hint.htlc_budget = *htlc_budget;
+		newhint.htlc_budget = *htlc_budget;
 
-	tal_arr_expand(&root->channel_hints, hint);
+	tal_arr_expand(&root->channel_hints, newhint);
 
 	paymod_log(
 	    p, LOG_DBG,
 	    "Added a channel hint for %s: enabled %s, estimated capacity %s",
-	    type_to_string(tmpctx, struct short_channel_id_dir, &hint.scid),
-	    hint.enabled ? "true" : "false",
+	    type_to_string(tmpctx, struct short_channel_id_dir, &newhint.scid),
+	    newhint.enabled ? "true" : "false",
 	    type_to_string(tmpctx, struct amount_msat,
-			   &hint.estimated_capacity));
+			   &newhint.estimated_capacity));
 }
 
 static void payment_exclude_most_expensive(struct payment *p)

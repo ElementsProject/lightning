@@ -105,8 +105,8 @@ int main(int argc, char *argv[])
 			}
 			m = tal_dup_arr(f, u8, f + off, be16_to_cpu(len), 0);
 			if (printtlv) {
-				size_t len = tal_bytelen(m);
-				ok &= printtlv("", &m, &len);
+				size_t mlen = tal_bytelen(m);
+				ok &= printtlv("", &m, &mlen);
 			} else {
 				ok &= printwire(m);
 			}

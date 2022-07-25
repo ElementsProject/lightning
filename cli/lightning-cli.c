@@ -599,7 +599,7 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 
-	int fd, i;
+	int fd;
 	size_t off;
 	const char *method;
 	char *cmd, *resp, *idstr;
@@ -715,7 +715,7 @@ int main(int argc, char *argv[])
 
 	if (input == KEYWORDS) {
 		tal_append_fmt(&cmd, "{ ");
-		for (i = 2; i < argc; i++) {
+		for (size_t i = 2; i < argc; i++) {
 			const char *eq = strchr(argv[i], '=');
 
 			if (!eq)
@@ -730,7 +730,7 @@ int main(int argc, char *argv[])
 		tal_append_fmt(&cmd, "} }");
 	} else {
 		tal_append_fmt(&cmd, "[ ");
-		for (i = 2; i < argc; i++)
+		for (size_t i = 2; i < argc; i++)
 			add_input(&cmd, argv[i], i, argc);
 		tal_append_fmt(&cmd, "] }");
 	}
