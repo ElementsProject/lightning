@@ -95,6 +95,7 @@ void run(const uint8_t *data, size_t size)
 					      wumbo, opener);
 
 		/* TODO: make initial_channel_tx() work with ASAN.. */
+		(void)channel;
 	}
 
 	clean_tmpctx();

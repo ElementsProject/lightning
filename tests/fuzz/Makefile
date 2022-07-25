@@ -19,6 +19,7 @@ FUZZ_COMMON_OBJS := \
 	common/blockheight_states.o			\
 	common/channel_config.o				\
 	common/close_tx.o				\
+	common/configdir.o				\
 	common/channel_id.o				\
 	common/channel_type.o				\
 	common/daemon.o					\
@@ -32,13 +33,14 @@ FUZZ_COMMON_OBJS := \
 	common/permute_tx.o				\
 	common/initial_channel.o			\
 	common/initial_commit_tx.o			\
-	common/json.o					\
+	common/json_parse_simple.o			\
 	common/json_stream.o				\
 	common/key_derive.o				\
 	common/keyset.o					\
 	common/msg_queue.o				\
 	common/memleak.o				\
 	common/node_id.o				\
+	common/psbt_keypath.o				\
 	common/wireaddr.o				\
 	common/setup.o					\
 	common/status.o					\
