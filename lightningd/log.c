@@ -840,14 +840,20 @@ void log_backtrace_exit(void)
 
 void fatal_vfmt(const char *fmt, va_list ap)
 {
+	va_list ap2;
+
+	/* You are not allowed to re-use va_lists, so make a copy. */
+	va_copy(ap2, ap);
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 
 	if (!crashlog)
 		exit(1);
 
-	logv(crashlog, LOG_BROKEN, NULL, true, fmt, ap);
+	logv(crashlog, LOG_BROKEN, NULL, true, fmt, ap2);
 	abort();
+	/* va_copy() must be matched with va_end(), even if unreachable. */
+	va_end(ap2);
 }
 
 void fatal(const char *fmt, ...)
