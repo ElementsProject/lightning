@@ -155,7 +155,7 @@ u32 penalty_feerate(struct chain_topology *topo);
  * If failed is non-NULL, call that and don't rebroadcast. */
 void broadcast_tx(struct chain_topology *topo,
 		  struct channel *channel, const struct bitcoin_tx *tx,
-		  void (*failed)(struct channel *channel,
+		  void (*failed)(struct channel *,
 				 bool success,
 				 const char *err));
 /* Like the above, but with an additional `allowhighfees` parameter.
@@ -163,7 +163,7 @@ void broadcast_tx(struct chain_topology *topo,
 void broadcast_tx_ahf(struct chain_topology *topo,
 		      struct channel *channel, const struct bitcoin_tx *tx,
 		      bool allowhighfees,
-		      void (*failed)(struct channel *channel,
+		      void (*failed)(struct channel *,
 				     bool success,
 				     const char *err));
 
@@ -194,8 +194,8 @@ static inline bool topology_synced(const struct chain_topology *topo)
  */
 void topology_add_sync_waiter_(const tal_t *ctx,
 			       struct chain_topology *topo,
-			       void (*cb)(struct chain_topology *topo,
-					  void *arg),
+			       void (*cb)(struct chain_topology *,
+					  void *),
 			       void *arg);
 #define topology_add_sync_waiter(ctx, topo, cb, arg)			\
 	topology_add_sync_waiter_((ctx), (topo),			\
