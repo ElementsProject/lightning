@@ -226,6 +226,8 @@ static char *opt_add_addr_withtype(const char *arg,
 	assert(arg != NULL);
 	dns_ok = !ld->always_use_proxy && ld->config.use_dns;
 
+	/* Will be overridden in next call iff has port */
+	port = 0;
 	if (!separate_address_and_port(tmpctx, arg, &address, &port))
 		return tal_fmt(NULL, "Unable to parse address:port '%s'", arg);
 
