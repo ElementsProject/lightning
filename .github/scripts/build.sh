@@ -21,6 +21,9 @@ export VALGRIND=${VALGRIND:-0}
 export FUZZING=${FUZZING:-0}
 export LIGHTNINGD_POSTGRES_NO_VACUUM=1
 
+# Fail if any commands fail.
+set -e
+
 pip3 install --user poetry
 poetry config virtualenvs.create false --local
 poetry install
@@ -89,7 +92,7 @@ then
 
     ./configure CC="$TARGET_HOST-gcc" --enable-static
 
-    make -j32 CC="$TARGET_HOST-gcc" > /dev/null
+    make -s -j32 CC="$TARGET_HOST-gcc"
 else
     eatmydata make -j32
     # shellcheck disable=SC2086
