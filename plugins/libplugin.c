@@ -149,6 +149,8 @@ static void disable_request_cb(struct command *cmd, struct out_req *out)
 {
 	out->errcb = NULL;
 	out->cb = ignore_cb;
+	/* Called because cmd got free'd */
+	out->cmd = NULL;
 }
 
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
