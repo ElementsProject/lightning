@@ -1231,11 +1231,12 @@ listsendpays_done(struct command *cmd, const char *buf,
 
 static struct command_result *lookup_invoice_desc(struct command *cmd,
 						  struct amount_msat credit,
-						  struct amount_msat debit,
-						  struct sha256 *payment_hash)
+						  struct sha256 *payment_hash STEALS)
 {
 	struct out_req *req;
 
+	/* Otherwise will go away when event is cleaned up */
+	notleak(tal_steal(cmd, payment_hash));
 	if (!amount_msat_zero(credit))
 		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "listinvoices",
@@ -1265,8 +1266,6 @@ listpeers_done(struct command *cmd, const char *buf,
 	struct acct_balance **balances, *bal;
 	struct amount_msat credit_diff, debit_diff;
 	const char *err;
-	/* Make sure to clean up when we're done */
-	tal_steal(cmd, info);
 
 	if (new_missed_channel_account(cmd, buf, result,
 					info->acct,
@@ -1314,10 +1313,12 @@ listpeers_done(struct command *cmd, const char *buf,
 		plugin_err(cmd->plugin, err);
 
 	if (info->ev->payment_id &&
-	    streq(info->ev->tag, mvt_tag_str(INVOICE)))
+	    streq(info->ev->tag, mvt_tag_str(INVOICE))) {
+		/* Make memleak happy */
+		tal_steal(tmpctx, info);
 		return lookup_invoice_desc(cmd, info->ev->credit,
-					   info->ev->debit,
 					   info->ev->payment_id);
+	}
 
 	return notification_handled(cmd);
 }
@@ -1435,20 +1436,20 @@ parse_and_log_chain_move(struct command *cmd,
 	}
 
 	db_begin_transaction(db);
-	acct = find_account(cmd, db, acct_name);
+	acct = find_account(tmpctx, db, acct_name);
 
 	if (!acct) {
 		/* FIXME: lookup the peer id for this channel! */
-		acct = new_account(cmd, acct_name, NULL);
+		acct = new_account(tmpctx, acct_name, NULL);
 		account_add(db, acct);
 	}
 
 	if (e->origin_acct) {
-		orig_acct = find_account(cmd, db, e->origin_acct);
+		orig_acct = find_account(tmpctx, db, e->origin_acct);
 		/* Go fetch the originating account
 		 * (we might not have it) */
 		if (!orig_acct) {
-			orig_acct = new_account(cmd, e->origin_acct, NULL);
+			orig_acct = new_account(tmpctx, e->origin_acct, NULL);
 			account_add(db, orig_acct);
 		}
 	} else
@@ -1506,7 +1507,7 @@ parse_and_log_chain_move(struct command *cmd,
 			   " Calling `listpeers` to fetch missing info",
 			   acct->name);
 
-		info = tal(NULL, struct event_info);
+		info = tal(cmd, struct event_info);
 		info->ev = tal_steal(info, e);
 		info->acct = tal_steal(info,
 				       is_channel_account(acct) ?
@@ -1532,8 +1533,9 @@ parse_and_log_chain_move(struct command *cmd,
 			if (tags[i] != INVOICE)
 				continue;
 
+			/* Keep memleak happy */
+			tal_steal(tmpctx, e);
 			return lookup_invoice_desc(cmd, e->credit,
-						   e->debit,
 						   e->payment_id);
 		}
 	}
@@ -1591,7 +1593,7 @@ parse_and_log_channel_move(struct command *cmd,
 
 	/* Go find the account for this event */
 	db_begin_transaction(db);
-	acct = find_account(cmd, db, acct_name);
+	acct = find_account(tmpctx, db, acct_name);
 	if (!acct)
 		plugin_err(cmd->plugin,
 			   "Received channel event,"
@@ -1607,8 +1609,9 @@ parse_and_log_channel_move(struct command *cmd,
 			if (tags[i] != INVOICE)
 				continue;
 
+			/* Keep memleak happy */
+			tal_steal(tmpctx, e);
 			return lookup_invoice_desc(cmd, e->credit,
-						   e->debit,
 						   e->payment_id);
 		}
 	}
@@ -1671,7 +1674,7 @@ static struct command_result *json_coin_moved(struct command *cmd,
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
-	err = parse_tags(cmd, buf,
+	err = parse_tags(tmpctx, buf,
 			 json_get_member(buf, params, "coin_movement"),
 			 &tags);
 	if (err)
