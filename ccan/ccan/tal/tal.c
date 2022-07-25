@@ -594,12 +594,12 @@ bool tal_set_name_(tal_t *ctx, const char *name, bool literal)
 
         /* Get rid of any old name */
         if (prop) {
-                struct name *name = (struct name *)*prop;
-                if (is_literal(&name->hdr))
+                struct name *oldname = (struct name *)*prop;
+                if (is_literal(&oldname->hdr))
                         *prop = NULL;
                 else {
-                        *prop = name->hdr.next;
-			freefn(name);
+                        *prop = oldname->hdr.next;
+			freefn(oldname);
                 }
         }
 
