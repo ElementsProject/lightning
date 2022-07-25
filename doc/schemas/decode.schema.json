@@ -919,13 +919,20 @@
             "enum": [
               "rune"
             ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         }
       },
       "then": {
         "required": [
           "string",
-          "restrictions"
+          "restrictions",
+          "valid"
         ],
         "additionalProperties": false,
         "properties": {
@@ -973,6 +980,47 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "rune"
+            ]
+          },
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "valid"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "type": {},
+          "warning_rune_invalid_utf8": {
+            "type": "string",
+            "description": "the rune contains invalid UTF-8 strings"
+          },
+          "hex": {
+            "type": "hex",
+            "description": "the raw rune in hex"
           }
         }
       }

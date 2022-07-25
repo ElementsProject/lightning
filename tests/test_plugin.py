@@ -13,6 +13,7 @@ from utils import (
 )
 
 import ast
+import base64
 import concurrent.futures
 import json
 import os
@@ -2806,7 +2807,6 @@ def test_commando_rune(node_factory):
                              'params': params})
 
 
-@pytest.mark.slow_test
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
     nodes = node_factory.get_nodes(5)
@@ -2837,3 +2837,22 @@ def test_commando_stress(node_factory, executor):
 
     # Should have exactly one discard msg from each discard
     nodes[0].daemon.wait_for_logs([r"New cmd from .*, replacing old"] * discards)
+
+
+def test_commando_badrune(node_factory):
+    """Test invalid UTF-8 encodings in rune: used to make us kill the offers plugin which implements decode, as it gave bad utf8!"""
+    l1 = node_factory.get_node()
+    l1.rpc.decode('5zi6-ugA6hC4_XZ0R7snl5IuiQX4ugL4gm9BQKYaKUU9gCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl')
+    rune = l1.rpc.commando_rune(restrictions="readonly")
+
+    binrune = base64.urlsafe_b64decode(rune['rune'])
+    # Mangle each part, try decode.  Skip most of the boring chars
+    # (just '|', '&', '#').
+    for i in range(32, len(binrune)):
+        for span in (range(0, 32), (124, 38, 35), range(127, 256)):
+            for c in span:
+                modrune = binrune[:i] + bytes([c]) + binrune[i + 1:]
+                try:
+                    l1.rpc.decode(base64.urlsafe_b64encode(modrune).decode('utf8'))
+                except RpcError:
+                    pass
