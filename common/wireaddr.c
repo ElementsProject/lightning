@@ -337,6 +337,7 @@ bool separate_address_and_port(const tal_t *ctx, const char *arg,
 		*port = strtol(portcolon + 1, &endp, 10);
 		return *port != 0 && *endp == '\0';
 	}
+
 	return true;
 }
 
