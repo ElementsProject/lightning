@@ -163,7 +163,8 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
     - **tag** (string): The bech32 letter which identifies this field (always 1 characters)
     - **data** (string): The bech32 data for this field
 
-If **type** is "rune":
+If **type** is "rune", and **valid** is *true*:
+  - **valid** (boolean) (always *true*)
   - **string** (string): the string encoding of the rune
   - **restrictions** (array of objects): restrictions built into the rune: all must pass:
     - **alternatives** (array of strings): each way restriction can be met: any can pass:
@@ -171,7 +172,12 @@ If **type** is "rune":
     - **summary** (string): human-readable summary of this restriction
   - **unique_id** (string, optional): unique id (always a numeric id on runes we create)
   - **version** (string, optional): rune version, not currently set on runes we create
-  - **valid** (boolean, optional) (always *true*)
+
+If **type** is "rune", and **valid** is *false*:
+  - **valid** (boolean) (always *false*)
+  - **hex** (hex, optional): the raw rune in hex
+  - the following warnings are possible:
+    - **warning_rune_invalid_utf8**: the rune contains invalid UTF-8 strings
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -195,4 +201,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d1e1f044c2e67ec169728dbc551903c97f9a9daa1f42e9d2f1686fc692d25be8)
+[comment]: # ( SHA256STAMP:a3963c3e0061b0d42a1f9e2f2a9012df780fce0264c6785f0311909b01f78af2)

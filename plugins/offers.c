@@ -819,11 +819,26 @@ static void json_add_invoice_request(struct json_stream *js,
 
 static void json_add_rune(struct command *cmd, struct json_stream *js, const struct rune *rune)
 {
+	const char *string;
+
+	/* Simplest to check everything for UTF-8 compliance at once.
+	 * Since separators are | and & (which cannot appear inside
+	 * UTF-8 multichars), if the entire thing is valid UTF-8 then
+	 * each part is. */
+	string = rune_to_string(tmpctx, rune);
+	if (!utf8_check(string, strlen(string))) {
+		json_add_hex(js, "hex", string, strlen(string));
+		json_add_string(js, "warning_rune_invalid_utf8",
+				"Rune contains invalid UTF-8 strings");
+		json_add_bool(js, "valid", false);
+		return;
+	}
+
 	if (rune->unique_id)
 		json_add_string(js, "unique_id", rune->unique_id);
 	if (rune->version)
 		json_add_string(js, "version", rune->version);
-	json_add_string(js, "string", take(rune_to_string(NULL, rune)));
+	json_add_string(js, "string", take(string));
 
 	json_array_start(js, "restrictions");
 	for (size_t i = rune->unique_id ? 1 : 0; i < tal_count(rune->restrs); i++) {
