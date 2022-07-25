@@ -52,9 +52,9 @@ size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 			 const struct bitcoin_outpoint *outpoint UNNEEDED,
-			 void (*cb)(struct bitcoind *bitcoind UNNEEDED,
-				    const struct bitcoin_tx_output *txout UNNEEDED,
-				    void *arg) UNNEEDED,
+			 void (*cb)(struct bitcoind * UNNEEDED,
+				    const struct bitcoin_tx_output * UNNEEDED,
+				    void *) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
 /* Generated stub for blinding_hash_e_and_ss */
@@ -70,7 +70,7 @@ bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
-		  void (*failed)(struct channel *channel UNNEEDED,
+		  void (*failed)(struct channel * UNNEEDED,
 				 bool success UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
@@ -711,8 +711,8 @@ void subkey_from_hmac(const char *prefix UNNEEDED,
 /* Generated stub for topology_add_sync_waiter_ */
 void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 			       struct chain_topology *topo UNNEEDED,
-			       void (*cb)(struct chain_topology *topo UNNEEDED,
-					  void *arg) UNNEEDED,
+			       void (*cb)(struct chain_topology * UNNEEDED,
+					  void *) UNNEEDED,
 			       void *arg UNNEEDED)
 { fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
 /* Generated stub for towire_channeld_config_channel */
@@ -847,7 +847,7 @@ struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct channel *channel UNNEEDED,
 			   const struct bitcoin_txid *txid UNNEEDED,
 			   enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						   struct channel *channel UNNEEDED,
+						   struct channel * UNNEEDED,
 						   const struct bitcoin_txid * UNNEEDED,
 						   const struct bitcoin_tx * UNNEEDED,
 						   unsigned int depth))
@@ -857,7 +857,7 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
 			   struct channel *channel UNNEEDED,
 			   const struct bitcoin_outpoint *outpoint UNNEEDED,
-			   enum watch_result (*cb)(struct channel *channel UNNEEDED,
+			   enum watch_result (*cb)(struct channel * UNNEEDED,
 						   const struct bitcoin_tx *tx UNNEEDED,
 						   size_t input_num UNNEEDED,
 						   const struct block *block))

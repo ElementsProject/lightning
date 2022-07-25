@@ -16,9 +16,9 @@ struct channel *any_channel_by_scid(struct lightningd *ld UNNEEDED,
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 			 const struct bitcoin_outpoint *outpoint UNNEEDED,
-			 void (*cb)(struct bitcoind *bitcoind UNNEEDED,
-				    const struct bitcoin_tx_output *txout UNNEEDED,
-				    void *arg) UNNEEDED,
+			 void (*cb)(struct bitcoind * UNNEEDED,
+				    const struct bitcoin_tx_output * UNNEEDED,
+				    void *) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
 /* Generated stub for bolt11_decode */
@@ -50,7 +50,7 @@ char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
-		  void (*failed)(struct channel *channel UNNEEDED,
+		  void (*failed)(struct channel * UNNEEDED,
 				 bool success UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
@@ -911,7 +911,7 @@ struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct channel *channel UNNEEDED,
 			   const struct bitcoin_txid *txid UNNEEDED,
 			   enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						   struct channel *channel UNNEEDED,
+						   struct channel * UNNEEDED,
 						   const struct bitcoin_txid * UNNEEDED,
 						   const struct bitcoin_tx * UNNEEDED,
 						   unsigned int depth))
@@ -921,7 +921,7 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
 			   struct channel *channel UNNEEDED,
 			   const struct bitcoin_outpoint *outpoint UNNEEDED,
-			   enum watch_result (*cb)(struct channel *channel UNNEEDED,
+			   enum watch_result (*cb)(struct channel * UNNEEDED,
 						   const struct bitcoin_tx *tx UNNEEDED,
 						   size_t input_num UNNEEDED,
 						   const struct block *block))
