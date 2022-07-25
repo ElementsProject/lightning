@@ -1069,9 +1069,9 @@ bool query_channel_range(struct daemon *daemon,
 			 struct peer *peer,
 			 u32 first_blocknum, u32 number_of_blocks,
 			 enum query_option_flags qflags,
-			 void (*cb)(struct peer *peer,
-				    u32 first_blocknum, u32 number_of_blocks,
-				    const struct range_query_reply *replies))
+			 void (*cb)(struct peer *,
+				    u32, u32,
+				    const struct range_query_reply *))
 {
 	u8 *msg;
 	struct tlv_query_channel_range_tlvs *tlvs;

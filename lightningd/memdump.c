@@ -29,14 +29,13 @@ static void json_add_ptr(struct json_stream *response, const char *name,
 }
 
 static size_t add_memdump(struct json_stream *response,
-			const char *name, const tal_t *root,
-			struct command *cmd)
+			  const char *fieldname, const tal_t *root,
+			  struct command *cmd)
 {
-	const tal_t *i;
 	size_t cumulative_size = 0;
 
-	json_array_start(response, name);
-	for (i = tal_first(root); i; i = tal_next(i)) {
+	json_array_start(response, fieldname);
+	for (const tal_t *i = tal_first(root); i; i = tal_next(i)) {
 		const char *name = tal_name(i);
 		size_t size = tal_bytelen(i);
 
@@ -176,9 +175,11 @@ static void finish_report(const struct leak_detect *leaks)
 		json_object_end(response);
 	}
 
-	for (size_t i = 0; i < tal_count(leaks->leakers); i++) {
+	for (size_t num_leakers = 0;
+	     num_leakers < tal_count(leaks->leakers);
+	     num_leakers++) {
 		json_object_start(response, NULL);
-		json_add_string(response, "subdaemon", leaks->leakers[i]);
+		json_add_string(response, "subdaemon", leaks->leakers[num_leakers]);
 		json_object_end(response);
 	}
 	json_array_end(response);

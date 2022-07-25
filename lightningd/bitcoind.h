@@ -150,9 +150,9 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 
 void bitcoind_getutxout_(struct bitcoind *bitcoind,
 			 const struct bitcoin_outpoint *outpoint,
-			 void (*cb)(struct bitcoind *bitcoind,
-				    const struct bitcoin_tx_output *txout,
-				    void *arg),
+			 void (*cb)(struct bitcoind *,
+				    const struct bitcoin_tx_output *,
+				    void *),
 			 void *arg);
 #define bitcoind_getutxout(bitcoind_, outpoint_, cb, arg)		\
 	bitcoind_getutxout_((bitcoind_), (outpoint_),			\

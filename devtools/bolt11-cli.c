@@ -54,7 +54,6 @@ int main(int argc, char *argv[])
 	const char *method;
 	struct bolt11 *b11;
 	struct bolt11_field *extra;
-	size_t i;
 	char *fail, *description = NULL;
 
 	common_setup(argv[0]);
@@ -120,7 +119,7 @@ int main(int argc, char *argv[])
 		}
 		printf("\n");
 	}
-	for (i = 0; i < tal_count(b11->fallbacks); i++) {
+	for (size_t i = 0; i < tal_count(b11->fallbacks); i++) {
                 struct bitcoin_address pkh;
                 struct ripemd160 sh;
                 struct sha256 wsh;
@@ -148,7 +147,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-	for (i = 0; i < tal_count(b11->routes); i++) {
+	for (size_t i = 0; i < tal_count(b11->routes); i++) {
 		printf("route: (node/chanid/fee/expirydelta) ");
 		for (size_t n = 0; n < tal_count(b11->routes[i]); n++) {
 			printf(" %s/%s/%u/%u/%u",
@@ -169,6 +168,7 @@ int main(int argc, char *argv[])
 
 	list_for_each(&b11->extra_fields, extra, list) {
 		char *data = tal_arr(ctx, char, tal_count(extra->data)+1);
+		size_t i;
 
 		for (i = 0; i < tal_count(extra->data); i++)
 			data[i] = bech32_charset[extra->data[i]];

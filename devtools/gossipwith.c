@@ -170,7 +170,6 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 					 struct oneshot *timer,
 					 char **args)
 {
-	u8 *msg;
 	int peer_fd = io_conn_fd(conn);
 	struct pollfd pollfd[2];
 
@@ -179,6 +178,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 				OPTIONAL_FEATURE(OPT_INITIAL_ROUTING_SYNC));
 
 	if (!no_init) {
+		u8 *msg;
 		struct tlv_init_tlvs *tlvs = NULL;
 		if (explicit_network) {
 			tlvs = tlv_init_tlvs_new(NULL);

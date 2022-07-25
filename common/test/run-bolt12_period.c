@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
 		/* Replace day */
 		tparts[0] = "UTC";
 		/* Now each part should appear. */
-		for (size_t i = 0; tparts[i]; i++)
+		for (i = 0; tparts[i]; i++)
 			assert(strstr(timestring, tparts[i]));
 		assert(offer_period_start(base, n, &recurrence) == secs);
 	}

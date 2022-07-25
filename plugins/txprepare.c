@@ -177,7 +177,7 @@ static struct command_result *signpsbt_done(struct command *cmd,
 static struct command_result *finish_txprepare(struct command *cmd,
 					       struct txprepare *txp)
 {
-	struct json_stream *out;
+	struct json_stream *js;
 	struct unreleased_tx *utx;
 
 	/* Add the outputs they gave us */
@@ -225,11 +225,11 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	}
 
 	list_add(&unreleased_txs, &utx->list);
-	out = jsonrpc_stream_success(cmd);
-	json_add_hex_talarr(out, "unsigned_tx", linearize_wtx(tmpctx, utx->tx));
-	json_add_txid(out, "txid", &utx->txid);
-	json_add_psbt(out, "psbt", utx->psbt);
-	return command_finished(cmd, out);
+	js = jsonrpc_stream_success(cmd);
+	json_add_hex_talarr(js, "unsigned_tx", linearize_wtx(tmpctx, utx->tx));
+	json_add_txid(js, "txid", &utx->txid);
+	json_add_psbt(js, "psbt", utx->psbt);
+	return command_finished(cmd, js);
 }
 
 /* newaddr has given us a change address. */

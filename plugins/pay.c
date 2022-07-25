@@ -506,7 +506,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 	ret = jsonrpc_stream_success(cmd);
 	json_array_start(ret, "pays");
-	for (size_t i = 0; i < tal_count(order); i++) {
+	for (i = 0; i < tal_count(order); i++) {
 		pm = pay_map_get(&pay_map, &order[i]);
 		assert(pm != NULL);
 		add_new_entry(ret, buf, pm);

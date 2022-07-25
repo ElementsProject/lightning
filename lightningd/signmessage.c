@@ -135,7 +135,6 @@ static void listnodes_done(const char *buffer,
 		t = json_get_member(buffer, t, "nodes");
 
 	if (!deprecated_apis && (!t || t->size == 0)) {
-		struct json_stream *response;
 		response = json_stream_fail(can->cmd, SIGNMESSAGE_PUBKEY_NOT_FOUND,
 							"pubkey not found in the graph");
 		json_add_node_id(response, "claimed_key", &can->id);

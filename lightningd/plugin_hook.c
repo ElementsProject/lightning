@@ -379,8 +379,8 @@ void plugin_hook_db_sync(struct db *db)
 			     db_data_version_get(db));
 
 		json_array_start(req->stream, "writes");
-		for (size_t i = 0; i < tal_count(changes); i++)
-			json_add_string(req->stream, NULL, changes[i]);
+		for (size_t j = 0; j < tal_count(changes); j++)
+			json_add_string(req->stream, NULL, changes[j]);
 		json_array_end(req->stream);
 		jsonrpc_request_end(req);
 
@@ -489,8 +489,7 @@ static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
 	/* Add edges. */
 	for (size_t i = 0; i < tal_count(graph); i++) {
 		for (size_t j = 0; j < tal_count(graph[i].hook->before); j++) {
-			struct hook_node *n = find_hook(graph,
-							graph[i].hook->before[j]);
+			n = find_hook(graph, graph[i].hook->before[j]);
 			if (!n) {
 				/* This is useful for typos! */
 				log_debug(graph[i].hook->plugin->log,
@@ -503,8 +502,7 @@ static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
 			n->num_incoming++;
 		}
 		for (size_t j = 0; j < tal_count(graph[i].hook->after); j++) {
-			struct hook_node *n = find_hook(graph,
-							graph[i].hook->after[j]);
+			n = find_hook(graph, graph[i].hook->after[j]);
 			if (!n) {
 				/* This is useful for typos! */
 				log_debug(graph[i].hook->plugin->log,
