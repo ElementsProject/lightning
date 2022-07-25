@@ -77,7 +77,7 @@ void run(const uint8_t *data, size_t size)
 			   PUBKEY_CMPR_LEN, pk2);
 	funding_script = bitcoin_redeem_2of2(tmpctx, pk1, pk2);
 
-	create_close_tx(tmpctx, chainparams, our_script,
+	create_close_tx(tmpctx, chainparams, NULL, NULL, our_script,
 			their_script, funding_script, &outpoint,
 			funding, to_us, to_them, dust_limit);
 

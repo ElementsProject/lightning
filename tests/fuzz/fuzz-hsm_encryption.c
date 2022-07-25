@@ -17,6 +17,7 @@ void run(const uint8_t *data, size_t size)
 		struct secret *hsm_secret, decrypted_hsm_secret, encryption_key;
 		char *passphrase;
 		struct encrypted_hsm_secret encrypted_secret;
+		char *emsg;
 
 		/* Take the first 32 bytes as the plaintext hsm_secret seed,
 		 * and the remaining ones as the passphrase. */
@@ -24,7 +25,7 @@ void run(const uint8_t *data, size_t size)
 		passphrase = to_string(NULL, data + 32, size - 32);
 
 		/* A valid seed, a valid passphrase. This should not fail. */
-		assert(!hsm_secret_encryption_key(passphrase, &encryption_key));
+		assert(!hsm_secret_encryption_key_with_exitcode(passphrase, &encryption_key, &emsg));
 		/* Roundtrip */
 		assert(encrypt_hsm_secret(&encryption_key, hsm_secret,
 					  &encrypted_secret));
