@@ -42,6 +42,7 @@
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
 #include <wire/wire_sync.h>
+#include <wally_psbt_members.h>
 
 /* stdin == lightningd, 3 == peer, 4 = hsmd */
 #define REQ_FD STDIN_FILENO
@@ -227,7 +228,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
-        const struct wally_map_item *input_redeem_script = wally_map_get_integer(&in->input.psbt_fields, PSBT_IN_REDEEM_SCRIPT);
+        const struct wally_map_item *input_redeem_script = wally_map_get_integer(&in->input.psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
 		u8 *script;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
@@ -533,13 +534,15 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 				size_t in)
 {
 	size_t weight;
-    const struct wally_map_item *input_redeem_script = wally_map_get_integer(&psbt->inputs[in].psbt_fields, PSBT_IN_REDEEM_SCRIPT);
+    size_t input_redeem_script_len;
+    wally_psbt_get_input_redeem_script_len(psbt, in, &input_redeem_script_len);
+
 
 	/* txid + txout + sequence */
 	weight = (32 + 4 + 4) * 4;
 	weight +=
-		(input_redeem_script->value_len +
-			(varint_t) varint_size(input_redeem_script->value_len)) * 4;
+		(input_redeem_script_len +
+			(varint_t) varint_size(input_redeem_script_len)) * 4;
 
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #3:
 	 *

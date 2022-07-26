@@ -9,6 +9,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <wally_psbt.h>
+#include <wally_psbt_members.h>
 #include <wire/wire.h>
 
 
@@ -606,9 +607,12 @@ bool psbt_finalize(struct wally_psbt *psbt)
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct wally_psbt_input *input = &psbt->inputs[i];
 		struct wally_tx_witness_stack *stack;
-        const struct wally_map_item *input_witness_script = wally_map_get_integer(&input->psbt_fields, PSBT_IN_WITNESS_SCRIPT);
-		if (!is_anchor_witness_script(input_witness_script->value,
-					      input_witness_script->value_len))
+        u8 *input_witness_script;
+        size_t input_witness_script_len;
+        wally_psbt_get_input_witness_script_len(psbt, i, &input_witness_script_len);
+        input_witness_script = tal_arr(tmpctx, u8, input_witness_script_len);
+		if (!is_anchor_witness_script(input_witness_script,
+					      input_witness_script_len))
 			continue;
 
 		if (input->signatures.num_items != 1)
@@ -633,8 +637,8 @@ bool psbt_finalize(struct wally_psbt *psbt)
 					   input->signatures.items[0].value,
 					   input->signatures.items[0].value_len);
 		wally_tx_witness_stack_add(stack,
-					   input_witness_script->value,
-					   input_witness_script->value_len);
+					   input_witness_script,
+					   input_witness_script_len);
 		wally_psbt_input_set_final_witness(input, stack);
 	}
 
@@ -784,20 +788,28 @@ void psbt_txid(const tal_t *ctx,
 	wally_tx_clone_alloc(psbt->tx, 0, &tx);
 
 	for (size_t i = 0; i < tx->num_inputs; i++) {
-        const struct wally_map_item *input_final_scriptsig = wally_map_get_integer(&psbt->inputs[i].psbt_fields, PSBT_IN_FINAL_SCRIPTSIG);
-        const struct wally_map_item *input_redeem_script = wally_map_get_integer(&psbt->inputs[i].psbt_fields, PSBT_IN_REDEEM_SCRIPT);
-		if (input_final_scriptsig->value) {
+        u8 *input_redeem_script;
+        size_t input_redeem_script_len;
+        u8 *input_final_scriptsig;
+        size_t input_final_scriptsig_len;
+
+        wally_psbt_get_input_redeem_script_len(psbt, i, &input_redeem_script_len);
+        input_redeem_script = tal_arr(tmpctx, u8, input_redeem_script_len);
+        wally_psbt_get_input_final_scriptsig_len(psbt, i, &input_final_scriptsig_len);
+        input_final_scriptsig = tal_arr(tmpctx, u8, input_final_scriptsig_len);
+
+		if (input_final_scriptsig) {
 			wally_tx_set_input_script(tx, i,
-						  input_final_scriptsig->value,
-						  input_final_scriptsig->value_len);
-		} else if (input_redeem_script->value) {
+						  input_final_scriptsig,
+						  input_final_scriptsig_len);
+		} else if (input_redeem_script) {
 			u8 *script;
 
 			/* P2SH requires push of the redeemscript, from libwally src */
 			script = tal_arr(tmpctx, u8, 0);
 			script_push_bytes(&script,
-					  input_redeem_script->value,
-					  input_redeem_script->value_len);
+					  input_redeem_script,
+					  input_redeem_script_len);
 			wally_tx_set_input_script(tx, i, script, tal_bytelen(script));
 		}
 	}

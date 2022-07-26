@@ -7,6 +7,7 @@
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
+#include <wally_psbt_members.h>
 
 bool psbt_get_serial_id(const struct wally_map *map, u64 *serial_id)
 {
@@ -409,10 +410,12 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 
 		/* If is P2SH, redeemscript must be present */
 		assert(psbt->tx->inputs[i].index < input->utxo->num_outputs);
+        size_t input_redeem_script_len;
 		const u8 *outscript =
 			wally_tx_output_get_script(tmpctx,
 				&input->utxo->outputs[psbt->tx->inputs[i].index]);
-		if (is_p2sh(outscript, NULL) && wally_map_get_integer(&psbt->inputs[i].psbt_fields, PSBT_IN_REDEEM_SCRIPT)->value_len == 0)
+        wally_psbt_get_input_redeem_script_len(psbt, i, &input_redeem_script_len);
+		if (is_p2sh(outscript, NULL) && input_redeem_script_len == 0)
 			return false;
 
 	}

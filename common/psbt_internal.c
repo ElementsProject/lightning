@@ -27,7 +27,7 @@ void psbt_finalize_input(const tal_t *ctx,
 			 struct wally_psbt_input *in,
 			 const struct witness_element **elements)
 {
-    const struct wally_map_item *input_redeem_script = wally_map_get_integer(&in->psbt_fields, PSBT_IN_REDEEM_SCRIPT);
+    const struct wally_map_item *input_redeem_script = wally_map_get_integer(&in->psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
 	psbt_input_set_final_witness_stack(ctx, in, elements);
 
 	/* There's this horrible edgecase where we set the final_witnesses

@@ -7,6 +7,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <wally_psbt.h>
+#include <wally_psbt_members.h>
 #include <wire/wire.h>
 
 struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
@@ -290,17 +291,17 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *tx,
 				    int outnum)
 {
-	struct wally_psbt_output *out;
-    const struct wally_map_item *output_witness_script;
-
 	assert(outnum < tx->psbt->num_outputs);
-	out = &tx->psbt->outputs[outnum];
 
-    output_witness_script = wally_map_get_integer(&out->psbt_fields, PSBT_IN_REDEEM_SCRIPT);
-	if (output_witness_script->value_len == 0)
+    u8 *output_witness_script;
+    size_t output_witness_script_len;
+    wally_psbt_get_output_witness_script_len(tx->psbt, outnum, &output_witness_script_len);
+    output_witness_script = tal_arr(tmpctx, u8, output_witness_script_len);
+
+	if (output_witness_script_len == 0)
 		return NULL;
 
-	return tal_dup_arr(ctx, u8, output_witness_script->value, output_witness_script->value_len, 0);
+	return tal_dup_arr(ctx, u8, output_witness_script, output_witness_script_len, 0);
 }
 
 struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
