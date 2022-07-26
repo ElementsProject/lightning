@@ -1,10 +1,10 @@
 #include "config.h"
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
-#include <bitcoin/psbt.h>
-#include <wire/peer_wire.h>
 #include <wally_psbt_members.h>
+#include <wire/peer_wire.h>
 
 static void
 psbt_input_set_final_witness_stack(const tal_t *ctx,
