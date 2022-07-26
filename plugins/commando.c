@@ -485,6 +485,7 @@ static void handle_incmd(struct node_id *peer,
 	}
 
 	try_command(peer, idnum, incmd->contents, tal_bytelen(incmd->contents));
+	tal_free(incmd);
 }
 
 static struct command_result *handle_reply(struct node_id *peer,
