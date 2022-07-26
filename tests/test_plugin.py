@@ -2739,9 +2739,7 @@ def test_commando_rune(node_factory):
     # Replace rune3 with a more useful timestamp!
     expiry = int(time.time()) + 15
     rune3 = l1.rpc.commando_rune(restrictions="time<{}".format(expiry))
-    ratelimit_successes = ((rune9, "getinfo", {}),
-                           (rune8, "getinfo", {}),
-                           (rune8, "getinfo", {}))
+
     successes = ((rune1, "listpeers", {}),
                  (rune2, "listpeers", {}),
                  (rune2, "getinfo", {}),
@@ -2753,7 +2751,11 @@ def test_commando_rune(node_factory):
                  (rune6, "listpeers", [l2.info['id'], 'broken']),
                  (rune6, "listpeers", [l2.info['id']]),
                  (rune7, "listpeers", []),
-                 (rune7, "getinfo", {})) + ratelimit_successes
+                 (rune7, "getinfo", {}),
+                 (rune9, "getinfo", {}),
+                 (rune8, "getinfo", {}),
+                 (rune8, "getinfo", {}))
+
     failures = ((rune2, "withdraw", {}),
                 (rune2, "plugin", {'subcommand': 'list'}),
                 (rune3, "getinfo", {}),
@@ -2761,9 +2763,7 @@ def test_commando_rune(node_factory):
                 (rune5, "listpeers", {'id': l2.info['id'], 'level': 'io'}),
                 (rune6, "listpeers", [l2.info['id'], 'io']),
                 (rune7, "listpeers", [l2.info['id']]),
-                (rune7, "listpeers", {'id': l2.info['id']}),
-                (rune9, "getinfo", {}),
-                (rune8, "getinfo", {}))
+                (rune7, "listpeers", {'id': l2.info['id']}))
 
     for rune, cmd, params in successes:
         l2.rpc.call(method='commando',
@@ -2785,6 +2785,47 @@ def test_commando_rune(node_factory):
                                  'params': params})
         assert exc_info.value.error['code'] == 0x4c51
 
+    # Now, this can flake if we cross a minute boundary!  So wait until
+    # It succeeds again.
+    while True:
+        try:
+            l2.rpc.call(method='commando',
+                        payload={'peer_id': l1.info['id'],
+                                 'rune': rune8['rune'],
+                                 'method': 'getinfo',
+                                 'params': {}})
+            break
+        except RpcError as e:
+            assert e.error['code'] == 0x4c51
+        time.sleep(1)
+
+    # This fails immediately, since we've done one.
+    with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': rune9['rune'],
+                             'method': 'getinfo',
+                             'params': {}})
+    assert exc_info.value.error['code'] == 0x4c51
+
+    # Two more succeed for rune8.
+    for _ in range(2):
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': rune8['rune'],
+                             'method': 'getinfo',
+                             'params': {}})
+    assert exc_info.value.error['code'] == 0x4c51
+
+    # Now we've had 3 in one minute, this will fail.
+    with pytest.raises(RpcError, match='Not authorized:') as exc_info:
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': rune8['rune'],
+                             'method': 'getinfo',
+                             'params': {}})
+    assert exc_info.value.error['code'] == 0x4c51
+
     # rune5 can only be used by l2:
     l3 = node_factory.get_node()
     l3.connect(l1)
@@ -2799,7 +2840,9 @@ def test_commando_rune(node_factory):
     # Now wait for ratelimit expiry, ratelimits should reset.
     time.sleep(61)
 
-    for rune, cmd, params in ratelimit_successes:
+    for rune, cmd, params in ((rune9, "getinfo", {}),
+                              (rune8, "getinfo", {}),
+                              (rune8, "getinfo", {})):
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
                              'rune': rune['rune'],
