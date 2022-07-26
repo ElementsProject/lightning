@@ -40,6 +40,7 @@ class LightningNode(utils.LightningNode):
             if not has_dblog:
                 # Add as an expanded option so we don't clobber other options.
                 self.daemon.opts['plugin={}'.format(dblog)] = None
+                self.daemon.opts['dblog-file'] = 'dblog.sqlite3'
 
         # Yes, we really want to test the local development version, not
         # something in out path.
