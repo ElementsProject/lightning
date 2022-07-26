@@ -2835,8 +2835,12 @@ def test_commando_stress(node_factory, executor):
             assert(e.error['message'] == "Invalid JSON")
             discards += 1
 
-    # Should have exactly one discard msg from each discard
-    nodes[0].daemon.wait_for_logs([r"New cmd from .*, replacing old"] * discards)
+    # Should have at least one discard msg from each failure (we can have
+    # more, if they kept replacing each other, as happens!)
+    if discards > 0:
+        nodes[0].daemon.wait_for_logs([r"New cmd from .*, replacing old"] * discards)
+    else:
+        assert not nodes[0].daemon.is_in_log(r"New cmd from .*, replacing old")
 
 
 def test_commando_badrune(node_factory):
