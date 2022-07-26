@@ -47,7 +47,8 @@ usage_with_default()
 default_coptflags()
 {
     if [ "$1" = 0 ]; then
-	echo "-Og"
+	# FORTIFY_SOURCE requires optimization level above zero
+	echo "-O1 -flto=auto -ffat-lto-objects -fexceptions -g -grecord-gcc-switches -pipe -Wall -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -Wp,-D_GLIBCXX_ASSERTIONS -fPIE -fstack-protector-strong"
     fi
 }
 
