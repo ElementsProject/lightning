@@ -2203,6 +2203,8 @@ def test_funding_while_offline(node_factory, bitcoind):
 @pytest.mark.developer
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
+@unittest.skipIf(os.environ.get("TEST_CHECK_DBSTMTS", None) == "1",
+                 "We kill l2, dblog plugin replay will be unreliable")
 def test_channel_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel (to remember). l2 will
     # mysteriously die while committing the first HTLC so we can
