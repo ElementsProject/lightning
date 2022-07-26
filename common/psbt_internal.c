@@ -4,6 +4,7 @@
 #include <common/psbt_open.h>
 #include <bitcoin/psbt.h>
 #include <wire/peer_wire.h>
+#include <wally_psbt_members.h>
 
 static void
 psbt_input_set_final_witness_stack(const tal_t *ctx,
@@ -23,12 +24,18 @@ psbt_input_set_final_witness_stack(const tal_t *ctx,
 	tal_wally_end(ctx);
 }
 
-void psbt_finalize_input(const tal_t *ctx,
-			 struct wally_psbt_input *in,
+void psbt_finalize_input(const struct wally_psbt *psbt,
+			 size_t input_num,
 			 const struct witness_element **elements)
 {
-    const struct wally_map_item *input_redeem_script = wally_map_get_integer(&in->psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
-	psbt_input_set_final_witness_stack(ctx, in, elements);
+    struct wally_psbt_input *in = &psbt->inputs[input_num];
+    u8 *input_redeem_script;
+    size_t input_redeem_script_len;
+
+    wally_psbt_get_input_redeem_script_len(psbt, input_num, &input_redeem_script_len);
+    input_redeem_script = tal_arr(tmpctx, u8, input_redeem_script_len);
+
+	psbt_input_set_final_witness_stack(psbt, in, elements);
 
 	/* There's this horrible edgecase where we set the final_witnesses
 	 * directly onto the PSBT, but the input is a P2SH-wrapped input
@@ -37,10 +44,10 @@ void psbt_finalize_input(const tal_t *ctx,
 	 * on these just .. ignores it!? Murder. Anyway, here we do a final
 	 * scriptsig check -- if there's a redeemscript field still around we
 	 * just go ahead and mush it into the final_scriptsig field. */
-	if (input_redeem_script->value) {
+	if (input_redeem_script) {
 		u8 *redeemscript = tal_dup_arr(NULL, u8,
-					       input_redeem_script->value,
-					       input_redeem_script->value_len, 0);
+					       input_redeem_script,
+					       input_redeem_script_len, 0);
         u8 *final_scriptsig = bitcoin_scriptsig_redeem(NULL,
                          take(redeemscript));
         wally_psbt_input_set_final_scriptsig(in, final_scriptsig, tal_count(final_scriptsig));
