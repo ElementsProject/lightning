@@ -41,8 +41,8 @@
 #include <openingd/common.h>
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
-#include <wire/wire_sync.h>
 #include <wally_psbt_members.h>
+#include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 = hsmd */
 #define REQ_FD STDIN_FILENO
