@@ -1,4 +1,5 @@
 import json
+import os
 from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.gen.grpc2py import Grpc2PyGenerator
 from msggen.gen.rust import RustGenerator
@@ -41,8 +42,10 @@ def load_msggen_meta():
 
 
 def write_msggen_meta(meta):
-    with open('.msggen.json', 'w') as f:
+    pid = os.getpid()
+    with open(f'.msggen.json.tmp.{pid}', 'w') as f:
         json.dump(meta, f, sort_keys=True, indent=4)
+    os.rename(f'.msggen.json.tmp.{pid}', '.msggen.json')
 
 
 def run():
