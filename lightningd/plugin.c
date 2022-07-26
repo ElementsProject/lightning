@@ -940,7 +940,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	if (strchr(popt->name, '|'))
 		return tal_fmt(plugin, "Option \"name\" may not contain '|'");
 
-	popt->description = NULL;
+	popt->description = json_strdup(popt, buffer, desctok);
 	if (deptok) {
 		if (!json_to_bool(buffer, deptok, &popt->deprecated))
 			return tal_fmt(plugin,
@@ -981,7 +981,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 			       "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
 	}
 
-	if (defaulttok) {
+	if (defaulttok && !json_tok_is_null(buffer, defaulttok)) {
 		popt->def = plugin_opt_value(popt, popt->type,
 					     json_strdup(tmpctx, buffer, defaulttok));
 		if (!popt->def)
@@ -991,8 +991,6 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 				       popt->type);
 	}
 
-	if (!popt->description)
-		popt->description = json_strdup(popt, buffer, desctok);
 
 	list_add_tail(&plugin->plugin_opts, &popt->list);
 
