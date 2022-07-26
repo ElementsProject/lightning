@@ -1384,11 +1384,10 @@ def test_feerates(node_factory):
     # Now try setting them, one at a time.
     # Set CONSERVATIVE/2 feerate, for max
     l1.set_feerates((15000, 0, 0, 0), True)
-    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 2)
+    wait_for(lambda: l1.rpc.feerates('perkw')['perkw']['max_acceptable'] == 15000 * 10)
     feerates = l1.rpc.feerates('perkw')
     assert feerates['warning_missing_feerates'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
-    assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 253
 
     # Set ECONOMICAL/6 feerate, for unilateral_close and htlc_resolution
