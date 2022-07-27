@@ -11,6 +11,7 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	common/base32.o				\
 	common/blockheight_states.o		\
 	common/channel_type.o			\
+	common/coin_mvt.o			\
 	common/features.o			\
 	common/json_stream.o			\
 	common/key_derive.o			\
