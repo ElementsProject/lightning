@@ -215,7 +215,7 @@ fn test_listpeers() {
       ]
     });
     let u: cln_rpc::model::ListpeersResponse = serde_json::from_value(j).unwrap();
-    let _: ListpeersResponse = (&u).into();
+    let _: ListpeersResponse = u.into();
 }
 
 #[test]
@@ -237,7 +237,7 @@ fn test_getinfo() {
 	    "fees_collected_msat": "0msat", "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
 	    "our_features": {"init": "8808226aa2", "node": "80008808226aa2", "channel": "", "invoice": "024200"}});
     let u: cln_rpc::model::GetinfoResponse = serde_json::from_value(j).unwrap();
-    let _g: GetinfoResponse = (&u).into();
+    let _g: GetinfoResponse = u.into();
 }
 
 #[test]
@@ -280,7 +280,7 @@ fn test_keysend() {
             }),
         };
 
-    let u: cln_rpc::model::KeysendRequest = (&g).into();
+    let u: cln_rpc::model::KeysendRequest = g.into();
     let _ser = serde_json::to_string(&u);
 
     let j = r#"{
@@ -296,6 +296,6 @@ fn test_keysend() {
 	"status": "complete"
     }"#;
     let u: cln_rpc::model::KeysendResponse = serde_json::from_str(j).unwrap();
-    let g: KeysendResponse = (&u).into();
+    let g: KeysendResponse = u.into();
     println!("{:?}", g);
 }

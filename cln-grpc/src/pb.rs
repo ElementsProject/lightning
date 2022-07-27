@@ -12,8 +12,8 @@ impl From<JAmount> for Amount {
     }
 }
 
-impl From<&Amount> for JAmount {
-    fn from(a: &Amount) -> Self {
+impl From<Amount> for JAmount {
+    fn from(a: Amount) -> Self {
         JAmount::from_msat(a.msat)
     }
 }
@@ -27,19 +27,19 @@ impl From<JOutpoint> for Outpoint {
     }
 }
 
-impl From<&Outpoint> for JOutpoint {
-    fn from(a: &Outpoint) -> Self {
+impl From<Outpoint> for JOutpoint {
+    fn from(a: Outpoint) -> Self {
         JOutpoint {
-            txid: a.txid.clone(),
+            txid: a.txid,
             outnum: a.outnum,
         }
     }
 }
 
-impl From<&Feerate> for cln_rpc::primitives::Feerate {
-    fn from(f: &Feerate) -> cln_rpc::primitives::Feerate {
+impl From<Feerate> for cln_rpc::primitives::Feerate {
+    fn from(f: Feerate) -> cln_rpc::primitives::Feerate {
         use feerate::Style;
-        match f.style.clone().unwrap() {
+        match f.style.unwrap() {
             Style::Slow(_) => JFeerate::Slow,
             Style::Normal(_) => JFeerate::Normal,
             Style::Urgent(_) => JFeerate::Urgent,
@@ -49,11 +49,11 @@ impl From<&Feerate> for cln_rpc::primitives::Feerate {
     }
 }
 
-impl From<&OutputDesc> for JOutputDesc {
-    fn from(od: &OutputDesc) -> JOutputDesc {
+impl From<OutputDesc> for JOutputDesc {
+    fn from(od: OutputDesc) -> JOutputDesc {
         JOutputDesc {
-            address: od.address.clone(),
-            amount: od.amount.as_ref().unwrap().into(),
+            address: od.address,
+            amount: od.amount.unwrap().into(),
         }
     }
 }
@@ -71,9 +71,9 @@ impl From<JAmountOrAll> for AmountOrAll {
     }
 }
 
-impl From<&AmountOrAll> for JAmountOrAll {
-    fn from(a: &AmountOrAll) -> Self {
-        match &a.value {
+impl From<AmountOrAll> for JAmountOrAll {
+    fn from(a: AmountOrAll) -> Self {
+        match a.value {
             Some(amount_or_all::Value::Amount(a)) => JAmountOrAll::Amount(a.into()),
             Some(amount_or_all::Value::All(_)) => JAmountOrAll::All,
             None => panic!("AmountOrAll is neither amount nor all: {:?}", a),
@@ -93,9 +93,9 @@ impl From<JAmountOrAny> for AmountOrAny {
         }
     }
 }
-impl From<&AmountOrAny> for JAmountOrAny {
-    fn from(a: &AmountOrAny) -> Self {
-        match &a.value {
+impl From<AmountOrAny> for JAmountOrAny {
+    fn from(a: AmountOrAny) -> Self {
+        match a.value {
             Some(amount_or_any::Value::Amount(a)) => JAmountOrAny::Amount(a.into()),
             Some(amount_or_any::Value::Any(_)) => JAmountOrAny::Any,
             None => panic!("AmountOrAll is neither amount nor any: {:?}", a),
@@ -107,7 +107,7 @@ impl From<RouteHop> for cln_rpc::primitives::Routehop {
         Self {
             id: cln_rpc::primitives::Pubkey::from_slice(&c.id).unwrap(),
             scid: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(),
-            feebase: c.feebase.as_ref().unwrap().into(),
+            feebase: c.feebase.unwrap().into(),
             feeprop: c.feeprop,
             expirydelta: c.expirydelta as u16,
         }

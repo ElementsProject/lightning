@@ -31,7 +31,7 @@ async fn getinfo(
     request: tonic::Request<pb::GetinfoRequest>,
 ) -> Result<tonic::Response<pb::GetinfoResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::GetinfoRequest = (&req).into();
+    let req: requests::GetinfoRequest = req.into();
     debug!("Client asked for getinfo");
     trace!("getinfo request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -45,7 +45,7 @@ async fn getinfo(
     match result {
         Response::Getinfo(r) => {
            trace!("getinfo response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -63,7 +63,7 @@ async fn list_peers(
     request: tonic::Request<pb::ListpeersRequest>,
 ) -> Result<tonic::Response<pb::ListpeersResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListpeersRequest = (&req).into();
+    let req: requests::ListpeersRequest = req.into();
     debug!("Client asked for list_peers");
     trace!("list_peers request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -77,7 +77,7 @@ async fn list_peers(
     match result {
         Response::ListPeers(r) => {
            trace!("list_peers response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -95,7 +95,7 @@ async fn list_funds(
     request: tonic::Request<pb::ListfundsRequest>,
 ) -> Result<tonic::Response<pb::ListfundsResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListfundsRequest = (&req).into();
+    let req: requests::ListfundsRequest = req.into();
     debug!("Client asked for list_funds");
     trace!("list_funds request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -109,7 +109,7 @@ async fn list_funds(
     match result {
         Response::ListFunds(r) => {
            trace!("list_funds response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -127,7 +127,7 @@ async fn send_pay(
     request: tonic::Request<pb::SendpayRequest>,
 ) -> Result<tonic::Response<pb::SendpayResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::SendpayRequest = (&req).into();
+    let req: requests::SendpayRequest = req.into();
     debug!("Client asked for send_pay");
     trace!("send_pay request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -141,7 +141,7 @@ async fn send_pay(
     match result {
         Response::SendPay(r) => {
            trace!("send_pay response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -159,7 +159,7 @@ async fn list_channels(
     request: tonic::Request<pb::ListchannelsRequest>,
 ) -> Result<tonic::Response<pb::ListchannelsResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListchannelsRequest = (&req).into();
+    let req: requests::ListchannelsRequest = req.into();
     debug!("Client asked for list_channels");
     trace!("list_channels request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -173,7 +173,7 @@ async fn list_channels(
     match result {
         Response::ListChannels(r) => {
            trace!("list_channels response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -191,7 +191,7 @@ async fn add_gossip(
     request: tonic::Request<pb::AddgossipRequest>,
 ) -> Result<tonic::Response<pb::AddgossipResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::AddgossipRequest = (&req).into();
+    let req: requests::AddgossipRequest = req.into();
     debug!("Client asked for add_gossip");
     trace!("add_gossip request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -205,7 +205,7 @@ async fn add_gossip(
     match result {
         Response::AddGossip(r) => {
            trace!("add_gossip response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -223,7 +223,7 @@ async fn auto_clean_invoice(
     request: tonic::Request<pb::AutocleaninvoiceRequest>,
 ) -> Result<tonic::Response<pb::AutocleaninvoiceResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::AutocleaninvoiceRequest = (&req).into();
+    let req: requests::AutocleaninvoiceRequest = req.into();
     debug!("Client asked for auto_clean_invoice");
     trace!("auto_clean_invoice request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -237,7 +237,7 @@ async fn auto_clean_invoice(
     match result {
         Response::AutoCleanInvoice(r) => {
            trace!("auto_clean_invoice response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -255,7 +255,7 @@ async fn check_message(
     request: tonic::Request<pb::CheckmessageRequest>,
 ) -> Result<tonic::Response<pb::CheckmessageResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::CheckmessageRequest = (&req).into();
+    let req: requests::CheckmessageRequest = req.into();
     debug!("Client asked for check_message");
     trace!("check_message request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -269,7 +269,7 @@ async fn check_message(
     match result {
         Response::CheckMessage(r) => {
            trace!("check_message response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -287,7 +287,7 @@ async fn close(
     request: tonic::Request<pb::CloseRequest>,
 ) -> Result<tonic::Response<pb::CloseResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::CloseRequest = (&req).into();
+    let req: requests::CloseRequest = req.into();
     debug!("Client asked for close");
     trace!("close request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -301,7 +301,7 @@ async fn close(
     match result {
         Response::Close(r) => {
            trace!("close response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -319,7 +319,7 @@ async fn connect_peer(
     request: tonic::Request<pb::ConnectRequest>,
 ) -> Result<tonic::Response<pb::ConnectResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ConnectRequest = (&req).into();
+    let req: requests::ConnectRequest = req.into();
     debug!("Client asked for connect_peer");
     trace!("connect_peer request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -333,7 +333,7 @@ async fn connect_peer(
     match result {
         Response::Connect(r) => {
            trace!("connect_peer response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -351,7 +351,7 @@ async fn create_invoice(
     request: tonic::Request<pb::CreateinvoiceRequest>,
 ) -> Result<tonic::Response<pb::CreateinvoiceResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::CreateinvoiceRequest = (&req).into();
+    let req: requests::CreateinvoiceRequest = req.into();
     debug!("Client asked for create_invoice");
     trace!("create_invoice request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -365,7 +365,7 @@ async fn create_invoice(
     match result {
         Response::CreateInvoice(r) => {
            trace!("create_invoice response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -383,7 +383,7 @@ async fn datastore(
     request: tonic::Request<pb::DatastoreRequest>,
 ) -> Result<tonic::Response<pb::DatastoreResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::DatastoreRequest = (&req).into();
+    let req: requests::DatastoreRequest = req.into();
     debug!("Client asked for datastore");
     trace!("datastore request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -397,7 +397,7 @@ async fn datastore(
     match result {
         Response::Datastore(r) => {
            trace!("datastore response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -415,7 +415,7 @@ async fn create_onion(
     request: tonic::Request<pb::CreateonionRequest>,
 ) -> Result<tonic::Response<pb::CreateonionResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::CreateonionRequest = (&req).into();
+    let req: requests::CreateonionRequest = req.into();
     debug!("Client asked for create_onion");
     trace!("create_onion request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -429,7 +429,7 @@ async fn create_onion(
     match result {
         Response::CreateOnion(r) => {
            trace!("create_onion response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -447,7 +447,7 @@ async fn del_datastore(
     request: tonic::Request<pb::DeldatastoreRequest>,
 ) -> Result<tonic::Response<pb::DeldatastoreResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::DeldatastoreRequest = (&req).into();
+    let req: requests::DeldatastoreRequest = req.into();
     debug!("Client asked for del_datastore");
     trace!("del_datastore request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -461,7 +461,7 @@ async fn del_datastore(
     match result {
         Response::DelDatastore(r) => {
            trace!("del_datastore response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -479,7 +479,7 @@ async fn del_expired_invoice(
     request: tonic::Request<pb::DelexpiredinvoiceRequest>,
 ) -> Result<tonic::Response<pb::DelexpiredinvoiceResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::DelexpiredinvoiceRequest = (&req).into();
+    let req: requests::DelexpiredinvoiceRequest = req.into();
     debug!("Client asked for del_expired_invoice");
     trace!("del_expired_invoice request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -493,7 +493,7 @@ async fn del_expired_invoice(
     match result {
         Response::DelExpiredInvoice(r) => {
            trace!("del_expired_invoice response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -511,7 +511,7 @@ async fn del_invoice(
     request: tonic::Request<pb::DelinvoiceRequest>,
 ) -> Result<tonic::Response<pb::DelinvoiceResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::DelinvoiceRequest = (&req).into();
+    let req: requests::DelinvoiceRequest = req.into();
     debug!("Client asked for del_invoice");
     trace!("del_invoice request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -525,7 +525,7 @@ async fn del_invoice(
     match result {
         Response::DelInvoice(r) => {
            trace!("del_invoice response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -543,7 +543,7 @@ async fn invoice(
     request: tonic::Request<pb::InvoiceRequest>,
 ) -> Result<tonic::Response<pb::InvoiceResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::InvoiceRequest = (&req).into();
+    let req: requests::InvoiceRequest = req.into();
     debug!("Client asked for invoice");
     trace!("invoice request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -557,7 +557,7 @@ async fn invoice(
     match result {
         Response::Invoice(r) => {
            trace!("invoice response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -575,7 +575,7 @@ async fn list_datastore(
     request: tonic::Request<pb::ListdatastoreRequest>,
 ) -> Result<tonic::Response<pb::ListdatastoreResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListdatastoreRequest = (&req).into();
+    let req: requests::ListdatastoreRequest = req.into();
     debug!("Client asked for list_datastore");
     trace!("list_datastore request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -589,7 +589,7 @@ async fn list_datastore(
     match result {
         Response::ListDatastore(r) => {
            trace!("list_datastore response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -607,7 +607,7 @@ async fn list_invoices(
     request: tonic::Request<pb::ListinvoicesRequest>,
 ) -> Result<tonic::Response<pb::ListinvoicesResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListinvoicesRequest = (&req).into();
+    let req: requests::ListinvoicesRequest = req.into();
     debug!("Client asked for list_invoices");
     trace!("list_invoices request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -621,7 +621,7 @@ async fn list_invoices(
     match result {
         Response::ListInvoices(r) => {
            trace!("list_invoices response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -639,7 +639,7 @@ async fn send_onion(
     request: tonic::Request<pb::SendonionRequest>,
 ) -> Result<tonic::Response<pb::SendonionResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::SendonionRequest = (&req).into();
+    let req: requests::SendonionRequest = req.into();
     debug!("Client asked for send_onion");
     trace!("send_onion request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -653,7 +653,7 @@ async fn send_onion(
     match result {
         Response::SendOnion(r) => {
            trace!("send_onion response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -671,7 +671,7 @@ async fn list_send_pays(
     request: tonic::Request<pb::ListsendpaysRequest>,
 ) -> Result<tonic::Response<pb::ListsendpaysResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListsendpaysRequest = (&req).into();
+    let req: requests::ListsendpaysRequest = req.into();
     debug!("Client asked for list_send_pays");
     trace!("list_send_pays request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -685,7 +685,7 @@ async fn list_send_pays(
     match result {
         Response::ListSendPays(r) => {
            trace!("list_send_pays response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -703,7 +703,7 @@ async fn list_transactions(
     request: tonic::Request<pb::ListtransactionsRequest>,
 ) -> Result<tonic::Response<pb::ListtransactionsResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListtransactionsRequest = (&req).into();
+    let req: requests::ListtransactionsRequest = req.into();
     debug!("Client asked for list_transactions");
     trace!("list_transactions request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -717,7 +717,7 @@ async fn list_transactions(
     match result {
         Response::ListTransactions(r) => {
            trace!("list_transactions response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -735,7 +735,7 @@ async fn pay(
     request: tonic::Request<pb::PayRequest>,
 ) -> Result<tonic::Response<pb::PayResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::PayRequest = (&req).into();
+    let req: requests::PayRequest = req.into();
     debug!("Client asked for pay");
     trace!("pay request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -749,7 +749,7 @@ async fn pay(
     match result {
         Response::Pay(r) => {
            trace!("pay response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -767,7 +767,7 @@ async fn list_nodes(
     request: tonic::Request<pb::ListnodesRequest>,
 ) -> Result<tonic::Response<pb::ListnodesResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListnodesRequest = (&req).into();
+    let req: requests::ListnodesRequest = req.into();
     debug!("Client asked for list_nodes");
     trace!("list_nodes request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -781,7 +781,7 @@ async fn list_nodes(
     match result {
         Response::ListNodes(r) => {
            trace!("list_nodes response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -799,7 +799,7 @@ async fn wait_any_invoice(
     request: tonic::Request<pb::WaitanyinvoiceRequest>,
 ) -> Result<tonic::Response<pb::WaitanyinvoiceResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::WaitanyinvoiceRequest = (&req).into();
+    let req: requests::WaitanyinvoiceRequest = req.into();
     debug!("Client asked for wait_any_invoice");
     trace!("wait_any_invoice request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -813,7 +813,7 @@ async fn wait_any_invoice(
     match result {
         Response::WaitAnyInvoice(r) => {
            trace!("wait_any_invoice response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -831,7 +831,7 @@ async fn wait_invoice(
     request: tonic::Request<pb::WaitinvoiceRequest>,
 ) -> Result<tonic::Response<pb::WaitinvoiceResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::WaitinvoiceRequest = (&req).into();
+    let req: requests::WaitinvoiceRequest = req.into();
     debug!("Client asked for wait_invoice");
     trace!("wait_invoice request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -845,7 +845,7 @@ async fn wait_invoice(
     match result {
         Response::WaitInvoice(r) => {
            trace!("wait_invoice response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -863,7 +863,7 @@ async fn wait_send_pay(
     request: tonic::Request<pb::WaitsendpayRequest>,
 ) -> Result<tonic::Response<pb::WaitsendpayResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::WaitsendpayRequest = (&req).into();
+    let req: requests::WaitsendpayRequest = req.into();
     debug!("Client asked for wait_send_pay");
     trace!("wait_send_pay request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -877,7 +877,7 @@ async fn wait_send_pay(
     match result {
         Response::WaitSendPay(r) => {
            trace!("wait_send_pay response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -895,7 +895,7 @@ async fn new_addr(
     request: tonic::Request<pb::NewaddrRequest>,
 ) -> Result<tonic::Response<pb::NewaddrResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::NewaddrRequest = (&req).into();
+    let req: requests::NewaddrRequest = req.into();
     debug!("Client asked for new_addr");
     trace!("new_addr request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -909,7 +909,7 @@ async fn new_addr(
     match result {
         Response::NewAddr(r) => {
            trace!("new_addr response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -927,7 +927,7 @@ async fn withdraw(
     request: tonic::Request<pb::WithdrawRequest>,
 ) -> Result<tonic::Response<pb::WithdrawResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::WithdrawRequest = (&req).into();
+    let req: requests::WithdrawRequest = req.into();
     debug!("Client asked for withdraw");
     trace!("withdraw request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -941,7 +941,7 @@ async fn withdraw(
     match result {
         Response::Withdraw(r) => {
            trace!("withdraw response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -959,7 +959,7 @@ async fn key_send(
     request: tonic::Request<pb::KeysendRequest>,
 ) -> Result<tonic::Response<pb::KeysendResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::KeysendRequest = (&req).into();
+    let req: requests::KeysendRequest = req.into();
     debug!("Client asked for key_send");
     trace!("key_send request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -973,7 +973,7 @@ async fn key_send(
     match result {
         Response::KeySend(r) => {
            trace!("key_send response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -991,7 +991,7 @@ async fn fund_psbt(
     request: tonic::Request<pb::FundpsbtRequest>,
 ) -> Result<tonic::Response<pb::FundpsbtResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::FundpsbtRequest = (&req).into();
+    let req: requests::FundpsbtRequest = req.into();
     debug!("Client asked for fund_psbt");
     trace!("fund_psbt request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1005,7 +1005,7 @@ async fn fund_psbt(
     match result {
         Response::FundPsbt(r) => {
            trace!("fund_psbt response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1023,7 +1023,7 @@ async fn send_psbt(
     request: tonic::Request<pb::SendpsbtRequest>,
 ) -> Result<tonic::Response<pb::SendpsbtResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::SendpsbtRequest = (&req).into();
+    let req: requests::SendpsbtRequest = req.into();
     debug!("Client asked for send_psbt");
     trace!("send_psbt request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1037,7 +1037,7 @@ async fn send_psbt(
     match result {
         Response::SendPsbt(r) => {
            trace!("send_psbt response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1055,7 +1055,7 @@ async fn sign_psbt(
     request: tonic::Request<pb::SignpsbtRequest>,
 ) -> Result<tonic::Response<pb::SignpsbtResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::SignpsbtRequest = (&req).into();
+    let req: requests::SignpsbtRequest = req.into();
     debug!("Client asked for sign_psbt");
     trace!("sign_psbt request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1069,7 +1069,7 @@ async fn sign_psbt(
     match result {
         Response::SignPsbt(r) => {
            trace!("sign_psbt response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1087,7 +1087,7 @@ async fn utxo_psbt(
     request: tonic::Request<pb::UtxopsbtRequest>,
 ) -> Result<tonic::Response<pb::UtxopsbtResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::UtxopsbtRequest = (&req).into();
+    let req: requests::UtxopsbtRequest = req.into();
     debug!("Client asked for utxo_psbt");
     trace!("utxo_psbt request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1101,7 +1101,7 @@ async fn utxo_psbt(
     match result {
         Response::UtxoPsbt(r) => {
            trace!("utxo_psbt response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1119,7 +1119,7 @@ async fn tx_discard(
     request: tonic::Request<pb::TxdiscardRequest>,
 ) -> Result<tonic::Response<pb::TxdiscardResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::TxdiscardRequest = (&req).into();
+    let req: requests::TxdiscardRequest = req.into();
     debug!("Client asked for tx_discard");
     trace!("tx_discard request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1133,7 +1133,7 @@ async fn tx_discard(
     match result {
         Response::TxDiscard(r) => {
            trace!("tx_discard response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1151,7 +1151,7 @@ async fn tx_prepare(
     request: tonic::Request<pb::TxprepareRequest>,
 ) -> Result<tonic::Response<pb::TxprepareResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::TxprepareRequest = (&req).into();
+    let req: requests::TxprepareRequest = req.into();
     debug!("Client asked for tx_prepare");
     trace!("tx_prepare request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1165,7 +1165,7 @@ async fn tx_prepare(
     match result {
         Response::TxPrepare(r) => {
            trace!("tx_prepare response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1183,7 +1183,7 @@ async fn tx_send(
     request: tonic::Request<pb::TxsendRequest>,
 ) -> Result<tonic::Response<pb::TxsendResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::TxsendRequest = (&req).into();
+    let req: requests::TxsendRequest = req.into();
     debug!("Client asked for tx_send");
     trace!("tx_send request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1197,7 +1197,7 @@ async fn tx_send(
     match result {
         Response::TxSend(r) => {
            trace!("tx_send response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1215,7 +1215,7 @@ async fn disconnect(
     request: tonic::Request<pb::DisconnectRequest>,
 ) -> Result<tonic::Response<pb::DisconnectResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::DisconnectRequest = (&req).into();
+    let req: requests::DisconnectRequest = req.into();
     debug!("Client asked for disconnect");
     trace!("disconnect request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1229,7 +1229,7 @@ async fn disconnect(
     match result {
         Response::Disconnect(r) => {
            trace!("disconnect response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1247,7 +1247,7 @@ async fn feerates(
     request: tonic::Request<pb::FeeratesRequest>,
 ) -> Result<tonic::Response<pb::FeeratesResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::FeeratesRequest = (&req).into();
+    let req: requests::FeeratesRequest = req.into();
     debug!("Client asked for feerates");
     trace!("feerates request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1261,7 +1261,7 @@ async fn feerates(
     match result {
         Response::Feerates(r) => {
            trace!("feerates response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1279,7 +1279,7 @@ async fn fund_channel(
     request: tonic::Request<pb::FundchannelRequest>,
 ) -> Result<tonic::Response<pb::FundchannelResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::FundchannelRequest = (&req).into();
+    let req: requests::FundchannelRequest = req.into();
     debug!("Client asked for fund_channel");
     trace!("fund_channel request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1293,7 +1293,7 @@ async fn fund_channel(
     match result {
         Response::FundChannel(r) => {
            trace!("fund_channel response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1311,7 +1311,7 @@ async fn get_route(
     request: tonic::Request<pb::GetrouteRequest>,
 ) -> Result<tonic::Response<pb::GetrouteResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::GetrouteRequest = (&req).into();
+    let req: requests::GetrouteRequest = req.into();
     debug!("Client asked for get_route");
     trace!("get_route request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1325,7 +1325,7 @@ async fn get_route(
     match result {
         Response::GetRoute(r) => {
            trace!("get_route response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1343,7 +1343,7 @@ async fn list_forwards(
     request: tonic::Request<pb::ListforwardsRequest>,
 ) -> Result<tonic::Response<pb::ListforwardsResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListforwardsRequest = (&req).into();
+    let req: requests::ListforwardsRequest = req.into();
     debug!("Client asked for list_forwards");
     trace!("list_forwards request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1357,7 +1357,7 @@ async fn list_forwards(
     match result {
         Response::ListForwards(r) => {
            trace!("list_forwards response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1375,7 +1375,7 @@ async fn list_pays(
     request: tonic::Request<pb::ListpaysRequest>,
 ) -> Result<tonic::Response<pb::ListpaysResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::ListpaysRequest = (&req).into();
+    let req: requests::ListpaysRequest = req.into();
     debug!("Client asked for list_pays");
     trace!("list_pays request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1389,7 +1389,7 @@ async fn list_pays(
     match result {
         Response::ListPays(r) => {
            trace!("list_pays response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1407,7 +1407,7 @@ async fn ping(
     request: tonic::Request<pb::PingRequest>,
 ) -> Result<tonic::Response<pb::PingResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::PingRequest = (&req).into();
+    let req: requests::PingRequest = req.into();
     debug!("Client asked for ping");
     trace!("ping request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1421,7 +1421,7 @@ async fn ping(
     match result {
         Response::Ping(r) => {
            trace!("ping response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1439,7 +1439,7 @@ async fn sign_message(
     request: tonic::Request<pb::SignmessageRequest>,
 ) -> Result<tonic::Response<pb::SignmessageResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::SignmessageRequest = (&req).into();
+    let req: requests::SignmessageRequest = req.into();
     debug!("Client asked for sign_message");
     trace!("sign_message request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1453,7 +1453,7 @@ async fn sign_message(
     match result {
         Response::SignMessage(r) => {
            trace!("sign_message response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
@@ -1471,7 +1471,7 @@ async fn stop(
     request: tonic::Request<pb::StopRequest>,
 ) -> Result<tonic::Response<pb::StopResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::StopRequest = (&req).into();
+    let req: requests::StopRequest = req.into();
     debug!("Client asked for stop");
     trace!("stop request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1485,7 +1485,7 @@ async fn stop(
     match result {
         Response::Stop(r) => {
            trace!("stop response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
