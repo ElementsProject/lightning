@@ -3358,12 +3358,11 @@ def test_wumbo_channels(node_factory, bitcoind):
 
     # Connect l3, get gossip.
     l3.rpc.connect(l1.info['id'], 'localhost', port=l1.port)
-    wait_for(lambda: len(l3.rpc.listnodes(l1.info['id'])['nodes']) == 1)
-    wait_for(lambda: 'features' in only_one(l3.rpc.listnodes(l1.info['id'])['nodes']))
 
-    # Make sure channel capacity is what we expected.
-    assert ([c['amount_msat'] for c in l3.rpc.listchannels()['channels']]
-            == [Millisatoshi(str(1 << 24) + "sat")] * 2)
+    # Make sure channel capacity is what we expected (might need to wait for
+    # both channel updates!
+    wait_for(lambda: [c['amount_msat'] for c in l3.rpc.listchannels()['channels']]
+             == [Millisatoshi(str(1 << 24) + "sat")] * 2)
 
     # Make sure channel features are right from channel_announcement
     assert ([c['features'] for c in l3.rpc.listchannels()['channels']]
