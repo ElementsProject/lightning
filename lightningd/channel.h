@@ -467,6 +467,7 @@ static inline bool channel_active(const struct channel *channel)
 {
 	return channel->state != FUNDING_SPEND_SEEN
 		&& channel->state != CLOSINGD_COMPLETE
+		&& channel->state != AWAITING_UNILATERAL
 		&& !channel_unsaved(channel)
 		&& !channel_on_chain(channel);
 }
