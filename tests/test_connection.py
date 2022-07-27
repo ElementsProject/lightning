@@ -4136,3 +4136,20 @@ def test_mutual_reconnect_race(node_factory, executor, bitcoind):
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
     inv = l2.rpc.invoice(100000000, "invoice4", "invoice4")
     l1.rpc.pay(inv['bolt11'])
+
+
+@pytest.mark.xfail(strict=True, reason="Still connects when AWAITING_UNILATERAL")
+def test_no_reconnect_awating_unilateral(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+    l2.stop()
+
+    # Close immediately.
+    l1.rpc.close(l2.info['id'], 1)
+
+    wait_for(lambda: only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+    # After switching to AWAITING_UNILATERAL it will *not* try to reconnect.
+    l1.daemon.wait_for_log("State changed from CHANNELD_SHUTTING_DOWN to AWAITING_UNILATERAL")
+    time.sleep(10)
+
+    assert not l1.daemon.is_in_log('Will try reconnect', start=l1.daemon.logsearch_start)
