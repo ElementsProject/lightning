@@ -428,6 +428,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'msat_or_any?': f'c.{name}.as_ref().map(|a| a.into())',
                     'feerate': f'c.{name}.as_ref().unwrap().into()',
                     'feerate?': f'c.{name}.as_ref().map(|a| a.into())',
+                    'outpoint?': f'c.{name}.as_ref().map(|a| a.into())',
                     'RoutehintList?': f'c.{name}.clone().map(|rl| rl.into())',
                     'short_channel_id': f'cln_rpc::primitives::ShortChannelId::from_str(&c.{name}).unwrap()',
                     'short_channel_id?': f'c.{name}.as_ref().map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())',
