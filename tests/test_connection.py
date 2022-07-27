@@ -4140,7 +4140,6 @@ def test_mutual_reconnect_race(node_factory, executor, bitcoind):
     l1.rpc.pay(inv['bolt11'])
 
 
-@pytest.mark.xfail(strict=True, reason="Still connects when AWAITING_UNILATERAL")
 def test_no_reconnect_awating_unilateral(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
     l2.stop()
