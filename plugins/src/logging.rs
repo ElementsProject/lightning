@@ -63,15 +63,13 @@ where
             // errors when forwarding. Forwarding could break due to
             // an interrupted connection or stdout being closed, but
             // keeping the messages in the queue is a memory leak.
-            let _ = out
-                .lock()
-                .await
-                .send(json!({
-                    "jsonrpc": "2.0",
-                    "method": "log",
-                    "params": i
-                }))
-                .await;
+            let payload = json!({
+                "jsonrpc": "2.0",
+                "method": "log",
+                "params": i
+            });
+
+            let _ = out.lock().await.send(payload).await;
         }
     });
     log::set_boxed_logger(Box::new(PluginLogger { sender, filter }))
