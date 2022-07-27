@@ -621,10 +621,9 @@ funding_transaction_established(struct multifundchannel_command *mfc)
 
 	/* If all we've got is v2 destinations, we're just waiting
 	 * for all of our peers to send us their sigs.
-	 * That callback triggers separately, so we just return
-	 * a 'still pending' here */
+	 * Let's check if we've gotten them yet */
 	if (dest_count(mfc, FUND_CHANNEL) == 0)
-		return command_still_pending(mfc->cmd);
+		return check_sigs_ready(mfc);
 
 	/* For any v1 destination, we need to update the destination
 	 * outnum with the correct outnum on the now-known
