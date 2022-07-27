@@ -645,12 +645,20 @@ class LightningD(TailableProc):
         if SUBDAEMON:
             assert node_id > 0
             subdaemons = SUBDAEMON.split(',')
-            if node_id > len(subdaemons):
+            # VLS_SERIAL_SELECT "swaps" the selected item with the first item
+            select = env("VLS_SERIAL_SELECT", '1')
+            if node_id == int(select):
+                ndx = 1
+            elif node_id == 1:
+                ndx = int(select)
+            else:
+                ndx = node_id
+            if ndx > len(subdaemons):
                 # use the last element if not as many specifiers as nodes
                 opts['subdaemon'] = subdaemons[-1]
             else:
                 # use the matching specifier
-                opts['subdaemon'] = subdaemons[node_id - 1]
+                opts['subdaemon'] = subdaemons[ndx - 1]
 
             print(f"starting node {node_id} with subdaemon {opts['subdaemon']}")
             if SUBDAEMON == 'hsmd:remote_hsmd':
