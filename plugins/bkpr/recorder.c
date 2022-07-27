@@ -225,7 +225,8 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     " ORDER BY "
 				     "  e.utxo_txid"
 				     ", e.outnum"
-				     ", e.spending_txid NULLS FIRST"));
+				     ", e.spending_txid NULLS FIRST"
+				     ", e.blockheight"));
 
 	db_bind_txid(stmt, 0, txid);
 	return find_chain_events(ctx, take(stmt));
@@ -403,8 +404,14 @@ static struct txo_set *find_txo_set(const tal_t *ctx,
 		} else {
 			/* We might not have a spend event
 			 * for everything */
-			if (pr)
-				tal_arr_expand(&txos->pairs, pr);
+			if (pr) {
+				/* Disappear "channel_proposed" events */
+				if (streq(pr->txo->tag,
+					  mvt_tag_str(CHANNEL_PROPOSED)))
+					pr = tal_free(pr);
+				else
+					tal_arr_expand(&txos->pairs, pr);
+			}
 			pr = new_txo_pair(txos->pairs);
 			pr->txo = tal_steal(pr, ev);
 		}
@@ -671,7 +678,8 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					    struct db *db,
 					    const struct account *acct,
 					    const struct bitcoin_outpoint *outpoint,
-					    const struct bitcoin_txid *spending_txid)
+					    const struct bitcoin_txid *spending_txid,
+					    const char *tag)
 
 {
 	struct db_stmt *stmt;
@@ -733,7 +741,10 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     " e.account_id = ?"
 					     " AND e.utxo_txid = ?"
 					     " AND e.outnum = ?"
-					     " AND e.spending_txid IS NULL"));
+					     " AND e.spending_txid IS NULL"
+					     " AND e.tag = ?"));
+
+		db_bind_text(stmt, 3, tag);
 	}
 
 	db_bind_u64(stmt, 0, acct->db_id);
@@ -1850,7 +1861,8 @@ bool log_chain_event(struct db *db,
 
 	/* We're responsible for de-duping chain events! */
 	if (find_chain_event(e, db, acct,
-			     &e->outpoint, e->spending_txid))
+			     &e->outpoint, e->spending_txid,
+			     e->tag))
 		return false;
 
 	stmt = db_prepare_v2(db, SQL("INSERT INTO chain_events"
