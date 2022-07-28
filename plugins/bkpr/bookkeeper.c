@@ -640,7 +640,7 @@ static bool new_missed_channel_account(struct command *cmd,
 				push_credit = AMOUNT_MSAT(0);
 				push_debit = push_amt;
 			} else {
-				ok = amount_msat_sub(&amt, amt, push_amt);
+				ok = amount_msat_sub(&amt, remote_amt, push_amt);
 				push_credit = push_amt;
 				push_debit = AMOUNT_MSAT(0);
 			}
