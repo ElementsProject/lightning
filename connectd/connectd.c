@@ -56,13 +56,6 @@
 #define HSM_FD 3
 #define GOSSIPCTL_FD 4
 
-/*~ In C convention, constants are UPPERCASE macros.  Not everything needs to
- * be a constant, but it soothes the programmer's conscience to encapsulate
- * arbitrary decisions like these in one place. */
-#define MAX_CONNECT_ATTEMPTS 10
-#define INITIAL_WAIT_SECONDS	1
-#define MAX_WAIT_SECONDS	300
-
 /* Peers we're trying to reach: we iterate through addrs until we succeed
  * or fail. */
 struct connecting {
@@ -88,9 +81,6 @@ struct connecting {
 
 	/* Accumulated errors */
 	char *errors;
-
-	/* How many seconds did we wait this time? */
-	u32 seconds_waited;
 };
 
 /*~ C programs should generally be written bottom-to-top, with the root
@@ -623,15 +613,13 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
  */
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
-			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
 			   errcode_t errcode,
 			   const char *errfmt, ...)
-	PRINTF_FMT(6,7);
+	PRINTF_FMT(5,6);
 
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
-			   u32 seconds_waited,
 			   const struct wireaddr_internal *addrhint,
 			   errcode_t errcode,
 			   const char *errfmt, ...)
@@ -639,27 +627,18 @@ static void connect_failed(struct daemon *daemon,
 	u8 *msg;
 	va_list ap;
 	char *errmsg;
-	u32 wait_seconds;
 
 	va_start(ap, errfmt);
 	errmsg = tal_vfmt(tmpctx, errfmt, ap);
 	va_end(ap);
 
-	/* Wait twice as long to reconnect, between min and max. */
-	wait_seconds = seconds_waited * 2;
-	if (wait_seconds > MAX_WAIT_SECONDS)
-		wait_seconds = MAX_WAIT_SECONDS;
-	if (wait_seconds < INITIAL_WAIT_SECONDS)
-		wait_seconds = INITIAL_WAIT_SECONDS;
-
 	status_peer_debug(id, "Failed connected out: %s", errmsg);
 
 	/* lightningd may have a connect command waiting to know what
 	 * happened.  We leave it to lightningd to decide if it wants to try
-	 * again, with the wait_seconds as a hint of how long before
-	 * asking. */
+	 * again. */
 	msg = towire_connectd_connect_failed(NULL, id, errcode, errmsg,
-					       wait_seconds, addrhint);
+					     addrhint);
 	daemon_conn_send(daemon->master, take(msg));
 }
 
@@ -801,7 +780,6 @@ static void try_connect_one_addr(struct connecting *connect)
 	/* Out of addresses? */
 	if (connect->addrnum == tal_count(connect->addrs)) {
 		connect_failed(connect->daemon, &connect->id,
-			       connect->seconds_waited,
 			       connect->addrhint, CONNECT_ALL_ADDRESSES_FAILED,
 			       "All addresses failed: %s",
 			       connect->errors);
@@ -1748,7 +1726,6 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
  * caller so it's marginal. */
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
-			     u32 seconds_waited,
 			     struct wireaddr *gossip_addrs,
 			     struct wireaddr_internal *addrhint STEALS)
 {
@@ -1805,7 +1782,7 @@ static void try_connect_peer(struct daemon *daemon,
 	/* Still no address?  Fail immediately.  Lightningd can still choose
 	* to retry; an address may get gossiped or appear on the DNS seed. */
 	if (tal_count(addrs) == 0) {
-		connect_failed(daemon, id, seconds_waited, addrhint,
+		connect_failed(daemon, id, addrhint,
 			       CONNECT_NO_KNOWN_ADDRESS,
 			       "Unable to connect, no address known for peer");
 		return;
@@ -1822,7 +1799,6 @@ static void try_connect_peer(struct daemon *daemon,
 	 * errors which occur.  We miss it in a few places; would be nice to
 	 * fix! */
 	connect->connstate = "Connection establishment";
-	connect->seconds_waited = seconds_waited;
 	connect->addrhint = tal_steal(connect, addrhint);
 	connect->errors = tal_strdup(connect, "");
 	connect->conn = NULL;
@@ -1837,16 +1813,14 @@ static void try_connect_peer(struct daemon *daemon,
 static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
-	u32 seconds_waited;
 	struct wireaddr_internal *addrhint;
 	struct wireaddr *addrs;
 
 	if (!fromwire_connectd_connect_to_peer(tmpctx, msg,
-					       &id, &seconds_waited,
-					       &addrs, &addrhint))
+					       &id, &addrs, &addrhint))
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
-	try_connect_peer(daemon, &id, seconds_waited, addrs, addrhint);
+	try_connect_peer(daemon, &id, addrs, addrhint);
 }
 
 /* lightningd tells us a peer should be disconnected. */

@@ -3244,11 +3244,12 @@ def test_feerate_spam(node_factory, chainparams):
         l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE', timeout=5)
 
 
-@pytest.mark.developer("need dev-feerate")
+@pytest.mark.developer("need dev-feerate, dev-fast-reconnect")
 def test_feerate_stress(node_factory, executor):
     # Third node makes HTLC traffic less predictable.
     l1, l2, l3 = node_factory.line_graph(3, opts={'commit-time': 100,
-                                                  'may_reconnect': True})
+                                                  'may_reconnect': True,
+                                                  'dev-fast-reconnect': None})
 
     l1.pay(l2, 10**9 // 2)
     scid12 = l1.get_channel_scid(l2)

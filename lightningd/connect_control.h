@@ -20,7 +20,6 @@ void connectd_activate(struct lightningd *ld);
 
 void try_reconnect(const tal_t *ctx,
 		   struct peer *peer,
-		   u32 seconds_delay,
 		   const struct wireaddr_internal *addrhint);
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 		       bool incoming,
