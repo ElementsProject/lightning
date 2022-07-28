@@ -67,7 +67,7 @@ payment.
 If specified, *cltv* sets the *min_final_cltv_expiry* for the invoice.
 Otherwise, it's set to the parameter **cltv-final**.
 
-If *deschash* is true (default false), then the bolt11 returned
+If *deschashonly* is true (default false), then the bolt11 returned
 contains a hash of the *description*, rather than the *description*
 itself: this allows much longer descriptions, but they must be
 communicated via some other mechanism.
