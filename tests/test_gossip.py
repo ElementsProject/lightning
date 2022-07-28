@@ -285,7 +285,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(5)
 
     l1.wait_for_channel_updates([chan23])
-    after_23 = int(time.time())
+    after_23 = int(time.time()) + 1
 
     # Make sure l4 has received all the gossip.
     wait_for(lambda: ['alias' in node for node in l4.rpc.listnodes()['nodes']] == [True, True, True])
