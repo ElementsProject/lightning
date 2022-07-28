@@ -47,7 +47,6 @@ msgdata,connectd_activate_reply,failmsg,?wirestring,
 # Master -> connectd: connect to a peer.
 msgtype,connectd_connect_to_peer,2001
 msgdata,connectd_connect_to_peer,id,node_id,
-msgdata,connectd_connect_to_peer,seconds_waited,u32,
 msgdata,connectd_connect_to_peer,len,u32,
 msgdata,connectd_connect_to_peer,addrs,wireaddr,len
 msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
@@ -57,7 +56,6 @@ msgtype,connectd_connect_failed,2020
 msgdata,connectd_connect_failed,id,node_id,
 msgdata,connectd_connect_failed,failcode,errcode_t,
 msgdata,connectd_connect_failed,failreason,wirestring,
-msgdata,connectd_connect_failed,seconds_to_delay,u32,
 msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 
 # Connectd -> master: we got a peer.

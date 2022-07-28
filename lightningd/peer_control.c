@@ -100,7 +100,8 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
 	peer->connected = PEER_DISCONNECTED;
-	peer->delay_reconnect = false;
+	peer->last_connect_attempt.ts.tv_sec
+		= peer->last_connect_attempt.ts.tv_nsec = 0;
 #if DEVELOPER
 	peer->ignore_htlcs = false;
 #endif
@@ -1330,7 +1331,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	/* We mark peer in "connecting" state until hooks have passed. */
 	assert(peer->connected == PEER_DISCONNECTED);
 	peer->connected = PEER_CONNECTING;
-	peer->delay_reconnect = false;
 
 	/* Update peer address and direction */
 	peer->addr = hook_payload->addr;
@@ -2025,9 +2025,14 @@ static void setup_peer(struct peer *peer, u32 delay)
 	}
 
 	/* Make sure connectd knows to try reconnecting. */
-	if (connect)
-		try_reconnect(peer, peer, delay, &peer->addr);
-
+	if (connect) {
+		/* To delay, make it seem like we just connected. */
+		if (delay > 0) {
+			peer->reconnect_delay = delay;
+			peer->last_connect_attempt = time_now();
+		}
+		try_reconnect(peer, peer, &peer->addr);
+	}
 }
 
 void setup_peers(struct lightningd *ld)

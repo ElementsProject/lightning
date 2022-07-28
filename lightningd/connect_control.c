@@ -247,7 +247,6 @@ AUTODATA(json_command, &connect_command);
 struct delayed_reconnect {
 	struct lightningd *ld;
 	struct node_id id;
-	u32 seconds_delayed;
 	struct wireaddr_internal *addrhint;
 };
 
@@ -265,7 +264,6 @@ static void gossipd_got_addrs(struct subd *subd,
 
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &d->id,
-						     d->seconds_delayed,
 						     addrs,
 						     d->addrhint);
 	subd_send_msg(d->ld->connectd, take(connectmsg));
@@ -280,7 +278,6 @@ static void do_connect(struct delayed_reconnect *d)
 	subd_req(d, d->ld->gossip, take(msg), -1, 0, gossipd_got_addrs, d);
 }
 
-/* peer may be NULL here */
 static void try_connect(const tal_t *ctx,
 			struct lightningd *ld,
 			const struct node_id *id,
@@ -293,7 +290,6 @@ static void try_connect(const tal_t *ctx,
 	d = tal(ctx, struct delayed_reconnect);
 	d->ld = ld;
 	d->id = *id;
-	d->seconds_delayed = seconds_delay;
 	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
 
 	if (!seconds_delay) {
@@ -316,6 +312,7 @@ static void try_connect(const tal_t *ctx,
 						      "in %u seconds",
 						      seconds_delay));
 		}
+		peer->last_connect_attempt = time_now();
 	}
 
 	/* We fuzz the timer by up to 1 second, to avoid getting into
@@ -326,18 +323,34 @@ static void try_connect(const tal_t *ctx,
 			     do_connect, d));
 }
 
+/*~ In C convention, constants are UPPERCASE macros.  Not everything needs to
+ * be a constant, but it soothes the programmer's conscience to encapsulate
+ * arbitrary decisions like these in one place. */
+#define INITIAL_WAIT_SECONDS	1
+#define MAX_WAIT_SECONDS	300
+
 void try_reconnect(const tal_t *ctx,
 		   struct peer *peer,
-		   u32 seconds_delay,
 		   const struct wireaddr_internal *addrhint)
 {
 	if (!peer->ld->reconnect)
 		return;
 
+	/* Did we last attempt to connect recently?  Enter backoff mode. */
+	if (time_less(time_between(time_now(), peer->last_connect_attempt),
+		      time_from_sec(MAX_WAIT_SECONDS * 2))) {
+		u32 max = DEV_FAST_RECONNECT(peer->ld->dev_fast_reconnect,
+					     3, MAX_WAIT_SECONDS);
+		peer->reconnect_delay *= 2;
+		if (peer->reconnect_delay > max)
+			peer->reconnect_delay = max;
+	} else
+		peer->reconnect_delay = INITIAL_WAIT_SECONDS;
+
 	try_connect(ctx,
 		    peer->ld,
 		    &peer->id,
-		    seconds_delay,
+		    peer->reconnect_delay,
 		    addrhint);
 }
 
@@ -346,7 +359,6 @@ static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
 			   errcode_t errcode,
 			   const char *errmsg,
-			   const u32 *seconds_to_delay,
 			   const struct wireaddr_internal *addrhint)
 {
 	struct peer *peer;
@@ -361,17 +373,10 @@ static void connect_failed(struct lightningd *ld,
 	/* If we have an active channel, then reconnect. */
 	peer = peer_by_id(ld, id);
 	if (peer && peer_any_active_channel(peer, NULL)) {
-		u32 delay;
-		if (seconds_to_delay)
-			delay = *seconds_to_delay;
-		else if (peer->delay_reconnect)
-			delay = DEV_FAST_RECONNECT(ld->dev_fast_reconnect, 3, 60);
-		else
-			delay = 1;
-		log_peer_debug(ld->log, id, "Reconnecting in %u seconds", delay);
-		try_reconnect(peer, peer, delay, addrhint);
+		try_reconnect(peer, peer, addrhint);
 	} else
-		log_peer_debug(ld->log, id, "Not reconnecting: %s", peer ? "no active channel" : "no channels");
+		log_peer_debug(ld->log, id, "Not reconnecting: %s",
+			       peer ? "no active channel" : "no channels");
 }
 
 void connect_failed_disconnect(struct lightningd *ld,
@@ -379,7 +384,7 @@ void connect_failed_disconnect(struct lightningd *ld,
 			       const struct wireaddr_internal *addrhint)
 {
 	connect_failed(ld, id, CONNECT_DISCONNECTED_DURING,
-		       "disconnected during connection", NULL, addrhint);
+		       "disconnected during connection", addrhint);
 }
 
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
@@ -387,15 +392,14 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 	struct node_id id;
 	errcode_t errcode;
 	char *errmsg;
-	u32 seconds_to_delay;
 	struct wireaddr_internal *addrhint;
 
 	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg,
-						&seconds_to_delay, &addrhint))
+					      &addrhint))
 		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
-	connect_failed(ld, &id, errcode, errmsg, &seconds_to_delay, addrhint);
+	connect_failed(ld, &id, errcode, errmsg, addrhint);
 }
 
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,

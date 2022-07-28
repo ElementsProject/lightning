@@ -839,7 +839,6 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 /* Generated stub for try_reconnect */
 void try_reconnect(const tal_t *ctx UNNEEDED,
 		   struct peer *peer UNNEEDED,
-		   u32 seconds_delay UNNEEDED,
 		   const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "try_reconnect called!\n"); abort(); }
 /* Generated stub for watch_txid */
