@@ -115,13 +115,13 @@ static char *csv_safe_str(const tal_t *ctx, char *input TAKES)
 	char *dupe;
 
 	/* Update the double-quotes in place */
-	dupe = tal_strdup(ctx, input);
+	dupe = tal_strdup(tmpctx, input);
 	for (size_t i = 0; dupe[i] != '\0'; i++) {
 		if (dupe[i] == '"')
 			dupe[i] = '\'';
 	}
 
-	esc = json_escape(ctx, dupe);
+	esc = json_escape(tmpctx, take(dupe));
 	return tal_fmt(ctx, "\"%s\"", esc->s);
 }
 

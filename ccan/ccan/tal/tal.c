@@ -777,7 +777,7 @@ void *tal_dup_(const tal_t *ctx, const void *p, size_t size,
 		(void)taken(p);
 		return NULL;
 	}
-	
+
 	if (!adjust_size(&nbytes, n)) {
 		if (taken(p))
 			tal_free(p);
