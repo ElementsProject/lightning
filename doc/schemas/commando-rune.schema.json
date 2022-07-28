@@ -14,6 +14,10 @@
     "unique_id": {
       "type": "string",
       "description": "the id of this rune: this is set at creation and cannot be changed (even as restrictions are added)"
+    },
+    "warning_unrestricted_rune": {
+      "type": "string",
+      "description": "A warning shown when runes are created with powers that could drain your node"
     }
   }
 }

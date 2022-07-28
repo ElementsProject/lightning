@@ -193,6 +193,9 @@ On success, an object is returned, containing:
 - **rune** (string): the resulting rune
 - **unique_id** (string): the id of this rune: this is set at creation and cannot be changed (even as restrictions are added)
 
+The following warnings may also be returned:
+- **warning_unrestricted_rune**: A warning shown when runes are created with powers that could drain your node
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -214,4 +217,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:598337212d2e8a6833698e931f838d8cb424c353af4d7adf6891803ff0ee604b)
+[comment]: # ( SHA256STAMP:34c6d5222fee79f4648be4a717041d32004b5bb3644364dc6569b87b16ed2ebe)

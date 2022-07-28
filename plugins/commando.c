@@ -804,6 +804,10 @@ static struct command_result *reply_with_rune(struct command *cmd,
 
 	json_add_string(js, "rune", rune_to_base64(tmpctx, rune));
 	json_add_string(js, "unique_id", rune->unique_id);
+
+	if (tal_count(rune->restrs) <= 1) {
+		json_add_string(js, "warning_unrestricted_rune", "WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don't trust. Consider using the restrictions parameter to only allow access to specific rpc methods.");
+	}
 	return command_finished(cmd, js);
 }
 
