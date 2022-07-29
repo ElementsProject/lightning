@@ -752,8 +752,12 @@
             "ListPeers.peers[].channels[].feerate.perkw": 1
         },
         "ListpeersPeersChannelsFunding": {
+            "ListPeers.peers[].channels[].funding.fee_paid_msat": 5,
+            "ListPeers.peers[].channels[].funding.fee_rcvd_msat": 6,
+            "ListPeers.peers[].channels[].funding.local_funds_msat": 4,
             "ListPeers.peers[].channels[].funding.local_msat": 1,
             "ListPeers.peers[].channels[].funding.pushed_msat": 3,
+            "ListPeers.peers[].channels[].funding.remote_funds_msat": 7,
             "ListPeers.peers[].channels[].funding.remote_msat": 2
         },
         "ListpeersPeersChannelsHtlcs": {

@@ -3391,7 +3391,7 @@ def test_wumbo_channels(node_factory, bitcoind):
     wait_for(lambda: 'CHANNELD_NORMAL' in [c['state'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']])
 
     # Exact amount depends on fees, but it will be wumbo!
-    amount = [c['funding']['local_msat'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'][0]
+    amount = [c['funding']['local_funds_msat'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'][0]
     assert amount > Millisatoshi(str((1 << 24) - 1) + "sat")
 
 

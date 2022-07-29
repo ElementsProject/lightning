@@ -679,7 +679,7 @@ static void json_add_channel(struct lightningd *ld,
 			     const struct channel *channel)
 {
 	struct channel_stats channel_stats;
-	struct amount_msat funding_msat, peer_msats, our_msats;
+	struct amount_msat funding_msat;
 	struct amount_sat peer_funded_sats;
 	struct state_change_entry *state_changes;
 	u32 feerate;
@@ -831,25 +831,73 @@ static void json_add_channel(struct lightningd *ld,
 					  &channel->our_funds));
 		peer_funded_sats = AMOUNT_SAT(0);
 	}
-	if (!amount_sat_to_msat(&peer_msats, peer_funded_sats)) {
-		log_broken(channel->log,
-			   "Overflow converting peer sats %s to msat",
-			   type_to_string(tmpctx, struct amount_sat,
-					  &peer_funded_sats));
-		peer_msats = AMOUNT_MSAT(0);
-	}
-	if (!amount_sat_to_msat(&our_msats, channel->our_funds)) {
-		log_broken(channel->log,
-			   "Overflow converting peer sats %s to msat",
-			   type_to_string(tmpctx, struct amount_sat,
-					  &channel->our_funds));
-		our_msats = AMOUNT_MSAT(0);
-	}
 
 	json_object_start(response, "funding");
-	json_add_sat_only(response, "local_msat", channel->our_funds);
-	json_add_sat_only(response, "remote_msat", peer_funded_sats);
-	json_add_amount_msat_only(response, "pushed_msat", channel->push);
+
+	if (deprecated_apis) {
+		json_add_sat_only(response, "local_msat", channel->our_funds);
+		json_add_sat_only(response, "remote_msat", peer_funded_sats);
+		json_add_amount_msat_only(response, "pushed_msat", channel->push);
+	}
+
+	if (channel->lease_commit_sig) {
+		struct amount_sat funds, total;
+		if (!amount_msat_to_sat(&funds, channel->push)) {
+			log_broken(channel->log,
+				   "Can't convert channel->push %s to sats"
+				   " (lease fees?)",
+				   type_to_string(tmpctx, struct amount_msat,
+						  &channel->push));
+			funds = AMOUNT_SAT(0);
+		}
+
+		if (channel->opener == LOCAL) {
+			if (!amount_sat_add(&total, funds, channel->our_funds)) {
+				log_broken(channel->log,
+					   "Overflow adding our_funds to push");
+				total = channel->our_funds;
+			}
+			json_add_sat_only(response, "local_funds_msat", total);
+
+			if (!amount_sat_sub(&total, peer_funded_sats, funds)) {
+				log_broken(channel->log,
+					   "Underflow sub'ing push from"
+					   " peer's funds");
+				total = peer_funded_sats;
+			}
+			json_add_sat_only(response, "remote_funds_msat", total);
+
+			json_add_amount_msat_only(response, "fee_paid_msat",
+						  channel->push);
+		} else {
+			if (!amount_sat_add(&total, peer_funded_sats, funds)) {
+				log_broken(channel->log,
+					   "Overflow adding peer funds to push");
+				total = peer_funded_sats;
+			}
+			json_add_sat_only(response, "remote_funds_msat", total);
+
+			if (!amount_sat_sub(&total, channel->our_funds, funds)) {
+				log_broken(channel->log,
+					   "Underflow sub'ing push from"
+					   " our_funds");
+				total = channel->our_funds;
+			}
+			json_add_sat_only(response, "local_funds_msat", total);
+			json_add_amount_msat_only(response, "fee_rcvd_msat",
+						  channel->push);
+		}
+
+	} else {
+		json_add_sat_only(response, "local_funds_msat",
+				  channel->our_funds);
+		json_add_sat_only(response, "remote_funds_msat",
+				  peer_funded_sats);
+		if (!deprecated_apis)
+			json_add_amount_msat_only(response, "pushed_msat",
+						  channel->push);
+	}
+
 	json_object_end(response);
 
 	if (!amount_sat_to_msat(&funding_msat, channel->funding_sats)) {

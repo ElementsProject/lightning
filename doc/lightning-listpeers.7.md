@@ -71,9 +71,13 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **private** (boolean, optional): if False, we will not announce this channel
   - **closer** (string, optional): Who initiated the channel close (one of "local", "remote")
   - **funding** (object, optional):
-    - **local_msat** (msat): Amount of channel we funded
-    - **remote_msat** (msat): Amount of channel they funded
-    - **pushed_msat** (msat): Amount pushed from opener to peer
+    - **local_funds_msat** (msat): Amount of channel we funded
+    - **remote_funds_msat** (msat): Amount of channel they funded
+    - **local_msat** (msat, optional): Amount of channel we funded (deprecated)
+    - **remote_msat** (msat, optional): Amount of channel they funded (deprecated)
+    - **pushed_msat** (msat, optional): Amount pushed from opener to peer
+    - **fee_paid_msat** (msat, optional): Amount we paid peer at open
+    - **fee_rcvd_msat** (msat, optional): Amount we were paid by peer at open
   - **to_us_msat** (msat, optional): how much of channel is owed to us
   - **min_to_us_msat** (msat, optional): least amount owed to us ever
   - **max_to_us_msat** (msat, optional): most amount owed to us ever
@@ -384,4 +388,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:c26d3094925387ee935efc6351400bca374c361e5956ff13f10b228773f8e389)
+[comment]: # ( SHA256STAMP:971c71befa1b6968a66b65e2aab4a2d1707f14c9af5d6ebc2dc00604d1d91294)

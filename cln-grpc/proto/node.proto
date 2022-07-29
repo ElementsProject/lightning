@@ -232,9 +232,13 @@ message ListpeersPeersChannelsInflight {
 }
 
 message ListpeersPeersChannelsFunding {
-	Amount local_msat = 1;
-	Amount remote_msat = 2;
-	Amount pushed_msat = 3;
+	optional Amount local_msat = 1;
+	optional Amount remote_msat = 2;
+	optional Amount pushed_msat = 3;
+	Amount local_funds_msat = 4;
+	Amount remote_funds_msat = 7;
+	optional Amount fee_paid_msat = 5;
+	optional Amount fee_rcvd_msat = 6;
 }
 
 message ListpeersPeersChannelsAlias {
