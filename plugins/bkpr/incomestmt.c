@@ -437,9 +437,9 @@ void json_add_income_event(struct json_stream *out, struct income_event *ev)
 
 const char *csv_filename(const tal_t *ctx, const struct csv_fmt *fmt)
 {
-	return tal_fmt(ctx, "cln_incomestmt_%s_%zu.csv",
+	return tal_fmt(ctx, "cln_incomestmt_%s_%lu.csv",
 		       fmt->fmt_name,
-		       time_now().ts.tv_sec);
+		       (unsigned long)time_now().ts.tv_sec);
 }
 
 static char *convert_asset_type(struct income_event *ev)
