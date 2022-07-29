@@ -546,6 +546,62 @@ static void try_update_open_fees(struct command *cmd,
 
 }
 
+static void find_push_amts(const char *buf,
+			   const jsmntok_t *curr_chan,
+			   bool is_opener,
+			   struct amount_msat *push_credit,
+			   struct amount_msat *push_debit,
+			   bool *is_leased)
+{
+	const char *err;
+	struct amount_msat push_amt;
+
+	/* Try to pull out fee_rcvd_msat */
+	err = json_scan(tmpctx, buf, curr_chan,
+			"{funding:{fee_rcvd_msat:%}}",
+			JSON_SCAN(json_to_msat,
+				  push_credit));
+
+	if (!err) {
+		*is_leased = true;
+		*push_debit = AMOUNT_MSAT(0);
+		return;
+	}
+
+	/* Try to pull out fee_paid_msat */
+	err = json_scan(tmpctx, buf, curr_chan,
+			"{funding:{fee_paid_msat:%}}",
+			JSON_SCAN(json_to_msat,
+				  push_debit));
+	if (!err) {
+		*is_leased = true;
+		*push_credit = AMOUNT_MSAT(0);
+		return;
+	}
+
+	/* Try to pull out pushed amt? */
+	err = json_scan(tmpctx, buf, curr_chan,
+			"{funding:{pushed_msat:%}}",
+			JSON_SCAN(json_to_msat, &push_amt));
+
+	if (!err) {
+		*is_leased = false;
+		if (is_opener) {
+			*push_credit = AMOUNT_MSAT(0);
+			*push_debit = push_amt;
+		} else {
+			*push_credit = push_amt;
+			*push_debit = AMOUNT_MSAT(0);
+		}
+		return;
+	}
+
+	/* Nothing pushed nor fees paid */
+	*is_leased = false;
+	*push_credit = AMOUNT_MSAT(0);
+	*push_debit = AMOUNT_MSAT(0);
+}
+
 static bool new_missed_channel_account(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *result,
@@ -579,26 +635,24 @@ static bool new_missed_channel_account(struct command *cmd,
 		assert(chan_arr_tok->type == JSMN_ARRAY);
 		json_for_each_arr(j, curr_chan, chan_arr_tok) {
 			struct bitcoin_outpoint opt;
-			struct amount_msat amt, remote_amt, push_amt,
+			struct amount_msat amt, remote_amt,
 					   push_credit, push_debit;
 			char *opener, *chan_id;
 			enum mvt_tag *tags;
-			bool ok;
+			bool ok, is_opener, is_leased;
 
 			err = json_scan(tmpctx, buf, curr_chan,
 					"{channel_id:%,"
 					"funding_txid:%,"
 					"funding_outnum:%,"
-					"funding:{local_msat:%,"
-						 "remote_msat:%,"
-						 "pushed_msat:%},"
+					"funding:{local_funds_msat:%,"
+						 "remote_funds_msat:%},"
 					"opener:%}",
 					JSON_SCAN_TAL(tmpctx, json_strdup, &chan_id),
 					JSON_SCAN(json_to_txid, &opt.txid),
 					JSON_SCAN(json_to_number, &opt.n),
 					JSON_SCAN(json_to_msat, &amt),
 					JSON_SCAN(json_to_msat, &remote_amt),
-					JSON_SCAN(json_to_msat, &push_amt),
 					JSON_SCAN_TAL(tmpctx, json_strdup, &opener));
 			if (err)
 				plugin_err(cmd->plugin,
@@ -615,7 +669,8 @@ static bool new_missed_channel_account(struct command *cmd,
 			chain_ev = tal(cmd, struct chain_event);
 			chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
 			chain_ev->debit = AMOUNT_MSAT(0);
-			ok = amount_msat_add(&chain_ev->output_value, amt, remote_amt);
+			ok = amount_msat_add(&chain_ev->output_value,
+					     amt, remote_amt);
 			assert(ok);
 			chain_ev->currency = tal_strdup(chain_ev, currency);
 			chain_ev->origin_acct = NULL;
@@ -633,24 +688,18 @@ static bool new_missed_channel_account(struct command *cmd,
 			tags = tal_arr(chain_ev, enum mvt_tag, 1);
 			tags[0] = CHANNEL_OPEN;
 
+			is_opener = streq(opener, "local");
+
 			/* Leased/pushed channels have some extra work */
-			if (streq(opener, "local")) {
-				tal_arr_expand(&tags, OPENER);
-				ok = amount_msat_add(&amt, amt, push_amt);
-				push_credit = AMOUNT_MSAT(0);
-				push_debit = push_amt;
-			} else {
-				ok = amount_msat_sub(&amt, amt, push_amt);
-				push_credit = push_amt;
-				push_debit = AMOUNT_MSAT(0);
-			}
+			find_push_amts(buf, curr_chan, is_opener,
+				       &push_credit, &push_debit,
+				       &is_leased);
 
-			/* We assume pushes are all leases, even
-			 * though they might just be pushes */
-			if (!amount_msat_zero(push_amt))
+			if (is_leased)
 				tal_arr_expand(&tags, LEASED);
+			if (is_opener)
+				tal_arr_expand(&tags, OPENER);
 
-			assert(ok);
 			chain_ev->credit = amt;
 			db_begin_transaction(db);
 			if (!log_chain_event(db, acct, chain_ev))
@@ -668,12 +717,15 @@ static bool new_missed_channel_account(struct command *cmd,
 				try_update_open_fees(cmd, acct);
 
 			/* We log a channel event for the push amt */
-			if (!amount_msat_zero(push_amt)) {
+			if (!amount_msat_zero(push_credit)
+			    || !amount_msat_zero(push_debit)) {
 				struct channel_event *chan_ev;
 				char *chan_tag;
 
 				chan_tag = tal_fmt(tmpctx, "%s",
-						   mvt_tag_str(LEASE_FEE));
+						   mvt_tag_str(
+						    is_leased ?
+						      LEASE_FEE : PUSHED));
 
 				chan_ev = new_channel_event(tmpctx,
 							    chan_tag,

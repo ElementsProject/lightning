@@ -337,22 +337,37 @@
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
-                    "local_msat",
-                    "remote_msat",
-                    "pushed_msat"
+                    "local_funds_msat",
+                    "remote_funds_msat"
                   ],
                   "properties": {
                     "local_msat": {
                       "type": "msat",
-                      "description": "Amount of channel we funded"
+                      "description": "Amount of channel we funded (deprecated)"
                     },
                     "remote_msat": {
                       "type": "msat",
-                      "description": "Amount of channel they funded"
+                      "description": "Amount of channel they funded (deprecated)"
                     },
                     "pushed_msat": {
                       "type": "msat",
                       "description": "Amount pushed from opener to peer"
+                    },
+                    "local_funds_msat": {
+                      "type": "msat",
+                      "description": "Amount of channel we funded"
+                    },
+                    "remote_funds_msat": {
+                      "type": "msat",
+                      "description": "Amount of channel they funded"
+                    },
+                    "fee_paid_msat": {
+                      "type": "msat",
+                      "description": "Amount we paid peer at open"
+                    },
+                    "fee_rcvd_msat": {
+                      "type": "msat",
+                      "description": "Amount we were paid by peer at open"
                     }
                   }
                 },

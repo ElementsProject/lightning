@@ -376,7 +376,10 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     # This should be the accepter's amount
     fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
-    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['remote_msat'])
+    assert Millisatoshi(amount * 1000) == fundings['remote_funds_msat']
+    assert Millisatoshi(est_fees + amount * 1000) == fundings['local_funds_msat']
+    assert Millisatoshi(est_fees) == fundings['fee_paid_msat']
+    assert 'fee_rcvd_msat' not in fundings
 
     # rbf the lease with a higher amount
     rate = int(find_next_feerate(l1, l2)[:-5])
@@ -406,7 +409,7 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     # This should be the accepter's amount
     fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
     # FIXME: The lease goes away :(
-    assert Millisatoshi(0) == Millisatoshi(fundings['remote_msat'])
+    assert Millisatoshi(0) == Millisatoshi(fundings['remote_funds_msat'])
 
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
 
@@ -1103,8 +1106,8 @@ def test_funder_options(node_factory, bitcoind):
     l2.fundchannel(l1, 10**6)
     chan_info = only_one(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'])
     # l1 contributed nothing
-    assert chan_info['funding']['remote_msat'] == Millisatoshi('0msat')
-    assert chan_info['funding']['local_msat'] != Millisatoshi('0msat')
+    assert chan_info['funding']['remote_funds_msat'] == Millisatoshi('0msat')
+    assert chan_info['funding']['local_funds_msat'] != Millisatoshi('0msat')
 
     # Change all the options
     funder_opts = l1.rpc.call('funderupdate',
@@ -1136,8 +1139,8 @@ def test_funder_options(node_factory, bitcoind):
     l3.fundchannel(l1, 10**6)
     chan_info = only_one(only_one(l3.rpc.listpeers(l1.info['id'])['peers'])['channels'])
     # l1 contributed all its funds!
-    assert chan_info['funding']['remote_msat'] == Millisatoshi('9994255000msat')
-    assert chan_info['funding']['local_msat'] == Millisatoshi('1000000000msat')
+    assert chan_info['funding']['remote_funds_msat'] == Millisatoshi('9994255000msat')
+    assert chan_info['funding']['local_funds_msat'] == Millisatoshi('1000000000msat')
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')

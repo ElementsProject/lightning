@@ -102,6 +102,10 @@ def listpeers_peers_channels_funding2py(m):
         "local_msat": amount2msat(m.local_msat),  # PrimitiveField in generate_composite
         "remote_msat": amount2msat(m.remote_msat),  # PrimitiveField in generate_composite
         "pushed_msat": amount2msat(m.pushed_msat),  # PrimitiveField in generate_composite
+        "local_funds_msat": amount2msat(m.local_funds_msat),  # PrimitiveField in generate_composite
+        "remote_funds_msat": amount2msat(m.remote_funds_msat),  # PrimitiveField in generate_composite
+        "fee_paid_msat": amount2msat(m.fee_paid_msat),  # PrimitiveField in generate_composite
+        "fee_rcvd_msat": amount2msat(m.fee_rcvd_msat),  # PrimitiveField in generate_composite
     })
 
 

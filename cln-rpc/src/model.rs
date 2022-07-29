@@ -1097,12 +1097,20 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersChannelsFunding {
-	    #[serde(alias = "local_msat")]
-	    pub local_msat: Amount,
-	    #[serde(alias = "remote_msat")]
-	    pub remote_msat: Amount,
-	    #[serde(alias = "pushed_msat")]
-	    pub pushed_msat: Amount,
+	    #[serde(alias = "local_msat", skip_serializing_if = "Option::is_none")]
+	    pub local_msat: Option<Amount>,
+	    #[serde(alias = "remote_msat", skip_serializing_if = "Option::is_none")]
+	    pub remote_msat: Option<Amount>,
+	    #[serde(alias = "pushed_msat", skip_serializing_if = "Option::is_none")]
+	    pub pushed_msat: Option<Amount>,
+	    #[serde(alias = "local_funds_msat")]
+	    pub local_funds_msat: Amount,
+	    #[serde(alias = "remote_funds_msat")]
+	    pub remote_funds_msat: Amount,
+	    #[serde(alias = "fee_paid_msat", skip_serializing_if = "Option::is_none")]
+	    pub fee_paid_msat: Option<Amount>,
+	    #[serde(alias = "fee_rcvd_msat", skip_serializing_if = "Option::is_none")]
+	    pub fee_rcvd_msat: Option<Amount>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

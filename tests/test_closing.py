@@ -801,7 +801,9 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
     # This should be the accepter's amount
     fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
-    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['remote_msat'])
+    assert Millisatoshi(amount * 1000) == fundings['remote_funds_msat']
+    assert Millisatoshi(est_fees + amount * 1000) == fundings['local_funds_msat']
+    assert Millisatoshi(est_fees) == fundings['fee_paid_msat']
 
     bitcoind.generate_block(6)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
@@ -925,7 +927,8 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     # This should be the accepter's amount
     fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
-    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['remote_msat'])
+    assert Millisatoshi(amount * 1000) == Millisatoshi(fundings['remote_funds_msat'])
+    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['local_funds_msat'])
 
     bitcoind.generate_block(6)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
