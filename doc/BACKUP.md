@@ -175,12 +175,15 @@ like fire or computer confiscation.
 
 `/!\` WHO SHOULD DO THIS: Casual users.
 
-You can get the `backup` plugin here:
+You can find the full source for the `backup` plugin here:
 https://github.com/lightningd/plugins/tree/master/backup
 
 The `backup` plugin requires Python 3.
 
+* Download the source for the plugin.
+  * `git clone https://github.com/lightningd/plugins.git`
 * `cd` into its directory and install requirements.
+  * `cd plugins/backup`
   * `pip3 install -r requirements.txt`
 * Figure out where you will put the backup files.
   * Ideally you have an NFS or other network-based mount on your system,
