@@ -69,12 +69,28 @@ If you want to build the Rust plugins (currently, cln-grpc):
 
 	sudo apt-get install -y cargo rustfmt
 
-Build lightning:
+There are two ways to build core lightning, and this depends on how you want use it.
 
-    poetry install
+To build cln to just install a tagged or master version you can use the following commands:
+
+    pip3 install --upgrade pip
+    pip3 install mako mistune==0.8.4 mrkd
     ./configure
-    poetry run make
+    make
     sudo make install
+
+N.B: if you want disable Rust because you do not want use it or simple you do not want the grpc-plugin, you can use `./configure --disable-rust`.
+
+To build core lightning for development purpose you can use the following commands:
+
+    pip3 install poetry
+    poetry shell
+    poetry install
+    ./configure --enable-developer
+    make
+    make check VALGRIND=0
+
+optionaly you can consider to use the `-j$(nproc)` in front of the `make` command to speed up the compilation.
 
 Running lightning:
 
