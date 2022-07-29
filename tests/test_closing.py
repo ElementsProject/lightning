@@ -2861,50 +2861,20 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     l7.daemon.wait_for_log('peer_out WIRE_COMMITMENT_SIGNED')
     l7.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
 
-    # After at depth 5, midnode will spend its own to-self output.
-    bitcoind.generate_block(4)
-    l4.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
-                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    # Rather than track exact complex logic here, simply mine a block
+    # until l4 says 'all outputs resolved'.
+    while not l4.daemon.is_in_log('All outputs resolved'):
+        bitcoind.generate_block(1)
+        assert bitcoind.rpc.getblockcount() < 200
+        sync_blockheight(bitcoind, [l4, l5])
 
-    # The three outgoing HTLCs time out at 21, 21 and 22 blocks.
-    bitcoind.generate_block(16)
-    l4.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
-                                   'OUR_UNILATERAL/OUR_HTLC')
-    l4.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
-                                   'OUR_UNILATERAL/OUR_HTLC')
-    bitcoind.generate_block(1)
-    l4.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
-                                   'OUR_UNILATERAL/OUR_HTLC')
-
-    # And three more for us to consider them all settled.
-    bitcoind.generate_block(3)
-
-    # Now, those nodes should have correctly failed the HTLCs
-    for n in l1, l2:
+    # All payments should be long resolved.
+    for n in l1, l2, l3, l5, l6, l7:
         with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE'):
             n.rpc.waitsendpay(h, TIMEOUT)
 
-    # Other timeouts are 27,27,28 blocks.
-    bitcoind.generate_block(2)
-    l4.daemon.wait_for_logs(['Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC'] * 2)
-    for _ in range(2):
-        l5.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
-                                       'THEIR_UNILATERAL/OUR_HTLC')
-    bitcoind.generate_block(1)
-    l4.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
-    l5.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
-                                   'THEIR_UNILATERAL/OUR_HTLC')
-
-    # Depth 3 to consider it settled.
-    bitcoind.generate_block(3)
-
-    for n in l5, l6, l7:
-        with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE'):
-            n.rpc.waitsendpay(h, TIMEOUT)
-
-    # At depth 100 it's all done (we didn't bother waiting for mid+1's
-    # spends, so that might still be going)
-    bitcoind.generate_block(97)
+    # At depth 100 it's all done
+    bitcoind.generate_block(100)
     l4.daemon.wait_for_logs(['onchaind complete, forgetting peer'])
 
     # No other channels should have failed.
@@ -2947,56 +2917,19 @@ def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     l7.daemon.wait_for_log('peer_out WIRE_COMMITMENT_SIGNED')
     l7.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
 
-    # At depth 5, midnode+1 will spend its own to-self output.
-    bitcoind.generate_block(4)
-    l5.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET')
+    # Rather than track exact complex logic here, simply mine a block
+    # until l5 says 'all outputs resolved'.
+    while not l5.daemon.is_in_log('All outputs resolved'):
+        bitcoind.generate_block(1)
+        assert bitcoind.rpc.getblockcount() < 200
+        sync_blockheight(bitcoind, [l4, l5])
 
-    # The three outgoing HTLCs time out at depth 21, 21 and 22 blocks.
-    bitcoind.generate_block(16)
-    l4.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
-                                   'THEIR_UNILATERAL/OUR_HTLC')
-    l4.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
-                                   'THEIR_UNILATERAL/OUR_HTLC')
-    bitcoind.generate_block(1)
-    l4.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
-                                   'THEIR_UNILATERAL/OUR_HTLC')
-
-    # At depth 3 we consider them all settled.
-    bitcoind.generate_block(3)
-
-    # Now, those nodes should have correctly failed the HTLCs
-    for n in l1, l2:
+    # All payments should be long resolved.
+    for n in l1, l2, l3, l5, l6, l7:
         with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE'):
             n.rpc.waitsendpay(h, TIMEOUT)
 
-    # Other timeouts are at depths 27,27,28 blocks.
-    bitcoind.generate_block(2)
-    l4.daemon.wait_for_logs(['Ignoring output.*: THEIR_UNILATERAL/THEIR_HTLC'] * 2)
-    for _ in range(2):
-        l5.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
-                                       'OUR_UNILATERAL/OUR_HTLC')
-    bitcoind.generate_block(1)
-    l4.daemon.wait_for_log('Ignoring output.*: THEIR_UNILATERAL/THEIR_HTLC')
-    l5.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
-                                   'OUR_UNILATERAL/OUR_HTLC')
-
-    # At depth 3 we consider them all settled.
-    bitcoind.generate_block(3)
-
-    for n in l5, l6, l7:
-        with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE'):
-            n.rpc.waitsendpay(h, TIMEOUT)
-
-    # At depth 5, mid+1 can spend HTLC_TIMEOUT_TX output.
-    bitcoind.generate_block(1)
-    for _ in range(2):
-        l5.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
-                                       'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
-    bitcoind.generate_block(1)
-    l5.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
-                                   'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
-
-    # At depth 100 they're all done.
+    # At depth 100 it's all done
     bitcoind.generate_block(100)
     l4.daemon.wait_for_logs(['onchaind complete, forgetting peer'])
     l5.daemon.wait_for_logs(['onchaind complete, forgetting peer'])
