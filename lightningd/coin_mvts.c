@@ -121,7 +121,8 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	/* Add channel balances */
 	list_for_each(&ld->peers, p, list) {
 		list_for_each(&p->channels, chan, list) {
-			if (channel_active(chan)) {
+			if (channel_active(chan)
+			    || chan->state == AWAITING_UNILATERAL) {
 				bal = tal(snap, struct account_balance);
 				bal->bip173_name = chainparams->lightning_hrp;
 				bal->acct_id = type_to_string(bal,
