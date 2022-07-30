@@ -2804,13 +2804,15 @@ def setup_multihtlc_test(node_factory, bitcoind):
 
     def route_to_l7(src):
         """Route from l1, l2 or l3 to l7"""
-        return [{'id': l4.info['id'], 'channel': src.get_channel_scid(l4), 'amount_msat': "100002002msat", 'delay': 21},
+        # We give extra CLTV on first hop, so we never break channel.
+        return [{'id': l4.info['id'], 'channel': src.get_channel_scid(l4), 'amount_msat': "100002002msat", 'delay': 115},
                 {'id': l5.info['id'], 'channel': l4.get_channel_scid(l5), 'amount_msat': "100001001msat", 'delay': 15},
                 {'id': l7.info['id'], 'channel': l5.get_channel_scid(l7), 'amount_msat': "100000000msat", 'delay': 9}]
 
     def route_to_l1(src):
         """Route from l6 or l7 to l1"""
-        return [{'id': l5.info['id'], 'channel': src.get_channel_scid(l5), 'amount_msat': "100002002msat", 'delay': 21},
+        # We give extra CLTV on first hop, so we never break channel.
+        return [{'id': l5.info['id'], 'channel': src.get_channel_scid(l5), 'amount_msat': "100002002msat", 'delay': 115},
                 {'id': l4.info['id'], 'channel': l5.get_channel_scid(l4), 'amount_msat': "100001001msat", 'delay': 15},
                 {'id': l1.info['id'], 'channel': l4.get_channel_scid(l1), 'amount_msat': "100000000msat", 'delay': 9}]
 
