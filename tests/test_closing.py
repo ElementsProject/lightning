@@ -2754,80 +2754,135 @@ def test_permfail_new_commit(node_factory, bitcoind, executor):
 
 
 def setup_multihtlc_test(node_factory, bitcoind):
-    # l1 -> l2 -> l3 -> l4 -> l5 -> l6 -> l7
+    # l1 --\        /-> l6
+    #       v      /
+    # l2 -> l4 -> l5 -> l7
+    #       ^
+    # l3 --/
     # l1 and l7 ignore and HTLCs they're sent.
     # For each direction, we create these HTLCs with same payment_hash:
     #   1 failed (CLTV1)
     #   1 failed (CLTV2)
     #   2 live (CLTV2)
     #   1 live (CLTV3)
-    nodes = node_factory.line_graph(7, wait_for_announce=True,
-                                    opts={'dev-no-reconnect': None,
-                                          'may_reconnect': True})
+    l1, l2, l3, l4, l5, l6, l7 = node_factory.get_nodes(7,
+                                                        opts={'dev-no-reconnect': None,
+                                                              'may_reconnect': True})
 
-    # Balance by pushing half the funds.
-    b11 = nodes[-1].rpc.invoice(10**9 // 2, '1', 'balancer')['bolt11']
-    nodes[0].rpc.pay(b11)
+    l4.fundwallet(10**6 * 4 + 100000)
+    l5.fundwallet(10**6 * 2 + 100000)
 
-    nodes[0].rpc.dev_ignore_htlcs(id=nodes[1].info['id'], ignore=True)
-    nodes[-1].rpc.dev_ignore_htlcs(id=nodes[-2].info['id'], ignore=True)
+    # They need to be connected.
+    for n in l1, l2, l3, l5:
+        l4.rpc.connect(n.info['id'], 'localhost', n.port)
+    for n in l6, l7:
+        l5.rpc.connect(n.info['id'], 'localhost', n.port)
+
+    # Efficient way to establish the channels.
+    l4.rpc.multifundchannel([{'id': l1.info['id'], 'amount': 10**6},
+                             {'id': l2.info['id'], 'amount': 10**6},
+                             {'id': l3.info['id'], 'amount': 10**6},
+                             {'id': l5.info['id'], 'amount': 10**6}])
+    l5.rpc.multifundchannel([{'id': l6.info['id'], 'amount': 10**6},
+                             {'id': l7.info['id'], 'amount': 10**6}])
+
+    # Make sure they're all in normal state.
+    bitcoind.generate_block(1)
+    wait_for(lambda: all([only_one(p['channels'])['state'] == 'CHANNELD_NORMAL'
+                          for p in l4.rpc.listpeers()['peers']]))
+    wait_for(lambda: all([only_one(p['channels'])['state'] == 'CHANNELD_NORMAL'
+                          for p in l5.rpc.listpeers()['peers']]))
+
+    # Balance them
+    for n in l1, l2, l3, l5:
+        l4.pay(n, 10**9 // 2)
+    for n in l6, l7:
+        l5.pay(n, 10**9 // 2)
+
+    def route_to_l7(src):
+        """Route from l1, l2 or l3 to l7"""
+        return [{'id': l4.info['id'], 'channel': src.get_channel_scid(l4), 'amount_msat': "100002002msat", 'delay': 21},
+                {'id': l5.info['id'], 'channel': l4.get_channel_scid(l5), 'amount_msat': "100001001msat", 'delay': 15},
+                {'id': l7.info['id'], 'channel': l5.get_channel_scid(l7), 'amount_msat': "100000000msat", 'delay': 9}]
+
+    def route_to_l1(src):
+        """Route from l6 or l7 to l1"""
+        return [{'id': l5.info['id'], 'channel': src.get_channel_scid(l5), 'amount_msat': "100002002msat", 'delay': 21},
+                {'id': l4.info['id'], 'channel': l5.get_channel_scid(l4), 'amount_msat': "100001001msat", 'delay': 15},
+                {'id': l1.info['id'], 'channel': l4.get_channel_scid(l1), 'amount_msat': "100000000msat", 'delay': 9}]
+
+    # Freeze the HTLCs in place.
+    l1.rpc.dev_ignore_htlcs(id=l4.info['id'], ignore=True)
+    l7.rpc.dev_ignore_htlcs(id=l5.info['id'], ignore=True)
 
     preimage = "0" * 64
-    inv = nodes[0].rpc.invoice(amount_msat=10**8, label='x', description='desc',
-                               preimage=preimage)
+    inv = l1.rpc.invoice(amount_msat=10**8, label='x', description='desc',
+                         preimage=preimage)
     h = inv['payment_hash']
-    nodes[-1].rpc.invoice(amount_msat=10**8, label='x', description='desc',
-                          preimage=preimage)['payment_hash']
+    l7.rpc.invoice(amount_msat=10**8, label='x', description='desc',
+                   preimage=preimage)['payment_hash']
 
     # First, the failed attempts (paying wrong node).  CLTV1
-    r = nodes[0].rpc.getroute(nodes[-2].info['id'], 10**8, 1)["route"]
-    nodes[0].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    r = route_to_l7(l1)
+    r[2]['id'] = l6.info['id']
+    r[2]['channel'] = l5.get_channel_scid(l6)
+    l1.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match=r'INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
-        nodes[0].rpc.waitsendpay(h)
+        l1.rpc.waitsendpay(h)
 
-    r = nodes[-1].rpc.getroute(nodes[1].info['id'], 10**8, 1)["route"]
-    nodes[-1].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    r = route_to_l1(l7)
+    r[2]['id'] = l2.info['id']
+    r[2]['channel'] = l4.get_channel_scid(l2)
+    l7.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match=r'INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
-        nodes[-1].rpc.waitsendpay(h)
+        l7.rpc.waitsendpay(h)
 
     # Now increment CLTV -> CLTV2
     bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, nodes)
+    sync_blockheight(bitcoind, (l1, l2, l3, l4, l5, l6, l7))
 
     # Now, the live attempts with CLTV2 (blackholed by end nodes)
-    r = nodes[0].rpc.getroute(nodes[-1].info['id'], 10**8, 1)["route"]
-    nodes[0].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
-    r = nodes[-1].rpc.getroute(nodes[0].info['id'], 10**8, 1)["route"]
-    nodes[-1].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    r = route_to_l7(l1)
+    l1.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    r = route_to_l1(l7)
+    l7.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # We send second HTLC from different node, since they refuse to send
     # multiple with same hash.
-    r = nodes[1].rpc.getroute(nodes[-1].info['id'], 10**8, 1)["route"]
-    nodes[1].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
-    r = nodes[-2].rpc.getroute(nodes[0].info['id'], 10**8, 1)["route"]
-    nodes[-2].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    r = route_to_l7(l2)
+    l2.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    r = route_to_l1(l6)
+    l6.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # Now increment CLTV -> CLTV3.
     bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, nodes)
+    sync_blockheight(bitcoind, (l1, l2, l3, l4, l5, l6, l7))
 
-    r = nodes[2].rpc.getroute(nodes[-1].info['id'], 10**8, 1)["route"]
-    nodes[2].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
-    r = nodes[-3].rpc.getroute(nodes[0].info['id'], 10**8, 1)["route"]
-    nodes[-3].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    r = route_to_l7(l3)
+    l3.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
+    # Final HTLC is actually from l5 itself...
+    r = route_to_l1(l7)[1:]
+    l5.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
-    # Make sure HTLCs have reached the end.
-    nodes[0].daemon.wait_for_logs(['peer_in WIRE_UPDATE_ADD_HTLC'] * 3)
-    nodes[-1].daemon.wait_for_logs(['peer_in WIRE_UPDATE_ADD_HTLC'] * 3)
+    # Make sure HTLCs have reached the ends (including balance payment!)
+    l7.daemon.wait_for_logs(['peer_in WIRE_UPDATE_ADD_HTLC'] * 4)
+    l1.daemon.wait_for_logs(['peer_in WIRE_UPDATE_ADD_HTLC'] * 4)
 
-    return h, nodes
+    # We have 6 HTLCs trapped in l4-l5 channel.
+    assert len(only_one(only_one(l4.rpc.listpeers(l5.info['id'])['peers'])['channels'])['htlcs']) == 6
+
+    # We are all connected.
+    for n in l1, l2, l3, l4, l5, l6, l7:
+        assert all([p['connected'] for p in n.rpc.listpeers()['peers']])
+
+    return h, l1, l2, l3, l4, l5, l6, l7
 
 
 @pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 @pytest.mark.slow_test
 def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
-    h, (l1, l2, l3, l4, l5, l6, l7) = setup_multihtlc_test(node_factory, bitcoind)
+    h, l1, l2, l3, l4, l5, l6, l7 = setup_multihtlc_test(node_factory, bitcoind)
 
     # Now l4 goes onchain with l4-l5 channel.
     l4.rpc.dev_fail(l5.info['id'])
@@ -2847,8 +2902,8 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     l7.restart()
 
     # We disabled auto-reconnect so we'd detect breakage, so manually reconnect.
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l7.rpc.connect(l6.info['id'], 'localhost', l6.port)
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l7.rpc.connect(l5.info['id'], 'localhost', l5.port)
 
     # Wait for HTLCs to stabilize.
     l1.daemon.wait_for_logs(['peer_out WIRE_UPDATE_FAIL_HTLC'] * 3)
@@ -2876,14 +2931,14 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
 
     # No other channels should have failed.
     for n in l1, l2, l3, l6, l7:
-        assert all([p['connected'] for p in n.rpc.listpeers()['peers']])
+        assert only_one(n.rpc.listpeers()['peers'])['connected']
 
 
 @pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 @pytest.mark.slow_test
 def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
-    h, (l1, l2, l3, l4, l5, l6, l7) = setup_multihtlc_test(node_factory, bitcoind)
+    h, l1, l2, l3, l4, l5, l6, l7 = setup_multihtlc_test(node_factory, bitcoind)
 
     # Now l5 goes onchain with l4-l5 channel.
     l5.rpc.dev_fail(l4.info['id'])
@@ -2903,8 +2958,8 @@ def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     l7.restart()
 
     # We disabled auto-reconnect so we'd detect breakage, so manually reconnect.
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l7.rpc.connect(l6.info['id'], 'localhost', l6.port)
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l7.rpc.connect(l5.info['id'], 'localhost', l5.port)
 
     # Wait for HTLCs to stabilize.
     l1.daemon.wait_for_logs(['peer_out WIRE_UPDATE_FAIL_HTLC'] * 3)
@@ -2933,7 +2988,7 @@ def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
 
     # No other channels should have failed.
     for n in l1, l2, l3, l6, l7:
-        assert all([p['connected'] for p in n.rpc.listpeers()['peers']])
+        assert only_one(n.rpc.listpeers()['peers'])['connected']
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
