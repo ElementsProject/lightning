@@ -53,7 +53,6 @@ contrib/pyln-*/dist/
 contrib/pyln-*/pyln_*.egg-info/
 contrib/pyln-*/.eggs/
 contrib/pyln-*/pyln/*/__version__.py
-release/
 tests/plugins/test_selfdisable_after_getmanifest
 
 # Ignore generated files
@@ -75,3 +74,9 @@ tests/primitives_pb2_grpc.py
 # Rust targets
 target
 plugins/cln-grpc
+
+# Build directories
+bionic/
+focal/
+jammy/
+release/
