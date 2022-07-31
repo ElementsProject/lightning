@@ -3,7 +3,7 @@ from decimal import Decimal
 from pyln.client import Millisatoshi
 from fixtures import TEST_NETWORK
 from utils import (
-    sync_blockheight, wait_for, only_one, first_channel_id
+    sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
 )
 
 from pathlib import Path
@@ -571,3 +571,66 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     l2_koinly_csv = open(koinly_path, 'rb').read()
     assert l2_koinly_csv.find(bolt11_exp) >= 0
     assert l2_koinly_csv.find(bolt12_exp) >= 0
+
+
+def test_rebalance_tracking(node_factory, bitcoind):
+    """
+    We identify rebalances (invoices paid and received by our node),
+    this allows us to filter them out of "incomes" (self-transfers are not income/exp)
+    and instead only display the cost incurred to move the payment (correctly
+    marked as a rebalance)
+
+    1 -> 2 -> 3 -> 1
+    """
+
+    rebal_amt = 3210
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    c12, _ = l1.fundchannel(l2, 10**7, wait_for_active=True)
+    c23, _ = l2.fundchannel(l3, 10**7, wait_for_active=True)
+    c31, _ = l3.fundchannel(l1, 10**7, wait_for_active=True)
+
+    # Build a rebalance payment
+    invoice = l1.rpc.invoice(rebal_amt, 'to_self', 'to_self')
+    pay_hash = invoice['payment_hash']
+    pay_sec = invoice['payment_secret']
+
+    route = [{
+        'id': l2.info['id'],
+        'channel': c12,
+        'direction': int(not l1.info['id'] < l2.info['id']),
+        'amount_msat': rebal_amt + 1001,
+        'style': 'tlv',
+        'delay': 24,
+    }, {
+        'id': l3.info['id'],
+        'channel': c23,
+        'direction': int(not l2.info['id'] < l3.info['id']),
+        'amount_msat': rebal_amt + 500,
+        'style': 'tlv',
+        'delay': 16,
+    }, {
+        'id': l1.info['id'],
+        'channel': c31,
+        'direction': int(not l3.info['id'] < l1.info['id']),
+        'amount_msat': rebal_amt,
+        'style': 'tlv',
+        'delay': 8,
+    }]
+
+    l1.rpc.sendpay(route, pay_hash, payment_secret=pay_sec)
+    result = l1.rpc.waitsendpay(pay_hash, TIMEOUT)
+    assert result['status'] == 'complete'
+
+    wait_for(lambda: 'invoice' not in [ev['tag'] for ev in l1.rpc.bkpr_listincome()['income_events']])
+    inc_evs = l1.rpc.bkpr_listincome()['income_events']
+    outbound_chan_id = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['channel_id']
+
+    outbound_ev = only_one([ev for ev in inc_evs if ev['tag'] == 'rebalance_fee'])
+    assert outbound_ev['account'] == outbound_chan_id
+    assert outbound_ev['debit_msat'] == Millisatoshi(1001)
+    assert outbound_ev['credit_msat'] == Millisatoshi(0)
+    assert outbound_ev['payment_id'] == pay_hash

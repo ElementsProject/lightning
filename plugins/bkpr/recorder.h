@@ -41,6 +41,15 @@ struct txo_set {
 	struct txo_pair **pairs;
 };
 
+struct rebalance {
+	u64 in_ev_id;
+	u64 out_ev_id;
+	char *in_acct_name;
+	char *out_acct_name;
+	struct amount_msat rebal_msat;
+	struct amount_msat fee_msat;
+};
+
 /* Get all accounts */
 struct account **list_accounts(const tal_t *ctx, struct db *db);
 
@@ -199,6 +208,14 @@ void add_payment_hash_desc(struct db *db,
  * This method updates the blockheight on these events to the
  * height an input was spent into */
 void maybe_closeout_external_deposits(struct db *db, struct chain_event *ev);
+
+/* Keep track of rebalancing payments (payments paid to/from ourselves.
+ * Returns true if was rebalance */
+void maybe_record_rebalance(struct db *db,
+			    struct channel_event *out);
+
+/* List all rebalances */
+struct rebalance **list_rebalances(const tal_t *ctx, struct db *db);
 
 /* Log a channel event */
 void log_channel_event(struct db *db,

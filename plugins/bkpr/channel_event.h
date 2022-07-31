@@ -46,6 +46,9 @@ struct channel_event {
 
 	/* Description, usually from invoice */
 	const char *desc;
+
+	/* ID of paired event, iff is a rebalance */
+	u64 *rebalance_id;
 };
 
 struct channel_event *new_channel_event(const tal_t *ctx,

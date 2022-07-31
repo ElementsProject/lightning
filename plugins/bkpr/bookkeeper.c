@@ -1645,6 +1645,7 @@ parse_and_log_channel_move(struct command *cmd,
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
 	e->desc = tal_steal(e, desc);
+	e->rebalance_id = NULL;
 
 	/* Go find the account for this event */
 	db_begin_transaction(db);
@@ -1656,7 +1657,6 @@ parse_and_log_channel_move(struct command *cmd,
 			   acct_name);
 
 	log_channel_event(db, acct, e);
-	db_commit_transaction(db);
 
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id) {
@@ -1664,6 +1664,12 @@ parse_and_log_channel_move(struct command *cmd,
 			if (tags[i] != INVOICE)
 				continue;
 
+			/* We only do rebalance checks for debits,
+			 * the credit event always arrives first */
+			if (!amount_msat_zero(e->debit))
+				maybe_record_rebalance(db, e);
+
+			db_commit_transaction(db);
 			/* Keep memleak happy */
 			tal_steal(tmpctx, e);
 			return lookup_invoice_desc(cmd, e->credit,
@@ -1671,6 +1677,7 @@ parse_and_log_channel_move(struct command *cmd,
 		}
 	}
 
+	db_commit_transaction(db);
 	return notification_handled(cmd);
 }
 

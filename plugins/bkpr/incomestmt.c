@@ -222,6 +222,16 @@ static struct income_event *paid_invoice_fee(const tal_t *ctx,
 	return iev;
 }
 
+static struct income_event *rebalance_fee(const tal_t *ctx,
+					  struct channel_event *ev)
+{
+	struct income_event *iev;
+	iev = channel_to_income(ctx, ev, AMOUNT_MSAT(0), ev->fees);
+	iev->tag = tal_free(ev->tag);
+	iev->tag = (char *)account_entry_tag_str(REBALANCEFEE);
+	return iev;
+}
+
 static struct income_event *maybe_channel_income(const tal_t *ctx,
 						 struct channel_event *ev)
 {
@@ -235,6 +245,10 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 	}
 
 	if (streq(ev->tag, "invoice")) {
+		/* Skip events for rebalances */
+		if (ev->rebalance_id)
+			return NULL;
+
 		/* If it's a payment, we note fees separately */
 		if (!amount_msat_zero(ev->debit)) {
 			struct amount_msat paid;
@@ -383,11 +397,14 @@ struct income_event **list_income_events(const tal_t *ctx,
 			if (ev)
 				tal_arr_expand(&evs, ev);
 
-			/* Breakout fees on sent payments, if present */
+			/* Report fees on payments, if present */
 			if (streq(chan->tag, "invoice")
 			    && !amount_msat_zero(chan->debit)
 			    && !amount_msat_zero(chan->fees)) {
-				ev = paid_invoice_fee(evs, chan);
+				if (!chan->rebalance_id)
+					ev = paid_invoice_fee(evs, chan);
+				else
+					ev = rebalance_fee(evs, chan);
 				tal_arr_expand(&evs, ev);
 			}
 
