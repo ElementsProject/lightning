@@ -98,6 +98,7 @@ static struct migration db_migrations[] = {
 	{SQL("ALTER TABLE chain_events ADD stealable INTEGER;"), NULL},
 	{SQL("ALTER TABLE chain_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE channel_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
+	{SQL("ALTER TABLE channel_events ADD rebalance_id BIGINT DEFAULT NULL;"), NULL},
 };
 
 static bool db_migrate(struct plugin *p, struct db *db, bool *created)

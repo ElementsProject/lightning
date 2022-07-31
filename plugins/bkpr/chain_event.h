@@ -34,6 +34,9 @@ struct chain_event {
 	 * we'll need to watch it for longer */
 	bool stealable;
 
+	/* Is this a rebalance event? */
+	bool rebalance;
+
 	/* Amount we received in this event */
 	struct amount_msat credit;
 

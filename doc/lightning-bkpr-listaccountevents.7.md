@@ -45,6 +45,7 @@ If **type** is "onchain_fee":
 
 If **type** is "channel":
   - **fees_msat** (msat, optional): Amount paid in fees
+  - **is_rebalance** (boolean, optional): Is this payment part of a rebalance
   - **payment_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
   - **part_id** (u32, optional): Counter for multi-part payments
 
@@ -66,4 +67,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:f8538b1d1e6cda7cd801690e5c09741c8a843b27cc922065598914516c16d2b3)
+[comment]: # ( SHA256STAMP:8568188808cb649d7182ffb628950b93b18406a0498b5b6768371bc94375e258)

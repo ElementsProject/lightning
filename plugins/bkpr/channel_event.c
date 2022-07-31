@@ -27,6 +27,7 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 	ev->part_id = part_id;
 	ev->timestamp = timestamp;
 	ev->desc = NULL;
+	ev->rebalance_id = NULL;
 
 	return ev;
 }
@@ -50,5 +51,6 @@ void json_add_channel_event(struct json_stream *out,
 	json_add_u64(out, "timestamp", ev->timestamp);
 	if (ev->desc)
 		json_add_string(out, "description", ev->desc);
+	json_add_bool(out, "is_rebalance", ev->rebalance_id != NULL);
 	json_object_end(out);
 }

@@ -283,6 +283,9 @@ static bool channel_events_eq(struct channel_event *e1, struct channel_event *e2
 	CHECK(amount_msat_eq(e1->credit, e2->credit));
 	CHECK(amount_msat_eq(e1->debit, e2->debit));
 	CHECK(amount_msat_eq(e1->fees, e2->fees));
+	CHECK((e1->rebalance_id != NULL) == (e2->rebalance_id != NULL));
+	if (e1->rebalance_id)
+		CHECK(*e1->rebalance_id == *e2->rebalance_id);
 	CHECK(streq(e1->currency, e2->currency));
 	CHECK((e1->payment_id != NULL) == (e2->payment_id != NULL));
 	if (e1->payment_id)
@@ -311,6 +314,8 @@ static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 	CHECK(streq(e1->currency, e2->currency));
 	CHECK(e1->timestamp == e2->timestamp);
 	CHECK(e1->blockheight == e2->blockheight);
+	CHECK(e1->stealable == e2->stealable);
+	CHECK(e1->ignored == e2->ignored);
 	CHECK(bitcoin_outpoint_eq(&e1->outpoint, &e2->outpoint));
 
 	CHECK((e1->spending_txid != NULL) == (e2->spending_txid != NULL));
@@ -346,6 +351,7 @@ static struct channel_event *make_channel_event(const tal_t *ctx,
 	ev->part_id = 19;
 	ev->tag = tag;
 	ev->desc = tal_fmt(ev, "description");
+	ev->rebalance_id = NULL;
 	return ev;
 }
 
@@ -869,6 +875,92 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
+static bool test_channel_rebalances(const tal_t *ctx, struct plugin *p)
+{
+	bool created;
+	struct db *db = db_setup(ctx, p, tmp_dsn(ctx), &created);
+	struct channel_event *ev1, *ev2, *ev3, **chan_evs;
+	struct rebalance **rebals;
+	struct account *acct1, *acct2, *acct3;
+	struct node_id peer_id;
+
+	memset(&peer_id, 3, sizeof(struct node_id));
+	acct1 = new_account(ctx, tal_fmt(ctx, "one"), &peer_id);
+	acct2 = new_account(ctx, tal_fmt(ctx, "two"), &peer_id);
+	acct3 = new_account(ctx, tal_fmt(ctx, "three"), &peer_id);
+
+	db_begin_transaction(db);
+
+	account_add(db, acct1);
+	account_add(db, acct2);
+	account_add(db, acct3);
+
+	/* Simulate a rebalance of 100msats, w/ a 12msat fee */
+	ev1 = make_channel_event(ctx, "invoice",
+		           AMOUNT_MSAT(100),
+			   AMOUNT_MSAT(0),
+			   'A');
+	ev1->fees = AMOUNT_MSAT(0);
+	log_channel_event(db, acct1, ev1);
+
+	ev2 = make_channel_event(ctx, "invoice",
+				 AMOUNT_MSAT(0),
+				 AMOUNT_MSAT(112),
+				 'A');
+	ev2->fees = AMOUNT_MSAT(12);
+	log_channel_event(db, acct2, ev2);
+
+	/* Third event w/ same preimage but diff amounts */
+	ev3 = make_channel_event(ctx, "invoice",
+				 AMOUNT_MSAT(105),
+				 AMOUNT_MSAT(0),
+				 'A');
+	log_channel_event(db, acct3, ev3);
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	db_begin_transaction(db);
+	chan_evs = account_get_channel_events(ctx, db, acct1);
+	CHECK(tal_count(chan_evs) == 1 && !chan_evs[0]->rebalance_id);
+
+	chan_evs = account_get_channel_events(ctx, db, acct2);
+	CHECK(tal_count(chan_evs) == 1 && !chan_evs[0]->rebalance_id);
+
+	chan_evs = account_get_channel_events(ctx, db, acct3);
+	CHECK(tal_count(chan_evs) == 1 && !chan_evs[0]->rebalance_id);
+
+	maybe_record_rebalance(db, ev2);
+	CHECK(ev2->rebalance_id != NULL);
+
+	/* Both events should be marked as rebalance */
+	chan_evs = account_get_channel_events(ctx, db, acct1);
+	CHECK(tal_count(chan_evs) == 1 && chan_evs[0]->rebalance_id);
+
+	chan_evs = account_get_channel_events(ctx, db, acct2);
+	CHECK(tal_count(chan_evs) == 1 && chan_evs[0]->rebalance_id);
+
+	/* Third event is not a rebalance though */
+	chan_evs = account_get_channel_events(ctx, db, acct3);
+	CHECK(tal_count(chan_evs) == 1 && !chan_evs[0]->rebalance_id);
+
+	/* Did we get an accurate rebalances entry? */
+	rebals = list_rebalances(ctx, db);
+
+	CHECK(tal_count(rebals) == 1);
+
+	CHECK(rebals[0]->in_ev_id == ev1->db_id);
+	CHECK(rebals[0]->out_ev_id == ev2->db_id);
+	CHECK(streq(rebals[0]->in_acct_name, "one"));
+	CHECK(streq(rebals[0]->out_acct_name, "two"));
+	CHECK(amount_msat_eq(rebals[0]->rebal_msat, AMOUNT_MSAT(100)));
+	CHECK(amount_msat_eq(rebals[0]->fee_msat, AMOUNT_MSAT(12)));
+
+	db_commit_transaction(db);
+	CHECK_MSG(!db_err, db_err);
+
+	return true;
+}
+
 static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 {
 	bool created;
@@ -897,6 +989,7 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	ev1->timestamp = 11111;
 	ev1->part_id = 19;
 	ev1->desc = tal_strdup(ev1, "hello desc1");
+	ev1->rebalance_id = NULL;
 
 	/* Passing unknown tags in should be ok */
 	ev1->tag = "hello";
@@ -913,6 +1006,8 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	ev2->part_id = 0;
 	ev2->tag = tal_fmt(ev2, "deposit");
 	ev2->desc = NULL;
+	ev2->rebalance_id = tal(ev2, u64);
+	*ev2->rebalance_id = 1;
 
 	ev3 = tal(ctx, struct channel_event);
 	ev3->payment_id = tal(ev3, struct sha256);
@@ -925,6 +1020,7 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	ev3->part_id = 5;
 	ev3->tag = tal_fmt(ev3, "routed");
 	ev3->desc = NULL;
+	ev3->rebalance_id = NULL;
 
 	db_begin_transaction(db);
 	log_channel_event(db, acct, ev1);
@@ -1322,6 +1418,7 @@ int main(int argc, char *argv[])
 		ok &= test_account_balances(tmpctx, plugin);
 		ok &= test_onchain_fee_chan_close(tmpctx, plugin);
 		ok &= test_onchain_fee_chan_open(tmpctx, plugin);
+		ok &= test_channel_rebalances(tmpctx, plugin);
 		ok &= test_onchain_fee_wallet_spend(tmpctx, plugin);
 	}
 

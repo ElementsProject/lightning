@@ -112,7 +112,27 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	else
 		e->desc = NULL;
 
+	if (!db_col_is_null(stmt, "e.rebalance_id")) {
+		e->rebalance_id = tal(e, u64);
+		*e->rebalance_id = db_col_u64(stmt, "e.rebalance_id");
+	} else
+		e->rebalance_id = NULL;
+
 	return e;
+}
+
+static struct rebalance *stmt2rebalance(const tal_t *ctx, struct db_stmt *stmt)
+{
+	struct rebalance *r = tal(ctx, struct rebalance);
+
+	r->in_ev_id = db_col_u64(stmt, "in_e.id");
+	r->out_ev_id = db_col_u64(stmt, "out_e.id");
+	r->in_acct_name = db_col_strdup(r, stmt, "in_acct.name");
+	r->out_acct_name = db_col_strdup(r, stmt, "out_acct.name");
+	db_col_amount_msat(stmt, "in_e.credit", &r->rebal_msat);
+	db_col_amount_msat(stmt, "out_e.fees", &r->fee_msat);
+
+	return r;
 }
 
 struct chain_event **list_chain_events_timebox(const tal_t *ctx,
@@ -889,6 +909,7 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 				     ", e.part_id"
 				     ", e.timestamp"
 				     ", e.ev_desc"
+				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -936,6 +957,7 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     ", e.part_id"
 				     ", e.timestamp"
 				     ", e.ev_desc"
+				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = e.account_id"
@@ -1339,9 +1361,10 @@ void log_channel_event(struct db *db,
 				     ", part_id"
 				     ", timestamp"
 				     ", ev_desc"
+				     ", rebalance_id"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, acct->db_id);
 	db_bind_text(stmt, 1, e->tag);
@@ -1359,6 +1382,11 @@ void log_channel_event(struct db *db,
 		db_bind_text(stmt, 9, e->desc);
 	else
 		db_bind_null(stmt, 9);
+
+	if (e->rebalance_id)
+		db_bind_u64(stmt, 10, *e->rebalance_id);
+	else
+		db_bind_null(stmt, 10);
 
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
@@ -1642,6 +1670,93 @@ static char *is_closed_channel_txid(const tal_t *ctx, struct db *db,
 		bitcoin_txid_eq(txid, closed->spending_txid);
 	tal_free(inner_ctx);
 	return NULL;
+}
+
+void maybe_record_rebalance(struct db *db,
+			    struct channel_event *out)
+{
+	/* If there's a matching credit event, this is
+	 * a rebalance. Mark everything with the payment_id
+	 * and amt as such. If you repeat a payment_id
+	 * with the same amt, they'll be marked as rebalances
+	 * also */
+	struct db_stmt *stmt;
+	struct amount_msat credit;
+	bool ok;
+
+	/* The amount of we were credited is debit - fees */
+	ok = amount_msat_sub(&credit, out->debit, out->fees);
+	assert(ok);
+
+	stmt = db_prepare_v2(db, SQL("SELECT "
+				     "  e.id"
+				     " FROM channel_events e"
+				     " WHERE e.payment_id = ?"
+				     " AND e.credit = ?"
+				     " AND e.rebalance_id IS NULL"));
+
+	db_bind_sha256(stmt, 0, out->payment_id);
+	db_bind_amount_msat(stmt, 1, &credit);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		/* No matching invoice found */
+		tal_free(stmt);
+		return;
+	}
+
+	/* We just take the first one */
+	out->rebalance_id = tal(out, u64);
+	*out->rebalance_id = db_col_u64(stmt, "e.id");
+	tal_free(stmt);
+
+	/* Set rebalance flag on both records */
+	stmt = db_prepare_v2(db, SQL("UPDATE channel_events SET"
+				     "  rebalance_id = ?"
+				     " WHERE"
+				     " id = ?"));
+	db_bind_u64(stmt, 0, *out->rebalance_id);
+	db_bind_u64(stmt, 1, out->db_id);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(db, SQL("UPDATE channel_events SET"
+				     "  rebalance_id = ?"
+				     " WHERE"
+				     " id = ?"));
+	db_bind_u64(stmt, 0, out->db_id);
+	db_bind_u64(stmt, 1, *out->rebalance_id);
+	db_exec_prepared_v2(take(stmt));
+}
+
+struct rebalance **list_rebalances(const tal_t *ctx, struct db *db)
+{
+	struct rebalance **result;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT "
+				     "  in_e.id"
+				     ", out_e.id"
+				     ", in_acct.name"
+				     ", out_acct.name"
+				     ", in_e.credit"
+				     ", out_e.fees"
+				     " FROM channel_events in_e"
+				     " LEFT OUTER JOIN channel_events out_e"
+				     " ON in_e.rebalance_id = out_e.id"
+				     " LEFT OUTER JOIN accounts out_acct"
+				     " ON out_acct.id = out_e.account_id"
+				     " LEFT OUTER JOIN accounts in_acct"
+				     " ON in_acct.id = in_e.account_id"
+				     " WHERE in_e.rebalance_id IS NOT NULL"
+				     "  AND in_e.credit > 0"));
+	db_query_prepared(stmt);
+	result = tal_arr(ctx, struct rebalance *, 0);
+	while (db_step(stmt)) {
+		struct rebalance *r = stmt2rebalance(result, stmt);
+		tal_arr_expand(&result, r);
+	}
+	tal_free(stmt);
+	return result;
 }
 
 char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,

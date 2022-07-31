@@ -165,6 +165,10 @@
                   "type": "msat",
                   "description": "Amount paid in fees"
                 },
+                "is_rebalance": {
+                  "type": "boolean",
+                  "description": "Is this payment part of a rebalance"
+                },
                 "payment_id": {
                   "type": "hex",
                   "description": "lightning payment identifier. For an htlc, this will be the preimage."
