@@ -1315,13 +1315,15 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	ok &= test_account_crud(tmpctx, plugin);
-	ok &= test_channel_event_crud(tmpctx, plugin);
-	ok &= test_chain_event_crud(tmpctx, plugin);
-	ok &= test_account_balances(tmpctx, plugin);
-	ok &= test_onchain_fee_chan_close(tmpctx, plugin);
-	ok &= test_onchain_fee_chan_open(tmpctx, plugin);
-	ok &= test_onchain_fee_wallet_spend(tmpctx, plugin);
+	if (HAVE_SQLITE3) {
+		ok &= test_account_crud(tmpctx, plugin);
+		ok &= test_channel_event_crud(tmpctx, plugin);
+		ok &= test_chain_event_crud(tmpctx, plugin);
+		ok &= test_account_balances(tmpctx, plugin);
+		ok &= test_onchain_fee_chan_close(tmpctx, plugin);
+		ok &= test_onchain_fee_chan_open(tmpctx, plugin);
+		ok &= test_onchain_fee_wallet_spend(tmpctx, plugin);
+	}
 
 	tal_free(plugin);
 	common_shutdown();
