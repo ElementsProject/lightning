@@ -292,7 +292,9 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	ok &= test_db_migrate(plugin);
+	if (HAVE_SQLITE3) {
+		ok &= test_db_migrate(plugin);
+	}
 
 	tal_free(plugin);
 	common_shutdown();
