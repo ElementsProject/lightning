@@ -66,6 +66,10 @@ def get_log_entries(commitrange):
         url = 'https://api.github.com/repos/{repo}/commits/{commit}/pulls'.format(repo=repo, commit=commit)
         content = requests.get(url, headers=headers).json()
         if len(content):
+            # Check for bad credentials
+            if 'message' in content:
+                print(content)
+                exit()
             pullreq = content[0]['number']
         else:
             pullreq = None
