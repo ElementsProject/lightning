@@ -8,6 +8,172 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
+## [0.12.0rc1] - 2022-08-01: "TBD"
+
+This release named by @adi2011.
+
+### Added
+
+ - *NEW*: `commando` a new builtin plugin to send/recv peer commands over the lightning network, using runes. ([#5370])
+ - *NEW*: New built-in plugin`bookkeeper` w/ commands `bkpr-listaccountevents`, `bkpr-listbalances, bkpr-listincome, bkpr-channelsapy, bkpr-dumpincomecsv, bkpr-inspect ([#5071])
+ - *NEW*: Static channel backup, to enable smooth fund recovery in case of complete data loss ([#5422])
+ - logging: `log-level=debug:<partial-nodeid>` supported to get debug-level logs for everything about a peer. ([#5349])
+ - JSON-RPC: `connect` use the standard port derivation when the port is not specified. ([#5242])
+ - JSON-RPC: `fetchinvoice` `changes` `amount_msat` ([#5306])
+ - JSON-RPC: Added `mindepth` argument to specify the number of confirmations we require for `fundchannel` and `multifundchannel` ([#5275])
+ - JSON-RPC: `listpeers` new fields for `funding` (`remote_funds_msat`, `local_funds_msat`, `fee_paid_msat`, `fee_rcvd_msat`). ([#5477])
+ - JSON-RPC: `listpeers` add optional `remote_addr` ([#5244])
+ - JSON-RPC: `listforwards` now shows `out_channel` in more cases: even if it couldn't actually send to it. ([#5330])
+ - JSON-RPC: `pay` `attempts` `amount_msat` field. ([#5306])
+ - Plugins: `channel_state_changed` now triggers for a v1 channel's initial "CHANNELD_AWAITING_LOCKIN" state transition (from prior state "unknown") ([#5381])
+ - Plugins: `htlc_accepted_hook` `amount_msat` field. ([#5306])
+ - Plugins: `htlc_accepted` now exposes the `short_channel_id` for the channel from which that HTLC is coming from and the low-level per-channel HTLC `id`, which are necessary for bridging two different Lightning Networks when MPP is involved. ([#5303])
+ - Plugins: The `openchannel` hook may return a `mindepth` indicating how many confirmations are required. ([#5275])
+ - msggen: introduce chain of responsibility pattern to make msggen extensible ([#5216])
+ - cln_plugin: persist cln configuration from init msg ([#5279])
+ - pyln-testing: Added utilities to read and parse `gossip_store` file for nodes. ([#5275])
+ - `hsmtool`: new command `checkhsm` to check BIP39 passphrase against hsm_secret. ([#5441])
+ - contrib: Added `fund_ln` to the contrib/startup\_regtest.sh ([#5062])
+ - build: Added m1 architecture support for macos ([#4988])
+ - build: Reproducible builds now include rust binaries such as the `cln-grpc` plugin ([#5421])
+
+
+### Changed
+
+ - `lightningd`: will refuse to start with the wrong node_id (i.e. hsm_secret changes). ([#5425])
+ - `connectd`: prefer IPv6 connections when available. ([#5244])
+ - `connectd`: Only use IP discovery as fallback when no addresses would be announced ([#5344])
+ - `connectd`: give busy peers more time to respond to pings. ([#5347])
+ - `gossipd`: now accepts spam gossip, but squelches it for ([#5239])
+ - gossip: gossip\_store updated to version 10. ([#5239])
+ - logging: `log-file` option specified multiple times opens multiple log files. ([#5281])
+ - JSON-RPC: `plugin start` now assumes relative path to default plugins dir if the path is not found in absolute context. i.e. lightning-cli plugin start my_plugin.py ([#5211])
+ - JSON-RPC: `fundchannel`: now errors if you try to buy a liquidity ad but dont' have `experimental-dual-fund` enabled ([#5389])
+ - JSON-RPC: "\_msat" fields can be raw numbers, not "123msat" strings (please handle both!) ([#5306])
+ - JSON-RPC: `invoice`, `sendonion`, `sendpay`, `pay`, `keysend`, `fetchinvoice`, `sendinvoice`: `msatoshi` argument is now called `amount_msat` to match other fields. ([#5306])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `listpeers`.`funded` fields `local_msat` and `remote_msat`. ([#5477])
+ - JSON-RPC: `listtransactions` `msat` (use `amount_msat`) ([#5306])
+ - JSON-RPC: checkmessage return an error when the pubkey is not specified and it is unknown in the network graph. ([#5252])
+ - JSON-RPC: "_msat" fields as "123msat" strings (will be only numbers) ([#5306])
+ - JSONRPC: `sendpay` `route` elements `msatoshi` (use `amount_msat`) ([#5306])
+ - JSON-RPC: `pay`, `decode`, `decodepay`, `getroute`, `listinvoices`, `listpays` and `listsendpays` `msatoshi` fields (use `amount_msat`). ([#5306])
+ - JSON-RPC: `getinfo` `msatoshi_fees_collected` field (use `fees_collected_msat`). ([#5306])
+ - JSON-RPC: `listpeers` `channels`: `msatoshi_to_us`, `msatoshi_to_us_min`, `msatoshi_to_us_max`, `msatoshi_total`, `dust_limit_satoshis`, `our_channel_reserve_satoshis`, `their_channel_reserve_satoshis`, `spendable_msatoshi`, `receivable_msatoshi`, `in_msatoshi_offered`, `in_msatoshi_fulfilled`, `out_msatoshi_offered`, `out_msatoshi_fulfilled`, `max_htlc_value_in_flight_msat` and `htlc_minimum_msat` (use `to_us_msat`, `min_to_us_msat`, `max_to_us_msat`, `total_msat`, `dust_limit_msat`, `our_reserve_msat`, `their_reserve_msat`, `spendable_msat`, `receivable_msat`, `in_offered_msat`, `in_fulfilled_msat`, `out_offered_msat`, `out_fulfilled_msat`, `max_total_htlc_in_msat` and `minimum_htlc_in_msat`). ([#5306])
+ - JSON-RPC: `listinvoices` and `pay` `msatoshi_received` and `msatoshi_sent` (use `amount_received_msat`, `amount_sent_msat`) ([#5306])
+ - JSON-RPC: `listpays` and `listsendpays` `msatoshi_sent` (use `amount_sent_msat`) ([#5306])
+ - JSON-RPC: `listforwards` `in_msatoshi`, `out_msatoshi` and `fee` (use `in_msat`, `out_msat` and `fee_msat`) ([#5306])
+ - JSON-RPC: `listfunds` `outputs` `value` (use `amount_msat`) ([#5306])
+ - JSON-RPC: `fetchinvoice` `changes` `msat` (use `amount_msat`) ([#5306])
+ - JSON-RPC: `pay` `attempts` `amount` field (use `amount_msat`). ([#5306])
+ - JSON-RPC: `invoice`, `sendonion`, `sendpay`, `pay`, `keysend`, `fetchinvoice`, `sendinvoice` `msatoshi` (use `amount_msat`) ([#5306])
+ - `listconfigs` `plugins` `options` which are not set are omitted, not `null`. ([#5306])
+ - Plugins: `htlc_accepted_hook` `amount` field (use `amount_msat`) ([#5306])
+ - Plugins: `coin_movement` notification: `balance`, `credit`, `debit` and `fees` (use `balance_msat`, `credit_msat`, `debit_msat` and `fees_msat`) ([#5306])
+ - Plugins: `rbf_channel` and `openchannel2` hooks `their_funding` (use `their_funding_msat`) ([#5306])
+ - Plugins: `openchannel2` hook `dust_limit_satoshis` (use `dust_limit_msat`) ([#5306])
+ - Plugins: `openchannel` hook `funding_satoshis` (use `funding_msat`) ([#5306])
+ - Plugins: `openchannel` hook `dust_limit_satoshis` (use `dust_limit_msat`) ([#5306])
+ - Plugins: `openchannel` hook `channel_reserve_satoshis` (use `channel_reserve_msat`) ([#5306])
+ - Plugins: `channel_opened` notification `amount` (use `funding_msat`) ([#5306])
+ - Plugins: `htlc_accepted` `forward_amount` (use `forward_msat`) ([#5306])
+
+
+### Removed
+
+ - Protocol: We no longer create gossip messages which use zlib encoding (we still understand them, for now!) ([#5226])
+ - JSON-RPC: `getsharedsecret` API: use `makesecret` ([#5430])
+ - JSON-RPC: removed `listtransactions` `outputs` `satoshis` field (deprecated v0.10.1) ([#5264])
+ - JSON-RPC: removed `listpeers` `channels` deprecated fields (deprecated v0.10.1) ([#5264])
+ - JSON-RPC: removed `listpeers` `channels` `closer` now omitted, rather than `null` (deprecated v0.10.1) ([#5264])
+ - libhsmd: Removed the `libhsmd_python` wrapper as it was unused ([#5415])
+ - lightningd: removed `enable-autotor-v2-mode` option (deprecated v0.10.1) ([#5264])
+
+
+### Fixed
+
+ - `connectd`: various crashes and issues fixed by simplification and rewrite. ([#5261])
+ - `connectd`: Port of a DNS announcement can be 0 if unspecified ([#5434])
+ - `connectd`: no longer crashes when peers reconnect. ([#5300])
+ - `connectd`: occasional crash when we reconnect to a peer quickly. ([#5340])
+ - `connectd`: reduce initial CPU load when connecting to peers. ([#5328])
+ - `connectd`: large memory usage with many peers fixed. ([#5312])
+ - `dualopend`: Issue if the number of outputs decreases in a dualopen RBF or splice. ([#5378])
+ - `channeld`: Enforce our own `minimum_depth` beyond just confirming ([#5275])
+ - routing: Fixed an issue where we would exclude the entire channel if either direction was disabled, or we hadn't seen an update yet. ([#5286])
+ - topology: Under some circumstances we were considering the limits on the wrong direction for a channel ([#5286])
+ - logging: `log-prefix` now correctly prefixes *all* log messages. ([#5349])
+ - logging: `log-level` `io` shows JSONRPC output, as well as input. ([#5306])
+ - interop: treat LND "internal error" as warnings, not force close events (as we did in v0.10). ([#5326])
+ - PSBT: Fix signature encoding to comply with BIP-0171. ([#5307])
+ - signmessage: improve the UX of the rpc command when zbase is not a valid one ([#5297])
+ - JSON-RPC: Adds dynamically detected public IP addresses to `getinfo` ([#5244])
+ - cln-rpc: naming mismatch for `ConnectPeer` causing `connectpeer` to be called on the JSON-RPC ([#5362])
+ - pyln-spec: update the bolts implementation ([#5168])
+ - Plugins: setting the default value of a parameter to `null` is the same as not setting it (pyln plugins did this!). ([#5460])
+ - Plugins: plugins would hang indefinitely despite `lightningd` closing the connection ([#5362])
+ - Upgrade docker base image from Debian buster to bullseye to work with glibc 2.29+ #5276 ([#5278])
+ - docker: The docker images are now built with the rust plugins `cln-grpc` ([#5270])
+
+
+### EXPERIMENTAL
+
+ - None.
+
+[#4988]: https://github.com/ElementsProject/lightning/pull/4988
+[#5062]: https://github.com/ElementsProject/lightning/pull/5062
+[#5071]: https://github.com/ElementsProject/lightning/pull/5071
+[#5168]: https://github.com/ElementsProject/lightning/pull/5168
+[#5211]: https://github.com/ElementsProject/lightning/pull/5211
+[#5216]: https://github.com/ElementsProject/lightning/pull/5216
+[#5226]: https://github.com/ElementsProject/lightning/pull/5226
+[#5239]: https://github.com/ElementsProject/lightning/pull/5239
+[#5242]: https://github.com/ElementsProject/lightning/pull/5242
+[#5244]: https://github.com/ElementsProject/lightning/pull/5244
+[#5252]: https://github.com/ElementsProject/lightning/pull/5252
+[#5261]: https://github.com/ElementsProject/lightning/pull/5261
+[#5264]: https://github.com/ElementsProject/lightning/pull/5264
+[#5270]: https://github.com/ElementsProject/lightning/pull/5270
+[#5275]: https://github.com/ElementsProject/lightning/pull/5275
+[#5278]: https://github.com/ElementsProject/lightning/pull/5278
+[#5279]: https://github.com/ElementsProject/lightning/pull/5279
+[#5281]: https://github.com/ElementsProject/lightning/pull/5281
+[#5286]: https://github.com/ElementsProject/lightning/pull/5286
+[#5297]: https://github.com/ElementsProject/lightning/pull/5297
+[#5300]: https://github.com/ElementsProject/lightning/pull/5300
+[#5303]: https://github.com/ElementsProject/lightning/pull/5303
+[#5306]: https://github.com/ElementsProject/lightning/pull/5306
+[#5307]: https://github.com/ElementsProject/lightning/pull/5307
+[#5312]: https://github.com/ElementsProject/lightning/pull/5312
+[#5326]: https://github.com/ElementsProject/lightning/pull/5326
+[#5328]: https://github.com/ElementsProject/lightning/pull/5328
+[#5330]: https://github.com/ElementsProject/lightning/pull/5330
+[#5340]: https://github.com/ElementsProject/lightning/pull/5340
+[#5344]: https://github.com/ElementsProject/lightning/pull/5344
+[#5347]: https://github.com/ElementsProject/lightning/pull/5347
+[#5349]: https://github.com/ElementsProject/lightning/pull/5349
+[#5362]: https://github.com/ElementsProject/lightning/pull/5362
+[#5370]: https://github.com/ElementsProject/lightning/pull/5370
+[#5378]: https://github.com/ElementsProject/lightning/pull/5378
+[#5381]: https://github.com/ElementsProject/lightning/pull/5381
+[#5389]: https://github.com/ElementsProject/lightning/pull/5389
+[#5415]: https://github.com/ElementsProject/lightning/pull/5415
+[#5421]: https://github.com/ElementsProject/lightning/pull/5421
+[#5422]: https://github.com/ElementsProject/lightning/pull/5422
+[#5425]: https://github.com/ElementsProject/lightning/pull/5425
+[#5430]: https://github.com/ElementsProject/lightning/pull/5430
+[#5434]: https://github.com/ElementsProject/lightning/pull/5434
+[#5441]: https://github.com/ElementsProject/lightning/pull/5441
+[#5460]: https://github.com/ElementsProject/lightning/pull/5460
+[#5475]: https://github.com/ElementsProject/lightning/pull/5475
+[#5477]: https://github.com/ElementsProject/lightning/pull/5477
+
+
 ## [0.11.1] - 2022-05-13: Simon's Carefully Chosen Release Name II
 
 Single change which fixed a bug introduced in 0.11.0 which could cause
@@ -1670,6 +1836,10 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[0.12.0rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0rc1
+[0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
+[0.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.1
+[0.11.0.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.0.1
 [0.10.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.1
 [0.10.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.0
 [0.9.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.2
