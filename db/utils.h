@@ -80,7 +80,7 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 /**
  * db_open - Open or create a database
  */
-struct db *db_open(const tal_t *ctx, char *filename);
+struct db *db_open(const tal_t *ctx, const char *filename);
 
 /**
  * Report a statement that changes the wallet

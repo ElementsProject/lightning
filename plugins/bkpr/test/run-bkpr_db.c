@@ -258,17 +258,25 @@ static struct db *create_test_db(void)
 	return db;
 }
 
-static bool test_empty_db_migrate(struct plugin *plugin)
+static bool test_db_migrate(struct plugin *plugin)
 {
 	struct db *db = create_test_db();
+	bool created;
+
 	CHECK(db);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
-	db_migrate(plugin, db);
+	CHECK(db_migrate(plugin, db, &created) == true);
+	CHECK(created);
 	db_commit_transaction(db);
 
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == ARRAY_SIZE(db_migrations) - 1);
+	db_commit_transaction(db);
+
+	db_begin_transaction(db);
+	CHECK(db_migrate(plugin, db, &created) == false);
+	CHECK(!created);
 	db_commit_transaction(db);
 
 	tal_free(db);
@@ -284,7 +292,7 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	ok &= test_empty_db_migrate(plugin);
+	ok &= test_db_migrate(plugin);
 
 	tal_free(plugin);
 	common_shutdown();

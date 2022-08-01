@@ -290,7 +290,7 @@ void db_prepare_for_changes(struct db *db)
 	db->changes = tal_arr(db, const char *, 0);
 }
 
-struct db *db_open(const tal_t *ctx, char *filename)
+struct db *db_open(const tal_t *ctx, const char *filename)
 {
 	struct db *db;
 
