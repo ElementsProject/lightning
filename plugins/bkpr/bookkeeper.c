@@ -36,6 +36,7 @@ static struct db *db ;
 
 static char *db_dsn;
 static char *datadir;
+static bool tom_jones;
 
 static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 					 struct bitcoin_txid *txid)
@@ -1061,7 +1062,9 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			struct channel_event *ev;
 			u64 timestamp;
 
-			plugin_log(cmd->plugin, LOG_UNUSUAL,
+			/* This is *expected* on first run of bookkeeper! */
+			plugin_log(cmd->plugin,
+				   tom_jones ? LOG_DBG : LOG_UNUSUAL,
 				   "Snapshot balance does not equal ondisk"
 				   " reported %s, off by (+%s/-%s) (account %s)"
 				   " Logging journal entry.",
@@ -1838,7 +1841,8 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 		db_dsn = tal_fmt(NULL, "sqlite3://accounts.sqlite3");
 
 	plugin_log(p, LOG_DBG, "Setting up database at %s", db_dsn);
-	db = notleak(db_setup(p, p, db_dsn));
+	/* Final flag tells us What's New, Pussycat. */
+	db = notleak(db_setup(p, p, db_dsn, &tom_jones));
 	db_dsn = tal_free(db_dsn);
 
 	return NULL;

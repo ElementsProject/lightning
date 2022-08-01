@@ -6,6 +6,7 @@
 struct plugin;
 struct db;
 
-struct db *db_setup(const tal_t *ctx, struct plugin *p, char *db_dsn);
+struct db *db_setup(const tal_t *ctx, struct plugin *p, const char *db_dsn,
+		    bool *created);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_DB_H */
