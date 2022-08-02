@@ -195,7 +195,6 @@ static char *opt_set_accept_extra_tlv_types(const char *arg,
 }
 #endif
 
-#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 /* Returns the number of wireaddr types already announced */
 static size_t num_announced_types(enum wire_addr_type type, struct lightningd *ld)
 {
@@ -210,7 +209,6 @@ static size_t num_announced_types(enum wire_addr_type type, struct lightningd *l
 	}
 	return num;
 }
-#endif
 
 static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
@@ -257,7 +255,6 @@ static char *opt_add_addr_withtype(const char *arg,
 		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
 
-#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 	/* Add ADDR_TYPE_DNS to announce DNS hostnames */
 	if (is_dnsaddr(address) && ala & ADDR_ANNOUNCE) {
 		/* BOLT-hostnames #7:
@@ -282,7 +279,6 @@ static char *opt_add_addr_withtype(const char *arg,
 		tal_arr_expand(&ld->proposed_listen_announce, ADDR_ANNOUNCE);
 		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
-#endif
 
 	return NULL;
 
