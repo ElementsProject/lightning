@@ -201,7 +201,7 @@ static void channel_opened_notification_serialize(struct json_stream *stream,
 						  struct node_id *node_id,
 						  struct amount_sat *funding_sat,
 						  struct bitcoin_txid *funding_txid,
-						  bool *funding_locked)
+						  bool funding_locked)
 {
 	json_object_start(stream, "channel_opened");
 	json_add_node_id(stream, "id", node_id);
@@ -216,13 +216,13 @@ REGISTER_NOTIFICATION(channel_opened,
 
 void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
-			   bool *funding_locked)
+			   bool funding_locked)
 {
 	void (*serialize)(struct json_stream *,
 			  struct node_id *,
 			  struct amount_sat *,
 			  struct bitcoin_txid *,
-			  bool *) = channel_opened_notification_gen.serialize;
+			  bool) = channel_opened_notification_gen.serialize;
 
 	struct jsonrpc_notification *n
 		= jsonrpc_notification_start(NULL, channel_opened_notification_gen.topic);

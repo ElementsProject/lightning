@@ -539,7 +539,7 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	/* Tell plugins about the success */
 	notify_channel_opened(ld, &channel->peer->id, &channel->funding_sats,
-			      &channel->funding.txid, &channel->remote_funding_locked);
+			      &channel->funding.txid, channel->remote_funding_locked);
 
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);

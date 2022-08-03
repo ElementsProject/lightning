@@ -47,7 +47,7 @@ void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
 
 void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
-			   bool *funding_locked);
+			   bool funding_locked);
 
 void notify_channel_state_changed(struct lightningd *ld,
 				  struct node_id *peer_id,

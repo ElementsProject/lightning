@@ -1631,7 +1631,7 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 					      &channel->peer->id,
 					      &channel->funding_sats,
 					      &channel->funding.txid,
-					      &channel->remote_funding_locked);
+					      channel->remote_funding_locked);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
 		 * The receiving node:  ...
@@ -1997,7 +1997,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 					      &channel->peer->id,
 					      &channel->funding_sats,
 					      &channel->funding.txid,
-					      &channel->remote_funding_locked);
+					      channel->remote_funding_locked);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
 		 * The receiving node:  ...
