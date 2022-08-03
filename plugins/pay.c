@@ -574,7 +574,7 @@ static const char *init(struct plugin *p,
 
 static void on_payment_success(struct payment *payment)
 {
-	struct payment *p;
+	struct payment *p, *nxt;
 	struct payment_tree_result result = payment_collect_result(payment);
 	struct json_stream *ret;
 	struct command *cmd;
@@ -585,7 +585,7 @@ static void on_payment_success(struct payment *payment)
 	/* Iterate through any pending payments we suspended and
 	 * terminate them. */
 
-	list_for_each(&payments, p, list) {
+	list_for_each_safe(&payments, p, nxt, list) {
 		/* The result for the active payment is returned in
 		 * `payment_finished`. */
 		if (payment == p)
@@ -672,9 +672,9 @@ static void payment_json_add_attempts(struct json_stream *s,
 
 static void on_payment_failure(struct payment *payment)
 {
-	struct payment *p;
+	struct payment *p, *nxt;
 	struct payment_tree_result result = payment_collect_result(payment);
-	list_for_each(&payments, p, list)
+	list_for_each_safe(&payments, p, nxt, list)
 	{
 		struct json_stream *ret;
 		struct command *cmd;
