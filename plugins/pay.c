@@ -787,6 +787,10 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 	u64 last_group = 0;
 	/* Do we have pending sendpays for the previous attempt? */
 	bool pending = false;
+
+	/* Group ID of the first pending payment, this will be the one
+	 * who's result gets replayed if we end up suspending. */
+	u64 pending_group_id = 0;
 	/* Did a prior attempt succeed? */
 	bool completed = false;
 
@@ -855,6 +859,11 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 		status = json_get_member(buf, t, "status");
 		completed |= json_tok_streq(buf, status, "complete");
 		pending |= json_tok_streq(buf, status, "pending");
+
+		/* Remember the group id of the first pending group so
+		 * we can replay its result later. */
+		if (!pending_group_id && pending)
+			pending_group_id = groupid;
 	}
 
 	if (completed) {
@@ -874,7 +883,9 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 		/* We suspend this call and wait for the
 		 * `on_payment_success` or `on_payment_failure`
 		 * handler of the currently running payment to notify
-		 * us about its completion. */
+		 * us about its completion. We latch on to the result
+		 * from the call we extracted above. */
+		p->groupid = pending_group_id;
 		return command_still_pending(cmd);
 	}
 	p->groupid = last_group + 1;
