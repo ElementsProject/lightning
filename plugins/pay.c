@@ -577,6 +577,7 @@ static void on_payment_success(struct payment *payment)
 	struct payment *p;
 	struct payment_tree_result result = payment_collect_result(payment);
 	struct json_stream *ret;
+	struct command *cmd;
 	assert(result.treestates & PAYMENT_STEP_SUCCESS);
 	assert(result.leafstates & PAYMENT_STEP_SUCCESS);
 	assert(result.preimage != NULL);
@@ -599,7 +600,10 @@ static void on_payment_success(struct payment *payment)
 		if (p->cmd == NULL)
 			continue;
 
-		ret = jsonrpc_stream_success(p->cmd);
+		cmd = p->cmd;
+		p->cmd = NULL;
+
+		ret = jsonrpc_stream_success(cmd);
 		json_add_node_id(ret, "destination", p->destination);
 		json_add_sha256(ret, "payment_hash", p->payment_hash);
 		json_add_timeabs(ret, "created_at", p->start_time);
@@ -619,8 +623,7 @@ static void on_payment_success(struct payment *payment)
 		json_add_preimage(ret, "payment_preimage", result.preimage);
 
 		json_add_string(ret, "status", "complete");
-		if (command_finished(p->cmd, ret)) {/* Ignore result. */}
-		p->cmd = NULL;
+		if (command_finished(cmd, ret)) {/* Ignore result. */}
 	}
 }
 
@@ -690,7 +693,7 @@ static void on_payment_failure(struct payment *payment)
 			continue;
 
 		cmd = p->cmd;
-
+		p->cmd = NULL;
 		if (p->aborterror != NULL) {
 			/* We set an explicit toplevel error message,
 			 * so let's report that. */
@@ -777,7 +780,6 @@ static void on_payment_failure(struct payment *payment)
 
 			if (command_finished(cmd, ret)) { /* Ignore result. */}
 		}
-		p->cmd = NULL;
 	}
 }
 
