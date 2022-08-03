@@ -99,17 +99,10 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
  - `connectd`: various crashes and issues fixed by simplification and rewrite. ([#5261])
  - `connectd`: Port of a DNS announcement can be 0 if unspecified ([#5434])
- - `connectd`: no longer crashes when peers reconnect. ([#5300])
- - `connectd`: occasional crash when we reconnect to a peer quickly. ([#5340])
- - `connectd`: reduce initial CPU load when connecting to peers. ([#5328])
- - `connectd`: large memory usage with many peers fixed. ([#5312])
  - `dualopend`: Issue if the number of outputs decreases in a dualopen RBF or splice. ([#5378])
  - `channeld`: Enforce our own `minimum_depth` beyond just confirming ([#5275])
- - routing: Fixed an issue where we would exclude the entire channel if either direction was disabled, or we hadn't seen an update yet. ([#5286])
- - topology: Under some circumstances we were considering the limits on the wrong direction for a channel ([#5286])
  - logging: `log-prefix` now correctly prefixes *all* log messages. ([#5349])
  - logging: `log-level` `io` shows JSONRPC output, as well as input. ([#5306])
- - interop: treat LND "internal error" as warnings, not force close events (as we did in v0.10). ([#5326])
  - PSBT: Fix signature encoding to comply with BIP-0171. ([#5307])
  - signmessage: improve the UX of the rpc command when zbase is not a valid one ([#5297])
  - JSON-RPC: Adds dynamically detected public IP addresses to `getinfo` ([#5244])
@@ -143,17 +136,11 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5278]: https://github.com/ElementsProject/lightning/pull/5278
 [#5279]: https://github.com/ElementsProject/lightning/pull/5279
 [#5281]: https://github.com/ElementsProject/lightning/pull/5281
-[#5286]: https://github.com/ElementsProject/lightning/pull/5286
 [#5297]: https://github.com/ElementsProject/lightning/pull/5297
-[#5300]: https://github.com/ElementsProject/lightning/pull/5300
 [#5303]: https://github.com/ElementsProject/lightning/pull/5303
 [#5306]: https://github.com/ElementsProject/lightning/pull/5306
 [#5307]: https://github.com/ElementsProject/lightning/pull/5307
-[#5312]: https://github.com/ElementsProject/lightning/pull/5312
-[#5326]: https://github.com/ElementsProject/lightning/pull/5326
-[#5328]: https://github.com/ElementsProject/lightning/pull/5328
 [#5330]: https://github.com/ElementsProject/lightning/pull/5330
-[#5340]: https://github.com/ElementsProject/lightning/pull/5340
 [#5344]: https://github.com/ElementsProject/lightning/pull/5344
 [#5347]: https://github.com/ElementsProject/lightning/pull/5347
 [#5349]: https://github.com/ElementsProject/lightning/pull/5349
@@ -173,6 +160,31 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5475]: https://github.com/ElementsProject/lightning/pull/5475
 [#5477]: https://github.com/ElementsProject/lightning/pull/5477
 
+
+## [0.11.2] - 2022-06-24: Simon's Carefully Chosen Release Name III
+
+Regressions since 0.10.2 which could not wait for the 0.12 release,
+which especially hurt larger nodes.
+
+### Fixed
+
+ - Protocol: treat LND "internal error" as warnings, not force close events (like v0.10) ([#5326])
+ - connectd: no longer occasional crashes when peers reconnect. ([#5300])
+ - connectd: another crash fix on trying to reconnect to disconnecting peer. ([#5340])
+ - topology: Under some circumstances we were considering the limits on the wrong direction for a channel ([#5286])
+ - routing: Fixed an issue where we would exclude the entire channel if either direction was disabled, or we hadn't seen an update yet. ([#5286])
+ - connectd: large memory usage with many peers fixed. ([#5312])
+ - connectd: reduce initial CPU load when connecting to peers. ([#5328])
+ - lightnind: fix failed startup "Could not load channels from the database" if old TORv2 addresses were present. ([#5331])
+
+[#5286]: https://github.com/ElementsProject/lightning/pull/5286
+[#5300]: https://github.com/ElementsProject/lightning/pull/5300
+[#5312]: https://github.com/ElementsProject/lightning/pull/5312
+[#5326]: https://github.com/ElementsProject/lightning/pull/5326
+[#5328]: https://github.com/ElementsProject/lightning/pull/5328
+[#5331]: https://github.com/ElementsProject/lightning/pull/5331
+[#5340]: https://github.com/ElementsProject/lightning/pull/5340
+[0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 
 ## [0.11.1] - 2022-05-13: Simon's Carefully Chosen Release Name II
 
