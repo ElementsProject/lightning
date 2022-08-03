@@ -589,7 +589,12 @@ static void on_payment_success(struct payment *payment)
 		 * `payment_finished`. */
 		if (payment == p)
 			continue;
-		if (!sha256_eq(payment->payment_hash, p->payment_hash))
+
+		/* Both groupid and payment_hash must match. This is
+		 * because when we suspended the payment itself, we
+		 * set the groupid to match. */
+		if (!sha256_eq(payment->payment_hash, p->payment_hash) ||
+		    payment->groupid != p->groupid)
 			continue;
 		if (p->cmd == NULL)
 			continue;
@@ -675,7 +680,11 @@ static void on_payment_failure(struct payment *payment)
 		 * `payment_finished`. */
 		if (payment == p)
 			continue;
-		if (!sha256_eq(payment->payment_hash, p->payment_hash))
+
+		/* When we suspended we've set the groupid to match so
+		 * we'd know which calls were duplicates. */
+		if (!sha256_eq(payment->payment_hash, p->payment_hash) ||
+		    payment->groupid != p->groupid)
 			continue;
 		if (p->cmd == NULL)
 			continue;
