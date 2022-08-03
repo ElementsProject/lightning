@@ -12,6 +12,11 @@ TODO: Insert version codename, and username of the contributor that named the re
 
 This release named by @adi2011.
 
+Developers please note the Great Msat Migration has begun:
+1. All JSON amount field names now end in "_msat" (others are deprecated)
+2. Their values are strings ending in "msat", but will soon be normal integers.
+3. You should accept both: set `allow-deprecated-apis=false` to test!
+
 ### Added
 
  - *NEW*: `commando` a new builtin plugin to send/recv peer commands over the lightning network, using runes. ([#5370])
