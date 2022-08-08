@@ -539,15 +539,18 @@ def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     Test for a channel that's closed, but whose close tx
     re-appears in the rescan
     """
+    coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
     l1, l2 = node_factory.line_graph(2,
                                      wait_for_announce=True,
-                                     opts={'disable-plugin': 'bookkeeper'})
+                                     opts={'disable-plugin': 'bookkeeper',
+                                           'plugin': str(coin_mvt_plugin)})
 
     # Double check there's no bookkeeper plugin on
     assert l1.daemon.opts['disable-plugin'] == 'bookkeeper'
 
     # Send l2 funds via the channel
     l1.pay(l2, 11000000)
+    l1.daemon.wait_for_log(r'coin movement:.*\'invoice\'')
     bitcoind.generate_block(10)
 
     # Amicably close the channel, mine 101 blocks (channel forgotten)
