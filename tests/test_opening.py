@@ -1478,7 +1478,6 @@ def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
                            compact_lease='029a002d000000004b2003e8')
 
 
-@pytest.mark.xfail(strict=True, reason="We don't implement yet")
 def test_scid_alias_private(node_factory, bitcoind):
     """Test that we don't allow use of real scid for scid_alias-type channels"""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False, opts=[{}, {},

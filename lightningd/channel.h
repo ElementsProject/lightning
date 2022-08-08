@@ -411,8 +411,11 @@ struct channel *peer_any_unsaved_channel(struct peer *peer, bool *others);
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 
+/* Includes both real scids and aliases.  If !privacy_leak_ok, then private
+ * channels' real scids are not included. */
 struct channel *any_channel_by_scid(struct lightningd *ld,
-				    const struct short_channel_id *scid);
+				    const struct short_channel_id *scid,
+				    bool privacy_leak_ok);
 
 /* Get channel by channel_id */
 struct channel *channel_by_cid(struct lightningd *ld,

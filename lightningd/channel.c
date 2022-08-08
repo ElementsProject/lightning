@@ -17,6 +17,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wallet/txfilter.h>
+#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 void channel_set_owner(struct channel *channel, struct subd *owner)
@@ -601,19 +602,34 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 }
 
 struct channel *any_channel_by_scid(struct lightningd *ld,
-				    const struct short_channel_id *scid)
+				    const struct short_channel_id *scid,
+				    bool privacy_leak_ok)
 {
 	struct peer *p;
 	struct channel *chan;
 	list_for_each(&ld->peers, p, list) {
 		list_for_each(&p->channels, chan, list) {
-			if (chan->scid
-			    && short_channel_id_eq(scid, chan->scid))
-				return chan;
-			/* We also want to find the channel by its local alias
-			 * when we forward. */
+			/* BOLT-channel-type #2:
+			 * - MUST always recognize the `alias` as a
+			 *   `short_channel_id` for incoming HTLCs to this
+			 *   channel.
+			 */
 			if (chan->alias[LOCAL] &&
 			    short_channel_id_eq(scid, chan->alias[LOCAL]))
+				return chan;
+			/* BOLT-channel-type #2:
+			 * - if `channel_type` has `option_scid_alias` set:
+			 *   - MUST NOT allow incoming HTLCs to this channel
+			 *     using the real `short_channel_id`
+			 */
+			/* FIXME: We don't keep type is db, so assume all
+			 * private channels which support aliases want this! */
+			if (!privacy_leak_ok
+			    && chan->alias[REMOTE]
+			    && !(chan->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+				continue;
+			if (chan->scid
+			    && short_channel_id_eq(scid, chan->scid))
 				return chan;
 		}
 	}
