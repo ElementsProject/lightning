@@ -1331,9 +1331,14 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     wait_for(lambda: len(_income_tagset(l1, tags)) == 2)
     incomes = _income_tagset(l1, tags)
     # the balance on l3 should equal the invoice
-    bal = only_one(only_one(l3.rpc.bkpr_listbalances()['accounts'])['balances'])['balance_msat']
+    accts = l3.rpc.bkpr_listbalances()['accounts']
+    assert len(accts) == 2
+    wallet = accts[0]
+    chan_acct = accts[1]
+    assert wallet['account'] == 'wallet'
+    assert only_one(wallet['balances'])['balance_msat'] == Millisatoshi(0)
     assert incomes[0]['tag'] == 'invoice'
-    assert Millisatoshi(bal) == incomes[0]['debit_msat']
+    assert only_one(chan_acct['balances'])['balance_msat'] == incomes[0]['debit_msat']
     inve = only_one([e for e in l1.rpc.bkpr_listaccountevents()['events'] if e['tag'] == 'invoice'])
     assert inve['debit_msat'] == incomes[0]['debit_msat'] + incomes[1]['debit_msat']
 

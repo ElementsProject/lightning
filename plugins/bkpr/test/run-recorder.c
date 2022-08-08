@@ -1099,6 +1099,7 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	struct account *acct, *acct2;
 	struct chain_event *ev1;
 	struct acct_balance **balances;
+	bool exists;
 	char *err;
 
 	memset(&peer_id, 3, sizeof(struct node_id));
@@ -1107,6 +1108,13 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	acct2 = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
 
 	db_begin_transaction(db);
+	/* Check that account does not exist yet */
+	err = account_get_balance(ctx, db, acct->name, true, false,
+				  &balances, &exists);
+
+	CHECK(!err);
+	CHECK_MSG(!exists, "expected account not to exist");
+
 	account_add(db, acct);
 	account_add(db, acct2);
 
@@ -1155,7 +1163,7 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	log_chain_event(db, acct2, ev1);
 
 	err = account_get_balance(ctx, db, acct->name, true, false,
-				  &balances);
+				  &balances, NULL);
 	CHECK_MSG(!err, err);
 	db_commit_transaction(db);
 	CHECK_MSG(!db_err, db_err);
@@ -1178,17 +1186,18 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	log_chain_event(db, acct, ev1);
 
 	err = account_get_balance(ctx, db, acct->name, true, false,
-				  &balances);
+				  &balances, &exists);
 	CHECK_MSG(err != NULL, "Expected err message");
 	CHECK(streq(err, "chf channel balance is negative? 5000msat - 5001msat"));
+	CHECK_MSG(exists, "expected account to exist");
 
 	err = account_get_balance(ctx, db, acct->name, false, false,
-				  &balances);
+				  &balances, NULL);
 	CHECK_MSG(!err, err);
 
 	/* Now with ignored events */
 	err = account_get_balance(ctx, db, acct->name, true, true,
-				  &balances);
+				  &balances, NULL);
 	CHECK(streq(balances[0]->currency, "btc"));
 	CHECK(amount_msat_eq(balances[0]->balance,
 			     AMOUNT_MSAT(500 - 440 + 1000)));

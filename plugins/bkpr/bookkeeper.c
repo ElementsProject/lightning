@@ -474,7 +474,8 @@ static struct command_result *json_list_balances(struct command *cmd,
 					  accts[i]->name,
 					  true,
 					  false, /* don't skip ignored */
-					  &balances);
+					  &balances,
+					  NULL);
 
 		if (err)
 			plugin_err(cmd->plugin,
@@ -888,7 +889,7 @@ listpeers_multi_done(struct command *cmd,
 
 		db_begin_transaction(db);
 		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, false, &balances);
+					  false, false, &balances, NULL);
 		db_commit_transaction(db);
 
 		if (err)
@@ -1001,6 +1002,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 		struct acct_balance **balances, *bal;
 		struct amount_msat snap_balance, credit_diff, debit_diff;
 		char *acct_name, *currency;
+		bool exists;
 
 		err = json_scan(cmd, buf, acct_tok,
 				"{account_id:%"
@@ -1029,7 +1031,8 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 					  /* Ignore non-clightning
 					   * balances items */
 					  true,
-					  &balances);
+					  &balances,
+					  &exists);
 
 		if (err)
 			plugin_err(cmd->plugin,
@@ -1056,7 +1059,8 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   "Unable to find_diff for amounts: %s",
 				   err);
 
-		if (!amount_msat_zero(credit_diff)
+		if (!exists
+		    || !amount_msat_zero(credit_diff)
 		    || !amount_msat_zero(debit_diff)) {
 			struct account *acct;
 			struct channel_event *ev;
@@ -1328,7 +1332,7 @@ listpeers_done(struct command *cmd, const char *buf,
 					info->ev->timestamp)) {
 		db_begin_transaction(db);
 		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, false, &balances);
+					  false, false, &balances, NULL);
 		db_commit_transaction(db);
 
 		if (err)

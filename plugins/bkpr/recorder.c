@@ -766,7 +766,8 @@ char *account_get_balance(const tal_t *ctx,
 			  const char *acct_name,
 			  bool calc_sum,
 			  bool skip_ignored,
-			  struct acct_balance ***balances)
+			  struct acct_balance ***balances,
+			  bool *account_exists)
 {
 	struct db_stmt *stmt;
 
@@ -787,6 +788,8 @@ char *account_get_balance(const tal_t *ctx,
 	db_bind_int(stmt, 1, skip_ignored ? 1 : 2);
 	db_query_prepared(stmt);
 	*balances = tal_arr(ctx, struct acct_balance *, 0);
+	if (account_exists)
+		*account_exists = false;
 
 	while (db_step(stmt)) {
 		struct acct_balance *bal;
@@ -797,6 +800,9 @@ char *account_get_balance(const tal_t *ctx,
 		db_col_amount_msat(stmt, "credit", &bal->credit);
 		db_col_amount_msat(stmt, "debit", &bal->debit);
 		tal_arr_expand(balances, bal);
+
+		if (account_exists)
+			*account_exists = true;
 	}
 	tal_free(stmt);
 

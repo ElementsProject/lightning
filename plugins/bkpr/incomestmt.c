@@ -225,6 +225,10 @@ static struct income_event *paid_invoice_fee(const tal_t *ctx,
 static struct income_event *maybe_channel_income(const tal_t *ctx,
 						 struct channel_event *ev)
 {
+	if (amount_msat_zero(ev->credit)
+	    && amount_msat_zero(ev->debit))
+		return NULL;
+
 	/* We record a +/- penalty adj, but we only count the credit */
 	if (streq(ev->tag, "penalty_adj")) {
 		if (!amount_msat_zero(ev->credit))
