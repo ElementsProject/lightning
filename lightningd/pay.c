@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
@@ -827,19 +828,26 @@ static struct command_result *check_offer_usage(struct command *cmd,
 }
 
 static struct channel *find_channel_for_htlc_add(struct lightningd *ld,
-						 const struct node_id *node)
+						 const struct node_id *node,
+						 const struct short_channel_id *scid)
 {
 	struct channel *channel;
 	struct peer *peer = peer_by_id(ld, node);
 	if (!peer)
 		return NULL;
 
-	list_for_each(&peer->channels, channel, list) {
-		if (channel_can_add_htlc(channel)) {
-			return channel;
+	channel = find_channel_by_scid(peer, scid);
+	if (channel && channel_can_add_htlc(channel))
+		return channel;
+
+	/* We used to ignore scid: now all-zero means "any" */
+	if (!channel && (deprecated_apis || memeqzero(scid, sizeof(*scid)))) {
+		list_for_each(&peer->channels, channel, list) {
+			if (channel_can_add_htlc(channel)) {
+				return channel;
+			}
 		}
 	}
-
 	return NULL;
 }
 
@@ -1032,7 +1040,8 @@ send_payment_core(struct lightningd *ld,
 	if (offer_err)
 		return offer_err;
 
-	channel = find_channel_for_htlc_add(ld, &first_hop->node_id);
+	channel = find_channel_for_htlc_add(ld, &first_hop->node_id,
+					    &first_hop->scid);
 	if (!channel) {
 		struct json_stream *data
 			= json_stream_fail(cmd, PAY_TRY_OTHER_ROUTE,
