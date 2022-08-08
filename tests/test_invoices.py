@@ -226,6 +226,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Make sure channel is totally public.
     wait_for(lambda: [c['public'] for c in l2.rpc.listchannels(scid_dummy)['channels']] == [True, True])
 
+    alias = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['alias']['local']
     # Since there's only one route, it will reluctantly hint that even
     # though it's private
     inv = l2.rpc.invoice(amount_msat=123456, label="inv0", description="?")
@@ -237,7 +238,9 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    # It uses our private alias!
+    assert r['short_channel_id'] != l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
@@ -261,7 +264,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
@@ -276,7 +279,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
@@ -308,7 +311,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
@@ -322,7 +325,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == scid
+    assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
@@ -345,7 +348,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == scid
+    assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
@@ -365,7 +368,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['short_channel_id'] == alias
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
