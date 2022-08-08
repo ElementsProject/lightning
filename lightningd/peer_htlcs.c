@@ -663,7 +663,7 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* This is a shortcut for specifying next peer; doesn't mean
 	 * the actual channel! */
-	next = any_channel_by_scid(ld, scid);
+	next = any_channel_by_scid(ld, scid, false);
 	if (next) {
 		struct peer *peer = next->peer;
 		struct channel *channel;

@@ -123,7 +123,7 @@ static void handle_local_channel_update(struct lightningd *ld, const u8 *msg)
 
 	/* In theory this could vanish before gossipd gets around to telling
 	 * us. */
-	channel = any_channel_by_scid(ld, &scid);
+	channel = any_channel_by_scid(ld, &scid, true);
 	if (!channel) {
 		log_broken(ld->log, "Local update for bad scid %s",
 			   type_to_string(tmpctx, struct short_channel_id,
