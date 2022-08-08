@@ -1476,3 +1476,68 @@ def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                            feerate='{}perkw'.format(feerate),
                            compact_lease='029a002d000000004b2003e8')
+
+
+@pytest.mark.xfail(strict=True, reason="We don't implement yet")
+def test_scid_alias_private(node_factory, bitcoind):
+    """Test that we don't allow use of real scid for scid_alias-type channels"""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=False, opts=[{}, {},
+                                                                     {'log-level': 'io'}])
+
+    l2.fundwallet(5000000)
+    l2.rpc.fundchannel(l3.info['id'], 'all', announce=False)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    chan = only_one(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'])
+    assert chan['private'] is True
+    scid23 = chan['short_channel_id']
+    alias23 = chan['alias']['local']
+
+    # Create l1<->l2 channel, make sure l3 sees it so it will routehint via
+    # l2 (otherwise it sees it as a deadend!)
+    l1.fundwallet(5000000)
+    l1.rpc.fundchannel(l2.info['id'], 'all')
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 1)
+
+    chan = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+    assert chan['private'] is False
+    scid12 = chan['short_channel_id']
+
+    # Make sure it sees both sides of private channel in gossmap!
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+
+    # BOLT #2:
+    # - if `channel_type` has `option_scid_alias` set:
+    #    - MUST NOT use the real `short_channel_id` in BOLT 11 `r` fields.
+    inv = l3.rpc.invoice(10, 'test_scid_alias_private', 'desc')
+    assert only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))['short_channel_id'] == alias23
+
+    # BOLT #2:
+    # - if `channel_type` has `option_scid_alias` set:
+    #   - MUST NOT allow incoming HTLCs to this channel using the real `short_channel_id`
+    route = [{'amount_msat': 11,
+              'id': l2.info['id'],
+              'delay': 12,
+              'channel': scid12},
+             {'amount_msat': 10,
+              'id': l3.info['id'],
+              'delay': 6,
+              'channel': scid23}]
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    with pytest.raises(RpcError) as err:
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # PERM|10
+    WIRE_UNKNOWN_NEXT_PEER = 0x4000 | 10
+    assert err.value.error['data']['failcode'] == WIRE_UNKNOWN_NEXT_PEER
+    assert err.value.error['data']['erring_node'] == l2.info['id']
+    assert err.value.error['data']['erring_channel'] == scid23
+
+    # BOLT #2
+    # - MUST always recognize the `alias` as a `short_channel_id` for incoming HTLCs to this channel.
+    route[1]['channel'] = alias23
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
