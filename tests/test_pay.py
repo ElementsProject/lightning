@@ -5062,7 +5062,8 @@ gives a routehint straight to us causes an issue
 
     inv = l3.rpc.invoice(10, "test", "test")['bolt11']
     decoded = l3.rpc.decodepay(inv)
-    assert(only_one(only_one(decoded['routes']))['short_channel_id'] == scid23)
+    assert(only_one(only_one(decoded['routes']))['short_channel_id']
+           == only_one(only_one(l3.rpc.listpeers()['peers'])['channels'])['alias']['remote'])
 
     l3.stop()
     with pytest.raises(RpcError, match=r'Destination .* is not reachable directly and all routehints were unusable'):
