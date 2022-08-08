@@ -869,7 +869,7 @@
                     "description": "a channel to the next peer"
                   },
                   "fee_base_msat": {
-                    "type": "u32",
+                    "type": "msat",
                     "description": "the base fee for payments"
                   },
                   "fee_proportional_millionths": {
