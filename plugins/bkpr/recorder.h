@@ -108,7 +108,8 @@ char *account_get_balance(const tal_t *ctx,
 			  const char *acct_name,
 			  bool calc_sum,
 			  bool skip_ignored,
-			  struct acct_balance ***balances);
+			  struct acct_balance ***balances,
+			  bool *account_exists);
 
 /* Get chain fees for account */
 struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
