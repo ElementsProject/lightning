@@ -7,7 +7,8 @@ from utils import (
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
     scriptpubkey_addr, calc_lease_fee, EXPERIMENTAL_FEATURES,
     check_utxos_channel, anchor_expected, check_coin_moves,
-    check_balance_snaps, mine_funding_to_announce, check_inspect_channel
+    check_balance_snaps, mine_funding_to_announce, check_inspect_channel,
+    first_scid
 )
 
 import os
@@ -1887,7 +1888,7 @@ def test_onchaind_replay(node_factory, bitcoind):
         'amount_msat': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 101,
-        'channel': '1x1x1'
+        'channel': first_scid(l1, l2)
     }
     l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -1947,7 +1948,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
         'amount_msat': 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'
+        'channel': first_scid(l1, l2)
     }
 
     l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
@@ -2019,7 +2020,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
         'amount_msat': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'
+        'channel': first_scid(l1, l2)
     }
 
     l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'], groupid=1)
@@ -2505,7 +2506,7 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
         'amount_msat': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'
+        'channel': first_scid(l1, l2)
     }
 
     executor.submit(l1.rpc.sendpay, [routestep], rhash, payment_secret=inv['payment_secret'])
@@ -2589,7 +2590,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
         'amount_msat': 10**7 - 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'
+        'channel': first_scid(l1, l2)
     }
 
     executor.submit(l1.rpc.sendpay, [routestep], rhash, payment_secret=inv['payment_secret'])
