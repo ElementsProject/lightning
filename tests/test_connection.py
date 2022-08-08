@@ -9,7 +9,7 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr, default_ln_port,
-    EXPERIMENTAL_FEATURES, mine_funding_to_announce
+    EXPERIMENTAL_FEATURES, mine_funding_to_announce, first_scid
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
@@ -749,7 +749,7 @@ def test_reconnect_sender_add1(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('test_reconnect_sender_add1')['invoices'])['status'] == 'unpaid'
 
-    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}]
 
     for i in range(0, len(disconnects)):
         with pytest.raises(RpcError):
@@ -788,7 +788,7 @@ def test_reconnect_sender_add(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment')['invoices'])['status'] == 'unpaid'
 
-    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}]
 
     # This will send commit, so will reconnect as required.
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
@@ -822,7 +822,7 @@ def test_reconnect_receiver_add(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
-    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}]
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
@@ -852,7 +852,7 @@ def test_reconnect_receiver_fulfill(node_factory):
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
-    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
+    route = [{'amount_msat': amt, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}]
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
@@ -3480,7 +3480,7 @@ def test_htlc_retransmit_order(node_factory, executor):
         'amount_msat': 1000,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
+        'channel': first_scid(l1, l2)
     }
     for inv in invoices:
         executor.submit(l1.rpc.sendpay, [routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
@@ -3600,7 +3600,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
         'amount_msat': 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
+        'channel': first_scid(l1, l2)
     }
     l1.rpc.sendpay([routestep], '00' * 32, payment_secret='00' * 32)
     with pytest.raises(RpcError, match=r'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
@@ -3725,7 +3725,7 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
                                                'hold-result': 'fail'}])
 
     # This HTLC will fail
-    l1.rpc.sendpay([{'amount_msat': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32, payment_secret='00' * 32)
+    l1.rpc.sendpay([{'amount_msat': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}], '00' * 32, payment_secret='00' * 32)
 
     # Each one should cause one disconnection, no upgrade.
     for d in l1_disconnects + l2_disconnects:
@@ -3801,7 +3801,7 @@ def test_htlc_failed_noclose(node_factory):
         'amount_msat': FUNDAMOUNT * 1000,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
+        'channel': first_scid(l1, l2)
     }
 
     # This fails at channeld

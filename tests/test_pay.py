@@ -6,7 +6,7 @@ from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES, VALGRIND, mine_funding_to_announce
+    EXPERIMENTAL_FEATURES, VALGRIND, mine_funding_to_announce, first_scid
 )
 import copy
 import os
@@ -572,7 +572,7 @@ def test_sendpay(node_factory):
         'amount_msat': amt,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1x1x1'
+        'channel': first_scid(l1, l2)
     }
 
     # Insufficient funds.
@@ -671,7 +671,7 @@ def test_sendpay(node_factory):
     inv = l2.rpc.invoice(amt, 'testpayment3', 'desc')
     rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['status'] == 'unpaid'
-    routestep = {'amount_msat': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}
+    routestep = {'amount_msat': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': first_scid(l1, l2)}
     l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     preimage3 = l1.rpc.waitsendpay(rhash)['payment_preimage']
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['status'] == 'paid'

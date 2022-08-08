@@ -1102,11 +1102,15 @@ class LightningNode(object):
         invoices = dst.rpc.listinvoices(label)['invoices']
         assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
+        # Pick first normal channel.
+        scid = [c['short_channel_id'] for c in only_one(self.rpc.listpeers(dst_id)['peers'])['channels']
+                if c['state'] == 'CHANNELD_NORMAL'][0]
+
         routestep = {
             'amount_msat': amt,
             'id': dst_id,
             'delay': 5,
-            'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
+            'channel': scid
         }
 
         # sendpay is async now

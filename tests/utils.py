@@ -412,6 +412,10 @@ def first_channel_id(n1, n2):
     return only_one(only_one(n1.rpc.listpeers(n2.info['id'])['peers'])['channels'])['channel_id']
 
 
+def first_scid(n1, n2):
+    return only_one(only_one(n1.rpc.listpeers(n2.info['id'])['peers'])['channels'])['short_channel_id']
+
+
 def basic_fee(feerate):
     if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:
         # option_anchor_outputs
