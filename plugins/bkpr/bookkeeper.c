@@ -911,7 +911,6 @@ listpeers_multi_done(struct command *cmd,
 		if (err)
 			plugin_err(cmd->plugin, err);
 
-		plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
 		log_journal_entry(info->acct,
 				  info->currency,
 				  info->timestamp - 1,
