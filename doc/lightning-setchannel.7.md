@@ -38,17 +38,20 @@ and 1,000,000 satoshi is being routed through the channel, an
 proportional fee of 1,000 satoshi is added, resulting in a 0.1% fee.
 
 *htlcmin* is an optional value that limits how small an HTLC we will
-send: if omitted, it is unchanged (the default is no lower limit). It
+forward: if omitted, it is unchanged (the default is no lower limit). It
 can be a whole number, or a whole number ending in *msat* or *sat*, or
 a number with three decimal places ending in *sat*, or a number with 1
-to 11 decimal places ending in *btc*.  The peer also enforces a
-minimum for the channel: setting it below will be ignored.
+to 11 decimal places ending in *btc*.  Note that the peer also enforces a
+minimum for the channel: setting it below that will simply set it to
+that value with a warning.  Also note that *htlcmin* only applies to forwarded
+HTLCs: we can still send smaller payments ourselves.
 
 *htlcmax* is an optional value that limits how large an HTLC we will
-send: if omitted, it is unchanged (the default is no effective
+forward: if omitted, it is unchanged (the default is no effective
 limit). It can be a whole number, or a whole number ending in *msat*
 or *sat*, or a number with three decimal places ending in *sat*, or a
-number with 1 to 11 decimal places ending in *btc*.
+number with 1 to 11 decimal places ending in *btc*.  Note that *htlcmax*
+only applies to forwarded HTLCs: we can still send larger payments ourselves.
 
 *enforcedelay* is the number of seconds to delay before enforcing the
 new fees/htlc max (default 600, which is ten minutes).  This gives the
