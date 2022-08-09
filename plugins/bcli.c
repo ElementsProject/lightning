@@ -4,6 +4,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
@@ -121,8 +122,10 @@ static const char **gather_argsv(const tal_t *ctx, const char *cmd, va_list ap)
 	if (bitcoind->rpcuser)
 		add_arg(&args, tal_fmt(args, "-rpcuser=%s", bitcoind->rpcuser));
 	if (bitcoind->rpcpass)
-		add_arg(&args,
-			tal_fmt(args, "-rpcpassword=%s", bitcoind->rpcpass));
+		// Always pipe the rpcpassword via stdin. Do not pass it using an
+		// `-rpcpassword` argument - secrets in arguments can leak when listing
+		// system processes.
+		add_arg(&args, "-stdinrpcpass");
 
 	add_arg(&args, cmd);
 	while ((arg = va_arg(ap, char *)) != NULL)
@@ -290,6 +293,7 @@ static void next_bcli(enum bitcoind_prio prio)
 {
 	struct bitcoin_cli *bcli;
 	struct io_conn *conn;
+	int in;
 
 	if (bitcoind->num_requests[prio] >= BITCOIND_MAX_PARALLEL)
 		return;
@@ -298,8 +302,14 @@ static void next_bcli(enum bitcoind_prio prio)
 	if (!bcli)
 		return;
 
-	bcli->pid = pipecmdarr(NULL, &bcli->fd, &bcli->fd,
+	bcli->pid = pipecmdarr(&in, &bcli->fd, &bcli->fd,
 			       cast_const2(char **, bcli->args));
+
+	if (bitcoind->rpcpass)
+		write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
+
+	close(in);
+
 	if (bcli->pid < 0)
 		plugin_err(bcli->cmd->plugin, "%s exec failed: %s",
 			   bcli->args[0], strerror(errno));
@@ -854,7 +864,7 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 
 static void wait_and_check_bitcoind(struct plugin *p)
 {
-	int from, status, ret;
+	int in, from, status, ret;
 	pid_t child;
 	const char **cmd = gather_args(bitcoind, "getnetworkinfo", NULL);
 	bool printed = false;
@@ -863,7 +873,13 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	for (;;) {
 		tal_free(output);
 
-		child = pipecmdarr(NULL, &from, &from, cast_const2(char **,cmd));
+		child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
+
+		if (bitcoind->rpcpass)
+			write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
+
+		close(in);
+
 		if (child < 0) {
 			if (errno == ENOENT)
 				bitcoind_failure(p, "bitcoin-cli not found. Is bitcoin-cli "
