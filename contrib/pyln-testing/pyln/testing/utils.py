@@ -562,13 +562,13 @@ class ElementsD(BitcoinD):
 
 
 class ValidatingLightningSignerD(TailableProc):
-    def __init__(self, vlsd_dir, vlsd_port, node_id):
-        TailableProc.__init__(self, vlsd_dir)
+    def __init__(self, vlsd_dir, vlsd_port, node_id, network):
+        TailableProc.__init__(self, vlsd_dir, verbose=True)
         self.executable = env("REMOTE_SIGNER_CMD", 'vlsd')
         self.opts = [
             '--log-level-console=DEBUG',
             '--log-level-disk=DEBUG',
-            '--network={}'.format(TEST_NETWORK),
+            '--network={}'.format(network),
             '--datadir={}'.format(vlsd_dir),
             '--port={}'.format(vlsd_port),
             '--initial-allowlist-file={}'.format(env('REMOTE_SIGNER_ALLOWLIST',
@@ -585,9 +585,9 @@ class ValidatingLightningSignerD(TailableProc):
     def cmd_line(self):
         return [self.executable] + self.opts
 
-    def start(self, stdin=None, stdout=None, stderr=None,
+    def start(self, stdin=None, stdout_redir=True, stderr_redir=True,
               wait_for_initialized=True):
-        TailableProc.start(self, stdin, stdout, stderr)
+        TailableProc.start(self, stdin, stdout_redir, stderr_redir)
         # We need to always wait for initialization
         self.wait_for_log("vlsd [0-9]* ready on .*:{}".format(self.vlsd_port))
         logging.info("vlsd started")
@@ -596,8 +596,11 @@ class ValidatingLightningSignerD(TailableProc):
         logging.info("stopping vlsd")
         rc = TailableProc.stop(self, timeout)
         logging.info("vlsd stopped")
+        self.logs_catchup()
         return rc
 
+    def __del__(self):
+        self.logs_catchup()
 
 class LightningD(TailableProc):
     def __init__(
@@ -619,6 +622,8 @@ class LightningD(TailableProc):
         self.lightning_dir = lightning_dir
         self.use_vlsd = False
         self.vlsd_dir = os.path.join(lightning_dir, "vlsd")
+        self.vlsd_port = None
+        self.vlsd = None
         self.node_id = node_id
 
         self.rpcproxy = bitcoindproxy
@@ -715,16 +720,28 @@ class LightningD(TailableProc):
 
         return self.cmd_prefix + [self.executable] + self.early_opts + opts
 
+    def __del__(self):
+        if self.vlsd_port is not None:
+            drop_unused_port(self.vlsd_port)
+
     def start(self, stdin=None, wait_for_initialized=True, stderr_redir=False):
         try:
             if self.use_vlsd:
+                # Kill any previous vlsd (we may have been restarted)
+                if self.vlsd is not None:
+                    logging.info("killing prior vlsd")
+                    self.vlsd.kill()
+
                 # Start the remote signer first
-                vlsd_port = reserve()
-                self.vlsd = ValidatingLightningSignerD(self.vlsd_dir, vlsd_port, self.node_id)
-                self.vlsd.start(stdin, stdout, stderr, wait_for_initialized)
+                self.vlsd_port = reserve_unused_port()
+                self.vlsd = ValidatingLightningSignerD(
+                    self.vlsd_dir, self.vlsd_port, self.node_id, self.opts['network'])
+                self.vlsd.start(
+                    stdin, stdout_redir=True, stderr_redir=True,
+                    wait_for_initialized=wait_for_initialized)
 
                 # We can't do this in the constructor because we need a new port on each restart.
-                self.env['REMOTE_HSMD_ENDPOINT'] = '127.0.0.1:{}'.format(vlsd_port)
+                self.env['REMOTE_HSMD_ENDPOINT'] = '127.0.0.1:{}'.format(self.vlsd_port)
 
             # Some of the remote hsmd proxies need a bitcoind RPC connection
             self.env['BITCOIND_RPC_URL'] = 'http://{}:{}@localhost:{}'.format(
@@ -733,7 +750,7 @@ class LightningD(TailableProc):
                 BITCOIND_CONFIG['rpcport'])
 
             # The remote hsmd proxies need to know which network we are using
-            self.env['VLS_NETWORK'] = TEST_NETWORK
+            self.env['VLS_NETWORK'] = self.opts['network']
 
             self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
             TailableProc.start(self, stdin, stdout_redir=False, stderr_redir=stderr_redir)
