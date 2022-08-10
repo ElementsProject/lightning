@@ -115,7 +115,7 @@ In summary: as a Bitcoin user, one may be familiar with a file or a seed
 it can recover all its funds.
 
 Core Lightning has an internal bitcoin wallet, which you can use to make "on-chain"
-transactions, (see [withdraw](https://lightning.readthedocs.io/lightning-withdraw.7.html).
+transactions, (see [withdraw](https://lightning.readthedocs.io/lightning-withdraw.7.html)).
 These on-chain funds are backed up via the HD wallet seed, stored in byte-form in `hsm_secret`.
 
 `lightningd` also stores information for funds locked in Lightning Network channels, which are stored
