@@ -448,6 +448,7 @@ def test_sqlite3_builtin_backup(bitcoind, node_factory):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Don't know how to swap dbs in Postgres")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "vlsd chokes on allowlist when started on wrong network")
 def test_db_sanity_checks(bitcoind, node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[{'allow_broken_log': True,
                                               'may_fail': True}, {}])

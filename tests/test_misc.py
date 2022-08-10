@@ -2276,6 +2276,7 @@ def test_sendcustommsg(node_factory):
     ])
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd doesn't support dev-force-privkey")
 @pytest.mark.developer("needs --dev-force-privkey")
 def test_makesecret(node_factory):
     """
@@ -2314,6 +2315,7 @@ def test_staticbackup(node_factory):
             and l1.rpc.staticbackup()["scb"][0][16: 16 + 64] == _["channel_id"])
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "remote_hsmd says no such channel")
 def test_recoverchannel(node_factory):
     """
     Test recoverchannel

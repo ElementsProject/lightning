@@ -112,6 +112,7 @@ def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "remote_hsmd doesn't allow withdrawal to non-wallet, non-allowlisted address")
 def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     """ Withdrawals to an external address shouldn't be included
     in the income statements until confirmed"""
@@ -193,6 +194,7 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on sqlite3 database location")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "policy: can't withdraw to non-wallet address")
 def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
     """ Withdrawals to an external address turn up as
     extremely large onchain_fees when they happen before
@@ -259,6 +261,7 @@ def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "policy: can't withdraw to non-wallet address")
 def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     """ If a withdraw to an external gets RBF'd,
         it should *not* show up in our income ever.
@@ -400,6 +403,7 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "remote_hsmd doesn't allow push of non-trivial amount")
 @pytest.mark.openchannel('v1', 'Uses push-msat')
 def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     """

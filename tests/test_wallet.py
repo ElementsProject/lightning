@@ -701,6 +701,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
                     reservedok=True)
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "non-beneficial value considered as fees is above maximum feerate")
 def test_sign_external_psbt(node_factory, bitcoind, chainparams):
     """
     A PSBT w/ one of our inputs should be signable (we can fill
