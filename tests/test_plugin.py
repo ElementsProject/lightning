@@ -2640,9 +2640,13 @@ def test_commando(node_factory, executor):
 
 
 def test_commando_rune(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.get_nodes(2)
 
-    # l1's commando secret is 1241faef85297127c2ac9bde95421b2c51e5218498ae4901dc670c974af4284b.
+    # Force l1's commando secret
+    l1.rpc.datastore(key=['commando', 'secret'], hex='1241faef85297127c2ac9bde95421b2c51e5218498ae4901dc670c974af4284b')
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
     # I put that into a test node's commando.py to generate these runes (modified readonly to match ours):
     # $ l1-cli commando-rune
     #   "rune": "zKc2W88jopslgUBl0UE77aEe5PNCLn5WwqSusU_Ov3A9MA=="
