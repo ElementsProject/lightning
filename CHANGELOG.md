@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [0.12.0rc1] - 2022-08-01: "TBD"
+## [0.12.0rc2] - 2022-08-10: "TBD"
 
 This release named by @adi2011.
 
@@ -30,6 +30,9 @@ Developers please note the Great Msat Migration has begun:
  - JSON-RPC: `listpeers` add optional `remote_addr` ([#5244])
  - JSON-RPC: `listforwards` now shows `out_channel` in more cases: even if it couldn't actually send to it. ([#5330])
  - JSON-RPC: `pay` `attempts` `amount_msat` field. ([#5306])
+ - Protocol: private channels will only route using short-channel-ids if channel opened with option_scid_alias-supporting peer. ([#5501])
+ - Protocol: invoice routehints will use fake short-channel-ids for private channels if channel opened with option_scid_alias-supporting peer. ([#5501])
+ - Protocol: we now advertize the `option_channel_type` feature (which we actually supported since v0.10.2) ([#5455])
  - Plugins: `channel_state_changed` now triggers for a v1 channel's initial "CHANNELD_AWAITING_LOCKIN" state transition (from prior state "unknown") ([#5381])
  - Plugins: `htlc_accepted_hook` `amount_msat` field. ([#5306])
  - Plugins: `htlc_accepted` now exposes the `short_channel_id` for the channel from which that HTLC is coming from and the low-level per-channel HTLC `id`, which are necessary for bridging two different Lightning Networks when MPP is involved. ([#5303])
@@ -52,6 +55,7 @@ Developers please note the Great Msat Migration has begun:
  - `gossipd`: now accepts spam gossip, but squelches it for ([#5239])
  - gossip: gossip\_store updated to version 10. ([#5239])
  - Options: `log-file` option specified multiple times opens multiple log files. ([#5281])
+ - JSON-RPC: `sendpay` and `sendonion` now obey the first hop "channel" short_channel_id, if specified. ([#5505])
  - JSON-RPC: `plugin start` now assumes relative path to default plugins dir if the path is not found in absolute context. i.e. lightning-cli plugin start my_plugin.py ([#5211])
  - JSON-RPC: `fundchannel`: now errors if you try to buy a liquidity ad but dont' have `experimental-dual-fund` enabled ([#5389])
  - JSON-RPC: "\_msat" fields can be raw numbers, not "123msat" strings (please handle both!) ([#5306])
@@ -102,6 +106,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
+ - db: postgresql crash on startup when dual-funding lease open is pending with "s32 field doesn't match size: expected 4, actual 8" ([#5513])
  - `connectd`: various crashes and issues fixed by simplification and rewrite. ([#5261])
  - `connectd`: Port of a DNS announcement can be 0 if unspecified ([#5434])
  - `dualopend`: Issue if the number of outputs decreases in a dualopen RBF or splice. ([#5378])
@@ -115,6 +120,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - pyln-spec: update the bolts implementation ([#5168])
  - Plugins: setting the default value of a parameter to `null` is the same as not setting it (pyln plugins did this!). ([#5460])
  - Plugins: plugins would hang indefinitely despite `lightningd` closing the connection ([#5362])
+ - Plugins: `channel_opened` notification `funding_locked` field is now accurate: was always `true`. ([#5489])
  - Upgrade docker base image from Debian buster to bullseye to work with glibc 2.29+ #5276 ([#5278])
  - docker: The docker images are now built with the rust plugins `cln-grpc` ([#5270])
 
@@ -156,9 +162,15 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5430]: https://github.com/ElementsProject/lightning/pull/5430
 [#5434]: https://github.com/ElementsProject/lightning/pull/5434
 [#5441]: https://github.com/ElementsProject/lightning/pull/5441
+[#5455]: https://github.com/ElementsProject/lightning/pull/5455
 [#5460]: https://github.com/ElementsProject/lightning/pull/5460
 [#5475]: https://github.com/ElementsProject/lightning/pull/5475
 [#5477]: https://github.com/ElementsProject/lightning/pull/5477
+[#5489]: https://github.com/ElementsProject/lightning/pull/5489
+[#5501]: https://github.com/ElementsProject/lightning/pull/5501
+[#5505]: https://github.com/ElementsProject/lightning/pull/5505
+[#5513]: https://github.com/ElementsProject/lightning/pull/5513
+
 
 
 ## [0.11.2] - 2022-06-24: Simon's Carefully Chosen Release Name III
@@ -1848,7 +1860,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[0.12.0rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0rc1
+[0.12.0rc2]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0rc2
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 [0.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.1
 [0.11.0.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.0.1
