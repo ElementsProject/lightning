@@ -5,10 +5,10 @@ look like; in our case we use it in our testsuite to check that they
 match command responses, and also use it to generate our
 documentation.
 
-Yes, schemas are horrible to write, but they're damn useful.  We can
-only use a subset of the full [https://json-schema.org/](JSON Schema
-Specification), but if you find that limiting it's probably a sign
-that you should simplify your JSON output.
+Yes, schemas are horrible to write, but they're damn useful.  We can only
+use a subset of the full [JSON Schema Specification](https://json-schema.org/),
+but if you find that limiting it's probably a sign that you should simplify
+your JSON output.
 
 ## How to Write a Schema
 
