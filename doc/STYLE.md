@@ -198,7 +198,7 @@ for programs to deal with them sanely, and also perform translations.
 
 We use JSON schemas to validate that JSON-RPC returns are in the
 correct form, and also to generate documentation.  See
-[doc/schemas/WRITING_SCHEMAS.md](WRITING_SCHEMAS.md).
+[WRITING_SCHEMAS.md](schemas/WRITING_SCHEMAS.md).
 
 ## Changing JSON APIs
 
