@@ -19,7 +19,7 @@ static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db);
 
 /* Do not reorder or remove elements from this array.
  * It is used to migrate existing databases from a prevoius state, based on
- * string indicies */
+ * string indices */
 static struct migration db_migrations[] = {
 	{SQL("CREATE TABLE version (version INTEGER);"), NULL},
 	{SQL("INSERT INTO version VALUES (1);"), NULL},
