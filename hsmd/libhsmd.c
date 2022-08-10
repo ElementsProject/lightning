@@ -271,7 +271,7 @@ static u8 *handle_derive_secret(struct hsmd_client *c, const u8 *msg_in)
 		return hsmd_status_malformed_request(c, msg_in);
 
 	hkdf_sha256(&secret, sizeof(struct secret), NULL, 0,
-		    &secretstuff.derived_secret, sizeof(&secretstuff.derived_secret),
+		    &secretstuff.derived_secret, sizeof(secretstuff.derived_secret),
 		    info, tal_bytelen(info));
 
 	return towire_hsmd_derive_secret_reply(NULL, &secret);
