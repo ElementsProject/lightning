@@ -473,6 +473,7 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
     """
     coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
     l1, l2 = node_factory.get_nodes(2, opts={'disable-plugin': 'bookkeeper',
+                                             'may_reconnect': True,
                                              'plugin': str(coin_mvt_plugin)})
 
     # Double check there's no bookkeeper plugin on
