@@ -1118,7 +1118,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	struct channel_inflight *inflight;
 
 	secp256k1_ecdsa_signature *lease_commit_sig;
-	u32 lease_chan_max_msat, lease_blockheight_start;
+	u32 lease_blockheight_start;
+	u64 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
 
 	db_col_txid(stmt, "funding_tx_id", &funding.txid);
@@ -1133,7 +1134,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	if (!db_col_is_null(stmt, "lease_commit_sig")) {
 		lease_commit_sig = tal(tmpctx, secp256k1_ecdsa_signature);
 		db_col_signature(stmt, "lease_commit_sig", lease_commit_sig);
-		lease_chan_max_msat = db_col_int(stmt, "lease_chan_max_msat");
+		lease_chan_max_msat = db_col_u64(stmt, "lease_chan_max_msat");
 		lease_chan_max_ppt = db_col_int(stmt, "lease_chan_max_ppt");
 		lease_blockheight_start = db_col_int(stmt, "lease_blockheight_start");
 		db_col_amount_msat(stmt, "lease_fee", &lease_fee);
