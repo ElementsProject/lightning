@@ -648,6 +648,33 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 					    "Aborting PSBT signing. UTXO %s is not reserved",
 					    type_to_string(tmpctx, struct bitcoin_outpoint,
 							   &utxo->outpoint));
+
+		/* If the psbt doesn't have the UTXO info yet, add it.
+		 * We only add the witness_utxo for this */
+		if (!psbt->inputs[i].utxo && !psbt->inputs[i].witness_utxo) {
+			u8 *scriptPubKey;
+
+			if (utxo->is_p2sh) {
+				struct pubkey key;
+				u8 *redeemscript;
+				int wally_err;
+
+				bip32_pubkey(cmd->ld->wallet->bip32_base, &key,
+					     utxo->keyindex);
+				redeemscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
+				scriptPubKey = scriptpubkey_p2sh(tmpctx, redeemscript);
+
+				tal_wally_start();
+				wally_err = wally_psbt_input_set_redeem_script(&psbt->inputs[i],
+									       redeemscript,
+									       tal_bytelen(redeemscript));
+				assert(wally_err == WALLY_OK);
+				tal_wally_end(psbt);
+			} else
+				scriptPubKey = utxo->scriptPubkey;
+
+			psbt_input_set_wit_utxo(psbt, i, scriptPubKey, utxo->amount);
+		}
 		tal_arr_expand(utxos, utxo);
 	}
 
