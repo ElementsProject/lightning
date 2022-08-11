@@ -695,6 +695,35 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
                     reservedok=True)
 
 
+def test_sign_external_psbt(node_factory, bitcoind, chainparams):
+    """
+    A PSBT w/ one of our inputs should be signable (we can fill
+    in the required UTXO data).
+    """
+    l1 = node_factory.get_node(feerates=(7500, 7500, 7500, 7500))
+    amount = 1000000
+    total_outs = 4
+
+    # Add a medley of funds to withdraw later, bech32 + p2sh-p2wpkh
+    for i in range(total_outs // 2):
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+                                   amount / 10**8)
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit'], amount / 10**8)
+
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == total_outs)
+
+    # Build a PSBT using all our inputs, externally
+    inputs = []
+    for inp in l1.rpc.listfunds()['outputs']:
+        inputs.append({'txid': inp['txid'], 'vout': inp['output']})
+    addr = l1.rpc.newaddr()['bech32']
+    psbt = bitcoind.rpc.createpsbt(inputs, [{addr: (amount * 3) / 10**8}])
+
+    l1.rpc.reserveinputs(psbt)
+    l1.rpc.signpsbt(psbt)
+
+
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
     Tests for the sign + send psbt RPCs
