@@ -789,8 +789,9 @@ static struct command_result *json_signpsbt(struct command *cmd,
 	msg = wire_sync_read(cmd, cmd->ld->hsm_fd);
 
 	if (!fromwire_hsmd_sign_withdrawal_reply(cmd, msg, &signed_psbt))
-		fatal("HSM gave bad sign_withdrawal_reply %s",
-		      tal_hex(tmpctx, msg));
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "HSM gave bad sign_withdrawal_reply %s",
+				    tal_hex(tmpctx, msg));
 
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "signed_psbt", signed_psbt);
