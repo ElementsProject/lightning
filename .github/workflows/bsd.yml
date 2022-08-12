@@ -8,7 +8,7 @@ on:
 
 jobs:
   testfreebsd:
-    runs-on: macos-10.15
+    runs-on: macos-12
     name: Build and test on FreeBSD
     env:
       DEVELOPER: 1
@@ -19,15 +19,15 @@ jobs:
     - uses: actions/checkout@v2
     - name: Test in FreeBSD
       id: test
-      uses: vmactions/freebsd-vm@v0.1.5
+      uses: vmactions/freebsd-vm@v0
       with:
         envs: 'DEVELOPER VALGRIND EXPERIMENTAL_FEATURES COMPAT'
         usesh: true
         prepare: |
           pkg install -y \
             wget \
-            py38-pip \
-            py38-sqlite3 \
+            py39-pip \
+            py39-sqlite3 \
             gmake \
             git \
             python \
