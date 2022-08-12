@@ -111,4 +111,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:971c71befa1b6968a66b65e2aab4a2d1707f14c9af5d6ebc2dc00604d1d91294)
+[comment]: # ( SHA256STAMP:8d0f364619723ff15a8f3431cc50f6b5f4bb724e24ed6e642d4027e9d208cf00)
