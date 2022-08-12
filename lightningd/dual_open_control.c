@@ -127,7 +127,7 @@ void json_add_unsaved_channel(struct json_stream *response,
 
 	json_object_start(response, NULL);
 	json_add_node_id(response, "peer_id", &peer->id);
-	json_add_bool(response, "peer_connected", peer->is_connected);
+	json_add_bool(response, "peer_connected", peer->connected);
 	json_add_string(response, "state", channel_state_name(channel));
 	json_add_string(response, "owner", channel->owner->name);
 	json_add_string(response, "opener", channel->opener == LOCAL ?
