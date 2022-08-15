@@ -51,6 +51,8 @@ class Sqlite3Rewriter(Rewriter):
             r'decode\((.*),\s*[\'\"]hex[\'\"]\)': 'x\\1',
             # GREATEST() of multiple columns is simple MAX in sqlite3.
             r'GREATEST\(([^)]*)\)': "MAX(\\1)",
+            # NULLS FIRST is default behavior on sqlite, make it disappear
+            r' NULLS FIRST': '',
         }
         return self.rewrite_types(query, typemapping)
 
