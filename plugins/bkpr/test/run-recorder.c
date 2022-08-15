@@ -697,6 +697,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->onchain_resolved_block == 0);
 	db_begin_transaction(db);
 	maybe_mark_account_onchain(db, acct);
+	CHECK_MSG(!db_err, db_err);
 	CHECK(acct->onchain_resolved_block == blockheight + 2);
 	err = update_channel_onchain_fees(ctx, db, acct);
 	CHECK_MSG(!err, err);
