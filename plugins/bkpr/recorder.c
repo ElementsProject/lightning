@@ -72,6 +72,8 @@ static struct chain_event **find_chain_events(const tal_t *ctx,
 	struct chain_event **results;
 
 	db_query_prepared(stmt);
+	if (stmt->error)
+		db_fatal("find_chain_events err: %s", stmt->error);
 	results = tal_arr(ctx, struct chain_event *, 0);
 	while (db_step(stmt)) {
 		struct chain_event *e = stmt2chain_event(results, stmt);
