@@ -1841,7 +1841,6 @@ def test_zeroreserve_mixed(node_factory, bitcoind):
     l3.rpc.fundchannel(l1.info['id'], 10**6)
 
 
-@pytest.mark.xfail("Restriction not implemented yet", strict=True)
 def test_zeroreserve_alldust(node_factory):
     """If we allow dust reserves we need larger fundings
 

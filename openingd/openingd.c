@@ -478,6 +478,47 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		return NULL;
 	}
 
+	/* If we allow dust reserves, we might end up in a situation
+	 * in which all the channel funds are allocated to HTLCs,
+	 * leaving just dust to_us and to_them outputs. If the HTLCs
+	 * themselves are dust as well, our commitment transaction is
+	 * now invalid since it has no outputs at all, putting us in a
+	 * weird situation where the channel cannot be closed
+	 * unilaterally at all. (Thanks Rusty for identifying this
+	 * edge case). */
+	struct amount_sat alldust, mindust =
+	    amount_sat_greater(state->remoteconf.dust_limit,
+			       state->localconf.dust_limit)
+		? state->localconf.dust_limit
+		: state->remoteconf.dust_limit;
+	size_t maxhtlcs = state->remoteconf.max_accepted_htlcs +
+			  state->localconf.max_accepted_htlcs;
+	if (!amount_sat_mul(&alldust, mindust, maxhtlcs + 2)) {
+		negotiation_failed(
+		    state,
+		    "Overflow while computing total possible dust amount");
+		return NULL;
+	}
+
+	if (state->allowdustreserve &&
+	    feature_negotiated(state->our_features, state->their_features,
+			       OPT_ZEROCONF) &&
+	    amount_sat_greater_eq(alldust, state->funding_sats)) {
+		negotiation_failed(
+		    state,
+		    "channel funding %s too small for chosen "
+		    "parameters: a total of %zu HTLCs with dust value %s would "
+		    "result in a commitment_transaction without outputs. "
+		    "Please increase the funding amount or reduce the "
+		    "max_accepted_htlcs to ensure at least one non-dust "
+		    "output.",
+		    type_to_string(tmpctx, struct amount_sat,
+				   &state->funding_sats),
+		    maxhtlcs,
+		    type_to_string(tmpctx, struct amount_sat, &mindust));
+		return NULL;
+	}
+
 	if (!check_config_bounds(tmpctx, state->funding_sats,
 				 state->feerate_per_kw,
 				 state->max_to_self_delay,
