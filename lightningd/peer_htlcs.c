@@ -660,6 +660,7 @@ static void forward_htlc(struct htlc_in *hin,
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next;
 	struct htlc_out *hout = NULL;
+	struct short_channel_id *altscid;
 
 	/* This is a shortcut for specifying next peer; doesn't mean
 	 * the actual channel! */
@@ -687,10 +688,14 @@ static void forward_htlc(struct htlc_in *hin,
 					     channel->channel_info.their_config.htlc_minimum))
 				continue;
 
+			altscid = channel->scid != NULL ? channel->scid
+							: channel->alias[LOCAL];
+
 			/* OK, it's better! */
 			log_debug(next->log, "Chose a better channel: %s",
-				  type_to_string(tmpctx, struct short_channel_id,
-						 channel->scid));
+				  type_to_string(tmpctx,
+						 struct short_channel_id,
+						 altscid));
 			next = channel;
 		}
 	}

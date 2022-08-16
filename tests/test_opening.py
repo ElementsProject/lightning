@@ -1577,7 +1577,6 @@ def test_scid_alias_private(node_factory, bitcoind):
     l1.rpc.waitsendpay(inv['payment_hash'])
 
 
-@pytest.mark.xfail("Reproducing a crash", strict=True)
 def test_zeroconf_multichan_forward(node_factory):
     """The freedom to choose the forward channel bytes us when it is 0conf
 
