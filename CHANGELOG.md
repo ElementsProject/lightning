@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [0.12.0rc2] - 2022-08-10: "TBD"
+## [0.12.0rc3] - 2022-08-10: "TBD"
 
 This release named by @adi2011.
 
@@ -56,6 +56,8 @@ Developers please note the Great Msat Migration has begun:
  - gossip: gossip\_store updated to version 10. ([#5239])
  - Options: `log-file` option specified multiple times opens multiple log files. ([#5281])
  - JSON-RPC: `sendpay` and `sendonion` now obey the first hop "channel" short_channel_id, if specified. ([#5505])
+ - JSON-RPC: `signpsbt` no longer crashes if it doesn't like what your PSBT is ([#5506])
+ - JSON-RPC: `signpsbt` will now add redeemscript + witness-utxo to the PSBT for an input that we can sign for, before signing it. ([#5506])
  - JSON-RPC: `plugin start` now assumes relative path to default plugins dir if the path is not found in absolute context. i.e. lightning-cli plugin start my_plugin.py ([#5211])
  - JSON-RPC: `fundchannel`: now errors if you try to buy a liquidity ad but dont' have `experimental-dual-fund` enabled ([#5389])
  - JSON-RPC: "\_msat" fields can be raw numbers, not "123msat" strings (please handle both!) ([#5306])
@@ -169,6 +171,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5489]: https://github.com/ElementsProject/lightning/pull/5489
 [#5501]: https://github.com/ElementsProject/lightning/pull/5501
 [#5505]: https://github.com/ElementsProject/lightning/pull/5505
+[#5506]: https://github.com/ElementsProject/lightning/pull/5506
 [#5513]: https://github.com/ElementsProject/lightning/pull/5513
 
 
@@ -1860,7 +1863,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[0.12.0rc2]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0rc2
+[0.12.0rc3]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0rc3
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 [0.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.1
 [0.11.0.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.0.1
