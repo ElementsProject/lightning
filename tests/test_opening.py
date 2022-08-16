@@ -1839,3 +1839,51 @@ def test_zeroreserve_mixed(node_factory, bitcoind):
 
     l1.rpc.fundchannel(l2.info['id'], 10**6, reserve='0sat')
     l3.rpc.fundchannel(l1.info['id'], 10**6)
+
+
+@pytest.mark.xfail("Restriction not implemented yet", strict=True)
+def test_zeroreserve_alldust(node_factory):
+    """If we allow dust reserves we need larger fundings
+
+    This is because we might have up to
+
+      allhtlcs = (local.max_concurrent_htlcs + remote.max_concurrent_htlcs)
+      alldust = allhlcs * min(local.dust, remote.dust)
+
+    allocated to HTLCs in flight, reducing both direct outputs to
+    dust. This could leave us with no outs on the commitment, is
+    therefore invalid.
+
+    Parameters are as follows:
+     - Regtest:
+       - max_concurrent_htlcs = 483
+       - dust = 546sat
+       - minfunding = (483 * 2 + 2) * 546sat = 528528sat
+     - Mainnet:
+       - max_concurrent_htlcs = 30
+       - dust = 546sat
+       - minfunding = (30 * 2 + 2) * 546sat = 33852s
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroreserve.py"
+    l1, l2 = node_factory.get_nodes(2, opts=[{
+        'plugin': plugin_path,
+        'reserve': '0sat',
+        'dev-allowdustreserve': True
+    }] * 2)
+    maxhtlc = 483
+    mindust = 546
+    minfunding = (maxhtlc * 2 + 2) * mindust
+
+    l1.fundwallet(10**6)
+    error = (f'channel funding {minfunding}sat too small for chosen parameters: '
+             f'a total of {maxhtlc * 2} HTLCs with dust value {mindust}sat would '
+             f'result in a commitment_transaction without outputs')
+
+    # This is right on the edge, and should fail
+    with pytest.raises(RpcError, match=error):
+        l1.connect(l2)
+        l1.rpc.fundchannel(l2.info['id'], minfunding)
+
+    # Now try with just a bit more
+    l1.connect(l2)
+    l1.rpc.fundchannel(l2.info['id'], minfunding + 1)
