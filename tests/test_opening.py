@@ -1575,3 +1575,41 @@ def test_scid_alias_private(node_factory, bitcoind):
     route[1]['channel'] = alias23
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
+
+
+@pytest.mark.xfail("Reproducing a crash", strict=True)
+def test_zeroconf_multichan_forward(node_factory):
+    """The freedom to choose the forward channel bytes us when it is 0conf
+
+    Reported by Breez, we crashed when logging in `forward_htlc` when
+    the replacement channel was a zeroconf channel.
+
+    l2 -> l3 is a double channel with the zeroconf channel having a
+    higher spendable msat, which should cause it to be chosen instead.
+
+    """
+    node_id = '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {},
+        {},
+        {
+            'plugin': str(plugin_path),
+            'zeroconf-allow': node_id,
+        }
+    ], fundamount=10**6, wait_for_announce=True)
+
+    # Just making sure the allowlisted node_id matches.
+    assert l2.info['id'] == node_id
+
+    # Now create a channel that is twice as large as the real channel,
+    # and don't announce it.
+    l2.fundwallet(10**7)
+    l2.rpc.fundchannel(l3.info['id'], 2 * 10**6, mindepth=0)
+
+    l2.daemon.wait_for_log(r'peer_in WIRE_FUNDING_LOCKED')
+    l3.daemon.wait_for_log(r'peer_in WIRE_FUNDING_LOCKED')
+
+    inv = l3.rpc.invoice(amount_msat=10000, label='lbl1', description='desc')['bolt11']
+    l1.rpc.pay(inv)
+    assert l2.daemon.is_in_log(r'Chose a better channel: .*')
