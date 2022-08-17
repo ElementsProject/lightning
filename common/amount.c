@@ -507,6 +507,22 @@ struct amount_sat amount_sat_div(struct amount_sat sat, u64 div)
 	return sat;
 }
 
+bool amount_sat_mul(struct amount_sat *res, struct amount_sat sat, u64 mul)
+{
+	if (	mul_overflows_u64(sat.satoshis, mul))
+		return false;
+	res->satoshis = sat.satoshis * mul;
+	return true;
+}
+
+bool amount_msat_mul(struct amount_msat *res, struct amount_msat msat, u64 mul)
+{
+	if (	mul_overflows_u64(msat.millisatoshis, mul))
+		return false;
+	res->millisatoshis = msat.millisatoshis * mul;
+	return true;
+}
+
 bool amount_msat_fee(struct amount_msat *fee,
 		     struct amount_msat amt,
 		     u32 fee_base_msat,
