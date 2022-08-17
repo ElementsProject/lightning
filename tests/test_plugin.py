@@ -1011,10 +1011,7 @@ def test_channel_state_change_history(node_factory, bitcoind):
     """
     l1, l2 = node_factory.line_graph(2)
     scid = l1.get_channel_scid(l2)
-
     l1.rpc.close(scid)
-    bitcoind.generate_block(100)  # so it gets settled
-    bitcoind.generate_block(100)  # so it gets settled
 
     history = l1.rpc.listpeers()['peers'][0]['channels'][0]['state_changes']
     if l1.config('experimental-dual-fund'):
