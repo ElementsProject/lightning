@@ -1882,6 +1882,7 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
 	json_add_bool(req->stream, "startup", plugin->plugins->startup);
 	json_add_string(req->stream, "network", chainparams->network_name);
+	json_add_bool(req->stream, "deprecated-api-allowed", deprecated_apis);
 	if (ld->proxyaddr) {
 		json_add_address(req->stream, "proxy", ld->proxyaddr);
 		json_add_bool(req->stream, "torv3-enabled", true);

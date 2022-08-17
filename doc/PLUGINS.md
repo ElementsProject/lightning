@@ -337,7 +337,8 @@ simple JSON object containing the options:
         "port": 9050
     },
     "torv3-enabled": true,
-    "always_use_proxy": false
+    "always_use_proxy": false,
+    "deprecated-api-allowed": false,
   }
 }
 ```
