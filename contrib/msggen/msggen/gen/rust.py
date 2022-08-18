@@ -96,6 +96,8 @@ def gen_enum(e):
     if e.description != "":
         decl += f"/// {e.description}\n"
 
+    if e.deprecated:
+        decl += "#[deprecated]\n"
     decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize)]\npub enum {e.typename} {{\n"
     for v in e.variants:
         if v is None:
@@ -145,10 +147,12 @@ def gen_primitive(p):
     typename = typemap.get(p.typename, p.typename)
     normalize_varname(p)
 
+    if p.deprecated:
+        defi += "    #[deprecated]\n"
     if p.required:
-        defi = f"    #[serde(alias = \"{org}\")]\n    pub {p.name}: {typename},\n"
+        defi += f"    #[serde(alias = \"{org}\")]\n    pub {p.name}: {typename},\n"
     else:
-        defi = f"    #[serde(alias = \"{org}\", skip_serializing_if = \"Option::is_none\")]\n    pub {p.name}: Option<{typename}>,\n"
+        defi += f"    #[serde(alias = \"{org}\", skip_serializing_if = \"Option::is_none\")]\n    pub {p.name}: Option<{typename}>,\n"
 
     return defi, decl
 
@@ -173,10 +177,13 @@ def gen_array(a):
 
     itemtype = typemap.get(itemtype, itemtype)
     alias = a.name.normalized()
+    defi = ""
+    if a.deprecated:
+        defi += "    #[deprecated]\n"
     if a.required:
-        defi = f"    #[serde(alias = \"{alias}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
+        defi += f"    #[serde(alias = \"{alias}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
     else:
-        defi = f"    #[serde(alias = \"{alias}\", skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
+        defi += f"    #[serde(alias = \"{alias}\", skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
 
     return (defi, decl)
 

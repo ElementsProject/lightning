@@ -455,6 +455,7 @@
             "Getinfo.fees_collected_msat": 13,
             "Getinfo.id": 1,
             "Getinfo.lightning-dir": 9,
+            "Getinfo.msatoshi_fees_collected": 18,
             "Getinfo.network": 12,
             "Getinfo.num_active_channels": 6,
             "Getinfo.num_inactive_channels": 7,
@@ -485,6 +486,7 @@
             "GetRoute.route[].delay": 5,
             "GetRoute.route[].direction": 3,
             "GetRoute.route[].id": 1,
+            "GetRoute.route[].msatoshi": 7,
             "GetRoute.route[].style": 6
         },
         "InvoiceRequest": {

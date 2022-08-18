@@ -30,6 +30,7 @@ class Field:
     def __init__(self, path, description):
         self.path = path
         self.description = description
+        self.deprecated = False
         self.required = False
 
     @property
@@ -130,10 +131,6 @@ class CompositeField(Field):
             desc = ftype["description"] if "description" in ftype else ""
             fpath = f"{path}.{fname}"
 
-            if ftype.get("deprecated", False):
-                logger.warning(f"Unmanaged {fpath}, it is deprecated")
-                continue
-
             if fpath in overrides:
                 field = copy(overrides[fpath])
                 field.path = fpath
@@ -170,6 +167,7 @@ class CompositeField(Field):
                 )
 
             if field is not None:
+                field.deprecated = ftype.get("deprecated", False)
                 field.required = fname in required
                 fields.append(field)
                 logger.debug(field)
@@ -320,7 +318,9 @@ class ArrayField(Field):
 
         elif child_js["type"] in PrimitiveField.types:
             itemtype = PrimitiveField(
-                child_js["type"], path, child_js.get("description", "")
+                child_js["type"],
+                path,
+                child_js.get("description", ""),
             )
 
         logger.debug(f"Array path={path} dims={dims}, type={itemtype}")
