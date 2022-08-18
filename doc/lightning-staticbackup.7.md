@@ -1,4 +1,4 @@
-lightning-staticbacup -- Command for deriving getting SCB of all the existing channels
+lightning-staticbackup -- Command for deriving getting SCB of all the existing channels
 ======================================================================================
 
 SYNOPSIS
