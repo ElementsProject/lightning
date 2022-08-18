@@ -2312,6 +2312,8 @@ def test_emergencyrecover(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2, opts=[{}, {}])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     c12, _ = l1.fundchannel(l2, 10**5)
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert l1.daemon.is_in_log('channel {} already exists!'.format(_['channel_id']))
 
     l1.stop()
 
@@ -2322,6 +2324,7 @@ def test_emergencyrecover(node_factory, bitcoind):
     stubs = l1.rpc.emergencyrecover()["stubs"]
     assert len(stubs) == 1
     assert stubs[0] == _["channel_id"]
+    assert l1.daemon.is_in_log('channel {} already exists!'.format(_['channel_id']))
 
     listfunds = l1.rpc.listfunds()["channels"][0]
     assert listfunds["short_channel_id"] == "1x1x1"
