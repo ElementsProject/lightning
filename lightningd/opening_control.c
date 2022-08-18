@@ -1299,11 +1299,21 @@ static struct channel *stub_chan(struct command *cmd,
 				    "647de4443938ae2dbafe2b9" "01",
 				    144);
 
-	peer = new_peer(cmd->ld,
-			0,
-			&nodeid,
-			&addr,
-			false);
+	/* If the channel is already stored, return NULL. */
+	peer = peer_by_id(cmd->ld, &nodeid);
+	if (peer) {
+		if (find_channel_by_id(peer, &cid)) {
+			log_debug(cmd->ld->log, "channel %s already exists!",
+				  type_to_string(tmpctx, struct channel_id, &cid));
+			return NULL;
+		}
+	} else {
+		peer = new_peer(cmd->ld,
+				0,
+				&nodeid,
+				&addr,
+				false);
+	}
 
 	ld = cmd->ld;
 	feerate = FEERATE_FLOOR;
@@ -1452,6 +1462,10 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 						   scb_chan->addr,
 						   scb_chan->funding_sats,
 						   scb_chan->type);
+
+		/* Returns NULL only when channel already exists, so we skip over it. */
+		if (channel == NULL)
+			continue;
 
 		/* Now we put this in the database. */
 		wallet_channel_insert(ld->wallet, channel);
