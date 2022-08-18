@@ -72,6 +72,7 @@ message GetinfoResponse {
 	string lightning_dir = 9;
 	uint32 blockheight = 11;
 	string network = 12;
+	optional uint64 msatoshi_fees_collected = 18;
 	Amount fees_collected_msat = 13;
 	repeated GetinfoAddress address = 14;
 	repeated GetinfoBinding binding = 15;
@@ -1194,6 +1195,7 @@ message GetrouteRoute {
 	bytes id = 1;
 	string channel = 2;
 	uint32 direction = 3;
+	optional uint64 msatoshi = 7;
 	Amount amount_msat = 4;
 	uint32 delay = 5;
 	GetrouteRouteStyle style = 6;

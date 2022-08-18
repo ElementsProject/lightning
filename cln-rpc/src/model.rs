@@ -1461,6 +1461,9 @@ pub mod responses {
 	    pub blockheight: u32,
 	    #[serde(alias = "network")]
 	    pub network: String,
+	    #[deprecated]
+	    #[serde(alias = "msatoshi_fees_collected", skip_serializing_if = "Option::is_none")]
+	    pub msatoshi_fees_collected: Option<u64>,
 	    #[serde(alias = "fees_collected_msat")]
 	    pub fees_collected_msat: Amount,
 	    #[serde(alias = "address", skip_serializing_if = "crate::is_none_or_empty")]
@@ -3548,6 +3551,9 @@ pub mod responses {
 	    pub channel: ShortChannelId,
 	    #[serde(alias = "direction")]
 	    pub direction: u32,
+	    #[deprecated]
+	    #[serde(alias = "msatoshi", skip_serializing_if = "Option::is_none")]
+	    pub msatoshi: Option<u64>,
 	    #[serde(alias = "amount_msat")]
 	    pub amount_msat: Amount,
 	    #[serde(alias = "delay")]

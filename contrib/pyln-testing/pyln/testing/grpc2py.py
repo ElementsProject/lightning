@@ -59,6 +59,7 @@ def getinfo2py(m):
         "lightning_dir": m.lightning_dir,  # PrimitiveField in generate_composite
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
         "network": m.network,  # PrimitiveField in generate_composite
+        "msatoshi_fees_collected": m.msatoshi_fees_collected,  # PrimitiveField in generate_composite
         "fees_collected_msat": amount2msat(m.fees_collected_msat),  # PrimitiveField in generate_composite
         "address": [getinfo_address2py(i) for i in m.address],  # ArrayField[composite] in generate_composite
         "binding": [getinfo_binding2py(i) for i in m.binding],  # ArrayField[composite] in generate_composite
@@ -787,6 +788,7 @@ def getroute_route2py(m):
         "id": hexlify(m.id),  # PrimitiveField in generate_composite
         "channel": m.channel,  # PrimitiveField in generate_composite
         "direction": m.direction,  # PrimitiveField in generate_composite
+        "msatoshi": m.msatoshi,  # PrimitiveField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "delay": m.delay,  # PrimitiveField in generate_composite
         "style": str(m.style),  # EnumField in generate_composite

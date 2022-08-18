@@ -50,6 +50,7 @@ impl From<responses::GetinfoResponse> for pb::GetinfoResponse {
             lightning_dir: c.lightning_dir, // Rule #2 for type string
             blockheight: c.blockheight, // Rule #2 for type u32
             network: c.network, // Rule #2 for type string
+            msatoshi_fees_collected: c.msatoshi_fees_collected, // Rule #2 for type u64?
             fees_collected_msat: Some(c.fees_collected_msat.into()), // Rule #2 for type msat
             address: c.address.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             binding: c.binding.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
@@ -879,6 +880,7 @@ impl From<responses::GetrouteRoute> for pb::GetrouteRoute {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             channel: c.channel.to_string(), // Rule #2 for type short_channel_id
             direction: c.direction, // Rule #2 for type u32
+            msatoshi: c.msatoshi, // Rule #2 for type u64?
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             delay: c.delay, // Rule #2 for type u32
             style: c.style as i32,
