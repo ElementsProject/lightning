@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.9/bin:$PATH"
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:$PATH"
           export BITCOIN_VERSION=0.20.1
           brew install wget python autoconf automake libtool python3 gmp gnu-sed gettext libsodium
 
@@ -53,7 +53,7 @@ jobs:
           TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
           TEST_GROUP: ${{ matrix.TEST_GROUP }}
         run: |
-          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.9/bin:$PATH"
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:/Users/runner/Library/Python/3.10/bin:$PATH"
           export LDFLAGS="-L/usr/local/opt/sqlite/lib"
           export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 
