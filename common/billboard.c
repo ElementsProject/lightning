@@ -42,9 +42,9 @@ char *billboard_message(const tal_t *ctx,
 	if (!shutdown_sent[LOCAL] && !shutdown_sent[REMOTE])
 		shutdown_status = "";
 	else if (!shutdown_sent[LOCAL] && shutdown_sent[REMOTE])
-		shutdown_status = " We've send shutdown, waiting for theirs";
-	else if (shutdown_sent[LOCAL] && !shutdown_sent[REMOTE])
 		shutdown_status = " They've sent shutdown, waiting for ours";
+	else if (shutdown_sent[LOCAL] && !shutdown_sent[REMOTE])
+		shutdown_status = " We've send shutdown, waiting for theirs";
 	else if (shutdown_sent[LOCAL] && shutdown_sent[REMOTE]) {
 		if (num_htlcs)
 			shutdown_status = tal_fmt(ctx,
