@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [0.12.0rc3] - 2022-08-10: "TBD"
+## [0.12.0] - 2022-08-23: Web-8 init
 
 This release named by @adi2011.
 
@@ -1863,7 +1863,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[0.12.0rc3]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0rc3
+[0.12.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 [0.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.1
 [0.11.0.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.0.1
