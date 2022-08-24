@@ -708,6 +708,20 @@ clean: obsclean
 	find . -name '*.nccout' -delete
 	if [ "${RUST}" -eq "1" ]; then cargo clean; fi
 
+
+PYLNS=client proto testing
+# See doc/MAKING-RELEASES.md
+update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
+
+update-pyln-version-%:
+	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
+	cd contrib/pyln-$* && $(MAKE) upgrade-version
+
+pyln-release:  $(PYLNS:%=pyln-release-%)
+
+pyln-release-%:
+	cd contrib/pyln-$* && $(MAKE) prod-release
+
 # These must both be enabled for update-mocks
 ifeq ($(DEVELOPER)$(EXPERIMENTAL_FEATURES),11)
 update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
