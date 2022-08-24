@@ -7,7 +7,9 @@ from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, TIMEO
 import base64
 import os
 import pytest
+import re
 import shutil
+import subprocess
 import time
 import unittest
 
@@ -17,7 +19,8 @@ def test_db_dangling_peer_fix(node_factory, bitcoind):
     # Make sure bitcoind doesn't think it's going backwards
     bitcoind.generate_block(104)
     # This was taken from test_fail_unconfirmed() node.
-    l1 = node_factory.get_node(dbfile='dangling-peer.sqlite3.xz')
+    l1 = node_factory.get_node(dbfile='dangling-peer.sqlite3.xz',
+                               options={'database-upgrade': True})
     l2 = node_factory.get_node()
 
     # Must match entry in db
@@ -138,8 +141,26 @@ def test_scid_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(1)
 
     # Created through the power of sed "s/X'\([0-9]*\)78\([0-9]*\)78\([0-9]*\)'/X'\13A\23A\3'/"
-    l1 = node_factory.get_node(dbfile='oldstyle-scids.sqlite3.xz')
+    l1 = node_factory.get_node(dbfile='oldstyle-scids.sqlite3.xz',
+                               start=False, expect_fail=True,
+                               allow_broken_log=True)
 
+    # Will refuse to upgrade (if not in a release!)
+    version = subprocess.check_output(['lightningd/lightningd',
+                                       '--version']).decode('utf-8').splitlines()[0]
+    if not re.match('^v[0-9.]*$', version):
+        l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+        # Will have exited with non-zero status.
+        assert l1.daemon.proc.wait(TIMEOUT) != 0
+        assert l1.daemon.is_in_stderr('Refusing to irreversibly upgrade db from version [0-9]* to [0-9]* in non-final version ' + version + r' \(use --database-upgrade=true to override\)')
+
+    l1.daemon.opts['database-upgrade'] = False
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    assert l1.daemon.proc.wait(TIMEOUT) != 0
+    assert l1.daemon.is_in_stderr(r'Refusing to upgrade db from version [0-9]* to [0-9]* \(database-upgrade=false\)')
+
+    l1.daemon.opts['database-upgrade'] = True
+    l1.daemon.start()
     assert l1.db_query('SELECT short_channel_id from channels;') == [{'short_channel_id': '103x1x1'}]
     assert l1.db_query('SELECT failchannel from payments;') == [{'failchannel': '103x1x1'}]
 
@@ -152,7 +173,8 @@ def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
 
     prior_txs = ['02000000019CCCA2E59D863B00B5BD835BF7BA93CC257932D2C7CDBE51EFE2EE4A9D29DFCB01000000009DB0E280024A01000000000000220020BE7935A77CA9AB70A4B8B1906825637767FED3C00824AA90C988983587D68488F0820100000000002200209F4684DDB28ACDC73959BC194D1A25DF906F61ED030F52D163E6F1E247D32CBB9A3ED620', '020000000122F9EBE38F54208545B681AD7F73A7AE3504A09C8201F502673D34E28424687C01000000009DB0E280024A01000000000000220020BE7935A77CA9AB70A4B8B1906825637767FED3C00824AA90C988983587D68488F0820100000000002200209F4684DDB28ACDC73959BC194D1A25DF906F61ED030F52D163E6F1E247D32CBB9A3ED620']
 
-    l1 = node_factory.get_node(dbfile='upgrade_inflight.sqlite3.xz')
+    l1 = node_factory.get_node(dbfile='upgrade_inflight.sqlite3.xz',
+                               options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channel_funding_inflights ORDER BY channel_id, funding_feerate;')]
     for i in range(len(b64_last_txs)):
@@ -174,7 +196,8 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
 
     prior_txs = ['02000000018DD699861B00061E50937A233DB584BF8ED4C0BF50B44C0411F71B031A06455000000000000EF7A9800350C300000000000022002073356CFF7E1588F14935EF138E142ABEFB5F7E3D51DE942758DCD5A179449B6250A90600000000002200202DF545EA882889846C52FC5E111AC07CE07E0C09418AC15743A6F6284C2A4FA720A1070000000000160014E89954FAC8F7A2DCE51E095D7BEB5271C3F7DA56EF81DC20', '02000000018A0AE4C63BCDF9D78B07EB4501BB23404FDDBC73973C592793F047BE1495074B010000000074D99980010A2D0F00000000002200203B8CB644781CBECA96BE8B2BF1827AFD908B3CFB5569AC74DAB9395E8DDA39E4C9555420', '020000000135DAB2996E57762E3EC158C0D57D39F43CA657E882D93FC24F5FEBAA8F36ED9A0100000000566D1D800350C30000000000002200205679A7D06E1BD276AA25F56E9E4DF7E07D9837EFB0C5F63604F10CD9F766A03ED4DD0600000000001600147E5B5C8F4FC1A9484E259F92CA4CBB7FA2814EA49A6C070000000000220020AB6226DEBFFEFF4A741C01367FA3C875172483CFB3E327D0F8C7AA4C51EDECAA27AA4720']
 
-    l1 = node_factory.get_node(dbfile='last_tx_upgrade.sqlite3.xz')
+    l1 = node_factory.get_node(dbfile='last_tx_upgrade.sqlite3.xz',
+                               options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channels ORDER BY id;')]
     for i in range(len(b64_last_txs)):
@@ -195,7 +218,8 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     # We need to give it a chance to update
     time.sleep(2)
 
-    l2 = node_factory.get_node(dbfile='last_tx_closed.sqlite3.xz')
+    l2 = node_factory.get_node(dbfile='last_tx_closed.sqlite3.xz',
+                               options={'database-upgrade': True})
     last_txs = [x['last_tx'] for x in l2.db_query('SELECT last_tx FROM channels ORDER BY id;')]
 
     # The first tx should be psbt, the second should still be hex
@@ -234,7 +258,8 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     ]
 
     # Test the first time, all entries are with option_static_remotekey
-    l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz')
+    l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz',
+                               options={'database-upgrade': True})
     results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
     for exp, actual in zip(script_map, scripts):
@@ -266,7 +291,8 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
         }
     ]
 
-    l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz')
+    l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz',
+                               options={'database-upgrade': True})
     results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
     for exp, actual in zip(script_map_2, scripts):
@@ -344,7 +370,8 @@ def test_local_basepoints_cache(bitcoind, node_factory):
     bitcoind.generate_block(6)
     l1 = node_factory.get_node(
         dbfile='no-local-basepoints.sqlite3.xz',
-        start=False
+        start=False,
+        options={'database-upgrade': True}
     )
 
     fields = [

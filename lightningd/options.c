@@ -1025,6 +1025,12 @@ static char *opt_set_offers(struct lightningd *ld)
 	return opt_set_onion_messages(ld);
 }
 
+static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
+{
+	ld->db_upgrade_ok = tal(ld, bool);
+	return opt_set_bool_arg(arg, ld->db_upgrade_ok);
+}
+
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
@@ -1205,6 +1211,10 @@ static void register_opts(struct lightningd *ld)
 			 ld,
 			 "experimental: alternate port for peers to connect"
 			 " using WebSockets (RFC6455)");
+	opt_register_arg("--database-upgrade",
+			 opt_set_db_upgrade, NULL,
+			 ld,
+			 "Set to true to allow database upgrades even on non-final releases (WARNING: you won't be able to downgrade!)");
 	opt_register_logging(ld);
 	opt_register_version();
 
@@ -1628,6 +1638,11 @@ static void add_config(struct lightningd *ld,
 			if (ld->websocket_port)
 				json_add_u32(response, name0,
 					     ld->websocket_port);
+			return;
+		} else if (opt->cb_arg == (void *)opt_set_db_upgrade) {
+			if (ld->db_upgrade_ok)
+				json_add_bool(response, name0,
+					      *ld->db_upgrade_ok);
 			return;
 		} else if (opt->cb_arg == (void *)opt_important_plugin) {
 			/* Do nothing, this is already handled by

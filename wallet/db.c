@@ -885,6 +885,14 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD alias_remote BIGINT DEFAULT NULL"), NULL},
 };
 
+/* Released versions are of form v{num}[.{num}]* */
+static bool is_released_version(void)
+{
+	if (version()[0] != 'v')
+		return false;
+	return strcspn(version()+1, ".0123456789") == strlen(version()+1);
+}
+
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
@@ -907,9 +915,17 @@ static bool db_migrate(struct lightningd *ld, struct db *db,
 	else if (available < current)
 		db_fatal("Refusing to migrate down from version %u to %u",
 			 current, available);
-	else if (current != available)
+	else if (current != available) {
+		if (ld->db_upgrade_ok && *ld->db_upgrade_ok == false) {
+			db_fatal("Refusing to upgrade db from version %u to %u (database-upgrade=false)",
+				 current, available);
+		} else if (!ld->db_upgrade_ok && !is_released_version()) {
+			db_fatal("Refusing to irreversibly upgrade db from version %u to %u in non-final version %s (use --database-upgrade=true to override)",
+				 current, available, version());
+		}
 		log_info(ld->log, "Updating database from version %u to %u",
 			 current, available);
+	}
 
 	while (current < available) {
 		current++;
