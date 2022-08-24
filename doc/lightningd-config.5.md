@@ -60,7 +60,17 @@ fun to put in other's config files while their computer is unattended.
 putting this in someone's config file may convince them to read this man
 page.
 
+* **database-upgrade**=*BOOL*
+
+  Upgrades to Core Lightning often change the database: once this is done,
+downgrades are not generally possible.  By default, Core Lightning will
+exit with an error rather than upgrade, unless this is an official released
+version.  If you really want to upgrade to a non-release version, you can
+set this to *true* (or *false* to never allow a non-reversible upgrade!).
+
 ### Bitcoin control options:
+
+Bitcoin control options:
 
 * **network**=*NETWORK*
 

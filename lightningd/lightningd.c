@@ -213,6 +213,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->autolisten = true;
 	ld->reconnect = true;
 	ld->try_reexec = false;
+	ld->db_upgrade_ok = NULL;
 
 	/*~ This is from ccan/timer: it is efficient for the case where timers
 	 * are deleted before expiry (as is common with timeouts) using an

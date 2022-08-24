@@ -221,6 +221,9 @@ struct lightningd {
 	 * FEERATE_PENALTY). */
 	u32 *force_feerates;
 
+	/* If they force db upgrade on or off this is set. */
+	bool *db_upgrade_ok;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon/plugin. */
 	const char *dev_debug_subprocess;

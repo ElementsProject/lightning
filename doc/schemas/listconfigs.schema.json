@@ -137,6 +137,10 @@
       "type": "u16",
       "description": "`experimental-websocket-port` field from config or cmdline, or default"
     },
+    "database-upgrade": {
+      "type": "boolean",
+      "description": "`database-upgrade` field from config or cmdline"
+    },
     "rgb": {
       "type": "hex",
       "description": "`rgb` field from config or cmdline, or default",
