@@ -1,8 +1,7 @@
 #!/usr/bin/make
 
-.PHONY: bdist sdist release check check-source check-flake8 check-mypy
 PKG=testing
-VERSION = $(shell python3 -c 'from pyln import ${PKG};print(${PKG}.__version__)')
+VERSION := $(shell poetry version -s)
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
@@ -16,7 +15,14 @@ ARTEFACTS = $(BDIST_FILE) $(SDIST_FILE)
 
 check: check-source check-pytest
 
-check-source: check-flake8 check-mypy
+check-source: check-flake8 check-mypy check-version
+
+# We want to create an env for this directory.
+check-version:
+	poetry env remove -q python3 || true
+	poetry env use python3
+	poetry install
+	[ "`poetry run python3 -c 'from pyln import $(PKG); print($(PKG).__version__)'`" = "$(VERSION)" ] || exit 1
 
 check-flake8:
 	flake8 --ignore=E501,E731,W503,E741  --exclude '*_pb2*.py,grpc2py.py' pyln tests
@@ -27,33 +33,15 @@ check-pytest:
 check-mypy:
 #	MYPYPATH=$(PYTHONPATH) mypy --namespace-packages --follow-imports=skip tests pyln
 
-pyproject.toml: pyln/${PKG}/__init__.py
-	poetry version ${VERSION}
+# Having versions in two places sucks, but so does every other option :(
+# See https://github.com/python-poetry/poetry/issues/144
+upgrade-version:
+	if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
+	poetry version $(NEW_VERSION)
+	sed 's/^__version__ = .*/__version__ = "$(NEW_VERSION)"/' < pyln/$(PKG)/__init__.py > pyln/$(PKG)/__init__.py.new && mv pyln/$(PKG)/__init__.py.new pyln/$(PKG)/__init__.py
 
-$(SDIST_FILE) $(BDIST_FILE): pyproject.toml
+$(SDIST_FILE) $(BDIST_FILE):
 	poetry build
 
-test-release: check $(ARTEFACTS) pyproject.toml
-	# No way of saying "it's ok if files exist" yet
-	poetry publish --repository testpypi || /bin/true
-	echo Sleeping for PyPI index to update
-	sleep 10
-
-	# Generate a requirements.txt file, needed for us to download requirements from the prod pypi instead of the test pypi, since some packages are not published to test pypi.
-	poetry export -f requirements.txt --output requirements.txt --without-hashes
-
-	# Create a test virtualenv, install from the testpypi and run the
-	# tests against it (make sure not to use any virtualenv that may have
-	# pyln-${PKG} already installed).
-	virtualenv testpypi --python=/usr/bin/python3 --download --always-copy --clear
-	testpypi/bin/python3 -m pip install -r requirements.txt pytest-timeout
-	testpypi/bin/python3 -m pip install -I --index-url https://test.pypi.org/simple/ --no-deps pyln-${PKG}==${VERSION}
-	testpypi/bin/python3 -c "from pyln import ${PKG};assert(${PKG}.__version__ == '$(VERSION)')"
-	testpypi/bin/pytest tests
-	rm -rf testpypi
-
-prod-release: test-release $(ARTEFACTS)
-	python3 -m twine upload $(ARTEFACTS)
-
-clean:
-	rm -rf testpypi
+prod-release: check-version $(ARTEFACTS)
+	poetry publish
