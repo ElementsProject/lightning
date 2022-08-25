@@ -53,7 +53,7 @@ jobs:
       run: |
         export VERSION=$(git describe --abbrev=0).post$(git describe --abbrev=1 | awk -F "-" '{print $2}')
         cd ${{ env.WORKDIR}}
-        poetry version $VERSION
+        make upgrade-version NEW_VERSION=$VERSION
         poetry build
 
     - name: Publish distribution 📦 to Test PyPI
@@ -74,6 +74,6 @@ jobs:
       run: |
         cd ${{ env.WORKDIR}}
         export VERSION=$(git describe --abbrev=0)
-        poetry version $VERSION
+        make upgrade-version NEW_VERSION=$VERSION
         poetry config repositories.testpypi https://test.pypi.org/legacy/
         poetry publish --repository testpypi --no-interaction
