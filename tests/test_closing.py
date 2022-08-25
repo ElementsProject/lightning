@@ -12,6 +12,7 @@ from utils import (
 )
 
 import os
+import logging
 import queue
 import pytest
 import re
@@ -1192,8 +1193,9 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
     # push some money so that 1 + 4 can both send htlcs
     inv = l2.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l1.rpc.pay(inv['bolt11'])
-    l1.rpc.waitsendpay(inv['payment_hash'])
+    res = l1.rpc.pay(inv['bolt11'])
+    logging.info(f"Result pay command {res}")
+    l1.rpc.waitsendpay(inv['payment_hash'], partid=res["parts"])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
     l2.rpc.pay(inv['bolt11'])
