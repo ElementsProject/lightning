@@ -24,14 +24,15 @@ jobs:
             WORKDIR: contrib/pyln-testing
           - PACKAGE: pyln-proto
             WORKDIR: contrib/pyln-proto
-          - PACKAGE: pyn-bolt1
-            WORKDIR: contrib/pyln-spec/bolt1/
-          - PACKAGE: pyn-bolt2
-            WORKDIR: contrib/pyln-spec/bolt2/
-          - PACKAGE: pyn-bolt4
-            WORKDIR: contrib/pyln-spec/bolt4/
-          - PACKAGE: pyn-bolt7
-            WORKDIR: contrib/pyln-spec/bolt7/
+          # Bolt packages are handled differently
+          #- PACKAGE: pyn-bolt1
+          #  WORKDIR: contrib/pyln-spec/bolt1/
+          #- PACKAGE: pyn-bolt2
+          #  WORKDIR: contrib/pyln-spec/bolt2/
+          #- PACKAGE: pyn-bolt4
+          #  WORKDIR: contrib/pyln-spec/bolt4/
+          #- PACKAGE: pyn-bolt7
+          #  WORKDIR: contrib/pyln-spec/bolt7/
     steps:
     - uses: actions/checkout@master
       with:
