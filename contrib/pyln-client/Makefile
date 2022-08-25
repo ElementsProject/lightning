@@ -19,7 +19,7 @@ check-source: check-flake8 check-mypy check-version
 
 # We want to create an env for this directory.
 check-version:
-	poetry env remove python3 || true
+	poetry env remove -q python3 || true
 	poetry env use python3
 	poetry install
 	[ "`poetry run python3 -c 'from pyln import $(PKG); print($(PKG).__version__)'`" = "$(VERSION)" ] || exit 1
@@ -44,5 +44,4 @@ $(SDIST_FILE) $(BDIST_FILE):
 	poetry build
 
 prod-release: check-version $(ARTEFACTS)
-	#Help Christian!
-	#poetry publish
+	poetry publish
