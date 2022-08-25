@@ -48,6 +48,10 @@ jobs:
       run: >-
         python -m pip install build poetry --user
 
+    - name: Check version tag
+      run: >-
+        git describe --always --dirty=-modded --abbrev=7
+
     - name: Build a binary wheel and a source tarball
       env:
         WORKDIR: ${{ matrix.WORKDIR }}
