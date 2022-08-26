@@ -9,7 +9,7 @@
   ],
   "properties": {
     "satoshi": {
-      "type": "msat"
+      "type": "msat_or_all"
     },
     "feerate": {
       "type": "feerate"

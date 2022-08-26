@@ -988,7 +988,7 @@ message KeysendExtratlvs {
 }
 
 message FundpsbtRequest {
-	Amount satoshi = 1;
+	AmountOrAll satoshi = 1;
 	Feerate feerate = 2;
 	uint32 startweight = 3;
 	optional uint32 minconf = 4;
