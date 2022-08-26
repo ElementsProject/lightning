@@ -899,7 +899,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundpsbtRequest {
 	    #[serde(alias = "satoshi")]
-	    pub satoshi: Amount,
+	    pub satoshi: AmountOrAll,
 	    #[serde(alias = "feerate")]
 	    pub feerate: Feerate,
 	    #[serde(alias = "startweight")]
