@@ -66,4 +66,4 @@ RUN pip3 install --upgrade pip && \
 	pytest-test-groups==1.0.3 \
 	flake8==3.5.0 \
 	pytest-rerunfailures==3.1 \
-	mrkd==0.1.6
+        mistune==2.0.4
