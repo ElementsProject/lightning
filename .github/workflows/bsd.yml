@@ -63,7 +63,7 @@ jobs:
             blinker \
             flake8 \
             mako \
-            mrkd \
+            mistune \
             pytest-sentry \
             pytest-test-groups==1.0.3 \
             pytest-custom-exit-code==0.3.0 \
