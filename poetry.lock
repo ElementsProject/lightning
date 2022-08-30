@@ -729,7 +729,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "5b38c16f142fa9bee4acbe34e4db65d03a8b467c137f40252e415a280b05e414"
+content-hash = "1b53c9ce36fd80e287136fff6be0fab3830690e4c2affdf8fbd20838a8ca208e"
 
 [metadata.files]
 asn1crypto = [
