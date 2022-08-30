@@ -96,7 +96,7 @@ This will put you in a new shell to enter the following commands:
     make
     make check VALGRIND=0
 
-optionaly you can consider to use the `-j$(nproc)` in front of the `make` command to speed up the compilation.
+optionaly you can consider adding the `-j$(nproc)` flag after the `make` command to speed up the compilation.
 
 Running lightning:
 
