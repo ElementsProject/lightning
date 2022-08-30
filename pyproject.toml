@@ -10,9 +10,10 @@ python = "^3.7"
 pyln-client = { path = "./contrib/pyln-client", develop = true }
 pyln-proto = { path = "./contrib/pyln-proto", develop = true }
 Mako = "^1.1.6"
-mistune = "2.0.4"
+mistune = "^2.0.4"
 websocket-client = "^1.2.3"
 grpcio-tools = "^1.44.0"
+Flask = "2.2.2"
 
 [tool.poetry.dev-dependencies]
 # Test dependencies and inherited dependencies belong here
