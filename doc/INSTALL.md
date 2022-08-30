@@ -88,6 +88,9 @@ To build core lightning for development purpose you can use the following comman
 
     pip3 install poetry
     poetry shell
+
+This will put you in a new shell to enter the following commands:
+
     poetry install
     ./configure --enable-developer
     make
