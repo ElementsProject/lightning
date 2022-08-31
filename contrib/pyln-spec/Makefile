@@ -9,6 +9,7 @@ BASEVERSION := $(shell echo $(GITDESCRIBE) | sed 's/^v//' | sed 's/-.*//')
 POSTVERSION := $(shell echo $(GITDESCRIBE) | sed 's/[^-]*-\([^-]*\)-.*/\1/')
 # This maintains -dirty, if present.
 GITVERSION := $(shell echo $(GITDESCRIBE) | sed 's/.*-g//')
+IGNORE := text.py,.venv
 
 BOLTS := 1 2 4 7
 
@@ -24,14 +25,14 @@ check-source-flake8: $(DIRS:%=check-source-flake8-%)
 check-source-mypy: $(DIRS:%=check-source-mypy-%)
 
 check-source-flake8-%:
-	cd $* && flake8 --ignore=E501,E731,W503,E741 --exclude=text.py
+	cd $* && flake8 --ignore=E501,E731,W503,E741 --exclude=${IGNORE}
 
 # mypy . does not recurse.  I have no idea why...
 check-source-mypy-%:
-	cd $* && mypy --ignore-missing-imports `find * -name '*.py'`
+	cd $* && poetry run mypy --ignore-missing-imports `find * -name '*.py'`
 
 # Given a bolt number and a variable, get the value from inside the package.
-extract = $(shell python3 -c 'from pyln.spec import bolt$1 as bolt;print(bolt.$2)')
+extract = $(shell PYTHONPATH=bolt$1 python3 -c 'from pyln.spec import bolt$1 as bolt;print(bolt.$2)')
 # Get the version for this bolt
 version = $(call extract,$1,__version__)
 
