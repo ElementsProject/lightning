@@ -126,8 +126,7 @@ static bool db_migrate(struct plugin *p, struct db *db, bool *created)
 	while (current < available) {
 		current++;
 		if (db_migrations[current].sql) {
-			struct db_stmt *stmt =
-				db_prepare_v2(db, db_migrations[current].sql);
+			stmt = db_prepare_v2(db, db_migrations[current].sql);
 			db_exec_prepared_v2(take(stmt));
 		}
 		if (db_migrations[current].func)
