@@ -816,6 +816,56 @@ static void json_add_policy(struct json_stream *stream,
 	}
 }
 
+char *whitelist_subcommand(const char *arg, bool is_add)
+{
+	if (streq(arg, "add"))
+		is_add = true;
+	else if (streq(arg, "rm"))
+		is_add = false;
+	else
+		return tal_fmt(NULL, "'%s' is not a valid option"
+			       " (match, available, fixed)",
+			       arg);
+	return NULL;
+}
+
+static struct command_result *
+param_whitelist_subcommand(struct command *cmd, const char *name,
+		 const char *buffer, const jsmntok_t *tok,
+		 bool is_add)
+{
+	char *subcommand_str, *err;
+
+	*opt = tal(cmd, enum funder_opt);
+	subcommand_str = tal_strndup(cmd, buffer + tok->start,
+			      tok->end - tok->start);
+
+	err = whitelist_subcommand(subcommand_str, is_add)
+	// err = funding_option(opt_str, *opt);
+	if (err)
+		return command_fail_badparam(cmd, name, buffer, tok, err);
+
+	return NULL;
+}
+
+static struct command_result *
+param_whitelist_pubkeys(struct command *cmd, const char *name,
+		 const char *buffer, const jsmntok_t *tok,
+		 bool is_add)
+{
+	char *subcommand_str, *err;
+
+	*opt = tal(cmd, enum funder_opt);
+	subcommand_str = tal_strndup(cmd, buffer + tok->start,
+			      tok->end - tok->start);
+
+	err = whitelist_subcommand(subcommand_str, is_add)
+	// err = funding_option(opt_str, *opt);
+	if (err)
+		return command_fail_badparam(cmd, name, buffer, tok, err);
+
+	return NULL;
+}
 static struct command_result *
 param_funder_opt(struct command *cmd, const char *name,
 		 const char *buffer, const jsmntok_t *tok,
@@ -926,6 +976,69 @@ leaserates_set(struct command *cmd, const char *buf,
 	res = jsonrpc_stream_success(cmd);
 	json_add_policy(res, policy);
 	return command_finished(cmd, res);
+}
+
+static struct command_result *
+json_funder_whitelist(struct command *cmd,
+		  const char *buf,
+		  const jsmntok_t *params)
+{
+	bool *is_add;
+	if (!param(cmd, buf, params,
+		p_req("subcommand", param_whitelist_subcommand, &is_add),
+		p_req("pubkeys", param_whitelist_pubkeys, &opt),
+		NULL
+	))
+	return command_param_failed();
+
+	policy->opt = *opt;
+	policy->mod = *mod;
+	policy->min_their_funding = *min_their_funding;
+	policy->max_their_funding = *max_their_funding;
+	policy->per_channel_min = *per_channel_min;
+	policy->per_channel_max = *per_channel_max;
+	policy->reserve_tank = *reserve_tank;
+	policy->fuzz_factor = *fuzz_factor;
+	policy->fund_probability = *fund_probability;
+	policy->leases_only = *leases_only;
+
+	res = parse_lease_rates(cmd, buf, params,
+				policy, current_policy,
+				lease_fee_basis,
+				lease_fee_sats,
+				funding_weight,
+				chan_fee_ppt,
+				channel_fee_msats);
+	if (res)
+		return res;
+
+	err = funder_check_policy(policy);
+	if (err) {
+		tal_free(policy);
+		return command_done_err(cmd, JSONRPC2_INVALID_PARAMS,
+					err, NULL);
+	}
+
+	tal_free(current_policy);
+	current_policy = tal_steal(NULL, policy);
+
+	/* Update lightningd, also */
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "setleaserates",
+				    &leaserates_set,
+				    &forward_error,
+				    current_policy);
+
+	if (current_policy->rates)
+		json_add_lease_rates(req->js, current_policy->rates);
+	else {
+		/* Add empty rates to turn off */
+		struct lease_rates rates;
+		memset(&rates, 0, sizeof(rates));
+		json_add_lease_rates(req->js, &rates);
+	}
+
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *
@@ -1043,6 +1156,15 @@ static const struct plugin_command commands[] = {
 		" incoming channel open requests. Responds with list"
 		" of current configs.",
 		json_funderupdate
+	},
+	{
+		"funder-whitelist",
+		"liquidity",
+		"Add or remove funder whitelisted nodes",
+		"Update current settings. Modifies how node reacts to"
+		" incoming channel open requests. Responds with list"
+		" of current configs.",
+		json_funder_whitelist
 	},
 };
 
@@ -1227,6 +1349,15 @@ static char *amount_sat_or_u64_option(const char *arg, u64 *amt)
 	return NULL;
 }
 
+static char *
+option_funder_node_whitelist(const char *arg,
+						struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = default_lease_rates(policy);
+	return u16_option(arg, &policy->rates->channel_fee_max_proportional_thousandths);
+}
+
 int main(int argc, char **argv)
 {
 	setup_locale();
@@ -1336,6 +1467,12 @@ int main(int argc, char **argv)
 				  " we'll charge for funds routed through a"
 				  " leased channel. Note: 1ppt = 1,000ppm",
 				  option_channel_fee_proportional_thousandths_max, current_policy),
+		    plugin_option("funder-node-whitelist",
+				  "string",
+				  "Comma-separated list of public keys that"
+				  " are allowed to open dual-funded"
+				  " channels with this node."
+				  option_funder_node_whitelist, current_policy),
 		    NULL);
 
 	tal_free(current_policy);
