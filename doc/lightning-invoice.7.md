@@ -79,17 +79,17 @@ RETURN VALUE
 On success, an object is returned, containing:
 
 - **bolt11** (string): the bolt11 string
-- **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
-- **payment_secret** (secret): the *payment_secret* to place in the onion (always 64 characters)
-- **expires_at** (u64): UNIX timestamp of when invoice expires
+- **payment\_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment\_secret** (secret): the *payment_secret* to place in the onion (always 64 characters)
+- **expires\_at** (u64): UNIX timestamp of when invoice expires
 
 The following warnings may also be returned:
 
-- **warning_capacity**: even using all possible channels, there's not enough incoming capacity to pay this invoice.
-- **warning_offline**: there would be enough incoming capacity, but some channels are offline, so there isn't.
-- **warning_deadends**: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't.
-- **warning_private_unused**: there would be enough incoming capacity, but some channels are unannounced and *exposeprivatechannels* is *false*, so there isn't.
-- **warning_mpp**: there is sufficient capacity, but not in a single channel, so the payer will have to use multi-part payments.
+- **warning\_capacity**: even using all possible channels, there's not enough incoming capacity to pay this invoice.
+- **warning\_offline**: there would be enough incoming capacity, but some channels are offline, so there isn't.
+- **warning\_deadends**: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't.
+- **warning\_private\_unused**: there would be enough incoming capacity, but some channels are unannounced and *exposeprivatechannels* is *false*, so there isn't.
+- **warning\_mpp**: there is sufficient capacity, but not in a single channel, so the payer will have to use multi-part payments.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -119,4 +119,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c040289df896608002a560a3bf4213f155ca81aacfe2de45771c2dcba1517b98)
+[comment]: # ( SHA256STAMP:8e72905b6a11d025e5955b9997213d8219e1290cc26307fe517a3e0f19cc818e)

@@ -35,19 +35,19 @@ On success, an object containing **channels** is returned.  It is an array of ob
 
 - **source** (pubkey): the source node
 - **destination** (pubkey): the destination node
-- **short_channel_id** (short_channel_id): short channel id of channel
+- **short\_channel\_id** (short_channel_id): short channel id of channel
 - **public** (boolean): true if this is announced (otherwise it must be our channel)
-- **amount_msat** (msat): the total capacity of this channel (always a whole number of satoshis)
-- **message_flags** (u8): as defined by BOLT #7
-- **channel_flags** (u8): as defined by BOLT #7
+- **amount\_msat** (msat): the total capacity of this channel (always a whole number of satoshis)
+- **message\_flags** (u8): as defined by BOLT #7
+- **channel\_flags** (u8): as defined by BOLT #7
 - **active** (boolean): true unless source has disabled it, or it's a local channel and the peer is disconnected or it's still opening or closing
-- **last_update** (u32): UNIX timestamp on the last channel_update from *source*
-- **base_fee_millisatoshi** (u32): Base fee changed by *source* to use this channel
-- **fee_per_millionth** (u32): Proportional fee changed by *source* to use this channel, in parts-per-million
+- **last\_update** (u32): UNIX timestamp on the last channel_update from *source*
+- **base\_fee\_millisatoshi** (u32): Base fee changed by *source* to use this channel
+- **fee\_per\_millionth** (u32): Proportional fee changed by *source* to use this channel, in parts-per-million
 - **delay** (u32): The number of blocks delay required by *source* to use this channel
-- **htlc_minimum_msat** (msat): The smallest payment *source* will allow via this channel
+- **htlc\_minimum\_msat** (msat): The smallest payment *source* will allow via this channel
 - **features** (hex): BOLT #9 features bitmap for this channel
-- **htlc_maximum_msat** (msat, optional): The largest payment *source* will allow via this channel
+- **htlc\_maximum\_msat** (msat, optional): The largest payment *source* will allow via this channel
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -79,4 +79,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:332e2a7c3f544a1cfc2a1a5e0728d54756249852f4060ca9fd47c137263b1e9d)
+[comment]: # ( SHA256STAMP:2c4d604d1cec7372129bc863b1e056943abb24d6a354c0e9ae76d8fdecfd4953)

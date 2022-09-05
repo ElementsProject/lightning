@@ -20,19 +20,19 @@ RETURN VALUE
 On success, an object containing **txs** is returned.  It is an array of objects, where each object contains:
 
 - **txid** (txid): transaction id
-- **fees_paid_msat** (msat): Amount paid in sats for this tx
+- **fees\_paid\_msat** (msat): Amount paid in sats for this tx
 - **outputs** (array of objects):
   - **account** (string): Account this output affected
   - **outnum** (u32): Index of output
-  - **output_value_msat** (msat): Value of the output
+  - **output\_value\_msat** (msat): Value of the output
   - **currency** (string): human-readable bech32 part for this coin type
-  - **credit_msat** (msat, optional): Amount credited to account
-  - **debit_msat** (msat, optional): Amount debited from account
-  - **originating_account** (string, optional): Account this output originated from
-  - **output_tag** (string, optional): Description of output creation event
-  - **spend_tag** (string, optional): Description of output spend event
-  - **spending_txid** (txid, optional): Transaction this output was spent in
-  - **payment_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
+  - **credit\_msat** (msat, optional): Amount credited to account
+  - **debit\_msat** (msat, optional): Amount debited from account
+  - **originating\_account** (string, optional): Account this output originated from
+  - **output\_tag** (string, optional): Description of output creation event
+  - **spend\_tag** (string, optional): Description of output spend event
+  - **spending\_txid** (txid, optional): Transaction this output was spent in
+  - **payment\_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
 - **blockheight** (u32, optional): Blockheight of transaction
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -52,4 +52,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a89c90315d210fcf1fd45bf4edef04a72165834867f860447e33d89840eac59f)
+[comment]: # ( SHA256STAMP:022a11cd4bdaec7b1b39e30faaf5489de1db08684a3952b3a3152343e91c8c4c)

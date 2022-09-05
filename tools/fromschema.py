@@ -69,11 +69,16 @@ def output_range(properties):
             output(' (one of {})'.format(', '.join([json_value(p) for p in properties['enum']])))
 
 
+def fmt_propname(propname):
+    """Pretty-print format a property name"""
+    return '**{}**'.format(propname.replace('_', '\\_'))
+
+
 def output_member(propname, properties, is_optional, indent, print_type=True, prefix=None):
     """Generate description line(s) for this member"""
 
     if prefix is None:
-        prefix = '- **{}**'.format(propname)
+        prefix = '- ' + fmt_propname(propname)
     output(indent + prefix)
 
     # We make them explicitly note if they don't want a type!
@@ -179,7 +184,7 @@ def output_members(sub, indent=''):
 
         # "required" are fields that simply must be present
         for r in ifclause['if'].get('required', []):
-            conditions.append('**{}** is present'.format(r))
+            conditions.append(fmt_propname(r) + ' is present')
 
         # "properties" are enums of field values
         for tag, vals in ifclause['if'].get('properties', {}).items():
@@ -187,7 +192,7 @@ def output_members(sub, indent=''):
             assert 'description' not in vals
             whichvalues = vals['enum']
 
-            cond = "**{}** is".format(tag)
+            cond = fmt_propname(tag) + " is"
             if len(whichvalues) == 1:
                 cond += " {}".format(json_value(whichvalues[0]))
             else:
@@ -229,12 +234,12 @@ def generate_from_schema(schema):
         output('On success, an empty object is returned.\n')
         sub = schema
     elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'object':
-        output('On success, an object containing **{}** is returned.  It is an object containing:\n\n'.format(toplevels[0]))
+        output('On success, an object containing {} is returned.  It is an object containing:\n\n'.format(fmt_propname(toplevels[0])))
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
         sub = props[toplevels[0]]
     elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'array':
-        output('On success, an object containing **{}** is returned.  It is an array of objects, where each object contains:\n\n'.format(toplevels[0]))
+        output('On success, an object containing {} is returned.  It is an array of objects, where each object contains:\n\n'.format(fmt_propname(toplevels[0])))
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
         sub = props[toplevels[0]]['items']
@@ -247,7 +252,7 @@ def generate_from_schema(schema):
     if warnings:
         outputs(['\n', 'The following warnings may also be returned:\n\n'])
         for w, desc in warnings:
-            output("- **{}**: {}\n".format(w, desc))
+            output("- {}: {}\n".format(fmt_propname(w), desc))
 
     # GH markdown rendering gets upset if there isn't a blank line
     # between a list and the end comment.

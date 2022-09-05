@@ -21,30 +21,30 @@ RETURN VALUE
 ------------
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
-On success, an object containing **channels_apy** is returned.  It is an array of objects, where each object contains:
+On success, an object containing **channels\_apy** is returned.  It is an array of objects, where each object contains:
 
 - **account** (string): The account name. If the account is a channel, the channel_id. The 'net' entry is the rollup of all channel accounts
-- **routed_out_msat** (msat): Sats routed (outbound)
-- **routed_in_msat** (msat): Sats routed (inbound)
-- **lease_fee_paid_msat** (msat): Sats paid for leasing inbound (liquidity ads)
-- **lease_fee_earned_msat** (msat): Sats earned for leasing outbound (liquidity ads)
-- **pushed_out_msat** (msat): Sats pushed to peer at open
-- **pushed_in_msat** (msat): Sats pushed in from peer at open
-- **our_start_balance_msat** (msat): Starting balance in channel at funding. Note that if our start ballance is zero, any _initial field will be omitted (can't divide by zero)
-- **channel_start_balance_msat** (msat): Total starting balance at funding
-- **fees_out_msat** (msat): Fees earned on routed outbound
-- **utilization_out** (string): Sats routed outbound / total start balance
-- **utilization_in** (string): Sats routed inbound / total start balance
-- **apy_out** (string): Fees earned on outbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
-- **apy_in** (string): Fees earned on inbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
-- **apy_total** (string): Total fees earned on routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
-- **fees_in_msat** (msat, optional): Fees earned on routed inbound
-- **utilization_out_initial** (string, optional): Sats routed outbound / our start balance
-- **utilization_in_initial** (string, optional): Sats routed inbound / our start balance
-- **apy_out_initial** (string, optional): Fees earned on outbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
-- **apy_in_initial** (string, optional): Fees earned on inbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
-- **apy_total_initial** (string, optional): Total fees earned on routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
-- **apy_lease** (string, optional): Lease fees earned over total amount leased for the lease term, amortized to a year (APY). Only appears if channel was leased out by us
+- **routed\_out\_msat** (msat): Sats routed (outbound)
+- **routed\_in\_msat** (msat): Sats routed (inbound)
+- **lease\_fee\_paid\_msat** (msat): Sats paid for leasing inbound (liquidity ads)
+- **lease\_fee\_earned\_msat** (msat): Sats earned for leasing outbound (liquidity ads)
+- **pushed\_out\_msat** (msat): Sats pushed to peer at open
+- **pushed\_in\_msat** (msat): Sats pushed in from peer at open
+- **our\_start\_balance\_msat** (msat): Starting balance in channel at funding. Note that if our start ballance is zero, any _initial field will be omitted (can't divide by zero)
+- **channel\_start\_balance\_msat** (msat): Total starting balance at funding
+- **fees\_out\_msat** (msat): Fees earned on routed outbound
+- **utilization\_out** (string): Sats routed outbound / total start balance
+- **utilization\_in** (string): Sats routed inbound / total start balance
+- **apy\_out** (string): Fees earned on outbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
+- **apy\_in** (string): Fees earned on inbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
+- **apy\_total** (string): Total fees earned on routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
+- **fees\_in\_msat** (msat, optional): Fees earned on routed inbound
+- **utilization\_out\_initial** (string, optional): Sats routed outbound / our start balance
+- **utilization\_in\_initial** (string, optional): Sats routed inbound / our start balance
+- **apy\_out\_initial** (string, optional): Fees earned on outbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
+- **apy\_in\_initial** (string, optional): Fees earned on inbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
+- **apy\_total\_initial** (string, optional): Total fees earned on routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
+- **apy\_lease** (string, optional): Lease fees earned over total amount leased for the lease term, amortized to a year (APY). Only appears if channel was leased out by us
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -65,4 +65,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c86f82cd78e639f70e640c4d36e0a28a5087a74c931207501d9121049ff9b5d2)
+[comment]: # ( SHA256STAMP:296069892023c371e26305e8ab54d04a50aefeeff37a8a465d07893a8c39e61c)

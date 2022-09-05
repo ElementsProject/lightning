@@ -31,16 +31,16 @@ On success, an object is returned, containing:
 - **id** (pubkey): The public key unique to this node
 - **alias** (string): The fun alias this node will advertize (up to 32 characters)
 - **color** (hex): The favorite RGB color this node will advertize (always 6 characters)
-- **num_peers** (u32): The total count of peers, connected or with channels
-- **num_pending_channels** (u32): The total count of channels being opened
-- **num_active_channels** (u32): The total count of channels in normal state
-- **num_inactive_channels** (u32): The total count of channels waiting for opening or closing transactions to be mined
+- **num\_peers** (u32): The total count of peers, connected or with channels
+- **num\_pending\_channels** (u32): The total count of channels being opened
+- **num\_active\_channels** (u32): The total count of channels in normal state
+- **num\_inactive\_channels** (u32): The total count of channels waiting for opening or closing transactions to be mined
 - **version** (string): Identifies what bugs you are running into
 - **lightning-dir** (string): Identifies where you can find the configuration and other related files
 - **blockheight** (u32): The highest block height we've learned
 - **network** (string): represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)
-- **fees_collected_msat** (msat): Total routing fees collected by this node
-- **our_features** (object, optional): Our BOLT #9 feature bits (as hexstring) for various contexts:
+- **fees\_collected\_msat** (msat): Total routing fees collected by this node
+- **our\_features** (object, optional): Our BOLT #9 feature bits (as hexstring) for various contexts:
   - **init** (hex): features (incl. globalfeatures) in our init message, these also restrict what we offer in open_channel or accept in accept_channel
   - **node** (hex): features in our node_announcement message
   - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel_announcement message
@@ -60,8 +60,8 @@ On success, an object is returned, containing:
 
 The following warnings may also be returned:
 
-- **warning_bitcoind_sync**: Bitcoind is not up-to-date with network.
-- **warning_lightningd_sync**: Lightningd is still loading latest blocks from bitcoind.
+- **warning\_bitcoind\_sync**: Bitcoind is not up-to-date with network.
+- **warning\_lightningd\_sync**: Lightningd is still loading latest blocks from bitcoind.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -131,4 +131,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:1d3258e769579e140755acc9808b9008b0f81fc0ded50311ee64ba628aee04ad)
+[comment]: # ( SHA256STAMP:a517e840e673273a35128e8168d8f58f7795bf0bcfca00f25b859f6e171b08a0)

@@ -68,18 +68,18 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **payment_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
-- **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
-- **created_at** (number): the UNIX timestamp showing when this payment was initiated
+- **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **created\_at** (number): the UNIX timestamp showing when this payment was initiated
 - **parts** (u32): how many attempts this took
-- **amount_msat** (msat): Amount the recipient received
-- **amount_sent_msat** (msat): Total amount we sent (including fees)
+- **amount\_msat** (msat): Amount the recipient received
+- **amount\_sent\_msat** (msat): Total amount we sent (including fees)
 - **status** (string): status of payment (always "complete")
 - **destination** (pubkey, optional): the final destination of the payment
 
 The following warnings may also be returned:
 
-- **warning_partial_completion**: Not all parts of a multi-part payment have completed
+- **warning\_partial\_completion**: Not all parts of a multi-part payment have completed
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -116,4 +116,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:17d0a04f94d00f4f842cd1924f490678167498559098b27bc4ac29dd907c3af1)
+[comment]: # ( SHA256STAMP:6aca5a797d5e9bca63bbdc478d5ee0ce1dde592d3a4a4247f75d1831c8e6f38a)

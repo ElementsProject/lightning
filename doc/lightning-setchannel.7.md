@@ -68,16 +68,16 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **channels** is returned.  It is an array of objects, where each object contains:
 
-- **peer_id** (pubkey): The node_id of the peer
-- **channel_id** (hex): The channel_id of the channel (always 64 characters)
-- **fee_base_msat** (msat): The resulting feebase (this is the BOLT #7 name)
-- **fee_proportional_millionths** (u32): The resulting feeppm (this is the BOLT #7 name)
-- **minimum_htlc_out_msat** (msat): The resulting htlcmin we will advertize (the BOLT #7 name is htlc_minimum_msat)
-- **maximum_htlc_out_msat** (msat): The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)
-- **short_channel_id** (short_channel_id, optional): the short_channel_id (if locked in)
+- **peer\_id** (pubkey): The node_id of the peer
+- **channel\_id** (hex): The channel_id of the channel (always 64 characters)
+- **fee\_base\_msat** (msat): The resulting feebase (this is the BOLT #7 name)
+- **fee\_proportional\_millionths** (u32): The resulting feeppm (this is the BOLT #7 name)
+- **minimum\_htlc\_out\_msat** (msat): The resulting htlcmin we will advertize (the BOLT #7 name is htlc_minimum_msat)
+- **maximum\_htlc\_out\_msat** (msat): The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)
+- **short\_channel\_id** (short_channel_id, optional): the short_channel_id (if locked in)
 - the following warnings are possible:
-  - **warning_htlcmin_too_low**: The requested htlcmin was too low for this peer, so we set it to the minimum they will allow
-  - **warning_htlcmax_too_high**: The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity
+  - **warning\_htlcmin\_too\_low**: The requested htlcmin was too low for this peer, so we set it to the minimum they will allow
+  - **warning\_htlcmax\_too\_high**: The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -107,4 +107,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:f133a8053cf5b0d5f6d8823c62fceda134af24c43411307b764db3f3e2f4d261)
+[comment]: # ( SHA256STAMP:28a16d5b1392dd72f9d7a040ce8e37907114fbaf1aed106314fab3f9126afba2)

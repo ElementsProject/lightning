@@ -28,8 +28,8 @@ On success, an object containing **events** is returned.  It is an array of obje
 - **account** (string): The account name. If the account is a channel, the channel_id
 - **type** (string): Coin movement type (one of "onchain_fee", "chain", "channel")
 - **tag** (string): Description of movement
-- **credit_msat** (msat): Amount credited
-- **debit_msat** (msat): Amount debited
+- **credit\_msat** (msat): Amount credited
+- **debit\_msat** (msat): Amount debited
 - **currency** (string): human-readable bech32 part for this coin type
 - **timestamp** (u32): Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp
 
@@ -38,7 +38,7 @@ If **type** is "chain":
   - **outpoint** (string): The txid:outnum for this event
   - **blockheight** (u32): For chain events, blockheight this occured at
   - **origin** (string, optional): The account this movement originated from
-  - **payment_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
+  - **payment\_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
   - **txid** (txid, optional): The txid of the transaction that created this event
   - **description** (string, optional): The description of this event
 
@@ -48,10 +48,10 @@ If **type** is "onchain_fee":
 
 If **type** is "channel":
 
-  - **fees_msat** (msat, optional): Amount paid in fees
-  - **is_rebalance** (boolean, optional): Is this payment part of a rebalance
-  - **payment_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
-  - **part_id** (u32, optional): Counter for multi-part payments
+  - **fees\_msat** (msat, optional): Amount paid in fees
+  - **is\_rebalance** (boolean, optional): Is this payment part of a rebalance
+  - **payment\_id** (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
+  - **part\_id** (u32, optional): Counter for multi-part payments
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -71,4 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:50051a63881ea83154a36bbdccaf3915601574ed193ade6a5522260c85fa941c)
+[comment]: # ( SHA256STAMP:3b120f28969d50351823707c11f77a0264031b1ddec07794ac117b0e8e2d7a75)

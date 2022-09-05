@@ -26,7 +26,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **command_to_check** (string): the *command_to_check* argument
+- **command\_to\_check** (string): the *command_to_check* argument
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -41,4 +41,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:74e2865a8316ad266499fc9a0ce2aa7ce9794da90d7039f91150c0560df901f1)
+[comment]: # ( SHA256STAMP:bd1993b3b95a6c1a9e21873632a829514eb4e9d00ad5084bb099798c8977de06)
