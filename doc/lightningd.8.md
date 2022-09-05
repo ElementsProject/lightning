@@ -10,47 +10,47 @@ lightningd [--conf=<config-file>] [OPTIONS]
 DESCRIPTION
 -----------
 
-**lightningd** starts the C-Lightning daemon, which implements a
+**lightningd** starts the Core Lightning daemon, which implements a
 standards-compliant Lightning Network node.
 
 CONFIGURATION OPTIONS
 ---------------------
 
- **--conf**=*FILE*
+* **--conf**=*FILE*
 Specify configuration file. If not an absolute path, will be relative
 from the lightning-dir location. Defaults to *config*.
 
- **--lightning-dir**=*DIR*
-Set the directory for the C-Lightning daemon. Defaults to
+* **--lightning-dir**=*DIR*
+Set the directory for the Core Lightning daemon. Defaults to
 *$HOME/.lightning*.
 
 MORE OPTIONS
 ------------
 
 Command line options are mirrored as configuration options in the
-configuration file, so *foo* in the configuration file simply becomes
-**--foo** on the command line, and **foo=bar** becomes **--foo=bar**.
+configuration file, so `foo` in the configuration file simply becomes
+`--foo` on the command line, and `foo=bar` becomes `--foo=bar`.
 
 See lightningd-config(5) for a comprehensive list of all available
 options.
 
-LOGGING AND COMMANDING C-LIGHTNING
-----------------------------------
+LOGGING AND COMMANDING CORE LIGHTNING
+-------------------------------------
 
-By default, C-Lightning will log to the standard output.
+By default, Core Lightning will log to the standard output.
 To log to a specific file, use **--log-file**=*PATH*.
-Sending SIGHUP will cause C-Lightning to reopen this file,
+Sending SIGHUP will cause Core Lightning to reopen this file,
 for example to do log rotation.
 
-C-Lightning will set up a Unix domain socket for receiving
+Core Lightning will set up a Unix domain socket for receiving
 commands.
 By default this will be the file **lightning-rpc** in your
 specified **lightning-dir**.
-You can use lightning-cli(1) to send commands to C-Lightning
+You can use lightning-cli(1) to send commands to Core Lightning
 once **lightningd** has started; you need to match the
 **--lightning-dir** and **--rpc-file** options between them.
 
-Commands for C-Lightning are described in various manpages
+Commands for Core Lightning are described in various manpages
 in section 7, with the common prefix **lightning-**.
 
 QUICK START
@@ -63,9 +63,9 @@ directory containing your configuration.
 Your other main preparation would be to set up a mainnet Bitcoin
 fullnode, i.e. run a bitcoind(1) instance. The rest of this quick start
 guide will assume you are reckless and want to spend real funds on
-Lightning. Indicate *network=bitcoin* in your *config* file explicitly.
+Lightning: otherwise indicate *network=testnet* in your *config* file explicitly.
 
-C-Lightning needs to communicate with the Bitcoin Core RPC. You can set
+Core Lightning needs to communicate with the Bitcoin Core RPC. You can set
 this up using *bitcoin-datadir*, *bitcoin-rpcconnect*,
 *bitcoin-rpcport*, *bitcoin-rpcuser*, and *bitcoin-rpcpassword* options
 in your *config* file.
@@ -84,8 +84,8 @@ option.
 
 Check if things are working:
 
-    $ lightning-cli --lightning-dir=%HOME/.lightning help
-    $ lightning-cli --lightning-dir=%HOME/.lightning getinfo
+    $ lightning-cli --lightning-dir=$HOME/.lightning help
+    $ lightning-cli --lightning-dir=$HOME/.lightning getinfo
 
 The **getinfo** command in particular will return a *blockheight* field,
 which indicates the block height to which **lightningd** has been
@@ -142,11 +142,11 @@ and look at the *state* of the channel:
     $ lightning-cli listpeers $PUBLICKEY
 
 The channel will initially start with a *state* of
-*CHANNELD\_AWAITING\_LOCKIN*. You need to wait for the channel *state*
-to become *CHANNELD\_NORMAL*, meaning the funding transaction has been
+*CHANNELD\_AWAITING_LOCKIN*. You need to wait for the channel *state*
+to become *CHANNELD_NORMAL*, meaning the funding transaction has been
 confirmed deeply.
 
-Once the channel *state* is *CHANNELD\_NORMAL*, you can start paying
+Once the channel *state* is *CHANNELD_NORMAL*, you can start paying
 merchants over Lightning. Acquire a Lightning invoice from your favorite
 merchant, and use lightning-pay(7) to pay it:
 

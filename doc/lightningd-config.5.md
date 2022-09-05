@@ -19,14 +19,14 @@ ones, then command line options: later options override earlier ones
 except *addr* options and *log-level* with subsystems, which
 accumulate.
 
-*include * followed by a filename includes another configuration file at that
+`include` followed by a filename includes another configuration file at that
 point, relative to the current configuration file.
 
 All these options are mirrored as commandline arguments to
-lightningd(8), so *--foo* becomes simply *foo* in the configuration
-file, and *--foo=bar* becomes *foo=bar* in the configuration file.
+lightningd(8), so `--foo` becomes simply `foo` in the configuration
+file, and `--foo=bar` becomes `foo=bar` in the configuration file.
 
-Blank lines and lines beginning with *\#* are ignored.
+Blank lines and lines beginning with `#` are ignored.
 
 DEBUGGING
 ---------
@@ -43,231 +43,268 @@ OPTIONS
 
 ### General options
 
- **allow-deprecated-apis**=*BOOL*
-Enable deprecated options, JSONRPC commands, fields, etc. It defaults to
+* **allow-deprecated-apis**=*BOOL*
+
+  Enable deprecated options, JSONRPC commands, fields, etc. It defaults to
 *true*, but you should set it to *false* when testing to ensure that an
 upgrade won't break your configuration.
 
- **help**
-Print help and exit. Not very useful inside a configuration file, but
+* **help**
+
+  Print help and exit. Not very useful inside a configuration file, but
 fun to put in other's config files while their computer is unattended.
 
- **version**
-Print version and exit. Also useless inside a configuration file, but
+* **version**
+
+  Print version and exit. Also useless inside a configuration file, but
 putting this in someone's config file may convince them to read this man
 page.
 
-Bitcoin control options:
+### Bitcoin control options:
 
- **network**=*NETWORK*
-Select the network parameters (*bitcoin*, *testnet*, *signet*, or *regtest*).
+* **network**=*NETWORK*
+
+  Select the network parameters (*bitcoin*, *testnet*, *signet*, or *regtest*).
 This is not valid within the per-network configuration file.
 
- **mainnet**
-Alias for *network=bitcoin*.
+* **mainnet**
 
- **testnet**
-Alias for *network=testnet*.
+  Alias for *network=bitcoin*.
 
- **signet**
-Alias for *network=signet*.
+* **testnet**
 
- **bitcoin-cli**=*PATH* [plugin `bcli`]
-The name of *bitcoin-cli* executable to run.
+  Alias for *network=testnet*.
 
- **bitcoin-datadir**=*DIR* [plugin `bcli`]
-*-datadir* argument to supply to bitcoin-cli(1).
+* **signet**
 
- **bitcoin-rpcuser**=*USER* [plugin `bcli`]
-The RPC username for talking to bitcoind(1).
+  Alias for *network=signet*.
 
- **bitcoin-rpcpassword**=*PASSWORD* [plugin `bcli`]
-The RPC password for talking to bitcoind(1).
+* **bitcoin-cli**=*PATH* [plugin `bcli`]
 
- **bitcoin-rpcconnect**=*HOST* [plugin `bcli`]
-The bitcoind(1) RPC host to connect to.
+  The name of *bitcoin-cli* executable to run.
 
- **bitcoin-rpcport**=*PORT* [plugin `bcli`]
-The bitcoind(1) RPC port to connect to.
+* **bitcoin-datadir**=*DIR* [plugin `bcli`]
 
- **bitcoin-retry-timeout**=*SECONDS* [plugin `bcli`]
-Number of seconds to keep trying a bitcoin-cli(1) command. If the
+  *-datadir* argument to supply to bitcoin-cli(1).
+
+* **bitcoin-rpcuser**=*USER* [plugin `bcli`]
+
+  The RPC username for talking to bitcoind(1).
+
+* **bitcoin-rpcpassword**=*PASSWORD* [plugin `bcli`]
+
+  The RPC password for talking to bitcoind(1).
+
+* **bitcoin-rpcconnect**=*HOST* [plugin `bcli`]
+
+  The bitcoind(1) RPC host to connect to.
+
+* **bitcoin-rpcport**=*PORT* [plugin `bcli`]
+
+  The bitcoind(1) RPC port to connect to.
+
+* **bitcoin-retry-timeout**=*SECONDS* [plugin `bcli`]
+
+  Number of seconds to keep trying a bitcoin-cli(1) command. If the
 command keeps failing after this time, exit with a fatal error.
 
- **rescan**=*BLOCKS*
-Number of blocks to rescan from the current head, or absolute
+* **rescan**=*BLOCKS*
+
+  Number of blocks to rescan from the current head, or absolute
 blockheight if negative. This is only needed if something goes badly
 wrong.
 
 ### Lightning daemon options
 
- **lightning-dir**=*DIR*
-Sets the working directory. All files (except *--conf* and
+* **lightning-dir**=*DIR*
+
+  Sets the working directory. All files (except *--conf* and
 *--lightning-dir* on the command line) are relative to this.  This
 is only valid on the command-line, or in a configuration file specified
 by *--conf*.
 
- **subdaemon**=*SUBDAEMON*:*PATH*
-Specifies an alternate subdaemon binary.
+* **subdaemon**=*SUBDAEMON*:*PATH*
+
+  Specifies an alternate subdaemon binary.
 Current subdaemons are *channeld*, *closingd*,
 *connectd*, *gossipd*, *hsmd*, *onchaind*, and *openingd*.
 If the supplied path is relative the subdaemon binary is found in the
 working directory. This option may be specified multiple times.
 
- So, **subdaemon=hsmd:remote_signer** would use a
+  So, **subdaemon=hsmd:remote_signer** would use a
 hypothetical remote signing proxy instead of the standard *lightning_hsmd*
 binary.
 
- **pid-file**=*PATH*
-Specify pid file to write to.
+* **pid-file**=*PATH*
 
- **log-level**=*LEVEL*\[:*SUBSYSTEM*\]
-What log level to print out: options are io, debug, info, unusual,
+  Specify pid file to write to.
+
+* **log-level**=*LEVEL*\[:*SUBSYSTEM*\]
+
+  What log level to print out: options are io, debug, info, unusual,
 broken.  If *SUBSYSTEM* is supplied, this sets the logging level
 for any subsystem (or *nodeid*) containing that string. This option may be specified multiple times.
 Subsystems include:
 
-* *lightningd*: The main lightning daemon
-* *database*: The database subsystem
-* *wallet*: The wallet subsystem
-* *gossipd*: The gossip daemon
-* *plugin-manager*: The plugin subsystem
-* *plugin-P*: Each plugin, P = plugin path without directory
-* *hsmd*: The secret-holding daemon
-* *connectd*: The network connection daemon
-* *jsonrpc#FD*: Each JSONRPC connection, FD = file descriptor number
+  * *lightningd*: The main lightning daemon
 
+  * *database*: The database subsystem
 
-  The following subsystems exist for each channel, where N is an incrementing
-internal integer id assigned for the lifetime of the channel:
-* *openingd-chan#N*: Each opening / idling daemon
-* *channeld-chan#N*: Each channel management daemon
-* *closingd-chan#N*: Each closing negotiation daemon
-* *onchaind-chan#N*: Each onchain close handling daemon
+  * *wallet*: The wallet subsystem
 
+  * *gossipd*: The gossip daemon
 
+  * *plugin-manager*: The plugin subsystem
+
+  * *plugin-P*: Each plugin, P = plugin path without directory
+
+  * *hsmd*: The secret-holding daemon
+
+  * *connectd*: The network connection daemon
+
+  * *jsonrpc#FD*: Each JSONRPC connection, FD = file descriptor number
+
+  
+  The following subsystems exist for each channel, where N is an incrementing internal integer id assigned for the lifetime of the channel:
+
+  * *openingd-chan#N*: Each opening / idling daemon
+
+  * *channeld-chan#N*: Each channel management daemon
+
+  * *closingd-chan#N*: Each closing negotiation daemon
+
+  * *onchaind-chan#N*: Each onchain close handling daemon
+
+  
   So, **log-level=debug:plugin** would set debug level logging on all
 plugins and the plugin manager.  **log-level=io:chan#55** would set
 IO logging on channel number 55 (or 550, for that matter). 
 **log-level=debug:024b9a1fa8** would set debug logging for that channel
 (or any node id containing that string).
 
- **log-prefix**=*PREFIX*
-Prefix for all log lines: this can be customized if you want to merge logs
+* **log-prefix**=*PREFIX*
+
+  Prefix for all log lines: this can be customized if you want to merge logs
 with multiple daemons.  Usually you want to include a space at the end of *PREFIX*,
 as the timestamp follows immediately.
 
- **log-file**=*PATH*
-Log to this file (instead of stdout).  If you specify this more than once
+* **log-file**=*PATH*
+
+  Log to this file (instead of stdout).  If you specify this more than once
 you'll get more than one log file: **-** is used to mean stdout.  Sending
 lightningd(8) SIGHUP will cause it to reopen each file (useful for log
 rotation).
 
- **log-timestamps**=*BOOL*
-Set this to false to turn off timestamp prefixes (they will still appear
+* **log-timestamps**=*BOOL*
+
+  Set this to false to turn off timestamp prefixes (they will still appear
 in crash log files).
 
- **rpc-file**=*PATH*
-Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
+* **rpc-file**=*PATH*
 
- **rpc-file-mode**=*MODE*
-Set JSON-RPC socket file mode, as a 4-digit octal number.
+  Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
+
+* **rpc-file-mode**=*MODE*
+
+  Set JSON-RPC socket file mode, as a 4-digit octal number.
 Default is 0600, meaning only the user that launched lightningd
 can command it.
 Set to 0660 to allow users with the same group to access the RPC
 as well.
 
- **daemon**
-Run in the background, suppress stdout and stderr.  Note that you need
+* **daemon**
+
+  Run in the background, suppress stdout and stderr.  Note that you need
 to specify **log-file** for this case.
 
- **conf**=*PATH*
-Sets configuration file, and disable reading the normal general and network
+* **conf**=*PATH*
+
+  Sets configuration file, and disable reading the normal general and network
 ones. If this is a relative path, it is relative to the starting directory, not
 **lightning-dir** (unlike other paths). *PATH* must exist and be
 readable (we allow missing files in the default case). Using this inside
 a configuration file is invalid.
 
- **wallet**=*DSN*
-Identify the location of the wallet. This is a fully qualified data source
+* **wallet**=*DSN*
+
+  Identify the location of the wallet. This is a fully qualified data source
 name, including a scheme such as `sqlite3` or `postgres` followed by the
 connection parameters.
 
-The default wallet corresponds to the following DSN:
+  The default wallet corresponds to the following DSN:
+  `--wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite31`
 
-```
---wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3
-```
-
-For the `sqlite3` scheme, you can specify a single backup database file
+  For the `sqlite3` scheme, you can specify a single backup database file
 by separating it with a `:` character, like so:
+  `--wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3:/backup/lightningd.sqlite3`
 
-```
---wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3:/backup/lightningd.sqlite3
-```
+  The following is an example of a postgresql wallet DSN:
 
-The following is an example of a postgresql wallet DSN:
+  `--wallet=postgres://user:pass@localhost:5432/db_name`
 
-```
---wallet=postgres://user:pass@localhost:5432/db_name
-```
-
-This will connect to a DB server running on `localhost` port `5432`,
+  This will connect to a DB server running on `localhost` port `5432`,
 authenticate with username `user` and password `pass`, and then use the
 database `db_name`. The database must exist, but the schema will be managed
 automatically by `lightningd`.
 
- **bookkeeper-dir**=*DIR* [plugin `bookkeeper`]
-Directory to keep the accounts.sqlite3 database file in.
+* **bookkeeper-dir**=*DIR* [plugin `bookkeeper`]
+
+  Directory to keep the accounts.sqlite3 database file in.
 Defaults to lightning-dir.
 
- **bookkeeper-db**=*DSN* [plugin `bookkeeper`]
-Identify the location of the bookkeeper data. This is a fully qualified data source
+* **bookkeeper-db**=*DSN* [plugin `bookkeeper`]
+
+  Identify the location of the bookkeeper data. This is a fully qualified data source
 name, including a scheme such as `sqlite3` or `postgres` followed by the
 connection parameters.
 Defaults to `sqlite3://accounts.sqlite3` in the `bookkeeper-dir`.
 
+* **encrypted-hsm**
 
- **encrypted-hsm**
-If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
+ If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
 Note that once you encrypt the `hsm_secret` this option will be mandatory for
 `lightningd` to start.
 If there is no `hsm_secret` yet, `lightningd` will create a new encrypted secret.
 If you have an unencrypted `hsm_secret` you want to encrypt on-disk, or vice versa,
 see lightning-hsmtool(8).
 
- **grpc-port**=*portnum* [plugin `cln-grpc`]
+* **grpc-port**=*portnum* [plugin `cln-grpc`]
 
-The port number for the GRPC plugin to listen for incoming
+  The port number for the GRPC plugin to listen for incoming
 connections; default is not to activate the plugin at all.
 
 ### Lightning node customization options
 
- **alias**=*NAME*
-Up to 32 bytes of UTF-8 characters to tag your node. Completely silly, since
+* **alias**=*NAME*
+
+  Up to 32 bytes of UTF-8 characters to tag your node. Completely silly, since
 anyone can call their node anything they want. The default is an
 NSA-style codename derived from your public key, but "Peter Todd" and
 "VAULTERO" are good options, too.
 
- **rgb**=*RRGGBB*
-Your favorite color as a hex code.
+* **rgb**=*RRGGBB*
 
- **fee-base**=*MILLISATOSHI*
-Default: 1000. The base fee to charge for every payment which passes
+  Your favorite color as a hex code.
+
+* **fee-base**=*MILLISATOSHI*
+
+  Default: 1000. The base fee to charge for every payment which passes
 through. Note that millisatoshis are a very, very small unit! Changing
 this value will only affect new channels and not existing ones. If you
 want to change fees for existing channels, use the RPC call
 lightning-setchannel(7).
 
- **fee-per-satoshi**=*MILLIONTHS*
-Default: 10 (0.001%). This is the proportional fee to charge for every
+* **fee-per-satoshi**=*MILLIONTHS*
+
+  Default: 10 (0.001%). This is the proportional fee to charge for every
 payment which passes through. As percentages are too coarse, it's in
 millionths, so 10000 is 1%, 1000 is 0.1%. Changing this value will only
 affect new channels and not existing ones. If you want to change fees
 for existing channels, use the RPC call lightning-setchannel(7).
 
- **min-capacity-sat**=*SATOSHI*
-Default: 10000. This value defines the minimal effective channel
+* **min-capacity-sat**=*SATOSHI*
+
+  Default: 10000. This value defines the minimal effective channel
 capacity in satoshi to accept for channel opening requests. This will
 reject any opening of a channel which can't pass an HTLC of least this
 value.  Usually this prevents a peer opening a tiny channel, but it
@@ -275,19 +312,22 @@ can also prevent a channel you open with a reasonable amount and the peer
 requesting such a large reserve that the capacity of the channel
 falls below this.
 
- **ignore-fee-limits**=*BOOL*
-Allow nodes which establish channels to us to set any fee they want.
+* **ignore-fee-limits**=*BOOL*
+
+  Allow nodes which establish channels to us to set any fee they want.
 This may result in a channel which cannot be closed, should fees
 increase, but make channels far more reliable since we never close it
 due to unreasonable fees.
 
- **commit-time**=*MILLISECONDS*
-How long to wait before sending commitment messages to the peer: in
+* **commit-time**=*MILLISECONDS*
+
+  How long to wait before sending commitment messages to the peer: in
 theory increasing this would reduce load, but your node would have to be
 extremely busy node for you to even notice.
 
- **force-feerates**==*VALUES*
-Networks like regtest and testnet have unreliable fee estimates: we
+* **force-feerates**==*VALUES*
+
+  Networks like regtest and testnet have unreliable fee estimates: we
 usually treat them as the minimum (253 sats/kw) if we can't get them.
 This allows override of one or more of our standard feerates (see
 lightning-feerates(7)).  Up to 5 values, separated by '/' can be
@@ -296,21 +336,24 @@ remainder.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb
 values), and the order is "opening", "mutual_close", "unilateral_close",
 "delayed_to_us", "htlc_resolution", and "penalty".
 
-You would usually put this option in the per-chain config file, to avoid
+  You would usually put this option in the per-chain config file, to avoid
 setting it on Bitcoin mainnet!  e.g. `~rusty/.lightning/regtest/config`.
 
- **htlc-minimum-msat**=*MILLISATOSHI*
-Default: 0. Sets the minimal allowed HTLC value for newly created channels.
+* **htlc-minimum-msat**=*MILLISATOSHI*
+
+  Default: 0. Sets the minimal allowed HTLC value for newly created channels.
 If you want to change the `htlc_minimum_msat` for existing channels, use the
 RPC call lightning-setchannel(7).
 
- **htlc-maximum-msat**=*MILLISATOSHI*
-Default: unset (no limit). Sets the maximum allowed HTLC value for newly created
+* **htlc-maximum-msat**=*MILLISATOSHI*
+
+  Default: unset (no limit). Sets the maximum allowed HTLC value for newly created
 channels. If you want to change the `htlc_maximum_msat` for existing channels,
 use the RPC call lightning-setchannel(7).
 
- **disable-ip-discovery**
-Turn off public IP discovery to send `node_announcement` updates that contain
+* **disable-ip-discovery**
+
+  Turn off public IP discovery to send `node_announcement` updates that contain
 the discovered IP with TCP port 9735 as announced address. If unset and you
 open TCP port 9735 on your router towords your node, your node will remain
 connectable on changing IP addresses.  Note: Will always be disabled if you use
@@ -318,65 +361,77 @@ connectable on changing IP addresses.  Note: Will always be disabled if you use
 
 ### Lightning channel and HTLC options
 
- **large-channels**
-Removes capacity limits for channel creation.  Version 1.0 of the specification
+* **large-channels**
+
+  Removes capacity limits for channel creation.  Version 1.0 of the specification
 limited channel sizes to 16777215 satoshi.  With this option (which your
 node will advertize to peers), your node will accept larger incoming channels
 and if the peer supports it, will open larger channels.  Note: this option
 is spelled **large-channels** but it's pronounced **wumbo**.
 
- **watchtime-blocks**=*BLOCKS*
-How long we need to spot an outdated close attempt: on opening a channel
+* **watchtime-blocks**=*BLOCKS*
+
+  How long we need to spot an outdated close attempt: on opening a channel
 we tell our peer that this is how long they'll have to wait if they
 perform a unilateral close.
 
- **max-locktime-blocks**=*BLOCKS*
-The longest our funds can be delayed (ie. the longest
+* **max-locktime-blocks**=*BLOCKS*
+
+  The longest our funds can be delayed (ie. the longest
 **watchtime-blocks** our peer can ask for, and also the longest HTLC
 timeout we will accept). If our peer asks for longer, we'll refuse to
 create a channel, and if an HTLC asks for longer, we'll refuse it.
 
- **funding-confirms**=*BLOCKS*
-Confirmations required for the funding transaction when the other side
+* **funding-confirms**=*BLOCKS*
+
+  Confirmations required for the funding transaction when the other side
 opens a channel before the channel is usable.
 
- **commit-fee**=*PERCENT* [plugin `bcli`]
-The percentage of *estimatesmartfee 2/CONSERVATIVE* to use for the commitment
+* **commit-fee**=*PERCENT* [plugin `bcli`]
+
+  The percentage of *estimatesmartfee 2/CONSERVATIVE* to use for the commitment
 transactions: default is 100.
 
- **max-concurrent-htlcs**=*INTEGER*
-Number of HTLCs one channel can handle concurrently in each direction.
+* **max-concurrent-htlcs**=*INTEGER*
+
+  Number of HTLCs one channel can handle concurrently in each direction.
 Should be between 1 and 483 (default 30).
 
- **max-dust-htlc-exposure-msat**=*MILLISATOSHI*
-Option which limits the total amount of sats to be allowed as dust on a channel.
+* **max-dust-htlc-exposure-msat**=*MILLISATOSHI*
 
- **cltv-delta**=*BLOCKS*
-The number of blocks between incoming payments and outgoing payments:
+  Option which limits the total amount of sats to be allowed as dust on a channel.
+
+* **cltv-delta**=*BLOCKS*
+
+  The number of blocks between incoming payments and outgoing payments:
 this needs to be enough to make sure that if we have to, we can close
 the outgoing payment before the incoming, or redeem the incoming once
 the outgoing is redeemed.
 
- **cltv-final**=*BLOCKS*
-The number of blocks to allow for payments we receive: if we have to, we
+* **cltv-final**=*BLOCKS*
+
+  The number of blocks to allow for payments we receive: if we have to, we
 might need to redeem this on-chain, so this is the number of blocks we
 have to do that.
 
-Invoice control options:
+### Invoice control options:
 
- **autocleaninvoice-cycle**=*SECONDS* [plugin `autoclean`]
-Perform cleanup of expired invoices every *SECONDS* seconds, or disable
+* **autocleaninvoice-cycle**=*SECONDS* [plugin `autoclean`]
+
+  Perform cleanup of expired invoices every *SECONDS* seconds, or disable
 if 0. Usually unpaid expired invoices are uninteresting, and just take
 up space in the database.
 
- **autocleaninvoice-expired-by**=*SECONDS* [plugin `autoclean`]
-Control how long invoices must have been expired before they are cleaned
+* **autocleaninvoice-expired-by**=*SECONDS* [plugin `autoclean`]
+
+  Control how long invoices must have been expired before they are cleaned
 (if *autocleaninvoice-cycle* is non-zero).
 
-Payment control options:
+### Payment control options:
 
- **disable-mpp** [plugin `pay`]
-Disable the multi-part payment sending support in the `pay` plugin. By default
+* **disable-mpp** [plugin `pay`]
+
+  Disable the multi-part payment sending support in the `pay` plugin. By default
 the MPP support is enabled, but it can be desirable to disable in situations
 in which each payment should result in a single HTLC being forwarded in the
 network.
@@ -399,22 +454,23 @@ precisely control where to bind and what to announce with the
 *bind-addr* and *announce-addr* options. These will **disable** the
 *autolisten* logic, so you must specifiy exactly what you want!
 
- **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]*
+* **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]*
 
-Set an IP address (v4 or v6) or automatic Tor address to listen on and
+  
+  Set an IP address (v4 or v6) or automatic Tor address to listen on and
 (maybe) announce as our node address.
 
-An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+  An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
 IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
 interfaces, '::' means 'bind to all IPv6 interfaces' (if you want to
 specify an IPv6 address *and* a port, use `[]` around the IPv6
 address, like `[::]:9750`).
-If 'PORT' is not specified, the default port 9735 is used for mainnet
+  If 'PORT' is not specified, the default port 9735 is used for mainnet
 (testnet: 19735, signet: 39735, regtest: 19846).
 If we can determine a public IP address from the resulting binding,
 the address is announced.
 
-If the argument begins with 'autotor:' then it is followed by the
+  If the argument begins with 'autotor:' then it is followed by the
 IPv4 or IPv6 address of the Tor control port (default port 9051),
 and this will be used to configure a Tor hidden service for port 9735
 in case of mainnet (bitcoin) network whereas other networks (testnet,
@@ -424,7 +480,7 @@ The Tor hidden service will be configured to point to the
 first IPv4 or IPv6 address we bind to and is by default unique to
 your node's id.
 
-If the argument begins with 'statictor:' then it is followed by the
+  If the argument begins with 'statictor:' then it is followed by the
 IPv4 or IPv6 address of the Tor control port (default port 9051),
 and this will be used to configure a static Tor hidden service.
 You can add the text '/torblob=BLOB' followed by up to
@@ -434,63 +490,71 @@ You can also use an postfix '/torport=TORPORT' to select the external
 tor binding. The result is that over tor your node is accessible by a port
 defined by you and possibly different from your local node port assignment.
 
-This option can be used multiple times to add more addresses, and
+  This option can be used multiple times to add more addresses, and
 its use disables autolisten.  If necessary, and 'always-use-proxy'
 is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
 or 'TORIPADDRESS'.
 
- **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH*
-Set an IP address or UNIX domain socket to listen to, but do not
+* **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH*
+
+  Set an IP address or UNIX domain socket to listen to, but do not
 announce. A UNIX domain socket is distinguished from an IP address by
 beginning with a */*.
 
-An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+  An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
 IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
 interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
 not specified, 9735 is used.
 
-This option can be used multiple times to add more addresses, and
+  This option can be used multiple times to add more addresses, and
 its use disables autolisten.  If necessary, and 'always-use-proxy'
 is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
 
- **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]*
-Set an IP (v4 or v6) address or Tor address to announce; a Tor address
+* **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]*
+
+  Set an IP (v4 or v6) address or Tor address to announce; a Tor address
 is distinguished by ending in *.onion*. *PORT* defaults to 9735.
 
-Empty or wildcard IPv4 and IPv6 addresses don't make sense here.
+  Empty or wildcard IPv4 and IPv6 addresses don't make sense here.
 Also, unlike the 'addr' option, there is no checking that your
 announced addresses are public (e.g. not localhost).
 
-This option can be used multiple times to add more addresses, and
+  This option can be used multiple times to add more addresses, and
 its use disables autolisten.
 
-If necessary, and 'always-use-proxy' is not specified, a DNS
+  If necessary, and 'always-use-proxy' is not specified, a DNS
 lookup may be done to resolve 'IPADDRESS'.
 
- **offline**
-Do not bind to any ports, and do not try to reconnect to any peers. This
+* **offline**
+
+  Do not bind to any ports, and do not try to reconnect to any peers. This
 can be useful for maintenance and forensics, so is usually specified on
 the command line. Overrides all *addr* and *bind-addr* options.
 
- **autolisten**=*BOOL*
-By default, we bind (and maybe announce) on IPv4 and IPv6 interfaces if
+* **autolisten**=*BOOL*
+
+  By default, we bind (and maybe announce) on IPv4 and IPv6 interfaces if
 no *addr*, *bind-addr* or *announce-addr* options are specified. Setting
 this to *false* disables that.
 
- **proxy**=*IPADDRESS\[:PORT\]*
-Set a socks proxy to use to connect to Tor nodes (or for all connections
+* **proxy**=*IPADDRESS\[:PORT\]*
+
+  Set a socks proxy to use to connect to Tor nodes (or for all connections
 if **always-use-proxy** is set).  The port defaults to 9050 if not specified.
 
- **always-use-proxy**=*BOOL*
-Always use the **proxy**, even to connect to normal IP addresses (you
+* **always-use-proxy**=*BOOL*
+
+  Always use the **proxy**, even to connect to normal IP addresses (you
 can still connect to Unix domain sockets manually). This also disables
 all DNS lookups, to avoid leaking information.
 
- **disable-dns**
-Disable the DNS bootstrapping mechanism to find a node by its node ID.
+* **disable-dns**
 
- **tor-service-password**=*PASSWORD*
-Set a Tor control password, which may be needed for *autotor:* to
+  Disable the DNS bootstrapping mechanism to find a node by its node ID.
+
+* **tor-service-password**=*PASSWORD*
+
+  Set a Tor control password, which may be needed for *autotor:* to
 authenticate to the Tor control port.
 
 ### Lightning Plugins
@@ -502,35 +566,40 @@ by default (usually located in **libexec/c-lightning/plugins/**). If a
 plugins along with any immediate subdirectories). You can specify
 additional paths too:
 
- **plugin**=*PATH*
-Specify a plugin to run as part of Core Lightning. This can be specified
+* **plugin**=*PATH*
+
+  Specify a plugin to run as part of Core Lightning. This can be specified
 multiple times to add multiple plugins.  Note that unless plugins themselves
 specify ordering requirements for being called on various hooks, plugins will
 be ordered by commandline, then config file.
 
- **plugin-dir**=*DIRECTORY*
-Specify a directory to look for plugins; all executable files not
+* **plugin-dir**=*DIRECTORY*
+
+  Specify a directory to look for plugins; all executable files not
 containing punctuation (other than *.*, *-* or *\_) in 'DIRECTORY* are
 loaded. *DIRECTORY* must exist; this can be specified multiple times to
 add multiple directories.  The ordering of plugins within a directory
 is currently unspecified.
 
- **clear-plugins**
-This option clears all *plugin*, *important-plugin*, and *plugin-dir* options
+* **clear-plugins**
+
+  This option clears all *plugin*, *important-plugin*, and *plugin-dir* options
 preceeding it,
 including the default built-in plugin directory. You can still add
 *plugin-dir*, *plugin*, and *important-plugin* options following this
 and they will have the normal effect.
 
- **disable-plugin**=*PLUGIN*
-If *PLUGIN* contains a /, plugins with the same path as *PLUGIN* will
+* **disable-plugin**=*PLUGIN*
+
+  If *PLUGIN* contains a /, plugins with the same path as *PLUGIN* will
 not be loaded at startup. Otherwise, no plugin with that base name will
 be loaded at startup, whatever directory it is in.  This option is useful for
 disabling a single plugin inside a directory.  You can still explicitly
 load plugins which have been disabled, using lightning-plugin(7) `start`.
 
- **important-plugin**=*PLUGIN*
-Speciy a plugin to run as part of Core Lightning.
+* **important-plugin**=*PLUGIN*
+
+  Speciy a plugin to run as part of Core Lightning.
 This can be specified multiple times to add multiple plugins.
 Plugins specified via this option are considered so important, that if the
 plugin stops for any reason (including via lightning-plugin(7) `stop`),
@@ -550,41 +619,41 @@ A build _with_ `--enable-experimental-features` enables some of below options
 by default and also adds support for even more features. Supported features can
 be listed with `lightningd --list-features-only`.
 
- **experimental-onion-messages**
+* **experimental-onion-messages**
 
-Specifying this enables sending, forwarding and receiving onion messages,
+  Specifying this enables sending, forwarding and receiving onion messages,
 which are in draft status in the BOLT specifications.
 
- **experimental-offers**
+* **experimental-offers**
 
-Specifying this enables the `offers` and `fetchinvoice` plugins and
+  Specifying this enables the `offers` and `fetchinvoice` plugins and
 corresponding functionality, which are in draft status as BOLT12.
 This usually requires **experimental-onion-messages** as well.  See
 lightning-offer(7) and lightning-fetchinvoice(7).
 
- **fetchinvoice-noconnect**
+* **fetchinvoice-noconnect**
 
-Specifying this prevents `fetchinvoice` and `sendinvoice` from
+  Specifying this prevents `fetchinvoice` and `sendinvoice` from
 trying to connect directly to the offering node as a last resort.
 
- **experimental-shutdown-wrong-funding**
+* **experimental-shutdown-wrong-funding**
 
-Specifying this allows the `wrong_funding` field in shutdown: if a
+  Specifying this allows the `wrong_funding` field in shutdown: if a
 remote node has opened a channel but claims it used the incorrect txid
 (and the channel hasn't been used yet at all) this allows them to
 negotiate a clean shutdown with the txid they offer.
 
- **experimental-dual-fund**
+* **experimental-dual-fund**
 
-Specifying this enables support for the dual funding protocol,
+  Specifying this enables support for the dual funding protocol,
 allowing both parties to contribute funds to a channel. The decision
 about whether to add funds or not to a proposed channel is handled
 automatically by a plugin that implements the appropriate logic for
 your needs. The default behavior is to not contribute funds.
 
- **experimental-websocket-port**=*PORT*
+* **experimental-websocket-port**=*PORT*
 
-Specifying this enables support for accepting incoming WebSocket
+  Specifying this enables support for accepting incoming WebSocket
 connections on that port, on any IPv4 and IPv6 addresses you listen
 to.  The normal protocol is expected to be sent over WebSocket binary
 frames once the connection is upgraded.
