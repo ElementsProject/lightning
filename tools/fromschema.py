@@ -195,7 +195,7 @@ def output_members(sub, indent=''):
                                            json_value(whichvalues[-1]))
             conditions.append(cond)
 
-        sentence = indent + "If " + ", and ".join(conditions) + ":\n"
+        sentence = indent + "If " + ", and ".join(conditions) + ":\n\n"
 
         if has_members(ifclause['then']):
             # Prefix with blank line.
@@ -229,23 +229,23 @@ def generate_from_schema(schema):
         output('On success, an empty object is returned.\n')
         sub = schema
     elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'object':
-        output('On success, an object containing **{}** is returned.  It is an object containing:\n'.format(toplevels[0]))
+        output('On success, an object containing **{}** is returned.  It is an object containing:\n\n'.format(toplevels[0]))
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
         sub = props[toplevels[0]]
     elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'array':
-        output('On success, an object containing **{}** is returned.  It is an array of objects, where each object contains:\n'.format(toplevels[0]))
+        output('On success, an object containing **{}** is returned.  It is an array of objects, where each object contains:\n\n'.format(toplevels[0]))
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
         sub = props[toplevels[0]]['items']
     else:
-        output('On success, an object is returned, containing:\n')
+        output('On success, an object is returned, containing:\n\n')
         sub = schema
 
     output_members(sub)
 
     if warnings:
-        outputs(['\n', 'The following warnings may also be returned:\n'])
+        outputs(['\n', 'The following warnings may also be returned:\n\n'])
         for w, desc in warnings:
             output("- **{}**: {}\n".format(w, desc))
 

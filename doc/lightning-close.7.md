@@ -104,9 +104,11 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **type** (string): Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel (one of "mutual", "unilateral", "unopened")
 
 If **type** is "mutual" or "unilateral":
+
   - **tx** (hex): the raw bitcoin transaction used to close the channel (if it was open)
   - **txid** (txid): the transaction id of the *tx* field
 

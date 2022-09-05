@@ -49,6 +49,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **id** (pubkey): the peer we connected to
 - **features** (hex): BOLT 9 features bitmap offered by peer
 - **direction** (string): Whether they initiated connection or we did (one of "in", "out")
@@ -56,9 +57,11 @@ On success, an object is returned, containing:
   - **type** (string): Type of connection (*torv2*/*torv3* only if **direction** is *out*) (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
 
   If **type** is "local socket":
+
     - **socket** (string): socket filename
 
   If **type** is "ipv4", "ipv6", "torv2" or "torv3":
+
     - **address** (string): address in expected format for **type**
     - **port** (u16): port number
 

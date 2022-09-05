@@ -24,6 +24,7 @@ Note that the returned array is ordered by increasing *id*.
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **payments** is returned.  It is an array of objects, where each object contains:
+
 - **id** (u64): unique ID for this payment attempt
 - **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
@@ -38,9 +39,11 @@ On success, an object containing **payments** is returned.  It is an array of ob
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 
 If **status** is "complete":
+
   - **payment_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 
 If **status** is "failed":
+
   - **erroronion** (hex, optional): the onion message returned
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

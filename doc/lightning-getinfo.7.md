@@ -27,6 +27,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **id** (pubkey): The public key unique to this node
 - **alias** (string): The fun alias this node will advertize (up to 32 characters)
 - **color** (hex): The favorite RGB color this node will advertize (always 6 characters)
@@ -49,6 +50,7 @@ On success, an object is returned, containing:
   - **port** (u16): port number
 
   If **type** is "dns", "ipv4", "ipv6", "torv2" or "torv3":
+
     - **address** (string): address in expected format for **type**
 - **binding** (array of objects, optional): The addresses we are listening on:
   - **type** (string): Type of connection (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
@@ -57,6 +59,7 @@ On success, an object is returned, containing:
   - **socket** (string, optional): socket filename (only if **type** is "local socket")
 
 The following warnings may also be returned:
+
 - **warning_bitcoind_sync**: Bitcoind is not up-to-date with network.
 - **warning_lightningd_sync**: Lightningd is still loading latest blocks from bitcoind.
 

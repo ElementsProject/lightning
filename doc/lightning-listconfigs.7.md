@@ -34,6 +34,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **# version** (string, optional): Special field indicating the current version
 - **plugins** (array of objects, optional):
   - **path** (string): Full path of the plugin

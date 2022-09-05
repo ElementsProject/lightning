@@ -31,6 +31,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **bech32** (string, optional): The bech32 (native segwit) address
 - **p2sh-segwit** (string, optional): The p2sh-wrapped address
 

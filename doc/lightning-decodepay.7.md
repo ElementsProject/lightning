@@ -17,6 +17,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **currency** (string): the BIP173 name for the currency
 - **created_at** (u64): the UNIX-style timestamp of the invoice
 - **expiry** (u64): the number of seconds this is valid after *timestamp*

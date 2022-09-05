@@ -18,6 +18,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **secret** (secret): the pseudorandom key derived from HSM_secret (always 64 characters)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

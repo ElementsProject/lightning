@@ -67,6 +67,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **payment_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 - **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **created_at** (number): the UNIX timestamp showing when this payment was initiated
@@ -77,6 +78,7 @@ On success, an object is returned, containing:
 - **destination** (pubkey, optional): the final destination of the payment
 
 The following warnings may also be returned:
+
 - **warning_partial_completion**: Not all parts of a multi-part payment have completed
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

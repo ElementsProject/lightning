@@ -40,6 +40,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **peers** is returned.  It is an array of objects, where each object contains:
+
 - **id** (pubkey): the public key of the peer
 - **connected** (boolean): True if the peer is currently connected
 - **channels** (array of objects):
@@ -125,21 +126,27 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **status** (string, optional): set if this HTLC is currently waiting on a hook (and shows what plugin)
 
     If **direction** is "out":
+
       - **state** (string): Status of the HTLC (one of "SENT_ADD_HTLC", "SENT_ADD_COMMIT", "RCVD_ADD_REVOCATION", "RCVD_ADD_ACK_COMMIT", "SENT_ADD_ACK_REVOCATION", "RCVD_REMOVE_HTLC", "RCVD_REMOVE_COMMIT", "SENT_REMOVE_REVOCATION", "SENT_REMOVE_ACK_COMMIT", "RCVD_REMOVE_ACK_REVOCATION")
 
     If **direction** is "in":
+
       - **state** (string): Status of the HTLC (one of "RCVD_ADD_HTLC", "RCVD_ADD_COMMIT", "SENT_ADD_REVOCATION", "SENT_ADD_ACK_COMMIT", "RCVD_ADD_ACK_REVOCATION", "SENT_REMOVE_HTLC", "SENT_REMOVE_COMMIT", "RCVD_REMOVE_REVOCATION", "RCVD_REMOVE_ACK_COMMIT", "SENT_REMOVE_ACK_REVOCATION")
 
   If **close_to** is present:
+
     - **close_to_addr** (string, optional): The bitcoin address we will close to
 
   If **scratch_txid** is present:
+
     - **last_tx_fee_msat** (msat): fee attached to this the current tx
 
   If **short_channel_id** is present:
+
     - **direction** (u32): 0 if we're the lesser node_id, 1 if we're the greater
 
   If **inflight** is present:
+
     - **initial_feerate** (string): The feerate for the initial funding transaction in per-1000-weight, with "kpw" appended
     - **last_feerate** (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
     - **next_feerate** (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
@@ -147,15 +154,18 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
 
   If **type** is "SKIPPED":
+
     - **num_skipped** (u32): number of deleted/omitted entries
 
   If **type** is "BROKEN", "UNUSUAL", "INFO" or "DEBUG":
+
     - **time** (string): UNIX timestamp with 9 decimal places
     - **source** (string): The particular logbook this was found in
     - **log** (string): The actual log message
     - **node_id** (pubkey): The peer this is associated with
 
   If **type** is "IO_IN" or "IO_OUT":
+
     - **time** (string): UNIX timestamp with 9 decimal places
     - **source** (string): The particular logbook this was found in
     - **log** (string): The actual log message
@@ -163,6 +173,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **data** (hex): The IO which occurred
 
 If **connected** is *true*:
+
   - **netaddr** (array of strings): A single entry array:
     - address, e.g. 1.2.3.4:1234
   - **features** (hex): bitmap of BOLT #9 features from peer's INIT message

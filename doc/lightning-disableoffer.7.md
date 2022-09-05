@@ -36,6 +36,7 @@ Note: the returned object is the same format as **listoffers**.
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **offer_id** (hex): the merkle hash of the offer (always 64 characters)
 - **active** (boolean): Whether the offer can produce invoices/payments (always *false*)
 - **single_use** (boolean): Whether the offer is disabled after first successful use

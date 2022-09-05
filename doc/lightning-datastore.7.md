@@ -34,6 +34,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **key** (array of strings):
   - Part of the key added to the datastore
 - **generation** (u64, optional): The number of times this has been updated
