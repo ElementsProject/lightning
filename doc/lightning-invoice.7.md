@@ -77,12 +77,14 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **bolt11** (string): the bolt11 string
 - **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **payment_secret** (secret): the *payment_secret* to place in the onion (always 64 characters)
 - **expires_at** (u64): UNIX timestamp of when invoice expires
 
 The following warnings may also be returned:
+
 - **warning_capacity**: even using all possible channels, there's not enough incoming capacity to pay this invoice.
 - **warning_offline**: there would be enough incoming capacity, but some channels are offline, so there isn't.
 - **warning_deadends**: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't.

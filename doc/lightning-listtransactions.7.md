@@ -26,6 +26,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **transactions** is returned.  It is an array of objects, where each object contains:
+
 - **hash** (txid): the transaction id
 - **rawtx** (hex): the raw transaction
 - **blockheight** (u32): the block height of this tx

@@ -18,6 +18,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **perkw** (u32, optional): Value of *feerate_str* in kilosipa
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

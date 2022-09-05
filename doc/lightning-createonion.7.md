@@ -91,6 +91,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **onion** (hex): the onion packet (*onion_size* bytes)
 - **shared_secrets** (array of secrets): one shared secret for each node in the *hops* parameter:
   - the shared secret with this hop (always 64 characters)

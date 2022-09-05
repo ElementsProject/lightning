@@ -27,6 +27,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **cancelled** (string): A message indicating it was cancelled by RPC
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

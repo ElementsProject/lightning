@@ -31,6 +31,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **channel_id** (hex): the channel id of the channel (always 64 characters)
 - **tx** (hex): the funding transaction
 - **txid** (txid): The txid of the **tx**

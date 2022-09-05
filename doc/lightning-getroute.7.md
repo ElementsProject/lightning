@@ -279,6 +279,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **route** is returned.  It is an array of objects, where each object contains:
+
 - **id** (pubkey): The node at the end of this hop
 - **channel** (short_channel_id): The channel joining these nodes
 - **direction** (u32): 0 if this channel is traversed from lesser to greater **id**, otherwise 1

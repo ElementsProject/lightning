@@ -55,6 +55,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
 - **active** (boolean): whether this will pay a matching incoming invoice (always *true*)
 - **single_use** (boolean): whether this expires as soon as it's paid out (always *true*)

@@ -31,6 +31,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **offers** is returned.  It is an array of objects, where each object contains:
+
 - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
 - **active** (boolean): whether this can still be used
 - **single_use** (boolean): whether this expires as soon as it's paid

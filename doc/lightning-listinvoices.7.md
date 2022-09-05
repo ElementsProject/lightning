@@ -22,6 +22,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **invoices** is returned.  It is an array of objects, where each object contains:
+
 - **label** (string): unique label supplied at invoice creation
 - **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): Whether it's paid, unpaid or unpayable (one of "unpaid", "paid", "expired")
@@ -34,6 +35,7 @@ On success, an object containing **invoices** is returned.  It is an array of ob
 - **payer_note** (string, optional): the optional *payer_note* from invoice_request which created this invoice (**experimental-offers** only).
 
 If **status** is "paid":
+
   - **pay_index** (u64): Unique incrementing index for this payment
   - **amount_received_msat** (msat): the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)
   - **paid_at** (u64): UNIX timestamp of when it was paid

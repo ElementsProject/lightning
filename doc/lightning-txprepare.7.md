@@ -54,6 +54,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **psbt** (string): the PSBT representing the unsigned transaction
 - **unsigned_tx** (hex): the unsigned transaction
 - **txid** (txid): the transaction id of *unsigned_tx*; you hand this to lightning-txsend(7) or lightning-txdiscard(7), as the inputs of this transaction are reserved.

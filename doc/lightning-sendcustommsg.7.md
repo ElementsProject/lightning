@@ -49,6 +49,7 @@ explicit error message stating the issue.
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **status** (string): Information about where message was queued
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
