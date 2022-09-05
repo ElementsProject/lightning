@@ -25,7 +25,7 @@ On success, an object is returned, containing:
 - **outputs** (array of objects):
   - **txid** (txid): the ID of the spendable transaction
   - **output** (u32): the index within *txid*
-  - **amount_msat** (msat): the amount of the output
+  - **amount\_msat** (msat): the amount of the output
   - **scriptpubkey** (hex): the scriptPubkey of the output
   - **status** (string) (one of "unconfirmed", "confirmed", "spent")
   - **reserved** (boolean): whether this UTXO is currently reserved for an in-flight tx
@@ -38,23 +38,23 @@ On success, an object is returned, containing:
 
   If **reserved** is "true":
 
-    - **reserved_to_block** (u32): Block height where reservation will expire
+    - **reserved\_to\_block** (u32): Block height where reservation will expire
 - **channels** (array of objects):
-  - **peer_id** (pubkey): the peer with which the channel is opened
-  - **our_amount_msat** (msat): available satoshis on our node's end of the channel
-  - **amount_msat** (msat): total channel value
-  - **funding_txid** (txid): funding transaction id
-  - **funding_output** (u32): the 0-based index of the output in the funding transaction
+  - **peer\_id** (pubkey): the peer with which the channel is opened
+  - **our\_amount\_msat** (msat): available satoshis on our node's end of the channel
+  - **amount\_msat** (msat): total channel value
+  - **funding\_txid** (txid): funding transaction id
+  - **funding\_output** (u32): the 0-based index of the output in the funding transaction
   - **connected** (boolean): whether the channel peer is connected
   - **state** (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
 
   If **state** is "CHANNELD_NORMAL":
 
-    - **short_channel_id** (short_channel_id): short channel id of channel
+    - **short\_channel\_id** (short_channel_id): short channel id of channel
 
   If **state** is "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN" or "ONCHAIN":
 
-    - **short_channel_id** (short_channel_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
+    - **short\_channel\_id** (short_channel_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -73,4 +73,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:999fb813822e397fdb22dc79cfb5b766e79766073a8c2803a47b56ea4786fb8e)
+[comment]: # ( SHA256STAMP:319598cb35f3a9c6f336191363b1e38df74b467c0989942b5f4e0a998d0f6339)

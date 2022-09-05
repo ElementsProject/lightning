@@ -31,22 +31,22 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **created_at** (string): UNIX timestamp with 9 decimal places, when logging was initialized
-- **bytes_used** (u32): The number of bytes used by logging records
-- **bytes_max** (u32): The bytes_used values at which records will be trimmed 
+- **created\_at** (string): UNIX timestamp with 9 decimal places, when logging was initialized
+- **bytes\_used** (u32): The number of bytes used by logging records
+- **bytes\_max** (u32): The bytes_used values at which records will be trimmed 
 - **log** (array of objects):
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
 
   If **type** is "SKIPPED":
 
-    - **num_skipped** (u32): number of unprinted log entries (deleted or below *level* parameter)
+    - **num\_skipped** (u32): number of unprinted log entries (deleted or below *level* parameter)
 
   If **type** is "BROKEN", "UNUSUAL", "INFO" or "DEBUG":
 
     - **time** (string): UNIX timestamp with 9 decimal places after **created_at**
     - **source** (string): The particular logbook this was found in
     - **log** (string): The actual log message
-    - **node_id** (pubkey, optional): The peer this is associated with
+    - **node\_id** (pubkey, optional): The peer this is associated with
 
   If **type** is "IO_IN" or "IO_OUT":
 
@@ -54,7 +54,7 @@ On success, an object is returned, containing:
     - **source** (string): The particular logbook this was found in
     - **log** (string): The associated log message
     - **data** (hex): The IO which occurred
-    - **node_id** (pubkey, optional): The peer this is associated with
+    - **node\_id** (pubkey, optional): The peer this is associated with
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -94,4 +94,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:778a192de637d247689c270b3cdc5b100baa749a866093b7a5c709b546e53c2c)
+[comment]: # ( SHA256STAMP:95995a847dd9f3c2d51494a396761b42051e44bb6376de2e3c3e72634e7fd079)

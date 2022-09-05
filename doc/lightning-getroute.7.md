@@ -283,7 +283,7 @@ On success, an object containing **route** is returned.  It is an array of objec
 - **id** (pubkey): The node at the end of this hop
 - **channel** (short_channel_id): The channel joining these nodes
 - **direction** (u32): 0 if this channel is traversed from lesser to greater **id**, otherwise 1
-- **amount_msat** (msat): The amount expected by the node at the end of this hop
+- **amount\_msat** (msat): The amount expected by the node at the end of this hop
 - **delay** (u32): The total CLTV expected by the node at the end of this hop
 - **style** (string): The features understood by the destination node (always "tlv")
 
@@ -310,4 +310,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:95668bff3a9ec23bd7cebfc60a6af56bce0e6559fa8218b14390017b1348ef61)
+[comment]: # ( SHA256STAMP:7aca069c04bac7139f82387d91e0ea148cc42f375c4cb11232189c874be87dcf)

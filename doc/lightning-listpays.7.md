@@ -19,9 +19,9 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **pays** is returned.  It is an array of objects, where each object contains:
 
-- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment\_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
-- **created_at** (u64): the UNIX timestamp showing when this payment was initiated
+- **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **destination** (pubkey, optional): the final destination of the payment if known
 - **label** (string, optional): the label, if given to sendpay
 - **bolt11** (string, optional): the bolt11 string (if pay supplied one)
@@ -30,13 +30,13 @@ On success, an object containing **pays** is returned.  It is an array of object
 
 If **status** is "pending" or "complete":
 
-  - **amount_sent_msat** (msat): the amount we actually sent, including fees
-  - **amount_msat** (msat, optional): the amount the destination received, if known
+  - **amount\_sent\_msat** (msat): the amount we actually sent, including fees
+  - **amount\_msat** (msat, optional): the amount the destination received, if known
 
 If **status** is "complete":
 
   - **preimage** (hex): proof of payment (always 64 characters)
-  - **number_of_parts** (u64, optional): the number of parts for a successful payment (only if more than one).
+  - **number\_of\_parts** (u64, optional): the number of parts for a successful payment (only if more than one).
 
 If **status** is "failed":
 
@@ -61,4 +61,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:074ced29c00a0aff31098ccaae1c1f56364cc3aaaad34485a7c6b1c3cd9b3670)
+[comment]: # ( SHA256STAMP:fd723be0ea9b4d6722adad5d325de6cf9c53e1842281205a82ee74ab702a17bd)
