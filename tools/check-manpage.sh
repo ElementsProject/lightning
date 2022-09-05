@@ -9,7 +9,7 @@ fi
 get_cmd_opts()
 {
     # Trim out -- after first one (--option mentioned in help!)
-    $1 --help | grep '^-' | sed 's/[ 	].*--.*//' | while IFS=$'\n' read -r opt; do
+    $1 --help | grep '^\*' | sed 's/[ 	].*--.*//' | while IFS=$'\n' read -r opt; do
 	case "$opt" in
 	    # We don't document dev options.
 	    --dev*)

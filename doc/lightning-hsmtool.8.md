@@ -19,25 +19,29 @@ as well as derive secrets used in channel commitments.
 METHODS
 -------
 
- **encrypt** *hsm\_secret* *password*
-Encrypt the `hsm_secret` file so that it can only be decrypted at
+**encrypt** *hsm\_secret* *password*
+
+  Encrypt the `hsm_secret` file so that it can only be decrypted at
 **lightningd** startup.
 You must give the option **--encrypted-hsm** to **lightningd**.
 The password of the `hsm_secret` file will be asked whenever you
 start **lightningd**.
 
- **decrypt** *hsm\_secret* *password*
-Decrypt the `hsm_secret` file that was encrypted with the **encrypt**
+**decrypt** *hsm\_secret* *password*
+
+  Decrypt the `hsm_secret` file that was encrypted with the **encrypt**
 method.
 
- **dumpcommitments** *node\_id* *channel\_dbid* *depth* *hsm\_secret* \[*password*\]
-Show the per-commitment secret and point of up to *depth* commitments,
+**dumpcommitments** *node\_id* *channel\_dbid* *depth* *hsm\_secret* \[*password*\]
+
+  Show the per-commitment secret and point of up to *depth* commitments,
 of the specified channel with the specified peer,
 identified by the channel database index.
 Specify *password* if the `hsm_secret` is encrypted.
 
- **guesstoremote** *p2wpkh* *node\_id* *max\_channel\_dbid* *hsm\_secret* \[*password*\]
-Brute-force the private key to our funds from a remote unilateral close
+**guesstoremote** *p2wpkh* *node\_id* *max\_channel\_dbid* *hsm\_secret* \[*password*\]
+
+  Brute-force the private key to our funds from a remote unilateral close
 of a channel, in a case where we have lost all database data except for
 our `hsm_secret`.
 The peer must be the one to close the channel (and the funds will remain
@@ -49,13 +53,13 @@ ever had.
 Specify *password* if the `hsm_secret` is encrypted.
 
 **generatehsm** *hsm\_secret\_path*
-Generates a new hsm_secret using BIP39.
+  Generates a new hsm_secret using BIP39.
 
 **checkhsm** *hsm\_secret\_path*
-Checks that hsm_secret matchs a BIP39 pass phrase.
+  Checks that hsm_secret matchs a BIP39 pass phrase.
 
- **dumponchaindescriptors** *hsm_secret* \[*password*\] \[*network*\]
-Dump output descriptors for our onchain wallet.
+**dumponchaindescriptors** *hsm_secret* \[*password*\] \[*network*\]
+  Dump output descriptors for our onchain wallet.
 The descriptors can be used by external services to be able to generate
 addresses for our onchain wallet. (for example on `bitcoind` using the
 `importmulti` or `importdescriptors` RPC calls)
