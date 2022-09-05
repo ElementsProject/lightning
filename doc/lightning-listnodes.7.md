@@ -30,9 +30,9 @@ RETURN VALUE
 On success, an object containing **nodes** is returned.  It is an array of objects, where each object contains:
 
 - **nodeid** (pubkey): the public key of the node
-- **last_timestamp** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
+- **last\_timestamp** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
 
-If **last_timestamp** is present:
+If **last\_timestamp** is present:
 
   - **alias** (string): The fun alias this node advertized (up to 32 characters)
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
@@ -45,15 +45,15 @@ If **last_timestamp** is present:
 
       - **address** (string): address in expected format for **type**
 
-If **option_will_fund** is present:
+If **option\_will\_fund** is present:
 
-  - **option_will_fund** (object):
-    - **lease_fee_base_msat** (msat): the fixed fee for a lease (whole number of satoshis)
-    - **lease_fee_basis** (u32): the proportional fee in basis points (parts per 10,000) for a lease
-    - **funding_weight** (u32): the onchain weight you'll have to pay for a lease
-    - **channel_fee_max_base_msat** (msat): the maximum base routing fee this node will charge during the lease
-    - **channel_fee_max_proportional_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
-    - **compact_lease** (hex): the lease as represented in the node_announcement
+  - **option\_will\_fund** (object):
+    - **lease\_fee\_base\_msat** (msat): the fixed fee for a lease (whole number of satoshis)
+    - **lease\_fee\_basis** (u32): the proportional fee in basis points (parts per 10,000) for a lease
+    - **funding\_weight** (u32): the onchain weight you'll have to pay for a lease
+    - **channel\_fee\_max\_base\_msat** (msat): the maximum base routing fee this node will charge during the lease
+    - **channel\_fee\_max\_proportional\_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
+    - **compact\_lease** (hex): the lease as represented in the node_announcement
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -99,4 +99,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:eca3d33813f3b3169317b8c4f573663416dd0e87d050a14feff64b754a70c2cb)
+[comment]: # ( SHA256STAMP:452467d60a45d9d685b054644c94a8b7998d5e9f5dd30474006fe9f4f002eb67)

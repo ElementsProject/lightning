@@ -102,11 +102,11 @@ On success, an object is returned, containing:
 
 - **tx** (hex): The raw transaction which funded the channel
 - **txid** (txid): The txid of the transaction which funded the channel
-- **channel_ids** (array of objects):
+- **channel\_ids** (array of objects):
   - **id** (pubkey): The peer we opened the channel with
   - **outnum** (u32): The 0-based output index showing which output funded the channel
-  - **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
-  - **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+  - **channel\_id** (hex): The channel_id of the resulting channel (always 64 characters)
+  - **close\_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
 - **failed** (array of objects, optional): any peers we failed to open with (if *minchannels* was specified less than the number of destinations):
   - **id** (pubkey): The peer we failed to open the channel with
   - **method** (string): What stage we failed at (one of "connect", "openchannel_init", "fundchannel_start", "fundchannel_complete")
@@ -159,4 +159,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:19cdc2bffdec420ae1fc48591af22a49d2d85104d6a14dcc166909f23e86ecfa)
+[comment]: # ( SHA256STAMP:d5af7087b3e31d80df0ce5c09c55b51141bfbf158802d7f5cd82caa21110453e)

@@ -23,16 +23,16 @@ On success, an object containing **accounts** is returned.  It is an array of ob
 
 - **account** (string): The account name. If the account is a channel, the channel_id
 - **balances** (array of objects):
-  - **balance_msat** (msat): Current account balance
-  - **coin_type** (string): coin type, same as HRP for bech32
+  - **balance\_msat** (msat): Current account balance
+  - **coin\_type** (string): coin type, same as HRP for bech32
 
-If **peer_id** is present:
+If **peer\_id** is present:
 
-  - **peer_id** (pubkey): Node id for the peer this account is with
-  - **we_opened** (boolean): Did we initiate this account open (open the channel)
-  - **account_closed** (boolean): 
-  - **account_resolved** (boolean): Has this channel been closed and all outputs resolved?
-  - **resolved_at_block** (u32, optional): Blockheight account resolved on chain
+  - **peer\_id** (pubkey): Node id for the peer this account is with
+  - **we\_opened** (boolean): Did we initiate this account open (open the channel)
+  - **account\_closed** (boolean): 
+  - **account\_resolved** (boolean): Has this channel been closed and all outputs resolved?
+  - **resolved\_at\_block** (u32, optional): Blockheight account resolved on chain
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -53,4 +53,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:42302ecee2bab01fca04477e5b4d793f11757e0b7a2f43c6878ff8ecf857cc34)
+[comment]: # ( SHA256STAMP:ae354f9ee2c0f3805923c7c1fbbf490d43c838449fe25758a6884c2f1686d20e)
