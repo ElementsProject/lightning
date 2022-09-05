@@ -33,8 +33,8 @@ WALLET_SQL_FILES := 			\
 	wallet/test/run-wallet.c	\
 
 wallet/statements_gettextgen.po: $(WALLET_SQL_FILES) $(FORCE)
-	@if $(call SHA256STAMP_CHANGED_ALL); then \
-		$(call VERBOSE,"xgettext $@",xgettext -kNAMED_SQL -kSQL --add-location --no-wrap --omit-header -o $@ $(WALLET_SQL_FILES) && $(call SHA256STAMP_ALL,# ,)); \
+	@if $(call SHA256STAMP_CHANGED); then \
+		$(call VERBOSE,"xgettext $@",xgettext -kNAMED_SQL -kSQL --add-location --no-wrap --omit-header -o $@ $(WALLET_SQL_FILES) && $(call SHA256STAMP,# ,)); \
 	fi
 
 wallet/db_%_sqlgen.c: wallet/statements_gettextgen.po devtools/sql-rewrite.py $(FORCE)

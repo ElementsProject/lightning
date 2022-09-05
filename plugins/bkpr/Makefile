@@ -47,8 +47,8 @@ BOOKKEEPER_SQL_FILES := 			\
 	plugins/bkpr/recorder.c
 
 plugins/bkpr/statements_gettextgen.po: $(BOOKKEEPER_SQL_FILES) $(FORCE)
-	@if $(call SHA256STAMP_CHANGED_ALL); then \
-		$(call VERBOSE,"xgettext $@",xgettext -kNAMED_SQL -kSQL --add-location --no-wrap --omit-header -o $@ $(BOOKKEEPER_SQL_FILES) && $(call SHA256STAMP_ALL,# ,)); \
+	@if $(call SHA256STAMP_CHANGED); then \
+		$(call VERBOSE,"xgettext $@",xgettext -kNAMED_SQL -kSQL --add-location --no-wrap --omit-header -o $@ $(BOOKKEEPER_SQL_FILES) && $(call SHA256STAMP,# ,)); \
 	fi
 
 plugins/bkpr/db_%_sqlgen.c: plugins/bkpr/statements_gettextgen.po devtools/sql-rewrite.py $(BOOKKEEPER_SQL_FILES) $(FORCE)
