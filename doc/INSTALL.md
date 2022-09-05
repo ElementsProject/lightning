@@ -64,7 +64,7 @@ Checkout a release tag:
 For development or running tests, get additional dependencies:
 
     sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
-      libsecp256k1-dev jq
+      libsecp256k1-dev jq lowdown
 
 If you want to build the Rust plugins (currently, cln-grpc):
 
@@ -174,12 +174,6 @@ fiddle with compile time options:
 
     # cd /usr/ports/net-p2p/c-lightning && make install
 
-mrkd is required to build man pages from markdown files (not done by the port):
-
-    # cd /usr/ports/devel/py-pip && make install
-    $ pip install --user poetry
-    $ poetry install
-
 See `/usr/ports/net-p2p/c-lightning/Makefile` for instructions on how to
 build from an arbitrary git commit, instead of the latest release tag.
 
@@ -209,7 +203,7 @@ pkg_add git python gmake py3-pip libtool gmp
 pkg_add automake # (select highest version, automake1.16.2 at time of writing)
 pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
 ```
-Install `mako` and `mrkd` otherwise we run into build errors:
+Install `mako` otherwise we run into build errors:
 ```
 pip3.7 install --user poetry
 poetry install
