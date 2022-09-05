@@ -22,6 +22,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **channels_apy** is returned.  It is an array of objects, where each object contains:
+
 - **account** (string): The account name. If the account is a channel, the channel_id. The 'net' entry is the rollup of all channel accounts
 - **routed_out_msat** (msat): Sats routed (outbound)
 - **routed_in_msat** (msat): Sats routed (inbound)
@@ -64,4 +65,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:435fd03765ef0a8bcaef7f309673cdac9cb7c8ba776ac77de21aea8d702998a3)
+[comment]: # ( SHA256STAMP:c86f82cd78e639f70e640c4d36e0a28a5087a74c931207501d9121049ff9b5d2)

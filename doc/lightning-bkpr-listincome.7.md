@@ -27,6 +27,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **income_events** is returned.  It is an array of objects, where each object contains:
+
 - **account** (string): The account name. If the account is a channel, the channel_id
 - **tag** (string): Type of income event
 - **credit_msat** (msat): Amount earned (income)
@@ -56,4 +57,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ab8508af0f40587c5a804f6981591564fe2d18b4fe3fbe7793e6a489607f7e0a)
+[comment]: # ( SHA256STAMP:67cedc19eeb5d684cda2efd025e42d1d89fd1d899d8b66ac0d9b663139cc3517)

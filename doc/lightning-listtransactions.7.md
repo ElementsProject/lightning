@@ -105,4 +105,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:4d5d2f1cea0668b3e58e73a93fe6d217ac4a8c740bed09fcdce21c9e72daae99)
+[comment]: # ( SHA256STAMP:9cb66a3febe7c37e1892e2fc9f486a6e896e9406a1d9514e5283d4c5f8f6b707)

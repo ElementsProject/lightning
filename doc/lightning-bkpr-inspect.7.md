@@ -18,6 +18,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **txs** is returned.  It is an array of objects, where each object contains:
+
 - **txid** (txid): transaction id
 - **fees_paid_msat** (msat): Amount paid in sats for this tx
 - **outputs** (array of objects):
@@ -51,4 +52,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:9df98d40e1ed1b0c72f4a4e8c00d243e10f159b99c534818f04631ec3d17a445)
+[comment]: # ( SHA256STAMP:a89c90315d210fcf1fd45bf4edef04a72165834867f860447e33d89840eac59f)
