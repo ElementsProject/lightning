@@ -115,6 +115,7 @@ u8 *gossip_store_next(const tal_t *ctx,
 		      size_t *off, size_t *end)
 {
 	u8 *msg = NULL;
+	size_t initial_off = *off;
 
 	while (!msg) {
 		struct gossip_hdr hdr;
@@ -146,6 +147,14 @@ u8 *gossip_store_next(const tal_t *ctx,
 			continue;
 		}
 
+		/* Messages can be up to 64k, but we also have internal ones:
+		 * 128k is plenty. */
+		if (msglen > 128 * 1024)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "gossip_store: oversize msg len %u at"
+				      " offset %zu (was at %zu)",
+				      msglen, *off, initial_off);
+
 		checksum = be32_to_cpu(hdr.crc);
 		msg = tal_arr(ctx, u8, msglen);
 		r = pread(*gossip_store_fd, msg, msglen, *off + r);
@@ -155,8 +164,8 @@ u8 *gossip_store_next(const tal_t *ctx,
 		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "gossip_store: bad checksum at offset %zu"
-				      ": %s",
-				      *off, tal_hex(tmpctx, msg));
+				      "(was at %zu): %s",
+				      *off, initial_off, tal_hex(tmpctx, msg));
 
 		/* Definitely processing it now */
 		*off += sizeof(hdr) + msglen;
