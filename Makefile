@@ -317,19 +317,13 @@ endif
 ifeq ($(SUPPRESS_GENERATION),1)
 SHA256STAMP_CHANGED = false
 SHA256STAMP = exit 1
-SHA256STAMP_CHANGED_ALL = false
-SHA256STAMP_ALL = exit 1
 else
 # Git doesn't maintain timestamps, so we only regen if sources actually changed:
 # We place the SHA inside some generated files so we can tell if they need updating.
 # Usage: $(call SHA256STAMP_CHANGED)
-SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP:\([a-f0-9]*\).*/\1/p' $@ 2>/dev/null`" != x"`cat $(sort $(filter-out FORCE,$<)) | $(SHA256SUM) | cut -c1-64`" ]
+SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP:\([a-f0-9]*\).*/\1/p' $@ 2>/dev/null`" != x"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`" ]
 # Usage: $(call SHA256STAMP,commentprefix,commentpostfix)
-SHA256STAMP = echo "$(1) SHA256STAMP:"`cat $(sort $(filter-out FORCE,$<)) | $(SHA256SUM) | cut -c1-64`"$(2)" >> $@
-
-SHA256STAMP_CHANGED_ALL = [ x"`sed -n 's/.*SHA256STAMP:\([a-f0-9]*\).*/\1/p' $@ 2>/dev/null`" != x"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`" ]
-# Usage: $(call SHA256STAMP,commentprefix,commentpostfix)
-SHA256STAMP_ALL = echo "$(1) SHA256STAMP:"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`"$(2)" >> $@
+SHA256STAMP = echo "$(1) SHA256STAMP:"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`"$(2)" >> $@
 endif
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
