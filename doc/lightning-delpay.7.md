@@ -37,6 +37,7 @@ payments will be returned -- one payment object for each partid.
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **payments** is returned.  It is an array of objects, where each object contains:
+
 - **id** (u64): unique ID for this payment attempt
 - **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (one of "pending", "failed", "complete")

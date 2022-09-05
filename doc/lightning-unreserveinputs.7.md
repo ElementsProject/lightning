@@ -23,12 +23,14 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **reservations** is returned.  It is an array of objects, where each object contains:
+
 - **txid** (txid): the transaction id
 - **vout** (u32): the output number which was reserved
 - **was_reserved** (boolean): whether the input was already reserved (usually `true`)
 - **reserved** (boolean): whether the input is now reserved (may still be `true` if it was reserved for a long time)
 
 If **reserved** is *true*:
+
   - **reserved_to_block** (u32): what blockheight the reservation will expire
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

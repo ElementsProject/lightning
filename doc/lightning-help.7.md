@@ -30,6 +30,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **help** (array of objects):
   - **command** (string): the command
   - **category** (string): the category for this command (useful for grouping)

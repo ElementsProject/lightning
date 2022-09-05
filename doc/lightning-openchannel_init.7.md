@@ -52,6 +52,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **channel_id** (hex): the channel id of the channel (always 64 characters)
 - **psbt** (string): the (incomplete) PSBT of the funding transaction
 - **commitments_secured** (boolean): whether the *psbt* is complete (always *false*)

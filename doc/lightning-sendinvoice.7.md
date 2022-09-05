@@ -40,6 +40,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **label** (string): unique label supplied at invoice creation
 - **description** (string): description used in the invoice
 - **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
@@ -49,6 +50,7 @@ On success, an object is returned, containing:
 - **bolt12** (string, optional): the BOLT12 string
 
 If **status** is "paid":
+
   - **pay_index** (u64): Unique incrementing index for this payment
   - **amount_received_msat** (msat): the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)
   - **paid_at** (u64): UNIX timestamp of when it was paid

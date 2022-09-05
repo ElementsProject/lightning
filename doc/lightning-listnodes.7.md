@@ -28,10 +28,12 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **nodes** is returned.  It is an array of objects, where each object contains:
+
 - **nodeid** (pubkey): the public key of the node
 - **last_timestamp** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
 
 If **last_timestamp** is present:
+
   - **alias** (string): The fun alias this node advertized (up to 32 characters)
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
   - **features** (hex): BOLT #9 features bitmap this node advertized
@@ -40,9 +42,11 @@ If **last_timestamp** is present:
     - **port** (u16): port number
 
     If **type** is "dns", "ipv4", "ipv6", "torv2" or "torv3":
+
       - **address** (string): address in expected format for **type**
 
 If **option_will_fund** is present:
+
   - **option_will_fund** (object):
     - **lease_fee_base_msat** (msat): the fixed fee for a lease (whole number of satoshis)
     - **lease_fee_basis** (u32): the proportional fee in basis points (parts per 10,000) for a lease

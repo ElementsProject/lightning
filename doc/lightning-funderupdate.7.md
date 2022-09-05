@@ -106,6 +106,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **summary** (string): Summary of the current funding policy e.g. (match 100)
 - **policy** (string): Policy funder plugin will use to decide how much captial to commit to a v2 open channel request (one of "match", "available", "fixed")
 - **policy_mod** (u32): The *policy_mod* is the number or 'modification' to apply to the policy.

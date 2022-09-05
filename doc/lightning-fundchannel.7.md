@@ -84,6 +84,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **tx** (hex): The raw transaction which funded the channel
 - **txid** (txid): The txid of the transaction which funded the channel
 - **outnum** (u32): The 0-based output index showing which output funded the channel

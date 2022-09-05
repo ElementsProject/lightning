@@ -37,6 +37,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **totlen** (u16): the answer length of the reply message (including header: 0 means no reply expected)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

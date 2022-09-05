@@ -25,6 +25,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **command_to_check** (string): the *command_to_check* argument
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

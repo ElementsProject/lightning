@@ -99,6 +99,7 @@ do not have a channel even if **multifundchannel** succeeded.
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **tx** (hex): The raw transaction which funded the channel
 - **txid** (txid): The txid of the transaction which funded the channel
 - **channel_ids** (array of objects):

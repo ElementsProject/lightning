@@ -67,6 +67,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **id** (u64): unique ID for this payment attempt
 - **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
@@ -81,9 +82,11 @@ On success, an object is returned, containing:
 - **bolt12** (string, optional): the bolt12 string (if supplied: **experimental-offers** only).
 
 If **status** is "complete":
+
   - **payment_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 
 If **status** is "pending":
+
   - **message** (string): Monitor status with listpays or waitsendpay
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

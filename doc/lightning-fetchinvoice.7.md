@@ -50,6 +50,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **invoice** (string): The BOLT12 invoice we fetched
 - **changes** (object): Summary of changes from offer:
   - **description_appended** (string, optional): extra characters appended to the *description* field.

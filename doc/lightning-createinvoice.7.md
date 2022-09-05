@@ -32,6 +32,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **label** (string): the label for the invoice
 - **payment_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): Whether it has been paid, or can no longer be paid (one of "paid", "expired", "unpaid")

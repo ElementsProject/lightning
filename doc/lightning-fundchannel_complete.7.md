@@ -28,6 +28,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
 - **commitments_secured** (boolean): Indication that channel is safe to use (always *true*)
 

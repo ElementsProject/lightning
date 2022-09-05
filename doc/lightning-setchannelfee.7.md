@@ -48,6 +48,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **base** (u32): The fee_base_msat value
 - **ppm** (u32): The fee_proportional_millionths value
 - **channels** (array of objects): channel(s) whose rate is now set:

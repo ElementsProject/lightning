@@ -30,6 +30,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **created_at** (string): UNIX timestamp with 9 decimal places, when logging was initialized
 - **bytes_used** (u32): The number of bytes used by logging records
 - **bytes_max** (u32): The bytes_used values at which records will be trimmed 
@@ -37,15 +38,18 @@ On success, an object is returned, containing:
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
 
   If **type** is "SKIPPED":
+
     - **num_skipped** (u32): number of unprinted log entries (deleted or below *level* parameter)
 
   If **type** is "BROKEN", "UNUSUAL", "INFO" or "DEBUG":
+
     - **time** (string): UNIX timestamp with 9 decimal places after **created_at**
     - **source** (string): The particular logbook this was found in
     - **log** (string): The actual log message
     - **node_id** (pubkey, optional): The peer this is associated with
 
   If **type** is "IO_IN" or "IO_OUT":
+
     - **time** (string): Seconds after **created_at**, with 9 decimal places
     - **source** (string): The particular logbook this was found in
     - **log** (string): The associated log message

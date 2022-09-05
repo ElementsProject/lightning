@@ -27,9 +27,11 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **enabled** (boolean): whether invoice autocleaning is active
 
 If **enabled** is *true*:
+
   - **expired_by** (u64): how long an invoice must be expired (seconds) before we delete it
   - **cycle_seconds** (u64): how long an invoice must be expired (seconds) before we delete it
 

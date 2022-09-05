@@ -21,6 +21,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **blockheight** (u32): The current block height (>= *blockheight* parameter)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

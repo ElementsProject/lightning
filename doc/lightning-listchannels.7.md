@@ -32,6 +32,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **channels** is returned.  It is an array of objects, where each object contains:
+
 - **source** (pubkey): the source node
 - **destination** (pubkey): the destination node
 - **short_channel_id** (short_channel_id): short channel id of channel

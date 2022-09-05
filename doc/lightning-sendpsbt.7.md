@@ -32,6 +32,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **tx** (hex): The raw transaction which was sent
 - **txid** (txid): The txid of the **tx**
 

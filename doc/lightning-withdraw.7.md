@@ -42,6 +42,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **tx** (hex): the fully signed bitcoin transaction
 - **txid** (txid): the transaction id of *tx*
 - **psbt** (string): the PSBT representing the unsigned transaction

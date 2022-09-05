@@ -29,6 +29,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **verified** (boolean): whether the signature was valid (always *true*)
 - **pubkey** (pubkey): the *pubkey* parameter, or the pubkey found by looking for known nodes
 

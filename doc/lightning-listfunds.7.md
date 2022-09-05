@@ -21,6 +21,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **outputs** (array of objects):
   - **txid** (txid): the ID of the spendable transaction
   - **output** (u32): the index within *txid*
@@ -32,9 +33,11 @@ On success, an object is returned, containing:
   - **redeemscript** (hex, optional): the redeemscript, only if it's p2sh-wrapped
 
   If **status** is "confirmed":
+
     - **blockheight** (u32): Block height where it was confirmed
 
   If **reserved** is "true":
+
     - **reserved_to_block** (u32): Block height where reservation will expire
 - **channels** (array of objects):
   - **peer_id** (pubkey): the peer with which the channel is opened
@@ -46,9 +49,11 @@ On success, an object is returned, containing:
   - **state** (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
 
   If **state** is "CHANNELD_NORMAL":
+
     - **short_channel_id** (short_channel_id): short channel id of channel
 
   If **state** is "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN" or "ONCHAIN":
+
     - **short_channel_id** (short_channel_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

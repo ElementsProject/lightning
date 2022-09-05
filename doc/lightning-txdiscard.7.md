@@ -17,6 +17,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **unsigned_tx** (hex): the unsigned transaction
 - **txid** (txid): the transaction id of *unsigned_tx*
 

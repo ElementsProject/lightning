@@ -67,6 +67,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **channels** is returned.  It is an array of objects, where each object contains:
+
 - **peer_id** (pubkey): The node_id of the peer
 - **channel_id** (hex): The channel_id of the channel (always 64 characters)
 - **fee_base_msat** (msat): The resulting feebase (this is the BOLT #7 name)

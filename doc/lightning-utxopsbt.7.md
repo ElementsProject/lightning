@@ -45,6 +45,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **psbt** (string): Unsigned PSBT which fulfills the parameters given
 - **feerate_per_kw** (u32): The feerate used to create the PSBT, in satoshis-per-kiloweight
 - **estimated_final_weight** (u32): The estimated weight of the transaction once fully signed

@@ -46,6 +46,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **perkb** (object, optional): If *style* parameter was perkb:
   - **min_acceptable** (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
   - **max_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
@@ -72,6 +73,7 @@ On success, an object is returned, containing:
   - **htlc_success_satoshis** (u64): Estimated cost of typical HTLC fulfillment transaction
 
 The following warnings may also be returned:
+
 - **warning_missing_feerates**: Some fee estimates are missing
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

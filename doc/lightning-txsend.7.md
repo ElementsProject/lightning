@@ -17,6 +17,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **psbt** (string): the completed PSBT representing the signed transaction
 - **tx** (hex): the fully signed transaction
 - **txid** (txid): the transaction id of *tx*

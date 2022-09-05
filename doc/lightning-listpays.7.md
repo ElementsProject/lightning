@@ -18,6 +18,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **pays** is returned.  It is an array of objects, where each object contains:
+
 - **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
 - **created_at** (u64): the UNIX timestamp showing when this payment was initiated
@@ -28,14 +29,17 @@ On success, an object containing **pays** is returned.  It is an array of object
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 
 If **status** is "pending" or "complete":
+
   - **amount_sent_msat** (msat): the amount we actually sent, including fees
   - **amount_msat** (msat, optional): the amount the destination received, if known
 
 If **status** is "complete":
+
   - **preimage** (hex): proof of payment (always 64 characters)
   - **number_of_parts** (u64, optional): the number of parts for a successful payment (only if more than one).
 
 If **status** is "failed":
+
   - **erroronion** (hex, optional): the error onion returned on failure, if any.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)

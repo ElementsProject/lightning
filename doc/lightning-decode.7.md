@@ -23,10 +23,12 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice_request", "bolt11 invoice", "rune")
 - **valid** (boolean): if this is false, you *MUST* not use the result except for diagnostics!
 
 If **type** is "bolt12 offer", and **valid** is *true*:
+
   - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
   - **node_id** (point32): x-only public key of the offering node
   - **description** (string): the description of the purpose of the offer
@@ -64,10 +66,12 @@ If **type** is "bolt12 offer", and **valid** is *true*:
     - **warning_offer_unknown_currency**: The currency code is unknown (so no **minor_unit**)
 
 If **type** is "bolt12 offer", and **valid** is *false*:
+
   - the following warnings are possible:
     - **warning_offer_missing_description**: No **description**
 
 If **type** is "bolt12 invoice", and **valid** is *true*:
+
   - **node_id** (point32): x-only public key of the offering node
   - **signature** (bip340sig): BIP-340 signature of the *node_id* on this offer
   - **amount_msat** (msat): the amount in bitcoin
@@ -100,6 +104,7 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - **refund_signature** (bip340sig, optional): the payer key signature to get a refund
 
 If **type** is "bolt12 invoice", and **valid** is *false*:
+
   - **fallbacks** (array of objects, optional):
     - the following warnings are possible:
       - **warning_invoice_fallbacks_version_invalid**: **version** is > 16
@@ -116,6 +121,7 @@ If **type** is "bolt12 invoice", and **valid** is *false*:
     - **warning_invoice_refund_missing_signature**: No **refund_signature**
 
 If **type** is "bolt12 invoice_request", and **valid** is *true*:
+
   - **offer_id** (hex): the id of the offer this is requesting (merkle hash of non-signature fields) (always 64 characters)
   - **payer_key** (point32): the transient key which identifies the payer
   - **chain** (hex, optional): which blockchain this invoice_request is for (missing implies bitcoin mainnet only) (always 64 characters)
@@ -128,6 +134,7 @@ If **type** is "bolt12 invoice_request", and **valid** is *true*:
   - **recurrence_signature** (bip340sig, optional): the payer key signature
 
 If **type** is "bolt12 invoice_request", and **valid** is *false*:
+
   - the following warnings are possible:
     - **warning_invoice_request_missing_offer_id**: No **offer_id**
     - **warning_invoice_request_missing_payer_key**: No **payer_key**
@@ -135,6 +142,7 @@ If **type** is "bolt12 invoice_request", and **valid** is *false*:
     - **warning_invoice_request_invalid_recurrence_signature**: **recurrence_signature** incorrect
 
 If **type** is "bolt11 invoice", and **valid** is *true*:
+
   - **currency** (string): the BIP173 name for the currency
   - **created_at** (u64): the UNIX-style timestamp of the invoice
   - **expiry** (u64): the number of seconds this is valid after *timestamp*

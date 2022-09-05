@@ -190,6 +190,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **rune** (string): the resulting rune
 - **unique_id** (string): the id of this rune: this is set at creation and cannot be changed (even as restrictions are added)
 

@@ -23,6 +23,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **forwards** is returned.  It is an array of objects, where each object contains:
+
 - **in_channel** (short_channel_id): the channel that received the HTLC
 - **in_msat** (msat): the value of the incoming HTLC
 - **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
@@ -32,13 +33,16 @@ On success, an object containing **forwards** is returned.  It is an array of ob
 - **style** (string, optional): Either a legacy onion format or a modern tlv format (one of "legacy", "tlv")
 
 If **out_msat** is present:
+
   - **fee_msat** (msat): the amount this paid in fees
   - **out_msat** (msat): the amount we sent out the *out_channel*
 
 If **status** is "settled" or "failed":
+
   - **resolved_time** (number): the UNIX timestamp when this was resolved
 
 If **status** is "local_failed" or "failed":
+
   - **failcode** (u32, optional): the numeric onion code returned
   - **failreason** (string, optional): the name of the onion code returned
 

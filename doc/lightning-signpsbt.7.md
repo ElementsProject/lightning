@@ -40,6 +40,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
+
 - **signed_psbt** (string): The fully signed PSBT
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
