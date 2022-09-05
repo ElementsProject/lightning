@@ -33,6 +33,7 @@ RUN apt-get -qq update && \
 	python-pkg-resources \
 	shellcheck \
 	libxml2-utils \
+	lowdown \
 	wget \
 	gettext \
 	xsltproc \
@@ -65,5 +66,4 @@ RUN pip3 install --upgrade pip && \
 	tqdm==4.26.0 \
 	pytest-test-groups==1.0.3 \
 	flake8==3.5.0 \
-	pytest-rerunfailures==3.1 \
-	mrkd==0.1.6
+	pytest-rerunfailures==3.1

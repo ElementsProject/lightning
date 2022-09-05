@@ -39,6 +39,7 @@ jobs:
             bash \
             gettext \
             sqlite3 \
+            lowdown \
             curl
 
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2021-08-3z1
@@ -63,7 +64,6 @@ jobs:
             blinker \
             flake8 \
             mako \
-            mrkd \
             pytest-sentry \
             pytest-test-groups==1.0.3 \
             pytest-custom-exit-code==0.3.0 \
