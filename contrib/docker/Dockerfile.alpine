@@ -6,7 +6,7 @@ WORKDIR /build
 RUN apk update && \
     apk add ca-certificates alpine-sdk autoconf automake git libtool \
     gmp-dev sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext su-exec \
-    python3 py3-pip lowdown #&& \
+    python3 py3-pip #&& \
     #apk add --upgrade fortify-headers
 
 RUN mkdir lightning
