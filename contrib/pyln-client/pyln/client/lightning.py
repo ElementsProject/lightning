@@ -455,6 +455,11 @@ class LightningRpc(UnixDomainSocketRpc):
                     if k.endswith('msat'):
                         if isinstance(v, list):
                             obj[k] = [Millisatoshi(e) for e in v]
+                        # FIXME: Deprecated "listconfigs" gives two 'null' fields:
+                        #            "lease-fee-base-msat": null,
+                        #            "channel-fee-max-base-msat": null,
+                        elif v is None:
+                            obj[k] = None
                         else:
                             obj[k] = Millisatoshi(v)
                     else:

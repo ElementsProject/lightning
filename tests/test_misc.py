@@ -725,29 +725,29 @@ def test_address(node_factory):
     l2.rpc.connect(l1.info['id'], l1.daemon.opts['addr'])
 
 
-@unittest.skipIf(DEPRECATED_APIS, "Tests the --allow-deprecated-apis config")
 def test_listconfigs(node_factory, bitcoind, chainparams):
     # Make extremely long entry, check it works
-    l1 = node_factory.get_node(options={'log-prefix': 'lightning1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'})
+    for deprecated in (True, False):
+        l1 = node_factory.get_node(options={'log-prefix': 'lightning1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                            'allow-deprecated-apis': deprecated})
 
-    configs = l1.rpc.listconfigs()
-    # See utils.py
-    assert configs['allow-deprecated-apis'] is False
-    assert configs['network'] == chainparams['name']
-    assert configs['ignore-fee-limits'] is False
-    assert configs['ignore-fee-limits'] is False
-    assert configs['log-prefix'] == 'lightning1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...'
+        configs = l1.rpc.listconfigs()
+        # See utils.py
+        assert configs['allow-deprecated-apis'] == deprecated
+        assert configs['network'] == chainparams['name']
+        assert configs['ignore-fee-limits'] is False
+        assert configs['log-prefix'] == 'lightning1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...'
 
-    # These are aliases, but we don't print the (unofficial!) wumbo.
-    assert 'wumbo' not in configs
-    assert configs['large-channels'] is False
+        # These are aliases, but we don't print the (unofficial!) wumbo.
+        assert 'wumbo' not in configs
+        assert configs['large-channels'] is False
 
-    # Test one at a time.
-    for c in configs.keys():
-        if c.startswith('#') or c.startswith('plugins') or c == 'important-plugins':
-            continue
-        oneconfig = l1.rpc.listconfigs(config=c)
-        assert(oneconfig[c] == configs[c])
+        # Test one at a time.
+        for c in configs.keys():
+            if c.startswith('#') or c.startswith('plugins') or c == 'important-plugins':
+                continue
+            oneconfig = l1.rpc.listconfigs(config=c)
+            assert(oneconfig[c] == configs[c])
 
 
 def test_listconfigs_plugins(node_factory, bitcoind, chainparams):
