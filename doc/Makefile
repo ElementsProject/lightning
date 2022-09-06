@@ -125,8 +125,19 @@ RBRACKET=)
 $(MARKDOWN_WITH_SCHEMA): doc/lightning-%.7.md: doc/schemas/%.schema.json tools/fromschema.py
 	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "fromschema $@", tools/fromschema.py --markdownfile=$@ doc/schemas/$*.schema.json > $@.tmp && grep -v SHA256STAMP: $@.tmp > $@ && rm -f $@.tmp && $(call SHA256STAMP,[comment]: # $(LBRACKET),$(RBRACKET))); else touch $@; fi
 
+# If we need to build lowdown, make tools/md2man.sh depend on it.
+# That way it's not used in SHA256STAMP (which only uses direct
+# dependencies), but make will be forced to build it.
+ifeq ($(HAVE_LOWDOWN),0)
+LOWDOWN := $(TARGET_DIR)/lowdown-build/bin/lowdown
+tools/md2man.sh: $(LOWDOWN)
+	touch $@
+else
+LOWDOWN := lowdown
+endif
+
 $(MANPAGES): doc/%: doc/%.md tools/md2man.sh version_gen.h
-	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "md2man $<", VERSION=$(VERSION) tools/md2man.sh $< > $@ && $(call SHA256STAMP,\\\",)); else touch $@; fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "md2man $<", VERSION=$(VERSION) tools/md2man.sh $(LOWDOWN) $< > $@ && $(call SHA256STAMP,\\\",)); else touch $@; fi
 
 $(MANPAGES): $(FORCE)
 $(MARKDOWN_WITH_SCHEMA): $(FORCE)
