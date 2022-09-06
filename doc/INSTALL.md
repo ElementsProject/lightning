@@ -66,6 +66,8 @@ For development or running tests, get additional dependencies:
     sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
       libsecp256k1-dev jq lowdown
 
+If you can't install `lowdown`, a version will be built in-tree.
+
 If you want to build the Rust plugins (currently, cln-grpc):
 
 	sudo apt-get install -y cargo rustfmt
