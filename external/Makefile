@@ -6,6 +6,10 @@ SUBMODULES =					\
 	external/libbacktrace			\
 	external/lnprototest
 
+ifeq ($(HAVE_LOWDOWN),0)
+SUBMODULES += external/lowdown
+endif
+
 TOP := ../..
 ifdef BUILD
 CROSSCOMPILE_OPTS := --host="$(MAKE_HOST)" --build="$(BUILD)"
@@ -28,6 +32,10 @@ LIBBACKTRACE_HEADERS := external/libbacktrace/backtrace.h
 
 EXTERNAL_HEADERS := $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS) $(GHEAP_HEADERS) $(LIBBACKTRACE_HEADERS)
 EXTERNAL_LIBS := ${TARGET_DIR}/libwallycore.a ${TARGET_DIR}/libsecp256k1.a ${TARGET_DIR}/libjsmn.a ${TARGET_DIR}/libbacktrace.a
+
+ifeq ($(HAVE_LOWDOWN),0)
+EXTERNAL_HEADERS += external/lowdown/lowdown.h
+endif
 
 EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libwally-core/include/			\
@@ -106,6 +114,10 @@ $(TARGET_DIR)/libbacktrace.a: external/libbacktrace/backtrace.h
 	cd $(TARGET_DIR)/libbacktrace-build && $(TOP)/libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 	$(MAKE) -C $(TARGET_DIR)/libbacktrace-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
+$(TARGET_DIR)/lowdown-build/bin/lowdown: external/lowdown/lowdown.h
+	cd external/lowdown && CC="$(CC)" ./configure PREFIX=`pwd`/$(TOP)/$(TARGET_DIR)/lowdown-build/
+	$(MAKE) -C external/lowdown install
+
 distclean: external-distclean
 clean: external-clean
 
@@ -116,8 +128,10 @@ external-clean:
 	if [ -f ${TARGET_DIR}/libwally-core-build/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build clean; fi
 	if [ -f ${TARGET_DIR}/libwally-core-build/src/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build/src clean; fi
 	if [ -f ${TARGET_DIR}/libbacktrace-build/Makefile ]; then make -C ${TARGET_DIR}/libbacktrace-build clean; fi
+	[ -f external/lowdown/Makefile.configure ] && $(MAKE) -C external/lowdown clean
 
 external-distclean:
 	make -C external/libsodium distclean || true
+	[ -f external/lowdown/Makefile.configure ] && $(MAKE) -C external/lowdown distclean
 	$(RM) -rf ${TARGET_DIR}/libbacktrace-build ${TARGET_DIR}/libsodium-build ${TARGET_DIR}/libwally-core-build ${TARGET_DIR}/jsmn-build
 	$(RM) -r `git status --ignored --porcelain external/libwally-core | grep '^!! ' | cut -c3-`
