@@ -446,6 +446,7 @@ static bool colname_to_delete(const char **colnames,
 	return false;
 }
 
+/* Returns NULL if this doesn't look like a column definition */
 static const char *find_column_name(const tal_t *ctx,
 				    const char *sqlpart,
 				    size_t *after)
@@ -455,7 +456,7 @@ static const char *find_column_name(const tal_t *ctx,
 	while (isspace(sqlpart[start]))
 		start++;
 	*after = strspn(sqlpart + start, "abcdefghijklmnopqrstuvwxyz_0123456789") + start;
-	if (*after == start)
+	if (*after == start || !cisspace(sqlpart[*after]))
 		return NULL;
 	return tal_strndup(ctx, sqlpart + start, *after - start);
 }
