@@ -11,7 +11,9 @@ void towire(u8 **pptr, const void *data, size_t len)
 	size_t oldsize = tal_count(*pptr);
 
 	tal_resize(pptr, oldsize + len);
-	memcpy(*pptr + oldsize, memcheck(data, len), len);
+	/* The C standards committee has a lot to answer for :( */
+	if (len)
+		memcpy(*pptr + oldsize, memcheck(data, len), len);
 }
 
 void towire_u8(u8 **pptr, u8 v)
