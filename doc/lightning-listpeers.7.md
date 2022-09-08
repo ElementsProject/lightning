@@ -53,7 +53,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
     - **perkb** (u32): Feerate per 1000 virtual bytes
   - **owner** (string, optional): The current subdaemon controlling this connection
-  - **short\_channel\_id** (short_channel_id, optional): The short_channel_id (once locked in)
+  - **short\_channel\_id** (short\_channel\_id, optional): The short_channel_id (once locked in)
   - **channel\_id** (hash, optional): The full channel_id (always 64 characters)
   - **funding\_txid** (txid, optional): ID of the funding transaction
   - **funding\_outnum** (u32, optional): The 0-based output number of the funding transaction which opens the channel
@@ -98,8 +98,8 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **our\_to\_self\_delay** (u32, optional): the number of blocks before we can take our funds if we unilateral close
   - **max\_accepted\_htlcs** (u32, optional): Maximum number of incoming HTLC we will accept at once
   - **alias** (object, optional):
-    - **local** (short_channel_id, optional): An alias assigned by this node to this channel, used for outgoing payments
-    - **remote** (short_channel_id, optional): An alias assigned by the remote node to this channel, usable in routehints and invoices
+    - **local** (short\_channel\_id, optional): An alias assigned by this node to this channel, used for outgoing payments
+    - **remote** (short\_channel\_id, optional): An alias assigned by the remote node to this channel, usable in routehints and invoices
   - **state\_changes** (array of objects, optional): Prior state changes:
     - **timestamp** (string): UTC timestamp of form YYYY-mm-ddTHH:MM:SS.%03dZ
     - **old\_state** (string): Previous state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
@@ -399,4 +399,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:e80b24123fdeea4eacda71bb7d824b9234bf17c68239ebf7915d2ab747c58fdc)
+[comment]: # ( SHA256STAMP:108f43815e3475b88fd9b6a4a8f868e9d729c5d7616e0b0cc2c14f8922f54955)

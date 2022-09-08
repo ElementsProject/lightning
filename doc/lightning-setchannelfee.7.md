@@ -54,7 +54,7 @@ On success, an object is returned, containing:
 - **channels** (array of objects): channel(s) whose rate is now set:
   - **peer\_id** (pubkey): The node_id of the peer
   - **channel\_id** (hex): The channel_id of the channel (always 64 characters)
-  - **short\_channel\_id** (short_channel_id, optional): the short_channel_id (if locked in)
+  - **short\_channel\_id** (short\_channel\_id, optional): the short_channel_id (if locked in)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -83,4 +83,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:bd5af1e2190426012541af0eb582ca22461fb38ec70c7a235f4e7e92f7fc565d)
+[comment]: # ( SHA256STAMP:a7f079e9a25ee5f4c3d8bf3ed2c61d2f807eae99e6bfe02b0737a9692aca503b)

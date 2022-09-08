@@ -50,11 +50,11 @@ On success, an object is returned, containing:
 
   If **state** is "CHANNELD_NORMAL":
 
-    - **short\_channel\_id** (short_channel_id): short channel id of channel
+    - **short\_channel\_id** (short\_channel\_id): short channel id of channel
 
   If **state** is "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN" or "ONCHAIN":
 
-    - **short\_channel\_id** (short_channel_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
+    - **short\_channel\_id** (short\_channel\_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -73,4 +73,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:319598cb35f3a9c6f336191363b1e38df74b467c0989942b5f4e0a998d0f6339)
+[comment]: # ( SHA256STAMP:e5c1f54c8a5008a30648e0fe5883132759fcdabd72bd7e8a00bedc360363e85e)

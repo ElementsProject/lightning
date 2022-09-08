@@ -74,7 +74,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **fee\_proportional\_millionths** (u32): The resulting feeppm (this is the BOLT #7 name)
 - **minimum\_htlc\_out\_msat** (msat): The resulting htlcmin we will advertize (the BOLT #7 name is htlc_minimum_msat)
 - **maximum\_htlc\_out\_msat** (msat): The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)
-- **short\_channel\_id** (short_channel_id, optional): the short_channel_id (if locked in)
+- **short\_channel\_id** (short\_channel\_id, optional): the short_channel_id (if locked in)
 - the following warnings are possible:
   - **warning\_htlcmin\_too\_low**: The requested htlcmin was too low for this peer, so we set it to the minimum they will allow
   - **warning\_htlcmax\_too\_high**: The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity
@@ -107,4 +107,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:28a16d5b1392dd72f9d7a040ce8e37907114fbaf1aed106314fab3f9126afba2)
+[comment]: # ( SHA256STAMP:0f7cd751f329360a8cd957dfc8ea0b7d579aa05f4de4f8577039e50266a04f30)

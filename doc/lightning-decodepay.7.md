@@ -38,7 +38,7 @@ On success, an object is returned, containing:
 - **routes** (array of arrays, optional): Route hints to the *payee*:
   - hops in the route:
     - **pubkey** (pubkey): the public key of the node
-    - **short\_channel\_id** (short_channel_id): a channel to the next peer
+    - **short\_channel\_id** (short\_channel\_id): a channel to the next peer
     - **fee\_base\_msat** (msat): the base fee for payments
     - **fee\_proportional\_millionths** (u32): the parts-per-million fee for payments
     - **cltv\_expiry\_delta** (u32): the CLTV delta across this hop
@@ -71,4 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:b2a483f6fcb07e4bcddb088520049eee1d33447136e2634bf4207d54c21022e9)
+[comment]: # ( SHA256STAMP:c98fd8cac46b5446ff2d01ede6b082f64a83d4b5745d06e410af3e1dd91be8e2)

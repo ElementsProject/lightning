@@ -24,11 +24,11 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **forwards** is returned.  It is an array of objects, where each object contains:
 
-- **in\_channel** (short_channel_id): the channel that received the HTLC
+- **in\_channel** (short\_channel\_id): the channel that received the HTLC
 - **in\_msat** (msat): the value of the incoming HTLC
 - **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
 - **received\_time** (number): the UNIX timestamp when this was received
-- **out\_channel** (short_channel_id, optional): the channel that the HTLC (trying to) forward to
+- **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
 - **payment\_hash** (hex, optional): payment hash sought by HTLC (always 64 characters)
 - **style** (string, optional): Either a legacy onion format or a modern tlv format (one of "legacy", "tlv")
 
@@ -63,4 +63,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e3c26f73040deb441a572d848eda3d6da924c490e5b9ac55c5d87432f4144646)
+[comment]: # ( SHA256STAMP:39c71b957590f6a9b321120e7f337216833efd94f0144560da5cd55c91fee35c)
