@@ -161,7 +161,9 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 					     int code,
 					     const char *err);
 
-/* Helper to jsonrpc_request_start() and send_outreq() to update datastore. */
+/* Helper to jsonrpc_request_start() and send_outreq() to update datastore.
+ * NULL cb means ignore, NULL errcb means plugin_error.
+*/
 struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 					      struct command *cmd,
 					      const char *path,

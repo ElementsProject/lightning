@@ -617,6 +617,16 @@ bool rpc_scan_datastore_hex(struct plugin *plugin,
 	return ret;
 }
 
+static struct command_result *datastore_fail(struct command *command,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     void *unused)
+{
+	plugin_err(command->plugin, "datastore failed: %.*s",
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+}
+
 struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 					      struct command *cmd,
 					      const char *path,
@@ -634,6 +644,11 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 					      void *arg)
 {
 	struct out_req *req;
+
+	if (!cb)
+		cb = ignore_cb;
+	if (!errcb)
+		errcb = datastore_fail;
 
 	req = jsonrpc_request_start(plugin, cmd, "datastore", cb, errcb, arg);
 
