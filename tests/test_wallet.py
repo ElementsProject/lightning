@@ -1393,6 +1393,7 @@ def test_withdraw_nlocktime_fuzz(node_factory, bitcoind):
         raise Exception("No transaction with fuzzed nLockTime !")
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "addr2 and addr3 unknown to l1")
 def test_multiwithdraw_simple(node_factory, bitcoind, chainparams):
     """
     Test simple multiwithdraw usage.

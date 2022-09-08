@@ -1138,6 +1138,7 @@ def test_v2_open(node_factory, bitcoind, chainparams):
     assert(result['status'] == 'complete')
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd') and os.getenv('VLS_PERMISSIVE') != '1', "channel push not allowed: dual-funding not supported yet")
 @pytest.mark.openchannel('v1')
 def test_funding_push(node_factory, bitcoind, chainparams):
     """ Try to push peer some sats """
