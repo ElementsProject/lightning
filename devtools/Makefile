@@ -94,3 +94,5 @@ devtools/lightning-checkmessage: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fr
 devtools/route: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o common/random_select.o common/route.o common/dijkstra.o devtools/clean_topo.o devtools/route.o
 
 devtools/topology: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o common/random_select.o common/dijkstra.o common/route.o devtools/clean_topo.o devtools/topology.o
+
+include devtools/test/Makefile
