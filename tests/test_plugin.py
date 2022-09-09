@@ -2904,3 +2904,36 @@ def test_commando_badrune(node_factory):
                     l1.rpc.decode(base64.urlsafe_b64encode(modrune).decode('utf8'))
                 except RpcError:
                     pass
+
+
+def test_block_processed_notifications(node_factory, bitcoind):
+    """Test if a plugin gets notifications when a new block is found"""
+    base = bitcoind.rpc.getblockchaininfo()["blocks"]
+    plugin = [
+        os.path.join(os.getcwd(), "tests/plugins/block_processed.py"),
+    ]
+    l1 = node_factory.get_node(options={"plugin": plugin})
+    ret = l1.rpc.call("blockscatched")
+    assert len(ret) == 1 and ret[0] == base + 0
+
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l1])
+    ret = l1.rpc.call("blockscatched")
+    assert len(ret) == 3 and ret[0] == base + 0 and ret[2] == base + 2
+
+    l2 = node_factory.get_node(options={"plugin": plugin})
+    ret = l2.rpc.call("blockscatched")
+    assert len(ret) == 1 and ret[0] == base + 2
+
+    l2.stop()
+    next_l2_base = bitcoind.rpc.getblockchaininfo()["blocks"]
+
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l1])
+    ret = l1.rpc.call("blockscatched")
+    assert len(ret) == 5 and ret[4] == base + 4
+
+    l2.start()
+    sync_blockheight(bitcoind, [l2])
+    ret = l2.rpc.call("blockscatched")
+    assert len(ret) == 3 and ret[1] == next_l2_base + 1 and ret[2] == next_l2_base + 2

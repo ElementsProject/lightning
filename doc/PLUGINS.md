@@ -873,6 +873,20 @@ current accounts (`account_id` matches the `account_id` emitted from
 }
 ```
 
+### `block_processed`
+
+Emitted after each block is received from bitcoind, either during the initial sync or
+throughout the node's life as new blocks appear.
+
+```json
+{
+    "block_processed": {
+      "hash": "000000000000000000034bdb3c01652a0aa8f63d32f949313d55af2509f9d245",
+      "height": 753304
+    }
+}
+```
+
 ### `openchannel_peer_sigs`
 
 When opening a channel with a peer using the collaborative transaction protocol
