@@ -950,10 +950,10 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 	db->report_changes_fn = plugin_hook_db_sync;
 
 	db_begin_transaction(db);
+	db->data_version = db_data_version_get(db);
 
 	migrated = db_migrate(ld, db, bip32_base);
 
-	db->data_version = db_data_version_get(db);
 	db_commit_transaction(db);
 
 	/* This needs to be done outside a transaction, apparently.
