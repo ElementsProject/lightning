@@ -14,21 +14,27 @@
 int test_main(int argc, char *argv[]);
 int test_bitcoin_tx_add_input(struct bitcoin_tx *tx,
 			 const struct bitcoin_outpoint *outpoint,
-			 u32 sequence, const u8 *scriptSig,
-			 struct amount_sat amount, const u8 *scriptPubkey,
+			 u32 sequence,
+			 const u8 *scriptSig,
+			 struct amount_sat amount,
+			 const u8 *scriptPubkey,
 			 const u8 *input_wscript);
 void test_bitcoin_tx_finalize(struct bitcoin_tx *tx);
 bool test_bitcoin_tx_check(const struct bitcoin_tx *tx);
-void test_bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script);
+void test_bitcoin_tx_input_set_script(struct bitcoin_tx *tx,
+				      int innum,
+				      u8 *script);
 void test_sign_tx_input(const struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript,
 		   const u8 *witness_script,
-		   const struct privkey *privkey, const struct pubkey *key,
+		   const struct privkey *privkey,
+		   const struct pubkey *key,
 		   enum sighash_type sighash_type,
 		   struct bitcoin_signature *sig);
 void test_bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
 u8 *test_linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
+int test_printf(const char *format, ...);
 
 #define main test_main
 #define bitcoin_tx_add_input test_bitcoin_tx_add_input
@@ -38,29 +44,38 @@ u8 *test_linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 #define sign_tx_input test_sign_tx_input
 #define bitcoin_txid(tx, txid) test_bitcoin_txid(tx, txid)
 #define linearize_tx test_linearize_tx
+#define printf test_printf
   #include "../mkfunding.c"
 #undef main
 
 int test_bitcoin_tx_add_input(struct bitcoin_tx *tx UNUSED,
 			 const struct bitcoin_outpoint *outpoint UNUSED,
-			 u32 sequence UNUSED, const u8 *scriptSig UNUSED,
-			 struct amount_sat amount UNUSED, const u8 *scriptPubkey UNUSED,
-			 const u8 *input_wscript UNUSED) {
-	// printf("mock bitcoin_tx_add_input\n");
+			 u32 sequence UNUSED,
+			 const u8 *scriptSig UNUSED,
+			 struct amount_sat amount UNUSED,
+			 const u8 *scriptPubkey UNUSED,
+			 const u8 *input_wscript UNUSED)
+{
+	printf("mock bitcoin_tx_add_input\n");
 	return 0;
 }
 
-void test_bitcoin_tx_finalize(struct bitcoin_tx *tx UNUSED) {
-	// printf("mock bitcoin_tx_finalize\n");
+void test_bitcoin_tx_finalize(struct bitcoin_tx *tx UNUSED)
+{
+	printf("mock bitcoin_tx_finalize\n");
 }
 
-bool test_bitcoin_tx_check(const struct bitcoin_tx *tx UNUSED) {
-	// printf("mock bitcoin_tx_check\n");
+bool test_bitcoin_tx_check(const struct bitcoin_tx *tx UNUSED)
+{
+	printf("mock bitcoin_tx_check\n");
 	return true;
 }
 
-void test_bitcoin_tx_input_set_script(struct bitcoin_tx *tx UNUSED, int innum UNUSED, u8 *script UNUSED) {
-	// printf("mock bitcoin_tx_input_set_script\n");
+void test_bitcoin_tx_input_set_script(struct bitcoin_tx *tx UNUSED,
+				      int innum UNUSED,
+				      u8 *script UNUSED)
+{
+	printf("mock bitcoin_tx_input_set_script\n");
 }
 
 void test_sign_tx_input(const struct bitcoin_tx *tx UNUSED,
@@ -70,22 +85,31 @@ void test_sign_tx_input(const struct bitcoin_tx *tx UNUSED,
 		   const struct privkey *privkey UNUSED,
 		   const struct pubkey *key UNUSED,
 		   enum sighash_type sighash_type UNUSED,
-		   struct bitcoin_signature *sig UNUSED) {
-	// printf("mock sign_tx_input\n");
-}
-
-void test_bitcoin_txid(const struct bitcoin_tx *tx UNUSED, struct bitcoin_txid *txid UNUSED)
+		   struct bitcoin_signature *sig UNUSED)
 {
-	// printf("mock bitcoin_txid\n");
+	printf("mock sign_tx_input\n");
 }
 
-u8 *test_linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx) {
-	// printf("mock linearize_tx\n");
+void test_bitcoin_txid(const struct bitcoin_tx *tx UNUSED,
+		       struct bitcoin_txid *txid UNUSED)
+{
+	printf("mock bitcoin_txid\n");
+}
+
+u8 *test_linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
+{
+	printf("mock linearize_tx\n");
 	return NULL;
 }
 
+int test_printf(const char *fmt UNUSED, ...)
+{
+	return 0;
+}
 
-static int testcase1(int argc UNUSED, char *argv[]) {
+
+static int testcase1(int argc UNUSED, char *argv[])
+{
 	printf("\ntestcase 1\n");
 	char *fake_argv[] = {
 		argv[0],
@@ -103,7 +127,8 @@ static int testcase1(int argc UNUSED, char *argv[]) {
 	return 0;
 }
 
-static int testcase2(int argc UNUSED, char *argv[]) {
+static int testcase2(int argc UNUSED, char *argv[])
+{
 	printf("\ntestcase 2\n");
 	char *fake_argv[] = {
 		argv[0],
@@ -121,7 +146,8 @@ static int testcase2(int argc UNUSED, char *argv[]) {
 	return 0;
 }
 
-static int testcase3(int argc UNUSED, char *argv[]) {
+static int testcase3(int argc UNUSED, char *argv[])
+{
 	printf("\ntestcase 3\n");
 	char *fake_argv[] = {
 		argv[0],
