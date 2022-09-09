@@ -21,6 +21,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <math.h>
 #include <wallet/txfilter.h>
 
@@ -818,8 +819,12 @@ static void get_new_block(struct bitcoind *bitcoind,
 	/* Unexpected predecessor?  Free predecessor, refetch it. */
 	if (!bitcoin_blkid_eq(&topo->tip->blkid, &blk->hdr.prev_hash))
 		remove_tip(topo);
-	else
+	else {
 		add_tip(topo, new_block(topo, blk, topo->tip->height + 1));
+
+		/* tell plugins a new block was processed */
+		notify_block_processed(topo->ld, topo->tip);
+	}
 
 	/* Try for next one. */
 	try_extend_tip(topo);

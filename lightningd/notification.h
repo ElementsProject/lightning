@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_NOTIFICATION_H
 #include "config.h"
 #include <common/coin_mvt.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/pay.h>
 #include <lightningd/plugin.h>
 
@@ -85,6 +86,9 @@ void notify_coin_mvt(struct lightningd *ld,
 
 void notify_balance_snapshot(struct lightningd *ld,
 			     const struct balance_snapshot *snap);
+
+void notify_block_processed(struct lightningd *ld,
+			    const struct block *block);
 
 void notify_openchannel_peer_sigs(struct lightningd *ld,
 				  const struct channel_id *cid,
