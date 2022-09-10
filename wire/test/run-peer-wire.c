@@ -72,6 +72,14 @@ static void set_scid(struct short_channel_id *scid)
 	(tal_count((p1)->field) == tal_count((p2)->field) \
 	 && (tal_count((p1)->field) == 0 || memcmp((p1)->field, (p2)->field, tal_bytelen((p1)->field)) == 0))
 
+/* TLV field comparison: both unset, or both set and eqfn ok */
+#define eq_tlv(p1, p2, tlvname, eqfn)					\
+	(((p1)->tlvs == NULL && (p2)->tlvs == NULL)			\
+	 || ((p1)->tlvs && (p2)->tlvs					\
+	     && (((p1)->tlvs->tlvname == NULL && (p2)->tlvs->tlvname == NULL) \
+		 || ((p1)->tlvs->tlvname && (p2)->tlvs->tlvname &&	\
+		     eqfn((p1)->tlvs->tlvname, (p2)->tlvs->tlvname)))))
+
 /* Convenience structs for everyone! */
 struct msg_error {
 	struct channel_id channel_id;
@@ -814,22 +822,7 @@ static bool funding_locked_eq(const struct msg_funding_locked *a,
 	if (!eq_upto(a, b, tlvs))
 		return false;
 
-	/* Both or neither */
-	if (!a->tlvs != !b->tlvs)
-		return false;
-
-	if (!a->tlvs)
-		return true;
-
-	/* Both or neither */
-	if (!a->tlvs->alias != !b->tlvs->alias)
-		return false;
-
-	if (!a->tlvs->alias)
-		return true;
-
-	return memeq(a->tlvs->alias, sizeof(a->tlvs->alias),
-		     b->tlvs->alias, sizeof(b->tlvs->alias));
+	return eq_tlv(a, b, alias, short_channel_id_eq);
 }
 
 static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
@@ -878,34 +871,31 @@ static bool error_eq(const struct msg_error *a,
 		&& eq_var(a, b, data);
 }
 
+static bool tlv_networks_eq(const struct bitcoin_blkid *a,
+			    const struct bitcoin_blkid *b)
+{
+	if (tal_count(a) != tal_count(b))
+		return false;
+
+	for (size_t i = 0; i < tal_count(a); i++)
+		if (!bitcoin_blkid_eq(&a[i], &b[i]))
+			return false;
+	return true;
+}
+
+static bool talarr_eq(const void *a, const void *b)
+{
+	return memeq(a, tal_bytelen(a), b, tal_bytelen(b));
+}
+
 static bool init_eq(const struct msg_init *a,
 		    const struct msg_init *b)
 {
 	if (!eq_var(a, b, globalfeatures) || !eq_var(a, b, localfeatures))
 		return false;
 
-	/* Both or neither */
-	if (!a->tlvs != !b->tlvs)
-		return false;
-
-	if (!a->tlvs)
-		return true;
-
-	/* Both or neither */
-	if (!a->tlvs->networks != !b->tlvs->networks)
-		return false;
-
-	if (!a->tlvs->networks)
-		return true;
-
-	if (tal_count(a->tlvs->networks)
-	    != tal_count(b->tlvs->networks))
-		return false;
-	for (size_t i = 0; i < tal_count(a->tlvs->networks); i++)
-		if (!bitcoin_blkid_eq(&a->tlvs->networks[i],
-				      &b->tlvs->networks[i]))
-			return false;
-	return true;
+	return eq_tlv(a, b, networks, tlv_networks_eq)
+		&& eq_tlv(a, b, remote_addr, talarr_eq);
 }
 
 static bool update_fee_eq(const struct msg_update_fee *a,
@@ -982,28 +972,14 @@ lease_rates_eq(const struct lease_rates *a,
 static bool node_announcement_eq(const struct msg_node_announcement *a,
 				 const struct msg_node_announcement *b)
 {
-	/* Both or neither */
-	if (!a->tlvs != !b->tlvs)
+	if (!eq_with(a, b, node_id)
+	    || !eq_field(a, b, rgb_color)
+	    || !eq_field(a, b, alias)
+	    || !eq_var(a, b, features)
+	    || !eq_var(a, b, addresses))
 		return false;
 
-	if (!a->tlvs)
-		goto body_check;
-
-	/* Both or neither */
-	if (!a->tlvs->option_will_fund != !b->tlvs->option_will_fund)
-		return false;
-
-	if (a->tlvs->option_will_fund
-	    && !lease_rates_eq(a->tlvs->option_will_fund,
-			       b->tlvs->option_will_fund))
-		return false;
-
-body_check:
-	return eq_with(a, b, node_id)
-		&& eq_field(a, b, rgb_color)
-		&& eq_field(a, b, alias)
-		&& eq_var(a, b, features)
-		&& eq_var(a, b, addresses);
+	return eq_tlv(a, b, option_will_fund, lease_rates_eq);
 }
 
 /* Try flipping each bit, try running short. */
@@ -1146,10 +1122,16 @@ int main(int argc, char *argv[])
 		init.tlvs = tlv_init_tlvs_new(ctx);
 		init.tlvs->networks = tal_arr(init.tlvs, struct bitcoin_blkid, 1);
 		init.tlvs->networks[0] = networks[i].genesis_blockhash;
-		msg = towire_struct_init(ctx, &init);
-		init2 = fromwire_struct_init(ctx, msg);
-		assert(init_eq(&init, init2));
-		test_corruption_tlv(&init, init2, init);
+		for (size_t j = 0; j < 5; j++) {
+			if (j) {
+				init.tlvs->remote_addr = tal_arr(init.tlvs, u8, j);
+				memset(init.tlvs->remote_addr, j, j);
+			}
+			msg = towire_struct_init(ctx, &init);
+			init2 = fromwire_struct_init(ctx, msg);
+			assert(init_eq(&init, init2));
+			test_corruption_tlv(&init, init2, init);
+		}
 	}
 
 	memset(&uf, 2, sizeof(uf));
