@@ -1205,11 +1205,9 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 		cmd->verbose = cmd->description;
 	if (usagetok)
 		usage = json_strdup(tmpctx, buffer, usagetok);
-	else if (!deprecated_apis) {
+	else
 		return tal_fmt(plugin,
 			    "\"usage\" not provided by plugin");
-	} else
-		usage = "[params]";
 
 	if (deptok) {
 		if (!json_to_bool(buffer, deptok, &cmd->deprecated))
