@@ -664,11 +664,6 @@ static void rpc_command_hook_serialize(struct rpc_command_hook_payload *p,
 	char *key;
 	json_object_start(s, "rpc_command");
 
-#ifdef COMPAT_V081
-	if (deprecated_apis)
-		json_add_tok(s, "rpc_command", p->request, p->buffer);
-#endif
-
 	json_for_each_obj(i, tok, p->request) {
 		key = tal_strndup(NULL, p->buffer + tok->start,
 				  tok->end - tok->start);
