@@ -158,7 +158,8 @@ static inline const char* forward_status_name(enum forward_status status)
 	abort();
 }
 
-bool string_to_forward_status(const char *status_str, enum forward_status *status);
+bool string_to_forward_status(const char *status_str, size_t len,
+			      enum forward_status *status);
 
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */
