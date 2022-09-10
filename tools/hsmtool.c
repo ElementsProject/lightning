@@ -719,11 +719,6 @@ int main(int argc, char *argv[])
 
 		if (argc > 3)
 			net = argv[3];
-		/* Previously, we accepted hsm_secret passwords on the command line.
-		 * This shifted the location of the network parameter.
-		 * TODO: remove this 3 releases after v0.9.3 */
-		if (deprecated_apis && argc > 4)
-			net = argv[4];
 
 		if (net && streq(net, "testnet"))
 			is_testnet = true;
