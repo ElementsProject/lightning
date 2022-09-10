@@ -1884,9 +1884,6 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 		json_add_address(req->stream, "proxy", ld->proxyaddr);
 		json_add_bool(req->stream, "torv3-enabled", true);
 		json_add_bool(req->stream, "always_use_proxy", ld->always_use_proxy);
-		if (deprecated_apis)
-			json_add_bool(req->stream, "use_proxy_always",
-				      ld->always_use_proxy);
 	}
 	json_object_start(req->stream, "feature_set");
 	for (enum feature_place fp = 0; fp < NUM_FEATURE_PLACE; fp++) {
