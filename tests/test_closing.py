@@ -33,9 +33,9 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     assert bitcoind.rpc.getmempoolinfo()['size'] == 0
 
     billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
-    assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
+    assert billboard == ['CHANNELD_NORMAL:Channel ready for use.']
     billboard = only_one(l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status']
-    assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
+    assert billboard == ['CHANNELD_NORMAL:Channel ready for use.']
 
     bitcoind.generate_block(5)
 
@@ -44,7 +44,7 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
     # This may either be from a local_update or an announce, so just
     # check for the substring
-    assert 'CHANNELD_NORMAL:Funding transaction locked.' in billboard[0]
+    assert 'CHANNELD_NORMAL:Channel ready for use.' in billboard[0]
 
     l1.rpc.close(chan)
 

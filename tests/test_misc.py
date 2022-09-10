@@ -1108,7 +1108,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
 
     daemon = 'DUALOPEND' if l1.config('experimental-dual-fund') else 'CHANNELD'
     wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['status']
-             == ['{}_AWAITING_LOCKIN:Funding needs 1 more confirmations for lockin.'.format(daemon)])
+             == ['{}_AWAITING_LOCKIN:Funding needs 1 more confirmations to be ready.'.format(daemon)])
     bitcoind.generate_block(1)                      # height 107
     l1.wait_channel_active('106x1x0')
     l2.wait_channel_active('106x1x0')
@@ -1166,7 +1166,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
-        'CHANNELD_NORMAL:Funding transaction locked. They need our announcement signatures.'])
+        'CHANNELD_NORMAL:Channel ready for use. They need our announcement signatures.'])
 
     # Unblinding l2 brings it back in sync, restarts channeld and sends its announce sig
     l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
@@ -1176,7 +1176,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
-        'CHANNELD_NORMAL:Funding transaction locked. Channel announced.'])
+        'CHANNELD_NORMAL:Channel ready for use. Channel announced.'])
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)

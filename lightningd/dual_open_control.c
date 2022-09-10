@@ -1790,7 +1790,7 @@ void dualopen_tell_depth(struct subd *dualopend,
 	} else
 		channel_set_billboard(channel, false,
 				      tal_fmt(tmpctx, "Funding needs %d more"
-					      " confirmations for lockin.",
+					      " confirmations to be ready.",
 					      to_go));
 }
 
