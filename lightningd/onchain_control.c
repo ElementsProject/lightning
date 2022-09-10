@@ -625,7 +625,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	channel_fail_permanent(channel, reason, "Funding transaction spent");
 
 	/* If we haven't posted the open event yet, post an open */
-	if (!channel->scid || !channel->remote_funding_locked) {
+	if (!channel->scid || !channel->remote_channel_ready) {
 		u32 blkh;
 		/* Blockheight will be zero if it's not in chain */
 		blkh = wallet_transaction_height(channel->peer->ld->wallet,

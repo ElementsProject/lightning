@@ -529,7 +529,7 @@ static void handle_recv_gossip(struct daemon *daemon, const u8 *outermsg)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
-	case WIRE_FUNDING_LOCKED:
+	case WIRE_CHANNEL_READY:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_UPDATE_ADD_HTLC:

@@ -839,8 +839,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 *   - It supports `channel_type`, `channel_type` was set, and the
-	 *     `type` is not suitable.
+	 *  - It supports `channel_type` and `channel_type` was set:
+	 *     - if `type` is not suitable.
+	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
 	if (open_tlvs->channel_type) {
 		state->channel_type =

@@ -53,8 +53,8 @@ msgdata,channeld_init,revocations_received,u64,
 msgdata,channeld_init,next_htlc_id,u64,
 msgdata,channeld_init,num_existing_htlcs,u16,
 msgdata,channeld_init,htlcs,existing_htlc,num_existing_htlcs
-msgdata,channeld_init,local_funding_locked,bool,
-msgdata,channeld_init,remote_funding_locked,bool,
+msgdata,channeld_init,local_channel_ready,bool,
+msgdata,channeld_init,remote_channel_ready,bool,
 msgdata,channeld_init,funding_short_id,short_channel_id,
 msgdata,channeld_init,reestablish,bool,
 msgdata,channeld_init,send_shutdown,bool,
@@ -117,10 +117,10 @@ msgdata,channeld_fulfill_htlc,fulfilled_htlc,fulfilled_htlc,
 msgtype,channeld_fail_htlc,1006
 msgdata,channeld_fail_htlc,failed_htlc,failed_htlc,
 
-# When we receive funding_locked.
-msgtype,channeld_got_funding_locked,1019
-msgdata,channeld_got_funding_locked,next_per_commit_point,pubkey,
-msgdata,channeld_got_funding_locked,alias,?short_channel_id,
+# When we receive channel_ready.
+msgtype,channeld_got_channel_ready,1019
+msgdata,channeld_got_channel_ready,next_per_commit_point,pubkey,
+msgdata,channeld_got_channel_ready,alias,?short_channel_id,
 
 #include <common/penalty_base.h>
 

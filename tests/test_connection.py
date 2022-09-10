@@ -679,7 +679,7 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
     reconnects. See comments for details.
 
     """
-    disconnects = ["-WIRE_FUNDING_LOCKED", "-WIRE_SHUTDOWN"]
+    disconnects = ["-WIRE_CHANNEL_READY", "-WIRE_SHUTDOWN"]
     # Allow bad gossip because it might receive WIRE_CHANNEL_UPDATE before
     # announcement of the disconnection
     l1 = node_factory.get_node(may_reconnect=True, allow_bad_gossip=True)
@@ -715,8 +715,8 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
 @pytest.mark.openchannel('v2')
 def test_reconnect_normal(node_factory):
     # Should reconnect fine even if locked message gets lost.
-    disconnects = ['-WIRE_FUNDING_LOCKED',
-                   '+WIRE_FUNDING_LOCKED']
+    disconnects = ['-WIRE_CHANNEL_READY',
+                   '+WIRE_CHANNEL_READY']
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
     l2 = node_factory.get_node(may_reconnect=True)
@@ -2234,7 +2234,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # Fire off a sendpay request, it'll get interrupted by a restart
     executor.submit(l1.pay, l2, 10000)
     # Wait for it to be committed to, i.e., stored in the DB
-    l1.daemon.wait_for_log('peer_in WIRE_FUNDING_LOCKED')
+    l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_READY')
     l1.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
 
     # Stop l2, l1 will reattempt to connect
