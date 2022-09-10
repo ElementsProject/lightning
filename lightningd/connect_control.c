@@ -201,7 +201,7 @@ static struct command_result *json_connect(struct command *cmd,
 		if (!parse_wireaddr_internal(id_addr.host, addr, port, false,
 					     !cmd->ld->always_use_proxy
 					     && !cmd->ld->pure_tor_setup,
-					     true, deprecated_apis,
+					     true,
 					     &err_msg)) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Host %s:%u not valid: %s",

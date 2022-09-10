@@ -1098,7 +1098,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 
 	/* Add another utxo that's CSV-locked for 5 blocks */
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
-				true, NULL);
+				NULL);
 	channel.peer = new_peer(ld, 0, &id, &addr, false);
 	channel.dbid = 1;
 	channel.type = channel_type_anchor_outputs(tmpctx);
@@ -1395,7 +1395,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	mempat(scriptpubkey, tal_count(scriptpubkey));
 	c1.first_blocknum = 1;
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
-				true, NULL);
+				NULL);
 	c1.final_key_idx = 1337;
 	p = new_peer(ld, 0, &id, &addr, false);
 	c1.peer = p;
@@ -1558,7 +1558,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	node_id_from_pubkey(&id, &pk);
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
-				true, NULL);
+				NULL);
 
 	/* new channel! */
 	p = new_peer(ld, 0, &id, &addr, false);

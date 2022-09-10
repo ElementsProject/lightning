@@ -839,11 +839,11 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	/* This can happen for peers last seen on Torv2! */
 	addrstr = db_col_strdup(tmpctx, stmt, "address");
 	if (!parse_wireaddr_internal(addrstr, &addr, chainparams_get_ln_port(chainparams),
-				     false, false, true, true, NULL)) {
+				     false, false, true, NULL)) {
 		log_unusual(w->log, "Unparsable peer address %s: replacing",
 			    addrstr);
 		parse_wireaddr_internal("127.0.0.1:1", &addr, chainparams_get_ln_port(chainparams),
-					false, false, true, true, NULL);
+					false, false, true, NULL);
 	}
 
 	/* FIXME: save incoming in db! */
