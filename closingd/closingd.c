@@ -260,11 +260,11 @@ receive_offer(struct per_peer_state *pps,
 		/* BOLT #2:
 		 *
 		 *  - upon reconnection:
-		 *     - MUST ignore any redundant `funding_locked` it receives.
+		 *     - MUST ignore any redundant `channel_ready` it receives.
 		 */
 		/* This should only happen if we've made no commitments, but
 		 * we don't have to check that: it's their problem. */
-		if (fromwire_peektype(msg) == WIRE_FUNDING_LOCKED)
+		if (fromwire_peektype(msg) == WIRE_CHANNEL_READY)
 			msg = tal_free(msg);
 		/* BOLT #2:
 		 *     - if it has sent a previous `shutdown`:

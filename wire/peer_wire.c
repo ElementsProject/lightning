@@ -12,7 +12,7 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
-	case WIRE_FUNDING_LOCKED:
+	case WIRE_CHANNEL_READY:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_UPDATE_ADD_HTLC:
@@ -75,7 +75,7 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
-	case WIRE_FUNDING_LOCKED:
+	case WIRE_CHANNEL_READY:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_UPDATE_ADD_HTLC:
@@ -242,9 +242,9 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
-	case WIRE_FUNDING_LOCKED:
+	case WIRE_CHANNEL_READY:
 		/* BOLT #2:
-		 * 1. type: 36 (`funding_locked`)
+		 * 1. type: 36 (`channel_ready`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */

@@ -1274,13 +1274,13 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 2}]
 
     bitcoind.generate_block(2, wait_for_mempool=1)  # Confirm on the l2 side.
-    l2.daemon.wait_for_log(r'peer_out WIRE_FUNDING_LOCKED')
+    l2.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_READY')
     # l1 should not be sending funding_locked/channel_ready yet, it is
     # configured to wait for 6 confirmations.
-    assert not l1.daemon.is_in_log(r'peer_out WIRE_FUNDING_LOCKED')
+    assert not l1.daemon.is_in_log(r'peer_out WIRE_CHANNEL_READY')
 
     bitcoind.generate_block(4)  # Confirm on the l2 side.
-    l1.daemon.wait_for_log(r'peer_out WIRE_FUNDING_LOCKED')
+    l1.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_READY')
 
     wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
     wait_for(lambda: l2.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
@@ -1318,11 +1318,11 @@ def test_zeroconf_open(bitcoind, node_factory):
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
 
     l1.daemon.wait_for_logs([
-        r'peer_in WIRE_FUNDING_LOCKED',
+        r'peer_in WIRE_CHANNEL_READY',
         r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
     ])
     l2.daemon.wait_for_logs([
-        r'peer_in WIRE_FUNDING_LOCKED',
+        r'peer_in WIRE_CHANNEL_READY',
         r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
     ])
 
@@ -1606,8 +1606,8 @@ def test_zeroconf_multichan_forward(node_factory):
     l2.fundwallet(10**7)
     l2.rpc.fundchannel(l3.info['id'], 2 * 10**6, mindepth=0)
 
-    l2.daemon.wait_for_log(r'peer_in WIRE_FUNDING_LOCKED')
-    l3.daemon.wait_for_log(r'peer_in WIRE_FUNDING_LOCKED')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
+    l3.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
 
     inv = l3.rpc.invoice(amount_msat=10000, label='lbl1', description='desc')['bolt11']
     l1.rpc.pay(inv)

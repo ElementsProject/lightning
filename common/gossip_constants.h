@@ -32,7 +32,7 @@
 
 /* BOLT #7:
  *
- * - MUST NOT send `announcement_signatures` messages until `funding_locked`
+ * - MUST NOT send `announcement_signatures` messages until `channel_ready`
  *   has been sent and received AND the funding transaction has at least six
  *   confirmations.
  */

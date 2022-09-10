@@ -195,7 +195,7 @@ struct state {
 	struct feature_set *our_features;
 
 	/* Tally of which sides are locked, or not */
-	bool funding_locked[NUM_SIDES];
+	bool channel_ready[NUM_SIDES];
 
 	/* Are we shutting down? */
 	bool shutdown_sent[NUM_SIDES];
@@ -380,7 +380,7 @@ static void negotiation_failed(struct state *state,
 
 static void billboard_update(struct state *state)
 {
-	const char *update = billboard_message(tmpctx, state->funding_locked,
+	const char *update = billboard_message(tmpctx, state->channel_ready,
 					       NULL,
 					       state->shutdown_sent,
 					       0, /* Always zero? */
@@ -930,9 +930,9 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 		open_err_fatal(state, "Bad tx_signatures %s",
 			       tal_hex(msg, msg));
 
-	/* Maybe they didn't get our funding_locked message ? */
-	if (state->funding_locked[LOCAL] && !state->reconnected) {
-		status_broken("Got WIRE_TX_SIGNATURES after funding locked "
+	/* Maybe they didn't get our channel_ready message ? */
+	if (state->channel_ready[LOCAL] && !state->reconnected) {
+		status_broken("Got WIRE_TX_SIGNATURES after channel_ready "
 			       "for channel %s, ignoring: %s",
 			       type_to_string(tmpctx, struct channel_id,
 					      &state->channel_id),
@@ -941,10 +941,10 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 	}
 
 	/* On reconnect, we expect them to resend tx_sigs if they haven't
-	 * gotten our funding_locked yet */
-	if (state->funding_locked[REMOTE] && !state->reconnected)
+	 * gotten our channel_ready yet */
+	if (state->channel_ready[REMOTE] && !state->reconnected)
 		open_err_warn(state,
-			      "tx_signatures sent after funding_locked %s",
+			      "tx_signatures sent after channel_ready %s",
 			      tal_hex(msg, msg));
 
 	if (!tx_state->psbt)
@@ -1128,18 +1128,18 @@ static void init_changeset(struct tx_state *tx_state, struct wally_psbt *psbt)
 	tx_state->changeset = psbt_get_changeset(tx_state, empty_psbt, psbt);
 }
 
-static u8 *handle_funding_locked(struct state *state, u8 *msg)
+static u8 *handle_channel_ready(struct state *state, u8 *msg)
 {
 	struct channel_id cid;
 	struct pubkey remote_per_commit;
-	struct tlv_funding_locked_tlvs *tlvs;
+	struct tlv_channel_ready_tlvs *tlvs;
 
-	if (!fromwire_funding_locked(tmpctx, msg, &cid, &remote_per_commit, &tlvs))
-		open_err_fatal(state, "Bad funding_locked %s",
+	if (!fromwire_channel_ready(tmpctx, msg, &cid, &remote_per_commit, &tlvs))
+		open_err_fatal(state, "Bad channel_ready %s",
 			       tal_hex(msg, msg));
 
 	if (!channel_id_eq(&cid, &state->channel_id))
-		open_err_fatal(state, "funding_locked ids don't match:"
+		open_err_fatal(state, "channel_ready ids don't match:"
 			       " expected %s, got %s",
 			       type_to_string(msg, struct channel_id,
 					      &state->channel_id),
@@ -1148,21 +1148,21 @@ static u8 *handle_funding_locked(struct state *state, u8 *msg)
 	/* If we haven't gotten their tx_sigs yet, this is a protocol error */
 	if (!state->tx_state->remote_funding_sigs_rcvd) {
 		open_err_warn(state,
-			      "funding_locked sent before tx_signatures %s",
+			      "channel_ready sent before tx_signatures %s",
 			      tal_hex(msg, msg));
 	}
 
 	/* We save when the peer locks, so we do the right
 	 * thing on reconnects */
-	if (!state->funding_locked[REMOTE]) {
+	if (!state->channel_ready[REMOTE]) {
 		msg = towire_dualopend_peer_locked(NULL, &remote_per_commit);
 		wire_sync_write(REQ_FD, take(msg));
 	}
 
-	state->funding_locked[REMOTE] = true;
+	state->channel_ready[REMOTE] = true;
 	billboard_update(state);
 
-	if (state->funding_locked[LOCAL])
+	if (state->channel_ready[LOCAL])
 		return towire_dualopend_channel_locked(state);
 
 	return NULL;
@@ -1247,8 +1247,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 			 * startup an RBF */
 			handle_tx_sigs(state, msg);
 			continue;
-		case WIRE_FUNDING_LOCKED:
-			handle_funding_locked(state, msg);
+		case WIRE_CHANNEL_READY:
+			handle_channel_ready(state, msg);
 			return NULL;
 		case WIRE_SHUTDOWN:
 			handle_peer_shutdown(state, msg);
@@ -1608,7 +1608,7 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_ACCEPT_CHANNEL:
 		case WIRE_FUNDING_CREATED:
 		case WIRE_FUNDING_SIGNED:
-		case WIRE_FUNDING_LOCKED:
+		case WIRE_CHANNEL_READY:
 		case WIRE_SHUTDOWN:
 		case WIRE_CLOSING_SIGNED:
 		case WIRE_UPDATE_ADD_HTLC:
@@ -3388,19 +3388,19 @@ static void hsm_per_commitment_point(u64 index, struct pubkey *point)
 			      tal_hex(tmpctx, msg));
 }
 
-static void send_funding_locked(struct state *state)
+static void send_channel_ready(struct state *state)
 {
 	u8 *msg;
 	struct pubkey next_local_per_commit;
-	struct tlv_funding_locked_tlvs *tlvs = tlv_funding_locked_tlvs_new(tmpctx);
+	struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 	/* Figure out the next local commit */
 	hsm_per_commitment_point(1, &next_local_per_commit);
 
-	msg = towire_funding_locked(NULL, &state->channel_id,
+	msg = towire_channel_ready(NULL, &state->channel_id,
 				    &next_local_per_commit, tlvs);
 	peer_write(state->pps, take(msg));
 
-	state->funding_locked[LOCAL] = true;
+	state->channel_ready[LOCAL] = true;
 	billboard_update(state);
 }
 
@@ -3453,8 +3453,8 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 	/* Tell gossipd the new channel exists before we tell peer. */
 	tell_gossipd_new_channel(state);
 
-	send_funding_locked(state);
-	if (state->funding_locked[REMOTE])
+	send_channel_ready(state);
+	if (state->channel_ready[REMOTE])
 		return towire_dualopend_channel_locked(state);
 
 	return NULL;
@@ -3614,17 +3614,17 @@ static void do_reconnect_dance(struct state *state)
 	/* It's possible we sent our sigs, but they didn't get them.
 	 * Resend our signatures, just in case */
 	if (psbt_side_finalized(tx_state->psbt, state->our_role)
-	    && !state->funding_locked[REMOTE]) {
+	    && !state->channel_ready[REMOTE]) {
 		msg = psbt_to_tx_sigs_msg(NULL, state, tx_state->psbt);
 		peer_write(state->pps, take(msg));
 	}
 
-	if (state->funding_locked[LOCAL]) {
+	if (state->channel_ready[LOCAL]) {
 		status_debug("Retransmitting funding_locked for channel %s",
 		             type_to_string(tmpctx,
 					    struct channel_id,
 					    &state->channel_id));
-		send_funding_locked(state);
+		send_channel_ready(state);
 	}
 
 	peer_billboard(true, "Reconnected, and reestablished.");
@@ -3714,8 +3714,8 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_TX_SIGNATURES:
 		handle_tx_sigs(state, msg);
 		return NULL;
-	case WIRE_FUNDING_LOCKED:
-		return handle_funding_locked(state, msg);
+	case WIRE_CHANNEL_READY:
+		return handle_channel_ready(state, msg);
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(state, msg);
 		return NULL;
@@ -3833,8 +3833,8 @@ int main(int argc, char *argv[])
 			= NULL;
 
 		/*~ We're not locked or shutting down quite yet */
-		state->funding_locked[LOCAL]
-			= state->funding_locked[REMOTE]
+		state->channel_ready[LOCAL]
+			= state->channel_ready[REMOTE]
 			= false;
 		state->shutdown_sent[LOCAL]
 			= state->shutdown_sent[REMOTE]
@@ -3861,8 +3861,8 @@ int main(int argc, char *argv[])
 					     &state->first_per_commitment_point[REMOTE],
 					     &state->tx_state->psbt,
 					     &opener,
-					     &state->funding_locked[LOCAL],
-					     &state->funding_locked[REMOTE],
+					     &state->channel_ready[LOCAL],
+					     &state->channel_ready[REMOTE],
 					     &state->shutdown_sent[LOCAL],
 					     &state->shutdown_sent[REMOTE],
 					     &state->upfront_shutdown_script[LOCAL],

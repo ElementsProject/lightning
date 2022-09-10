@@ -1922,7 +1922,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_int(stmt, 11, chan->funding.n);
 	db_bind_amount_sat(stmt, 12, &chan->funding_sats);
 	db_bind_amount_sat(stmt, 13, &chan->our_funds);
-	db_bind_int(stmt, 14, chan->remote_funding_locked);
+	db_bind_int(stmt, 14, chan->remote_channel_ready);
 	db_bind_amount_msat(stmt, 15, &chan->push);
 	db_bind_amount_msat(stmt, 16, &chan->our_msat);
 

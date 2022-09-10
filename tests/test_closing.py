@@ -1785,7 +1785,7 @@ def test_onchain_first_commit(node_factory, bitcoind):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
     # HTLC 1->2, 1 fails just after funding.
-    disconnects = ['+WIRE_FUNDING_LOCKED', 'permfail']
+    disconnects = ['+WIRE_CHANNEL_READY', 'permfail']
     # Make locktime different, as we once had them reversed!
     l1, l2 = node_factory.line_graph(2, opts=[{'disconnect': disconnects,
                                                'plugin': coin_mvt_plugin},

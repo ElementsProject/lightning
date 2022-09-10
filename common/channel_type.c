@@ -8,7 +8,7 @@
  * arbitrary combination (they represent the persistent features which
  * affect the channel operation).
  *
- * The currently defined types are:
+ * The currently defined basic types are:
  *   - no features (no bits set)
  *   - `option_static_remotekey` (bit 12)
  *   - `option_anchor_outputs` and `option_static_remotekey` (bits 20 and 12)
@@ -118,8 +118,11 @@ struct channel_type *channel_type_accept(const tal_t *ctx,
 		OPT_ZEROCONF,
 	};
 
-	/* The basic channel_types can have any number of the
-	 * following optional bits. */
+	/* BOLT #2:
+	 * Each basic type has the following variations allowed:
+	 *   - `option_scid_alias` (bit 46)
+	 *   - `option_zeroconf` (bit 50)
+	 */
 	static const size_t variants[] = {
 		OPT_ZEROCONF,
 	};

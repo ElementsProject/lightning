@@ -178,7 +178,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      funding_sats,
 			      push,
 			      local_funding,
-			      false, /* !remote_funding_locked */
+			      false, /* !remote_channel_ready */
 			      NULL, /* no scid yet */
 			      alias_local, /* But maybe we have an alias we want to use? */
 			      NULL, /* They haven't told us an alias yet */
@@ -539,7 +539,7 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	/* Tell plugins about the success */
 	notify_channel_opened(ld, &channel->peer->id, &channel->funding_sats,
-			      &channel->funding.txid, channel->remote_funding_locked);
+			      &channel->funding.txid, channel->remote_channel_ready);
 
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
@@ -1213,8 +1213,12 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	/* BOLT #2:
 	 *
 	 * The sender:
-	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
-	 *     reasonable to avoid double-spending of the funding transaction.
+	 *   - if `channel_type` includes `option_zeroconf`:
+	 *      - MUST set `minimum_depth` to zero.
+	 *   - otherwise:
+	 *     - SHOULD set `minimum_depth` to a number of blocks it
+	 *       considers reasonable to avoid double-spending of the
+	 *       funding transaction.
 	 */
 	assert(mindepth != NULL);
 	fc->uc->minimum_depth = *mindepth;
@@ -1376,7 +1380,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      funding_sats,
 			      AMOUNT_MSAT(0),
 			      AMOUNT_SAT(0),
-			      true, /* !remote_funding_locked */
+			      true, /* remote_channel_ready */
 			      scid,
 			      scid,
 			      scid,

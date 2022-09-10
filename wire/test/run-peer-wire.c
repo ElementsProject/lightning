@@ -157,10 +157,10 @@ struct msg_channel_update_opt_htlc_max {
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id short_channel_id;
 };
-struct msg_funding_locked {
+struct msg_channel_ready {
 	struct channel_id channel_id;
 	struct pubkey next_per_commitment_point;
-	struct tlv_funding_locked_tlvs *tlvs;
+	struct tlv_channel_ready_tlvs *tlvs;
 };
 struct msg_announcement_signatures {
 	struct channel_id channel_id;
@@ -477,20 +477,20 @@ static struct msg_channel_update_opt_htlc_max
 	return tal_free(s);
 }
 
-static void *towire_struct_funding_locked(const tal_t *ctx,
-					  const struct msg_funding_locked *s)
+static void *towire_struct_channel_ready(const tal_t *ctx,
+					  const struct msg_channel_ready *s)
 {
-	return towire_funding_locked(ctx,
+	return towire_channel_ready(ctx,
 				     &s->channel_id,
 				     &s->next_per_commitment_point,
 				     s->tlvs);
 }
 
-static struct msg_funding_locked *fromwire_struct_funding_locked(const tal_t *ctx, const void *p)
+static struct msg_channel_ready *fromwire_struct_channel_ready(const tal_t *ctx, const void *p)
 {
-	struct msg_funding_locked *s = tal(ctx, struct msg_funding_locked);
+	struct msg_channel_ready *s = tal(ctx, struct msg_channel_ready);
 
-	if (fromwire_funding_locked(ctx,
+	if (fromwire_channel_ready(ctx,
 				    p,
 				    &s->channel_id,
 				    &s->next_per_commitment_point,
@@ -816,13 +816,13 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 		&& eq_between(a, b, bitcoin_key_1, bitcoin_key_2);
 }
 
-static bool funding_locked_eq(const struct msg_funding_locked *a,
-			      const struct msg_funding_locked *b)
+static bool channel_ready_eq(const struct msg_channel_ready *a,
+			      const struct msg_channel_ready *b)
 {
 	if (!eq_upto(a, b, tlvs))
 		return false;
 
-	return eq_tlv(a, b, alias, short_channel_id_eq);
+	return eq_tlv(a, b, short_channel_id, short_channel_id_eq);
 }
 
 static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
@@ -1009,7 +1009,7 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 int main(int argc, char *argv[])
 {
 	struct msg_channel_announcement ca, *ca2;
-	struct msg_funding_locked fl, *fl2;
+	struct msg_channel_ready fl, *fl2;
 	struct msg_announcement_signatures as, *as2;
 	struct msg_update_fail_htlc ufh, *ufh2;
 	struct msg_commitment_signed cs, *cs2;
@@ -1048,15 +1048,15 @@ int main(int argc, char *argv[])
 	test_corruption(&ca, ca2, channel_announcement);
 
 	memset(&fl, 2, sizeof(fl));
-	fl.tlvs = tlv_funding_locked_tlvs_new(ctx);
-	fl.tlvs->alias = tal(ctx, struct short_channel_id);
-	set_scid(fl.tlvs->alias);
+	fl.tlvs = tlv_channel_ready_tlvs_new(ctx);
+	fl.tlvs->short_channel_id = tal(ctx, struct short_channel_id);
+	set_scid(fl.tlvs->short_channel_id);
 	set_pubkey(&fl.next_per_commitment_point);
 
-	msg = towire_struct_funding_locked(ctx, &fl);
-	fl2 = fromwire_struct_funding_locked(ctx, msg);
-	assert(funding_locked_eq(&fl, fl2));
-	test_corruption_tlv(&fl, fl2, funding_locked);
+	msg = towire_struct_channel_ready(ctx, &fl);
+	fl2 = fromwire_struct_channel_ready(ctx, msg);
+	assert(channel_ready_eq(&fl, fl2));
+	test_corruption_tlv(&fl, fl2, channel_ready);
 
 	memset(&as, 2, sizeof(as));
 

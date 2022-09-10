@@ -195,7 +195,7 @@ static void lockin_complete(struct channel *channel)
 	}
 
 	/* We set this once they're locked in. */
-	assert(channel->remote_funding_locked);
+	assert(channel->remote_channel_ready);
 
 	/* We might have already started shutting down */
 	if (channel->state != CHANNELD_AWAITING_LOCKIN) {
@@ -225,41 +225,37 @@ static void lockin_complete(struct channel *channel)
 			    true);
 }
 
-bool channel_on_funding_locked(struct channel *channel,
-			       struct pubkey *next_per_commitment_point)
+bool channel_on_channel_ready(struct channel *channel,
+			      struct pubkey *next_per_commitment_point)
 {
-	if (channel->remote_funding_locked) {
+	if (channel->remote_channel_ready) {
 		channel_internal_error(channel,
-				       "channel_got_funding_locked twice");
+				       "channel_got_channel_ready twice");
 		return false;
 	}
 	update_per_commit_point(channel, next_per_commitment_point);
 
-	log_debug(channel->log, "Got funding_locked");
-	channel->remote_funding_locked = true;
+	log_debug(channel->log, "Got channel_ready");
+	channel->remote_channel_ready = true;
 
 	return true;
 }
 
-/* We were informed by channeld that it announced the channel and sent
- * an update, so we can now start sending a node_announcement. The
- * first step is to build the provisional announcement and ask the HSM
- * to sign it. */
-
-static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
+/* We were informed by channeld that channel is ready (reached mindepth) */
+static void peer_got_channel_ready(struct channel *channel, const u8 *msg)
 {
 	struct pubkey next_per_commitment_point;
 	struct short_channel_id *alias_remote;
 
-	if (!fromwire_channeld_got_funding_locked(tmpctx,
+	if (!fromwire_channeld_got_channel_ready(tmpctx,
 		msg, &next_per_commitment_point, &alias_remote)) {
 		channel_internal_error(channel,
-				       "bad channel_got_funding_locked %s",
+				       "bad channel_got_channel_ready %s",
 				       tal_hex(channel, msg));
 		return;
 	}
 
-	if (!channel_on_funding_locked(channel, &next_per_commitment_point))
+	if (!channel_on_channel_ready(channel, &next_per_commitment_point))
 		return;
 
 	if (channel->alias[REMOTE] == NULL)
@@ -538,8 +534,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_GOT_REVOKE:
 		peer_got_revoke(sd->channel, msg);
 		break;
-	case WIRE_CHANNELD_GOT_FUNDING_LOCKED:
-		peer_got_funding_locked(sd->channel, msg);
+	case WIRE_CHANNELD_GOT_CHANNEL_READY:
+		peer_got_channel_ready(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_GOT_ANNOUNCEMENT:
 		peer_got_announcement(sd->channel, msg);
@@ -765,7 +761,7 @@ bool peer_start_channeld(struct channel *channel,
 				       channel->next_htlc_id,
 				       htlcs,
 				       channel->scid != NULL,
-				       channel->remote_funding_locked,
+				       channel->remote_channel_ready,
 				       &scid,
 				       reconnected,
 				       /* Anything that indicates we are or have
@@ -859,12 +855,11 @@ bool channel_tell_depth(struct lightningd *ld,
 		      take(towire_channeld_funding_depth(
 			  NULL, channel->scid, channel->alias[LOCAL], depth)));
 
-	if (channel->remote_funding_locked &&
-		 channel->state == CHANNELD_AWAITING_LOCKIN &&
-		 depth >= channel->minimum_depth)
+	if (channel->remote_channel_ready &&
+	    channel->state == CHANNELD_AWAITING_LOCKIN &&
+	    depth >= channel->minimum_depth) {
 		lockin_complete(channel);
-
-	else if (depth == 1 && channel->minimum_depth == 0) {
+	} else if (depth == 1 && channel->minimum_depth == 0) {
 		/* If we have a zeroconf channel, i.e., no scid yet
 		 * but have exchange `channel_ready` messages, then we
 		 * need to fire a second time, in order to trigger the

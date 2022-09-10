@@ -1631,7 +1631,7 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 					      &channel->peer->id,
 					      &channel->funding_sats,
 					      &channel->funding.txid,
-					      channel->remote_funding_locked);
+					      channel->remote_channel_ready);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
 		 * The receiving node:  ...
@@ -1714,7 +1714,7 @@ static void handle_peer_locked(struct subd *dualopend, const u8 *msg)
 
 	/* Updates channel with the next per-commit point etc, calls
 	 * channel_internal_error on failure */
-	if (!channel_on_funding_locked(channel, &remote_per_commit))
+	if (!channel_on_channel_ready(channel, &remote_per_commit))
 		return;
 
 	/* Remember that we got the lock-in */
@@ -1737,7 +1737,7 @@ static void handle_channel_locked(struct subd *dualopend,
 	peer_fd = new_peer_fd_arr(tmpctx, fds);
 
 	assert(channel->scid);
-	assert(channel->remote_funding_locked);
+	assert(channel->remote_channel_ready);
 
 	/* This can happen if we missed their sigs, for some reason */
 	if (channel->state != DUALOPEND_AWAITING_LOCKIN)
@@ -1997,7 +1997,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 					      &channel->peer->id,
 					      &channel->funding_sats,
 					      &channel->funding.txid,
-					      channel->remote_funding_locked);
+					      channel->remote_channel_ready);
 
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
 		 * The receiving node:  ...
@@ -3364,10 +3364,14 @@ bool peer_start_dualopend(struct peer *peer,
 	/* BOLT #2:
 	 *
 	 * The sender:
-	 *   - SHOULD set `minimum_depth` to a number of blocks it
-	 *     considers reasonable to avoid double-spending of the
-	 *     funding transaction.
+	 *   - if `channel_type` includes `option_zeroconf`:
+	 *      - MUST set `minimum_depth` to zero.
+	 *   - otherwise:
+	 *     - SHOULD set `minimum_depth` to a number of blocks it
+	 *       considers reasonable to avoid double-spending of the
+	 *       funding transaction.
 	 */
+	/* FIXME: We should override this to 0 in the openchannel2 hook of we want zeroconf*/
 	channel->minimum_depth = peer->ld->config.anchor_confirms;
 
 	msg = towire_dualopend_init(NULL, chainparams,
@@ -3470,7 +3474,7 @@ bool peer_restart_dualopend(struct peer *peer,
 				      inflight->funding_psbt,
 				      channel->opener,
 				      channel->scid != NULL,
-				      channel->remote_funding_locked,
+				      channel->remote_channel_ready,
 				      channel->state == CHANNELD_SHUTTING_DOWN,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],

@@ -55,9 +55,14 @@ new_uncommitted_channel(struct peer *peer)
 	/* BOLT #2:
 	 *
 	 * The sender:
-	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
-	 *     reasonable to avoid double-spending of the funding transaction.
+	 *   - if `channel_type` includes `option_zeroconf`:
+	 *      - MUST set `minimum_depth` to zero.
+	 *   - otherwise:
+	 *     - SHOULD set `minimum_depth` to a number of blocks it
+	 *       considers reasonable to avoid double-spending of the
+	 *       funding transaction.
 	 */
+	 /* We override this in openchannel hook if we want zeroconf */
 	uc->minimum_depth = ld->config.anchor_confirms;
 
 	/* Declare the new channel to the HSM. */
