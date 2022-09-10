@@ -811,9 +811,25 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 static bool funding_locked_eq(const struct msg_funding_locked *a,
 			      const struct msg_funding_locked *b)
 {
-	return eq_upto(a, b, tlvs) &&
-	       memeq(a->tlvs->alias, sizeof(a->tlvs->alias), b->tlvs->alias,
-		     sizeof(b->tlvs->alias));
+	if (!eq_upto(a, b, tlvs))
+		return false;
+
+	/* Both or neither */
+	if (!a->tlvs != !b->tlvs)
+		return false;
+
+	if (!a->tlvs)
+		return true;
+
+	/* Both or neither */
+	if (!a->tlvs->alias != !b->tlvs->alias)
+		return false;
+
+	if (!a->tlvs->alias)
+		return true;
+
+	return memeq(a->tlvs->alias, sizeof(a->tlvs->alias),
+		     b->tlvs->alias, sizeof(b->tlvs->alias));
 }
 
 static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
@@ -1064,8 +1080,7 @@ int main(int argc, char *argv[])
 	msg = towire_struct_funding_locked(ctx, &fl);
 	fl2 = fromwire_struct_funding_locked(ctx, msg);
 	assert(funding_locked_eq(&fl, fl2));
-	/* FIXME: Corruptions in the TLV can still parse correctly, but won't be equal. */
-	/*test_corruption_tlv(&fl, fl2, funding_locked);*/
+	test_corruption_tlv(&fl, fl2, funding_locked);
 
 	memset(&as, 2, sizeof(as));
 
