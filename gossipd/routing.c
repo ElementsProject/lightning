@@ -1926,10 +1926,12 @@ void route_prune(struct routing_state *rstate)
 			continue;
 
 		/* BOLT #7:
-		 *   - if a channel's oldest `channel_update`s `timestamp` is
+		 *   - if a channel's latest `channel_update`s `timestamp` is
 		 *     older than two weeks (1209600 seconds):
 		 *    - MAY prune the channel.
 		 */
+		/* FIXME: I disagree with the above quote: it used to say "oldest", which is what we
+		   use here: */
 		/* This is a fancy way of saying "both ends must refresh!" */
 		if (!is_halfchan_defined(&chan->half[0])
 		    || chan->half[0].bcast.timestamp < highwater
