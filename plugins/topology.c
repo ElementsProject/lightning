@@ -281,17 +281,6 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_amount_msat_only(response, "htlc_minimum_msat",
 					  htlc_minimum_msat);
 
-		/* We used to always print this, but that's weird */
-		if (deprecated_apis && !(message_flags & 1)) {
-			if (!amount_sat_to_msat(&htlc_maximum_msat, capacity))
-				plugin_err(plugin,
-					   "Channel with impossible capacity %s",
-					   type_to_string(tmpctx,
-							  struct amount_sat,
-							  &capacity));
-			message_flags = 1;
-		}
-
 		if (message_flags & 1)
 			json_add_amount_msat_only(response, "htlc_maximum_msat",
 						  htlc_maximum_msat);
