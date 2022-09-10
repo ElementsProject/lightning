@@ -1254,8 +1254,9 @@ static void send_commit(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 *   - if no HTLCs remain in either commitment transaction:
-	 *	- MUST NOT send any `update` message after a `shutdown`.
+	 *   - if no HTLCs remain in either commitment transaction (including dust HTLCs)
+	 *     and neither side has a pending `revoke_and_ack` to send:
+	 *	- MUST NOT send any `update` message after that point.
 	 */
 	if (peer->shutdown_sent[LOCAL] && !num_channel_htlcs(peer->channel)) {
 		status_debug("Can't send commit: final shutdown phase");
