@@ -776,24 +776,9 @@ static void json_add_invoice_request(struct json_stream *js,
 					       "signature",
 					       invreq->payer_key,
 					       invreq->signature)) {
-			bool sig_valid;
-
-			if (deprecated_apis) {
-				/* The old name? */
-				sig_valid = bolt12_check_signature(invreq->fields,
-								   "invoice_request",
-								   "payer_signature",
-								   invreq->payer_key,
-								   invreq->signature);
-			} else {
-				sig_valid = false;
-			}
-
-			if (!sig_valid) {
-				json_add_string(js, "warning_invoice_request_invalid_signature",
-						"Bad signature");
-				valid = false;
-			}
+			json_add_string(js, "warning_invoice_request_invalid_signature",
+					"Bad signature");
+			valid = false;
 		}
 	} else {
 		json_add_string(js, "warning_invoice_request_missing_signature",
