@@ -214,11 +214,8 @@ int main(int argc, char *argv[])
 	assert(!parse_wireaddr("odpzvneidqdf5hdq.onion:49150", &addr, 1, false, NULL));
 	assert(!parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, false, NULL));
 
-	/* Neither allow_deprecated = true nor false will parse it now */
 	assert(!parse_wireaddr_internal("odpzvneidqdf5hdq.onion", &addr_int, 1,
-				        false, false, false, false, NULL));
-	assert(!parse_wireaddr_internal("odpzvneidqdf5hdq.onion", &addr_int, 1,
-					false, false, false, true, NULL));
+				        false, false, false, NULL));
 
 	assert(wireaddr_from_hostname(tmpctx, "odpzvneidqdf5hdq.onion", 1, NULL, NULL, NULL) == NULL);
 	assert(wireaddr_from_hostname(tmpctx, "aaa.onion", 1, NULL, NULL, NULL) == NULL);
