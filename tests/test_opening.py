@@ -1275,7 +1275,7 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
 
     bitcoind.generate_block(2, wait_for_mempool=1)  # Confirm on the l2 side.
     l2.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_READY')
-    # l1 should not be sending funding_locked/channel_ready yet, it is
+    # l1 should not be sending channel_ready yet, it is
     # configured to wait for 6 confirmations.
     assert not l1.daemon.is_in_log(r'peer_out WIRE_CHANNEL_READY')
 

@@ -3620,7 +3620,7 @@ static void do_reconnect_dance(struct state *state)
 	}
 
 	if (state->channel_ready[LOCAL]) {
-		status_debug("Retransmitting funding_locked for channel %s",
+		status_debug("Retransmitting channel_ready for channel %s",
 		             type_to_string(tmpctx,
 					    struct channel_id,
 					    &state->channel_id));

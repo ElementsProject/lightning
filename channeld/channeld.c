@@ -2952,7 +2952,7 @@ skip_tlvs:
 	    && next_commitment_number == 1) {
 		struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 
-		status_debug("Retransmitting funding_locked for channel %s",
+		status_debug("Retransmitting channel_ready for channel %s",
 		             type_to_string(tmpctx, struct channel_id, &peer->channel_id));
 		/* Contains per commit point #1, for first post-opening commit */
 		msg = towire_channel_ready(NULL,

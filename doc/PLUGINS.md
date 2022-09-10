@@ -441,7 +441,7 @@ if the funding transaction has been included into a block.
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
     "funding_msat": 100000000,
     "funding_txid": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-    "funding_locked": false
+    "channel_ready": false
   }
 }
 ```

@@ -5,7 +5,7 @@
 #include <common/htlc.h>
 
 char *billboard_message(const tal_t *ctx,
-			const bool funding_locked[NUM_SIDES],
+			const bool channel_ready[NUM_SIDES],
 			const bool have_sigs[NUM_SIDES],
 			const bool shutdown_sent[NUM_SIDES],
 			u32 depth_togo,
