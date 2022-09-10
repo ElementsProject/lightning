@@ -2585,6 +2585,10 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 			     &base, cmd->ld->config.fee_base),
 		   p_opt_def("ppm", param_number, &ppm,
 			     cmd->ld->config.fee_per_satoshi),
+		   /* BOLT #7:
+		    * If it creates a new `channel_update` with updated channel parameters:
+		    *    - SHOULD keep accepting the previous channel parameters for 10 minutes
+		    */
 		   p_opt_def("enforcedelay", param_number, &delaysecs, 600),
 		   NULL))
 		return command_param_failed();

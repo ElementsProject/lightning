@@ -720,7 +720,10 @@ static void forward_htlc(struct htlc_in *hin,
 	if (!check_fwd_amount(hin, amt_to_forward, hin->msat,
 			      next->feerate_base,
 			      next->feerate_ppm)) {
-		/* Are we in old-fee grace-period? */
+		/* BOLT #7:
+		 * - If it creates a new `channel_update` with updated channel parameters:
+		 *    - SHOULD keep accepting the previous channel parameters for 10 minutes
+		 */
 		if (!time_before(time_now(), next->old_feerate_timeout)
 		    || !check_fwd_amount(hin, amt_to_forward, hin->msat,
 					 next->old_feerate_base,
