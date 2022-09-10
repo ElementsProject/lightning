@@ -2853,30 +2853,13 @@ static struct command_result *json_listforwards(struct command *cmd,
 	const char *status_str;
 	enum forward_status status = FORWARD_ANY;
 
-	// TODO: We will remove soon after the deprecated period.
-	if (params && deprecated_apis && params->type == JSMN_ARRAY) {
-		struct short_channel_id scid;
-		/* We need to catch [ null, null, "settled" ], and
-		 * [ "1x2x3" ] as old-style */
-	        if ((params->size > 0 && json_to_short_channel_id(buffer, params + 1, &scid)) ||
-		    (params->size == 3 && !json_to_short_channel_id(buffer, params + 3, &scid))) {
-			if (!param(cmd, buffer, params,
-				   p_opt("in_channel", param_short_channel_id, &chan_in),
-				   p_opt("out_channel", param_short_channel_id, &chan_out),
-				   p_opt("status", param_string, &status_str),
-				   NULL))
-				return command_param_failed();
-			goto parsed;
-		}
-	}
-
 	if (!param(cmd, buffer, params,
 		   p_opt("status", param_string, &status_str),
 		   p_opt("in_channel", param_short_channel_id, &chan_in),
 		   p_opt("out_channel", param_short_channel_id, &chan_out),
 		   NULL))
 		return command_param_failed();
- parsed:
+
 	if (status_str && !string_to_forward_status(status_str, &status))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Unrecognized status: %s", status_str);
 
