@@ -201,17 +201,22 @@ static bool test_manip_columns(void)
 	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
 	CHECK_MSG(!db_err, "Simple correct SQL command");
 	tal_free(stmt);
-	/* Don't let it try to set a version field (we don't have one!) */
-	db->dirty = false;
-	db->changes = tal_arr(db, const char *, 0);
-	db_commit_transaction(db);
+
+	/* Needs vars table, since this changes db. */
+	stmt = db_prepare_v2(db, SQL("CREATE TABLE vars (name VARCHAR(32), intval);"));
+	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	tal_free(stmt);
+	stmt = db_prepare_v2(db, SQL("INSERT INTO vars VALUES ('data_version', 0);"));
+	CHECK_MSG(db_exec_prepared_v2(stmt), "db_exec_prepared must succeed");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+	tal_free(stmt);
 
 	/* Rename tablea.field1 -> table1.field1a. */
 	CHECK(db->config->rename_column(db, "tablea", "field1", "field1a"));
 	/* Remove tableb.field1. */
 	CHECK(db->config->delete_columns(db, "tableb", &field1, 1));
 
-	db_begin_transaction(db);
 	stmt = db_prepare_v2(db, SQL("SELECT id, field1a FROM tablea;"));
 	CHECK_MSG(db_query_prepared(stmt), "db_query_prepared must succeed");
 	CHECK_MSG(!db_err, "Simple correct SQL command");
