@@ -922,11 +922,6 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    json_tok_full(jcon->buffer, method));
 	}
 
-	if (jcon->ld->state == LD_STATE_SHUTDOWN) {
-		return command_fail(c, LIGHTNINGD_SHUTDOWN,
-				    "lightningd is shutting down");
-	}
-
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
@@ -1257,8 +1252,21 @@ void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 
 	if (listen(fd, 128) != 0)
 		err(1, "Listening on '%s'", rpc_filename);
-	jsonrpc->rpc_listener = io_new_listener(
-		ld->rpc_filename, fd, incoming_jcon_connected, ld);
+
+	/* All conns will be tal children of jsonrpc: good for freeing later! */
+	jsonrpc->rpc_listener
+		= io_new_listener(jsonrpc, fd, incoming_jcon_connected, ld);
+}
+
+void jsonrpc_stop_listening(struct jsonrpc *jsonrpc)
+{
+	jsonrpc->rpc_listener = tal_free(jsonrpc->rpc_listener);
+}
+
+void jsonrpc_stop_all(struct lightningd *ld)
+{
+	/* Closes all conns. */
+	ld->jsonrpc = tal_free(ld->jsonrpc);
 }
 
 static struct command_result *param_command(struct command *cmd,

@@ -125,9 +125,9 @@ static void handle_local_channel_update(struct lightningd *ld, const u8 *msg)
 	 * us. */
 	channel = any_channel_by_scid(ld, &scid, true);
 	if (!channel) {
-		log_broken(ld->log, "Local update for bad scid %s",
-			   type_to_string(tmpctx, struct short_channel_id,
-					  &scid));
+		log_unusual(ld->log, "Local update for bad scid %s",
+			    type_to_string(tmpctx, struct short_channel_id,
+					   &scid));
 		return;
 	}
 

@@ -173,11 +173,23 @@ void jsonrpc_setup(struct lightningd *ld);
 
 
 /**
- * Start listeing on ld->rpc_filename.
+ * Start listening on ld->rpc_filename.
  *
  * Sets up the listener effectively starting the RPC interface.
  */
 void jsonrpc_listen(struct jsonrpc *rpc, struct lightningd *ld);
+
+/**
+ * Stop listening on ld->rpc_filename.
+ *
+ * No new connections from here in.
+ */
+void jsonrpc_stop_listening(struct jsonrpc *jsonrpc);
+
+/**
+ * Kill any remaining JSON-RPC connections.
+ */
+void jsonrpc_stop_all(struct lightningd *ld);
 
 /**
  * Add a new command/method to the JSON-RPC interface.

@@ -2542,7 +2542,7 @@ def test_plugin_shutdown(node_factory):
     l1.rpc.plugin_start(p, dont_shutdown=True)
     l1.rpc.stop()
     l1.daemon.wait_for_logs(['test_libplugin: shutdown called',
-                             'misc_notifications.py: via lightningd shutdown, datastore failed',
+                             'misc_notifications.py: .* Connection refused',
                              'test_libplugin: failed to self-terminate in time, killing.'])
 
 
