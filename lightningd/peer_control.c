@@ -2203,96 +2203,104 @@ static struct command_result *json_getinfo(struct command *cmd,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
-    struct json_stream *response;
-    struct peer *peer;
-    struct channel *channel;
-    unsigned int pending_channels = 0, active_channels = 0,
-            inactive_channels = 0, num_peers = 0;
-    size_t count_announceable;
+	struct json_stream *response;
+	struct peer *peer;
+	struct channel *channel;
+	unsigned int pending_channels = 0, active_channels = 0,
+		     inactive_channels = 0, num_peers = 0;
+	size_t count_announceable;
 
-    if (!param(cmd, buffer, params, NULL))
-        return command_param_failed();
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
 
-    response = json_stream_success(cmd);
-    json_add_node_id(response, "id", &cmd->ld->id);
-    json_add_string(response, "alias", (const char *)cmd->ld->alias);
-    json_add_hex_talarr(response, "color", cmd->ld->rgb);
+	response = json_stream_success(cmd);
+	json_add_node_id(response, "id", &cmd->ld->id);
+	json_add_string(response, "alias", (const char *)cmd->ld->alias);
+	json_add_hex_talarr(response, "color", cmd->ld->rgb);
 
-    /* Add some peer and channel stats */
-    list_for_each(&cmd->ld->peers, peer, list) {
-        num_peers++;
+	/* Add some peer and channel stats */
+	list_for_each(&cmd->ld->peers, peer, list) {
+		num_peers++;
 
-        list_for_each(&peer->channels, channel, list) {
-            if (channel->state == CHANNELD_AWAITING_LOCKIN
-		|| channel->state == DUALOPEND_AWAITING_LOCKIN
-		|| channel->state == DUALOPEND_OPEN_INIT) {
-                pending_channels++;
-            } else if (channel_active(channel)) {
-                active_channels++;
-            } else {
-                inactive_channels++;
-            }
-        }
-    }
-    json_add_num(response, "num_peers", num_peers);
-    json_add_num(response, "num_pending_channels", pending_channels);
-    json_add_num(response, "num_active_channels", active_channels);
-    json_add_num(response, "num_inactive_channels", inactive_channels);
-
-    /* Add network info */
-    if (cmd->ld->listen) {
-        /* These are the addresses we're announcing */
-	count_announceable = tal_count(cmd->ld->announceable);
-        json_array_start(response, "address");
-        for (size_t i = 0; i < count_announceable; i++)
-            json_add_address(response, NULL, cmd->ld->announceable+i);
-
-	/* Currently, IP discovery will only be announced by gossipd, if we
-	 * don't already have usable addresses.
-	 * See `create_node_announcement` in `gossip_generation.c`. */
-	if (count_announceable == 0) {
-		if (cmd->ld->remote_addr_v4 != NULL &&
-		    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v4))
-			json_add_address(response, NULL, cmd->ld->remote_addr_v4);
-		if (cmd->ld->remote_addr_v6 != NULL &&
-		    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v6))
-			json_add_address(response, NULL, cmd->ld->remote_addr_v6);
+		list_for_each(&peer->channels, channel, list) {
+			if (channel->state == CHANNELD_AWAITING_LOCKIN
+					|| channel->state == DUALOPEND_AWAITING_LOCKIN
+					|| channel->state == DUALOPEND_OPEN_INIT) {
+				pending_channels++;
+			} else if (channel_active(channel)) {
+				active_channels++;
+			} else {
+				inactive_channels++;
+			}
+		}
 	}
-        json_array_end(response);
+	json_add_num(response, "num_peers", num_peers);
+	json_add_num(response, "num_pending_channels", pending_channels);
+	json_add_num(response, "num_active_channels", active_channels);
+	json_add_num(response, "num_inactive_channels", inactive_channels);
 
-        /* This is what we're actually bound to. */
-        json_array_start(response, "binding");
-        for (size_t i = 0; i < tal_count(cmd->ld->binding); i++)
-            json_add_address_internal(response, NULL,
-                          cmd->ld->binding+i);
-        json_array_end(response);
-    }
-    json_add_string(response, "version", version());
-    json_add_num(response, "blockheight", cmd->ld->blockheight);
-    json_add_string(response, "network", chainparams->network_name);
-    json_add_amount_msat_compat(response,
-				wallet_total_forward_fees(cmd->ld->wallet),
-				"msatoshi_fees_collected",
-				"fees_collected_msat");
-    json_add_string(response, "lightning-dir", cmd->ld->config_netdir);
+	/* Add network info */
+	if (cmd->ld->listen) {
+		/* These are the addresses we're announcing */
+		count_announceable = tal_count(cmd->ld->announceable);
+		json_array_start(response, "address");
+		for (size_t i = 0; i < count_announceable; i++)
+			json_add_address(response, NULL, cmd->ld->announceable+i);
 
-    if (!cmd->ld->topology->bitcoind->synced)
-	    json_add_string(response, "warning_bitcoind_sync",
-			    "Bitcoind is not up-to-date with network.");
-    else if (!topology_synced(cmd->ld->topology))
-	    json_add_string(response, "warning_lightningd_sync",
-			    "Still loading latest blocks from bitcoind.");
+		/* Currently, IP discovery will only be announced by gossipd, if we
+		 * don't already have usable addresses.
+		 * See `create_node_announcement` in `gossip_generation.c`. */
+		if (count_announceable == 0) {
+			if (cmd->ld->remote_addr_v4 != NULL &&
+					!wireaddr_arr_contains(
+						cmd->ld->announceable,
+						cmd->ld->remote_addr_v4))
+				json_add_address(response, NULL,
+						 cmd->ld->remote_addr_v4);
+			if (cmd->ld->remote_addr_v6 != NULL &&
+					!wireaddr_arr_contains(
+						cmd->ld->announceable,
+						cmd->ld->remote_addr_v6))
+				json_add_address(response, NULL,
+						 cmd->ld->remote_addr_v6);
+		}
+		json_array_end(response);
 
-    u8 **bits = cmd->ld->our_features->bits;
-    json_object_start(response, "our_features");
-    json_add_hex_talarr(response, "init",
-			featurebits_or(cmd, bits[INIT_FEATURE], bits[GLOBAL_INIT_FEATURE]));
-    json_add_hex_talarr(response, "node", bits[NODE_ANNOUNCE_FEATURE]);
-    json_add_hex_talarr(response, "channel", bits[CHANNEL_FEATURE]);
-    json_add_hex_talarr(response, "invoice", bits[BOLT11_FEATURE]);
-    json_object_end(response);
+		/* This is what we're actually bound to. */
+		json_array_start(response, "binding");
+		for (size_t i = 0; i < tal_count(cmd->ld->binding); i++)
+			json_add_address_internal(response, NULL,
+					cmd->ld->binding+i);
+		json_array_end(response);
+	}
+	json_add_string(response, "version", version());
+	json_add_num(response, "blockheight", cmd->ld->blockheight);
+	json_add_string(response, "network", chainparams->network_name);
+	json_add_amount_msat_compat(response,
+			wallet_total_forward_fees(cmd->ld->wallet),
+			"msatoshi_fees_collected",
+			"fees_collected_msat");
+	json_add_string(response, "lightning-dir", cmd->ld->config_netdir);
 
-    return command_success(cmd, response);
+	if (!cmd->ld->topology->bitcoind->synced)
+		json_add_string(response, "warning_bitcoind_sync",
+				"Bitcoind is not up-to-date with network.");
+	else if (!topology_synced(cmd->ld->topology))
+		json_add_string(response, "warning_lightningd_sync",
+				"Still loading latest blocks from bitcoind.");
+
+	u8 **bits = cmd->ld->our_features->bits;
+	json_object_start(response, "our_features");
+	json_add_hex_talarr(response, "init",
+			featurebits_or(cmd,
+				       bits[INIT_FEATURE],
+				       bits[GLOBAL_INIT_FEATURE]));
+	json_add_hex_talarr(response, "node", bits[NODE_ANNOUNCE_FEATURE]);
+	json_add_hex_talarr(response, "channel", bits[CHANNEL_FEATURE]);
+	json_add_hex_talarr(response, "invoice", bits[BOLT11_FEATURE]);
+	json_object_end(response);
+
+	return command_success(cmd, response);
 }
 
 static const struct json_command getinfo_command = {
