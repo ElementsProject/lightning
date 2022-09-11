@@ -515,7 +515,7 @@ static const char *find_daemon_dir(struct lightningd *ld, const char *argv0)
  * is an awesome runtime memory usage detector for C and C++ programs). In
  * some ways it would be neater not to do this, but it turns out some
  * transient objects still need cleaning. */
-static void shutdown_subdaemons(struct lightningd *ld)
+static void free_all_channels(struct lightningd *ld)
 {
 	struct peer *p;
 
@@ -528,19 +528,6 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	 * callbacks; in this case, some objects freed here can cause database
 	 * writes, which must be inside a transaction. */
 	db_begin_transaction(ld->wallet->db);
-
-	/* Let everyone shutdown cleanly. */
-	close(ld->hsm_fd);
-	/*~ The three "global" daemons, which we shutdown explicitly: we
-	 * give them 10 seconds to exit gracefully before killing them.  */
-	ld->connectd = subd_shutdown(ld->connectd, 10);
-	ld->gossip = subd_shutdown(ld->gossip, 10);
-	ld->hsm = subd_shutdown(ld->hsm, 10);
-
-	/*~ Closing the hsmd means all other subdaemons should be exiting;
-	 * deal with that cleanly before we start freeing internal
-	 * structures. */
-	subd_shutdown_remaining(ld);
 
 	/* Now we free all the HTLCs */
 	free_htlcs(ld, NULL);
@@ -577,6 +564,18 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	 * single-threaded, so commits never fail and we don't need
 	 * spin-and-retry logic everywhere. */
 	db_commit_transaction(ld->wallet->db);
+}
+
+static void shutdown_global_subdaemons(struct lightningd *ld)
+{
+	/* Let everyone shutdown cleanly. */
+	close(ld->hsm_fd);
+
+	/*~ The three "global" daemons, which we shutdown explicitly: we
+	 * give them 10 seconds to exit gracefully before killing them.  */
+	ld->connectd = subd_shutdown(ld->connectd, 10);
+	ld->gossip = subd_shutdown(ld->gossip, 10);
+	ld->hsm = subd_shutdown(ld->hsm, 10);
 }
 
 /*~ Our wallet logic needs to know what outputs we might be interested in.  We
@@ -1200,7 +1199,10 @@ int main(int argc, char *argv[])
 	assert(io_loop_ret == ld);
 	log_debug(ld->log, "io_loop_with_timers: %s", __func__);
 
-	/* Fail JSON RPC requests and ignore plugin's responses */
+	/* Stop *new* JSON RPC requests. */
+	jsonrpc_stop_listening(ld->jsonrpc);
+
+	/* Give permission for things to get destroyed without getting upset. */
 	ld->state = LD_STATE_SHUTDOWN;
 
 	stop_fd = -1;
@@ -1221,13 +1223,24 @@ int main(int argc, char *argv[])
 
 	/* We're not going to collect our children. */
 	remove_sigchild_handler(sigchld_conn);
-	shutdown_subdaemons(ld);
 
-	/* Tell plugins we're shutting down, closes the db. */
+	/* Get rid of per-channel subdaemons. */
+	subd_shutdown_nonglobals(ld);
+
+	/* Tell plugins we're shutting down, use force if necessary. */
 	shutdown_plugins(ld);
 
-	/* Cleanup JSON RPC separately: destructors assume some list_head * in ld */
-	tal_free(ld->jsonrpc);
+	/* Now kill any remaining connections */
+	jsonrpc_stop_all(ld);
+
+	/* Get rid of major subdaemons. */
+	shutdown_global_subdaemons(ld);
+
+	/* Clean up internal peer/channel/htlc structures. */
+	free_all_channels(ld);
+
+	/* Now close database */
+	ld->wallet->db = tal_free(ld->wallet->db);
 
 	/* Clean our our HTLC maps, since they use malloc. */
 	htlc_in_map_clear(&ld->htlcs_in);

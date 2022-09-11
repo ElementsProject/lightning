@@ -902,15 +902,13 @@ struct subd *subd_shutdown(struct subd *sd, unsigned int seconds)
 	return tal_free(sd);
 }
 
-void subd_shutdown_remaining(struct lightningd *ld)
+void subd_shutdown_nonglobals(struct lightningd *ld)
 {
-	struct subd *subd;
+	struct subd *subd, *next;
 
-	/* We give them a second to finish exiting, before we kill
-	 * them in destroy_subd() */
-	sleep(1);
-
-	while ((subd = list_top(&ld->subds, struct subd, list)) != NULL) {
+	list_for_each_safe(&ld->subds, subd, next, list) {
+		if (!subd->channel)
+			continue;
 		/* Destructor removes from list */
 		io_close(subd->conn);
 	}

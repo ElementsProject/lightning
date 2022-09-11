@@ -167,7 +167,8 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	tal_del_destructor(last, plugin_hook_killed);
 	tal_free(last);
 
-	if (r->ld->state == LD_STATE_SHUTDOWN) {
+	/* Actually, if it dies during shutdown, *don't* process result! */
+	if (!buffer && r->ld->state == LD_STATE_SHUTDOWN) {
 		log_debug(r->ld->log,
 			  "Abandoning plugin hook call due to shutdown");
 		return;

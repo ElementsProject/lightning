@@ -117,6 +117,12 @@ void jsonrpc_listen(struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED
 /* Generated stub for jsonrpc_setup */
 void jsonrpc_setup(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "jsonrpc_setup called!\n"); abort(); }
+/* Generated stub for jsonrpc_stop_all */
+void jsonrpc_stop_all(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "jsonrpc_stop_all called!\n"); abort(); }
+/* Generated stub for jsonrpc_stop_listening */
+void jsonrpc_stop_listening(struct jsonrpc *jsonrpc UNNEEDED)
+{ fprintf(stderr, "jsonrpc_stop_listening called!\n"); abort(); }
 /* Generated stub for load_channels_from_wallet */
 struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "load_channels_from_wallet called!\n"); abort(); }

@@ -581,11 +581,6 @@ static const char *plugin_response_handle(struct plugin *plugin,
 			"Received a JSON-RPC response for non-existent request");
 	}
 
-	/* Ignore responses when shutting down */
-	if (plugin->plugins->ld->state == LD_STATE_SHUTDOWN) {
-		return NULL;
-	}
-
 	/* We expect the request->cb to copy if needed */
 	pd = plugin_detect_destruction(plugin);
 	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
@@ -2123,9 +2118,6 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 void shutdown_plugins(struct lightningd *ld)
 {
 	struct plugin *p, *next;
-
-	/* The next io_loop does not need db access, close it. */
-	ld->wallet->db = tal_free(ld->wallet->db);
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
