@@ -2208,6 +2208,7 @@ static struct command_result *json_getinfo(struct command *cmd,
     struct channel *channel;
     unsigned int pending_channels = 0, active_channels = 0,
             inactive_channels = 0, num_peers = 0;
+    size_t count_announceable;
 
     if (!param(cmd, buffer, params, NULL))
         return command_param_failed();
@@ -2241,15 +2242,22 @@ static struct command_result *json_getinfo(struct command *cmd,
     /* Add network info */
     if (cmd->ld->listen) {
         /* These are the addresses we're announcing */
+	count_announceable = tal_count(cmd->ld->announceable);
         json_array_start(response, "address");
-        for (size_t i = 0; i < tal_count(cmd->ld->announceable); i++)
+        for (size_t i = 0; i < count_announceable; i++)
             json_add_address(response, NULL, cmd->ld->announceable+i);
-	if (cmd->ld->remote_addr_v4 != NULL &&
-	    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v4))
-		json_add_address(response, NULL, cmd->ld->remote_addr_v4);
-	if (cmd->ld->remote_addr_v6 != NULL &&
-	    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v6))
-		json_add_address(response, NULL, cmd->ld->remote_addr_v6);
+
+	/* Currently, IP discovery will only be announced by gossipd, if we
+	 * don't already have usable addresses.
+	 * See `create_node_announcement` in `gossip_generation.c`. */
+	if (count_announceable == 0) {
+		if (cmd->ld->remote_addr_v4 != NULL &&
+		    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v4))
+			json_add_address(response, NULL, cmd->ld->remote_addr_v4);
+		if (cmd->ld->remote_addr_v6 != NULL &&
+		    !wireaddr_arr_contains(cmd->ld->announceable, cmd->ld->remote_addr_v6))
+			json_add_address(response, NULL, cmd->ld->remote_addr_v6);
+	}
         json_array_end(response);
 
         /* This is what we're actually bound to. */
