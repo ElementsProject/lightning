@@ -6,6 +6,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
+#include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/route.h>
@@ -211,7 +212,7 @@ static struct json_stream *jsonrpc_stream_start(struct command *cmd)
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_u64(js, "id", *cmd->id);
+	json_add_string(js, "id", cmd->id);
 
 	return js;
 }
@@ -1221,7 +1222,7 @@ struct json_stream *plugin_notify_start(struct command *cmd, const char *method)
 	json_add_string(js, "method", method);
 
 	json_object_start(js, "params");
-	json_add_u64(js, "id", *cmd->id);
+	json_add_string(js, "id", cmd->id);
 
 	return js;
 }
@@ -1364,10 +1365,9 @@ void plugin_set_memleak_handler(struct plugin *plugin,
 static void ld_command_handle(struct plugin *plugin,
 			      const jsmntok_t *toks)
 {
-	const jsmntok_t *idtok, *methtok, *paramstok;
+	const jsmntok_t *methtok, *paramstok;
 	struct command *cmd;
 
-	idtok = json_get_member(plugin->buffer, toks, "id");
 	methtok = json_get_member(plugin->buffer, toks, "method");
 	paramstok = json_get_member(plugin->buffer, toks, "params");
 
@@ -1379,16 +1379,9 @@ static void ld_command_handle(struct plugin *plugin,
 
 	cmd = tal(plugin, struct command);
 	cmd->plugin = plugin;
-	cmd->id = NULL;
 	cmd->usage_only = false;
 	cmd->methodname = json_strdup(cmd, plugin->buffer, methtok);
-	if (idtok) {
-		cmd->id = tal(cmd, u64);
-		if (!json_to_u64(plugin->buffer, idtok, cmd->id))
-			plugin_err(plugin, "JSON id '%*.s' is not a number",
-				   json_tok_full_len(idtok),
-				   json_tok_full(plugin->buffer, idtok));
-	}
+	cmd->id = json_get_id(cmd, plugin->buffer, toks);
 
 	if (!plugin->manifested) {
 		if (streq(cmd->methodname, "getmanifest")) {

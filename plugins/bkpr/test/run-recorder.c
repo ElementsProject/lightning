@@ -103,6 +103,10 @@ int htlc_state_flags(enum htlc_state state UNNEEDED)
 /* Generated stub for htlc_state_name */
 const char *htlc_state_name(enum htlc_state s UNNEEDED)
 { fprintf(stderr, "htlc_state_name called!\n"); abort(); }
+/* Generated stub for json_get_id */
+const char *json_get_id(const tal_t *ctx UNNEEDED,
+			const char *buffer UNNEEDED, const jsmntok_t *obj UNNEEDED)
+{ fprintf(stderr, "json_get_id called!\n"); abort(); }
 /* Generated stub for json_get_member */
 const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
 				 const char *label UNNEEDED)
