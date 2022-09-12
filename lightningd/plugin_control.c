@@ -75,7 +75,7 @@ plugin_dynamic_start(struct plugin_command *pcmd, const char *plugin_path,
 					    errno ? strerror(errno) : "already registered");
 
 	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
-	err = plugin_send_getmanifest(p);
+	err = plugin_send_getmanifest(p, pcmd->cmd->id);
 	if (err)
 		return command_fail(pcmd->cmd, PLUGIN_ERROR,
 				    "%s: %s",
@@ -103,7 +103,7 @@ plugin_dynamic_startdir(struct plugin_command *pcmd, const char *dir_path)
 	if (res)
 		return res;
 
-	plugins_send_getmanifest(pcmd->cmd->ld->plugins);
+	plugins_send_getmanifest(pcmd->cmd->ld->plugins, pcmd->cmd->id);
 	return command_still_pending(pcmd->cmd);
 }
 
@@ -194,7 +194,7 @@ plugin_dynamic_rescan_plugins(struct plugin_command *pcmd)
 	if (res)
 		return res;
 
-	plugins_send_getmanifest(pcmd->cmd->ld->plugins);
+	plugins_send_getmanifest(pcmd->cmd->ld->plugins, pcmd->cmd->id);
 	return command_still_pending(pcmd->cmd);
 }
 

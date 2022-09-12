@@ -1701,7 +1701,7 @@ static void plugin_set_timeout(struct plugin *p)
 	}
 }
 
-const char *plugin_send_getmanifest(struct plugin *p)
+const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 {
 	char **cmd;
 	int stdinfd, stdoutfd;
@@ -1730,8 +1730,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	 * write-only on p->stdin */
 	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
 	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
-	/* FIXME: id_prefix from caller! */
-	req = jsonrpc_request_start(p, "getmanifest", NULL, p->log,
+	req = jsonrpc_request_start(p, "getmanifest", cmd_id, p->log,
 				    NULL, plugin_manifest_cb, p);
 	json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
 	jsonrpc_request_end(req);
@@ -1742,7 +1741,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	return NULL;
 }
 
-bool plugins_send_getmanifest(struct plugins *plugins)
+bool plugins_send_getmanifest(struct plugins *plugins, const char *cmd_id)
 {
 	struct plugin *p, *next;
 	bool sent = false;
@@ -1753,7 +1752,7 @@ bool plugins_send_getmanifest(struct plugins *plugins)
 
 		if (p->plugin_state != UNCONFIGURED)
 			continue;
-		err = plugin_send_getmanifest(p);
+		err = plugin_send_getmanifest(p, cmd_id);
 		if (!err) {
 			sent = true;
 			continue;
@@ -1795,7 +1794,7 @@ void plugins_init(struct plugins *plugins)
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
 
-	if (plugins_send_getmanifest(plugins)) {
+	if (plugins_send_getmanifest(plugins, NULL)) {
 		void *ret;
 		ret = io_loop_with_timers(plugins->ld);
 		log_debug(plugins->ld->log, "io_loop_with_timers: %s", __func__);
