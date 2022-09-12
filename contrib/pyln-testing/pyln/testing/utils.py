@@ -661,8 +661,8 @@ class PrettyPrintingLightningRpc(LightningRpc):
         self.jsonschemas = jsonschemas
         self.check_request_schemas = True
 
-    def call(self, method, payload=None):
-        id = self.next_id
+    def call(self, method, payload=None, cmdprefix=None):
+        id = self.get_json_id(method, cmdprefix)
         schemas = self.jsonschemas.get(method)
         self.logger.debug(json.dumps({
             "id": id,
@@ -681,7 +681,7 @@ class PrettyPrintingLightningRpc(LightningRpc):
                     testpayload[k] = v
             schemas[0].validate(testpayload)
 
-        res = LightningRpc.call(self, method, payload)
+        res = LightningRpc.call(self, method, payload, cmdprefix)
         self.logger.debug(json.dumps({
             "id": id,
             "result": res
