@@ -49,7 +49,7 @@ static void config_plugin(struct plugin *plugin)
 	struct jsonrpc_request *req;
 	void *ret;
 
-	req = jsonrpc_request_start(plugin, "init", plugin->log,
+	req = jsonrpc_request_start(plugin, "init", NULL, plugin->log,
 	                            NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
@@ -237,7 +237,8 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->arg = arg;
 
-	req = jsonrpc_request_start(bitcoind, "estimatefees", bitcoind->log,
+	req = jsonrpc_request_start(bitcoind, "estimatefees", NULL,
+				    bitcoind->log,
 				    NULL, estimatefees_callback, call);
 	jsonrpc_request_end(req);
 	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
@@ -312,7 +313,8 @@ void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
 	call->cb_arg = cb_arg;
 	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
 
-	req = jsonrpc_request_start(bitcoind, "sendrawtransaction",
+	/* FIXME: pass id_prefix from caller! */
+	req = jsonrpc_request_start(bitcoind, "sendrawtransaction", NULL,
 				    bitcoind->log,
 				    NULL, sendrawtx_callback,
 				    call);
@@ -408,7 +410,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight",
+	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight", NULL,
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,
 				    call);
@@ -489,7 +491,8 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 	call->cb_arg = cb_arg;
 	call->first_call = first_call;
 
-	req = jsonrpc_request_start(bitcoind, "getchaininfo", bitcoind->log,
+	req = jsonrpc_request_start(bitcoind, "getchaininfo", NULL,
+				    bitcoind->log,
 				    NULL, getchaininfo_callback, call);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
@@ -561,7 +564,7 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(bitcoind, "getutxout", bitcoind->log,
+	req = jsonrpc_request_start(bitcoind, "getutxout", NULL, bitcoind->log,
 				    NULL, getutxout_callback, call);
 	json_add_txid(req->stream, "txid", &outpoint->txid);
 	json_add_num(req->stream, "vout", outpoint->n);

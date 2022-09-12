@@ -1306,7 +1306,8 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 }
 
 struct jsonrpc_request *jsonrpc_request_start_(
-    const tal_t *ctx, const char *method, struct log *log,
+    const tal_t *ctx, const char *method,
+    const char *id_prefix, struct log *log,
     bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *methodtok,
@@ -1319,7 +1320,11 @@ struct jsonrpc_request *jsonrpc_request_start_(
 {
 	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
 	static u64 next_request_id = 0;
-	r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
+	if (id_prefix)
+		r->id = tal_fmt(r, "%s/cln:%s#%"PRIu64,
+				id_prefix, method, next_request_id);
+	else
+		r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
 	next_request_id++;
 	r->notify_cb = notify_cb;
 	r->response_cb = response_cb;

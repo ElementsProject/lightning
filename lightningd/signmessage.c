@@ -212,6 +212,7 @@ static struct command_result *json_checkmessage(struct command *cmd,
 		node_id_from_pubkey(&can->id, &reckey);
 		can->cmd = cmd;
 		req = jsonrpc_request_start(cmd, "listnodes",
+					    cmd->id,
 					    cmd->ld->log,
 					    NULL, listnodes_done,
 					    can);

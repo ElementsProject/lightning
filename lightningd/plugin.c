@@ -1147,7 +1147,8 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	call = tal(plugin, struct plugin_rpccall);
 	call->cmd = cmd;
 
-	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name, plugin->log,
+	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name, cmd->id,
+					plugin->log,
 					plugin_notify_cb,
 					plugin_rpcmethod_cb, call);
 	call->request = req;
@@ -1734,7 +1735,8 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	 * write-only on p->stdin */
 	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
 	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
-	req = jsonrpc_request_start(p, "getmanifest", p->log,
+	/* FIXME: id_prefix from caller! */
+	req = jsonrpc_request_start(p, "getmanifest", NULL, p->log,
 				    NULL, plugin_manifest_cb, p);
 	json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
 	jsonrpc_request_end(req);
@@ -1915,7 +1917,7 @@ plugin_config(struct plugin *plugin)
 	struct jsonrpc_request *req;
 
 	plugin_set_timeout(plugin);
-	req = jsonrpc_request_start(plugin, "init", plugin->log,
+	req = jsonrpc_request_start(plugin, "init", NULL, plugin->log,
 	                            NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
