@@ -100,7 +100,7 @@ struct plugins {
 	bool startup;
 
 	/* Currently pending requests by their request ID */
-	UINTMAP(struct jsonrpc_request *) pending_requests;
+	STRMAP(struct jsonrpc_request *) pending_requests;
 	struct log *log;
 	struct log_book *log_book;
 
