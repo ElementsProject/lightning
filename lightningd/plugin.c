@@ -1025,7 +1025,7 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 					  const jsmntok_t *toks,
 					  const jsmntok_t *idtok,
 					  const char *new_id,
-					  bool add_quotes)
+					  bool new_id_is_str)
 {
 	/* We copy everything, but replace the id. Special care has to
 	 * be taken when the id that is being replaced is a string. If
@@ -1033,12 +1033,16 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 	 * new_id into a string, or even worse, quote a string id
 	 * twice. */
 	size_t offset = 0;
+	bool add_quotes = false;
 
 	if (idtok->type == JSMN_STRING) {
-		if (add_quotes)
+		if (new_id_is_str)
 			add_quotes = false;
 		else
 			offset = 1;
+	} else {
+		if (new_id_is_str)
+			add_quotes = true;
 	}
 
 	json_stream_append(stream, buffer + toks->start,
@@ -1063,7 +1067,7 @@ static void plugin_rpcmethod_cb(const char *buffer,
 
 	response = json_stream_raw_for_cmd(cmd);
 	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id,
-				      false);
+				      cmd->id_is_string);
 	json_stream_double_cr(response);
 	command_raw_complete(cmd, response);
 
@@ -1089,7 +1093,8 @@ static void plugin_notify_cb(const char *buffer,
 	json_add_tok(response, "method", methodtok, buffer);
 	json_stream_append(response, ",\"params\":", strlen(",\"params\":"));
 	json_stream_forward_change_id(response, buffer,
-				      paramtoks, idtok, cmd->id, false);
+				      paramtoks, idtok, cmd->id,
+				      cmd->id_is_string);
 	json_object_end(response);
 
 	json_stream_double_cr(response);
