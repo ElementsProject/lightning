@@ -198,7 +198,7 @@ plugins/funder: bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
-plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
+plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(foreach d,$(notdir $(PLUGINS)),\"$d\",) NULL };" > $@)
 
 CLN_PLUGIN_EXAMPLES := target/${RUST_PROFILE}/examples/cln-plugin-startup
