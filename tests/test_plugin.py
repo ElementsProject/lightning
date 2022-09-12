@@ -24,6 +24,7 @@ import signal
 import sqlite3
 import stat
 import subprocess
+import sys
 import time
 import unittest
 
@@ -1486,8 +1487,10 @@ def test_libplugin(node_factory):
     l1.rpc.plugin_start(plugin)
     l1.rpc.check("helloworld")
 
+    myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+
     # Side note: getmanifest will trace back to plugin_start
-    l1.daemon.wait_for_log(": OUT:id=[0-9]*/cln:getmanifest#[0-9]*")
+    l1.daemon.wait_for_log(": OUT:id={}:plugin#[0-9]*/cln:getmanifest#[0-9]*".format(myname))
 
     # Test commands
     assert l1.rpc.call("helloworld") == {"hello": "world"}
@@ -1503,7 +1506,7 @@ def test_libplugin(node_factory):
     # Test hooks and notifications (add plugin, so we can test hook id)
     l2 = node_factory.get_node(options={"plugin": plugin})
     l2.connect(l1)
-    l2.daemon.wait_for_log(": OUT:id=[0-9]*/cln:peer_connected#[0-9]*")
+    l2.daemon.wait_for_log(": OUT:id={}:connect#[0-9]*/cln:peer_connected#[0-9]*".format(myname))
 
     l1.daemon.wait_for_log("{} peer_connected".format(l2.info["id"]))
     l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))

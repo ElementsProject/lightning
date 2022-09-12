@@ -4,7 +4,9 @@ from pyln.client import RpcError, Millisatoshi
 from utils import only_one, wait_for, wait_channel_quiescent, mine_funding_to_announce
 
 
+import os
 import pytest
+import sys
 import time
 import unittest
 
@@ -18,7 +20,8 @@ def test_invoice(node_factory, chainparams):
     inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
 
     # Side note: invoice calls out to listincoming, so check JSON id is as expected
-    l1.daemon.wait_for_log(": OUT:id=1/cln:listincoming#[0-9]*")
+    myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+    l1.daemon.wait_for_log(": OUT:id={}:invoice#[0-9]*/cln:listincoming#[0-9]*".format(myname))
 
     after = int(time.time())
     b11 = l1.rpc.decodepay(inv['bolt11'])
