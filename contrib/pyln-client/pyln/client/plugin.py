@@ -72,7 +72,7 @@ class RpcException(Exception):
 class Request(dict):
     """A request object that wraps params and allows async return
     """
-    def __init__(self, plugin: 'Plugin', req_id: Optional[int], method: str,
+    def __init__(self, plugin: 'Plugin', req_id: Optional[str], method: str,
                  params: Any, background: bool = False):
         self.method = method
         self.params = params
@@ -700,13 +700,9 @@ class Plugin(object):
         request.progress(progress, progress_total, stage, stage_total)
 
     def _parse_request(self, jsrequest: Dict[str, JSONType]) -> Request:
-        i = jsrequest.get('id', None)
-        if not isinstance(i, int) and i is not None:
-            raise ValueError('Non-integer request id "{i}"'.format(i=i))
-
         request = Request(
             plugin=self,
-            req_id=i,
+            req_id=jsrequest.get('id', None),
             method=str(jsrequest['method']),
             params=jsrequest['params'],
             background=False,
