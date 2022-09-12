@@ -1316,7 +1316,8 @@ struct jsonrpc_request *jsonrpc_request_start_(
 {
 	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
 	static u64 next_request_id = 0;
-	r->id = next_request_id++;
+	r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
+	next_request_id++;
 	r->notify_cb = notify_cb;
 	r->response_cb = response_cb;
 	r->response_cb_arg = response_cb_arg;
@@ -1329,12 +1330,12 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	if (add_header) {
 		json_object_start(r->stream, NULL);
 		json_add_string(r->stream, "jsonrpc", "2.0");
-		json_add_u64(r->stream, "id", r->id);
+		json_add_string(r->stream, "id", r->id);
 		json_add_string(r->stream, "method", method);
 		json_object_start(r->stream, "params");
 	}
 	if (log)
-		log_debug(log, "OUT:id=%"PRIu64, r->id);
+		log_debug(log, "OUT:id=%s", r->id);
 
 	return r;
 }

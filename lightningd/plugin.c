@@ -48,7 +48,7 @@ struct plugin_rpccall {
 static void memleak_help_pending_requests(struct htable *memtable,
 					  struct plugins *plugins)
 {
-	memleak_remove_uintmap(memtable, &plugins->pending_requests);
+	memleak_remove_strmap(memtable, &plugins->pending_requests);
 }
 #endif /* DEVELOPER */
 
@@ -86,7 +86,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 #if DEVELOPER
 	p->dev_builtin_plugins_unimportant = false;
 #endif /* DEVELOPER */
-	uintmap_init(&p->pending_requests);
+	strmap_init(&p->pending_requests);
 	memleak_add_helper(p, memleak_help_pending_requests);
 
 	return p;
@@ -435,17 +435,18 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 					const jsmntok_t *paramstok)
 {
 	const jsmntok_t *idtok;
-	u64 id;
 	struct jsonrpc_request *request;
 
 	/* id inside params tells us which id to redirect to. */
 	idtok = json_get_member(plugin->buffer, paramstok, "id");
-	if (!idtok || !json_to_u64(plugin->buffer, idtok, &id)) {
+	if (!idtok) {
 		return tal_fmt(plugin,
-			       "JSON-RPC notify \"id\"-field is not a u64");
+			       "JSON-RPC notify \"id\"-field is not present");
 	}
 
-	request = uintmap_get(&plugin->plugins->pending_requests, id);
+	request = strmap_getn(&plugin->plugins->pending_requests,
+			      plugin->buffer + idtok->start,
+			      idtok->end - idtok->start);
 	if (!request) {
 		return tal_fmt(
 			plugin,
@@ -565,16 +566,10 @@ static const char *plugin_response_handle(struct plugin *plugin,
 {
 	struct plugin_destroyed *pd;
 	struct jsonrpc_request *request;
-	u64 id;
-	/* We only send u64 ids, so if this fails it's a critical error (note
-	 * that this also works if id is inside a JSON string!). */
-	if (!json_to_u64(plugin->buffer, idtok, &id)) {
-		return tal_fmt(plugin,
-			       "JSON-RPC response \"id\"-field is not a u64");
-	}
 
-	request = uintmap_get(&plugin->plugins->pending_requests, id);
-
+	request = strmap_getn(&plugin->plugins->pending_requests,
+			      plugin->buffer + idtok->start,
+			      idtok->end - idtok->start);
 	if (!request) {
 		return tal_fmt(
 			plugin,
@@ -1034,18 +1029,31 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 					  const char *buffer,
 					  const jsmntok_t *toks,
 					  const jsmntok_t *idtok,
-					  const char *new_id)
+					  const char *new_id,
+					  bool add_quotes)
 {
 	/* We copy everything, but replace the id. Special care has to
 	 * be taken when the id that is being replaced is a string. If
 	 * we don't crop the quotes off we'll transform a numeric
 	 * new_id into a string, or even worse, quote a string id
 	 * twice. */
-	size_t offset = idtok->type==JSMN_STRING?1:0;
+	size_t offset = 0;
+
+	if (idtok->type == JSMN_STRING) {
+		if (add_quotes)
+			add_quotes = false;
+		else
+			offset = 1;
+	}
+
 	json_stream_append(stream, buffer + toks->start,
 			   idtok->start - toks->start - offset);
 
+	if (add_quotes)
+		json_stream_append(stream, "\"", 1);
 	json_stream_append(stream, new_id, strlen(new_id));
+	if (add_quotes)
+		json_stream_append(stream, "\"", 1);
 	json_stream_append(stream, buffer + idtok->end + offset,
 			   toks->end - idtok->end - offset);
 }
@@ -1059,7 +1067,8 @@ static void plugin_rpcmethod_cb(const char *buffer,
 	struct json_stream *response;
 
 	response = json_stream_raw_for_cmd(cmd);
-	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id);
+	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id,
+				      false);
 	json_stream_double_cr(response);
 	command_raw_complete(cmd, response);
 
@@ -1085,7 +1094,7 @@ static void plugin_notify_cb(const char *buffer,
 	json_add_tok(response, "method", methodtok, buffer);
 	json_stream_append(response, ",\"params\":", strlen(",\"params\":"));
 	json_stream_forward_change_id(response, buffer,
-				      paramtoks, idtok, cmd->id);
+				      paramtoks, idtok, cmd->id, false);
 	json_object_end(response);
 
 	json_stream_double_cr(response);
@@ -1117,7 +1126,6 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	const jsmntok_t *idtok;
 	struct plugin *plugin;
 	struct jsonrpc_request *req;
-	char id[STR_MAX_CHARS(u64)];
 	struct plugin_rpccall *call;
 
 	if (cmd->mode == CMD_CHECK)
@@ -1141,9 +1149,8 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	call->plugin = plugin;
 	list_add_tail(&plugin->pending_rpccalls, &call->list);
 
-	snprintf(id, ARRAY_SIZE(id), "%"PRIu64, req->id);
-
-	json_stream_forward_change_id(req->stream, buffer, toks, idtok, id);
+	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id,
+				      true);
 	json_stream_double_cr(req->stream);
 	plugin_request_send(plugin, req);
 	req->stream = NULL;
@@ -2053,7 +2060,7 @@ void plugins_notify(struct plugins *plugins,
 static void destroy_request(struct jsonrpc_request *req,
                             struct plugin *plugin)
 {
-	uintmap_del(&plugin->plugins->pending_requests, req->id);
+	strmap_del(&plugin->plugins->pending_requests, req->id, NULL);
 }
 
 void plugin_request_send(struct plugin *plugin,
@@ -2061,7 +2068,7 @@ void plugin_request_send(struct plugin *plugin,
 {
 	/* Add to map so we can find it later when routing the response */
 	tal_steal(plugin, req);
-	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
+	strmap_add(&plugin->plugins->pending_requests, req->id, req);
 	/* Add destructor in case plugin dies. */
 	tal_add_destructor2(req, destroy_request, plugin);
 	plugin_send(plugin, req->stream);
