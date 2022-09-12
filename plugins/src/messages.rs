@@ -94,9 +94,9 @@ pub struct ProxyInfo {
 
 #[derive(Debug)]
 pub enum JsonRpc<N, R> {
-    Request(usize, R),
+    Request(serde_json::Value, R),
     Notification(N),
-    CustomRequest(usize, Value),
+    CustomRequest(serde_json::Value, Value),
     CustomNotification(Value),
 }
 
@@ -125,7 +125,7 @@ where
     {
         #[derive(Deserialize, Debug)]
         struct IdHelper {
-            id: Option<usize>,
+            id: Option<serde_json::Value>,
         }
 
         let v = Value::deserialize(deserializer)?;
@@ -203,7 +203,7 @@ mod test {
                     "always_use_proxy": false
                 }
             },
-            "id": 10,
+            "id": "10",
         });
         let req: JsonRpc<Notification, Request> = serde_json::from_value(value).unwrap();
         match req {

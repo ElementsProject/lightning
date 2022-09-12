@@ -364,7 +364,7 @@ pub struct ConfiguredPlugin<S, I, O>
 where
     S: Clone + Send,
 {
-    init_id: usize,
+    init_id: serde_json::Value,
     input: FramedRead<I, JsonRpcCodec>,
     output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
     plugin: Plugin<S>,
@@ -543,7 +543,7 @@ where
                         self.dispatch_notification(n, plugin).await
                     }
                     messages::JsonRpc::CustomRequest(id, p) => {
-                        match self.dispatch_custom_request(id, p, plugin).await {
+                        match self.dispatch_custom_request(id.clone(), p, plugin).await {
                             Ok(v) => plugin
                                 .sender
                                 .send(json!({
@@ -575,7 +575,7 @@ where
     }
 
     async fn dispatch_request(
-        _id: usize,
+        _id: serde_json::Value,
         _request: messages::Request,
         _plugin: &Plugin<S>,
     ) -> Result<(), Error> {
@@ -595,7 +595,7 @@ where
 
     async fn dispatch_custom_request(
         &self,
-        _id: usize,
+        _id: serde_json::Value,
         request: serde_json::Value,
         plugin: &Plugin<S>,
     ) -> Result<serde_json::Value, Error> {
