@@ -1500,9 +1500,11 @@ def test_libplugin(node_factory):
     # But param takes over!
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
 
-    # Test hooks and notifications
-    l2 = node_factory.get_node()
+    # Test hooks and notifications (add plugin, so we can test hook id)
+    l2 = node_factory.get_node(options={"plugin": plugin})
     l2.connect(l1)
+    l2.daemon.wait_for_log(": OUT:id=[0-9]*/cln:peer_connected#[0-9]*")
+
     l1.daemon.wait_for_log("{} peer_connected".format(l2.info["id"]))
     l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))
 

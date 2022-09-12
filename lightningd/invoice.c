@@ -469,7 +469,7 @@ void invoice_try_pay(struct lightningd *ld,
 	payload->set = set;
 	tal_add_destructor2(set, invoice_payload_remove_set, payload);
 
-	plugin_hook_call_invoice_payment(ld, payload);
+	plugin_hook_call_invoice_payment(ld, NULL, payload);
 }
 
 static bool hsm_sign_b11(const u5 *u5bytes,

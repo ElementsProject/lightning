@@ -209,9 +209,9 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	/* We'll free this on return */
 	tal_steal(ld, payload);
 	if (payload->our_alias)
-		plugin_hook_call_onion_message_ourpath(ld, payload);
+		plugin_hook_call_onion_message_ourpath(ld, NULL, payload);
 	else
-		plugin_hook_call_onion_message_blinded(ld, payload);
+		plugin_hook_call_onion_message_blinded(ld, NULL, payload);
 }
 
 struct onion_hop {

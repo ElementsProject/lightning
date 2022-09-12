@@ -945,7 +945,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	rpc_hook->custom_buffer = NULL;
 
 	db_begin_transaction(jcon->ld->wallet->db);
-	completed = plugin_hook_call_rpc_command(jcon->ld, rpc_hook);
+	completed = plugin_hook_call_rpc_command(jcon->ld, c->id, rpc_hook);
 	db_commit_transaction(jcon->ld->wallet->db);
 
 	/* If it's deferred, mark it (otherwise, it's completed) */

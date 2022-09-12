@@ -28,4 +28,8 @@ void connect_failed_disconnect(struct lightningd *ld,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr);
 
+/* Get the id of any connect cmd which applies, to feed to hooks */
+const char *connect_any_cmd_id(const tal_t *ctx,
+			       struct lightningd *ld, const struct peer *peer);
+
 #endif /* LIGHTNING_LIGHTNINGD_CONNECT_CONTROL_H */

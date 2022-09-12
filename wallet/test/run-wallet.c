@@ -107,6 +107,10 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 				       struct json_stream *response)
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
+/* Generated stub for connect_any_cmd_id */
+const char *connect_any_cmd_id(const tal_t *ctx UNNEEDED,
+			       struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED)
+{ fprintf(stderr, "connect_any_cmd_id called!\n"); abort(); }
 /* Generated stub for connect_failed_disconnect */
 void connect_failed_disconnect(struct lightningd *ld UNNEEDED,
 			       const struct node_id *id UNNEEDED,
@@ -653,7 +657,9 @@ bool peer_start_openingd(struct peer *peer UNNEEDED,
 const char *peer_wire_name(int e UNNEEDED)
 { fprintf(stderr, "peer_wire_name called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
-bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
+bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
+		       const struct plugin_hook *hook UNNEEDED,
+		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
 /* Generated stub for process_onionpacket */
