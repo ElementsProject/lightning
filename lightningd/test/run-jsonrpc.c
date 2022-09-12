@@ -96,7 +96,9 @@ const char *param_subcommand(struct command *cmd UNNEEDED, const char *buffer UN
 			     const char *name UNNEEDED, ...)
 { fprintf(stderr, "param_subcommand called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
-bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
+bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
+		       const struct plugin_hook *hook UNNEEDED,
+		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
 /* Generated stub for towire_bigsize */

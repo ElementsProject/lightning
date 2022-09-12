@@ -402,6 +402,15 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 	connect_failed(ld, &id, errcode, errmsg, addrhint);
 }
 
+const char *connect_any_cmd_id(const tal_t *ctx,
+			       struct lightningd *ld, const struct peer *peer)
+{
+	struct connect *c = find_connect(ld, &peer->id);
+	if (c)
+		return tal_strdup(ctx, c->cmd->id);
+	return NULL;
+}
+
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 		       bool incoming,
 		       const struct wireaddr_internal *addr)
@@ -469,7 +478,7 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 		return;
 	}
 
-	plugin_hook_call_custommsg(ld, p);
+	plugin_hook_call_custommsg(ld, NULL, p);
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)

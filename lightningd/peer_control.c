@@ -1363,6 +1363,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
 	u64 connectd_counter;
+	const char *cmd_id;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
@@ -1411,6 +1412,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
 
+	/* If there's a connect command, use its id as basis for hook id */
+	cmd_id = connect_any_cmd_id(tmpctx, ld, peer);
+
 	/* Log and update remote_addr for Nat/IP discovery. */
 	if (hook_payload->remote_addr) {
 		log_peer_debug(ld->log, &id, "Peer says it sees our address as: %s",
@@ -1423,7 +1427,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 			update_remote_addr(ld, hook_payload->remote_addr, id);
 	}
 
-	plugin_hook_call_peer_connected(ld, hook_payload);
+	plugin_hook_call_peer_connected(ld, cmd_id, hook_payload);
 }
 
 /* connectd tells us a peer has a message and we've not already attached

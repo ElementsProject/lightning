@@ -1300,7 +1300,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 #endif
 		hook_payload->next_blinding = NULL;
 
-	plugin_hook_call_htlc_accepted(ld, hook_payload);
+	plugin_hook_call_htlc_accepted(ld, NULL, hook_payload);
 
 	/* Falling through here is ok, after all the HTLC locked */
 	return true;
@@ -2399,7 +2399,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	payload->channel_dbid = channel->dbid;
 	payload->commitnum = pbase->commitment_num;
 	payload->channel_id = channel->cid;
-	plugin_hook_call_commitment_revocation(ld, payload);
+	plugin_hook_call_commitment_revocation(ld, NULL, payload);
 }
 
 

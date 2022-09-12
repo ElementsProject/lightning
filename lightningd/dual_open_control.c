@@ -1856,7 +1856,7 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 		payload->channel_max = AMOUNT_SAT(UINT_MAX);
 
 	tal_add_destructor2(dualopend, rbf_channel_remove_dualopend, payload);
-	plugin_hook_call_rbf_channel(dualopend->ld, payload);
+	plugin_hook_call_rbf_channel(dualopend->ld, NULL, payload);
 }
 
 static void accepter_got_offer(struct subd *dualopend,
@@ -1917,7 +1917,7 @@ static void accepter_got_offer(struct subd *dualopend,
 		payload->channel_max = AMOUNT_SAT(UINT64_MAX);
 
 	tal_add_destructor2(dualopend, openchannel2_remove_dualopend, payload);
-	plugin_hook_call_openchannel2(dualopend->ld, payload);
+	plugin_hook_call_openchannel2(dualopend->ld, NULL, payload);
 }
 
 static void handle_peer_tx_sigs_msg(struct subd *dualopend,
@@ -2859,7 +2859,7 @@ static void handle_psbt_changed(struct subd *dualopend,
 				    payload);
 		payload->psbt = tal_steal(payload, psbt);
 		payload->channel = channel;
-		plugin_hook_call_openchannel2_changed(dualopend->ld, payload);
+		plugin_hook_call_openchannel2_changed(dualopend->ld, NULL, payload);
 		return;
 	}
 	abort();
@@ -3042,7 +3042,7 @@ static void handle_commit_received(struct subd *dualopend,
 		payload->channel->openchannel_signed_cmd = NULL;
 		/* We call out to hook who will
 		 * provide signatures for us! */
-		plugin_hook_call_openchannel2_sign(ld, payload);
+		plugin_hook_call_openchannel2_sign(ld, NULL, payload);
 		return;
 	}
 

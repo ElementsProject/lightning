@@ -832,7 +832,7 @@ static void opening_got_offer(struct subd *openingd,
 	}
 
 	tal_add_destructor2(openingd, openchannel_payload_remove_openingd, payload);
-	plugin_hook_call_openchannel(openingd->ld, payload);
+	plugin_hook_call_openchannel(openingd->ld, NULL, payload);
 }
 
 static unsigned int openingd_msg(struct subd *openingd,
