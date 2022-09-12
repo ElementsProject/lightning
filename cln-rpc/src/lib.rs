@@ -5,6 +5,7 @@ use anyhow::Result;
 use futures_util::sink::SinkExt;
 use futures_util::StreamExt;
 use log::{debug, trace};
+use serde_json::json;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -60,7 +61,7 @@ impl ClnRpc {
 
         // Wrap the raw request in a well-formed JSON-RPC outer dict.
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        let req: JsonRpc<Notification, Request> = JsonRpc::Request(id, req);
+        let req: JsonRpc<Notification, Request> = JsonRpc::Request(json!(id), req);
         let req = serde_json::to_value(req).map_err(|e| RpcError {
             code: None,
             message: format!("Error parsing request: {}", e),
@@ -137,7 +138,7 @@ mod test {
         let read_req = dbg!(read.next().await.unwrap().unwrap());
 
         assert_eq!(
-            json!({"id": 1, "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
+            json!({"id": "1", "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
             read_req
         );
     }
