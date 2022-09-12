@@ -187,6 +187,15 @@ const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
 	return NULL;
 }
 
+const char *json_get_id(const tal_t *ctx,
+			const char *buffer, const jsmntok_t *obj)
+{
+	const jsmntok_t *idtok = json_get_member(buffer, obj, "id");
+	if (!idtok)
+		return NULL;
+	return json_strdup(ctx, buffer, idtok);
+}
+
 /*-----------------------------------------------------------------------------
 JSMN Result Validation Starts
 -----------------------------------------------------------------------------*/
