@@ -1129,9 +1129,9 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	call = tal(plugin, struct plugin_rpccall);
 	call->cmd = cmd;
 
-	req = jsonrpc_request_start(plugin, NULL, plugin->log,
-				    plugin_notify_cb,
-				    plugin_rpcmethod_cb, call);
+	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name, plugin->log,
+					plugin_notify_cb,
+					plugin_rpcmethod_cb, call);
 	call->request = req;
 	call->plugin = plugin;
 	list_add_tail(&plugin->pending_rpccalls, &call->list);
