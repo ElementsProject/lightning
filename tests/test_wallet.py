@@ -12,6 +12,7 @@ from utils import (
 import os
 import pytest
 import subprocess
+import sys
 import time
 import unittest
 
@@ -60,7 +61,8 @@ def test_withdraw(node_factory, bitcoind):
     out = l1.rpc.withdraw(waddr, 2 * amount)
 
     # Side note: sendrawtransaction will trace back to withdrawl
-    l1.daemon.wait_for_log(": OUT:id=[0-9]*/cln:withdraw#[0-9]*/txprepare:sendpsbt#[0-9]*/cln:sendrawtransaction#[0-9]*")
+    myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+    l1.daemon.wait_for_log(": OUT:id={}:withdraw#[0-9]*/cln:withdraw#[0-9]*/txprepare:sendpsbt#[0-9]*/cln:sendrawtransaction#[0-9]*".format(myname))
 
     # Make sure bitcoind received the withdrawal
     unspent = l1.bitcoin.rpc.listunspent(0)

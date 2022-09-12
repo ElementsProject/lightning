@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import socket
+import sys
 from contextlib import contextmanager
 from decimal import Decimal
 from json import JSONEncoder
@@ -277,13 +278,18 @@ class UnixSocket(object):
 
 
 class UnixDomainSocketRpc(object):
-    def __init__(self, socket_path, executor=None, logger=logging, encoder_cls=json.JSONEncoder, decoder=json.JSONDecoder()):
+    def __init__(self, socket_path, executor=None, logger=logging, encoder_cls=json.JSONEncoder, decoder=json.JSONDecoder(), caller_name=None):
         self.socket_path = socket_path
         self.encoder_cls = encoder_cls
         self.decoder = decoder
         self.executor = executor
         self.logger = logger
         self._notify = None
+        if caller_name is None:
+            self.caller_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+        else:
+            self.caller_name = caller_name
+        self.cmdprefix = None
 
         self.next_id = 1
 
@@ -323,7 +329,11 @@ class UnixDomainSocketRpc(object):
                 return self.call(name, payload=kwargs)
         return wrapper
 
-    def call(self, method, payload=None):
+    def call(self, method, payload=None, cmdprefix=None):
+        """Generic call API: you can set cmdprefix here, or set self.cmdprefix
+        before the call is made.
+
+        """
         self.logger.debug("Calling %s with payload %r", method, payload)
 
         if payload is None:
@@ -332,10 +342,16 @@ class UnixDomainSocketRpc(object):
         if isinstance(payload, dict):
             payload = {k: v for k, v in payload.items() if v is not None}
 
+        this_id = "{}:{}#{}".format(self.caller_name, method, str(self.next_id))
+        self.next_id += 1
+
         # FIXME: we open a new socket for every readobj call...
         sock = UnixSocket(self.socket_path)
-        this_id = self.next_id
-        self.next_id += 0
+        if cmdprefix is None:
+            cmdprefix = self.cmdprefix
+        if cmdprefix:
+            this_id = cmdprefix + '/' + this_id
+
         buf = b''
 
         if self._notify is not None:
@@ -343,7 +359,7 @@ class UnixDomainSocketRpc(object):
             self._writeobj(sock, {
                 "jsonrpc": "2.0",
                 "method": "notifications",
-                "id": 0,
+                "id": this_id + "+notify-enable",
                 "params": {
                     "enable": True
                 },

@@ -607,17 +607,25 @@ class Plugin(object):
 
     def _exec_func(self, func: Callable[..., Any],
                    request: Request) -> JSONType:
+        # By default, any RPC calls this makes will have JSON id prefixed by incoming id.
+        if self.rpc:
+            self.rpc.cmdprefix = request.id
         params = request.params
         if isinstance(params, list):
             ba = self._bind_pos(func, params, request)
-            return func(*ba.args, **ba.kwargs)
+            ret = func(*ba.args, **ba.kwargs)
         elif isinstance(params, dict):
             ba = self._bind_kwargs(func, params, request)
-            return func(*ba.args, **ba.kwargs)
+            ret = func(*ba.args, **ba.kwargs)
         else:
+            if self.rpc:
+                self.rpc.cmdprefix = None
             raise TypeError(
                 "Parameters to function call must be either a dict or a list."
             )
+        if self.rpc:
+            self.rpc.cmdprefix = None
+        return ret
 
     def _dispatch_request(self, request: Request) -> None:
         name = request.method
