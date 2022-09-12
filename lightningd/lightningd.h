@@ -158,6 +158,10 @@ struct lightningd {
 	struct node_id remote_addr_v4_peer;
 	struct node_id remote_addr_v6_peer;
 
+	/* verified discovered IPs to be used for anouncement */
+	struct wireaddr *discovered_ip_v4;
+	struct wireaddr *discovered_ip_v6;
+
 	/* Bearer of all my secrets. */
 	int hsm_fd;
 	struct subd *hsm;

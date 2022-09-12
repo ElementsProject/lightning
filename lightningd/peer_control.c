@@ -1274,9 +1274,16 @@ static void update_remote_addr(struct lightningd *ld,
 			       const struct wireaddr *remote_addr,
 			       const struct node_id peer_id)
 {
+	u16 public_port;
+
 	/* failsafe to prevent privacy leakage. */
 	if (ld->always_use_proxy || ld->config.disable_ip_discovery)
 		return;
+
+	/* Peers will have likey reported our dynamic outbound TCP port.
+	 * Best guess is that we use default port for the selected network,
+	 * until we add a commandline switch to override this. */
+	public_port = chainparams_get_ln_port(chainparams);
 
 	switch (remote_addr->type) {
 	case ADDR_TYPE_IPV4:
@@ -1292,10 +1299,14 @@ static void update_remote_addr(struct lightningd *ld,
 			break;
 		}
 		/* tell gossip we have a valid update */
-		if (wireaddr_eq_without_port(ld->remote_addr_v4, remote_addr))
+		if (wireaddr_eq_without_port(ld->remote_addr_v4, remote_addr)) {
+			ld->discovered_ip_v4 = tal_dup(ld, struct wireaddr,
+						       ld->remote_addr_v4);
+			ld->discovered_ip_v4->port = public_port;
 			subd_send_msg(ld->gossip, towire_gossipd_remote_addr(
 							  tmpctx,
-							  ld->remote_addr_v4));
+							  ld->discovered_ip_v4));
+		}
 		/* store latest values */
 		*ld->remote_addr_v4 = *remote_addr;
 		ld->remote_addr_v4_peer = peer_id;
@@ -1311,10 +1322,14 @@ static void update_remote_addr(struct lightningd *ld,
 			*ld->remote_addr_v6 = *remote_addr;
 			break;
 		}
-		if (wireaddr_eq_without_port(ld->remote_addr_v6, remote_addr))
+		if (wireaddr_eq_without_port(ld->remote_addr_v6, remote_addr)) {
+			ld->discovered_ip_v6 = tal_dup(ld, struct wireaddr,
+						       ld->remote_addr_v6);
+			ld->discovered_ip_v6->port = public_port;
 			subd_send_msg(ld->gossip, towire_gossipd_remote_addr(
 							  tmpctx,
-							  ld->remote_addr_v6));
+							  ld->discovered_ip_v6));
+		}
 		*ld->remote_addr_v6 = *remote_addr;
 		ld->remote_addr_v6_peer = peer_id;
 		break;
@@ -2247,22 +2262,22 @@ static struct command_result *json_getinfo(struct command *cmd,
 		for (size_t i = 0; i < count_announceable; i++)
 			json_add_address(response, NULL, cmd->ld->announceable+i);
 
-		/* Currently, IP discovery will only be announced by gossipd, if we
-		 * don't already have usable addresses.
+		/* Currently, IP discovery will only be announced by gossipd,
+		 * if we don't already have usable addresses.
 		 * See `create_node_announcement` in `gossip_generation.c`. */
 		if (count_announceable == 0) {
-			if (cmd->ld->remote_addr_v4 != NULL &&
+			if (cmd->ld->discovered_ip_v4 != NULL &&
 					!wireaddr_arr_contains(
 						cmd->ld->announceable,
-						cmd->ld->remote_addr_v4))
+						cmd->ld->discovered_ip_v4))
 				json_add_address(response, NULL,
-						 cmd->ld->remote_addr_v4);
-			if (cmd->ld->remote_addr_v6 != NULL &&
+						 cmd->ld->discovered_ip_v4);
+			if (cmd->ld->discovered_ip_v6 != NULL &&
 					!wireaddr_arr_contains(
 						cmd->ld->announceable,
-						cmd->ld->remote_addr_v6))
+						cmd->ld->discovered_ip_v6))
 				json_add_address(response, NULL,
-						 cmd->ld->remote_addr_v6);
+						 cmd->ld->discovered_ip_v6);
 		}
 		json_array_end(response);
 
