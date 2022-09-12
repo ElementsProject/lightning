@@ -1486,6 +1486,9 @@ def test_libplugin(node_factory):
     l1.rpc.plugin_start(plugin)
     l1.rpc.check("helloworld")
 
+    # Side note: getmanifest will trace back to plugin_start
+    l1.daemon.wait_for_log(": OUT:id=[0-9]*/cln:getmanifest#[0-9]*")
+
     # Test commands
     assert l1.rpc.call("helloworld") == {"hello": "world"}
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
