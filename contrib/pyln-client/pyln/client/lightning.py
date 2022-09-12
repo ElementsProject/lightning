@@ -329,6 +329,15 @@ class UnixDomainSocketRpc(object):
                 return self.call(name, payload=kwargs)
         return wrapper
 
+    def get_json_id(self, method, cmdprefix):
+        """Get a nicely formatted, CLN-compliant JSON ID"""
+        this_id = "{}:{}#{}".format(self.caller_name, method, str(self.next_id))
+        if cmdprefix is None:
+            cmdprefix = self.cmdprefix
+        if cmdprefix:
+            this_id = cmdprefix + '/' + this_id
+        return this_id
+
     def call(self, method, payload=None, cmdprefix=None):
         """Generic call API: you can set cmdprefix here, or set self.cmdprefix
         before the call is made.
@@ -342,15 +351,11 @@ class UnixDomainSocketRpc(object):
         if isinstance(payload, dict):
             payload = {k: v for k, v in payload.items() if v is not None}
 
-        this_id = "{}:{}#{}".format(self.caller_name, method, str(self.next_id))
+        this_id = self.get_json_id(method, cmdprefix)
         self.next_id += 1
 
         # FIXME: we open a new socket for every readobj call...
         sock = UnixSocket(self.socket_path)
-        if cmdprefix is None:
-            cmdprefix = self.cmdprefix
-        if cmdprefix:
-            this_id = cmdprefix + '/' + this_id
 
         buf = b''
 
