@@ -823,7 +823,7 @@ static void get_new_block(struct bitcoind *bitcoind,
 		add_tip(topo, new_block(topo, blk, topo->tip->height + 1));
 
 		/* tell plugins a new block was processed */
-		notify_block_processed(topo->ld, topo->tip);
+		notify_block_added(topo->ld, topo->tip);
 	}
 
 	/* Try for next one. */

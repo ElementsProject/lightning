@@ -2906,11 +2906,11 @@ def test_commando_badrune(node_factory):
                     pass
 
 
-def test_block_processed_notifications(node_factory, bitcoind):
+def test_block_added_notifications(node_factory, bitcoind):
     """Test if a plugin gets notifications when a new block is found"""
     base = bitcoind.rpc.getblockchaininfo()["blocks"]
     plugin = [
-        os.path.join(os.getcwd(), "tests/plugins/block_processed.py"),
+        os.path.join(os.getcwd(), "tests/plugins/block_added.py"),
     ]
     l1 = node_factory.get_node(options={"plugin": plugin})
     ret = l1.rpc.call("blockscatched")
