@@ -192,9 +192,7 @@ static struct command_result *json_stop(struct command *cmd,
 	jout = json_out_new(tmpctx);
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");
-	/* id may be a string or number, so copy direct. */
-	memcpy(json_out_member_direct(jout, "id", strlen(cmd->id)),
-	       cmd->id, strlen(cmd->id));
+	json_out_add(jout, "id", cmd->id_is_string, "%s", cmd->id);
 	json_out_addstr(jout, "result", "Shutdown complete");
 	json_out_end(jout, '}');
 	json_out_finished(jout);
@@ -533,7 +531,10 @@ void json_notify_fmt(struct command *cmd,
 	json_add_string(js, "jsonrpc", "2.0");
 	json_add_string(js, "method", "message");
 	json_object_start(js, "params");
-	json_add_string(js, "id", cmd->id);
+	if (cmd->id_is_string)
+		json_add_string(js, "id", cmd->id);
+	else
+		json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
 	json_add_string(js, "level", log_level_name(level));
 	json_add_string(js, "message", tal_vfmt(tmpctx, fmt, ap));
 	json_object_end(js);
@@ -578,7 +579,10 @@ static struct json_stream *json_start(struct command *cmd)
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
+	if (cmd->id_is_string)
+		json_add_string(js, "id", cmd->id);
+	else
+		json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
 	return js;
 }
 
@@ -892,9 +896,8 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->ld = jcon->ld;
 	c->pending = false;
 	c->json_stream = NULL;
-	c->id = tal_strndup(c,
-			    json_tok_full(jcon->buffer, id),
-			    json_tok_full_len(id));
+	c->id_is_string = (id->type == JSMN_STRING);
+	c->id = json_strdup(c, jcon->buffer, id);
 	c->mode = CMD_NORMAL;
 	list_add_tail(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_command);

@@ -27,6 +27,8 @@ struct command {
 	struct lightningd *ld;
 	/* The 'id' which we need to include in the response. */
 	const char *id;
+	/* If 'id' needs to be quoted (i.e. it's a string) */
+	bool id_is_string;
 	/* What command we're running (for logging) */
 	const struct json_command *json_cmd;
 	/* The connection, or NULL if it closed. */

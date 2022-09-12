@@ -874,7 +874,7 @@ def test_cli(node_factory):
     assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
 
     # Check JSON id is as expected
-    l1.daemon.wait_for_log("jsonrpc#[0-9]*: IN:id=\"cli:help#[0-9]*")
+    l1.daemon.wait_for_log("jsonrpc#[0-9]*: IN:id=cli:help#[0-9]*")
 
     # Test JSON output.
     out = subprocess.check_output(['cli/lightning-cli',
