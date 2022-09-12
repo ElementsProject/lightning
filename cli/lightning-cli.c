@@ -572,7 +572,7 @@ static void enable_notifications(int fd)
 	memset(rbuf, 0, sizeof(rbuf));
 	while (!strends(rbuf, "\n\n")) {
 		size_t len = strlen(rbuf);
-		if (cli_read(fd, rbuf + len, sizeof(rbuf) - len) < 0)
+		if (cli_read(fd, rbuf + len, sizeof(rbuf) - len) <= 0)
 			err(ERROR_TALKING_TO_LIGHTNINGD,
 			    "Reading enable response");
 	}
