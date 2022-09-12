@@ -158,6 +158,21 @@ static void disable_request_cb(struct command *cmd, struct out_req *out)
 	out->cmd = NULL;
 }
 
+static const char *get_json_id(const tal_t *ctx,
+			       struct plugin *plugin,
+			       const char *cmd_id,
+			       const char *method)
+{
+	if (cmd_id)
+		return tal_fmt(ctx, "%s/%s:%s#%"PRIu64,
+			       cmd_id,
+			       plugin->id, method,
+			       plugin->next_outreq_id++);
+	return tal_fmt(ctx, "%s:%s#%"PRIu64,
+		       plugin->id, method,
+		       plugin->next_outreq_id++);
+}
+
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
 
 struct out_req *
@@ -176,15 +191,7 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	struct out_req *out;
 
 	out = tal(plugin, struct out_req);
-	if (cmd)
-		out->id = tal_fmt(out, "%s/%s:%s#%"PRIu64, cmd->id,
-				  plugin->id, method,
-				  plugin->next_outreq_id);
-	else
-		out->id = tal_fmt(out, "%s:%s#%"PRIu64,
-				  plugin->id, method,
-				  plugin->next_outreq_id);
-	plugin->next_outreq_id++;
+	out->id = get_json_id(out, plugin, cmd ? cmd->id : NULL, method);
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
@@ -335,18 +342,6 @@ static int read_json_from_rpc(struct plugin *p)
 	}
 
 	return end + 2 - membuf_elems(&p->rpc_conn->mb);
-}
-
-/* This starts a JSON RPC message with boilerplate */
-static struct json_out *start_json_rpc(const tal_t *ctx, u64 id)
-{
-	struct json_out *jout = json_out_new(ctx);
-
-	json_out_start(jout, NULL, '{');
-	json_out_addstr(jout, "jsonrpc", "2.0");
-	json_out_add(jout, "id", false, "%"PRIu64, id);
-
-	return jout;
 }
 
 /* This closes a JSON response and writes it out. */
@@ -509,22 +504,6 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 	return toks;
 }
 
-static struct json_out *start_json_request(const tal_t *ctx,
-					   u64 id,
-					   const char *method,
-					   const struct json_out *params TAKES)
-{
-	struct json_out *jout;
-
-	jout = start_json_rpc(tmpctx, id);
-	json_out_addstr(jout, "method", method);
-	json_out_add_splice(jout, "params", params);
-	if (taken(params))
-		tal_free(params);
-
-	return jout;
-}
-
 static const char *rpc_scan_core(const tal_t *ctx,
 				 struct plugin *plugin,
 				 const char *method,
@@ -536,9 +515,15 @@ static const char *rpc_scan_core(const tal_t *ctx,
 	const jsmntok_t *contents;
 	int reqlen;
 	const char *p;
-	struct json_out *jout;
+	struct json_out *jout = json_out_new(tmpctx);
 
-	jout = start_json_request(tmpctx, 0, method, params);
+	json_out_start(jout, NULL, '{');
+	json_out_addstr(jout, "jsonrpc", "2.0");
+	json_out_addstr(jout, "id", get_json_id(tmpctx, plugin, "init", method));
+	json_out_addstr(jout, "method", method);
+	json_out_add_splice(jout, "params", params);
+	if (taken(params))
+		tal_free(params);
 	finish_and_send_json(plugin->rpc_conn->fd, jout);
 
 	read_rpc_reply(tmpctx, plugin, &contents, &error, &reqlen);
