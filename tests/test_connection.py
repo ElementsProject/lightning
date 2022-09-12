@@ -83,6 +83,7 @@ def test_remote_addr(node_factory, bitcoind):
     l2.daemon.opts['bind-addr'] = l2.daemon.opts['addr']
     del l2.daemon.opts['addr']
     l2.start()
+    assert len(l2.rpc.getinfo()['address']) == 0
 
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     logmsg = l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
@@ -95,6 +96,7 @@ def test_remote_addr(node_factory, bitcoind):
     bitcoind.generate_block(5)
     l1.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
     assert(len(l1.rpc.listnodes(l2.info['id'])['nodes'][0]['addresses']) == 0)
+    assert len(l2.rpc.getinfo()['address']) == 0
 
     def_port = default_ln_port(l2.info["network"])
 
@@ -110,6 +112,7 @@ def test_remote_addr(node_factory, bitcoind):
     # Now l1 sees l2 but without announced addresses.
     assert(len(l1.rpc.listnodes(l2.info['id'])['nodes'][0]['addresses']) == 0)
     assert not l2.daemon.is_in_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
+    assert len(l2.rpc.getinfo()['address']) == 0
 
     # connect second node. This will not yet trigger `node_annoucement` update,
     # as we again do not have a channel at the time we connected.
@@ -120,6 +123,7 @@ def test_remote_addr(node_factory, bitcoind):
     l2.fundchannel(l3, wait_for_active=True)
     bitcoind.generate_block(5)
     assert not l2.daemon.is_in_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
+    assert len(l2.rpc.getinfo()['address']) == 0
 
     # restart, reconnect and re-check for updated node_annoucement. This time
     # l2 sees that two different peers with channel reported the same `remote_addr`.
@@ -129,10 +133,18 @@ def test_remote_addr(node_factory, bitcoind):
     l2.daemon.wait_for_log("Update our node_announcement for discovered address: 127.0.0.1:{}".format(def_port))
     l1.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
 
+    # check l1 sees the updated node announcement via CLI listnodes
     address = l1.rpc.listnodes(l2.info['id'])['nodes'][0]['addresses'][0]
     assert address['type'] == "ipv4"
     assert address['address'] == "127.0.0.1"
     assert address['port'] == def_port
+
+    # also check l2 returns the announced address (and port) via CLI getinfo
+    getinfo = l2.rpc.getinfo()
+    assert len(getinfo['address']) == 1
+    assert getinfo['address'][0]['type'] == 'ipv4'
+    assert getinfo['address'][0]['address'] == '127.0.0.1'
+    assert getinfo['address'][0]['port'] == def_port
 
 
 @pytest.mark.developer("needs DEVELOPER=1 for fast gossip and --dev-allow-localhost for local remote_addr")
