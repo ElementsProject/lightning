@@ -921,7 +921,8 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 
 	/* Don't expose internal error causes to remove unless doing dev */
 #if DEVELOPER
-	channel_fail_permanent(channel, REASON_LOCAL, "Internal error: %s", why);
+	channel_fail_permanent(channel,
+			       REASON_LOCAL, "Internal error: %s", why);
 #else
 	channel_fail_permanent(channel, REASON_LOCAL, "Internal error");
 #endif

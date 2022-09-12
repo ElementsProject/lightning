@@ -239,7 +239,7 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n);
 
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method,
-    const char *id_prefix, struct log *log, bool add_header,
+    const char *id_prefix TAKES, struct log *log, bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *idtok,
 		      const jsmntok_t *methodtok,

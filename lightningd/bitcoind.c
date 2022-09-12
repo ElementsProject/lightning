@@ -298,12 +298,13 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 	tal_free(call);
 }
 
-void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
-			     const char *hextx,
-			     bool allowhighfees,
-			     void (*cb)(struct bitcoind *bitcoind,
-					bool success, const char *msg, void *),
-			     void *cb_arg)
+void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
+			 const char *id_prefix,
+			 const char *hextx,
+			 bool allowhighfees,
+			 void (*cb)(struct bitcoind *bitcoind,
+				    bool success, const char *msg, void *),
+			 void *cb_arg)
 {
 	struct jsonrpc_request *req;
 	struct sendrawtx_call *call = tal(bitcoind, struct sendrawtx_call);
@@ -313,8 +314,7 @@ void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
 	call->cb_arg = cb_arg;
 	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
 
-	/* FIXME: pass id_prefix from caller! */
-	req = jsonrpc_request_start(bitcoind, "sendrawtransaction", NULL,
+	req = jsonrpc_request_start(bitcoind, "sendrawtransaction", id_prefix,
 				    bitcoind->log,
 				    NULL, sendrawtx_callback,
 				    call);
@@ -322,15 +322,6 @@ void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
 	json_add_bool(req->stream, "allowhighfees", allowhighfees);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
-}
-
-void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
-			 const char *hextx,
-			 void (*cb)(struct bitcoind *bitcoind,
-				    bool success, const char *msg, void *),
-			 void *arg)
-{
-	return bitcoind_sendrawtx_ahf_(bitcoind, hextx, false, cb, arg);
 }
 
 /* `getrawblockbyheight`

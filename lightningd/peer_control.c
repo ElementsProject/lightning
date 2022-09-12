@@ -271,6 +271,7 @@ bool invalid_last_tx(const struct bitcoin_tx *tx)
 
 static void sign_and_send_last(struct lightningd *ld,
 			       struct channel *channel,
+			       const char *cmd_id,
 			       struct bitcoin_tx *last_tx,
 			       struct bitcoin_signature *last_sig)
 {
@@ -285,7 +286,7 @@ static void sign_and_send_last(struct lightningd *ld,
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
-	broadcast_tx(ld->topology, channel, last_tx, NULL);
+	broadcast_tx(ld->topology, channel, last_tx, cmd_id, false, NULL);
 
 	remove_sig(last_tx);
 }
@@ -294,6 +295,11 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
 	struct channel_inflight *inflight;
+	const char *cmd_id;
+
+	/* If this was triggered by a close command, get a copy of the cmd id */
+	cmd_id = resolve_close_command(tmpctx, ld, channel, cooperative);
+
 	/* BOLT #2:
 	 *
 	 * - if `next_revocation_number` is greater than expected
@@ -313,15 +319,14 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		/* We need to drop *every* commitment transaction to chain */
 		if (!cooperative && !list_empty(&channel->inflights)) {
 			list_for_each(&channel->inflights, inflight, list)
-				sign_and_send_last(ld, channel,
+				sign_and_send_last(ld, channel, cmd_id,
 						   inflight->last_tx,
 						   &inflight->last_sig);
 		} else
-			sign_and_send_last(ld, channel, channel->last_tx,
+			sign_and_send_last(ld, channel, cmd_id, channel->last_tx,
 					   &channel->last_sig);
 	}
 
-	resolve_close_command(ld, channel, cooperative);
 }
 
 void resend_closing_transactions(struct lightningd *ld)
@@ -1744,7 +1749,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		if (!list_empty(&channel->inflights)) {
 			inf = channel_inflight_find(channel, txid);
 			if (!inf) {
-				channel_fail_permanent(channel, REASON_LOCAL,
+				channel_fail_permanent(channel,
+						       REASON_LOCAL,
 					"Txid %s for channel"
 					" not found in inflights. (peer %s)",
 					type_to_string(tmpctx,

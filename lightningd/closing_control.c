@@ -46,6 +46,7 @@ struct close_command {
 	struct command *cmd;
 	/* Channel being closed. */
 	struct channel *channel;
+
 };
 
 /* Resolve a single close command. */
@@ -68,18 +69,24 @@ resolve_one_close_command(struct close_command *cc, bool cooperative)
 	was_pending(command_success(cc->cmd, result));
 }
 
-/* Resolve a close command for a channel that will be closed soon. */
-void resolve_close_command(struct lightningd *ld, struct channel *channel,
-			   bool cooperative)
+/* Resolve a close command for a channel that will be closed soon: returns
+ * the cmd_id of one, if any (allocated off ctx). */
+const char *resolve_close_command(const tal_t *ctx,
+				  struct lightningd *ld, struct channel *channel,
+				  bool cooperative)
 {
 	struct close_command *cc;
 	struct close_command *n;
+	const char *cmd_id = NULL;
 
 	list_for_each_safe(&ld->close_commands, cc, n, list) {
 		if (cc->channel != channel)
 			continue;
+		if (!cmd_id)
+			cmd_id = tal_strdup(ctx, cc->cmd->id);
 		resolve_one_close_command(cc, cooperative);
 	}
+	return cmd_id;
 }
 
 /* Destroy the close command structure in reaction to the

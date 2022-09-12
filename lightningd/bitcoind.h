@@ -71,29 +71,16 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 						    const u32 *),	\
 				(arg))
 
-void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
-			     const char *hextx,
-			     bool allowhighfees,
-			     void (*cb)(struct bitcoind *bitcoind,
-					bool success, const char *msg, void *),
-			     void *arg);
-#define bitcoind_sendrawtx_ahf(bitcoind_, hextx, allowhighfees, cb, arg)\
-	bitcoind_sendrawtx_ahf_((bitcoind_), (hextx),			\
-				(allowhighfees),			\
-				typesafe_cb_preargs(void, void *,	\
-						    (cb), (arg),	\
-						    struct bitcoind *,	\
-						    bool, const char *),\
-				(arg))
-
 void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
+			 const char *id_prefix TAKES,
 			 const char *hextx,
+			 bool allowhighfees,
 			 void (*cb)(struct bitcoind *bitcoind,
 				    bool success, const char *msg, void *),
 			 void *arg);
-
-#define bitcoind_sendrawtx(bitcoind_, hextx, cb, arg)			\
-	bitcoind_sendrawtx_((bitcoind_), (hextx),			\
+#define bitcoind_sendrawtx(bitcoind_, id_prefix, hextx, allowhighfees, cb, arg)	\
+	bitcoind_sendrawtx_((bitcoind_), (id_prefix), (hextx),		\
+			    (allowhighfees),				\
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\
 						struct bitcoind *,	\

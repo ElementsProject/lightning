@@ -50,6 +50,7 @@ char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
+		  const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED,
 		  void (*failed)(struct channel * UNNEEDED,
 				 bool success UNNEEDED,
 				 const char *err))
@@ -492,7 +493,7 @@ void jsonrpc_request_end(struct jsonrpc_request *request UNNEEDED)
 /* Generated stub for jsonrpc_request_start_ */
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx UNNEEDED, const char *method UNNEEDED,
-    const char *id_prefix UNNEEDED, struct log *log UNNEEDED, bool add_header UNNEEDED,
+    const char *id_prefix TAKES UNNEEDED, struct log *log UNNEEDED, bool add_header UNNEEDED,
     void (*notify_cb)(const char *buffer UNNEEDED,
 		      const jsmntok_t *idtok UNNEEDED,
 		      const jsmntok_t *methodtok UNNEEDED,
@@ -681,8 +682,9 @@ void plugin_request_send(struct plugin *plugin UNNEEDED,
 void report_subd_memleak(struct leak_detect *leak_detect UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "report_subd_memleak called!\n"); abort(); }
 /* Generated stub for resolve_close_command */
-void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
-			   bool cooperative UNNEEDED)
+const char *resolve_close_command(const tal_t *ctx UNNEEDED,
+				  struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
+				  bool cooperative UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
 /* Generated stub for start_leak_request */
 void start_leak_request(const struct subd_req *req UNNEEDED,

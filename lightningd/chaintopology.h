@@ -22,6 +22,7 @@ struct outgoing_tx {
 	struct channel *channel;
 	const char *hextx;
 	struct bitcoin_txid txid;
+	const char *cmd_id;
 	void (*failed_or_success)(struct channel *channel, bool success, const char *err);
 };
 
@@ -151,21 +152,21 @@ u32 delayed_to_us_feerate(struct chain_topology *topo);
 u32 htlc_resolution_feerate(struct chain_topology *topo);
 u32 penalty_feerate(struct chain_topology *topo);
 
-/* Broadcast a single tx, and rebroadcast as reqd (copies tx).
- * If failed is non-NULL, call that and don't rebroadcast. */
+/**
+ * broadcast_tx - Broadcast a single tx, and rebroadcast as reqd (copies tx).
+ * @topo: topology
+ * @channel: the channel responsible for this (stop broadcasting if freed).
+ * @tx: the transaction
+ * @cmd_id: the JSON command id which triggered this (or NULL).
+ * @allowhighfees: set to true to override the high-fee checks in the backend.
+ * @failed: if non-NULL, call that and don't rebroadcast.
+ */
 void broadcast_tx(struct chain_topology *topo,
 		  struct channel *channel, const struct bitcoin_tx *tx,
+		  const char *cmd_id, bool allowhighfees,
 		  void (*failed)(struct channel *,
 				 bool success,
 				 const char *err));
-/* Like the above, but with an additional `allowhighfees` parameter.
- * If true, suppress any high-fee checks in the backend.  */
-void broadcast_tx_ahf(struct chain_topology *topo,
-		      struct channel *channel, const struct bitcoin_tx *tx,
-		      bool allowhighfees,
-		      void (*failed)(struct channel *,
-				     bool success,
-				     const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology,
