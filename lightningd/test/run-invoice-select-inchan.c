@@ -491,7 +491,7 @@ void jsonrpc_request_end(struct jsonrpc_request *request UNNEEDED)
 { fprintf(stderr, "jsonrpc_request_end called!\n"); abort(); }
 /* Generated stub for jsonrpc_request_start_ */
 struct jsonrpc_request *jsonrpc_request_start_(
-    const tal_t *ctx UNNEEDED, const char *method UNNEEDED, struct log *log UNNEEDED,
+    const tal_t *ctx UNNEEDED, const char *method UNNEEDED, struct log *log UNNEEDED, bool add_header UNNEEDED,
     void (*notify_cb)(const char *buffer UNNEEDED,
 		      const jsmntok_t *idtok UNNEEDED,
 		      const jsmntok_t *methodtok UNNEEDED,

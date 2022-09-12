@@ -1304,6 +1304,7 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method, struct log *log,
+    bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *methodtok,
 		      const jsmntok_t *paramtoks,
@@ -1319,22 +1320,21 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	r->notify_cb = notify_cb;
 	r->response_cb = response_cb;
 	r->response_cb_arg = response_cb_arg;
-	r->method = NULL;
+	r->method = tal_strdup(r, method);
 	r->stream = new_json_stream(r, NULL, log);
 
-	/* If no method is specified we don't prefill the JSON-RPC
-	 * request with the header. This serves as an escape hatch to
-	 * get a raw request, but get a valid request-id assigned. */
-	if (method != NULL) {
-		r->method = tal_strdup(r, method);
+	/* Disabling this serves as an escape hatch for plugin code to
+	 * get a raw request to paste into, but get a valid request-id
+	 * assigned. */
+	if (add_header) {
 		json_object_start(r->stream, NULL);
 		json_add_string(r->stream, "jsonrpc", "2.0");
 		json_add_u64(r->stream, "id", r->id);
 		json_add_string(r->stream, "method", method);
 		json_object_start(r->stream, "params");
-		if (log)
-			log_debug(log, "OUT:id=%"PRIu64, r->id);
 	}
+	if (log)
+		log_debug(log, "OUT:id=%"PRIu64, r->id);
 
 	return r;
 }
