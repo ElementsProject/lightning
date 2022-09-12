@@ -151,7 +151,7 @@ ssize_t test_read(int fd UNUSED, void *buf, size_t len)
 #define NUM_ENTRIES (137772/2)
 
 #define HEADER "{ \"jsonrpc\": \"2.0\",\n"				\
-	       "    \"id\": \"lightning-cli-9999\",\n"			\
+	       "    \"id\": \"cli:test#9999\",\n"			\
 	       "    \"result\" : {\n"					\
 	       "        \"creation_time\" : \"1515999039.806099043\",\n" \
 	       "        \"bytes_used\" : 10787759,\n"			\
