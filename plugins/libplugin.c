@@ -153,6 +153,11 @@ static void disable_request_cb(struct command *cmd, struct out_req *out)
 	out->cmd = NULL;
 }
 
+static void destroy_out_req(struct out_req *out_req, struct plugin *plugin)
+{
+	uintmap_del(&plugin->out_reqs, out_req->id);
+}
+
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
 
 struct out_req *
@@ -170,13 +175,14 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 {
 	struct out_req *out;
 
-	out = tal(plugin, struct out_req);
+	out = tal(cmd, struct out_req);
 	out->id = plugin->next_outreq_id++;
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
 	out->arg = arg;
 	uintmap_add(&plugin->out_reqs, out->id, out);
+	tal_add_destructor2(out, destroy_out_req, plugin);
 
 	/* If command goes away, don't call callbacks! */
 	if (out->cmd)
@@ -674,7 +680,6 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 
 	/* We want to free this if callback doesn't. */
 	tal_steal(tmpctx, out);
-	uintmap_del(&plugin->out_reqs, out->id);
 
 	contenttok = json_get_member(plugin->rpc_buffer, toks, "error");
 	if (contenttok) {
