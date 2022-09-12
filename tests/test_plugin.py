@@ -2636,6 +2636,7 @@ def test_commando(node_factory, executor):
     assert exc_info.value.error['data']['erring_index'] == 0
 
 
+@pytest.mark.xfail(reason="Escapes in restrictions are broken", strict=True)
 def test_commando_rune(node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
@@ -2683,6 +2684,25 @@ def test_commando_rune(node_factory):
     rune9 = l1.rpc.commando_rune(rune8['rune'], "rate=1")
     assert rune9['rune'] == 'O8Zr-ULTBKO3_pKYz0QKE9xYl1vQ4Xx9PtlHuist9Rk9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
     assert rune9['unique_id'] == '4'
+
+    # Test rune with \|.
+    weirdrune = l1.rpc.commando_rune(restrictions=["method=invoice",
+                                                   "pnamedescription=@tipjar\\|jb55@sendsats.lol"])
+    with pytest.raises(RpcError, match='Not authorized:'):
+        l2.rpc.call(method='commando',
+                    payload={'peer_id': l1.info['id'],
+                             'rune': weirdrune['rune'],
+                             'method': 'invoice',
+                             'params': {"amount_msat": "any",
+                                        "label": "lbl",
+                                        "description": "@tipjar\\|jb55@sendsats.lol"}})
+    l2.rpc.call(method='commando',
+                payload={'peer_id': l1.info['id'],
+                         'rune': weirdrune['rune'],
+                         'method': 'invoice',
+                         'params': {"amount_msat": "any",
+                                    "label": "lbl",
+                                    "description": "@tipjar|jb55@sendsats.lol"}})
 
     runedecodes = ((rune1, []),
                    (rune2, [{'alternatives': ['method^list', 'method^get', 'method=summary'],
