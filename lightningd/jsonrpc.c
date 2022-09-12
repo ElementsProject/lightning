@@ -909,6 +909,8 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    "Expected string for method");
 	}
 
+	log_debug(jcon->log, "IN:id=%s", c->id);
+
 	c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
 	if (!c->json_cmd) {
 		return command_fail(
@@ -1330,6 +1332,8 @@ struct jsonrpc_request *jsonrpc_request_start_(
 		json_add_u64(r->stream, "id", r->id);
 		json_add_string(r->stream, "method", method);
 		json_object_start(r->stream, "params");
+		if (log)
+			log_debug(log, "OUT:id=%"PRIu64, r->id);
 	}
 
 	return r;
