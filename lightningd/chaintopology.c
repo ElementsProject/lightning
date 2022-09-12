@@ -125,8 +125,8 @@ struct txs_to_broadcast {
 	/* These are hex encoded already, for bitcoind_sendrawtx */
 	const char **txs;
 
-	/* Command to complete when we're done, if and only if dev-broadcast triggered */
-	struct command *cmd;
+	/* IDs to attach to each tx (could be NULL!) */
+	const char **cmd_id;
 };
 
 /* We just sent the last entry in txs[].  Shrink and send the next last. */
@@ -141,28 +141,27 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 
 	txs->cursor++;
 	if (txs->cursor == tal_count(txs->txs)) {
-		if (txs->cmd)
-			was_pending(command_success(txs->cmd,
-						    json_stream_success(txs->cmd)));
 		tal_free(txs);
 		return;
 	}
 
 	/* Broadcast next one. */
-	bitcoind_sendrawtx(bitcoind, txs->txs[txs->cursor],
+	bitcoind_sendrawtx(bitcoind,
+			   txs->cmd_id[txs->cursor], txs->txs[txs->cursor],
+			   false,
 			   broadcast_remainder, txs);
 }
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
  * if any one tx is in the main chain. */
-static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
+static void rebroadcast_txs(struct chain_topology *topo)
 {
 	/* Copy txs now (peers may go away, and they own txs). */
 	struct txs_to_broadcast *txs;
 	struct outgoing_tx *otx;
 
 	txs = tal(topo, struct txs_to_broadcast);
-	txs->cmd = cmd;
+	txs->cmd_id = tal_arr(txs, const char *, 0);
 
 	/* Put any txs we want to broadcast in ->txs. */
 	txs->txs = tal_arr(txs, const char *, 0);
@@ -171,6 +170,8 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 			continue;
 
 		tal_arr_expand(&txs->txs, tal_strdup(txs, otx->hextx));
+		tal_arr_expand(&txs->cmd_id,
+			       otx->cmd_id ? tal_strdup(txs, otx->cmd_id) : NULL);
 	}
 
 	/* Let this do the dirty work. */
@@ -214,12 +215,12 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	}
 }
 
-void broadcast_tx_ahf(struct chain_topology *topo,
-		      struct channel *channel, const struct bitcoin_tx *tx,
-		      bool allowhighfees,
-		      void (*failed)(struct channel *channel,
-				     bool success,
-				     const char *err))
+void broadcast_tx(struct chain_topology *topo,
+		  struct channel *channel, const struct bitcoin_tx *tx,
+		  const char *cmd_id, bool allowhighfees,
+		  void (*failed)(struct channel *channel,
+				 bool success,
+				 const char *err))
 {
 	/* Channel might vanish: topo owns it to start with. */
 	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
@@ -229,25 +230,22 @@ void broadcast_tx_ahf(struct chain_topology *topo,
 	bitcoin_txid(tx, &otx->txid);
 	otx->hextx = tal_hex(otx, rawtx);
 	otx->failed_or_success = failed;
+	if (cmd_id)
+		otx->cmd_id = tal_strdup(otx, cmd_id);
+	else
+		otx->cmd_id = NULL;
 	tal_free(rawtx);
 	tal_add_destructor2(channel, clear_otx_channel, otx);
 
-	log_debug(topo->log, "Broadcasting txid %s",
-		  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
+	log_debug(topo->log, "Broadcasting txid %s%s%s",
+		  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid),
+		  cmd_id ? " for " : "", cmd_id ? cmd_id : "");
 
 	wallet_transaction_add(topo->ld->wallet, tx->wtx, 0, 0);
-	bitcoind_sendrawtx_ahf(topo->bitcoind, otx->hextx, allowhighfees,
-			       broadcast_done, otx);
+	bitcoind_sendrawtx(topo->bitcoind, otx->cmd_id, otx->hextx,
+			   allowhighfees,
+			   broadcast_done, otx);
 }
-void broadcast_tx(struct chain_topology *topo,
-		  struct channel *channel, const struct bitcoin_tx *tx,
-		  void (*failed)(struct channel *channel,
-				 bool success,
-				 const char *err))
-{
-	return broadcast_tx_ahf(topo, channel, tx, false, failed);
-}
-
 
 static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
 						  struct channel *channel,
@@ -599,7 +597,7 @@ static void updates_complete(struct chain_topology *topo)
 		notify_new_block(topo->bitcoind->ld, topo->tip->height);
 
 		/* Maybe need to rebroadcast. */
-		rebroadcast_txs(topo, NULL);
+		rebroadcast_txs(topo);
 
 		/* We've processed these UTXOs */
 		db_set_intvar(topo->bitcoind->ld->wallet->db,

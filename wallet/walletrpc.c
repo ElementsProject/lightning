@@ -898,7 +898,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 
 static struct command_result *json_sendpsbt(struct command *cmd,
 					    const char *buffer,
-					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *obj,
 					    const jsmntok_t *params)
 {
 	struct command_result *res;
@@ -947,9 +947,10 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 	/* Now broadcast the transaction */
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind,
+			   cmd->id,
 			   tal_hex(tmpctx,
 				   linearize_wtx(tmpctx, sending->wtx)),
-			   sendpsbt_done, sending);
+			   false, sendpsbt_done, sending);
 
 	return command_still_pending(cmd);
 }
