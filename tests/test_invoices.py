@@ -18,7 +18,7 @@ def test_invoice(node_factory, chainparams):
     inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
 
     # Side note: invoice calls out to listincoming, so check JSON id is as expected
-    l1.daemon.wait_for_log(": OUT:id=cln:listincoming#[0-9]*")
+    l1.daemon.wait_for_log(": OUT:id=1/cln:listincoming#[0-9]*")
 
     after = int(time.time())
     b11 = l1.rpc.decodepay(inv['bolt11'])

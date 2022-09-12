@@ -1250,6 +1250,7 @@ static struct command_result *json_invoice(struct command *cmd,
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 
 	req = jsonrpc_request_start(info, "listincoming",
+				    cmd->id,
 				    cmd->ld->log,
 				    NULL, listincoming_done,
 				    info);
