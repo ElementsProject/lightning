@@ -466,6 +466,13 @@ static inline bool channel_unsaved(const struct channel *channel)
 		&& channel->dbid == 0;
 }
 
+static inline bool channel_pre_open(const struct channel *channel)
+{
+	return channel->state == CHANNELD_AWAITING_LOCKIN
+		|| channel->state == DUALOPEND_OPEN_INIT
+		|| channel->state == DUALOPEND_AWAITING_LOCKIN;
+}
+
 static inline bool channel_active(const struct channel *channel)
 {
 	return channel->state != FUNDING_SPEND_SEEN

@@ -1513,7 +1513,6 @@ def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
                            compact_lease='029a002d000000004b2003e8')
 
 
-@pytest.mark.xfail
 @pytest.mark.openchannel('v2')
 def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     """ Test that your bookkeeping for a liquidity ad is good."""
@@ -1523,7 +1522,8 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
              'rescan': 10, 'disable-plugin': 'bookkeeper',
              'funding-confirms': 6, 'may_reconnect': True},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
-             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100}]
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True}]
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -1548,12 +1548,12 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     del l1.daemon.opts['disable-plugin']
     l1.start()
 
+    bitcoind.generate_block(2)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+
     chan_id = first_channel_id(l1, l2)
     ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
     assert 'lease_fee' in ev_tags
-
-    bitcoind.generate_block(2)
-    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
 
     # This should work ok
     l1.rpc.bkpr_listbalances()
@@ -1564,7 +1564,7 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
 
-    # This should crash
+    # This should not crash
     l1.rpc.bkpr_listbalances()
 
 
