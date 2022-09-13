@@ -77,7 +77,7 @@ There are two ways to build core lightning, and this depends on how you want use
 To build cln to just install a tagged or master version you can use the following commands:
 
     pip3 install --upgrade pip
-    pip3 install mako mistune==0.8.4 mrkd
+    pip3 install mako
     ./configure
     make
     sudo make install
