@@ -81,6 +81,13 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 				    hout->fees);
 }
 
+static bool report_chan_balance(const struct channel *chan)
+{
+	return (channel_active(chan)
+	       || chan->state == AWAITING_UNILATERAL)
+	       && !channel_pre_open(chan);
+}
+
 void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 {
 	struct balance_snapshot *snap = tal(NULL, struct balance_snapshot);
@@ -121,8 +128,7 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	/* Add channel balances */
 	list_for_each(&ld->peers, p, list) {
 		list_for_each(&p->channels, chan, list) {
-			if (channel_active(chan)
-			    || chan->state == AWAITING_UNILATERAL) {
+			if (report_chan_balance(chan)) {
 				bal = tal(snap, struct account_balance);
 				bal->bip173_name = chainparams->lightning_hrp;
 				bal->acct_id = type_to_string(bal,
