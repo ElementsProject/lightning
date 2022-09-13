@@ -46,7 +46,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1])
     l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
-    bitcoind.generate_block(20)
+    bitcoind.generate_block(20, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1])
     l1.daemon.wait_for_log(r'All outputs resolved.*')
 
