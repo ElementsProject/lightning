@@ -1514,6 +1514,69 @@ def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
+def test_v2_replay_bookkeeping(node_factory, bitcoind):
+    """ Test that your bookkeeping for a liquidity ad is good
+        even if we replay the opening and locking tx!
+    """
+
+    opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True},
+            {'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True}]
+    l1, l2, = node_factory.get_nodes(2, opts=opts)
+    amount = 500000
+    feerate = 2000
+
+    l1.fundwallet(amount * 100)
+    l2.fundwallet(amount * 100)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l1 leases a channel from l2
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    # add the funding transaction
+    bitcoind.generate_block(4, wait_for_mempool=1)
+
+    l1.restart()
+
+    bitcoind.generate_block(2)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+
+    chan_id = first_channel_id(l1, l2)
+    ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
+    assert 'lease_fee' in ev_tags
+
+    # This should work ok
+    l1.rpc.bkpr_listbalances()
+
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l1])
+
+    l1.restart()
+
+    chan_id = first_channel_id(l1, l2)
+    ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
+    assert 'lease_fee' in ev_tags
+
+    l1.rpc.close(l2.info['id'], 1)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(' to ONCHAIN')
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    # This should not crash
+    l1.rpc.bkpr_listbalances()
+
+
+@pytest.mark.openchannel('v2')
 def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     """ Test that your bookkeeping for a liquidity ad is good."""
 
