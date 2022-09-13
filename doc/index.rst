@@ -105,6 +105,7 @@ Core Lightning Documentation
    lightning-pay <lightning-pay.7.md>
    lightning-ping <lightning-ping.7.md>
    lightning-plugin <lightning-plugin.7.md>
+   lightning-preapproveinvoice <lightning-preapproveinvoice.7.md>
    lightning-recoverchannel <lightning-recoverchannel.7.md>
    lightning-reserveinputs <lightning-reserveinputs.7.md>
    lightning-sendcustommsg <lightning-sendcustommsg.7.md>

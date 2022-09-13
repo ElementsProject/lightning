@@ -113,6 +113,14 @@ msgdata,hsmd_sign_invoice,hrp,u8,hrplen
 msgtype,hsmd_sign_invoice_reply,108
 msgdata,hsmd_sign_invoice_reply,sig,secp256k1_ecdsa_recoverable_signature,
 
+# Preapprove an invoice for payment
+msgtype,hsmd_preapprove_invoice,38
+msgdata,hsmd_preapprove_invoice,invstring,wirestring,
+
+# Result is true if approved, declined if false 
+msgtype,hsmd_preapprove_invoice_reply,138
+msgdata,hsmd_preapprove_invoice_reply,approved,bool,
+
 # Give me ECDH(node-id-secret,point)
 msgtype,hsmd_ecdh_req,1
 msgdata,hsmd_ecdh_req,point,pubkey,
