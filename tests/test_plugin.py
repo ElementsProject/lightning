@@ -1478,7 +1478,8 @@ def test_libplugin(node_factory):
     """Sanity checks for plugins made with libplugin"""
     plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
     l1 = node_factory.get_node(options={"plugin": plugin,
-                                        'allow-deprecated-apis': False})
+                                        'allow-deprecated-apis': False,
+                                        'log-level': 'io'})
 
     # Test startup
     assert l1.daemon.is_in_log("test_libplugin initialised!")
@@ -1490,7 +1491,7 @@ def test_libplugin(node_factory):
     myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
     # Side note: getmanifest will trace back to plugin_start
-    l1.daemon.wait_for_log(": OUT:id={}:plugin#[0-9]*/cln:getmanifest#[0-9]*".format(myname))
+    l1.daemon.wait_for_log(r": {}:plugin#[0-9]*/cln:getmanifest#[0-9]*\[OUT\]".format(myname))
 
     # Test commands
     assert l1.rpc.call("helloworld") == {"hello": "world"}
@@ -1504,9 +1505,9 @@ def test_libplugin(node_factory):
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
 
     # Test hooks and notifications (add plugin, so we can test hook id)
-    l2 = node_factory.get_node(options={"plugin": plugin})
+    l2 = node_factory.get_node(options={"plugin": plugin, 'log-level': 'io'})
     l2.connect(l1)
-    l2.daemon.wait_for_log(": OUT:id={}:connect#[0-9]*/cln:peer_connected#[0-9]*".format(myname))
+    l2.daemon.wait_for_log(r": {}:connect#[0-9]*/cln:peer_connected#[0-9]*\[OUT\]".format(myname))
 
     l1.daemon.wait_for_log("{} peer_connected".format(l2.info["id"]))
     l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))
