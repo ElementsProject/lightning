@@ -119,6 +119,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_SIGN_BOLT12:
+	case WIRE_HSMD_PREAPPROVE_INVOICE:
 	case WIRE_HSMD_DERIVE_SECRET:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
@@ -149,6 +150,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 		break;
 	}
@@ -657,6 +659,22 @@ static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 	}
 
 	return towire_hsmd_sign_bolt12_reply(NULL, &sig);
+}
+
+/*~ lightningd asks us to approve an invoice. This stub implementation
+ * is overriden by fully validating signers that need to track invoice
+ * payments. */
+static u8 *handle_preapprove_invoice(struct hsmd_client *c, const u8 *msg_in)
+{
+	char *invstring;
+	bool approved;
+	if (!fromwire_hsmd_preapprove_invoice(tmpctx, msg_in, &invstring))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* This stub always approves */
+	approved = true;
+
+	return towire_hsmd_preapprove_invoice_reply(NULL, approved);
 }
 
 /*~ Lightning invoices, defined by BOLT 11, are signed.  This has been
@@ -1572,6 +1590,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_option_will_fund_offer(client, msg);
 	case WIRE_HSMD_SIGN_BOLT12:
 		return handle_sign_bolt12(client, msg);
+	case WIRE_HSMD_PREAPPROVE_INVOICE:
+		return handle_preapprove_invoice(client, msg);
 	case WIRE_HSMD_SIGN_MESSAGE:
 		return handle_sign_message(client, msg);
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
@@ -1635,6 +1655,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
+	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
 		break;
 	}
 	return hsmd_status_bad_request(client, msg, "Unknown request");
