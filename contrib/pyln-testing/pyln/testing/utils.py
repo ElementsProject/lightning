@@ -1435,8 +1435,8 @@ class NodeFactory(object):
         return [j.result() for j in jobs]
 
     def get_node(self, node_id=None, options=None, dbfile=None,
-                 feerates=(15000, 11000, 7500, 3750), start=True,
-                 wait_for_bitcoind_sync=True, may_fail=False,
+                 bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
+                 start=True, wait_for_bitcoind_sync=True, may_fail=False,
                  expect_fail=False, cleandir=True, **kwargs):
         self.throttler.wait()
         node_id = self.get_node_id() if not node_id else node_id
@@ -1468,6 +1468,12 @@ class NodeFactory(object):
             out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
                                     'lightningd.sqlite3'), 'xb')
             with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
+                out.write(f.read())
+
+        if bkpr_dbfile:
+            out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
+                                    'accounts.sqlite3'), 'xb')
+            with lzma.open(os.path.join('tests/data', bkpr_dbfile), 'rb') as f:
                 out.write(f.read())
 
         if start:
