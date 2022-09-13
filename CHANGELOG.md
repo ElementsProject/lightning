@@ -8,6 +8,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
+## [0.12.1] - 2022-09-13: Web-8 init (dot one)
+
+Point release with some bugfixes and patches.
+
+### Added
+
+None
+
+### Changed
+
+None
+
+### Deprecated
+
+None
+
+### Removed
+
+- build: `mrkd` and `mistune` not required to build project
+
+### Fixed
+
+- lnprototest: builds for lnprototest tests now use 22.04 LTS, which fixes a problem with loading `mako`. ([#5583])
+- Plugins: topology plugin could crash when it sees duplicate private channel announcements ([#5593])
+- Gossip: proper `gossip_store` operation may resolve some previous gossip propagation issues ([#5591])
+
+[#5583]: https://github.com/ElementsProject/lightning/pull/5583
+[#5593]: https://github.com/ElementsProject/lightning/pull/5593
+[#5591]: https://github.com/ElementsProject/lightning/pull/5591
+
+
 ## [0.12.0] - 2022-08-23: Web-8 init
 
 This release named by @adi2011.
@@ -1863,6 +1894,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[0.12.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.1
 [0.12.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.12.0
 [0.11.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.2
 [0.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.11.1
