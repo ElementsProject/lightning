@@ -15,6 +15,8 @@ struct migration {
 
 static struct plugin *plugin;
 
+static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db);
+
 /* Do not reorder or remove elements from this array.
  * It is used to migrate existing databases from a prevoius state, based on
  * string indicies */
@@ -99,6 +101,7 @@ static struct migration db_migrations[] = {
 	{SQL("ALTER TABLE chain_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE channel_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE channel_events ADD rebalance_id BIGINT DEFAULT NULL;"), NULL},
+	{NULL, migration_remove_dupe_lease_fees}
 };
 
 static bool db_migrate(struct plugin *p, struct db *db, bool *created)
@@ -139,6 +142,49 @@ static bool db_migrate(struct plugin *p, struct db *db, bool *created)
 	db_exec_prepared_v2(take(stmt));
 
 	return current != orig;
+}
+
+static void migration_remove_dupe_lease_fees(struct plugin *p, struct db *db)
+{
+	struct db_stmt *stmt, *del_stmt;
+	u64 *last_acct_id;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  id"
+				     ", account_id"
+				     " FROM channel_events"
+				     " WHERE tag = 'lease_fee'"
+				     " ORDER BY account_id"));
+	db_query_prepared(stmt);
+	last_acct_id = NULL;
+	while (db_step(stmt)) {
+		u64 id, acct_id;
+		id = db_col_u64(stmt, "id");
+		acct_id = db_col_u64(stmt, "account_id");
+
+		if (!last_acct_id) {
+			last_acct_id = tal(stmt, u64);
+			*last_acct_id = acct_id;
+			continue;
+		}
+
+		if (*last_acct_id != acct_id) {
+			*last_acct_id = acct_id;
+			continue;
+		}
+
+		plugin_log(plugin, LOG_INFORM,
+			   "Duplicate 'lease_fee' found for"
+			   " account %"PRIu64", deleting dupe",
+			   id);
+
+		/* same acct as last, we found a duplicate */
+		del_stmt = db_prepare_v2(db, SQL("DELETE FROM channel_events"
+						 " WHERE id=?"));
+		db_bind_u64(del_stmt, 0, id);
+		db_exec_prepared_v2(take(del_stmt));
+	}
+	tal_free(stmt);
 }
 
 /* Implement db_fatal, as a wrapper around fatal.
