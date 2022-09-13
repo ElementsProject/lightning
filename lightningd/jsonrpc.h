@@ -138,6 +138,9 @@ void json_stream_log_suppress_for_cmd(struct json_stream *js,
 struct command_result *command_raw_complete(struct command *cmd,
 					    struct json_stream *result);
 
+/* Logging point to use for this command (usually, the JSON connection). */
+struct log *command_log(struct command *cmd);
+
 /* To return if param() fails. */
 extern struct command_result *command_param_failed(void)
 	 WARN_UNUSED_RESULT;

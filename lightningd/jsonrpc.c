@@ -145,6 +145,13 @@ static void destroy_jcon(struct json_connection *jcon)
 	tal_free(jcon->log);
 }
 
+struct log *command_log(struct command *cmd)
+{
+	if (cmd->jcon)
+		return cmd->jcon->log;
+	return cmd->ld->log;
+}
+
 static struct command_result *json_help(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *obj UNNEEDED,
