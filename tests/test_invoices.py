@@ -12,7 +12,7 @@ import unittest
 
 
 def test_invoice(node_factory, chainparams):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'log-level': 'io'})
 
     addr1 = l2.rpc.newaddr('bech32')['bech32']
     addr2 = l2.rpc.newaddr('p2sh-segwit')['p2sh-segwit']
@@ -21,7 +21,7 @@ def test_invoice(node_factory, chainparams):
 
     # Side note: invoice calls out to listincoming, so check JSON id is as expected
     myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
-    l1.daemon.wait_for_log(": OUT:id={}:invoice#[0-9]*/cln:listincoming#[0-9]*".format(myname))
+    l1.daemon.wait_for_log(r": {}:invoice#[0-9]*/cln:listincoming#[0-9]*\[OUT\]".format(myname))
 
     after = int(time.time())
     b11 = l1.rpc.decodepay(inv['bolt11'])

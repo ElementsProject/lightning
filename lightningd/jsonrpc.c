@@ -912,7 +912,9 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    "Expected string for method");
 	}
 
-	log_debug(jcon->log, "IN:id=%s", c->id);
+	/* Debug was too chatty, so we use IO here, even though we're
+	 * actually just logging the id */
+	log_io(jcon->log, LOG_IO_IN, NULL, c->id, NULL, 0);
 
 	c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
 	if (!c->json_cmd) {
@@ -1353,7 +1355,7 @@ struct jsonrpc_request *jsonrpc_request_start_(
 		json_object_start(r->stream, "params");
 	}
 	if (log)
-		log_debug(log, "OUT:id=%s", r->id);
+		log_io(log, LOG_IO_OUT, NULL, r->id, NULL, 0);
 
 	return r;
 }
