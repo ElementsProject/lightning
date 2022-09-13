@@ -43,18 +43,18 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 	for (i = 0; i < count_announceable; i++)
 		tal_arr_expand(&was, daemon->announceable[i]);
 
-	/* Add IP discovery `remote_addr` v4 and v6 of our self. */
+	/* Add discovered IPs v4/v6 verified by peer `remote_addr` feature. */
 	/* Only do that if we don't have addresses announced. */
 	if (count_announceable == 0) {
-		if (daemon->remote_addr_v4 != NULL &&
-		    !wireaddr_arr_contains(was, daemon->remote_addr_v4))
-			tal_arr_expand(&was, *daemon->remote_addr_v4);
-		if (daemon->remote_addr_v6 != NULL &&
-		    !wireaddr_arr_contains(was, daemon->remote_addr_v6))
-			tal_arr_expand(&was, *daemon->remote_addr_v6);
+		if (daemon->discovered_ip_v4 != NULL &&
+		    !wireaddr_arr_contains(was, daemon->discovered_ip_v4))
+			tal_arr_expand(&was, *daemon->discovered_ip_v4);
+		if (daemon->discovered_ip_v6 != NULL &&
+		    !wireaddr_arr_contains(was, daemon->discovered_ip_v6))
+			tal_arr_expand(&was, *daemon->discovered_ip_v6);
 	}
 
-	/* Sort by address type again, as we added dynamic remote_addr v4/v6. */
+	/* Sort by address type again, as we added dynamic discovered_ip v4/v6. */
 	/* BOLT #7:
 	 *
 	 * The origin node:

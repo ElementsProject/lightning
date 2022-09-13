@@ -123,6 +123,6 @@ msgdata,gossipd_local_private_channel,features,u8,len
 msgtype,gossipd_used_local_channel_update,3052
 msgdata,gossipd_used_local_channel_update,scid,short_channel_id,
 
-# Tell gossipd we have discovered a new remote_addr
-msgtype,gossipd_remote_addr,3009
-msgdata,gossipd_remote_addr,remote_addr,wireaddr,
+# Tell gossipd we have verified a new public IP by the remote_addr feature
+msgtype,gossipd_discovered_ip,3009
+msgdata,gossipd_discovered_ip,discovered_ip,wireaddr,
