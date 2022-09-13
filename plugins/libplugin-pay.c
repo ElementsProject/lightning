@@ -3942,6 +3942,54 @@ static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
 REGISTER_PAYMENT_MODIFIER(payee_incoming_limit, void *, NULL,
 			  payee_incoming_limit_step_cb);
 
+/*****************************************************************************
+ * check_preapproveinvoice
+ *
+ * @desc submit the invoice to the HSM for approval, fail the payment if not approved.
+ *
+ * This paymod checks the invoice for approval with the HSM, which might:
+ * - check with the user for specific approval
+ * - enforce velocity controls
+ * - automatically approve the invoice (default)
+ */
+
+static struct command_result *
+check_preapproveinvoice_allow(struct command *cmd,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      struct payment *p)
+{
+	/* On success, an empty object is returned. */
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static struct command_result *preapproveinvoice_rpc_failure(struct command *cmd,
+							    const char *buffer,
+							    const jsmntok_t *toks,
+							    struct payment *p)
+{
+	payment_abort(p,
+		      "Failing payment due to a failed RPC call: %.*s",
+		      toks->end - toks->start, buffer + toks->start);
+	return command_still_pending(cmd);
+}
+
+static void check_preapproveinvoice_start(void *d UNUSED, struct payment *p)
+{
+	/* Ask the HSM if the invoice is OK to pay */
+	struct out_req *req;
+	req = jsonrpc_request_start(p->plugin, NULL, "preapproveinvoice",
+				    &check_preapproveinvoice_allow,
+				    &preapproveinvoice_rpc_failure, p);
+	/* FIXME: rename parameter to invstring */
+	json_add_string(req->js, "bolt11", p->invstring);
+	(void) send_outreq(p->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(check_preapproveinvoice, void *, NULL,
+			  check_preapproveinvoice_start);
+
 static struct route_exclusions_data *
 route_exclusions_data_init(struct payment *p)
 {

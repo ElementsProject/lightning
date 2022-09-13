@@ -928,6 +928,7 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 }
 
 struct payment_modifier *paymod_mods[] = {
+	&check_preapproveinvoice_pay_mod,
 	/* NOTE: The order in which these four paymods are executed is
 	 * significant!
 	 * local_channel_hints *must* execute first before route_exclusions
