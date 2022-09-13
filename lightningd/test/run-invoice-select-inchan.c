@@ -733,9 +733,9 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_gossipd_remote_addr */
-u8 *towire_gossipd_remote_addr(const tal_t *ctx UNNEEDED, const struct wireaddr *remote_addr UNNEEDED)
-{ fprintf(stderr, "towire_gossipd_remote_addr called!\n"); abort(); }
+/* Generated stub for towire_gossipd_discovered_ip */
+u8 *towire_gossipd_discovered_ip(const tal_t *ctx UNNEEDED, const struct wireaddr *discovered_ip UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_discovered_ip called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_bolt12 */
 u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }

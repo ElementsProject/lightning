@@ -1303,7 +1303,7 @@ static void update_remote_addr(struct lightningd *ld,
 			ld->discovered_ip_v4 = tal_dup(ld, struct wireaddr,
 						       ld->remote_addr_v4);
 			ld->discovered_ip_v4->port = public_port;
-			subd_send_msg(ld->gossip, towire_gossipd_remote_addr(
+			subd_send_msg(ld->gossip, towire_gossipd_discovered_ip(
 							  tmpctx,
 							  ld->discovered_ip_v4));
 		}
@@ -1326,7 +1326,7 @@ static void update_remote_addr(struct lightningd *ld,
 			ld->discovered_ip_v6 = tal_dup(ld, struct wireaddr,
 						       ld->remote_addr_v6);
 			ld->discovered_ip_v6->port = public_port;
-			subd_send_msg(ld->gossip, towire_gossipd_remote_addr(
+			subd_send_msg(ld->gossip, towire_gossipd_discovered_ip(
 							  tmpctx,
 							  ld->discovered_ip_v6));
 		}
