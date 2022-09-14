@@ -682,11 +682,7 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 	 * tell gossipd about them. */
 	spent_scids =
 	    wallet_utxoset_get_spent(tmpctx, topo->ld->wallet, b->height);
-
-	for (size_t i=0; i<tal_count(spent_scids); i++) {
-		gossipd_notify_spend(topo->bitcoind->ld, &spent_scids[i]);
-	}
-	tal_free(spent_scids);
+	gossipd_notify_spends(topo->bitcoind->ld, b->height, spent_scids);
 }
 
 static void topo_add_utxos(struct chain_topology *topo, struct block *b)
@@ -792,12 +788,11 @@ static void remove_tip(struct chain_topology *topo)
 	/* This may have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
 	block_map_del(&topo->block_map, b);
-	tal_free(b);
 
 	/* These no longer exist, so gossipd drops any reference to them just
 	 * as if they were spent. */
-	for (size_t i = 0; i < tal_count(removed_scids); i++)
-		gossipd_notify_spend(topo->bitcoind->ld, &removed_scids[i]);
+	gossipd_notify_spends(topo->bitcoind->ld, b->height, removed_scids);
+	tal_free(b);
 }
 
 static void get_new_block(struct bitcoind *bitcoind,
