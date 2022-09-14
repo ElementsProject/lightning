@@ -414,11 +414,8 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	 * that's the only time we get duplicates */
 	scid.u64 = map_be64(map, cannounce_off + plus_scid_off);
 	chan = gossmap_find_chan(map, &scid);
-	if (chan) {
-		assert(chan->private);
-		assert(!private);
+	if (chan)
 		gossmap_remove_chan(map, chan);
-	}
 
 	/* We carefully map pointers to indexes, since new_node can move them! */
 	n[0] = gossmap_find_node(map, &node_id[0]);
