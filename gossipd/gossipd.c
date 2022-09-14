@@ -927,22 +927,27 @@ static void handle_new_lease_rates(struct daemon *daemon, const u8 *msg)
 
 /*~ This is where lightningd tells us that a channel's funding transaction has
  * been spent. */
-static void handle_outpoint_spent(struct daemon *daemon, const u8 *msg)
+static void handle_outpoints_spent(struct daemon *daemon, const u8 *msg)
 {
-	struct short_channel_id scid;
-	struct chan *chan;
+	struct short_channel_id *scids;
+	u32 blockheight;
 	struct routing_state *rstate = daemon->rstate;
-	if (!fromwire_gossipd_outpoint_spent(msg, &scid))
-		master_badmsg(WIRE_GOSSIPD_OUTPOINT_SPENT, msg);
 
-	chan = get_channel(rstate, &scid);
-	if (chan) {
+	if (!fromwire_gossipd_outpoints_spent(msg, msg, &blockheight, &scids))
+		master_badmsg(WIRE_GOSSIPD_OUTPOINTS_SPENT, msg);
+
+	for (size_t i = 0; i < tal_count(scids); i++) {
+		struct chan *chan = get_channel(rstate, &scids[i]);
+
+		if (!chan)
+			continue;
+
 		status_debug(
 		    "Deleting channel %s due to the funding outpoint being "
 		    "spent",
-		    type_to_string(msg, struct short_channel_id, &scid));
+		    type_to_string(msg, struct short_channel_id, &scids[i]));
 		/* Suppress any now-obsolete updates/announcements */
-		add_to_txout_failures(rstate, &scid);
+		add_to_txout_failures(rstate, &scids[i]);
 		remove_channel_from_store(rstate, chan);
 		/* Freeing is sufficient since everything else is allocated off
 		 * of the channel and this takes care of unregistering
@@ -999,8 +1004,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		handle_txout_reply(daemon, msg);
 		goto done;
 
-	case WIRE_GOSSIPD_OUTPOINT_SPENT:
-		handle_outpoint_spent(daemon, msg);
+	case WIRE_GOSSIPD_OUTPOINTS_SPENT:
+		handle_outpoints_spent(daemon, msg);
 		goto done;
 
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
