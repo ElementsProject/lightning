@@ -539,17 +539,18 @@ static u8 *create_unsigned_update(const tal_t *ctx,
 
 	/* BOLT #7:
 	 *
-	 * The `message_flags` bitfield is used to indicate the presence of
-	 * optional fields in the `channel_update` message:
+	 * The `message_flags` bitfield is used to provide additional
+	 * details about the message:
 	 *
-	 *| Bit Position  | Name                      | Field                 |
-	 *...
-	 *| 0             | `option_channel_htlc_max` | `htlc_maximum_msat`   |
+	 * | Bit Position  | Name           |
+	 * | ------------- | ---------------|
+	 * | 0             | `must_be_one`  |
+	 * | 1             | `dont_forward` |
 	 */
-	message_flags = 0 | ROUTING_OPT_HTLC_MAX_MSAT;
+	message_flags = ROUTING_OPT_HTLC_MAX_MSAT;
 
 	/* We create an update with a dummy signature and timestamp. */
-	return towire_channel_update_option_channel_htlc_max(ctx,
+	return towire_channel_update(ctx,
 				       &dummy_sig, /* sig set later */
 				       &chainparams->genesis_blockhash,
 				       scid,
@@ -730,7 +731,7 @@ void refresh_local_channel(struct daemon *daemon,
 	if (!prev)
 		return;
 
-	if (!fromwire_channel_update_option_channel_htlc_max(prev,
+	if (!fromwire_channel_update(prev,
 				     &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,

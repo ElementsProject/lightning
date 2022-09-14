@@ -1298,16 +1298,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (taken(update))
 		tal_steal(tmpctx, update);
 
-	if (!fromwire_channel_update(update, &signature, &chain_hash,
-				     &short_channel_id, &timestamp,
-				     &message_flags, &channel_flags,
-				     &expiry, &htlc_minimum, &fee_base_msat,
-				     &fee_proportional_millionths))
-		return false;
-	/* If it's flagged as containing the optional field, reparse for
-	 * the optional field */
-	if ((message_flags & ROUTING_OPT_HTLC_MAX_MSAT) &&
-			!fromwire_channel_update_option_channel_htlc_max(
+	if (!fromwire_channel_update(
 				update, &signature, &chain_hash,
 				&short_channel_id, &timestamp,
 				&message_flags, &channel_flags,
@@ -1557,7 +1548,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	u32 timestamp;
 	u8 message_flags, channel_flags;
 	u16 expiry;
-	struct amount_msat htlc_minimum;
+	struct amount_msat htlc_minimum, htlc_maximum;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	struct bitcoin_blkid chain_hash;
@@ -1571,7 +1562,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 				     &timestamp, &message_flags,
 				     &channel_flags, &expiry,
 				     &htlc_minimum, &fee_base_msat,
-				     &fee_proportional_millionths)) {
+				     &fee_proportional_millionths,
+				     &htlc_maximum)) {
 		warn = towire_warningfmt(rstate, NULL,
 					 "Malformed channel_update %s",
 					 tal_hex(tmpctx, serialized));

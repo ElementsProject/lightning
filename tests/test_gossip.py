@@ -1160,7 +1160,7 @@ def test_gossip_store_load(node_factory):
 
 def test_gossip_store_v10_upgrade(node_factory):
     """We remove a channel_update without an htlc_maximum_msat"""
-    l1 = node_factory.get_node(start=False)
+    l1 = node_factory.get_node(start=False, allow_broken_log=True)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("0a"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len

@@ -79,18 +79,18 @@ static void update_connection(int store_fd,
 	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid))
 		abort();
 
-	msg = towire_channel_update_option_channel_htlc_max(tmpctx,
-							    &dummy_sig,
-							    &chainparams->genesis_blockhash,
-							    &scid, 0,
-							    ROUTING_OPT_HTLC_MAX_MSAT,
-							    node_id_idx(from, to)
-							    + (disable ? ROUTING_FLAGS_DISABLED : 0),
-							    delay,
-							    min,
-							    base_fee,
-							    proportional_fee,
-							    max);
+	msg = towire_channel_update(tmpctx,
+				    &dummy_sig,
+				    &chainparams->genesis_blockhash,
+				    &scid, 0,
+				    ROUTING_OPT_HTLC_MAX_MSAT,
+				    node_id_idx(from, to)
+				    + (disable ? ROUTING_FLAGS_DISABLED : 0),
+				    delay,
+				    min,
+				    base_fee,
+				    proportional_fee,
+				    max);
 
 	write_to_store(store_fd, msg);
 }
