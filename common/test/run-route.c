@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 	int store_fd;
 	struct gossmap *gossmap;
 	const double riskfactor = 1.0;
-	char gossip_version = GOSSIP_STORE_VERSION;
+	char gossip_version = 10;
 	char *gossipfilename;
 
 	chainparams = chainparams_for_network("regtest");

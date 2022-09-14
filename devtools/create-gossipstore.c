@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 	} else
 		outfd = STDOUT_FILENO;
 
-	version = GOSSIP_STORE_VERSION;
+	version = ((0 << 5) | 10);
 	if (!write_all(outfd, &version, sizeof(version)))
 		err(1, "Writing version");
 
