@@ -482,7 +482,7 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
  *     * [`u64`:`htlc_minimum_msat`]
  *     * [`u32`:`fee_base_msat`]
  *     * [`u32`:`fee_proportional_millionths`]
- *     * [`u64`:`htlc_maximum_msat`] (option_channel_htlc_max)
+ *     * [`u64`:`htlc_maximum_msat`]
  */
 static bool update_channel(struct gossmap *map, size_t cupdate_off)
 {
@@ -509,15 +509,7 @@ static bool update_channel(struct gossmap *map, size_t cupdate_off)
 
 	/* We round this *down*, since too-low min is more conservative */
 	hc.htlc_min = u64_to_fp16(map_be64(map, htlc_minimum_off), false);
-	/* I checked my node: 60189 of 62358 channel_update have
-	 * htlc_maximum_msat, so we don't bother setting the rest to the
-	 * channel size (which we don't even read from the gossip_store, let
-	 * alone give up precious bytes to remember) */
-	if (map_u8(map, message_flags_off) & 1)
-		hc.htlc_max
-			= u64_to_fp16(map_be64(map, htlc_maximum_off), true);
-	else
-		hc.htlc_max = 0xFFFF;
+	hc.htlc_max = u64_to_fp16(map_be64(map, htlc_maximum_off), true);
 
 	chanflags = map_u8(map, channel_flags_off);
 	hc.enabled = !(chanflags & 2);
@@ -1225,7 +1217,7 @@ u8 *gossmap_chan_get_features(const tal_t *ctx,
  *     * [`u64`:`htlc_minimum_msat`]
  *     * [`u32`:`fee_base_msat`]
  *     * [`u32`:`fee_proportional_millionths`]
- *     * [`u64`:`htlc_maximum_msat`] (option_channel_htlc_max)
+ *     * [`u64`:`htlc_maximum_msat`]
  */
 void gossmap_chan_get_update_details(const struct gossmap *map,
 				     const struct gossmap_chan *chan,
