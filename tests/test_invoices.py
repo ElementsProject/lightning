@@ -363,7 +363,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # It will use an explicit exposeprivatechannels even if it thinks its a dead-end
     l0.rpc.close(l1.info['id'])
     l0.wait_for_channel_onchain(l1.info['id'])
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(13)
     wait_for(lambda: l2.rpc.listchannels(scid_dummy)['channels'] == [])
 
     inv = l2.rpc.invoice(amount_msat=123456, label="inv7", description="?", exposeprivatechannels=scid)

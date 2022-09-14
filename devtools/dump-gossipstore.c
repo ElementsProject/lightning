@@ -68,6 +68,7 @@ int main(int argc, char *argv[])
 		u32 msglen = be32_to_cpu(hdr.len);
 		u8 *msg, *inner;
 		bool deleted, push, ratelimit;
+		u32 blockheight;
 
 		deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
 		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
@@ -121,6 +122,11 @@ int main(int argc, char *argv[])
 			printf("delete channel: %s\n",
 			       type_to_string(tmpctx, struct short_channel_id,
 					      &scid));
+		} else if (fromwire_gossip_store_chan_dying(msg, &scid, &blockheight)) {
+			printf("dying channel: %s (deadline %u)\n",
+			       type_to_string(tmpctx, struct short_channel_id,
+					      &scid),
+			       blockheight);
 		} else {
 			warnx("Unknown message %u",
 			      fromwire_peektype(msg));

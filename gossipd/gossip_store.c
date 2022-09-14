@@ -802,6 +802,17 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			chan_ann = tal_steal(gs, msg);
 			chan_ann_off = gs->len;
 			break;
+		case WIRE_GOSSIP_STORE_CHAN_DYING: {
+			struct short_channel_id scid;
+			u32 deadline;
+
+			if (!fromwire_gossip_store_chan_dying(msg, &scid, &deadline)) {
+				bad = "Bad gossip_store_chan_dying";
+				goto badmsg;
+			}
+			remember_chan_dying(rstate, &scid, deadline, gs->len);
+			break;
+		}
 		case WIRE_GOSSIP_STORE_PRIVATE_UPDATE:
 			if (!fromwire_gossip_store_private_update(tmpctx, msg, &msg)) {
 				bad = "invalid gossip_store_private_update";
