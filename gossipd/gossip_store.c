@@ -175,6 +175,16 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 			continue;
 		}
 
+		/* Check checksum (upgrade would overwrite, so do it now) */
+		if (be32_to_cpu(hdr.crc)
+		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen)) {
+			status_broken("gossip_store_compact_offline: checksum verification failed? %08x should be %08x",
+				      be32_to_cpu(hdr.crc),
+				      crc32c(be32_to_cpu(hdr.timestamp), msg + sizeof(hdr), msglen));
+			tal_free(msg);
+			goto close_and_delete;
+		}
+
 		if (oldversion != version) {
 			if (!upgrade_field(oldversion, rstate, &msg)) {
 				tal_free(msg);
