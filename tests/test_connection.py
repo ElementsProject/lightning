@@ -4085,7 +4085,7 @@ def test_multichan(node_factory, executor, bitcoind):
         l2.rpc.close(l3.info['id'])
 
     l2.rpc.close(scid23b)
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    bitcoind.generate_block(13, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2, l3])
 
     # Gossip works as expected.
@@ -4130,14 +4130,14 @@ def test_multichan(node_factory, executor, bitcoind):
                         "state": "RCVD_REMOVE_ACK_REVOCATION"},
                        {"short_channel_id": scid12,
                         "id": 2,
-                        "expiry": 123,
+                        "expiry": 135,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
                         "payment_hash": inv3['payment_hash'],
                         "state": "RCVD_REMOVE_ACK_REVOCATION"},
                        {"short_channel_id": scid12,
                         "id": 3,
-                        "expiry": 123,
+                        "expiry": 135,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
                         "payment_hash": inv4['payment_hash'],

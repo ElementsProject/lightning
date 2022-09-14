@@ -230,6 +230,9 @@ struct routing_state {
 	/* Highest timestamp of gossip we accepted (before now) */
 	u32 last_timestamp;
 
+	/* Channels which are closed, but we're waiting 12 blocks */
+	struct dying_channel *dying_channels;
+
 #if DEVELOPER
 	/* Override local time for gossip messages */
 	struct timeabs *gossip_time;
@@ -399,21 +402,37 @@ bool routing_add_private_channel(struct routing_state *rstate,
  */
 struct timeabs gossip_time_now(const struct routing_state *rstate);
 
+/**
+ * Add to rstate->dying_channels
+ *
+ * Exposed here for when we load the gossip_store.
+ */
+void remember_chan_dying(struct routing_state *rstate,
+			 const struct short_channel_id *scid,
+			 u32 deadline_blockheight,
+			 u64 index);
+
+/**
+ * When a channel's funding has been spent.
+ */
+void routing_channel_spent(struct routing_state *rstate,
+			   u32 current_blockheight,
+			   struct chan *chan);
+
+/**
+ * Clean up any dying channels.
+ *
+ * This finally deletes channel past their deadline.
+ */
+void routing_expire_channels(struct routing_state *rstate, u32 blockheight);
+
 /* Would we ratelimit a channel_update with this timestamp? */
 bool would_ratelimit_cupdate(struct routing_state *rstate,
 			     const struct half_chan *hc,
 			     u32 timestamp);
 
-/* Remove channel from store: announcement and any updates. */
-void remove_channel_from_store(struct routing_state *rstate,
-			       struct chan *chan);
-
 /* Returns an error string if there are unfinalized entries after load */
 const char *unfinalized_entries(const tal_t *ctx, struct routing_state *rstate);
 
 void remove_all_gossip(struct routing_state *rstate);
-
-/* This scid is dead to us. */
-void add_to_txout_failures(struct routing_state *rstate,
-			   const struct short_channel_id *scid);
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */

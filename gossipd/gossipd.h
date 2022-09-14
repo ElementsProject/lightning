@@ -16,6 +16,7 @@ struct channel_update_timestamps;
 struct broadcastable;
 struct lease_rates;
 struct seeker;
+struct dying_channel;
 
 /*~ The core daemon structure: */
 struct daemon {

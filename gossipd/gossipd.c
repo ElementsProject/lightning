@@ -797,6 +797,8 @@ static void new_blockheight(struct daemon *daemon, const u8 *msg)
 		i--;
 	}
 
+	routing_expire_channels(daemon->rstate, daemon->current_blockheight);
+
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_new_blockheight_reply(NULL)));
 }
@@ -931,28 +933,19 @@ static void handle_outpoints_spent(struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id *scids;
 	u32 blockheight;
-	struct routing_state *rstate = daemon->rstate;
 
 	if (!fromwire_gossipd_outpoints_spent(msg, msg, &blockheight, &scids))
 		master_badmsg(WIRE_GOSSIPD_OUTPOINTS_SPENT, msg);
 
 	for (size_t i = 0; i < tal_count(scids); i++) {
-		struct chan *chan = get_channel(rstate, &scids[i]);
+		struct chan *chan = get_channel(daemon->rstate, &scids[i]);
 
 		if (!chan)
 			continue;
 
-		status_debug(
-		    "Deleting channel %s due to the funding outpoint being "
-		    "spent",
-		    type_to_string(msg, struct short_channel_id, &scids[i]));
-		/* Suppress any now-obsolete updates/announcements */
-		add_to_txout_failures(rstate, &scids[i]);
-		remove_channel_from_store(rstate, chan);
-		/* Freeing is sufficient since everything else is allocated off
-		 * of the channel and this takes care of unregistering
-		 * the channel */
-		free_chan(rstate, chan);
+		/* We have a current_blockheight, but it's not necessarily
+		 * updated first. */
+		routing_channel_spent(daemon->rstate, blockheight, chan);
 	}
 }
 

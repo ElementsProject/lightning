@@ -559,8 +559,9 @@ def test_gossip_persistence(node_factory, bitcoind):
     # channel from their network view
     l1.rpc.dev_fail(l2.info['id'])
 
-    # We need to wait for the unilateral close to hit the mempool
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    # We need to wait for the unilateral close to hit the mempool,
+    # and 12 blocks for nodes to actually forget it.
+    bitcoind.generate_block(13, wait_for_mempool=1)
 
     wait_for(lambda: active(l1) == [scid23, scid23])
     wait_for(lambda: active(l2) == [scid23, scid23])
@@ -1391,7 +1392,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
 
     txid = l2.rpc.close(l3.info['id'])['txid']
     wait_for(lambda: only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
-    bitcoind.generate_block(1, txid)
+    bitcoind.generate_block(13, txid)
 
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
@@ -2097,7 +2098,7 @@ def test_topology_leak(node_factory, bitcoind):
 
     # Close and wait for gossip to catchup.
     txid = l2.rpc.close(l3.info['id'])['txid']
-    bitcoind.generate_block(1, txid)
+    bitcoind.generate_block(13, txid)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
 
@@ -2122,3 +2123,45 @@ def test_parms_listforwards(node_factory):
 
     assert len(forwards_new) == 0
     assert len(forwards_dep) == 0
+
+
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
+def test_close_12_block_delay(node_factory, bitcoind):
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
+
+    # Close l1-l2
+    txid = l1.rpc.close(l2.info['id'])['txid']
+    bitcoind.generate_block(1, txid)
+
+    # But l4 doesn't believe it immediately.
+    l4.daemon.wait_for_log("channel .* closing soon due to the funding outpoint being spent")
+
+    # Close l2-l3 one block later.
+    txid = l2.rpc.close(l3.info['id'])['txid']
+    bitcoind.generate_block(1, txid)
+    l4.daemon.wait_for_log("channel .* closing soon due to the funding outpoint being spent")
+
+    # BOLT #7:
+    #   - once its funding output has been spent OR reorganized out:
+    #    - SHOULD forget a channel after a 12-block delay.
+
+    # That implies 12 blocks *after* spending, i.e. 13 blocks deep!
+
+    # 12 blocks deep, l4 still sees it
+    bitcoind.generate_block(10)
+    sync_blockheight(bitcoind, [l4])
+    assert len(l4.rpc.listchannels(source=l1.info['id'])['channels']) == 1
+
+    # 13 blocks deep does it.
+    bitcoind.generate_block(1)
+    wait_for(lambda: l4.rpc.listchannels(source=l1.info['id'])['channels'] == [])
+
+    # Other channel still visible.
+    assert len(l4.rpc.listchannels(source=l2.info['id'])['channels']) == 1
+
+    # Restart: it remembers channel is dying.
+    l4.restart()
+
+    # One more block, it's forgotten too.
+    bitcoind.generate_block(1)
+    wait_for(lambda: l4.rpc.listchannels(source=l2.info['id'])['channels'] == [])
