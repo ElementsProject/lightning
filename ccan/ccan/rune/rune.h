@@ -376,4 +376,25 @@ char *rune_to_string(const tal_t *ctx, const struct rune *rune);
 struct rune_restr *rune_restr_from_string(const tal_t *ctx,
 					  const char *str,
 					  size_t len);
+
+/**
+ * rune_condition_is_valid: is this a valid condition?
+ * @cond: potential condition character.
+ *
+ * Returns true if it's one of enum rune_condition.
+ */
+bool rune_condition_is_valid(enum rune_condition cond);
+
+/**
+ * rune_altern_fieldname_len: how much of this string is condition?
+ * @alternstr: potential alternative string
+ * @alternstrlen: length
+ *
+ * This helps parsing your own runes.
+ *
+ * Returns the first possible condition (check with rune_condition_is_valid)
+ * or alternstrlen if none found.
+ */
+size_t rune_altern_fieldname_len(const char *alternstr, size_t alternstrlen);
+
 #endif /* CCAN_RUNE_RUNE_H */
