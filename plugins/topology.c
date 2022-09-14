@@ -280,10 +280,8 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_num(response, "delay", c->half[dir].delay);
 		json_add_amount_msat_only(response, "htlc_minimum_msat",
 					  htlc_minimum_msat);
-
-		if (message_flags & 1)
-			json_add_amount_msat_only(response, "htlc_maximum_msat",
-						  htlc_maximum_msat);
+		json_add_amount_msat_only(response, "htlc_maximum_msat",
+					  htlc_maximum_msat);
 		json_add_hex_talarr(response, "features", chanfeatures);
 		json_object_end(response);
 	}

@@ -161,7 +161,6 @@ void gossmap_chan_get_update_details(const struct gossmap *map,
 				     u32 *fee_base_msat,
 				     u32 *fee_proportional_millionths,
 				     struct amount_msat *htlc_minimum_msat,
-				     /* iff message_flags & 1 */
 				     struct amount_msat *htlc_maximum_msat);
 
 /* Given a struct node, get the nth channel, and tell us if we're half[0/1].
