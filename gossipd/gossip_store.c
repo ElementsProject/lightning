@@ -17,8 +17,8 @@
 #include <wire/peer_wire.h>
 
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
-/* We write it as major version 0, minor version 10 */
-#define GOSSIP_STORE_VER ((0 << 5) | 10)
+/* We write it as major version 0, minor version 11 */
+#define GOSSIP_STORE_VER ((0 << 5) | 11)
 
 struct gossip_store {
 	/* This is false when we're loading */
@@ -103,10 +103,12 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 	return true;
 }
 
-/* The upgrade from version 9 is a noop: we added the spam flag. */
+/* v9 added the GOSSIP_STORE_LEN_RATELIMIT_BIT.
+ * v10 removed any remaining non-htlc-max channel_update.
+ */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion == 9;
+	return oldversion == 9 || oldversion == 10;
 }
 
 static bool upgrade_field(u8 oldversion,
@@ -114,6 +116,15 @@ static bool upgrade_field(u8 oldversion,
 			  u8 **msg)
 {
 	assert(can_upgrade(oldversion));
+
+	if (oldversion == 10) {
+		/* Remove old channel_update with no htlc_maximum_msat */
+		if (fromwire_peektype(*msg) == WIRE_CHANNEL_UPDATE
+		    && tal_bytelen(*msg) == 130) {
+			*msg = tal_free(*msg);
+		}
+	}
+
 	return true;
 }
 
@@ -182,7 +193,7 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 		    != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen)) {
 			status_broken("gossip_store_compact_offline: checksum verification failed? %08x should be %08x",
 				      be32_to_cpu(hdr.crc),
-				      crc32c(be32_to_cpu(hdr.timestamp), msg + sizeof(hdr), msglen));
+				      crc32c(be32_to_cpu(hdr.timestamp), msg, msglen));
 			tal_free(msg);
 			goto close_and_delete;
 		}
@@ -191,6 +202,12 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 			if (!upgrade_field(oldversion, rstate, &msg)) {
 				tal_free(msg);
 				goto close_and_delete;
+			}
+
+			/* It can tell us to delete record entirely. */
+			if (msg == NULL) {
+				deleted++;
+				continue;
 			}
 
 			/* Recalc msglen and header */
@@ -723,7 +740,8 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		}
 
 		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen)) {
-			bad = tal_fmt(tmpctx, "Checksum verification failed: should be %08x", crc32c(be32_to_cpu(hdr.timestamp), msg, msglen));
+			bad = tal_fmt(tmpctx, "Checksum verification failed: %08x should be %08x",
+				      checksum, crc32c(be32_to_cpu(hdr.timestamp), msg, msglen));
 			goto badmsg;
 		}
 
