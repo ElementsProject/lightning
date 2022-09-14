@@ -2636,7 +2636,6 @@ def test_commando(node_factory, executor):
     assert exc_info.value.error['data']['erring_index'] == 0
 
 
-@pytest.mark.xfail(reason="Escapes in restrictions are broken", strict=True)
 def test_commando_rune(node_factory):
     l1, l2 = node_factory.get_nodes(2)
 

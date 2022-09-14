@@ -762,6 +762,21 @@ static struct rune_restr **readonly_restrictions(const tal_t *ctx)
 	return restrs;
 }
 
+/* \| is not valid JSON, so they use \\|: undo it! */
+static struct rune_restr *rune_restr_from_json(const tal_t *ctx,
+					       const char *buffer,
+					       const jsmntok_t *tok)
+{
+	const char *unescape;
+	struct json_escape *e = json_escape_string_(tmpctx,
+						    buffer + tok->start,
+						    tok->end - tok->start);
+	unescape = json_escape_unescape(tmpctx, e);
+	if (!unescape)
+		return NULL;
+	return rune_restr_from_string(ctx, unescape, strlen(unescape));
+}
+
 static struct command_result *param_restrictions(struct command *cmd,
 						 const char *name,
 						 const char *buffer,
@@ -776,18 +791,15 @@ static struct command_result *param_restrictions(struct command *cmd,
 
 		*restrs = tal_arr(cmd, struct rune_restr *, tok->size);
 		json_for_each_arr(i, t, tok) {
-			(*restrs)[i] = rune_restr_from_string(*restrs,
-							      buffer + t->start,
-							      t->end - t->start);
-			if (!(*restrs)[i])
+			(*restrs)[i] = rune_restr_from_json(*restrs, buffer, t);
+			if (!(*restrs)[i]) {
 				return command_fail_badparam(cmd, name, buffer, t,
 							     "not a valid restriction");
+			}
 		}
 	} else {
 		*restrs = tal_arr(cmd, struct rune_restr *, 1);
-		(*restrs)[0] = rune_restr_from_string(*restrs,
-						      buffer + tok->start,
-						      tok->end - tok->start);
+		(*restrs)[0] = rune_restr_from_json(*restrs, buffer, tok);
 		if (!(*restrs)[0])
 			return command_fail_badparam(cmd, name, buffer, tok,
 						     "not a valid restriction");
