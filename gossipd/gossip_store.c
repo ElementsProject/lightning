@@ -101,26 +101,10 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 	return true;
 }
 
-#ifdef COMPAT_V082
-static u8 *mk_private_channelmsg(const tal_t *ctx,
-				 struct routing_state *rstate,
-				 const struct short_channel_id *scid,
-				 const struct node_id *remote_node_id,
-				 struct amount_sat sat,
-				 const u8 *features)
-{
-	const u8 *ann = private_channel_announcement(tmpctx, scid,
-						     &rstate->local_id,
-						     remote_node_id,
-						     features);
-
-	return towire_gossip_store_private_channel(ctx, sat, ann);
-}
-
-/* The upgrade from version 7 is trivial */
+/* The upgrade from version 9 is a noop: we added the spam flag. */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion == 7 || oldversion == 8 || oldversion == 9;
+	return oldversion == 9;
 }
 
 static bool upgrade_field(u8 oldversion,
@@ -128,52 +112,8 @@ static bool upgrade_field(u8 oldversion,
 			  u8 **msg)
 {
 	assert(can_upgrade(oldversion));
-
-	if (fromwire_peektype(*msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS
-	    && oldversion == 7) {
-		/* Append two 0 bytes, for (empty) feature bits */
-		tal_resizez(msg, tal_bytelen(*msg) + 2);
-	}
-
-	/* We turn these (v8) into a WIRE_GOSSIP_STORE_PRIVATE_CHANNEL */
-	if (fromwire_peektype(*msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS) {
-		struct short_channel_id scid;
-		struct node_id remote_node_id;
-		struct amount_sat satoshis;
-		u8 *features;
-		u8 *storemsg;
-
-		if (!fromwire_gossipd_local_add_channel_obs(tmpctx, *msg,
-							&scid,
-							&remote_node_id,
-							&satoshis,
-							&features))
-			return false;
-
-		storemsg = mk_private_channelmsg(tal_parent(*msg),
-						 rstate,
-						 &scid,
-						 &remote_node_id,
-						 satoshis,
-						 features);
-		tal_free(*msg);
-		*msg = storemsg;
-	}
 	return true;
 }
-#else
-static bool can_upgrade(u8 oldversion)
-{
-	return false;
-}
-
-static bool upgrade_field(u8 oldversion,
-			  struct routing_state *rstate,
-			  u8 **msg)
-{
-	abort();
-}
-#endif /* !COMPAT_V082 */
 
 /* Read gossip store entries, copy non-deleted ones.  This code is written
  * as simply and robustly as possible! */
@@ -771,7 +711,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		}
 
 		if (checksum != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen)) {
-			bad = "Checksum verification failed";
+			bad = tal_fmt(tmpctx, "Checksum verification failed: should be %08x", crc32c(be32_to_cpu(hdr.timestamp), msg, msglen));
 			goto badmsg;
 		}
 
