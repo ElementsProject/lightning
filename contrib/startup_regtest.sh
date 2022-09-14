@@ -23,7 +23,8 @@
 ##
 ##  When you're finished, clean up or stop
 ##
-##  $ stop_ln  # stops the services, keeps the aliases
+##  $ stop_ln
+##  $ destroy_ln # clean up the lightning directories
 ##
 
 # Do the Right Thing if we're currently in top of srcdir.
@@ -72,6 +73,12 @@ start_nodes() {
 	else
 		network=$2
 	fi
+	# This supresses db syncs, for speed.
+	if type eatmydata >/dev/null 2>&1; then
+	    EATMYDATA=eatmydata
+	else
+	    EATMYDATA=
+	fi
 
 	LN_NODES=$node_count
 
@@ -107,13 +114,16 @@ start_nodes() {
 
 		# Start the lightning nodes
 		test -f "/tmp/l$i-$network/lightningd-$network.pid" || \
-			"$LIGHTNINGD" "--lightning-dir=/tmp/l$i-$network" &
+			$EATMYDATA "$LIGHTNINGD" "--lightning-dir=/tmp/l$i-$network" &
 		# shellcheck disable=SC2139 disable=SC2086
 		alias l$i-cli="$LCLI --lightning-dir=/tmp/l$i-$network"
 		# shellcheck disable=SC2139 disable=SC2086
 		alias l$i-log="less /tmp/l$i-$network/log"
 	done
 
+	if [ -z "$EATMYDATA" ]; then
+	    echo "WARNING: eatmydata not found: instal it for faster testing"
+	fi
 	# Give a hint.
 	echo "Commands: "
 	for i in $(seq $node_count); do
@@ -168,7 +178,6 @@ ensure_bitcoind_funds() {
 }
 
 fund_nodes() {
-
 	WALLET="default"
 	NODES=""
 
@@ -248,11 +257,7 @@ fund_nodes() {
 }
 
 stop_nodes() {
-	if [ -z "$2" ]; then
-		network=regtest
-	else
-		network="$2"
-	fi
+	network=${1:-regtest}
 	if [ -n "$LN_NODES" ]; then
 		for i in $(seq $LN_NODES); do
 			test ! -f "/tmp/l$i-$network/lightningd-$network.pid" || \
@@ -265,13 +270,18 @@ stop_nodes() {
 }
 
 stop_ln() {
-	stop_nodes "$1" regtest
+	stop_nodes "$@"
 	test ! -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
 		(kill "$(cat "$PATH_TO_BITCOIN/regtest/bitcoind.pid")"; \
 		rm "$PATH_TO_BITCOIN/regtest/bitcoind.pid")
 
 	unset LN_NODES
 	unalias bt-cli
+}
+
+destroy_ln() {
+	network=${1:-regtest}
+	rm -rf /tmp/l[0-9]*-"$network"
 }
 
 start_elem() {
@@ -324,3 +334,10 @@ connect() {
 		$LCLI --lightning-dir="/tmp/l$1-$network" connect "$to"
 	fi
 }
+
+echo Useful commands:
+echo "  start_ln 3: start three nodes, l1, l2, l3"
+echo "  connect 1 2: connect l1 and l2"
+echo "  fund_nodes: connect all nodes with channels, in a row"
+echo "  stop_ln: shutdown"
+echo "  destroy_ln: remove ln directories"
