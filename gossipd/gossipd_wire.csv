@@ -103,6 +103,7 @@ msgdata,gossipd_local_channel_update,htlc_minimum_msat,amount_msat,
 msgdata,gossipd_local_channel_update,fee_base_msat,u32,
 msgdata,gossipd_local_channel_update,fee_proportional_millionths,u32,
 msgdata,gossipd_local_channel_update,htlc_maximum_msat,amount_msat,
+msgdata,gossipd_local_channel_update,public,bool,
 
 # Send this channel_announcement
 msgtype,gossipd_local_channel_announcement,3006

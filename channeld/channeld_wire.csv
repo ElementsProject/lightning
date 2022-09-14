@@ -256,6 +256,7 @@ msgdata,channeld_local_channel_update,htlc_minimum_msat,amount_msat,
 msgdata,channeld_local_channel_update,fee_base_msat,u32,
 msgdata,channeld_local_channel_update,fee_proportional_millionths,u32,
 msgdata,channeld_local_channel_update,htlc_maximum_msat,amount_msat,
+msgdata,channeld_local_channel_update,public,bool,
 
 # Channeld: tell gossipd about our channel_announcement
 msgtype,channeld_local_channel_announcement,1014

@@ -369,14 +369,16 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 	assert(peer->short_channel_ids[LOCAL].u64);
 
 	msg = towire_channeld_local_channel_update(NULL,
-						  &peer->short_channel_ids[LOCAL],
-						  disable_flag
-						  == ROUTING_FLAGS_DISABLED,
-						  peer->cltv_delta,
-						  peer->htlc_minimum_msat,
-						  peer->fee_base,
-						  peer->fee_per_satoshi,
-						  peer->htlc_maximum_msat);
+						   &peer->short_channel_ids[LOCAL],
+						   disable_flag
+						   == ROUTING_FLAGS_DISABLED,
+						   peer->cltv_delta,
+						   peer->htlc_minimum_msat,
+						   peer->fee_base,
+						   peer->fee_per_satoshi,
+						   peer->htlc_maximum_msat,
+						   peer->channel_flags
+						   & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
 	wire_sync_write(MASTER_FD, take(msg));
 }
 

@@ -286,7 +286,7 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 				       const u8 *msg)
 {
 	struct short_channel_id scid;
-	bool disable;
+	bool disable, public;
 	u16 cltv_expiry_delta;
 	struct amount_msat htlc_minimum_msat;
 	u32 fee_base_msat, fee_proportional_millionths;
@@ -297,7 +297,7 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 						    &htlc_minimum_msat,
 						    &fee_base_msat,
 						    &fee_proportional_millionths,
-						    &htlc_maximum_msat)) {
+						    &htlc_maximum_msat, &public)) {
 		channel_internal_error(channel,
 				       "bad channeld_local_channel_update %s",
 				       tal_hex(channel, msg));
@@ -317,7 +317,9 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 			    cltv_expiry_delta,
 			    htlc_minimum_msat,
 			    fee_base_msat,
-			    fee_proportional_millionths, htlc_maximum_msat)));
+			    fee_proportional_millionths,
+			    htlc_maximum_msat,
+			    public)));
 }
 
 void tell_gossipd_local_channel_announce(struct lightningd *ld,
