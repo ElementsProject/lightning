@@ -251,11 +251,7 @@ class ChannelUpdate(object):
         (cu.htlc_minimum_msat,) = struct.unpack("!Q", b.read(8))
         (cu.fee_base_msat,) = struct.unpack("!I", b.read(4))
         (cu.fee_proportional_millionths,) = struct.unpack("!I", b.read(4))
-        t = b.read(8)
-        if len(t) == 8:
-            (cu.htlc_maximum_msat,) = struct.unpack("!Q", t)
-        else:
-            cu.htlc_maximum_msat = None
+        (cu.htlc_maximum_msat,) = struct.unpack("!Q", b.read(8))
 
         return cu
 

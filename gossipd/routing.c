@@ -1322,21 +1322,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		sat = uc->sat;
 	}
 
-	if (message_flags & ROUTING_OPT_HTLC_MAX_MSAT) {
-		/* Reject update if the `htlc_maximum_msat` is greater
-		 * than the total available channel satoshis */
-		if (amount_msat_greater_sat(htlc_maximum, sat))
-			return false;
-	} else {
-		/* If not indicated, set htlc_max_msat to channel capacity */
-		if (!amount_sat_to_msat(&htlc_maximum, sat)) {
-			status_peer_broken(peer ? &peer->id : NULL,
-					   "Channel capacity %s overflows!",
-					   type_to_string(tmpctx, struct amount_sat,
-							  &sat));
-			return false;
-		}
-	}
+	/* Reject update if the `htlc_maximum_msat` is greater
+	 * than the total available channel satoshis */
+	if (amount_msat_greater_sat(htlc_maximum, sat))
+		return false;
 
 	/* Check timestamp is sane (unless from store). */
 	if (!index && !timestamp_reasonable(rstate, timestamp)) {
