@@ -513,7 +513,8 @@ static u8 *create_unsigned_update(const tal_t *ctx,
 				  struct amount_msat htlc_minimum,
 				  struct amount_msat htlc_maximum,
 				  u32 fee_base_msat,
-				  u32 fee_proportional_millionths)
+				  u32 fee_proportional_millionths,
+				  bool public)
 {
 	secp256k1_ecdsa_signature dummy_sig;
 	u8 message_flags, channel_flags;
@@ -548,6 +549,8 @@ static u8 *create_unsigned_update(const tal_t *ctx,
 	 * | 1             | `dont_forward` |
 	 */
 	message_flags = ROUTING_OPT_HTLC_MAX_MSAT;
+	if (!public)
+		message_flags |= ROUTING_OPT_DONT_FORWARD;
 
 	/* We create an update with a dummy signature and timestamp. */
 	return towire_channel_update(ctx,
@@ -771,7 +774,8 @@ void refresh_local_channel(struct daemon *daemon,
 					false, cltv_expiry_delta,
 					htlc_minimum, htlc_maximum,
 					fee_base_msat,
-					fee_proportional_millionths);
+					fee_proportional_millionths,
+					!(message_flags & ROUTING_OPT_DONT_FORWARD));
 	sign_timestamp_and_apply_update(daemon, chan, direction, take(update));
 }
 
@@ -788,6 +792,7 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 	int direction;
 	u8 *unsigned_update;
 	const struct half_chan *hc;
+	bool public;
 
 	if (!fromwire_gossipd_local_channel_update(msg,
 						   &id,
@@ -797,7 +802,8 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 						   &htlc_minimum,
 						   &fee_base_msat,
 						   &fee_proportional_millionths,
-						   &htlc_maximum)) {
+						   &htlc_maximum,
+						   &public)) {
 		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE, msg);
 	}
 
@@ -822,7 +828,8 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 						 disable, cltv_expiry_delta,
 						 htlc_minimum, htlc_maximum,
 						 fee_base_msat,
-						 fee_proportional_millionths);
+						 fee_proportional_millionths,
+						 public);
 
 	hc = &chan->half[direction];
 
