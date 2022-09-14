@@ -10,6 +10,10 @@
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
+/* Current versions we support */
+#define GSTORE_MAJOR 0
+#define GSTORE_MINOR 10
+
 int main(int argc, char *argv[])
 {
 	int fd;
@@ -43,11 +47,19 @@ int main(int argc, char *argv[])
 	if (read(fd, &version, sizeof(version)) != sizeof(version))
 		errx(1, "Empty file");
 
-	if (version != GOSSIP_STORE_VERSION)
-		warnx("UNSUPPORTED GOSSIP VERSION %u (expected %u)",
-		      version, GOSSIP_STORE_VERSION);
+	if (GOSSIP_STORE_MAJOR_VERSION(version) != GSTORE_MAJOR)
+		errx(1, "Unsupported major gossip_version %u (expected %u)",
+		     GOSSIP_STORE_MAJOR_VERSION(version), GSTORE_MAJOR);
 
-	printf("GOSSIP VERSION %u\n", version);
+	/* Unsupported minor just means we might not understand all fields,
+	 * or all flags. */
+	if (GOSSIP_STORE_MINOR_VERSION(version) != GSTORE_MINOR)
+		warnx("UNKNOWN GOSSIP minor VERSION %u (expected %u)",
+		      GOSSIP_STORE_MINOR_VERSION(version), GSTORE_MINOR);
+
+	printf("GOSSIP VERSION %u/%u\n",
+	       GOSSIP_STORE_MINOR_VERSION(version),
+	       GOSSIP_STORE_MAJOR_VERSION(version));
 	off = 1;
 
 	while (read(fd, &hdr, sizeof(hdr)) == sizeof(hdr)) {

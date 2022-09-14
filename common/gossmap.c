@@ -672,7 +672,8 @@ static bool load_gossip_store(struct gossmap *map, size_t *num_rejected)
 	if (map->mmap == MAP_FAILED)
 		map->mmap = NULL;
 
-	if (map_u8(map, 0) != GOSSIP_STORE_VERSION) {
+	/* We only support major version 0 */
+	if (GOSSIP_STORE_MAJOR_VERSION(map_u8(map, 0)) != 0) {
 		close(map->fd);
 		if (map->mmap)
 			munmap(map->mmap, map->map_size);

@@ -17,6 +17,8 @@
 #include <wire/peer_wire.h>
 
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
+/* We write it as major version 0, minor version 10 */
+#define GOSSIP_STORE_VER ((0 << 5) | 10)
 
 struct gossip_store {
 	/* This is false when we're loading */
@@ -123,7 +125,7 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 	int old_fd, new_fd;
 	u64 oldlen, newlen;
 	struct gossip_hdr hdr;
-	u8 oldversion, version = GOSSIP_STORE_VERSION;
+	u8 oldversion, version = GOSSIP_STORE_VER;
 	struct stat st;
 
 	old_fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
@@ -267,11 +269,11 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 	if (read(gs->fd, &gs->version, sizeof(gs->version))
 	    == sizeof(gs->version)) {
 		/* Version match?  All good */
-		if (gs->version == GOSSIP_STORE_VERSION)
+		if (gs->version == GOSSIP_STORE_VER)
 			return gs;
 
 		status_unusual("Gossip store version %u not %u: removing",
-			       gs->version, GOSSIP_STORE_VERSION);
+			       gs->version, GOSSIP_STORE_VER);
 		if (ftruncate(gs->fd, 0) != 0)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Truncating store: %s", strerror(errno));
@@ -282,7 +284,7 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 				      strerror(errno));
 	}
 	/* Empty file, write version byte */
-	gs->version = GOSSIP_STORE_VERSION;
+	gs->version = GOSSIP_STORE_VER;
 	if (write(gs->fd, &gs->version, sizeof(gs->version))
 	    != sizeof(gs->version))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

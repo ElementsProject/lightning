@@ -335,7 +335,7 @@ int main(int argc, char *argv[])
 	int store_fd;
 	struct payment *p;
 	struct payment_modifier **mods;
-	char gossip_version = GOSSIP_STORE_VERSION;
+	char gossip_version = 10;
 	char *gossipfilename;
 
 	common_setup(argv[0]);
