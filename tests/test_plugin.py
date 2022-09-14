@@ -2649,11 +2649,11 @@ def test_commando_rune(node_factory):
     #   "rune": "zKc2W88jopslgUBl0UE77aEe5PNCLn5WwqSusU_Ov3A9MA=="
     # $ l1-cli commando-rune restrictions=readonly
     #   "rune": "1PJnoR9a7u4Bhglj2s7rVOWqRQnswIwUoZrDVMKcLTY9MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl"
-    # $ l1-cli commando-rune restrictions='time>1656675211'
+    # $ l1-cli commando-rune restrictions='[[time>1656675211]]'
     #   "rune": "RnlWC4lwBULFaObo6ZP8jfqYRyTbfWPqcMT3qW-Wmso9MiZ0aW1lPjE2NTY2NzUyMTE="
-    # $ l1-cli commando-rune restrictions='["id^022d223620a359a47ff7","method=listpeers"]'
+    # $ l1-cli commando-rune restrictions='[["id^022d223620a359a47ff7"],["method=listpeers"]]'
     #   "rune": "lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz"
-    # $ l1-cli commando-rune lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz 'pnamelevel!|pnamelevel/io'
+    # $ l1-cli commando-rune lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz '[pnamelevel!,pnamelevel/io]'
     #   "rune": "Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8="
 
     rune1 = l1.rpc.commando_rune()
@@ -2662,31 +2662,31 @@ def test_commando_rune(node_factory):
     rune2 = l1.rpc.commando_rune(restrictions="readonly")
     assert rune2['rune'] == '1PJnoR9a7u4Bhglj2s7rVOWqRQnswIwUoZrDVMKcLTY9MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl'
     assert rune2['unique_id'] == '1'
-    rune3 = l1.rpc.commando_rune(restrictions="time>1656675211")
+    rune3 = l1.rpc.commando_rune(restrictions=[["time>1656675211"]])
     assert rune3['rune'] == 'RnlWC4lwBULFaObo6ZP8jfqYRyTbfWPqcMT3qW-Wmso9MiZ0aW1lPjE2NTY2NzUyMTE='
     assert rune3['unique_id'] == '2'
-    rune4 = l1.rpc.commando_rune(restrictions=["id^022d223620a359a47ff7", "method=listpeers"])
+    rune4 = l1.rpc.commando_rune(restrictions=[["id^022d223620a359a47ff7"], ["method=listpeers"]])
     assert rune4['rune'] == 'lXFWzb51HjWxKV5TmfdiBgd74w0moeyChj3zbLoxmws9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz'
     assert rune4['unique_id'] == '3'
-    rune5 = l1.rpc.commando_rune(rune4['rune'], "pnamelevel!|pnamelevel/io")
+    rune5 = l1.rpc.commando_rune(rune4['rune'], [["pnamelevel!", "pnamelevel/io"]])
     assert rune5['rune'] == 'Dw2tzGCoUojAyT0JUw7fkYJYqExpEpaDRNTkyvWKoJY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
     assert rune5['unique_id'] == '3'
-    rune6 = l1.rpc.commando_rune(rune5['rune'], "parr1!|parr1/io")
+    rune6 = l1.rpc.commando_rune(rune5['rune'], [["parr1!", "parr1/io"]])
     assert rune6['rune'] == '2Wh6F4R51D3esZzp-7WWG51OhzhfcYKaaI8qiIonaHE9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv'
     assert rune6['unique_id'] == '3'
-    rune7 = l1.rpc.commando_rune(restrictions="pnum=0")
+    rune7 = l1.rpc.commando_rune(restrictions=[["pnum=0"]])
     assert rune7['rune'] == 'QJonN6ySDFw-P5VnilZxlOGRs_tST1ejtd-bAYuZfjk9NCZwbnVtPTA='
     assert rune7['unique_id'] == '4'
-    rune8 = l1.rpc.commando_rune(rune7['rune'], "rate=3")
+    rune8 = l1.rpc.commando_rune(rune7['rune'], [["rate=3"]])
     assert rune8['rune'] == 'kSYFx6ON9hr_ExcQLwVkm1ABnvc1TcMFBwLrAVee0EA9NCZwbnVtPTAmcmF0ZT0z'
     assert rune8['unique_id'] == '4'
-    rune9 = l1.rpc.commando_rune(rune8['rune'], "rate=1")
+    rune9 = l1.rpc.commando_rune(rune8['rune'], [["rate=1"]])
     assert rune9['rune'] == 'O8Zr-ULTBKO3_pKYz0QKE9xYl1vQ4Xx9PtlHuist9Rk9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
     assert rune9['unique_id'] == '4'
 
     # Test rune with \|.
-    weirdrune = l1.rpc.commando_rune(restrictions=["method=invoice",
-                                                   "pnamedescription=@tipjar\\|jb55@sendsats.lol"])
+    weirdrune = l1.rpc.commando_rune(restrictions=[["method=invoice"],
+                                                   ["pnamedescription=@tipjar|jb55@sendsats.lol"]])
     with pytest.raises(RpcError, match='Not authorized:'):
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
@@ -2758,7 +2758,7 @@ def test_commando_rune(node_factory):
 
     # Replace rune3 with a more useful timestamp!
     expiry = int(time.time()) + 15
-    rune3 = l1.rpc.commando_rune(restrictions="time<{}".format(expiry))
+    rune3 = l1.rpc.commando_rune(restrictions=[["time<{}".format(expiry)]])
 
     successes = ((rune1, "listpeers", {}),
                  (rune2, "listpeers", {}),

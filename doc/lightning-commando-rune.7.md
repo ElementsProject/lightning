@@ -23,11 +23,10 @@ If *rune* is supplied, the restrictions are simple appended to that
 
 *restrictions* can be the string "readonly" (creates a rune which
 allows most *get* and *list* commands, and the *summary* command), or
-an array of restrictions, or a single resriction.
+an array of restrictions.
 
-Each restriction is a set of one or more alternatives, such as "method
-is listpeers", or "method is listpeers OR time is before 2023".
-Alternatives use a simple language to examine the command which is
+Each restriction is an array of one or more alternatives, such as "method
+is listpeers", or "method is listpeers OR time is before 2023".  Alternatives use a simple language to examine the command which is
 being run:
 
 * time: the current UNIX time, e.g. "time<1656759180".
@@ -41,10 +40,10 @@ being run:
 RESTRICTION FORMAT
 ------------------
 
-Restrictions are one or more alternatives, separated by `|`.  Each
+Restrictions are one or more alternatives.  Each
 alternative is *name* *operator* *value*.  The valid names are shown
-above.  If a value contains `|`, `&` or `\\`, it must be preceeded by
-a `\\`.
+above.  Note that if a value contains `\\`, it must be preceeded by another `\\`
+to form valid JSON:
 
 * `=`: passes if equal ie. identical. e.g. `method=withdraw`
 * `/`: not equals, e.g. `method/withdraw`
@@ -80,12 +79,12 @@ We can add restrictions to that rune, like so:
 
 The "readonly" restriction is a short-cut for two restrictions:
 
-1. `method^list|method^get|method=summary`: You may call list, get or summary.
-2. `method/listdatastore`: But not listdatastore: that contains sensitive stuff!
+1. `["method^list", "method^get", "method=summary"]`: You may call list, get or summary.
+2. `["method/listdatastore"]`: But not listdatastore: that contains sensitive stuff!
 
 We can do the same manually, like so:
 
-    $ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions='["method^list|method^get|method=summary","method/listdatastore"]'
+    $ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions='[["method^list", "method^get", "method=summary"],["method/listdatastore"]]'
     {
        "rune": "NbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
        "unique_id": "0"
@@ -95,7 +94,7 @@ Let's create a rune which lets a specific peer
 (024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605)
 run "listpeers" on themselves:
 
-    $ lightning-cli commando-rune restrictions='["id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605","method=listpeers","pnum=1","pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605|parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"]'
+    $ lightning-cli commando-rune restrictions='[["id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"],["method=listpeers"],["pnum=1"],["pnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605","parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"]]'
     {
        "rune": "FE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1",
        "unique_id": "2"
@@ -103,7 +102,7 @@ run "listpeers" on themselves:
 
 This allows `listpeers` with 1 argument (`pnum=1`), which is either by name (`pnameid`), or position (`parr0`).  We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only.  Here's an example which only checks the first 9 bytes of the `listpeers` parameter:
 
-    $ lightning-cli commando-rune restrictions='["id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605","method=listpeers","pnum=1","pnameid^024b9a1fa8e006f1e393|parr0^024b9a1fa8e006f1e393"]'
+    $ lightning-cli commando-rune restrictions='[["id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605"],["method=listpeers"],["pnum=1"],["pnameid^024b9a1fa8e006f1e393", "parr0^024b9a1fa8e006f1e393"]'
      {
        "rune": "fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==",
        "unique_id": "3"
@@ -114,7 +113,7 @@ it only be usable for 24 hours from now (`time<`), and that it can only
 be used twice a minute (`rate=2`).  `date +%s` can give us the current
 time in seconds:
 
-    $ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions='["time<'$(($(date +%s) + 24*60*60))'","rate=2"]'
+    $ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions='[["time<'$(($(date +%s) + 24*60*60))'","rate=2"]]'
     {
        "rune": "tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y",
        "unique_id": "3"

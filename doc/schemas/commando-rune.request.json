@@ -14,12 +14,18 @@
           "type": "array",
           "description": "array of restrictions to add to rune",
           "items": {
-            "type": "string"
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         {
           "type": "string",
-          "description": "single restrictions to add to rune, or readonly."
+          "enum": [
+            "readonly"
+          ],
+          "description": "readonly string to indicate standard readonly restrictions."
         }
       ]
     }
