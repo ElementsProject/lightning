@@ -98,7 +98,7 @@ static void rune_altern_encode(const struct rune_altern *altern,
 			break;
 		esc[1] = p[len];
 		cb(esc, 2, arg);
-		p++;
+		p += len + 1;
 	}
 }
 
@@ -184,7 +184,7 @@ static bool pull_char(const char **data, size_t *len, char *c)
 	return true;
 }
 
-static bool is_valid_cond(enum rune_condition cond)
+bool rune_condition_is_valid(enum rune_condition cond)
 {
 	switch (cond) {
 	case RUNE_COND_IF_MISSING:
@@ -203,31 +203,35 @@ static bool is_valid_cond(enum rune_condition cond)
 	return false;
 }
 
+size_t rune_altern_fieldname_len(const char *alternstr, size_t alternstrlen)
+{
+	for (size_t i = 0; i < alternstrlen; i++) {
+		if (cispunct(alternstr[i]))
+			return i;
+	}
+	return alternstrlen;
+}
+
 /* Sets *more on success: true if another altern follows */
 static struct rune_altern *rune_altern_decode(const tal_t *ctx,
 					      const char **data, size_t *len,
 					      bool *more)
 {
 	struct rune_altern *alt = tal(ctx, struct rune_altern);
-	const char *strstart = *data;
 	char *value;
-	size_t strlen = 0;
+	size_t strlen;
 	char c;
 
-        /* Swallow field up to conditional */
-	for (;;) {
-		if (!pull_char(data, len, &c))
-			return tal_free(alt);
-		if (cispunct(c))
-			break;
-		strlen++;
-	}
+        /* Swallow field up to possible conditional */
+	strlen = rune_altern_fieldname_len(*data, *len);
+	alt->fieldname = tal_strndup(alt, *data, strlen);
+	*data += strlen;
+	*len -= strlen;
 
-	alt->fieldname = tal_strndup(alt, strstart, strlen);
-	if (!is_valid_cond(c)) {
-		pull_invalid(data, len);
+	/* Grab conditional */
+	if (!pull_char(data, len, &c) || !rune_condition_is_valid(c))
 		return tal_free(alt);
-	}
+
 	alt->condition = c;
 
 	/* Assign worst case. */
