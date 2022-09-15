@@ -750,7 +750,8 @@ class LightningD(TailableProc):
                 BITCOIND_CONFIG['rpcport'])
 
             # The remote hsmd proxies need to know which network we are using
-            self.env['VLS_NETWORK'] = self.opts['network']
+            if 'network' in self.opts:
+                self.env['VLS_NETWORK'] = self.opts['network']
 
             self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
             TailableProc.start(self, stdin, stdout_redir=False, stderr_redir=stderr_redir)
