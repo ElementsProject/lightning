@@ -973,6 +973,27 @@
             "SendPsbt.tx": 1,
             "SendPsbt.txid": 2
         },
+        "SetchannelChannels": {
+            "SetChannel.channels[].channel_id": 2,
+            "SetChannel.channels[].fee_base_msat": 4,
+            "SetChannel.channels[].fee_proportional_millionths": 5,
+            "SetChannel.channels[].maximum_htlc_out_msat": 8,
+            "SetChannel.channels[].minimum_htlc_out_msat": 6,
+            "SetChannel.channels[].peer_id": 1,
+            "SetChannel.channels[].short_channel_id": 3,
+            "SetChannel.channels[].warning_htlcmax_too_high": 9,
+            "SetChannel.channels[].warning_htlcmin_too_low": 7
+        },
+        "SetchannelRequest": {
+            "SetChannel.feebase": 2,
+            "SetChannel.feeppm": 3,
+            "SetChannel.htlcmax": 5,
+            "SetChannel.htlcmin": 4,
+            "SetChannel.id": 1
+        },
+        "SetchannelResponse": {
+            "SetChannel.channels[]": 1
+        },
         "SignmessageRequest": {
             "SignMessage.message": 1
         },
