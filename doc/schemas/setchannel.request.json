@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "feebase": {
+      "type": "msat"
+    },
+    "feeppm": {
+      "type": "u32"
+    },
+    "htlcmin": {
+      "type": "msat"
+    },
+    "htlcmax": {
+      "type": "msat"
+    }
+  }
+}

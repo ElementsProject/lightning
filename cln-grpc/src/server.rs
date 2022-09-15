@@ -1434,6 +1434,38 @@ async fn ping(
 
 }
 
+async fn set_channel(
+    &self,
+    request: tonic::Request<pb::SetchannelRequest>,
+) -> Result<tonic::Response<pb::SetchannelResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::SetchannelRequest = (&req).into();
+    debug!("Client asked for set_channel");
+    trace!("set_channel request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::SetChannel(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method SetChannel: {:?}", e)))?;
+    match result {
+        Response::SetChannel(r) => {
+           trace!("set_channel response: {:?}", r);
+           Ok(tonic::Response::new((&r).into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call SetChannel",
+                r
+            )
+        )),
+    }
+
+}
+
 async fn sign_message(
     &self,
     request: tonic::Request<pb::SignmessageRequest>,

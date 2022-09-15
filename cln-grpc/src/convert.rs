@@ -961,8 +961,39 @@ impl From<responses::PingResponse> for pb::PingResponse {
 }
 
 #[allow(unused_variables)]
+<<<<<<< HEAD
 impl From<responses::SignmessageResponse> for pb::SignmessageResponse {
     fn from(c: responses::SignmessageResponse) -> Self {
+=======
+impl From<&responses::SetchannelChannels> for pb::SetchannelChannels {
+    fn from(c: &responses::SetchannelChannels) -> Self {
+        Self {
+            peer_id: c.peer_id.to_vec(), // Rule #2 for type pubkey
+            channel_id: hex::decode(&c.channel_id).unwrap(), // Rule #2 for type hex
+            short_channel_id: c.short_channel_id.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            fee_base_msat: Some(c.fee_base_msat.into()), // Rule #2 for type msat
+            fee_proportional_millionths: c.fee_proportional_millionths.clone(), // Rule #2 for type u32
+            minimum_htlc_out_msat: Some(c.minimum_htlc_out_msat.into()), // Rule #2 for type msat
+            warning_htlcmin_too_low: c.warning_htlcmin_too_low.clone(), // Rule #2 for type string?
+            maximum_htlc_out_msat: Some(c.maximum_htlc_out_msat.into()), // Rule #2 for type msat
+            warning_htlcmax_too_high: c.warning_htlcmax_too_high.clone(), // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::SetchannelResponse> for pb::SetchannelResponse {
+    fn from(c: &responses::SetchannelResponse) -> Self {
+        Self {
+            channels: c.channels.iter().map(|i| i.into()).collect(), // Rule #3 for type SetchannelChannels 
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&responses::SignmessageResponse> for pb::SignmessageResponse {
+    fn from(c: &responses::SignmessageResponse) -> Self {
+>>>>>>> bd301acdc... Setchannel request is provided
         Self {
             signature: hex::decode(&c.signature).unwrap(), // Rule #2 for type hex
             recid: hex::decode(&c.recid).unwrap(), // Rule #2 for type hex
@@ -1523,8 +1554,26 @@ impl From<pb::PingRequest> for requests::PingRequest {
 }
 
 #[allow(unused_variables)]
+<<<<<<< HEAD
 impl From<pb::SignmessageRequest> for requests::SignmessageRequest {
     fn from(c: pb::SignmessageRequest) -> Self {
+=======
+impl From<&pb::SetchannelRequest> for requests::SetchannelRequest {
+    fn from(c: &pb::SetchannelRequest) -> Self {
+        Self {
+            id: c.id.clone(), // Rule #1 for type string
+            feebase: c.feebase.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            feeppm: c.feeppm.clone(), // Rule #1 for type u32?
+            htlcmin: c.htlcmin.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+            htlcmax: c.htlcmax.as_ref().map(|a| a.into()), // Rule #1 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<&pb::SignmessageRequest> for requests::SignmessageRequest {
+    fn from(c: &pb::SignmessageRequest) -> Self {
+>>>>>>> bd301acdc... Setchannel request is provided
         Self {
             message: c.message, // Rule #1 for type string
         }

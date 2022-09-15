@@ -52,6 +52,7 @@ service Node {
 	rpc ListForwards(ListforwardsRequest) returns (ListforwardsResponse) {}
 	rpc ListPays(ListpaysRequest) returns (ListpaysResponse) {}
 	rpc Ping(PingRequest) returns (PingResponse) {}
+	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
 }
@@ -1285,6 +1286,30 @@ message PingRequest {
 
 message PingResponse {
 	uint32 totlen = 1;
+}
+
+message SetchannelRequest {
+	string id = 1;
+	optional Amount feebase = 2;
+	optional uint32 feeppm = 3;
+	optional Amount htlcmin = 4;
+	optional Amount htlcmax = 5;
+}
+
+message SetchannelResponse {
+	repeated SetchannelChannels channels = 1;
+}
+
+message SetchannelChannels {
+	bytes peer_id = 1;
+	bytes channel_id = 2;
+	optional string short_channel_id = 3;
+	Amount fee_base_msat = 4;
+	uint32 fee_proportional_millionths = 5;
+	Amount minimum_htlc_out_msat = 6;
+	optional string warning_htlcmin_too_low = 7;
+	Amount maximum_htlc_out_msat = 8;
+	optional string warning_htlcmax_too_high = 9;
 }
 
 message SignmessageRequest {

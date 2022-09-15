@@ -849,6 +849,26 @@ def ping2py(m):
     })
 
 
+def setchannel_channels2py(m):
+    return remove_default({
+        "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "minimum_htlc_out_msat": amount2msat(m.minimum_htlc_out_msat),  # PrimitiveField in generate_composite
+        "warning_htlcmin_too_low": m.warning_htlcmin_too_low,  # PrimitiveField in generate_composite
+        "maximum_htlc_out_msat": amount2msat(m.maximum_htlc_out_msat),  # PrimitiveField in generate_composite
+        "warning_htlcmax_too_high": m.warning_htlcmax_too_high,  # PrimitiveField in generate_composite
+    })
+
+
+def setchannel2py(m):
+    return remove_default({
+        "channels": [setchannel_channels2py(i) for i in m.channels],  # ArrayField[composite] in generate_composite
+    })
+
+
 def signmessage2py(m):
     return remove_default({
         "signature": hexlify(m.signature),  # PrimitiveField in generate_composite

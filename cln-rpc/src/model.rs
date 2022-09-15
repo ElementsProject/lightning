@@ -60,6 +60,7 @@ pub enum Request {
 	ListForwards(requests::ListforwardsRequest),
 	ListPays(requests::ListpaysRequest),
 	Ping(requests::PingRequest),
+	SetChannel(requests::SetchannelRequest),
 	SignMessage(requests::SignmessageRequest),
 	Stop(requests::StopRequest),
 }
@@ -112,6 +113,7 @@ pub enum Response {
 	ListForwards(responses::ListforwardsResponse),
 	ListPays(responses::ListpaysResponse),
 	Ping(responses::PingResponse),
+	SetChannel(responses::SetchannelResponse),
 	SignMessage(responses::SignmessageResponse),
 	Stop(responses::StopResponse),
 }
@@ -1272,6 +1274,20 @@ pub mod requests {
 
 	impl IntoRequest for PingRequest {
 	    type Response = super::responses::PingResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetchannelRequest {
+	    #[serde(alias = "id")]
+	    pub id: String,
+	    #[serde(alias = "feebase", skip_serializing_if = "Option::is_none")]
+	    pub feebase: Option<Amount>,
+	    #[serde(alias = "feeppm", skip_serializing_if = "Option::is_none")]
+	    pub feeppm: Option<u32>,
+	    #[serde(alias = "htlcmin", skip_serializing_if = "Option::is_none")]
+	    pub htlcmin: Option<Amount>,
+	    #[serde(alias = "htlcmax", skip_serializing_if = "Option::is_none")]
+	    pub htlcmax: Option<Amount>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3715,6 +3731,34 @@ pub mod responses {
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetchannelChannels {
+	    #[serde(alias = "peer_id")]
+	    pub peer_id: Pubkey,
+	    #[serde(alias = "channel_id")]
+	    pub channel_id: String,
+	    #[serde(alias = "short_channel_id", skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id: Option<ShortChannelId>,
+	    #[serde(alias = "fee_base_msat")]
+	    pub fee_base_msat: Amount,
+	    #[serde(alias = "fee_proportional_millionths")]
+	    pub fee_proportional_millionths: u32,
+	    #[serde(alias = "minimum_htlc_out_msat")]
+	    pub minimum_htlc_out_msat: Amount,
+	    #[serde(alias = "warning_htlcmin_too_low", skip_serializing_if = "Option::is_none")]
+	    pub warning_htlcmin_too_low: Option<String>,
+	    #[serde(alias = "maximum_htlc_out_msat")]
+	    pub maximum_htlc_out_msat: Amount,
+	    #[serde(alias = "warning_htlcmax_too_high", skip_serializing_if = "Option::is_none")]
+	    pub warning_htlcmax_too_high: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SetchannelResponse {
+	    #[serde(alias = "channels")]
+	    pub channels: Vec<SetchannelChannels>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
