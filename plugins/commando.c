@@ -920,12 +920,12 @@ static struct command_result *json_commando_rune(struct command *cmd,
 #if DEVELOPER
 static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
-	memleak_remove_region(memtable, outgoing_commands, tal_bytelen(outgoing_commands));
-	memleak_remove_region(memtable, incoming_commands, tal_bytelen(incoming_commands));
-	memleak_remove_region(memtable, master_rune, sizeof(*master_rune));
-	memleak_remove_htable(memtable, &usage_table.raw);
+	memleak_scan_obj(memtable, outgoing_commands);
+	memleak_scan_obj(memtable, incoming_commands);
+	memleak_scan_obj(memtable, master_rune);
+	memleak_scan_htable(memtable, &usage_table.raw);
 	if (rune_counter)
-		memleak_remove_region(memtable, rune_counter, sizeof(*rune_counter));
+		memleak_scan_obj(memtable, rune_counter);
 }
 #endif
 

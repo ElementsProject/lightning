@@ -48,7 +48,7 @@ struct plugin_rpccall {
 static void memleak_help_pending_requests(struct htable *memtable,
 					  struct plugins *plugins)
 {
-	memleak_remove_strmap(memtable, &plugins->pending_requests);
+	memleak_scan_strmap(memtable, &plugins->pending_requests);
 }
 #endif /* DEVELOPER */
 

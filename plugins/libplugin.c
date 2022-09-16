@@ -1350,16 +1350,16 @@ static void memleak_check(struct plugin *plugin, struct command *cmd)
 {
 	struct htable *memtable;
 
-	memtable = memleak_find_allocations(tmpctx, cmd, cmd);
+	memtable = memleak_start(tmpctx, cmd, cmd);
 
 	/* Now delete plugin and anything it has pointers to. */
-	memleak_remove_region(memtable, plugin, sizeof(*plugin));
+	memleak_scan_obj(memtable, plugin);
 
 	/* Memleak needs some help to see into strmaps */
-	memleak_remove_strmap(memtable, &plugin->out_reqs);
+	memleak_scan_strmap(memtable, &plugin->out_reqs);
 
 	/* We know usage strings are referred to. */
-	memleak_remove_strmap(memtable, &cmd->plugin->usagemap);
+	memleak_scan_strmap(memtable, &cmd->plugin->usagemap);
 
 	if (plugin->mark_mem)
 		plugin->mark_mem(plugin, memtable);
