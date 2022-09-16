@@ -303,6 +303,9 @@ static void dualopen_shutdown(struct state *state)
 	status_debug("Sent %s with fds",
 		     dualopend_wire_name(fromwire_peektype(msg)));
 
+	/* Give master a chance to pass the fd along */
+	sleep(1);
+
 	/* This frees the entire tal tree. */
 	tal_free(state);
 	daemon_shutdown();
@@ -3988,6 +3991,9 @@ int main(int argc, char *argv[])
 	status_debug("Sent %s with fds",
 		     dualopend_wire_name(fromwire_peektype(msg)));
 	tal_free(msg);
+
+	/* Give master a chance to pass the fd along */
+	sleep(1);
 
 	/* This frees the entire tal tree. */
 	tal_free(state);
