@@ -1832,8 +1832,8 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 
 	/* Okay, we still have destinations to try: wait a second in case it
 	 * takes that long to disconnect from peer, then retry.  */
-	notleak(plugin_timer(mfc->cmd->plugin, time_from_sec(1),
-			     perform_multifundchannel, mfc));
+	plugin_timer(mfc->cmd->plugin, time_from_sec(1),
+		     perform_multifundchannel, mfc);
 	return command_still_pending(mfc->cmd);
 }
 
@@ -2063,9 +2063,6 @@ json_multifundchannel(struct command *cmd,
 	mfc->final_txid = NULL;
 
 	mfc->sigs_collected = false;
-
-	/* Stop memleak from complaining */
-	tal_free(minconf);
 
 	perform_multifundchannel(mfc);
 	return command_still_pending(mfc->cmd);

@@ -50,12 +50,16 @@ void *notleak_(void *ptr, bool plus_children)
 	name = tal_name(ptr);
 	if (!name)
 		name = "";
-	if (plus_children)
-		name = tal_fmt(tmpctx, "%s **NOTLEAK_IGNORE_CHILDREN**",
-			       name);
-	else
-		name = tal_fmt(tmpctx, "%s **NOTLEAK**", name);
-	tal_set_name(ptr, name);
+
+	/* Don't mark more than once! */
+	if (!strstr(name, "**NOTLEAK")) {
+		if (plus_children)
+			name = tal_fmt(tmpctx, "%s **NOTLEAK_IGNORE_CHILDREN**",
+				       name);
+		else
+			name = tal_fmt(tmpctx, "%s **NOTLEAK**", name);
+		tal_set_name(ptr, name);
+	}
 
 	return cast_const(void *, ptr);
 }

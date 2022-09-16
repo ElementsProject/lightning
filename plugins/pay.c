@@ -1202,10 +1202,6 @@ static struct command_result *json_pay(struct command *cmd,
 		}
 		payment_mod_exemptfee_get_data(p)->amount
 			= exemptfee ? *exemptfee : AMOUNT_MSAT(5000);
-
-		/* We free unneeded params now to keep memleak happy. */
-		tal_free(maxfee_pct_millionths);
-		tal_free(exemptfee);
 	}
 
 	shadow_route = payment_mod_shadowroute_get_data(p);

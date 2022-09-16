@@ -680,13 +680,12 @@ static struct command_result *json_commando(struct command *cmd,
 		tal_append_fmt(&json, ",\"rune\":\"%s\"", rune);
 	tal_append_fmt(&json, "}");
 
-	/* This is not a leak, but we don't keep a pointer. */
-	outgoing = notleak(tal(cmd, struct outgoing));
+	outgoing = tal(cmd, struct outgoing);
 	outgoing->peer = *peer;
 	outgoing->msg_off = 0;
 	/* 65000 per message gives sufficient headroom. */
 	jsonlen = tal_bytelen(json)-1;
-	outgoing->msgs = notleak(tal_arr(cmd, u8 *, (jsonlen + 64999) / 65000));
+	outgoing->msgs = tal_arr(cmd, u8 *, (jsonlen + 64999) / 65000);
 	for (size_t i = 0; i < tal_count(outgoing->msgs); i++) {
 		u8 *cmd_msg = tal_arr(outgoing, u8, 0);
 		bool terminal = (i == tal_count(outgoing->msgs) - 1);
@@ -704,12 +703,6 @@ static struct command_result *json_commando(struct command *cmd,
 		towire(&cmd_msg, json + off, len);
 		outgoing->msgs[i] = cmd_msg;
 	}
-
-	/* Keep memleak code happy! */
-	tal_free(peer);
-	tal_free(method);
-	tal_free(cparams);
-	tal_free(rune);
 
 	return send_more_cmd(cmd, NULL, NULL, outgoing);
 }
