@@ -594,6 +594,7 @@ def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     assert outs == only_one(wallet_bal['balances'])['balance_msat']
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "invoice from offer: Invalid bech32: invalid checksum")
 def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     """
     When an 'invoice' type event comes through, we look up the description details
