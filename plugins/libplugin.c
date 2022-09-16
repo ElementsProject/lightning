@@ -297,6 +297,8 @@ struct command_result *command_finished(struct command *cmd,
 struct command_result *WARN_UNUSED_RESULT
 command_still_pending(struct command *cmd)
 {
+	if (cmd)
+		notleak_with_children(cmd);
 	return &pending;
 }
 
@@ -728,6 +730,8 @@ send_outreq(struct plugin *plugin, const struct out_req *req)
 
 	ld_rpc_send(plugin, req->js);
 
+	if (req->cmd != NULL)
+		notleak_with_children(req->cmd);
 	return &pending;
 }
 
