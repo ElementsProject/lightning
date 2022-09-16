@@ -32,7 +32,7 @@ None
 
 - lnprototest: builds for lnprototest tests now use 22.04 LTS, which fixes a problem with loading `mako`. ([#5583])
 - Plugins: topology plugin could crash when it sees duplicate private channel announcements ([#5593])
-- Gossip: proper `gossip_store` operation may resolve some previous gossip propagation issues ([#5591])
+- connectd: proper `gossip_store` operation may resolve some previous gossip propagation issues and connectd crashes ([#5591])
 
 [#5583]: https://github.com/ElementsProject/lightning/pull/5583
 [#5593]: https://github.com/ElementsProject/lightning/pull/5593
