@@ -22,7 +22,7 @@
 static void memleak_help_htlcmap(struct htable *memtable,
 				 struct htlc_map *htlcs)
 {
-	memleak_remove_htable(memtable, &htlcs->raw);
+	memleak_scan_htable(memtable, &htlcs->raw);
 }
 #endif /* DEVELOPER */
 

@@ -571,7 +571,7 @@ static struct command_result *json_listpays(struct command *cmd,
 #if DEVELOPER
 static void memleak_mark_payments(struct plugin *p, struct htable *memtable)
 {
-	memleak_remove_region(memtable, &payments, sizeof(payments));
+	memleak_scan_list_head(memtable, &payments);
 }
 #endif
 

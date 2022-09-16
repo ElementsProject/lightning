@@ -222,16 +222,16 @@ static void memleak_help_routing_tables(struct htable *memtable,
 	struct node *n;
 	struct node_map_iter nit;
 
-	memleak_remove_htable(memtable, &rstate->nodes->raw);
-	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
-	memleak_remove_htable(memtable, &rstate->pending_cannouncements.raw);
-	memleak_remove_uintmap(memtable, &rstate->unupdated_chanmap);
+	memleak_scan_htable(memtable, &rstate->nodes->raw);
+	memleak_scan_htable(memtable, &rstate->pending_node_map->raw);
+	memleak_scan_htable(memtable, &rstate->pending_cannouncements.raw);
+	memleak_scan_uintmap(memtable, &rstate->unupdated_chanmap);
 
 	for (n = node_map_first(rstate->nodes, &nit);
 	     n;
 	     n = node_map_next(rstate->nodes, &nit)) {
 		if (node_uses_chan_map(n))
-			memleak_remove_htable(memtable, &n->chans.map.raw);
+			memleak_scan_htable(memtable, &n->chans.map.raw);
 	}
 }
 #endif /* DEVELOPER */

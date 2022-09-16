@@ -554,14 +554,12 @@ static void closing_dev_memleak(const tal_t *ctx,
 				u8 *scriptpubkey[NUM_SIDES],
 				const u8 *funding_wscript)
 {
-	struct htable *memtable;
+	struct htable *memtable = memleak_start(tmpctx, NULL, NULL);
 
-	memtable = memleak_find_allocations(tmpctx, NULL, NULL);
-
-	memleak_remove_pointer(memtable, ctx);
-	memleak_remove_pointer(memtable, scriptpubkey[LOCAL]);
-	memleak_remove_pointer(memtable, scriptpubkey[REMOTE]);
-	memleak_remove_pointer(memtable, funding_wscript);
+	memleak_ptr(memtable, ctx);
+	memleak_ptr(memtable, scriptpubkey[LOCAL]);
+	memleak_ptr(memtable, scriptpubkey[REMOTE]);
+	memleak_ptr(memtable, funding_wscript);
 
 	dump_memleak(memtable, memleak_status_broken);
 }

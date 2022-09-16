@@ -1187,7 +1187,7 @@ static void destroy_jsonrpc(struct jsonrpc *jsonrpc)
 static void memleak_help_jsonrpc(struct htable *memtable,
 				 struct jsonrpc *jsonrpc)
 {
-	memleak_remove_strmap(memtable, &jsonrpc->usagemap);
+	memleak_scan_strmap(memtable, &jsonrpc->usagemap);
 }
 #endif /* DEVELOPER */
 

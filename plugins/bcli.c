@@ -927,7 +927,7 @@ static void wait_and_check_bitcoind(struct plugin *p)
 #if DEVELOPER
 static void memleak_mark_bitcoind(struct plugin *p, struct htable *memtable)
 {
-	memleak_remove_region(memtable, bitcoind, sizeof(*bitcoind));
+	memleak_scan_obj(memtable, bitcoind);
 }
 #endif
 

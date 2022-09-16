@@ -1860,11 +1860,11 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx, msg, msg);
 
 	/* Now delete daemon and those which it has pointers to. */
-	memleak_remove_region(memtable, daemon, sizeof(daemon));
-	memleak_remove_htable(memtable, &daemon->peers.raw);
+	memleak_scan_obj(memtable, daemon);
+	memleak_scan_htable(memtable, &daemon->peers.raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
@@ -2003,7 +2003,7 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 #if DEVELOPER
 static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
 {
-	memleak_remove_htable(memtable, &daemon->peers.raw);
+	memleak_scan_htable(memtable, &daemon->peers.raw);
 }
 #endif /* DEVELOPER */
 

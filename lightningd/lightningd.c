@@ -335,7 +335,7 @@ static void destroy_alt_subdaemons(struct lightningd *ld)
 static void memleak_help_alt_subdaemons(struct htable *memtable,
 					struct lightningd *ld)
 {
-	memleak_remove_strmap(memtable, &ld->alt_subdaemons);
+	memleak_scan_strmap(memtable, &ld->alt_subdaemons);
 }
 #endif /* DEVELOPER */
 

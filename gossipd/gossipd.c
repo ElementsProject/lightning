@@ -807,10 +807,10 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx, msg, msg);
 
 	/* Now delete daemon and those which it has pointers to. */
-	memleak_remove_region(memtable, daemon, sizeof(*daemon));
+	memleak_scan_obj(memtable, daemon);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,

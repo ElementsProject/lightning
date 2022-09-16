@@ -570,7 +570,7 @@ static const struct plugin_command commands[] = {
 #if DEVELOPER
 static void mark_unreleased_txs(struct plugin *plugin, struct htable *memtable)
 {
-	memleak_remove_region(memtable, &unreleased_txs, sizeof(unreleased_txs));
+	memleak_scan_list_head(memtable, &unreleased_txs);
 }
 #endif
 

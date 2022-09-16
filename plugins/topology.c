@@ -615,8 +615,7 @@ done:
 #if DEVELOPER
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
-	memleak_remove_region(memtable, global_gossmap,
-			      tal_bytelen(global_gossmap));
+	memleak_scan_obj(memtable, global_gossmap);
 }
 #endif
 

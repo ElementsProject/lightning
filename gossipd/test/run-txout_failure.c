@@ -62,12 +62,12 @@ void gossip_store_mark_channel_deleted(struct gossip_store *gs UNNEEDED,
 /* Generated stub for memleak_add_helper_ */
 void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
 						    const tal_t *)){ }
-/* Generated stub for memleak_remove_htable */
-void memleak_remove_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
-{ fprintf(stderr, "memleak_remove_htable called!\n"); abort(); }
-/* Generated stub for memleak_remove_intmap_ */
-void memleak_remove_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
-{ fprintf(stderr, "memleak_remove_intmap_ called!\n"); abort(); }
+/* Generated stub for memleak_scan_htable */
+void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
+{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
+/* Generated stub for memleak_scan_intmap_ */
+void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
+{ fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }
 /* Generated stub for nannounce_different */
 bool nannounce_different(struct gossip_store *gs UNNEEDED,
 			 const struct node *node UNNEEDED,
