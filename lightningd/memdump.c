@@ -143,7 +143,11 @@ static void finish_report(const struct leak_detect *leaks)
 	ld = cmd->ld;
 
 	/* Enter everything, except this cmd and its jcon */
-	memtable = memleak_start(cmd, cmd, cmd->jcon);
+	memtable = memleak_start(cmd);
+
+	/* This command is not a leak! */
+	memleak_ptr(memtable, cmd);
+	memleak_ignore_children(memtable, cmd);
 
 	/* First delete known false positives. */
 	memleak_scan_htable(memtable, &ld->topology->txwatches.raw);

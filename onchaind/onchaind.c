@@ -2101,7 +2101,9 @@ static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
 	if (!fromwire_onchaind_dev_memleak(msg))
 		return false;
 
-	memtable = memleak_start(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg);
+
 	/* Top-level context is parent of outs */
 	memleak_remove_globals(memtable, tal_parent(outs));
 	memleak_scan_obj(memtable, outs);

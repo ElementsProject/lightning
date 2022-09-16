@@ -887,7 +887,8 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 
 	/* Populate a hash table with all our allocations (except msg, which
 	 * is in use right now). */
-	memtable = memleak_start(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg);
 
 	/* Now delete state and things it has pointers to. */
 	memleak_scan_obj(memtable, state);

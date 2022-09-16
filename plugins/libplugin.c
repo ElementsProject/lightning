@@ -1350,7 +1350,11 @@ static void memleak_check(struct plugin *plugin, struct command *cmd)
 {
 	struct htable *memtable;
 
-	memtable = memleak_start(tmpctx, cmd, cmd);
+	memtable = memleak_start(tmpctx);
+
+	/* cmd in use right now */
+	memleak_ptr(memtable, cmd);
+	memleak_ignore_children(memtable, cmd);
 
 	/* Now delete plugin and anything it has pointers to. */
 	memleak_scan_obj(memtable, plugin);

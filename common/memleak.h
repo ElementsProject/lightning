@@ -67,14 +67,8 @@ void memleak_add_helper_(const tal_t *p, void (*cb)(struct htable *memtable,
 /**
  * memleak_start:  allocate a htable with all tal objects
  * @ctx: the context to allocate the htable from
- * @exclude1: one tal pointer to exclude from adding (if non-NULL)
- * @exclude2: second tal pointer to exclude from adding (if non-NULL)
- *
- * Note that exclude1 and exclude2's tal children are also not added.
  */
-struct htable *memleak_start(const tal_t *ctx,
-			     const void *exclude1,
-			     const void *exclude2);
+struct htable *memleak_start(const tal_t *ctx);
 
 /**
  * memleak_ptr: this pointer is not a memleak.
@@ -130,6 +124,16 @@ void memleak_scan_intmap_(struct htable *memtable, const struct intmap *m);
 #define memleak_scan_strmap(memtable, strmap) \
 	memleak_scan_strmap_((memtable), tcon_unwrap(strmap))
 void memleak_scan_strmap_(struct htable *memtable, const struct strmap *m);
+
+/**
+ * memleak_ignore_children - ignore all this tal object's children.
+ * @memtable: the memtable created by memleak_start
+ * @p: the tal pointer.
+ *
+ * This is equivalent to calling memleak_ptr() on every child of @p
+ * recursively.  This is a big hammer, so be careful!
+ */
+void memleak_ignore_children(struct htable *memtable, const void *p);
 
 /**
  * memleak_get: get (and remove) a leak from memtable, or NULL

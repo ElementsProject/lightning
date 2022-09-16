@@ -3648,7 +3648,8 @@ static void handle_dev_memleak(struct peer *peer, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
-	memtable = memleak_start(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg);
 
 	/* Now delete peer and things it has pointers to. */
 	memleak_scan_obj(memtable, peer);
