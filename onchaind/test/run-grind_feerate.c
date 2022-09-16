@@ -131,9 +131,7 @@ void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 void memleak_scan_obj(struct htable *memtable UNNEEDED, const void *obj UNNEEDED)
 { fprintf(stderr, "memleak_scan_obj called!\n"); abort(); }
 /* Generated stub for memleak_start */
-struct htable *memleak_start(const tal_t *ctx UNNEEDED,
-			     const void *exclude1 UNNEEDED,
-			     const void *exclude2 UNNEEDED)
+struct htable *memleak_start(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "memleak_start called!\n"); abort(); }
 /* Generated stub for new_coin_channel_close */
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx UNNEEDED,

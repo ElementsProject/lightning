@@ -555,7 +555,8 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	bool found_leak;
 	u8 *reply;
 
-	memtable = memleak_start(tmpctx, msg_in, msg_in);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg_in);
 
 	/* Now note clients and anything they point to. */
 	memleak_scan_region(memtable, dbid_zero_clients, sizeof(dbid_zero_clients));

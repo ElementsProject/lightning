@@ -324,9 +324,7 @@ void memleak_scan_obj(struct htable *memtable UNNEEDED, const void *obj UNNEEDED
 void memleak_scan_region(struct htable *memtable UNNEEDED, const void *p UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "memleak_scan_region called!\n"); abort(); }
 /* Generated stub for memleak_start */
-struct htable *memleak_start(const tal_t *ctx UNNEEDED,
-			     const void *exclude1 UNNEEDED,
-			     const void *exclude2 UNNEEDED)
+struct htable *memleak_start(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "memleak_start called!\n"); abort(); }
 /* Generated stub for memleak_status_broken */
 void memleak_status_broken(const char *fmt UNNEEDED, ...)

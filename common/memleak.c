@@ -71,16 +71,12 @@ bool memleak_ptr(struct htable *memtable, const void *p)
 	return htable_del(memtable, hash_ptr(p, NULL), p);
 }
 
-static void children_into_htable(const void *exclude1, const void *exclude2,
-				 struct htable *memtable, const tal_t *p)
+static void children_into_htable(struct htable *memtable, const tal_t *p)
 {
 	const tal_t *i;
 
 	for (i = tal_first(p); i; i = tal_next(i)) {
 		const char *name = tal_name(i);
-
-		if (i == exclude1 || i == exclude2)
-			continue;
 
 		if (name) {
 			/* Don't add backtrace objects. */
@@ -108,7 +104,7 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 				continue;
 		}
 		htable_add(memtable, hash_ptr(i, NULL), i);
-		children_into_htable(exclude1, exclude2, memtable, i);
+		children_into_htable(memtable, i);
 	}
 }
 
@@ -268,6 +264,11 @@ void memleak_add_helper_(const tal_t *p,
 	mh->cb = cb;
 }
 
+void memleak_ignore_children(struct htable *memtable, const void *p)
+{
+	for (const tal_t *i = tal_first(p); i; i = tal_next(i))
+		remove_with_children(memtable, i);
+}
 
 /* Handle allocations marked with helpers or notleak() */
 static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
@@ -297,16 +298,14 @@ static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
 	}
 }
 
-struct htable *memleak_start(const tal_t *ctx,
-			     const void *exclude1,
-			     const void *exclude2)
+struct htable *memleak_start(const tal_t *ctx)
 {
 	struct htable *memtable = tal(ctx, struct htable);
 	htable_init(memtable, hash_ptr, NULL);
 
 	if (memleak_track) {
 		/* First, add all pointers off NULL to table. */
-		children_into_htable(exclude1, exclude2, memtable, NULL);
+		children_into_htable(memtable, NULL);
 
 		/* Iterate and call helpers to eliminate hard-to-get references. */
 		call_memleak_helpers(memtable, NULL);

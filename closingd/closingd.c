@@ -554,7 +554,7 @@ static void closing_dev_memleak(const tal_t *ctx,
 				u8 *scriptpubkey[NUM_SIDES],
 				const u8 *funding_wscript)
 {
-	struct htable *memtable = memleak_start(tmpctx, NULL, NULL);
+	struct htable *memtable = memleak_start(tmpctx);
 
 	memleak_ptr(memtable, ctx);
 	memleak_ptr(memtable, scriptpubkey[LOCAL]);
