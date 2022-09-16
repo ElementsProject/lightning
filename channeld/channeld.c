@@ -955,6 +955,10 @@ static void send_shutdown_complete(struct peer *peer)
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_shutdown_complete(NULL)));
 	per_peer_state_fdpass_send(MASTER_FD, peer->pps);
+
+	/* Give master a chance to pass the fd along */
+	sleep(1);
+
 	close(MASTER_FD);
 }
 
