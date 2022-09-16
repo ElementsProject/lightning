@@ -2810,6 +2810,7 @@ def test_tlv_or_legacy(node_factory, bitcoind):
     l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
 
 
+@unittest.skipIf(os.getenv('SUBDAEMON').startswith('hsmd:remote_hsmd'), "inv_nosecret: The invoice is missing the mandatory payment secret")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
