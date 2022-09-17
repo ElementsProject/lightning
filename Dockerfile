@@ -108,6 +108,8 @@ RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/inst
     && pip3 install -U wheel \
     && /root/.local/bin/poetry config virtualenvs.create false \
     && /root/.local/bin/poetry install
+RUN pip install Mako
+RUN pip install mistune==0.8.4 mrkd
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 
