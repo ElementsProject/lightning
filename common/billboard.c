@@ -22,8 +22,10 @@ char *billboard_message(const tal_t *ctx,
 					depth_togo);
 	else if (channel_ready[LOCAL] && !channel_ready[REMOTE])
 		funding_status = "We've confirmed channel ready, they haven't yet.";
-	else if (!channel_ready[LOCAL] && channel_ready[REMOTE])
+	else {
+		assert(!channel_ready[LOCAL] && channel_ready[REMOTE]);
 		funding_status = "They've confirmed channel ready, we haven't yet.";
+	}
 
 	if (have_sigs) {
 		if (have_sigs[LOCAL] && have_sigs[REMOTE])
@@ -34,8 +36,10 @@ char *billboard_message(const tal_t *ctx,
 		else if (!have_sigs[LOCAL] && have_sigs[REMOTE])
 			announce_status = " They need our announcement"
 					  " signatures.";
-		else if (!have_sigs[LOCAL] && !have_sigs[REMOTE])
+		else {
+			assert(!have_sigs[LOCAL] && !have_sigs[REMOTE]);
 			announce_status = "";
+		}
 	} else
 		announce_status = "";
 

@@ -734,15 +734,10 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 	char *addrz;
 	const char *bip173;
 
-	bool parsed;
-	bool right_network;
 	u8 addr_version;
 
-	parsed =
-	    ripemd160_from_base58(&addr_version, &destination.addr,
-				  buffer + tok->start, tok->end - tok->start);
-
-	if (parsed) {
+	if (ripemd160_from_base58(&addr_version, &destination.addr,
+				  buffer + tok->start, tok->end - tok->start)) {
 		if (addr_version == chainparams->p2pkh_version) {
 			*scriptpubkey = scriptpubkey_p2pkh(ctx, &destination);
 			return ADDRESS_PARSE_SUCCESS;
@@ -754,10 +749,11 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 			return ADDRESS_PARSE_WRONG_NETWORK;
 		}
 		/* Insert other parsers that accept pointer+len here. */
+		return ADDRESS_PARSE_UNRECOGNIZED;
 	}
 
 	/* Generate null-terminated address. */
-	addrz = tal_dup_arr(ctx, char, buffer + tok->start, tok->end - tok->start, 1);
+	addrz = tal_dup_arr(tmpctx, char, buffer + tok->start, tok->end - tok->start, 1);
 	addrz[tok->end - tok->start] = '\0';
 
 	bip173 = segwit_addr_net_decode(&witness_version, witness_program,
@@ -772,24 +768,18 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 		} else
 			witness_ok = true;
 
-		if (witness_ok) {
-			*scriptpubkey = scriptpubkey_witness_raw(ctx, witness_version,
-								 witness_program, witness_program_len);
-			parsed = true;
-			right_network = streq(bip173, chainparams->onchain_hrp);
-		}
-	}
-	/* Insert other parsers that accept null-terminated string here. */
+		if (!witness_ok)
+			return ADDRESS_PARSE_UNRECOGNIZED;
 
-	tal_free(addrz);
-
-	if (parsed) {
-		if (right_network)
-			return ADDRESS_PARSE_SUCCESS;
-		else
+		if (!streq(bip173, chainparams->onchain_hrp))
 			return ADDRESS_PARSE_WRONG_NETWORK;
+
+		*scriptpubkey = scriptpubkey_witness_raw(ctx, witness_version,
+							 witness_program, witness_program_len);
+		return ADDRESS_PARSE_SUCCESS;
 	}
 
+	/* Insert other parsers that accept null-terminated string here. */
 	return ADDRESS_PARSE_UNRECOGNIZED;
 }
 
