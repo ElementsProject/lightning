@@ -549,7 +549,8 @@ json_openchannel2_call(struct command *cmd,
 			",to_self_delay:%"
 			",max_accepted_htlcs:%"
 			",channel_flags:%"
-			",locktime:%}}",
+			",locktime:%"
+			",channel_max_msat:%}}",
 			JSON_SCAN(json_to_node_id, &info->id),
 			JSON_SCAN(json_to_channel_id, &info->cid),
 			JSON_SCAN(json_to_msat_as_sats, &info->their_funding),
@@ -562,7 +563,8 @@ json_openchannel2_call(struct command *cmd,
 			JSON_SCAN(json_to_u32, &to_self_delay),
 			JSON_SCAN(json_to_u32, &max_accepted_htlcs),
 			JSON_SCAN(json_to_u16, &channel_flags),
-			JSON_SCAN(json_to_u32, &info->locktime));
+			JSON_SCAN(json_to_u32, &info->locktime),
+			JSON_SCAN(json_to_msat_as_sats, &info->channel_max));
 
 	if (err)
 		plugin_err(cmd->plugin,
@@ -585,13 +587,6 @@ json_openchannel2_call(struct command *cmd,
 		info->node_blockheight = 0;
 		info->lease_blockheight = 0;
 	}
-
-	/* If there's no channel_max, it's actually infinity */
-	err = json_scan(tmpctx, buf, params,
-			"{openchannel2:{channel_max_msat:%}}",
-			JSON_SCAN(json_to_msat_as_sats, &info->channel_max));
-	if (err)
-		info->channel_max = AMOUNT_SAT(UINT64_MAX);
 
 	/* We don't fund anything that's above or below our feerate */
 	if (info->funding_feerate_perkw < feerate_our_min
@@ -683,27 +678,22 @@ json_rbf_channel_call(struct command *cmd,
 			",funding_feerate_per_kw:%"
 			",feerate_our_max:%"
 			",feerate_our_min:%"
-			",locktime:%}}",
+			",locktime:%"
+			",channel_max_msat:%}}",
 			JSON_SCAN(json_to_node_id, &info->id),
 			JSON_SCAN(json_to_channel_id, &info->cid),
 			JSON_SCAN(json_to_msat_as_sats, &info->their_funding),
 			JSON_SCAN(json_to_u64, &info->funding_feerate_perkw),
 			JSON_SCAN(json_to_u64, &feerate_our_max),
 			JSON_SCAN(json_to_u64, &feerate_our_min),
-			JSON_SCAN(json_to_u32, &info->locktime));
+			JSON_SCAN(json_to_u32, &info->locktime),
+			JSON_SCAN(json_to_msat_as_sats, &info->channel_max));
 
 	if (err)
 		plugin_err(cmd->plugin,
 			   "`rbf_channel` payload did not scan %s: %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
-
-	/* If there's no channel_max, it's actually infinity */
-	err = json_scan(tmpctx, buf, params,
-			"{rbf_channel:{channel_max_msat:%}}",
-			JSON_SCAN(json_to_msat_as_sats, &info->channel_max));
-	if (err)
-		info->channel_max = AMOUNT_SAT(UINT64_MAX);
 
 	/* We don't fund anything that's above or below our feerate */
 	if (info->funding_feerate_perkw < feerate_our_min
