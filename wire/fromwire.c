@@ -151,9 +151,9 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 	return ret;
 }
 
-errcode_t fromwire_errcode_t(const u8 **cursor, size_t *max)
+enum jsonrpc_errcode fromwire_jsonrpc_errcode(const u8 **cursor, size_t *max)
 {
-	errcode_t ret;
+	enum jsonrpc_errcode ret;
 
 	ret = (s32)fromwire_u32(cursor, max);
 

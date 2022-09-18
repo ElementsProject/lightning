@@ -24,7 +24,7 @@ struct command_result {
 static struct command_result cmd_failed;
 
 struct command_result *command_fail(struct command *cmd,
-				    errcode_t code, const char *fmt, ...)
+				    enum jsonrpc_errcode code, const char *fmt, ...)
 {
 	failed = true;
 	va_list ap;

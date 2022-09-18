@@ -389,14 +389,14 @@ command_success(struct command *cmd, const struct json_out *result)
 }
 
 struct command_result *command_done_err(struct command *cmd,
-					errcode_t code,
+					enum jsonrpc_errcode code,
 					const char *errmsg,
 					const struct json_out *data)
 {
 	struct json_stream *js = jsonrpc_stream_start(cmd);
 
 	json_object_start(js, "error");
-	json_add_errcode(js, "code", code);
+	json_add_jsonrpc_errcode(js, "code", code);
 	json_add_string(js, "message", errmsg);
 
 	if (data)
@@ -442,7 +442,7 @@ struct command_result *forward_result(struct command *cmd,
 
 /* Called by param() directly if it's malformed. */
 struct command_result *command_fail(struct command *cmd,
-				    errcode_t code, const char *fmt, ...)
+				    enum jsonrpc_errcode code, const char *fmt, ...)
 {
 	va_list ap;
 	struct command_result *res;

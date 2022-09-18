@@ -6,6 +6,7 @@
 #include <common/errcode.h>
 /* Simple helpers are here: this file contains heavier ones */
 #include <common/json_parse_simple.h>
+#include <common/jsonrpc_errors.h>
 
 struct json_escape;
 struct json_stream;
@@ -49,7 +50,8 @@ bool json_to_millionths(const char *buffer, const jsmntok_t *tok,
 bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num);
 
 /* Extract an error code from this (may be a string, or a number literal) */
-bool json_to_errcode(const char *buffer, const jsmntok_t *tok, errcode_t *errcode);
+bool json_to_jsonrpc_errcode(const char *buffer, const jsmntok_t *tok,
+			     enum jsonrpc_errcode *errcode);
 
 /* Split a json token into 2 tokens given a splitting character */
 bool split_tok(const char *buffer, const jsmntok_t *tok,

@@ -134,7 +134,8 @@ bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num)
 	return true;
 }
 
-bool json_to_errcode(const char *buffer, const jsmntok_t *tok, errcode_t *errcode)
+bool json_to_jsonrpc_errcode(const char *buffer, const jsmntok_t *tok,
+			     enum jsonrpc_errcode *errcode)
 {
 	s64 tmp;
 

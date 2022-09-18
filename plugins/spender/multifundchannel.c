@@ -69,7 +69,7 @@ void fail_destination_tok(struct multifundchannel_destination *dest,
 }
 
 void fail_destination_msg(struct multifundchannel_destination *dest,
-			  errcode_t error_code,
+			  enum jsonrpc_errcode error_code,
 			  const char *err_str TAKES)
 {
 	dest->error_code = error_code;
@@ -333,7 +333,7 @@ mfc_cleanup_(struct multifundchannel_command *mfc,
 struct mfc_fail_object {
 	struct multifundchannel_command *mfc;
 	struct command *cmd;
-	errcode_t code;
+	enum jsonrpc_errcode code;
 	const char *msg;
 };
 
@@ -347,7 +347,7 @@ mfc_fail_complete(struct mfc_fail_object *obj)
 
 /* Use this instead of command_fail.  */
 static struct command_result *
-mfc_fail(struct multifundchannel_command *mfc, errcode_t code,
+mfc_fail(struct multifundchannel_command *mfc, enum jsonrpc_errcode code,
 	 const char *fmt, ...)
 {
 	struct mfc_fail_object *obj;

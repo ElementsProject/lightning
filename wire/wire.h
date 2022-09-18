@@ -3,7 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <common/errcode.h>
+#include <common/jsonrpc_errors.h>
 #include <common/wireaddr.h>
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
@@ -36,7 +36,7 @@ void towire_tu32(u8 **pptr, u32 v);
 void towire_tu64(u8 **pptr, u64 v);
 void towire_pad(u8 **pptr, size_t num);
 void towire_bool(u8 **pptr, bool v);
-void towire_errcode_t(u8 **pptr, errcode_t v);
+void towire_jsonrpc_errcode(u8 **pptr, enum jsonrpc_errcode v);
 
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num);
 void towire_utf8_array(u8 **pptr, const char *arr, size_t num);
@@ -53,7 +53,7 @@ u16 fromwire_tu16(const u8 **cursor, size_t *max);
 u32 fromwire_tu32(const u8 **cursor, size_t *max);
 u64 fromwire_tu64(const u8 **cursor, size_t *max);
 bool fromwire_bool(const u8 **cursor, size_t *max);
-errcode_t fromwire_errcode_t(const u8 **cursor, size_t *max);
+enum jsonrpc_errcode fromwire_jsonrpc_errcode(const u8 **cursor, size_t *max);
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor, size_t *max,
 					secp256k1_ecdsa_signature *signature);
 void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,

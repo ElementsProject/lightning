@@ -357,7 +357,7 @@ void try_reconnect(const tal_t *ctx,
 /* We were trying to connect, but they disconnected. */
 static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
-			   errcode_t errcode,
+			   enum jsonrpc_errcode errcode,
 			   const char *errmsg,
 			   const struct wireaddr_internal *addrhint)
 {
@@ -390,7 +390,7 @@ void connect_failed_disconnect(struct lightningd *ld,
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	errcode_t errcode;
+	enum jsonrpc_errcode errcode;
 	char *errmsg;
 	struct wireaddr_internal *addrhint;
 

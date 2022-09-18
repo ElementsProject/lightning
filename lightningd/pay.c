@@ -205,7 +205,7 @@ json_add_routefail_info(struct json_stream *js,
 
 void json_sendpay_fail_fields(struct json_stream *js,
 			      const struct wallet_payment *payment,
-			      errcode_t pay_errcode,
+			      enum jsonrpc_errcode pay_errcode,
 			      const struct onionreply *onionreply,
 			      const struct routing_failure *fail)
 {
@@ -224,7 +224,7 @@ void json_sendpay_fail_fields(struct json_stream *js,
 					fail->msg);
 }
 
-static const char *sendpay_errmsg_fmt(const tal_t *ctx, errcode_t pay_errcode,
+static const char *sendpay_errmsg_fmt(const tal_t *ctx, enum jsonrpc_errcode pay_errcode,
 				      const struct routing_failure *fail,
 				      const char *details)
 {
@@ -243,7 +243,7 @@ static const char *sendpay_errmsg_fmt(const tal_t *ctx, errcode_t pay_errcode,
 static struct command_result *
 sendpay_fail(struct command *cmd,
 	     const struct wallet_payment *payment,
-	     errcode_t pay_errcode,
+	     enum jsonrpc_errcode pay_errcode,
 	     const struct onionreply *onionreply,
 	     const struct routing_failure *fail,
 	     const char *errmsg)
@@ -276,7 +276,7 @@ json_sendpay_in_progress(struct command *cmd,
 static void tell_waiters_failed(struct lightningd *ld,
 				const struct sha256 *payment_hash,
 				const struct wallet_payment *payment,
-				errcode_t pay_errcode,
+				enum jsonrpc_errcode pay_errcode,
 				const struct onionreply *onionreply,
 				const struct routing_failure *fail,
 				const char *details)
@@ -417,7 +417,7 @@ remote_routing_failure(const tal_t *ctx,
 		       const u8 *failuremsg,
 		       int origin_index,
 		       struct log *log,
-		       errcode_t *pay_errcode)
+		       enum jsonrpc_errcode *pay_errcode)
 {
 	enum onion_wire failcode = fromwire_peektype(failuremsg);
 	struct routing_failure *routing_failure;
@@ -541,7 +541,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
 	const char *failstr;
-	errcode_t pay_errcode;
+	enum jsonrpc_errcode pay_errcode;
 	const u8 *failmsg;
 	int origin_index;
 
@@ -670,7 +670,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 	char *faildetail;
 	struct routing_failure *fail;
 	int faildirection;
-	errcode_t rpcerrorcode;
+	enum jsonrpc_errcode rpcerrorcode;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 payment_hash, partid, groupid);

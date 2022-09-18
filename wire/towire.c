@@ -77,7 +77,7 @@ void towire_bool(u8 **pptr, bool v)
 	towire(pptr, &val, sizeof(val));
 }
 
-void towire_errcode_t(u8 **pptr, errcode_t v)
+void towire_jsonrpc_errcode(u8 **pptr, enum jsonrpc_errcode v)
 {
 	towire_u32(pptr, (u32)v);
 }

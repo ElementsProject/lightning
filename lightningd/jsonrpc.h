@@ -103,7 +103,7 @@ struct json_stream *json_stream_success(struct command *cmd);
  * You need to json_object_end() once you're done!
  */
 struct json_stream *json_stream_fail(struct command *cmd,
-				     errcode_t code,
+				     enum jsonrpc_errcode code,
 				     const char *errmsg);
 
 /**
@@ -115,7 +115,7 @@ struct json_stream *json_stream_fail(struct command *cmd,
  * This is used by command_fail(), which doesn't add any JSON data.
  */
 struct json_stream *json_stream_fail_nodata(struct command *cmd,
-					    errcode_t code,
+					    enum jsonrpc_errcode code,
 					    const char *errmsg);
 
 /* These returned values are never NULL. */

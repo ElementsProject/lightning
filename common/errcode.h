@@ -5,10 +5,6 @@
 
 #include <ccan/short_types/short_types.h>
 
-typedef s32 errcode_t;
-
-#define PRIerrcode PRId32
-
 // Setup errors
 #define EXITCODE_SUBDAEMON_FAIL 10
 #define EXITCODE_PIDFILE_LOCK 11

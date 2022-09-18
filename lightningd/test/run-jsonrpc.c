@@ -27,9 +27,10 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
-/* Generated stub for json_to_errcode */
-bool json_to_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, errcode_t *errcode UNNEEDED)
-{ fprintf(stderr, "json_to_errcode called!\n"); abort(); }
+/* Generated stub for json_to_jsonrpc_errcode */
+bool json_to_jsonrpc_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			     enum jsonrpc_errcode *errcode UNNEEDED)
+{ fprintf(stderr, "json_to_jsonrpc_errcode called!\n"); abort(); }
 /* Generated stub for json_to_number */
 bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    unsigned int *num UNNEEDED)
