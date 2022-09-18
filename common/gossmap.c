@@ -176,6 +176,23 @@ u32 gossmap_chan_idx(const struct gossmap *map, const struct gossmap_chan *chan)
 	return chan - map->chan_arr;
 }
 
+struct gossmap_node *gossmap_node_byidx(const struct gossmap *map, u32 idx)
+{
+	assert(idx < gossmap_max_node_idx(map));
+	if (map->node_arr[idx].chan_idxs == NULL)
+		return NULL;
+	return &map->node_arr[idx];
+}
+
+struct gossmap_chan *gossmap_chan_byidx(const struct gossmap *map, u32 idx)
+{
+	assert(idx < gossmap_max_chan_idx(map));
+
+	if (map->chan_arr[idx].plus_scid_off == 0)
+		return NULL;
+	return &map->chan_arr[idx];
+}
+
 /* htable can't handle NULL or 1 values, so we add 2 */
 static struct gossmap_chan *ptrint2chan(const ptrint_t *pidx)
 {
