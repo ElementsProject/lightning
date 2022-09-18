@@ -967,6 +967,10 @@ bool gossmap_chan_get_capacity(const struct gossmap *map,
 	size_t off;
 	u16 type;
 
+	/* Fail for local channels */
+	if (c->cann_off >= map->map_size)
+		return false;
+
 	/* For private, we need to go back WIRE_GOSSIP_STORE_PRIVATE_CHANNEL,
 	 * which is 8 (satoshis) + 2 (len) */
 	if (c->private) {
