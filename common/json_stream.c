@@ -377,10 +377,10 @@ void json_add_tok(struct json_stream *result, const char *fieldname,
 	memcpy(space, json_tok_full(buffer, tok), json_tok_full_len(tok));
 }
 
-void json_add_errcode(struct json_stream *result, const char *fieldname,
-		      errcode_t code)
+void json_add_jsonrpc_errcode(struct json_stream *result, const char *fieldname,
+			      enum jsonrpc_errcode code)
 {
-	json_add_primitive_fmt(result, fieldname, "%" PRIerrcode, code);
+	json_add_primitive_fmt(result, fieldname, "%i", code);
 }
 
 void json_add_invstring(struct json_stream *result, const char *invstring)

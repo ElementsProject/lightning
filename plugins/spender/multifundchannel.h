@@ -56,7 +56,7 @@ struct multifundchannel_removed {
 	*/
 	const char *method;
 	const char *error_message;
-	errcode_t error_code;
+	enum jsonrpc_errcode error_code;
 	/* Optional JSON object containing extra data */
 	const char *error_data;
 };
@@ -128,7 +128,7 @@ struct multifundchannel_destination {
 	struct channel_id channel_id;
 
 	const char *error_message;
-	errcode_t error_code;
+	enum jsonrpc_errcode error_code;
 	/* Optional JSON object containing extra data */
 	const char *error_data;
 

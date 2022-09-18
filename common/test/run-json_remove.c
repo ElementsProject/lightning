@@ -42,7 +42,7 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 bool command_check_only(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_check_only called!\n"); abort(); }
 /* Generated stub for command_fail */
-struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
+struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }

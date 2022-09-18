@@ -54,7 +54,7 @@ msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
 # Connectd->master: connect failed.
 msgtype,connectd_connect_failed,2020
 msgdata,connectd_connect_failed,id,node_id,
-msgdata,connectd_connect_failed,failcode,errcode_t,
+msgdata,connectd_connect_failed,failcode,enum jsonrpc_errcode,
 msgdata,connectd_connect_failed,failreason,wirestring,
 msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 

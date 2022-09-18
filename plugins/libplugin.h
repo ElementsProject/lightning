@@ -239,7 +239,7 @@ void NORETURN plugin_exit(struct plugin *p, int exitcode);
  * NULL, data can be NULL; otherwise it must be a JSON object. */
 struct command_result *WARN_UNUSED_RESULT
 command_done_err(struct command *cmd,
-		 errcode_t code,
+		 enum jsonrpc_errcode code,
 		 const char *errmsg,
 		 const struct json_out *data);
 

@@ -11,7 +11,7 @@ struct command;
 struct command_result;
 
 /* Caller supplied this: param assumes it can call it. */
-struct command_result *command_fail(struct command *cmd, errcode_t code,
+struct command_result *command_fail(struct command *cmd, enum jsonrpc_errcode code,
 				    const char *fmt, ...)
 	PRINTF_FMT(3, 4) WARN_UNUSED_RESULT RETURNS_NONNULL;
 

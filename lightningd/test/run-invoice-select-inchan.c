@@ -124,7 +124,7 @@ void channel_update_reserve(struct channel *channel UNNEEDED,
 			    struct amount_sat funding_total UNNEEDED)
 { fprintf(stderr, "channel_update_reserve called!\n"); abort(); }
 /* Generated stub for command_fail */
-struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
+struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }
@@ -455,7 +455,7 @@ const char *json_scan(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "json_scan called!\n"); abort(); }
 /* Generated stub for json_stream_fail */
 struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
-				     errcode_t code UNNEEDED,
+				     enum jsonrpc_errcode code UNNEEDED,
 				     const char *errmsg UNNEEDED)
 { fprintf(stderr, "json_stream_fail called!\n"); abort(); }
 /* Generated stub for json_stream_success */

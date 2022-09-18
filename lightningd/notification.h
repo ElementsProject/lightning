@@ -76,7 +76,7 @@ void notify_sendpay_success(struct lightningd *ld,
 
 void notify_sendpay_failure(struct lightningd *ld,
 			    const struct wallet_payment *payment,
-			    errcode_t pay_errcode,
+			    enum jsonrpc_errcode pay_errcode,
 			    const struct onionreply *onionreply,
 			    const struct routing_failure *fail,
 			    const char *errmsg);

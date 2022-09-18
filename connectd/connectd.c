@@ -614,14 +614,14 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   const struct wireaddr_internal *addrhint,
-			   errcode_t errcode,
+			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
 	PRINTF_FMT(5,6);
 
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   const struct wireaddr_internal *addrhint,
-			   errcode_t errcode,
+			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
 {
 	u8 *msg;
