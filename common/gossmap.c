@@ -771,6 +771,16 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 	if (find_localmod(localmods, scid))
 		return false;
 
+	/* BOLT #7:
+	 *
+	 * - MUST set `node_id_1` and `node_id_2` to the public keys
+	 *   of the two nodes operating the channel, such that
+	 *   `node_id_1` is the lexicographically-lesser of the two
+	 *   compressed keys sorted in ascending lexicographic order.
+	 */
+	if (node_id_cmp(n1, n2) > 0)
+		return gossmap_local_addchan(localmods, n2, n1, scid, features);
+
 	mod.scid = *scid;
 	mod.updates_set[0] = mod.updates_set[1] = false;
 
