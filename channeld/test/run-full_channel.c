@@ -160,6 +160,8 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 			sender = !side;
 			msatoshi = AMOUNT_MSAT(4000000);
 			break;
+		default:
+			abort();
 		}
 		assert(msatoshi.millisatoshis != 0);
 
