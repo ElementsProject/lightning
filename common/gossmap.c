@@ -66,9 +66,13 @@ struct gossmap {
 
 	/* Array of nodes, so we can use simple index. */
 	struct gossmap_node *node_arr;
+	/* This is tal_count(node_arr), which we call very often in assert() */
+	size_t num_node_arr;
 
 	/* Array of chans, so we can use simple index */
 	struct gossmap_chan *chan_arr;
+	/* This is tal_count(chan_arr), which we call very often in assert() */
+	size_t num_chan_arr;
 
 	/* Linked list of freed ones, if any. */
 	u32 freed_nodes, freed_chans;
@@ -155,24 +159,26 @@ static int map_feature_test(const struct gossmap *map,
 /* These values can change across calls to gossmap_check. */
 u32 gossmap_max_node_idx(const struct gossmap *map)
 {
-	return tal_count(map->node_arr);
+	assert(tal_count(map->node_arr) == map->num_node_arr);
+	return map->num_node_arr;
 }
 
 u32 gossmap_max_chan_idx(const struct gossmap *map)
 {
-	return tal_count(map->chan_arr);
+	assert(tal_count(map->chan_arr) == map->num_chan_arr);
+	return map->num_chan_arr;
 }
 
 /* Each channel has a unique (low) index. */
 u32 gossmap_node_idx(const struct gossmap *map, const struct gossmap_node *node)
 {
-	assert(node - map->node_arr < tal_count(map->node_arr));
+	assert(node - map->node_arr < map->num_node_arr);
 	return node - map->node_arr;
 }
 
 u32 gossmap_chan_idx(const struct gossmap *map, const struct gossmap_chan *chan)
 {
-	assert(chan - map->chan_arr < tal_count(map->chan_arr));
+	assert(chan - map->chan_arr < map->num_chan_arr);
 	return chan - map->chan_arr;
 }
 
@@ -265,6 +271,7 @@ static struct gossmap_node *next_free_node(struct gossmap *map)
 	if (map->freed_nodes == UINT_MAX) {
 		/* Double in size, add second half to free list */
 		size_t n = tal_count(map->node_arr);
+		map->num_node_arr *= 2;
 		tal_resize(&map->node_arr, n * 2);
 		map->freed_nodes = init_node_arr(map->node_arr, n);
 	}
@@ -325,6 +332,7 @@ static struct gossmap_chan *next_free_chan(struct gossmap *map)
 	if (map->freed_chans == UINT_MAX) {
 		/* Double in size, add second half to free list */
 		size_t n = tal_count(map->chan_arr);
+		map->num_chan_arr *= 2;
 		tal_resize(&map->chan_arr, n * 2);
 		map->freed_chans = init_chan_arr(map->chan_arr, n);
 	}
@@ -680,9 +688,11 @@ static bool load_gossip_store(struct gossmap *map, size_t *num_rejected)
 	chanidx_htable_init_sized(&map->channels, map->map_size / 750 / 2);
 	nodeidx_htable_init_sized(&map->nodes, map->map_size / 2500 / 2);
 
-	map->chan_arr = tal_arr(map, struct gossmap_chan, map->map_size / 750 / 2 + 1);
+	map->num_chan_arr = map->map_size / 750 / 2 + 1;
+	map->chan_arr = tal_arr(map, struct gossmap_chan, map->num_chan_arr);
 	map->freed_chans = init_chan_arr(map->chan_arr, 0);
-	map->node_arr = tal_arr(map, struct gossmap_node, map->map_size / 2500 / 2 + 1);
+	map->num_node_arr = map->map_size / 2500 / 2 + 1;
+	map->node_arr = tal_arr(map, struct gossmap_node, map->num_node_arr);
 	map->freed_nodes = init_node_arr(map->node_arr, 0);
 
 	map->map_end = 1;
@@ -1031,7 +1041,7 @@ struct gossmap_chan *gossmap_nth_chan(const struct gossmap *map,
 	struct gossmap_chan *chan;
 
 	assert(n < node->num_chans);
-	assert(node->chan_idxs[n] < tal_count(map->chan_arr));
+	assert(node->chan_idxs[n] < map->num_chan_arr);
 	chan = map->chan_arr + node->chan_idxs[n];
 
 	if (which_half) {
@@ -1061,7 +1071,7 @@ size_t gossmap_num_nodes(const struct gossmap *map)
 
 static struct gossmap_node *node_iter(const struct gossmap *map, size_t start)
 {
-	for (size_t i = start; i < tal_count(map->node_arr); i++) {
+	for (size_t i = start; i < map->num_node_arr; i++) {
 		if (map->node_arr[i].chan_idxs != NULL)
 			return &map->node_arr[i];
 	}
@@ -1086,7 +1096,7 @@ size_t gossmap_num_chans(const struct gossmap *map)
 
 static struct gossmap_chan *chan_iter(const struct gossmap *map, size_t start)
 {
-	for (size_t i = start; i < tal_count(map->chan_arr); i++) {
+	for (size_t i = start; i < map->num_chan_arr; i++) {
 		if (map->chan_arr[i].plus_scid_off != 0)
 			return &map->chan_arr[i];
 	}
