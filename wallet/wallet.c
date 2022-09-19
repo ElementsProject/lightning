@@ -4663,6 +4663,29 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	return results;
 }
 
+bool wallet_forward_delete(struct wallet *w,
+			   const struct short_channel_id *chan_in,
+			   u64 htlc_id,
+			   enum forward_status state)
+{
+	struct db_stmt *stmt;
+	bool changed;
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("DELETE FROM forwards"
+				 " WHERE in_channel_scid = ?"
+				 " AND in_htlc_id = ?"
+				 " AND state = ?"));
+	db_bind_scid(stmt, 0, chan_in);
+	db_bind_u64(stmt, 1, htlc_id);
+	db_bind_int(stmt, 2, wallet_forward_status_in_db(state));
+	db_exec_prepared_v2(stmt);
+	changed = db_count_changes(stmt) != 0;
+	tal_free(stmt);
+
+	return changed;
+}
+
 struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx)
 {
 	struct db_stmt *stmt;
