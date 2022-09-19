@@ -8,6 +8,8 @@
 #include <plugins/libplugin.h>
 
 enum subsystem {
+	SUCCEEDEDFORWARDS,
+	FAILEDFORWARDS,
 	SUCCEEDEDPAYS,
 	FAILEDPAYS,
 	PAIDINVOICES,
@@ -15,6 +17,8 @@ enum subsystem {
 #define NUM_SUBSYSTEM (EXPIREDINVOICES + 1)
 };
 static const char *subsystem_str[] = {
+	"succeededforwards",
+	"failedforwards",
 	"succeededpays",
 	"failedpays",
 	"paidinvoices",
@@ -227,6 +231,73 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	return set_next_timer(plugin);
 }
 
+static struct command_result *listforwards_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						char *unused)
+{
+	const jsmntok_t *t, *fwds = json_get_member(buf, result, "forwards");
+	size_t i;
+	u64 now = time_now().ts.tv_sec;
+
+	json_for_each_arr(i, t, fwds) {
+		const jsmntok_t *status = json_get_member(buf, t, "status");
+		jsmntok_t time;
+		enum subsystem subsys;
+		u64 restime;
+
+		if (json_tok_streq(buf, status, "settled")) {
+			subsys = SUCCEEDEDFORWARDS;
+		} else if (json_tok_streq(buf, status, "failed")
+			   || json_tok_streq(buf, status, "local_failed")) {
+			subsys = FAILEDFORWARDS;
+		} else
+			continue;
+
+		/* Continue if we don't care. */
+		if (subsystem_age[subsys] == 0)
+			continue;
+
+		time = *json_get_member(buf, t, "resolved_time");
+		/* This is a float, so truncate at '.' */
+		for (int off = time.start; off < time.end; off++) {
+			if (buf[off] == '.')
+				time.end = off;
+		}
+		if (!json_to_u64(buf, &time, &restime)) {
+			plugin_err(plugin, "Bad time '%.*s'",
+				   json_tok_full_len(&time),
+				   json_tok_full(buf, &time));
+		}
+
+		if (restime <= now - subsystem_age[subsys]) {
+			struct out_req *req;
+			const jsmntok_t *inchan, *inid;
+
+			inchan = json_get_member(buf, t, "in_channel");
+			inid = json_get_member(buf, t, "in_htlc_id");
+
+			req = jsonrpc_request_start(plugin, NULL, "delforward",
+						    del_done, del_failed,
+						    int2ptr(subsys));
+			json_add_tok(req->js, "in_channel", inchan, buf);
+			json_add_tok(req->js, "in_htlc_id", inid, buf);
+			json_add_tok(req->js, "status", status, buf);
+			send_outreq(plugin, req);
+			plugin_log(plugin, LOG_DBG, "Cleaning up fwd %.*s/%.*s",
+				   json_tok_full_len(inchan),
+				   json_tok_full(buf, inchan),
+				   json_tok_full_len(inid),
+				   json_tok_full(buf, inid));
+			cleanup_reqs_remaining++;
+		}
+	}
+
+	if (cleanup_reqs_remaining)
+		return command_still_pending(cmd);
+	return set_next_timer(plugin);
+}
+
 static void do_clean(void *unused)
 {
 	struct out_req *req = NULL;
@@ -245,6 +316,14 @@ static void do_clean(void *unused)
 		req = jsonrpc_request_start(plugin, NULL, "listinvoices",
 					    listinvoices_done, cmd_failed,
 					    (char *)"listinvoices");
+		send_outreq(plugin, req);
+	}
+
+	if (subsystem_age[SUCCEEDEDFORWARDS] != 0
+	    || subsystem_age[FAILEDFORWARDS] != 0) {
+		req = jsonrpc_request_start(plugin, NULL, "listforwards",
+					    listforwards_done, cmd_failed,
+					    (char *)"listforwards");
 		send_outreq(plugin, req);
 	}
 
