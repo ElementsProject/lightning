@@ -8,11 +8,15 @@
 #include <plugins/libplugin.h>
 
 enum subsystem {
+	SUCCEEDEDPAYS,
+	FAILEDPAYS,
 	PAIDINVOICES,
 	EXPIREDINVOICES,
 #define NUM_SUBSYSTEM (EXPIREDINVOICES + 1)
 };
 static const char *subsystem_str[] = {
+	"succeededpays",
+	"failedpays",
 	"paidinvoices",
 	"expiredinvoices",
 };
@@ -169,11 +173,73 @@ static struct command_result *listinvoices_done(struct command *cmd,
 	return set_next_timer(plugin);
 }
 
+static struct command_result *listsendpays_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						char *unused)
+{
+	const jsmntok_t *t, *pays = json_get_member(buf, result, "payments");
+	size_t i;
+	u64 now = time_now().ts.tv_sec;
+
+	json_for_each_arr(i, t, pays) {
+		const jsmntok_t *status = json_get_member(buf, t, "status");
+		const jsmntok_t *time;
+		enum subsystem subsys;
+		u64 paytime;
+
+		if (json_tok_streq(buf, status, "failed")) {
+			subsys = FAILEDPAYS;
+		} else if (json_tok_streq(buf, status, "complete")) {
+			subsys = SUCCEEDEDPAYS;
+		} else
+			continue;
+
+		/* Continue if we don't care. */
+		if (subsystem_age[subsys] == 0)
+			continue;
+
+		time = json_get_member(buf, t, "created_at");
+		if (!json_to_u64(buf, time, &paytime)) {
+			plugin_err(plugin, "Bad created_at '%.*s'",
+				   json_tok_full_len(time),
+				   json_tok_full(buf, time));
+		}
+
+		if (paytime <= now - subsystem_age[subsys]) {
+			struct out_req *req;
+			const jsmntok_t *phash = json_get_member(buf, t, "payment_hash");
+
+			req = jsonrpc_request_start(plugin, NULL, "delpay",
+						    del_done, del_failed,
+						    int2ptr(subsys));
+			json_add_tok(req->js, "payment_hash", phash, buf);
+			json_add_tok(req->js, "status", status, buf);
+			send_outreq(plugin, req);
+			plugin_log(plugin, LOG_DBG, "Cleaning up %.*s",
+				   json_tok_full_len(phash), json_tok_full(buf, phash));
+			cleanup_reqs_remaining++;
+		}
+	}
+
+	if (cleanup_reqs_remaining)
+		return command_still_pending(cmd);
+	return set_next_timer(plugin);
+}
+
 static void do_clean(void *unused)
 {
 	struct out_req *req = NULL;
 
 	assert(cleanup_reqs_remaining == 0);
+	if (subsystem_age[SUCCEEDEDPAYS] != 0
+	    || subsystem_age[FAILEDPAYS] != 0) {
+		req = jsonrpc_request_start(plugin, NULL, "listsendpays",
+					    listsendpays_done, cmd_failed,
+					    (char *)"listsendpays");
+		send_outreq(plugin, req);
+	}
+
 	if (subsystem_age[EXPIREDINVOICES] != 0
 	    || subsystem_age[PAIDINVOICES] != 0) {
 		req = jsonrpc_request_start(plugin, NULL, "listinvoices",
