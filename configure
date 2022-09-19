@@ -419,12 +419,6 @@ int main(void)
 /*END*/
 EOF
 
-if check_command 'python3-mako' python3 -c 'import mako'; then
-    HAVE_PYTHON3_MAKO=1
-else
-    HAVE_PYTHON3_MAKO=0
-fi
-
 if check_command 'lowdown' lowdown; then
     HAVE_LOWDOWN=1
 else
@@ -468,7 +462,6 @@ add_var STATIC "$STATIC"
 add_var ASAN "$ASAN"
 add_var UBSAN "$UBSAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
-add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
 add_var HAVE_LOWDOWN "$HAVE_LOWDOWN"
 add_var SHA256SUM "$SHA256SUM"
 add_var FUZZING "$FUZZING"
