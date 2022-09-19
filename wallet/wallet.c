@@ -4356,14 +4356,14 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 	 * having to have two versions of the update statement (one with and
 	 * one without the htlc_out restriction).*/
 	stmt = db_prepare_v2(w->db,
-			     SQL("UPDATE forwarded_payments SET"
+			     SQL("UPDATE forwards SET"
 				 "  in_msatoshi=?"
 				 ", out_msatoshi=?"
 				 ", state=?"
 				 ", resolved_time=?"
 				 ", failcode=?"
 				 ", forward_style=?"
-				 " WHERE in_htlc_id=?"));
+				 " WHERE in_htlc_id=? AND in_channel_scid=?"));
 	db_bind_amount_msat(stmt, 0, &in->msat);
 
 	if (out) {
@@ -4392,7 +4392,9 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 		db_bind_null(stmt, 5);
 	else
 		db_bind_int(stmt, 5, forward_style_in_db(forward_style));
-	db_bind_u64(stmt, 6, in->dbid);
+	db_bind_u64(stmt, 6, in->key.id);
+	db_bind_u64(stmt, 7,
+		    channel_scid_or_local_alias(in->key.channel)->u64);
 	db_exec_prepared_v2(stmt);
 	changed = db_count_changes(stmt) != 0;
 	tal_free(stmt);
@@ -4421,7 +4423,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		goto notify;
 
 	stmt = db_prepare_v2(w->db,
-			     SQL("INSERT INTO forwarded_payments ("
+			     SQL("INSERT INTO forwards ("
 				 "  in_htlc_id"
 				 ", out_htlc_id"
 				 ", in_channel_scid"
@@ -4434,7 +4436,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				 ", failcode"
 				 ", forward_style"
 				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
-	db_bind_u64(stmt, 0, in->dbid);
+	db_bind_u64(stmt, 0, in->key.id);
 
 	/* FORWARD_LOCAL_FAILED may occur before we get htlc_out */
 	if (!out || !scid_out) {
@@ -4443,7 +4445,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	}
 
 	if (out)
-		db_bind_u64(stmt, 1, out->dbid);
+		db_bind_u64(stmt, 1, out->key.id);
 	else
 		db_bind_null(stmt, 1);
 
@@ -4499,7 +4501,7 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
-					" FROM forwarded_payments "
+					" FROM forwards "
 					"WHERE state = ?;"));
 	db_bind_int(stmt, 0, wallet_forward_status_in_db(FORWARD_SETTLED));
 	db_query_prepared(stmt);
@@ -4549,21 +4551,19 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	stmt = db_prepare_v2(
 	    w->db,
 	    SQL("SELECT"
-		"  f.state"
+		"  state"
 		", in_msatoshi"
 		", out_msatoshi"
-		", hin.payment_hash as payment_hash"
 		", in_channel_scid"
 		", out_channel_scid"
-		", f.received_time"
-		", f.resolved_time"
-		", f.failcode "
-		", f.forward_style "
-		"FROM forwarded_payments f "
-		"LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) "
-		"WHERE (1 = ? OR f.state = ?) AND "
-		"(1 = ? OR f.in_channel_scid = ?) AND "
-		"(1 = ? OR f.out_channel_scid = ?)"));
+		", received_time"
+		", resolved_time"
+		", failcode "
+		", forward_style "
+		"FROM forwards "
+		"WHERE (1 = ? OR state = ?) AND "
+		"(1 = ? OR in_channel_scid = ?) AND "
+		"(1 = ? OR out_channel_scid = ?)"));
 
 	if (status == FORWARD_ANY) {
 		// any status
@@ -4600,7 +4600,7 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	for (count=0; db_step(stmt); count++) {
 		tal_resize(&results, count+1);
 		struct forwarding *cur = &results[count];
-		cur->status = db_col_int(stmt, "f.state");
+		cur->status = db_col_int(stmt, "state");
 		db_col_amount_msat(stmt, "in_msatoshi", &cur->msat_in);
 
 		if (!db_col_is_null(stmt, "out_msatoshi")) {
@@ -4622,13 +4622,8 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			cur->fee =  AMOUNT_MSAT(0);
 		}
 
-		if (!db_col_is_null(stmt, "payment_hash")) {
-			cur->payment_hash = tal(ctx, struct sha256);
-			db_col_sha256(stmt, "payment_hash", cur->payment_hash);
-		} else {
-			cur->payment_hash = NULL;
-		}
-
+		/* FIXME: This now requires complex join to determine! */
+		cur->payment_hash = NULL;
 		cur->channel_in.u64 = db_col_u64(stmt, "in_channel_scid");
 
 		if (!db_col_is_null(stmt, "out_channel_scid")) {
@@ -4639,28 +4634,28 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			cur->channel_out.u64 = 0;
 		}
 
-		cur->received_time = db_col_timeabs(stmt, "f.received_time");
+		cur->received_time = db_col_timeabs(stmt, "received_time");
 
-		if (!db_col_is_null(stmt, "f.resolved_time")) {
+		if (!db_col_is_null(stmt, "resolved_time")) {
 			cur->resolved_time = tal(ctx, struct timeabs);
 			*cur->resolved_time
-				= db_col_timeabs(stmt, "f.resolved_time");
+				= db_col_timeabs(stmt, "resolved_time");
 		} else {
 			cur->resolved_time = NULL;
 		}
 
-		if (!db_col_is_null(stmt, "f.failcode")) {
+		if (!db_col_is_null(stmt, "failcode")) {
 			assert(cur->status == FORWARD_FAILED ||
 			       cur->status == FORWARD_LOCAL_FAILED);
-			cur->failcode = db_col_int(stmt, "f.failcode");
+			cur->failcode = db_col_int(stmt, "failcode");
 		} else {
 			cur->failcode = 0;
 		}
-		if (db_col_is_null(stmt, "f.forward_style")) {
+		if (db_col_is_null(stmt, "forward_style")) {
 			cur->forward_style = FORWARD_STYLE_UNKNOWN;
 		} else {
 			cur->forward_style
-				= forward_style_in_db(db_col_int(stmt, "f.forward_style"));
+				= forward_style_in_db(db_col_int(stmt, "forward_style"));
 		}
 	}
 	tal_free(stmt);

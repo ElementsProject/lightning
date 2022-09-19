@@ -2413,12 +2413,7 @@ def test_listforwards(node_factory, bitcoind):
         l1.rpc.waitsendpay(failed_inv['payment_hash'])
 
     all_forwards = l2.rpc.listforwards()['forwards']
-    print(json.dumps(all_forwards, indent=True))
-
     assert len(all_forwards) == 3
-    assert i31['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
-    assert i41['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
-    assert failed_inv['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
 
     # status=settled
     settled_forwards = l2.rpc.listforwards(status='settled')['forwards']
