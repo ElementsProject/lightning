@@ -291,7 +291,7 @@ static bool db_postgres_delete_columns(struct db *db,
 {
 	char *cmd;
 
-	cmd = tal_fmt(db, "ALTER TABLE %s ", tablename);
+	cmd = tal_fmt(tmpctx, "ALTER TABLE %s ", tablename);
 	for (size_t i = 0; i < num_cols; i++) {
 		if (i != 0)
 			tal_append_fmt(&cmd, ", ");
