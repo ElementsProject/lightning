@@ -159,13 +159,6 @@ void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *pk)
 	db_bind_blob(stmt, pos, der, PUBKEY_CMPR_LEN);
 }
 
-void db_bind_short_channel_id_str(struct db_stmt *stmt, int col,
-				  const struct short_channel_id *id)
-{
-	char *ser = short_channel_id_to_str(stmt, id);
-	db_bind_text(stmt, col, ser);
-}
-
 void db_bind_scid(struct db_stmt *stmt, int col,
 		  const struct short_channel_id *id)
 {
@@ -366,17 +359,6 @@ void db_col_pubkey(struct db_stmt *stmt,
 	assert(db_column_bytes(stmt, col) == PUBKEY_CMPR_LEN);
 	ok = pubkey_from_der(db_column_blob(stmt, col), PUBKEY_CMPR_LEN, dest);
 	assert(ok);
-}
-
-/* Yes, we put this in as a string.  Past mistakes; do not use! */
-bool db_col_short_channel_id_str(struct db_stmt *stmt, const char *colname,
-				 struct short_channel_id *dest)
-{
-	size_t col = db_query_colnum(stmt, colname);
-	const char *source = db_column_blob(stmt, col);
-	size_t sourcelen = db_column_bytes(stmt, col);
-	db_column_null_warn(stmt, colname, col);
-	return short_channel_id_from_str(source, sourcelen, dest);
 }
 
 void db_col_scid(struct db_stmt *stmt, const char *colname,

@@ -162,7 +162,7 @@ def test_scid_upgrade(node_factory, bitcoind):
     l1.daemon.opts['database-upgrade'] = True
     l1.daemon.start()
     assert l1.db_query('SELECT scid FROM channels;') == [{'scid': scid_to_int('103x1x1')}]
-    assert l1.db_query('SELECT failchannel from payments;') == [{'failchannel': '103x1x1'}]
+    assert l1.db_query('SELECT failscid FROM payments;') == [{'failscid': scid_to_int('103x1x1')}]
 
 
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
