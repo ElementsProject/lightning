@@ -1508,6 +1508,11 @@ static void migrate_channels_scids_as_integers(struct lightningd *ld,
 	 * (and sqlite3 has them referencing a now-deleted table!).
 	 * When we can assume sqlite3 2021-04-19 (3.35.5), we can
 	 * simply use DROP COLUMN (yay!) */
+
+	/* So null-out the unused column, at least! */
+	stmt = db_prepare_v2(db, SQL("UPDATE channels"
+				     " SET short_channel_id = NULL;"));
+	db_exec_prepared_v2(take(stmt));
 }
 
 static void migrate_payments_scids_as_integers(struct lightningd *ld,
