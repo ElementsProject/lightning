@@ -4,15 +4,18 @@ lightning-delpay -- Command for removing a completed or failed payment
 SYNOPSIS
 --------
 
-**delpay** *payment\_hash* *status*
+**delpay** *payment\_hash* *status* [*partid* *groupid*]
 
 DESCRIPTION
 -----------
 
-The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. Deleting a `pending` payment is an error.
+The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. Deleting a `pending` payment is an error.  If *partid* and *groupid* are not specified, all payment parts are deleted.
 
 - *payment\_hash*: The unique identifier of a payment.
 - *status*: Expected status of the payment. 
+- *partid*: Specific partid to delete (must be paired with *groupid*)
+- *groupid*: Specific groupid to delete (must be paired with *partid*)
+
 Only deletes if the payment status matches.
 
 EXAMPLE JSON REQUEST

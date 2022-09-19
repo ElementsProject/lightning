@@ -1089,12 +1089,16 @@ void wallet_payment_store(struct wallet *wallet,
 			  struct wallet_payment *payment TAKES);
 
 /**
- * wallet_payment_delete_by_hash - Remove a payment
+ * wallet_payment_delete - Remove a payment
  *
- * Removes the payment from the database by hash; if it is a MPP payment
- * it remove all parts with a single query.
+ * Removes the payment from the database by hash; groupid and partid
+ * may both be NULL to delete all entries, otherwise deletes only that
+ * group/partid.
  */
-void wallet_payment_delete_by_hash(struct wallet *wallet, const struct sha256 *payment_hash);
+void wallet_payment_delete(struct wallet *wallet,
+			   const struct sha256 *payment_hash,
+			   const u64 *groupid,
+			   const u64 *partid);
 
 /**
  * wallet_local_htlc_out_delete - Remove a local outgoing failed HTLC

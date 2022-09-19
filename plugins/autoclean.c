@@ -271,10 +271,19 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		if (paytime <= now - cinfo->subsystem_age[subsys]) {
 			struct out_req *req;
 			const jsmntok_t *phash = json_get_member(buf, t, "payment_hash");
+			const jsmntok_t *groupid = json_get_member(buf, t, "groupid");
+			const jsmntok_t *partidtok = json_get_member(buf, t, "partid");
+			u64 partid;
+			if (partidtok)
+				json_to_u64(buf, partidtok, &partid);
+			else
+				partid = 0;
 
 			req = del_request_start("delpay", cinfo, subsys);
 			json_add_tok(req->js, "payment_hash", phash, buf);
 			json_add_tok(req->js, "status", status, buf);
+			json_add_tok(req->js, "groupid", groupid, buf);
+			json_add_u64(req->js, "partid", partid);
 			send_outreq(plugin, req);
 		}
 	}

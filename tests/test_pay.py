@@ -4009,8 +4009,10 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     # Create the line graph l2 -> l1 with a channel of 10 ** 5 sat!
     l2, l1 = node_factory.line_graph(2, fundamount=10**5, wait_for_announce=True)
 
+    l2.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         l2.rpc.delpay()
+    l2.rpc.check_request_schemas = True
 
     # sanity check
     inv = l1.rpc.invoice(10 ** 5, 'inv', 'inv')
@@ -4025,11 +4027,13 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     payment_hash = inv['payment_hash']
 
     # payment paid with wrong status (pending status is a illegal input)
+    l2.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'pending')
 
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'invalid_status')
+    l2.rpc.check_request_schemas = True
 
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'failed')

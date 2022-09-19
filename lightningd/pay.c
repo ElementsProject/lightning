@@ -1633,6 +1633,29 @@ static const struct json_command listsendpays_command = {
 };
 AUTODATA(json_command, &listsendpays_command);
 
+static struct command_result *
+param_payment_status_nopending(struct command *cmd,
+			       const char *name,
+			       const char *buffer,
+			       const jsmntok_t *tok,
+			       enum wallet_payment_status **status)
+{
+	struct command_result *res;
+
+	res = param_payment_status(cmd, name, buffer, tok, status);
+	if (res)
+		return res;
+
+	switch (**status) {
+	case PAYMENT_COMPLETE:
+	case PAYMENT_FAILED:
+		break;
+	case PAYMENT_PENDING:
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Cannot delete pending status");
+	}
+	return NULL;
+}
 
 static struct command_result *json_delpay(struct command *cmd,
 						const char *buffer,
@@ -1643,21 +1666,20 @@ static struct command_result *json_delpay(struct command *cmd,
 	const struct wallet_payment **payments;
 	enum wallet_payment_status *status;
 	struct sha256 *payment_hash;
+	u64 *groupid, *partid;
+	bool found;
 
 	if (!param(cmd, buffer, params,
-		p_req("payment_hash", param_sha256, &payment_hash),
-		p_req("status", param_payment_status, &status),
-		NULL))
+		   p_req("payment_hash", param_sha256, &payment_hash),
+		   p_req("status", param_payment_status_nopending, &status),
+		   p_opt("partid", param_u64, &partid),
+		   p_opt("groupid", param_u64, &groupid),
+		   NULL))
 		return command_param_failed();
 
-	switch (*status) {
-		case PAYMENT_COMPLETE:
-		case PAYMENT_FAILED:
-			break;
-		case PAYMENT_PENDING:
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid status: %s",
-				payment_status_to_string(*status));
-	}
+	if ((partid != NULL) != (groupid != NULL))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Must set both partid and groupid, or neither");
 
 	payments = wallet_payment_list(cmd, cmd->ld->wallet, payment_hash);
 
@@ -1665,7 +1687,14 @@ static struct command_result *json_delpay(struct command *cmd,
 		return command_fail(cmd, PAY_NO_SUCH_PAYMENT, "Unknown payment with payment_hash: %s",
 				    type_to_string(tmpctx, struct sha256, payment_hash));
 
+	found = false;
 	for (int i = 0; i < tal_count(payments); i++) {
+		if (groupid && payments[i]->groupid != *groupid)
+			continue;
+		if (partid && payments[i]->partid != *partid)
+			continue;
+
+		found = true;
 		if (payments[i]->status != *status) {
 			return command_fail(cmd, PAY_STATUS_UNEXPECTED, "Payment with hash %s has %s status but it should be %s",
 					type_to_string(tmpctx, struct sha256, payment_hash),
@@ -1674,11 +1703,20 @@ static struct command_result *json_delpay(struct command *cmd,
 		}
 	}
 
-	wallet_payment_delete_by_hash(cmd->ld->wallet, payment_hash);
+	if (!found) {
+		return command_fail(cmd, PAY_NO_SUCH_PAYMENT,
+				    "No payment for that payment_hash with that partid and groupid");
+	}
+
+	wallet_payment_delete(cmd->ld->wallet, payment_hash, partid, groupid);
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "payments");
 	for (int i = 0; i < tal_count(payments); i++) {
+		if (groupid && payments[i]->groupid != *groupid)
+			continue;
+		if (partid && payments[i]->partid != *partid)
+			continue;
 		json_object_start(response, NULL);
 		json_add_payment_fields(response, payments[i]);
 		json_object_end(response);
