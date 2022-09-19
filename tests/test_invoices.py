@@ -569,8 +569,8 @@ def test_waitanyinvoice_reversed(node_factory, executor):
     assert r['label'] == 'inv1'
 
 
-def test_autocleaninvoice(node_factory):
-    l1 = node_factory.get_node()
+def test_autocleaninvoice_deprecated(node_factory):
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
 
     l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=4)
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=12)
