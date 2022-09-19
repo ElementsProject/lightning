@@ -616,6 +616,11 @@ struct command_result *param_short_channel_id(struct command *cmd UNNEEDED,
 					      const jsmntok_t *tok UNNEEDED,
 					      struct short_channel_id **scid UNNEEDED)
 { fprintf(stderr, "param_short_channel_id called!\n"); abort(); }
+/* Generated stub for param_u64 */
+struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				 uint64_t **num UNNEEDED)
+{ fprintf(stderr, "param_u64 called!\n"); abort(); }
 /* Generated stub for parse_onionpacket */
 struct onionpacket *parse_onionpacket(const tal_t *ctx UNNEEDED,
 				      const u8 *src UNNEEDED,

@@ -28,6 +28,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-decode.7 \
 	doc/lightning-deldatastore.7 \
 	doc/lightning-delexpiredinvoice.7 \
+	doc/lightning-delforward.7 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-delpay.7 \
 	doc/lightning-disableoffer.7 \

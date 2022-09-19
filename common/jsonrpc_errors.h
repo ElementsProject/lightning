@@ -104,6 +104,9 @@ enum jsonrpc_errcode {
 	/* Errors from signmessage command */
 	SIGNMESSAGE_PUBKEY_NOT_FOUND = 1301,
 
+	/* Errors from delforward command */
+	DELFORWARD_NOT_FOUND = 1401,
+
 	/* Errors from wait* commands */
 	WAIT_TIMEOUT = 2000,
 };

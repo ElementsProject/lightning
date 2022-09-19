@@ -1380,6 +1380,15 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 						       const struct short_channel_id *chan_out);
 
 /**
+ * Delete a particular forward entry
+ * Returns false if not found
+ */
+bool wallet_forward_delete(struct wallet *w,
+			   const struct short_channel_id *chan_in,
+			   u64 htlc_id,
+			   enum forward_status state);
+
+/**
  * Load remote_ann_node_sig and remote_ann_bitcoin_sig
  *
  * @ctx: allocation context for the return value

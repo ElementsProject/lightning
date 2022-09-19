@@ -2493,6 +2493,17 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     # But forwards are not forgotten!
     assert l2.rpc.listforwards()['forwards'] == all_forwards
 
+    # Now try delforward!
+    with pytest.raises(RpcError, match="Could not find that forward") as exc_info:
+        l2.rpc.delforward(in_channel=c12, in_htlc_id=3, status='settled')
+    # static const errcode_t DELFORWARD_NOT_FOUND = 1401;
+    assert exc_info.value.error['code'] == 1401
+
+    l2.rpc.delforward(in_channel=c12, in_htlc_id=0, status='settled')
+    l2.rpc.delforward(in_channel=c12, in_htlc_id=1, status='settled')
+    l2.rpc.delforward(in_channel=c12, in_htlc_id=2, status='local_failed')
+    assert l2.rpc.listforwards() == {'forwards': []}
+
 
 @pytest.mark.openchannel('v1')
 def test_version_reexec(node_factory, bitcoind):
