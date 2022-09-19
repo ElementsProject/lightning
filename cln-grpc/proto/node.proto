@@ -1229,11 +1229,12 @@ message ListforwardsForwards {
 		TLV = 1;
 	}
 	string in_channel = 1;
+	uint64 in_htlc_id = 10;
 	Amount in_msat = 2;
 	ListforwardsForwardsStatus status = 3;
 	double received_time = 4;
 	optional string out_channel = 5;
-	optional bytes payment_hash = 6;
+	optional uint64 out_htlc_id = 11;
 	optional ListforwardsForwardsStyle style = 9;
 	optional Amount fee_msat = 7;
 	optional Amount out_msat = 8;

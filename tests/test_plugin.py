@@ -1353,24 +1353,30 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     expect = stats[0].copy()
     # First event won't have conclusion.
     del expect['resolved_time']
+    del expect['out_htlc_id']
     expect['status'] = 'offered'
     assert plugin_stats[0] == expect
     expect = stats[0].copy()
+    del expect['out_htlc_id']
     assert plugin_stats[1] == expect
 
     expect = stats[1].copy()
     del expect['resolved_time']
+    del expect['out_htlc_id']
     expect['status'] = 'offered'
     assert plugin_stats[2] == expect
     expect = stats[1].copy()
+    del expect['out_htlc_id']
     assert plugin_stats[3] == expect
 
     expect = stats[2].copy()
     del expect['failcode']
     del expect['failreason']
+    del expect['out_htlc_id']
     expect['status'] = 'offered'
     assert plugin_stats[4] == expect
     expect = stats[2].copy()
+    del expect['out_htlc_id']
     assert plugin_stats[5] == expect
 
 

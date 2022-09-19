@@ -77,8 +77,10 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 /* This json process will be used as the serialize method for
  * forward_event_notification_gen and be used in
  * `listforwardings_add_forwardings()`. */
-void json_format_forwarding_object(struct json_stream *response, const char *fieldname,
-				   const struct forwarding *cur);
+void json_add_forwarding_object(struct json_stream *response,
+				const char *fieldname,
+				const struct forwarding *cur,
+				const struct sha256 *payment_hash);
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
 #define failmsg_incorrect_or_unknown(ctx, ld, hin) \

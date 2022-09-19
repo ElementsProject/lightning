@@ -272,9 +272,11 @@ static inline enum htlc_state htlc_state_in_db(enum htlc_state s)
 }
 
 struct forwarding {
+	/* channel_out is all-zero if unknown. */
 	struct short_channel_id channel_in, channel_out;
+	/* htlc_id_out is NULL if unknown. */
+	u64 htlc_id_in, *htlc_id_out;
 	struct amount_msat msat_in, msat_out, fee;
-	struct sha256 *payment_hash;
 	enum forward_style forward_style;
 	enum forward_status status;
 	enum onion_wire failcode;
