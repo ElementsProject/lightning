@@ -948,9 +948,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	rpc_hook->custom_replace = NULL;
 	rpc_hook->custom_buffer = NULL;
 
-	db_begin_transaction(jcon->ld->wallet->db);
 	completed = plugin_hook_call_rpc_command(jcon->ld, c->id, rpc_hook);
-	db_commit_transaction(jcon->ld->wallet->db);
 
 	/* If it's deferred, mark it (otherwise, it's completed) */
 	if (!completed)
@@ -1007,6 +1005,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 				 struct json_connection *jcon)
 {
 	bool complete;
+	bool in_transaction = false;
 
 	if (jcon->len_read)
 		log_io(jcon->log, LOG_IO_IN, NULL, "",
@@ -1023,6 +1022,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 		return io_wait(conn, conn, read_json, jcon);
 	}
 
+again:
 	if (!json_parse_input(&jcon->input_parser, &jcon->input_toks,
 			      jcon->buffer, jcon->used,
 			      &complete)) {
@@ -1030,6 +1030,8 @@ static struct io_plan *read_json(struct io_conn *conn,
 		    jcon, "null",
 		    tal_fmt(tmpctx, "Invalid token in json input: '%s'",
 			    tal_strndup(tmpctx, jcon->buffer, jcon->used)));
+		if (in_transaction)
+			db_commit_transaction(jcon->ld->wallet->db);
 		return io_halfclose(conn);
 	}
 
@@ -1046,6 +1048,10 @@ static struct io_plan *read_json(struct io_conn *conn,
 		goto read_more;
 	}
 
+	if (!in_transaction) {
+		db_begin_transaction(jcon->ld->wallet->db);
+		in_transaction = true;
+	}
 	parse_request(jcon, jcon->input_toks);
 
 	/* Remove first {}. */
@@ -1057,16 +1063,12 @@ static struct io_plan *read_json(struct io_conn *conn,
 	jsmn_init(&jcon->input_parser);
 	toks_reset(jcon->input_toks);
 
-	/* If we have more to process, try again.  FIXME: this still gets
-	 * first priority in io_loop, so can starve others.  Hack would be
-	 * a (non-zero) timer, but better would be to have io_loop avoid
-	 * such livelock */
-	if (jcon->used) {
-		jcon->len_read = 0;
-		return io_always(conn, read_json, jcon);
-	}
+	if (jcon->used)
+		goto again;
 
 read_more:
+	if (in_transaction)
+		db_commit_transaction(jcon->ld->wallet->db);
 	return io_read_partial(conn, jcon->buffer + jcon->used,
 			       tal_count(jcon->buffer) - jcon->used,
 			       &jcon->len_read, read_json, jcon);
