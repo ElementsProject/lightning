@@ -107,6 +107,22 @@ def write_config(filename, opts, regtest_opts=None, section_name='regtest'):
                 f.write("{}={}\n".format(k, v))
 
 
+def scid_to_int(scid):
+    """Convert a 1x2x3 scid to a raw integer"""
+    blocknum, txnum, outnum = scid.split("x")
+
+    # BOLT #7:
+    # ## Definition of `short_channel_id`
+    #
+    # The `short_channel_id` is the unique description of the funding transaction.
+    # It is constructed as follows:
+    # 1. the most significant 3 bytes: indicating the block height
+    # 2. the next 3 bytes: indicating the transaction index within the block
+    # 3. the least significant 2 bytes: indicating the output index that pays to the
+    #    channel.
+    return (int(blocknum) << 40) | (int(txnum) << 16) | int(outnum)
+
+
 def only_one(arr):
     """Many JSON RPC calls return an array; often we only expect a single entry
     """
