@@ -5146,3 +5146,96 @@ struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 
 	return stmt;
 }
+
+/* We use a different query form if we only care about a single channel. */
+struct wallet_htlc_iter {
+	struct db_stmt *stmt;
+	/* Non-zero if they specified it */
+	struct short_channel_id scid;
+};
+
+struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
+					    struct wallet *w,
+					    const struct channel *chan,
+					    struct short_channel_id *scid,
+					    u64 *htlc_id,
+					    int *cltv_expiry,
+					    enum side *owner,
+					    struct amount_msat *msat,
+					    struct sha256 *payment_hash,
+					    enum htlc_state *hstate)
+{
+	struct wallet_htlc_iter *i = tal(ctx, struct wallet_htlc_iter);
+
+	if (chan) {
+		i->scid = *channel_scid_or_local_alias(chan);
+		assert(i->scid.u64 != 0);
+		assert(chan->dbid != 0);
+
+		i->stmt = db_prepare_v2(w->db,
+					SQL("SELECT h.channel_htlc_id"
+					    ", h.cltv_expiry"
+					    ", h.direction"
+					    ", h.msatoshi"
+					    ", h.payment_hash"
+					    ", h.hstate"
+					    " FROM channel_htlcs h"
+					    " WHERE channel_id = ?"));
+		db_bind_u64(i->stmt, 0, chan->dbid);
+	} else {
+		i->scid.u64 = 0;
+		i->stmt = db_prepare_v2(w->db,
+					SQL("SELECT channels.scid"
+					    ", channels.alias_local"
+					    ", h.channel_htlc_id"
+					    ", h.cltv_expiry"
+					    ", h.direction"
+					    ", h.msatoshi"
+					    ", h.payment_hash"
+					    ", h.hstate"
+					    " FROM channel_htlcs h"
+					    " JOIN channels ON channels.id = h.channel_id"));
+	}
+	/* FIXME: db_prepare should take ctx! */
+	tal_steal(i, i->stmt);
+	db_query_prepared(i->stmt);
+
+	return wallet_htlcs_next(w, i,
+				 scid, htlc_id, cltv_expiry, owner, msat,
+				 payment_hash, hstate);
+}
+
+struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
+					   struct wallet_htlc_iter *iter,
+					   struct short_channel_id *scid,
+					   u64 *htlc_id,
+					   int *cltv_expiry,
+					   enum side *owner,
+					   struct amount_msat *msat,
+					   struct sha256 *payment_hash,
+					   enum htlc_state *hstate)
+{
+	if (!db_step(iter->stmt))
+		return tal_free(iter);
+
+	if (iter->scid.u64 != 0)
+		*scid = iter->scid;
+	else {
+		if (db_col_is_null(iter->stmt, "channels.scid"))
+			db_col_scid(iter->stmt, "channels.alias_local", scid);
+		else {
+			db_col_scid(iter->stmt, "channels.scid", scid);
+			db_col_ignore(iter->stmt, "channels.alias_local");
+		}
+	}
+	*htlc_id = db_col_u64(iter->stmt, "h.channel_htlc_id");
+	if (db_col_int(iter->stmt, "h.direction") == DIRECTION_INCOMING)
+		*owner = REMOTE;
+	else
+		*owner = LOCAL;
+	db_col_amount_msat(iter->stmt, "h.msatoshi", msat);
+	db_col_sha256(iter->stmt, "h.payment_hash", payment_hash);
+	*cltv_expiry = db_col_int(iter->stmt, "h.cltv_expiry");
+	*hstate = db_col_int(iter->stmt, "h.hstate");
+	return iter;
+}

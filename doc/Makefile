@@ -49,6 +49,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listdatastore.7 \
 	doc/lightning-listforwards.7 \
 	doc/lightning-listfunds.7 \
+	doc/lightning-listhtlcs.7 \
 	doc/lightning-listinvoices.7 \
 	doc/lightning-listoffers.7 \
 	doc/lightning-listpays.7 \

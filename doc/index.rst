@@ -76,6 +76,7 @@ Core Lightning Documentation
    lightning-listdatastore <lightning-listdatastore.7.md>
    lightning-listforwards <lightning-listforwards.7.md>
    lightning-listfunds <lightning-listfunds.7.md>
+   lightning-listhtlcs <lightning-listhtlcs.7.md>
    lightning-listinvoices <lightning-listinvoices.7.md>
    lightning-listnodes <lightning-listnodes.7.md>
    lightning-listoffers <lightning-listoffers.7.md>

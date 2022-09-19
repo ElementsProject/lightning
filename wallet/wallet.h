@@ -1632,4 +1632,40 @@ struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 				      const u8 **data,
 				      u64 *generation);
 
+/**
+ * Iterate through the htlcs table.
+ * @w: the wallet
+ * @chan: optional channel to filter by
+ *
+ * Returns pointer to hand as @iter to wallet_htlcs_next(), or NULL.
+ * If you choose not to call wallet_htlcs_next() you must free it!
+ */
+struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
+					    struct wallet *w,
+					    const struct channel *chan,
+					    struct short_channel_id *scid,
+					    u64 *htlc_id,
+					    int *cltv_expiry,
+					    enum side *owner,
+					    struct amount_msat *msat,
+					    struct sha256 *payment_hash,
+					    enum htlc_state *hstate);
+
+/**
+ * Iterate through the htlcs table.
+ * @w: the wallet
+ * @iter: the previous iter.
+ *
+ * Returns pointer to hand as @iter to wallet_htlcs_next(), or NULL.
+ * If you choose not to call wallet_htlcs_next() you must free it!
+ */
+struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
+					   struct wallet_htlc_iter *iter,
+					   struct short_channel_id *scid,
+					   u64 *htlc_id,
+					   int *cltv_expiry,
+					   enum side *owner,
+					   struct amount_msat *msat,
+					   struct sha256 *payment_hash,
+					   enum htlc_state *hstate);
 #endif /* LIGHTNING_WALLET_WALLET_H */
