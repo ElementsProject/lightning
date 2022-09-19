@@ -504,7 +504,7 @@ impl From<&responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
     fn from(c: &responses::ListsendpaysPayments) -> Self {
         Self {
             id: c.id.clone(), // Rule #2 for type u64
-            groupid: c.groupid.clone(), // Rule #2 for type u64?
+            groupid: c.groupid.clone(), // Rule #2 for type u64
             payment_hash: c.payment_hash.clone().to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?

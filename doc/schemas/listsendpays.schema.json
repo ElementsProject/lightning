@@ -15,6 +15,7 @@
           "id",
           "payment_hash",
           "status",
+          "groupid",
           "created_at",
           "amount_sent_msat"
         ],

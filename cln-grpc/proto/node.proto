@@ -708,7 +708,7 @@ message ListsendpaysPayments {
 		COMPLETE = 2;
 	}
 	uint64 id = 1;
-	optional uint64 groupid = 2;
+	uint64 groupid = 2;
 	bytes payment_hash = 3;
 	ListsendpaysPaymentsStatus status = 4;
 	optional Amount amount_msat = 5;
