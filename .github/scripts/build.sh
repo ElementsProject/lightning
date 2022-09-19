@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 echo "Running in $(pwd)"
 export ARCH=${ARCH:-64}
 export BOLTDIR=bolts
