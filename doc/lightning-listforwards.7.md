@@ -57,7 +57,7 @@ Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-getinfo(7)
+lightning-autoclean-status(7), lightning-getinfo(7)
 
 RESOURCES
 ---------
