@@ -2943,6 +2943,7 @@ def test_autoclean(node_factory):
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=20)
     l1.rpc.invoice(amount_msat=12300, label='inv3', description='description3', expiry=20)
     inv4 = l1.rpc.invoice(amount_msat=12300, label='inv4', description='description4', expiry=2000)
+    inv5 = l1.rpc.invoice(amount_msat=12300, label='inv5', description='description5', expiry=2000)
     l1.rpc.autoclean(subsystem='expiredinvoices', age=2)
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is True
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['age'] == 2
@@ -2959,8 +2960,9 @@ def test_autoclean(node_factory):
     wait_for(lambda: l1.rpc.listinvoices('inv1')['invoices'] == [])
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1
 
-    # Keeps settings across restarts.
+    # Keeps settings across restarts
     l1.restart()
+
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is True
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['age'] == 2
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 1
@@ -2985,12 +2987,17 @@ def test_autoclean(node_factory):
 
     # Now enable: they will get autocleaned
     l1.rpc.autoclean(subsystem='expiredinvoices', age=2)
-    wait_for(lambda: len(l1.rpc.listinvoices()['invoices']) == 1)
+    wait_for(lambda: len(l1.rpc.listinvoices()['invoices']) == 2)
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3
 
     # Reconnect, l0 pays invoice, we test paid expiry.
     l1.rpc.connect(l0.info['id'], 'localhost', l0.port)
     l0.rpc.pay(inv4['bolt11'])
+
+    # We manually delete inv5 so we can have l0 fail a payment.
+    l1.rpc.delinvoice('inv5', 'unpaid')
+    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
+        l0.rpc.pay(inv5['bolt11'])
 
     assert l1.rpc.autoclean_status()['autoclean']['paidinvoices']['enabled'] is False
     assert l1.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 0
@@ -3000,6 +3007,18 @@ def test_autoclean(node_factory):
     wait_for(lambda: l1.rpc.listinvoices()['invoices'] == [])
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3
     assert l1.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 1
+
+    assert only_one(l0.rpc.listpays(inv5['bolt11'])['pays'])['status'] == 'failed'
+    assert only_one(l0.rpc.listpays(inv4['bolt11'])['pays'])['status'] == 'complete'
+    l0.rpc.autoclean(subsystem='failedpays', age=2)
+
+    wait_for(lambda: l0.rpc.listpays(inv5['bolt11'])['pays'] == [])
+    assert l0.rpc.autoclean_status()['autoclean']['failedpays']['cleaned'] == 1
+    assert l0.rpc.autoclean_status()['autoclean']['succeededpays']['cleaned'] == 0
+
+    l0.rpc.autoclean(subsystem='succeededpays', age=2)
+    wait_for(lambda: l0.rpc.listpays(inv4['bolt11'])['pays'] == [])
+    assert l0.rpc.listsendpays() == {'payments': []}
 
 
 def test_block_added_notifications(node_factory, bitcoind):
