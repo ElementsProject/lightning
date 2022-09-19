@@ -206,7 +206,7 @@ fund_nodes() {
 
 	last_node=""
 
-	for i in $NODES; do
+	echo "$NODES" | while read -r i; do
 
 		if [ -z "$last_node" ]; then
 			last_node=$i
@@ -253,6 +253,7 @@ fund_nodes() {
 		done
 
 		echo "done."
+
 	done
 }
 
