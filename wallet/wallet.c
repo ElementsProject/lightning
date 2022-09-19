@@ -3518,8 +3518,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 const struct wallet_payment **
 wallet_payment_list(const tal_t *ctx,
 		    struct wallet *wallet,
-		    const struct sha256 *payment_hash,
-		    enum wallet_payment_status *status)
+		    const struct sha256 *payment_hash)
 {
 	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
@@ -3528,47 +3527,58 @@ wallet_payment_list(const tal_t *ctx,
 
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
 
-	u8 enable_payment_hash = payment_hash != NULL ? 0 : 1;
-	u8 enable_status = status != NULL ? 0 : 1;
-
-	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
-				      "  id"
-				      ", status"
-				      ", destination"
-				      ", msatoshi"
-				      ", payment_hash"
-				      ", timestamp"
-				      ", payment_preimage"
-				      ", path_secrets"
-				      ", route_nodes"
-				      ", route_channels"
-				      ", msatoshi_sent"
-				      ", description"
-				      ", bolt11"
-				      ", paydescription"
-				      ", failonionreply"
-				      ", total_msat"
-				      ", partid"
-				      ", local_offer_id"
-				      ", groupid"
-				      ", completed_at"
-				      " FROM payments"
-				      " WHERE"
-				      "  (payment_hash = ? OR 1=?) AND"
-				      "  (status = ? OR 1=?)"
-				      " ORDER BY id;"));
-
-	if (payment_hash)
+	if (payment_hash) {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_offer_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " WHERE"
+						     "  payment_hash = ?"
+						     " ORDER BY id;"));
 		db_bind_sha256(stmt, 0, payment_hash);
-	else
-		db_bind_null(stmt, 0);
-	db_bind_int(stmt, 1, enable_payment_hash);
-	if (status)
-		db_bind_int(stmt, 2, wallet_payment_status_in_db(*status));
-	else
-		db_bind_null(stmt, 2);
-	db_bind_int(stmt, 3, enable_status);
-
+	} else {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_offer_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " ORDER BY id;"));
+	}
 	db_query_prepared(stmt);
 
 	for (i = 0; db_step(stmt); i++) {
