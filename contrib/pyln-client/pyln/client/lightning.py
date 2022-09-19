@@ -531,6 +531,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("autocleaninvoice", payload)
 
+    def autoclean_status(self, subsystem=None):
+        """
+        Print status of autocleaning (optionally, just for {subsystem}).
+        """
+        payload = {
+            "subsystem": subsystem,
+        }
+        return self.call("autoclean-status", payload)
+
     def check(self, command_to_check, **kwargs):
         """
         Checks if a command is valid without running it.

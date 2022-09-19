@@ -430,18 +430,12 @@ have to do that.
 This option specifies that these (comma-separated) types are to be
 accepted, and ignored.
 
-### Invoice control options:
+### Cleanup control options:
 
-* **autocleaninvoice-cycle**=*SECONDS* [plugin `autoclean`]
+* **autoclean-cycle**=*SECONDS* [plugin `autoclean`]
 
-  Perform cleanup of expired invoices every *SECONDS* seconds, or disable
-if 0. Usually unpaid expired invoices are uninteresting, and just take
-up space in the database.
-
-* **autocleaninvoice-expired-by**=*SECONDS* [plugin `autoclean`]
-
-  Control how long invoices must have been expired before they are cleaned
-(if *autocleaninvoice-cycle* is non-zero).
+  Perform search for things to clean every *SECONDS* seconds (default
+3600, or 1 hour, which is usually sufficient).
 
 ### Payment control options:
 
