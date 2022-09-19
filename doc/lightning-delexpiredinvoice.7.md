@@ -31,7 +31,7 @@ ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-delinvoice(7), lightning-autocleaninvoice(7)
+lightning-delinvoice(7), lightning-autoclean-status(7)
 
 RESOURCES
 ---------

@@ -74,7 +74,7 @@ SEE ALSO
 
 lightning-listinvoice(7), lightning-waitinvoice(7),
 lightning-invoice(7), lightning-delexpiredinvoice(7),
-lightning-autocleaninvoice(7)
+lightning-autoclean-status(7)
 
 RESOURCES
 ---------

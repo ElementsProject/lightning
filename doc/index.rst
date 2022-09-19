@@ -30,7 +30,7 @@ Core Lightning Documentation
    :caption: Manpages
 
    lightning-addgossip <lightning-addgossip.7.md>
-   lightning-autocleaninvoice <lightning-autocleaninvoice.7.md>
+   lightning-autoclean-status <lightning-autoclean-status.7.md>
    lightning-bkpr-channelsapy <lightning-bkpr-channelsapy.7.md>
    lightning-bkpr-dumpincomecsv <lightning-bkpr-dumpincomecsv.7.md>
    lightning-bkpr-inspect <lightning-bkpr-inspect.7.md>

@@ -8,7 +8,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightningd.8 \
 	doc/lightningd-config.5 \
 	doc/lightning-addgossip.7 \
-	doc/lightning-autocleaninvoice.7 \
+	doc/lightning-autoclean-status.7 \
 	doc/lightning-bkpr-channelsapy.7 \
 	doc/lightning-bkpr-dumpincomecsv.7 \
 	doc/lightning-bkpr-inspect.7 \
