@@ -2940,6 +2940,7 @@ def test_autoclean(node_factory):
     assert l1.rpc.autoclean_status('expiredinvoices')['autoclean']['expiredinvoices']['enabled'] is False
     l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=5)
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=20)
+    l1.rpc.invoice(amount_msat=12300, label='inv3', description='description3', expiry=20)
     l1.rpc.autoclean(subsystem='expiredinvoices', age=2)
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is True
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['age'] == 2
@@ -2964,7 +2965,7 @@ def test_autoclean(node_factory):
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is False
     assert 'age' not in l1.rpc.autoclean_status()['autoclean']['expiredinvoices']
 
-    # Same with inv2.
+    # Same with inv2/3
     wait_for(lambda: only_one(l1.rpc.listinvoices('inv2')['invoices'])['status'] == 'expired')
 
     # Give it time to notice.
@@ -2977,9 +2978,9 @@ def test_autoclean(node_factory):
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is False
     assert 'age' not in l1.rpc.autoclean_status()['autoclean']['expiredinvoices']
 
-    # Now enable: it will get autocleaned
+    # Now enable: they will get autocleaned
     l1.rpc.autoclean(subsystem='expiredinvoices', age=2)
-    wait_for(lambda: l1.rpc.listinvoices('inv2')['invoices'] == [])
+    wait_for(lambda: l1.rpc.listinvoices()['invoices'] == [])
 
 
 def test_block_added_notifications(node_factory, bitcoind):

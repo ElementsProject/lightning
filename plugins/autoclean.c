@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
+#include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -37,10 +38,22 @@ static bool json_to_subsystem(const char *buffer, const jsmntok_t *tok,
 static u64 deprecated_cycle_seconds = UINT64_MAX;
 static u64 cycle_seconds = 3600;
 static u64 subsystem_age[NUM_SUBSYSTEM];
-
+static size_t cleanup_reqs_remaining;
+static struct plugin *plugin;
 static struct plugin_timer *cleantimer;
 
 static void do_clean(void *cb_arg);
+
+/* Fatal failures */
+static struct command_result *cmd_failed(struct command *cmd,
+					 const char *buf,
+					 const jsmntok_t *result,
+					 char *cmdname)
+{
+	plugin_err(plugin, "Failed '%s': '%.*s'", cmdname,
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+}
 
 static const char *datastore_path(const tal_t *ctx,
 				  enum subsystem subsystem,
@@ -50,32 +63,101 @@ static const char *datastore_path(const tal_t *ctx,
 		       subsystem_to_str(subsystem), field);
 }
 
-static struct command_result *ignore(struct command *timer,
-				     const char *buf,
-				     const jsmntok_t *result,
-				     void *arg)
+static struct command_result *set_next_timer(struct plugin *plugin)
 {
-	struct plugin *p = arg;
-	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean, p);
-	return timer_complete(p);
+	plugin_log(plugin, LOG_DBG, "setting next timer");
+	cleantimer = plugin_timer(plugin, time_from_sec(cycle_seconds), do_clean, plugin);
+	return timer_complete(plugin);
 }
 
-static void do_clean(void *cb_arg)
+static struct command_result *del_done(struct command *cmd,
+				       const char *buf,
+				       const jsmntok_t *result,
+				       ptrint_t *unused)
 {
-	struct plugin *p = cb_arg;
+	assert(cleanup_reqs_remaining != 0);
+	plugin_log(plugin, LOG_DBG, "delinvoice_done: %zu remaining",
+		   cleanup_reqs_remaining-1);
+	if (--cleanup_reqs_remaining == 0)
+		return set_next_timer(plugin);
+	return command_still_pending(cmd);
+}
 
-	if (!subsystem_age[EXPIREDINVOICES]) {
-		ignore(NULL, NULL, NULL, p);
-		return;
+static struct command_result *del_failed(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   ptrint_t *subsystemp)
+{
+	plugin_log(plugin, LOG_UNUSUAL, "%s del failed: %.*s",
+		   subsystem_to_str(ptr2int(subsystemp)),
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+	assert(cleanup_reqs_remaining != 0);
+	if (--cleanup_reqs_remaining == 0)
+		return command_still_pending(cmd);
+	return set_next_timer(plugin);
+}
+
+static struct command_result *listinvoices_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						char *unused)
+{
+	const jsmntok_t *t, *inv = json_get_member(buf, result, "invoices");
+	size_t i;
+	u64 now = time_now().ts.tv_sec;
+
+	json_for_each_arr(i, t, inv) {
+		const jsmntok_t *status = json_get_member(buf, t, "status");
+		const jsmntok_t *time;
+		u64 invtime;
+
+		if (json_tok_streq(buf, status, "expired"))
+			time = json_get_member(buf, t, "expires_at");
+		else
+			continue;
+
+		if (!json_to_u64(buf, time, &invtime)) {
+			plugin_err(plugin, "Bad time '%.*s'",
+				   json_tok_full_len(time),
+				   json_tok_full(buf, time));
+		}
+
+		if (invtime <= now - subsystem_age[EXPIREDINVOICES]) {
+			struct out_req *req;
+			const jsmntok_t *label = json_get_member(buf, t, "label");
+
+			req = jsonrpc_request_start(plugin, NULL, "delinvoice",
+						    del_done, del_failed,
+						    int2ptr(EXPIREDINVOICES));
+			json_add_tok(req->js, "label", label, buf);
+			json_add_tok(req->js, "status", status, buf);
+			send_outreq(plugin, req);
+			plugin_log(plugin, LOG_DBG, "Expiring %.*s",
+				   json_tok_full_len(label), json_tok_full(buf, label));
+			cleanup_reqs_remaining++;
+		}
 	}
 
-	/* FIXME: delexpiredinvoice should be in our plugin too! */
-	struct out_req *req = jsonrpc_request_start(p, NULL, "delexpiredinvoice",
-						    ignore, ignore, p);
-	json_add_u64(req->js, "maxexpirytime",
-		     time_now().ts.tv_sec - subsystem_age[EXPIREDINVOICES]);
+	if (cleanup_reqs_remaining)
+		return command_still_pending(cmd);
+	return set_next_timer(plugin);
+}
 
-	send_outreq(p, req);
+static void do_clean(void *unused)
+{
+	struct out_req *req = NULL;
+
+	assert(cleanup_reqs_remaining == 0);
+	if (subsystem_age[EXPIREDINVOICES] != 0) {
+		req = jsonrpc_request_start(plugin, NULL, "listinvoices",
+					    listinvoices_done, cmd_failed,
+					    (char *)"listinvoices");
+		send_outreq(plugin, req);
+	}
+
+	if (!req)
+		set_next_timer(plugin);
 }
 
 static struct command_result *json_autocleaninvoice(struct command *cmd,
@@ -203,6 +285,7 @@ static struct command_result *json_autoclean(struct command *cmd,
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
+	plugin = p;
 	if (deprecated_cycle_seconds != UINT64_MAX) {
 		if (deprecated_cycle_seconds == 0) {
 			plugin_log(p, LOG_DBG, "autocleaning not active");
