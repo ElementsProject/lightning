@@ -11,10 +11,9 @@ pyln-client = { path = "./contrib/pyln-client", develop = true }
 pyln-proto = { path = "./contrib/pyln-proto", develop = true }
 Mako = "^1.1.6"
 websocket-client = "^1.2.3"
-grpcio-tools = "1.47.0"
-grpcio = "1.47.0"
+grpcio-tools = "1.49.0"
+grpcio = "1.49.0"
 
-[tool.poetry.dev-dependencies]
 # Test dependencies and inherited dependencies belong here
 crc32c = "^2.2.post0"  # Belongs to lnprototest
 pytest-xdist = "^2.5.0"
