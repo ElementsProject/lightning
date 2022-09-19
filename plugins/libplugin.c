@@ -669,10 +669,14 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 			   json_tok_full_len(toks),
 			   json_tok_full(plugin->rpc_buffer, toks));
 	out = uintmap_get(&plugin->out_reqs, id);
-	if (!out)
-		plugin_err(plugin, "JSON reply with unknown id '%.*s' (%"PRIu64")",
+	if (!out) {
+		/* This can actually happen, if they free req! */
+		plugin_log(plugin, LOG_DBG, "JSON reply with unknown id '%.*s' (%"PRIu64")",
 			   json_tok_full_len(toks),
-			   json_tok_full(plugin->rpc_buffer, toks), id);
+			   json_tok_full(plugin->rpc_buffer, toks),
+			   id);
+		return;
+	}
 
 	/* Remove destructor if one existed */
 	if (out->cmd)
