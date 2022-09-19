@@ -223,8 +223,6 @@ static struct command_result *listinvoices_done(struct command *cmd,
 			json_add_tok(req->js, "label", label, buf);
 			json_add_tok(req->js, "status", status, buf);
 			send_outreq(plugin, req);
-			plugin_log(plugin, LOG_DBG, "Cleaning up %.*s",
-				   json_tok_full_len(label), json_tok_full(buf, label));
 		}
 	}
 
@@ -278,8 +276,6 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			json_add_tok(req->js, "payment_hash", phash, buf);
 			json_add_tok(req->js, "status", status, buf);
 			send_outreq(plugin, req);
-			plugin_log(plugin, LOG_DBG, "Cleaning up %.*s",
-				   json_tok_full_len(phash), json_tok_full(buf, phash));
 		}
 	}
 
@@ -343,11 +339,6 @@ static struct command_result *listforwards_done(struct command *cmd,
 			json_add_tok(req->js, "in_htlc_id", inid, buf);
 			json_add_tok(req->js, "status", status, buf);
 			send_outreq(plugin, req);
-			plugin_log(plugin, LOG_DBG, "Cleaning up fwd %.*s/%.*s",
-				   json_tok_full_len(inchan),
-				   json_tok_full(buf, inchan),
-				   json_tok_full_len(inid),
-				   json_tok_full(buf, inid));
 		}
 	}
 
