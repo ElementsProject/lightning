@@ -887,6 +887,39 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE payments ADD completed_at INTEGER DEFAULT NULL;"), NULL},
     {SQL("UPDATE payments SET completed_at = timestamp WHERE status != 0;"), NULL},
     {SQL("CREATE INDEX payments_idx ON payments (payment_hash)"), NULL},
+    /* forwards table outlives the channels, so we move there from old forwarded_payments table;
+     * but here the ids are the HTLC numbers, not the internal db ids. */
+    {SQL("CREATE TABLE forwards ("
+	 "in_channel_scid BIGINT"
+	 ", in_htlc_id BIGINT"
+	 ", out_channel_scid BIGINT"
+	 ", out_htlc_id BIGINT"
+	 ", in_msatoshi BIGINT"
+	 ", out_msatoshi BIGINT"
+	 ", state INTEGER"
+	 ", received_time BIGINT"
+	 ", resolved_time BIGINT"
+	 ", failcode INTEGER"
+	 ", forward_style INTEGER"
+	 ", PRIMARY KEY(in_channel_scid, in_htlc_id))"), NULL},
+    {SQL("INSERT INTO forwards SELECT"
+	 " in_channel_scid"
+	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.in_htlc_id)"
+	 ", out_channel_scid"
+	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.out_htlc_id)"
+	 ", in_msatoshi"
+	 ", out_msatoshi"
+	 ", state"
+	 ", received_time"
+	 ", resolved_time"
+	 ", failcode"
+	 ", forward_style"
+	 " FROM forwarded_payments"
+	 " WHERE"
+	 "  in_htlc_id IS NOT NULL"), NULL},
+    {SQL("DROP INDEX forwarded_payments_state;"), NULL},
+    {SQL("DROP INDEX forwarded_payments_out_htlc_id;"), NULL},
+    {SQL("DROP TABLE forwarded_payments;"), NULL},
 };
 
 /* Released versions are of form v{num}[.{num}]* */

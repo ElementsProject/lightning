@@ -1345,6 +1345,10 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     plugin_stats = l2.rpc.call('listforwards_plugin')['forwards']
     assert len(plugin_stats) == 6
 
+    # We don't have payment_hash in listforwards any more.
+    for p in plugin_stats:
+        del p['payment_hash']
+
     # use stats to build what we expect went to plugin.
     expect = stats[0].copy()
     # First event won't have conclusion.

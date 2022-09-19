@@ -1389,7 +1389,7 @@ def test_forward_stats(node_factory, bitcoind):
     # Select all forwardings, ordered by htlc_id to ensure the order
     # matches below
     forwardings = l2.db_query("SELECT *, in_msatoshi - out_msatoshi as fee "
-                              "FROM forwarded_payments "
+                              "FROM forwards "
                               "ORDER BY in_htlc_id;")
     assert(len(forwardings) == 3)
     states = [f['state'] for f in forwardings]
