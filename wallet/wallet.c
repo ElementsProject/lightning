@@ -3403,7 +3403,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("SELECT failonionreply, faildestperm"
 				 ", failindex, failcode"
-				 ", failnode, failchannel"
+				 ", failnode, failscid"
 				 ", failupdate, faildetail, faildirection"
 				 "  FROM payments"
 				 " WHERE payment_hash=? AND partid=? AND groupid=?;"));
@@ -3428,14 +3428,12 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 		*failnode = tal(ctx, struct node_id);
 		db_col_node_id(stmt, "failnode", *failnode);
 	}
-	if (db_col_is_null(stmt, "failchannel")) {
+	if (db_col_is_null(stmt, "failscid")) {
 		db_col_ignore(stmt, "faildirection");
 		*failchannel = NULL;
 	} else {
 		*failchannel = tal(ctx, struct short_channel_id);
-		resb = db_col_short_channel_id_str(stmt, "failchannel",
-						   *failchannel);
-		assert(resb);
+		db_col_scid(stmt, "failscid", *failchannel);
 
 		/* For pre-0.6.2 dbs, direction will be 0 */
 		*faildirection = db_col_int(stmt, "faildirection");
@@ -3474,7 +3472,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 					     "     , failindex=?"
 					     "     , failcode=?"
 					     "     , failnode=?"
-					     "     , failchannel=?"
+					     "     , failscid=?"
 					     "     , failupdate=?"
 					     "     , faildetail=?"
 					     "     , faildirection=?"
@@ -3494,7 +3492,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 		db_bind_null(stmt, 4);
 
 	if (failchannel) {
-		db_bind_short_channel_id_str(stmt, 5, failchannel);
+		db_bind_scid(stmt, 5, failchannel);
 		db_bind_int(stmt, 8, faildirection);
 	} else {
 		db_bind_null(stmt, 5);

@@ -63,6 +63,10 @@ static void migrate_channels_scids_as_integers(struct lightningd *ld,
 					       struct db *db,
 					       const struct migration_context *mc);
 
+static void migrate_payments_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -926,6 +930,7 @@ static struct migration dbmigrations[] = {
     {SQL("DROP TABLE forwarded_payments;"), NULL},
     /* Adds scid column, then moves short_channel_id across to it */
     {SQL("ALTER TABLE channels ADD scid BIGINT;"), migrate_channels_scids_as_integers},
+    {SQL("ALTER TABLE payments ADD failscid BIGINT;"), migrate_payments_scids_as_integers},
 };
 
 /* Released versions are of form v{num}[.{num}]* */
@@ -1503,4 +1508,41 @@ static void migrate_channels_scids_as_integers(struct lightningd *ld,
 	 * (and sqlite3 has them referencing a now-deleted table!).
 	 * When we can assume sqlite3 2021-04-19 (3.35.5), we can
 	 * simply use DROP COLUMN (yay!) */
+}
+
+static void migrate_payments_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc)
+{
+	struct db_stmt *stmt;
+	const char *colnames[] = {"failchannel"};
+
+	stmt = db_prepare_v2(db, SQL("SELECT id, failchannel FROM payments"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct db_stmt *update_stmt;
+		struct short_channel_id scid;
+		const char *str;
+
+		if (db_col_is_null(stmt, "failchannel")) {
+			db_col_ignore(stmt, "id");
+			continue;
+		}
+
+		str = db_col_strdup(tmpctx, stmt, "failchannel");
+		if (!short_channel_id_from_str(str, strlen(str), &scid))
+			db_fatal("Cannot convert invalid payments.failchannel '%s'",
+				 str);
+		update_stmt = db_prepare_v2(db, SQL("UPDATE payments SET"
+						    " failscid = ?"
+						    " WHERE id = ?"));
+		db_bind_scid(update_stmt, 0, &scid);
+		db_bind_u64(update_stmt, 1, db_col_u64(stmt, "id"));
+		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
+	}
+	tal_free(stmt);
+
+	if (!db->config->delete_columns(db, "payments", colnames, ARRAY_SIZE(colnames)))
+		db_fatal("Could not delete payments.failchannel");
 }
