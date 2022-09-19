@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 export DEBIAN_FRONTEND=noninteractive
 export BITCOIN_VERSION=0.20.1
 export ELEMENTS_VERSION=0.18.1.8
