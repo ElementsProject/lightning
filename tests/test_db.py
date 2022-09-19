@@ -2,7 +2,7 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, TIMEOUT, only_one
+from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, TIMEOUT, only_one, scid_to_int
 
 import base64
 import os
@@ -161,7 +161,7 @@ def test_scid_upgrade(node_factory, bitcoind):
 
     l1.daemon.opts['database-upgrade'] = True
     l1.daemon.start()
-    assert l1.db_query('SELECT short_channel_id from channels;') == [{'short_channel_id': '103x1x1'}]
+    assert l1.db_query('SELECT scid FROM channels;') == [{'scid': scid_to_int('103x1x1')}]
     assert l1.db_query('SELECT failchannel from payments;') == [{'failchannel': '103x1x1'}]
 
 

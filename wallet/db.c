@@ -59,6 +59,10 @@ static void fillin_missing_channel_blockheights(struct lightningd *ld,
 						struct db *db,
 						const struct migration_context *mc);
 
+static void migrate_channels_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -920,6 +924,8 @@ static struct migration dbmigrations[] = {
     {SQL("DROP INDEX forwarded_payments_state;"), NULL},
     {SQL("DROP INDEX forwarded_payments_out_htlc_id;"), NULL},
     {SQL("DROP TABLE forwarded_payments;"), NULL},
+    /* Adds scid column, then moves short_channel_id across to it */
+    {SQL("ALTER TABLE channels ADD scid BIGINT;"), migrate_channels_scids_as_integers},
 };
 
 /* Released versions are of form v{num}[.{num}]* */
@@ -1454,4 +1460,47 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 	}
 
 	tal_free(stmt);
+}
+
+/* We used to store scids as strings... */
+static void migrate_channels_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc)
+{
+	struct db_stmt *stmt;
+	char **scids = tal_arr(tmpctx, char *, 0);
+
+	stmt = db_prepare_v2(db, SQL("SELECT short_channel_id FROM channels"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		if (db_col_is_null(stmt, "short_channel_id"))
+			continue;
+		tal_arr_expand(&scids,
+			       db_col_strdup(scids, stmt, "short_channel_id"));
+	}
+	tal_free(stmt);
+
+	for (size_t i = 0; i < tal_count(scids); i++) {
+		struct short_channel_id scid;
+		if (!short_channel_id_from_str(scids[i], strlen(scids[i]), &scid))
+			db_fatal("Cannot convert invalid channels.short_channel_id '%s'",
+				 scids[i]);
+
+		stmt = db_prepare_v2(db, SQL("UPDATE channels"
+					     " SET scid = ?"
+					     " WHERE short_channel_id = ?"));
+		db_bind_scid(stmt, 0, &scid);
+		db_bind_text(stmt, 1, scids[i]);
+		db_exec_prepared_v2(stmt);
+		if (db_count_changes(stmt) != 1)
+			db_fatal("Converting channels.short_channel_id '%s' gave %zu changes != 1?",
+				 scids[i], db_count_changes(stmt));
+		tal_free(stmt);
+	}
+
+	/* FIXME: We cannot use ->delete_columns to remove
+	 * short_channel_id, as other tables reference the channels
+	 * (and sqlite3 has them referencing a now-deleted table!).
+	 * When we can assume sqlite3 2021-04-19 (3.35.5), we can
+	 * simply use DROP COLUMN (yay!) */
 }

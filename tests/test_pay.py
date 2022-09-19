@@ -3,7 +3,7 @@ from fixtures import TEST_NETWORK
 from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
-from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
     EXPERIMENTAL_FEATURES, VALGRIND, mine_funding_to_announce, first_scid
@@ -1957,7 +1957,7 @@ def test_setchannel_usage(node_factory, bitcoind):
     def channel_get_config(scid):
         return l1.db.query(
             'SELECT feerate_base, feerate_ppm, htlc_minimum_msat, htlc_maximum_msat FROM channels '
-            'WHERE short_channel_id=\'{}\';'.format(scid))
+            'WHERE scid={};'.format(scid_to_int(scid)))
 
     # get short channel id
     scid = l1.get_channel_scid(l2)

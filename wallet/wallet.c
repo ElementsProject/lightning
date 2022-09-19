@@ -1293,10 +1293,9 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		}
 	}
 
-	if (!db_col_is_null(stmt, "short_channel_id")) {
+	if (!db_col_is_null(stmt, "scid")) {
 		scid = tal(tmpctx, struct short_channel_id);
-		if (!db_col_short_channel_id_str(stmt, "short_channel_id", scid))
-			return NULL;
+		db_col_scid(stmt, "scid", scid);
 	} else {
 		scid = NULL;
 	}
@@ -1552,7 +1551,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					"  id"
 					", peer_id"
-					", short_channel_id"
+					", scid"
 					", full_channel_id"
 					", channel_config_local"
 					", channel_config_remote"
@@ -1856,7 +1855,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
 					"  shachain_remote_id=?," // 0
-					"  short_channel_id=?," // 1
+					"  scid=?," // 1
 					"  full_channel_id=?," // 2
 					"  state=?," // 3
 					"  funder=?," // 4
@@ -1903,7 +1902,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					" WHERE id=?")); // 46
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
-		db_bind_short_channel_id_str(stmt, 1, chan->scid);
+		db_bind_scid(stmt, 1, chan->scid);
 	else
 		db_bind_null(stmt, 1);
 
@@ -4678,11 +4677,11 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		", t.blockheight"
 		", t.txindex"
 		", t.type as txtype"
-		", c2.short_channel_id as txchan"
+		", c2.scid as txchan"
 		", a.location"
 		", a.idx as ann_idx"
 		", a.type as annotation_type"
-		", c.short_channel_id"
+		", c.scid"
 		" FROM"
 		"  transactions t LEFT JOIN"
 		"  transaction_annotations a ON (a.txid = t.id) LEFT JOIN"
@@ -4725,8 +4724,7 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 			else
 				cur->annotation.type = 0;
 			if (!db_col_is_null(stmt, "txchan"))
-				db_col_short_channel_id_str(stmt, "txchan",
-							    &cur->annotation.channel);
+				db_col_scid(stmt, "txchan", &cur->annotation.channel);
 			else
 				cur->annotation.channel.u64 = 0;
 
@@ -4756,16 +4754,14 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 
 			/* cppcheck-suppress uninitvar - false positive on fatal() above */
 			ann->type = db_col_int(stmt, "annotation_type");
-			if (!db_col_is_null(stmt, "c.short_channel_id"))
-				db_col_short_channel_id_str(stmt,
-							    "c.short_channel_id",
-							    &ann->channel);
+			if (!db_col_is_null(stmt, "c.scid"))
+				db_col_scid(stmt, "c.scid", &ann->channel);
 			else
 				ann->channel.u64 = 0;
 		} else {
 			db_col_ignore(stmt, "ann_idx");
 			db_col_ignore(stmt, "annotation_type");
-			db_col_ignore(stmt, "c.short_channel_id");
+			db_col_ignore(stmt, "c.scid");
 		}
 	}
 	tal_free(stmt);
