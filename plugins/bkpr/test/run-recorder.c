@@ -1421,7 +1421,7 @@ int main(int argc, char *argv[])
 	bool ok = true;
 	/* Dummy for migration hooks */
 	struct plugin *plugin = tal(NULL, struct plugin);
-	plugin->js_arr = tal_arr(plugin, struct json_stream *, 0);
+	list_head_init(&plugin->js_list);
 
 	common_setup(argv[0]);
 
