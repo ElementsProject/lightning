@@ -38,6 +38,7 @@ static bool json_to_subsystem(const char *buffer, const jsmntok_t *tok,
 static u64 deprecated_cycle_seconds = UINT64_MAX;
 static u64 cycle_seconds = 3600;
 static u64 subsystem_age[NUM_SUBSYSTEM];
+static u64 num_cleaned[NUM_SUBSYSTEM];
 static size_t cleanup_reqs_remaining;
 static struct plugin *plugin;
 static struct plugin_timer *cleantimer;
@@ -70,17 +71,33 @@ static struct command_result *set_next_timer(struct plugin *plugin)
 	return timer_complete(plugin);
 }
 
+static struct command_result *clean_finished_one(struct command *cmd)
+{
+	assert(cleanup_reqs_remaining != 0);
+	if (--cleanup_reqs_remaining > 0)
+		return command_still_pending(cmd);
+
+	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
+		if (num_cleaned[i] == 0)
+			continue;
+
+		jsonrpc_set_datastore_string(plugin, cmd,
+					     datastore_path(tmpctx, i, "num"),
+					     tal_fmt(tmpctx, "%"PRIu64, num_cleaned[i]),
+					     "create-or-replace", NULL, NULL, NULL);
+
+	}
+
+	return set_next_timer(plugin);
+}
+
 static struct command_result *del_done(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *result,
 				       ptrint_t *unused)
 {
-	assert(cleanup_reqs_remaining != 0);
-	plugin_log(plugin, LOG_DBG, "delinvoice_done: %zu remaining",
-		   cleanup_reqs_remaining-1);
-	if (--cleanup_reqs_remaining == 0)
-		return set_next_timer(plugin);
-	return command_still_pending(cmd);
+	num_cleaned[EXPIREDINVOICES]++;
+	return clean_finished_one(cmd);
 }
 
 static struct command_result *del_failed(struct command *cmd,
@@ -92,10 +109,7 @@ static struct command_result *del_failed(struct command *cmd,
 		   subsystem_to_str(ptr2int(subsystemp)),
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
-	assert(cleanup_reqs_remaining != 0);
-	if (--cleanup_reqs_remaining == 0)
-		return command_still_pending(cmd);
-	return set_next_timer(plugin);
+	return clean_finished_one(cmd);
 }
 
 static struct command_result *listinvoices_done(struct command *cmd,
@@ -239,7 +253,7 @@ static struct command_result *json_success_subsystems(struct command *cmd,
 		json_add_bool(response, "enabled", subsystem_age[i] != 0);
 		if (subsystem_age[i] != 0)
 			json_add_u64(response, "age", subsystem_age[i]);
-		/* FIXME: Add stats! */
+		json_add_u64(response, "cleaned", num_cleaned[i]);
 		json_object_end(response);
 	}
 	json_object_end(response);
@@ -311,6 +325,10 @@ static const char *init(struct plugin *p,
 
 	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean, p);
 
+	for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
+		rpc_scan_datastore_str(plugin, datastore_path(tmpctx, i, "num"),
+				       JSON_SCAN(json_to_u64, &num_cleaned[i]));
+	}
 	return NULL;
 }
 
