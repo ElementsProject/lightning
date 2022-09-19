@@ -3069,6 +3069,107 @@ def test_autoclean(node_factory):
     assert l2.rpc.autoclean_status()['autoclean']['succeededforwards']['cleaned'] == 1
 
 
+def test_autoclean_once(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True},
+                                         wait_for_announce=True)
+
+    l3.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=1)
+    inv2 = l3.rpc.invoice(amount_msat=12300, label='inv2', description='description4')
+    inv3 = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description5')
+
+    l1.rpc.pay(inv2['bolt11'])
+    l3.rpc.delinvoice('inv3', 'unpaid')
+    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
+        l1.rpc.pay(inv3['bolt11'])
+
+    # Make sure > 1 second old!
+    time.sleep(2)
+    assert (l1.rpc.autoclean_once('failedpays', 1)
+            == {'autoclean': {'failedpays': {'cleaned': 1, 'uncleaned': 1}}})
+    assert l1.rpc.autoclean_status() == {'autoclean': {'failedpays': {'enabled': False,
+                                                                      'cleaned': 1},
+                                                       'succeededpays': {'enabled': False,
+                                                                         'cleaned': 0},
+                                                       'failedforwards': {'enabled': False,
+                                                                          'cleaned': 0},
+                                                       'succeededforwards': {'enabled': False,
+                                                                             'cleaned': 0},
+                                                       'expiredinvoices': {'enabled': False,
+                                                                           'cleaned': 0},
+                                                       'paidinvoices': {'enabled': False,
+                                                                        'cleaned': 0}}}
+    assert (l1.rpc.autoclean_once('succeededpays', 1)
+            == {'autoclean': {'succeededpays': {'cleaned': 1, 'uncleaned': 0}}})
+    assert l1.rpc.autoclean_status() == {'autoclean': {'failedpays': {'enabled': False,
+                                                                      'cleaned': 1},
+                                                       'succeededpays': {'enabled': False,
+                                                                         'cleaned': 1},
+                                                       'failedforwards': {'enabled': False,
+                                                                          'cleaned': 0},
+                                                       'succeededforwards': {'enabled': False,
+                                                                             'cleaned': 0},
+                                                       'expiredinvoices': {'enabled': False,
+                                                                           'cleaned': 0},
+                                                       'paidinvoices': {'enabled': False,
+                                                                        'cleaned': 0}}}
+    assert (l2.rpc.autoclean_once('failedforwards', 1)
+            == {'autoclean': {'failedforwards': {'cleaned': 1, 'uncleaned': 1}}})
+    assert l2.rpc.autoclean_status() == {'autoclean': {'failedpays': {'enabled': False,
+                                                                      'cleaned': 0},
+                                                       'succeededpays': {'enabled': False,
+                                                                         'cleaned': 0},
+                                                       'failedforwards': {'enabled': False,
+                                                                          'cleaned': 1},
+                                                       'succeededforwards': {'enabled': False,
+                                                                             'cleaned': 0},
+                                                       'expiredinvoices': {'enabled': False,
+                                                                           'cleaned': 0},
+                                                       'paidinvoices': {'enabled': False,
+                                                                        'cleaned': 0}}}
+    assert (l2.rpc.autoclean_once('succeededforwards', 1)
+            == {'autoclean': {'succeededforwards': {'cleaned': 1, 'uncleaned': 0}}})
+    assert l2.rpc.autoclean_status() == {'autoclean': {'failedpays': {'enabled': False,
+                                                                      'cleaned': 0},
+                                                       'succeededpays': {'enabled': False,
+                                                                         'cleaned': 0},
+                                                       'failedforwards': {'enabled': False,
+                                                                          'cleaned': 1},
+                                                       'succeededforwards': {'enabled': False,
+                                                                             'cleaned': 1},
+                                                       'expiredinvoices': {'enabled': False,
+                                                                           'cleaned': 0},
+                                                       'paidinvoices': {'enabled': False,
+                                                                        'cleaned': 0}}}
+    assert (l3.rpc.autoclean_once('expiredinvoices', 1)
+            == {'autoclean': {'expiredinvoices': {'cleaned': 1, 'uncleaned': 1}}})
+    assert l3.rpc.autoclean_status() == {'autoclean': {'failedpays': {'enabled': False,
+                                                                      'cleaned': 0},
+                                                       'succeededpays': {'enabled': False,
+                                                                         'cleaned': 0},
+                                                       'failedforwards': {'enabled': False,
+                                                                          'cleaned': 0},
+                                                       'succeededforwards': {'enabled': False,
+                                                                             'cleaned': 0},
+                                                       'expiredinvoices': {'enabled': False,
+                                                                           'cleaned': 1},
+                                                       'paidinvoices': {'enabled': False,
+                                                                        'cleaned': 0}}}
+    assert (l3.rpc.autoclean_once('paidinvoices', 1)
+            == {'autoclean': {'paidinvoices': {'cleaned': 1, 'uncleaned': 0}}})
+    assert l3.rpc.autoclean_status() == {'autoclean': {'failedpays': {'enabled': False,
+                                                                      'cleaned': 0},
+                                                       'succeededpays': {'enabled': False,
+                                                                         'cleaned': 0},
+                                                       'failedforwards': {'enabled': False,
+                                                                          'cleaned': 0},
+                                                       'succeededforwards': {'enabled': False,
+                                                                             'cleaned': 0},
+                                                       'expiredinvoices': {'enabled': False,
+                                                                           'cleaned': 1},
+                                                       'paidinvoices': {'enabled': False,
+                                                                        'cleaned': 1}}}
+
+
 def test_block_added_notifications(node_factory, bitcoind):
     """Test if a plugin gets notifications when a new block is found"""
     base = bitcoind.rpc.getblockchaininfo()["blocks"]
