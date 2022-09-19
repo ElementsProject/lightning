@@ -335,7 +335,7 @@ class UnixDomainSocketRpc(object):
         if cmdprefix is None:
             cmdprefix = self.cmdprefix
         if cmdprefix:
-            this_id = cmdprefix + '/' + this_id
+            this_id = f'{cmdprefix}/{this_id}'
         return this_id
 
     def call(self, method, payload=None, cmdprefix=None):
