@@ -897,11 +897,12 @@ impl From<&responses::ListforwardsForwards> for pb::ListforwardsForwards {
     fn from(c: &responses::ListforwardsForwards) -> Self {
         Self {
             in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
+            in_htlc_id: c.in_htlc_id.clone(), // Rule #2 for type u64
             in_msat: Some(c.in_msat.into()), // Rule #2 for type msat
             status: c.status as i32,
             received_time: c.received_time.clone(), // Rule #2 for type number
             out_channel: c.out_channel.as_ref().map(|v| v.to_string()), // Rule #2 for type short_channel_id?
-            payment_hash: c.payment_hash.as_ref().map(|v| hex::decode(&v).unwrap()), // Rule #2 for type hex?
+            out_htlc_id: c.out_htlc_id.clone(), // Rule #2 for type u64?
             style: c.style.map(|v| v as i32),
             fee_msat: c.fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_msat: c.out_msat.map(|f| f.into()), // Rule #2 for type msat?

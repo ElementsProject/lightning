@@ -328,14 +328,16 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 		cur->msat_out = AMOUNT_MSAT(0);
 		cur->fee = AMOUNT_MSAT(0);
 	}
-	cur->payment_hash = tal_dup(cur, struct sha256, &in->payment_hash);
+	cur->htlc_id_out = NULL;
 	cur->status = state;
 	cur->failcode = failcode;
 	cur->received_time = in->received_time;
 	cur->resolved_time = tal_steal(cur, resolved_time);
 	cur->forward_style = forward_style;
+	cur->htlc_id_in = in->key.id;
 
-	json_format_forwarding_object(stream, "forward_event", cur);
+	json_add_forwarding_object(stream, "forward_event",
+				   cur, &in->payment_hash);
 }
 
 REGISTER_NOTIFICATION(forward_event,

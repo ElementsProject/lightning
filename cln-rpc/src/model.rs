@@ -2673,6 +2673,8 @@ pub mod responses {
 	pub struct ListforwardsForwards {
 	    #[serde(alias = "in_channel")]
 	    pub in_channel: ShortChannelId,
+	    #[serde(alias = "in_htlc_id")]
+	    pub in_htlc_id: u64,
 	    #[serde(alias = "in_msat")]
 	    pub in_msat: Amount,
 	    // Path `ListForwards.forwards[].status`
@@ -2682,8 +2684,8 @@ pub mod responses {
 	    pub received_time: f64,
 	    #[serde(alias = "out_channel", skip_serializing_if = "Option::is_none")]
 	    pub out_channel: Option<ShortChannelId>,
-	    #[serde(alias = "payment_hash", skip_serializing_if = "Option::is_none")]
-	    pub payment_hash: Option<String>,
+	    #[serde(alias = "out_htlc_id", skip_serializing_if = "Option::is_none")]
+	    pub out_htlc_id: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub style: Option<ListforwardsForwardsStyle>,
 	    #[serde(alias = "fee_msat", skip_serializing_if = "Option::is_none")]

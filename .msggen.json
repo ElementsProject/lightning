@@ -574,8 +574,10 @@
         "ListforwardsForwards": {
             "ListForwards.forwards[].fee_msat": 7,
             "ListForwards.forwards[].in_channel": 1,
+            "ListForwards.forwards[].in_htlc_id": 10,
             "ListForwards.forwards[].in_msat": 2,
             "ListForwards.forwards[].out_channel": 5,
+            "ListForwards.forwards[].out_htlc_id": 11,
             "ListForwards.forwards[].out_msat": 8,
             "ListForwards.forwards[].payment_hash": 6,
             "ListForwards.forwards[].received_time": 4,
