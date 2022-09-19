@@ -2935,12 +2935,14 @@ def test_commando_badrune(node_factory):
 
 
 def test_autoclean(node_factory):
-    l1 = node_factory.get_node(options={'autoclean-cycle': 10})
+    l0, l1 = node_factory.line_graph(2, opts={'autoclean-cycle': 10,
+                                              'may_reconnect': True})
 
     assert l1.rpc.autoclean_status('expiredinvoices')['autoclean']['expiredinvoices']['enabled'] is False
     l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=5)
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=20)
     l1.rpc.invoice(amount_msat=12300, label='inv3', description='description3', expiry=20)
+    inv4 = l1.rpc.invoice(amount_msat=12300, label='inv4', description='description4', expiry=2000)
     l1.rpc.autoclean(subsystem='expiredinvoices', age=2)
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['enabled'] is True
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['age'] == 2
@@ -2983,8 +2985,21 @@ def test_autoclean(node_factory):
 
     # Now enable: they will get autocleaned
     l1.rpc.autoclean(subsystem='expiredinvoices', age=2)
+    wait_for(lambda: len(l1.rpc.listinvoices()['invoices']) == 1)
+    assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3
+
+    # Reconnect, l0 pays invoice, we test paid expiry.
+    l1.rpc.connect(l0.info['id'], 'localhost', l0.port)
+    l0.rpc.pay(inv4['bolt11'])
+
+    assert l1.rpc.autoclean_status()['autoclean']['paidinvoices']['enabled'] is False
+    assert l1.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 0
+    l1.rpc.autoclean(subsystem='paidinvoices', age=1)
+    assert l1.rpc.autoclean_status()['autoclean']['paidinvoices']['enabled'] is True
+
     wait_for(lambda: l1.rpc.listinvoices()['invoices'] == [])
     assert l1.rpc.autoclean_status()['autoclean']['expiredinvoices']['cleaned'] == 3
+    assert l1.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 1
 
 
 def test_block_added_notifications(node_factory, bitcoind):

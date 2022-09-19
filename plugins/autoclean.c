@@ -8,10 +8,12 @@
 #include <plugins/libplugin.h>
 
 enum subsystem {
+	PAIDINVOICES,
 	EXPIREDINVOICES,
 #define NUM_SUBSYSTEM (EXPIREDINVOICES + 1)
 };
 static const char *subsystem_str[] = {
+	"paidinvoices",
 	"expiredinvoices",
 };
 
@@ -94,9 +96,9 @@ static struct command_result *clean_finished_one(struct command *cmd)
 static struct command_result *del_done(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *result,
-				       ptrint_t *unused)
+				       ptrint_t *subsystemp)
 {
-	num_cleaned[EXPIREDINVOICES]++;
+	num_cleaned[ptr2int(subsystemp)]++;
 	return clean_finished_one(cmd);
 }
 
@@ -124,11 +126,20 @@ static struct command_result *listinvoices_done(struct command *cmd,
 	json_for_each_arr(i, t, inv) {
 		const jsmntok_t *status = json_get_member(buf, t, "status");
 		const jsmntok_t *time;
+		enum subsystem subsys;
 		u64 invtime;
 
-		if (json_tok_streq(buf, status, "expired"))
+		if (json_tok_streq(buf, status, "expired")) {
+			subsys = EXPIREDINVOICES;
 			time = json_get_member(buf, t, "expires_at");
-		else
+		} else if (json_tok_streq(buf, status, "paid")) {
+			subsys = PAIDINVOICES;
+			time = json_get_member(buf, t, "paid_at");
+		} else
+			continue;
+
+		/* Continue if we don't care. */
+		if (subsystem_age[subsys] == 0)
 			continue;
 
 		if (!json_to_u64(buf, time, &invtime)) {
@@ -137,17 +148,17 @@ static struct command_result *listinvoices_done(struct command *cmd,
 				   json_tok_full(buf, time));
 		}
 
-		if (invtime <= now - subsystem_age[EXPIREDINVOICES]) {
+		if (invtime <= now - subsystem_age[subsys]) {
 			struct out_req *req;
 			const jsmntok_t *label = json_get_member(buf, t, "label");
 
 			req = jsonrpc_request_start(plugin, NULL, "delinvoice",
 						    del_done, del_failed,
-						    int2ptr(EXPIREDINVOICES));
+						    int2ptr(subsys));
 			json_add_tok(req->js, "label", label, buf);
 			json_add_tok(req->js, "status", status, buf);
 			send_outreq(plugin, req);
-			plugin_log(plugin, LOG_DBG, "Expiring %.*s",
+			plugin_log(plugin, LOG_DBG, "Cleaning up %.*s",
 				   json_tok_full_len(label), json_tok_full(buf, label));
 			cleanup_reqs_remaining++;
 		}
@@ -163,7 +174,8 @@ static void do_clean(void *unused)
 	struct out_req *req = NULL;
 
 	assert(cleanup_reqs_remaining == 0);
-	if (subsystem_age[EXPIREDINVOICES] != 0) {
+	if (subsystem_age[EXPIREDINVOICES] != 0
+	    || subsystem_age[PAIDINVOICES] != 0) {
 		req = jsonrpc_request_start(plugin, NULL, "listinvoices",
 					    listinvoices_done, cmd_failed,
 					    (char *)"listinvoices");
