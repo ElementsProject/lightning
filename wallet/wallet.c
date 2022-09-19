@@ -1903,7 +1903,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					" WHERE id=?")); // 46
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
-		db_bind_short_channel_id(stmt, 1, chan->scid);
+		db_bind_short_channel_id_str(stmt, 1, chan->scid);
 	else
 		db_bind_null(stmt, 1);
 
@@ -3495,7 +3495,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 		db_bind_null(stmt, 4);
 
 	if (failchannel) {
-		db_bind_short_channel_id(stmt, 5, failchannel);
+		db_bind_short_channel_id_str(stmt, 5, failchannel);
 		db_bind_int(stmt, 8, faildirection);
 	} else {
 		db_bind_null(stmt, 5);
