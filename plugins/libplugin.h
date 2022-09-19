@@ -283,6 +283,8 @@ bool rpc_scan_datastore_hex(struct plugin *plugin,
 			    const char *path,
 			    ...);
 
+/* This sets batching of database commitments */
+void rpc_enable_batching(struct plugin *plugin);
 
 /* Send an async rpc request to lightningd. */
 struct command_result *send_outreq(struct plugin *plugin,

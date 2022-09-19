@@ -83,6 +83,9 @@ struct json_connection {
 	/* Are notifications enabled? */
 	bool notifications_enabled;
 
+	/* Are we allowed to batch database commitments? */
+	bool db_batching;
+
 	/* Our json_streams (owned by the commands themselves while running).
 	 * Since multiple streams could start returning data at once, we
 	 * always service these in order, freeing once empty. */
@@ -1006,6 +1009,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 {
 	bool complete;
 	bool in_transaction = false;
+	struct timemono start_time = time_mono();
 
 	if (jcon->len_read)
 		log_io(jcon->log, LOG_IO_IN, NULL, "",
@@ -1063,8 +1067,24 @@ again:
 	jsmn_init(&jcon->input_parser);
 	toks_reset(jcon->input_toks);
 
-	if (jcon->used)
+	/* Do we have more already read? */
+	if (jcon->used) {
+		if (!jcon->db_batching) {
+			db_commit_transaction(jcon->ld->wallet->db);
+			in_transaction = false;
+		} else {
+			/* FIXME: io_always() should interleave with
+			 * real IO, and then we should rotate order we
+			 * service fds in, to avoid starvation. */
+			if (time_greater(timemono_between(time_mono(),
+							  start_time),
+					 time_from_msec(250))) {
+				db_commit_transaction(jcon->ld->wallet->db);
+				return io_always(conn, read_json, jcon);
+			}
+		}
 		goto again;
+	}
 
 read_more:
 	if (in_transaction)
@@ -1090,6 +1110,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jsmn_init(&jcon->input_parser);
 	jcon->input_toks = toks_alloc(jcon);
 	jcon->notifications_enabled = false;
+	jcon->db_batching = false;
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
@@ -1436,7 +1457,6 @@ static const struct json_command check_command = {
 	"Don't run {command_to_check}, just verify parameters.",
 	.verbose = "check command_to_check [parameters...]\n"
 };
-
 AUTODATA(json_command, &check_command);
 
 static struct command_result *json_notifications(struct command *cmd,
@@ -1461,7 +1481,32 @@ static const struct json_command notifications_command = {
 	"notifications",
 	"utility",
 	json_notifications,
-	"Enable notifications for {level} (or 'false' to disable)",
+	"{enable} notifications",
 };
-
 AUTODATA(json_command, &notifications_command);
+
+static struct command_result *json_batching(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	bool *enable;
+
+	if (!param(cmd, buffer, params,
+		   p_req("enable", param_bool, &enable),
+		   NULL))
+		return command_param_failed();
+
+	/* Catch the case where they sent this command then hung up. */
+	if (cmd->jcon)
+		cmd->jcon->db_batching = *enable;
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command batching_command = {
+	"batching",
+	"utility",
+	json_batching,
+	"Database transaction batching {enable}",
+};
+AUTODATA(json_command, &batching_command);
