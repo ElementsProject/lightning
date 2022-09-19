@@ -2,7 +2,7 @@ from bitcoin.rpc import RawProxy
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import LightningNode, TEST_NETWORK
-from pyln.client import RpcError
+from pyln.client import RpcError, Millisatoshi
 from threading import Event
 from pyln.testing.utils import (
     DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
@@ -2379,15 +2379,15 @@ def test_listfunds(node_factory):
     assert open_txid in txids
 
 
-def test_listforwards(node_factory, bitcoind):
-    """Test listfunds command."""
+def test_listforwards_and_listhtlcs(node_factory, bitcoind):
+    """Test listforwards and listhtlcs commands."""
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{}, {}, {}, {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    c12, _ = l1.fundchannel(l2, 10**5)
+    c12, c12res = l1.fundchannel(l2, 10**5)
     c23, _ = l2.fundchannel(l3, 10**5)
     c24, _ = l2.fundchannel(l4, 10**5)
 
@@ -2406,7 +2406,7 @@ def test_listforwards(node_factory, bitcoind):
     failed_inv = l3.rpc.invoice(4000, 'failed', 'desc')
     failed_route = l1.rpc.getroute(l3.info['id'], 4000, 1)['route']
 
-    l2.rpc.close(c23, 1)
+    l2.rpc.close(c23)
 
     with pytest.raises(RpcError):
         l1.rpc.sendpay(failed_route, failed_inv['payment_hash'], payment_secret=failed_inv['payment_secret'])
@@ -2446,6 +2446,52 @@ def test_listforwards(node_factory, bitcoind):
     # out_channel=c24
     c24_forwards = l2.rpc.listforwards(out_channel=c24)['forwards']
     assert len(c24_forwards) == 1
+
+    # listhtlcs on l1 is the same with or without id specifiers
+    c1htlcs = l1.rpc.listhtlcs()['htlcs']
+    assert l1.rpc.listhtlcs(c12)['htlcs'] == c1htlcs
+    assert l1.rpc.listhtlcs(c12res['channel_id'])['htlcs'] == c1htlcs
+    c1htlcs.sort(key=lambda h: h['id'])
+    assert [h['id'] for h in c1htlcs] == [0, 1, 2]
+    assert [h['short_channel_id'] for h in c1htlcs] == [c12] * 3
+    assert [h['amount_msat'] for h in c1htlcs] == [Millisatoshi(1001),
+                                                   Millisatoshi(2001),
+                                                   Millisatoshi(4001)]
+    assert [h['direction'] for h in c1htlcs] == ['out'] * 3
+    assert [h['state'] for h in c1htlcs] == ['RCVD_REMOVE_ACK_REVOCATION'] * 3
+
+    # These should be a mirror!
+    c2c1htlcs = l2.rpc.listhtlcs(c12)['htlcs']
+    for h in c2c1htlcs:
+        assert h['state'] == 'SENT_REMOVE_ACK_REVOCATION'
+        assert h['direction'] == 'in'
+        h['state'] = 'RCVD_REMOVE_ACK_REVOCATION'
+        h['direction'] = 'out'
+    assert c2c1htlcs == c1htlcs
+
+    # One channel at a time should result in all htlcs.
+    allhtlcs = l2.rpc.listhtlcs()['htlcs']
+    parthtlcs = (l2.rpc.listhtlcs(c12)['htlcs']
+                 + l2.rpc.listhtlcs(c23)['htlcs']
+                 + l2.rpc.listhtlcs(c24)['htlcs'])
+    assert len(allhtlcs) == len(parthtlcs)
+    for h in allhtlcs:
+        assert h in parthtlcs
+
+    # Now, close and forget.
+    l2.rpc.close(c24)
+    l2.rpc.close(c12)
+
+    bitcoind.generate_block(100, wait_for_mempool=3)
+
+    # Once channels are gone, htlcs are gone.
+    for n in (l1, l2, l3, l4):
+        # They might reconnect, but still will have no channels
+        wait_for(lambda: all(p['channels'] == [] for p in n.rpc.listpeers()['peers']))
+        assert n.rpc.listhtlcs() == {'htlcs': []}
+
+    # But forwards are not forgotten!
+    assert l2.rpc.listforwards()['forwards'] == all_forwards
 
 
 @pytest.mark.openchannel('v1')

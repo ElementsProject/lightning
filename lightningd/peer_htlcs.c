@@ -2894,3 +2894,83 @@ static const struct json_command listforwards_command = {
 	"List all forwarded payments and their information optionally filtering by [status], [in_channel] and [out_channel]"
 };
 AUTODATA(json_command, &listforwards_command);
+
+static struct command_result *param_channel(struct command *cmd,
+					    const char *name,
+					    const char *buffer,
+					    const jsmntok_t *tok,
+					    struct channel **chan)
+{
+	struct channel_id cid;
+	struct short_channel_id scid;
+
+	if (json_tok_channel_id(buffer, tok, &cid)) {
+		*chan = channel_by_cid(cmd->ld, &cid);
+		if (!*chan)
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "unknown channel");
+		return NULL;
+	} else if (json_to_short_channel_id(buffer, tok, &scid)) {
+		*chan = any_channel_by_scid(cmd->ld, &scid, true);
+		if (!*chan)
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "unknown channel");
+		return NULL;
+	}
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "must be channel id or short channel id");
+}
+
+static struct command_result *json_listhtlcs(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct channel *chan;
+	struct wallet_htlc_iter *i;
+	struct short_channel_id scid;
+	u64 htlc_id;
+	int cltv_expiry;
+	enum side owner;
+	struct amount_msat msat;
+	struct sha256 payment_hash;
+	enum htlc_state hstate;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("id", param_channel, &chan),
+		   NULL))
+		return command_param_failed();
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "htlcs");
+	for (i = wallet_htlcs_first(cmd, cmd->ld->wallet, chan,
+				    &scid, &htlc_id, &cltv_expiry, &owner, &msat,
+				    &payment_hash, &hstate);
+	     i;
+	     i = wallet_htlcs_next(cmd->ld->wallet, i,
+				   &scid, &htlc_id, &cltv_expiry, &owner, &msat,
+				   &payment_hash, &hstate)) {
+		json_object_start(response, NULL);
+		json_add_short_channel_id(response, "short_channel_id", &scid);
+		json_add_u64(response, "id", htlc_id);
+		json_add_u32(response, "expiry", cltv_expiry);
+		json_add_string(response, "direction",
+				owner == LOCAL ? "out": "in");
+		json_add_amount_msat_only(response, "amount_msat", msat);
+		json_add_sha256(response, "payment_hash", &payment_hash);
+		json_add_string(response, "state", htlc_state_name(hstate));
+		json_object_end(response);
+	}
+	json_array_end(response);
+
+	return command_success(cmd, response);
+}
+
+static const struct json_command listhtlcs_command = {
+	"listhtlcs",
+	"channels",
+	json_listhtlcs,
+	"List all known HTLCS (optionally, just for [id] (scid or channel id))"
+};
+AUTODATA(json_command, &listhtlcs_command);

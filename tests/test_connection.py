@@ -3992,12 +3992,13 @@ def test_multichan(node_factory, executor, bitcoind):
     # Now fund *second* channel l2->l3 (slightly larger)
     bitcoind.rpc.sendtoaddress(l2.rpc.newaddr()['bech32'], 0.1)
     bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [l2])
+    sync_blockheight(bitcoind, [l1, l2, l3])
     l2.rpc.fundchannel(l3.info['id'], '0.01001btc')
     assert(len(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']) == 2)
     assert(len(only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels']) == 2)
 
     bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2, l3])
     # Make sure new channel is also CHANNELD_NORMAL
     wait_for(lambda: [c['state'] for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']] == ["CHANNELD_NORMAL", "CHANNELD_NORMAL"])
 
@@ -4023,9 +4024,9 @@ def test_multichan(node_factory, executor, bitcoind):
               'delay': 5,
               'channel': scid23a}]
     before = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
-    inv = l3.rpc.invoice(100000000, "invoice", "invoice")
-    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
-    l1.rpc.waitsendpay(inv['payment_hash'])
+    inv1 = l3.rpc.invoice(100000000, "invoice", "invoice")
+    l1.rpc.sendpay(route, inv1['payment_hash'], payment_secret=inv1['payment_secret'])
+    l1.rpc.waitsendpay(inv1['payment_hash'])
     # Wait until HTLCs fully settled
     wait_for(lambda: [c['htlcs'] for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']] == [[], []])
     after = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
@@ -4049,9 +4050,9 @@ def test_multichan(node_factory, executor, bitcoind):
 
     before = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
     route[1]['channel'] = scid23b
-    inv = l3.rpc.invoice(100000000, "invoice2", "invoice2")
-    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
-    l1.rpc.waitsendpay(inv['payment_hash'])
+    inv2 = l3.rpc.invoice(100000000, "invoice2", "invoice2")
+    l1.rpc.sendpay(route, inv2['payment_hash'], payment_secret=inv2['payment_secret'])
+    l1.rpc.waitsendpay(inv2['payment_hash'])
     # Wait until HTLCs fully settled
     wait_for(lambda: [c['htlcs'] for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']] == [[], []])
     after = only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']
@@ -4062,6 +4063,7 @@ def test_multichan(node_factory, executor, bitcoind):
 
     # Make sure gossip works.
     bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, [l1, l2, l3])
 
     wait_for(lambda: len(l1.rpc.listchannels(source=l3.info['id'])['channels']) == 2)
 
@@ -4084,6 +4086,7 @@ def test_multichan(node_factory, executor, bitcoind):
 
     l2.rpc.close(scid23b)
     bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2, l3])
 
     # Gossip works as expected.
     wait_for(lambda: len(l1.rpc.listchannels(source=l3.info['id'])['channels']) == 1)
@@ -4091,9 +4094,9 @@ def test_multichan(node_factory, executor, bitcoind):
 
     # We can actually pay by *closed* scid (at least until it's completely forgotten)
     route[1]['channel'] = scid23a
-    inv = l3.rpc.invoice(100000000, "invoice3", "invoice3")
-    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
-    l1.rpc.waitsendpay(inv['payment_hash'])
+    inv3 = l3.rpc.invoice(100000000, "invoice3", "invoice3")
+    l1.rpc.sendpay(route, inv3['payment_hash'], payment_secret=inv3['payment_secret'])
+    l1.rpc.waitsendpay(inv3['payment_hash'])
 
     # Restart with multiple channels works.
     l3.restart()
@@ -4103,8 +4106,48 @@ def test_multichan(node_factory, executor, bitcoind):
     except RpcError:
         wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'])
 
-    inv = l3.rpc.invoice(100000000, "invoice4", "invoice4")
-    l1.rpc.pay(inv['bolt11'])
+    inv4 = l3.rpc.invoice(100000000, "invoice4", "invoice4")
+    l1.rpc.pay(inv4['bolt11'])
+
+    # A good place to test listhtlcs!
+    wait_for(lambda: all([h['state'] == 'RCVD_REMOVE_ACK_REVOCATION' for h in l1.rpc.listhtlcs()['htlcs']]))
+
+    l1htlcs = l1.rpc.listhtlcs()['htlcs']
+    assert l1htlcs == l1.rpc.listhtlcs(scid12)['htlcs']
+    assert l1htlcs == [{"short_channel_id": scid12,
+                        "id": 0,
+                        "expiry": 117,
+                        "direction": "out",
+                        "amount_msat": Millisatoshi(100001001),
+                        "payment_hash": inv1['payment_hash'],
+                        "state": "RCVD_REMOVE_ACK_REVOCATION"},
+                       {"short_channel_id": scid12,
+                        "id": 1,
+                        "expiry": 117,
+                        "direction": "out",
+                        "amount_msat": Millisatoshi(100001001),
+                        "payment_hash": inv2['payment_hash'],
+                        "state": "RCVD_REMOVE_ACK_REVOCATION"},
+                       {"short_channel_id": scid12,
+                        "id": 2,
+                        "expiry": 123,
+                        "direction": "out",
+                        "amount_msat": Millisatoshi(100001001),
+                        "payment_hash": inv3['payment_hash'],
+                        "state": "RCVD_REMOVE_ACK_REVOCATION"},
+                       {"short_channel_id": scid12,
+                        "id": 3,
+                        "expiry": 123,
+                        "direction": "out",
+                        "amount_msat": Millisatoshi(100001001),
+                        "payment_hash": inv4['payment_hash'],
+                        "state": "RCVD_REMOVE_ACK_REVOCATION"}]
+
+    # Reverse direction, should match l2's view of channel.
+    for h in l1htlcs:
+        h['direction'] = 'in'
+        h['state'] = 'SENT_REMOVE_ACK_REVOCATION'
+    assert l2.rpc.listhtlcs(scid12)['htlcs'] == l1htlcs
 
 
 @pytest.mark.developer("dev-no-reconnect required")
