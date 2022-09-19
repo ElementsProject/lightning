@@ -552,6 +552,9 @@ static const char *init(struct plugin *p,
 		rpc_scan_datastore_str(plugin, datastore_path(tmpctx, i, "num"),
 				       JSON_SCAN(json_to_u64, &total_cleaned[i]));
 	}
+
+	/* Optimization FTW! */
+	rpc_enable_batching(p);
 	return NULL;
 }
 

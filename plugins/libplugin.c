@@ -520,17 +520,16 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 	return toks;
 }
 
-static const char *rpc_scan_core(const tal_t *ctx,
+/* Send request, return response, set resp/len to reponse */
+static const jsmntok_t *sync_req(const tal_t *ctx,
 				 struct plugin *plugin,
 				 const char *method,
 				 const struct json_out *params TAKES,
-				 const char *guide,
-				 va_list ap)
+				 const char **resp)
 {
 	bool error;
 	const jsmntok_t *contents;
 	int reqlen;
-	const char *p;
 	struct json_out *jout = json_out_new(tmpctx);
 
 	json_out_start(jout, NULL, '{');
@@ -542,12 +541,27 @@ static const char *rpc_scan_core(const tal_t *ctx,
 		tal_free(params);
 	finish_and_send_json(plugin->rpc_conn->fd, jout);
 
-	read_rpc_reply(tmpctx, plugin, &contents, &error, &reqlen);
+	read_rpc_reply(ctx, plugin, &contents, &error, &reqlen);
 	if (error)
 		plugin_err(plugin, "Got error reply to %s: '%.*s'",
-		     method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
+			   method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
-	p = membuf_consume(&plugin->rpc_conn->mb, reqlen);
+	*resp = membuf_consume(&plugin->rpc_conn->mb, reqlen);
+	return contents;
+}
+
+/* Returns contents of scanning guide on 'result' */
+static const char *rpc_scan_core(const tal_t *ctx,
+				 struct plugin *plugin,
+				 const char *method,
+				 const struct json_out *params TAKES,
+				 const char *guide,
+				 va_list ap)
+{
+	const jsmntok_t *contents;
+	const char *p;
+
+	contents = sync_req(tmpctx, plugin, method, params, &p);
 	return json_scanv(ctx, p, contents, guide, ap);
 }
 
@@ -629,6 +643,21 @@ bool rpc_scan_datastore_hex(struct plugin *plugin,
 	ret = rpc_scan_datastore(plugin, path, "hex", ap);
 	va_end(ap);
 	return ret;
+}
+
+void rpc_enable_batching(struct plugin *plugin)
+{
+	const char *p;
+	struct json_out *params;
+
+	params = json_out_new(NULL);
+	json_out_start(params, NULL, '{');
+	json_out_add(params, "enable", false, "true");
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	/* We don't actually care about (empty) response */
+	sync_req(tmpctx, plugin, "batching", take(params), &p);
 }
 
 static struct command_result *datastore_fail(struct command *command,
