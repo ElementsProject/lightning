@@ -16,6 +16,7 @@ enum subsystem {
 	EXPIREDINVOICES,
 #define NUM_SUBSYSTEM (EXPIREDINVOICES + 1)
 };
+
 static const char *subsystem_str[] = {
 	"succeededforwards",
 	"failedforwards",
@@ -366,23 +367,6 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-static struct command_result *param_age(struct command *cmd, const char *name,
-					const char *buffer, const jsmntok_t *tok,
-					uint64_t **num)
-{
-	*num = tal(cmd, uint64_t);
-	if (json_to_u64(buffer, tok, *num) && *num != 0)
-		return NULL;
-
-	if (json_tok_streq(buffer, tok, "never")) {
-		**num = 0;
-		return NULL;
-	}
-
-	return command_fail_badparam(cmd, name, buffer, tok,
-				     "should be an positive 64 bit integer or 'never'");
-}
-
 static struct command_result *param_subsystem(struct command *cmd,
 					      const char *name,
 					      const char *buffer,
@@ -431,28 +415,6 @@ static struct command_result *json_autoclean_status(struct command *cmd,
 	return json_success_subsystems(cmd, subsystem);
 }
 
-static struct command_result *json_autoclean(struct command *cmd,
-					     const char *buffer,
-					     const jsmntok_t *params)
-{
-	enum subsystem *subsystem;
-	u64 *age;
-
-	if (!param(cmd, buffer, params,
-		   p_req("subsystem", param_subsystem, &subsystem),
-		   p_req("age", param_age, &age),
-		   NULL))
-		return command_param_failed();
-
-	subsystem_age[*subsystem] = *age;
-	jsonrpc_set_datastore_string(cmd->plugin, cmd,
-				     datastore_path(tmpctx, *subsystem, "age"),
-				     tal_fmt(tmpctx, "%"PRIu64, *age),
-				     "create-or-replace", NULL, NULL, NULL);
-
-	return json_success_subsystems(cmd, subsystem);
-}
-
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -463,21 +425,6 @@ static const char *init(struct plugin *p,
 			return NULL;
 		} else
 			cycle_seconds = deprecated_cycle_seconds;
-	} else {
-		bool active = false;
-		for (enum subsystem i = 0; i < NUM_SUBSYSTEM; i++) {
-			if (!rpc_scan_datastore_str(p, datastore_path(tmpctx, i, "age"),
-						    JSON_SCAN(json_to_u64, &subsystem_age[i])))
-				continue;
-			if (subsystem_age[i]) {
-				/* Only print this once! */
-				if (!active)
-					plugin_log(p, LOG_INFORM, "autocleaning every %"PRIu64" seconds", cycle_seconds);
-				active = true;
-				plugin_log(p, LOG_INFORM, "cleaning %s when age > %"PRIu64" seconds",
-					   subsystem_to_str(i), subsystem_age[i]);
-			}
-		}
 	}
 
 	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean, p);
@@ -497,12 +444,6 @@ static const struct plugin_command commands[] = { {
 	"Clean up expired invoices that have expired for {expired_by} seconds (default 86400). ",
 	json_autocleaninvoice,
 	true, /* deprecated! */
-	}, {
-	"autoclean",
-	"utility",
-	"Automatic deletion of old data (invoices, pays, forwards).",
-	"Takes {subsystem} and {age} in seconds ",
-	json_autoclean,
 	}, {
 	"autoclean-status",
 	"utility",
@@ -529,9 +470,33 @@ int main(int argc, char *argv[])
 				  " this given seconds are cleaned",
 				  u64_option, &subsystem_age[EXPIREDINVOICES]),
 		    plugin_option("autoclean-cycle",
-				  "string",
+				  "int",
 				  "Perform cleanup every"
 				  " given seconds",
 				  u64_option, &cycle_seconds),
+		    plugin_option("autoclean-succeededforwards-age",
+				  "int",
+				  "How old do successful forwards have to be before deletion (0 = never)",
+				  u64_option, &subsystem_age[SUCCEEDEDFORWARDS]),
+		    plugin_option("autoclean-failedforwards-age",
+				  "int",
+				  "How old do failed forwards have to be before deletion (0 = never)",
+				  u64_option, &subsystem_age[FAILEDFORWARDS]),
+		    plugin_option("autoclean-succeededpays-age",
+				  "int",
+				  "How old do successful pays have to be before deletion (0 = never)",
+				  u64_option, &subsystem_age[SUCCEEDEDPAYS]),
+		    plugin_option("autoclean-failedpays-age",
+				  "int",
+				  "How old do failed pays have to be before deletion (0 = never)",
+				  u64_option, &subsystem_age[FAILEDPAYS]),
+		    plugin_option("autoclean-paidinvoices-age",
+				  "int",
+				  "How old do paid invoices have to be before deletion (0 = never)",
+				  u64_option, &subsystem_age[PAIDINVOICES]),
+		    plugin_option("autoclean-expiredinvoices-age",
+				  "int",
+				  "How old do expired invoices have to be before deletion (0 = never)",
+				  u64_option, &subsystem_age[EXPIREDINVOICES]),
 		    NULL);
 }
