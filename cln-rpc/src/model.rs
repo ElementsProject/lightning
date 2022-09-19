@@ -1910,8 +1910,8 @@ pub mod responses {
 	pub struct ListsendpaysPayments {
 	    #[serde(alias = "id")]
 	    pub id: u64,
-	    #[serde(alias = "groupid", skip_serializing_if = "Option::is_none")]
-	    pub groupid: Option<u64>,
+	    #[serde(alias = "groupid")]
+	    pub groupid: u64,
 	    #[serde(alias = "payment_hash")]
 	    pub payment_hash: Sha256,
 	    // Path `ListSendPays.payments[].status`
