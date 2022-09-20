@@ -40,6 +40,7 @@ Get dependencies:
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev \
       python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
+    sudo pip3 install mrkd
     pip3 install --upgrade pip
     pip3 install --user poetry mrkd
 
@@ -59,7 +60,7 @@ Clone lightning:
 
 Checkout a release tag:
 
-    git checkout v0.11.2
+    git checkout v0.12.0
 
 For development or running tests, get additional dependencies:
 
