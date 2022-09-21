@@ -20,6 +20,9 @@
     },
     "htlcmax": {
       "type": "msat"
+    },
+    "enforcedelay": {
+      "type": "u32"
     }
   }
 }

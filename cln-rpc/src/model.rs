@@ -1288,6 +1288,18 @@ pub mod requests {
 	    pub htlcmin: Option<Amount>,
 	    #[serde(alias = "htlcmax", skip_serializing_if = "Option::is_none")]
 	    pub htlcmax: Option<Amount>,
+	    #[serde(alias = "enforcedelay", skip_serializing_if = "Option::is_none")]
+	    pub enforcedelay: Option<u32>,
+	}
+
+	impl From<SetchannelRequest> for Request {
+	    fn from(r: SetchannelRequest) -> Self {
+	        Request::SetChannel(r)
+	    }
+	}
+
+	impl IntoRequest for SetchannelRequest {
+	    type Response = super::responses::SetchannelResponse;
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -3736,7 +3748,7 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SetchannelChannels {
 	    #[serde(alias = "peer_id")]
-	    pub peer_id: Pubkey,
+	    pub peer_id: PublicKey,
 	    #[serde(alias = "channel_id")]
 	    pub channel_id: String,
 	    #[serde(alias = "short_channel_id", skip_serializing_if = "Option::is_none")]
@@ -3759,6 +3771,17 @@ pub mod responses {
 	pub struct SetchannelResponse {
 	    #[serde(alias = "channels")]
 	    pub channels: Vec<SetchannelChannels>,
+	}
+
+	impl TryFrom<Response> for SetchannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SetChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

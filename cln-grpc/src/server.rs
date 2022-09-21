@@ -1439,7 +1439,7 @@ async fn set_channel(
     request: tonic::Request<pb::SetchannelRequest>,
 ) -> Result<tonic::Response<pb::SetchannelResponse>, tonic::Status> {
     let req = request.into_inner();
-    let req: requests::SetchannelRequest = (&req).into();
+    let req: requests::SetchannelRequest = req.into();
     debug!("Client asked for set_channel");
     trace!("set_channel request: {:?}", req);
     let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1453,7 +1453,7 @@ async fn set_channel(
     match result {
         Response::SetChannel(r) => {
            trace!("set_channel response: {:?}", r);
-           Ok(tonic::Response::new((&r).into()))
+           Ok(tonic::Response::new(r.into()))
         },
         r => Err(Status::new(
             Code::Internal,
