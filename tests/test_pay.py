@@ -2046,8 +2046,17 @@ def test_setchannel_usage(node_factory, bitcoind):
 
     # check if negative fees raise error and DB keeps values
     # JSONRPC2_INVALID_PARAMS := -32602
+    from pyln.client import LightningRpc
     with pytest.raises(RpcError, match=r'-32602'):
-        l1.rpc.setchannel(scid, -1, -1)
+        # Need to bypass pyln since it'd check args locally. We also
+        # have to sidestep the schema validation, it attempts to
+        # instantiate Millisatoshis and fails due to the non-negative
+        # constraint.
+        LightningRpc.call(l1.rpc, 'setchannel', {
+            "id": scid,
+            "feebase": -1,
+            "feeppm": -1
+        })
 
     # test if zero fees is possible
     result = l1.rpc.setchannel(scid, 0, 0)
@@ -2092,11 +2101,18 @@ def test_setchannel_usage(node_factory, bitcoind):
 
     # check if 'ppm' values greater than u32_max fail
     with pytest.raises(RpcError, match=r'-32602.*ppm: should be an integer: invalid token'):
-        l1.rpc.setchannel(scid, 0, 2**32)
+        LightningRpc.call(l1.rpc, 'setchannel', payload={
+            "id": scid,
+            'feebase': 0,
+            'feeppm': 2**32,
+        })
 
     # check if 'base' values greater than u32_max fail
     with pytest.raises(RpcError, match=r'-32602.*base: exceeds u32 max: invalid token'):
-        l1.rpc.setchannel(scid, 2**32)
+        LightningRpc.call(l1.rpc, 'setchannel', payload={
+            "id": scid,
+            "feebase": 2**32,
+        })
 
 
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")
