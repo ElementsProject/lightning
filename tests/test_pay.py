@@ -3568,7 +3568,6 @@ def test_keysend(node_factory):
         l3.rpc.keysend(l4.info['id'], amt)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Requires experimental-accept-extra-tlv-types option")
 def test_keysend_extra_tlvs(node_factory):
     """Use the extratlvs option to deliver a message with sphinx' TLV type.
     """
@@ -3577,13 +3576,20 @@ def test_keysend_extra_tlvs(node_factory):
         2,
         wait_for_announce=True,
         opts=[
-            {},
             {
-                'experimental-accept-extra-tlv-types': '133773310',
+                # Not needed, just for listconfigs test.
+                'accept-htlc-tlv-types': '133773310,99990',
+            },
+            {
+                'accept-htlc-tlv-types': '133773310',
                 "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
             },
         ]
     )
+
+    # Make sure listconfigs works here
+    assert l1.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310,99990'
+    assert l2.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310'
 
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
     inv = only_one(l2.rpc.listinvoices()['invoices'])

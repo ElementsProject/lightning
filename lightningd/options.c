@@ -171,11 +171,10 @@ static char *fmt_force_feerates(const tal_t *ctx, const u32 *force_feerates)
 	return ret;
 }
 
-#if EXPERIMENTAL_FEATURES
 static char *opt_set_accept_extra_tlv_types(const char *arg,
-					     struct lightningd *ld)
+					    struct lightningd *ld)
 {
-	char *endp, **elements = tal_strsplit(NULL, arg, ",", STR_NO_EMPTY);;
+	char *endp, **elements = tal_strsplit(NULL, arg, ",", STR_NO_EMPTY);
 	unsigned long long l;
 	u64 u;
 	for (int i = 0; elements[i] != NULL; i++) {
@@ -193,7 +192,6 @@ static char *opt_set_accept_extra_tlv_types(const char *arg,
 	tal_free(elements);
 	return NULL;
 }
-#endif
 
 /* Returns the number of wireaddr types already announced */
 static size_t num_announced_types(enum wire_addr_type type, struct lightningd *ld)
@@ -1182,11 +1180,9 @@ static void register_opts(struct lightningd *ld)
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
 
-#if EXPERIMENTAL_FEATURES
-	opt_register_arg("--experimental-accept-extra-tlv-types",
+	opt_register_arg("--accept-htlc-tlv-types",
 			 opt_set_accept_extra_tlv_types, NULL, ld,
-			 "Comma separated list of extra TLV types to accept.");
-#endif
+			 "Comma separated list of extra HTLC TLV types to accept.");
 
 	opt_register_early_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 				 "Disable DNS lookups of peers");
@@ -1509,7 +1505,7 @@ static void add_config(struct lightningd *ld,
 		       const char *name, size_t len)
 {
 	char *name0 = tal_strndup(tmpctx, name, len);
-	const char *answer = NULL;
+	char *answer = NULL;
 	char buf[OPT_SHOW_LEN + sizeof("...")];
 
 #if DEVELOPER
@@ -1605,7 +1601,7 @@ static void add_config(struct lightningd *ld,
 			if (ld->rgb)
 				answer = tal_hexstr(name0, ld->rgb, 3);
 		} else if (opt->cb_arg == (void *)opt_set_alias) {
-			answer = (const char *)ld->alias;
+			answer = (char *)ld->alias;
 		} else if (opt->cb_arg == (void *)arg_log_to_file) {
 			if (ld->logfiles)
 				json_add_opt_log_to_files(response, name0, ld->logfiles);
@@ -1668,10 +1664,17 @@ static void add_config(struct lightningd *ld,
 					fmt_amount_msat(tmpctx,
 							*(struct amount_msat *)
 							opt->u.carg));
-#if EXPERIMENTAL_FEATURES
 		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
-                        /* TODO Actually print the option */
-#endif
+			for (size_t i = 0;
+			     i < tal_count(ld->accept_extra_tlv_types);
+			     i++) {
+				if (i == 0)
+					answer = tal_fmt(name0, "%"PRIu64,
+							 ld->accept_extra_tlv_types[i]);
+				else
+					tal_append_fmt(&answer, ",%"PRIu64,
+						       ld->accept_extra_tlv_types[i]);
+			}
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */
