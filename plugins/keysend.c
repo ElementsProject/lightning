@@ -49,9 +49,7 @@ static struct keysend_data *keysend_init(struct payment *p)
 		randombytes_buf(&d->preimage, sizeof(d->preimage));
 		ccan_sha256(&payment_hash, &d->preimage, sizeof(d->preimage));
 		p->payment_hash = tal_dup(p, struct sha256, &payment_hash);
-#if EXPERIMENTAL_FEATURES
 		d->extra_tlvs = NULL;
-#endif
 		return d;
 	} else {
 		/* If we are a child payment (retry or split) we copy the
@@ -92,7 +90,6 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 	tlvstream_set_raw(&last_payload->tlv_payload->fields, PREIMAGE_TLV_TYPE,
 			  &d->preimage, sizeof(struct preimage));
 
-#if EXPERIMENTAL_FEATURES
 	if (d->extra_tlvs != NULL) {
 		for (size_t i = 0; i < tal_count(d->extra_tlvs); i++) {
 			struct tlv_field *f = &d->extra_tlvs[i];
@@ -100,7 +97,6 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 					  f->numtype, f->value, f->length);
 		}
 	}
-#endif
 
 	return payment_continue(p);
 }
@@ -148,9 +144,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	u32 *maxdelay;
 	unsigned int *retryfor;
 	struct route_info **hints;
-#if EXPERIMENTAL_FEATURES
 	struct tlv_field *extra_fields;
-#endif
 
 #if DEVELOPER
 	bool *use_shadow;
@@ -165,12 +159,10 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     maxdelay_default),
 		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
+		   p_opt("extratlvs", param_extra_tlvs, &extra_fields),
+		   p_opt("routehints", param_routehint_array, &hints),
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
-#endif
-		   p_opt("routehints", param_routehint_array, &hints),
-#if EXPERIMENTAL_FEATURES
-		   p_opt("extratlvs", param_extra_tlvs, &extra_fields),
 #endif
 		   NULL))
 		return command_param_failed();
@@ -210,10 +202,8 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 
 	p->constraints.cltv_budget = *maxdelay;
 
-#if EXPERIMENTAL_FEATURES
 	payment_mod_keysend_get_data(p)->extra_tlvs =
 	    tal_steal(p, extra_fields);
-#endif
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
 #if DEVELOPER
@@ -365,14 +355,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 		return htlc_accepted_continue(cmd, NULL);
 	}
 
-#if EXPERIMENTAL_FEATURES
 	/* Note: This is a magic pointer value, not an actual array */
 	allowed = cast_const(u64 *, FROMWIRE_TLV_ANY_TYPE);
-#else
-	/* We explicitly allow our type. */
-	allowed = tal_arr(cmd, u64, 1);
-	allowed[0] = PREIMAGE_TLV_TYPE;
-#endif
 
 	payload = tlv_tlv_payload_new(cmd);
 	if (!fromwire_tlv(&rawpayload, &max, tlvs_tlv_tlv_payload, TLVS_ARRAY_SIZE_tlv_tlv_payload,

@@ -3568,7 +3568,7 @@ def test_keysend(node_factory):
         l3.rpc.keysend(l4.info['id'], amt)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Requires extratlvs option")
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Requires experimental-accept-extra-tlv-types option")
 def test_keysend_extra_tlvs(node_factory):
     """Use the extratlvs option to deliver a message with sphinx' TLV type.
     """
