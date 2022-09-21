@@ -1294,6 +1294,7 @@ message SetchannelRequest {
 	optional uint32 feeppm = 3;
 	optional Amount htlcmin = 4;
 	optional Amount htlcmax = 5;
+	optional uint32 enforcedelay = 6;
 }
 
 message SetchannelResponse {

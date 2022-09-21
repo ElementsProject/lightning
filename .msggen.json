@@ -985,6 +985,7 @@
             "SetChannel.channels[].warning_htlcmin_too_low": 7
         },
         "SetchannelRequest": {
+            "SetChannel.enforcedelay": 6,
             "SetChannel.feebase": 2,
             "SetChannel.feeppm": 3,
             "SetChannel.htlcmax": 5,
