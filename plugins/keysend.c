@@ -341,9 +341,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	struct sha256 payment_hash;
 	size_t max;
 	struct tlv_tlv_payload *payload;
-	struct tlv_field *preimage_field = NULL, *unknown_field = NULL;
+	struct tlv_field *preimage_field = NULL, *unknown_field = NULL, *desc_field = NULL;
 	bigsize_t s;
-	struct tlv_field *field;
 	struct keysend_in *ki;
 	struct out_req *req;
 	struct timeabs now = time_now();
@@ -387,15 +386,21 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	}
 
 	/* Try looking for the field that contains the preimage */
-	for (int i=0; i<tal_count(payload->fields); i++) {
-		field = &payload->fields[i];
+	for (size_t i = 0; i < tal_count(payload->fields); i++) {
+		struct tlv_field *field = &payload->fields[i];
 		if (field->numtype == PREIMAGE_TLV_TYPE) {
 			preimage_field = field;
-			break;
+			continue;
 		} else if (field->numtype % 2 == 0 && field->meta == NULL) {
 			/* This can only happen with FROMWIRE_TLV_ANY_TYPE! */
 			unknown_field = field;
 		}
+
+		/* Longest (unknown) text field wins. */
+		if (!field->meta
+		    && utf8_check(field->value, field->length)
+		    && (!desc_field || field->length > desc_field->length))
+			desc_field = field;
 	}
 
 	/* If we don't have a preimage field then this is not a keysend, let
@@ -464,7 +469,17 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_INFORM, "Inserting a new invoice for keysend with payment_hash %s", type_to_string(tmpctx, struct sha256, &payment_hash));
 	json_add_string(req->js, "amount_msat", "any");
 	json_add_string(req->js, "label", ki->label);
-	json_add_string(req->js, "description", "Spontaneous incoming payment through keysend");
+	if (desc_field) {
+		const char *desc = tal_fmt(tmpctx, "keysend: %.*s",
+					   (int)desc_field->length,
+					   (const char *)desc_field->value);
+		json_add_string(req->js, "description", desc);
+		/* Don't exceed max possible desc length! */
+		if (strlen(desc) > 1023)
+			json_add_bool(req->js, "deschashonly", true);
+	} else {
+		json_add_string(req->js, "description", "keysend");
+	}
 	json_add_preimage(req->js, "preimage", &ki->payment_preimage);
 
 	return send_outreq(cmd->plugin, req);
