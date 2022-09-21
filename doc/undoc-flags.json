@@ -1,6 +1,5 @@
 {
     "flags": [
-        "experimental-accept-extra-tlv-types",
         "channel-fee-max-base-msat",
         "channel-fee-max-proportional-thousandths",
         "funder-fund-probability",

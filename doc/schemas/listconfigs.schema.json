@@ -281,7 +281,11 @@
     },
     "fetchinvoice-noconnect": {
       "type": "boolean",
-      "description": "`featchinvoice-noconnect` fileds from config or cmdline, or default"
+      "description": "`fetchinvoice-noconnect` fields from config or cmdline, or default"
+    },
+    "accept-htlc-tlv-types": {
+      "type": "string",
+      "description": "`accept-extra-tlvs-type` fields from config or cmdline, or not present"
     },
     "tor-service-password": {
       "type": "string",

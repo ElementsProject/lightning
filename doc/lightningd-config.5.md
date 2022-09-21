@@ -424,6 +424,12 @@ the outgoing is redeemed.
 might need to redeem this on-chain, so this is the number of blocks we
 have to do that.
 
+* **accept-htlc-tlv-types**=*types*
+
+  Normally HTLC onions which contain unknown even fields are rejected.
+This option specifies that these (comma-separated) types are to be
+accepted, and ignored.
+
 ### Invoice control options:
 
 * **autocleaninvoice-cycle**=*SECONDS* [plugin `autoclean`]
