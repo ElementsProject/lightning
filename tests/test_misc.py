@@ -2215,7 +2215,7 @@ def test_sendcustommsg(node_factory):
         l1.rpc.sendcustommsg(node_id, msg)
 
     # `l3` is disconnected and we can't send messages to it
-    assert(not l2.rpc.listpeers(l3.info['id'])['peers'][0]['connected'])
+    wait_for(lambda: l2.rpc.listpeers(l3.info['id'])['peers'][0]['connected'] is False)
     with pytest.raises(RpcError, match=r'Peer is not connected'):
         l2.rpc.sendcustommsg(l3.info['id'], msg)
 
