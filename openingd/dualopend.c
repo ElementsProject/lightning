@@ -205,6 +205,10 @@ struct state {
 
 	/* State of inflight funding transaction attempt */
 	struct tx_state *tx_state;
+
+	/* Amount of leased sats requested, persisted across
+	 * RBF attempts, so we know when we've messed up lol */
+	struct amount_sat *requested_lease;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -2034,7 +2038,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	struct channel_id cid, full_cid;
 	char *err_reason;
 	u8 *msg;
-	struct amount_sat total, requested_amt, our_accept;
+	struct amount_sat total, our_accept;
 	enum dualopend_wire msg_type;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2070,12 +2074,12 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	/* This is an `option_will_fund` request */
 	if (open_tlv->request_funds) {
-		requested_amt
-			= amount_sat(open_tlv->request_funds->requested_sats);
+		state->requested_lease = tal(state, struct amount_sat);
+		state->requested_lease->satoshis /* Raw: u64 -> sat conversion */
+			= open_tlv->request_funds->requested_sats;
 		tx_state->blockheight
 			= open_tlv->request_funds->blockheight;
-	} else
-		requested_amt = AMOUNT_SAT(0);
+	}
 
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
@@ -2141,7 +2145,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 state->channel_flags,
 					 tx_state->tx_locktime,
 					 state->upfront_shutdown_script[REMOTE],
-					 requested_amt,
+					 state->requested_lease,
 					 tx_state->blockheight);
 
 	wire_sync_write(REQ_FD, take(msg));
@@ -2199,9 +2203,10 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		 * `open_channel2`.`funding_satoshis`, the lease fee,
 		 * and their tx weight * `funding_feerate_perkw` / 1000.
 		 */
+		assert(state->requested_lease);
 		if (!lease_rates_calc_fee(tx_state->rates,
 					  tx_state->accepter_funding,
-					  requested_amt,
+					  *state->requested_lease,
 					  tx_state->feerate_per_kw_funding,
 					  &tx_state->lease_fee))
 			negotiation_failed(state,
@@ -2664,10 +2669,11 @@ static void opener_start(struct state *state, u8 *msg)
 	struct tlv_accept_tlvs *a_tlv;
 	struct channel_id cid;
 	char *err_reason;
-	struct amount_sat total, requested_sats;
+	struct amount_sat total;
 	bool dry_run;
 	struct lease_rates *expected_rates;
 	struct tx_state *tx_state = state->tx_state;
+	struct amount_sat requested_lease;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
 					    &tx_state->psbt,
@@ -2677,7 +2683,7 @@ static void opener_start(struct state *state, u8 *msg)
 					    &state->feerate_per_kw_commitment,
 					    &tx_state->feerate_per_kw_funding,
 					    &state->channel_flags,
-					    &requested_sats,
+					    &requested_lease,
 					    &tx_state->blockheight,
 					    &dry_run,
 					    &expected_rates))
@@ -2686,6 +2692,11 @@ static void opener_start(struct state *state, u8 *msg)
 	state->our_role = TX_INITIATOR;
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
+
+	if (!amount_sat_zero(requested_lease)) {
+		state->requested_lease = tal(state, struct amount_sat);
+		*state->requested_lease = requested_lease;
+	}
 
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
@@ -2709,11 +2720,11 @@ static void opener_start(struct state *state, u8 *msg)
 			state->upfront_shutdown_script[LOCAL];
 	}
 
-	if (!amount_sat_zero(requested_sats)) {
+	if (state->requested_lease) {
 		open_tlv->request_funds =
 			tal(open_tlv, struct tlv_opening_tlvs_request_funds);
 		open_tlv->request_funds->requested_sats =
-			requested_sats.satoshis; /* Raw: struct -> wire */
+			state->requested_lease->satoshis; /* Raw: struct -> wire */
 		open_tlv->request_funds->blockheight = tx_state->blockheight;
 	}
 
@@ -2822,26 +2833,26 @@ static void opener_start(struct state *state, u8 *msg)
 	/* If we've requested funds and they've failed to provide
 	 * to lease us (or give them to us for free?!) then we fail.
 	 * This isn't spec'd but it makes the UX predictable */
-	if (!amount_sat_zero(requested_sats)
-	    && amount_sat_less(tx_state->accepter_funding, requested_sats))
+	if (state->requested_lease
+	    && amount_sat_less(tx_state->accepter_funding,
+			       *state->requested_lease))
 			negotiation_failed(state,
 					   "We requested %s, which is more"
 					   " than they've offered to provide"
 					   " (%s)",
 					   type_to_string(tmpctx,
 							  struct amount_sat,
-							  &requested_sats),
+							  state->requested_lease),
 					   type_to_string(tmpctx,
 							  struct amount_sat,
 							  &tx_state->accepter_funding));
-
 
 	/* BOLT- #2:
 	 * The accepting node:  ...
 	 *  - if they decide to accept the offer:
 	 *    - MUST include a `will_fund` tlv
 	 */
-	if (!amount_sat_zero(requested_sats) && a_tlv->will_fund) {
+	if (state->requested_lease && a_tlv->will_fund) {
 		char *err_msg;
 		struct lease_rates *rates = &a_tlv->will_fund->lease_rates;
 
@@ -2884,7 +2895,7 @@ static void opener_start(struct state *state, u8 *msg)
 		 * and their tx weight * `funding_feerate_perkw` / 1000.
 		 */
 		if (!lease_rates_calc_fee(rates, tx_state->accepter_funding,
-					  requested_sats,
+					  *state->requested_lease,
 					  tx_state->feerate_per_kw_funding,
 					  &tx_state->lease_fee))
 			negotiation_failed(state,
@@ -3840,6 +3851,9 @@ int main(int argc, char *argv[])
 		state->shutdown_sent[LOCAL]
 			= state->shutdown_sent[REMOTE]
 			= false;
+
+		/* No lease requested at start! */
+		state->requested_lease = NULL;
 
 	} else if (fromwire_dualopend_reinit(state, msg,
 					     &chainparams,
