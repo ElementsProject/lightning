@@ -267,10 +267,13 @@ def test_pay_disconnect(node_factory, bitcoind):
 
     l2.stop()
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+    # Wait for daemon to realize the connection is lost
+    l1.daemon.wait_for_log(f'connectd: maybe_free_peer freeing peer')
 
     # Can't pay while its offline.
     with pytest.raises(RpcError, match=r'failed: WIRE_TEMPORARY_CHANNEL_FAILURE \(First peer not ready\)'):
         l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
+        l1.rpc.waitsendpay(rhash)
 
     l2.start()
     l1.daemon.wait_for_log('peer_out WIRE_CHANNEL_REESTABLISH')
@@ -290,6 +293,7 @@ def test_pay_disconnect(node_factory, bitcoind):
     # Should fail due to permenant channel fail
     with pytest.raises(RpcError, match=r'WIRE_UNKNOWN_NEXT_PEER'):
         l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
+        l1.rpc.waitsendpay(rhash)
 
     assert not l1.daemon.is_in_log('Payment is still in progress')
 
