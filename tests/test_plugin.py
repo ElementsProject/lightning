@@ -2949,10 +2949,19 @@ def test_autoclean(node_factory):
                                                   'may_reconnect': True},
                                          wait_for_announce=True)
 
+    # Under valgrind in CI, it can 50 seconds between creating invoice
+    # and restarting.
+    if node_factory.valgrind:
+        short_timeout = 10
+        longer_timeout = 60
+    else:
+        short_timeout = 5
+        longer_timeout = 20
+
     assert l3.rpc.autoclean_status('expiredinvoices')['autoclean']['expiredinvoices']['enabled'] is False
-    l3.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=5)
-    l3.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=20)
-    l3.rpc.invoice(amount_msat=12300, label='inv3', description='description3', expiry=20)
+    l3.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=short_timeout)
+    l3.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=longer_timeout)
+    l3.rpc.invoice(amount_msat=12300, label='inv3', description='description3', expiry=longer_timeout)
     inv4 = l3.rpc.invoice(amount_msat=12300, label='inv4', description='description4', expiry=2000)
     inv5 = l3.rpc.invoice(amount_msat=12300, label='inv5', description='description5', expiry=2000)
 
@@ -2990,11 +2999,14 @@ def test_autoclean(node_factory):
 
     # Same with inv2/3
     wait_for(lambda: only_one(l3.rpc.listinvoices('inv2')['invoices'])['status'] == 'expired')
+    wait_for(lambda: only_one(l3.rpc.listinvoices('inv3')['invoices'])['status'] == 'expired')
 
-    # Give it time to notice.
+    # Give it time to notice (runs every 10 seconds, give it 15)
     time.sleep(15)
 
+    # They're still there!
     assert l3.rpc.listinvoices('inv2')['invoices'] != []
+    assert l3.rpc.listinvoices('inv3')['invoices'] != []
 
     # Restart keeps it disabled.
     l3.restart()
