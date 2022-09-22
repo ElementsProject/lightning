@@ -1,6 +1,6 @@
 #! /usr/bin/make
 
-SPECDIR := ../../../lightning-rfc
+SPECDIR := ../../../bolts
 # This gives us something like 'v1.0-137-gae2d248b7ad8b0965f224c303019ba04c661008f'
 GITDESCRIBE := $(shell git -C $(SPECDIR) describe --abbrev=40)
 # -> 1.0
@@ -31,12 +31,14 @@ check-source-mypy-%:
 	cd $* && mypy --ignore-missing-imports `find * -name '*.py'`
 
 # Given a bolt number and a variable, get the value from inside the package.
-extract = $(shell python3 -c 'from pyln.spec import bolt$1 as bolt;print(bolt.$2)')
-# Get the version for this bolt
-version = $(call extract,$1,__version__)
+extract = $(shell cat bolt$1/pyln/spec/bolt$1/gen_*version.py | sed -n 's/^$2 = \"\(.*\)\"/\1/p')
 
-# Given a direc the csv version for this bolt.
+# Get the version for this bolt
+base_version = $(call extract,$1,__base_version__)
 csv_version = $(call extract,$1,__csv_version__)
+post_version = $(call extract,$1,__post_version__)
+
+version = $(call base_version,$1).$(call csv_version,$1).$(call post_version,$1)
 
 # Given a bolt number, get the current version.
 sdistfiles = $(foreach b,$(BOLTS),bolt$b/dist/pyln-bolt$b-$(call version,$b).tar.gz)
@@ -50,26 +52,27 @@ bdistfiles = $(foreach b,$(BOLTS),bolt$b/dist/pyln_bolt$b-$(call version,$b)-py3
 
 ARTEFACTS := $(foreach b,$(BOLTS),$(call bdistfiles,$b) $(call sdistfiles,$b))
 
-test-release-bolt%: $(ARTEFACTS)
-	python3 -m twine upload --repository testpypi --skip-existing $(call bdistfiles,$*) $(call sdistfiles,$*)
+test-release-%:
+	cd bolt$b && poetry publish --repository testpypi
 
-	# Create a test virtualenv, install from the testpypi and run the
-	# tests against it (make sure not to use any virtualenv that may have
-	# pyln-proto already installed).
-	virtualenv testpypi-$* --python=/usr/bin/python3 --download --always-copy --clear
-	# Install the requirements from the prod repo, they are not being kept up to date on the test repo
-	testpypi-$*/bin/python3 -m pip install -r requirements.txt pytest pytest-timeout
-	testpypi-$*/bin/python3 -m pip install -I --index-url https://test.pypi.org/simple/ --no-deps pyln-bolt$*
-	testpypi-$*/bin/python3 -c "from pyln.spec import bolt$* as bolt;assert(bolt.__version__ == '$(call version,$*)')"
-	testpypi-$*/bin/pytest bolt$*/tests
-	rm -rf testpypi-$*
+test-release: $(BOLTS:%=prod-release-%)
 
-test-release: check $(foreach b,$(BOLTS),test-release-bolt$b)
+prod-release-%:
+	cd bolt$b && poetry publish
 
-prod-release: test-release $(ARTEFACTS)
-	python3 -m twine upload $(ARTEFACTS)
+prod-release: $(BOLTS:%=prod-release-%)
 
-refresh: $(CODE_DIRS:%=%/gen_csv_version.py) $(CODE_DIRS:%=%/gen_version.py)
+# Pattern rules don't work reliably with multiple % in prereqs!
+refresh-1: bolt1/pyln/spec/bolt1/gen_csv_version.py bolt1/pyln/spec/bolt1/gen_version.py
+	cd bolt1 && poetry version $(call version,1)
+refresh-2: bolt2/pyln/spec/bolt2/gen_csv_version.py bolt2/pyln/spec/bolt2/gen_version.py
+	cd bolt2 && poetry version $(call version,2)
+refresh-4: bolt4/pyln/spec/bolt4/gen_csv_version.py bolt4/pyln/spec/bolt4/gen_version.py
+	cd bolt4 && poetry version $(call version,4)
+refresh-7: bolt7/pyln/spec/bolt7/gen_csv_version.py bolt7/pyln/spec/bolt7/gen_version.py
+	cd bolt7 && poetry version $(call version,7)
+
+refresh: $(BOLTS:%=refresh-%)
 
 bolt1/pyln/spec/bolt1/csv.py bolt1/pyln/spec/bolt1/text.py: $(SPECDIR)/01-messaging.md Makefile
 bolt2/pyln/spec/bolt2/csv.py bolt2/pyln/spec/bolt2/text.py: $(SPECDIR)/02-peer-protocol.md Makefile
