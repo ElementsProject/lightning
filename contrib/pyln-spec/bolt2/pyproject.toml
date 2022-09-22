@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-bolt2"
-version = "1.0.2.187.post0"
+version = "1.0.3.246"
 description = "A pure python implementation of BOLT2"
 authors = ["Rusty Russell <rusty@blockstream.com>"]
 license = "MIT"

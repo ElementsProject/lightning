@@ -6,7 +6,13 @@ text = """# BOLT #1: Base Protocol
 This protocol assumes an underlying authenticated and ordered transport mechanism that takes care of framing individual messages.
 [BOLT #8](08-transport.md) specifies the canonical transport layer used in Lightning, though it can be replaced by any transport that fulfills the above guarantees.
 
-The default TCP port is 9735. This corresponds to hexadecimal `0x2607`: the Unicode code point for LIGHTNING.<sup>[1](#reference-1)</sup>
+The default TCP port depends on the network used. The most common networks are:
+
+- Bitcoin mainet with port number 9735 or the corresponding hexadecimal `0x2607`;
+- Bitcoin testnet with port number 19735 (`0x4D17`);
+- Bitcoin signet with port number 39735 (`0xF87`).
+
+The Unicode code point for LIGHTNING <sup>[1](#reference-1)</sup>, and the port convention try to follow the Bitcoin Core convention.
 
 All data fields are unsigned big-endian unless otherwise specified.
 

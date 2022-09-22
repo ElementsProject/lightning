@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-bolt7"
-version = "1.0.2.186.post0"
+version = "1.0.4.246"
 description = "BOLT7"
 authors = ["Rusty Russell"]
 license = "BSD-MIT"
