@@ -243,7 +243,7 @@ struct openchannel2_payload {
 	 * this channel can hold */
 	struct amount_sat channel_max;
 	/* If they've requested funds, this is their request */
-	struct amount_sat requested_lease_amt;
+	struct amount_sat *requested_lease_amt;
 	u32 lease_blockheight_start;
 	u32 node_blockheight;
 
@@ -287,9 +287,9 @@ static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
 				    payload->shutdown_scriptpubkey);
 	json_add_amount_sat_msat(stream, "channel_max_msat",
 				 payload->channel_max);
-	if (!amount_sat_zero(payload->requested_lease_amt)) {
+	if (payload->requested_lease_amt) {
 		json_add_amount_sat_msat(stream, "requested_lease_msat",
-					 payload->requested_lease_amt);
+					 *payload->requested_lease_amt);
 		json_add_num(stream, "lease_blockheight_start",
 			     payload->lease_blockheight_start);
 		json_add_num(stream, "node_blockheight",
