@@ -76,7 +76,6 @@ There are two ways to build core lightning, and this depends on how you want use
 To build cln to just install a tagged or master version you can use the following commands:
 
     pip3 install --upgrade pip
-    pip3 install mako mistune==0.8.4 mrkd
     ./configure
     make
     sudo make install
@@ -175,7 +174,7 @@ fiddle with compile time options:
 
     # cd /usr/ports/net-p2p/c-lightning && make install
 
-mrkd is required to build man pages from markdown files (not done by the port):
+Install the python dependencies.
 
     # cd /usr/ports/devel/py-pip && make install
     $ pip install --user poetry
@@ -210,7 +209,9 @@ pkg_add git python gmake py3-pip libtool gmp
 pkg_add automake # (select highest version, automake1.16.2 at time of writing)
 pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
 ```
-Install `mako` and `mrkd` otherwise we run into build errors:
+
+Install python dependencies with `poetry`
+
 ```
 pip3.7 install --user poetry
 poetry install

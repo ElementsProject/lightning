@@ -32,4 +32,4 @@ RUN wget https://bitcoin.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_
     rm -rf bitcoin.tar.gz bitcoin-$BITCOIN_VERSION
 
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install python-bitcoinlib==0.10.2 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3 flake8==3.5.0 pytest-rerunfailures==3.1 ephemeral-port-reserve==1.1.0 mrkd==0.1.6
+    python3 -m pip install python-bitcoinlib==0.10.2 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3 flake8==3.5.0 pytest-rerunfailures==3.1 ephemeral-port-reserve==1.1.0

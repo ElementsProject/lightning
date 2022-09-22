@@ -15,7 +15,6 @@ COPY . lightning
 RUN cd lightning && \
     git submodule update --init --recursive && \
     ./configure && \
-    pip3 install mrkd mistune==0.8.4 && \
     make -j$(nproc) && \
     make install
 
