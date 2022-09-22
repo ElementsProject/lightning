@@ -49,7 +49,7 @@ csv = [
     "msgtype,final_incorrect_htlc_amount,19",
     "msgdata,final_incorrect_htlc_amount,incoming_htlc_amt,u64,",
     "msgtype,channel_disabled,UPDATE|20",
-    "msgdata,channel_disabled,flags,u16,",
+    "msgdata,channel_disabled,disabled_flags,u16,",
     "msgdata,channel_disabled,len,u16,",
     "msgdata,channel_disabled,channel_update,byte,len",
     "msgtype,expiry_too_far,21",

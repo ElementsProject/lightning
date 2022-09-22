@@ -38,7 +38,7 @@ csv = [
     "msgdata,channel_update,htlc_minimum_msat,u64,",
     "msgdata,channel_update,fee_base_msat,u32,",
     "msgdata,channel_update,fee_proportional_millionths,u32,",
-    "msgdata,channel_update,htlc_maximum_msat,u64,,option_channel_htlc_max",
+    "msgdata,channel_update,htlc_maximum_msat,u64,",
     "msgtype,query_short_channel_ids,261,gossip_queries",
     "msgdata,query_short_channel_ids,chain_hash,chain_hash,",
     "msgdata,query_short_channel_ids,len,u16,",
