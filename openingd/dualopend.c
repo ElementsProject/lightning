@@ -3220,6 +3220,24 @@ static void rbf_local_start(struct state *state, u8 *msg)
 		goto free_rbf_ctx;
 	}
 
+	/* If their new amount is less than the lease we asked for,
+	 * abort, abort! */
+	if (state->requested_lease
+	    && amount_sat_less(tx_state->accepter_funding,
+			       *state->requested_lease)) {
+		negotiation_failed(state,
+				   "We requested %s, which is more"
+				   " than they've offered to provide"
+				   " (%s)",
+				   type_to_string(tmpctx,
+						  struct amount_sat,
+						  state->requested_lease),
+				   type_to_string(tmpctx,
+						  struct amount_sat,
+						  &tx_state->accepter_funding));
+		goto free_rbf_ctx;
+	}
+
 	/* Now that we know the total of the channel, we can set the reserve */
 	set_reserve(tx_state, total, state->our_role);
 
