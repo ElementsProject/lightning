@@ -579,6 +579,7 @@ class LightningD(TailableProc):
         self.disconnect_file = None
 
         self.rpcproxy = bitcoindproxy
+        self.env['CLN_PLUGIN_LOG'] = "gl_plugin=trace,gl_rpc=trace,gl_grpc=trace,debug"
 
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
