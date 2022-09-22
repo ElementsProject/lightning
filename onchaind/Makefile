@@ -8,8 +8,7 @@ ONCHAIND_HEADERS :=				\
 
 ONCHAIND_SRC := onchaind/onchaind.c	\
 	onchaind/onchaind_wiregen.c	\
-	onchaind/onchaind_wire.c	\
-	onchaind/onchaind.c
+	onchaind/onchaind_wire.c
 
 onchaind/onchain_types_names_gen.h: onchaind/onchain_types.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr onchaind/onchain_types.h > $@
