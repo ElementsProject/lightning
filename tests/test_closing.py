@@ -2712,8 +2712,10 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
 
     # Now, 100 blocks it should be done.
     bitcoind.generate_block(100)
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'] == [])
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] == [])
+
+    # May reconnect, may not: if not, peer does not exist!
+    wait_for(lambda: all(p['channels'] == [] for p in l1.rpc.listpeers()['peers']))
+    wait_for(lambda: all(p['channels'] == [] for p in l2.rpc.listpeers()['peers']))
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
