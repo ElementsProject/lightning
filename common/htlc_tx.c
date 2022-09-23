@@ -52,8 +52,9 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 * * txout count: 1
-	 *    * `txout[0]` amount: the HTLC amount minus fees
-	 *       (see [Fee Calculation](#fee-calculation))
+	 *    * `txout[0]` amount: the HTLC `amount_msat` divided by 1000
+	 *      (rounding down) minus fees in satoshis (see
+	 *      [Fee Calculation](#fee-calculation))
 	 *    * `txout[0]` script: version-0 P2WSH with witness script as shown
 	 *       below
 	 */
