@@ -1490,6 +1490,10 @@ def test_zeroconf_forward(node_factory, bitcoind):
     # And now try the other way around: zeroconf channel first
     # followed by a public one.
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+
+    # Make sure all htlcs completely settled!
+    wait_for(lambda: all(only_one(p['channels'])['htlcs'] == [] for p in l2.rpc.listpeers()['peers']))
+
     inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
     l3.rpc.pay(inv)
 
