@@ -648,11 +648,51 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	return NULL;
 }
 
+/* What's the best channel to this peer?
+ * If @hint is set, channel must match that one. */
+static struct channel *best_channel(struct lightningd *ld,
+				    const struct peer *next_peer,
+				    struct amount_msat amt_to_forward,
+				    struct channel *hint)
+{
+	struct amount_msat best_spendable = AMOUNT_MSAT(0);
+	struct channel *channel, *best = hint;
+
+	/* Seek channel with largest spendable! */
+	list_for_each(&next_peer->channels, channel, list) {
+		struct amount_msat spendable;
+		if (!channel_can_add_htlc(channel))
+			continue;
+		spendable = channel_amount_spendable(channel);
+		if (!amount_msat_greater(spendable, best_spendable))
+			continue;
+
+		/* Don't override if fees differ... */
+		if (hint) {
+			if (hint->feerate_base != channel->feerate_base
+			    || hint->feerate_ppm != channel->feerate_ppm)
+				continue;
+		}
+
+		/* Or if this would be below min for channel! */
+		if (amount_msat_less(amt_to_forward,
+				     channel->channel_info.their_config.htlc_minimum))
+			continue;
+
+		best = channel;
+		best_spendable = spendable;
+	}
+	return best;
+}
+
+/* forward_to is where we're actually sending it (or NULL), and
+ * forward_scid is where they asked to send it (or NULL). */
 static void forward_htlc(struct htlc_in *hin,
 			 u32 cltv_expiry,
 			 struct amount_msat amt_to_forward,
 			 u32 outgoing_cltv_value,
-			 const struct short_channel_id *scid,
+			 const struct short_channel_id *forward_scid,
+			 const struct channel_id *forward_to,
 			 const u8 next_onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 			 const struct pubkey *next_blinding)
 {
@@ -660,52 +700,21 @@ static void forward_htlc(struct htlc_in *hin,
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next;
 	struct htlc_out *hout = NULL;
-	struct short_channel_id *altscid;
 
-	/* This is a shortcut for specifying next peer; doesn't mean
-	 * the actual channel! */
-	next = any_channel_by_scid(ld, scid, false);
-	if (next) {
-		struct peer *peer = next->peer;
-		struct channel *channel;
-		struct amount_msat best_spendable = channel_amount_spendable(next);
-
-		/* Seek channel with largest spendable! */
-		list_for_each(&peer->channels, channel, list) {
-			struct amount_msat spendable;
-			if (!channel_can_add_htlc(channel))
-				continue;
-			spendable = channel_amount_spendable(channel);
-			if (!amount_msat_greater(spendable, best_spendable))
-				continue;
-
-			/* Don't override if fees differ... */
-			if (channel->feerate_base != next->feerate_base
-			    || channel->feerate_ppm != next->feerate_ppm)
-				continue;
-			/* Or if this would be below min for channel! */
-			if (amount_msat_less(amt_to_forward,
-					     channel->channel_info.their_config.htlc_minimum))
-				continue;
-
-			altscid = channel->scid != NULL ? channel->scid
-							: channel->alias[LOCAL];
-
-			/* OK, it's better! */
-			log_debug(next->log, "Chose a better channel: %s",
-				  type_to_string(tmpctx,
-						 struct short_channel_id,
-						 altscid));
-			next = channel;
-		}
-	}
+	if (forward_to) {
+		next = channel_by_cid(ld, forward_to);
+		/* Update this to where we're actually trying to send. */
+		if (next)
+			forward_scid = channel_scid_or_local_alias(next);
+	}else
+		next = NULL;
 
 	/* Unknown peer, or peer not ready. */
 	if (!next || !channel_active(next)) {
 		local_fail_in_htlc(hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
 					 hin, get_onion_style(hin),
-					 scid, NULL,
+					 forward_scid, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 WIRE_UNKNOWN_NEXT_PEER);
 		return;
@@ -803,7 +812,7 @@ static void forward_htlc(struct htlc_in *hin,
 fail:
 	local_fail_in_htlc(hin, failmsg);
 	wallet_forwarded_payment_add(ld->wallet,
-				 hin, get_onion_style(hin), scid, hout,
+				 hin, get_onion_style(hin), forward_scid, hout,
 				 FORWARD_LOCAL_FAILED,
 				 fromwire_peektype(failmsg));
 }
@@ -819,6 +828,8 @@ struct htlc_accepted_hook_payload {
 	struct channel *channel;
 	struct lightningd *ld;
 	struct pubkey *next_blinding;
+	/* NULL if we couldn't find it */
+	struct channel_id *fwd_channel_id;
 	u8 *next_onion;
 	u64 failtlvtype;
 	size_t failtlvpos;
@@ -907,7 +918,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	struct htlc_in *hin = request->hin;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	const jsmntok_t *resulttok, *paykeytok, *payloadtok;
+	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *fwdtok;
 	u8 *payload, *failonion;
 
 	if (!toks || !buffer)
@@ -939,9 +950,21 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 						ld->accept_extra_tlv_types,
 						&request->failtlvtype,
 						&request->failtlvpos);
-
 	} else
 		payload = NULL;
+
+	fwdtok = json_get_member(buffer, toks, "forward_to");
+	if (fwdtok) {
+		tal_free(request->fwd_channel_id);
+		request->fwd_channel_id = tal(request, struct channel_id);
+		if (!json_to_channel_id(buffer, fwdtok,
+					request->fwd_channel_id)) {
+			fatal("Bad forward_to for htlc_accepted"
+			      " hook: %.*s",
+			      fwdtok->end - fwdtok->start,
+			      buffer + fwdtok->start);
+		}
+	}
 
 	if (json_tok_streq(buffer, resulttok, "continue")) {
 		return true;
@@ -1074,6 +1097,9 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_add_secret(s, "shared_secret", hin->shared_secret);
 	json_object_end(s);
 
+	if (p->fwd_channel_id)
+		json_add_channel_id(s, "forward_to", p->fwd_channel_id);
+
 	json_object_start(s, "htlc");
 	json_add_short_channel_id(
 	    s, "short_channel_id",
@@ -1117,6 +1143,7 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 			     request->payload->amt_to_forward,
 			     request->payload->outgoing_cltv,
 			     request->payload->forward_channel,
+			     request->fwd_channel_id,
 			     serialize_onionpacket(tmpctx, rs->next),
 			     request->next_blinding);
 	} else
@@ -1165,6 +1192,37 @@ REGISTER_PLUGIN_HOOK(htlc_accepted,
 		     htlc_accepted_hook_serialize,
 		     struct htlc_accepted_hook_payload *);
 
+
+/* Figures out how to fwd, allocating return off hp */
+static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
+						  struct htlc_accepted_hook_payload *hp,
+						  const struct route_step *rs)
+{
+	const struct onion_payload *p = hp->payload;
+	struct channel *c, *best;
+
+	if (rs->nextcase != ONION_FORWARD)
+		return NULL;
+
+	if (!p || !p->forward_channel)
+		return NULL;
+
+	c = any_channel_by_scid(ld, p->forward_channel, false);
+	if (!c)
+		return NULL;
+
+	best = best_channel(ld, c->peer, p->amt_to_forward, c);
+	if (best != c) {
+		log_debug(hp->channel->log,
+			  "Chose a better channel than %s: %s",
+			  type_to_string(tmpctx, struct short_channel_id,
+					 p->forward_channel),
+			  type_to_string(tmpctx, struct short_channel_id,
+					 channel_scid_or_local_alias(best)));
+	}
+
+	return tal_dup(hp, struct channel_id, &best->cid);
+}
 
 /**
  * Everyone is committed to this htlc of theirs
@@ -1299,6 +1357,16 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	} else
 #endif
 		hook_payload->next_blinding = NULL;
+
+	/* The scid is merely used to indicate the next peer, it is not
+	 * a requirement (nor, ideally, observable anyway).  We can change
+	 * to a more-preferred one now, that way the hook sees the value
+	 * we're actually going to (try to) use */
+
+	/* We don't store actual channel as it could vanish while
+	 * we're in hook */
+	hook_payload->fwd_channel_id
+		= calc_forwarding_channel(ld, hook_payload, rs);
 
 	plugin_hook_call_htlc_accepted(ld, NULL, hook_payload);
 

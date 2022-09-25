@@ -1722,14 +1722,22 @@ def test_zeroconf_multichan_forward(node_factory):
     # Now create a channel that is twice as large as the real channel,
     # and don't announce it.
     l2.fundwallet(10**7)
-    l2.rpc.fundchannel(l3.info['id'], 2 * 10**6, mindepth=0)
+    zeroconf_cid = l2.rpc.fundchannel(l3.info['id'], 2 * 10**6, mindepth=0)['channel_id']
 
     l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
     l3.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
 
     inv = l3.rpc.invoice(amount_msat=10000, label='lbl1', description='desc')['bolt11']
     l1.rpc.pay(inv)
-    assert l2.daemon.is_in_log(r'Chose a better channel: .*')
+
+    for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']:
+        if c['channel_id'] == zeroconf_cid:
+            zeroconf_scid = c['alias']['local']
+        else:
+            normal_scid = c['short_channel_id']
+
+    assert l2.daemon.is_in_log(r'Chose a better channel than {}: {}'
+                               .format(normal_scid, zeroconf_scid))
 
 
 def test_zeroreserve(node_factory, bitcoind):

@@ -2381,6 +2381,24 @@ def test_htlc_accepted_hook_failonion(node_factory):
         l1.rpc.pay(inv)
 
 
+@pytest.mark.developer("Gossip without developer is slow.")
+def test_htlc_accepted_hook_fwdto(node_factory):
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-fwdto.py')
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'plugin': plugin}, {}], wait_for_announce=True)
+
+    # Add some balance
+    l1.rpc.pay(l2.rpc.invoice(10**9 // 2, 'balance', '')['bolt11'])
+    wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['htlcs'] == [])
+
+    # make it forward back down same channel.
+    l2.rpc.setfwdto(only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['channel_id'])
+    inv = l3.rpc.invoice(42, 'fwdto', '')['bolt11']
+    with pytest.raises(RpcError, match="WIRE_INVALID_ONION_HMAC"):
+        l1.rpc.pay(inv)
+
+    assert l2.rpc.listforwards()['forwards'][0]['out_channel'] == only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['short_channel_id']
+
+
 def test_dynamic_args(node_factory):
     plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
 
