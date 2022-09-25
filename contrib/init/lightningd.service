@@ -8,7 +8,7 @@
 # /etc/lightningd/lightningd.conf
 
 [Unit]
-Description=C-Lightning daemon
+Description=Core Lightning daemon
 Requires=bitcoind.service
 After=bitcoind.service
 Wants=network-online.target
