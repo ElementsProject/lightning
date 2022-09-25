@@ -426,6 +426,10 @@ char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const 
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
+/* Generated stub for json_to_channel_id */
+bool json_to_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "json_to_channel_id called!\n"); abort(); }
 /* Generated stub for json_to_node_id */
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)

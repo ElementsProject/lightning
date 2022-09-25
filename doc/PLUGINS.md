@@ -1432,7 +1432,8 @@ The payload of the hook call has the following format:
     "cltv_expiry": 500028,
     "cltv_expiry_relative": 10,
     "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000"
-  }
+  },
+  "forward_to": "0000000000000000000000000000000000000000000000000000000000000000"
 }
 ```
 
@@ -1469,6 +1470,7 @@ For detailed information about each field please refer to [BOLT 04 of the specif
      blockheight.
    - `payment_hash` is the hash whose `payment_preimage` will unlock the funds
      and allow us to claim the HTLC.
+ - `forward_to`: if set, the channel_id we intend to forward this to (will not be present if the short_channel_id was invalid or we were the final destination).
 
 The hook response must have one of the following formats:
 
@@ -1489,6 +1491,7 @@ the response.  Note that this is always a TLV-style payload, so unlike
 hex digits long).  This will be re-parsed; it's useful for removing
 onion fields which a plugin doesn't want lightningd to consider.
 
+It can also specify `forward_to` in the response, replacing the destination.  This usually only makes sense if it wants to choose an alternate channel to the same next peer, but is useful if the `payload` is also replaced.
 
 ```json
 {

@@ -9,7 +9,6 @@
 #include <lightningd/channel_state.h>
 #include <wallet/wallet.h>
 
-struct channel_id;
 struct uncommitted_channel;
 struct wally_psbt;
 
