@@ -467,3 +467,44 @@ def test_db_sanity_checks(bitcoind, node_factory):
     # Will have exited with non-zero status.
     assert l1.daemon.proc.wait(TIMEOUT) != 0
     assert l1.daemon.is_in_stderr('Wallet sanity check failed')
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Canned db used")
+@unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
+def test_db_forward_migrate(bitcoind, node_factory):
+    # For posterity, here is how I generated the db, in v0.12.1:
+    # l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+
+    # node_factory.join_nodes([l2, l1, l3], True, FUNDAMOUNT, True, True)
+    # node_factory.join_nodes([l4, l1, l5], True, FUNDAMOUNT, True, True)
+
+    # # Both ends remembered
+    # l2.rpc.pay(l3.rpc.invoice(10000, 'test_db_forward_migrate', 'test_db_forward_migrate')['bolt11'])
+
+    # # Both ends forgotten
+    # l4.rpc.pay(l5.rpc.invoice(10000, 'test_db_forward_migrate', 'test_db_forward_migrate')['bolt11'])
+
+    # # Outgoing forgotten
+    # l2.rpc.pay(l5.rpc.invoice(10000, 'test_db_forward_migrate2', 'test_db_forward_migrate2')['bolt11'])
+
+    # # Incoming forgotten
+    # l4.rpc.pay(l3.rpc.invoice(10000, 'test_db_forward_migrate2', 'test_db_forward_migrate2')['bolt11'])
+
+    # time.sleep(5)
+    # l4.rpc.close(l1.info['id'])
+    # l5.rpc.close(l1.info['id'])
+    # bitcoind.generate_block(100, wait_for_mempool=2)
+    # l4.rpc.disconnect(l1.info['id'])
+    # l5.rpc.disconnect(l1.info['id'])
+
+    # wait_for(lambda: l1.rpc.listpeers(l4.info['id'])['peers'] == [])
+    # wait_for(lambda: l1.rpc.listpeers(l5.info['id'])['peers'] == [])
+    # assert False
+    bitcoind.generate_block(113)
+    l1 = node_factory.get_node(dbfile='v0.12.1-forward.sqlite3.xz',
+                               options={'database-upgrade': True})
+
+    assert l1.rpc.getinfo()['fees_collected_msat'] == 4
+    assert len(l1.rpc.listforwards()['forwards']) == 4
