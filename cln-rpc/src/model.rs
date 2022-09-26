@@ -3594,8 +3594,8 @@ pub mod responses {
 	pub struct ListforwardsForwards {
 	    #[serde(alias = "in_channel")]
 	    pub in_channel: ShortChannelId,
-	    #[serde(alias = "in_htlc_id")]
-	    pub in_htlc_id: u64,
+	    #[serde(alias = "in_htlc_id", skip_serializing_if = "Option::is_none")]
+	    pub in_htlc_id: Option<u64>,
 	    #[serde(alias = "in_msat")]
 	    pub in_msat: Amount,
 	    // Path `ListForwards.forwards[].status`

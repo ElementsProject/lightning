@@ -2844,7 +2844,11 @@ void json_add_forwarding_object(struct json_stream *response,
 	if (payment_hash)
 		json_add_sha256(response, "payment_hash", payment_hash);
 	json_add_short_channel_id(response, "in_channel", &cur->channel_in);
-	json_add_u64(response, "in_htlc_id", cur->htlc_id_in);
+
+#ifdef COMPAT_V0121
+	if (cur->htlc_id_in != HTLC_INVALID_ID)
+#endif
+		json_add_u64(response, "in_htlc_id", cur->htlc_id_in);
 
 	/* This can be unknown if we failed before channel lookup */
 	if (cur->channel_out.u64 != 0) {

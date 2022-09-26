@@ -25,12 +25,12 @@ RETURN VALUE
 On success, an object containing **forwards** is returned.  It is an array of objects, where each object contains:
 
 - **in\_channel** (short\_channel\_id): the channel that received the HTLC
-- **in\_htlc\_id** (u64): the unique HTLC id the sender gave this
 - **in\_msat** (msat): the value of the incoming HTLC
 - **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
 - **received\_time** (number): the UNIX timestamp when this was received
+- **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)
 - **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
-- **out\_htlc\_id** (u64, optional): the unique HTLC id we gave this when sending
+- **out\_htlc\_id** (u64, optional): the unique HTLC id we gave this when sending (may be missing even if out_channel is present, for old forwards before v22.11)
 - **style** (string, optional): Either a legacy onion format or a modern tlv format (one of "legacy", "tlv")
 
 If **out\_msat** is present:
@@ -64,4 +64,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:5b2da52b7f3a28563d0103d3853b9d8f717dc41a9e9c6b395ff19f1b975ca5fd)
+[comment]: # ( SHA256STAMP:15bf997ae8e93ab28b0084d9cc45fc80fb18b2bcf705f690f77617f0b66b069d)
