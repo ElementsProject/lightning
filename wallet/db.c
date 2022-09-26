@@ -922,9 +922,7 @@ static struct migration dbmigrations[] = {
 	 ", resolved_time"
 	 ", failcode"
 	 ", forward_style"
-	 " FROM forwarded_payments"
-	 " WHERE"
-	 "  in_htlc_id IS NOT NULL"), NULL},
+	 " FROM forwarded_payments"), NULL},
     {SQL("DROP INDEX forwarded_payments_state;"), NULL},
     {SQL("DROP INDEX forwarded_payments_out_htlc_id;"), NULL},
     {SQL("DROP TABLE forwarded_payments;"), NULL},

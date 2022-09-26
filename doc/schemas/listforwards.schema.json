@@ -14,7 +14,6 @@
         "required": [
           "in_channel",
           "in_msat",
-          "in_htlc_id",
           "status",
           "received_time"
         ],
@@ -25,7 +24,7 @@
           },
           "in_htlc_id": {
             "type": "u64",
-            "description": "the unique HTLC id the sender gave this"
+            "description": "the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)"
           },
           "in_msatoshi": {
             "deprecated": true
@@ -54,7 +53,7 @@
           },
           "out_htlc_id": {
             "type": "u64",
-            "description": "the unique HTLC id we gave this when sending"
+            "description": "the unique HTLC id we gave this when sending (may be missing even if out_channel is present, for old forwards before v22.11)"
           },
           "style": {
             "type": "string",
@@ -77,7 +76,6 @@
               "required": [
                 "fee_msat",
                 "out_msat",
-                "out_htlc_id",
                 "out_channel"
               ],
               "properties": {

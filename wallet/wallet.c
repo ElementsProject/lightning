@@ -4635,7 +4635,16 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		}
 
 		db_col_scid(stmt, "in_channel_scid", &cur->channel_in);
+
+#ifdef COMPAT_V0121
+		/* This can happen due to migration! */
+		if (!db_col_is_null(stmt, "in_htlc_id"))
+			cur->htlc_id_in = db_col_u64(stmt, "in_htlc_id");
+		else
+			cur->htlc_id_in = HTLC_INVALID_ID;
+#else
 		cur->htlc_id_in = db_col_u64(stmt, "in_htlc_id");
+#endif
 
 		if (!db_col_is_null(stmt, "out_channel_scid")) {
 			db_col_scid(stmt, "out_channel_scid", &cur->channel_out);

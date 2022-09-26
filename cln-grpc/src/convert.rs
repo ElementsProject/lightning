@@ -897,7 +897,7 @@ impl From<responses::ListforwardsForwards> for pb::ListforwardsForwards {
     fn from(c: responses::ListforwardsForwards) -> Self {
         Self {
             in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
-            in_htlc_id: c.in_htlc_id, // Rule #2 for type u64
+            in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
             in_msat: Some(c.in_msat.into()), // Rule #2 for type msat
             status: c.status as i32,
             received_time: c.received_time, // Rule #2 for type number

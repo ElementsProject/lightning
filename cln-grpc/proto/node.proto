@@ -1229,7 +1229,7 @@ message ListforwardsForwards {
 		TLV = 1;
 	}
 	string in_channel = 1;
-	uint64 in_htlc_id = 10;
+	optional uint64 in_htlc_id = 10;
 	Amount in_msat = 2;
 	ListforwardsForwardsStatus status = 3;
 	double received_time = 4;

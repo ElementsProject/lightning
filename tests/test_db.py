@@ -469,7 +469,6 @@ def test_db_sanity_checks(bitcoind, node_factory):
     assert l1.daemon.is_in_stderr('Wallet sanity check failed')
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Canned db used")
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
