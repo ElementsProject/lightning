@@ -3010,8 +3010,14 @@ static struct command_result *json_delforward(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+#ifdef COMPAT_V0121
+	/* Special value used if in_htlc_id is missing */
+	if (*htlc_id == HTLC_INVALID_ID)
+		htlc_id = NULL;
+#endif
+
 	if (!wallet_forward_delete(cmd->ld->wallet,
-				   chan_in, *htlc_id, *status))
+				   chan_in, htlc_id, *status))
 		return command_fail(cmd, DELFORWARD_NOT_FOUND,
 				    "Could not find that forward");
 

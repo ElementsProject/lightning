@@ -345,7 +345,15 @@ static struct command_result *listforwards_done(struct command *cmd,
 
 			req = del_request_start("delforward", cinfo, subsys);
 			json_add_tok(req->js, "in_channel", inchan, buf);
-			json_add_tok(req->js, "in_htlc_id", inid, buf);
+			/* This can be missing if it was a forwards record from an old
+			 * closed channel in version <= 0.12.1.  This is a special value
+			 * but we will delete them *all*, resulting in some failures! */
+#ifdef COMPAT_V0121
+			if (!inid)
+				json_add_u64(req->js, "in_htlc_id", -1ULL);
+			else
+#endif
+				json_add_tok(req->js, "in_htlc_id", inid, buf);
 			json_add_tok(req->js, "status", status, buf);
 			send_outreq(plugin, req);
 		}
