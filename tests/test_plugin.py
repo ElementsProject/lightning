@@ -3089,6 +3089,8 @@ def test_autoclean(node_factory):
     assert l2.rpc.autoclean_status()['autoclean']['failedforwards']['cleaned'] == 1
     assert l2.rpc.autoclean_status()['autoclean']['succeededforwards']['cleaned'] == 0
 
+    amt_before = l2.rpc.getinfo()['fees_collected_msat']
+
     # Clean succeeded ones
     l2.stop()
     l2.daemon.opts['autoclean-succeededforwards-age'] = 2
@@ -3097,6 +3099,9 @@ def test_autoclean(node_factory):
     assert l2.rpc.listforwards() == {'forwards': []}
     assert l2.rpc.autoclean_status()['autoclean']['failedforwards']['cleaned'] == 1
     assert l2.rpc.autoclean_status()['autoclean']['succeededforwards']['cleaned'] == 1
+
+    # We still see correct total in getinfo!
+    assert l2.rpc.getinfo()['fees_collected_msat'] == amt_before
 
 
 def test_autoclean_once(node_factory):
