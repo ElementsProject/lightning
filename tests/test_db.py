@@ -507,3 +507,10 @@ def test_db_forward_migrate(bitcoind, node_factory):
 
     assert l1.rpc.getinfo()['fees_collected_msat'] == 4
     assert len(l1.rpc.listforwards()['forwards']) == 4
+
+    # Make sure autoclean can handle these!
+    l1.stop()
+    l1.daemon.opts['autoclean-succeededforwards-age'] = 2
+    l1.daemon.opts['autoclean-cycle'] = 1
+    l1.start()
+    wait_for(lambda: l1.rpc.listforwards()['forwards'] == [])

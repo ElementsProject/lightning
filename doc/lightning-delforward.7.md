@@ -20,6 +20,11 @@ has no effect on the running of your node.
 You cannot delete forwards which have status *offered* (i.e. are
 currently active).
 
+Note: for **listforwards** entries without an *in_htlc_id* entry (no
+longer created in v22.11, but can exist from older versions), a value
+of 18446744073709551615 can be used, but then it will delete *all*
+entries without *in_htlc_id* for this *in_channel* and *status*.
+
 RETURN VALUE
 ------------
 

@@ -461,6 +461,11 @@ accepted, and ignored.
 
   How old invoices which were not paid (and cannot be) (`expired` in listinvoices `status`) before deletion (default 0, meaning never).
 
+Note: prior to v22.11, forwards for channels which were closed were
+not easily distinguishable.  As a result, autoclean may delete more
+than one of these at once, and then suffer failures when it fails to
+delete the others.
+
 ### Payment control options:
 
 * **disable-mpp** [plugin `pay`]

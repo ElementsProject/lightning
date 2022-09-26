@@ -4694,7 +4694,7 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 
 bool wallet_forward_delete(struct wallet *w,
 			   const struct short_channel_id *chan_in,
-			   u64 htlc_id,
+			   const u64 *htlc_id,
 			   enum forward_status state)
 {
 	struct db_stmt *stmt;
@@ -4703,21 +4703,32 @@ bool wallet_forward_delete(struct wallet *w,
 	/* When deleting settled ones, we have to add to deleted_forward_fees! */
 	if (state == FORWARD_SETTLED) {
 		/* Of course, it might not be settled: don't add if they're wrong! */
-		stmt = db_prepare_v2(w->db, SQL("SELECT"
-						" in_msatoshi - out_msatoshi"
-						" FROM forwards "
-						" WHERE in_channel_scid = ?"
-						" AND in_htlc_id = ?"
-						" AND state = ?;"));
-		db_bind_scid(stmt, 0, chan_in);
-		db_bind_u64(stmt, 1, htlc_id);
-		db_bind_int(stmt, 2, wallet_forward_status_in_db(FORWARD_SETTLED));
+		if (htlc_id) {
+			stmt = db_prepare_v2(w->db, SQL("SELECT"
+							" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
+							" FROM forwards "
+							" WHERE in_channel_scid = ?"
+							" AND in_htlc_id = ?"
+							" AND state = ?;"));
+			db_bind_scid(stmt, 0, chan_in);
+			db_bind_u64(stmt, 1, *htlc_id);
+			db_bind_int(stmt, 2, wallet_forward_status_in_db(FORWARD_SETTLED));
+		} else {
+			stmt = db_prepare_v2(w->db, SQL("SELECT"
+							" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
+							" FROM forwards "
+							" WHERE in_channel_scid = ?"
+							" AND in_htlc_id IS NULL"
+							" AND state = ?;"));
+			db_bind_scid(stmt, 0, chan_in);
+			db_bind_int(stmt, 1, wallet_forward_status_in_db(FORWARD_SETTLED));
+		}
 		db_query_prepared(stmt);
 
 		if (db_step(stmt)) {
 			struct amount_msat deleted;
 
-			db_col_amount_msat(stmt, "in_msatoshi - out_msatoshi", &deleted);
+			db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)", &deleted);
 			deleted.millisatoshis += /* Raw: db access */
 				db_get_intvar(w->db, "deleted_forward_fees", 0);
 			db_set_intvar(w->db, "deleted_forward_fees",
@@ -4726,14 +4737,24 @@ bool wallet_forward_delete(struct wallet *w,
 		tal_free(stmt);
 	}
 
-	stmt = db_prepare_v2(w->db,
-			     SQL("DELETE FROM forwards"
-				 " WHERE in_channel_scid = ?"
-				 " AND in_htlc_id = ?"
-				 " AND state = ?"));
-	db_bind_scid(stmt, 0, chan_in);
-	db_bind_u64(stmt, 1, htlc_id);
-	db_bind_int(stmt, 2, wallet_forward_status_in_db(state));
+	if (htlc_id) {
+		stmt = db_prepare_v2(w->db,
+				     SQL("DELETE FROM forwards"
+					 " WHERE in_channel_scid = ?"
+					 " AND in_htlc_id = ?"
+					 " AND state = ?"));
+		db_bind_scid(stmt, 0, chan_in);
+		db_bind_u64(stmt, 1, *htlc_id);
+		db_bind_int(stmt, 2, wallet_forward_status_in_db(state));
+	} else {
+		stmt = db_prepare_v2(w->db,
+				     SQL("DELETE FROM forwards"
+					 " WHERE in_channel_scid = ?"
+					 " AND in_htlc_id IS NULL"
+					 " AND state = ?"));
+		db_bind_scid(stmt, 0, chan_in);
+		db_bind_int(stmt, 1, wallet_forward_status_in_db(state));
+	}
 	db_exec_prepared_v2(stmt);
 	changed = db_count_changes(stmt) != 0;
 	tal_free(stmt);
