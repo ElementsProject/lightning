@@ -4506,7 +4506,7 @@ notify:
 struct amount_msat wallet_total_forward_fees(struct wallet *w)
 {
 	struct db_stmt *stmt;
-	struct amount_msat total;
+	struct amount_msat total, deleted;
 	bool res;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
@@ -4521,6 +4521,12 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 
 	db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)", &total);
 	tal_free(stmt);
+
+	deleted = amount_msat(db_get_intvar(w->db, "deleted_forward_fees", 0));
+	if (!amount_msat_add(&total, total, deleted))
+		db_fatal("Adding forward fees %s + %s overflowed",
+			 type_to_string(tmpctx, struct amount_msat, &total),
+			 type_to_string(tmpctx, struct amount_msat, &deleted));
 
 	return total;
 }
@@ -4693,6 +4699,32 @@ bool wallet_forward_delete(struct wallet *w,
 {
 	struct db_stmt *stmt;
 	bool changed;
+
+	/* When deleting settled ones, we have to add to deleted_forward_fees! */
+	if (state == FORWARD_SETTLED) {
+		/* Of course, it might not be settled: don't add if they're wrong! */
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						" in_msatoshi - out_msatoshi"
+						" FROM forwards "
+						" WHERE in_channel_scid = ?"
+						" AND in_htlc_id = ?"
+						" AND state = ?;"));
+		db_bind_scid(stmt, 0, chan_in);
+		db_bind_u64(stmt, 1, htlc_id);
+		db_bind_int(stmt, 2, wallet_forward_status_in_db(FORWARD_SETTLED));
+		db_query_prepared(stmt);
+
+		if (db_step(stmt)) {
+			struct amount_msat deleted;
+
+			db_col_amount_msat(stmt, "in_msatoshi - out_msatoshi", &deleted);
+			deleted.millisatoshis += /* Raw: db access */
+				db_get_intvar(w->db, "deleted_forward_fees", 0);
+			db_set_intvar(w->db, "deleted_forward_fees",
+				      deleted.millisatoshis); /* Raw: db access */
+		}
+		tal_free(stmt);
+	}
 
 	stmt = db_prepare_v2(w->db,
 			     SQL("DELETE FROM forwards"
