@@ -526,9 +526,9 @@ def test_gossip_persistence(node_factory, bitcoind):
     scid12, _ = l1.fundchannel(l2, 10**6)
     scid23, _ = l2.fundchannel(l3, 10**6)
 
-    # Make channels public, except for l3 -> l4, which is kept local-only for now
+    # Make channels public, except for l3 -> l4, which is kept local-only
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
-    scid34, _ = l3.fundchannel(l4, 10**6)
+    scid34, _ = l3.fundchannel(l4, 10**6, announce_channel=False)
     bitcoind.generate_block(1)
 
     def active(node):
