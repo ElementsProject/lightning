@@ -629,7 +629,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * the channel to pay unnecessary onchain fees during a fee
 	 * spike with large commitment transactions.
 	 */
-	if (sender == LOCAL
+	if (enforce_aggregate_limits && sender == LOCAL
 	    && htlc_count + 1 > channel->config[LOCAL].max_accepted_htlcs) {
 		return CHANNEL_ERR_TOO_MANY_HTLCS;
 	}
