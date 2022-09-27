@@ -59,6 +59,14 @@ static void fillin_missing_channel_blockheights(struct lightningd *ld,
 						struct db *db,
 						const struct migration_context *mc);
 
+static void migrate_channels_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc);
+
+static void migrate_payments_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -883,7 +891,53 @@ static struct migration dbmigrations[] = {
      * in routehints in invoices. The peer will remember all the
      * aliases, but we only ever need one. */
     {SQL("ALTER TABLE channels ADD alias_remote BIGINT DEFAULT NULL"), NULL},
+    /* Cheeky immediate completion as best effort approximation of real completion time */
+    {SQL("ALTER TABLE payments ADD completed_at INTEGER DEFAULT NULL;"), NULL},
+    {SQL("UPDATE payments SET completed_at = timestamp WHERE status != 0;"), NULL},
+    {SQL("CREATE INDEX payments_idx ON payments (payment_hash)"), NULL},
+    /* forwards table outlives the channels, so we move there from old forwarded_payments table;
+     * but here the ids are the HTLC numbers, not the internal db ids. */
+    {SQL("CREATE TABLE forwards ("
+	 "in_channel_scid BIGINT"
+	 ", in_htlc_id BIGINT"
+	 ", out_channel_scid BIGINT"
+	 ", out_htlc_id BIGINT"
+	 ", in_msatoshi BIGINT"
+	 ", out_msatoshi BIGINT"
+	 ", state INTEGER"
+	 ", received_time BIGINT"
+	 ", resolved_time BIGINT"
+	 ", failcode INTEGER"
+	 ", forward_style INTEGER"
+	 ", PRIMARY KEY(in_channel_scid, in_htlc_id))"), NULL},
+    {SQL("INSERT INTO forwards SELECT"
+	 " in_channel_scid"
+	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.in_htlc_id)"
+	 ", out_channel_scid"
+	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.out_htlc_id)"
+	 ", in_msatoshi"
+	 ", out_msatoshi"
+	 ", state"
+	 ", received_time"
+	 ", resolved_time"
+	 ", failcode"
+	 ", forward_style"
+	 " FROM forwarded_payments"), NULL},
+    {SQL("DROP INDEX forwarded_payments_state;"), NULL},
+    {SQL("DROP INDEX forwarded_payments_out_htlc_id;"), NULL},
+    {SQL("DROP TABLE forwarded_payments;"), NULL},
+    /* Adds scid column, then moves short_channel_id across to it */
+    {SQL("ALTER TABLE channels ADD scid BIGINT;"), migrate_channels_scids_as_integers},
+    {SQL("ALTER TABLE payments ADD failscid BIGINT;"), migrate_payments_scids_as_integers},
 };
+
+/* Released versions are of form v{num}[.{num}]* */
+static bool is_released_version(void)
+{
+	if (version()[0] != 'v')
+		return false;
+	return strcspn(version()+1, ".0123456789") == strlen(version()+1);
+}
 
 /**
  * db_migrate - Apply all remaining migrations from the current version
@@ -907,9 +961,17 @@ static bool db_migrate(struct lightningd *ld, struct db *db,
 	else if (available < current)
 		db_fatal("Refusing to migrate down from version %u to %u",
 			 current, available);
-	else if (current != available)
+	else if (current != available) {
+		if (ld->db_upgrade_ok && *ld->db_upgrade_ok == false) {
+			db_fatal("Refusing to upgrade db from version %u to %u (database-upgrade=false)",
+				 current, available);
+		} else if (!ld->db_upgrade_ok && !is_released_version()) {
+			db_fatal("Refusing to irreversibly upgrade db from version %u to %u in non-final version %s (use --database-upgrade=true to override)",
+				 current, available, version());
+		}
 		log_info(ld->log, "Updating database from version %u to %u",
 			 current, available);
+	}
 
 	while (current < available) {
 		current++;
@@ -950,10 +1012,10 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 	db->report_changes_fn = plugin_hook_db_sync;
 
 	db_begin_transaction(db);
+	db->data_version = db_data_version_get(db);
 
 	migrated = db_migrate(ld, db, bip32_base);
 
-	db->data_version = db_data_version_get(db);
 	db_commit_transaction(db);
 
 	/* This needs to be done outside a transaction, apparently.
@@ -1401,4 +1463,89 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 	}
 
 	tal_free(stmt);
+}
+
+/* We used to store scids as strings... */
+static void migrate_channels_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc)
+{
+	struct db_stmt *stmt;
+	char **scids = tal_arr(tmpctx, char *, 0);
+
+	stmt = db_prepare_v2(db, SQL("SELECT short_channel_id FROM channels"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		if (db_col_is_null(stmt, "short_channel_id"))
+			continue;
+		tal_arr_expand(&scids,
+			       db_col_strdup(scids, stmt, "short_channel_id"));
+	}
+	tal_free(stmt);
+
+	for (size_t i = 0; i < tal_count(scids); i++) {
+		struct short_channel_id scid;
+		if (!short_channel_id_from_str(scids[i], strlen(scids[i]), &scid))
+			db_fatal("Cannot convert invalid channels.short_channel_id '%s'",
+				 scids[i]);
+
+		stmt = db_prepare_v2(db, SQL("UPDATE channels"
+					     " SET scid = ?"
+					     " WHERE short_channel_id = ?"));
+		db_bind_scid(stmt, 0, &scid);
+		db_bind_text(stmt, 1, scids[i]);
+		db_exec_prepared_v2(stmt);
+		if (db_count_changes(stmt) != 1)
+			db_fatal("Converting channels.short_channel_id '%s' gave %zu changes != 1?",
+				 scids[i], db_count_changes(stmt));
+		tal_free(stmt);
+	}
+
+	/* FIXME: We cannot use ->delete_columns to remove
+	 * short_channel_id, as other tables reference the channels
+	 * (and sqlite3 has them referencing a now-deleted table!).
+	 * When we can assume sqlite3 2021-04-19 (3.35.5), we can
+	 * simply use DROP COLUMN (yay!) */
+
+	/* So null-out the unused column, at least! */
+	stmt = db_prepare_v2(db, SQL("UPDATE channels"
+				     " SET short_channel_id = NULL;"));
+	db_exec_prepared_v2(take(stmt));
+}
+
+static void migrate_payments_scids_as_integers(struct lightningd *ld,
+					       struct db *db,
+					       const struct migration_context *mc)
+{
+	struct db_stmt *stmt;
+	const char *colnames[] = {"failchannel"};
+
+	stmt = db_prepare_v2(db, SQL("SELECT id, failchannel FROM payments"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct db_stmt *update_stmt;
+		struct short_channel_id scid;
+		const char *str;
+
+		if (db_col_is_null(stmt, "failchannel")) {
+			db_col_ignore(stmt, "id");
+			continue;
+		}
+
+		str = db_col_strdup(tmpctx, stmt, "failchannel");
+		if (!short_channel_id_from_str(str, strlen(str), &scid))
+			db_fatal("Cannot convert invalid payments.failchannel '%s'",
+				 str);
+		update_stmt = db_prepare_v2(db, SQL("UPDATE payments SET"
+						    " failscid = ?"
+						    " WHERE id = ?"));
+		db_bind_scid(update_stmt, 0, &scid);
+		db_bind_u64(update_stmt, 1, db_col_u64(stmt, "id"));
+		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
+	}
+	tal_free(stmt);
+
+	if (!db->config->delete_columns(db, "payments", colnames, ARRAY_SIZE(colnames)))
+		db_fatal("Could not delete payments.failchannel");
 }

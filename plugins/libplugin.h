@@ -32,7 +32,7 @@ enum plugin_restartability {
 
 struct out_req {
 	/* The unique id of this request. */
-	u64 id;
+	const char *id;
 	/* The command which is why we're calling this rpc. */
 	struct command *cmd;
 	/* The request stream. */
@@ -51,7 +51,7 @@ struct out_req {
 };
 
 struct command {
-	u64 *id;
+	const char *id;
 	const char *methodname;
 	bool usage_only;
 	struct plugin *plugin;
@@ -161,7 +161,9 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 					     int code,
 					     const char *err);
 
-/* Helper to jsonrpc_request_start() and send_outreq() to update datastore. */
+/* Helper to jsonrpc_request_start() and send_outreq() to update datastore.
+ * NULL cb means ignore, NULL errcb means plugin_error.
+*/
 struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 					      struct command *cmd,
 					      const char *path,
@@ -237,7 +239,7 @@ void NORETURN plugin_exit(struct plugin *p, int exitcode);
  * NULL, data can be NULL; otherwise it must be a JSON object. */
 struct command_result *WARN_UNUSED_RESULT
 command_done_err(struct command *cmd,
-		 errcode_t code,
+		 enum jsonrpc_errcode code,
 		 const char *errmsg,
 		 const struct json_out *data);
 
@@ -281,6 +283,8 @@ bool rpc_scan_datastore_hex(struct plugin *plugin,
 			    const char *path,
 			    ...);
 
+/* This sets batching of database commitments */
+void rpc_enable_batching(struct plugin *plugin);
 
 /* Send an async rpc request to lightningd. */
 struct command_result *send_outreq(struct plugin *plugin,

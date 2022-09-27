@@ -614,14 +614,14 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   const struct wireaddr_internal *addrhint,
-			   errcode_t errcode,
+			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
 	PRINTF_FMT(5,6);
 
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
 			   const struct wireaddr_internal *addrhint,
-			   errcode_t errcode,
+			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
 {
 	u8 *msg;
@@ -766,14 +766,12 @@ static void try_connect_one_addr(struct connecting *connect)
 	bool use_proxy = connect->daemon->always_use_proxy;
 	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 	struct io_conn *conn;
-#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 	bool use_dns = connect->daemon->use_dns;
 	struct addrinfo hints, *ais, *aii;
 	struct wireaddr_internal addrhint;
 	int gai_err;
 	struct sockaddr_in *sa4;
 	struct sockaddr_in6 *sa6;
-#endif
 
 	assert(!connect->conn);
 
@@ -823,7 +821,6 @@ static void try_connect_one_addr(struct connecting *connect)
 			af = AF_INET6;
 			break;
 		case ADDR_TYPE_DNS:
-#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 			if (use_proxy) /* hand it to the proxy */
 				break;
 			if (!use_dns) {  /* ignore DNS when we can't use it */
@@ -875,12 +872,6 @@ static void try_connect_one_addr(struct connecting *connect)
 				addr = &connect->addrs[connect->addrnum];
 			}
 			freeaddrinfo(ais);
-#endif
-			tal_append_fmt(&connect->errors,
-				       "%s: EXPERIMENTAL_FEATURES needed. ",
-				       type_to_string(tmpctx,
-						      struct wireaddr_internal,
-						      addr));
 			goto next;
 		case ADDR_TYPE_WEBSOCKET:
 			af = -1;
@@ -1636,10 +1627,8 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 		                                   NULL, broken_reply, NULL);
 		if (new_addrs) {
 			for (size_t j = 0; j < tal_count(new_addrs); j++) {
-#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 				if (new_addrs[j].type == ADDR_TYPE_DNS)
 					continue;
-#endif
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
 				a.u.wireaddr = new_addrs[j];
@@ -1871,11 +1860,12 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg);
 
 	/* Now delete daemon and those which it has pointers to. */
-	memleak_remove_region(memtable, daemon, sizeof(daemon));
-	memleak_remove_htable(memtable, &daemon->peers.raw);
+	memleak_scan_obj(memtable, daemon);
+	memleak_scan_htable(memtable, &daemon->peers.raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
@@ -2014,7 +2004,7 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 #if DEVELOPER
 static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
 {
-	memleak_remove_htable(memtable, &daemon->peers.raw);
+	memleak_scan_htable(memtable, &daemon->peers.raw);
 }
 #endif /* DEVELOPER */
 

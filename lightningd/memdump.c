@@ -143,17 +143,21 @@ static void finish_report(const struct leak_detect *leaks)
 	ld = cmd->ld;
 
 	/* Enter everything, except this cmd and its jcon */
-	memtable = memleak_find_allocations(cmd, cmd, cmd->jcon);
+	memtable = memleak_start(cmd);
+
+	/* This command is not a leak! */
+	memleak_ptr(memtable, cmd);
+	memleak_ignore_children(memtable, cmd);
 
 	/* First delete known false positives. */
-	memleak_remove_htable(memtable, &ld->topology->txwatches.raw);
-	memleak_remove_htable(memtable, &ld->topology->txowatches.raw);
-	memleak_remove_htable(memtable, &ld->htlcs_in.raw);
-	memleak_remove_htable(memtable, &ld->htlcs_out.raw);
-	memleak_remove_htable(memtable, &ld->htlc_sets.raw);
+	memleak_scan_htable(memtable, &ld->topology->txwatches.raw);
+	memleak_scan_htable(memtable, &ld->topology->txowatches.raw);
+	memleak_scan_htable(memtable, &ld->htlcs_in.raw);
+	memleak_scan_htable(memtable, &ld->htlcs_out.raw);
+	memleak_scan_htable(memtable, &ld->htlc_sets.raw);
 
 	/* Now delete ld and those which it has pointers to. */
-	memleak_remove_region(memtable, ld, sizeof(*ld));
+	memleak_scan_obj(memtable, ld);
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "leaks");

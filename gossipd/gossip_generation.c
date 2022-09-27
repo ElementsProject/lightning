@@ -43,18 +43,18 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 	for (i = 0; i < count_announceable; i++)
 		tal_arr_expand(&was, daemon->announceable[i]);
 
-	/* Add IP discovery `remote_addr` v4 and v6 of our self. */
+	/* Add discovered IPs v4/v6 verified by peer `remote_addr` feature. */
 	/* Only do that if we don't have addresses announced. */
 	if (count_announceable == 0) {
-		if (daemon->remote_addr_v4 != NULL &&
-		    !wireaddr_arr_contains(was, daemon->remote_addr_v4))
-			tal_arr_expand(&was, *daemon->remote_addr_v4);
-		if (daemon->remote_addr_v6 != NULL &&
-		    !wireaddr_arr_contains(was, daemon->remote_addr_v6))
-			tal_arr_expand(&was, *daemon->remote_addr_v6);
+		if (daemon->discovered_ip_v4 != NULL &&
+		    !wireaddr_arr_contains(was, daemon->discovered_ip_v4))
+			tal_arr_expand(&was, *daemon->discovered_ip_v4);
+		if (daemon->discovered_ip_v6 != NULL &&
+		    !wireaddr_arr_contains(was, daemon->discovered_ip_v6))
+			tal_arr_expand(&was, *daemon->discovered_ip_v6);
 	}
 
-	/* Sort by address type again, as we added dynamic remote_addr v4/v6. */
+	/* Sort by address type again, as we added dynamic discovered_ip v4/v6. */
 	/* BOLT #7:
 	 *
 	 * The origin node:
@@ -513,7 +513,8 @@ static u8 *create_unsigned_update(const tal_t *ctx,
 				  struct amount_msat htlc_minimum,
 				  struct amount_msat htlc_maximum,
 				  u32 fee_base_msat,
-				  u32 fee_proportional_millionths)
+				  u32 fee_proportional_millionths,
+				  bool public)
 {
 	secp256k1_ecdsa_signature dummy_sig;
 	u8 message_flags, channel_flags;
@@ -539,17 +540,20 @@ static u8 *create_unsigned_update(const tal_t *ctx,
 
 	/* BOLT #7:
 	 *
-	 * The `message_flags` bitfield is used to indicate the presence of
-	 * optional fields in the `channel_update` message:
+	 * The `message_flags` bitfield is used to provide additional
+	 * details about the message:
 	 *
-	 *| Bit Position  | Name                      | Field                 |
-	 *...
-	 *| 0             | `option_channel_htlc_max` | `htlc_maximum_msat`   |
+	 * | Bit Position  | Name           |
+	 * | ------------- | ---------------|
+	 * | 0             | `must_be_one`  |
+	 * | 1             | `dont_forward` |
 	 */
-	message_flags = 0 | ROUTING_OPT_HTLC_MAX_MSAT;
+	message_flags = ROUTING_OPT_HTLC_MAX_MSAT;
+	if (!public)
+		message_flags |= ROUTING_OPT_DONT_FORWARD;
 
 	/* We create an update with a dummy signature and timestamp. */
-	return towire_channel_update_option_channel_htlc_max(ctx,
+	return towire_channel_update(ctx,
 				       &dummy_sig, /* sig set later */
 				       &chainparams->genesis_blockhash,
 				       scid,
@@ -730,7 +734,7 @@ void refresh_local_channel(struct daemon *daemon,
 	if (!prev)
 		return;
 
-	if (!fromwire_channel_update_option_channel_htlc_max(prev,
+	if (!fromwire_channel_update(prev,
 				     &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,
@@ -770,7 +774,8 @@ void refresh_local_channel(struct daemon *daemon,
 					false, cltv_expiry_delta,
 					htlc_minimum, htlc_maximum,
 					fee_base_msat,
-					fee_proportional_millionths);
+					fee_proportional_millionths,
+					!(message_flags & ROUTING_OPT_DONT_FORWARD));
 	sign_timestamp_and_apply_update(daemon, chan, direction, take(update));
 }
 
@@ -787,6 +792,7 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 	int direction;
 	u8 *unsigned_update;
 	const struct half_chan *hc;
+	bool public;
 
 	if (!fromwire_gossipd_local_channel_update(msg,
 						   &id,
@@ -796,7 +802,8 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 						   &htlc_minimum,
 						   &fee_base_msat,
 						   &fee_proportional_millionths,
-						   &htlc_maximum)) {
+						   &htlc_maximum,
+						   &public)) {
 		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE, msg);
 	}
 
@@ -821,7 +828,8 @@ void handle_local_channel_update(struct daemon *daemon, const u8 *msg)
 						 disable, cltv_expiry_delta,
 						 htlc_minimum, htlc_maximum,
 						 fee_base_msat,
-						 fee_proportional_millionths);
+						 fee_proportional_millionths,
+						 public);
 
 	hc = &chan->half[direction];
 

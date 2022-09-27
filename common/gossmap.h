@@ -90,6 +90,9 @@ void gossmap_remove_localmods(struct gossmap *map,
 u32 gossmap_node_idx(const struct gossmap *map, const struct gossmap_node *node);
 u32 gossmap_chan_idx(const struct gossmap *map, const struct gossmap_chan *chan);
 
+struct gossmap_node *gossmap_node_byidx(const struct gossmap *map, u32 idx);
+struct gossmap_chan *gossmap_chan_byidx(const struct gossmap *map, u32 idx);
+
 /* Every node_idx/chan_idx will be < these.
  * These values can change across calls to gossmap_check. */
 u32 gossmap_max_node_idx(const struct gossmap *map);
@@ -117,7 +120,7 @@ static inline bool gossmap_chan_set(const struct gossmap_chan *chan, int dir)
 	return chan->cupdate_off[dir] != 0;
 }
 
-/* Return capacity if it's known (fails only on race condition) */
+/* Return capacity if it's known (fails only on race condition, or a local mod) */
 bool gossmap_chan_get_capacity(const struct gossmap *map,
 			       const struct gossmap_chan *c,
 			       struct amount_sat *amount);
@@ -158,7 +161,6 @@ void gossmap_chan_get_update_details(const struct gossmap *map,
 				     u32 *fee_base_msat,
 				     u32 *fee_proportional_millionths,
 				     struct amount_msat *htlc_minimum_msat,
-				     /* iff message_flags & 1 */
 				     struct amount_msat *htlc_maximum_msat);
 
 /* Given a struct node, get the nth channel, and tell us if we're half[0/1].

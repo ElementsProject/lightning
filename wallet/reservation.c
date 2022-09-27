@@ -335,7 +335,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 {
 	struct json_stream *response;
 	struct wally_psbt *psbt;
-	size_t change_outnum;
+	size_t change_outnum COMPILER_WANTS_INIT("gcc 9.4.0 -Og");
 	u32 current_height = get_block_height(cmd->ld->topology);
 
 	/* Setting the locktime to the next block to be mined has multiple

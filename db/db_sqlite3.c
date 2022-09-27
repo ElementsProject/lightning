@@ -1,7 +1,9 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/utils.h>
+#include <db/bindings.h>
 #include <db/common.h>
+#include <db/exec.h>
 #include <db/utils.h>
 
 #if HAVE_SQLITE3
@@ -446,6 +448,7 @@ static bool colname_to_delete(const char **colnames,
 	return false;
 }
 
+/* Returns NULL if this doesn't look like a column definition */
 static const char *find_column_name(const tal_t *ctx,
 				    const char *sqlpart,
 				    size_t *after)
@@ -455,12 +458,13 @@ static const char *find_column_name(const tal_t *ctx,
 	while (isspace(sqlpart[start]))
 		start++;
 	*after = strspn(sqlpart + start, "abcdefghijklmnopqrstuvwxyz_0123456789") + start;
-	if (*after == start)
+	if (*after == start || !cisspace(sqlpart[*after]))
 		return NULL;
 	return tal_strndup(ctx, sqlpart + start, *after - start);
 }
 
-/* Move table out the way, return columns */
+/* Move table out the way, return columns.
+ * Note: with db_hook, frees tmpctx! */
 static char **prepare_table_manip(const tal_t *ctx,
 				  struct db *db, const char *tablename)
 {
@@ -487,39 +491,35 @@ static char **prepare_table_manip(const tal_t *ctx,
 	sql = tal_strdup(tmpctx, (const char *)sqlite3_column_text(stmt, 0));
 	sqlite3_finalize(stmt);
 
+	/* We MUST use generic routines to write to db, since they
+	 * mirror changes to the db hook! */
 	bracket = strchr(sql, '(');
-	if (!strstarts(sql, "CREATE TABLE") || !bracket) {
-		db->error = tal_fmt(db, "strange schema for %s: %s",
-				    tablename, sql);
-		return NULL;
-	}
+	if (!strstarts(sql, "CREATE TABLE") || !bracket)
+		db_fatal("Bad sql from prepare_table_manip %s: %s",
+			 tablename, sql);
 
 	/* Split after ( by commas: any lower case is assumed to be a field */
 	parts = tal_strsplit(ctx, bracket + 1, ",", STR_EMPTY_OK);
 
-	/* Turn off foreign keys first. */
-	sqlite3_prepare_v2(wrapper->conn, "PRAGMA foreign_keys = OFF;", -1, &stmt, NULL);
-	if (sqlite3_step(stmt) != SQLITE_DONE)
-		goto sqlite_stmt_err;
-	sqlite3_finalize(stmt);
+	/* Now, we actually need to turn OFF transactions for a moment, as
+	 * this pragma only has an effect outside a tx! */
+	db_commit_transaction(db);
 
+	/* But core insists we're "in a transaction" for all ops, so fake it */
+	db->in_transaction = "Not really";
+	/* Turn off foreign keys first. */
+	db_prepare_for_changes(db);
+	db_exec_prepared_v2(take(db_prepare_untranslated(db,
+							 "PRAGMA foreign_keys = OFF;")));
+	db_report_changes(db, NULL, 0);
+	db->in_transaction = NULL;
+
+	db_begin_transaction(db);
 	cmd = tal_fmt(tmpctx, "ALTER TABLE %s RENAME TO temp_%s;",
 		      tablename, tablename);
-	sqlite3_prepare_v2(wrapper->conn, cmd, -1, &stmt, NULL);
-	if (sqlite3_step(stmt) != SQLITE_DONE)
-		goto sqlite_stmt_err;
-	sqlite3_finalize(stmt);
-
-	/* Make sure we do the same to backup! */
-	replicate_statement(wrapper, "PRAGMA foreign_keys = OFF;");
-	replicate_statement(wrapper, cmd);
+	db_exec_prepared_v2(take(db_prepare_untranslated(db, cmd)));
 
 	return parts;
-
-sqlite_stmt_err:
-	db->error = tal_fmt(db, "%s", sqlite3_errmsg(wrapper->conn));
-	sqlite3_finalize(stmt);
-	return tal_free(parts);
 }
 
 static bool complete_table_manip(struct db *db,
@@ -527,9 +527,7 @@ static bool complete_table_manip(struct db *db,
 				 const char **coldefs,
 				 const char **oldcolnames)
 {
-	sqlite3_stmt *stmt;
 	char *create_cmd, *insert_cmd, *drop_cmd;
-	struct db_sqlite3 *wrapper = (struct db_sqlite3 *)db->conn;
 
 	/* Create table */
 	create_cmd = tal_fmt(tmpctx, "CREATE TABLE %s (", tablename);
@@ -540,13 +538,7 @@ static bool complete_table_manip(struct db *db,
 	}
 	tal_append_fmt(&create_cmd, ";");
 
-	sqlite3_prepare_v2(wrapper->conn, create_cmd, -1, &stmt, NULL);
-	if (sqlite3_step(stmt) != SQLITE_DONE)
-		goto sqlite_stmt_err;
-	sqlite3_finalize(stmt);
-
-	/* Make sure we do the same to backup! */
-	replicate_statement(wrapper, create_cmd);
+	db_exec_prepared_v2(take(db_prepare_untranslated(db, create_cmd)));
 
 	/* Populate table from old one */
 	insert_cmd = tal_fmt(tmpctx, "INSERT INTO %s SELECT ", tablename);
@@ -557,33 +549,24 @@ static bool complete_table_manip(struct db *db,
 	}
 	tal_append_fmt(&insert_cmd, " FROM temp_%s;", tablename);
 
-	sqlite3_prepare_v2(wrapper->conn, insert_cmd, -1, &stmt, NULL);
-	if (sqlite3_step(stmt) != SQLITE_DONE)
-		goto sqlite_stmt_err;
-	sqlite3_finalize(stmt);
-	replicate_statement(wrapper, insert_cmd);
+	db_exec_prepared_v2(take(db_prepare_untranslated(db, insert_cmd)));
 
 	/* Cleanup temp table */
 	drop_cmd = tal_fmt(tmpctx, "DROP TABLE temp_%s;", tablename);
-	sqlite3_prepare_v2(wrapper->conn, drop_cmd, -1, &stmt, NULL);
-	if (sqlite3_step(stmt) != SQLITE_DONE)
-		goto sqlite_stmt_err;
-	sqlite3_finalize(stmt);
-	replicate_statement(wrapper, drop_cmd);
+	db_exec_prepared_v2(take(db_prepare_untranslated(db, drop_cmd)));
+	db_commit_transaction(db);
 
 	/* Allow links between them (esp. cascade deletes!) */
-	sqlite3_prepare_v2(wrapper->conn, "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
-	if (sqlite3_step(stmt) != SQLITE_DONE)
-		goto sqlite_stmt_err;
-	sqlite3_finalize(stmt);
-	replicate_statement(wrapper, "PRAGMA foreign_keys = ON;");
+	db->in_transaction = "Not really";
+	db_prepare_for_changes(db);
+	db_exec_prepared_v2(take(db_prepare_untranslated(db,
+					       "PRAGMA foreign_keys = ON;")));
+	db_report_changes(db, NULL, 0);
+	db->in_transaction = NULL;
 
+	/* migrations are performed inside transactions, so start one. */
+	db_begin_transaction(db);
 	return true;
-
-sqlite_stmt_err:
-	db->error = tal_fmt(db, "%s", sqlite3_errmsg(wrapper->conn));
-	sqlite3_finalize(stmt);
-	return false;
 }
 
 static bool db_sqlite3_rename_column(struct db *db,
@@ -594,10 +577,11 @@ static bool db_sqlite3_rename_column(struct db *db,
 	const char **coldefs, **oldcolnames;
 	bool colname_found = false;
 
-	parts = prepare_table_manip(tmpctx, db, tablename);
+	parts = prepare_table_manip(NULL, db, tablename);
 	if (!parts)
 		return false;
 
+	tal_steal(tmpctx, parts);
 	coldefs = tal_arr(tmpctx, const char *, 0);
 	oldcolnames = tal_arr(tmpctx, const char *, 0);
 
@@ -642,10 +626,11 @@ static bool db_sqlite3_delete_columns(struct db *db,
 	const char **coldefs, **oldcolnames;
 	size_t colnames_found = 0;
 
-	parts = prepare_table_manip(tmpctx, db, tablename);
+	parts = prepare_table_manip(NULL, db, tablename);
 	if (!parts)
 		return false;
 
+	tal_steal(tmpctx, parts);
 	coldefs = tal_arr(tmpctx, const char *, 0);
 	oldcolnames = tal_arr(tmpctx, const char *, 0);
 

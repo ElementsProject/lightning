@@ -99,6 +99,10 @@ struct state {
 	struct channel_type *channel_type;
 
 	struct feature_set *our_features;
+
+	struct amount_sat *reserve;
+
+	bool allowdustreserve;
 };
 
 /*~ If we can't agree on parameters, we fail to open the channel.
@@ -138,23 +142,39 @@ static void NORETURN negotiation_failed(struct state *state,
 	negotiation_aborted(state, errmsg);
 }
 
+static void set_reserve_absolute(struct state * state, const struct amount_sat dust_limit, struct amount_sat reserve_sat)
+{
+	status_debug("Setting their reserve to %s",
+		     type_to_string(tmpctx, struct amount_sat, &reserve_sat));
+	if (state->allowdustreserve) {
+		state->localconf.channel_reserve = reserve_sat;
+	} else {
+		/* BOLT #2:
+		 *
+		 * The sending node:
+		 *...
+		 * - MUST set `channel_reserve_satoshis` greater than or equal
+		 *to `dust_limit_satoshis` from the `open_channel` message.
+		 */
+		if (amount_sat_greater(dust_limit, reserve_sat)) {
+			status_debug("Their reserve is too small, bumping to "
+				     "dust_limit: %s < %s",
+				     type_to_string(tmpctx, struct amount_sat,
+						    &reserve_sat),
+				     type_to_string(tmpctx, struct amount_sat,
+						    &dust_limit));
+			state->localconf.channel_reserve = dust_limit;
+		} else {
+			state->localconf.channel_reserve = reserve_sat;
+		}
+	}
+}
+
 /* We always set channel_reserve_satoshis to 1%, rounded down. */
 static void set_reserve(struct state *state, const struct amount_sat dust_limit)
 {
-	state->localconf.channel_reserve
-		= amount_sat_div(state->funding_sats, 100);
-
-	/* BOLT #2:
-	 *
-	 * The sending node:
-	 *...
-	 * - MUST set `channel_reserve_satoshis` greater than or equal to
-         *   `dust_limit_satoshis` from the `open_channel` message.
-	 */
-	if (amount_sat_greater(dust_limit,
-			       state->localconf.channel_reserve))
-		state->localconf.channel_reserve
-			= dust_limit;
+	set_reserve_absolute(state, dust_limit,
+			     amount_sat_div(state->funding_sats, 100));
 }
 
 /*~ Handle random messages we might get during opening negotiation, (eg. gossip)
@@ -234,10 +254,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 
 static bool setup_channel_funder(struct state *state)
 {
-	/*~ For symmetry, we calculate our own reserve even though lightningd
-	 * could do it for the we-are-funding case. */
-	set_reserve(state, state->localconf.dust_limit);
-
 #if DEVELOPER
 	/* --dev-force-tmp-channel-id specified */
 	if (dev_force_tmp_channel_id)
@@ -317,6 +333,15 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	status_debug("funder_channel_start");
 	if (!setup_channel_funder(state))
 		return NULL;
+
+	/* If we have a reserve override we use that, otherwise we'll
+	 * use our default of 1% of the funding value. */
+	if (state->reserve != NULL) {
+		set_reserve_absolute(state, state->localconf.dust_limit,
+				     *state->reserve);
+	} else {
+		set_reserve(state, state->localconf.dust_limit);
+	}
 
 	if (!state->upfront_shutdown_script[LOCAL])
 		state->upfront_shutdown_script[LOCAL]
@@ -440,7 +465,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				type_to_string(msg, struct channel_id,
 					       &state->channel_id));
 
-	if (amount_sat_greater(state->remoteconf.dust_limit,
+	if (!state->allowdustreserve &&
+	    amount_sat_greater(state->remoteconf.dust_limit,
 			       state->localconf.channel_reserve)) {
 		negotiation_failed(state,
 				   "dust limit %s"
@@ -449,6 +475,47 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 						  &state->remoteconf.dust_limit),
 				   type_to_string(tmpctx, struct amount_sat,
 						  &state->localconf.channel_reserve));
+		return NULL;
+	}
+
+	/* If we allow dust reserves, we might end up in a situation
+	 * in which all the channel funds are allocated to HTLCs,
+	 * leaving just dust to_us and to_them outputs. If the HTLCs
+	 * themselves are dust as well, our commitment transaction is
+	 * now invalid since it has no outputs at all, putting us in a
+	 * weird situation where the channel cannot be closed
+	 * unilaterally at all. (Thanks Rusty for identifying this
+	 * edge case). */
+	struct amount_sat alldust, mindust =
+	    amount_sat_greater(state->remoteconf.dust_limit,
+			       state->localconf.dust_limit)
+		? state->localconf.dust_limit
+		: state->remoteconf.dust_limit;
+	size_t maxhtlcs = state->remoteconf.max_accepted_htlcs +
+			  state->localconf.max_accepted_htlcs;
+	if (!amount_sat_mul(&alldust, mindust, maxhtlcs + 2)) {
+		negotiation_failed(
+		    state,
+		    "Overflow while computing total possible dust amount");
+		return NULL;
+	}
+
+	if (state->allowdustreserve &&
+	    feature_negotiated(state->our_features, state->their_features,
+			       OPT_ZEROCONF) &&
+	    amount_sat_greater_eq(alldust, state->funding_sats)) {
+		negotiation_failed(
+		    state,
+		    "channel funding %s too small for chosen "
+		    "parameters: a total of %zu HTLCs with dust value %s would "
+		    "result in a commitment_transaction without outputs. "
+		    "Please increase the funding amount or reduce the "
+		    "max_accepted_htlcs to ensure at least one non-dust "
+		    "output.",
+		    type_to_string(tmpctx, struct amount_sat,
+				   &state->funding_sats),
+		    maxhtlcs,
+		    type_to_string(tmpctx, struct amount_sat, &mindust));
 		return NULL;
 	}
 
@@ -803,6 +870,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct penalty_base *pbase;
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	struct tlv_open_channel_tlvs *open_tlvs;
+	struct amount_sat *reserve;
 
 	/* BOLT #2:
 	 *
@@ -839,8 +907,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 *   - It supports `channel_type`, `channel_type` was set, and the
-	 *     `type` is not suitable.
+	 *  - It supports `channel_type` and `channel_type` was set:
+	 *     - if `type` is not suitable.
+	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
 	if (open_tlvs->channel_type) {
 		state->channel_type =
@@ -934,6 +1003,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* This reserves 1% of the channel (rounded up) */
 	set_reserve(state, state->remoteconf.dust_limit);
 
+	/* Pending proposal to remove these limits. */
 	/* BOLT #2:
 	 *
 	 * The sender:
@@ -943,7 +1013,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * - MUST set `dust_limit_satoshis` less than or equal to
          *   `channel_reserve_satoshis` from the `open_channel` message.
 	 */
-	if (amount_sat_greater(state->remoteconf.dust_limit,
+	if (!state->allowdustreserve &&
+	    amount_sat_greater(state->remoteconf.dust_limit,
 			       state->localconf.channel_reserve)) {
 		negotiation_failed(state,
 				   "Our channel reserve %s"
@@ -952,17 +1023,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 						  &state->localconf.channel_reserve),
 				   type_to_string(tmpctx, struct amount_sat,
 						  &state->remoteconf.dust_limit));
-		return NULL;
-	}
-	if (amount_sat_greater(state->localconf.dust_limit,
-			       state->remoteconf.channel_reserve)) {
-		negotiation_failed(state,
-				   "Our dust limit %s"
-				   " would be above their reserve %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->localconf.dust_limit),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->remoteconf.channel_reserve));
 		return NULL;
 	}
 
@@ -1001,8 +1061,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* We don't allocate off tmpctx, because that's freed inside
 	 * opening_negotiate_msg */
 	if (!fromwire_openingd_got_offer_reply(state, msg, &err_reason,
-					      &state->upfront_shutdown_script[LOCAL],
-					      &state->local_upfront_shutdown_wallet_index))
+					       &state->upfront_shutdown_script[LOCAL],
+					       &state->local_upfront_shutdown_wallet_index,
+					       &reserve))
 		master_badmsg(WIRE_OPENINGD_GOT_OFFER_REPLY, msg);
 
 	/* If they give us a reason to reject, do so. */
@@ -1017,6 +1078,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			= no_upfront_shutdown_script(state,
 						     state->our_features,
 						     state->their_features);
+
+	if (reserve != NULL) {
+		set_reserve_absolute(state, state->remoteconf.dust_limit,
+				     *reserve);
+	}
 
 	/* OK, we accept! */
 	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
@@ -1300,10 +1366,11 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 
 	/* Populate a hash table with all our allocations (except msg, which
 	 * is in use right now). */
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg);
 
 	/* Now delete state and things it has pointers to. */
-	memleak_remove_region(memtable, state, sizeof(*state));
+	memleak_scan_obj(memtable, state);
 
 	/* If there's anything left, dump it to logs, and return true. */
 	found_leak = dump_memleak(memtable, memleak_status_broken);
@@ -1332,7 +1399,8 @@ static u8 *handle_master_in(struct state *state)
 						    &state->local_upfront_shutdown_wallet_index,
 						    &state->feerate_per_kw,
 						    &state->channel_id,
-						    &channel_flags))
+						    &channel_flags,
+						    &state->reserve))
 			master_badmsg(WIRE_OPENINGD_FUNDER_START, msg);
 		msg = funder_channel_start(state, channel_flags);
 
@@ -1397,17 +1465,18 @@ int main(int argc, char *argv[])
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_openingd_init(state, msg,
-				   &chainparams,
-				   &state->our_features,
-				   &state->their_features,
-				   &state->localconf,
-				   &state->max_to_self_delay,
-				   &state->min_effective_htlc_capacity,
-				   &state->our_points,
-				   &state->our_funding_pubkey,
-				   &state->minimum_depth,
-				   &state->min_feerate, &state->max_feerate,
-				   &force_tmp_channel_id))
+				    &chainparams,
+				    &state->our_features,
+				    &state->their_features,
+				    &state->localconf,
+				    &state->max_to_self_delay,
+				    &state->min_effective_htlc_capacity,
+				    &state->our_points,
+				    &state->our_funding_pubkey,
+				    &state->minimum_depth,
+				    &state->min_feerate, &state->max_feerate,
+				    &force_tmp_channel_id,
+				    &state->allowdustreserve))
 		master_badmsg(WIRE_OPENINGD_INIT, msg);
 
 #if DEVELOPER
@@ -1483,6 +1552,9 @@ int main(int argc, char *argv[])
 	per_peer_state_fdpass_send(REQ_FD, state->pps);
 	status_debug("Sent %s with fd",
 		     openingd_wire_name(fromwire_peektype(msg)));
+
+	/* Give master a chance to pass the fd along */
+	sleep(1);
 
 	/* This frees the entire tal tree. */
 	tal_free(state);

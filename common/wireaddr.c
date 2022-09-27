@@ -586,7 +586,7 @@ bool wireaddr_internal_eq(const struct wireaddr_internal *a,
 
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
-			     bool unresolved_ok, bool allow_deprecated,
+			     bool unresolved_ok,
 			     const char **err_msg)
 {
 	u16 splitport;

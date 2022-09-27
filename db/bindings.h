@@ -37,8 +37,8 @@ void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *ni);
 void db_bind_node_id_arr(struct db_stmt *stmt, int col,
 			 const struct node_id *ids);
 void db_bind_pubkey(struct db_stmt *stmt, int pos, const struct pubkey *p);
-void db_bind_short_channel_id(struct db_stmt *stmt, int col,
-			      const struct short_channel_id *id);
+void db_bind_scid(struct db_stmt *stmt, int col,
+		  const struct short_channel_id *id);
 void db_bind_short_channel_id_arr(struct db_stmt *stmt, int col,
 				  const struct short_channel_id *id);
 void db_bind_signature(struct db_stmt *stmt, int col,
@@ -83,8 +83,8 @@ struct node_id *db_col_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
 				   const char *colname);
 void db_col_pubkey(struct db_stmt *stmt, const char *colname,
 		   struct pubkey *p);
-bool db_col_short_channel_id_str(struct db_stmt *stmt, const char *colname,
-				struct short_channel_id *dest);
+void db_col_scid(struct db_stmt *stmt, const char *colname,
+		 struct short_channel_id *dest);
 struct short_channel_id *
 db_col_short_channel_id_arr(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
 bool db_col_signature(struct db_stmt *stmt, const char *colname,

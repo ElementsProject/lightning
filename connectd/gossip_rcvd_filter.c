@@ -71,7 +71,7 @@ static bool is_msg_gossip_broadcast(const u8 *cursor)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
-	case WIRE_FUNDING_LOCKED:
+	case WIRE_CHANNEL_READY:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_UPDATE_ADD_HTLC:

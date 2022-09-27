@@ -30,13 +30,9 @@ def output(line):
 
 
 def output_type(properties, is_optional):
-    # FIXME: there's a horrible hack for listpeers' closer which can be NULL
-    if type(properties['type']) is list:
-        typename = properties['type'][0]
-    else:
-        typename = properties['type']
+    typename = properties['type'].replace('_', '\\_')
     if typename == 'array':
-        typename += ' of {}s'.format(properties['items']['type'])
+        typename += ' of {}s'.format(properties['items']['type'].replace('_', '\\_'))
     if is_optional:
         typename += ", optional"
     output(" ({})".format(typename))

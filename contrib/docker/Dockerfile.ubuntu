@@ -1,9 +1,7 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 LABEL mantainer="Vincenzo Palazzo vincenzopalazzodev@gmail.com"
 
 WORKDIR /work
-
-COPY . .
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANGUAGE=en_US.UTF-8
@@ -23,7 +21,7 @@ RUN locale-gen en_US.UTF-8 && dpkg-reconfigure --frontend noninteractive tzdata
 
 COPY . .
 
-# install package for pytho cryptography lib
+# install package for python cryptography lib
 # https://cryptography.io/en/latest/installation/#debian-ubuntu
 
 RUN apt-get -qq update && \

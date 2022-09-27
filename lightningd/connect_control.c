@@ -201,7 +201,7 @@ static struct command_result *json_connect(struct command *cmd,
 		if (!parse_wireaddr_internal(id_addr.host, addr, port, false,
 					     !cmd->ld->always_use_proxy
 					     && !cmd->ld->pure_tor_setup,
-					     true, deprecated_apis,
+					     true,
 					     &err_msg)) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Host %s:%u not valid: %s",
@@ -357,7 +357,7 @@ void try_reconnect(const tal_t *ctx,
 /* We were trying to connect, but they disconnected. */
 static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
-			   errcode_t errcode,
+			   enum jsonrpc_errcode errcode,
 			   const char *errmsg,
 			   const struct wireaddr_internal *addrhint)
 {
@@ -390,7 +390,7 @@ void connect_failed_disconnect(struct lightningd *ld,
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	errcode_t errcode;
+	enum jsonrpc_errcode errcode;
 	char *errmsg;
 	struct wireaddr_internal *addrhint;
 
@@ -400,6 +400,15 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 		      tal_hex(msg, msg));
 
 	connect_failed(ld, &id, errcode, errmsg, addrhint);
+}
+
+const char *connect_any_cmd_id(const tal_t *ctx,
+			       struct lightningd *ld, const struct peer *peer)
+{
+	struct connect *c = find_connect(ld, &peer->id);
+	if (c)
+		return tal_strdup(ctx, c->cmd->id);
+	return NULL;
 }
 
 void connect_succeeded(struct lightningd *ld, const struct peer *peer,
@@ -469,7 +478,7 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 		return;
 	}
 
-	plugin_hook_call_custommsg(ld, p);
+	plugin_hook_call_custommsg(ld, NULL, p);
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)

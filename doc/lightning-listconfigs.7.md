@@ -62,6 +62,7 @@ On success, an object is returned, containing:
 - **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default
 - **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default
 - **experimental-websocket-port** (u16, optional): `experimental-websocket-port` field from config or cmdline, or default
+- **database-upgrade** (boolean, optional): `database-upgrade` field from config or cmdline
 - **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters)
 - **alias** (string, optional): `alias` field from config or cmdline, or default
 - **pid-file** (string, optional): `pid-file` field from config or cmdline, or default
@@ -96,8 +97,10 @@ On success, an object is returned, containing:
 - **log-timestamps** (boolean, optional): `log-timestamps` field from config or cmdline, or default
 - **force-feerates** (string, optional): force-feerate configuration setting, if any
 - **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
-- **fetchinvoice-noconnect** (boolean, optional): `featchinvoice-noconnect` fileds from config or cmdline, or default
+- **fetchinvoice-noconnect** (boolean, optional): `fetchinvoice-noconnect` fields from config or cmdline, or default
+- **accept-htlc-tlv-types** (string, optional): `accept-extra-tlvs-type` fields from config or cmdline, or not present
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
+- **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -215,4 +218,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:633de58c810a3d0692e4fe7c58265cf4eec1fe85dffc0139a9af1b23936b61e8)
+[comment]: # ( SHA256STAMP:5871ac751654339ed65ab905d61f0bc3afbb8576a33a5c4e9a73d2084f438582)

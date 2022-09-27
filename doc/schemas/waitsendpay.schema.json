@@ -46,6 +46,10 @@
       "type": "u64",
       "description": "the UNIX timestamp showing when this payment was initiated"
     },
+    "completed_at": {
+      "type": "number",
+      "description": "the UNIX timestamp showing when this payment was completed"
+    },
     "msatoshi_sent": {
       "deprecated": true
     },
@@ -96,6 +100,7 @@
           "amount_msat": {},
           "destination": {},
           "created_at": {},
+          "completed_at": {},
           "msatoshi_sent": {},
           "amount_sent_msat": {},
           "label": {},

@@ -44,6 +44,10 @@
     "mindepth": {
       "description": "Number of confirmations required before we consider the channel active",
       "type": "u32"
+    },
+    "reserve": {
+      "type": "msat",
+      "description": "The amount we want the peer to maintain on its side"
     }
   }
 }

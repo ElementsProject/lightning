@@ -515,8 +515,8 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 		/* For all channels we check that they have a
 		 * sufficiently large estimated capacity to have some
 		 * chance of succeeding. */
-		apply &= amount_msat_greater(curhint->estimated_capacity,
-					     curhop->amount);
+		apply &= amount_msat_greater_eq(curhint->estimated_capacity,
+						curhop->amount);
 
 		if (!apply) {
 			/* This can happen in case of multiple
@@ -530,6 +530,15 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 				   type_to_string(tmpctx,
 						  struct short_channel_id_dir,
 						  &curhint->scid));
+			paymod_log(
+			    p, LOG_DBG,
+			    "Capacity: estimated_capacity=%s, hop_amount=%s. "
+			    "HTLC Budget: htlc_budget=%d, local=%d",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &curhint->estimated_capacity),
+			    type_to_string(tmpctx, struct amount_msat,
+					   &curhop->amount),
+			    curhint->htlc_budget, curhint->local);
 			return false;
 		}
 	}
@@ -584,10 +593,8 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 		if (!hint->enabled)
 			tal_arr_expand(&res, hint->scid);
 
-		else if (amount_msat_greater_eq(p->amount,
-						hint->estimated_capacity))
-			/* We exclude on equality because we've set the
-			 * estimate to the smallest failed attempt. */
+		else if (amount_msat_greater(p->amount,
+					     hint->estimated_capacity))
 			tal_arr_expand(&res, hint->scid);
 
 		else if (hint->local && hint->htlc_budget == 0)
@@ -1248,6 +1255,7 @@ handle_intermediate_failure(struct command *cmd,
 			    enum onion_wire failcode)
 {
 	struct payment *root = payment_root(p);
+	struct amount_msat estimated;
 
 	paymod_log(p, LOG_DBG,
 		   "Intermediate node %s reported %04x (%s) at %s on route %s",
@@ -1288,11 +1296,20 @@ handle_intermediate_failure(struct command *cmd,
 		break;
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
+		estimated = errchan->amount;
+
+		/* Subtract one msat more, since we know that the amount did not
+		 * work. This allows us to then allow on equality, this is for
+		 * example necessary for local channels where exact matches
+		 * should be allowed. */
+		if (!amount_msat_sub(&estimated, estimated, AMOUNT_MSAT(1)))
+			abort();
+
 		/* These are an indication that the capacity was insufficient,
 		 * remember the amount we tried as an estimate. */
 		channel_hints_update(root, errchan->scid,
 				     errchan->direction, true, false,
-				     &errchan->amount, NULL);
+				     &estimated, NULL);
 		goto error;
 	}
 

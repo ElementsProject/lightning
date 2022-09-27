@@ -23,10 +23,9 @@ static bool verbose = false;
 struct update_opts {
 	u32 timestamp;
 	u32 cltv_expiry_delta;
-	struct amount_msat min;
+	struct amount_msat min, max;
 	struct amount_msat feebase;
 	u32 fee_proportional_millionths;
-	struct amount_msat *max;
 	u8 *addresses;
 };
 
@@ -52,14 +51,9 @@ static int parse_options(char *argv[], struct update_opts *opts,
 	if (!opts->fee_proportional_millionths)
 		errx(1, "Bad %s.fee_proportional_millionths", desc);
 
-	if (streq(argv[argnum], ""))
-		opts->max = NULL;
-	else {
-		opts->max = tal(NULL, struct amount_msat);
-		if (!parse_amount_msat(opts->max,
-				       argv[argnum], strlen(argv[argnum])))
-			errx(1, "Bad %s.max", desc);
-	}
+	if (!parse_amount_msat(&opts->max,
+			       argv[argnum], strlen(argv[argnum])))
+		errx(1, "Bad %s.max", desc);
 	argnum++;
 	opts->addresses = tal_hexdata(NULL, argv[argnum], strlen(argv[argnum]));
 	if (!opts->addresses)
@@ -139,8 +133,7 @@ static void print_update(const struct bitcoin_blkid *chainhash,
 	u8 *cupdate;
 
 	memset(&sig, 0, sizeof(sig));
-	if (opts->max) {
-		cupdate = towire_channel_update_option_channel_htlc_max
+	cupdate = towire_channel_update
 			(NULL, &sig, chainhash, scid, opts->timestamp,
 			 ROUTING_OPT_HTLC_MAX_MSAT,
 			 is_lesser_key ? 0 : ROUTING_FLAGS_DIRECTION,
@@ -148,17 +141,7 @@ static void print_update(const struct bitcoin_blkid *chainhash,
 			 opts->min,
 			 opts->feebase.millisatoshis, /* Raw: devtools code */
 			 opts->fee_proportional_millionths,
-			 *opts->max);
-	} else {
-		cupdate = towire_channel_update
-			(NULL, &sig, chainhash, scid, opts->timestamp,
-			 0,
-			 is_lesser_key ? 0 : ROUTING_FLAGS_DIRECTION,
-			 opts->cltv_expiry_delta,
-			 opts->min,
-			 opts->feebase.millisatoshis, /* Raw: devtools code */
-			 opts->fee_proportional_millionths);
-	}
+			 opts->max);
 	sha256_double(&hash, cupdate + channel_update_offset,
 		      tal_count(cupdate) - channel_update_offset);
 	sign_hash(privkey, &hash, &sig);
@@ -169,7 +152,7 @@ static void print_update(const struct bitcoin_blkid *chainhash,
 	printf("   short_channel_id=%s\n", short_channel_id_to_str(NULL, scid));
 	printf("   timestamp=%u\n", opts->timestamp);
 	printf("   message_flags=%u\n",
-	       opts->max ? ROUTING_OPT_HTLC_MAX_MSAT : 0);
+	       ROUTING_OPT_HTLC_MAX_MSAT);
 	printf("   channel_flags=%u\n",
 	       is_lesser_key ? 0 : ROUTING_FLAGS_DIRECTION);
 	printf("   cltv_expiry_delta=%u\n",
@@ -180,9 +163,8 @@ static void print_update(const struct bitcoin_blkid *chainhash,
 	       opts->feebase.millisatoshis);  /* Raw: devtools code */
 	printf("   fee_proportional_millionths=%u\n",
 	       opts->fee_proportional_millionths);
-	if (opts->max)
-		printf("   htlc_maximum_msat=%"PRIu64"\n",
-		       opts->max->millisatoshis);  /* Raw: devtools code */
+	printf("   htlc_maximum_msat=%"PRIu64"\n",
+	       opts->max.millisatoshis);  /* Raw: devtools code */
 	printf("# crc32c checksum: %08x\n", crc32_of_update(cupdate));
 }
 

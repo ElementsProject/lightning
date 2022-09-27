@@ -69,7 +69,7 @@ static bool public_msg_type(enum peer_wire type)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
-	case WIRE_FUNDING_LOCKED:
+	case WIRE_CHANNEL_READY:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:
@@ -199,8 +199,8 @@ size_t find_gossip_store_end(int gossip_store_fd, size_t off)
 	} buf;
 	int r;
 
-	while ((r = read(gossip_store_fd, &buf,
-			 sizeof(buf.hdr) + sizeof(buf.type)))
+	while ((r = pread(gossip_store_fd, &buf,
+			 sizeof(buf.hdr) + sizeof(buf.type), off))
 	       == sizeof(buf.hdr) + sizeof(buf.type)) {
 		u32 msglen = be32_to_cpu(buf.hdr.len) & GOSSIP_STORE_LEN_MASK;
 
@@ -209,7 +209,6 @@ size_t find_gossip_store_end(int gossip_store_fd, size_t off)
 			break;
 
 		off += sizeof(buf.hdr) + msglen;
-		lseek(gossip_store_fd, off, SEEK_SET);
 	}
 	return off;
 }

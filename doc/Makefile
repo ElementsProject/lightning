@@ -8,7 +8,8 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightningd.8 \
 	doc/lightningd-config.5 \
 	doc/lightning-addgossip.7 \
-	doc/lightning-autocleaninvoice.7 \
+	doc/lightning-autoclean-status.7 \
+	doc/lightning-batching.7 \
 	doc/lightning-bkpr-channelsapy.7 \
 	doc/lightning-bkpr-dumpincomecsv.7 \
 	doc/lightning-bkpr-inspect.7 \
@@ -28,6 +29,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-decode.7 \
 	doc/lightning-deldatastore.7 \
 	doc/lightning-delexpiredinvoice.7 \
+	doc/lightning-delforward.7 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-delpay.7 \
 	doc/lightning-disableoffer.7 \
@@ -49,6 +51,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listdatastore.7 \
 	doc/lightning-listforwards.7 \
 	doc/lightning-listfunds.7 \
+	doc/lightning-listhtlcs.7 \
 	doc/lightning-listinvoices.7 \
 	doc/lightning-listoffers.7 \
 	doc/lightning-listpays.7 \

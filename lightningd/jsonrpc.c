@@ -83,6 +83,9 @@ struct json_connection {
 	/* Are notifications enabled? */
 	bool notifications_enabled;
 
+	/* Are we allowed to batch database commitments? */
+	bool db_batching;
+
 	/* Our json_streams (owned by the commands themselves while running).
 	 * Since multiple streams could start returning data at once, we
 	 * always service these in order, freeing once empty. */
@@ -145,6 +148,13 @@ static void destroy_jcon(struct json_connection *jcon)
 	tal_free(jcon->log);
 }
 
+struct log *command_log(struct command *cmd)
+{
+	if (cmd->jcon)
+		return cmd->jcon->log;
+	return cmd->ld->log;
+}
+
 static struct command_result *json_help(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *obj UNNEEDED,
@@ -192,9 +202,7 @@ static struct command_result *json_stop(struct command *cmd,
 	jout = json_out_new(tmpctx);
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");
-	/* id may be a string or number, so copy direct. */
-	memcpy(json_out_member_direct(jout, "id", strlen(cmd->id)),
-	       cmd->id, strlen(cmd->id));
+	json_out_add(jout, "id", cmd->id_is_string, "%s", cmd->id);
 	json_out_addstr(jout, "result", "Shutdown complete");
 	json_out_end(jout, '}');
 	json_out_finished(jout);
@@ -470,7 +478,7 @@ struct command_result *command_failed(struct command *cmd,
 	return command_raw_complete(cmd, result);
 }
 
-struct command_result *command_fail(struct command *cmd, errcode_t code,
+struct command_result *command_fail(struct command *cmd, enum jsonrpc_errcode code,
 				    const char *fmt, ...)
 {
 	const char *errmsg;
@@ -508,7 +516,7 @@ static void json_command_malformed(struct json_connection *jcon,
 	json_add_string(js, "jsonrpc", "2.0");
 	json_add_primitive(js, "id", id);
 	json_object_start(js, "error");
-	json_add_errcode(js, "code", JSONRPC2_INVALID_REQUEST);
+	json_add_jsonrpc_errcode(js, "code", JSONRPC2_INVALID_REQUEST);
 	json_add_string(js, "message", error);
 	json_object_end(js);
 	json_object_end(js);
@@ -533,7 +541,10 @@ void json_notify_fmt(struct command *cmd,
 	json_add_string(js, "jsonrpc", "2.0");
 	json_add_string(js, "method", "message");
 	json_object_start(js, "params");
-	json_add_string(js, "id", cmd->id);
+	if (cmd->id_is_string)
+		json_add_string(js, "id", cmd->id);
+	else
+		json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
 	json_add_string(js, "level", log_level_name(level));
 	json_add_string(js, "message", tal_vfmt(tmpctx, fmt, ap));
 	json_object_end(js);
@@ -578,7 +589,10 @@ static struct json_stream *json_start(struct command *cmd)
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
+	if (cmd->id_is_string)
+		json_add_string(js, "id", cmd->id);
+	else
+		json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
 	return js;
 }
 
@@ -590,7 +604,7 @@ struct json_stream *json_stream_success(struct command *cmd)
 }
 
 struct json_stream *json_stream_fail_nodata(struct command *cmd,
-					    errcode_t code,
+					    enum jsonrpc_errcode code,
 					    const char *errmsg)
 {
 	struct json_stream *js = json_start(cmd);
@@ -598,14 +612,14 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 	assert(code);
 
 	json_object_start(js, "error");
-	json_add_errcode(js, "code", code);
+	json_add_jsonrpc_errcode(js, "code", code);
 	json_add_string(js, "message", errmsg);
 
 	return js;
 }
 
 struct json_stream *json_stream_fail(struct command *cmd,
-				     errcode_t code,
+				     enum jsonrpc_errcode code,
 				     const char *errmsg)
 {
 	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
@@ -664,11 +678,6 @@ static void rpc_command_hook_serialize(struct rpc_command_hook_payload *p,
 	char *key;
 	json_object_start(s, "rpc_command");
 
-#ifdef COMPAT_V081
-	if (deprecated_apis)
-		json_add_tok(s, "rpc_command", p->request, p->buffer);
-#endif
-
 	json_for_each_obj(i, tok, p->request) {
 		key = tal_strndup(NULL, p->buffer + tok->start,
 				  tok->end - tok->start);
@@ -682,7 +691,7 @@ static void replace_command(struct rpc_command_hook_payload *p,
 			    const char *buffer,
 			    const jsmntok_t *replacetok)
 {
-	const jsmntok_t *method = NULL, *params = NULL;
+	const jsmntok_t *method = NULL, *params = NULL, *jsonrpc;
 	const char *bad;
 
 	/* Must contain "method", "params" and "id" */
@@ -714,14 +723,10 @@ static void replace_command(struct rpc_command_hook_payload *p,
 		goto fail;
 	}
 
-	// deprecated phase to give the possibility to all to migrate and stay safe
-	// from this more restrictive change.
-	if (!deprecated_apis) {
-		const jsmntok_t *jsonrpc = json_get_member(buffer, replacetok, "jsonrpc");
-		if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(buffer, jsonrpc, "2.0")) {
-			bad = "jsonrpc: \"2.0\" must be specified in the request";
-			goto fail;
-		}
+	jsonrpc = json_get_member(buffer, replacetok, "jsonrpc");
+	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(buffer, jsonrpc, "2.0")) {
+		bad = "jsonrpc: \"2.0\" must be specified in the request";
+		goto fail;
 	}
 
 	was_pending(command_exec(p->cmd->jcon, p->cmd, buffer, replacetok,
@@ -822,11 +827,11 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p,
 
 		custom_return = json_get_member(buffer, tok, "error");
 		if (custom_return) {
-			errcode_t code;
+			enum jsonrpc_errcode code;
 			const char *errmsg;
-			if (!json_to_errcode(buffer,
-					     json_get_member(buffer, custom_return, "code"),
-					     &code)) {
+			if (!json_to_jsonrpc_errcode(buffer,
+						     json_get_member(buffer, custom_return, "code"),
+						     &code)) {
 				error = "'error' object does not contain a code.";
 				goto log_error_and_skip;
 			}
@@ -858,7 +863,7 @@ REGISTER_PLUGIN_HOOK(rpc_command,
 static struct command_result *
 parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
-	const jsmntok_t *method, *id, *params;
+	const jsmntok_t *method, *id, *params, *jsonrpc;
 	struct command *c;
 	struct rpc_command_hook_payload *rpc_hook;
 	bool completed;
@@ -886,13 +891,11 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 
 	// Adding a deprecated phase to make sure that all the Core Lightning wrapper
 	// can migrate all the frameworks
-	if (!deprecated_apis) {
-		const jsmntok_t *jsonrpc = json_get_member(jcon->buffer, tok, "jsonrpc");
+	jsonrpc = json_get_member(jcon->buffer, tok, "jsonrpc");
 
-		if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(jcon->buffer, jsonrpc, "2.0")) {
-			json_command_malformed(jcon, "null", "jsonrpc: \"2.0\" must be specified in the request");
-			return NULL;
-		}
+	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(jcon->buffer, jsonrpc, "2.0")) {
+		json_command_malformed(jcon, "null", "jsonrpc: \"2.0\" must be specified in the request");
+		return NULL;
 	}
 
 	/* Allocate the command off of the `jsonrpc` object and not
@@ -903,9 +906,8 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->ld = jcon->ld;
 	c->pending = false;
 	c->json_stream = NULL;
-	c->id = tal_strndup(c,
-			    json_tok_full(jcon->buffer, id),
-			    json_tok_full_len(id));
+	c->id_is_string = (id->type == JSMN_STRING);
+	c->id = json_strdup(c, jcon->buffer, id);
 	c->mode = CMD_NORMAL;
 	list_add_tail(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_command);
@@ -920,6 +922,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    "Expected string for method");
 	}
 
+	/* Debug was too chatty, so we use IO here, even though we're
+	 * actually just logging the id */
+	log_io(jcon->log, LOG_IO_IN, NULL, c->id, NULL, 0);
+
 	c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
 	if (!c->json_cmd) {
 		return command_fail(
@@ -931,11 +937,6 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    "Command %.*s is deprecated",
 				    json_tok_full_len(method),
 				    json_tok_full(jcon->buffer, method));
-	}
-
-	if (jcon->ld->state == LD_STATE_SHUTDOWN) {
-		return command_fail(c, LIGHTNINGD_SHUTDOWN,
-				    "lightningd is shutting down");
 	}
 
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
@@ -950,9 +951,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	rpc_hook->custom_replace = NULL;
 	rpc_hook->custom_buffer = NULL;
 
-	db_begin_transaction(jcon->ld->wallet->db);
-	completed = plugin_hook_call_rpc_command(jcon->ld, rpc_hook);
-	db_commit_transaction(jcon->ld->wallet->db);
+	completed = plugin_hook_call_rpc_command(jcon->ld, c->id, rpc_hook);
 
 	/* If it's deferred, mark it (otherwise, it's completed) */
 	if (!completed)
@@ -1009,6 +1008,8 @@ static struct io_plan *read_json(struct io_conn *conn,
 				 struct json_connection *jcon)
 {
 	bool complete;
+	bool in_transaction = false;
+	struct timemono start_time = time_mono();
 
 	if (jcon->len_read)
 		log_io(jcon->log, LOG_IO_IN, NULL, "",
@@ -1025,6 +1026,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 		return io_wait(conn, conn, read_json, jcon);
 	}
 
+again:
 	if (!json_parse_input(&jcon->input_parser, &jcon->input_toks,
 			      jcon->buffer, jcon->used,
 			      &complete)) {
@@ -1032,6 +1034,8 @@ static struct io_plan *read_json(struct io_conn *conn,
 		    jcon, "null",
 		    tal_fmt(tmpctx, "Invalid token in json input: '%s'",
 			    tal_strndup(tmpctx, jcon->buffer, jcon->used)));
+		if (in_transaction)
+			db_commit_transaction(jcon->ld->wallet->db);
 		return io_halfclose(conn);
 	}
 
@@ -1048,6 +1052,10 @@ static struct io_plan *read_json(struct io_conn *conn,
 		goto read_more;
 	}
 
+	if (!in_transaction) {
+		db_begin_transaction(jcon->ld->wallet->db);
+		in_transaction = true;
+	}
 	parse_request(jcon, jcon->input_toks);
 
 	/* Remove first {}. */
@@ -1059,16 +1067,28 @@ static struct io_plan *read_json(struct io_conn *conn,
 	jsmn_init(&jcon->input_parser);
 	toks_reset(jcon->input_toks);
 
-	/* If we have more to process, try again.  FIXME: this still gets
-	 * first priority in io_loop, so can starve others.  Hack would be
-	 * a (non-zero) timer, but better would be to have io_loop avoid
-	 * such livelock */
+	/* Do we have more already read? */
 	if (jcon->used) {
-		jcon->len_read = 0;
-		return io_always(conn, read_json, jcon);
+		if (!jcon->db_batching) {
+			db_commit_transaction(jcon->ld->wallet->db);
+			in_transaction = false;
+		} else {
+			/* FIXME: io_always() should interleave with
+			 * real IO, and then we should rotate order we
+			 * service fds in, to avoid starvation. */
+			if (time_greater(timemono_between(time_mono(),
+							  start_time),
+					 time_from_msec(250))) {
+				db_commit_transaction(jcon->ld->wallet->db);
+				return io_always(conn, read_json, jcon);
+			}
+		}
+		goto again;
 	}
 
 read_more:
+	if (in_transaction)
+		db_commit_transaction(jcon->ld->wallet->db);
 	return io_read_partial(conn, jcon->buffer + jcon->used,
 			       tal_count(jcon->buffer) - jcon->used,
 			       &jcon->len_read, read_json, jcon);
@@ -1090,6 +1110,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jsmn_init(&jcon->input_parser);
 	jcon->input_toks = toks_alloc(jcon);
 	jcon->notifications_enabled = false;
+	jcon->db_batching = false;
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
@@ -1189,7 +1210,7 @@ static void destroy_jsonrpc(struct jsonrpc *jsonrpc)
 static void memleak_help_jsonrpc(struct htable *memtable,
 				 struct jsonrpc *jsonrpc)
 {
-	memleak_remove_strmap(memtable, &jsonrpc->usagemap);
+	memleak_scan_strmap(memtable, &jsonrpc->usagemap);
 }
 #endif /* DEVELOPER */
 
@@ -1268,8 +1289,21 @@ void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 
 	if (listen(fd, 128) != 0)
 		err(1, "Listening on '%s'", rpc_filename);
-	jsonrpc->rpc_listener = io_new_listener(
-		ld->rpc_filename, fd, incoming_jcon_connected, ld);
+
+	/* All conns will be tal children of jsonrpc: good for freeing later! */
+	jsonrpc->rpc_listener
+		= io_new_listener(jsonrpc, fd, incoming_jcon_connected, ld);
+}
+
+void jsonrpc_stop_listening(struct jsonrpc *jsonrpc)
+{
+	jsonrpc->rpc_listener = tal_free(jsonrpc->rpc_listener);
+}
+
+void jsonrpc_stop_all(struct lightningd *ld)
+{
+	/* Closes all conns. */
+	ld->jsonrpc = tal_free(ld->jsonrpc);
 }
 
 static struct command_result *param_command(struct command *cmd,
@@ -1312,7 +1346,9 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 }
 
 struct jsonrpc_request *jsonrpc_request_start_(
-    const tal_t *ctx, const char *method, struct log *log,
+    const tal_t *ctx, const char *method,
+    const char *id_prefix, struct log *log,
+    bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *methodtok,
 		      const jsmntok_t *paramtoks,
@@ -1324,24 +1360,32 @@ struct jsonrpc_request *jsonrpc_request_start_(
 {
 	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
 	static u64 next_request_id = 0;
-	r->id = next_request_id++;
+	if (id_prefix)
+		r->id = tal_fmt(r, "%s/cln:%s#%"PRIu64,
+				id_prefix, method, next_request_id);
+	else
+		r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
+	if (taken(id_prefix))
+		tal_free(id_prefix);
+	next_request_id++;
 	r->notify_cb = notify_cb;
 	r->response_cb = response_cb;
 	r->response_cb_arg = response_cb_arg;
-	r->method = NULL;
+	r->method = tal_strdup(r, method);
 	r->stream = new_json_stream(r, NULL, log);
 
-	/* If no method is specified we don't prefill the JSON-RPC
-	 * request with the header. This serves as an escape hatch to
-	 * get a raw request, but get a valid request-id assigned. */
-	if (method != NULL) {
-		r->method = tal_strdup(r, method);
+	/* Disabling this serves as an escape hatch for plugin code to
+	 * get a raw request to paste into, but get a valid request-id
+	 * assigned. */
+	if (add_header) {
 		json_object_start(r->stream, NULL);
 		json_add_string(r->stream, "jsonrpc", "2.0");
-		json_add_u64(r->stream, "id", r->id);
+		json_add_string(r->stream, "id", r->id);
 		json_add_string(r->stream, "method", method);
 		json_object_start(r->stream, "params");
 	}
+	if (log)
+		log_io(log, LOG_IO_OUT, NULL, r->id, NULL, 0);
 
 	return r;
 }
@@ -1413,7 +1457,6 @@ static const struct json_command check_command = {
 	"Don't run {command_to_check}, just verify parameters.",
 	.verbose = "check command_to_check [parameters...]\n"
 };
-
 AUTODATA(json_command, &check_command);
 
 static struct command_result *json_notifications(struct command *cmd,
@@ -1438,7 +1481,32 @@ static const struct json_command notifications_command = {
 	"notifications",
 	"utility",
 	json_notifications,
-	"Enable notifications for {level} (or 'false' to disable)",
+	"{enable} notifications",
 };
-
 AUTODATA(json_command, &notifications_command);
+
+static struct command_result *json_batching(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	bool *enable;
+
+	if (!param(cmd, buffer, params,
+		   p_req("enable", param_bool, &enable),
+		   NULL))
+		return command_param_failed();
+
+	/* Catch the case where they sent this command then hung up. */
+	if (cmd->jcon)
+		cmd->jcon->db_batching = *enable;
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command batching_command = {
+	"batching",
+	"utility",
+	json_batching,
+	"Database transaction batching {enable}",
+};
+AUTODATA(json_command, &batching_command);

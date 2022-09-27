@@ -23,7 +23,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../bolts/
-DEFAULT_BOLTVERSION := 105c2e5e9f17c68e8c19dc4ca548600a0b8f66f0
+DEFAULT_BOLTVERSION := f32c6ddb5f11b431c9bb4f501cdec604172a90de
 # Can be overridden on cmdline.
 BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
@@ -74,7 +74,7 @@ endif
 
 ifeq ($(COMPAT),1)
 # We support compatibility with pre-0.6.
-COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1 -DCOMPAT_V061=1 -DCOMPAT_V062=1 -DCOMPAT_V070=1 -DCOMPAT_V072=1 -DCOMPAT_V073=1 -DCOMPAT_V080=1 -DCOMPAT_V081=1 -DCOMPAT_V082=1 -DCOMPAT_V090=1 -DCOMPAT_V0100=1
+COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1 -DCOMPAT_V061=1 -DCOMPAT_V062=1 -DCOMPAT_V070=1 -DCOMPAT_V072=1 -DCOMPAT_V073=1 -DCOMPAT_V080=1 -DCOMPAT_V081=1 -DCOMPAT_V082=1 -DCOMPAT_V090=1 -DCOMPAT_V0100=1 -DCOMPAT_V0121=1
 endif
 
 # (method=thread to support xdist)
@@ -257,6 +257,7 @@ endif
 
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I$(CPATH) $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
+
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
 # we set, including CWARNFLAGS which by default contains -Wall -Werror. This
@@ -706,6 +707,20 @@ clean: obsclean
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
 	if [ "${RUST}" -eq "1" ]; then cargo clean; fi
+
+
+PYLNS=client proto testing
+# See doc/MAKING-RELEASES.md
+update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
+
+update-pyln-version-%:
+	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
+	cd contrib/pyln-$* && $(MAKE) upgrade-version
+
+pyln-release:  $(PYLNS:%=pyln-release-%)
+
+pyln-release-%:
+	cd contrib/pyln-$* && $(MAKE) prod-release
 
 # These must both be enabled for update-mocks
 ifeq ($(DEVELOPER)$(EXPERIMENTAL_FEATURES),11)

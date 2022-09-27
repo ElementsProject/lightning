@@ -27,6 +27,8 @@ struct command {
 	struct lightningd *ld;
 	/* The 'id' which we need to include in the response. */
 	const char *id;
+	/* If 'id' needs to be quoted (i.e. it's a string) */
+	bool id_is_string;
 	/* What command we're running (for logging) */
 	const struct json_command *json_cmd;
 	/* The connection, or NULL if it closed. */
@@ -68,7 +70,7 @@ struct jsonrpc_notification {
 };
 
 struct jsonrpc_request {
-	u64 id;
+	const char *id;
 	const char *method;
 	struct json_stream *stream;
 	void (*notify_cb)(const char *buffer,
@@ -101,7 +103,7 @@ struct json_stream *json_stream_success(struct command *cmd);
  * You need to json_object_end() once you're done!
  */
 struct json_stream *json_stream_fail(struct command *cmd,
-				     errcode_t code,
+				     enum jsonrpc_errcode code,
 				     const char *errmsg);
 
 /**
@@ -113,7 +115,7 @@ struct json_stream *json_stream_fail(struct command *cmd,
  * This is used by command_fail(), which doesn't add any JSON data.
  */
 struct json_stream *json_stream_fail_nodata(struct command *cmd,
-					    errcode_t code,
+					    enum jsonrpc_errcode code,
 					    const char *errmsg);
 
 /* These returned values are never NULL. */
@@ -135,6 +137,9 @@ void json_stream_log_suppress_for_cmd(struct json_stream *js,
 					    const struct command *cmd);
 struct command_result *command_raw_complete(struct command *cmd,
 					    struct json_stream *result);
+
+/* Logging point to use for this command (usually, the JSON connection). */
+struct log *command_log(struct command *cmd);
 
 /* To return if param() fails. */
 extern struct command_result *command_param_failed(void)
@@ -173,11 +178,23 @@ void jsonrpc_setup(struct lightningd *ld);
 
 
 /**
- * Start listeing on ld->rpc_filename.
+ * Start listening on ld->rpc_filename.
  *
  * Sets up the listener effectively starting the RPC interface.
  */
 void jsonrpc_listen(struct jsonrpc *rpc, struct lightningd *ld);
+
+/**
+ * Stop listening on ld->rpc_filename.
+ *
+ * No new connections from here in.
+ */
+void jsonrpc_stop_listening(struct jsonrpc *jsonrpc);
+
+/**
+ * Kill any remaining JSON-RPC connections.
+ */
+void jsonrpc_stop_all(struct lightningd *ld);
 
 /**
  * Add a new command/method to the JSON-RPC interface.
@@ -203,9 +220,13 @@ struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const 
  */
 void jsonrpc_notification_end(struct jsonrpc_notification *n);
 
-#define jsonrpc_request_start(ctx, method, log, notify_cb, response_cb, response_cb_arg) \
+/**
+ * start a JSONRPC request; id_prefix is non-NULL if this was triggered by
+ * another JSONRPC request.
+ */
+#define jsonrpc_request_start(ctx, method, id_prefix, log, notify_cb, response_cb, response_cb_arg) \
 	jsonrpc_request_start_(					\
-		(ctx), (method), (log),					\
+	    (ctx), (method), (id_prefix), (log), true,		\
 	    typesafe_cb_preargs(void, void *, (notify_cb), (response_cb_arg),	\
 				const char *buffer,		\
 				const jsmntok_t *idtok,		\
@@ -217,8 +238,23 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n);
 				const jsmntok_t *idtok),	\
 	    (response_cb_arg))
 
+#define jsonrpc_request_start_raw(ctx, method, id_prefix, log, notify_cb, response_cb, response_cb_arg) \
+	jsonrpc_request_start_(						\
+		(ctx), (method), (id_prefix), (log), false,		\
+	    typesafe_cb_preargs(void, void *, (notify_cb), (response_cb_arg), \
+				const char *buffer,			\
+				const jsmntok_t *idtok,			\
+				const jsmntok_t *methodtok,		\
+				const jsmntok_t *paramtoks),		\
+	    typesafe_cb_preargs(void, void *, (response_cb), (response_cb_arg),	\
+				const char *buffer,			\
+				const jsmntok_t *toks,			\
+				const jsmntok_t *idtok),		\
+	    (response_cb_arg))
+
 struct jsonrpc_request *jsonrpc_request_start_(
-    const tal_t *ctx, const char *method, struct log *log,
+    const tal_t *ctx, const char *method,
+    const char *id_prefix TAKES, struct log *log, bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *idtok,
 		      const jsmntok_t *methodtok,

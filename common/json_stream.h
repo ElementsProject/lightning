@@ -12,7 +12,7 @@
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
-#include <common/errcode.h>
+#include <common/jsonrpc_errors.h>
 
 struct command;
 struct io_conn;
@@ -260,8 +260,8 @@ void json_add_tok(struct json_stream *result, const char *fieldname,
                   const jsmntok_t *tok, const char *buffer);
 
 /* Add an error code */
-void json_add_errcode(struct json_stream *result, const char *fieldname,
-		      errcode_t code);
+void json_add_jsonrpc_errcode(struct json_stream *result, const char *fieldname,
+			      enum jsonrpc_errcode code);
 
 /* Add "bolt11" or "bolt12" field, depending on invstring. */
 void json_add_invstring(struct json_stream *result, const char *invstring);

@@ -50,6 +50,7 @@ char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
+		  const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED,
 		  void (*failed)(struct channel * UNNEEDED,
 				 bool success UNNEEDED,
 				 const char *err))
@@ -123,7 +124,7 @@ void channel_update_reserve(struct channel *channel UNNEEDED,
 			    struct amount_sat funding_total UNNEEDED)
 { fprintf(stderr, "channel_update_reserve called!\n"); abort(); }
 /* Generated stub for command_fail */
-struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
+struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }
@@ -135,6 +136,9 @@ struct command_result *command_failed(struct command *cmd UNNEEDED,
 /* Generated stub for command_its_complicated */
 struct command_result *command_its_complicated(const char *why UNNEEDED)
 { fprintf(stderr, "command_its_complicated called!\n"); abort(); }
+/* Generated stub for command_log */
+struct log *command_log(struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
 
@@ -148,6 +152,10 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 				       struct json_stream *response)
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
+/* Generated stub for connect_any_cmd_id */
+const char *connect_any_cmd_id(const tal_t *ctx UNNEEDED,
+			       struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED)
+{ fprintf(stderr, "connect_any_cmd_id called!\n"); abort(); }
 /* Generated stub for connect_failed_disconnect */
 void connect_failed_disconnect(struct lightningd *ld UNNEEDED,
 			       const struct node_id *id UNNEEDED,
@@ -447,7 +455,7 @@ const char *json_scan(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "json_scan called!\n"); abort(); }
 /* Generated stub for json_stream_fail */
 struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
-				     errcode_t code UNNEEDED,
+				     enum jsonrpc_errcode code UNNEEDED,
 				     const char *errmsg UNNEEDED)
 { fprintf(stderr, "json_stream_fail called!\n"); abort(); }
 /* Generated stub for json_stream_success */
@@ -491,7 +499,8 @@ void jsonrpc_request_end(struct jsonrpc_request *request UNNEEDED)
 { fprintf(stderr, "jsonrpc_request_end called!\n"); abort(); }
 /* Generated stub for jsonrpc_request_start_ */
 struct jsonrpc_request *jsonrpc_request_start_(
-    const tal_t *ctx UNNEEDED, const char *method UNNEEDED, struct log *log UNNEEDED,
+    const tal_t *ctx UNNEEDED, const char *method UNNEEDED,
+    const char *id_prefix TAKES UNNEEDED, struct log *log UNNEEDED, bool add_header UNNEEDED,
     void (*notify_cb)(const char *buffer UNNEEDED,
 		      const jsmntok_t *idtok UNNEEDED,
 		      const jsmntok_t *methodtok UNNEEDED,
@@ -669,7 +678,9 @@ bool peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
-bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
+bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
+		       const struct plugin_hook *hook UNNEEDED,
+		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
 /* Generated stub for plugin_request_send */
@@ -680,8 +691,9 @@ void plugin_request_send(struct plugin *plugin UNNEEDED,
 void report_subd_memleak(struct leak_detect *leak_detect UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "report_subd_memleak called!\n"); abort(); }
 /* Generated stub for resolve_close_command */
-void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
-			   bool cooperative UNNEEDED)
+const char *resolve_close_command(const tal_t *ctx UNNEEDED,
+				  struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
+				  bool cooperative UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
 /* Generated stub for start_leak_request */
 void start_leak_request(const struct subd_req *req UNNEEDED,
@@ -733,9 +745,9 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_gossipd_remote_addr */
-u8 *towire_gossipd_remote_addr(const tal_t *ctx UNNEEDED, const struct wireaddr *remote_addr UNNEEDED)
-{ fprintf(stderr, "towire_gossipd_remote_addr called!\n"); abort(); }
+/* Generated stub for towire_gossipd_discovered_ip */
+u8 *towire_gossipd_discovered_ip(const tal_t *ctx UNNEEDED, const struct wireaddr *discovered_ip UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_discovered_ip called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_bolt12 */
 u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }

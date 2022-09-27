@@ -42,9 +42,11 @@ msgdata,gossipd_get_txout_reply,satoshis,amount_sat,
 msgdata,gossipd_get_txout_reply,len,u16,
 msgdata,gossipd_get_txout_reply,outscript,u8,len
 
-# master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
-msgtype,gossipd_outpoint_spent,3024
-msgdata,gossipd_outpoint_spent,short_channel_id,short_channel_id,
+# master -> gossipd: these potential funding outpoints were spent, please forget any channels
+msgtype,gossipd_outpoints_spent,3024
+msgdata,gossipd_outpoints_spent,blockheight,u32,
+msgdata,gossipd_outpoints_spent,len,u32,
+msgdata,gossipd_outpoints_spent,short_channel_id,short_channel_id,len
 
 # master -> gossipd: do you have a memleak?
 msgtype,gossipd_dev_memleak,3033
@@ -103,6 +105,7 @@ msgdata,gossipd_local_channel_update,htlc_minimum_msat,amount_msat,
 msgdata,gossipd_local_channel_update,fee_base_msat,u32,
 msgdata,gossipd_local_channel_update,fee_proportional_millionths,u32,
 msgdata,gossipd_local_channel_update,htlc_maximum_msat,amount_msat,
+msgdata,gossipd_local_channel_update,public,bool,
 
 # Send this channel_announcement
 msgtype,gossipd_local_channel_announcement,3006
@@ -123,6 +126,6 @@ msgdata,gossipd_local_private_channel,features,u8,len
 msgtype,gossipd_used_local_channel_update,3052
 msgdata,gossipd_used_local_channel_update,scid,short_channel_id,
 
-# Tell gossipd we have discovered a new remote_addr
-msgtype,gossipd_remote_addr,3009
-msgdata,gossipd_remote_addr,remote_addr,wireaddr,
+# Tell gossipd we have verified a new public IP by the remote_addr feature
+msgtype,gossipd_discovered_ip,3009
+msgdata,gossipd_discovered_ip,discovered_ip,wireaddr,

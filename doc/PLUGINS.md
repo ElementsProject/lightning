@@ -441,7 +441,7 @@ if the funding transaction has been included into a block.
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
     "funding_msat": 100000000,
     "funding_txid": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-    "funding_locked": false
+    "channel_ready": false
   }
 }
 ```
@@ -873,6 +873,20 @@ current accounts (`account_id` matches the `account_id` emitted from
 }
 ```
 
+### `block_added`
+
+Emitted after each block is received from bitcoind, either during the initial sync or
+throughout the node's life as new blocks appear.
+
+```json
+{
+    "block": {
+      "hash": "000000000000000000034bdb3c01652a0aa8f63d32f949313d55af2509f9d245",
+      "height": 753304
+    }
+}
+```
+
 ### `openchannel_peer_sigs`
 
 When opening a channel with a peer using the collaborative transaction protocol
@@ -1184,13 +1198,29 @@ e.g.
 {
     "result": "continue",
     "close_to": "bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2"
+	"mindepth": 0,
+	"reserve": "1234sat"
 }
 ```
 
 Note that `close_to` must be a valid address for the current chain,
 an invalid address will cause the node to exit with an error.
 
-Note that `openchannel` is a chained hook. Therefore `close_to` will only be
+ - `mindepth` is the number of confirmations to require before making
+   the channel usable. Notice that setting this to 0 (`zeroconf`) or
+   some other low value might expose you to double-spending issues, so
+   only lower this value from the default if you trust the peer not to
+   double-spend, or you reject incoming payments, including forwards,
+   until the funding is confirmed.
+
+ - `reserve` is an absolute value for the amount in the channel that
+   the peer must keep on their side. This ensures that they always
+   have something to lose, so only lower this below the 1% of funding
+   amount if you trust the peer. The protocol requires this to be
+   larger than the dust limit, hence it will be adjusted to be the
+   dust limit if the specified value is below.
+
+Note that `openchannel` is a chained hook. Therefore `close_to`, `reserve` will only be
 evaluated for the first plugin that sets it. If more than one plugin tries to
 set a `close_to` address an error will be logged.
 
@@ -1402,7 +1432,8 @@ The payload of the hook call has the following format:
     "cltv_expiry": 500028,
     "cltv_expiry_relative": 10,
     "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000"
-  }
+  },
+  "forward_to": "0000000000000000000000000000000000000000000000000000000000000000"
 }
 ```
 
@@ -1439,6 +1470,7 @@ For detailed information about each field please refer to [BOLT 04 of the specif
      blockheight.
    - `payment_hash` is the hash whose `payment_preimage` will unlock the funds
      and allow us to claim the HTLC.
+ - `forward_to`: if set, the channel_id we intend to forward this to (will not be present if the short_channel_id was invalid or we were the final destination).
 
 The hook response must have one of the following formats:
 
@@ -1459,6 +1491,7 @@ the response.  Note that this is always a TLV-style payload, so unlike
 hex digits long).  This will be re-parsed; it's useful for removing
 onion fields which a plugin doesn't want lightningd to consider.
 
+It can also specify `forward_to` in the response, replacing the destination.  This usually only makes sense if it wants to choose an alternate channel to the same next peer, but is useful if the `payload` is also replaced.
 
 ```json
 {

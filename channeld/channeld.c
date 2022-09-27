@@ -1,4 +1,4 @@
-/* Main channel operation daemon: runs from funding_locked to shutdown_complete.
+/* Main channel operation daemon: runs from channel_ready to shutdown_complete.
  *
  * We're fairly synchronous: our main loop looks for master or
  * peer requests and services them synchronously.
@@ -52,7 +52,7 @@
 
 struct peer {
 	struct per_peer_state *pps;
-	bool funding_locked[NUM_SIDES];
+	bool channel_ready[NUM_SIDES];
 	u64 next_index[NUM_SIDES];
 
 	/* Features peer supports. */
@@ -182,7 +182,7 @@ struct peer {
 	/* Penalty bases for this channel / peer. */
 	struct penalty_base **pbases;
 
-	/* We allow a 'tx-sigs' message between reconnect + funding_locked */
+	/* We allow a 'tx-sigs' message between reconnect + channel_ready */
 	bool tx_sigs_allowed;
 
 	/* Have we announced the real scid with a
@@ -204,7 +204,7 @@ static void start_commit_timer(struct peer *peer);
 
 static void billboard_update(const struct peer *peer)
 {
-	const char *update = billboard_message(tmpctx, peer->funding_locked,
+	const char *update = billboard_message(tmpctx, peer->channel_ready,
 					       peer->have_sigs,
 					       peer->shutdown_sent,
 					       peer->depth_togo,
@@ -369,14 +369,16 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 	assert(peer->short_channel_ids[LOCAL].u64);
 
 	msg = towire_channeld_local_channel_update(NULL,
-						  &peer->short_channel_ids[LOCAL],
-						  disable_flag
-						  == ROUTING_FLAGS_DISABLED,
-						  peer->cltv_delta,
-						  peer->htlc_minimum_msat,
-						  peer->fee_base,
-						  peer->fee_per_satoshi,
-						  peer->htlc_maximum_msat);
+						   &peer->short_channel_ids[LOCAL],
+						   disable_flag
+						   == ROUTING_FLAGS_DISABLED,
+						   peer->cltv_delta,
+						   peer->htlc_minimum_msat,
+						   peer->fee_base,
+						   peer->fee_per_satoshi,
+						   peer->htlc_maximum_msat,
+						   peer->channel_flags
+						   & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
 	wire_sync_write(MASTER_FD, take(msg));
 }
 
@@ -539,7 +541,7 @@ static void channel_announcement_negotiate(struct peer *peer)
 		return;
 
 	/* Can't do anything until funding is locked. */
-	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
+	if (!peer->channel_ready[LOCAL] || !peer->channel_ready[REMOTE])
 		return;
 
 	if (!peer->channel_local_active) {
@@ -560,7 +562,7 @@ static void channel_announcement_negotiate(struct peer *peer)
 	 * A node:
 	 *   - if the `open_channel` message has the `announce_channel` bit set AND a `shutdown` message has not been sent:
 	 *     - MUST send the `announcement_signatures` message.
-	 *       - MUST NOT send `announcement_signatures` messages until `funding_locked`
+	 *       - MUST NOT send `announcement_signatures` messages until `channel_ready`
 	 *       has been sent and received AND the funding transaction has at least six confirmations.
 	 *   - otherwise:
 	 *     - MUST NOT send the `announcement_signatures` message.
@@ -570,7 +572,7 @@ static void channel_announcement_negotiate(struct peer *peer)
 
 	/* BOLT #7:
 	 *
-	 *      - MUST NOT send `announcement_signatures` messages until `funding_locked`
+	 *      - MUST NOT send `announcement_signatures` messages until `channel_ready`
 	 *      has been sent and received AND the funding transaction has at least six confirmations.
  	 */
 	if (peer->announce_depth_reached && !peer->have_sigs[LOCAL]) {
@@ -602,18 +604,18 @@ static void channel_announcement_negotiate(struct peer *peer)
 	}
 }
 
-static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
+static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
 {
 	struct channel_id chanid;
-	struct tlv_funding_locked_tlvs *tlvs;
+	struct tlv_channel_ready_tlvs *tlvs;
 	/* BOLT #2:
 	 *
 	 * A node:
 	 *...
 	 *  - upon reconnection:
-	 *    - MUST ignore any redundant `funding_locked` it receives.
+	 *    - MUST ignore any redundant `channel_ready` it receives.
 	 */
-	if (peer->funding_locked[REMOTE])
+	if (peer->channel_ready[REMOTE])
 		return;
 
 	/* Too late, we're shutting down! */
@@ -621,10 +623,10 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 		return;
 
 	peer->old_remote_per_commit = peer->remote_per_commit;
-	if (!fromwire_funding_locked(msg, msg, &chanid,
+	if (!fromwire_channel_ready(msg, msg, &chanid,
 				     &peer->remote_per_commit, &tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Bad funding_locked %s", tal_hex(msg, msg));
+				 "Bad channel_ready %s", tal_hex(msg, msg));
 
 	if (!channel_id_eq(&chanid, &peer->channel_id))
 		peer_failed_err(peer->pps, &chanid,
@@ -634,17 +636,17 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 					       &peer->channel_id));
 
 	peer->tx_sigs_allowed = false;
-	peer->funding_locked[REMOTE] = true;
-	if (tlvs->alias != NULL) {
+	peer->channel_ready[REMOTE] = true;
+	if (tlvs->short_channel_id != NULL) {
 		status_debug(
 		    "Peer told us that they'll use alias=%s for this channel",
 		    type_to_string(tmpctx, struct short_channel_id,
-				   tlvs->alias));
-		peer->short_channel_ids[REMOTE] = *tlvs->alias;
+				   tlvs->short_channel_id));
+		peer->short_channel_ids[REMOTE] = *tlvs->short_channel_id;
 	}
 	wire_sync_write(MASTER_FD,
-			take(towire_channeld_got_funding_locked(
-			    NULL, &peer->remote_per_commit, tlvs->alias)));
+			take(towire_channeld_got_channel_ready(
+			    NULL, &peer->remote_per_commit, tlvs->short_channel_id)));
 
 	channel_announcement_negotiate(peer);
 	billboard_update(peer);
@@ -955,6 +957,10 @@ static void send_shutdown_complete(struct peer *peer)
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_shutdown_complete(NULL)));
 	per_peer_state_fdpass_send(MASTER_FD, peer->pps);
+
+	/* Give master a chance to pass the fd along */
+	sleep(1);
+
 	close(MASTER_FD);
 }
 
@@ -1254,8 +1260,9 @@ static void send_commit(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 *   - if no HTLCs remain in either commitment transaction:
-	 *	- MUST NOT send any `update` message after a `shutdown`.
+	 *   - if no HTLCs remain in either commitment transaction (including dust HTLCs)
+	 *     and neither side has a pending `revoke_and_ack` to send:
+	 *	- MUST NOT send any `update` message after that point.
 	 */
 	if (peer->shutdown_sent[LOCAL] && !num_channel_htlcs(peer->channel)) {
 		status_debug("Can't send commit: final shutdown phase");
@@ -2119,8 +2126,8 @@ static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
 	struct bitcoin_txid txid;
 
 	/* In a rare case, a v2 peer may re-send a tx_sigs message.
-	 * This happens when they've/we've exchanged funding_locked,
-	 * but they did not receive our funding_locked. */
+	 * This happens when they've/we've exchanged channel_ready,
+	 * but they did not receive our channel_ready. */
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
 				    cast_const3(struct witness_stack ***, &ws)))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -2212,9 +2219,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	if (handle_peer_error(peer->pps, &peer->channel_id, msg))
 		return;
 
-	/* Must get funding_locked before almost anything. */
-	if (!peer->funding_locked[REMOTE]) {
-		if (type != WIRE_FUNDING_LOCKED
+	/* Must get channel_ready before almost anything. */
+	if (!peer->channel_ready[REMOTE]) {
+		if (type != WIRE_CHANNEL_READY
 		    && type != WIRE_SHUTDOWN
 		    /* We expect these for v2 !! */
 		    && type != WIRE_TX_SIGNATURES
@@ -2228,8 +2235,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	}
 
 	switch (type) {
-	case WIRE_FUNDING_LOCKED:
-		handle_peer_funding_locked(peer, msg);
+	case WIRE_CHANNEL_READY:
+		handle_peer_channel_ready(peer, msg);
 		return;
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 		handle_peer_announcement_signatures(peer, msg);
@@ -2664,7 +2671,7 @@ static void check_current_dataloss_fields(struct peer *peer,
 	status_debug("option_data_loss_protect: fields are correct");
 }
 
-/* Older LND sometimes sends funding_locked before reestablish! */
+/* Older LND sometimes sends channel_ready before reestablish! */
 /* ... or announcement_signatures.  Sigh, let's handle whatever they send. */
 static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 {
@@ -2941,19 +2948,21 @@ skip_tlvs:
 	 *
 	 *   - if `next_commitment_number` is 1 in both the
 	 *    `channel_reestablish` it sent and received:
-	 *     - MUST retransmit `funding_locked`.
+	 *     - MUST retransmit `channel_ready`.
 	 *   - otherwise:
-	 *     - MUST NOT retransmit `funding_locked`.
+	 *     - MUST NOT retransmit `channel_ready`, but MAY send
+	 *       `channel_ready` with a different `short_channel_id`
+	 *       `alias` field.
 	 */
-	if (peer->funding_locked[LOCAL]
+	if (peer->channel_ready[LOCAL]
 	    && peer->next_index[LOCAL] == 1
 	    && next_commitment_number == 1) {
-		struct tlv_funding_locked_tlvs *tlvs = tlv_funding_locked_tlvs_new(tmpctx);
+		struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 
-		status_debug("Retransmitting funding_locked for channel %s",
+		status_debug("Retransmitting channel_ready for channel %s",
 		             type_to_string(tmpctx, struct channel_id, &peer->channel_id));
 		/* Contains per commit point #1, for first post-opening commit */
-		msg = towire_funding_locked(NULL,
+		msg = towire_channel_ready(NULL,
 					    &peer->channel_id,
 					    &peer->next_local_per_commit, tlvs);
 		peer_write(peer->pps, take(msg));
@@ -2993,12 +3002,14 @@ skip_tlvs:
 		}
 		retransmit_revoke_and_ack = true;
 	} else if (next_revocation_number < peer->next_index[LOCAL] - 1) {
-		peer_failed_err(peer->pps,
-				&peer->channel_id,
-				"bad reestablish revocation_number: %"PRIu64
-				" vs %"PRIu64,
-				next_revocation_number,
-				peer->next_index[LOCAL]);
+		/* Send a warning here!  Because this is what it looks like if peer is
+		 * in the past, and they might still recover. */
+		peer_failed_warn(peer->pps,
+				 &peer->channel_id,
+				 "bad reestablish revocation_number: %"PRIu64
+				 " vs %"PRIu64,
+				 next_revocation_number,
+				 peer->next_index[LOCAL]);
 	} else if (next_revocation_number > peer->next_index[LOCAL] - 1) {
 		if (!check_extra_fields)
 			/* They don't support option_data_loss_protect or
@@ -3229,7 +3240,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 {
 	u32 depth;
 	struct short_channel_id *scid, *alias_local;
-	struct tlv_funding_locked_tlvs *tlvs;
+	struct tlv_channel_ready_tlvs *tlvs;
 	struct pubkey point;
 
 	if (!fromwire_channeld_funding_depth(tmpctx,
@@ -3258,25 +3269,25 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 		else if (alias_local)
 			peer->short_channel_ids[LOCAL] = *alias_local;
 
-		if (!peer->funding_locked[LOCAL]) {
-			status_debug("funding_locked: sending commit index"
+		if (!peer->channel_ready[LOCAL]) {
+			status_debug("channel_ready: sending commit index"
 				     " %"PRIu64": %s",
 				     peer->next_index[LOCAL],
 				     type_to_string(tmpctx, struct pubkey,
 						    &peer->next_local_per_commit));
-			tlvs = tlv_funding_locked_tlvs_new(tmpctx);
-			tlvs->alias = alias_local;
+			tlvs = tlv_channel_ready_tlvs_new(tmpctx);
+			tlvs->short_channel_id = alias_local;
 
 			/* Need to retrieve the first point again, even if we
-			 * moved on, as funding_locked explicitly includes the
+			 * moved on, as channel_ready explicitly includes the
 			 * first one. */
 			get_per_commitment_point(1, &point, NULL);
 
-			msg = towire_funding_locked(NULL, &peer->channel_id,
+			msg = towire_channel_ready(NULL, &peer->channel_id,
 						    &point, tlvs);
 			peer_write(peer->pps, take(msg));
 
-			peer->funding_locked[LOCAL] = true;
+			peer->channel_ready[LOCAL] = true;
 		}
 
 		peer->announce_depth_reached = (depth >= ANNOUNCE_MIN_DEPTH);
@@ -3310,7 +3321,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	struct amount_sat htlc_fee;
 	struct pubkey *blinding;
 
-	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
+	if (!peer->channel_ready[LOCAL] || !peer->channel_ready[REMOTE])
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding not locked for offer_htlc");
 
@@ -3645,10 +3656,11 @@ static void handle_dev_memleak(struct peer *peer, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg);
 
 	/* Now delete peer and things it has pointers to. */
-	memleak_remove_region(memtable, peer, tal_bytelen(peer));
+	memleak_scan_obj(memtable, peer);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	wire_sync_write(MASTER_FD,
@@ -3745,7 +3757,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SENDING_COMMITSIG_REPLY:
 	case WIRE_CHANNELD_GOT_COMMITSIG_REPLY:
 	case WIRE_CHANNELD_GOT_REVOKE_REPLY:
-	case WIRE_CHANNELD_GOT_FUNDING_LOCKED:
+	case WIRE_CHANNELD_GOT_CHANNEL_READY:
 	case WIRE_CHANNELD_GOT_ANNOUNCEMENT:
 	case WIRE_CHANNELD_GOT_SHUTDOWN:
 	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
@@ -3837,8 +3849,8 @@ static void init_channel(struct peer *peer)
 				    &peer->revocations_received,
 				    &peer->htlc_id,
 				    &htlcs,
-				    &peer->funding_locked[LOCAL],
-				    &peer->funding_locked[REMOTE],
+				    &peer->channel_ready[LOCAL],
+				    &peer->channel_ready[REMOTE],
 				    &peer->short_channel_ids[LOCAL],
 				    &reconnected,
 				    &peer->send_shutdown,

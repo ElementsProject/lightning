@@ -839,11 +839,11 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	/* This can happen for peers last seen on Torv2! */
 	addrstr = db_col_strdup(tmpctx, stmt, "address");
 	if (!parse_wireaddr_internal(addrstr, &addr, chainparams_get_ln_port(chainparams),
-				     false, false, true, true, NULL)) {
+				     false, false, true, NULL)) {
 		log_unusual(w->log, "Unparsable peer address %s: replacing",
 			    addrstr);
 		parse_wireaddr_internal("127.0.0.1:1", &addr, chainparams_get_ln_port(chainparams),
-					false, false, true, true, NULL);
+					false, false, true, NULL);
 	}
 
 	/* FIXME: save incoming in db! */
@@ -1293,24 +1293,23 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		}
 	}
 
-	if (!db_col_is_null(stmt, "short_channel_id")) {
+	if (!db_col_is_null(stmt, "scid")) {
 		scid = tal(tmpctx, struct short_channel_id);
-		if (!db_col_short_channel_id_str(stmt, "short_channel_id", scid))
-			return NULL;
+		db_col_scid(stmt, "scid", scid);
 	} else {
 		scid = NULL;
 	}
 
 	if (!db_col_is_null(stmt, "alias_local")) {
 		alias[LOCAL] = tal(tmpctx, struct short_channel_id);
-		alias[LOCAL]->u64 = db_col_u64(stmt, "alias_local");
+		db_col_scid(stmt, "alias_local", alias[LOCAL]);
 	} else {
 		alias[LOCAL] = NULL;
 	}
 
 	if (!db_col_is_null(stmt, "alias_remote")) {
 		alias[REMOTE] = tal(tmpctx, struct short_channel_id);
-		alias[REMOTE]->u64 = db_col_u64(stmt, "alias_remote");
+		db_col_scid(stmt, "alias_remote", alias[REMOTE]);
 	} else {
 		alias[REMOTE] = NULL;
 	}
@@ -1552,7 +1551,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					"  id"
 					", peer_id"
-					", short_channel_id"
+					", scid"
 					", full_channel_id"
 					", channel_config_local"
 					", channel_config_remote"
@@ -1856,7 +1855,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
 					"  shachain_remote_id=?," // 0
-					"  short_channel_id=?," // 1
+					"  scid=?," // 1
 					"  full_channel_id=?," // 2
 					"  state=?," // 3
 					"  funder=?," // 4
@@ -1903,7 +1902,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					" WHERE id=?")); // 46
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
-		db_bind_short_channel_id(stmt, 1, chan->scid);
+		db_bind_scid(stmt, 1, chan->scid);
 	else
 		db_bind_null(stmt, 1);
 
@@ -1922,7 +1921,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_int(stmt, 11, chan->funding.n);
 	db_bind_amount_sat(stmt, 12, &chan->funding_sats);
 	db_bind_amount_sat(stmt, 13, &chan->our_funds);
-	db_bind_int(stmt, 14, chan->remote_funding_locked);
+	db_bind_int(stmt, 14, chan->remote_channel_ready);
 	db_bind_amount_msat(stmt, 15, &chan->push);
 	db_bind_amount_msat(stmt, 16, &chan->our_msat);
 
@@ -1970,12 +1969,12 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_amount_msat(stmt, 43, &chan->htlc_maximum_msat);
 
 	if (chan->alias[LOCAL] != NULL)
-		db_bind_u64(stmt, 44, chan->alias[LOCAL]->u64);
+		db_bind_scid(stmt, 44, chan->alias[LOCAL]);
 	else
 		db_bind_null(stmt, 44);
 
 	if (chan->alias[REMOTE] != NULL)
-		db_bind_u64(stmt, 45, chan->alias[REMOTE]->u64);
+		db_bind_scid(stmt, 45, chan->alias[REMOTE]);
 	else
 		db_bind_null(stmt, 45);
 
@@ -3164,13 +3163,27 @@ u64 wallet_payment_get_groupid(struct wallet *wallet,
 	return groupid;
 }
 
-void wallet_payment_delete_by_hash(struct wallet *wallet,
-				   const struct sha256 *payment_hash)
+void wallet_payment_delete(struct wallet *wallet,
+			   const struct sha256 *payment_hash,
+			   const u64 *groupid,
+			   const u64 *partid)
 {
 	struct db_stmt *stmt;
-	stmt = db_prepare_v2(
-		wallet->db, SQL("DELETE FROM payments WHERE payment_hash = ?"));
-
+	if (groupid) {
+		assert(partid);
+		stmt = db_prepare_v2(wallet->db,
+				     SQL("DELETE FROM payments"
+					 " WHERE payment_hash = ?"
+					 "   AND groupid = ?"
+					 "   AND partid = ?"));
+		db_bind_u64(stmt, 1, *groupid);
+		db_bind_u64(stmt, 2, *partid);
+	} else {
+		assert(!partid);
+		stmt = db_prepare_v2(wallet->db,
+				     SQL("DELETE FROM payments"
+					 " WHERE payment_hash = ?"));
+	}
 	db_bind_sha256(stmt, 0, payment_hash);
 	db_exec_prepared_v2(take(stmt));
 }
@@ -3260,6 +3273,12 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	} else
 		payment->local_offer_id = NULL;
 
+	if (!db_col_is_null(stmt, "completed_at")) {
+		payment->completed_at = tal(payment, u32);
+		*payment->completed_at = db_col_int(stmt, "completed_at");
+	} else
+		payment->completed_at = NULL;
+
 	payment->groupid = db_col_u64(stmt, "groupid");
 
 	return payment;
@@ -3298,6 +3317,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 					     ", partid"
 					     ", local_offer_id"
 					     ", groupid"
+					     ", completed_at"
 					     " FROM payments"
 					     " WHERE payment_hash = ?"
 					     " AND partid = ? AND groupid=?"));
@@ -3321,6 +3341,10 @@ void wallet_payment_set_status(struct wallet *wallet,
 {
 	struct db_stmt *stmt;
 	struct wallet_payment *payment;
+	u32 completed_at = 0;
+
+	if (newstatus != PAYMENT_PENDING)
+		completed_at = time_now().ts.tv_sec;
 
 	/* We can only fail an unstored payment! */
 	payment = find_unstored_payment(wallet, payment_hash, partid);
@@ -3331,13 +3355,18 @@ void wallet_payment_set_status(struct wallet *wallet,
 	}
 
 	stmt = db_prepare_v2(wallet->db,
-			     SQL("UPDATE payments SET status=? "
+			     SQL("UPDATE payments SET status=?, completed_at=? "
 				 "WHERE payment_hash=? AND partid=? AND groupid=?"));
 
 	db_bind_int(stmt, 0, wallet_payment_status_in_db(newstatus));
-	db_bind_sha256(stmt, 1, payment_hash);
-	db_bind_u64(stmt, 2, partid);
-	db_bind_u64(stmt, 3, groupid);
+	if (completed_at != 0) {
+		db_bind_u64(stmt, 1, completed_at);
+	} else {
+		db_bind_null(stmt, 1);
+	}
+	db_bind_sha256(stmt, 2, payment_hash);
+	db_bind_u64(stmt, 3, partid);
+	db_bind_u64(stmt, 4, groupid);
 	db_exec_prepared_v2(take(stmt));
 
 	if (preimage) {
@@ -3388,7 +3417,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("SELECT failonionreply, faildestperm"
 				 ", failindex, failcode"
-				 ", failnode, failchannel"
+				 ", failnode, failscid"
 				 ", failupdate, faildetail, faildirection"
 				 "  FROM payments"
 				 " WHERE payment_hash=? AND partid=? AND groupid=?;"));
@@ -3413,14 +3442,12 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 		*failnode = tal(ctx, struct node_id);
 		db_col_node_id(stmt, "failnode", *failnode);
 	}
-	if (db_col_is_null(stmt, "failchannel")) {
+	if (db_col_is_null(stmt, "failscid")) {
 		db_col_ignore(stmt, "faildirection");
 		*failchannel = NULL;
 	} else {
 		*failchannel = tal(ctx, struct short_channel_id);
-		resb = db_col_short_channel_id_str(stmt, "failchannel",
-						   *failchannel);
-		assert(resb);
+		db_col_scid(stmt, "failscid", *failchannel);
 
 		/* For pre-0.6.2 dbs, direction will be 0 */
 		*faildirection = db_col_int(stmt, "faildirection");
@@ -3459,7 +3486,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 					     "     , failindex=?"
 					     "     , failcode=?"
 					     "     , failnode=?"
-					     "     , failchannel=?"
+					     "     , failscid=?"
 					     "     , failupdate=?"
 					     "     , faildetail=?"
 					     "     , faildirection=?"
@@ -3479,7 +3506,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 		db_bind_null(stmt, 4);
 
 	if (failchannel) {
-		db_bind_short_channel_id(stmt, 5, failchannel);
+		db_bind_scid(stmt, 5, failchannel);
 		db_bind_int(stmt, 8, faildirection);
 	} else {
 		db_bind_null(stmt, 5);
@@ -3502,8 +3529,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 const struct wallet_payment **
 wallet_payment_list(const tal_t *ctx,
 		    struct wallet *wallet,
-		    const struct sha256 *payment_hash,
-		    enum wallet_payment_status *status)
+		    const struct sha256 *payment_hash)
 {
 	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
@@ -3512,46 +3538,58 @@ wallet_payment_list(const tal_t *ctx,
 
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
 
-	u8 enable_payment_hash = payment_hash != NULL ? 0 : 1;
-	u8 enable_status = status != NULL ? 0 : 1;
-
-	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
-				      "  id"
-				      ", status"
-				      ", destination"
-				      ", msatoshi"
-				      ", payment_hash"
-				      ", timestamp"
-				      ", payment_preimage"
-				      ", path_secrets"
-				      ", route_nodes"
-				      ", route_channels"
-				      ", msatoshi_sent"
-				      ", description"
-				      ", bolt11"
-				      ", paydescription"
-				      ", failonionreply"
-				      ", total_msat"
-				      ", partid"
-				      ", local_offer_id"
-				      ", groupid"
-				      " FROM payments"
-				      " WHERE"
-				      "  (payment_hash = ? OR 1=?) AND"
-				      "  (status = ? OR 1=?)"
-				      " ORDER BY id;"));
-
-	if (payment_hash)
+	if (payment_hash) {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_offer_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " WHERE"
+						     "  payment_hash = ?"
+						     " ORDER BY id;"));
 		db_bind_sha256(stmt, 0, payment_hash);
-	else
-		db_bind_null(stmt, 0);
-	db_bind_int(stmt, 1, enable_payment_hash);
-	if (status)
-		db_bind_int(stmt, 2, wallet_payment_status_in_db(*status));
-	else
-		db_bind_null(stmt, 2);
-	db_bind_int(stmt, 3, enable_status);
-
+	} else {
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", paydescription"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_offer_id"
+						     ", groupid"
+						     ", completed_at"
+						     " FROM payments"
+						     " ORDER BY id;"));
+	}
 	db_query_prepared(stmt);
 
 	for (i = 0; db_step(stmt); i++) {
@@ -3602,6 +3640,7 @@ wallet_payments_by_offer(const tal_t *ctx,
 					     ", partid"
 					     ", local_offer_id"
 					     ", groupid"
+					     ", completed_at"
 					     " FROM payments"
 					     " WHERE local_offer_id = ?;"));
 	db_bind_sha256(stmt, 0, local_offer_id);
@@ -4328,14 +4367,14 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 	 * having to have two versions of the update statement (one with and
 	 * one without the htlc_out restriction).*/
 	stmt = db_prepare_v2(w->db,
-			     SQL("UPDATE forwarded_payments SET"
+			     SQL("UPDATE forwards SET"
 				 "  in_msatoshi=?"
 				 ", out_msatoshi=?"
 				 ", state=?"
 				 ", resolved_time=?"
 				 ", failcode=?"
 				 ", forward_style=?"
-				 " WHERE in_htlc_id=?"));
+				 " WHERE in_htlc_id=? AND in_channel_scid=?"));
 	db_bind_amount_msat(stmt, 0, &in->msat);
 
 	if (out) {
@@ -4364,7 +4403,8 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 		db_bind_null(stmt, 5);
 	else
 		db_bind_int(stmt, 5, forward_style_in_db(forward_style));
-	db_bind_u64(stmt, 6, in->dbid);
+	db_bind_u64(stmt, 6, in->key.id);
+	db_bind_scid(stmt, 7, channel_scid_or_local_alias(in->key.channel));
 	db_exec_prepared_v2(stmt);
 	changed = db_count_changes(stmt) != 0;
 	tal_free(stmt);
@@ -4393,7 +4433,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		goto notify;
 
 	stmt = db_prepare_v2(w->db,
-			     SQL("INSERT INTO forwarded_payments ("
+			     SQL("INSERT INTO forwards ("
 				 "  in_htlc_id"
 				 ", out_htlc_id"
 				 ", in_channel_scid"
@@ -4406,7 +4446,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				 ", failcode"
 				 ", forward_style"
 				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
-	db_bind_u64(stmt, 0, in->dbid);
+	db_bind_u64(stmt, 0, in->key.id);
 
 	/* FORWARD_LOCAL_FAILED may occur before we get htlc_out */
 	if (!out || !scid_out) {
@@ -4415,7 +4455,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	}
 
 	if (out)
-		db_bind_u64(stmt, 1, out->dbid);
+		db_bind_u64(stmt, 1, out->key.id);
 	else
 		db_bind_null(stmt, 1);
 
@@ -4424,10 +4464,10 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	 * the sender used to specify the channel, but that's under
 	 * control of the remote end. */
 	assert(in->key.channel->scid != NULL || in->key.channel->alias[LOCAL]);
-	db_bind_u64(stmt, 2, channel_scid_or_local_alias(in->key.channel)->u64);
+	db_bind_scid(stmt, 2, channel_scid_or_local_alias(in->key.channel));
 
 	if (scid_out)
-		db_bind_u64(stmt, 3, scid_out->u64);
+		db_bind_scid(stmt, 3, scid_out);
 	else
 		db_bind_null(stmt, 3);
 	db_bind_amount_msat(stmt, 4, &in->msat);
@@ -4466,12 +4506,12 @@ notify:
 struct amount_msat wallet_total_forward_fees(struct wallet *w)
 {
 	struct db_stmt *stmt;
-	struct amount_msat total;
+	struct amount_msat total, deleted;
 	bool res;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
-					" FROM forwarded_payments "
+					" FROM forwards "
 					"WHERE state = ?;"));
 	db_bind_int(stmt, 0, wallet_forward_status_in_db(FORWARD_SETTLED));
 	db_query_prepared(stmt);
@@ -4482,21 +4522,29 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)", &total);
 	tal_free(stmt);
 
+	deleted = amount_msat(db_get_intvar(w->db, "deleted_forward_fees", 0));
+	if (!amount_msat_add(&total, total, deleted))
+		db_fatal("Adding forward fees %s + %s overflowed",
+			 type_to_string(tmpctx, struct amount_msat, &total),
+			 type_to_string(tmpctx, struct amount_msat, &deleted));
+
 	return total;
 }
 
-bool string_to_forward_status(const char *status_str, enum forward_status *status)
+bool string_to_forward_status(const char *status_str,
+			      size_t len,
+			      enum forward_status *status)
 {
-	if (streq(status_str, "offered")) {
+	if (memeqstr(status_str, len, "offered")) {
 		*status = FORWARD_OFFERED;
 		return true;
-	} else if (streq(status_str, "settled")) {
+	} else if (memeqstr(status_str, len, "settled")) {
 		*status = FORWARD_SETTLED;
 		return true;
-	} else if (streq(status_str, "failed")) {
+	} else if (memeqstr(status_str, len, "failed")) {
 		*status = FORWARD_FAILED;
 		return true;
-	} else if (streq(status_str, "local_failed")) {
+	} else if (memeqstr(status_str, len, "local_failed")) {
 		*status = FORWARD_LOCAL_FAILED;
 		return true;
 	}
@@ -4519,21 +4567,21 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	stmt = db_prepare_v2(
 	    w->db,
 	    SQL("SELECT"
-		"  f.state"
+		"  state"
 		", in_msatoshi"
 		", out_msatoshi"
-		", hin.payment_hash as payment_hash"
 		", in_channel_scid"
 		", out_channel_scid"
-		", f.received_time"
-		", f.resolved_time"
-		", f.failcode "
-		", f.forward_style "
-		"FROM forwarded_payments f "
-		"LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) "
-		"WHERE (1 = ? OR f.state = ?) AND "
-		"(1 = ? OR f.in_channel_scid = ?) AND "
-		"(1 = ? OR f.out_channel_scid = ?)"));
+		", in_htlc_id"
+		", out_htlc_id"
+		", received_time"
+		", resolved_time"
+		", failcode "
+		", forward_style "
+		"FROM forwards "
+		"WHERE (1 = ? OR state = ?) AND "
+		"(1 = ? OR in_channel_scid = ?) AND "
+		"(1 = ? OR out_channel_scid = ?)"));
 
 	if (status == FORWARD_ANY) {
 		// any status
@@ -4548,7 +4596,7 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	if (chan_in) {
 		// specific in_channel
 		db_bind_int(stmt, 2, 0);
-		db_bind_u64(stmt, 3, chan_in->u64);
+		db_bind_scid(stmt, 3, chan_in);
 	} else {
 		// any in_channel
 		db_bind_int(stmt, 2, 1);
@@ -4558,7 +4606,7 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	if (chan_out) {
 		// specific out_channel
 		db_bind_int(stmt, 4, 0);
-		db_bind_u64(stmt, 5, chan_out->u64);
+		db_bind_scid(stmt, 5, chan_out);
 	} else {
 		// any out_channel
 		db_bind_int(stmt, 4, 1);
@@ -4570,7 +4618,7 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	for (count=0; db_step(stmt); count++) {
 		tal_resize(&results, count+1);
 		struct forwarding *cur = &results[count];
-		cur->status = db_col_int(stmt, "f.state");
+		cur->status = db_col_int(stmt, "state");
 		db_col_amount_msat(stmt, "in_msatoshi", &cur->msat_in);
 
 		if (!db_col_is_null(stmt, "out_msatoshi")) {
@@ -4592,49 +4640,126 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 			cur->fee =  AMOUNT_MSAT(0);
 		}
 
-		if (!db_col_is_null(stmt, "payment_hash")) {
-			cur->payment_hash = tal(ctx, struct sha256);
-			db_col_sha256(stmt, "payment_hash", cur->payment_hash);
-		} else {
-			cur->payment_hash = NULL;
-		}
+		db_col_scid(stmt, "in_channel_scid", &cur->channel_in);
 
-		cur->channel_in.u64 = db_col_u64(stmt, "in_channel_scid");
+#ifdef COMPAT_V0121
+		/* This can happen due to migration! */
+		if (!db_col_is_null(stmt, "in_htlc_id"))
+			cur->htlc_id_in = db_col_u64(stmt, "in_htlc_id");
+		else
+			cur->htlc_id_in = HTLC_INVALID_ID;
+#else
+		cur->htlc_id_in = db_col_u64(stmt, "in_htlc_id");
+#endif
 
 		if (!db_col_is_null(stmt, "out_channel_scid")) {
-			cur->channel_out.u64
-				= db_col_u64(stmt, "out_channel_scid");
+			db_col_scid(stmt, "out_channel_scid", &cur->channel_out);
 		} else {
 			assert(cur->status == FORWARD_LOCAL_FAILED);
 			cur->channel_out.u64 = 0;
 		}
+		if (!db_col_is_null(stmt, "out_htlc_id")) {
+			cur->htlc_id_out = tal(results, u64);
+			*cur->htlc_id_out = db_col_u64(stmt, "out_htlc_id");
+		} else
+			cur->htlc_id_out = NULL;
 
-		cur->received_time = db_col_timeabs(stmt, "f.received_time");
+		cur->received_time = db_col_timeabs(stmt, "received_time");
 
-		if (!db_col_is_null(stmt, "f.resolved_time")) {
+		if (!db_col_is_null(stmt, "resolved_time")) {
 			cur->resolved_time = tal(ctx, struct timeabs);
 			*cur->resolved_time
-				= db_col_timeabs(stmt, "f.resolved_time");
+				= db_col_timeabs(stmt, "resolved_time");
 		} else {
 			cur->resolved_time = NULL;
 		}
 
-		if (!db_col_is_null(stmt, "f.failcode")) {
+		if (!db_col_is_null(stmt, "failcode")) {
 			assert(cur->status == FORWARD_FAILED ||
 			       cur->status == FORWARD_LOCAL_FAILED);
-			cur->failcode = db_col_int(stmt, "f.failcode");
+			cur->failcode = db_col_int(stmt, "failcode");
 		} else {
 			cur->failcode = 0;
 		}
-		if (db_col_is_null(stmt, "f.forward_style")) {
+		if (db_col_is_null(stmt, "forward_style")) {
 			cur->forward_style = FORWARD_STYLE_UNKNOWN;
 		} else {
 			cur->forward_style
-				= forward_style_in_db(db_col_int(stmt, "f.forward_style"));
+				= forward_style_in_db(db_col_int(stmt, "forward_style"));
 		}
 	}
 	tal_free(stmt);
 	return results;
+}
+
+bool wallet_forward_delete(struct wallet *w,
+			   const struct short_channel_id *chan_in,
+			   const u64 *htlc_id,
+			   enum forward_status state)
+{
+	struct db_stmt *stmt;
+	bool changed;
+
+	/* When deleting settled ones, we have to add to deleted_forward_fees! */
+	if (state == FORWARD_SETTLED) {
+		/* Of course, it might not be settled: don't add if they're wrong! */
+		if (htlc_id) {
+			stmt = db_prepare_v2(w->db, SQL("SELECT"
+							" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
+							" FROM forwards "
+							" WHERE in_channel_scid = ?"
+							" AND in_htlc_id = ?"
+							" AND state = ?;"));
+			db_bind_scid(stmt, 0, chan_in);
+			db_bind_u64(stmt, 1, *htlc_id);
+			db_bind_int(stmt, 2, wallet_forward_status_in_db(FORWARD_SETTLED));
+		} else {
+			stmt = db_prepare_v2(w->db, SQL("SELECT"
+							" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
+							" FROM forwards "
+							" WHERE in_channel_scid = ?"
+							" AND in_htlc_id IS NULL"
+							" AND state = ?;"));
+			db_bind_scid(stmt, 0, chan_in);
+			db_bind_int(stmt, 1, wallet_forward_status_in_db(FORWARD_SETTLED));
+		}
+		db_query_prepared(stmt);
+
+		if (db_step(stmt)) {
+			struct amount_msat deleted;
+
+			db_col_amount_msat(stmt, "CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)", &deleted);
+			deleted.millisatoshis += /* Raw: db access */
+				db_get_intvar(w->db, "deleted_forward_fees", 0);
+			db_set_intvar(w->db, "deleted_forward_fees",
+				      deleted.millisatoshis); /* Raw: db access */
+		}
+		tal_free(stmt);
+	}
+
+	if (htlc_id) {
+		stmt = db_prepare_v2(w->db,
+				     SQL("DELETE FROM forwards"
+					 " WHERE in_channel_scid = ?"
+					 " AND in_htlc_id = ?"
+					 " AND state = ?"));
+		db_bind_scid(stmt, 0, chan_in);
+		db_bind_u64(stmt, 1, *htlc_id);
+		db_bind_int(stmt, 2, wallet_forward_status_in_db(state));
+	} else {
+		stmt = db_prepare_v2(w->db,
+				     SQL("DELETE FROM forwards"
+					 " WHERE in_channel_scid = ?"
+					 " AND in_htlc_id IS NULL"
+					 " AND state = ?"));
+		db_bind_scid(stmt, 0, chan_in);
+		db_bind_int(stmt, 1, wallet_forward_status_in_db(state));
+	}
+	db_exec_prepared_v2(stmt);
+	changed = db_count_changes(stmt) != 0;
+	tal_free(stmt);
+
+	return changed;
 }
 
 struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx)
@@ -4655,11 +4780,11 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		", t.blockheight"
 		", t.txindex"
 		", t.type as txtype"
-		", c2.short_channel_id as txchan"
+		", c2.scid as txchan"
 		", a.location"
 		", a.idx as ann_idx"
 		", a.type as annotation_type"
-		", c.short_channel_id"
+		", c.scid"
 		" FROM"
 		"  transactions t LEFT JOIN"
 		"  transaction_annotations a ON (a.txid = t.id) LEFT JOIN"
@@ -4702,8 +4827,7 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 			else
 				cur->annotation.type = 0;
 			if (!db_col_is_null(stmt, "txchan"))
-				db_col_short_channel_id_str(stmt, "txchan",
-							    &cur->annotation.channel);
+				db_col_scid(stmt, "txchan", &cur->annotation.channel);
 			else
 				cur->annotation.channel.u64 = 0;
 
@@ -4733,16 +4857,14 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 
 			/* cppcheck-suppress uninitvar - false positive on fatal() above */
 			ann->type = db_col_int(stmt, "annotation_type");
-			if (!db_col_is_null(stmt, "c.short_channel_id"))
-				db_col_short_channel_id_str(stmt,
-							    "c.short_channel_id",
-							    &ann->channel);
+			if (!db_col_is_null(stmt, "c.scid"))
+				db_col_scid(stmt, "c.scid", &ann->channel);
 			else
 				ann->channel.u64 = 0;
 		} else {
 			db_col_ignore(stmt, "ann_idx");
 			db_col_ignore(stmt, "annotation_type");
-			db_col_ignore(stmt, "c.short_channel_id");
+			db_col_ignore(stmt, "c.scid");
 		}
 	}
 	tal_free(stmt);
@@ -5122,4 +5244,97 @@ struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 		db_col_ignore(stmt, "generation");
 
 	return stmt;
+}
+
+/* We use a different query form if we only care about a single channel. */
+struct wallet_htlc_iter {
+	struct db_stmt *stmt;
+	/* Non-zero if they specified it */
+	struct short_channel_id scid;
+};
+
+struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
+					    struct wallet *w,
+					    const struct channel *chan,
+					    struct short_channel_id *scid,
+					    u64 *htlc_id,
+					    int *cltv_expiry,
+					    enum side *owner,
+					    struct amount_msat *msat,
+					    struct sha256 *payment_hash,
+					    enum htlc_state *hstate)
+{
+	struct wallet_htlc_iter *i = tal(ctx, struct wallet_htlc_iter);
+
+	if (chan) {
+		i->scid = *channel_scid_or_local_alias(chan);
+		assert(i->scid.u64 != 0);
+		assert(chan->dbid != 0);
+
+		i->stmt = db_prepare_v2(w->db,
+					SQL("SELECT h.channel_htlc_id"
+					    ", h.cltv_expiry"
+					    ", h.direction"
+					    ", h.msatoshi"
+					    ", h.payment_hash"
+					    ", h.hstate"
+					    " FROM channel_htlcs h"
+					    " WHERE channel_id = ?"));
+		db_bind_u64(i->stmt, 0, chan->dbid);
+	} else {
+		i->scid.u64 = 0;
+		i->stmt = db_prepare_v2(w->db,
+					SQL("SELECT channels.scid"
+					    ", channels.alias_local"
+					    ", h.channel_htlc_id"
+					    ", h.cltv_expiry"
+					    ", h.direction"
+					    ", h.msatoshi"
+					    ", h.payment_hash"
+					    ", h.hstate"
+					    " FROM channel_htlcs h"
+					    " JOIN channels ON channels.id = h.channel_id"));
+	}
+	/* FIXME: db_prepare should take ctx! */
+	tal_steal(i, i->stmt);
+	db_query_prepared(i->stmt);
+
+	return wallet_htlcs_next(w, i,
+				 scid, htlc_id, cltv_expiry, owner, msat,
+				 payment_hash, hstate);
+}
+
+struct wallet_htlc_iter *wallet_htlcs_next(struct wallet *w,
+					   struct wallet_htlc_iter *iter,
+					   struct short_channel_id *scid,
+					   u64 *htlc_id,
+					   int *cltv_expiry,
+					   enum side *owner,
+					   struct amount_msat *msat,
+					   struct sha256 *payment_hash,
+					   enum htlc_state *hstate)
+{
+	if (!db_step(iter->stmt))
+		return tal_free(iter);
+
+	if (iter->scid.u64 != 0)
+		*scid = iter->scid;
+	else {
+		if (db_col_is_null(iter->stmt, "channels.scid"))
+			db_col_scid(iter->stmt, "channels.alias_local", scid);
+		else {
+			db_col_scid(iter->stmt, "channels.scid", scid);
+			db_col_ignore(iter->stmt, "channels.alias_local");
+		}
+	}
+	*htlc_id = db_col_u64(iter->stmt, "h.channel_htlc_id");
+	if (db_col_int(iter->stmt, "h.direction") == DIRECTION_INCOMING)
+		*owner = REMOTE;
+	else
+		*owner = LOCAL;
+	db_col_amount_msat(iter->stmt, "h.msatoshi", msat);
+	db_col_sha256(iter->stmt, "h.payment_hash", payment_hash);
+	*cltv_expiry = db_col_int(iter->stmt, "h.cltv_expiry");
+	*hstate = db_col_int(iter->stmt, "h.hstate");
+	return iter;
 }

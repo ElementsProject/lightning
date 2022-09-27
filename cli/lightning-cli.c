@@ -562,9 +562,15 @@ static bool handle_notify(const char *buf, jsmntok_t *toks,
 
 static void enable_notifications(int fd)
 {
-	const char *enable = "{ \"jsonrpc\": \"2.0\", \"method\": \"notifications\", \"id\": 0, \"params\": { \"enable\": true } }";
+	const char *enable;
 	char rbuf[100];
 
+	enable = tal_fmt(tmpctx,
+			 "{\"jsonrpc\":\"2.0\","
+			 "\"method\":\"notifications\","
+			 "\"id\":\"cli:notifications#%i\","
+			 "\"params\":{\"enable\":true}}",
+			 getpid());
 	if (!write_all(fd, enable, strlen(enable)))
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing enable command");
 
@@ -572,7 +578,7 @@ static void enable_notifications(int fd)
 	memset(rbuf, 0, sizeof(rbuf));
 	while (!strends(rbuf, "\n\n")) {
 		size_t len = strlen(rbuf);
-		if (cli_read(fd, rbuf + len, sizeof(rbuf) - len) < 0)
+		if (cli_read(fd, rbuf + len, sizeof(rbuf) - len) <= 0)
 			err(ERROR_TALKING_TO_LIGHTNINGD,
 			    "Reading enable response");
 	}
@@ -696,7 +702,12 @@ int main(int argc, char *argv[])
 		err(ERROR_TALKING_TO_LIGHTNINGD,
 		    "Connecting to '%s'", rpc_filename);
 
-	idstr = tal_fmt(ctx, "lightning-cli-%i", getpid());
+	/* We use weird methodnames in test_misc.py::test_cli(), and then
+	 * complain the cln mangles it.  So omit method in that case */
+	if (json_escape_needed(method, strlen(method)))
+		idstr = tal_fmt(ctx, "cli:weirdmethod!#%i", getpid());
+	else
+		idstr = tal_fmt(ctx, "cli:%s#%i", method, getpid());
 
 	if (notification_level <= LOG_LEVEL_MAX)
 		enable_notifications(fd);

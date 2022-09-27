@@ -8,7 +8,7 @@
 # /etc/lightningd/lightningd.conf
 
 [Unit]
-Description=C-Lightning daemon
+Description=Core Lightning daemon
 Requires=bitcoind.service
 After=bitcoind.service
 Wants=network-online.target
@@ -19,6 +19,8 @@ ExecStart=/usr/bin/lightningd --daemon --conf /etc/lightningd/lightningd.conf --
 
 # Creates /run/lightningd owned by bitcoin
 RuntimeDirectory=lightningd
+# Creates /etc/lightningd owned by bitcoin
+ConfigurationDirectory=lightningd
 
 User=bitcoin
 Group=bitcoin

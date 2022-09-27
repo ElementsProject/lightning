@@ -24,11 +24,6 @@ msgdata,gossip_store_delete_chan,scid,short_channel_id,
 msgtype,gossip_store_ended,4105
 msgdata,gossip_store_ended,equivalent_offset,u64,
 
-# FIXME: Here for COMPAT with v0.9.0 and before only.
-msgtype,gossipd_local_add_channel_obs,3503
-msgdata,gossipd_local_add_channel_obs,short_channel_id,short_channel_id,
-msgdata,gossipd_local_add_channel_obs,remote_node_id,node_id,
-msgdata,gossipd_local_add_channel_obs,satoshis,amount_sat,
-msgdata,gossipd_local_add_channel_obs,flen,u16,
-msgdata,gossipd_local_add_channel_obs,features,u8,flen
-
+msgtype,gossip_store_chan_dying,4106
+msgdata,gossip_store_chan_dying,scid,short_channel_id,
+msgdata,gossip_store_chan_dying,blockheight,u32,

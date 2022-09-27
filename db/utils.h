@@ -97,4 +97,12 @@ void db_assert_no_outstanding_statements(struct db *db);
  */
 const char **db_changes(struct db *db);
 
+/**
+ * Accessor for internal use.
+ *
+ * Like db_prepare_v2() but creates temporary noop translation, and
+ * assumes not a read-only op.  Use this inside db-specific backends
+ * to re-use the normal db hook and replication logic.
+ */
+struct db_stmt *db_prepare_untranslated(struct db *db, const char *query);
 #endif /* LIGHTNING_DB_UTILS_H */

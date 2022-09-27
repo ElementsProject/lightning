@@ -70,6 +70,12 @@ struct config {
 
 	/* EXPERIMENTAL: offers support */
 	bool exp_offers;
+
+	/* Allow dust reserves (including 0) when being called via
+	 * `fundchannel` or in the `openchannel` hook. This is a
+	 * slight spec incompatibility, but implementations do this
+	 * already. */
+	bool allowdustreserve;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;
@@ -158,6 +164,10 @@ struct lightningd {
 	struct node_id remote_addr_v4_peer;
 	struct node_id remote_addr_v6_peer;
 
+	/* verified discovered IPs to be used for anouncement */
+	struct wireaddr *discovered_ip_v4;
+	struct wireaddr *discovered_ip_v6;
+
 	/* Bearer of all my secrets. */
 	int hsm_fd;
 	struct subd *hsm;
@@ -220,6 +230,9 @@ struct lightningd {
 	/* Used these feerates instead of whatever bcli returns (up to
 	 * FEERATE_PENALTY). */
 	u32 *force_feerates;
+
+	/* If they force db upgrade on or off this is set. */
+	bool *db_upgrade_ok;
 
 #if DEVELOPER
 	/* If we want to debug a subdaemon/plugin. */

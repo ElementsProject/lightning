@@ -19,9 +19,9 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 /* Generated stub for memleak_add_helper_ */
 void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
 						    const tal_t *)){ }
-/* Generated stub for memleak_remove_htable */
-void memleak_remove_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
-{ fprintf(stderr, "memleak_remove_htable called!\n"); abort(); }
+/* Generated stub for memleak_scan_htable */
+void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
+{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
@@ -160,6 +160,8 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 			sender = !side;
 			msatoshi = AMOUNT_MSAT(4000000);
 			break;
+		default:
+			abort();
 		}
 		assert(msatoshi.millisatoshis != 0);
 

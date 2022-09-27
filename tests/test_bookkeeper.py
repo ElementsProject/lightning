@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from decimal import Decimal
 from pyln.client import Millisatoshi
+from db import Sqlite3Db
 from fixtures import TEST_NETWORK
 from utils import (
     sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
@@ -45,7 +46,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1])
     l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
-    bitcoind.generate_block(20)
+    bitcoind.generate_block(20, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1])
     l1.daemon.wait_for_log(r'All outputs resolved.*')
 
@@ -708,3 +709,17 @@ def test_rebalance_tracking(node_factory, bitcoind):
     assert outbound_ev['debit_msat'] == Millisatoshi(1001)
     assert outbound_ev['credit_msat'] == Millisatoshi(0)
     assert outbound_ev['payment_id'] == pay_hash
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+def test_bookkeeper_lease_fee_dupe_migration(node_factory):
+    """ Check that if there's duplicate lease_fees, we remove them"""
+
+    l1 = node_factory.get_node(bkpr_dbfile='dupe_lease_fee.sqlite3.xz')
+
+    wait_for(lambda: l1.daemon.is_in_log('Duplicate \'lease_fee\' found for account'))
+
+    accts_db_path = os.path.join(l1.lightning_dir, TEST_NETWORK, 'accounts.sqlite3')
+    accts_db = Sqlite3Db(accts_db_path)
+
+    assert accts_db.query('SELECT tag from channel_events where tag = \'lease_fee\';') == [{'tag': 'lease_fee'}]

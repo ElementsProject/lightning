@@ -125,9 +125,9 @@ static void handle_local_channel_update(struct lightningd *ld, const u8 *msg)
 	 * us. */
 	channel = any_channel_by_scid(ld, &scid, true);
 	if (!channel) {
-		log_broken(ld->log, "Local update for bad scid %s",
-			   type_to_string(tmpctx, struct short_channel_id,
-					  &scid));
+		log_unusual(ld->log, "Local update for bad scid %s",
+			    type_to_string(tmpctx, struct short_channel_id,
+					   &scid));
 		return;
 	}
 
@@ -153,7 +153,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPD_INIT:
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
-	case WIRE_GOSSIPD_OUTPOINT_SPENT:
+	case WIRE_GOSSIPD_OUTPOINTS_SPENT:
 	case WIRE_GOSSIPD_NEW_LEASE_RATES:
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
@@ -174,7 +174,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
-	case WIRE_GOSSIPD_REMOTE_ADDR:
+	case WIRE_GOSSIPD_DISCOVERED_IP:
 		break;
 
 	case WIRE_GOSSIPD_GET_TXOUT:
@@ -273,11 +273,15 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	assert(ret == ld->gossip);
 }
 
-void gossipd_notify_spend(struct lightningd *ld,
-			  const struct short_channel_id *scid)
+/* We save these so we always tell gossipd about new blockheight first. */
+void gossipd_notify_spends(struct lightningd *ld,
+			   u32 blockheight,
+			   const struct short_channel_id *scids)
 {
-	u8 *msg = towire_gossipd_outpoint_spent(tmpctx, scid);
-	subd_send_msg(ld->gossip, msg);
+	subd_send_msg(ld->gossip,
+		      take(towire_gossipd_outpoints_spent(NULL,
+							  blockheight,
+							  scids)));
 }
 
 /* We unwrap, add the peer id, and send to gossipd. */
@@ -286,7 +290,7 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 				       const u8 *msg)
 {
 	struct short_channel_id scid;
-	bool disable;
+	bool disable, public;
 	u16 cltv_expiry_delta;
 	struct amount_msat htlc_minimum_msat;
 	u32 fee_base_msat, fee_proportional_millionths;
@@ -297,7 +301,7 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 						    &htlc_minimum_msat,
 						    &fee_base_msat,
 						    &fee_proportional_millionths,
-						    &htlc_maximum_msat)) {
+						    &htlc_maximum_msat, &public)) {
 		channel_internal_error(channel,
 				       "bad channeld_local_channel_update %s",
 				       tal_hex(channel, msg));
@@ -317,7 +321,9 @@ void tell_gossipd_local_channel_update(struct lightningd *ld,
 			    cltv_expiry_delta,
 			    htlc_minimum_msat,
 			    fee_base_msat,
-			    fee_proportional_millionths, htlc_maximum_msat)));
+			    fee_proportional_millionths,
+			    htlc_maximum_msat,
+			    public)));
 }
 
 void tell_gossipd_local_channel_announce(struct lightningd *ld,

@@ -86,7 +86,7 @@ The `announcement_signatures` message is created by constructing a `channel_anno
 A node:
   - if the `open_channel` message has the `announce_channel` bit set AND a `shutdown` message has not been sent:
     - MUST send the `announcement_signatures` message.
-      - MUST NOT send `announcement_signatures` messages until `funding_locked`
+      - MUST NOT send `announcement_signatures` messages until `channel_ready`
       has been sent and received AND the funding transaction has at least six confirmations.
   - otherwise:
     - MUST NOT send the `announcement_signatures` message.
@@ -105,8 +105,8 @@ A recipient node:
       `error` and fail the channel.
   - if it has sent AND received a valid `announcement_signatures` message:
     - SHOULD queue the `channel_announcement` message for its peers.
-  - if it has not sent funding_locked:
-    - MAY defer handling the announcement_signatures until after it has sent funding_locked
+  - if it has not sent `channel_ready`:
+    - MAY defer handling the announcement_signatures until after it has sent `channel_ready`
     - otherwise:
       - MUST ignore it.
 
@@ -168,7 +168,7 @@ The origin node:
     - for the _Bitcoin blockchain_:
       - MUST set `chain_hash` value (encoded in hex) equal to `6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000`.
   - MUST set `short_channel_id` to refer to the confirmed funding transaction,
-  as specified in [BOLT #2](02-peer-protocol.md#the-funding_locked-message).
+  as specified in [BOLT #2](02-peer-protocol.md#the-channel_ready-message).
     - Note: the corresponding output MUST be a P2WSH, as described in [BOLT #3](03-transactions.md#funding-transaction-output).
   - MUST set `node_id_1` and `node_id_2` to the public keys of the two nodes
   operating the channel, such that `node_id_1` is the lexicographically-lesser of the
@@ -225,7 +225,7 @@ The receiving node:
       - otherwise:
         - SHOULD store this `channel_announcement`.
   - once its funding output has been spent OR reorganized out:
-    - SHOULD forget a channel.
+    - SHOULD forget a channel after a 12-block delay.
 
 ### Rationale
 
@@ -249,6 +249,10 @@ New channel features are possible in the future: backwards compatible (or
 optional) features will have _odd_ feature bits, while incompatible features
 will have _even_ feature bits
 (["It's OK to be odd!"](00-introduction.md#glossary-and-terminology-guide)).
+
+A delay of 12-blocks is used when forgetting a channel on funding output spend
+as to permit a new `channel_announcement` to propagate which indicates this
+channel was spliced.
 
 ## The `node_announcement` Message
 
@@ -287,6 +291,10 @@ The following `address descriptor` types are defined:
          onion service addresses; Encodes:
          `[32:32_byte_ed25519_pubkey] || [2:checksum] || [1:version]`, where
          `checksum = sha3(".onion checksum" | pubkey || version)[:2]`.
+   * `5`: DNS hostname; data = `[1:hostname_len][hostname_len:hostname][2:port]` (length up to 258)
+       * `hostname` bytes MUST be ASCII characters.
+       * Non-ASCII characters MUST be encoded using Punycode:
+         https://en.wikipedia.org/wiki/Punycode
 
 ### Requirements
 
@@ -308,13 +316,14 @@ The origin node:
   - MUST place address descriptors in ascending order.
   - SHOULD NOT place any zero-typed address descriptors anywhere.
   - SHOULD use placement only for aligning fields that follow `addresses`.
-  - MUST NOT create a `type 1` OR `type 2` address descriptor with `port` equal
-  to 0.
+  - MUST NOT create a `type 1`, `type 2` or `type 5` address descriptor with
+  `port` equal to 0.
   - SHOULD ensure `ipv4_addr` AND `ipv6_addr` are routable addresses.
   - MUST set `features` according to [BOLT #9](09-features.md#assigned-features-flags)
   - SHOULD set `flen` to the minimum length required to hold the `features`
   bits it sets.
   - SHOULD not announce a Tor v2 onion service.
+  - MUST NOT announce more than one `type 5` DNS hostname.
 
 The receiving node:
   - if `node_id` is NOT a valid compressed public key:
@@ -339,7 +348,7 @@ any future fields appended to the end):
     - SHOULD send a `warning`.
     - MAY close the connection.
   - if `port` is equal to 0:
-    - SHOULD ignore `ipv6_addr` OR `ipv4_addr`.
+    - SHOULD ignore `ipv6_addr` OR `ipv4_addr` OR `hostname`.
   - if `node_id` is NOT previously known from a `channel_announcement` message,
   OR if `timestamp` is NOT greater than the last-received `node_announcement`
   from this `node_id`:
@@ -352,6 +361,9 @@ any future fields appended to the end):
   - MAY use `rgb_color` AND `alias` to reference nodes in interfaces.
     - SHOULD insinuate their self-signed origins.
   - SHOULD ignore Tor v2 onion services.
+  - if more than one `type 5` address is announced:
+    - SHOULD ignore the additional data.
+    - MUST not forward the `node_announcement`.
 
 ### Rationale
 
@@ -414,7 +426,7 @@ of *relaying* payments, not *sending* payments. When making a payment
     * [`u64`:`htlc_minimum_msat`]
     * [`u32`:`fee_base_msat`]
     * [`u32`:`fee_proportional_millionths`]
-    * [`u64`:`htlc_maximum_msat`] (option_channel_htlc_max)
+    * [`u64`:`htlc_maximum_msat`]
 
 The `channel_flags` bitfield is used to indicate the direction of the channel: it
 identifies the node that this update originated from and signals various options
@@ -426,18 +438,12 @@ individual bits:
 | 0             | `direction` | Direction this update refers to. |
 | 1             | `disable`   | Disable the channel.             |
 
-The `message_flags` bitfield is used to indicate the presence of optional
-fields in the `channel_update` message:
+The `message_flags` bitfield is used to provide additional details about the message:
 
-| Bit Position  | Name                      | Field                            |
-| ------------- | ------------------------- | -------------------------------- |
-| 0             | `option_channel_htlc_max` | `htlc_maximum_msat`              |
-
-Note that the `htlc_maximum_msat` field is static in the current
-protocol over the life of the channel: it is *not* designed to be
-indicative of real-time channel capacity in each direction, which
-would be both a massive data leak and uselessly spam the network (it
-takes an average of 30 seconds for gossip to propagate each hop).
+| Bit Position  | Name           |
+| ------------- | ---------------|
+| 0             | `must_be_one`  |
+| 1             | `dont_forward` |
 
 The `node_id` for the signature verification is taken from the corresponding
 `channel_announcement`: `node_id_1` if the least-significant bit of flags is 0
@@ -446,10 +452,13 @@ or `node_id_2` otherwise.
 ### Requirements
 
 The origin node:
-  - MUST NOT send a created `channel_update` before `funding_locked` has been received.
+  - MUST NOT send a created `channel_update` before `channel_ready` has been received.
   - MAY create a `channel_update` to communicate the channel parameters to the
   channel peer, even though the channel has not yet been announced (i.e. the
   `announce_channel` bit was not set).
+    - MUST set the `short_channel_id` to either an `alias` it has
+    received from the peer, or the real channel `short_channel_id`.
+    - MUST set `dont_forward` to 1 in `message_flags`
     - MUST NOT forward such a `channel_update` to other peers, for privacy
     reasons.
     - Note: such a `channel_update`, one not preceded by a
@@ -463,15 +472,8 @@ The origin node:
     - MUST set the `direction` bit of `channel_flags` to 0.
   - otherwise:
     - MUST set the `direction` bit of `channel_flags` to 1.
-  - if the `htlc_maximum_msat` field is present:
-    - MUST set the `option_channel_htlc_max` bit of `message_flags` to 1.
-    - MUST set `htlc_maximum_msat` to the maximum value it will send through this channel for a single HTLC.
-      - MUST set this to less than or equal to the channel capacity.
-      - MUST set this to less than or equal to `max_htlc_value_in_flight_msat`
-    it received from the peer.
-  - otherwise:
-    - MUST set the `option_channel_htlc_max` bit of `message_flags` to 0.
-  - MUST set bits in `channel_flags` and `message_flags `that are not assigned a meaning to 0.
+  - MUST set `must_be_one` in `message_flags` to 1.
+  - MUST set bits in `channel_flags` and `message_flags` that are not assigned a meaning to 0.
   - MAY create and send a `channel_update` with the `disable` bit set to 1, to
   signal a channel's temporary unavailability (e.g. due to a loss of
   connectivity) OR permanent unavailability (e.g. prior to an on-chain
@@ -490,6 +492,8 @@ The origin node:
   - MUST set `fee_proportional_millionths` to the amount (in millionths of a
   satoshi) it will charge per transferred satoshi.
   - SHOULD NOT create redundant `channel_update`s
+  - If it creates a new `channel_update` with updated channel parameters:
+    - SHOULD keep accepting the previous channel parameters for 10 minutes
 
 The receiving node:
   - if the `short_channel_id` does NOT match a previous `channel_announcement`,
@@ -522,14 +526,11 @@ The receiving node:
     - otherwise:
       - SHOULD queue the message for rebroadcasting.
       - MAY choose NOT to for messages longer than the minimum expected length.
-  - if the `option_channel_htlc_max` bit of `message_flags` is 0:
-    - MUST consider `htlc_maximum_msat` not to be present.
+  - if `htlc_maximum_msat` is greater than channel capacity:
+    - MAY blacklist this `node_id`
+    - SHOULD ignore this channel during route considerations.
   - otherwise:
-    - if `htlc_maximum_msat` is not present or greater than channel capacity:
-      - MAY blacklist this `node_id`
-      - SHOULD ignore this channel during route considerations.
-    - otherwise:
-      - SHOULD consider the `htlc_maximum_msat` when routing.
+    - SHOULD consider the `htlc_maximum_msat` when routing.
 
 ### Rationale
 
@@ -539,22 +540,16 @@ makes sense to have it be a UNIX timestamp (i.e. seconds since UTC
 1970-01-01). This cannot be a hard requirement, however, given the possible case
 of two `channel_update`s within a single second.
 
-It is assumed that more than one `channel_update` message changing the channel 
-parameters in the same second may be a DoS attempt, and therefore, the node responsible 
-for signing such messages may be blacklisted. However, a node may send a same 
-`channel_update` message with a different signature (changing the nonce in signature 
-signing), and hence fields apart from signature are checked to see if the channel 
-parameters have changed for the same timestamp. It is also important to note that 
-ECDSA signatures are malleable. So, an intermediate node who received the `channel_update` 
-message can rebroadcast it just by changing the `s` component of signature with `-s`. 
+It is assumed that more than one `channel_update` message changing the channel
+parameters in the same second may be a DoS attempt, and therefore, the node responsible
+for signing such messages may be blacklisted. However, a node may send a same
+`channel_update` message with a different signature (changing the nonce in signature
+signing), and hence fields apart from signature are checked to see if the channel
+parameters have changed for the same timestamp. It is also important to note that
+ECDSA signatures are malleable. So, an intermediate node who received the `channel_update`
+message can rebroadcast it just by changing the `s` component of signature with `-s`.
 This should however not result in the blacklist of the `node_id` from where
 the message originated.
-
-The explicit `option_channel_htlc_max` flag to indicate the presence
-of `htlc_maximum_msat` (rather than having `htlc_maximum_msat` implied
-by the message length) allows us to extend the `channel_update`
-with different fields in future.  Since channels are limited to 2^32-1
-millisatoshis in Bitcoin, the `htlc_maximum_msat` has the same restriction.
 
 The recommendation against redundant `channel_update`s minimizes spamming the network,
 however it is sometimes inevitable.  For example, a channel with a
@@ -563,6 +558,15 @@ indicate that the channel is disabled, with another update re-enabling
 the channel when the peer reestablishes contact.  Because gossip
 messages are batched and replace previous ones, the result may be a
 single seemingly-redundant update.
+
+When a node creates a new `channel_update` to change its channel parameters,
+it will take some time to propagate through the network and payers may use
+older parameters. It is recommended to keep accepting older parameters for
+at least 10 minutes to improve payment latency and reliability.
+
+The `must_be_one` field in `message_flags` was previously used to indicate
+the presence of the `htlc_maximum_msat` field. This field must now always
+be present, so `must_be_one` is a constant value, and ignored by receivers.
 
 ## Query Messages
 
@@ -986,8 +990,8 @@ A node:
 #### Requirements
 
 A node:
-  - if a channel's oldest `channel_update`s `timestamp` is older than two weeks
-  (1209600 seconds):
+  - if the `timestamp` of the latest `channel_update` in either direction is
+  older than two weeks (1209600 seconds):
     - MAY prune the channel.
     - MAY ignore the channel.
     - Note: this is an individual node policy and MUST NOT be enforced by

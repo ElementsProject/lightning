@@ -61,11 +61,38 @@ static void db_stmt_free(struct db_stmt *stmt)
 }
 
 
+static struct db_stmt *db_prepare_core(struct db *db,
+				       const char *location,
+				       const struct db_query *db_query)
+{
+	struct db_stmt *stmt = tal(db, struct db_stmt);
+	size_t num_slots = db_query->placeholders;
+
+	/* Allocate the slots for placeholders/bindings, zeroed next since
+	 * that sets the type to DB_BINDING_UNINITIALIZED for later checks. */
+	stmt->bindings = tal_arrz(stmt, struct db_binding, num_slots);
+	stmt->location = location;
+	stmt->error = NULL;
+	stmt->db = db;
+	stmt->query = db_query;
+	stmt->executed = false;
+	stmt->inner_stmt = NULL;
+
+	tal_add_destructor(stmt, db_stmt_free);
+
+	list_add(&db->pending_statements, &stmt->list);
+
+#if DEVELOPER
+	stmt->cols_used = NULL;
+#endif /* DEVELOPER */
+
+	return stmt;
+}
+
 struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 			       const char *query_id)
 {
-	struct db_stmt *stmt = tal(db, struct db_stmt);
-	size_t num_slots, pos;
+	size_t pos;
 
 	/* Normalize query_id paths, because unit tests are compiled with this
 	 * prefix. */
@@ -81,39 +108,32 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 	for (;;) {
 		if (!db->queries->query_table[pos].name)
 			db_fatal("Could not resolve query %s", query_id);
-		if (streq(query_id, db->queries->query_table[pos].name)) {
-			stmt->query = &db->queries->query_table[pos];
+		if (streq(query_id, db->queries->query_table[pos].name))
 			break;
-		}
 		pos = (pos + 1) % db->queries->query_table_size;
 	}
 
-	num_slots = stmt->query->placeholders;
-	/* Allocate the slots for placeholders/bindings, zeroed next since
-	 * that sets the type to DB_BINDING_UNINITIALIZED for later checks. */
-	stmt->bindings = tal_arr(stmt, struct db_binding, num_slots);
-	for (size_t i=0; i<num_slots; i++)
-		stmt->bindings[i].type = DB_BINDING_UNINITIALIZED;
-
-	stmt->location = location;
-	stmt->error = NULL;
-	stmt->db = db;
-	stmt->executed = false;
-	stmt->inner_stmt = NULL;
-
-	tal_add_destructor(stmt, db_stmt_free);
-
-	list_add(&db->pending_statements, &stmt->list);
-
-#if DEVELOPER
-	stmt->cols_used = NULL;
-#endif /* DEVELOPER */
-
-	return stmt;
+	return db_prepare_core(db, location, &db->queries->query_table[pos]);
 }
 
-#define db_prepare_v2(db,query) \
-	db_prepare_v2_(__FILE__ ":" stringify(__LINE__), db, query)
+/* Provides replication and hook interface for raw SQL too */
+struct db_stmt *db_prepare_untranslated(struct db *db, const char *query)
+{
+	struct db_query *db_query = tal(NULL, struct db_query);
+	struct db_stmt *stmt;
+
+	db_query->name = db_query->query = query;
+	db_query->placeholders = strcount(query, "?");
+	db_query->readonly = false;
+
+	/* Use raw accessors! */
+	db_query->colnames = NULL;
+	db_query->num_colnames = 0;
+
+	stmt = db_prepare_core(db, "db_prepare_untranslated", db_query);
+	tal_steal(stmt, db_query);
+	return stmt;
+}
 
 bool db_query_prepared(struct db_stmt *stmt)
 {

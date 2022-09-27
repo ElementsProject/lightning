@@ -3,7 +3,7 @@ from fixtures import TEST_NETWORK
 from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
-from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
     EXPERIMENTAL_FEATURES, VALGRIND, mine_funding_to_announce, first_scid
@@ -266,7 +266,8 @@ def test_pay_disconnect(node_factory, bitcoind):
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
 
     l2.stop()
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+    # Make sure channeld has exited!
+    wait_for(lambda: 'owner' not in only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']))
 
     # Can't pay while its offline.
     with pytest.raises(RpcError, match=r'failed: WIRE_TEMPORARY_CHANNEL_FAILURE \(First peer not ready\)'):
@@ -1389,7 +1390,7 @@ def test_forward_stats(node_factory, bitcoind):
     # Select all forwardings, ordered by htlc_id to ensure the order
     # matches below
     forwardings = l2.db_query("SELECT *, in_msatoshi - out_msatoshi as fee "
-                              "FROM forwarded_payments "
+                              "FROM forwards "
                               "ORDER BY in_htlc_id;")
     assert(len(forwardings) == 3)
     states = [f['state'] for f in forwardings]
@@ -1957,7 +1958,7 @@ def test_setchannel_usage(node_factory, bitcoind):
     def channel_get_config(scid):
         return l1.db.query(
             'SELECT feerate_base, feerate_ppm, htlc_minimum_msat, htlc_maximum_msat FROM channels '
-            'WHERE short_channel_id=\'{}\';'.format(scid))
+            'WHERE scid={};'.format(scid_to_int(scid)))
 
     # get short channel id
     scid = l1.get_channel_scid(l2)
@@ -3568,7 +3569,6 @@ def test_keysend(node_factory):
         l3.rpc.keysend(l4.info['id'], amt)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Requires extratlvs option")
 def test_keysend_extra_tlvs(node_factory):
     """Use the extratlvs option to deliver a message with sphinx' TLV type.
     """
@@ -3577,25 +3577,48 @@ def test_keysend_extra_tlvs(node_factory):
         2,
         wait_for_announce=True,
         opts=[
-            {},
             {
-                'experimental-accept-extra-tlv-types': '133773310',
+                # Not needed, just for listconfigs test.
+                'accept-htlc-tlv-types': '133773310,99990',
+            },
+            {
+                'accept-htlc-tlv-types': '133773310',
                 "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
             },
         ]
     )
 
-    # Send an indirect one from l1 to l3
+    # Make sure listconfigs works here
+    assert l1.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310,99990'
+    assert l2.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310'
+
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
-    invs = l2.rpc.listinvoices()['invoices']
-    assert(len(invs) == 1)
+    inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert(l2.daemon.is_in_log(r'plugin-sphinx-receiver.py.*extratlvs.*133773310.*feedc0de'))
 
-    inv = invs[0]
     assert(inv['amount_received_msat'] >= Millisatoshi(amt))
+    assert inv['description'] == 'keysend'
+    l2.rpc.delinvoice(inv['label'], 'paid')
 
     # Now try again with the TLV type in extra_tlvs as string:
-    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
+    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: b'hello there'.hex()})
+    inv = only_one(l2.rpc.listinvoices()['invoices'])
+    assert inv['description'] == 'keysend: hello there'
+    l2.rpc.delinvoice(inv['label'], 'paid')
+
+    # We can (just!) fit a giant description in.
+    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: (b'a' * 1100).hex()})
+    inv = only_one(l2.rpc.listinvoices()['invoices'])
+    assert inv['description'] == 'keysend: ' + 'a' * 1100
+    l2.rpc.delinvoice(inv['label'], 'paid')
+
+    # Now try with some special characters
+    ksinfo = """💕 ₿"'
+More info
+"""
+    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: bytes(ksinfo, encoding='utf8').hex()})
+    inv = only_one(l2.rpc.listinvoices()['invoices'])
+    assert inv['description'] == 'keysend: ' + ksinfo
 
 
 def test_keysend_routehint(node_factory):
@@ -3948,6 +3971,7 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     assert(pays[0]["bolt11"] == invl1)
     assert('amount_msat' in pays[0] and pays[0]['amount_msat'] == amt)
     assert('created_at' in pays[0])
+    assert('completed_at' in pays[0])
 
 
 def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):
@@ -3986,8 +4010,10 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     # Create the line graph l2 -> l1 with a channel of 10 ** 5 sat!
     l2, l1 = node_factory.line_graph(2, fundamount=10**5, wait_for_announce=True)
 
+    l2.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         l2.rpc.delpay()
+    l2.rpc.check_request_schemas = True
 
     # sanity check
     inv = l1.rpc.invoice(10 ** 5, 'inv', 'inv')
@@ -4002,11 +4028,13 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     payment_hash = inv['payment_hash']
 
     # payment paid with wrong status (pending status is a illegal input)
+    l2.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'pending')
 
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'invalid_status')
+    l2.rpc.check_request_schemas = True
 
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'failed')
@@ -4538,20 +4566,6 @@ def test_offer(node_factory, bitcoind):
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
-
-
-def test_deprecated_offer(node_factory, bitcoind):
-    """Test that we allow old invreq name `payer_signature` with deprecated_apis"""
-    l1, l2 = node_factory.line_graph(2, opts={'experimental-offers': None,
-                                              'allow-deprecated-apis': True})
-
-    offer = l2.rpc.call('offer', {'amount': 10000,
-                                  'description': 'test'})['bolt12']
-
-    inv = l1.rpc.call('fetchinvoice', {'offer': offer})['invoice']
-    l2.daemon.wait_for_log("Testing invoice_request with old name 'payer_signature'")
-
-    l1.rpc.pay(inv)
 
 
 @pytest.mark.developer("dev-no-modern-onion is DEVELOPER-only")

@@ -4,18 +4,25 @@ from pyln.client import RpcError, Millisatoshi
 from utils import only_one, wait_for, wait_channel_quiescent, mine_funding_to_announce
 
 
+import os
 import pytest
+import sys
 import time
 import unittest
 
 
 def test_invoice(node_factory, chainparams):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'log-level': 'io'})
 
     addr1 = l2.rpc.newaddr('bech32')['bech32']
     addr2 = l2.rpc.newaddr('p2sh-segwit')['p2sh-segwit']
     before = int(time.time())
     inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
+
+    # Side note: invoice calls out to listincoming, so check JSON id is as expected
+    myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+    l1.daemon.wait_for_log(r": {}:invoice#[0-9]*/cln:listincoming#[0-9]*\[OUT\]".format(myname))
+
     after = int(time.time())
     b11 = l1.rpc.decodepay(inv['bolt11'])
     assert b11['currency'] == chainparams['bip173_prefix']
@@ -356,7 +363,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # It will use an explicit exposeprivatechannels even if it thinks its a dead-end
     l0.rpc.close(l1.info['id'])
     l0.wait_for_channel_onchain(l1.info['id'])
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(13)
     wait_for(lambda: l2.rpc.listchannels(scid_dummy)['channels'] == [])
 
     inv = l2.rpc.invoice(amount_msat=123456, label="inv7", description="?", exposeprivatechannels=scid)
@@ -404,7 +411,6 @@ def test_invoice_expiry(node_factory, executor):
     l2.rpc.invoice('any', 'inv1', 'description', 10)
     l2.rpc.invoice('any', 'inv2', 'description', 4)
     l2.rpc.invoice('any', 'inv3', 'description', 16)
-    creation = int(time.time())
 
     # Check waitinvoice correctly waits
     w1 = executor.submit(l2.rpc.waitinvoice, 'inv1')
@@ -429,16 +435,6 @@ def test_invoice_expiry(node_factory, executor):
     time.sleep(8)  # total 20
     with pytest.raises(RpcError):
         w3.result()
-
-    # Test delexpiredinvoice
-    l2.rpc.delexpiredinvoice(maxexpirytime=creation + 8)
-    # only inv2 should have been deleted
-    assert len(l2.rpc.listinvoices()['invoices']) == 2
-    assert len(l2.rpc.listinvoices('inv2')['invoices']) == 0
-    # Test delexpiredinvoice all
-    l2.rpc.delexpiredinvoice()
-    # all invoices are expired and should be deleted
-    assert len(l2.rpc.listinvoices()['invoices']) == 0
 
     start = int(time.time())
     inv = l2.rpc.invoice(amount_msat=123000, label='inv_s', description='description', expiry=1)['bolt11']
@@ -562,8 +558,8 @@ def test_waitanyinvoice_reversed(node_factory, executor):
     assert r['label'] == 'inv1'
 
 
-def test_autocleaninvoice(node_factory):
-    l1 = node_factory.get_node()
+def test_autocleaninvoice_deprecated(node_factory):
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
 
     l1.rpc.invoice(amount_msat=12300, label='inv1', description='description1', expiry=4)
     l1.rpc.invoice(amount_msat=12300, label='inv2', description='description2', expiry=12)

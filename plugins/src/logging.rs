@@ -1,6 +1,7 @@
 use crate::codec::JsonCodec;
+use env_logger::filter;
 use futures::SinkExt;
-use log::{Level, Metadata, Record};
+use log::{Metadata, Record};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::io::AsyncWrite;
@@ -42,6 +43,7 @@ struct PluginLogger {
     // happen to emit a log record while holding the lock on the
     // plugin connection.
     sender: tokio::sync::mpsc::UnboundedSender<LogEntry>,
+    filter: filter::Filter,
 }
 
 /// Initialize the logger starting a flusher to the passed in sink.
@@ -50,6 +52,10 @@ where
     O: AsyncWrite + Send + Unpin + 'static,
 {
     let out = out.clone();
+
+    let filter_str = std::env::var("CLN_PLUGIN_LOG").unwrap_or("info".to_string());
+    let filter = filter::Builder::new().parse(&filter_str).build();
+
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<LogEntry>();
     tokio::spawn(async move {
         while let Some(i) = receiver.recv().await {
@@ -57,28 +63,26 @@ where
             // errors when forwarding. Forwarding could break due to
             // an interrupted connection or stdout being closed, but
             // keeping the messages in the queue is a memory leak.
-            let _ = out
-                .lock()
-                .await
-                .send(json!({
-                    "jsonrpc": "2.0",
-                    "method": "log",
-                    "params": i
-                }))
-                .await;
+            let payload = json!({
+                "jsonrpc": "2.0",
+                "method": "log",
+                "params": i
+            });
+
+            let _ = out.lock().await.send(payload).await;
         }
     });
-    log::set_boxed_logger(Box::new(PluginLogger { sender }))
+    log::set_boxed_logger(Box::new(PluginLogger { sender, filter }))
         .map(|()| log::set_max_level(log::LevelFilter::Debug))
 }
 
 impl log::Log for PluginLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Debug
+        self.filter.enabled(metadata)
     }
 
     fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
+        if self.filter.matches(record) {
             self.sender
                 .send(LogEntry {
                     level: record.level().into(),

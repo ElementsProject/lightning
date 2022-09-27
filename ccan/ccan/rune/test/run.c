@@ -83,12 +83,12 @@ int main(void)
 			ok1(rune_is_derived_anyversion(rune1, rune2) == NULL);
 
 			restr = rune_restr_new(NULL);
-			for (size_t i = 4; parts[i]; i+=3) {
+			for (size_t j = 4; parts[j]; j+=3) {
 				struct rune_altern *alt;
 				alt = rune_altern_new(NULL,
-						      parts[i],
-						      parts[i+1][0],
-						      parts[i+2]);
+						      parts[j],
+						      parts[j+1][0],
+						      parts[j+2]);
 				rune_restr_add_altern(restr, take(alt));
 			}
 			rune_add_restr(rune1, take(restr));

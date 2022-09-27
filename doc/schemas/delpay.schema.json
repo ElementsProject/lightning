@@ -64,6 +64,10 @@
             "type": "u64",
             "description": "the UNIX timestamp showing when this payment was initiated"
           },
+          "completed_at": {
+            "type": "u64",
+            "description": "the UNIX timestamp showing when this payment was completed"
+          },
           "groupid": {
             "type": "u64",
             "description": "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash"

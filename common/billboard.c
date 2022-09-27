@@ -4,7 +4,7 @@
 #include <common/utils.h>
 
 char *billboard_message(const tal_t *ctx,
-			const bool funding_locked[NUM_SIDES],
+			const bool channel_ready[NUM_SIDES],
 			const bool have_sigs[NUM_SIDES],
 			const bool shutdown_sent[NUM_SIDES],
 			u32 depth_togo,
@@ -13,17 +13,19 @@ char *billboard_message(const tal_t *ctx,
 	const char *funding_status, *announce_status,
 		*shutdown_status COMPILER_WANTS_INIT("gcc 8.3.0");
 
-	if (funding_locked[LOCAL] && funding_locked[REMOTE])
-		funding_status = "Funding transaction locked.";
-	else if (!funding_locked[LOCAL] && !funding_locked[REMOTE])
+	if (channel_ready[LOCAL] && channel_ready[REMOTE])
+		funding_status = "Channel ready for use.";
+	else if (!channel_ready[LOCAL] && !channel_ready[REMOTE])
 		funding_status = tal_fmt(ctx,
 					"Funding needs %d more"
-					" confirmations for lockin.",
+					" confirmations to be ready.",
 					depth_togo);
-	else if (funding_locked[LOCAL] && !funding_locked[REMOTE])
-		funding_status = "We've confirmed funding, they haven't yet.";
-	else if (!funding_locked[LOCAL] && funding_locked[REMOTE])
-		funding_status = "They've confirmed funding, we haven't yet.";
+	else if (channel_ready[LOCAL] && !channel_ready[REMOTE])
+		funding_status = "We've confirmed channel ready, they haven't yet.";
+	else {
+		assert(!channel_ready[LOCAL] && channel_ready[REMOTE]);
+		funding_status = "They've confirmed channel ready, we haven't yet.";
+	}
 
 	if (have_sigs) {
 		if (have_sigs[LOCAL] && have_sigs[REMOTE])
@@ -34,8 +36,10 @@ char *billboard_message(const tal_t *ctx,
 		else if (!have_sigs[LOCAL] && have_sigs[REMOTE])
 			announce_status = " They need our announcement"
 					  " signatures.";
-		else if (!have_sigs[LOCAL] && !have_sigs[REMOTE])
+		else {
+			assert(!have_sigs[LOCAL] && !have_sigs[REMOTE]);
 			announce_status = "";
+		}
 	} else
 		announce_status = "";
 

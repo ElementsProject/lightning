@@ -16,6 +16,7 @@ struct channel_update_timestamps;
 struct broadcastable;
 struct lease_rates;
 struct seeker;
+struct dying_channel;
 
 /*~ The core daemon structure: */
 struct daemon {
@@ -48,8 +49,8 @@ struct daemon {
 	struct wireaddr *announceable;
 
 	/* verified remote_addr as reported by recent peers */
-	struct wireaddr *remote_addr_v4;
-	struct wireaddr *remote_addr_v6;
+	struct wireaddr *discovered_ip_v4;
+	struct wireaddr *discovered_ip_v6;
 
 	/* Timer until we can send an updated node_announcement */
 	struct oneshot *node_announce_timer;

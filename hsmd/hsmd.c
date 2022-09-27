@@ -555,17 +555,16 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	bool found_leak;
 	u8 *reply;
 
-	memtable = memleak_find_allocations(tmpctx, msg_in, msg_in);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg_in);
 
-	/* Now delete clients and anything they point to. */
-	memleak_remove_region(memtable,
-			      dbid_zero_clients, sizeof(dbid_zero_clients));
-	memleak_remove_uintmap(memtable, &clients);
-	memleak_remove_region(memtable,
-			      status_conn, tal_bytelen(status_conn));
+	/* Now note clients and anything they point to. */
+	memleak_scan_region(memtable, dbid_zero_clients, sizeof(dbid_zero_clients));
+	memleak_scan_uintmap(memtable, &clients);
+	memleak_scan_obj(memtable, status_conn);
 
-	memleak_remove_pointer(memtable, dev_force_privkey);
-	memleak_remove_pointer(memtable, dev_force_bip32_seed);
+	memleak_ptr(memtable, dev_force_privkey);
+	memleak_ptr(memtable, dev_force_bip32_seed);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	reply = towire_hsmd_dev_memleak_reply(NULL, found_leak);

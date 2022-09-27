@@ -100,7 +100,7 @@ struct plugins {
 	bool startup;
 
 	/* Currently pending requests by their request ID */
-	UINTMAP(struct jsonrpc_request *) pending_requests;
+	STRMAP(struct jsonrpc_request *) pending_requests;
 	struct log *log;
 	struct log_book *log_book;
 
@@ -214,17 +214,19 @@ bool plugin_blacklisted(struct plugins *plugins, const char *name);
 
 /**
  * Kick off initialization of a plugin.
+ * @p: plugin
+ * @cmd_id: optional JSON cmd_id which caused this.
  *
  * Returns error string, or NULL.
  */
-const char *plugin_send_getmanifest(struct plugin *p);
+const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id);
 
 /**
  * Kick of initialization of all plugins which need it/
  *
  * Return true if any were started.
  */
-bool plugins_send_getmanifest(struct plugins *plugins);
+bool plugins_send_getmanifest(struct plugins *plugins, const char *cmd_id);
 
 /**
  * Kill a plugin process and free @plugin, with an error message.

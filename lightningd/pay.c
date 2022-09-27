@@ -37,15 +37,16 @@ struct sendpay_command {
 	struct command *cmd;
 };
 
-static bool string_to_payment_status(const char *status_str, enum wallet_payment_status *status)
+static bool string_to_payment_status(const char *status_str, size_t len,
+				     enum wallet_payment_status *status)
 {
-	if (streq(status_str, "complete")) {
+	if (memeqstr(status_str, len, "complete")) {
 		*status = PAYMENT_COMPLETE;
 		return true;
-	} else if (streq(status_str, "pending")) {
+	} else if (memeqstr(status_str, len, "pending")) {
 		*status = PAYMENT_PENDING;
 		return true;
-	} else if (streq(status_str, "failed")) {
+	} else if (memeqstr(status_str, len, "failed")) {
 		*status = PAYMENT_FAILED;
 		return true;
 	}
@@ -128,7 +129,9 @@ void json_add_payment_fields(struct json_stream *response,
 
 	json_add_amount_msat_compat(response, t->msatoshi_sent,
 				    "msatoshi_sent", "amount_sent_msat");
-	json_add_u64(response, "created_at", t->timestamp);
+	json_add_u32(response, "created_at", t->timestamp);
+	if (t->completed_at)
+		json_add_u32(response, "completed_at", *t->completed_at);
 
 	switch (t->status) {
 	case PAYMENT_PENDING:
@@ -203,7 +206,7 @@ json_add_routefail_info(struct json_stream *js,
 
 void json_sendpay_fail_fields(struct json_stream *js,
 			      const struct wallet_payment *payment,
-			      errcode_t pay_errcode,
+			      enum jsonrpc_errcode pay_errcode,
 			      const struct onionreply *onionreply,
 			      const struct routing_failure *fail)
 {
@@ -222,7 +225,7 @@ void json_sendpay_fail_fields(struct json_stream *js,
 					fail->msg);
 }
 
-static const char *sendpay_errmsg_fmt(const tal_t *ctx, errcode_t pay_errcode,
+static const char *sendpay_errmsg_fmt(const tal_t *ctx, enum jsonrpc_errcode pay_errcode,
 				      const struct routing_failure *fail,
 				      const char *details)
 {
@@ -241,7 +244,7 @@ static const char *sendpay_errmsg_fmt(const tal_t *ctx, errcode_t pay_errcode,
 static struct command_result *
 sendpay_fail(struct command *cmd,
 	     const struct wallet_payment *payment,
-	     errcode_t pay_errcode,
+	     enum jsonrpc_errcode pay_errcode,
 	     const struct onionreply *onionreply,
 	     const struct routing_failure *fail,
 	     const char *errmsg)
@@ -274,7 +277,7 @@ json_sendpay_in_progress(struct command *cmd,
 static void tell_waiters_failed(struct lightningd *ld,
 				const struct sha256 *payment_hash,
 				const struct wallet_payment *payment,
-				errcode_t pay_errcode,
+				enum jsonrpc_errcode pay_errcode,
 				const struct onionreply *onionreply,
 				const struct routing_failure *fail,
 				const char *details)
@@ -415,7 +418,7 @@ remote_routing_failure(const tal_t *ctx,
 		       const u8 *failuremsg,
 		       int origin_index,
 		       struct log *log,
-		       errcode_t *pay_errcode)
+		       enum jsonrpc_errcode *pay_errcode)
 {
 	enum onion_wire failcode = fromwire_peektype(failuremsg);
 	struct routing_failure *routing_failure;
@@ -539,7 +542,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
 	const char *failstr;
-	errcode_t pay_errcode;
+	enum jsonrpc_errcode pay_errcode;
 	const u8 *failmsg;
 	int origin_index;
 
@@ -668,7 +671,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 	char *faildetail;
 	struct routing_failure *fail;
 	int faildirection;
-	errcode_t rpcerrorcode;
+	enum jsonrpc_errcode rpcerrorcode;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 payment_hash, partid, groupid);
@@ -881,7 +884,7 @@ send_payment_core(struct lightningd *ld,
 	bool have_complete = false;
 
 	/* Now, do we already have one or more payments? */
-	payments = wallet_payment_list(tmpctx, ld->wallet, rhash, NULL);
+	payments = wallet_payment_list(tmpctx, ld->wallet, rhash);
 	for (size_t i = 0; i < tal_count(payments); i++) {
 		log_debug(ld->log, "Payment %zu/%zu: %s %s",
 			  i, tal_count(payments),
@@ -1101,6 +1104,8 @@ send_payment_core(struct lightningd *ld,
 	payment->route_nodes = tal_steal(payment, route_nodes);
 	payment->route_channels = tal_steal(payment, route_channels);
 	payment->failonion = NULL;
+	payment->completed_at = NULL;
+
 	if (label != NULL)
 		payment->label = tal_strdup(payment, label);
 	else
@@ -1541,6 +1546,22 @@ static const struct json_command waitsendpay_command = {
 };
 AUTODATA(json_command, &waitsendpay_command);
 
+static struct command_result *param_payment_status(struct command *cmd,
+						   const char *name,
+						   const char *buffer,
+						   const jsmntok_t *tok,
+						   enum wallet_payment_status **status)
+{
+	*status = tal(cmd, enum wallet_payment_status);
+	if (string_to_payment_status(buffer + tok->start,
+				     tok->end - tok->start,
+				     *status))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be an invoice status");
+}
+
 static struct command_result *json_listsendpays(struct command *cmd,
 						const char *buffer,
 						const jsmntok_t *obj UNNEEDED,
@@ -1549,13 +1570,14 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	const struct wallet_payment **payments;
 	struct json_stream *response;
 	struct sha256 *rhash;
-	const char *invstring, *status_str;
+	const char *invstring;
+	enum wallet_payment_status *status;
 
 	if (!param(cmd, buffer, params,
 		   /* FIXME: parameter should be invstring now */
 		   p_opt("bolt11", param_string, &invstring),
 		   p_opt("payment_hash", param_sha256, &rhash),
-		   p_opt("status", param_string, &status_str),
+		   p_opt("status", param_payment_status, &status),
 		   NULL))
 		return command_param_failed();
 
@@ -1587,19 +1609,13 @@ static struct command_result *json_listsendpays(struct command *cmd,
 		}
 	}
 
-	if (status_str) {
-		enum wallet_payment_status status;
-
-		if (!string_to_payment_status(status_str, &status))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Unrecognized status: %s", status_str);
-		payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash, &status);
-	} else
-		payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash, NULL);
-
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
 	response = json_stream_success(cmd);
 
 	json_array_start(response, "payments");
 	for (size_t i = 0; i < tal_count(payments); i++) {
+		if (status && payments[i]->status != *status)
+			continue;
 		json_object_start(response, NULL);
 		json_add_payment_fields(response, payments[i]);
 		json_object_end(response);
@@ -1617,6 +1633,29 @@ static const struct json_command listsendpays_command = {
 };
 AUTODATA(json_command, &listsendpays_command);
 
+static struct command_result *
+param_payment_status_nopending(struct command *cmd,
+			       const char *name,
+			       const char *buffer,
+			       const jsmntok_t *tok,
+			       enum wallet_payment_status **status)
+{
+	struct command_result *res;
+
+	res = param_payment_status(cmd, name, buffer, tok, status);
+	if (res)
+		return res;
+
+	switch (**status) {
+	case PAYMENT_COMPLETE:
+	case PAYMENT_FAILED:
+		break;
+	case PAYMENT_PENDING:
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Cannot delete pending status");
+	}
+	return NULL;
+}
 
 static struct command_result *json_delpay(struct command *cmd,
 						const char *buffer,
@@ -1625,48 +1664,59 @@ static struct command_result *json_delpay(struct command *cmd,
 {
 	struct json_stream *response;
 	const struct wallet_payment **payments;
-	const char *status_str;
-	enum wallet_payment_status status;
+	enum wallet_payment_status *status;
 	struct sha256 *payment_hash;
+	u64 *groupid, *partid;
+	bool found;
 
 	if (!param(cmd, buffer, params,
-		p_req("payment_hash", param_sha256, &payment_hash),
-		p_req("status", param_string, &status_str),
-		NULL))
+		   p_req("payment_hash", param_sha256, &payment_hash),
+		   p_req("status", param_payment_status_nopending, &status),
+		   p_opt("partid", param_u64, &partid),
+		   p_opt("groupid", param_u64, &groupid),
+		   NULL))
 		return command_param_failed();
 
-	if (!string_to_payment_status(status_str, &status))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Unrecognized status: %s", status_str);
+	if ((partid != NULL) != (groupid != NULL))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Must set both partid and groupid, or neither");
 
-	switch(status){
-		case PAYMENT_COMPLETE:
-		case PAYMENT_FAILED:
-			break;
-		case PAYMENT_PENDING:
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid status: %s",
-				payment_status_to_string(status));
-	}
-
-	payments = wallet_payment_list(cmd, cmd->ld->wallet, payment_hash, NULL);
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, payment_hash);
 
 	if (tal_count(payments) == 0)
 		return command_fail(cmd, PAY_NO_SUCH_PAYMENT, "Unknown payment with payment_hash: %s",
 				    type_to_string(tmpctx, struct sha256, payment_hash));
 
+	found = false;
 	for (int i = 0; i < tal_count(payments); i++) {
-		if (payments[i]->status != status) {
+		if (groupid && payments[i]->groupid != *groupid)
+			continue;
+		if (partid && payments[i]->partid != *partid)
+			continue;
+
+		found = true;
+		if (payments[i]->status != *status) {
 			return command_fail(cmd, PAY_STATUS_UNEXPECTED, "Payment with hash %s has %s status but it should be %s",
 					type_to_string(tmpctx, struct sha256, payment_hash),
 					payment_status_to_string(payments[i]->status),
-					payment_status_to_string(status));
+					payment_status_to_string(*status));
 		}
 	}
 
-	wallet_payment_delete_by_hash(cmd->ld->wallet, payment_hash);
+	if (!found) {
+		return command_fail(cmd, PAY_NO_SUCH_PAYMENT,
+				    "No payment for that payment_hash with that partid and groupid");
+	}
+
+	wallet_payment_delete(cmd->ld->wallet, payment_hash, partid, groupid);
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "payments");
 	for (int i = 0; i < tal_count(payments); i++) {
+		if (groupid && payments[i]->groupid != *groupid)
+			continue;
+		if (partid && payments[i]->partid != *partid)
+			continue;
 		json_object_start(response, NULL);
 		json_add_payment_fields(response, payments[i]);
 		json_object_end(response);

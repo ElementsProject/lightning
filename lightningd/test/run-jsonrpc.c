@@ -27,9 +27,10 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
-/* Generated stub for json_to_errcode */
-bool json_to_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, errcode_t *errcode UNNEEDED)
-{ fprintf(stderr, "json_to_errcode called!\n"); abort(); }
+/* Generated stub for json_to_jsonrpc_errcode */
+bool json_to_jsonrpc_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			     enum jsonrpc_errcode *errcode UNNEEDED)
+{ fprintf(stderr, "json_to_jsonrpc_errcode called!\n"); abort(); }
 /* Generated stub for json_to_number */
 bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    unsigned int *num UNNEEDED)
@@ -96,7 +97,9 @@ const char *param_subcommand(struct command *cmd UNNEEDED, const char *buffer UN
 			     const char *name UNNEEDED, ...)
 { fprintf(stderr, "param_subcommand called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
-bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook *hook UNNEEDED,
+bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
+		       const struct plugin_hook *hook UNNEEDED,
+		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
 /* Generated stub for towire_bigsize */

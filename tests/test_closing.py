@@ -33,9 +33,9 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     assert bitcoind.rpc.getmempoolinfo()['size'] == 0
 
     billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
-    assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
+    assert billboard == ['CHANNELD_NORMAL:Channel ready for use.']
     billboard = only_one(l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status']
-    assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
+    assert billboard == ['CHANNELD_NORMAL:Channel ready for use.']
 
     bitcoind.generate_block(5)
 
@@ -44,7 +44,7 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
     # This may either be from a local_update or an announce, so just
     # check for the substring
-    assert 'CHANNELD_NORMAL:Funding transaction locked.' in billboard[0]
+    assert 'CHANNELD_NORMAL:Channel ready for use.' in billboard[0]
 
     l1.rpc.close(chan)
 
@@ -1785,7 +1785,7 @@ def test_onchain_first_commit(node_factory, bitcoind):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
     # HTLC 1->2, 1 fails just after funding.
-    disconnects = ['+WIRE_FUNDING_LOCKED', 'permfail']
+    disconnects = ['+WIRE_CHANNEL_READY', 'permfail']
     # Make locktime different, as we once had them reversed!
     l1, l2 = node_factory.line_graph(2, opts=[{'disconnect': disconnects,
                                                'plugin': coin_mvt_plugin},
@@ -2712,8 +2712,10 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
 
     # Now, 100 blocks it should be done.
     bitcoind.generate_block(100)
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'] == [])
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] == [])
+
+    # May reconnect, may not: if not, peer does not exist!
+    wait_for(lambda: all(p['channels'] == [] for p in l1.rpc.listpeers()['peers']))
+    wait_for(lambda: all(p['channels'] == [] for p in l2.rpc.listpeers()['peers']))
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
@@ -3390,7 +3392,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> 16440sat \(not 1000000sat\)')
 
     # This will fail because l1 restarted!
-    with pytest.raises(RpcError, match=r'Channel forgotten before proper close.'):
+    with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
         fut.result(TIMEOUT)
 
     # But we still complete negotiation!

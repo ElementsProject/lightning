@@ -4,15 +4,18 @@ lightning-delpay -- Command for removing a completed or failed payment
 SYNOPSIS
 --------
 
-**delpay** *payment\_hash* *status*
+**delpay** *payment\_hash* *status* [*partid* *groupid*]
 
 DESCRIPTION
 -----------
 
-The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. Deleting a `pending` payment is an error.
+The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. Deleting a `pending` payment is an error.  If *partid* and *groupid* are not specified, all payment parts are deleted.
 
 - *payment\_hash*: The unique identifier of a payment.
 - *status*: Expected status of the payment. 
+- *partid*: Specific partid to delete (must be paired with *groupid*)
+- *groupid*: Specific groupid to delete (must be paired with *partid*)
+
 Only deletes if the payment status matches.
 
 EXAMPLE JSON REQUEST
@@ -46,6 +49,7 @@ On success, an object containing **payments** is returned.  It is an array of ob
 - **partid** (u64, optional): unique ID within this (multi-part) payment
 - **destination** (pubkey, optional): the final destination of the payment if known
 - **amount\_msat** (msat, optional): the amount the destination received, if known
+- **completed\_at** (u64, optional): the UNIX timestamp showing when this payment was completed
 - **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash
 - **payment\_preimage** (hex, optional): proof of payment (always 64 characters)
 - **label** (string, optional): the label, if given to sendpay
@@ -102,4 +106,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:f687e5248b633be5e6e3bb515b7b006858a3f2499bb5955240b3e18dd80794a8)
+[comment]: # ( SHA256STAMP:1ce2241eeae759ed5566342fb7810e62fa2c618f2465314f17376ebe9b6d24f8)

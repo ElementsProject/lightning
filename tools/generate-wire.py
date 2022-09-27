@@ -194,7 +194,6 @@ class Type(FieldSet):
         'bool',
         'amount_sat',
         'amount_msat',
-        'errcode_t',
         'bigsize',
         'varint'
     ]
@@ -209,7 +208,6 @@ class Type(FieldSet):
         'secp256k1_ecdsa_recoverable_signature',
         'utf8',
         'wirestring',
-        'errcode_t',
         'bigsize',
         'varint',
     ]

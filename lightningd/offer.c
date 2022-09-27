@@ -285,7 +285,7 @@ static struct command_result *prev_payment(struct command *cmd,
 	bool prev_paid = false;
 
 	assert(!invreq->payer_info);
-	payments = wallet_payment_list(cmd, cmd->ld->wallet, NULL, NULL);
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, NULL);
 
 	for (size_t i = 0; i < tal_count(payments); i++) {
 		const struct tlv_invoice *inv;
@@ -473,14 +473,9 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	invreq->fields = tlv_make_fields(invreq, tlv_invoice_request);
 	merkle_tlv(invreq->fields, &merkle);
 	invreq->signature = tal(invreq, struct bip340sig);
-	if (deprecated_apis)
-		hsm_sign_b12(cmd->ld, "invoice_request", "payer_signature",
-			     &merkle, invreq->payer_info, invreq->payer_key,
-			     invreq->signature);
-	else
-		hsm_sign_b12(cmd->ld, "invoice_request", "signature",
-			     &merkle, invreq->payer_info, invreq->payer_key,
-			     invreq->signature);
+	hsm_sign_b12(cmd->ld, "invoice_request", "signature",
+		     &merkle, invreq->payer_info, invreq->payer_key,
+		     invreq->signature);
 
 	response = json_stream_success(cmd);
 	json_add_string(response, "bolt12", invrequest_encode(tmpctx, invreq));

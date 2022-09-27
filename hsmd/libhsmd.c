@@ -972,7 +972,7 @@ static u8 *handle_channel_update_sig(struct hsmd_client *c, const u8 *msg_in)
 	if (!fromwire_hsmd_cupdate_sig_req(tmpctx, msg_in, &cu))
 		return hsmd_status_malformed_request(c, msg_in);
 
-	if (!fromwire_channel_update_option_channel_htlc_max(cu, &sig,
+	if (!fromwire_channel_update(cu, &sig,
 			&chain_hash, &scid, &timestamp, &message_flags,
 			&channel_flags, &cltv_expiry_delta,
 			&htlc_minimum, &fee_base_msat,
@@ -989,7 +989,7 @@ static u8 *handle_channel_update_sig(struct hsmd_client *c, const u8 *msg_in)
 
 	sign_hash(&node_pkey, &hash, &sig);
 
-	cu = towire_channel_update_option_channel_htlc_max(tmpctx, &sig, &chain_hash,
+	cu = towire_channel_update(tmpctx, &sig, &chain_hash,
 				   &scid, timestamp, message_flags, channel_flags,
 				   cltv_expiry_delta, htlc_minimum,
 				   fee_base_msat, fee_proportional_mill,

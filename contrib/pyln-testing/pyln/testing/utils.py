@@ -107,6 +107,22 @@ def write_config(filename, opts, regtest_opts=None, section_name='regtest'):
                 f.write("{}={}\n".format(k, v))
 
 
+def scid_to_int(scid):
+    """Convert a 1x2x3 scid to a raw integer"""
+    blocknum, txnum, outnum = scid.split("x")
+
+    # BOLT #7:
+    # ## Definition of `short_channel_id`
+    #
+    # The `short_channel_id` is the unique description of the funding transaction.
+    # It is constructed as follows:
+    # 1. the most significant 3 bytes: indicating the block height
+    # 2. the next 3 bytes: indicating the transaction index within the block
+    # 3. the least significant 2 bytes: indicating the output index that pays to the
+    #    channel.
+    return (int(blocknum) << 40) | (int(txnum) << 16) | int(outnum)
+
+
 def only_one(arr):
     """Many JSON RPC calls return an array; often we only expect a single entry
     """
@@ -563,6 +579,7 @@ class LightningD(TailableProc):
         self.disconnect_file = None
 
         self.rpcproxy = bitcoindproxy
+        self.env['CLN_PLUGIN_LOG'] = "gl_plugin=trace,gl_rpc=trace,gl_grpc=trace,debug"
 
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
@@ -661,8 +678,8 @@ class PrettyPrintingLightningRpc(LightningRpc):
         self.jsonschemas = jsonschemas
         self.check_request_schemas = True
 
-    def call(self, method, payload=None):
-        id = self.next_id
+    def call(self, method, payload=None, cmdprefix=None):
+        id = self.get_json_id(method, cmdprefix)
         schemas = self.jsonschemas.get(method)
         self.logger.debug(json.dumps({
             "id": id,
@@ -681,7 +698,7 @@ class PrettyPrintingLightningRpc(LightningRpc):
                     testpayload[k] = v
             schemas[0].validate(testpayload)
 
-        res = LightningRpc.call(self, method, payload)
+        res = LightningRpc.call(self, method, payload, cmdprefix)
         self.logger.debug(json.dumps({
             "id": id,
             "result": res
@@ -1435,8 +1452,8 @@ class NodeFactory(object):
         return [j.result() for j in jobs]
 
     def get_node(self, node_id=None, options=None, dbfile=None,
-                 feerates=(15000, 11000, 7500, 3750), start=True,
-                 wait_for_bitcoind_sync=True, may_fail=False,
+                 bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
+                 start=True, wait_for_bitcoind_sync=True, may_fail=False,
                  expect_fail=False, cleandir=True, **kwargs):
         self.throttler.wait()
         node_id = self.get_node_id() if not node_id else node_id
@@ -1468,6 +1485,12 @@ class NodeFactory(object):
             out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
                                     'lightningd.sqlite3'), 'xb')
             with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
+                out.write(f.read())
+
+        if bkpr_dbfile:
+            out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
+                                    'accounts.sqlite3'), 'xb')
+            with lzma.open(os.path.join('tests/data', bkpr_dbfile), 'rb') as f:
                 out.write(f.read())
 
         if start:

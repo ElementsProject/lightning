@@ -361,7 +361,7 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
-	case WIRE_FUNDING_LOCKED:
+	case WIRE_CHANNEL_READY:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:

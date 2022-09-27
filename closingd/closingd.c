@@ -260,11 +260,11 @@ receive_offer(struct per_peer_state *pps,
 		/* BOLT #2:
 		 *
 		 *  - upon reconnection:
-		 *     - MUST ignore any redundant `funding_locked` it receives.
+		 *     - MUST ignore any redundant `channel_ready` it receives.
 		 */
 		/* This should only happen if we've made no commitments, but
 		 * we don't have to check that: it's their problem. */
-		if (fromwire_peektype(msg) == WIRE_FUNDING_LOCKED)
+		if (fromwire_peektype(msg) == WIRE_CHANNEL_READY)
 			msg = tal_free(msg);
 		/* BOLT #2:
 		 *     - if it has sent a previous `shutdown`:
@@ -554,14 +554,12 @@ static void closing_dev_memleak(const tal_t *ctx,
 				u8 *scriptpubkey[NUM_SIDES],
 				const u8 *funding_wscript)
 {
-	struct htable *memtable;
+	struct htable *memtable = memleak_start(tmpctx);
 
-	memtable = memleak_find_allocations(tmpctx, NULL, NULL);
-
-	memleak_remove_pointer(memtable, ctx);
-	memleak_remove_pointer(memtable, scriptpubkey[LOCAL]);
-	memleak_remove_pointer(memtable, scriptpubkey[REMOTE]);
-	memleak_remove_pointer(memtable, funding_wscript);
+	memleak_ptr(memtable, ctx);
+	memleak_ptr(memtable, scriptpubkey[LOCAL]);
+	memleak_ptr(memtable, scriptpubkey[REMOTE]);
+	memleak_ptr(memtable, funding_wscript);
 
 	dump_memleak(memtable, memleak_status_broken);
 }

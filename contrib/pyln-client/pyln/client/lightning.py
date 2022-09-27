@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import socket
+import sys
 from contextlib import contextmanager
 from decimal import Decimal
 from json import JSONEncoder
@@ -277,13 +278,18 @@ class UnixSocket(object):
 
 
 class UnixDomainSocketRpc(object):
-    def __init__(self, socket_path, executor=None, logger=logging, encoder_cls=json.JSONEncoder, decoder=json.JSONDecoder()):
+    def __init__(self, socket_path, executor=None, logger=logging, encoder_cls=json.JSONEncoder, decoder=json.JSONDecoder(), caller_name=None):
         self.socket_path = socket_path
         self.encoder_cls = encoder_cls
         self.decoder = decoder
         self.executor = executor
         self.logger = logger
         self._notify = None
+        if caller_name is None:
+            self.caller_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+        else:
+            self.caller_name = caller_name
+        self.cmdprefix = None
 
         self.next_id = 1
 
@@ -323,7 +329,20 @@ class UnixDomainSocketRpc(object):
                 return self.call(name, payload=kwargs)
         return wrapper
 
-    def call(self, method, payload=None):
+    def get_json_id(self, method, cmdprefix):
+        """Get a nicely formatted, CLN-compliant JSON ID"""
+        this_id = "{}:{}#{}".format(self.caller_name, method, str(self.next_id))
+        if cmdprefix is None:
+            cmdprefix = self.cmdprefix
+        if cmdprefix:
+            this_id = f'{cmdprefix}/{this_id}'
+        return this_id
+
+    def call(self, method, payload=None, cmdprefix=None):
+        """Generic call API: you can set cmdprefix here, or set self.cmdprefix
+        before the call is made.
+
+        """
         self.logger.debug("Calling %s with payload %r", method, payload)
 
         if payload is None:
@@ -332,10 +351,12 @@ class UnixDomainSocketRpc(object):
         if isinstance(payload, dict):
             payload = {k: v for k, v in payload.items() if v is not None}
 
+        this_id = self.get_json_id(method, cmdprefix)
+        self.next_id += 1
+
         # FIXME: we open a new socket for every readobj call...
         sock = UnixSocket(self.socket_path)
-        this_id = self.next_id
-        self.next_id += 0
+
         buf = b''
 
         if self._notify is not None:
@@ -343,7 +364,7 @@ class UnixDomainSocketRpc(object):
             self._writeobj(sock, {
                 "jsonrpc": "2.0",
                 "method": "notifications",
-                "id": 0,
+                "id": this_id + "+notify-enable",
                 "params": {
                     "enable": True
                 },
@@ -509,6 +530,15 @@ class LightningRpc(UnixDomainSocketRpc):
             "expired_by": expired_by
         }
         return self.call("autocleaninvoice", payload)
+
+    def autoclean_status(self, subsystem=None):
+        """
+        Print status of autocleaning (optionally, just for {subsystem}).
+        """
+        payload = {
+            "subsystem": subsystem,
+        }
+        return self.call("autoclean-status", payload)
 
     def check(self, command_to_check, **kwargs):
         """
@@ -709,7 +739,8 @@ class LightningRpc(UnixDomainSocketRpc):
     def fundchannel(self, node_id, amount, feerate=None, announce=True,
                     minconf=None, utxos=None, push_msat=None, close_to=None,
                     request_amt=None, compact_lease=None,
-                    mindepth: Optional[int] = None):
+                    mindepth: Optional[int] = None,
+                    reserve: Optional[str] = None):
         """
         Fund channel with {id} using {amount} satoshis with feerate
         of {feerate} (uses default feerate if unset).
@@ -735,6 +766,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "request_amt": request_amt,
             "compact_lease": compact_lease,
             "mindepth": mindepth,
+            "reserve": reserve,
         }
         return self.call("fundchannel", payload)
 

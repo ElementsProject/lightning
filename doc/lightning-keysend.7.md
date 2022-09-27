@@ -4,7 +4,7 @@ lightning-keysend -- Send funds to a node without an invoice
 SYNOPSIS
 --------
 
-**keysend** *destination* *msatoshi* [*label*] [*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*]
+**keysend** *destination* *msatoshi* [*label*] [*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*] [*extratlvs*]
 
 DESCRIPTION
 -----------
@@ -35,6 +35,8 @@ Unlike lightning-pay(7), issuing the same `keysend` commands multiple times will
 
 Until *retry_for* seconds passes (default: 60), the command will keep finding routes and retrying the payment.
 However, a payment may be delayed for up to `maxdelay` blocks by another node; clients should be prepared for this worst case.
+
+*extratlvs* is an optional dictionary of additional fields to insert into the final tlv.  The format is 'fieldnumber': 'hexstring'.
 
 When using *lightning-cli*, you may skip optional parameters by using
 *null*. Alternatively, use **-k** option to provide parameters by name.
@@ -116,4 +118,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:6aca5a797d5e9bca63bbdc478d5ee0ce1dde592d3a4a4247f75d1831c8e6f38a)
+[comment]: # ( SHA256STAMP:d208bd6f3e78b039a4790b8de599ffd819aa169c59430ac487fd7030cd3fe640)

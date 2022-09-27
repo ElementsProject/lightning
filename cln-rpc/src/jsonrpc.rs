@@ -9,7 +9,7 @@ use std::fmt::Debug;
 
 #[derive(Debug)]
 pub enum JsonRpc<N, R> {
-    Request(usize, R),
+    Request(serde_json::Value, R),
     Notification(N),
 }
 
@@ -38,7 +38,7 @@ where
     {
         #[derive(Deserialize, Debug)]
         struct IdHelper {
-            id: Option<usize>,
+            id: Option<serde_json::Value>,
         }
 
         let v = Value::deserialize(deserializer)?;

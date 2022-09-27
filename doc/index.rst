@@ -30,7 +30,8 @@ Core Lightning Documentation
    :caption: Manpages
 
    lightning-addgossip <lightning-addgossip.7.md>
-   lightning-autocleaninvoice <lightning-autocleaninvoice.7.md>
+   lightning-autoclean-status <lightning-autoclean-status.7.md>
+   lightning-batching <lightning-batching.7.md>
    lightning-bkpr-channelsapy <lightning-bkpr-channelsapy.7.md>
    lightning-bkpr-dumpincomecsv <lightning-bkpr-dumpincomecsv.7.md>
    lightning-bkpr-inspect <lightning-bkpr-inspect.7.md>
@@ -51,6 +52,7 @@ Core Lightning Documentation
    lightning-decodepay <lightning-decodepay.7.md>
    lightning-deldatastore <lightning-deldatastore.7.md>
    lightning-delexpiredinvoice <lightning-delexpiredinvoice.7.md>
+   lightning-delforward <lightning-delforward.7.md>
    lightning-delinvoice <lightning-delinvoice.7.md>
    lightning-delpay <lightning-delpay.7.md>
    lightning-disableoffer <lightning-disableoffer.7.md>
@@ -76,6 +78,7 @@ Core Lightning Documentation
    lightning-listdatastore <lightning-listdatastore.7.md>
    lightning-listforwards <lightning-listforwards.7.md>
    lightning-listfunds <lightning-listfunds.7.md>
+   lightning-listhtlcs <lightning-listhtlcs.7.md>
    lightning-listinvoices <lightning-listinvoices.7.md>
    lightning-listnodes <lightning-listnodes.7.md>
    lightning-listoffers <lightning-listoffers.7.md>

@@ -29,7 +29,7 @@ void json_add_payment_fields(struct json_stream *response,
 /* This json will be also used in 'sendpay_failure' notifictaion. */
 void json_sendpay_fail_fields(struct json_stream *js,
 			      const struct wallet_payment *t,
-			      errcode_t pay_errcode,
+			      enum jsonrpc_errcode pay_errcode,
 			      const struct onionreply *onionreply,
 			      const struct routing_failure *fail);
 

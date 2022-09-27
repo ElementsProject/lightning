@@ -324,6 +324,7 @@ message SendpayResponse {
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
 	uint64 created_at = 7;
+	optional uint64 completed_at = 15;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional uint64 partid = 10;
@@ -402,7 +403,7 @@ message CloseRequest {
 	optional uint32 unilateraltimeout = 2;
 	optional string destination = 3;
 	optional string fee_negotiation_step = 4;
-	optional bytes wrong_funding = 5;
+	optional Outpoint wrong_funding = 5;
 	optional bool force_lease_closed = 6;
 	repeated Feerate feerange = 7;
 }
@@ -707,7 +708,7 @@ message ListsendpaysPayments {
 		COMPLETE = 2;
 	}
 	uint64 id = 1;
-	optional uint64 groupid = 2;
+	uint64 groupid = 2;
 	bytes payment_hash = 3;
 	ListsendpaysPaymentsStatus status = 4;
 	optional Amount amount_msat = 5;
@@ -918,6 +919,7 @@ message WaitsendpayResponse {
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
 	uint64 created_at = 7;
+	optional double completed_at = 14;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional uint64 partid = 10;
@@ -1156,6 +1158,7 @@ message FundchannelRequest {
 	optional string compact_lease = 8;
 	repeated Outpoint utxos = 11;
 	optional uint32 mindepth = 12;
+	optional Amount reserve = 13;
 }
 
 message FundchannelResponse {
@@ -1226,11 +1229,12 @@ message ListforwardsForwards {
 		TLV = 1;
 	}
 	string in_channel = 1;
+	optional uint64 in_htlc_id = 10;
 	Amount in_msat = 2;
 	ListforwardsForwardsStatus status = 3;
 	double received_time = 4;
 	optional string out_channel = 5;
-	optional bytes payment_hash = 6;
+	optional uint64 out_htlc_id = 11;
 	optional ListforwardsForwardsStyle style = 9;
 	optional Amount fee_msat = 7;
 	optional Amount out_msat = 8;
@@ -1263,12 +1267,13 @@ message ListpaysPays {
 	ListpaysPaysStatus status = 2;
 	optional bytes destination = 3;
 	uint64 created_at = 4;
+	optional uint64 completed_at = 12;
 	optional string label = 5;
 	optional string bolt11 = 6;
 	optional string description = 11;
 	optional string bolt12 = 7;
-	optional Amount amount_msat = 8;
-	optional Amount amount_sent_msat = 9;
+	optional bytes preimage = 13;
+	optional uint64 number_of_parts = 14;
 	optional bytes erroronion = 10;
 }
 

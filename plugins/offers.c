@@ -412,14 +412,9 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 		valid = false;
 	}
 
-	if (offer->issuer) {
+	if (offer->issuer)
 		json_add_stringn(js, "issuer", offer->issuer,
 				 tal_bytelen(offer->issuer));
-		if (deprecated_apis) {
-			json_add_stringn(js, "vendor", offer->issuer,
-					 tal_bytelen(offer->issuer));
-		}
-	}
 	if (offer->features)
 		json_add_hex_talarr(js, "features", offer->features);
 	if (offer->absolute_expiry)
@@ -579,14 +574,9 @@ static void json_add_b12_invoice(struct json_stream *js,
 		valid = false;
 	}
 
-	if (invoice->issuer) {
+	if (invoice->issuer)
 		json_add_stringn(js, "issuer", invoice->issuer,
 				 tal_bytelen(invoice->issuer));
-		if (deprecated_apis) {
-			json_add_stringn(js, "vendor", invoice->issuer,
-					 tal_bytelen(invoice->issuer));
-		}
-	}
 	if (invoice->features)
 		json_add_hex_talarr(js, "features", invoice->features);
 	if (invoice->paths) {
@@ -644,9 +634,6 @@ static void json_add_b12_invoice(struct json_stream *js,
 	 *   - MUST reject the invoice if `created_at` is not present.
 	 */
 	if (invoice->created_at) {
-		/* FIXME: Remove soon! */
-		if (deprecated_apis)
-			json_add_u64(js, "timestamp", *invoice->created_at);
 		json_add_u64(js, "created_at", *invoice->created_at);
 	} else {
 		json_add_string(js, "warning_invoice_missing_created_at",
@@ -789,24 +776,9 @@ static void json_add_invoice_request(struct json_stream *js,
 					       "signature",
 					       invreq->payer_key,
 					       invreq->signature)) {
-			bool sig_valid;
-
-			if (deprecated_apis) {
-				/* The old name? */
-				sig_valid = bolt12_check_signature(invreq->fields,
-								   "invoice_request",
-								   "payer_signature",
-								   invreq->payer_key,
-								   invreq->signature);
-			} else {
-				sig_valid = false;
-			}
-
-			if (!sig_valid) {
-				json_add_string(js, "warning_invoice_request_invalid_signature",
-						"Bad signature");
-				valid = false;
-			}
+			json_add_string(js, "warning_invoice_request_invalid_signature",
+					"Bad signature");
+			valid = false;
 		}
 	} else {
 		json_add_string(js, "warning_invoice_request_missing_signature",

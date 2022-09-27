@@ -11,7 +11,18 @@ struct gossip_rcvd_filter;
 /**
  * gossip_store -- On-disk storage related information
  */
-#define GOSSIP_STORE_VERSION 10
+
+/* First byte of file is the version.
+ *
+ * Top three bits mean incompatible change.
+ * As of this writing, major == 0, minor == 11.
+ */
+#define GOSSIP_STORE_MAJOR_VERSION_MASK 0xE0
+#define GOSSIP_STORE_MINOR_VERSION_MASK 0x1F
+
+/* Extract version from first byte */
+#define GOSSIP_STORE_MAJOR_VERSION(verbyte) (((u8)(verbyte)) >> 5)
+#define GOSSIP_STORE_MINOR_VERSION(verbyte) ((verbyte) & GOSSIP_STORE_MINOR_VERSION_MASK)
 
 /**
  * Bit of length we use to mark a deleted record.
@@ -26,12 +37,16 @@ struct gossip_rcvd_filter;
 /**
  * Bit of length used to define a rate-limited record (do not rebroadcast)
  */
- #define GOSSIP_STORE_LEN_RATELIMIT_BIT 0x20000000U
+#define GOSSIP_STORE_LEN_RATELIMIT_BIT 0x20000000U
+
+/**
+ * Full flags mask
+ */
+#define GOSSIP_STORE_FLAGS_MASK 0xFFFF0000U
 
 /* Mask for extracting just the length part of len field */
 #define GOSSIP_STORE_LEN_MASK \
-	(~(GOSSIP_STORE_LEN_PUSH_BIT | GOSSIP_STORE_LEN_DELETED_BIT | \
-	GOSSIP_STORE_LEN_RATELIMIT_BIT))
+	(~(GOSSIP_STORE_FLAGS_MASK))
 
 /**
  * gossip_hdr -- On-disk format header.

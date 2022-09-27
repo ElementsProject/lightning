@@ -1274,13 +1274,13 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 2}]
 
     bitcoind.generate_block(2, wait_for_mempool=1)  # Confirm on the l2 side.
-    l2.daemon.wait_for_log(r'peer_out WIRE_FUNDING_LOCKED')
-    # l1 should not be sending funding_locked/channel_ready yet, it is
+    l2.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_READY')
+    # l1 should not be sending channel_ready yet, it is
     # configured to wait for 6 confirmations.
-    assert not l1.daemon.is_in_log(r'peer_out WIRE_FUNDING_LOCKED')
+    assert not l1.daemon.is_in_log(r'peer_out WIRE_CHANNEL_READY')
 
     bitcoind.generate_block(4)  # Confirm on the l2 side.
-    l1.daemon.wait_for_log(r'peer_out WIRE_FUNDING_LOCKED')
+    l1.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_READY')
 
     wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
     wait_for(lambda: l2.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
@@ -1318,11 +1318,11 @@ def test_zeroconf_open(bitcoind, node_factory):
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
 
     l1.daemon.wait_for_logs([
-        r'peer_in WIRE_FUNDING_LOCKED',
+        r'peer_in WIRE_CHANNEL_READY',
         r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
     ])
     l2.daemon.wait_for_logs([
-        r'peer_in WIRE_FUNDING_LOCKED',
+        r'peer_in WIRE_CHANNEL_READY',
         r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
     ])
 
@@ -1490,6 +1490,10 @@ def test_zeroconf_forward(node_factory, bitcoind):
     # And now try the other way around: zeroconf channel first
     # followed by a public one.
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
+
+    # Make sure all htlcs completely settled!
+    wait_for(lambda: all(only_one(p['channels'])['htlcs'] == [] for p in l2.rpc.listpeers()['peers']))
+
     inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
     l3.rpc.pay(inv)
 
@@ -1511,6 +1515,124 @@ def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                            feerate='{}perkw'.format(feerate),
                            compact_lease='029a002d000000004b2003e8')
+
+
+@pytest.mark.openchannel('v2')
+def test_v2_replay_bookkeeping(node_factory, bitcoind):
+    """ Test that your bookkeeping for a liquidity ad is good
+        even if we replay the opening and locking tx!
+    """
+
+    opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True},
+            {'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True}]
+    l1, l2, = node_factory.get_nodes(2, opts=opts)
+    amount = 500000
+    feerate = 2000
+
+    l1.fundwallet(amount * 100)
+    l2.fundwallet(amount * 100)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l1 leases a channel from l2
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    # add the funding transaction
+    bitcoind.generate_block(4, wait_for_mempool=1)
+
+    l1.restart()
+
+    bitcoind.generate_block(2)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+
+    chan_id = first_channel_id(l1, l2)
+    ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
+    assert 'lease_fee' in ev_tags
+
+    # This should work ok
+    l1.rpc.bkpr_listbalances()
+
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l1])
+
+    l1.restart()
+
+    chan_id = first_channel_id(l1, l2)
+    ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
+    assert 'lease_fee' in ev_tags
+
+    l1.rpc.close(l2.info['id'], 1)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(' to ONCHAIN')
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    # This should not crash
+    l1.rpc.bkpr_listbalances()
+
+
+@pytest.mark.openchannel('v2')
+def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
+    """ Test that your bookkeeping for a liquidity ad is good."""
+
+    opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+             'rescan': 10, 'disable-plugin': 'bookkeeper',
+             'funding-confirms': 6, 'may_reconnect': True},
+            {'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True}]
+    l1, l2, = node_factory.get_nodes(2, opts=opts)
+    amount = 500000
+    feerate = 2000
+
+    l1.fundwallet(amount * 100)
+    l2.fundwallet(amount * 100)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l1 leases a channel from l2
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    # add the funding transaction
+    bitcoind.generate_block(4, wait_for_mempool=1)
+
+    l1.stop()
+    del l1.daemon.opts['disable-plugin']
+    l1.start()
+
+    bitcoind.generate_block(2)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+
+    chan_id = first_channel_id(l1, l2)
+    ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
+    assert 'lease_fee' in ev_tags
+
+    # This should work ok
+    l1.rpc.bkpr_listbalances()
+
+    l1.rpc.close(l2.info['id'], 1)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(' to ONCHAIN')
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    # This should not crash
+    l1.rpc.bkpr_listbalances()
 
 
 def test_scid_alias_private(node_factory, bitcoind):
@@ -1604,11 +1726,175 @@ def test_zeroconf_multichan_forward(node_factory):
     # Now create a channel that is twice as large as the real channel,
     # and don't announce it.
     l2.fundwallet(10**7)
-    l2.rpc.fundchannel(l3.info['id'], 2 * 10**6, mindepth=0)
+    zeroconf_cid = l2.rpc.fundchannel(l3.info['id'], 2 * 10**6, mindepth=0)['channel_id']
 
-    l2.daemon.wait_for_log(r'peer_in WIRE_FUNDING_LOCKED')
-    l3.daemon.wait_for_log(r'peer_in WIRE_FUNDING_LOCKED')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
+    l3.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
 
     inv = l3.rpc.invoice(amount_msat=10000, label='lbl1', description='desc')['bolt11']
     l1.rpc.pay(inv)
-    assert l2.daemon.is_in_log(r'Chose a better channel: .*')
+
+    for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']:
+        if c['channel_id'] == zeroconf_cid:
+            zeroconf_scid = c['alias']['local']
+        else:
+            normal_scid = c['short_channel_id']
+
+    assert l2.daemon.is_in_log(r'Chose a better channel than {}: {}'
+                               .format(normal_scid, zeroconf_scid))
+
+
+def test_zeroreserve(node_factory, bitcoind):
+    """Ensure we can set the reserves.
+
+    3 nodes:
+     - l1 enforces zeroreserve
+     - l2 enforces default reserve
+     - l3 enforces sub-dust reserves
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroreserve.py"
+    opts = [
+        {
+            'plugin': str(plugin_path),
+            'reserve': '0sat',
+            'dev-allowdustreserve': True,
+        },
+        {
+            'dev-allowdustreserve': True,
+        },
+        {
+            'plugin': str(plugin_path),
+            'reserve': '123sat',
+            'dev-allowdustreserve': True,
+        }
+    ]
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    l1.fundwallet(10**7)
+    l2.fundwallet(10**7)
+    l3.fundwallet(10**7)
+
+    l1.connect(l2)
+    l2.connect(l3)
+    l3.connect(l1)
+
+    l1.rpc.fundchannel(l2.info['id'], 10**6, reserve='0sat')
+    l2.rpc.fundchannel(l3.info['id'], 10**6)
+    l3.rpc.fundchannel(l1.info['id'], 10**6, reserve='321sat')
+    bitcoind.generate_block(1, wait_for_mempool=3)
+    wait_for(lambda: l1.channel_state(l2) == 'CHANNELD_NORMAL')
+    wait_for(lambda: l2.channel_state(l3) == 'CHANNELD_NORMAL')
+    wait_for(lambda: l3.channel_state(l1) == 'CHANNELD_NORMAL')
+
+    # Now make sure we all agree on each others reserves
+    l1c1 = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]
+    l2c1 = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
+    l2c2 = l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
+    l3c2 = l3.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]
+    l3c3 = l3.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
+    l1c3 = l1.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
+
+    # l1 imposed a 0sat reserve on l2, while l2 imposed the default 1% reserve on l1
+    assert l1c1['their_reserve_msat'] == l2c1['our_reserve_msat'] == Millisatoshi('0sat')
+    assert l1c1['our_reserve_msat'] == l2c1['their_reserve_msat'] == Millisatoshi('10000sat')
+
+    # l2 imposed the default 1% on l3, while l3 imposed a custom 123sat fee on l2
+    assert l2c2['their_reserve_msat'] == l3c2['our_reserve_msat'] == Millisatoshi('10000sat')
+    assert l2c2['our_reserve_msat'] == l3c2['their_reserve_msat'] == Millisatoshi('123sat')
+
+    # l3 imposed a custom 321sat fee on l1, while l1 imposed a custom 0sat fee on l3
+    assert l3c3['their_reserve_msat'] == l1c3['our_reserve_msat'] == Millisatoshi('321sat')
+    assert l3c3['our_reserve_msat'] == l1c3['their_reserve_msat'] == Millisatoshi('0sat')
+
+    # Now do some drain tests on c1, as that should be drainable
+    # completely by l2 being the fundee
+    l1.rpc.keysend(l2.info['id'], 10 * 7)  # Something above dust for sure
+    l2.drain(l1)
+
+    # Remember that this is the reserve l1 imposed on l2, so l2 can drain completely
+    l2c1 = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
+
+    # And despite us briefly being above dust (with a to_us output),
+    # closing should result in the output being trimmed again since we
+    # dropped below dust again.
+    c = l2.rpc.close(l1.info['id'])
+    decoded = bitcoind.rpc.decoderawtransaction(c['tx'])
+    # Elements has a change output always
+    assert len(decoded['vout']) == 1 if TEST_NETWORK == 'regtest' else 2
+
+
+def test_zeroreserve_mixed(node_factory, bitcoind):
+    """l1 runs with zeroreserve, l2 and l3 without, should still work
+
+    Basically tests that l1 doesn't get upset when l2 allows us to
+    drop below dust.
+
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroreserve.py"
+    opts = [
+        {
+            'plugin': str(plugin_path),
+            'reserve': '0sat',
+            'dev-allowdustreserve': True,
+        }, {
+            'dev-allowdustreserve': False,
+        }, {
+            'dev-allowdustreserve': False,
+        }
+    ]
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    l1.fundwallet(10**7)
+    l3.fundwallet(10**7)
+
+    l1.connect(l2)
+    l3.connect(l1)
+
+    l1.rpc.fundchannel(l2.info['id'], 10**6, reserve='0sat')
+    l3.rpc.fundchannel(l1.info['id'], 10**6)
+
+
+def test_zeroreserve_alldust(node_factory):
+    """If we allow dust reserves we need larger fundings
+
+    This is because we might have up to
+
+      allhtlcs = (local.max_concurrent_htlcs + remote.max_concurrent_htlcs)
+      alldust = allhlcs * min(local.dust, remote.dust)
+
+    allocated to HTLCs in flight, reducing both direct outputs to
+    dust. This could leave us with no outs on the commitment, is
+    therefore invalid.
+
+    Parameters are as follows:
+     - Regtest:
+       - max_concurrent_htlcs = 483
+       - dust = 546sat
+       - minfunding = (483 * 2 + 2) * 546sat = 528528sat
+     - Mainnet:
+       - max_concurrent_htlcs = 30
+       - dust = 546sat
+       - minfunding = (30 * 2 + 2) * 546sat = 33852s
+    """
+    plugin_path = Path(__file__).parent / "plugins" / "zeroreserve.py"
+    l1, l2 = node_factory.get_nodes(2, opts=[{
+        'plugin': plugin_path,
+        'reserve': '0sat',
+        'dev-allowdustreserve': True
+    }] * 2)
+    maxhtlc = 483
+    mindust = 546
+    minfunding = (maxhtlc * 2 + 2) * mindust
+
+    l1.fundwallet(10**6)
+    error = (f'channel funding {minfunding}sat too small for chosen parameters: '
+             f'a total of {maxhtlc * 2} HTLCs with dust value {mindust}sat would '
+             f'result in a commitment_transaction without outputs')
+
+    # This is right on the edge, and should fail
+    with pytest.raises(RpcError, match=error):
+        l1.connect(l2)
+        l1.rpc.fundchannel(l2.info['id'], minfunding)
+
+    # Now try with just a bit more
+    l1.connect(l2)
+    l1.rpc.fundchannel(l2.info['id'], minfunding + 1)

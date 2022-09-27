@@ -99,7 +99,7 @@ jobs:
 
   proto-test:
     name: Protocol Test Config
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 300
     needs: [smoke-test]
     strategy:
@@ -122,7 +122,7 @@ jobs:
           -e VALGRIND=${{ matrix.valgrind }} \
           -e DEVELOPER=1 \
           -e EXPERIMENTAL_FEATURES=1 \
-          -e COMPA=0 \
+          -e COMPAT=0 \
           -e PYTEST_PAR=2 \
           -e PYTEST_OPTS="--timeout=300" \
           -e TEST_CMD="make check-protos" \

@@ -5,6 +5,7 @@ use anyhow::Result;
 use futures_util::sink::SinkExt;
 use futures_util::StreamExt;
 use log::{debug, trace};
+use serde_json::json;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -23,6 +24,7 @@ pub use crate::{
     notifications::Notification,
     primitives::RpcError,
 };
+use crate::model::IntoRequest;
 
 ///
 pub struct ClnRpc {
@@ -60,7 +62,7 @@ impl ClnRpc {
 
         // Wrap the raw request in a well-formed JSON-RPC outer dict.
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        let req: JsonRpc<Notification, Request> = JsonRpc::Request(id, req);
+        let req: JsonRpc<Notification, Request> = JsonRpc::Request(json!(id), req);
         let req = serde_json::to_value(req).map_err(|e| RpcError {
             code: None,
             message: format!("Error parsing request: {}", e),
@@ -104,6 +106,13 @@ impl ClnRpc {
             })
         }
     }
+
+    pub async fn call_typed<R: IntoRequest>(&mut self, request: R) -> Result<R::Response, RpcError> {
+        Ok(self.call(request.into())
+            .await?
+            .try_into()
+            .expect("CLN will reply correctly"))
+    }
 }
 
 /// Used to skip optional arrays when serializing requests.
@@ -132,6 +141,25 @@ mod test {
         let mut read = FramedRead::new(uds2, JsonCodec::default());
         tokio::task::spawn(async move {
             cln.call(req).await.unwrap();
+        });
+
+        let read_req = dbg!(read.next().await.unwrap().unwrap());
+
+        assert_eq!(
+            json!({"id": "1", "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
+            read_req
+        );
+    }
+
+    #[tokio::test]
+    async fn test_typed_call() {
+        let req = requests::GetinfoRequest {};
+        let (uds1, uds2) = UnixStream::pair().unwrap();
+        let mut cln = ClnRpc::from_stream(uds1).unwrap();
+
+        let mut read = FramedRead::new(uds2, JsonCodec::default());
+        tokio::task::spawn(async move {
+            let _: GetinfoResponse = cln.call_typed(req).await.unwrap();
         });
 
         let read_req = dbg!(read.next().await.unwrap().unwrap());

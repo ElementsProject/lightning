@@ -211,7 +211,7 @@ struct subd_req *subd_req_(const tal_t *ctx,
 void subd_release_channel(struct subd *owner, const void *channel);
 
 /**
- * subd_shutdown - try to politely shut down a subdaemon.
+ * subd_shutdown - try to politely shut down a (global) subdaemon.
  * @subd: subd to shutdown.
  * @seconds: maximum seconds to wait for it to exit.
  *
@@ -225,13 +225,10 @@ void subd_release_channel(struct subd *owner, const void *channel);
 struct subd *subd_shutdown(struct subd *subd, unsigned int seconds);
 
 /**
- * subd_shutdown_remaining - kill all remaining (per-peer) subds
+ * subd_shutdown_nonglobals - kill all per-peer subds
  * @ld: lightningd
- *
- * They should already be exiting (since we shutdown hsmd), but
- * make sure they have.
  */
-void subd_shutdown_remaining(struct lightningd *ld);
+void subd_shutdown_nonglobals(struct lightningd *ld);
 
 /* Ugly helper to get full pathname of the current binary. */
 const char *find_my_abspath(const tal_t *ctx, const char *argv0);

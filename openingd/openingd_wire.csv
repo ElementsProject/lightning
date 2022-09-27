@@ -24,6 +24,10 @@ msgdata,openingd_init,minimum_depth,u32,
 msgdata,openingd_init,min_feerate,u32,
 msgdata,openingd_init,max_feerate,u32,
 msgdata,openingd_init,dev_temporary_channel_id,?byte,32
+# Do we allow `fundchannel` or the `openchannel` hook to set sub-dust
+# reserves? This is explicitly required by the spec for safety
+# reasons, but some implementations and users keep asking for it.
+msgdata,openingd_init,allowdustreserve,bool,
 
 # Openingd->master: they offered channel, should we continue?
 msgtype,openingd_got_offer,6005
@@ -46,6 +50,7 @@ msgdata,openingd_got_offer_reply,rejection,?wirestring,
 msgdata,openingd_got_offer_reply,shutdown_len,u16,
 msgdata,openingd_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
 msgdata,openingd_got_offer_reply,our_shutdown_wallet_index,?u32,
+msgdata,openingd_got_offer_reply,reserve,?amount_sat,
 
 #include <common/penalty_base.h>
 # Openingd->master: we've successfully offered channel.
@@ -79,6 +84,7 @@ msgdata,openingd_funder_start,upfront_shutdown_wallet_index,?u32,
 msgdata,openingd_funder_start,feerate_per_kw,u32,
 msgdata,openingd_funder_start,temporary_channel_id,channel_id,
 msgdata,openingd_funder_start,channel_flags,u8,
+msgdata,openingd_funder_start,reserve,?amount_sat,
 
 # openingd->master: send back output script for 2-of-2 funding output
 msgtype,openingd_funder_start_reply,6102

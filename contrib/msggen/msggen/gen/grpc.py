@@ -260,8 +260,8 @@ class GrpcConverterGenerator(IGenerator):
         # And now we can convert the current field:
         self.write(f"""\
         #[allow(unused_variables)]
-        impl From<&{prefix}::{field.typename}> for pb::{field.typename} {{
-            fn from(c: &{prefix}::{field.typename}) -> Self {{
+        impl From<{prefix}::{field.typename}> for pb::{field.typename} {{
+            fn from(c: {prefix}::{field.typename}) -> Self {{
                 Self {{
         """)
 
@@ -277,13 +277,13 @@ class GrpcConverterGenerator(IGenerator):
                 # array. The current item is called `i`
                 mapping = {
                     'hex': f'hex::decode(i).unwrap()',
-                    'secret': f'i.clone().to_vec()',
+                    'secret': f'i.to_vec()',
                 }.get(typ, f'i.into()')
 
                 if f.required:
-                    self.write(f"{name}: c.{name}.iter().map(|i| {mapping}).collect(), // Rule #3 for type {typ} \n", numindent=3)
+                    self.write(f"{name}: c.{name}.into_iter().map(|i| {mapping}).collect(), // Rule #3 for type {typ} \n", numindent=3)
                 else:
-                    self.write(f"{name}: c.{name}.as_ref().map(|arr| arr.iter().map(|i| {mapping}).collect()).unwrap_or(vec![]), // Rule #3 \n", numindent=3)
+                    self.write(f"{name}: c.{name}.map(|arr| arr.into_iter().map(|i| {mapping}).collect()).unwrap_or(vec![]), // Rule #3 \n", numindent=3)
             elif isinstance(f, EnumField):
                 if f.required:
                     self.write(f"{name}: c.{name} as i32,\n", numindent=3)
@@ -302,21 +302,21 @@ class GrpcConverterGenerator(IGenerator):
                     'u16?': f'c.{name}.map(|v| v.into())',
                     'msat': f'Some(c.{name}.into())',
                     'msat?': f'c.{name}.map(|f| f.into())',
-                    'pubkey': f'c.{name}.to_vec()',
-                    'pubkey?': f'c.{name}.as_ref().map(|v| v.to_vec())',
+                    'pubkey': f'c.{name}.serialize().to_vec()',
+                    'pubkey?': f'c.{name}.map(|v| v.serialize().to_vec())',
                     'hex': f'hex::decode(&c.{name}).unwrap()',
-                    'hex?': f'c.{name}.as_ref().map(|v| hex::decode(&v).unwrap())',
+                    'hex?': f'c.{name}.map(|v| hex::decode(v).unwrap())',
                     'txid': f'hex::decode(&c.{name}).unwrap()',
-                    'txid?': f'c.{name}.as_ref().map(|v| hex::decode(&v).unwrap())',
+                    'txid?': f'c.{name}.map(|v| hex::decode(v).unwrap())',
                     'short_channel_id': f'c.{name}.to_string()',
-                    'short_channel_id?': f'c.{name}.as_ref().map(|v| v.to_string())',
-                    'hash': f'c.{name}.clone().to_vec()',
-                    'hash?': f'c.{name}.clone().map(|v| v.to_vec())',
-                    'secret': f'c.{name}.clone().to_vec()',
-                    'secret?': f'c.{name}.clone().map(|v| v.to_vec())',
+                    'short_channel_id?': f'c.{name}.map(|v| v.to_string())',
+                    'hash': f'c.{name}.to_vec()',
+                    'hash?': f'c.{name}.map(|v| v.to_vec())',
+                    'secret': f'c.{name}.to_vec()',
+                    'secret?': f'c.{name}.map(|v| v.to_vec())',
                 }.get(
                     typ,
-                    f'c.{name}.clone()'  # default to just assignment
+                    f'c.{name}'  # default to just assignment
                 )
 
                 self.write(f"{name}: {rhs}, // Rule #2 for type {typ}\n", numindent=3)
@@ -349,6 +349,9 @@ class GrpcConverterGenerator(IGenerator):
         use cln_rpc::model::{responses,requests};
         use crate::pb;
         use std::str::FromStr;
+        use bitcoin_hashes::sha256::Hash as Sha256;
+        use bitcoin_hashes::Hash;
+        use cln_rpc::primitives::PublicKey;
 
         """)
 
@@ -381,8 +384,8 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
         # And now we can convert the current field:
         self.write(f"""\
         #[allow(unused_variables)]
-        impl From<&pb::{field.typename}> for {prefix}::{field.typename} {{
-            fn from(c: &pb::{field.typename}) -> Self {{
+        impl From<pb::{field.typename}> for {prefix}::{field.typename} {{
+            fn from(c: pb::{field.typename}) -> Self {{
                 Self {{
         """)
 
@@ -392,13 +395,13 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 typ = f.itemtype.typename
                 mapping = {
                     'hex': f'hex::encode(s)',
-                    'u32': f's.clone()',
-                    'secret': f's.clone().try_into().unwrap()'
+                    'u32': f's',
+                    'secret': f's.try_into().unwrap()'
                 }.get(typ, f's.into()')
                 if f.required:
-                    self.write(f"{name}: c.{name}.iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
+                    self.write(f"{name}: c.{name}.into_iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
                 else:
-                    self.write(f"{name}: Some(c.{name}.iter().map(|s| {mapping}).collect()), // Rule #4\n", numindent=3)
+                    self.write(f"{name}: Some(c.{name}.into_iter().map(|s| {mapping}).collect()), // Rule #4\n", numindent=3)
 
             elif isinstance(f, EnumField):
                 if f.required:
@@ -416,29 +419,30 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'u16': f'c.{name} as u16',
                     'u16?': f'c.{name}.map(|v| v as u16)',
                     'hex': f'hex::encode(&c.{name})',
-                    'hex?': f'c.{name}.clone().map(|v| hex::encode(v))',
-                    'txid?': f'c.{name}.clone().map(|v| hex::encode(v))',
-                    'pubkey': f'cln_rpc::primitives::Pubkey::from_slice(&c.{name}).unwrap()',
-                    'pubkey?': f'c.{name}.as_ref().map(|v| cln_rpc::primitives::Pubkey::from_slice(v).unwrap())',
-                    'msat': f'c.{name}.as_ref().unwrap().into()',
-                    'msat?': f'c.{name}.as_ref().map(|a| a.into())',
-                    'msat_or_all': f'c.{name}.as_ref().unwrap().into()',
-                    'msat_or_all?': f'c.{name}.as_ref().map(|a| a.into())',
-                    'msat_or_any': f'c.{name}.as_ref().unwrap().into()',
-                    'msat_or_any?': f'c.{name}.as_ref().map(|a| a.into())',
-                    'feerate': f'c.{name}.as_ref().unwrap().into()',
-                    'feerate?': f'c.{name}.as_ref().map(|a| a.into())',
-                    'RoutehintList?': f'c.{name}.clone().map(|rl| rl.into())',
+                    'hex?': f'c.{name}.map(|v| hex::encode(v))',
+                    'txid?': f'c.{name}.map(|v| hex::encode(v))',
+                    'pubkey': f'PublicKey::from_slice(&c.{name}).unwrap()',
+                    'pubkey?': f'c.{name}.map(|v| PublicKey::from_slice(&v).unwrap())',
+                    'msat': f'c.{name}.unwrap().into()',
+                    'msat?': f'c.{name}.map(|a| a.into())',
+                    'msat_or_all': f'c.{name}.unwrap().into()',
+                    'msat_or_all?': f'c.{name}.map(|a| a.into())',
+                    'msat_or_any': f'c.{name}.unwrap().into()',
+                    'msat_or_any?': f'c.{name}.map(|a| a.into())',
+                    'feerate': f'c.{name}.unwrap().into()',
+                    'feerate?': f'c.{name}.map(|a| a.into())',
+                    'outpoint?': f'c.{name}.map(|a| a.into())',
+                    'RoutehintList?': f'c.{name}.map(|rl| rl.into())',
                     'short_channel_id': f'cln_rpc::primitives::ShortChannelId::from_str(&c.{name}).unwrap()',
-                    'short_channel_id?': f'c.{name}.as_ref().map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())',
-                    'secret': f'c.{name}.clone().try_into().unwrap()',
-                    'secret?': f'c.{name}.clone().map(|v| v.try_into().unwrap())',
-                    'hash': f'c.{name}.clone().try_into().unwrap()',
-                    'hash?': f'c.{name}.clone().map(|v| v.try_into().unwrap())',
+                    'short_channel_id?': f'c.{name}.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap())',
+                    'secret': f'c.{name}.try_into().unwrap()',
+                    'secret?': f'c.{name}.map(|v| v.try_into().unwrap())',
+                    'hash': f'Sha256::from_slice(&c.{name}).unwrap()',
+                    'hash?': f'c.{name}.map(|v| Sha256::from_slice(&v).unwrap())',
                     'txid': f'hex::encode(&c.{name})',
                 }.get(
                     typ,
-                    f'c.{name}.clone()'  # default to just assignment
+                    f'c.{name}'  # default to just assignment
                 )
                 self.write(f"{name}: {rhs}, // Rule #1 for type {typ}\n", numindent=3)
 
@@ -493,7 +497,7 @@ class GrpcServerGenerator(GrpcConverterGenerator):
                 request: tonic::Request<pb::{method.request.typename}>,
             ) -> Result<tonic::Response<pb::{method.response.typename}>, tonic::Status> {{
                 let req = request.into_inner();
-                let req: requests::{method.request.typename} = (&req).into();
+                let req: requests::{method.request.typename} = req.into();
                 debug!("Client asked for {name}");
                 trace!("{name} request: {{:?}}", req);
                 let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -507,7 +511,7 @@ class GrpcServerGenerator(GrpcConverterGenerator):
                 match result {{
                     Response::{method.name}(r) => {{
                        trace!("{name} response: {{:?}}", r);
-                       Ok(tonic::Response::new((&r).into()))
+                       Ok(tonic::Response::new(r.into()))
                     }},
                     r => Err(Status::new(
                         Code::Internal,

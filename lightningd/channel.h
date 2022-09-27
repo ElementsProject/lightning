@@ -9,7 +9,6 @@
 #include <lightningd/channel_state.h>
 #include <wallet/wallet.h>
 
-struct channel_id;
 struct uncommitted_channel;
 struct wally_psbt;
 
@@ -138,7 +137,7 @@ struct channel {
 	struct amount_sat our_funds;
 
 	struct amount_msat push;
-	bool remote_funding_locked;
+	bool remote_channel_ready;
 	/* Channel if locked locally. */
 	struct short_channel_id *scid;
 
@@ -291,7 +290,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
-			    bool remote_funding_locked,
+			    bool remote_channel_ready,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid STEALS,
 			    struct short_channel_id *alias_local STEALS,
@@ -464,6 +463,13 @@ static inline bool channel_unsaved(const struct channel *channel)
 {
 	return channel->state == DUALOPEND_OPEN_INIT
 		&& channel->dbid == 0;
+}
+
+static inline bool channel_pre_open(const struct channel *channel)
+{
+	return channel->state == CHANNELD_AWAITING_LOCKIN
+		|| channel->state == DUALOPEND_OPEN_INIT
+		|| channel->state == DUALOPEND_AWAITING_LOCKIN;
 }
 
 static inline bool channel_active(const struct channel *channel)

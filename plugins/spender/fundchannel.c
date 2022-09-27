@@ -54,6 +54,7 @@ json_fundchannel(struct command *cmd,
 	const jsmntok_t *request_amt;
 	const jsmntok_t *compact_lease;
 	const jsmntok_t *mindepth;
+	const jsmntok_t *reserve;
 
 	struct out_req *req;
 
@@ -69,6 +70,7 @@ json_fundchannel(struct command *cmd,
 		   p_opt("request_amt", param_tok, &request_amt),
 		   p_opt("compact_lease", param_tok, &compact_lease),
 		   p_opt("mindepth", param_tok, &mindepth),
+		   p_opt("reserve", param_tok, &reserve),
 		   NULL))
 		return command_param_failed();
 
@@ -99,6 +101,9 @@ json_fundchannel(struct command *cmd,
 	if (mindepth)
 		json_add_tok(req->js, "mindepth", mindepth, buf);
 
+	if (reserve)
+		json_add_tok(req->js, "reserve", reserve, buf);
+
 	json_object_end(req->js);
 	json_array_end(req->js);
 	if (feerate)
@@ -107,9 +112,6 @@ json_fundchannel(struct command *cmd,
 		json_add_tok(req->js, "minconf", minconf, buf);
 	if (utxos)
 		json_add_tok(req->js, "utxos", utxos, buf);
-
-	/* Stop memleak from complaining */
-	tal_free(id);
 
 	return send_outreq(cmd->plugin, req);
 }

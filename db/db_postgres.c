@@ -277,19 +277,11 @@ static bool db_postgres_rename_column(struct db *db,
 				      const char *tablename,
 				      const char *from, const char *to)
 {
-	PGresult *res;
 	char *cmd;
 
 	cmd = tal_fmt(db, "ALTER TABLE %s RENAME %s TO %s;",
 		      tablename, from, to);
-	res = PQexec(db->conn, cmd);
-	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-		db->error = tal_fmt(db, "Rename '%s' failed: %s",
-				    cmd, PQerrorMessage(db->conn));
-		PQclear(res);
-		return false;
-	}
-	PQclear(res);
+	db_exec_prepared_v2(take(db_prepare_untranslated(db, cmd)));
 	return true;
 }
 
@@ -297,24 +289,17 @@ static bool db_postgres_delete_columns(struct db *db,
 				       const char *tablename,
 				       const char **colnames, size_t num_cols)
 {
-	PGresult *res;
 	char *cmd;
 
-	cmd = tal_fmt(db, "ALTER TABLE %s ", tablename);
+	cmd = tal_fmt(tmpctx, "ALTER TABLE %s ", tablename);
 	for (size_t i = 0; i < num_cols; i++) {
 		if (i != 0)
 			tal_append_fmt(&cmd, ", ");
 		tal_append_fmt(&cmd, "DROP %s", colnames[i]);
 	}
 	tal_append_fmt(&cmd, ";");
-	res = PQexec(db->conn, cmd);
-	if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-		db->error = tal_fmt(db, "Delete '%s' failed: %s",
-				    cmd, PQerrorMessage(db->conn));
-		PQclear(res);
-		return false;
-	}
-	PQclear(res);
+
+	db_exec_prepared_v2(take(db_prepare_untranslated(db, cmd)));
 	return true;
 }
 

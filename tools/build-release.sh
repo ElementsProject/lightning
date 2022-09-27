@@ -72,6 +72,8 @@ if [ -z "$MTIME" ]; then
     exit 1
 fi
 
+# submodcheck needs to know if we have lowdown
+./configure --reconfigure
 # If it's a completely clean directory, we need submodules!
 make submodcheck
 mkdir -p release

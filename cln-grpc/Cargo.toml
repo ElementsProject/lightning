@@ -6,10 +6,11 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 log = "0.4"
-cln-rpc = { path="../cln-rpc" }
+cln-rpc = { path="../cln-rpc/" }
 tonic = { version = "^0.5", features = ["tls", "transport"] }
 prost = "0.8"
 hex = "0.4.3"
+bitcoin_hashes = { version = "0.10.0", features = [ "serde" ] }
 
 [dev-dependencies]
 serde_json = "1.0.72"

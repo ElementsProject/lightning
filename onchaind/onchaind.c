@@ -2085,15 +2085,12 @@ static void handle_preimage(struct tracked_output **outs,
 #if DEVELOPER
 static void memleak_remove_globals(struct htable *memtable, const tal_t *topctx)
 {
-	if (keyset)
-		memleak_remove_region(memtable, keyset, sizeof(*keyset));
-	memleak_remove_pointer(memtable, remote_per_commitment_point);
-	memleak_remove_pointer(memtable, remote_per_commitment_secret);
-	memleak_remove_pointer(memtable, topctx);
-	memleak_remove_region(memtable,
-			      missing_htlc_msgs, tal_bytelen(missing_htlc_msgs));
-	memleak_remove_region(memtable,
-			      queued_msgs, tal_bytelen(queued_msgs));
+	memleak_scan_obj(memtable, keyset);
+	memleak_ptr(memtable, remote_per_commitment_point);
+	memleak_ptr(memtable, remote_per_commitment_secret);
+	memleak_ptr(memtable, topctx);
+	memleak_scan_obj(memtable, missing_htlc_msgs);
+	memleak_scan_obj(memtable, queued_msgs);
 }
 
 static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
@@ -2104,10 +2101,12 @@ static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
 	if (!fromwire_onchaind_dev_memleak(msg))
 		return false;
 
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
+	memtable = memleak_start(tmpctx);
+	memleak_ptr(memtable, msg);
+
 	/* Top-level context is parent of outs */
 	memleak_remove_globals(memtable, tal_parent(outs));
-	memleak_remove_region(memtable, outs, tal_bytelen(outs));
+	memleak_scan_obj(memtable, outs);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	wire_sync_write(REQ_FD,

@@ -24,12 +24,13 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **forwards** is returned.  It is an array of objects, where each object contains:
 
-- **in\_channel** (short_channel_id): the channel that received the HTLC
+- **in\_channel** (short\_channel\_id): the channel that received the HTLC
 - **in\_msat** (msat): the value of the incoming HTLC
 - **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
 - **received\_time** (number): the UNIX timestamp when this was received
-- **out\_channel** (short_channel_id, optional): the channel that the HTLC (trying to) forward to
-- **payment\_hash** (hex, optional): payment hash sought by HTLC (always 64 characters)
+- **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)
+- **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
+- **out\_htlc\_id** (u64, optional): the unique HTLC id we gave this when sending (may be missing even if out_channel is present, for old forwards before v22.11)
 - **style** (string, optional): Either a legacy onion format or a modern tlv format (one of "legacy", "tlv")
 
 If **out\_msat** is present:
@@ -56,11 +57,11 @@ Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-getinfo(7)
+lightning-autoclean-status(7), lightning-getinfo(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e3c26f73040deb441a572d848eda3d6da924c490e5b9ac55c5d87432f4144646)
+[comment]: # ( SHA256STAMP:15bf997ae8e93ab28b0084d9cc45fc80fb18b2bcf705f690f77617f0b66b069d)

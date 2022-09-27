@@ -40,6 +40,10 @@
             "type": "u64",
             "description": "the UNIX timestamp showing when this payment was initiated"
           },
+          "completed_at": {
+            "type": "u64",
+            "description": "the UNIX timestamp showing when this payment was completed"
+          },
           "label": {
             "type": "string",
             "description": "the label, if given to sendpay"
@@ -64,7 +68,6 @@
                 "status": {
                   "type": "string",
                   "enum": [
-                    "pending",
                     "complete"
                   ]
                 }
@@ -73,44 +76,7 @@
             "then": {
               "additionalProperties": false,
               "required": [
-                "amount_sent_msat"
-              ],
-              "properties": {
-                "payment_hash": {},
-                "status": {},
-                "destination": {},
-                "created_at": {},
-                "label": {},
-                "bolt11": {},
-                "description": {},
-                "bolt12": {},
-                "preimage": {},
-                "number_of_parts": {},
-                "amount_msat": {
-                  "type": "msat",
-                  "description": "the amount the destination received, if known"
-                },
-                "amount_sent_msat": {
-                  "type": "msat",
-                  "description": "the amount we actually sent, including fees"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "complete"
-                  ]
-                }
-              }
-            },
-            "then": {
-              "additionalProperties": false,
-              "required": [
+                "amount_sent_msat",
                 "preimage"
               ],
               "properties": {
@@ -118,6 +84,7 @@
                 "status": {},
                 "destination": {},
                 "created_at": {},
+                "completed_at": {},
                 "label": {},
                 "bolt11": {},
                 "description": {},
@@ -150,7 +117,9 @@
             },
             "then": {
               "additionalProperties": false,
-              "required": [],
+              "required": [
+                "amount_sent_msat"
+              ],
               "properties": {
                 "payment_hash": {},
                 "status": {},

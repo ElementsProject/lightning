@@ -74,11 +74,11 @@ SEE ALSO
 
 lightning-listinvoice(7), lightning-waitinvoice(7),
 lightning-invoice(7), lightning-delexpiredinvoice(7),
-lightning-autocleaninvoice(7)
+lightning-autoclean-status(7)
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a869dc2b48e763c47f3af1c27143d194db96948f19fbcec82df343bd3b6c4468)
+[comment]: # ( SHA256STAMP:d754daa61ddb65009fced566338af35ffb23069593f4741e6d8f6f138f60bb4f)

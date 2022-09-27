@@ -171,11 +171,10 @@ static char *fmt_force_feerates(const tal_t *ctx, const u32 *force_feerates)
 	return ret;
 }
 
-#if EXPERIMENTAL_FEATURES
 static char *opt_set_accept_extra_tlv_types(const char *arg,
-					     struct lightningd *ld)
+					    struct lightningd *ld)
 {
-	char *endp, **elements = tal_strsplit(NULL, arg, ",", STR_NO_EMPTY);;
+	char *endp, **elements = tal_strsplit(NULL, arg, ",", STR_NO_EMPTY);
 	unsigned long long l;
 	u64 u;
 	for (int i = 0; elements[i] != NULL; i++) {
@@ -193,9 +192,7 @@ static char *opt_set_accept_extra_tlv_types(const char *arg,
 	tal_free(elements);
 	return NULL;
 }
-#endif
 
-#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 /* Returns the number of wireaddr types already announced */
 static size_t num_announced_types(enum wire_addr_type type, struct lightningd *ld)
 {
@@ -210,7 +207,6 @@ static size_t num_announced_types(enum wire_addr_type type, struct lightningd *l
 	}
 	return num;
 }
-#endif
 
 static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
@@ -237,7 +233,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	    || ala != ADDR_ANNOUNCE) {
 		if (!parse_wireaddr_internal(arg, &wi, ld->portnum,
 					     wildcard_ok, dns_ok, false,
-					     deprecated_apis, &err_msg)) {
+					     &err_msg)) {
 			return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 		}
 
@@ -257,7 +253,6 @@ static char *opt_add_addr_withtype(const char *arg,
 		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
 
-#if EXPERIMENTAL_FEATURES /* BOLT7 DNS RFC #911 */
 	/* Add ADDR_TYPE_DNS to announce DNS hostnames */
 	if (is_dnsaddr(address) && ala & ADDR_ANNOUNCE) {
 		/* BOLT-hostnames #7:
@@ -282,7 +277,6 @@ static char *opt_add_addr_withtype(const char *arg,
 		tal_arr_expand(&ld->proposed_listen_announce, ADDR_ANNOUNCE);
 		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
-#endif
 
 	return NULL;
 
@@ -318,8 +312,7 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 	struct wireaddr_internal addr;
 
 	/* handle in case you used the addr option with an .onion */
-	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true,
-				    deprecated_apis, NULL)) {
+	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true, NULL)) {
 		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
 		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
 				log_unusual(ld->log, "You used `--addr=%s` option with an .onion address, please use"
@@ -365,8 +358,7 @@ static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 	struct wireaddr_internal addr;
 
 	/* handle in case you used the bind option with an .onion */
-	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true,
-				    deprecated_apis, NULL)) {
+	if (parse_wireaddr_internal(arg, &addr, 0, true, false, true, NULL)) {
 		if (addr.itype == ADDR_INTERNAL_WIREADDR &&
 		    addr.u.wireaddr.type == ADDR_TYPE_TOR_V3) {
 				log_unusual(ld->log, "You used `--bind-addr=%s` option with an .onion address,"
@@ -817,6 +809,8 @@ static const struct config testnet_config = {
 	.connection_timeout_secs = 60,
 
 	.exp_offers = IFEXPERIMENTAL(true, false),
+
+	.allowdustreserve = false,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -881,6 +875,8 @@ static const struct config mainnet_config = {
 	.connection_timeout_secs = 60,
 
 	.exp_offers = IFEXPERIMENTAL(true, false),
+
+	.allowdustreserve = false,
 };
 
 static void check_config(struct lightningd *ld)
@@ -1031,6 +1027,12 @@ static char *opt_set_offers(struct lightningd *ld)
 	return opt_set_onion_messages(ld);
 }
 
+static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
+{
+	ld->db_upgrade_ok = tal(ld, bool);
+	return opt_set_bool_arg(arg, ld->db_upgrade_ok);
+}
+
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
@@ -1168,17 +1170,19 @@ static void register_opts(struct lightningd *ld)
 			 &ld->autolisten,
 			 "If true, listen on default port and announce if it seems to be a public interface");
 
+	opt_register_arg("--dev-allowdustreserve", opt_set_bool_arg, opt_show_bool,
+			 &ld->config.allowdustreserve,
+			 "If true, we allow the `fundchannel` RPC command and the `openchannel` plugin hook to set a reserve that is below the dust limit.");
+
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
 
-#if EXPERIMENTAL_FEATURES
-	opt_register_arg("--experimental-accept-extra-tlv-types",
+	opt_register_arg("--accept-htlc-tlv-types",
 			 opt_set_accept_extra_tlv_types, NULL, ld,
-			 "Comma separated list of extra TLV types to accept.");
-#endif
+			 "Comma separated list of extra HTLC TLV types to accept.");
 
 	opt_register_early_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 				 "Disable DNS lookups of peers");
@@ -1211,6 +1215,10 @@ static void register_opts(struct lightningd *ld)
 			 ld,
 			 "experimental: alternate port for peers to connect"
 			 " using WebSockets (RFC6455)");
+	opt_register_arg("--database-upgrade",
+			 opt_set_db_upgrade, NULL,
+			 ld,
+			 "Set to true to allow database upgrades even on non-final releases (WARNING: you won't be able to downgrade!)");
 	opt_register_logging(ld);
 	opt_register_version();
 
@@ -1497,7 +1505,7 @@ static void add_config(struct lightningd *ld,
 		       const char *name, size_t len)
 {
 	char *name0 = tal_strndup(tmpctx, name, len);
-	const char *answer = NULL;
+	char *answer = NULL;
 	char buf[OPT_SHOW_LEN + sizeof("...")];
 
 #if DEVELOPER
@@ -1593,7 +1601,7 @@ static void add_config(struct lightningd *ld,
 			if (ld->rgb)
 				answer = tal_hexstr(name0, ld->rgb, 3);
 		} else if (opt->cb_arg == (void *)opt_set_alias) {
-			answer = (const char *)ld->alias;
+			answer = (char *)ld->alias;
 		} else if (opt->cb_arg == (void *)arg_log_to_file) {
 			if (ld->logfiles)
 				json_add_opt_log_to_files(response, name0, ld->logfiles);
@@ -1635,6 +1643,11 @@ static void add_config(struct lightningd *ld,
 				json_add_u32(response, name0,
 					     ld->websocket_port);
 			return;
+		} else if (opt->cb_arg == (void *)opt_set_db_upgrade) {
+			if (ld->db_upgrade_ok)
+				json_add_bool(response, name0,
+					      *ld->db_upgrade_ok);
+			return;
 		} else if (opt->cb_arg == (void *)opt_important_plugin) {
 			/* Do nothing, this is already handled by
 			 * opt_add_plugin.  */
@@ -1651,10 +1664,17 @@ static void add_config(struct lightningd *ld,
 					fmt_amount_msat(tmpctx,
 							*(struct amount_msat *)
 							opt->u.carg));
-#if EXPERIMENTAL_FEATURES
 		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
-                        /* TODO Actually print the option */
-#endif
+			for (size_t i = 0;
+			     i < tal_count(ld->accept_extra_tlv_types);
+			     i++) {
+				if (i == 0)
+					answer = tal_fmt(name0, "%"PRIu64,
+							 ld->accept_extra_tlv_types[i]);
+				else
+					tal_append_fmt(&answer, ",%"PRIu64,
+						       ld->accept_extra_tlv_types[i]);
+			}
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */

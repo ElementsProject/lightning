@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-bolt1"
-version = "1.0.1.187.post0"
+version = "1.0.2.246"
 description = ""
 authors = ["Rusty Russell <rusty@blockstream.com>"]
 license = "MIT"

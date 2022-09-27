@@ -17,14 +17,14 @@ EOF
 # Eg. {"jsonrpc":"2.0","id":2,"method":"getmanifest","params":{}}\n\n
 read -r JSON
 read -r _
-id=$(echo "$JSON" | sed 's/.*"id" *: *\([0-9]*\),.*/\1/')
+id=$(echo "$JSON" | sed 's/.*"id" *: *\([^,]*\),.*/\1/')
 
 echo '{"jsonrpc":"2.0","id":'"$id"',"result":{"dynamic":true,"options":[],"rpcmethods":[{"name":"cowsay","usage":"<string>","description":"Have a cow, man!"}]}}'
 
 # Eg. {"jsonrpc":"2.0","id":5,"method":"init","params":{"options":{},"configuration":{"lightning-dir":"/home/rusty/.lightning","rpc-file":"lightning-rpc","startup":false}}}\n\n
 read -r JSON
 read -r _
-id=$(echo "$JSON" | sed 's/.*"id" *: *\([0-9]*\),.*/\1/')
+id=$(echo "$JSON" | sed 's/.*"id" *: *\([^,]*\),.*/\1/')
 
 echo '{"jsonrpc":"2.0","id":'"$id"',"result":{}}'
 

@@ -70,18 +70,18 @@ static void update_connection(int store_fd,
 	memcpy(&scid, from, sizeof(scid) / 2);
 	memcpy((char *)&scid + sizeof(scid) / 2, to, sizeof(scid) / 2);
 
-	msg = towire_channel_update_option_channel_htlc_max(tmpctx,
-							    &dummy_sig,
-							    &chainparams->genesis_blockhash,
-							    &scid, 0,
-							    ROUTING_OPT_HTLC_MAX_MSAT,
-							    node_id_idx(from, to)
-							    + (disable ? ROUTING_FLAGS_DISABLED : 0),
-							    delay,
-							    AMOUNT_MSAT(0),
-							    base_fee,
-							    proportional_fee,
-							    AMOUNT_MSAT(100000 * 1000));
+	msg = towire_channel_update(tmpctx,
+				    &dummy_sig,
+				    &chainparams->genesis_blockhash,
+				    &scid, 0,
+				    ROUTING_OPT_HTLC_MAX_MSAT,
+				    node_id_idx(from, to)
+				    + (disable ? ROUTING_FLAGS_DISABLED : 0),
+				    delay,
+				    AMOUNT_MSAT(0),
+				    base_fee,
+				    proportional_fee,
+				    AMOUNT_MSAT(100000 * 1000));
 
 	write_to_store(store_fd, msg);
 }
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 	int store_fd;
 	struct gossmap *gossmap;
 	const double riskfactor = 1.0;
-	char gossip_version = GOSSIP_STORE_VERSION;
+	char gossip_version = 10;
 	char *gossipfilename;
 
 	chainparams = chainparams_for_network("regtest");

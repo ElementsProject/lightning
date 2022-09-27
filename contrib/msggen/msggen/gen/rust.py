@@ -6,7 +6,7 @@ import sys
 import re
 
 from msggen.model import (ArrayField, CompositeField, EnumField,
-                          PrimitiveField, Service)
+                          PrimitiveField, Service, Method)
 from msggen.gen.generator import IGenerator
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ typemap = {
     'msat_or_all': 'AmountOrAll',
     'msat_or_any': 'AmountOrAny',
     'number': 'f64',
-    'pubkey': 'Pubkey',
+    'pubkey': 'PublicKey',
     'short_channel_id': 'ShortChannelId',
     'signature': 'String',
     'string': 'String',
@@ -214,6 +214,7 @@ class RustGenerator(IGenerator):
             use crate::primitives::*;
             #[allow(unused_imports)]
             use serde::{{Deserialize, Serialize}};
+            use super::{IntoRequest, Request};
 
         """)
 
@@ -221,8 +222,23 @@ class RustGenerator(IGenerator):
             req = meth.request
             _, decl = gen_composite(req)
             self.write(decl, numindent=1)
+            self.generate_request_trait_impl(meth)
 
         self.write("}\n\n")
+
+    def generate_request_trait_impl(self, method: Method):
+        self.write(dedent(f"""\
+        impl From<{method.request.typename}> for Request {{
+            fn from(r: {method.request.typename}) -> Self {{
+                Request::{method.name}(r)
+            }}
+        }}
+
+        impl IntoRequest for {method.request.typename} {{
+            type Response = super::responses::{method.response.typename};
+        }}
+
+        """), numindent=1)
 
     def generate_responses(self, service: Service):
         self.write("""
@@ -231,6 +247,7 @@ class RustGenerator(IGenerator):
             use crate::primitives::*;
             #[allow(unused_imports)]
             use serde::{{Deserialize, Serialize}};
+            use super::{TryFromResponseError, Response};
 
         """)
 
@@ -238,8 +255,24 @@ class RustGenerator(IGenerator):
             res = meth.response
             _, decl = gen_composite(res)
             self.write(decl, numindent=1)
+            self.generate_response_trait_impl(meth)
 
         self.write("}\n\n")
+
+    def generate_response_trait_impl(self, method: Method):
+        self.write(dedent(f"""\
+        impl TryFrom<Response> for {method.response.typename} {{
+            type Error = super::TryFromResponseError;
+
+            fn try_from(response: Response) -> Result<Self, Self::Error> {{
+                match response {{
+                    Response::{method.name}(response) => Ok(response),
+                    _ => Err(TryFromResponseError)
+                }}
+            }}
+        }}
+
+        """), numindent=1)
 
     def generate_enums(self, service: Service):
         """The Request and Response enums serve as parsing primitives.
@@ -275,10 +308,23 @@ class RustGenerator(IGenerator):
 
         """)
 
+    def generate_request_trait(self):
+        self.write("""
+        pub trait IntoRequest: Into<Request> {
+            type Response: TryFrom<Response, Error = TryFromResponseError>;
+        }
+
+        #[derive(Debug)]
+        pub struct TryFromResponseError;
+
+        """)
+
     def generate(self, service: Service) -> None:
         self.write(header)
 
         self.generate_enums(service)
+
+        self.generate_request_trait()
 
         self.generate_requests(service)
         self.generate_responses(service)

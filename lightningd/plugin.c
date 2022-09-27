@@ -48,7 +48,7 @@ struct plugin_rpccall {
 static void memleak_help_pending_requests(struct htable *memtable,
 					  struct plugins *plugins)
 {
-	memleak_remove_uintmap(memtable, &plugins->pending_requests);
+	memleak_scan_strmap(memtable, &plugins->pending_requests);
 }
 #endif /* DEVELOPER */
 
@@ -86,7 +86,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 #if DEVELOPER
 	p->dev_builtin_plugins_unimportant = false;
 #endif /* DEVELOPER */
-	uintmap_init(&p->pending_requests);
+	strmap_init(&p->pending_requests);
 	memleak_add_helper(p, memleak_help_pending_requests);
 
 	return p;
@@ -435,17 +435,18 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 					const jsmntok_t *paramstok)
 {
 	const jsmntok_t *idtok;
-	u64 id;
 	struct jsonrpc_request *request;
 
 	/* id inside params tells us which id to redirect to. */
 	idtok = json_get_member(plugin->buffer, paramstok, "id");
-	if (!idtok || !json_to_u64(plugin->buffer, idtok, &id)) {
+	if (!idtok) {
 		return tal_fmt(plugin,
-			       "JSON-RPC notify \"id\"-field is not a u64");
+			       "JSON-RPC notify \"id\"-field is not present");
 	}
 
-	request = uintmap_get(&plugin->plugins->pending_requests, id);
+	request = strmap_getn(&plugin->plugins->pending_requests,
+			      plugin->buffer + idtok->start,
+			      idtok->end - idtok->start);
 	if (!request) {
 		return tal_fmt(
 			plugin,
@@ -565,25 +566,14 @@ static const char *plugin_response_handle(struct plugin *plugin,
 {
 	struct plugin_destroyed *pd;
 	struct jsonrpc_request *request;
-	u64 id;
-	/* We only send u64 ids, so if this fails it's a critical error (note
-	 * that this also works if id is inside a JSON string!). */
-	if (!json_to_u64(plugin->buffer, idtok, &id)) {
-		return tal_fmt(plugin,
-			       "JSON-RPC response \"id\"-field is not a u64");
-	}
 
-	request = uintmap_get(&plugin->plugins->pending_requests, id);
-
+	request = strmap_getn(&plugin->plugins->pending_requests,
+			      plugin->buffer + idtok->start,
+			      idtok->end - idtok->start);
 	if (!request) {
 		return tal_fmt(
 			plugin,
 			"Received a JSON-RPC response for non-existent request");
-	}
-
-	/* Ignore responses when shutting down */
-	if (plugin->plugins->ld->state == LD_STATE_SHUTDOWN) {
-		return NULL;
 	}
 
 	/* We expect the request->cb to copy if needed */
@@ -1034,18 +1024,35 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 					  const char *buffer,
 					  const jsmntok_t *toks,
 					  const jsmntok_t *idtok,
-					  const char *new_id)
+					  const char *new_id,
+					  bool new_id_is_str)
 {
 	/* We copy everything, but replace the id. Special care has to
 	 * be taken when the id that is being replaced is a string. If
 	 * we don't crop the quotes off we'll transform a numeric
 	 * new_id into a string, or even worse, quote a string id
 	 * twice. */
-	size_t offset = idtok->type==JSMN_STRING?1:0;
+	size_t offset = 0;
+	bool add_quotes = false;
+
+	if (idtok->type == JSMN_STRING) {
+		if (new_id_is_str)
+			add_quotes = false;
+		else
+			offset = 1;
+	} else {
+		if (new_id_is_str)
+			add_quotes = true;
+	}
+
 	json_stream_append(stream, buffer + toks->start,
 			   idtok->start - toks->start - offset);
 
+	if (add_quotes)
+		json_stream_append(stream, "\"", 1);
 	json_stream_append(stream, new_id, strlen(new_id));
+	if (add_quotes)
+		json_stream_append(stream, "\"", 1);
 	json_stream_append(stream, buffer + idtok->end + offset,
 			   toks->end - idtok->end - offset);
 }
@@ -1059,7 +1066,8 @@ static void plugin_rpcmethod_cb(const char *buffer,
 	struct json_stream *response;
 
 	response = json_stream_raw_for_cmd(cmd);
-	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id);
+	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id,
+				      cmd->id_is_string);
 	json_stream_double_cr(response);
 	command_raw_complete(cmd, response);
 
@@ -1085,7 +1093,8 @@ static void plugin_notify_cb(const char *buffer,
 	json_add_tok(response, "method", methodtok, buffer);
 	json_stream_append(response, ",\"params\":", strlen(",\"params\":"));
 	json_stream_forward_change_id(response, buffer,
-				      paramtoks, idtok, cmd->id);
+				      paramtoks, idtok, cmd->id,
+				      cmd->id_is_string);
 	json_object_end(response);
 
 	json_stream_double_cr(response);
@@ -1117,7 +1126,6 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	const jsmntok_t *idtok;
 	struct plugin *plugin;
 	struct jsonrpc_request *req;
-	char id[STR_MAX_CHARS(u64)];
 	struct plugin_rpccall *call;
 
 	if (cmd->mode == CMD_CHECK)
@@ -1134,16 +1142,16 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	call = tal(plugin, struct plugin_rpccall);
 	call->cmd = cmd;
 
-	req = jsonrpc_request_start(plugin, NULL, plugin->log,
-				    plugin_notify_cb,
-				    plugin_rpcmethod_cb, call);
+	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name, cmd->id,
+					plugin->log,
+					plugin_notify_cb,
+					plugin_rpcmethod_cb, call);
 	call->request = req;
 	call->plugin = plugin;
 	list_add_tail(&plugin->pending_rpccalls, &call->list);
 
-	snprintf(id, ARRAY_SIZE(id), "%"PRIu64, req->id);
-
-	json_stream_forward_change_id(req->stream, buffer, toks, idtok, id);
+	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id,
+				      true);
 	json_stream_double_cr(req->stream);
 	plugin_request_send(plugin, req);
 	req->stream = NULL;
@@ -1205,11 +1213,9 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 		cmd->verbose = cmd->description;
 	if (usagetok)
 		usage = json_strdup(tmpctx, buffer, usagetok);
-	else if (!deprecated_apis) {
+	else
 		return tal_fmt(plugin,
 			    "\"usage\" not provided by plugin");
-	} else
-		usage = "[params]";
 
 	if (deptok) {
 		if (!json_to_bool(buffer, deptok, &cmd->deprecated))
@@ -1695,7 +1701,7 @@ static void plugin_set_timeout(struct plugin *p)
 	}
 }
 
-const char *plugin_send_getmanifest(struct plugin *p)
+const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 {
 	char **cmd;
 	int stdinfd, stdoutfd;
@@ -1724,7 +1730,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	 * write-only on p->stdin */
 	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
 	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
-	req = jsonrpc_request_start(p, "getmanifest", p->log,
+	req = jsonrpc_request_start(p, "getmanifest", cmd_id, p->log,
 				    NULL, plugin_manifest_cb, p);
 	json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
 	jsonrpc_request_end(req);
@@ -1735,7 +1741,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	return NULL;
 }
 
-bool plugins_send_getmanifest(struct plugins *plugins)
+bool plugins_send_getmanifest(struct plugins *plugins, const char *cmd_id)
 {
 	struct plugin *p, *next;
 	bool sent = false;
@@ -1746,7 +1752,7 @@ bool plugins_send_getmanifest(struct plugins *plugins)
 
 		if (p->plugin_state != UNCONFIGURED)
 			continue;
-		err = plugin_send_getmanifest(p);
+		err = plugin_send_getmanifest(p, cmd_id);
 		if (!err) {
 			sent = true;
 			continue;
@@ -1788,7 +1794,7 @@ void plugins_init(struct plugins *plugins)
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
 
-	if (plugins_send_getmanifest(plugins)) {
+	if (plugins_send_getmanifest(plugins, NULL)) {
 		void *ret;
 		ret = io_loop_with_timers(plugins->ld);
 		log_debug(plugins->ld->log, "io_loop_with_timers: %s", __func__);
@@ -1886,9 +1892,6 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 		json_add_address(req->stream, "proxy", ld->proxyaddr);
 		json_add_bool(req->stream, "torv3-enabled", true);
 		json_add_bool(req->stream, "always_use_proxy", ld->always_use_proxy);
-		if (deprecated_apis)
-			json_add_bool(req->stream, "use_proxy_always",
-				      ld->always_use_proxy);
 	}
 	json_object_start(req->stream, "feature_set");
 	for (enum feature_place fp = 0; fp < NUM_FEATURE_PLACE; fp++) {
@@ -1908,7 +1911,7 @@ plugin_config(struct plugin *plugin)
 	struct jsonrpc_request *req;
 
 	plugin_set_timeout(plugin);
-	req = jsonrpc_request_start(plugin, "init", plugin->log,
+	req = jsonrpc_request_start(plugin, "init", NULL, plugin->log,
 	                            NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
@@ -2058,7 +2061,7 @@ void plugins_notify(struct plugins *plugins,
 static void destroy_request(struct jsonrpc_request *req,
                             struct plugin *plugin)
 {
-	uintmap_del(&plugin->plugins->pending_requests, req->id);
+	strmap_del(&plugin->plugins->pending_requests, req->id, NULL);
 }
 
 void plugin_request_send(struct plugin *plugin,
@@ -2066,7 +2069,7 @@ void plugin_request_send(struct plugin *plugin,
 {
 	/* Add to map so we can find it later when routing the response */
 	tal_steal(plugin, req);
-	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
+	strmap_add(&plugin->plugins->pending_requests, req->id, req);
 	/* Add destructor in case plugin dies. */
 	tal_add_destructor2(req, destroy_request, plugin);
 	plugin_send(plugin, req->stream);
@@ -2123,9 +2126,6 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 void shutdown_plugins(struct lightningd *ld)
 {
 	struct plugin *p, *next;
-
-	/* The next io_loop does not need db access, close it. */
-	ld->wallet->db = tal_free(ld->wallet->db);
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {

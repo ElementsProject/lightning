@@ -55,10 +55,22 @@ new_uncommitted_channel(struct peer *peer)
 	/* BOLT #2:
 	 *
 	 * The sender:
-	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
-	 *     reasonable to avoid double-spending of the funding transaction.
+	 *   - if `channel_type` includes `option_zeroconf`:
+	 *      - MUST set `minimum_depth` to zero.
+	 *   - otherwise:
+	 *     - SHOULD set `minimum_depth` to a number of blocks it
+	 *       considers reasonable to avoid double-spending of the
+	 *       funding transaction.
 	 */
+	 /* We override this in openchannel hook if we want zeroconf */
 	uc->minimum_depth = ld->config.anchor_confirms;
+
+	/* Use default 1% reserve if not otherwise specified. If this
+	 * is not-NULL it will be used by openingd as absolute value
+	 * (clamped to dust limit). */
+	uc->reserve = NULL;
+
+	memset(&uc->cid, 0xFF, sizeof(uc->cid));
 
 	/* Declare the new channel to the HSM. */
 	new_channel_msg = towire_hsmd_new_channel(NULL, &uc->peer->id, uc->dbid);

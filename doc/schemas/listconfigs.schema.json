@@ -137,6 +137,10 @@
       "type": "u16",
       "description": "`experimental-websocket-port` field from config or cmdline, or default"
     },
+    "database-upgrade": {
+      "type": "boolean",
+      "description": "`database-upgrade` field from config or cmdline"
+    },
     "rgb": {
       "type": "hex",
       "description": "`rgb` field from config or cmdline, or default",
@@ -277,11 +281,19 @@
     },
     "fetchinvoice-noconnect": {
       "type": "boolean",
-      "description": "`featchinvoice-noconnect` fileds from config or cmdline, or default"
+      "description": "`fetchinvoice-noconnect` fields from config or cmdline, or default"
+    },
+    "accept-htlc-tlv-types": {
+      "type": "string",
+      "description": "`accept-extra-tlvs-type` fields from config or cmdline, or not present"
     },
     "tor-service-password": {
       "type": "string",
       "description": "`tor-service-password` field from config or cmdline, if any"
+    },
+    "dev-allowdustreserve": {
+      "type": "boolean",
+      "description": "Whether we allow setting dust reserves"
     }
   }
 }

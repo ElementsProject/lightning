@@ -288,7 +288,7 @@ mw_forward_error(struct command *cmd UNUSED,
 }
 /* Use this instead of command_fail.  */
 static struct command_result *
-mw_fail(struct multiwithdraw_command *mw, errcode_t code,
+mw_fail(struct multiwithdraw_command *mw, enum jsonrpc_errcode code,
 	const char *fmt, ...)
 {
 	va_list ap;
@@ -303,7 +303,7 @@ mw_fail(struct multiwithdraw_command *mw, errcode_t code,
 
 	js = new_json_stream(tmpctx, mw->cmd, NULL);
 	json_object_start(js, NULL);
-	json_add_errcode(js, "code", code);
+	json_add_jsonrpc_errcode(js, "code", code);
 	json_add_string(js, "message", message);
 	json_object_end(js);
 

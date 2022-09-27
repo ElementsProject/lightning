@@ -15,6 +15,7 @@
           "id",
           "payment_hash",
           "status",
+          "groupid",
           "created_at",
           "amount_sent_msat"
         ],
@@ -108,6 +109,7 @@
                 "amount_msat": {},
                 "destination": {},
                 "created_at": {},
+                "completed_at": {},
                 "msatoshi_sent": {},
                 "amount_sent_msat": {},
                 "label": {},
@@ -147,6 +149,7 @@
                 "amount_msat": {},
                 "destination": {},
                 "created_at": {},
+                "completed_at": {},
                 "msatoshi_sent": {},
                 "amount_sent_msat": {},
                 "label": {},

@@ -59,7 +59,9 @@ AUTODATA_TYPE(hooks, struct plugin_hook);
  * Returns true if callback called immediately, otherwise false if it's
  * still waiting on a plugin response.
  */
-bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
+bool plugin_hook_call_(struct lightningd *ld,
+		       const struct plugin_hook *hook,
+		       const char *cmd_id TAKES,
 		       tal_t *cb_arg STEALS);
 
 /* Generic deserialize_cb: returns true iff 'result': 'continue' */
@@ -73,9 +75,9 @@ bool plugin_hook_continue(void *arg, const char *buffer, const jsmntok_t *toks);
 /* FIXME: Find a way to avoid back-to-back declaration and definition */
 #define PLUGIN_HOOK_CALL_DEF(name, cb_arg_type)				       \
 	UNNEEDED static inline bool plugin_hook_call_##name(                   \
-	    struct lightningd *ld, cb_arg_type cb_arg STEALS)                  \
+		struct lightningd *ld, const char *cmd_id TAKES, cb_arg_type cb_arg STEALS) \
 	{                                                                      \
-		return plugin_hook_call_(ld, &name##_hook_gen, cb_arg);        \
+		return plugin_hook_call_(ld, &name##_hook_gen, cmd_id, cb_arg); \
 	}
 
 /* Typechecked registration of a plugin hook. We check that the

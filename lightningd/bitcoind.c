@@ -49,7 +49,7 @@ static void config_plugin(struct plugin *plugin)
 	struct jsonrpc_request *req;
 	void *ret;
 
-	req = jsonrpc_request_start(plugin, "init", plugin->log,
+	req = jsonrpc_request_start(plugin, "init", NULL, plugin->log,
 	                            NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
@@ -237,7 +237,8 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->arg = arg;
 
-	req = jsonrpc_request_start(bitcoind, "estimatefees", bitcoind->log,
+	req = jsonrpc_request_start(bitcoind, "estimatefees", NULL,
+				    bitcoind->log,
 				    NULL, estimatefees_callback, call);
 	jsonrpc_request_end(req);
 	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
@@ -297,12 +298,13 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 	tal_free(call);
 }
 
-void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
-			     const char *hextx,
-			     bool allowhighfees,
-			     void (*cb)(struct bitcoind *bitcoind,
-					bool success, const char *msg, void *),
-			     void *cb_arg)
+void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
+			 const char *id_prefix,
+			 const char *hextx,
+			 bool allowhighfees,
+			 void (*cb)(struct bitcoind *bitcoind,
+				    bool success, const char *msg, void *),
+			 void *cb_arg)
 {
 	struct jsonrpc_request *req;
 	struct sendrawtx_call *call = tal(bitcoind, struct sendrawtx_call);
@@ -312,7 +314,7 @@ void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
 	call->cb_arg = cb_arg;
 	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
 
-	req = jsonrpc_request_start(bitcoind, "sendrawtransaction",
+	req = jsonrpc_request_start(bitcoind, "sendrawtransaction", id_prefix,
 				    bitcoind->log,
 				    NULL, sendrawtx_callback,
 				    call);
@@ -320,15 +322,6 @@ void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
 	json_add_bool(req->stream, "allowhighfees", allowhighfees);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
-}
-
-void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
-			 const char *hextx,
-			 void (*cb)(struct bitcoind *bitcoind,
-				    bool success, const char *msg, void *),
-			 void *arg)
-{
-	return bitcoind_sendrawtx_ahf_(bitcoind, hextx, false, cb, arg);
 }
 
 /* `getrawblockbyheight`
@@ -408,7 +401,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight",
+	req = jsonrpc_request_start(bitcoind, "getrawblockbyheight", NULL,
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,
 				    call);
@@ -489,7 +482,8 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 	call->cb_arg = cb_arg;
 	call->first_call = first_call;
 
-	req = jsonrpc_request_start(bitcoind, "getchaininfo", bitcoind->log,
+	req = jsonrpc_request_start(bitcoind, "getchaininfo", NULL,
+				    bitcoind->log,
 				    NULL, getchaininfo_callback, call);
 	jsonrpc_request_end(req);
 	bitcoin_plugin_send(bitcoind, req);
@@ -561,7 +555,7 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind,
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 
-	req = jsonrpc_request_start(bitcoind, "getutxout", bitcoind->log,
+	req = jsonrpc_request_start(bitcoind, "getutxout", NULL, bitcoind->log,
 				    NULL, getutxout_callback, call);
 	json_add_txid(req->stream, "txid", &outpoint->txid);
 	json_add_num(req->stream, "vout", outpoint->n);

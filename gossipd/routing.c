@@ -33,6 +33,16 @@ struct pending_node_announce {
 	struct peer *peer_softref;
 };
 
+/* As per the below BOLT #7 quote, we delay forgetting a channel until 12
+ * blocks after we see it close.  This gives time for splicing (or even other
+ * opens) to replace the channel, and broadcast it after 6 blocks. */
+struct dying_channel {
+	struct short_channel_id scid;
+	u32 deadline_blockheight;
+	/* Where the dying_channel marker is in the store. */
+	struct broadcastable marker;
+};
+
 /* We consider a reasonable gossip rate to be 2 per day, with burst of
  * 4 per day.  So we use a granularity of one hour. */
 #define TOKENS_PER_MSG 12
@@ -222,16 +232,16 @@ static void memleak_help_routing_tables(struct htable *memtable,
 	struct node *n;
 	struct node_map_iter nit;
 
-	memleak_remove_htable(memtable, &rstate->nodes->raw);
-	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
-	memleak_remove_htable(memtable, &rstate->pending_cannouncements.raw);
-	memleak_remove_uintmap(memtable, &rstate->unupdated_chanmap);
+	memleak_scan_htable(memtable, &rstate->nodes->raw);
+	memleak_scan_htable(memtable, &rstate->pending_node_map->raw);
+	memleak_scan_htable(memtable, &rstate->pending_cannouncements.raw);
+	memleak_scan_uintmap(memtable, &rstate->unupdated_chanmap);
 
 	for (n = node_map_first(rstate->nodes, &nit);
 	     n;
 	     n = node_map_next(rstate->nodes, &nit)) {
 		if (node_uses_chan_map(n))
-			memleak_remove_htable(memtable, &n->chans.map.raw);
+			memleak_scan_htable(memtable, &n->chans.map.raw);
 	}
 }
 #endif /* DEVELOPER */
@@ -249,8 +259,8 @@ static void txout_failure_age(struct routing_state *rstate)
 						   txout_failure_age, rstate);
 }
 
-void add_to_txout_failures(struct routing_state *rstate,
-			   const struct short_channel_id *scid)
+static void add_to_txout_failures(struct routing_state *rstate,
+				  const struct short_channel_id *scid)
 {
 	if (uintmap_add(&rstate->txout_failures, scid->u64, true)
 	    && ++rstate->num_txout_failures == 10000) {
@@ -288,6 +298,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->gs = gossip_store_new(rstate, peers);
 	rstate->local_channel_announced = false;
 	rstate->last_timestamp = 0;
+	rstate->dying_channels = tal_arr(rstate, struct dying_channel, 0);
 
 	pending_cannouncement_map_init(&rstate->pending_cannouncements);
 
@@ -852,8 +863,8 @@ static void delete_chan_messages_from_store(struct routing_state *rstate,
 			    &chan->half[1].bcast, update_type);
 }
 
-void remove_channel_from_store(struct routing_state *rstate,
-			       struct chan *chan)
+static void remove_channel_from_store(struct routing_state *rstate,
+				      struct chan *chan)
 {
 	/* Put in tombstone marker */
 	gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
@@ -1298,16 +1309,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (taken(update))
 		tal_steal(tmpctx, update);
 
-	if (!fromwire_channel_update(update, &signature, &chain_hash,
-				     &short_channel_id, &timestamp,
-				     &message_flags, &channel_flags,
-				     &expiry, &htlc_minimum, &fee_base_msat,
-				     &fee_proportional_millionths))
-		return false;
-	/* If it's flagged as containing the optional field, reparse for
-	 * the optional field */
-	if ((message_flags & ROUTING_OPT_HTLC_MAX_MSAT) &&
-			!fromwire_channel_update_option_channel_htlc_max(
+	if (!fromwire_channel_update(
 				update, &signature, &chain_hash,
 				&short_channel_id, &timestamp,
 				&message_flags, &channel_flags,
@@ -1331,21 +1333,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		sat = uc->sat;
 	}
 
-	if (message_flags & ROUTING_OPT_HTLC_MAX_MSAT) {
-		/* Reject update if the `htlc_maximum_msat` is greater
-		 * than the total available channel satoshis */
-		if (amount_msat_greater_sat(htlc_maximum, sat))
-			return false;
-	} else {
-		/* If not indicated, set htlc_max_msat to channel capacity */
-		if (!amount_sat_to_msat(&htlc_maximum, sat)) {
-			status_peer_broken(peer ? &peer->id : NULL,
-					   "Channel capacity %s overflows!",
-					   type_to_string(tmpctx, struct amount_sat,
-							  &sat));
-			return false;
-		}
-	}
+	/* Reject update if the `htlc_maximum_msat` is greater
+	 * than the total available channel satoshis */
+	if (amount_msat_greater_sat(htlc_maximum, sat))
+		return false;
 
 	/* Check timestamp is sane (unless from store). */
 	if (!index && !timestamp_reasonable(rstate, timestamp)) {
@@ -1557,7 +1548,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	u32 timestamp;
 	u8 message_flags, channel_flags;
 	u16 expiry;
-	struct amount_msat htlc_minimum;
+	struct amount_msat htlc_minimum, htlc_maximum;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	struct bitcoin_blkid chain_hash;
@@ -1571,7 +1562,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 				     &timestamp, &message_flags,
 				     &channel_flags, &expiry,
 				     &htlc_minimum, &fee_base_msat,
-				     &fee_proportional_millionths)) {
+				     &fee_proportional_millionths,
+				     &htlc_maximum)) {
 		warn = towire_warningfmt(rstate, NULL,
 					 "Malformed channel_update %s",
 					 tal_hex(tmpctx, serialized));
@@ -1926,8 +1918,8 @@ void route_prune(struct routing_state *rstate)
 			continue;
 
 		/* BOLT #7:
-		 *   - if a channel's oldest `channel_update`s `timestamp` is
-		 *     older than two weeks (1209600 seconds):
+		 * - if the `timestamp` of the latest `channel_update` in
+		 *   either direction is older than two weeks (1209600 seconds):
 		 *    - MAY prune the channel.
 		 */
 		/* This is a fancy way of saying "both ends must refresh!" */
@@ -2106,3 +2098,84 @@ void remove_all_gossip(struct routing_state *rstate)
 	/* Freeing unupdated chanmaps should empty this */
 	assert(pending_node_map_first(rstate->pending_node_map, &pnait) == NULL);
 }
+
+static void channel_spent(struct routing_state *rstate,
+			  struct chan *chan STEALS)
+{
+	status_debug("Deleting channel %s due to the funding outpoint being "
+		     "spent",
+		     type_to_string(tmpctx, struct short_channel_id,
+				    &chan->scid));
+	/* Suppress any now-obsolete updates/announcements */
+	add_to_txout_failures(rstate, &chan->scid);
+	remove_channel_from_store(rstate, chan);
+	/* Freeing is sufficient since everything else is allocated off
+	 * of the channel and this takes care of unregistering
+	 * the channel */
+	free_chan(rstate, chan);
+}
+
+void routing_expire_channels(struct routing_state *rstate, u32 blockheight)
+{
+	struct chan *chan;
+
+	for (size_t i = 0; i < tal_count(rstate->dying_channels); i++) {
+		struct dying_channel *d = rstate->dying_channels + i;
+
+		if (blockheight < d->deadline_blockheight)
+			continue;
+		chan = get_channel(rstate, &d->scid);
+		if (chan)
+			channel_spent(rstate, chan);
+		/* Delete dying marker itself */
+		gossip_store_delete(rstate->gs,
+				    &d->marker, WIRE_GOSSIP_STORE_CHAN_DYING);
+		tal_arr_remove(&rstate->dying_channels, i);
+		i--;
+	}
+}
+
+void remember_chan_dying(struct routing_state *rstate,
+			 const struct short_channel_id *scid,
+			 u32 deadline_blockheight,
+			 u64 index)
+{
+	struct dying_channel d;
+	d.scid = *scid;
+	d.deadline_blockheight = deadline_blockheight;
+	d.marker.index = index;
+	tal_arr_expand(&rstate->dying_channels, d);
+}
+
+void routing_channel_spent(struct routing_state *rstate,
+			   u32 current_blockheight,
+			   struct chan *chan)
+{
+	u64 index;
+	u32 deadline;
+	u8 *msg;
+
+	/* FIXME: We should note that delay is not necessary (or even
+	 * sensible) for local channels! */
+	if (local_direction(rstate, chan, NULL)) {
+		channel_spent(rstate, chan);
+		return;
+	}
+
+	/* BOLT #7:
+	 * - once its funding output has been spent OR reorganized out:
+	 *   - SHOULD forget a channel after a 12-block delay.
+	 */
+	deadline = current_blockheight + 12;
+
+	/* Save to gossip_store in case we restart */
+	msg = towire_gossip_store_chan_dying(tmpctx, &chan->scid, deadline);
+	index = gossip_store_add(rstate->gs, msg, 0, false, false, NULL);
+
+	/* Remember locally so we can kill it in 12 blocks */
+	status_debug("channel %s closing soon due"
+		     " to the funding outpoint being spent",
+		     type_to_string(msg, struct short_channel_id, &chan->scid));
+	remember_chan_dying(rstate, &chan->scid, deadline, index);
+}
+

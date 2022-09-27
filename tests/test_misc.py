@@ -2,7 +2,7 @@ from bitcoin.rpc import RawProxy
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import LightningNode, TEST_NETWORK
-from pyln.client import RpcError
+from pyln.client import RpcError, Millisatoshi
 from threading import Event
 from pyln.testing.utils import (
     DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
@@ -49,7 +49,7 @@ def test_names(node_factory):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This migration is based on a sqlite3 snapshot")
 def test_db_upgrade(node_factory):
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'database-upgrade': True})
     l1.stop()
 
     version = subprocess.check_output(['lightningd/lightningd',
@@ -863,7 +863,7 @@ def test_malformed_rpc(node_factory):
 
 
 def test_cli(node_factory):
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'log-level': 'io'})
 
     out = subprocess.check_output(['cli/lightning-cli',
                                    '--network={}'.format(TEST_NETWORK),
@@ -872,6 +872,9 @@ def test_cli(node_factory):
                                    'help']).decode('utf-8')
     # Test some known output.
     assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
+
+    # Check JSON id is as expected
+    l1.daemon.wait_for_log(r"jsonrpc#[0-9]*: cli:help#[0-9]*\[IN\]")
 
     # Test JSON output.
     out = subprocess.check_output(['cli/lightning-cli',
@@ -1108,7 +1111,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
 
     daemon = 'DUALOPEND' if l1.config('experimental-dual-fund') else 'CHANNELD'
     wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['status']
-             == ['{}_AWAITING_LOCKIN:Funding needs 1 more confirmations for lockin.'.format(daemon)])
+             == ['{}_AWAITING_LOCKIN:Funding needs 1 more confirmations to be ready.'.format(daemon)])
     bitcoind.generate_block(1)                      # height 107
     l1.wait_channel_active('106x1x0')
     l2.wait_channel_active('106x1x0')
@@ -1166,7 +1169,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
-        'CHANNELD_NORMAL:Funding transaction locked. They need our announcement signatures.'])
+        'CHANNELD_NORMAL:Channel ready for use. They need our announcement signatures.'])
 
     # Unblinding l2 brings it back in sync, restarts channeld and sends its announce sig
     l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
@@ -1176,7 +1179,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
-        'CHANNELD_NORMAL:Funding transaction locked. Channel announced.'])
+        'CHANNELD_NORMAL:Channel ready for use. Channel announced.'])
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
@@ -2212,7 +2215,7 @@ def test_sendcustommsg(node_factory):
         l1.rpc.sendcustommsg(node_id, msg)
 
     # `l3` is disconnected and we can't send messages to it
-    assert(not l2.rpc.listpeers(l3.info['id'])['peers'][0]['connected'])
+    wait_for(lambda: l2.rpc.listpeers(l3.info['id'])['peers'][0]['connected'] is False)
     with pytest.raises(RpcError, match=r'Peer is not connected'):
         l2.rpc.sendcustommsg(l3.info['id'], msg)
 
@@ -2376,15 +2379,15 @@ def test_listfunds(node_factory):
     assert open_txid in txids
 
 
-def test_listforwards(node_factory, bitcoind):
-    """Test listfunds command."""
+def test_listforwards_and_listhtlcs(node_factory, bitcoind):
+    """Test listforwards and listhtlcs commands."""
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{}, {}, {}, {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    c12, _ = l1.fundchannel(l2, 10**5)
+    c12, c12res = l1.fundchannel(l2, 10**5)
     c23, _ = l2.fundchannel(l3, 10**5)
     c24, _ = l2.fundchannel(l4, 10**5)
 
@@ -2403,19 +2406,29 @@ def test_listforwards(node_factory, bitcoind):
     failed_inv = l3.rpc.invoice(4000, 'failed', 'desc')
     failed_route = l1.rpc.getroute(l3.info['id'], 4000, 1)['route']
 
-    l2.rpc.close(c23, 1)
+    l2.rpc.close(c23)
 
     with pytest.raises(RpcError):
         l1.rpc.sendpay(failed_route, failed_inv['payment_hash'], payment_secret=failed_inv['payment_secret'])
         l1.rpc.waitsendpay(failed_inv['payment_hash'])
 
     all_forwards = l2.rpc.listforwards()['forwards']
-    print(json.dumps(all_forwards, indent=True))
-
     assert len(all_forwards) == 3
-    assert i31['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
-    assert i41['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
-    assert failed_inv['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
+
+    # Not guaranteed to be in chronological order!
+    all_forwards.sort(key=lambda f: f['in_htlc_id'])
+    assert all_forwards[0]['in_channel'] == c12
+    assert all_forwards[0]['out_channel'] == c23
+    assert all_forwards[0]['in_htlc_id'] == 0
+    assert all_forwards[0]['out_htlc_id'] == 0
+    assert all_forwards[1]['in_channel'] == c12
+    assert all_forwards[1]['out_channel'] == c24
+    assert all_forwards[1]['in_htlc_id'] == 1
+    assert all_forwards[1]['out_htlc_id'] == 0
+    assert all_forwards[2]['in_channel'] == c12
+    assert all_forwards[2]['out_channel'] == c23
+    assert all_forwards[2]['in_htlc_id'] == 2
+    assert 'out_htlc_id' not in all_forwards[2]
 
     # status=settled
     settled_forwards = l2.rpc.listforwards(status='settled')['forwards']
@@ -2433,6 +2446,63 @@ def test_listforwards(node_factory, bitcoind):
     # out_channel=c24
     c24_forwards = l2.rpc.listforwards(out_channel=c24)['forwards']
     assert len(c24_forwards) == 1
+
+    # listhtlcs on l1 is the same with or without id specifiers
+    c1htlcs = l1.rpc.listhtlcs()['htlcs']
+    assert l1.rpc.listhtlcs(c12)['htlcs'] == c1htlcs
+    assert l1.rpc.listhtlcs(c12res['channel_id'])['htlcs'] == c1htlcs
+    c1htlcs.sort(key=lambda h: h['id'])
+    assert [h['id'] for h in c1htlcs] == [0, 1, 2]
+    assert [h['short_channel_id'] for h in c1htlcs] == [c12] * 3
+    assert [h['amount_msat'] for h in c1htlcs] == [Millisatoshi(1001),
+                                                   Millisatoshi(2001),
+                                                   Millisatoshi(4001)]
+    assert [h['direction'] for h in c1htlcs] == ['out'] * 3
+    assert [h['state'] for h in c1htlcs] == ['RCVD_REMOVE_ACK_REVOCATION'] * 3
+
+    # These should be a mirror!
+    c2c1htlcs = l2.rpc.listhtlcs(c12)['htlcs']
+    for h in c2c1htlcs:
+        assert h['state'] == 'SENT_REMOVE_ACK_REVOCATION'
+        assert h['direction'] == 'in'
+        h['state'] = 'RCVD_REMOVE_ACK_REVOCATION'
+        h['direction'] = 'out'
+    assert c2c1htlcs == c1htlcs
+
+    # One channel at a time should result in all htlcs.
+    allhtlcs = l2.rpc.listhtlcs()['htlcs']
+    parthtlcs = (l2.rpc.listhtlcs(c12)['htlcs']
+                 + l2.rpc.listhtlcs(c23)['htlcs']
+                 + l2.rpc.listhtlcs(c24)['htlcs'])
+    assert len(allhtlcs) == len(parthtlcs)
+    for h in allhtlcs:
+        assert h in parthtlcs
+
+    # Now, close and forget.
+    l2.rpc.close(c24)
+    l2.rpc.close(c12)
+
+    bitcoind.generate_block(100, wait_for_mempool=3)
+
+    # Once channels are gone, htlcs are gone.
+    for n in (l1, l2, l3, l4):
+        # They might reconnect, but still will have no channels
+        wait_for(lambda: all(p['channels'] == [] for p in n.rpc.listpeers()['peers']))
+        assert n.rpc.listhtlcs() == {'htlcs': []}
+
+    # But forwards are not forgotten!
+    assert l2.rpc.listforwards()['forwards'] == all_forwards
+
+    # Now try delforward!
+    with pytest.raises(RpcError, match="Could not find that forward") as exc_info:
+        l2.rpc.delforward(in_channel=c12, in_htlc_id=3, status='settled')
+    # static const errcode_t DELFORWARD_NOT_FOUND = 1401;
+    assert exc_info.value.error['code'] == 1401
+
+    l2.rpc.delforward(in_channel=c12, in_htlc_id=0, status='settled')
+    l2.rpc.delforward(in_channel=c12, in_htlc_id=1, status='settled')
+    l2.rpc.delforward(in_channel=c12, in_htlc_id=2, status='local_failed')
+    assert l2.rpc.listforwards() == {'forwards': []}
 
 
 @pytest.mark.openchannel('v1')

@@ -322,36 +322,6 @@ struct command_result *json_offer(struct command *cmd,
 
 	offinfo->offer = offer = tlv_offer_new(offinfo);
 
-	/* "issuer" used to be called "vendor" */
-	if (deprecated_apis
-	    && params
-	    && params->type == JSMN_OBJECT
-	    && json_get_member(buffer, params, "vendor")) {
-		if (!param(cmd, buffer, params,
-			   p_req("amount", param_amount, offer),
-			   p_req("description", param_escaped_string, &desc),
-			   p_opt("vendor", param_escaped_string, &issuer),
-			   p_opt("label", param_escaped_string, &offinfo->label),
-			   p_opt("quantity_min", param_u64, &offer->quantity_min),
-			   p_opt("quantity_max", param_u64, &offer->quantity_max),
-			   p_opt("absolute_expiry", param_u64, &offer->absolute_expiry),
-			   p_opt("recurrence", param_recurrence, &offer->recurrence),
-			   p_opt("recurrence_base",
-				 param_recurrence_base,
-				 &offer->recurrence_base),
-			   p_opt("recurrence_paywindow",
-				 param_recurrence_paywindow,
-				 &offer->recurrence_paywindow),
-			   p_opt("recurrence_limit",
-				 param_number,
-				 &offer->recurrence_limit),
-			   p_opt_def("single_use", param_bool,
-				     &offinfo->single_use, false),
-			   NULL))
-			return command_param_failed();
-		goto after_params;
-	}
-
 	if (!param(cmd, buffer, params,
 		   p_req("amount", param_amount, offer),
 		   p_req("description", param_escaped_string, &desc),
@@ -376,7 +346,6 @@ struct command_result *json_offer(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-after_params:
 	if (!offers_enabled)
 		return command_fail(cmd, LIGHTNINGD,
 				    "experimental-offers not enabled");
@@ -466,24 +435,6 @@ struct command_result *json_offerout(struct command *cmd,
 
 	offer = tlv_offer_new(cmd);
 
-	/* "issuer" used to be called "vendor" */
-	if (deprecated_apis
-	    && params
-	    && params->type == JSMN_OBJECT
-	    && json_get_member(buffer, params, "vendor")) {
-		if (!param(cmd, buffer, params,
-			   p_req("amount", param_msat_or_any, offer),
-			   p_req("description", param_escaped_string, &desc),
-			   p_opt("vendor", param_escaped_string, &issuer),
-			   p_opt("label", param_escaped_string, &label),
-			   p_opt("absolute_expiry", param_u64, &offer->absolute_expiry),
-			   p_opt("refund_for", param_invoice_payment_hash, &offer->refund_for),
-			   /* FIXME: hints support! */
-			   NULL))
-			return command_param_failed();
-		goto after_params;
-	}
-
 	if (!param(cmd, buffer, params,
 		   p_req("amount", param_msat_or_any, offer),
 		   p_req("description", param_escaped_string, &desc),
@@ -495,7 +446,6 @@ struct command_result *json_offerout(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-after_params:
 	if (!offers_enabled)
 		return command_fail(cmd, LIGHTNINGD,
 				    "experimental-offers not enabled");

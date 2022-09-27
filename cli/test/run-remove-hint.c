@@ -125,7 +125,7 @@ int test_getpid(void)
 	return 9999;
 }
 
-static char *response = "{\"id\": \"lightning-cli-9999\", \"jsonrpc\": \"2.0\", \"result\": {\"channels\": [\"\n\", \"├477308sat    OUT/OURS ┼ IN/THEIRS   477308sat┤ SCID           FLAG ALIAS\", \"├──────────────────────┼──────────────────────┤ 580612x1826x0  [__] BLUEIRON-v0.7.2rc1\"], \"my_address\": \"02b78caed0f45120acc48efe867aa506e8ea60f0712a23303178471da0ca2213f5@hdco6sxkbisc7s5t.onion\", \"format-hint\": \"simple\", \"avail_in\": \"0.00477308500btc (USD $54.37)\", \"num_utxos\": 0, \"num_gossipers\": 1, \"channels_flags\": \"P:private O:offline\", \"avail_out\": \"0.00477308500btc (USD $54.37)\", \"utxo_amount\": \"0.00000000btc (USD $0.00)\", \"num_channels\": 1, \"num_connected\": 1}}\n\n";
+static char *response = "{\"id\": \"cli:test#9999\", \"jsonrpc\": \"2.0\", \"result\": {\"channels\": [\"\n\", \"├477308sat    OUT/OURS ┼ IN/THEIRS   477308sat┤ SCID           FLAG ALIAS\", \"├──────────────────────┼──────────────────────┤ 580612x1826x0  [__] BLUEIRON-v0.7.2rc1\"], \"my_address\": \"02b78caed0f45120acc48efe867aa506e8ea60f0712a23303178471da0ca2213f5@hdco6sxkbisc7s5t.onion\", \"format-hint\": \"simple\", \"avail_in\": \"0.00477308500btc (USD $54.37)\", \"num_utxos\": 0, \"num_gossipers\": 1, \"channels_flags\": \"P:private O:offline\", \"avail_out\": \"0.00477308500btc (USD $54.37)\", \"utxo_amount\": \"0.00000000btc (USD $0.00)\", \"num_channels\": 1, \"num_connected\": 1}}\n\n";
 static size_t response_off;
 
 ssize_t test_read(int fd UNUSED, void *buf, size_t len)

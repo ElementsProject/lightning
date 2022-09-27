@@ -92,6 +92,9 @@ WARN_UNUSED_RESULT bool amount_sat_scale(struct amount_sat *val,
 struct amount_msat amount_msat_div(struct amount_msat msat, u64 div);
 struct amount_sat amount_sat_div(struct amount_sat sat, u64 div);
 
+bool amount_sat_mul(struct amount_sat *res, struct amount_sat sat, u64 mul);
+bool amount_msat_mul(struct amount_msat *res, struct amount_msat msat, u64 mul);
+
 /* Is a == b? */
 bool amount_sat_eq(struct amount_sat a, struct amount_sat b);
 bool amount_msat_eq(struct amount_msat a, struct amount_msat b);

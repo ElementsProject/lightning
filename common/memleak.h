@@ -6,6 +6,7 @@
 #include <inttypes.h>
 
 struct htable;
+struct list_head;
 
 /**
  * memleak_init: Initialize memleak detection; you call this at the start!
@@ -64,54 +65,75 @@ void memleak_add_helper_(const tal_t *p, void (*cb)(struct htable *memtable,
 						    const tal_t *));
 
 /**
- * memleak_find_allocations:  allocate a htable with all tal objects;
+ * memleak_start:  allocate a htable with all tal objects
  * @ctx: the context to allocate the htable from
- * @exclude1: one tal pointer to exclude from adding (if non-NULL)
- * @exclude2: second tal pointer to exclude from adding (if non-NULL)
- *
- * Note that exclude1 and exclude2's tal children are also not added.
  */
-struct htable *memleak_find_allocations(const tal_t *ctx,
-					const void *exclude1,
-					const void *exclude2);
+struct htable *memleak_start(const tal_t *ctx);
 
 /**
- * memleak_remove_region - remove this region and anything it references
- * @memtable: the memtable create by memleak_find_allocations.
- * @p: the pointer to remove.
- * @bytelen: the bytes within it to scan for more pointers.
+ * memleak_ptr: this pointer is not a memleak.
+ * @memtable: the memtable create by memleak_start.
+ * @p: the pointer.
  *
- * This removes @p from the memtable, then looks for any tal pointers
- * inside between @p and @p + @bytelen and calls
- * memleak_remove_region() on those if not already removed.
+ * This tells memleak that @p (a tal allocation) is not a leak.  Returns
+ * true if it was in the memleak table (it will no longer be).
  */
-void memleak_remove_region(struct htable *memtable,
-			   const void *p, size_t bytelen);
+bool memleak_ptr(struct htable *memtable, const void *p);
 
 /**
- * memleak_remove_pointer - remove this pointer
- * @memtable: the memtable create by memleak_find_allocations.
- * @p: the pointer to remove.
+ * memleak_scan_obj - this tal object and anything it references are not leaks.
+ * @memtable: the memtable create by memleak_start.
+ * @obj: the tal pointer
  *
- * This removes @p from the memtable.
+ * This removes @obj from the memtable, then looks for any tal pointers
+ * inside @obj and calls memleak_scan_obj() on those if not already removed.
  */
-#define memleak_remove_pointer(memtable, p) \
-	memleak_remove_region((memtable), (p), 0)
+void memleak_scan_obj(struct htable *memtable, const void *obj);
 
-/* Helper to remove objects inside this htable (which is opaque to memleak). */
-void memleak_remove_htable(struct htable *memtable, const struct htable *ht);
+/**
+ * memleak_scan_list_head - this list is not a leak.
+ * @memtable: the memtable create by memleak_start.
+ * @l: the list_head pointer
+ *
+ * This removes @l from the memtable, and any elements in the list.  Usually
+ * used for file-scope linked lists.
+ */
+void memleak_scan_list_head(struct htable *memtable, const struct list_head *l);
 
-/* Helper to remove objects inside this uintmap (which is opaque to memleak). */
-#define memleak_remove_uintmap(memtable, umap)		\
-	memleak_remove_intmap_(memtable, uintmap_unwrap_(umap))
+/**
+ * memleak_scan_region - scan a non-tal allocation for references.
+ * @memtable: the memtable create by memleak_start.
+ * @p: the tal pointer
+ * @len: the length in bytes.
+ *
+ * Sometimes we have a stack or file-scope object which contains pointers.
+ */
+void memleak_scan_region(struct htable *memtable, const void *p, size_t len);
+
+/* Objects inside this htable (which is opaque to memleak) are not leaks. */
+void memleak_scan_htable(struct htable *memtable, const struct htable *ht);
+
+/* Objects inside this uintmap (which is opaque to memleak) are not leaks. */
+#define memleak_scan_uintmap(memtable, umap)		\
+	memleak_scan_intmap_(memtable, uintmap_unwrap_(umap))
 
 struct intmap;
-void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m);
+void memleak_scan_intmap_(struct htable *memtable, const struct intmap *m);
 
-/* Remove any pointers inside this strmap (which is opaque to memleak). */
-#define memleak_remove_strmap(memtable, strmap) \
-	memleak_remove_strmap_((memtable), tcon_unwrap(strmap))
-void memleak_remove_strmap_(struct htable *memtable, const struct strmap *m);
+/* Objects inside this strmap (which is opaque to memleak) are not leaks. */
+#define memleak_scan_strmap(memtable, strmap) \
+	memleak_scan_strmap_((memtable), tcon_unwrap(strmap))
+void memleak_scan_strmap_(struct htable *memtable, const struct strmap *m);
+
+/**
+ * memleak_ignore_children - ignore all this tal object's children.
+ * @memtable: the memtable created by memleak_start
+ * @p: the tal pointer.
+ *
+ * This is equivalent to calling memleak_ptr() on every child of @p
+ * recursively.  This is a big hammer, so be careful!
+ */
+void memleak_ignore_children(struct htable *memtable, const void *p);
 
 /**
  * memleak_get: get (and remove) a leak from memtable, or NULL

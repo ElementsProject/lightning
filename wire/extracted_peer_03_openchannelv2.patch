@@ -42,9 +42,9 @@
  msgdata,open_channel,chain_hash,chain_hash,
  msgdata,open_channel,temporary_channel_id,byte,32
 @@ -86,6 +116,56 @@
- msgtype,funding_locked,36
- msgdata,funding_locked,channel_id,channel_id,
- msgdata,funding_locked,next_per_commitment_point,point,
+ msgdata,channel_ready,tlvs,channel_ready_tlvs,
+ tlvtype,channel_ready_tlvs,short_channel_id,1
+ tlvdata,channel_ready_tlvs,short_channel_id,alias,short_channel_id,
 +msgtype,open_channel2,64
 +msgdata,open_channel2,chain_hash,chain_hash,
 +msgdata,open_channel2,channel_id,channel_id,

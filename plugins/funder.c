@@ -1084,8 +1084,8 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 #if DEVELOPER
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
-	memleak_remove_region(memtable, &pending_opens, sizeof(pending_opens));
-	memleak_remove_region(memtable, current_policy, sizeof(*current_policy));
+	memleak_scan_list_head(memtable, &pending_opens);
+	memleak_scan_obj(memtable, current_policy);
 }
 #endif
 

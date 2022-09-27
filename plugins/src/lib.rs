@@ -1,6 +1,7 @@
 use crate::codec::{JsonCodec, JsonRpcCodec};
 pub use anyhow::{anyhow, Context};
 use futures::sink::SinkExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
 use messages::Configuration;
@@ -13,6 +14,7 @@ use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
+use options::ConfigOption;
 
 pub mod codec;
 pub mod logging;
@@ -23,7 +25,6 @@ extern crate serde_json;
 
 pub mod options;
 
-use options::ConfigOption;
 
 /// Need to tell us about something that went wrong? Use this error
 /// type to do that. Use this alias to be safe from future changes in
@@ -38,17 +39,66 @@ where
     O: Send + AsyncWrite + Unpin,
     S: Clone + Send,
 {
-    state: S,
-
     input: Option<I>,
     output: Option<O>,
 
     hooks: HashMap<String, Hook<S>>,
     options: Vec<ConfigOption>,
-    configuration: Option<Configuration>,
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     dynamic: bool,
+}
+
+/// A plugin that has registered with the lightning daemon, and gotten
+/// its options filled, however has not yet acknowledged the `init`
+/// message. This is a mid-state allowing a plugin to disable itself,
+/// based on the options.
+pub struct ConfiguredPlugin<S, I, O>
+where
+    S: Clone + Send,
+{
+    init_id: serde_json::Value,
+    input: FramedRead<I, JsonRpcCodec>,
+    output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
+    options: Vec<ConfigOption>,
+    configuration: Configuration,
+    rpcmethods: HashMap<String, AsyncCallback<S>>,
+    hooks: HashMap<String, AsyncCallback<S>>,
+    subscriptions: HashMap<String, AsyncNotificationCallback<S>>,
+}
+
+/// The [PluginDriver] is used to run the IO loop, reading messages
+/// from the Lightning daemon, dispatching calls and notifications to
+/// the plugin, and returning responses to the the daemon. We also use
+/// it to handle spontaneous messages like Notifications and logging
+/// events.
+struct PluginDriver<S>
+where
+    S: Send + Clone,
+{
+    plugin: Plugin<S>,
+    rpcmethods: HashMap<String, AsyncCallback<S>>,
+
+    #[allow(dead_code)] // Unused until we fill in the Hook structs.
+    hooks: HashMap<String, AsyncCallback<S>>,
+    subscriptions: HashMap<String, AsyncNotificationCallback<S>>,
+}
+
+#[derive(Clone)]
+pub struct Plugin<S>
+where
+    S: Clone + Send,
+{
+    /// The state gets cloned for each request
+    state: S,
+    /// "options" field of "init" message sent by cln
+    options: Vec<ConfigOption>,
+    /// "configuration" field of "init" message sent by cln
+    configuration: Configuration,
+    /// A signal that allows us to wait on the plugin's shutdown.
+    wait_handle: tokio::sync::broadcast::Sender<()>,
+
+    sender: tokio::sync::mpsc::Sender<serde_json::Value>,
 }
 
 impl<S, I, O> Builder<S, I, O>
@@ -57,15 +107,13 @@ where
     S: Clone + Sync + Send + Clone + 'static,
     I: AsyncRead + Send + Unpin + 'static,
 {
-    pub fn new(state: S, input: I, output: O) -> Self {
+    pub fn new(input: I, output: O) -> Self {
         Self {
-            state,
             input: Some(input),
             output: Some(output),
             hooks: HashMap::new(),
             subscriptions: HashMap::new(),
             options: vec![],
-            configuration: None,
             rpcmethods: HashMap::new(),
             dynamic: false,
         }
@@ -91,7 +139,7 @@ where
     ///     Ok(())
     /// }
     ///
-    /// let b = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
+    /// let b = Builder::new(tokio::io::stdin(), tokio::io::stdout())
     ///     .subscribe("connect", connect_handler);
     /// ```
     pub fn subscribe<C, F>(mut self, topic: &str, callback: C) -> Builder<S, I, O>
@@ -195,10 +243,9 @@ where
                 ))
             }
         };
-        let init_id = match input.next().await {
+        let (init_id, configuration) = match input.next().await {
             Some(Ok(messages::JsonRpc::Request(id, messages::Request::Init(m)))) => {
-                self.handle_init(m)?;
-                id
+                (id, self.handle_init(m)?)
             }
 
             Some(o) => return Err(anyhow!("Got unexpected message {:?} from lightningd", o)),
@@ -210,26 +257,14 @@ where
             }
         };
 
-        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
-
-        // An MPSC pair used by anything that needs to send messages
-        // to the main daemon.
-        let (sender, receiver) = tokio::sync::mpsc::channel(4);
-        let plugin = Plugin {
-            state: self.state,
-            options: self.options,
-            configuration: self
-                .configuration
-                .ok_or(anyhow!("Plugin configuration missing"))?,
-            wait_handle,
-            sender,
-        };
-
         // TODO Split the two hashmaps once we fill in the hook
         // payload structs in messages.rs
         let mut rpcmethods: HashMap<String, AsyncCallback<S>> =
             HashMap::from_iter(self.rpcmethods.drain().map(|(k, v)| (k, v.callback)));
         rpcmethods.extend(self.hooks.drain().map(|(k, v)| (k, v.callback)));
+
+        let subscriptions =
+            HashMap::from_iter(self.subscriptions.drain().map(|(k, v)| (k, v.callback)));
 
         // Leave the `init` reply pending, so we can disable based on
         // the options if required.
@@ -238,16 +273,11 @@ where
             init_id,
             input,
             output,
-            receiver,
-            driver: PluginDriver {
-                plugin: plugin.clone(),
-                rpcmethods,
-                hooks: HashMap::new(),
-                subscriptions: HashMap::from_iter(
-                    self.subscriptions.drain().map(|(k, v)| (k, v.callback)),
-                ),
-            },
-            plugin,
+            rpcmethods,
+            subscriptions,
+            options: self.options,
+            configuration,
+            hooks: HashMap::new(),
         }))
     }
 
@@ -261,9 +291,9 @@ where
     /// `Plugin` instance and return `None` instead. This signals that
     /// we should exit, and not continue running. `start()` returns in
     /// order to allow user code to perform cleanup if necessary.
-    pub async fn start(self) -> Result<Option<Plugin<S>>, anyhow::Error> {
+    pub async fn start(self, state: S) -> Result<Option<Plugin<S>>, anyhow::Error> {
         if let Some(cp) = self.configure().await? {
-            Ok(Some(cp.start().await?))
+            Ok(Some(cp.start(state).await?))
         } else {
             Ok(None)
         }
@@ -292,7 +322,7 @@ where
         }
     }
 
-    fn handle_init(&mut self, call: messages::InitCall) -> Result<messages::InitResponse, Error> {
+    fn handle_init(&mut self, call: messages::InitCall) -> Result<Configuration, Error> {
         use options::Value as OValue;
         use serde_json::Value as JValue;
 
@@ -312,9 +342,7 @@ where
             }
         }
 
-        self.configuration = Some(call.configuration);
-
-        Ok(messages::InitResponse::default())
+        Ok(call.configuration)
     }
 }
 
@@ -356,39 +384,6 @@ where
     callback: AsyncCallback<S>,
 }
 
-/// A plugin that has registered with the lightning daemon, and gotten
-/// its options filled, however has not yet acknowledged the `init`
-/// message. This is a mid-state allowing a plugin to disable itself,
-/// based on the options.
-pub struct ConfiguredPlugin<S, I, O>
-where
-    S: Clone + Send,
-{
-    init_id: usize,
-    input: FramedRead<I, JsonRpcCodec>,
-    output: Arc<Mutex<FramedWrite<O, JsonCodec>>>,
-    plugin: Plugin<S>,
-    driver: PluginDriver<S>,
-    receiver: tokio::sync::mpsc::Receiver<serde_json::Value>,
-}
-
-#[derive(Clone)]
-pub struct Plugin<S>
-where
-    S: Clone + Send,
-{
-    /// The state gets cloned for each request
-    state: S,
-    /// "options" field of "init" message sent by cln
-    options: Vec<ConfigOption>,
-    /// "configuration" field of "init" message sent by cln
-    configuration: Configuration,
-    /// A signal that allows us to wait on the plugin's shutdown.
-    wait_handle: tokio::sync::broadcast::Sender<()>,
-
-    sender: tokio::sync::mpsc::Sender<serde_json::Value>,
-}
-
 impl<S> Plugin<S>
 where
     S: Clone + Send,
@@ -409,12 +404,30 @@ where
     O: Send + AsyncWrite + Unpin + 'static,
 {
     #[allow(unused_mut)]
-    pub async fn start(mut self) -> Result<Plugin<S>, anyhow::Error> {
-        let driver = self.driver;
-        let plugin = self.plugin;
+    pub async fn start(mut self, state: S) -> Result<Plugin<S>, anyhow::Error> {
         let output = self.output;
         let input = self.input;
-        let receiver = self.receiver; // Now reply to the `init` message that `configure` left pending.
+        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+
+        // An MPSC pair used by anything that needs to send messages
+        // to the main daemon.
+        let (sender, receiver) = tokio::sync::mpsc::channel(4);
+
+        let plugin = Plugin {
+            state,
+            options: self.options,
+            configuration: self.configuration,
+            wait_handle,
+            sender,
+        };
+
+        let driver = PluginDriver {
+            plugin: plugin.clone(),
+            rpcmethods: self.rpcmethods,
+            hooks: self.hooks,
+            subscriptions: self.subscriptions,
+        };
+
         output
             .lock()
             .await
@@ -465,28 +478,14 @@ where
     }
 
     pub fn option(&self, name: &str) -> Option<options::Value> {
-        self.plugin.option(name)
+        self.options
+            .iter()
+            .filter(|o| o.name() == name)
+            .next()
+            .map(|co| co.value.clone().unwrap_or(co.default().clone()))
     }
 }
 
-/// The [PluginDriver] is used to run the IO loop, reading messages
-/// from the Lightning daemon, dispatching calls and notifications to
-/// the plugin, and returning responses to the the daemon. We also use
-/// it to handle spontaneous messages like Notifications and logging
-/// events.
-struct PluginDriver<S>
-where
-    S: Send + Clone,
-{
-    plugin: Plugin<S>,
-    rpcmethods: HashMap<String, AsyncCallback<S>>,
-
-    #[allow(dead_code)] // Unused until we fill in the Hook structs.
-    hooks: HashMap<String, AsyncCallback<S>>,
-    subscriptions: HashMap<String, AsyncNotificationCallback<S>>,
-}
-
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 impl<S> PluginDriver<S>
 where
     S: Send + Clone,
@@ -543,7 +542,7 @@ where
                         self.dispatch_notification(n, plugin).await
                     }
                     messages::JsonRpc::CustomRequest(id, p) => {
-                        match self.dispatch_custom_request(id, p, plugin).await {
+                        match self.dispatch_custom_request(id.clone(), p, plugin).await {
                             Ok(v) => plugin
                                 .sender
                                 .send(json!({
@@ -575,7 +574,7 @@ where
     }
 
     async fn dispatch_request(
-        _id: usize,
+        _id: serde_json::Value,
         _request: messages::Request,
         _plugin: &Plugin<S>,
     ) -> Result<(), Error> {
@@ -595,7 +594,7 @@ where
 
     async fn dispatch_custom_request(
         &self,
-        _id: usize,
+        _id: serde_json::Value,
         request: serde_json::Value,
         plugin: &Plugin<S>,
     ) -> Result<serde_json::Value, Error> {
@@ -688,7 +687,8 @@ mod test {
 
     #[tokio::test]
     async fn init() {
-        let builder = Builder::new((), tokio::io::stdin(), tokio::io::stdout());
-        let _ = builder.start();
+	let state = ();
+        let builder = Builder::new(tokio::io::stdin(), tokio::io::stdout());
+        let _ = builder.start(state);
     }
 }

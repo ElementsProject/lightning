@@ -348,9 +348,9 @@ static void handle_onchain_broadcast_tx(struct channel *channel,
 	/* If the onchaind signals this as RBF-able, then we also
 	 * set allowhighfees, as the transaction may be RBFed into
 	 * high feerates as protection against the MAD-HTLC attack.  */
-	broadcast_tx_ahf(channel->peer->ld->topology, channel,
-			 tx, is_rbf,
-			 is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL);
+	broadcast_tx(channel->peer->ld->topology, channel,
+		     tx, NULL, is_rbf,
+		     is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL);
 }
 
 static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
@@ -622,10 +622,11 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	if (channel->closer != NUM_SIDES)
 		reason = REASON_UNKNOWN;  /* will use last cause as reason */
 
-	channel_fail_permanent(channel, reason, "Funding transaction spent");
+	channel_fail_permanent(channel, reason,
+			       "Funding transaction spent");
 
 	/* If we haven't posted the open event yet, post an open */
-	if (!channel->scid || !channel->remote_funding_locked) {
+	if (!channel->scid || !channel->remote_channel_ready) {
 		u32 blkh;
 		/* Blockheight will be zero if it's not in chain */
 		blkh = wallet_transaction_height(channel->peer->ld->wallet,

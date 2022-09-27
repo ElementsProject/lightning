@@ -1196,10 +1196,7 @@ force_payer_secret(struct command *cmd,
 			   "Could not remarshall invreq %s", tal_hex(tmpctx, msg));
 
 	merkle_tlv(sent->invreq->fields, &merkle);
-	if (deprecated_apis)
-		sighash_from_merkle("invoice_request", "payer_signature", &merkle, &sha);
-	else
-		sighash_from_merkle("invoice_request", "signature", &merkle, &sha);
+	sighash_from_merkle("invoice_request", "signature", &merkle, &sha);
 
 	sent->invreq->signature = tal(invreq, struct bip340sig);
 	if (!secp256k1_schnorrsig_sign32(secp256k1_ctx,

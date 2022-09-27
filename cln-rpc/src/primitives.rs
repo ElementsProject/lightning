@@ -1,9 +1,14 @@
+use std::fmt::{Display, Formatter};
 use anyhow::Context;
 use anyhow::{anyhow, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 use std::str::FromStr;
 use std::string::ToString;
+use bitcoin_hashes::Hash as BitcoinHash;
+
+pub use bitcoin_hashes::sha256::Hash as Sha256;
+pub use secp256k1::PublicKey;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
@@ -73,58 +78,27 @@ impl Amount {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Pubkey([u8; 33]);
+impl std::ops::Add for Amount {
+    type Output = Amount;
 
-impl Serialize for Pubkey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&hex::encode(&self.0))
+    fn add(self, rhs: Self) -> Self::Output {
+        Amount {
+            msat: self.msat + rhs.msat
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for Pubkey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(Self::from_str(&s).map_err(|e| Error::custom(e.to_string()))?)
+impl std::ops::Sub for Amount {
+    type Output = Amount;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Amount {
+            msat: self.msat - rhs.msat
+        }
     }
 }
 
-impl FromStr for Pubkey {
-    type Err = crate::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let raw =
-            hex::decode(&s).with_context(|| format!("{} is not a valid hex-encoded pubkey", s))?;
-
-        Ok(Pubkey(raw.try_into().map_err(|_| {
-            anyhow!("could not convert {} into pubkey", s)
-        })?))
-    }
-}
-impl ToString for Pubkey {
-    fn to_string(&self) -> String {
-        hex::encode(self.0)
-    }
-}
-impl Pubkey {
-    pub fn from_slice(data: &[u8]) -> Result<Pubkey, crate::Error> {
-        Ok(Pubkey(
-            data.try_into().with_context(|| "Not a valid pubkey")?,
-        ))
-    }
-
-    pub fn to_vec(&self) -> Vec<u8> {
-        self.0.to_vec()
-    }
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct ShortChannelId(u64);
 
 impl Serialize for ShortChannelId {
@@ -180,7 +154,7 @@ impl ShortChannelId {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Secret([u8; 32]);
 
 impl TryFrom<Vec<u8>> for Secret {
@@ -223,51 +197,9 @@ impl Secret {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Sha256([u8; 32]);
-impl Sha256 {
-    pub fn to_vec(self) -> Vec<u8> {
-        self.0.to_vec()
-    }
-}
-
-impl TryFrom<Vec<u8>> for Sha256 {
-    type Error = crate::Error;
-    fn try_from(v: Vec<u8>) -> Result<Self, crate::Error> {
-        if v.len() != 32 {
-            Err(anyhow!("Unexpected hash length: {}", hex::encode(v)))
-        } else {
-            Ok(Sha256(v.try_into().unwrap()))
-        }
-    }
-}
-
-impl Serialize for Sha256 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&hex::encode(&self.0))
-    }
-}
-
-impl<'de> Deserialize<'de> for Sha256 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        use serde::de::Error;
-        let s: String = Deserialize::deserialize(deserializer)?;
-        let h = hex::decode(s).map_err(|_| Error::custom("not a valid hex string"))?;
-        Ok(Sha256(h.try_into().map_err(|_| {
-            Error::custom("not a valid hex-encoded hash")
-        })?))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Outpoint {
-    pub txid: Vec<u8>,
+    pub txid: Sha256,
     pub outnum: u32,
 }
 
@@ -293,8 +225,11 @@ impl<'de> Deserialize<'de> for Outpoint {
             return Err(Error::custom("not a valid txid:output tuple"));
         }
 
-        let txid =
+        let txid_bytes =
             hex::decode(splits[0]).map_err(|_| Error::custom("not a valid hex encoded txid"))?;
+
+        let txid= Sha256::from_slice(&txid_bytes).map_err(|e| Error::custom(format!("Invalid TxId: {}", e)))?;
+
         let outnum: u32 = splits[1]
             .parse()
             .map_err(|e| Error::custom(format!("{} is not a valid number: {}", s, e)))?;
@@ -647,7 +582,7 @@ impl Serialize for OutputDesc {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Routehop {
-    pub id: Pubkey,
+    pub id: PublicKey,
     pub scid: ShortChannelId,
     pub feebase: Amount,
     pub feeprop: u32,
@@ -671,3 +606,15 @@ pub struct RpcError {
     pub code: Option<i32>,
     pub message: String,
 }
+
+impl Display for RpcError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(code) = self.code {
+            write!(f, "Error code {}: {}", code, self.message)
+        } else {
+            write!(f, "Error: {}", self.message)
+        }
+    }
+}
+
+impl std::error::Error for RpcError {}

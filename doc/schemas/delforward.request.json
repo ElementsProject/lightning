@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [],
+  "properties": {
+    "in_channel": {
+      "type": "short_channel_id"
+    },
+    "in_htlc_id": {
+      "type": "u64"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "settled",
+        "local_failed",
+        "failed"
+      ]
+    }
+  }
+}
