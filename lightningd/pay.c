@@ -1168,7 +1168,7 @@ send_payment(struct lightningd *ld,
 		ret = pubkey_from_node_id(&pubkey, &ids[i]);
 		assert(ret);
 
-		sphinx_add_hop(path, &pubkey,
+		sphinx_add_hop_has_length(path, &pubkey,
 			       take(onion_nonfinal_hop(NULL,
 					&route[i + 1].scid,
 					route[i + 1].amount,
@@ -1200,7 +1200,7 @@ send_payment(struct lightningd *ld,
 				    "Destination does not support"
 				    " payment_secret");
 	}
-	sphinx_add_hop(path, &pubkey, onion);
+	sphinx_add_hop_has_length(path, &pubkey, onion);
 
 	/* Copy channels used along the route. */
 	channels = tal_arr(tmpctx, struct short_channel_id, n_hops);
@@ -1760,8 +1760,12 @@ static struct command_result *json_createonion(struct command *cmd,
 	else
 		sp = sphinx_path_new_with_key(cmd, assocdata, session_key);
 
-	for (size_t i=0; i<tal_count(hops); i++)
-		sphinx_add_hop(sp, &hops[i].pubkey, hops[i].raw_payload);
+	for (size_t i=0; i<tal_count(hops); i++) {
+		if (!sphinx_add_hop_has_length(sp, &hops[i].pubkey, hops[i].raw_payload))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "hops[%zi] payload is not prefixed with length!",
+					    i);
+	}
 
 	if (sphinx_path_payloads_size(sp) > *packet_size)
 		return command_fail(

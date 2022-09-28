@@ -3297,19 +3297,19 @@ def test_createonion_limits(node_factory):
     hops = [{
         # privkey: 41bfd2660762506c9933ade59f1debf7e6495b10c14a92dbcd2d623da2507d3d
         "pubkey": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-        "payload": "00" * 228
+        "payload": bytes([227] + [0] * 227).hex(),
     }, {
         "pubkey": "0324653eac434488002cc06bbfb7f10fe18991e35f9fe4302dbea6d2353dc0ab1c",
-        "payload": "00" * 228
+        "payload": bytes([227] + [0] * 227).hex(),
     }, {
         "pubkey": "027f31ebc5462c1fdce1b737ecff52d37d75dea43ce11c74d25aa297165faa2007",
-        "payload": "00" * 228
+        "payload": bytes([227] + [0] * 227).hex(),
     }, {
         "pubkey": "032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991",
-        "payload": "00" * 228
+        "payload": bytes([227] + [0] * 227).hex(),
     }, {
         "pubkey": "02edabbd16b41c8371b92ef2f04c1185b4f03b6dcd52ba9b78d9d7c89c8f221145",
-        "payload": "00" * 228
+        "payload": bytes([227] + [0] * 227).hex(),
     }]
 
     # This should success since it's right at the edge
@@ -3317,7 +3317,7 @@ def test_createonion_limits(node_factory):
 
     # This one should fail however
     with pytest.raises(RpcError, match=r'Payloads exceed maximum onion packet size.'):
-        hops[0]['payload'] += '01'
+        hops[0]['payload'] = bytes([228] + [0] * 228).hex()
         l1.rpc.createonion(hops=hops, assocdata="BB" * 32)
 
     # But with a larger onion, it will work!

@@ -281,7 +281,7 @@ static struct command_result *json_sendonionmessage2(struct command *cmd,
 	/* Create an onion which encodes this. */
 	sphinx_path = sphinx_path_new(cmd, NULL);
 	for (size_t i = 0; i < tal_count(hops); i++)
-		sphinx_add_modern_hop(sphinx_path, &hops[i].node, hops[i].tlv);
+		sphinx_add_hop(sphinx_path, &hops[i].node, hops[i].tlv);
 
 	/* BOLT-onion-message #4:
 	 * - SHOULD set `len` to 1366 or 32834.

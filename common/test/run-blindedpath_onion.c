@@ -204,8 +204,7 @@ int main(int argc, char *argv[])
 		payload->encrypted_data_tlv = enctlv[i];
 		onionmsg_payload[i] = tal_arr(tmpctx, u8, 0);
 		towire_tlv_onionmsg_payload(&onionmsg_payload[i], payload);
-		sphinx_add_modern_hop(sphinx_path, &alias[i],
-				      onionmsg_payload[i]);
+		sphinx_add_hop(sphinx_path, &alias[i], onionmsg_payload[i]);
 	}
 	op = create_onionpacket(tmpctx, sphinx_path, ROUTING_INFO_SIZE,
 				&path_secrets);

@@ -4,6 +4,7 @@
 #include <ccan/mem/mem.h>
 #include <common/onion.h>
 #include <common/onionreply.h>
+#include <common/overflows.h>
 #include <common/sphinx.h>
 
 
@@ -103,17 +104,29 @@ size_t sphinx_path_payloads_size(const struct sphinx_path *path)
 	return size;
 }
 
-void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-		    const u8 *payload TAKES)
+bool sphinx_add_hop_has_length(struct sphinx_path *path, const struct pubkey *pubkey,
+			       const u8 *payload TAKES)
 {
 	struct sphinx_hop sp;
+	bigsize_t lenlen, prepended_len;
+
+	/* You promised size was prepended! */
+	if (tal_bytelen(payload) == 0)
+		return false;
+	lenlen = bigsize_get(payload, tal_bytelen(payload), &prepended_len);
+	if (add_overflows_u64(lenlen, prepended_len))
+		return false;
+	if (lenlen + prepended_len != tal_bytelen(payload))
+		return false;
+
 	sp.raw_payload = tal_dup_talarr(path, u8, payload);
 	sp.pubkey = *pubkey;
 	tal_arr_expand(&path->hops, sp);
+	return true;
 }
 
-void sphinx_add_modern_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-			   const u8 *payload TAKES)
+void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		    const u8 *payload TAKES)
 {
 	u8 *with_len = tal_arr(NULL, u8, 0);
 	size_t len = tal_bytelen(payload);
@@ -122,7 +135,8 @@ void sphinx_add_modern_hop(struct sphinx_path *path, const struct pubkey *pubkey
 	if (taken(payload))
 		tal_free(payload);
 
-	sphinx_add_hop(path, pubkey, take(with_len));
+	if (!sphinx_add_hop_has_length(path, pubkey, take(with_len)))
+		abort();
 }
 
 /* Small helper to append data to a buffer and update the position
