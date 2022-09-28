@@ -38,6 +38,9 @@ struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }
+/* Generated stub for fromwire_bigsize */
+bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
 /* Generated stub for fromwire_bool */
 bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bool called!\n"); abort(); }
@@ -47,6 +50,9 @@ void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_hmac */
 void fromwire_hmac(const u8 **ptr UNNEEDED, size_t *max UNNEEDED, struct hmac *hmac UNNEEDED)
 { fprintf(stderr, "fromwire_hmac called!\n"); abort(); }
+/* Generated stub for fromwire_pad */
+void fromwire_pad(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
+{ fprintf(stderr, "fromwire_pad called!\n"); abort(); }
 /* Generated stub for fromwire_secp256k1_ecdsa_signature */
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 					secp256k1_ecdsa_signature *signature UNNEEDED)
@@ -88,12 +94,6 @@ void hmac_update(crypto_auth_hmacsha256_state *state UNNEEDED,
 /* Generated stub for new_onionreply */
 struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED)
 { fprintf(stderr, "new_onionreply called!\n"); abort(); }
-/* Generated stub for onion_payload_length */
-size_t onion_payload_length(const u8 *raw_payload UNNEEDED, size_t len UNNEEDED,
-			    bool has_realm UNNEEDED,
-			    bool *valid UNNEEDED,
-			    enum onion_payload_type *type UNNEEDED)
-{ fprintf(stderr, "onion_payload_length called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }

@@ -485,21 +485,6 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 		db_commit_transaction(db);
 }
 
-static enum forward_style get_onion_style(const struct htlc_in *hin)
-{
-	/* This happens on reload from db; don't try too hard! */
-	if (!hin->payload)
-		return FORWARD_STYLE_UNKNOWN;
-
-	switch ((int)hin->payload->type) {
-	case 0:
-		return FORWARD_STYLE_LEGACY;
-	case ONION_TLV_PAYLOAD:
-		return FORWARD_STYLE_TLV;
-	}
-	abort();
-}
-
 /* This is where channeld gives us the HTLC id, and also reports if it
  * failed immediately. */
 static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNUSED,
@@ -539,7 +524,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			 * so set htlc field with NULL (db wants it to exist!) */
 			wallet_forwarded_payment_add(ld->wallet,
 					 hout->in,
-					 get_onion_style(hout->in),
+					 FORWARD_STYLE_TLV,
 					 channel_scid_or_local_alias(hout->key.channel), NULL,
 					 FORWARD_LOCAL_FAILED,
 						     fromwire_peektype(hout->failmsg));
@@ -713,7 +698,7 @@ static void forward_htlc(struct htlc_in *hin,
 	if (!next || !channel_active(next)) {
 		local_fail_in_htlc(hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
-					 hin, get_onion_style(hin),
+					 hin, FORWARD_STYLE_TLV,
 					 forward_scid, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 WIRE_UNKNOWN_NEXT_PEER);
@@ -812,7 +797,7 @@ static void forward_htlc(struct htlc_in *hin,
 fail:
 	local_fail_in_htlc(hin, failmsg);
 	wallet_forwarded_payment_add(ld->wallet,
-				 hin, get_onion_style(hin), forward_scid, hout,
+				 hin, FORWARD_STYLE_TLV, forward_scid, hout,
 				 FORWARD_LOCAL_FAILED,
 				 fromwire_peektype(failmsg));
 }
@@ -1060,11 +1045,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 
 	json_add_hex_talarr(s, "payload", rs->raw_payload);
 	if (p->payload) {
-		switch (p->payload->type) {
-		case ONION_TLV_PAYLOAD:
-			json_add_string(s, "type", "tlv");
-			break;
-		}
+		json_add_string(s, "type", "tlv");
 
 		if (p->payload->forward_channel)
 			json_add_short_channel_id(s, "short_channel_id",
@@ -1406,7 +1387,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	else if (hout->in) {
 		fulfill_htlc(hout->in, preimage);
 		wallet_forwarded_payment_add(ld->wallet, hout->in,
-					     get_onion_style(hout->in),
+					     FORWARD_STYLE_TLV,
 					     channel_scid_or_local_alias(hout->key.channel), hout,
 					     FORWARD_SETTLED, 0);
 	}
@@ -1534,7 +1515,7 @@ static bool peer_failed_our_htlc(struct channel *channel,
 
 	if (hout->in)
 		wallet_forwarded_payment_add(ld->wallet, hout->in,
-					     get_onion_style(hout->in),
+					     FORWARD_STYLE_TLV,
 					     channel_scid_or_local_alias(channel),
 					     hout, FORWARD_FAILED,
 					     hout->failmsg
@@ -1697,7 +1678,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		local_fail_in_htlc(hout->in,
 				   take(towire_permanent_channel_failure(NULL)));
 		wallet_forwarded_payment_add(hout->key.channel->peer->ld->wallet,
-					 hout->in, get_onion_style(hout->in),
+					 hout->in, FORWARD_STYLE_TLV,
 					 channel_scid_or_local_alias(channel), hout,
 					 FORWARD_LOCAL_FAILED,
 					 hout->failmsg
@@ -1864,7 +1845,7 @@ static bool update_out_htlc(struct channel *channel,
 
 		if (hout->in) {
 			wallet_forwarded_payment_add(ld->wallet, hout->in,
-						     get_onion_style(hout->in),
+						     FORWARD_STYLE_TLV,
 						     channel_scid_or_local_alias(channel), hout,
 						     FORWARD_OFFERED, 0);
 		}
