@@ -202,17 +202,19 @@ struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx,
 					     const struct secret *session_key);
 
 /**
- * Add a payload hop to the path.
+ * Add a payload hop to the path (already has length prepended).
+ *
+ * Fails if length actually isn't prepended!
  */
-void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-		    const u8 *payload TAKES);
+bool sphinx_add_hop_has_length(struct sphinx_path *path, const struct pubkey *pubkey,
+			       const u8 *payload TAKES);
 
 /**
  * Prepend length to payload and add: for onionmessage, any size is OK,
  * for HTLC onions tal_bytelen(payload) must be > 1.
  */
-void sphinx_add_modern_hop(struct sphinx_path *path, const struct pubkey *pubkey,
-			   const u8 *payload TAKES);
+void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+		    const u8 *payload TAKES);
 
 /**
  * Compute the size of the serialized payloads.

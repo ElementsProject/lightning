@@ -67,7 +67,7 @@ static void do_generate(int argc, char **argv,
 
 			if (!data)
 				errx(1, "bad hex after / in %s", argv[1 + i]);
-			sphinx_add_hop(sp, &path[i], data);
+			sphinx_add_hop_has_length(sp, &path[i], data);
 		} else {
 			struct short_channel_id scid;
 			struct amount_msat amt;
@@ -76,13 +76,13 @@ static void do_generate(int argc, char **argv,
 			memset(&scid, i, sizeof(scid));
 			amt = amount_msat(i);
 			if (i == num_hops - 1)
-				sphinx_add_hop(sp, &path[i],
+				sphinx_add_hop_has_length(sp, &path[i],
 					       take(onion_final_hop(NULL,
 								    amt, i, amt,
 								    NULL, NULL,
 								    NULL, NULL)));
 			else
-				sphinx_add_hop(sp, &path[i],
+				sphinx_add_hop_has_length(sp, &path[i],
 					       take(onion_nonfinal_hop(NULL,
 								       &scid,
 								       amt, i,
@@ -225,27 +225,13 @@ static void runtest(const char *filename)
 	/* Unpack the hops and build up the path */
 	hopstok = json_get_member(buffer, gentok, "hops");
 	json_for_each_arr(i, hop, hopstok) {
-		u8 *full;
-		size_t prepended;
-
 		payloadtok = json_get_member(buffer, hop, "payload");
 		typetok = json_get_member(buffer, hop, "type");
 		pubkeytok = json_get_member(buffer, hop, "pubkey");
 		payload = json_tok_bin_from_hex(ctx, buffer, payloadtok);
 		json_to_pubkey(buffer, pubkeytok, &pubkey);
-		if (!typetok || json_tok_streq(buffer, typetok, "legacy")) {
-			/* Legacy has a single 0 prepended as "realm" byte */
-			full = tal_arrz(ctx, u8, 33);
-			memcpy(full + 1, payload, tal_bytelen(payload));
-		} else {
-			/* TLV has length prepended */
-			full = tal_arr(ctx, u8, 0);
-			towire_bigsize(&full, tal_bytelen(payload));
-			prepended = tal_bytelen(full);
-			tal_resize(&full, prepended + tal_bytelen(payload));
-			memcpy(full + prepended, payload, tal_bytelen(payload));
-		}
-		sphinx_add_hop(path, &pubkey, full);
+		assert(json_tok_streq(buffer, typetok, "tlv"));
+		sphinx_add_hop(path, &pubkey, take(payload));
 	}
 	res = create_onionpacket(ctx, path, ROUTING_INFO_SIZE, &shared_secrets);
 	serialized = serialize_onionpacket(ctx, res);

@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 		max = tal_bytelen(payloads[i]);
 		len = fromwire_bigsize(&cursor, &max);
 		assert(len == max);
-		sphinx_add_modern_hop(sp, &k, take(tal_dup_arr(NULL, u8, cursor, max, 0)));
+		sphinx_add_hop(sp, &k, take(tal_dup_arr(NULL, u8, cursor, max, 0)));
 	}
 	assert(i == ARRAY_SIZE(payloads));
 

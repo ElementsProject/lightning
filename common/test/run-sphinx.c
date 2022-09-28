@@ -45,6 +45,9 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat UNNEEDED, const u
 /* Generated stub for amount_tx_fee */
 struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 { fprintf(stderr, "amount_tx_fee called!\n"); abort(); }
+/* Generated stub for bigsize_get */
+size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNNEEDED)
+{ fprintf(stderr, "bigsize_get called!\n"); abort(); }
 /* Generated stub for bigsize_put */
 size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
 { fprintf(stderr, "bigsize_put called!\n"); abort(); }
