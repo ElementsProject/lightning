@@ -111,57 +111,6 @@ u8 *onion_final_hop(const tal_t *ctx,
 	return make_tlv_hop(ctx, tlv);
 }
 
-/* Returns true if valid, and fills in type. */
-static bool pull_payload_length(const u8 **cursor,
-				size_t *max,
-				bool has_realm,
-				enum onion_payload_type *type,
-				size_t *len)
-{
-	/* *len will incorporate bytes we read from cursor */
-	const u8 *start = *cursor;
-
-	/* BOLT #4:
-	 *
-	 * The `length` field determines both the length and the format of the
-	 * `hop_payload` field; the following formats are defined:
-	 */
-	*len = fromwire_bigsize(cursor, max);
-	if (!cursor)
-		return false;
-
-	/* BOLT #4:
-	 * - `tlv_payload` format, identified by any length over `1`. In this
-	 *   case the `hop_payload_length` is equal to the numeric value of
-	 *   `length`.
-	 */
-	if (*len <= 1)
-		return false;
-
-	/* It's invalid if it claims to be too long! */
-	if (*len > *max)
-		return false;
-
-	if (type)
-		*type = ONION_TLV_PAYLOAD;
-	*len += (*cursor - start);
-	return true;
-}
-
-size_t onion_payload_length(const u8 *raw_payload, size_t len, bool has_realm,
-			    bool *valid,
-			    enum onion_payload_type *type)
-{
-	size_t max = len, payload_len;
-	*valid = pull_payload_length(&raw_payload, &max, has_realm, type, &payload_len);
-
-	/* If it's not valid, copy the entire thing. */
-	if (!*valid)
-		return len;
-
-	return payload_len;
-}
-
 #if EXPERIMENTAL_FEATURES
 static struct tlv_tlv_payload *decrypt_tlv(const tal_t *ctx,
 					   const struct secret *blinding_ss,
@@ -210,7 +159,14 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	size_t max = tal_bytelen(cursor), len;
 	struct tlv_tlv_payload *tlv;
 
-	if (!pull_payload_length(&cursor, &max, true, &p->type, &len)) {
+	/* BOLT-remove-legacy-onion #4:
+	 * 1. type: `hop_payloads`
+	 * 2. data:
+	 *    * [`bigsize`:`length`]
+	 *    * [`length*byte`:`payload`]
+	 */
+	len = fromwire_bigsize(&cursor, &max);
+	if (!cursor || len > max) {
 		*failtlvtype = 0;
 		*failtlvpos = tal_bytelen(rs->raw_payload);
 		goto fail_no_tlv;

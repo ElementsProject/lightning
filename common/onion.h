@@ -6,13 +6,7 @@
 
 struct route_step;
 
-enum onion_payload_type {
-	ONION_TLV_PAYLOAD = 1,
-};
-
 struct onion_payload {
-	enum onion_payload_type type;
-
 	struct amount_msat amt_to_forward;
 	u32 outgoing_cltv;
 	struct amount_msat *total_msat;
@@ -44,23 +38,6 @@ u8 *onion_final_hop(const tal_t *ctx,
 		    const u8 *enctlv,
 		    const struct secret *payment_secret,
 		    const u8 *payment_metadata);
-
-/**
- * onion_payload_length: measure payload length in decrypted onion.
- * @raw_payload: payload to look at.
- * @len: length of @raw_payload in bytes.
- * @has_realm: used for HTLCs, where first byte 0 is magical.
- * @valid: set to true if it is valid, false otherwise.
- * @type: if non-NULL, set to type of payload if *@valid is true.
- *
- * If @valid is set, there is room for the HMAC immediately following,
- * as the return value is <= ROUTING_INFO_SIZE - HMAC_SIZE.  Otherwise,
- * the return value is @len (i.e. the entire payload).
- */
-size_t onion_payload_length(const u8 *raw_payload, size_t len,
-			    bool has_realm,
-			    bool *valid,
-			    enum onion_payload_type *type);
 
 /**
  * onion_decode: decode payload from a decrypted onion.

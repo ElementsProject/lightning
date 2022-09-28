@@ -601,7 +601,8 @@ struct route_step *process_onionpacket(
 	u8 *paddedheader;
 	size_t payload_size;
 	bigsize_t shift_size;
-	bool valid;
+	const u8 *cursor;
+	size_t max;
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
@@ -624,23 +625,29 @@ struct route_step *process_onionpacket(
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 
-	payload_size = onion_payload_length(paddedheader,
-					    tal_bytelen(msg->routinginfo),
-					    has_realm,
-					    &valid, NULL);
+	/* Now, try to pull data out. */
+	cursor = paddedheader;
+	max = tal_bytelen(msg->routinginfo);
 
-	/* Can't decode?  Treat it as terminal. */
-	if (!valid) {
-		shift_size = payload_size;
-		memset(step->next->hmac.bytes, 0, sizeof(step->next->hmac.bytes));
-	} else {
-		assert(payload_size <= tal_bytelen(msg->routinginfo) - HMAC_SIZE);
-		/* Copy hmac */
-		shift_size = payload_size + HMAC_SIZE;
-		memcpy(step->next->hmac.bytes,
-		       paddedheader + payload_size, HMAC_SIZE);
-	}
-	step->raw_payload = tal_dup_arr(step, u8, paddedheader, payload_size, 0);
+	/* Any of these could fail, falling thru with cursor == NULL */
+	payload_size = fromwire_bigsize(&cursor, &max);
+	/* FIXME: raw_payload *includes* the length, which is redundant and
+	 * means we can't just ust fromwire_tal_arrn. */
+	fromwire_pad(&cursor, &max, payload_size);
+	if (cursor != NULL)
+		step->raw_payload = tal_dup_arr(step, u8, paddedheader,
+						cursor - paddedheader, 0);
+	fromwire_hmac(&cursor, &max, &step->next->hmac);
+
+	/* BOLT-remove-legacy-onion #4:
+	 * Since no `payload` TLV value can ever be shorter than 2 bytes, `length` values of 0 and 1 are
+	 * reserved.  (`0` indicated a legacy format no longer supported, and `1` is reserved for future
+	 * use). */
+	if (payload_size < 2 || !cursor)
+		return tal_free(step);
+
+	/* This includes length field and hmac */
+	shift_size = cursor - paddedheader;
 
 	/* Left shift the current payload out and make the remainder the new onion */
 	step->next->routinginfo = tal_dup_arr(step->next,

@@ -270,18 +270,12 @@ static void runtest(const char *filename)
 	decodetok = json_get_member(buffer, toks, "decode");
 
 	json_for_each_arr(i, hop, decodetok) {
-		bool valid;
-
 		hexprivkey = json_strdup(ctx, buffer, hop);
 		printf("Processing at hop %zu\n", i);
 		step = decode_with_privkey(ctx, serialized, hexprivkey, associated_data);
 		serialized = serialize_onionpacket(ctx, step->next);
 		if (!serialized)
 			errx(1, "Error serializing message.");
-		onion_payload_length(step->raw_payload,
-				     tal_bytelen(step->raw_payload),
-				     true, &valid, NULL);
-		assert(valid);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
 		printf("  Next onion: %s\n", tal_hex(ctx, serialized));
 		printf("  Next HMAC: %s\n",
