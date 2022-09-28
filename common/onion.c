@@ -131,40 +131,21 @@ static bool pull_payload_length(const u8 **cursor,
 		return false;
 
 	/* BOLT #4:
-	 * - Legacy `hop_data` format, identified by a single `0x00` byte for
-	 *   length. In this case the `hop_payload_length` is defined to be 32
-	 *   bytes.
-	 */
-	if (has_realm && *len == 0) {
-		if (type)
-			*type = ONION_V0_PAYLOAD;
-		assert(*cursor - start == 1);
-		*len = 1 + 32;
-		return true;
-	}
-
-	/* BOLT #4:
 	 * - `tlv_payload` format, identified by any length over `1`. In this
 	 *   case the `hop_payload_length` is equal to the numeric value of
 	 *   `length`.
 	 */
-	if (!has_realm || *len > 1) {
-		/* It's still invalid if it claims to be too long! */
-		if (has_realm) {
-			if (*len > ROUTING_INFO_SIZE - HMAC_SIZE)
-				return false;
-		} else {
-			if (*len > *max)
-				return false;
-		}
+	if (*len <= 1)
+		return false;
 
-		if (type)
-			*type = ONION_TLV_PAYLOAD;
-		*len += (*cursor - start);
-		return true;
-	}
+	/* It's invalid if it claims to be too long! */
+	if (*len > *max)
+		return false;
 
-	return false;
+	if (type)
+		*type = ONION_TLV_PAYLOAD;
+	*len += (*cursor - start);
+	return true;
 }
 
 size_t onion_payload_length(const u8 *raw_payload, size_t len, bool has_realm,
@@ -233,26 +214,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		*failtlvtype = 0;
 		*failtlvpos = tal_bytelen(rs->raw_payload);
 		goto fail_no_tlv;
-	}
-
-	/* Very limited legacy handling: forward only. */
-	if (p->type == ONION_V0_PAYLOAD && rs->nextcase == ONION_FORWARD) {
-		p->forward_channel = tal(p, struct short_channel_id);
-		fromwire_short_channel_id(&cursor, &max, p->forward_channel);
-		p->total_msat = NULL;
-		p->amt_to_forward = fromwire_amount_msat(&cursor, &max);
-		p->outgoing_cltv = fromwire_u32(&cursor, &max);
-		p->payment_secret = NULL;
-		p->payment_metadata = NULL;
-		p->blinding = NULL;
-		/* We can't handle blinding with a legacy payload */
-		if (blinding)
-			return tal_free(p);
-		/* If they somehow got an invalid onion this far, fail. */
-		if (!cursor)
-			return tal_free(p);
-		p->tlv = NULL;
-		return p;
 	}
 
 	/* We do this manually so we can accept extra types, and get

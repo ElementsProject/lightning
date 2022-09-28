@@ -7,7 +7,6 @@
 struct route_step;
 
 enum onion_payload_type {
-	ONION_V0_PAYLOAD = 0,
 	ONION_TLV_PAYLOAD = 1,
 };
 

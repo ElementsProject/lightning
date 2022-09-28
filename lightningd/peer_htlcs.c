@@ -491,8 +491,8 @@ static enum forward_style get_onion_style(const struct htlc_in *hin)
 	if (!hin->payload)
 		return FORWARD_STYLE_UNKNOWN;
 
-	switch (hin->payload->type) {
-	case ONION_V0_PAYLOAD:
+	switch ((int)hin->payload->type) {
+	case 0:
 		return FORWARD_STYLE_LEGACY;
 	case ONION_TLV_PAYLOAD:
 		return FORWARD_STYLE_TLV;
@@ -1061,10 +1061,6 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_add_hex_talarr(s, "payload", rs->raw_payload);
 	if (p->payload) {
 		switch (p->payload->type) {
-		case ONION_V0_PAYLOAD:
-			json_add_string(s, "type", "legacy");
-			break;
-
 		case ONION_TLV_PAYLOAD:
 			json_add_string(s, "type", "tlv");
 			break;
