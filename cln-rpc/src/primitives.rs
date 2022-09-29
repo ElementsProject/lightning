@@ -197,6 +197,12 @@ impl Secret {
     }
 }
 
+impl From<Secret> for [u8; 32] {
+    fn from(s: Secret) -> [u8; 32] {
+        s.0
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Outpoint {
     pub txid: Sha256,
