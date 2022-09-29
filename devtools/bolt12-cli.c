@@ -461,13 +461,16 @@ int main(int argc, char *argv[])
 	char *hrp;
 	u8 *data;
 	char *fail;
+	bool to_hex = false;
 
 	common_setup(argv[0]);
 	deprecated_apis = true;
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<decode> <bolt12>", "Show this message");
+			   "decode|decodehex <bolt12>\n"
+			   "encodehex <hrp> <hexstr>...",
+			   "Show this message");
 	opt_register_version();
 
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
@@ -478,8 +481,37 @@ int main(int argc, char *argv[])
 		errx(ERROR_USAGE, "Need at least one argument\n%s",
 		     opt_usage(argv[0], NULL));
 
-	if (!streq(method, "decode"))
-		errx(ERROR_USAGE, "Need decode argument\n%s",
+	if (streq(method, "encodehex")) {
+		char *nospaces;
+
+		if (argc < 4)
+			errx(ERROR_USAGE, "Need hrp and hexstr...\n%s",
+			     opt_usage(argv[0], NULL));
+		nospaces = tal_arr(ctx, char, 0);
+		for (size_t i = 3; i < argc; i++) {
+			const char *src;
+
+			for (src = argv[i]; *src; src++) {
+				if (cisspace(*src))
+					continue;
+				tal_arr_expand(&nospaces, *src);
+			}
+		}
+		data = tal_hexdata(ctx, nospaces, tal_bytelen(nospaces));
+		if (!data)
+			errx(ERROR_USAGE, "Invalid hexstr\n%s",
+			     opt_usage(argv[0], NULL));
+		printf("%s\n", to_bech32_charset(ctx, argv[2], data));
+		goto out;
+	}
+
+	if (streq(method, "decode"))
+		to_hex = false;
+	else if (streq(method, "decodehex"))
+		to_hex = true;
+	else
+		errx(ERROR_USAGE,
+		     "Need encodehex/decode/decodehex argument\n%s",
 		     opt_usage(argv[0], NULL));
 
 	if (!argv[2])
@@ -489,6 +521,34 @@ int main(int argc, char *argv[])
 	if (!from_bech32_charset(ctx, argv[2], strlen(argv[2]), &hrp, &data))
 		errx(ERROR_USAGE, "Bad bech32 string\n%s",
 		     opt_usage(argv[0], NULL));
+
+	if (to_hex) {
+		const u8 *cursor = data;
+		size_t max = tal_bytelen(data);
+
+		printf("%s %s\n", hrp, tal_hex(ctx, data));
+		/* Now break down each element */
+		while (max) {
+			bigsize_t len;
+			const u8 *s = cursor;
+			fromwire_bigsize(&cursor, &max);
+			if (!cursor)
+				errx(ERROR_BAD_DECODE, "Bad type");
+			printf("%s ", tal_hexstr(ctx, s, cursor - s));
+
+			s = cursor;
+			len = fromwire_bigsize(&cursor, &max);
+			if (!cursor)
+				errx(ERROR_BAD_DECODE, "Bad len");
+			printf("%s ", tal_hexstr(ctx, s, cursor - s));
+			s = cursor;
+			fromwire(&cursor, &max, NULL, len);
+			if (!cursor)
+				errx(ERROR_BAD_DECODE, "Bad value");
+			printf("%s\n", tal_hexstr(ctx, s, cursor - s));
+		}
+		goto out;
+	}
 
 	if (streq(hrp, "lno")) {
 		const struct tlv_offer *offer
@@ -657,6 +717,7 @@ int main(int argc, char *argv[])
 	} else
 		errx(ERROR_BAD_DECODE, "Unknown prefix %s", hrp);
 
+out:
 	tal_free(ctx);
 	common_shutdown();
 
