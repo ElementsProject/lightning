@@ -4,14 +4,15 @@ lightning-makesecret -- Command for deriving pseudorandom key from HSM
 SYNOPSIS
 --------
 
-**makesecret** *hex*
+**makesecret** [*hex*] [*string*]
 
 DESCRIPTION
 -----------
 
 The **makesecret** RPC command derives a secret key from the HSM_secret.
 
-The *hex* can be any hex data.
+One of *hex* or *string* must be specified: *hex* can be any hex data,
+*string* is a UTF-8 string interpreted literally.
 
 RETURN VALUE
 ------------
@@ -31,11 +32,6 @@ AUTHOR
 ------
 
 Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible.
-
-SEE ALSO
---------
-
-lightning-getsharedsecret(7)
 
 RESOURCES
 ---------
