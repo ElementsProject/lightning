@@ -384,7 +384,6 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
-	case WIRE_OBS2_ONION_MESSAGE:
 	case WIRE_ONION_MESSAGE:
 #if EXPERIMENTAL_FEATURES
 	case WIRE_STFU:
@@ -753,9 +752,6 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 		return true;
 	} else if (type == WIRE_PONG) {
 		handle_pong_in(peer, msg);
-		return true;
-	} else if (type == WIRE_OBS2_ONION_MESSAGE) {
-		handle_obs2_onion_message(peer->daemon, peer, msg);
 		return true;
 	} else if (type == WIRE_ONION_MESSAGE) {
 		handle_onion_message(peer->daemon, peer, msg);
