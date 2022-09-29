@@ -118,10 +118,6 @@ bool json_to_coin_mvt_tag(const char *buffer, const jsmntok_t *tok,
 struct tlv_onionmsg_payload_reply_path *
 json_to_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
 
-/* Obsolete version! */
-struct tlv_obs2_onionmsg_payload_reply_path *
-json_to_obs2_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
-
 bool json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 			 struct channel_id *cid);
 

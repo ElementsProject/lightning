@@ -1,9 +1,9 @@
 --- wire/onion_wire.csv	2021-11-16 15:17:39.446494580 +1030
 +++ wire/onion_wire.csv.raw	2021-11-16 15:36:00.046441058 +1030
-@@ -8,10 +8,36 @@
- tlvdata,obs2_encmsg_tlvs,next_blinding,blinding,point,
- tlvtype,obs2_encmsg_tlvs,self_id,14
- tlvdata,obs2_encmsg_tlvs,self_id,data,byte,...
+@@ -8,6 +8,36 @@
+ tlvdata,tlv_payload,payment_data,total_msat,tu64,
+ tlvtype,tlv_payload,payment_metadata,16
+ tlvdata,tlv_payload,payment_metadata,payment_metadata,byte,...
 +tlvtype,tlv_payload,encrypted_recipient_data,10
 +tlvdata,tlv_payload,encrypted_recipient_data,encrypted_data,byte,...
 +tlvtype,tlv_payload,blinding_point,12
@@ -30,10 +30,9 @@
 +tlvdata,onionmsg_payload,invoice,invoice,tlv_invoice,
 +tlvtype,onionmsg_payload,invoice_error,68
 +tlvdata,onionmsg_payload,invoice_error,invoice_error,tlv_invoice_error,
- subtype,onionmsg_path
- subtypedata,onionmsg_path,node_id,point,
- subtypedata,onionmsg_path,enclen,u16,
--subtypedata,onionmsg_path,enctlv,byte,enclen
++subtype,onionmsg_path
++subtypedata,onionmsg_path,node_id,point,
++subtypedata,onionmsg_path,enclen,u16,
 +subtypedata,onionmsg_path,encrypted_recipient_data,byte,enclen
  msgtype,invalid_realm,PERM|1
  msgtype,temporary_node_failure,NODE|2

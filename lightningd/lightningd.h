@@ -283,7 +283,7 @@ struct lightningd {
 	u32 dev_max_funding_unconfirmed;
 
 	/* Special switches to test onion compatibility */
-	bool dev_ignore_modern_onion, dev_ignore_obsolete_onion;
+	bool dev_ignore_modern_onion;
 
 	/* Tell channeld to disable commits after this many. */
 	int dev_disable_commit;
