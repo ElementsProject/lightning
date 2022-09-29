@@ -783,7 +783,6 @@ bool peer_start_channeld(struct channel *channel,
 				       remote_ann_bitcoin_sig,
 				       channel->type,
 				       IFDEV(ld->dev_fast_gossip, false),
-				       IFDEV(dev_fail_process_onionpacket, false),
 				       IFDEV(ld->dev_disable_commit == -1
 					     ? NULL
 					     : (u32 *)&ld->dev_disable_commit,
