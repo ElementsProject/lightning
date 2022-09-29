@@ -18,7 +18,7 @@ def test_primitives():
 
 def test_encrypt_decrypt():
     """ Test encryptWithAD and decryptWithAD primitives
-    Taken from https://github.com/lightningnetwork/lightning-rfc/blob/master/08-transport.md#initiator-tests
+    Taken from https://github.com/lightning/bolts/blob/master/08-transport.md#initiator-tests
     """
     inp = [
         b'e68f69b7f096d7917245f5e5cf8ae1595febe4d4644333c99f9c4a1282031c9f',

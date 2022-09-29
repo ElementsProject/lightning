@@ -66,7 +66,7 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 				  struct privkey *next_blinding,
 				  struct pubkey *node_alias)
 {
-	/* https://github.com/lightningnetwork/lightning-rfc/blob/route-blinding/proposals/route-blinding.md */
+	/* https://github.com/lightning/bolts/blob/route-blinding/proposals/route-blinding.md */
 	struct secret ss, rho;
 	u8 *ret;
 	int ok;

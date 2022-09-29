@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
 		char *dir = getenv("BOLTDIR");
 		json = grab_file(tmpctx,
 				 path_join(tmpctx,
-					   dir ? dir : "../lightning-rfc",
+					   dir ? dir : "../bolts",
 					   "bolt04/route-blinding-test.json"));
 		if (!json) {
 			printf("test file not found, skipping\n");

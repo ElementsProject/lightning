@@ -6,7 +6,7 @@ ENV BITCOIN_VERSION 0.20.1
 ENV ELEMENTS_VERSION 0.18.1.8
 
 RUN useradd -ms /bin/bash tester
-RUN mkdir /build /lightning-rfc && chown tester -R /build /lightning-rfc
+RUN mkdir /build /bolts && chown tester -R /build /bolts
 WORKDIR /build
 
 RUN apt-get -qq update && \

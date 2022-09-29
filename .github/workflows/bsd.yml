@@ -69,7 +69,7 @@ jobs:
             pytest-custom-exit-code==0.3.0 \
             pytest-json-report
 
-          git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc
+          git clone https://github.com/lightning/bolts.git ../bolts
           # fatal: unsafe repository ('/Users/runner/work/lightning/lightning' is owned by someone else)
           git config --global --add safe.directory `pwd`
           git submodule update --init --recursive
