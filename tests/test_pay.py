@@ -5319,3 +5319,23 @@ def test_sendpay_dual_amounts(node_factory):
 
     with pytest.raises(RpcError, match=r'No connection to first peer found'):
         l1.rpc.sendpay(route=route, payment_hash="00" * 32)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
+@pytest.mark.developer("needs createinvoicerequest which allows unsigned invoice containing payerinfo")
+@pytest.mark.slow_test
+def test_payerkey(node_factory):
+    """payerkey calculation should not change across releases!"""
+    nodes = node_factory.get_nodes(7)
+
+    expected_keys = ["ed648d8c53c73eb4ef97f3e9586ecfd86e2628037dd91e96ecdc469467dcc1b2",
+                     "ee90e2adcf0e12c5dd1d802af792a4f4b18fd3926a9cc325ffe181bab1c48661",
+                     "17b9ecb1870b5d3896e88247fcb592833fbee8abb5e89673d16560b0ed38f5c6",
+                     "d37f723b611c15b7af394984aea84837d85371ba9eee95364b3c9f89a086f7bf",
+                     "b33482c9753af9deb6df365cf834eccaab7afb24d080caaf87a57010f78f5817",
+                     "f1d699068e3d276eddf9fc4caa0955604a34ee9b9b6529a1ec2eacebb82eb11e",
+                     "4ef73851fe22604e9b7034f548bcb79583ec503983879c56963b9a40fc854758"]
+
+    for n, k in zip(nodes, expected_keys):
+        b12 = n.rpc.createinvoicerequest('lnr1qvsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcyyrjjthf4rh99n7equvlrzrlalcacxj4y9hgzxc79yrntrth6mp3nkvssy5mac4pkfq2m3gq4ttajwh097s')['bolt12']
+        assert n.rpc.decode(b12)['payer_key'] == k

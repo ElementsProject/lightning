@@ -380,9 +380,12 @@ static struct command_result *param_b12_invreq(struct command *cmd,
 				    cmd->ld->our_features, chainparams, &fail);
 	if (!*invreq)
 		return command_fail_badparam(cmd, name, buffer, tok, fail);
+#if !DEVELOPER
+	/* We use this for testing with known payer_info */
 	if ((*invreq)->payer_info)
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "must not have payer_info");
+#endif
 	if ((*invreq)->payer_key)
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "must not have payer_key");
