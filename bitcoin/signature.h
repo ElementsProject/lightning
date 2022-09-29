@@ -5,12 +5,14 @@
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
 
+struct sha256;
 struct sha256_double;
 struct sha256_ctx;
 struct bitcoin_tx;
 struct pubkey;
 struct privkey;
 struct bitcoin_tx_output;
+struct bip340sig;
 
 enum sighash_type {
     SIGHASH_ALL = 1,
@@ -120,6 +122,13 @@ bool check_tx_sig(const struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *witness,
 		  const struct pubkey *key,
 		  const struct bitcoin_signature *sig);
+
+/**
+ * check a Schnorr signature
+ */
+bool check_schnorr_sig(const struct sha256 *hash,
+		       const secp256k1_pubkey *pubkey,
+		       const struct bip340sig *sig);
 
 /* Give DER encoding of signature: returns length used (<= 73). */
 size_t signature_to_der(u8 der[73], const struct bitcoin_signature *sig);

@@ -9,6 +9,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/mem/mem.h>
 #include <common/type_to_string.h>
+#include <secp256k1_schnorrsig.h>
 #include <wire/wire.h>
 
 #undef DEBUG
@@ -415,3 +416,27 @@ void bip340_sighash_init(struct sha256_ctx *sctx,
 	sha256_update(sctx, &taghash, sizeof(taghash));
 }
 
+
+bool check_schnorr_sig(const struct sha256 *hash,
+		       const secp256k1_pubkey *pubkey,
+		       const struct bip340sig *sig)
+{
+	/* FIXME: uuuugly!  There's no non-xonly verify function. */
+	u8 raw[PUBKEY_CMPR_LEN];
+	size_t outlen = sizeof(raw);
+	secp256k1_xonly_pubkey xonly_pubkey;
+
+	if (!secp256k1_ec_pubkey_serialize(secp256k1_ctx, raw, &outlen,
+					   pubkey,
+					   SECP256K1_EC_COMPRESSED))
+		abort();
+	assert(outlen == PUBKEY_CMPR_LEN);
+	if (!secp256k1_xonly_pubkey_parse(secp256k1_ctx, &xonly_pubkey, raw+1))
+		abort();
+
+ 	return secp256k1_schnorrsig_verify(secp256k1_ctx,
+ 					   sig->u8,
+ 					   hash->u.u8,
+ 					   sizeof(hash->u.u8),
+					   &xonly_pubkey) == 1;
+}
