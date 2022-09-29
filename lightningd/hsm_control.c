@@ -131,16 +131,30 @@ static struct command_result *json_makesecret(struct command *cmd,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
-	u8 *info;
+	u8 *data;
+	const char *strdata;
 	struct json_stream *response;
 	struct secret secret;
 
 	if (!param(cmd, buffer, params,
-		   p_req("hex", param_bin_from_hex, &info),
+		   p_opt("hex", param_bin_from_hex, &data),
+		   p_opt("string", param_string, &strdata),
 		   NULL))
 		return command_param_failed();
 
-	u8 *msg = towire_hsmd_derive_secret(cmd, info);
+	if (strdata) {
+		if (data)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot have both hex and string");
+		data = tal_dup_arr(cmd, u8, (u8 *)strdata, strlen(strdata), 0);
+	} else {
+		if (!data)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Must have either hex or string");
+	}
+
+
+	u8 *msg = towire_hsmd_derive_secret(cmd, data);
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		return command_fail(cmd, LIGHTNINGD,
                      "Could not write to HSM: %s", strerror(errno));

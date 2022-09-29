@@ -2281,6 +2281,10 @@ def test_makesecret(node_factory):
     assert l1.rpc.makesecret(hex="736362207365637265")["secret"] != secret
     assert l1.rpc.makesecret(hex="7363622073656372657401")["secret"] != secret
 
+    # Using string works!
+    assert l1.rpc.makesecret(string="scb secret")["secret"] == secret
+    assert l1.rpc.makesecret(None, "scb secret")["secret"] == secret
+
 
 def test_staticbackup(node_factory):
     """
