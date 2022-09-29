@@ -183,7 +183,7 @@ lightning-cli invoice <amount> <label> <description>
 
 This returns some internal details, and a standard invoice string called `bolt11` (named after the [BOLT #11 lightning spec][BOLT11]).
 
-[BOLT11]: https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md
+[BOLT11]: https://github.com/lightning/bolts/blob/master/11-payment-encoding.md
 
 The sender can feed this `bolt11` string to the `decodepay` command to see what it is, and pay it simply using the `pay` command:
 
@@ -225,7 +225,7 @@ Developers wishing to contribute should start with the developer guide [here](do
 You should also configure with `--enable-developer` to get additional checks and options.
 
 [blockstream-store-blog]: https://blockstream.com/2018/01/16/en-lightning-charge/
-[std]: https://github.com/lightningnetwork/lightning-rfc
+[std]: https://github.com/lightning/bolts
 [prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
 [prs-link]: http://makeapullrequest.com
 [IRC]: https://img.shields.io/badge/chat-on%20libera-brightgreen.svg

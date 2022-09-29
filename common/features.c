@@ -436,16 +436,16 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_support_large_channel",
 		"option_anchor_outputs", 	/* 20/21 */
 		"option_anchors_zero_fee_htlc_tx",
-		"option_trampoline_routing", /* https://github.com/lightningnetwork/lightning-rfc/pull/836 */
+		"option_trampoline_routing", /* https://github.com/lightning/bolts/pull/836 */
 		"option_shutdown_anysegwit",
 		"option_dual_fund",
-		"option_amp", /* 30/31 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/658 */
+		"option_amp", /* 30/31 */ /* https://github.com/lightning/bolts/pull/658 */
 		NULL,
-		"option_quiesce", /* https://github.com/lightningnetwork/lightning-rfc/pull/869 */
+		"option_quiesce", /* https://github.com/lightning/bolts/pull/869 */
 		NULL,
-		"option_onion_messages",  /* https://github.com/lightningnetwork/lightning-rfc/pull/759 */
-		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
-		"option_provide_peer_backup", /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
+		"option_onion_messages",  /* https://github.com/lightning/bolts/pull/759 */
+		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightning/bolts/pull/881 */
+		"option_provide_peer_backup", /* https://github.com/lightning/bolts/pull/881 */
 		"option_channel_type",
 		"option_scid_alias", /* https://github.com/lightning/bolts/pull/910 */
 		"option_payment_metadata",

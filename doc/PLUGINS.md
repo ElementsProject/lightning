@@ -1770,13 +1770,13 @@ The plugin must broadcast it and respond with the following fields:
 
 [jsonrpc-spec]: https://www.jsonrpc.org/specification
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
-[bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-[bolt4-failure-messages]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
-[bolt4-failure-onion]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#returning-errors
-[bolt2-open-channel]: https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#the-open_channel-message
+[bolt4]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md
+[bolt4-failure-messages]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages
+[bolt4-failure-onion]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md#returning-errors
+[bolt2-open-channel]: https://github.com/lightning/bolts/blob/master/02-peer-protocol.md#the-open_channel-message
 [sendcustommsg]: lightning-sendcustommsg.7.html
-[oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
-[spec]: [https://github.com/lightningnetwork/lightning-rfc]
-[bolt9]: https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md
+[oddok]: https://github.com/lightning/bolts/blob/master/00-introduction.md#its-ok-to-be-odd
+[spec]: [https://github.com/lightning/bolts]
+[bolt9]: https://github.com/lightning/bolts/blob/master/09-features.md
 [lightning-plugin]: lightning-plugin.7.md
 [pyln-client]: ../contrib/pyln-client

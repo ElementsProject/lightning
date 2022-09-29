@@ -77,6 +77,6 @@ Main web site: <https://github.com/ElementsProject/lightning>
 Lightning RFC site
 
 -   BOLT \#7:
-    <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
+    <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>
 
 [comment]: # ( SHA256STAMP:baf45b77bd2ba22e245e007b57d8e5f70d06cbf9cebf7ed1431da6a0cf6f367a)

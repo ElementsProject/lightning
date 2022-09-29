@@ -9,7 +9,7 @@ layers of separation between different clients and extra barriers to
 exploits.
 
 It is designed to implement the lightning protocol as specified in
-[various BOLTs](https://github.com/lightningnetwork/lightning-rfc).
+[various BOLTs](https://github.com/lightning/bolts).
 
 
 Getting Started
@@ -315,7 +315,7 @@ Protocol Modifications
 The source tree contains CSV files extracted from the v1.0 BOLT
 specifications (wire/extracted_peer_wire_csv and
 wire/extracted_onion_wire_csv).  You can regenerate these by
-first deleting the local copy(if any) at directory .tmp.lightning-rfc,
+first deleting the local copy(if any) at directory .tmp.bolts,
 setting `BOLTDIR` and `BOLTVERSION` appropriately, and finally running `make
 extract-bolt-csv`. By default the bolts will be retrieved from the
 directory `../bolts` and a recent git version.

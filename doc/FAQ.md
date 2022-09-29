@@ -36,7 +36,7 @@ lightning-cli helpme
 ### How to get the balance of each channel ?
 
 You can use the `listfunds` command and take a ratio of `our_amount_msat` over
-`amount_msat`. Note that this doesn't account for the [channel reserve](https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#rationale).
+`amount_msat`. Note that this doesn't account for the [channel reserve](https://github.com/lightning/bolts/blob/master/02-peer-protocol.md#rationale).
 
 A better option is to use the [`summary` plugin](https://github.com/lightningd/plugins/tree/master/summary)
 which nicely displays channel balances, along with other useful channel information.
@@ -48,7 +48,7 @@ See the [listpeers command manpage](https://lightning.readthedocs.io/lightning-l
 ### My payment is failing / all my payments are failing, why ?
 
 There are many reasons for a payment failure. The most common one is a
-[failure](https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages)
+[failure](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages)
 along the route from you to the payee.
 The best (and most common) solution to a route failure problem is to open more channels,
 which should increase the available routes to the recipient and lower the probability of a failure.
@@ -124,7 +124,7 @@ There is no single-seed backup for funds locked in channels.
 
 While crucial for node operation, snapshot-style backups of the `lightningd` database is **discouraged**,
 as _any_ loss of state may result in permanent loss of funds.
-See the [penalty mechanism](https://github.com/lightningnetwork/lightning-rfc/blob/master/05-onchain.md#revoked-transaction-close-handling)
+See the [penalty mechanism](https://github.com/lightning/bolts/blob/master/05-onchain.md#revoked-transaction-close-handling)
 for more information on why any amount of state-loss results in fund loss.
 
 Real-time database replication is the recommended approach to backing up node data.
@@ -280,7 +280,7 @@ successful, result will be a private key matching a unilaterally
 closed channel, that you can import into any wallet, recovering the
 funds into that wallet.
 
-[spec-features]: https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md
+[spec-features]: https://github.com/lightning/bolts/blob/master/09-features.md
 [mandelbit-recovery]: https://github.com/mandelbit/bitcoin-tutorials/blob/master/CLightningRecoverFunds.md
 [5366]: https://github.com/ElementsProject/lightning/issues/5366
 
