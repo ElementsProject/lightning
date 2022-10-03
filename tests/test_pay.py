@@ -3580,8 +3580,8 @@ def test_keysend(node_factory):
         l3.rpc.keysend(l4.info['id'], amt)
 
 
-def test_keysend_extra_tlvs(node_factory):
-    """Use the extratlvs option to deliver a message with sphinx' TLV type.
+def test_keysend_strip_tlvs(node_factory):
+    """Use the extratlvs option to deliver a message with sphinx' TLV type, which keysend strips.
     """
     amt = 10000
     l1, l2 = node_factory.line_graph(
@@ -3593,7 +3593,6 @@ def test_keysend_extra_tlvs(node_factory):
                 'accept-htlc-tlv-types': '133773310,99990',
             },
             {
-                'accept-htlc-tlv-types': '133773310',
                 "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
             },
         ]
@@ -3601,11 +3600,10 @@ def test_keysend_extra_tlvs(node_factory):
 
     # Make sure listconfigs works here
     assert l1.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310,99990'
-    assert l2.rpc.listconfigs()['accept-htlc-tlv-types'] == '133773310'
 
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
-    assert(l2.daemon.is_in_log(r'plugin-sphinx-receiver.py.*extratlvs.*133773310.*feedc0de'))
+    assert not l2.daemon.is_in_log(r'plugin-sphinx-receiver.py.*extratlvs.*133773310.*feedc0de')
 
     assert(inv['amount_received_msat'] >= Millisatoshi(amt))
     assert inv['description'] == 'keysend'
@@ -3615,6 +3613,7 @@ def test_keysend_extra_tlvs(node_factory):
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: b'hello there'.hex()})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert inv['description'] == 'keysend: hello there'
+    l2.daemon.wait_for_log('Keysend payment uses illegal even field 133773310: stripping')
     l2.rpc.delinvoice(inv['label'], 'paid')
 
     # We can (just!) fit a giant description in.
@@ -3622,6 +3621,7 @@ def test_keysend_extra_tlvs(node_factory):
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert inv['description'] == 'keysend: ' + 'a' * 1100
     l2.rpc.delinvoice(inv['label'], 'paid')
+    l2.daemon.wait_for_log('Keysend payment uses illegal even field 133773310: stripping')
 
     # Now try with some special characters
     ksinfo = """💕 ₿"'
@@ -3630,6 +3630,7 @@ More info
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: bytes(ksinfo, encoding='utf8').hex()})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert inv['description'] == 'keysend: ' + ksinfo
+    l2.daemon.wait_for_log('Keysend payment uses illegal even field 133773310: stripping')
 
 
 def test_keysend_routehint(node_factory):
