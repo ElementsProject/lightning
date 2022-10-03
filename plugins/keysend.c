@@ -248,7 +248,7 @@ struct keysend_in {
 	struct preimage payment_preimage;
 	char *label;
 	struct tlv_tlv_payload *payload;
-	struct tlv_field *preimage_field;
+	struct tlv_field *preimage_field, *desc_field;
 };
 
 static int tlvfield_cmp(const struct tlv_field *a,
@@ -267,11 +267,27 @@ htlc_accepted_invoice_created(struct command *cmd, const char *buf,
 			      struct keysend_in *ki)
 {
 	struct tlv_field field;
-	int preimage_field_idx = ki->preimage_field - ki->payload->fields;
 
-	/* Remove the preimage field so `lightningd` knows how to handle
-	 * this. */
-	tal_arr_remove(&ki->payload->fields, preimage_field_idx);
+	/* Remove all unknown fields: complain about unused even ones!
+	 * (Keysend is not a design, it's a kludge by people who
+	 * didn't read the spec, and Just Made Something Work). */
+	for (size_t i = 0; i < tal_count(ki->payload->fields); i++) {
+		/* Odd fields are fine, leave them. */
+		if (ki->payload->fields[i].numtype % 2)
+			continue;
+		/* Same with known fields */
+		if (ki->payload->fields[i].meta)
+			continue;
+		/* Complain about it, at least. */
+		if (ki->preimage_field != &ki->payload->fields[i]) {
+			plugin_log(cmd->plugin, LOG_INFORM,
+				   "Keysend payment uses illegal even field %"
+				   PRIu64 ": stripping",
+				   ki->payload->fields[i].numtype);
+		}
+		tal_arr_remove(&ki->payload->fields, i);
+		i--;
+	}
 
 	/* Now we can fill in the payment secret, from invoice. */
 	ki->payload->payment_data = tal(ki->payload,
@@ -331,7 +347,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	struct sha256 payment_hash;
 	size_t max;
 	struct tlv_tlv_payload *payload;
-	struct tlv_field *preimage_field = NULL, *unknown_field = NULL, *desc_field = NULL;
+	struct tlv_field *preimage_field = NULL, *desc_field = NULL;
 	bigsize_t s;
 	struct keysend_in *ki;
 	struct out_req *req;
@@ -375,9 +391,6 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 		if (field->numtype == PREIMAGE_TLV_TYPE) {
 			preimage_field = field;
 			continue;
-		} else if (field->numtype % 2 == 0 && field->meta == NULL) {
-			/* This can only happen with FROMWIRE_TLV_ANY_TYPE! */
-			unknown_field = field;
 		}
 
 		/* Longest (unknown) text field wins. */
@@ -391,13 +404,6 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	 * someone else take care of it. */
 	if (preimage_field == NULL)
 		return htlc_accepted_continue(cmd, NULL);
-
-	if (unknown_field != NULL) {
-		plugin_log(cmd->plugin, LOG_INFORM,
-			   "Experimental: Accepting the keysend payment "
-			   "despite having unknown even TLV type %" PRIu64 ".",
-			   unknown_field->numtype);
-	}
 
 	/* If malformed (amt is compulsory), let lightningd handle it. */
 	if (!payload->amt_to_forward) {
@@ -421,6 +427,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	ki->label = tal_fmt(ki, "keysend-%lu.%09lu", (unsigned long)now.ts.tv_sec, now.ts.tv_nsec);
 	ki->payload = tal_steal(ki, payload);
 	ki->preimage_field = preimage_field;
+	ki->desc_field = desc_field;
 
 	/* If the preimage doesn't hash to the payment_hash we must continue,
 	 * maybe someone else knows how to handle these. */
