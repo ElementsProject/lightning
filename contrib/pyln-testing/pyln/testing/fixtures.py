@@ -1,6 +1,7 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG, Throttler
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG, Throttler, \
+    LssD
 from pyln.client import Millisatoshi
 from typing import Dict
 
@@ -162,6 +163,25 @@ def bitcoind(directory, teardown_checks):
     except Exception:
         bitcoind.proc.kill()
     bitcoind.proc.wait()
+
+
+@pytest.fixture
+def lssd(directory, teardown_checks):
+    lssd = LssD(directory)
+
+    try:
+        lssd.start()
+    except Exception:
+        lssd.stop()
+        raise
+
+    yield lssd
+
+    try:
+        lssd.stop()
+    except Exception:
+        lssd.proc.kill()
+    lssd.proc.wait()
 
 
 class TeardownErrors(object):
@@ -451,11 +471,12 @@ def jsonschemas():
 
 
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, throttler, jsonschemas):
+def node_factory(request, directory, test_name, bitcoind, lssd, executor, db_provider, teardown_checks, node_cls, throttler, jsonschemas):
     nf = NodeFactory(
         request,
         test_name,
         bitcoind,
+        lssd,
         executor,
         directory=directory,
         db_provider=db_provider,

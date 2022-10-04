@@ -386,6 +386,45 @@ class SimpleBitcoinProxy:
         return f
 
 
+class LssD(TailableProc):
+    def __init__(self, directory, rpcport=None):
+        lss_dir = os.path.join(directory, 'lss')
+        TailableProc.__init__(self, lss_dir, verbose=False)
+
+        if rpcport is None:
+            self.reserved_rpcport = reserve_unused_port()
+            rpcport = self.reserved_rpcport
+        else:
+            self.reserved_rpcport = None
+
+        self.rpcport = rpcport
+        self.prefix = 'lss'
+
+        if not os.path.exists(lss_dir):
+            os.makedirs(lss_dir)
+
+        self.cmd_line = [
+            'lssd',
+            '--datadir={}'.format(lss_dir),
+            '--port={}'.format(rpcport),
+        ]
+
+    def __del__(self):
+        if self.reserved_rpcport is not None:
+            drop_unused_port(self.reserved_rpcport)
+
+    def start(self):
+        self.env['RUST_LOG'] = 'debug'
+        TailableProc.start(self)
+        self.wait_for_log("ready on", timeout=TIMEOUT)
+
+        logging.info("LssD started")
+
+    def stop(self):
+        logging.info("Stopping LssD")
+        return TailableProc.stop(self)
+
+
 class BitcoinD(TailableProc):
 
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
@@ -607,6 +646,7 @@ class LightningD(TailableProc):
             self,
             lightning_dir,
             bitcoindproxy,
+            lssd_port,
             port=9735,
             random_hsm=False,
             node_id=0,
@@ -628,6 +668,7 @@ class LightningD(TailableProc):
 
         self.rpcproxy = bitcoindproxy
         self.env['CLN_PLUGIN_LOG'] = "gl_plugin=trace,gl_rpc=trace,gl_grpc=trace,debug"
+        self.lssd_port = lssd_port
 
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
@@ -743,6 +784,8 @@ class LightningD(TailableProc):
                 # We can't do this in the constructor because we need a new port on each restart.
                 self.env['REMOTE_HSMD_ENDPOINT'] = '127.0.0.1:{}'.format(self.vlsd_port)
 
+            self.env['VLS_LSS'] = f"http://localhost:{self.lssd_port}"
+            self.env['RUST_LOG'] = 'debug'
             # Some of the remote hsmd proxies need a bitcoind RPC connection
             self.env['BITCOIND_RPC_URL'] = 'http://{}:{}@localhost:{}'.format(
                 BITCOIND_CONFIG['rpcuser'],
@@ -841,7 +884,7 @@ class PrettyPrintingLightningRpc(LightningRpc):
 
 
 class LightningNode(object):
-    def __init__(self, node_id, lightning_dir, bitcoind, executor, valgrind, may_fail=False,
+    def __init__(self, node_id, lightning_dir, bitcoind, lssd, executor, valgrind, may_fail=False,
                  may_reconnect=False,
                  allow_broken_log=False,
                  allow_warning=False,
@@ -851,6 +894,7 @@ class LightningNode(object):
                  valgrind_plugins=True,
                  **kwargs):
         self.bitcoin = bitcoind
+        self.lssd = lssd
         self.executor = executor
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
@@ -870,6 +914,7 @@ class LightningNode(object):
 
         self.daemon = LightningD(
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
+            lssd_port=lssd.rpcport,
             port=port, random_hsm=random_hsm, node_id=node_id,
             grpc_port=self.grpc_port,
         )
@@ -1501,7 +1546,7 @@ class Throttler(object):
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
-    def __init__(self, request, testname, bitcoind, executor, directory,
+    def __init__(self, request, testname, bitcoind, lssd, executor, directory,
                  db_provider, node_cls, throttler, jsonschemas):
         if request.node.get_closest_marker("slow_test") and SLOW_MACHINE:
             self.valgrind = False
@@ -1513,6 +1558,7 @@ class NodeFactory(object):
         self.reserved_ports = []
         self.executor = executor
         self.bitcoind = bitcoind
+        self.lssd = lssd
         self.directory = directory
         self.lock = threading.Lock()
         self.db_provider = db_provider
@@ -1600,7 +1646,7 @@ class NodeFactory(object):
         db = self.db_provider.get_db(os.path.join(lightning_dir, TEST_NETWORK), self.testname, node_id)
         db.provider = self.db_provider
         node = self.node_cls(
-            node_id, lightning_dir, self.bitcoind, self.executor, self.valgrind, db=db,
+            node_id, lightning_dir, self.bitcoind, self.lssd, self.executor, self.valgrind, db=db,
             port=port, options=options, may_fail=may_fail or expect_fail,
             jsonschemas=self.jsonschemas,
             **kwargs

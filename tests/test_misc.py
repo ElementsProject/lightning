@@ -2141,13 +2141,13 @@ def test_unicode_rpc(node_factory, executor, bitcoind):
 
 
 @unittest.skipIf(VALGRIND, "Testing pyln doesn't exercise anything interesting in the c code.")
-def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db_provider, test_base_dir):
+def test_unix_socket_path_length(node_factory, bitcoind, lssd, directory, executor, db_provider, test_base_dir):
     lightning_dir = os.path.join(directory, "anode" + "far" * 30 + "away")
     os.makedirs(lightning_dir)
     db = db_provider.get_db(lightning_dir, "test_unix_socket_path_length", 1)
     db.provider = db_provider
 
-    l1 = LightningNode(1, lightning_dir, bitcoind, executor, VALGRIND, db=db, port=reserve())
+    l1 = LightningNode(1, lightning_dir, bitcoind, lssd, executor, VALGRIND, db=db, port=reserve())
 
     # `LightningNode.start()` internally calls `LightningRpc.getinfo()` which
     # exercises the socket logic, and raises an issue if it fails.
