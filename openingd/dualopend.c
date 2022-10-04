@@ -2673,7 +2673,7 @@ static void opener_start(struct state *state, u8 *msg)
 	bool dry_run;
 	struct lease_rates *expected_rates;
 	struct tx_state *tx_state = state->tx_state;
-	struct amount_sat requested_lease;
+	struct amount_sat *requested_lease;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
 					    &tx_state->psbt,
@@ -2693,10 +2693,8 @@ static void opener_start(struct state *state, u8 *msg)
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
-	if (!amount_sat_zero(requested_lease)) {
-		state->requested_lease = tal(state, struct amount_sat);
-		*state->requested_lease = requested_lease;
-	}
+	if (requested_lease)
+		state->requested_lease = tal_steal(state, requested_lease);
 
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
@@ -3138,9 +3136,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	tx_state->remoteconf = state->tx_state->remoteconf;
 
 	if (!fromwire_dualopend_rbf_init(tx_state, msg,
-					 state->our_role == TX_INITIATOR ?
-					 &tx_state->opener_funding :
-						&tx_state->accepter_funding,
+					 &tx_state->opener_funding,
 					 &tx_state->feerate_per_kw_funding,
 					 &tx_state->psbt))
 		master_badmsg(WIRE_DUALOPEND_RBF_INIT, msg);
@@ -3166,9 +3162,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
 	msg = towire_init_rbf(tmpctx, &state->channel_id,
-			      state->our_role == TX_INITIATOR ?
-				tx_state->opener_funding :
-				tx_state->accepter_funding,
+			      tx_state->opener_funding,
 			      tx_state->tx_locktime,
 			      tx_state->feerate_per_kw_funding);
 
@@ -3182,9 +3176,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	}
 
 	if (!fromwire_ack_rbf(msg, &cid,
-			      state->our_role == TX_INITIATOR ?
-					&tx_state->accepter_funding :
-					&tx_state->opener_funding))
+			      &tx_state->accepter_funding))
 		open_err_fatal(state, "Parsing ack_rbf %s",
 			       tal_hex(tmpctx, msg));
 
@@ -3275,9 +3267,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	tx_state = new_tx_state(rbf_ctx);
 
 	if (!fromwire_init_rbf(rbf_msg, &cid,
-			       state->our_role == TX_INITIATOR ?
-					&tx_state->accepter_funding :
-					&tx_state->opener_funding,
+			       &tx_state->opener_funding,
 			       &tx_state->tx_locktime,
 			       &tx_state->feerate_per_kw_funding))
 		open_err_fatal(state, "Parsing init_rbf %s",
@@ -3298,8 +3288,6 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 			      "Last funding attempt not complete:"
 			      " missing your funding tx_sigs");
 
-	/* FIXME: should we check for currently in progress? */
-
 	/* Copy over the channel config info -- everything except
 	 * the reserve will be the same */
 	tx_state->localconf = state->tx_state->localconf;
@@ -3317,11 +3305,12 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	/* We ask master if this is ok */
 	msg = towire_dualopend_got_rbf_offer(NULL,
 					     &state->channel_id,
-					     state->our_role == TX_INITIATOR ?
-						tx_state->accepter_funding :
-						tx_state->opener_funding,
+					     state->tx_state->opener_funding,
+					     tx_state->opener_funding,
+					     state->tx_state->accepter_funding,
 					     tx_state->feerate_per_kw_funding,
-					     tx_state->tx_locktime);
+					     tx_state->tx_locktime,
+					     state->requested_lease);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -3826,7 +3815,7 @@ int main(int argc, char *argv[])
 	struct fee_states *fee_states;
 	enum side opener;
 	u8 *msg;
-	struct amount_sat total_funding;
+	struct amount_sat total_funding, *requested_lease;
 	struct amount_msat our_msat;
 	const struct channel_type *type;
 
@@ -3908,13 +3897,18 @@ int main(int argc, char *argv[])
 					     &state->tx_state->lease_expiry,
 					     &state->tx_state->lease_commit_sig,
 					     &state->tx_state->lease_chan_max_msat,
-					     &state->tx_state->lease_chan_max_ppt)) {
+					     &state->tx_state->lease_chan_max_ppt,
+					     &requested_lease)) {
 
 		/*~ We only reconnect on channels that the
 		 * saved the the database (exchanged commitment sigs) */
 		type = default_channel_type(NULL,
 					    state->our_features,
 					    state->their_features);
+
+		if (requested_lease)
+			state->requested_lease = tal_steal(state, requested_lease);
+
 		state->channel = new_initial_channel(state,
 						     &state->channel_id,
 						     &state->tx_state->funding,

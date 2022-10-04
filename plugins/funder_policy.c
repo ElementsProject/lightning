@@ -208,6 +208,7 @@ const char *
 calculate_our_funding(struct funder_policy *policy,
 		      struct node_id id,
 		      struct amount_sat their_funding,
+		      struct amount_sat *our_last_funding,
 		      struct amount_sat available_funds,
 		      struct amount_sat channel_max,
 		      struct amount_sat requested_lease,
@@ -308,6 +309,22 @@ calculate_our_funding(struct funder_policy *policy,
 	 * set to max available */
 	if (amount_sat_greater(*our_funding, net_available_funds))
 		*our_funding = net_available_funds;
+
+	/* Are we putting in less than last time + it's a lease?
+	 * Return an error as a convenience to the buyer */
+	if (our_last_funding && !amount_sat_zero(requested_lease)) {
+		if (amount_sat_less(*our_funding, *our_last_funding)
+		    && amount_sat_less(*our_funding, requested_lease)) {
+			return tal_fmt(tmpctx, "New amount (%s) is less than"
+				       " last (%s); peer requested a lease (%s)",
+				       type_to_string(tmpctx, struct amount_sat,
+						      our_funding),
+				       type_to_string(tmpctx, struct amount_sat,
+						      our_last_funding),
+				       type_to_string(tmpctx, struct amount_sat,
+						      &requested_lease));
+		}
+	}
 
 	/* Is our_funding less than our per-channel minimum?
 	 * if so, don't fund */
