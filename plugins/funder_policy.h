@@ -79,6 +79,7 @@ const char *
 calculate_our_funding(struct funder_policy *policy,
 		      struct node_id id,
 		      struct amount_sat their_funding,
+		      struct amount_sat *our_last_funding,
 		      struct amount_sat available_funds,
 		      struct amount_sat channel_max,
 		      struct amount_sat lease_request,

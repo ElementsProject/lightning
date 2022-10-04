@@ -67,6 +67,7 @@ msgdata,dualopend_reinit,lease_expiry,u32,
 msgdata,dualopend_reinit,lease_commit_sig,?secp256k1_ecdsa_signature,
 msgdata,dualopend_reinit,lease_chan_max_msat,u32,
 msgdata,dualopend_reinit,lease_chan_max_ppt,u16,
+msgdata,dualopend_reinit,requested_lease,?amount_sat,
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
@@ -99,9 +100,12 @@ msgdata,dualopend_got_offer_reply,lease_rates,?lease_rates,
 # dualopend->master: they offered a RBF, should we continue?
 msgtype,dualopend_got_rbf_offer,7500
 msgdata,dualopend_got_rbf_offer,channel_id,channel_id,
-msgdata,dualopend_got_rbf_offer,their_funding,amount_sat,
+msgdata,dualopend_got_rbf_offer,their_last_funding,amount_sat,
+msgdata,dualopend_got_rbf_offer,their_curr_funding,amount_sat,
+msgdata,dualopend_got_rbf_offer,our_last_funding,amount_sat,
 msgdata,dualopend_got_rbf_offer,funding_feerate_per_kw,u32,
 msgdata,dualopend_got_rbf_offer,locktime,u32,
+msgdata,dualopend_got_rbf_offer,requested_lease,?amount_sat,
 
 # master->dualopend: reply back with our funding info/contribs
 msgtype,dualopend_got_rbf_offer_reply,7505
@@ -176,7 +180,7 @@ msgdata,dualopend_opener_init,local_shutdown_wallet_index,?u32,
 msgdata,dualopend_opener_init,feerate_per_kw,u32,
 msgdata,dualopend_opener_init,feerate_per_kw_funding,u32,
 msgdata,dualopend_opener_init,channel_flags,u8,
-msgdata,dualopend_opener_init,requested_sats,amount_sat,
+msgdata,dualopend_opener_init,requested_sats,?amount_sat,
 msgdata,dualopend_opener_init,blockheight,u32,
 msgdata,dualopend_opener_init,dry_run,bool,
 # must go last because embedded tu32

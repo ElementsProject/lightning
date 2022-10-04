@@ -1372,12 +1372,15 @@ requests an RBF for a channel funding transaction.
   "rbf_channel": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
     "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+    "their_last_funding_msat": 100000000,
     "their_funding_msat": 100000000,
+    "our_last_funding_msat": 100000000,
     "funding_feerate_per_kw": 7500,
     "feerate_our_max": 10000,
     "feerate_our_min": 253,
     "channel_max_msat": 16777215000,
-    "locktime": 2453
+    "locktime": 2453,
+    "requested_lease_msat": 100000000,
   }
 }
 ```

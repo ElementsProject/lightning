@@ -272,11 +272,17 @@ struct open_info {
 	struct node_id id;
 	struct amount_sat our_funding;
 	struct amount_sat their_funding;
+
+	/* If this is an RBF, we'll have this */
+	struct amount_sat *their_last_funding;
+	struct amount_sat *our_last_funding;
+
 	struct amount_sat channel_max;
 	u64 funding_feerate_perkw;
 	u32 locktime;
 	u32 lease_blockheight;
 	u32 node_blockheight;
+
 	struct amount_sat requested_lease;
 };
 
@@ -284,6 +290,8 @@ static struct open_info *new_open_info(const tal_t *ctx)
 {
 	struct open_info *info = tal(ctx, struct open_info);
 
+	info->their_last_funding = NULL;
+	info->our_last_funding = NULL;
 	info->requested_lease = AMOUNT_SAT(0);
 	info->lease_blockheight = 0;
 	info->node_blockheight = 0;
@@ -456,6 +464,7 @@ listfunds_success(struct command *cmd,
 	funding_err = calculate_our_funding(current_policy,
 					    info->id,
 					    info->their_funding,
+					    info->our_last_funding,
 					    available_funds,
 					    info->channel_max,
 					    info->requested_lease,
@@ -572,21 +581,15 @@ json_openchannel2_call(struct command *cmd,
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
-	err = json_scan(tmpctx, buf, params,
-			"{openchannel2:{"
-			"requested_lease_msat:%"
-			",lease_blockheight_start:%"
-			",node_blockheight:%}}",
-			JSON_SCAN(json_to_msat_as_sats, &info->requested_lease),
-			JSON_SCAN(json_to_u32, &info->node_blockheight),
-			JSON_SCAN(json_to_u32, &info->lease_blockheight));
-
-	/* These aren't necessarily included */
-	if (err) {
-		info->requested_lease = AMOUNT_SAT(0);
-		info->node_blockheight = 0;
-		info->lease_blockheight = 0;
-	}
+	/* Channel lease info isn't necessarily included, ignore any err */
+	json_scan(tmpctx, buf, params,
+		  "{openchannel2:{"
+		  "requested_lease_msat:%"
+		  ",lease_blockheight_start:%"
+		  ",node_blockheight:%}}",
+		  JSON_SCAN(json_to_msat_as_sats, &info->requested_lease),
+		  JSON_SCAN(json_to_u32, &info->lease_blockheight),
+		  JSON_SCAN(json_to_u32, &info->node_blockheight));
 
 	/* We don't fund anything that's above or below our feerate */
 	if (info->funding_feerate_perkw < feerate_our_min
@@ -670,11 +673,15 @@ json_rbf_channel_call(struct command *cmd,
 	const char *err;
 	struct out_req *req;
 
+	info->their_last_funding = tal(info, struct amount_sat);
+	info->our_last_funding = tal(info, struct amount_sat);
 	err = json_scan(tmpctx, buf, params,
 			"{rbf_channel:"
 			"{id:%"
 			",channel_id:%"
+			",their_last_funding_msat:%"
 			",their_funding_msat:%"
+			",our_last_funding_msat:%"
 			",funding_feerate_per_kw:%"
 			",feerate_our_max:%"
 			",feerate_our_min:%"
@@ -682,7 +689,12 @@ json_rbf_channel_call(struct command *cmd,
 			",channel_max_msat:%}}",
 			JSON_SCAN(json_to_node_id, &info->id),
 			JSON_SCAN(json_to_channel_id, &info->cid),
-			JSON_SCAN(json_to_msat_as_sats, &info->their_funding),
+			JSON_SCAN(json_to_msat_as_sats,
+				  info->their_last_funding),
+			JSON_SCAN(json_to_msat_as_sats,
+				  &info->their_funding),
+			JSON_SCAN(json_to_msat_as_sats,
+				  info->our_last_funding),
 			JSON_SCAN(json_to_u64, &info->funding_feerate_perkw),
 			JSON_SCAN(json_to_u64, &feerate_our_max),
 			JSON_SCAN(json_to_u64, &feerate_our_min),
@@ -694,6 +706,13 @@ json_rbf_channel_call(struct command *cmd,
 			   "`rbf_channel` payload did not scan %s: %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
+
+	/* Lease info isn't necessarily included, ignore any err */
+	/* FIXME: blockheights?? */
+	json_scan(tmpctx, buf, params,
+		  "{rbf_channel:{"
+		  "requested_lease_msat:%}}",
+		  JSON_SCAN(json_to_msat_as_sats, &info->requested_lease));
 
 	/* We don't fund anything that's above or below our feerate */
 	if (info->funding_feerate_perkw < feerate_our_min
