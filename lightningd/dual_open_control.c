@@ -745,7 +745,9 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 
 
 	struct amount_msat fee_base, fee_max_base;
-	payload->rates = tal(payload, struct lease_rates);
+	/* deserialized may be called multiple times */
+	if (!payload->rates)
+		payload->rates = tal(payload, struct lease_rates);
 	err = json_scan(payload, buffer, toks,
 			"{lease_fee_base_msat:%"
 			",lease_fee_basis:%"
@@ -1880,6 +1882,7 @@ static void accepter_got_offer(struct subd *dualopend,
 	payload->accepter_funding = AMOUNT_SAT(0);
 	payload->our_shutdown_scriptpubkey = NULL;
 	payload->peer_id = channel->peer->id;
+	payload->rates = NULL;
 	payload->err_msg = NULL;
 
 	if (!fromwire_dualopend_got_offer(payload, msg,
