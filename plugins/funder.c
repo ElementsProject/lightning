@@ -129,12 +129,90 @@ command_hook_cont_psbt(struct command *cmd, struct wally_psbt *psbt)
 }
 
 static struct command_result *
+datastore_add_fail(struct command *cmd,
+		   const char *buf,
+		   const jsmntok_t *error,
+		   struct wally_psbt *signed_psbt)
+{
+	/* Oops, something's broken */
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "`datastore` add failed: %*.s",
+		   json_tok_full_len(error),
+		   json_tok_full(buf, error));
+
+	return command_hook_cont_psbt(cmd, signed_psbt);
+}
+
+static struct command_result *
+datastore_add_success(struct command *cmd,
+		      const char *buf,
+		      const jsmntok_t *result,
+		      struct wally_psbt *signed_psbt)
+{
+	const char *key, *err;
+
+	err = json_scan(tmpctx, buf, result,
+			"{key:%}",
+			JSON_SCAN_TAL(cmd, json_strdup, &key));
+
+	if (err)
+		plugin_err(cmd->plugin,
+			   "`datastore` payload did not scan. %s: %*.s",
+			   err, json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	/* We saved the infos! */
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Saved utxos for channel (%s) to datastore",
+		   key);
+
+	return command_hook_cont_psbt(cmd, signed_psbt);
+}
+
+static struct command_result *
+remember_channel_utxos(struct command *cmd,
+		       struct pending_open *open,
+		       struct wally_psbt *signed_psbt)
+{
+	struct out_req *req;
+	u8 *utxos_bin;
+	char *chan_key = tal_fmt(cmd, "funder/%s",
+				 type_to_string(cmd, struct channel_id,
+						&open->channel_id));
+
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "datastore",
+				    &datastore_add_success,
+				    &datastore_add_fail,
+				    signed_psbt);
+
+	utxos_bin = tal_arr(cmd, u8, 0);
+	for (size_t i = 0; i < signed_psbt->tx->num_inputs; i++) {
+		struct bitcoin_outpoint outpoint;
+
+		/* Don't save peer's UTXOS */
+		if (!psbt_input_is_ours(&signed_psbt->inputs[i]))
+			continue;
+
+		wally_tx_input_get_outpoint(&signed_psbt->tx->inputs[i],
+					    &outpoint);
+		towire_bitcoin_outpoint(&utxos_bin, &outpoint);
+	}
+	json_add_string(req->js, "key", chan_key);
+	/* We either update the existing or add a new one, nbd */
+	json_add_string(req->js, "mode", "create-or-replace");
+	json_add_hex(req->js, "hex", utxos_bin, tal_bytelen(utxos_bin));
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *
 signpsbt_done(struct command *cmd,
 	      const char *buf,
 	      const jsmntok_t *result,
 	      struct pending_open *open)
 {
 	struct wally_psbt *signed_psbt;
+	struct command_result *res;
 	const char *err;
 
 	plugin_log(cmd->plugin, LOG_DBG,
@@ -151,11 +229,15 @@ signpsbt_done(struct command *cmd,
 			   err, json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
-	/* This finishes the open (successfully!) */
+	/* Save the list of utxos to the datastore! We'll need
+	 * them again if we rbf */
+	res = remember_channel_utxos(cmd, open, signed_psbt);
+
+	/* The in-flight open is done, let's clean it up! */
 	list_del_from(&pending_opens, &open->list);
 	tal_free(open);
 
-	return command_hook_cont_psbt(cmd, signed_psbt);
+	return res;
 }
 
 static struct command_result *
