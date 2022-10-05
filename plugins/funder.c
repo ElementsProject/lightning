@@ -361,6 +361,9 @@ struct open_info {
 	u32 node_blockheight;
 
 	struct amount_sat requested_lease;
+
+	/* List of previously-used utxos */
+	struct bitcoin_outpoint **prev_outs;
 };
 
 static struct open_info *new_open_info(const tal_t *ctx)
@@ -372,6 +375,7 @@ static struct open_info *new_open_info(const tal_t *ctx)
 	info->requested_lease = AMOUNT_SAT(0);
 	info->lease_blockheight = 0;
 	info->node_blockheight = 0;
+	info->prev_outs = NULL;
 
 	return info;
 }
@@ -612,7 +616,7 @@ json_openchannel2_call(struct command *cmd,
 		       const char *buf,
 		       const jsmntok_t *params)
 {
-	struct open_info *info = tal(cmd, struct open_info);
+	struct open_info *info = new_open_info(cmd);
 	struct amount_msat max_htlc_inflight, htlc_minimum;
 	u64 commitment_feerate_perkw,
 	    feerate_our_max, feerate_our_min;
@@ -739,6 +743,99 @@ json_openchannel2_call(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *
+datastore_list_fail(struct command *cmd,
+		    const char *buf,
+		    const jsmntok_t *error,
+		    struct open_info *info)
+{
+	struct out_req *req;
+
+	/* Oops, something's broken */
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "`datastore` list failed: %*.s",
+		   json_tok_full_len(error),
+		   json_tok_full(buf, error));
+
+	/* Figure out what our funds are... same flow
+	 * as with openchannel2 callback.  */
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "listfunds",
+				    &listfunds_success,
+				    &listfunds_failed,
+				    info);
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *
+datastore_list_success(struct command *cmd,
+		       const char *buf,
+		       const jsmntok_t *result,
+		       struct open_info *info)
+{
+	struct out_req *req;
+	const char *key, *err;
+	const u8 *utxos_bin;
+	size_t len, i;
+	const jsmntok_t *ds_arr_tok, *ds_result;
+
+	ds_arr_tok = json_get_member(buf, result, "datastore");
+	assert(ds_arr_tok->type == JSMN_ARRAY);
+
+	/* There should only be one result */
+	utxos_bin = NULL;
+	json_for_each_arr(i, ds_result, ds_arr_tok) {
+		err = json_scan(tmpctx, buf, ds_result,
+				"{key:%,hex:%}",
+				JSON_SCAN_TAL(cmd, json_strdup, &key),
+				JSON_SCAN_TAL(cmd, json_tok_bin_from_hex,
+					      &utxos_bin));
+
+		if (err)
+			plugin_err(cmd->plugin,
+				   "`listdatastore` payload did"
+				   " not scan. %s: %*.s",
+				   err, json_tok_full_len(result),
+				   json_tok_full(buf, result));
+
+		/* We found the prev utxo list */
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Saved utxos for channel (%s)"
+			   " pulled from datastore", key);
+
+		/* There should only be one result */
+		break;
+	}
+
+	/* Resurrect outpoints from stashed binary */
+	len = tal_bytelen(utxos_bin);
+	while (len > 0) {
+		struct bitcoin_outpoint *outpoint =
+			tal(info, struct bitcoin_outpoint);
+		fromwire_bitcoin_outpoint(&utxos_bin,
+					  &len, outpoint);
+		/* Cursor gets set to null if above fails */
+		if (!utxos_bin)
+			plugin_err(cmd->plugin,
+				   "Unable to parse saved utxos: %.*s",
+				   json_tok_full_len(result),
+				   json_tok_full(buf, result));
+
+		if (!info->prev_outs)
+			info->prev_outs =
+				tal_arr(info, struct bitcoin_outpoint *, 0);
+
+		tal_arr_expand(&info->prev_outs, outpoint);
+	}
+
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "listfunds",
+				    &listfunds_success,
+				    &listfunds_failed,
+				    info);
+	return send_outreq(cmd->plugin, req);
+}
+
 /* Peer has asked us to RBF */
 static struct command_result *
 json_rbf_channel_call(struct command *cmd,
@@ -747,7 +844,7 @@ json_rbf_channel_call(struct command *cmd,
 {
 	struct open_info *info = new_open_info(cmd);
 	u64 feerate_our_max, feerate_our_min;
-	const char *err;
+	const char *err, *chan_key;
 	struct out_req *req;
 
 	info->their_last_funding = tal(info, struct amount_sat);
@@ -805,15 +902,16 @@ json_rbf_channel_call(struct command *cmd,
 		return command_hook_success(cmd);
 	}
 
-	/* Figure out what our funds are... same flow
-	 * as with openchannel2 callback. We assume that THEY
-	 * will use the same inputs, so we use whatever we want here */
+	/* Fetch out previous utxos from the datastore */
 	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    "listfunds",
-				    &listfunds_success,
-				    &listfunds_failed,
+				    "listdatastore",
+				    &datastore_list_success,
+				    &datastore_list_fail,
 				    info);
-
+	chan_key = tal_fmt(cmd, "funder/%s",
+			   type_to_string(cmd, struct channel_id,
+					  &info->cid));
+	json_add_string(req->js, "key", chan_key);
 	return send_outreq(cmd->plugin, req);
 }
 
