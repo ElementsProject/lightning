@@ -486,17 +486,65 @@ static bool previously_reserved(struct bitcoin_outpoint **prev_outs,
 	return false;
 }
 
+struct funder_utxo {
+	struct bitcoin_outpoint out;
+	struct amount_sat val;
+};
+
+static struct out_req *
+build_utxopsbt_request(struct command *cmd,
+		       struct open_info *info,
+		       struct amount_sat requested_funds,
+		       struct amount_sat committed_funds,
+		       struct funder_utxo **avail_utxos)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "utxopsbt",
+				    &psbt_funded,
+				    &psbt_fund_failed,
+				    info);
+	/* Add every prev_out */
+	json_array_start(req->js, "utxos");
+	for (size_t i = 0; i < tal_count(info->prev_outs); i++)
+		json_add_outpoint(req->js, NULL, info->prev_outs[i]);
+
+	/* Next add available utxos until we surpass the
+	 * requested funds goal */
+	/* FIXME: Update `utxopsbt` to automatically add more inputs? */
+	for (size_t i = 0; i < tal_count(avail_utxos); i++) {
+		/* If we've already hit our goal, break */
+		if (amount_sat_greater_eq(committed_funds, requested_funds))
+			break;
+
+		/* Add this output to the UTXO */
+		json_add_outpoint(req->js, NULL, &avail_utxos[i]->out);
+
+		/* Account for it */
+		if (!amount_sat_add(&committed_funds, committed_funds,
+				    avail_utxos[i]->val))
+			/* This should really never happen */
+			plugin_err(cmd->plugin, "overflow adding committed");
+	}
+	json_array_end(req->js);
+	return req;
+}
+
 static struct command_result *
 listfunds_success(struct command *cmd,
 		  const char *buf,
 		  const jsmntok_t *result,
 		  struct open_info *info)
 {
-	struct amount_sat available_funds, est_fee;
+	struct amount_sat available_funds, committed_funds, est_fee;
 	const jsmntok_t *outputs_tok, *tok;
 	struct out_req *req;
 	size_t i;
 	const char *funding_err;
+
+	/* We only use this for RBFs, when there's a prev_outs list */
+	struct funder_utxo **avail_utxos = tal_arr(cmd, struct funder_utxo *, 0);
 
 	outputs_tok = json_get_member(buf, result, "outputs");
 	if (!outputs_tok)
@@ -506,24 +554,25 @@ listfunds_success(struct command *cmd,
 			   json_tok_full(buf, result));
 
 	available_funds = AMOUNT_SAT(0);
+	committed_funds = AMOUNT_SAT(0);
 	json_for_each_arr(i, tok, outputs_tok) {
-		struct amount_sat val;
-		struct bitcoin_outpoint out;
+		struct funder_utxo *utxo;
 		bool is_reserved, is_p2sh;
 		char *status;
 		const char *err;
 
+		utxo = tal(cmd, struct funder_utxo);
 		err = json_scan(tmpctx, buf, tok,
 				"{amount_msat:%"
 				",status:%"
 				",reserved:%"
 				",txid:%"
 				",output:%}",
-				JSON_SCAN(json_to_msat_as_sats, &val),
+				JSON_SCAN(json_to_msat_as_sats, &utxo->val),
 				JSON_SCAN_TAL(cmd, json_strdup, &status),
 				JSON_SCAN(json_to_bool, &is_reserved),
-				JSON_SCAN(json_to_txid, &out.txid),
-				JSON_SCAN(json_to_number, &out.n));
+				JSON_SCAN(json_to_txid, &utxo->out.txid),
+				JSON_SCAN(json_to_number, &utxo->out.n));
 		if (err)
 			plugin_err(cmd->plugin,
 				   "`listfunds` payload did not scan. %s: %*.s",
@@ -542,7 +591,8 @@ listfunds_success(struct command *cmd,
 
 		/* we skip reserved funds that aren't in our previous
 		 * inputs list! */
-		if (is_reserved && !previously_reserved(info->prev_outs, &out))
+		if (is_reserved &&
+		    !previously_reserved(info->prev_outs, &utxo->out))
 			continue;
 
 		/* we skip unconfirmed+spent funds */
@@ -551,12 +601,25 @@ listfunds_success(struct command *cmd,
 
 		/* Don't include outputs that can't cover their weight;
 		 *  subtract the fee for this utxo out of the utxo */
-		if (!amount_sat_sub(&val, val, est_fee))
+		if (!amount_sat_sub(&utxo->val, utxo->val, est_fee))
 			continue;
 
-		if (!amount_sat_add(&available_funds, available_funds, val))
+		if (!amount_sat_add(&available_funds, available_funds,
+				    utxo->val))
 			plugin_err(cmd->plugin,
 				   "`listfunds` overflowed output values");
+
+		/* If this is an RBF, we keep track of available utxos */
+		if (info->prev_outs) {
+			/* if not previously reserved, it's committed */
+			if (!previously_reserved(info->prev_outs, &utxo->out))
+				tal_arr_expand(&avail_utxos, utxo);
+			else if (!amount_sat_add(&committed_funds,
+						 committed_funds, utxo->val))
+				plugin_err(cmd->plugin,
+					   "`listfunds` overflowed"
+					   " committed output values");
+		}
 	}
 
 	funding_err = calculate_our_funding(current_policy,
@@ -585,11 +648,20 @@ listfunds_success(struct command *cmd,
 		   type_to_string(tmpctx, struct amount_sat,
 				  &info->their_funding));
 
-	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    "fundpsbt",
-				    &psbt_funded,
-				    &psbt_fund_failed,
-				    info);
+	/* If there's prevouts, we compose a psbt with those first,
+	 * then add more funds for anything missing */
+	if (info->prev_outs) {
+		req = build_utxopsbt_request(cmd, info,
+					     info->our_funding,
+					     committed_funds,
+					     avail_utxos);
+		json_add_bool(req->js, "reservedok", true);
+	} else
+		req = jsonrpc_request_start(cmd->plugin, cmd,
+					    "fundpsbt",
+					    &psbt_funded,
+					    &psbt_fund_failed,
+					    info);
 	json_add_string(req->js, "satoshi",
 			type_to_string(tmpctx, struct amount_sat,
 				       &info->our_funding));
@@ -597,6 +669,7 @@ listfunds_success(struct command *cmd,
 			tal_fmt(tmpctx, "%"PRIu64"%s",
 				info->funding_feerate_perkw,
 				feerate_style_name(FEERATE_PER_KSIPA)));
+
 	/* Our startweight is zero because we're freeriding on their open
 	 * transaction ! */
 	json_add_num(req->js, "startweight", 0);

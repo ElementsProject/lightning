@@ -343,7 +343,6 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail
 def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
@@ -409,8 +408,8 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     # This should be the accepter's amount
     fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
-    # FIXME: The lease goes away :(
-    assert Millisatoshi(0) == Millisatoshi(fundings['remote_funds_msat'])
+    # The lease is still there!
+    assert Millisatoshi(amount * 1000) == fundings['remote_funds_msat']
 
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
 
