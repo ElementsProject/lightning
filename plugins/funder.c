@@ -475,6 +475,17 @@ static struct command_result *param_msat_as_sat(struct command *cmd,
 				     "should be a millisatoshi amount");
 }
 
+static bool previously_reserved(struct bitcoin_outpoint **prev_outs,
+				struct bitcoin_outpoint *out)
+{
+	for (size_t i = 0; i < tal_count(prev_outs); i++) {
+		if (bitcoin_outpoint_eq(prev_outs[i], out))
+			return true;
+	}
+
+	return false;
+}
+
 static struct command_result *
 listfunds_success(struct command *cmd,
 		  const char *buf,
@@ -497,6 +508,7 @@ listfunds_success(struct command *cmd,
 	available_funds = AMOUNT_SAT(0);
 	json_for_each_arr(i, tok, outputs_tok) {
 		struct amount_sat val;
+		struct bitcoin_outpoint out;
 		bool is_reserved, is_p2sh;
 		char *status;
 		const char *err;
@@ -504,10 +516,14 @@ listfunds_success(struct command *cmd,
 		err = json_scan(tmpctx, buf, tok,
 				"{amount_msat:%"
 				",status:%"
-				",reserved:%}",
+				",reserved:%"
+				",txid:%"
+				",output:%}",
 				JSON_SCAN(json_to_msat_as_sats, &val),
 				JSON_SCAN_TAL(cmd, json_strdup, &status),
-				JSON_SCAN(json_to_bool, &is_reserved));
+				JSON_SCAN(json_to_bool, &is_reserved),
+				JSON_SCAN(json_to_txid, &out.txid),
+				JSON_SCAN(json_to_number, &out.n));
 		if (err)
 			plugin_err(cmd->plugin,
 				   "`listfunds` payload did not scan. %s: %*.s",
@@ -524,8 +540,9 @@ listfunds_success(struct command *cmd,
 		est_fee = amount_tx_fee(info->funding_feerate_perkw,
 					bitcoin_tx_input_weight(is_p2sh, 110));
 
-		/* we skip reserved funds */
-		if (is_reserved)
+		/* we skip reserved funds that aren't in our previous
+		 * inputs list! */
+		if (is_reserved && !previously_reserved(info->prev_outs, &out))
 			continue;
 
 		/* we skip unconfirmed+spent funds */
