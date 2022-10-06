@@ -411,7 +411,8 @@ ALL_NONGEN_SRCFILES := $(ALL_NONGEN_HEADERS) $(ALL_NONGEN_SOURCES)
 BIN_PROGRAMS = \
 	       cli/lightning-cli \
 	       lightningd/lightningd \
-	       tools/lightning-hsmtool
+	       tools/lightning-hsmtool\
+	       tools/reckless
 PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
