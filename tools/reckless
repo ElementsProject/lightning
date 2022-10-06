@@ -105,7 +105,7 @@ def remove_dir(target):
 
 class Config():
     """A generic class for procuring, reading and editing config files"""
-    def obtain_config(self, config_path, default_text):
+    def obtain_config(self, config_path, default_text, warn=False):
         """Return a config file from the desired location. Create one with
         default_text if it cannot be found."""
         if isinstance(config_path, type(None)):
@@ -117,8 +117,11 @@ class Config():
                 config_content = f.readlines()
             return config_content
         print(f'config file not found: {config_path}')
-        confirm = input('press [Y] to create one now.\n')
-        if confirm.upper() != 'Y':
+        if warn:
+            confirm = input('press [Y] to create one now.\n').upper() == 'Y'
+        else:
+            confirm = True
+        if not confirm:
             sys.exit(1)
         parent_path = os.path.split(config_path)[0]
         # Create up to one parent in the directory tree.
@@ -161,11 +164,12 @@ class Config():
                 if not line_exists:
                     conf_write.write(f'\n{addline}')
 
-    def __init__(self, path=None, default_text=None):
+    def __init__(self, path=None, default_text=None, warn=False):
         assert path is not None
         assert default_text is not None
         self.conf_fp = path
-        self.content = self.obtain_config(self.conf_fp, default_text)
+        self.content = self.obtain_config(self.conf_fp, default_text,
+                                          warn=warn)
 
 
 class RecklessConfig(Config):
@@ -199,13 +203,13 @@ class LightningBitcoinConfig(Config):
     """lightningd config specific to the bitcoin network. This is inherited by
     the main lightningd config and in turn, inherits bitcoin-reckless.conf."""
 
-    def __init__(self, path=None, default_text=None):
+    def __init__(self, path=None, default_text=None, warn=True):
         if path is None:
             path = os.path.join(LIGHTNING_DIR, 'bitcoin', 'config')
         if default_text is None:
             default_text = "# This config was autopopulated by reckless\n\n"
         Config.__init__(self, path=str(path),
-                        default_text=default_text)
+                        default_text=default_text, warn=warn)
 
 
 class InferInstall():
