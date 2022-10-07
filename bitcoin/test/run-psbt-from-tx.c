@@ -101,9 +101,12 @@ int main(int argc, char *argv[])
 
 	tx2 = fromwire_bitcoin_tx(tmpctx,
 				  cast_const2(const u8 **, &msg), &len);
+	assert(tx2 != NULL);
 
-	/* FIXME: this should not be null! */
-	assert(tx2 == NULL);
+	/* Witness/scriptsig data is saved down into psbt */
+	assert(tx2->psbt->num_inputs == 1);
+	assert(tx2->psbt->inputs[0].final_scriptsig_len > 0);
+	assert(tx2->psbt->inputs[0].final_witness != NULL);
 
 	common_shutdown();
 	return 0;
