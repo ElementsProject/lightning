@@ -1,0 +1,110 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2017--2021 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_DOC_PARSE 3
+.Os
+.Sh NAME
+.Nm lowdown_doc_parse
+.Nd parse a Markdown document into an AST
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft "struct lowdown_node *"
+.Fo lowdown_doc_parse
+.Fa "struct lowdown_doc *doc"
+.Fa "size_t *maxn"
+.Fa "const char *input"
+.Fa "size_t inputsz"
+.Fa "struct lowdown_metaq *metaq"
+.Fc
+.Sh DESCRIPTION
+Parse a
+.Xr lowdown 5
+document
+.Fa input
+of length
+.Fa inputsz
+into an AST with the parser
+.Fa doc .
+The
+.Fa maxn
+argument, if not
+.Dv NULL ,
+is set to one greater than the highest node identifier.
+Its value is undefined if the function returns
+.Dv NULL .
+.Pp
+If
+.Fa metaq
+is not
+.Dv NULL ,
+it is filled in with document metadata (if any).
+Metadata key names are canonicalised and duplicate names are ignored.
+The results should be freed with
+.Xr lowdown_metaq_free 3 .
+.Pp
+This function may be invoked multiple times with a single
+.Fa doc
+and different input.
+.Sh RETURN VALUES
+Returns the root of the parse tree or
+.Dv NULL
+on memory allocation failure.
+If not
+.Dv NULL ,
+the returned node is always of type
+.Dv LOWDOWN_ROOT .
+.Sh EXAMPLES
+The following parses
+.Va b
+of length
+.Va bsz .
+It first allocates the parser, then the document, then the renderer
+(HTML is used in this case).
+Then it passes output to the renderer, prints it, and cleans up
+resources.
+On any memory errors, it exits with
+.Xr err 3 .
+.Bd -literal -offset indent
+struct lowdown_doc *doc;
+struct lowdown_node *n;
+struct lowdown_buf *ob;
+void *rndr;
+
+if ((doc = lowdown_doc_new(NULL)) == NULL)
+	err(1, NULL);
+if ((n = lowdown_doc_parse(doc, NULL, b, bsz, NULL)) == NULL)
+	err(1, NULL);
+if ((rndr = lowdown_html_new(NULL)) == NULL)
+	err(1, NULL);
+if ((ob = lowdown_buf_new(1024)) == NULL)
+	err(1, NULL);
+if (!lowdown_html_rndr(ob, rndr, n))
+	err(1, NULL);
+
+fwrite(stdout, 1, ob->size, ob->data);
+
+lowdown_buf_free(ob);
+lowdown_html_rndr_free(rndr);
+lowdown_node_free(n);
+lowdown_doc_free(doc);
+.Ed
+.Sh SEE ALSO
+.Xr lowdown 3

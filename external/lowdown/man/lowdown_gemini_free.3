@@ -1,0 +1,79 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2020--2021 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_GEMINI_FREE 3
+.Os
+.Sh NAME
+.Nm lowdown_gemini_free
+.Nd free a Markdown gemini renderer
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft void
+.Fo lowdown_gemini_free
+.Fa "void *arg"
+.Fc
+.Sh DESCRIPTION
+Frees the gemini renderer created with
+.Xr lowdown_gemini_new 3 .
+If
+.Va arg
+is
+.Dv NULL ,
+the function does nothing.
+.Sh EXAMPLES
+The following parses
+.Va b
+of length
+.Va bsz
+and outputs in Gemini format.
+.Bd -literal -offset indent
+struct lowdown_buf *out;
+struct lowdown_doc *doc;
+struct lowdown_node *n;
+void *rndr;
+
+if (setlocale(LC_CTYPE, "en_US.UTF-8") == NULL)
+	err(1, NULL);
+if ((doc = lowdown_doc_new(NULL)) == NULL)
+	err(1, NULL);
+if ((n = lowdown_doc_parse(doc, NULL, b, bsz, NULL)) == NULL)
+	err(1, NULL);
+if ((out = lowdown_buf_new(256)) == NULL)
+	err(1, NULL);
+if ((rndr = lowdown_gemini_new(NULL)) == NULL)
+	err(1, NULL);
+if (!lowdown_gemini_rndr(out, rndr, n))
+	err(1, NULL);
+
+fwrite(out->data, 1, out->size, stdout);
+
+lowdown_gemini_free(rndr);
+lowdown_buf_free(out);
+lowdown_node_free(n);
+lowdown_doc_free(doc);
+.Ed
+.Sh SEE ALSO
+.Xr lowdown 3 ,
+.Xr lowdown_gemini_new 3
+.Sh STANDARDS
+The gemini format is documented in
+.Lk https://gemini.circumlunar.space/docs/specification.html Project Gemini .
+The version at the time of writing is 0.14.3.

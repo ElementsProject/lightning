@@ -1,0 +1,69 @@
+---
+name: "libwally-core-linux"
+enable_cache: false
+suites:
+- "trusty"
+architectures:
+- "amd64"
+packages:
+- "g++-aarch64-linux-gnu"
+- "g++-4.8-aarch64-linux-gnu"
+- "gcc-4.8-aarch64-linux-gnu"
+- "binutils-aarch64-linux-gnu"
+- "g++-arm-linux-gnueabihf"
+- "g++-4.8-arm-linux-gnueabihf"
+- "gcc-4.8-arm-linux-gnueabihf"
+- "binutils-arm-linux-gnueabihf"
+- "g++-4.8-multilib"
+- "gcc-4.8-multilib"
+- "binutils-gold"
+- "git-core"
+- "pkg-config"
+- "autoconf"
+- "libtool"
+- "automake"
+- "faketime"
+- "bsdmainutils"
+- "ca-certificates"
+- "python"
+remotes:
+- "dir": "libwally-core"
+  "url": "https://github.com/ElementsProject/libwally-core.git"
+files: []
+script: |
+
+  HOSTS="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu"
+  CONFIGFLAGS=""
+  DISTNAME='libwally-core'
+
+  export GZIP="-9n"
+  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+  export TZ="UTC"
+  export BUILD_DIR=`pwd`
+
+  SOURCEDIST="$HOME/libwallet-core.tar"
+
+  cd "${DISTNAME}"
+  tools/autogen.sh
+  tar -cvpf "${SOURCEDIST}" . --exclude=.git
+
+  ORIGPATH="$PATH"
+  # Extract the release tarball into a dir for each host and build
+  for i in ${HOSTS}; do
+    export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+    mkdir -p distsrc-${i}
+    cd distsrc-${i}
+    INSTALLPATH=`pwd`/installed/${DISTNAME}
+    mkdir -p ${INSTALLPATH}
+    tar -xf $SOURCEDIST
+
+    ./configure --host="$i" --prefix=/ --disable-maintainer-mode --disable-dependency-tracking ${CONFIGFLAGS}
+    make ${MAKEOPTS}
+
+    make install DESTDIR=${INSTALLPATH}
+    cd installed
+    "${i}-strip" --strip-unneeded "${DISTNAME}"/lib/libwallycore.so
+    ls "${DISTNAME}"/lib/libwallycore* | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-${i}.tar.gz
+    cd ../../
+    rm -rf distsrc-${i}
+  done

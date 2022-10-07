@@ -1,0 +1,5 @@
+\hypertarget{header-with-link}{%
+\section{Header with \hyperlink{link}{link}}\label{header-with-link}}
+
+\hypertarget{link}{%
+\section{\hyperlink{link}{link}}\label{link}}

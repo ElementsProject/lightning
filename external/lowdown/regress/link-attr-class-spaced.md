@@ -1,0 +1,2 @@
+
+link [text](address) { .cls }

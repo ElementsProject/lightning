@@ -1,0 +1,8 @@
+module Wally [system] {
+    header "wally_define_javascript_build.h"
+    header "../../../include/wally_crypto.h"
+    header "../../../include/wally_bip38.h"
+    header "../../../include/wally_bip32.h"
+    header "../../../bip32_int.h"
+    export *
+}

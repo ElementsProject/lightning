@@ -1,0 +1,44 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_BUF_NEW 3
+.Os
+.Sh NAME
+.Nm lowdown_buf_new
+.Nd allocate a dynamic buffer
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft struct lowdown_buf *
+.Fo lowdown_buf_new
+.Fa "size_t growsz"
+.Fc
+.Sh DESCRIPTION
+Allocates a dynamic buffer that grows in increments of size
+.Fa growsz ,
+which may not be zero.
+.Sh RETURN VALUES
+Returns a pointer to a buffer or
+.Dv NULL
+on memory failure.
+The pointer must be freed with
+.Xr lowdown_buf_free 3 .
+.Sh SEE ALSO
+.Xr lowdown 3

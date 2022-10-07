@@ -1,0 +1,16 @@
+graft .
+prune src/wrap_js
+prune src/test
+prune contrib
+prune docs
+prune .git
+exclude .git*
+prune tools/android_helper.sh
+prune tools/build_android_libraries.sh
+prune tools/build_js_bindings.sh
+prune tools/build_python_wheels.sh
+prune tools/coverage.sh
+prune tools/travis*
+prune tools/uncrustify*
+prune tools/swigjavapost.sh
+prune wally_dist

@@ -1,0 +1,13 @@
+prefix=@PREFIX@
+exec_prefix=${prefix}
+libdir=@LIBDIR@
+includedir=@INCLUDEDIR@
+
+Name: lowdown
+Description: simple markdown translator library
+URL: https://kristaps.bsd.lv/lowdown
+Version: @VERSION@
+Requires:
+Libs.private: 
+Libs: -L${libdir} -llowdown -lm
+Cflags: -I${includedir}

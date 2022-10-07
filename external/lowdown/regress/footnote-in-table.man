@@ -1,0 +1,34 @@
+.PP
+first\u\s-31\s+3\d
+.TS
+tab(|) expand allbox;
+lb lb
+l l.
+T{
+a
+T}|T{
+c
+T}
+T{
+9
+T}|T{
+foo\u\s-32\s+3\d\u\s-33\s+3\d
+T}
+.TE
+.PP
+Now\u\s-34\s+3\d
+.LP
+.sp 3
+\l'2i'
+.LP
+\0\fI\u\s-31\s+3\d\fP\0one
+.LP
+\0\fI\u\s-32\s+3\d\fP\0two
+.LP
+\0\fI\u\s-33\s+3\d\fP\0three
+.PP
+hello
+.IP "\(bu" 2
+world
+.LP
+\0\fI\u\s-34\s+3\d\fP\0four

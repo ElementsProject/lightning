@@ -1,0 +1,71 @@
+name: Build
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04, windows-2019, macos-10.15]
+        aarch64_version: ['cp36-*', 'cp37-*', 'cp38-*', 'cp39-*', 'cp310-*']
+    env:
+      CIBW_BEFORE_ALL_LINUX: yum install -y swig
+      CIBW_BEFORE_ALL_MACOS: brew install gnu-sed swig automake
+      CIBW_BEFORE_ALL_WINDOWS: choco install swig --version=3.0.7 --no-progress --allow-downgrade -y
+      CIBW_BEFORE_BUILD_WINDOWS: .\tools\msvc\wheel_preamble.bat
+      CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair --only-plat -w {dest_dir} {wheel}
+      CIBW_SKIP: "cp27-* cp35-* cp38-win32* cp39-win32* pp*"
+      LIBWALLY_DIR: "."
+      SWIG_PATH: "C:\\ProgramData\\chocolatey\\lib\\swig\\tools\\install\\swigwin-3.0.7"
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install MSVC
+        if: runner.os == 'Windows' && matrix.aarch64_version == 'cp36-*'
+        uses: ilammy/msvc-dev-cmd@v1.4.1
+
+      - name: Build Windows Wheels
+        if: runner.os == 'Windows' && matrix.aarch64_version == 'cp36-*'
+        uses: pypa/cibuildwheel@v1.11.0
+
+      - name: Build Obsolete Linux/macOS Wheels
+        if: runner.os != 'Windows' && matrix.aarch64_version == 'cp36-*'
+        uses: pypa/cibuildwheel@v2.1.1
+        env:
+          CIBW_BUILD: cp36-*
+
+      - name: Build Linux/macOS Wheels
+        if: runner.os != 'Windows' && matrix.aarch64_version == 'cp37-*'
+        uses: pypa/cibuildwheel@v2.1.2
+        env:
+          CIBW_SKIP: cp36-*
+          CIBW_ARCHS_MACOS: "x86_64 arm64 universal2"
+
+      - name: Install qemu aarch64
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v1
+        with:
+          platforms: arm64
+
+      - name: Build aarch64 Wheels
+        if: runner.os == 'Linux'
+        uses: pypa/cibuildwheel@v2.1.2
+        env:
+          CIBW_BUILD: ${{ matrix.aarch64_version }}
+          CIBW_ARCHS_LINUX: aarch64
+
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./wheelhouse/*.whl

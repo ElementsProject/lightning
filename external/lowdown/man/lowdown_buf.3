@@ -1,0 +1,126 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2017, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_BUF 3
+.Os
+.Sh NAME
+.Nm lowdown_buf
+.Nd parse a Markdown buffer into formatted output
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft int
+.Fo lowdown_buf
+.Fa "const struct lowdown_opts *opts"
+.Fa "const char *buf"
+.Fa "size_t bufsz"
+.Fa "char **ret"
+.Fa "size_t *retsz"
+.Fa "struct lowdown_metaq *metaq"
+.Fc
+.Sh DESCRIPTION
+Parses a
+.Xr lowdown 5
+buffer
+.Fa buf
+of size
+.Fa bufsz
+into an output buffer
+.Fa ret
+of size
+.Fa retsz
+according to a configuration
+.Fa opts .
+The output format is specified by
+.Fa opts->type .
+If
+.Dv LOWDOWN_METADATA
+is set in
+.Fa opts->feat
+and
+.Fa metaq
+is not
+.Dv NULL ,
+.Fa metaq
+is filled with metadata rendered in the given output format.
+.Pp
+The caller is responsible for freeing
+.Fa ret
+and
+.Fa metaq .
+.Sh RETURN VALUES
+Returns zero on failure, non-zero on success.
+On failure, the values pointed to by
+.Fa res
+and
+.Fa rsz
+are undefined.
+.Sh EXAMPLES
+The following parses standard input into a standalone HTML5 document.
+It enables footnotes, autolinks, tables, superscript, strikethrough,
+fenced codeblocks, commonmark, definition lists, extended image
+attributes, and metadata processing.
+The output passes through raw HTML and has smart typography.
+.Bd -literal -offset indent
+struct lowdown_opts opts;
+char *buf = NULL, *obuf;
+char rbuf[1024];
+size_t sz, bufsz = 0, obufsz;
+
+while (!(feof(stdin) || ferror(stdin))) {
+	sz = fread(rbuf, 1, sizeof(rbuf), stdin);
+	if (sz == 0)
+		err(1, "fread");
+	buf = realloc(buf, bufsz + sz);
+	if (buf == NULL)
+		err(1, NULL);
+	memcpy(buf + bufsz, rbuf, sz);
+	bufsz += sz;
+}
+
+if (ferror(stdin))
+	err(1, "fread");
+
+memset(&opts, 0, sizeof(struct lowdown_opts));
+opts.type = LOWDOWN_HTML;
+opts.feat = LOWDOWN_FOOTNOTES |
+	LOWDOWN_AUTOLINK |
+	LOWDOWN_TABLES |
+	LOWDOWN_SUPER |
+	LOWDOWN_STRIKE |
+	LOWDOWN_FENCED |
+	LOWDOWN_COMMONMARK |
+	LOWDOWN_DEFLIST |
+	LOWDOWN_IMG_EXT |
+	LOWDOWN_METADATA;
+opts.oflags = LOWDOWN_HTML_HEAD_IDS |
+	LOWDOWN_HTML_NUM_ENT |
+	LOWDOWN_HTML_OWASP |
+	LOWDOWN_SMARTY |
+	LOWDOWN_STANDALONE;
+if (!lowdown_buf(&opts, buf, bufsz, &obuf, &obufsz, NULL))
+	errx(1, "lowdown_buf");
+fwrite(buf, 1, bufsz, stdout);
+free(buf);
+free(obuf);
+.Ed
+.Sh SEE ALSO
+.Xr lowdown 3 ,
+.Xr lowdown_metaq_free 3

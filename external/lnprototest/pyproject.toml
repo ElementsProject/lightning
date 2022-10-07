@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "lnprototest"
+version = "0.0.2"
+description = "Spec protocol tests for lightning network implementations"
+authors = ["Rusty Russell <rusty@blockstream.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pyln-bolt4 = "^1.0.2"
+pyln-bolt2 = "^1.0.2"
+pyln-bolt1 = "^1.0.1"
+pyln-client = "^0.10.2"
+pyln-testing = "^0.10.1"
+crc32c = "^2.2.post0"
+# We accidentally published version 1.0.186 instead of 1.0.2.186. That
+# version is now yanked by caches remain, so this is a temporary fix.
+pyln-bolt7 = ">=1.0.2.186,<1.0.100"
+pyln-proto = "^0.10.2"
+python-bitcoinlib = "^0.11.0"
+
+[tool.poetry.dev-dependencies]
+black = "^22.1.0"
+flake8 = "^4.0.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

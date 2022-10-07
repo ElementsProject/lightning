@@ -1,0 +1,27 @@
+    This used to crash -Tterm because the footnote size was saved and
+    zeroed prior to table column-width scanning, then restored. However,
+    this could result in off-by-ones or -twos because the actual
+    footnotes may have gone double-digit while the zeroed wouldn’t.
+
+    a[1;93m[1][0m a[1;93m[2][0m a[1;93m[3][0m a[1;93m[4][0m a[1;93m[5][0m a[1;93m[6][0m a[1;93m[7][0m a[1;93m[8][0m
+
+              Officer[93m | [0mRank                
+    [93m------------------|----------------------[0m
+      Jean-Luc Picard[93m | [0mCaptain             
+              Worf[1;93m[9][0m[93m | [0mLieutenant Commander
+             Data[1;93m[10][0m[93m | [0mLieutenant Commander
+    William Riker[1;93m[11][0m[93m | [0mCommander           
+
+[37m    ~~~~~~~~[0m
+
+    [92m 1. [0mfoo
+    [92m 2. [0mfoo
+    [92m 3. [0mfoo
+    [92m 4. [0mfoo
+    [92m 5. [0mfoo
+    [92m 6. [0mfoo
+    [92m 7. [0mfoo
+    [92m 8. [0mfoo
+    [92m 9. [0mfoo
+    [92m10. [0mfoo
+    [92m11. [0mfoo

@@ -1,0 +1,43 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_BUF_FREE 3
+.Os
+.Sh NAME
+.Nm lowdown_buf_free
+.Nd free a dynamic buffer
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft void
+.Fo lowdown_buf_free
+.Fa "struct lowdown_buf *buf"
+.Fc
+.Sh DESCRIPTION
+Frees a dynamic buffer created with
+.Xr lowdown_buf_new 3 .
+If
+.Va buf
+is
+.Dv NULL ,
+the function does nothing.
+.Sh SEE ALSO
+.Xr lowdown 3 ,
+.Xr lowdown_buf_new 3

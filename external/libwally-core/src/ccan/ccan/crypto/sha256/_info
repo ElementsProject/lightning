@@ -1,0 +1,55 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * crypto/sha256 - implementation of SHA-2 with 256 bit digest.
+ *
+ * This code is either a wrapper for openssl (if CCAN_CRYPTO_SHA256_USE_OPENSSL
+ * is defined) or an open-coded implementation based on Bitcoin's.
+ *
+ * License: BSD-MIT
+ * Maintainer: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	#include <ccan/crypto/sha256/sha256.h>
+ *	#include <err.h>
+ *	#include <stdio.h>
+ *	#include <string.h>
+ *
+ *	// Simple demonstration: idential strings will have the same hash, but
+ *	// two different strings will not.
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct sha256 hash1, hash2;
+ *
+ *		if (argc != 3)
+ *			errx(1, "Usage: %s <string1> <string2>", argv[0]);
+ *
+ *		sha256(&hash1, argv[1], strlen(argv[1]));
+ *		sha256(&hash2, argv[2], strlen(argv[2]));
+ *		printf("Hash is %s\n", memcmp(&hash1, &hash2, sizeof(hash1))
+ *			? "different" : "same");
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/endian\n");
+		return 0;
+	}
+
+	if (strcmp(argv[1], "libs") == 0) {
+#ifdef CCAN_CRYPTO_SHA256_USE_OPENSSL
+		printf("crypto\n");
+#endif
+		return 0;
+	}
+
+	return 1;
+}

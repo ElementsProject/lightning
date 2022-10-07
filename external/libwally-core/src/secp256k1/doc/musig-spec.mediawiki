@@ -1,0 +1,1 @@
+This document was moved to [https://github.com/jonasnick/bips/blob/musig2/bip-musig2.mediawiki https://github.com/jonasnick/bips/blob/musig2/bip-musig2.mediawiki].

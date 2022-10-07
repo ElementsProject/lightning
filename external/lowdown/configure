@@ -1,0 +1,2449 @@
+#! /bin/sh
+#
+# Copyright (c) 2014, 2015, 2016 Ingo Schwarze <schwarze@openbsd.org>
+# Copyright (c) 2017, 2018 Kristaps Dzonsons <kristaps@bsd.lv>
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+OCONFIGURE_VERSION="0.3.5"
+
+#
+# This script outputs two files: config.h and Makefile.configure.
+# It tries to read from configure.local, which contains predefined
+# values we won't autoconfigure.
+#
+# If you want to use configure with your project, have your GNUmakefile
+# or BSDmakefile---whichever---try to import/include Makefile.configure
+# at the beginning of the file.
+#
+# Like so (note no quotes, no period, etc.):
+#
+#   include Makefile.configure
+#
+# If it exists, configure was run; otherwise, it wasn't.
+#
+# You'll probably want to change parts of this file.  I've noted the
+# parts that you'll probably change in the section documentation.
+#
+# See https://github.com/kristapsdz/oconfigure for more.
+
+set -e
+
+#----------------------------------------------------------------------
+# Prepare for running: move aside previous configure runs.
+# Output file descriptor usage:
+#  1 (stdout): config.h or Makefile.configure
+#  2 (stderr): original stderr, usually to the console
+#  3: config.log
+# You DO NOT want to change this.
+#----------------------------------------------------------------------
+
+[ -w config.log ] && mv config.log config.log.old
+[ -w config.h   ] && mv config.h config.h.old
+
+exec 3> config.log
+echo "config.log: writing..."
+
+# GNU submake prints different output if invoked recursively, which
+# messes up CC and CFLAGS detection.  Pass --no-print-directory if
+# we have a MAKELEVEL (GNU and FreeBSD make) and the argument is
+# allowed.
+
+MAKE_FLAGS=""
+
+if [ -n "${MAKELEVEL}" ]; then
+	if [ "${MAKELEVEL}" -gt 0 ] ; then
+		MAKE_FLAGS="--no-print-directory"
+		echo "all:" | make ${MAKE_FLAGS} -sf - 2>/dev/null || MAKE_FLAGS=""
+	fi
+fi
+
+if [ -n "$MAKE_FLAGS" ]; then 
+	echo "GNU submake detected: using --no-print-directory" 1>&2
+	echo "GNU submake detected: using --no-print-directory" 1>&3
+fi
+
+#----------------------------------------------------------------------
+# Initialize all variables here such that nothing can leak in from the
+# environment except for CC and CFLAGS, which we might have passed in.
+#----------------------------------------------------------------------
+
+CC=`printf "all:\\n\\t@echo \\\$(CC)\\n" | make ${MAKE_FLAGS} -sf -`
+CFLAGS=`printf "all:\\n\\t@echo \\\$(CFLAGS)\\n" | make ${MAKE_FLAGS} -sf -`
+CFLAGS="${CFLAGS} -g -W -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes"
+CFLAGS="${CFLAGS} -Wwrite-strings -Wno-unused-parameter"
+LDADD=
+LDADD_B64_NTOP=
+LDADD_CRYPT=
+LDADD_MD5=
+LDADD_SHA2=
+LDADD_LIB_SOCKET=
+LDADD_STATIC=
+CPPFLAGS=
+LDFLAGS=
+DESTDIR=
+PREFIX="/usr/local"
+BINDIR=
+SBINDIR=
+INCLUDEDIR=
+LIBDIR=
+MANDIR=
+SHAREDIR=
+INSTALL="install"
+INSTALL_PROGRAM=
+INSTALL_LIB=
+INSTALL_MAN=
+INSTALL_DATA=
+
+# SunOS sets "cc", but this doesn't exist.
+# It does have gcc, so try that instead.
+# Prefer clang, though.
+
+command -v ${CC} 2>/dev/null 1>&2 || {
+	echo "${CC} not found: trying clang" 1>&2
+	echo "${CC} not found: trying clang" 1>&3
+	CC=clang
+	command -v ${CC} 2>/dev/null 1>&2 || {
+		echo "${CC} not found: trying gcc" 1>&2
+		echo "${CC} not found: trying gcc" 1>&3
+		CC=gcc
+		command -v ${CC} 2>/dev/null 1>&2 || {
+			echo "gcc not found: giving up" 1>&2
+			echo "gcc not found: giving up" 1>&3
+			exit 1
+		}
+	}
+}
+
+#----------------------------------------------------------------------
+# Allow certain variables to be overriden on the command line.
+#----------------------------------------------------------------------
+
+for keyvals in "$@"
+do
+	key=`echo $keyvals | cut -s -d '=' -f 1`
+	if [ -z "$key" ]
+	then
+		echo "$0: invalid key-value: $keyvals" 1>&2
+		exit 1
+	fi
+	val=`echo $keyvals | cut -d '=' -f 2-`
+	case "$key" in
+	LDADD)
+		LDADD="$val" ;;
+	LDFLAGS)
+		LDFLAGS="$val" ;;
+	CPPFLAGS)
+		CPPFLAGS="$val" ;;
+	DESTDIR)
+		DESTDIR="$val" ;;
+	PREFIX)
+		PREFIX="$val" ;;
+	MANDIR)
+		MANDIR="$val" ;;
+	LIBDIR)
+		LIBDIR="$val" ;;
+	BINDIR)
+		BINDIR="$val" ;;
+	SHAREDIR)
+		SHAREDIR="$val" ;;
+	SBINDIR)
+		SBINDIR="$val" ;;
+	INCLUDEDIR)
+		INCLUDEDIR="$val" ;;
+	*)
+		echo "$0: invalid key: $key" 1>&2
+		exit 1
+	esac
+done
+
+
+#----------------------------------------------------------------------
+# These are the values that will be pushed into config.h after we test
+# for whether they're supported or not.
+# Each of these must have a runtest(), below.
+# Please sort by alpha, for clarity.
+# You WANT to change this.
+#----------------------------------------------------------------------
+
+HAVE_ARC4RANDOM=
+HAVE_B64_NTOP=
+HAVE_CAPSICUM=
+HAVE_CRYPT=
+HAVE_ENDIAN_H=
+HAVE_ERR=
+HAVE_EXPLICIT_BZERO=
+HAVE_FTS=
+HAVE_GETEXECNAME=
+HAVE_GETPROGNAME=
+HAVE_INFTIM=
+HAVE_MD5=
+HAVE_MEMMEM=
+HAVE_MEMRCHR=
+HAVE_MEMSET_S=
+HAVE_MKFIFOAT=
+HAVE_MKNODAT=
+HAVE_OSBYTEORDER_H=
+HAVE_PATH_MAX=
+HAVE_PLEDGE=
+HAVE_PROGRAM_INVOCATION_SHORT_NAME=
+HAVE_READPASSPHRASE=
+HAVE_REALLOCARRAY=
+HAVE_RECALLOCARRAY=
+HAVE_SANDBOX_INIT=
+HAVE_SECCOMP_FILTER=
+HAVE_SETRESGID=
+HAVE_SETRESUID=
+HAVE_SOCK_NONBLOCK=
+HAVE_SHA2=
+HAVE_SHA2_H=
+HAVE_STRLCAT=
+HAVE_STRLCPY=
+HAVE_STRNDUP=
+HAVE_STRNLEN=
+HAVE_STRTONUM=
+HAVE_SYS_BYTEORDER_H=
+HAVE_SYS_ENDIAN_H=
+HAVE_SYS_MKDEV_H=
+HAVE_SYS_QUEUE=
+HAVE_SYS_SYSMACROS=
+HAVE_SYS_TREE=
+HAVE_SYSTRACE=0
+HAVE_UNVEIL=
+HAVE_WAIT_ANY=
+HAVE___PROGNAME=
+
+#----------------------------------------------------------------------
+# Allow configure.local to override all variables, default settings,
+# command-line arguments, and tested features, above.
+# You PROBABLY DO NOT want to change this.
+#----------------------------------------------------------------------
+
+if [ -r ./configure.local ]; then
+	echo "configure.local: reading..." 1>&2
+	echo "configure.local: reading..." 1>&3
+	cat ./configure.local 1>&3
+	. ./configure.local
+else
+	echo "configure.local: no (fully automatic configuration)" 1>&2
+	echo "configure.local: no (fully automatic configuration)" 1>&3
+fi
+
+echo 1>&3
+
+#----------------------------------------------------------------------
+# Infrastructure for running tests.
+# These consists of a series of functions that will attempt to run the
+# given test file and record its exit into a HAVE_xxx variable.
+# You DO NOT want to change this.
+#----------------------------------------------------------------------
+
+COMP="${CC} ${CFLAGS} ${CPPFLAGS} -Wno-unused -Werror"
+
+# Check whether this HAVE_ setting is manually overridden.
+# If yes, use the override, if no, do not decide anything yet.
+# Arguments: lower-case test name, manual value
+
+ismanual() {
+	[ -z "${3}" ] && return 1
+	echo "${1}: manual (HAVE_${2}=${3})" 1>&2
+	echo "${1}: manual (HAVE_${2}=${3})" 1>&3
+	echo 1>&3
+	return 0
+}
+
+# Run a single autoconfiguration test.
+# In case of success, enable the feature.
+# In case of failure, do not decide anything yet.
+# Arguments: lower-case test name, upper-case test name, additional
+# CFLAGS, additional LIBS.
+
+singletest() {
+	extralib=""
+	cat 1>&3 << __HEREDOC__
+${1}: testing...
+${COMP} -DTEST_${2} ${3} -o test-${1} tests.c ${LDFLAGS} ${4}
+__HEREDOC__
+	if ${COMP} -DTEST_${2} ${3} -o "test-${1}" tests.c ${LDFLAGS} ${4} 1>&3 2>&3; then
+		echo "${1}: ${CC} succeeded" 1>&3
+	else 
+		if [ -n "${5}" ] ; then
+			echo "${1}: ${CC} failed with $? (retrying)" 1>&3
+			cat 1>&3 << __HEREDOC__
+${1}: testing...
+${COMP} -DTEST_${2} ${3} -o test-${1} tests.c ${LDFLAGS} ${5}
+__HEREDOC__
+			if ${COMP} -DTEST_${2} ${3} -o "test-${1}" tests.c ${LDFLAGS} ${5} 1>&3 2>&3; then
+				echo "${1}: ${CC} succeeded" 1>&3
+				extralib="(with ${5})"
+			else 
+				echo "${1}: ${CC} failed with $?" 1>&3
+				echo 1>&3
+				return 1
+			fi
+		else
+			echo "${1}: ${CC} failed with $?" 1>&3
+			echo 1>&3
+			return 1
+		fi
+	fi
+
+	if [ -n "${extralib}" ] 
+	then
+		eval "LDADD_${2}=\"${5}\""
+	elif [ -n "${4}" ]
+	then
+		eval "LDADD_${2}=\"${4}\""
+	fi
+
+	echo "${1}: yes ${extralib}" 1>&2
+	echo "${1}: yes ${extralib}" 1>&3
+	echo 1>&3
+	eval HAVE_${2}=1
+	rm "test-${1}"
+	return 0
+}
+
+# Run a complete autoconfiguration test, including the check for
+# a manual override and disabling the feature on failure.
+# Arguments: lower case name, upper case name, additional CFLAGS, 
+# additional LDADD, alternative LDADD.
+
+runtest() {
+	eval _manual=\${HAVE_${2}}
+	ismanual "${1}" "${2}" "${_manual}" && return 0
+	singletest "${1}" "${2}" "${3}" "${4}" "${5}" && return 0
+	echo "${1}: no" 1>&2
+	eval HAVE_${2}=0
+	return 1
+}
+
+#----------------------------------------------------------------------
+# Begin running the tests themselves.
+# All of your tests must be defined here.
+# Please sort as the HAVE_xxxx values were defined.
+# You WANT to change this.
+# It consists of the following columns:
+#    runtest
+#    (1) test file
+#    (2) macro to set
+#    (3) argument to cc *before* -o
+#    (4) argument to cc *after* 
+#    (5) alternative argument to cc *after* 
+#----------------------------------------------------------------------
+
+runtest arc4random	ARC4RANDOM			  || true
+runtest b64_ntop	B64_NTOP "" "" "-lresolv"	  || true
+runtest capsicum	CAPSICUM			  || true
+runtest crypt		CRYPT "" "" "-lcrypt"	  	  || true
+runtest endian_h	ENDIAN_H			  || true
+runtest err		ERR				  || true
+runtest explicit_bzero	EXPLICIT_BZERO			  || true
+runtest fts		FTS				  || true
+runtest getexecname	GETEXECNAME			  || true
+runtest getprogname	GETPROGNAME			  || true
+runtest INFTIM		INFTIM				  || true
+runtest lib_socket	LIB_SOCKET "" "" "-lsocket -lnsl" || true
+runtest md5		MD5 "" "" "-lmd"		  || true
+runtest memmem		MEMMEM			  	  || true
+runtest memrchr		MEMRCHR			  	  || true
+runtest memset_s	MEMSET_S			  || true
+runtest mkfifoat	MKFIFOAT			  || true
+runtest mknodat		MKNODAT				  || true
+runtest osbyteorder_h	OSBYTEORDER_H			  || true
+runtest PATH_MAX	PATH_MAX			  || true
+runtest pledge		PLEDGE				  || true
+runtest program_invocation_short_name	PROGRAM_INVOCATION_SHORT_NAME || true
+runtest readpassphrase	READPASSPHRASE			  || true
+runtest reallocarray	REALLOCARRAY			  || true
+runtest recallocarray	RECALLOCARRAY			  || true
+runtest sandbox_init	SANDBOX_INIT	"-Wno-deprecated" || true
+runtest seccomp-filter	SECCOMP_FILTER			  || true
+runtest setresgid	SETRESGID			  || true
+runtest setresuid	SETRESUID			  || true
+runtest sha2		SHA2 "" "" "-lmd"		  || true
+runtest SOCK_NONBLOCK	SOCK_NONBLOCK			  || true
+runtest static		STATIC "" "-static"		  || true
+runtest strlcat		STRLCAT				  || true
+runtest strlcpy		STRLCPY				  || true
+runtest strndup		STRNDUP				  || true
+runtest strnlen		STRNLEN				  || true
+runtest strtonum	STRTONUM			  || true
+runtest sys_byteorder_h	SYS_BYTEORDER_H			  || true
+runtest sys_endian_h	SYS_ENDIAN_H			  || true
+runtest sys_mkdev_h	SYS_MKDEV_H			  || true
+runtest sys_sysmacros_h	SYS_SYSMACROS_H			  || true
+runtest sys_queue	SYS_QUEUE			  || true
+runtest sys_tree	SYS_TREE			  || true
+runtest unveil		UNVEIL				  || true
+runtest WAIT_ANY	WAIT_ANY			  || true
+runtest __progname	__PROGNAME			  || true
+
+#----------------------------------------------------------------------
+# Output writing: generate the config.h file.
+# This file contains all of the HAVE_xxxx variables necessary for
+# compiling your source.
+# You must include "config.h" BEFORE any other variables.
+# You WANT to change this.
+#----------------------------------------------------------------------
+
+exec > config.h
+
+# Start with prologue.
+
+cat << __HEREDOC__
+#ifndef OCONFIGURE_CONFIG_H
+#define OCONFIGURE_CONFIG_H
+
+#ifdef __cplusplus
+# error "Do not use C++: this is a C application."
+#endif
+#if !defined(__GNUC__) || (__GNUC__ < 4)
+# define __attribute__(x)
+#endif
+#if defined(__linux__) || defined(__MINT__)
+# define _GNU_SOURCE /* memmem, memrchr, setresuid... */
+# define _DEFAULT_SOURCE /* le32toh, crypt, ... */
+#endif
+#if defined(__NetBSD__)
+# define _OPENBSD_SOURCE /* reallocarray, etc. */
+#endif
+#if defined(__sun)
+# ifndef _XOPEN_SOURCE /* SunOS already defines */
+#  define _XOPEN_SOURCE /* XPGx */
+# endif
+# define _XOPEN_SOURCE_EXTENDED 1 /* XPG4v2 */
+# ifndef __EXTENSIONS__ /* SunOS already defines */
+#  define __EXTENSIONS__ /* reallocarray, etc. */
+# endif
+#endif
+#if !defined(__BEGIN_DECLS)
+# define __BEGIN_DECLS
+#endif
+#if !defined(__END_DECLS)
+# define __END_DECLS
+#endif
+
+__HEREDOC__
+
+# This is just for size_t, mode_t, and dev_t.
+# Most of these functions, in the real world, pull in <string.h> or
+# someting that pulls in support for size_t.
+# Our function declarations are standalone, so specify them here.
+
+if [ ${HAVE_FTS} -eq 0 -o \
+     ${HAVE_MD5} -eq 0 -o \
+     ${HAVE_MEMMEM} -eq 0 -o \
+     ${HAVE_MEMRCHR} -eq 0 -o \
+     ${HAVE_MKFIFOAT} -eq 0 -o \
+     ${HAVE_MKNODAT} -eq 0 -o \
+     ${HAVE_READPASSPHRASE} -eq 0 -o \
+     ${HAVE_REALLOCARRAY} -eq 0 -o \
+     ${HAVE_RECALLOCARRAY} -eq 0 -o \
+     ${HAVE_SETRESGID} -eq 0 -o \
+     ${HAVE_SETRESUID} -eq 0 -o \
+     ${HAVE_SHA2} -eq 0 -o \
+     ${HAVE_STRLCAT} -eq 0 -o \
+     ${HAVE_STRLCPY} -eq 0 -o \
+     ${HAVE_STRNDUP} -eq 0 -o \
+     ${HAVE_STRNLEN} -eq 0 ]
+then
+	echo "#include <sys/types.h> /* size_t, mode_t, dev_t */ "
+	echo
+fi
+
+if [ ${HAVE_MD5} -eq 0 -o \
+     ${HAVE_SHA2} -eq 0 ]
+then
+	echo "#include <stdint.h> /* C99 [u]int[nn]_t types */"
+	echo
+fi
+
+if [ ${HAVE_ERR} -eq 0 ]
+then
+	echo "#include <stdarg.h> /* err(3) */"
+	echo
+fi
+
+# Now we handle our HAVE_xxxx values.
+# Most will just be defined as 0 or 1.
+
+if [ ${HAVE_PATH_MAX} -eq 0 ]
+then
+	echo "#define PATH_MAX 4096"
+	echo
+fi
+
+if [ ${HAVE_WAIT_ANY} -eq 0 ]
+then
+	echo "#define WAIT_ANY (-1) /* sys/wait.h */"
+	echo "#define WAIT_MYPGRP 0"
+	echo
+fi
+
+
+if [ ${HAVE_INFTIM} -eq 0 ]
+then
+	echo "#define INFTIM (-1) /* poll.h */"
+	echo
+fi
+
+cat << __HEREDOC__
+/*
+ * Results of configuration feature-testing.
+ */
+#define HAVE_ARC4RANDOM ${HAVE_ARC4RANDOM}
+#define HAVE_B64_NTOP ${HAVE_B64_NTOP}
+#define HAVE_CAPSICUM ${HAVE_CAPSICUM}
+#define HAVE_CRYPT ${HAVE_CRYPT}
+#define HAVE_ENDIAN_H ${HAVE_ENDIAN_H}
+#define HAVE_ERR ${HAVE_ERR}
+#define HAVE_EXPLICIT_BZERO ${HAVE_EXPLICIT_BZERO}
+#define HAVE_FTS ${HAVE_FTS}
+#define HAVE_GETEXECNAME ${HAVE_GETEXECNAME}
+#define HAVE_GETPROGNAME ${HAVE_GETPROGNAME}
+#define HAVE_INFTIM ${HAVE_INFTIM}
+#define HAVE_MD5 ${HAVE_MD5}
+#define HAVE_MEMMEM ${HAVE_MEMMEM}
+#define HAVE_MEMRCHR ${HAVE_MEMRCHR}
+#define HAVE_MEMSET_S ${HAVE_MEMSET_S}
+#define HAVE_MKFIFOAT ${HAVE_MKFIFOAT}
+#define HAVE_MKNODAT ${HAVE_MKNODAT}
+#define HAVE_OSBYTEORDER_H ${HAVE_OSBYTEORDER_H}
+#define HAVE_PATH_MAX ${HAVE_PATH_MAX}
+#define HAVE_PLEDGE ${HAVE_PLEDGE}
+#define HAVE_PROGRAM_INVOCATION_SHORT_NAME ${HAVE_PROGRAM_INVOCATION_SHORT_NAME}
+#define HAVE_READPASSPHRASE ${HAVE_READPASSPHRASE}
+#define HAVE_REALLOCARRAY ${HAVE_REALLOCARRAY}
+#define HAVE_RECALLOCARRAY ${HAVE_RECALLOCARRAY}
+#define HAVE_SANDBOX_INIT ${HAVE_SANDBOX_INIT}
+#define HAVE_SECCOMP_FILTER ${HAVE_SECCOMP_FILTER}
+#define HAVE_SETRESGID ${HAVE_SETRESGID}
+#define HAVE_SETRESUID ${HAVE_SETRESUID}
+#define HAVE_SHA2 ${HAVE_SHA2}
+#define HAVE_SHA2_H ${HAVE_SHA2}
+#define HAVE_SOCK_NONBLOCK ${HAVE_SOCK_NONBLOCK}
+#define HAVE_STRLCAT ${HAVE_STRLCAT}
+#define HAVE_STRLCPY ${HAVE_STRLCPY}
+#define HAVE_STRNDUP ${HAVE_STRNDUP}
+#define HAVE_STRNLEN ${HAVE_STRNLEN}
+#define HAVE_STRTONUM ${HAVE_STRTONUM}
+#define HAVE_SYS_BYTEORDER_H ${HAVE_SYS_BYTEORDER_H}
+#define HAVE_SYS_ENDIAN_H ${HAVE_SYS_ENDIAN_H}
+#define HAVE_SYS_MKDEV_H ${HAVE_SYS_MKDEV_H}
+#define HAVE_SYS_QUEUE ${HAVE_SYS_QUEUE}
+#define HAVE_SYS_SYSMACROS_H ${HAVE_SYS_SYSMACROS_H}
+#define HAVE_SYS_TREE ${HAVE_SYS_TREE}
+#define HAVE_SYSTRACE ${HAVE_SYSTRACE}
+#define HAVE_UNVEIL ${HAVE_UNVEIL}
+#define HAVE_WAIT_ANY ${HAVE_WAIT_ANY}
+#define HAVE___PROGNAME ${HAVE___PROGNAME}
+
+__HEREDOC__
+
+# Compat for libkern/OSByteOrder.h in place of endian.h.
+
+[ ${HAVE_OSBYTEORDER_H} -eq 1 -a \
+  ${HAVE_ENDIAN_H} -eq 0 -a \
+  ${HAVE_SYS_BYTEORDER_H} -eq 0 -a \
+  ${HAVE_SYS_ENDIAN_H} -eq 0 ] \
+	&& cat << __HEREDOC__
+/*
+ * endian.h compatibility with libkern/OSByteOrder.h.
+ */
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
+
+__HEREDOC__
+
+[ ${HAVE_SYS_BYTEORDER_H} -eq 1 -a \
+  ${HAVE_ENDIAN_H} -eq 0 -a \
+  ${HAVE_OSBYTEORDER_H} -eq 0 -a \
+  ${HAVE_SYS_ENDIAN_H} -eq 0 ] \
+	&& cat << __HEREDOC__
+/*
+ * endian.h compatibility with sys/byteorder.h.
+ */
+#define htobe16(x) BE_16(x)
+#define htole16(x) LE_16(x)
+#define be16toh(x) BE_16(x)
+#define le16toh(x) LE_16(x)
+#define htobe32(x) BE_32(x)
+#define htole32(x) LE_32(x)
+#define be32toh(x) BE_32(x)
+#define le32toh(x) LE_32(x)
+#define htobe64(x) BE_64(x)
+#define htole64(x) LE_64(x)
+#define be64toh(x) BE_64(x)
+#define le64toh(x) LE_64(x)
+
+__HEREDOC__
+
+# Make minor()/major()/makedev() easier to use.
+
+cat << __HEREDOC__
+/*
+ * Handle the various major()/minor() header files.
+ * Use sys/mkdev.h before sys/sysmacros.h because SunOS
+ * has both, where only the former works properly.
+ */
+#if HAVE_SYS_MKDEV_H
+# define COMPAT_MAJOR_MINOR_H <sys/mkdev.h>
+#elif HAVE_SYS_SYSMACROS_H
+# define COMPAT_MAJOR_MINOR_H <sys/sysmacros.h>
+#else
+# define COMPAT_MAJOR_MINOR_H <sys/types.h>
+#endif
+
+__HEREDOC__
+
+# Make endian.h easier by providing a COMPAT_ENDIAN_H.
+
+cat << __HEREDOC__
+/*
+ * Make it easier to include endian.h forms.
+ */
+#if HAVE_ENDIAN_H
+# define COMPAT_ENDIAN_H <endian.h>
+#elif HAVE_SYS_ENDIAN_H
+# define COMPAT_ENDIAN_H <sys/endian.h>
+#elif HAVE_OSBYTEORDER_H
+# define COMPAT_ENDIAN_H <libkern/OSByteOrder.h>
+#elif HAVE_SYS_BYTEORDER_H
+# define COMPAT_ENDIAN_H <sys/byteorder.h>
+#else
+# warning No suitable endian.h could be found.
+# warning Please e-mail the maintainers with your OS.
+# define COMPAT_ENDIAN_H <endian.h>
+#endif
+
+__HEREDOC__
+
+# Now we do our function declarations for missing functions.
+
+[ ${HAVE_ERR} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility functions for err(3).
+ */
+extern void err(int, const char *, ...) __attribute__((noreturn));
+extern void errc(int, int, const char *, ...) __attribute__((noreturn));
+extern void errx(int, const char *, ...) __attribute__((noreturn));
+extern void verr(int, const char *, va_list) __attribute__((noreturn));
+extern void verrc(int, int, const char *, va_list) __attribute__((noreturn));
+extern void verrx(int, const char *, va_list) __attribute__((noreturn));
+extern void warn(const char *, ...);
+extern void warnx(const char *, ...);
+extern void warnc(int, const char *, ...);
+extern void vwarn(const char *, va_list);
+extern void vwarnc(int, const char *, va_list);
+extern void vwarnx(const char *, va_list);
+__HEREDOC__
+
+[ ${HAVE_MD5} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for md4(3).
+ */
+#define MD5_BLOCK_LENGTH 64
+#define MD5_DIGEST_LENGTH 16
+#define MD5_DIGEST_STRING_LENGTH (MD5_DIGEST_LENGTH * 2 + 1)
+
+typedef struct MD5Context {
+	uint32_t state[4];
+	uint64_t count;
+	uint8_t buffer[MD5_BLOCK_LENGTH];
+} MD5_CTX;
+
+extern void MD5Init(MD5_CTX *);
+extern void MD5Update(MD5_CTX *, const uint8_t *, size_t);
+extern void MD5Pad(MD5_CTX *);
+extern void MD5Transform(uint32_t [4], const uint8_t [MD5_BLOCK_LENGTH]);
+extern char *MD5End(MD5_CTX *, char *);
+extern void MD5Final(uint8_t [MD5_DIGEST_LENGTH], MD5_CTX *);
+
+__HEREDOC__
+
+[ ${HAVE_SHA2} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for sha2(3).
+ */
+
+/*** SHA-256/384/512 Various Length Definitions ***********************/
+#define SHA256_BLOCK_LENGTH		64
+#define SHA256_DIGEST_LENGTH		32
+#define SHA256_DIGEST_STRING_LENGTH	(SHA256_DIGEST_LENGTH * 2 + 1)
+#define SHA384_BLOCK_LENGTH		128
+#define SHA384_DIGEST_LENGTH		48
+#define SHA384_DIGEST_STRING_LENGTH	(SHA384_DIGEST_LENGTH * 2 + 1)
+#define SHA512_BLOCK_LENGTH		128
+#define SHA512_DIGEST_LENGTH		64
+#define SHA512_DIGEST_STRING_LENGTH	(SHA512_DIGEST_LENGTH * 2 + 1)
+#define SHA512_256_BLOCK_LENGTH		128
+#define SHA512_256_DIGEST_LENGTH	32
+#define SHA512_256_DIGEST_STRING_LENGTH	(SHA512_256_DIGEST_LENGTH * 2 + 1)
+
+/*** SHA-224/256/384/512 Context Structure *******************************/
+typedef struct _SHA2_CTX {
+	union {
+		uint32_t	st32[8];
+		uint64_t	st64[8];
+	} state;
+	uint64_t	bitcount[2];
+	uint8_t		buffer[SHA512_BLOCK_LENGTH];
+} SHA2_CTX;
+
+void SHA256Init(SHA2_CTX *);
+void SHA256Transform(uint32_t state[8], const uint8_t [SHA256_BLOCK_LENGTH]);
+void SHA256Update(SHA2_CTX *, const uint8_t *, size_t);
+void SHA256Pad(SHA2_CTX *);
+void SHA256Final(uint8_t [SHA256_DIGEST_LENGTH], SHA2_CTX *);
+char *SHA256End(SHA2_CTX *, char *);
+char *SHA256File(const char *, char *);
+char *SHA256FileChunk(const char *, char *, off_t, off_t);
+char *SHA256Data(const uint8_t *, size_t, char *);
+
+void SHA384Init(SHA2_CTX *);
+void SHA384Transform(uint64_t state[8], const uint8_t [SHA384_BLOCK_LENGTH]);
+void SHA384Update(SHA2_CTX *, const uint8_t *, size_t);
+void SHA384Pad(SHA2_CTX *);
+void SHA384Final(uint8_t [SHA384_DIGEST_LENGTH], SHA2_CTX *);
+char *SHA384End(SHA2_CTX *, char *);
+char *SHA384File(const char *, char *);
+char *SHA384FileChunk(const char *, char *, off_t, off_t);
+char *SHA384Data(const uint8_t *, size_t, char *);
+
+void SHA512Init(SHA2_CTX *);
+void SHA512Transform(uint64_t state[8], const uint8_t [SHA512_BLOCK_LENGTH]);
+void SHA512Update(SHA2_CTX *, const uint8_t *, size_t);
+void SHA512Pad(SHA2_CTX *);
+void SHA512Final(uint8_t [SHA512_DIGEST_LENGTH], SHA2_CTX *);
+char *SHA512End(SHA2_CTX *, char *);
+char *SHA512File(const char *, char *);
+char *SHA512FileChunk(const char *, char *, off_t, off_t);
+char *SHA512Data(const uint8_t *, size_t, char *);
+
+__HEREDOC__
+
+if [ ${HAVE_SECCOMP_FILTER} -eq 1 ]; then
+	arch=$(uname -m 2>/dev/null || echo unknown)
+	case "$arch" in
+		x86_64)
+			echo "#define SECCOMP_AUDIT_ARCH AUDIT_ARCH_X86_64"
+			;;
+		i*86)
+			echo "#define SECCOMP_AUDIT_ARCH AUDIT_ARCH_I386"
+			;;
+		arm*)
+			echo "#define SECCOMP_AUDIT_ARCH AUDIT_ARCH_ARM"
+			;;
+		aarch64)
+			echo "#define SECCOMP_AUDIT_ARCH AUDIT_ARCH_AARCH64"
+			;;
+	esac
+	echo
+fi
+
+[ ${HAVE_B64_NTOP} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for b64_ntop(3).
+ */
+extern int b64_ntop(unsigned char const *, size_t, char *, size_t);
+extern int b64_pton(char const *, unsigned char *, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_EXPLICIT_BZERO} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for explicit_bzero(3).
+ */
+extern void explicit_bzero(void *, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_MEMMEM} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for memmem(3).
+ */
+void *memmem(const void *, size_t, const void *, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_MEMRCHR} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for memrchr(3).
+ */
+void *memrchr(const void *b, int, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_GETPROGNAME} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for getprogname(3).
+ */
+extern const char *getprogname(void);
+
+__HEREDOC__
+
+[ ${HAVE_READPASSPHRASE} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Macros and function required for readpassphrase(3).
+ */
+#define RPP_ECHO_OFF 0x00
+#define RPP_ECHO_ON 0x01
+#define RPP_REQUIRE_TTY 0x02
+#define RPP_FORCELOWER 0x04
+#define RPP_FORCEUPPER 0x08
+#define RPP_SEVENBIT 0x10
+#define RPP_STDIN 0x20
+char *readpassphrase(const char *, char *, size_t, int);
+
+__HEREDOC__
+
+[ ${HAVE_REALLOCARRAY} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for reallocarray(3).
+ */
+extern void *reallocarray(void *, size_t, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_RECALLOCARRAY} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for recallocarray(3).
+ */
+extern void *recallocarray(void *, size_t, size_t, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_STRLCAT} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for strlcat(3).
+ */
+extern size_t strlcat(char *, const char *, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_STRLCPY} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for strlcpy(3).
+ */
+extern size_t strlcpy(char *, const char *, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_STRNDUP} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for strndup(3).
+ */
+extern char *strndup(const char *, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_STRNLEN} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for strnlen(3).
+ */
+extern size_t strnlen(const char *, size_t);
+
+__HEREDOC__
+
+[ ${HAVE_STRTONUM} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for strotnum(3).
+ */
+extern long long strtonum(const char *, long long, long long, const char **);
+
+__HEREDOC__
+
+[ ${HAVE_MKFIFOAT} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for mkfifoat(2).
+ */
+int mkfifoat(int, const char *, mode_t);
+
+__HEREDOC__
+
+[ ${HAVE_MKNODAT} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for mknodat(2).
+ */
+int mknodat(int, const char *, mode_t, dev_t);
+
+__HEREDOC__
+
+[ ${HAVE_SETRESGID} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for setresgid(2).
+ */
+int setresgid(gid_t rgid, gid_t egid, gid_t sgid);
+
+__HEREDOC__
+
+[ ${HAVE_SETRESUID} -eq 0 ] && \
+	cat << __HEREDOC__
+/*
+ * Compatibility for setresuid(2).
+ */
+int setresuid(uid_t ruid, uid_t euid, uid_t suid);
+
+__HEREDOC__
+
+if [ ${HAVE_SYS_QUEUE} -eq 0 ]; then
+	cat << __HEREDOC__
+/*
+ * A compatible version of OpenBSD <sys/queue.h>.
+ */
+/*
+ * Copyright (c) 1991, 1993
+ *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ''AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ *	@(#)queue.h	8.5 (Berkeley) 8/20/94
+ */
+
+/* OPENBSD ORIGINAL: sys/sys/queue.h */
+
+/*
+ * Require for OS/X and other platforms that have old/broken/incomplete
+ * <sys/queue.h>.
+ */
+
+#undef LIST_EMPTY
+#undef LIST_END
+#undef LIST_ENTRY
+#undef LIST_FIRST
+#undef LIST_FOREACH
+#undef LIST_FOREACH_SAFE
+#undef LIST_HEAD
+#undef LIST_HEAD_INITIALIZER
+#undef LIST_INIT
+#undef LIST_INSERT_AFTER
+#undef LIST_INSERT_BEFORE
+#undef LIST_INSERT_HEAD
+#undef LIST_NEXT
+#undef LIST_REMOVE
+#undef LIST_REPLACE
+#undef SIMPLEQ_CONCAT
+#undef SIMPLEQ_EMPTY
+#undef SIMPLEQ_END
+#undef SIMPLEQ_ENTRY
+#undef SIMPLEQ_FIRST
+#undef SIMPLEQ_FOREACH
+#undef SIMPLEQ_FOREACH_SAFE
+#undef SIMPLEQ_HEAD
+#undef SIMPLEQ_HEAD_INITIALIZER
+#undef SIMPLEQ_INIT
+#undef SIMPLEQ_INSERT_AFTER
+#undef SIMPLEQ_INSERT_HEAD
+#undef SIMPLEQ_INSERT_TAIL
+#undef SIMPLEQ_NEXT
+#undef SIMPLEQ_REMOVE_AFTER
+#undef SIMPLEQ_REMOVE_HEAD
+#undef SLIST_EMPTY
+#undef SLIST_END
+#undef SLIST_ENTRY
+#undef SLIST_FIRST
+#undef SLIST_FOREACH
+#undef SLIST_FOREACH_SAFE
+#undef SLIST_HEAD
+#undef SLIST_HEAD_INITIALIZER
+#undef SLIST_INIT
+#undef SLIST_INSERT_AFTER
+#undef SLIST_INSERT_HEAD
+#undef SLIST_NEXT
+#undef SLIST_REMOVE
+#undef SLIST_REMOVE_AFTER
+#undef SLIST_REMOVE_HEAD
+#undef TAILQ_CONCAT
+#undef TAILQ_EMPTY
+#undef TAILQ_END
+#undef TAILQ_ENTRY
+#undef TAILQ_FIRST
+#undef TAILQ_FOREACH
+#undef TAILQ_FOREACH_REVERSE
+#undef TAILQ_FOREACH_REVERSE_SAFE
+#undef TAILQ_FOREACH_SAFE
+#undef TAILQ_HEAD
+#undef TAILQ_HEAD_INITIALIZER
+#undef TAILQ_INIT
+#undef TAILQ_INSERT_AFTER
+#undef TAILQ_INSERT_BEFORE
+#undef TAILQ_INSERT_HEAD
+#undef TAILQ_INSERT_TAIL
+#undef TAILQ_LAST
+#undef TAILQ_NEXT
+#undef TAILQ_PREV
+#undef TAILQ_REMOVE
+#undef TAILQ_REPLACE
+#undef XSIMPLEQ_EMPTY
+#undef XSIMPLEQ_END
+#undef XSIMPLEQ_ENTRY
+#undef XSIMPLEQ_FIRST
+#undef XSIMPLEQ_FOREACH
+#undef XSIMPLEQ_FOREACH_SAFE
+#undef XSIMPLEQ_HEAD
+#undef XSIMPLEQ_INIT
+#undef XSIMPLEQ_INSERT_AFTER
+#undef XSIMPLEQ_INSERT_HEAD
+#undef XSIMPLEQ_INSERT_TAIL
+#undef XSIMPLEQ_NEXT
+#undef XSIMPLEQ_REMOVE_AFTER
+#undef XSIMPLEQ_REMOVE_HEAD
+#undef XSIMPLEQ_XOR
+
+/*
+ * This file defines five types of data structures: singly-linked lists,
+ * lists, simple queues, tail queues and XOR simple queues.
+ *
+ *
+ * A singly-linked list is headed by a single forward pointer. The elements
+ * are singly linked for minimum space and pointer manipulation overhead at
+ * the expense of O(n) removal for arbitrary elements. New elements can be
+ * added to the list after an existing element or at the head of the list.
+ * Elements being removed from the head of the list should use the explicit
+ * macro for this purpose for optimum efficiency. A singly-linked list may
+ * only be traversed in the forward direction.  Singly-linked lists are ideal
+ * for applications with large datasets and few or no removals or for
+ * implementing a LIFO queue.
+ *
+ * A list is headed by a single forward pointer (or an array of forward
+ * pointers for a hash table header). The elements are doubly linked
+ * so that an arbitrary element can be removed without a need to
+ * traverse the list. New elements can be added to the list before
+ * or after an existing element or at the head of the list. A list
+ * may only be traversed in the forward direction.
+ *
+ * A simple queue is headed by a pair of pointers, one to the head of the
+ * list and the other to the tail of the list. The elements are singly
+ * linked to save space, so elements can only be removed from the
+ * head of the list. New elements can be added to the list before or after
+ * an existing element, at the head of the list, or at the end of the
+ * list. A simple queue may only be traversed in the forward direction.
+ *
+ * A tail queue is headed by a pair of pointers, one to the head of the
+ * list and the other to the tail of the list. The elements are doubly
+ * linked so that an arbitrary element can be removed without a need to
+ * traverse the list. New elements can be added to the list before or
+ * after an existing element, at the head of the list, or at the end of
+ * the list. A tail queue may be traversed in either direction.
+ *
+ * An XOR simple queue is used in the same way as a regular simple queue.
+ * The difference is that the head structure also includes a "cookie" that
+ * is XOR'd with the queue pointer (first, last or next) to generate the
+ * real pointer value.
+ *
+ * For details on the use of these macros, see the queue(3) manual page.
+ */
+
+#if defined(QUEUE_MACRO_DEBUG) || (defined(_KERNEL) && defined(DIAGNOSTIC))
+#define _Q_INVALID ((void *)-1)
+#define _Q_INVALIDATE(a) (a) = _Q_INVALID
+#else
+#define _Q_INVALIDATE(a)
+#endif
+
+/*
+ * Singly-linked List definitions.
+ */
+#define SLIST_HEAD(name, type)						\\
+struct name {								\\
+	struct type *slh_first;	/* first element */			\\
+}
+
+#define	SLIST_HEAD_INITIALIZER(head)					\\
+	{ NULL }
+
+#define SLIST_ENTRY(type)						\\
+struct {								\\
+	struct type *sle_next;	/* next element */			\\
+}
+
+/*
+ * Singly-linked List access methods.
+ */
+#define	SLIST_FIRST(head)	((head)->slh_first)
+#define	SLIST_END(head)		NULL
+#define	SLIST_EMPTY(head)	(SLIST_FIRST(head) == SLIST_END(head))
+#define	SLIST_NEXT(elm, field)	((elm)->field.sle_next)
+
+#define	SLIST_FOREACH(var, head, field)					\\
+	for((var) = SLIST_FIRST(head);					\\
+	    (var) != SLIST_END(head);					\\
+	    (var) = SLIST_NEXT(var, field))
+
+#define	SLIST_FOREACH_SAFE(var, head, field, tvar)			\\
+	for ((var) = SLIST_FIRST(head);				\\
+	    (var) && ((tvar) = SLIST_NEXT(var, field), 1);		\\
+	    (var) = (tvar))
+
+/*
+ * Singly-linked List functions.
+ */
+#define	SLIST_INIT(head) {						\\
+	SLIST_FIRST(head) = SLIST_END(head);				\\
+}
+
+#define	SLIST_INSERT_AFTER(slistelm, elm, field) do {			\\
+	(elm)->field.sle_next = (slistelm)->field.sle_next;		\\
+	(slistelm)->field.sle_next = (elm);				\\
+} while (0)
+
+#define	SLIST_INSERT_HEAD(head, elm, field) do {			\\
+	(elm)->field.sle_next = (head)->slh_first;			\\
+	(head)->slh_first = (elm);					\\
+} while (0)
+
+#define	SLIST_REMOVE_AFTER(elm, field) do {				\\
+	(elm)->field.sle_next = (elm)->field.sle_next->field.sle_next;	\\
+} while (0)
+
+#define	SLIST_REMOVE_HEAD(head, field) do {				\\
+	(head)->slh_first = (head)->slh_first->field.sle_next;		\\
+} while (0)
+
+#define SLIST_REMOVE(head, elm, type, field) do {			\\
+	if ((head)->slh_first == (elm)) {				\\
+		SLIST_REMOVE_HEAD((head), field);			\\
+	} else {							\\
+		struct type *curelm = (head)->slh_first;		\\
+									\\
+		while (curelm->field.sle_next != (elm))			\\
+			curelm = curelm->field.sle_next;		\\
+		curelm->field.sle_next =				\\
+		    curelm->field.sle_next->field.sle_next;		\\
+	}								\\
+	_Q_INVALIDATE((elm)->field.sle_next);				\\
+} while (0)
+
+/*
+ * List definitions.
+ */
+#define LIST_HEAD(name, type)						\\
+struct name {								\\
+	struct type *lh_first;	/* first element */			\\
+}
+
+#define LIST_HEAD_INITIALIZER(head)					\\
+	{ NULL }
+
+#define LIST_ENTRY(type)						\\
+struct {								\\
+	struct type *le_next;	/* next element */			\\
+	struct type **le_prev;	/* address of previous next element */	\\
+}
+
+/*
+ * List access methods.
+ */
+#define	LIST_FIRST(head)		((head)->lh_first)
+#define	LIST_END(head)			NULL
+#define	LIST_EMPTY(head)		(LIST_FIRST(head) == LIST_END(head))
+#define	LIST_NEXT(elm, field)		((elm)->field.le_next)
+
+#define LIST_FOREACH(var, head, field)					\\
+	for((var) = LIST_FIRST(head);					\\
+	    (var)!= LIST_END(head);					\\
+	    (var) = LIST_NEXT(var, field))
+
+#define	LIST_FOREACH_SAFE(var, head, field, tvar)			\\
+	for ((var) = LIST_FIRST(head);				\\
+	    (var) && ((tvar) = LIST_NEXT(var, field), 1);		\\
+	    (var) = (tvar))
+
+/*
+ * List functions.
+ */
+#define	LIST_INIT(head) do {						\\
+	LIST_FIRST(head) = LIST_END(head);				\\
+} while (0)
+
+#define LIST_INSERT_AFTER(listelm, elm, field) do {			\\
+	if (((elm)->field.le_next = (listelm)->field.le_next) != NULL)	\\
+		(listelm)->field.le_next->field.le_prev =		\\
+		    &(elm)->field.le_next;				\\
+	(listelm)->field.le_next = (elm);				\\
+	(elm)->field.le_prev = &(listelm)->field.le_next;		\\
+} while (0)
+
+#define	LIST_INSERT_BEFORE(listelm, elm, field) do {			\\
+	(elm)->field.le_prev = (listelm)->field.le_prev;		\\
+	(elm)->field.le_next = (listelm);				\\
+	*(listelm)->field.le_prev = (elm);				\\
+	(listelm)->field.le_prev = &(elm)->field.le_next;		\\
+} while (0)
+
+#define LIST_INSERT_HEAD(head, elm, field) do {				\\
+	if (((elm)->field.le_next = (head)->lh_first) != NULL)		\\
+		(head)->lh_first->field.le_prev = &(elm)->field.le_next;\\
+	(head)->lh_first = (elm);					\\
+	(elm)->field.le_prev = &(head)->lh_first;			\\
+} while (0)
+
+#define LIST_REMOVE(elm, field) do {					\\
+	if ((elm)->field.le_next != NULL)				\\
+		(elm)->field.le_next->field.le_prev =			\\
+		    (elm)->field.le_prev;				\\
+	*(elm)->field.le_prev = (elm)->field.le_next;			\\
+	_Q_INVALIDATE((elm)->field.le_prev);				\\
+	_Q_INVALIDATE((elm)->field.le_next);				\\
+} while (0)
+
+#define LIST_REPLACE(elm, elm2, field) do {				\\
+	if (((elm2)->field.le_next = (elm)->field.le_next) != NULL)	\\
+		(elm2)->field.le_next->field.le_prev =			\\
+		    &(elm2)->field.le_next;				\\
+	(elm2)->field.le_prev = (elm)->field.le_prev;			\\
+	*(elm2)->field.le_prev = (elm2);				\\
+	_Q_INVALIDATE((elm)->field.le_prev);				\\
+	_Q_INVALIDATE((elm)->field.le_next);				\\
+} while (0)
+
+/*
+ * Simple queue definitions.
+ */
+#define SIMPLEQ_HEAD(name, type)					\\
+struct name {								\\
+	struct type *sqh_first;	/* first element */			\\
+	struct type **sqh_last;	/* addr of last next element */		\\
+}
+
+#define SIMPLEQ_HEAD_INITIALIZER(head)					\\
+	{ NULL, &(head).sqh_first }
+
+#define SIMPLEQ_ENTRY(type)						\\
+struct {								\\
+	struct type *sqe_next;	/* next element */			\\
+}
+
+/*
+ * Simple queue access methods.
+ */
+#define	SIMPLEQ_FIRST(head)	    ((head)->sqh_first)
+#define	SIMPLEQ_END(head)	    NULL
+#define	SIMPLEQ_EMPTY(head)	    (SIMPLEQ_FIRST(head) == SIMPLEQ_END(head))
+#define	SIMPLEQ_NEXT(elm, field)    ((elm)->field.sqe_next)
+
+#define SIMPLEQ_FOREACH(var, head, field)				\\
+	for((var) = SIMPLEQ_FIRST(head);				\\
+	    (var) != SIMPLEQ_END(head);					\\
+	    (var) = SIMPLEQ_NEXT(var, field))
+
+#define	SIMPLEQ_FOREACH_SAFE(var, head, field, tvar)			\\
+	for ((var) = SIMPLEQ_FIRST(head);				\\
+	    (var) && ((tvar) = SIMPLEQ_NEXT(var, field), 1);		\\
+	    (var) = (tvar))
+
+/*
+ * Simple queue functions.
+ */
+#define	SIMPLEQ_INIT(head) do {						\\
+	(head)->sqh_first = NULL;					\\
+	(head)->sqh_last = &(head)->sqh_first;				\\
+} while (0)
+
+#define SIMPLEQ_INSERT_HEAD(head, elm, field) do {			\\
+	if (((elm)->field.sqe_next = (head)->sqh_first) == NULL)	\\
+		(head)->sqh_last = &(elm)->field.sqe_next;		\\
+	(head)->sqh_first = (elm);					\\
+} while (0)
+
+#define SIMPLEQ_INSERT_TAIL(head, elm, field) do {			\\
+	(elm)->field.sqe_next = NULL;					\\
+	*(head)->sqh_last = (elm);					\\
+	(head)->sqh_last = &(elm)->field.sqe_next;			\\
+} while (0)
+
+#define SIMPLEQ_INSERT_AFTER(head, listelm, elm, field) do {		\\
+	if (((elm)->field.sqe_next = (listelm)->field.sqe_next) == NULL)\\
+		(head)->sqh_last = &(elm)->field.sqe_next;		\\
+	(listelm)->field.sqe_next = (elm);				\\
+} while (0)
+
+#define SIMPLEQ_REMOVE_HEAD(head, field) do {			\\
+	if (((head)->sqh_first = (head)->sqh_first->field.sqe_next) == NULL) \\
+		(head)->sqh_last = &(head)->sqh_first;			\\
+} while (0)
+
+#define SIMPLEQ_REMOVE_AFTER(head, elm, field) do {			\\
+	if (((elm)->field.sqe_next = (elm)->field.sqe_next->field.sqe_next) \\
+	    == NULL)							\\
+		(head)->sqh_last = &(elm)->field.sqe_next;		\\
+} while (0)
+
+#define SIMPLEQ_CONCAT(head1, head2) do {				\\
+	if (!SIMPLEQ_EMPTY((head2))) {					\\
+		*(head1)->sqh_last = (head2)->sqh_first;		\\
+		(head1)->sqh_last = (head2)->sqh_last;			\\
+		SIMPLEQ_INIT((head2));					\\
+	}								\\
+} while (0)
+
+/*
+ * XOR Simple queue definitions.
+ */
+#define XSIMPLEQ_HEAD(name, type)					\\
+struct name {								\\
+	struct type *sqx_first;	/* first element */			\\
+	struct type **sqx_last;	/* addr of last next element */		\\
+	unsigned long sqx_cookie;					\\
+}
+
+#define XSIMPLEQ_ENTRY(type)						\\
+struct {								\\
+	struct type *sqx_next;	/* next element */			\\
+}
+
+/*
+ * XOR Simple queue access methods.
+ */
+#define XSIMPLEQ_XOR(head, ptr)	    ((__typeof(ptr))((head)->sqx_cookie ^ \\
+					(unsigned long)(ptr)))
+#define	XSIMPLEQ_FIRST(head)	    XSIMPLEQ_XOR(head, ((head)->sqx_first))
+#define	XSIMPLEQ_END(head)	    NULL
+#define	XSIMPLEQ_EMPTY(head)	    (XSIMPLEQ_FIRST(head) == XSIMPLEQ_END(head))
+#define	XSIMPLEQ_NEXT(head, elm, field)    XSIMPLEQ_XOR(head, ((elm)->field.sqx_next))
+
+
+#define XSIMPLEQ_FOREACH(var, head, field)				\\
+	for ((var) = XSIMPLEQ_FIRST(head);				\\
+	    (var) != XSIMPLEQ_END(head);				\\
+	    (var) = XSIMPLEQ_NEXT(head, var, field))
+
+#define	XSIMPLEQ_FOREACH_SAFE(var, head, field, tvar)			\\
+	for ((var) = XSIMPLEQ_FIRST(head);				\\
+	    (var) && ((tvar) = XSIMPLEQ_NEXT(head, var, field), 1);	\\
+	    (var) = (tvar))
+
+/*
+ * XOR Simple queue functions.
+ */
+#define	XSIMPLEQ_INIT(head) do {					\\
+	arc4random_buf(&(head)->sqx_cookie, sizeof((head)->sqx_cookie)); \\
+	(head)->sqx_first = XSIMPLEQ_XOR(head, NULL);			\\
+	(head)->sqx_last = XSIMPLEQ_XOR(head, &(head)->sqx_first);	\\
+} while (0)
+
+#define XSIMPLEQ_INSERT_HEAD(head, elm, field) do {			\\
+	if (((elm)->field.sqx_next = (head)->sqx_first) ==		\\
+	    XSIMPLEQ_XOR(head, NULL))					\\
+		(head)->sqx_last = XSIMPLEQ_XOR(head, &(elm)->field.sqx_next); \\
+	(head)->sqx_first = XSIMPLEQ_XOR(head, (elm));			\\
+} while (0)
+
+#define XSIMPLEQ_INSERT_TAIL(head, elm, field) do {			\\
+	(elm)->field.sqx_next = XSIMPLEQ_XOR(head, NULL);		\\
+	*(XSIMPLEQ_XOR(head, (head)->sqx_last)) = XSIMPLEQ_XOR(head, (elm)); \\
+	(head)->sqx_last = XSIMPLEQ_XOR(head, &(elm)->field.sqx_next);	\\
+} while (0)
+
+#define XSIMPLEQ_INSERT_AFTER(head, listelm, elm, field) do {		\\
+	if (((elm)->field.sqx_next = (listelm)->field.sqx_next) ==	\\
+	    XSIMPLEQ_XOR(head, NULL))					\\
+		(head)->sqx_last = XSIMPLEQ_XOR(head, &(elm)->field.sqx_next); \\
+	(listelm)->field.sqx_next = XSIMPLEQ_XOR(head, (elm));		\\
+} while (0)
+
+#define XSIMPLEQ_REMOVE_HEAD(head, field) do {				\\
+	if (((head)->sqx_first = XSIMPLEQ_XOR(head,			\\
+	    (head)->sqx_first)->field.sqx_next) == XSIMPLEQ_XOR(head, NULL)) \\
+		(head)->sqx_last = XSIMPLEQ_XOR(head, &(head)->sqx_first); \\
+} while (0)
+
+#define XSIMPLEQ_REMOVE_AFTER(head, elm, field) do {			\\
+	if (((elm)->field.sqx_next = XSIMPLEQ_XOR(head,			\\
+	    (elm)->field.sqx_next)->field.sqx_next)			\\
+	    == XSIMPLEQ_XOR(head, NULL))				\\
+		(head)->sqx_last = 					\\
+		    XSIMPLEQ_XOR(head, &(elm)->field.sqx_next);		\\
+} while (0)
+
+
+/*
+ * Tail queue definitions.
+ */
+#define TAILQ_HEAD(name, type)						\\
+struct name {								\\
+	struct type *tqh_first;	/* first element */			\\
+	struct type **tqh_last;	/* addr of last next element */		\\
+}
+
+#define TAILQ_HEAD_INITIALIZER(head)					\\
+	{ NULL, &(head).tqh_first }
+
+#define TAILQ_ENTRY(type)						\\
+struct {								\\
+	struct type *tqe_next;	/* next element */			\\
+	struct type **tqe_prev;	/* address of previous next element */	\\
+}
+
+/*
+ * Tail queue access methods.
+ */
+#define	TAILQ_FIRST(head)		((head)->tqh_first)
+#define	TAILQ_END(head)			NULL
+#define	TAILQ_NEXT(elm, field)		((elm)->field.tqe_next)
+#define TAILQ_LAST(head, headname)					\\
+	(*(((struct headname *)((head)->tqh_last))->tqh_last))
+/* XXX */
+#define TAILQ_PREV(elm, headname, field)				\\
+	(*(((struct headname *)((elm)->field.tqe_prev))->tqh_last))
+#define	TAILQ_EMPTY(head)						\\
+	(TAILQ_FIRST(head) == TAILQ_END(head))
+
+#define TAILQ_FOREACH(var, head, field)					\\
+	for((var) = TAILQ_FIRST(head);					\\
+	    (var) != TAILQ_END(head);					\\
+	    (var) = TAILQ_NEXT(var, field))
+
+#define	TAILQ_FOREACH_SAFE(var, head, field, tvar)			\\
+	for ((var) = TAILQ_FIRST(head);					\\
+	    (var) != TAILQ_END(head) &&					\\
+	    ((tvar) = TAILQ_NEXT(var, field), 1);			\\
+	    (var) = (tvar))
+
+
+#define TAILQ_FOREACH_REVERSE(var, head, headname, field)		\\
+	for((var) = TAILQ_LAST(head, headname);				\\
+	    (var) != TAILQ_END(head);					\\
+	    (var) = TAILQ_PREV(var, headname, field))
+
+#define	TAILQ_FOREACH_REVERSE_SAFE(var, head, headname, field, tvar)	\\
+	for ((var) = TAILQ_LAST(head, headname);			\\
+	    (var) != TAILQ_END(head) &&					\\
+	    ((tvar) = TAILQ_PREV(var, headname, field), 1);		\\
+	    (var) = (tvar))
+
+/*
+ * Tail queue functions.
+ */
+#define	TAILQ_INIT(head) do {						\\
+	(head)->tqh_first = NULL;					\\
+	(head)->tqh_last = &(head)->tqh_first;				\\
+} while (0)
+
+#define TAILQ_INSERT_HEAD(head, elm, field) do {			\\
+	if (((elm)->field.tqe_next = (head)->tqh_first) != NULL)	\\
+		(head)->tqh_first->field.tqe_prev =			\\
+		    &(elm)->field.tqe_next;				\\
+	else								\\
+		(head)->tqh_last = &(elm)->field.tqe_next;		\\
+	(head)->tqh_first = (elm);					\\
+	(elm)->field.tqe_prev = &(head)->tqh_first;			\\
+} while (0)
+
+#define TAILQ_INSERT_TAIL(head, elm, field) do {			\\
+	(elm)->field.tqe_next = NULL;					\\
+	(elm)->field.tqe_prev = (head)->tqh_last;			\\
+	*(head)->tqh_last = (elm);					\\
+	(head)->tqh_last = &(elm)->field.tqe_next;			\\
+} while (0)
+
+#define TAILQ_INSERT_AFTER(head, listelm, elm, field) do {		\\
+	if (((elm)->field.tqe_next = (listelm)->field.tqe_next) != NULL)\\
+		(elm)->field.tqe_next->field.tqe_prev =			\\
+		    &(elm)->field.tqe_next;				\\
+	else								\\
+		(head)->tqh_last = &(elm)->field.tqe_next;		\\
+	(listelm)->field.tqe_next = (elm);				\\
+	(elm)->field.tqe_prev = &(listelm)->field.tqe_next;		\\
+} while (0)
+
+#define	TAILQ_INSERT_BEFORE(listelm, elm, field) do {			\\
+	(elm)->field.tqe_prev = (listelm)->field.tqe_prev;		\\
+	(elm)->field.tqe_next = (listelm);				\\
+	*(listelm)->field.tqe_prev = (elm);				\\
+	(listelm)->field.tqe_prev = &(elm)->field.tqe_next;		\\
+} while (0)
+
+#define TAILQ_REMOVE(head, elm, field) do {				\\
+	if (((elm)->field.tqe_next) != NULL)				\\
+		(elm)->field.tqe_next->field.tqe_prev =			\\
+		    (elm)->field.tqe_prev;				\\
+	else								\\
+		(head)->tqh_last = (elm)->field.tqe_prev;		\\
+	*(elm)->field.tqe_prev = (elm)->field.tqe_next;			\\
+	_Q_INVALIDATE((elm)->field.tqe_prev);				\\
+	_Q_INVALIDATE((elm)->field.tqe_next);				\\
+} while (0)
+
+#define TAILQ_REPLACE(head, elm, elm2, field) do {			\\
+	if (((elm2)->field.tqe_next = (elm)->field.tqe_next) != NULL)	\\
+		(elm2)->field.tqe_next->field.tqe_prev =		\\
+		    &(elm2)->field.tqe_next;				\\
+	else								\\
+		(head)->tqh_last = &(elm2)->field.tqe_next;		\\
+	(elm2)->field.tqe_prev = (elm)->field.tqe_prev;			\\
+	*(elm2)->field.tqe_prev = (elm2);				\\
+	_Q_INVALIDATE((elm)->field.tqe_prev);				\\
+	_Q_INVALIDATE((elm)->field.tqe_next);				\\
+} while (0)
+
+#define TAILQ_CONCAT(head1, head2, field) do {				\\
+	if (!TAILQ_EMPTY(head2)) {					\\
+		*(head1)->tqh_last = (head2)->tqh_first;		\\
+		(head2)->tqh_first->field.tqe_prev = (head1)->tqh_last;	\\
+		(head1)->tqh_last = (head2)->tqh_last;			\\
+		TAILQ_INIT((head2));					\\
+	}								\\
+} while (0)
+
+__HEREDOC__
+fi
+
+if [ ${HAVE_SYS_TREE} -eq 0 ]; then
+	cat << __HEREDOC__
+/*
+ * A compatible version of OpenBSD <sys/tree.h>.
+ */
+/*
+ * Copyright 2002 Niels Provos <provos@citi.umich.edu>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/* OPENBSD ORIGINAL: sys/sys/tree.h */
+
+/*
+ * This file defines data structures for different types of trees:
+ * splay trees and red-black trees.
+ *
+ * A splay tree is a self-organizing data structure.  Every operation
+ * on the tree causes a splay to happen.  The splay moves the requested
+ * node to the root of the tree and partly rebalances it.
+ *
+ * This has the benefit that request locality causes faster lookups as
+ * the requested nodes move to the top of the tree.  On the other hand,
+ * every lookup causes memory writes.
+ *
+ * The Balance Theorem bounds the total access time for m operations
+ * and n inserts on an initially empty tree as O((m + n)lg n).  The
+ * amortized cost for a sequence of m accesses to a splay tree is O(lg n);
+ *
+ * A red-black tree is a binary search tree with the node color as an
+ * extra attribute.  It fulfills a set of conditions:
+ *	- every search path from the root to a leaf consists of the
+ *	  same number of black nodes,
+ *	- each red node (except for the root) has a black parent,
+ *	- each leaf node is black.
+ *
+ * Every operation on a red-black tree is bounded as O(lg n).
+ * The maximum height of a red-black tree is 2lg (n+1).
+ */
+
+#define SPLAY_HEAD(name, type)						\\
+struct name {								\\
+	struct type *sph_root; /* root of the tree */			\\
+}
+
+#define SPLAY_INITIALIZER(root)						\\
+	{ NULL }
+
+#define SPLAY_INIT(root) do {						\\
+	(root)->sph_root = NULL;					\\
+} while (0)
+
+#define SPLAY_ENTRY(type)						\\
+struct {								\\
+	struct type *spe_left; /* left element */			\\
+	struct type *spe_right; /* right element */			\\
+}
+
+#define SPLAY_LEFT(elm, field)		(elm)->field.spe_left
+#define SPLAY_RIGHT(elm, field)		(elm)->field.spe_right
+#define SPLAY_ROOT(head)		(head)->sph_root
+#define SPLAY_EMPTY(head)		(SPLAY_ROOT(head) == NULL)
+
+/* SPLAY_ROTATE_{LEFT,RIGHT} expect that tmp hold SPLAY_{RIGHT,LEFT} */
+#define SPLAY_ROTATE_RIGHT(head, tmp, field) do {			\\
+	SPLAY_LEFT((head)->sph_root, field) = SPLAY_RIGHT(tmp, field);	\\
+	SPLAY_RIGHT(tmp, field) = (head)->sph_root;			\\
+	(head)->sph_root = tmp;						\\
+} while (0)
+	
+#define SPLAY_ROTATE_LEFT(head, tmp, field) do {			\\
+	SPLAY_RIGHT((head)->sph_root, field) = SPLAY_LEFT(tmp, field);	\\
+	SPLAY_LEFT(tmp, field) = (head)->sph_root;			\\
+	(head)->sph_root = tmp;						\\
+} while (0)
+
+#define SPLAY_LINKLEFT(head, tmp, field) do {				\\
+	SPLAY_LEFT(tmp, field) = (head)->sph_root;			\\
+	tmp = (head)->sph_root;						\\
+	(head)->sph_root = SPLAY_LEFT((head)->sph_root, field);		\\
+} while (0)
+
+#define SPLAY_LINKRIGHT(head, tmp, field) do {				\\
+	SPLAY_RIGHT(tmp, field) = (head)->sph_root;			\\
+	tmp = (head)->sph_root;						\\
+	(head)->sph_root = SPLAY_RIGHT((head)->sph_root, field);	\\
+} while (0)
+
+#define SPLAY_ASSEMBLE(head, node, left, right, field) do {		\\
+	SPLAY_RIGHT(left, field) = SPLAY_LEFT((head)->sph_root, field);	\\
+	SPLAY_LEFT(right, field) = SPLAY_RIGHT((head)->sph_root, field);\\
+	SPLAY_LEFT((head)->sph_root, field) = SPLAY_RIGHT(node, field);	\\
+	SPLAY_RIGHT((head)->sph_root, field) = SPLAY_LEFT(node, field);	\\
+} while (0)
+
+/* Generates prototypes and inline functions */
+
+#define SPLAY_PROTOTYPE(name, type, field, cmp)				\\
+void name##_SPLAY(struct name *, struct type *);			\\
+void name##_SPLAY_MINMAX(struct name *, int);				\\
+struct type *name##_SPLAY_INSERT(struct name *, struct type *);		\\
+struct type *name##_SPLAY_REMOVE(struct name *, struct type *);		\\
+									\\
+/* Finds the node with the same key as elm */				\\
+static __inline struct type *						\\
+name##_SPLAY_FIND(struct name *head, struct type *elm)			\\
+{									\\
+	if (SPLAY_EMPTY(head))						\\
+		return(NULL);						\\
+	name##_SPLAY(head, elm);					\\
+	if ((cmp)(elm, (head)->sph_root) == 0)				\\
+		return (head->sph_root);				\\
+	return (NULL);							\\
+}									\\
+									\\
+static __inline struct type *						\\
+name##_SPLAY_NEXT(struct name *head, struct type *elm)			\\
+{									\\
+	name##_SPLAY(head, elm);					\\
+	if (SPLAY_RIGHT(elm, field) != NULL) {				\\
+		elm = SPLAY_RIGHT(elm, field);				\\
+		while (SPLAY_LEFT(elm, field) != NULL) {		\\
+			elm = SPLAY_LEFT(elm, field);			\\
+		}							\\
+	} else								\\
+		elm = NULL;						\\
+	return (elm);							\\
+}									\\
+									\\
+static __inline struct type *						\\
+name##_SPLAY_MIN_MAX(struct name *head, int val)			\\
+{									\\
+	name##_SPLAY_MINMAX(head, val);					\\
+        return (SPLAY_ROOT(head));					\\
+}
+
+/* Main splay operation.
+ * Moves node close to the key of elm to top
+ */
+#define SPLAY_GENERATE(name, type, field, cmp)				\\
+struct type *								\\
+name##_SPLAY_INSERT(struct name *head, struct type *elm)		\\
+{									\\
+    if (SPLAY_EMPTY(head)) {						\\
+	    SPLAY_LEFT(elm, field) = SPLAY_RIGHT(elm, field) = NULL;	\\
+    } else {								\\
+	    int __comp;							\\
+	    name##_SPLAY(head, elm);					\\
+	    __comp = (cmp)(elm, (head)->sph_root);			\\
+	    if(__comp < 0) {						\\
+		    SPLAY_LEFT(elm, field) = SPLAY_LEFT((head)->sph_root, field);\\
+		    SPLAY_RIGHT(elm, field) = (head)->sph_root;		\\
+		    SPLAY_LEFT((head)->sph_root, field) = NULL;		\\
+	    } else if (__comp > 0) {					\\
+		    SPLAY_RIGHT(elm, field) = SPLAY_RIGHT((head)->sph_root, field);\\
+		    SPLAY_LEFT(elm, field) = (head)->sph_root;		\\
+		    SPLAY_RIGHT((head)->sph_root, field) = NULL;	\\
+	    } else							\\
+		    return ((head)->sph_root);				\\
+    }									\\
+    (head)->sph_root = (elm);						\\
+    return (NULL);							\\
+}									\\
+									\\
+struct type *								\\
+name##_SPLAY_REMOVE(struct name *head, struct type *elm)		\\
+{									\\
+	struct type *__tmp;						\\
+	if (SPLAY_EMPTY(head))						\\
+		return (NULL);						\\
+	name##_SPLAY(head, elm);					\\
+	if ((cmp)(elm, (head)->sph_root) == 0) {			\\
+		if (SPLAY_LEFT((head)->sph_root, field) == NULL) {	\\
+			(head)->sph_root = SPLAY_RIGHT((head)->sph_root, field);\\
+		} else {						\\
+			__tmp = SPLAY_RIGHT((head)->sph_root, field);	\\
+			(head)->sph_root = SPLAY_LEFT((head)->sph_root, field);\\
+			name##_SPLAY(head, elm);			\\
+			SPLAY_RIGHT((head)->sph_root, field) = __tmp;	\\
+		}							\\
+		return (elm);						\\
+	}								\\
+	return (NULL);							\\
+}									\\
+									\\
+void									\\
+name##_SPLAY(struct name *head, struct type *elm)			\\
+{									\\
+	struct type __node, *__left, *__right, *__tmp;			\\
+	int __comp;							\\
+\\
+	SPLAY_LEFT(&__node, field) = SPLAY_RIGHT(&__node, field) = NULL;\\
+	__left = __right = &__node;					\\
+\\
+	while ((__comp = (cmp)(elm, (head)->sph_root))) {		\\
+		if (__comp < 0) {					\\
+			__tmp = SPLAY_LEFT((head)->sph_root, field);	\\
+			if (__tmp == NULL)				\\
+				break;					\\
+			if ((cmp)(elm, __tmp) < 0){			\\
+				SPLAY_ROTATE_RIGHT(head, __tmp, field);	\\
+				if (SPLAY_LEFT((head)->sph_root, field) == NULL)\\
+					break;				\\
+			}						\\
+			SPLAY_LINKLEFT(head, __right, field);		\\
+		} else if (__comp > 0) {				\\
+			__tmp = SPLAY_RIGHT((head)->sph_root, field);	\\
+			if (__tmp == NULL)				\\
+				break;					\\
+			if ((cmp)(elm, __tmp) > 0){			\\
+				SPLAY_ROTATE_LEFT(head, __tmp, field);	\\
+				if (SPLAY_RIGHT((head)->sph_root, field) == NULL)\\
+					break;				\\
+			}						\\
+			SPLAY_LINKRIGHT(head, __left, field);		\\
+		}							\\
+	}								\\
+	SPLAY_ASSEMBLE(head, &__node, __left, __right, field);		\\
+}									\\
+									\\
+/* Splay with either the minimum or the maximum element			\\
+ * Used to find minimum or maximum element in tree.			\\
+ */									\\
+void name##_SPLAY_MINMAX(struct name *head, int __comp) \\
+{									\\
+	struct type __node, *__left, *__right, *__tmp;			\\
+\\
+	SPLAY_LEFT(&__node, field) = SPLAY_RIGHT(&__node, field) = NULL;\\
+	__left = __right = &__node;					\\
+\\
+	while (1) {							\\
+		if (__comp < 0) {					\\
+			__tmp = SPLAY_LEFT((head)->sph_root, field);	\\
+			if (__tmp == NULL)				\\
+				break;					\\
+			if (__comp < 0){				\\
+				SPLAY_ROTATE_RIGHT(head, __tmp, field);	\\
+				if (SPLAY_LEFT((head)->sph_root, field) == NULL)\\
+					break;				\\
+			}						\\
+			SPLAY_LINKLEFT(head, __right, field);		\\
+		} else if (__comp > 0) {				\\
+			__tmp = SPLAY_RIGHT((head)->sph_root, field);	\\
+			if (__tmp == NULL)				\\
+				break;					\\
+			if (__comp > 0) {				\\
+				SPLAY_ROTATE_LEFT(head, __tmp, field);	\\
+				if (SPLAY_RIGHT((head)->sph_root, field) == NULL)\\
+					break;				\\
+			}						\\
+			SPLAY_LINKRIGHT(head, __left, field);		\\
+		}							\\
+	}								\\
+	SPLAY_ASSEMBLE(head, &__node, __left, __right, field);		\\
+}
+
+#define SPLAY_NEGINF	-1
+#define SPLAY_INF	1
+
+#define SPLAY_INSERT(name, x, y)	name##_SPLAY_INSERT(x, y)
+#define SPLAY_REMOVE(name, x, y)	name##_SPLAY_REMOVE(x, y)
+#define SPLAY_FIND(name, x, y)		name##_SPLAY_FIND(x, y)
+#define SPLAY_NEXT(name, x, y)		name##_SPLAY_NEXT(x, y)
+#define SPLAY_MIN(name, x)		(SPLAY_EMPTY(x) ? NULL	\\
+					: name##_SPLAY_MIN_MAX(x, SPLAY_NEGINF))
+#define SPLAY_MAX(name, x)		(SPLAY_EMPTY(x) ? NULL	\\
+					: name##_SPLAY_MIN_MAX(x, SPLAY_INF))
+
+#define SPLAY_FOREACH(x, name, head)					\\
+	for ((x) = SPLAY_MIN(name, head);				\\
+	     (x) != NULL;						\\
+	     (x) = SPLAY_NEXT(name, head, x))
+
+/* Macros that define a red-black tree */
+#define RB_HEAD(name, type)						\\
+struct name {								\\
+	struct type *rbh_root; /* root of the tree */			\\
+}
+
+#define RB_INITIALIZER(root)						\\
+	{ NULL }
+
+#define RB_INIT(root) do {						\\
+	(root)->rbh_root = NULL;					\\
+} while (0)
+
+#define RB_BLACK	0
+#define RB_RED		1
+#define RB_ENTRY(type)							\\
+struct {								\\
+	struct type *rbe_left;		/* left element */		\\
+	struct type *rbe_right;		/* right element */		\\
+	struct type *rbe_parent;	/* parent element */		\\
+	int rbe_color;			/* node color */		\\
+}
+
+#define RB_LEFT(elm, field)		(elm)->field.rbe_left
+#define RB_RIGHT(elm, field)		(elm)->field.rbe_right
+#define RB_PARENT(elm, field)		(elm)->field.rbe_parent
+#define RB_COLOR(elm, field)		(elm)->field.rbe_color
+#define RB_ROOT(head)			(head)->rbh_root
+#define RB_EMPTY(head)			(RB_ROOT(head) == NULL)
+
+#define RB_SET(elm, parent, field) do {					\\
+	RB_PARENT(elm, field) = parent;					\\
+	RB_LEFT(elm, field) = RB_RIGHT(elm, field) = NULL;		\\
+	RB_COLOR(elm, field) = RB_RED;					\\
+} while (0)
+
+#define RB_SET_BLACKRED(black, red, field) do {				\\
+	RB_COLOR(black, field) = RB_BLACK;				\\
+	RB_COLOR(red, field) = RB_RED;					\\
+} while (0)
+
+#ifndef RB_AUGMENT
+#define RB_AUGMENT(x)	do {} while (0)
+#endif
+
+#define RB_ROTATE_LEFT(head, elm, tmp, field) do {			\\
+	(tmp) = RB_RIGHT(elm, field);					\\
+	if ((RB_RIGHT(elm, field) = RB_LEFT(tmp, field))) {		\\
+		RB_PARENT(RB_LEFT(tmp, field), field) = (elm);		\\
+	}								\\
+	RB_AUGMENT(elm);						\\
+	if ((RB_PARENT(tmp, field) = RB_PARENT(elm, field))) {		\\
+		if ((elm) == RB_LEFT(RB_PARENT(elm, field), field))	\\
+			RB_LEFT(RB_PARENT(elm, field), field) = (tmp);	\\
+		else							\\
+			RB_RIGHT(RB_PARENT(elm, field), field) = (tmp);	\\
+	} else								\\
+		(head)->rbh_root = (tmp);				\\
+	RB_LEFT(tmp, field) = (elm);					\\
+	RB_PARENT(elm, field) = (tmp);					\\
+	RB_AUGMENT(tmp);						\\
+	if ((RB_PARENT(tmp, field)))					\\
+		RB_AUGMENT(RB_PARENT(tmp, field));			\\
+} while (0)
+
+#define RB_ROTATE_RIGHT(head, elm, tmp, field) do {			\\
+	(tmp) = RB_LEFT(elm, field);					\\
+	if ((RB_LEFT(elm, field) = RB_RIGHT(tmp, field))) {		\\
+		RB_PARENT(RB_RIGHT(tmp, field), field) = (elm);		\\
+	}								\\
+	RB_AUGMENT(elm);						\\
+	if ((RB_PARENT(tmp, field) = RB_PARENT(elm, field))) {		\\
+		if ((elm) == RB_LEFT(RB_PARENT(elm, field), field))	\\
+			RB_LEFT(RB_PARENT(elm, field), field) = (tmp);	\\
+		else							\\
+			RB_RIGHT(RB_PARENT(elm, field), field) = (tmp);	\\
+	} else								\\
+		(head)->rbh_root = (tmp);				\\
+	RB_RIGHT(tmp, field) = (elm);					\\
+	RB_PARENT(elm, field) = (tmp);					\\
+	RB_AUGMENT(tmp);						\\
+	if ((RB_PARENT(tmp, field)))					\\
+		RB_AUGMENT(RB_PARENT(tmp, field));			\\
+} while (0)
+
+/* Generates prototypes and inline functions */
+#define	RB_PROTOTYPE(name, type, field, cmp)				\\
+	RB_PROTOTYPE_INTERNAL(name, type, field, cmp,)
+#define	RB_PROTOTYPE_STATIC(name, type, field, cmp)			\\
+	RB_PROTOTYPE_INTERNAL(name, type, field, cmp, __attribute__((__unused__)) static)
+#define RB_PROTOTYPE_INTERNAL(name, type, field, cmp, attr)		\\
+attr void name##_RB_INSERT_COLOR(struct name *, struct type *);		\\
+attr void name##_RB_REMOVE_COLOR(struct name *, struct type *, struct type *);\\
+attr struct type *name##_RB_REMOVE(struct name *, struct type *);	\\
+attr struct type *name##_RB_INSERT(struct name *, struct type *);	\\
+attr struct type *name##_RB_FIND(struct name *, struct type *);		\\
+attr struct type *name##_RB_NFIND(struct name *, struct type *);	\\
+attr struct type *name##_RB_NEXT(struct type *);			\\
+attr struct type *name##_RB_PREV(struct type *);			\\
+attr struct type *name##_RB_MINMAX(struct name *, int);			\\
+									\\
+
+/* Main rb operation.
+ * Moves node close to the key of elm to top
+ */
+#define	RB_GENERATE(name, type, field, cmp)				\\
+	RB_GENERATE_INTERNAL(name, type, field, cmp,)
+#define	RB_GENERATE_STATIC(name, type, field, cmp)			\\
+	RB_GENERATE_INTERNAL(name, type, field, cmp, __attribute__((__unused__)) static)
+#define RB_GENERATE_INTERNAL(name, type, field, cmp, attr)		\\
+attr void								\\
+name##_RB_INSERT_COLOR(struct name *head, struct type *elm)		\\
+{									\\
+	struct type *parent, *gparent, *tmp;				\\
+	while ((parent = RB_PARENT(elm, field)) &&			\\
+	    RB_COLOR(parent, field) == RB_RED) {			\\
+		gparent = RB_PARENT(parent, field);			\\
+		if (parent == RB_LEFT(gparent, field)) {		\\
+			tmp = RB_RIGHT(gparent, field);			\\
+			if (tmp && RB_COLOR(tmp, field) == RB_RED) {	\\
+				RB_COLOR(tmp, field) = RB_BLACK;	\\
+				RB_SET_BLACKRED(parent, gparent, field);\\
+				elm = gparent;				\\
+				continue;				\\
+			}						\\
+			if (RB_RIGHT(parent, field) == elm) {		\\
+				RB_ROTATE_LEFT(head, parent, tmp, field);\\
+				tmp = parent;				\\
+				parent = elm;				\\
+				elm = tmp;				\\
+			}						\\
+			RB_SET_BLACKRED(parent, gparent, field);	\\
+			RB_ROTATE_RIGHT(head, gparent, tmp, field);	\\
+		} else {						\\
+			tmp = RB_LEFT(gparent, field);			\\
+			if (tmp && RB_COLOR(tmp, field) == RB_RED) {	\\
+				RB_COLOR(tmp, field) = RB_BLACK;	\\
+				RB_SET_BLACKRED(parent, gparent, field);\\
+				elm = gparent;				\\
+				continue;				\\
+			}						\\
+			if (RB_LEFT(parent, field) == elm) {		\\
+				RB_ROTATE_RIGHT(head, parent, tmp, field);\\
+				tmp = parent;				\\
+				parent = elm;				\\
+				elm = tmp;				\\
+			}						\\
+			RB_SET_BLACKRED(parent, gparent, field);	\\
+			RB_ROTATE_LEFT(head, gparent, tmp, field);	\\
+		}							\\
+	}								\\
+	RB_COLOR(head->rbh_root, field) = RB_BLACK;			\\
+}									\\
+									\\
+attr void								\\
+name##_RB_REMOVE_COLOR(struct name *head, struct type *parent, struct type *elm) \\
+{									\\
+	struct type *tmp;						\\
+	while ((elm == NULL || RB_COLOR(elm, field) == RB_BLACK) &&	\\
+	    elm != RB_ROOT(head)) {					\\
+		if (RB_LEFT(parent, field) == elm) {			\\
+			tmp = RB_RIGHT(parent, field);			\\
+			if (RB_COLOR(tmp, field) == RB_RED) {		\\
+				RB_SET_BLACKRED(tmp, parent, field);	\\
+				RB_ROTATE_LEFT(head, parent, tmp, field);\\
+				tmp = RB_RIGHT(parent, field);		\\
+			}						\\
+			if ((RB_LEFT(tmp, field) == NULL ||		\\
+			    RB_COLOR(RB_LEFT(tmp, field), field) == RB_BLACK) &&\\
+			    (RB_RIGHT(tmp, field) == NULL ||		\\
+			    RB_COLOR(RB_RIGHT(tmp, field), field) == RB_BLACK)) {\\
+				RB_COLOR(tmp, field) = RB_RED;		\\
+				elm = parent;				\\
+				parent = RB_PARENT(elm, field);		\\
+			} else {					\\
+				if (RB_RIGHT(tmp, field) == NULL ||	\\
+				    RB_COLOR(RB_RIGHT(tmp, field), field) == RB_BLACK) {\\
+					struct type *oleft;		\\
+					if ((oleft = RB_LEFT(tmp, field)))\\
+						RB_COLOR(oleft, field) = RB_BLACK;\\
+					RB_COLOR(tmp, field) = RB_RED;	\\
+					RB_ROTATE_RIGHT(head, tmp, oleft, field);\\
+					tmp = RB_RIGHT(parent, field);	\\
+				}					\\
+				RB_COLOR(tmp, field) = RB_COLOR(parent, field);\\
+				RB_COLOR(parent, field) = RB_BLACK;	\\
+				if (RB_RIGHT(tmp, field))		\\
+					RB_COLOR(RB_RIGHT(tmp, field), field) = RB_BLACK;\\
+				RB_ROTATE_LEFT(head, parent, tmp, field);\\
+				elm = RB_ROOT(head);			\\
+				break;					\\
+			}						\\
+		} else {						\\
+			tmp = RB_LEFT(parent, field);			\\
+			if (RB_COLOR(tmp, field) == RB_RED) {		\\
+				RB_SET_BLACKRED(tmp, parent, field);	\\
+				RB_ROTATE_RIGHT(head, parent, tmp, field);\\
+				tmp = RB_LEFT(parent, field);		\\
+			}						\\
+			if ((RB_LEFT(tmp, field) == NULL ||		\\
+			    RB_COLOR(RB_LEFT(tmp, field), field) == RB_BLACK) &&\\
+			    (RB_RIGHT(tmp, field) == NULL ||		\\
+			    RB_COLOR(RB_RIGHT(tmp, field), field) == RB_BLACK)) {\\
+				RB_COLOR(tmp, field) = RB_RED;		\\
+				elm = parent;				\\
+				parent = RB_PARENT(elm, field);		\\
+			} else {					\\
+				if (RB_LEFT(tmp, field) == NULL ||	\\
+				    RB_COLOR(RB_LEFT(tmp, field), field) == RB_BLACK) {\\
+					struct type *oright;		\\
+					if ((oright = RB_RIGHT(tmp, field)))\\
+						RB_COLOR(oright, field) = RB_BLACK;\\
+					RB_COLOR(tmp, field) = RB_RED;	\\
+					RB_ROTATE_LEFT(head, tmp, oright, field);\\
+					tmp = RB_LEFT(parent, field);	\\
+				}					\\
+				RB_COLOR(tmp, field) = RB_COLOR(parent, field);\\
+				RB_COLOR(parent, field) = RB_BLACK;	\\
+				if (RB_LEFT(tmp, field))		\\
+					RB_COLOR(RB_LEFT(tmp, field), field) = RB_BLACK;\\
+				RB_ROTATE_RIGHT(head, parent, tmp, field);\\
+				elm = RB_ROOT(head);			\\
+				break;					\\
+			}						\\
+		}							\\
+	}								\\
+	if (elm)							\\
+		RB_COLOR(elm, field) = RB_BLACK;			\\
+}									\\
+									\\
+attr struct type *							\\
+name##_RB_REMOVE(struct name *head, struct type *elm)			\\
+{									\\
+	struct type *child, *parent, *old = elm;			\\
+	int color;							\\
+	if (RB_LEFT(elm, field) == NULL)				\\
+		child = RB_RIGHT(elm, field);				\\
+	else if (RB_RIGHT(elm, field) == NULL)				\\
+		child = RB_LEFT(elm, field);				\\
+	else {								\\
+		struct type *left;					\\
+		elm = RB_RIGHT(elm, field);				\\
+		while ((left = RB_LEFT(elm, field)))			\\
+			elm = left;					\\
+		child = RB_RIGHT(elm, field);				\\
+		parent = RB_PARENT(elm, field);				\\
+		color = RB_COLOR(elm, field);				\\
+		if (child)						\\
+			RB_PARENT(child, field) = parent;		\\
+		if (parent) {						\\
+			if (RB_LEFT(parent, field) == elm)		\\
+				RB_LEFT(parent, field) = child;		\\
+			else						\\
+				RB_RIGHT(parent, field) = child;	\\
+			RB_AUGMENT(parent);				\\
+		} else							\\
+			RB_ROOT(head) = child;				\\
+		if (RB_PARENT(elm, field) == old)			\\
+			parent = elm;					\\
+		(elm)->field = (old)->field;				\\
+		if (RB_PARENT(old, field)) {				\\
+			if (RB_LEFT(RB_PARENT(old, field), field) == old)\\
+				RB_LEFT(RB_PARENT(old, field), field) = elm;\\
+			else						\\
+				RB_RIGHT(RB_PARENT(old, field), field) = elm;\\
+			RB_AUGMENT(RB_PARENT(old, field));		\\
+		} else							\\
+			RB_ROOT(head) = elm;				\\
+		RB_PARENT(RB_LEFT(old, field), field) = elm;		\\
+		if (RB_RIGHT(old, field))				\\
+			RB_PARENT(RB_RIGHT(old, field), field) = elm;	\\
+		if (parent) {						\\
+			left = parent;					\\
+			do {						\\
+				RB_AUGMENT(left);			\\
+			} while ((left = RB_PARENT(left, field)));	\\
+		}							\\
+		goto color;						\\
+	}								\\
+	parent = RB_PARENT(elm, field);					\\
+	color = RB_COLOR(elm, field);					\\
+	if (child)							\\
+		RB_PARENT(child, field) = parent;			\\
+	if (parent) {							\\
+		if (RB_LEFT(parent, field) == elm)			\\
+			RB_LEFT(parent, field) = child;			\\
+		else							\\
+			RB_RIGHT(parent, field) = child;		\\
+		RB_AUGMENT(parent);					\\
+	} else								\\
+		RB_ROOT(head) = child;					\\
+color:									\\
+	if (color == RB_BLACK)						\\
+		name##_RB_REMOVE_COLOR(head, parent, child);		\\
+	return (old);							\\
+}									\\
+									\\
+/* Inserts a node into the RB tree */					\\
+attr struct type *							\\
+name##_RB_INSERT(struct name *head, struct type *elm)			\\
+{									\\
+	struct type *tmp;						\\
+	struct type *parent = NULL;					\\
+	int comp = 0;							\\
+	tmp = RB_ROOT(head);						\\
+	while (tmp) {							\\
+		parent = tmp;						\\
+		comp = (cmp)(elm, parent);				\\
+		if (comp < 0)						\\
+			tmp = RB_LEFT(tmp, field);			\\
+		else if (comp > 0)					\\
+			tmp = RB_RIGHT(tmp, field);			\\
+		else							\\
+			return (tmp);					\\
+	}								\\
+	RB_SET(elm, parent, field);					\\
+	if (parent != NULL) {						\\
+		if (comp < 0)						\\
+			RB_LEFT(parent, field) = elm;			\\
+		else							\\
+			RB_RIGHT(parent, field) = elm;			\\
+		RB_AUGMENT(parent);					\\
+	} else								\\
+		RB_ROOT(head) = elm;					\\
+	name##_RB_INSERT_COLOR(head, elm);				\\
+	return (NULL);							\\
+}									\\
+									\\
+/* Finds the node with the same key as elm */				\\
+attr struct type *							\\
+name##_RB_FIND(struct name *head, struct type *elm)			\\
+{									\\
+	struct type *tmp = RB_ROOT(head);				\\
+	int comp;							\\
+	while (tmp) {							\\
+		comp = cmp(elm, tmp);					\\
+		if (comp < 0)						\\
+			tmp = RB_LEFT(tmp, field);			\\
+		else if (comp > 0)					\\
+			tmp = RB_RIGHT(tmp, field);			\\
+		else							\\
+			return (tmp);					\\
+	}								\\
+	return (NULL);							\\
+}									\\
+									\\
+/* Finds the first node greater than or equal to the search key */	\\
+attr struct type *							\\
+name##_RB_NFIND(struct name *head, struct type *elm)			\\
+{									\\
+	struct type *tmp = RB_ROOT(head);				\\
+	struct type *res = NULL;					\\
+	int comp;							\\
+	while (tmp) {							\\
+		comp = cmp(elm, tmp);					\\
+		if (comp < 0) {						\\
+			res = tmp;					\\
+			tmp = RB_LEFT(tmp, field);			\\
+		}							\\
+		else if (comp > 0)					\\
+			tmp = RB_RIGHT(tmp, field);			\\
+		else							\\
+			return (tmp);					\\
+	}								\\
+	return (res);							\\
+}									\\
+									\\
+/* ARGSUSED */								\\
+attr struct type *							\\
+name##_RB_NEXT(struct type *elm)					\\
+{									\\
+	if (RB_RIGHT(elm, field)) {					\\
+		elm = RB_RIGHT(elm, field);				\\
+		while (RB_LEFT(elm, field))				\\
+			elm = RB_LEFT(elm, field);			\\
+	} else {							\\
+		if (RB_PARENT(elm, field) &&				\\
+		    (elm == RB_LEFT(RB_PARENT(elm, field), field)))	\\
+			elm = RB_PARENT(elm, field);			\\
+		else {							\\
+			while (RB_PARENT(elm, field) &&			\\
+			    (elm == RB_RIGHT(RB_PARENT(elm, field), field)))\\
+				elm = RB_PARENT(elm, field);		\\
+			elm = RB_PARENT(elm, field);			\\
+		}							\\
+	}								\\
+	return (elm);							\\
+}									\\
+									\\
+/* ARGSUSED */								\\
+attr struct type *							\\
+name##_RB_PREV(struct type *elm)					\\
+{									\\
+	if (RB_LEFT(elm, field)) {					\\
+		elm = RB_LEFT(elm, field);				\\
+		while (RB_RIGHT(elm, field))				\\
+			elm = RB_RIGHT(elm, field);			\\
+	} else {							\\
+		if (RB_PARENT(elm, field) &&				\\
+		    (elm == RB_RIGHT(RB_PARENT(elm, field), field)))	\\
+			elm = RB_PARENT(elm, field);			\\
+		else {							\\
+			while (RB_PARENT(elm, field) &&			\\
+			    (elm == RB_LEFT(RB_PARENT(elm, field), field)))\\
+				elm = RB_PARENT(elm, field);		\\
+			elm = RB_PARENT(elm, field);			\\
+		}							\\
+	}								\\
+	return (elm);							\\
+}									\\
+									\\
+attr struct type *							\\
+name##_RB_MINMAX(struct name *head, int val)				\\
+{									\\
+	struct type *tmp = RB_ROOT(head);				\\
+	struct type *parent = NULL;					\\
+	while (tmp) {							\\
+		parent = tmp;						\\
+		if (val < 0)						\\
+			tmp = RB_LEFT(tmp, field);			\\
+		else							\\
+			tmp = RB_RIGHT(tmp, field);			\\
+	}								\\
+	return (parent);						\\
+}
+
+#define RB_NEGINF	-1
+#define RB_INF	1
+
+#define RB_INSERT(name, x, y)	name##_RB_INSERT(x, y)
+#define RB_REMOVE(name, x, y)	name##_RB_REMOVE(x, y)
+#define RB_FIND(name, x, y)	name##_RB_FIND(x, y)
+#define RB_NFIND(name, x, y)	name##_RB_NFIND(x, y)
+#define RB_NEXT(name, x, y)	name##_RB_NEXT(y)
+#define RB_PREV(name, x, y)	name##_RB_PREV(y)
+#define RB_MIN(name, x)		name##_RB_MINMAX(x, RB_NEGINF)
+#define RB_MAX(name, x)		name##_RB_MINMAX(x, RB_INF)
+
+#define RB_FOREACH(x, name, head)					\\
+	for ((x) = RB_MIN(name, head);					\\
+	     (x) != NULL;						\\
+	     (x) = name##_RB_NEXT(x))
+
+#define RB_FOREACH_SAFE(x, name, head, y)				\\
+	for ((x) = RB_MIN(name, head);					\\
+	    ((x) != NULL) && ((y) = name##_RB_NEXT(x), 1);		\\
+	     (x) = (y))
+
+#define RB_FOREACH_REVERSE(x, name, head)				\\
+	for ((x) = RB_MAX(name, head);					\\
+	     (x) != NULL;						\\
+	     (x) = name##_RB_PREV(x))
+
+#define RB_FOREACH_REVERSE_SAFE(x, name, head, y)			\\
+	for ((x) = RB_MAX(name, head);					\\
+	    ((x) != NULL) && ((y) = name##_RB_PREV(x), 1);		\\
+	     (x) = (y))
+
+__HEREDOC__
+fi
+
+cat << __HEREDOC__
+#endif /*!OCONFIGURE_CONFIG_H*/
+__HEREDOC__
+
+if [ ${HAVE_FTS} -eq 0 ]; then
+	cat << __HEREDOC__
+/*
+ * Compatibility for fts(3) functions.
+ */
+typedef struct {
+	struct _ftsent *fts_cur;	/* current node */
+	struct _ftsent *fts_child;	/* linked list of children */
+	struct _ftsent **fts_array;	/* sort array */
+	dev_t fts_dev;			/* starting device # */
+	char *fts_path;			/* path for this descent */
+	int fts_rfd;			/* fd for root */
+	size_t fts_pathlen;		/* sizeof(path) */
+	int fts_nitems;			/* elements in the sort array */
+	int (*fts_compar)(const struct _ftsent **, const struct _ftsent **); /* compare function */
+#define	FTS_COMFOLLOW	0x0001		/* follow command line symlinks */
+#define	FTS_LOGICAL	0x0002		/* logical walk */
+#define	FTS_NOCHDIR	0x0004		/* don't change directories */
+#define	FTS_NOSTAT	0x0008		/* don't get stat info */
+#define	FTS_PHYSICAL	0x0010		/* physical walk */
+#define	FTS_SEEDOT	0x0020		/* return dot and dot-dot */
+#define	FTS_XDEV	0x0040		/* don't cross devices */
+#define	FTS_OPTIONMASK	0x00ff		/* valid user option mask */
+#define	FTS_NAMEONLY	0x1000		/* (private) child names only */
+#define	FTS_STOP	0x2000		/* (private) unrecoverable error */
+	int fts_options;		/* fts_open options, global flags */
+} FTS;
+
+typedef struct _ftsent {
+	struct _ftsent *fts_cycle;	/* cycle node */
+	struct _ftsent *fts_parent;	/* parent directory */
+	struct _ftsent *fts_link;	/* next file in directory */
+	long fts_number;	        /* local numeric value */
+	void *fts_pointer;	        /* local address value */
+	char *fts_accpath;		/* access path */
+	char *fts_path;			/* root path */
+	int fts_errno;			/* errno for this node */
+	int fts_symfd;			/* fd for symlink */
+	size_t fts_pathlen;		/* strlen(fts_path) */
+	size_t fts_namelen;		/* strlen(fts_name) */
+	ino_t fts_ino;			/* inode */
+	dev_t fts_dev;			/* device */
+	nlink_t fts_nlink;		/* link count */
+#define	FTS_ROOTPARENTLEVEL	-1
+#define	FTS_ROOTLEVEL		 0
+#define	FTS_MAXLEVEL		 0x7fffffff
+	int fts_level;		/* depth (-1 to N) */
+#define	FTS_D		 1		/* preorder directory */
+#define	FTS_DC		 2		/* directory that causes cycles */
+#define	FTS_DEFAULT	 3		/* none of the above */
+#define	FTS_DNR		 4		/* unreadable directory */
+#define	FTS_DOT		 5		/* dot or dot-dot */
+#define	FTS_DP		 6		/* postorder directory */
+#define	FTS_ERR		 7		/* error; errno is set */
+#define	FTS_F		 8		/* regular file */
+#define	FTS_INIT	 9		/* initialized only */
+#define	FTS_NS		10		/* stat(2) failed */
+#define	FTS_NSOK	11		/* no stat(2) requested */
+#define	FTS_SL		12		/* symbolic link */
+#define	FTS_SLNONE	13		/* symbolic link without target */
+	unsigned short fts_info;	/* user flags for FTSENT structure */
+#define	FTS_DONTCHDIR	 0x01		/* don't chdir .. to the parent */
+#define	FTS_SYMFOLLOW	 0x02		/* followed a symlink to get here */
+	unsigned short fts_flags;	/* private flags for FTSENT structure */
+#define	FTS_AGAIN	 1		/* read node again */
+#define	FTS_FOLLOW	 2		/* follow symbolic link */
+#define	FTS_NOINSTR	 3		/* no instructions */
+#define	FTS_SKIP	 4		/* discard node */
+	unsigned short fts_instr;	/* fts_set() instructions */
+	unsigned short fts_spare;	/* unused */
+	struct stat *fts_statp;		/* stat(2) information */
+	char fts_name[1];		/* file name */
+} FTSENT;
+
+FTSENT	*fts_children(FTS *, int);
+int	 fts_close(FTS *);
+FTS	*fts_open(char * const *, int,
+	    int (*)(const FTSENT **, const FTSENT **));
+FTSENT	*fts_read(FTS *);
+int	 fts_set(FTS *, FTSENT *, int);
+
+__HEREDOC__
+fi
+
+echo "config.h: written" 1>&2
+echo "config.h: written" 1>&3
+
+#----------------------------------------------------------------------
+# Now we go to generate our Makefile.configure.
+# This file is simply a bunch of Makefile variables.
+# They'll work in both GNUmakefile and BSDmakefile.
+# You MIGHT want to change this.
+#----------------------------------------------------------------------
+
+exec > Makefile.configure
+
+[ -z "${BINDIR}"     ] && BINDIR="${PREFIX}/bin"
+[ -z "${SBINDIR}"    ] && SBINDIR="${PREFIX}/sbin"
+[ -z "${INCLUDEDIR}" ] && INCLUDEDIR="${PREFIX}/include"
+[ -z "${LIBDIR}"     ] && LIBDIR="${PREFIX}/lib"
+[ -z "${MANDIR}"     ] && MANDIR="${PREFIX}/man"
+[ -z "${SHAREDIR}"   ] && SHAREDIR="${PREFIX}/share"
+
+[ -z "${INSTALL_PROGRAM}" ] && INSTALL_PROGRAM="${INSTALL} -m 0555"
+[ -z "${INSTALL_LIB}"     ] && INSTALL_LIB="${INSTALL} -m 0444"
+[ -z "${INSTALL_MAN}"     ] && INSTALL_MAN="${INSTALL} -m 0444"
+[ -z "${INSTALL_DATA}"    ] && INSTALL_DATA="${INSTALL} -m 0444"
+
+cat << __HEREDOC__
+CC		 = ${CC}
+CFLAGS		 = ${CFLAGS}
+CPPFLAGS	 = ${CPPFLAGS}
+LDADD		 = ${LDADD}
+LDADD_B64_NTOP	 = ${LDADD_B64_NTOP}
+LDADD_CRYPT	 = ${LDADD_CRYPT}
+LDADD_LIB_SOCKET = ${LDADD_LIB_SOCKET}
+LDADD_MD5	 = ${LDADD_MD5}
+LDADD_SHA2	 = ${LDADD_SHA2}
+LDADD_STATIC	 = ${LDADD_STATIC}
+LDFLAGS		 = ${LDFLAGS}
+STATIC		 = ${STATIC}
+PREFIX		 = ${PREFIX}
+BINDIR		 = ${BINDIR}
+SHAREDIR	 = ${SHAREDIR}
+SBINDIR		 = ${SBINDIR}
+INCLUDEDIR	 = ${INCLUDEDIR}
+LIBDIR		 = ${LIBDIR}
+MANDIR		 = ${MANDIR}
+INSTALL		 = ${INSTALL}
+INSTALL_PROGRAM	 = ${INSTALL_PROGRAM}
+INSTALL_LIB	 = ${INSTALL_LIB}
+INSTALL_MAN	 = ${INSTALL_MAN}
+INSTALL_DATA	 = ${INSTALL_DATA}
+__HEREDOC__
+
+echo "Makefile.configure: written" 1>&2
+echo "Makefile.configure: written" 1>&3
+
+exit 0

@@ -1,0 +1,59 @@
+---
+name: "libwally-core-linux"
+enable_cache: false
+suites:
+- "trusty"
+architectures:
+- "amd64"
+packages:
+- "gcc-arm-linux-androideabi"
+- "git-core"
+- "pkg-config"
+- "autoconf"
+- "libtool"
+- "automake"
+- "faketime"
+- "bsdmainutils"
+- "ca-certificates"
+- "python"
+remotes:
+- "dir": "libwally-core"
+  "url": "https://github.com/ElementsProject/libwally-core.git"
+files: []
+script: |
+
+  HOSTS="arm-linux-androideabi"
+  CONFIGFLAGS="CFLAGS=-D__STDC_INT64__"
+  DISTNAME='libwally-core'
+
+  export GZIP="-9n"
+  export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
+  export TZ="UTC"
+  export BUILD_DIR=`pwd`
+
+  SOURCEDIST="$HOME/libwallet-core.tar"
+
+  cd "${DISTNAME}"
+  tools/autogen.sh
+  tar -cvpf "${SOURCEDIST}" . --exclude=.git
+
+  ORIGPATH="$PATH"
+  # Extract the release tarball into a dir for each host and build
+  for i in ${HOSTS}; do
+    export PATH=${BASEPREFIX}/${i}/native/bin:${ORIGPATH}
+    mkdir -p distsrc-${i}
+    cd distsrc-${i}
+    INSTALLPATH=`pwd`/installed/${DISTNAME}
+    mkdir -p ${INSTALLPATH}
+    tar -xf $SOURCEDIST
+
+    ./configure --host="$i" --prefix=/ --disable-maintainer-mode --disable-dependency-tracking ${CONFIGFLAGS}
+    make ${MAKEOPTS}
+
+    make install DESTDIR=${INSTALLPATH}
+    cd installed
+    "${i}-strip" --strip-unneeded "${DISTNAME}"/lib/libwallycore.so
+    ls "${DISTNAME}"/lib/libwallycore* | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-${i}.tar.gz
+    cd ../../
+    rm -rf distsrc-${i}
+  done

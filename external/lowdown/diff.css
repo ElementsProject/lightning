@@ -1,0 +1,20 @@
+body			{ font-family: 'Alegreya sans', sans-serif;
+			  font-size: 14pt;
+			  line-height: 1.4em;
+			  font-weight: 400; }
+body > *		{ width: calc(100% - 2rem); 
+			  margin-left: auto;
+			  margin-right: auto;
+			  display: block;
+			  max-width: 60rem; }
+.hljs			{ background-color: transparent; }
+code			{ font-size: 11pt; 
+			  line-height: 14pt; }
+h1, h2, h3		{ font-weight: 500; }
+b, strong		{ font-weight: 700; }
+ins 			{ text-decoration: none;
+			  background-color: #d4fcbc; }
+del 			{ text-decoration: none;
+			  background-color: #fbb6c2; 
+			  color: #555; }
+ins *, del *		{ background-color: inherit; } /* why!?!? */

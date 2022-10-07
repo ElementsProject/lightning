@@ -1,0 +1,290 @@
+# Support functions for the SWIG python wrapper
+from sys import version as _wally_py_version
+
+def _wrap_bin(fn, length, resize=False):
+    """ Wrap functions that take an output buffer to create/return it """
+    def wrapped(*args):
+        n = length(*args) if callable(length) else length
+        buf = bytearray(n)
+        ret = fn(*list(args)+[buf])
+        if resize:
+            # Truncate buf to bytes written if needed. Also assert the
+            # wrapper allocated enough space for the returned value to fit.
+            assert ret <= n
+            return buf[0:ret] if ret != n else buf
+        return (ret, buf) if ret is not None else buf
+    return wrapped
+
+def _wrap_with_defaults(fn, min_args, max_args):
+    """ Wrap functions that take argument defaults """
+    def wrapped(*args):
+        args = list(args)
+        n = len(args)
+        assert n >= min_args
+        r = max_args - n
+        return fn(*args+[None]*r)
+    return wrapped
+
+_unwrapped_hex_to_bytes = hex_to_bytes
+if int(_wally_py_version[0]) >= 3:
+    def hex_to_bytes(hex_str):
+        buf = bytearray(len(hex_str) // 2)
+        _unwrapped_hex_to_bytes(hex_str, buf)
+        return buf
+else:
+    def hex_to_bytes(hex_str):
+        hex_str = hex_str.encode('ascii')
+        buf = bytearray(len(hex_str) // 2)
+        _unwrapped_hex_to_bytes(bytes(hex_str), buf)
+        return buf
+
+sha256 = _wrap_bin(sha256, SHA256_LEN)
+sha256_midstate = _wrap_bin(sha256_midstate, SHA256_LEN)
+sha256d = _wrap_bin(sha256d, SHA256_LEN)
+sha512 = _wrap_bin(sha512, SHA512_LEN)
+hash160 = _wrap_bin(hash160, HASH160_LEN)
+ripemd160 = _wrap_bin(ripemd160, RIPEMD160_LEN)
+hmac_sha256 = _wrap_bin(hmac_sha256, HMAC_SHA256_LEN)
+hmac_sha512 = _wrap_bin(hmac_sha512, HMAC_SHA512_LEN)
+
+bip32_key_serialize = _wrap_bin(bip32_key_serialize, BIP32_SERIALIZED_LEN)
+bip32_key_get_chain_code = _wrap_bin(bip32_key_get_chain_code, 32)
+bip32_key_get_priv_key = _wrap_bin(bip32_key_get_priv_key, 32)
+bip32_key_get_pub_key = _wrap_bin(bip32_key_get_pub_key, 33)
+bip32_key_get_parent160 = _wrap_bin(bip32_key_get_parent160, HASH160_LEN)
+bip32_key_get_hash160 = _wrap_bin(bip32_key_get_hash160, HASH160_LEN)
+
+bip38_raw_from_private_key = _wrap_bin(bip38_raw_from_private_key, BIP38_SERIALIZED_LEN)
+bip38_raw_to_private_key = _wrap_bin(bip38_raw_to_private_key, 32);
+bip38_to_private_key = _wrap_bin(bip38_raw_to_private_key, 32);
+bip39_mnemonic_to_seed512 = _wrap_bin(bip39_mnemonic_to_seed, BIP39_SEED_LEN_512)
+
+pbkdf2_hmac_sha256 = _wrap_bin(pbkdf2_hmac_sha256, PBKDF2_HMAC_SHA256_LEN)
+pbkdf2_hmac_sha512 = _wrap_bin(pbkdf2_hmac_sha512, PBKDF2_HMAC_SHA512_LEN)
+
+ec_public_key_decompress = _wrap_bin(ec_public_key_decompress, EC_PUBLIC_KEY_UNCOMPRESSED_LEN)
+ec_public_key_negate = _wrap_bin(ec_public_key_negate, EC_PUBLIC_KEY_LEN)
+ec_public_key_from_private_key = _wrap_bin(ec_public_key_from_private_key, EC_PUBLIC_KEY_LEN)
+def _sig_len(priv_key, bytes, flags):
+    return EC_SIGNATURE_RECOVERABLE_LEN if EC_FLAG_RECOVERABLE & flags else EC_SIGNATURE_LEN
+ec_sig_from_bytes = _wrap_bin(ec_sig_from_bytes, _sig_len)
+ec_sig_from_der = _wrap_bin(ec_sig_from_der, EC_SIGNATURE_LEN)
+ec_sig_normalize = _wrap_bin(ec_sig_normalize, EC_SIGNATURE_LEN)
+ec_sig_to_der = _wrap_bin(ec_sig_to_der, EC_SIGNATURE_DER_MAX_LEN, resize=True)
+ec_sig_to_public_key = _wrap_bin(ec_sig_to_public_key, EC_PUBLIC_KEY_LEN)
+ecdh = _wrap_bin(ecdh, SHA256_LEN)
+
+def base58check_from_bytes(buf):
+    return base58_from_bytes(buf, BASE58_FLAG_CHECKSUM)
+
+def _base58_len_fn(base58, flags):
+    return len(base58) + (4 if (flags & BASE58_FLAG_CHECKSUM) else 0)
+base58_to_bytes = _wrap_bin(base58_to_bytes, _base58_len_fn, resize=True)
+
+def base58check_to_bytes(base58):
+    return base58_to_bytes(base58, BASE58_FLAG_CHECKSUM)
+
+base64_to_bytes = _wrap_bin(base64_to_bytes, base64_get_maximum_length, resize=True)
+
+def _format_bitcoin_message_len_fn(msg, flags):
+    if flags & BITCOIN_MESSAGE_FLAG_HASH:
+        return SHA256_LEN
+    msg_len = len(msg)
+    return 25 + msg_len + (1 if msg_len < 253 else 3)
+format_bitcoin_message = _wrap_bin(format_bitcoin_message, _format_bitcoin_message_len_fn, resize=True)
+
+def _script_push_from_bytes_len_fn(data, flags):
+    if flags & WALLY_SCRIPT_HASH160:
+        return HASH160_LEN + 1
+    elif flags & WALLY_SCRIPT_SHA256:
+        return SHA256_LEN + 1
+    push_len, opcode_len = len(data), 5
+    for l, op_len in [(76, 1), (256, 2), (65536, 3)]:
+        if push_len < l:
+            opcode_len = op_len
+            break
+    return push_len + opcode_len
+script_push_from_bytes = _wrap_bin(script_push_from_bytes, _script_push_from_bytes_len_fn, resize=True)
+def _spkcsv2of2_1_opt_len_fn(pubkeys, csv_blocks, flags):
+    # TODO: If we expose scriptint functions we can calc the real length here
+    # instead of hardcoding 4 (largest push for the max csv_blocks of 0xffff)
+    return 6 + 2 * (EC_PUBLIC_KEY_LEN + 1) + 4
+scriptpubkey_csv_2of2_then_1_from_bytes_opt = _wrap_bin(scriptpubkey_csv_2of2_then_1_from_bytes_opt, _spkcsv2of2_1_opt_len_fn, resize=True)
+def _spkcsv2of2_1_len_fn(pubkeys, csv_blocks, flags):
+    # TODO: See _spkcsv2of2_1_opt_len_fn above
+    return 9 + 2 * (EC_PUBLIC_KEY_LEN + 1) + 4
+scriptpubkey_csv_2of2_then_1_from_bytes = _wrap_bin(scriptpubkey_csv_2of2_then_1_from_bytes, _spkcsv2of2_1_len_fn, resize=True)
+def _spkcsv2of3_2_len_fn(pubkeys, csv_blocks, flags):
+    # TODO: See TODO in _spkcsv2of2_1_len_fn
+    return 13 + 3 * (EC_PUBLIC_KEY_LEN + 1) + 4
+scriptpubkey_csv_2of3_then_2_from_bytes = _wrap_bin(scriptpubkey_csv_2of3_then_2_from_bytes, _spkcsv2of3_2_len_fn, resize=True)
+scriptpubkey_op_return_from_bytes = _wrap_bin(scriptpubkey_op_return_from_bytes, WALLY_SCRIPTPUBKEY_OP_RETURN_MAX_LEN, resize=True)
+scriptpubkey_p2pkh_from_bytes = _wrap_bin(scriptpubkey_p2pkh_from_bytes, WALLY_SCRIPTPUBKEY_P2PKH_LEN, resize=True)
+scriptpubkey_p2sh_from_bytes = _wrap_bin(scriptpubkey_p2sh_from_bytes, WALLY_SCRIPTPUBKEY_P2SH_LEN, resize=True)
+def _spkmfb_len_fn(pubkeys, threshold, flags):
+    return 3 + (len(pubkeys) // EC_PUBLIC_KEY_LEN) * (EC_PUBLIC_KEY_LEN + 1)
+scriptpubkey_multisig_from_bytes = _wrap_bin(scriptpubkey_multisig_from_bytes, _spkmfb_len_fn, resize=True)
+def _ssmfb_len_fn(script, sigs, sighashes, flags):
+    der_len = (len(sigs) // EC_SIGNATURE_LEN) * (EC_SIGNATURE_DER_MAX_LEN + 2)
+    script_len = _script_push_from_bytes_len_fn(script, 0)
+    return 1 + der_len + script_len
+scriptsig_multisig_from_bytes = _wrap_bin(scriptsig_multisig_from_bytes, _ssmfb_len_fn, resize=True)
+
+scriptsig_p2pkh_from_sig = _wrap_bin(scriptsig_p2pkh_from_sig, WALLY_SCRIPTSIG_P2PKH_MAX_LEN, resize=True)
+scriptsig_p2pkh_from_der = _wrap_bin(scriptsig_p2pkh_from_der, WALLY_SCRIPTSIG_P2PKH_MAX_LEN, resize=True)
+
+witness_program_from_bytes = _wrap_bin(witness_program_from_bytes, WALLY_WITNESSSCRIPT_MAX_LEN, resize=True)
+witness_program_from_bytes_and_version = _wrap_bin(witness_program_from_bytes_and_version, WALLY_WITNESSSCRIPT_MAX_LEN, resize=True)
+
+addr_segwit_to_bytes = _wrap_bin(addr_segwit_to_bytes, 32 + 2, resize=True)
+address_to_scriptpubkey = _wrap_bin(address_to_scriptpubkey, 21 + 4, resize=True)
+
+tx_to_bytes = _wrap_bin(tx_to_bytes, tx_get_length, resize=True)
+tx_get_btc_signature_hash = _wrap_bin(tx_get_btc_signature_hash, SHA256_LEN)
+tx_get_txid = _wrap_bin(tx_get_txid, WALLY_TXHASH_LEN)
+tx_get_signature_hash = _wrap_bin(tx_get_signature_hash, SHA256_LEN)
+tx_input_get_txhash = _wrap_bin(tx_input_get_txhash, WALLY_TXHASH_LEN)
+tx_input_get_script = _wrap_bin(tx_input_get_script, tx_input_get_script_len, resize=True)
+def _tx_input_get_witness_len_fn(tx_input_in, index):
+    return tx_input_get_witness_len(tx_input_in, index)
+tx_input_get_witness = _wrap_bin(tx_input_get_witness, _tx_input_get_witness_len_fn, resize=True)
+tx_output_get_script = _wrap_bin(tx_output_get_script, tx_output_get_script_len, resize=True)
+
+tx_get_input_txhash = _wrap_bin(tx_get_input_txhash, WALLY_TXHASH_LEN)
+tx_get_input_script = _wrap_bin(tx_get_input_script, tx_get_input_script_len, resize=True)
+tx_get_input_witness = _wrap_bin(tx_get_input_witness, tx_get_input_witness_len, resize=True)
+tx_get_output_script = _wrap_bin(tx_get_output_script, tx_get_output_script_len, resize=True)
+
+def tx_witness_stack_create(witnesses):
+    """ Helper to create a witness stack from a list of witness programs """
+    witness_stack = tx_witness_stack_init(len(witnesses))
+    for witness_script in witnesses:
+        tx_witness_stack_add(witness_stack, witness_script)
+    return witness_stack
+
+wif_to_bytes = _wrap_bin(wif_to_bytes, EC_PRIVATE_KEY_LEN)
+def _wif_to_public_key_len(wif, prefix):
+    return EC_PUBLIC_KEY_UNCOMPRESSED_LEN if wif_is_uncompressed(wif) else EC_PUBLIC_KEY_LEN
+wif_to_public_key = _wrap_bin(wif_to_public_key, _wif_to_public_key_len, resize=True)
+
+symmetric_key_from_seed = _wrap_bin(symmetric_key_from_seed, HMAC_SHA512_LEN)
+symmetric_key_from_parent = _wrap_bin(symmetric_key_from_parent, HMAC_SHA512_LEN)
+
+psbt_get_input_redeem_script = _wrap_bin(psbt_get_input_redeem_script, psbt_get_input_redeem_script_len, resize=True)
+psbt_get_input_witness_script = _wrap_bin(psbt_get_input_witness_script, psbt_get_input_witness_script_len, resize=True)
+psbt_get_input_final_scriptsig = _wrap_bin(psbt_get_input_final_scriptsig, psbt_get_input_final_scriptsig_len, resize=True)
+psbt_get_input_keypath = _wrap_bin(psbt_get_input_keypath, psbt_get_input_keypath_len, resize=True)
+psbt_get_input_signature = _wrap_bin(psbt_get_input_signature, psbt_get_input_signature_len, resize=True)
+psbt_get_input_unknown = _wrap_bin(psbt_get_input_unknown, psbt_get_input_unknown_len, resize=True)
+
+psbt_get_output_keypath = _wrap_bin(psbt_get_output_keypath, psbt_get_output_keypath_len, resize=True)
+psbt_get_output_redeem_script = _wrap_bin(psbt_get_output_redeem_script, psbt_get_output_redeem_script_len, resize=True)
+psbt_get_output_witness_script = _wrap_bin(psbt_get_output_witness_script, psbt_get_output_witness_script_len, resize=True)
+psbt_get_output_unknown = _wrap_bin(psbt_get_output_unknown, psbt_get_output_unknown_len, resize=True)
+
+psbt_to_bytes = _wrap_bin(psbt_to_bytes, psbt_get_length, resize=True)
+
+def _s2c_sig_from_bytes_fn(fn):
+    def wrapped(*args):
+        buffers = [bytearray(WALLY_S2C_OPENING_LEN), bytearray(EC_SIGNATURE_LEN)]
+        ret = fn(*list(args) + buffers)
+        if ret is None:
+            return buffers[0], buffers[1]
+        return ret, buffers[0], buffers[1]
+    return wrapped
+s2c_sig_from_bytes = _s2c_sig_from_bytes_fn(s2c_sig_from_bytes)
+
+ae_host_commit_from_bytes = _wrap_bin(ae_host_commit_from_bytes, WALLY_HOST_COMMITMENT_LEN)
+ae_signer_commit_from_bytes = _wrap_bin(ae_signer_commit_from_bytes, WALLY_S2C_OPENING_LEN)
+ae_sig_from_bytes = _wrap_bin(ae_sig_from_bytes, EC_SIGNATURE_LEN)
+
+if is_elements_build():
+    asset_generator_from_bytes = _wrap_bin(asset_generator_from_bytes, ASSET_GENERATOR_LEN)
+    asset_final_vbf = _wrap_bin(asset_final_vbf, ASSET_TAG_LEN)
+    asset_value_commitment = _wrap_bin(asset_value_commitment, ASSET_COMMITMENT_LEN)
+    asset_rangeproof_with_nonce = _wrap_bin(asset_rangeproof_with_nonce, ASSET_RANGEPROOF_MAX_LEN, resize=True)
+    asset_rangeproof = _wrap_bin(asset_rangeproof, ASSET_RANGEPROOF_MAX_LEN, resize=True)
+    def _asset_surjectionproof_len_fn(aid, ag, gen, r, in_aid, in_abf, in_ags):
+        return asset_surjectionproof_size(len(in_aid) // ASSET_TAG_LEN)
+    asset_surjectionproof = _wrap_bin(asset_surjectionproof, _asset_surjectionproof_len_fn, resize=True)
+    asset_blinding_key_from_seed = _wrap_bin(asset_blinding_key_from_seed, HMAC_SHA512_LEN)
+    asset_blinding_key_to_ec_private_key = _wrap_bin(asset_blinding_key_to_ec_private_key, EC_PRIVATE_KEY_LEN)
+    def _asset_pak_whitelistproof_len_fn(on_keys, off_keys, idx, sub_pubkey, priv_key, summed_key):
+        return asset_pak_whitelistproof_size(len(off_keys) // EC_PUBLIC_KEY_LEN)
+    asset_pak_whitelistproof = _wrap_bin(asset_pak_whitelistproof, _asset_pak_whitelistproof_len_fn)
+
+    def _asset_unblind_fn(fn):
+        def wrapped(*args):
+            buffers = [bytearray(ASSET_TAG_LEN) for _ in range(3)]
+            ret = fn(*list(args) + buffers)
+            return ret, buffers[0], buffers[1], buffers[2]
+        return wrapped
+    asset_unblind_with_nonce = _asset_unblind_fn(asset_unblind_with_nonce)
+    asset_unblind = _asset_unblind_fn(asset_unblind)
+
+    tx_elements_input_init = _wrap_with_defaults(tx_elements_input_init, 4, 12)
+    tx_input_get_blinding_nonce = _wrap_bin(tx_input_get_blinding_nonce, SHA256_LEN)
+    tx_input_get_entropy = _wrap_bin(tx_input_get_entropy, SHA256_LEN)
+    tx_input_get_issuance_amount = _wrap_bin(tx_input_get_issuance_amount, tx_input_get_issuance_amount_len, resize=True)
+    tx_input_get_inflation_keys = _wrap_bin(tx_input_get_inflation_keys, tx_input_get_inflation_keys_len, resize=True)
+    tx_input_get_issuance_amount_rangeproof = _wrap_bin(tx_input_get_issuance_amount_rangeproof, tx_input_get_issuance_amount_rangeproof_len, resize=True)
+    tx_input_get_inflation_keys_rangeproof = _wrap_bin(tx_input_get_inflation_keys_rangeproof, tx_input_get_inflation_keys_rangeproof_len, resize=True)
+
+    tx_elements_output_init = _wrap_with_defaults(tx_elements_output_init, 3, 6)
+    tx_output_get_asset = _wrap_bin(tx_output_get_asset, WALLY_TX_ASSET_CT_ASSET_LEN)
+    # The returned value may be unblinded (of length WALLY_TX_ASSET_CT_VALUE_UNBLIND_LEN)
+    tx_output_get_value = _wrap_bin(tx_output_get_value, WALLY_TX_ASSET_CT_ASSET_LEN, resize=True)
+    tx_output_get_nonce = _wrap_bin(tx_output_get_nonce, WALLY_TX_ASSET_CT_ASSET_LEN)
+    tx_output_get_surjectionproof = _wrap_bin(tx_output_get_surjectionproof, tx_output_get_surjectionproof_len, resize=True)
+    tx_output_get_rangeproof = _wrap_bin(tx_output_get_rangeproof, tx_output_get_rangeproof_len, resize=True)
+
+    tx_confidential_value_from_satoshi = _wrap_bin(tx_confidential_value_from_satoshi, WALLY_TX_ASSET_CT_VALUE_UNBLIND_LEN)
+    tx_elements_issuance_generate_entropy = _wrap_bin(tx_elements_issuance_generate_entropy, SHA256_LEN)
+    tx_elements_issuance_calculate_asset = _wrap_bin(tx_elements_issuance_calculate_asset, SHA256_LEN)
+    tx_elements_issuance_calculate_reissuance_token = _wrap_bin(tx_elements_issuance_calculate_reissuance_token, SHA256_LEN)
+    tx_get_elements_signature_hash = _wrap_bin(tx_get_elements_signature_hash, SHA256_LEN)
+
+    tx_get_input_blinding_nonce = _wrap_bin(tx_get_input_blinding_nonce, SHA256_LEN)
+    tx_get_input_entropy = _wrap_bin(tx_get_input_entropy, SHA256_LEN)
+    tx_get_input_issuance_amount = _wrap_bin(tx_get_input_issuance_amount, tx_get_input_issuance_amount_len, resize=True)
+    tx_get_input_inflation_keys = _wrap_bin(tx_get_input_inflation_keys, tx_get_input_inflation_keys_len, resize=True)
+    tx_get_input_issuance_amount_rangeproof = _wrap_bin(tx_get_input_issuance_amount_rangeproof, tx_get_input_issuance_amount_rangeproof_len, resize=True)
+    tx_get_input_inflation_keys_rangeproof = _wrap_bin(tx_get_input_inflation_keys_rangeproof, tx_get_input_inflation_keys_rangeproof_len, resize=True)
+
+    tx_get_output_asset = _wrap_bin(tx_get_output_asset, WALLY_TX_ASSET_CT_ASSET_LEN)
+    # The returned value may be unblinded (of length WALLY_TX_ASSET_CT_VALUE_UNBLIND_LEN)
+    tx_get_output_value = _wrap_bin(tx_get_output_value, WALLY_TX_ASSET_CT_VALUE_LEN, resize=True)
+    tx_get_output_nonce = _wrap_bin(tx_get_output_nonce, WALLY_TX_ASSET_CT_NONCE_LEN)
+    tx_get_output_surjectionproof = _wrap_bin(tx_get_output_surjectionproof, tx_get_output_surjectionproof_len, resize=True)
+    tx_get_output_rangeproof = _wrap_bin(tx_get_output_rangeproof, tx_get_output_rangeproof_len, resize=True)
+
+    confidential_addr_to_ec_public_key = _wrap_bin(confidential_addr_to_ec_public_key, EC_PUBLIC_KEY_LEN)
+    confidential_addr_segwit_to_ec_public_key = _wrap_bin(confidential_addr_segwit_to_ec_public_key, EC_PUBLIC_KEY_LEN)
+
+    bip32_key_get_pub_key_tweak_sum = _wrap_bin(bip32_key_get_pub_key_tweak_sum, 32)
+
+    def _epsfb_len_fn(bh, mcs, pk, whl, flag):
+        return elements_pegout_script_size(len(bh), len(mcs), len(pk), len(whl))
+    elements_pegout_script_from_bytes = _wrap_bin(elements_pegout_script_from_bytes, _epsfb_len_fn, resize=True)
+
+    def _epcsfb_len_fn(rs, cs, flag):
+        return len(rs)
+    elements_pegin_contract_script_from_bytes = _wrap_bin(elements_pegin_contract_script_from_bytes, _epcsfb_len_fn, resize=True)
+
+    psbt_get_input_vbf = _wrap_bin(psbt_get_input_vbf, psbt_get_input_vbf_len, resize=True)
+    psbt_get_input_asset = _wrap_bin(psbt_get_input_asset, psbt_get_input_asset_len, resize=True)
+    psbt_get_input_abf = _wrap_bin(psbt_get_input_abf, psbt_get_input_abf_len, resize=True)
+    psbt_get_input_txoutproof = _wrap_bin(psbt_get_input_txoutproof, psbt_get_input_txoutproof_len, resize=True)
+    psbt_get_input_genesis_blockhash = _wrap_bin(psbt_get_input_genesis_blockhash, psbt_get_input_genesis_blockhash_len, resize=True)
+    psbt_get_input_claim_script = _wrap_bin(psbt_get_input_claim_script, psbt_get_input_claim_script_len, resize=True)
+
+    psbt_get_output_blinding_pubkey = _wrap_bin(psbt_get_output_blinding_pubkey, psbt_get_output_blinding_pubkey_len, resize=True)
+    psbt_get_output_value_commitment = _wrap_bin(psbt_get_output_value_commitment, psbt_get_output_value_commitment_len, resize=True)
+    psbt_get_output_vbf = _wrap_bin(psbt_get_output_vbf, psbt_get_output_vbf_len, resize=True)
+    psbt_get_output_asset_commitment = _wrap_bin(psbt_get_output_asset_commitment, psbt_get_output_asset_commitment_len, resize=True)
+    psbt_get_output_abf = _wrap_bin(psbt_get_output_abf, psbt_get_output_abf_len, resize=True)
+    psbt_get_output_nonce = _wrap_bin(psbt_get_output_nonce, psbt_get_output_nonce_len, resize=True)
+    psbt_get_output_rangeproof = _wrap_bin(psbt_get_output_rangeproof, psbt_get_output_rangeproof_len, resize=True)
+    psbt_get_output_surjectionproof = _wrap_bin(psbt_get_output_surjectionproof, psbt_get_output_surjectionproof_len, resize=True)
+
+WALLY_SATOSHI_MAX = WALLY_BTC_MAX * WALLY_SATOSHI_PER_BTC

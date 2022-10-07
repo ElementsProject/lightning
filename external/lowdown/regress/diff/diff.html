@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="creator" content="BSD.lv" />
+<meta name="author" content="Kristaps Dzonsons" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,400italic,500,700" />
+<link rel="stylesheet" href="diff.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+<script src="diff.js"></script>
+<title>Lowdown Diffing Engine</title>
+</head>
+<body>
+
+<h1 id="lowdown-diffing-engine">Lowdown Diffing Engine</h1>
+
+<p>In this paper, I briefly describe the &#8220;diff&#8221; engine used in
+<a href="https://kristaps.bsd.lv/lowdown/lowdown.1.html">lowdown-diff(1)</a> tool
+in <a href="https://kristaps.bsd.lv/lowdown/index.html">lowdown</a>.  The work is
+motivated by the need to provide formatted output describing the
+difference between two documents&#8212;specifically, formatted PDF via the
+<strong>-Tms</strong> output, although <strong>-Thtml</strong> and the other output modes are of
+course supported.</p>
+<ins>
+<p>This documents an early work in progress&#8212;both source code and
+documentation.  The source is documented fully in
+<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>.
+This paper itself is available as
+<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.md">diff.md</a>, or downloadable as
+<a href="https://kristaps.bsd.lv/lowdown/diff.pdf">diff.pdf</a>.
+Please direct comments to me by e-mail or just use the <a href="https://github.com/kristapsdz/lowdown">GitHub
+interface</a>.</p>
+</ins>
+<p>For a quick example of this functionality, see
+<a href="https://kristaps.bsd.lv/lowdown/diff.diff.html">diff.diff.html</a><ins> 
+(or </ins><ins><a href="https://kristaps.bsd.lv/lowdown/diff.diff.pdf">diff.diff.pdf</a></ins><ins>), which
+shows the difference between this document and a [fabricated] earlier
+version.</ins><del>.</del></p>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>Let two source files, <del><em>foo.md</em></del><ins><em>old.md</em></ins> and <del><em>bar.md</em></del><ins><em>new.md</em></ins>, refer to the old and new versions of a file respectively.<ins>The</ins> <ins>goal</ins> <ins>is</ins> <ins>to</ins> <ins>establish</ins> <ins>the</ins> <ins>changes</ins> <ins>between</ins> <ins>these</ins> <ins>snippets</ins> <ins>in</ins> <ins>formatted</ins> <ins>output.</ins> <ins>Let</ins>&#8217;s <ins>begin</ins> <ins>with</ins> <ins>the</ins> <ins>old</ins> <ins>version,</ins> <ins><em>old.md</em></ins><ins>.</ins></p>
+
+<pre><code class="language-markdown">*Lorem* ipsum dolor sit amet, consectetur adipiscing elit, sed do
+eiusmod tempor incididunt ut [labore](index.html) et dolore magna
+aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
+laboris nisi ut _aliquip_ ex ea commodo consequat. Duis aute irure dolor
+in reprehenderit...
+</code></pre>
+
+<p>In the new version, <em>new.md</em>, I add some more links and styles.</p>
+
+<pre><code class="language-markdown">*Lorem* ipsum dolor sit amet, consectetur adipiscing elit, sed do
+eiusmod tempor incididunt ut [labore](index.html) et dolore [magna
+aliqua](index.html). Ut enim ad minim veniam, quis nostrud exercitation
+ullamco laboris nisi ut _aliquip_ ex ea commodo consequat. Duis *aute
+irure* dolor in reprehenderit...
+</code></pre>
+
+<p>The most simple way of viewing changes is with the venerable
+<a href="https://man.openbsd.org/diff.1">diff(1)</a> utility.  However, this will
+only reflect changes in the input document&#8212;not the formatted output.</p>
+
+<pre><code class="language-diff">--- old.md      Tue Oct 17 11:25:01 2017
++++ new.md      Tue Oct 17 11:25:01 2017
+@@ -1,5 +1,5 @@
+ *Lorem* ipsum dolor sit amet, consectetur adipiscing elit, sed do
+-eiusmod tempor incididunt ut [labore](index.html) et dolore magna
+-aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
+-laboris nisi ut _aliquip_ ex ea commodo consequat. Duis aute irure dolor
+-in reprehenderit...
++eiusmod tempor incididunt ut [labore](index.html) et dolore [magna
++aliqua](index.html). Ut enim ad minim veniam, quis nostrud exercitation
++ullamco laboris nisi ut _aliquip_ ex ea commodo consequat. Duis *aute
++irure* dolor in reprehenderit...
+</code></pre>
+
+<p>Not very helpful for any but source-level change investigation.  And
+given that Markdown doesn&#8217;t encourage the usual &#8220;new sentence, new line&#8221;
+of some languages (like <a href="https://man.openbsd.org/mdoc.7">mdoc(7)</a>), even
+this level of change analysis is difficult: a single change might affect
+multiple re-wrapped lines.</p>
+
+<p>A similar possibility is to use
+<a href="https://www.gnu.org/software/wdiff/">wdiff(1)</a>, which produces a set of
+word-by-word differences.</p>
+
+<pre><code class="language-markdown">*Lorem* ipsum dolor sit amet, consectetur adipiscing elit, sed do
+eiusmod tempor incididunt ut [labore](index.html) et dolore [-magna
+aliqua.-] {+[magna aliqua](index.html).+} Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut _aliquip_ ex ea commodo
+consequat. Duis [-aute irure-] {+*aute irure*+} dolor in
+reprehenderit...
+</code></pre>
+
+<p>One could then extend the Markdown language to accept the insertion and
+deletion operations and let the output flow from there.
+(In fact, that was my first approach to solving the problem.)</p>
+
+<p>Unfortunately, doing so entails extending a language already prone to extension and non-standardisation. <del>Here</del> <del>is</del> <del>some</del> <del>added</del> <del>text.</del> More unfortunately, a word-based diff will not be sensitive to the <del>shmarkdown</del> <ins>Markdown</ins> language itself, and in establishing context-free <del>foo</del> <del>bar</del> <del>baz</del> <ins>sequences</ins> of similar words, will overrun block and span element boundaries.</p>
+
+<p>On the other end of the spectrum are difference tools specific to the
+output media.</p>
+<ins>
+<p>One can directly analyse PDF output using (for example) the
+<a href="https://poppler.freedesktop.org/">poppler</a> tools, which would extract
+text, then examine the output with a linear difference engine such as
+<a href="https://code.google.com/archive/p/google-diff-match-patch/">Diff, Match,
+Patch</a>.
+This is not an optimal solution because, as with the word diff above, it
+only compares words and cannot distinguish semantic artefacts such as in
+italics, links, code blocks, and so on.</p>
+</ins>
+<p>There are even more <a href="https://www.w3.org/wiki/HtmlDiff">HTML diff</a> tools
+available, so it&#8217;s tempting to use one of these tools to produce an HTML
+file consisting of differences, then further use a converter like
+<a href="https://wkhtmltopdf.org/">wkhtmltopdf</a> to generate PDFs.</p>
+
+<p>Since the HTML difference engines often respect the structure of HTML,
+this is much more optimal in handling semantic difference.  However,
+re-structuring the difference does not easily produce a document of the
+same style or readability as the PDFs themselves.</p>
+
+<p>The most elegant (and reliable) solution is to attack the problem from
+the language-level itself.  Since the
+<a href="https://kristaps.bsd.lv/lowdown/lowdown.3.html">lowdown(3)</a>
+library is able to produce a full parse tree for analysis, it stands to
+reason, given the wealth of literature on tree differences (instead of
+the usual linear difference, as in the case of
+<a href="https://man.openbsd.org/diff.1">diff(1)</a> and friends), one can work
+within the language to produce differences.<del><sup id="fnref1"><a href="#fn1" rel="footnote">1</a></sup></del></p>
+
+<h2 id="algorithm">Algorithm</h2>
+
+<p>The algorithm is in effect an ordered tree diff.  I began with
+well-studied algorithms for a well-studied problem: XML tree
+differences.  (The HTML difference tools described above inherit from
+those algorithms.) For an overview of algorithms, see Change Detection
+in XML Trees: a Survey<sup id="fnref2"><a href="#fn2" rel="footnote">2</a></sup>.  I base the
+<a href="https://kristaps.bsd.lv/lowdown/lowdown.1.html">lowdown-diff(1)</a> algorithm off
+of Detecting Changes in XML Documents<sup id="fnref3"><a href="#fn3" rel="footnote">3</a></sup>.</p>
+
+<p>The reason for this choice instead of another is primarily the ease in
+implementation.  Moreover, since the programmatic output of the
+algorithm is a generic AST, it&#8217;s feasible to re-implement the algorithm
+in different ways, or augment it at a later date.</p>
+
+<p>The BULD algorithm described in this paper is straightforward.  It
+begins with a short sanitisation pass.</p>
+
+<ol>
+<li><p>Annotate each node in the parse tree with a hash of the subtree
+rooted at the node, inclusive.
+(<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>,
+<code>annotate_sigs()</code>)</p></li>
+<li><p>Annotate each node with a weight corresponding to the subtree rooted
+at the node.
+(<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>,
+<code>annotate_sigs()</code>)</p></li>
+<li><p>Enqueue the new document&#8217;s root node in a priority queue ordered by
+weight. Then, while the priority queue is non-empty:
+(<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>,
+<code>lowdown_diff()</code>)</p>
+
+<ol>
+<li>Pop the first node of the priority queue.</li>
+<li>Look for candidates in the old document whose hash matches the
+popped node&#8217;s hash.
+(<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>,
+<code>candidate()</code>)</li>
+<li>Choose an optimal candidate and mark it as matched.
+(<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>,
+<code>optimality()</code>)</li>
+<li>If the no candidates were found, enqueue the node&#8217;s children into
+the priority queue.</li>
+<li>A a candidate was selected, mark all of its subtree nodes as
+matching the corresponding nodes in the old tree (&#8220;propogate
+down&#8221;), then mark ancestor nodes similarly (&#8220;propogate up&#8221;).
+(<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>,
+<code>match_up()</code>, <code>match_down()</code>)</li>
+</ol></li>
+<li><p>Run an optimisation phase over the new document&#8217;s root node.
+(<ins><a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a></ins><del><a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a></del>,
+<del><code>node_optimise()</code></del><ins><code>node_optimise_bottomup()</code></ins><ins> and </ins><ins><code>node_optimise_topdown()</code></ins>)</p></li>
+<li><p>Step through both trees and create a new tree with nodes cloned from
+both and marked as inserted or deleted.
+(<a href="https://github.com/kristapsdz/lowdown/blob/master/diff.c">diff.c</a>,
+<code>node_merge()</code>)</p></li>
+</ol>
+
+<p>My implementation changes or extends the BULD algorithm in several small
+ways, described in the per-step documentation below.</p>
+
+<h3 id="sanitise">Sanitise</h3>
+
+<p>Before the BULD algorithm is run, the input tree is sanitised.  This
+process merges all adjacent text nodes into a single text node.  By
+doing so, possible differences are pushed into large blocks of
+contiguous text&#8212;which in this case are managed by the word-difference
+algorithm described later in this paper.</p>
+
+<h3 id="annotation">Annotation</h3>
+
+<p>Each node in the tree is annotated with a hash and a weight.  The hash,
+MD5, is computed in all data concerning a node.  For example, normal
+text nodes (<code>LOWDOWN_NORMAL_TEXT</code>) have the hash produced from the
+enclosed text.  Autolinks (<code>LOWDOWN_LINK_AUTO</code>) use the link text, link,
+and type.</p>
+
+<p>There are some nodes whose data is not hashed.  For example, list
+numbers: since these may change when nodes are moved, the numbers are
+not part of the hash.  In general, all volatile information that may be
+inferred from the document structure (column number, list item number,
+footnote number, etc.) is disregarded.</p>
+
+<p>Non-leaf nodes compute their hashes from the node type and the hashes of
+all of their children.  Thus, this step is a bottom-up search.</p>
+
+<p>Node weight is computed exactly as noted in the paper.</p>
+
+<h3 id="optimal-candidacy">Optimal candidacy</h3>
+
+<p>A node&#8217;s candidate in the old tree is one whose hash matches.  In most
+documents, there are many candidates for certain types of nodes.
+(Usually text nodes.)</p>
+
+<p>Candidate optimality is computed by looking at the number of parent
+nodes that match on both sides.  The number of parents to consider is
+noted in the next sub-section.  The distance climbed is bounded by the
+weight of the sub-tree as defined in the paper.</p>
+
+<p>In the event of similar optimality, the node &#8220;closest&#8221; to the current
+node is chosen.  Proximity is defined by the node identifier, which is
+its prefix order in the parse tree.</p>
+
+<h3 id="propogate-up">&#8220;Propogate up&#8221;</h3>
+
+<p>When propogating a match upward, the distance upward is bound depending
+on the matched sub-tree as defined in the paper.  This makes it so that
+&#8220;small&#8221; similarities (such as text) don&#8217;t erroneously match two larger
+sub-trees that are otherwise different.  Upward matches occur while the
+nodes&#8217; labels are the same, including attributes (e.g., link text).</p>
+
+<p>I did modify the algorithm to propogate upward &#8220;for free&#8221; through
+similar singleton nodes, even if it means going beyond the maximum
+number allowed by the sub-tree weight.</p>
+
+<h3 id="optimisation">Optimisation</h3>
+
+<p>The <a href="https://kristaps.bsd.lv/lowdown/lowdown.1.html">lowdown-diff(1)</a>
+algorithm has two optimisations, both lightly derived from the paper:
+top-down and bottom-up propogation.</p>
+
+<h4 id="top-down">Top-down</h4>
+
+<p>The top-down optimisation, which is performed first, takes matched nodes and matches un-matched, non-terminal children by label.<ins>The</ins> <ins>children</ins> <ins>examined</ins> <ins>must</ins> <ins>be</ins> <ins>siblings</ins> <ins>of</ins> <ins>adjacent</ins> <ins>matching</ins> <ins>nodes.</ins></p>
+
+<p>This is useful when, say, a document consists of several paragraphs
+where the text has changed within paragraphs.  It won&#8217;t be able to match
+the text content, but it will match the paragraphs, which will push the
+difference downward in the tree.</p>
+
+<h4 id="bottom-up">Bottom-up</h4>
+
+<p>In the bottom-up propogation, the weight of any given sub-tree is used
+to compute how high a match will propogate.  I extend the paper&#8217;s
+version optimisation by looking at the cumulative weight of matching
+children.</p>
+
+<p>This works well for Markdown documents, which are generally quite
+shallow and text-heavy.</p>
+
+<p>For each unmatched non-terminal node with at least one
+matched child, the weights of all matched children with the same parents
+(where the parent node is equal in label and attributes to the examined
+node) are computed.  If any given parent of the matched children has
+greater than 50% of the possible weight, it is matched.</p>
+
+<h3 id="merging">Merging</h3>
+
+<p>The merging phase, which is not described in the paper, is very
+straightforward.  It uses a recursive merge algorithm starting at the
+root node of the new tree and the root node of the old tree.</p>
+
+<ol>
+<li>The invariant is that the current node is matched by the corresonding
+node in the old tree.</li>
+<li>First, step through child nodes in the old tree.  Mark as deleted all
+nodes not being matched to the new tree.</li>
+<li>Next, step through child nodes in the new tree.  Mark as inserted all
+nodes not having a match in the old tree.</li>
+<li>Now, starting with the first node in the new tree having a match in
+the old tree, search for that match in the list of old tree children.</li>
+<li>If found, mark as deleted all previous old tree nodes up until the
+match.  Then re-run the merge algorithm starting at the matching
+child nodes.</li>
+<li>If not found, mark the new node as inserted and return to (2).</li>
+<li>Continue (after the recursive step) by moving after both matching
+nodes and returning to (2).</li>
+</ol>
+
+<p>If adjacent nodes are un-matched normal text, the normal text nodes are
+compared word-by-word to compute a shortest-edit script.  This is
+enabled by <a href="https://github.com/kristapsdz/libdiff">libdiff</a>, which
+implements an algorithm for computing the longest common
+subsequence<sup id="fnref4"><a href="#fn4" rel="footnote">4</a></sup>.  See <sup id="fnref5"><a href="#fn5" rel="footnote">5</a></sup> for background information.</p>
+<ins>
+<h3 id="tables">Tables</h3>
+</ins><ins>
+<p>Tables are currently in the &#8220;hacks&#8221; state in that they&#8217;re considered as
+opaque bodies.  Tables that have changed in any way are simply deleted
+and re-added: there&#8217;s no attempt to discern actual differences.</p>
+</ins><ins>
+<p>There are ways to reduce this opacity, such as being able to detect and
+account for added or removed rows.  However, ultimately there is some
+opacity in that changed table headers do not have a representable form
+in the output.</p>
+</ins><ins>
+<h3 id="metadata">Metadata</h3>
+</ins><ins>
+<p>Like tables, metadata key-value pairs are opaque bodies.  Metadata has a
+complex relationship with Markdown documents, which leaves how to handle
+the &#8220;difference&#8221; uncertain.</p>
+</ins><ins>
+<p>The difference engine, after computing differences like any other opaque
+nodes, simply passes the difference to front-ends, which determine how
+to handle this for themselves.  For front-ends that use the metadata in
+creating document headers (e.g., HTML, LaTeX, roff), the policy is not
+to process deleted metadata.</p>
+</ins><ins>
+<p>Thus, metadata won&#8217;t strictly represent the document differences.</p>
+</ins><ins>
+<h3 id="footnotes">Footnotes</h3>
+</ins><ins>
+<p>Footnotes required some consideration because the order in which the
+definitions and references are printed must be synchronised.  Now a
+process keeps track of all references (added, deleted, unchanged) and
+renumbers then.  When references are emitted, these are emitted in the
+correct order.</p>
+</ins>
+<h2 id="api">API</h2>
+
+<p>The result of the algorithm is a new tree marked with insertions and
+deletions.  These are specifically noted with the <code>LOWDOWN_CHNG_INSERT</code>
+and <code>LOWDOWN_CHNG_DELETE</code> variables.</p>
+
+<p>The algorithm may be run with the <code>lowdown_diff()</code> function, which
+produces the merged tree.</p>
+
+<p>A set of convenience functions, <code>lowdown_buf_diff()</code> and
+<code>lowdown_file_diff()</code>, also provide this functionality.</p>
+
+<h2 id="future-work">Future work</h2>
+
+<p>There are many possible improvements to the algorithm.</p>
+<del>
+<p>Foremost is the issue of normal text nodes.  There should be a process
+first that merges consecutive text nodes.  This happens, for example,
+when the <code>w</code> character is encountered at any time and might signify a
+link.  The parsing algorithm will start a new text node at each such
+character. </p>
+</del>
+<p>The merging algorithm can also take advantage of
+<a href="https://github.com/kristapsdz/libdiff">libdiff</a> when ordering the
+output of inserted and deleted components.  Right now, the algorithm is
+simple in the sense of stopping at the earliest matched node without
+considering subsequences.</p>
+<del>
+<p>Lastly, the <strong>-Tms</strong> and <strong>-Tman</strong> output needs work to make sure that
+the insert&#47;delete macros don&#8217;t disrupt the flow of text.</p>
+</del>
+<p>Document last updated: $Date$</p>
+
+<div class="footnotes">
+<hr/>
+<ol>
+
+<li id="fn1">
+<p>This is just to illustrate a removed footnote.&#160;<a href="#fnref1" rev="footnote">&#8617;</a></p>
+</li>
+
+<li id="fn2">
+<p><a href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.73.8912&amp;rep=rep1&amp;type=pdf">Change Detection in XML Trees: a
+Survey</a>
+(2005), Luuk Peters.&#160;<a href="#fnref2" rev="footnote">&#8617;</a></p>
+</li>
+
+<li id="fn3">
+<p><a href="https://www.cs.rutgers.edu/~amelie/papers/2002/diff.pdf">Detecting Changes in XML
+Documents</a>
+(2002), Gregory Cobena, Serge Abiteboul, Amelie Marian.&#160;<a href="#fnref3" rev="footnote">&#8617;</a></p>
+</li>
+
+<li id="fn4">
+<p><a href="https://publications.mpi-cbg.de/Wu_1990_6334.pdf">An O(NP) sequence comparison
+algorithm</a> (1990),
+Sun Wu, Udi Manber, Gene Myers.&#160;<a href="#fnref4" rev="footnote">&#8617;</a></p>
+</li>
+
+<li id="fn5">
+<p><a href="https://www.cs.dartmouth.edu/~doug/diff.pdf">An Algorithm for Differential File
+Comparison</a>(1976),
+James W. Hunt, M. Douglas McIlroy.&#160;<a href="#fnref5" rev="footnote">&#8617;</a></p>
+</li>
+
+</ol>
+</div>
+</body>
+</html>

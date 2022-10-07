@@ -1,0 +1,4 @@
+foo[^pt]
+
+[^pt]:
+    Klingon

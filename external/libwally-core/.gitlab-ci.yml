@@ -1,0 +1,172 @@
+buster_release:
+  image: greenaddress/wallycore@sha256:d63d222be12f6b2535e1548aa7f21cf649e2230d6c9e01bd518c23eb0bccd46f
+  artifacts:
+    expire_in: 1 day
+    name: wallycore-bindings
+    when: on_success
+    paths:
+    - wally_dist/*
+  tags:
+    - ga
+  before_script:
+    - tools/uncrustify || true
+    - git diff --exit-code
+    - git submodule sync --recursive
+    - git submodule update --init --recursive
+  script:
+    - ./tools/cleanup.sh
+    - ./tools/autogen.sh
+    - python setup.py sdist --dist-dir ./wally_dist
+    - ./tools/build_android_libraries.sh
+    - mv release wallycore-android-jni
+    - tar cvf wally_dist/wallycore-android-jni.tar wallycore-android-jni
+    - gzip -9 wally_dist/wallycore-android-jni.tar
+    - ./tools/build_js_bindings.sh
+    - source /opt/emsdk/emsdk_env.sh
+    - tools/build_wasm.sh --enable-elements
+    - cd wally_dist && tar cvf wallycore-wasm.tar --remove-files wallycore.html wallycore.js wallycore.wasm
+    - gzip -9 wallycore-wasm.tar
+
+linux_py3_debug:
+  when: manual
+  image: greenaddress/wallycore@sha256:d63d222be12f6b2535e1548aa7f21cf649e2230d6c9e01bd518c23eb0bccd46f
+  tags:
+    - ga
+  before_script:
+    - git submodule sync --recursive
+    - git submodule update --init --recursive
+  script:
+    - ./tools/cleanup.sh && ./tools/autogen.sh
+    - WALLY_CONFIGURE="--enable-elements --enable-debug" PYTHON_VERSION=3.7 ./tools/travis_build.sh
+    - WALLY_CONFIGURE="--enable-elements --enable-debug" ./tools/build_js_bindings.sh
+
+manylinux_release:
+  image: greenaddress/wallycore@sha256:c3c36a55173eb29e5727dfc9a0417d05ac4c301adea109092fb9a0f7edbba10e
+  artifacts:
+    expire_in: 1 day
+    name: wallycore-bindings
+    when: on_success
+    paths:
+    - wally_dist/*
+  tags:
+    - ga
+  before_script:
+    - git submodule sync --recursive
+    - git submodule update --init --recursive
+    - yum install swig3 -y
+  script:
+    - ./tools/build_python_manylinux_wheels.sh
+
+#manylinux_aarch64_release:
+#  image: greenaddress/wallycore@sha256:fcf1fe6dc4f85ba698a78b63d1a91499a7d827b128d950b2d6a1f0a9a4ee9903
+#  artifacts:
+#    expire_in: 1 day
+#    name: wallycore-bindings
+#    when: on_success
+#    paths:
+#    - wally_dist/*
+#  tags:
+#    - arm64_docker
+#  before_script:
+#    - git submodule sync --recursive
+#    - git submodule update --init --recursive
+#    - yum install swig3 -y
+#  script:
+#    - ./tools/build_python_manylinux_wheels.sh
+
+osx_release:
+  tags:
+    - osx
+  before_script:
+    - git submodule sync --recursive
+    - git submodule update --init --recursive
+  script:
+    - ./tools/build_python_wheels.sh python3
+
+#armv7l_release:
+#  tags:
+#    - armv7l_docker
+#  artifacts:
+#    expire_in: 1 day
+#    name: wallycore-bindings
+#    when: on_success
+#    paths:
+#    - wally_dist/*
+#  before_script:
+#    - git submodule sync --recursive
+#    - git submodule update --init --recursive
+#  script:
+#    - ./tools/build_python_wheels.sh python3
+
+# powerpcg4_release:
+#  tags:
+#    - powerpcg4
+#  script:
+#    - ./tools/build_python_wheels.sh python3
+
+#freebsdamd64_release:
+#  tags:
+#    - freebsd
+#  artifacts:
+#    expire_in: 1 day
+#    name: wallycore-bindings
+#    when: on_success
+#    paths:
+#    - wally_dist/*
+#  before_script:
+#    - git submodule sync --recursive
+#    - git submodule update --init --recursive
+#  script:
+#    - cd $CI_PROJECT_DIR
+#    - ./tools/build_python_wheels.sh python3
+
+#windows10_release:
+#  tags:
+#    - win10
+#  before_script:
+#    - git submodule sync --recursive
+#    - git submodule update --init --recursive
+#  script:
+#    - cd %CI_PROJECT_DIR%
+#    - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+#    - tools\msvc\wheel.bat
+
+apidocs:
+  image: greenaddress/wallycore@sha256:d63d222be12f6b2535e1548aa7f21cf649e2230d6c9e01bd518c23eb0bccd46f
+  artifacts:
+    expire_in: 14 days
+    name: wallycore-apidocs
+    when: on_success
+    paths:
+    - apidocs.tar.gz
+  tags:
+    - ga
+  script:
+    - ./tools/cleanup.sh
+    - virtualenv -p python3 .venv
+    - source .venv/bin/activate
+    - pip install -r docs/requirements.txt
+    - sphinx-build -b html -a -c docs/source docs/source docs/build/html
+    - cd docs/build && tar czf ../../apidocs.tar.gz html/ && cd ../..
+    - deactivate
+    - ./tools/cleanup.sh
+
+package_release:
+  tags:
+    - garelease
+  stage: deploy
+  artifacts:
+    expire_in: 14 days
+    paths:
+    - wally_dist/*
+    when: on_success
+  script: cd $CI_PROJECT_DIR/wally_dist && /opt/process_release
+  dependencies:
+  - buster_release
+  - manylinux_release
+#  - manylinux_aarch64_release
+  - osx_release
+#  - armv7l_release
+#  - windows10_release
+  - apidocs
+#  - freebsdamd64_release

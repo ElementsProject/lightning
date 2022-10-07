@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta charset="utf-8" /> 
+		<title>lowdown: version history</title>
+		<link rel="alternate" href="atom.xml" type="application/atom+xml" title="lowdown version feed" />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,400italic,500,700" />
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" />
+		<link rel="stylesheet" href="https://bsd.lv/css/style.css" />
+		<link rel="stylesheet" href="template.css" />
+	</head>
+	<body>
+		<header>
+			<div id="breadcrumbs" class="text">
+				<a href="https://www.bsd.lv">BSD.lv</a> tools for text processing: 
+				<a href="https://kristaps.bsd.lv/lowdown">lowdown</a>,
+				<a href="https://kristaps.bsd.lv/sblg">sblg</a>,
+				<a href="https://mandoc.bsd.lv">mandoc</a>
+			</div>
+			<div id="version" class="text">
+				Version
+				<nav class="cur" data-sblg-nav="1" data-sblg-navsz="1" 
+				 data-sblg-navcontent="1" data-sblg-navtag="version" data-sblg-navsort="date">
+					${sblg-title}
+				</nav>:
+				<nav>
+					<a href="https://github.com/kristapsdz/lowdown">GitHub</a>,
+					<a href="snapshots/lowdown.tar.gz">Download</a>,
+					<a href="snapshots">Archive</a>,
+					<a href="archive.html">Version history</a>,
+					<a href="https://kristaps.bsd.lv/cgi-bin/minci.cgi/index.html?project-name=lowdown">Build status</a>
+					<a id="nav-atom" href="atom.xml"><i class="fa fa-fw fa-rss"></i></a>
+				</nav>
+			</div>
+		</header>
+		<article class="text">
+			<h1><a href="index.html">lowdown</a> &#8212; simple markdown translator</h1>
+			<nav id="versions" data-sblg-nav="1" data-sblg-navcontent="1" data-sblg-navtag="version">
+				<div class="version">Version ${sblg-titletext}, <time datetime="${sblg-date}">${sblg-date}</time></div>
+				<div>${sblg-aside}</div>
+			</nav>
+		</article>
+		<footer>
+			&#169; 2016&#8211;2019 <a rel="author" href="https://github.com/kristapsdz">Kristaps Dzonsons</a>
+		</footer>
+	</body>
+</html>

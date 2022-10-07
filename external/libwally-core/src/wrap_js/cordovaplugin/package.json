@@ -1,0 +1,25 @@
+{
+  "name": "cordova-plugin-wally",
+  "version": "0.0.0",
+  "description": "Cordova Wally Plugin",
+  "cordova": {
+    "id": "cordova-plugin-wally",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  },
+  "keywords": [
+    "wally",
+    "libwally",
+    "blockstream",
+    "ecosystem:cordova",
+    "cordova-android",
+    "cordova-ios"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "plugman": "3.0.1"
+  }
+}

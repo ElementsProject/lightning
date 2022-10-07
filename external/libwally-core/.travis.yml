@@ -1,0 +1,106 @@
+git:
+    depth: 5
+branches:
+    only:
+      - master
+language: c
+dist: bionic
+addons:
+    apt:
+        sources:
+          - sourceline: 'ppa:ubuntu-toolchain-r/test'
+          - sourceline: 'deb http://apt.llvm.org/bionic llvm-toolchain-bionic-8 main'
+            key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+          - sourceline: 'deb http://apt.llvm.org/bionic llvm-toolchain-bionic-9 main'
+            key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+        packages:
+          - llvm-8-dev
+          - llvm-9-dev
+          - python
+          - python-dev
+          - python3
+          - python3-dev
+          - swig
+          - gcc-multilib
+          - clang-8
+          - clang-9
+    homebrew:
+        update: true
+        packages:
+          - gnu-sed
+          - swig
+          - yarn
+          - git
+jobs:
+    include:
+      - services:
+          - docker
+        script: docker run -v $PWD:/wally debian:buster /bin/sh -c "apt-get update -yqq && apt-get install -yqq --no-install-recommends git uncrustify && cd /wally && (tools/uncrustify || true) && git diff --exit-code"
+      - services:
+          - docker
+        script: docker run -v $PWD:/wally greenaddress/wallycore@sha256:c3c36a55173eb29e5727dfc9a0417d05ac4c301adea109092fb9a0f7edbba10e /bin/sh -c "cd /wally && git submodule sync --recursive && git submodule update --init --recursive && yum install swig3 -y && ./tools/build_python_manylinux_wheels.sh"
+      - services:
+          - docker
+        script: docker run -v $PWD:/wally greenaddress/wallycore@sha256:d63d222be12f6b2535e1548aa7f21cf649e2230d6c9e01bd518c23eb0bccd46f bash -c "cd /wally && git submodule sync --recursive && git submodule update --init --recursive && source /opt/emsdk/emsdk_env.sh && tools/build_wasm.sh --enable-elements"
+      - os: linux
+        name: Linux - GCC
+        compiler: gcc
+        env: PYTHON_VERSION=3 WALLY_CONFIGURE="--disable-clear-tests"
+      - os: linux
+        name: Linux - Clang 9
+        compiler: clang
+        env: CC=clang-9 CXX=clang++-9 LDFLAGS=-Wl,-z,now
+      - os: linux
+        name: Linux - Clang 8
+        compiler: clang
+        env: CC=clang-8 CXX=clang++-8 HOST=i686-linux-gnu
+      - os: linux
+        name: Linux - GCC - 32 bit
+        compiler: gcc
+        env: HOST=i686-linux-gnu
+      - os: linux
+        name: Linux - Clang - Debug
+        compiler: clang
+        env: WALLY_CONFIGURE="--enable-debug" LDFLAGS=-Wl,-z,now
+      - os: linux
+        name: Linux - GCC - Elements
+        compiler: gcc
+        env: PYTHON_VERSION=3 WALLY_CONFIGURE="--disable-clear-tests --enable-elements"
+      - os: linux
+        name: Linux - Clang 8 - Elements
+        compiler: clang
+        env: WALLY_CONFIGURE="--enable-elements" CC=clang-8 CXX=clang++-8 LDFLAGS=-Wl,-z,now
+      - os: windows
+        name: Windows - Python 3
+        env: PATH=/c/Python37:/c/Python37/Scripts:$PATH SWIG_PATH=/c/swig
+        before_script:
+          - git submodule sync --recursive
+          - git submodule update --init --recursive
+        script:
+          - tools/msvc/wheel.bat
+      - os: windows
+        name: Windows - JS bindings
+        env: PATH=/c/Python37:/c/Python37/Scripts:$PATH NODE_VERSION=node/12.14.0
+        before_script:
+          - git submodule sync --recursive
+          - git submodule update --init --recursive
+        script:
+          - source $ProgramData/nvs/nvs.sh
+          - nvs use $NODE_VERSION
+          - tools/msvc/wallyjs.bat
+      - os: osx
+        name: OSX - Clang
+        compiler: clang
+        osx_image: xcode12.2
+
+before_script:
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - ./tools/cleanup.sh && ./tools/autogen.sh
+before_install:
+  - ./tools/travis_install.sh
+script:
+  - ./tools/travis_build.sh
+  - if [[ "$CC" == "clang" ]]; then ./tools/build_js_bindings.sh; fi
+notifications:
+    email: false

@@ -1,0 +1,1 @@
+#define SWIG_JAVASCRIPT_BUILD 1

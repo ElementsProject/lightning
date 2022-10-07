@@ -1,0 +1,149 @@
+\hypertarget{an-h1-header}{%
+\section{An h1 header}\label{an-h1-header}}
+
+Paragraphs are separated by a blank line.
+
+2nd paragraph. \emph{Italic}, \textbf{bold}, and \texttt{monospace}. Itemized lists
+look like:
+
+\begin{itemize}
+\itemsep -0.2em
+\item this one
+\item that one
+\item the other one
+\end{itemize}
+
+Note that --- not considering the asterisk --- the actual text
+content starts at 4-columns in.
+
+\begin{quotation}
+
+Block quotes are
+written like so.
+
+They can span multiple paragraphs,
+if you like.
+\end{quotation}
+
+Use 3 dashes for an em-dash. Use 2 dashes for ranges (ex., ``it's all
+in chapters 12--14''). Three dots \ldots{} will be converted to an ellipsis.
+Unicode is supported. ☺
+
+\hypertarget{an-h2-header}{%
+\subsection{An h2 header}\label{an-h2-header}}
+
+Here's a numbered list:
+
+\begin{enumerate}
+\itemsep -0.2em
+\item first item
+\item second item
+\item third item
+\end{enumerate}
+
+Note again how the actual text starts at 4 columns in (4 characters
+from the left side). Here's a code sample:
+
+\begin{verbatim}
+# Let me re-iterate ...
+for i in 1 .. 10 { do-something(i) }
+\end{verbatim}
+
+As you probably guessed, indented 4 spaces. By the way, instead of
+indenting the block, you can use delimited blocks, if you like:
+
+\begin{verbatim}
+define foobar() {
+    print "Welcome to flavor country!";
+}
+\end{verbatim}
+
+(which makes copying \& pasting easier). You can optionally mark the
+delimited block for Pandoc to syntax highlight it:
+
+\begin{verbatim}
+import time
+# Quick, count to ten!
+for i in range(10):
+    # (but not *too* quick)
+    time.sleep(0.5)
+    print i
+\end{verbatim}
+
+\hypertarget{an-h3-header}{%
+\subsubsection{An h3 header}\label{an-h3-header}}
+
+Now a nested list:
+
+\begin{enumerate}
+\item 
+First, get these ingredients:
+
+\begin{itemize}
+\itemsep -0.2em
+\item carrots
+\item celery
+\item lentils
+\end{itemize}
+\item 
+Boil some water.
+\item 
+Dump everything in the pot and follow
+this algorithm:
+
+\begin{verbatim}
+find wooden spoon
+uncover pot
+stir
+cover pot
+balance wooden spoon precariously on pot handle
+wait 10 minutes
+goto first step (or shut off burner when done)
+\end{verbatim}
+
+Do not bump wooden spoon or it will fall.
+\end{enumerate}
+
+Notice again how text always lines up on 4-space indents (including
+that last line which continues item 3 above).
+
+Here's a link to \href{http://foo.bar}{a website}, to a \href{local-doc.html}{local
+doc}, and to a \hyperlink{an-h2-header}{section heading in the current
+doc}. Here's a footnote \footnote[1]{
+Footnote text goes here.
+}
+.
+
+Tables can look like this:
+
+\begin{longtable}[]{lll}
+size & material & color  \\
+9 & leather & brown  \\
+10 & hemp canvas & natural  \\
+11 & glass & transparent  \\
+\end{longtable}
+
+Table: Shoes, their sizes, and what they're made of
+
+(The above is the caption for the table.)
+
+A horizontal rule follows.
+
+\noindent\hrulefill
+
+Here's a definition list:
+\begin{description}
+\item [apples] Good for making applesauce.
+\item [oranges] Citrus!
+\item [tomatoes] There's no ``e'' in tomatoe.
+\end{description}
+
+Again, text is indented 4 spaces. (Put a blank line between each
+term/definition pair to spread things out more.)
+
+Images can be specified like so:
+
+\includegraphics[]{{example-image}.jpg}
+
+And note that you can backslash-escape any punctuation characters
+which you wish to be displayed literally, ex.: `foo`, *bar*, etc.

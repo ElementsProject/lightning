@@ -1,0 +1,123 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_DIFF 3
+.Os
+.Sh NAME
+.Nm lowdown_diff
+.Nd compute difference between parsed Markdown trees
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft "struct lowdown_node *"
+.Fo lowdown_diff
+.Fa "const struct lowdown_node *nold"
+.Fa "const struct lowdown_node *nnew"
+.Fa "size_t *maxn"
+.Fc
+.Sh DESCRIPTION
+Computes the difference between two Markdown trees, the source
+.Fa nold
+and destination
+.Fa nnew ,
+parsed by
+.Xr lowdown_doc_parse 3 .
+It uses the
+.Vt enum lowdown_chng
+type in the return tree's nodes to dictate insertions into and deletions
+from
+.Fa nold .
+The
+.Fa maxn
+argument, if not
+.Dv NULL ,
+is set to one greater than the highest node identifier of the returned
+tree.
+.Sh RETURN VALUES
+Returns a pointer to the difference tree or
+.Dv NULL
+on memory exhaution.
+The pointer must be freed with
+.Xr lowdown_node_free 3 .
+.Sh EXAMPLES
+The following parses and compares
+.Va old
+of length
+.Va osz
+and
+.Va new
+of length
+.Va nsz .
+It first allocates the parser, then the document, then the renderer
+(HTML is used in this case).
+Then it passes output to the renderer, prints it, and cleans up
+resources.
+On any memory errors, it exits with
+.Xr err 3 .
+.Bd -literal -offset indent
+struct lowdown_doc *doc;
+struct lowdown_node *no, *nn, *diff;
+struct lowdown_buf *ob;
+void *rndr;
+
+if ((doc = lowdown_doc_new(NULL)) == NULL)
+	err(1, NULL);
+if ((no = lowdown_doc_parse(doc, NULL, old, osz, NULL)) == NULL)
+	err(1, NULL);
+if ((nn = lowdown_doc_parse(doc, NULL, new, nsz, NULL)) == NULL)
+	err(1, NULL);
+if ((diff = lowdown_diff(no, nn, NULL)) == NULL)
+	err(1, NULL);
+if ((rndr = lowdown_html_new(NULL)) == NULL)
+	err(1, NULL);
+if ((ob = lowdown_buf_new(1024)) == NULL)
+	err(1, NULL);
+if (!lowdown_html_rndr(ob, rndr, diff))
+	err(1, NULL);
+
+fwrite(stdout, 1, ob->size, ob->data);
+
+lowdown_buf_free(ob);
+lowdown_html_rndr_free(rndr);
+lowdown_node_free(no);
+lowdown_node_free(nn);
+lowdown_node_free(diff);
+lowdown_doc_free(doc);
+.Ed
+.Sh SEE ALSO
+.Xr lowdown 3
+.Rs
+.%A Gregory Cobena
+.%A Serge Abiteboul
+.%A Amelie Marian
+.%D 2002
+.%T "Detecting Changes in XML Documents"
+.%U https://www.cs.rutgers.edu/~amelie/papers/2002/diff.pdf
+.Re
+.Rs
+.%A Wu Sun
+.%A Manber Udi
+.%A Myers Gene
+.%T "An O(NP) sequence comparison algorithm"
+.%J Information Processing Letters
+.%V Volume 35
+.%I Issue 6
+.%D 1990
+.Re

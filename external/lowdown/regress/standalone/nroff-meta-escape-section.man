@@ -1,0 +1,4 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "Untitled article" ".ab\(ticde \&.fgh" ""
+.PP
+foo bar

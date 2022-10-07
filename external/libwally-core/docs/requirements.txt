@@ -1,0 +1,5 @@
+sphinx<2
+sphinx-rtd-theme<0.5
+readthedocs-sphinx-ext<2.2
+docutils<0.18
+

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+        id="cordova-plugin-wally" version="0.0.0">
+    <name>cordova-plugin-wally</name>
+    <description>Cordova Wally Plugin</description>
+    <keywords>wally,libwally,blockstream</keywords>
+    <platform name="android">
+        <config-file target="config.xml" parent="/*">
+            <preference name="AndroidLaunchMode" value="singleTop" />
+            <feature name="Wally">
+                 <param name="android-package" value="com.blockstream.libwally.WallyCordova" />
+            </feature>
+        </config-file>
+        <source-file src="jniLibs/arm64-v8a/libwallycore.so" target-dir="libs/arm64-v8a" />
+        <source-file src="jniLibs/armeabi-v7a/libwallycore.so" target-dir="libs/armeabi-v7a" />
+        <source-file src="jniLibs/x86/libwallycore.so" target-dir="libs/x86" />
+        <source-file src="jniLibs/x86_64/libwallycore.so" target-dir="libs/x86_64" />
+        <source-file src="WallyCordova.java" target-dir="src/com/blockstream/libwally" />
+        <source-file src="Wally.java" target-dir="src/com/blockstream/libwally" />
+        <!-- <js-module src="wally_built.js" name="Wally">
+            <clobbers target="window.Wally" />
+        </js-module> -->
+    </platform>
+    <platform name="ios">
+<!--        <source-file src="libsecp256k1/src/basic-config.h" target-dir="libsecp256k1" /> -->
+        <source-file src="WallyCordova.swift" target-dir="Wally" />
+	<source-file src="libwally-core-ios.xcodeproj" target-dir="" />
+	<source-file src="WallyModule/module.map" target-dir="Wally" />
+	<source-file src="WallyModule/wally_define_javascript_build.h" target-dir="Wally" />
+
+        <config-file target="config.xml" parent="/*">
+            <feature name="Wally">
+                <param name="ios-package" value="WallyCordova"/>
+            </feature>
+        </config-file>
+        <hook type="after_plugin_install" src="scripts/add_swift_support.js" />
+        <!-- <hook type="after_plugin_install" src="scripts/add_secp_config.js" /> -->
+    </platform>
+</plugin>

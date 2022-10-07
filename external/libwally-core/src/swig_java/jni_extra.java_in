@@ -1,0 +1,413 @@
+
+  // Support methods for the JNI class
+
+  private final static byte[] trimBuffer(final byte[] buf, final int len) {
+      if (len > buf.length) throw new IllegalArgumentException();
+      return len == buf.length ? buf: java.util.Arrays.copyOf(buf, len);
+  }
+
+  private final static byte[] checkBuffer(final byte[] buf, final int len) {
+      if (len != buf.length)
+          throw new RuntimeException("Failed");
+      return buf;
+  }
+
+  private final static byte[] get_keypath_fingerprint(final byte[] buf) {
+      if (buf.length == 0) return buf;
+      final byte[] ret = new byte[4];
+      ret[0] = buf[0]; ret[1] = buf[1]; ret[2] = buf[2]; ret[3] = buf[3];
+      return ret;
+  }
+
+  private final static int[] get_keypath_path(final byte[] buf) {
+      final int[] ret = new int[buf.length > 4 ? (buf.length / 4) - 1 : 0];
+      for (int i = 0; i < ret.length; i++) {
+          final int b_idx = (i + 1) * 4;
+          ret[i] = (buf[b_idx + 0] & 0xFF) | (buf[b_idx + 1] & 0xFF) << 8 |
+                   (buf[b_idx + 2] & 0xFF) << 16 | (buf[b_idx + 3] & 0xFF) << 24;
+      }
+      return ret;
+  }
+
+  public final static byte[] aes(byte[] jarg1, byte[] jarg2, long jarg3) {
+      return aes(jarg1, jarg2, jarg3, null);
+  }
+
+  public final static String base58check_from_bytes(byte[] bytes) {
+      return base58_from_bytes(bytes, BASE58_FLAG_CHECKSUM);
+  }
+
+  private final static byte[] base58_to_bytes(String base58, long flags) {
+      final byte buf[] = new byte[base58_get_length(base58)];
+      final int len = base58_to_bytes(base58, flags, buf);
+      return trimBuffer(buf, len);
+  }
+
+  public final static byte[] base58_to_bytes(String base58) {
+      return base58_to_bytes(base58, 0);
+  }
+
+  public final static byte[] base58check_to_bytes(String base58) {
+      return base58_to_bytes(base58, BASE58_FLAG_CHECKSUM);
+  }
+
+  private final static byte[] base64_to_bytes(String base64, long flags) {
+      final byte buf[] = new byte[base64_get_maximum_length(base64, flags)];
+      final int len = base64_to_bytes(base64, flags, buf);
+      return trimBuffer(buf, len);
+  }
+
+  public final static byte[] base64_to_bytes(String base64) {
+      return base64_to_bytes(base64, 0);
+  }
+
+  public final static Object bip32_pub_key_init(final int version, final int depth, final int childNum,
+                                         final byte[] chainCode, final byte[] pubKey) {
+      return Wally.bip32_key_init(version, depth, childNum, chainCode, pubKey, null, null, null);
+  }
+
+  public final static Object bip32_priv_key_init(final int version, final int depth, final int childNum,
+                                                 final byte[] chainCode, final byte[] privateKey) {
+      return Wally.bip32_key_init(version, depth, childNum, chainCode, null, privateKey, null, null);
+  }
+
+  public final static byte[] bip32_key_get_chain_code(Object jarg1) {
+      return bip32_key_get_chain_code(jarg1, null);
+  }
+
+  public final static byte[] bip32_key_get_parent160(Object jarg1) {
+      return bip32_key_get_parent160(jarg1, null);
+  }
+
+  public final static byte[] bip32_key_get_priv_key(Object jarg1) {
+      return bip32_key_get_priv_key(jarg1, null);
+  }
+
+  public final static byte[] bip32_key_get_fingerprint(Object jarg1) {
+      return bip32_key_get_fingerprint(jarg1, null);
+  }
+
+  public final static byte[] bip32_key_get_hash160(Object jarg1) {
+      return bip32_key_get_hash160(jarg1, null);
+  }
+
+  public final static byte[] bip32_key_get_pub_key(Object jarg1) {
+      return bip32_key_get_pub_key(jarg1, null);
+  }
+
+  public final static byte[] bip32_key_serialize(Object jarg1, long jarg2) {
+      return bip32_key_serialize(jarg1, jarg2, null);
+  }
+
+  public final static byte[] bip38_raw_from_private_key(byte[] jarg1, byte[] jarg2, long jarg3) {
+      return bip38_raw_from_private_key(jarg1, jarg2, jarg3, null);
+  }
+
+  public final static byte[] bip38_to_private_key(String jarg1, byte[] jarg2, long jarg3) {
+      return bip38_to_private_key(jarg1, jarg2, jarg3, null);
+  }
+
+  public final static byte[] ecdh(byte[] jarg1, byte[] jarg2) {
+      return ecdh(jarg1, jarg2, null);
+  }
+
+  public final static byte[] sha256(byte[] jarg1) {
+      return sha256(jarg1, null);
+  }
+
+  public final static byte[] sha256d(byte[] jarg1) {
+      return sha256d(jarg1, null);
+  }
+
+  public final static byte[] sha512(byte[] jarg1) {
+      return sha512(jarg1, null);
+  }
+
+  public final static byte[] hash160(byte[] jarg1) {
+      return hash160(jarg1, null);
+  }
+
+  public final static byte[] hex_to_bytes(String jarg1) {
+      final byte[] ret = new byte[jarg1.length() / 2];
+      if (hex_to_bytes(jarg1, ret) != ret.length)
+          throw new IllegalArgumentException("invalid hex string length");
+      return ret;
+  }
+
+  public final static byte[] hmac_sha256(byte[] jarg1, byte[] jarg2) {
+      return hmac_sha256(jarg1, jarg2, null);
+  }
+
+  public final static byte[] hmac_sha512(byte[] jarg1, byte[] jarg2) {
+      return hmac_sha512(jarg1, jarg2, null);
+  }
+
+  public final static byte[] pbkdf2_hmac_sha256(byte[] jarg1, byte[] jarg2, long jarg3, long jarg4) {
+      return pbkdf2_hmac_sha256(jarg1, jarg2, jarg3, jarg4, null);
+  }
+
+  public final static byte[] pbkdf2_hmac_sha512(byte[] jarg1, byte[] jarg2, long jarg3, long jarg4) {
+      return pbkdf2_hmac_sha512(jarg1, jarg2, jarg3, jarg4, null);
+  }
+
+  public final static byte[] ec_public_key_from_private_key(byte[] jarg1) {
+      return ec_public_key_from_private_key(jarg1, null);
+  }
+
+  public final static byte[] ec_public_key_negate(byte[] jarg1) {
+      return ec_public_key_negate(jarg1, null);
+  }
+
+  public final static byte[] ec_sig_from_bytes(byte[] jarg1, byte[] jarg2, long jarg3) {
+      return ec_sig_from_bytes(jarg1, jarg2, jarg3, null);
+  }
+
+  public final static byte[] ec_sig_normalize(byte[] jarg1) {
+      return ec_sig_normalize(jarg1, null);
+  }
+
+  public final static byte[] ec_sig_from_der(byte[] jarg1) {
+      return ec_sig_from_der(jarg1, null);
+  }
+
+  public final static byte[] ec_sig_to_public_key(byte[] jarg1, byte[] jarg2) {
+      return ec_sig_to_public_key(jarg1, jarg2, null);
+  }
+
+  public final static byte[] tx_get_input_txhash(Object jarg1, long jarg2) {
+        return tx_get_input_txhash(jarg1, jarg2, null);
+  }
+
+  public final static byte[] tx_input_get_txhash(Object jarg1) {
+        return tx_input_get_txhash(jarg1, null);
+  }
+
+  public final static byte[] ec_sig_to_der(byte[] sig) {
+      final byte[] buf = new byte[EC_SIGNATURE_DER_MAX_LEN];
+      final int len = ec_sig_to_der(sig, buf);
+      return trimBuffer(buf, len);
+  }
+
+  public final static byte[] format_bitcoin_message(byte[] jarg1, long jarg2) {
+      int msg_len = SHA256_LEN;
+      if ((jarg2 & BITCOIN_MESSAGE_FLAG_HASH) == 0)
+          msg_len = 25 + jarg1.length + (jarg1.length < 253 ? 1 : 3);
+      final byte[] ret = new byte[msg_len];
+      if (format_bitcoin_message(jarg1, jarg2, ret) != ret.length)
+          throw new IllegalArgumentException("Invalid formatted message");
+      return ret;
+  }
+
+  private final static byte[] _get_push_buf(final int in_buf_len, final int extra_bytes) {
+      int len = 5;
+      if (in_buf_len < 76)
+          len = 1;
+      else if (in_buf_len < 256)
+          len = 2;
+      else if (in_buf_len < 65536)
+          len = 3;
+
+      return new byte[len + in_buf_len + extra_bytes];
+  }
+
+  public final static byte[] script_push_from_bytes(byte[] jarg1, long flags) {
+      final byte[] ret = _get_push_buf(jarg1.length, 0);
+      if (script_push_from_bytes(jarg1, flags, ret) != ret.length)
+          throw new IllegalArgumentException("Error encoding push");
+      return ret;
+  }
+
+  public final static byte[] scriptpubkey_p2pkh_from_bytes(byte[] bytes, long flags) {
+      final byte[] buf = new byte[WALLY_SCRIPTPUBKEY_P2PKH_LEN];
+      final int len = scriptpubkey_p2pkh_from_bytes(bytes, flags, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] scriptpubkey_p2sh_from_bytes(byte[] bytes, long flags) {
+      final byte[] buf = new byte[WALLY_SCRIPTPUBKEY_P2SH_LEN];
+      final int len = scriptpubkey_p2sh_from_bytes(bytes, flags, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] scriptpubkey_multisig_from_bytes(byte[] bytes, long threshold, long flags, int num_sigs) {
+      final int required_len = 3 + num_sigs * (Wally.EC_PUBLIC_KEY_LEN + 1);
+      final byte[] buf = new byte[required_len];
+      final int len = scriptpubkey_multisig_from_bytes(bytes, threshold, flags, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] witness_program_from_bytes(byte[] jarg1, long flags) {
+      int len = jarg1.length;
+      if ((flags & WALLY_SCRIPT_HASH160) != 0)
+        len = HASH160_LEN;
+      else if ((flags & WALLY_SCRIPT_SHA256) != 0)
+        len = SHA256_LEN;
+      final byte[] ret = _get_push_buf(len, 1);
+      if (witness_program_from_bytes(jarg1, flags, ret) != ret.length)
+          throw new IllegalArgumentException("Error encoding witness program");
+      return ret;
+  }
+
+  public final static byte[] addr_segwit_to_bytes(String jarg1, String jarg2, long jarg3) {
+      final byte[] buf = new byte[32 + 2]; /* Largest v0 witness script possible */
+      final int len = addr_segwit_to_bytes(jarg1, jarg2, jarg3, buf);
+      return trimBuffer(buf, len);
+  }
+
+  public final static boolean wif_is_uncompressed(final String wif) {
+      return _wif_is_uncompressed(wif) != 0;
+  }
+
+  public final static byte[] tx_get_txid(final Object tx) {
+      return tx_get_txid(tx, null);
+  }
+
+  public static final byte[] tx_to_bytes(final Object tx, long flags) {
+      final int txlength = Wally.tx_get_length(tx, flags);
+      final byte[] buf = new byte[txlength];
+      final int len = Wally.tx_to_bytes(tx, flags, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static boolean tx_is_coinbase(final Object tx) {
+      return _tx_is_coinbase(tx) != 0;
+  }
+
+  public final static byte[] tx_get_input_script(Object tx, long jarg2) {
+      final byte[] buf = new byte[tx_get_input_script_len(tx, jarg2)];
+      final int len = _tx_get_input_script(tx, jarg2, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] tx_input_get_script(Object tx) {
+      final byte[] buf = new byte[tx_input_get_script_len(tx)];
+      final int len = _tx_input_get_script(tx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] tx_get_input_witness(Object tx, long jarg2, long jarg3) {
+      final byte[] buf = new byte[tx_get_input_witness_len(tx, jarg2, jarg3)];
+      final int len = _tx_get_input_witness(tx, jarg2, jarg3, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] tx_input_get_witness(Object tx, long jarg2) {
+      final byte[] buf = new byte[tx_input_get_witness_len(tx, jarg2)];
+      final int len = _tx_input_get_witness(tx, jarg2, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] tx_get_output_script(Object tx, long jarg2) {
+      final byte[] buf = new byte[tx_get_output_script_len(tx, jarg2)];
+      final int len = _tx_get_output_script(tx, jarg2, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] tx_output_get_script(Object tx_out) {
+      final byte[] buf = new byte[tx_output_get_script_len(tx_out)];
+      final int len = _tx_output_get_script(tx_out, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static long tx_get_input_sequence(final Object tx, final int index) {
+    return _tx_get_input_sequence(tx, index) & 0x00000000ffffffffL;
+  }
+
+  public final static long tx_input_get_sequence(final Object tx_input) {
+      return _tx_input_get_sequence(tx_input) & 0x00000000ffffffffL;
+  }
+
+  public final static boolean is_elements_build() {
+      return _is_elements_build() != 0;
+  }
+
+  public final static byte[] symmetric_key_from_seed(byte[] jarg1) {
+      return symmetric_key_from_seed(jarg1, null);
+  }
+
+  public final static byte[] symmetric_key_from_parent(byte[] jarg1, long jarg2, byte[] jarg3) {
+      return symmetric_key_from_parent(jarg1, jarg2, jarg3, null);
+  }
+
+  public final static byte[] psbt_get_input_final_scriptsig(Object psbt, long idx) {
+      final byte[] buf = new byte[psbt_get_input_final_scriptsig_len(psbt, idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_input_final_scriptsig(psbt, idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_input_keypath(Object psbt, long idx, long sub_idx) {
+      final byte[] buf = new byte[psbt_get_input_keypath_len(psbt, idx, sub_idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_input_keypath(psbt, idx, sub_idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_input_keypath_fingerprint(Object psbt, long idx, long sub_idx) {
+      return get_keypath_fingerprint(psbt_get_input_keypath(psbt, idx, sub_idx));
+  }
+
+  public final static int[] psbt_get_input_keypath_path(Object psbt, long idx, long sub_idx) {
+      return get_keypath_path(psbt_get_input_keypath(psbt, idx, sub_idx));
+  }
+
+  public final static byte[] psbt_get_input_redeem_script(Object psbt, long idx) {
+      final byte[] buf = new byte[psbt_get_input_redeem_script_len(psbt, idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_input_redeem_script(psbt, idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_input_signature(Object psbt, long idx, long sub_idx) {
+      final byte[] buf = new byte[psbt_get_input_signature_len(psbt, idx, sub_idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_input_signature(psbt, idx, sub_idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_input_unknown(Object psbt, long idx, long sub_idx) {
+      final byte[] buf = new byte[psbt_get_input_unknown_len(psbt, idx, sub_idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_input_unknown(psbt, idx, sub_idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_input_witness_script(Object psbt, long idx) {
+      final byte[] buf = new byte[psbt_get_input_witness_script_len(psbt, idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_input_witness_script(psbt, idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_output_keypath(Object psbt, long idx, long sub_idx) {
+      final byte[] buf = new byte[psbt_get_output_keypath_len(psbt, idx, sub_idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_output_keypath(psbt, idx, sub_idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_output_keypath_fingerprint(Object psbt, long idx, long sub_idx) {
+      return get_keypath_fingerprint(psbt_get_output_keypath(psbt, idx, sub_idx));
+  }
+
+  public final static int[] psbt_get_output_keypath_path(Object psbt, long idx, long sub_idx) {
+      return get_keypath_path(psbt_get_output_keypath(psbt, idx, sub_idx));
+  }
+
+  public final static byte[] psbt_get_output_redeem_script(Object psbt, long idx) {
+      final byte[] buf = new byte[psbt_get_output_redeem_script_len(psbt, idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_output_redeem_script(psbt, idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static byte[] psbt_get_output_witness_script(Object psbt, long idx) {
+      final byte[] buf = new byte[psbt_get_output_witness_script_len(psbt, idx)];
+      if (buf.length == 0) return buf;
+      final int len = psbt_get_output_witness_script(psbt, idx, buf);
+      return checkBuffer(buf, len);
+  }
+
+  public final static void cleanup() {
+      _cleanup(0);
+  }

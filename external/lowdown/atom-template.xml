@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<title>lowdown version feed</title>
+	<link href="https://kristaps.bsd.lv/lowdown/atom.xml" rel="self" />
+	<link href="https://kristaps.bsd.lv/lowdown" />
+	<id />
+	<updated />
+	<entry data-sblg-forall="1" data-sblg-entry="1" />
+</feed>

@@ -1,0 +1,1360 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<articles>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2016-12-26">2016-12-26</time>
+		</header>
+		<aside>
+			<p>
+				Initial public download of a stable release.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2016-12-28">2016-12-28</time>
+		</header>
+		<aside>
+			<p>
+				Fix escaping of <b>-Tman</b> and <b>-Tnroff</b> output, then rename <b>-Tnroff</b> to <b>-Tms</b>.  Add
+				documentation to index page regarding hacking.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-01-11">2017-01-11</time>
+		</header>
+		<aside>
+			<p>
+				Produce a library version of the system as documented in <a href="lowdown.3.html">lowdown(3)</a>.
+				Super easy to use!
+				As suggested in <a href="https://github.com/kristapsdz/lowdown/pull/1">lowdown/pull/1</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-01-18">2017-01-18</time>
+		</header>
+		<aside>
+			<p>
+				First, add warnings with <b>-v</b>.
+				This reports MultiMarkdown and CommonMark violations.
+				Second, add the <b>-e</b> and <b>-d</b> flags to enable and disable, respectively, Markdown features.
+				For a list of Markdown features, see <a href="lowdown.1.html">lowdown(1)</a>.
+				Third, implement MultiMarkdown meta-data with the <i>metadata</i> feature, enabled by default.
+				Lastly, deprecate the title argument, <b>-t</b>, in favour of the metadata.
+				The <a href="lowdown.3.html">lowdown(3)</a> interface has changed to accommodate for the new metadata features.
+				Add a <b>-E</b> flag to extract metadata directly, too.
+			</p>
+			<p>
+				<strong>Note</strong>: metadata values are still not used within the document.
+				So you can't <q>fill in</q> metadata keys within the text.
+				The metadata tags, for now, are informational except in that they provide a title.
+				This will be expanded upon in later versions.
+			</p>
+			<p>
+				Lastly, remove the behaviour of printing the first HTML paragraph within an <code>&lt;aside&gt;</code>.
+				This is now deprecated by metadata parsing.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-01-20">2017-01-20</time>
+		</header>
+		<aside>
+			<p>
+				Fix for compiling on FreeBSD.  No other change.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-01-22">2017-01-22</time>
+		</header>
+		<aside>
+			<p>
+				Clean up nroff output a bit thanks to Baptiste Daroussin &#8212; thanks!
+				Add output-mode flags to <a href="lowdown.3.html">lowdown(3)</a>.
+			</p>
+			<p>
+				<strong>Note</strong>: the <b>-E</b> flag of <a href="lowdown.1.html">lowdown(1)</a> has been renamed to
+				<b>-X</b>.
+				The <b>-E</b> flag, and the new <b>-D</b>, are used to control output modes just like <b>-e</b> and <b>-d</b>
+				for input.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.6</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-02-02">2017-02-02</time>
+		</header>
+		<aside>
+			<p>
+				Significantly update the parser to pass newline status to the front-ends, allowing (finally) for formatted links
+				for the <b>-Tms</b> and <b>-Tman</b> outputs when in GNU extension mode.
+				In the former case, this uses <code>.pfdhref</code>.
+				In the latter cases, <code>.UL</code>.
+				Doing this involved touching basically the entire backend.
+				It was not pretty.
+				I've described the problems in the <q>Hacking</q> section of the web site.
+			</p>
+			<p>
+				Disable the <q>semantic quotes</q> (where in HTML mode qoutes would be rendered as
+				<code>&lt;q&gt;</code>) and <q>underline as emphasis</q>, which rendered emphasis as an underline.
+				The underlines aren't easy in <b>-Tms</b> and <b>-Tman</b> and presentationally confusing (is it a link?) in
+				<b>-Thtml</b>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.7</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-03-04">2017-03-04</time>
+		</header>
+		<aside>
+			<p>
+				Accept image dimensions and pass them to the HTML output formatter.
+				Many internal clean-ups thanks to Anton Lindqvist.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.8</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-03-05">2017-03-05</time>
+		</header>
+		<aside>
+			<p>
+				One-line fix to bundle the <code>configure</code> file with the distribution.
+				Noted by Anton Lindqvist&#8212;thanks!
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.9</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-03-06">2017-03-06</time>
+		</header>
+		<aside>
+			<p>
+				More small fixes, many contributed by Anton Lindqvist, for a smooth OpenBSD port.
+				Also internal clean-ups to the legacy code bits.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.10</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-03-16">2017-03-16</time>
+		</header>
+		<aside>
+			<p>
+				Some improvements to <b>-Tms</b> and <b>-Tman</b> readability.
+				Namely, lists won't have a leading newline when the first child is a paragraph.
+				Also make the <b>-Thtml</b> output more conformant to the Markdown testing suites.
+				To wit, add the <b>smarty</b> output option to disable <q>smartypants</q>.
+				(It's enabled by default.)
+			</p>
+			<p>
+				Push the <q>standalone</q> document code generator into the library,
+				<a href="lowdown.3.html">lowdown(3)</a>.
+				This makes it easier for callers to create the document shell.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.11</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-05-27">2017-05-27</time>
+		</header>
+		<aside>
+			<p>
+				Support <code>[%metadata]</code> embedded in documents.
+				(Thanks to Anton Lindqvist for furnishing several patches for metadata!)
+				Note that <span class="nm">lowdown</span> doesn't do anything with metadata beyond pasting or standalone document creation.
+				Metadata has also been expanded to allow for multiple authors.
+				Add the <b>nroff-numbered</b> output mode option for numbered sections.
+				(None for HTML5 because it can be done with CSS.)
+				Add some default roff goop to the standalone <b>-Tms</b> file for prettier section names.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.1.12</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-07-18">2017-07-18</time>
+		</header>
+		<aside>
+			<p>
+				Fix how the final metadata with multiple lines wouldn't have the last line processed.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-08-30">2017-08-30</time>
+		</header>
+		<aside>
+			<p>
+				Significant internal re-write, moving from <q>in-line</q> production of output to production of a parse tree,
+				which in turn is used to create output.
+				This removed a tremendous amount of cruft from <i>document.c</i>, including several structural elements such as pools and stacks.
+				The only notable difference is that PDF output with hyperlinks looks better.
+				(HTML output should look the same.)
+			</p>
+			<p>
+				Add <code>html-head-ids</code> as a tunable output option for HTML.
+			</p>
+			<p>
+				Add the <code>CSS</code> metadata key recognised in the HTML standalone output.
+				Also, document the accepted metadata keys better in the manpage.
+			</p>
+			<p>
+				The library functions have been simplified, with the standalone functions being removed in favour of output options.
+				The next releases will include more library functions currently undocumented in the header file.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-09-04">2017-09-04</time>
+		</header>
+		<aside>
+			<p>
+				Also fix the configure script to inherit <code>CFLAGS</code> thanks to Anton Lindqvist.
+				Replaced use of <code>uint8_t</code> in favour of traditional <code>char</code>, where appropriate.
+			</p>
+			<p>
+				Most of all, fully document the new <a href="lowdown.3.html">lowdown(3)</a> interface.
+				These are listed here:
+			</p>
+			<ul>
+				<li><a href="lowdown.3.html">lowdown(3)</a></li>
+				<li><a href="lowdown_buf.3.html">lowdown_buf(3)</a></li>
+				<li><a href="lowdown_doc_free.3.html">lowdown_doc_free(3)</a></li>
+				<li><a href="lowdown_doc_new.3.html">lowdown_doc_new(3)</a></li>
+				<li><a href="lowdown_doc_parse.3.html">lowdown_doc_parse(3)</a></li>
+				<li><a href="lowdown_errstr.3.html">lowdown_errstr(3)</a></li>
+				<li><a href="lowdown_file.3.html">lowdown_file(3)</a></li>
+				<li><a href="lowdown_html_free.3.html">lowdown_html_free(3)</a></li>
+				<li><a href="lowdown_html_new.3.html">lowdown_html_new(3)</a></li>
+				<li><a href="lowdown_html_rndr.3.html">lowdown_html_rndr(3)</a></li>
+				<li><a href="lowdown_nroff_free.3.html">lowdown_nroff_free(3)</a></li>
+				<li><a href="lowdown_nroff_new.3.html">lowdown_nroff_new(3)</a></li>
+				<li><a href="lowdown_nroff_rndr.3.html">lowdown_nroff_rndr(3)</a></li>
+				<li><a href="lowdown_tree_free.3.html">lowdown_tree_free(3)</a></li>
+				<li><a href="lowdown_tree_new.3.html">lowdown_tree_new(3)</a></li>
+				<li><a href="lowdown_tree_rndr.3.html">lowdown_tree_rndr(3)</a></li>
+			</ul>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-09-04T14:30:00Z">2017-09-04</time>
+		</header>
+		<aside>
+			<p>
+				Hot-fix in installing manpages.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-09-04T14:32:00Z">2017-09-04</time>
+		</header>
+		<aside>
+			<p>
+				Hot-fix number two: fix that <code>.pdfhref</code> was typo'd into <code>.usepdf</code>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-09-05">2017-09-05</time>
+		</header>
+		<aside>
+			<p>
+				Fix installation of manpages (in Makefile) thanks to Anton Lindqvist.
+				Clean up the code some more&#8212;no functional changes, just removing useless casts and improving documentation style.
+				Add required <code>&lt;sys/queue.h&gt;</code> header to library manpages.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-09-27">2017-09-27</time>
+		</header>
+		<aside>
+			<p>
+				Considerable clean-up of <b>-Tms</b> and <b>-Tman</b>, with the aim of much higher PDF output quality:
+				proper nested list support, hyperlinks, PS/PDF TOC, and even some images (PS/EPS only&#8212;experimental!).
+				Also, after some pointers on the <a href="https://www.gnu.org/s/groff/">groff</a> mailing list, use the correct
+				invocation for generating PDF output.
+				Fix up footnote printing to use automatic <b>-ms</b> macros and registers, if applicable.
+			</p>
+			<p>
+				Also added support for the <q>affiliation</q> metadata keyword.
+			</p>
+			<p>
+				Added some <a href="http://spec.commonmark.org">CommonMark</a> support, initially just escaped newlines,
+				supported only when the <b>commonmark</b> input flag is specified.
+				Removed the <b>sphd</b> input flag in favour of <b>commonmark</b>.
+				Also fixed raw HTML block outputting and setext-style level-two headers.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.6</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-09-28">2017-09-28</time>
+		</header>
+		<aside>
+			<p>
+				Fixed compilation on Linux and Mac OS X by adding <code>memrchr</code> compatibility.
+				Noted by <a href="https://github.com/vulcasian">Christina Sophonpanich</a> &#8212; thanks!
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.2.7</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-09-30">2017-09-30</time>
+		</header>
+		<aside>
+			<p>
+				Re-wrote escape parser to <b>-Tms</b> and <b>-Tman</b> to respect <i>roff</i> special characters.
+				Have e-mail autolinks respect the <code>mailto:</code> in pdfhref'd output, and have links with
+				<code>mailto:</code> omit the schema in display just like in <b>-Thtml</b>.
+				Make block-list-items render properly in <b>-Tms</b> and <b>-Tman</b>.
+				Also introduce <a href="lowdown.5.html">lowdown(5)</a>, a work-in-progress to document the Markdown formatting
+				accepting by this system.
+				The first were noted, and the last contributed in full, by <a href="https://github.com/vulcasian">Christina
+					Sophonpanich</a> &#8212; thanks!
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.3.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-10-15">2017-10-15</time>
+		</header>
+		<aside>
+			<p>
+				Add a <q>diff</q> tool, <a href="lowdown.1.html">lowdown-diff(1)</a>.
+				This utility uses an algorithm adapted from <a
+					href="https://www.cs.rutgers.edu/~amelie/papers/2002/diff.pdf">Detecting Changes in XML Documents</a> 
+				to compute the semantic difference between two parse trees.
+				It is <a href="diff.html">fully documented</a>.
+				While there, also add more inter-paragraph spacing to <b>-Tms</b> output, producing more elegant documents,
+				and continue fleshing out <a href="lowdown.5.html">lowdown(5)</a>.
+				Also add some more metadata recognition in <b>-s</b> output for all modes (<code>copyright</code>,
+				<code>affiliation</code>, etc.).
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.3.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2017-10-26">2017-10-26</time>
+		</header>
+		<aside>
+			<p>
+				Document the <code>metadata</code> functionality in <a href="lowdown.5.html">lowdown(5)</a>, thanks to 
+				<a href="https://github.com/vulcasian">Christina Sophonpanich</a> (thanks!).
+				Also sync with newest <a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.3.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2018-04-18">2018-04-18</time>
+		</header>
+		<aside>
+			<p>
+				Strip leading white-space from metadata extracted using <b>-X</b>.
+				Sync with newest <a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.3.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2018-06-09">2018-06-09</time>
+		</header>
+		<aside>
+			<p>
+				Portability: don't use <code>%F</code> for date formatting.
+				This doesn't work with some libc versions.
+				Also some documentation readability improvements.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.4.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2018-06-18">2018-06-18</time>
+		</header>
+		<aside>
+			<p>
+				Significantly update the <a href="diff.html">diffing algorithm</a>.
+				First, make some general fixes to the algorithm.
+				Second, improve the <q>optimisations</q> phase by adding top-down analysis that matches un-matched, non-terminal
+				adjacent children.
+				This helps with text changes in text-only paragraphs.
+				Third, add a SES (shortest edit script) computation for matched adjacent text nodes.
+				Lastly, add the new diff function manpages.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.4.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2018-09-01">2018-09-01</time>
+		</header>
+		<aside>
+			<p>
+				Push diff implementation (from <a
+					href="https://github.com/kristapsdz/libdiff">libdiff</a>)
+				directly into the code instead of using the external library.
+				From a patch by Anton Lindqvist as suggested on the OpenBSD ports
+				mailing list.
+				Thank you!
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.4.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2018-12-23">2018-12-23</time>
+		</header>
+		<aside>
+			<p>
+				Clarify and document mathematics handling.
+				Don't require the <code>mathexp</code> feature: just use <code>math</code> for everything.
+				Document this in <a href="lowdown.5.html">lowdown(5)</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.4.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2019-04-01">2019-04-01</time>
+		</header>
+		<aside>
+			<p>
+				Fix a segmentation fault.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.4.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2019-08-11">2019-08-11</time>
+		</header>
+		<aside>
+			<p>
+				In CommonMark mode, have the first ordered list item be output as
+				the initial list value.
+				This differs from regular MarkDown, which always starts lists at
+				one.
+				Also bring in the newest 
+				<a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.4.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2019-08-26">2019-08-26</time>
+		</header>
+		<aside>
+			<p>
+				Bug fix for Mac OSX compilation.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.4.6</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2019-09-05">2019-09-05</time>
+		</header>
+		<aside>
+			<p>
+				Yet another bug fix for Mac OSX compilation.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.5.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-01-18">2020-01-18</time>
+		</header>
+		<aside>
+			<p>
+				Add <b>-Tterm</b> output, which renders Markdown-like output on the
+				terminal.  This is inspired by 
+				<a href="https://github.com/charmbracelet/glow">glow</a>.
+				This output is still experimental and the style may currently not be
+				overriden.
+			</p>
+			<p>
+				Add missing documentation to <a
+					href="lowdown.5.html">lowdown(5)</a>: footnotes, image
+				attributes, strike-through, highlighting.
+			</p>
+			<p>
+				Also bring the code style up to date, add debugging to
+				<b>-Ttree</b>, and update
+				<a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.5.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-01-25">2020-01-25</time>
+		</header>
+		<aside>
+			<p>
+				Best-effort to convert embedded entities (numeric and named) to the
+				appropriate output sequence in <b>-Tterm</b>, <b>-Tms</b>, and
+				<b>-Tman</b>.
+				For the former, this is just a UTF-8 sequence.
+				For the latter two, these are <code>\u[xxxx]</code> sequences.
+				This enables the non-HTML front-ends to have entity output.
+			</p>
+			<p>
+				Completely overhaul the <q>smartypants</q> process.
+				This is now fully documented in 
+				<a href="lowdown.5.html">lowdown(5)</a>.
+				In short, smart typography is now applied to the parse tree, not to
+				formatted output.
+				This allows the removal of a significant amount of code.
+			</p>
+			<p>
+				With smart typography no longer a per-formatter case, overhaul the
+				library interface for extracting metadata.
+				This was not possible before because the smart typography applied to
+				formatted output; thus, metadata needed to be rendered and then
+				converted (and escaped, too).
+				Metadata is now extracted during rendering so that a caller
+				requesting (e.g.) HTML metadata is passed the correct, formatted
+				sequence.
+			</p>
+			<p>
+				Eliminate verbose <q>warning</q> output, as it was only used in a
+				handful of cases and required enough infrastructure to avoid it.
+			</p>
+			<p>
+				Re-write options to use <q>longopts</q> notation.
+				So instead of applying <b>-Dnroff-groff</b> or whatnot, use long
+				options such as <b>--nroff-groff</b>.
+				This is much easier to document and expands to allowing option values.
+				The existing method is no longer documented, but still works.
+				This is documented in <a href="lowdown.1.html">lowdown(1)</a>.
+			</p>
+			<p>
+				Add many options for <b>-Tterm</b> output: margins, widths, URL
+				shortening, etc.
+				Have paragraph content be indented and also consistently indent
+				other block levels to line them up.
+			</p>
+			<p>
+				Lastly, add a <b>-Tnull</b> output for fuzzing.
+				This makes for a tighter coverage map to focus on parsing and smart
+				typography.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.5.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-01-27">2020-01-27</time>
+		</header>
+		<aside>
+			<p>
+				Fix escaping of section headers in <b>-Tms</b> and <b>-Tman</b>.
+				Update the www materials to be more concise and reflect current
+				features.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.5.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-01-28">2020-01-28</time>
+		</header>
+		<aside>
+			<p>
+				Make sure that the system conforms with the original Markdown test
+				suite.
+				This involves significant unsetting of options, but it does work.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.6.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-02-24">2020-02-24</time>
+		</header>
+		<aside>
+			<p>
+				Full support for definition lists (with a single definition key).
+				These are reflected in all output media.
+			</p>
+			<p>
+				Make sure that all output media reflect the block status of lists.
+				For example, if a list item has block elements, <i>all</i> list
+				items (before and after) should reflect block output status.
+			</p>
+			<p>
+				Pull in newest <a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.6.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-03-11">2020-03-11</time>
+		</header>
+		<aside>
+			<p>
+				Lots of small portability tweaks to the build system.
+				This involves the newest 
+				<a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.6.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-03-17">2020-03-17</time>
+		</header>
+		<aside>
+			<p>
+				System now works out-of-the-box on OpenBSD, FreeBSD, NetBSD, Linux, 
+				SunOS, OmniOS (IllumOS), Darwin.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.6.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-03-29">2020-03-29</time>
+		</header>
+		<aside>
+			<p>
+				Enable and enforce portability by also running regression tests over
+				all operating systems and architectures.
+				Updates <a href="https://github.com/kristapsdz/oconfigure">oconfigure</a>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.6.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-05-20">2020-05-20</time>
+		</header>
+		<aside>
+			<p>
+				Fix an off-by-one where smarty-pants would be applied to some
+				terms not on a word boundary.
+				For example, 1/40 was erroneously construed as 1/4 then a zero.
+			</p>
+			<p>
+				Use <a href="https://man.openbsd.org/pkg-config">pkg-config(1</a>
+				for the installed library and improve the documentation.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-06-04">2020-06-04</time>
+		</header>
+		<aside>
+			<p>
+				Simple support for LaTeX documents with <b>-Tlatex</b>.
+				This will be expanded in future versions, but for now gets most
+				documents having maths and graphics, too.
+			</p>
+			<p>
+				Significantly improve metadata handling.
+				Until now, metadata was handled inconsistently across output
+				formats, and not always in line with the documented behaviour with
+				respect to overriding.
+				Now, all of the basic metadata keys are properly handled,
+				RCS-specified keys properly override, and all of these is documented
+				more rigorously in <a href="lowdown.1.html">lowdown(1)</a>.
+			</p>
+			<p>
+				Support <code>base header level</code> metadata on all outputs.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-06-21">2020-06-21</time>
+		</header>
+		<aside>
+			<p>
+				For <b>-Tms</b>, make numbered output the default.
+				This is because earlier, it was not possible to make numbered output
+				at all with <b>--nroff-groff</b>.
+				Also clarify the role of <b>--no-groff</b> while at it.
+			</p>
+			<p>
+				Add <b>--latex-no-numbered</b> to <b>-Tlatex</b> for symmetry with
+				<b>-Tms</b>.
+			</p>
+			<p>
+				Initial support for extended image attributes as in PHP Markdown
+				Extra.
+				For the time being, these only allow for non-pixel widths and
+				heights for images.
+				Spend time in the documentation explaining image support, as it's a
+				little complicated: LaTeX and HTML support any images, but <b>ms</b>
+				only supports EPS and PS, and only in block mode.
+				(Among other complexities&#8230;)
+			</p>
+			<p>
+				Changes to internal API: the <code>hdoc</code> and <code>hbuf</code>
+				structures have been renamed to <code>struct lowdown_doc</code> and
+				<code>struct lowdown_buf</code>.
+				First, I dislike typedefing away the fact that a variable is a
+				structure <strong>very much</strong>.
+				Second, the names were a holdover from the old system and shouldn't
+				be part of the exported API.
+			</p>
+			<p>
+				Add <a href="lowdown_buf_new.3.html">lowdown_buf_new(3)</a> and
+				<a href="lowdown_buf_free.3.html">lowdown_buf_free(3)</a> to make
+				the low-level library usable, where before it was pointing to
+				private functions.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-07-23">2020-07-23</time>
+		</header>
+		<aside>
+			<p>
+				Invert logic of <b>--parse-codeindent</b> to be correct.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-08-20">2020-08-20</time>
+		</header>
+		<aside>
+			<p>
+				Fix some smart typography bugs, specifically with ending single or
+				double quotes.
+				While doing so, create a regression suite for smart typography and
+				update the manpage.
+				Bug submitted by Larry Kollar, thanks!
+			</p>
+			<p>
+				Make <code>base header level</code> metadata key work properly.
+				Another bug submitted by Larry Kollar, thanks!
+			</p>
+			<p>
+				Fix <b>--nroff-hard-wrap</b> to emit trailing newlines.
+				Yet another bug submitted by Larry Kollar, thanks!
+			</p>
+			<p>
+				Larry further suggested using typographic conventions in both the
+				<b>-Tlatex</b> and <b>-Tms</b> output to have initial paragraphs
+				not indent, but subsequent ones should.
+				This is the default mode in LaTeX, which I was disabling.
+				I've now removed my override to be more like default LaTeX, and
+				Larry proposed an initial patch for having <b>-Tms</b> do the same.
+				Thanks yet again!
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-08-29">2020-08-29</time>
+		</header>
+		<aside>
+			<p>
+				<b>Bug-fix</b>: don't emit stray <code>.PP</code> macros when in
+				<b>-Tman</b> or <b>-Tms</b> mode.
+				This bug was introduced in version 0.7.3.
+			</p>
+			<p>
+                                The library is now usable from C++ applications as-is, without
+                                needing extra compilation flags.
+			</p>
+			<p>
+				Add missing
+				<a href="lowdown_diff.3.html">lowdown_diff(3)</a> and
+				<a href="lowdown_metaq_free.3.html">lowdown_metaq_free(3)</a>
+				manpages.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2020-12-09">2020-12-09</time>
+		</header>
+		<aside>
+			<p>
+				Add support for the
+				<a href="https://gemini.circumlunar.space/docs/specification.html">Gemini</a>
+				protocol I've been hearing so much about.
+				This may now be used from
+				<a href="lowdown.1.html">lowdown(1)</a>
+				or as a library in
+				<a href="lowdown.3.html">lowdown(3)</a>.
+				This is a very simple output:
+				it basically does no formatting at all, but does have some logic to
+				shuffle around links.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.7</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-01-06">2021-01-06</time>
+		</header>
+		<aside>
+			<p>
+				Have the <b>-Tterm</b> output correctly adjust columns for UTF-8
+				wide characters.  This makes both ASCII and UTF-8 (e.g, Russian)
+				correctly align on terminal output.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.7.9</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-01-11">2021-01-11</time>
+		</header>
+		<aside>
+			<p>
+				Fix a crash introduced with the new UTF-8 handling in
+				<b>-Tterm</b>.
+			</p>
+			<p>
+				Allow the <q>section</q> metadata key to set the manpage section
+				when used with <b>-Tman</b>.
+			</p>
+			<p>
+				Significantly clean up lists (definition, ordered, unordered) and
+				how indenting and compacting is handled in <b>-Tman</b> and
+				<b>-Tms</b>.
+			</p>
+			<p>
+				Use <code>EX</code> and <code>EE</code> for block code when in
+				<b>-Tman</b>.  These only apply in <code>LOWDOWN_NROFF_GROFF</code>
+				mode.  While looking at block codes, fix how much trailing space is
+				emitted and make sure that subsequent paragraphs are indented.
+			</p>
+			<p>
+				Don't have sections in <b>-Tman</b> be followed by superfluous
+				paragraph macros (<code>PP</code>, etc.).
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.8.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-01-31">2021-01-31</time>
+		</header>
+		<aside>
+			<p>
+				Recognise the <code>volume</code>, <code>source</code>, and
+				<code>section</code> metadata.
+				These are currently only used by <b>-Tman</b>.
+			</p>
+			<p>
+				Convert <strong>all</strong> internal functions to return an error
+				code on memory allocation failure.
+				Prior to this, these functions had a chance of exiting and printing
+				failure to stderr.
+				Now, this is left as the responsibility of the front-end.
+				There's no significant API change except that all renderers return a
+				value.
+			</p>
+			<p>
+				Fix the difference engine in several subtle ways, improving the
+				produced scripts, and also fix crashes where similar text would
+				match multiple parts of the parse tree, resulting in assertions.
+			</p>
+			<p>
+				Re-write the <b>-Tms</b> and <b>-Tman</b> generator to use a
+				completely different internal algorithm.
+				This algorithm, instead of formatting directly into output, converts
+				the AST into an array of output blocks marked either as text,
+				literal, macro, or font/colour change.
+				An assembler for this array manages newlines and spacing between blocks.
+				This fixes all known instances of unexpected line breaks and allows
+				for significantly simplified handling of text interspersed with
+				macros (e.g., links, etc.).
+				An API result of this is that the tree passed to
+				<a href="lowdown_nroff_rndr.3.html">lowdown_nroff_rndr(3)</a>
+				is now <code>const</code>.
+			</p>
+			<p>
+				Recognise non-block and block lists for <b>-Tlatex</b> output.
+			</p>
+			<p>
+				Emit a UTF-8 preconv header to all <b>-Tms</b> and <b>-Tman</b> so
+				that <b>-Kutf8</b> need not be passed to the formatter.
+			</p>
+			<p>
+				Remove the <b>--nroff-hardwrap</b> option, which needlessly
+				complicates code without benefit.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.8.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-02-09">2021-02-09</time>
+		</header>
+		<aside>
+			<p>
+				Add <b>--term-nolinks</b> to strip URLs out of terminal output (when
+				alternative text is available).
+				Then add <b>--nroff-nolinks</b> and <b>--nroff-shortlinks</b>, just
+				like those for <b>-Tterm</b>, for use with <b>-Tman</b> or
+				<b>--nroff-no-groff</b>.
+			</p>
+			<p>
+				Fix long-standing kinda-bug where <code>www</code> autolinks were
+				being reported as regular links instead of autolinks.
+			</p>
+			<p>
+				Introduce <b>-m</b> and <b>-M</b>, which allow metadata to be
+				provided on the command line.
+				Metadata keys are first looked for in <b>-m</b>, overriden by what's
+				in the document, and those overridden by what's in <b>-M</b>.
+			</p>
+			<p>
+				Remove the deprecated <b>-D</b>, <b>-d</b>, <b>-E</b>, and
+				<b>-e</b>, which were long ago replaced by long options.
+			</p>
+			<p>
+				Inhibit printing of metadata in <b>-Tgemini</b> unless
+				<b>--gemini-metadata</b> is given.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.8.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-02-19">2021-02-19</time>
+		</header>
+		<aside>
+			<p>
+				Fix tables as processed by the difference engine.
+				Tables are now fully opaque, which means that any changes will
+				result in the deletion and re-addition of the table.
+				This isn't a good fix, but it does mean that any tables run through
+				the difference engine will be sane for output.
+			</p>
+			<p>
+				Fix metadata to also be properly handled by both the difference engine
+				and conforming front-ends.  This is a bit unusual since metadata is
+				both processed during parse and also affects document output, such
+				as in document title.  For now use the same rule that front-ends
+				with metadata differences affecting document layout (e.g., title)
+				use the new form, if changed.
+			</p>
+			<p>
+				Lastly, fix footnote reference.  When they're emitted in the new
+				document, the reference definitions are re-ordered in the correct
+				way to allow <b>-Tms</b> and such to work properly.  While here,
+				make sure that all printed footnote numbers start at one and colours
+				are properly represented in output.
+			</p>
+			<p>
+				Split
+				<a href="lowdown.1.html">lowdown(1)</a>
+				into
+				<a href="lowdown-diff.1.html">lowdown-diff(1)</a> for easier reading.
+			</p>
+			<p>
+				Properly render tables for <b>-Tgemini</b> as fixed-width displays.
+			</p>
+			<p>
+				By default, render Gemini link labels using <q>Excel</q> format
+				(hexavigesimal) with the option of using Roman numerals
+				(<b>--gemini-link-roman</b>) or without labels at all
+				(<b>--gemini-link-noref</b>).  This choice of default may change in
+				later versions, hwoever.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.8.3</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-03-13">2021-03-13</time>
+		</header>
+		<aside>
+			<p>
+				Several fixes to <b>-Tlatex</b> smart typography (single quotes and
+				dashes).  The smart typography now handles single quotes within
+				words.  Lastly, fix a bug where footnotes started at two instead of
+				one.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.8.4</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-04-03">2021-04-03</time>
+		</header>
+		<aside>
+			<p>
+				Fix a crash in <b>-Tgemini</b> with tables.
+				Allow for multi-page tables in <b>-Tms</b>.
+				Start to expand on regression suite.
+				Clean up documentation, when possible, and add some minor code polish.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.8.5</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-07-09">2021-07-09</time>
+		</header>
+		<aside>
+			<p>
+				Add support for <code>NO_COLOR</code> and the flag version,
+				<b>--term-nocolour</b>.
+				This only applies to <b>-Tterm</b> output when no in difference mode.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.8.6</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-08-06">2021-08-06</time>
+		</header>
+		<aside>
+			<p>
+				Bug-fix: the <b>--parse-no-intraemph</b> flag would set the
+				condition (i.e., intra-emphasis was not parse) instead of unsetting
+				it.  Now it does the correct thing.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.9.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-09-23">2021-09-23</time>
+		</header>
+		<aside>
+			<p>
+				Metadata consistency.
+				Make sure that all standalone document metadata (e.g.,
+				<code>css</code> for HTML, <code>volume</code> for manpages, etc.)
+				is properly escaped for its output context.
+			</p>
+			<p>
+				The <code>-X</code> option (metadata extraction) now extracts the
+				unformatted version of the given key.  This is because output media
+				don't necessarily have a single way of formatting data: in
+				<b>-Thtml</b>, for instance, metadata may be formatted differently
+				if it appears in links, attributes, or within HTML content.  It's
+				now the caller's responsibility to escape the results of
+				<code>-X</code>.
+			</p>
+			<p>
+				This generates API changes, because metadata is now recorded during
+				the parse phase, not during the rendering phase.  While here,
+				metadata extraction for <q>diff</q> mode is disabled (as it should
+				be).
+			</p>
+			<p>
+				While here, the <q>base level header</q> metadata key has been
+				replaced with <q>shift-heading-level-by</q>.  This is because the
+				existing <q>base header level</q> never actually worked properly,
+				and instead behaved like <q>shift-heading-level-by</q>.
+			</p>
+			<p>
+				Add <a href="lowdown.5.html">GFM task lists</a> to all output modes.
+				While doing this, clean up list output for <b>-Tgemini</b> and
+				<b>-Tterm</b>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.9.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-10-04">2021-10-04</time>
+		</header>
+		<aside>
+			<p>
+				Expand support for images having PHP Extra attributes to both links
+				and images supporting classes, images, and the existing image attributes.
+				These applies to both reference and inline links.
+			</p>
+			<p>
+				This deprecates <b>--parse-no-img-ext</b> in favour of the more general
+				<b>--parse-no-ext-attrs</b>.  The same applies to the library's
+				<code>LOWDOWN_IMG_EXT</code> deprecated by
+				<code>LOWDOWN_ATTRS</code>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.9.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-10-08">2021-10-08</time>
+		</header>
+		<aside>
+			<p>
+				Significantly improve <b>-Tterm</b> output, both in terms of styles
+				and layout.  Terminal output styles are easy to set as compile-time
+				constants by editing
+				<a href="https://github.com/kristapsdz/lowdown/blob/master/term.h">term.h</a>.
+				If you're going to edit this for a downstream installation of
+				lowdown, please let me know and I can stash it in a styles directory!
+			</p>
+			<p>
+				Add <b>--term-no-ansi</b> to disable all ANSI escapes in output.
+				This produces a clean, undecorated terminal-formatted document.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.10.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2021-10-08">2021-10-08</time>
+		</header>
+		<aside>
+			<p>
+				Add <q>flat</q> OpenDocument output with <b>-Tfodt</b>.
+				This implements the 
+				<a href="https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part1-introduction/OpenDocument-v1.3-os-part1-introduction.html">OpenDocument v1.3</a>
+				standard, and is readable at least on
+				<a href="https://www.libreoffice.org/">LibreOffice</a>.
+				This further implements <b>-Tfodt</b> change tracking in
+				<a href="lowdown-diff.1.html">lowdown-diff(1)</a>.
+				It does not support images or definition lists yet.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.11.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2022-02-21">2022-02-21</time>
+		</header>
+		<aside>
+			<p>
+				Add class and identifier extended attributes to headers.  These are
+				stipulated in PHP Markdown Extra.  Documentation in
+				<a href="lowdown.5.html">lowdown(5)</a>.
+			</p>
+			<p>
+				When using header identifiers (the default) and the names collide,
+                                use pandoc's method of creating unique header names. Also handle
+                                the case of markup in headers and the identifier created from those
+				to also be like pandoc.  This isn't a fix, but rather make output
+				consistent with other tools.
+			</p>
+			<p>
+				Fix output of how links are handled in <b>-Tms</b> when part of
+				headers.  The same applies to other block-level macros with link
+				children such as in definition lists.  This also cleans up how
+				headers are shown in the PDF TOC.  While here, make header identifiers
+				the same as in <b>-Thtml</b> so that intra-document links are 
+				consistent, and enable linking within a document using the PDF
+				markers.
+			</p>
+			<p>
+				Fix footnotes to be actual footnotes in <b>-Tlatex</b> and
+				<b>-Tms</b> instead of endnotes.  The other formats (<b>-Tman</b>,
+				etc.) all continue to use endnotes.  The note system has internally
+				been cleaned up and now allows for more flexible note placement,
+				e.g., side-notes.
+			</p>
+			<p>
+				Allow footnotes to properly exist in <b>-Tlatex</b> tables.  Also
+				allow for table alignment.
+			</p>
+			<p>
+                                Bump the minor number as the ABI has been tidied up with respect to
+				footnotes: they're now all in their <code>LOWDOWN_FOOTNOTE</code>
+				blocks instead of split into definitions and references.
+				The <code>LOWDOWN_DOC_FOOTER</code> element, which was not used, has
+                                also been removed.
+			</p>
+			<p>
+				The system in general has spent many, many computer-hours being
+				fuzzed with <a href="https://lcamtuf.coredump.cx/afl/">AFL</a>
+				thanks to hardware donated by Michael Dexter. Thank you!
+			</p>
+			<p>
+				Finally, make <b>-T</b> be a synonym for the new <b>-t</b>, which is
+				used by pandoc.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.11.1</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2022-03-05">2022-03-05</time>
+		</header>
+		<aside>
+			<p>
+				Have <b>-tlatex</b> process header identifiers, both automatically
+				generated and from PHP extra attributes.  Allow linking to these
+				within the document body.
+			</p>
+			<p>
+				Have <b>-tms</b> print that an image happened instead of just omitting
+				it entirely.  It now behaves like <b>-tman</b> in this regard.
+			</p>
+			<p>
+				Fix where <b>-tterm</b> would print double-spaces in certain
+				conditions.
+			</p>
+			<p>
+				Have extended attribute classes apply as OpenDocument classes in
+				<b>-tfodt</b>.
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>0.11.2</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2022-03-27">2022-03-27</time>
+		</header>
+		<aside>
+			<p>
+				Support native roff escapes instead of using Unicode escapes.
+				(This is a work in progress, as there are many.)
+				This makes special characters usable in sections and so on.
+			</p>
+			<p>
+				Fix a bogus free when running 
+				<a href="lowdown-diff.1.html">lowdown-diff(1)</a>.
+				While here, handle differences between totally-different
+				files, where before we would error out.
+			</p>
+			<p>
+				Document how differences are displayed in each output mode,
+				as well as how metadata is a special case.
+				Fix <b>-tterm</b> ANSI escape filtering for background
+				colour, allowing changes to be viewed again.
+			</p>
+			<p>
+				Fix a sneaky <b>-tterm</b> bug found by AFL where having
+				the number of footnotes change digit length (e.g., 9 to 10)
+				within a table would cause an assertion.
+			</p>
+			<p>
+				Another big thanks to Michael Dexter in providing hardware
+				for continuously running AFL and finding some of these
+				corner case bugs!
+			</p>
+		</aside>
+	</article>
+	<article data-sblg-article="1" data-sblg-tags="version">
+		<header>
+			<h1>1.0.0</h1>
+			<address>Kristaps Dzonsons</address>
+			<time datetime="2022-05-28">2022-05-28</time>
+		</header>
+		<aside>
+			<p>
+				Very minor repairs.
+				All of the functionality and stability for a v1 release is in place.
+				<q>Make it so, number one!</q>
+			</p>
+		</aside>
+	</article>
+</articles>

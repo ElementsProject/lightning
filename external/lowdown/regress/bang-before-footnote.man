@@ -1,0 +1,7 @@
+.PP
+This is a test!\u\s-31\s+3\d
+.LP
+.sp 3
+\l'2i'
+.LP
+\0\fI\u\s-31\s+3\d\fP\0footnote text.

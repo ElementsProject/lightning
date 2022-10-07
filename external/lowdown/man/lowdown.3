@@ -1,0 +1,984 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2017, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN 3
+.Os
+.Sh NAME
+.Nm lowdown
+.Nd simple markdown translator library
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Vt "struct lowdown_metadata"
+.Vt "struct lowdown_node"
+.Vt "struct lowdown_opts"
+.Sh DESCRIPTION
+This library parses
+.Xr lowdown 5
+into various output formats.
+.Pp
+The library consists first of a high-level interface consisting of
+.Xr lowdown_buf 3 ,
+.Xr lowdown_buf_diff 3 ,
+.Xr lowdown_file 3 ,
+and
+.Xr lowdown_file_diff 3 .
+.Pp
+The high-level functions interface with low-level functions that perform
+parsing and formatting.
+These consist of
+.Xr lowdown_doc_new 3 ,
+.Xr lowdown_doc_parse 3 ,
+and
+.Xr lowdown_doc_free 3
+for parsing
+.Xr lowdown 5
+documents into an abstract syntax tree.
+.Pp
+The front-end functions for freeing, allocation, and rendering are as
+follows.
+.Bl -bullet
+.It
+HTML5:
+.Bl -item -compact
+.It
+.Xr lowdown_html_free 3
+.It
+.Xr lowdown_html_new 3
+.It
+.Xr lowdown_html_rndr 3
+.El
+.It
+gemini:
+.Bl -item -compact
+.It
+.Xr lowdown_gemini_free 3
+.It
+.Xr lowdown_gemini_new 3
+.It
+.Xr lowdown_gemini_rndr 3
+.El
+.It
+LaTeX:
+.Bl -item -compact
+.It
+.Xr lowdown_latex_free 3
+.It
+.Xr lowdown_latex_new 3
+.It
+.Xr lowdown_latex_rndr 3
+.El
+.It
+OpenDocument:
+.Bl -item -compact
+.It
+.Xr lowdown_odt_free 3
+.It
+.Xr lowdown_odt_new 3
+.It
+.Xr lowdown_odt_rndr 3
+.El
+.It
+roff:
+.Bl -item -compact
+.It
+.Xr lowdown_nroff_free 3
+.It
+.Xr lowdown_nroff_new 3
+.It
+.Xr lowdown_nroff_rndr 3
+.El
+.It
+UTF-8 ANSI terminal:
+.Bl -item -compact
+.It
+.Xr lowdown_term_free 3
+.It
+.Xr lowdown_term_new 3
+.It
+.Xr lowdown_term_rndr 3
+.El
+.It
+debugging:
+.Bl -item -compact
+.It
+.Xr lowdown_tree_rndr 3
+.El
+.El
+.Pp
+To compile and link, use
+.Xr pkg-config 1 :
+.Bd -literal
+% cc `pkg-config --cflags lowdown` -c -o sample.o sample.c
+% cc -o sample sample.o `pkg-config --libs lowdown`
+.Ed
+.Ss Pledge Promises
+The
+.Nm lowdown
+library is built to operate in security-sensitive environments, such as
+those using
+.Xr pledge 2
+on
+.Ox .
+The only promise required is
+.Va stdio
+for
+.Xr lowdown_file_diff 3
+and
+.Xr lowdown_file 3 :
+both require access to the stream for reading input.
+.Ss Types
+All
+.Nm lowdown
+functions use one or more of the following structures.
+.Pp
+The
+.Vt struct lowdown_opts
+structure manage features.
+It has the following fields:
+.Bl -tag -width Ds -offset indent
+.It Va unsigned int feat
+Features used during the parse.
+This bit-field may have the following bits OR'd:
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_ATTRS
+Parse PHP extra link, header, and image attributes.
+.It Dv LOWDOWN_AUTOLINK
+Parse
+.Li http ,
+.Li https ,
+.Li ftp ,
+.Li mailto ,
+and relative links or link fragments.
+.It Dv LOWDOWN_COMMONMARK
+Tighten input parsing to the CommonMark specification.
+This also uses the first ordered list value instead of starting all
+lists at one.
+This feature is
+.Em experimental
+and
+.Em incomplete .
+.It Dv LOWDOWN_DEFLIST
+Parse PHP extra definition lists.
+This is currently constrained to single-key lists.
+.It Dv LOWDOWN_FENCED
+Parse GFM fenced (language-specific) code blocks.
+.It Dv LOWDOWN_FOOTNOTES
+Parse MMD style footnotes.
+This only supports the referenced footnote style, not the
+.Qq inline
+style.
+.It Dv LOWDOWN_HILITE
+Parse highlit sequences.
+This are disabled by default because it may be erroneously interpreted
+as section headers.
+.It Dv LOWDOWN_IMG_EXT
+Deprecated.
+Use
+.Dv LOWDOWN_ATTRS
+instead.
+.It Dv LOWDOWN_MATH
+Parse mathematics equations.
+.It Dv LOWDOWN_METADATA
+Parse in-document MMD metadata.
+For the first paragraph to count as meta-data, the first line must have
+a colon in it.
+.It Dv LOWDOWN_NOCODEIND
+Do not parse indented content as code blocks.
+.It Dv LOWDOWN_NOINTEM
+Do not parse emphasis within words.
+.It Dv LOWDOWN_STRIKE
+Parse strikethrough sequences.
+.It Dv LOWDOWN_SUPER
+Parse super-scripts.
+This accepts foo^bar, which puts the parts following the caret until
+whitespace in superscripts; or foo^(bar), which puts only the parts in
+parenthesis.
+.It Dv LOWDOWN_TABLES
+Parse GFM tables.
+.It Dv LOWDOWN_TASKLIST
+Parse GFM task list items.
+.El
+.Pp
+The default value is zero (none).
+.It Va unsigned int oflags
+Features used by the output generators.
+This bit-field may have the following enabled.
+Note that bits are by definition specific to an output
+.Va type .
+.Pp
+For
+.Dv LOWDOWN_HTML :
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_HTML_ESCAPE
+If
+.Dv LOWDOWN_HTML_SKIP_HTML
+has not been set, escapes in-document HTML so that it is rendered as
+opaque text.
+.It Dv LOWDOWN_HTML_HARD_WRAP
+Retain line-breaks within paragraphs.
+.It Dv LOWDOWN_HTML_HEAD_IDS
+Have an identifier written with each header element consisting of an
+HTML-escaped version of the header contents.
+.It Dv LOWDOWN_HTML_OWASP
+When escaping text, be extra paranoid in following the OWASP suggestions
+for which characters to escape.
+.It Dv LOWDOWN_HTML_NUM_ENT
+Convert, when possible, HTML entities to their numeric form.
+If not set, the entities are used as given in the input.
+.It Dv LOWDOWN_HTML_SKIP_HTML
+Do not render in-document HTML at all.
+.El
+.Pp
+For
+.Dv LOWDOWN_GEMINI ,
+there are several flags for controlling link placement.
+By default, links (images, autolinks, and links) are queued when
+specified in-line then emitted in a block sequence after the nearest
+block element.
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_GEMINI_LINK_END
+Emit the queue of links at the end of the document instead of after the
+nearest block element.
+.It Dv LOWDOWN_GEMINI_LINK_IN
+Render all links within the flow of text.
+This will cause breakage when nested links, such as images within links,
+links in blockquotes, etc.
+It should not be used unless in carefully crafted documents.
+.It Dv LOWDOWN_GEMINI_LINK_NOREF
+Do not format link labels.
+Takes precedence over
+.Dv LOWDOWN_GEMINI_LINK_ROMAN .
+.It Dv LOWDOWN_GEMINI_LINK_ROMAN
+When formatting link labels, use lower-case Roman numerals instead of
+the default lowercase hexavigesimal (i.e.,
+.Dq a ,
+.Dq b ,
+\&...,
+.Dq aa ,
+.Dq ab ,
+\&...).
+.It Dv LOWDOWN_GEMINI_METADATA
+Print metadata as the canonicalised key followed by a colon then the
+value, each on one line (newlines replaced by spaces).
+The metadata block is terminated by a double newline.
+If there is no metadata, this does nothing.
+.El
+.Pp
+There may only be one of
+.Dv LOWDOWN_GEMINI_LINK_END
+or
+.Dv LOWDOWN_GEMINI_LINK_IN .
+If both are specified, the latter is unset.
+.Pp
+For
+.Dv LOWDOWN_FODT :
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_ODT_SKIP_HTML
+Do not render in-document HTML at all.
+Text within HTML elements remains.
+.El
+.Pp
+For
+.Dv LOWDOWN_LATEX :
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_LATEX_NUMBERED
+Use the default numbering scheme for sections, subsections, etc.
+If not specified, these are inhibited.
+.It Dv LOWDOWN_LATEX_SKIP_HTML
+Do not render in-document HTML at all.
+Text within HTML elements remains.
+.El
+.Pp
+And for
+.Dv LOWDOWN_MAN
+and
+.Dv LOWDOWN_NROFF :
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_NROFF_GROFF
+Use GNU extensions (i.e., for
+.Xr groff 1 )
+when rendering output.
+The groff arguments must include
+.Fl m Ns Ar pdfmark
+for formatting links with
+.Dv LOWDOWN_MAN
+or
+.Fl m Ns Ar spdf
+instead of
+.Fl m Ns Ar s
+for
+.Dv LOWDOWN_NROFF .
+Applies to the
+.Dv LOWDOWN_MAN
+and
+.Dv LOWDOWN_NROFF
+output types.
+.It Dv LOWDOWN_NROFF_NUMBERED
+Use numbered sections if
+.Dv LOWDOWON_NROFF_GROFF
+is not specified.
+Only applies to the
+.Dv LOWDOWN_NROFF
+output type.
+.It Dv LOWDOWN_NROFF_SKIP_HTML
+Do not render in-document HTML at all.
+Text within HTML elements remains.
+.It Dv LOWDOWN_NROFF_SHORTLINK
+Render link URLs in short form.
+Applies to images, autolinks, and regular links.
+Only in
+.Dv LOWDOWN_MAN
+or when
+.Dv LOWDOWN_NROFF_GROFF
+is not specified.
+.It Dv LOWDOWN_NROFF_NOLINK
+Don't show links at all if they have embedded text.
+Applies to images and regular links.
+Only in
+.Dv LOWDOWN_MAN
+or when
+.Dv LOWDOWN_NROFF_GROFF
+is not specified.
+.El
+.Pp
+For
+.Dv LOWDOWN_TERM :
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_TERM_NOANSI
+Don't apply ANSI style codes at all.
+This implies
+.Dv LOWDOWN_TERM_NOCOLOUR .
+.It Dv LOWDOWN_TERM_NOCOLOUR
+Don't apply ANSI colour codes.
+This will still show underline, bold, etc.
+This should not be used in difference mode, as the output will make no
+sense.
+.It Dv LOWDOWN_TERM_NOLINK
+Don't show links at all.
+Applies to images and regular links: autolinks are still shown.
+This may be combined with
+.Dv LOWDOWN_TERM_SHORTLINK
+to also shorten autolinks.
+.It Dv LOWDOWN_TERM_SHORTLINK
+Render link URLs in short form.
+Applies to images, autolinks, and regular links.
+This may be combined with
+.Dv LOWDOWN_TERM_NOLINK
+to only show shortened autolinks.
+.El
+.Pp
+For any mode, you may specify:
+.Pp
+.Bl -tag -width Ds -compact
+.It Dv LOWDOWN_SMARTY
+Don't use smart typography formatting.
+.It Dv LOWDOWN_STANDALONE
+Emit a full document instead of a document fragment.
+This envelope is largely populated from metadata if
+.Dv LOWDOWN_METADATA
+was provided as an option or as given in
+.Va meta
+or
+.Va metaovr .
+.El
+.It Va size_t maxdepth
+The maximum parse depth before the parser exits.
+Most documents will have a parse depth in the single digits.
+.It Va size_t cols
+For
+.Dv LOWDOWN_TERM ,
+the
+.Qq soft limit
+for width of terminal output not including margins.
+If zero, 80 shall be used.
+.It Va size_t hmargin
+For
+.Dv LOWDOWN_TERM ,
+the left margin (space characters).
+.It Va size_t vmargin
+For
+.Dv LOWDOWN_TERM ,
+the top/bottom margin (newlines).
+.It Va enum lowdown_type type
+May be set to
+.Dv LOWDOWN_HTML
+for HTML5 output,
+.Dv LOWDOWN_LATEX
+for LaTeX,
+.Dv LOWDOWN_MAN
+for
+.Fl m Ns Ar an
+macros,
+.Dv LOWDOWN_FODT
+for
+.Dq flat
+OpenDocument,
+.Dv LOWDOWN_TERM
+for ANSI-compatible UTF-8 terminal output,
+.Dv LOWDOWN_GEMINI
+for the Gemini format, or
+.Dv LOWDOWN_NROFF
+for
+.Fl m Ns Ar s
+macros.
+The
+.Dv LOWDOWN_TREE
+type causes a debug tree to be written.
+.It Va struct lowdown_opts_odt odt
+If
+.Va type
+is
+.Dv LOWDOWN_FODT ,
+this contains
+.Vt "const char *sty" ,
+which is either
+.Dv NULL
+or the OpenDocument styles used when creating standalone documents.
+If
+.Dv NULL ,
+the default styles are used.
+.It Va char **meta
+An array of metadata key-value pairs or
+.Dv NULL .
+Each pair must appear as if provided on one line (or multiple lines) of
+the input, including the terminating newline character.
+If not consisting of a valid pair (e.g., no newline, no colon), then it is
+ignored.
+When processed, these values are overridden by those in the document (if
+.Dv LOWDOWN_METADATA
+is specified) or by those in
+.Va metaovr .
+.It Va size_t metasz
+Number of pairs in
+.Va metaovr .
+.It Va char **metaovr
+See
+.Va meta .
+The difference is that
+.Va metaovr
+is applied after
+.Va meta
+and in-document metadata, so it overrides prior values.
+.It Va size_t metaovrsz
+Number of pairs in
+.Va metaovr .
+.El
+.Pp
+Another common structure is
+.Vt "struct lowdown_metadata" ,
+which is used to hold parsed (and output-formatted) metadata keys and
+values if
+.Dv LOWDOWN_METADATA
+was provided as an input bit.
+This structure consists of the following fields:
+.Bl -tag -width Ds -offset indent
+.It Va char *key
+The metadata key in its lowercase, canonical form.
+.It Va char *value
+The metadata value as rendered in the current output format.
+This may be an empty string.
+.El
+.Pp
+The abstract syntax tree is encoded in
+.Vt struct lowdown_node ,
+which consists of the following.
+.Bl -tag -width Ds -offset indent
+.It Va enum lowdown_rndrt type
+The node type.
+.Pq Described below.
+.It Va size_t id
+An identifier unique within the document.
+This can be used as a table index since the number is assigned from a
+monotonically increasing point during the parse.
+.It Va struct lowdown_node *parent
+The parent of the node, or
+.Dv NULL
+at the root.
+.It Va enum lowdown_chng chng
+Change tracking: whether this node was inserted
+.Pq Dv LOWDOWN_CHNG_INSERT ,
+deleted
+.Pq Dv LOWDOWN_CHNG_DELETE ,
+or neither
+.Pq Dv LOWDOWN_CHNG_NONE .
+.It Va struct lowdown_nodeq children
+A possibly-empty list of child nodes.
+.It Va <anon union>
+An anonymous union of type-specific structures.
+See below for a description of each one.
+.El
+.Pp
+The nodes may be one of the following types, with default rendering in
+HTML5 to illustrate functionality.
+.Bl -tag -width Ds -offset indent
+.It Dv LOWDOWN_BLOCKCODE
+A block-level (and possibly language-specific) snippet of code.
+Described by the
+.Li <pre><code>
+elements.
+.It Dv LOWDOWN_BLOCKHTML
+A block-level snippet of HTML.
+This is simply opaque HTML content.
+(Only if configured during parse.)
+.It Dv LOWDOWN_BLOCKQUOTE
+A block-level quotation.
+Described by the
+.Li <blockquote>
+element.
+.It Dv LOWDOWN_CODESPAN
+A snippet of code.
+Described by the
+.Li <code>
+element.
+.It Dv LOWDOWN_DOC_HEADER
+A header with data gathered from document metadata (if configured).
+Described by the
+.Li <head>
+element.
+(Only if configured during parse.)
+.It Dv LOWDOWN_DOUBLE_EMPHASIS
+Bold (or otherwise notable) content.
+Described by the
+.Li <strong>
+element.
+.It Dv LOWDOWN_EMPHASIS
+Italic (or otherwise notable) content.
+Described by the
+.Li <em>
+element.
+.It Dv LOWDOWN_ENTITY
+An HTML entity, which may either be named or numeric.
+.It Dv LOWDOWN_FOOTNOTE
+A footnote.
+(Only if configured during parse.)
+.It Dv LOWDOWN_HEADER
+A block-level header.
+Described (in the HTML case) by one of
+.Li <h1>
+through
+.Li <h6> .
+.It Dv LOWDOWN_HIGHLIGHT
+Marked test.
+Described by the
+.Li <mark>
+element.
+(Only if configured during parse.)
+.It Dv LOWDOWN_HRULE
+A horizontal line.
+Described by
+.Li <hr> .
+.It Dv LOWDOWN_IMAGE
+An image.
+Described by the
+.Li <img>
+element.
+.It Dv LOWDOWN_LINEBREAK
+A hard line-break within a block context.
+Described by the
+.Li <br>
+element.
+.It Dv LOWDOWN_LINK
+A link to external media.
+Described by the
+.Li <a>
+element.
+.It Dv LOWDOWN_LINK_AUTO
+Like
+.Dv LOWDOWN_LINK ,
+except inferred from text content.
+Described by the
+.Li <a>
+element.
+(Only if configured during parse.)
+.It Dv LOWDOWN_LIST
+A block-level list enclosure.
+Described by
+.Li <ul>
+or
+.Li <ol> .
+.It Dv LOWDOWN_LISTITEM
+A block-level list item, always appearing within a
+.Dv LOWDOWN_LIST .
+Described by
+.Li <li> .
+.It Dv LOWDOWN_MATH_BLOCK
+A block (or inline) of mathematical text in LaTeX format.
+Described within
+.Li \e[xx\e]
+or
+.Li \e(xx\e) .
+This is usually (in HTML) externally handled by a JavaScript renderer.
+(Only if configured during parse.)
+.It Dv LOWDOWN_META
+Meta-data keys and values.
+(Only if configured during parse.)
+These are described by elements in the
+.Li <head>
+element.
+.It Dv LOWDOWN_NORMAL_TEXT
+Normal text content.
+.It Dv LOWDOWN_PARAGRAPH
+A block-level paragraph.
+Described by the
+.Li <p>
+element.
+.It Dv LOWDOWN_RAW_HTML
+An inline of raw HTML.
+(Only if configured during parse.)
+.It Dv LOWDOWN_ROOT
+The root of the document.
+This is always the topmost node, and the only node where the
+.Va parent
+field is
+.Dv NULL .
+.It Dv LOWDOWN_STRIKETHROUGH
+Content struck through.
+Described by the
+.Li <del>
+element.
+(Only if configured during parse.)
+.It Dv LOWDOWN_SUPERSCRIPT
+A superscript.
+Described by the
+.Li <sup>
+element.
+(Only if configured during parse.)
+.It Dv LOWDOWN_TABLE_BLOCK
+A table block.
+Described by
+.Li <table> .
+(Only if configured during parse.)
+.It Dv LOWDOWN_TABLE_BODY
+A table body section.
+Described by
+.Li <tbody> .
+Parent is always
+.Dv LOWDOWN_TABLE_BLOCK .
+(Only if configured during parse.)
+.It Dv LOWDOWN_TABLE_CELL
+A table cell.
+Described by
+.Li <td>
+or
+.Li <th>
+if in the header.
+Parent is always
+.Dv LOWDOWN_TABLE_ROW .
+(Only if configured during parse.)
+.It Dv LOWDOWN_TABLE_HEADER
+A table header section.
+Described by
+.Li <thead> .
+Parent is always
+.Dv LOWDOWN_TABLE_BLOCK .
+(Only if configured during parse.)
+.It Dv LOWDOWN_TABLE_ROW
+A table row.
+Described by
+.Li <tr> .
+Parent is always
+.Dv LOWDOWN_TABLE_HEADER
+or
+.Dv LOWDOWN_TABLE_BODY .
+(Only if configured during parse.)
+.It Dv LOWDOWN_TRIPLE_EMPHASIS
+Combination of
+.Dv LOWDOWN_EMPHASIS
+and
+.Dv LOWDOWN_DOUBLE_EMPHASIS .
+.El
+.Pp
+The following anonymous union structures correspond to certain nodes.
+Note that all buffers may be zero-length.
+.Bl -tag -width Ds -offset indent
+.It Va rndr_autolink
+For
+.Dv LOWDOWN_LINK_AUTO ,
+the link address as
+.Va link
+and the link type
+.Va type ,
+which may be one of
+.Dv HALINK_EMAIL
+for e-mail links and
+.Dv HALINK_NORMAL
+otherwise.
+Any buffer may be empty-sized.
+.It Va rndr_blockcode
+For
+.Dv LOWDOWN_BLOCKCODE ,
+the opaque
+.Va text
+of the block and the optional
+.Va lang
+of the code language.
+.It Va rndr_blockhtml
+For
+.Dv LOWDOWN_BLOCKHTML ,
+the opaque HTML
+.Va text .
+.It Va rndr_codespan
+The opaque
+.Va text
+of the contents.
+.It Va rndr_definition
+For
+.Dv LOWDOWN_DEFINITION ,
+containing
+.Va flags
+that may be
+.Dv HLIST_FL_BLOCK
+if the definition list should be interpreted as containing block
+elements.
+.It Va rndr_entity
+For
+.Dv LOWDOWN_ENTITY ,
+the entity
+.Va text .
+.It Va rndr_header
+For
+.Dv LOWDOWN_HEADER ,
+the
+.Va level
+of the header starting at zero (this value is relative to the metadata
+base header level, defaulting to one), optional space-separated class
+list
+.Va attr_cls ,
+and optional single identifier
+.Va attr_id .
+.It Va rndr_image
+For
+.Dv LOWDOWN_IMAGE ,
+the image address
+.Va link ,
+the image title
+.Va title ,
+dimensions NxN (width by height) in
+.Va dims ,
+and alternate text
+.Va alt .
+CSS in-line style for width and height may be given in
+.Va attr_width
+and/or
+.Va attr_height ,
+and a space-separated list of classes may be in
+.Va attr_cls
+and a single identifier may be in
+.Va attr_id .
+.It Va rndr_link
+Like
+.Va rndr_autolink ,
+but without a type and further defining an optional link title
+.Va title ,
+optional space-separated class list
+.Va attr_cls ,
+and optional single identifier
+.Va attr_id .
+.It Va rndr_list
+For
+.Dv LOWDOWN_LIST ,
+consists of a bitfield
+.Va flags
+that may be set to
+.Dv HLIST_FL_ORDERED
+for an ordered list and
+.Dv HLIST_FL_UNORDERED
+for an unordered one.
+If
+.Dv HLIST_FL_BLOCK
+is set, the list should be output as if items were separate blocks.
+The
+.Va start
+value for
+.Dv HLIST_FL_ORDERED
+is the starting list item position, which is one by default and never
+zero.
+.It Va rndr_listitem
+For
+.Dv LOWDOWN_LISTITEM ,
+consists of a bitfield
+.Va flags
+that may be set to
+.Dv HLIST_FL_ORDERED
+for an ordered list,
+.Dv HLIST_FL_UNORDERED
+for an unordered list,
+.Dv HLIST_FL_DEF
+for definition list data,
+.Dv HLIST_FL_CHECKED
+or
+.Dv HLIST_FL_UNCHECKED
+for an unordered
+.Dq task
+list element, and/or
+.Dv HLIST_FL_BLOCK
+for list item output as if containing block elements.
+The
+.Dv HLIST_FL_BLOCK
+should not be used: use the parent list (or definition list) flags for
+this.
+The
+.Va num
+is the index in a
+.Dv HLIST_FL_ORDERED
+list.
+It is monotonically increasing with each item in the list, starting at
+the
+.Va start
+variable given in
+.Vt struct rndr_list .
+.It Va rndr_math
+For
+.Dv LOWDOWN_MATH ,
+the mode of display in
+.Va blockmode :
+if 1, in-line math; if 2, multi-line.
+The opaque equation, which is assumed to be in LaTeX format, is in the
+opaque
+.Va text .
+.It Va rndr_meta
+Each
+.Dv LOWDOWN_META
+key-value pair is represented.
+The keys are lower-case without spaces or non-ASCII characters.
+If provided, enclosed nodes may consist only of
+.Dv LOWDOWN_NORMAL_TEXT
+and
+.Dv LOWDOWN_ENTITY .
+.It Va rndr_normal_text
+The basic
+.Va text
+content for
+.Dv LOWDOWN_NORMAL_TEXT .
+.It Va rndr_paragraph
+For
+.Dv LOWDOWN_PARAGRAPH ,
+species how many
+.Va lines
+the paragraph has in the input file and
+.Va beoln ,
+set to non-zero if the paragraph ends with an empty line instead of a
+breaking block element.
+.It Va rndr_raw_html
+For
+.Dv LOWDOWN_RAW_HTML ,
+the opaque HTML
+.Va text .
+.It Va rndr_table
+For
+.Dv LOWDOWN_TABLE_BLOCK ,
+the number of
+.Va columns
+in each row or header row.
+The number of columns in
+.Va rndr_table ,
+.Va rndr_table_header ,
+and
+.Va rndr_table_cell
+are the same.
+.It Va rndr_table_cell
+For
+.Dv LOWDOWN_TABLE_CELL ,
+the current
+.Va col
+column number out of
+.Va columns .
+See
+.Va rndr_table_header
+for a description of the bits in
+.Va flags .
+The number of columns in
+.Va rndr_table ,
+.Va rndr_table_header ,
+and
+.Va rndr_table_cell
+are the same.
+.It Va rndr_table_header
+For
+.Dv LOWDOWN_TABLE_HEADER ,
+the number of
+.Va columns
+in each row and the per-column
+.Va flags ,
+which may tested for equality against
+.Dv HTBL_FL_ALIGN_LEFT ,
+.Dv HTBL_FL_ALIGN_RIGHT ,
+or
+.Dv HTBL_FL_ALIGN_CENTER
+after being masked with
+.Dv HTBL_FL_ALIGNMASK ;
+or
+.Dv HTBL_FL_HEADER .
+If no alignment is specified after the mask, the default should be
+left-aligned.
+The number of columns in
+.Va rndr_table ,
+.Va rndr_table_header ,
+and
+.Va rndr_table_cell
+are the same.
+.El
+.Sh SEE ALSO
+.Xr lowdown 1 ,
+.Xr lowdown_buf 3 ,
+.Xr lowdown_buf_diff 3 ,
+.Xr lowdown_diff 3 ,
+.Xr lowdown_doc_free 3 ,
+.Xr lowdown_doc_new 3 ,
+.Xr lowdown_doc_parse 3 ,
+.Xr lowdown_file 3 ,
+.Xr lowdown_file_diff 3 ,
+.Xr lowdown_gemini_free 3 ,
+.Xr lowdown_gemini_new 3 ,
+.Xr lowdown_gemini_rndr 3 ,
+.Xr lowdown_html_free 3 ,
+.Xr lowdown_html_new 3 ,
+.Xr lowdown_html_rndr 3 ,
+.Xr lowdown_latex_free 3 ,
+.Xr lowdown_latex_new 3 ,
+.Xr lowdown_latex_rndr 3 ,
+.Xr lowdown_metaq_free 3 ,
+.Xr lowdown_nroff_free 3 ,
+.Xr lowdown_nroff_new 3 ,
+.Xr lowdown_nroff_rndr 3 ,
+.Xr lowdown_odt_free 3 ,
+.Xr lowdown_odt_new 3 ,
+.Xr lowdown_odt_rndr 3 ,
+.Xr lowdown_term_free 3 ,
+.Xr lowdown_term_new 3 ,
+.Xr lowdown_term_rndr 3 ,
+.Xr lowdown_tree_rndr 3 ,
+.Xr lowdown 5
+.Sh AUTHORS
+.Nm lowdown
+was forked from
+.Lk https://github.com/hoedown/hoedown hoedown
+by
+.An Kristaps Dzonsons ,
+.Mt kristaps@bsd.lv .
+It has been considerably modified since.

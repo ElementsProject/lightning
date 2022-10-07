@@ -1,0 +1,9 @@
+These lists have been taken from the reference implementation at:
+
+https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md
+
+With some minor changes (BOM removal).
+
+The c files are generated using:
+
+python3 tools/wordlist_cc.py /path/to/language.txt shortname

@@ -1,0 +1,106 @@
+.\" Copyright (c) 2021 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_ODT_NEW 3
+.Os
+.Sh NAME
+.Nm lowdown_odt_new
+.Nd allocate a Markdown OpenDocument renderer
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft void *
+.Fo lowdown_odt_new
+.Fa "const struct lowdown_opts *opts"
+.Fc
+.Sh DESCRIPTION
+Allocates an OpenDocument renderer using
+.Fa opts->flags ,
+or zero if
+.Fa opts
+is
+.Dv NULL .
+This field is documented in
+.Xr lowdown 3 .
+The returned pointer may be used with multiple invocations of
+.Xr lowdown_odt_rndr 3
+and must be freed with
+.Xr lowdown_odt_free 3 .
+.Pp
+The bits recognised in
+.Fa opts->oflags
+are
+.Dv LOWDOWN_ODT_SKIP_HTML
+and
+.Dv LOWDOWN_STANDALONE .
+.Pp
+The
+.Fa opts->odt.sty
+field, if not
+.Dv NULL ,
+overrides the default
+.Li <office:font-face-decls> ,
+.Li <office:scripts> ,
+and
+.Li <office:styles>
+elements of the document styles.
+.Sh RETURN VALUES
+Returns a pointer to the renderer or
+.Dv NULL
+on memory failure.
+The returned pointer must be freed with
+.Xr lowdown_odt_free 3 .
+.Sh EXAMPLES
+The following parses
+.Va b
+of length
+.Va bsz
+and outputs in
+.Dq flat
+OpenDocument format.
+.Bd -literal -offset indent
+struct lowdown_buf *out;
+struct lowdown_doc *doc;
+struct lowdown_node *n;
+void *rndr;
+
+if ((doc = lowdown_doc_new(NULL)) == NULL)
+	err(1, NULL);
+if ((n = lowdown_doc_parse(doc, NULL, b, bsz, NULL)) == NULL)
+	err(1, NULL);
+if ((out = lowdown_buf_new(256)) == NULL)
+	err(1, NULL);
+if ((rndr = lowdown_odt_new(NULL)) == NULL)
+	err(1, NULL);
+if (!lowdown_odt_rndr(out, rndr, n))
+	err(1, NULL);
+
+fwrite(out->data, 1, out->size, stdout);
+
+lowdown_odt_free(rndr);
+lowdown_buf_free(out);
+lowdown_node_free(n);
+lowdown_doc_free(doc);
+.Ed
+.Sh SEE ALSO
+.Xr lowdown 3 ,
+.Xr lowdown_odt_free 3 ,
+.Xr lowdown_odt_rndr 3
+.Sh STANDARDS
+The referenced OpenDocument standard is
+.Lk https://docs.oasis-open.org/office/OpenDocument/v1.3/ 1.3 .

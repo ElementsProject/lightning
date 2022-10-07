@@ -1,0 +1,114 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2017--2021 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_NROFF_RNDR 3
+.Os
+.Sh NAME
+.Nm lowdown_nroff_rndr
+.Nd render Markdown into roff
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft int
+.Fo lowdown_nroff_rndr
+.Fa "struct lowdown_buf *out"
+.Fa "void *arg"
+.Fa "const struct lowdown_node *n"
+.Fc
+.Sh DESCRIPTION
+Renders a node tree
+.Fa n
+created by
+.Xr lowdown_doc_parse 3
+or
+.Xr lowdown_diff 3
+using the roff renderer
+.Fa arg
+as returned by
+.Xr lowdown_nroff_new 3 .
+The output is written into
+.Fa out ,
+which must be initialised and freed by the caller.
+.Pp
+The output consists of roff output using the
+.Ar ms
+or
+.Ar man
+macro packages.
+.Sh RETURN VALUES
+Returns zero on failure to allocate memory, non-zero on success.
+.Sh EXAMPLES
+The following parses
+.Va b
+of length
+.Va bsz
+and outputs in
+.Xr groff_ms 7
+format.
+.Bd -literal -offset indent
+struct lowdown_buf *out;
+struct lowdown_doc *doc;
+struct lowdown_node *n;
+void *rndr;
+
+if ((doc = lowdown_doc_new(NULL)) == NULL)
+	err(1, NULL);
+if ((n = lowdown_doc_parse(doc, NULL, b, bsz, NULL)) == NULL)
+	err(1, NULL);
+if ((out = lowdown_buf_new(256)) == NULL)
+	err(1, NULL);
+if ((rndr = lowdown_nroff_new(NULL)) == NULL)
+	err(1, NULL);
+if (!lowdown_nroff_rndr(out, rndr, n))
+	err(1, NULL);
+
+fwrite(out->data, 1, out->size, stdout);
+
+lowdown_nroff_free(rndr);
+lowdown_buf_free(out);
+lowdown_node_free(n);
+lowdown_doc_free(doc);
+.Ed
+.Sh SEE ALSO
+.Xr lowdown 3 ,
+.Xr lowdown_nroff_free 3 ,
+.Xr lowdown_nroff_new 3
+.Pp
+This uses both the original troff
+.Ar man
+macros for
+.At v7 ,
+defined in
+.Xr man 7 ,
+and the
+.Ar man-ext
+groff extensions.
+Both are implemented in mandoc.
+.Pp
+The troff
+.Ar ms
+macros are defined in
+.Xr groff_ms 7 ,
+with the
+.Ar mspdf
+groff extensions described in
+.Qq Portable Document Format Publishing with GNU Troff
+by Keith Marshall.
+Neither are implemented in mandoc.

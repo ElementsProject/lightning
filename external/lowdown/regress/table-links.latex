@@ -1,0 +1,35 @@
+\begin{longtable}[]{lll}
+a & b & c  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+9 & \url{http://www.foo.com} & \href{https://foo.com}{foo}  \\
+10 & \url{http://www.bar.com} & \url{https://baz.com}  \\
+\end{longtable}

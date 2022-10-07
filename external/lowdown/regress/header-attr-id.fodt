@@ -1,0 +1,24 @@
+<office:automatic-styles>
+<style:style style:family="paragraph" style:name="P1" style:parent-style-name="Heading_20_1">
+</style:style>
+<style:style style:family="paragraph" style:name="P2" style:parent-style-name="Standard">
+</style:style>
+<style:page-layout style:name="pm1">
+<style:page-layout-properties fo:page-width="21.001cm" fo:page-height="29.7cm" style:num-format="1" style:print-orientation="portrait" fo:margin-top="2cm" fo:margin-bottom="2cm" fo:margin-left="2cm" fo:margin-right="2cm" style:writing-mode="lr-tb" style:footnote-max-height="0cm">
+</style:page-layout-properties>
+</style:page-layout>
+</office:automatic-styles>
+<office:master-styles>
+<style:master-page  style:name="Standard" style:page-layout-name="pm1"/>
+</office:master-styles>
+<office:body>
+<office:text>
+<text:h text:outline-level="1" text:style-name="P1"><text:bookmark-start text:name="b" />a<text:bookmark-end text:name="b" /></text:h>
+
+<text:p text:style-name="P2">c</text:p>
+
+<text:h text:outline-level="1" text:style-name="P1"><text:bookmark-start text:name="b" />a<text:bookmark-end text:name="b" /></text:h>
+
+<text:p text:style-name="P2">c</text:p>
+</office:text>
+</office:body>

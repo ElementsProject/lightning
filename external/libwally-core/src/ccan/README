@@ -1,0 +1,8 @@
+The C Code Archive Network: http://ccodearchive.net
+
+You can find a set of helper utilities under tools/ and the modules
+under ccan/.  The recommended way to add ccan modules to your project
+is to create a ccan/ directory and add one module per subdirectory
+(see tools/create-ccan-tree).
+
+Enjoy!

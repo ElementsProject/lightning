@@ -1,0 +1,39 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * str/hex - hex-to-string conversions and vice-versa
+ *
+ * This code contains simple routines for hexidecimal strings.
+ *
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	int main(int argc, char *argv[])
+ *	{
+ *		int i;
+ *
+ *		for (i = 1; i < argc; i++) {
+ *			char str[hex_str_size(strlen(argv[i]))];
+ *
+ *			hex_encode(str, sizeof(str), argv[i], strlen(argv[i]));
+ *			printf("%s ", str);
+ *		}
+ *		printf("\n");
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	return 1;
+}

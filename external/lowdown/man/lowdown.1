@@ -1,0 +1,728 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2016--2017, 2020 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN 1
+.Os
+.Sh NAME
+.Nm lowdown
+.Nd simple markdown translator
+.Sh SYNOPSIS
+.Nm lowdown
+.Op input_options
+.Op output_options
+.Op Fl s
+.Op Fl M Ar metadata
+.Op Fl m Ar metadata
+.Op Fl o Ar file
+.Op Fl t Ar mode
+.Op Fl X Ar keyword
+.Op Ar file
+.Sh DESCRIPTION
+Translate from
+.Xr lowdown 5
+into diverse output formats.
+Results are written to standard output.
+.Pp
+The arguments are as follows:
+.Bl -tag -width Ds
+.It Fl s
+Standalone mode.
+This emits a document envelope surrounding the output by drawing from
+document metadata.
+See
+.Sx Metadata
+on providing information to the document envelope.
+This applies to
+.Fl t Ns Ar gemini ,
+.Fl t Ns Ar html ,
+.Fl t Ns Ar latex ,
+.Fl t Ns Ar ms ,
+.Fl t Ns Ar man ,
+and
+.Fl t Ns Ar fodt .
+.It Fl M Ar metadata
+Provide a single metadata key-value pair.
+This may be in the usual
+.Xr lowdown 5
+colon-separated metadata format or instead separated by an equal sign,
+depending upon which character comes first.
+Exits with an error if given neither colon nor equal sign.
+May be invoked multiple times for each pair.
+This overrides
+.Fl m
+and what's parsed from the document.
+.It Fl m Ar metadata
+Like
+.Fl M ,
+but is overridden by what's parsed the document, then
+.Fl M .
+.It Fl o Ar file
+Send output to
+.Ar file
+unless it's
+.Dq - ,
+in which case fall back to the default of standard output.
+.It Fl t Ar mode , Fl T Ar mode
+The output mode.
+This may be
+.Ar html
+for HTML5 output,
+.Ar latex
+for LaTeX,
+.Ar gemini
+for the Gemini format,
+.Ar ms
+for roff output using the classic (i.e., no-extension)
+.Fl ms
+package and needing table support,
+.Ar term
+for ANSI-compatible UTF-8 terminal output,
+.Ar man
+for roff output using the classic
+.Fl man
+package,
+.Ar tree ,
+to show the parse tree of the input document, and
+.Ar null
+to parse the document but do no rendering.
+See
+.Sx Output modes .
+The
+.Fl T Ar mode
+form is retained for backward compatibility.
+.It Fl X Ar keyword
+Output the metadata value of
+.Ar keyword
+or an empty string if not found.
+The
+.Fl t
+mode is ignored.
+.It Ar file
+Input Markdown document.
+If not given or if
+.Ar file
+is
+.Dq - ,
+it is read from standard input.
+.El
+.Pp
+The following are options for input parsing.
+These affect the parse tree passed to all outputs.
+.Bl -tag -width Ds
+.It Fl -parse-hilite
+Enable highlight span support.
+This are disabled by default because it may be erroneously interpreted
+as section headers.
+.It Fl -parse-math
+Recognise mathematics equations.
+.It Fl -parse-maxdepth=depth
+The maximum depth of nested elements.
+This defaults to 128, which is probably more than enough for any
+real-world document.
+If the maximum is hit, the system exits as if memory were exhausted.
+Set to zero for no maximum.
+.It Fl -parse-no-autolink
+Do not parse
+.Li http ,
+.Li https ,
+.Li ftp ,
+.Li mailto ,
+and relative links or link fragments.
+.It Fl -parse-no-cmark
+Do not parse with CommonMark constraints.
+This also disables using the first ordered list value instead of
+starting all lists at one.
+.It Fl -parse-no-codeindent
+Do not parse indented content as code blocks.
+.It Fl -parse-no-deflists
+Do not parse PHP extra definition lists.
+.It Fl -parse-no-ext-attrs
+Do not parse PHP extra extended attributes.
+.It Fl -parse-no-fenced
+Do not parse GFM fenced (language-specific) code blocks.
+.It Fl -parse-no-footnotes
+Do not parse MMD footnotes.
+.It Fl -parse-no-img-ext
+Deprecated.
+See
+.Fl -parse-no-ext-attrs .
+.It Fl -parse-no-intraemph
+Do not parse emphasis within words and links.
+.It Fl -parse-no-metadata
+Do not parse MMD metadata.
+For the first paragraph to count as metadata, the first line must have
+a colon in it.
+This does not affect metadata given on
+.Fl m
+or
+.Fl M .
+.It Fl -parse-no-strike
+Do not parse strikethroughs.
+.It Fl -parse-no-super
+Do not parse super-scripts.
+.It Fl -parse-no-tables
+Do not parse GFM tables.
+.It Fl -parse-no-tasklists
+Do not parse GFM task lists.
+.El
+.Pp
+There are many output options.
+The following are shared by all output modes:
+.Bl -tag -width Ds
+.It Fl -out-standalone
+Alias for
+.Fl s .
+.It Fl -out-no-smarty
+Do not use the smart typography filter.
+By default, certain character sequences are translated into
+output-specific glyphs.
+.El
+.Pp
+What follows are per-output options.
+For HTML with
+.Fl t Ns Ar html ,
+these are as follows:
+.Bl -tag -width Ds
+.It Fl -html-hardwrap
+Hard-wrap paragraph content by outputting line breaks where applicable.
+.It Fl -html-no-escapehtml
+If
+.Fl -html-no-skiphtml
+has been specified, this causes embedded HTML not to be escaped, and is
+instead output verbatim.
+This has no effect if
+.Fl -html-no-skiphtml
+has not been specified.
+.It Fl -html-no-head-ids
+Do not output
+.Li id
+attributes for headers.
+.It Fl -html-no-num-ent
+Don't normalise HTML entities (when possible) as numeric ones and
+instead use the entities as given on input.
+.It Fl -html-no-owasp
+Don't follow the OWASP recommendations for escaping text, and do only
+the minimal escaping to make sure that regular content isn't interpreted
+as HTML.
+.It Fl -html-no-skiphtml
+Output embedded HTML.
+By default, embedded HTML is not output at all.
+See
+.Fl -html-no-escapehtml .
+.El
+.Pp
+For both
+.Fl t Ns Ar man
+and
+.Fl t Ns Ar ms ,
+the following apply:
+.Bl -tag -width Ds
+.It Fl -nroff-no-groff
+Don't use
+.Xr groff 1
+style section headings, PDF hyperlinks and multi-page tables (these further
+require
+.Fl t Ns Ar ms
+mode and
+.Fl m Ns Ar spdf
+passed to
+.Xr groff 1 ) ,
+or Unicode sequence syntax.
+The output is compatible with traditional
+.Xr troff 1 .
+Applies to
+.Fl t Ns Ar man
+and
+.Fl t Ns Ar ms .
+.It Fl -nroff-no-numbered
+Don't output numbered headings.
+Only applies to
+.Fl t Ns Ar ms .
+.It Fl -nroff-no-skiphtml
+Output embedded HTML.
+This usually doesn't make sense because the HTML won't be interpreted by
+the output reader.
+By default, HTML is omitted.
+.It Fl -nroff-nolinks
+Don't show URLs for images and links (autolinks are still shown).
+.Pq Link content is still shown.
+Overrides
+.Fl -nroff-shortlinks
+for images and links.
+Applies to
+.Fl t Ns Ar man
+or when
+.Fl nroff-no-groff
+is specified.
+.It Fl -nroff-shortlinks
+Shorten URLs for images, links, and autolinks to only the domain name
+and final path.
+Applies to
+.Fl t Ns Ar man
+or when
+.Fl nroff-no-groff
+is specified.
+.El
+.Pp
+The
+.Fl t Ns Ar term
+output has the following:
+.Bl -tag -width Ds
+.It Fl -term-columns=columns
+The number of columns in the screen.
+Useful for when running in a pipe.
+Defaults to what the terminal reports or 72 if in a pipe.
+.It Fl -term-hmargin=margin
+The number of left margin spaces.
+Truncated to the number of columns.
+Defaults to zero.
+.It Fl -term-no-ansi
+Don't show ANSI styles at all.
+This implies
+.Fl -term-no-colour .
+.It Fl -term-no-colour
+Don't show ANSI colours.
+This will still decorate text with underlines, bolds, and italics, but
+not emit any colour codes.
+.It Fl -term-nolinks
+Don't show URLs for images and links (autolinks are still shown).
+.Pq Link content is still shown.
+Overrides
+.Fl -term-shortlinks
+for images and links.
+.It Fl -term-shortlinks
+Shorten URLs for images, links, and autolinks to only the domain name
+and final path.
+.It Fl -term-vmargin=margin
+The number of top and bottom margin newlines.
+Defaults to zero.
+.It Fl -term-width=width
+Set the soft limit on the number of characters per line.
+This may be exceeded by literal text.
+The default (or if zero) is the number of terminal columns or 80 at
+most.
+.El
+.Pp
+The
+.Fl t Ns Ar gemini
+output has several flags that control the placement of links.
+By default, links (images, autolinks, and links) are queued when
+specified in-line then emitted in a block sequence after the nearest
+block element.
+.Bl -tag -width Ds
+.It Fl -gemini-link-end
+Emit the queue of links at the end of the document instead of after the
+nearest block element.
+.It Fl -gemini-link-inline
+Render all links within the flow of text.
+This will cause breakage when nested links, such as images within links,
+links in blockquotes, etc.
+It should not be used unless in carefully crafted documents.
+.It Fl -gemini-link-noref
+Do not format link labels.
+Takes precedence over
+.Fl -gemini-link-roman .
+.It Fl -gemini-link-roman
+When formatting link labels, use lower-case Roman numerals instead of the
+default lower-case hexavigesimal (i.e.,
+.Dq a ,
+.Dq b ,
+\&...,
+.Dq aa ,
+.Dq ab ,
+\&...).
+.It Fl -gemini-metadata
+Print metadata as the canonicalised key followed by a colon then the
+value, each on one line (newlines replaced by spaces).
+The metadata block is terminated by a double newline.
+If there is no metadata, this does nothing.
+.El
+.Pp
+The
+.Fl t Ns Ar latex
+output has the following options:
+.Bl -tag -width Ds
+.It Fl -latex-no-numbered
+Don't number sections (and subsections, etc.).
+.It Fl -latex-no-skiphtml
+Output embedded HTML.
+This usually doesn't make sense because the HTML won't be interpreted by
+the output reader.
+By default, HTML is omitted.
+.El
+.Pp
+The
+.Fl t Ns Ar fodt
+output has the following options:
+.Bl -tag -width Ds
+.It Fl -odt-no-skiphtml
+Output embedded HTML.
+This usually doesn't make sense because the HTML won't be interpreted by
+the output reader.
+By default, HTML is omitted.
+.It Fl -odt-style Ns = Ns Ar file
+Specify an OpenDocument style file, which must consist of at least
+.Li <office:font-face-decls> ,
+.Li <office:scripts> ,
+and
+.Li <office:styles>
+XML elements in the root of the document.
+This is not syntax-checked in any way.
+.El
+.Ss Output modes
+The output media is specified by
+.Fl t ,
+which defaults to
+.Fl t Ns Ar html .
+.Bl -tag -width Ds
+.It Fl t Ns Ar fodt
+.Dq Flat
+OpenDocument output.
+Automatic styles (those conditional upon document state) are generated
+with output.
+Classes specified by PHP extended attributes are not checked for
+existence.
+.It Fl t Ns Ar gemini
+Gemini protocol output.
+This output mode is experimental.
+.It Fl t Ns Ar html
+HTML5 output with UTF-8 encoding.
+.It Fl t Ns Ar latex
+Simple LaTeX output.
+The following packages are required:
+.Li amsmath
+and
+.Li amssymb
+for maths,
+.Li graphicx
+for images,
+.Li inputenc Pq utf8
+for UTF-8 input,
+.Li fontend Pq T1
+and
+.Li textcomp
+for output glyphs,
+.Li lmodern
+for Latin modern font,
+.Li xcolor
+for the difference engine output, and
+.Li hyperref
+for links.
+.It Fl t Ns Ar man
+The
+.Ar man
+macro package suitable for reading by
+.Xr groff 1 ,
+.Xr mandoc 1 ,
+or traditional
+.Xr troff 1 .
+Does not support equations and images.
+Table support is provided by
+.Xr tbl 1 .
+Since UTF-8 may be passed as input values,
+.Xr preconv 1
+may need to be used.
+.It Fl t Ns Ar ms
+The
+.Ar ms
+macro package suitable for reading by
+.Xr groff 1
+or traditional
+.Xr troff 1 .
+Does not support equations and limited image support for encapsulated
+postscript (PS and EPS suffix) images.
+Images are always block-formatted.
+Image dimensions and extended attributes are ignored, though images are
+downsized if larger than the current text width.
+Table support is provided by
+.Xr tbl 1 .
+Since UTF-8 may be passed as input values,
+.Xr preconv 1
+may need to be used.
+.It Fl t Ns Ar term
+ANSI-escaped UTF-8 output suitable for reading on the terminal.
+Images and equations not supported.
+.It Fl t Ns Ar tree
+Debugging output: not for general use.
+.El
+.Ss Standalone documents
+When
+.Fl s
+is specified, additional content may be added to output:
+.Bl -tag -width Ds
+.It Fl t Ns Ar fodt
+Envelope
+.Li <office:document>
+and prologue
+.Li <office:automatic-styles> ,
+.Li <office:master-styles> ,
+and
+.Li <office:body> .
+.It Fl t Ns Ar html
+Envelope
+.Li <html>
+and prologue
+.Li <head> .
+.It Fl t Ns Ar latex
+Prologue
+.Li documentclass
+and
+.Li usepackage
+statements, and surrounding
+.Li begin{document}
+statements.
+.It Fl t Ns Ar man , Fl t Ns Ar ms
+Prologue macros.
+.El
+.Pp
+If parsed from the document or as given by
+.Fl m
+or
+.Fl M ,
+the following metadata keys are used by additional content.
+The metadata keys are canonicalised in lowercase and without spaces.
+.Pp
+Metadata values should not be encoded in their output format, e.g.,
+.Dq css: foo&amp;bar .
+The renderer will perform any necessary output encoding.
+.Bl -tag -width Ds
+.It Li affiliation
+Author affiliation (organisation or institution).
+Multiple affiliations may be separated by two or more spaces (including
+newlines).
+Used in
+.Fl t Ns Ar html ,
+.Fl t Ns Ar latex ,
+and
+.Fl t Ns Ar ms .
+.It Li author
+Document author.
+Multiple authors may be separated by two or more spaces (including
+newlines).
+Overridden by
+.Li rcsauthor .
+Used in
+.Fl t Ns Ar fodt ,
+.Fl t Ns Ar html ,
+.Fl t Ns Ar latex ,
+and
+.Fl t Ns Ar ms .
+.It Li baseheaderlevel
+Added to each header level.
+Deprecated in favour of
+.Li shiftheadinglevelby .
+.It Li copyright
+A document copyright (without the word
+.Dq Copyright ) ,
+for example,
+.Dq 2017, Kristaps Dzonsons .
+Used in
+.Fl t Ns Ar ms
+and
+.Fl t Ns Ar html .
+.It Li css
+A CSS file included in the HTML5 document head.
+Multiple CSS files (in order) may be separated by two or more spaces
+(including newlines).
+Only used in
+.Fl t Ns Ar html .
+.It Li date
+Document date in ISO-8601 YYYY-MM-DD format.
+Overridden by
+.Li rcsdate .
+Used in
+.Fl t Ns Ar fodt ,
+.Fl t Ns Ar html ,
+.Fl t Ns Ar latex ,
+.Fl t Ns Ar man ,
+and
+.Fl t Ns Ar ms .
+.It Li javascript
+A JavaScript file included in the HTML5 document head.
+Multiple script files (in order) may be separated by two or more spaces
+(including newlines).
+Only used in
+.Fl t Ns Ar html .
+.It Li rcsauthor
+Like
+.Li author ,
+but in RCS author format.
+Overrides
+.Li author .
+.It Li rcsdate
+Like
+.Li date ,
+but in RCS date format.
+Overrides
+.Li date .
+.It Li section
+Man page section, defaulting to
+.Dq 7 .
+Only used in
+.Fl t Ns Ar man .
+.It Li shiftheadinglevelby
+Shift all headers by the given number.
+For example, a value of 1 causes headers originally at level 1
+.Pq Dq <h1>
+to be level 2
+.Pq Dq <h2> ,
+while a value of -1 moves level 2 to 1.
+Levels will not move to less than 1.
+Takes precedence over
+.Li baseheaderlevel .
+If unset or not a valid number, defaults to zero.
+Used in
+.Fl t Ns Ar fodt ,
+.Fl t Ns Ar html ,
+.Fl t Ns Ar latex ,
+.Fl t Ns Ar man ,
+and
+.Fl t Ns Ar ms .
+.It Li source
+Man page source (organisation providing the manual).
+Only used in
+.Fl t Ns Ar man .
+.It Li volume
+Man page volume (describes the manual page section).
+Only used in
+.Fl t Ns Ar man .
+.It Li title
+Document title, defaulting to
+.Dq Untitled article .
+Used in
+.Fl t Ns Ar fodt ,
+.Fl t Ns Ar html ,
+.Fl t Ns Ar latex ,
+.Fl t Ns Ar man ,
+and
+.Fl t Ns Ar ms .
+.El
+.Pp
+Metadata values are parsed and may be used as variables in markdown
+documents regardless of whether
+.Fl s
+is specified or not.
+.Pp
+Default values, such
+.Dq Untitled article
+for the
+.Li title ,
+are not set as metadata values, and will not appear if the metadata key
+is used as a variable.
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev NO_COLOR
+Do not emit colours when in
+.Fl t Ns Ar term
+mode.
+Synonym for
+.Ev NO_COLOUR .
+Same as
+.Fl -term-nocolour .
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa share/odt/styles.xml
+Default styles used when generating standalone
+.Fl t Ns Ar fodt
+documents.
+Template for
+.Fl -odt-style
+styles.
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Pp
+If the
+.Fl X
+flag is used,
+.Nm lowdown
+exits with an error if the given keyword is not found.
+.Sh EXAMPLES
+To view a Markdown file on an ANSI-compatible, UTF-8 terminal:
+.Pp
+.Dl lowdown -tterm foo.md | less -R
+.Pp
+The terminal may also be used with
+.Xr groff 1
+or
+.Xr mandoc 1
+rendering:
+.Bd -literal -offset indent
+lowdown -stms foo.md | groff -itk -mspdf -Tutf8 | less -R
+lowdown -stman foo.md | groff -itk -man -Tutf8 | less -R
+lowdown -stman foo.md | mandoc | less
+.Ed
+.Pp
+To emit a standalone HTML5 document:
+.Pp
+.Dl lowdown -s foo.md > foo.html
+.Pp
+To use
+.Xr groff 1
+or
+.Xr mandoc 1
+to format as a PS file:
+.Bd -literal -offset indent
+lowdown -stms foo.md | groff -itk -mspdf > foo.ps
+lowdown -stman foo.md | mandoc -Tps > foo.ps
+.Ed
+.Pp
+Or with LaTeX:
+.Bd -literal -offset indent
+lowdown -stlatex foo.md > foo.latex
+pslatex foo.latex
+.Ed
+.Pp
+PDF generation follows similar logic:
+.Bd -literal -offset indent
+lowdown -stms foo.md | pdfroff -itk -mspdf > foo.pdf
+lowdown -stman foo.md | mandoc -Tpdf > foo.pdf
+lowdown -stlatex foo.md > foo.latex
+pdflatex foo.latex
+.Ed
+.Pp
+UTF-8 support for
+.Xr groff 1
+PDF or PS output requires appropriate fonts, such as the Unicode Times
+font.
+This and other Unicode fonts are not always installed by default.
+They may be found, for PDF output, in the
+.Pa devpdf
+set of the
+.Xr groff 1
+font directory and are prefixed with
+.Sq U .
+.Bd -literal -offset indent
+lowdown -stms foo.md | pdfroff -itk -mspdf -FU-T > foo.pdf
+.Ed
+.Pp
+To extract the HTML-escaped title from a file's metadata:
+.Pp
+.Dl lowdown -X title foo.md
+.Sh SEE ALSO
+.Xr lowdown-diff 1 ,
+.Xr lowdown 3 ,
+.Xr lowdown 5
+.Sh AUTHORS
+.Nm lowdown
+was forked from
+.Lk https://github.com/hoedown/hoedown hoedown
+by
+.An Kristaps Dzonsons ,
+.Mt kristaps@bsd.lv .
+It has been considerably modified since.

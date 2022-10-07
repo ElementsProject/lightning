@@ -1,0 +1,81 @@
+.\"	$Id$
+.\"
+.\" Copyright (c) 2017 Kristaps Dzonsons <kristaps@bsd.lv>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate$
+.Dt LOWDOWN_DOC_NEW 3
+.Os
+.Sh NAME
+.Nm lowdown_doc_new
+.Nd allocate a Markdown parser
+.Sh LIBRARY
+.Lb liblowdown
+.Sh SYNOPSIS
+.In sys/queue.h
+.In stdio.h
+.In lowdown.h
+.Ft struct lowdown_doc *
+.Fo lowdown_doc_new
+.Fa "const struct lowdown_opts *opts"
+.Fc
+.Sh DESCRIPTION
+Allocates a Markdown parser instance with configuration
+.Fa opts .
+If
+.Fa opts
+is
+.Dv NULL ,
+all values are assumed to be zero except for the maximum parse depth,
+which is fixed at 128.
+.Pp
+The returned instance may be used with multiple invocations of
+.Xr lowdown_doc_parse 3 .
+.Sh RETURN VALUES
+Returns a pointer to the parser or
+.Dv NULL
+on memory allocation failure.
+The returned pointer must be freed with a call to
+.Xr lowdown_doc_free 3 .
+.Pp
+Any pointer values in
+.Fa opts ,
+such as those in
+.Va meta
+and
+.Va metaovr ,
+are copied over, so they need not persist after being passed to
+.Fn lowdown_doc_new .
+.Sh EXAMPLES
+The following parses
+.Va b
+if length
+.Va bsz
+and throws away the result.
+.Bd -literal -offset indent
+struct lowdown_doc *doc;
+struct lowdown_node *n;
+
+if ((doc = lowdown_doc_new(NULL)) == NULL)
+	err(1, NULL);
+if ((n = lowdown_doc_parse(doc, NULL, b, bsz, NULL)) == NULL)
+	err(1, NULL);
+
+lowdown_node_free(n);
+lowdown_doc_free(doc);
+.Ed
+.Sh SEE ALSO
+.Xr lowdown 3 ,
+.Xr lowdown_doc_free 3 ,
+.Xr lowdown_doc_parse 3
