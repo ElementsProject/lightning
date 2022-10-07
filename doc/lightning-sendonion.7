@@ -1,0 +1,181 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-SENDONION" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-sendonion -- Send a payment with a custom onion packet
+.SH
+SYNOPSIS
+.LP
+\fBsendonion\fR \fIonion\fR \fIfirst_hop\fR \fIpayment_hash\fR [\fIlabel\fR] [\fIshared_secrets\fR] [\fIpartid\fR] [\fIbolt11\fR]
+[\fImsatoshi\fR] [\fIdestination\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBsendonion\fR RPC command can be used to initiate a payment attempt with a
+custom onion packet. The onion packet is used to deliver instructions for hops
+along the route on how to behave. Normally these instructions are indications
+on where to forward a payment and what parameters to use, or contain details
+of the payment for the final hop. However, it is possible to add arbitrary
+information for hops in the custom onion, allowing for custom extensions that
+are not directly supported by Core Lightning.
+.PP
+The onion is specific to the route that is being used and the \fIpayment_hash\fR
+used to construct, and therefore cannot be reused for other payments or to
+attempt a separate route. The custom onion can generally be created using the
+\fCdevtools/onion\fR CLI tool, or the \fBcreateonion\fR RPC command.
+.PP
+The \fIonion\fR parameter is a hex-encoded 1366 bytes long blob that was returned
+by either of the tools that can generate onions. It contains the payloads
+destined for each hop and some metadata. Please refer to \fBBOLT 04\fR <\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md\fR> for
+further details.
+.PP
+The \fIfirst_hop\fR parameter instructs Core Lightning which peer to send the onion
+to. It is a JSON dictionary that corresponds to the first element of the route
+array returned by \fIgetroute\fR. The following is a minimal example telling
+Core Lightning to use any available channel to \fC022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\fR
+to add an HTLC for 1002 millisatoshis and a delay of 21 blocks on top of the current blockheight:
+.LP
+.EX
+{
+  \(dqid\(dq: \(dq022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\(dq,
+  \(dqamount_msat\(dq: \(dq1002msat\(dq,
+  \(dqdelay\(dq: 21,
+}
+.EE
+.PP
+If the first element of \fIroute\fR does not have \(dqchannel\(dq set, a
+suitable channel (if any) will be chosen, otherwise that specific
+short-channel-id is used.
+.PP
+The \fIpayment_hash\fR parameter specifies the 32 byte hex-encoded hash to use as
+a challenge to the HTLC that we are sending. It is specific to the onion and
+has to match the one the onion was created with.
+.PP
+The \fIlabel\fR parameter can be used to provide a human readable reference to
+retrieve the payment at a later time.
+.PP
+The \fIshared_secrets\fR parameter is a JSON list of 32 byte hex-encoded secrets
+that were used when creating the onion. Core Lightning can send a payment with a
+custom onion without the knowledge of these secrets, however it will not be
+able to parse an eventual error message since that is encrypted with the
+shared secrets used in the onion. If \fIshared_secrets\fR is provided Core Lightning
+will decrypt the error, act accordingly, e.g., add a \fCchannel_update\fR included
+in the error to its network view, and set the details in \fIlistsendpays\fR
+correctly. If it is not provided Core Lightning will store the encrypted onion,
+and expose it in \fIlistsendpays\fR allowing the caller to decrypt it
+externally. The following is an example of a 3 hop onion:
+.LP
+.EX
+[
+    \(dq298606954e9de3e9d938d18a74fed794c440e8eda82e52dc08600953c8acf9c4\(dq,
+    \(dq2dc094de72adb03b90894192edf9f67919cb2691b37b1f7d4a2f4f31c108b087\(dq,
+    \(dqa7b82b240dbd77a4ac8ea07709b1395d8c510c73c17b4b392bb1f0605d989c85\(dq
+]
+.EE
+.PP
+If \fIshared_secrets\fR is not provided the Core Lightning node does not know how
+long the route is, which channels or nodes are involved, and what an eventual
+error could have been. It can therefore be used for oblivious payments.
+.PP
+The \fIpartid\fR value, if provided and non-zero, allows for multiple parallel
+partial payments with the same \fIpayment_hash\fR.
+.PP
+The \fIbolt11\fR parameter, if provided, will be returned in
+\fIwaitsendpay\fR and \fIlistsendpays\fR results.
+.PP
+The \fIdestination\fR parameter, if provided, will be returned in \fBlistpays\fR result.
+.PP
+The \fImsatoshi\fR parameter is used to annotate the payment, and is returned by
+\fIwaitsendpay\fR and \fIlistsendpays\fR.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBid\fR (u64): unique ID for this payment attempt
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hash): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): status of the payment (could be complete if already sent previously) (one of \(dqpending\(dq, \(dqcomplete\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_sent_msat\fR (msat): The amount sent
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): The amount delivered to destination (if known)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlabel\fR (string, optional): the label, if given to sendpay
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt11\fR (string, optional): the bolt11 string (if supplied)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied: \fBexperimental-offers\fR only).
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpartid\fR (u64, optional): the partid (if supplied) to sendonion/sendpay
+.LP
+If \fBstatus\fR is \(dqcomplete\(dq:
+.IP "\(bu" 2
+\fBpayment_preimage\fR (secret): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+.LP
+If \fBstatus\fR is \(dqpending\(dq:
+.IP "\(bu" 2
+\fBmessage\fR (string, optional): Monitor status with listpays or waitsendpay
+.LP
+If \fIshared_secrets\fR was provided and an error was returned by one of the
+intermediate nodes the error details are decrypted and presented
+here. Otherwise the error code is 202 for an unparseable onion.
+.SH
+AUTHOR
+.LP
+Christian Decker <\fIdecker.christian@gmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-createonion(7), lightning-sendpay(7), lightning-listsendpays(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:30605e636b02345ce6edfd67ea5a55e677998b372398efa7205755e6887f7560

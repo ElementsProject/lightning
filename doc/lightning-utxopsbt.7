@@ -1,0 +1,154 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-UTXOPSBT" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-utxopsbt -- Command to populate PSBT inputs from given UTXOs
+.SH
+SYNOPSIS
+.LP
+\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR] [\fIreservedok\fR] [\fIlocktime\fR] [\fImin\fIwitness\fIweight\fR] [\fIexcess\fIas\fIchange\fR]
+.SH
+DESCRIPTION
+.LP
+\fIutxopsbt\fR is a low-level RPC command which creates a PSBT using unreserved
+inputs in the wallet, optionally reserving them as well.
+.PP
+It deliberately mirrors the parameters and output of
+lightning-fundpsbt(7) except instead of an optional \fIminconf\fR
+parameter to select unreserved outputs from the wallet, it takes a
+compulsory list of outputs to use.
+.PP
+\fIutxos\fR must be an array of \(dqtxid:vout\(dq, each of which must be
+reserved or available: the total amount must be sufficient to pay for
+the resulting transaction plus \fIstartweight\fR at the given \fIfeerate\fR,
+with at least \fIsatoshi\fR left over (unless \fIsatoshi\fR is \fBall\fR, which
+is equivalent to setting it to zero).
+.PP
+If \fIreserve\fR if not zero, then \fIreserveinputs\fR is called (successfully, with
+\fIexclusive\fR true) on the returned PSBT for this number of blocks (default
+72 blocks if unspecified).
+.PP
+Unless \fIreservedok\fR is set to true (default is false) it will also fail
+if any of the \fIutxos\fR are already reserved.
+.PP
+\fIlocktime\fR is an optional locktime: if not set, it is set to a recent
+block height.
+.PP
+\fImin\fIwitness\fIweight\fR is an optional minimum weight to use for a UTXO's
+witness. If the actual witness weight is greater than the provided minimum,
+the actual witness weight will be used.
+.PP
+\fIexcess\fIas\fIchange\fR is an optional boolean to flag to add a change output
+for the excess sats.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBpsbt\fR (string): Unsigned PSBT which fulfills the parameters given
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeerate_per_kw\fR (u32): The feerate used to create the PSBT, in satoshis-per-kiloweight
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBestimated_final_weight\fR (u32): The estimated weight of the transaction once fully signed
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexcess_msat\fR (msat): The amount above \fIsatoshi\fR which is available.  This could be zero, or dust; it will be zero if \fIchange_outnum\fR is also returned
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchange_outnum\fR (u32, optional): The 0-based output number where change was placed (only if parameter \fIexcess\fIas\fIchange\fR was true and there was sufficient funds)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreservations\fR (array of objects, optional): If \fIreserve\fR was true or a non-zero number, just as per lightning-reserveinputs(7):
+.RS
+.IP "\(bu" 2
+\fBtxid\fR (txid): The txid of the transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBvout\fR (u32): The 0-based output number
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwas_reserved\fR (boolean): Whether this output was previously reserved
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreserved\fR (boolean): Whether this output is now reserved (always \fItrue\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreserved_to_block\fR (u32): The blockheight the reservation will expire
+.RE
+.LP
+On success, returns the \fIpsbt\fR it created, containing the inputs,
+\fIfeerate\fIper\fIkw\fR showing the exact numeric feerate it used, 
+\fIestimated\fIfinal\fIweight\fR for the estimated weight of the transaction
+once fully signed, and \fIexcess_msat\fR containing the amount above \fIsatoshi\fR
+which is available.  This could be zero, or dust.  If \fIsatoshi\fR was \(dqall\(dq,
+then \fIexcess_msat\fR is the entire amount once fees are subtracted
+for the weights of the inputs and \fIstartweight\fR.
+.PP
+If \fIreserve\fR was \fItrue\fR or a non-zero number, then a \fIreservations\fR
+array is returned, exactly like \fIreserveinputs\fR.
+.PP
+If \fIexcess\fIas\fIchange\fR is true and the excess is enough to cover
+an additional output above the \fCdust_limit\fR, then an output is
+added to the PSBT for the excess amount. The \fIexcess_msat\fR will
+be zero. A \fIchange_outnum\fR will be returned with the index of
+the change output.
+.PP
+On error the returned object will contain \fCcode\fR and \fCmessage\fR properties,
+with \fCcode\fR being one of the following:
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+-1: Catchall nonspecific error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+301: Insufficient UTXOs to meet \fIsatoshi\fR value.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-fundpsbt(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:6814e77f335e86126ef8bda3605665235e3e4d591db0e2d24395c0cbf44caa9e

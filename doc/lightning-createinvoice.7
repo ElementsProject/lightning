@@ -1,0 +1,137 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-CREATEINVOICE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-createinvoice -- Low-level invoice creation
+.SH
+SYNOPSIS
+.LP
+\fBcreateinvoice\fR \fIinvstring\fR \fIlabel\fR \fIpreimage\fR
+.SH
+DESCRIPTION
+.LP
+The \fBcreateinvoice\fR RPC command signs and saves an invoice into the
+database.
+.PP
+The \fIinvstring\fR parameter is of bolt11 form, but without the final
+signature appended.  Minimal sanity checks are done.  (Note: if
+\fBexperimental-offers\fR is enabled, \fIinvstring\fR can actually be an
+unsigned bolt12 invoice).
+.PP
+The \fIlabel\fR must be a unique string or number (which is treated as a
+string, so \(dq01\(dq is different from \(dq1\(dq); it is never revealed to other
+nodes on the lightning network, but it can be used to query the status
+of this invoice.
+.PP
+The \fIpreimage\fR is the preimage to supply upon successful payment of
+the invoice.
+.SH
+RETURN VALUE
+.LP
+(Note: the return format is the same as lightning-listinvoices(7)).
+.PP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBlabel\fR (string): the label for the invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hash): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): Whether it has been paid, or can no longer be paid (one of \(dqpaid\(dq, \(dqexpired\(dq, \(dqunpaid\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string): Description extracted from \fBbolt11\fR or \fBbolt12\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexpires_at\fR (u64): UNIX timestamp of when invoice expires (or expired)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt11\fR (string, optional): the bolt11 string (always present unless \fBbolt12\fR is)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string, optional): the bolt12 string instead of \fBbolt11\fR (\fBexperimental-offers\fR only)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): The amount of the invoice (if it has one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpay_index\fR (u64, optional): Incrementing id for when this was paid (\fBstatus\fR \fIpaid\fR only)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_received_msat\fR (msat, optional): Amount actually received (\fBstatus\fR \fIpaid\fR only)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpaid_at\fR (u64, optional): UNIX timestamp of when invoice was paid (\fBstatus\fR \fIpaid\fR only)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_preimage\fR (secret, optional): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlocal_offer_id\fR (hex, optional): the \fIid\fR of our offer which created this invoice (\fBexperimental-offers\fR only). (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayer_note\fR (string, optional): the optional \fIpayer_note\fR from invoice_request which created this invoice (\fBexperimental-offers\fR only).
+.LP
+On failure, an error is returned and no invoice is created. If the
+lightning process fails before responding, the caller should use
+lightning-listinvoices(7) to query whether this invoice was created or
+not.
+.PP
+The following error codes may occur:
+- -1: Catchall nonspecific error.
+- 900: An invoice with the given \fIlabel\fR already exists.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-invoice(7), lightning-listinvoices(7), lightning-delinvoice(7),
+lightning-getroute(7), lightning-sendpay(7), lightning-offer(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:0196c04ab92816d2bb24986c0234c09b0b7bc5e37be8e89a5906383e103e216f

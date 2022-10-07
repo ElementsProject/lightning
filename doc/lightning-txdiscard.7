@@ -1,0 +1,47 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-TXDISCARD" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-txdiscard -- Abandon a transaction from txprepare, release inputs
+.SH
+SYNOPSIS
+.LP
+\fBtxdiscard\fR \fItxid\fR
+.SH
+DESCRIPTION
+.LP
+The \fBtxdiscard\fR RPC command releases inputs which were reserved for
+use of the \fItxid\fR from lightning-txprepare(7).
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBunsigned_tx\fR (hex): the unsigned transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtxid\fR (txid): the transaction id of \fIunsigned_tx\fR
+.LP
+If there is no matching \fItxid\fR, an error is reported. Note that this may
+happen due to incorrect usage, such as \fBtxdiscard\fR or \fBtxsend\fR
+already being called for \fItxid\fR.
+.PP
+The following error codes may occur:
+- -1: An unknown \fItxid\fR.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-txprepare(7), lightning-txsend(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:7156f6ac0aec70cf8b7b1b0a2ac19ebc909db3fde0eb29a5f9049886f12fb490

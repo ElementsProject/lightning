@@ -1,0 +1,127 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-FUNDCHANNEL_START" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-fundchannel_start -- Command for initiating channel establishment for a lightning channel
+.SH
+SYNOPSIS
+.LP
+\fBfundchannel_start\fR \fIid\fR \fIamount\fR [\fIfeerate\fR \fIannounce\fR \fIclose_to\fR \fIpush_msat\fR]
+.SH
+DESCRIPTION
+.LP
+\fCfundchannel_start\fR is a lower level RPC command. It allows a user to
+initiate channel establishment with a connected peer.
+.PP
+\fIid\fR is the node id of the remote peer.
+.PP
+\fIamount\fR is the satoshi value that the channel will be funded at. This
+value MUST be accurate, otherwise the negotiated commitment transactions
+will not encompass the correct channel value.
+.PP
+\fIfeerate\fR is an optional field. Sets the feerate for subsequent
+commitment transactions: see \fBfundchannel\fR.
+.PP
+\fIannounce\fR whether or not to announce this channel.
+.PP
+\fIclose_to\fR is a Bitcoin address to which the channel funds should be sent to
+on close. Only valid if both peers have negotiated \fCoption_upfront_shutdown_script\fR.
+Returns \fCclose_to\fR set to closing script iff is negotiated.
+.PP
+\fIpush_msat\fR is the amount of millisatoshis to push to the channel peer at
+open. Note that this is a gift to the peer -- these satoshis are
+added to the initial balance of the peer at channel start and are largely
+unrecoverable once pushed.
+.PP
+Note that the funding transaction MUST NOT be broadcast until after
+channel establishment has been successfully completed by running
+\fCfundchannel_complete\fR, as the commitment transactions for this channel
+are not secured until the complete command succeeds. Broadcasting
+transaction before that can lead to unrecoverable loss of funds.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBfunding_address\fR (string): The address to send funding to for the channel. DO NOT SEND COINS TO THIS ADDRESS YET.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBscriptpubkey\fR (hex): The raw scriptPubkey for the address
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBclose_to\fR (hex, optional): The raw scriptPubkey which mutual close will go to; only present if \fIclose_to\fR parameter was specified and peer supports \fCoption_upfront_shutdown_script\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmindepth\fR (u32, optional): Number of confirmations before we consider the channel active.
+.LP
+The following warnings may also be returned:
+.IP "\(bu" 2
+\fBwarning_usage\fR: A warning not to prematurely broadcast the funding transaction (always present!)
+.LP
+On error the returned object will contain \fCcode\fR and \fCmessage\fR properties,
+with \fCcode\fR being one of the following:
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+-1: Catchall nonspecific error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+300: The amount exceeded the maximum configured funding amount.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+301: The provided \fCpush_msat\fR is greater than the provided \fCamount\fR.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+304: Still syncing with bitcoin network
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+305: Peer is not connected.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+306: Unknown peer id.
+.SH
+AUTHOR
+.LP
+Lisa Neigut <\fIniftynei@gmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-connect(7), lightning-fundchannel(7), lightning-multifundchannel(7),
+lightning-fundchannel_complete(7), lightning-fundchannel_cancel(7)
+lightning-openchannel_init(7), lightning-openchannel_update(7),
+lightning-openchannel_signed(7), lightning-openchannel_bump(7),
+lightning-openchannel_abort(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:6cb14a22ca1fcd6eec9ec4b730f45139ca4ac7cfec055ae905a9d3bcb481dc99

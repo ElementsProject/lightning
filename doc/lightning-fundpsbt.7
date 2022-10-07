@@ -1,0 +1,169 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-FUNDPSBT" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-fundpsbt -- Command to populate PSBT inputs from the wallet
+.SH
+SYNOPSIS
+.LP
+\fBfundpsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR [\fIminconf\fR] [\fIreserve\fR] [\fIlocktime\fR] [\fImin\fIwitness\fIweight\fR] [\fIexcess\fIas\fIchange\fR]
+.SH
+DESCRIPTION
+.LP
+\fCfundpsbt\fR is a low-level RPC command which creates a PSBT using unreserved
+inputs in the wallet, optionally reserving them as well.
+.PP
+\fIsatoshi\fR is the minimum satoshi value of the output(s) needed (or the
+string \(dqall\(dq meaning use all unreserved inputs).  If a value, it can
+be a whole number, a whole number ending in \fIsat\fR, a whole number
+ending in \fI000msat\fR, or a number with 1 to 8 decimal places ending in
+\fIbtc\fR.
+.PP
+\fIfeerate\fR can be one of the feerates listed in lightning-feerates(7),
+or one of the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4
+blocks or so) or \fIslow\fR (next 100 blocks or so) to use lightningd's
+internal estimates.  It can also be a \fIfeerate\fR is a number, with an
+optional suffix: \fIperkw\fR means the number is interpreted as
+satoshi-per-kilosipa (weight), and \fIperkb\fR means it is interpreted
+bitcoind-style as satoshi-per-kilobyte. Omitting the suffix is
+equivalent to \fIperkb\fR.
+.PP
+\fIstartweight\fR is the weight of the transaction before \fIfundpsbt\fR has
+added any inputs.
+.PP
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have. Default is 1.
+.PP
+If \fIreserve\fR if not zero, then \fIreserveinputs\fR is called (successfully, with
+\fIexclusive\fR true) on the returned PSBT for this number of blocks (default
+72 blocks if unspecified).
+.PP
+\fIlocktime\fR is an optional locktime: if not set, it is set to a recent
+block height.
+.PP
+\fImin\fIwitness\fIweight\fR is an optional minimum weight to use for a UTXO's
+witness. If the actual witness weight is greater than the provided minimum,
+the actual witness weight will be used.
+.PP
+\fIexcess\fIas\fIchange\fR is an optional boolean to flag to add a change output
+for the excess sats.
+.SH
+EXAMPLE USAGE
+.LP
+Let's assume the caller is trying to produce a 100,000 satoshi output.
+.PP
+First, the caller estimates the weight of the core (typically 42) and
+known outputs of the transaction (typically (9 + scriptlen) * 4).  For
+a simple P2WPKH it's a 22 byte scriptpubkey, so that's 124 weight.
+.PP
+It calls \(dq\fIfundpsbt\fR 100000sat slow 166\(dq, which succeeds, and returns
+the \fIpsbt\fR and \fIfeerate\fIper\fIkw\fR it used, the \fIestimated\fIfinal\fIweight\fR
+and any \fIexcess_msat\fR.
+.PP
+If \fIexcess_msat\fR is greater than the cost of adding a change output,
+the caller adds a change output randomly to position 0 or 1 in the
+PSBT.  Say \fIfeerate\fIper\fIkw\fR is 253, and the change output is a P2WPKH
+(weight 124), the cost is around 31 sats.  With the dust limit disallowing
+payments below 546 satoshis, we would only create a change output
+if \fIexcess_msat\fR was greater or equal to 31 + 546.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBpsbt\fR (string): Unsigned PSBT which fulfills the parameters given
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeerate_per_kw\fR (u32): The feerate used to create the PSBT, in satoshis-per-kiloweight
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBestimated_final_weight\fR (u32): The estimated weight of the transaction once fully signed
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexcess_msat\fR (msat): The amount above \fIsatoshi\fR which is available.  This could be zero, or dust; it will be zero if \fIchange_outnum\fR is also returned
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchange_outnum\fR (u32, optional): The 0-based output number where change was placed (only if parameter \fIexcess\fIas\fIchange\fR was true and there was sufficient funds)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreservations\fR (array of objects, optional): If \fIreserve\fR was true or a non-zero number, just as per lightning-reserveinputs(7):
+.RS
+.IP "\(bu" 2
+\fBtxid\fR (txid): The txid of the transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBvout\fR (u32): The 0-based output number
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwas_reserved\fR (boolean): Whether this output was previously reserved (always \fIfalse\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreserved\fR (boolean): Whether this output is now reserved (always \fItrue\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreserved_to_block\fR (u32): The blockheight the reservation will expire
+.RE
+.LP
+If \fIexcess\fIas\fIchange\fR is true and the excess is enough to cover
+an additional output above the \fCdust_limit\fR, then an output is
+added to the PSBT for the excess amount. The \fIexcess_msat\fR will
+be zero. A \fIchange_outnum\fR will be returned with the index of
+the change output.
+.PP
+On error the returned object will contain \fCcode\fR and \fCmessage\fR properties,
+with \fCcode\fR being one of the following:
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+-1: Catchall nonspecific error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+301: Insufficient UTXOs to meet \fIsatoshi\fR value.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-utxopsbt(7), lightning-reserveinputs(7), lightning-unreserveinputs(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:eb3eae0c99d8ca66427b89b0506842f78e9d490d3f538ca3a795142c343bb664

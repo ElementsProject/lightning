@@ -1,0 +1,37 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-WAITBLOCKHEIGHT" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-waitblockheight -- Command for waiting for blocks on the blockchain
+.SH
+SYNOPSIS
+.LP
+\fBwaitblockheight\fR \fIblockheight\fR [\fItimeout\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBwaitblockheight\fR RPC command waits until the blockchain
+has reached the specified \fIblockheight\fR.
+It will only wait up to \fItimeout\fR seconds (default 60).
+.PP
+If the \fIblockheight\fR is a present or past block height, then this
+command returns immediately.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBblockheight\fR (u32): The current block height (>= \fIblockheight\fR parameter)
+.LP
+If \fItimeout\fR seconds is reached without the specified blockheight
+being reached, this command will fail with a code of \fC2000\fR.
+.SH
+AUTHOR
+.LP
+ZmnSCPxj <\fIZmnSCPxj@protonmail.com\fR> is mainly responsible.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:1a68c63198dadfb4000dbce2537ac141afb0ac4b0232f754c89b5458774d7de4

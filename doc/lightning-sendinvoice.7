@@ -1,0 +1,122 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-SENDINVOICE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-sendinvoice -- Command for send an invoice for an offer
+.SH
+SYNOPSIS
+.LP
+\fB(WARNING: experimental-offers only)\fR
+.PP
+\fBsendinvoice\fR \fIoffer\fR \fIlabel\fR [\fImsatoshi\fR] [\fItimeout\fR] [\fIquantity\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBsendinvoice\fR RPC command creates and sends an invoice to the
+issuer of an \fIoffer\fR for it to pay: the offer must contain
+\fIsend_invoice\fR; see lightning-fetchinvoice(7).
+.PP
+If \fBfetchinvoice-noconnect\fR is not specified in the configuation, it
+will connect to the destination in the (currently common!) case where it
+cannot find a route which supports \fCoption_onion_messages\fR.
+.PP
+\fIoffer\fR is the bolt12 offer string beginning with \(dqlno1\(dq.
+.PP
+\fIlabel\fR is the unique label to use for this invoice.
+.PP
+\fImsatoshi\fR is optional: it is required if the \fIoffer\fR does not specify
+an amount at all, or specifies it in a different currency.  Otherwise
+you may set it (e.g. to provide a tip), and if not it defaults to the
+amount contained in the offer (multiplied by \fIquantity\fR if any).
+.PP
+\fItimeout\fR is how many seconds to wait for the offering node to pay the
+invoice or return an error, default 90 seconds.  This will also be the
+timeout on the invoice that is sent.
+.PP
+\fIquantity\fR is optional: it is required if the \fIoffer\fR specifies
+\fIquantity_min\fR or \fIquantity_max\fR, otherwise it is not allowed.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBlabel\fR (string): unique label supplied at invoice creation
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string): description used in the invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): Whether it's paid, unpaid or unpayable (one of \(dqunpaid\(dq, \(dqpaid\(dq, \(dqexpired\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexpires_at\fR (u64): UNIX timestamp of when it will become / became unpayable
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): the amount required to pay this invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string, optional): the BOLT12 string
+.LP
+If \fBstatus\fR is \(dqpaid\(dq:
+.IP "\(bu" 2
+\fBpay_index\fR (u64): Unique incrementing index for this payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_received_msat\fR (msat): the amount actually received (could be slightly greater than \fIamount_msat\fR, since clients may overpay)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpaid_at\fR (u64): UNIX timestamp of when it was paid
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_preimage\fR (hex): proof of payment (always 64 characters)
+.LP
+The following error codes may occur:
+- -1: Catchall nonspecific error.
+- 1002: Offer has expired.
+- 1003: Cannot find a route to the node making the offer.
+- 1004: The node making the offer returned an error message.
+- 1005: We timed out waiting for the invoice to be paid
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-fetchinvoice(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:8d2a00eea77f3bb7e4e285c7d589752cf0d72ec9e14de03d023e5704342a4f6e

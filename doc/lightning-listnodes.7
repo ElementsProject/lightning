@@ -1,0 +1,154 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-LISTNODES" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-listnodes -- Command to get the list of nodes in the known network.
+.SH
+SYNOPSIS
+.LP
+\fBlistnodes\fR [\fIid\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBlistnodes\fR command returns nodes the node has learned about via gossip messages, or a single one if the node \fIid\fR was specified.
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqlistnodes\(dq,
+  \(dqparams\(dq: {
+    \(dqid\(dq: \(dq02e29856dab8ddd9044c18486e4cab79ec717b490447af2d4831e290e48d57638a\(dq
+  }
+}
+.EE
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBnodes\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBnodeid\fR (pubkey): the public key of the node
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlast_timestamp\fR (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
+.LP
+If \fBlast_timestamp\fR is present:
+.IP "\(bu" 2
+\fBalias\fR (string): The fun alias this node advertized (up to 32 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcolor\fR (hex): The favorite RGB color this node advertized (always 6 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeatures\fR (hex): BOLT #9 features bitmap this node advertized
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBaddresses\fR (array of objects): The addresses this node advertized:
+.RS
+.IP "\(bu" 2
+\fBtype\fR (string): Type of connection (one of \(dqdns\(dq, \(dqipv4\(dq, \(dqipv6\(dq, \(dqtorv2\(dq, \(dqtorv3\(dq, \(dqwebsocket\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBport\fR (u16): port number
+.RE
+.IP
+If \fBtype\fR is \(dqdns\(dq, \(dqipv4\(dq, \(dqipv6\(dq, \(dqtorv2\(dq or \(dqtorv3\(dq:
+.RS
+.IP "\(bu" 2
+\fBaddress\fR (string): address in expected format for \fBtype\fR
+.RE
+.LP
+If \fBoption_will_fund\fR is present:
+.IP "\(bu" 2
+\fBoption_will_fund\fR (object):
+.RS
+.IP "\(bu" 2
+\fBlease_fee_base_msat\fR (msat): the fixed fee for a lease (whole number of satoshis)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlease_fee_basis\fR (u32): the proportional fee in basis points (parts per 10,000) for a lease
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfunding_weight\fR (u32): the onchain weight you'll have to pay for a lease
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel_fee_max_base_msat\fR (msat): the maximum base routing fee this node will charge during the lease
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel_fee_max_proportional_thousandths\fR (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcompact_lease\fR (hex): the lease as represented in the node_announcement
+.RE
+.LP
+On failure, one of the following error codes may be returned:
+.IP "\(bu" 2
+-32602: Error in given parameters.
+.SH
+EXAMPLE JSON RESPONSE
+.LP
+.EX
+{
+   \(dqnodes\(dq: [
+      {
+         \(dqnodeid\(dq: \(dq02e29856dab8ddd9044c14586e4cab79ec717b490447af2d4831e290e48d58638a\(dq,
+         \(dqalias\(dq: \(dqsome_alias\(dq,
+         \(dqcolor\(dq: \(dq68f442\(dq,
+         \(dqlast_timestamp\(dq: 1597213741,
+         \(dqfeatures\(dq: \(dq02a2a1\(dq,
+         \(dqaddresses\(dq: [
+            {
+               \(dqtype\(dq: \(dqipv4\(dq,
+               \(dqaddress\(dq: \(dqzzz.yy.xx.xx\(dq,
+               \(dqport\(dq: 9735
+            }
+         ]
+      }
+    ]
+}
+.EE
+.SH
+AUTHOR
+.LP
+Vincenzo Palazzo <\fIvincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command.
+.SH
+SEE ALSO
+.LP
+FIXME:
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:140f3c1af463d9b413a0060ca770b38aad4040c12125e3e5180c2c2804860274

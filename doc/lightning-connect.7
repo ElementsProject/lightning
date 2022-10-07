@@ -1,0 +1,135 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-CONNECT" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-connect -- Command for connecting to another lightning node
+.SH
+SYNOPSIS
+.LP
+\fBconnect\fR \fIid\fR [\fIhost\fR] [\fIport\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBconnect\fR RPC command establishes a new connection with another
+node in the Lightning Network.
+.PP
+\fIid\fR represents the target node's public key. As a convenience, \fIid\fR may
+be of the form \fIid@host\fR or \fIid@host:port\fR. In this case, the \fIhost\fR and
+\fIport\fR parameters must be omitted.
+.PP
+\fIhost\fR is the peer's hostname or IP address.
+.PP
+If not specified, the \fIport\fR depends on the current network:
+- bitcoin \fBmainnet\fR: 9735.
+- bitcoin \fBtestnet\fR: 19735.
+- bitcoin \fBsignet\fR: 39735.
+- bitcoin \fBregtest\fR: 19846.
+.PP
+If \fIhost\fR is not specified (or doesn't work), the connection will be attempted to an IP
+belonging to \fIid\fR obtained through gossip with other already connected
+peers.
+This can fail if your C-lightning node is a fresh install that has not
+connected to any peers yet (your node has no gossip yet),
+or if the target \fIid\fR is a fresh install that has no channels yet
+(nobody will gossip about a node until it has one published channel).
+.PP
+If \fIhost\fR begins with a \fI/\fR it is interpreted as a local path, and the
+connection will be made to that local socket (see \fBbind-addr\fR in
+lightningd-config(5)).
+.PP
+Connecting to a node is just the first step in opening a channel with
+another node. Once the peer is connected a channel can be opened with
+lightning-fundchannel(7).
+.PP
+If there are active channels with the peer, \fBconnect\fR returns once
+all the subdaemons are in place to handle the channels, not just once
+it's connected.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBid\fR (pubkey): the peer we connected to
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeatures\fR (hex): BOLT 9 features bitmap offered by peer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdirection\fR (string): Whether they initiated connection or we did (one of \(dqin\(dq, \(dqout\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBaddress\fR (object): Address information (mainly useful if \fBdirection\fR is \fIout\fR):
+.RS
+.IP "\(bu" 2
+\fBtype\fR (string): Type of connection (\fItorv2\fR/\fItorv3\fR only if \fBdirection\fR is \fIout\fR) (one of \(dqlocal socket\(dq, \(dqipv4\(dq, \(dqipv6\(dq, \(dqtorv2\(dq, \(dqtorv3\(dq)
+.RE
+.IP
+If \fBtype\fR is \(dqlocal socket\(dq:
+.RS
+.IP "\(bu" 2
+\fBsocket\fR (string): socket filename
+.RE
+.IP
+If \fBtype\fR is \(dqipv4\(dq, \(dqipv6\(dq, \(dqtorv2\(dq or \(dqtorv3\(dq:
+.RS
+.IP "\(bu" 2
+\fBaddress\fR (string): address in expected format for \fBtype\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBport\fR (u16): port number
+.RE
+.SH
+ERRORS
+.LP
+On failure, one of the following errors will be returned:
+.LP
+.EX
+{ \(dqcode\(dq : 400, \(dqmessage\(dq : \(dqUnable to connect, no address known for peer\(dq }
+.EE
+.PP
+If some addresses are known but connecting to all of them failed, the message
+will contain details about the failures:
+.LP
+.EX
+{ \(dqcode\(dq : 401, \(dqmessage\(dq : \(dq...\(dq }
+.EE
+.PP
+If the peer disconnected while we were connecting:
+.LP
+.EX
+{ \(dqcode\(dq : 402, \(dqmessage\(dq : \(dq...\(dq }
+.EE
+.PP
+If the given parameters are wrong:
+.LP
+.EX
+{ \(dqcode\(dq : -32602, \(dqmessage\(dq : \(dq...\(dq }
+.EE
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+Felix <\fIfixone@gmail.com\fR> is the original author of this manpage.
+.SH
+SEE ALSO
+.LP
+lightning-fundchannel(7), lightning-listpeers(7),
+lightning-listchannels(7), lightning-disconnect(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:327df39f103d932b9d121370dd704a9c4810bc3988e9eadf697d6af464eed0e5

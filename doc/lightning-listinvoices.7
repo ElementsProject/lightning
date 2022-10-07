@@ -1,0 +1,115 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-LISTINVOICES" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-listinvoices -- Command for querying invoice status
+.SH
+SYNOPSIS
+.LP
+\fBlistinvoices\fR [\fIlabel\fR] [\fIinvstring\fR] [\fIpayment_hash\fR] [\fIoffer_id\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBlistinvoices\fR RPC command gets the status of a specific invoice,
+if it exists, or the status of all invoices if given no argument.
+.PP
+A specific invoice can be queried by providing either the \fClabel\fR
+provided when creating the invoice, the \fCinvstring\fR string representing
+the invoice, the \fCpayment_hash\fR of the invoice, or the local \fCoffer_id\fR
+this invoice was issued for. Only one of the query parameters can be used at once.
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBinvoices\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBlabel\fR (string): unique label supplied at invoice creation
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hash): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): Whether it's paid, unpaid or unpayable (one of \(dqunpaid\(dq, \(dqpaid\(dq, \(dqexpired\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexpires_at\fR (u64): UNIX timestamp of when it will become / became unpayable
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string, optional): description used in the invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): the amount required to pay this invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt11\fR (string, optional): the BOLT11 string (always present unless \fIbolt12\fR is)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string, optional): the BOLT12 string (always present unless \fIbolt11\fR is)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlocal_offer_id\fR (hex, optional): the \fIid\fR of our offer which created this invoice (\fBexperimental-offers\fR only). (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayer_note\fR (string, optional): the optional \fIpayer_note\fR from invoice_request which created this invoice (\fBexperimental-offers\fR only).
+.LP
+If \fBstatus\fR is \(dqpaid\(dq:
+.IP "\(bu" 2
+\fBpay_index\fR (u64): Unique incrementing index for this payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_received_msat\fR (msat): the amount actually received (could be slightly greater than \fIamount_msat\fR, since clients may overpay)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpaid_at\fR (u64): UNIX timestamp of when it was paid
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_preimage\fR (secret): proof of payment (always 64 characters)
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-waitinvoice(7), lightning-delinvoice(7), lightning-invoice(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:34dbe0f4c392634bf9c36553c17b2f088d7d9ea702f3f714c5fb5a156b8262c3

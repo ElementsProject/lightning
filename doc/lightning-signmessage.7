@@ -1,0 +1,50 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-SIGNMESSAGE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-signmessage -- Command to create a signature from this node
+.SH
+SYNOPSIS
+.LP
+\fBsignmessage\fR \fImessage\fR
+.SH
+DESCRIPTION
+.LP
+The \fBsignmessage\fR RPC command creates a digital signature of
+\fImessage\fR using this node's secret key.  A receiver who knows your
+node's \fIid\fR and the \fImessage\fR can be sure that the resulting signature could
+only be created by something with access to this node's secret key.
+.PP
+\fImessage\fR must be less that 65536 characters.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBsignature\fR (hex): The signature (always 128 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecid\fR (hex): The recovery id (0, 1, 2 or 3) (always 2 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBzbase\fR (string): \fIsignature\fR and \fIrecid\fR encoded in a style compatible with \fBlnd\fR's \fBSignMessageRequest\fR <\fIhttps://api.lightning.community/#grpc-request-signmessagerequest\fR>
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-checkmessage(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:41f895f4318149c38697f0098b1072a48899548ff64cf0547f767f055c3385bd

@@ -1,0 +1,41 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-PARSEFEERATE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-parsefeerate -- Command for parsing a feerate string to a feerate
+.SH
+SYNOPSIS
+.LP
+\fBparsefeerate\fR \fIfeerate_str\fR
+.SH
+DESCRIPTION
+.LP
+The \fBparsefeerate\fR command returns the current feerate for any valid
+\fIfeerate_str\fR. This is useful for finding the current feerate that a
+\fBfundpsbt\fR or \fButxopsbt\fR command might use.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBperkw\fR (u32, optional): Value of \fIfeerate_str\fR in kilosipa
+.SH
+ERRORS
+.LP
+The \fBparsefeerate\fR command will error if the \fIfeerate_str\fR format is
+not recognized.
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.SH
+TRIVIA
+.LP
+In CLN we like to call the weight unit \(dqsipa\(dq
+in honor of Pieter Wuille,
+who uses the name \(dqsipa\(dq on IRC and elsewhere.
+Internally we call the \fIperkw\fR style as \(dqfeerate per kilosipa\(dq.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:4f3630599ab901b7e1b916ad41e4a1f7d8f291e8e67d983e8ebc1ed358c2498e

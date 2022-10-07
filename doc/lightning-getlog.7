@@ -1,0 +1,151 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-GETLOG" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-getlog -- Command to show logs.
+.SH
+SYNOPSIS
+.LP
+\fBgetlog\fR [\fIlevel\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBgetlog\fR the RPC command to show logs, with optional log \fIlevel\fR.
+.IP "\(bu" 2
+\fIlevel\fR: A string that represents the log level (\fIbroken\fR, \fIunusual\fR, \fIinfo\fR, \fIdebug\fR, or \fIio\fR).  The default is \fIinfo\fR.
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqgetlog\(dq,
+  \(dqparams\(dq: {
+    \(dqlevel\(dq: \(dqdebug\(dq
+  }
+}
+.EE
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBcreated_at\fR (string): UNIX timestamp with 9 decimal places, when logging was initialized
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbytes_used\fR (u32): The number of bytes used by logging records
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbytes_max\fR (u32): The bytes_used values at which records will be trimmed 
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlog\fR (array of objects):
+.RS
+.IP "\(bu" 2
+\fBtype\fR (string) (one of \(dqSKIPPED\(dq, \(dqBROKEN\(dq, \(dqUNUSUAL\(dq, \(dqINFO\(dq, \(dqDEBUG\(dq, \(dqIO\fIIN\(dq, \(dqIO\fROUT\(dq)
+.RE
+.IP
+If \fBtype\fR is \(dqSKIPPED\(dq:
+.RS
+.IP "\(bu" 2
+\fBnum_skipped\fR (u32): number of unprinted log entries (deleted or below \fIlevel\fR parameter)
+.RE
+.IP
+If \fBtype\fR is \(dqBROKEN\(dq, \(dqUNUSUAL\(dq, \(dqINFO\(dq or \(dqDEBUG\(dq:
+.RS
+.IP "\(bu" 2
+\fBtime\fR (string): UNIX timestamp with 9 decimal places after \fBcreated_at\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsource\fR (string): The particular logbook this was found in
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlog\fR (string): The actual log message
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBnode_id\fR (pubkey, optional): The peer this is associated with
+.RE
+.IP
+If \fBtype\fR is \(dqIO\fIIN\(dq or \(dqIO\fROUT\(dq:
+.RS
+.IP "\(bu" 2
+\fBtime\fR (string): Seconds after \fBcreated_at\fR, with 9 decimal places
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsource\fR (string): The particular logbook this was found in
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlog\fR (string): The associated log message
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdata\fR (hex): The IO which occurred
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBnode_id\fR (pubkey, optional): The peer this is associated with
+.RE
+.LP
+On failure, one of the following error codes may be returned:
+.IP "\(bu" 2
+-32602: Error in given parameters.
+.SH
+EXAMPLE JSON RESPONSE
+.LP
+.EX
+{
+   \(dqcreated_at\(dq: \(dq1598192543.820753463\(dq,
+   \(dqbytes_used\(dq: 89285843,
+   \(dqbytes_max\(dq: 104857600,
+   \(dqlog\(dq: [
+      {
+         \(dqtype\(dq: \(dqSKIPPED\(dq,
+         \(dqnum_skipped\(dq: 45
+      },
+      {
+         \(dqtype\(dq: \(dqINFO\(dq,
+         \(dqtime\(dq: \(dq0.453627568\(dq,
+         \(dqsource\(dq: \(dqplugin-autopilot.py\(dq,
+         \(dqlog\(dq: \(dqRPC method 'autopilot-run-once' does not have a docstring.\(dq
+      }
+   ]
+}
+.EE
+.SH
+AUTHOR
+.LP
+Vincenzo Palazzo <\fIvincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:6df0ea58b53a599f18299b5f47f168ba698de10dbdb74c964b2bbc0151e25ae6

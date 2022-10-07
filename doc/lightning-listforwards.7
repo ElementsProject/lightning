@@ -1,0 +1,100 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-LISTFORWARDS" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-listforwards -- Command showing all htlcs and their information
+.SH
+SYNOPSIS
+.LP
+\fBlistforwards\fR [\fIstatus\fR] [\fIin_channel\fR] [\fIout_channel\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBlistforwards\fR RPC command displays all htlcs that have been
+attempted to be forwarded by the Core Lightning node.
+.PP
+If \fIstatus\fR is specified, then only the forwards with the given status are returned.
+\fIstatus\fR can be either \fIoffered\fR or \fIsettled\fR or \fIfailed\fR or \fIlocal_failed\fR
+.PP
+If \fIin_channel\fR or \fIout_channel\fR is specified, then only the matching forwards
+on the given in/out channel are returned.
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBforwards\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBin_channel\fR (short\fIchannel\fRid): the channel that received the HTLC
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBin_msat\fR (msat): the value of the incoming HTLC
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): still ongoing, completed, failed locally, or failed after forwarding (one of \(dqoffered\(dq, \(dqsettled\(dq, \(dqlocal_failed\(dq, \(dqfailed\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreceived_time\fR (number): the UNIX timestamp when this was received
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBout_channel\fR (short\fIchannel\fRid, optional): the channel that the HTLC (trying to) forward to
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hex, optional): payment hash sought by HTLC (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstyle\fR (string, optional): Either a legacy onion format or a modern tlv format (one of \(dqlegacy\(dq, \(dqtlv\(dq)
+.LP
+If \fBout_msat\fR is present:
+.IP "\(bu" 2
+\fBfee_msat\fR (msat): the amount this paid in fees
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBout_msat\fR (msat): the amount we sent out the \fIout_channel\fR
+.LP
+If \fBstatus\fR is \(dqsettled\(dq or \(dqfailed\(dq:
+.IP "\(bu" 2
+\fBresolved_time\fR (number): the UNIX timestamp when this was resolved
+.LP
+If \fBstatus\fR is \(dqlocal_failed\(dq or \(dqfailed\(dq:
+.IP "\(bu" 2
+\fBfailcode\fR (u32, optional): the numeric onion code returned
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfailreason\fR (string, optional): the name of the onion code returned
+.SH
+AUTHOR
+.LP
+Rene Pickhardt <\fIr.pickhardt@gmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-getinfo(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:f80f8a88c52139478c9d3b26e89731d984bdbfc85a5980e849f5b25d85fb6260

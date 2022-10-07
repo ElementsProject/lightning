@@ -1,0 +1,116 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-LISTSENDPAYS" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-listsendpays -- Low-level command for querying sendpay status
+.SH
+SYNOPSIS
+.LP
+\fBlistsendpays\fR [\fIbolt11\fR] [\fIpayment_hash\fR] [\fIstatus\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBlistsendpays\fR RPC command gets the status of all \fIsendpay\fR
+commands (which is also used by the \fIpay\fR command), or with \fIbolt11\fR or
+\fIpayment_hash\fR limits results to that specific payment. You cannot
+specify both. It is possible filter the payments also by \fIstatus\fR.
+.PP
+Note that in future there may be more than one concurrent \fIsendpay\fR
+command per \fIpay\fR, so this command should be used with caution.
+.SH
+RETURN VALUE
+.LP
+Note that the returned array is ordered by increasing \fIid\fR.
+.PP
+On success, an object containing \fBpayments\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBid\fR (u64): unique ID for this payment attempt
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hash): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): status of the payment (one of \(dqpending\(dq, \(dqfailed\(dq, \(dqcomplete\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_sent_msat\fR (msat): The amount sent
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBgroupid\fR (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): The amount delivered to destination (if known)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlabel\fR (string, optional): the label, if given to sendpay
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt11\fR (string, optional): the bolt11 string (if pay supplied one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string, optional): the description matching the bolt11 description hash (if pay supplied one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied for pay: \fBexperimental-offers\fR only).
+.LP
+If \fBstatus\fR is \(dqcomplete\(dq:
+.IP "\(bu" 2
+\fBpayment_preimage\fR (secret): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+.LP
+If \fBstatus\fR is \(dqfailed\(dq:
+.IP "\(bu" 2
+\fBerroronion\fR (hex, optional): the onion message returned
+.SH
+AUTHOR
+.LP
+Christian Decker <\fIdecker.christian@gmail.com\fR> is mainly
+responsible.
+.SH
+SEE ALSO
+.LP
+lightning-listpays(7), lightning-sendpay(7), lightning-listinvoice(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:2ae1c2e2eca79cd213d98b24046323e13cd0fc9fabe5bb38a6fb5a6d77a7d47f

@@ -1,0 +1,805 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-DECODE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-decode -- Command for decoding an invoice string (low-level)
+.SH
+SYNOPSIS
+.LP
+\fBdecode\fR \fIstring\fR
+.SH
+DESCRIPTION
+.LP
+The \fBdecode\fR RPC command checks and parses:
+.IP "\(bu" 2
+a \fIbolt11\fR or \fIbolt12\fR string (optionally prefixed by \fClightning:\fR
+or \fCLIGHTNING:\fR) as specified by the BOLT 11 and BOLT 12
+specifications.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+a \fIrune\fR as created by lightning-commando-rune(7).
+.LP
+It may decode other formats in future.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBtype\fR (string): what kind of object it decoded to (one of \(dqbolt12 offer\(dq, \(dqbolt12 invoice\(dq, \(dqbolt12 invoice_request\(dq, \(dqbolt11 invoice\(dq, \(dqrune\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBvalid\fR (boolean): if this is false, you \fIMUST\fR not use the result except for diagnostics!
+.LP
+If \fBtype\fR is \(dqbolt12 offer\(dq, and \fBvalid\fR is \fItrue\fR:
+.IP "\(bu" 2
+\fBoffer_id\fR (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBnode_id\fR (point32): x-only public key of the offering node
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string): the description of the purpose of the offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsignature\fR (bip340sig, optional): BIP-340 signature of the \fInode_id\fR on this offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchains\fR (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
+.RS
+.IP "\(bu" 2
+the genesis blockhash (always 64 characters)
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcurrency\fR (string, optional): ISO 4217 code of the currency (missing implies Bitcoin) (always 3 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBminor_unit\fR (u32, optional): the number of decimal places to apply to amount (if currency known)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount\fR (u64, optional): the amount in the \fIcurrency\fR adjusted by \fIminor_unit\fR, if any
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): the amount in bitcoin (if specified, and no \fIcurrency\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsend_invoice\fR (boolean, optional): present if this is a send_invoice offer (always \fItrue\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrefund_for\fR (hex, optional): the \fIpayment_preimage\fR of invoice this is a refund for (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBvendor\fR (string, optional): the name of the vendor for this offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeatures\fR (hex, optional): the array of feature bits for this offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBabsolute_expiry\fR (u64, optional): UNIX timestamp of when this offer expires
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpaths\fR (array of objects, optional): Paths to the destination:
+.RS
+.IP "\(bu" 2
+\fBblinding\fR (pubkey): blinding factor for this path
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpath\fR (array of objects): an individual path:
+.RS
+.IP "\(bu" 2
+\fBnode_id\fR (pubkey): node_id of the hop
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBencrypted_recipient_data\fR (hex): encrypted TLV entry for this hop
+.RE
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBquantity_min\fR (u64, optional): the minimum quantity
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBquantity_max\fR (u64, optional): the maximum quantity
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecurrence\fR (object, optional): how often to this offer should be used:
+.RS
+.IP "\(bu" 2
+\fBtime_unit\fR (u32): the BOLT12 time unit
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBperiod\fR (u32): how many \fItime_unit\fR per payment period
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtime_unit_name\fR (string, optional): the name of \fItime_unit\fR (if valid)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbasetime\fR (u64, optional): period starts at this UNIX timestamp
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstart_any_period\fR (u64, optional): you can start at any period (only if \fBbasetime\fR present)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlimit\fR (u32, optional): maximum period number for recurrence
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpaywindow\fR (object, optional): when within a period will payment be accepted (default is prior and during the period):
+.RS
+.IP "\(bu" 2
+\fBseconds_before\fR (u32): seconds prior to period start
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBseconds_after\fR (u32): seconds after to period start
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBproportional_amount\fR (boolean, optional): amount should be scaled if payed after period start (always \fItrue\fR)
+.RE
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+the following warnings are possible:
+.RS
+.IP "\(bu" 2
+\fBwarning_offer_unknown_currency\fR: The currency code is unknown (so no \fBminor_unit\fR)
+.RE
+.LP
+If \fBtype\fR is \(dqbolt12 offer\(dq, and \fBvalid\fR is \fIfalse\fR:
+.IP "\(bu" 2
+the following warnings are possible:
+.RS
+.IP "\(bu" 2
+\fBwarning_offer_missing_description\fR: No \fBdescription\fR
+.RE
+.LP
+If \fBtype\fR is \(dqbolt12 invoice\(dq, and \fBvalid\fR is \fItrue\fR:
+.IP "\(bu" 2
+\fBnode_id\fR (point32): x-only public key of the offering node
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsignature\fR (bip340sig): BIP-340 signature of the \fInode_id\fR on this offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat): the amount in bitcoin
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string): the description of the purpose of the offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated_at\fR (u64): the UNIX timestamp of invoice creation
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrelative_expiry\fR (u32): the number of seconds after \fIcreated_at\fR when this expires
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmin_final_cltv_expiry\fR (u32): the number of blocks required by destination
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoffer_id\fR (hex, optional): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchain\fR (hex, optional): which blockchain this invoice is for (missing implies bitcoin mainnet only) (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsend_invoice\fR (boolean, optional): present if this offer was a send_invoice offer (always \fItrue\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrefund_for\fR (hex, optional): the \fIpayment_preimage\fR of invoice this is a refund for (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBvendor\fR (string, optional): the name of the vendor for this offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeatures\fR (hex, optional): the array of feature bits for this offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpaths\fR (array of objects, optional): Paths to the destination:
+.RS
+.IP "\(bu" 2
+\fBblinding\fR (pubkey): blinding factor for this path
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpath\fR (array of objects): an individual path:
+.RS
+.IP "\(bu" 2
+\fBnode_id\fR (pubkey): node_id of the hop
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBencrypted_recipient_data\fR (hex): encrypted TLV entry for this hop
+.RE
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBquantity\fR (u64, optional): the quantity ordered
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecurrence_counter\fR (u32, optional): the 0-based counter for a recurring payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecurrence_start\fR (u32, optional): the optional start period for a recurring payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecurrence_basetime\fR (u32, optional): the UNIX timestamp of the first recurrence period start
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayer_key\fR (point32, optional): the transient key which identifies the payer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayer_info\fR (hex, optional): the payer-provided blob to derive payer_key
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfallbacks\fR (array of objects, optional): onchain addresses:
+.RS
+.IP "\(bu" 2
+\fBversion\fR (u8): Segwit address version
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhex\fR (hex): Raw encoded segwit address
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBaddress\fR (string, optional): bech32 segwit address
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrefund_signature\fR (bip340sig, optional): the payer key signature to get a refund
+.LP
+If \fBtype\fR is \(dqbolt12 invoice\(dq, and \fBvalid\fR is \fIfalse\fR:
+.IP "\(bu" 2
+\fBfallbacks\fR (array of objects, optional):
+.RS
+.IP "\(bu" 2
+the following warnings are possible:
+.RS
+.IP "\(bu" 2
+\fBwarning_invoice_fallbacks_version_invalid\fR: \fBversion\fR is > 16
+.RE
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+the following warnings are possible:
+.RS
+.IP "\(bu" 2
+\fBwarning_invoice_missing_amount\fR: *\fIamount_msat\fR missing
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_missing_description\fR: No \fBdescription\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_missing_blinded_payinfo\fR: Has \fBpaths\fR without payinfo
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_invalid_blinded_payinfo\fR: Does not have exactly one payinfo for each of \fBpaths\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_missing_recurrence_basetime\fR: Has \fBrecurrence_counter\fR without \fBrecurrence_basetime\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_missing_created_at\fR: Missing \fBcreated_at\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_missing_payment_hash\fR: Missing \fBpayment_hash\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_refund_signature_missing_payer_key\fR: Missing \fBpayer_key\fR for refund_signature
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_refund_signature_invalid\fR: \fBrefund_signature\fR incorrect
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_refund_missing_signature\fR: No \fBrefund_signature\fR
+.RE
+.LP
+If \fBtype\fR is \(dqbolt12 invoice_request\(dq, and \fBvalid\fR is \fItrue\fR:
+.IP "\(bu" 2
+\fBoffer_id\fR (hex): the id of the offer this is requesting (merkle hash of non-signature fields) (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayer_key\fR (point32): the transient key which identifies the payer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchain\fR (hex, optional): which blockchain this invoice_request is for (missing implies bitcoin mainnet only) (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): the amount in bitcoin
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeatures\fR (hex, optional): the array of feature bits for this offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBquantity\fR (u64, optional): the quantity ordered
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecurrence_counter\fR (u32, optional): the 0-based counter for a recurring payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecurrence_start\fR (u32, optional): the optional start period for a recurring payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayer_info\fR (hex, optional): the payer-provided blob to derive payer_key
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrecurrence_signature\fR (bip340sig, optional): the payer key signature
+.LP
+If \fBtype\fR is \(dqbolt12 invoice_request\(dq, and \fBvalid\fR is \fIfalse\fR:
+.IP "\(bu" 2
+the following warnings are possible:
+.RS
+.IP "\(bu" 2
+\fBwarning_invoice_request_missing_offer_id\fR: No \fBoffer_id\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_request_missing_payer_key\fR: No \fBpayer_key\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_request_missing_recurrence_signature\fR: No \fBrecurrence_signature\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwarning_invoice_request_invalid_recurrence_signature\fR: \fBrecurrence_signature\fR incorrect
+.RE
+.LP
+If \fBtype\fR is \(dqbolt11 invoice\(dq, and \fBvalid\fR is \fItrue\fR:
+.IP "\(bu" 2
+\fBcurrency\fR (string): the BIP173 name for the currency
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated_at\fR (u64): the UNIX-style timestamp of the invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexpiry\fR (u64): the number of seconds this is valid after \fItimestamp\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayee\fR (pubkey): the public key of the recipient
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsignature\fR (signature): signature of the \fIpayee\fR on this invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmin_final_cltv_expiry\fR (u32): the minimum CLTV delay for the final node
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): Amount the invoice asked for
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string, optional): the description of the purpose of the purchase
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription_hash\fR (hex, optional): the hash of the description, in place of \fIdescription\fR (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_secret\fR (hex, optional): the secret to hand to the payee node (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeatures\fR (hex, optional): the features bitmap for this invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_metadata\fR (hex, optional): the payment_metadata to put in the payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfallbacks\fR (array of objects, optional): onchain addresses:
+.RS
+.IP "\(bu" 2
+\fBtype\fR (string): the address type (if known) (one of \(dqP2PKH\(dq, \(dqP2SH\(dq, \(dqP2WPKH\(dq, \(dqP2WSH\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhex\fR (hex): Raw encoded address
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBaddr\fR (string, optional): the address in appropriate format for \fItype\fR
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBroutes\fR (array of arrays, optional): Route hints to the \fIpayee\fR:
+.RS
+.IP "\(bu" 2
+hops in the route:
+.RS
+.IP "\(bu" 2
+\fBpubkey\fR (pubkey): the public key of the node
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBshort_channel_id\fR (short\fIchannel\fRid): a channel to the next peer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfee_base_msat\fR (msat): the base fee for payments
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfee_proportional_millionths\fR (u32): the parts-per-million fee for payments
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcltv_expiry_delta\fR (u32): the CLTV delta across this hop
+.RE
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBextra\fR (array of objects, optional): Any extra fields we didn't know how to parse:
+.RS
+.IP "\(bu" 2
+\fBtag\fR (string): The bech32 letter which identifies this field (always 1 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdata\fR (string): The bech32 data for this field
+.RE
+.LP
+If \fBtype\fR is \(dqrune\(dq, and \fBvalid\fR is \fItrue\fR:
+.IP "\(bu" 2
+\fBvalid\fR (boolean) (always \fItrue\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstring\fR (string): the string encoding of the rune
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrestrictions\fR (array of objects): restrictions built into the rune: all must pass:
+.RS
+.IP "\(bu" 2
+\fBalternatives\fR (array of strings): each way restriction can be met: any can pass:
+.RS
+.IP "\(bu" 2
+the alternative of form fieldname condition fieldname
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsummary\fR (string): human-readable summary of this restriction
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBunique_id\fR (string, optional): unique id (always a numeric id on runes we create)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBversion\fR (string, optional): rune version, not currently set on runes we create
+.LP
+If \fBtype\fR is \(dqrune\(dq, and \fBvalid\fR is \fIfalse\fR:
+.IP "\(bu" 2
+\fBvalid\fR (boolean) (always \fIfalse\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhex\fR (hex, optional): the raw rune in hex
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+the following warnings are possible:
+.RS
+.IP "\(bu" 2
+\fBwarning_rune_invalid_utf8\fR: the rune contains invalid UTF-8 strings
+.RE
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-pay(7), lightning-offer(7), lightning-offerout(7), lightning-fetchinvoice(7), lightning-sendinvoice(7), lightning-commando-rune(7)
+.PP
+\fBBOLT #11\fR <\fIhttps://github.com/lightningnetwork/bolts/blob/master/11-payment-encoding.md\fR>.
+.PP
+\fBBOLT #12\fR <\fIhttps://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md\fR>.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:cb3df7326e066c9cdb7676a5246b18a0bd3a769696fbd37d8b71fc883ea80474

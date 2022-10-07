@@ -1,0 +1,117 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-BKPR-INSPECT" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-bkpr-inspect -- Command to show onchain footprint of a channel
+.SH
+SYNOPSIS
+.LP
+\fBbkpr-inspect\fR \fIaccount\fR
+.SH
+DESCRIPTION
+.LP
+The \fBbkpr-inspect\fR RPC command lists all known on-chain transactions and
+associated events for the provided account. Useful for inspecting unilateral
+closes for a given channel account. Only valid for channel accounts.
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBtxs\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBtxid\fR (txid): transaction id
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfees_paid_msat\fR (msat): Amount paid in sats for this tx
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoutputs\fR (array of objects):
+.RS
+.IP "\(bu" 2
+\fBaccount\fR (string): Account this output affected
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoutnum\fR (u32): Index of output
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoutput_value_msat\fR (msat): Value of the output
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcurrency\fR (string): human-readable bech32 part for this coin type
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcredit_msat\fR (msat, optional): Amount credited to account
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdebit_msat\fR (msat, optional): Amount debited from account
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoriginating_account\fR (string, optional): Account this output originated from
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoutput_tag\fR (string, optional): Description of output creation event
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBspend_tag\fR (string, optional): Description of output spend event
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBspending_txid\fR (txid, optional): Transaction this output was spent in
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_id\fR (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBblockheight\fR (u32, optional): Blockheight of transaction
+.SH
+AUTHOR
+.LP
+niftynei \fIniftynei@gmail.com\fR is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-listbalances(7), lightning-listfunds(7), lightning-listpeers(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:e7cfcfed93eef02fb1cb5fbdf303d2fbe8083ed1acc83097636c4e44f6d277ec

@@ -1,0 +1,179 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-DELPAY" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-delpay -- Command for removing a completed or failed payment
+.SH
+SYNOPSIS
+.LP
+\fBdelpay\fR \fIpayment_hash\fR \fIstatus\fR
+.SH
+DESCRIPTION
+.LP
+The \fBdelpay\fR RPC command deletes a payment with the given \fCpayment_hash\fR if its status is either \fCcomplete\fR or \fCfailed\fR. Deleting a \fCpending\fR payment is an error.
+.IP "\(bu" 2
+\fIpayment_hash\fR: The unique identifier of a payment.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fIstatus\fR: Expected status of the payment. 
+Only deletes if the payment status matches.
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqdelpay\(dq,
+  \(dqparams\(dq: {
+    \(dqpayment_hash\(dq: \(dq4fa2f1b001067ec06d7f95b8695b8acd9ef04c1b4d1110e3b94e1fa0687bb1e0\(dq,
+    \(dqstatus\(dq: \(dqcomplete\(dq
+  }
+}
+.EE
+.SH
+RETURN VALUE
+.LP
+The returned format is the same as lightning-listsendpays(7).  If the
+payment is a multi-part payment (MPP) the command return a list of
+payments will be returned -- one payment object for each partid.
+.PP
+On success, an object containing \fBpayments\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBid\fR (u64): unique ID for this payment attempt
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): status of the payment (one of \(dqpending\(dq, \(dqfailed\(dq, \(dqcomplete\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_sent_msat\fR (msat): the amount we actually sent, including fees
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpartid\fR (u64, optional): unique ID within this (multi-part) payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): the amount the destination received, if known
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBgroupid\fR (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_preimage\fR (hex, optional): proof of payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlabel\fR (string, optional): the label, if given to sendpay
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt11\fR (string, optional): the bolt11 string (if pay supplied one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied for pay: \fBexperimental-offers\fR only).
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBerroronion\fR (hex, optional): the error onion returned on failure, if any.
+.LP
+On failure, an error is returned. If the lightning process fails before responding, the
+caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.
+.PP
+The following error codes may occur:
+.IP "\(bu" 2
+-32602: Parameter missed or malformed;
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+211: Payment status mismatch. Check the correct status via \fBpaystatus\fR;
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+208: Payment with payment_hash not found.
+.SH
+EXAMPLE JSON RESPONSE
+.LP
+.EX
+{
+   \(dqpayments\(dq: [
+      {
+         \(dqid\(dq: 2,
+         \(dqpayment_hash\(dq: \(dq8dfd6538eeb33811c9114a75f792a143728d7f05643f38c3d574d3097e8910c0\(dq,
+         \(dqdestination\(dq: \(dq0219f8900ee78a89f050c24d8b69492954f9fdbabed753710845eb75d3a75a5880\(dq,
+         \(dqmsatoshi\(dq: 1000,
+         \(dqamount_msat\(dq: \(dq1000msat\(dq,
+         \(dqmsatoshi_sent\(dq: 1000,
+         \(dqamount_sent_msat\(dq: \(dq1000msat\(dq,
+         \(dqcreated_at\(dq: 1596224858,
+         \(dqstatus\(dq: \(dqcomplete\(dq,
+         \(dqpayment_preimage\(dq: \(dq35bd4e2b481a1a84a22215b5372672cf81460a671816960ddb206464359e1822\(dq,
+         \(dqbolt11\(dq: \(dqlntb10n1p0jga20pp53h7k2w8wkvuprjg3ff6l0y4pgdeg6lc9vsln3s74wnfsjl5fzrqqdqdw3jhxazldahx2xqyjw5qcqp2sp5wut5jnhr6n7jd5747ky2g5flmw7hgx9yjnqzu60ps2jf6f7tc0us9qy9qsqu2a0k37nckl62005p69xavlkydkvhnypk4dphffy4x09zltwh9437ad7xkl83tefdarzhu5t30ju5s56wlrg97qkx404pq3srfc425cq3ke9af\(dq
+      }
+   ]
+}
+
+.EE
+.SH
+AUTHOR
+.LP
+Vincenzo Palazzo <\fIvincenzo.palazzo@protonmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-listpays(7), lightning-listsendpays(7), lightning-paystatus(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:07edf98f251187f6d94de7ecc35b0da3369ee558ea5da8d1c86a58ec89ba533b

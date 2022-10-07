@@ -1,0 +1,99 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-BKPR-LISTINCOME" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-bkpr-listincome -- Command for listing all income impacting events
+.SH
+SYNOPSIS
+.LP
+\fBbkpr-listincome\fR [\fIconsolidate_fees\fR] [\fIstart_time\fR] [\fIend_time\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBbkpr-listincome\fR RPC command is a list of all income impacting events that the bookkeeper plugin has recorded for this node.
+.PP
+If \fBconsolidate_fees\fR is true, we emit a single, consolidated event for
+any onchain-fees for a txid and account. Otherwise, events for every update to
+the onchain fee calculation for this account and txid will be printed. Defaults to true. Note that this means that the events emitted are non-stable,
+i.e. calling \fBlistincome\fR twice may result in different onchain fee events
+being emitted, depending on how much information we've logged for that
+transaction.
+.PP
+The \fBstart_time\fR is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
+.PP
+The \fBend_time\fR is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBincome_events\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBaccount\fR (string): The account name. If the account is a channel, the channel_id
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtag\fR (string): Type of income event
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcredit_msat\fR (msat): Amount earned (income)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdebit_msat\fR (msat): Amount spent (expenses)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcurrency\fR (string): human-readable bech32 part for this coin type
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtimestamp\fR (u32): Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string, optional): More information about this event. If a \fCinvoice\fR type, typically the bolt11/bolt12 description
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoutpoint\fR (string, optional): The txid:outnum for this event, if applicable
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtxid\fR (txid, optional): The txid of the transaction that created this event, if applicable
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_id\fR (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
+.SH
+AUTHOR
+.LP
+niftynei \fIniftynei@gmail.com\fR is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-bkpr-listaccountevents(7), lightning-listfunds(7),
+lightning-bkpr-listbalances(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:a35ed9e760079938608780cff57d923bec804334a0ddbebc58657afe261ed82f

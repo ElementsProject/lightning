@@ -1,0 +1,194 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-SENDPAY" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-sendpay -- Low-level command for sending a payment via a route
+.SH
+SYNOPSIS
+.LP
+\fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIlabel\fR] [\fImsatoshi\fR]
+[\fIbolt11\fR] [\fIpayment_secret\fR] [\fIpartid\fR] [\fIlocalofferid\fR] [\fIgroupid\fR]
+[\fIpayment_metadata\fR] [\fIdescription\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBsendpay\fR RPC command attempts to send funds associated with the
+given \fIpayment_hash\fR, along a route to the final destination in the
+route.
+.PP
+Generally, a client would call lightning-getroute(7) to resolve a route,
+then use \fBsendpay\fR to send it. If it fails, it would call
+lightning-getroute(7) again to retry.
+.PP
+The response will occur when the payment is on its way to the
+destination. The \fBsendpay\fR RPC command does not wait for definite
+success or definite failure of the payment. Instead, use the
+\fBwaitsendpay\fR RPC command to poll or wait for definite success or
+definite failure.
+.PP
+The \fIlabel\fR and \fIbolt11\fR parameters, if provided, will be returned in
+\fIwaitsendpay\fR and \fIlistsendpays\fR results.
+.PP
+The \fImsatoshi\fR amount must be provided if \fIpartid\fR is non-zero, otherwise
+it must be equal to the final
+amount to the destination. By default it is in millisatoshi precision; it can be a whole number, or a whole number
+ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places ending
+in \fIsat\fR, or a number with 1 to 11 decimal places ending in \fIbtc\fR.
+.PP
+The \fIpayment_secret\fR is the value that the final recipient requires to
+accept the payment, as defined by the \fCpayment_data\fR field in BOLT 4
+and the \fCs\fR field in the BOLT 11 invoice format.  It is required if
+\fIpartid\fR is non-zero.
+.PP
+The \fIpartid\fR value, if provided and non-zero, allows for multiple parallel
+partial payments with the same \fIpayment_hash\fR.  The \fImsatoshi\fR amount
+(which must be provided) for each \fBsendpay\fR with matching
+\fIpayment_hash\fR must be equal, and \fBsendpay\fR will fail if there are
+already \fImsatoshi\fR worth of payments pending.
+.PP
+The \fIlocalofferid\fR value indicates that this payment is being made for a local
+send_invoice offer: this ensures that we only send a payment for a single-use
+offer once.
+.PP
+\fIgroupid\fR allows you to attach a number which appears in \fBlistsendpays\fR so
+payments can be identified as part of a logical group.  The \fIpay\fR plugin uses
+this to identify one attempt at a MPP payment, for example.
+.PP
+\fIpayment_metadata\fR is placed in the final onion hop TLV.
+.PP
+Once a payment has succeeded, calls to \fBsendpay\fR with the same
+\fIpayment_hash\fR but a different \fImsatoshi\fR or destination will fail;
+this prevents accidental multiple payments. Calls to \fBsendpay\fR with
+the same \fIpayment_hash\fR, \fImsatoshi\fR, and destination as a previous
+successful payment (even if a different route or \fIpartid\fR) will return immediately
+with success.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBid\fR (u64): unique ID for this payment attempt
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hash): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstatus\fR (string): status of the payment (could be complete if already sent previously) (one of \(dqpending\(dq, \(dqcomplete\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_sent_msat\fR (msat): The amount sent
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBgroupid\fR (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): The amount delivered to destination (if known)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlabel\fR (string, optional): the \fIlabel\fR, if given to sendpay
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpartid\fR (u64, optional): the \fIpartid\fR, if given to sendpay
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt11\fR (string, optional): the bolt11 string (if supplied)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied: \fBexperimental-offers\fR only).
+.LP
+If \fBstatus\fR is \(dqcomplete\(dq:
+.IP "\(bu" 2
+\fBpayment_preimage\fR (secret): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+.LP
+If \fBstatus\fR is \(dqpending\(dq:
+.IP "\(bu" 2
+\fBmessage\fR (string): Monitor status with listpays or waitsendpay
+.LP
+On error, if the error occurred from a node other than the final
+destination, the route table will be updated so that
+lightning-getroute(7) should return an alternate route (if any). An
+error from the final destination implies the payment should not be
+retried.
+.PP
+The following error codes may occur:
+-   -1: Catchall nonspecific error.
+-   201: Already paid with this \fIhash\fR using different amount or
+destination.
+-   202: Unparseable onion reply. The \fIdata\fR field of the error will
+have an \fIonionreply\fR field, a hex string representation of the raw
+onion reply.
+-   203: Permanent failure at destination. The \fIdata\fR field of the error
+will be routing failure object.
+-   204: Failure along route; retry a different route. The \fIdata\fR field
+of the error will be routing failure object.
+-   212: \fIlocalofferid\fR refers to an invalid, or used, local offer.
+.PP
+A routing failure object has the fields below:
+-   \fIerring_index\fR. The index of the node along the route that reported
+the error. 0 for the local node, 1 for the first hop, and so on.
+-   \fIerring_node\fR. The hex string of the pubkey id of the node that
+reported the error.
+-   \fIerring_channel\fR. The short channel ID of the channel that has
+the error, or \fI0:0:0\fR if the destination node raised the error. In
+addition \fIerring_direction\fR will indicate which direction of the
+channel caused the failure.
+-   \fIfailcode\fR. The failure code, as per BOLT #4.
+-   \fIchannel_update\fR. The hex string of the \fIchannel_update\fR message
+received from the remote node. Only present if error is from the
+remote node and the \fIfailcode\fR has the UPDATE bit set, as per BOLT
+#4.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-listinvoice(7), lightning-delinvoice(7),
+lightning-getroute(7), lightning-invoice(7), lightning-pay(7),
+lightning-waitsendpay(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:1ad9de7c01b2faf7ebfb7e31f02044663610fb8883e2c21dac398e8e090ea70f

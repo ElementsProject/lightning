@@ -1,0 +1,35 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-DELEXPIREDINVOICE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-delexpiredinvoice -- Command for removing expired invoices
+.SH
+SYNOPSIS
+.LP
+\fBdelexpiredinvoice\fR [\fImaxexpirytime\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBdelexpiredinvoice\fR RPC command removes all invoices that have
+expired on or before the given \fImaxexpirytime\fR.
+.PP
+If \fImaxexpirytime\fR is not specified then all expired invoices are
+deleted.
+.SH
+RETURN VALUE
+.LP
+On success, an empty object is returned.
+.SH
+AUTHOR
+.LP
+ZmnSCPxj <\fIZmnSCPxj@protonmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-delinvoice(7), lightning-autocleaninvoice(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:e93f1986f479e630164be78be00518d8e90798fdd5de911bc1e06c420061cfb0

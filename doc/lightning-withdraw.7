@@ -1,0 +1,81 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-WITHDRAW" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-withdraw -- Command for withdrawing funds from the internal wallet
+.SH
+SYNOPSIS
+.LP
+\fBwithdraw\fR \fIdestination\fR \fIsatoshi\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBwithdraw\fR RPC command sends funds from Core Lightning's internal
+wallet to the address specified in \fIdestination\fR.
+.PP
+The address can be of any Bitcoin accepted type, including bech32.
+.PP
+\fIsatoshi\fR is the amount to be withdrawn from the internal wallet
+(expressed, as name suggests, in satoshi). The string \fIall\fR can be used
+to specify withdrawal of all available funds. Otherwise, it is in
+satoshi precision; it can be a whole number, a whole number ending in
+\fIsat\fR, a whole number ending in \fI000msat\fR, or a number with 1 to 8
+decimal places ending in \fIbtc\fR.
+.PP
+\fIfeerate\fR is an optional feerate to use. It can be one of the strings
+\fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR
+(next 100 blocks or so) to use lightningd's internal estimates: \fInormal\fR
+is the default.
+.PP
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte. Omitting
+the suffix is equivalent to \fIperkb\fR.
+.PP
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have. Default is 1.
+.PP
+\fIutxos\fR specifies the utxos to be used to be withdrawn from, as an array
+of \(dqtxid:vout\(dq. These must be drawn from the node's available UTXO set.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBtx\fR (hex): the fully signed bitcoin transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtxid\fR (txid): the transaction id of \fItx\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpsbt\fR (string): the PSBT representing the unsigned transaction
+.LP
+On failure, an error is reported and the withdrawal transaction is not
+created.
+.PP
+The following error codes may occur:
+- -1: Catchall nonspecific error.
+- 301: There are not enough funds in the internal wallet (including
+fees) to create the transaction.
+- 302: The dust limit is not met.
+.SH
+AUTHOR
+.LP
+Felix <\fIfixone@gmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-listfunds(7), lightning-fundchannel(7), lightning-newaddr(7),
+lightning-txprepare(7), lightning-feerates(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:159498b1d9fc2b66e583ee6a84b2caa2a8e38a2ccf7fd460e838167f68c4c5b9

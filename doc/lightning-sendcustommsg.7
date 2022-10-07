@@ -1,0 +1,66 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-SENDCUSTOMMSG" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-sendcustommsg -- Low-level interface to send protocol messages to peers
+.SH
+SYNOPSIS
+.LP
+\fBsendcustommsg\fR \fInode_id\fR \fImsg\fR
+.SH
+DESCRIPTION
+.LP
+The \fCsendcustommsg\fR RPC method allows the user to inject a custom message
+into the communication with the peer with the given \fCnode_id\fR. This is
+intended as a low-level interface to implement custom protocol extensions on
+top, not for direct use by end-users.
+.PP
+The message must be a hex encoded well-formed message, including the 2-byte
+type prefix, but excluding the length prefix which will be added by the RPC
+method. The messages must not use even-numbered types, since these may require
+synchronous handling on the receiving side, and can cause the connection to be
+dropped. The message types may also not use one of the internally handled
+types, since that may cause issues with the internal state tracking of
+Core Lightning.
+.PP
+The node specified by \fCnode_id\fR must be a peer, i.e., it must have a direct
+connection with the node receiving the RPC call, and the connection must be
+established. For a method to send arbitrary messages over multiple hops,
+including hops that do not understand the custom message, see the
+\fCcreateonion\fR and \fCsendonion\fR RPC methods. Messages can only be injected if
+the connection is handled by \fCopeningd\fR or \fCchanneld\fR. Messages cannot be
+injected when the peer is handled by \fConchaind\fR or \fCclosingd\fR since these do
+not have a connection, or are synchronous daemons that do not handle
+spontaneous messages.
+.PP
+On the reveiving end a plugin may implement the \fCcustommsg\fR plugin hook and
+get notified about incoming messages.
+.SH
+RETURN VALUE
+.LP
+The method will validate the arguments and queue the message for delivery
+through the daemon that is currently handling the connection. Queuing provides
+best effort guarantees and the message may not be delivered if the connection
+is terminated while the message is queued. The RPC method will return as soon
+as the message is queued.
+.PP
+If any of the above limitations is not respected the method returns an
+explicit error message stating the issue.
+.PP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBstatus\fR (string): Information about where message was queued
+.SH
+AUTHOR
+.LP
+Christian Decker <\fIdecker.christian@gmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-createonion(7), lightning-sendonion(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:f416bb2b954e8c75141e27e9197687bdfd92d113fac62ffc1107029774f83f7f

@@ -1,0 +1,58 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-BKPR-DUMPINCOMECSV" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-bkpr-dumpincomecsv -- Command to emit a CSV of income events
+.SH
+SYNOPSIS
+.LP
+\fBbkpr-dumpincomecsv\fR \fIcsv_format\fR [\fIcsv_file\fR] [\fIconsolidate_fees\fR] [\fIstart_time\fR] [\fIend_time\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBbkpr-dumpincomcsv\fR RPC command writes a CSV file to disk at \fIcsv_file\fR
+location. This is a formatted output of the \fBlistincome\fR RPC command.
+.PP
+\fBcsv_format\fR is which CSV format to use. See RETURN VALUE for options.
+.PP
+\fBcsv_file\fR is the on-disk destination of the generated CSV file.
+.PP
+If \fBconsolidate_fees\fR is true, we emit a single, consolidated event for
+any onchain-fees for a txid and account. Otherwise, events for every update to
+the onchain fee calculation for this account and txid will be printed.
+Defaults to true. Note that this means that the events emitted are
+non-stable, i.e.  calling \fBdumpincomecsv\fR twice may result in different
+onchain fee events being emitted, depending on how much information we've
+logged for that transaction.
+.PP
+The \fBstart_time\fR is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
+.PP
+The \fBend_time\fR is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBcsv_file\fR (string): File that the csv was generated to
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcsv_format\fR (string): Format to print csv as (one of \(dqcointracker\(dq, \(dqkoinly\(dq, \(dqharmony\(dq, \(dqquickbooks\(dq)
+.SH
+AUTHOR
+.LP
+niftynei \fIniftynei@gmail.com\fR is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-bkpr-listincome(7), lightning-bkpr-listfunds(7),
+lightning-bkpr-listaccountevents(7),
+lightning-bkpr-channelsapy(7), lightning-listpeers(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:b6e075a46dd08bda1d8b6e210de16374cd35c6883d87290828dcada0049d0caa

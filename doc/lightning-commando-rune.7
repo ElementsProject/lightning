@@ -1,0 +1,316 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-COMMANDO-RUNE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-commando-rune -- Command to Authorize Remote Peer Access
+.SH
+SYNOPSIS
+.LP
+\fBcommando-rune\fR [\fIrune\fR] [\fIrestrictions\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBcommando-rune\fR RPC command creates a base64 string called a
+\fIrune\fR which can be used to access commands on this node.  Each \fIrune\fR
+contains a unique id (a number starting at 0), and can have
+restrictions inside it.  Nobody can remove restrictions from a rune: if
+you try, the rune will be rejected.  There is no limit on how many
+runes you can issue: the node doesn't store them, but simply decodes
+and checks them as they are received.
+.PP
+If \fIrune\fR is supplied, the restrictions are simple appended to that
+\fIrune\fR (it doesn't need to be a rune belonging to this node).  If no
+\fIrune\fR is supplied, a new one is constructed, with a new unique id.
+.PP
+\fIrestrictions\fR can be the string \(dqreadonly\(dq (creates a rune which
+allows most \fIget\fR and \fIlist\fR commands, and the \fIsummary\fR command), or
+an array of restrictions, or a single resriction.
+.PP
+Each restriction is a set of one or more alternatives, such as \(dqmethod
+is listpeers\(dq, or \(dqmethod is listpeers OR time is before 2023\(dq.
+Alternatives use a simple language to examine the command which is
+being run:
+.IP "\(bu" 2
+time: the current UNIX time, e.g. \(dqtime<1656759180\(dq.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+id: the node_id of the peer, e.g. \(dqid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\(dq.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+method: the command being run, e.g. \(dqmethod=withdraw\(dq.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+rate: the rate limit, per minute, e.g. \(dqrate=60\(dq.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+pnum: the number of parameters. e.g. \(dqpnum<2\(dq.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+pnameX: the parameter named X. e.g. \(dqpnamedestination=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\(dq.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+parrN: the N'th parameter. e.g. \(dqparr0=1RustyRX2oai4EYYDpQGWvEL62BBGqN9T\(dq.
+.SH
+RESTRICTION FORMAT
+.LP
+Restrictions are one or more alternatives, separated by \fC|\fR.  Each
+alternative is \fIname\fR \fIoperator\fR \fIvalue\fR.  The valid names are shown
+above.  If a value contains \fC|\fR, \fC&\fR or \fC\e\e\fR, it must be preceeded by
+a \fC\e\e\fR.
+.IP "\(bu" 2
+\fC=\fR: passes if equal ie. identical. e.g. \fCmethod=withdraw\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC/\fR: not equals, e.g. \fCmethod/withdraw\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC\(ha\fR: starts with, e.g. \fCid\(ha024b9a1fa8e006f1e3937f\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC$\fR: ends with, e.g. \fCid$381df1cc449605\fR.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC\(ti\fR: contains, e.g. \fCid\(ti006f1e3937f65f66c40\fR.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC<\fR: is a decimal integer, and is less than. e.g. \fCtime<1656759180\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC>\fR: is a decimal integer, and is greater than. e.g. \fCtime>1656759180\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC{\fR: preceeds in alphabetical order (or matches but is shorter), e.g. \fCid{02ff\fR.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC}\fR: follows in alphabetical order (or matches but is longer), e.g. \fCid}02ff\fR.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC#\fR: a comment, ignored, e.g. \fCdumb example#\fR.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fC!\fR: only passes if the \fIname\fR does \fInot\fR exist. e.g. \fCpnamedestination!\fR.
+Every other operator except \fC#\fR fails if \fIname\fR does not exist!
+.SH
+EXAMPLES
+.LP
+This creates a fresh rune which can do anything:
+.LP
+.EX
+$ lightning-cli commando-rune
+{
+   \(dqrune\(dq: \(dqKUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA==\(dq,
+   \(dqunique_id\(dq: \(dq0\(dq
+}
+.EE
+.PP
+We can add restrictions to that rune, like so:
+.LP
+.EX
+$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions=readonly
+{
+   \(dqrune\(dq: \(dqNbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\(dq,
+   \(dqunique_id\(dq: \(dq0\(dq
+}
+.EE
+.PP
+The \(dqreadonly\(dq restriction is a short-cut for two restrictions:
+.IP "1.  "
+\fCmethod\(halist|method\(haget|method=summary\fR: You may call list, get or summary.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "2.  "
+\fCmethod/listdatastore\fR: But not listdatastore: that contains sensitive stuff!
+.LP
+We can do the same manually, like so:
+.LP
+.EX
+$ lightning-cli commando-rune rune=KUhZzNlECC7pYsz3QVbF1TqjIUYi3oyESTI7n60hLMs9MA== restrictions='[\(dqmethod\(halist|method\(haget|method=summary\(dq,\(dqmethod/listdatastore\(dq]'
+{
+   \(dqrune\(dq: \(dqNbL7KkXcPQsVseJ9TdJNjJK2KsPjnt_q4cE_wvc873I9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl\(dq,
+   \(dqunique_id\(dq: \(dq0\(dq
+}
+.EE
+.PP
+Let's create a rune which lets a specific peer
+(024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605)
+run \(dqlistpeers\(dq on themselves:
+.LP
+.EX
+$ lightning-cli commando-rune restrictions='[\(dqid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\(dq,\(dqmethod=listpeers\(dq,\(dqpnum=1\(dq,\(dqpnameid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605|parr0=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\(dq]'
+{
+   \(dqrune\(dq: \(dqFE8GHiGVvxcFqCQcClVRRiNE_XEeLYQzyG2jmqto4jM9MiZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDV8cGFycjA9MDI0YjlhMWZhOGUwMDZmMWUzOTM3ZjY1ZjY2YzQwOGU2ZGE4ZTFjYTcyOGVhNDMyMjJhNzM4MWRmMWNjNDQ5NjA1\(dq,
+   \(dqunique_id\(dq: \(dq2\(dq
+}
+.EE
+.PP
+This allows \fClistpeers\fR with 1 argument (\fCpnum=1\fR), which is either by name (\fCpnameid\fR), or position (\fCparr0\fR).  We could shorten this in several ways: either allowing only positional or named parameters, or by testing the start of the parameters only.  Here's an example which only checks the first 9 bytes of the \fClistpeers\fR parameter:
+.LP
+.EX
+$ lightning-cli commando-rune restrictions='[\(dqid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\(dq,\(dqmethod=listpeers\(dq,\(dqpnum=1\(dq,\(dqpnameid\(ha024b9a1fa8e006f1e393|parr0\(ha024b9a1fa8e006f1e393\(dq]'
+ {
+   \(dqrune\(dq: \(dqfTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw==\(dq,
+   \(dqunique_id\(dq: \(dq3\(dq
+}
+.EE
+.PP
+Before we give this to our peer, let's add two more restrictions: that
+it only be usable for 24 hours from now (\fCtime<\fR), and that it can only
+be used twice a minute (\fCrate=2\fR).  \fCdate +%s\fR can give us the current
+time in seconds:
+.LP
+.EX
+$ lightning-cli commando-rune rune=fTQnfL05coEbiBO8SS0cvQwCcPLxE9c02pZCC6HRVEY9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5Mw== restrictions='[\(dqtime<'$(($(date +%s) + 24*60*60))'\(dq,\(dqrate=2\(dq]'
+{
+   \(dqrune\(dq: \(dqtU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y\(dq,
+   \(dqunique_id\(dq: \(dq3\(dq
+}
+.EE
+.PP
+You can also use lightning-decode(7) to examine runes you have been given:
+.LP
+.EX
+$ .lightning-cli decode tU-RLjMiDpY2U0o3W1oFowar36RFGpWloPbW9-RuZdo9MyZpZD0wMjRiOWExZmE4ZTAwNmYxZTM5MzdmNjVmNjZjNDA4ZTZkYThlMWNhNzI4ZWE0MzIyMmE3MzgxZGYxY2M0NDk2MDUmbWV0aG9kPWxpc3RwZWVycyZwbnVtPTEmcG5hbWVpZF4wMjRiOWExZmE4ZTAwNmYxZTM5M3xwYXJyMF4wMjRiOWExZmE4ZTAwNmYxZTM5MyZ0aW1lPDE2NTY5MjA1MzgmcmF0ZT0y
+{
+   \(dqtype\(dq: \(dqrune\(dq,
+   \(dqunique_id\(dq: \(dq3\(dq,
+   \(dqstring\(dq: \(dqb54f912e33220e9636534a375b5a05a306abdfa4451a95a5a0f6d6f7e46e65da:=3&id=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605&method=listpeers&pnum=1&pnameid\(ha024b9a1fa8e006f1e393|parr0\(ha024b9a1fa8e006f1e393&time<1656920538&rate=2\(dq,
+   \(dqrestrictions\(dq: [
+      {
+         \(dqalternatives\(dq: [
+            \(dqid=024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\(dq
+         ],
+         \(dqsummary\(dq: \(dqid (of commanding peer) equal to '024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605'\(dq
+      },
+      {
+         \(dqalternatives\(dq: [
+            \(dqmethod=listpeers\(dq
+         ],
+         \(dqsummary\(dq: \(dqmethod (of command) equal to 'listpeers'\(dq
+      },
+      {
+         \(dqalternatives\(dq: [
+            \(dqpnum=1\(dq
+         ],
+         \(dqsummary\(dq: \(dqpnum (number of command parameters) equal to 1\(dq
+      },
+      {
+         \(dqalternatives\(dq: [
+            \(dqpnameid\(ha024b9a1fa8e006f1e393\(dq,
+            \(dqparr0\(ha024b9a1fa8e006f1e393\(dq
+         ],
+         \(dqsummary\(dq: \(dqpnameid (object parameter 'id') starts with '024b9a1fa8e006f1e393' OR parr0 (array parameter #0) starts with '024b9a1fa8e006f1e393'\(dq
+      },
+      {
+         \(dqalternatives\(dq: [
+            \(dqtime<1656920538\(dq
+         ],
+         \(dqsummary\(dq: \(dqtime (in seconds since 1970) less than 1656920538 (approximately 19 hours 18 minutes from now)\(dq
+      },
+      {
+         \(dqalternatives\(dq: [
+            \(dqrate=2\(dq
+         ],
+         \(dqsummary\(dq: \(dqrate (max per minute) equal to 2\(dq
+      }
+   ],
+   \(dqvalid\(dq: true
+}
+.EE
+.SH
+SHARING RUNES
+.LP
+Because anyone can add a restriction to a rune, you can always turn a
+normal rune into a read-only rune, or restrict access for 30 minutes
+from the time you give it to someone.  Adding restrictions before
+sharing runes is best practice.
+.PP
+If a rune has a ratelimit, any derived rune will have the same id, and
+thus will compete for that ratelimit.  You might want to consider
+adding a tighter ratelimit to a rune before sharing it, so you will
+keep the remainder.  For example, if you rune has a limit of 60 times
+per minute, adding a limit of 5 times per minute and handing that rune
+out means you can still use your original rune 55 times per minute.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBrune\fR (string): the resulting rune
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBunique_id\fR (string): the id of this rune: this is set at creation and cannot be changed (even as restrictions are added)
+.LP
+The following warnings may also be returned:
+.IP "\(bu" 2
+\fBwarning_unrestricted_rune\fR: A warning shown when runes are created with powers that could drain your node
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> wrote the original Python
+commando.py plugin, the in-tree commando plugin, and this manual page.
+.PP
+Christian Decker came up with the name \(dqcommando\(dq, which almost
+excuses his previous adoption of the name \(dqEltoo\(dq.
+.SH
+SEE ALSO
+.LP
+lightning-commando(7), lightning-decode(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:175b3710130d290fbd9e96f7e4f6f66a8733e81886426ced4270acefcbd6cf40

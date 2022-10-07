@@ -1,0 +1,192 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-DECODEPAY" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-decodepay -- Command for decoding a bolt11 string (low-level)
+.SH
+SYNOPSIS
+.LP
+\fBdecodepay\fR \fIbolt11\fR [\fIdescription\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBdecodepay\fR RPC command checks and parses a \fIbolt11\fR string as
+specified by the BOLT 11 specification.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBcurrency\fR (string): the BIP173 name for the currency
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated_at\fR (u64): the UNIX-style timestamp of the invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexpiry\fR (u64): the number of seconds this is valid after \fItimestamp\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayee\fR (pubkey): the public key of the recipient
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsignature\fR (signature): signature of the \fIpayee\fR on this invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmin_final_cltv_expiry\fR (u32): the minimum CLTV delay for the final node
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat, optional): Amount the invoice asked for
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string, optional): the description of the purpose of the purchase
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription_hash\fR (hex, optional): the hash of the description, in place of \fIdescription\fR (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_secret\fR (hex, optional): the secret to hand to the payee node (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfeatures\fR (hex, optional): the features bitmap for this invoice
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_metadata\fR (hex, optional): the payment_metadata to put in the payment
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfallbacks\fR (array of objects, optional): onchain addresses:
+.RS
+.IP "\(bu" 2
+\fBtype\fR (string): the address type (if known) (one of \(dqP2PKH\(dq, \(dqP2SH\(dq, \(dqP2WPKH\(dq, \(dqP2WSH\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhex\fR (hex): Raw encoded address
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBaddr\fR (string, optional): the address in appropriate format for \fItype\fR
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBroutes\fR (array of arrays, optional): Route hints to the \fIpayee\fR:
+.RS
+.IP "\(bu" 2
+hops in the route:
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpubkey\fR (pubkey): the public key of the node
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBshort_channel_id\fR (short\fIchannel\fRid): a channel to the next peer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfee_base_msat\fR (msat): the base fee for payments
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfee_proportional_millionths\fR (u32): the parts-per-million fee for payments
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcltv_expiry_delta\fR (u32): the CLTV delta across this hop
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBextra\fR (array of objects, optional): Any extra fields we didn't know how to parse:
+.RS
+.IP "\(bu" 2
+\fBtag\fR (string): The bech32 letter which identifies this field (always 1 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdata\fR (string): The bech32 data for this field
+.RE
+.LP
+Technically, the \fIdescription\fR field is optional if a
+\fIdescription_hash\fR field is given, but in this case \fBdecodepay\fR will
+only succeed if the optional \fIdescription\fR field is passed and matches
+the \fIdescription_hash\fR. In practice, these are currently unused.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-pay(7), lightning-getroute(7), lightning-sendpay(7).
+.PP
+\fBBOLT
+#11\fR <\fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md\fR>.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:4c1e8d8a1073ad32af0a7a0fdf00affef3d9451566862a81d7a620fd83df6c7a

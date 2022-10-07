@@ -1,0 +1,97 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-HSMTOOL" "8" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-hsmtool -- Tool for working with software HSM secrets of lightningd
+.SH
+SYNOPSIS
+.LP
+.EX
+lightning-hsmtool method [ARGUMENTS]...
+.EE
+.SH
+DESCRIPTION
+.LP
+\fBlightning-hsmtool\fR performs various operations on the \fChsm_secret\fR
+file used by the software HSM component of \fBlightningd\fR.
+.PP
+This can be used to encrypt and decrypt the \fChsm_secret\fR file,
+as well as derive secrets used in channel commitments.
+.SH
+METHODS
+.LP
+\fBencrypt\fR \fIhsm_secret\fR \fIpassword\fR
+.PP
+Encrypt the \fChsm_secret\fR file so that it can only be decrypted at
+\fBlightningd\fR startup.
+You must give the option \fB--encrypted-hsm\fR to \fBlightningd\fR.
+The password of the \fChsm_secret\fR file will be asked whenever you
+start \fBlightningd\fR.
+.PP
+\fBdecrypt\fR \fIhsm_secret\fR \fIpassword\fR
+.PP
+Decrypt the \fChsm_secret\fR file that was encrypted with the \fBencrypt\fR
+method.
+.PP
+\fBdumpcommitments\fR \fInode_id\fR \fIchannel_dbid\fR \fIdepth\fR \fIhsm_secret\fR [\fIpassword\fR]
+.PP
+Show the per-commitment secret and point of up to \fIdepth\fR commitments,
+of the specified channel with the specified peer,
+identified by the channel database index.
+Specify \fIpassword\fR if the \fChsm_secret\fR is encrypted.
+.PP
+\fBguesstoremote\fR \fIp2wpkh\fR \fInode_id\fR \fImax_channel_dbid\fR \fIhsm_secret\fR [\fIpassword\fR]
+.PP
+Brute-force the private key to our funds from a remote unilateral close
+of a channel, in a case where we have lost all database data except for
+our \fChsm_secret\fR.
+The peer must be the one to close the channel (and the funds will remain
+unrecoverable until the channel is closed).
+\fImax_channel_dbid\fR is your own guess on what the \fIchannel_dbid\fR was,
+or at least the maximum possible value,
+and is usually no greater than the number of channels that the node has
+ever had.
+Specify \fIpassword\fR if the \fChsm_secret\fR is encrypted.
+.PP
+\fBgeneratehsm\fR \fIhsm_secret_path\fR
+Generates a new hsm_secret using BIP39.
+.PP
+\fBcheckhsm\fR \fIhsm_secret_path\fR
+Checks that hsm_secret matchs a BIP39 pass phrase.
+.PP
+\fBdumponchaindescriptors\fR \fIhsm_secret\fR [\fIpassword\fR] [\fInetwork\fR]
+Dump output descriptors for our onchain wallet.
+The descriptors can be used by external services to be able to generate
+addresses for our onchain wallet. (for example on \fCbitcoind\fR using the
+\fCimportmulti\fR or \fCimportdescriptors\fR RPC calls)
+We need the path to the hsm_secret containing the wallet seed, and an optional
+(skip using \fC\(dq\(dq\fR) password if it was encrypted.
+To generate descriptors using testnet master keys, you may specify \fItestnet\fR as
+the last parameter. By default, mainnet-encoded keys are generated.
+.SH
+BUGS
+.LP
+You should report bugs on our github issues page, and maybe submit a fix
+to gain our eternal gratitude!
+.SH
+AUTHOR
+.LP
+ZmnSCPxj <\fIZmnSCPxj@protonmail.com\fR> wrote the initial version of
+this man page, but many others did the hard work of actually implementing
+\fBlightning-hsmtool\fR.
+.SH
+SEE ALSO
+.LP
+lightningd(8), lightningd-config(5)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+.SH
+COPYING
+.LP
+Note: the modules in the ccan/ directory have their own licenses, but
+the rest of the code is covered by the BSD-style MIT license.
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:08cec893fe7106d33a6f03461c756470091859d3c45551efdc572c361b970151

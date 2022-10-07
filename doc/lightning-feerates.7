@@ -1,0 +1,244 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-FEERATES" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-feerates -- Command for querying recommended onchain feerates
+.SH
+SYNOPSIS
+.LP
+\fBfeerates\fR \fIstyle\fR
+.SH
+DESCRIPTION
+.LP
+The \fBfeerates\fR command returns the feerates that CLN will use.
+The feerates will be based on the recommended feerates from the backend.
+The backend may fail to provide estimates, but if it was able to provide
+estimates in the past, CLN will continue to use those for a while.
+CLN will also smoothen feerate estimations from the backend.
+.PP
+\fIstyle\fR is either of the two strings:
+.IP "\(bu" 2
+\fIperkw\fR - provide feerate in units of satoshis per 1000 weight.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fIperkb\fR - provide feerate in units of satoshis per 1000 virtual bytes.
+.LP
+Bitcoin transactions have non-witness and witness bytes:
+.IP "\(bu" 2
+Non-witness bytes count as 4 weight, 1 virtual byte.
+All bytes other than SegWit witness count as non-witness bytes.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+Witness bytes count as 1 weight, 0.25 virtual bytes.
+.LP
+Thus, all \fIperkb\fR feerates will be exactly 4 times \fIperkw\fR feerates.
+.PP
+To compute the fee for a transaction, multiply its weight or virtual bytes
+by the appropriate \fIperkw\fR or \fIperkw\fR feerate
+returned by this command,
+then divide by 1000.
+.PP
+There is currently no way to change these feerates from the RPC.
+If you need custom control over onchain feerates,
+you will need to provide your own plugin
+that replaces the \fCbcli\fR plugin backend.
+For commands like lightning-withdraw(7) or lightning-fundchannel(7) you
+can provide a preferred feerate directly as a parameter,
+which will override the recommended feerates returned by \fBfeerates\fR.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBperkb\fR (object, optional): If \fIstyle\fR parameter was perkb:
+.RS
+.IP "\(bu" 2
+\fBmin_acceptable\fR (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmax_acceptable\fR (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBopening\fR (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmutual_close\fR (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a \fBnegotiation\fR, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBunilateral_close\fR (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdelayed_to_us\fR (u32, optional): Feerate for returning unilateral close funds to our wallet
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhtlc_resolution\fR (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpenalty\fR (u32, optional): Feerate to start at when penalizing a cheat attempt
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBperkw\fR (object, optional): If \fIstyle\fR parameter was perkw:
+.RS
+.IP "\(bu" 2
+\fBmin_acceptable\fR (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmax_acceptable\fR (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBopening\fR (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmutual_close\fR (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a \fBnegotiation\fR, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBunilateral_close\fR (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdelayed_to_us\fR (u32, optional): Feerate for returning unilateral close funds to our wallet
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhtlc_resolution\fR (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpenalty\fR (u32, optional): Feerate to start at when penalizing a cheat attempt
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBonchain_fee_estimates\fR (object, optional):
+.RS
+.IP "\(bu" 2
+\fBopening_channel_satoshis\fR (u64): Estimated cost of typical channel open
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmutual_close_satoshis\fR (u64): Estimated cost of typical channel close
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBunilateral_close_satoshis\fR (u64): Estimated cost of typical unilateral close (without HTLCs)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhtlc_timeout_satoshis\fR (u64): Estimated cost of typical HTLC timeout transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhtlc_success_satoshis\fR (u64): Estimated cost of typical HTLC fulfillment transaction
+.RE
+.LP
+The following warnings may also be returned:
+.IP "\(bu" 2
+\fBwarning_missing_feerates\fR: Some fee estimates are missing
+.SH
+ERRORS
+.LP
+The \fBfeerates\fR command will never error,
+however some fields may be missing in the result
+if feerate estimates for that kind of transaction are unavailable.
+.SH
+NOTES
+.LP
+Many other commands have a \fIfeerate\fR parameter, which can be the strings
+\fIurgent\fR, \fInormal\fR, or \fIslow\fR.
+These are mapped to the \fBfeerates\fR outputs as:
+.IP "\(bu" 2
+\fIurgent\fR - equal to \fIunilateral_close\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fInormal\fR - equal to \fIopening\fR
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fIslow\fR - equal to \fImin_acceptable\fR.
+.SH
+TRIVIA
+.LP
+In C-lightning we like to call the weight unit \(dqsipa\(dq
+in honor of Pieter Wuille,
+who uses the name \(dqsipa\(dq on IRC and elsewhere.
+Internally we call the \fIperkw\fR style as \(dqfeerate per kilosipa\(dq.
+.SH
+AUTHOR
+.LP
+ZmnSCPxj <\fIZmnSCPxj@protonmail.com\fR> wrote the initial version of this
+manpage.
+.SH
+SEE ALSO
+.LP
+lightning-parsefeerate(7), lightning-fundchannel(7), lightning-withdraw(7),
+lightning-txprepare(7), lightning-fundchannel_start(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:a47605ecf1b16fe5e2d9b5b0dd9529a08b21d36c7bbc7c02ec35791bf5053a7a

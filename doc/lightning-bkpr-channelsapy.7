@@ -1,0 +1,166 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-BKPR-CHANNELSAPY" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-bkpr-channelsapy -- Command to list stats on channel earnings
+.SH
+SYNOPSIS
+.LP
+\fBbkpr-channelsapy\fR [\fIstart_time\fR] [\fIend_time\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBbkpr-channelsapy\fR RPC command lists stats on routing income, leasing income,
+and various calculated APYs for channel routed funds.
+.PP
+The \fBstart_time\fR is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
+.PP
+The \fBend_time\fR is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBchannels_apy\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBaccount\fR (string): The account name. If the account is a channel, the channel_id. The 'net' entry is the rollup of all channel accounts
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrouted_out_msat\fR (msat): Sats routed (outbound)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrouted_in_msat\fR (msat): Sats routed (inbound)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlease_fee_paid_msat\fR (msat): Sats paid for leasing inbound (liquidity ads)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlease_fee_earned_msat\fR (msat): Sats earned for leasing outbound (liquidity ads)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpushed_out_msat\fR (msat): Sats pushed to peer at open
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpushed_in_msat\fR (msat): Sats pushed in from peer at open
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBour_start_balance_msat\fR (msat): Starting balance in channel at funding. Note that if our start ballance is zero, any _initial field will be omitted (can't divide by zero)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel_start_balance_msat\fR (msat): Total starting balance at funding
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfees_out_msat\fR (msat): Fees earned on routed outbound
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fButilization_out\fR (string): Sats routed outbound / total start balance
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fButilization_in\fR (string): Sats routed inbound / total start balance
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBapy_out\fR (string): Fees earned on outbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBapy_in\fR (string): Fees earned on inbound routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBapy_total\fR (string): Total fees earned on routed payments / total start balance for the length of time this channel has been open amortized to a year (APY)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfees_in_msat\fR (msat, optional): Fees earned on routed inbound
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fButilization_out_initial\fR (string, optional): Sats routed outbound / our start balance
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fButilization_in_initial\fR (string, optional): Sats routed inbound / our start balance
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBapy_out_initial\fR (string, optional): Fees earned on outbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBapy_in_initial\fR (string, optional): Fees earned on inbound routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBapy_total_initial\fR (string, optional): Total fees earned on routed payments / our start balance for the length of time this channel has been open amortized to a year (APY)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBapy_lease\fR (string, optional): Lease fees earned over total amount leased for the lease term, amortized to a year (APY). Only appears if channel was leased out by us
+.SH
+AUTHOR
+.LP
+niftynei \fIniftynei@gmail.com\fR is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-bkpr-listincome(7), lightning-bkpr-listfunds(7),
+lightning-bkpr-listaccountevents(7),
+lightning-bkpr-dumpincomecsv(7), lightning-listpeers(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:23a526ad137fc8e44347dc3d1f3bbf8ad8de9ebc8d0f774c8f705a170a8f32af

@@ -1,0 +1,114 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-OPENCHANNEL_UPDATE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-openchannel_update -- Command to update a collab channel open
+.SH
+SYNOPSIS
+.LP
+\fBopenchannel_update\fR \fIchannel_id\fR \fIpsbt\fR
+.SH
+DESCRIPTION
+.LP
+\fCopenchannel_update\fR is a low level RPC command which continues an open
+channel, as specified by \fIchannel_id\fR. An updated  \fIpsbt\fR is passed in; any
+changes from the PSBT last returned (either from \fCopenchannel_init\fR or
+a previous call to \fCopenchannel_update\fR) will be communicated to the peer.
+.PP
+Must be called after \fCopenchannel_init\fR and before \fCopenchannel_signed\fR.
+.PP
+Must be called until \fIcommitments_secured\fR is returned as true, at which point
+\fCopenchannel_signed\fR should be called with a signed version of the PSBT
+returned by the last call to \fCopenchannel_update\fR.
+.PP
+\fIchannel_id\fR is the id of the channel.
+.PP
+\fIpsbt\fR is the updated PSBT to be sent to the peer. May be identical to
+the PSBT last returned by either \fCopenchannel_init\fR or \fCopenchannel_update\fR.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBchannel_id\fR (hex): the channel id of the channel (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpsbt\fR (string): the PSBT of the funding transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcommitments_secured\fR (boolean): whether the \fIpsbt\fR is complete (if true, sign \fIpsbt\fR and call \fCopenchannel_signed\fR to complete the channel open)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfunding_outnum\fR (u32): The index of the funding output in the psbt
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBclose_to\fR (hex, optional): scriptPubkey which we have to close to if we mutual close
+.LP
+If \fIcommitments_secured\fR is true, will also return:
+- The derived \fIchannel_id\fR.
+- A \fIclose_to\fR script, iff a \fCclose_to\fR address was provided to
+\fCopenchannel_init\fR and the peer supports \fCoption_upfront_shutdownscript\fR.
+- The \fIfunding_outnum\fR, the index of the funding output for this channel
+in the funding transaction.
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+-1: Catchall nonspecific error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+305: Peer is not connected.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+309: PSBT missing required fields
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+311: Unknown channel id.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+312: Channel in an invalid state
+.SH
+SEE ALSO
+.LP
+lightning-openchannel_init(7), lightning-openchannel_signed(7),
+lightning-openchannel_bump(7), lightning-openchannel_abort(7), 
+lightning-fundchannel_start(7), lightning-fundchannel_complete(7),
+lightning-fundchannel(7), lightning-fundpsbt(7), lightning-utxopsbt(7),
+lightning-multifundchannel(7)
+.SH
+AUTHOR
+.LP
+@niftynei <\fIniftynei@gmail.com\fR> is mainly responsible.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:7778e05c179a54e7eea93dd8e20cce50eeda8d9162b99e18eda439b792138cd6

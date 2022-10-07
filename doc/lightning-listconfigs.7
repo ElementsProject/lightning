@@ -1,0 +1,514 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-LISTCONFIGS" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-listconfigs -- Command to list all configuration options.
+.SH
+SYNOPSIS
+.LP
+\fBlistconfigs\fR [\fIconfig\fR]
+.SH
+DESCRIPTION
+.LP
+\fIconfig\fR (optional) is a configuration option name, or \(dqplugin\(dq to show plugin options
+.PP
+The \fBlistconfigs\fR RPC command to list all configuration options, or with \fIconfig\fR only a selection.
+.PP
+The returned values reflect the current configuration, including
+showing default values (\fCdev-\fR options are not shown).
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqlistconfigs\(dq,
+  \(dqparams\(dq: {
+    \(dqconfig\(dq: \(dqnetwork\(dq
+  }
+}
+.EE
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fB# version\fR (string, optional): Special field indicating the current version
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBplugins\fR (array of objects, optional):
+.RS
+.IP "\(bu" 2
+\fBpath\fR (string): Full path of the plugin
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBname\fR (string): short name of the plugin
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoptions\fR (object, optional): Specific options set for this plugin:
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBimportant-plugins\fR (array of objects, optional):
+.RS
+.IP "\(bu" 2
+\fBpath\fR (string): Full path of the plugin
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBname\fR (string): short name of the plugin
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoptions\fR (object, optional): Specific options set for this plugin:
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBconf\fR (string, optional): \fCconf\fR field from cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlightning-dir\fR (string, optional): \fClightning-dir\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBnetwork\fR (string, optional): \fCnetwork\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBallow-deprecated-apis\fR (boolean, optional): \fCallow-deprecated-apis\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrpc-file\fR (string, optional): \fCrpc-file\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdisable-plugin\fR (array of strings, optional):
+.RS
+.IP "\(bu" 2
+\fCdisable-plugin\fR field from config or cmdline
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbookkeeper-dir\fR (string, optional): \fCbookkeeper-dir\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbookkeeper-db\fR (string, optional): \fCbookkeeper-db\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBalways-use-proxy\fR (boolean, optional): \fCalways-use-proxy\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdaemon\fR (boolean, optional): \fCdaemon\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwallet\fR (string, optional): \fCwallet\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlarge-channels\fR (boolean, optional): \fClarge-channels\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexperimental-dual-fund\fR (boolean, optional): \fCexperimental-dual-fund\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexperimental-onion-messages\fR (boolean, optional): \fCexperimental-onion-messages\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexperimental-offers\fR (boolean, optional): \fCexperimental-offers\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexperimental-shutdown-wrong-funding\fR (boolean, optional): \fCexperimental-shutdown-wrong-funding\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBexperimental-websocket-port\fR (u16, optional): \fCexperimental-websocket-port\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrgb\fR (hex, optional): \fCrgb\fR field from config or cmdline, or default (always 6 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBalias\fR (string, optional): \fCalias\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpid-file\fR (string, optional): \fCpid-file\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBignore-fee-limits\fR (boolean, optional): \fCignore-fee-limits\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBwatchtime-blocks\fR (u32, optional): \fCwatchtime-blocks\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmax-locktime-blocks\fR (u32, optional): \fCmax-locktime-blocks\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfunding-confirms\fR (u32, optional): \fCfunding-confirms\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcltv-delta\fR (u32, optional): \fCcltv-delta\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcltv-final\fR (u32, optional): \fCcltv-final\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcommit-time\fR (u32, optional): \fCcommit-time\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfee-base\fR (u32, optional): \fCfee-base\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrescan\fR (integer, optional): \fCrescan\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfee-per-satoshi\fR (u32, optional): \fCfee-per-satoshi\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmax-concurrent-htlcs\fR (u32, optional): \fCmax-concurrent-htlcs\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhtlc-minimum-msat\fR (msat, optional): \fChtlc-minimum-msat\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhtlc-maximum-msat\fR (msat, optional): \fChtlc-maximum-msat\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmax-dust-htlc-exposure-msat\fR (msat, optional): \fCmax-dust-htlc-exposure-mast\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBmin-capacity-sat\fR (u64, optional): \fCmin-capacity-sat\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBaddr\fR (string, optional): \fCaddr\fR field from config or cmdline (can be more than one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBannounce-addr\fR (string, optional): \fCannounce-addr\fR field from config or cmdline (can be more than one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbind-addr\fR (string, optional): \fCbind-addr\fR field from config or cmdline (can be more than one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoffline\fR (boolean, optional): \fCtrue\fR if \fCoffline\fR was set in config or cmdline
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBautolisten\fR (boolean, optional): \fCautolisten\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBproxy\fR (string, optional): \fCproxy\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdisable-dns\fR (boolean, optional): \fCtrue\fR if \fCdisable-dns\fR was set in config or cmdline
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdisable-ip-discovery\fR (boolean, optional): \fCtrue\fR if \fCdisable-ip-discovery\fR was set in config or cmdline
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBencrypted-hsm\fR (boolean, optional): \fCtrue\fR if \fCencrypted-hsm\fR was set in config or cmdline
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrpc-file-mode\fR (string, optional): \fCrpc-file-mode\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlog-level\fR (string, optional): \fClog-level\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlog-prefix\fR (string, optional): \fClog-prefix\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlog-file\fR (string, optional): \fClog-file\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlog-timestamps\fR (boolean, optional): \fClog-timestamps\fR field from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBforce-feerates\fR (string, optional): force-feerate configuration setting, if any
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsubdaemon\fR (string, optional): \fCsubdaemon\fR fields from config or cmdline if any (can be more than one)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBfetchinvoice-noconnect\fR (boolean, optional): \fCfeatchinvoice-noconnect\fR fileds from config or cmdline, or default
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtor-service-password\fR (string, optional): \fCtor-service-password\fR field from config or cmdline, if any
+.LP
+On failure, one of the following error codes may be returned:
+.IP "\(bu" 2
+-32602: Error in given parameters or field with \fIconfig\fR name doesn't exist.
+.SH
+EXAMPLE JSON RESPONSE
+.LP
+.EX
+{
+   \(dq# version\(dq: \(dqv0.9.0-1\(dq,
+   \(dqlightning-dir\(dq: \(dq/media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev\(dq,
+   \(dqnetwork\(dq: \(dqtestnet\(dq,
+   \(dqallow-deprecated-apis\(dq: true,
+   \(dqrpc-file\(dq: \(dqlightning-rpc\(dq,
+   \(dqplugins\(dq: [
+      {
+         \(dqpath\(dq: \(dq/home/vincent/Github/plugins/sauron/sauron.py\(dq,
+         \(dqname\(dq: \(dqsauron.py\(dq,
+         \(dqoptions\(dq: {
+            \(dqsauron-api-endpoint\(dq: \(dqhttp://blockstream.info/testnet/api/\(dq,
+            \(dqsauron-tor-proxy\(dq: \(dq\(dq
+         }
+      },
+      {
+         \(dqpath\(dq: \(dq/home/vincent/Github/reckless/reckless.py\(dq,
+         \(dqname\(dq: \(dqreckless.py\(dq
+      }
+   ],
+   \(dqimportant-plugins\(dq: [
+      {
+         \(dqpath\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/autoclean\(dq,
+         \(dqname\(dq: \(dqautoclean\(dq,
+         \(dqoptions\(dq: {
+            \(dqautocleaninvoice-cycle\(dq: null,
+            \(dqautocleaninvoice-expired-by\(dq: null
+         }
+      },
+      {
+         \(dqpath\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/fundchannel\(dq,
+         \(dqname\(dq: \(dqfundchannel\(dq
+      },
+      {
+         \(dqpath\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/keysend\(dq,
+         \(dqname\(dq: \(dqkeysend\(dq
+      },
+      {
+         \(dqpath\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/pay\(dq,
+         \(dqname\(dq: \(dqpay\(dq,
+         \(dqoptions\(dq: {
+            \(dqdisable-mpp\(dq: false
+         }
+      }
+   ],
+   \(dqimportant-plugin\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/autoclean\(dq,
+   \(dqimportant-plugin\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/fundchannel\(dq,
+   \(dqimportant-plugin\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/keysend\(dq,
+   \(dqimportant-plugin\(dq: \(dq/home/vincent/Github/lightning/lightningd/../plugins/pay\(dq,
+   \(dqplugin\(dq: \(dq/home/vincent/Github/plugins/sauron/sauron.py\(dq,
+   \(dqplugin\(dq: \(dq/home/vincent/Github/reckless/reckless.py\(dq,
+   \(dqdisable-plugin\(dq: [
+      \(dqbcli\(dq
+   ],
+   \(dqalways-use-proxy\(dq: false,
+   \(dqdaemon\(dq: \(dqfalse\(dq,
+   \(dqwallet\(dq: \(dqsqlite3:///media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/testnet/lightningd.sqlite3\(dq,
+   \(dqwumbo\(dq: false,
+   \(dqwumbo\(dq: false,
+   \(dqrgb\(dq: \(dq03ad98\(dq,
+   \(dqalias\(dq: \(dqBRUCEWAYN-TES-DEV\(dq,
+   \(dqpid-file\(dq: \(dq/media/vincent/Maxtor/sanboxTestWrapperRPC/lightning_dir_dev/lightningd-testne...\(dq,
+   \(dqignore-fee-limits\(dq: true,
+   \(dqwatchtime-blocks\(dq: 6,
+   \(dqmax-locktime-blocks\(dq: 2016,
+   \(dqfunding-confirms\(dq: 1,
+   \(dqcommit-fee-min\(dq: 0,
+   \(dqcommit-fee-max\(dq: 0,
+   \(dqcltv-delta\(dq: 6,
+   \(dqcltv-final\(dq: 10,
+   \(dqcommit-time\(dq: 10,
+   \(dqfee-base\(dq: 1,
+   \(dqrescan\(dq: 30,
+   \(dqfee-per-satoshi\(dq: 10,
+   \(dqmax-concurrent-htlcs\(dq: 483,
+   \(dqmin-capacity-sat\(dq: 10000,
+   \(dqaddr\(dq: \(dqautotor:127.0.0.1:9051\(dq,
+   \(dqbind-addr\(dq: \(dq127.0.0.1:9735\(dq,
+   \(dqannounce-addr\(dq: \(dqfp463inc4w3lamhhduytrwdwq6q6uzugtaeapylqfc43agrdnnqsheyd.onion:9735\(dq,
+   \(dqoffline\(dq: \(dqfalse\(dq,
+   \(dqautolisten\(dq: true,
+   \(dqproxy\(dq: \(dq127.0.0.1:9050\(dq,
+   \(dqdisable-dns\(dq: \(dqfalse\(dq,
+   \(dqencrypted-hsm\(dq: false,
+   \(dqrpc-file-mode\(dq: \(dq0600\(dq,
+   \(dqlog-level\(dq: \(dqDEBUG\(dq,
+   \(dqlog-prefix\(dq: \(dqlightningd\(dq,
+}
+
+.EE
+.SH
+AUTHOR
+.LP
+Vincenzo Palazzo <\fIvincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command.
+.SH
+SEE ALSO
+.LP
+lightning-getinfo(7), lightningd-config(5)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:4c434cb1b3daf1f0f6bfd1f3f3d3e05c48520d03c07f4e0379fb84df42546666

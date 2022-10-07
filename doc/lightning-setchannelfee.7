@@ -1,0 +1,102 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-SETCHANNELFEE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-setchannelfee -- Command for setting specific routing fees on a lightning channel
+.SH
+SYNOPSIS
+.LP
+(DEPRECATED) \fBsetchannelfee\fR \fIid\fR [\fIbase\fR] [\fIppm\fR] [\fIenforcedelay\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBsetchannelfee\fR RPC command sets channel specific routing fees as
+defined in BOLT #7. The channel has to be in normal or awaiting state.
+This can be checked by \fBlistpeers\fR reporting a \fIstate\fR of
+CHANNELD_NORMAL, CHANNELD_AWAITING_LOCKIN or DUALOPEND\fIAWAITING\fRLOCKIN for the channel.
+.PP
+\fIid\fR is required and should contain a scid (short channel ID), channel
+id or peerid (pubkey) of the channel to be modified. If \fIid\fR is set to
+\(dqall\(dq, the fees for all channels are updated that are in state
+CHANNELD_NORMAL, CHANNELD_AWAITING_LOCKIN or
+DUALOPEND\fIAWAITING\fRLOCKIN.  If \fIid\fR is a peerid, all channels with the
+peer in those states are changed.
+.PP
+\fIbase\fR is an optional value in millisatoshi that is added as base fee to
+any routed payment. If the parameter is left out, the global config
+value fee-base will be used again. It can be a whole number, or a whole
+number ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places
+ending in \fIsat\fR, or a number with 1 to 11 decimal places ending in
+\fIbtc\fR.
+.PP
+\fIppm\fR is an optional value that is added proportionally per-millionths
+to any routed payment volume in satoshi. For example, if ppm is 1,000
+and 1,000,000 satoshi is being routed through the channel, an
+proportional fee of 1,000 satoshi is added, resulting in a 0.1% fee. If
+the parameter is left out, the global config value will be used again.
+.PP
+\fIenforcedelay\fR is the number of seconds to delay before enforcing the
+new fees (default 600, which is ten minutes).  This gives the network
+a chance to catch up with the new rates and avoids rejecting HTLCs
+before they do.  This only has an effect if rates are increased (we
+always allow users to overpay fees), only applies to a single rate
+increase per channel (we don't remember an arbitrary number of prior
+feerates) and if the node is restarted the updated fees are enforced
+immediately.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBbase\fR (u32): The fee\fIbase\fRmsat value
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBppm\fR (u32): The fee\fIproportional\fRmillionths value
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannels\fR (array of objects): channel(s) whose rate is now set:
+.RS
+.IP "\(bu" 2
+\fBpeer_id\fR (pubkey): The node_id of the peer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel_id\fR (hex): The channel_id of the channel (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBshort_channel_id\fR (short\fIchannel\fRid, optional): the short\fIchannel\fRid (if locked in)
+.RE
+.SH
+ERRORS
+.LP
+The following error codes may occur:
+- -1: Channel is in incorrect state, i.e. Catchall nonspecific error.
+- -32602: JSONRPC2_INVALID_PARAMS, i.e. Given id is not a channel ID
+or short channel ID.
+.SH
+AUTHOR
+.LP
+Michael Schmoock <\fImichael@schmoock.net\fR> is the author of this
+feature. Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly
+responsible for the Core Lightning project.
+.SH
+SEE ALSO
+.LP
+lightningd-setchannel(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:cf1dcc0910a91ae39e23c98b38e4e51b73d95d5b6f135e360eabf944dfd46393

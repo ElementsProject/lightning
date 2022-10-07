@@ -1,0 +1,686 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNINGD-CONFIG" "5" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightningd-config -- Lightning daemon configuration file
+.SH
+SYNOPSIS
+.LP
+\fB\(ti/.lightning/config\fR
+.SH
+DESCRIPTION
+.LP
+When lightningd(8) starts up it usually reads a general configuration
+file (default: \fB$HOME/.lightning/config\fR) then a network-specific
+configuration file (default: \fB$HOME/.lightning/testnet/config\fR).  This can
+be changed: see \fI--conf\fR and \fI--lightning-dir\fR.
+.PP
+General configuration files are processed first, then network-specific
+ones, then command line options: later options override earlier ones
+except \fIaddr\fR options and \fIlog-level\fR with subsystems, which
+accumulate.
+.PP
+\fCinclude\fR followed by a filename includes another configuration file at that
+point, relative to the current configuration file.
+.PP
+All these options are mirrored as commandline arguments to
+lightningd(8), so \fC--foo\fR becomes simply \fCfoo\fR in the configuration
+file, and \fC--foo=bar\fR becomes \fCfoo=bar\fR in the configuration file.
+.PP
+Blank lines and lines beginning with \fC#\fR are ignored.
+.SH
+DEBUGGING
+.LP
+\fI--help\fR will show you the defaults for many options; they vary with
+network settings so you can specify \fI--network\fR before \fI--help\fR to see
+the defaults for that network.
+.PP
+The lightning-listconfigs(7) command will output a valid configuration
+file using the current settings.
+.SH
+OPTIONS
+.SS
+General options
+.IP "\(bu" 2
+\fBallow-deprecated-apis\fR=\fIBOOL\fR
+.IP
+Enable deprecated options, JSONRPC commands, fields, etc. It defaults to
+\fItrue\fR, but you should set it to \fIfalse\fR when testing to ensure that an
+upgrade won't break your configuration.
+.IP "\(bu" 2
+\fBhelp\fR
+.IP
+Print help and exit. Not very useful inside a configuration file, but
+fun to put in other's config files while their computer is unattended.
+.IP "\(bu" 2
+\fBversion\fR
+.IP
+Print version and exit. Also useless inside a configuration file, but
+putting this in someone's config file may convince them to read this man
+page.
+.SS
+Bitcoin control options:
+.IP "\(bu" 2
+\fBnetwork\fR=\fINETWORK\fR
+.IP
+Select the network parameters (\fIbitcoin\fR, \fItestnet\fR, \fIsignet\fR, or \fIregtest\fR).
+This is not valid within the per-network configuration file.
+.IP "\(bu" 2
+\fBmainnet\fR
+.IP
+Alias for \fInetwork=bitcoin\fR.
+.IP "\(bu" 2
+\fBtestnet\fR
+.IP
+Alias for \fInetwork=testnet\fR.
+.IP "\(bu" 2
+\fBsignet\fR
+.IP
+Alias for \fInetwork=signet\fR.
+.IP "\(bu" 2
+\fBbitcoin-cli\fR=\fIPATH\fR [plugin \fCbcli\fR]
+.IP
+The name of \fIbitcoin-cli\fR executable to run.
+.IP "\(bu" 2
+\fBbitcoin-datadir\fR=\fIDIR\fR [plugin \fCbcli\fR]
+.IP
+\fI-datadir\fR argument to supply to bitcoin-cli(1).
+.IP "\(bu" 2
+\fBbitcoin-rpcuser\fR=\fIUSER\fR [plugin \fCbcli\fR]
+.IP
+The RPC username for talking to bitcoind(1).
+.IP "\(bu" 2
+\fBbitcoin-rpcpassword\fR=\fIPASSWORD\fR [plugin \fCbcli\fR]
+.IP
+The RPC password for talking to bitcoind(1).
+.IP "\(bu" 2
+\fBbitcoin-rpcconnect\fR=\fIHOST\fR [plugin \fCbcli\fR]
+.IP
+The bitcoind(1) RPC host to connect to.
+.IP "\(bu" 2
+\fBbitcoin-rpcport\fR=\fIPORT\fR [plugin \fCbcli\fR]
+.IP
+The bitcoind(1) RPC port to connect to.
+.IP "\(bu" 2
+\fBbitcoin-retry-timeout\fR=\fISECONDS\fR [plugin \fCbcli\fR]
+.IP
+Number of seconds to keep trying a bitcoin-cli(1) command. If the
+command keeps failing after this time, exit with a fatal error.
+.IP "\(bu" 2
+\fBrescan\fR=\fIBLOCKS\fR
+.IP
+Number of blocks to rescan from the current head, or absolute
+blockheight if negative. This is only needed if something goes badly
+wrong.
+.SS
+Lightning daemon options
+.IP "\(bu" 2
+\fBlightning-dir\fR=\fIDIR\fR
+.IP
+Sets the working directory. All files (except \fI--conf\fR and
+\fI--lightning-dir\fR on the command line) are relative to this.  This
+is only valid on the command-line, or in a configuration file specified
+by \fI--conf\fR.
+.IP "\(bu" 2
+\fBsubdaemon\fR=\fISUBDAEMON\fR:\fIPATH\fR
+.IP
+Specifies an alternate subdaemon binary.
+Current subdaemons are \fIchanneld\fR, \fIclosingd\fR,
+\fIconnectd\fR, \fIgossipd\fR, \fIhsmd\fR, \fIonchaind\fR, and \fIopeningd\fR.
+If the supplied path is relative the subdaemon binary is found in the
+working directory. This option may be specified multiple times.
+.IP
+So, \fBsubdaemon=hsmd:remote_signer\fR would use a
+hypothetical remote signing proxy instead of the standard \fIlightning_hsmd\fR
+binary.
+.IP "\(bu" 2
+\fBpid-file\fR=\fIPATH\fR
+.IP
+Specify pid file to write to.
+.IP "\(bu" 2
+\fBlog-level\fR=\fILEVEL\fR[:\fISUBSYSTEM\fR]
+.IP
+What log level to print out: options are io, debug, info, unusual,
+broken.  If \fISUBSYSTEM\fR is supplied, this sets the logging level
+for any subsystem (or \fInodeid\fR) containing that string. This option may be specified multiple times.
+Subsystems include:
+.RS
+.IP "\(bu" 2
+\fIlightningd\fR: The main lightning daemon
+.IP "\(bu" 2
+\fIdatabase\fR: The database subsystem
+.IP "\(bu" 2
+\fIwallet\fR: The wallet subsystem
+.IP "\(bu" 2
+\fIgossipd\fR: The gossip daemon
+.IP "\(bu" 2
+\fIplugin-manager\fR: The plugin subsystem
+.IP "\(bu" 2
+\fIplugin-P\fR: Each plugin, P = plugin path without directory
+.IP "\(bu" 2
+\fIhsmd\fR: The secret-holding daemon
+.IP "\(bu" 2
+\fIconnectd\fR: The network connection daemon
+.IP "\(bu" 2
+\fIjsonrpc#FD\fR: Each JSONRPC connection, FD = file descriptor number
+.RE
+.IP
+The following subsystems exist for each channel, where N is an incrementing internal integer id assigned for the lifetime of the channel:
+.RS
+.IP "\(bu" 2
+\fIopeningd-chan#N\fR: Each opening / idling daemon
+.IP "\(bu" 2
+\fIchanneld-chan#N\fR: Each channel management daemon
+.IP "\(bu" 2
+\fIclosingd-chan#N\fR: Each closing negotiation daemon
+.IP "\(bu" 2
+\fIonchaind-chan#N\fR: Each onchain close handling daemon
+.RE
+.IP
+So, \fBlog-level=debug:plugin\fR would set debug level logging on all
+plugins and the plugin manager.  \fBlog-level=io:chan#55\fR would set
+IO logging on channel number 55 (or 550, for that matter). 
+\fBlog-level=debug:024b9a1fa8\fR would set debug logging for that channel
+(or any node id containing that string).
+.IP "\(bu" 2
+\fBlog-prefix\fR=\fIPREFIX\fR
+.IP
+Prefix for all log lines: this can be customized if you want to merge logs
+with multiple daemons.  Usually you want to include a space at the end of \fIPREFIX\fR,
+as the timestamp follows immediately.
+.IP "\(bu" 2
+\fBlog-file\fR=\fIPATH\fR
+.IP
+Log to this file (instead of stdout).  If you specify this more than once
+you'll get more than one log file: \fB-\fR is used to mean stdout.  Sending
+lightningd(8) SIGHUP will cause it to reopen each file (useful for log
+rotation).
+.IP "\(bu" 2
+\fBlog-timestamps\fR=\fIBOOL\fR
+.IP
+Set this to false to turn off timestamp prefixes (they will still appear
+in crash log files).
+.IP "\(bu" 2
+\fBrpc-file\fR=\fIPATH\fR
+.IP
+Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
+.IP "\(bu" 2
+\fBrpc-file-mode\fR=\fIMODE\fR
+.IP
+Set JSON-RPC socket file mode, as a 4-digit octal number.
+Default is 0600, meaning only the user that launched lightningd
+can command it.
+Set to 0660 to allow users with the same group to access the RPC
+as well.
+.IP "\(bu" 2
+\fBdaemon\fR
+.IP
+Run in the background, suppress stdout and stderr.  Note that you need
+to specify \fBlog-file\fR for this case.
+.IP "\(bu" 2
+\fBconf\fR=\fIPATH\fR
+.IP
+Sets configuration file, and disable reading the normal general and network
+ones. If this is a relative path, it is relative to the starting directory, not
+\fBlightning-dir\fR (unlike other paths). \fIPATH\fR must exist and be
+readable (we allow missing files in the default case). Using this inside
+a configuration file is invalid.
+.IP "\(bu" 2
+\fBwallet\fR=\fIDSN\fR
+.IP
+Identify the location of the wallet. This is a fully qualified data source
+name, including a scheme such as \fCsqlite3\fR or \fCpostgres\fR followed by the
+connection parameters.
+.IP
+The default wallet corresponds to the following DSN:
+\fC--wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite31\fR
+.IP
+For the \fCsqlite3\fR scheme, you can specify a single backup database file
+by separating it with a \fC:\fR character, like so:
+\fC--wallet=sqlite3://$HOME/.lightning/bitcoin/lightningd.sqlite3:/backup/lightningd.sqlite3\fR
+.IP
+The following is an example of a postgresql wallet DSN:
+.IP
+\fC--wallet=postgres://user:pass@localhost:5432/db_name\fR
+.IP
+This will connect to a DB server running on \fClocalhost\fR port \fC5432\fR,
+authenticate with username \fCuser\fR and password \fCpass\fR, and then use the
+database \fCdb_name\fR. The database must exist, but the schema will be managed
+automatically by \fClightningd\fR.
+.IP "\(bu" 2
+\fBbookkeeper-dir\fR=\fIDIR\fR [plugin \fCbookkeeper\fR]
+.IP
+Directory to keep the accounts.sqlite3 database file in.
+Defaults to lightning-dir.
+.IP "\(bu" 2
+\fBbookkeeper-db\fR=\fIDSN\fR [plugin \fCbookkeeper\fR]
+.IP
+Identify the location of the bookkeeper data. This is a fully qualified data source
+name, including a scheme such as \fCsqlite3\fR or \fCpostgres\fR followed by the
+connection parameters.
+Defaults to \fCsqlite3://accounts.sqlite3\fR in the \fCbookkeeper-dir\fR.
+.IP "\(bu" 2
+\fBencrypted-hsm\fR
+.IP
+If set, you will be prompted to enter a password used to encrypt the \fChsm_secret\fR.
+Note that once you encrypt the \fChsm_secret\fR this option will be mandatory for
+\fClightningd\fR to start.
+If there is no \fChsm_secret\fR yet, \fClightningd\fR will create a new encrypted secret.
+If you have an unencrypted \fChsm_secret\fR you want to encrypt on-disk, or vice versa,
+see lightning-hsmtool(8).
+.IP "\(bu" 2
+\fBgrpc-port\fR=\fIportnum\fR [plugin \fCcln-grpc\fR]
+.IP
+The port number for the GRPC plugin to listen for incoming
+connections; default is not to activate the plugin at all.
+.SS
+Lightning node customization options
+.IP "\(bu" 2
+\fBalias\fR=\fINAME\fR
+.IP
+Up to 32 bytes of UTF-8 characters to tag your node. Completely silly, since
+anyone can call their node anything they want. The default is an
+NSA-style codename derived from your public key, but \(dqPeter Todd\(dq and
+\(dqVAULTERO\(dq are good options, too.
+.IP "\(bu" 2
+\fBrgb\fR=\fIRRGGBB\fR
+.IP
+Your favorite color as a hex code.
+.IP "\(bu" 2
+\fBfee-base\fR=\fIMILLISATOSHI\fR
+.IP
+Default: 1000. The base fee to charge for every payment which passes
+through. Note that millisatoshis are a very, very small unit! Changing
+this value will only affect new channels and not existing ones. If you
+want to change fees for existing channels, use the RPC call
+lightning-setchannel(7).
+.IP "\(bu" 2
+\fBfee-per-satoshi\fR=\fIMILLIONTHS\fR
+.IP
+Default: 10 (0.001%). This is the proportional fee to charge for every
+payment which passes through. As percentages are too coarse, it's in
+millionths, so 10000 is 1%, 1000 is 0.1%. Changing this value will only
+affect new channels and not existing ones. If you want to change fees
+for existing channels, use the RPC call lightning-setchannel(7).
+.IP "\(bu" 2
+\fBmin-capacity-sat\fR=\fISATOSHI\fR
+.IP
+Default: 10000. This value defines the minimal effective channel
+capacity in satoshi to accept for channel opening requests. This will
+reject any opening of a channel which can't pass an HTLC of least this
+value.  Usually this prevents a peer opening a tiny channel, but it
+can also prevent a channel you open with a reasonable amount and the peer
+requesting such a large reserve that the capacity of the channel
+falls below this.
+.IP "\(bu" 2
+\fBignore-fee-limits\fR=\fIBOOL\fR
+.IP
+Allow nodes which establish channels to us to set any fee they want.
+This may result in a channel which cannot be closed, should fees
+increase, but make channels far more reliable since we never close it
+due to unreasonable fees.
+.IP "\(bu" 2
+\fBcommit-time\fR=\fIMILLISECONDS\fR
+.IP
+How long to wait before sending commitment messages to the peer: in
+theory increasing this would reduce load, but your node would have to be
+extremely busy node for you to even notice.
+.IP "\(bu" 2
+\fBforce-feerates\fR==\fIVALUES\fR
+.IP
+Networks like regtest and testnet have unreliable fee estimates: we
+usually treat them as the minimum (253 sats/kw) if we can't get them.
+This allows override of one or more of our standard feerates (see
+lightning-feerates(7)).  Up to 5 values, separated by '/' can be
+provided: if fewer are provided, then the final value is used for the
+remainder.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb
+values), and the order is \(dqopening\(dq, \(dqmutual\fIclose\(dq, \(dqunilateral\fRclose\(dq,
+\(dqdelayed\fIto\fRus\(dq, \(dqhtlc_resolution\(dq, and \(dqpenalty\(dq.
+.IP
+You would usually put this option in the per-chain config file, to avoid
+setting it on Bitcoin mainnet!  e.g. \fC\(tirusty/.lightning/regtest/config\fR.
+.IP "\(bu" 2
+\fBhtlc-minimum-msat\fR=\fIMILLISATOSHI\fR
+.IP
+Default: 0. Sets the minimal allowed HTLC value for newly created channels.
+If you want to change the \fChtlc_minimum_msat\fR for existing channels, use the
+RPC call lightning-setchannel(7).
+.IP "\(bu" 2
+\fBhtlc-maximum-msat\fR=\fIMILLISATOSHI\fR
+.IP
+Default: unset (no limit). Sets the maximum allowed HTLC value for newly created
+channels. If you want to change the \fChtlc_maximum_msat\fR for existing channels,
+use the RPC call lightning-setchannel(7).
+.IP "\(bu" 2
+\fBdisable-ip-discovery\fR
+.IP
+Turn off public IP discovery to send \fCnode_announcement\fR updates that contain
+the discovered IP with TCP port 9735 as announced address. If unset and you
+open TCP port 9735 on your router towords your node, your node will remain
+connectable on changing IP addresses.  Note: Will always be disabled if you use
+\&'always-use-proxy'.
+.SS
+Lightning channel and HTLC options
+.IP "\(bu" 2
+\fBlarge-channels\fR
+.IP
+Removes capacity limits for channel creation.  Version 1.0 of the specification
+limited channel sizes to 16777215 satoshi.  With this option (which your
+node will advertize to peers), your node will accept larger incoming channels
+and if the peer supports it, will open larger channels.  Note: this option
+is spelled \fBlarge-channels\fR but it's pronounced \fBwumbo\fR.
+.IP "\(bu" 2
+\fBwatchtime-blocks\fR=\fIBLOCKS\fR
+.IP
+How long we need to spot an outdated close attempt: on opening a channel
+we tell our peer that this is how long they'll have to wait if they
+perform a unilateral close.
+.IP "\(bu" 2
+\fBmax-locktime-blocks\fR=\fIBLOCKS\fR
+.IP
+The longest our funds can be delayed (ie. the longest
+\fBwatchtime-blocks\fR our peer can ask for, and also the longest HTLC
+timeout we will accept). If our peer asks for longer, we'll refuse to
+create a channel, and if an HTLC asks for longer, we'll refuse it.
+.IP "\(bu" 2
+\fBfunding-confirms\fR=\fIBLOCKS\fR
+.IP
+Confirmations required for the funding transaction when the other side
+opens a channel before the channel is usable.
+.IP "\(bu" 2
+\fBcommit-fee\fR=\fIPERCENT\fR [plugin \fCbcli\fR]
+.IP
+The percentage of \fIestimatesmartfee 2/CONSERVATIVE\fR to use for the commitment
+transactions: default is 100.
+.IP "\(bu" 2
+\fBmax-concurrent-htlcs\fR=\fIINTEGER\fR
+.IP
+Number of HTLCs one channel can handle concurrently in each direction.
+Should be between 1 and 483 (default 30).
+.IP "\(bu" 2
+\fBmax-dust-htlc-exposure-msat\fR=\fIMILLISATOSHI\fR
+.IP
+Option which limits the total amount of sats to be allowed as dust on a channel.
+.IP "\(bu" 2
+\fBcltv-delta\fR=\fIBLOCKS\fR
+.IP
+The number of blocks between incoming payments and outgoing payments:
+this needs to be enough to make sure that if we have to, we can close
+the outgoing payment before the incoming, or redeem the incoming once
+the outgoing is redeemed.
+.IP "\(bu" 2
+\fBcltv-final\fR=\fIBLOCKS\fR
+.IP
+The number of blocks to allow for payments we receive: if we have to, we
+might need to redeem this on-chain, so this is the number of blocks we
+have to do that.
+.SS
+Invoice control options:
+.IP "\(bu" 2
+\fBautocleaninvoice-cycle\fR=\fISECONDS\fR [plugin \fCautoclean\fR]
+.IP
+Perform cleanup of expired invoices every \fISECONDS\fR seconds, or disable
+if 0. Usually unpaid expired invoices are uninteresting, and just take
+up space in the database.
+.IP "\(bu" 2
+\fBautocleaninvoice-expired-by\fR=\fISECONDS\fR [plugin \fCautoclean\fR]
+.IP
+Control how long invoices must have been expired before they are cleaned
+(if \fIautocleaninvoice-cycle\fR is non-zero).
+.SS
+Payment control options:
+.IP "\(bu" 2
+\fBdisable-mpp\fR [plugin \fCpay\fR]
+.IP
+Disable the multi-part payment sending support in the \fCpay\fR plugin. By default
+the MPP support is enabled, but it can be desirable to disable in situations
+in which each payment should result in a single HTLC being forwarded in the
+network.
+.SS
+Networking options
+.LP
+Note that for simple setups, the implicit \fIautolisten\fR option does the
+right thing: for the mainnet (bitcoin) network it will try to bind to
+port 9735 on IPv4 and IPv6, and will announce it to peers if it seems
+like a public address (and other default ports for other networks,
+as described below).
+.PP
+Core Lightning also support IPv4/6 address discovery behind NAT routers.
+If your node detects an new public address, it will update its announcement.
+For this to work you need to forward the default TCP port 9735 to your node.
+IP discovery is only active if no other addresses are announced.
+.PP
+You can instead use \fIaddr\fR to override this (eg. to change the port), or
+precisely control where to bind and what to announce with the
+\fIbind-addr\fR and \fIannounce-addr\fR options. These will \fBdisable\fR the
+\fIautolisten\fR logic, so you must specifiy exactly what you want!
+.IP "\(bu" 2
+\fBaddr\fR=\fI[IPADDRESS[:PORT]]|autotor:TORIPADDRESS[:SERVICEPORT][/torport=TORPORT]|statictor:TORIPADDRESS[:SERVICEPORT][/torport=TORPORT][/torblob=[blob]]\fR
+.IP
+Set an IP address (v4 or v6) or automatic Tor address to listen on and
+(maybe) announce as our node address.
+.IP
+An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
+interfaces, '::' means 'bind to all IPv6 interfaces' (if you want to
+specify an IPv6 address \fIand\fR a port, use \fC[]\fR around the IPv6
+address, like \fC[::]:9750\fR).
+If 'PORT' is not specified, the default port 9735 is used for mainnet
+(testnet: 19735, signet: 39735, regtest: 19846).
+If we can determine a public IP address from the resulting binding,
+the address is announced.
+.IP
+If the argument begins with 'autotor:' then it is followed by the
+IPv4 or IPv6 address of the Tor control port (default port 9051),
+and this will be used to configure a Tor hidden service for port 9735
+in case of mainnet (bitcoin) network whereas other networks (testnet,
+signet, regtest) will set the same default ports they use for non-Tor
+addresses (see above).
+The Tor hidden service will be configured to point to the
+first IPv4 or IPv6 address we bind to and is by default unique to
+your node's id.
+.IP
+If the argument begins with 'statictor:' then it is followed by the
+IPv4 or IPv6 address of the Tor control port (default port 9051),
+and this will be used to configure a static Tor hidden service.
+You can add the text '/torblob=BLOB' followed by up to
+64 Bytes of text to generate from this text a v3 onion service
+address text unique to the first 32 Byte of this text.
+You can also use an postfix '/torport=TORPORT' to select the external
+tor binding. The result is that over tor your node is accessible by a port
+defined by you and possibly different from your local node port assignment.
+.IP
+This option can be used multiple times to add more addresses, and
+its use disables autolisten.  If necessary, and 'always-use-proxy'
+is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
+or 'TORIPADDRESS'.
+.IP "\(bu" 2
+\fBbind-addr\fR=\fI[IPADDRESS[:PORT]]|SOCKETPATH\fR
+.IP
+Set an IP address or UNIX domain socket to listen to, but do not
+announce. A UNIX domain socket is distinguished from an IP address by
+beginning with a \fI/\fR.
+.IP
+An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
+interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
+not specified, 9735 is used.
+.IP
+This option can be used multiple times to add more addresses, and
+its use disables autolisten.  If necessary, and 'always-use-proxy'
+is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
+.IP "\(bu" 2
+\fBannounce-addr\fR=\fIIPADDRESS[:PORT]|TORADDRESS.onion[:PORT]\fR
+.IP
+Set an IP (v4 or v6) address or Tor address to announce; a Tor address
+is distinguished by ending in \fI.onion\fR. \fIPORT\fR defaults to 9735.
+.IP
+Empty or wildcard IPv4 and IPv6 addresses don't make sense here.
+Also, unlike the 'addr' option, there is no checking that your
+announced addresses are public (e.g. not localhost).
+.IP
+This option can be used multiple times to add more addresses, and
+its use disables autolisten.
+.IP
+If necessary, and 'always-use-proxy' is not specified, a DNS
+lookup may be done to resolve 'IPADDRESS'.
+.IP "\(bu" 2
+\fBoffline\fR
+.IP
+Do not bind to any ports, and do not try to reconnect to any peers. This
+can be useful for maintenance and forensics, so is usually specified on
+the command line. Overrides all \fIaddr\fR and \fIbind-addr\fR options.
+.IP "\(bu" 2
+\fBautolisten\fR=\fIBOOL\fR
+.IP
+By default, we bind (and maybe announce) on IPv4 and IPv6 interfaces if
+no \fIaddr\fR, \fIbind-addr\fR or \fIannounce-addr\fR options are specified. Setting
+this to \fIfalse\fR disables that.
+.IP "\(bu" 2
+\fBproxy\fR=\fIIPADDRESS[:PORT]\fR
+.IP
+Set a socks proxy to use to connect to Tor nodes (or for all connections
+if \fBalways-use-proxy\fR is set).  The port defaults to 9050 if not specified.
+.IP "\(bu" 2
+\fBalways-use-proxy\fR=\fIBOOL\fR
+.IP
+Always use the \fBproxy\fR, even to connect to normal IP addresses (you
+can still connect to Unix domain sockets manually). This also disables
+all DNS lookups, to avoid leaking information.
+.IP "\(bu" 2
+\fBdisable-dns\fR
+.IP
+Disable the DNS bootstrapping mechanism to find a node by its node ID.
+.IP "\(bu" 2
+\fBtor-service-password\fR=\fIPASSWORD\fR
+.IP
+Set a Tor control password, which may be needed for \fIautotor:\fR to
+authenticate to the Tor control port.
+.SS
+Lightning Plugins
+.LP
+lightningd(8) supports plugins, which offer additional configuration
+options and JSON-RPC methods, depending on the plugin. Some are supplied
+by default (usually located in \fBlibexec/c-lightning/plugins/\fR). If a
+\fBplugins\fR directory exists under \fIlightning-dir\fR that is searched for
+plugins along with any immediate subdirectories). You can specify
+additional paths too:
+.IP "\(bu" 2
+\fBplugin\fR=\fIPATH\fR
+.IP
+Specify a plugin to run as part of Core Lightning. This can be specified
+multiple times to add multiple plugins.  Note that unless plugins themselves
+specify ordering requirements for being called on various hooks, plugins will
+be ordered by commandline, then config file.
+.IP "\(bu" 2
+\fBplugin-dir\fR=\fIDIRECTORY\fR
+.IP
+Specify a directory to look for plugins; all executable files not
+containing punctuation (other than \fI.\fR, \fI-\fR or \fI_) in 'DIRECTORY\fR are
+loaded. \fIDIRECTORY\fR must exist; this can be specified multiple times to
+add multiple directories.  The ordering of plugins within a directory
+is currently unspecified.
+.IP "\(bu" 2
+\fBclear-plugins\fR
+.IP
+This option clears all \fIplugin\fR, \fIimportant-plugin\fR, and \fIplugin-dir\fR options
+preceeding it,
+including the default built-in plugin directory. You can still add
+\fIplugin-dir\fR, \fIplugin\fR, and \fIimportant-plugin\fR options following this
+and they will have the normal effect.
+.IP "\(bu" 2
+\fBdisable-plugin\fR=\fIPLUGIN\fR
+.IP
+If \fIPLUGIN\fR contains a /, plugins with the same path as \fIPLUGIN\fR will
+not be loaded at startup. Otherwise, no plugin with that base name will
+be loaded at startup, whatever directory it is in.  This option is useful for
+disabling a single plugin inside a directory.  You can still explicitly
+load plugins which have been disabled, using lightning-plugin(7) \fCstart\fR.
+.IP "\(bu" 2
+\fBimportant-plugin\fR=\fIPLUGIN\fR
+.IP
+Speciy a plugin to run as part of Core Lightning.
+This can be specified multiple times to add multiple plugins.
+Plugins specified via this option are considered so important, that if the
+plugin stops for any reason (including via lightning-plugin(7) \fCstop\fR),
+Core Lightning will also stop running.
+This way, you can monitor crashes of important plugins by simply monitoring
+if Core Lightning terminates.
+Built-in plugins, which are installed with lightningd(8), are automatically
+considered important.
+.SS
+Experimental Options
+.LP
+Experimental options are subject to breakage between releases: they
+are made available for advanced users who want to test proposed
+features. When the build is configured \fIwithout\fR \fC--enable-experimental-features\fR,
+below options are available but disabled by default.
+A build \fIwith\fR \fC--enable-experimental-features\fR enables some of below options
+by default and also adds support for even more features. Supported features can
+be listed with \fClightningd --list-features-only\fR.
+.IP "\(bu" 2
+\fBexperimental-onion-messages\fR
+.IP
+Specifying this enables sending, forwarding and receiving onion messages,
+which are in draft status in the BOLT specifications.
+.IP "\(bu" 2
+\fBexperimental-offers\fR
+.IP
+Specifying this enables the \fCoffers\fR and \fCfetchinvoice\fR plugins and
+corresponding functionality, which are in draft status as BOLT12.
+This usually requires \fBexperimental-onion-messages\fR as well.  See
+lightning-offer(7) and lightning-fetchinvoice(7).
+.IP "\(bu" 2
+\fBfetchinvoice-noconnect\fR
+.IP
+Specifying this prevents \fCfetchinvoice\fR and \fCsendinvoice\fR from
+trying to connect directly to the offering node as a last resort.
+.IP "\(bu" 2
+\fBexperimental-shutdown-wrong-funding\fR
+.IP
+Specifying this allows the \fCwrong_funding\fR field in shutdown: if a
+remote node has opened a channel but claims it used the incorrect txid
+(and the channel hasn't been used yet at all) this allows them to
+negotiate a clean shutdown with the txid they offer.
+.IP "\(bu" 2
+\fBexperimental-dual-fund\fR
+.IP
+Specifying this enables support for the dual funding protocol,
+allowing both parties to contribute funds to a channel. The decision
+about whether to add funds or not to a proposed channel is handled
+automatically by a plugin that implements the appropriate logic for
+your needs. The default behavior is to not contribute funds.
+.IP "\(bu" 2
+\fBexperimental-websocket-port\fR=\fIPORT\fR
+.IP
+Specifying this enables support for accepting incoming WebSocket
+connections on that port, on any IPv4 and IPv6 addresses you listen
+to.  The normal protocol is expected to be sent over WebSocket binary
+frames once the connection is upgraded.
+.SH
+BUGS
+.LP
+You should report bugs on our github issues page, and maybe submit a fix
+to gain our eternal gratitude!
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> wrote this man page, and
+much of the configuration language, but many others did the hard work of
+actually implementing these options.
+.SH
+SEE ALSO
+.LP
+lightning-listconfigs(7) lightning-setchannel(7) lightningd(8)
+lightning-hsmtool(8)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+.SH
+COPYING
+.LP
+Note: the modules in the ccan/ directory have their own licenses, but
+the rest of the code is covered by the BSD-style MIT license.
+\" SHA256STAMP:4af2466c8b65b3a2750ace95e12c8c76ba1826994d1e4a08746d9d00e850cb26

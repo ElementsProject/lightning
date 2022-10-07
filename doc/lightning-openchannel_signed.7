@@ -1,0 +1,105 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-OPENCHANNEL_SIGNED" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-openchannel_signed -- Command to conclude a channel open
+.SH
+SYNOPSIS
+.LP
+\fBopenchannel_signed\fR \fIchannel_id\fR \fIsigned_psbt\fR
+.SH
+DESCRIPTION
+.LP
+\fCopenchannel_signed\fR is a low level RPC command which concludes a channel
+open with the specified peer. It uses the v2 openchannel protocol, which
+allows for interactive transaction construction.
+.PP
+This command should be called after \fCopenchannel_update\fR returns
+\fIcommitments_secured\fR \fCtrue\fR.
+.PP
+This command will broadcast the finalized funding transaction,
+if we receive valid signatures from the peer.
+.PP
+\fIchannel_id\fR is the id of the channel.
+.PP
+\fIsigned_psbt\fR is the PSBT returned from \fCopenchannel_update\fR (where
+\fIcommitments_secured\fR was true) with partial signatures or finalized
+witness stacks included for every input that we contributed to the
+PSBT.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBchannel_id\fR (hex): the channel id of the channel (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtx\fR (hex): the funding transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtxid\fR (txid): The txid of the \fBtx\fR
+.LP
+On error, the returned object will contain \fCcode\fR and \fCmessage\fR properties,
+with \fCcode\fR being one of the following:
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+-1: Catchall nonspecific error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+303: Funding transaction broadcast failed.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+305: Peer is not connected.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+309: PSBT missing required fields.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+311: Unknown channel id.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+312: Channel in an invalid state
+.SH
+SEE ALSO
+.LP
+lightning-openchannel_init(7), lightning-openchannel_update(7),
+lightning-openchannel_abort(7), lightning-openchannel_bump(7),
+lightning-fundchannel_start(7), lightning-fundchannel_complete(7),
+lightning-fundchannel(7), lightning-fundpsbt(7),
+lightning-utxopsbt(7), lightning-multifundchannel(7)
+.SH
+AUTHOR
+.LP
+@niftynei <\fIniftynei@gmail.com\fR> is mainly responsible.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:069b8465af7cb9439d0e5439d161be9ff7676a74d84d425b3f9ec84fe720321d

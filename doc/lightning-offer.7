@@ -1,0 +1,167 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-OFFER" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-offer -- Command for accepting payments
+.SH
+SYNOPSIS
+.LP
+\fB(WARNING: experimental-offers only)\fR
+.PP
+\fBoffer\fR \fIamount\fR \fIdescription\fR [\fIissuer\fR] [\fIlabel\fR] [\fIquantity_min\fR] [\fIquantity_max\fR] [\fIabsolute_expiry\fR] [\fIrecurrence\fR] [\fIrecurrence_base\fR] [\fIrecurrence_paywindow\fR] [\fIrecurrence_limit\fR] [\fIsingle_use\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBoffer\fR RPC command creates an offer (or returns an existing
+one), which is a precursor to creating one or more invoices.  It
+automatically enables the processing of an incoming invoice_request,
+and issuing of invoices.
+.PP
+Note that it creates two variants of the offer: a signed and an
+unsigned one (which is smaller).  Wallets should accept both: the
+current specification allows either.
+.PP
+The \fIamount\fR parameter can be the string \(dqany\(dq, which creates an offer
+that can be paid with any amount (e.g. a donation).  Otherwise it can
+be a positive value in millisatoshi precision; it can be a whole
+number, or a whole number ending in \fImsat\fR or \fIsat\fR, or a number with
+three decimal places ending in \fIsat\fR, or a number with 1 to 11 decimal
+places ending in \fIbtc\fR.
+.PP
+\fIamount\fR can also have an ISO 4217 postfix (i.e. USD), in which case
+currency conversion will need to be done for the invoice itself.  A
+plugin is needed which provides the \(dqcurrencyconvert\(dq API for this
+currency, otherwise the offer creation will fail.
+.PP
+The \fIdescription\fR is a short description of purpose of the offer,
+e.g. \fIcoffee\fR. This value is encoded into the resulting offer and is
+viewable by anyone you expose this offer to. It must be UTF-8, and
+cannot use \fI\eu\fR JSON escape codes.
+.PP
+The \fIissuer\fR is another (optional) field exposed in the offer, and
+reflects who is issuing this offer (i.e. you) if appropriate.
+.PP
+The \fIlabel\fR field is an internal-use name for the offer, which can
+be any UTF-8 string.
+.PP
+The present of \fIquantity_min\fR or \fIquantity_max\fR indicates that the
+invoice can specify more than one of the items within this (inclusive)
+range.  The \fIamount\fR for the invoice will need to be multiplied
+accordingly.  These are encoded in the offer.
+.PP
+The \fIabsolute_expiry\fR is optionally the time the offer is valid until,
+in seconds since the first day of 1970 UTC.  If not set, the offer
+remains valid (though it can be deactivated by the issuer of course).
+This is encoded in the offer.
+.PP
+\fIrecurrence\fR means that an invoice is expected at regular intervals.
+The argument is a positive number followed by one of \(dqseconds\(dq,
+\(dqminutes\(dq, \(dqhours\(dq, \(dqdays\(dq, \(dqweeks\(dq, \(dqmonths\(dq or \(dqyears\(dq (variants
+without the trailing \(dqs\(dq are also permitted).  This is encoded in the
+offer.  The semantics of recurrence is fairly predictable, but fully
+documented in BOLT 12.  e.g. \(dq4weeks\(dq.
+.PP
+\fIrecurrence_base\fR is an optional time in seconds since the first day
+of 1970 UTC, optionally with a \(dq@\(dq prefix.  This indicates when the
+first period begins; without this, the recurrence periods start from
+the first invoice.  The \(dq@\(dq prefix means that the invoice must start
+by paying the first period; otherwise it is permitted to start at any
+period.  This is encoded in the offer.  e.g. \(dq@1609459200\(dq indicates
+you must start paying on the 1st January 2021.
+.PP
+\fIrecurrence_paywindow\fR is an optional argument of form
+\&'-time+time[%]'.  The first time is the number of seconds before the
+start of a period in which an invoice and payment is valid, the second
+time is the number of seconds after the start of the period.  For
+example \fI-604800+86400\fR means you can fetch an pay the invoice 4 weeks
+before the given period starts, and up to 1 day afterwards.  The
+optional \fI%\fR indicates that the amount of the invoice will be scaled
+by the time remaining in the period.  If this is not specified, the
+default is that payment is allowed during the current and previous
+periods.  This is encoded in the offer.
+.PP
+\fIrecurrence_limit\fR is an optional argument to indicate the maximum
+period which exists.  eg. \(dq12\(dq means there are 13 periods, from 0 to
+12 inclusive.  This is encoded in the offer.
+.PP
+\fIrefund_for\fR is the payment\fIpreimage of a previous (paid) invoice.
+This implies *send\fRinvoice* and \fIsingle_use\fR.  This is encoded in the
+offer.
+.PP
+\fIsingle_use\fR (default false) indicates that the offer is only valid
+once; we may issue multiple invoices, but as soon as one is paid all other
+invoices will be expired (i.e. only one person can pay this offer).
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBoffer_id\fR (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBactive\fR (boolean): whether this can still be used (always \fItrue\fR)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsingle_use\fR (boolean): whether this expires as soon as it's paid (reflects the \fIsingle_use\fR parameter)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string): the bolt12 encoding of the offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12_unsigned\fR (string): the bolt12 encoding of the offer, without a signature
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBused\fR (boolean): True if an associated invoice has been paid
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcreated\fR (boolean): false if the offer already existed
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlabel\fR (string, optional): the (optional) user-specified label
+.LP
+On failure, an error is returned and no offer is created. If the
+lightning process fails before responding, the caller should use
+lightning-listoffers(7) to query whether this offer was created or
+not.
+.PP
+If the offer already existed, and is still active, that is returned;
+if it's not active then this call fails.
+.PP
+The following error codes may occur:
+- -1: Catchall nonspecific error.
+- 1000: Offer with this offer_id already exists (but is not active).
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-offerout(7), lightning-listoffers(7), lightning-disableoffer(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:774138af7b5ab5edf762d6693da5f94032d9e5c93b9c9005809acde5d66e3f9e

@@ -1,0 +1,137 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-BKPR-LISTACCOUNTEVENTS" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-bkpr-listaccountevents -- Command for listing recorded bookkeeping events
+.SH
+SYNOPSIS
+.LP
+\fBbkpr-listaccountevents\fR [*account*]
+.SH
+DESCRIPTION
+.LP
+The \fBbkpr-listaccountevents\fR RPC command is a list of all bookkeeping events that have been recorded for this node.
+.PP
+If the optional parameter \fBaccount\fR is set, we only emit events for the
+specified account, if exists.
+.PP
+Note that the type \fBonchain_fees\fR that are emitted are of opposite credit/debit than as they appear in \fBlistincome\fR, as \fBlistincome\fR shows all events from the perspective of the node, whereas \fBlistaccountevents\fR just dumps the event data as we've got it. Onchain fees are updated/recorded as we get more information about input and output spends -- the total onchain fees that were recorded for a transaction for an account can be found by summing all onchain fee events and taking the difference between the \fBcredit_msat\fR and \fBdebit_msat\fR for these events. We do this so that successive calls to \fBlistaccountevents\fR always
+produce the same list of events -- no previously emitted event will be
+subsequently updated, rather we add a new event to the list.
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBevents\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBaccount\fR (string): The account name. If the account is a channel, the channel_id
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtype\fR (string): Coin movement type (one of \(dqonchain_fee\(dq, \(dqchain\(dq, \(dqchannel\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtag\fR (string): Description of movement
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcredit_msat\fR (msat): Amount credited
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdebit_msat\fR (msat): Amount debited
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcurrency\fR (string): human-readable bech32 part for this coin type
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtimestamp\fR (u32): Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp
+.LP
+If \fBtype\fR is \(dqchain\(dq:
+.IP "\(bu" 2
+\fBoutpoint\fR (string): The txid:outnum for this event
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBblockheight\fR (u32): For chain events, blockheight this occured at
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBorigin\fR (string, optional): The account this movement originated from
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_id\fR (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtxid\fR (txid, optional): The txid of the transaction that created this event
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string, optional): The description of this event
+.LP
+If \fBtype\fR is \(dqonchain_fee\(dq:
+.IP "\(bu" 2
+\fBtxid\fR (txid): The txid of the transaction that created this event
+.LP
+If \fBtype\fR is \(dqchannel\(dq:
+.IP "\(bu" 2
+\fBfees_msat\fR (msat, optional): Amount paid in fees
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBis_rebalance\fR (boolean, optional): Is this payment part of a rebalance
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpayment_id\fR (hex, optional): lightning payment identifier. For an htlc, this will be the preimage.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBpart_id\fR (u32, optional): Counter for multi-part payments
+.SH
+AUTHOR
+.LP
+niftynei \fIniftynei@gmail.com\fR is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-bkpr-listincome(7), lightning-listfunds(7),
+lightning-bkpr-listbalances(7), lightning-bkpr-channelsapy(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:bba7edcbc0773c035a039af45ba40d94cb3e80448c72ef1ca9cd0bb992db0e98

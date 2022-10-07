@@ -1,0 +1,145 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-CLI" "1" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-cli -- Control lightning daemon
+.SH
+SYNOPSIS
+.LP
+\fBlightning-cli\fR [\fIOPTIONS\fR] \fIcommand\fR
+.SH
+DESCRIPTION
+.LP
+\fBlightning-cli\fR sends commands to the lightning daemon.
+.SH
+OPTIONS
+.IP "\(bu" 2
+\fB--lightning-dir\fR=\fIDIR\fR
+.IP
+Set the directory for the lightning daemon we're talking to; defaults to
+\fI$HOME/.lightning\fR.
+.IP "\(bu" 2
+\fB--conf\fR=\fIPATH\fR
+.IP
+Sets configuration file (default: \fBlightning-dir\fR/\fIconfig\fR ).
+.IP "\(bu" 2
+\fB--network\fR=\fInetwork\fR
+.IP "\(bu" 2
+\fB--mainnet\fR
+.IP "\(bu" 2
+\fB--testnet\fR
+.IP "\(bu" 2
+\fB--signet\fR
+.IP
+Sets network explicitly.
+.IP "\(bu" 2
+\fB--rpc-file\fR=\fIFILE\fR
+.IP
+Named pipe to use to talk to lightning daemon: default is
+\fIlightning-rpc\fR in the lightning directory.
+.IP "\(bu" 2
+\fB--keywords\fR/\fB-k\fR
+.IP
+Use format \fIkey\fR=\fIvalue\fR for parameters in any order
+.IP "\(bu" 2
+\fB--order\fR/\fB-o\fR
+.IP
+Follow strictly the order of parameters for the command
+.IP "\(bu" 2
+\fB--json\fR/\fB-J\fR
+.IP
+Return result in JSON format (default unless \fIhelp\fR command,
+or result contains a \fCformat-hint\fR field).
+.IP "\(bu" 2
+\fB--raw\fR/\fB-R\fR
+.IP
+Return raw JSON directly as lightningd replies; this can be faster for
+large requests.
+.IP "\(bu" 2
+\fB--human-readable\fR/\fB-H\fR
+.IP
+Return result in human-readable output.
+.IP "\(bu" 2
+\fB--flat\fR/\fB-F\fR
+.IP
+Return JSON result in flattened one-per-line output, e.g. \fC{ \(dqhelp\(dq:
+[ { \(dqcommand\(dq: \(dqcheck\(dq } ] }\fR would become \fChelp[0].command=check\fR.
+This is useful for simple scripts which want to find a specific output
+field without parsing JSON.
+.IP "\(bu" 2
+\fB--notifications\fR/\fB-N\fR=\fILEVEL\fR
+.IP
+If \fILEVEL\fR is 'none', then never print out notifications.  Otherwise,
+print out notifications of \fILEVEL\fR or above (one of \fCio\fR, \fCdebug\fR,
+\fCinfo\fR (the default), \fCunusual\fR or \fCbroken\fR: they are prefixed with \fC#
+\fR.
+.IP "\(bu" 2
+\fB--help\fR/\fB-h\fR
+.IP
+Pretty-print summary of options to standard output and exit.  The format can
+be changed using \fC-F\fR, \fC-R\fR, \fC-J\fR, \fC-H\fR etc.
+.IP "\(bu" 2
+\fB--version\fR/\fB-V\fR
+.IP
+Print version number to standard output and exit.
+.IP "\(bu" 2
+\fBallow-deprecated-apis\fR=\fIBOOL\fR
+.IP
+Enable deprecated options. It defaults to \fItrue\fR, but you should set
+it to \fIfalse\fR when testing to ensure that an upgrade won't break your
+configuration.
+.SH
+COMMANDS
+.LP
+\fIlightning-cli\fR simply uses the JSON RPC interface to talk to
+\fIlightningd\fR, and prints the results. Thus the commands available depend
+entirely on the lightning daemon itself.
+.SH
+ARGUMENTS
+.LP
+Arguments may be provided positionally or using \fIkey\fR=\fIvalue\fR after the
+command name, based on either \fB-o\fR or \fB-k\fR option. When using \fB-k\fR 
+consider prefixing all arguments of the command with their respective keyword, 
+this is to avoid having lightningd intrepret the position of an arguement. 
+.PP
+Arguments may be integer numbers (composed entirely of digits), floating-point 
+numbers (has a radix point but otherwise composed of digits), \fItrue\fR, \fIfalse\fR,
+or \fInull\fR. Arguments which begin with \fI{\fR, \fI[\fR or \fI\(dq\fR are also considered
+raw JSON and are passed through.  Other arguments are treated as strings.
+.PP
+Some commands have optional arguments. You may use \fInull\fR to skip
+optional arguments to provide later arguments, although this is not encouraged.
+.SH
+EXAMPLES
+.IP "1.  "
+List commands:
+.RS
+.IP "\(bu" 2
+\fClightning-cli help\fR
+.RE
+.IP "2.  "
+Fund a 10k sat channel using uncomfirmed outputs:
+.RS
+.IP "\(bu" 2
+\fClightning-cli --keywords fundchannel id=028f...ae7d amount=10000sat minconf=0\fR
+.RE
+.SH
+BUGS
+.LP
+This manpage documents how it should work, not how it does work. The
+pretty printing of results isn't pretty.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly to blame.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+.SH
+COPYING
+.LP
+Note: the modules in the ccan/ directory have their own licenses, but
+the rest of the code is covered by the BSD-style MIT license.
+\" SHA256STAMP:7ecc4f3f8cb6c690a72e5df3ae933b40010c7b9a064bb7d064547868d95bbec3

@@ -1,0 +1,196 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-LISTTRANSACTIONS" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-listtransactions -- Command to get the list of transactions that was stored in the wallet.
+.SH
+SYNOPSIS
+.LP
+\fBlisttransactions\fR
+.SH
+DESCRIPTION
+.LP
+The \fBlisttransactions\fR command returns transactions tracked in the wallet. This includes deposits, withdrawals and transactions related to channels. A transaction may have multiple types, e.g., a transaction may both be a close and a deposit if it closes the channel and returns funds to the wallet.
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqlisttransactions\(dq,
+  \(dqparams\(dq: {}
+}
+.EE
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBtransactions\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBhash\fR (txid): the transaction id
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBrawtx\fR (hex): the raw transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBblockheight\fR (u32): the block height of this tx
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtxindex\fR (u32): the transaction number within the block
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlocktime\fR (u32): The nLocktime for this tx
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBversion\fR (u32): The nVersion for this tx
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBinputs\fR (array of objects): Each input, in order:
+.RS
+.IP "\(bu" 2
+\fBtxid\fR (txid): the transaction id spent
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBindex\fR (u32): the output spent
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsequence\fR (u32): the nSequence value
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtype\fR (string, optional): the purpose of this input (\fIEXPERIMENTAL_FEATURES\fR only) (one of \(dqtheirs\(dq, \(dqdeposit\(dq, \(dqwithdraw\(dq, \(dqchannel\fIfunding\(dq, \(dqchannel\fRmutual\fIclose\(dq, \(dqchannel\fRunilateral\fIclose\(dq, \(dqchannel\fRsweep\(dq, \(dqchannel\fIhtlc\fRsuccess\(dq, \(dqchannel\fIhtlc\fRtimeout\(dq, \(dqchannel\fIpenalty\(dq, \(dqchannel\fRunilateral_cheat\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel\fR (short\fIchannel\fRid, optional): the channel this input is associated with (\fIEXPERIMENTAL_FEATURES\fR only)
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBoutputs\fR (array of objects): Each output, in order:
+.RS
+.IP "\(bu" 2
+\fBindex\fR (u32): the 0-based output number
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat): the amount of the output
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBscriptPubKey\fR (hex): the scriptPubKey
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtype\fR (string, optional): the purpose of this output (\fIEXPERIMENTAL_FEATURES\fR only) (one of \(dqtheirs\(dq, \(dqdeposit\(dq, \(dqwithdraw\(dq, \(dqchannel\fIfunding\(dq, \(dqchannel\fRmutual\fIclose\(dq, \(dqchannel\fRunilateral\fIclose\(dq, \(dqchannel\fRsweep\(dq, \(dqchannel\fIhtlc\fRsuccess\(dq, \(dqchannel\fIhtlc\fRtimeout\(dq, \(dqchannel\fIpenalty\(dq, \(dqchannel\fRunilateral_cheat\(dq)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel\fR (short\fIchannel\fRid, optional): the channel this output is associated with (\fIEXPERIMENTAL_FEATURES\fR only)
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtype\fR (array of strings, optional):
+.RS
+.IP "\(bu" 2
+Reason we care about this transaction (\fIEXPERIMENTAL_FEATURES\fR only) (one of \(dqtheirs\(dq, \(dqdeposit\(dq, \(dqwithdraw\(dq, \(dqchannel\fIfunding\(dq, \(dqchannel\fRmutual\fIclose\(dq, \(dqchannel\fRunilateral\fIclose\(dq, \(dqchannel\fRsweep\(dq, \(dqchannel\fIhtlc\fRsuccess\(dq, \(dqchannel\fIhtlc\fRtimeout\(dq, \(dqchannel\fIpenalty\(dq, \(dqchannel\fRunilateral_cheat\(dq)
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel\fR (short\fIchannel\fRid, optional): the channel this transaction is associated with (\fIEXPERIMENTAL_FEATURES\fR only)
+.LP
+On failure, one of the following error codes may be returned:
+- -32602: Error in given parameters.
+.SH
+EXAMPLE JSON RESPONSE
+.LP
+.EX
+{
+   \(dqtransactions\(dq: [
+      {
+         \(dqhash\(dq: \(dq05985072bbe20747325e69a159fe08176cc1bbc96d25e8848edad2dddc1165d0\(dq,
+         \(dqrawtx\(dq: \(dq02000000027032912651fc25a3e0893acd5f9640598707e2dfef92143bb5a4020e335442800100000017160014a5f48b9aa3cb8ca6cc1040c11e386745bb4dc932ffffffffd229a4b4f78638ebcac10a68b0561585a5d6e4d3b769ad0a909e9b9afaeae24e00000000171600145c83da9b685f9142016c6f5eb5f98a45cfa6f686ffffffff01915a01000000000017a9143a4dfd59e781f9c3018e7d0a9b7a26d58f8d22bf8700000000\(dq,
+         \(dqblockheight\(dq: 0,
+         \(dqtxindex\(dq: 0,
+         \(dqlocktime\(dq: 0,
+         \(dqversion\(dq: 2,
+         \(dqinputs\(dq: [
+            {
+               \(dqtxid\(dq: \(dq804254330e02a4b53b1492efdfe207875940965fcd3a89e0a325fc5126913270\(dq,
+               \(dqindex\(dq: 1,
+               \(dqsequence\(dq: 4294967295
+            },
+            {
+               \(dqtxid\(dq: \(dq4ee2eafa9a9b9e900aad69b7d3e4d6a5851556b0680ac1caeb3886f7b4a429d2\(dq,
+               \(dqindex\(dq: 0,
+               \(dqsequence\(dq: 4294967295
+            }
+         ],
+         \(dqoutputs\(dq: [
+            {
+               \(dqindex\(dq: 0,
+               \(dqsatoshis\(dq: \(dq88721000msat\(dq,
+               \(dqscriptPubKey\(dq: \(dqa9143a4dfd59e781f9c3018e7d0a9b7a26d58f8d22bf87\(dq
+            }
+         ]
+      }
+    ]
+}
+.EE
+.SH
+AUTHOR
+.LP
+Vincenzo Palazzo <\fIvincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command.
+.SH
+SEE ALSO
+.LP
+lightning-newaddr(7), lightning-listfunds(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:ba565dd7aeb162e8c0f810d2ba4192f54a1ddb70d15ef25c658740e0ee1d0493

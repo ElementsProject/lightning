@@ -1,0 +1,109 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-LISTOFFERS" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-listoffers -- Command for listing offers
+.SH
+SYNOPSIS
+.LP
+\fB(WARNING: experimental-offers only)\fR
+.PP
+\fBlistoffers\fR [\fIoffer_id\fR] [\fIactive_only\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBlistoffers\fR RPC command list all offers, or with \fCoffer_id\fR,
+only the offer with that offer_id (if it exists).  If \fCactive_only\fR is
+set and is true, only offers with \fCactive\fR true are returned.
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqlistoffers\(dq,
+  \(dqparams\(dq: {
+    \(dqactive_only\(dq: false
+  }
+}
+.EE
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBoffers\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBoffer_id\fR (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBactive\fR (boolean): whether this can still be used
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBsingle_use\fR (boolean): whether this expires as soon as it's paid
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12\fR (string): the bolt12 encoding of the offer
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBbolt12_unsigned\fR (string): the bolt12 encoding of the offer, without signature
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBused\fR (boolean): True if an associated invoice has been paid
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBlabel\fR (string, optional): the (optional) user-specified label
+.SH
+EXAMPLE JSON RESPONSE
+.LP
+.EX
+{
+  \(dqoffers\(dq: [
+    {
+      \(dqoffer_id\(dq: \(dq053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084\(dq,
+      \(dqactive\(dq: true,
+      \(dqsingle_use\(dq: false,
+      \(dqbolt12\(dq: \(dqlno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqvqcdgq2z9pk7enxv4jjqen0wgs8yatnw3ujz83qkc6rvp4j28rt3dtrn32zkvdy7efhnlrpr5rp5geqxs783wtlj550qs8czzku4nk3pqp6m593qxgunzuqcwkmgqkmp6ty0wyvjcqdguv3pnpukedwn6cr87m89t74h3auyaeg89xkvgzpac70z3m9rn5xzu28c\(dq,
+      \(dqused\(dq: false
+    },
+    {
+      \(dqoffer_id\(dq: \(dq3247d3597fec19e362ca683416a48a0f76a44c1600725a7ee1936548feadacca\(dq,
+      \(dqactive\(dq: true,
+      \(dqsingle_use\(dq: false,
+      \(dqbolt12\(dq: \(dqlno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcxqd24x3qgqgqlgzs3gdhkven9v5sxvmmjype82um50ys3ug9kxsmqdvj3c6ut2cuu2s4nrf8k2dulccgaqcdzxgp583utjlu49rcyqt8hc3s797umxn3r9367rdqc577rma7key58fywkajxnuzyapge86hj2pg80rjrma40xdqrxnsnva5l3ce7hz4ua8wf755dees4y9vnq\(dq,
+      \(dqused\(dq: true
+    }
+  ]
+}
+
+.EE
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-offer(7), lightning-offerout(7), lightning-listoffers(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:3ce4cf3ee717d9e8c3f4175365ef26b8ae190c03675e9aca4b2f43227c1aea68

@@ -1,0 +1,93 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-PLUGIN" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-plugin -- Manage plugins with RPC
+.SH
+SYNOPSIS
+.LP
+\fBplugin\fR \fIsubcommand\fR [plugin|directory] [\fIoptions\fR] ...
+.SH
+DESCRIPTION
+.LP
+The \fBplugin\fR RPC command command can be used to control dynamic plugins,
+i.e. plugins that declared themself \(dqdynamic\(dq (in getmanifest).
+.PP
+\fIsubcommand\fR can be \fBstart\fR, \fBstop\fR, \fBstartdir\fR, \fBrescan\fR or \fBlist\fR and
+determines what action is taken
+.PP
+\fIplugin\fR is the \fIpath\fR or \fIname\fR of a plugin executable to start or stop
+.PP
+\fIdirectory\fR is the \fIpath\fR of a directory containing plugins
+.PP
+\fIoptions\fR are optional \fIkeyword=value\fR options passed to plugin, can be repeated
+.PP
+\fIsubcommand\fR \fBstart\fR takes a \fIpath\fR to an executable as argument and starts it as plugin.
+\fIpath\fR may be an absolute path or a path relative to the plugins directory (default \fI\(ti/.lightning/plugins\fR).
+If the plugin is already running and the executable (checksum) has changed, the plugin is
+killed and restarted except if its an important (or builtin) plugin.
+If the plugin doesn't complete the \(dqgetmanifest\(dq and \(dqinit\(dq handshakes within 60 seconds,
+the command will timeout and kill the plugin.
+Additional \fIoptions\fR may be passed to the plugin, but requires all parameters to
+be passed as keyword=value pairs, for example:
+\fClightning-cli -k plugin subcommand=start plugin=helloworld.py greeting='A crazy'\fR
+(using the \fC-k|--keyword\fR option is recommended)
+.PP
+\fIsubcommand\fR \fBstop\fR takes a plugin executable \fIpath\fR or \fIname\fR as argument and stops the plugin.
+If the plugin subscribed to \(dqshutdown\(dq, it may take up to 30 seconds before this
+command returns. If the plugin is important and dynamic, this will shutdown \fClightningd\fR.
+.PP
+\fIsubcommand\fR \fBstartdir\fR starts all executables it can find in \fIdirectory\fR (excl. subdirectories)
+as plugins. Checksum and timeout behavior as in \fBstart\fR applies.
+.PP
+\fIsubcommand\fR \fBrescan\fR starts all plugins in the default plugins directory (default \fI\(ti/.lightning/plugins\fR)
+that are not already running. Checksum and timeout behavior as in \fBstart\fR applies.
+.PP
+\fIsubcommand\fR \fBlist\fR lists all running plugins (incl. non-dynamic)
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBcommand\fR (string): the subcommand this is responding to (one of \(dqstart\(dq, \(dqstop\(dq, \(dqrescan\(dq, \(dqstartdir\(dq, \(dqlist\(dq)
+.LP
+If \fBcommand\fR is \(dqstart\(dq, \(dqstartdir\(dq, \(dqrescan\(dq or \(dqlist\(dq:
+.IP "\(bu" 2
+\fBplugins\fR (array of objects):
+.RS
+.IP "\(bu" 2
+\fBname\fR (string): full pathname of the plugin
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBactive\fR (boolean): status; plugin completed init and is operational, plugins are configured asynchronously.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdynamic\fR (boolean): plugin can be stopped or started without restarting lightningd
+.RE
+.LP
+If \fBcommand\fR is \(dqstop\(dq:
+.IP "\(bu" 2
+\fBresult\fR (string): A message saying it successfully stopped
+.LP
+On error, the reason why the action could not be taken upon the
+plugin is returned.
+.SH
+SEE ALSO
+.LP
+lightning-cli(1), lightning-listconfigs(1), \fBwriting plugins\fR <\fIPLUGINS.md\fR>
+.SH
+AUTHOR
+.LP
+Antoine Poinsot <\fIdarosior@protonmail.com\fR> is mainly responsible.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:4096bbf13ad5e3c4354e2be53d37b43b7fc2b7258850a8cc89d7a4444fd322bb

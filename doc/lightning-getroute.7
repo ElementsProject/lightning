@@ -1,0 +1,145 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-GETROUTE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-getroute -- Command for routing a payment (low-level)
+.SH
+SYNOPSIS
+.LP
+\fBgetroute\fR \fIid\fR \fImsatoshi\fR \fIriskfactor\fR [\fIcltv\fR] [\fIfromid\fR]
+[\fIfuzzpercent\fR] [\fIexclude\fR] [\fImaxhops\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBgetroute\fR RPC command attempts to find the best route for the
+payment of \fImsatoshi\fR to lightning node \fIid\fR, such that the payment will
+arrive at \fIid\fR with \fIcltv\fR-blocks to spare (default 9).
+.PP
+\fImsatoshi\fR is in millisatoshi precision; it can be a whole number, or a
+whole number ending in \fImsat\fR or \fIsat\fR, or a number with three decimal
+places ending in \fIsat\fR, or a number with 1 to 11 decimal places ending
+in \fIbtc\fR.
+.PP
+There are two considerations for how good a route is: how low the fees
+are, and how long your payment will get stuck in a delayed output if a
+node goes down during the process. The \fIriskfactor\fR non-negative
+floating-point field controls this tradeoff; it is the annual cost of
+your funds being stuck (as a percentage).
+.PP
+For example, if you thought the convenience of keeping your funds liquid
+(not stuck) was worth 20% per annum interest, \fIriskfactor\fR would be 20.
+.PP
+If you didn't care about risk, \fIriskfactor\fR would be zero.
+.PP
+\fIfromid\fR is the node to start the route from: default is this node.
+.PP
+The \fIfuzzpercent\fR is a non-negative floating-point number, representing a
+percentage of the actual fee. The \fIfuzzpercent\fR is used to distort
+computed fees along each channel, to provide some randomization to the
+route generated. 0.0 means the exact fee of that channel is used, while
+100.0 means the fee used might be from 0 to twice the actual fee. The
+default is 5.0, or up to 5% fee distortion.
+.PP
+\fIexclude\fR is a JSON array of short-channel-id/direction (e.g. [
+\(dq564334x877x1/0\(dq, \(dq564195x1292x0/1\(dq ]) or node-id which should be excluded
+from consideration for routing. The default is not to exclude any channels
+or nodes. Note if the source or destination is excluded, the command result
+is undefined.
+.PP
+\fImaxhops\fR is the maximum number of channels to return; default is 20.
+.SH
+RISKFACTOR EFFECT ON ROUTING
+.LP
+The risk factor is treated as if it were an additional fee on the route,
+for the purposes of comparing routes.
+.PP
+The formula used is the following approximation:
+.LP
+.EX
+risk-fee = amount x blocks-timeout x per-block-cost
+.EE
+.PP
+We are given a \fIriskfactor\fR expressed as a percentage. There are 52596
+blocks per year, thus \fIper-block-cost\fR is \fIriskfactor\fR divided by
+5,259,600.
+.PP
+The final result is:
+.LP
+.EX
+risk-fee = amount x blocks-timeout x riskfactor / 5259600
+.EE
+.PP
+Here are the risk fees in millisatoshis, using various parameters. I
+assume a channel charges the default of 1000 millisatoshis plus 1
+part-per-million. Common to_self_delay values on the network at 14 and
+144 blocks.
+.SH
+RECOMMENDED RISKFACTOR VALUES
+.LP
+The default \fIfuzz\fR factor is 5%, so as you can see from the table above,
+that tends to overwhelm the effect of \fIriskfactor\fR less than about 5.
+.PP
+1 is a conservative value for a stable lightning network with very few
+failures.
+.PP
+1000 is an aggressive value for trying to minimize timeouts at all
+costs.
+.PP
+The default for lightning-pay(7) is 10, which starts to become a major
+factor for larger amounts, and is basically ignored for tiny ones.
+.SH
+RETURN VALUE
+.LP
+On success, an object containing \fBroute\fR is returned.  It is an array of objects, where each object contains:
+.IP "\(bu" 2
+\fBid\fR (pubkey): The node at the end of this hop
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel\fR (short\fIchannel\fRid): The channel joining these nodes
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdirection\fR (u32): 0 if this channel is traversed from lesser to greater \fBid\fR, otherwise 1
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBamount_msat\fR (msat): The amount expected by the node at the end of this hop
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdelay\fR (u32): The total CLTV expected by the node at the end of this hop
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstyle\fR (string): The features understood by the destination node (always \(dqtlv\(dq)
+.LP
+The final \fIid\fR will be the destination \fIid\fR given in the input. The
+difference between the first \fImsatoshi\fR minus the \fImsatoshi\fR given in
+the input is the fee (assuming the first hop is free). The first
+\fIdelay\fR is the very worst case timeout for the payment failure, in
+blocks.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-pay(7), lightning-sendpay(7).
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:fda08c6f73af3c8e8f6e6d867828a1a81eab47624c02e926c0815bf14e0e8ce1

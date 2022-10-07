@@ -1,0 +1,84 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-HELP" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-help -- Command to return all information about RPC commands.
+.SH
+SYNOPSIS
+.LP
+\fBhelp\fR [\fIcommand\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBhelp\fR is a RPC command which is possible consult all information about the RPC commands, or a specific command if \fIcommand\fR is given.
+.PP
+Note that the lightning-cli(1) tool will prefer to list a man page when a
+specific \fIcommand\fR is specified, and will only return the JSON if the man
+page is not found.
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqhelp\(dq,
+  \(dqparams\(dq: {}
+}
+.EE
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBhelp\fR (array of objects):
+.RS
+.IP "\(bu" 2
+\fBcommand\fR (string): the command
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBcategory\fR (string): the category for this command (useful for grouping)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBdescription\fR (string): a one-line description of the purpose of this command
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBverbose\fR (string): a full description of this command (including whether it's deprecated)
+.RE
+.LP
+On failure, one of the following error codes may be returned:
+.IP "\(bu" 2
+-32602: Error in given parameters.
+.SH
+EXAMPLE JSON RESPONSE
+.LP
+.EX
+{
+    \(dqhelp\(dq: [
+      {
+        \(dqcommand\(dq: \(dqautocleaninvoice [cycle_seconds] [expired_by]\(dq,
+        \(dqcategory\(dq: \(dqplugin\(dq,
+        \(dqdescription\(dq: \(dqSet up autoclean of expired invoices. \(dq,
+        \(dqverbose\(dq: \(dqPerform cleanup every {cycle_seconds} (default 3600), or disable autoclean if 0. Clean up expired invoices that have expired for {expired_by} seconds (default 86400). \(dq
+      }
+    ]
+}
+.EE
+.SH
+AUTHOR
+.LP
+Vincenzo Palazzo <\fIvincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:adc770dc744fce7bef2d18a9c693fa7a2380cf1458b00ed816e1608dc22e7c0e

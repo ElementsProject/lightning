@@ -1,0 +1,104 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-NOTIFICATIONS" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-notifications -- Command to set up notifications.
+.SH
+SYNOPSIS
+.LP
+\fBnotifications\fR \fIenable\fR
+.SH
+DESCRIPTION
+.LP
+The \fBnotifications\fR the RPC command enabled notifications for this JSON-RPC
+connection.  By default (and for backwards-compatibility) notifications are
+disabled.
+.PP
+Various commands, especially complex and slow ones, offer
+notifications which indicate their progress.
+.IP "\(bu" 2
+\fIenable\fR: \fItrue\fR to enable notifications, \fIfalse\fR to disable them.
+.SH
+EXAMPLE JSON REQUEST
+.LP
+.EX
+{
+  \(dqid\(dq: 82,
+  \(dqmethod\(dq: \(dqnotifications\(dq,
+  \(dqparams\(dq: {
+    \(dqenable\(dq: true
+  }
+}
+.EE
+.SH
+NOTIFICATIONS
+.LP
+Notifications are JSON-RPC objects without an \fIid\fR field.  \fIlightningd\fR sends
+notifications (once enabled with this \fInotifications\fR command) with a \fIparams\fR
+\fIid\fR field indicating which command the notification refers to.
+.PP
+Implementations should ignore notifications without an \fIid\fR parameter, or
+unknown \fImethod\fR.
+.PP
+Common \fImethod\fRs include:
+.IP "\(bu" 2
+\fImessage\fR: param \fImessage\fR: a descriptional string indicating something
+which occurred relating to the command. Param \fIlevel\fR indicates the level,
+as per lightning-getlog(7): \fIinfo\fR and \fIdebug\fR are typical.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fIprogress\fR: param \fInum\fR and \fItotal\fR, where \fInum\fR starts at 0 and is always
+less than \fItotal\fR. Optional param \fIstage\fR with fields \fInum\fR and \fItotal\fR,
+indicating what stage we are progressing through.
+.SH
+RETURN VALUE
+.LP
+On success, an empty object is returned.
+.PP
+On success, if \fIenable\fR was \fItrue\fR, notifications will be forwarded
+from then on.
+.PP
+On failure, one of the following error codes may be returned:
+.IP "\(bu" 2
+-32602: Error in given parameters.
+.SH
+EXAMPLE NOTIFICATIONS
+.LP
+.EX
+{
+   \(dqmethod\(dq: \(dqmessage\(dq,
+   \(dqparams\(dq: {
+       \(dqid\(dq: 83,
+       \(dqmessage\(dq: \(dqThis is a test message\(dq,
+       \(dqlevel\(dq: \(dqDEBUG\(dq
+   }
+}
+.EE
+.LP
+.EX
+{
+   \(dqmethod\(dq: \(dqprogress\(dq,
+   \(dqparams\(dq: {
+       \(dqid\(dq: 83,
+       \(dqnum\(dq: 0,
+       \(dqtotal\(dq: 30
+       \(dqstage\(dq: {
+           \(dqnum\(dq: 0,
+           \(dqtotal\(dq: 2
+       }
+   }
+}
+.EE
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@blockstream.com\fR> wrote the initial version of this man page.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:c8c967d8326ce0fd812f41506bcaf557684b6c7485e30d0db890b31f1228e376

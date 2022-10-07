@@ -1,0 +1,92 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-TXPREPARE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-txprepare -- Command to prepare to withdraw funds from the internal wallet
+.SH
+SYNOPSIS
+.LP
+\fBtxprepare\fR \fIoutputs\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBtxprepare\fR RPC command creates an unsigned transaction which
+spends funds from Core Lightning's internal wallet to the outputs specified
+in \fIoutputs\fR.
+.PP
+The \fIoutputs\fR is the array of output that include \fIdestination\fR
+and \fIamount\fR({\fIdestination\fR: \fIamount\fR}). Its format is like:
+[{address1: amount1}, {address2: amount2}]
+or
+[{address: \fIall\fR}].
+It supports any number of \fBconfirmed\fR outputs.
+.PP
+The \fIdestination\fR of output is the address which can be of any Bitcoin accepted
+type, including bech32.
+.PP
+The \fIamount\fR of output is the amount to be sent from the internal wallet
+(expressed, as name suggests, in amount). The string \fIall\fR can be used to specify
+all available funds. Otherwise, it is in amount precision; it can be a whole
+number, a whole number ending in \fIsat\fR, a whole number ending in \fI000msat\fR,
+or a number with 1 to 8 decimal places ending in \fIbtc\fR.
+.PP
+\fIfeerate\fR is an optional feerate to use. It can be one of the strings
+\fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR
+(next 100 blocks or so) to use lightningd's internal estimates: \fInormal\fR
+is the default.
+.PP
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte. Omitting
+the suffix is equivalent to \fIperkb\fR.
+.PP
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have. Default is 1.
+.PP
+\fIutxos\fR specifies the utxos to be used to fund the transaction, as an array
+of \(dqtxid:vout\(dq. These must be drawn from the node's available UTXO set.
+.PP
+\fBtxprepare\fR is similar to the first part of a \fBwithdraw\fR command, but
+supports multiple outputs and uses \fIoutputs\fR as parameter. The second part
+is provided by \fBtxsend\fR.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBpsbt\fR (string): the PSBT representing the unsigned transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBunsigned_tx\fR (hex): the unsigned transaction
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBtxid\fR (txid): the transaction id of \fIunsigned_tx\fR; you hand this to lightning-txsend(7) or lightning-txdiscard(7), as the inputs of this transaction are reserved.
+.LP
+On failure, an error is reported and the transaction is not created.
+.PP
+The following error codes may occur:
+- -1: Catchall nonspecific error.
+- 301: There are not enough funds in the internal wallet (including
+fees) to create the transaction.
+- 302: The dust limit is not met.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-withdraw(7), lightning-txsend(7), lightning-txdiscard(7),
+lightning-feerates(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:d2da6898ef7c56f3762b26bac95ec40fe20b5d2d06779d7dfcd796d0384bde1a

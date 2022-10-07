@@ -1,0 +1,82 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-OPENCHANNEL_ABORT" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-openchannel_abort -- Command to abort a channel to a peer
+.SH
+SYNOPSIS
+.LP
+\fBopenchannel_abort\fR \fIchannel_id\fR
+.SH
+DESCRIPTION
+.LP
+\fCopenchannel_init\fR is a low level RPC command which initiates a channel
+open with a specified peer. It uses the openchannel protocol
+which allows for interactive transaction construction.
+.PP
+\fIchannel_id\fR is id of this channel.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBchannel_id\fR (hex): the channel id of the aborted channel (always 64 characters)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBchannel_canceled\fR (boolean): whether this is completely canceled (there may be remaining in-flight transactions)
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBreason\fR (string): usually \(dqAbort requested\(dq, but if it happened to fail at the same time it could be different
+.LP
+On error the returned object will contain \fCcode\fR and \fCmessage\fR properties,
+with \fCcode\fR being one of the following:
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+-1: Catchall nonspecific error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+305: Peer is not connected.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+311: Unknown channel id.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+312: Channel in an invalid state
+.SH
+SEE ALSO
+.LP
+lightning-openchannel_init(7), lightning-openchannel_update(7),
+lightning-openchannel_signed(7), lightning-openchannel_bump(7),
+lightning-fundchannel_start(7), lightning-fundchannel_complete(7),
+lightning-fundchannel(7), lightning-fundpsbt(7), lightning-utxopsbt(7),
+lightning-multifundchannel(7)
+.SH
+AUTHOR
+.LP
+@niftynei <\fIniftynei@gmail.com\fR> is mainly responsible.
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:75c8d58ae53e2b747ee2b53e8af2d4ffdde91963a4f182041f54626b6133c121

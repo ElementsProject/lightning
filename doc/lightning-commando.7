@@ -1,0 +1,64 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-COMMANDO" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-commando -- Command to Send a Command to a Remote Peer
+.SH
+SYNOPSIS
+.LP
+\fBcommando\fR \fIpeer_id\fR \fImethod\fR [\fIparams\fR] [\fIrune\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBcommando\fR RPC command is a homage to bad 80s movies.  It also
+sends a directly-connected \fIpeer_id\fR a custom message, containing a
+request to run \fImethod\fR (with an optional dictionary of \fIparams\fR);
+generally the peer will only allow you to run a command if it has
+provided you with a \fIrune\fR which allows it.
+.SH
+RETURN VALUE
+.LP
+On success, the return depends on the \fImethod\fR invoked.
+.PP
+On failure, one of the following error codes may be returned:
+.IP "\(bu" 2
+-32600: Usually means peer is not connected
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+19535: the local commando plugin discovered an error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+19536: the remote commando plugin discovered an error.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+19537: the remote commando plugin said we weren't authorized.
+.LP
+It can also fail if the peer does not respond, in which case it will simply
+hang awaiting a response.
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> wrote the original Python
+commando.py plugin, the in-tree commando plugin, and this manual page.
+.PP
+Christian Decker came up with the name \(dqcommando\(dq, which almost
+excuses his previous adoption of the name \(dqEltoo\(dq.
+.SH
+SEE ALSO
+.LP
+lightning-commando-rune(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:a2b8b47c646eb206e61c53632e412eba9dfe4c63a712f64cc8d1bde21c741c83

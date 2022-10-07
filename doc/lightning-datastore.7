@@ -1,0 +1,81 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-DATASTORE" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-datastore -- Command for storing (plugin) data
+.SH
+SYNOPSIS
+.LP
+\fBdatastore\fR \fIkey\fR [\fIstring\fR] [\fIhex\fR] [\fImode\fR] [\fIgeneration\fR]
+.SH
+DESCRIPTION
+.LP
+The \fBdatastore\fR RPC command allows plugins to store data in the
+Core Lightning database, for later retrieval.
+.PP
+\fIkey\fR is an array of values (though a single value is treated as a
+one-element array), to form a hierarchy.  Using the first element of
+the key as the plugin name (e.g. \fC[ \(dqsummary\(dq ]\fR) is recommended.
+A key can either have children or a value, never both: parents are
+created and removed automatically.
+.PP
+\fImode\fR is one of \(dqmust-create\(dq (default, fails if it already exists),
+\(dqmust-replace\(dq (fails if it doesn't already exist),
+\(dqcreate-or-replace\(dq (never fails), \(dqmust-append\(dq (must already exist,
+append this to what's already there) or \(dqcreate-or-append\(dq (append if
+anything is there, otherwise create).
+.PP
+\fIgeneration\fR, if specified, means that the update will fail if the
+previously-existing data is not exactly that generation.  This allows
+for simple atomicity.  This is only legal with \fImode\fR \(dqmust-replace\(dq
+or \(dqmust-append\(dq.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBkey\fR (array of strings):
+.RS
+.IP "\(bu" 2
+Part of the key added to the datastore
+.RE
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBgeneration\fR (u64, optional): The number of times this has been updated
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBhex\fR (hex, optional): The hex data which has been added to the datastore
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+\fBstring\fR (string, optional): The data as a string, if it's valid utf-8
+.LP
+The following error codes may occur:
+- 1202: The key already exists (and mode said it must not)
+- 1203: The key does not exist (and mode said it must)
+- 1204: The generation was wrong (and generation was specified)
+- 1205: The key has children already.
+- 1206: One of the parents already exists with a value.
+- -32602: invalid parameters
+.SH
+AUTHOR
+.LP
+Rusty Russell <\fIrusty@rustcorp.com.au\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-listdatastore(7), lightning-deldatastore(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:4c4ec3b9a00a2f9d32754040790a2e2b280cf4689f642c3ca95a914ad876bce1

@@ -1,0 +1,72 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "LIGHTNING-FUNDCHANNEL_CANCEL" "7" "" "Core Lightning 0.12.1" ""
+.SH
+NAME
+.LP
+lightning-fundchannel_cancel -- Command for completing channel establishment
+.SH
+SYNOPSIS
+.LP
+\fBfundchannel_cancel\fR \fIid\fR
+.SH
+DESCRIPTION
+.LP
+\fCfundchannel_cancel\fR is a lower level RPC command. It allows channel opener
+to cancel a channel before funding broadcast with a connected peer.
+.PP
+\fIid\fR is the node id of the remote peer with which to cancel.
+.PP
+Note that the funding transaction MUST NOT be broadcast before
+\fCfundchannel_cancel\fR. Broadcasting transaction before \fCfundchannel_cancel\fR
+WILL lead to unrecoverable loss of funds.
+.PP
+If \fCfundchannel_cancel\fR is called after \fCfundchannel_complete\fR, the remote
+peer may disconnect when command succeeds. In this case, user need to connect
+to remote peer again before opening channel.
+.SH
+RETURN VALUE
+.LP
+On success, an object is returned, containing:
+.IP "\(bu" 2
+\fBcancelled\fR (string): A message indicating it was cancelled by RPC
+.LP
+On error the returned object will contain \fCcode\fR and \fCmessage\fR properties,
+with \fCcode\fR being one of the following:
+.IP "\(bu" 2
+-32602: If the given parameters are wrong.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+306: Unknown peer id.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+307: No channel currently being funded that can be cancelled.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 2
+308: It is unsafe to cancel the channel: the funding transaction
+has been broadcast, or there are HTLCs already in the channel, or
+the peer was the initiator and not us.
+.SH
+AUTHOR
+.LP
+Lisa Neigut <\fIniftynei@gmail.com\fR> is mainly responsible.
+.SH
+SEE ALSO
+.LP
+lightning-connect(7), lightning-fundchannel(7), lightning-multifundchannel(7),
+lightning-fundchannel_start(7), lightning-fundchannel_complete(7)
+lightning-openchannel_init(7), lightning-openchannel_update(7),
+lightning-openchannel_signed(7), lightning-openchannel_abort(7)
+.SH
+RESOURCES
+.LP
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+\" SHA256STAMP:2d31e978b79c353416692de9c0ea747a84a0027ac69b0d8605a6f94547e97d06
