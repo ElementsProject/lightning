@@ -445,7 +445,7 @@ To compile for Alpine
 Get dependencies:
 ```
 apk update
-apk add ca-certificates alpine-sdk autoconf automake git libtool \
+apk add --virtual .build-deps ca-certificates alpine-sdk autoconf automake git libtool \
   gmp-dev sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext
 ```
 Clone lightning:
@@ -463,8 +463,7 @@ make install
 Clean up:
 ```
 cd .. && rm -rf lightning
-apk del ca-certificates alpine-sdk autoconf automake git libtool \
-  gmp-dev sqlite python3 py3-mako net-tools zlib-dev libsodium gettext
+apk del .build-deps
 ```
 Install runtime dependencies:
 ```
