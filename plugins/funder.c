@@ -129,6 +129,31 @@ command_hook_cont_psbt(struct command *cmd, struct wally_psbt *psbt)
 }
 
 static struct command_result *
+datastore_del_fail(struct command *cmd,
+		   const char *buf,
+		   const jsmntok_t *error,
+		   void *data UNUSED)
+{
+	/* Eh, ok fine */
+	return notification_handled(cmd);
+}
+
+static struct command_result *
+datastore_del_success(struct command *cmd,
+		      const char *buf,
+		      const jsmntok_t *result,
+		      void *data UNUSED)
+{
+	/* Cool we deleted some stuff */
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "`datastore` del succeeded: %*.s",
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+
+	return notification_handled(cmd);
+}
+
+static struct command_result *
 datastore_add_fail(struct command *cmd,
 		   const char *buf,
 		   const jsmntok_t *error,
@@ -1047,6 +1072,64 @@ static struct command_result *json_disconnect(struct command *cmd,
 	return notification_handled(cmd);
 }
 
+static struct command_result *
+delete_channel_from_datastore(struct command *cmd,
+			      struct channel_id *cid)
+{
+	const struct out_req *req;
+
+	/* Fetch out previous utxos from the datastore.
+	 * If we were clever, we'd have some way of tracking
+	 * channels that we actually might have data for
+	 * but this is much easier */
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "deldatastore",
+				    &datastore_del_success,
+				    &datastore_del_fail,
+				    NULL);
+	json_add_string(req->js, "key",
+			tal_fmt(cmd, "funder/%s",
+				type_to_string(cmd, struct channel_id, cid)));
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *json_channel_state_changed(struct command *cmd,
+							 const char *buf,
+							 const jsmntok_t *params)
+{
+	struct channel_id cid;
+	const char *err, *old_state, *new_state;
+
+	err = json_scan(tmpctx, buf, params,
+			"{channel_state_changed:"
+			"{channel_id:%"
+			",old_state:%"
+			",new_state:%}}",
+			JSON_SCAN(json_to_channel_id, &cid),
+			JSON_SCAN_TAL(cmd, json_strdup, &old_state),
+			JSON_SCAN_TAL(cmd, json_strdup, &new_state));
+
+	if (err)
+		plugin_err(cmd->plugin,
+			   "`channel_state_changed` notification payload did"
+			   " not scan %s: %.*s",
+			   err, json_tok_full_len(params),
+			   json_tok_full(buf, params));
+
+	/* Moving out of "awaiting lockin",
+	 * means we clean up the datastore */
+	/* FIXME: splicing state? */
+	if (!streq(old_state, "DUALOPEND_AWAITING_LOCKIN")
+	    && !streq(old_state, "CHANNELD_AWAITING_LOCKIN"))
+		return notification_handled(cmd);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Cleaning up datastore for channel_id %s",
+		   type_to_string(tmpctx, struct channel_id, &cid));
+
+	return delete_channel_from_datastore(cmd, &cid);
+}
+
 static struct command_result *json_channel_open_failed(struct command *cmd,
 						       const char *buf,
 						       const jsmntok_t *params)
@@ -1074,7 +1157,8 @@ static struct command_result *json_channel_open_failed(struct command *cmd,
 	if (open)
 		unreserve_psbt(open);
 
-	return notification_handled(cmd);
+	/* Also clean up datastore for this channel */
+	return delete_channel_from_datastore(cmd, &cid);
 }
 
 static void json_add_policy(struct json_stream *stream,
@@ -1426,6 +1510,10 @@ const struct plugin_notification notifs[] = {
 	{
 		"disconnect",
 		json_disconnect,
+	},
+	{
+		"channel_state_changed",
+		json_channel_state_changed,
 	},
 };
 
