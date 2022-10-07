@@ -51,8 +51,18 @@ fi
 if [ -z "$PATH_TO_BITCOIN" ]; then
 	if [ -d "$HOME/.bitcoin" ]; then
 		PATH_TO_BITCOIN="$HOME/.bitcoin"
+		BITCOIND=bitcoind
+		BITCOINCLI=bitcoin-cli
 	elif [ -d "$HOME/Library/Application Support/Bitcoin/" ]; then
 		PATH_TO_BITCOIN="$HOME/Library/Application Support/Bitcoin/"
+		BITCOIND=bitcoind
+		BITCOINCLI=bitcoin-cli
+	elif [ -d "$HOME/snap/bitcoin-core/common/.bitcoin" ]; then
+		PATH_TO_BITCOIN="$HOME/snap/bitcoin-core/common/.bitcoin"
+		BITCOIND=bitcoin-core.daemon
+		BITCOINCLI=bitcoin-core.cli
+		echo "bitcoind is $BITCOIND"
+		echo "bitcoin-cli is $BITCOINCLI"
 	else
 		echo "\$PATH_TO_BITCOIN not set to a .bitcoin dir?" >&2
 		return
@@ -87,6 +97,7 @@ start_nodes() {
 		mkdir -p "/tmp/l$i-$network"
 		# Node config
 		cat <<- EOF > "/tmp/l$i-$network/config"
+		bitcoin-cli=$BITCOINCLI
 		network=$network
 		log-level=debug
 		log-file=/tmp/l$i-$network/log
@@ -134,21 +145,21 @@ start_nodes() {
 start_ln() {
 	# Start bitcoind in the background
 	test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
-		bitcoind -regtest -txindex -fallbackfee=0.00000253 -daemon
+		"$BITCOIND" -regtest -txindex -fallbackfee=0.00000253 -daemon
 
 	# Wait for it to start.
-	while ! bitcoin-cli -regtest ping 2> /tmp/null; do echo "awaiting bitcoind..." && sleep 1; done
+	while ! "$BITCOINCLI" -regtest ping 2> /tmp/null; do echo "awaiting bitcoind..." && sleep 1; done
 
 	# Kick it out of initialblockdownload if necessary
-	if bitcoin-cli -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
+	if "$BITCOINCLI" -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
 		# Modern bitcoind needs createwallet
 		echo "Making \"default\" bitcoind wallet."
-		bitcoin-cli -regtest createwallet default >/dev/null 2>&1
-		bitcoin-cli -regtest generatetoaddress 1 "$(bitcoin-cli -regtest getnewaddress)" > /dev/null
+		"$BITCOINCLI" -regtest createwallet default >/dev/null 2>&1
+		"$BITCOINCLI" -regtest generatetoaddress 1 "$($BITCOINCLI -regtest getnewaddress)" > /dev/null
 	else
-		bitcoin-cli -regtest loadwallet default
+		"$BITCOINCLI" -regtest loadwallet default
 	fi
-	alias bt-cli='bitcoin-cli -regtest'
+	alias bt-cli='$BITCOINCLI -regtest'
 
 	if [ -z "$1" ]; then
 		nodes=2
@@ -162,16 +173,16 @@ start_ln() {
 ensure_bitcoind_funds() {
 
 	if [ -z "$ADDRESS" ]; then
-		ADDRESS=$(bitcoin-cli "$WALLET" -regtest getnewaddress)
+		ADDRESS=$("$BITCOINCLI" "$WALLET" -regtest getnewaddress)
 	fi
 
-	balance=$(bitcoin-cli -regtest "$WALLET" getbalance)
+	balance=$("$BITCOINCLI" -regtest "$WALLET" getbalance)
 
 	if [ 1 -eq "$(echo "$balance"'<1' | bc -l)" ]; then
 
 		printf "%s" "Mining into address " "$ADDRESS""... "
 
-		bitcoin-cli -regtest generatetoaddress 100 "$ADDRESS" > /dev/null
+		"$BITCOINCLI" -regtest generatetoaddress 100 "$ADDRESS" > /dev/null
 
 		echo "done."
 	fi
@@ -198,11 +209,11 @@ fund_nodes() {
 
 	WALLET="-rpcwallet=$WALLET"
 
-	ADDRESS=$(bitcoin-cli "$WALLET" -regtest getnewaddress)
+	ADDRESS=$("$BITCOINCLI" "$WALLET" -regtest getnewaddress)
 
 	ensure_bitcoind_funds
 
-	echo "bitcoind balance:" "$(bitcoin-cli -regtest "$WALLET" getbalance)"
+	echo "bitcoind balance:" "$($BITCOINCLI -regtest "$WALLET" getbalance)"
 
 	last_node=""
 
@@ -226,9 +237,9 @@ fund_nodes() {
 
 		ensure_bitcoind_funds
 
-		bitcoin-cli -regtest "$WALLET" sendtoaddress "$L1_WALLET_ADDR" 1 > /dev/null
+		"$BITCOINCLI" -regtest "$WALLET" sendtoaddress "$L1_WALLET_ADDR" 1 > /dev/null
 
-		bitcoin-cli -regtest generatetoaddress 1 "$ADDRESS" > /dev/null
+		"$BITCOINCLI" -regtest generatetoaddress 1 "$ADDRESS" > /dev/null
 
 		printf "%s" "Waiting for lightning node funds... "
 
@@ -243,7 +254,7 @@ fund_nodes() {
 
 		$LCLI --lightning-dir=/tmp/l"$node1"-regtest fundchannel "$L2_NODE_ID" 1000000 > /dev/null
 
-		bitcoin-cli -regtest generatetoaddress 6 "$ADDRESS" > /dev/null
+		"$BITCOINCLI" -regtest generatetoaddress 6 "$ADDRESS" > /dev/null
 
 		printf "%s" "Waiting for confirmation... "
 
