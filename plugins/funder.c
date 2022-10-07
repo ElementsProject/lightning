@@ -475,15 +475,16 @@ static struct command_result *param_msat_as_sat(struct command *cmd,
 				     "should be a millisatoshi amount");
 }
 
-static bool previously_reserved(struct bitcoin_outpoint **prev_outs,
-				struct bitcoin_outpoint *out)
+static struct bitcoin_outpoint *
+previously_reserved(struct bitcoin_outpoint **prev_outs,
+		    struct bitcoin_outpoint *out)
 {
 	for (size_t i = 0; i < tal_count(prev_outs); i++) {
 		if (bitcoin_outpoint_eq(prev_outs[i], out))
-			return true;
+			return prev_outs[i];
 	}
 
-	return false;
+	return NULL;
 }
 
 struct funder_utxo {
@@ -494,6 +495,7 @@ struct funder_utxo {
 static struct out_req *
 build_utxopsbt_request(struct command *cmd,
 		       struct open_info *info,
+		       struct bitcoin_outpoint **prev_outs,
 		       struct amount_sat requested_funds,
 		       struct amount_sat committed_funds,
 		       struct funder_utxo **avail_utxos)
@@ -507,8 +509,8 @@ build_utxopsbt_request(struct command *cmd,
 				    info);
 	/* Add every prev_out */
 	json_array_start(req->js, "utxos");
-	for (size_t i = 0; i < tal_count(info->prev_outs); i++)
-		json_add_outpoint(req->js, NULL, info->prev_outs[i]);
+	for (size_t i = 0; i < tal_count(prev_outs); i++)
+		json_add_outpoint(req->js, NULL, prev_outs[i]);
 
 	/* Next add available utxos until we surpass the
 	 * requested funds goal */
@@ -540,6 +542,7 @@ listfunds_success(struct command *cmd,
 	struct amount_sat available_funds, committed_funds, est_fee;
 	const jsmntok_t *outputs_tok, *tok;
 	struct out_req *req;
+	struct bitcoin_outpoint **avail_prev_outs;
 	size_t i;
 	const char *funding_err;
 
@@ -555,9 +558,11 @@ listfunds_success(struct command *cmd,
 
 	available_funds = AMOUNT_SAT(0);
 	committed_funds = AMOUNT_SAT(0);
+	avail_prev_outs = tal_arr(info, struct bitcoin_outpoint *, 0);
 	json_for_each_arr(i, tok, outputs_tok) {
 		struct funder_utxo *utxo;
 		bool is_reserved, is_p2sh;
+		struct bitcoin_outpoint *prev_out;
 		char *status;
 		const char *err;
 
@@ -589,10 +594,12 @@ listfunds_success(struct command *cmd,
 		est_fee = amount_tx_fee(info->funding_feerate_perkw,
 					bitcoin_tx_input_weight(is_p2sh, 110));
 
+		/* Did we use this utxo on a previous attempt? */
+		prev_out = previously_reserved(info->prev_outs, &utxo->out);
+
 		/* we skip reserved funds that aren't in our previous
 		 * inputs list! */
-		if (is_reserved &&
-		    !previously_reserved(info->prev_outs, &utxo->out))
+		if (is_reserved && !prev_out)
 			continue;
 
 		/* we skip unconfirmed+spent funds */
@@ -612,13 +619,21 @@ listfunds_success(struct command *cmd,
 		/* If this is an RBF, we keep track of available utxos */
 		if (info->prev_outs) {
 			/* if not previously reserved, it's committed */
-			if (!previously_reserved(info->prev_outs, &utxo->out))
+			if (!prev_out) {
 				tal_arr_expand(&avail_utxos, utxo);
-			else if (!amount_sat_add(&committed_funds,
-						 committed_funds, utxo->val))
+				continue;
+			}
+
+			if (!amount_sat_add(&committed_funds,
+					    committed_funds, utxo->val))
 				plugin_err(cmd->plugin,
 					   "`listfunds` overflowed"
 					   " committed output values");
+
+			/* We also keep a second list of utxos,
+			 * as it's possible some utxos got spent
+			 * between last attempt + this one! */
+			tal_arr_expand(&avail_prev_outs, prev_out);
 		}
 	}
 
@@ -652,6 +667,7 @@ listfunds_success(struct command *cmd,
 	 * then add more funds for anything missing */
 	if (info->prev_outs) {
 		req = build_utxopsbt_request(cmd, info,
+					     avail_prev_outs,
 					     info->our_funding,
 					     committed_funds,
 					     avail_utxos);
