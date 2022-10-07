@@ -446,7 +446,7 @@ Get dependencies:
 ```
 apk update
 apk add ca-certificates alpine-sdk autoconf automake git libtool \
-  gmp-dev sqlite-dev python python3 py3-mako net-tools zlib-dev libsodium gettext
+  gmp-dev sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext
 ```
 Clone lightning:
 ```
@@ -465,6 +465,10 @@ Clean up:
 cd .. && rm -rf lightning
 apk del ca-certificates alpine-sdk autoconf automake git libtool \
   gmp-dev sqlite python3 py3-mako net-tools zlib-dev libsodium gettext
+```
+Install runtime dependencies:
+```
+apk add gmp libgcc libsodium sqlite-libs zlib
 ```
 
 Additional steps
