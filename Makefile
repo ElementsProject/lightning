@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="Bitcoin Dust Consensus Rule"
-VERSION=0.11.1
+VERSION_NAME="Web-8 init"
+VERSION=0.12.1
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
