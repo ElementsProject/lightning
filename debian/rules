@@ -17,6 +17,9 @@ export DH_VERBOSE = 1
 %:
 	dh $@  --with autotools_dev
 
+override_dh_auto_clean:
+	echo Skipping
+
 
 override_dh_auto_build:
 	make
