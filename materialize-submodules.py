@@ -46,7 +46,7 @@ for module in submodules.values():
     gclone(module["url"], module["path"])
     d = os.getcwd()
     os.chdir(module["path"])
-    git("checkout", module["hash"])
+    git("checkout", module["hash"].replace('-', '').replace('+', ''))
     os.chdir(d)
     rm(f"{module['path']}/.git")
     gadd(module["path"])
