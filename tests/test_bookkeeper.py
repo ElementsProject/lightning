@@ -702,7 +702,7 @@ def test_rebalance_tracking(node_factory, bitcoind):
 
     wait_for(lambda: 'invoice' not in [ev['tag'] for ev in l1.rpc.bkpr_listincome()['income_events']])
     inc_evs = l1.rpc.bkpr_listincome()['income_events']
-    outbound_chan_id = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['channel_id']
+    outbound_chan_id = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['channel_id']
 
     outbound_ev = only_one([ev for ev in inc_evs if ev['tag'] == 'rebalance_fee'])
     assert outbound_ev['account'] == outbound_chan_id

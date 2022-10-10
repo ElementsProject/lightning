@@ -43,113 +43,6 @@ On success, an object containing **peers** is returned.  It is an array of objec
 
 - **id** (pubkey): the public key of the peer
 - **connected** (boolean): True if the peer is currently connected
-- **channels** (array of objects):
-  - **state** (string): the channel state, in particular "CHANNELD\_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
-  - **opener** (string): Who initiated the channel (one of "local", "remote")
-  - **features** (array of strings):
-    - BOLT #9 features which apply to this channel (one of "option\_static\_remotekey", "option\_anchor\_outputs", "option\_zeroconf")
-  - **scratch\_txid** (txid, optional): The txid we would use if we went onchain now
-  - **feerate** (object, optional): Feerates for the current tx:
-    - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
-    - **perkb** (u32): Feerate per 1000 virtual bytes
-  - **owner** (string, optional): The current subdaemon controlling this connection
-  - **short\_channel\_id** (short\_channel\_id, optional): The short\_channel\_id (once locked in)
-  - **channel\_id** (hash, optional): The full channel\_id (always 64 characters)
-  - **funding\_txid** (txid, optional): ID of the funding transaction
-  - **funding\_outnum** (u32, optional): The 0-based output number of the funding transaction which opens the channel
-  - **initial\_feerate** (string, optional): For inflight opens, the first feerate used to initiate the channel open
-  - **last\_feerate** (string, optional): For inflight opens, the most recent feerate used on the channel open
-  - **next\_feerate** (string, optional): For inflight opens, the next feerate we'll use for the channel open
-  - **next\_fee\_step** (u32, optional): For inflight opens, the next feerate step we'll use for the channel open
-  - **inflight** (array of objects, optional): Current candidate funding transactions (only for dual-funding):
-    - **funding\_txid** (txid): ID of the funding transaction
-    - **funding\_outnum** (u32): The 0-based output number of the funding transaction which opens the channel
-    - **feerate** (string): The feerate for this funding transaction in per-1000-weight, with "kpw" appended
-    - **total\_funding\_msat** (msat): total amount in the channel
-    - **our\_funding\_msat** (msat): amount we have in the channel
-    - **scratch\_txid** (txid): The commitment transaction txid we would use if we went onchain now
-  - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
-  - **private** (boolean, optional): if False, we will not announce this channel
-  - **closer** (string, optional): Who initiated the channel close (one of "local", "remote")
-  - **funding** (object, optional):
-    - **local\_funds\_msat** (msat): Amount of channel we funded
-    - **remote\_funds\_msat** (msat): Amount of channel they funded
-    - **local\_msat** (msat, optional): Amount of channel we funded (deprecated)
-    - **remote\_msat** (msat, optional): Amount of channel they funded (deprecated)
-    - **pushed\_msat** (msat, optional): Amount pushed from opener to peer
-    - **fee\_paid\_msat** (msat, optional): Amount we paid peer at open
-    - **fee\_rcvd\_msat** (msat, optional): Amount we were paid by peer at open
-  - **to\_us\_msat** (msat, optional): how much of channel is owed to us
-  - **min\_to\_us\_msat** (msat, optional): least amount owed to us ever
-  - **max\_to\_us\_msat** (msat, optional): most amount owed to us ever
-  - **total\_msat** (msat, optional): total amount in the channel
-  - **fee\_base\_msat** (msat, optional): amount we charge to use the channel
-  - **fee\_proportional\_millionths** (u32, optional): amount we charge to use the channel in parts-per-million
-  - **dust\_limit\_msat** (msat, optional): minimum amount for an output on the channel transactions
-  - **max\_total\_htlc\_in\_msat** (msat, optional): max amount accept in a single payment
-  - **their\_reserve\_msat** (msat, optional): minimum we insist they keep in channel
-  - **our\_reserve\_msat** (msat, optional): minimum they insist we keep in channel
-  - **spendable\_msat** (msat, optional): total we could send through channel
-  - **receivable\_msat** (msat, optional): total peer could send through channel
-  - **minimum\_htlc\_in\_msat** (msat, optional): the minimum amount HTLC we accept
-  - **minimum\_htlc\_out\_msat** (msat, optional): the minimum amount HTLC we will send
-  - **maximum\_htlc\_out\_msat** (msat, optional): the maximum amount HTLC we will send
-  - **their\_to\_self\_delay** (u32, optional): the number of blocks before they can take their funds if they unilateral close
-  - **our\_to\_self\_delay** (u32, optional): the number of blocks before we can take our funds if we unilateral close
-  - **max\_accepted\_htlcs** (u32, optional): Maximum number of incoming HTLC we will accept at once
-  - **alias** (object, optional):
-    - **local** (short\_channel\_id, optional): An alias assigned by this node to this channel, used for outgoing payments
-    - **remote** (short\_channel\_id, optional): An alias assigned by the remote node to this channel, usable in routehints and invoices
-  - **state\_changes** (array of objects, optional): Prior state changes:
-    - **timestamp** (string): UTC timestamp of form YYYY-mm-ddTHH:MM:SS.%03dZ
-    - **old\_state** (string): Previous state (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
-    - **new\_state** (string): New state (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
-    - **cause** (string): What caused the change (one of "unknown", "local", "user", "remote", "protocol", "onchain")
-    - **message** (string): Human-readable explanation
-  - **status** (array of strings, optional):
-    - Billboard log of significant changes
-  - **in\_payments\_offered** (u64, optional): Number of incoming payment attempts
-  - **in\_offered\_msat** (msat, optional): Total amount of incoming payment attempts
-  - **in\_payments\_fulfilled** (u64, optional): Number of successful incoming payment attempts
-  - **in\_fulfilled\_msat** (msat, optional): Total amount of successful incoming payment attempts
-  - **out\_payments\_offered** (u64, optional): Number of outgoing payment attempts
-  - **out\_offered\_msat** (msat, optional): Total amount of outgoing payment attempts
-  - **out\_payments\_fulfilled** (u64, optional): Number of successful outgoing payment attempts
-  - **out\_fulfilled\_msat** (msat, optional): Total amount of successful outgoing payment attempts
-  - **htlcs** (array of objects, optional): current HTLCs in this channel:
-    - **direction** (string): Whether it came from peer, or is going to peer (one of "in", "out")
-    - **id** (u64): Unique ID for this htlc on this channel in this direction
-    - **amount\_msat** (msat): Amount send/received for this HTLC
-    - **expiry** (u32): Block this HTLC expires at
-    - **payment\_hash** (hash): the hash of the payment\_preimage which will prove payment (always 64 characters)
-    - **local\_trimmed** (boolean, optional): if this is too small to enforce onchain (always *true*)
-    - **status** (string, optional): set if this HTLC is currently waiting on a hook (and shows what plugin)
-
-    If **direction** is "out":
-
-      - **state** (string): Status of the HTLC (one of "SENT\_ADD\_HTLC", "SENT\_ADD\_COMMIT", "RCVD\_ADD\_REVOCATION", "RCVD\_ADD\_ACK\_COMMIT", "SENT\_ADD\_ACK\_REVOCATION", "RCVD\_REMOVE\_HTLC", "RCVD\_REMOVE\_COMMIT", "SENT\_REMOVE\_REVOCATION", "SENT\_REMOVE\_ACK\_COMMIT", "RCVD\_REMOVE\_ACK\_REVOCATION")
-
-    If **direction** is "in":
-
-      - **state** (string): Status of the HTLC (one of "RCVD\_ADD\_HTLC", "RCVD\_ADD\_COMMIT", "SENT\_ADD\_REVOCATION", "SENT\_ADD\_ACK\_COMMIT", "RCVD\_ADD\_ACK\_REVOCATION", "SENT\_REMOVE\_HTLC", "SENT\_REMOVE\_COMMIT", "RCVD\_REMOVE\_REVOCATION", "RCVD\_REMOVE\_ACK\_COMMIT", "SENT\_REMOVE\_ACK\_REVOCATION")
-
-  If **close\_to** is present:
-
-    - **close\_to\_addr** (string, optional): The bitcoin address we will close to
-
-  If **scratch\_txid** is present:
-
-    - **last\_tx\_fee\_msat** (msat): fee attached to this the current tx
-
-  If **short\_channel\_id** is present:
-
-    - **direction** (u32): 0 if we're the lesser node\_id, 1 if we're the greater
-
-  If **inflight** is present:
-
-    - **initial\_feerate** (string): The feerate for the initial funding transaction in per-1000-weight, with "kpw" appended
-    - **last\_feerate** (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
-    - **next\_feerate** (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
 - **log** (array of objects, optional): if *level* is specified, logs for this peer:
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO\_IN", "IO\_OUT")
 
@@ -181,6 +74,7 @@ If **connected** is *true*:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+<<<<<<< HEAD
 On success, an object with a "peers" key is returned containing a list
 of 0 or more objects.
 
@@ -376,6 +270,8 @@ Objects in the *htlcs* array will contain these fields:
   Generally true if the HTLC is below the *dust\_limit\_msat* for the
   channel.
 
+=======
+>>>>>>> 12ca2a69f (docs: update docs to reflect the new API)
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
 
@@ -399,4 +295,7 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightning/bolts/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:faff728119e12d98202be265991e8b2c17dfa1a611bc52586c662fe8bfdccf53)
+<<<<<<< HEAD
+=======
+>>>>>>> 12ca2a69f (docs: update docs to reflect the new API)
+[comment]: # ( SHA256STAMP:e8bd850ce4be068c73f04463256ba375b518596d3fa3d96aaf6869530737a57a)

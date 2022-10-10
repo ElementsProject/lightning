@@ -32,9 +32,13 @@
 #include <wally_psbt.h>
 
 void json_add_uncommitted_channel(struct json_stream *response,
-				  const struct uncommitted_channel *uc)
+				  const struct peer *peer)
 {
 	struct amount_msat total, ours;
+	struct uncommitted_channel *uc;
+
+	assert(peer);
+	uc = peer->uncommitted_channel;
 	if (!uc)
 		return;
 
@@ -43,9 +47,11 @@ void json_add_uncommitted_channel(struct json_stream *response,
 		return;
 
 	json_object_start(response, NULL);
+	json_add_node_id(response, "peer_id", &peer->id);
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
 	json_add_string(response, "opener", "local");
+	json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
 	if (uc->transient_billboard) {
 		json_array_start(response, "status");
 		json_add_string(response, NULL, uc->transient_billboard);

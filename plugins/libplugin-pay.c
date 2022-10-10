@@ -2347,76 +2347,69 @@ REGISTER_PAYMENT_MODIFIER(retry, struct retry_mod_data *, retry_data_init,
 			  retry_step_cb);
 
 static struct command_result *
-local_channel_hints_listpeers(struct command *cmd, const char *buffer,
+local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 			      const jsmntok_t *toks, struct payment *p)
 {
-	const jsmntok_t *peers, *peer, *channels, *channel, *spendsats, *scid,
-	    *dir, *connected, *max_htlc, *htlcs, *state, *alias, *alias_local;
-	size_t i, j;
-	peers = json_get_member(buffer, toks, "peers");
+	const jsmntok_t *channels, *channel, *spendsats, *scid,
+	    *dir, *peer_connected, *max_htlc, *htlcs, *state, *alias, *alias_local;
+	size_t j;
+        channels = json_get_member(buffer, toks, "channels");
+	assert(channels);
 
-	if (peers == NULL)
-		goto done;
-        /* cppcheck-suppress uninitvar - cppcheck can't undestand these macros. */
-	json_for_each_arr(i, peer, peers) {
-		channels = json_get_member(buffer, peer, "channels");
-		if (channels == NULL)
+	json_for_each_arr(j, channel, channels) {
+		/* FIXME: we can skip the channel if the peer is not connected in this case? */
+		peer_connected = json_get_member(buffer, channel, "peer_connected");
+		assert(peer_connected);
+
+		struct channel_hint h;
+		spendsats = json_get_member(buffer, channel, "spendable_msat");
+		scid = json_get_member(buffer, channel, "short_channel_id");
+
+		alias = json_get_member(buffer, channel, "alias");
+		if (alias != NULL)
+			alias_local = json_get_member(buffer, alias, "local");
+		else
+			alias_local = NULL;
+
+		dir = json_get_member(buffer, channel, "direction");
+		max_htlc = json_get_member(buffer, channel, "max_accepted_htlcs");
+		htlcs = json_get_member(buffer, channel, "htlcs");
+		state = json_get_member(buffer, channel, "state");
+		if (spendsats == NULL ||
+		    (scid == NULL && alias_local == NULL) ||
+		    dir == NULL || max_htlc == NULL || state == NULL ||
+		    max_htlc->type != JSMN_PRIMITIVE || htlcs == NULL ||
+		    htlcs->type != JSMN_ARRAY)
 			continue;
 
-		connected = json_get_member(buffer, peer, "connected");
+		/* Filter out local channels if they are
+		 * either a) disconnected, or b) not in normal
+		 * state. */
+		json_to_bool(buffer, peer_connected, &h.enabled);
+		h.enabled &= json_tok_streq(buffer, state, "CHANNELD_NORMAL");
 
-		json_for_each_arr(j, channel, channels) {
-			struct channel_hint h;
-			spendsats = json_get_member(buffer, channel, "spendable_msat");
-			scid = json_get_member(buffer, channel, "short_channel_id");
+		if (scid != NULL)
+			json_to_short_channel_id(buffer, scid, &h.scid.scid);
+	        else
+			json_to_short_channel_id(buffer, alias_local, &h.scid.scid);
 
-			alias = json_get_member(buffer, channel, "alias");
-			if (alias != NULL)
-				alias_local = json_get_member(buffer, alias, "local");
-			else
-				alias_local = NULL;
+		json_to_int(buffer, dir, &h.scid.dir);
 
-			dir = json_get_member(buffer, channel, "direction");
-			max_htlc = json_get_member(buffer, channel, "max_accepted_htlcs");
-			htlcs = json_get_member(buffer, channel, "htlcs");
-			state = json_get_member(buffer, channel, "state");
-			if (spendsats == NULL ||
-			    (scid == NULL && alias_local == NULL) ||
-			    dir == NULL || max_htlc == NULL || state == NULL ||
-			    max_htlc->type != JSMN_PRIMITIVE || htlcs == NULL ||
-			    htlcs->type != JSMN_ARRAY)
-				continue;
+		json_to_msat(buffer, spendsats, &h.estimated_capacity);
 
-			/* Filter out local channels if they are
-			 * either a) disconnected, or b) not in normal
-			 * state. */
-			json_to_bool(buffer, connected, &h.enabled);
-			h.enabled &= json_tok_streq(buffer, state, "CHANNELD_NORMAL");
+		/* Take the configured number of max_htlcs and
+		 * subtract any HTLCs that might already be added to
+		 * the channel. This is a best effort estimate and
+		 * mostly considers stuck htlcs, concurrent payments
+		 * may throw us off a bit. */
+		json_to_u16(buffer, max_htlc, &h.htlc_budget);
+		h.htlc_budget -= htlcs->size;
+		h.local = true;
 
-			if (scid != NULL)
-				json_to_short_channel_id(buffer, scid, &h.scid.scid);
-			else
-				json_to_short_channel_id(buffer, alias_local, &h.scid.scid);
-
-			json_to_int(buffer, dir, &h.scid.dir);
-
-			json_to_msat(buffer, spendsats, &h.estimated_capacity);
-
-			/* Take the configured number of max_htlcs and
-			 * subtract any HTLCs that might already be added to
-			 * the channel. This is a best effort estimate and
-			 * mostly considers stuck htlcs, concurrent payments
-			 * may throw us off a bit. */
-			json_to_u16(buffer, max_htlc, &h.htlc_budget);
-			h.htlc_budget -= htlcs->size;
-			h.local = true;
-
-			channel_hints_update(p, h.scid.scid, h.scid.dir,
-					     h.enabled, true, &h.estimated_capacity, &h.htlc_budget);
-		}
+		channel_hints_update(p, h.scid.scid, h.scid.dir,
+				     h.enabled, true, &h.estimated_capacity, &h.htlc_budget);
 	}
 
-done:
 	payment_continue(p);
 	return command_still_pending(cmd);
 }
@@ -2432,9 +2425,9 @@ static void local_channel_hints_cb(void *d UNUSED, struct payment *p)
 	if (p->parent != NULL || p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-	req = jsonrpc_request_start(p->plugin, NULL, "listpeers",
-				    local_channel_hints_listpeers,
-				    local_channel_hints_listpeers, p);
+	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+				    local_channel_hints_listpeerchannels,
+				    local_channel_hints_listpeerchannels, p);
 	send_outreq(p->plugin, req);
 }
 
@@ -3276,27 +3269,68 @@ static void direct_pay_override(struct payment *p) {
 	payment_continue(p);
 }
 
+/**
+* Take the JSON and use this to calculated
+*/
+static struct listpeers_channel **json_listpeerchannels_to_listchannel(const tal_t *ctx,
+								       const char *buffer, const jsmntok_t *toks,
+								       bool *single_peer)
+{
+	struct listpeers_channel **channels;
+	const jsmntok_t *channels_tok, *channel_tok;
+	size_t i;
+	/* FIXME: there is a better way to check the channels if from a single peers? */
+	struct node_id *peer_id;
+
+	channels_tok = json_get_member(buffer, toks, "channels");
+	assert(channels_tok);
+
+	channels = tal_arr(ctx, struct listpeers_channel *, 0);
+
+	peer_id = NULL;
+	*single_peer = true;
+	json_for_each_arr(i, channel_tok, channels_tok) {
+		struct listpeers_channel *channel = json_to_listpeers_channel(ctx, buffer, channel_tok);
+		assert(channel);
+		tal_arr_expand(&channels, channel);
+		if (!peer_id)
+			peer_id = channel->peer_id;
+		else
+			if (*single_peer && !node_id_eq(peer_id, channel->peer_id))
+				*single_peer = false;
+	}
+
+	assert(channels);
+	return channels;
+}
+
 /* Now that we have the listpeers result for the root payment, let's search
  * for a direct channel that is a) connected and b) in state normal. We will
  * check the capacity based on the channel_hints in the override. */
-static struct command_result *direct_pay_listpeers(struct command *cmd,
+static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
 						   const char *buffer,
 						   const jsmntok_t *toks,
 						   struct payment *p)
 {
-	struct listpeers_result *r =
-	    json_to_listpeers_result(tmpctx, buffer, toks);
+	/* `listpeerchannels` lost the division of channels per peer, so we need to find this information. */
+	bool single_peer = true;
+	struct listpeers_channel **channels =
+		json_listpeerchannels_to_listchannel(tmpctx, buffer, toks, &single_peer);
+
 	struct direct_pay_data *d = payment_mod_directpay_get_data(p);
 
-	if (r && tal_count(r->peers) == 1) {
-		struct listpeers_peer *peer = r->peers[0];
-		if (!peer->connected)
-			goto cont;
+	if (single_peer) {
+		for (size_t i=0; i<tal_count(channels); i++) {
+			struct listpeers_channel *chan = channels[i];
+			// with multiple peer for channel we need to scan all the list
+			// because if one channel is ONCHAIN we show that the peer is disconnected
+			// but this is not true for all the channel.
+			// FIXME(vincenzopalazzo:) we should keep connected to true also in the ONCHAIN channel state?
+			if (!chan->peer_connected)
+				continue; // Somethings like channel ONCHAIN and CHANNELD_NORMAL
 
-		for (size_t i=0; i<tal_count(peer->channels); i++) {
-			struct listpeers_channel *chan = r->peers[0]->channels[i];
 			if (!streq(chan->state, "CHANNELD_NORMAL"))
-			    continue;
+				continue;
 
 			/* Must have either a local alias for zeroconf
 			 * channels or a final scid. */
@@ -3311,8 +3345,8 @@ static struct command_result *direct_pay_listpeers(struct command *cmd,
 			}
 		}
 	}
-cont:
-	direct_pay_override(p);
+
+        direct_pay_override(p);
 	return command_still_pending(cmd);
 
 }
@@ -3327,8 +3361,8 @@ static void direct_pay_cb(struct direct_pay_data *d, struct payment *p)
 
 
 
-	req = jsonrpc_request_start(p->plugin, NULL, "listpeers",
-				    direct_pay_listpeers, direct_pay_listpeers,
+	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+				    direct_pay_listpeerchannels, direct_pay_listpeerchannels,
 				    p);
 	json_add_node_id(req->js, "id", p->destination);
 	send_outreq(p->plugin, req);

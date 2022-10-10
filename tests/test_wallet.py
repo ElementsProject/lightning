@@ -1033,9 +1033,9 @@ def test_transaction_annotations(node_factory, bitcoind):
     assert(types[changeidx] == 'deposit' and types[fundidx] == 'channel_funding')
 
     # And check the channel annotation on the funding output
-    peers = l1.rpc.listpeers()['peers']
-    assert(len(peers) == 1 and len(peers[0]['channels']) == 1)
-    scid = peers[0]['channels'][0]['short_channel_id']
+    channels = l1.rpc.listpeerchannels()['channels']
+    assert(len(channels) == 1)
+    scid = channels[0]['short_channel_id']
     assert(txs[1]['outputs'][fundidx]['channel'] == scid)
 
 

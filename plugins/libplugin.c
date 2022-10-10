@@ -1805,9 +1805,9 @@ void plugin_main(char *argv[],
 	tal_free(plugin);
 }
 
-static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
-							   const char *buffer,
-							   const jsmntok_t *tok)
+struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
+						    const char *buffer,
+						    const jsmntok_t *tok)
 {
 	struct listpeers_channel *chan;
 	const jsmntok_t *privtok = json_get_member(buffer, tok, "private"),
@@ -1820,8 +1820,11 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 			*tmsattok = json_get_member(buffer, tok, "total_msat"),
 			*smsattok =
 			    json_get_member(buffer, tok, "spendable_msat"),
-			*aliastok = json_get_member(buffer, tok, "alias");
+			*aliastok = json_get_member(buffer, tok, "alias"),
+			*peer_connectedtok = json_get_member(buffer, tok, "peer_connected"),
+			*peer_idtok = json_get_member(buffer, tok, "peer_id");
 
+	/* FIXME: che the value of peer_connectedtok, and peer_idtok */
 	if (privtok == NULL || privtok->type != JSMN_PRIMITIVE ||
 	    statetok == NULL || statetok->type != JSMN_STRING ||
 	    ftxidtok == NULL || ftxidtok->type != JSMN_STRING ||
@@ -1834,6 +1837,9 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 	chan = tal(ctx, struct listpeers_channel);
 
 	json_to_bool(buffer, privtok, &chan->private);
+	json_to_bool(buffer, peer_connectedtok, &chan->peer_connected);
+	chan->peer_id = tal(chan, struct node_id);
+	json_to_node_id(buffer, peer_idtok, chan->peer_id);
 	chan->state = json_strdup(chan, buffer, statetok);
 	json_to_txid(buffer, ftxidtok, &chan->funding_txid);
 	if (scidtok != NULL) {
