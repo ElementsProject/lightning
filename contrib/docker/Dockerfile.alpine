@@ -1,13 +1,26 @@
-FROM alpine:3.14.3
+FROM alpine:3.16
 LABEL org.opencontainers.image.authors="Vincenzo Palazzo (@vincenzopalazzo) vincenzopalazzodev@gmail.com"
 
 WORKDIR /build
 
 RUN apk update && \
-    apk add ca-certificates alpine-sdk autoconf automake git libtool \
-    gmp-dev sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext su-exec \
-    python3 py3-pip #&& \
-    #apk add --upgrade fortify-headers
+    apk add \
+      alpine-sdk \
+      autoconf \
+      automake \
+      ca-certificates \
+      gettext \
+      git \
+      gmp-dev \
+      libsodium \
+      libtool \
+      net-tools \
+      py3-mako \
+      python3 \
+      sqlite-dev \
+      su-exec \
+      zlib-dev
+
 
 RUN mkdir lightning
 COPY . lightning
