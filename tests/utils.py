@@ -1,10 +1,9 @@
 from pyln.testing.utils import TEST_NETWORK, TIMEOUT, VALGRIND, DEVELOPER, DEPRECATED_APIS  # noqa: F401
 from pyln.testing.utils import env, only_one, wait_for, write_config, TailableProc, sync_blockheight, wait_channel_quiescent, get_tx_p2wsh_outnum, mine_funding_to_announce, scid_to_int  # noqa: F401
 import bitstring
-from pyln.client import Millisatoshi, RpcError
+from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 import time
-import logging
 
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
@@ -439,19 +438,3 @@ def scriptpubkey_addr(scriptpubkey):
         # Modern bitcoin (at least, git master)
         return scriptpubkey['address']
     return None
-
-
-def trace_pay_command(rpc_pay_call, node):
-    """Utility function that run the function and prints information
-    about the channels, and payment status to catch some unrelated error
-    otherwise return the result of the lambda function.
-    """
-    try:
-        return rpc_pay_call()
-    except RpcError as rpc_err:
-        # Enable the trace with --log-cli-level=INFO
-        # and void to put other info inside the normal console log.
-        logging.info(node.rpc.listfunds())
-        logging.info(node.rpc.paystatus())
-        logging.info(node.rpc.listpeerchannels())
-        raise rpc_err

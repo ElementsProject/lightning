@@ -2357,9 +2357,7 @@ local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
 	assert(channels);
 
 	json_for_each_arr(j, channel, channels) {
-		/* FIXME: we can skip the channel if the peer is not connected in this case? */
 		peer_connected = json_get_member(buffer, channel, "peer_connected");
-		assert(peer_connected);
 
 		struct channel_hint h;
 		spendsats = json_get_member(buffer, channel, "spendable_msat");
@@ -3294,9 +3292,9 @@ static struct listpeers_channel **json_listpeerchannels_to_listchannel(const tal
 		assert(channel);
 		tal_arr_expand(&channels, channel);
 		if (!peer_id)
-			peer_id = channel->peer_id;
+			peer_id = &channel->peer_id;
 		else
-			if (*single_peer && !node_id_eq(peer_id, channel->peer_id))
+			if (*single_peer && !node_id_eq(peer_id, &channel->peer_id))
 				*single_peer = false;
 	}
 

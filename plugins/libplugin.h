@@ -405,7 +405,7 @@ struct listpeers_channel {
 	struct amount_msat total_msat;
 	struct amount_msat spendable_msat;
 	bool peer_connected;
-	struct node_id *peer_id;
+	struct node_id peer_id;
 	/* TODO Add fields as we need them. */
 };
 

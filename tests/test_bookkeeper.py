@@ -4,7 +4,8 @@ from pyln.client import Millisatoshi
 from db import Sqlite3Db
 from fixtures import TEST_NETWORK
 from utils import (
-    sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
+    sync_blockheight, wait_for, only_one,
+    first_channel_id, TIMEOUT
 )
 
 from pathlib import Path

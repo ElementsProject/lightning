@@ -1838,8 +1838,7 @@ struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 
 	json_to_bool(buffer, privtok, &chan->private);
 	json_to_bool(buffer, peer_connectedtok, &chan->peer_connected);
-	chan->peer_id = tal(chan, struct node_id);
-	json_to_node_id(buffer, peer_idtok, chan->peer_id);
+	json_to_node_id(buffer, peer_idtok, &chan->peer_id);
 	chan->state = json_strdup(chan, buffer, statetok);
 	json_to_txid(buffer, ftxidtok, &chan->funding_txid);
 	if (scidtok != NULL) {

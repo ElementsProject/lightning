@@ -271,7 +271,8 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_num(response, "message_flags", message_flags);
 		json_add_num(response, "channel_flags", channel_flags);
 
-		json_add_bool(response, "active", c->half[dir].enabled && !local_disable);
+		json_add_bool(response, "active",
+			      c->half[dir].enabled && !local_disable);
 		json_add_num(response, "last_update", timestamp);
 		json_add_num(response, "base_fee_millisatoshi", fee_base_msat);
 		json_add_num(response, "fee_per_millionth",
@@ -292,13 +293,12 @@ struct listchannels_opts {
 	struct short_channel_id *scid;
 };
 
-
 /* We record which local channels are valid; we could record which are
  * invalid, but our testsuite has some weirdness where it has local
  * channels in the store it knows nothing about. */
 static struct node_map *local_connected(const tal_t *ctx,
 					const char *buf,
-				        const jsmntok_t *result)
+					const jsmntok_t *result)
 {
 	size_t i;
 	const jsmntok_t *channel, *channels = json_get_member(buf, result, "channels");
@@ -375,7 +375,8 @@ static struct command_result *listpeerchannels_done(struct command *cmd,
 			for (size_t i = 0; i < dst->num_chans; i++) {
 				int dir;
 				c = gossmap_nth_chan(gossmap, dst, i, &dir);
-				json_add_halfchan(js, gossmap, connected, c, 1 << !dir);
+				json_add_halfchan(js, gossmap, connected,
+						  c, 1 << !dir);
 			}
 		}
 	} else {

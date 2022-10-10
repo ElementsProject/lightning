@@ -1910,9 +1910,22 @@ static void channel_watch_inflight(struct lightningd *ld,
 		  funding_spent);
 }
 
+
 static void json_add_peerchannels(struct lightningd *ld,
 				  struct json_stream *response,
-				  struct peer *peer);
+				  struct peer *peer)
+{
+	struct channel *channel;
+	json_add_uncommitted_channel(response, peer);
+
+        list_for_each(&peer->channels, channel, list) {
+	        if (channel_unsaved(channel))
+			json_add_unsaved_channel(response, peer, channel);
+                else
+			json_add_channel(ld, response, NULL, peer, channel);
+        }
+}
+
 
 static void json_add_peer(struct lightningd *ld,
 			  struct json_stream *response,
@@ -2043,21 +2056,6 @@ static const struct json_command staticbackup_command = {
 AUTODATA(json_command, &staticbackup_command);
 
 
-static void json_add_peerchannels(struct lightningd *ld,
-				  struct json_stream *response,
-				  struct peer *peer)
-{
-	struct channel *channel;
-	json_add_uncommitted_channel(response, peer);
-
-        list_for_each(&peer->channels, channel, list) {
-	        if (channel_unsaved(channel))
-			json_add_unsaved_channel(response, peer, channel);
-                else
-			json_add_channel(ld, response, NULL, peer, channel);
-        }
-}
-
 static struct command_result *json_listpeerchannels(struct command *cmd,
 						    const char *buffer,
 						    const jsmntok_t *obj UNNEEDED,
@@ -2067,7 +2065,7 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
         struct peer *peer;
 	struct json_stream *response;
 
-	/* FIME: filter by status */
+	/* FIXME(vincenzopalazzo): filter by status */
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_node_id, &peer_id),
 		   NULL))

@@ -617,7 +617,7 @@ static bool new_missed_channel_account(struct command *cmd,
 	const jsmntok_t *curr_chan, *chan_arr_tok;
 
 	chan_arr_tok = json_get_member(buf, result, "channels");
-	assert(chan_arr_tok && chan_arr_tok->type == JSMN_ARRAY);
+	assert(chan_arr_tok->type == JSMN_ARRAY);
 
 	json_for_each_arr(i, curr_chan, chan_arr_tok) {
 	        struct bitcoin_outpoint opt;
@@ -907,7 +907,6 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 static char *do_account_close_checks(const tal_t *ctx,
 				     struct chain_event *e,
 				     struct account *acct)
-
 {
 	struct account *closed_acct;
 
@@ -1545,7 +1544,7 @@ parse_and_log_chain_move(struct command *cmd,
 
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "channel event received but no open for channel %s."
-			   " Calling `listpeerchannls` to fetch missing info",
+			   " Calling `listpeerchannels` to fetch missing info",
 			   acct->name);
 
 		info = tal(cmd, struct event_info);

@@ -3474,7 +3474,7 @@ def test_wumbo_channels(node_factory, bitcoind):
     assert spendable > Millisatoshi(str((1 << 24) - 1) + "sat")
 
     # So should peer.
-    chan = only_one([c for c in only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'])
+    chan = only_one([c for c in l2.rpc.listpeerchannels(l1.info['id'])['channels'] if c['state'] == 'CHANNELD_NORMAL'])
     assert chan['receivable_msat'] == spendable
 
     # And we can wumbo pay, right?
@@ -4302,5 +4302,5 @@ def test_peer_disconnected_reflected_in_channel_state(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
     l2.stop()
 
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
-    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['peer_connected'] is False)
+    assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False
+    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['peer_connected'] is False
