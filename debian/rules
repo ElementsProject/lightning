@@ -22,7 +22,9 @@ override_dh_auto_clean:
 
 
 override_dh_auto_build:
-	make
+	# Trick cargo into not writing stuff to our non-existent $HOME
+	mkdir /tmp/home
+	CARGO_HOME=/tmp/home make
 
 # dh_make generated override targets
 # This is example for Cmake (See https://bugs.debian.org/641051 )
