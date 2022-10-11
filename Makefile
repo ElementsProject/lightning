@@ -348,7 +348,7 @@ endif
 
 RUST_PROFILE ?= debug
 ifneq ($(RUST_PROFILE),debug)
-CARGO_OPTS := --profile=$(RUST_PROFILE) --quiet
+CARGO_OPTS := --profile=$(RUST_PROFILE) --quiet --offline
 else
 CARGO_OPTS := --quiet
 endif

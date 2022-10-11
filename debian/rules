@@ -19,11 +19,15 @@ export DH_VERBOSE = 1
 
 
 override_dh_auto_build:
-	make
+	# Trick cargo into not writing stuff to our non-existent $HOME
+	mkdir /tmp/home
+	CARGO_HOME=/tmp/home cargo build --all --release --offline
+	CARGO_HOME=/tmp/home RUST_PROFILE=release make
 
 # dh_make generated override targets
 # This is example for Cmake (See https://bugs.debian.org/641051 )
 override_dh_auto_configure:
+	tar -xvjf vendor.tar.bz2
 	# PYTHON_VERSION is required for libwally's ./configure script so it
 	# doesn't fall back on the deprecated (and removed) version 2
 	PYTHON_VERSION=3 ./configure CC=gcc --disable-developer --disable-valgrind --prefix=/usr
