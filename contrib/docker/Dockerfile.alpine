@@ -1,4 +1,4 @@
-FROM alpine:3.16
+FROM alpine:3.16 as builder
 LABEL org.opencontainers.image.authors="Vincenzo Palazzo (@vincenzopalazzo) vincenzopalazzodev@gmail.com"
 
 WORKDIR /build
@@ -9,18 +9,22 @@ RUN apk update && \
       autoconf \
       automake \
       ca-certificates \
+      cargo \
       gettext \
       git \
       gmp-dev \
       libsodium \
       libtool \
       net-tools \
+      postgresql-dev \
       py3-mako \
       python3 \
+      python3-dev \
       sqlite-dev \
+      sqlite-static \
       su-exec \
-      zlib-dev
-
+      zlib-dev \
+      zlib-static
 
 RUN mkdir lightning
 COPY . lightning
