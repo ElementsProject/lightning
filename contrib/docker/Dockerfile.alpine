@@ -27,12 +27,12 @@ RUN apk update && \
       zlib-static
 
 RUN mkdir lightning
-COPY . lightning
+COPY . /source
 
-RUN cd lightning && \
-    git submodule update --init --recursive && \
-    ./configure && \
-    make -j$(nproc) && \
+RUN git clone /source /repo --recursive && \
+    cd /repo && \
+    ./configure --enable-static --prefix=/usr && \
+    make -j $(nproc) && \
     make install
 
 # TODO: review entry point here, to make this availale for the user
