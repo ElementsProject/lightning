@@ -305,6 +305,12 @@ need to include `testnet=1`
     ./lightningd/lightningd &
     ./cli/lightning-cli help
 
+
+To install the built binaries into your system, you'll need to run `make install`:
+
+    sudo PATH="/usr/local/opt:$PATH"  LIBRARY_PATH=/opt/homebrew/lib CPATH=/opt/homebrew/include make install
+
+
 To Build on Arch Linux
 ---------------------
 
