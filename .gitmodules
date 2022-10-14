@@ -20,5 +20,5 @@
 	branch = nifty/ripemd160-fallback
 [submodule "external/lowdown"]
 	path = external/lowdown
-	url = https://github.com/kristapsdz/lowdown.git
+	url = https://github.com/ddustin/lowdown.git
 	ignore = dirty
