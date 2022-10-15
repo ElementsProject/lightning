@@ -2165,3 +2165,33 @@ def test_close_12_block_delay(node_factory, bitcoind):
     # One more block, it's forgotten too.
     bitcoind.generate_block(1)
     wait_for(lambda: l4.rpc.listchannels(source=l2.info['id'])['channels'] == [])
+
+
+@pytest.mark.developer("needs --dev-fast-gossip")
+def test_gossip_private_updates(node_factory, bitcoind):
+    """Check that private channel updates are properly added and deleted from
+    the gossip store.
+
+    """
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid, _ = l1.fundchannel(l2, 10**6, None, False)
+    bitcoind.generate_block(5)
+
+    l1.wait_channel_active(scid)
+    l2.wait_channel_active(scid)
+
+    l2.rpc.setchannel(l1.info['id'], feebase=11)
+    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 12)
+    l2.rpc.setchannel(l1.info['id'], feebase=12)
+    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 13)
+    l2.rpc.setchannel(l1.info['id'], feebase=13)
+    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 14)
+    l2.rpc.setchannel(l1.info['id'], feebase=14)
+    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 15)
+    l2.rpc.setchannel(l1.info['id'], feebase=15)
+    wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l1.rpc.listchannels()['channels']]) == 16)
+    l1.restart()
+
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store_compact_offline: 5 deleted, 3 copied'))
