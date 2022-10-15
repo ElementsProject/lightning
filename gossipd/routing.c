@@ -1423,6 +1423,9 @@ bool routing_add_channel_update(struct routing_state *rstate,
 					    is_chan_public(chan)
 					    ? WIRE_CHANNEL_UPDATE
 					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+		} else if (!is_chan_public(chan)){
+			gossip_store_delete(rstate->gs, &hc->rgraph,
+					    WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
 		}
 	} else {
 		/* Safe to broadcast */
