@@ -59,6 +59,7 @@ COMMON_SRC_NOGEN :=				\
 	common/node_id.c			\
 	common/onion.c				\
 	common/onionreply.c			\
+	common/onion_message_parse.c		\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\
 	common/peer_io.c			\
