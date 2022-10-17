@@ -120,10 +120,7 @@ msgdata,connectd_ping_reply,totlen,u16,
 msgtype,connectd_got_onionmsg_to_us,2145
 msgdata,connectd_got_onionmsg_to_us,node_alias,pubkey,
 msgdata,connectd_got_onionmsg_to_us,self_id,?secret,
-msgdata,connectd_got_onionmsg_to_us,reply_blinding,?pubkey,
-msgdata,connectd_got_onionmsg_to_us,reply_first_node,?pubkey,
-msgdata,connectd_got_onionmsg_to_us,reply_path_len,u16,
-msgdata,connectd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+msgdata,connectd_got_onionmsg_to_us,reply,?blinded_path,
 msgdata,connectd_got_onionmsg_to_us,rawmsg_len,u16,
 msgdata,connectd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
 

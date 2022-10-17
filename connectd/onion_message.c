@@ -109,7 +109,7 @@ void handle_onion_message(struct daemon *daemon,
 	struct pubkey blinding, ephemeral;
 	struct route_step *rs;
 	u8 *onion;
-	struct tlv_onionmsg_payload *om;
+	struct tlv_onionmsg_tlv *om;
 	struct secret ss, onion_ss;
 	const u8 *cursor;
 	size_t max, maxlen;
@@ -166,46 +166,29 @@ void handle_onion_message(struct daemon *daemon,
 		return;
 	}
 
-	om = fromwire_tlv_onionmsg_payload(msg, &cursor, &maxlen);
+	om = fromwire_tlv_onionmsg_tlv(msg, &cursor, &maxlen);
 	if (!om) {
-		status_peer_debug(&peer->id, "onion msg: invalid onionmsg_payload %s",
+		status_peer_debug(&peer->id, "onion msg: invalid onionmsg_tlv %s",
 				  tal_hex(tmpctx, rs->raw_payload));
 		return;
 	}
 
 	if (rs->nextcase == ONION_END) {
-		struct pubkey *reply_blinding, *first_node_id, me, alias;
-		const struct onionmsg_path **reply_path;
+		struct pubkey alias;
 		struct secret *self_id;
 		u8 *omsg;
 
-		if (!pubkey_from_node_id(&me, &daemon->id)) {
-			status_broken("Failed to convert own id");
-			return;
-		}
-
 		/* Final enctlv is actually optional */
-		if (!om->encrypted_data_tlv) {
-			alias = me;
+		if (!om->encrypted_recipient_data) {
+			alias = daemon->mykey;
 			self_id = NULL;
 		} else if (!decrypt_final_onionmsg(tmpctx, &blinding, &ss,
-						   om->encrypted_data_tlv, &me, &alias,
+						   om->encrypted_recipient_data, &daemon->mykey, &alias,
 						   &self_id)) {
 			status_peer_debug(&peer->id,
-					  "onion msg: failed to decrypt enctlv"
-					  " %s", tal_hex(tmpctx, om->encrypted_data_tlv));
+					  "onion msg: failed to decrypt encrypted_recipient_data"
+					  " %s", tal_hex(tmpctx, om->encrypted_recipient_data));
 			return;
-		}
-
-		if (om->reply_path) {
-			first_node_id = &om->reply_path->first_node_id;
-			reply_blinding = &om->reply_path->blinding;
-			reply_path = cast_const2(const struct onionmsg_path **,
-						 om->reply_path->path);
-		} else {
-			first_node_id = NULL;
-			reply_blinding = NULL;
-			reply_path = NULL;
 		}
 
 		/* We re-marshall here by policy, before handing to lightningd */
@@ -214,9 +197,7 @@ void handle_onion_message(struct daemon *daemon,
 		daemon_conn_send(daemon->master,
 				 take(towire_connectd_got_onionmsg_to_us(NULL,
 							&alias, self_id,
-							reply_blinding,
-							first_node_id,
-							reply_path,
+							om->reply_path,
 							omsg)));
 	} else {
 		struct pubkey next_node, next_blinding;
@@ -224,11 +205,11 @@ void handle_onion_message(struct daemon *daemon,
 		struct node_id next_node_id;
 
 		/* This fails as expected if no enctlv. */
-		if (!decrypt_forwarding_onionmsg(&blinding, &ss, om->encrypted_data_tlv, &next_node,
+		if (!decrypt_forwarding_onionmsg(&blinding, &ss, om->encrypted_recipient_data, &next_node,
 					       &next_blinding)) {
 			status_peer_debug(&peer->id,
-					  "onion msg: invalid enctlv %s",
-					  tal_hex(tmpctx, om->encrypted_data_tlv));
+					  "onion msg: invalid encrypted_recipient_data %s",
+					  tal_hex(tmpctx, om->encrypted_recipient_data));
 			return;
 		}
 

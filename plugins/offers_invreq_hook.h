@@ -8,5 +8,5 @@ extern u16 cltv_final;
 /* We got an onionmessage with an invreq! */
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
-					      struct tlv_onionmsg_payload_reply_path *reply_path STEALS);
+					      struct blinded_path *reply_path STEALS);
 #endif /* LIGHTNING_PLUGINS_OFFERS_INVREQ_HOOK_H */
