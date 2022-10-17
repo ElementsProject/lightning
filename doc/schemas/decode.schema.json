@@ -131,11 +131,16 @@
             "items": {
               "type": "object",
               "required": [
+                "first_node_id",
                 "blinding",
                 "path"
               ],
               "additionalProperties": false,
               "properties": {
+                "first_node_id": {
+                  "type": "pubkey",
+                  "description": "the (presumably well-known) public key of the start of the path"
+                },
                 "blinding": {
                   "type": "pubkey",
                   "description": "blinding factor for this path"
@@ -146,12 +151,12 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "node_id",
+                      "blinded_node_id",
                       "encrypted_recipient_data"
                     ],
                     "additionalProperties": false,
                     "properties": {
-                      "node_id": {
+                      "blinded_node_id": {
                         "type": "pubkey",
                         "description": "node_id of the hop"
                       },
@@ -330,7 +335,7 @@
           },
           "signature": {
             "type": "bip340sig",
-            "description": "BIP-340 signature of the *node_id* on this offer"
+            "description": "BIP-340 signature of the *node_id* on this invoice"
           },
           "chain": {
             "type": "hex",
@@ -373,11 +378,16 @@
             "items": {
               "type": "object",
               "required": [
+                "first_node_id",
                 "blinding",
                 "path"
               ],
               "additionalProperties": false,
               "properties": {
+                "first_node_id": {
+                  "type": "pubkey",
+                  "description": "the (presumably well-known) public key of the start of the path"
+                },
                 "blinding": {
                   "type": "pubkey",
                   "description": "blinding factor for this path"
@@ -388,18 +398,34 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "node_id",
+                      "blinded_node_id",
                       "encrypted_recipient_data"
                     ],
                     "additionalProperties": false,
                     "properties": {
-                      "node_id": {
+                      "blinded_node_id": {
                         "type": "pubkey",
                         "description": "node_id of the hop"
                       },
                       "encrypted_recipient_data": {
                         "type": "hex",
                         "description": "encrypted TLV entry for this hop"
+                      },
+                      "fee_base_msat": {
+                        "type": "msat",
+                        "description": "base fee for the entire path"
+                      },
+                      "fee_proportional_millionths": {
+                        "type": "u32",
+                        "description": "proportional fee for the entire path"
+                      },
+                      "cltv_expiry_delta": {
+                        "type": "u32",
+                        "description": "total CLTV delta across path"
+                      },
+                      "features": {
+                        "type": "hex",
+                        "description": "Features allowed/required for this path"
                       }
                     }
                   }
