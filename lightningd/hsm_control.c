@@ -4,6 +4,7 @@
 #include <common/ecdh.h>
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
+#include <common/hsm_version.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/jsonrpc_errors.h>
@@ -109,7 +110,9 @@ struct ext_key *hsm_init(struct lightningd *ld)
 							 IFDEV(ld->dev_force_privkey, NULL),
 							 IFDEV(ld->dev_force_bip32_seed, NULL),
 							 IFDEV(ld->dev_force_channel_secrets, NULL),
-							 IFDEV(ld->dev_force_channel_secrets_shaseed, NULL))))
+							  IFDEV(ld->dev_force_channel_secrets_shaseed, NULL),
+							  HSM_MIN_VERSION,
+							  HSM_MAX_VERSION)))
 		err(EXITCODE_HSM_GENERIC_ERROR, "Writing init msg to hsm");
 
 	bip32_base = tal(ld, struct ext_key);
