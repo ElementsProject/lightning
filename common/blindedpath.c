@@ -79,7 +79,6 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 		return NULL;
 
 	ret = tal_dup_talarr(ctx, u8, raw_encmsg);
-	SUPERVERBOSE("\t\"encmsg_hex\": \"%s\",\n", tal_hex(tmpctx, ret));
 
 	/* BOLT-route-blinding #4:
 	 * - `rho(i) = HMAC256("rho", ss(i))`
