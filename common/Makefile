@@ -10,6 +10,7 @@ COMMON_SRC_NOGEN :=				\
 	common/billboard.c			\
 	common/bip32.c				\
 	common/blindedpath.c			\
+	common/blindedpay.c			\
 	common/blinding.c			\
 	common/blockheight_states.c		\
 	common/bolt11.c				\

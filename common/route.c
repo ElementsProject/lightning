@@ -102,10 +102,6 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 	next = gossmap_nth_node(gossmap, c, !(*hops)[num_hops].direction);
 	gossmap_node_get_id(gossmap, next, &(*hops)[num_hops].node_id);
 
-	/* These are (ab)used by others. */
-	(*hops)[num_hops].blinding = NULL;
-	(*hops)[num_hops].enctlv = NULL;
-
 	if (!dijkstra_to_hops(hops, gossmap, dij, next, amount, cltv))
 		return false;
 
