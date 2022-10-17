@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/mem/mem.h>
 #include <common/blindedpath.h>
 #include <common/ecdh.h>
 #include <common/onion.h>
@@ -312,7 +313,49 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			goto field_bad;
 		}
 
-		p->payment_constraints = tal_steal(p, enc->payment_constraints);
+		if (enc->payment_constraints) {
+			/* BOLT-route-blinding #4:
+			 * - MUST return an error if the expiry is greater than
+			 *   `encrypted_recipient_data.payment_constraints.max_cltv_expiry`.
+			 */
+			if (cltv_expiry > enc->payment_constraints->max_cltv_expiry) {
+				*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+				goto field_bad;
+			}
+
+			/* BOLT-route-blinding #4:
+			 * - MUST return an error if the amount is below
+			 *   `encrypted_recipient_data.payment_constraints.htlc_minimum_msat`.
+			 */
+			if (amount_msat_less(amount_in,
+					     amount_msat(enc->payment_constraints->htlc_minimum_msat))) {
+				*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+				goto field_bad;
+			}
+
+			/* BOLT-route-blinding #4:
+			 * - MUST return an error if the payment uses a feature
+			 *   not included in
+			 *   `encrypted_recipient_data.payment_constraints.allowed_features`.
+			 */
+			/* We don't have any features yet... */
+		}
+
+		/* BOLT-route-blinding #4:
+		 * - If `allowed_features` is present:
+		 *   - MUST return an error if:
+		 *     - `encrypted_recipient_data.allowed_features.features`
+		 *        contains an unknown feature bit (even if it is odd).
+		 *     - the payment uses a feature not included in
+		 *       `encrypted_recipient_data.allowed_features.features`.
+		 */
+		/* No features, this is easy */
+		if (!memeqzero(enc->allowed_features,
+			       tal_bytelen(enc->allowed_features))) {
+			*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+			goto field_bad;
+		}
+
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!handle_blinded_forward(p, amount_in, cltv_expiry,
 						    tlv, enc, failtlvtype))
@@ -390,7 +433,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		p->payment_metadata = NULL;
 
 	p->blinding = NULL;
-	p->payment_constraints = NULL;
 
 	p->tlv = tal_steal(p, tlv);
 	return p;
@@ -405,3 +447,4 @@ fail_no_tlv:
 	tal_free(p);
 	return NULL;
 }
+
