@@ -310,8 +310,8 @@ int main(int argc, char *argv[])
 
 	/* Now try with an actual offer, with 6 fields. */
 	struct tlv_offer *offer = offer_decode(tmpctx,
-					       "lno1qcp4256ypqpq86q2pucnq42ngssx2an9wfujqerp0y2pqun4wd68jtn00fkxzcnn9ehhyec6qgqsz83qfwdpl28qqmc78ymlvhmxcsywdk5wrjnj36jryg488qwlrnzyjczs",
-					       strlen("lno1qcp4256ypqpq86q2pucnq42ngssx2an9wfujqerp0y2pqun4wd68jtn00fkxzcnn9ehhyec6qgqsz83qfwdpl28qqmc78ymlvhmxcsywdk5wrjnj36jryg488qwlrnzyjczs"),
+					       "lno1qcp4256ypqpq86q2pucnq42ngssx2an9wfujqerp0y2pqun4wd68jtn00fkxzcnn9ehhyec6qgqsz83pqf9e58aguqr0rcun0ajlvmzq3ek63cw2w282gv3z5uupmuwvgjtq2",
+					       strlen("lno1qcp4256ypqpq86q2pucnq42ngssx2an9wfujqerp0y2pqun4wd68jtn00fkxzcnn9ehhyec6qgqsz83pqf9e58aguqr0rcun0ajlvmzq3ek63cw2w282gv3z5uupmuwvgjtq2"),
 					       NULL, NULL, &fail);
 
 	assert(tal_count(offer->fields) == 6);
@@ -327,10 +327,10 @@ int main(int argc, char *argv[])
 	fieldwires[3] = tlv(20, "rusty.ozlabs.org", strlen("rusty.ozlabs.org"));
 	/* recurrence: time_unit = 1, period = 1 */
 	fieldwires[4] = tlv(26, "\x01\x01", 2);
-	/* node_id: 4b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605 */
-	fieldwires[5] = tlv(30, "\x4b\x9a\x1f\xa8\xe0\x06\xf1\xe3\x93\x7f\x65\xf6\x6c\x40\x8e\x6d\xa8\xe1\xca\x72\x8e\xa4\x32\x22\xa7\x38\x1d\xf1\xcc\x44\x96\x05", 32);
+	/* node_id: 024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605 */
+	fieldwires[5] = tlv(30, "\x02\x4b\x9a\x1f\xa8\xe0\x06\xf1\xe3\x93\x7f\x65\xf6\x6c\x40\x8e\x6d\xa8\xe1\xca\x72\x8e\xa4\x32\x22\xa7\x38\x1d\xf1\xcc\x44\x96\x05", 33);
 
-	json_out("{\"comment\": \"offer test, currency = USD, amount = 1000, description = 10USD every day, issuer = rusty.ozlabs.org, recurrence = time_unit = 1, period = 1, node_id = 4b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\",");
+	json_out("{\"comment\": \"offer test, currency = USD, amount = 1000, description = 10USD every day, issuer = rusty.ozlabs.org, recurrence = time_unit = 1, period = 1, node_id = 024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\",");
 	json_out("\"tlv\": \"offer\",");
 
 	all = concat(fieldwires[0], fieldwires[1], fieldwires[2],

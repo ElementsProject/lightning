@@ -74,7 +74,7 @@ static char *check_features_and_chain(const tal_t *ctx,
 bool bolt12_check_signature(const struct tlv_field *fields,
 			    const char *messagename,
 			    const char *fieldname,
-			    const struct point32 *key,
+			    const struct pubkey *key,
 			    const struct bip340sig *sig)
 {
 	struct sha256 m, shash;
@@ -89,7 +89,7 @@ static char *check_signature(const tal_t *ctx,
 			     const struct tlv_field *fields,
 			     const char *messagename,
 			     const char *fieldname,
-			     const struct point32 *node_id,
+			     const struct pubkey *node_id,
 			     const struct bip340sig *sig)
 {
 	if (!node_id)

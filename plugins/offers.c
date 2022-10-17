@@ -17,7 +17,7 @@
 #include <plugins/offers_invreq_hook.h>
 #include <plugins/offers_offer.h>
 
-struct point32 id;
+struct pubkey id;
 u16 cltv_final;
 bool offers_enabled;
 
@@ -390,7 +390,7 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 	}
 
 	if (offer->node_id)
-		json_add_point32(js, "node_id", offer->node_id);
+		json_add_pubkey(js, "node_id", offer->node_id);
 	else
 		valid = false;
 
@@ -556,7 +556,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	}
 
 	if (invoice->payer_key)
-		json_add_point32(js, "payer_key", invoice->payer_key);
+		json_add_pubkey(js, "payer_key", invoice->payer_key);
 	if (invoice->payer_info)
 		json_add_hex_talarr(js, "payer_info", invoice->payer_info);
 	if (invoice->payer_note)
@@ -644,7 +644,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	}
 
 	/* invoice_decode checked these */
-	json_add_point32(js, "node_id", invoice->node_id);
+	json_add_pubkey(js, "node_id", invoice->node_id);
 	json_add_bip340sig(js, "signature", invoice->signature);
 
 	json_add_bool(js, "valid", valid);
@@ -686,7 +686,7 @@ static void json_add_invoice_request(struct json_stream *js,
 		json_add_u32(js, "recurrence_start",
 			     *invreq->recurrence_start);
 	if (invreq->payer_key)
-		json_add_point32(js, "payer_key", invreq->payer_key);
+		json_add_pubkey(js, "payer_key", invreq->payer_key);
 	else {
 		json_add_string(js, "warning_invoice_request_missing_payer_key",
 				"invoice_request requires payer_key");

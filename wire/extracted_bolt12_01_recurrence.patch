@@ -32,13 +32,12 @@ index 726c3c0a1..a53ca3cdf 100644
  tlvtype,invoice_request,payer_key,38
  tlvdata,invoice_request,payer_key,key,point32,
  tlvtype,invoice_request,payer_note,39
-@@ -74,6 +94,13 @@ tlvtype,invoice,quantity,32
+@@ -74,6 +94,12 @@ tlvtype,invoice,quantity,32
  tlvdata,invoice,quantity,quantity,tu64,
  tlvtype,invoice,refund_for,34
  tlvdata,invoice,refund_for,refunded_payment_hash,sha256,
 +tlvtype,invoice,recurrence_counter,36
 +tlvdata,invoice,recurrence_counter,counter,tu32,
-+tlvtype,invoice,send_invoice,54
 +tlvtype,invoice,recurrence_start,68
 +tlvdata,invoice,recurrence_start,period_offset,tu32,
 +tlvtype,invoice,recurrence_basetime,64
