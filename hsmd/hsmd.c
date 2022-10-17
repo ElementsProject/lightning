@@ -444,7 +444,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct secret *hsm_encryption_key;
 	struct bip32_key_version bip32_key_version;
 	u32 minversion, maxversion;
-	const u32 our_minversion = 1, our_maxversion = 1;
+	const u32 our_minversion = 2, our_maxversion = 2;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -692,7 +692,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
-	case WIRE_HSMD_INIT_REPLY:
+	case WIRE_HSMD_INIT_REPLY_V1:
+	case WIRE_HSMD_INIT_REPLY_V2:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:

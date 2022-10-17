@@ -224,16 +224,14 @@ void sighash_from_merkle(const char *messagename,
  *
  * Since key used to be x-only, we don't hash first byte!
  */
-void payer_key_tweak(const struct point32 *bolt12,
+void payer_key_tweak(const struct pubkey *bolt12,
 		     const u8 *publictweak, size_t publictweaklen,
 		     struct sha256 *tweak)
 {
 	u8 rawkey[PUBKEY_CMPR_LEN];
 	struct sha256_ctx sha;
-	struct pubkey pk;
 
-	pk.pubkey = bolt12->pubkey;
-	pubkey_to_der(rawkey, &pk);
+	pubkey_to_der(rawkey, bolt12);
 
 	sha256_init(&sha);
 	sha256_update(&sha, rawkey + 1, sizeof(rawkey) - 1);
