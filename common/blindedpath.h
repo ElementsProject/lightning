@@ -68,41 +68,38 @@ bool unblind_onion(const struct pubkey *blinding,
 	NO_NULL_ARGS;
 
 /**
- * decrypt_enctlv - Decrypt an encmsg to form an enctlv.
- * @blinding: E(i), the blinding pubkey the previous peer gave us.
- * @ss: the blinding secret from unblind_onion().
- * @enctlv: the enctlv from the onion (tal, may be NULL).
- * @next_node: (out) the next node_id.
- * @next_blinding: (out) the next blinding E(i+1).
+ * blindedpath_get_alias - tweak our id to see alias they used.
+ * @ss: the shared secret from unblind_onion
+ * @my_id: my node_id
+ * @alias: (out) the alias.
  *
- * Returns false if decryption failed or encmsg was malformed.
+ * Returns false on ECDH fail.
  */
-bool decrypt_enctlv(const struct pubkey *blinding,
-		    const struct secret *ss,
-		    const u8 *enctlv,
-		    struct pubkey *next_node,
-		    struct pubkey *next_blinding)
-	NON_NULL_ARGS(1, 2, 4, 5);
+bool blindedpath_get_alias(const struct secret *ss,
+			   const struct pubkey *my_id,
+			   struct pubkey *alias);
 
 /**
- * decrypt_final_enctlv - Decrypt an encmsg to form an enctlv.
- * @ctx: tal context for @path_id
+ * decrypt_encrypted_data - Decrypt an encmsg to form an tlv_encrypted_data_tlv.
+ * @ctx: the context to allocate off.
  * @blinding: E(i), the blinding pubkey the previous peer gave us.
  * @ss: the blinding secret from unblind_onion().
  * @enctlv: the enctlv from the onion (tal, may be NULL).
- * @my_id: the pubkey of this node.
- * @alias: (out) the node_id this was addressed to.
- * @path_id: (out) the secret contained in the enctlv, if any (NULL if invalid or unset)
  *
- * Returns false if decryption failed or encmsg was malformed.
+ * Returns NULL if decryption failed or encmsg was malformed.
  */
-bool decrypt_final_enctlv(const tal_t *ctx,
-			  const struct pubkey *blinding,
-			  const struct secret *ss,
-			  const u8 *enctlv,
-			  const struct pubkey *my_id,
-			  struct pubkey *alias,
-			  struct secret **path_id)
-	NON_NULL_ARGS(1, 2, 4, 5);
+struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx,
+						      const struct pubkey *blinding,
+						      const struct secret *ss,
+						      const u8 *enctlv)
+	NON_NULL_ARGS(2, 3);
+
+/**
+ * blindedpath_next_blinding - Calculate or extract next blinding pubkey
+ */
+void blindedpath_next_blinding(const struct tlv_encrypted_data_tlv *enc,
+			       const struct pubkey *blinding,
+			       const struct secret *ss,
+			       struct pubkey *next_blinding);
 
 #endif /* LIGHTNING_COMMON_BLINDEDPATH_H */

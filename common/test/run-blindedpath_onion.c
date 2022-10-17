@@ -108,12 +108,13 @@ static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 {
 	struct onionpacket *op;
 	struct pubkey blinding, ephemeral;
-	struct pubkey next_node, next_blinding;
+	struct pubkey next_blinding;
 	struct tlv_onionmsg_payload *om;
 	struct secret ss, onion_ss;
 	const u8 *cursor;
 	size_t max, maxlen;
 	struct route_step *rs;
+	struct tlv_encrypted_data_tlv *enc;
 
 	assert(fromwire_onion_message(tmpctx, omsg, &blinding, &omsg));
 	assert(pubkey_eq(&blinding, expected_blinding));
@@ -137,8 +138,9 @@ static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 	if (rs->nextcase == ONION_END)
 		return NULL;
 
-	assert(decrypt_enctlv(&blinding, &ss, om->encrypted_data_tlv, &next_node,
-			      &next_blinding));
+	enc = decrypt_encrypted_data(tmpctx, &blinding, &ss, om->encrypted_data_tlv);
+	assert(enc);
+	blindedpath_next_blinding(enc, &blinding, &ss, &next_blinding);
 	return towire_onion_message(ctx, &next_blinding,
 				    serialize_onionpacket(tmpctx, rs->next));
 }
