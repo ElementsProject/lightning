@@ -14,6 +14,8 @@ ALL_PROGRAMS += $(DEVTOOLS)
 DEVTOOLS_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/autodata.o			\
+	common/blinding.o			\
+	common/blindedpath.o			\
 	common/coin_mvt.o			\
 	common/base32.o				\
 	common/bech32.o				\
