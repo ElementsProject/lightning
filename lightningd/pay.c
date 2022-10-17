@@ -1172,9 +1172,7 @@ send_payment(struct lightningd *ld,
 			       take(onion_nonfinal_hop(NULL,
 					&route[i + 1].scid,
 					route[i + 1].amount,
-					base_expiry + route[i + 1].delay,
-					route[i].blinding,
-					route[i].enctlv)));
+					base_expiry + route[i + 1].delay)));
 	}
 
 	/* And finally set the final hop to the special values in
@@ -1193,7 +1191,7 @@ send_payment(struct lightningd *ld,
 	onion = onion_final_hop(cmd,
 				route[i].amount,
 				base_expiry + route[i].delay,
-				total_msat, route[i].blinding, route[i].enctlv,
+				total_msat,
 				payment_secret, payment_metadata);
 	if (!onion) {
 		return command_fail(cmd, PAY_DESTINATION_PERM_FAIL,
@@ -1381,8 +1379,6 @@ static struct command_result *param_route_hops(struct command *cmd,
 		struct node_id *id;
 		struct short_channel_id *channel;
 		unsigned *delay, *direction;
-		struct pubkey *blinding;
-		u8 *enctlv;
 		int *ignored;
 
 		if (!param(cmd, buffer, t,
@@ -1394,8 +1390,6 @@ static struct command_result *param_route_hops(struct command *cmd,
 			   /* Allowed (getroute supplies it) but ignored */
 			   p_opt("direction", param_number, &direction),
 			   p_opt("style", param_route_hop_style, &ignored),
-			   p_opt("blinding", param_pubkey, &blinding),
-			   p_opt("encrypted_recipient_data", param_bin_from_hex, &enctlv),
 			   NULL))
 			return command_param_failed();
 
@@ -1403,8 +1397,6 @@ static struct command_result *param_route_hops(struct command *cmd,
 		(*hops)[i].node_id = *id;
 		(*hops)[i].delay = *delay;
 		(*hops)[i].scid = *channel;
-		(*hops)[i].blinding = blinding;
-		(*hops)[i].enctlv = enctlv;
 	}
 
 	return NULL;
