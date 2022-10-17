@@ -904,7 +904,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
 	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *fwdtok;
-	u8 *payload, *failonion;
+	u8 *failonion;
 
 	if (!toks || !buffer)
 		return true;
@@ -920,7 +920,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 
 	payloadtok = json_get_member(buffer, toks, "payload");
 	if (payloadtok) {
-		payload = json_tok_bin_from_hex(rs, buffer, payloadtok);
+		u8 *payload = json_tok_bin_from_hex(rs, buffer, payloadtok);
 		if (!payload)
 			fatal("Bad payload for htlc_accepted"
 			      " hook: %.*s",
@@ -930,13 +930,17 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 		tal_free(rs->raw_payload);
 
 		rs->raw_payload = prepend_length(rs, take(payload));
-		request->payload = onion_decode(request, rs,
+		request->payload = onion_decode(request,
+						feature_offered(ld->our_features->bits[INIT_FEATURE],
+								OPT_ROUTE_BLINDING),
+						rs,
 						hin->blinding,
 						ld->accept_extra_tlv_types,
+						hin->msat,
+						hin->cltv_expiry,
 						&request->failtlvtype,
 						&request->failtlvpos);
-	} else
-		payload = NULL;
+	}
 
 	fwdtok = json_get_member(buffer, toks, "forward_to");
 	if (fwdtok) {
@@ -1312,9 +1316,14 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	hook_payload = tal(NULL, struct htlc_accepted_hook_payload);
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
-	hook_payload->payload = onion_decode(hook_payload, rs,
+	hook_payload->payload = onion_decode(hook_payload,
+					     feature_offered(ld->our_features->bits[INIT_FEATURE],
+							     OPT_ROUTE_BLINDING),
+					     rs,
 					     hin->blinding,
 					     ld->accept_extra_tlv_types,
+					     hin->msat,
+					     hin->cltv_expiry,
 					     &hook_payload->failtlvtype,
 					     &hook_payload->failtlvpos);
 	hook_payload->ld = ld;
