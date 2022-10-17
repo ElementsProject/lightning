@@ -25,7 +25,7 @@ void sighash_from_merkle(const char *messagename,
 /**
  * payer_key_tweak - get the actual tweak to use for a payer_key
  */
-void payer_key_tweak(const struct point32 *bolt12,
+void payer_key_tweak(const struct pubkey *bolt12,
 		     const u8 *publictweak, size_t publictweaklen,
 		     struct sha256 *tweak);
 

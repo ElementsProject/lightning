@@ -78,7 +78,7 @@ static void hsm_sign_b12(struct lightningd *ld,
 	if (!check_schnorr_sig(&sighash, &key->pubkey, sig))
 		fatal("HSM gave bad signature %s for pubkey %s",
 		      type_to_string(tmpctx, struct bip340sig, sig),
-		      type_to_string(tmpctx, struct point32, key));
+		      type_to_string(tmpctx, struct pubkey, (struct pubkey *)key));
 }
 
 static struct command_result *json_createoffer(struct command *cmd,

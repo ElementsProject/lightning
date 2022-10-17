@@ -134,7 +134,8 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
-	case WIRE_HSMD_INIT_REPLY:
+	case WIRE_HSMD_INIT_REPLY_V1:
+	case WIRE_HSMD_INIT_REPLY_V2:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
@@ -635,7 +636,7 @@ static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 		node_schnorrkey(&kp, NULL);
 	} else {
 		/* If we're tweaking key, we use bolt12 key */
-		struct point32 bolt12;
+		struct pubkey bolt12;
 		struct sha256 tweak;
 
 		if (secp256k1_keypair_pub(secp256k1_ctx,
@@ -1629,7 +1630,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
-	case WIRE_HSMD_INIT_REPLY:
+	case WIRE_HSMD_INIT_REPLY_V1:
+	case WIRE_HSMD_INIT_REPLY_V2:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSMD_VALIDATE_COMMITMENT_TX_REPLY:
@@ -1652,8 +1654,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 	      struct bip32_key_version bip32_key_version)
 {
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
-	struct pubkey key;
-	struct point32 bolt12;
+	struct pubkey key, bolt12;
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
 	struct node_id node_id;
@@ -1777,6 +1778,14 @@ u8 *hsmd_init(struct secret hsm_secret,
 		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				   "Could derive bolt12 public key.");
 
+	/* For compatibility, we have to invert y-odd keys */
+	u8 raw[PUBKEY_CMPR_LEN];
+	pubkey_to_der(raw, &bolt12);
+	if (raw[0] == SECP256K1_TAG_PUBKEY_ODD) {
+		raw[0] = SECP256K1_TAG_PUBKEY_EVEN;
+		pubkey_from_der(raw, sizeof(raw), &bolt12);
+	}
+
 	/*~ We derive a secret for onion_message's self_id so we can tell
 	 * if it used a path we created (i.e. do not leak our public id!) */
 	hkdf_sha256(&onion_reply_secret, sizeof(onion_reply_secret),
@@ -1794,7 +1803,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
 	 * not the secrets!  So we're not actually handing them out here!
 	 */
-	return take(towire_hsmd_init_reply(
+	return take(towire_hsmd_init_reply_v2(
 	    NULL, &node_id, &secretstuff.bip32,
 	    &bolt12, &onion_reply_secret));
 }
