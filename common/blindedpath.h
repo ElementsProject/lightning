@@ -9,6 +9,9 @@ struct route_info;
 struct pubkey;
 struct privkey;
 struct secret;
+struct short_channel_id;
+struct tlv_encrypted_data_tlv_payment_constraints;
+struct tlv_encrypted_data_tlv_payment_relay;
 
 /**
  * create_enctlv - Encrypt an encmsg to form an enctlv.
@@ -16,22 +19,31 @@ struct secret;
  * @blinding: e(i), the blinding secret
  * @node: the pubkey of the node to encrypt for
  * @next_node: the pubkey of the next node, to place in enctlv
+ * @next_scid: the short_channel_id to the next node, to place in enctlv
  * @padlen: if non-zero, the bytes of padding to add (also adds 2 byte padding hdr)
  * @next_blinding_override: the optional blinding point to place in enctlv
+ * @payment_relay: optional payment_relay tlv
+ * @payment_constraints: optional payment_constraints tlv
+ * @allowed_features: optional allowed_features array
  * @next_blinding: (out) e(i+1), the next blinding secret.
  * @node_alias: (out) the blinded pubkey of the node to tell the recipient.
  *
+ * Exactly one of next_node and next_scid must be non-NULL.
  * Returns the enctlv blob, or NULL if the secret is invalid.
  */
 u8 *create_enctlv(const tal_t *ctx,
 		  const struct privkey *blinding,
 		  const struct pubkey *node,
 		  const struct pubkey *next_node,
+		  const struct short_channel_id *next_scid,
 		  size_t padlen,
 		  const struct pubkey *next_blinding_override,
+		  const struct tlv_encrypted_data_tlv_payment_relay *payment_relay TAKES,
+		  const struct tlv_encrypted_data_tlv_payment_constraints *payment_constraints TAKES,
+		  const u8 *allowed_features TAKES,
 		  struct privkey *next_blinding,
 		  struct pubkey *node_alias)
-	NON_NULL_ARGS(2, 3, 4, 7, 8);
+	NON_NULL_ARGS(2, 3, 11, 12);
 
 /**
  * create_final_enctlv - Encrypt an encmsg to form the final enctlv.
@@ -39,6 +51,7 @@ u8 *create_enctlv(const tal_t *ctx,
  * @blinding: e(i), the blinding secret
  * @final_node: the pubkey of the node to encrypt for
  * @padlen: if non-zero, the bytes of padding to add (also adds 2 byte padding hdr)
+ * @allowed_features: optional allowed_features array
  * @path_id: secret to include in enctlv, if not NULL.
  * @node_alias: (out) the blinded pubkey of the node to tell the recipient.
  *
@@ -49,8 +62,9 @@ u8 *create_final_enctlv(const tal_t *ctx,
 			const struct pubkey *final_node,
 			size_t padlen,
 			const struct secret *path_id,
+			const u8 *allowed_features TAKES,
 			struct pubkey *node_alias)
-	NON_NULL_ARGS(2, 3, 6);
+	NON_NULL_ARGS(2, 3, 7);
 
 /**
  * unblind_onion - tweak onion epheremeral key so we can decode it with ours.
