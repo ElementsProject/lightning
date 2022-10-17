@@ -53,7 +53,7 @@ WIRE_NONEXP_HEADERS := wire/peer_wiregen.h	\
 		wire/onion_printgen.h		\
 		wire/channel_type_printgen.h
 
-ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_PRINT_SRC) $(WIRE_NONEXP_SRC)
+ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_BOLT12_SRC) $(WIRE_PRINT_SRC) $(WIRE_NONEXP_SRC)
 
 ALL_C_HEADERS += $(WIRE_HEADERS) $(WIRE_NONEXP_HEADERS)
 
