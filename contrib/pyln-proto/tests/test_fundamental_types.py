@@ -65,10 +65,6 @@ def test_fundamental_types():
                              '2122232425262728292a2b2c2d2e2f30'
                              '3132333435363738393a3b3c3d3e3f40',
                              bytes(range(1, 65))]],
-              'point32': [['02030405060708090a0b0c0d0e0f10'
-                           '1112131415161718191a1b1c1d1e1f20'
-                           '21',
-                           bytes(range(2, 34))]],
               }
 
     untested = set()

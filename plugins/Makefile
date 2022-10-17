@@ -1,5 +1,5 @@
-PLUGIN_PAY_SRC := plugins/pay.c plugins/pay_point32.c
-PLUGIN_PAY_HEADER := plugins/pay_point32.h
+PLUGIN_PAY_SRC := plugins/pay.c
+PLUGIN_PAY_HEADER := 
 PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 
 PLUGIN_AUTOCLEAN_SRC := plugins/autoclean.c

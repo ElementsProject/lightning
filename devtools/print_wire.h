@@ -35,7 +35,6 @@ bool printwire_bitcoin_txid(const char *fieldname, const u8 **cursor, size_t *pl
 bool printwire_channel_id(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_amount_sat(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_amount_msat(const char *fieldname, const u8 **cursor, size_t *plen);
-bool printwire_point32(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_preimage(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_pubkey(const char *fieldname, const u8 **cursor, size_t *plen);
 bool printwire_node_id(const char *fieldname, const u8 **cursor, size_t *plen);

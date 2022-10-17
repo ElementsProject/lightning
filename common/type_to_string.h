@@ -7,7 +7,6 @@
 /* This must match the type_to_string_ cases. */
 union printable_types {
 	const struct pubkey *pubkey;
-	const struct point32 *point32;
 	const struct node_id *node_id;
 	const struct bitcoin_txid *bitcoin_txid;
 	const struct bitcoin_blkid *bitcoin_blkid;

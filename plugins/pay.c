@@ -15,7 +15,6 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
-#include <plugins/pay_point32.h>
 #include <plugins/libplugin-pay.h>
 #include <stdio.h>
 
