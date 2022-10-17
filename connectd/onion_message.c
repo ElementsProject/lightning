@@ -35,6 +35,71 @@ void onionmsg_req(struct daemon *daemon, const u8 *msg)
 	}
 }
 
+static bool decrypt_final_onionmsg(const tal_t *ctx,
+				   const struct pubkey *blinding,
+				   const struct secret *ss,
+				   const u8 *enctlv,
+				   const struct pubkey *my_id,
+				   struct pubkey *alias,
+				   struct secret **path_id)
+{
+	struct tlv_encrypted_data_tlv *encmsg;
+
+	if (!blindedpath_get_alias(ss, my_id, alias))
+		return false;
+
+	encmsg = decrypt_encrypted_data(tmpctx, blinding, ss, enctlv);
+	if (!encmsg)
+		return false;
+
+	if (tal_bytelen(encmsg->path_id) == sizeof(**path_id)) {
+		*path_id = tal(ctx, struct secret);
+		memcpy(*path_id, encmsg->path_id, sizeof(**path_id));
+	} else
+		*path_id = NULL;
+
+	return true;
+}
+
+static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
+					const struct secret *ss,
+					const u8 *enctlv,
+					struct pubkey *next_node,
+					struct pubkey *next_blinding)
+{
+	struct tlv_encrypted_data_tlv *encmsg;
+
+	encmsg = decrypt_encrypted_data(tmpctx, blinding, ss, enctlv);
+	if (!encmsg)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 *
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if the `enctlv` ... does not contain
+	 *      `next_node_id`:
+	 *      - MUST drop the message.
+	 */
+	if (!encmsg->next_node_id)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if the `enctlv` contains `path_id`:
+	 *      - MUST drop the message.
+	 */
+	if (encmsg->path_id)
+		return false;
+
+	*next_node = *encmsg->next_node_id;
+	blindedpath_next_blinding(encmsg, blinding, ss, next_blinding);
+	return true;
+}
+
 /* Peer sends an onion msg. */
 void handle_onion_message(struct daemon *daemon,
 			  struct peer *peer, const u8 *msg)
@@ -123,9 +188,9 @@ void handle_onion_message(struct daemon *daemon,
 		if (!om->encrypted_data_tlv) {
 			alias = me;
 			self_id = NULL;
-		} else if (!decrypt_final_enctlv(tmpctx, &blinding, &ss,
-						 om->encrypted_data_tlv, &me, &alias,
-						 &self_id)) {
+		} else if (!decrypt_final_onionmsg(tmpctx, &blinding, &ss,
+						   om->encrypted_data_tlv, &me, &alias,
+						   &self_id)) {
 			status_peer_debug(&peer->id,
 					  "onion msg: failed to decrypt enctlv"
 					  " %s", tal_hex(tmpctx, om->encrypted_data_tlv));
@@ -159,8 +224,8 @@ void handle_onion_message(struct daemon *daemon,
 		struct node_id next_node_id;
 
 		/* This fails as expected if no enctlv. */
-		if (!decrypt_enctlv(&blinding, &ss, om->encrypted_data_tlv, &next_node,
-					 &next_blinding)) {
+		if (!decrypt_forwarding_onionmsg(&blinding, &ss, om->encrypted_data_tlv, &next_node,
+					       &next_blinding)) {
 			status_peer_debug(&peer->id,
 					  "onion msg: invalid enctlv %s",
 					  tal_hex(tmpctx, om->encrypted_data_tlv));
