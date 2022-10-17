@@ -240,7 +240,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	struct onion_payload *p = tal(ctx, struct onion_payload);
 	const u8 *cursor = rs->raw_payload;
 	size_t max = tal_bytelen(cursor), len;
-	struct tlv_tlv_payload *tlv;
 
 	/* BOLT-remove-legacy-onion #4:
 	 * 1. type: `hop_payloads`
@@ -252,26 +251,26 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	if (!cursor || len > max) {
 		*failtlvtype = 0;
 		*failtlvpos = tal_bytelen(rs->raw_payload);
-		goto fail_no_tlv;
+		return tal_free(p);
 	}
 
 	/* We do this manually so we can accept extra types, and get
 	 * error off and type. */
-	tlv = tlv_tlv_payload_new(p);
+	p->tlv = tlv_tlv_payload_new(p);
 	if (!fromwire_tlv(&cursor, &max, tlvs_tlv_tlv_payload,
 			  TLVS_ARRAY_SIZE_tlv_tlv_payload,
-			  tlv, &tlv->fields, accepted_extra_tlvs,
+			  p->tlv, &p->tlv->fields, accepted_extra_tlvs,
 			  failtlvpos, failtlvtype)) {
-		goto fail;
+		return tal_free(p);
 	}
 
-	if (blinding || tlv->blinding_point) {
+	if (blinding || p->tlv->blinding_point) {
 		struct tlv_encrypted_data_tlv *enc;
 
 		/* Only supported with --experimental-onion-messages! */
 		if (!blinding_support) {
 			if (!blinding)
-				goto fail;
+				return tal_free(p);
 			*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
 			goto field_bad;
 		}
@@ -283,13 +282,13 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 *     - MUST return an error if it is set in both the payload
 		 *       and the outer message
 		 */
-		if (blinding && tlv->blinding_point) {
+		if (blinding && p->tlv->blinding_point) {
 			*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
 			goto field_bad;
 		}
-		if (tlv->blinding_point)
+		if (p->tlv->blinding_point)
 			p->blinding = tal_dup(p, struct pubkey,
-					      tlv->blinding_point);
+					      p->tlv->blinding_point);
 		else
 			p->blinding = tal_dup(p, struct pubkey,
 					      blinding);
@@ -300,14 +299,14 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 * - MUST return an error if `encrypted_recipient_data` is not
 		 *   present.
 		 */
-		if (!tlv->encrypted_recipient_data) {
+		if (!p->tlv->encrypted_recipient_data) {
 			*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 			goto field_bad;
 		}
 
 		ecdh(p->blinding, &p->blinding_ss);
 		enc = decrypt_encrypted_data(tmpctx, p->blinding, &p->blinding_ss,
-					     tlv->encrypted_recipient_data);
+					     p->tlv->encrypted_recipient_data);
 		if (!enc) {
 			*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 			goto field_bad;
@@ -358,10 +357,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!handle_blinded_forward(p, amount_in, cltv_expiry,
-						    tlv, enc, failtlvtype))
+						    p->tlv, enc, failtlvtype))
 				goto field_bad;
 		} else {
-			if (!handle_blinded_terminal(p, tlv, enc, failtlvtype))
+			if (!handle_blinded_terminal(p, p->tlv, enc, failtlvtype))
 				goto field_bad;
 		}
 
@@ -369,8 +368,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		 * we use the path_id for that. */
 		p->payment_secret = NULL;
 		p->payment_metadata = NULL;
-
-		p->tlv = tal_steal(p, tlv);
 		return p;
 	}
 
@@ -380,17 +377,17 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *   - MUST return an error if `amt_to_forward` or
 	 *     `outgoing_cltv_value` are not present.
 	 */
-	if (!tlv->amt_to_forward) {
+	if (!p->tlv->amt_to_forward) {
 		*failtlvtype = TLV_TLV_PAYLOAD_AMT_TO_FORWARD;
 		goto field_bad;
 	}
-	if (!tlv->outgoing_cltv_value) {
+	if (!p->tlv->outgoing_cltv_value) {
 		*failtlvtype = TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE;
 		goto field_bad;
 	}
 
-	p->amt_to_forward = amount_msat(*tlv->amt_to_forward);
-	p->outgoing_cltv = *tlv->outgoing_cltv_value;
+	p->amt_to_forward = amount_msat(*p->tlv->amt_to_forward);
+	p->outgoing_cltv = *p->tlv->outgoing_cltv_value;
 
 	/* BOLT #4:
 	 *
@@ -400,12 +397,12 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *    - MUST include `short_channel_id`
 	 */
 	if (rs->nextcase == ONION_FORWARD) {
-		if (!tlv->short_channel_id) {
+		if (!p->tlv->short_channel_id) {
 			*failtlvtype = TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID;
 			goto field_bad;
 		}
 		p->forward_channel = tal_dup(p, struct short_channel_id,
-					     tlv->short_channel_id);
+					     p->tlv->short_channel_id);
 		p->total_msat = NULL;
 	} else {
 		p->forward_channel = NULL;
@@ -418,33 +415,27 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	}
 
 	p->payment_secret = NULL;
-	if (tlv->payment_data) {
+	if (p->tlv->payment_data) {
 		p->payment_secret = tal_dup(p, struct secret,
-					    &tlv->payment_data->payment_secret);
+					    &p->tlv->payment_data->payment_secret);
 		tal_free(p->total_msat);
 		p->total_msat = tal(p, struct amount_msat);
 		*p->total_msat
-			= amount_msat(tlv->payment_data->total_msat);
+			= amount_msat(p->tlv->payment_data->total_msat);
 	}
-	if (tlv->payment_metadata)
+	if (p->tlv->payment_metadata)
 		p->payment_metadata
-			= tal_dup_talarr(p, u8, tlv->payment_metadata);
+			= tal_dup_talarr(p, u8, p->tlv->payment_metadata);
 	else
 		p->payment_metadata = NULL;
 
 	p->blinding = NULL;
 
-	p->tlv = tal_steal(p, tlv);
 	return p;
 
 field_bad:
 	*failtlvpos = tlv_field_offset(rs->raw_payload, tal_bytelen(rs->raw_payload),
 				       *failtlvtype);
-fail:
-	tal_free(tlv);
-
-fail_no_tlv:
-	tal_free(p);
-	return NULL;
+	return tal_free(p);
 }
 
