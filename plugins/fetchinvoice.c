@@ -638,9 +638,10 @@ send_modern_message(struct command *cmd,
 						    &blinding_iter,
 						    &sent->path[i],
 						    &sent->path[i+1],
+						    NULL,
 						    /* FIXME: Pad? */
 						    0,
-						    NULL,
+						    NULL, NULL, NULL, NULL,
 						    &blinding_iter,
 						    &node_alias[i]);
 	}
@@ -650,7 +651,7 @@ send_modern_message(struct command *cmd,
 	/* We don't include enctlv in final, but it gives us final alias */
 	if (!create_final_enctlv(tmpctx, &blinding_iter, &sent->path[nhops-1],
 				 /* FIXME: Pad? */ 0,
-				 NULL,
+				 NULL, NULL,
 				 &node_alias[nhops-1])) {
 		/* Should not happen! */
 		return command_fail(cmd, LIGHTNINGD,
