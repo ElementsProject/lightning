@@ -149,7 +149,6 @@ static void fail_in_htlc(struct htlc_in *hin,
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
 	htlc_in_check(hin, __func__);
 
-#if EXPERIMENTAL_FEATURES
 	/* BOLT-route-blinding #4:
 	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
 	 *    - MUST return `invalid_onion_blinding` on any error, including
@@ -159,7 +158,6 @@ static void fail_in_htlc(struct htlc_in *hin,
 		failed_htlc = mk_failed_htlc_badonion(tmpctx, hin,
 						      WIRE_INVALID_ONION_BLINDING);
 	} else
-#endif
 		failed_htlc = mk_failed_htlc(tmpctx, hin, hin->failonion);
 
 	bool we_filled = false;
@@ -1149,7 +1147,6 @@ static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 {
 	struct pubkey point = *ephemeral_key;
 
-#if EXPERIMENTAL_FEATURES
 	if (blinding) {
 		struct secret hmac;
 		struct secret blinding_ss;
@@ -1167,7 +1164,6 @@ static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 			return false;
 		}
 	}
-#endif /* EXPERIMENTAL_FEATURES */
 	ecdh(&point, ss);
 	return true;
 }
@@ -1234,6 +1230,10 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	struct onionpacket *op;
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_accepted_hook_payload *hook_payload;
+	const bool opt_blinding
+		= feature_offered(ld->our_features->bits[INIT_FEATURE],
+				  OPT_ROUTE_BLINDING);
+
 
 	*failmsg = NULL;
 	*badonion = 0;
@@ -1335,9 +1335,9 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	hook_payload->channel = channel;
 	hook_payload->next_onion = serialize_onionpacket(hook_payload, rs->next);
 
-#if EXPERIMENTAL_FEATURES
 	/* We could have blinding from hin or from inside onion. */
-	if (hook_payload->payload && hook_payload->payload->blinding) {
+	if (opt_blinding
+	    && hook_payload->payload && hook_payload->payload->blinding) {
 		struct sha256 sha;
 		blinding_hash_e_and_ss(hook_payload->payload->blinding,
 				       &hook_payload->payload->blinding_ss,
@@ -1346,7 +1346,6 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		blinding_next_pubkey(hook_payload->payload->blinding, &sha,
 				     hook_payload->next_blinding);
 	} else
-#endif
 		hook_payload->next_blinding = NULL;
 
 	/* The scid is merely used to indicate the next peer, it is not
@@ -1365,13 +1364,11 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	return true;
 
 fail:
-#if EXPERIMENTAL_FEATURES
 	/* In a blinded path, *all* failures are "invalid_onion_blinding" */
 	if (hin->blinding) {
 		*failmsg = tal_free(*failmsg);
 		*badonion = WIRE_INVALID_ONION_BLINDING;
 	}
-#endif
 	return false;
 }
 
