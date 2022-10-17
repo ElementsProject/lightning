@@ -200,11 +200,4 @@ size_t gossmap_num_chans(const struct gossmap *map);
 struct gossmap_chan *gossmap_first_chan(const struct gossmap *map);
 struct gossmap_chan *gossmap_next_chan(const struct gossmap *map,
 				       struct gossmap_chan *prev);
-
-/* Each x-only pubkey has two possible values: we can figure out which by
- * examining the gossmap. */
-void gossmap_guess_node_id(const struct gossmap *map,
-			   const struct point32 *point32,
-			   struct node_id *id);
-
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */
