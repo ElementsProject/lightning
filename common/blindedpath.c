@@ -196,6 +196,10 @@ static struct tlv_encrypted_data_tlv *decrypt_encmsg(const tal_t *ctx,
 	 * - if the `enctlv` is not a valid TLV...
 	 *   - MUST drop the message.
 	 */
+	/* Note: our parser consider nothing is a valid TLV, but decrypt_encmsg_raw
+	 * returns NULL if it couldn't decrypt. */
+	if (!cursor)
+		return NULL;
 	return fromwire_tlv_encrypted_data_tlv(ctx, &cursor, &maxlen);
 }
 

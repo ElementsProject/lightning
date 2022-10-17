@@ -110,7 +110,6 @@ u8 *onion_final_hop(const tal_t *ctx,
 struct onion_payload *onion_decode(const tal_t *ctx,
 				   const struct route_step *rs,
 				   const struct pubkey *blinding,
-				   const struct secret *blinding_ss,
 				   const u64 *accepted_extra_tlvs,
 				   u64 *failtlvtype,
 				   size_t *failtlvpos)
