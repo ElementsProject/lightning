@@ -217,8 +217,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	sighash_from_merkle("invoice", "signature", &merkle, &sighash);
 
 	if (!inv->signature
-	    || secp256k1_schnorrsig_verify(secp256k1_ctx, inv->signature->u8,
-					   sighash.u.u8, sizeof(sighash.u.u8), &inv->node_id->pubkey) != 1) {
+	    || !check_schnorr_sig(&sighash, &inv->node_id->pubkey, inv->signature)) {
 		badfield = "signature";
 		goto badinv;
 	}
@@ -576,11 +575,13 @@ static void node_id_from_point32(struct node_id *nid,
 				  const struct point32 *node32_id,
 				  enum nodeid_parity parity)
 {
+	struct pubkey pk;
 	assert(parity == SECP256K1_TAG_PUBKEY_EVEN
 	       || parity == SECP256K1_TAG_PUBKEY_ODD);
+
+	pk.pubkey = node32_id->pubkey;
+	node_id_from_pubkey(nid, &pk);
 	nid->k[0] = parity;
-	secp256k1_xonly_pubkey_serialize(secp256k1_ctx, nid->k+1,
-					 &node32_id->pubkey);
 }
 
 /* Create path to node which can carry onion messages (including
@@ -1075,9 +1076,9 @@ force_payer_secret(struct command *cmd,
 
 	invreq->payer_key = tal(invreq, struct point32);
 	/* Docs say this only happens if arguments are invalid! */
-	if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
-					&invreq->payer_key->pubkey, NULL,
-					&kp) != 1)
+	if (secp256k1_keypair_pub(secp256k1_ctx,
+				  &invreq->payer_key->pubkey,
+				  &kp) != 1)
 		plugin_err(cmd->plugin,
 			   "secp256k1_keypair_pub failed on %s?",
 			   type_to_string(tmpctx, struct secret, payer_secret));
@@ -1585,13 +1586,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	 *   - MUST set `description` the same as the offer.
 	 */
 	sent->inv->node_id = tal(sent->inv, struct point32);
-
-	/* This only fails if pubkey is invalid. */
-	if (!secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx,
-						&sent->inv->node_id->pubkey,
-						NULL,
-						&local_id.pubkey))
-		abort();
+	sent->inv->node_id->pubkey = local_id.pubkey;
 
 	sent->inv->description
 		= tal_dup_talarr(sent->inv, char, sent->offer->description);
@@ -1754,12 +1749,11 @@ static struct command_result *json_rawrequest(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* Skip over 02/03 in node_id */
-	if (!secp256k1_xonly_pubkey_parse(secp256k1_ctx,
-					  &node_id32.pubkey,
-					  node_id->k + 1))
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &node_id32.pubkey,
+				       node_id->k, sizeof(node_id->k)))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid nodeid");
+
 	/* This is how long we'll wait for a reply for. */
 	sent->wait_timeout = *timeout;
 	sent->cmd = cmd;
