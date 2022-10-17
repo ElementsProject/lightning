@@ -53,6 +53,9 @@ struct utxo {
 
 	/* The scriptPubkey if it is known */
 	u8 *scriptPubkey;
+
+	/* Is this utxo a coinbase output */
+	bool is_in_coinbase;
 };
 
 /* We lazy-evaluate whether a utxo is really still reserved. */

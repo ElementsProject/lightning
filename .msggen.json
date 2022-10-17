@@ -76,6 +76,7 @@
         },
         "ListfundsOutputsStatus": {
             "confirmed": 1,
+            "immature": 3,
             "spent": 2,
             "unconfirmed": 0
         },

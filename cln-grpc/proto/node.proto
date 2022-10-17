@@ -278,6 +278,7 @@ message ListfundsOutputs {
 		UNCONFIRMED = 0;
 		CONFIRMED = 1;
 		SPENT = 2;
+		IMMATURE = 3;
 	}
 	bytes txid = 1;
 	uint32 output = 2;

@@ -92,7 +92,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		txid = b->txids[i];
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx->wtx, &b->height, &owned);
+						     tx->wtx, i, &b->height, &owned);
 			wallet_transaction_add(topo->ld->wallet, tx->wtx,
 					       b->height, i);
 		}

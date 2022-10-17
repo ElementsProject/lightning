@@ -1909,7 +1909,6 @@ def test_zeroreserve_alldust(node_factory):
     l1.rpc.fundchannel(l2.info['id'], minfunding + 1)
 
 
-@pytest.mark.xfail
 def test_coinbase_unspendable(node_factory, bitcoind):
     """ A node should not be able to spend a coinbase output
         before it's mature """
@@ -1923,6 +1922,29 @@ def test_coinbase_unspendable(node_factory, bitcoind):
 
     # Wait til money in wallet
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
-    l1.rpc.withdraw(addr2, "all")
+    out = only_one(l1.rpc.listfunds()['outputs'])
+    assert out['status'] == 'immature'
+
+    with pytest.raises(RpcError, match='Could not afford all using all 0 available UTXOs'):
+        l1.rpc.withdraw(addr2, "all")
+
     # Nothing sent to the mempool!
     assert len(bitcoind.rpc.getrawmempool()) == 0
+
+    # Mine 98 blocks
+    bitcoind.rpc.generatetoaddress(98, l1.rpc.newaddr()['bech32'])
+    assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 0
+    with pytest.raises(RpcError, match='Could not afford all using all 0 available UTXOs'):
+        l1.rpc.withdraw(addr2, "all")
+
+    # One more and the first coinbase unlocks
+    bitcoind.rpc.generatetoaddress(1, l1.rpc.newaddr()['bech32'])
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 100)
+    assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 1
+    l1.rpc.withdraw(addr2, "all")
+    # One tx in the mempool now!
+    assert len(bitcoind.rpc.getrawmempool()) == 1
+
+    # Mine one block, assert one more is spendable
+    bitcoind.rpc.generatetoaddress(1, l1.rpc.newaddr()['bech32'])
+    assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 1
