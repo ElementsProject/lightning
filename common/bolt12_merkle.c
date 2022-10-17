@@ -221,8 +221,6 @@ void sighash_from_merkle(const char *messagename,
 
 /* We use the SHA(pubkey | publictweak); so reader cannot figure out the
  * tweak and derive the base key.
- *
- * Since key used to be x-only, we don't hash first byte!
  */
 void payer_key_tweak(const struct pubkey *bolt12,
 		     const u8 *publictweak, size_t publictweaklen,
@@ -234,7 +232,7 @@ void payer_key_tweak(const struct pubkey *bolt12,
 	pubkey_to_der(rawkey, bolt12);
 
 	sha256_init(&sha);
-	sha256_update(&sha, rawkey + 1, sizeof(rawkey) - 1);
+	sha256_update(&sha, rawkey, sizeof(rawkey));
 	sha256_update(&sha,
 		      memcheck(publictweak, publictweaklen),
 		      publictweaklen);
