@@ -25,6 +25,8 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 		towire_bool(pptr, utxo->close_info->option_anchor_outputs);
 		towire_u32(pptr, utxo->close_info->csv);
 	}
+
+	towire_bool(pptr, utxo->is_in_coinbase);
 }
 
 struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
@@ -55,6 +57,8 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	} else {
 		utxo->close_info = NULL;
 	}
+
+	utxo->is_in_coinbase = fromwire_bool(ptr, max);
 	return utxo;
 }
 

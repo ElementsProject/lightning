@@ -1831,6 +1831,8 @@ pub mod responses {
 	    CONFIRMED,
 	    #[serde(rename = "spent")]
 	    SPENT,
+	    #[serde(rename = "immature")]
+	    IMMATURE,
 	}
 
 	impl TryFrom<i32> for ListfundsOutputsStatus {
@@ -1840,6 +1842,7 @@ pub mod responses {
 	    0 => Ok(ListfundsOutputsStatus::UNCONFIRMED),
 	    1 => Ok(ListfundsOutputsStatus::CONFIRMED),
 	    2 => Ok(ListfundsOutputsStatus::SPENT),
+	    3 => Ok(ListfundsOutputsStatus::IMMATURE),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListfundsOutputsStatus", o)),
 	        }
 	    }

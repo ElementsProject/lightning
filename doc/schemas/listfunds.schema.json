@@ -50,7 +50,8 @@
             "enum": [
               "unconfirmed",
               "confirmed",
-              "spent"
+              "spent",
+              "immature"
             ]
           },
           "reserved": {
