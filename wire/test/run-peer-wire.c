@@ -680,37 +680,21 @@ static void *towire_struct_update_add_htlc(const tal_t *ctx,
 				      s->amount_msat,
 				      &s->payment_hash,
 				      s->expiry,
-				      s->onion_routing_packet
-#if EXPERIMENTAL_FEATURES
-				      ,NULL
-#endif
-		);
+				      s->onion_routing_packet, NULL);
 }
 
 static struct msg_update_add_htlc *fromwire_struct_update_add_htlc(const tal_t *ctx, const void *p)
 {
 	struct msg_update_add_htlc *s = tal(ctx, struct msg_update_add_htlc);
 
-	if (fromwire_update_add_htlc
-#if EXPERIMENTAL_FEATURES
-				    (s,	p,
+	if (fromwire_update_add_htlc(s, p,
 				     &s->channel_id,
 				     &s->id,
 				     &s->amount_msat,
 				     &s->payment_hash,
 				     &s->expiry,
 				     s->onion_routing_packet,
-				     &s->tlvs
-#else
-				    (p,
-				     &s->channel_id,
-				     &s->id,
-				     &s->amount_msat,
-				     &s->payment_hash,
-				     &s->expiry,
-				     s->onion_routing_packet
-#endif
-		    ))
+				     &s->tlvs))
 		return s;
 	return tal_free(s);
 }
