@@ -117,13 +117,26 @@ struct ext_key *hsm_init(struct lightningd *ld)
 
 	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsmd_init_reply(msg,
-				      &ld->id, bip32_base,
-				      &ld->bolt12_base,
-				      &ld->onion_reply_secret)) {
-		if (ld->config.keypass)
-			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
-		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
+	if (!fromwire_hsmd_init_reply_v2(msg,
+					 &ld->id, bip32_base,
+					 &ld->bolt12_base,
+					 &ld->onion_reply_secret)) {
+		/* v1 had x-only pubkey */
+		u8 pubkey32[33];
+
+		pubkey32[0] = SECP256K1_TAG_PUBKEY_EVEN;
+		if (!fromwire_hsmd_init_reply_v1(msg,
+					 &ld->id, bip32_base,
+					 pubkey32 + 1,
+					 &ld->onion_reply_secret)) {
+			if (ld->config.keypass)
+				errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
+			errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
+		}
+		if (!pubkey_from_der(pubkey32, sizeof(pubkey32),
+				     &ld->bolt12_base))
+			errx(EXITCODE_HSM_GENERIC_ERROR,
+			     "HSM gave invalid v1 bolt12_base");
 	}
 
 	return bip32_base;
