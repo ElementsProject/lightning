@@ -24,6 +24,9 @@ struct amount_msat amount_msat(u64 millisatoshis UNNEEDED)
 /* Generated stub for amount_msat_eq */
 bool amount_msat_eq(struct amount_msat a UNNEEDED, struct amount_msat b UNNEEDED)
 { fprintf(stderr, "amount_msat_eq called!\n"); abort(); }
+/* Generated stub for amount_msat_less */
+bool amount_msat_less(struct amount_msat a UNNEEDED, struct amount_msat b UNNEEDED)
+{ fprintf(stderr, "amount_msat_less called!\n"); abort(); }
 /* Generated stub for amount_sat */
 struct amount_sat amount_sat(u64 satoshis UNNEEDED)
 { fprintf(stderr, "amount_sat called!\n"); abort(); }
