@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <common/blindedpath.h>
 #include <common/ecdh.h>
 #include <common/onion.h>
 #include <common/sphinx.h>
@@ -107,10 +108,131 @@ u8 *onion_final_hop(const tal_t *ctx,
 	return make_tlv_hop(ctx, tlv);
 }
 
+static u64 ceil_div(u64 a, u64 b)
+{
+	return (a + b - 1) / b;
+}
+
+static bool handle_blinded_forward(struct onion_payload *p,
+				   struct amount_msat amount_in,
+				   u32 cltv_expiry,
+				   const struct tlv_tlv_payload *tlv,
+				   const struct tlv_encrypted_data_tlv *enc,
+				   u64 *failtlvtype)
+{
+	u64 amt = amount_in.millisatoshis; /* Raw: allowed to wrap */
+
+	/* BOLT-route-blinding #4:
+	 * - If it not the final node:
+	 *   - MUST return an error if fields other
+	 *     than `encrypted_recipient_data` or `blinding_point` are present.
+	 */
+	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
+		if (tlv->fields[i].numtype != TLV_TLV_PAYLOAD_BLINDING_POINT
+		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA) {
+			*failtlvtype = tlv->fields[i].numtype;
+			return false;
+		}
+	}
+
+	/* BOLT-route-blinding #4:
+	 * - If it not the final node:
+	 *...
+	 *   - MUST return an error if `encrypted_recipient_data` does not
+	 *     contain `short_channel_id` or `next_node_id`.
+	 */
+	if (!enc->short_channel_id && !enc->next_node_id) {
+		*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+		return false;
+	}
+
+	/* FIXME: handle fwd-by-node-id */
+	if (!enc->short_channel_id) {
+		*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+		return false;
+	}
+
+	p->forward_channel = tal_dup(p, struct short_channel_id,
+				     enc->short_channel_id);
+	p->total_msat = NULL;
+
+	/* BOLT-route-blinding #4:
+	 * - If it not the final node:
+	 *...
+	 *   - MUST return an error if `encrypted_recipient_data` does not
+	 *     contain `payment_relay`.
+	 */
+	if (!enc->payment_relay) {
+		*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+		return false;
+	}
+
+	/* FIXME: Put these formulae in BOLT 4! */
+	/* amt_to_forward = ceil((amount_msat - fee_base_msat) * 1000000 / (1000000 + fee_proportional_millionths)) */
+	/* If these values are crap, that's OK: the HTLC will fail. */
+	p->amt_to_forward = amount_msat(ceil_div((amt - enc->payment_relay->fee_base_msat) * 1000000,
+						 1000000 + enc->payment_relay->fee_proportional_millionths));
+	p->outgoing_cltv = cltv_expiry - enc->payment_relay->cltv_expiry_delta;
+	return true;
+}
+
+static bool handle_blinded_terminal(struct onion_payload *p,
+				    const struct tlv_tlv_payload *tlv,
+				    const struct tlv_encrypted_data_tlv *enc,
+				    u64 *failtlvtype)
+{
+	/* BOLT-route-blinding #4:
+	 * - If it is the final node:
+	 *   - MUST return an error if fields other than
+	 *     `encrypted_recipient_data`, `blinding_point`, `amt_to_forward`
+	 *     or `outgoing_cltv_value` are present.
+	 *   - MUST return an error if the `path_id` in
+	 *     `encrypted_recipient_data` does not match the one it created.
+	 *   - MUST return an error if `amt_to_forward` or
+	 *     `outgoing_cltv_value` are not present.
+	 *   - MUST return an error if `amt_to_forward` is below what it expects
+	 *     for the payment.
+	 */
+	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
+		if (tlv->fields[i].numtype != TLV_TLV_PAYLOAD_BLINDING_POINT
+		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA
+		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_AMT_TO_FORWARD
+		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE) {
+			*failtlvtype = tlv->fields[i].numtype;
+			return false;
+		}
+	}
+
+	if (!tlv->amt_to_forward) {
+		*failtlvtype = TLV_TLV_PAYLOAD_AMT_TO_FORWARD;
+		return false;
+	}
+
+	if (!tlv->outgoing_cltv_value) {
+		*failtlvtype = TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE;
+		return false;
+	}
+
+	p->amt_to_forward = amount_msat(*tlv->amt_to_forward);
+	p->outgoing_cltv = *tlv->outgoing_cltv_value;
+
+	p->forward_channel = NULL;
+	/* BOLT #4:
+	 * - if it is the final node:
+	 *   - MUST treat `total_msat` as if it were equal to
+	 *     `amt_to_forward` if it is not present. */
+	p->total_msat = tal_dup(p, struct amount_msat,
+				&p->amt_to_forward);
+	return true;
+}
+
 struct onion_payload *onion_decode(const tal_t *ctx,
+				   bool blinding_support,
 				   const struct route_step *rs,
 				   const struct pubkey *blinding,
 				   const u64 *accepted_extra_tlvs,
+				   struct amount_msat amount_in,
+				   u32 cltv_expiry,
 				   u64 *failtlvtype,
 				   size_t *failtlvpos)
 {
@@ -140,6 +262,73 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			  tlv, &tlv->fields, accepted_extra_tlvs,
 			  failtlvpos, failtlvtype)) {
 		goto fail;
+	}
+
+	if (blinding || tlv->blinding_point) {
+		struct tlv_encrypted_data_tlv *enc;
+
+		/* Only supported with --experimental-onion-messages! */
+		if (!blinding_support) {
+			if (!blinding)
+				goto fail;
+			*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
+			goto field_bad;
+		}
+
+		/* BOLT-route-blinding #4:
+		 * The reader:
+		 *   - If `blinding_point` is set (either in the payload or the
+		 *     outer message):
+		 *     - MUST return an error if it is set in both the payload
+		 *       and the outer message
+		 */
+		if (blinding && tlv->blinding_point) {
+			*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
+			goto field_bad;
+		}
+		if (tlv->blinding_point)
+			p->blinding = tal_dup(p, struct pubkey,
+					      tlv->blinding_point);
+		else
+			p->blinding = tal_dup(p, struct pubkey,
+					      blinding);
+
+		/* BOLT-route-blinding #4:
+		 * The reader:
+		 *...
+		 * - MUST return an error if `encrypted_recipient_data` is not
+		 *   present.
+		 */
+		if (!tlv->encrypted_recipient_data) {
+			*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+			goto field_bad;
+		}
+
+		ecdh(p->blinding, &p->blinding_ss);
+		enc = decrypt_encrypted_data(tmpctx, p->blinding, &p->blinding_ss,
+					     tlv->encrypted_recipient_data);
+		if (!enc) {
+			*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+			goto field_bad;
+		}
+
+		p->payment_constraints = tal_steal(p, enc->payment_constraints);
+		if (rs->nextcase == ONION_FORWARD) {
+			if (!handle_blinded_forward(p, amount_in, cltv_expiry,
+						    tlv, enc, failtlvtype))
+				goto field_bad;
+		} else {
+			if (!handle_blinded_terminal(p, tlv, enc, failtlvtype))
+				goto field_bad;
+		}
+
+		/* Blinded paths have no payment secret or metadata:
+		 * we use the path_id for that. */
+		p->payment_secret = NULL;
+		p->payment_metadata = NULL;
+
+		p->tlv = tal_steal(p, tlv);
+		return p;
 	}
 
 	/* BOLT #4:
@@ -186,8 +375,6 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	}
 
 	p->payment_secret = NULL;
-	p->blinding = tal_dup_or_null(p, struct pubkey, blinding);
-
 	if (tlv->payment_data) {
 		p->payment_secret = tal_dup(p, struct secret,
 					    &tlv->payment_data->payment_secret);
@@ -201,6 +388,9 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			= tal_dup_talarr(p, u8, tlv->payment_metadata);
 	else
 		p->payment_metadata = NULL;
+
+	p->blinding = NULL;
+	p->payment_constraints = NULL;
 
 	p->tlv = tal_steal(p, tlv);
 	return p;

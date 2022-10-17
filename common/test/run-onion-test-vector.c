@@ -59,6 +59,13 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat UNNEEDED, const u
 /* Generated stub for amount_tx_fee */
 struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 { fprintf(stderr, "amount_tx_fee called!\n"); abort(); }
+/* Generated stub for decrypt_encrypted_data */
+struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx UNNEEDED,
+						      const struct pubkey *blinding UNNEEDED,
+						      const struct secret *ss UNNEEDED,
+						      const u8 *enctlv)
+
+{ fprintf(stderr, "decrypt_encrypted_data called!\n"); abort(); }
 /* Generated stub for ecdh */
 void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
 { fprintf(stderr, "ecdh called!\n"); abort(); }
