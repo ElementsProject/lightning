@@ -15,6 +15,8 @@ msgdata,hsmd_init,dev_force_privkey,?privkey,
 msgdata,hsmd_init,dev_force_bip32_seed,?secret,
 msgdata,hsmd_init,dev_force_channel_secrets,?secrets,
 msgdata,hsmd_init,dev_force_channel_secrets_shaseed,?sha256,
+msgdata,hsmd_init,hsm_wire_min_version,u32,
+msgdata,hsmd_init,hsm_wire_max_version,u32,
 
 #include <common/bip32.h>
 msgtype,hsmd_init_reply,111
