@@ -62,6 +62,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/node_id.o			\
 	common/onion.o				\
 	common/onionreply.o			\
+	common/onion_message_parse.o		\
 	common/ping.o				\
 	common/per_peer_state.o			\
 	common/psbt_open.o			\
