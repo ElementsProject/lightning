@@ -45,8 +45,8 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 
 struct command_result *
 send_onion_reply(struct command *cmd,
-		 struct tlv_onionmsg_payload_reply_path *reply_path,
-		 struct tlv_onionmsg_payload *payload)
+		 struct blinded_path *reply_path,
+		 struct tlv_onionmsg_tlv *payload)
 {
 	struct out_req *req;
 	size_t nhops;
@@ -60,22 +60,22 @@ send_onion_reply(struct command *cmd,
 
 	nhops = tal_count(reply_path->path);
 	for (size_t i = 0; i < nhops; i++) {
-		struct tlv_onionmsg_payload *omp;
+		struct tlv_onionmsg_tlv *omp;
 		u8 *tlv;
 
 		json_object_start(req->js, NULL);
-		json_add_pubkey(req->js, "id", &reply_path->path[i]->node_id);
+		json_add_pubkey(req->js, "id", &reply_path->path[i]->blinded_node_id);
 
 		/* Put payload in last hop. */
 		if (i == nhops - 1)
 			omp = payload;
 		else
-			omp = tlv_onionmsg_payload_new(tmpctx);
+			omp = tlv_onionmsg_tlv_new(tmpctx);
 
-		omp->encrypted_data_tlv = reply_path->path[i]->encrypted_recipient_data;
+		omp->encrypted_recipient_data = reply_path->path[i]->encrypted_recipient_data;
 
 		tlv = tal_arr(tmpctx, u8, 0);
-		towire_tlv_onionmsg_payload(&tlv, omp);
+		towire_tlv_onionmsg_tlv(&tlv, omp);
 		json_add_hex_talarr(req->js, "tlv", tlv);
 		json_object_end(req->js);
 	}
@@ -88,7 +88,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 							const jsmntok_t *params)
 {
 	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
-	struct tlv_onionmsg_payload_reply_path *reply_path = NULL;
+	struct blinded_path *reply_path = NULL;
 
 	if (!offers_enabled)
 		return command_hook_success(cmd);
@@ -96,7 +96,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 	om = json_get_member(buf, params, "onion_message");
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
-		reply_path = json_to_reply_path(cmd, buf, replytok);
+		reply_path = json_to_blinded_path(cmd, buf, replytok);
 		if (!reply_path)
 			plugin_err(cmd->plugin, "Invalid reply path %.*s?",
 				   json_tok_full_len(replytok),
@@ -228,12 +228,12 @@ static void json_add_chains(struct json_stream *js,
 
 static void json_add_onionmsg_path(struct json_stream *js,
 				   const char *fieldname,
-				   const struct onionmsg_path *path,
+				   const struct onionmsg_hop *hop,
 				   const struct blinded_payinfo *payinfo)
 {
 	json_object_start(js, fieldname);
-	json_add_pubkey(js, "node_id", &path->node_id);
-	json_add_hex_talarr(js, "encrypted_recipient_data", path->encrypted_recipient_data);
+	json_add_pubkey(js, "blinded_node_id", &hop->blinded_node_id);
+	json_add_hex_talarr(js, "encrypted_recipient_data", hop->encrypted_recipient_data);
 	if (payinfo) {
 		json_add_u32(js, "fee_base_msat", payinfo->fee_base_msat);
 		json_add_u32(js, "fee_proportional_millionths",

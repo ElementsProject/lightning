@@ -260,7 +260,7 @@ static bool print_blindedpaths(struct blinded_path **paths,
 	size_t bp_idx = 0;
 
 	for (size_t i = 0; i < tal_count(paths); i++) {
-		struct onionmsg_path **p = paths[i]->path;
+		struct onionmsg_hop **p = paths[i]->path;
 		printf("blindedpath %zu/%zu: blinding %s",
 		       i, tal_count(paths),
 		       type_to_string(tmpctx, struct pubkey,
@@ -270,7 +270,7 @@ static bool print_blindedpaths(struct blinded_path **paths,
 		for (size_t j = 0; j < tal_count(p); j++) {
 			printf(" %s:%s",
 			       type_to_string(tmpctx, struct pubkey,
-					      &p[j]->node_id),
+					      &p[j]->blinded_node_id),
 			       tal_hex(tmpctx, p[j]->encrypted_recipient_data));
 			if (blindedpay) {
 				if (bp_idx < tal_count(blindedpay))

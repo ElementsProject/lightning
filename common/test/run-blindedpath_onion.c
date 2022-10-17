@@ -112,7 +112,7 @@ static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 	struct onionpacket *op;
 	struct pubkey blinding, ephemeral;
 	struct pubkey next_blinding;
-	struct tlv_onionmsg_payload *om;
+	struct tlv_onionmsg_tlv *om;
 	struct secret ss, onion_ss;
 	const u8 *cursor;
 	size_t max, maxlen;
@@ -136,12 +136,12 @@ static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 	cursor = rs->raw_payload;
 	max = tal_bytelen(rs->raw_payload);
 	maxlen = fromwire_bigsize(&cursor, &max);
-	om = fromwire_tlv_onionmsg_payload(tmpctx, &cursor, &maxlen);
+	om = fromwire_tlv_onionmsg_tlv(tmpctx, &cursor, &maxlen);
 
 	if (rs->nextcase == ONION_END)
 		return NULL;
 
-	enc = decrypt_encrypted_data(tmpctx, &blinding, &ss, om->encrypted_data_tlv);
+	enc = decrypt_encrypted_data(tmpctx, &blinding, &ss, om->encrypted_recipient_data);
 	assert(enc);
 	blindedpath_next_blinding(enc, &blinding, &ss, &next_blinding);
 	return towire_onion_message(ctx, &next_blinding,
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 	struct pubkey id[4], blinding_pub[4], override_blinding_pub, alias[4];
 	struct secret self_id;
 	u8 *enctlv[4];
-	u8 *onionmsg_payload[4];
+	u8 *onionmsg_tlv[4];
 	u8 *omsg;
 	struct sphinx_path *sphinx_path;
 	struct secret *path_secrets;
@@ -206,12 +206,12 @@ int main(int argc, char *argv[])
 	/* Create an onion which encodes this. */
 	sphinx_path = sphinx_path_new(tmpctx, NULL);
 	for (size_t i = 0; i < 4; i++) {
-		struct tlv_onionmsg_payload *payload
-			= tlv_onionmsg_payload_new(tmpctx);
-		payload->encrypted_data_tlv = enctlv[i];
-		onionmsg_payload[i] = tal_arr(tmpctx, u8, 0);
-		towire_tlv_onionmsg_payload(&onionmsg_payload[i], payload);
-		sphinx_add_hop(sphinx_path, &alias[i], onionmsg_payload[i]);
+		struct tlv_onionmsg_tlv *payload
+			= tlv_onionmsg_tlv_new(tmpctx);
+		payload->encrypted_recipient_data = enctlv[i];
+		onionmsg_tlv[i] = tal_arr(tmpctx, u8, 0);
+		towire_tlv_onionmsg_tlv(&onionmsg_tlv[i], payload);
+		sphinx_add_hop(sphinx_path, &alias[i], onionmsg_tlv[i]);
 	}
 	op = create_onionpacket(tmpctx, sphinx_path, ROUTING_INFO_SIZE,
 				&path_secrets);
@@ -242,8 +242,8 @@ int main(int argc, char *argv[])
 			      type_to_string(tmpctx, struct pubkey, &blinding_pub[i]));
 		json_strfield("blinded_alias",
 			      type_to_string(tmpctx, struct pubkey, &alias[i]));
-		json_strfield("onionmsg_payload",
-			      tal_hex(tmpctx, onionmsg_payload[i]));
+		json_strfield("onionmsg_tlv",
+			      tal_hex(tmpctx, onionmsg_tlv[i]));
 		printf("\"enctlv\": \"%s\"}\n", tal_hex(tmpctx, enctlv[i]));
 
 		printf("}");

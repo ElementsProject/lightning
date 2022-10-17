@@ -15,6 +15,6 @@ index 9326f9f8e..d5d074d1f 100644
 +tlvdata,encrypted_data_tlv,payment_constraints,htlc_minimum_msat,tu64,
 +tlvtype,encrypted_data_tlv,allowed_features,14
 +tlvdata,encrypted_data_tlv,allowed_features,features,byte,...
- tlvtype,onionmsg_payload,reply_path,2
- tlvdata,onionmsg_payload,reply_path,first_node_id,point,
- tlvdata,onionmsg_payload,reply_path,blinding,point,
+ tlvtype,onionmsg_tlv,reply_path,2
+ tlvdata,onionmsg_tlv,reply_path,first_node_id,point,
+ tlvdata,onionmsg_tlv,reply_path,blinding,point,

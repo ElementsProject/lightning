@@ -37,11 +37,6 @@ tlvtype,offer,refund_for,34
 tlvdata,offer,refund_for,refunded_payment_hash,sha256,
 tlvtype,offer,signature,240
 tlvdata,offer,signature,sig,bip340sig,
-subtype,blinded_path
-subtypedata,blinded_path,first_node_id,point,
-subtypedata,blinded_path,blinding,point,
-subtypedata,blinded_path,num_hops,byte,
-subtypedata,blinded_path,path,onionmsg_path,num_hops
 tlvtype,invoice_request,chain,3
 tlvdata,invoice_request,chain,chain,chain_hash,
 tlvtype,invoice_request,offer_id,4
