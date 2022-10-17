@@ -1907,3 +1907,22 @@ def test_zeroreserve_alldust(node_factory):
     # Now try with just a bit more
     l1.connect(l2)
     l1.rpc.fundchannel(l2.info['id'], minfunding + 1)
+
+
+@pytest.mark.xfail
+def test_coinbase_unspendable(node_factory, bitcoind):
+    """ A node should not be able to spend a coinbase output
+        before it's mature """
+
+    [l1] = node_factory.get_nodes(1)
+
+    addr = l1.rpc.newaddr()["bech32"]
+    bitcoind.rpc.generatetoaddress(1, addr)
+
+    addr2 = l1.rpc.newaddr()["bech32"]
+
+    # Wait til money in wallet
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    l1.rpc.withdraw(addr2, "all")
+    # Nothing sent to the mempool!
+    assert len(bitcoind.rpc.getrawmempool()) == 0
