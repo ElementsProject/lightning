@@ -1282,6 +1282,21 @@ static void update_pending(struct pending_cannouncement *pending,
 	}
 }
 
+static void delete_spam_update(struct routing_state *rstate,
+			       struct half_chan *hc,
+			       bool update_is_public)
+{
+	/* Spam updates will have a unique rgraph index */
+	if (hc->rgraph.index == hc->bcast.index)
+		return;
+	gossip_store_delete(rstate->gs, &hc->rgraph,
+			    update_is_public
+			    ? WIRE_CHANNEL_UPDATE
+			    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+	hc->rgraph.index = hc->bcast.index;
+	hc->rgraph.timestamp = hc->bcast.timestamp;
+}
+
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
@@ -1394,9 +1409,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			return true;
 		}
 
-		/* Make sure it's not spamming us. */
-		if (!ratelimit(rstate,
-			       &hc->tokens, hc->bcast.timestamp, timestamp)) {
+		/* Make sure it's not spamming us (private channel
+		 * updates are never considered spam) */
+		if (is_chan_public(chan)
+		    && !ratelimit(rstate,
+				  &hc->tokens, hc->bcast.timestamp, timestamp)) {
 			status_peer_debug(peer ? &peer->id : NULL,
 					  "Spammy update for %s/%u flagged"
 					  " (last %u, now %u)",
@@ -1414,37 +1431,19 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	}
 	if (force_spam_flag)
 		spam = true;
-	/* Routing graph always uses the latest message. */
-	hc->rgraph.timestamp = timestamp;
-	if (spam) {
-		/* Remove the prior spam update if it exists. */
-		if (hc->rgraph.index != hc->bcast.index) {
-			gossip_store_delete(rstate->gs, &hc->rgraph,
-					    is_chan_public(chan)
-					    ? WIRE_CHANNEL_UPDATE
-					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
-		} else if (!is_chan_public(chan)){
-			gossip_store_delete(rstate->gs, &hc->rgraph,
-					    WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
-		}
-	} else {
-		/* Safe to broadcast */
-		hc->bcast.timestamp = timestamp;
-		/* Remove prior spam update if one exists. */
-		if (hc->rgraph.index != hc->bcast.index) {
-			/* If it's a private channel it would be a
-			 * WIRE_GOSSIP_STORE_PRIVATE_UPDATE. */
-			gossip_store_delete(rstate->gs, &hc->rgraph,
-					    is_chan_public(chan)
-					    ? WIRE_CHANNEL_UPDATE
-					    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
-		}
-		/* Harmless if it was never added. */
+
+	/* Delete any prior entries (noop if they don't exist) */
+	delete_spam_update(rstate, hc, is_chan_public(chan));
+	if (!spam)
 		gossip_store_delete(rstate->gs, &hc->bcast,
 				    is_chan_public(chan)
 				    ? WIRE_CHANNEL_UPDATE
 				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
-	}
+
+	/* Update timestamp(s) */
+	hc->rgraph.timestamp = timestamp;
+	if (!spam)
+		hc->bcast.timestamp = timestamp;
 
 	/* BOLT #7:
 	 *   - MUST consider the `timestamp` of the `channel_announcement` to be
