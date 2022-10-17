@@ -1296,12 +1296,11 @@ void gossmap_guess_node_id(const struct gossmap *map,
 			   const struct point32 *point32,
 			   struct node_id *id)
 {
-	id->k[0] = SECP256K1_TAG_PUBKEY_EVEN;
-	secp256k1_xonly_pubkey_serialize(secp256k1_ctx,
-					 id->k + 1,
-					 &point32->pubkey);
+	struct pubkey pk;
+	pk.pubkey = point32->pubkey;
+	node_id_from_pubkey(id, &pk);
 
-	/* If we don't find this, let's assume it's odd. */
+	/* If we don't find this, let's assume it's the alternate. */
 	if (!gossmap_find_node(map, id))
-		id->k[0] = SECP256K1_TAG_PUBKEY_ODD;
+		id->k[0] |= 1;
 }

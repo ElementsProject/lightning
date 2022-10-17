@@ -382,11 +382,8 @@ struct command_result *handle_invoice(struct command *cmd,
 
 	merkle_tlv(inv->inv->fields, &m);
 	sighash_from_merkle("invoice", "signature", &m, &shash);
-	if (secp256k1_schnorrsig_verify(secp256k1_ctx,
-					inv->inv->signature->u8,
-					shash.u.u8,
-					sizeof(shash.u.u8),
-					&inv->inv->node_id->pubkey) != 1) {
+	if (!check_schnorr_sig(&shash, &inv->inv->node_id->pubkey,
+			       inv->inv->signature)) {
 		return fail_inv(cmd, inv, "Bad signature");
 	}
 

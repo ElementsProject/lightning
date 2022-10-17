@@ -128,34 +128,37 @@ void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 
 void fromwire_point32(const u8 **cursor, size_t *max, struct point32 *point32)
 {
-	u8 raw[32];
+	u8 raw[33];
+	struct pubkey pk;
 
-	if (!fromwire(cursor, max, raw, sizeof(raw)))
+	raw[0] = SECP256K1_TAG_PUBKEY_EVEN;
+	if (!fromwire(cursor, max, raw + 1, sizeof(raw) - 1))
 		return;
 
-	if (secp256k1_xonly_pubkey_parse(secp256k1_ctx,
-					 &point32->pubkey,
-					 raw) != 1) {
+	if (!pubkey_from_der(raw, sizeof(raw), &pk)) {
 		SUPERVERBOSE("not a valid point");
 		fromwire_fail(cursor, max);
-	}
+	} else
+		point32->pubkey = pk.pubkey;
 }
 
 void towire_point32(u8 **pptr, const struct point32 *point32)
 {
-	u8 output[32];
+	u8 output[33];
+	struct pubkey pk;
 
-	secp256k1_xonly_pubkey_serialize(secp256k1_ctx, output,
-					 &point32->pubkey);
-	towire(pptr, output, sizeof(output));
+	pk.pubkey = point32->pubkey;
+	pubkey_to_der(output, &pk);
+	towire(pptr, output + 1, sizeof(output) - 1);
 }
 
 static char *point32_to_hexstr(const tal_t *ctx, const struct point32 *point32)
 {
-	u8 output[32];
+	u8 output[33];
+	struct pubkey pk;
 
-	secp256k1_xonly_pubkey_serialize(secp256k1_ctx, output,
-					 &point32->pubkey);
-	return tal_hexstr(ctx, output, sizeof(output));
+	pk.pubkey = point32->pubkey;
+	pubkey_to_der(output, &pk);
+	return tal_hexstr(ctx, output + 1, sizeof(output) - 1);
 }
 REGISTER_TYPE_TO_STRING(point32, point32_to_hexstr);

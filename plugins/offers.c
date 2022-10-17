@@ -926,9 +926,7 @@ static const char *init(struct plugin *p,
 	rpc_scan(p, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_pubkey, &k));
-	if (secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx, &id.pubkey,
-					       NULL, &k.pubkey) != 1)
-		abort();
+	id.pubkey = k.pubkey;
 
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),

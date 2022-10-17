@@ -31,8 +31,8 @@ bool point32_from_node_id(struct point32 *key, const struct node_id *id)
 	struct pubkey k;
 	if (!pubkey_from_node_id(&k, id))
 		return false;
-	return secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx, &key->pubkey,
-						  NULL, &k.pubkey) == 1;
+	key->pubkey = k.pubkey;
+	return true;
 }
 
 /* It's valid if we can convert to a real pubkey. */

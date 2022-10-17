@@ -432,11 +432,7 @@ static bool check_payer_sig(struct command *cmd,
 	merkle_tlv(invreq->fields, &merkle);
 	sighash_from_merkle("invoice_request", "signature", &merkle, &sighash);
 
-	return secp256k1_schnorrsig_verify(secp256k1_ctx,
-					   sig->u8,
-					   sighash.u.u8,
-					   sizeof(sighash.u.u8),
-					   &payer_key->pubkey) == 1;
+	return check_schnorr_sig(&sighash, &payer_key->pubkey, sig);
 }
 
 static struct command_result *invreq_amount_by_quantity(struct command *cmd,

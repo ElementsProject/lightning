@@ -75,8 +75,7 @@ static void hsm_sign_b12(struct lightningd *ld,
 
 	/* Now we sanity-check! */
 	sighash_from_merkle(messagename, fieldname, merkle, &sighash);
-	if (secp256k1_schnorrsig_verify(secp256k1_ctx, sig->u8,
-					sighash.u.u8, sizeof(sighash.u.u8), &key->pubkey) != 1)
+	if (!check_schnorr_sig(&sighash, &key->pubkey, sig))
 		fatal("HSM gave bad signature %s for pubkey %s",
 		      type_to_string(tmpctx, struct bip340sig, sig),
 		      type_to_string(tmpctx, struct point32, key));
@@ -397,21 +396,14 @@ static bool payer_key(struct lightningd *ld,
 		      struct point32 *key)
 {
 	struct sha256 tweakhash;
-	secp256k1_pubkey tweaked;
 
 	payer_key_tweak(&ld->bolt12_base, public_tweak, public_tweak_len,
 			&tweakhash);
 
-	/* Tweaking gives a not-x-only pubkey, must then convert. */
-	if (secp256k1_xonly_pubkey_tweak_add(secp256k1_ctx,
-					     &tweaked,
-					     &ld->bolt12_base.pubkey,
-					     tweakhash.u.u8) != 1)
-		return false;
-
-	return secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx,
-						   &key->pubkey,
-						   NULL, &tweaked) == 1;
+	key->pubkey = ld->bolt12_base.pubkey;
+	return secp256k1_ec_pubkey_tweak_add(secp256k1_ctx,
+					     &key->pubkey,
+					     tweakhash.u.u8) == 1;
 }
 
 static struct command_result *json_createinvoicerequest(struct command *cmd,
