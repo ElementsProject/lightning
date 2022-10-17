@@ -57,7 +57,7 @@ static void hsm_sign_b12(struct lightningd *ld,
 			 const char *fieldname,
 			 const struct sha256 *merkle,
 			 const u8 *publictweak,
-			 const struct point32 *key,
+			 const struct pubkey *key,
 			 struct bip340sig *sig)
 {
 	u8 *msg;
@@ -93,7 +93,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 	const char *b12str, *b12str_nosig;
 	bool *single_use;
 	enum offer_status status;
-	struct point32 key;
+	struct pubkey key;
 	bool created;
 
 	if (!param(cmd, buffer, params,
@@ -109,7 +109,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 		status = OFFER_MULTIPLE_USE_UNUSED;
  	merkle_tlv(offer->fields, &merkle);
 	offer->signature = tal(offer, struct bip340sig);
-	if (!point32_from_node_id(&key, &cmd->ld->id))
+	if (!pubkey_from_node_id(&key, &cmd->ld->id))
 		fatal("invalid own node_id?");
 	hsm_sign_b12(cmd->ld, "offer", "signature", &merkle, NULL, &key,
 		     offer->signature);
@@ -393,14 +393,14 @@ static struct command_result *param_b12_invreq(struct command *cmd,
 
 static bool payer_key(struct lightningd *ld,
 		      const u8 *public_tweak, size_t public_tweak_len,
-		      struct point32 *key)
+		      struct pubkey *key)
 {
 	struct sha256 tweakhash;
 
 	payer_key_tweak(&ld->bolt12_base, public_tweak, public_tweak_len,
 			&tweakhash);
 
-	key->pubkey = ld->bolt12_base.pubkey;
+	*key = ld->bolt12_base;
 	return secp256k1_ec_pubkey_tweak_add(secp256k1_ctx,
 					     &key->pubkey,
 					     tweakhash.u.u8) == 1;
@@ -452,7 +452,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 				tal_bytelen(invreq->payer_info));
 	}
 
-	invreq->payer_key = tal(invreq, struct point32);
+	invreq->payer_key = tal(invreq, struct pubkey);
 	if (!payer_key(cmd->ld,
 		       invreq->payer_info, tal_bytelen(invreq->payer_info),
 		       invreq->payer_key)) {
@@ -500,7 +500,7 @@ static struct command_result *json_payersign(struct command *cmd,
 	u8 *tweak;
 	struct bip340sig sig;
 	const char *messagename, *fieldname;
-	struct point32 key;
+	struct pubkey key;
 
 	if (!param(cmd, buffer, params,
 		   p_req("messagename", param_string, &messagename),
