@@ -336,10 +336,10 @@ static struct command_result *json_blindedpath(struct command *cmd,
 		path[i]->encrypted_recipient_data = create_enctlv(path[i],
 						     &blinding_iter,
 						     &ids[i],
-						     &ids[i+1],
+						     &ids[i+1], NULL,
 						     /* FIXME: Pad? */
 						     0,
-						     NULL,
+						     NULL, NULL, NULL, NULL,
 						     &blinding_iter,
 						     &path[i]->node_id);
 	}
@@ -352,6 +352,7 @@ static struct command_result *json_blindedpath(struct command *cmd,
 							 /* FIXME: Pad? */
 							 0,
 							 &cmd->ld->onion_reply_secret,
+							 NULL,
 							 &path[nhops-1]->node_id);
 
 	response = json_stream_success(cmd);

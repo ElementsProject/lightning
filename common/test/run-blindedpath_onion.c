@@ -170,8 +170,9 @@ int main(int argc, char *argv[])
 	pubkey_from_privkey(&blinding[ALICE], &blinding_pub[ALICE]);
 
 	enctlv[ALICE] = create_enctlv(tmpctx, &blinding[ALICE],
-				      &id[ALICE], &id[BOB],
-				      0, NULL, &blinding[BOB], &alias[ALICE]);
+				      &id[ALICE], &id[BOB], NULL,
+				      0, NULL, NULL, NULL, NULL,
+				      &blinding[BOB], &alias[ALICE]);
 
 	pubkey_from_privkey(&blinding[BOB], &blinding_pub[BOB]);
 
@@ -179,8 +180,8 @@ int main(int argc, char *argv[])
 	memset(&override_blinding, 7, sizeof(override_blinding));
 	pubkey_from_privkey(&override_blinding, &override_blinding_pub);
 	enctlv[BOB] = create_enctlv(tmpctx, &blinding[BOB],
-				    &id[BOB], &id[CAROL],
-				    0, &override_blinding_pub,
+				    &id[BOB], &id[CAROL], NULL,
+				    0, &override_blinding_pub, NULL, NULL, NULL,
 				    &blinding[CAROL], &alias[BOB]);
 
 	/* That replaced the blinding */
@@ -188,14 +189,15 @@ int main(int argc, char *argv[])
 	blinding_pub[CAROL] = override_blinding_pub;
 
 	enctlv[CAROL] = create_enctlv(tmpctx, &blinding[CAROL],
-				      &id[CAROL], &id[DAVE],
-				      35, NULL, &blinding[DAVE], &alias[CAROL]);
+				      &id[CAROL], &id[DAVE], NULL,
+				      35, NULL, NULL, NULL, NULL,
+				      &blinding[DAVE], &alias[CAROL]);
 
 	for (size_t i = 0; i < sizeof(self_id); i++)
 		self_id.data[i] = i+1;
 
 	enctlv[DAVE] = create_final_enctlv(tmpctx, &blinding[DAVE], &id[DAVE],
-					   0, &self_id, &alias[DAVE]);
+					   0, &self_id, NULL, &alias[DAVE]);
 	pubkey_from_privkey(&blinding[DAVE], &blinding_pub[DAVE]);
 
 	/* Create an onion which encodes this. */
