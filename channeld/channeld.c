@@ -1491,11 +1491,7 @@ static void marshall_htlc_info(const tal_t *ctx,
 			memcpy(a.onion_routing_packet,
 			       htlc->routing,
 			       sizeof(a.onion_routing_packet));
-			if (htlc->blinding) {
-				a.blinding = htlc->blinding;
-				ecdh(a.blinding, &a.blinding_ss);
-			} else
-				a.blinding = NULL;
+			a.blinding = htlc->blinding;
 			a.fail_immediate = htlc->fail_immediate;
 			tal_arr_expand(added, a);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {

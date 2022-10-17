@@ -16,10 +16,7 @@ struct added_htlc {
 	u32 cltv_expiry;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	bool fail_immediate;
-
-	/* If this is non-NULL, secret is the resulting shared secret */
 	struct pubkey *blinding;
-	struct secret blinding_ss;
 };
 
 /* This is how lightningd tells us about HTLCs which already exist at startup */

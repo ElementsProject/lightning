@@ -130,7 +130,6 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret TAKES,
 			    const struct pubkey *blinding TAKES,
-			    const struct secret *blinding_ss,
 			    const u8 *onion_routing_packet,
 			    bool fail_immediate)
 {
@@ -145,10 +144,9 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->status = NULL;
 	hin->fail_immediate = fail_immediate;
 	hin->shared_secret = tal_dup_or_null(hin, struct secret, shared_secret);
-	if (blinding) {
+	if (blinding)
 		hin->blinding = tal_dup(hin, struct pubkey, blinding);
-		hin->blinding_ss = *blinding_ss;
-	} else
+	else
 		hin->blinding = NULL;
 	memcpy(hin->onion_routing_packet, onion_routing_packet,
 	       sizeof(hin->onion_routing_packet));
