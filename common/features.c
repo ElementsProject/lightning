@@ -109,6 +109,11 @@ static const struct feature_style feature_styles[] = {
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+	{ OPT_ROUTE_BLINDING,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_SHUTDOWN_ANYSEGWIT,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -168,6 +173,12 @@ static const struct dependency feature_deps[] = {
 	 * `option_dual_fund`  | ...          | ...      | `option_anchor_outputs`
 	 */
 	{ OPT_DUAL_FUND, OPT_ANCHOR_OUTPUTS },
+	/* BOLT-route-blinding #9:
+	 * Name                | Description  | Context  | Dependencies  |
+	 * ...
+	 * `option_route_blinding` | ...      | ...      | `var_onion_optin`
+	 */
+	{ OPT_ROUTE_BLINDING, OPT_VAR_ONION },
 };
 
 static void trim_features(u8 **features)
@@ -436,7 +447,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_support_large_channel",
 		"option_anchor_outputs", 	/* 20/21 */
 		"option_anchors_zero_fee_htlc_tx",
-		"option_trampoline_routing", /* https://github.com/lightning/bolts/pull/836 */
+		"option_route_blinding", /* https://github.com/lightning/bolts/pull/765 */
 		"option_shutdown_anysegwit",
 		"option_dual_fund",
 		"option_amp", /* 30/31 */ /* https://github.com/lightning/bolts/pull/658 */
@@ -452,7 +463,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_zeroconf", /* 50/51, https://github.com/lightning/bolts/pull/910 */
 		NULL,
 		"option_keysend",
-		NULL,
+		"option_trampoline_routing", /* https://github.com/lightning/bolts/pull/836 */
 		NULL,
 		NULL, /* 60/61 */
 		NULL,
