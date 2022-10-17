@@ -222,29 +222,16 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 #endif
 }
 
-/*~ This returns the secret and/or public x-only key for this node. */
-static void node_schnorrkey(secp256k1_keypair *node_keypair,
-			    struct point32 *node_id32)
+/*~ This returns the secret key for this node. */
+static void node_schnorrkey(secp256k1_keypair *node_keypair)
 {
-	secp256k1_keypair unused_kp;
 	struct privkey node_privkey;
-
-	if (!node_keypair)
-		node_keypair = &unused_kp;
 
 	node_key(&node_privkey, NULL);
 	if (secp256k1_keypair_create(secp256k1_ctx, node_keypair,
 				     node_privkey.secret.data) != 1)
 		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				   "Failed to derive keypair");
-
-	if (node_id32) {
-		if (secp256k1_keypair_pub(secp256k1_ctx,
-					  &node_id32->pubkey,
-					  node_keypair) != 1)
-			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					   "Failed to derive keypair pub");
-	}
 }
 
 /*~ This secret is the basis for all per-channel secrets: the per-channel seeds
@@ -633,7 +620,7 @@ static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 	sighash_from_merkle(messagename, fieldname, &merkle, &sha);
 
 	if (!publictweak) {
-		node_schnorrkey(&kp, NULL);
+		node_schnorrkey(&kp);
 	} else {
 		/* If we're tweaking key, we use bolt12 key */
 		struct privkey tweakedkey;

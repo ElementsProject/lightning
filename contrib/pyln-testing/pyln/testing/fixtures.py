@@ -328,14 +328,6 @@ def _extra_validator(is_request: bool):
         """
         return self.is_type(instance, "hex") and len(instance) == 64
 
-    def is_point32(checker, instance):
-        """x-only BIP-340 public key"""
-        if not checker.is_type(instance, "hex"):
-            return False
-        if len(instance) != 64:
-            return False
-        return True
-
     def is_signature(checker, instance):
         """DER encoded secp256k1 ECDSA signature"""
         if not checker.is_type(instance, "hex"):
@@ -414,7 +406,6 @@ def _extra_validator(is_request: bool):
         "txid": is_txid,
         "signature": is_signature,
         "bip340sig": is_bip340sig,
-        "point32": is_point32,
         "short_channel_id": is_short_channel_id,
         "short_channel_id_dir": is_short_channel_id_dir,
         "outpoint": is_outpoint,

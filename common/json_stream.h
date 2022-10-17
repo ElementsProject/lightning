@@ -19,7 +19,6 @@ struct io_conn;
 struct log;
 struct json_escape;
 struct pubkey;
-struct point32;
 struct bip340sig;
 struct secret;
 struct node_id;
@@ -270,11 +269,6 @@ void json_add_invstring(struct json_stream *result, const char *invstring);
 void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key);
-
-/* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
-void json_add_point32(struct json_stream *response,
-		       const char *fieldname,
-		       const struct point32 *key);
 
 /* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
 void json_add_bip340sig(struct json_stream *response,

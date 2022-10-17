@@ -24,10 +24,6 @@ void node_id_from_pubkey(struct node_id *id, const struct pubkey *key);
 WARN_UNUSED_RESULT
 bool pubkey_from_node_id(struct pubkey *key, const struct node_id *id);
 
-/* Returns false if not a valid pubkey: relatively expensive */
-WARN_UNUSED_RESULT
-bool point32_from_node_id(struct point32 *key, const struct node_id *id);
-
 /* Convert to hex string of SEC1 encoding. */
 char *node_id_to_hexstr(const tal_t *ctx, const struct node_id *id);
 
