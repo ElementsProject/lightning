@@ -39,6 +39,8 @@ struct chainparams {
 	const struct amount_sat dust_limit;
 	const struct amount_sat max_funding;
 	const struct amount_msat max_payment;
+	/* Total coins in network */
+	const struct amount_sat max_supply;
 	const u32 when_lightning_became_cool;
 	const u8 p2pkh_version;
 	const u8 p2sh_version;
