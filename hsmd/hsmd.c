@@ -443,6 +443,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct sha256 *shaseed;
 	struct secret *hsm_encryption_key;
 	struct bip32_key_version bip32_key_version;
+	u32 minversion, maxversion;
+	const u32 our_minversion = 1, our_maxversion = 1;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -452,8 +454,18 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
 	if (!fromwire_hsmd_init(NULL, msg_in, &bip32_key_version, &chainparams,
-	                       &hsm_encryption_key, &privkey, &seed, &secrets, &shaseed))
+				&hsm_encryption_key, &privkey, &seed, &secrets, &shaseed,
+				&minversion, &maxversion))
 		return bad_req(conn, c, msg_in);
+
+	/*~ Usually we don't worry about API breakage between internal daemons,
+	 * but there are other implementations of the HSM daemon now, so we
+	 * do at least the simplest, clearest thing. */
+	if (our_minversion > maxversion || our_maxversion < minversion)
+		return bad_req_fmt(conn, c, msg_in,
+				   "Version %u-%u not valid: we need %u-%u",
+				   minversion, maxversion,
+				   our_minversion, our_maxversion);
 
 	/*~ The memory is actually copied in towire(), so lock the `hsm_secret`
 	 * encryption key (new) memory again here. */
