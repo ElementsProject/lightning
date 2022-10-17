@@ -37,7 +37,7 @@ PLUGIN_ALL_HEADER += $(BOOKKEEPER_HEADER)
 C_PLUGINS += plugins/bookkeeper
 PLUGINS += plugins/bookkeeper
 
-plugins/bookkeeper: common/bolt12.o common/bolt12_merkle.o $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJTS) $(PLUGIN_COMMON_OBJS) $(WIRE_OBJS) $(DB_OBJS)
+plugins/bookkeeper: common/bolt12.o common/bolt12_merkle.o $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJTS) $(PLUGIN_COMMON_OBJS) $(WIRE_OBJS) $(WIRE_BOLT12_OBJS) $(DB_OBJS)
 
 # The following files contain SQL-annotated statements that we need to extact
 BOOKKEEPER_SQL_FILES := 			\

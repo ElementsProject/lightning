@@ -15,17 +15,18 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 		wire/peer$(EXP)_printgen.h	\
 		wire/onion$(EXP)_printgen.h
 
-# We don't include peer_printgen/onion_printgen here since most don't need it.
+# We don't include peer_printgen/onion_printgen or bolt12 here since most don't need it.
 WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
 		wire/fromwire.c			\
 		wire/peer_wire.c		\
 		wire/tlvstream.c		\
 		wire/towire.c			\
-		wire/bolt12$(EXP)_wiregen.c	\
 		wire/peer$(EXP)_wiregen.c	\
 		wire/channel_type_wiregen.c	\
 		wire/onion$(EXP)_wiregen.c	
+
+WIRE_BOLT12_SRC := wire/bolt12$(EXP)_wiregen.c
 
 WIRE_PRINT_SRC :=				\
 		wire/onion$(EXP)_printgen.c	\
@@ -35,7 +36,8 @@ WIRE_PRINT_SRC :=				\
 
 WIRE_OBJS := $(WIRE_SRC:.c=.o)
 WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)
-$(WIRE_OBJS) $(WIRE_PRINT_OBJS): $(WIRE_HEADERS)
+WIRE_BOLT12_OBJS := $(WIRE_BOLT12_SRC:.c=.o)
+$(WIRE_OBJS) $(WIRE_PRINT_OBJS) $(WIRE_BOLT12_OBJS): $(WIRE_HEADERS)
 
 # Make sure these depend on everything: in case we're experimental,
 # include non-experimental ones here so they get rebuilt.
