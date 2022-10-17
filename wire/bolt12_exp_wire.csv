@@ -31,7 +31,7 @@ tlvtype,offer,recurrence_base,28
 tlvdata,offer,recurrence_base,start_any_period,byte,
 tlvdata,offer,recurrence_base,basetime,tu64,
 tlvtype,offer,node_id,30
-tlvdata,offer,node_id,node_id,point32,
+tlvdata,offer,node_id,node_id,point,
 tlvtype,offer,send_invoice,54
 tlvtype,offer,refund_for,34
 tlvdata,offer,refund_for,refunded_payment_hash,sha256,
@@ -57,7 +57,7 @@ tlvdata,invoice_request,recurrence_counter,counter,tu32,
 tlvtype,invoice_request,recurrence_start,68
 tlvdata,invoice_request,recurrence_start,period_offset,tu32,
 tlvtype,invoice_request,payer_key,38
-tlvdata,invoice_request,payer_key,key,point32,
+tlvdata,invoice_request,payer_key,key,point,
 tlvtype,invoice_request,payer_note,39
 tlvdata,invoice_request,payer_note,note,utf8,...
 tlvtype,invoice_request,payer_info,50
@@ -85,20 +85,19 @@ tlvdata,invoice,blinded_capacities,incoming_msat,u64,...
 tlvtype,invoice,issuer,20
 tlvdata,invoice,issuer,issuer,utf8,...
 tlvtype,invoice,node_id,30
-tlvdata,invoice,node_id,node_id,point32,
+tlvdata,invoice,node_id,node_id,point,
 tlvtype,invoice,quantity,32
 tlvdata,invoice,quantity,quantity,tu64,
 tlvtype,invoice,refund_for,34
 tlvdata,invoice,refund_for,refunded_payment_hash,sha256,
 tlvtype,invoice,recurrence_counter,36
 tlvdata,invoice,recurrence_counter,counter,tu32,
-tlvtype,invoice,send_invoice,54
 tlvtype,invoice,recurrence_start,68
 tlvdata,invoice,recurrence_start,period_offset,tu32,
 tlvtype,invoice,recurrence_basetime,64
 tlvdata,invoice,recurrence_basetime,basetime,tu64,
 tlvtype,invoice,payer_key,38
-tlvdata,invoice,payer_key,key,point32,
+tlvdata,invoice,payer_key,key,point,
 tlvtype,invoice,payer_note,39
 tlvdata,invoice,payer_note,note,utf8,...
 tlvtype,invoice,created_at,40
@@ -115,6 +114,7 @@ tlvtype,invoice,payer_info,50
 tlvdata,invoice,payer_info,blob,byte,...
 tlvtype,invoice,refund_signature,52
 tlvdata,invoice,refund_signature,payer_signature,bip340sig,
+tlvtype,invoice,send_invoice,54
 tlvtype,invoice,replace_invoice,56
 tlvdata,invoice,replace_invoice,payment_hash,sha256,
 tlvtype,invoice,signature,240
@@ -123,6 +123,8 @@ subtype,blinded_payinfo
 subtypedata,blinded_payinfo,fee_base_msat,u32,
 subtypedata,blinded_payinfo,fee_proportional_millionths,u32,
 subtypedata,blinded_payinfo,cltv_expiry_delta,u16,
+subtypedata,blinded_payinfo,htlc_minimum_msat,u64,
+subtypedata,blinded_payinfo,htlc_maximum_msat,u64,
 subtypedata,blinded_payinfo,flen,u16,
 subtypedata,blinded_payinfo,features,byte,flen
 subtype,fallback_address

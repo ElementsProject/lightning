@@ -1103,10 +1103,8 @@ static struct command_result *json_pay(struct command *cmd,
 		} else
 			invmsat = NULL;
 
-		/* FIXME: gossmap should store as point32 */
 		p->destination = tal(p, struct node_id);
-		gossmap_guess_node_id(get_gossmap(cmd->plugin), b12->node_id,
-				      p->destination);
+		node_id_from_pubkey(p->destination, b12->node_id);
 		p->payment_hash = tal_dup(p, struct sha256, b12->payment_hash);
 		if (b12->recurrence_counter && !label)
 			return command_fail(

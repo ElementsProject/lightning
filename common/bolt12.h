@@ -96,7 +96,7 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 bool bolt12_check_signature(const struct tlv_field *fields,
 			    const char *messagename,
 			    const char *fieldname,
-			    const struct point32 *key,
+			    const struct pubkey *key,
 			    const struct bip340sig *sig);
 
 /* Given a single bolt12 chain, does it match?  (NULL == bitcoin) */

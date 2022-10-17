@@ -4385,7 +4385,7 @@ def test_offer_needs_option(node_factory):
         l1.rpc.call('fetchinvoice', {'offer': 'aaaa'})
 
     # Decode still works though
-    assert l1.rpc.decode('lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyys5qq7ypnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq633uzqaxlsxzxergsrav494jjrpuy9hcldjeglha57lxvz20fhha6hjwhv69nnzwzjsajntyf0c4z8h9e70dfdlfq8jdvc9rdht8vr955udtg')['valid']
+    assert l1.rpc.decode('lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyys5qq7yypxdeze35wncs2l2u4gfzyrpds00e6yakfrt6ctrw5n9qanzhqr2x8sgp3lqxpxd82j87j67wyff9cd9msgagq8hveftdkx5t3e98gj2x7ac99hhwlpj9yvj79yz3l8gdlmdmhq47ct9pkedfd8naksd8f8gpar')['valid']
 
 
 def test_offer(node_factory, bitcoind):
@@ -5329,13 +5329,13 @@ def test_payerkey(node_factory):
     """payerkey calculation should not change across releases!"""
     nodes = node_factory.get_nodes(7)
 
-    expected_keys = ["294ec1cd3f100947fe859d71a42cb87932e36e7771abf2d50b02a7a92be8e4d5",
-                     "6a4a3b6b0c694da6f14629ca5140713fc703591a6d8aae5c79ba9b5556fc5723",
-                     "defd2b1f3004b0145351f469f34512c6fa4d02fe891a977bafdb34fe7b73ea48",
-                     "eccb00c0a3c760465bb69a6297d7cfa5bcbd989d5a88e435bd8d6e4c723013cd",
-                     "1b4bfa652f0df7498d734b0ca888b4e3b07f59e1a974ec7d4a9d6046e8e5ab92",
-                     "fc91d60b061e517f9182e3e40ea14c27df520c51db204f1409ff50e5cf9a5e4d",
-                     "a3bbda0137722ba62207b9d3e5e6cc2a11e58480f801892093e01383aacb7fb2"]
+    expected_keys = ["02294ec1cd3f100947fe859d71a42cb87932e36e7771abf2d50b02a7a92be8e4d5",
+                     "026a4a3b6b0c694da6f14629ca5140713fc703591a6d8aae5c79ba9b5556fc5723",
+                     "03defd2b1f3004b0145351f469f34512c6fa4d02fe891a977bafdb34fe7b73ea48",
+                     "03eccb00c0a3c760465bb69a6297d7cfa5bcbd989d5a88e435bd8d6e4c723013cd",
+                     "021b4bfa652f0df7498d734b0ca888b4e3b07f59e1a974ec7d4a9d6046e8e5ab92",
+                     "03fc91d60b061e517f9182e3e40ea14c27df520c51db204f1409ff50e5cf9a5e4d",
+                     "03a3bbda0137722ba62207b9d3e5e6cc2a11e58480f801892093e01383aacb7fb2"]
 
     for n, k in zip(nodes, expected_keys):
         b12 = n.rpc.createinvoicerequest('lnr1qvsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcyyrjjthf4rh99n7equvlrzrlalcacxj4y9hgzxc79yrntrth6mp3nkvssy5mac4pkfq2m3gq4ttajwh097s')['bolt12']
