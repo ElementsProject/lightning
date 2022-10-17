@@ -1849,11 +1849,12 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 	/* No error message known (yet) */
 	payload->err_msg = NULL;
 
-	payload->channel_max = chainparams->max_funding;
 	if (feature_negotiated(dualopend->ld->our_features,
 			       channel->peer->their_features,
 			       OPT_LARGE_CHANNELS))
-		payload->channel_max = AMOUNT_SAT(UINT_MAX);
+		payload->channel_max = chainparams->max_supply;
+	else
+		payload->channel_max = chainparams->max_funding;
 
 	tal_add_destructor2(dualopend, rbf_channel_remove_dualopend, payload);
 	plugin_hook_call_rbf_channel(dualopend->ld, NULL, payload);
@@ -1910,11 +1911,12 @@ static void accepter_got_offer(struct subd *dualopend,
 	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
 	payload->node_blockheight = get_block_height(dualopend->ld->topology);
 
-	payload->channel_max = chainparams->max_funding;
 	if (feature_negotiated(dualopend->ld->our_features,
 			       channel->peer->their_features,
 			       OPT_LARGE_CHANNELS))
-		payload->channel_max = AMOUNT_SAT(UINT64_MAX);
+		payload->channel_max = chainparams->max_supply;
+	else
+		payload->channel_max = chainparams->max_funding;
 
 	tal_add_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 	plugin_hook_call_openchannel2(dualopend->ld, NULL, payload);
