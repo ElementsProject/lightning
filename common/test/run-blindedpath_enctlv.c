@@ -91,19 +91,22 @@ static void test_decrypt(const struct pubkey *blinding,
 			 const struct pubkey *expected_next_node,
 			 const struct privkey *expected_next_blinding_priv)
 {
-	struct pubkey expected_next_blinding, dummy, next_node, next_blinding;
+	struct pubkey expected_next_blinding, dummy, next_blinding;
 	struct secret ss;
+	struct tlv_encrypted_data_tlv *enc;
 
 	/* We don't actually have an onion, so we put some dummy */
 	pubkey_from_privkey(me, &dummy);
 
 	mykey = me;
 	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
-	assert(decrypt_enctlv(blinding, &ss, enctlv, &next_node, &next_blinding));
+	enc = decrypt_encrypted_data(tmpctx, blinding, &ss, enctlv);
+	assert(enc);
 
 	pubkey_from_privkey(expected_next_blinding_priv, &expected_next_blinding);
+	blindedpath_next_blinding(enc, blinding, &ss, &next_blinding);
 	assert(pubkey_eq(&next_blinding, &expected_next_blinding));
-	assert(pubkey_eq(&next_node, expected_next_node));
+	assert(pubkey_eq(enc->next_node_id, expected_next_node));
 }
 
 static void test_final_decrypt(const struct pubkey *blinding,
@@ -113,7 +116,8 @@ static void test_final_decrypt(const struct pubkey *blinding,
 			       const struct secret *expected_self_id)
 {
 	struct pubkey my_pubkey, dummy, alias;
-	struct secret ss, *self_id;
+	struct secret ss;
+	struct tlv_encrypted_data_tlv *enc;
 
 	/* We don't actually have an onion, so we put some dummy */
 	pubkey_from_privkey(me, &dummy);
@@ -121,11 +125,13 @@ static void test_final_decrypt(const struct pubkey *blinding,
 	mykey = me;
 	pubkey_from_privkey(me, &my_pubkey);
 	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
-	assert(decrypt_final_enctlv(tmpctx, blinding, &ss, enctlv, &my_pubkey,
-					 &alias, &self_id));
+	enc = decrypt_encrypted_data(tmpctx, blinding, &ss, enctlv);
+	assert(enc);
+	assert(blindedpath_get_alias(&ss, &my_pubkey, &alias));
 
 	assert(pubkey_eq(&alias, expected_alias));
-	assert(secret_eq_consttime(self_id, expected_self_id));
+	assert(memeq(enc->path_id, tal_bytelen(enc->path_id), expected_self_id,
+		     sizeof(*expected_self_id)));
 }
 
 int main(int argc, char *argv[])
