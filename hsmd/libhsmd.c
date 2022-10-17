@@ -238,11 +238,11 @@ static void node_schnorrkey(secp256k1_keypair *node_keypair,
 				   "Failed to derive keypair");
 
 	if (node_id32) {
-		if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
-						&node_id32->pubkey,
-						NULL, node_keypair) != 1)
+		if (secp256k1_keypair_pub(secp256k1_ctx,
+					  &node_id32->pubkey,
+					  node_keypair) != 1)
 			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					   "Failed to derive xonly pub");
+					   "Failed to derive keypair pub");
 	}
 }
 
@@ -638,9 +638,9 @@ static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 		struct point32 bolt12;
 		struct sha256 tweak;
 
-		if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
-						&bolt12.pubkey, NULL,
-						&secretstuff.bolt12) != 1)
+		if (secp256k1_keypair_pub(secp256k1_ctx,
+					  &bolt12.pubkey,
+					  &secretstuff.bolt12) != 1)
 			hsmd_status_failed(
 			    STATUS_FAIL_INTERNAL_ERROR,
 			    "Could not derive bolt12 public key.");
@@ -1772,8 +1772,8 @@ u8 *hsmd_init(struct secret hsm_secret,
 	node_id_from_pubkey(&node_id, &key);
 
 	/* We also give it the base key for bolt12 payerids */
-	if (secp256k1_keypair_xonly_pub(secp256k1_ctx, &bolt12.pubkey, NULL,
-					&secretstuff.bolt12) != 1)
+	if (secp256k1_keypair_pub(secp256k1_ctx, &bolt12.pubkey,
+				  &secretstuff.bolt12) != 1)
 		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				   "Could derive bolt12 public key.");
 

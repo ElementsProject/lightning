@@ -19,11 +19,12 @@ struct pubkey {
 /* Define pubkey_eq (no padding) */
 STRUCTEQ_DEF(pubkey, 0, pubkey.data);
 
+/* FIXME: This is for the deprecated offers: it's represented x-only there */
 struct point32 {
 	/* Unpacked pubkey (as used by libsecp256k1 internally) */
-	secp256k1_xonly_pubkey pubkey;
+	secp256k1_pubkey pubkey;
 };
-/* Define pubkey_eq (no padding) */
+/* Define point32_eq (no padding) */
 STRUCTEQ_DEF(point32, 0, pubkey.data);
 
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
