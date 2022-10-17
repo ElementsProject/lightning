@@ -8,7 +8,6 @@
 #include <common/fp16.h>
 
 struct node_id;
-struct point32;
 
 struct gossmap_node {
 	/* Offset in memory map for node_announce, or 0. */

@@ -297,7 +297,6 @@ def fundamental_types() -> List[FieldType]:
             # Extra types added in offers draft:
             IntegerType('utf8', 1, 'B'),
             FundamentalHexType('bip340sig', 64),
-            FundamentalHexType('point32', 32),
             ]
 
 

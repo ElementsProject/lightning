@@ -415,18 +415,6 @@ void json_add_pubkey(struct json_stream *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
-void json_add_point32(struct json_stream *response,
-		      const char *fieldname,
-		      const struct point32 *key)
-{
-	struct pubkey pk;
-	u8 der[PUBKEY_CMPR_LEN];
-
-	pk.pubkey = key->pubkey;
-	pubkey_to_der(der, &pk);
-	json_add_hex(response, fieldname, der + 1, sizeof(der) - 1);
-}
-
 void json_add_bip340sig(struct json_stream *response,
 			const char *fieldname,
 			const struct bip340sig *sig)
