@@ -1,0 +1,8 @@
+--- wire/onion_wire.csv	2022-08-10 16:09:32.851789435 +0930
++++ wire/onion_wire.csv.raw	2022-08-10 16:18:47.411275132 +0930
+@@ -95,3 +81,5 @@
+ msgdata,invalid_onion_payload,type,bigsize,
+ msgdata,invalid_onion_payload,offset,u16,
+ msgtype,mpp_timeout,23
++msgtype,invalid_onion_blinding,BADONION|PERM|24
++msgdata,invalid_onion_blinding,sha256_of_onion,sha256,
