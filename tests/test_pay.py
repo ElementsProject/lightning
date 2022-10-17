@@ -5329,13 +5329,13 @@ def test_payerkey(node_factory):
     """payerkey calculation should not change across releases!"""
     nodes = node_factory.get_nodes(7)
 
-    expected_keys = ["ed648d8c53c73eb4ef97f3e9586ecfd86e2628037dd91e96ecdc469467dcc1b2",
-                     "ee90e2adcf0e12c5dd1d802af792a4f4b18fd3926a9cc325ffe181bab1c48661",
-                     "17b9ecb1870b5d3896e88247fcb592833fbee8abb5e89673d16560b0ed38f5c6",
-                     "d37f723b611c15b7af394984aea84837d85371ba9eee95364b3c9f89a086f7bf",
-                     "b33482c9753af9deb6df365cf834eccaab7afb24d080caaf87a57010f78f5817",
-                     "f1d699068e3d276eddf9fc4caa0955604a34ee9b9b6529a1ec2eacebb82eb11e",
-                     "4ef73851fe22604e9b7034f548bcb79583ec503983879c56963b9a40fc854758"]
+    expected_keys = ["294ec1cd3f100947fe859d71a42cb87932e36e7771abf2d50b02a7a92be8e4d5",
+                     "6a4a3b6b0c694da6f14629ca5140713fc703591a6d8aae5c79ba9b5556fc5723",
+                     "defd2b1f3004b0145351f469f34512c6fa4d02fe891a977bafdb34fe7b73ea48",
+                     "eccb00c0a3c760465bb69a6297d7cfa5bcbd989d5a88e435bd8d6e4c723013cd",
+                     "1b4bfa652f0df7498d734b0ca888b4e3b07f59e1a974ec7d4a9d6046e8e5ab92",
+                     "fc91d60b061e517f9182e3e40ea14c27df520c51db204f1409ff50e5cf9a5e4d",
+                     "a3bbda0137722ba62207b9d3e5e6cc2a11e58480f801892093e01383aacb7fb2"]
 
     for n, k in zip(nodes, expected_keys):
         b12 = n.rpc.createinvoicerequest('lnr1qvsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcyyrjjthf4rh99n7equvlrzrlalcacxj4y9hgzxc79yrntrth6mp3nkvssy5mac4pkfq2m3gq4ttajwh097s')['bolt12']
