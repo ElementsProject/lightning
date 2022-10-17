@@ -150,7 +150,11 @@ static void fail_in_htlc(struct htlc_in *hin,
 	htlc_in_check(hin, __func__);
 
 #if EXPERIMENTAL_FEATURES
-	/* In a blinded path, all failures become invalid_onion_blinding */
+	/* BOLT-route-blinding #4:
+	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
+	 *    - MUST return `invalid_onion_blinding` on any error, including
+	 *      downstream  errors received from forwarding HTLCs.
+	 */
 	if (hin->blinding) {
 		failed_htlc = mk_failed_htlc_badonion(tmpctx, hin,
 						      WIRE_INVALID_ONION_BLINDING);
