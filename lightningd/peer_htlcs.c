@@ -931,7 +931,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 
 		rs->raw_payload = prepend_length(rs, take(payload));
 		request->payload = onion_decode(request, rs,
-						hin->blinding, &hin->blinding_ss,
+						hin->blinding,
 						ld->accept_extra_tlv_types,
 						&request->failtlvtype,
 						&request->failtlvpos);
@@ -1137,7 +1137,6 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 /* Apply tweak to ephemeral key if blinding is non-NULL, then do ECDH */
 static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 				const struct pubkey *blinding,
-				const struct secret *blinding_ss,
 				struct secret *ss)
 {
 	struct pubkey point = *ephemeral_key;
@@ -1145,9 +1144,11 @@ static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 #if EXPERIMENTAL_FEATURES
 	if (blinding) {
 		struct secret hmac;
+		struct secret blinding_ss;
 
+		ecdh(blinding, &blinding_ss);
 		/* b(i) = HMAC256("blinded_node_id", ss(i)) * k(i) */
-		subkey_from_hmac("blinded_node_id", blinding_ss, &hmac);
+		subkey_from_hmac("blinded_node_id", &blinding_ss, &hmac);
 
 		/* We instead tweak the *ephemeral* key from the onion and use
 		 * our normal privkey: since hsmd knows only how to ECDH with
@@ -1312,7 +1313,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 
 	hook_payload->route_step = tal_steal(hook_payload, rs);
 	hook_payload->payload = onion_decode(hook_payload, rs,
-					     hin->blinding, &hin->blinding_ss,
+					     hin->blinding,
 					     ld->accept_extra_tlv_types,
 					     &hook_payload->failtlvtype,
 					     &hook_payload->failtlvpos);
@@ -2069,7 +2070,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 			       &failcode);
 	if (op) {
 		if (!ecdh_maybe_blinding(&op->ephemeralkey,
-					 added->blinding, &added->blinding_ss,
+					 added->blinding,
 					 &shared_secret)) {
 			log_debug(channel->log, "htlc %"PRIu64
 				  ": can't tweak pubkey", added->id);
@@ -2082,7 +2083,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	hin = new_htlc_in(channel, channel, added->id, added->amount,
 			  added->cltv_expiry, &added->payment_hash,
 			  op ? &shared_secret : NULL,
-			  added->blinding, &added->blinding_ss,
+			  added->blinding,
 			  added->onion_routing_packet,
 			  added->fail_immediate);
 

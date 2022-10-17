@@ -82,7 +82,6 @@ void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 	if (added->blinding) {
 		towire_bool(pptr, true);
 		towire_pubkey(pptr, added->blinding);
-		towire_secret(pptr, &added->blinding_ss);
 	} else
 		towire_bool(pptr, false);
 	towire_bool(pptr, added->fail_immediate);
@@ -184,7 +183,6 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 	if (fromwire_bool(cursor, max)) {
 		added->blinding = tal(added, struct pubkey);
 		fromwire_pubkey(cursor, max, added->blinding);
-		fromwire_secret(cursor, max, &added->blinding_ss);
 	} else
 		added->blinding = NULL;
 	added->fail_immediate = fromwire_bool(cursor, max);
