@@ -27,7 +27,7 @@ On success, an object is returned, containing:
   - **output** (u32): the index within *txid*
   - **amount\_msat** (msat): the amount of the output
   - **scriptpubkey** (hex): the scriptPubkey of the output
-  - **status** (string) (one of "unconfirmed", "confirmed", "spent")
+  - **status** (string) (one of "unconfirmed", "confirmed", "spent", "immature")
   - **reserved** (boolean): whether this UTXO is currently reserved for an in-flight tx
   - **address** (string, optional): the bitcoin address of the output
   - **redeemscript** (hex, optional): the redeemscript, only if it's p2sh-wrapped
@@ -73,4 +73,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e5c1f54c8a5008a30648e0fe5883132759fcdabd72bd7e8a00bedc360363e85e)
+[comment]: # ( SHA256STAMP:62a8754ad2a24dfb5bb4e412a2e710748bd54ef0cffaaeb7ce352f6273742431)

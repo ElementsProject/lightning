@@ -148,7 +148,8 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		       ", confirmation_height"
 		       ", spend_height"
 		       ", scriptpubkey"
-		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		       ", is_in_coinbase"
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_txid(stmt, 0, &utxo->outpoint.txid);
 	db_bind_int(stmt, 1, utxo->outpoint.n);
 	db_bind_amount_sat(stmt, 2, &utxo->amount);
@@ -183,6 +184,7 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	db_bind_blob(stmt, 12, utxo->scriptPubkey,
 			  tal_bytelen(utxo->scriptPubkey));
 
+	db_bind_int(stmt, 13, utxo->is_in_coinbase);
 	db_exec_prepared_v2(take(stmt));
 	return true;
 }
@@ -200,6 +202,9 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	utxo->is_p2sh = db_col_int(stmt, "type") == p2sh_wpkh;
 	utxo->status = db_col_int(stmt, "status");
 	utxo->keyindex = db_col_int(stmt, "keyindex");
+
+	utxo->is_in_coinbase = db_col_int(stmt, "is_in_coinbase") == 1;
+
 	if (!db_col_is_null(stmt, "channel_id")) {
 		utxo->close_info = tal(utxo, struct unilateral_close_info);
 		utxo->close_info->channel_id = db_col_u64(stmt, "channel_id");
@@ -297,6 +302,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", scriptpubkey "
 						", reserved_til "
 						", csv_lock "
+						", is_in_coinbase "
 						"FROM outputs"));
 	} else {
 		stmt = db_prepare_v2(w->db, SQL("SELECT"
@@ -315,6 +321,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", scriptpubkey "
 						", reserved_til "
 						", csv_lock "
+						", is_in_coinbase "
 						"FROM outputs "
 						"WHERE status= ? "));
 		db_bind_int(stmt, 0, output_status_in_db(state));
@@ -354,6 +361,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					", scriptpubkey"
 					", reserved_til"
 					", csv_lock"
+					", is_in_coinbase"
 					" FROM outputs"
 					" WHERE channel_id IS NOT NULL AND "
 					"confirmation_height IS NULL"));
@@ -391,6 +399,7 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 					", scriptpubkey"
 					", reserved_til"
 					", csv_lock"
+					", is_in_coinbase"
 					" FROM outputs"
 					" WHERE prev_out_tx = ?"
 					" AND prev_out_index = ?"));
@@ -501,6 +510,17 @@ static bool deep_enough(u32 maxheight, const struct utxo *utxo,
 		if (csv_free > current_blockheight)
 			return false;
 	}
+
+	/* If the utxo is a coinbase, we over-write the maxheight
+	 * to the coinbase maxheight (current - 99) */
+	if (utxo->is_in_coinbase) {
+		/* Nothing is spendable the first 100 blocks */
+		if (current_blockheight < 100)
+			return false;
+		if (maxheight > current_blockheight - 99)
+			maxheight = current_blockheight - 99;
+	}
+
 	/* If we require confirmations check that we have a
 	 * confirmation height and that it is below the required
 	 * maxheight (current_height - minconf) */
@@ -539,6 +559,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 					", scriptpubkey "
 					", reserved_til"
 					", csv_lock"
+					", is_in_coinbase"
 					" FROM outputs"
 					" WHERE status = ?"
 					" OR (status = ? AND reserved_til <= ?)"
@@ -2296,6 +2317,7 @@ void wallet_confirm_tx(struct wallet *w,
 }
 
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
+				 u32 tx_index,
 				 const u32 *blockheight,
 				 struct amount_sat *total)
 {
@@ -2330,19 +2352,21 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		wally_txid(wtx, &utxo->outpoint.txid);
 		utxo->outpoint.n = output;
 		utxo->close_info = NULL;
+		utxo->is_in_coinbase = tx_index == 0;
 
 		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
 		utxo->scriptPubkey = tal_dup_talarr(utxo, u8, script);
 
-		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s",
+		log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
 			  output,
 			  type_to_string(tmpctx, struct amount_sat,
 					 &utxo->amount),
 			  is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->outpoint.txid),
-			  blockheight ? " CONFIRMED" : "");
+			  blockheight ? " CONFIRMED" : "",
+			  tx_index == 0 ? " COINBASE" : "");
 
 		/* We only record final ledger movements */
 		if (blockheight) {

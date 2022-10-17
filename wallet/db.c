@@ -929,6 +929,7 @@ static struct migration dbmigrations[] = {
     /* Adds scid column, then moves short_channel_id across to it */
     {SQL("ALTER TABLE channels ADD scid BIGINT;"), migrate_channels_scids_as_integers},
     {SQL("ALTER TABLE payments ADD failscid BIGINT;"), migrate_payments_scids_as_integers},
+    {SQL("ALTER TABLE outputs ADD is_in_coinbase INTEGER DEFAULT 0;"), NULL},
 };
 
 /* Released versions are of form v{num}[.{num}]* */
