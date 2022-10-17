@@ -254,6 +254,7 @@ static bool json_add_blinded_paths(struct json_stream *js,
 	json_array_start(js, "paths");
 	for (size_t i = 0; i < tal_count(paths); i++) {
 		json_object_start(js, NULL);
+		json_add_pubkey(js, "first_node_id", &paths[i]->first_node_id);
 		json_add_pubkey(js, "blinding", &paths[i]->blinding);
 		json_array_start(js, "path");
 		for (size_t j = 0; j < tal_count(paths[i]->path); j++) {
