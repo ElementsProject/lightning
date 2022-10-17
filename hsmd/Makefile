@@ -56,4 +56,10 @@ HSMD_COMMON_OBJS :=				\
 
 lightningd/lightning_hsmd: $(HSMD_OBJS) $(HSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 
+check-source: check-hsm-versions
+
+# common/hsm_version.h should at least *mention* this!
+check-hsm-versions: hsmd/hsmd_wire.csv common/hsm_version.h
+	@SUM=`grep -vE '^(#| *$$)' hsmd/hsmd_wire.csv  | sha256sum | cut -c1-64`; if ! grep -q "$$SUM" common/hsm_version.h; then echo "*** hsmd_wire.csv changed to $$SUM without update to common/hsm_version.h">&2; exit 1; fi
+
 -include hsmd/test/Makefile
