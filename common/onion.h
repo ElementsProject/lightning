@@ -26,20 +26,24 @@ struct onion_payload {
 u8 *onion_nonfinal_hop(const tal_t *ctx,
 		       const struct short_channel_id *scid,
 		       struct amount_msat forward,
-		       u32 outgoing_cltv,
-		       const struct pubkey *blinding,
-		       const u8 *enctlv);
+		       u32 outgoing_cltv);
 
 /* Note that this can fail if we supply payment_secret or payment_metadata and !use_tlv! */
 u8 *onion_final_hop(const tal_t *ctx,
 		    struct amount_msat forward,
 		    u32 outgoing_cltv,
 		    struct amount_msat total_msat,
-		    const struct pubkey *blinding,
-		    const u8 *enctlv,
 		    const struct secret *payment_secret,
 		    const u8 *payment_metadata);
 
+/* Blinding has more complex rules on what fields are encoded: this is the
+ * generic interface, as used by blindedpay.h */
+u8 *onion_blinded_hop(const tal_t *ctx,
+		      const struct amount_msat *amt_to_forward,
+		      const u32 *outgoing_cltv_value,
+		      const u8 *enctlv,
+		      const struct pubkey *blinding)
+	NON_NULL_ARGS(4);
 
 /**
  * onion_decode: decode payload from a decrypted onion.

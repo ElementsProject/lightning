@@ -41,9 +41,7 @@ static u8 *make_tlv_hop(const tal_t *ctx,
 u8 *onion_nonfinal_hop(const tal_t *ctx,
 		       const struct short_channel_id *scid,
 		       struct amount_msat forward,
-		       u32 outgoing_cltv,
-		       const struct pubkey *blinding,
-		       const u8 *enctlv)
+		       u32 outgoing_cltv)
 {
 	struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
 
@@ -60,8 +58,6 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 	tlv->amt_to_forward = &forward.millisatoshis; /* Raw: TLV convert */
 	tlv->outgoing_cltv_value = &outgoing_cltv;
 	tlv->short_channel_id = cast_const(struct short_channel_id *, scid);
-	tlv->blinding_point = cast_const(struct pubkey *, blinding);
-	tlv->encrypted_recipient_data = cast_const(u8 *, enctlv);
 	return make_tlv_hop(ctx, tlv);
 }
 
@@ -69,8 +65,6 @@ u8 *onion_final_hop(const tal_t *ctx,
 		    struct amount_msat forward,
 		    u32 outgoing_cltv,
 		    struct amount_msat total_msat,
-		    const struct pubkey *blinding,
-		    const u8 *enctlv,
 		    const struct secret *payment_secret,
 		    const u8 *payment_metadata)
 {
@@ -104,8 +98,26 @@ u8 *onion_final_hop(const tal_t *ctx,
 		tlv->payment_data = &tlv_pdata;
 	}
 	tlv->payment_metadata = cast_const(u8 *, payment_metadata);
-	tlv->blinding_point = cast_const(struct pubkey *, blinding);
+	return make_tlv_hop(ctx, tlv);
+}
+
+u8 *onion_blinded_hop(const tal_t *ctx,
+		      const struct amount_msat *amt_to_forward,
+		      const u32 *outgoing_cltv_value,
+		      const u8 *enctlv,
+		      const struct pubkey *blinding)
+{
+	struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
+
+	if (amt_to_forward) {
+		tlv->amt_to_forward
+			= cast_const(u64 *,
+				     &amt_to_forward->millisatoshis); /* Raw: TLV convert */
+	}
+	tlv->outgoing_cltv_value = cast_const(u32 *, outgoing_cltv_value);
 	tlv->encrypted_recipient_data = cast_const(u8 *, enctlv);
+	tlv->blinding_point = cast_const(struct pubkey *, blinding);
+
 	return make_tlv_hop(ctx, tlv);
 }
 

@@ -19,8 +19,6 @@ struct gossmap_node;
  * @node_id: the node_id of the destination of this hop.
  * @amount: amount to send through this hop.
  * @delay: total cltv delay at this hop.
- * @blinding: blinding key for this hop (if any)
- * @enctlv: encrypted TLV for this hop (if any)
  */
 struct route_hop {
 	struct short_channel_id scid;
@@ -28,8 +26,6 @@ struct route_hop {
 	struct node_id node_id;
 	struct amount_msat amount;
 	u32 delay;
-	struct pubkey *blinding;
-	u8 *enctlv;
 };
 
 /* Can c carry amount in dir? */
