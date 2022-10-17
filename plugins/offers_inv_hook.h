@@ -6,5 +6,5 @@
 /* We got an onionmessage with an invoice!  reply_path could be NULL. */
 struct command_result *handle_invoice(struct command *cmd,
 				      const u8 *invbin,
-				      struct tlv_onionmsg_payload_reply_path *reply_path STEALS);
+				      struct blinded_path *reply_path STEALS);
 #endif /* LIGHTNING_PLUGINS_OFFERS_INV_HOOK_H */

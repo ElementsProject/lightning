@@ -601,7 +601,7 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 /* Marshal arguments for sending onion messages */
 struct sending {
 	struct sent *sent;
-	struct tlv_onionmsg_payload *payload;
+	struct tlv_onionmsg_tlv *payload;
 	struct command_result *(*done)(struct command *cmd,
 				       const char *buf UNUSED,
 				       const jsmntok_t *result UNUSED,
@@ -610,14 +610,14 @@ struct sending {
 
 static struct command_result *
 send_modern_message(struct command *cmd,
-		    struct tlv_onionmsg_payload_reply_path *reply_path,
+		    struct blinded_path *reply_path,
 		    struct sending *sending)
 {
 	struct sent *sent = sending->sent;
 	struct privkey blinding_iter;
 	struct pubkey fwd_blinding, *node_alias;
 	size_t nhops = tal_count(sent->path);
-	struct tlv_onionmsg_payload **payloads;
+	struct tlv_onionmsg_tlv **payloads;
 	struct out_req *req;
 
 	/* Now create enctlvs for *forward* path. */
@@ -629,12 +629,12 @@ send_modern_message(struct command *cmd,
 						   &blinding_iter));
 
 	/* We overallocate: this node (0) doesn't have payload or alias */
-	payloads = tal_arr(cmd, struct tlv_onionmsg_payload *, nhops);
+	payloads = tal_arr(cmd, struct tlv_onionmsg_tlv *, nhops);
 	node_alias = tal_arr(cmd, struct pubkey, nhops);
 
 	for (size_t i = 1; i < nhops - 1; i++) {
-		payloads[i] = tlv_onionmsg_payload_new(payloads);
-		payloads[i]->encrypted_data_tlv = create_enctlv(payloads[i],
+		payloads[i] = tlv_onionmsg_tlv_new(payloads);
+		payloads[i]->encrypted_recipient_data = create_enctlv(payloads[i],
 						    &blinding_iter,
 						    &sent->path[i],
 						    &sent->path[i+1],
@@ -672,7 +672,7 @@ send_modern_message(struct command *cmd,
 		json_object_start(req->js, NULL);
 		json_add_pubkey(req->js, "id", &node_alias[i]);
 		tlv = tal_arr(tmpctx, u8, 0);
-		towire_tlv_onionmsg_payload(&tlv, payloads[i]);
+		towire_tlv_onionmsg_tlv(&tlv, payloads[i]);
 		json_add_hex_talarr(req->js, "tlv", tlv);
 		json_object_end(req->js);
 	}
@@ -687,10 +687,10 @@ static struct command_result *use_reply_path(struct command *cmd,
 					     const jsmntok_t *result,
 					     struct sending *sending)
 {
-	struct tlv_onionmsg_payload_reply_path *rpath;
+	struct blinded_path *rpath;
 
-	rpath = json_to_reply_path(cmd, buf,
-				   json_get_member(buf, result, "blindedpath"));
+	rpath = json_to_blinded_path(cmd, buf,
+				     json_get_member(buf, result, "blindedpath"));
 	if (!rpath)
 		plugin_err(cmd->plugin,
 			   "could not parse reply path %.*s?",
@@ -700,7 +700,7 @@ static struct command_result *use_reply_path(struct command *cmd,
 	/* Remember our alias we used so we can recognize reply */
 	sending->sent->reply_alias
 		= tal_dup(sending->sent, struct pubkey,
-			  &rpath->path[tal_count(rpath->path)-1]->node_id);
+			  &rpath->path[tal_count(rpath->path)-1]->blinded_node_id);
 
 	return send_modern_message(cmd, rpath, sending);
 }
@@ -732,7 +732,7 @@ static struct command_result *make_reply_path(struct command *cmd,
 
 static struct command_result *send_message(struct command *cmd,
 					   struct sent *sent,
-					   struct tlv_onionmsg_payload *payload STEALS,
+					   struct tlv_onionmsg_tlv *payload STEALS,
 					   struct command_result *(*done)
 					   (struct command *cmd,
 					    const char *buf UNUSED,
@@ -780,7 +780,7 @@ sendinvreq_after_connect(struct command *cmd,
 			 const jsmntok_t *result UNUSED,
 			 struct sent *sent)
 {
-	struct tlv_onionmsg_payload *payload = tlv_onionmsg_payload_new(sent);
+	struct tlv_onionmsg_tlv *payload = tlv_onionmsg_tlv_new(sent);
 
 	payload->invoice_request = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
@@ -1279,7 +1279,7 @@ sendinvoice_after_connect(struct command *cmd,
 			  const jsmntok_t *result UNUSED,
 			  struct sent *sent)
 {
-	struct tlv_onionmsg_payload *payload = tlv_onionmsg_payload_new(sent);
+	struct tlv_onionmsg_tlv *payload = tlv_onionmsg_tlv_new(sent);
 
 	payload->invoice = tal_arr(payload, u8, 0);
 	towire_tlv_invoice(&payload->invoice, sent->inv);

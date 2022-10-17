@@ -97,11 +97,12 @@ int main(int argc, char *argv[])
 			 JSON_SCAN(json_to_pubkey, &bpath->blinding),
 			 JSON_SCAN(json_to_tok, &hops_tok)) == NULL);
 
-	bpath->path = tal_arr(bpath, struct onionmsg_path *, hops_tok->size);
+	bpath->path = tal_arr(bpath, struct onionmsg_hop *, hops_tok->size);
 	json_for_each_arr(i, t, hops_tok) {
-		bpath->path[i] = tal(bpath->path, struct onionmsg_path);
+		bpath->path[i] = tal(bpath->path, struct onionmsg_hop);
 		assert(json_scan(tmpctx, json, t, "{blinded_node_id:%,encrypted_data:%}",
-				 JSON_SCAN(json_to_pubkey, &bpath->path[i]->node_id),
+				 JSON_SCAN(json_to_pubkey,
+					   &bpath->path[i]->blinded_node_id),
 				 JSON_SCAN_TAL(bpath->path[i],
 					       json_tok_bin_from_hex,
 					       &bpath->path[i]->encrypted_recipient_data)) == NULL);
