@@ -325,10 +325,11 @@ void psbt_input_set_serial_id(const tal_t *ctx,
 			      struct wally_psbt_input *input,
 			      u64 serial_id)
 {
-	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
+	u8 *key = psbt_make_key(NULL, PSBT_TYPE_SERIAL_ID, NULL);
 	beint64_t bev = cpu_to_be64(serial_id);
 
 	psbt_input_set_unknown(ctx, input, key, &bev, sizeof(bev));
+	tal_free(key);
 }
 
 
@@ -336,9 +337,10 @@ void psbt_output_set_serial_id(const tal_t *ctx,
 			       struct wally_psbt_output *output,
 			       u64 serial_id)
 {
-	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
+	u8 *key = psbt_make_key(NULL, PSBT_TYPE_SERIAL_ID, NULL);
 	beint64_t bev = cpu_to_be64(serial_id);
 	psbt_output_set_unknown(ctx, output, key, &bev, sizeof(bev));
+	tal_free(key);
 }
 
 int psbt_find_serial_input(struct wally_psbt *psbt, u64 serial_id)
@@ -467,10 +469,11 @@ void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 void psbt_input_mark_ours(const tal_t *ctx,
 			  struct wally_psbt_input *input)
 {
-	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_INPUT_MARKER, NULL);
+	u8 *key = psbt_make_key(NULL, PSBT_TYPE_INPUT_MARKER, NULL);
 	beint16_t bev = cpu_to_be16(1);
 
 	psbt_input_set_unknown(ctx, input, key, &bev, sizeof(bev));
+	tal_free(key);
 }
 
 bool psbt_input_is_ours(const struct wally_psbt_input *input)
@@ -494,10 +497,11 @@ bool psbt_has_our_input(const struct wally_psbt *psbt)
 void psbt_output_mark_as_external(const tal_t *ctx,
 				  struct wally_psbt_output *output)
 {
-	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_OUTPUT_EXTERNAL, NULL);
+	u8 *key = psbt_make_key(NULL, PSBT_TYPE_OUTPUT_EXTERNAL, NULL);
 	beint16_t bev = cpu_to_be16(1);
 
 	psbt_output_set_unknown(ctx, output, key, &bev, sizeof(bev));
+	tal_free(key);
 }
 
 bool psbt_output_to_external(const struct wally_psbt_output *output)
