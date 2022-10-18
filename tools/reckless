@@ -350,10 +350,14 @@ def _install_plugin(src):
         if checkout.returncode != 0:
             print(f'failed to checkout referenced commit {src.commit}')
             return False
-    # Install dependencies via requirements.txt
+
+    # Install dependencies via requirements.txt or pyproject.toml
+    mypip = 'pip3' if shutil.which('pip3') else 'pip'
+    if not shutil.which(mypip):
+        raise Exception(f'{mypip} not found in PATH')
     install_methods = {
-        'requirements.txt': ['pip', 'install', '-r', 'requirements.txt'],
-        'pyproject.toml': ['pip', 'install', '-e', '.']
+        'requirements.txt': [mypip, 'install', '-r', 'requirements.txt'],
+        'pyproject.toml': [mypip, 'install', '-e', '.']
     }
 
     if src.deps is not None:
