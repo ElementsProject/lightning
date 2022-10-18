@@ -538,6 +538,18 @@ def disable(plugin_name):
 
 def load_config(reckless_dir=None, network='bitcoin'):
     """Initial directory discovery and config file creation."""
+    # Does the lightning-cli already reference an explicit config?
+    net_conf = None
+    if lightning_cli_available():
+        cmd = LIGHTNING_CLI_CALL
+        cmd.extend(['listconfigs'])
+        clncli = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        clncli.wait(timeout=3)
+        if clncli.returncode == 0:
+            output = json.loads(clncli.stdout.read().decode()
+                                .replace('\n', '').replace('   ', ''))
+            if 'conf' in output:
+                net_conf = LightningBitcoinConfig(path=output['conf'])
     if reckless_dir is None:
         reckless_dir = str(os.path.join(LIGHTNING_DIR, 'reckless'))
     else:
@@ -546,13 +558,15 @@ def load_config(reckless_dir=None, network='bitcoin'):
     # Reckless applies to the bitcoin network configuration by default.
     if network == 'bitcoin':
         reck_conf_path = os.path.join(reckless_dir, 'bitcoin-reckless.conf')
-        # This config file inherits the RecklessConfig.
-        net_conf = LightningBitcoinConfig()
+        if not net_conf:
+            # This config file inherits the RecklessConfig.
+            net_conf = LightningBitcoinConfig()
     elif network == 'regtest':
         reck_conf_path = os.path.join(reckless_dir, 'regtest-reckless.conf')
         regtest_path = os.path.join(LIGHTNING_DIR, 'regtest', 'config')
-        # Actually the regtest network config
-        net_conf = LightningBitcoinConfig(path=regtest_path)
+        if not net_conf:
+            # Actually the regtest network config
+            net_conf = LightningBitcoinConfig(path=regtest_path)
     # Reckless manages plugins here.
     reckless_conf = RecklessConfig(path=reck_conf_path)
     if not reckless_conf:
