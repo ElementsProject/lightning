@@ -450,7 +450,7 @@ def search(plugin_name):
 
 
 def lightning_cli_available():
-    clncli = Popen(['lightning-cli'], stdout=PIPE, stderr=PIPE)
+    clncli = Popen(LIGHTNING_CLI_CALL, stdout=PIPE, stderr=PIPE)
     clncli.wait(timeout=1)
     if clncli.returncode == 0:
         return True
@@ -479,7 +479,9 @@ def enable(plugin_name):
         RECKLESS_CONFIG.enable_plugin(path)
         return
 
-    clncli = Popen(['lightning-cli', 'plugin', 'start', path], stdout=PIPE)
+    cmd = LIGHTNING_CLI_CALL.copy()
+    cmd.extend(['plugin', 'start', path])
+    clncli = Popen(cmd, stdout=PIPE)
     clncli.wait(timeout=3)
     if clncli.returncode == 0:
         RECKLESS_CONFIG.enable_plugin(path)
@@ -513,8 +515,9 @@ def disable(plugin_name):
         RECKLESS_CONFIG.disable_plugin(path)
         print(f'{plugin_name} disabled')
         return
-    clncli = Popen(['lightning-cli', 'plugin', 'stop', path],
-                   stdout=PIPE, stderr=PIPE)
+    cmd = LIGHTNING_CLI_CALL.copy()
+    cmd.extend(['plugin', 'stop', path])
+    clncli = Popen(cmd, stdout=PIPE, stderr=PIPE)
     clncli.wait(timeout=3)
     output = json.loads(clncli.stdout.read().decode()
                         .replace('\n', '').replace('   ', ''))
@@ -670,6 +673,11 @@ if __name__ == '__main__':
                             'disable', 'help', 'source', 'sources']:
             NETWORK = 'regtest' if args.regtest else 'bitcoin'
             LIGHTNING_DIR = Path(args.lightning)
+            LIGHTNING_CLI_CALL = ['lightning-cli']
+            if NETWORK != 'bitcoin':
+                LIGHTNING_CLI_CALL.append(f'--network={NETWORK}')
+            if LIGHTNING_DIR != Path.home().joinpath('.lightning'):
+                LIGHTNING_CLI_CALL.append(f'--lightning-dir={LIGHTNING_DIR}')
             if args.reckless_dir:
                 RECKLESS_DIR = args.reckless_dir
             else:
