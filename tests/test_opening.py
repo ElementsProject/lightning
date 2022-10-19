@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves, anchor_expected
+    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves, anchor_expected, EXPERIMENTAL_FEATURES
 )
 
 from pathlib import Path
@@ -1974,3 +1974,41 @@ def test_coinbase_unspendable(node_factory, bitcoind):
     # Mine one block, assert one more is spendable
     bitcoind.rpc.generatetoaddress(1, l1.rpc.newaddr()['bech32'])
     assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 1
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "anchors not available")
+@pytest.mark.developer("dev-force-features, dev-queryrates required")
+@pytest.mark.openchannel('v2')
+def test_no_anchor_liquidity_ads(node_factory, bitcoind):
+    """ Liquidity ads requires anchors, which are no longer a
+    requirement for dual-funded channels. """
+
+    l1_opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
+               'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+               'may_reconnect': True, 'funder-lease-requests-only': False}
+    l2_opts = l1_opts.copy()
+    l2_opts['dev-force-features'] = ["-21"]
+    l1, l2 = node_factory.get_nodes(2, opts=[l1_opts, l2_opts])
+
+    feerate = 2000
+    amount = 10**6
+
+    l1.fundwallet(10**8)
+    l2.fundwallet(10**8)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError, match=r'liquidity ads not supported, no anchors.'):
+        l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                           feerate='{}perkw'.format(feerate),
+                           compact_lease='029a002d000000004b2003e8')
+
+    # But you can make it work without the liquidity ad request
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], amount,
+                       feerate='{}perkw'.format(feerate))
+
+    # Confirm that we used the DUAL_FUND flow
+    chan = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])
+    assert chan['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+    assert chan['funding']['local_funds_msat'] == chan['funding']['remote_funds_msat']
+    assert 'option_anchor_outputs' not in chan['features']
