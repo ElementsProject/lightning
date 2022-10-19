@@ -427,7 +427,7 @@ def basic_fee(feerate):
 
 def closing_fee(feerate, num_outputs):
     assert num_outputs == 1 or num_outputs == 2
-    weight = 424 + 124 * num_outputs
+    weight = 428 + 124 * num_outputs
     return (weight * feerate) // 1000
 
 
