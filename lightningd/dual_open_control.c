@@ -161,9 +161,14 @@ void json_add_unsaved_channel(struct json_stream *response,
 	}
 
 	json_array_start(response, "features");
-	/* v2 channels assumed to have both static_remotekey + anchor_outputs */
+	/* v2 channels assume static_remotekey */
 	json_add_string(response, NULL, "option_static_remotekey");
-	json_add_string(response, NULL, "option_anchor_outputs");
+
+	if (feature_negotiated(channel->peer->ld->our_features,
+			       channel->peer->their_features,
+			       OPT_ANCHOR_OUTPUTS))
+		json_add_string(response, NULL, "option_anchor_outputs");
+
 	json_array_end(response);
 	json_object_end(response);
 }
