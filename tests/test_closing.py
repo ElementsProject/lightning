@@ -26,7 +26,7 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
     chan = l1.get_channel_scid(l2)
     channel_id = first_channel_id(l1, l2)
-    fee = closing_fee(3750, 2) if not chainparams['elements'] else 4263
+    fee = closing_fee(3750, 2) if not chainparams['elements'] else 4278
 
     l1.pay(l2, 200000000)
 
@@ -3389,7 +3389,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # This causes us to *exceed* previous requirements!
-    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> 16440sat \(not 1000000sat\)')
+    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> 16560sat \(not 1000000sat\)')
 
     # This will fail because l1 restarted!
     with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
@@ -3578,12 +3578,12 @@ def test_close_feerate_range(node_factory, bitcoind, chainparams):
         l1.rpc.close(l2.info['id'], feerange=['253perkw', 'normal'])
 
     if not chainparams['elements']:
-        l1_range = [138, 4110]
-        l2_range = [1027, 1000000]
+        l1_range = [139, 4140]
+        l2_range = [1035, 1000000]
     else:
         # That fee output is a little chunky.
-        l1_range = [220, 6547]
-        l2_range = [1636, 1000000]
+        l1_range = [221, 6577]
+        l2_range = [1644, 1000000]
 
     l1.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l1_range[0], l1_range[1]))
     l2.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l2_range[0], l2_range[1]))
@@ -3635,19 +3635,20 @@ def test_close_weight_estimate(node_factory, bitcoind):
     # This is the actual weight: in theory this could use their
     # actual sig, and thus vary, but we don't do that.
     log = l1.daemon.wait_for_log('Their actual closing tx fee is')
-    actual_weight = int(re.match('.*: weight is ([0-9]*).*', log).group(1))
+    final_estimate = int(re.match('.*: weight is ([0-9]*).*', log).group(1))
 
-    assert actual_weight == expected_weight
+    assert final_estimate == expected_weight
 
     log = l1.daemon.wait_for_log('sendrawtransaction: ')
     tx = re.match('.*sendrawtransaction: ([0-9a-f]*).*', log).group(1)
 
-    # This could actually be a bit shorter: 1 in 256 chance we get
-    # lucky with a sig and it's shorter.  We have 2 sigs, so that's
-    # 1 in 128.  Unlikely to do better than 2 bytes off though!
+    # To match the signer's estimate we use the pessimistic estimate
+    # of 73bytes / signature. We will always end up with at most 71
+    # bytes since we grind the signatures, and sometimes we get lucky
+    # and get a 70 byte signature, hence the below ranges.
     signed_weight = int(bitcoind.rpc.decoderawtransaction(tx)['weight'])
-    assert signed_weight <= actual_weight
-    assert signed_weight >= actual_weight - 2
+    assert signed_weight + 4 <= final_estimate  # 71byte signature
+    assert signed_weight + 6 >= final_estimate  # 70byte signature
 
 
 @pytest.mark.developer("needs dev_disconnect")
