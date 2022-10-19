@@ -22,7 +22,7 @@ def default_ln_port(network: str) -> int:
 
 
 def anchor_expected():
-    return EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND
+    return EXPERIMENTAL_FEATURES
 
 
 def hex_bits(features):
@@ -414,7 +414,7 @@ def first_scid(n1, n2):
 
 
 def basic_fee(feerate):
-    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:
+    if anchor_expected():
         # option_anchor_outputs
         weight = 1124
     else:

@@ -9,7 +9,8 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr, default_ln_port,
-    EXPERIMENTAL_FEATURES, mine_funding_to_announce, first_scid
+    EXPERIMENTAL_FEATURES, mine_funding_to_announce, first_scid,
+    anchor_expected
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
@@ -378,7 +379,7 @@ def test_opening_tiny_channel(node_factory):
     reserves = 2 * dustlimit
     min_commit_tx_fees = basic_fee(7500)
     overhead = reserves + min_commit_tx_fees
-    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:
+    if anchor_expected():
         # Gotta fund those anchors too!
         overhead += 660
 
@@ -2083,7 +2084,7 @@ def test_multifunding_feerates(node_factory, bitcoind):
 
     # Because of how the anchor outputs protocol is designed,
     # we *always* pay for 2 anchor outs and their weight
-    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:  # opt_anchor_outputs
+    if anchor_expected():
         weight = 1124
     else:
         # the commitment transactions' feerate is calculated off
@@ -2096,7 +2097,7 @@ def test_multifunding_feerates(node_factory, bitcoind):
     # tx, but we subtract out the extra anchor output amount
     # from the to_us output, so it ends up inflating
     # our fee by that much.
-    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:  # opt_anchor_outputs
+    if anchor_expected():
         expected_fee += 330
 
     assert expected_fee == entry['fees']['base'] * 10 ** 8
