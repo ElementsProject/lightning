@@ -1144,8 +1144,12 @@ def test_funder_options(node_factory, bitcoind):
     l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l3.fundchannel(l1, 10**6)
     chan_info = only_one(l3.rpc.listpeerchannels(l1.info['id'])['channels'])
+    log = l1.daemon.wait_for_log(r'Policy available \(100%\) returned funding amount of')
+    match = re.search(r'Policy available \(100%\) returned funding amount of (\d*sat)', log)
+    assert match and len(match.groups()) == 1
+
     # l1 contributed all its funds!
-    assert chan_info['funding']['remote_funds_msat'] == Millisatoshi('9994945000msat')
+    assert chan_info['funding']['remote_funds_msat'] == Millisatoshi(match.groups()[0])
     assert chan_info['funding']['local_funds_msat'] == Millisatoshi('1000000000msat')
 
 
