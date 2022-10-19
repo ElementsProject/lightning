@@ -3926,6 +3926,8 @@ int main(int argc, char *argv[])
 					     &state->tx_state->lease_chan_max_ppt,
 					     &requested_lease)) {
 
+		bool ok;
+
 		/*~ We only reconnect on channels that the
 		 * saved the the database (exchanged commitment sigs) */
 		type = default_channel_type(NULL,
@@ -3934,6 +3936,8 @@ int main(int argc, char *argv[])
 
 		if (requested_lease)
 			state->requested_lease = tal_steal(state, requested_lease);
+		else
+			state->requested_lease = NULL;
 
 		state->channel = new_initial_channel(state,
 						     &state->channel_id,
@@ -3956,10 +3960,20 @@ int main(int argc, char *argv[])
 								     OPT_LARGE_CHANNELS),
 						     opener);
 
-		if (opener == LOCAL)
+		if (opener == LOCAL) {
 			state->our_role = TX_INITIATOR;
-		else
+			ok = amount_msat_to_sat(&state->tx_state->opener_funding, our_msat);
+			ok &= amount_sat_sub(&state->tx_state->accepter_funding,
+					    total_funding,
+					    state->tx_state->opener_funding);
+		} else {
 			state->our_role = TX_ACCEPTER;
+			ok = amount_msat_to_sat(&state->tx_state->accepter_funding, our_msat);
+			ok &= amount_sat_sub(&state->tx_state->opener_funding,
+					    total_funding,
+					    state->tx_state->accepter_funding);
+		}
+		assert(ok);
 
 		/* We can pull the commitment feerate out of the feestates */
 		state->feerate_per_kw_commitment
