@@ -145,6 +145,14 @@ int main(int argc, const char *argv[])
 
 	/* 1 byte for num witnesses, one per witness element */
 	weight = 1;
+
+	/* Two signatures, slightly overestimated to be 73 bytes each,
+	 * while the actual witness will often be smaller.*/
+        /* BOLT #03:
+         * Signatures are 73 bytes long (the maximum length).
+         */
+	weight += 2 + 2;
+
 	for (size_t i = 0; i < tal_count(wit); i++)
 		weight += 1 + tal_bytelen(wit[i]);
 	assert(bitcoin_tx_2of2_input_witness_weight() == weight);
