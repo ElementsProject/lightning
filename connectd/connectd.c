@@ -47,6 +47,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
 /*~ We are passed two file descriptors when exec'ed from `lightningd`: the
@@ -305,8 +306,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		status_peer_unusual(id, "Unsupported feature %u", unsup);
 		msg = towire_warningfmt(NULL, NULL, "Unsupported feature %u",
 					unsup);
-		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
-		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
+		msg = cryptomsg_encrypt_msg(NULL, cs, take(msg));
+		return io_write_wire(conn, take(msg), io_close_cb, NULL);
 	}
 
 	if (!feature_check_depends(their_features, &depender, &missing)) {
@@ -315,8 +316,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		msg = towire_warningfmt(NULL, NULL,
 				      "Feature %zu requires feature %zu",
 				      depender, missing);
-		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
-		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
+		msg = cryptomsg_encrypt_msg(NULL, cs, take(msg));
+		return io_write_wire(conn, take(msg), io_close_cb, NULL);
 	}
 
 	/* We've successfully connected. */
