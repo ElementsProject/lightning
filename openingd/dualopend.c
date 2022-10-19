@@ -2070,15 +2070,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
-	/* This is an `option_will_fund` request */
-	if (open_tlv->request_funds) {
-		state->requested_lease = tal(state, struct amount_sat);
-		state->requested_lease->satoshis /* Raw: u64 -> sat conversion */
-			= open_tlv->request_funds->requested_sats;
-		tx_state->blockheight
-			= open_tlv->request_funds->blockheight;
-	}
-
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
 	 * `open_channel2`), a temporary `channel_id` should be found
@@ -2093,6 +2084,23 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						  &state->channel_id),
 				   type_to_string(tmpctx, struct channel_id,
 						  &cid));
+
+	/* Since anchor outputs are optional, we
+	 * only support liquidity ads if those are enabled. */
+	if (open_tlv->request_funds &&
+	    !anchors_negotiated(state->our_features,
+				state->their_features))
+		negotiation_failed(state, "liquidity ads not supported,"
+				   " no anchors.");
+
+	/* This is an `option_will_fund` request */
+	if (open_tlv->request_funds) {
+		state->requested_lease = tal(state, struct amount_sat);
+		state->requested_lease->satoshis /* Raw: u64 -> sat conversion */
+			= open_tlv->request_funds->requested_sats;
+		tx_state->blockheight
+			= open_tlv->request_funds->blockheight;
+	}
 
 	/* BOLT #2:
 	 *
