@@ -211,6 +211,16 @@ u8 *no_upfront_shutdown_script(const tal_t *ctx,
 	return NULL;
 }
 
+bool anchors_negotiated(struct feature_set *our_features,
+			const u8 *their_features)
+{
+	return feature_negotiated(our_features, their_features,
+				  OPT_ANCHOR_OUTPUTS)
+		|| feature_negotiated(our_features,
+				      their_features,
+				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
+}
+
 char *validate_remote_upfront_shutdown(const tal_t *ctx,
 				       struct feature_set *our_features,
 				       const u8 *their_features,
@@ -220,13 +230,8 @@ char *validate_remote_upfront_shutdown(const tal_t *ctx,
 	bool anysegwit = feature_negotiated(our_features,
 					    their_features,
 					    OPT_SHUTDOWN_ANYSEGWIT);
-	bool anchors = feature_negotiated(our_features,
-					  their_features,
-					  OPT_ANCHOR_OUTPUTS)
-		|| feature_negotiated(our_features,
-				      their_features,
-				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
 
+	bool anchors = anchors_negotiated(our_features, their_features);
 	/* BOLT #2:
 	 *
 	 * - MUST include `upfront_shutdown_script` with either a valid
