@@ -1606,15 +1606,10 @@ def test_plugin_feature_announce(node_factory):
         wait_for_announce=True
     )
 
-    extra = []
-    if l1.config('experimental-dual-fund'):
-        extra.append(21)  # option-anchor-outputs
-        extra.append(29)  # option-dual-fund
-
     # Check the featurebits we've set in the `init` message from
     # feature-test.py.
     assert l1.daemon.is_in_log(r'\[OUT\] 001000022100....{}'
-                               .format(expected_peer_features(extra=[201] + extra)))
+                               .format(expected_peer_features(extra=[201])))
 
     # Check the invoice featurebit we set in feature-test.py
     inv = l1.rpc.invoice(123, 'lbl', 'desc')['bolt11']
@@ -1623,7 +1618,7 @@ def test_plugin_feature_announce(node_factory):
 
     # Check the featurebit set in the `node_announcement`
     node = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
-    assert node['features'] == expected_node_features(extra=[203] + extra)
+    assert node['features'] == expected_node_features(extra=[203])
 
 
 def test_hook_chaining(node_factory):
