@@ -70,12 +70,12 @@ RUN apt-get update -qq && \
         python3-setuptools \
         wget
 
-RUN wget -q https://zlib.net/zlib-1.2.12.tar.gz \
-&& tar xvf zlib-1.2.12.tar.gz \
-&& cd zlib-1.2.12 \
+RUN wget -q https://zlib.net/zlib-1.2.13.tar.gz \
+&& tar xvf zlib-1.2.13.tar.gz \
+&& cd zlib-1.2.13 \
 && ./configure \
 && make \
-&& make install && cd .. && rm zlib-1.2.12.tar.gz && rm -rf zlib-1.2.12
+&& make install && cd .. && rm zlib-1.2.13.tar.gz && rm -rf zlib-1.2.13
 
 RUN apt-get install -y --no-install-recommends unzip tclsh \
 && wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip \
