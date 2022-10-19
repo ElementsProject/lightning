@@ -48,8 +48,6 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
     if wumbo_channels:
         features += [19]
     if EXPERIMENTAL_DUAL_FUND:
-        # option_anchor_outputs
-        features += [21]
         # option_dual_fund
         features += [29]
     return hex_bits(features + extra)
@@ -70,8 +68,6 @@ def expected_node_features(wumbo_channels=False, extra=[]):
     if wumbo_channels:
         features += [19]
     if EXPERIMENTAL_DUAL_FUND:
-        # option_anchor_outputs
-        features += [21]
         # option_dual_fund
         features += [29]
     return hex_bits(features + extra)

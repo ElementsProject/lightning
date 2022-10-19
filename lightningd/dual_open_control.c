@@ -2605,8 +2605,6 @@ static struct command_result *init_set_feerate(struct command *cmd,
 	}
 	if (!*feerate_per_kw) {
 		*feerate_per_kw = tal(cmd, u32);
-		/* FIXME: Anchors are on by default, we should use the lowest
-		 * possible feerate */
 		**feerate_per_kw = **feerate_per_kw_funding;
 	}
 

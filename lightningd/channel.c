@@ -250,11 +250,14 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9
 	 * | 222/223 | `option_dual_fund`
 	 * | Use v2 of channel open, enables dual funding
-	 * | IN9
-	 * | `option_anchor_outputs`    */
+	 * | IN9 */
 	channel->static_remotekey_start[LOCAL]
 		= channel->static_remotekey_start[REMOTE] = 0;
-	channel->type = channel_type_anchor_outputs(channel);
+
+	channel->type = default_channel_type(channel,
+					     peer->ld->our_features,
+					     peer->their_features);
+
 	channel->future_per_commitment_point = NULL;
 
 	channel->lease_commit_sig = NULL;
