@@ -1045,10 +1045,10 @@ static char *opt_set_websocket_port(const char *arg, struct lightningd *ld)
 
 static char *opt_set_dual_fund(struct lightningd *ld)
 {
-	/* Dual funding implies anchor outputs */
+	/* Dual funding implies static remotkey */
 	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS))));
+						    OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY))));
 	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
 						    OPTIONAL_FEATURE(OPT_DUAL_FUND))));

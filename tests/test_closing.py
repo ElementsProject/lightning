@@ -739,7 +739,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 def test_channel_lease_falls_behind(node_factory, bitcoind):
     '''
     If our peer falls too far behind/doesn't send us an update for
@@ -749,6 +749,11 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -779,7 +784,7 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 @pytest.mark.slow_test
 def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
@@ -788,6 +793,9 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'may_reconnect': True, 'plugin': coin_mvt_plugin,
             'dev-no-reconnect': None}
+
+    if not anchor_expected():
+        opts['dev-force-features'] = '+21'
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
 
@@ -893,7 +901,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 def test_channel_lease_unilat_closes(node_factory, bitcoind):
     '''
     Check that channel leases work
@@ -904,6 +912,9 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'funder-lease-requests-only': False}
+
+    if not anchor_expected():
+        opts['dev-force-features'] = '+21'
 
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     # Allow l2 some warnings
@@ -1005,7 +1016,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates', 'dev-force-features'")
 def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessee can recover funds if lessor cheats
@@ -1019,6 +1030,11 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'allow_broken_log': True,
              'plugin': balance_snaps}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -1081,7 +1097,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-@pytest.mark.developer("requres 'dev-queryrates', dev-no-reconnect")
+@pytest.mark.developer("requres 'dev-queryrates', dev-no-reconnect, dev-force-features")
 def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessor can recover funds if lessee cheats
@@ -1093,6 +1109,11 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True, 'dev-no-reconnect': None}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000

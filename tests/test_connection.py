@@ -2668,12 +2668,8 @@ def test_forget_channel(node_factory):
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
 
-    if l1.config('experimental-dual-fund'):
-        lfeatures = expected_peer_features(extra=[21, 29])
-        nfeatures = expected_node_features(extra=[21, 29])
-    else:
-        lfeatures = expected_peer_features()
-        nfeatures = expected_node_features()
+    lfeatures = expected_peer_features()
+    nfeatures = expected_node_features()
 
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
@@ -3469,10 +3465,6 @@ def test_wumbo_channels(node_factory, bitcoind):
     conn = l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
 
     expected_features = expected_peer_features(wumbo_channels=True)
-    if l1.config('experimental-dual-fund'):
-        expected_features = expected_peer_features(wumbo_channels=True,
-                                                   extra=[21, 29])
-
     assert conn['features'] == expected_features
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['features'] == expected_features
 
@@ -3557,7 +3549,7 @@ def test_channel_features(node_factory, bitcoind):
     # We should see features in unconfirmed channels.
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if EXPERIMENTAL_FEATURES or l1.config('experimental-dual-fund'):
+    if EXPERIMENTAL_FEATURES:
         assert 'option_anchor_outputs' in chan['features']
 
     # l2 should agree.
@@ -3570,7 +3562,7 @@ def test_channel_features(node_factory, bitcoind):
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert 'option_static_remotekey' in chan['features']
-    if EXPERIMENTAL_FEATURES or l1.config('experimental-dual-fund'):
+    if EXPERIMENTAL_FEATURES:
         assert 'option_anchor_outputs' in chan['features']
 
     # l2 should agree.

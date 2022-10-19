@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
+    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves, anchor_expected
 )
 
 from pathlib import Path
@@ -19,9 +19,15 @@ def find_next_feerate(node, peer):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-queryrates'")
+@pytest.mark.developer("requres 'dev-queryrates' + 'dev-force-features'")
 def test_queryrates(node_factory, bitcoind):
-    l1, l2 = node_factory.get_nodes(2, opts={'dev-no-reconnect': None})
+
+    opts = {'dev-no-reconnect': None}
+
+    if not anchor_expected():
+        opts['dev-force-features'] = '+21'
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
 
     amount = 10 ** 6
 
@@ -340,11 +346,16 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+@pytest.mark.developer("requres 'dev-force-features'")
 def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'may_reconnect': True}
+
+    if not anchor_expected():
+        opts['dev-force-features'] = '+21'
+
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
     # what happens when we RBF?
@@ -1216,21 +1227,23 @@ def test_funder_contribution_limits(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
-@pytest.mark.developer("requres 'dev-disconnect'")
+@pytest.mark.developer("requres 'dev-disconnect', 'dev-force-features'")
 def test_inflight_dbload(node_factory, bitcoind):
     """Bad db field access breaks Postgresql on startup with opening leases"""
     disconnects = ["@WIRE_COMMITMENT_SIGNED"]
-    l1, l2 = node_factory.get_nodes(2, opts=[{'experimental-dual-fund': None,
-                                              'dev-no-reconnect': None,
-                                              'may_reconnect': True,
-                                              'disconnect': disconnects},
-                                             {'experimental-dual-fund': None,
-                                              'dev-no-reconnect': None,
-                                              'may_reconnect': True,
-                                              'funder-policy': 'match',
-                                              'funder-policy-mod': 100,
-                                              'lease-fee-base-sat': '100sat',
-                                              'lease-fee-basis': 100}])
+
+    opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'disconnect': disconnects},
+            {'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'funder-policy': 'match',
+             'funder-policy-mod': 100, 'lease-fee-base-sat': '100sat',
+             'lease-fee-basis': 100}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
 
     feerate = 2000
     amount = 500000
@@ -1528,6 +1541,7 @@ def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
+@pytest.mark.developer("dev-force-features required")
 def test_v2_replay_bookkeeping(node_factory, bitcoind):
     """ Test that your bookkeeping for a liquidity ad is good
         even if we replay the opening and locking tx!
@@ -1539,6 +1553,11 @@ def test_v2_replay_bookkeeping(node_factory, bitcoind):
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
@@ -1591,6 +1610,7 @@ def test_v2_replay_bookkeeping(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v2')
+@pytest.mark.developer("dev-force-features required")
 def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     """ Test that your bookkeeping for a liquidity ad is good."""
 
@@ -1601,6 +1621,11 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True}]
+
+    if not anchor_expected():
+        for opt in opts:
+            opt['dev-force-features'] = '+21'
+
     l1, l2, = node_factory.get_nodes(2, opts=opts)
     amount = 500000
     feerate = 2000
