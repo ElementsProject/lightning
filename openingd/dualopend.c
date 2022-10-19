@@ -863,6 +863,20 @@ static bool is_segwit_output(struct wally_tx_output *output)
 	return is_p2wsh(wit_prog, NULL) || is_p2wpkh(wit_prog, NULL);
 }
 
+static void set_remote_upfront_shutdown(struct state *state,
+					u8 *shutdown_scriptpubkey STEALS)
+{
+	char *err;
+
+	err = validate_remote_upfront_shutdown(state, state->our_features,
+					       state->their_features,
+					       shutdown_scriptpubkey,
+					       &state->upfront_shutdown_script[REMOTE]);
+
+	if (err)
+		peer_failed_err(state->pps, &state->channel_id, "%s", err);
+}
+
 /* Memory leak detection is DEVELOPER-only because we go to great lengths to
  * record the backtrace when allocations occur: without that, the leak
  * detection tends to be useless for diagnosing where the leak came from, but
@@ -2051,10 +2065,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		open_err_fatal(state, "Parsing open_channel2 %s",
 			       tal_hex(tmpctx, oc2_msg));
 
-	if (open_tlv->upfront_shutdown_script) {
-		state->upfront_shutdown_script[REMOTE] =
-			tal_steal(state, open_tlv->upfront_shutdown_script);
-	} else
+	if (open_tlv->upfront_shutdown_script)
+		set_remote_upfront_shutdown(state, open_tlv->upfront_shutdown_script);
+	else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
 	/* This is an `option_will_fund` request */
@@ -2778,8 +2791,7 @@ static void opener_start(struct state *state, u8 *msg)
 	}
 
 	if (a_tlv->upfront_shutdown_script)
-		state->upfront_shutdown_script[REMOTE]
-			= tal_steal(state, a_tlv->upfront_shutdown_script);
+		set_remote_upfront_shutdown(state, a_tlv->upfront_shutdown_script);
 	else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
