@@ -234,7 +234,8 @@ class InferInstall():
 
 def help(target):
     if len(target) > 0:
-        print(globals()[target[0]].__doc__)
+        if target[0] in globals() and hasattr(globals()[target[0]], '__doc__'):
+            print(globals()[target[0]].__doc__)
     else:
         parser.print_help(sys.stdout)
 
@@ -607,9 +608,11 @@ def loadSources():
     return sources_from_file()
 
 
-def add_source(src):
+def add_source(sources):
     """Additional git repositories, directories, etc. are passed here
-    singly."""
+    as a list."""
+    assert isinstance(sources, list)
+    src = sources[0]
     # Is it a file?
     assert isinstance(src, str)
     maybe_path = os.path.realpath(src)
@@ -623,7 +626,9 @@ def add_source(src):
         my_file.editConfigFile(src, None)
 
 
-def remove_source(src):
+def remove_source(sources):
+    assert isinstance(sources, list)
+    src = sources[0]
     assert isinstance(src, str)
     if src in sources_from_file():
         my_file = Config(path=get_sources_file(),
@@ -639,41 +644,8 @@ def list_source():
         print(src)
 
 
-def source(cmd):
-    """reckless source <add/remove/list>
-    reckless source add <github repository url>      adds a source to search
-    reckless source remove <github repository url>   removes a source
-    reckless source list                             lists all sources
-    """
-    assert isinstance(cmd, list)
-    if cmd[0] == 'add':
-        for src in cmd[1:]:
-            add_source(src)
-    elif cmd[0] == 'remove' or cmd[0] == 'rem' or cmd[0] == 'rm':
-        for src in cmd[1:]:
-            remove_source(src)
-    elif cmd[0] == 'list':
-        list_source()
-    else:
-        print('unrecognized argument to reckless source: {cmd[0]}')
-        sys.exit(1)
-
-
-def sources(cmd):
-    # alias to improve ux
-    source(cmd)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(dest='command', help='install/uninstall/search/enable'
-                        '/disable/source/help',
-                        type=str)
-    # Here we pass a list of argument in as target. This is useful for
-    # subcommands (i.e., reckless source add <repo>) as well as for passing
-    # lists of plugins to handle in sequence (to be implemented.)
-    parser.add_argument(dest='target', nargs='*', default=None, help='target',
-                        type=str)
     # This default depends on the .lightning directory
     parser.add_argument('-d', '--reckless-dir',
                         help='specify a data directory for reckless to use',
@@ -684,27 +656,70 @@ if __name__ == '__main__':
                         default=Path.home().joinpath('.lightning'))
     parser.add_argument('-r', '--regtest', action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true')
+    cmd1 = parser.add_subparsers(dest='cmd1', help='command',
+                                 required=True)
+
+    install_cmd = cmd1.add_parser('install', help='search for and install a '
+                                  'plugin, then test and activate')
+    install_cmd.add_argument('targets', type=str, nargs='*')
+    install_cmd.set_defaults(func=install)
+
+    uninstall_cmd = cmd1.add_parser('uninstall', help='deactivate a plugin '
+                                    'and remove it from the directory')
+    uninstall_cmd.add_argument('targets', type=str, nargs='*')
+    uninstall_cmd.set_defaults(func=uninstall)
+
+    search_cmd = cmd1.add_parser('search', help='search for a plugin from '
+                                 'the available source repositories')
+    search_cmd.add_argument('targets', type=str, nargs='*')
+    search_cmd.set_defaults(func=search)
+
+    enable_cmd = cmd1.add_parser('enable', help='dynamically enable a plugin '
+                                 'and update config')
+    enable_cmd.add_argument('targets', type=str, nargs='*')
+    enable_cmd.set_defaults(func=enable)
+    disable_cmd = cmd1.add_parser('disable', help='disable a plugin')
+    disable_cmd.add_argument('targets', type=str, nargs='*')
+    disable_cmd.set_defaults(func=disable)
+    source_parser = cmd1.add_parser('source', help='manage plugin search '
+                                    'sources')
+    source_subs = source_parser.add_subparsers(dest='source_subs',
+                                               required=True)
+    list_parse = source_subs.add_parser('list', help='list available plugin '
+                                        'sources (repositories)')
+    list_parse.set_defaults(func=list_source)
+    source_add = source_subs.add_parser('add', help='add a source repository')
+    source_add.add_argument('targets', type=str, nargs='*')
+    source_add.set_defaults(func=add_source)
+    source_rem = source_subs.add_parser('remove', aliases=['rem', 'rm'],
+                                        help='remove a plugin source '
+                                        'repository')
+    source_rem.add_argument('targets', type=str, nargs='*')
+    source_rem.set_defaults(func=remove_source)
+
+    help_cmd = cmd1.add_parser('help', help='display this message')
+    help_cmd.add_argument('targets', type=str, nargs='*')
+    help_cmd.set_defaults(func=help)
+
     args = parser.parse_args()
 
-    if hasattr(args, 'command'):
-        if args.command in ['install', 'uninstall', 'search', 'enable',
-                            'disable', 'help', 'source', 'sources']:
-            NETWORK = 'regtest' if args.regtest else 'bitcoin'
-            LIGHTNING_DIR = Path(args.lightning)
-            LIGHTNING_CLI_CALL = ['lightning-cli']
-            if NETWORK != 'bitcoin':
-                LIGHTNING_CLI_CALL.append(f'--network={NETWORK}')
-            if LIGHTNING_DIR != Path.home().joinpath('.lightning'):
-                LIGHTNING_CLI_CALL.append(f'--lightning-dir={LIGHTNING_DIR}')
-            if args.reckless_dir:
-                RECKLESS_DIR = args.reckless_dir
-            else:
-                RECKLESS_DIR = os.path.join(LIGHTNING_DIR, 'reckless')
-            RECKLESS_CONFIG = load_config(reckless_dir=RECKLESS_DIR,
-                                          network=NETWORK)
-            RECKLESS_SOURCES = loadSources()
-            IS_VERBOSE = bool(args.verbose)
-            globals()[args.command](args.target)
-            sys.exit(0)
-        else:
-            print(f'{args.command}: command unrecognized')
+    NETWORK = 'regtest' if args.regtest else 'bitcoin'
+    LIGHTNING_DIR = Path(args.lightning)
+    LIGHTNING_CLI_CALL = ['lightning-cli']
+    if NETWORK != 'bitcoin':
+        LIGHTNING_CLI_CALL.append(f'--network={NETWORK}')
+    if LIGHTNING_DIR != Path.home().joinpath('.lightning'):
+        LIGHTNING_CLI_CALL.append(f'--lightning-dir={LIGHTNING_DIR}')
+    if args.reckless_dir:
+        RECKLESS_DIR = args.reckless_dir
+    else:
+        RECKLESS_DIR = os.path.join(LIGHTNING_DIR, 'reckless')
+    RECKLESS_CONFIG = load_config(reckless_dir=RECKLESS_DIR,
+                                  network=NETWORK)
+    RECKLESS_SOURCES = loadSources()
+    IS_VERBOSE = bool(args.verbose)
+
+    if 'targets' in args:
+        args.func(args.targets)
+    else:
+        args.func()
