@@ -1,38 +1,54 @@
-# This file is used to build and test `lightningd`
+workflow:
+  rules:
+    # Allow running a pipeline on version branches (not tags!)
+    - if: $CI_COMMIT_BRANCH =~ "/^v/"
 
-# Image automatically built by https://github.com/cdecker/dockerfiles/tree/master/lightning/ci
-image: cdecker/lightning-ci:latest
+variables:
+  DEBIAN_FRONTEND: "noninteractive"
+  DEVELOPER: "1"
+  RUST_BACKTRACE: "1"
+  RUST_VERSION: "1.60"
 
 build:
   stage: build
+  image: ubuntu:20.04
   before_script:
-    - >-
-      curl -s -H "Authorization: token $GITHUB_STATUS_TOKEN"
-      -X POST
-      --data '{"state": "pending", "description": "Gitlab-CI is building the commit", "context": "gitlab-ci"}'
-      https://api.github.com/repos/ElementsProject/lightning/statuses/$CI_COMMIT_SHA || true
+    - apt-get update -qq
+    - >
+      apt-get install -qqy \
+        autoconf \
+        build-essential \
+        clang \
+        git \
+        libgmp-dev \
+        libpq-dev \
+        libsqlite3-dev \
+        libtool \
+        python3 \
+        python3-pip \
+        openssh-client \
+        curl \
+        clang \
+        libssl-dev \
+        wget \
+        libssl-dev \
+        pkg-config \
+        gettext \
+        zlib1g-dev
+    - pip install -U sh wheel pip mako mrkd mistune==0.8.4 google-cloud-storage oauth2client
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${RUST_VERSION}
+    - ~/.cargo/bin/rustup toolchain install ${RUST_VERSION} --component rustfmt --allow-downgrade
+    - git config --global user.email "ci@blockstream.com"
+    - git config --global user.name "Gitlab CI"
+    - cat "$CI_SERVICE_ACCOUNT" > ci-service-account.json
+    - git branch --show-current
+    - git submodule update --recursive
+    - git status
+
   script:
-    - make
-    - make -j 12 check
-    - make check-source
+    - python3 build.py $CI_COMMIT_BRANCH
 
   artifacts:
     paths:
-      - daemon/lightningd
-      - daemon/lightning-cli
-
-update-status-fail:
-  image: tutum/curl
-  stage: deploy
-  when: on_failure
-  script:
-    - >-
-      curl -s -H "Authorization: token $GITHUB_STATUS_TOKEN" -X POST --data '{"state": "failure", "description": "Gitlab-CI build failed, please contact @cdecker for details about build #$CI_JOB_ID.", "context": "gitlab-ci"}' https://api.github.com/repos/ElementsProject/lightning/statuses/$CI_COMMIT_SHA || true
-
-update-status-success:
-  image: tutum/curl
-  stage: deploy
-  when: on_success
-  script:
-    - >-
-      curl -s -H "Authorization: token $GITHUB_STATUS_TOKEN" -X POST --data '{"state": "success", "description": "Gitlab-CI build succeeded.", "context": "gitlab-ci"}' https://api.github.com/repos/ElementsProject/lightning/statuses/$CI_COMMIT_SHA || true
+      - lightningd-{$CI_COMMIT_BRANCH}.tar.bz2
+    expire_in: never
