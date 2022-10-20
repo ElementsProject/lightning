@@ -2341,7 +2341,7 @@ def test_emergencyrecover(node_factory, bitcoind):
     l1.daemon.wait_for_log('peer_out WIRE_ERROR')
     l2.daemon.wait_for_log('State changed from CHANNELD_NORMAL to AWAITING_UNILATERAL')
 
-    l2.bitcoin.generate_block(5)
+    bitcoind.generate_block(5, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
 
     l1.daemon.wait_for_log(r'All outputs resolved.*')
