@@ -232,12 +232,12 @@ class InferInstall():
         raise Exception(f'plugin entrypoint not found in {self.dir}')
 
 
-def help(target):
-    if len(target) > 0:
-        if target[0] in globals() and hasattr(globals()[target[0]], '__doc__'):
-            print(globals()[target[0]].__doc__)
-    else:
+def help_alias(target):
+    if len(target) == 0:
         parser.print_help(sys.stdout)
+    else:
+        print('try "reckless {} -h"'.format(' '.join(target)))
+        sys.exit(1)
 
 
 def verbose(*args):
@@ -697,9 +697,10 @@ if __name__ == '__main__':
     source_rem.add_argument('targets', type=str, nargs='*')
     source_rem.set_defaults(func=remove_source)
 
-    help_cmd = cmd1.add_parser('help', help='display this message')
+    help_cmd = cmd1.add_parser('help', help='for contextual help, use '
+                               '"reckless <cmd> -h"')
     help_cmd.add_argument('targets', type=str, nargs='*')
-    help_cmd.set_defaults(func=help)
+    help_cmd.set_defaults(func=help_alias)
 
     args = parser.parse_args()
 
