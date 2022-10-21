@@ -3,6 +3,9 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+
+#define MAGIC_ACK_NUMBER 85
 
 bool fdpass_send(int sockout, int fd)
 {
@@ -10,7 +13,9 @@ bool fdpass_send(int sockout, int fd)
 	struct msghdr msg = { 0 };
 	struct cmsghdr *cmsg;
 	struct iovec iov;
-	char c = 0;
+	char c = 0, ack;
+	bool result;
+	int read_res;
 	union {         /* Ancillary data buffer, wrapped in a union
 			   in order to ensure it is suitably aligned */
 		char buf[CMSG_SPACE(sizeof(fd))];
@@ -37,7 +42,20 @@ bool fdpass_send(int sockout, int fd)
 	iov.iov_base = &c;
 	iov.iov_len = 1;
 
-	return sendmsg(sockout, &msg, 0) == 1;
+	result = sendmsg(sockout, &msg, 0) == 1;
+
+	/* Wait for explicit ACK of socket send */
+	while(result) {
+		read_res = read(sockout, &ack, 1);
+
+		if(read_res == 1 && ack == MAGIC_ACK_NUMBER)
+			break;
+
+		if(read_res != -1 || errno != EAGAIN)
+			result = false;
+	}
+
+	return result;
 }
 
 int fdpass_recv(int sockin)
@@ -47,7 +65,7 @@ int fdpass_recv(int sockin)
 	struct cmsghdr *cmsg;
 	struct iovec iov;
 	int fd;
-	char c;
+	char c, ack;
 	union {         /* Ancillary data buffer, wrapped in a union
 			   in order to ensure it is suitably aligned */
 		char buf[CMSG_SPACE(sizeof(fd))];
@@ -79,5 +97,13 @@ int fdpass_recv(int sockin)
 	}
 
 	memcpy(&fd, CMSG_DATA(cmsg), sizeof(fd));
+
+	/* Send an explicit ack of the socket being received */
+	ack = MAGIC_ACK_NUMBER;
+	if(write(sockin, &ack, 1) != 1) {
+		close(fd);
+		return -1;
+	}
+	
 	return fd;
 }
