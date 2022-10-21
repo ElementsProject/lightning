@@ -61,6 +61,10 @@ struct channel_type *default_channel_type(const tal_t *ctx,
 	if (feature_negotiated(our_features, their_features,
 			       OPT_ANCHOR_OUTPUTS))
 		return channel_type_anchor_outputs(ctx);
+	else if (feature_negotiated(our_features, their_features,
+				    OPT_DUAL_FUND))
+		/* OPT_DUAL_FUND implies static remotekey */
+		return channel_type_static_remotekey(ctx);
 	/* BOLT #2:
 	 * - otherwise, if `option_static_remotekey` was negotiated:
 	 *   - the `channel_type` is `option_static_remotekey` (bit 12)
