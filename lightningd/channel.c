@@ -254,10 +254,6 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->static_remotekey_start[LOCAL]
 		= channel->static_remotekey_start[REMOTE] = 0;
 
-	channel->type = default_channel_type(channel,
-					     peer->ld->our_features,
-					     peer->their_features);
-
 	channel->future_per_commitment_point = NULL;
 
 	channel->lease_commit_sig = NULL;
