@@ -131,8 +131,8 @@ class Config():
                 # FIXME: Handle write failure
                 return default_text
         else:
-            print('could not create the parent directory')
-            return None
+            verbose(f'could not create the parent directory {parent_path}')
+            raise FileNotFoundError('invalid parent directory')
 
     def editConfigFile(self, addline, removeline):
         remove_these_lines = []
@@ -436,8 +436,8 @@ def search(plugin_name):
     searches plugin index for plugin"""
     plugin_name = plugin_name[0]
     if plugin_name is None:
-        print('plugin name required')
-        return None
+        sys.stderr.write('plugin name required')
+        sys.exit(1)
     ordered_repos = RECKLESS_SOURCES
     for r in RECKLESS_SOURCES:
         if r.split('/')[-1].lower() == plugin_name.lower():
@@ -569,9 +569,11 @@ def load_config(reckless_dir=None, network='bitcoin'):
             # Actually the regtest network config
             net_conf = LightningBitcoinConfig(path=regtest_path)
     # Reckless manages plugins here.
-    reckless_conf = RecklessConfig(path=reck_conf_path)
-    if not reckless_conf:
-        print('Error: reckless config file could not be written')
+    try:
+        reckless_conf = RecklessConfig(path=reck_conf_path)
+    except FileNotFoundError:
+        print('Error: reckless config file could not be written: ',
+              str(reck_conf_path))
         sys.exit(1)
     if not net_conf:
         print('Error: could not load or create the network specific lightningd'
