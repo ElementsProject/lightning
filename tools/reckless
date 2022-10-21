@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import requests
+from typing import Union
 
 
 repos = ['https://github.com/lightningd/plugins']
@@ -79,7 +80,7 @@ class InstInfo:
         return True
 
 
-def create_dir(r, directory):
+def create_dir(r: int, directory: str) -> bool:
     """Creation of a directory at path `d` with a maximum new dir depth `r`"""
     if os.path.exists(directory):
         return True
@@ -88,11 +89,11 @@ def create_dir(r, directory):
     elif create_dir(r-1, os.path.split(directory)[0]):
         os.mkdir(directory, 0o777)
         print(f'created directory {directory}')
-        if os.path.exists(directory):
-            return True
+        assert os.path.exists(directory)
+        return True
 
 
-def remove_dir(target):
+def remove_dir(target: str) -> bool:
     try:
         shutil.rmtree(target)
         return True
@@ -105,7 +106,10 @@ def remove_dir(target):
 
 class Config():
     """A generic class for procuring, reading and editing config files"""
-    def obtain_config(self, config_path, default_text, warn=False):
+    def obtain_config(self,
+                      config_path: str,
+                      default_text: str,
+                      warn: bool = False) -> str:
         """Return a config file from the desired location. Create one with
         default_text if it cannot be found."""
         if isinstance(config_path, type(None)):
@@ -134,7 +138,7 @@ class Config():
             verbose(f'could not create the parent directory {parent_path}')
             raise FileNotFoundError('invalid parent directory')
 
-    def editConfigFile(self, addline, removeline):
+    def editConfigFile(self, addline: str, removeline: str):
         remove_these_lines = []
         with open(self.conf_fp, 'r') as reckless_conf:
             original = reckless_conf.readlines()
@@ -164,7 +168,9 @@ class Config():
                 if not line_exists:
                     conf_write.write(f'\n{addline}')
 
-    def __init__(self, path=None, default_text=None, warn=False):
+    def __init__(self, path: Union[str, None] = None,
+                 default_text: Union[str, None] = None,
+                 warn: bool = False):
         assert path is not None
         assert default_text is not None
         self.conf_fp = path
@@ -177,17 +183,18 @@ class RecklessConfig(Config):
     This is inherited by the lightningd config and contains all reckless
     maintained plugins."""
 
-    def enable_plugin(self, plugin_path):
+    def enable_plugin(self, plugin_path: str):
         """Handle persistent plugin loading via config"""
         self.editConfigFile(f'plugin={plugin_path}',
                             f'disable-plugin={plugin_path}')
 
-    def disable_plugin(self, plugin_path):
+    def disable_plugin(self, plugin_path: str):
         """Handle persistent plugin disabling via config"""
         self.editConfigFile(f'disable-plugin={plugin_path}',
                             f'plugin={plugin_path}')
 
-    def __init__(self, path=None, default_text=None):
+    def __init__(self, path: Union[str, None] = None,
+                 default_text: Union[str, None] = None):
         if path is None:
             path = os.path.join(LIGHTNING_DIR, 'reckless',
                                 'bitcoin-reckless.conf')
@@ -203,7 +210,9 @@ class LightningBitcoinConfig(Config):
     """lightningd config specific to the bitcoin network. This is inherited by
     the main lightningd config and in turn, inherits bitcoin-reckless.conf."""
 
-    def __init__(self, path=None, default_text=None, warn=True):
+    def __init__(self, path: Union[str, None] = None,
+                 default_text: Union[str, None] = None,
+                 warn: bool = True):
         if path is None:
             path = os.path.join(LIGHTNING_DIR, 'bitcoin', 'config')
         if default_text is None:
@@ -214,7 +223,7 @@ class LightningBitcoinConfig(Config):
 
 class InferInstall():
     """Once a plugin is installed, we may need its directory and entrypoint"""
-    def __init__(self, name):
+    def __init__(self, name: str):
         reck_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
         if name[-3:] == '.py':
             name = name[:-3]
@@ -232,11 +241,11 @@ class InferInstall():
         raise Exception(f'plugin entrypoint not found in {self.dir}')
 
 
-def help_alias(target):
-    if len(target) == 0:
+def help_alias(targets: list):
+    if len(targets) == 0:
         parser.print_help(sys.stdout)
     else:
-        print('try "reckless {} -h"'.format(' '.join(target)))
+        print('try "reckless {} -h"'.format(' '.join(targets)))
         sys.exit(1)
 
 
@@ -246,7 +255,7 @@ def verbose(*args):
     print(*args)
 
 
-def _search_repo(name, url):
+def _search_repo(name: str, url: str) -> InstInfo:
     """look in given repo and, if found, populate InstInfo"""
     # Remove api subdomain, subdirectories, etc.
     repo = url.split('/')
@@ -304,7 +313,7 @@ def _search_repo(name, url):
     return False
 
 
-def _install_plugin(src):
+def _install_plugin(src: InstInfo) -> bool:
     """make sure the repo exists and clone it."""
     verbose(f'Install requested from {src}.')
     if RECKLESS_CONFIG is None:
@@ -394,7 +403,7 @@ def _install_plugin(src):
     return True
 
 
-def install(plugin_name):
+def install(plugin_name: list):
     """reckless install <plugin>
     downloads plugin from source repos, installs and activates plugin"""
     assert isinstance(plugin_name, list)
@@ -416,7 +425,7 @@ def install(plugin_name):
         enable([plugin_name])
 
 
-def uninstall(plugin_name):
+def uninstall(plugin_name: list):
     """reckless uninstall <plugin>
     disables plugin and deletes the plugin's reckless dir"""
     assert isinstance(plugin_name, list)
@@ -431,7 +440,7 @@ def uninstall(plugin_name):
             print(f"{plugin_name} uninstalled successfully.")
 
 
-def search(plugin_name):
+def search(plugin_name: list) -> InstInfo:
     """reckless search <plugin>
     searches plugin index for plugin"""
     plugin_name = plugin_name[0]
@@ -454,7 +463,7 @@ def search(plugin_name):
     print(f'Unable to locate source for plugin {plugin_name}')
 
 
-def lightning_cli_available():
+def lightning_cli_available() -> bool:
     clncli = Popen(LIGHTNING_CLI_CALL, stdout=PIPE, stderr=PIPE)
     clncli.wait(timeout=1)
     if clncli.returncode == 0:
@@ -463,7 +472,7 @@ def lightning_cli_available():
         return False
 
 
-def enable(plugin_name):
+def enable(plugin_name: list):
     """reckless enable <plugin>
     dynamically activates plugin and adds to config (persistent)"""
     assert isinstance(plugin_name, list)
@@ -503,7 +512,7 @@ def enable(plugin_name):
     sys.exit(clncli.returncode)
 
 
-def disable(plugin_name):
+def disable(plugin_name: list):
     """reckless disable <plugin>
     deactivates an installed plugin"""
     assert isinstance(plugin_name, list)
@@ -537,7 +546,8 @@ def disable(plugin_name):
     print(f'{plugin_name} disabled')
 
 
-def load_config(reckless_dir=None, network='bitcoin'):
+def load_config(reckless_dir: Union[str, None] = None,
+                network: str = 'bitcoin') -> Config:
     """Initial directory discovery and config file creation."""
     # Does the lightning-cli already reference an explicit config?
     net_conf = None
@@ -583,11 +593,11 @@ def load_config(reckless_dir=None, network='bitcoin'):
     return reckless_conf
 
 
-def get_sources_file():
+def get_sources_file() -> str:
     return os.path.join(RECKLESS_DIR, '.sources')
 
 
-def sources_from_file():
+def sources_from_file() -> list:
     sources_file = get_sources_file()
     read_sources = []
     with open(sources_file, 'r') as f:
@@ -598,7 +608,7 @@ def sources_from_file():
         return read_sources
 
 
-def loadSources():
+def loadSources() -> list:
     """Look for the repo sources file"""
     sources_file = get_sources_file()
     # This would have been created if possible
@@ -610,7 +620,7 @@ def loadSources():
     return sources_from_file()
 
 
-def add_source(sources):
+def add_source(sources: list):
     """Additional git repositories, directories, etc. are passed here
     as a list."""
     assert isinstance(sources, list)
@@ -628,7 +638,7 @@ def add_source(sources):
         my_file.editConfigFile(src, None)
 
 
-def remove_source(sources):
+def remove_source(sources: list):
     assert isinstance(sources, list)
     src = sources[0]
     assert isinstance(src, str)
