@@ -192,6 +192,9 @@ struct state {
 	 * channeld-specific as initial channels never have HTLCs. */
 	struct channel *channel;
 
+	/* Channel type we agreed on (even before channel populated) */
+	struct channel_type *channel_type;
+
 	struct feature_set *our_features;
 
 	/* Tally of which sides are locked, or not */
@@ -1671,7 +1674,6 @@ static void revert_channel_state(struct state *state)
 	struct amount_sat total;
 	struct amount_msat our_msats;
 	enum side opener = state->our_role == TX_INITIATOR ? LOCAL : REMOTE;
-	const struct channel_type *type;
 
 	/* We've already checked this */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -1686,8 +1688,6 @@ static void revert_channel_state(struct state *state)
 		abort();
 
 	tal_free(state->channel);
-	type = default_channel_type(NULL,
-				    state->our_features, state->their_features);
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
 					     &tx_state->funding,
@@ -1706,7 +1706,7 @@ static void revert_channel_state(struct state *state)
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     opener);
@@ -1729,7 +1729,6 @@ static u8 *accepter_commits(struct state *state,
 	const u8 *wscript;
 	u8 *msg;
 	char *error;
-	const struct channel_type *type;
 
 	/* Find the funding transaction txid */
 	psbt_txid(NULL, tx_state->psbt, &tx_state->funding.txid, NULL);
@@ -1786,9 +1785,6 @@ static u8 *accepter_commits(struct state *state,
 			      "Overflow converting accepter_funding "
 			      "to msats");
 
-	type = default_channel_type(NULL,
-				    state->our_features, state->their_features);
-
 	/*~ Report the channel parameters to the signer. */
 	msg = towire_hsmd_ready_channel(NULL,
 				       false,	/* is_outbound */
@@ -1803,7 +1799,7 @@ static u8 *accepter_commits(struct state *state,
 				       &state->their_funding_pubkey,
 				       tx_state->remoteconf.to_self_delay,
 				       state->upfront_shutdown_script[REMOTE],
-				       type);
+				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsmd_ready_channel_reply(msg))
@@ -1830,7 +1826,7 @@ static u8 *accepter_commits(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     REMOTE);
@@ -1959,7 +1955,8 @@ static u8 *accepter_commits(struct state *state,
 					   tx_state->lease_fee,
 					   tx_state->lease_commit_sig,
 					   tx_state->lease_chan_max_msat,
-					   tx_state->lease_chan_max_ppt);
+					   tx_state->lease_chan_max_ppt,
+					   state->channel_type);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -2084,6 +2081,30 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						  &state->channel_id),
 				   type_to_string(tmpctx, struct channel_id,
 						  &cid));
+
+	/* BOLT #2:
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - It supports `channel_type` and `channel_type` was set:
+	 *     - if `type` is not suitable.
+	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 */
+	if (open_tlv->channel_type) {
+		state->channel_type =
+			channel_type_accept(state,
+					    open_tlv->channel_type,
+					    state->our_features,
+					    state->their_features);
+		if (!state->channel_type)
+			negotiation_failed(state,
+					   "Did not support channel_type %s",
+					   fmt_featurebits(tmpctx,
+							   open_tlv->channel_type));
+	} else
+		state->channel_type
+			= default_channel_type(state,
+					       state->our_features,
+					       state->their_features);
 
 	/* Since anchor outputs are optional, we
 	 * only support liquidity ads if those are enabled. */
@@ -2296,6 +2317,12 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				      0);
 	}
 
+	/* BOLT #2:
+	 * - if `option_channel_type` was negotiated:
+	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
+	 */
+	a_tlv->channel_type = state->channel_type->features;
+
 	/* BOLT- #2:
 	 * The accepting node:
 	 * ...
@@ -2392,7 +2419,6 @@ static u8 *opener_commits(struct state *state,
 	u8 *msg;
 	char *error;
 	struct amount_msat their_msats;
-	const struct channel_type *type;
 
 	wscript = bitcoin_redeem_2of2(tmpctx, &state->our_funding_pubkey,
 				      &state->their_funding_pubkey);
@@ -2442,10 +2468,6 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
-	/* Ok, we're mostly good now? Let's do this */
-	type = default_channel_type(NULL,
-				    state->our_features, state->their_features);
-
 	/*~ Report the channel parameters to the signer. */
 	msg = towire_hsmd_ready_channel(NULL,
 				       true,	/* is_outbound */
@@ -2460,7 +2482,7 @@ static u8 *opener_commits(struct state *state,
 				       &state->their_funding_pubkey,
 				       tx_state->remoteconf.to_self_delay,
 				       state->upfront_shutdown_script[REMOTE],
-				       type);
+				       state->channel_type);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsmd_ready_channel_reply(msg))
@@ -2485,7 +2507,7 @@ static u8 *opener_commits(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     /* Opener is local */
@@ -2664,8 +2686,8 @@ static u8 *opener_commits(struct state *state,
 					    tx_state->lease_fee,
 					    tx_state->lease_commit_sig,
 					    tx_state->lease_chan_max_msat,
-					    tx_state->lease_chan_max_ppt);
-
+					    tx_state->lease_chan_max_ppt,
+					    state->channel_type);
 }
 
 static void opener_start(struct state *state, u8 *msg)
@@ -2696,7 +2718,21 @@ static void opener_start(struct state *state, u8 *msg)
 
 	state->our_role = TX_INITIATOR;
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
+
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
+
+	/* BOLT #2:
+	 *  - if it includes `channel_type`:
+	 *     - MUST set it to a defined type representing the type it wants.
+	 *     - MUST use the smallest bitmap possible to represent the channel
+	 *       type.
+	 *     - SHOULD NOT set it to a type containing a feature which was not
+	 *       negotiated.
+	 */
+	state->channel_type = default_channel_type(state,
+						   state->our_features,
+						   state->their_features);
+	open_tlv->channel_type = state->channel_type->features;
 
 	if (requested_lease)
 		state->requested_lease = tal_steal(state, requested_lease);
@@ -2828,6 +2864,19 @@ static void opener_start(struct state *state, u8 *msg)
 		 * these messages are queued+processed sequentially */
 		open_err_warn(state, "%s", "Abort requested");
 	}
+
+	/* BOLT #2:
+	 * - if `channel_type` is set, and `channel_type` was set in
+	 *   `open_channel`, and they are not equal types:
+	 *    - MUST reject the channel.
+	 */
+	if (a_tlv->channel_type
+	    && !featurebits_eq(a_tlv->channel_type,
+			       state->channel_type->features))
+		negotiation_failed(state,
+				   "Return unoffered channel_type: %s",
+				   fmt_featurebits(tmpctx,
+						   a_tlv->channel_type));
 
 	/* If we've requested funds and they've failed to provide
 	 * to lease us (or give them to us for free?!) then we fail.
@@ -3867,7 +3916,6 @@ int main(int argc, char *argv[])
 	u8 *msg;
 	struct amount_sat total_funding, *requested_lease;
 	struct amount_msat our_msat;
-	const struct channel_type *type;
 
 	subdaemon_setup(argc, argv);
 
@@ -3911,7 +3959,6 @@ int main(int argc, char *argv[])
 
 		/* No lease requested at start! */
 		state->requested_lease = NULL;
-
 	} else if (fromwire_dualopend_reinit(state, msg,
 					     &chainparams,
 					     &state->our_features,
@@ -3948,16 +3995,13 @@ int main(int argc, char *argv[])
 					     &state->tx_state->lease_commit_sig,
 					     &state->tx_state->lease_chan_max_msat,
 					     &state->tx_state->lease_chan_max_ppt,
-					     &requested_lease)) {
+					     &requested_lease,
+					     &state->channel_type)) {
 
 		bool ok;
 
 		/*~ We only reconnect on channels that the
 		 * saved the the database (exchanged commitment sigs) */
-		type = default_channel_type(NULL,
-					    state->our_features,
-					    state->their_features);
-
 		if (requested_lease)
 			state->requested_lease = tal_steal(state, requested_lease);
 		else
@@ -3979,7 +4023,7 @@ int main(int argc, char *argv[])
 						     &state->their_points,
 						     &state->our_funding_pubkey,
 						     &state->their_funding_pubkey,
-						     take(type),
+						     state->channel_type,
 						     feature_offered(state->their_features,
 								     OPT_LARGE_CHANNELS),
 						     opener);
