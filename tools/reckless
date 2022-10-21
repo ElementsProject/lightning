@@ -403,16 +403,10 @@ def _install_plugin(src: InstInfo) -> bool:
     return True
 
 
-def install(plugin_name: list):
-    """reckless install <plugin>
-    downloads plugin from source repos, installs and activates plugin"""
-    assert isinstance(plugin_name, list)
-    plugin_name = plugin_name[0]
-    if plugin_name is None:
-        print('missing argument: plugin_name')
-
-    src = search([plugin_name])
-
+def install(plugin_name: str):
+    """downloads plugin from source repos, installs and activates plugin"""
+    assert isinstance(plugin_name, str)
+    src = search(plugin_name)
     if src:
         verbose(f'Retrieving {plugin_name} from {src.repo}')
         if not _install_plugin(src):
@@ -422,33 +416,25 @@ def install(plugin_name: list):
                                  src.name,
                                  src.entry)
         RECKLESS_CONFIG.enable_plugin(inst_path)
-        enable([plugin_name])
+        enable(plugin_name)
 
 
-def uninstall(plugin_name: list):
-    """reckless uninstall <plugin>
-    disables plugin and deletes the plugin's reckless dir"""
-    assert isinstance(plugin_name, list)
-    plugin_name = plugin_name[0]
-    if plugin_name is not None:
-        # FIXME: Do something here.
-        print('Uninstalling plugin {}'.format(plugin_name))
-        disable([plugin_name])
-        plugin_dir = os.path.join(RECKLESS_CONFIG.reckless_dir, plugin_name)
-        verbose("looking for {}".format(plugin_dir))
-        if remove_dir(plugin_dir):
-            print(f"{plugin_name} uninstalled successfully.")
+def uninstall(plugin_name: str):
+    """disables plugin and deletes the plugin's reckless dir"""
+    assert isinstance(plugin_name, str)
+    print(f'Uninstalling plugin {plugin_name}')
+    disable(plugin_name)
+    plugin_dir = os.path.join(RECKLESS_CONFIG.reckless_dir, plugin_name)
+    verbose(f'looking for {plugin_dir}')
+    if remove_dir(plugin_dir):
+        print(f"{plugin_name} uninstalled successfully.")
 
 
-def search(plugin_name: list) -> InstInfo:
-    """reckless search <plugin>
-    searches plugin index for plugin"""
-    plugin_name = plugin_name[0]
-    if plugin_name is None:
-        sys.stderr.write('plugin name required')
-        sys.exit(1)
+def search(plugin_name: str) -> InstInfo:
+    """searches plugin index for plugin"""
     ordered_repos = RECKLESS_SOURCES
     for r in RECKLESS_SOURCES:
+        # Search repos named after the plugin first
         if r.split('/')[-1].lower() == plugin_name.lower():
             ordered_repos.remove(r)
             ordered_repos.insert(0, r)
@@ -464,6 +450,7 @@ def search(plugin_name: list) -> InstInfo:
 
 
 def lightning_cli_available() -> bool:
+    """returns True if lightning-cli rpc available with current config"""
     clncli = Popen(LIGHTNING_CLI_CALL, stdout=PIPE, stderr=PIPE)
     clncli.wait(timeout=1)
     if clncli.returncode == 0:
@@ -472,14 +459,9 @@ def lightning_cli_available() -> bool:
         return False
 
 
-def enable(plugin_name: list):
-    """reckless enable <plugin>
-    dynamically activates plugin and adds to config (persistent)"""
-    assert isinstance(plugin_name, list)
-    plugin_name = plugin_name[0]
-    if plugin_name is None:
-        sys.stderr.write('Plugin name required.')
-        sys.exit(1)
+def enable(plugin_name: str):
+    """dynamically activates plugin and adds to config (persistent)"""
+    assert isinstance(plugin_name, str)
     inst = InferInstall(plugin_name)
     path = inst.entry
     if not os.path.exists(path):
@@ -509,17 +491,13 @@ def enable(plugin_name: list):
         else:
             print(f'reckless: {inst.name} failed to start!')
             print(err)
-    sys.exit(clncli.returncode)
+        sys.exit(clncli.returncode)
 
 
-def disable(plugin_name: list):
+def disable(plugin_name: str):
     """reckless disable <plugin>
     deactivates an installed plugin"""
-    assert isinstance(plugin_name, list)
-    plugin_name = plugin_name[0]
-    if plugin_name is None:
-        sys.stderr.write('Plugin name required.')
-        sys.exit(1)
+    assert isinstance(plugin_name, str)
     inst = InferInstall(plugin_name)
     path = inst.entry
     if not os.path.exists(path):
@@ -535,7 +513,6 @@ def disable(plugin_name: list):
     clncli.wait(timeout=3)
     output = json.loads(clncli.stdout.read().decode()
                         .replace('\n', '').replace('   ', ''))
-    # print(output)
     if ('code' in output.keys() and output['code'] == -32602):
         print('plugin not currently running')
     elif clncli.returncode != 0:
@@ -609,7 +586,7 @@ def sources_from_file() -> list:
 
 
 def loadSources() -> list:
-    """Look for the repo sources file"""
+    """Look for the repo sources file."""
     sources_file = get_sources_file()
     # This would have been created if possible
     if not os.path.exists(sources_file):
@@ -620,13 +597,10 @@ def loadSources() -> list:
     return sources_from_file()
 
 
-def add_source(sources: list):
-    """Additional git repositories, directories, etc. are passed here
-    as a list."""
-    assert isinstance(sources, list)
-    src = sources[0]
-    # Is it a file?
+def add_source(src: str):
+    """Additional git repositories, directories, etc. are passed here."""
     assert isinstance(src, str)
+    # Is it a file?
     maybe_path = os.path.realpath(src)
     if os.path.exists(maybe_path):
         # FIXME: This should handle either a directory or a git repo
@@ -638,9 +612,8 @@ def add_source(sources: list):
         my_file.editConfigFile(src, None)
 
 
-def remove_source(sources: list):
-    assert isinstance(sources, list)
-    src = sources[0]
+def remove_source(src: str):
+    """Remove a source from the sources file."""
     assert isinstance(src, str)
     if src in sources_from_file():
         my_file = Config(path=get_sources_file(),
@@ -652,6 +625,7 @@ def remove_source(sources: list):
 
 
 def list_source():
+    """Provide the user with all stored source repositories."""
     for src in sources_from_file():
         print(src)
 
@@ -733,6 +707,11 @@ if __name__ == '__main__':
     IS_VERBOSE = bool(args.verbose)
 
     if 'targets' in args:
-        args.func(args.targets)
+        # FIXME: Catch missing argument
+        if args.func.__name__ == 'help_alias':
+            args.func(args.targets)
+            sys.exit(0)
+        for target in args.targets:
+            args.func(target)
     else:
         args.func()
