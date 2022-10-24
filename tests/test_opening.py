@@ -347,6 +347,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.developer("requres 'dev-force-features'")
+@pytest.mark.xfail
 def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
@@ -394,6 +395,9 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     # We 4x the feerate to beat the min-relay fee
     next_feerate = '{}perkw'.format(rate * 4)
 
+    # Restart the node between open + rbf; works as expected
+    l1.restart()
+
     # Initiate an RBF
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(amount, next_feerate, startweight,
@@ -401,6 +405,8 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
                                min_witness_weight=110,
                                excess_as_change=True)['psbt']
 
+    # reconnect after restart
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # do the bump
     bump = l1.rpc.openchannel_bump(chan_id, amount, initpsbt,
                                    funding_feerate=next_feerate)
@@ -421,7 +427,7 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     # Datastore should be cleaned up!
     assert l1.rpc.listdatastore() == {'datastore': []}
-    assert l2.rpc.listdatastore() == {'datastore': []}
+    wait_for(lambda: l2.rpc.listdatastore() == {'datastore': []})
 
     # This should be the accepter's amount
     fundings = only_one(l1.rpc.listpeerchannels()['channels'])['funding']
