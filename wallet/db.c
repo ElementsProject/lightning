@@ -945,6 +945,7 @@ static struct migration dbmigrations[] = {
     /* A reference into our own invoicerequests table, if it was made from one */
     {SQL("ALTER TABLE payments ADD COLUMN local_invreq_id BLOB DEFAULT NULL REFERENCES invoicerequests(invreq_id);"), NULL},
     /* FIXME: Remove payments local_offer_id column! */
+    {SQL("ALTER TABLE channel_funding_inflights ADD COLUMN lease_satoshi BIGINT;"), NULL},
 };
 
 /**
