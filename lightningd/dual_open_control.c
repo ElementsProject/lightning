@@ -1113,7 +1113,8 @@ wallet_update_channel(struct lightningd *ld,
 		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 		      const u32 lease_chan_max_msat,
 		      const u16 lease_chan_max_ppt,
-		      const u32 lease_blockheight_start)
+		      const u32 lease_blockheight_start,
+		      struct amount_sat lease_amt)
 {
 	struct amount_msat our_msat, lease_fee_msat;
 	struct channel_inflight *inflight;
@@ -1173,7 +1174,8 @@ wallet_update_channel(struct lightningd *ld,
 				channel->lease_chan_max_msat,
 				channel->lease_chan_max_ppt,
 				lease_blockheight_start,
-				channel->push);
+				channel->push,
+				lease_amt);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -1194,6 +1196,7 @@ wallet_commit_channel(struct lightningd *ld,
 		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script,
 		      struct wally_psbt *psbt STEALS,
+		      const struct amount_sat lease_amt,
 		      const u32 lease_blockheight_start,
 		      const u32 lease_expiry,
 		      const struct amount_sat lease_fee,
@@ -1316,7 +1319,8 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->lease_chan_max_msat,
 				channel->lease_chan_max_ppt,
 				lease_blockheight_start,
-				channel->push);
+				channel->push,
+				lease_amt);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	/* We might have disconnected and decided we didn't need to
@@ -2909,7 +2913,7 @@ static void handle_commit_received(struct subd *dualopend,
 	u16 lease_chan_max_ppt;
 	u32 feerate_funding, feerate_commitment, lease_expiry,
 	    lease_chan_max_msat, lease_blockheight_start;
-	struct amount_sat total_funding, funding_ours, lease_fee;
+	struct amount_sat total_funding, funding_ours, lease_fee, lease_amt;
 	u8 *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script;
 	struct penalty_base *pbase;
@@ -2941,6 +2945,7 @@ static void handle_commit_received(struct subd *dualopend,
 					    &feerate_commitment,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script,
+					    &lease_amt,
 					    &lease_blockheight_start,
 					    &lease_expiry,
 					    &lease_fee,
@@ -2976,6 +2981,7 @@ static void handle_commit_received(struct subd *dualopend,
 								local_upfront_shutdown_script,
 						       remote_upfront_shutdown_script,
 						       psbt,
+						       lease_amt,
 						       lease_blockheight_start,
 						       lease_expiry,
 						       lease_fee,
@@ -3016,7 +3022,8 @@ static void handle_commit_received(struct subd *dualopend,
 						       lease_commit_sig,
 						       lease_chan_max_msat,
 						       lease_chan_max_ppt,
-						       lease_blockheight_start))) {
+						       lease_blockheight_start,
+						       lease_amt))) {
 			channel_internal_error(channel,
 					       "wallet_update_channel failed"
 					       " (chan %s)",
@@ -3529,8 +3536,8 @@ bool peer_restart_dualopend(struct peer *peer,
 				      inflight->lease_commit_sig,
 				      inflight->lease_chan_max_msat,
 				      inflight->lease_chan_max_ppt,
-				      /* FIXME: requested lease? */
-				      NULL,
+				      amount_sat_zero(inflight->lease_amt) ?
+					      NULL : &inflight->lease_amt,
 				      channel->type);
 
 	subd_send_msg(channel->owner, take(msg));
