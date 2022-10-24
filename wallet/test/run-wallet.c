@@ -1252,6 +1252,7 @@ static bool channel_inflightseq(struct channel_inflight *i1,
 		    &i2->last_sig, sizeof(i2->last_sig)));
 	CHECK(bitcoin_tx_eq(i1->last_tx, i2->last_tx));
 
+	CHECK(amount_sat_eq(i1->lease_amt, i2->lease_amt));
 	CHECK(!i1->lease_commit_sig == !i2->lease_commit_sig);
 	if (i1->lease_commit_sig)
 		CHECK(memeq(i1->lease_commit_sig, sizeof(*i1->lease_commit_sig),
@@ -1674,7 +1675,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				last_tx,
 				sig,
 				1, lease_commit_sig, 2, 4, 22,
-				AMOUNT_MSAT(10));
+				AMOUNT_MSAT(10),
+				AMOUNT_SAT(1111));
 
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
@@ -1697,7 +1699,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				last_tx,
 				sig,
 				0, NULL, 0, 0, 0,
-				AMOUNT_MSAT(0));
+				AMOUNT_MSAT(0),
+				AMOUNT_SAT(0));
 	wallet_inflight_add(w, inflight);
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
 		  tal_fmt(w, "Load from DB"));

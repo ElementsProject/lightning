@@ -151,6 +151,7 @@ msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,dualopend_commit_rcvd,remote_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_commit_rcvd,lease_amt,amount_sat,
 msgdata,dualopend_commit_rcvd,lease_start_blockheight,u32,
 msgdata,dualopend_commit_rcvd,lease_expiry,u32,
 msgdata,dualopend_commit_rcvd,lease_fee,amount_sat,
