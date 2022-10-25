@@ -34,9 +34,8 @@ class InstInfo:
         self.commit = None
 
     def __repr__(self):
-        return f'<InstInfo object>\n'\
-               f'name: {self.name}\nrepo: {self.repo}\ngit: {self.git_url}'\
-               f'\nentry:{self.entry}\ndepency source:{self.deps}'
+        return (f'InstInfo({self.name}, {self.repo}, {self.git_url}'
+                f'{self.entry}, {self.deps})')
 
     def get_inst_details(self):
         """
@@ -199,9 +198,10 @@ class RecklessConfig(Config):
             path = Path(LIGHTNING_DIR).joinpath('reckless',
                                                 'bitcoin-reckless.conf')
         if default_text is None:
-            default_text = '# This configuration file is managed by reckles' +\
-                           's to activate and disable\n# reckless-installed' +\
-                           ' plugins\n\n'
+            default_text = (
+                '# This configuration file is managed by reckless to activate '
+                'and disable\n# reckless-installed plugins\n\n'
+            )
         Config.__init__(self, path=str(path), default_text=default_text)
         self.reckless_dir = Path(path).parent
 
@@ -579,7 +579,6 @@ def sources_from_file() -> list:
         for src in f.readlines():
             if len(src.strip()) > 0:
                 read_sources.append(src.strip())
-        # print('loaded sources:', repos)
         return read_sources
 
 
