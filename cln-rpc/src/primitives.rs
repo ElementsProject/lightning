@@ -548,6 +548,19 @@ mod test {
         let serialized: String = serde_json::to_string(&od).unwrap();
         assert_eq!(a, serialized);
     }
+
+    #[test]
+    fn tlvstream() {
+	let stream = TlvStream {
+	    entries: vec![
+		TlvEntry { typ: 31337, value: vec![1,2,3,4,5]},
+			   TlvEntry { typ: 42, value: vec![]},
+	    ],
+	};
+
+	let res = serde_json::to_string(&stream).unwrap();
+        assert_eq!(res, "{\"31337\":\"0102030405\",\"42\":\"\"}");
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -624,3 +637,49 @@ impl Display for RpcError {
 }
 
 impl std::error::Error for RpcError {}
+
+#[derive(Clone, Debug)]
+pub struct TlvEntry {
+    pub typ: u64,
+    pub value: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TlvStream {
+    pub entries: Vec<TlvEntry>,
+}
+
+impl<'de> Deserialize<'de> for TlvStream {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let map: std::collections::HashMap<u64, String> = Deserialize::deserialize(deserializer)?;
+
+        let entries = map
+            .iter()
+            .map(|(k, v)| TlvEntry {
+                typ: *k,
+                value: hex::decode(v).unwrap(),
+            })
+            .collect();
+
+        Ok(TlvStream { entries })
+    }
+}
+
+impl Serialize for TlvStream {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeMap;
+
+        let mut map = serializer.serialize_map(Some(self.entries.len()))?;
+        for e in &self.entries {
+            map.serialize_key(&e.typ)?;
+            map.serialize_value(&hex::encode(&e.value))?;
+        }
+        map.end()
+    }
+}
