@@ -146,7 +146,7 @@ mod test {
         let read_req = dbg!(read.next().await.unwrap().unwrap());
 
         assert_eq!(
-            json!({"id": "1", "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
+            json!({"id": 1, "method": "getinfo", "params": {}, "jsonrpc": "2.0"}),
             read_req
         );
     }
