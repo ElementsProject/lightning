@@ -343,7 +343,21 @@ InvoiceLabelField = PrimitiveField("string", None, None)
 DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None), dims=1, path=None, description=None)
 InvoiceExposeprivatechannelsField = PrimitiveField("boolean", None, None)
 PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None), dims=1, path=None, description=None)
-RoutehintListField = PrimitiveField("RoutehintList", None, None)
+RoutehintListField = PrimitiveField(
+    "RoutehintList",
+    None,
+    None
+)
+
+# TlvStreams are special, they don't have preset dict-keys, rather
+# they can specify `u64` keys pointing to hex payloads. So the schema
+# has to rely on additionalProperties to make it work.
+TlvStreamField = PrimitiveField(
+    "TlvStream",
+    None,
+    None
+)
+
 # Override fields with manually managed types, fieldpath -> field mapping
 overrides = {
     'Invoice.label': InvoiceLabelField,
@@ -355,6 +369,7 @@ overrides = {
     'Invoice.exposeprivatechannels': InvoiceExposeprivatechannelsField,
     'Pay.exclude': PayExclude,
     'KeySend.routehints': RoutehintListField,
+    'KeySend.extratlvs': TlvStreamField,
 }
 
 

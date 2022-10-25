@@ -440,6 +440,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'hash': f'Sha256::from_slice(&c.{name}).unwrap()',
                     'hash?': f'c.{name}.map(|v| Sha256::from_slice(&v).unwrap())',
                     'txid': f'hex::encode(&c.{name})',
+                    'TlvStream?': f'c.{name}.map(|s| s.into())',
                 }.get(
                     typ,
                     f'c.{name}'  # default to just assignment

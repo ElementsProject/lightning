@@ -968,6 +968,7 @@ message KeysendRequest {
 	optional uint32 maxdelay = 6;
 	optional Amount exemptfee = 7;
 	optional RoutehintList routehints = 8;
+	optional TlvStream extratlvs = 9;
 }
 
 message KeysendResponse {
@@ -984,9 +985,6 @@ message KeysendResponse {
 	Amount amount_sent_msat = 7;
 	optional string warning_partial_completion = 8;
 	KeysendStatus status = 9;
-}
-
-message KeysendExtratlvs {
 }
 
 message FundpsbtRequest {
