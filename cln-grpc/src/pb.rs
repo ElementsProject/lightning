@@ -347,6 +347,6 @@ mod test {
           ]
         });
         let u: cln_rpc::model::ListpeersResponse = serde_json::from_value(j).unwrap();
-        let g: ListpeersResponse = (&u).into();
+        let _g: ListpeersResponse = u.into();
     }
 }
