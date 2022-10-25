@@ -865,10 +865,6 @@ pub mod requests {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct KeysendExtratlvs {
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct KeysendRequest {
 	    #[serde(alias = "destination")]
 	    pub destination: PublicKey,
@@ -886,6 +882,8 @@ pub mod requests {
 	    pub exemptfee: Option<Amount>,
 	    #[serde(alias = "routehints", skip_serializing_if = "Option::is_none")]
 	    pub routehints: Option<RoutehintList>,
+	    #[serde(alias = "extratlvs", skip_serializing_if = "Option::is_none")]
+	    pub extratlvs: Option<TlvStream>,
 	}
 
 	impl From<KeysendRequest> for Request {

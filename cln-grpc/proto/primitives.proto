@@ -73,3 +73,12 @@ message Routehint {
 message RoutehintList {
 	repeated Routehint hints = 2;
 }
+
+
+message TlvEntry {
+	uint64 type = 1;
+	bytes value = 2;
+}
+message TlvStream {
+	repeated TlvEntry entries = 1;
+}

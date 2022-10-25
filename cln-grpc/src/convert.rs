@@ -1375,6 +1375,7 @@ impl From<pb::KeysendRequest> for requests::KeysendRequest {
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             exemptfee: c.exemptfee.map(|a| a.into()), // Rule #1 for type msat?
             routehints: c.routehints.map(|rl| rl.into()), // Rule #1 for type RoutehintList?
+            extratlvs: c.extratlvs.map(|s| s.into()), // Rule #1 for type TlvStream?
         }
     }
 }
