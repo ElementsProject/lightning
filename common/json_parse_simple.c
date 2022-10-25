@@ -88,6 +88,19 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 	return true;
 }
 
+bool json_str_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
+{
+	jsmntok_t temp;
+	if (tok->type != JSMN_STRING)
+		return false;
+
+	temp = *tok;
+	temp.start += 1;
+	temp.end -= 1;
+
+	return json_to_u64(buffer, &temp, num);
+}
+
 bool json_to_u32(const char *buffer, const jsmntok_t *tok, u32 *num)
 {
 	uint64_t u64;
