@@ -473,6 +473,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
  * @amount_we_are_short: optional amount.
  * @feerate_per_kw: feerate we are using.
  * @maxheight: zero (if caller doesn't care) or maximum blockheight to accept.
+ * @nonwrapped: filter out p2sh-wrapped inputs
  * @excludes: UTXOs not to consider.
  *
  * If @amount_we_are_short is not NULL, we try to get something very close
@@ -486,6 +487,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 			      struct amount_sat *amount_we_are_short,
 			      unsigned feerate_per_kw,
 			      u32 maxheight,
+			      bool nonwrapped,
 			      const struct utxo **excludes);
 
 /**

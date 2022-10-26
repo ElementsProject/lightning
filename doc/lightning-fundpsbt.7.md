@@ -47,6 +47,9 @@ the actual witness weight will be used.
 *excess\_as\_change* is an optional boolean to flag to add a change output
 for the excess sats.
 
+*nonwrapped* is an optional boolean to signal to filter out any p2sh-wrapped
+inputs from funding this PSBT.
+
 EXAMPLE USAGE
 -------------
 

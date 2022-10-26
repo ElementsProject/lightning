@@ -530,6 +530,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 			      struct amount_sat *amount_hint,
 			      unsigned feerate_per_kw,
 			      u32 maxheight,
+			      bool nonwrapped,
 			      const struct utxo **excludes)
 {
 	struct db_stmt *stmt;
@@ -569,6 +570,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 	while (!utxo && db_step(stmt)) {
 		utxo = wallet_stmt2output(ctx, stmt);
 		if (excluded(excludes, utxo)
+		    || (nonwrapped && utxo->is_p2sh)
 		    || !deep_enough(maxheight, utxo, current_blockheight))
 			utxo = tal_free(utxo);
 
