@@ -1050,13 +1050,14 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	/* Arbitrarily set scriptpubkey len to 20 */
 	u.scriptPubkey = tal_arr(w, u8, 20);
 	memset(u.scriptPubkey, 1, 20);
-	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
+	CHECK_MSG(wallet_add_utxo(w, &u, our_change),
 		  "wallet_add_utxo with close_info");
 
 	/* Now select them */
 	utxos = tal_arr(w, const struct utxo *, 0);
 	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
 					    0 /* no confirmations required */,
+					    false,
 					    utxos)) != NULL) {
 		tal_arr_expand(&utxos, one_utxo);
 	}
@@ -1145,6 +1146,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	utxos = tal_arr(w, const struct utxo *, 0);
 	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
 					    0 /* no confirmations required */,
+					    false,
 					    utxos)) != NULL) {
 		tal_arr_expand(&utxos, one_utxo);
 	}
@@ -1166,6 +1168,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	utxos = tal_arr(w, const struct utxo *, 0);
 	while ((one_utxo = wallet_find_utxo(w, w, 104, NULL, 253,
 					    0 /* no confirmations required */,
+					    false,
 					    utxos)) != NULL) {
 		tal_arr_expand(&utxos, one_utxo);
 	}
@@ -1182,6 +1185,35 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	}
 	/* Now un-reserve them */
 	tal_free(utxos);
+
+	/* Check that nonwrapped flag works */
+	utxos = tal_arr(w, const struct utxo *, 0);
+	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
+					    0 /* no confirmations required */,
+					    true,
+					    utxos)) != NULL) {
+		tal_arr_expand(&utxos, one_utxo);
+	}
+	/* No nonwrapped outputs available */
+	CHECK(tal_count(utxos) == 0);
+	tal_free(utxos);
+
+	/* So we add one... */
+	memset(&u.outpoint, 4, sizeof(u.outpoint));
+	u.amount = AMOUNT_SAT(4);
+	u.close_info = tal_free(u.close_info);
+	CHECK_MSG(wallet_add_utxo(w, &u, p2wpkh),
+		  "wallet_add_utxo failed, p2wpkh");
+
+	utxos = tal_arr(w, const struct utxo *, 0);
+	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
+					    0 /* no confirmations required */,
+					    true,
+					    utxos)) != NULL) {
+		tal_arr_expand(&utxos, one_utxo);
+	}
+	/* And that's what comes back */
+	CHECK(tal_count(utxos) == 1);
 
 	db_commit_transaction(w->db);
 	return true;
