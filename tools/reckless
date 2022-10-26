@@ -447,14 +447,48 @@ def search(plugin_name: str) -> InstInfo:
     print(f'Unable to locate source for plugin {plugin_name}')
 
 
-def lightning_cli_available() -> bool:
-    """returns True if lightning-cli rpc available with current config"""
-    clncli = Popen(LIGHTNING_CLI_CALL, stdout=PIPE, stderr=PIPE)
-    clncli.wait(timeout=1)
-    if clncli.returncode == 0:
-        return True
+class RPCError(Exception):
+    """lightning-cli fails to connect to lightningd RPC"""
+    def __init__(self, err):
+        self.err = err
+
+    def __str__(self):
+        return 'RPCError({self.err})'
+
+
+class CLIError(Exception):
+    """lightningd error response"""
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+
+    def __str__(self):
+        return f'CLIError({self.code} {self.message})'
+
+
+def lightning_cli(*args, timeout=15) -> dict:
+    # CLI commands will be added to any necessary options
+    cmd = LIGHTNING_CLI_CALL.copy()
+    cmd.extend(args)
+    clncli = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    clncli.wait(timeout=timeout)
+    out = clncli.stdout.read().decode()
+    if len(out) > 0 and out[0] == '{':
+        # If all goes well, a json object is typically returned
+        out = json.loads(out.replace('\n', ''))
     else:
-        return False
+        # help, -V, etc. may not return json, so stash it here.
+        out = {'content': out}
+    if clncli.returncode == 0:
+        return out
+    if clncli.returncode == 1:
+        # RPC doesn't like our input
+        # output contains 'code' and 'message'
+        raise CLIError(out['code'], out['message'])
+    if clncli.returncode == 2:
+        # RPC not available - lightningd not running or using alternate config
+        err = clncli.stderr.read().decode()
+        raise RPCError(err)
 
 
 def enable(plugin_name: str):
@@ -463,33 +497,21 @@ def enable(plugin_name: str):
     inst = InferInstall(plugin_name)
     path = inst.entry
     if not Path(path).exists():
-        print('cannot find installed plugin at expected path {}'
-              .format(path))
+        print(f'cannot find installed plugin at expected path {path}')
         sys.exit(1)
-    verbose('activating {}'.format(plugin_name))
-
-    if not lightning_cli_available():
-        # Config update should not be dependent upon lightningd running
-        RECKLESS_CONFIG.enable_plugin(path)
-        return
-
-    cmd = LIGHTNING_CLI_CALL.copy()
-    cmd.extend(['plugin', 'start', path])
-    clncli = Popen(cmd, stdout=PIPE)
-    clncli.wait(timeout=3)
-    if clncli.returncode == 0:
-        RECKLESS_CONFIG.enable_plugin(path)
-        print('{} enabled'.format(plugin_name))
-    else:
-        err = eval(clncli.stdout.read().decode().replace('\n', ''))['message']
-        if ': already registered' in err:
-            RECKLESS_CONFIG.enable_plugin(path)
-            verbose(f'{inst.name} already registered with lightningd')
-            print('{} enabled'.format(plugin_name))
+    verbose(f'activating {plugin_name}')
+    try:
+        lightning_cli('plugin', 'start', path)
+    except CLIError as err:
+        if 'already registered' in err.message:
+            verbose(f'{inst.name} is already running')
         else:
             print(f'reckless: {inst.name} failed to start!')
-            print(err)
-        sys.exit(clncli.returncode)
+            raise err
+    except RPCError:
+        verbose('lightningd rpc unavailable. Skipping dynamic activation.')
+    RECKLESS_CONFIG.enable_plugin(path)
+    print(f'{plugin_name} enabled')
 
 
 def disable(plugin_name: str):
@@ -501,22 +523,17 @@ def disable(plugin_name: str):
     if not Path(path).exists():
         sys.stderr.write(f'Could not find plugin at {path}\n')
         sys.exit(1)
-    if not lightning_cli_available():
-        RECKLESS_CONFIG.disable_plugin(path)
-        print(f'{plugin_name} disabled')
-        return
-    cmd = LIGHTNING_CLI_CALL.copy()
-    cmd.extend(['plugin', 'stop', path])
-    clncli = Popen(cmd, stdout=PIPE, stderr=PIPE)
-    clncli.wait(timeout=3)
-    output = json.loads(clncli.stdout.read().decode()
-                        .replace('\n', '').replace('   ', ''))
-    if ('code' in output.keys() and output['code'] == -32602):
-        print('plugin not currently running')
-    elif clncli.returncode != 0:
-        print('lightning-cli plugin stop failed')
-        sys.stderr.write(clncli.stderr.read().decode())
-        sys.exit(clncli.returncode)
+    verbose(f'deactivating {plugin_name}')
+    try:
+        lightning_cli('plugin', 'stop', path)
+    except CLIError as err:
+        if err.code == -32602:
+            verbose('plugin not currently running')
+        else:
+            print('lightning-cli plugin stop failed')
+            raise err
+    except RPCError:
+        verbose('lightningd rpc unavailable. Skipping dynamic deactivation.')
     RECKLESS_CONFIG.disable_plugin(path)
     print(f'{plugin_name} disabled')
 
@@ -526,16 +543,12 @@ def load_config(reckless_dir: Union[str, None] = None,
     """Initial directory discovery and config file creation."""
     # Does the lightning-cli already reference an explicit config?
     net_conf = None
-    if lightning_cli_available():
-        cmd = LIGHTNING_CLI_CALL
-        cmd.extend(['listconfigs'])
-        clncli = Popen(cmd, stdout=PIPE, stderr=PIPE)
-        clncli.wait(timeout=3)
-        if clncli.returncode == 0:
-            output = json.loads(clncli.stdout.read().decode()
-                                .replace('\n', '').replace('   ', ''))
-            if 'conf' in output:
-                net_conf = LightningBitcoinConfig(path=output['conf'])
+    try:
+        active_config = lightning_cli('listconfigs', timeout=3)
+        if 'conf' in active_config:
+            net_conf = LightningBitcoinConfig(path=active_config['conf'])
+    except RPCError:
+        pass
     if reckless_dir is None:
         reckless_dir = Path(LIGHTNING_DIR).joinpath('reckless')
     else:
