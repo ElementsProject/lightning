@@ -14,7 +14,17 @@ async fn main() -> Result<(), anyhow::Error> {
             options::Value::Integer(42),
             "a test-option with default 42",
         ))
+        .option(options::ConfigOption::new(
+            "opt-option",
+            options::Value::OptInteger,
+            "An optional option",
+        ))
         .rpcmethod("testmethod", "This is a test", testmethod)
+        .rpcmethod(
+            "testoptions",
+            "Retrieve options from this plugin",
+            testoptions,
+        )
         .subscribe("connect", connect_handler)
         .hook("peer_connected", peer_connected_handler)
         .start(state)
@@ -24,6 +34,12 @@ async fn main() -> Result<(), anyhow::Error> {
     } else {
         Ok(())
     }
+}
+
+async fn testoptions(p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
+    Ok(json!({
+        "opt-option": format!("{:?}", p.option("opt-option").unwrap())
+    }))
 }
 
 async fn testmethod(_p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
