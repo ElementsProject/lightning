@@ -586,7 +586,7 @@ listfunds_success(struct command *cmd,
 	avail_prev_outs = tal_arr(info, struct bitcoin_outpoint *, 0);
 	json_for_each_arr(i, tok, outputs_tok) {
 		struct funder_utxo *utxo;
-		bool is_reserved, is_p2sh;
+		bool is_reserved;
 		struct bitcoin_outpoint *prev_out;
 		char *status;
 		const char *err;
@@ -609,15 +609,13 @@ listfunds_success(struct command *cmd,
 				   err, json_tok_full_len(result),
 				   json_tok_full(buf, result));
 
-		/* is it a p2sh output? */
+		/* v2 opens don't support p2sh-wrapped inputs */
 		if (json_get_member(buf, tok, "redeemscript"))
-			is_p2sh = true;
-		else
-			is_p2sh = false;
+			continue;
 
 		/* The estimated fee per utxo. */
 		est_fee = amount_tx_fee(info->funding_feerate_perkw,
-					bitcoin_tx_input_weight(is_p2sh, 110));
+					bitcoin_tx_input_weight(false, 110));
 
 		/* Did we use this utxo on a previous attempt? */
 		prev_out = previously_reserved(info->prev_outs, &utxo->out);
@@ -697,12 +695,15 @@ listfunds_success(struct command *cmd,
 					     committed_funds,
 					     avail_utxos);
 		json_add_bool(req->js, "reservedok", true);
-	} else
+	} else {
 		req = jsonrpc_request_start(cmd->plugin, cmd,
 					    "fundpsbt",
 					    &psbt_funded,
 					    &psbt_fund_failed,
 					    info);
+
+		json_add_bool(req->js, "nonwrapped", true);
+	}
 	json_add_string(req->js, "satoshi",
 			type_to_string(tmpctx, struct amount_sat,
 				       &info->our_funding));
