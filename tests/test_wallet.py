@@ -3,6 +3,7 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
+from shutil import copyfile
 from utils import (
     only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES,
     VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
@@ -1496,3 +1497,59 @@ def test_withdraw_bech32m(node_factory, bitcoind):
     for addr in addrs:
         args += [{addr: 10**3}]
     l1.rpc.multiwithdraw(args)["txid"]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")
+def test_upgradewallet(node_factory, bitcoind):
+    # Make sure bitcoind doesn't think it's going backwards
+    bitcoind.generate_block(104)
+    l1 = node_factory.get_node(start=False)
+
+    # Write the data/p2sh_wallet_hsm_secret to the hsm_path,
+    # so node can spend funds at p2sh_wrapped_addr
+    p2sh_wrapped_addr = '2N2V4ee2vMkiXe5FSkRqFjQhiS9hKqNytv3'
+    hsm_path_dest = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    hsm_path_origin = os.path.join('tests/data', 'p2sh_wallet_hsm_secret')
+    copyfile(hsm_path_origin, hsm_path_dest)
+
+    l1.start()
+    assert l1.daemon.is_in_log('Server started with public key 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518')
+
+    # No funds in wallet, upgrading does nothing
+    upgrade = l1.rpc.upgradewallet()
+    assert upgrade['upgraded_outs'] == 0
+
+    l1.fundwallet(10000000, addrtype="bech32")
+
+    # Funds are in wallet but they're already native segwit
+    upgrade = l1.rpc.upgradewallet()
+    assert upgrade['upgraded_outs'] == 0
+
+    # Send funds to wallet-compatible p2sh-segwit funds
+    txid = bitcoind.rpc.sendtoaddress(p2sh_wrapped_addr, 20000000 / 10 ** 8)
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
+
+    upgrade = l1.rpc.upgradewallet()
+    assert upgrade['upgraded_outs'] == 1
+    assert bitcoind.rpc.getmempoolinfo()['size'] == 1
+
+    # Should be reserved!
+    res_funds = only_one([out for out in l1.rpc.listfunds()['outputs'] if out['reserved']])
+    assert 'redeemscript' in res_funds
+
+    # Running it again should be no-op because reservedok is false
+    upgrade = l1.rpc.upgradewallet()
+    assert upgrade['upgraded_outs'] == 0
+
+    # Doing it with 'reserved ok' should have 1
+    # We use a big feerate so we can get over the RBF hump
+    upgrade = l1.rpc.upgradewallet(feerate="max_acceptable", reservedok=True)
+    assert upgrade['upgraded_outs'] == 1
+    assert bitcoind.rpc.getmempoolinfo()['size'] == 1
+
+    # Mine it, nothing to upgrade
+    l1.bitcoin.generate_block(1)
+    sync_blockheight(l1.bitcoin, [l1])
+    upgrade = l1.rpc.upgradewallet(feerate="max_acceptable", reservedok=True)
+    assert upgrade['upgraded_outs'] == 0
