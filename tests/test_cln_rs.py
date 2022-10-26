@@ -72,6 +72,20 @@ def test_plugin_start(node_factory):
     l1.daemon.wait_for_log(r'Got a connect notification')
 
 
+def test_plugin_optional_opts(node_factory):
+    """Start a minimal plugin and ensure it is well-behaved
+    """
+    bin_path = Path.cwd() / "target" / "debug" / "examples" / "cln-plugin-startup"
+    l1 = node_factory.get_node(options={"plugin": str(bin_path), 'opt-option': 31337})
+    opts = l1.rpc.testoptions()
+    print(opts)
+
+    # Do not set any value, should be None now
+    l1 = node_factory.get_node(options={"plugin": str(bin_path)})
+    opts = l1.rpc.testoptions()
+    print(opts)
+
+
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     # These only exist if we have rust!
