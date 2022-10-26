@@ -541,8 +541,8 @@ def disable(plugin_name: str):
 def load_config(reckless_dir: Union[str, None] = None,
                 network: str = 'bitcoin') -> Config:
     """Initial directory discovery and config file creation."""
-    # Does the lightning-cli already reference an explicit config?
     net_conf = None
+    # Does the lightning-cli already reference an explicit config?
     try:
         active_config = lightning_cli('listconfigs', timeout=3)
         if 'conf' in active_config:
@@ -554,18 +554,20 @@ def load_config(reckless_dir: Union[str, None] = None,
     else:
         if not os.path.isabs(reckless_dir):
             reckless_dir = Path.cwd().joinpath(reckless_dir)
-    # Reckless applies to the bitcoin network configuration by default.
-    if network == 'bitcoin':
-        reck_conf_path = Path(reckless_dir).joinpath('bitcoin-reckless.conf')
-        if not net_conf:
-            # This config file inherits the RecklessConfig.
-            net_conf = LightningBitcoinConfig()
-    elif network == 'regtest':
-        reck_conf_path = Path(reckless_dir).joinpath('regtest-reckless.conf')
-        regtest_path = Path(LIGHTNING_DIR).joinpath('regtest', 'config')
-        if not net_conf:
-            # Actually the regtest network config
-            net_conf = LightningBitcoinConfig(path=regtest_path)
+    if LIGHTNING_CONFIG:
+        network_path = LIGHTNING_CONFIG
+    else:
+        network_path = Path(LIGHTNING_DIR).joinpath(network, 'config')
+    reck_conf_path = Path(reckless_dir).joinpath(f'{network}-reckless.conf')
+    if net_conf:
+        if str(network_path) != net_conf.conf_fp:
+            print('error: reckless configuration does not match lightningd:\n'
+                  f'reckless network config path: {network_path}\n'
+                  f'lightningd active config: {net_conf.conf_fp}')
+            sys.exit(1)
+    else:
+        # The network-specific config file (bitcoin by default)
+        net_conf = LightningBitcoinConfig(path=network_path)
     # Reckless manages plugins here.
     try:
         reckless_conf = RecklessConfig(path=reck_conf_path)
@@ -650,6 +652,10 @@ if __name__ == '__main__':
                         help='lightning data directory (default:~/.lightning)',
                         type=str,
                         default=Path.home().joinpath('.lightning'))
+    parser.add_argument('-c', '--conf',
+                        help=' config file used by lightningd',
+                        type=str,
+                        default=None)
     parser.add_argument('-r', '--regtest', action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true')
     cmd1 = parser.add_subparsers(dest='cmd1', help='command',
@@ -711,6 +717,7 @@ if __name__ == '__main__':
         RECKLESS_DIR = args.reckless_dir
     else:
         RECKLESS_DIR = Path(LIGHTNING_DIR).joinpath('reckless')
+    LIGHTNING_CONFIG = args.conf
     RECKLESS_CONFIG = load_config(reckless_dir=RECKLESS_DIR,
                                   network=NETWORK)
     RECKLESS_SOURCES = loadSources()
