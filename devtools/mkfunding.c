@@ -144,6 +144,9 @@ int main(int argc, char *argv[])
 		     type_to_string(NULL, struct amount_sat, &input.amount),
 		     type_to_string(NULL, struct amount_sat, &fee));
 
+	/* Find the P2WPKH script from input pubkey */
+	input.scriptPubkey = scriptpubkey_p2wpkh(NULL, &inputkey);
+
 	/* No change output, so we don't need a bip32 base. */
 	tx = funding_tx(NULL, &input, funding_amount,
 			&funding_localkey, &funding_remotekey);
