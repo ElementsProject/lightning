@@ -308,6 +308,10 @@ need to include `testnet=1`
 
 To install the built binaries into your system, you'll need to run `make install`:
 
+    make install
+
+On an M1 mac you may need to use this command instead:
+
     sudo PATH="/usr/local/opt:$PATH"  LIBRARY_PATH=/opt/homebrew/lib CPATH=/opt/homebrew/include make install
 
 
