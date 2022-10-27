@@ -12,6 +12,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/derive_basepoints.h>
 #include <common/initial_commit_tx.h>
+#include <common/setup.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utxo.h>
@@ -86,7 +87,7 @@ int main(int argc, char *argv[])
 	struct bitcoin_txid txid;
 	u8 **witnesses;
 
-	setup_locale();
+	common_setup(argv[0]);
 	chainparams = chainparams_for_network("bitcoin");
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
@@ -168,6 +169,7 @@ int main(int argc, char *argv[])
 	       type_to_string(NULL, struct bitcoin_txid, &txid));
 
 	printf("tx: %s\n", tal_hex(NULL, linearize_tx(NULL, tx)));
+	common_shutdown();
 
 	return 0;
 }
