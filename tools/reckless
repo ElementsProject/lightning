@@ -10,6 +10,7 @@ import shutil
 import tempfile
 import requests
 from typing import Union
+from urllib.parse import urlparse
 
 
 repos = ['https://github.com/lightningd/plugins']
@@ -262,21 +263,21 @@ def _search_repo(name: str, url: str) -> InstInfo:
     while '' in repo:
         repo.remove('')
     repo_name = None
-    for i in range(len(repo)):
-        if 'github.com' in repo[i]:
-            # Extract user and repo name
-            start = i + 1
-            if repo[start] == 'repo':
-                # Maybe we were passed an api.github.com/repo/<user> url
-                start = start + 1
-            repo_user = repo[start]
-            repo_name = repo[start+1]
-            break
-    # FIXME: Handle non-github repos.
+    parsed_url = urlparse(url)
+    if 'github.com' not in parsed_url.netloc:
+        # FIXME: Handle non-github repos.
+        return False
+    if len(parsed_url.path.split('/')) < 2:
+        return False
+    start = 1
+    # Maybe we were passed an api.github.com/repo/<user> url
+    if 'api' in parsed_url.netloc:
+        start += 1
+    repo_user = parsed_url.path.split('/')[start]
+    repo_name = parsed_url.path.split('/')[start + 1]
+
     # Get details from the github API.
-    if repo_name is not None:
-        api_url = f'https://api.github.com/repos/{repo_user}/' + \
-                  f'{repo_name}/contents/'
+    api_url = f'https://api.github.com/repos/{repo_user}/{repo_name}/contents/'
     plugins_cont = api_url
     r = requests.get(plugins_cont, timeout=5)
     if r.status_code != 200:
@@ -284,8 +285,9 @@ def _search_repo(name: str, url: str) -> InstInfo:
         return False
     # Repo is for this plugin
     if repo_name == name:
-        MyPlugin = InstInfo(name, f'https://github.com/{repo_user}/'
-                            f'{repo_name}', api_url)
+        MyPlugin = InstInfo(name,
+                            f'https://github.com/{repo_user}/{repo_name}',
+                            api_url)
         if not MyPlugin.get_inst_details():
             return False
         return MyPlugin
