@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
+#include <common/json_filter.h>
 #include <common/setup.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -17,6 +18,18 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
+/* Generated stub for json_filter_down */
+bool json_filter_down(struct json_filter **filter UNNEEDED, const char *member UNNEEDED)
+{ fprintf(stderr, "json_filter_down called!\n"); abort(); }
+/* Generated stub for json_filter_finished */
+bool json_filter_finished(const struct json_filter *filter UNNEEDED)
+{ fprintf(stderr, "json_filter_finished called!\n"); abort(); }
+/* Generated stub for json_filter_ok */
+bool json_filter_ok(const struct json_filter *filter UNNEEDED, const char *member UNNEEDED)
+{ fprintf(stderr, "json_filter_ok called!\n"); abort(); }
+/* Generated stub for json_filter_up */
+bool json_filter_up(struct json_filter **filter UNNEEDED)
+{ fprintf(stderr, "json_filter_up called!\n"); abort(); }
 /* Generated stub for towire_tlv */
 void towire_tlv(u8 **pptr UNNEEDED,
 		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
