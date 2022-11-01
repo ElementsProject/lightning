@@ -1,4 +1,5 @@
 #include "config.h"
+#include "../../common/json_filter.c"
 #include "../../common/json_stream.c"
 #include "../jsonrpc.c"
 #include "../feerate.c"
