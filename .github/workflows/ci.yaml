@@ -66,14 +66,6 @@ jobs:
           which protoc
           bash -x .github/scripts/build.sh
 
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
-          path: report.*
-          if-no-files-found: ignore
-
   check-dock:
     name: Check core-lightning doc
     runs-on: ubuntu-20.04
@@ -186,13 +178,6 @@ jobs:
         run: |
           bash -x .github/scripts/build.sh
 
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
-          path: report.*
-
   valgrind-test:
     name: Valgrind Test Config ${{ matrix.cfg }}
     runs-on: ubuntu-20.04
@@ -289,13 +274,6 @@ jobs:
         run: |
           bash -x .github/scripts/build.sh
 
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
-          path: report.*
-
   rust-test:
     name: Rust Test Config
     runs-on: ubuntu-20.04
@@ -322,10 +300,3 @@ jobs:
       - name: Build
         run: |
           bash -x .github/scripts/build.sh
-
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
-          path: report.*
