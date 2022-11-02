@@ -102,7 +102,8 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listnodes.7 \
 	doc/lightning-listconfigs.7 \
 	doc/lightning-help.7 \
-	doc/lightning-getlog.7
+	doc/lightning-getlog.7 \
+	doc/reckless.7
 
 doc-all: $(MANPAGES) doc/index.rst
 
