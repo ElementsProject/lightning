@@ -336,10 +336,10 @@ def _install_plugin(src: InstInfo) -> bool:
     if ('http' in src.repo[:4]) or ('github.com' in src.repo):
         # Ugly, but interactively handling stderr gets hairy.
         if IS_VERBOSE:
-            git = Popen(['git', 'clone',  src.repo, clone_path],
+            git = Popen(['git', 'clone',  src.repo, str(clone_path)],
                         stdout=PIPE)
         else:
-            git = Popen(['git', 'clone',  src.repo, clone_path],
+            git = Popen(['git', 'clone',  src.repo, str(clone_path)],
                         stdout=PIPE, stderr=PIPE)
         git.wait()
         if git.returncode != 0:
@@ -353,6 +353,7 @@ def _install_plugin(src: InstInfo) -> bool:
     if src.subdir is not None:
         plugin_path = Path(clone_path).joinpath(src.subdir)
     os.chdir(plugin_path)
+    assert os.getcwd() == str(plugin_path)
     if src.commit:
         verbose(f"Checking out commit {src.commit}")
         checkout = Popen(['git', 'checkout', src.commit],
@@ -400,6 +401,7 @@ def _install_plugin(src: InstInfo) -> bool:
     # Find this cute little plugin a forever home
     shutil.copytree(plugin_path, inst_path)
     print(f'plugin installed: {inst_path}')
+    os.chdir(RECKLESS_CONFIG.reckless_dir)
     remove_dir(clone_path)
     return True
 
@@ -422,7 +424,7 @@ def install(plugin_name: str):
 def uninstall(plugin_name: str):
     """disables plugin and deletes the plugin's reckless dir"""
     assert isinstance(plugin_name, str)
-    print(f'Uninstalling plugin {plugin_name}')
+    verbose(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
     plugin_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(plugin_name)
     verbose(f'looking for {plugin_dir}')
@@ -604,8 +606,8 @@ def loadSources() -> list:
     sources_file = get_sources_file()
     # This would have been created if possible
     if not Path(sources_file).exists():
-        print('Warning: Reckless requires write access')
-        Config(path=sources_file,
+        verbose('Warning: Reckless requires write access')
+        Config(path=str(sources_file),
                default_text='https://github.com/lightningd/plugins')
         return ['https://github.com/lightningd/plugins']
     return sources_from_file()
