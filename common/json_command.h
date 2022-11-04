@@ -15,6 +15,9 @@ struct command_result *command_fail(struct command *cmd, enum jsonrpc_errcode co
 				    const char *fmt, ...)
 	PRINTF_FMT(3, 4) WARN_UNUSED_RESULT RETURNS_NONNULL;
 
+/* Caller supplies this too: must provide this to reach into cmd */
+struct json_filter **command_filter_ptr(struct command *cmd);
+
 /* Convenient wrapper for "paramname: msg: invalid token '.*%s'" */
 static inline struct command_result *
 command_fail_badparam(struct command *cmd,

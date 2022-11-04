@@ -5,8 +5,10 @@
 #define LIGHTNING_COMMON_JSON_FILTER_H
 #include "config.h"
 #include <ccan/tal/tal.h>
+#include <common/json_parse_simple.h>
 #include <stdbool.h>
 
+struct command;
 struct json_filter;
 
 /* Print this? */
@@ -31,4 +33,9 @@ struct json_filter *json_filter_subobj(struct json_filter *filter,
 				       size_t fieldnamelen);
 struct json_filter *json_filter_subarr(struct json_filter *filter);
 
+/* Turn this "filter" field into cmd->filter and return NULL, or fail command */
+struct command_result *parse_filter(struct command *cmd,
+				    const char *name,
+				    const char *buffer,
+				    const jsmntok_t *tok);
 #endif /* LIGHTNING_COMMON_JSON_FILTER_H */
