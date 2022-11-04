@@ -132,6 +132,12 @@ struct command_result *command_done(void)
 	return &complete;
 }
 
+/* Don't ask for _filter, we will crash! */
+struct json_filter **command_filter_ptr(struct command *cmd)
+{
+	return NULL;
+}
+
 static void ld_send(struct plugin *plugin, struct json_stream *stream)
 {
 	struct jstream *jstr = tal(plugin, struct jstream);

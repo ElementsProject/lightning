@@ -22,6 +22,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
+#include <common/json_filter.h>
 #include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -493,6 +494,11 @@ struct command_result *command_fail(struct command *cmd, enum jsonrpc_errcode co
 	return command_failed(cmd, r);
 }
 
+struct json_filter **command_filter_ptr(struct command *cmd)
+{
+	return &cmd->filter;
+}
+
 struct command_result *command_still_pending(struct command *cmd)
 {
 	notleak_with_children(cmd);
@@ -909,6 +915,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->id_is_string = (id->type == JSMN_STRING);
 	c->id = json_strdup(c, jcon->buffer, id);
 	c->mode = CMD_NORMAL;
+	c->filter = NULL;
 	list_add_tail(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_command);
 
