@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
+#include <common/json_command.h>
 #include <common/json_filter.h>
 #include <common/utils.h>
 
@@ -189,4 +190,62 @@ const char *json_filter_misused(const tal_t *ctx, const struct json_filter *f)
 		strmap_iterate(&f->filter_map, strmap_filter_misused, &ret);
 		return tal_steal(ctx, ret);
 	}
+}
+
+/* Recursively populate filter.  NULL on success.
+ *
+ * Example for listtransactions to include output type, amount_msat,
+ *   {"transactions": [{"outputs": [{"amount_msat": true, "type": true}]}]}
+ */
+static struct command_result *
+build_filter(struct command *cmd,
+	     const char *name,
+	     const char *buffer,
+	     const jsmntok_t *tok,
+	     struct json_filter *filter)
+{
+	struct command_result *ret;
+	size_t i;
+	const jsmntok_t *t;
+	struct json_filter *subf;
+
+	if (tok->type == JSMN_ARRAY) {
+		if (tok->size != 1)
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "Arrays can only have one element");
+		subf = json_filter_subarr(filter);
+		return build_filter(cmd, name, buffer, tok + 1, subf);
+	}
+
+	json_for_each_obj(i, t, tok) {
+		bool is_true;
+		const jsmntok_t *val = t + 1;
+
+		if (t->type != JSMN_STRING)
+			return command_fail_badparam(cmd, name, buffer, t,
+						     "expected string key");
+		subf = json_filter_subobj(filter, buffer + t->start, t->end - t->start);
+		if (val->type == JSMN_OBJECT || val->type == JSMN_ARRAY) {
+			ret = build_filter(cmd, name, buffer, val, subf);
+			if (ret)
+				return ret;
+		} else if (!json_to_bool(buffer, val, &is_true) || !is_true)
+			return command_fail_badparam(cmd, name, buffer, val, "value must be true");
+	}
+	return NULL;
+}
+
+struct command_result *parse_filter(struct command *cmd,
+				    const char *name,
+				    const char *buffer,
+				    const jsmntok_t *tok)
+{
+	struct json_filter **filter = command_filter_ptr(cmd);
+
+	if (tok->type != JSMN_OBJECT)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Expected object");
+
+	*filter = json_filter_new(cmd);
+	return build_filter(cmd, name, buffer, tok, *filter);
 }

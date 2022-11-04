@@ -41,6 +41,8 @@ struct command {
 	enum command_mode mode;
 	/* Have we started a json stream already?  For debugging. */
 	struct json_stream *json_stream;
+	/* Optional output field filter. */
+	struct json_filter *filter;
 };
 
 /**
