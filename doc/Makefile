@@ -84,6 +84,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-setchannel.7 \
 	doc/lightning-sendcustommsg.7 \
+	doc/lightning-signinvoice.7 \
 	doc/lightning-signmessage.7 \
 	doc/lightning-staticbackup.7 \
 	doc/lightning-txprepare.7 \

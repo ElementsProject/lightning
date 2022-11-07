@@ -1897,3 +1897,57 @@ static const struct json_command preapprovekeysend_command = {
 	"Ask the HSM to preapprove a keysend payment."
 };
 AUTODATA(json_command, &preapprovekeysend_command);
+
+static struct command_result *json_signinvoice(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	const char *invstring;
+	struct json_stream *response;
+	struct bolt11 *b11;
+	struct sha256 hash;
+	const u5 *sig;
+	bool have_n;
+	char *fail;
+
+	if (!param(cmd, buffer, params,
+		   p_req("invstring", param_string, &invstring),
+		   NULL))
+		return command_param_failed();
+
+	b11 = bolt11_decode_nosig(cmd, invstring, cmd->ld->our_features,
+				  NULL, chainparams, &hash, &sig, &have_n,
+				  &fail);
+
+	if (!b11)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Unparsable invoice '%s': %s",
+				    invstring, fail);
+
+	/* This adds the signature */
+	char *b11enc = bolt11_encode(cmd, b11, have_n,
+				     hsm_sign_b11, cmd->ld);
+
+        /* BOLT #11:
+         * A writer:
+         *...
+         *    - MUST include either exactly one `d` or exactly one `h` field.
+         */
+	if (!b11->description && !b11->description_hash)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Missing description in invoice");
+
+	response = json_stream_success(cmd);
+	json_add_invstring(response, b11enc);
+	return command_success(cmd, response);
+}
+
+static const struct json_command signinvoice_command = {
+	"signinvoice",
+	"payment",
+	json_signinvoice,
+	"Lowlevel command to sign invoice {invstring}."
+};
+
+AUTODATA(json_command, &signinvoice_command);
