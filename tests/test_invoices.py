@@ -533,6 +533,19 @@ def test_waitanyinvoice(node_factory, executor):
         l2.rpc.waitanyinvoice('non-number')
 
 
+def test_signinvoice(node_factory, executor):
+    # Setup
+    l1, l2 = node_factory.line_graph(2)
+
+    # Create an invoice for l1
+    inv1 = l1.rpc.invoice(1000, 'inv1', 'inv1')['bolt11']
+    assert l1.rpc.decodepay(inv1)['payee'] == l1.info['id']
+
+    # Have l2 re-sign the invoice
+    inv2 = l2.rpc.signinvoice(inv1)['bolt11']
+    assert l1.rpc.decodepay(inv2)['payee'] == l2.info['id']
+
+
 def test_waitanyinvoice_reversed(node_factory, executor):
     """Test waiting for invoices, where they are paid in reverse order
     to when they are created.
