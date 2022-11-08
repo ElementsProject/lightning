@@ -1042,7 +1042,8 @@ def test_channel_state_change_history(node_factory, bitcoind):
         assert(history[3]['message'] == "Closing complete")
 
 
-@pytest.mark.developer("without DEVELOPER=1, gossip v slow")
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("Gossip slow, and we test --dev-onion-reply-length")
 def test_htlc_accepted_hook_fail(node_factory):
     """Send payments from l1 to l2, but l2 just declines everything.
 
@@ -1053,7 +1054,8 @@ def test_htlc_accepted_hook_fail(node_factory):
     """
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {},
-        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')},
+        {'dev-onion-reply-length': 1111,
+         'plugin': os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')},
         {}
     ], wait_for_announce=True)
 
