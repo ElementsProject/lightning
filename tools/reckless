@@ -8,9 +8,9 @@ import argparse
 from pathlib import Path
 import shutil
 import tempfile
-import requests
 from typing import Union
 from urllib.parse import urlparse
+import urllib3
 
 
 repos = ['https://github.com/lightningd/plugins']
@@ -43,13 +43,14 @@ class InstInfo:
         Populate installation details from a github repo url.
         Return True if all data is found.
         """
-        r = requests.get(self.git_url)
-        if r.status_code != 200:
+        http = urllib3.PoolManager()
+        r = http.request('GET', self.git_url, timeout=5)
+        if r.status != 200:
             return False
         if 'git/tree' in self.git_url:
-            tree = r.json()['tree']
+            tree = json.loads(r.data.decode())['tree']
         else:
-            tree = r.json()
+            tree = json.loads(r.data.decode())
         entry_guesses = py_entry_guesses(self.name)
         for g in entry_guesses:
             for f in tree:
@@ -279,8 +280,9 @@ def _search_repo(name: str, url: str) -> InstInfo:
     # Get details from the github API.
     api_url = f'https://api.github.com/repos/{repo_user}/{repo_name}/contents/'
     plugins_cont = api_url
-    r = requests.get(plugins_cont, timeout=5)
-    if r.status_code != 200:
+    http = urllib3.PoolManager()
+    r = http.request('GET', plugins_cont, timeout=5)
+    if r.status != 200:
         print("Plugin repository unavailable")
         return False
     # Repo is for this plugin
@@ -292,7 +294,7 @@ def _search_repo(name: str, url: str) -> InstInfo:
             return False
         return MyPlugin
     # Repo contains multiple plugins?
-    for x in r.json():
+    for x in json.loads(r.data.decode()):
         if x["name"] == name:
             # Look for the rest of the install details
             # These are in lightningd/plugins directly
@@ -321,8 +323,9 @@ def _install_plugin(src: InstInfo) -> bool:
     if RECKLESS_CONFIG is None:
         print('error: reckless install directory unavailable')
         sys.exit(2)
-    req = requests.get(src.repo, timeout=20)
-    if not req.status_code == 200:
+    http = urllib3.PoolManager()
+    req = http.request('GET', src.repo, timeout=10)
+    if not req.status == 200:
         print('plugin source repository unavailable')
         sys.exit(1)
     # Use a unique directory for each cloned repo.
