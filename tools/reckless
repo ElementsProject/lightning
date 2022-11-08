@@ -5,7 +5,7 @@ import sys
 import json
 import os
 import argparse
-from pathlib import Path
+from pathlib import Path, PosixPath
 import shutil
 import tempfile
 from typing import Union
@@ -81,16 +81,16 @@ class InstInfo:
         return True
 
 
-def create_dir(r: int, directory: str) -> bool:
+def create_dir(r: int, directory: PosixPath) -> bool:
     """Creation of a directory at path `d` with a maximum new dir depth `r`"""
-    if Path(directory).exists():
+    if directory.exists():
         return True
-    elif r <= 0:
+    if r <= 0:
         return False
-    elif create_dir(r-1, Path(directory).parent):
+    if create_dir(r-1, directory.parent):
         os.mkdir(directory, 0o777)
         print(f'created directory {directory}')
-        assert Path(directory).exists()
+        assert directory.exists()
         return True
 
 
@@ -197,8 +197,7 @@ class RecklessConfig(Config):
     def __init__(self, path: Union[str, None] = None,
                  default_text: Union[str, None] = None):
         if path is None:
-            path = Path(LIGHTNING_DIR).joinpath('reckless',
-                                                'bitcoin-reckless.conf')
+            path = Path(LIGHTNING_DIR) / 'reckless' / 'bitcoin-reckless.conf'
         if default_text is None:
             default_text = (
                 '# This configuration file is managed by reckless to activate '
@@ -330,8 +329,8 @@ def _install_plugin(src: InstInfo) -> bool:
         sys.exit(1)
     # Use a unique directory for each cloned repo.
     clone_path = 'reckless-{}'.format(str(hash(os.times()))[-9:])
-    clone_path = Path(tempfile.gettempdir()).joinpath(clone_path)
-    inst_path = Path(RECKLESS_CONFIG.reckless_dir).joinpath(src.name)
+    clone_path = Path(tempfile.gettempdir()) / clone_path
+    inst_path = Path(RECKLESS_CONFIG.reckless_dir) / src.name
     if Path(clone_path).exists():
         verbose(f'{clone_path} already exists - deleting')
         shutil.rmtree(clone_path)
@@ -354,7 +353,7 @@ def _install_plugin(src: InstInfo) -> bool:
             return False
     plugin_path = clone_path
     if src.subdir is not None:
-        plugin_path = Path(clone_path).joinpath(src.subdir)
+        plugin_path = Path(clone_path) / src.subdir
     if src.commit:
         verbose(f"Checking out commit {src.commit}")
         checkout = Popen(['git', 'checkout', src.commit],
@@ -415,8 +414,7 @@ def install(plugin_name: str):
         if not _install_plugin(src):
             print('installation aborted')
             sys.exit(1)
-        inst_path = Path(RECKLESS_CONFIG.reckless_dir).joinpath(src.name,
-                                                                src.entry)
+        inst_path = Path(RECKLESS_CONFIG.reckless_dir) / src.name / src.entry
         RECKLESS_CONFIG.enable_plugin(inst_path)
         enable(plugin_name)
 
@@ -426,7 +424,7 @@ def uninstall(plugin_name: str):
     assert isinstance(plugin_name, str)
     verbose(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
-    plugin_dir = Path(RECKLESS_CONFIG.reckless_dir).joinpath(plugin_name)
+    plugin_dir = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name
     verbose(f'looking for {plugin_dir}')
     if remove_dir(plugin_dir):
         print(f"{plugin_name} uninstalled successfully.")
@@ -554,15 +552,15 @@ def load_config(reckless_dir: Union[str, None] = None,
     except RPCError:
         pass
     if reckless_dir is None:
-        reckless_dir = Path(LIGHTNING_DIR).joinpath('reckless')
+        reckless_dir = Path(LIGHTNING_DIR) / 'reckless'
     else:
         if not os.path.isabs(reckless_dir):
-            reckless_dir = Path.cwd().joinpath(reckless_dir)
+            reckless_dir = Path.cwd() / reckless_dir
     if LIGHTNING_CONFIG:
         network_path = LIGHTNING_CONFIG
     else:
-        network_path = Path(LIGHTNING_DIR).joinpath(network, 'config')
-    reck_conf_path = Path(reckless_dir).joinpath(f'{network}-reckless.conf')
+        network_path = Path(LIGHTNING_DIR) / network / 'config'
+    reck_conf_path = Path(reckless_dir) / f'{network}-reckless.conf'
     if net_conf:
         if str(network_path) != net_conf.conf_fp:
             print('error: reckless configuration does not match lightningd:\n'
@@ -588,7 +586,7 @@ def load_config(reckless_dir: Union[str, None] = None,
 
 
 def get_sources_file() -> str:
-    return Path(RECKLESS_DIR).joinpath('.sources')
+    return Path(RECKLESS_DIR) / '.sources'
 
 
 def sources_from_file() -> list:
@@ -720,7 +718,7 @@ if __name__ == '__main__':
     if args.reckless_dir:
         RECKLESS_DIR = args.reckless_dir
     else:
-        RECKLESS_DIR = Path(LIGHTNING_DIR).joinpath('reckless')
+        RECKLESS_DIR = Path(LIGHTNING_DIR) / 'reckless'
     LIGHTNING_CONFIG = args.conf
     RECKLESS_CONFIG = load_config(reckless_dir=RECKLESS_DIR,
                                   network=NETWORK)
