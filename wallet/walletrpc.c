@@ -272,11 +272,11 @@ static void json_add_utxo(struct json_stream *response,
 	if (utxo->spendheight)
 		json_add_string(response, "status", "spent");
 	else if (utxo->blockheight) {
-		if (utxo->is_in_coinbase
-		    && *utxo->blockheight + 99 > current_height) {
-			json_add_string(response, "status", "immature");
-		} else
-			json_add_string(response, "status", "confirmed");
+		json_add_string(response, "status",
+				utxo_is_immature(utxo, current_height)
+				    ? "immature"
+				    : "confirmed");
+
 		json_add_num(response, "blockheight", *utxo->blockheight);
 	} else
 		json_add_string(response, "status", "unconfirmed");

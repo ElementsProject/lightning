@@ -83,4 +83,11 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max);
 
 /* Estimate of (signed) UTXO weight in transaction */
 size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight);
+
+/**
+ * Determine how many blocks until a UTXO becomes mature.
+ *
+ * Returns 0 for non-coinbase outputs or the number of blocks to mature.
+ */
+u32 utxo_is_immature(const struct utxo *utxo, u32 blockheight);
 #endif /* LIGHTNING_COMMON_UTXO_H */

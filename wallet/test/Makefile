@@ -26,6 +26,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/setup.o				\
 	common/timeout.o			\
 	common/utils.o				\
+	common/utxo.o				\
 	common/wireaddr.o			\
 	common/version.o			\
 	wallet/db_sqlite3_sqlgen.o		\
