@@ -685,7 +685,7 @@ void wallet_blocks_heights(struct wallet *w, u32 def, u32 *min, u32 *max);
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
  */
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *tx,
-				 u32 tx_index,
+				 bool is_coinbase,
 				 const u32 *blockheight,
 				 struct amount_sat *total);
 
