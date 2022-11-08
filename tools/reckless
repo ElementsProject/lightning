@@ -355,12 +355,10 @@ def _install_plugin(src: InstInfo) -> bool:
     plugin_path = clone_path
     if src.subdir is not None:
         plugin_path = Path(clone_path).joinpath(src.subdir)
-    os.chdir(plugin_path)
-    assert os.getcwd() == str(plugin_path)
     if src.commit:
         verbose(f"Checking out commit {src.commit}")
         checkout = Popen(['git', 'checkout', src.commit],
-                         stdout=PIPE, stderr=PIPE)
+                         cwd=plugin_path, stdout=PIPE, stderr=PIPE)
         checkout.wait()
         if checkout.returncode != 0:
             print(f'failed to checkout referenced commit {src.commit}')
@@ -378,7 +376,7 @@ def _install_plugin(src: InstInfo) -> bool:
     if src.deps is not None:
         verbose(f'installing dependencies using {src.deps}')
         procedure = install_methods[src.deps]
-        pip = Popen(procedure, stdout=PIPE)
+        pip = Popen(procedure, cwd=plugin_path, stdout=PIPE)
         pip.wait()
         if pip.returncode == 0:
             print('dependencies installed successfully')
@@ -386,7 +384,7 @@ def _install_plugin(src: InstInfo) -> bool:
             print('error encountered installing dependencies')
             verbose(pip.stdout.read())
             return False
-    test = Popen([Path(plugin_path).joinpath(src.entry)],
+    test = Popen([Path(plugin_path).joinpath(src.entry)], cwd=plugin_path,
                  stdout=PIPE, stderr=PIPE, universal_newlines=True)
     test_log = []
     with test.stderr:
@@ -404,7 +402,6 @@ def _install_plugin(src: InstInfo) -> bool:
     # Find this cute little plugin a forever home
     shutil.copytree(plugin_path, inst_path)
     print(f'plugin installed: {inst_path}')
-    os.chdir(RECKLESS_CONFIG.reckless_dir)
     remove_dir(clone_path)
     return True
 
