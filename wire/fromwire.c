@@ -223,6 +223,8 @@ u8 *fromwire_tal_arrn(const tal_t *ctx,
 
 	arr = tal_arr(ctx, u8, num);
 	fromwire_u8_array(cursor, max, arr, num);
+	if (!*cursor)
+		return tal_free(arr);
 	return arr;
 }
 
