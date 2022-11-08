@@ -679,12 +679,19 @@ struct route_step *process_onionpacket(
 	return step;
 }
 
+#if DEVELOPER
+unsigned dev_onion_reply_length = ONION_REPLY_SIZE;
+#define OUR_ONION_REPLY_SIZE	dev_onion_reply_length
+#else
+#define OUR_ONION_REPLY_SIZE	ONION_REPLY_SIZE
+#endif
+
 struct onionreply *create_onionreply(const tal_t *ctx,
 				     const struct secret *shared_secret,
 				     const u8 *failure_msg)
 {
 	size_t msglen = tal_count(failure_msg);
-	size_t padlen = ONION_REPLY_SIZE - msglen;
+	size_t padlen = OUR_ONION_REPLY_SIZE - msglen;
 	struct onionreply *reply = tal(ctx, struct onionreply);
 	u8 *payload = tal_arr(ctx, u8, 0);
 	struct secret key;
@@ -716,7 +723,7 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 	 *     - Note: this value is 118 bytes longer than the longest
 	 *       currently-defined message.
 	 */
-	assert(tal_count(payload) == ONION_REPLY_SIZE + 4);
+	assert(tal_count(payload) == OUR_ONION_REPLY_SIZE + 4);
 
 	/* BOLT #4:
 	 *

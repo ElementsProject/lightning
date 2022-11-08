@@ -752,6 +752,11 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-no-ping-timer", opt_set_bool,
 			   &ld->dev_no_ping_timer,
 			   "Don't hang up if we don't get a ping response");
+	opt_register_arg("--dev-onion-reply-length",
+			 opt_set_uintval,
+			 opt_show_uintval,
+			 &dev_onion_reply_length,
+			 "Send onion errors of custom length");
 }
 #endif /* DEVELOPER */
 
