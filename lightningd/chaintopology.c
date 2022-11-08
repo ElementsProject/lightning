@@ -72,6 +72,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		const struct bitcoin_tx *tx = b->full_txs[i];
 		struct bitcoin_txid txid;
 		size_t j;
+		bool is_coinbase = i == 0;
 
 		/* Tell them if it spends a txo we care about. */
 		for (j = 0; j < tx->wtx->num_inputs; j++) {
@@ -92,7 +93,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		txid = b->txids[i];
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx->wtx, i, &b->height, &owned);
+						     tx->wtx, is_coinbase, &b->height, &owned);
 			wallet_transaction_add(topo->ld->wallet, tx->wtx,
 					       b->height, i);
 		}

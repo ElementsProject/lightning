@@ -888,8 +888,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	wallet_transaction_add(ld->wallet, sending->wtx, 0, 0);
 
 	/* Extract the change output and add it to the DB */
-	/* FIXME: what txindex? */
-	wallet_extract_owned_outputs(ld->wallet, sending->wtx, 1, NULL, &change);
+	wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, &change);
 	wally_txid(sending->wtx, &txid);
 
 	for (size_t i = 0; i < sending->psbt->num_outputs; i++)

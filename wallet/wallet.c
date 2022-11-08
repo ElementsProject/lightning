@@ -2317,7 +2317,7 @@ void wallet_confirm_tx(struct wallet *w,
 }
 
 int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
-				 u32 tx_index,
+				 bool is_coinbase,
 				 const u32 *blockheight,
 				 struct amount_sat *total)
 {
@@ -2352,7 +2352,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		wally_txid(wtx, &utxo->outpoint.txid);
 		utxo->outpoint.n = output;
 		utxo->close_info = NULL;
-		utxo->is_in_coinbase = tx_index == 0;
+		utxo->is_in_coinbase = is_coinbase;
 
 		utxo->blockheight = blockheight ? blockheight : NULL;
 		utxo->spendheight = NULL;
@@ -2366,7 +2366,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->outpoint.txid),
 			  blockheight ? " CONFIRMED" : "",
-			  tx_index == 0 ? " COINBASE" : "");
+			  is_coinbase == 0 ? " COINBASE" : "");
 
 		/* We only record final ledger movements */
 		if (blockheight) {
