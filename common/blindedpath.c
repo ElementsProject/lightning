@@ -89,9 +89,10 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 		     type_to_string(tmpctx, struct secret, &rho));
 
 	/* BOLT-route-blinding #4:
-	 * - MUST encrypt them with ChaCha20-Poly1305 using the `rho(i)` key
-	 *   and an all-zero nonce
-	*/
+	 * - MUST encrypt each `encrypted_data_tlv(i)` with ChaCha20-Poly1305
+         *   using the corresponding `rho(i)` key and an all-zero nonce to
+         *   produce `encrypted_recipient_data(i)`
+	 */
 	/* Encrypt in place */
 	towire_pad(&ret, crypto_aead_chacha20poly1305_ietf_ABYTES);
 	ok = crypto_aead_chacha20poly1305_ietf_encrypt(ret, NULL,
@@ -127,8 +128,8 @@ bool unblind_onion(const struct pubkey *blinding,
 	struct secret hmac;
 
 	/* BOLT-route-blinding #4:
-	 * An intermediate node in the blinded route:
-	 *
+	 * A reader:
+	 *...
 	 * - MUST compute:
 	 *   - `ss(i) = SHA256(k(i) * E(i))` (standard ECDH)
 	 *   - `b(i) = HMAC256("blinded_node_id", ss(i)) * k(i)`
@@ -160,15 +161,17 @@ static u8 *decrypt_encmsg_raw(const tal_t *ctx,
 	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 
 	/* BOLT-route-blinding #4:
-	 * - If an `encrypted_data` field is provided:
-	 *   - MUST decrypt it using `rho(r)`
+	 * A reader:
+	 *...
+	 *- MUST decrypt the `encrypted_data` field using `rho(i)` and use
+	 *  the decrypted fields to locate the next node
 	 */
 	subkey_from_hmac("rho", ss, &rho);
 
 	/* BOLT-onion-message #4:
-	 *   - if `enctlv` is not present, or does not decrypt with the
-	 *     shared secret from the given `blinding` parameter:
-	 *   - MUST drop the message.
+	 *- If the `encrypted_data` field is missing or cannot
+	 *  be decrypted:
+	 *   - MUST return an error
 	 */
 	/* Too short? */
 	if (tal_bytelen(enctlv) < crypto_aead_chacha20poly1305_ietf_ABYTES)

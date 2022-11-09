@@ -19,16 +19,15 @@ u8 **blinded_onion_hops(const tal_t *ctx,
 
 		/* BOLT-route-blinding #4:
 		 * - For every node inside a blinded route:
-		 *   - MUST include the `encrypted_data` provided by the
+		 *   - MUST include the `encrypted_recipient_data` provided by the
 		 *     recipient
 		 *   - For the first node in the blinded route:
 		 *     - MUST include the `blinding_point` provided by the
-		 *       recipient
+		 *       recipient in `current_blinding_point`
 		 *   - If it is the final node:
 		 *     - MUST include `amt_to_forward` and `outgoing_cltv_value`.
-		 *   - Otherwise:
-		 *     - MUST NOT include `amt_to_forward` and
-		 *       `outgoing_cltv_value`.
+		 *     - MUST include `total_amount_msat` when using `basic_mpp`.
+		 *   - MUST NOT include any other tlv field.
 		 */
 		onions[i] = onion_blinded_hop(onions,
 					      final ? &final_amount : NULL,

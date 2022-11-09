@@ -136,9 +136,9 @@ static bool handle_blinded_forward(struct onion_payload *p,
 	u64 amt = amount_in.millisatoshis; /* Raw: allowed to wrap */
 
 	/* BOLT-route-blinding #4:
-	 * - If it not the final node:
-	 *   - MUST return an error if fields other
-	 *     than `encrypted_recipient_data` or `blinding_point` are present.
+	 * - If it is not the final node:
+	 *   - MUST return an error if the payload contains other tlv fields
+	 *     than `encrypted_recipient_data` and `current_blinding_point`.
 	 */
 	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
 		if (tlv->fields[i].numtype != TLV_TLV_PAYLOAD_BLINDING_POINT
@@ -149,10 +149,10 @@ static bool handle_blinded_forward(struct onion_payload *p,
 	}
 
 	/* BOLT-route-blinding #4:
-	 * - If it not the final node:
+	 * - If it is not the final node:
 	 *...
 	 *   - MUST return an error if `encrypted_recipient_data` does not
-	 *     contain `short_channel_id` or `next_node_id`.
+	 *     contain either `short_channel_id` or `next_node_id`.
 	 */
 	if (!enc->short_channel_id && !enc->next_node_id) {
 		*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
@@ -170,7 +170,7 @@ static bool handle_blinded_forward(struct onion_payload *p,
 	p->total_msat = NULL;
 
 	/* BOLT-route-blinding #4:
-	 * - If it not the final node:
+	 * - If it is not the final node:
 	 *...
 	 *   - MUST return an error if `encrypted_recipient_data` does not
 	 *     contain `payment_relay`.
@@ -196,26 +196,27 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 {
 	/* BOLT-route-blinding #4:
 	 * - If it is the final node:
-	 *   - MUST return an error if fields other than
-	 *     `encrypted_recipient_data`, `blinding_point`, `amt_to_forward`
-	 *     or `outgoing_cltv_value` are present.
-	 *   - MUST return an error if the `path_id` in
-	 *     `encrypted_recipient_data` does not match the one it created.
-	 *   - MUST return an error if `amt_to_forward` or
-	 *     `outgoing_cltv_value` are not present.
-	 *   - MUST return an error if `amt_to_forward` is below what it expects
-	 *     for the payment.
+	 *   - MUST return an error if the payload contains other tlv fields than
+	 *     `encrypted_recipient_data`, `current_blinding_point`, `amt_to_forward`,
+	 *     `outgoing_cltv_value` and `total_amount_msat`.
 	 */
 	for (size_t i = 0; i < tal_count(tlv->fields); i++) {
 		if (tlv->fields[i].numtype != TLV_TLV_PAYLOAD_BLINDING_POINT
 		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA
 		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_AMT_TO_FORWARD
-		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE) {
+		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE
+		    && tlv->fields[i].numtype != TLV_TLV_PAYLOAD_TOTAL_AMOUNT_MSAT) {
 			*failtlvtype = tlv->fields[i].numtype;
 			return false;
 		}
 	}
 
+	/* BOLT-route-blinding #4:
+	 *   - MUST return an error if `amt_to_forward` or
+	 *     `outgoing_cltv_value` are not present.
+	 *   - MUST return an error if `amt_to_forward` is below what it expects
+	 *     for the payment.
+	 */
 	if (!tlv->amt_to_forward) {
 		*failtlvtype = TLV_TLV_PAYLOAD_AMT_TO_FORWARD;
 		return false;
@@ -230,12 +231,17 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 	p->outgoing_cltv = *tlv->outgoing_cltv_value;
 
 	p->forward_channel = NULL;
-	/* BOLT #4:
-	 * - if it is the final node:
-	 *   - MUST treat `total_msat` as if it were equal to
-	 *     `amt_to_forward` if it is not present. */
-	p->total_msat = tal_dup(p, struct amount_msat,
-				&p->amt_to_forward);
+	if (tlv->total_amount_msat) {
+		p->total_msat = tal(p, struct amount_msat);
+		*p->total_msat = amount_msat(*tlv->total_amount_msat);
+	} else {
+		/* BOLT #4:
+		 * - if it is the final node:
+		 *   - MUST treat `total_msat` as if it were equal to
+		 *     `amt_to_forward` if it is not present. */
+		p->total_msat = tal_dup(p, struct amount_msat,
+					&p->amt_to_forward);
+	}
 	return true;
 }
 
@@ -276,46 +282,52 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		return tal_free(p);
 	}
 
-	if (blinding || p->tlv->blinding_point) {
+	/* BOLT-route-blinding #4:
+	 *
+	 * The reader:
+	 *
+	 *   - If `encrypted_recipient_data` is present:
+	 */
+	if (p->tlv->encrypted_recipient_data) {
 		struct tlv_encrypted_data_tlv *enc;
 
 		/* Only supported with --experimental-onion-messages! */
 		if (!blinding_support) {
-			if (!blinding)
-				return tal_free(p);
-			*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
-			goto field_bad;
-		}
-
-		/* BOLT-route-blinding #4:
-		 * The reader:
-		 *   - If `blinding_point` is set (either in the payload or the
-		 *     outer message):
-		 *     - MUST return an error if it is set in both the payload
-		 *       and the outer message
-		 */
-		if (blinding && p->tlv->blinding_point) {
-			*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
-			goto field_bad;
-		}
-		if (p->tlv->blinding_point)
-			p->blinding = tal_dup(p, struct pubkey,
-					      p->tlv->blinding_point);
-		else
-			p->blinding = tal_dup(p, struct pubkey,
-					      blinding);
-
-		/* BOLT-route-blinding #4:
-		 * The reader:
-		 *...
-		 * - MUST return an error if `encrypted_recipient_data` is not
-		 *   present.
-		 */
-		if (!p->tlv->encrypted_recipient_data) {
 			*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
 			goto field_bad;
 		}
 
+		/* BOLT-route-blinding #4:
+		 *
+		 *   - If `blinding_point` is set in the incoming `update_add_htlc`:
+		 *     - MUST return an error if `current_blinding_point` is present.
+		 *     - MUST use that `blinding_point` as the blinding point for decryption.
+		 *   - Otherwise:
+		 *     - MUST return an error if `current_blinding_point` is not present.
+		 *     - MUST use that `current_blinding_point` as the blinding point for decryption.
+		 */
+		if (blinding) {
+			if (p->tlv->blinding_point) {
+				*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
+				goto field_bad;
+			}
+			p->blinding = tal_dup(p, struct pubkey, blinding);
+		} else {
+			if (!p->tlv->blinding_point) {
+				*failtlvtype = TLV_TLV_PAYLOAD_BLINDING_POINT;
+				goto field_bad;
+			}
+			p->blinding = tal_dup(p, struct pubkey,
+					      p->tlv->blinding_point);
+		}
+
+		/* BOLT-route-blinding #4:
+		 * The reader:
+		 *...
+		 *    - MUST return an error if `encrypted_recipient_data` does
+		 *      not decrypt using the blinding point as described in
+		 *      [Route Blinding](#route-blinding).
+		 */
 		ecdh(p->blinding, &p->blinding_ss);
 		enc = decrypt_encrypted_data(tmpctx, p->blinding, &p->blinding_ss,
 					     p->tlv->encrypted_recipient_data);
@@ -326,8 +338,9 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 
 		if (enc->payment_constraints) {
 			/* BOLT-route-blinding #4:
-			 * - MUST return an error if the expiry is greater than
-			 *   `encrypted_recipient_data.payment_constraints.max_cltv_expiry`.
+			 * - MUST return an error if:
+			 *   - the expiry is greater than
+			 *    `encrypted_recipient_data.payment_constraints.max_cltv_expiry`.
 			 */
 			if (cltv_expiry > enc->payment_constraints->max_cltv_expiry) {
 				*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
@@ -335,8 +348,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			}
 
 			/* BOLT-route-blinding #4:
-			 * - MUST return an error if the amount is below
-			 *   `encrypted_recipient_data.payment_constraints.htlc_minimum_msat`.
+			 * - MUST return an error if:
+			 *...
+			 *   - the amount is below
+			 *     `encrypted_recipient_data.payment_constraints.htlc_minimum_msat`.
 			 */
 			if (amount_msat_less(amount_in,
 					     amount_msat(enc->payment_constraints->htlc_minimum_msat))) {
@@ -345,9 +360,11 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			}
 
 			/* BOLT-route-blinding #4:
-			 * - MUST return an error if the payment uses a feature
-			 *   not included in
-			 *   `encrypted_recipient_data.payment_constraints.allowed_features`.
+			 * - If `allowed_features` is present:
+ 			 *   - MUST return an error if:
+			 *...
+			 *     - the payment uses a feature not included in
+			 *       `encrypted_recipient_data.allowed_features.features`
 			 */
 			/* We don't have any features yet... */
 		}
@@ -381,6 +398,17 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		p->payment_secret = NULL;
 		p->payment_metadata = NULL;
 		return p;
+	}
+
+	/* BOLT-route-blinding-fix #4:
+	 *   - Otherwise (it is not part of a blinded route):
+	 *      - MUST return an error if `blinding_point` is set in the
+	 *        incoming `update_add_htlc` or `current_blinding_point`
+	 *        is present.
+	 */
+	if (blinding || p->tlv->blinding_point) {
+		*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
+		goto field_bad;
 	}
 
 	/* BOLT #4:
