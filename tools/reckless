@@ -10,7 +10,7 @@ import shutil
 import tempfile
 from typing import Union
 from urllib.parse import urlparse
-import urllib3
+from urllib.request import urlopen
 
 
 repos = ['https://github.com/lightningd/plugins']
@@ -43,14 +43,13 @@ class InstInfo:
         Populate installation details from a github repo url.
         Return True if all data is found.
         """
-        http = urllib3.PoolManager()
-        r = http.request('GET', self.git_url, timeout=5)
+        r = urlopen(self.git_url, timeout=5)
         if r.status != 200:
             return False
         if 'git/tree' in self.git_url:
-            tree = json.loads(r.data.decode())['tree']
+            tree = json.loads(r.read().decode())['tree']
         else:
-            tree = json.loads(r.data.decode())
+            tree = json.loads(r.read().decode())
         entry_guesses = py_entry_guesses(self.name)
         for g in entry_guesses:
             for f in tree:
@@ -279,8 +278,7 @@ def _search_repo(name: str, url: str) -> InstInfo:
     # Get details from the github API.
     api_url = f'https://api.github.com/repos/{repo_user}/{repo_name}/contents/'
     plugins_cont = api_url
-    http = urllib3.PoolManager()
-    r = http.request('GET', plugins_cont, timeout=5)
+    r = urlopen(plugins_cont, timeout=5)
     if r.status != 200:
         print("Plugin repository unavailable")
         return False
@@ -293,7 +291,7 @@ def _search_repo(name: str, url: str) -> InstInfo:
             return False
         return MyPlugin
     # Repo contains multiple plugins?
-    for x in json.loads(r.data.decode()):
+    for x in json.loads(r.read().decode()):
         if x["name"] == name:
             # Look for the rest of the install details
             # These are in lightningd/plugins directly
@@ -322,8 +320,9 @@ def _install_plugin(src: InstInfo) -> bool:
     if RECKLESS_CONFIG is None:
         print('error: reckless install directory unavailable')
         sys.exit(2)
-    http = urllib3.PoolManager()
-    req = http.request('GET', src.repo, timeout=10)
+
+    # FIXME: This request seems rather pointless
+    req = urlopen(src.repo, timeout=10)
     if not req.status == 200:
         print('plugin source repository unavailable')
         sys.exit(1)
