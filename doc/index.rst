@@ -128,3 +128,4 @@ Core Lightning Documentation
    lightning-withdraw <lightning-withdraw.7.md>
    lightningd <lightningd.8.md>
    lightningd-config <lightningd-config.5.md>
+   lightningd-rpc <lightningd-rpc.7.md>

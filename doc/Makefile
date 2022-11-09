@@ -7,6 +7,7 @@ doc-wrongdir:
 MANPAGES := doc/lightning-cli.1 \
 	doc/lightningd.8 \
 	doc/lightningd-config.5 \
+	doc/lightningd-rpc.7 \
 	doc/lightning-addgossip.7 \
 	doc/lightning-autoclean-status.7 \
 	doc/lightning-batching.7 \
