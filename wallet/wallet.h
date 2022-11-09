@@ -368,8 +368,8 @@ struct wallet_payment {
 	/* If we could not decode the fail onion, just add it here. */
 	const u8 *failonion;
 
-	/* If we are associated with an internal offer */
-	struct sha256 *local_offer_id;
+	/* If we are associated with an internal invoice_request */
+	struct sha256 *local_invreq_id;
 };
 
 struct outpoint {
@@ -1195,11 +1195,12 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 
 
 /**
- * wallet_payments_by_offer - Retrieve a list of payments for this local_offer_id
+ * wallet_payments_by_invoice_request - Retrieve a list of payments for this local_invreq_id
  */
-const struct wallet_payment **wallet_payments_by_offer(const tal_t *ctx,
-						       struct wallet *wallet,
-						       const struct sha256 *local_offer_id);
+const struct wallet_payment **
+wallet_payments_by_invoice_request(const tal_t *ctx,
+				   struct wallet *wallet,
+				   const struct sha256 *local_invreq_id);
 
 /**
  * wallet_htlc_sigs_save - Store the latest HTLC sigs for the channel
@@ -1581,6 +1582,85 @@ enum offer_status wallet_offer_disable(struct wallet *w,
  * Must exist and be active.
  */
 void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
+	NO_NULL_ARGS;
+
+/**
+ * Store an offer in the database.
+ * @w: the wallet
+ * @invreq_id: the hash of the invoice_request.
+ * @bolt12: invoice_request as text.
+ * @label: optional label for this invoice_request.
+ * @status: OFFER_SINGLE_USE or OFFER_MULTIPLE_USE
+ */
+bool wallet_invoice_request_create(struct wallet *w,
+				   const struct sha256 *invreq_id,
+				   const char *bolt12,
+				   const struct json_escape *label,
+				   enum offer_status status)
+	NON_NULL_ARGS(1,2,3);
+
+/**
+ * Retrieve an invoice_request from the database.
+ * @ctx: the tal context to allocate return from.
+ * @w: the wallet
+ * @invreq_id: the merkle root, as used for signing (must be unique)
+ * @label: the label of the invoice_request, set to NULL if none (or NULL)
+ * @status: set if succeeds (or NULL)
+ *
+ * If @invreq_id is found, returns the bolt12 text, sets @label and
+ * @state.  Otherwise returns NULL.
+ */
+char *wallet_invoice_request_find(const tal_t *ctx,
+			struct wallet *w,
+			const struct sha256 *invreq_id,
+			const struct json_escape **label,
+			enum offer_status *status)
+	NON_NULL_ARGS(1,2,3);
+
+/**
+ * Iterate through all the invoice_requests.
+ * @w: the wallet
+ * @invreq_id: the first invoice_request id (if returns non-NULL)
+ *
+ * Returns pointer to hand as @stmt to wallet_invreq_id_next(), or NULL.
+ * If you choose not to call wallet_invreq_id_next() you must free it!
+ */
+struct db_stmt *wallet_invreq_id_first(struct wallet *w,
+				      struct sha256 *invreq_id);
+
+/**
+ * Iterate through all the invoice_requests.
+ * @w: the wallet
+ * @stmt: return from wallet_invreq_id_first() or previous wallet_invreq_id_next()
+ * @invreq_id: the next invoice_request id (if returns non-NULL)
+ *
+ * Returns NULL once we're out of invoice_requests.  If you choose not to call
+ * wallet_invreq_id_next() again you must free return.
+ */
+struct db_stmt *wallet_invreq_id_next(struct wallet *w,
+				     struct db_stmt *stmt,
+				     struct sha256 *invreq_id);
+
+/**
+ * Disable an invoice_request in the database.
+ * @w: the wallet
+ * @invreq_id: the merkle root, as used for signing (must be unique)
+ * @s: the current status (must be active).
+ *
+ * Must exist.  Returns new status. */
+enum offer_status wallet_invoice_request_disable(struct wallet *w,
+						 const struct sha256 *invreq_id,
+						 enum offer_status s)
+	NO_NULL_ARGS;
+
+/**
+ * Mark an invoice_request in the database used.
+ * @w: the wallet
+ * @invreq_id: the merkle root, as used for signing (must be unique)
+ *
+ * Must exist and be active.
+ */
+void wallet_invoice_request_mark_used(struct db *db, const struct sha256 *invreq_id)
 	NO_NULL_ARGS;
 
 /**

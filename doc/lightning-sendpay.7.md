@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **sendpay** *route* *payment\_hash* [*label*] [*msatoshi*]
-[*bolt11*] [*payment_secret*] [*partid*] [*localofferid*] [*groupid*]
+[*bolt11*] [*payment_secret*] [*partid*] [*localinvreqid*] [*groupid*]
 [*payment_metadata*] [*description*]
 
 DESCRIPTION
@@ -45,9 +45,9 @@ partial payments with the same *payment_hash*.  The *msatoshi* amount
 *payment_hash* must be equal, and **sendpay** will fail if there are
 already *msatoshi* worth of payments pending.
 
-The *localofferid* value indicates that this payment is being made for a local
-send_invoice offer: this ensures that we only send a payment for a single-use
-offer once.
+The *localinvreqid* value indicates that this payment is being made for a local
+invoice_request: this ensures that we only send a payment for a single-use
+invoice_request once.
 
 *groupid* allows you to attach a number which appears in **listsendpays** so
 payments can be identified as part of a logical group.  The *pay* plugin uses
@@ -109,7 +109,7 @@ The following error codes may occur:
     will be routing failure object.
 -   204: Failure along route; retry a different route. The *data* field
     of the error will be routing failure object.
--   212: *localofferid* refers to an invalid, or used, local offer.
+-   212: *localinvreqid* refers to an invalid, or used, local invoice_request.
 
 A routing failure object has the fields below:
 -   *erring\_index*. The index of the node along the route that reported

@@ -930,6 +930,16 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD scid BIGINT;"), migrate_channels_scids_as_integers},
     {SQL("ALTER TABLE payments ADD failscid BIGINT;"), migrate_payments_scids_as_integers},
     {SQL("ALTER TABLE outputs ADD is_in_coinbase INTEGER DEFAULT 0;"), NULL},
+    {SQL("CREATE TABLE invoicerequests ("
+	 "  invreq_id BLOB"
+	 ", bolt12 TEXT"
+	 ", label TEXT"
+	 ", status INTEGER"
+	 ", PRIMARY KEY (invreq_id)"
+	 ");"), NULL},
+    /* A reference into our own invoicerequests table, if it was made from one */
+    {SQL("ALTER TABLE payments ADD COLUMN local_invreq_id BLOB DEFAULT NULL REFERENCES invoicerequests(invreq_id);"), NULL},
+    /* FIXME: Remove payments local_offer_id column! */
 };
 
 /* Released versions are of form v{num}[.{num}]* */
