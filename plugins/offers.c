@@ -432,6 +432,29 @@ static bool json_add_offer_fields(struct json_stream *js,
 	return valid;
 }
 
+static void json_add_extra_fields(struct json_stream *js,
+				  const char *fieldname,
+				  const struct tlv_field *fields)
+{
+	bool have_extra = false;
+
+	for (size_t i = 0; i < tal_count(fields); i++) {
+		if (fields[i].meta)
+			continue;
+		if (!have_extra) {
+			json_array_start(js, fieldname);
+			have_extra = true;
+		}
+		json_object_start(js, NULL);
+		json_add_u64(js, "type", fields[i].numtype);
+		json_add_u64(js, "length", fields[i].length);
+		json_add_hex(js, "value",
+			     fields[i].value, fields[i].length);
+	}
+	if (have_extra)
+		json_array_end(js);
+}
+
 static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer)
 {
 	struct sha256 offer_id;
@@ -465,6 +488,7 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 				"offers without a node_id are invalid");
 		valid = false;
 	}
+	json_add_extra_fields(js, "unknown_offer_tlvs", offer->fields);
 	json_add_bool(js, "valid", valid);
 }
 
@@ -665,6 +689,7 @@ static void json_add_invoice_request(struct json_stream *js,
 		valid = false;
 	}
 
+	json_add_extra_fields(js, "unknown_invoice_request_tlvs", invreq->fields);
 	json_add_bool(js, "valid", valid);
 }
 
@@ -815,6 +840,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	/* invoice_decode checked this */
 	json_add_bip340sig(js, "signature", invoice->signature);
 
+	json_add_extra_fields(js, "unknown_invoice_tlvs", invoice->fields);
 	json_add_bool(js, "valid", valid);
 }
 

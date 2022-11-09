@@ -221,6 +221,33 @@
                 }
               }
             }
+          },
+          "unknown_offer_tlvs": {
+            "type": "array",
+            "description": "Any extra fields we didn't know how to parse",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "length",
+                "value"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "u64",
+                  "description": "The type"
+                },
+                "length": {
+                  "type": "u64",
+                  "description": "The length"
+                },
+                "value": {
+                  "type": "hex",
+                  "description": "The value"
+                }
+              }
+            }
           }
         }
       }
@@ -264,6 +291,7 @@
           "absolute_expiry": {},
           "paths": {},
           "quantity_max": {},
+          "unknown_offer_tlvs": {},
           "recurrence": {},
           "warning_missing_offer_node_id": {
             "type": "string",
@@ -530,6 +558,33 @@
           "signature": {
             "type": "bip340sig",
             "description": "BIP-340 signature of the `invreq_payer_id` on this invoice_request"
+          },
+          "unknown_invoice_request_tlvs": {
+            "type": "array",
+            "description": "Any extra fields we didn't know how to parse",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "length",
+                "value"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "u64",
+                  "description": "The type"
+                },
+                "length": {
+                  "type": "u64",
+                  "description": "The length"
+                },
+                "value": {
+                  "type": "hex",
+                  "description": "The value"
+                }
+              }
+            }
           }
         }
       }
@@ -984,6 +1039,33 @@
           "signature": {
             "type": "bip340sig",
             "description": "BIP-340 signature of the `offer_node_id` on this invoice"
+          },
+          "unknown_invoice_tlvs": {
+            "type": "array",
+            "description": "Any extra fields we didn't know how to parse",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "length",
+                "value"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "u64",
+                  "description": "The type"
+                },
+                "length": {
+                  "type": "u64",
+                  "description": "The length"
+                },
+                "value": {
+                  "type": "hex",
+                  "description": "The value"
+                }
+              }
+            }
           }
         }
       }
