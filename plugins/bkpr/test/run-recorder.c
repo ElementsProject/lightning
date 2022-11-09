@@ -1,4 +1,5 @@
 #include "config.h"
+#include "common/json_filter.c"
 #include "test_utils.h"
 
 #include "plugins/libplugin.c"

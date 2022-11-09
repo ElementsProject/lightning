@@ -19,6 +19,7 @@ void db_fatal(const char *fmt, ...)
 }
 #endif /* DB_FATAL */
 
+#include "common/json_filter.c"
 #include "plugins/bkpr/db.c"
 #include "plugins/libplugin.c"
 
