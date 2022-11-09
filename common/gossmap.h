@@ -134,20 +134,25 @@ u8 *gossmap_node_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_node *n);
 
-/* Return the feature bit (odd or even), or -1 if neither. */
+/* Return the channel feature bit (odd or even), or -1 if neither. */
 int gossmap_chan_get_feature(const struct gossmap *map,
 			     const struct gossmap_chan *c,
 			     int fbit);
 
-/* Return the feature bitmap */
+/* Return the channel feature bitmap */
 u8 *gossmap_chan_get_features(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_chan *c);
 
-/* Return the feature bit (odd or even), or -1 if neither (or no announcement) */
+/* Return the node feature bit (odd or even), or -1 if neither (or no announcement) */
 int gossmap_node_get_feature(const struct gossmap *map,
 			     const struct gossmap_node *n,
 			     int fbit);
+
+/* Return the node feature bitmap: NULL if no announcement. */
+u8 *gossmap_node_get_features(const tal_t *ctx,
+			      const struct gossmap *map,
+			      const struct gossmap_node *n);
 
 /* Returns details from channel_update (must be gossmap_chan_set, and
  * does not work for local_updatechan! */

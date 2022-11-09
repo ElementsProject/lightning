@@ -1289,3 +1289,22 @@ int gossmap_node_get_feature(const struct gossmap *map,
 	return map_feature_test(map, COMPULSORY_FEATURE(fbit),
 				n->nann_off + feature_len_off + 2, feature_len);
 }
+
+u8 *gossmap_node_get_features(const tal_t *ctx,
+			      const struct gossmap *map,
+			      const struct gossmap_node *n)
+{
+	u8 *ret;
+	/* Note that first two bytes are message type */
+	const size_t feature_len_off = 2 + 64;
+	size_t feature_len;
+
+	if (n->nann_off == 0)
+		return NULL;
+
+	feature_len = map_be16(map, n->nann_off + feature_len_off);
+	ret = tal_arr(ctx, u8, feature_len);
+
+	map_copy(map, n->nann_off + feature_len_off + 2, ret, feature_len);
+	return ret;
+}
