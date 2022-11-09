@@ -289,7 +289,7 @@ default: show-flags all-programs all-test-programs doc-all default-targets
 
 ifneq ($(SUPPRESS_GENERATION),1)
 FORCE = FORCE
-FORCE::
+FORCE:
 endif
 
 show-flags: config.vars
