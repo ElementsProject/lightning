@@ -18,6 +18,7 @@
 #include <plugins/offers_offer.h>
 
 struct pubkey id;
+u32 blockheight;
 u16 cltv_final;
 bool offers_enabled;
 
@@ -131,6 +132,23 @@ static const struct plugin_hook hooks[] = {
 		onion_message_modern_call
 	},
 };
+
+static struct command_result *block_added_notify(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
+{
+	json_scan(cmd, buf, params, "{block:{height:%}}",
+		  JSON_SCAN(json_to_u32, &blockheight));
+	return notification_handled(cmd);
+}
+
+static const struct plugin_notification notifications[] = {
+	{
+		"block_added",
+		block_added_notify,
+	},
+};
+
 
 struct decodable {
 	const char *type;
@@ -922,12 +940,10 @@ static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
-	struct pubkey k;
-
 	rpc_scan(p, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
-		 "{id:%}", JSON_SCAN(json_to_pubkey, &k));
-	id.pubkey = k.pubkey;
+		 "{id:%}", JSON_SCAN(json_to_pubkey, &id),
+		 "{blockheight:%}", JSON_SCAN(json_to_u32, &blockheight));
 
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -968,7 +984,9 @@ int main(int argc, char *argv[])
 
 	/* We deal in UTC; mktime() uses local time */
 	setenv("TZ", "", 1);
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands,
-		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
+		    commands, ARRAY_SIZE(commands),
+		    notifications, ARRAY_SIZE(notifications),
+		    hooks, ARRAY_SIZE(hooks),
 		    NULL, 0, NULL);
 }
