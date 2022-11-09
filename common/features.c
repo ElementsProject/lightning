@@ -59,7 +59,8 @@ static const struct feature_style feature_styles[] = {
 	{ OPT_BASIC_MPP,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
-			  [BOLT11_FEATURE] = FEATURE_REPRESENT } },
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT12_INVOICE_FEATURE] = FEATURE_REPRESENT } },
 	/* BOLT #9:
 	 * | 18/19 | `option_support_large_channel` |... IN ...
 	 */
