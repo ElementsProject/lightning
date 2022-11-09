@@ -24,6 +24,9 @@ bool json_filter_down(struct json_filter **filter UNNEEDED, const char *member U
 /* Generated stub for json_filter_finished */
 bool json_filter_finished(const struct json_filter *filter UNNEEDED)
 { fprintf(stderr, "json_filter_finished called!\n"); abort(); }
+/* Generated stub for json_filter_misused */
+const char *json_filter_misused(const tal_t *ctx UNNEEDED, const struct json_filter *f UNNEEDED)
+{ fprintf(stderr, "json_filter_misused called!\n"); abort(); }
 /* Generated stub for json_filter_ok */
 bool json_filter_ok(const struct json_filter *filter UNNEEDED, const char *member UNNEEDED)
 { fprintf(stderr, "json_filter_ok called!\n"); abort(); }

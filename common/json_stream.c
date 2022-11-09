@@ -12,13 +12,15 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/strmap/strmap.h>
+#include <ccan/tal/str/str.h>
 #include <common/channel_id.h>
 #include <common/configdir.h>
+#include <common/json_filter.h>
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -46,7 +48,27 @@ struct json_stream *new_json_stream(const tal_t *ctx,
 	js->writer = writer;
 	js->reader = NULL;
 	js->log = log;
+	js->filter = NULL;
 	return js;
+}
+
+void json_stream_attach_filter(struct json_stream *js,
+			       struct json_filter *filter STEALS)
+{
+	assert(!js->filter);
+	js->filter = tal_steal(js, filter);
+}
+
+const char *json_stream_detach_filter(const tal_t *ctx, struct json_stream *js)
+{
+	const char *err;
+	assert(js->filter);
+	/* Should be well-formed at this point! */
+	assert(json_filter_finished(js->filter));
+
+	err = json_filter_misused(ctx, js->filter);
+	js->filter = tal_free(js->filter);
+	return err;
 }
 
 struct json_stream *json_stream_dup(const tal_t *ctx,
@@ -57,6 +79,8 @@ struct json_stream *json_stream_dup(const tal_t *ctx,
 
 	js->jout = json_out_dup(js, original->jout);
 	js->log = log;
+	/* You can't dup things with filters! */
+	assert(!js->filter);
 	return js;
 }
 
@@ -83,6 +107,8 @@ void json_stream_append(struct json_stream *js,
 {
 	char *dest;
 
+	/* Only on low-level streams! */
+	assert(!js->filter);
 	dest = json_out_direct(js->jout, len);
 	memcpy(dest, str, len);
 }
@@ -115,7 +141,7 @@ void json_stream_close(struct json_stream *js, struct command *writer)
 	 * I used to assert(writer); here. */
 	assert(js->writer == writer);
 
-	/* Should be well-formed at this point! */
+	assert(!js->filter);
 	json_stream_double_cr(js);
 	json_stream_flush(js);
 	js->writer = NULL;
@@ -130,22 +156,26 @@ void json_stream_flush(struct json_stream *js)
 
 void json_array_start(struct json_stream *js, const char *fieldname)
 {
-	json_out_start(js->jout, fieldname, '[');
+	if (json_filter_down(&js->filter, fieldname))
+		json_out_start(js->jout, fieldname, '[');
 }
 
 void json_array_end(struct json_stream *js)
 {
-	json_out_end(js->jout, ']');
+	if (json_filter_up(&js->filter))
+		json_out_end(js->jout, ']');
 }
 
 void json_object_start(struct json_stream *js, const char *fieldname)
 {
-	json_out_start(js->jout, fieldname, '{');
+	if (json_filter_down(&js->filter, fieldname))
+		json_out_start(js->jout, fieldname, '{');
 }
 
 void json_object_end(struct json_stream *js)
 {
-	json_out_end(js->jout, '}');
+	if (json_filter_up(&js->filter))
+		json_out_end(js->jout, '}');
 }
 
 void json_add_primitive_fmt(struct json_stream *js,
@@ -154,9 +184,11 @@ void json_add_primitive_fmt(struct json_stream *js,
 {
 	va_list ap;
 
-	va_start(ap, fmt);
-	json_out_addv(js->jout, fieldname, false, fmt, ap);
-	va_end(ap);
+	if (json_filter_ok(js->filter, fieldname)) {
+		va_start(ap, fmt);
+		json_out_addv(js->jout, fieldname, false, fmt, ap);
+		va_end(ap);
+	}
 }
 
 void json_add_str_fmt(struct json_stream *js,
@@ -165,9 +197,11 @@ void json_add_str_fmt(struct json_stream *js,
 {
 	va_list ap;
 
-	va_start(ap, fmt);
-	json_out_addv(js->jout, fieldname, true, fmt, ap);
-	va_end(ap);
+	if (json_filter_ok(js->filter, fieldname)) {
+		va_start(ap, fmt);
+		json_out_addv(js->jout, fieldname, true, fmt, ap);
+		va_end(ap);
+	}
 }
 
 void json_add_primitive(struct json_stream *js,
@@ -183,7 +217,8 @@ void json_add_string(struct json_stream *js,
 		     const char *fieldname,
 		     const char *str TAKES)
 {
-	json_out_addstr(js->jout, fieldname, str);
+	if (json_filter_ok(js->filter, fieldname))
+		json_out_addstr(js->jout, fieldname, str);
 	if (taken(str))
 		tal_free(str);
 }
@@ -203,6 +238,13 @@ void json_add_jsonstr(struct json_stream *js,
 		      size_t jsonstrlen)
 {
 	char *p;
+
+	if (!json_filter_ok(js->filter, fieldname))
+		return;
+
+	/* NOTE: Filtering doesn't really work here! */
+	if (!json_filter_ok(js->filter, fieldname))
+		return;
 
 	p = json_member_direct(js, fieldname, jsonstrlen);
 	memcpy(p, jsonstr, jsonstrlen);
@@ -321,13 +363,15 @@ void json_add_hex_talarr(struct json_stream *result,
 void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 			     const struct json_escape *esc TAKES)
 {
-	/* Already escaped, don't re-escape! */
-	char *dest = json_member_direct(result,	fieldname,
-					1 + strlen(esc->s) + 1);
+	if (json_filter_ok(result->filter, fieldname)) {
+		/* Already escaped, don't re-escape! */
+		char *dest = json_member_direct(result, fieldname,
+						1 + strlen(esc->s) + 1);
 
-	dest[0] = '"';
-	memcpy(dest + 1, esc->s, strlen(esc->s));
-	dest[1+strlen(esc->s)] = '"';
+		dest[0] = '"';
+		memcpy(dest + 1, esc->s, strlen(esc->s));
+		dest[1+strlen(esc->s)] = '"';
+	}
 	if (taken(esc))
 		tal_free(esc);
 }
@@ -372,6 +416,9 @@ void json_add_tok(struct json_stream *result, const char *fieldname,
 {
 	char *space;
 	assert(tok->type != JSMN_UNDEFINED);
+
+	if (!json_filter_ok(result->filter, fieldname))
+		return;
 
 	space = json_member_direct(result, fieldname, json_tok_full_len(tok));
 	memcpy(space, json_tok_full(buffer, tok), json_tok_full_len(tok));
