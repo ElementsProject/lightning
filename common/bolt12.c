@@ -493,6 +493,36 @@ void invoice_offer_id(const struct tlv_invoice *invoice, struct sha256 *id)
 	calc_offer(wire, id);
 }
 
+static void calc_invreq(const u8 *tlvstream, struct sha256 *id)
+{
+	size_t start, len;
+
+	/* BOLT-offers #12:
+	 *   - if the invoice is a response to an `invoice_request`:
+	 *     - MUST reject the invoice if all fields less than type 160
+	 *       do not exactly match the `invoice_request`.
+	 */
+	len = tlv_span(tlvstream, 0, 159, &start);
+	sha256(id, tlvstream + start, len);
+}
+
+void invreq_invreq_id(const struct tlv_invoice_request *invreq, struct sha256 *id)
+{
+	u8 *wire = tal_arr(tmpctx, u8, 0);
+
+	towire_tlv_invoice_request(&wire, invreq);
+	calc_invreq(wire, id);
+}
+
+void invoice_invreq_id(const struct tlv_invoice *invoice, struct sha256 *id)
+{
+	u8 *wire = tal_arr(tmpctx, u8, 0);
+
+	towire_tlv_invoice(&wire, invoice);
+	calc_invreq(wire, id);
+}
+
+
 /* BOLT-offers #12:
  * ## Requirements for Invoice Requests
  *

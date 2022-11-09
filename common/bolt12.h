@@ -143,6 +143,11 @@ void offer_offer_id(const struct tlv_offer *offer, struct sha256 *id);
 void invreq_offer_id(const struct tlv_invoice_request *invreq, struct sha256 *id);
 void invoice_offer_id(const struct tlv_invoice *invoice, struct sha256 *id);
 
+/* Get invreq_id: this is used to match incoming invoices to invoice_requests
+ * we publish. */
+void invreq_invreq_id(const struct tlv_invoice_request *invreq, struct sha256 *id);
+void invoice_invreq_id(const struct tlv_invoice *invoice, struct sha256 *id);
+
 /**
  * Prepare a new invoice_request based on an offer.
  */
