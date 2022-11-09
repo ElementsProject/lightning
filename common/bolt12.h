@@ -120,4 +120,21 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
  */
 bool bolt12_has_prefix(const char *str);
 
+/**
+ * tlv_span: Find span of this inclusive range of tlv types
+ * @tlvstream: the tlv stream
+ * @minfield: lowest field to find
+ * @maxfield: highest field to find
+ * @start: (out) optional offset of start.
+ *
+ * Returns length, so 0 means nothing found.
+*/
+size_t tlv_span(const u8 *tlvstream, size_t minfield, size_t maxfield,
+		size_t *start);
+
+/* Get offer_id referred to by various structures. */
+void offer_offer_id(const struct tlv_offer *offer, struct sha256 *id);
+void invreq_offer_id(const struct tlv_invoice_request *invreq, struct sha256 *id);
+void invoice_offer_id(const struct tlv_invoice *invoice, struct sha256 *id);
+
 #endif /* LIGHTNING_COMMON_BOLT12_H */

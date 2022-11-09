@@ -437,3 +437,67 @@ bool bolt12_has_prefix(const char *str)
 	return bolt12_has_invoice_prefix(str) || bolt12_has_offer_prefix(str) ||
 	       bolt12_has_request_prefix(str);
 }
+
+/* Inclusive span of tlv range >= minfield and <= maxfield */
+size_t tlv_span(const u8 *tlvstream, size_t minfield, size_t maxfield,
+		size_t *startp)
+{
+	const u8 *cursor = tlvstream;
+	size_t tlvlen = tal_bytelen(tlvstream);
+	const u8 *start, *end;
+
+	start = end = NULL;
+	while (tlvlen) {
+		const u8 *before = cursor;
+		bigsize_t type = fromwire_bigsize(&cursor, &tlvlen);
+		bigsize_t len = fromwire_bigsize(&cursor, &tlvlen);
+		if (type >= minfield && start == NULL)
+			start = before;
+		if (type > maxfield)
+			break;
+		fromwire_pad(&cursor, &tlvlen, len);
+		end = cursor;
+	}
+	if (!start)
+		start = end;
+
+	if (startp)
+		*startp = start - tlvstream;
+	return end - start;
+}
+
+static void calc_offer(const u8 *tlvstream, struct sha256 *id)
+{
+	size_t start, len;
+
+	/* BOLT-offers #12:
+	 * A writer of an offer:
+	 *  - MUST NOT set any tlv fields greater or equal to 80, or tlv field 0.
+	 */
+	len = tlv_span(tlvstream, 1, 79, &start);
+	sha256(id, tlvstream + start, len);
+}
+
+void offer_offer_id(const struct tlv_offer *offer, struct sha256 *id)
+{
+	u8 *wire = tal_arr(tmpctx, u8, 0);
+
+	towire_tlv_offer(&wire, offer);
+	calc_offer(wire, id);
+}
+
+void invreq_offer_id(const struct tlv_invoice_request *invreq, struct sha256 *id)
+{
+	u8 *wire = tal_arr(tmpctx, u8, 0);
+
+	towire_tlv_invoice_request(&wire, invreq);
+	calc_offer(wire, id);
+}
+
+void invoice_offer_id(const struct tlv_invoice *invoice, struct sha256 *id)
+{
+	u8 *wire = tal_arr(tmpctx, u8, 0);
+
+	towire_tlv_invoice(&wire, invoice);
+	calc_offer(wire, id);
+}
