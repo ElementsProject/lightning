@@ -21,7 +21,7 @@ static bool msat_or_any(const char *buffer,
 			       buffer + tok->start, tok->end - tok->start))
 		return false;
 
-	offer->amount = tal_dup(offer, u64,
+	offer->offer_amount = tal_dup(offer, u64,
 				&msat.millisatoshis); /* Raw: other currencies */
 	return true;
 }
@@ -39,7 +39,7 @@ static struct command_result *param_amount(struct command *cmd,
 	if (msat_or_any(buffer, tok, offer))
 		return NULL;
 
-	offer->amount = tal(offer, u64);
+	offer->offer_amount = tal(offer, u64);
 
 	/* BOLT-offers #12:
 	 *
@@ -58,7 +58,7 @@ static struct command_result *param_amount(struct command *cmd,
 				    ISO4217_NAMELEN,
 				    buffer + tok->end - ISO4217_NAMELEN);
 
-	offer->currency
+	offer->offer_currency
 		= tal_dup_arr(offer, utf8, isocode->name, ISO4217_NAMELEN, 0);
 
 	number = *tok;
@@ -77,19 +77,19 @@ static struct command_result *param_amount(struct command *cmd,
 						     "Bad minor units");
 	}
 
-	if (!json_to_u64(buffer, &whole, offer->amount))
+	if (!json_to_u64(buffer, &whole, offer->offer_amount))
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "should be 'any', msatoshis or <ISO-4712><amount>[.<amount>]");
 
 	for (size_t i = 0; i < isocode->minor_unit; i++) {
-		if (mul_overflows_u64(*offer->amount, 10))
+		if (mul_overflows_u64(*offer->offer_amount, 10))
 			return command_fail_badparam(cmd, name, buffer,
 						     &whole,
 						     "excessively large value");
-		*offer->amount *= 10;
+		*offer->offer_amount *= 10;
 	}
 
-	*offer->amount += cents;
+	*offer->offer_amount += cents;
 	return NULL;
 }
 
@@ -139,8 +139,7 @@ static struct command_result *param_recurrence(struct command *cmd,
 					       const char *name,
 					       const char *buffer,
 					       const jsmntok_t *tok,
-					       struct tlv_offer_recurrence
-					       **recurrence)
+					       struct recurrence **recurrence)
 {
 	u32 mul;
 	const struct time_string *ts;
@@ -150,7 +149,7 @@ static struct command_result *param_recurrence(struct command *cmd,
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "not a valid time");
 
-	*recurrence = tal(cmd, struct tlv_offer_recurrence);
+	*recurrence = tal(cmd, struct recurrence);
 	(*recurrence)->time_unit = ts->unit;
 	(*recurrence)->period = ts->mul * mul;
 	return NULL;
@@ -160,12 +159,12 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 						    const char *name,
 						    const char *buffer,
 						    const jsmntok_t *tok,
-						    struct tlv_offer_recurrence_base **base)
+						    struct recurrence_base **base)
 {
 	/* Make copy so we can manipulate it */
 	jsmntok_t t = *tok;
 
-	*base = tal(cmd, struct tlv_offer_recurrence_base);
+	*base = tal(cmd, struct recurrence_base);
 	if (json_tok_startswith(buffer, &t, "@")) {
 		t.start++;
 		(*base)->start_any_period = false;
@@ -183,12 +182,12 @@ static struct command_result *param_recurrence_paywindow(struct command *cmd,
 							 const char *name,
 							 const char *buffer,
 							 const jsmntok_t *tok,
-							 struct tlv_offer_recurrence_paywindow
+							 struct recurrence_paywindow
 							 **paywindow)
 {
 	jsmntok_t t, before, after;
 
-	*paywindow = tal(cmd, struct tlv_offer_recurrence_paywindow);
+	*paywindow = tal(cmd, struct recurrence_paywindow);
 	t = *tok;
 	if (json_tok_endswith(buffer, &t, "%")) {
 		(*paywindow)->proportional_amount = true;
@@ -231,7 +230,7 @@ static struct command_result *check_result(struct command *cmd,
 			  &active)) {
 		return command_fail(cmd,
 				    LIGHTNINGD,
-				    "Bad creaoffer status reply %.*s",
+				    "Bad createoffer status reply %.*s",
 				    json_tok_full_len(result),
 				    json_tok_full(buf, result));
 	}
@@ -289,19 +288,18 @@ struct command_result *json_offer(struct command *cmd,
 		   p_req("description", param_escaped_string, &desc),
 		   p_opt("issuer", param_escaped_string, &issuer),
 		   p_opt("label", param_escaped_string, &offinfo->label),
-		   p_opt("quantity_min", param_u64, &offer->quantity_min),
-		   p_opt("quantity_max", param_u64, &offer->quantity_max),
-		   p_opt("absolute_expiry", param_u64, &offer->absolute_expiry),
-		   p_opt("recurrence", param_recurrence, &offer->recurrence),
+		   p_opt("quantity_max", param_u64, &offer->offer_quantity_max),
+		   p_opt("absolute_expiry", param_u64, &offer->offer_absolute_expiry),
+		   p_opt("recurrence", param_recurrence, &offer->offer_recurrence),
 		   p_opt("recurrence_base",
 			 param_recurrence_base,
-			 &offer->recurrence_base),
+			 &offer->offer_recurrence_base),
 		   p_opt("recurrence_paywindow",
 			 param_recurrence_paywindow,
-			 &offer->recurrence_paywindow),
+			 &offer->offer_recurrence_paywindow),
 		   p_opt("recurrence_limit",
 			 param_number,
-			 &offer->recurrence_limit),
+			 &offer->offer_recurrence_limit),
 		   p_opt_def("single_use", param_bool,
 			     &offinfo->single_use, false),
 		   /* FIXME: hints support! */
@@ -312,66 +310,66 @@ struct command_result *json_offer(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "experimental-offers not enabled");
 
-	/* BOLT-offers #12:
-	 * - MUST NOT set `quantity_min` or `quantity_max` less than 1.
-	 */
-	if (offer->quantity_min && *offer->quantity_min < 1)
-		return command_fail_badparam(cmd, "quantity_min",
-					     buffer, params,
-					     "must be >= 1");
-	if (offer->quantity_max && *offer->quantity_max < 1)
+	/* Doesn't make sense to have max quantity 1. */
+	if (offer->offer_quantity_max && *offer->offer_quantity_max == 1)
 		return command_fail_badparam(cmd, "quantity_max",
 					     buffer, params,
-					     "must be >= 1");
-	/* BOLT-offers #12:
-	 * - if both:
-	 *    - MUST set `quantity_min` less than or equal to `quantity_max`.
-	 */
-	if (offer->quantity_min && offer->quantity_max) {
-		if (*offer->quantity_min > *offer->quantity_max)
-			return command_fail_badparam(cmd, "quantity_min",
-						     buffer, params,
-						     "must be <= quantity_max");
-	}
-
+					     "must be 0 or > 1");
 	/* BOLT-offers #12:
 	 *
 	 * - if the chain for the invoice is not solely bitcoin:
-	 *   - MUST specify `chains` the offer is valid for.
+	 *   - MUST specify `offer_chains` the offer is valid for.
 	 * - otherwise:
-	 *   - the bitcoin chain is implied as the first and only entry.
+	 *   - MAY omit `offer_chains`, implying that bitcoin is only chain.
 	 */
 	if (!streq(chainparams->network_name, "bitcoin")) {
-		offer->chains = tal_arr(offer, struct bitcoin_blkid, 1);
-		offer->chains[0] = chainparams->genesis_blockhash;
+		offer->offer_chains = tal_arr(offer, struct bitcoin_blkid, 1);
+		offer->offer_chains[0] = chainparams->genesis_blockhash;
 	}
 
-	if (!offer->recurrence) {
-		if (offer->recurrence_limit)
+	if (!offer->offer_recurrence) {
+		if (offer->offer_recurrence_limit)
 			return command_fail_badparam(cmd, "recurrence_limit",
 						     buffer, params,
 						     "needs recurrence");
-		if (offer->recurrence_base)
+		if (offer->offer_recurrence_base)
 			return command_fail_badparam(cmd, "recurrence_base",
 						     buffer, params,
 						     "needs recurrence");
-		if (offer->recurrence_paywindow)
+		if (offer->offer_recurrence_paywindow)
 			return command_fail_badparam(cmd, "recurrence_paywindow",
 						     buffer, params,
 						     "needs recurrence");
 	}
 
-	offer->description = tal_dup_arr(offer, char, desc, strlen(desc), 0);
+	/* BOLT-offers #12:
+	 * - MUST set `offer_description` to a complete description of the
+	 *   purpose of the payment.
+	 */
+	offer->offer_description
+		= tal_dup_arr(offer, char, desc, strlen(desc), 0);
+
+	/* BOLT-offers #12:
+	 * - if it sets `offer_issuer`:
+	 *   - SHOULD set it to identify the issuer of the invoice clearly.
+	 *   - if it includes a domain name:
+	 *     - SHOULD begin it with either user@domain or domain
+	 *     - MAY follow with a space and more text
+	 */
 	if (issuer) {
-		offer->issuer
+		offer->offer_issuer
 			= tal_dup_arr(offer, char, issuer, strlen(issuer), 0);
 	}
 
-	offer->node_id = tal_dup(offer, struct pubkey, &id);
+	/* BOLT-offers #12:
+	 * - MUST set `offer_node_id` to the node's public key to request the
+	 *   invoice from.
+	 */
+	offer->offer_node_id = tal_dup(offer, struct pubkey, &id);
 
 	/* If they specify a different currency, warn if we can't
 	 * convert it! */
-	if (offer->currency) {
+	if (offer->offer_currency) {
 		struct out_req *req;
 
 		req = jsonrpc_request_start(cmd->plugin, cmd, "currencyconvert",
@@ -379,8 +377,8 @@ struct command_result *json_offer(struct command *cmd,
 					    offinfo);
 		json_add_u32(req->js, "amount", 1);
 		json_add_stringn(req->js, "currency",
-				 (const char *)offer->currency,
-				 tal_bytelen(offer->currency));
+				 (const char *)offer->offer_currency,
+				 tal_bytelen(offer->offer_currency));
 		return send_outreq(cmd->plugin, req);
 	}
 

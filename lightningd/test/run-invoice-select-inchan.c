@@ -315,6 +315,9 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx UNNEEDED,
 /* Generated stub for invoice_encode */
 char *invoice_encode(const tal_t *ctx UNNEEDED, const struct tlv_invoice *bolt12_tlv UNNEEDED)
 { fprintf(stderr, "invoice_encode called!\n"); abort(); }
+/* Generated stub for invoice_offer_id */
+void invoice_offer_id(const struct tlv_invoice *invoice UNNEEDED, struct sha256 *id UNNEEDED)
+{ fprintf(stderr, "invoice_offer_id called!\n"); abort(); }
 /* Generated stub for invoice_path_id */
 u8 *invoice_path_id(const tal_t *ctx UNNEEDED,
 		    const struct secret *base_secret UNNEEDED,

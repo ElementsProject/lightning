@@ -22,6 +22,8 @@ struct invreq {
 
 	/* The offer, once we've looked it up. */
 	struct tlv_offer *offer;
+	/* The offer id */
+	struct sha256 offer_id;
 
 	/* The invoice we're preparing (can require additional lookups) */
 	struct tlv_invoice *inv;
@@ -40,14 +42,10 @@ fail_invreq_level(struct command *cmd,
 	struct tlv_onionmsg_tlv *payload;
 	struct tlv_invoice_error *err;
 
-	full_fmt = tal_fmt(tmpctx, "Failed invoice_request");
+	full_fmt = tal_fmt(tmpctx, "Failed invreq");
 	if (invreq->invreq) {
 		tal_append_fmt(&full_fmt, " %s",
 			       invrequest_encode(tmpctx, invreq->invreq));
-		if (invreq->invreq->offer_id)
-			tal_append_fmt(&full_fmt, " for offer %s",
-				       type_to_string(tmpctx, struct sha256,
-						      invreq->invreq->offer_id));
 	}
 	tal_append_fmt(&full_fmt, ": %s", fmt);
 
@@ -124,13 +122,13 @@ test_field(struct command *cmd,
  */
 static void set_recurring_inv_expiry(struct tlv_invoice *inv, u64 last_pay)
 {
-	inv->relative_expiry = tal(inv, u32);
+	inv->invoice_relative_expiry = tal(inv, u32);
 
 	/* Don't give them a 0 second invoice, even if it's true. */
-	if (last_pay <= *inv->created_at)
-		*inv->relative_expiry = 1;
+	if (last_pay <= *inv->invoice_created_at)
+		*inv->invoice_relative_expiry = 1;
 	else
-		*inv->relative_expiry = last_pay - *inv->created_at;
+		*inv->invoice_relative_expiry = last_pay - *inv->invoice_created_at;
 
 	/* FIXME: Shorten expiry if we're doing currency conversion! */
 }
@@ -221,9 +219,9 @@ static struct command_result *create_invoicereq(struct command *cmd,
 
 	json_add_string(req->js, "invstring", invoice_encode(tmpctx, ir->inv));
 	json_add_preimage(req->js, "preimage", &ir->preimage);
-	json_add_label(req->js, ir->inv->offer_id, ir->inv->payer_key,
-		       ir->inv->recurrence_counter
-		       ? *ir->inv->recurrence_counter : 0);
+	json_add_label(req->js, &ir->offer_id, ir->inv->invreq_payer_id,
+		       ir->inv->invreq_recurrence_counter
+		       ? *ir->inv->invreq_recurrence_counter : 0);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -323,7 +321,8 @@ static struct command_result *listincoming_done(struct command *cmd,
 		if (!feature_offered(features, OPT_ROUTE_BLINDING))
 			continue;
 
-		if (amount_msat_less(ci.htlc_max, amount_msat(*ir->inv->amount)))
+		if (amount_msat_less(ci.htlc_max,
+				     amount_msat(*ir->inv->invoice_amount)))
 			continue;
 
 		/* Only pick a private one if no public candidates. */
@@ -346,7 +345,8 @@ static struct command_result *listincoming_done(struct command *cmd,
 		/* Note: since we don't make one, createinvoice adds a dummy. */
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "No incoming channel for %s, so no blinded path",
-			   fmt_amount_msat(tmpctx, amount_msat(*ir->inv->amount)));
+			   fmt_amount_msat(tmpctx,
+					   amount_msat(*ir->inv->invoice_amount)));
 	} else {
 		struct privkey blinding;
 		struct tlv_encrypted_data_tlv_payment_relay relay;
@@ -358,9 +358,14 @@ static struct command_result *listincoming_done(struct command *cmd,
 		relay.fee_base_msat = best->feebase;
 		relay.fee_proportional_millionths = best->feeppm;
 
+		/* BOLT-offers #12:
+		 * - if the expiry for accepting payment is not 7200 seconds
+		 *   after `invoice_created_at`:
+		 *     - MUST set `invoice_relative_expiry`
+		 */
 		/* Give them 6 blocks, plus one per 10 minutes until expiry. */
-		if (ir->inv->relative_expiry)
-			base = blockheight + 6 + *ir->inv->relative_expiry / 600;
+		if (ir->inv->invoice_relative_expiry)
+			base = blockheight + 6 + *ir->inv->invoice_relative_expiry / 600;
 		else
 			base = blockheight + 6 + 7200 / 600;
 		constraints.max_cltv_expiry = base + best->cltv + cltv_final;
@@ -368,14 +373,14 @@ static struct command_result *listincoming_done(struct command *cmd,
 
 		randombytes_buf(&blinding, sizeof(blinding));
 
-		ir->inv->paths = tal_arr(ir->inv, struct blinded_path *, 1);
-		ir->inv->paths[0] = tal(ir->inv->paths, struct blinded_path);
-		ir->inv->paths[0]->first_node_id = best->id;
+		ir->inv->invoice_paths = tal_arr(ir->inv, struct blinded_path *, 1);
+		ir->inv->invoice_paths[0] = tal(ir->inv->invoice_paths, struct blinded_path);
+		ir->inv->invoice_paths[0]->first_node_id = best->id;
 		if (!pubkey_from_privkey(&blinding,
-					 &ir->inv->paths[0]->blinding))
+					 &ir->inv->invoice_paths[0]->blinding))
 			abort();
-		hops = tal_arr(ir->inv->paths[0], struct onionmsg_hop *, 2);
-		ir->inv->paths[0]->path = hops;
+		hops = tal_arr(ir->inv->invoice_paths[0], struct onionmsg_hop *, 2);
+		ir->inv->invoice_paths[0]->path = hops;
 
 		/* First hop is the peer */
 		hops[0] = tal(hops, struct onionmsg_hop);
@@ -395,18 +400,18 @@ static struct command_result *listincoming_done(struct command *cmd,
 					&id,
 					NULL, NULL, NULL,
 					invoice_path_id(tmpctx, &invoicesecret_base,
-							ir->inv->payment_hash),
+							ir->inv->invoice_payment_hash),
 					&hops[1]->blinded_node_id);
 
 		/* FIXME: This should be a "normal" feerate and range. */
-		ir->inv->blindedpay = tal_arr(ir->inv, struct blinded_payinfo *, 1);
-		ir->inv->blindedpay[0] = tal(ir->inv->blindedpay, struct blinded_payinfo);
-		ir->inv->blindedpay[0]->fee_base_msat = best->feebase;
-		ir->inv->blindedpay[0]->fee_proportional_millionths = best->feeppm;
-		ir->inv->blindedpay[0]->cltv_expiry_delta = best->cltv;
-		ir->inv->blindedpay[0]->htlc_minimum_msat = best->htlc_min;
-		ir->inv->blindedpay[0]->htlc_maximum_msat = best->htlc_max;
-		ir->inv->blindedpay[0]->features = NULL;
+		ir->inv->invoice_blindedpay = tal_arr(ir->inv, struct blinded_payinfo *, 1);
+		ir->inv->invoice_blindedpay[0] = tal(ir->inv->invoice_blindedpay, struct blinded_payinfo);
+		ir->inv->invoice_blindedpay[0]->fee_base_msat = best->feebase;
+		ir->inv->invoice_blindedpay[0]->fee_proportional_millionths = best->feeppm;
+		ir->inv->invoice_blindedpay[0]->cltv_expiry_delta = best->cltv;
+		ir->inv->invoice_blindedpay[0]->htlc_minimum_msat = best->htlc_min;
+		ir->inv->invoice_blindedpay[0]->htlc_maximum_msat = best->htlc_max;
+		ir->inv->invoice_blindedpay[0]->features = NULL;
 	}
 
 done:
@@ -432,17 +437,17 @@ static struct command_result *check_period(struct command *cmd,
 	struct command_result *err;
 
 	/* If we have a recurrence base, that overrides. */
-	if (ir->offer->recurrence_base)
-		basetime = ir->offer->recurrence_base->basetime;
+	if (ir->offer->offer_recurrence_base)
+		basetime = ir->offer->offer_recurrence_base->basetime;
 
 	/* BOLT-offers-recurrence #12:
 	 * - if the invoice corresponds to an offer with `recurrence`:
 	 *   - MUST set `recurrence_basetime` to the start of period #0 as
 	 *     calculated by [Period Calculation](#offer-period-calculation).
 	 */
-	ir->inv->recurrence_basetime = tal_dup(ir->inv, u64, &basetime);
+	ir->inv->invoice_recurrence_basetime = tal_dup(ir->inv, u64, &basetime);
 
-	period_idx = *ir->invreq->recurrence_counter;
+	period_idx = *ir->invreq->invreq_recurrence_counter;
 
 	/* BOLT-offers-recurrence #12:
 	 * - if the offer had `recurrence_base` and `start_any_period`
@@ -453,19 +458,19 @@ static struct command_result *check_period(struct command *cmd,
 	 *     `recurrence_start` field plus the `recurrence_counter`
 	 *     `counter` field.
 	 */
-	if (ir->offer->recurrence_base
-	    && ir->offer->recurrence_base->start_any_period) {
-		err = invreq_must_have(cmd, ir, recurrence_start);
+	if (ir->offer->offer_recurrence_base
+	    && ir->offer->offer_recurrence_base->start_any_period) {
+		err = invreq_must_have(cmd, ir, invreq_recurrence_start);
 		if (err)
 			return err;
-		period_idx += *ir->invreq->recurrence_start;
+		period_idx += *ir->invreq->invreq_recurrence_start;
 
 		/* BOLT-offers-recurrence #12:
 		 * - MUST set (or not set) `recurrence_start` exactly as the
-		 *   invoice_request did.
+		 *   invreq did.
 		 */
-		ir->inv->recurrence_start
-			= tal_dup(ir->inv, u32, ir->invreq->recurrence_start);
+		ir->inv->invreq_recurrence_start
+			= tal_dup(ir->inv, u32, ir->invreq->invreq_recurrence_start);
 	} else {
 		/* BOLT-offers-recurrence #12:
 		 *
@@ -475,7 +480,7 @@ static struct command_result *check_period(struct command *cmd,
 		 *   - MUST consider the period index for this request to be the
 		 *     `recurrence_counter` `counter` field.
 		 */
-		err = invreq_must_not_have(cmd, ir, recurrence_start);
+		err = invreq_must_not_have(cmd, ir, invreq_recurrence_start);
 		if (err)
 			return err;
 	}
@@ -485,26 +490,26 @@ static struct command_result *check_period(struct command *cmd,
 	 *   - MUST fail the request if the period index is greater than
 	 *     `max_period`.
 	 */
-	if (ir->offer->recurrence_limit
-	    && period_idx > *ir->offer->recurrence_limit) {
+	if (ir->offer->offer_recurrence_limit
+	    && period_idx > *ir->offer->offer_recurrence_limit) {
 		return fail_invreq(cmd, ir,
 				   "period_index %"PRIu64" too great",
 				   period_idx);
 	}
 
-	offer_period_paywindow(ir->offer->recurrence,
-			       ir->offer->recurrence_paywindow,
-			       ir->offer->recurrence_base,
+	offer_period_paywindow(ir->offer->offer_recurrence,
+			       ir->offer->offer_recurrence_paywindow,
+			       ir->offer->offer_recurrence_base,
 			       basetime, period_idx,
 			       &paywindow_start, &paywindow_end);
-	if (*ir->inv->created_at < paywindow_start) {
+	if (*ir->inv->invoice_created_at < paywindow_start) {
 		return fail_invreq(cmd, ir,
 				   "period_index %"PRIu64
 				   " too early (start %"PRIu64")",
 				   period_idx,
 				   paywindow_start);
 	}
-	if (*ir->inv->created_at > paywindow_end) {
+	if (*ir->inv->invoice_created_at > paywindow_end) {
 		return fail_invreq(cmd, ir,
 				   "period_index %"PRIu64
 				   " too late (ended %"PRIu64")",
@@ -524,21 +529,21 @@ static struct command_result *check_period(struct command *cmd,
 	 *       - MUST adjust the *base invoice amount* proportional to time
 	 *         remaining in the period.
 	 */
-	if (*ir->invreq->recurrence_counter != 0
-	    && ir->offer->recurrence_paywindow
-	    && ir->offer->recurrence_paywindow->proportional_amount == 1) {
+	if (*ir->invreq->invreq_recurrence_counter != 0
+	    && ir->offer->offer_recurrence_paywindow
+	    && ir->offer->offer_recurrence_paywindow->proportional_amount == 1) {
 		u64 start = offer_period_start(basetime, period_idx,
-					       ir->offer->recurrence);
+					       ir->offer->offer_recurrence);
 		u64 end = offer_period_start(basetime, period_idx + 1,
-					     ir->offer->recurrence);
+					     ir->offer->offer_recurrence);
 
-		if (*ir->inv->created_at > start) {
-			*ir->inv->amount
-				*= (double)((*ir->inv->created_at - start)
+		if (*ir->inv->invoice_created_at > start) {
+			*ir->inv->invoice_amount
+				*= (double)((*ir->inv->invoice_created_at - start)
 					    / (end - start));
 			/* Round up to make it non-zero if necessary. */
-			if (*ir->inv->amount == 0)
-				*ir->inv->amount = 1;
+			if (*ir->inv->invoice_amount == 0)
+				*ir->inv->invoice_amount = 1;
 		}
 	}
 
@@ -559,7 +564,7 @@ static struct command_result *prev_invoice_done(struct command *cmd,
 	if (arr->size == 0) {
 		return fail_invreq(cmd, ir,
 				   "No previous invoice #%u",
-				   *ir->inv->recurrence_counter - 1);
+				   *ir->inv->invreq_recurrence_counter - 1);
 	}
 
 	/* Was it paid? */
@@ -567,7 +572,7 @@ static struct command_result *prev_invoice_done(struct command *cmd,
 	if (!json_tok_streq(buf, status, "paid")) {
 		return fail_invreq(cmd, ir,
 				   "Previous invoice #%u status %.*s",
-				   *ir->inv->recurrence_counter - 1,
+				   *ir->inv->invreq_recurrence_counter - 1,
 				   json_tok_full_len(status),
 				   json_tok_full(buf, status));
 	}
@@ -577,7 +582,7 @@ static struct command_result *prev_invoice_done(struct command *cmd,
 	if (!b12) {
 		return fail_internalerr(cmd, ir,
 					"Previous invoice #%u no bolt12 (%.*s)",
-					*ir->inv->recurrence_counter - 1,
+					*ir->inv->invreq_recurrence_counter - 1,
 					json_tok_full_len(arr + 1),
 					json_tok_full(buf, arr + 1));
 	}
@@ -590,12 +595,12 @@ static struct command_result *prev_invoice_done(struct command *cmd,
 					json_tok_full_len(b12),
 					json_tok_full(buf, b12));
 	}
-	if (!previnv->recurrence_basetime) {
+	if (!previnv->invoice_recurrence_basetime) {
 		return fail_internalerr(cmd, ir,
 			   "Previous invoice %.*s no recurrence_basetime?",
 			   json_tok_full_len(b12), json_tok_full(buf, b12));
 	}
-	return check_period(cmd, ir, *previnv->recurrence_basetime);
+	return check_period(cmd, ir, *previnv->invoice_recurrence_basetime);
 }
 
 /* Now, we need to check the previous invoice was paid, and maybe get timebase */
@@ -605,8 +610,8 @@ static struct command_result *check_previous_invoice(struct command *cmd,
 	struct out_req *req;
 
 	/* No previous?  Just pass through */
-	if (*ir->invreq->recurrence_counter == 0)
-		return check_period(cmd, ir, *ir->inv->created_at);
+	if (*ir->invreq->invreq_recurrence_counter == 0)
+		return check_period(cmd, ir, *ir->inv->invoice_created_at);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd,
 				    "listinvoices",
@@ -614,9 +619,9 @@ static struct command_result *check_previous_invoice(struct command *cmd,
 				    error,
 				    ir);
 	json_add_label(req->js,
-		       ir->invreq->offer_id,
-		       ir->invreq->payer_key,
-		       *ir->invreq->recurrence_counter - 1);
+		       &ir->offer_id,
+		       ir->invreq->invreq_payer_id,
+		       *ir->invreq->invreq_recurrence_counter - 1);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -639,24 +644,24 @@ static struct command_result *invreq_amount_by_quantity(struct command *cmd,
 							const struct invreq *ir,
 							u64 *raw_amt)
 {
-	assert(ir->offer->amount);
+	assert(ir->offer->offer_amount);
 
 	/* BOLT-offers #12:
 	 *     - MUST calculate the *base invoice amount* using the offer `amount`:
 	 */
-	*raw_amt = *ir->offer->amount;
+	*raw_amt = *ir->offer->offer_amount;
 
 	/* BOLT-offers #12:
 	 * - if request contains `quantity`, multiply by `quantity`.
 	 */
-	if (ir->invreq->quantity) {
-		if (mul_overflows_u64(*ir->invreq->quantity, *raw_amt)) {
+	if (ir->invreq->invreq_quantity) {
+		if (mul_overflows_u64(*ir->invreq->invreq_quantity, *raw_amt)) {
 			return fail_invreq(cmd, ir,
 					   "quantity %"PRIu64
 					   " causes overflow",
-					   *ir->invreq->quantity);
+					   *ir->invreq->invreq_quantity);
 		}
-		*raw_amt *= *ir->invreq->quantity;
+		*raw_amt *= *ir->invreq->invreq_quantity;
 	}
 
 	return NULL;
@@ -669,28 +674,28 @@ static struct command_result *invreq_base_amount_simple(struct command *cmd,
 {
 	struct command_result *err;
 
-	if (ir->offer->amount) {
+	if (ir->offer->offer_amount) {
 		u64 raw_amount;
-		assert(!ir->offer->currency);
+		assert(!ir->offer->offer_currency);
 		err = invreq_amount_by_quantity(cmd, ir, &raw_amount);
 		if (err)
 			return err;
 
 		*amt = amount_msat(raw_amount);
 	} else {
-		/* BOLT-offers-recurrence #12:
+		/* BOLT-offers #12:
 		 *
-		 * - otherwise:
-		 * - MUST fail the request if it does not contain `amount`.
-		 * - MUST use the request `amount` as the *base invoice amount*.
-		 *   (Note: invoice amount can be further modified by recurrence
-		 *    below)
+		 * The reader:
+		 *...
+		 *    - otherwise (no `offer_amount`):
+		 *      - MUST fail the request if it does not contain
+		 *       `invreq_amount`.
 		 */
-		err = invreq_must_have(cmd, ir, amount);
+		err = invreq_must_have(cmd, ir, invreq_amount);
 		if (err)
 			return err;
 
-		*amt = amount_msat(*ir->invreq->amount);
+		*amt = amount_msat(*ir->invreq->invreq_amount);
 	}
 	return NULL;
 }
@@ -706,8 +711,8 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 	 *     - MUST fail the request if its `amount` is less than the
 	 *       *base invoice amount*.
 	 */
-	if (ir->offer->amount && ir->invreq->amount) {
-		if (amount_msat_less(amount_msat(*ir->invreq->amount), base_inv_amount)) {
+	if (ir->offer->offer_amount && ir->invreq->invreq_amount) {
+		if (amount_msat_less(amount_msat(*ir->invreq->invreq_amount), base_inv_amount)) {
 			return fail_invreq(cmd, ir, "Amount must be at least %s",
 					   type_to_string(tmpctx, struct amount_msat,
 							  &base_inv_amount));
@@ -717,7 +722,7 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 		 *   the *base invoice amount*.
 		 */
 		/* Much == 5? Easier to divide and compare, than multiply. */
-		if (amount_msat_greater(amount_msat_div(amount_msat(*ir->invreq->amount), 5),
+		if (amount_msat_greater(amount_msat_div(amount_msat(*ir->invreq->invreq_amount), 5),
 					base_inv_amount)) {
 			return fail_invreq(cmd, ir, "Amount vastly exceeds %s",
 					   type_to_string(tmpctx, struct amount_msat,
@@ -727,22 +732,16 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 		 * - MUST use the request's `amount` as the *base invoice
 		 *   amount*.
 		 */
-		base_inv_amount = amount_msat(*ir->invreq->amount);
+		base_inv_amount = amount_msat(*ir->invreq->invreq_amount);
 	}
 
 	/* This may be adjusted by recurrence if proportional_amount set */
-	ir->inv->amount = tal_dup(ir->inv, u64,
-				  &base_inv_amount.millisatoshis); /* Raw: wire protocol */
+	ir->inv->invoice_amount = tal_dup(ir->inv, u64,
+					  &base_inv_amount.millisatoshis); /* Raw: wire protocol */
 
 	/* Last of all, we handle recurrence details, which often requires
 	 * further lookups. */
-
-	/* BOLT-offers-recurrence #12:
-	 * - MUST set (or not set) `recurrence_counter` exactly as the
-	 *   invoice_request did.
-	 */
-	if (ir->invreq->recurrence_counter) {
-		ir->inv->recurrence_counter = ir->invreq->recurrence_counter;
+	if (ir->inv->invreq_recurrence_counter) {
 		return check_previous_invoice(cmd, ir);
 	}
 	/* We're happy with 2 hours timeout (default): they can always
@@ -764,16 +763,16 @@ static struct command_result *currency_done(struct command *cmd,
 	if (!msat)
 		return fail_internalerr(cmd, ir,
 					"Cannot convert currency %.*s: %.*s",
-					(int)tal_bytelen(ir->offer->currency),
-					(const char *)ir->offer->currency,
+					(int)tal_bytelen(ir->offer->offer_currency),
+					(const char *)ir->offer->offer_currency,
 					json_tok_full_len(result),
 					json_tok_full(buf, result));
 
 	if (!json_to_msat(buf, msat, &amount))
 		return fail_internalerr(cmd, ir,
 					"Bad convert for currency %.*s: %.*s",
-					(int)tal_bytelen(ir->offer->currency),
-					(const char *)ir->offer->currency,
+					(int)tal_bytelen(ir->offer->offer_currency),
+					(const char *)ir->offer->offer_currency,
 					json_tok_full_len(msat),
 					json_tok_full(buf, msat));
 
@@ -789,7 +788,7 @@ static struct command_result *convert_currency(struct command *cmd,
 	struct command_result *err;
 	const struct iso4217_name_and_divisor *iso4217;
 
-	assert(ir->offer->currency);
+	assert(ir->offer->offer_currency);
 
 	/* Multiply by quantity *first*, for best precision */
 	err = invreq_amount_by_quantity(cmd, ir, &raw_amount);
@@ -802,14 +801,14 @@ static struct command_result *convert_currency(struct command *cmd,
 	 *   - if offer `currency` is not the invoice currency, convert
 	 *     to the invoice currency.
 	 */
-	iso4217 = find_iso4217(ir->offer->currency,
-			       tal_bytelen(ir->offer->currency));
+	iso4217 = find_iso4217(ir->offer->offer_currency,
+			       tal_bytelen(ir->offer->offer_currency));
 	/* We should not create offer with unknown currency! */
 	if (!iso4217)
 		return fail_internalerr(cmd, ir,
 					"Unknown offer currency %.*s",
-					(int)tal_bytelen(ir->offer->currency),
-					ir->offer->currency);
+					(int)tal_bytelen(ir->offer->offer_currency),
+					ir->offer->offer_currency);
 	double_amount = (double)raw_amount;
 	for (size_t i = 0; i < iso4217->minor_unit; i++)
 		double_amount /= 10;
@@ -817,8 +816,8 @@ static struct command_result *convert_currency(struct command *cmd,
 	req = jsonrpc_request_start(cmd->plugin, cmd, "currencyconvert",
 				    currency_done, error, ir);
 	json_add_stringn(req->js, "currency",
-			 (const char *)ir->offer->currency,
-			 tal_bytelen(ir->offer->currency));
+			 (const char *)ir->offer->offer_currency,
+			 tal_bytelen(ir->offer->offer_currency));
 	json_add_primitive_fmt(req->js, "amount", "%f", double_amount);
 	return send_outreq(cmd->plugin, req);
 }
@@ -837,8 +836,8 @@ static struct command_result *listoffers_done(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *
-	 * - MUST fail the request if the `offer_id` does not refer to an
-	 *   unexpired offer.
+	 * - MUST fail the request if the offer fields do not exactly match a
+	 *   valid, unexpired offer.
 	 */
 	if (arr->size == 0)
 		return fail_invreq(cmd, ir, "Unknown offer");
@@ -863,6 +862,8 @@ static struct command_result *listoffers_done(struct command *cmd,
 					json_tok_full_len(offertok),
 					json_tok_full(buf, offertok));
 	}
+
+	/* FIXME-OFFERS: we have these fields in invreq! */
 	ir->offer = offer_decode(ir,
 				 buf + b12tok->start,
 				 b12tok->end - b12tok->start,
@@ -876,63 +877,65 @@ static struct command_result *listoffers_done(struct command *cmd,
 					json_tok_full(buf, offertok));
 	}
 
-	if (ir->offer->absolute_expiry
-	    && time_now().ts.tv_sec >= *ir->offer->absolute_expiry) {
+	if (ir->offer->offer_absolute_expiry
+	    && time_now().ts.tv_sec >= *ir->offer->offer_absolute_expiry) {
 		/* FIXME: do deloffer to disable it */
 		return fail_invreq(cmd, ir, "Offer expired");
 	}
 
 	/* BOLT-offers #12:
-	 * - if the offer had a `quantity_min` or `quantity_max` field:
-	 *   - MUST fail the request if there is no `quantity` field.
-	 *   - MUST fail the request if there is `quantity` is not within
-	 *     that (inclusive) range.
+	 * - if `offer_quantity_max` is present:
+	 *   - MUST fail the request if there is no `invreq_quantity` field.
+	 *   - if `offer_quantity_max` is non-zero:
+	 *     - MUST fail the request if `invreq_quantity` is zero, OR greater than
+	 *       `offer_quantity_max`.
 	 * - otherwise:
-	 *   - MUST fail the request if there is a `quantity` field.
+	 *   - MUST fail the request if there is an `invreq_quantity` field.
 	 */
-	if (ir->offer->quantity_min || ir->offer->quantity_max) {
-		err = invreq_must_have(cmd, ir, quantity);
+	if (ir->offer->offer_quantity_max) {
+		err = invreq_must_have(cmd, ir, invreq_quantity);
 		if (err)
 			return err;
 
-		if (ir->offer->quantity_min &&
-		    *ir->invreq->quantity < *ir->offer->quantity_min) {
+		if (*ir->invreq->invreq_quantity == 0)
 			return fail_invreq(cmd, ir,
-					   "quantity %"PRIu64 " < %"PRIu64,
-					   *ir->invreq->quantity,
-					   *ir->offer->quantity_min);
-		}
+					   "quantity zero invalid");
 
-		if (ir->offer->quantity_max &&
-		    *ir->invreq->quantity > *ir->offer->quantity_max) {
+		if (*ir->offer->offer_quantity_max &&
+		    *ir->invreq->invreq_quantity > *ir->offer->offer_quantity_max) {
 			return fail_invreq(cmd, ir,
 					   "quantity %"PRIu64" > %"PRIu64,
-					   *ir->invreq->quantity,
-					   *ir->offer->quantity_max);
+					   *ir->invreq->invreq_quantity,
+					   *ir->offer->offer_quantity_max);
 		}
 	} else {
-		err = invreq_must_not_have(cmd, ir, quantity);
+		err = invreq_must_not_have(cmd, ir, invreq_quantity);
 		if (err)
 			return err;
 	}
 
+	/* BOLT-offers #12:
+	 * - MUST fail the request if `invreq_signature` is not correct as
+	 *   detailed in [Signature Calculation](#signature-calculation) using
+	 *   the `invreq_payer_id`.
+	 */
 	err = invreq_must_have(cmd, ir, signature);
 	if (err)
 		return err;
 	if (!check_payer_sig(cmd, ir->invreq,
-			     ir->invreq->payer_key,
+			     ir->invreq->invreq_payer_id,
 			     ir->invreq->signature)) {
 		return fail_invreq(cmd, ir, "bad signature");
 	}
 
-	if (ir->offer->recurrence) {
+	if (ir->offer->offer_recurrence) {
 		/* BOLT-offers-recurrence #12:
 		 *
 		 * - if the offer had a `recurrence`:
 		 *   - MUST fail the request if there is no `recurrence_counter`
 		 *     field.
 		 */
-		err = invreq_must_have(cmd, ir, recurrence_counter);
+		err = invreq_must_have(cmd, ir, invreq_recurrence_counter);
 		if (err)
 			return err;
 	} else {
@@ -943,78 +946,54 @@ static struct command_result *listoffers_done(struct command *cmd,
 		 *   - MUST fail the request if there is a `recurrence_start`
 		 *     field.
 		 */
-		err = invreq_must_not_have(cmd, ir, recurrence_counter);
+		err = invreq_must_not_have(cmd, ir, invreq_recurrence_counter);
 		if (err)
 			return err;
-		err = invreq_must_not_have(cmd, ir, recurrence_start);
+		err = invreq_must_not_have(cmd, ir, invreq_recurrence_start);
 		if (err)
 			return err;
 	}
 
-	ir->inv = tlv_invoice_new(cmd);
 	/* BOLT-offers #12:
-	 *   - if the chain for the invoice is not solely bitcoin:
-	 *     - MUST specify `chains` the offer is valid for.
+	 * The writer:
+	 *   - MUST copy all non-signature fields from the invreq (including
+	 *     unknown fields).
 	 */
-	if (!streq(chainparams->network_name, "bitcoin")) {
-		ir->inv->chain = tal_dup(ir->inv, struct bitcoin_blkid,
-					 &chainparams->genesis_blockhash);
-	}
+	ir->inv = invoice_for_invreq(cmd, ir->invreq);
+	assert(ir->inv->invreq_payer_id);
 
 	/* BOLT-offers #12:
-	 *   - MUST set `offer_id` to the id of the offer.
+	 *   - if `offer_node_id` is present:
+	 *     - MUST set `invoice_node_id` to `offer_node_id`.
 	 */
-	/* Which is the same as the invreq */
-	ir->inv->offer_id = tal_dup(ir->inv, struct sha256,
-				    ir->invreq->offer_id);
-	ir->inv->description = tal_dup_talarr(ir->inv, char,
-					      ir->offer->description);
-	ir->inv->features = tal_dup_talarr(ir->inv, u8,
-				       plugin_feature_set(cmd->plugin)
-				       ->bits[BOLT11_FEATURE]);
-	/* FIXME: Insert paths and payinfo */
-
-	ir->inv->issuer = tal_dup_talarr(ir->inv, char, ir->offer->issuer);
-	ir->inv->node_id = tal_dup(ir->inv, struct pubkey, ir->offer->node_id);
-	/* BOLT-offers #12:
-	 *  - MUST set (or not set) `quantity` exactly as the invoice_request
-	 *    did.
-	 */
-	if (ir->offer->quantity_min || ir->offer->quantity_max)
-		ir->inv->quantity = tal_dup(ir->inv, u64, ir->invreq->quantity);
+	/* We always provide an offer_node_id! */
+	ir->inv->invoice_node_id = ir->inv->offer_node_id;
 
 	/* BOLT-offers #12:
-	 *  - MUST set `payer_key` exactly as the invoice_request did.
+	 * - MUST set `invoice_created_at` to the number of seconds since
+	 *   Midnight 1 January 1970, UTC when the offer was created.
 	 */
-	ir->inv->payer_key = tal_dup(ir->inv, struct pubkey,
-				     ir->invreq->payer_key);
+	ir->inv->invoice_created_at = tal(ir->inv, u64);
+	*ir->inv->invoice_created_at = time_now().ts.tv_sec;
 
 	/* BOLT-offers #12:
-	 *  - MUST set (or not set) `payer_info` exactly as the invoice_request
-	 *    did.
+	 * - MUST set `invoice_payment_hash` to the SHA256 hash of the
+	 *   `payment_preimage` that will be given in return for payment.
 	 */
-	ir->inv->payer_info
-		= tal_dup_talarr(ir->inv, u8, ir->invreq->payer_info);
-
-	/* BOLT-offers #12:
-	 * - MUST set (or not set) `payer_note` exactly as the invoice_request
-	 *   did, or MUST not set it.
-	 */
-	/* i.e. we don't have to do anything, but we do. */
-	ir->inv->payer_note
-		= tal_dup_talarr(ir->inv, char, ir->invreq->payer_note);
-
 	randombytes_buf(&ir->preimage, sizeof(ir->preimage));
-	ir->inv->payment_hash = tal(ir->inv, struct sha256);
-	sha256(ir->inv->payment_hash, &ir->preimage, sizeof(ir->preimage));
+	ir->inv->invoice_payment_hash = tal(ir->inv, struct sha256);
+	sha256(ir->inv->invoice_payment_hash,
+	       &ir->preimage, sizeof(ir->preimage));
 
-	ir->inv->cltv = tal_dup(ir->inv, u16, &cltv_final);
-
-	ir->inv->created_at = tal(ir->inv, u64);
-	*ir->inv->created_at = time_now().ts.tv_sec;
+	/* BOLT-offers #12:
+	 *  - or if it allows multiple parts to pay the invoice:
+	 *     - MUST set `invoice_features`.`features` bit `MPP/optional`
+	 */
+	ir->inv->invoice_features
+		= plugin_feature_set(cmd->plugin)->bits[BOLT12_INVOICE_FEATURE];
 
 	/* We may require currency lookup; if so, do it now. */
-	if (ir->offer->amount && ir->offer->currency)
+	if (ir->offer->offer_amount && ir->offer->offer_currency)
 		return convert_currency(cmd, ir);
 
 	err = invreq_base_amount_simple(cmd, ir, &amt);
@@ -1023,25 +1002,19 @@ static struct command_result *listoffers_done(struct command *cmd,
 	return handle_amount_and_recurrence(cmd, ir, amt);
 }
 
-static struct command_result *handle_offerless_request(struct command *cmd,
-						       struct invreq *ir)
-{
-	/* FIXME: shut up and take their money! */
-	return fail_internalerr(cmd, ir, "FIXME: handle offerless req!");
-}
-
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
 					      struct blinded_path *reply_path)
 {
 	size_t len = tal_count(invreqbin);
+	const u8 *cursor = invreqbin;
 	struct invreq *ir = tal(cmd, struct invreq);
 	struct out_req *req;
 	int bad_feature;
 
 	ir->reply_path = tal_steal(ir, reply_path);
 
-	ir->invreq = fromwire_tlv_invoice_request(cmd, &invreqbin, &len);
+	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
 	if (!ir->invreq) {
 		return fail_invreq(cmd, ir,
 				   "Invalid invreq %s",
@@ -1050,13 +1023,39 @@ struct command_result *handle_invoice_request(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *
-	 * The reader of an invoice_request:
+	 * The reader:
+	 *  - MUST fail the request if `invreq_payer_id` or `invreq_metadata`
+	 *    are not present.
+	 */
+	if (!ir->invreq->invreq_payer_id)
+		return fail_invreq(cmd, ir, "Missing invreq_payer_id");
+	if (!ir->invreq->invreq_metadata)
+		return fail_invreq(cmd, ir, "Missing invreq_metadata");
+
+	/* BOLT-offers #12:
+	 * The reader:
+	 * ...
+	 *  - MUST fail the request if any non-signature TLV fields greater or
+	 *    equal to 160.
+	 */
+	/* BOLT-offers #12:
+	 * Each form is signed using one or more *signature TLV elements*:
+	 * TLV types 240 through 1000 (inclusive)
+	 */
+	if (tlv_span(invreqbin, 0, 159, NULL)
+	    + tlv_span(invreqbin, 240, 1000, NULL) != tal_bytelen(invreqbin))
+		return fail_invreq(cmd, ir, "Fields beyond 160");
+
+	/* BOLT-offers #12:
+	 *
+	 * The reader of an invreq:
 	 *...
-	 *   - MUST fail the request if `features` contains unknown even bits.
+	 * - if `invreq_features` contains unknown _even_ bits that are non-zero:
+	 *   - MUST fail the request.
 	 */
 	bad_feature = features_unsupported(plugin_feature_set(cmd->plugin),
-					   ir->invreq->features,
-					   BOLT11_FEATURE);
+					   ir->invreq->invreq_features,
+					   BOLT12_INVREQ_FEATURE);
 	if (bad_feature != -1) {
 		return fail_invreq(cmd, ir,
 				   "Unsupported invreq feature %i",
@@ -1065,34 +1064,41 @@ struct command_result *handle_invoice_request(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *
-	 * The reader of an invoice_request:
+	 * The reader:
 	 *...
-	 *  - if `chain` is not present:
-	 *    - MUST fail the request if bitcoin is not a supported chain.
-	 *  - otherwise:
-	 *    - MUST fail the request if `chain` is not a supported chain.
+	 * - if `invreq_chain` is not present:
+	 *   - MUST fail the request if bitcoin is not a supported chain.
+	 * - otherwise:
+	 *   - MUST fail the request if `invreq_chain`.`chain` is not a
+	 *     supported chain.
 	 */
-	if (!bolt12_chain_matches(ir->invreq->chain, chainparams)) {
+	if (!bolt12_chain_matches(ir->invreq->invreq_chain, chainparams)) {
 		return fail_invreq(cmd, ir,
 				   "Wrong chain %s",
-				   tal_hex(tmpctx, ir->invreq->chain));
+				   tal_hex(tmpctx, ir->invreq->invreq_chain));
 	}
 
 	/* BOLT-offers #12:
 	 *
-	 * The reader of an invoice_request:
-	 *   - MUST fail the request if `payer_key` is not present.
+	 * - otherwise (no `offer_node_id`, not a response to our offer):
 	 */
-	if (!ir->invreq->payer_key)
-		return fail_invreq(cmd, ir, "Missing payer key");
+	/* FIXME-OFFERS: handle this! */
+	if (!ir->invreq->offer_node_id) {
+		return fail_invreq(cmd, ir, "Not based on an offer");
+	}
 
-	if (!ir->invreq->offer_id)
-		return handle_offerless_request(cmd, ir);
+	/* BOLT-offers #12:
+	 *
+	 * - if `offer_node_id` is present (response to an offer):
+	 *   - MUST fail the request if the offer fields do not exactly match a
+	 *     valid, unexpired offer.
+	 */
+	invreq_offer_id(ir->invreq, &ir->offer_id);
 
 	/* Now, look up offer */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "listoffers",
 				    listoffers_done, error, ir);
-	json_add_sha256(req->js, "offer_id", ir->invreq->offer_id);
+	json_add_sha256(req->js, "offer_id", &ir->offer_id);
 	return send_outreq(cmd->plugin, req);
 }
 

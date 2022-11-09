@@ -1092,83 +1092,73 @@ static struct command_result *json_pay(struct command *cmd,
 		/* p->features = tal_steal(p, b12->features); */
 		p->features = NULL;
 
-		if (!b12->node_id)
+		if (!b12->invoice_node_id)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing node_id");
-		if (!b12->payment_hash)
+		if (!b12->invoice_payment_hash)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing payment_hash");
-		if (!b12->created_at)
+		if (!b12->invoice_created_at)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing created_at");
-		if (b12->amount) {
-			invmsat = tal(cmd, struct amount_msat);
-			*invmsat = amount_msat(*b12->amount);
-		} else
-			invmsat = NULL;
+		if (!b12->invoice_amount)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invoice missing invoice_amount");
+		invmsat = tal(cmd, struct amount_msat);
+		*invmsat = amount_msat(*b12->invoice_amount);
 
 		p->destination = tal(p, struct node_id);
-		node_id_from_pubkey(p->destination, b12->node_id);
-		p->payment_hash = tal_dup(p, struct sha256, b12->payment_hash);
-		if (b12->recurrence_counter && !label)
+		node_id_from_pubkey(p->destination, b12->invoice_node_id);
+		p->payment_hash = tal_dup(p, struct sha256,
+					  b12->invoice_payment_hash);
+		if (b12->invreq_recurrence_counter && !label)
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "recurring invoice requires a label");
 
 		/* BOLT-offers #12:
-		 * - MUST reject the invoice if `blindedpay` is not present.
+		 * - MUST reject the invoice if `invoice_paths` is not present
+		 *  or is empty.
 		 */
-		/* FIXME: We allow this for now. */
+		if (tal_count(b12->invoice_paths) == 0)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invoice missing invoice_paths");
 
-		if (tal_count(b12->paths) != 0) {
-			/* BOLT-offers #12: - MUST reject the invoice if
-			 * `blindedpay` does not contain exactly one
-			 * `blinded_payinfo` per `blinded_path`.
-			 */
-			if (tal_count(b12->paths) != tal_count(b12->blindedpay)) {
-				return command_fail(
-					cmd, JSONRPC2_INVALID_PARAMS,
-					"Wrong blinding info: %zu paths, %zu payinfo",
-					tal_count(b12->paths),
-					tal_count(b12->blindedpay));
-			}
-
-			/* FIXME: do MPP across these!  We choose first one. */
-			p->blindedpath = tal_steal(p, b12->paths[0]);
-			p->blindedpay = tal_steal(p, b12->blindedpay[0]);
-
-			/* Set destination to introduction point */
-			node_id_from_pubkey(p->destination, &p->blindedpath->first_node_id);
-		} else {
-			/* FIXME payment_secret should be signature! */
-			struct sha256 merkle;
-
-			p->payment_secret = tal(p, struct secret);
-			merkle_tlv(b12->fields, &merkle);
-			memcpy(p->payment_secret, &merkle, sizeof(merkle));
-			BUILD_ASSERT(sizeof(*p->payment_secret) ==
-				     sizeof(merkle));
+		/* BOLT-offers #12:
+		 * - MUST reject the invoice if `invoice_blindedpay` does not
+		 *   contain exactly one `blinded_payinfo` per
+		 *   `invoice_paths`.`blinded_path`. */
+		if (tal_count(b12->invoice_paths)
+		    != tal_count(b12->invoice_blindedpay)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Wrong blinding info: %zu paths, %zu payinfo",
+					    tal_count(b12->invoice_paths),
+					    tal_count(b12->invoice_blindedpay));
 		}
+
+		/* FIXME: do MPP across these!  We choose first one. */
+		p->blindedpath = tal_steal(p, b12->invoice_paths[0]);
+		p->blindedpay = tal_steal(p, b12->invoice_blindedpay[0]);
+		p->min_final_cltv_expiry = p->blindedpay->cltv_expiry_delta;
+
+		/* Set destination to introduction point */
+		node_id_from_pubkey(p->destination, &p->blindedpath->first_node_id);
 		p->payment_metadata = NULL;
 		p->routes = NULL;
-		if (b12->cltv)
-			p->min_final_cltv_expiry = *b12->cltv;
-		else
-			p->min_final_cltv_expiry = 18;
 		/* BOLT-offers #12:
-		 * - if `relative_expiry` is present:
+		 * - if `invoice_relative_expiry` is present:
 		 *   - MUST reject the invoice if the current time since
-		 *     1970-01-01 UTC is greater than `created_at` plus
+		 *     1970-01-01 UTC is greater than `invoice_created_at` plus
 		 *     `seconds_from_creation`.
 		 * - otherwise:
 		 *   - MUST reject the invoice if the current time since
-		 *     1970-01-01 UTC is greater than `created_at` plus
-		 * 7200.
+		 *     1970-01-01 UTC is greater than `invoice_created_at` plus
+		 *     7200.
 		 */
-		if (b12->relative_expiry)
-			invexpiry = *b12->created_at + *b12->relative_expiry;
+		if (b12->invoice_relative_expiry)
+			invexpiry = *b12->invoice_created_at + *b12->invoice_relative_expiry;
 		else
-			invexpiry = *b12->created_at + BOLT12_DEFAULT_REL_EXPIRY;
+			invexpiry = *b12->invoice_created_at + BOLT12_DEFAULT_REL_EXPIRY;
 		p->local_offer_id = tal_steal(p, local_offer_id);
 	}
 

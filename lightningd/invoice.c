@@ -70,10 +70,11 @@ static void json_add_invoice_fields(struct json_stream *response,
 		tinv = invoice_decode(tmpctx,
 				      inv->invstring, strlen(inv->invstring),
 				      NULL, NULL, &fail);
-		if (tinv && tinv->payer_note)
+		/* FIXME-OFFERS: Rename all fields to offer_ as per spec */
+		if (tinv && tinv->invreq_payer_note)
 			json_add_stringn(response, "payer_note",
-					 tinv->payer_note,
-					 tal_bytelen(tinv->payer_note));
+					 tinv->invreq_payer_note,
+					 tal_bytelen(tinv->invreq_payer_note));
 	}
 }
 
@@ -1352,11 +1353,11 @@ static struct command_result *json_listinvoices(struct command *cmd,
 						 strlen(invstring),
 						 cmd->ld->our_features, NULL,
 						 &fail);
-			if (!b12 || !b12->payment_hash) {
+			if (!b12 || !b12->invoice_payment_hash) {
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "Invalid invstring");
 			}
-			payment_hash = b12->payment_hash;
+			payment_hash = b12->invoice_payment_hash;
 		}
 	}
 
@@ -1658,7 +1659,7 @@ static struct tlv_invoice *add_stub_blindedpath(const tal_t *ctx,
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
 	tlv->path_id = invoice_path_id(inv,
 				       &ld->invoicesecret_base,
-				       inv->payment_hash);
+				       inv->invoice_payment_hash);
 
 	path->path[0]->encrypted_recipient_data
 		= encrypt_tlv_encrypted_data(path->path[0],
@@ -1668,22 +1669,23 @@ static struct tlv_invoice *add_stub_blindedpath(const tal_t *ctx,
 					     NULL,
 					     &path->path[0]->blinded_node_id);
 
-	inv->paths = tal_arr(inv, struct blinded_path *, 1);
-	inv->paths[0] = tal_steal(inv->paths, path);
+	inv->invoice_paths = tal_arr(inv, struct blinded_path *, 1);
+	inv->invoice_paths[0] = tal_steal(inv->invoice_paths, path);
 
 	/* BOLT-offers #12:
 	 *  - MUST include `invoice_paths` containing one or more paths to the node.
 	 *  - MUST specify `invoice_paths` in order of most-preferred to least-preferred if it has a preference.
 	 *  - MUST include `invoice_blindedpay` with exactly one `blinded_payinfo` for each `blinded_path` in `paths`, in order.
 	 */
-	inv->blindedpay = tal_arr(inv, struct blinded_payinfo *, 1);
-	inv->blindedpay[0] = tal(inv->blindedpay, struct blinded_payinfo);
-	inv->blindedpay[0]->fee_base_msat = 0;
-	inv->blindedpay[0]->fee_proportional_millionths = 0;
-	inv->blindedpay[0]->cltv_expiry_delta = ld->config.cltv_final;
-	inv->blindedpay[0]->htlc_minimum_msat = AMOUNT_MSAT(0);
-	inv->blindedpay[0]->htlc_maximum_msat = AMOUNT_MSAT(21000000 * MSAT_PER_BTC);
-	inv->blindedpay[0]->features = NULL;
+	inv->invoice_blindedpay = tal_arr(inv, struct blinded_payinfo *, 1);
+	inv->invoice_blindedpay[0] = tal(inv->invoice_blindedpay,
+					 struct blinded_payinfo);
+	inv->invoice_blindedpay[0]->fee_base_msat = 0;
+	inv->invoice_blindedpay[0]->fee_proportional_millionths = 0;
+	inv->invoice_blindedpay[0]->cltv_expiry_delta = ld->config.cltv_final;
+	inv->invoice_blindedpay[0]->htlc_minimum_msat = AMOUNT_MSAT(0);
+	inv->invoice_blindedpay[0]->htlc_maximum_msat = AMOUNT_MSAT(21000000 * MSAT_PER_BTC);
+	inv->invoice_blindedpay[0]->features = NULL;
 
 	/* But we need to update ->fields, so re-linearize */
 	wire = tal_arr(tmpctx, u8, 0);
@@ -1756,7 +1758,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		notify_invoice_creation(cmd->ld, b11->msat, *preimage, label);
 	} else {
 		struct tlv_invoice *inv;
-		struct sha256 *local_offer_id;
+		struct sha256 offer_id, *local_offer_id;
 		char *b12enc;
 		struct amount_msat msat;
 		const char *desc;
@@ -1771,10 +1773,16 @@ static struct command_result *json_createinvoice(struct command *cmd,
 					    "Unparsable invoice '%s': %s",
 					    invstring, fail);
 
+		/* BOLT-offers #12:
+		 * A writer of an invoice:
+		 *...
+		 *   - MUST include `invoice_paths` containing one or more paths
+		 *    to the node.
+		 */
 		/* If they don't create a blinded path, add a simple one so we
 		 * can recognize payments (bolt12 doesn't use
 		 * payment_secret) */
-		if (!inv->paths)
+		if (!inv->invoice_paths)
 			inv = add_stub_blindedpath(cmd, cmd->ld, inv);
 
 		if (inv->signature)
@@ -1783,54 +1791,65 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		hsm_sign_b12_invoice(cmd->ld, inv);
 		b12enc = invoice_encode(cmd, inv);
 
-		if (inv->offer_id
-		    && wallet_offer_find(tmpctx, cmd->ld->wallet,
-					 inv->offer_id, NULL, &status)) {
-			if (!offer_status_active(status))
-				return command_fail(cmd, INVOICE_OFFER_INACTIVE,
-						    "offer not active");
-			local_offer_id = inv->offer_id;
+		if (inv->offer_node_id) {
+			invoice_offer_id(inv, &offer_id);
+			if (wallet_offer_find(tmpctx, cmd->ld->wallet,
+					      &offer_id, NULL, &status)) {
+				if (!offer_status_active(status))
+					return command_fail(cmd,
+							    INVOICE_OFFER_INACTIVE,
+							    "offer not active");
+				local_offer_id = &offer_id;
+			} else
+				local_offer_id = NULL;
 		} else
 			local_offer_id = NULL;
 
-		if (inv->amount)
-			msat = amount_msat(*inv->amount);
+		/* BOLT-offers #12:
+		 * A writer of an invoice:
+		 *...
+		 * - MUST set `invoice_amount` to the minimum amount it will
+		 *   accept, in units of the minimal lightning-payable unit
+		 *   (e.g. milli-satoshis for bitcoin) for `invreq_chain`.
+		 */
+		if (!inv->invoice_amount)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Missing invoice_amount in invoice");
+		msat = amount_msat(*inv->invoice_amount);
 
-		if (inv->relative_expiry)
-			expiry = *inv->relative_expiry;
+		if (inv->invoice_relative_expiry)
+			expiry = *inv->invoice_relative_expiry;
 		else
 			expiry = BOLT12_DEFAULT_REL_EXPIRY;
 
-		if (!inv->payment_hash)
+		if (!inv->invoice_payment_hash)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Missing payment_hash in invoice");
-		if (!sha256_eq(&payment_hash, inv->payment_hash))
+		if (!sha256_eq(&payment_hash, inv->invoice_payment_hash))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Incorrect preimage");
 
-		if (!inv->description)
+		if (!inv->offer_description)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Missing description in invoice");
 		desc = tal_strndup(cmd,
-				   cast_signed(char *, inv->description),
-				   tal_bytelen(inv->description));
+				   inv->offer_description,
+				   tal_bytelen(inv->offer_description));
 
 		if (!wallet_invoice_create(cmd->ld->wallet,
 					   &invoice,
-					   inv->amount ? &msat : NULL,
+					   &msat,
 					   label,
 					   expiry,
 					   b12enc,
 					   desc,
-					   inv->features,
+					   inv->invoice_features,
 					   preimage,
 					   &payment_hash,
 					   local_offer_id))
 			return fail_exists(cmd, label);
 
-		notify_invoice_creation(cmd->ld,
-					inv->amount ? &msat : NULL,
-					*preimage, label);
+		notify_invoice_creation(cmd->ld, &msat,	*preimage, label);
 	}
 
 	response = json_stream_success(cmd);

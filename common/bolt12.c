@@ -11,9 +11,9 @@
 #include <time.h>
 
 /* If chains is NULL, max_num_chains is ignored */
-static bool bolt12_chains_match(const struct bitcoin_blkid *chains,
-				size_t max_num_chains,
-				const struct chainparams *must_be_chain)
+bool bolt12_chains_match(const struct bitcoin_blkid *chains,
+			 size_t max_num_chains,
+			 const struct chainparams *must_be_chain)
 {
 	/* BOLT-offers #12:
 	 *   - if the chain for the invoice is not solely bitcoin:
@@ -181,25 +181,12 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
-					 offer->features,
+					 offer->offer_features,
 					 BOLT12_OFFER_FEATURE,
-					 offer->chains,
-					 tal_count(offer->chains));
+					 offer->offer_chains,
+					 tal_count(offer->offer_chains));
 	if (*fail)
 		return tal_free(offer);
-
-	/* BOLT-offers #12:
-	 * - if `signature` is present, but is not a valid signature using
-	 *   `node_id` as described in [Signature Calculation](#signature-calculation):
-	 *   - MUST NOT respond to the offer.
-	 */
-	if (offer->signature) {
-		*fail = check_signature(ctx, offer->fields,
-					"offer", "signature",
-					offer->node_id, offer->signature);
-		if (*fail)
-			return tal_free(offer);
-	}
 
 	return offer;
 }
@@ -230,15 +217,15 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 
 	invrequest = fromwire_tlv_invoice_request(ctx, &data, &dlen);
 	if (!invrequest) {
-		*fail = tal_fmt(ctx, "invalid invoice_request data");
+		*fail = tal_fmt(ctx, "invalid invreq data");
 		return NULL;
 	}
 
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
-					 invrequest->features,
+					 invrequest->invreq_features,
 					 BOLT12_INVREQ_FEATURE,
-					 invrequest->chain, 1);
+					 invrequest->invreq_chain, 1);
 	if (*fail)
 		return tal_free(invrequest);
 
@@ -277,9 +264,9 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
-					 invoice->features,
+					 invoice->invoice_features,
 					 BOLT12_INVOICE_FEATURE,
-					 invoice->chain, 1);
+					 invoice->invreq_chain, 1);
 	if (*fail)
 		return tal_free(invoice);
 
@@ -328,7 +315,7 @@ static u64 time_change(u64 prevstart, u32 number,
 }
 
 u64 offer_period_start(u64 basetime, size_t n,
-		       const struct tlv_offer_recurrence *recur)
+		       const struct recurrence *recur)
 {
 	/* BOLT-offers-recurrence #12:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
@@ -349,9 +336,9 @@ u64 offer_period_start(u64 basetime, size_t n,
 	}
 }
 
-void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
-			    const struct tlv_offer_recurrence_paywindow *recurrence_paywindow,
-			    const struct tlv_offer_recurrence_base *recurrence_base,
+void offer_period_paywindow(const struct recurrence *recurrence,
+			    const struct recurrence_paywindow *recurrence_paywindow,
+			    const struct recurrence_base *recurrence_base,
 			    u64 basetime, u64 period_idx,
 			    u64 *start, u64 *end)
 {
@@ -364,9 +351,9 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 		/* BOLT-offers-recurrence #12:
 		 * - if the offer has a `recurrence_basetime` or the
 		 *    `recurrence_counter` is non-zero:
-		 *   - SHOULD NOT send an `invoice_request` for a period prior to
+		 *   - SHOULD NOT send an `invreq` for a period prior to
 		 *     `seconds_before` seconds before that period start.
-		 *   - SHOULD NOT send an `invoice_request` for a period later
+		 *   - SHOULD NOT send an `invreq` for a period later
 		 *     than `seconds_after` seconds past that period start.
 		 */
 		*start = pstart - recurrence_paywindow->seconds_before;
@@ -381,7 +368,7 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 	} else {
 		/* BOLT-offers-recurrence #12:
 		 * - otherwise:
-		 *   - SHOULD NOT send an `invoice_request` with
+		 *   - SHOULD NOT send an `invreq` with
 		 *     `recurrence_counter` is non-zero for a period whose
 		 *     immediate predecessor has not yet begun.
 		 */
@@ -392,7 +379,7 @@ void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
 						    recurrence);
 
 		/* BOLT-offers-recurrence #12:
-		 *     - SHOULD NOT send an `invoice_request` for a period which
+		 *     - SHOULD NOT send an `invreq` for a period which
 		 *       has already passed.
 		 */
 		*end = offer_period_start(basetime, period_idx+1,
@@ -413,7 +400,8 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 	if (invoice) {
 		*fail = check_signature(ctx, invoice->fields,
 					"invoice", "signature",
-					invoice->node_id, invoice->signature);
+					invoice->invoice_node_id,
+					invoice->signature);
 		if (*fail)
 			invoice = tal_free(invoice);
 	}
