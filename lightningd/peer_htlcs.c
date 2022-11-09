@@ -103,7 +103,9 @@ static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
 	 *    - MUST return `invalid_onion_blinding` for any local error or
 	 *      other downstream errors.
 	 */
-	if (hin->blinding)
+	/* FIXME: That's not enough!  Don't leak information about forward
+	 * failures either! */
+	if (hin->blinding || (hin->payload && hin->payload->blinding))
 		badonion = WIRE_INVALID_ONION_BLINDING;
 
 	f->id = hin->key.id;
@@ -130,6 +132,17 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 		return mk_failed_htlc_badonion(ctx, hin,
 					       WIRE_INVALID_ONION_BLINDING);
 	}
+
+	/* Also, at head of the blinded path, return "normal" invalid
+	 * onion blinding. */
+	if (hin->payload && hin->payload->blinding) {
+		struct sha256 sha;
+		sha256(&sha, hin->onion_routing_packet,
+		       sizeof(hin->onion_routing_packet));
+		failonion = create_onionreply(tmpctx, hin->shared_secret,
+					      towire_invalid_onion_blinding(tmpctx, &sha));
+	}
+
 	f->id = hin->key.id;
 	f->sha256_of_onion = NULL;
 	f->badonion = 0;
