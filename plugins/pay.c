@@ -1024,6 +1024,9 @@ static struct command_result *json_pay(struct command *cmd,
 	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
 	p->invstring = tal_steal(p, b11str);
 	p->description = tal_steal(p, description);
+	/* Overridded by bolt12 if present */
+	p->blindedpath = NULL;
+	p->blindedpay = NULL;
 
 	if (!bolt12_has_prefix(b11str)) {
 		b11 =
@@ -1085,7 +1088,9 @@ static struct command_result *json_pay(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "experimental-offers disabled");
 
-		p->features = tal_steal(p, b12->features);
+		/* FIXME: We disable MPP for now */
+		/* p->features = tal_steal(p, b12->features); */
+		p->features = NULL;
 
 		if (!b12->node_id)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1109,8 +1114,33 @@ static struct command_result *json_pay(struct command *cmd,
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "recurring invoice requires a label");
-		/* FIXME payment_secret should be signature! */
-		{
+
+		/* BOLT-offers #12:
+		 * - MUST reject the invoice if `blindedpay` is not present.
+		 */
+		/* FIXME: We allow this for now. */
+
+		if (tal_count(b12->paths) != 0) {
+			/* BOLT-offers #12: - MUST reject the invoice if
+			 * `blindedpay` does not contain exactly one
+			 * `blinded_payinfo` per `blinded_path`.
+			 */
+			if (tal_count(b12->paths) != tal_count(b12->blindedpay)) {
+				return command_fail(
+					cmd, JSONRPC2_INVALID_PARAMS,
+					"Wrong blinding info: %zu paths, %zu payinfo",
+					tal_count(b12->paths),
+					tal_count(b12->blindedpay));
+			}
+
+			/* FIXME: do MPP across these!  We choose first one. */
+			p->blindedpath = tal_steal(p, b12->paths[0]);
+			p->blindedpay = tal_steal(p, b12->blindedpay[0]);
+
+			/* Set destination to introduction point */
+			node_id_from_pubkey(p->destination, &p->blindedpath->first_node_id);
+		} else {
+			/* FIXME payment_secret should be signature! */
 			struct sha256 merkle;
 
 			p->payment_secret = tal(p, struct secret);
@@ -1121,7 +1151,6 @@ static struct command_result *json_pay(struct command *cmd,
 		}
 		p->payment_metadata = NULL;
 		p->routes = NULL;
-		/* FIXME: paths! */
 		if (b12->cltv)
 			p->min_final_cltv_expiry = *b12->cltv;
 		else
@@ -1159,6 +1188,19 @@ static struct command_result *json_pay(struct command *cmd,
 					    "msatoshi parameter required");
 		}
 		p->amount = *msat;
+	}
+
+	/* We replace real final values if we're using a blinded path */
+	if (p->blindedpath) {
+		p->blindedfinalcltv = p->min_final_cltv_expiry;
+		p->blindedfinalamount = p->amount;
+
+		p->min_final_cltv_expiry += p->blindedpay->cltv_expiry_delta;
+		if (!amount_msat_add_fee(&p->amount,
+					 p->blindedpay->fee_base_msat,
+					 p->blindedpay->fee_proportional_millionths))
+			return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
+					    "This payment blinded path fee overflows!");
 	}
 
 	if (node_id_eq(&my_id, p->destination))

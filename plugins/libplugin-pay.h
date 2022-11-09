@@ -188,6 +188,12 @@ struct payment {
 	/* Payment metadata, from the invoice if any. */
 	u8 *payment_metadata;
 
+	/* Blinded path (for bolt12) */
+	struct blinded_path *blindedpath;
+	struct blinded_payinfo *blindedpay;
+	struct amount_msat blindedfinalamount;
+	u32 blindedfinalcltv;
+
 	u64 groupid;
 	u32 partid;
 	u32 next_partid;
