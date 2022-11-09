@@ -481,7 +481,7 @@ message CreateinvoiceResponse {
 	optional uint64 paid_at = 11;
 	optional bytes payment_preimage = 12;
 	optional bytes local_offer_id = 13;
-	optional string payer_note = 14;
+	optional string invreq_payer_note = 15;
 }
 
 message DatastoreRequest {
@@ -571,7 +571,7 @@ message DelinvoiceResponse {
 	DelinvoiceStatus status = 7;
 	uint64 expires_at = 8;
 	optional bytes local_offer_id = 9;
-	optional string payer_note = 10;
+	optional string invreq_payer_note = 11;
 }
 
 message InvoiceRequest {
@@ -640,7 +640,7 @@ message ListinvoicesInvoices {
 	optional string bolt11 = 7;
 	optional string bolt12 = 8;
 	optional bytes local_offer_id = 9;
-	optional string payer_note = 10;
+	optional string invreq_payer_note = 15;
 	optional uint64 pay_index = 11;
 	optional Amount amount_received_msat = 12;
 	optional uint64 paid_at = 13;

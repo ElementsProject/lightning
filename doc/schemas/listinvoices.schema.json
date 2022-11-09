@@ -66,9 +66,9 @@
             "maxLength": 64,
             "minLength": 64
           },
-          "payer_note": {
+          "invreq_payer_note": {
             "type": "string",
-            "description": "the optional *payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+            "description": "the optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
           }
         },
         "allOf": [
@@ -101,7 +101,7 @@
                 "bolt11": {},
                 "bolt12": {},
                 "local_offer_id": {},
-                "payer_note": {},
+                "invreq_payer_note": {},
                 "expires_at": {},
                 "pay_index": {
                   "type": "u64",
@@ -138,7 +138,7 @@
                 "bolt11": {},
                 "bolt12": {},
                 "local_offer_id": {},
-                "payer_note": {},
+                "invreq_payer_note": {},
                 "expires_at": {}
               }
             }

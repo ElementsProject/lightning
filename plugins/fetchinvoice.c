@@ -1136,7 +1136,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	invreq->invreq_features
 		= plugin_feature_set(cmd->plugin)->bits[BOLT12_OFFER_FEATURE];
 
-	/* invreq->payer_note is not a nul-terminated string! */
+	/* invreq->invreq_payer_note is not a nul-terminated string! */
 	if (payer_note)
 		invreq->invreq_payer_note = tal_dup_arr(invreq, utf8,
 							payer_note,

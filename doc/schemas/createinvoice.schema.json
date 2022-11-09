@@ -73,9 +73,9 @@
       "maxLength": 64,
       "minLength": 64
     },
-    "payer_note": {
+    "invreq_payer_note": {
       "type": "string",
-      "description": "the optional *payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
+      "description": "the optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
     }
   }
 }

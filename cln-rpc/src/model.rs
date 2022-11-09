@@ -2258,8 +2258,8 @@ pub mod responses {
 	    pub payment_preimage: Option<Secret>,
 	    #[serde(alias = "local_offer_id", skip_serializing_if = "Option::is_none")]
 	    pub local_offer_id: Option<String>,
-	    #[serde(alias = "payer_note", skip_serializing_if = "Option::is_none")]
-	    pub payer_note: Option<String>,
+	    #[serde(alias = "invreq_payer_note", skip_serializing_if = "Option::is_none")]
+	    pub invreq_payer_note: Option<String>,
 	}
 
 	impl TryFrom<Response> for CreateinvoiceResponse {
@@ -2396,8 +2396,8 @@ pub mod responses {
 	    pub expires_at: u64,
 	    #[serde(alias = "local_offer_id", skip_serializing_if = "Option::is_none")]
 	    pub local_offer_id: Option<String>,
-	    #[serde(alias = "payer_note", skip_serializing_if = "Option::is_none")]
-	    pub payer_note: Option<String>,
+	    #[serde(alias = "invreq_payer_note", skip_serializing_if = "Option::is_none")]
+	    pub invreq_payer_note: Option<String>,
 	}
 
 	impl TryFrom<Response> for DelinvoiceResponse {
@@ -2516,8 +2516,8 @@ pub mod responses {
 	    pub bolt12: Option<String>,
 	    #[serde(alias = "local_offer_id", skip_serializing_if = "Option::is_none")]
 	    pub local_offer_id: Option<String>,
-	    #[serde(alias = "payer_note", skip_serializing_if = "Option::is_none")]
-	    pub payer_note: Option<String>,
+	    #[serde(alias = "invreq_payer_note", skip_serializing_if = "Option::is_none")]
+	    pub invreq_payer_note: Option<String>,
 	    #[serde(alias = "pay_index", skip_serializing_if = "Option::is_none")]
 	    pub pay_index: Option<u64>,
 	    #[serde(alias = "amount_received_msat", skip_serializing_if = "Option::is_none")]

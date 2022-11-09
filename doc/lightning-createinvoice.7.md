@@ -46,7 +46,7 @@ On success, an object is returned, containing:
 - **paid\_at** (u64, optional): UNIX timestamp of when invoice was paid (**status** *paid* only)
 - **payment\_preimage** (secret, optional): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 - **local\_offer\_id** (hex, optional): the *id* of our offer which created this invoice (**experimental-offers** only). (always 64 characters)
-- **payer\_note** (string, optional): the optional *payer_note* from invoice_request which created this invoice (**experimental-offers** only).
+- **invreq\_payer\_note** (string, optional): the optional *invreq_payer_note* from invoice_request which created this invoice (**experimental-offers** only).
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -75,4 +75,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:9fc2c7cb6e5980774a768dd9ddfe81e254c084554c159e6b07e92e703dc10595)
+[comment]: # ( SHA256STAMP:3acf2924a8670605f70a7976cf4909b60addf4b1aeebc9b9a104151cffa2c984)
