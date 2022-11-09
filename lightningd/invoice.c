@@ -396,6 +396,8 @@ invoice_check_payment(const tal_t *ctx,
 	}
 
 	details = wallet_invoice_details(ctx, ld->wallet, invoice);
+	/* FIXME! */
+	bool ignore_secret = details->invstring && strstarts(details->invstring, "lni1");
 
 	/* BOLT #4:
 	 *  - if the `payment_secret` doesn't match the expected value for that
@@ -404,13 +406,13 @@ invoice_check_payment(const tal_t *ctx,
 	 *    - MUST fail the HTLC.
 	 */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
-	    && !payment_secret) {
+	    && !payment_secret && !ignore_secret) {
 		log_debug(ld->log, "Attept to pay %s without secret",
 			  type_to_string(tmpctx, struct sha256, &details->rhash));
 		return tal_free(details);
 	}
 
-	if (payment_secret) {
+	if (payment_secret && !ignore_secret) {
 		struct secret expected;
 
 		if (details->invstring && strstarts(details->invstring, "lni1"))
