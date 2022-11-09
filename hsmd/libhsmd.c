@@ -1648,7 +1648,6 @@ u8 *hsmd_init(struct secret hsm_secret,
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
 	struct node_id node_id;
-	struct secret onion_reply_secret;
 
 	/*~ Don't swap this. */
 	sodium_mlock(secretstuff.hsm_secret.data,
@@ -1766,14 +1765,6 @@ u8 *hsmd_init(struct secret hsm_secret,
 		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				   "Could derive bolt12 public key.");
 
-	/*~ We derive a secret for onion_message's self_id so we can tell
-	 * if it used a path we created (i.e. do not leak our public id!) */
-	hkdf_sha256(&onion_reply_secret, sizeof(onion_reply_secret),
-		    NULL, 0,
-		    &secretstuff.hsm_secret,
-		    sizeof(secretstuff.hsm_secret),
-		    "onion reply secret", strlen("onion reply secret"));
-
 	/* We derive the derived_secret key for generating pseudorandom keys
 	 * by taking input string from the makesecret RPC */
 	hkdf_sha256(&secretstuff.derived_secret, sizeof(struct secret), NULL, 0,
@@ -1785,5 +1776,5 @@ u8 *hsmd_init(struct secret hsm_secret,
 	 */
 	return take(towire_hsmd_init_reply_v2(
 	    NULL, &node_id, &secretstuff.bip32,
-	    &bolt12, &onion_reply_secret));
+	    &bolt12));
 }

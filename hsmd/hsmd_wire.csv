@@ -30,7 +30,6 @@ msgtype,hsmd_init_reply_v2,113
 msgdata,hsmd_init_reply_v2,node_id,node_id,
 msgdata,hsmd_init_reply_v2,bip32,ext_key,
 msgdata,hsmd_init_reply_v2,bolt12,pubkey,
-msgdata,hsmd_init_reply_v2,onion_reply_secret,secret,
 
 # Declare a new channel.
 msgtype,hsmd_new_channel,30
