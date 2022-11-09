@@ -55,6 +55,8 @@ struct command {
 	const char *methodname;
 	bool usage_only;
 	struct plugin *plugin;
+	/* Optional output field filter. */
+	struct json_filter *filter;
 };
 
 /* Create an array of these, one for each command you support. */

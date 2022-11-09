@@ -2854,10 +2854,10 @@ def test_field_filter(node_factory, chainparams):
                               "fallbacks": {'type': True}})
     assert dec['warning_parameter_filter'] == '.fallbacks is an array'
 
-    # Plugins ignore filters!
+    # C plugins implement filters!
     res = l1.rpc.call('decode', {'string': inv['bolt11']},
                       filter={"currency": True})
-    assert 'type' in res
+    assert res == {"currency": chainparams['bip173_prefix']}
 
 
 def test_checkmessage_pubkey_not_found(node_factory):

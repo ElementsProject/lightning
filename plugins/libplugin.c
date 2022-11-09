@@ -7,6 +7,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
+#include <common/json_filter.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -132,10 +133,9 @@ struct command_result *command_done(void)
 	return &complete;
 }
 
-/* Don't ask for _filter, we will crash! */
 struct json_filter **command_filter_ptr(struct command *cmd)
 {
-	return NULL;
+	return &cmd->filter;
 }
 
 static void ld_send(struct plugin *plugin, struct json_stream *stream)
@@ -261,6 +261,8 @@ struct json_stream *jsonrpc_stream_success(struct command *cmd)
 	struct json_stream *js = jsonrpc_stream_start(cmd);
 
 	json_object_start(js, "result");
+	if (cmd->filter)
+		json_stream_attach_filter(js, cmd->filter);
 	return js;
 }
 
@@ -273,6 +275,7 @@ struct json_stream *jsonrpc_stream_fail(struct command *cmd,
 	json_object_start(js, "error");
 	json_add_primitive_fmt(js, "code", "%d", code);
 	json_add_string(js, "message", err);
+	cmd->filter = tal_free(cmd->filter);
 
 	return js;
 }
@@ -302,6 +305,14 @@ static struct command_result *command_complete(struct command *cmd,
 struct command_result *command_finished(struct command *cmd,
 					struct json_stream *response)
 {
+	/* Detach filter before it complains about closing object it never saw */
+	if (cmd->filter) {
+		const char *err = json_stream_detach_filter(tmpctx, response);
+		if (err)
+			json_add_string(response, "warning_parameter_filter",
+					err);
+	}
+
 	/* "result" or "error" object */
 	json_object_end(response);
 
@@ -1435,11 +1446,12 @@ void plugin_set_memleak_handler(struct plugin *plugin,
 static void ld_command_handle(struct plugin *plugin,
 			      const jsmntok_t *toks)
 {
-	const jsmntok_t *methtok, *paramstok;
+	const jsmntok_t *methtok, *paramstok, *filtertok;
 	struct command *cmd;
 
 	methtok = json_get_member(plugin->buffer, toks, "method");
 	paramstok = json_get_member(plugin->buffer, toks, "params");
+	filtertok = json_get_member(plugin->buffer, toks, "filter");
 
 	if (!methtok || !paramstok)
 		plugin_err(plugin, "Malformed JSON-RPC notification missing "
@@ -1450,6 +1462,7 @@ static void ld_command_handle(struct plugin *plugin,
 	cmd = tal(plugin, struct command);
 	cmd->plugin = plugin;
 	cmd->usage_only = false;
+	cmd->filter = NULL;
 	cmd->methodname = json_strdup(cmd, plugin->buffer, methtok);
 	cmd->id = json_get_id(cmd, plugin->buffer, toks);
 
@@ -1508,6 +1521,13 @@ static void ld_command_handle(struct plugin *plugin,
 						    paramstok);
 			return;
 		}
+	}
+
+	if (filtertok) {
+		/* On error, this fails cmd */
+		if (parse_filter(cmd, "filter", plugin->buffer, filtertok)
+		    != NULL)
+			return;
 	}
 
 	for (size_t i = 0; i < plugin->num_commands; i++) {
