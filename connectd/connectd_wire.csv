@@ -118,8 +118,7 @@ msgdata,connectd_ping_reply,totlen,u16,
 
 # We tell lightningd we got an onionmsg
 msgtype,connectd_got_onionmsg_to_us,2145
-msgdata,connectd_got_onionmsg_to_us,node_alias,pubkey,
-msgdata,connectd_got_onionmsg_to_us,self_id,?secret,
+msgdata,connectd_got_onionmsg_to_us,path_secret,?secret,
 msgdata,connectd_got_onionmsg_to_us,reply,?blinded_path,
 msgdata,connectd_got_onionmsg_to_us,rawmsg_len,u16,
 msgdata,connectd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len

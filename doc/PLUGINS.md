@@ -1650,23 +1650,22 @@ type prefix, since Core Lightning does not know how to parse the message.
 Because this is a chained hook, the daemon expects the result to be
 `{'result': 'continue'}`. It will fail if something else is returned.
 
-### `onion_message_blinded` and `onion_message_ourpath`
+### `onion_message_recv` and `onion_message_recv_secret`
 
 **(WARNING: experimental-offers only)**
 
 These two hooks are almost identical, in that they are called when
 an onion message is received.
 
-`onion_message_blinded` is used for unsolicited messages (where the
+`onion_message_recv` is used for unsolicited messages (where the
 source knows that it is sending to this node), and
-`onion_message_ourpath` is used for messages which use a blinded path
-we supplied (where the source doesn't know that this node is the
-destination).  The latter hook will have a `our_alias` field, the
+`onion_message_recv_secret` is used for messages which use a blinded path
+we supplied.  The latter hook will have a `pathsecret` field, the
 former never will.
 
 These hooks are separate, because replies MUST be ignored unless they
-use the correct path (i.e. `onion_message_ourpath`, with the expected
-`our_alias`).  This avoids the source trying to probe for responses
+use the correct path (i.e. `onion_message_recv_secret`, with the expected
+`pathsecret`).  This avoids the source trying to probe for responses
 without using the designated delivery path.
 
 The payload for a call follows this format:
@@ -1674,7 +1673,7 @@ The payload for a call follows this format:
 ```json
 {
     "onion_message": {
-        "our_alias": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+        "pathsecret": "0000000000000000000000000000000000000000000000000000000000000000",
         "reply_first_node": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
         "reply_blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
 		"reply_path": [ {"id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
@@ -1691,7 +1690,6 @@ The payload for a call follows this format:
 All fields shown here are optional.
 
 We suggest just returning `{'result': 'continue'}`; any other result
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 will cause the message not to be handed to any other hooks.
 
 ## Bitcoin backend
