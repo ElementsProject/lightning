@@ -551,7 +551,7 @@ check-cppcheck: .cppcheck-suppress
 	@trap 'rm -f .cppcheck-suppress' 0; git ls-files -- "*.c" "*.h" | grep -vE '^ccan/' | xargs cppcheck  ${CPPCHECK_OPTS}
 
 check-shellcheck:
-	@git ls-files -- "*.sh" | xargs shellcheck
+	@git ls-files -- "*.sh" | xargs shellcheck -f gcc
 
 check-setup_locale:
 	@tools/check-setup_locale.sh

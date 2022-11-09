@@ -17,12 +17,11 @@ for file; do
 	grep -F -v "$LINE" "$file" > "$file".c
 
 	if $CCMD /tmp/out.$$.o "$file".c 2>/dev/null; then
-	    # shellcheck disable=SC2039
-	    echo -n "-$LINE"
+	    printf "%s" "-$LINE"
 	    mv "$file".c "$file"
 	else
-	    # shellcheck disable=SC2039
-	    echo -n "."
+	    # shellcheck disable=SC2039,SC3037
+	    printf "."
 	    rm -f "$file".c
 	    i=$((i + 1))
 	fi
