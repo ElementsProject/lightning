@@ -4,7 +4,8 @@
 #include "../blindedpath.c"
 #include "../blinding.c"
 #include "../hmac.c"
-#include "../onion.c"
+#include "../onion_decode.c"
+#include "../onion_encode.c"
 #include "../sphinx.c"
 #include "../type_to_string.c"
 #include <common/setup.h>

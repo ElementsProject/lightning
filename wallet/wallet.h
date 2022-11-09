@@ -3,7 +3,7 @@
 
 #include "config.h"
 #include "db.h"
-#include <common/onion.h>
+#include <common/onion_encode.h>
 #include <common/penalty_base.h>
 #include <common/utxo.h>
 #include <common/wallet.h>
