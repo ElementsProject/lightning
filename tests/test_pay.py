@@ -5221,5 +5221,5 @@ def test_payerkey(node_factory):
                      "03a3bbda0137722ba62207b9d3e5e6cc2a11e58480f801892093e01383aacb7fb2"]
 
     for n, k in zip(nodes, expected_keys):
-        b12 = n.rpc.createinvoicerequest('lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu')['bolt12']
+        b12 = n.rpc.createinvoicerequest('lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu', False)['bolt12']
         assert n.rpc.decode(b12)['invreq_payer_id'] == k
