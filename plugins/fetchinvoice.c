@@ -707,6 +707,32 @@ static struct command_result *send_message(struct command *cmd,
 	return make_reply_path(cmd, sending);
 }
 
+/* We've received neither a reply nor a payment; return failure. */
+static void timeout_sent_inv(struct sent *sent)
+{
+	struct json_out *details = json_out_new(sent);
+
+	json_out_start(details, NULL, '{');
+	json_out_addstr(details, "invstring", invoice_encode(tmpctx, sent->inv));
+	json_out_end(details, '}');
+
+	/* This will free sent! */
+	discard_result(command_done_err(sent->cmd, OFFER_TIMEOUT,
+					"Failed: timeout waiting for response",
+					details));
+}
+
+static struct command_result *prepare_inv_timeout(struct command *cmd,
+						  const char *buf UNUSED,
+						  const jsmntok_t *result UNUSED,
+						  struct sent *sent)
+{
+	tal_steal(cmd, plugin_timer(cmd->plugin,
+				    time_from_sec(sent->wait_timeout),
+				    timeout_sent_inv, sent));
+	return sendonionmsg_done(cmd, buf, result, sent);
+}
+
 /* We've connected (if we tried), so send the invreq. */
 static struct command_result *
 sendinvreq_after_connect(struct command *cmd,
@@ -944,7 +970,7 @@ force_payer_secret(struct command *cmd,
 	}
 
 	sent->path = path_to_node(sent, cmd->plugin,
-				  sent->invreq->offer_node_id);
+				  sent->invreq->invreq_payer_id);
 	if (!sent->path)
 		return connect_direct(cmd, sent->invreq->offer_node_id,
 				      sendinvreq_after_connect, sent);
@@ -1198,12 +1224,313 @@ static struct command_result *invoice_payment(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
-#if DEVELOPER
+/* We've connected (if we tried), so send the invoice. */
+static struct command_result *
+sendinvoice_after_connect(struct command *cmd,
+			  const char *buf UNUSED,
+			  const jsmntok_t *result UNUSED,
+			  struct sent *sent)
+{
+	struct tlv_onionmsg_tlv *payload = tlv_onionmsg_tlv_new(sent);
+
+	payload->invoice = tal_arr(payload, u8, 0);
+	towire_tlv_invoice(&payload->invoice, sent->inv);
+
+	return send_message(cmd, sent, payload, prepare_inv_timeout);
+}
+
+static struct command_result *createinvoice_done(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct sent *sent)
+{
+	const jsmntok_t *invtok = json_get_member(buf, result, "bolt12");
+	char *fail;
+
+	/* Replace invoice with signed one */
+	tal_free(sent->inv);
+	sent->inv = invoice_decode(sent,
+				   buf + invtok->start,
+				   invtok->end - invtok->start,
+				   plugin_feature_set(cmd->plugin),
+				   chainparams,
+				   &fail);
+	if (!sent->inv) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Bad createinvoice %.*s: %s",
+			   json_tok_full_len(invtok),
+			   json_tok_full(buf, invtok),
+			   fail);
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Bad createinvoice response %s", fail);
+	}
+
+	/* BOLT-offers #12:
+	 *     - if it sends an invoice in response:
+	 *       - MUST use `offer_paths` if present, otherwise MUST use
+	 *         `invreq_payer_id` as the node id to send to.
+	 */
+	/* FIXME! */
+	if (sent->invreq->offer_paths) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "FIXME: support blinded paths!");
+	}
+
+	sent->path = path_to_node(sent, cmd->plugin,
+				  sent->invreq->invreq_payer_id);
+	if (!sent->path)
+		return connect_direct(cmd, sent->invreq->invreq_payer_id,
+				      sendinvoice_after_connect, sent);
+
+	return sendinvoice_after_connect(cmd, NULL, NULL, sent);
+}
+
+static struct command_result *sign_invoice(struct command *cmd,
+					   struct sent *sent)
+{
+	struct out_req *req;
+
+	/* Get invoice signature and put in db so we can receive payment */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoice",
+				    &createinvoice_done,
+				    &forward_error,
+				    sent);
+	json_add_string(req->js, "invstring", invoice_encode(tmpctx, sent->inv));
+	json_add_preimage(req->js, "preimage", &sent->inv_preimage);
+	json_add_escaped_string(req->js, "label", sent->inv_label);
+	return send_outreq(cmd->plugin, req);
+}
+
 static struct command_result *param_invreq(struct command *cmd,
 					   const char *name,
 					   const char *buffer,
 					   const jsmntok_t *tok,
 					   struct tlv_invoice_request **invreq)
+{
+	char *fail;
+	int badf;
+	u8 *wire;
+	struct sha256 merkle, sighash;
+
+	/* BOLT-offers #12:
+	 *   - if `invreq_chain` is not present:
+	 *     - MUST fail the request if bitcoin is not a supported chain.
+	 *   - otherwise:
+	 *     - MUST fail the request if `invreq_chain`.`chain` is not a
+	 *       supported chain.
+	 */
+	*invreq = invrequest_decode(cmd,
+				    buffer + tok->start, tok->end - tok->start,
+				    plugin_feature_set(cmd->plugin),
+				    chainparams,
+				    &fail);
+	if (!*invreq)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     tal_fmt(cmd,
+						     "Unparsable invoice_request: %s",
+						     fail));
+	/* BOLT-offers #12:
+	 * The reader:
+	 *   - MUST fail the request if `invreq_payer_id` or `invreq_metadata`
+	 *     are not present.
+	 *   - MUST fail the request if any non-signature TLV fields greater or
+	 *     equal to 160.
+	 *   - if `invreq_features` contains unknown _odd_ bits that are
+	 *     non-zero:
+	 *     - MUST ignore the bit.
+	 *   - if `invreq_features` contains unknown _even_ bits that are
+	 *     non-zero:
+	 *     - MUST fail the request.
+	 */
+	if (!(*invreq)->invreq_payer_id)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Missing invreq_payer_id");
+
+	if (!(*invreq)->invreq_metadata)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Missing invreq_metadata");
+
+	wire = tal_arr(tmpctx, u8, 0);
+	towire_tlv_invoice_request(&wire, *invreq);
+	if (tlv_span(wire, 160, 239, NULL) != 0
+	    || tlv_span(wire, 1001, UINT64_MAX, NULL) != 0) {
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Invalid high-numbered fields");
+	}
+
+	badf = features_unsupported(plugin_feature_set(cmd->plugin),
+				    (*invreq)->invreq_features,
+				    BOLT12_INVREQ_FEATURE);
+	if (badf != -1) {
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     tal_fmt(tmpctx,
+						     "unknown feature %i",
+						     badf));
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST fail the request if `signature` is not correct as detailed in [Signature
+	 *   Calculation](#signature-calculation) using the `invreq_payer_id`.
+	 */
+	merkle_tlv((*invreq)->fields, &merkle);
+	sighash_from_merkle("invoice_request", "signature", &merkle, &sighash);
+
+	if (!(*invreq)->signature)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Missing signature");
+	if (!check_schnorr_sig(&sighash,
+			       &(*invreq)->invreq_payer_id->pubkey,
+			       (*invreq)->signature))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Invalid signature");
+
+	/* Plugin handles these automatically, you shouldn't send one
+	 * manually. */
+	if ((*invreq)->offer_node_id) {
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "This is based on an offer?");
+	}
+
+	/* BOLT-offers #12:
+	 *  - otherwise (no `offer_node_id`, not a response to our offer):
+	 *     - MUST fail the request if any of the following are present:
+	 *       - `offer_chains`, `offer_features` or `offer_quantity_max`.
+	 *     - MUST fail the request if `invreq_amount` is not present.
+	 */
+	if ((*invreq)->offer_chains)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Unexpected offer_chains");
+	if ((*invreq)->offer_features)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Unexpected offer_features");
+	if ((*invreq)->offer_quantity_max)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Unexpected offer_quantity_max");
+	if (!(*invreq)->invreq_amount)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Missing invreq_amount");
+
+	/* BOLT-offers #12:
+	 *  - otherwise (no `offer_node_id`, not a response to our offer):
+	 *...
+	 *     - MAY use `offer_amount` (or `offer_currency`) for informational display to user.
+	 */
+	if ((*invreq)->offer_amount && (*invreq)->offer_currency) {
+		plugin_notify_message(cmd, LOG_INFORM,
+				      "invoice_request offers %.*s%"PRIu64" as %s",
+				      (int)tal_bytelen((*invreq)->offer_currency),
+				      (*invreq)->offer_currency,
+				      *(*invreq)->offer_amount,
+				      fmt_amount_msat(tmpctx,
+						      amount_msat(*(*invreq)->invreq_amount)));
+	}
+	return NULL;
+}
+
+static struct command_result *json_sendinvoice(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *params)
+{
+	struct amount_msat *msat;
+	u32 *timeout;
+	struct sent *sent = tal(cmd, struct sent);
+
+	sent->offer = NULL;
+	sent->cmd = cmd;
+
+	/* FIXME: Support recurring invoice_requests? */
+	if (!param(cmd, buffer, params,
+		   p_req("invreq", param_invreq, &sent->invreq),
+		   p_req("label", param_label, &sent->inv_label),
+		   p_opt("amount_msat", param_msat, &msat),
+		   p_opt_def("timeout", param_number, &timeout, 90),
+		   NULL))
+		return command_param_failed();
+
+	/* BOLT-offers #12:
+	 * The writer:
+	 *   - MUST copy all non-signature fields from the invreq (including
+	 *     unknown fields).
+	 */
+	sent->inv = invoice_for_invreq(sent, sent->invreq);
+
+	/* This is how long we'll wait for a reply for. */
+	sent->wait_timeout = *timeout;
+
+	/* BOLT-offers #12:
+	 * - if `invreq_amount` is present:
+	 *   - MUST set `invoice_amount` to `invreq_amount`
+	 * - otherwise:
+	 *   - MUST set `invoice_amount` to the *expected amount*.
+	 */
+	if (!msat)
+		sent->inv->invoice_amount = tal_dup(sent->inv, u64,
+						    sent->invreq->invreq_amount);
+	else
+		sent->inv->invoice_amount = tal_dup(sent->inv, u64,
+						    &msat->millisatoshis); /* Raw: tlv */
+
+	/* BOLT-offers #12:
+	 *   - MUST set `invoice_created_at` to the number of seconds since Midnight 1
+	 *      January 1970, UTC when the offer was created.
+	 *    - MUST set `invoice_amount` to the minimum amount it will accept, in units of
+	 *      the minimal lightning-payable unit (e.g. milli-satoshis for bitcoin) for
+	 *      `invreq_chain`.
+	 */
+	sent->inv->invoice_created_at = tal(sent->inv, u64);
+	*sent->inv->invoice_created_at = time_now().ts.tv_sec;
+
+	/* FIXME: Support blinded paths, in which case use fake nodeid */
+
+	/* BOLT-offers #12:
+	 * - MUST set `invoice_payment_hash` to the SHA256 hash of the
+	 *   `payment_preimage` that will be given in return for payment.
+	 */
+	randombytes_buf(&sent->inv_preimage, sizeof(sent->inv_preimage));
+	sent->inv->invoice_payment_hash = tal(sent->inv, struct sha256);
+	sha256(sent->inv->invoice_payment_hash,
+	       &sent->inv_preimage, sizeof(sent->inv_preimage));
+
+	/* BOLT-offers #12:
+	 * - if `offer_node_id` is present:
+	 *   - MUST set `invoice_node_id` to `offer_node_id`.
+	 * - otherwise:
+	 *   - MUST set `invoice_node_id` to a valid public key.
+	 */
+	/* FIXME: Use transitory id! */
+	sent->inv->invoice_node_id = tal(sent->inv, struct pubkey);
+	sent->inv->invoice_node_id->pubkey = local_id.pubkey;
+
+	/* BOLT-offers #12:
+	 * - if the expiry for accepting payment is not 7200 seconds
+	 *   after `invoice_created_at`:
+	 *    - MUST set `invoice_relative_expiry`.`seconds_from_creation`
+	 *      to the number of seconds after `invoice_created_at` that
+	 *      payment of this invoice should not be attempted.
+	 */
+	if (sent->wait_timeout != 7200) {
+		sent->inv->invoice_relative_expiry = tal(sent->inv, u32);
+		*sent->inv->invoice_relative_expiry = sent->wait_timeout;
+	}
+
+	/* FIXME: recurrence? */
+	if (sent->inv->offer_recurrence)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "FIXME: handle recurring invreq?");
+
+	sent->inv->invoice_features
+		= plugin_feature_set(cmd->plugin)->bits[BOLT12_INVOICE_FEATURE];
+
+	return sign_invoice(cmd, sent);
+}
+
+#if DEVELOPER
+/* This version doesn't do sanity checks! */
+static struct command_result *param_raw_invreq(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       struct tlv_invoice_request **invreq)
 {
 	char *fail;
 
@@ -1227,7 +1554,7 @@ static struct command_result *json_rawrequest(struct command *cmd,
 	struct pubkey *node_id;
 
 	if (!param(cmd, buffer, params,
-		   p_req("invreq", param_invreq, &sent->invreq),
+		   p_req("invreq", param_raw_invreq, &sent->invreq),
 		   p_req("nodeid", param_pubkey, &node_id),
 		   p_opt_def("timeout", param_number, &timeout, 60),
 		   NULL))
@@ -1255,6 +1582,13 @@ static const struct plugin_command commands[] = {
 		"Request remote node for an invoice for this {offer}, with {amount}, {quanitity}, {recurrence_counter}, {recurrence_start} and {recurrence_label} iff required.",
 		NULL,
 		json_fetchinvoice,
+	},
+	{
+		"sendinvoice",
+		"payment",
+		"Request remote node for to pay this {invreq}, with {label}, optional {amount_msat}, and {timeout} (default 90 seconds).",
+		NULL,
+		json_sendinvoice,
 	},
 #if DEVELOPER
 	{

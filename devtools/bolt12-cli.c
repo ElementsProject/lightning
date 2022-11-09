@@ -349,10 +349,10 @@ static bool print_recurrence_counter_with_base(const u32 *recurrence_counter,
 	return true;
 }
 
-static void print_payment_hash(const struct sha256 *payment_hash)
+static void print_hash(const char *fieldname, const struct sha256 *hash)
 {
-	printf("invoice_payment_hash: %s\n",
-	       type_to_string(tmpctx, struct sha256, payment_hash));
+	printf("%s: %s\n",
+	       fieldname, type_to_string(tmpctx, struct sha256, hash));
 }
 
 static void print_relative_expiry(u64 *created_at, u32 *relative)
@@ -511,12 +511,15 @@ int main(int argc, char *argv[])
 	}
 
 	if (streq(hrp, "lno")) {
+		struct sha256 offer_id;
 		const struct tlv_offer *offer
 			= offer_decode(ctx, argv[2], strlen(argv[2]),
 				       NULL, NULL, &fail);
 		if (!offer)
 			errx(ERROR_BAD_DECODE, "Bad offer: %s", fail);
 
+		offer_offer_id(offer, &offer_id);
+		print_hash("offer_id", &offer_id);
 		if (offer->offer_chains)
 			print_offer_chains(offer->offer_chains);
 		if (offer->offer_amount)
@@ -545,11 +548,19 @@ int main(int argc, char *argv[])
 		if (!print_extra_fields(offer->fields))
 			well_formed = false;
 	} else if (streq(hrp, "lnr")) {
+		struct sha256 offer_id, invreq_id;
 		const struct tlv_invoice_request *invreq
 			= invrequest_decode(ctx, argv[2], strlen(argv[2]),
 					    NULL, NULL, &fail);
 		if (!invreq)
 			errx(ERROR_BAD_DECODE, "Bad invreq: %s", fail);
+
+		if (invreq->offer_node_id) {
+			invreq_offer_id(invreq, &offer_id);
+			print_hash("offer_id", &offer_id);
+		}
+		invreq_invreq_id(invreq, &invreq_id);
+		print_hash("invreq_id", &invreq_id);
 
 		/* FIXME: We can do more intra-field checking! */
 		if (must_have(invreq, invreq_metadata))
@@ -572,7 +583,7 @@ int main(int argc, char *argv[])
 			well_formed &= print_utf8("offer_issuer", invreq->offer_issuer);
 		if (invreq->offer_quantity_max)
 			print_u64("offer_quantity_max", *invreq->offer_quantity_max);
-		if (must_have(invreq, offer_node_id))
+		if (invreq->offer_node_id)
 			print_node_id("offer_node_id", invreq->offer_node_id);
 		if (invreq->offer_recurrence)
 			well_formed &= print_recurrance(invreq->offer_recurrence,
@@ -607,11 +618,21 @@ int main(int argc, char *argv[])
 		if (!print_extra_fields(invreq->fields))
 			well_formed = false;
 	} else if (streq(hrp, "lni")) {
+		struct sha256 offer_id, invreq_id;
 		const struct tlv_invoice *invoice
 			= invoice_decode(ctx, argv[2], strlen(argv[2]),
 					 NULL, NULL, &fail);
 		if (!invoice)
 			errx(ERROR_BAD_DECODE, "Bad invoice: %s", fail);
+
+		if (invoice->invreq_payer_id) {
+			if (invoice->offer_node_id) {
+				invoice_offer_id(invoice, &offer_id);
+				print_hash("offer_id", &offer_id);
+			}
+			invoice_invreq_id(invoice, &invreq_id);
+			print_hash("invreq_id", &invreq_id);
+		}
 
 		/* FIXME: We can do more intra-field checking! */
 		if (must_have(invoice, invreq_metadata))
@@ -670,7 +691,7 @@ int main(int argc, char *argv[])
 		print_relative_expiry(invoice->invoice_created_at,
 				      invoice->invoice_relative_expiry);
 		if (must_have(invoice, invoice_payment_hash))
-			print_payment_hash(invoice->invoice_payment_hash);
+			print_hash("invoice_payment_hash", invoice->invoice_payment_hash);
 		if (must_have(invoice, invoice_amount))
 			print_msat("invoice_amount", *invoice->invoice_amount);
 		if (invoice->invoice_fallbacks)

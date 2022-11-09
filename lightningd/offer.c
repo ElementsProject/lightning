@@ -396,7 +396,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	struct json_stream *response;
 	u64 *prev_basetime = NULL;
 	struct sha256 merkle;
-	bool *save, *single_use;
+	bool *save, *single_use, *exposeid;
 	enum offer_status status;
 	struct sha256 invreq_id;
 	const char *b12str;
@@ -404,6 +404,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("bolt12", param_b12_invreq, &invreq),
 		   p_req("savetodb", param_bool, &save),
+		   p_opt_def("exposeid", param_bool, &exposeid, false),
 		   p_opt("recurrence_label", param_label, &label),
 		   p_opt_def("single_use", param_bool, &single_use, true),
 		   NULL))
@@ -449,10 +450,14 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	}
 
 	invreq->invreq_payer_id = tal(invreq, struct pubkey);
-	if (!payer_key(cmd->ld,
-		       invreq->invreq_metadata,
-		       tal_bytelen(invreq->invreq_metadata),
-		       invreq->invreq_payer_id)) {
+	if (*exposeid) {
+		if (!pubkey_from_node_id(invreq->invreq_payer_id,
+					 &cmd->ld->id))
+			fatal("Our ID is invalid?");
+	} else if (!payer_key(cmd->ld,
+			      invreq->invreq_metadata,
+			      tal_bytelen(invreq->invreq_metadata),
+			      invreq->invreq_payer_id)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid tweak");
 	}
@@ -466,8 +471,8 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	merkle_tlv(invreq->fields, &merkle);
 	invreq->signature = tal(invreq, struct bip340sig);
 	hsm_sign_b12(cmd->ld, "invoice_request", "signature",
-		     &merkle, invreq->invreq_metadata, invreq->invreq_payer_id,
-		     invreq->signature);
+		     &merkle, *exposeid ? NULL : invreq->invreq_metadata,
+		     invreq->invreq_payer_id, invreq->signature);
 
 	b12str = invrequest_encode(cmd, invreq);
 
