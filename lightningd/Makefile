@@ -110,7 +110,8 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
-	common/onion.o				\
+	common/onion_decode.o			\
+	common/onion_encode.o			\
 	common/onionreply.o			\
 	common/penalty_base.o			\
 	common/per_peer_state.o			\

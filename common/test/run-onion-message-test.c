@@ -12,7 +12,7 @@ static void maybe_print(const char *fmt, ...);
 #include "../blinding.c"
 #include "../features.c"
 #include "../hmac.c"
-#include "../onion.c"
+#include "../onion_encode.c"
 #include "../onion_message_parse.c"
 #include "../sphinx.c"
 #include "../type_to_string.c"
