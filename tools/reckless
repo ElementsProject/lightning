@@ -11,6 +11,14 @@ import tempfile
 from typing import Union
 from urllib.parse import urlparse
 from urllib.request import urlopen
+import logging
+
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    handlers=[logging.StreamHandler(stream=sys.stdout)],
+)
 
 
 repos = ['https://github.com/lightningd/plugins']
@@ -135,7 +143,7 @@ class Config():
                 # FIXME: Handle write failure
                 return default_text
         else:
-            verbose(f'could not create the parent directory {parent_path}')
+            logging.debug(f'could not create the parent directory {parent_path}')
             raise FileNotFoundError('invalid parent directory')
 
     def editConfigFile(self, addline: str, removeline: str):
@@ -249,12 +257,6 @@ def help_alias(targets: list):
         sys.exit(1)
 
 
-def verbose(*args):
-    if not IS_VERBOSE:
-        return
-    print(*args)
-
-
 def _search_repo(name: str, url: str) -> InstInfo:
     """look in given repo and, if found, populate InstInfo"""
     # Remove api subdomain, subdirectories, etc.
@@ -307,7 +309,7 @@ def _search_repo(name: str, url: str) -> InstInfo:
                 if MyPlugin.repo.split('/')[-2] == 'tree':
                     MyPlugin.commit = MyPlugin.repo.split('/')[-1]
                     MyPlugin.repo = MyPlugin.repo.split('/tree/')[0]
-                    verbose(f'repo using commit: {MyPlugin.commit}')
+                    logging.debug(f'repo using commit: {MyPlugin.commit}')
             if not MyPlugin.get_inst_details():
                 return False
             return MyPlugin
@@ -316,7 +318,7 @@ def _search_repo(name: str, url: str) -> InstInfo:
 
 def _install_plugin(src: InstInfo) -> bool:
     """make sure the repo exists and clone it."""
-    verbose(f'Install requested from {src}.')
+    logging.debug(f'Install requested from {src}.')
     if RECKLESS_CONFIG is None:
         print('error: reckless install directory unavailable')
         sys.exit(2)
@@ -331,7 +333,7 @@ def _install_plugin(src: InstInfo) -> bool:
     clone_path = Path(tempfile.gettempdir()) / clone_path
     inst_path = Path(RECKLESS_CONFIG.reckless_dir) / src.name
     if Path(clone_path).exists():
-        verbose(f'{clone_path} already exists - deleting')
+        logging.debug(f'{clone_path} already exists - deleting')
         shutil.rmtree(clone_path)
     # clone git repository to /tmp/reckless-...
     if ('http' in src.repo[:4]) or ('github.com' in src.repo):
@@ -354,7 +356,7 @@ def _install_plugin(src: InstInfo) -> bool:
     if src.subdir is not None:
         plugin_path = Path(clone_path) / src.subdir
     if src.commit:
-        verbose(f"Checking out commit {src.commit}")
+        logging.debug(f"Checking out commit {src.commit}")
         checkout = Popen(['git', 'checkout', src.commit],
                          cwd=plugin_path, stdout=PIPE, stderr=PIPE)
         checkout.wait()
@@ -372,7 +374,7 @@ def _install_plugin(src: InstInfo) -> bool:
     }
 
     if src.deps is not None:
-        verbose(f'installing dependencies using {src.deps}')
+        logging.debug(f'installing dependencies using {src.deps}')
         procedure = install_methods[src.deps]
         pip = Popen(procedure, cwd=plugin_path, stdout=PIPE)
         pip.wait()
@@ -380,7 +382,7 @@ def _install_plugin(src: InstInfo) -> bool:
             print('dependencies installed successfully')
         else:
             print('error encountered installing dependencies')
-            verbose(pip.stdout.read())
+            logging.debug(pip.stdout.read())
             return False
     test = Popen([Path(plugin_path).joinpath(src.entry)], cwd=plugin_path,
                  stdout=PIPE, stderr=PIPE, universal_newlines=True)
@@ -391,9 +393,9 @@ def _install_plugin(src: InstInfo) -> bool:
     test.wait()
     # FIXME: add noexec test/warning. Maybe try chmod entrypoint.
     if test.returncode != 0:
-        verbose("plugin testing error:")
+        logging.debug("plugin testing error:")
         for line in test_log:
-            verbose(f'  {line}')
+            logging.debug(f'  {line}')
         print('plugin testing failed')
         return False
 
@@ -409,7 +411,7 @@ def install(plugin_name: str):
     assert isinstance(plugin_name, str)
     src = search(plugin_name)
     if src:
-        verbose(f'Retrieving {plugin_name} from {src.repo}')
+        logging.debug(f'Retrieving {plugin_name} from {src.repo}')
         if not _install_plugin(src):
             print('installation aborted')
             sys.exit(1)
@@ -421,10 +423,10 @@ def install(plugin_name: str):
 def uninstall(plugin_name: str):
     """disables plugin and deletes the plugin's reckless dir"""
     assert isinstance(plugin_name, str)
-    verbose(f'Uninstalling plugin {plugin_name}')
+    logging.debug(f'Uninstalling plugin {plugin_name}')
     disable(plugin_name)
     plugin_dir = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name
-    verbose(f'looking for {plugin_dir}')
+    logging.debug(f'looking for {plugin_dir}')
     if remove_dir(plugin_dir):
         print(f"{plugin_name} uninstalled successfully.")
 
@@ -441,9 +443,9 @@ def search(plugin_name: str) -> InstInfo:
         p = _search_repo(plugin_name, r)
         if p:
             print(f"found {p.name} in repo: {p.repo}")
-            verbose(f"entry: {p.entry}")
+            logging.debug(f"entry: {p.entry}")
             if p.subdir:
-                verbose(f'sub-directory: {p.subdir}')
+                logging.debug(f'sub-directory: {p.subdir}')
             return p
     print(f'Unable to locate source for plugin {plugin_name}')
 
@@ -500,17 +502,17 @@ def enable(plugin_name: str):
     if not Path(path).exists():
         print(f'cannot find installed plugin at expected path {path}')
         sys.exit(1)
-    verbose(f'activating {plugin_name}')
+    logging.debug(f'activating {plugin_name}')
     try:
         lightning_cli('plugin', 'start', path)
     except CLIError as err:
         if 'already registered' in err.message:
-            verbose(f'{inst.name} is already running')
+            logging.debug(f'{inst.name} is already running')
         else:
             print(f'reckless: {inst.name} failed to start!')
             raise err
     except RPCError:
-        verbose('lightningd rpc unavailable. Skipping dynamic activation.')
+        logging.debug('lightningd rpc unavailable. Skipping dynamic activation.')
     RECKLESS_CONFIG.enable_plugin(path)
     print(f'{plugin_name} enabled')
 
@@ -524,17 +526,17 @@ def disable(plugin_name: str):
     if not Path(path).exists():
         sys.stderr.write(f'Could not find plugin at {path}\n')
         sys.exit(1)
-    verbose(f'deactivating {plugin_name}')
+    logging.debug(f'deactivating {plugin_name}')
     try:
         lightning_cli('plugin', 'stop', path)
     except CLIError as err:
         if err.code == -32602:
-            verbose('plugin not currently running')
+            logging.debug('plugin not currently running')
         else:
             print('lightning-cli plugin stop failed')
             raise err
     except RPCError:
-        verbose('lightningd rpc unavailable. Skipping dynamic deactivation.')
+        logging.debug('lightningd rpc unavailable. Skipping dynamic deactivation.')
     RECKLESS_CONFIG.disable_plugin(path)
     print(f'{plugin_name} disabled')
 
@@ -603,7 +605,7 @@ def loadSources() -> list:
     sources_file = get_sources_file()
     # This would have been created if possible
     if not Path(sources_file).exists():
-        verbose('Warning: Reckless requires write access')
+        logging.debug('Warning: Reckless requires write access')
         Config(path=str(sources_file),
                default_text='https://github.com/lightningd/plugins')
         return ['https://github.com/lightningd/plugins']
