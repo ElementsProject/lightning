@@ -17,17 +17,19 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 {
 	/* BOLT-offers #12:
 	 *   - if the chain for the invoice is not solely bitcoin:
-	 *     - MUST specify `chains` the offer is valid for.
+	 *     - MUST specify `offer_chains` the offer is valid for.
 	 *   - otherwise:
-	 *     - the bitcoin chain is implied as the first and only entry.
+	 *     - MAY omit `offer_chains`, implying that bitcoin is only chain.
 	 */
 	/* BOLT-offers #12:
-	 * The reader of an invoice_request:
+	 * A reader of an offer:
 	 *...
-	 *  - if `chain` is not present:
-	 *    - MUST fail the request if bitcoin is not a supported chain.
-	 *  - otherwise:
-	 *    - MUST fail the request if `chain` is not a supported chain.
+	 *  - if `offer_chains` is not set:
+	 *    - if the node does not accept bitcoin invoices:
+	 *      - MUST NOT respond to the offer
+	 *  - otherwise: (`offer_chains` is set):
+	 *    - if the node does not accept invoices for any of the `chains`:
+	 *      - MUST NOT respond to the offer
 	 */
 	if (!chains) {
 		max_num_chains = 1;
@@ -556,7 +558,9 @@ struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
 
 	/* BOLT-offers #12:
 	 * A writer of an invoice:
-	 *   - MUST copy all non-signature fields from the invreq (including
+	 *...
+	 * - if the invoice is in response to an `invoice_request`:
+	 *   - MUST copy all non-signature fields from the `invoice_request` (including
 	 *     unknown fields).
 	 */
 	len = tlv_span(wire, 0, 159, &start);

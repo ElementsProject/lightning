@@ -292,9 +292,8 @@ static bool json_add_blinded_paths(struct json_stream *js,
 	json_array_end(js);
 
 	/* BOLT-offers #12:
-	 * - MUST reject the invoice if `blinded_payinfo` does not contain
-	 *   exactly as many `payinfo` as total `onionmsg_path` in
-	 *   `blinded_path`.
+	 * - MUST reject the invoice if `invoice_blindedpay` does not contain
+	 *   exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.
 	 */
 	if (blindedpay && n != tal_count(blindedpay)) {
 		json_add_string(js, "warning_invalid_invoice_blindedpay",
@@ -594,7 +593,7 @@ static bool json_add_fallbacks(struct json_stream *js,
 		json_add_hex_talarr(js, "hex", fallbacks[i]->address);
 
 		/* BOLT-offers #12:
-		 * - for the bitcoin chain, if the invoice specifies `fallbacks`:
+		 * - for the bitcoin chain, if the invoice specifies `invoice_fallbacks`:
 		 *   - MUST ignore any `fallback_address` for which `version` is
 		 *     greater than 16.
 		 * -  MUST ignore any `fallback_address` for which `address` is
@@ -749,14 +748,6 @@ static void json_add_b12_invoice(struct json_stream *js,
 	 *   exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.
 	 */
 	if (invoice->invoice_paths) {
-		/* BOLT-offers #12:
-		 * - if `blinded_path` is present:
-		 *   - MUST reject the invoice if `blinded_payinfo` is not
-		 *     present.
-		 *   - MUST reject the invoice if `blinded_payinfo` does not
-		 *     contain exactly as many `payinfo` as total `onionmsg_path`
-		 *     in `blinded_path`.
-		 */
 		if (!invoice->invoice_blindedpay) {
 			json_add_string(js, "warning_missing_invoice_blindedpay",
 					"invoices with paths without blindedpay are invalid");

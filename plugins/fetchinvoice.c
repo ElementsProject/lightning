@@ -266,8 +266,8 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	json_add_string(out, "invoice", invoice_encode(tmpctx, inv));
 	json_object_start(out, "changes");
 	/* BOLT-offers #12:
-	 *   - SHOULD confirm authorization if `msat` is not within the amount
-	 *     range authorized.
+	 *   - SHOULD confirm authorization if `invoice_amount`.`msat` is not within
+	 *     the amount range authorized.
 	 */
 	/* We always tell them this unless it's trivial to calc and
 	 * exactly as expected. */
@@ -436,17 +436,13 @@ static struct command_result *param_offer(struct command *cmd,
 						     fail));
 	/* BOLT-offers #12:
 	 * A reader of an offer:
-	 * - if the offer contains any unknown TLV fields greater or equal to 80:
+	 * - if the offer contains any TLV fields greater or equal to 80:
 	 *   - MUST NOT respond to the offer.
 	 * - if `offer_features` contains unknown _odd_ bits that are non-zero:
 	 *     - MUST ignore the bit.
 	 * - if `offer_features` contains unknown _even_ bits that are non-zero:
 	 *   - MUST NOT respond to the offer.
 	 *   - SHOULD indicate the unknown bit to the user.
-	 * - if `offer_description` is not set:
-	 *   - MUST NOT respond to the offer.
-	 * - if `offer_node_id` is not set:
-	 *   - MUST NOT respond to the offer.
 	 */
 	for (size_t i = 0; i < tal_count((*offer)->fields); i++) {
 		if ((*offer)->fields[i].numtype > 80) {
@@ -467,6 +463,13 @@ static struct command_result *param_offer(struct command *cmd,
 						     "unknown feature %i",
 						     badf));
 	}
+
+	/* BOLT-offers #12:
+	 * - if `offer_description` is not set:
+	 *   - MUST NOT respond to the offer.
+	 * - if `offer_node_id` is not set:
+	 *   - MUST NOT respond to the offer.
+	 */
 	if (!(*offer)->offer_description)
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "Offer does not contain a description");
@@ -1012,7 +1015,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - SHOULD not respond to an offer if the current time is after
-	 *   `absolute_expiry`.
+	 *   `offer_absolute_expiry`.
 	 */
 	if (sent->offer->offer_absolute_expiry
 	    && time_now().ts.tv_sec > *sent->offer->offer_absolute_expiry)
@@ -1053,7 +1056,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - if `offer_quantity_max` is present:
-	 *    - MUST set `invreq_quantity`
+	 *    - MUST set `invreq_quantity` to greater than zero.
 	 *    - if `offer_quantity_max` is non-zero:
 	 *      - MUST set `invreq_quantity` less than or equal to
 	 *       `offer_quantity_max`.
@@ -1062,6 +1065,9 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		if (!invreq->invreq_quantity)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "quantity parameter required");
+		if (*invreq->invreq_quantity == 0)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "quantity parameter must be non-zero");
 		if (*invreq->offer_quantity_max
 		    && *invreq->invreq_quantity > *invreq->offer_quantity_max)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1448,9 +1454,9 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		return command_param_failed();
 
 	/* BOLT-offers #12:
-	 * The writer:
-	 *   - MUST copy all non-signature fields from the invreq (including
-	 *     unknown fields).
+	 *   - if the invoice is in response to an `invoice_request`:
+	 *     - MUST copy all non-signature fields from the `invoice_request`
+	 *       (including unknown fields).
 	 */
 	sent->inv = invoice_for_invreq(sent, sent->invreq);
 
