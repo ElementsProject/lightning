@@ -338,7 +338,7 @@ class UnixDomainSocketRpc(object):
             this_id = f'{cmdprefix}/{this_id}'
         return this_id
 
-    def call(self, method, payload=None, cmdprefix=None):
+    def call(self, method, payload=None, cmdprefix=None, filter=None):
         """Generic call API: you can set cmdprefix here, or set self.cmdprefix
         before the call is made.
 
@@ -378,6 +378,9 @@ class UnixDomainSocketRpc(object):
             "params": payload,
             "id": this_id,
         }
+
+        if filter is not None:
+            request["filter"] = filter
 
         self._writeobj(sock, request)
         while True:

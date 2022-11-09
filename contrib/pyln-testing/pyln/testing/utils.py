@@ -678,13 +678,14 @@ class PrettyPrintingLightningRpc(LightningRpc):
         self.jsonschemas = jsonschemas
         self.check_request_schemas = True
 
-    def call(self, method, payload=None, cmdprefix=None):
+    def call(self, method, payload=None, cmdprefix=None, filter=None):
         id = self.get_json_id(method, cmdprefix)
         schemas = self.jsonschemas.get(method)
         self.logger.debug(json.dumps({
             "id": id,
             "method": method,
-            "params": payload
+            "params": payload,
+            "filter": filter,
         }, indent=2))
 
         # We only check payloads which are dicts, which is what we
@@ -698,13 +699,13 @@ class PrettyPrintingLightningRpc(LightningRpc):
                     testpayload[k] = v
             schemas[0].validate(testpayload)
 
-        res = LightningRpc.call(self, method, payload, cmdprefix)
+        res = LightningRpc.call(self, method, payload, cmdprefix, filter)
         self.logger.debug(json.dumps({
             "id": id,
             "result": res
         }, indent=2))
 
-        if schemas and schemas[1]:
+        if schemas and schemas[1] and not filter:
             schemas[1].validate(res)
 
         return res
