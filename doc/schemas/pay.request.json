@@ -30,7 +30,7 @@
     "exemptfee": {
       "type": "msat"
     },
-    "localofferid": {
+    "localinvreqid": {
       "type": "hex"
     },
     "exclude": {

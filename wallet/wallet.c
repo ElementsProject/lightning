@@ -3094,7 +3094,7 @@ void wallet_payment_store(struct wallet *wallet,
 		    "  bolt11,"
 		    "  total_msat,"
 		    "  partid,"
-		    "  local_offer_id,"
+		    "  local_invreq_id,"
 		    "  groupid,"
 		    "  paydescription"
 		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
@@ -3139,8 +3139,8 @@ void wallet_payment_store(struct wallet *wallet,
 	db_bind_amount_msat(stmt, 11, &payment->total_msat);
 	db_bind_u64(stmt, 12, payment->partid);
 
-	if (payment->local_offer_id != NULL)
-		db_bind_sha256(stmt, 13, payment->local_offer_id);
+	if (payment->local_invreq_id != NULL)
+		db_bind_sha256(stmt, 13, payment->local_invreq_id);
 	else
 		db_bind_null(stmt, 13);
 
@@ -3285,11 +3285,11 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	else
 		payment->partid = 0;
 
-	if (!db_col_is_null(stmt, "local_offer_id")) {
-		payment->local_offer_id = tal(payment, struct sha256);
-		db_col_sha256(stmt, "local_offer_id", payment->local_offer_id);
+	if (!db_col_is_null(stmt, "local_invreq_id")) {
+		payment->local_invreq_id = tal(payment, struct sha256);
+		db_col_sha256(stmt, "local_invreq_id", payment->local_invreq_id);
 	} else
-		payment->local_offer_id = NULL;
+		payment->local_invreq_id = NULL;
 
 	if (!db_col_is_null(stmt, "completed_at")) {
 		payment->completed_at = tal(payment, u32);
@@ -3333,7 +3333,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 					     ", failonionreply"
 					     ", total_msat"
 					     ", partid"
-					     ", local_offer_id"
+					     ", local_invreq_id"
 					     ", groupid"
 					     ", completed_at"
 					     " FROM payments"
@@ -3575,7 +3575,7 @@ wallet_payment_list(const tal_t *ctx,
 						     ", failonionreply"
 						     ", total_msat"
 						     ", partid"
-						     ", local_offer_id"
+						     ", local_invreq_id"
 						     ", groupid"
 						     ", completed_at"
 						     " FROM payments"
@@ -3602,7 +3602,7 @@ wallet_payment_list(const tal_t *ctx,
 						     ", failonionreply"
 						     ", total_msat"
 						     ", partid"
-						     ", local_offer_id"
+						     ", local_invreq_id"
 						     ", groupid"
 						     ", completed_at"
 						     " FROM payments"
@@ -3628,9 +3628,9 @@ wallet_payment_list(const tal_t *ctx,
 }
 
 const struct wallet_payment **
-wallet_payments_by_offer(const tal_t *ctx,
-			 struct wallet *wallet,
-			 const struct sha256 *local_offer_id)
+wallet_payments_by_invoice_request(const tal_t *ctx,
+				   struct wallet *wallet,
+				   const struct sha256 *local_invreq_id)
 {
 	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
@@ -3656,12 +3656,12 @@ wallet_payments_by_offer(const tal_t *ctx,
 					     ", failonionreply"
 					     ", total_msat"
 					     ", partid"
-					     ", local_offer_id"
+					     ", local_invreq_id"
 					     ", groupid"
 					     ", completed_at"
 					     " FROM payments"
-					     " WHERE local_offer_id = ?;"));
-	db_bind_sha256(stmt, 0, local_offer_id);
+					     " WHERE local_invreq_id = ?;"));
+	db_bind_sha256(stmt, 0, local_invreq_id);
 	db_query_prepared(stmt);
 
 	for (i = 0; db_step(stmt); i++) {
@@ -3672,7 +3672,7 @@ wallet_payments_by_offer(const tal_t *ctx,
 
 	/* Now attach payments not yet in db. */
 	list_for_each(&wallet->unstored_payments, p, list) {
-		if (!p->local_offer_id || !sha256_eq(p->local_offer_id, local_offer_id))
+		if (!p->local_invreq_id || !sha256_eq(p->local_invreq_id, local_invreq_id))
 			continue;
 		tal_resize(&payments, i+1);
 		payments[i++] = p;
@@ -5130,6 +5130,172 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	}
 }
 
+bool wallet_invoice_request_create(struct wallet *w,
+				   const struct sha256 *invreq_id,
+				   const char *bolt12,
+				   const struct json_escape *label,
+				   enum offer_status status)
+{
+	struct db_stmt *stmt;
+
+	assert(offer_status_active(status));
+
+	/* Test if already exists. */
+	stmt = db_prepare_v2(w->db, SQL("SELECT 1"
+					"  FROM invoicerequests"
+					" WHERE invreq_id = ?;"));
+	db_bind_sha256(stmt, 0, invreq_id);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		db_col_ignore(stmt, "1");
+		tal_free(stmt);
+		return false;
+	}
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO invoicerequests ("
+				 "  invreq_id"
+				 ", bolt12"
+				 ", label"
+				 ", status"
+				 ") VALUES (?, ?, ?, ?);"));
+
+	db_bind_sha256(stmt, 0, invreq_id);
+	db_bind_text(stmt, 1, bolt12);
+	if (label)
+		db_bind_json_escape(stmt, 2, label);
+	else
+		db_bind_null(stmt, 2);
+	db_bind_int(stmt, 3, offer_status_in_db(status));
+	db_exec_prepared_v2(take(stmt));
+	return true;
+}
+
+char *wallet_invoice_request_find(const tal_t *ctx,
+			struct wallet *w,
+			const struct sha256 *invreq_id,
+			const struct json_escape **label,
+			enum offer_status *status)
+{
+	struct db_stmt *stmt;
+	char *bolt12;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT bolt12, label, status"
+					"  FROM invoicerequests"
+					" WHERE invreq_id = ?;"));
+	db_bind_sha256(stmt, 0, invreq_id);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return NULL;
+	}
+
+	bolt12 = db_col_strdup(ctx, stmt, "bolt12");
+	if (label) {
+		if (db_col_is_null(stmt, "label"))
+			*label = NULL;
+		else
+			*label = db_col_json_escape(ctx, stmt, "label");
+	} else
+		db_col_ignore(stmt, "label");
+
+	if (status)
+		*status = offer_status_in_db(db_col_int(stmt, "status"));
+	else
+		db_col_ignore(stmt, "status");
+
+	tal_free(stmt);
+	return bolt12;
+}
+
+struct db_stmt *wallet_invreq_id_first(struct wallet *w, struct sha256 *invreq_id)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT invreq_id FROM invoicerequests;"));
+	db_query_prepared(stmt);
+
+	return wallet_invreq_id_next(w, stmt, invreq_id);
+}
+
+struct db_stmt *wallet_invreq_id_next(struct wallet *w,
+				     struct db_stmt *stmt,
+				     struct sha256 *invreq_id)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	db_col_sha256(stmt, "invreq_id", invreq_id);
+	return stmt;
+}
+
+/* If we make an invoice_request inactive */
+static void invoice_request_status_update(struct db *db,
+					  const struct sha256 *invreq_id,
+					  enum offer_status oldstatus,
+					  enum offer_status newstatus)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("UPDATE invoicerequests"
+				     " SET status=?"
+				     " WHERE invreq_id = ?;"));
+	db_bind_int(stmt, 0, offer_status_in_db(newstatus));
+	db_bind_sha256(stmt, 1, invreq_id);
+	db_exec_prepared_v2(take(stmt));
+}
+
+enum offer_status wallet_invoice_request_disable(struct wallet *w,
+						 const struct sha256 *invreq_id,
+						 enum offer_status s)
+{
+	enum offer_status newstatus;
+
+	assert(offer_status_active(s));
+
+	newstatus = offer_status_in_db(s & ~OFFER_STATUS_ACTIVE_F);
+	invoice_request_status_update(w->db, invreq_id, s, newstatus);
+
+	return newstatus;
+}
+
+void wallet_invoice_request_mark_used(struct db *db, const struct sha256 *invreq_id)
+{
+	struct db_stmt *stmt;
+	enum offer_status status;
+
+	stmt = db_prepare_v2(db, SQL("SELECT status"
+				     "  FROM invoicerequests"
+				     " WHERE invreq_id = ?;"));
+	db_bind_sha256(stmt, 0, invreq_id);
+	db_query_prepared(stmt);
+	if (!db_step(stmt))
+		fatal("%s: unknown invreq_id %s",
+		      __func__,
+		      type_to_string(tmpctx, struct sha256, invreq_id));
+
+	status = offer_status_in_db(db_col_int(stmt, "status"));
+	tal_free(stmt);
+
+	if (!offer_status_active(status))
+		fatal("%s: invreq_id %s not active: status %i",
+		      __func__,
+		      type_to_string(tmpctx, struct sha256, invreq_id),
+		      status);
+
+	if (!offer_status_used(status)) {
+		enum offer_status newstatus;
+
+		if (offer_status_single(status))
+			newstatus = OFFER_SINGLE_USE_USED;
+		else
+			newstatus = OFFER_MULTIPLE_USE_USED;
+		invoice_request_status_update(db, invreq_id, status, newstatus);
+	}
+}
 
 /* We join key parts with nuls for now. */
 static void db_bind_datastore_key(struct db_stmt *stmt,
