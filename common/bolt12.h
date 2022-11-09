@@ -137,4 +137,16 @@ void offer_offer_id(const struct tlv_offer *offer, struct sha256 *id);
 void invreq_offer_id(const struct tlv_invoice_request *invreq, struct sha256 *id);
 void invoice_offer_id(const struct tlv_invoice *invoice, struct sha256 *id);
 
+/**
+ * Prepare a new invoice_request based on an offer.
+ */
+struct tlv_invoice_request *invoice_request_for_offer(const tal_t *ctx,
+						      const struct tlv_offer *offer);
+
+/**
+ * Prepare a new invoice based on an invoice_request.
+ */
+struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
+				       const struct tlv_invoice_request *invreq);
+
 #endif /* LIGHTNING_COMMON_BOLT12_H */
