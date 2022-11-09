@@ -714,7 +714,7 @@ static void forward_htlc(struct htlc_in *hin,
 		/* Update this to where we're actually trying to send. */
 		if (next)
 			forward_scid = channel_scid_or_local_alias(next);
-	}else
+	} else
 		next = NULL;
 
 	/* Unknown peer, or peer not ready. */
@@ -1077,6 +1077,9 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 		if (p->payload->forward_channel)
 			json_add_short_channel_id(s, "short_channel_id",
 						  p->payload->forward_channel);
+		if (p->payload->forward_node_id)
+			json_add_pubkey(s, "next_node_id",
+					p->payload->forward_node_id);
 		if (deprecated_apis)
 			json_add_string(s, "forward_amount",
 					fmt_amount_msat(tmpctx,
@@ -1202,20 +1205,42 @@ static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
 						  const struct route_step *rs)
 {
 	const struct onion_payload *p = hp->payload;
+	struct peer *peer;
 	struct channel *c, *best;
 
 	if (rs->nextcase != ONION_FORWARD)
 		return NULL;
 
-	if (!p || !p->forward_channel)
+	if (!p)
 		return NULL;
 
-	c = any_channel_by_scid(ld, p->forward_channel, false);
-	if (!c)
-		return NULL;
+	if (p->forward_channel) {
+		c = any_channel_by_scid(ld, p->forward_channel, false);
+		if (!c)
+			return NULL;
+		peer = c->peer;
+	} else {
+		struct node_id id;
+		if (!p->forward_node_id)
+			return NULL;
+		node_id_from_pubkey(&id, p->forward_node_id);
+		peer = peer_by_id(ld, &id);
+		if (!peer)
+			return NULL;
+		c = NULL;
+	}
 
-	best = best_channel(ld, c->peer, p->amt_to_forward, c);
-	if (best != c) {
+	best = best_channel(ld, peer, p->amt_to_forward, c);
+	if (!c) {
+		if (!best)
+			return NULL;
+		log_debug(hp->channel->log,
+			  "Chose channel %s for peer %s",
+			  type_to_string(tmpctx, struct short_channel_id,
+					 channel_scid_or_local_alias(best)),
+			  type_to_string(tmpctx, struct node_id,
+					 &peer->id));
+	} else if (best != c) {
 		log_debug(hp->channel->log,
 			  "Chose a better channel than %s: %s",
 			  type_to_string(tmpctx, struct short_channel_id,

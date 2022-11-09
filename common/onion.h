@@ -11,7 +11,11 @@ struct onion_payload {
 	struct amount_msat amt_to_forward;
 	u32 outgoing_cltv;
 	struct amount_msat *total_msat;
+
+	/* One of these is set */
 	struct short_channel_id *forward_channel;
+	struct pubkey *forward_node_id;
+
 	struct secret *payment_secret;
 	u8 *payment_metadata;
 

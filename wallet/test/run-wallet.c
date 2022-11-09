@@ -347,6 +347,11 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
+/* Generated stub for json_add_pubkey */
+void json_add_pubkey(struct json_stream *response UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     const struct pubkey *key UNNEEDED)
+{ fprintf(stderr, "json_add_pubkey called!\n"); abort(); }
 /* Generated stub for json_add_s32 */
 void json_add_s32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  int32_t value UNNEEDED)
