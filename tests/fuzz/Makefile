@@ -33,8 +33,6 @@ FUZZ_COMMON_OBJS := \
 	common/permute_tx.o				\
 	common/initial_channel.o			\
 	common/initial_commit_tx.o			\
-	common/json_parse_simple.o			\
-	common/json_stream.o				\
 	common/key_derive.o				\
 	common/keyset.o					\
 	common/msg_queue.o				\
