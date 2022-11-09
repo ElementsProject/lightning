@@ -140,6 +140,7 @@ int main(int argc, char *argv[])
 	struct pubkey alice_id, bob_id, carol_id, dave_id, blinding_pub, override_blinding_pub, alias;
 	struct secret self_id;
 	u8 *enctlv;
+	struct tlv_encrypted_data_tlv *tlv;
 
 	common_setup(argv[0]);
 
@@ -171,8 +172,10 @@ int main(int argc, char *argv[])
 	       "\t},\n",
 	       type_to_string(tmpctx, struct pubkey, &bob_id));
 
-	enctlv = create_enctlv(tmpctx, &blinding, &alice_id, &bob_id, NULL,
-			       0, NULL, NULL, NULL, NULL, &blinding, &alias);
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv->next_node_id = &bob_id;
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &alice_id, tlv,
+					    &blinding, &alias);
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
@@ -201,9 +204,11 @@ int main(int argc, char *argv[])
 	       type_to_string(tmpctx, struct pubkey, &carol_id),
 	       type_to_string(tmpctx, struct privkey, &override_blinding));
 
-	enctlv = create_enctlv(tmpctx, &blinding, &bob_id, &carol_id, NULL,
-			       0, &override_blinding_pub, NULL, NULL, NULL,
-			       &blinding, &alias);
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv->next_node_id = &carol_id;
+	tlv->next_blinding_override = &override_blinding_pub;
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &bob_id, tlv,
+					    &blinding, &alias);
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
@@ -231,8 +236,11 @@ int main(int argc, char *argv[])
 	       type_to_string(tmpctx, struct pubkey, &dave_id),
 	       tal_hex(tmpctx, tal_arrz(tmpctx, u8, 35)));
 
-	enctlv = create_enctlv(tmpctx, &blinding, &carol_id, &dave_id, NULL,
-			       35, NULL, NULL, NULL, NULL, &blinding, &alias);
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv->padding = tal_arrz(tlv, u8, 35);
+	tlv->next_node_id = &dave_id;
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &carol_id, tlv,
+					    &blinding, &alias);
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n"
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
@@ -256,8 +264,11 @@ int main(int argc, char *argv[])
 	       "\t},\n",
 	       type_to_string(tmpctx, struct secret, &self_id));
 
-	enctlv = create_final_enctlv(tmpctx, &blinding, &dave_id,
-				     0, &self_id, NULL, &alias);
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv->path_id = tal_dup_arr(tlv, u8,
+				   self_id.data, ARRAY_SIZE(self_id.data), 0);
+	enctlv = encrypt_tlv_encrypted_data(tmpctx, &blinding, &dave_id, tlv,
+					    NULL, &alias);
 
 	printf("\t\"encrypted_recipient_data_hex\": \"%s\"\n",
 	       tal_hex(tmpctx, enctlv));

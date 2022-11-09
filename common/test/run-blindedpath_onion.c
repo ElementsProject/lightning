@@ -154,6 +154,7 @@ int main(int argc, char *argv[])
 	struct privkey nodekey[4], blinding[4], override_blinding;
 	struct pubkey id[4], blinding_pub[4], override_blinding_pub, alias[4];
 	struct secret self_id;
+	struct tlv_encrypted_data_tlv *tlv[4];
 	u8 *enctlv[4];
 	u8 *onionmsg_tlv[4];
 	u8 *omsg;
@@ -173,35 +174,54 @@ int main(int argc, char *argv[])
 	memset(&blinding[ALICE], 5, sizeof(blinding[ALICE]));
 	pubkey_from_privkey(&blinding[ALICE], &blinding_pub[ALICE]);
 
-	enctlv[ALICE] = create_enctlv(tmpctx, &blinding[ALICE],
-				      &id[ALICE], &id[BOB], NULL,
-				      0, NULL, NULL, NULL, NULL,
-				      &blinding[BOB], &alias[ALICE]);
+	tlv[ALICE] = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv[ALICE]->next_node_id = &id[BOB];
+	enctlv[ALICE] = encrypt_tlv_encrypted_data(tmpctx,
+						   &blinding[ALICE],
+						   &id[ALICE], tlv[ALICE],
+						   &blinding[BOB],
+						   &alias[ALICE]);
 
 	pubkey_from_privkey(&blinding[BOB], &blinding_pub[BOB]);
 
 	/* We override blinding for Carol. */
 	memset(&override_blinding, 7, sizeof(override_blinding));
 	pubkey_from_privkey(&override_blinding, &override_blinding_pub);
-	enctlv[BOB] = create_enctlv(tmpctx, &blinding[BOB],
-				    &id[BOB], &id[CAROL], NULL,
-				    0, &override_blinding_pub, NULL, NULL, NULL,
-				    &blinding[CAROL], &alias[BOB]);
+
+	tlv[BOB] = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv[BOB]->next_node_id = &id[CAROL];
+	tlv[BOB]->next_blinding_override = &override_blinding_pub;
+	enctlv[BOB] = encrypt_tlv_encrypted_data(tmpctx,
+						 &blinding[BOB],
+						 &id[BOB], tlv[BOB],
+						 &blinding[CAROL],
+						 &alias[BOB]);
 
 	/* That replaced the blinding */
 	blinding[CAROL] = override_blinding;
 	blinding_pub[CAROL] = override_blinding_pub;
 
-	enctlv[CAROL] = create_enctlv(tmpctx, &blinding[CAROL],
-				      &id[CAROL], &id[DAVE], NULL,
-				      35, NULL, NULL, NULL, NULL,
-				      &blinding[DAVE], &alias[CAROL]);
+	tlv[CAROL] = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv[CAROL]->next_node_id = &id[DAVE];
+	tlv[CAROL]->padding = tal_arrz(tlv[CAROL], u8, 35);
+	enctlv[CAROL] = encrypt_tlv_encrypted_data(tmpctx,
+						   &blinding[CAROL],
+						   &id[CAROL], tlv[CAROL],
+						   &blinding[DAVE],
+						   &alias[CAROL]);
 
 	for (size_t i = 0; i < sizeof(self_id); i++)
 		self_id.data[i] = i+1;
 
-	enctlv[DAVE] = create_final_enctlv(tmpctx, &blinding[DAVE], &id[DAVE],
-					   0, &self_id, NULL, &alias[DAVE]);
+	tlv[DAVE] = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv[DAVE]->path_id = tal_dup_arr(tlv[DAVE], u8,
+					 self_id.data, ARRAY_SIZE(self_id.data),
+					 0);
+	enctlv[DAVE] = encrypt_tlv_encrypted_data(tmpctx,
+						  &blinding[DAVE],
+						  &id[DAVE], tlv[DAVE],
+						  NULL,
+						  &alias[DAVE]);
 	pubkey_from_privkey(&blinding[DAVE], &blinding_pub[DAVE]);
 
 	/* Create an onion which encodes this. */
