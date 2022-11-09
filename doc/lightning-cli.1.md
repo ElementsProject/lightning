@@ -71,6 +71,10 @@ print out notifications of *LEVEL* or above (one of `io`, `debug`,
 `info` (the default), `unusual` or `broken`: they are prefixed with `#
 `.
 
+* **--filter**/**-l**=*JSON*
+
+  This hands lightningd *JSON* as a filter, which controls what will be output, e.g. `'--filter={"help":[{"command":true}]}'`.  See lightningd-rpc(7) for more details on how to specify filters.
+
 * **--help**/**-h**
 
   Pretty-print summary of options to standard output and exit.  The format can
