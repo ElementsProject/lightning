@@ -5,9 +5,11 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/blindedpath.h>
 #include <common/bolt11_json.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
+#include <common/invoice_path_id.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/overflows.h>
@@ -1641,6 +1643,69 @@ static struct command_result *fail_exists(struct command *cmd,
 	return command_failed(cmd, data);
 }
 
+/* This is only if we're a public node; otherwise, the offers plugin
+ * will have populated a real blinded path */
+static struct tlv_invoice *add_stub_blindedpath(const tal_t *ctx,
+						struct lightningd *ld,
+						struct tlv_invoice *inv STEALS)
+{
+	struct blinded_path *path;
+	struct privkey blinding;
+	struct tlv_encrypted_data_tlv *tlv;
+	u8 *wire;
+	size_t dlen;
+
+	path = tal(NULL, struct blinded_path);
+	if (!pubkey_from_node_id(&path->first_node_id, &ld->id))
+		abort();
+	randombytes_buf(&blinding, sizeof(blinding));
+	if (!pubkey_from_privkey(&blinding, &path->blinding))
+		abort();
+	path->path = tal_arr(path, struct onionmsg_hop *, 1);
+	path->path[0] = tal(path->path, struct onionmsg_hop);
+
+	/* A message in a bottle to ourselves: match it with
+	 * the invoice: we assume the payment_hash is unique! */
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv->path_id = invoice_path_id(inv,
+				       &ld->invoicesecret_base,
+				       inv->payment_hash);
+
+	path->path[0]->encrypted_recipient_data
+		= encrypt_tlv_encrypted_data(path->path[0],
+					     &blinding,
+					     &path->first_node_id,
+					     tlv,
+					     NULL,
+					     &path->path[0]->blinded_node_id);
+
+	inv->paths = tal_arr(inv, struct blinded_path *, 1);
+	inv->paths[0] = tal_steal(inv->paths, path);
+
+	/* BOLT-offers #12:
+	 *  - MUST include `invoice_paths` containing one or more paths to the node.
+	 *  - MUST specify `invoice_paths` in order of most-preferred to least-preferred if it has a preference.
+	 *  - MUST include `invoice_blindedpay` with exactly one `blinded_payinfo` for each `blinded_path` in `paths`, in order.
+	 */
+	inv->blindedpay = tal_arr(inv, struct blinded_payinfo *, 1);
+	inv->blindedpay[0] = tal(inv->blindedpay, struct blinded_payinfo);
+	inv->blindedpay[0]->fee_base_msat = 0;
+	inv->blindedpay[0]->fee_proportional_millionths = 0;
+	inv->blindedpay[0]->cltv_expiry_delta = ld->config.cltv_final;
+	inv->blindedpay[0]->htlc_minimum_msat = AMOUNT_MSAT(0);
+	inv->blindedpay[0]->htlc_maximum_msat = AMOUNT_MSAT(21000000 * MSAT_PER_BTC);
+	inv->blindedpay[0]->features = NULL;
+
+	/* But we need to update ->fields, so re-linearize */
+	wire = tal_arr(tmpctx, u8, 0);
+	towire_tlv_invoice(&wire, inv);
+	tal_free(inv);
+
+	dlen = tal_bytelen(wire);
+	return fromwire_tlv_invoice(ctx,
+				    cast_const2(const u8 **, &wire), &dlen);
+}
+
 static struct command_result *json_createinvoice(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *obj UNNEEDED,
@@ -1716,6 +1781,12 @@ static struct command_result *json_createinvoice(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Unparsable invoice '%s': %s",
 					    invstring, fail);
+
+		/* If they don't create a blinded path, add a simple one so we
+		 * can recognize payments (bolt12 doesn't use
+		 * payment_secret) */
+		if (!inv->paths)
+			inv = add_stub_blindedpath(cmd, cmd->ld, inv);
 
 		if (inv->signature)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
