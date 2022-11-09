@@ -101,7 +101,6 @@ On success, an object is returned, containing:
 - **active** (boolean): whether this can still be used (always *true*)
 - **single\_use** (boolean): whether this expires as soon as it's paid (reflects the *single_use* parameter)
 - **bolt12** (string): the bolt12 encoding of the offer
-- **bolt12\_unsigned** (string): the bolt12 encoding of the offer, without a signature
 - **used** (boolean): True if an associated invoice has been paid
 - **created** (boolean): false if the offer already existed
 - **label** (string, optional): the (optional) user-specified label
@@ -135,4 +134,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:aa7544c07d3d84963e43500a367ceb62ebab8f5ae26de1dd39bb087f928dcaee)
+[comment]: # ( SHA256STAMP:217af2aae777229992e2ee07c6f8040d4ca5b75ee2064590584de13162974fe2)
