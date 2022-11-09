@@ -157,20 +157,15 @@ static void print_node_id(const struct pubkey *node_id)
 	printf("node_id: %s\n", type_to_string(tmpctx, struct pubkey, node_id));
 }
 
-static void print_quantity_min(u64 min)
-{
-	printf("quantity_min: %"PRIu64"\n", min);
-}
-
 static void print_quantity_max(u64 max)
 {
 	printf("quantity_max: %"PRIu64"\n", max);
 }
 
-static bool print_recurrance(const struct tlv_offer_recurrence *recurrence,
-			     const struct tlv_offer_recurrence_paywindow *paywindow,
+static bool print_recurrance(const struct recurrence *recurrence,
+			     const struct recurrence_paywindow *paywindow,
 			     const u32 *limit,
-			     const struct tlv_offer_recurrence_base *base)
+			     const struct recurrence_base *base)
 {
 	const char *unit;
 	bool ok = true;
@@ -293,17 +288,6 @@ static bool print_blindedpaths(struct blinded_path **paths,
 	return true;
 }
 
-static void print_send_invoice(void)
-{
-	printf("send_invoice\n");
-}
-
-static void print_refund_for(const struct sha256 *payment_hash)
-{
-	printf("refund_for: %s\n",
-	       type_to_string(tmpctx, struct sha256, payment_hash));
-}
-
 static bool print_signature(const char *messagename,
 			    const char *fieldname,
 			    const struct tlv_field *fields,
@@ -326,12 +310,6 @@ static bool print_signature(const char *messagename,
 	       fieldname,
 	       type_to_string(tmpctx, struct bip340sig, sig));
 	return true;
-}
-
-static void print_offer_id(const struct sha256 *offer_id)
-{
-	printf("offer_id: %s\n",
-	       type_to_string(tmpctx, struct sha256, offer_id));
 }
 
 static void print_quantity(u64 q)
@@ -363,13 +341,14 @@ static bool print_recurrence_counter_with_base(const u32 *recurrence_counter,
 	return true;
 }
 
-static void print_payer_key(const struct pubkey *payer_key,
-			    const u8 *payer_info)
+static void print_payer_id(const struct pubkey *payer_id,
+			   const u8 *metadata)
 {
-	printf("payer_key: %s",
-	       type_to_string(tmpctx, struct pubkey, payer_key));
-	if (payer_info)
-		printf(" (payer_info %s)", tal_hex(tmpctx, payer_info));
+	printf("invreq_payer_id: %s",
+	       type_to_string(tmpctx, struct pubkey, payer_id));
+	if (metadata)
+		printf(" (invreq_metadata %s)",
+		       tal_hex(tmpctx, metadata));
 	printf("\n");
 }
 
@@ -389,11 +368,6 @@ static void print_payment_hash(const struct sha256 *payment_hash)
 {
 	printf("payment_hash: %s\n",
 	       type_to_string(tmpctx, struct sha256, payment_hash));
-}
-
-static void print_cltv(u32 cltv)
-{
-	printf("min_final_cltv_expiry: %u\n", cltv);
 }
 
 static void print_relative_expiry(u64 *created_at, u32 *relative)
@@ -553,42 +527,31 @@ int main(int argc, char *argv[])
 		if (!offer)
 			errx(ERROR_BAD_DECODE, "Bad offer: %s", fail);
 
-		if (offer->send_invoice)
-			print_send_invoice();
-		if (offer->chains)
-			print_chains(offer->chains);
-		if (offer->refund_for)
-			print_refund_for(offer->refund_for);
-		if (offer->amount)
-			well_formed &= print_amount(offer->chains,
-						    offer->currency,
-						    *offer->amount);
-		if (must_have(offer, description))
-			print_description(offer->description);
-		if (offer->issuer)
-			print_issuer(offer->issuer);
-		if (must_have(offer, node_id))
-			print_node_id(offer->node_id);
-		if (offer->quantity_min)
-			print_quantity_min(*offer->quantity_min);
-		if (offer->quantity_max)
-			print_quantity_max(*offer->quantity_max);
-		if (offer->recurrence)
-			well_formed &= print_recurrance(offer->recurrence,
-							offer->recurrence_paywindow,
-							offer->recurrence_limit,
-							offer->recurrence_base);
-		if (offer->absolute_expiry)
-			print_absolute_expiry(*offer->absolute_expiry);
-		if (offer->features)
-			print_features(offer->features);
-		if (offer->paths)
-			print_blindedpaths(offer->paths, NULL);
-		if (offer->signature && offer->node_id)
-			well_formed &= print_signature("offer", "signature",
-						       offer->fields,
-						       offer->node_id,
-						       offer->signature);
+		if (offer->offer_chains)
+			print_chains(offer->offer_chains);
+		if (offer->offer_amount)
+			well_formed &= print_amount(offer->offer_chains,
+						    offer->offer_currency,
+						    *offer->offer_amount);
+		if (must_have(offer, offer_description))
+			print_description(offer->offer_description);
+		if (offer->offer_issuer)
+			print_issuer(offer->offer_issuer);
+		if (must_have(offer, offer_node_id))
+			print_node_id(offer->offer_node_id);
+		if (offer->offer_quantity_max)
+			print_quantity_max(*offer->offer_quantity_max);
+		if (offer->offer_recurrence)
+			well_formed &= print_recurrance(offer->offer_recurrence,
+							offer->offer_recurrence_paywindow,
+							offer->offer_recurrence_limit,
+							offer->offer_recurrence_base);
+		if (offer->offer_absolute_expiry)
+			print_absolute_expiry(*offer->offer_absolute_expiry);
+		if (offer->offer_features)
+			print_features(offer->offer_features);
+		if (offer->offer_paths)
+			print_blindedpaths(offer->offer_paths, NULL);
 		if (!print_extra_fields(offer->fields))
 			well_formed = false;
 	} else if (streq(hrp, "lnr")) {
@@ -596,43 +559,35 @@ int main(int argc, char *argv[])
 			= invrequest_decode(ctx, argv[2], strlen(argv[2]),
 					    NULL, NULL, &fail);
 		if (!invreq)
-			errx(ERROR_BAD_DECODE, "Bad invoice_request: %s", fail);
+			errx(ERROR_BAD_DECODE, "Bad invreq: %s", fail);
 
-		if (invreq->chain)
-			print_chain(invreq->chain);
-		if (must_have(invreq, payer_key))
-			print_payer_key(invreq->payer_key, invreq->payer_info);
-		if (invreq->payer_note)
-			print_payer_note(invreq->payer_note);
-		if (must_have(invreq, offer_id))
-			print_offer_id(invreq->offer_id);
-		if (must_have(invreq, amount))
-			well_formed &= print_amount(invreq->chain,
+		if (invreq->invreq_chain)
+			print_chain(invreq->invreq_chain);
+		if (must_have(invreq, invreq_payer_id))
+			print_payer_id(invreq->invreq_payer_id,
+				       invreq->invreq_metadata);
+		if (invreq->invreq_payer_note)
+			print_payer_note(invreq->invreq_payer_note);
+		if (must_have(invreq, invreq_amount))
+			well_formed &= print_amount(invreq->invreq_chain,
 						    NULL,
-						    *invreq->amount);
-		if (invreq->features)
-			print_features(invreq->features);
-		if (invreq->quantity)
-			print_quantity(*invreq->quantity);
+						    *invreq->invreq_amount);
+		if (invreq->invreq_features)
+			print_features(invreq->invreq_features);
+		if (invreq->invreq_quantity)
+			print_quantity(*invreq->invreq_quantity);
 		if (must_have(invreq, signature)) {
-			if (!print_signature("invoice_request",
-					     "signature",
-					     invreq->fields,
-					     invreq->payer_key,
-					     invreq->signature)) {
-				/* FIXME: We temporarily allow the old "payer_signature" name */
-				well_formed &= print_signature("invoice_request",
-							       "payer_signature",
-							       invreq->fields,
-							       invreq->payer_key,
-							       invreq->signature);
-			}
+			well_formed = print_signature("invoice_request",
+						      "signature",
+						      invreq->fields,
+						      invreq->invreq_payer_id,
+						      invreq->signature);
 		}
-		if (invreq->recurrence_counter) {
-			print_recurrence_counter(invreq->recurrence_counter,
-						 invreq->recurrence_start);
+		if (invreq->invreq_recurrence_counter) {
+			print_recurrence_counter(invreq->invreq_recurrence_counter,
+						 invreq->invreq_recurrence_start);
 		} else {
-			must_not_have(invreq, recurrence_start);
+			must_not_have(invreq, invreq_recurrence_start);
 		}
 		if (!print_extra_fields(invreq->fields))
 			well_formed = false;
@@ -643,70 +598,55 @@ int main(int argc, char *argv[])
 		if (!invoice)
 			errx(ERROR_BAD_DECODE, "Bad invoice: %s", fail);
 
-		if (invoice->chain)
-			print_chain(invoice->chain);
+		if (invoice->invreq_chain)
+			print_chain(invoice->invreq_chain);
 
-		if (invoice->offer_id) {
-			print_offer_id(invoice->offer_id);
-		}
-		if (must_have(invoice, amount))
-			well_formed &= print_amount(invoice->chain,
+		if (must_have(invoice, invoice_amount))
+			well_formed &= print_amount(invoice->invreq_chain,
 						    NULL,
-						    *invoice->amount);
-		if (must_have(invoice, description))
-			print_description(invoice->description);
-		if (invoice->features)
-			print_features(invoice->features);
-		if (invoice->paths) {
-			must_have(invoice, blindedpay);
-			well_formed &= print_blindedpaths(invoice->paths,
-							  invoice->blindedpay);
+						    *invoice->invoice_amount);
+		if (must_have(invoice, offer_description))
+			print_description(invoice->offer_description);
+		if (invoice->invoice_features)
+			print_features(invoice->invoice_features);
+		if (invoice->invoice_paths) {
+			must_have(invoice, invoice_blindedpay);
+			well_formed &= print_blindedpaths(invoice->invoice_paths,
+							  invoice->invoice_blindedpay);
 		} else
-			must_not_have(invoice, blindedpay);
-		if (invoice->issuer)
-			print_issuer(invoice->issuer);
-		if (must_have(invoice, node_id))
-			print_node_id(invoice->node_id);
-		if (invoice->quantity)
-			print_quantity(*invoice->quantity);
-		if (invoice->refund_for) {
-			print_refund_for(invoice->refund_for);
-			if (must_have(invoice, refund_signature))
-				well_formed &= print_signature("invoice",
-							       "refund_signature",
-							       invoice->fields,
-							       invoice->payer_key,
-							       invoice->refund_signature);
-		} else {
-			must_not_have(invoice, refund_signature);
-		}
-		if (invoice->recurrence_counter) {
+			must_not_have(invoice, invoice_blindedpay);
+		if (invoice->offer_issuer)
+			print_issuer(invoice->offer_issuer);
+		if (must_have(invoice, offer_node_id))
+			print_node_id(invoice->offer_node_id);
+		if (invoice->invreq_quantity)
+			print_quantity(*invoice->invreq_quantity);
+		if (invoice->invreq_recurrence_counter) {
 			well_formed &=
-				print_recurrence_counter_with_base(invoice->recurrence_counter,
-								   invoice->recurrence_start,
-								   invoice->recurrence_basetime);
+				print_recurrence_counter_with_base(invoice->invreq_recurrence_counter,
+								   invoice->invreq_recurrence_start,
+								   invoice->invoice_recurrence_basetime);
 		} else {
-			must_not_have(invoice, recurrence_start);
-			must_not_have(invoice, recurrence_basetime);
+			must_not_have(invoice, invreq_recurrence_start);
+			must_not_have(invoice, invoice_recurrence_basetime);
 		}
-		if (must_have(invoice, payer_key))
-			print_payer_key(invoice->payer_key, invoice->payer_info);
-		if (must_have(invoice, created_at))
-			print_created_at(*invoice->created_at);
-		if (invoice->payer_note)
-			print_payer_note(invoice->payer_note);
-		print_relative_expiry(invoice->created_at,
-				      invoice->relative_expiry);
-		if (must_have(invoice, payment_hash))
-			print_payment_hash(invoice->payment_hash);
-		if (must_have(invoice, cltv))
-			print_cltv(*invoice->cltv);
-		if (invoice->fallbacks)
-			print_fallbacks(invoice->fallbacks);
+		if (must_have(invoice, invreq_payer_id))
+			print_payer_id(invoice->invreq_payer_id,
+					invoice->invreq_metadata);
+		if (must_have(invoice, invoice_created_at))
+			print_created_at(*invoice->invoice_created_at);
+		if (invoice->invreq_payer_note)
+			print_payer_note(invoice->invreq_payer_note);
+		print_relative_expiry(invoice->invoice_created_at,
+				      invoice->invoice_relative_expiry);
+		if (must_have(invoice, invoice_payment_hash))
+			print_payment_hash(invoice->invoice_payment_hash);
+		if (invoice->invoice_fallbacks)
+			print_fallbacks(invoice->invoice_fallbacks);
 		if (must_have(invoice, signature))
 			well_formed &= print_signature("invoice", "signature",
 						       invoice->fields,
-						       invoice->node_id,
+						       invoice->offer_node_id,
 						       invoice->signature);
 		if (!print_extra_fields(invoice->fields))
 			well_formed = false;

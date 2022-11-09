@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 	/* We deal in UTC; mktime() uses local time */
 	setenv("TZ", "", 1);
 	json_for_each_arr(i, t, toks) {
-		struct tlv_offer_recurrence recurrence;
+		struct recurrence recurrence;
 		int unit;
 		const jsmntok_t *exp;
 		u64 base, secs, n;

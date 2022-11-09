@@ -1192,10 +1192,10 @@ static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 			return NULL;
 		}
 
-		if (bolt12->description)
+		if (bolt12->offer_description)
 			desc = tal_strndup(ctx,
-				cast_signed(char *, bolt12->description),
-				tal_bytelen(bolt12->description));
+				cast_signed(char *, bolt12->offer_description),
+				tal_bytelen(bolt12->offer_description));
 		else
 			desc = NULL;
 	} else

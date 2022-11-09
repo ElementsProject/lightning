@@ -4383,7 +4383,7 @@ def test_offer_needs_option(node_factory):
         l1.rpc.call('fetchinvoice', {'offer': 'aaaa'})
 
     # Decode still works though
-    assert l1.rpc.decode('lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyys5qq7yypxdeze35wncs2l2u4gfzyrpds00e6yakfrt6ctrw5n9qanzhqr2x8sgp3lqxpxd82j87j67wyff9cd9msgagq8hveftdkx5t3e98gj2x7ac99hhwlpj9yvj79yz3l8gdlmdmhq47ct9pkedfd8naksd8f8gpar')['valid']
+    assert l1.rpc.decode('lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyqs5pr5v4ehg93pqfnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq63s')['valid']
 
 
 def test_offer(node_factory, bitcoind):
@@ -4449,14 +4449,14 @@ def test_offer(node_factory, bitcoind):
                                       offer['bolt12']]).decode('UTF-8')
     assert 'issuer: ' + weird_issuer in output
 
-    # Test quantity min/max
+    # Test quantity
     ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                'description': 'quantity_min test',
-                                'quantity_min': 1})
+                                'description': 'quantity_max existence test',
+                                'quantity_max': 0})
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'quantity_min: 1' in output
+    assert 'quantity_max: 0' in output
 
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
@@ -4465,26 +4465,6 @@ def test_offer(node_factory, bitcoind):
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
     assert 'quantity_max: 2' in output
-
-    # BOLT-offers #12:
-    # 	 * - MUST NOT set `quantity_min` or `quantity_max` less than 1.
-    with pytest.raises(RpcError, match='quantity_min: must be >= 1'):
-        ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                    'description': 'quantity_min test',
-                                    'quantity_min': 0})
-
-    with pytest.raises(RpcError, match='quantity_max: must be >= 1'):
-        ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                    'description': 'quantity_max test',
-                                    'quantity_max': 0})
-    # BOLT-offers #12:
-    # - if both:
-    #    - MUST set `quantity_min` greater or equal to `quantity_max`.
-    with pytest.raises(RpcError, match='quantity_min: must be <= quantity_max'):
-        ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                    'description': 'quantity_max test',
-                                    'quantity_min': 10,
-                                    'quantity_max': 9})
 
     # Test absolute_expiry
     exp = int(time.time() + 2)
@@ -5241,5 +5221,5 @@ def test_payerkey(node_factory):
                      "03a3bbda0137722ba62207b9d3e5e6cc2a11e58480f801892093e01383aacb7fb2"]
 
     for n, k in zip(nodes, expected_keys):
-        b12 = n.rpc.createinvoicerequest('lnr1qvsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcyyrjjthf4rh99n7equvlrzrlalcacxj4y9hgzxc79yrntrth6mp3nkvssy5mac4pkfq2m3gq4ttajwh097s')['bolt12']
+        b12 = n.rpc.createinvoicerequest('lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu')['bolt12']
         assert n.rpc.decode(b12)['payer_key'] == k
