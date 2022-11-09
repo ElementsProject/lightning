@@ -16,7 +16,7 @@
 struct onion_message_hook_payload {
 	/* Optional */
 	struct blinded_path *reply_path;
-	struct pubkey *our_alias;
+	struct secret *pathsecret;
 	struct tlv_onionmsg_tlv *om;
 };
 
@@ -45,8 +45,8 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 				    struct plugin *plugin)
 {
 	json_object_start(stream, "onion_message");
-	if (payload->our_alias)
-		json_add_pubkey(stream, "our_alias", payload->our_alias);
+	if (payload->pathsecret)
+		json_add_secret(stream, "pathsecret", payload->pathsecret);
 
 	if (payload->reply_path)
 		json_add_blindedpath(stream, "reply_blindedpath",
@@ -86,36 +86,34 @@ onion_message_hook_cb(struct onion_message_hook_payload *payload STEALS)
 	tal_free(payload);
 }
 
-/* Two hooks, because it's critical we only accept blinding if we expect that
- * exact blinding key.  Otherwise, we can be probed using old blinded paths. */
-REGISTER_PLUGIN_HOOK(onion_message_blinded,
+/* This is for unsolicted messages */
+REGISTER_PLUGIN_HOOK(onion_message_recv,
 		     plugin_hook_continue,
 		     onion_message_hook_cb,
 		     onion_message_serialize,
 		     struct onion_message_hook_payload *);
 
-REGISTER_PLUGIN_HOOK(onion_message_ourpath,
+/* This is for messages claiming to be using our paths: caller must
+ * check pathsecret! */
+ REGISTER_PLUGIN_HOOK(onion_message_recv_secret,
 		     plugin_hook_continue,
 		     onion_message_hook_cb,
 		     onion_message_serialize,
 		     struct onion_message_hook_payload *);
+
 
 void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 {
 	struct onion_message_hook_payload *payload;
 	u8 *submsg;
-	struct secret *self_id;
 	size_t submsglen;
 	const u8 *subptr;
 
 	payload = tal(tmpctx, struct onion_message_hook_payload);
-	payload->our_alias = tal(payload, struct pubkey);
-
 	if (!fromwire_connectd_got_onionmsg_to_us(payload, msg,
-						 payload->our_alias,
-						 &self_id,
-						 &payload->reply_path,
-						 &submsg)) {
+						  &payload->pathsecret,
+						  &payload->reply_path,
+						  &submsg)) {
 		log_broken(ld->log, "bad got_onionmsg_tous: %s",
 			   tal_hex(tmpctx, msg));
 		return;
@@ -125,12 +123,6 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	if (ld->dev_ignore_modern_onion)
 		return;
 #endif
-
-	/* If there's no self_id, or it's not correct, ignore alias: alias
-	 * means we created the path it's using. */
-	if (!self_id || !secret_eq_consttime(self_id, &ld->onion_reply_secret))
-		payload->our_alias = tal_free(payload->our_alias);
-	tal_free(self_id);
 
 	submsglen = tal_bytelen(submsg);
 	subptr = submsg;
@@ -144,15 +136,15 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 
 	/* Make sure connectd gets this right. */
 	log_debug(ld->log, "Got onionmsg%s%s",
-		  payload->our_alias ? " via-ourpath": "",
+		  payload->pathsecret ? " with pathsecret": "",
 		  payload->reply_path ? " reply_path": "");
 
 	/* We'll free this on return */
 	tal_steal(ld, payload);
-	if (payload->our_alias)
-		plugin_hook_call_onion_message_ourpath(ld, NULL, payload);
+	if (payload->pathsecret)
+		plugin_hook_call_onion_message_recv_secret(ld, NULL, payload);
 	else
-		plugin_hook_call_onion_message_blinded(ld, NULL, payload);
+		plugin_hook_call_onion_message_recv(ld, NULL, payload);
 }
 
 struct onion_hop {
@@ -286,9 +278,11 @@ static struct command_result *json_blindedpath(struct command *cmd,
 	size_t nhops;
 	struct json_stream *response;
 	struct tlv_encrypted_data_tlv *tlv;
+	struct secret *pathsecret;
 
 	if (!param(cmd, buffer, params,
 		   p_req("ids", param_pubkeys, &ids),
+		   p_req("pathsecret", param_secret, &pathsecret),
 		   NULL))
 		return command_param_failed();
 
@@ -338,8 +332,8 @@ static struct command_result *json_blindedpath(struct command *cmd,
 	path->path[nhops-1] = tal(path->path, struct onionmsg_hop);
 
 	tlv = tlv_encrypted_data_tlv_new(tmpctx);
-	tlv->path_id = (u8 *)tal_dup(tlv, struct secret,
-				     &cmd->ld->onion_reply_secret);
+
+	tlv->path_id = (u8 *)tal_dup(tlv, struct secret, pathsecret);
 	path->path[nhops-1]->encrypted_recipient_data
 		= encrypt_tlv_encrypted_data(path->path[nhops-1],
 					     &blinding_iter,

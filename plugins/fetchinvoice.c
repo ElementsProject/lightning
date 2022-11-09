@@ -29,8 +29,8 @@ static LIST_HEAD(sent_list);
 struct sent {
 	/* We're in sent_invreqs, awaiting reply. */
 	struct list_node list;
-	/* The alias used by reply */
-	struct pubkey *reply_alias;
+	/* The secret used by reply */
+	struct secret *reply_secret;
 	/* The command which sent us. */
 	struct command *cmd;
 	/* The offer we are trying to get an invoice/payment for. */
@@ -48,12 +48,12 @@ struct sent {
 	u32 wait_timeout;
 };
 
-static struct sent *find_sent_by_alias(const struct pubkey *alias)
+static struct sent *find_sent_by_secret(const struct secret *pathsecret)
 {
 	struct sent *i;
 
 	list_for_each(&sent_list, i, list) {
-		if (i->reply_alias && pubkey_eq(i->reply_alias, alias))
+		if (i->reply_secret && secret_eq_consttime(i->reply_secret, pathsecret))
 			return i;
 	}
 	return NULL;
@@ -409,18 +409,16 @@ static struct command_result *recv_modern_onion_message(struct command *cmd,
 							const char *buf,
 							const jsmntok_t *params)
 {
-	const jsmntok_t *om, *aliastok;
+	const jsmntok_t *om, *secrettok;
 	struct sent *sent;
-	struct pubkey alias;
+	struct secret pathsecret;
 	struct command_result *err;
 
 	om = json_get_member(buf, params, "onion_message");
 
-	aliastok = json_get_member(buf, om, "our_alias");
-	if (!aliastok || !json_to_pubkey(buf, aliastok, &alias))
-		return command_hook_success(cmd);
-
-	sent = find_sent_by_alias(&alias);
+	secrettok = json_get_member(buf, om, "pathsecret");
+	json_to_secret(buf, secrettok, &pathsecret);
+	sent = find_sent_by_secret(&pathsecret);
 	if (!sent) {
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "No match for modern onion %.*s",
@@ -703,11 +701,6 @@ static struct command_result *use_reply_path(struct command *cmd,
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
-	/* Remember our alias we used so we can recognize reply */
-	sending->sent->reply_alias
-		= tal_dup(sending->sent, struct pubkey,
-			  &rpath->path[tal_count(rpath->path)-1]->blinded_node_id);
-
 	return send_modern_message(cmd, rpath, sending);
 }
 
@@ -722,6 +715,10 @@ static struct command_result *make_reply_path(struct command *cmd,
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
 				    "Refusing to talk to ourselves");
 
+	/* Create transient secret so we can validate reply! */
+	sending->sent->reply_secret = tal(sending->sent, struct secret);
+	randombytes_buf(sending->sent->reply_secret, sizeof(struct secret));
+
 	req = jsonrpc_request_start(cmd->plugin, cmd, "blindedpath",
 				    use_reply_path,
 				    forward_error,
@@ -733,6 +730,7 @@ static struct command_result *make_reply_path(struct command *cmd,
 	for (int i = nhops - 2; i >= 0; i--)
 		json_add_pubkey(req->js, NULL, &sending->sent->path[i]);
 	json_array_end(req->js);
+	json_add_secret(req->js, "pathsecret", sending->sent->reply_secret);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -1723,7 +1721,7 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 
 static const struct plugin_hook hooks[] = {
 	{
-		"onion_message_ourpath",
+		"onion_message_recv_secret",
 		recv_modern_onion_message
 	},
 	{

@@ -75,7 +75,7 @@ void handle_onion_message(struct daemon *daemon,
 		towire_tlvstream_raw(&omsg, final_om->fields);
 		daemon_conn_send(daemon->master,
 				 take(towire_connectd_got_onionmsg_to_us(NULL,
-							&final_alias, final_path_id,
+							final_path_id,
 							final_om->reply_path,
 							omsg)));
 	} else {

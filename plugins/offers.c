@@ -127,7 +127,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 
 static const struct plugin_hook hooks[] = {
 	{
-		"onion_message_blinded",
+		"onion_message_recv",
 		onion_message_modern_call
 	},
 };
