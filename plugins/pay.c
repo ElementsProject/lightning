@@ -987,7 +987,7 @@ static struct command_result *json_pay(struct command *cmd,
 	struct shadow_route_data *shadow_route;
 	struct amount_msat *invmsat;
 	u64 invexpiry;
-	struct sha256 *local_offer_id;
+	struct sha256 *local_invreq_id;
 	const struct tlv_invoice *b12;
 	struct out_req *req;
 	struct route_exclusion **exclusions;
@@ -1011,7 +1011,7 @@ static struct command_result *json_pay(struct command *cmd,
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     maxdelay_default),
 		   p_opt("exemptfee", param_msat, &exemptfee),
-		   p_opt("localofferid", param_sha256, &local_offer_id),
+		   p_opt("localinvreqid", param_sha256, &local_invreq_id),
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),
 		   p_opt("maxfee", param_msat, &maxfee),
 		   p_opt("description", param_string, &description),
@@ -1159,7 +1159,7 @@ static struct command_result *json_pay(struct command *cmd,
 			invexpiry = *b12->invoice_created_at + *b12->invoice_relative_expiry;
 		else
 			invexpiry = *b12->invoice_created_at + BOLT12_DEFAULT_REL_EXPIRY;
-		p->local_offer_id = tal_steal(p, local_offer_id);
+		p->local_invreq_id = tal_steal(p, local_invreq_id);
 	}
 
 	if (time_now().ts.tv_sec > invexpiry)

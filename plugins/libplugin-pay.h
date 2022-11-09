@@ -277,9 +277,9 @@ struct payment {
 	/* Description, usually set if bolt11 has only description_hash */
 	const char *description;
 
-	/* If this is paying a local offer, this is the one (sendpay ensures we
-	 * don't pay twice for single-use offers) */
-	struct sha256 *local_offer_id;
+	/* If this is paying a local invoice_request, this is the one (sendpay
+	 * ensures we don't pay twice for single-use invoice requests) */
+	struct sha256 *local_invreq_id;
 
 	/* Textual explanation of why this payment was attempted. */
 	const char *why;

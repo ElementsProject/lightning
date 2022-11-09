@@ -45,7 +45,7 @@ enum jsonrpc_errcode {
 	PAY_UNSPECIFIED_ERROR = 209,
 	PAY_STOPPED_RETRYING = 210,
 	PAY_STATUS_UNEXPECTED = 211,
-	PAY_OFFER_INVALID = 212,
+	PAY_INVOICE_REQUEST_INVALID = 212,
 
 	/* `fundchannel` or `withdraw` errors */
 	FUND_MAX_EXCEEDED = 300,

@@ -416,7 +416,7 @@ def test_pay_plugin(node_factory):
 
     # Make sure usage messages are present.
     msg = 'pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] '\
-          '[retry_for] [maxdelay] [exemptfee] [localofferid] [exclude] '\
+          '[retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] '\
           '[maxfee] [description]'
     if DEVELOPER:
         msg += ' [use_shadow]'

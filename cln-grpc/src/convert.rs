@@ -1057,7 +1057,7 @@ impl From<pb::SendpayRequest> for requests::SendpayRequest {
             bolt11: c.bolt11, // Rule #1 for type string?
             payment_secret: c.payment_secret.map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
             partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
-            localofferid: c.localofferid.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            localinvreqid: c.localinvreqid.map(|v| hex::encode(v)), // Rule #1 for type hex?
             groupid: c.groupid, // Rule #1 for type u64?
         }
     }
@@ -1256,7 +1256,7 @@ impl From<pb::SendonionRequest> for requests::SendonionRequest {
             bolt11: c.bolt11, // Rule #1 for type string?
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             destination: c.destination.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            localofferid: c.localofferid.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            localinvreqid: c.localinvreqid.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             groupid: c.groupid, // Rule #1 for type u64?
         }
     }
@@ -1293,7 +1293,7 @@ impl From<pb::PayRequest> for requests::PayRequest {
             retry_for: c.retry_for.map(|v| v as u16), // Rule #1 for type u16?
             maxdelay: c.maxdelay.map(|v| v as u16), // Rule #1 for type u16?
             exemptfee: c.exemptfee.map(|a| a.into()), // Rule #1 for type msat?
-            localofferid: c.localofferid.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            localinvreqid: c.localinvreqid.map(|v| hex::encode(v)), // Rule #1 for type hex?
             exclude: Some(c.exclude.into_iter().map(|s| s.into()).collect()), // Rule #4
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             description: c.description, // Rule #1 for type string?

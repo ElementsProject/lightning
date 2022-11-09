@@ -92,7 +92,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->features = parent->features;
 		p->id = parent->id;
 		p->local_id = parent->local_id;
-		p->local_offer_id = parent->local_offer_id;
+		p->local_invreq_id = parent->local_invreq_id;
 		p->groupid = parent->groupid;
 		p->invstring = parent->invstring;
 		p->description = parent->description;
@@ -107,7 +107,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->description = NULL;
 		/* Caller must set this.  */
 		p->local_id = NULL;
-		p->local_offer_id = NULL;
+		p->local_invreq_id = NULL;
 		p->groupid = 0;
 	}
 
@@ -1599,8 +1599,8 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	if (p->destination)
 		json_add_node_id(req->js, "destination", p->destination);
 
-	if (p->local_offer_id)
-		json_add_sha256(req->js, "localofferid", p->local_offer_id);
+	if (p->local_invreq_id)
+		json_add_sha256(req->js, "localinvreqid", p->local_invreq_id);
 
 	send_outreq(p->plugin, req);
 	return command_still_pending(cmd);

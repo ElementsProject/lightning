@@ -209,8 +209,8 @@ pub mod requests {
 	    pub payment_secret: Option<Secret>,
 	    #[serde(alias = "partid", skip_serializing_if = "Option::is_none")]
 	    pub partid: Option<u16>,
-	    #[serde(alias = "localofferid", skip_serializing_if = "Option::is_none")]
-	    pub localofferid: Option<String>,
+	    #[serde(alias = "localinvreqid", skip_serializing_if = "Option::is_none")]
+	    pub localinvreqid: Option<String>,
 	    #[serde(alias = "groupid", skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
 	}
@@ -622,8 +622,8 @@ pub mod requests {
 	    pub amount_msat: Option<Amount>,
 	    #[serde(alias = "destination", skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
-	    #[serde(alias = "localofferid", skip_serializing_if = "Option::is_none")]
-	    pub localofferid: Option<Sha256>,
+	    #[serde(alias = "localinvreqid", skip_serializing_if = "Option::is_none")]
+	    pub localinvreqid: Option<Sha256>,
 	    #[serde(alias = "groupid", skip_serializing_if = "Option::is_none")]
 	    pub groupid: Option<u64>,
 	}
@@ -711,8 +711,8 @@ pub mod requests {
 	    pub maxdelay: Option<u16>,
 	    #[serde(alias = "exemptfee", skip_serializing_if = "Option::is_none")]
 	    pub exemptfee: Option<Amount>,
-	    #[serde(alias = "localofferid", skip_serializing_if = "Option::is_none")]
-	    pub localofferid: Option<String>,
+	    #[serde(alias = "localinvreqid", skip_serializing_if = "Option::is_none")]
+	    pub localinvreqid: Option<String>,
 	    #[serde(alias = "exclude", skip_serializing_if = "crate::is_none_or_empty")]
 	    pub exclude: Option<Vec<String>>,
 	    #[serde(alias = "maxfee", skip_serializing_if = "Option::is_none")]
