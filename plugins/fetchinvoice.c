@@ -619,6 +619,7 @@ send_modern_message(struct command *cmd,
 	size_t nhops = tal_count(sent->path);
 	struct tlv_onionmsg_tlv **payloads;
 	struct out_req *req;
+	struct tlv_encrypted_data_tlv *tlv;
 
 	/* Now create enctlvs for *forward* path. */
 	randombytes_buf(&blinding_iter, sizeof(blinding_iter));
@@ -634,25 +635,30 @@ send_modern_message(struct command *cmd,
 
 	for (size_t i = 1; i < nhops - 1; i++) {
 		payloads[i] = tlv_onionmsg_tlv_new(payloads);
-		payloads[i]->encrypted_recipient_data = create_enctlv(payloads[i],
-						    &blinding_iter,
-						    &sent->path[i],
-						    &sent->path[i+1],
-						    NULL,
-						    /* FIXME: Pad? */
-						    0,
-						    NULL, NULL, NULL, NULL,
-						    &blinding_iter,
-						    &node_alias[i]);
+
+		tlv = tlv_encrypted_data_tlv_new(tmpctx);
+		tlv->next_node_id = &sent->path[i+1];
+		/* FIXME: Pad? */
+
+		payloads[i]->encrypted_recipient_data
+			= encrypt_tlv_encrypted_data(payloads[i],
+						     &blinding_iter,
+						     &sent->path[i],
+						     tlv,
+						     &blinding_iter,
+						     &node_alias[i]);
 	}
 	/* Final payload contains the actual data. */
 	payloads[nhops-1] = sending->payload;
 
 	/* We don't include enctlv in final, but it gives us final alias */
-	if (!create_final_enctlv(tmpctx, &blinding_iter, &sent->path[nhops-1],
-				 /* FIXME: Pad? */ 0,
-				 NULL, NULL,
-				 &node_alias[nhops-1])) {
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+	if (!encrypt_tlv_encrypted_data(tmpctx,
+					&blinding_iter,
+					&sent->path[nhops-1],
+					tlv,
+					NULL,
+					&node_alias[nhops-1])) {
 		/* Should not happen! */
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could create final enctlv");
@@ -668,12 +674,12 @@ send_modern_message(struct command *cmd,
 	json_add_pubkey(req->js, "blinding", &fwd_blinding);
 	json_array_start(req->js, "hops");
 	for (size_t i = 1; i < nhops; i++) {
-		u8 *tlv;
+		u8 *tlvbin;
 		json_object_start(req->js, NULL);
 		json_add_pubkey(req->js, "id", &node_alias[i]);
-		tlv = tal_arr(tmpctx, u8, 0);
-		towire_tlv_onionmsg_tlv(&tlv, payloads[i]);
-		json_add_hex_talarr(req->js, "tlv", tlv);
+		tlvbin = tal_arr(tmpctx, u8, 0);
+		towire_tlv_onionmsg_tlv(&tlvbin, payloads[i]);
+		json_add_hex_talarr(req->js, "tlv", tlvbin);
 		json_object_end(req->js);
 	}
 	json_array_end(req->js);

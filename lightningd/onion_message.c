@@ -285,6 +285,7 @@ static struct command_result *json_blindedpath(struct command *cmd,
 	struct blinded_path *path;
 	size_t nhops;
 	struct json_stream *response;
+	struct tlv_encrypted_data_tlv *tlv;
 
 	if (!param(cmd, buffer, params,
 		   p_req("ids", param_pubkeys, &ids),
@@ -319,29 +320,33 @@ static struct command_result *json_blindedpath(struct command *cmd,
 	blinding_iter = first_blinding;
 	for (size_t i = 0; i < nhops - 1; i++) {
 		path->path[i] = tal(path->path, struct onionmsg_hop);
+
+		tlv = tlv_encrypted_data_tlv_new(tmpctx);
+		tlv->next_node_id = &ids[i+1];
+		/* FIXME: Pad? */
+
 		path->path[i]->encrypted_recipient_data
-			= create_enctlv(path->path[i],
-					&blinding_iter,
-					&ids[i],
-					&ids[i+1], NULL,
-					/* FIXME: Pad? */
-					0,
-					NULL, NULL, NULL, NULL,
-					&blinding_iter,
-					&path->path[i]->blinded_node_id);
+			= encrypt_tlv_encrypted_data(path->path[i],
+						     &blinding_iter,
+						     &ids[i],
+						     tlv,
+						     &blinding_iter,
+						     &path->path[i]->blinded_node_id);
 	}
 
 	/* FIXME: Add padding! */
 	path->path[nhops-1] = tal(path->path, struct onionmsg_hop);
+
+	tlv = tlv_encrypted_data_tlv_new(tmpctx);
+	tlv->path_id = (u8 *)tal_dup(tlv, struct secret,
+				     &cmd->ld->onion_reply_secret);
 	path->path[nhops-1]->encrypted_recipient_data
-		= create_final_enctlv(path->path[nhops-1],
-				      &blinding_iter,
-				      &ids[nhops-1],
-				      /* FIXME: Pad? */
-				      0,
-				      &cmd->ld->onion_reply_secret,
-				      NULL,
-				      &path->path[nhops-1]->blinded_node_id);
+		= encrypt_tlv_encrypted_data(path->path[nhops-1],
+					     &blinding_iter,
+					     &ids[nhops-1],
+					     tlv,
+					     NULL,
+					     &path->path[nhops-1]->blinded_node_id);
 
 	response = json_stream_success(cmd);
 	json_add_blindedpath(response, "blindedpath", path);
