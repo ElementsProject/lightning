@@ -53,6 +53,7 @@ static char *check_features_and_chain(const tal_t *ctx,
 				      const struct feature_set *our_features,
 				      const struct chainparams *must_be_chain,
 				      const u8 *features,
+				      enum feature_place fplace,
 				      const struct bitcoin_blkid *chains,
 				      size_t num_chains)
 {
@@ -62,8 +63,7 @@ static char *check_features_and_chain(const tal_t *ctx,
 	}
 
 	if (our_features) {
-		int badf = features_unsupported(our_features, features,
-						BOLT11_FEATURE);
+		int badf = features_unsupported(our_features, features, fplace);
 		if (badf != -1)
 			return tal_fmt(ctx, "unknown feature bit %i", badf);
 	}
@@ -182,6 +182,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 offer->features,
+					 BOLT12_OFFER_FEATURE,
 					 offer->chains,
 					 tal_count(offer->chains));
 	if (*fail)
@@ -236,6 +237,7 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 invrequest->features,
+					 BOLT12_INVREQ_FEATURE,
 					 invrequest->chain, 1);
 	if (*fail)
 		return tal_free(invrequest);
@@ -276,6 +278,7 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 invoice->features,
+					 BOLT12_INVOICE_FEATURE,
 					 invoice->chain, 1);
 	if (*fail)
 		return tal_free(invoice);

@@ -3510,7 +3510,7 @@ def test_nonstatic_channel(node_factory, bitcoind):
                                      opts=[{},
                                            # needs at least 15 to connect
                                            # (and 9 is a dependent)
-                                           {'dev-force-features': '9,15/////'}])
+                                           {'dev-force-features': '9,15////////'}])
     chan = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])
     assert 'option_static_remotekey' not in chan['features']
     assert 'option_anchor_outputs' not in chan['features']
