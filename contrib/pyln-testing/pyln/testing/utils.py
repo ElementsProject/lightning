@@ -705,7 +705,8 @@ class PrettyPrintingLightningRpc(LightningRpc):
             "result": res
         }, indent=2))
 
-        if schemas and schemas[1] and not filter:
+        # FIXME: if filter set, just remove "required" from schemas?
+        if schemas and schemas[1] and filter is None and self._filter is None:
             schemas[1].validate(res)
 
         return res
