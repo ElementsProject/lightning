@@ -31,13 +31,13 @@ PLUGIN_PAY_LIB_SRC := plugins/libplugin-pay.c
 PLUGIN_PAY_LIB_HEADER := plugins/libplugin-pay.h
 PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
 
-PLUGIN_OFFERS_SRC := plugins/offers.c plugins/offers_offer.c plugins/offers_invreq_hook.c
+PLUGIN_OFFERS_SRC := plugins/offers.c plugins/offers_offer.c plugins/offers_invreq_hook.c plugins/offers_inv_hook.c
 PLUGIN_OFFERS_OBJS := $(PLUGIN_OFFERS_SRC:.c=.o)
 PLUGIN_OFFERS_HEADER := $(PLUGIN_OFFERS_SRC:.c=.h)
 
 PLUGIN_FETCHINVOICE_SRC := plugins/fetchinvoice.c
 PLUGIN_FETCHINVOICE_OBJS := $(PLUGIN_FETCHINVOICE_SRC:.c=.o)
-PLUGIN_FETCHINVOICE_HEADER := 
+PLUGIN_FETCHINVOICE_HEADER :=
 
 PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/fundchannel.c		\

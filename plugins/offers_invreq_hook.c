@@ -940,9 +940,11 @@ static struct command_result *listoffers_done(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 * The writer:
-	 *   - MUST copy all non-signature fields from the invreq (including
-	 *     unknown fields).
+	 * The writer of an invoice:
+	 *...
+	 *  - if the invoice is in response to an `invoice_request`:
+	 *    - MUST copy all non-signature fields from the invreq (including
+	 *      unknown fields).
 	 */
 	ir->inv = invoice_for_invreq(cmd, ir->invreq);
 	assert(ir->inv->invreq_payer_id);

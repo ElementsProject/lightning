@@ -8,6 +8,7 @@
 #include <common/json_stream.h>
 #include <common/overflows.h>
 #include <plugins/offers_offer.h>
+#include <sodium/randombytes.h>
 
 static bool msat_or_any(const char *buffer,
 			const jsmntok_t *tok,
@@ -230,14 +231,14 @@ static struct command_result *check_result(struct command *cmd,
 			  &active)) {
 		return command_fail(cmd,
 				    LIGHTNINGD,
-				    "Bad createoffer status reply %.*s",
+				    "Bad createoffer/createinvoicerequest status reply %.*s",
 				    json_tok_full_len(result),
 				    json_tok_full(buf, result));
 	}
 	if (!active)
 		return command_fail(cmd,
 				    OFFER_ALREADY_EXISTS,
-				    "Offer already exists, but isn't active");
+				    "Already exists, but isn't active");
 
 	/* Otherwise, push through the result. */
 	return forward_result(cmd, buf, result, arg);
@@ -384,3 +385,89 @@ struct command_result *json_offer(struct command *cmd,
 
 	return create_offer(cmd, offinfo);
 }
+
+struct command_result *json_invoicerequest(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *params)
+{
+	const char *desc, *issuer, *label;
+	struct tlv_invoice_request *invreq;
+	struct out_req *req;
+	struct amount_msat *msat;
+	bool *single_use;
+
+	invreq = tlv_invoice_request_new(cmd);
+
+	if (!param(cmd, buffer, params,
+		   p_req("amount", param_msat, &msat),
+		   p_req("description", param_escaped_string, &desc),
+		   p_opt("issuer", param_escaped_string, &issuer),
+		   p_opt("label", param_escaped_string, &label),
+		   p_opt("absolute_expiry", param_u64,
+			 &invreq->offer_absolute_expiry),
+		   p_opt_def("single_use", param_bool, &single_use, true),
+		   NULL))
+		return command_param_failed();
+
+	if (!offers_enabled)
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-offers not enabled");
+
+	/* BOLT-offers #12:
+	 * - otherwise (not responding to an offer):
+	 *   - MUST set (or not set) `offer_metadata`, `offer_description`, `offer_absolute_expiry`, `offer_paths` and `offer_issuer` as it would for an offer.
+	 *   - MUST set `invreq_payer_id` as it would set `offer_node_id` for an offer.
+	 *   - MUST NOT include `signature`, `offer_chains`, `offer_amount`, `offer_currency`, `offer_features`, `offer_quantity_max` or `offer_node_id`
+	 *   - if the chain for the invoice is not solely bitcoin:
+	 *     - MUST specify `invreq_chain` the offer is valid for.
+	 *   - MUST set `invreq_amount`.
+	 */
+	invreq->offer_description
+		= tal_dup_arr(invreq, char, desc, strlen(desc), 0);
+	if (issuer) {
+		invreq->offer_issuer
+			= tal_dup_arr(invreq, char, issuer, strlen(issuer), 0);
+	}
+
+	if (!streq(chainparams->network_name, "bitcoin")) {
+		invreq->invreq_chain
+			= tal_dup(invreq, struct bitcoin_blkid,
+				  &chainparams->genesis_blockhash);
+	}
+	/* BOLT-offers #12:
+	 * - if it sets `invreq_amount`:
+	 *   - MUST set `msat` in multiples of the minimum lightning-payable unit
+	 *       (e.g. milli-satoshis for bitcoin) for `invreq_chain` (or for bitcoin, if there is no `invreq_chain`).
+	 */
+	invreq->invreq_amount
+		= tal_dup(invreq, u64, &msat->millisatoshis); /* Raw: wire */
+
+	/* FIXME: enable blinded paths! */
+
+	/* BOLT-offers #12:
+	 * - MUST set `invreq_metadata` to an unpredictable series of bytes.
+	 */
+	/* BOLT-offers #12:
+	 * - otherwise (not responding to an offer):
+	 *...
+	 *   - MUST set `invreq_payer_id` as it would set `offer_node_id` for an offer.
+	 */
+	/* createinvoicerequest sets these! */
+
+	/* BOLT-offers #12:
+	 * - if it supports bolt12 invoice request features:
+	 *   - MUST set `invreq_features`.`features` to the bitmap of features.
+	 */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoicerequest",
+				    check_result, forward_error,
+				    invreq);
+	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
+	json_add_bool(req->js, "savetodb", true);
+	/* FIXME: Allow invoicerequests using aliases! */
+	json_add_bool(req->js, "exposeid", true);
+	json_add_bool(req->js, "single_use", *single_use);
+	if (label)
+		json_add_string(req->js, "label", label);
+	return send_outreq(cmd->plugin, req);
+}
+
