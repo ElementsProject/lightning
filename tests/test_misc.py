@@ -2812,6 +2812,49 @@ def test_torv2_in_db(node_factory):
     l1.start()
 
 
+def test_field_filter(node_factory, chainparams):
+    l1, l2 = node_factory.get_nodes(2)
+
+    addr1 = l1.rpc.newaddr('bech32')['bech32']
+    addr2 = l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit']
+    inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
+
+    # Simple case: single field
+    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']}, filter={"currency": True})
+    assert dec == {"currency": chainparams['bip173_prefix']}
+
+    # Two fields
+    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']}, filter={"currency": True, "payment_hash": True})
+    assert dec == {"currency": chainparams['bip173_prefix'],
+                   "payment_hash": inv['payment_hash']}
+
+    # Nested fields
+    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']},
+                      filter={"currency": True,
+                              "payment_hash": True,
+                              "fallbacks": [{"type": True}]})
+    assert dec == {"currency": chainparams['bip173_prefix'],
+                   "payment_hash": inv['payment_hash'],
+                   "fallbacks": [{"type": 'P2WPKH'}, {"type": 'P2SH'}]}
+
+    # Nonexistent fields.
+    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']},
+                      filter={"foobar": True})
+    assert dec == {}
+
+    # Bad filters
+    dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']},
+                      filter={"currency": True,
+                              "payment_hash": True,
+                              "fallbacks": {'type': True}})
+    assert dec['warning_parameter_filter'] == '.fallbacks is an array'
+
+    # Plugins ignore filters!
+    res = l1.rpc.call('decode', {'string': inv['bolt11']},
+                      filter={"currency": True})
+    assert 'type' in res
+
+
 def test_checkmessage_pubkey_not_found(node_factory):
     l1 = node_factory.get_node()
 
