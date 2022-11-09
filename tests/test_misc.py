@@ -927,6 +927,16 @@ def test_cli(node_factory):
     j, _ = json.JSONDecoder().raw_decode(out)
     assert 'help [command]' in j['help'][0]['verbose']
 
+    # Test filtering
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-J', '--filter={"help":[{"command":true}]}',
+                                   'help', 'help']).decode('utf-8')
+    j, _ = json.JSONDecoder().raw_decode(out)
+    assert j == {'help': [{'command': 'help [command]'}]}
+
     # Test missing parameters.
     try:
         # This will error due to missing parameters.

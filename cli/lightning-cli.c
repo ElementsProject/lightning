@@ -620,7 +620,7 @@ int main(int argc, char *argv[])
 	enum input input = DEFAULT_INPUT;
 	enum log_level notification_level = LOG_INFORM;
 	bool last_was_progress = false;
-	char *command = NULL;
+	char *command = NULL, *filter = NULL;
 
 	err_set_progname(argv[0]);
 	jsmn_init(&parser);
@@ -650,6 +650,9 @@ int main(int argc, char *argv[])
 	opt_register_arg("-N|--notifications", opt_set_level,
 			 opt_show_level, &notification_level,
 			 "Set notification level, or none");
+	opt_register_arg("-l|--filter", opt_set_charp,
+			 opt_show_charp, &filter,
+			 "Set JSON reply filter");
 
 	opt_register_version();
 
@@ -713,8 +716,11 @@ int main(int argc, char *argv[])
 		enable_notifications(fd);
 
 	cmd = tal_fmt(ctx,
-		      "{ \"jsonrpc\" : \"2.0\", \"method\" : \"%s\", \"id\" : \"%s\", \"params\" :",
+		      "{ \"jsonrpc\" : \"2.0\", \"method\" : \"%s\", \"id\" : \"%s\",",
 		      json_escape(ctx, method)->s, idstr);
+	if (filter)
+		tal_append_fmt(&cmd, "\"filter\": %s,", filter);
+	tal_append_fmt(&cmd, " \"params\" :");
 
 	if (input == DEFAULT_INPUT) {
 		/* Hacky autodetect; only matters if more than single arg */
