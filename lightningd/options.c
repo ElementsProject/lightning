@@ -635,8 +635,8 @@ static char *opt_force_featureset(const char *optarg,
 	char **parts = tal_strsplit(tmpctx, optarg, "/", STR_EMPTY_OK);
 	if (tal_count(parts) != NUM_FEATURE_PLACE + 1) {
 		if (!strstarts(optarg, "-") && !strstarts(optarg, "+"))
-			return "Expected 5 feature sets (init/globalinit/"
-			       " node_announce/channel/bolt11) each terminated by /"
+			return "Expected 8 feature sets (init/globalinit/"
+			       " node_announce/channel/bolt11/b12offer/b12invreq/b12inv) each terminated by /"
 			       " OR +/-<single_bit_num>";
 
 		char *endp;
