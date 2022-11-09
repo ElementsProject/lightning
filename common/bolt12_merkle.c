@@ -10,7 +10,8 @@
 #endif
 
 /* BOLT-offers #12:
- * TLV types 240 through 1000 are considered signature elements.
+ * Each form is signed using one or more *signature TLV elements*: TLV
+ * types 240 through 1000 (inclusive).
  */
 static bool is_signature_field(const struct tlv_field *field)
 {
@@ -193,18 +194,17 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
 
 /* BOLT-offers #12:
  * All signatures are created as per
- * [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki),
+ * [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
  * and tagged as recommended there.  Thus we define H(`tag`,`msg`) as
  * SHA256(SHA256(`tag`) || SHA256(`tag`) || `msg`), and SIG(`tag`,`msg`,`key`)
  * as the signature of H(`tag`,`msg`) using `key`.
  *
- * Each form is signed using one or more TLV signature elements; TLV
- * types 240 through 1000 are considered signature elements.  For these
- * the tag is "lightning" || `messagename` || `fieldname`, and `msg` is the
- * Merkle-root; "lightning" is the literal 9-byte ASCII string,
- * `messagename` is the name of the TLV stream being signed (i.e. "offer",
- * "invoice_request" or "invoice") and the `fieldname` is the TLV field
- * containing the signature (e.g. "signature" or "refund_signature").
+ * Each form is signed using one or more *signature TLV elements*: TLV types
+ * 240 through 1000 (inclusive).  For these, the tag is "lightning" ||
+ * `messagename` || `fieldname`, and `msg` is the Merkle-root; "lightning" is
+ * the literal 9-byte ASCII string, `messagename` is the name of the TLV
+ * stream being signed (i.e. "invoice_request" or "invoice") and the
+ * `fieldname` is the TLV field containing the signature (e.g. "signature").
  */
 void sighash_from_merkle(const char *messagename,
 			 const char *fieldname,

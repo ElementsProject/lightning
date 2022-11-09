@@ -463,8 +463,8 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 *  - MUST set `signature` `sig` as detailed in
-	 *  [Signature Calculation](#signature-calculation) using the `payer_key`.
+	 *  - MUST set `signature`.`sig` as detailed in
+	 *  [Signature Calculation](#signature-calculation) using the `invreq_payer_id`.
 	 */
 	/* This populates the ->fields from our entries */
 	invreq->fields = tlv_make_fields(invreq, tlv_invoice_request);
