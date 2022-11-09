@@ -7,283 +7,14 @@ on:
   pull_request:
 
 jobs:
-  smoke-test:
-    name: Smoke Test ${{ matrix.cfg }}
-    runs-on: ubuntu-20.04
-    timeout-minutes: 300
-    env:
-      DEVELOPER: 1
-      VALGRIND: 0
-      EXPERIMENTAL_FEATURES: 0
-      COMPAT: 1
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - CFG: "make and unit test w/ VALGRIND"
-            TEST_CMD: "make default check-source"
-            VALGRIND: 1
-          - CFG: "make-O3-check"
-            TEST_CMD: "make check-source check-units installcheck check-gen-updated"
-            COPTFLAGS: "-O3"
-          - CFG: "make-32-bit-nodev-check"
-            ARCH: 32
-            TEST_CMD: "make check-source check-units installcheck"
-            DEVELOPER: 0
-          - CFG: "make-EXPERIMENTAL-check"
-            TEST_CMD: "make check-source check-units installcheck check-gen-updated"
-            EXPERIMENTAL_FEATURES: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Build
-        env:
-          VALGRIND: ${{ matrix.VALGRIND }}
-          DEVELOPER: ${{ matrix.DEVELOPER }}
-          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
-          COMPILER: ${{ matrix.COMPILER }}
-          ARCH: ${{ matrix.ARCH }}
-          COMPAT: ${{ matrix.COMPAT }}
-          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
-          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
-          COPTFLAGS: ${{ matrix.COPTFLAGS }}
-          NETWORK: ${{ matrix.NETWORK }}
-          TEST_CMD: ${{ matrix.TEST_CMD }}
-          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
-          TEST_GROUP: ${{ matrix.TEST_GROUP }}
-        run: |
-          echo $PROTOC
-          which protoc
-          bash -x .github/scripts/build.sh
-
-  check-dock:
-    name: Check core-lightning doc
+  prebuild:
+    name: Pre-build checks
     runs-on: ubuntu-20.04
     env:
-      DEVELOPER: 1
-      VALGRIND: 0
-      EXPERIMENTAL_FEATURES: 0
-      COMPAT: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: bash -x .github/scripts/setup.sh
-
-      - name: Check Doc
-        run: |
-          pip install mako
-          ./configure
-          make check-doc
-
-  normal-test:
-    name: Normal Test Config ${{ matrix.cfg }}
-    runs-on: ubuntu-20.04
-    needs: [smoke-test]
-    env:
-      DEVELOPER: 1
-      VALGRIND: 0
-      EXPERIMENTAL_FEATURES: 0
-      COMPAT: 1
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # All of the following will just run `make pytest`
-          - CFG: "clang-fuzzing"
-            COMPILER: clang
-            FUZZING: 1
-          - CFG: "check-dbstmts"
-            COMPILER: gcc
-            TEST_CHECK_DBSTMTS: 1
-          - CFG: "non-DEVELOPER-non-COMPAT-1"
-            DEVELOPER: 0
-            COMPAT: 0
-            TEST_GROUP: 1
-            TEST_GROUP_COUNT: 2
-          - CFG: "non-DEVELOPER-non-COMPAT-2"
-            DEVELOPER: 0
-            COMPAT: 0
-            TEST_GROUP: 2
-            TEST_GROUP_COUNT: 2
-          - CFG: "DUAL_FUND"
-            EXPERIMENTAL_DUAL_FUND: 1
-            DEVELOPER: 1
-            COMPAT: 0
-          # Various other configurations
-          - CFG: "Elements"
-            NETWORK: liquid-regtest
-          - CFG: "PostgreSQL"
-            DB: postgres
-            PYTEST_PAR: 2
-
-          # The cross-compiled versions
-          - CFG: "cross-arm32"
-            ARCH: arm32v7
-            TARGET_HOST: arm-linux-gnueabihf
-          - CFG: "cross-arm64"
-            ARCH: arm64v8
-            TARGET_HOST: aarch64-linux-gnu
-
-          # The experimental feature test
-          - CFG: "EXPERIMENTAL"
-            EXPERIMENTAL_FEATURES: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Build
-        env:
-          VALGRIND: ${{ matrix.VALGRIND }}
-          DEVELOPER: ${{ matrix.DEVELOPER }}
-          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
-          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
-          COMPILER: ${{ matrix.COMPILER }}
-          ARCH: ${{ matrix.ARCH }}
-          COMPAT: ${{ matrix.COMPAT }}
-          FUZZING: ${{ matrix.FUZZING }}
-          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
-          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
-          NETWORK: ${{ matrix.NETWORK }}
-          TEST_CHECK_DBSTMTS: ${{ matrix.TEST_CHECK_DBSTMTS }}
-          TEST_CMD: ${{ matrix.TEST_CMD }}
-          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
-          TEST_GROUP: ${{ matrix.TEST_GROUP }}
-          TEST_DB_PROVIDER: ${{ matrix.DB }}
-        run: |
-          bash -x .github/scripts/build.sh
-
-  valgrind-test:
-    name: Valgrind Test Config ${{ matrix.cfg }}
-    runs-on: ubuntu-20.04
-    needs: [smoke-test]
-    env:
-      DEVELOPER: 1
-      EXPERIMENTAL_FEATURES: 0
-      COMPAT: 1
-      TEST_GROUP_COUNT: 10
-      PYTEST_PAR: 3
-      LABEL: "Valgrind-test"
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - CFG: "valgrind-1"
-            VALGRIND: 1
-            TEST_GROUP: 1
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-2"
-            VALGRIND: 1
-            TEST_GROUP: 2
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-3"
-            VALGRIND: 1
-            TEST_GROUP: 3
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-4"
-            VALGRIND: 1
-            TEST_GROUP: 4
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-5"
-            VALGRIND: 1
-            TEST_GROUP: 5
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-6"
-            VALGRIND: 1
-            TEST_GROUP: 6
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-7"
-            VALGRIND: 1
-            TEST_GROUP: 7
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-8"
-            VALGRIND: 1
-            TEST_GROUP: 8
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-9"
-            VALGRIND: 1
-            TEST_GROUP: 9
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-          - CFG: "valgrind-10"
-            VALGRIND: 1
-            TEST_GROUP: 10
-            TEST_GROUP_COUNT: 10
-            PYTEST_PAR: 3
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Build
-        env:
-          VALGRIND: ${{ matrix.VALGRIND }}
-          DEVELOPER: ${{ matrix.DEVELOPER }}
-          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
-          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
-          COMPILER: ${{ matrix.COMPILER }}
-          ARCH: ${{ matrix.ARCH }}
-          COMPAT: ${{ matrix.COMPAT }}
-          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
-          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
-          NETWORK: ${{ matrix.NETWORK }}
-          TEST_CMD: ${{ matrix.TEST_CMD }}
-          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
-          TEST_GROUP: ${{ matrix.TEST_GROUP }}
-        run: |
-          bash -x .github/scripts/build.sh
-
-  rust-test:
-    name: Rust Test Config
-    runs-on: ubuntu-20.04
-    needs: [smoke-test]
-    env:
-      DEVELOPER: 1
       RUST: 1
-      VALGRIND: 0
-      # Run only the rust tests, others are not impacted.
-      TEST_CMD: "make -j 8 && pytest -vvv tests/test_cln_rs.py"
+      COMPAT: 1
+    strategy:
+      fail-fast: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -296,7 +27,90 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-
-      - name: Build
+          pip install -U pip wheel poetry
+          # Export and then use pip to install into the current env
+          poetry export -o /tmp/requirements.txt --without-hashes --with dev
+          pip install -r /tmp/requirements.txt
+      - name: Run checks
         run: |
-          bash -x .github/scripts/build.sh
+          ./configure
+          make -j 4 check-source
+          make -j 4 check-units
+          make -j 4 check-gen-updated
+          make -j 4 check-doc
+          make -j 4 installcheck
+          
+  compile:
+    name: Compile CLN ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    env:
+      COMPAT: 1
+    needs:
+      - prebuild
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - CFG: gcc-dev1-exp1
+            DEVELOPER: 1
+            EXPERIMENTAL_FEATURES: 1
+            COMPILER: gcc
+          - CFG: gcc-dev1-exp0
+            DEVELOPER: 1
+            EXPERIMENTAL_FEATURES: 0
+            COMPILER: gcc
+          - CFG: gcc-dev0-exp1
+            DEVELOPER: 0
+            EXPERIMENTAL_FEATURES: 1
+            COMPILER: gcc
+          - CFG: gcc-dev0-exp0
+            DEVELOPER: 0
+            EXPERIMENTAL_FEATURES: 0
+            COMPILER: gcc
+          # While we're at it let's try to compile with clang
+          - CFG: clang-dev1-exp1
+            DEVELOPER: 1
+            EXPERIMENTAL_FEATURES: 1
+            COMPILER: clang
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          
+      - name: Build
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          COMPILER: ${{ matrix.COMPILER }}
+          COMPAT: 1
+          CFG: ${{ matrix.CFG }}
+        run: |
+          set -e
+          export SLOW_MACHINE=1
+
+          pip3 install --user pip wheel poetry
+          poetry export -o requirements.txt --with dev --without-hashes
+          python3 -m pip install -r requirements.txt
+          ./configure CC="$COMPILER"
+
+          # We'll need lowdown, not present on ubuntu:20.04 yet
+          make -j $(nproc) doc-all  # Builds lowdown as a dependency
+          make -j $(nproc) DESTDIR=${GITHUB_WORKSPACE}/cln-${{ matrix.CFG }} install
+
+          # The above leaves the binaries installed in
+          # cln-${matrix.CFG}, let's package it up and store it.
+          
+          tar -cvzf /tmp/cln-${CFG}.tar.gz cln-${CFG}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: cln-${{ matrix.CFG }}.tar.gz
+          path: /tmp/cln-${{ matrix.CFG }}.tar.gz
