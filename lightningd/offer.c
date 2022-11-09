@@ -236,7 +236,7 @@ AUTODATA(json_command, &disableoffer_command);
 /* We do some sanity checks now, since we're looking up prev payment anyway,
  * but our main purpose is to fill in invreq->invreq_metadata tweak. */
 static struct command_result *prev_payment(struct command *cmd,
-					   const char *label,
+					   struct json_escape *label,
 					   struct tlv_invoice_request *invreq,
 					   u64 **prev_basetime)
 {
@@ -254,7 +254,8 @@ static struct command_result *prev_payment(struct command *cmd,
 		struct sha256 inv_oid;
 
 		/* FIXME: Restrict db queries instead */
-		if (!payments[i]->label || !streq(label, payments[i]->label))
+		if (!payments[i]->label
+		    || !streq(label->s, payments[i]->label))
 			continue;
 
 		if (!payments[i]->invstring)
@@ -370,22 +371,48 @@ static bool payer_key(struct lightningd *ld,
 					     tweakhash.u.u8) == 1;
 }
 
+static void json_populate_invreq(struct json_stream *response,
+				 const struct sha256 *invreq_id,
+				 const char *b12,
+				 const struct json_escape *label,
+				 enum offer_status status)
+{
+	json_add_sha256(response, "invreq_id", invreq_id);
+	json_add_bool(response, "active", offer_status_active(status));
+	json_add_bool(response, "single_use", offer_status_single(status));
+	json_add_string(response, "bolt12", b12);
+	json_add_bool(response, "used", offer_status_used(status));
+	if (label)
+		json_add_escaped_string(response, "label", label);
+}
+
 static struct command_result *json_createinvoicerequest(struct command *cmd,
 							const char *buffer,
 							const jsmntok_t *obj,
 							const jsmntok_t *params)
 {
 	struct tlv_invoice_request *invreq;
-	const char *label;
+	struct json_escape *label;
 	struct json_stream *response;
 	u64 *prev_basetime = NULL;
 	struct sha256 merkle;
+	bool *save, *single_use;
+	enum offer_status status;
+	struct sha256 invreq_id;
+	const char *b12str;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt12", param_b12_invreq, &invreq),
-		   p_opt("recurrence_label", param_escaped_string, &label),
+		   p_req("savetodb", param_bool, &save),
+		   p_opt("recurrence_label", param_label, &label),
+		   p_opt_def("single_use", param_bool, &single_use, true),
 		   NULL))
 		return command_param_failed();
+
+	if (*single_use)
+		status = OFFER_SINGLE_USE_UNUSED;
+	else
+		status = OFFER_MULTIPLE_USE_UNUSED;
 
 	/* If it's a recurring payment, we look for previous to copy
 	 * invreq_metadata, basetime */
@@ -442,11 +469,20 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 		     &merkle, invreq->invreq_metadata, invreq->invreq_payer_id,
 		     invreq->signature);
 
+	b12str = invrequest_encode(cmd, invreq);
+
+	invreq_invreq_id(invreq, &invreq_id);
+	if (*save && !wallet_invoice_request_create(cmd->ld->wallet, &invreq_id,
+						    b12str, label, status)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not create invoice_request!");
+	}
+
 	response = json_stream_success(cmd);
-	json_add_string(response, "bolt12", invrequest_encode(tmpctx, invreq));
-	if (label)
-		json_add_escaped_string(response, "recurrence_label",
-					take(json_escape(NULL, label)));
+	json_populate_invreq(response, &invreq_id,
+			     b12str,
+			     label,
+			     status);
 	if (prev_basetime)
 		json_add_u64(response, "previous_basetime", *prev_basetime);
 	return command_success(cmd, response);
@@ -496,3 +532,107 @@ static const struct json_command payersign_command = {
 	"Sign {messagename} {fieldname} {merkle} (a 32-byte hex string) using public {tweak}",
 };
 AUTODATA(json_command, &payersign_command);
+
+static struct command_result *json_listinvoicerequests(struct command *cmd,
+						       const char *buffer,
+						       const jsmntok_t *obj UNNEEDED,
+						       const jsmntok_t *params)
+{
+	struct sha256 *invreq_id;
+	struct json_stream *response;
+	struct wallet *wallet = cmd->ld->wallet;
+	const char *b12;
+	const struct json_escape *label;
+	bool *active_only;
+	enum offer_status status;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("invreq_id", param_sha256, &invreq_id),
+		   p_opt_def("active_only", param_bool, &active_only, false),
+		   NULL))
+		return command_param_failed();
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "invoicerequests");
+	if (invreq_id) {
+		b12 = wallet_invoice_request_find(tmpctx, wallet,
+						  invreq_id, &label,
+						  &status);
+		if (b12 && offer_status_active(status) >= *active_only) {
+			json_object_start(response, NULL);
+			json_populate_invreq(response,
+					    invreq_id, b12,
+					    label, status);
+			json_object_end(response);
+		}
+	} else {
+		struct db_stmt *stmt;
+		struct sha256 id;
+
+		for (stmt = wallet_invreq_id_first(cmd->ld->wallet, &id);
+		     stmt;
+		     stmt = wallet_invreq_id_next(cmd->ld->wallet, stmt, &id)) {
+			b12 = wallet_invoice_request_find(tmpctx, wallet, &id,
+						&label, &status);
+			if (offer_status_active(status) >= *active_only) {
+				json_object_start(response, NULL);
+				json_populate_invreq(response,
+						    &id, b12,
+						    label, status);
+				json_object_end(response);
+			}
+		}
+	}
+	json_array_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command listinvoicerequests_command = {
+	"listinvoicerequests",
+	"payment",
+	json_listinvoicerequests,
+	"If {invreq_id} is set, show that."
+	" Otherwise, if {showdisabled} is true, list all, otherwise just non-disabled ones."
+};
+AUTODATA(json_command, &listinvoicerequests_command);
+
+static struct command_result *json_disableinvoicerequest(struct command *cmd,
+							 const char *buffer,
+							 const jsmntok_t *obj UNNEEDED,
+							 const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct sha256 *invreq_id;
+	struct wallet *wallet = cmd->ld->wallet;
+	const char *b12;
+	const struct json_escape *label;
+	enum offer_status status;
+
+	if (!param(cmd, buffer, params,
+		   p_req("invreq_id", param_sha256, &invreq_id),
+		   NULL))
+		return command_param_failed();
+
+	b12 = wallet_invoice_request_find(tmpctx, wallet, invreq_id,
+					  &label, &status);
+	if (!b12)
+		return command_fail(cmd, LIGHTNINGD, "Unknown invoice_request");
+
+	if (!offer_status_active(status))
+		return command_fail(cmd, OFFER_ALREADY_DISABLED,
+				    "invoice_request is not active");
+	status = wallet_invoice_request_disable(wallet, invreq_id, status);
+
+	response = json_stream_success(cmd);
+	json_populate_invreq(response, invreq_id, b12, label, status);
+	return command_success(cmd, response);
+}
+
+static const struct json_command disableinvoicerequest_command = {
+	"disableinvoicerequest",
+	"payment",
+	json_disableinvoicerequest,
+	"Disable invoice_request {invreq_id}",
+};
+AUTODATA(json_command, &disableinvoicerequest_command);
+
