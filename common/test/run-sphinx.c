@@ -1,6 +1,7 @@
 #include "config.h"
 #include "../hmac.c"
-#include "../onion.c"
+#include "../onion_decode.c"
+#include "../onion_encode.c"
 #include "../onionreply.c"
 #include "../sphinx.c"
 #include <ccan/str/hex/hex.h>

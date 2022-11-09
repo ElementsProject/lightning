@@ -30,9 +30,6 @@ bool cupdate_different(struct gossip_store *gs UNNEEDED,
 		       const struct half_chan *hc UNNEEDED,
 		       const u8 *cupdate UNNEEDED)
 { fprintf(stderr, "cupdate_different called!\n"); abort(); }
-/* Generated stub for ecdh */
-void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
-{ fprintf(stderr, "ecdh called!\n"); abort(); }
 /* Generated stub for gossip_store_add */
 u64 gossip_store_add(struct gossip_store *gs UNNEEDED, const u8 *gossip_msg UNNEEDED,
 		     u32 timestamp UNNEEDED, bool push UNNEEDED, bool spam UNNEEDED, const u8 *addendum UNNEEDED)
@@ -74,9 +71,6 @@ bool nannounce_different(struct gossip_store *gs UNNEEDED,
 			 const u8 *nannounce UNNEEDED,
 			 bool *only_missing_tlv UNNEEDED)
 { fprintf(stderr, "nannounce_different called!\n"); abort(); }
-/* Generated stub for new_onionreply */
-struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED)
-{ fprintf(stderr, "new_onionreply called!\n"); abort(); }
 /* Generated stub for notleak_ */
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }

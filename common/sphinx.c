@@ -2,7 +2,7 @@
 #include <assert.h>
 
 #include <ccan/mem/mem.h>
-#include <common/onion.h>
+#include <common/onion_decode.h>
 #include <common/onionreply.h>
 #include <common/overflows.h>
 #include <common/sphinx.h>

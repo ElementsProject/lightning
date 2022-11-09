@@ -18,10 +18,8 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/hmac.o				\
 	common/node_id.o			\
 	common/lease_rates.o			\
-	common/onion.o				\
 	common/pseudorand.o			\
 	common/setup.o				\
-	common/sphinx.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/wireaddr.o			\
@@ -41,7 +39,6 @@ gossipd/test/run-onion_message:			\
 	common/blindedpath.o			\
 	common/blinding.o			\
 	common/hmac.o				\
-	common/onion.o				\
 	common/sphinx.o				\
 
 # JSON needed for this test

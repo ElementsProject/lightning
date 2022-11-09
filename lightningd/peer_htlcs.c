@@ -7,7 +7,7 @@
 #include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
-#include <common/onion.h>
+#include <common/onion_decode.h>
 #include <common/onionreply.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>

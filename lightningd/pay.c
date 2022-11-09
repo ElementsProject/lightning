@@ -5,7 +5,6 @@
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
-#include <common/onion.h>
 #include <common/onionreply.h>
 #include <common/route.h>
 #include <common/timeout.h>
