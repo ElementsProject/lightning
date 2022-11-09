@@ -98,6 +98,14 @@ static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
+	/* BOLT-route-blinding #4:
+	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
+	 *    - MUST return `invalid_onion_blinding` for any local error or
+	 *      other downstream errors.
+	 */
+	if (hin->blinding)
+		badonion = WIRE_INVALID_ONION_BLINDING;
+
 	f->id = hin->key.id;
 	f->onion = NULL;
 	f->badonion = badonion;
@@ -113,6 +121,15 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
+	/* BOLT-route-blinding #4:
+	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
+	 *    - MUST return `invalid_onion_blinding` for any local error or
+	 *      other downstream errors.
+	 */
+	if (hin->blinding) {
+		return mk_failed_htlc_badonion(ctx, hin,
+					       WIRE_INVALID_ONION_BLINDING);
+	}
 	f->id = hin->key.id;
 	f->sha256_of_onion = NULL;
 	f->badonion = 0;
@@ -149,16 +166,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
 	htlc_in_check(hin, __func__);
 
-	/* BOLT-route-blinding #4:
-	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
-	 *    - MUST return `invalid_onion_blinding` on any error, including
-	 *      downstream  errors received from forwarding HTLCs.
-	 */
-	if (hin->blinding) {
-		failed_htlc = mk_failed_htlc_badonion(tmpctx, hin,
-						      WIRE_INVALID_ONION_BLINDING);
-	} else
-		failed_htlc = mk_failed_htlc(tmpctx, hin, hin->failonion);
+	failed_htlc = mk_failed_htlc(tmpctx, hin, hin->failonion);
 
 	bool we_filled = false;
 	wallet_htlc_update(hin->key.channel->peer->ld->wallet,
