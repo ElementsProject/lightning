@@ -2823,6 +2823,11 @@ def test_field_filter(node_factory, chainparams):
     dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']}, filter={"currency": True})
     assert dec == {"currency": chainparams['bip173_prefix']}
 
+    # Use context manager:
+    with l1.rpc.reply_filter({"currency": True}):
+        dec = l1.rpc.decodepay(bolt11=inv['bolt11'])
+    assert dec == {"currency": chainparams['bip173_prefix']}
+
     # Two fields
     dec = l1.rpc.call('decodepay', {'bolt11': inv['bolt11']}, filter={"currency": True, "payment_hash": True})
     assert dec == {"currency": chainparams['bip173_prefix'],
