@@ -4665,7 +4665,8 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1.rpc.pay(inv1['invoice'])
 
     # We can't pay the other one now.
-    with pytest.raises(RpcError, match="INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_node': '{}'".format(l3.info['id'])):
+    # FIXME: Even dummy blinded paths always return WIRE_INVALID_ONION_BLINDING!
+    with pytest.raises(RpcError, match="INVALID_ONION_BLINDING.*'erring_node': '{}'".format(l3.info['id'])):
         l1.rpc.pay(inv2['invoice'])
 
     # We can't reuse the offer, either.

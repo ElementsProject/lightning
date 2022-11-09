@@ -124,6 +124,9 @@ struct lightningd {
 	/* The public base for our payer_id keys */
 	struct pubkey bolt12_base;
 
+	/* Secret base for our invoices */
+	struct secret invoicesecret_base;
+
 	/* Feature set we offer. */
 	struct feature_set *our_features;
 
