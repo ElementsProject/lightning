@@ -44,8 +44,8 @@ static struct command_result *param_amount(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *
-	 * - MUST specify `iso4217` as an ISO 4712 three-letter code.
-	 * - MUST specify `amount` in the currency unit adjusted by the ISO 4712
+	 * - MUST specify `offer_currency` `iso4217` as an ISO 4712 three-letter code.
+	 * - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4712
 	 *   exponent (e.g. USD cents).
 	 */
 	if (tok->end - tok->start < ISO4217_NAMELEN)

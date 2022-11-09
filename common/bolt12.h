@@ -10,12 +10,12 @@
 struct feature_set;
 
 /* BOLT-offers #12:
- * - if `relative_expiry` is present:
+ * - if `invoice_relative_expiry` is present:
  *   - MUST reject the invoice if the current time since 1970-01-01 UTC
- *     is greater than `created_at` plus `seconds_from_creation`.
+ *     is greater than `invoice_created_at` plus `seconds_from_creation`.
  *  - otherwise:
  *    - MUST reject the invoice if the current time since 1970-01-01 UTC
- *      is greater than `created_at` plus 7200.
+ *      is greater than `invoice_created_at` plus 7200.
  */
 #define BOLT12_DEFAULT_REL_EXPIRY 7200
 
