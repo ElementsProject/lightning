@@ -19,7 +19,6 @@
 static void json_populate_offer(struct json_stream *response,
 				const struct sha256 *offer_id,
 				const char *b12,
-				const char *b12_nosig,
 				const struct json_escape *label,
 				enum offer_status status)
 {
@@ -27,8 +26,6 @@ static void json_populate_offer(struct json_stream *response,
 	json_add_bool(response, "active", offer_status_active(status));
 	json_add_bool(response, "single_use", offer_status_single(status));
 	json_add_string(response, "bolt12", b12);
-	if (b12_nosig)
-		json_add_string(response, "bolt12_unsigned", b12_nosig);
 	json_add_bool(response, "used", offer_status_used(status));
 	if (label)
 		json_add_escaped_string(response, "label", label);
@@ -90,10 +87,9 @@ static struct command_result *json_createoffer(struct command *cmd,
 	struct json_escape *label;
 	struct tlv_offer *offer;
 	struct sha256 merkle;
-	const char *b12str, *b12str_nosig;
+	const char *b12str;
 	bool *single_use;
 	enum offer_status status;
-	struct pubkey key;
 	bool created;
 
 	if (!param(cmd, buffer, params,
@@ -108,11 +104,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 	else
 		status = OFFER_MULTIPLE_USE_UNUSED;
  	merkle_tlv(offer->fields, &merkle);
-	offer->signature = tal(offer, struct bip340sig);
-	if (!pubkey_from_node_id(&key, &cmd->ld->id))
-		fatal("invalid own node_id?");
-	hsm_sign_b12(cmd->ld, "offer", "signature", &merkle, NULL, &key,
-		     offer->signature);
+	offer->signature = NULL;
 	b12str = offer_encode(cmd, offer);
 
 	/* If it already exists, we use that one instead (and then
@@ -131,10 +123,9 @@ static struct command_result *json_createoffer(struct command *cmd,
 		created = true;
 
 	offer->signature = tal_free(offer->signature);
-	b12str_nosig = offer_encode(cmd, offer);
 
 	response = json_stream_success(cmd);
-	json_populate_offer(response, &merkle, b12str, b12str_nosig, label, status);
+	json_populate_offer(response, &merkle, b12str, label, status);
 	json_add_bool(response, "created", created);
 	return command_success(cmd, response);
 }
@@ -146,25 +137,6 @@ static const struct json_command createoffer_command = {
 	"Create and sign an offer {bolt12} with and optional {label}."
 };
 AUTODATA(json_command, &createoffer_command);
-
-/* We store strings in the db, so removing signatures is easiest by conversion */
-static const char *offer_str_nosig(const tal_t *ctx,
-				   struct lightningd *ld,
-				   const char *b12str)
-{
-	char *fail;
-	struct tlv_offer *offer = offer_decode(tmpctx, b12str, strlen(b12str),
-					       ld->our_features, chainparams,
-					       &fail);
-
-	if (!offer) {
-		log_broken(ld->log, "Cannot reparse offerstr from db %s: %s",
-			   b12str, fail);
-		return NULL;
-	}
-	offer->signature = tal_free(offer->signature);
-	return offer_encode(ctx, offer);
-}
 
 static struct command_result *json_listoffers(struct command *cmd,
 					       const char *buffer,
@@ -194,7 +166,6 @@ static struct command_result *json_listoffers(struct command *cmd,
 			json_object_start(response, NULL);
 			json_populate_offer(response,
 					    offer_id, b12,
-					    offer_str_nosig(tmpctx, cmd->ld, b12),
 					    label, status);
 			json_object_end(response);
 		}
@@ -211,8 +182,6 @@ static struct command_result *json_listoffers(struct command *cmd,
 				json_object_start(response, NULL);
 				json_populate_offer(response,
 						    &id, b12,
-						    offer_str_nosig(tmpctx,
-								    cmd->ld, b12),
 						    label, status);
 				json_object_end(response);
 			}
@@ -258,10 +227,7 @@ static struct command_result *json_disableoffer(struct command *cmd,
 	status = wallet_offer_disable(wallet, offer_id, status);
 
 	response = json_stream_success(cmd);
-	json_populate_offer(response, offer_id, b12,
-			    offer_str_nosig(tmpctx,
-					    cmd->ld, b12),
-			    label, status);
+	json_populate_offer(response, offer_id, b12, label, status);
 	return command_success(cmd, response);
 }
 

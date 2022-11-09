@@ -4405,17 +4405,10 @@ def test_offer(node_factory, bitcoind):
         offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
 
         assert offer['bolt12'] == ret['bolt12']
-        assert offer['bolt12_unsigned'] == ret['bolt12_unsigned']
         assert offer['offer_id'] == ret['offer_id']
 
         output = subprocess.check_output([bolt12tool, 'decode',
                                           offer['bolt12']]).decode('ASCII')
-        if amount == 'any':
-            assert 'amount' not in output
-        else:
-            assert 'amount' in output
-        output = subprocess.check_output([bolt12tool, 'decode',
-                                          offer['bolt12_unsigned']]).decode('ASCII')
         if amount == 'any':
             assert 'amount' not in output
         else:
@@ -4608,7 +4601,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert offer1['created'] is True
 
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
-    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12_unsigned'],
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'],
                                         'payer_note': 'Thanks for the fish!'})
     assert inv1 != inv2
     assert 'next_period' not in inv1
@@ -4908,7 +4901,7 @@ def test_sendinvoice(node_factory, bitcoind):
     assert only_one(l1.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is False
 
     # sendinvoice should work.
-    out = l2.rpc.call('sendinvoice', {'offer': offer['bolt12_unsigned'],
+    out = l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
                                       'label': 'test sendinvoice 1'})
     assert out['label'] == 'test sendinvoice 1'
     assert out['description'] == 'simple test'

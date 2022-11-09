@@ -16,7 +16,6 @@
           "active",
           "single_use",
           "bolt12",
-          "bolt12_unsigned",
           "used"
         ],
         "properties": {
@@ -37,10 +36,6 @@
           "bolt12": {
             "type": "string",
             "description": "the bolt12 encoding of the offer"
-          },
-          "bolt12_unsigned": {
-            "type": "string",
-            "description": "the bolt12 encoding of the offer, without signature"
           },
           "used": {
             "type": "boolean",
