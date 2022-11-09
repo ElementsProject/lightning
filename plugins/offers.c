@@ -14,7 +14,6 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <plugins/offers.h>
-#include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
 #include <plugins/offers_offer.h>
 
@@ -90,7 +89,7 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 							const char *buf,
 							const jsmntok_t *params)
 {
-	const jsmntok_t *om, *replytok, *invreqtok, *invtok;
+	const jsmntok_t *om, *replytok, *invreqtok;
 	struct blinded_path *reply_path = NULL;
 
 	if (!offers_enabled)
@@ -116,13 +115,6 @@ static struct command_result *onion_message_modern_call(struct command *cmd,
 		else
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "invoice_request without reply_path");
-	}
-
-	invtok = json_get_member(buf, om, "invoice");
-	if (invtok) {
-		const u8 *invbin = json_tok_bin_from_hex(tmpctx, buf, invtok);
-		if (invbin)
-			return handle_invoice(cmd, invbin, reply_path);
 	}
 
 	return command_hook_success(cmd);
@@ -968,13 +960,6 @@ static const struct plugin_command commands[] = {
 	    "Create an offer to accept money",
             "Create an offer for invoices of {amount} with {description}, optional {issuer}, internal {label}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
             json_offer
-    },
-    {
-	    "offerout",
-	    "payment",
-	    "Create an offer to send money",
-            "Create an offer to pay invoices of {amount} with {description}, optional {issuer}, internal {label}, {absolute_expiry} and {refund_for}",
-            json_offerout
     },
     {
 	    "decode",

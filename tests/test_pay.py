@@ -4379,9 +4379,6 @@ def test_offer_needs_option(node_factory):
     l1 = node_factory.get_node()
     with pytest.raises(RpcError, match='experimental-offers not enabled'):
         l1.rpc.call('offer', {'amount': '1msat', 'description': 'test'})
-    with pytest.raises(RpcError, match='experimental-offers not enabled'):
-        l1.rpc.call('offerout', {'amount': '2msat',
-                                 'description': 'simple test'})
     with pytest.raises(RpcError, match='Unknown command'):
         l1.rpc.call('fetchinvoice', {'offer': 'aaaa'})
 
@@ -4823,16 +4820,6 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     l3.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
 
-    # Similarly for send-invoice offer.
-    l3.rpc.disconnect(l2.info['id'])
-    offer = l2.rpc.call('offerout', {'amount': '2msat',
-                                     'description': 'simple test'})
-    # Ofc l2 can't actually pay it!
-    with pytest.raises(RpcError, match='pay attempt failed: "Ran out of routes to try'):
-        l3.rpc.call('sendinvoice', {'offer': offer['bolt12'], 'label': 'payme!'})
-
-    assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
-
     # But if we create a channel l3->l1->l2 (and balance!), l2 can!
     node_factory.join_nodes([l3, l1], wait_for_announce=True)
     # Make sure l2 knows about it
@@ -4843,7 +4830,7 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     wait_for(lambda: only_one(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'])['spendable_msat'] != Millisatoshi(0))
 
     l3.rpc.disconnect(l2.info['id'])
-    l3.rpc.call('sendinvoice', {'offer': offer['bolt12'], 'label': 'payme for real!'})
+    l3.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
     # It will have autoconnected, to send invoice (since l1 says it doesn't do onion messages!)
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
 
@@ -4881,85 +4868,6 @@ def test_dev_rawrequest(node_factory):
                                          'nodeid': l2.info['id'],
                                          'timeout': 10})
     assert 'invoice' in ret
-
-
-def test_sendinvoice(node_factory, bitcoind):
-    l2opts = {'experimental-offers': None}
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts=[{'experimental-offers': None},
-                                           l2opts])
-
-    # Simple offer to send money (balances channel a little)
-    offer = l1.rpc.call('offerout', {'amount': '100000sat',
-                                     'description': 'simple test'})
-
-    # Fetchinvoice will refuse, since you're supposed to send an invoice.
-    with pytest.raises(RpcError, match='Offer wants an invoice, not invoice_request'):
-        l2.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
-
-    # used will be false
-    assert only_one(l1.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is False
-
-    # sendinvoice should work.
-    out = l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
-                                      'label': 'test sendinvoice 1'})
-    assert out['label'] == 'test sendinvoice 1'
-    assert out['description'] == 'simple test'
-    assert 'bolt12' in out
-    assert 'payment_hash' in out
-    assert out['status'] == 'paid'
-    assert 'payment_preimage' in out
-    assert 'expires_at' in out
-    assert out['amount_msat'] == Millisatoshi(100000000)
-    assert 'pay_index' in out
-    assert out['amount_received_msat'] == Millisatoshi(100000000)
-
-    # Note, if we're slow, this fails with "Offer no longer available",
-    # *but* if it hasn't heard about payment success yet, l2 will fail
-    # simply because payments are already pending.
-    with pytest.raises(RpcError, match='Offer no longer available|pay attempt failed'):
-        l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
-                                    'label': 'test sendinvoice 2'})
-
-    # Technically, l1 may not have gotten payment success, so we need to wait.
-    wait_for(lambda: only_one(l1.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is True)
-
-    # Now try a refund.
-    offer = l2.rpc.call('offer', {'amount': '100msat',
-                                  'description': 'simple test'})
-    assert only_one(l2.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is False
-
-    inv = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
-    l1.rpc.pay(inv['invoice'])
-    assert only_one(l2.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is True
-
-    refund = l2.rpc.call('offerout', {'amount': '100msat',
-                                      'description': 'refund test',
-                                      'refund_for': inv['invoice']})
-    assert only_one(l2.rpc.call('listoffers', [refund['offer_id']])['offers'])['used'] is False
-
-    l1.rpc.call('sendinvoice', {'offer': refund['bolt12'],
-                                'label': 'test sendinvoice refund'})
-    wait_for(lambda: only_one(l2.rpc.call('listoffers', [refund['offer_id']])['offers'])['used'] is True)
-
-    # Offer with issuer: we must not copy issuer into our invoice!
-    offer = l1.rpc.call('offerout', {'amount': '10000sat',
-                                     'description': 'simple test',
-                                     'issuer': "clightning test suite"})
-
-    out = l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
-                                      'label': 'test sendinvoice 3'})
-    assert out['label'] == 'test sendinvoice 3'
-    assert out['description'] == 'simple test'
-    assert 'issuer' not in out
-    assert 'bolt12' in out
-    assert 'payment_hash' in out
-    assert out['status'] == 'paid'
-    assert 'payment_preimage' in out
-    assert 'expires_at' in out
-    assert out['amount_msat'] == Millisatoshi(10000000)
-    assert 'pay_index' in out
-    assert out['amount_received_msat'] == Millisatoshi(10000000)
 
 
 def test_self_pay(node_factory):

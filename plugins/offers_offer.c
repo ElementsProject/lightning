@@ -26,18 +26,6 @@ static bool msat_or_any(const char *buffer,
 	return true;
 }
 
-static struct command_result *param_msat_or_any(struct command *cmd,
-						const char *name,
-						const char *buffer,
-						const jsmntok_t *tok,
-						struct tlv_offer *offer)
-{
-	if (msat_or_any(buffer, tok, offer))
-		return NULL;
-	return command_fail_badparam(cmd, name, buffer, tok,
-				     "should be 'any' or msatoshis");
-}
-
 static struct command_result *param_amount(struct command *cmd,
 					   const char *name,
 					   const char *buffer,
@@ -225,32 +213,6 @@ static struct command_result *param_recurrence_paywindow(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *param_invoice_payment_hash(struct command *cmd,
-							 const char *name,
-							 const char *buffer,
-							 const jsmntok_t *tok,
-							 struct sha256 **hash)
-{
-	struct tlv_invoice *inv;
-	char *fail;
-
-	inv = invoice_decode(tmpctx, buffer + tok->start, tok->end - tok->start,
-			     plugin_feature_set(cmd->plugin), chainparams,
-			     &fail);
-	if (!inv)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     tal_fmt(cmd,
-						     "Unparsable invoice: %s",
-						     fail));
-
-	if (!inv->payment_hash)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "invoice missing payment_hash");
-
-	*hash = tal_steal(cmd, inv->payment_hash);
-	return NULL;
-}
-
 struct offer_info {
 	const struct tlv_offer *offer;
 	const char *label;
@@ -424,61 +386,3 @@ struct command_result *json_offer(struct command *cmd,
 
 	return create_offer(cmd, offinfo);
 }
-
-struct command_result *json_offerout(struct command *cmd,
-				     const char *buffer,
-				     const jsmntok_t *params)
-{
-	const char *desc, *issuer, *label;
-	struct tlv_offer *offer;
-	struct out_req *req;
-
-	offer = tlv_offer_new(cmd);
-
-	if (!param(cmd, buffer, params,
-		   p_req("amount", param_msat_or_any, offer),
-		   p_req("description", param_escaped_string, &desc),
-		   p_opt("issuer", param_escaped_string, &issuer),
-		   p_opt("label", param_escaped_string, &label),
-		   p_opt("absolute_expiry", param_u64, &offer->absolute_expiry),
-		   p_opt("refund_for", param_invoice_payment_hash, &offer->refund_for),
-		   /* FIXME: hints support! */
-		   NULL))
-		return command_param_failed();
-
-	if (!offers_enabled)
-		return command_fail(cmd, LIGHTNINGD,
-				    "experimental-offers not enabled");
-
-	offer->send_invoice = tal(offer, struct tlv_offer_send_invoice);
-
-	/* BOLT-offers #12:
-	 *
-	 * - if the chain for the invoice is not solely bitcoin:
-	 *   - MUST specify `chains` the offer is valid for.
-	 * - otherwise:
-	 *   - the bitcoin chain is implied as the first and only entry.
-	 */
-	if (!streq(chainparams->network_name, "bitcoin")) {
-		offer->chains = tal_arr(offer, struct bitcoin_blkid, 1);
-		offer->chains[0] = chainparams->genesis_blockhash;
-	}
-
-	offer->description = tal_dup_arr(offer, char, desc, strlen(desc), 0);
-	if (issuer)
-		offer->issuer = tal_dup_arr(offer, char,
-					    issuer, strlen(issuer), 0);
-
-	offer->node_id = tal_dup(offer, struct pubkey, &id);
-
-	req = jsonrpc_request_start(cmd->plugin, cmd, "createoffer",
-				    check_result, forward_error,
-				    offer);
-	json_add_string(req->js, "bolt12", offer_encode(tmpctx, offer));
-	if (label)
-		json_add_string(req->js, "label", label);
-	json_add_bool(req->js, "single_use", true);
-
-	return send_outreq(cmd->plugin, req);
-}
-
