@@ -159,14 +159,16 @@ static bool handle_blinded_forward(struct onion_payload *p,
 		return false;
 	}
 
-	/* FIXME: handle fwd-by-node-id */
-	if (!enc->short_channel_id) {
-		*failtlvtype = TLV_TLV_PAYLOAD_ENCRYPTED_RECIPIENT_DATA;
-		return false;
+	if (enc->short_channel_id) {
+		p->forward_channel = tal_dup(p, struct short_channel_id,
+					     enc->short_channel_id);
+		p->forward_node_id = NULL;
+	} else {
+		p->forward_channel = NULL;
+		p->forward_node_id = tal_dup(p, struct pubkey,
+					     enc->next_node_id);
 	}
 
-	p->forward_channel = tal_dup(p, struct short_channel_id,
-				     enc->short_channel_id);
 	p->total_msat = NULL;
 
 	/* BOLT-route-blinding #4:
@@ -231,6 +233,8 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 	p->outgoing_cltv = *tlv->outgoing_cltv_value;
 
 	p->forward_channel = NULL;
+	p->forward_node_id = NULL;
+
 	if (tlv->total_amount_msat) {
 		p->total_msat = tal(p, struct amount_msat);
 		*p->total_msat = amount_msat(*tlv->total_amount_msat);
@@ -453,6 +457,9 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		p->total_msat = tal_dup(p, struct amount_msat,
 					&p->amt_to_forward);
 	}
+
+	/* Non-blinded is (currently) always by scid */
+	p->forward_node_id = NULL;
 
 	p->payment_secret = NULL;
 	if (p->tlv->payment_data) {
