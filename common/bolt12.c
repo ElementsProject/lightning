@@ -501,3 +501,45 @@ void invoice_offer_id(const struct tlv_invoice *invoice, struct sha256 *id)
 	towire_tlv_invoice(&wire, invoice);
 	calc_offer(wire, id);
 }
+
+/* BOLT-offers #12:
+ * ## Requirements for Invoice Requests
+ *
+ * The writer:
+ *   - if it is responding to an offer:
+ *     - MUST copy all fields from the offer (including unknown fields).
+ */
+struct tlv_invoice_request *invoice_request_for_offer(const tal_t *ctx,
+						      const struct tlv_offer *offer)
+{
+	const u8 *cursor;
+	size_t max;
+	u8 *wire = tal_arr(tmpctx, u8, 0);
+	towire_tlv_offer(&wire, offer);
+
+	cursor = wire;
+	max = tal_bytelen(wire);
+	return fromwire_tlv_invoice_request(ctx, &cursor, &max);
+}
+
+/**
+ * Prepare a new invoice based on an invoice_request.
+ */
+struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
+				       const struct tlv_invoice_request *invreq)
+{
+	const u8 *cursor;
+	size_t start, len;
+	u8 *wire = tal_arr(tmpctx, u8, 0);
+	towire_tlv_invoice_request(&wire, invreq);
+
+	/* BOLT-offers #12:
+	 * A writer of an invoice:
+	 *   - MUST copy all non-signature fields from the invreq (including
+	 *     unknown fields).
+	 */
+	len = tlv_span(wire, 0, 159, &start);
+	cursor = wire + start;
+	return fromwire_tlv_invoice(ctx, &cursor, &len);
+}
+
