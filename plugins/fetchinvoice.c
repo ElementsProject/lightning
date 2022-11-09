@@ -907,14 +907,11 @@ static struct command_result *invreq_done(struct command *cmd,
 static struct command_result *
 force_payer_secret(struct command *cmd,
 		   struct sent *sent,
-		   struct tlv_invoice_request *invreq,
+		   struct tlv_invoice_request *invreq STEALS,
 		   const struct secret *payer_secret)
 {
 	struct sha256 merkle, sha;
 	secp256k1_keypair kp;
-	u8 *msg;
-	const u8 *p;
-	size_t len;
 
 	if (secp256k1_keypair_create(secp256k1_ctx, &kp, payer_secret->data) != 1)
 		return command_fail(cmd, LIGHTNINGD, "Bad payer_secret");
@@ -928,16 +925,11 @@ force_payer_secret(struct command *cmd,
 			   "secp256k1_keypair_pub failed on %s?",
 			   type_to_string(tmpctx, struct secret, payer_secret));
 
-	/* Linearize populates ->fields */
-	msg = tal_arr(tmpctx, u8, 0);
-	towire_tlv_invoice_request(&msg, invreq);
-	p = msg;
-	len = tal_bytelen(msg);
-	sent->invreq = fromwire_tlv_invoice_request(cmd, &p, &len);
-	if (!sent->invreq)
-		plugin_err(cmd->plugin,
-			   "Could not remarshall invreq %s", tal_hex(tmpctx, msg));
+	/* Re-calculate ->fields */
+	tal_free(invreq->fields);
+	invreq->fields = tlv_make_fields(invreq, tlv_invoice_request);
 
+	sent->invreq = tal_steal(sent, invreq);
 	merkle_tlv(sent->invreq->fields, &merkle);
 	sighash_from_merkle("invoice_request", "signature", &merkle, &sha);
 
