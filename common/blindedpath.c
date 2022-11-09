@@ -107,15 +107,20 @@ static u8 *enctlv_from_encmsg_raw(const tal_t *ctx,
 	return ret;
 }
 
-static u8 *enctlv_from_encmsg(const tal_t *ctx,
-			      const struct privkey *blinding,
-			      const struct pubkey *node,
-			      const struct tlv_encrypted_data_tlv *encmsg,
-			      struct privkey *next_blinding,
-			      struct pubkey *node_alias)
+u8 *encrypt_tlv_encrypted_data(const tal_t *ctx,
+			       const struct privkey *blinding,
+			       const struct pubkey *node,
+			       const struct tlv_encrypted_data_tlv *encmsg,
+			       struct privkey *next_blinding,
+			       struct pubkey *node_alias)
 {
+	struct privkey unused;
 	u8 *encmsg_raw = tal_arr(NULL, u8, 0);
 	towire_tlv_encrypted_data_tlv(&encmsg_raw, encmsg);
+
+	/* last hop doesn't care about next_blinding */
+	if (!next_blinding)
+		next_blinding = &unused;
 	return enctlv_from_encmsg_raw(ctx, blinding, node, take(encmsg_raw),
 				      next_blinding, node_alias);
 }
@@ -252,53 +257,4 @@ void blindedpath_next_blinding(const struct tlv_encrypted_data_tlv *enc,
 		blinding_hash_e_and_ss(blinding, ss, &h);
 		blinding_next_pubkey(blinding, &h, next_blinding);
 	}
-}
-
-u8 *create_enctlv(const tal_t *ctx,
-		  const struct privkey *blinding,
-		  const struct pubkey *node,
-		  const struct pubkey *next_node,
-		  const struct short_channel_id *next_scid,
-		  size_t padlen,
-		  const struct pubkey *next_blinding_override,
-		  const struct tlv_encrypted_data_tlv_payment_relay *payment_relay TAKES,
-		  const struct tlv_encrypted_data_tlv_payment_constraints *payment_constraints TAKES,
-		  const u8 *allowed_features TAKES,
-		  struct privkey *next_blinding,
-		  struct pubkey *node_alias)
-{
-	struct tlv_encrypted_data_tlv *encmsg = tlv_encrypted_data_tlv_new(tmpctx);
-	if (padlen)
-		encmsg->padding = tal_arrz(encmsg, u8, padlen);
-	encmsg->next_node_id = cast_const(struct pubkey *, next_node);
-	encmsg->next_blinding_override = cast_const(struct pubkey *, next_blinding_override);
-	encmsg->payment_relay = tal_dup_or_null(encmsg, struct tlv_encrypted_data_tlv_payment_relay,
-						payment_relay);
-	encmsg->payment_constraints = tal_dup_or_null(encmsg, struct tlv_encrypted_data_tlv_payment_constraints,
-						      payment_constraints);
-	encmsg->allowed_features = tal_dup_talarr(encmsg, u8, allowed_features);
-
-	return enctlv_from_encmsg(ctx, blinding, node, encmsg,
-				  next_blinding, node_alias);
-}
-
-u8 *create_final_enctlv(const tal_t *ctx,
-			const struct privkey *blinding,
-			const struct pubkey *final_node,
-			size_t padlen,
-			const struct secret *path_id,
-			const u8 *allowed_features TAKES,
-			struct pubkey *node_alias)
-{
-	struct tlv_encrypted_data_tlv *encmsg = tlv_encrypted_data_tlv_new(tmpctx);
-	struct privkey unused_next_blinding;
-
-	if (padlen)
-		encmsg->padding = tal_arrz(encmsg, u8, padlen);
-	if (path_id)
-		encmsg->path_id = (u8 *)tal_dup(encmsg, struct secret, path_id);
-	encmsg->allowed_features = tal_dup_talarr(encmsg, u8, allowed_features);
-
-	return enctlv_from_encmsg(ctx, blinding, final_node, encmsg,
-				  &unused_next_blinding, node_alias);
 }

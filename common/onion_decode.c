@@ -373,4 +373,3 @@ field_bad:
 				       *failtlvtype);
 	return tal_free(p);
 }
-
