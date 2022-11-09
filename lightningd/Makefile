@@ -101,6 +101,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/keyset.o				\
+	common/json_filter.o			\
 	common/json_param.o			\
 	common/json_parse.o			\
 	common/json_parse_simple.o		\
