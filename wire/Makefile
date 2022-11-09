@@ -137,7 +137,7 @@ wire/peer_exp_printgen.h_args := --include='wire/channel_type_printgen.h'
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
-wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request
+wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --expose-tlv-type=tlv_invoice
 wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_wiregen.c_args)
 
 wire/bolt12_printgen.c_args := --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --include='wire/onion$(EXP)_wiregen.h'  --include='wire/onion$(EXP)_printgen.h'
@@ -155,7 +155,7 @@ wire/channel_type_wiregen.h_args := -s
 wire/channel_type_wiregen.c_args := $(wire/channel_type_wiregen.h_args)
 
 # All generated wire/ files depend on this Makefile
-$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_PRINT_SRC) $(WIRE_NONEXP_SRC) $(WIRE_HEADERS) $(WIRE_NONEXP_HEADERS)): wire/Makefile
+$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_BOLT12_SRC) $(WIRE_PRINT_SRC) $(WIRE_NONEXP_SRC) $(WIRE_HEADERS) $(WIRE_NONEXP_HEADERS)): wire/Makefile
 
 maintainer-clean: wire-maintainer-clean
 

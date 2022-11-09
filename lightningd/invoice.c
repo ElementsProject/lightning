@@ -1634,15 +1634,13 @@ static struct command_result *fail_exists(struct command *cmd,
 
 /* This is only if we're a public node; otherwise, the offers plugin
  * will have populated a real blinded path */
-static struct tlv_invoice *add_stub_blindedpath(const tal_t *ctx,
-						struct lightningd *ld,
-						struct tlv_invoice *inv STEALS)
+static void add_stub_blindedpath(const tal_t *ctx,
+				 struct lightningd *ld,
+				 struct tlv_invoice *inv)
 {
 	struct blinded_path *path;
 	struct privkey blinding;
 	struct tlv_encrypted_data_tlv *tlv;
-	u8 *wire;
-	size_t dlen;
 
 	path = tal(NULL, struct blinded_path);
 	if (!pubkey_from_node_id(&path->first_node_id, &ld->id))
@@ -1686,14 +1684,9 @@ static struct tlv_invoice *add_stub_blindedpath(const tal_t *ctx,
 	inv->invoice_blindedpay[0]->htlc_maximum_msat = AMOUNT_MSAT(21000000 * MSAT_PER_BTC);
 	inv->invoice_blindedpay[0]->features = NULL;
 
-	/* But we need to update ->fields, so re-linearize */
-	wire = tal_arr(tmpctx, u8, 0);
-	towire_tlv_invoice(&wire, inv);
-	tal_free(inv);
-
-	dlen = tal_bytelen(wire);
-	return fromwire_tlv_invoice(ctx,
-				    cast_const2(const u8 **, &wire), &dlen);
+	/* Recalc ->fields */
+	tal_free(inv->fields);
+	inv->fields = tlv_make_fields(inv, tlv_invoice);
 }
 
 static struct command_result *json_createinvoice(struct command *cmd,
@@ -1782,7 +1775,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		 * can recognize payments (bolt12 doesn't use
 		 * payment_secret) */
 		if (!inv->invoice_paths)
-			inv = add_stub_blindedpath(cmd, cmd->ld, inv);
+			add_stub_blindedpath(cmd, cmd->ld, inv);
 
 		if (inv->signature)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
