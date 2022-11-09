@@ -1701,75 +1701,74 @@ static struct command_result *json_createinvoice(struct command *cmd,
 	} else {
 		struct tlv_invoice *inv;
 		struct sha256 *local_offer_id;
+		char *b12enc;
+		struct amount_msat msat;
+		const char *desc;
+		u32 expiry;
+		enum offer_status status;
 
 		inv = invoice_decode_nosig(cmd, invstring, strlen(invstring),
 					   cmd->ld->our_features, chainparams,
 					   &fail);
-		if (inv) {
-			char *b12enc;
-			struct amount_msat msat;
-			const char *desc;
-			u32 expiry;
-			enum offer_status status;
-
-			if (inv->signature)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "invoice already signed");
-			hsm_sign_b12_invoice(cmd->ld, inv);
-			b12enc = invoice_encode(cmd, inv);
-
-			if (inv->offer_id
-			    && wallet_offer_find(tmpctx, cmd->ld->wallet,
-						 inv->offer_id, NULL, &status)) {
-				if (!offer_status_active(status))
-					return command_fail(cmd, INVOICE_OFFER_INACTIVE,
-							    "offer not active");
-				local_offer_id = inv->offer_id;
-			} else
-				local_offer_id = NULL;
-
-			if (inv->amount)
-				msat = amount_msat(*inv->amount);
-
-			if (inv->relative_expiry)
-				expiry = *inv->relative_expiry;
-			else
-				expiry = BOLT12_DEFAULT_REL_EXPIRY;
-
-			if (!inv->payment_hash)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Missing payment_hash in invoice");
-			if (!sha256_eq(&payment_hash, inv->payment_hash))
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Incorrect preimage");
-
-			if (!inv->description)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Missing description in invoice");
-			desc = tal_strndup(cmd,
-					   cast_signed(char *, inv->description),
-					   tal_bytelen(inv->description));
-
-			if (!wallet_invoice_create(cmd->ld->wallet,
-						   &invoice,
-						   inv->amount ? &msat : NULL,
-						   label,
-						   expiry,
-						   b12enc,
-						   desc,
-						   inv->features,
-						   preimage,
-						   &payment_hash,
-						   local_offer_id))
-				return fail_exists(cmd, label);
-
-			notify_invoice_creation(cmd->ld,
-						inv->amount ? &msat : NULL,
-						*preimage, label);
-		} else
+		if (!inv)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Unparsable invoice '%s': %s",
 					    invstring, fail);
+
+		if (inv->signature)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invoice already signed");
+		hsm_sign_b12_invoice(cmd->ld, inv);
+		b12enc = invoice_encode(cmd, inv);
+
+		if (inv->offer_id
+		    && wallet_offer_find(tmpctx, cmd->ld->wallet,
+					 inv->offer_id, NULL, &status)) {
+			if (!offer_status_active(status))
+				return command_fail(cmd, INVOICE_OFFER_INACTIVE,
+						    "offer not active");
+			local_offer_id = inv->offer_id;
+		} else
+			local_offer_id = NULL;
+
+		if (inv->amount)
+			msat = amount_msat(*inv->amount);
+
+		if (inv->relative_expiry)
+			expiry = *inv->relative_expiry;
+		else
+			expiry = BOLT12_DEFAULT_REL_EXPIRY;
+
+		if (!inv->payment_hash)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Missing payment_hash in invoice");
+		if (!sha256_eq(&payment_hash, inv->payment_hash))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Incorrect preimage");
+
+		if (!inv->description)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Missing description in invoice");
+		desc = tal_strndup(cmd,
+				   cast_signed(char *, inv->description),
+				   tal_bytelen(inv->description));
+
+		if (!wallet_invoice_create(cmd->ld->wallet,
+					   &invoice,
+					   inv->amount ? &msat : NULL,
+					   label,
+					   expiry,
+					   b12enc,
+					   desc,
+					   inv->features,
+					   preimage,
+					   &payment_hash,
+					   local_offer_id))
+			return fail_exists(cmd, label);
+
+		notify_invoice_creation(cmd->ld,
+					inv->amount ? &msat : NULL,
+					*preimage, label);
 	}
 
 	response = json_stream_success(cmd);
