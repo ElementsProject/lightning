@@ -233,24 +233,22 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 		goto badinv;
 	}
 
-	/* FIXME-OFFERS: Examine fields in inv directly! */
-
 	/* Get the amount we expected: firstly, if that's what we sent,
 	 * secondly, if specified in the invoice. */
-	if (sent->invreq->invreq_amount) {
-		expected_amount = tal_dup(tmpctx, u64, sent->invreq->invreq_amount);
-	} else if (sent->offer->offer_amount && !sent->offer->offer_currency) {
+	if (inv->invreq_amount) {
+		expected_amount = tal_dup(tmpctx, u64, inv->invreq_amount);
+	} else if (inv->offer_amount && !inv->offer_currency) {
 		expected_amount = tal(tmpctx, u64);
 
-		*expected_amount = *sent->offer->offer_amount;
-		if (sent->invreq->invreq_quantity) {
+		*expected_amount = *inv->offer_amount;
+		if (inv->invreq_quantity) {
 			/* We should never have sent this! */
 			if (mul_overflows_u64(*expected_amount,
-					      *sent->invreq->invreq_quantity)) {
+					      *inv->invreq_quantity)) {
 				badfield = "quantity overflow";
 				goto badinv;
 			}
-			*expected_amount *= *sent->invreq->invreq_quantity;
+			*expected_amount *= *inv->invreq_quantity;
 		}
 	} else
 		expected_amount = NULL;
@@ -259,7 +257,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	 * - if the offer contained `recurrence`:
 	 *   - MUST reject the invoice if `recurrence_basetime` is not set.
 	 */
-	if (sent->invreq->invreq_recurrence_counter && !inv->invoice_recurrence_basetime) {
+	if (inv->invreq_recurrence_counter && !inv->invoice_recurrence_basetime) {
 		badfield = "recurrence_basetime";
 		goto badinv;
 	}
@@ -280,34 +278,34 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	json_object_end(out);
 
 	/* We tell them about next period at this point, if any. */
-	if (sent->offer->offer_recurrence) {
+	if (inv->offer_recurrence) {
 		u64 next_counter, next_period_idx;
 		u64 paywindow_start, paywindow_end;
 
-		next_counter = *sent->invreq->invreq_recurrence_counter + 1;
-		if (sent->invreq->invreq_recurrence_start)
-			next_period_idx = *sent->invreq->invreq_recurrence_start
+		next_counter = *inv->invreq_recurrence_counter + 1;
+		if (inv->invreq_recurrence_start)
+			next_period_idx = *inv->invreq_recurrence_start
 				+ next_counter;
 		else
 			next_period_idx = next_counter;
 
 		/* If this was the last, don't tell them about a next! */
-		if (!sent->offer->offer_recurrence_limit
-		    || next_period_idx <= *sent->offer->offer_recurrence_limit) {
+		if (!inv->offer_recurrence_limit
+		    || next_period_idx <= *inv->offer_recurrence_limit) {
 			json_object_start(out, "next_period");
 			json_add_u64(out, "counter", next_counter);
 			json_add_u64(out, "starttime",
 				     offer_period_start(*inv->invoice_recurrence_basetime,
 							next_period_idx,
-							sent->offer->offer_recurrence));
+							inv->offer_recurrence));
 			json_add_u64(out, "endtime",
 				     offer_period_start(*inv->invoice_recurrence_basetime,
 							next_period_idx + 1,
-							sent->offer->offer_recurrence) - 1);
+							inv->offer_recurrence) - 1);
 
-			offer_period_paywindow(sent->offer->offer_recurrence,
-					       sent->offer->offer_recurrence_paywindow,
-					       sent->offer->offer_recurrence_base,
+			offer_period_paywindow(inv->offer_recurrence,
+					       inv->offer_recurrence_paywindow,
+					       inv->offer_recurrence_base,
 					       *inv->invoice_recurrence_basetime,
 					       next_period_idx,
 					       &paywindow_start, &paywindow_end);
@@ -846,13 +844,13 @@ static struct command_result *invreq_done(struct command *cmd,
 		 *   - MUST NOT send an `invoice_request` for a period greater
 		 *     than `max_period`
 		 */
-		if (sent->offer->offer_recurrence_limit
-		    && period_idx > *sent->offer->offer_recurrence_limit)
+		if (sent->invreq->offer_recurrence_limit
+		    && period_idx > *sent->invreq->offer_recurrence_limit)
 			return command_fail(cmd, LIGHTNINGD,
 					    "Can't send invreq for period %"
 					    PRIu64" (limit %u)",
 					    period_idx,
-					    *sent->offer->offer_recurrence_limit);
+					    *sent->invreq->offer_recurrence_limit);
 
 		/* BOLT-offers-recurrence #12:
 		 * - SHOULD NOT send an `invoice_request` for a period which has
@@ -865,8 +863,8 @@ static struct command_result *invreq_done(struct command *cmd,
 		if (pbtok) {
 			base = tal(tmpctx, u64);
 			json_to_u64(buf, pbtok, base);
-		} else if (sent->offer->offer_recurrence_base)
-			base = &sent->offer->offer_recurrence_base->basetime;
+		} else if (sent->invreq->offer_recurrence_base)
+			base = &sent->invreq->offer_recurrence_base->basetime;
 		else {
 			/* happens with *recurrence_base == 0 */
 			assert(*sent->invreq->invreq_recurrence_counter == 0);
@@ -875,9 +873,9 @@ static struct command_result *invreq_done(struct command *cmd,
 
 		if (base) {
 			u64 period_start, period_end, now = time_now().ts.tv_sec;
-			offer_period_paywindow(sent->offer->offer_recurrence,
-					       sent->offer->offer_recurrence_paywindow,
-					       sent->offer->offer_recurrence_base,
+			offer_period_paywindow(sent->invreq->offer_recurrence,
+					       sent->invreq->offer_recurrence_paywindow,
+					       sent->invreq->offer_recurrence_base,
 					       *base, period_idx,
 					       &period_start, &period_end);
 			if (now < period_start)
@@ -896,9 +894,9 @@ static struct command_result *invreq_done(struct command *cmd,
 	}
 
 	sent->path = path_to_node(sent, cmd->plugin,
-				  sent->offer->offer_node_id);
+				  sent->invreq->offer_node_id);
 	if (!sent->path)
-		return connect_direct(cmd, sent->offer->offer_node_id,
+		return connect_direct(cmd, sent->invreq->offer_node_id,
 				      sendinvreq_after_connect, sent);
 
 	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
@@ -954,9 +952,9 @@ force_payer_secret(struct command *cmd,
 	}
 
 	sent->path = path_to_node(sent, cmd->plugin,
-				  sent->offer->offer_node_id);
+				  sent->invreq->offer_node_id);
 	if (!sent->path)
-		return connect_direct(cmd, sent->offer->offer_node_id,
+		return connect_direct(cmd, sent->invreq->offer_node_id,
 				      sendinvreq_after_connect, sent);
 
 	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
@@ -1021,7 +1019,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	 *           amount expected by `offer_amount` (and, if present,
 	 *          `offer_currency` and `invreq_quantity`).
 	 */
-	if (sent->offer->offer_amount) {
+	if (invreq->offer_amount) {
 		/* FIXME: Check after quantity? */
 		if (msat) {
 			invreq->invreq_amount = tal_dup(invreq, u64,
@@ -1035,7 +1033,6 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 						&msat->millisatoshis); /* Raw: tu64 */
 	}
 
-	/* FIXME-OFFERS: Examine fields in inv directly! */
 	/* BOLT-offers #12:
 	 * - if `offer_quantity_max` is present:
 	 *    - MUST set `invreq_quantity`
@@ -1043,15 +1040,15 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	 *      - MUST set `invreq_quantity` less than or equal to
 	 *       `offer_quantity_max`.
 	 */
-	if (sent->offer->offer_quantity_max) {
+	if (invreq->offer_quantity_max) {
 		if (!invreq->invreq_quantity)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "quantity parameter required");
-		if (*sent->offer->offer_quantity_max
-		    && *invreq->invreq_quantity > *sent->offer->offer_quantity_max)
+		if (*invreq->offer_quantity_max
+		    && *invreq->invreq_quantity > *invreq->offer_quantity_max)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "quantity must be <= %"PRIu64,
-					    *sent->offer->offer_quantity_max);
+					    *invreq->offer_quantity_max);
 	} else {
 		if (invreq->invreq_quantity)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1061,7 +1058,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	/* BOLT-offers-recurrence #12:
 	 * - if the offer contained `recurrence`:
 	 */
-	if (sent->offer->offer_recurrence) {
+	if (invreq->offer_recurrence) {
 		/* BOLT-offers-recurrence #12:
 		 *    - for the initial request:
 		 *...
@@ -1085,8 +1082,8 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		 *    - otherwise:
 		 *      - MUST NOT include `recurrence_start`
 		 */
-		if (sent->offer->offer_recurrence_base
-		    && sent->offer->offer_recurrence_base->start_any_period) {
+		if (invreq->offer_recurrence_base
+		    && invreq->offer_recurrence_base->start_any_period) {
 			if (!invreq->invreq_recurrence_start)
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "needs recurrence_start");

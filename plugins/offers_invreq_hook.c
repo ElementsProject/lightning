@@ -20,8 +20,6 @@ struct invreq {
 	struct tlv_invoice_request *invreq;
 	struct blinded_path *reply_path;
 
-	/* The offer, once we've looked it up. */
-	struct tlv_offer *offer;
 	/* The offer id */
 	struct sha256 offer_id;
 
@@ -437,8 +435,8 @@ static struct command_result *check_period(struct command *cmd,
 	struct command_result *err;
 
 	/* If we have a recurrence base, that overrides. */
-	if (ir->offer->offer_recurrence_base)
-		basetime = ir->offer->offer_recurrence_base->basetime;
+	if (ir->invreq->offer_recurrence_base)
+		basetime = ir->invreq->offer_recurrence_base->basetime;
 
 	/* BOLT-offers-recurrence #12:
 	 * - if the invoice corresponds to an offer with `recurrence`:
@@ -458,8 +456,8 @@ static struct command_result *check_period(struct command *cmd,
 	 *     `recurrence_start` field plus the `recurrence_counter`
 	 *     `counter` field.
 	 */
-	if (ir->offer->offer_recurrence_base
-	    && ir->offer->offer_recurrence_base->start_any_period) {
+	if (ir->invreq->offer_recurrence_base
+	    && ir->invreq->offer_recurrence_base->start_any_period) {
 		err = invreq_must_have(cmd, ir, invreq_recurrence_start);
 		if (err)
 			return err;
@@ -490,16 +488,16 @@ static struct command_result *check_period(struct command *cmd,
 	 *   - MUST fail the request if the period index is greater than
 	 *     `max_period`.
 	 */
-	if (ir->offer->offer_recurrence_limit
-	    && period_idx > *ir->offer->offer_recurrence_limit) {
+	if (ir->invreq->offer_recurrence_limit
+	    && period_idx > *ir->invreq->offer_recurrence_limit) {
 		return fail_invreq(cmd, ir,
 				   "period_index %"PRIu64" too great",
 				   period_idx);
 	}
 
-	offer_period_paywindow(ir->offer->offer_recurrence,
-			       ir->offer->offer_recurrence_paywindow,
-			       ir->offer->offer_recurrence_base,
+	offer_period_paywindow(ir->invreq->offer_recurrence,
+			       ir->invreq->offer_recurrence_paywindow,
+			       ir->invreq->offer_recurrence_base,
 			       basetime, period_idx,
 			       &paywindow_start, &paywindow_end);
 	if (*ir->inv->invoice_created_at < paywindow_start) {
@@ -530,12 +528,12 @@ static struct command_result *check_period(struct command *cmd,
 	 *         remaining in the period.
 	 */
 	if (*ir->invreq->invreq_recurrence_counter != 0
-	    && ir->offer->offer_recurrence_paywindow
-	    && ir->offer->offer_recurrence_paywindow->proportional_amount == 1) {
+	    && ir->invreq->offer_recurrence_paywindow
+	    && ir->invreq->offer_recurrence_paywindow->proportional_amount == 1) {
 		u64 start = offer_period_start(basetime, period_idx,
-					       ir->offer->offer_recurrence);
+					       ir->invreq->offer_recurrence);
 		u64 end = offer_period_start(basetime, period_idx + 1,
-					     ir->offer->offer_recurrence);
+					     ir->invreq->offer_recurrence);
 
 		if (*ir->inv->invoice_created_at > start) {
 			*ir->inv->invoice_amount
@@ -644,12 +642,12 @@ static struct command_result *invreq_amount_by_quantity(struct command *cmd,
 							const struct invreq *ir,
 							u64 *raw_amt)
 {
-	assert(ir->offer->offer_amount);
+	assert(ir->invreq->offer_amount);
 
 	/* BOLT-offers #12:
 	 *     - MUST calculate the *base invoice amount* using the offer `amount`:
 	 */
-	*raw_amt = *ir->offer->offer_amount;
+	*raw_amt = *ir->invreq->offer_amount;
 
 	/* BOLT-offers #12:
 	 * - if request contains `quantity`, multiply by `quantity`.
@@ -674,9 +672,9 @@ static struct command_result *invreq_base_amount_simple(struct command *cmd,
 {
 	struct command_result *err;
 
-	if (ir->offer->offer_amount) {
+	if (ir->invreq->offer_amount) {
 		u64 raw_amount;
-		assert(!ir->offer->offer_currency);
+		assert(!ir->invreq->offer_currency);
 		err = invreq_amount_by_quantity(cmd, ir, &raw_amount);
 		if (err)
 			return err;
@@ -711,7 +709,7 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 	 *     - MUST fail the request if its `amount` is less than the
 	 *       *base invoice amount*.
 	 */
-	if (ir->offer->offer_amount && ir->invreq->invreq_amount) {
+	if (ir->invreq->offer_amount && ir->invreq->invreq_amount) {
 		if (amount_msat_less(amount_msat(*ir->invreq->invreq_amount), base_inv_amount)) {
 			return fail_invreq(cmd, ir, "Amount must be at least %s",
 					   type_to_string(tmpctx, struct amount_msat,
@@ -763,16 +761,16 @@ static struct command_result *currency_done(struct command *cmd,
 	if (!msat)
 		return fail_internalerr(cmd, ir,
 					"Cannot convert currency %.*s: %.*s",
-					(int)tal_bytelen(ir->offer->offer_currency),
-					(const char *)ir->offer->offer_currency,
+					(int)tal_bytelen(ir->invreq->offer_currency),
+					(const char *)ir->invreq->offer_currency,
 					json_tok_full_len(result),
 					json_tok_full(buf, result));
 
 	if (!json_to_msat(buf, msat, &amount))
 		return fail_internalerr(cmd, ir,
 					"Bad convert for currency %.*s: %.*s",
-					(int)tal_bytelen(ir->offer->offer_currency),
-					(const char *)ir->offer->offer_currency,
+					(int)tal_bytelen(ir->invreq->offer_currency),
+					(const char *)ir->invreq->offer_currency,
 					json_tok_full_len(msat),
 					json_tok_full(buf, msat));
 
@@ -788,7 +786,7 @@ static struct command_result *convert_currency(struct command *cmd,
 	struct command_result *err;
 	const struct iso4217_name_and_divisor *iso4217;
 
-	assert(ir->offer->offer_currency);
+	assert(ir->invreq->offer_currency);
 
 	/* Multiply by quantity *first*, for best precision */
 	err = invreq_amount_by_quantity(cmd, ir, &raw_amount);
@@ -801,14 +799,14 @@ static struct command_result *convert_currency(struct command *cmd,
 	 *   - if offer `currency` is not the invoice currency, convert
 	 *     to the invoice currency.
 	 */
-	iso4217 = find_iso4217(ir->offer->offer_currency,
-			       tal_bytelen(ir->offer->offer_currency));
+	iso4217 = find_iso4217(ir->invreq->offer_currency,
+			       tal_bytelen(ir->invreq->offer_currency));
 	/* We should not create offer with unknown currency! */
 	if (!iso4217)
 		return fail_internalerr(cmd, ir,
 					"Unknown offer currency %.*s",
-					(int)tal_bytelen(ir->offer->offer_currency),
-					ir->offer->offer_currency);
+					(int)tal_bytelen(ir->invreq->offer_currency),
+					ir->invreq->offer_currency);
 	double_amount = (double)raw_amount;
 	for (size_t i = 0; i < iso4217->minor_unit; i++)
 		double_amount /= 10;
@@ -816,8 +814,8 @@ static struct command_result *convert_currency(struct command *cmd,
 	req = jsonrpc_request_start(cmd->plugin, cmd, "currencyconvert",
 				    currency_done, error, ir);
 	json_add_stringn(req->js, "currency",
-			 (const char *)ir->offer->offer_currency,
-			 tal_bytelen(ir->offer->offer_currency));
+			 (const char *)ir->invreq->offer_currency,
+			 tal_bytelen(ir->invreq->offer_currency));
 	json_add_primitive_fmt(req->js, "amount", "%f", double_amount);
 	return send_outreq(cmd->plugin, req);
 }
@@ -830,7 +828,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 	const jsmntok_t *arr = json_get_member(buf, result, "offers");
 	const jsmntok_t *offertok, *activetok, *b12tok;
 	bool active;
-	char *fail;
 	struct command_result *err;
 	struct amount_msat amt;
 
@@ -855,6 +852,8 @@ static struct command_result *listoffers_done(struct command *cmd,
 	if (!active)
 		return fail_invreq(cmd, ir, "Offer no longer available");
 
+	/* Now, since we looked up by hash, we know that the entire offer
+	 * is faithfully mirrored in this invreq. */
 	b12tok = json_get_member(buf, offertok, "bolt12");
 	if (!b12tok) {
 		return fail_internalerr(cmd, ir,
@@ -863,22 +862,8 @@ static struct command_result *listoffers_done(struct command *cmd,
 					json_tok_full(buf, offertok));
 	}
 
-	/* FIXME-OFFERS: we have these fields in invreq! */
-	ir->offer = offer_decode(ir,
-				 buf + b12tok->start,
-				 b12tok->end - b12tok->start,
-				 plugin_feature_set(cmd->plugin),
-				 chainparams, &fail);
-	if (!ir->offer) {
-		return fail_internalerr(cmd, ir,
-					"Invalid offer: %s (%.*s)",
-					fail,
-					json_tok_full_len(offertok),
-					json_tok_full(buf, offertok));
-	}
-
-	if (ir->offer->offer_absolute_expiry
-	    && time_now().ts.tv_sec >= *ir->offer->offer_absolute_expiry) {
+	if (ir->invreq->offer_absolute_expiry
+	    && time_now().ts.tv_sec >= *ir->invreq->offer_absolute_expiry) {
 		/* FIXME: do deloffer to disable it */
 		return fail_invreq(cmd, ir, "Offer expired");
 	}
@@ -892,7 +877,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 * - otherwise:
 	 *   - MUST fail the request if there is an `invreq_quantity` field.
 	 */
-	if (ir->offer->offer_quantity_max) {
+	if (ir->invreq->offer_quantity_max) {
 		err = invreq_must_have(cmd, ir, invreq_quantity);
 		if (err)
 			return err;
@@ -901,12 +886,12 @@ static struct command_result *listoffers_done(struct command *cmd,
 			return fail_invreq(cmd, ir,
 					   "quantity zero invalid");
 
-		if (*ir->offer->offer_quantity_max &&
-		    *ir->invreq->invreq_quantity > *ir->offer->offer_quantity_max) {
+		if (*ir->invreq->offer_quantity_max &&
+		    *ir->invreq->invreq_quantity > *ir->invreq->offer_quantity_max) {
 			return fail_invreq(cmd, ir,
 					   "quantity %"PRIu64" > %"PRIu64,
 					   *ir->invreq->invreq_quantity,
-					   *ir->offer->offer_quantity_max);
+					   *ir->invreq->offer_quantity_max);
 		}
 	} else {
 		err = invreq_must_not_have(cmd, ir, invreq_quantity);
@@ -928,7 +913,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 		return fail_invreq(cmd, ir, "bad signature");
 	}
 
-	if (ir->offer->offer_recurrence) {
+	if (ir->invreq->offer_recurrence) {
 		/* BOLT-offers-recurrence #12:
 		 *
 		 * - if the offer had a `recurrence`:
@@ -993,7 +978,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 		= plugin_feature_set(cmd->plugin)->bits[BOLT12_INVOICE_FEATURE];
 
 	/* We may require currency lookup; if so, do it now. */
-	if (ir->offer->offer_amount && ir->offer->offer_currency)
+	if (ir->invreq->offer_amount && ir->invreq->offer_currency)
 		return convert_currency(cmd, ir);
 
 	err = invreq_base_amount_simple(cmd, ir, &amt);
