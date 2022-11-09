@@ -285,9 +285,14 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 				goto field_bad;
 		}
 
-		/* Blinded paths have no payment secret or metadata:
-		 * we use the path_id for that. */
-		p->payment_secret = NULL;
+		/* We stash path_id (if present and valid!) in payment_secret */
+		if (tal_bytelen(enc->path_id) == sizeof(*p->payment_secret)) {
+			p->payment_secret = tal_steal(p,
+						      (struct secret *)enc->path_id);
+		} else
+			p->payment_secret = NULL;
+
+		/* FIXME: if we supported metadata, it would also be in path_id */
 		p->payment_metadata = NULL;
 		return p;
 	}

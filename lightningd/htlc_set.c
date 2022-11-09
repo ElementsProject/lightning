@@ -116,12 +116,9 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
-	/* FIXME! */
-	bool ignore_secret = details->invstring && strstarts(details->invstring, "lni1");
-
 	/* If we insist on a payment secret, it must always have it */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_PAYMENT_SECRET))
-	    && !payment_secret && !ignore_secret) {
+	    && !payment_secret) {
 		log_debug(ld->log, "Missing payment_secret, but required for %s",
 			  type_to_string(tmpctx, struct sha256,
 					 &hin->payment_hash));

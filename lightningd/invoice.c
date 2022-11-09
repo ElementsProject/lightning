@@ -142,27 +142,18 @@ static void invoice_secret(const struct preimage *payment_preimage,
 	memcpy(payment_secret->data, secret.u.u8, sizeof(secret.u.u8));
 }
 
-/* FIXME: This is a hack.  The real secret should be a signature of some
- * onion key, using the payer_id */
+/* FIXME: The spec should require a *real* secret: a signature of the
+ * payment_hash using the payer_id key.  This just means they've
+ * *seen* the invoice! */
 static void invoice_secret_bolt12(struct lightningd *ld,
-				  const char *invstring,
+				  const struct sha256 *payment_hash,
 				  struct secret *payment_secret)
 {
-	char *fail;
-	struct tlv_invoice *inv;
-	struct sha256 merkle;
-
-	inv = invoice_decode(tmpctx, invstring, strlen(invstring),
-			     NULL, NULL, &fail);
-	if (!inv) {
-		log_broken(ld->log, "Unable to decode our invoice %s",
-			   invstring);
-		return;
-	}
-
-	merkle_tlv(inv->fields, &merkle);
-	BUILD_ASSERT(sizeof(*payment_secret) == sizeof(merkle));
-	memcpy(payment_secret, &merkle, sizeof(merkle));
+	const void *path_id = invoice_path_id(tmpctx,
+					      &ld->invoicesecret_base,
+					      payment_hash);
+	assert(tal_bytelen(path_id) == sizeof(*payment_secret));
+	memcpy(payment_secret, path_id, sizeof(*payment_secret));
 }
 
 struct invoice_payment_hook_payload {
@@ -398,8 +389,6 @@ invoice_check_payment(const tal_t *ctx,
 	}
 
 	details = wallet_invoice_details(ctx, ld->wallet, invoice);
-	/* FIXME! */
-	bool ignore_secret = details->invstring && strstarts(details->invstring, "lni1");
 
 	/* BOLT #4:
 	 *  - if the `payment_secret` doesn't match the expected value for that
@@ -408,17 +397,17 @@ invoice_check_payment(const tal_t *ctx,
 	 *    - MUST fail the HTLC.
 	 */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
-	    && !payment_secret && !ignore_secret) {
+	    && !payment_secret) {
 		log_debug(ld->log, "Attept to pay %s without secret",
 			  type_to_string(tmpctx, struct sha256, &details->rhash));
 		return tal_free(details);
 	}
 
-	if (payment_secret && !ignore_secret) {
+	if (payment_secret) {
 		struct secret expected;
 
 		if (details->invstring && strstarts(details->invstring, "lni1"))
-			invoice_secret_bolt12(ld, details->invstring, &expected);
+			invoice_secret_bolt12(ld, payment_hash, &expected);
 		else
 			invoice_secret(&details->r, &expected);
 		if (!secret_eq_consttime(payment_secret, &expected)) {
