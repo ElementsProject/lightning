@@ -4592,15 +4592,15 @@ def test_fetchinvoice(node_factory, bitcoind):
     # listinvoices will show these on l3
     assert [x['local_offer_id'] for x in l3.rpc.listinvoices()['invoices']] == [offer1['offer_id'], offer1['offer_id']]
 
-    assert 'payer_note' not in only_one(l3.rpc.call('listinvoices', {'invstring': inv1['invoice']})['invoices'])
-    assert only_one(l3.rpc.call('listinvoices', {'invstring': inv2['invoice']})['invoices'])['payer_note'] == 'Thanks for the fish!'
+    assert 'invreq_payer_note' not in only_one(l3.rpc.call('listinvoices', {'invstring': inv1['invoice']})['invoices'])
+    assert only_one(l3.rpc.call('listinvoices', {'invstring': inv2['invoice']})['invoices'])['invreq_payer_note'] == 'Thanks for the fish!'
 
     # BTW, test listinvoices-by-offer_id:
     assert len(l3.rpc.listinvoices(offer_id=offer1['offer_id'])['invoices']) == 2
 
     # We can also set the amount explicitly, to tip.
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'amount_msat': 3})
-    assert l1.rpc.call('decode', [inv1['invoice']])['amount_msat'] == 3
+    assert l1.rpc.call('decode', [inv1['invoice']])['invoice_amount_msat'] == 3
     l1.rpc.pay(inv1['invoice'])
 
     # More than ~5x expected is rejected as absurd (it's actually a divide test,
@@ -5222,4 +5222,4 @@ def test_payerkey(node_factory):
 
     for n, k in zip(nodes, expected_keys):
         b12 = n.rpc.createinvoicerequest('lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu')['bolt12']
-        assert n.rpc.decode(b12)['payer_key'] == k
+        assert n.rpc.decode(b12)['invreq_payer_id'] == k

@@ -70,9 +70,8 @@ static void json_add_invoice_fields(struct json_stream *response,
 		tinv = invoice_decode(tmpctx,
 				      inv->invstring, strlen(inv->invstring),
 				      NULL, NULL, &fail);
-		/* FIXME-OFFERS: Rename all fields to offer_ as per spec */
 		if (tinv && tinv->invreq_payer_note)
-			json_add_stringn(response, "payer_note",
+			json_add_stringn(response, "invreq_payer_note",
 					 tinv->invreq_payer_note,
 					 tal_bytelen(tinv->invreq_payer_note));
 	}

@@ -39,7 +39,7 @@ On success, an object is returned, containing:
 If **bolt12** is present:
 
   - **local\_offer\_id** (hex, optional): offer for which this invoice was created
-  - **payer\_note** (string, optional): the optional *payer_note* from invoice_request which created this invoice
+  - **invreq\_payer\_note** (string, optional): the optional *invreq_payer_note* from invoice_request which created this invoice
 
 If **status** is "paid":
 
@@ -81,4 +81,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d754daa61ddb65009fced566338af35ffb23069593f4741e6d8f6f138f60bb4f)
+[comment]: # ( SHA256STAMP:961571f6b2155f0452ac376bdf957474dd20e97e05a89efdf590f6e4da310f4f)
