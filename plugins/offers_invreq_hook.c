@@ -3,7 +3,9 @@
 #include <bitcoin/preimage.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
+#include <common/blindedpath.h>
 #include <common/bolt12_merkle.h>
+#include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
 #include <common/overflows.h>
@@ -210,6 +212,9 @@ static struct command_result *create_invoicereq(struct command *cmd,
 {
 	struct out_req *req;
 
+	/* FIXME: We should add a real blinded path, and we *need to*
+	 * if we don't have public channels! */
+
 	/* Now, write invoice to db (returns the signed version) */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoice",
 				    createinvoice_done, createinvoice_error, ir);
@@ -219,6 +224,202 @@ static struct command_result *create_invoicereq(struct command *cmd,
 	json_add_label(req->js, ir->inv->offer_id, ir->inv->payer_key,
 		       ir->inv->recurrence_counter
 		       ? *ir->inv->recurrence_counter : 0);
+	return send_outreq(cmd->plugin, req);
+}
+
+/* Create and encode an enctlv */
+static u8 *create_enctlv(const tal_t *ctx,
+			 /* in and out */
+			 struct privkey *blinding,
+			 const struct pubkey *node_id,
+			 struct short_channel_id *next_scid,
+			 struct tlv_encrypted_data_tlv_payment_relay *payment_relay,
+			 struct tlv_encrypted_data_tlv_payment_constraints *payment_constraints,
+			 u8 *path_secret,
+			 struct pubkey *node_alias)
+{
+	struct tlv_encrypted_data_tlv *tlv = tlv_encrypted_data_tlv_new(tmpctx);
+
+	tlv->short_channel_id = next_scid;
+	tlv->path_id = path_secret;
+	tlv->payment_relay = payment_relay;
+	tlv->payment_constraints = payment_constraints;
+	/* FIXME: Add padding! */
+
+	return encrypt_tlv_encrypted_data(ctx, blinding, node_id, tlv,
+					  blinding, node_alias);
+}
+
+/* If we only have private channels, we need to add a blinded path to the
+ * invoice.  We need to choose a peer who supports blinded payments, too. */
+struct chaninfo {
+	struct pubkey id;
+	struct short_channel_id scid;
+	struct amount_msat capacity, htlc_min, htlc_max;
+	u32 feebase, feeppm, cltv;
+	bool public;
+};
+
+/* FIXME: This is naive:
+ * - Only creates if we have no public channels.
+ * - Always creates a path from direct neighbor.
+ * - Doesn't append dummy hops.
+ * - Doesn't pad to length.
+ */
+/* (We only create if we have to, because our code doesn't handle
+ * making a payment if the blinded path starts with ourselves!) */
+static struct command_result *listincoming_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct invreq *ir)
+{
+	const jsmntok_t *arr, *t;
+	size_t i;
+	struct chaninfo *best = NULL;
+	bool any_public = false;
+
+	arr = json_get_member(buf, result, "incoming");
+	json_for_each_arr(i, t, arr) {
+		struct chaninfo ci;
+		const jsmntok_t *pftok;
+		u8 *features;
+		const char *err;
+
+		err = json_scan(tmpctx, buf, t,
+				"{id:%,"
+				"incoming_capacity_msat:%,"
+				"htlc_min_msat:%,"
+				"htlc_max_msat:%,"
+				"fee_base_msat:%,"
+				"fee_proportional_millionths:%,"
+				"cltv_expiry_delta:%,"
+				"short_channel_id:%,"
+				"public:%}",
+				JSON_SCAN(json_to_pubkey, &ci.id),
+				JSON_SCAN(json_to_msat, &ci.capacity),
+				JSON_SCAN(json_to_msat, &ci.htlc_min),
+				JSON_SCAN(json_to_msat, &ci.htlc_max),
+				JSON_SCAN(json_to_u32, &ci.feebase),
+				JSON_SCAN(json_to_u32, &ci.feeppm),
+				JSON_SCAN(json_to_u32, &ci.cltv),
+				JSON_SCAN(json_to_short_channel_id, &ci.scid),
+				JSON_SCAN(json_to_bool, &ci.public));
+		if (err) {
+			plugin_log(cmd->plugin, LOG_BROKEN,
+				   "Could not parse listincoming: %s",
+				   err);
+			continue;
+		}
+
+		any_public |= ci.public;
+
+		/* Not presented if there's no channel_announcement for peer:
+		 * we could use listpeers, but if it's private we probably
+		 * don't want to blinded route through it! */
+		pftok = json_get_member(buf, t, "peer_features");
+		if (!pftok)
+			continue;
+		features = json_tok_bin_from_hex(tmpctx, buf, pftok);
+		if (!feature_offered(features, OPT_ROUTE_BLINDING))
+			continue;
+
+		if (amount_msat_less(ci.htlc_max, amount_msat(*ir->inv->amount)))
+			continue;
+
+		/* Only pick a private one if no public candidates. */
+		if (!best || (!best->public && ci.public))
+			best = tal_dup(tmpctx, struct chaninfo, &ci);
+	}
+
+	/* If there are any public channels, don't add. */
+	if (any_public)
+		goto done;
+
+	/* BOLT-offers #12:
+	 * - MUST include `invoice_paths` containing one or more paths to the node.
+	 * - MUST specify `invoice_paths` in order of most-preferred to
+	 *   least-preferred if it has a preference.
+	 * - MUST include `invoice_blindedpay` with exactly one `blinded_payinfo`
+	 *   for each `blinded_path` in `paths`, in order.
+	 */
+	if (!best) {
+		/* Note: since we don't make one, createinvoice adds a dummy. */
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "No incoming channel for %s, so no blinded path",
+			   fmt_amount_msat(tmpctx, amount_msat(*ir->inv->amount)));
+	} else {
+		struct privkey blinding;
+		struct tlv_encrypted_data_tlv_payment_relay relay;
+		struct tlv_encrypted_data_tlv_payment_constraints constraints;
+		struct onionmsg_hop **hops;
+		u32 base;
+
+		relay.cltv_expiry_delta = best->cltv;
+		relay.fee_base_msat = best->feebase;
+		relay.fee_proportional_millionths = best->feeppm;
+
+		/* Give them 6 blocks, plus one per 10 minutes until expiry. */
+		if (ir->inv->relative_expiry)
+			base = blockheight + 6 + *ir->inv->relative_expiry / 600;
+		else
+			base = blockheight + 6 + 7200 / 600;
+		constraints.max_cltv_expiry = base + best->cltv + cltv_final;
+		constraints.htlc_minimum_msat = best->htlc_min.millisatoshis; /* Raw: tlv */
+
+		randombytes_buf(&blinding, sizeof(blinding));
+
+		ir->inv->paths = tal_arr(ir->inv, struct blinded_path *, 1);
+		ir->inv->paths[0] = tal(ir->inv->paths, struct blinded_path);
+		ir->inv->paths[0]->first_node_id = best->id;
+		if (!pubkey_from_privkey(&blinding,
+					 &ir->inv->paths[0]->blinding))
+			abort();
+		hops = tal_arr(ir->inv->paths[0], struct onionmsg_hop *, 2);
+		ir->inv->paths[0]->path = hops;
+
+		/* First hop is the peer */
+		hops[0] = tal(hops, struct onionmsg_hop);
+		hops[0]->encrypted_recipient_data
+			= create_enctlv(hops[0],
+					&blinding,
+					&best->id,
+					&best->scid,
+					&relay, &constraints,
+					NULL,
+					&hops[0]->blinded_node_id);
+		/* Second hops is us (so we can identify correct use of path) */
+		hops[1] = tal(hops, struct onionmsg_hop);
+		hops[1]->encrypted_recipient_data
+			= create_enctlv(hops[1],
+					&blinding,
+					&id,
+					NULL, NULL, NULL,
+					invoice_path_id(tmpctx, &invoicesecret_base,
+							ir->inv->payment_hash),
+					&hops[1]->blinded_node_id);
+
+		/* FIXME: This should be a "normal" feerate and range. */
+		ir->inv->blindedpay = tal_arr(ir->inv, struct blinded_payinfo *, 1);
+		ir->inv->blindedpay[0] = tal(ir->inv->blindedpay, struct blinded_payinfo);
+		ir->inv->blindedpay[0]->fee_base_msat = best->feebase;
+		ir->inv->blindedpay[0]->fee_proportional_millionths = best->feeppm;
+		ir->inv->blindedpay[0]->cltv_expiry_delta = best->cltv;
+		ir->inv->blindedpay[0]->htlc_minimum_msat = best->htlc_min;
+		ir->inv->blindedpay[0]->htlc_maximum_msat = best->htlc_max;
+		ir->inv->blindedpay[0]->features = NULL;
+	}
+
+done:
+	return create_invoicereq(cmd, ir);
+}
+
+static struct command_result *add_blindedpaths(struct command *cmd,
+					       struct invreq *ir)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listincoming",
+				    listincoming_done, listincoming_done, ir);
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -341,7 +542,7 @@ static struct command_result *check_period(struct command *cmd,
 		}
 	}
 
-	return create_invoicereq(cmd, ir);
+	return add_blindedpaths(cmd, ir);
 }
 
 static struct command_result *prev_invoice_done(struct command *cmd,
@@ -548,7 +749,7 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 	 * request another. */
 
 	/* FIXME: Fallbacks? */
-	return create_invoicereq(cmd, ir);
+	return add_blindedpaths(cmd, ir);
 }
 
 static struct command_result *currency_done(struct command *cmd,

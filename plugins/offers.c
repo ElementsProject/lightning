@@ -9,6 +9,7 @@
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
 #include <common/bolt12_merkle.h>
+#include <common/invoice_path_id.h>
 #include <common/iso4217.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -21,6 +22,7 @@ struct pubkey id;
 u32 blockheight;
 u16 cltv_final;
 bool offers_enabled;
+struct secret invoicesecret_base;
 
 static struct command_result *finished(struct command *cmd,
 				       const char *buf,
@@ -950,6 +952,11 @@ static const char *init(struct plugin *p,
 		 "{cltv-final:%,experimental-offers:%}",
 		 JSON_SCAN(json_to_u16, &cltv_final),
 		 JSON_SCAN(json_to_bool, &offers_enabled));
+
+	rpc_scan(p, "makesecret",
+		 take(json_out_obj(NULL, "string", INVOICE_PATH_BASE_STRING)),
+		 "{secret:%}",
+		 JSON_SCAN(json_to_secret, &invoicesecret_base));
 
 	return NULL;
 }
