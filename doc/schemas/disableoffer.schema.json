@@ -6,7 +6,6 @@
     "active",
     "single_use",
     "bolt12",
-    "bolt12_unsigned",
     "used"
   ],
   "additionalProperties": false,
@@ -31,10 +30,6 @@
     "bolt12": {
       "type": "string",
       "description": "The bolt12 string representing this offer"
-    },
-    "bolt12_unsigned": {
-      "type": "string",
-      "description": "The bolt12 string representing this offer, without signature"
     },
     "used": {
       "type": "boolean",
