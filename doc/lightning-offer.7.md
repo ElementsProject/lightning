@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**offer** *amount* *description* [*issuer*] [*label*] [*quantity_min*] [*quantity_max*] [*absolute_expiry*] [*recurrence*] [*recurrence_base*] [*recurrence_paywindow*] [*recurrence_limit*] [*single_use*]
+**offer** *amount* *description* [*issuer*] [*label*] [*quantity_max*] [*absolute_expiry*] [*recurrence*] [*recurrence_base*] [*recurrence_paywindow*] [*recurrence_limit*] [*single_use*]
 
 DESCRIPTION
 -----------
@@ -43,10 +43,11 @@ reflects who is issuing this offer (i.e. you) if appropriate.
 The *label* field is an internal-use name for the offer, which can
 be any UTF-8 string.
 
-The present of *quantity_min* or *quantity_max* indicates that the
-invoice can specify more than one of the items within this (inclusive)
-range.  The *amount* for the invoice will need to be multiplied
-accordingly.  These are encoded in the offer.
+The presence of *quantity_max* indicates that the
+invoice can specify more than one of the items up (and including)
+this maximum: 0 is a special value meaning "no maximuim".
+The *amount* for the invoice will need to be multiplied
+accordingly.  This is encoded in the offer.
 
 The *absolute_expiry* is optionally the time the offer is valid until,
 in seconds since the first day of 1970 UTC.  If not set, the offer

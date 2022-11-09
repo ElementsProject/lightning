@@ -49,13 +49,13 @@ char *invrequest_encode(const tal_t *ctx,
 /**
  * invrequest_decode - decode this complete bolt12 text into a TLV.
  * @ctx: the context to allocate return or *@fail off.
- * @b12: the invoice_request string
- * @b12len: the invoice_request string length
+ * @b12: the invreq string
+ * @b12len: the invreq string length
  * @our_features: if non-NULL, feature set to check against.
  * @must_be_chain: if non-NULL, chain to enforce.
  * @fail: pointer to descriptive error string, set if this returns NULL.
  *
- * Note: invoice_request doesn't always have a signature, so no checking is done!
+ * Note: invreq doesn't always have a signature, so no checking is done!
  */
 struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 					      const char *b12, size_t b12len,
@@ -103,14 +103,20 @@ bool bolt12_check_signature(const struct tlv_field *fields,
 bool bolt12_chain_matches(const struct bitcoin_blkid *chain,
 			  const struct chainparams *must_be_chain);
 
+/* Given an array of max_num_chains chains (or NULL == bitcoin), does
+ * it match? */
+bool bolt12_chains_match(const struct bitcoin_blkid *chains,
+			 size_t max_num_chains,
+			 const struct chainparams *must_be_chain);
+
 /* Given a basetime, when does period N start? */
 u64 offer_period_start(u64 basetime, size_t n,
-		       const struct tlv_offer_recurrence *recurrence);
+		       const struct recurrence *recurrence);
 
 /* Get the start and end of the payment window for period N. */
-void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
-			    const struct tlv_offer_recurrence_paywindow *recurrence_paywindow,
-			    const struct tlv_offer_recurrence_base *recurrence_base,
+void offer_period_paywindow(const struct recurrence *recurrence,
+			    const struct recurrence_paywindow *recurrence_paywindow,
+			    const struct recurrence_base *recurrence_base,
 			    u64 basetime, u64 period_idx,
 			    u64 *period_start, u64 *period_end);
 
