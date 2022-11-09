@@ -9,6 +9,7 @@
 #include <common/channel_type.h>
 #include <common/features.h>
 #include <common/setup.h>
+#include <secp256k1_schnorrsig.h>
 
 /* Definition of n1 from the spec */
 #include <wire/peer_wire.h>
@@ -51,6 +52,17 @@ static LAST_ARG_NULL void *concat_(const void *p, ...)
 	} while ((p = va_arg(ap, const void *)) != NULL);
 	va_end(ap);
 	return ret;
+}
+
+/* Just return type field from tlv */
+static const u8 *tlv_type(const void *tlv)
+{
+	size_t len = tal_bytelen(tlv);
+	const u8 *cursor = tlv;
+
+	fromwire_bigsize(&cursor, &len);
+	assert(cursor);
+	return tal_dup_arr(tmpctx, u8, tlv, tal_bytelen(tlv) - len, 0);
 }
 
 /* Hashes a tal object */
@@ -121,23 +133,28 @@ static void merkle_n1(const struct tlv_n1 *n1, struct sha256 *test_m)
 	merkle_tlv(tmp->fields, test_m);
 }
 
-/* As a bonus, you get the merkle-test.json by running:
+/* As a bonus, you get the bolt12/signature-test.json by running:
  * common/test/run-bolt12_merkle | grep '^JSON:' | cut -d: -f2- | jq */
 #define json_out(fmt, ...) printf("JSON: " fmt "\n" , ## __VA_ARGS__)
 
 int main(int argc, char *argv[])
 {
 	struct sha256 *m, test_m, *leaf[6];
-	const char *LnBranch, *LnAll, *LnLeaf;
-	u8 *tlv1, *tlv2, *tlv3, *all;
+	const char *LnBranch, *LnNonce, *LnLeaf;
+	u8 *tlv1, *tlv2, *tlv3;
 	struct tlv_n1 *n1;
+	u8 node_id[PUBKEY_CMPR_LEN];
+	struct secret alice_secret, bob_secret;
+	struct pubkey alice, bob;
+	struct sha256 sha;
+	secp256k1_keypair kp;
 	char *fail;
 
 	common_setup(argv[0]);
 	/* Note: no nul term */
 	LnBranch = tal_dup_arr(tmpctx, char, "LnBranch", strlen("LnBranch"), 0);
 	LnLeaf = tal_dup_arr(tmpctx, char, "LnLeaf", strlen("LnLeaf"), 0);
-	LnAll = tal_dup_arr(tmpctx, char, "LnAll", strlen("LnAll"), 0);
+	LnNonce = tal_dup_arr(tmpctx, char, "LnNonce", strlen("LnNonce"), 0);
 
 	/* Create the tlvs, as per example `n1` in spec */
 	{
@@ -168,17 +185,16 @@ int main(int argc, char *argv[])
 	json_out("{\"comment\": \"Simple n1 test, tlv1 = 1000\",");
 	json_out("\"tlv\": \"n1\",");
 	/* Simplest case, a single (msat) element. */
-	all = tlv1;
-	json_out("\"all-tlvs\": \"%s\",", tal_hex(tmpctx, all));
+	json_out("\"first-tlv\": \"%s\",", tal_hex(tmpctx, tlv1));
 	json_out("\"leaves\": [");
 
 	leaf[0] = H(LnBranch,
 		    ordered(H(LnLeaf, tlv1),
-			    H(concat(LnAll, all), tlv1)));
-	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnAll`|all-tlvs,tlv1)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
+			    H(concat(LnNonce, tlv1), tlv_type(tlv1))));
+	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,tlv1-type)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
 		 tal_hex(tmpctx, tlv1),
 		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv1)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnAll, all), tlv1)),
+		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
 		 type_to_string(tmpctx, struct sha256, leaf[0]));
 	json_out("],");
 
@@ -188,10 +204,6 @@ int main(int argc, char *argv[])
 	json_out("\"merkle\": \"%s\"",
 		 type_to_string(tmpctx, struct sha256, m));
 	json_out("},");
-
-	printf("n1 = %s, merkle = %s\n",
-	       tal_hex(tmpctx, all),
-	       type_to_string(tmpctx, struct sha256, m));
 
 	/* Create, linearize (populates ->fields) */
 	n1 = tlv_n1_new(tmpctx);
@@ -203,25 +215,24 @@ int main(int argc, char *argv[])
 	/* Two elements. */
 	json_out("{\"comment\": \"n1 test, tlv1 = 1000, tlv2 = 1x2x3\",");
 	json_out("\"tlv\": \"n1\",");
-	all = concat(tlv1, tlv2);
+	json_out("\"first-tlv\": \"%s\",", tal_hex(tmpctx, tlv1));
 
-	json_out("\"all-tlvs\": \"%s\",", tal_hex(tmpctx, all));
 	json_out("\"leaves\": [");
 
 	leaf[0] = H(LnBranch, ordered(H(LnLeaf, tlv1),
-				      H(concat(LnAll, all), tlv1)));
+				      H(concat(LnNonce, tlv1), tlv_type(tlv1))));
 	leaf[1] = H(LnBranch, ordered(H(LnLeaf, tlv2),
-				      H(concat(LnAll, all), tlv2)));
+				      H(concat(LnNonce, tlv1), tlv_type(tlv2))));
 
-	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnAll`|all-tlvs,tlv1)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
+	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,tlv1-type)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
 		 tal_hex(tmpctx, tlv1),
 		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv1)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnAll, all), tlv1)),
+		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
 		 type_to_string(tmpctx, struct sha256, leaf[0]));
-	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnAll`|all-tlvs,tlv2)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
+	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,tlv2-type)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
 		 tal_hex(tmpctx, tlv2),
 		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv2)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnAll, all), tlv2)),
+		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv2))),
 		 type_to_string(tmpctx, struct sha256, leaf[1]));
 	json_out("],");
 
@@ -237,10 +248,6 @@ int main(int argc, char *argv[])
 		 type_to_string(tmpctx, struct sha256, m));
 	json_out("},");
 
-	printf("n1 = %s, merkle = %s\n",
-	       tal_hex(tmpctx, all),
-	       type_to_string(tmpctx, struct sha256, m));
-
 	n1->tlv2 = tal(n1, struct short_channel_id);
 	if (!mk_short_channel_id(n1->tlv2, 1, 2, 3))
 		abort();
@@ -250,30 +257,29 @@ int main(int argc, char *argv[])
 	/* Three elements. */
 	json_out("{\"comment\": \"n1 test, tlv1 = 1000, tlv2 = 1x2x3, tlv3 = 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518, 1, 2\",");
 	json_out("\"tlv\": \"n1\",");
-	all = concat(tlv1, tlv2, tlv3);
-	json_out("\"all-tlvs\": \"%s\",", tal_hex(tmpctx, all));
+	json_out("\"first-tlv\": \"%s\",", tal_hex(tmpctx, tlv1));
 	json_out("\"leaves\": [");
 
 	leaf[0] = H(LnBranch, ordered(H(LnLeaf, tlv1),
-				      H(concat(LnAll, all), tlv1)));
+				      H(concat(LnNonce, tlv1), tlv_type(tlv1))));
 	leaf[1] = H(LnBranch, ordered(H(LnLeaf, tlv2),
-				      H(concat(LnAll, all), tlv2)));
+				      H(concat(LnNonce, tlv1), tlv_type(tlv2))));
 	leaf[2] = H(LnBranch, ordered(H(LnLeaf, tlv3),
-				      H(concat(LnAll, all), tlv3)));
-	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnAll`|all-tlvs,tlv1)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
+				      H(concat(LnNonce, tlv1), tlv_type(tlv3))));
+	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,1)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
 		 tal_hex(tmpctx, tlv1),
 		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv1)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnAll, all), tlv1)),
+		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv1))),
 		 type_to_string(tmpctx, struct sha256, leaf[0]));
-	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnAll`|all-tlvs,tlv2)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
+	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,2)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" },",
 		 tal_hex(tmpctx, tlv2),
 		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv2)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnAll, all), tlv2)),
+		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv2))),
 		 type_to_string(tmpctx, struct sha256, leaf[1]));
-	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnAll`|all-tlvs,tlv3)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
+	json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,3)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }",
 		 tal_hex(tmpctx, tlv3),
 		 type_to_string(tmpctx, struct sha256, H(LnLeaf, tlv3)),
-		 type_to_string(tmpctx, struct sha256, H(concat(LnAll, all), tlv3)),
+		 type_to_string(tmpctx, struct sha256, H(concat(LnNonce, tlv1), tlv_type(tlv3))),
 		 type_to_string(tmpctx, struct sha256, leaf[2]));
 	json_out("],");
 
@@ -297,10 +303,6 @@ int main(int argc, char *argv[])
 		 type_to_string(tmpctx, struct sha256, m));
 	json_out("},");
 
-	printf("n1 = %s, merkle = %s\n",
-	       tal_hex(tmpctx, all),
-	       type_to_string(tmpctx, struct sha256, m));
-
 	n1->tlv3 = tal(n1, struct tlv_n1_tlv3);
 	pubkey_from_hexstr("0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518", strlen("0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"), &n1->tlv3->node_id);
 	n1->tlv3->amount_msat_1 = AMOUNT_MSAT(1);
@@ -308,56 +310,86 @@ int main(int argc, char *argv[])
 	merkle_n1(n1, &test_m);
 	assert(sha256_eq(&test_m, m));
 
-	/* Now try with an actual offer, with 6 fields. */
-	struct tlv_offer *offer = offer_decode(tmpctx,
-					       "lno1qcp4256ypqpq86q2pucnq42ngssx2an9wfujqerp0y2pqun4wd68jtn00fkxzcnn9ehhyec6qgqsz83pqf9e58aguqr0rcun0ajlvmzq3ek63cw2w282gv3z5uupmuwvgjtq2",
-					       strlen("lno1qcp4256ypqpq86q2pucnq42ngssx2an9wfujqerp0y2pqun4wd68jtn00fkxzcnn9ehhyec6qgqsz83pqf9e58aguqr0rcun0ajlvmzq3ek63cw2w282gv3z5uupmuwvgjtq2"),
-					       NULL, NULL, &fail);
+	/* Now try with an invoice request. */
+	struct tlv_invoice_request *invreq = tlv_invoice_request_new(tmpctx);
 
-	assert(tal_count(offer->fields) == 6);
+	memset(&alice_secret, 'A', sizeof(alice_secret));
+	pubkey_from_secret(&alice_secret, &alice);
+	memset(&bob_secret, 'B', sizeof(bob_secret));
+	pubkey_from_secret(&bob_secret, &bob);
+
+	invreq->offer_node_id = tal_dup(invreq, struct pubkey, &alice);
+	invreq->offer_description = tal_dup_arr(invreq, char, "A Mathematical Treatise", strlen("A Mathematical Treatise"), 0);
+	invreq->offer_amount = tal(invreq, u64);
+	*invreq->offer_amount = 100;
+	invreq->offer_currency = tal_dup_arr(invreq, char, "USD", strlen("USD"), 0);
+	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &bob);
+	invreq->invreq_metadata = tal_arrz(invreq, u8, 8);
+
+	/* Populate ->fields array, for merkle routine */
+	invreq->fields = tlv_make_fields(invreq, tlv_invoice_request);
+	merkle_tlv(invreq->fields, &test_m);
+
+	/* BOLT-offers #12:
+	 * - MUST set `signature`.`sig` as detailed in [Signature Calculation](#signature-calculation) using the `invreq_payer_id`.
+	 */
+	invreq->signature = tal(invreq, struct bip340sig);
+	sighash_from_merkle("invoice_request", "signature", &test_m, &sha);
+	assert(secp256k1_keypair_create(secp256k1_ctx, &kp, bob_secret.data) == 1);
+	assert(secp256k1_schnorrsig_sign32(secp256k1_ctx, invreq->signature->u8,
+					   sha.u.u8,
+					   &kp,
+					   NULL) == 1);
+
+	char *invreqtext = invrequest_encode(tmpctx, invreq);
+	invreq = invrequest_decode(tmpctx, invreqtext, strlen(invreqtext), NULL, NULL, &fail);
+
+	json_out("{\"comment\": \"invoice_request test: offer_node_id = Alice (privkey 0x414141...), offer_description = 'A Mathematical Treatise', offer_amount = 100, offer_currency = 'USD', invreq_payer_id = Bob (privkey 0x424242...), invreq_metadata = 0x0000000000000000\",");
+	json_out("\"bolt12\": \"%s\",", invreqtext);
+	json_out("\"tlv\": \"invoice_request\",");
+
+	assert(tal_count(invreq->fields) == 7);
 	u8 *fieldwires[6];
 
-	/* currency: USD */
-	fieldwires[0] = tlv(6, "USD", strlen("USD"));
-	/* amount: 1000 */
-	fieldwires[1] = tlv(8, "\x03\xe8", 2);
-	/* description: 10USD every day */
-	fieldwires[2] = tlv(10, "10USD every day", strlen("10USD every day"));
-	/* issuer: rusty.ozlabs.org */
-	fieldwires[3] = tlv(20, "rusty.ozlabs.org", strlen("rusty.ozlabs.org"));
-	/* recurrence: time_unit = 1, period = 1 */
-	fieldwires[4] = tlv(26, "\x01\x01", 2);
-	/* node_id: 024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605 */
-	fieldwires[5] = tlv(30, "\x02\x4b\x9a\x1f\xa8\xe0\x06\xf1\xe3\x93\x7f\x65\xf6\x6c\x40\x8e\x6d\xa8\xe1\xca\x72\x8e\xa4\x32\x22\xa7\x38\x1d\xf1\xcc\x44\x96\x05", 33);
+	/* invreq_metadata: 8 bytes of 0 */
+	fieldwires[0] = tlv(0, "\0\0\0\0\0\0\0\0", 8);
+	/* offer_currency: USD */
+	fieldwires[1] = tlv(6, "USD", strlen("USD"));
+	/* offer_amount: 100 */
+	fieldwires[2] = tlv(8, "\x64", 1);
+	/* offer_description: A Mathematical Treatise */
+	fieldwires[3] = tlv(10, "A Mathematical Treatise", strlen("A Mathematical Treatise"));
+	/* offer_node_id: Alice */
+	pubkey_to_der(node_id, &alice);
+	fieldwires[4] = tlv(22, node_id, PUBKEY_CMPR_LEN);
+	/* invreq_payer_id: Bob */
+	pubkey_to_der(node_id, &bob);
+	fieldwires[5] = tlv(88, node_id, PUBKEY_CMPR_LEN);
 
-	json_out("{\"comment\": \"offer test, currency = USD, amount = 1000, description = 10USD every day, issuer = rusty.ozlabs.org, recurrence = time_unit = 1, period = 1, node_id = 024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605\",");
-	json_out("\"tlv\": \"offer\",");
-
-	all = concat(fieldwires[0], fieldwires[1], fieldwires[2],
-		     fieldwires[3], fieldwires[4], fieldwires[5]);
-	json_out("\"all-tlvs\": \"%s\",", tal_hex(tmpctx, all));
+	json_out("\"first-tlv\": \"%s\",", tal_hex(tmpctx, fieldwires[0]));
 
 	json_out("\"leaves\": [");
 	for (size_t i = 0; i < ARRAY_SIZE(fieldwires); i++) {
 		leaf[i] = H(LnBranch,
 			    ordered(H(LnLeaf, fieldwires[i]),
-				    H(concat(LnAll, all), fieldwires[i])));
-		json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnAll`|all-tlvs,tlv)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }%s",
+				    H(concat(LnNonce, fieldwires[0]), tlv_type(fieldwires[i]))));
+		json_out("{ \"H(`LnLeaf`,%s)\": \"%s\", \"H(`LnNonce`|first-tlv,%u)\": \"%s\", \"H(`LnBranch`,leaf+nonce)\": \"%s\" }%s",
 			 tal_hex(tmpctx, fieldwires[i]),
 			 type_to_string(tmpctx, struct sha256,
 					H(LnLeaf, fieldwires[i])),
+			 tlv_type(fieldwires[i])[0], /* Works becuase they're all 1-byte types! */
 			 type_to_string(tmpctx, struct sha256,
-					H(concat(LnAll, all), fieldwires[0])),
+					H(concat(LnNonce, fieldwires[0]), tlv_type(fieldwires[i]))),
 			 type_to_string(tmpctx, struct sha256, leaf[i]),
 			 i == ARRAY_SIZE(fieldwires) - 1 ? "" : ",");
 	}
 	json_out("],");
 
 	json_out("\"branches\": [");
-	json_out("{ \"desc\": \"1: currency+nonce and amount+nonce\", \"H(`LnBranch`,%s)\": \"%s\" },",
+	json_out("{ \"desc\": \"1: metadata+nonce and currency+nonce\", \"H(`LnBranch`,%s)\": \"%s\" },",
 		 tal_hex(tmpctx, ordered(leaf[0], leaf[1])),
 		 tal_hex(tmpctx, H(LnBranch, ordered(leaf[0], leaf[1]))));
-	json_out("{ \"desc\": \"2: description+nonce and issuer+nonce\", \"H(`LnBranch`,%s)\": \"%s\"},",
+	json_out("{ \"desc\": \"2: amount+nonce and descripton+nonce\", \"H(`LnBranch`,%s)\": \"%s\"},",
 		 tal_hex(tmpctx, ordered(leaf[2], leaf[3])),
 		 tal_hex(tmpctx, H(LnBranch, ordered(leaf[2], leaf[3]))));
 	struct sha256 *b12 = H(LnBranch,
@@ -369,7 +401,7 @@ int main(int argc, char *argv[])
 		 tal_hex(tmpctx, ordered(H(LnBranch, ordered(leaf[0], leaf[1])),
 					 H(LnBranch, ordered(leaf[2], leaf[3])))),
 		 tal_hex(tmpctx, b12));
-	json_out("{ \"desc\": \"4: recurrence+nonce and node_id+nonce\", \"H(`LnBranch`,%s)\": \"%s\" },",
+	json_out("{ \"desc\": \"4: node_id+nonce and payer_id+nonce\", \"H(`LnBranch`,%s)\": \"%s\" },",
 		 tal_hex(tmpctx, ordered(leaf[4], leaf[5])),
 		 tal_hex(tmpctx, H(LnBranch, ordered(leaf[4], leaf[5]))));
 	json_out("{ \"desc\": \"5: 3 and 4\", \"H(`LnBranch`,%s)\": \"%s\" }",
@@ -387,15 +419,13 @@ int main(int argc, char *argv[])
 		      H(LnBranch, ordered(leaf[4], leaf[5]))));
 
 	json_out("],");
-	json_out("\"merkle\": \"%s\"",
+	json_out("\"merkle\": \"%s\",",
 		 type_to_string(tmpctx, struct sha256, m));
+	json_out("\"signature_tag\": \"lightninginvoicerequestsignature\",");
+	json_out("\"H(signature_tag,merkle)\": \"%s\",", type_to_string(tmpctx, struct sha256, &sha));
+	json_out("\"signature\": \"%s\"", type_to_string(tmpctx, struct bip340sig, invreq->signature));
 	json_out("}]");
 
-	printf("offer = %s, merkle = %s\n",
-	       tal_hex(tmpctx, all),
-	       type_to_string(tmpctx, struct sha256, m));
-
-	merkle_tlv(offer->fields, &test_m);
 	assert(sha256_eq(&test_m, m));
 
 	common_shutdown();
