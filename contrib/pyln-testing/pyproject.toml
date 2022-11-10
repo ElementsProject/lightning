@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-testing"
-version = "0.12.1"
+version = "22.11rc1"
 description = "Test your Core Lightning integration, plugins or whatever you want"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
