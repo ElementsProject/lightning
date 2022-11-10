@@ -25,6 +25,8 @@ __attempts: Dict[str, int] = {}
 @pytest.fixture(scope="session")
 def test_base_dir():
     d = os.getenv("TEST_DIR", "/tmp")
+    if len(d) > 12:
+        raise ValueError("TEST_DIR length is too long please create one with less than x characters")
 
     directory = tempfile.mkdtemp(prefix='ltests-', dir=d)
     print("Running tests in {}".format(directory))
