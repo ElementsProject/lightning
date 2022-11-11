@@ -1,6 +1,6 @@
 [package]
 name = "cln-plugin"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/ElementsProject/lightning/tree/master/plugins"
@@ -20,7 +20,7 @@ tokio-util = { version = "0.6.9", features = ["codec"] }
 tokio = { version="1", features = ['io-std', 'rt', 'sync', 'macros', 'io-util'] }
 tokio-stream = "0.1"
 futures = "0.3"
-cln-rpc = { path = "../cln-rpc", version = "0.1.0" }
+cln-rpc = { path = "../cln-rpc", version = "^0.1" }
 env_logger = "0.9"
 
 [dev-dependencies]

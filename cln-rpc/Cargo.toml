@@ -1,25 +1,27 @@
 [package]
 name = "cln-rpc"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+license = "MIT"
+description = "An async RPC client for Core Lightning."
 
 [[example]]
 name = "cln-rpc-getinfo"
 path = "examples/getinfo.rs"
 
 [dependencies]
-anyhow = "1.0.51"
-bitcoin_hashes = { version = "0.10.0", features = [ "serde" ] }
-bytes = "1.1.0"
-log = "0.4.14"
-secp256k1 = { version = "0.22.1", features = [ "serde" ] }
-serde = { version = "1.0.131", features = ["derive"] }
-serde_json = "1.0.72"
+anyhow = "1.0"
+bitcoin_hashes = { version = "0.10", features = [ "serde" ] }
+bytes = "1.1"
+log = "0.4"
+secp256k1 = { version = "0.22", features = [ "serde" ] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 tokio-util = { version = "0.6.9", features = ["codec"] }
 tokio = { version = "1", features = ["net"]}
-futures-util = { version = "*", features = [ "sink" ] }
+futures-util = { version = "0.3", features = [ "sink" ] }
 hex = "0.4.3"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread"]}
-env_logger = "*"
+env_logger = "0.9"
