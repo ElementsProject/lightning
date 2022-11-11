@@ -1,3 +1,7 @@
 fn main() {
-    tonic_build::compile_protos("proto/node.proto").unwrap();
+    let builder = tonic_build::configure();
+    builder
+        .protoc_arg("--experimental_allow_proto3_optional")
+        .compile(&["proto/node.proto"], &["proto"])
+        .unwrap();
 }
