@@ -128,10 +128,10 @@ external-clean:
 	if [ -f ${TARGET_DIR}/libwally-core-build/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build clean; fi
 	if [ -f ${TARGET_DIR}/libwally-core-build/src/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build/src clean; fi
 	if [ -f ${TARGET_DIR}/libbacktrace-build/Makefile ]; then make -C ${TARGET_DIR}/libbacktrace-build clean; fi
-	[ -f external/lowdown/Makefile.configure ] && $(MAKE) -C external/lowdown clean
+	if [ -f external/lowdown/Makefile.configure ]; then $(MAKE) -C external/lowdown clean; fi
 
 external-distclean:
 	make -C external/libsodium distclean || true
-	[ -f external/lowdown/Makefile.configure ] && $(MAKE) -C external/lowdown distclean
+	if [ -f external/lowdown/Makefile.configure ]; then $(MAKE) -C external/lowdown distclean; fi
 	$(RM) -rf ${TARGET_DIR}/libbacktrace-build ${TARGET_DIR}/libsodium-build ${TARGET_DIR}/libwally-core-build ${TARGET_DIR}/jsmn-build
 	$(RM) -r `git status --ignored --porcelain external/libwally-core | grep '^!! ' | cut -c3-`
