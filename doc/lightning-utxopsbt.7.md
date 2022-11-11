@@ -49,8 +49,8 @@ On success, an object is returned, containing:
 - **psbt** (string): Unsigned PSBT which fulfills the parameters given
 - **feerate\_per\_kw** (u32): The feerate used to create the PSBT, in satoshis-per-kiloweight
 - **estimated\_final\_weight** (u32): The estimated weight of the transaction once fully signed
-- **excess\_msat** (msat): The amount above *satoshi* which is available.  This could be zero, or dust; it will be zero if *change_outnum* is also returned
-- **change\_outnum** (u32, optional): The 0-based output number where change was placed (only if parameter *excess_as_change* was true and there was sufficient funds)
+- **excess\_msat** (msat): The amount above *satoshi* which is available.  This could be zero, or dust; it will be zero if *change\_outnum* is also returned
+- **change\_outnum** (u32, optional): The 0-based output number where change was placed (only if parameter *excess\_as\_change* was true and there was sufficient funds)
 - **reservations** (array of objects, optional): If *reserve* was true or a non-zero number, just as per lightning-reserveinputs(7):
   - **txid** (txid): The txid of the transaction
   - **vout** (u32): The 0-based output number
@@ -100,4 +100,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c2c513b40099c9cd2ef7bda1c430fdff055499b67ef2ff9edf7772ea4d87fb2d)
+[comment]: # ( SHA256STAMP:237c832f7a7c1ea2567192b7432f4ea7fe79e553c9c531acf5be733b92095464)

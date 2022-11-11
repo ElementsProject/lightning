@@ -21,7 +21,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **accounts** is returned.  It is an array of objects, where each object contains:
 
-- **account** (string): The account name. If the account is a channel, the channel_id
+- **account** (string): The account name. If the account is a channel, the channel\_id
 - **balances** (array of objects):
   - **balance\_msat** (msat): Current account balance
   - **coin\_type** (string): coin type, same as HRP for bech32
@@ -53,4 +53,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:2801e5f237043c6f85d35e2f4a5f69aab5d1cb6a9fcbea9ead1da2daa93265c8)
+[comment]: # ( SHA256STAMP:ece6c722354576bd5de4d116547546129cdb22e950ce5e9fde3c4d7466bd255c)

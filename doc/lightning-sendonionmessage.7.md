@@ -43,4 +43,4 @@ Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md
 
-[comment]: # ( SHA256STAMP:200de829c6635242cb2dd8ec0650c2fa8f5fcbf413f4a704884516df80492fcb)
+[comment]: # ( SHA256STAMP:4aff9673290966c7b09e65672da5dc8ef4d2601d3d1681009b329a4f8ceb9af6)

@@ -26,23 +26,23 @@ On success, an object containing **forwards** is returned.  It is an array of ob
 
 - **in\_channel** (short\_channel\_id): the channel that received the HTLC
 - **in\_msat** (msat): the value of the incoming HTLC
-- **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
+- **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local\_failed", "failed")
 - **received\_time** (number): the UNIX timestamp when this was received
 - **in\_htlc\_id** (u64, optional): the unique HTLC id the sender gave this (not present if incoming channel was closed before ugprade to v22.11)
 - **out\_channel** (short\_channel\_id, optional): the channel that the HTLC (trying to) forward to
-- **out\_htlc\_id** (u64, optional): the unique HTLC id we gave this when sending (may be missing even if out_channel is present, for old forwards before v22.11)
+- **out\_htlc\_id** (u64, optional): the unique HTLC id we gave this when sending (may be missing even if out\_channel is present, for old forwards before v22.11)
 - **style** (string, optional): Either a legacy onion format or a modern tlv format (one of "legacy", "tlv")
 
 If **out\_msat** is present:
 
   - **fee\_msat** (msat): the amount this paid in fees
-  - **out\_msat** (msat): the amount we sent out the *out_channel*
+  - **out\_msat** (msat): the amount we sent out the *out\_channel*
 
 If **status** is "settled" or "failed":
 
   - **resolved\_time** (number): the UNIX timestamp when this was resolved
 
-If **status** is "local_failed" or "failed":
+If **status** is "local\_failed" or "failed":
 
   - **failcode** (u32, optional): the numeric onion code returned
   - **failreason** (string, optional): the name of the onion code returned
@@ -64,4 +64,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:15bf997ae8e93ab28b0084d9cc45fc80fb18b2bcf705f690f77617f0b66b069d)
+[comment]: # ( SHA256STAMP:2627ce6a1e4877810e690a40fda2145292ce15f0b1393d3b35b4c54b599b044e)

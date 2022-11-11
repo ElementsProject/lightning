@@ -41,7 +41,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **message\_flags** (u8): as defined by BOLT #7
 - **channel\_flags** (u8): as defined by BOLT #7
 - **active** (boolean): true unless source has disabled it, or it's a local channel and the peer is disconnected or it's still opening or closing
-- **last\_update** (u32): UNIX timestamp on the last channel_update from *source*
+- **last\_update** (u32): UNIX timestamp on the last channel\_update from *source*
 - **base\_fee\_millisatoshi** (u32): Base fee changed by *source* to use this channel
 - **fee\_per\_millionth** (u32): Proportional fee changed by *source* to use this channel, in parts-per-million
 - **delay** (u32): The number of blocks delay required by *source* to use this channel
@@ -79,4 +79,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:baf45b77bd2ba22e245e007b57d8e5f70d06cbf9cebf7ed1431da6a0cf6f367a)
+[comment]: # ( SHA256STAMP:693b8297d390522cd68a27b607194567cebb7bf021f769c82d430afced9d0029)

@@ -52,7 +52,7 @@ On success, an object is returned, containing:
   - **max\_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
   - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
-  - **unilateral\_close** (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+  - **unilateral\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded
   - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet
   - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
   - **penalty** (u32, optional): Feerate to start at when penalizing a cheat attempt
@@ -61,7 +61,7 @@ On success, an object is returned, containing:
   - **max\_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
   - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
   - **mutual\_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
-  - **unilateral\_close** (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+  - **unilateral\_close** (u32, optional): Feerate for commitment\_transaction in a live channel which we originally funded
   - **delayed\_to\_us** (u32, optional): Feerate for returning unilateral close funds to our wallet
   - **htlc\_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
   - **penalty** (u32, optional): Feerate to start at when penalizing a cheat attempt
@@ -121,4 +121,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d448abe4c00efb8cb68edf6f8316f130ed45a26223b151ac0647bf5b69aec4fd)
+[comment]: # ( SHA256STAMP:c4fbacd9a36de4ed8307deae74f49e40a158435d726aee02f5c37f7a31a71400)

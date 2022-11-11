@@ -41,7 +41,7 @@ On success, an object is returned, containing:
 - **channel\_id** (hex): the channel id of the channel (always 64 characters)
 - **psbt** (string): the (incomplete) PSBT of the RBF transaction
 - **commitments\_secured** (boolean): whether the *psbt* is complete (always *false*)
-- **funding\_serial** (u64): the serial_id of the funding output in the *psbt*
+- **funding\_serial** (u64): the serial\_id of the funding output in the *psbt*
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -81,4 +81,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:3cba5d1c16925322754eae979e956132e8b94e40da0dee6925037a8854d9b791)
+[comment]: # ( SHA256STAMP:fe2bf77f2cb693ee91ab1977d05ba8431b0a8bed67aa1bbda6992bf64604081b)

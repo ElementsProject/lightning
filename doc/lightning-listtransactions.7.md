@@ -37,17 +37,17 @@ On success, an object containing **transactions** is returned.  It is an array o
   - **txid** (txid): the transaction id spent
   - **index** (u32): the output spent
   - **sequence** (u32): the nSequence value
-  - **type** (string, optional): the purpose of this input (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
-  - **channel** (short\_channel\_id, optional): the channel this input is associated with (*EXPERIMENTAL_FEATURES* only)
+  - **type** (string, optional): the purpose of this input (*EXPERIMENTAL\_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel\_funding", "channel\_mutual\_close", "channel\_unilateral\_close", "channel\_sweep", "channel\_htlc\_success", "channel\_htlc\_timeout", "channel\_penalty", "channel\_unilateral\_cheat")
+  - **channel** (short\_channel\_id, optional): the channel this input is associated with (*EXPERIMENTAL\_FEATURES* only)
 - **outputs** (array of objects): Each output, in order:
   - **index** (u32): the 0-based output number
   - **amount\_msat** (msat): the amount of the output
   - **scriptPubKey** (hex): the scriptPubKey
-  - **type** (string, optional): the purpose of this output (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
-  - **channel** (short\_channel\_id, optional): the channel this output is associated with (*EXPERIMENTAL_FEATURES* only)
+  - **type** (string, optional): the purpose of this output (*EXPERIMENTAL\_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel\_funding", "channel\_mutual\_close", "channel\_unilateral\_close", "channel\_sweep", "channel\_htlc\_success", "channel\_htlc\_timeout", "channel\_penalty", "channel\_unilateral\_cheat")
+  - **channel** (short\_channel\_id, optional): the channel this output is associated with (*EXPERIMENTAL\_FEATURES* only)
 - **type** (array of strings, optional):
-  - Reason we care about this transaction (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
-- **channel** (short\_channel\_id, optional): the channel this transaction is associated with (*EXPERIMENTAL_FEATURES* only)
+  - Reason we care about this transaction (*EXPERIMENTAL\_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel\_funding", "channel\_mutual\_close", "channel\_unilateral\_close", "channel\_sweep", "channel\_htlc\_success", "channel\_htlc\_timeout", "channel\_penalty", "channel\_unilateral\_cheat")
+- **channel** (short\_channel\_id, optional): the channel this transaction is associated with (*EXPERIMENTAL\_FEATURES* only)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
   
@@ -105,4 +105,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:f7c39908eaa1a2561597c8f97658b873953daab0a68ed2e9b68e434a55d55efe)
+[comment]: # ( SHA256STAMP:1a1afbcbcdbd19df28020d48c581dfff6ed4f5beaf557e1423edb6828eb78a07)

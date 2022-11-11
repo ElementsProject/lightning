@@ -44,17 +44,17 @@ On success, an object containing **peers** is returned.  It is an array of objec
 - **id** (pubkey): the public key of the peer
 - **connected** (boolean): True if the peer is currently connected
 - **channels** (array of objects):
-  - **state** (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
+  - **state** (string): the channel state, in particular "CHANNELD\_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
   - **opener** (string): Who initiated the channel (one of "local", "remote")
   - **features** (array of strings):
-    - BOLT #9 features which apply to this channel (one of "option_static_remotekey", "option_anchor_outputs", "option_zeroconf")
+    - BOLT #9 features which apply to this channel (one of "option\_static\_remotekey", "option\_anchor\_outputs", "option\_zeroconf")
   - **scratch\_txid** (txid, optional): The txid we would use if we went onchain now
   - **feerate** (object, optional): Feerates for the current tx:
     - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
     - **perkb** (u32): Feerate per 1000 virtual bytes
   - **owner** (string, optional): The current subdaemon controlling this connection
-  - **short\_channel\_id** (short\_channel\_id, optional): The short_channel_id (once locked in)
-  - **channel\_id** (hash, optional): The full channel_id (always 64 characters)
+  - **short\_channel\_id** (short\_channel\_id, optional): The short\_channel\_id (once locked in)
+  - **channel\_id** (hash, optional): The full channel\_id (always 64 characters)
   - **funding\_txid** (txid, optional): ID of the funding transaction
   - **funding\_outnum** (u32, optional): The 0-based output number of the funding transaction which opens the channel
   - **initial\_feerate** (string, optional): For inflight opens, the first feerate used to initiate the channel open
@@ -102,8 +102,8 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **remote** (short\_channel\_id, optional): An alias assigned by the remote node to this channel, usable in routehints and invoices
   - **state\_changes** (array of objects, optional): Prior state changes:
     - **timestamp** (string): UTC timestamp of form YYYY-mm-ddTHH:MM:SS.%03dZ
-    - **old\_state** (string): Previous state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
-    - **new\_state** (string): New state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
+    - **old\_state** (string): Previous state (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
+    - **new\_state** (string): New state (one of "OPENINGD", "CHANNELD\_AWAITING\_LOCKIN", "CHANNELD\_NORMAL", "CHANNELD\_SHUTTING\_DOWN", "CLOSINGD\_SIGEXCHANGE", "CLOSINGD\_COMPLETE", "AWAITING\_UNILATERAL", "FUNDING\_SPEND\_SEEN", "ONCHAIN", "DUALOPEND\_OPEN\_INIT", "DUALOPEND\_AWAITING\_LOCKIN")
     - **cause** (string): What caused the change (one of "unknown", "local", "user", "remote", "protocol", "onchain")
     - **message** (string): Human-readable explanation
   - **status** (array of strings, optional):
@@ -121,17 +121,17 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **id** (u64): Unique ID for this htlc on this channel in this direction
     - **amount\_msat** (msat): Amount send/received for this HTLC
     - **expiry** (u32): Block this HTLC expires at
-    - **payment\_hash** (hash): the hash of the payment_preimage which will prove payment (always 64 characters)
+    - **payment\_hash** (hash): the hash of the payment\_preimage which will prove payment (always 64 characters)
     - **local\_trimmed** (boolean, optional): if this is too small to enforce onchain (always *true*)
     - **status** (string, optional): set if this HTLC is currently waiting on a hook (and shows what plugin)
 
     If **direction** is "out":
 
-      - **state** (string): Status of the HTLC (one of "SENT_ADD_HTLC", "SENT_ADD_COMMIT", "RCVD_ADD_REVOCATION", "RCVD_ADD_ACK_COMMIT", "SENT_ADD_ACK_REVOCATION", "RCVD_REMOVE_HTLC", "RCVD_REMOVE_COMMIT", "SENT_REMOVE_REVOCATION", "SENT_REMOVE_ACK_COMMIT", "RCVD_REMOVE_ACK_REVOCATION")
+      - **state** (string): Status of the HTLC (one of "SENT\_ADD\_HTLC", "SENT\_ADD\_COMMIT", "RCVD\_ADD\_REVOCATION", "RCVD\_ADD\_ACK\_COMMIT", "SENT\_ADD\_ACK\_REVOCATION", "RCVD\_REMOVE\_HTLC", "RCVD\_REMOVE\_COMMIT", "SENT\_REMOVE\_REVOCATION", "SENT\_REMOVE\_ACK\_COMMIT", "RCVD\_REMOVE\_ACK\_REVOCATION")
 
     If **direction** is "in":
 
-      - **state** (string): Status of the HTLC (one of "RCVD_ADD_HTLC", "RCVD_ADD_COMMIT", "SENT_ADD_REVOCATION", "SENT_ADD_ACK_COMMIT", "RCVD_ADD_ACK_REVOCATION", "SENT_REMOVE_HTLC", "SENT_REMOVE_COMMIT", "RCVD_REMOVE_REVOCATION", "RCVD_REMOVE_ACK_COMMIT", "SENT_REMOVE_ACK_REVOCATION")
+      - **state** (string): Status of the HTLC (one of "RCVD\_ADD\_HTLC", "RCVD\_ADD\_COMMIT", "SENT\_ADD\_REVOCATION", "SENT\_ADD\_ACK\_COMMIT", "RCVD\_ADD\_ACK\_REVOCATION", "SENT\_REMOVE\_HTLC", "SENT\_REMOVE\_COMMIT", "RCVD\_REMOVE\_REVOCATION", "RCVD\_REMOVE\_ACK\_COMMIT", "SENT\_REMOVE\_ACK\_REVOCATION")
 
   If **close\_to** is present:
 
@@ -143,7 +143,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
 
   If **short\_channel\_id** is present:
 
-    - **direction** (u32): 0 if we're the lesser node_id, 1 if we're the greater
+    - **direction** (u32): 0 if we're the lesser node\_id, 1 if we're the greater
 
   If **inflight** is present:
 
@@ -151,7 +151,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **last\_feerate** (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
     - **next\_feerate** (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
 - **log** (array of objects, optional): if *level* is specified, logs for this peer:
-  - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
+  - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO\_IN", "IO\_OUT")
 
   If **type** is "SKIPPED":
 
@@ -164,7 +164,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **log** (string): The actual log message
     - **node\_id** (pubkey): The peer this is associated with
 
-  If **type** is "IO_IN" or "IO_OUT":
+  If **type** is "IO\_IN" or "IO\_OUT":
 
     - **time** (string): UNIX timestamp with 9 decimal places
     - **source** (string): The particular logbook this was found in
@@ -399,4 +399,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightning/bolts/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:108f43815e3475b88fd9b6a4a8f868e9d729c5d7616e0b0cc2c14f8922f54955)
+[comment]: # ( SHA256STAMP:faff728119e12d98202be265991e8b2c17dfa1a611bc52586c662fe8bfdccf53)

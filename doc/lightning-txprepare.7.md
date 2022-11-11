@@ -57,7 +57,7 @@ On success, an object is returned, containing:
 
 - **psbt** (string): the PSBT representing the unsigned transaction
 - **unsigned\_tx** (hex): the unsigned transaction
-- **txid** (txid): the transaction id of *unsigned_tx*; you hand this to lightning-txsend(7) or lightning-txdiscard(7), as the inputs of this transaction are reserved.
+- **txid** (txid): the transaction id of *unsigned\_tx*; you hand this to lightning-txsend(7) or lightning-txdiscard(7), as the inputs of this transaction are reserved.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -85,4 +85,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c13561bf71189143811cd4bd49db69c163b8443f1660931671eb1e95e0a7e3ff)
+[comment]: # ( SHA256STAMP:200dbb8ac175dbb5321e699cfa78dd319a96ceef0d61a7569415544503562d52)

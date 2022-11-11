@@ -24,7 +24,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice_request", "bolt11 invoice", "rune")
+- **type** (string): what kind of object it decoded to (one of "bolt12 offer", "bolt12 invoice", "bolt12 invoice\_request", "bolt11 invoice", "rune")
 - **valid** (boolean): if this is false, you *MUST* not use the result except for diagnostics!
 
 If **type** is "bolt12 offer", and **valid** is *true*:
@@ -47,7 +47,7 @@ If **type** is "bolt12 offer", and **valid** is *true*:
     - **first\_node\_id** (pubkey): the (presumably well-known) public key of the start of the path
     - **blinding** (pubkey): blinding factor for this path
     - **path** (array of objects): an individual path:
-      - **blinded\_node\_id** (pubkey): node_id of the hop
+      - **blinded\_node\_id** (pubkey): node\_id of the hop
       - **encrypted\_recipient\_data** (hex): encrypted TLV entry for this hop
   - **offer\_recurrence** (object, optional): how often to this offer should be used:
     - **time\_unit** (u32): the BOLT12 time unit
@@ -76,13 +76,13 @@ If **type** is "bolt12 offer", and **valid** is *false*:
     - **warning\_invalid\_offer\_currency**: `offer_currency_code` is not valid UTF8
     - **warning\_invalid\_offer\_issuer**: `offer_issuer` is not valid UTF8
 
-If **type** is "bolt12 invoice_request", and **valid** is *true*:
+If **type** is "bolt12 invoice\_request", and **valid** is *true*:
 
   - **offer\_description** (string): the description of the purpose of the offer
   - **offer\_node\_id** (pubkey): public key of the offering node
-  - **invreq\_metadata** (hex): the payer-provided blob to derive invreq_payer_id
+  - **invreq\_metadata** (hex): the payer-provided blob to derive invreq\_payer\_id
   - **invreq\_payer\_id** (hex): the payer-provided key
-  - **signature** (bip340sig): BIP-340 signature of the `invreq_payer_id` on this invoice_request
+  - **signature** (bip340sig): BIP-340 signature of the `invreq_payer_id` on this invoice\_request
   - **offer\_id** (hex, optional): the id we use to identify this offer (always 64 characters)
   - **offer\_chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
     - the genesis blockhash (always 64 characters)
@@ -99,7 +99,7 @@ If **type** is "bolt12 invoice_request", and **valid** is *true*:
     - **first\_node\_id** (pubkey): the (presumably well-known) public key of the start of the path
     - **blinding** (pubkey): blinding factor for this path
     - **path** (array of objects): an individual path:
-      - **blinded\_node\_id** (pubkey): node_id of the hop
+      - **blinded\_node\_id** (pubkey): node\_id of the hop
       - **encrypted\_recipient\_data** (hex): encrypted TLV entry for this hop
   - **offer\_recurrence** (object, optional): how often to this offer should be used:
     - **time\_unit** (u32): the BOLT12 time unit
@@ -114,7 +114,7 @@ If **type** is "bolt12 invoice_request", and **valid** is *true*:
       - **proportional\_amount** (boolean, optional): amount should be scaled if payed after period start (always *true*)
   - **invreq\_chain** (hex, optional): which blockchain this offer is for (missing implies bitcoin mainnet only) (always 64 characters)
   - **invreq\_amount\_msat** (msat, optional): the amount the invoice should be for
-  - **invreq\_features** (hex, optional): the feature bits of the invoice_request
+  - **invreq\_features** (hex, optional): the feature bits of the invoice\_request
   - **invreq\_quantity** (u64, optional): the number of items to invoice for
   - **invreq\_payer\_note** (string, optional): a note attached by the payer
   - **invreq\_recurrence\_counter** (u32, optional): which number request this is for the same invoice
@@ -126,7 +126,7 @@ If **type** is "bolt12 invoice_request", and **valid** is *true*:
   - the following warnings are possible:
     - **warning\_unknown\_offer\_currency**: The currency code is unknown (so no `currency_minor_unit`)
 
-If **type** is "bolt12 invoice_request", and **valid** is *false*:
+If **type** is "bolt12 invoice\_request", and **valid** is *false*:
 
   - the following warnings are possible:
     - **warning\_invalid\_offer\_description**: `offer_description` is not valid UTF8
@@ -143,20 +143,20 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
 
   - **offer\_description** (string): the description of the purpose of the offer
   - **offer\_node\_id** (pubkey): public key of the offering node
-  - **invreq\_metadata** (hex): the payer-provided blob to derive invreq_payer_id
+  - **invreq\_metadata** (hex): the payer-provided blob to derive invreq\_payer\_id
   - **invreq\_payer\_id** (hex): the payer-provided key
   - **invoice\_paths** (array of objects): Paths to pay the destination:
     - **first\_node\_id** (pubkey): the (presumably well-known) public key of the start of the path
     - **blinding** (pubkey): blinding factor for this path
     - **path** (array of objects): an individual path:
-      - **blinded\_node\_id** (pubkey): node_id of the hop
+      - **blinded\_node\_id** (pubkey): node\_id of the hop
       - **encrypted\_recipient\_data** (hex): encrypted TLV entry for this hop
       - **fee\_base\_msat** (msat, optional): basefee for path
       - **fee\_proportional\_millionths** (u32, optional): proportional fee for path
       - **cltv\_expiry\_delta** (u32, optional): CLTV delta for path
       - **features** (hex, optional): features allowed for path
   - **invoice\_created\_at** (u64): the UNIX timestamp of invoice creation
-  - **invoice\_payment\_hash** (hex): the hash of the *payment_preimage* (always 64 characters)
+  - **invoice\_payment\_hash** (hex): the hash of the *payment\_preimage* (always 64 characters)
   - **invoice\_amount\_msat** (msat): the amount required to fulfill invoice
   - **signature** (bip340sig): BIP-340 signature of the `offer_node_id` on this invoice
   - **offer\_id** (hex, optional): the id we use to identify this offer (always 64 characters)
@@ -175,7 +175,7 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
     - **first\_node\_id** (pubkey): the (presumably well-known) public key of the start of the path
     - **blinding** (pubkey): blinding factor for this path
     - **path** (array of objects): an individual path:
-      - **blinded\_node\_id** (pubkey): node_id of the hop
+      - **blinded\_node\_id** (pubkey): node\_id of the hop
       - **encrypted\_recipient\_data** (hex): encrypted TLV entry for this hop
   - **offer\_recurrence** (object, optional): how often to this offer should be used:
     - **time\_unit** (u32): the BOLT12 time unit
@@ -190,18 +190,18 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
       - **proportional\_amount** (boolean, optional): amount should be scaled if payed after period start (always *true*)
   - **invreq\_chain** (hex, optional): which blockchain this offer is for (missing implies bitcoin mainnet only) (always 64 characters)
   - **invreq\_amount\_msat** (msat, optional): the amount the invoice should be for
-  - **invreq\_features** (hex, optional): the feature bits of the invoice_request
+  - **invreq\_features** (hex, optional): the feature bits of the invoice\_request
   - **invreq\_quantity** (u64, optional): the number of items to invoice for
   - **invreq\_payer\_note** (string, optional): a note attached by the payer
   - **invreq\_recurrence\_counter** (u32, optional): which number request this is for the same invoice
   - **invreq\_recurrence\_start** (u32, optional): when we're requesting to start an invoice at a non-zero period
-  - **invoice\_relative\_expiry** (u32, optional): the number of seconds after *invoice_created_at* when this expires
+  - **invoice\_relative\_expiry** (u32, optional): the number of seconds after *invoice\_created\_at* when this expires
   - **invoice\_fallbacks** (array of objects, optional): onchain addresses:
     - **version** (u8): Segwit address version
     - **hex** (hex): Raw encoded segwit address
     - **address** (string, optional): bech32 segwit address
   - **invoice\_features** (hex, optional): the feature bits of the invoice
-  - **invoice\_node\_id** (pubkey, optional): the id to pay (usually the same as offer_node_id)
+  - **invoice\_node\_id** (pubkey, optional): the id to pay (usually the same as offer\_node\_id)
   - **invoice\_recurrence\_basetime** (u64, optional): the UNIX timestamp to base the invoice periods on
   - **unknown\_invoice\_tlvs** (array of objects, optional): Any extra fields we didn't know how to parse:
     - **type** (u64): The type
@@ -238,7 +238,7 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
   - **created\_at** (u64): the UNIX-style timestamp of the invoice
   - **expiry** (u64): the number of seconds this is valid after `created_at`
   - **payee** (pubkey): the public key of the recipient
-  - **payment\_hash** (hex): the hash of the *payment_preimage* (always 64 characters)
+  - **payment\_hash** (hex): the hash of the *payment\_preimage* (always 64 characters)
   - **signature** (signature): signature of the *payee* on this invoice
   - **min\_final\_cltv\_expiry** (u32): the minimum CLTV delay for the final node
   - **amount\_msat** (msat, optional): Amount the invoice asked for
@@ -246,7 +246,7 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
   - **description\_hash** (hex, optional): the hash of the description, in place of *description* (always 64 characters)
   - **payment\_secret** (hex, optional): the secret to hand to the payee node (always 64 characters)
   - **features** (hex, optional): the features bitmap for this invoice
-  - **payment\_metadata** (hex, optional): the payment_metadata to put in the payment
+  - **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment
   - **fallbacks** (array of objects, optional): onchain addresses:
     - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
     - **hex** (hex): Raw encoded address
@@ -302,4 +302,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:1d13c0e0619d05d8c49cf9fbed90f0baf260d59fd8c16bd283d3b211e8be9878)
+[comment]: # ( SHA256STAMP:7920e365fe0f41fc2aa99c9e99af7c0666da229310ce50c2c2728c973069b2a7)
