@@ -1,12 +1,15 @@
 [package]
 name = "cln-grpc"
-version = "0.0.1"
+version = "0.1.1"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/ElementsProject/lightning/tree/master/cln-grpc"
+description = "The Core Lightning API as grpc primitives. Provides the bindings used to expose the API over the network."
 
 [dependencies]
 anyhow = "1.0"
 log = "0.4"
-cln-rpc = { path="../cln-rpc/" }
+cln-rpc = { path="../cln-rpc/", version = "^0.1" }
 tonic = { version = "^0.5", features = ["tls", "transport"] }
 prost = "0.8"
 hex = "0.4.3"
