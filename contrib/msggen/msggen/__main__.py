@@ -1,37 +1,39 @@
 import json
 import os
+import argparse
+from pathlib import Path
 from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.gen.grpc2py import Grpc2PyGenerator
 from msggen.gen.rust import RustGenerator
 from msggen.gen.generator import GeneratorChain
-from msggen.utils import repo_root, load_jsonrpc_service
+from msggen.utils import load_jsonrpc_service
 
 
 def add_handler_gen_grpc(generator_chain: GeneratorChain, meta):
     """Load all mapped RPC methods, wrap them in a Service, and split them into messages.
     """
-    fname = repo_root() / "cln-grpc" / "proto" / "node.proto"
+    fname = Path("cln-grpc") / "proto" / "node.proto"
     dest = open(fname, "w")
     generator_chain.add_generator(GrpcGenerator(dest, meta))
 
-    fname = repo_root() / "cln-grpc" / "src" / "convert.rs"
+    fname = Path("cln-grpc") / "src" / "convert.rs"
     dest = open(fname, "w")
     generator_chain.add_generator(GrpcConverterGenerator(dest))
     generator_chain.add_generator(GrpcUnconverterGenerator(dest))
 
-    fname = repo_root() / "cln-grpc" / "src" / "server.rs"
+    fname = Path("cln-grpc") / "src" / "server.rs"
     dest = open(fname, "w")
     generator_chain.add_generator(GrpcServerGenerator(dest))
 
 
 def add_handler_get_grpc2py(generator_chain: GeneratorChain):
-    fname = repo_root() / "contrib" / "pyln-testing" / "pyln" / "testing" / "grpc2py.py"
+    fname = Path("contrib") / "pyln-testing" / "pyln" / "testing" / "grpc2py.py"
     dest = open(fname, "w")
     generator_chain.add_generator(Grpc2PyGenerator(dest))
 
 
 def add_handler_gen_rust_jsonrpc(generator_chain: GeneratorChain):
-    fname = repo_root() / "cln-rpc" / "src" / "model.rs"
+    fname = Path("cln-rpc") / "src" / "model.rs"
     dest = open(fname, "w")
     generator_chain.add_generator(RustGenerator(dest))
 
@@ -48,8 +50,9 @@ def write_msggen_meta(meta):
     os.rename(f'.msggen.json.tmp.{pid}', '.msggen.json')
 
 
-def run():
-    service = load_jsonrpc_service()
+def run(rootdir: Path):
+    schemadir = rootdir / "doc" / "schemas"
+    service = load_jsonrpc_service(schema_dir=schemadir)
     meta = load_msggen_meta()
     generator_chain = GeneratorChain()
 
@@ -63,4 +66,13 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--rootdir',
+        dest='rootdir',
+        default='.'
+    )
+    args = parser.parse_args()
+    run(
+        rootdir=Path(args.rootdir)
+    )
