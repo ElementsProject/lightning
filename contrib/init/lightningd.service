@@ -46,6 +46,8 @@ NoNewPrivileges=true
 PrivateDevices=true
 
 # Deny the creation of writable and executable memory mappings.
+# NOTE: This seems to break node.js plugins, notably Ride-The-Lightning/c-lightning-REST:
+#  https://github.com/Ride-The-Lightning/c-lightning-REST/issues/116
 MemoryDenyWriteExecute=true
 
 [Install]
