@@ -25,13 +25,13 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **events** is returned.  It is an array of objects, where each object contains:
 
-- **account** (string): The account name. If the account is a channel, the channel_id
-- **type** (string): Coin movement type (one of "onchain_fee", "chain", "channel")
+- **account** (string): The account name. If the account is a channel, the channel\_id
+- **type** (string): Coin movement type (one of "onchain\_fee", "chain", "channel")
 - **tag** (string): Description of movement
 - **credit\_msat** (msat): Amount credited
 - **debit\_msat** (msat): Amount debited
 - **currency** (string): human-readable bech32 part for this coin type
-- **timestamp** (u32): Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp
+- **timestamp** (u32): Timestamp this event was recorded by the node. For consolidated events such as onchain\_fees, the most recent timestamp
 
 If **type** is "chain":
 
@@ -42,7 +42,7 @@ If **type** is "chain":
   - **txid** (txid, optional): The txid of the transaction that created this event
   - **description** (string, optional): The description of this event
 
-If **type** is "onchain_fee":
+If **type** is "onchain\_fee":
 
   - **txid** (txid): The txid of the transaction that created this event
 
@@ -71,4 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:1ac0919bf29ebc37a92283d15a9ffa06f0f46be5fb55920b335d0c43e02a6ee4)
+[comment]: # ( SHA256STAMP:2326473627193f2e7d2a1688d046106996a43602ccad64df16913e89bf67b3e8)

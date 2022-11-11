@@ -41,9 +41,9 @@ On success, an object is returned, containing:
 - **network** (string): represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)
 - **fees\_collected\_msat** (msat): Total routing fees collected by this node
 - **our\_features** (object, optional): Our BOLT #9 feature bits (as hexstring) for various contexts:
-  - **init** (hex): features (incl. globalfeatures) in our init message, these also restrict what we offer in open_channel or accept in accept_channel
-  - **node** (hex): features in our node_announcement message
-  - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel_announcement message
+  - **init** (hex): features (incl. globalfeatures) in our init message, these also restrict what we offer in open\_channel or accept in accept\_channel
+  - **node** (hex): features in our node\_announcement message
+  - **channel** (hex): negotiated channel features we (as channel initiator) publish in the channel\_announcement message
   - **invoice** (hex): features in our BOLT11 invoices
 - **address** (array of objects, optional): The addresses we announce to the world:
   - **type** (string): Type of connection (one of "dns", "ipv4", "ipv6", "torv2", "torv3", "websocket")
@@ -131,4 +131,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:0e54af449933b833f2e74bab9fde46096a79d69b4d958a548c7c0b7cc5654e99)
+[comment]: # ( SHA256STAMP:ce2b96e2e97cf6bc1e311d6125253dfbed900f13c001f518e9a0b4f202a0e1d6)
