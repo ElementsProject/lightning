@@ -69,11 +69,15 @@ the non-updated repos).
 The following table lists the codenames of distributions that we
 currently support:
 
-| Distribution Version | Codename |
-|:---------------------|:---------|
-| Ubuntu 18.04         | bionic   |
-| Ubuntu 20.04         | focal    |
-| Ubuntu 22.04         | jammy    |
+- Ubuntu 18.06:
+  - Distribution Version: 18.04
+  - Codename: bionic
+- Ubuntu 20.04:
+  - Distribution Version: 20.04
+  - Codename: focal
+- Ubuntu 22.04:
+  - Distribution Version: 22.04
+  - Codename: jammy
 
 Depending on your host OS release you migh not have `debootstrap`
 manifests for versions newer than your host OS. Due to this we run the
