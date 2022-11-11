@@ -4,23 +4,23 @@ lightning-bkpr-listincome -- Command for listing all income impacting events
 SYNOPSIS
 --------
 
-**bkpr-listincome** \[*consolidate_fees*\] \[*start_time*\] \[*end_time*\]
+**bkpr-listincome** \[*consolidate\_fees*\] \[*start\_time*\] \[*end\_time*\]
 
 DESCRIPTION
 -----------
 
 The **bkpr-listincome** RPC command is a list of all income impacting events that the bookkeeper plugin has recorded for this node.
 
-If **consolidate_fees** is true, we emit a single, consolidated event for
+If **consolidate\_fees** is true, we emit a single, consolidated event for
 any onchain-fees for a txid and account. Otherwise, events for every update to
 the onchain fee calculation for this account and txid will be printed. Defaults to true. Note that this means that the events emitted are non-stable,
 i.e. calling **listincome** twice may result in different onchain fee events
 being emitted, depending on how much information we've logged for that
 transaction.
 
-The **start_time** is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
+The **start\_time** is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
 
-The **end_time** is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
+The **end\_time** is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
 
 RETURN VALUE
 ------------

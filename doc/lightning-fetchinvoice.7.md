@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**fetchinvoice** *offer* [*msatoshi*] [*quantity*] [*recurrence_counter*] [*recurrence_start*] [*recurrence_label*] [*timeout*] [*payer_note*]
+**fetchinvoice** *offer* [*msatoshi*] [*quantity*] [*recurrence\_counter*] [*recurrence\_start*] [*recurrence\_label*] [*timeout*] [*payer\_note*]
 
 DESCRIPTION
 -----------
@@ -19,31 +19,31 @@ If **fetchinvoice-noconnect** is not specified in the configuation, it
 will connect to the destination in the (currently common!) case where it
 cannot find a route which supports `option_onion_messages`.
 
-The offer must not contain *send_invoice*; see lightning-sendinvoice(7).
+The offer must not contain *send\_invoice*; see lightning-sendinvoice(7).
 
 *msatoshi* is required if the *offer* does not specify
 an amount at all, otherwise it is not allowed.
 
 *quantity* is is required if the *offer* specifies
-*quantity_min* or *quantity_max*, otherwise it is not allowed.
+*quantity\_min* or *quantity\_max*, otherwise it is not allowed.
 
-*recurrence_counter* is required if the *offer*
+*recurrence\_counter* is required if the *offer*
 specifies *recurrence*, otherwise it is not allowed.
-*recurrence_counter* should first be set to 0, and incremented for
+*recurrence\_counter* should first be set to 0, and incremented for
 each successive invoice in a given series.
 
-*recurrence_start* is required if the *offer*
-specifies *recurrence_base* with *start_any_period* set, otherwise it
+*recurrence\_start* is required if the *offer*
+specifies *recurrence\_base* with *start\_any\_period* set, otherwise it
 is not allowed.  It indicates what period number to start at.
 
-*recurrence_label* is required if *recurrence_counter* is set, and
+*recurrence\_label* is required if *recurrence\_counter* is set, and
 otherwise is not allowed.  It must be the same as prior fetchinvoice
 calls for the same recurrence, as it is used to link them together.
 
 *timeout* is an optional timeout; if we don't get a reply before this
 we fail (default, 60 seconds).
 
-*payer_note* is an optional payer note to include in the fetched invoice.
+*payer\_note* is an optional payer note to include in the fetched invoice.
 
 RETURN VALUE
 ------------

@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **pay** *bolt11* [*msatoshi*] [*label*] [*riskfactor*]
-[*maxfeepercent*] [*retry_for*] [*maxdelay*] [*exemptfee*]
+[*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*]
 [*localinvreqid*] [*exclude*] [*maxfee*] [*description*]
 
 DESCRIPTION

@@ -4,13 +4,13 @@ lightning-parsefeerate -- Command for parsing a feerate string to a feerate
 SYNOPSIS
 --------
 
-**parsefeerate** *feerate_str*
+**parsefeerate** *feerate\_str*
 
 DESCRIPTION
 -----------
 
 The **parsefeerate** command returns the current feerate for any valid
-*feerate_str*. This is useful for finding the current feerate that a
+*feerate\_str*. This is useful for finding the current feerate that a
 **fundpsbt** or **utxopsbt** command might use.
 
 RETURN VALUE
@@ -26,7 +26,7 @@ On success, an object is returned, containing:
 ERRORS
 ------
 
-The **parsefeerate** command will error if the *feerate_str* format is
+The **parsefeerate** command will error if the *feerate\_str* format is
 not recognized.
 
 - -32602: If the given parameters are wrong.

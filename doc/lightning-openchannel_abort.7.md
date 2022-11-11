@@ -4,7 +4,7 @@ lightning-openchannel\_abort -- Command to abort a channel to a peer
 SYNOPSIS
 --------
 
-**openchannel_abort** *channel_id*
+**openchannel\_abort** *channel\_id*
 
 DESCRIPTION
 -----------
@@ -13,7 +13,7 @@ DESCRIPTION
 open with a specified peer. It uses the openchannel protocol
 which allows for interactive transaction construction.
 
-*channel_id* is id of this channel.
+*channel\_id* is id of this channel.
 
 
 RETURN VALUE

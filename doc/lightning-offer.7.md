@@ -6,14 +6,14 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**offer** *amount* *description* [*issuer*] [*label*] [*quantity_max*] [*absolute_expiry*] [*recurrence*] [*recurrence_base*] [*recurrence_paywindow*] [*recurrence_limit*] [*single_use*]
+**offer** *amount* *description* [*issuer*] [*label*] [*quantity\_max*] [*absolute\_expiry*] [*recurrence*] [*recurrence\_base*] [*recurrence\_paywindow*] [*recurrence\_limit*] [*single\_use*]
 
 DESCRIPTION
 -----------
 
 The **offer** RPC command creates an offer (or returns an existing
 one), which is a precursor to creating one or more invoices.  It
-automatically enables the processing of an incoming invoice_request,
+automatically enables the processing of an incoming invoice\_request,
 and issuing of invoices.
 
 Note that it creates two variants of the offer: a signed and an
@@ -43,13 +43,13 @@ reflects who is issuing this offer (i.e. you) if appropriate.
 The *label* field is an internal-use name for the offer, which can
 be any UTF-8 string.
 
-The presence of *quantity_max* indicates that the
+The presence of *quantity\_max* indicates that the
 invoice can specify more than one of the items up (and including)
 this maximum: 0 is a special value meaning "no maximuim".
 The *amount* for the invoice will need to be multiplied
 accordingly.  This is encoded in the offer.
 
-The *absolute_expiry* is optionally the time the offer is valid until,
+The *absolute\_expiry* is optionally the time the offer is valid until,
 in seconds since the first day of 1970 UTC.  If not set, the offer
 remains valid (though it can be deactivated by the issuer of course).
 This is encoded in the offer.
@@ -61,7 +61,7 @@ without the trailing "s" are also permitted).  This is encoded in the
 offer.  The semantics of recurrence is fairly predictable, but fully
 documented in BOLT 12.  e.g. "4weeks".
 
-*recurrence_base* is an optional time in seconds since the first day
+*recurrence\_base* is an optional time in seconds since the first day
 of 1970 UTC, optionally with a "@" prefix.  This indicates when the
 first period begins; without this, the recurrence periods start from
 the first invoice.  The "@" prefix means that the invoice must start
@@ -69,7 +69,7 @@ by paying the first period; otherwise it is permitted to start at any
 period.  This is encoded in the offer.  e.g. "@1609459200" indicates
 you must start paying on the 1st January 2021.
 
-*recurrence_paywindow* is an optional argument of form
+*recurrence\_paywindow* is an optional argument of form
 '-time+time[%]'.  The first time is the number of seconds before the
 start of a period in which an invoice and payment is valid, the second
 time is the number of seconds after the start of the period.  For
@@ -80,15 +80,15 @@ by the time remaining in the period.  If this is not specified, the
 default is that payment is allowed during the current and previous
 periods.  This is encoded in the offer.
 
-*recurrence_limit* is an optional argument to indicate the maximum
+*recurrence\_limit* is an optional argument to indicate the maximum
 period which exists.  eg. "12" means there are 13 periods, from 0 to
 12 inclusive.  This is encoded in the offer.
 
-*refund_for* is the payment_preimage of a previous (paid) invoice.
-This implies *send_invoice* and *single_use*.  This is encoded in the
+*refund\_for* is the payment\_preimage of a previous (paid) invoice.
+This implies *send\_invoice* and *single\_use*.  This is encoded in the
 offer.
 
-*single_use* (default false) indicates that the offer is only valid
+*single\_use* (default false) indicates that the offer is only valid
 once; we may issue multiple invoices, but as soon as one is paid all other
 invoices will be expired (i.e. only one person can pay this offer).
 
@@ -118,7 +118,7 @@ if it's not active then this call fails.
 
 The following error codes may occur:
 - -1: Catchall nonspecific error.
-- 1000: Offer with this offer_id already exists (but is not active).
+- 1000: Offer with this offer\_id already exists (but is not active).
 
 AUTHOR
 ------
