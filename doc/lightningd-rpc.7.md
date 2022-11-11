@@ -84,8 +84,8 @@ Any field name which starts with "warning" is a specific warning, and
 should be documented in the commands' manual page.  Each warning field
 has an associated human-readable string, but it's redudant, as each
 separate warning should have a distinct field name
-(e.g. **warning_offer_unknown_currency** and
-**warning_offer_missing_description**).
+(e.g. **warning\_offer\_unknown\_currency** and
+**warning\_offer\_missing\_description**).
 
 JSON TYPES
 ----------

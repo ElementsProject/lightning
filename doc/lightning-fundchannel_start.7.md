@@ -4,7 +4,7 @@ lightning-fundchannel\_start -- Command for initiating channel establishment for
 SYNOPSIS
 --------
 
-**fundchannel\_start** *id* *amount* [*feerate* *announce* *close_to* *push_msat*]
+**fundchannel\_start** *id* *amount* [*feerate* *announce* *close\_to* *push\_msat*]
 
 DESCRIPTION
 -----------
@@ -23,11 +23,11 @@ commitment transactions: see **fundchannel**.
 
 *announce* whether or not to announce this channel.
 
-*close_to* is a Bitcoin address to which the channel funds should be sent to
+*close\_to* is a Bitcoin address to which the channel funds should be sent to
 on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`.
 Returns `close_to` set to closing script iff is negotiated.
 
-*push_msat* is the amount of millisatoshis to push to the channel peer at
+*push\_msat* is the amount of millisatoshis to push to the channel peer at
 open. Note that this is a gift to the peer -- these satoshis are
 added to the initial balance of the peer at channel start and are largely
 unrecoverable once pushed.

@@ -4,7 +4,7 @@ lightning-openchannel\_init -- Command to initiate a channel to a peer
 SYNOPSIS
 --------
 
-**openchannel_init** *id* *amount* *initalpsbt* [*commitment_feerate*] [*funding_feerate*] [*announce*] [*close_to*] [*request_amt*] [*compact_lease*]
+**openchannel\_init** *id* *amount* *initalpsbt* [*commitment\_feerate*] [*funding\_feerate*] [*announce*] [*close\_to*] [*request\_amt*] [*compact\_lease*]
 
 DESCRIPTION
 -----------
@@ -26,23 +26,23 @@ Must have the Non-Witness UTXO (PSBT\_IN\_NON\_WITNESS\_UTXO) set for
 every input. An error (code 309) will be returned if this requirement
 is not met.
 
-*commitment_feerate* is an optional field. Sets the feerate for
+*commitment\_feerate* is an optional field. Sets the feerate for
 commitment transactions: see **fundchannel**.
 
-*funding_feerate* is an optional field. Sets the feerate for the
+*funding\_feerate* is an optional field. Sets the feerate for the
 funding transaction. Defaults to 'opening' feerate.
 
 *announce* is an optional field. Whether or not to announce this channel.
 
-*close_to* is a Bitcoin address to which the channel funds should be
+*close\_to* is a Bitcoin address to which the channel funds should be
 sent on close. Only valid if both peers have negotiated
 `option_upfront_shutdown_script`.
 
-*request_amt* is an amount of liquidity you'd like to lease from the peer.
+*request\_amt* is an amount of liquidity you'd like to lease from the peer.
 If peer supports `option_will_fund`, indicates to them to include this
-much liquidity into the channel. Must also pass in *compact_lease*.
+much liquidity into the channel. Must also pass in *compact\_lease*.
 
-*compact_lease* is a compact represenation of the peer's expected
+*compact\_lease* is a compact represenation of the peer's expected
 channel lease terms. If the peer's terms don't match this set, we will
 fail to open the channel.
 
@@ -63,12 +63,12 @@ On success, an object is returned, containing:
 If the peer does not support `option_dual_fund`, this command
 will return an error.
 
-If you sent a *request_amt* and the peer supports `option_will_fund` and is
+If you sent a *request\_amt* and the peer supports `option_will_fund` and is
 interested in leasing you liquidity in this channel, returns their updated
-channel fee max (*channel_fee_proportional_basis*, *channel_fee_base_msat*),
-updated rate card for the lease fee (*lease_fee_proportional_basis*,
-*lease_fee_base_sat*) and their on-chain weight *weight_charge*, which will
-be added to the lease fee at a rate of *funding_feerate* * *weight_charge*
+channel fee max (*channel\_fee\_proportional\_basis*, *channel\_fee\_base\_msat*),
+updated rate card for the lease fee (*lease\_fee\_proportional\_basis*,
+*lease\_fee\_base\_sat*) and their on-chain weight *weight\_charge*, which will
+be added to the lease fee at a rate of *funding\_feerate* * *weight\_charge*
 / 1000.
 
 On error the returned object will contain `code` and `message` properties,

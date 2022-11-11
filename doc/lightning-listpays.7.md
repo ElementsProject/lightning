@@ -4,13 +4,13 @@ lightning-listpays -- Command for querying payment status
 SYNOPSIS
 --------
 
-**listpays** [*bolt11*] [*payment_hash*] [*status*]
+**listpays** [*bolt11*] [*payment\_hash*] [*status*]
 
 DESCRIPTION
 -----------
 
 The **listpay** RPC command gets the status of all *pay* commands, or a
-single one if either *bolt11* or *payment_hash* was specified.
+single one if either *bolt11* or *payment\_hash* was specified.
 It is possible filter the payments also by *status*.
 
 RETURN VALUE
@@ -40,7 +40,7 @@ If **status** is "failed":
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
-The returned array is ordered by increasing **created_at** fields.
+The returned array is ordered by increasing **created\_at** fields.
 
 AUTHOR
 ------

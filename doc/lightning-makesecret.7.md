@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **makesecret** RPC command derives a secret key from the HSM_secret.
+The **makesecret** RPC command derives a secret key from the HSM\_secret.
 
 One of *hex* or *string* must be specified: *hex* can be any hex data,
 *string* is a UTF-8 string interpreted literally.

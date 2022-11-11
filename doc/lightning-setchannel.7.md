@@ -22,7 +22,7 @@ will accept: we allow 2 a day, with a few extra occasionally).
 *id* is required and should contain a scid (short channel ID), channel
 id or peerid (pubkey) of the channel to be modified. If *id* is set to
 "all", the updates are applied to all channels in states
-CHANNELD\_NORMAL CHANNELD\_AWAITING\_LOCKIN or DUALOPEND_AWAITING_LOCKIN.
+CHANNELD\_NORMAL CHANNELD\_AWAITING\_LOCKIN or DUALOPEND\_AWAITING\_LOCKIN.
 If *id* is a peerid, all channels with the +peer in those states are
 changed.
 

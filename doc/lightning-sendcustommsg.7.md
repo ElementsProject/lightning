@@ -4,7 +4,7 @@ lightning-sendcustommsg -- Low-level interface to send protocol messages to peer
 SYNOPSIS
 --------
 
-**sendcustommsg** *node_id* *msg*
+**sendcustommsg** *node\_id* *msg*
 
 DESCRIPTION
 -----------

@@ -13,7 +13,7 @@ DESCRIPTION
 
 The **sendinvoice** RPC command creates and sends an invoice to the
 issuer of an *offer* for it to pay: the offer must contain
-*send_invoice*; see lightning-fetchinvoice(7).
+*send\_invoice*; see lightning-fetchinvoice(7).
 
 If **fetchinvoice-noconnect** is not specified in the configuation, it
 will connect to the destination in the (currently common!) case where it
@@ -33,7 +33,7 @@ invoice or return an error, default 90 seconds.  This will also be the
 timeout on the invoice that is sent.
 
 *quantity* is optional: it is required if the *offer* specifies
-*quantity_min* or *quantity_max*, otherwise it is not allowed.
+*quantity\_min* or *quantity\_max*, otherwise it is not allowed.
 
 RETURN VALUE
 ------------

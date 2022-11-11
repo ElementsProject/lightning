@@ -5,8 +5,8 @@ SYNOPSIS
 --------
 
 **sendpay** *route* *payment\_hash* [*label*] [*msatoshi*]
-[*bolt11*] [*payment_secret*] [*partid*] [*localinvreqid*] [*groupid*]
-[*payment_metadata*] [*description*]
+[*bolt11*] [*payment\_secret*] [*partid*] [*localinvreqid*] [*groupid*]
+[*payment\_metadata*] [*description*]
 
 DESCRIPTION
 -----------
@@ -34,26 +34,26 @@ amount to the destination. By default it is in millisatoshi precision; it can be
 ending in *msat* or *sat*, or a number with three decimal places ending
 in *sat*, or a number with 1 to 11 decimal places ending in *btc*.
 
-The *payment_secret* is the value that the final recipient requires to
+The *payment\_secret* is the value that the final recipient requires to
 accept the payment, as defined by the `payment_data` field in BOLT 4
 and the `s` field in the BOLT 11 invoice format.  It is required if
 *partid* is non-zero.
 
 The *partid* value, if provided and non-zero, allows for multiple parallel
-partial payments with the same *payment_hash*.  The *msatoshi* amount
+partial payments with the same *payment\_hash*.  The *msatoshi* amount
 (which must be provided) for each **sendpay** with matching
-*payment_hash* must be equal, and **sendpay** will fail if there are
+*payment\_hash* must be equal, and **sendpay** will fail if there are
 already *msatoshi* worth of payments pending.
 
 The *localinvreqid* value indicates that this payment is being made for a local
-invoice_request: this ensures that we only send a payment for a single-use
-invoice_request once.
+invoice\_request: this ensures that we only send a payment for a single-use
+invoice\_request once.
 
 *groupid* allows you to attach a number which appears in **listsendpays** so
 payments can be identified as part of a logical group.  The *pay* plugin uses
 this to identify one attempt at a MPP payment, for example.
 
-*payment_metadata* is placed in the final onion hop TLV.
+*payment\_metadata* is placed in the final onion hop TLV.
 
 Once a payment has succeeded, calls to **sendpay** with the same
 *payment\_hash* but a different *msatoshi* or destination will fail;
@@ -109,7 +109,7 @@ The following error codes may occur:
     will be routing failure object.
 -   204: Failure along route; retry a different route. The *data* field
     of the error will be routing failure object.
--   212: *localinvreqid* refers to an invalid, or used, local invoice_request.
+-   212: *localinvreqid* refers to an invalid, or used, local invoice\_request.
 
 A routing failure object has the fields below:
 -   *erring\_index*. The index of the node along the route that reported

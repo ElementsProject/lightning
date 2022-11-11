@@ -227,7 +227,7 @@ The objects in the *channels* array will have at least these fields:
     peer, or a theft attempt).
   * `"CLOSED"`: The channel closure has been confirmed deeply.
     The channel will eventually be removed from this array.
-* *state_changes*: An array of objects describing prior state change events.
+* *state\_changes*: An array of objects describing prior state change events.
 * *opener*: A string `"local"` or `"remote`" describing which side opened this
   channel.
 * *closer*: A string `"local"` or `"remote`" describing which side
@@ -243,9 +243,9 @@ The objects in the *channels* array will have at least these fields:
   a number followed by a string unit.
 * *total\_msat*: A string describing the total capacity of the channel;
   a number followed by a string unit.
-* *fee_base_msat*: The fixed routing fee we charge for forwards going out over
+* *fee\_base\_msat*: The fixed routing fee we charge for forwards going out over
   this channel, regardless of payment size.
-* *fee_proportional_millionths*: The proportional routing fees in ppm (parts-
+* *fee\_proportional\_millionths*: The proportional routing fees in ppm (parts-
   per-millionths) we charge for forwards going out over this channel.
 * *features*: An array of feature names supported by this channel.
 
@@ -325,7 +325,7 @@ state, or in various circumstances:
   your funds, if you close unilaterally.
 * *max\_accepted\_htlcs*: The maximum number of HTLCs you will accept on
   this channel.
-* *in\_payments_offered*: The number of incoming HTLCs offered over this
+* *in\_payments\_offered*: The number of incoming HTLCs offered over this
   channel.
 * *in\_offered\_msat*: A string describing the total amount of all incoming
   HTLCs offered over this channel;
@@ -345,9 +345,9 @@ state, or in various circumstances:
 * *out\_fulfilled\_msat*: A string describing the total amount of all
   outgoing HTLCs offered *and successfully claimed* over this channel;
   a number followed by a string unit.
-* *scratch_txid*: The txid of the latest transaction (what we would sign and
+* *scratch\_txid*: The txid of the latest transaction (what we would sign and
   send to chain if the channel were to fail now).
-* *last_tx_fee*: The fee on that latest transaction.
+* *last\_tx\_fee*: The fee on that latest transaction.
 * *feerate*: An object containing the latest feerate as both *perkw* and *perkb*.
 * *htlcs*: An array of objects describing the HTLCs currently in-flight
   in the channel.

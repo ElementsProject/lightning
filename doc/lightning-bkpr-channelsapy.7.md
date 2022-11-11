@@ -4,7 +4,7 @@ lightning-bkpr-channelsapy -- Command to list stats on channel earnings
 SYNOPSIS
 --------
 
-**bkpr-channelsapy** \[*start_time*\] \[*end_time*\]
+**bkpr-channelsapy** \[*start\_time*\] \[*end\_time*\]
 
 DESCRIPTION
 -----------
@@ -12,9 +12,9 @@ DESCRIPTION
 The **bkpr-channelsapy** RPC command lists stats on routing income, leasing income,
 and various calculated APYs for channel routed funds.
 
-The **start_time** is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
+The **start\_time** is a UNIX timestamp (in seconds) that filters events after the provided timestamp. Defaults to zero.
 
-The **end_time** is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
+The **end\_time** is a UNIX timestamp (in seconds) that filters events up to and at the provided timestamp. Defaults to max-int.
 
 
 RETURN VALUE

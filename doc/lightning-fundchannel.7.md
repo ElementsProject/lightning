@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **fundchannel** *id* *amount* [*feerate*] [*announce*] [*minconf*]
-[*utxos*] [*push_msat*] [*close_to*] [*request_amt*] [*compact_lease*]
+[*utxos*] [*push\_msat*] [*close\_to*] [*request\_amt*] [*compact\_lease*]
 
 DESCRIPTION
 -----------
@@ -55,20 +55,20 @@ outputs should have. Default is 1.
 *utxos* specifies the utxos to be used to fund the channel, as an array
 of "txid:vout".
 
-*push_msat* is the amount of millisatoshis to push to the channel peer at
+*push\_msat* is the amount of millisatoshis to push to the channel peer at
 open. Note that this is a gift to the peer -- these satoshis are
 added to the initial balance of the peer at channel start and are largely
 unrecoverable once pushed.
 
-*close_to* is a Bitcoin address to which the channel funds should be sent to
+*close\_to* is a Bitcoin address to which the channel funds should be sent to
 on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`.
 Returns `close_to` set to closing script iff is negotiated.
 
-*request_amt* is an amount of liquidity you'd like to lease from the peer.
+*request\_amt* is an amount of liquidity you'd like to lease from the peer.
 If peer supports `option_will_fund`, indicates to them to include this
-much liquidity into the channel. Must also pass in *compact_lease*.
+much liquidity into the channel. Must also pass in *compact\_lease*.
 
-*compact_lease* is a compact represenation of the peer's expected
+*compact\_lease* is a compact represenation of the peer's expected
 channel lease terms. If the peer's terms don't match this set, we will
 fail to open the channel.
 

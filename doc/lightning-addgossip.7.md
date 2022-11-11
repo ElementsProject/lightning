@@ -16,7 +16,7 @@ update its internal state using the gossip message.
 Note that currently some paths will still silently reject the gossip: it
 is best effort.
 
-This is particularly used by plugins which may receive channel_update
+This is particularly used by plugins which may receive channel\_update
 messages within error replies.
 
 RETURN VALUE

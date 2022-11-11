@@ -59,7 +59,7 @@ The following errors may be reported:
 - 905:  An invoice with that label does not exist.
 - 906:  The invoice *status* does not match the parameter.
   An error object will be returned as error *data*, containing
-  *current_status* and *expected_status* fields.
+  *current\_status* and *expected\_status* fields.
   This is most likely due to the *status* of the invoice
   changing just before this command is invoked.
 - 908: The invoice already has no description, and *desconly* was set.

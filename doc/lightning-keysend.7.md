@@ -33,7 +33,7 @@ Setting `exemptfee` allows the `maxfeepercent` check to be skipped on fees that 
 The response will occur when the payment fails or succeeds.
 Unlike lightning-pay(7), issuing the same `keysend` commands multiple times will result in multiple payments being sent.
 
-Until *retry_for* seconds passes (default: 60), the command will keep finding routes and retrying the payment.
+Until *retry\_for* seconds passes (default: 60), the command will keep finding routes and retrying the payment.
 However, a payment may be delayed for up to `maxdelay` blocks by another node; clients should be prepared for this worst case.
 
 *extratlvs* is an optional dictionary of additional fields to insert into the final tlv.  The format is 'fieldnumber': 'hexstring'.
@@ -99,7 +99,7 @@ A routing failure object has the fields below:
 - `erring_node`: The hex string of the pubkey id of the node that reported the error.
 - `erring_channel`: The short channel ID of the channel that has the error, or *0:0:0* if the destination node raised the error.
 - `failcode`: The failure code, as per BOLT \#4.
-- `channel_update`. The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the `UPDATE` bit set, as per BOLT \#4.
+- `channel_update`. The hex string of the *channel\_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the `UPDATE` bit set, as per BOLT \#4.
 
 
 AUTHOR
