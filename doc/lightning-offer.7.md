@@ -100,7 +100,7 @@ On success, an object is returned, containing:
 
 - **offer\_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
 - **active** (boolean): whether this can still be used (always *true*)
-- **single\_use** (boolean): whether this expires as soon as it's paid (reflects the *single_use* parameter)
+- **single\_use** (boolean): whether this expires as soon as it's paid (reflects the *single\_use* parameter)
 - **bolt12** (string): the bolt12 encoding of the offer
 - **used** (boolean): True if an associated invoice has been paid
 - **created** (boolean): false if the offer already existed
@@ -135,4 +135,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:217af2aae777229992e2ee07c6f8040d4ca5b75ee2064590584de13162974fe2)
+[comment]: # ( SHA256STAMP:a9cd6cc9f41fefc87c060ee979599f55154a11fc3a9b5dca046cea3e9c2385c2)

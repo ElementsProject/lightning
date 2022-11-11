@@ -69,11 +69,11 @@ RETURN VALUE
 On success, an object is returned, containing:
 
 - **id** (u64): unique ID for this payment attempt
-- **payment\_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
 - **status** (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **amount\_sent\_msat** (msat): The amount sent
-- **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash
+- **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment\_hash
 - **amount\_msat** (msat, optional): The amount delivered to destination (if known)
 - **destination** (pubkey, optional): the final destination of the payment if known
 - **completed\_at** (u64, optional): the UNIX timestamp showing when this payment was completed
@@ -84,7 +84,7 @@ On success, an object is returned, containing:
 
 If **status** is "complete":
 
-  - **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+  - **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash** (always 64 characters)
 
 If **status** is "pending":
 
@@ -143,4 +143,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c129f537b1af8a5dc767a25a72be419634cb21ebc26a9e6b9bb091db8db7e6ca)
+[comment]: # ( SHA256STAMP:b7f1a5efd80156722e5f9cca6f291306fcd22ab7b9b2754beac880f2ae5a7418)

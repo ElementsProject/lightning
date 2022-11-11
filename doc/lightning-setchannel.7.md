@@ -68,13 +68,13 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **channels** is returned.  It is an array of objects, where each object contains:
 
-- **peer\_id** (pubkey): The node_id of the peer
-- **channel\_id** (hex): The channel_id of the channel (always 64 characters)
+- **peer\_id** (pubkey): The node\_id of the peer
+- **channel\_id** (hex): The channel\_id of the channel (always 64 characters)
 - **fee\_base\_msat** (msat): The resulting feebase (this is the BOLT #7 name)
 - **fee\_proportional\_millionths** (u32): The resulting feeppm (this is the BOLT #7 name)
-- **minimum\_htlc\_out\_msat** (msat): The resulting htlcmin we will advertize (the BOLT #7 name is htlc_minimum_msat)
-- **maximum\_htlc\_out\_msat** (msat): The resulting htlcmax we will advertize (the BOLT #7 name is htlc_maximum_msat)
-- **short\_channel\_id** (short\_channel\_id, optional): the short_channel_id (if locked in)
+- **minimum\_htlc\_out\_msat** (msat): The resulting htlcmin we will advertize (the BOLT #7 name is htlc\_minimum\_msat)
+- **maximum\_htlc\_out\_msat** (msat): The resulting htlcmax we will advertize (the BOLT #7 name is htlc\_maximum\_msat)
+- **short\_channel\_id** (short\_channel\_id, optional): the short\_channel\_id (if locked in)
 - the following warnings are possible:
   - **warning\_htlcmin\_too\_low**: The requested htlcmin was too low for this peer, so we set it to the minimum they will allow
   - **warning\_htlcmax\_too\_high**: The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity
@@ -107,4 +107,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0f7cd751f329360a8cd957dfc8ea0b7d579aa05f4de4f8577039e50266a04f30)
+[comment]: # ( SHA256STAMP:31300838ff4b12d9bf43879c91a5d51af76f70ebe8527a35ba476801424c3e65)

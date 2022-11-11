@@ -4,6 +4,12 @@
 # https://creativecommons.org/publicdomain/zero/1.0/
 from argparse import ArgumentParser
 import json
+import re
+
+
+def esc_underscores(s):
+    """Backslash-escape underscores outside of backtick-enclosed spans"""
+    return ''.join(['\\_' if x == '_' else x for x in re.findall(r'[^`_\\]+|`(?:[^`\\]|\\.)*`|\\.|_', s)])
 
 
 def json_value(obj):
@@ -13,7 +19,7 @@ def json_value(obj):
             return '*true*'
         return '*false*'
     if type(obj) is str:
-        return '"' + obj + '"'
+        return '"' + esc_underscores(obj) + '"'
     if obj is None:
         return '*null*'
     assert False
@@ -30,9 +36,9 @@ def output(line):
 
 
 def output_type(properties, is_optional):
-    typename = properties['type'].replace('_', '\\_')
+    typename = esc_underscores(properties['type'])
     if typename == 'array':
-        typename += ' of {}s'.format(properties['items']['type'].replace('_', '\\_'))
+        typename += ' of {}s'.format(esc_underscores(properties['items']['type']))
     if is_optional:
         typename += ", optional"
     output(" ({})".format(typename))
@@ -67,7 +73,7 @@ def output_range(properties):
 
 def fmt_propname(propname):
     """Pretty-print format a property name"""
-    return '**{}**'.format(propname.replace('_', '\\_'))
+    return '**{}**'.format(esc_underscores(propname))
 
 
 def output_member(propname, properties, is_optional, indent, print_type=True, prefix=None):
@@ -84,7 +90,7 @@ def output_member(propname, properties, is_optional, indent, print_type=True, pr
         output_type(properties, is_optional)
 
     if 'description' in properties:
-        output(": {}".format(properties['description']))
+        output(": {}".format(esc_underscores(properties['description'])))
 
     output_range(properties)
 
@@ -103,10 +109,10 @@ def output_array(items, indent):
     if items['type'] == 'object':
         output_members(items, indent)
     elif items['type'] == 'array':
-        output(indent + '- {}:\n'.format(items['description']))
+        output(indent + '- {}:\n'.format(esc_underscores(items['description'])))
         output_array(items['items'], indent + '  ')
     else:
-        output(indent + '- {}'.format(items['description']))
+        output(indent + '- {}'.format(esc_underscores(items['description'])))
         output_range(items)
         output('\n')
 

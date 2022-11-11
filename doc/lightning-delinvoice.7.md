@@ -28,7 +28,7 @@ Note: The return is the same as an object from lightning-listinvoice(7).
 On success, an object is returned, containing:
 
 - **label** (string): Unique label given at creation time
-- **payment\_hash** (hash): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
 - **status** (string): State of invoice (one of "paid", "expired", "unpaid")
 - **expires\_at** (u64): UNIX timestamp when invoice expires (or expired)
 - **bolt11** (string, optional): BOLT11 string
@@ -39,14 +39,14 @@ On success, an object is returned, containing:
 If **bolt12** is present:
 
   - **local\_offer\_id** (hex, optional): offer for which this invoice was created
-  - **invreq\_payer\_note** (string, optional): the optional *invreq_payer_note* from invoice_request which created this invoice
+  - **invreq\_payer\_note** (string, optional): the optional *invreq\_payer\_note* from invoice\_request which created this invoice
 
 If **status** is "paid":
 
   - **pay\_index** (u64): unique index for this invoice payment
   - **amount\_received\_msat** (msat): how much was actually received
   - **paid\_at** (u64): UNIX timestamp of when payment was received
-  - **payment\_preimage** (secret): SHA256 of this is the *payment_hash* offered in the invoice (always 64 characters)
+  - **payment\_preimage** (secret): SHA256 of this is the *payment\_hash* offered in the invoice (always 64 characters)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -81,4 +81,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:961571f6b2155f0452ac376bdf957474dd20e97e05a89efdf590f6e4da310f4f)
+[comment]: # ( SHA256STAMP:c21dd851c40769c1b79489ccaf364c4647a67bf6cd1a34dd96a8574016d66d96)

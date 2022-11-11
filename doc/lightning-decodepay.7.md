@@ -22,7 +22,7 @@ On success, an object is returned, containing:
 - **created\_at** (u64): the UNIX-style timestamp of the invoice
 - **expiry** (u64): the number of seconds this is valid after *timestamp*
 - **payee** (pubkey): the public key of the recipient
-- **payment\_hash** (hex): the hash of the *payment_preimage* (always 64 characters)
+- **payment\_hash** (hex): the hash of the *payment\_preimage* (always 64 characters)
 - **signature** (signature): signature of the *payee* on this invoice
 - **min\_final\_cltv\_expiry** (u32): the minimum CLTV delay for the final node
 - **amount\_msat** (msat, optional): Amount the invoice asked for
@@ -30,7 +30,7 @@ On success, an object is returned, containing:
 - **description\_hash** (hex, optional): the hash of the description, in place of *description* (always 64 characters)
 - **payment\_secret** (hex, optional): the secret to hand to the payee node (always 64 characters)
 - **features** (hex, optional): the features bitmap for this invoice
-- **payment\_metadata** (hex, optional): the payment_metadata to put in the payment
+- **payment\_metadata** (hex, optional): the payment\_metadata to put in the payment
 - **fallbacks** (array of objects, optional): onchain addresses:
   - **type** (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
   - **hex** (hex): Raw encoded address
@@ -71,4 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c98fd8cac46b5446ff2d01ede6b082f64a83d4b5745d06e410af3e1dd91be8e2)
+[comment]: # ( SHA256STAMP:a1163f7535526b8f9bcea137c6cd5d270e0730d2d58f8c8487794415273dd489)

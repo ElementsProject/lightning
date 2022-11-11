@@ -109,7 +109,7 @@ On success, an object is returned, containing:
 
 - **summary** (string): Summary of the current funding policy e.g. (match 100)
 - **policy** (string): Policy funder plugin will use to decide how much captial to commit to a v2 open channel request (one of "match", "available", "fixed")
-- **policy\_mod** (u32): The *policy_mod* is the number or 'modification' to apply to the policy.
+- **policy\_mod** (u32): The *policy\_mod* is the number or 'modification' to apply to the policy.
 - **leases\_only** (boolean): Only contribute funds to `option_will_fund` lease requests.
 - **min\_their\_funding\_msat** (msat): The minimum funding sats that we require from peer to activate our funding policy.
 - **max\_their\_funding\_msat** (msat): The maximum funding sats that we'll allow from peer to activate our funding policy.
@@ -121,8 +121,8 @@ On success, an object is returned, containing:
 - **lease\_fee\_base\_msat** (msat, optional): Flat fee to charge for a channel lease.
 - **lease\_fee\_basis** (u32, optional): Proportional fee to charge for a channel lease, calculated as 1/10,000th of requested funds.
 - **funding\_weight** (u32, optional): Transaction weight the channel opener will pay us for a leased funding transaction.
-- **channel\_fee\_max\_base\_msat** (msat, optional): Maximum channel_fee_base_msat we'll charge for routing funds leased on this channel.
-- **channel\_fee\_max\_proportional\_thousandths** (u32, optional): Maximum channel_fee_proportional_millitionths we'll charge for routing funds leased on this channel, in thousandths.
+- **channel\_fee\_max\_base\_msat** (msat, optional): Maximum channel\_fee\_base\_msat we'll charge for routing funds leased on this channel.
+- **channel\_fee\_max\_proportional\_thousandths** (u32, optional): Maximum channel\_fee\_proportional\_millitionths we'll charge for routing funds leased on this channel, in thousandths.
 - **compact\_lease** (hex, optional): Compact description of the channel lease parameters.
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -147,4 +147,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:03b74bb9d03466181e3f643f718a07388e722e4a6ea1fbb30350e22a7fc491c3)
+[comment]: # ( SHA256STAMP:13eef3ba929ea98506f6ed3d042072be6f70fd01d503ca5f7b49480dea7af627)

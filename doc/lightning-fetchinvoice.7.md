@@ -58,7 +58,7 @@ On success, an object is returned, containing:
   - **vendor\_removed** (string, optional): The *vendor* from the offer, which is missing in the invoice
   - **vendor** (string, optional): a completely replaced *vendor* field
   - **amount\_msat** (msat, optional): the amount, if different from the offer amount multiplied by any *quantity* (or the offer had no amount, or was not in BTC).
-- **next\_period** (object, optional): Only for recurring invoices if the next period is under the *recurrence_limit*:
+- **next\_period** (object, optional): Only for recurring invoices if the next period is under the *recurrence\_limit*:
   - **counter** (u64): the index of the next period to fetchinvoice
   - **starttime** (u64): UNIX timestamp that the next period starts
   - **endtime** (u64): UNIX timestamp that the next period ends
@@ -89,4 +89,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:18164ef676c71c8d3abde89d974b3c74bd7fdb43356a737f937b2fb060795a47)
+[comment]: # ( SHA256STAMP:59b33634070b62e711cae7457bfb08874851e4e001512feaefc5ddac1a5b3b5b)

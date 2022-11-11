@@ -30,7 +30,7 @@ RETURN VALUE
 On success, an object containing **nodes** is returned.  It is an array of objects, where each object contains:
 
 - **nodeid** (pubkey): the public key of the node
-- **last\_timestamp** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
+- **last\_timestamp** (u32, optional): A node\_announcement has been received for this node (UNIX timestamp)
 
 If **last\_timestamp** is present:
 
@@ -52,8 +52,8 @@ If **option\_will\_fund** is present:
     - **lease\_fee\_basis** (u32): the proportional fee in basis points (parts per 10,000) for a lease
     - **funding\_weight** (u32): the onchain weight you'll have to pay for a lease
     - **channel\_fee\_max\_base\_msat** (msat): the maximum base routing fee this node will charge during the lease
-    - **channel\_fee\_max\_proportional\_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
-    - **compact\_lease** (hex): the lease as represented in the node_announcement
+    - **channel\_fee\_max\_proportional\_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel\_update)
+    - **compact\_lease** (hex): the lease as represented in the node\_announcement
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -99,4 +99,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:7f1378c1376ade1c9912c8eef3ebc77b13cbc5194ee813f8f1b4e0061338e0bb)
+[comment]: # ( SHA256STAMP:030d48d2a5fc02cb26fc2a35125116085eb67d0afc39066259adacc433a3d38b)

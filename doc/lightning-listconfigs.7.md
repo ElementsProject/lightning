@@ -101,7 +101,7 @@ On success, an object is returned, containing:
 - **accept-htlc-tlv-types** (string, optional): `accept-extra-tlvs-type` fields from config or cmdline, or not present
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 - **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
-- **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node_announcement
+- **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -219,4 +219,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:745268f7f4e4eb19d04ec1a221fbb734d89b4a266049cde3adc3131d86423294)
+[comment]: # ( SHA256STAMP:862a1d319a30cb4a0e851d0d57b62eef78d7b7e35f76c70c6bc71d4d2f270a94)
