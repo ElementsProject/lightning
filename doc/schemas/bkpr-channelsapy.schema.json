@@ -59,7 +59,7 @@
           },
           "our_start_balance_msat": {
             "type": "msat",
-            "description": "Starting balance in channel at funding. Note that if our start ballance is zero, any _initial field will be omitted (can't divide by zero)"
+            "description": "Starting balance in channel at funding. Note that if our start balance is zero, any _initial field will be omitted (can't divide by zero)"
           },
           "channel_start_balance_msat": {
             "type": "msat",

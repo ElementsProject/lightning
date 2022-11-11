@@ -30,7 +30,7 @@ On success, an object containing **channels\_apy** is returned.  It is an array 
 - **lease\_fee\_earned\_msat** (msat): Sats earned for leasing outbound (liquidity ads)
 - **pushed\_out\_msat** (msat): Sats pushed to peer at open
 - **pushed\_in\_msat** (msat): Sats pushed in from peer at open
-- **our\_start\_balance\_msat** (msat): Starting balance in channel at funding. Note that if our start ballance is zero, any \_initial field will be omitted (can't divide by zero)
+- **our\_start\_balance\_msat** (msat): Starting balance in channel at funding. Note that if our start balance is zero, any \_initial field will be omitted (can't divide by zero)
 - **channel\_start\_balance\_msat** (msat): Total starting balance at funding
 - **fees\_out\_msat** (msat): Fees earned on routed outbound
 - **utilization\_out** (string): Sats routed outbound / total start balance
@@ -65,4 +65,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:97fb832389b1084e25015a7a46b5d84b37e8e08f7c9e9eb678beb0d026f161dd)
+[comment]: # ( SHA256STAMP:05c9260f9ba49e3c3333ec7d4b0e671f81b8f8cd32cde87ea46c532b54ae7e54)
