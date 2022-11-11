@@ -79,7 +79,7 @@ currently support:
   - Distribution Version: 22.04
   - Codename: jammy
 
-Depending on your host OS release you migh not have `debootstrap`
+Depending on your host OS release you might not have `debootstrap`
 manifests for versions newer than your host OS. Due to this we run the
 `debootstrap` commands in a container of the latest version itself:
 
