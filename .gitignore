@@ -70,6 +70,7 @@ tests/primitives_pb2_grpc.py
 # Ignore unrelated stuff
 .DS_Store
 .gdb_history
+.python-version
 
 # Rust targets
 target
