@@ -1,22 +1,13 @@
-import subprocess
 import json
 from pathlib import Path
 
 from msggen.model import Method, CompositeField, Service
 
 
-def repo_root():
-    path = subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
-    return Path(path.strip().decode('UTF-8'))
-
-
-def load_jsonrpc_method(name, schema_dir: str = None):
+def load_jsonrpc_method(name, schema_dir: Path):
     """Load a method based on the file naming conventions for the JSON-RPC.
     """
-    if schema_dir is None:
-        base_path = (repo_root() / "doc" / "schemas").resolve()
-    else:
-        base_path = schema_dir
+    base_path = schema_dir
     req_file = base_path / f"{name.lower()}.request.json"
     resp_file = base_path / f"{name.lower()}.schema.json"
     request = CompositeField.from_js(json.load(open(req_file)), path=name)
@@ -34,7 +25,7 @@ def load_jsonrpc_method(name, schema_dir: str = None):
     )
 
 
-def load_jsonrpc_service(schema_dir: str = None):
+def load_jsonrpc_service(schema_dir: str):
     method_names = [
         "Getinfo",
         "ListPeers",
