@@ -71,26 +71,28 @@ RUN apt-get update -qq && \
         wget
 
 RUN wget -q https://zlib.net/zlib-1.2.13.tar.gz \
-&& tar xvf zlib-1.2.13.tar.gz \
-&& cd zlib-1.2.13 \
-&& ./configure \
-&& make \
-&& make install && cd .. && rm zlib-1.2.13.tar.gz && rm -rf zlib-1.2.13
+    && tar xvf zlib-1.2.13.tar.gz \
+    && cd zlib-1.2.13 \
+    && ./configure \
+    && make \
+    && make install && cd .. && \
+    rm zlib-1.2.13.tar.gz && \
+    rm -rf zlib-1.2.13
 
 RUN apt-get install -y --no-install-recommends unzip tclsh \
-&& wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip \
-&& unzip sqlite-src-3290000.zip \
-&& cd sqlite-src-3290000 \
-&& ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension \
-&& make \
-&& make install && cd .. && rm sqlite-src-3290000.zip && rm -rf sqlite-src-3290000
+    && wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip \
+    && unzip sqlite-src-3290000.zip \
+    && cd sqlite-src-3290000 \
+    && ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension \
+    && make \
+    && make install && cd .. && rm sqlite-src-3290000.zip && rm -rf sqlite-src-3290000
 
 RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
-&& tar xvf gmp-6.1.2.tar.xz \
-&& cd gmp-6.1.2 \
-&& ./configure --disable-assembly \
-&& make \
-&& make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
+    && tar xvf gmp-6.1.2.tar.xz \
+    && cd gmp-6.1.2 \
+    && ./configure --disable-assembly \
+    && make \
+    && make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
 
 ENV RUST_PROFILE=release
 ENV PATH=$PATH:/root/.cargo/bin/
@@ -101,21 +103,30 @@ WORKDIR /opt/lightningd
 COPY . /tmp/lightning
 RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
-ARG DEVELOPER=0
+
+ARG DEVELOPER=1
 ENV PYTHON_VERSION=3
-RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 - \
+RUN curl -sSL https://install.python-poetry.org | python3 - \
     && pip3 install -U pip \
     && pip3 install -U wheel \
-    && /root/.local/bin/poetry config virtualenvs.create false \
     && /root/.local/bin/poetry install
 
-RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
+RUN ./configure --prefix=/tmp/lightning_install --enable-static && \
+    make DEVELOPER=${DEVELOPER} && \
+    /root/.local/bin/poetry run make install
 
 FROM debian:bullseye-slim as final
 
 COPY --from=downloader /opt/tini /usr/bin/tini
-RUN apt-get update && apt-get install -y --no-install-recommends socat inotify-tools python3 python3-pip libpq5\
-    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      socat \
+      inotify-tools \
+      python3 \
+      python3-pip \
+      libpq5 && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_RPC_PORT=9835
