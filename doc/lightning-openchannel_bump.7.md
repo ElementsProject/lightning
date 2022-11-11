@@ -4,7 +4,7 @@ lightning-openchannel\_bump -- Command to initiate a channel RBF
 SYNOPSIS
 --------
 
-**openchannel_bump** *channel_id* *amount* *initalpsbt* [*funding_feerate*]
+**openchannel\_bump** *channel\_id* *amount* *initalpsbt* [*funding\_feerate*]
 
 DESCRIPTION
 -----------
@@ -26,7 +26,7 @@ Must have the Non-Witness UTXO (PSBT\_IN\_NON\_WITNESS\_UTXO) set for
 every input. An error (code 309) will be returned if this requirement
 is not met.
 
-*funding_feerate* is an optional field. Sets the feerate for the
+*funding\_feerate* is an optional field. Sets the feerate for the
 funding transaction. Defaults to 1/64th greater than the last
 feerate used for this channel.
 

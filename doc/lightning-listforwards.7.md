@@ -4,7 +4,7 @@ lightning-listforwards -- Command showing all htlcs and their information
 SYNOPSIS
 --------
 
-**listforwards** [*status*] [*in_channel*] [*out_channel*]
+**listforwards** [*status*] [*in\_channel*] [*out\_channel*]
 
 DESCRIPTION
 -----------
@@ -13,9 +13,9 @@ The **listforwards** RPC command displays all htlcs that have been
 attempted to be forwarded by the Core Lightning node.
 
 If *status* is specified, then only the forwards with the given status are returned.
-*status* can be either *offered* or *settled* or *failed* or *local_failed*
+*status* can be either *offered* or *settled* or *failed* or *local\_failed*
 
-If *in_channel* or *out_channel* is specified, then only the matching forwards
+If *in\_channel* or *out\_channel* is specified, then only the matching forwards
 on the given in/out channel are returned.
 
 RETURN VALUE

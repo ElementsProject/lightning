@@ -4,7 +4,7 @@ lightning-close -- Command for closing channels with direct peers
 SYNOPSIS
 --------
 
-**close** *id* [*unilateraltimeout*] [*destination*] [*fee_negotiation_step*] [*wrong_funding*] [*force_lease_closed*] [\*feerange\*]
+**close** *id* [*unilateraltimeout*] [*destination*] [*fee\_negotiation\_step*] [*wrong\_funding*] [*force\_lease\_closed*] [\*feerange\*]
 
 DESCRIPTION
 -----------
@@ -31,7 +31,7 @@ the peer hasn't offered the `option_shutdown_anysegwit` feature, then
 taproot addresses (or other v1+ segwit) are not allowed.  Tell your
 friends to upgrade!
 
-The *fee_negotiation_step* parameter controls how closing fee
+The *fee\_negotiation\_step* parameter controls how closing fee
 negotiation is performed assuming the peer proposes a fee that is
 different than our estimate.  (Note that modern peers use the quick-close protocol which does not allow negotiation: see *feerange* instead).
 
@@ -50,8 +50,8 @@ we quickly accept the peer's proposal.
  
 The default is "50%".
 
-*wrong_funding* can only be specified if both sides have offered
-the "shutdown_wrong_funding" feature (enabled by the
+*wrong\_funding* can only be specified if both sides have offered
+the "shutdown\_wrong\_funding" feature (enabled by the
 **experimental-shutdown-wrong-funding** option): it must be a
 transaction id followed by a colon then the output number.  Instead of
 negotiating a shutdown to spend the expected funding transaction, the
@@ -59,13 +59,13 @@ shutdown transaction will spend this output instead.  This is only
 allowed if this peer opened the channel and the channel is unused: it
 can rescue openings which have been manually miscreated.
 
-*force_lease_closed* if the channel has funds leased to the peer
-(option_will_fund), we prevent initiation of a mutual close
+*force\_lease\_closed* if the channel has funds leased to the peer
+(option\_will\_fund), we prevent initiation of a mutual close
 unless this flag is passed in. Defaults to false.
 
 *feerange* is an optional array [ *min*, *max* ], indicating the
 minimum and maximum feerates to offer: the peer will obey these if it
-supports the quick-close protocol.  *slow* and *unilateral_close* are
+supports the quick-close protocol.  *slow* and *unilateral\_close* are
 the defaults.
 
 Rates are one of the strings *urgent* (aim for next block), *normal*

@@ -142,11 +142,11 @@ and look at the *state* of the channel:
     $ lightning-cli listpeers $PUBLICKEY
 
 The channel will initially start with a *state* of
-*CHANNELD\_AWAITING_LOCKIN*. You need to wait for the channel *state*
-to become *CHANNELD_NORMAL*, meaning the funding transaction has been
+*CHANNELD\_AWAITING\_LOCKIN*. You need to wait for the channel *state*
+to become *CHANNELD\_NORMAL*, meaning the funding transaction has been
 confirmed deeply.
 
-Once the channel *state* is *CHANNELD_NORMAL*, you can start paying
+Once the channel *state* is *CHANNELD\_NORMAL*, you can start paying
 merchants over Lightning. Acquire a Lightning invoice from your favorite
 merchant, and use lightning-pay(7) to pay it:
 

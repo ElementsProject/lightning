@@ -4,7 +4,7 @@ lightning-listinvoices -- Command for querying invoice status
 SYNOPSIS
 --------
 
-**listinvoices** [*label*] [*invstring*] [*payment_hash*] [*offer_id*]
+**listinvoices** [*label*] [*invstring*] [*payment\_hash*] [*offer\_id*]
 
 DESCRIPTION
 -----------

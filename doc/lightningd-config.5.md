@@ -141,8 +141,8 @@ Current subdaemons are *channeld*, *closingd*,
 If the supplied path is relative the subdaemon binary is found in the
 working directory. This option may be specified multiple times.
 
-  So, **subdaemon=hsmd:remote_signer** would use a
-hypothetical remote signing proxy instead of the standard *lightning_hsmd*
+  So, **subdaemon=hsmd:remote\_signer** would use a
+hypothetical remote signing proxy instead of the standard *lightning\_hsmd*
 binary.
 
 * **pid-file**=*PATH*
@@ -343,8 +343,8 @@ This allows override of one or more of our standard feerates (see
 lightning-feerates(7)).  Up to 5 values, separated by '/' can be
 provided: if fewer are provided, then the final value is used for the
 remainder.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb
-values), and the order is "opening", "mutual_close", "unilateral_close",
-"delayed_to_us", "htlc_resolution", and "penalty".
+values), and the order is "opening", "mutual\_close", "unilateral\_close",
+"delayed\_to\_us", "htlc\_resolution", and "penalty".
 
   You would usually put this option in the per-chain config file, to avoid
 setting it on Bitcoin mainnet!  e.g. `~rusty/.lightning/regtest/config`.

@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-onion-messages only)**
 
-**sendonionmessage** *first_id* *blinding* *hops*
+**sendonionmessage** *first\_id* *blinding* *hops*
 
 DESCRIPTION
 -----------

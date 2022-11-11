@@ -40,9 +40,9 @@ which was reserved:
 
 - *txid* is the input transaction id.
 - *vout* is the input index.
-- *was_reserved* indicates whether the input was already reserved.
+- *was\_reserved* indicates whether the input was already reserved.
 - *reserved* indicates that the input is now reserved (i.e. true).
-- *reserved_to_block* indicates what blockheight the reservation will expire.
+- *reserved\_to\_block* indicates what blockheight the reservation will expire.
 
 On failure, an error is reported and no UTXOs are reserved.
 

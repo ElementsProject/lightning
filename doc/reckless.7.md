@@ -14,7 +14,7 @@ installation involves: finding the source plugin, copying,
 installing dependencies, testing, activating, and updating the
 lightningd config file. Reckless does all of these by invoking:
 
-**reckless** **install** *plugin_name*
+**reckless** **install** *plugin\_name*
 
 reckless will exit early in the event that:
 - the plugin is not found in any available source repositories
@@ -28,28 +28,28 @@ config), but regtest may also be used.
 
 Other commands include:
 
-**reckless** **uninstall** *plugin_name*
+**reckless** **uninstall** *plugin\_name*
 	disables the plugin, removes the directory.
 
-**reckless** **search** *plugin_name*
+**reckless** **search** *plugin\_name*
 	looks through all available sources for a plugin matching
 	this name.
 
-**reckless** **enable** *plugin_name*
+**reckless** **enable** *plugin\_name*
 	dynamically enables the reckless-installed plugin and updates
 	the config to match.
 
-**reckless** **disable** *plugin_name*
+**reckless** **disable** *plugin\_name*
 	dynamically disables the reckless-installed plugin and updates
 	the config to match.
 
 **reckless** **source** **list**
 	list available plugin repositories.
 
-**reckless** **source** **add** *repo_url*
+**reckless** **source** **add** *repo\_url*
 	add another plugin repo for reckless to search.
 
-**reckless** **source** **rm** *repo_url*
+**reckless** **source** **rm** *repo\_url*
 	remove a plugin repo for reckless to search.
 
 OPTIONS
@@ -57,14 +57,14 @@ OPTIONS
 
 Available option flags:
 
-**-d**, **--reckless-dir** *reckless_dir*
+**-d**, **--reckless-dir** *reckless\_dir*
 	specify an alternative data directory for reckless to use.
 	Useful if your .lightning is protected from execution.
 
-**-l**, **--lightning** *lightning_data_dir*
+**-l**, **--lightning** *lightning\_data\_dir*
 	lightning data directory (defaults to $USER/.lightning)
 
-**-c**, **--conf** *lightning_config*
+**-c**, **--conf** *lightning\_config*
 	pass the config used by lightningd
 
 **-r**, **--regtest**
@@ -92,7 +92,7 @@ invoked, so **python3** should be available in your environment. This
 can be verified with **which Python3**. The default reckless directory
 is $USER/.lightning/reckless and it should be possible for the
 lightningd user to execute files located here.  If this is a problem,
-the option flag **reckless -d=<my_alternate_dir>** may be used to
+the option flag **reckless -d=<my\_alternate\_dir>** may be used to
 relocate the reckless directory from its default. Consider creating a
 permanent alias in this case.
 

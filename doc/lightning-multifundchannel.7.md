@@ -4,7 +4,7 @@ lightning-multifundchannel -- Command for establishing many lightning channels
 SYNOPSIS
 --------
 
-**multifundchannel** *destinations* [*feerate*] [*minconf*] [*utxos*] [*minchannels*] [*commitment_feerate*]
+**multifundchannel** *destinations* [*feerate*] [*minconf*] [*utxos*] [*minchannels*] [*commitment\_feerate*]
 
 DESCRIPTION
 -----------
@@ -47,14 +47,14 @@ Readiness is indicated by **listpeers** reporting a *state* of
   node.
   This is a gift to the peer, and you do not get a proof-of-payment
   out of this.
-* *close_to* is a Bitcoin address to which the channel funds should be sent to
+* *close\_to* is a Bitcoin address to which the channel funds should be sent to
   on close. Only valid if both peers have negotiated
   `option_upfront_shutdown_script`.  Returns `close_to` set to
   closing script iff is negotiated.
-* *request_amt* is the amount of liquidity you'd like to lease from peer.
+* *request\_amt* is the amount of liquidity you'd like to lease from peer.
   If peer supports `option_will_fund`, indicates to them to include this
-  much liquidity into the channel. Must also pass in *compact_lease*.
-* *compact_lease* is a compact represenation of the peer's expected
+  much liquidity into the channel. Must also pass in *compact\_lease*.
+* *compact\_lease* is a compact represenation of the peer's expected
   channel lease terms. If the peer's terms don't match this set, we will
   fail to open the channel to this destination.
 
@@ -62,7 +62,7 @@ There must be at least one entry in *destinations*;
 it cannot be an empty array.
 
 *feerate* is an optional feerate used for the opening transaction and, if
-*commitment_feerate* is not set, as the initial feerate for
+*commitment\_feerate* is not set, as the initial feerate for
 commitment and HTLC transactions. It can be one of
 the strings *urgent* (aim for next block), *normal* (next 4 blocks or
 so) or *slow* (next 100 blocks or so) to use lightningd's internal
@@ -84,7 +84,7 @@ this many peers remain (must not be zero).
 The **multifundchannel** command will only fail if too many peers fail
 the funding process.
 
-*commitment_feerate* is the initial feerate for commitment and HTLC
+*commitment\_feerate* is the initial feerate for commitment and HTLC
 transactions. See *feerate* for valid values.
 
 RETURN VALUE
