@@ -18,7 +18,6 @@ struct txwatch;
 
 /* Off topology->outgoing_txs */
 struct outgoing_tx {
-	struct list_node list;
 	struct channel *channel;
 	const char *hextx;
 	struct bitcoin_txid txid;
@@ -117,7 +116,7 @@ struct chain_topology {
 	struct oneshot *extend_timer, *updatefee_timer;
 
 	/* Bitcoin transactions we're broadcasting */
-	struct list_head outgoing_txs;
+	struct outgoing_tx_map outgoing_txs;
 
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
