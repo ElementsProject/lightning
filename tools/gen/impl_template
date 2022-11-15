@@ -90,7 +90,7 @@ fromwire_${type_}_array(cursor, plen, ${fieldname}, ${f.size('*plen')});
 ${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, 0) : NULL;
 	% endif
         % if f.is_implicit_len():
-	for (size_t i = 0; *plen != 0; i++) {
+	while (*plen != 0) {
 	% else:
 	for (size_t i = 0; i < ${f.size()}; i++) {
         % endif
