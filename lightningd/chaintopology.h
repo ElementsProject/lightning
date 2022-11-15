@@ -66,6 +66,26 @@ static inline bool block_eq(const struct block *b, const struct bitcoin_blkid *k
 }
 HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map);
 
+/* Hash blocks by sha */
+static inline const struct bitcoin_txid *keyof_outgoing_tx_map(const struct outgoing_tx *t)
+{
+	return &t->txid;
+}
+
+static inline size_t outgoing_tx_hash_sha(const struct bitcoin_txid *key)
+{
+	size_t ret;
+	memcpy(&ret, key, sizeof(ret));
+	return ret;
+}
+
+static inline bool outgoing_tx_eq(const struct outgoing_tx *b, const struct bitcoin_txid *key)
+{
+	return bitcoin_txid_eq(&b->txid, key);
+}
+HTABLE_DEFINE_TYPE(struct outgoing_tx, keyof_outgoing_tx_map,
+		   outgoing_tx_hash_sha, outgoing_tx_eq, outgoing_tx_map);
+
 struct chain_topology {
 	struct lightningd *ld;
 	struct block *root;
