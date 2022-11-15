@@ -208,6 +208,13 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	if (otx->failed_or_success) {
 		otx->failed_or_success(otx->channel, success, msg);
 		tal_free(otx);
+	} else if (we_broadcast(bitcoind->ld->topology, &otx->txid)) {
+		log_debug(
+		    bitcoind->ld->topology->log,
+		    "Not adding %s to list of outgoing transactions, already "
+		    "present",
+		    type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
+		tal_free(otx);
 	} else {
 		/* For continual rebroadcasting, until channel freed. */
 		tal_steal(otx->channel, otx);
