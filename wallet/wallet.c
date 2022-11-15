@@ -282,7 +282,6 @@ bool wallet_update_output_status(struct wallet *w,
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
 {
 	struct utxo **results;
-	int i;
 	struct db_stmt *stmt;
 
 	if (state == OUTPUT_STATE_ANY) {
@@ -329,7 +328,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct utxo*, 0);
-	for (i=0; db_step(stmt); i++) {
+	while (db_step(stmt)) {
 		struct utxo *u = wallet_stmt2output(results, stmt);
 		tal_arr_expand(&results, u);
 	}
@@ -343,7 +342,6 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 {
 	struct db_stmt *stmt;
 	struct utxo **results;
-	int i;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					"  prev_out_tx"
@@ -368,7 +366,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct utxo *, 0);
-	for (i = 0; db_step(stmt); i++) {
+	while (db_step(stmt)) {
 		struct utxo *u = wallet_stmt2output(results, stmt);
 		tal_arr_expand(&results, u);
 	}
@@ -4783,7 +4781,6 @@ bool wallet_forward_delete(struct wallet *w,
 struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx)
 {
 	struct db_stmt *stmt;
-	size_t count;
 	struct wallet_transaction *cur = NULL, *txs = tal_arr(ctx, struct wallet_transaction, 0);
 	struct bitcoin_txid last;
 
@@ -4811,7 +4808,7 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		"ORDER BY t.blockheight, t.txindex ASC"));
 	db_query_prepared(stmt);
 
-	for (count = 0; db_step(stmt); count++) {
+	while (db_step(stmt)) {
 		struct bitcoin_txid curtxid;
 		db_col_txid(stmt, "t.id", &curtxid);
 
