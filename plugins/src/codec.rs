@@ -12,7 +12,7 @@ use std::{io, str};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::messages::{Notification, Request};
-pub use crate::messages::JsonRpc;
+use crate::messages::JsonRpc;
 
 /// A simple codec that parses messages separated by two successive
 /// `\n` newlines.

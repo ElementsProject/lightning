@@ -1,5 +1,5 @@
 use crate::codec::{JsonCodec, JsonRpcCodec};
-pub use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context};
 use futures::sink::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
@@ -16,9 +16,9 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 
-pub mod codec;
-pub mod logging;
-mod messages;
+mod codec;
+mod logging;
+pub mod messages;
 
 #[macro_use]
 extern crate serde_json;
