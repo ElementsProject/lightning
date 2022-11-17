@@ -63,7 +63,7 @@ pub struct GetManifestCall {}
 #[derive(Deserialize, Debug)]
 pub(crate) struct InitCall {
     pub(crate) options: HashMap<String, Value>,
-    pub(crate) configuration: Configuration,
+    pub configuration: Configuration,
 }
 
 #[derive(Clone, Deserialize, Debug)]
