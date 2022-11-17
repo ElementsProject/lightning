@@ -58,7 +58,7 @@ pub(crate) enum Notification {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct GetManifestCall {}
+pub(crate) struct GetManifestCall {}
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct InitCall {
@@ -93,7 +93,7 @@ pub struct ProxyInfo {
 }
 
 #[derive(Debug)]
-pub enum JsonRpc<N, R> {
+pub(crate) enum JsonRpc<N, R> {
     Request(serde_json::Value, R),
     Notification(N),
     CustomRequest(serde_json::Value, Value),
