@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [22.11rc1] - 2022-11-10
+## [22.11rc2] - 2022-11-18
 
 ### Added
 
@@ -84,7 +84,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 
 ### Fixed
-
+ - ld: Reduce identification of own transactions to not slow down over time, reducing block processing time ([#5715])
  - onchaind: Witness weight estimations could be slightly lower than the VLS signer ([#5669])
  - Protocol: we now correctly decrypt non-256-length onion errors (we always forwarded them fine, now we actually can parse them). ([#5698])
  - Fixed gossip_store corruption from duplicate private channel updates ([#5661])
@@ -187,7 +187,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5645]: https://github.com/ElementsProject/lightning/pull/5645
 [#5650]: https://github.com/ElementsProject/lightning/pull/5650
 [#5621]: https://github.com/ElementsProject/lightning/pull/5621
-[22.11rc1]: https://github.com/ElementsProject/lightning/releases/tag/v22.11rc1
+[#5715]: https://github.com/ElementsProject/lightning/pull/5715
+[22.11rc2]: https://github.com/ElementsProject/lightning/releases/tag/v22.11rc2
 
 
 ## [0.12.0] - 2022-08-23: Web-8 init
