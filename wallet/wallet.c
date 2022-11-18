@@ -2360,7 +2360,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->outpoint.txid),
 			  blockheight ? " CONFIRMED" : "",
-			  is_coinbase == 0 ? " COINBASE" : "");
+			  is_coinbase ? " COINBASE" : "");
 
 		/* We only record final ledger movements */
 		if (blockheight) {
