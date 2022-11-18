@@ -23,6 +23,7 @@ msgdata,onchaind_init,remote_to_self_delay,u32,
 msgdata,onchaind_init,delayed_to_us_feerate,u32,
 msgdata,onchaind_init,htlc_feerate,u32,
 msgdata,onchaind_init,penalty_feerate,u32,
+msgdata,onchaind_init,max_penalty_feerate,u32,
 msgdata,onchaind_init,local_dust_limit_satoshi,amount_sat,
 # Gives an easy way to tell if it's our unilateral close or theirs...
 msgdata,onchaind_init,our_broadcast_txid,bitcoin_txid,

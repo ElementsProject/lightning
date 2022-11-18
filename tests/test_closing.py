@@ -1668,7 +1668,9 @@ def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
                                may_fail=True, allow_broken_log=True)
     l2 = node_factory.get_node(options={'dev-disable-commit-after': 1,
                                         'watchtime-blocks': to_self_delay,
-                                        'plugin': coin_mvt_plugin})
+                                        'plugin': coin_mvt_plugin},
+                               # Exporbitant feerates mean we don't have cap on RBF!
+                               feerates=(15000000, 11000, 7500, 3750))
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**7)
