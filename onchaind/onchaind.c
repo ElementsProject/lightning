@@ -43,7 +43,7 @@ static u32 delayed_to_us_feerate;
 static u32 htlc_feerate;
 
 /* The feerate for transactions spending from revoked transactions. */
-static u32 penalty_feerate;
+static u32 penalty_feerate, max_penalty_feerate;
 
 /* Min and max feerates we ever used */
 static u32 min_possible_feerate, max_possible_feerate;
@@ -878,9 +878,18 @@ compute_penalty_output_amount(struct amount_sat initial_amount,
 	struct amount_sat max_output_amount;
 	struct amount_sat output_amount;
 	struct amount_sat deducted_amount;
+	struct amount_sat min_output_amount, max_fee;
 
 	assert(depth <= max_depth);
 	assert(depth > 0);
+
+	/* We never pay more than max_penalty_feerate; at some point,
+	 * it's clearly not working. */
+	max_fee = amount_tx_fee(max_penalty_feerate, weight);
+	if (!amount_sat_sub(&min_output_amount, initial_amount, max_fee))
+		/* We may just donate the whole output as fee, meaning
+		 * we get zero amount. */
+		min_output_amount = AMOUNT_SAT(0);
 
 	/* The difference between initial_amount, and the fee suggested
 	 * by min_rbf_bump, is the largest allowed output amount.
@@ -892,11 +901,7 @@ compute_penalty_output_amount(struct amount_sat initial_amount,
 	 */
 	if (!amount_sat_sub(&max_output_amount,
 			    initial_amount, min_rbf_bump(weight, depth - 1)))
-		/* If min_rbf_bump is larger than the initial_amount,
-		 * we should just donate the whole output as fee,
-		 * meaning we get 0 output amount.
-		 */
-		return AMOUNT_SAT(0);
+		return min_output_amount;
 
 	/* Map the depth / max_depth into a number between 0->1.  */
 	double x = (double) depth / (double) max_depth;
@@ -910,9 +915,14 @@ compute_penalty_output_amount(struct amount_sat initial_amount,
 
 	/* output_amount = initial_amount - deducted_amount.  */
 	if (!amount_sat_sub(&output_amount,
-			    initial_amount, deducted_amount))
-		/* If underflow, force to 0.  */
-		output_amount = AMOUNT_SAT(0);
+			    initial_amount, deducted_amount)) {
+		/* If underflow, force to min.  */
+		output_amount = min_output_amount;
+	}
+
+	/* If output below min, return min. */
+	if (amount_sat_less(output_amount, min_output_amount))
+		return min_output_amount;
 
 	/* If output exceeds max, return max.  */
 	if (amount_sat_less(max_output_amount, output_amount))
@@ -3908,6 +3918,7 @@ int main(int argc, char *argv[])
 				   &delayed_to_us_feerate,
 				   &htlc_feerate,
 				   &penalty_feerate,
+				   &max_penalty_feerate,
 				   &dust_limit,
 				   &our_broadcast_txid,
 				   &scriptpubkey[LOCAL],
