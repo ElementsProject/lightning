@@ -5,6 +5,10 @@ description = "A utility to transform wire messages and JSON-RPC messages to arb
 authors = ["Christian Decker <decker@blockstream.com>"]
 license = "BSD-MIT"
 
+include = [
+        "msggen/schema.json",
+]
+
 [tool.poetry.dependencies]
 python = "^3.6"
 

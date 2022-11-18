@@ -51,8 +51,7 @@ def write_msggen_meta(meta):
 
 
 def run(rootdir: Path):
-    schemadir = rootdir / "doc" / "schemas"
-    service = load_jsonrpc_service(schema_dir=schemadir)
+    service = load_jsonrpc_service()
     meta = load_msggen_meta()
     generator_chain = GeneratorChain()
 

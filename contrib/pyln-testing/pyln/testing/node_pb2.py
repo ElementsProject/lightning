@@ -15,35 +15,10 @@ _sym_db = _symbol_database.Default()
 from . import primitives_pb2 as primitives__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nnode.proto\x12\x03\x63ln\x1a\x10primitives.proto\"\x10\n\x0eGetinfoRequest\"\xae\x04\n\x0fGetinfoResponse\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12\r\n\x05\x63olor\x18\x03 \x01(\x0c\x12\x11\n\tnum_peers\x18\x04 \x01(\r\x12\x1c\n\x14num_pending_channels\x18\x05 \x01(\r\x12\x1b\n\x13num_active_channels\x18\x06 \x01(\r\x12\x1d\n\x15num_inactive_channels\x18\x07 \x01(\r\x12\x0f\n\x07version\x18\x08 \x01(\t\x12\x15\n\rlightning_dir\x18\t \x01(\t\x12\x13\n\x0b\x62lockheight\x18\x0b \x01(\r\x12\x0f\n\x07network\x18\x0c \x01(\t\x12$\n\x17msatoshi_fees_collected\x18\x12 \x01(\x04H\x00\x88\x01\x01\x12(\n\x13\x66\x65\x65s_collected_msat\x18\r \x01(\x0b\x32\x0b.cln.Amount\x12$\n\x07\x61\x64\x64ress\x18\x0e \x03(\x0b\x32\x13.cln.GetinfoAddress\x12$\n\x07\x62inding\x18\x0f \x03(\x0b\x32\x13.cln.GetinfoBinding\x12\"\n\x15warning_bitcoind_sync\x18\x10 \x01(\tH\x01\x88\x01\x01\x12$\n\x17warning_lightningd_sync\x18\x11 \x01(\tH\x02\x88\x01\x01\x42\x1a\n\x18_msatoshi_fees_collectedB\x18\n\x16_warning_bitcoind_syncB\x1a\n\x18_warning_lightningd_sync\"S\n\x13GetinfoOur_features\x12\x0c\n\x04init\x18\x01 \x01(\x0c\x12\x0c\n\x04node\x18\x02 \x01(\x0c\x12\x0f\n\x07\x63hannel\x18\x03 \x01(\x0c\x12\x0f\n\x07invoice\x18\x04 \x01(\x0c\"\xd3\x01\n\x0eGetinfoAddress\x12\x39\n\titem_type\x18\x01 \x01(\x0e\x32&.cln.GetinfoAddress.GetinfoAddressType\x12\x0c\n\x04port\x18\x02 \x01(\r\x12\x14\n\x07\x61\x64\x64ress\x18\x03 \x01(\tH\x00\x88\x01\x01\"V\n\x12GetinfoAddressType\x12\x07\n\x03\x44NS\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x12\r\n\tWEBSOCKET\x10\x05\x42\n\n\x08_address\"\xfb\x01\n\x0eGetinfoBinding\x12\x39\n\titem_type\x18\x01 \x01(\x0e\x32&.cln.GetinfoBinding.GetinfoBindingType\x12\x14\n\x07\x61\x64\x64ress\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x11\n\x04port\x18\x03 \x01(\rH\x01\x88\x01\x01\x12\x13\n\x06socket\x18\x04 \x01(\tH\x02\x88\x01\x01\"P\n\x12GetinfoBindingType\x12\x10\n\x0cLOCAL_SOCKET\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x42\n\n\x08_addressB\x07\n\x05_portB\t\n\x07_socket\"H\n\x10ListpeersRequest\x12\x0f\n\x02id\x18\x01 \x01(\x0cH\x00\x88\x01\x01\x12\x12\n\x05level\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x05\n\x03_idB\x08\n\x06_level\"7\n\x11ListpeersResponse\x12\"\n\x05peers\x18\x01 \x03(\x0b\x32\x13.cln.ListpeersPeers\"\xe2\x01\n\x0eListpeersPeers\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x11\n\tconnected\x18\x02 \x01(\x08\x12#\n\x03log\x18\x03 \x03(\x0b\x32\x16.cln.ListpeersPeersLog\x12-\n\x08\x63hannels\x18\x04 \x03(\x0b\x32\x1b.cln.ListpeersPeersChannels\x12\x0f\n\x07netaddr\x18\x05 \x03(\t\x12\x18\n\x0bremote_addr\x18\x07 \x01(\tH\x00\x88\x01\x01\x12\x15\n\x08\x66\x65\x61tures\x18\x06 \x01(\x0cH\x01\x88\x01\x01\x42\x0e\n\x0c_remote_addrB\x0b\n\t_features\"\xfd\x02\n\x11ListpeersPeersLog\x12?\n\titem_type\x18\x01 \x01(\x0e\x32,.cln.ListpeersPeersLog.ListpeersPeersLogType\x12\x18\n\x0bnum_skipped\x18\x02 \x01(\rH\x00\x88\x01\x01\x12\x11\n\x04time\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06source\x18\x04 \x01(\tH\x02\x88\x01\x01\x12\x10\n\x03log\x18\x05 \x01(\tH\x03\x88\x01\x01\x12\x14\n\x07node_id\x18\x06 \x01(\x0cH\x04\x88\x01\x01\x12\x11\n\x04\x64\x61ta\x18\x07 \x01(\x0cH\x05\x88\x01\x01\"i\n\x15ListpeersPeersLogType\x12\x0b\n\x07SKIPPED\x10\x00\x12\n\n\x06\x42ROKEN\x10\x01\x12\x0b\n\x07UNUSUAL\x10\x02\x12\x08\n\x04INFO\x10\x03\x12\t\n\x05\x44\x45\x42UG\x10\x04\x12\t\n\x05IO_IN\x10\x05\x12\n\n\x06IO_OUT\x10\x06\x42\x0e\n\x0c_num_skippedB\x07\n\x05_timeB\t\n\x07_sourceB\x06\n\x04_logB\n\n\x08_node_idB\x07\n\x05_data\"\x8a\x16\n\x16ListpeersPeersChannels\x12\x46\n\x05state\x18\x01 \x01(\x0e\x32\x37.cln.ListpeersPeersChannels.ListpeersPeersChannelsState\x12\x19\n\x0cscratch_txid\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x12\x12\n\x05owner\x18\x04 \x01(\tH\x01\x88\x01\x01\x12\x1d\n\x10short_channel_id\x18\x05 \x01(\tH\x02\x88\x01\x01\x12\x17\n\nchannel_id\x18\x06 \x01(\x0cH\x03\x88\x01\x01\x12\x19\n\x0c\x66unding_txid\x18\x07 \x01(\x0cH\x04\x88\x01\x01\x12\x1b\n\x0e\x66unding_outnum\x18\x08 \x01(\rH\x05\x88\x01\x01\x12\x1c\n\x0finitial_feerate\x18\t \x01(\tH\x06\x88\x01\x01\x12\x19\n\x0clast_feerate\x18\n \x01(\tH\x07\x88\x01\x01\x12\x19\n\x0cnext_feerate\x18\x0b \x01(\tH\x08\x88\x01\x01\x12\x1a\n\rnext_fee_step\x18\x0c \x01(\rH\t\x88\x01\x01\x12\x35\n\x08inflight\x18\r \x03(\x0b\x32#.cln.ListpeersPeersChannelsInflight\x12\x15\n\x08\x63lose_to\x18\x0e \x01(\x0cH\n\x88\x01\x01\x12\x14\n\x07private\x18\x0f \x01(\x08H\x0b\x88\x01\x01\x12 \n\x06opener\x18\x10 \x01(\x0e\x32\x10.cln.ChannelSide\x12%\n\x06\x63loser\x18\x11 \x01(\x0e\x32\x10.cln.ChannelSideH\x0c\x88\x01\x01\x12\x10\n\x08\x66\x65\x61tures\x18\x12 \x03(\t\x12$\n\nto_us_msat\x18\x14 \x01(\x0b\x32\x0b.cln.AmountH\r\x88\x01\x01\x12(\n\x0emin_to_us_msat\x18\x15 \x01(\x0b\x32\x0b.cln.AmountH\x0e\x88\x01\x01\x12(\n\x0emax_to_us_msat\x18\x16 \x01(\x0b\x32\x0b.cln.AmountH\x0f\x88\x01\x01\x12$\n\ntotal_msat\x18\x17 \x01(\x0b\x32\x0b.cln.AmountH\x10\x88\x01\x01\x12\'\n\rfee_base_msat\x18\x18 \x01(\x0b\x32\x0b.cln.AmountH\x11\x88\x01\x01\x12(\n\x1b\x66\x65\x65_proportional_millionths\x18\x19 \x01(\rH\x12\x88\x01\x01\x12)\n\x0f\x64ust_limit_msat\x18\x1a \x01(\x0b\x32\x0b.cln.AmountH\x13\x88\x01\x01\x12\x30\n\x16max_total_htlc_in_msat\x18\x1b \x01(\x0b\x32\x0b.cln.AmountH\x14\x88\x01\x01\x12,\n\x12their_reserve_msat\x18\x1c \x01(\x0b\x32\x0b.cln.AmountH\x15\x88\x01\x01\x12*\n\x10our_reserve_msat\x18\x1d \x01(\x0b\x32\x0b.cln.AmountH\x16\x88\x01\x01\x12(\n\x0espendable_msat\x18\x1e \x01(\x0b\x32\x0b.cln.AmountH\x17\x88\x01\x01\x12)\n\x0freceivable_msat\x18\x1f \x01(\x0b\x32\x0b.cln.AmountH\x18\x88\x01\x01\x12.\n\x14minimum_htlc_in_msat\x18  \x01(\x0b\x32\x0b.cln.AmountH\x19\x88\x01\x01\x12/\n\x15minimum_htlc_out_msat\x18\x30 \x01(\x0b\x32\x0b.cln.AmountH\x1a\x88\x01\x01\x12/\n\x15maximum_htlc_out_msat\x18\x31 \x01(\x0b\x32\x0b.cln.AmountH\x1b\x88\x01\x01\x12 \n\x13their_to_self_delay\x18! \x01(\rH\x1c\x88\x01\x01\x12\x1e\n\x11our_to_self_delay\x18\" \x01(\rH\x1d\x88\x01\x01\x12\x1f\n\x12max_accepted_htlcs\x18# \x01(\rH\x1e\x88\x01\x01\x12\x0e\n\x06status\x18% \x03(\t\x12 \n\x13in_payments_offered\x18& \x01(\x04H\x1f\x88\x01\x01\x12)\n\x0fin_offered_msat\x18\' \x01(\x0b\x32\x0b.cln.AmountH \x88\x01\x01\x12\"\n\x15in_payments_fulfilled\x18( \x01(\x04H!\x88\x01\x01\x12+\n\x11in_fulfilled_msat\x18) \x01(\x0b\x32\x0b.cln.AmountH\"\x88\x01\x01\x12!\n\x14out_payments_offered\x18* \x01(\x04H#\x88\x01\x01\x12*\n\x10out_offered_msat\x18+ \x01(\x0b\x32\x0b.cln.AmountH$\x88\x01\x01\x12#\n\x16out_payments_fulfilled\x18, \x01(\x04H%\x88\x01\x01\x12,\n\x12out_fulfilled_msat\x18- \x01(\x0b\x32\x0b.cln.AmountH&\x88\x01\x01\x12/\n\x05htlcs\x18. \x03(\x0b\x32 .cln.ListpeersPeersChannelsHtlcs\x12\x1a\n\rclose_to_addr\x18/ \x01(\tH\'\x88\x01\x01\"\xa1\x02\n\x1bListpeersPeersChannelsState\x12\x0c\n\x08OPENINGD\x10\x00\x12\x1c\n\x18\x43HANNELD_AWAITING_LOCKIN\x10\x01\x12\x13\n\x0f\x43HANNELD_NORMAL\x10\x02\x12\x1a\n\x16\x43HANNELD_SHUTTING_DOWN\x10\x03\x12\x18\n\x14\x43LOSINGD_SIGEXCHANGE\x10\x04\x12\x15\n\x11\x43LOSINGD_COMPLETE\x10\x05\x12\x17\n\x13\x41WAITING_UNILATERAL\x10\x06\x12\x16\n\x12\x46UNDING_SPEND_SEEN\x10\x07\x12\x0b\n\x07ONCHAIN\x10\x08\x12\x17\n\x13\x44UALOPEND_OPEN_INIT\x10\t\x12\x1d\n\x19\x44UALOPEND_AWAITING_LOCKIN\x10\nB\x0f\n\r_scratch_txidB\x08\n\x06_ownerB\x13\n\x11_short_channel_idB\r\n\x0b_channel_idB\x0f\n\r_funding_txidB\x11\n\x0f_funding_outnumB\x12\n\x10_initial_feerateB\x0f\n\r_last_feerateB\x0f\n\r_next_feerateB\x10\n\x0e_next_fee_stepB\x0b\n\t_close_toB\n\n\x08_privateB\t\n\x07_closerB\r\n\x0b_to_us_msatB\x11\n\x0f_min_to_us_msatB\x11\n\x0f_max_to_us_msatB\r\n\x0b_total_msatB\x10\n\x0e_fee_base_msatB\x1e\n\x1c_fee_proportional_millionthsB\x12\n\x10_dust_limit_msatB\x19\n\x17_max_total_htlc_in_msatB\x15\n\x13_their_reserve_msatB\x13\n\x11_our_reserve_msatB\x11\n\x0f_spendable_msatB\x12\n\x10_receivable_msatB\x17\n\x15_minimum_htlc_in_msatB\x18\n\x16_minimum_htlc_out_msatB\x18\n\x16_maximum_htlc_out_msatB\x16\n\x14_their_to_self_delayB\x14\n\x12_our_to_self_delayB\x15\n\x13_max_accepted_htlcsB\x16\n\x14_in_payments_offeredB\x12\n\x10_in_offered_msatB\x18\n\x16_in_payments_fulfilledB\x14\n\x12_in_fulfilled_msatB\x17\n\x15_out_payments_offeredB\x13\n\x11_out_offered_msatB\x19\n\x17_out_payments_fulfilledB\x15\n\x13_out_fulfilled_msatB\x10\n\x0e_close_to_addr\"=\n\x1dListpeersPeersChannelsFeerate\x12\r\n\x05perkw\x18\x01 \x01(\r\x12\r\n\x05perkb\x18\x02 \x01(\r\"\xc5\x01\n\x1eListpeersPeersChannelsInflight\x12\x14\n\x0c\x66unding_txid\x18\x01 \x01(\x0c\x12\x16\n\x0e\x66unding_outnum\x18\x02 \x01(\r\x12\x0f\n\x07\x66\x65\x65rate\x18\x03 \x01(\t\x12\'\n\x12total_funding_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12%\n\x10our_funding_msat\x18\x05 \x01(\x0b\x32\x0b.cln.Amount\x12\x14\n\x0cscratch_txid\x18\x06 \x01(\x0c\"\x87\x03\n\x1dListpeersPeersChannelsFunding\x12$\n\nlocal_msat\x18\x01 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12%\n\x0bremote_msat\x18\x02 \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12%\n\x0bpushed_msat\x18\x03 \x01(\x0b\x32\x0b.cln.AmountH\x02\x88\x01\x01\x12%\n\x10local_funds_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12&\n\x11remote_funds_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12\'\n\rfee_paid_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12\'\n\rfee_rcvd_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x42\r\n\x0b_local_msatB\x0e\n\x0c_remote_msatB\x0e\n\x0c_pushed_msatB\x10\n\x0e_fee_paid_msatB\x10\n\x0e_fee_rcvd_msat\"[\n\x1bListpeersPeersChannelsAlias\x12\x12\n\x05local\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06remote\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x08\n\x06_localB\t\n\x07_remote\"\xd2\x02\n\x1bListpeersPeersChannelsHtlcs\x12X\n\tdirection\x18\x01 \x01(\x0e\x32\x45.cln.ListpeersPeersChannelsHtlcs.ListpeersPeersChannelsHtlcsDirection\x12\n\n\x02id\x18\x02 \x01(\x04\x12 \n\x0b\x61mount_msat\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12\x0e\n\x06\x65xpiry\x18\x04 \x01(\r\x12\x14\n\x0cpayment_hash\x18\x05 \x01(\x0c\x12\x1a\n\rlocal_trimmed\x18\x06 \x01(\x08H\x00\x88\x01\x01\x12\x13\n\x06status\x18\x07 \x01(\tH\x01\x88\x01\x01\"7\n$ListpeersPeersChannelsHtlcsDirection\x12\x06\n\x02IN\x10\x00\x12\x07\n\x03OUT\x10\x01\x42\x10\n\x0e_local_trimmedB\t\n\x07_status\"0\n\x10ListfundsRequest\x12\x12\n\x05spent\x18\x01 \x01(\x08H\x00\x88\x01\x01\x42\x08\n\x06_spent\"e\n\x11ListfundsResponse\x12&\n\x07outputs\x18\x01 \x03(\x0b\x32\x15.cln.ListfundsOutputs\x12(\n\x08\x63hannels\x18\x02 \x03(\x0b\x32\x16.cln.ListfundsChannels\"\x83\x03\n\x10ListfundsOutputs\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x0e\n\x06output\x18\x02 \x01(\r\x12 \n\x0b\x61mount_msat\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12\x14\n\x0cscriptpubkey\x18\x04 \x01(\x0c\x12\x14\n\x07\x61\x64\x64ress\x18\x05 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0credeemscript\x18\x06 \x01(\x0cH\x01\x88\x01\x01\x12<\n\x06status\x18\x07 \x01(\x0e\x32,.cln.ListfundsOutputs.ListfundsOutputsStatus\x12\x10\n\x08reserved\x18\t \x01(\x08\x12\x18\n\x0b\x62lockheight\x18\x08 \x01(\rH\x02\x88\x01\x01\"Q\n\x16ListfundsOutputsStatus\x12\x0f\n\x0bUNCONFIRMED\x10\x00\x12\r\n\tCONFIRMED\x10\x01\x12\t\n\x05SPENT\x10\x02\x12\x0c\n\x08IMMATURE\x10\x03\x42\n\n\x08_addressB\x0f\n\r_redeemscriptB\x0e\n\x0c_blockheight\"\x83\x02\n\x11ListfundsChannels\x12\x0f\n\x07peer_id\x18\x01 \x01(\x0c\x12$\n\x0four_amount_msat\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\x12 \n\x0b\x61mount_msat\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12\x14\n\x0c\x66unding_txid\x18\x04 \x01(\x0c\x12\x16\n\x0e\x66unding_output\x18\x05 \x01(\r\x12\x11\n\tconnected\x18\x06 \x01(\x08\x12 \n\x05state\x18\x07 \x01(\x0e\x32\x11.cln.ChannelState\x12\x1d\n\x10short_channel_id\x18\x08 \x01(\tH\x00\x88\x01\x01\x42\x13\n\x11_short_channel_id\"\xdd\x02\n\x0eSendpayRequest\x12 \n\x05route\x18\x01 \x03(\x0b\x32\x11.cln.SendpayRoute\x12\x14\n\x0cpayment_hash\x18\x02 \x01(\x0c\x12\x12\n\x05label\x18\x03 \x01(\tH\x00\x88\x01\x01\x12%\n\x0b\x61mount_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x05 \x01(\tH\x02\x88\x01\x01\x12\x1b\n\x0epayment_secret\x18\x06 \x01(\x0cH\x03\x88\x01\x01\x12\x13\n\x06partid\x18\x07 \x01(\rH\x04\x88\x01\x01\x12\x1a\n\rlocalinvreqid\x18\x0b \x01(\x0cH\x05\x88\x01\x01\x12\x14\n\x07groupid\x18\t \x01(\x04H\x06\x88\x01\x01\x42\x08\n\x06_labelB\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\x11\n\x0f_payment_secretB\t\n\x07_partidB\x10\n\x0e_localinvreqidB\n\n\x08_groupid\"\xd1\x04\n\x0fSendpayResponse\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x14\n\x07groupid\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x32\n\x06status\x18\x04 \x01(\x0e\x32\".cln.SendpayResponse.SendpayStatus\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x06 \x01(\x0cH\x02\x88\x01\x01\x12\x12\n\ncreated_at\x18\x07 \x01(\x04\x12\x19\n\x0c\x63ompleted_at\x18\x0f \x01(\x04H\x03\x88\x01\x01\x12%\n\x10\x61mount_sent_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\x05label\x18\t \x01(\tH\x04\x88\x01\x01\x12\x13\n\x06partid\x18\n \x01(\x04H\x05\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x0b \x01(\tH\x06\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x0c \x01(\tH\x07\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\r \x01(\x0cH\x08\x88\x01\x01\x12\x14\n\x07message\x18\x0e \x01(\tH\t\x88\x01\x01\"*\n\rSendpayStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x42\n\n\x08_groupidB\x0e\n\x0c_amount_msatB\x0e\n\x0c_destinationB\x0f\n\r_completed_atB\x08\n\x06_labelB\t\n\x07_partidB\t\n\x07_bolt11B\t\n\x07_bolt12B\x13\n\x11_payment_preimageB\n\n\x08_message\"\\\n\x0cSendpayRoute\x12 \n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.Amount\x12\n\n\x02id\x18\x02 \x01(\x0c\x12\r\n\x05\x64\x65lay\x18\x03 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x04 \x01(\t\"\x93\x01\n\x13ListchannelsRequest\x12\x1d\n\x10short_channel_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06source\x18\x02 \x01(\x0cH\x01\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x03 \x01(\x0cH\x02\x88\x01\x01\x42\x13\n\x11_short_channel_idB\t\n\x07_sourceB\x0e\n\x0c_destination\"C\n\x14ListchannelsResponse\x12+\n\x08\x63hannels\x18\x01 \x03(\x0b\x32\x19.cln.ListchannelsChannels\"\xa0\x03\n\x14ListchannelsChannels\x12\x0e\n\x06source\x18\x01 \x01(\x0c\x12\x13\n\x0b\x64\x65stination\x18\x02 \x01(\x0c\x12\x18\n\x10short_channel_id\x18\x03 \x01(\t\x12\x0e\n\x06public\x18\x04 \x01(\x08\x12 \n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.Amount\x12\x15\n\rmessage_flags\x18\x06 \x01(\r\x12\x15\n\rchannel_flags\x18\x07 \x01(\r\x12\x0e\n\x06\x61\x63tive\x18\x08 \x01(\x08\x12\x13\n\x0blast_update\x18\t \x01(\r\x12\x1d\n\x15\x62\x61se_fee_millisatoshi\x18\n \x01(\r\x12\x19\n\x11\x66\x65\x65_per_millionth\x18\x0b \x01(\r\x12\r\n\x05\x64\x65lay\x18\x0c \x01(\r\x12&\n\x11htlc_minimum_msat\x18\r \x01(\x0b\x32\x0b.cln.Amount\x12+\n\x11htlc_maximum_msat\x18\x0e \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x10\n\x08\x66\x65\x61tures\x18\x0f \x01(\x0c\x42\x14\n\x12_htlc_maximum_msat\"#\n\x10\x41\x64\x64gossipRequest\x12\x0f\n\x07message\x18\x01 \x01(\x0c\"\x13\n\x11\x41\x64\x64gossipResponse\"o\n\x17\x41utocleaninvoiceRequest\x12\x17\n\nexpired_by\x18\x01 \x01(\x04H\x00\x88\x01\x01\x12\x1a\n\rcycle_seconds\x18\x02 \x01(\x04H\x01\x88\x01\x01\x42\r\n\x0b_expired_byB\x10\n\x0e_cycle_seconds\"\x81\x01\n\x18\x41utocleaninvoiceResponse\x12\x0f\n\x07\x65nabled\x18\x01 \x01(\x08\x12\x17\n\nexpired_by\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x1a\n\rcycle_seconds\x18\x03 \x01(\x04H\x01\x88\x01\x01\x42\r\n\x0b_expired_byB\x10\n\x0e_cycle_seconds\"U\n\x13\x43heckmessageRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\r\n\x05zbase\x18\x02 \x01(\t\x12\x13\n\x06pubkey\x18\x03 \x01(\x0cH\x00\x88\x01\x01\x42\t\n\x07_pubkey\"8\n\x14\x43heckmessageResponse\x12\x10\n\x08verified\x18\x01 \x01(\x08\x12\x0e\n\x06pubkey\x18\x02 \x01(\x0c\"\xcb\x02\n\x0c\x43loseRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x1e\n\x11unilateraltimeout\x18\x02 \x01(\rH\x00\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x03 \x01(\tH\x01\x88\x01\x01\x12!\n\x14\x66\x65\x65_negotiation_step\x18\x04 \x01(\tH\x02\x88\x01\x01\x12)\n\rwrong_funding\x18\x05 \x01(\x0b\x32\r.cln.OutpointH\x03\x88\x01\x01\x12\x1f\n\x12\x66orce_lease_closed\x18\x06 \x01(\x08H\x04\x88\x01\x01\x12\x1e\n\x08\x66\x65\x65range\x18\x07 \x03(\x0b\x32\x0c.cln.FeerateB\x14\n\x12_unilateraltimeoutB\x0e\n\x0c_destinationB\x17\n\x15_fee_negotiation_stepB\x10\n\x0e_wrong_fundingB\x15\n\x13_force_lease_closed\"\xab\x01\n\rCloseResponse\x12/\n\titem_type\x18\x01 \x01(\x0e\x32\x1c.cln.CloseResponse.CloseType\x12\x0f\n\x02tx\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x12\x11\n\x04txid\x18\x03 \x01(\x0cH\x01\x88\x01\x01\"5\n\tCloseType\x12\n\n\x06MUTUAL\x10\x00\x12\x0e\n\nUNILATERAL\x10\x01\x12\x0c\n\x08UNOPENED\x10\x02\x42\x05\n\x03_txB\x07\n\x05_txid\"T\n\x0e\x43onnectRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x11\n\x04host\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x11\n\x04port\x18\x03 \x01(\rH\x01\x88\x01\x01\x42\x07\n\x05_hostB\x07\n\x05_port\"\x8e\x01\n\x0f\x43onnectResponse\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x10\n\x08\x66\x65\x61tures\x18\x02 \x01(\x0c\x12\x38\n\tdirection\x18\x03 \x01(\x0e\x32%.cln.ConnectResponse.ConnectDirection\"#\n\x10\x43onnectDirection\x12\x06\n\x02IN\x10\x00\x12\x07\n\x03OUT\x10\x01\"\xfb\x01\n\x0e\x43onnectAddress\x12\x39\n\titem_type\x18\x01 \x01(\x0e\x32&.cln.ConnectAddress.ConnectAddressType\x12\x13\n\x06socket\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x14\n\x07\x61\x64\x64ress\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x11\n\x04port\x18\x04 \x01(\rH\x02\x88\x01\x01\"P\n\x12\x43onnectAddressType\x12\x10\n\x0cLOCAL_SOCKET\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x42\t\n\x07_socketB\n\n\x08_addressB\x07\n\x05_port\"J\n\x14\x43reateinvoiceRequest\x12\x11\n\tinvstring\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\x12\x10\n\x08preimage\x18\x03 \x01(\x0c\"\x81\x05\n\x15\x43reateinvoiceResponse\x12\r\n\x05label\x18\x01 \x01(\t\x12\x13\n\x06\x62olt11\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x04 \x01(\x0c\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x02\x88\x01\x01\x12>\n\x06status\x18\x06 \x01(\x0e\x32..cln.CreateinvoiceResponse.CreateinvoiceStatus\x12\x13\n\x0b\x64\x65scription\x18\x07 \x01(\t\x12\x12\n\nexpires_at\x18\x08 \x01(\x04\x12\x16\n\tpay_index\x18\t \x01(\x04H\x03\x88\x01\x01\x12.\n\x14\x61mount_received_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12\x14\n\x07paid_at\x18\x0b \x01(\x04H\x05\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x06\x88\x01\x01\x12\x1b\n\x0elocal_offer_id\x18\r \x01(\x0cH\x07\x88\x01\x01\x12\x1e\n\x11invreq_payer_note\x18\x0f \x01(\tH\x08\x88\x01\x01\"8\n\x13\x43reateinvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x12\n\n\x06UNPAID\x10\x02\x42\t\n\x07_bolt11B\t\n\x07_bolt12B\x0e\n\x0c_amount_msatB\x0c\n\n_pay_indexB\x17\n\x15_amount_received_msatB\n\n\x08_paid_atB\x13\n\x11_payment_preimageB\x11\n\x0f_local_offer_idB\x14\n\x12_invreq_payer_note\"\xb4\x02\n\x10\x44\x61tastoreRequest\x12\x0b\n\x03key\x18\x05 \x03(\t\x12\x13\n\x06string\x18\x06 \x01(\tH\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x02 \x01(\x0cH\x01\x88\x01\x01\x12\x36\n\x04mode\x18\x03 \x01(\x0e\x32#.cln.DatastoreRequest.DatastoreModeH\x02\x88\x01\x01\x12\x17\n\ngeneration\x18\x04 \x01(\x04H\x03\x88\x01\x01\"p\n\rDatastoreMode\x12\x0f\n\x0bMUST_CREATE\x10\x00\x12\x10\n\x0cMUST_REPLACE\x10\x01\x12\x15\n\x11\x43REATE_OR_REPLACE\x10\x02\x12\x0f\n\x0bMUST_APPEND\x10\x03\x12\x14\n\x10\x43REATE_OR_APPEND\x10\x04\x42\t\n\x07_stringB\x06\n\x04_hexB\x07\n\x05_modeB\r\n\x0b_generation\"\x82\x01\n\x11\x44\x61tastoreResponse\x12\x0b\n\x03key\x18\x05 \x03(\t\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x03 \x01(\x0cH\x01\x88\x01\x01\x12\x13\n\x06string\x18\x04 \x01(\tH\x02\x88\x01\x01\x42\r\n\x0b_generationB\x06\n\x04_hexB\t\n\x07_string\"\x9d\x01\n\x12\x43reateonionRequest\x12\"\n\x04hops\x18\x01 \x03(\x0b\x32\x14.cln.CreateonionHops\x12\x11\n\tassocdata\x18\x02 \x01(\x0c\x12\x18\n\x0bsession_key\x18\x03 \x01(\x0cH\x00\x88\x01\x01\x12\x17\n\nonion_size\x18\x04 \x01(\rH\x01\x88\x01\x01\x42\x0e\n\x0c_session_keyB\r\n\x0b_onion_size\"<\n\x13\x43reateonionResponse\x12\r\n\x05onion\x18\x01 \x01(\x0c\x12\x16\n\x0eshared_secrets\x18\x02 \x03(\x0c\"2\n\x0f\x43reateonionHops\x12\x0e\n\x06pubkey\x18\x01 \x01(\x0c\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"J\n\x13\x44\x65ldatastoreRequest\x12\x0b\n\x03key\x18\x03 \x03(\t\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x42\r\n\x0b_generation\"\x85\x01\n\x14\x44\x65ldatastoreResponse\x12\x0b\n\x03key\x18\x05 \x03(\t\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x03 \x01(\x0cH\x01\x88\x01\x01\x12\x13\n\x06string\x18\x04 \x01(\tH\x02\x88\x01\x01\x42\r\n\x0b_generationB\x06\n\x04_hexB\t\n\x07_string\"H\n\x18\x44\x65lexpiredinvoiceRequest\x12\x1a\n\rmaxexpirytime\x18\x01 \x01(\x04H\x00\x88\x01\x01\x42\x10\n\x0e_maxexpirytime\"\x1b\n\x19\x44\x65lexpiredinvoiceResponse\"\xb6\x01\n\x11\x44\x65linvoiceRequest\x12\r\n\x05label\x18\x01 \x01(\t\x12\x37\n\x06status\x18\x02 \x01(\x0e\x32\'.cln.DelinvoiceRequest.DelinvoiceStatus\x12\x15\n\x08\x64\x65sconly\x18\x03 \x01(\x08H\x00\x88\x01\x01\"5\n\x10\x44\x65linvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x12\n\n\x06UNPAID\x10\x02\x42\x0b\n\t_desconly\"\xc5\x03\n\x12\x44\x65linvoiceResponse\x12\r\n\x05label\x18\x01 \x01(\t\x12\x13\n\x06\x62olt11\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x03 \x01(\tH\x01\x88\x01\x01\x12%\n\x0b\x61mount_msat\x18\x04 \x01(\x0b\x32\x0b.cln.AmountH\x02\x88\x01\x01\x12\x18\n\x0b\x64\x65scription\x18\x05 \x01(\tH\x03\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x06 \x01(\x0c\x12\x38\n\x06status\x18\x07 \x01(\x0e\x32(.cln.DelinvoiceResponse.DelinvoiceStatus\x12\x12\n\nexpires_at\x18\x08 \x01(\x04\x12\x1b\n\x0elocal_offer_id\x18\t \x01(\x0cH\x04\x88\x01\x01\x12\x1e\n\x11invreq_payer_note\x18\x0b \x01(\tH\x05\x88\x01\x01\"5\n\x10\x44\x65linvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x12\n\n\x06UNPAID\x10\x02\x42\t\n\x07_bolt11B\t\n\x07_bolt12B\x0e\n\x0c_amount_msatB\x0e\n\x0c_descriptionB\x11\n\x0f_local_offer_idB\x14\n\x12_invreq_payer_note\"\xb8\x02\n\x0eInvoiceRequest\x12%\n\x0b\x61mount_msat\x18\n \x01(\x0b\x32\x10.cln.AmountOrAny\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\r\n\x05label\x18\x03 \x01(\t\x12\x13\n\x06\x65xpiry\x18\x07 \x01(\x04H\x00\x88\x01\x01\x12\x11\n\tfallbacks\x18\x04 \x03(\t\x12\x15\n\x08preimage\x18\x05 \x01(\x0cH\x01\x88\x01\x01\x12\"\n\x15\x65xposeprivatechannels\x18\x08 \x01(\x08H\x02\x88\x01\x01\x12\x11\n\x04\x63ltv\x18\x06 \x01(\rH\x03\x88\x01\x01\x12\x19\n\x0c\x64\x65schashonly\x18\t \x01(\x08H\x04\x88\x01\x01\x42\t\n\x07_expiryB\x0b\n\t_preimageB\x18\n\x16_exposeprivatechannelsB\x07\n\x05_cltvB\x0f\n\r_deschashonly\"\xe7\x02\n\x0fInvoiceResponse\x12\x0e\n\x06\x62olt11\x18\x01 \x01(\t\x12\x14\n\x0cpayment_hash\x18\x02 \x01(\x0c\x12\x16\n\x0epayment_secret\x18\x03 \x01(\x0c\x12\x12\n\nexpires_at\x18\x04 \x01(\x04\x12\x1d\n\x10warning_capacity\x18\x05 \x01(\tH\x00\x88\x01\x01\x12\x1c\n\x0fwarning_offline\x18\x06 \x01(\tH\x01\x88\x01\x01\x12\x1d\n\x10warning_deadends\x18\x07 \x01(\tH\x02\x88\x01\x01\x12#\n\x16warning_private_unused\x18\x08 \x01(\tH\x03\x88\x01\x01\x12\x18\n\x0bwarning_mpp\x18\t \x01(\tH\x04\x88\x01\x01\x42\x13\n\x11_warning_capacityB\x12\n\x10_warning_offlineB\x13\n\x11_warning_deadendsB\x19\n\x17_warning_private_unusedB\x0e\n\x0c_warning_mpp\"#\n\x14ListdatastoreRequest\x12\x0b\n\x03key\x18\x02 \x03(\t\"G\n\x15ListdatastoreResponse\x12.\n\tdatastore\x18\x01 \x03(\x0b\x32\x1b.cln.ListdatastoreDatastore\"\x87\x01\n\x16ListdatastoreDatastore\x12\x0b\n\x03key\x18\x01 \x03(\t\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x03 \x01(\x0cH\x01\x88\x01\x01\x12\x13\n\x06string\x18\x04 \x01(\tH\x02\x88\x01\x01\x42\r\n\x0b_generationB\x06\n\x04_hexB\t\n\x07_string\"\xa9\x01\n\x13ListinvoicesRequest\x12\x12\n\x05label\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x16\n\tinvstring\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x19\n\x0cpayment_hash\x18\x03 \x01(\x0cH\x02\x88\x01\x01\x12\x15\n\x08offer_id\x18\x04 \x01(\tH\x03\x88\x01\x01\x42\x08\n\x06_labelB\x0c\n\n_invstringB\x0f\n\r_payment_hashB\x0b\n\t_offer_id\"C\n\x14ListinvoicesResponse\x12+\n\x08invoices\x18\x01 \x03(\x0b\x32\x19.cln.ListinvoicesInvoices\"\xa2\x05\n\x14ListinvoicesInvoices\x12\r\n\x05label\x18\x01 \x01(\t\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x44\n\x06status\x18\x04 \x01(\x0e\x32\x34.cln.ListinvoicesInvoices.ListinvoicesInvoicesStatus\x12\x12\n\nexpires_at\x18\x05 \x01(\x04\x12%\n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x02\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x08 \x01(\tH\x03\x88\x01\x01\x12\x1b\n\x0elocal_offer_id\x18\t \x01(\x0cH\x04\x88\x01\x01\x12\x1e\n\x11invreq_payer_note\x18\x0f \x01(\tH\x05\x88\x01\x01\x12\x16\n\tpay_index\x18\x0b \x01(\x04H\x06\x88\x01\x01\x12.\n\x14\x61mount_received_msat\x18\x0c \x01(\x0b\x32\x0b.cln.AmountH\x07\x88\x01\x01\x12\x14\n\x07paid_at\x18\r \x01(\x04H\x08\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0e \x01(\x0cH\t\x88\x01\x01\"?\n\x1aListinvoicesInvoicesStatus\x12\n\n\x06UNPAID\x10\x00\x12\x08\n\x04PAID\x10\x01\x12\x0b\n\x07\x45XPIRED\x10\x02\x42\x0e\n\x0c_descriptionB\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x11\n\x0f_local_offer_idB\x14\n\x12_invreq_payer_noteB\x0c\n\n_pay_indexB\x17\n\x15_amount_received_msatB\n\n\x08_paid_atB\x13\n\x11_payment_preimage\"\xde\x02\n\x10SendonionRequest\x12\r\n\x05onion\x18\x01 \x01(\x0c\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x12\n\x05label\x18\x04 \x01(\tH\x00\x88\x01\x01\x12\x16\n\x0eshared_secrets\x18\x05 \x03(\x0c\x12\x13\n\x06partid\x18\x06 \x01(\rH\x01\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x02\x88\x01\x01\x12%\n\x0b\x61mount_msat\x18\x0c \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\t \x01(\x0cH\x04\x88\x01\x01\x12\x1a\n\rlocalinvreqid\x18\r \x01(\x0cH\x05\x88\x01\x01\x12\x14\n\x07groupid\x18\x0b \x01(\x04H\x06\x88\x01\x01\x42\x08\n\x06_labelB\t\n\x07_partidB\t\n\x07_bolt11B\x0e\n\x0c_amount_msatB\x0e\n\x0c_destinationB\x10\n\x0e_localinvreqidB\n\n\x08_groupid\"\x8b\x04\n\x11SendonionResponse\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x14\n\x0cpayment_hash\x18\x02 \x01(\x0c\x12\x36\n\x06status\x18\x03 \x01(\x0e\x32&.cln.SendonionResponse.SendonionStatus\x12%\n\x0b\x61mount_msat\x18\x04 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x05 \x01(\x0cH\x01\x88\x01\x01\x12\x12\n\ncreated_at\x18\x06 \x01(\x04\x12%\n\x10\x61mount_sent_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\x05label\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\t \x01(\tH\x03\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\n \x01(\tH\x04\x88\x01\x01\x12\x13\n\x06partid\x18\r \x01(\x04H\x05\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0b \x01(\x0cH\x06\x88\x01\x01\x12\x14\n\x07message\x18\x0c \x01(\tH\x07\x88\x01\x01\",\n\x0fSendonionStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x42\x0e\n\x0c_amount_msatB\x0e\n\x0c_destinationB\x08\n\x06_labelB\t\n\x07_bolt11B\t\n\x07_bolt12B\t\n\x07_partidB\x13\n\x11_payment_preimageB\n\n\x08_message\"Q\n\x12SendonionFirst_hop\x12\n\n\x02id\x18\x01 \x01(\x0c\x12 \n\x0b\x61mount_msat\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\x12\r\n\x05\x64\x65lay\x18\x03 \x01(\r\"\xeb\x01\n\x13ListsendpaysRequest\x12\x13\n\x06\x62olt11\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0cpayment_hash\x18\x02 \x01(\x0cH\x01\x88\x01\x01\x12@\n\x06status\x18\x03 \x01(\x0e\x32+.cln.ListsendpaysRequest.ListsendpaysStatusH\x02\x88\x01\x01\";\n\x12ListsendpaysStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x42\t\n\x07_bolt11B\x0f\n\r_payment_hashB\t\n\x07_status\"C\n\x14ListsendpaysResponse\x12+\n\x08payments\x18\x01 \x03(\x0b\x32\x19.cln.ListsendpaysPayments\"\xd4\x04\n\x14ListsendpaysPayments\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x0f\n\x07groupid\x18\x02 \x01(\x04\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x44\n\x06status\x18\x04 \x01(\x0e\x32\x34.cln.ListsendpaysPayments.ListsendpaysPaymentsStatus\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x06 \x01(\x0cH\x01\x88\x01\x01\x12\x12\n\ncreated_at\x18\x07 \x01(\x04\x12%\n\x10\x61mount_sent_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\x05label\x18\t \x01(\tH\x02\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\n \x01(\tH\x03\x88\x01\x01\x12\x18\n\x0b\x64\x65scription\x18\x0e \x01(\tH\x04\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x0b \x01(\tH\x05\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x06\x88\x01\x01\x12\x17\n\nerroronion\x18\r \x01(\x0cH\x07\x88\x01\x01\"C\n\x1aListsendpaysPaymentsStatus\x12\x0b\n\x07PENDING\x10\x00\x12\n\n\x06\x46\x41ILED\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x42\x0e\n\x0c_amount_msatB\x0e\n\x0c_destinationB\x08\n\x06_labelB\t\n\x07_bolt11B\x0e\n\x0c_descriptionB\t\n\x07_bolt12B\x13\n\x11_payment_preimageB\r\n\x0b_erroronion\"\x19\n\x17ListtransactionsRequest\"S\n\x18ListtransactionsResponse\x12\x37\n\x0ctransactions\x18\x01 \x03(\x0b\x32!.cln.ListtransactionsTransactions\"\x9a\x02\n\x1cListtransactionsTransactions\x12\x0c\n\x04hash\x18\x01 \x01(\x0c\x12\r\n\x05rawtx\x18\x02 \x01(\x0c\x12\x13\n\x0b\x62lockheight\x18\x03 \x01(\r\x12\x0f\n\x07txindex\x18\x04 \x01(\r\x12\x14\n\x07\x63hannel\x18\x06 \x01(\tH\x00\x88\x01\x01\x12\x10\n\x08locktime\x18\x07 \x01(\r\x12\x0f\n\x07version\x18\x08 \x01(\r\x12\x37\n\x06inputs\x18\t \x03(\x0b\x32\'.cln.ListtransactionsTransactionsInputs\x12\x39\n\x07outputs\x18\n \x03(\x0b\x32(.cln.ListtransactionsTransactionsOutputsB\n\n\x08_channel\"\x84\x04\n\"ListtransactionsTransactionsInputs\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\r\n\x05index\x18\x02 \x01(\r\x12\x10\n\x08sequence\x18\x03 \x01(\r\x12\x66\n\titem_type\x18\x04 \x01(\x0e\x32N.cln.ListtransactionsTransactionsInputs.ListtransactionsTransactionsInputsTypeH\x00\x88\x01\x01\x12\x14\n\x07\x63hannel\x18\x05 \x01(\tH\x01\x88\x01\x01\"\x96\x02\n&ListtransactionsTransactionsInputsType\x12\n\n\x06THEIRS\x10\x00\x12\x0b\n\x07\x44\x45POSIT\x10\x01\x12\x0c\n\x08WITHDRAW\x10\x02\x12\x13\n\x0f\x43HANNEL_FUNDING\x10\x03\x12\x18\n\x14\x43HANNEL_MUTUAL_CLOSE\x10\x04\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CLOSE\x10\x05\x12\x11\n\rCHANNEL_SWEEP\x10\x06\x12\x18\n\x14\x43HANNEL_HTLC_SUCCESS\x10\x07\x12\x18\n\x14\x43HANNEL_HTLC_TIMEOUT\x10\x08\x12\x13\n\x0f\x43HANNEL_PENALTY\x10\t\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CHEAT\x10\nB\x0c\n\n_item_typeB\n\n\x08_channel\"\xa0\x04\n#ListtransactionsTransactionsOutputs\x12\r\n\x05index\x18\x01 \x01(\r\x12 \n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12\x14\n\x0cscriptPubKey\x18\x03 \x01(\x0c\x12h\n\titem_type\x18\x04 \x01(\x0e\x32P.cln.ListtransactionsTransactionsOutputs.ListtransactionsTransactionsOutputsTypeH\x00\x88\x01\x01\x12\x14\n\x07\x63hannel\x18\x05 \x01(\tH\x01\x88\x01\x01\"\x97\x02\n\'ListtransactionsTransactionsOutputsType\x12\n\n\x06THEIRS\x10\x00\x12\x0b\n\x07\x44\x45POSIT\x10\x01\x12\x0c\n\x08WITHDRAW\x10\x02\x12\x13\n\x0f\x43HANNEL_FUNDING\x10\x03\x12\x18\n\x14\x43HANNEL_MUTUAL_CLOSE\x10\x04\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CLOSE\x10\x05\x12\x11\n\rCHANNEL_SWEEP\x10\x06\x12\x18\n\x14\x43HANNEL_HTLC_SUCCESS\x10\x07\x12\x18\n\x14\x43HANNEL_HTLC_TIMEOUT\x10\x08\x12\x13\n\x0f\x43HANNEL_PENALTY\x10\t\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CHEAT\x10\nB\x0c\n\n_item_typeB\n\n\x08_channel\"\xda\x03\n\nPayRequest\x12\x0e\n\x06\x62olt11\x18\x01 \x01(\t\x12%\n\x0b\x61mount_msat\x18\r \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x12\n\x05label\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x17\n\nriskfactor\x18\x08 \x01(\x01H\x02\x88\x01\x01\x12\x1a\n\rmaxfeepercent\x18\x04 \x01(\x01H\x03\x88\x01\x01\x12\x16\n\tretry_for\x18\x05 \x01(\rH\x04\x88\x01\x01\x12\x15\n\x08maxdelay\x18\x06 \x01(\rH\x05\x88\x01\x01\x12#\n\texemptfee\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x06\x88\x01\x01\x12\x1a\n\rlocalinvreqid\x18\x0e \x01(\x0cH\x07\x88\x01\x01\x12\x0f\n\x07\x65xclude\x18\n \x03(\t\x12 \n\x06maxfee\x18\x0b \x01(\x0b\x32\x0b.cln.AmountH\x08\x88\x01\x01\x12\x18\n\x0b\x64\x65scription\x18\x0c \x01(\tH\t\x88\x01\x01\x42\x0e\n\x0c_amount_msatB\x08\n\x06_labelB\r\n\x0b_riskfactorB\x10\n\x0e_maxfeepercentB\x0c\n\n_retry_forB\x0b\n\t_maxdelayB\x0c\n\n_exemptfeeB\x10\n\x0e_localinvreqidB\t\n\x07_maxfeeB\x0e\n\x0c_description\"\xfb\x02\n\x0bPayResponse\x12\x18\n\x10payment_preimage\x18\x01 \x01(\x0c\x12\x18\n\x0b\x64\x65stination\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\r\n\x05parts\x18\x05 \x01(\r\x12 \n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12%\n\x10\x61mount_sent_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12\'\n\x1awarning_partial_completion\x18\x08 \x01(\tH\x01\x88\x01\x01\x12*\n\x06status\x18\t \x01(\x0e\x32\x1a.cln.PayResponse.PayStatus\"2\n\tPayStatus\x12\x0c\n\x08\x43OMPLETE\x10\x00\x12\x0b\n\x07PENDING\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x42\x0e\n\x0c_destinationB\x1d\n\x1b_warning_partial_completion\"*\n\x10ListnodesRequest\x12\x0f\n\x02id\x18\x01 \x01(\x0cH\x00\x88\x01\x01\x42\x05\n\x03_id\"7\n\x11ListnodesResponse\x12\"\n\x05nodes\x18\x01 \x03(\x0b\x32\x13.cln.ListnodesNodes\"\xe1\x01\n\x0eListnodesNodes\x12\x0e\n\x06nodeid\x18\x01 \x01(\x0c\x12\x1b\n\x0elast_timestamp\x18\x02 \x01(\rH\x00\x88\x01\x01\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x12\n\x05\x63olor\x18\x04 \x01(\x0cH\x02\x88\x01\x01\x12\x15\n\x08\x66\x65\x61tures\x18\x05 \x01(\x0cH\x03\x88\x01\x01\x12/\n\taddresses\x18\x06 \x03(\x0b\x32\x1c.cln.ListnodesNodesAddressesB\x11\n\x0f_last_timestampB\x08\n\x06_aliasB\x08\n\x06_colorB\x0b\n\t_features\"\xf7\x01\n\x17ListnodesNodesAddresses\x12K\n\titem_type\x18\x01 \x01(\x0e\x32\x38.cln.ListnodesNodesAddresses.ListnodesNodesAddressesType\x12\x0c\n\x04port\x18\x02 \x01(\r\x12\x14\n\x07\x61\x64\x64ress\x18\x03 \x01(\tH\x00\x88\x01\x01\"_\n\x1bListnodesNodesAddressesType\x12\x07\n\x03\x44NS\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x12\r\n\tWEBSOCKET\x10\x05\x42\n\n\x08_address\"g\n\x15WaitanyinvoiceRequest\x12\x1a\n\rlastpay_index\x18\x01 \x01(\x04H\x00\x88\x01\x01\x12\x14\n\x07timeout\x18\x02 \x01(\x04H\x01\x88\x01\x01\x42\x10\n\x0e_lastpay_indexB\n\n\x08_timeout\"\x93\x04\n\x16WaitanyinvoiceResponse\x12\r\n\x05label\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12@\n\x06status\x18\x04 \x01(\x0e\x32\x30.cln.WaitanyinvoiceResponse.WaitanyinvoiceStatus\x12\x12\n\nexpires_at\x18\x05 \x01(\x04\x12%\n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x16\n\tpay_index\x18\t \x01(\x04H\x03\x88\x01\x01\x12.\n\x14\x61mount_received_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12\x14\n\x07paid_at\x18\x0b \x01(\x04H\x05\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x06\x88\x01\x01\"-\n\x14WaitanyinvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0c\n\n_pay_indexB\x17\n\x15_amount_received_msatB\n\n\x08_paid_atB\x13\n\x11_payment_preimage\"#\n\x12WaitinvoiceRequest\x12\r\n\x05label\x18\x01 \x01(\t\"\x87\x04\n\x13WaitinvoiceResponse\x12\r\n\x05label\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12:\n\x06status\x18\x04 \x01(\x0e\x32*.cln.WaitinvoiceResponse.WaitinvoiceStatus\x12\x12\n\nexpires_at\x18\x05 \x01(\x04\x12%\n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x16\n\tpay_index\x18\t \x01(\x04H\x03\x88\x01\x01\x12.\n\x14\x61mount_received_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12\x14\n\x07paid_at\x18\x0b \x01(\x04H\x05\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x06\x88\x01\x01\"*\n\x11WaitinvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0c\n\n_pay_indexB\x17\n\x15_amount_received_msatB\n\n\x08_paid_atB\x13\n\x11_payment_preimage\"\x8e\x01\n\x12WaitsendpayRequest\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\x0c\x12\x14\n\x07timeout\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\x13\n\x06partid\x18\x02 \x01(\x04H\x01\x88\x01\x01\x12\x14\n\x07groupid\x18\x04 \x01(\x04H\x02\x88\x01\x01\x42\n\n\x08_timeoutB\t\n\x07_partidB\n\n\x08_groupid\"\xb2\x04\n\x13WaitsendpayResponse\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x14\n\x07groupid\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12:\n\x06status\x18\x04 \x01(\x0e\x32*.cln.WaitsendpayResponse.WaitsendpayStatus\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x06 \x01(\x0cH\x02\x88\x01\x01\x12\x12\n\ncreated_at\x18\x07 \x01(\x04\x12\x19\n\x0c\x63ompleted_at\x18\x0e \x01(\x01H\x03\x88\x01\x01\x12%\n\x10\x61mount_sent_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\x05label\x18\t \x01(\tH\x04\x88\x01\x01\x12\x13\n\x06partid\x18\n \x01(\x04H\x05\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x0b \x01(\tH\x06\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x0c \x01(\tH\x07\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\r \x01(\x0cH\x08\x88\x01\x01\"!\n\x11WaitsendpayStatus\x12\x0c\n\x08\x43OMPLETE\x10\x00\x42\n\n\x08_groupidB\x0e\n\x0c_amount_msatB\x0e\n\x0c_destinationB\x0f\n\r_completed_atB\x08\n\x06_labelB\t\n\x07_partidB\t\n\x07_bolt11B\t\n\x07_bolt12B\x13\n\x11_payment_preimage\"\x9e\x01\n\x0eNewaddrRequest\x12@\n\x0b\x61\x64\x64resstype\x18\x01 \x01(\x0e\x32&.cln.NewaddrRequest.NewaddrAddresstypeH\x00\x88\x01\x01\":\n\x12NewaddrAddresstype\x12\n\n\x06\x42\x45\x43H32\x10\x00\x12\x0f\n\x0bP2SH_SEGWIT\x10\x01\x12\x07\n\x03\x41LL\x10\x02\x42\x0e\n\x0c_addresstype\"[\n\x0fNewaddrResponse\x12\x13\n\x06\x62\x65\x63h32\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0bp2sh_segwit\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\t\n\x07_bech32B\x0e\n\x0c_p2sh_segwit\"\xca\x01\n\x0fWithdrawRequest\x12\x13\n\x0b\x64\x65stination\x18\x01 \x01(\t\x12&\n\x07satoshi\x18\x02 \x01(\x0b\x32\x10.cln.AmountOrAllH\x00\x88\x01\x01\x12\"\n\x07\x66\x65\x65rate\x18\x05 \x01(\x0b\x32\x0c.cln.FeerateH\x01\x88\x01\x01\x12\x14\n\x07minconf\x18\x03 \x01(\rH\x02\x88\x01\x01\x12\x1c\n\x05utxos\x18\x04 \x03(\x0b\x32\r.cln.OutpointB\n\n\x08_satoshiB\n\n\x08_feerateB\n\n\x08_minconf\":\n\x10WithdrawResponse\x12\n\n\x02tx\x18\x01 \x01(\x0c\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\x12\x0c\n\x04psbt\x18\x03 \x01(\t\"\x82\x03\n\x0eKeysendRequest\x12\x13\n\x0b\x64\x65stination\x18\x01 \x01(\x0c\x12 \n\x0b\x61mount_msat\x18\n \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\x05label\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x1a\n\rmaxfeepercent\x18\x04 \x01(\x01H\x01\x88\x01\x01\x12\x16\n\tretry_for\x18\x05 \x01(\rH\x02\x88\x01\x01\x12\x15\n\x08maxdelay\x18\x06 \x01(\rH\x03\x88\x01\x01\x12#\n\texemptfee\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12+\n\nroutehints\x18\x08 \x01(\x0b\x32\x12.cln.RoutehintListH\x05\x88\x01\x01\x12&\n\textratlvs\x18\t \x01(\x0b\x32\x0e.cln.TlvStreamH\x06\x88\x01\x01\x42\x08\n\x06_labelB\x10\n\x0e_maxfeepercentB\x0c\n\n_retry_forB\x0b\n\t_maxdelayB\x0c\n\n_exemptfeeB\r\n\x0b_routehintsB\x0c\n\n_extratlvs\"\xf2\x02\n\x0fKeysendResponse\x12\x18\n\x10payment_preimage\x18\x01 \x01(\x0c\x12\x18\n\x0b\x64\x65stination\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\r\n\x05parts\x18\x05 \x01(\r\x12 \n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12%\n\x10\x61mount_sent_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12\'\n\x1awarning_partial_completion\x18\x08 \x01(\tH\x01\x88\x01\x01\x12\x32\n\x06status\x18\t \x01(\x0e\x32\".cln.KeysendResponse.KeysendStatus\"\x1d\n\rKeysendStatus\x12\x0c\n\x08\x43OMPLETE\x10\x00\x42\x0e\n\x0c_destinationB\x1d\n\x1b_warning_partial_completion\"\xbc\x02\n\x0f\x46undpsbtRequest\x12!\n\x07satoshi\x18\x01 \x01(\x0b\x32\x10.cln.AmountOrAll\x12\x1d\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.Feerate\x12\x13\n\x0bstartweight\x18\x03 \x01(\r\x12\x14\n\x07minconf\x18\x04 \x01(\rH\x00\x88\x01\x01\x12\x14\n\x07reserve\x18\x05 \x01(\rH\x01\x88\x01\x01\x12\x15\n\x08locktime\x18\x06 \x01(\rH\x02\x88\x01\x01\x12\x1f\n\x12min_witness_weight\x18\x07 \x01(\rH\x03\x88\x01\x01\x12\x1d\n\x10\x65xcess_as_change\x18\x08 \x01(\x08H\x04\x88\x01\x01\x42\n\n\x08_minconfB\n\n\x08_reserveB\x0b\n\t_locktimeB\x15\n\x13_min_witness_weightB\x13\n\x11_excess_as_change\"\xd9\x01\n\x10\x46undpsbtResponse\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x16\n\x0e\x66\x65\x65rate_per_kw\x18\x02 \x01(\r\x12\x1e\n\x16\x65stimated_final_weight\x18\x03 \x01(\r\x12 \n\x0b\x65xcess_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12\x1a\n\rchange_outnum\x18\x05 \x01(\rH\x00\x88\x01\x01\x12/\n\x0creservations\x18\x06 \x03(\x0b\x32\x19.cln.FundpsbtReservationsB\x10\n\x0e_change_outnum\"u\n\x14\x46undpsbtReservations\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x0c\n\x04vout\x18\x02 \x01(\r\x12\x14\n\x0cwas_reserved\x18\x03 \x01(\x08\x12\x10\n\x08reserved\x18\x04 \x01(\x08\x12\x19\n\x11reserved_to_block\x18\x05 \x01(\r\"A\n\x0fSendpsbtRequest\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x14\n\x07reserve\x18\x02 \x01(\x08H\x00\x88\x01\x01\x42\n\n\x08_reserve\",\n\x10SendpsbtResponse\x12\n\n\x02tx\x18\x01 \x01(\x0c\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\"1\n\x0fSignpsbtRequest\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x10\n\x08signonly\x18\x02 \x03(\r\"\'\n\x10SignpsbtResponse\x12\x13\n\x0bsigned_psbt\x18\x01 \x01(\t\"\xdb\x02\n\x0fUtxopsbtRequest\x12\x1c\n\x07satoshi\x18\x01 \x01(\x0b\x32\x0b.cln.Amount\x12\x1d\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.Feerate\x12\x13\n\x0bstartweight\x18\x03 \x01(\r\x12\x1c\n\x05utxos\x18\x04 \x03(\x0b\x32\r.cln.Outpoint\x12\x14\n\x07reserve\x18\x05 \x01(\rH\x00\x88\x01\x01\x12\x17\n\nreservedok\x18\x08 \x01(\x08H\x01\x88\x01\x01\x12\x15\n\x08locktime\x18\x06 \x01(\rH\x02\x88\x01\x01\x12\x1f\n\x12min_witness_weight\x18\x07 \x01(\rH\x03\x88\x01\x01\x12\x1d\n\x10\x65xcess_as_change\x18\t \x01(\x08H\x04\x88\x01\x01\x42\n\n\x08_reserveB\r\n\x0b_reservedokB\x0b\n\t_locktimeB\x15\n\x13_min_witness_weightB\x13\n\x11_excess_as_change\"\xd9\x01\n\x10UtxopsbtResponse\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x16\n\x0e\x66\x65\x65rate_per_kw\x18\x02 \x01(\r\x12\x1e\n\x16\x65stimated_final_weight\x18\x03 \x01(\r\x12 \n\x0b\x65xcess_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12\x1a\n\rchange_outnum\x18\x05 \x01(\rH\x00\x88\x01\x01\x12/\n\x0creservations\x18\x06 \x03(\x0b\x32\x19.cln.UtxopsbtReservationsB\x10\n\x0e_change_outnum\"u\n\x14UtxopsbtReservations\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x0c\n\x04vout\x18\x02 \x01(\r\x12\x14\n\x0cwas_reserved\x18\x03 \x01(\x08\x12\x10\n\x08reserved\x18\x04 \x01(\x08\x12\x19\n\x11reserved_to_block\x18\x05 \x01(\r\" \n\x10TxdiscardRequest\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\"6\n\x11TxdiscardResponse\x12\x13\n\x0bunsigned_tx\x18\x01 \x01(\x0c\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\"\xa4\x01\n\x10TxprepareRequest\x12 \n\x07outputs\x18\x05 \x03(\x0b\x32\x0f.cln.OutputDesc\x12\"\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.FeerateH\x00\x88\x01\x01\x12\x14\n\x07minconf\x18\x03 \x01(\rH\x01\x88\x01\x01\x12\x1c\n\x05utxos\x18\x04 \x03(\x0b\x32\r.cln.OutpointB\n\n\x08_feerateB\n\n\x08_minconf\"D\n\x11TxprepareResponse\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x13\n\x0bunsigned_tx\x18\x02 \x01(\x0c\x12\x0c\n\x04txid\x18\x03 \x01(\x0c\"\x1d\n\rTxsendRequest\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\"8\n\x0eTxsendResponse\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\n\n\x02tx\x18\x02 \x01(\x0c\x12\x0c\n\x04txid\x18\x03 \x01(\x0c\"=\n\x11\x44isconnectRequest\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x12\n\x05\x66orce\x18\x02 \x01(\x08H\x00\x88\x01\x01\x42\x08\n\x06_force\"\x14\n\x12\x44isconnectResponse\"k\n\x0f\x46\x65\x65ratesRequest\x12\x31\n\x05style\x18\x01 \x01(\x0e\x32\".cln.FeeratesRequest.FeeratesStyle\"%\n\rFeeratesStyle\x12\t\n\x05PERKB\x10\x00\x12\t\n\x05PERKW\x10\x01\"V\n\x10\x46\x65\x65ratesResponse\x12%\n\x18warning_missing_feerates\x18\x01 \x01(\tH\x00\x88\x01\x01\x42\x1b\n\x19_warning_missing_feerates\"\xc3\x02\n\rFeeratesPerkb\x12\x16\n\x0emin_acceptable\x18\x01 \x01(\r\x12\x16\n\x0emax_acceptable\x18\x02 \x01(\r\x12\x14\n\x07opening\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\x19\n\x0cmutual_close\x18\x04 \x01(\rH\x01\x88\x01\x01\x12\x1d\n\x10unilateral_close\x18\x05 \x01(\rH\x02\x88\x01\x01\x12\x1a\n\rdelayed_to_us\x18\x06 \x01(\rH\x03\x88\x01\x01\x12\x1c\n\x0fhtlc_resolution\x18\x07 \x01(\rH\x04\x88\x01\x01\x12\x14\n\x07penalty\x18\x08 \x01(\rH\x05\x88\x01\x01\x42\n\n\x08_openingB\x0f\n\r_mutual_closeB\x13\n\x11_unilateral_closeB\x10\n\x0e_delayed_to_usB\x12\n\x10_htlc_resolutionB\n\n\x08_penalty\"\xc3\x02\n\rFeeratesPerkw\x12\x16\n\x0emin_acceptable\x18\x01 \x01(\r\x12\x16\n\x0emax_acceptable\x18\x02 \x01(\r\x12\x14\n\x07opening\x18\x03 \x01(\rH\x00\x88\x01\x01\x12\x19\n\x0cmutual_close\x18\x04 \x01(\rH\x01\x88\x01\x01\x12\x1d\n\x10unilateral_close\x18\x05 \x01(\rH\x02\x88\x01\x01\x12\x1a\n\rdelayed_to_us\x18\x06 \x01(\rH\x03\x88\x01\x01\x12\x1c\n\x0fhtlc_resolution\x18\x07 \x01(\rH\x04\x88\x01\x01\x12\x14\n\x07penalty\x18\x08 \x01(\rH\x05\x88\x01\x01\x42\n\n\x08_openingB\x0f\n\r_mutual_closeB\x13\n\x11_unilateral_closeB\x10\n\x0e_delayed_to_usB\x12\n\x10_htlc_resolutionB\n\n\x08_penalty\"\xc1\x01\n\x1d\x46\x65\x65ratesOnchain_fee_estimates\x12 \n\x18opening_channel_satoshis\x18\x01 \x01(\x04\x12\x1d\n\x15mutual_close_satoshis\x18\x02 \x01(\x04\x12!\n\x19unilateral_close_satoshis\x18\x03 \x01(\x04\x12\x1d\n\x15htlc_timeout_satoshis\x18\x04 \x01(\x04\x12\x1d\n\x15htlc_success_satoshis\x18\x05 \x01(\x04\"\xe5\x03\n\x12\x46undchannelRequest\x12\n\n\x02id\x18\t \x01(\x0c\x12 \n\x06\x61mount\x18\x01 \x01(\x0b\x32\x10.cln.AmountOrAll\x12\"\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.FeerateH\x00\x88\x01\x01\x12\x15\n\x08\x61nnounce\x18\x03 \x01(\x08H\x01\x88\x01\x01\x12\x14\n\x07minconf\x18\n \x01(\rH\x02\x88\x01\x01\x12#\n\tpush_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12\x15\n\x08\x63lose_to\x18\x06 \x01(\tH\x04\x88\x01\x01\x12%\n\x0brequest_amt\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x05\x88\x01\x01\x12\x1a\n\rcompact_lease\x18\x08 \x01(\tH\x06\x88\x01\x01\x12\x1c\n\x05utxos\x18\x0b \x03(\x0b\x32\r.cln.Outpoint\x12\x15\n\x08mindepth\x18\x0c \x01(\rH\x07\x88\x01\x01\x12!\n\x07reserve\x18\r \x01(\x0b\x32\x0b.cln.AmountH\x08\x88\x01\x01\x42\n\n\x08_feerateB\x0b\n\t_announceB\n\n\x08_minconfB\x0c\n\n_push_msatB\x0b\n\t_close_toB\x0e\n\x0c_request_amtB\x10\n\x0e_compact_leaseB\x0b\n\t_mindepthB\n\n\x08_reserve\"\x9b\x01\n\x13\x46undchannelResponse\x12\n\n\x02tx\x18\x01 \x01(\x0c\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\x12\x0e\n\x06outnum\x18\x03 \x01(\r\x12\x12\n\nchannel_id\x18\x04 \x01(\x0c\x12\x15\n\x08\x63lose_to\x18\x05 \x01(\x0cH\x00\x88\x01\x01\x12\x15\n\x08mindepth\x18\x06 \x01(\rH\x01\x88\x01\x01\x42\x0b\n\t_close_toB\x0b\n\t_mindepth\"\xec\x01\n\x0fGetrouteRequest\x12\n\n\x02id\x18\x01 \x01(\x0c\x12 \n\x0b\x61mount_msat\x18\t \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\nriskfactor\x18\x03 \x01(\x04\x12\x11\n\x04\x63ltv\x18\x04 \x01(\x01H\x00\x88\x01\x01\x12\x13\n\x06\x66romid\x18\x05 \x01(\x0cH\x01\x88\x01\x01\x12\x18\n\x0b\x66uzzpercent\x18\x06 \x01(\rH\x02\x88\x01\x01\x12\x0f\n\x07\x65xclude\x18\x07 \x03(\t\x12\x14\n\x07maxhops\x18\x08 \x01(\rH\x03\x88\x01\x01\x42\x07\n\x05_cltvB\t\n\x07_fromidB\x0e\n\x0c_fuzzpercentB\n\n\x08_maxhops\"5\n\x10GetrouteResponse\x12!\n\x05route\x18\x01 \x03(\x0b\x32\x12.cln.GetrouteRoute\"\xe9\x01\n\rGetrouteRoute\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\x12\x11\n\tdirection\x18\x03 \x01(\r\x12\x15\n\x08msatoshi\x18\x07 \x01(\x04H\x00\x88\x01\x01\x12 \n\x0b\x61mount_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12\r\n\x05\x64\x65lay\x18\x05 \x01(\r\x12\x34\n\x05style\x18\x06 \x01(\x0e\x32%.cln.GetrouteRoute.GetrouteRouteStyle\"\x1d\n\x12GetrouteRouteStyle\x12\x07\n\x03TLV\x10\x00\x42\x0b\n\t_msatoshi\"\x82\x02\n\x13ListforwardsRequest\x12@\n\x06status\x18\x01 \x01(\x0e\x32+.cln.ListforwardsRequest.ListforwardsStatusH\x00\x88\x01\x01\x12\x17\n\nin_channel\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x18\n\x0bout_channel\x18\x03 \x01(\tH\x02\x88\x01\x01\"L\n\x12ListforwardsStatus\x12\x0b\n\x07OFFERED\x10\x00\x12\x0b\n\x07SETTLED\x10\x01\x12\x10\n\x0cLOCAL_FAILED\x10\x02\x12\n\n\x06\x46\x41ILED\x10\x03\x42\t\n\x07_statusB\r\n\x0b_in_channelB\x0e\n\x0c_out_channel\"C\n\x14ListforwardsResponse\x12+\n\x08\x66orwards\x18\x01 \x03(\x0b\x32\x19.cln.ListforwardsForwards\"\xde\x04\n\x14ListforwardsForwards\x12\x12\n\nin_channel\x18\x01 \x01(\t\x12\x17\n\nin_htlc_id\x18\n \x01(\x04H\x00\x88\x01\x01\x12\x1c\n\x07in_msat\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\x12\x44\n\x06status\x18\x03 \x01(\x0e\x32\x34.cln.ListforwardsForwards.ListforwardsForwardsStatus\x12\x15\n\rreceived_time\x18\x04 \x01(\x01\x12\x18\n\x0bout_channel\x18\x05 \x01(\tH\x01\x88\x01\x01\x12\x18\n\x0bout_htlc_id\x18\x0b \x01(\x04H\x02\x88\x01\x01\x12G\n\x05style\x18\t \x01(\x0e\x32\x33.cln.ListforwardsForwards.ListforwardsForwardsStyleH\x03\x88\x01\x01\x12\"\n\x08\x66\x65\x65_msat\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12\"\n\x08out_msat\x18\x08 \x01(\x0b\x32\x0b.cln.AmountH\x05\x88\x01\x01\"T\n\x1aListforwardsForwardsStatus\x12\x0b\n\x07OFFERED\x10\x00\x12\x0b\n\x07SETTLED\x10\x01\x12\x10\n\x0cLOCAL_FAILED\x10\x02\x12\n\n\x06\x46\x41ILED\x10\x03\"0\n\x19ListforwardsForwardsStyle\x12\n\n\x06LEGACY\x10\x00\x12\x07\n\x03TLV\x10\x01\x42\r\n\x0b_in_htlc_idB\x0e\n\x0c_out_channelB\x0e\n\x0c_out_htlc_idB\x08\n\x06_styleB\x0b\n\t_fee_msatB\x0b\n\t_out_msat\"\xdb\x01\n\x0fListpaysRequest\x12\x13\n\x06\x62olt11\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0cpayment_hash\x18\x02 \x01(\x0cH\x01\x88\x01\x01\x12\x38\n\x06status\x18\x03 \x01(\x0e\x32#.cln.ListpaysRequest.ListpaysStatusH\x02\x88\x01\x01\"7\n\x0eListpaysStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x42\t\n\x07_bolt11B\x0f\n\r_payment_hashB\t\n\x07_status\"3\n\x10ListpaysResponse\x12\x1f\n\x04pays\x18\x01 \x03(\x0b\x32\x11.cln.ListpaysPays\"\x87\x04\n\x0cListpaysPays\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\x0c\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.cln.ListpaysPays.ListpaysPaysStatus\x12\x18\n\x0b\x64\x65stination\x18\x03 \x01(\x0cH\x00\x88\x01\x01\x12\x12\n\ncreated_at\x18\x04 \x01(\x04\x12\x19\n\x0c\x63ompleted_at\x18\x0c \x01(\x04H\x01\x88\x01\x01\x12\x12\n\x05label\x18\x05 \x01(\tH\x02\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x06 \x01(\tH\x03\x88\x01\x01\x12\x18\n\x0b\x64\x65scription\x18\x0b \x01(\tH\x04\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x07 \x01(\tH\x05\x88\x01\x01\x12\x15\n\x08preimage\x18\r \x01(\x0cH\x06\x88\x01\x01\x12\x1c\n\x0fnumber_of_parts\x18\x0e \x01(\x04H\x07\x88\x01\x01\x12\x17\n\nerroronion\x18\n \x01(\x0cH\x08\x88\x01\x01\";\n\x12ListpaysPaysStatus\x12\x0b\n\x07PENDING\x10\x00\x12\n\n\x06\x46\x41ILED\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x42\x0e\n\x0c_destinationB\x0f\n\r_completed_atB\x08\n\x06_labelB\t\n\x07_bolt11B\x0e\n\x0c_descriptionB\t\n\x07_bolt12B\x0b\n\t_preimageB\x12\n\x10_number_of_partsB\r\n\x0b_erroronion\"Y\n\x0bPingRequest\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x10\n\x03len\x18\x02 \x01(\x01H\x00\x88\x01\x01\x12\x16\n\tpongbytes\x18\x03 \x01(\x01H\x01\x88\x01\x01\x42\x06\n\x04_lenB\x0c\n\n_pongbytes\"\x1e\n\x0cPingResponse\x12\x0e\n\x06totlen\x18\x01 \x01(\r\"\xf8\x01\n\x11SetchannelRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12!\n\x07\x66\x65\x65\x62\x61se\x18\x02 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x66\x65\x65ppm\x18\x03 \x01(\rH\x01\x88\x01\x01\x12!\n\x07htlcmin\x18\x04 \x01(\x0b\x32\x0b.cln.AmountH\x02\x88\x01\x01\x12!\n\x07htlcmax\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12\x19\n\x0c\x65nforcedelay\x18\x06 \x01(\rH\x04\x88\x01\x01\x42\n\n\x08_feebaseB\t\n\x07_feeppmB\n\n\x08_htlcminB\n\n\x08_htlcmaxB\x0f\n\r_enforcedelay\"?\n\x12SetchannelResponse\x12)\n\x08\x63hannels\x18\x01 \x03(\x0b\x32\x17.cln.SetchannelChannels\"\x94\x03\n\x12SetchannelChannels\x12\x0f\n\x07peer_id\x18\x01 \x01(\x0c\x12\x12\n\nchannel_id\x18\x02 \x01(\x0c\x12\x1d\n\x10short_channel_id\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\"\n\rfee_base_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12#\n\x1b\x66\x65\x65_proportional_millionths\x18\x05 \x01(\r\x12*\n\x15minimum_htlc_out_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12$\n\x17warning_htlcmin_too_low\x18\x07 \x01(\tH\x01\x88\x01\x01\x12*\n\x15maximum_htlc_out_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12%\n\x18warning_htlcmax_too_high\x18\t \x01(\tH\x02\x88\x01\x01\x42\x13\n\x11_short_channel_idB\x1a\n\x18_warning_htlcmin_too_lowB\x1b\n\x19_warning_htlcmax_too_high\"%\n\x12SignmessageRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"F\n\x13SignmessageResponse\x12\x11\n\tsignature\x18\x01 \x01(\x0c\x12\r\n\x05recid\x18\x02 \x01(\x0c\x12\r\n\x05zbase\x18\x03 \x01(\t\"\r\n\x0bStopRequest\"\x0e\n\x0cStopResponse2\xb1\x17\n\x04Node\x12\x36\n\x07Getinfo\x12\x13.cln.GetinfoRequest\x1a\x14.cln.GetinfoResponse\"\x00\x12<\n\tListPeers\x12\x15.cln.ListpeersRequest\x1a\x16.cln.ListpeersResponse\"\x00\x12<\n\tListFunds\x12\x15.cln.ListfundsRequest\x1a\x16.cln.ListfundsResponse\"\x00\x12\x36\n\x07SendPay\x12\x13.cln.SendpayRequest\x1a\x14.cln.SendpayResponse\"\x00\x12\x45\n\x0cListChannels\x12\x18.cln.ListchannelsRequest\x1a\x19.cln.ListchannelsResponse\"\x00\x12<\n\tAddGossip\x12\x15.cln.AddgossipRequest\x1a\x16.cln.AddgossipResponse\"\x00\x12Q\n\x10\x41utoCleanInvoice\x12\x1c.cln.AutocleaninvoiceRequest\x1a\x1d.cln.AutocleaninvoiceResponse\"\x00\x12\x45\n\x0c\x43heckMessage\x12\x18.cln.CheckmessageRequest\x1a\x19.cln.CheckmessageResponse\"\x00\x12\x30\n\x05\x43lose\x12\x11.cln.CloseRequest\x1a\x12.cln.CloseResponse\"\x00\x12:\n\x0b\x43onnectPeer\x12\x13.cln.ConnectRequest\x1a\x14.cln.ConnectResponse\"\x00\x12H\n\rCreateInvoice\x12\x19.cln.CreateinvoiceRequest\x1a\x1a.cln.CreateinvoiceResponse\"\x00\x12<\n\tDatastore\x12\x15.cln.DatastoreRequest\x1a\x16.cln.DatastoreResponse\"\x00\x12\x42\n\x0b\x43reateOnion\x12\x17.cln.CreateonionRequest\x1a\x18.cln.CreateonionResponse\"\x00\x12\x45\n\x0c\x44\x65lDatastore\x12\x18.cln.DeldatastoreRequest\x1a\x19.cln.DeldatastoreResponse\"\x00\x12T\n\x11\x44\x65lExpiredInvoice\x12\x1d.cln.DelexpiredinvoiceRequest\x1a\x1e.cln.DelexpiredinvoiceResponse\"\x00\x12?\n\nDelInvoice\x12\x16.cln.DelinvoiceRequest\x1a\x17.cln.DelinvoiceResponse\"\x00\x12\x36\n\x07Invoice\x12\x13.cln.InvoiceRequest\x1a\x14.cln.InvoiceResponse\"\x00\x12H\n\rListDatastore\x12\x19.cln.ListdatastoreRequest\x1a\x1a.cln.ListdatastoreResponse\"\x00\x12\x45\n\x0cListInvoices\x12\x18.cln.ListinvoicesRequest\x1a\x19.cln.ListinvoicesResponse\"\x00\x12<\n\tSendOnion\x12\x15.cln.SendonionRequest\x1a\x16.cln.SendonionResponse\"\x00\x12\x45\n\x0cListSendPays\x12\x18.cln.ListsendpaysRequest\x1a\x19.cln.ListsendpaysResponse\"\x00\x12Q\n\x10ListTransactions\x12\x1c.cln.ListtransactionsRequest\x1a\x1d.cln.ListtransactionsResponse\"\x00\x12*\n\x03Pay\x12\x0f.cln.PayRequest\x1a\x10.cln.PayResponse\"\x00\x12<\n\tListNodes\x12\x15.cln.ListnodesRequest\x1a\x16.cln.ListnodesResponse\"\x00\x12K\n\x0eWaitAnyInvoice\x12\x1a.cln.WaitanyinvoiceRequest\x1a\x1b.cln.WaitanyinvoiceResponse\"\x00\x12\x42\n\x0bWaitInvoice\x12\x17.cln.WaitinvoiceRequest\x1a\x18.cln.WaitinvoiceResponse\"\x00\x12\x42\n\x0bWaitSendPay\x12\x17.cln.WaitsendpayRequest\x1a\x18.cln.WaitsendpayResponse\"\x00\x12\x36\n\x07NewAddr\x12\x13.cln.NewaddrRequest\x1a\x14.cln.NewaddrResponse\"\x00\x12\x39\n\x08Withdraw\x12\x14.cln.WithdrawRequest\x1a\x15.cln.WithdrawResponse\"\x00\x12\x36\n\x07KeySend\x12\x13.cln.KeysendRequest\x1a\x14.cln.KeysendResponse\"\x00\x12\x39\n\x08\x46undPsbt\x12\x14.cln.FundpsbtRequest\x1a\x15.cln.FundpsbtResponse\"\x00\x12\x39\n\x08SendPsbt\x12\x14.cln.SendpsbtRequest\x1a\x15.cln.SendpsbtResponse\"\x00\x12\x39\n\x08SignPsbt\x12\x14.cln.SignpsbtRequest\x1a\x15.cln.SignpsbtResponse\"\x00\x12\x39\n\x08UtxoPsbt\x12\x14.cln.UtxopsbtRequest\x1a\x15.cln.UtxopsbtResponse\"\x00\x12<\n\tTxDiscard\x12\x15.cln.TxdiscardRequest\x1a\x16.cln.TxdiscardResponse\"\x00\x12<\n\tTxPrepare\x12\x15.cln.TxprepareRequest\x1a\x16.cln.TxprepareResponse\"\x00\x12\x33\n\x06TxSend\x12\x12.cln.TxsendRequest\x1a\x13.cln.TxsendResponse\"\x00\x12?\n\nDisconnect\x12\x16.cln.DisconnectRequest\x1a\x17.cln.DisconnectResponse\"\x00\x12\x39\n\x08\x46\x65\x65rates\x12\x14.cln.FeeratesRequest\x1a\x15.cln.FeeratesResponse\"\x00\x12\x42\n\x0b\x46undChannel\x12\x17.cln.FundchannelRequest\x1a\x18.cln.FundchannelResponse\"\x00\x12\x39\n\x08GetRoute\x12\x14.cln.GetrouteRequest\x1a\x15.cln.GetrouteResponse\"\x00\x12\x45\n\x0cListForwards\x12\x18.cln.ListforwardsRequest\x1a\x19.cln.ListforwardsResponse\"\x00\x12\x39\n\x08ListPays\x12\x14.cln.ListpaysRequest\x1a\x15.cln.ListpaysResponse\"\x00\x12-\n\x04Ping\x12\x10.cln.PingRequest\x1a\x11.cln.PingResponse\"\x00\x12?\n\nSetChannel\x12\x16.cln.SetchannelRequest\x1a\x17.cln.SetchannelResponse\"\x00\x12\x42\n\x0bSignMessage\x12\x17.cln.SignmessageRequest\x1a\x18.cln.SignmessageResponse\"\x00\x12-\n\x04Stop\x12\x10.cln.StopRequest\x1a\x11.cln.StopResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nnode.proto\x12\x03\x63ln\x1a\x10primitives.proto\"#\n\x10\x41\x64\x64gossipRequest\x12\x0f\n\x07message\x18\x01 \x01(\x0c\"\x13\n\x11\x41\x64\x64gossipResponse\"o\n\x17\x41utocleaninvoiceRequest\x12\x1a\n\rcycle_seconds\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x17\n\nexpired_by\x18\x01 \x01(\x04H\x01\x88\x01\x01\x42\x10\n\x0e_cycle_secondsB\r\n\x0b_expired_by\"\x81\x01\n\x18\x41utocleaninvoiceResponse\x12\x0f\n\x07\x65nabled\x18\x01 \x01(\x08\x12\x1a\n\rcycle_seconds\x18\x03 \x01(\x04H\x00\x88\x01\x01\x12\x17\n\nexpired_by\x18\x02 \x01(\x04H\x01\x88\x01\x01\x42\x10\n\x0e_cycle_secondsB\r\n\x0b_expired_by\"U\n\x13\x43heckmessageRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x13\n\x06pubkey\x18\x03 \x01(\x0cH\x00\x88\x01\x01\x12\r\n\x05zbase\x18\x02 \x01(\tB\t\n\x07_pubkey\"8\n\x14\x43heckmessageResponse\x12\x0e\n\x06pubkey\x18\x02 \x01(\x0c\x12\x10\n\x08verified\x18\x01 \x01(\x08\"\xcb\x02\n\x0c\x43loseRequest\x12\x18\n\x0b\x64\x65stination\x18\x03 \x01(\tH\x00\x88\x01\x01\x12!\n\x14\x66\x65\x65_negotiation_step\x18\x04 \x01(\tH\x01\x88\x01\x01\x12\x1e\n\x08\x66\x65\x65range\x18\x07 \x03(\x0b\x32\x0c.cln.Feerate\x12\x1f\n\x12\x66orce_lease_closed\x18\x06 \x01(\x08H\x02\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\t\x12\x1e\n\x11unilateraltimeout\x18\x02 \x01(\rH\x03\x88\x01\x01\x12)\n\rwrong_funding\x18\x05 \x01(\x0b\x32\r.cln.OutpointH\x04\x88\x01\x01\x42\x0e\n\x0c_destinationB\x17\n\x15_fee_negotiation_stepB\x15\n\x13_force_lease_closedB\x14\n\x12_unilateraltimeoutB\x10\n\x0e_wrong_funding\"\xab\x01\n\rCloseResponse\x12/\n\titem_type\x18\x01 \x01(\x0e\x32\x1c.cln.CloseResponse.CloseType\x12\x0f\n\x02tx\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x12\x11\n\x04txid\x18\x03 \x01(\x0cH\x01\x88\x01\x01\"5\n\tCloseType\x12\n\n\x06MUTUAL\x10\x00\x12\x0e\n\nUNILATERAL\x10\x01\x12\x0c\n\x08UNOPENED\x10\x02\x42\x05\n\x03_txB\x07\n\x05_txid\"T\n\x0e\x43onnectRequest\x12\x11\n\x04host\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\t\x12\x11\n\x04port\x18\x03 \x01(\rH\x01\x88\x01\x01\x42\x07\n\x05_hostB\x07\n\x05_port\"\x8e\x01\n\x0f\x43onnectResponse\x12\x38\n\tdirection\x18\x03 \x01(\x0e\x32%.cln.ConnectResponse.ConnectDirection\x12\x10\n\x08\x66\x65\x61tures\x18\x02 \x01(\x0c\x12\n\n\x02id\x18\x01 \x01(\x0c\"#\n\x10\x43onnectDirection\x12\x06\n\x02IN\x10\x00\x12\x07\n\x03OUT\x10\x01\"\xfb\x01\n\x0e\x43onnectAddress\x12\x39\n\titem_type\x18\x01 \x01(\x0e\x32&.cln.ConnectAddress.ConnectAddressType\x12\x13\n\x06socket\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x14\n\x07\x61\x64\x64ress\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x11\n\x04port\x18\x04 \x01(\rH\x02\x88\x01\x01\"P\n\x12\x43onnectAddressType\x12\x10\n\x0cLOCAL_SOCKET\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x42\t\n\x07_socketB\n\n\x08_addressB\x07\n\x05_port\"J\n\x14\x43reateinvoiceRequest\x12\x11\n\tinvstring\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\x12\x10\n\x08preimage\x18\x03 \x01(\x0c\"\x81\x05\n\x15\x43reateinvoiceResponse\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12.\n\x14\x61mount_received_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x02 \x01(\tH\x02\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x03 \x01(\tH\x03\x88\x01\x01\x12\x13\n\x0b\x64\x65scription\x18\x07 \x01(\t\x12\x12\n\nexpires_at\x18\x08 \x01(\x04\x12\x1e\n\x11invreq_payer_note\x18\x0f \x01(\tH\x04\x88\x01\x01\x12\r\n\x05label\x18\x01 \x01(\t\x12\x1b\n\x0elocal_offer_id\x18\r \x01(\x0cH\x05\x88\x01\x01\x12\x14\n\x07paid_at\x18\x0b \x01(\x04H\x06\x88\x01\x01\x12\x16\n\tpay_index\x18\t \x01(\x04H\x07\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x04 \x01(\x0c\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x08\x88\x01\x01\x12>\n\x06status\x18\x06 \x01(\x0e\x32..cln.CreateinvoiceResponse.CreateinvoiceStatus\"8\n\x13\x43reateinvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x12\n\n\x06UNPAID\x10\x02\x42\x0e\n\x0c_amount_msatB\x17\n\x15_amount_received_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x14\n\x12_invreq_payer_noteB\x11\n\x0f_local_offer_idB\n\n\x08_paid_atB\x0c\n\n_pay_indexB\x13\n\x11_payment_preimage\"\x9d\x01\n\x12\x43reateonionRequest\x12\x11\n\tassocdata\x18\x02 \x01(\x0c\x12\"\n\x04hops\x18\x01 \x03(\x0b\x32\x14.cln.CreateonionHops\x12\x17\n\nonion_size\x18\x04 \x01(\rH\x00\x88\x01\x01\x12\x18\n\x0bsession_key\x18\x03 \x01(\x0cH\x01\x88\x01\x01\x42\r\n\x0b_onion_sizeB\x0e\n\x0c_session_key\"<\n\x13\x43reateonionResponse\x12\r\n\x05onion\x18\x01 \x01(\x0c\x12\x16\n\x0eshared_secrets\x18\x02 \x03(\x0c\"2\n\x0f\x43reateonionHops\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12\x0e\n\x06pubkey\x18\x01 \x01(\x0c\"\xb4\x02\n\x10\x44\x61tastoreRequest\x12\x17\n\ngeneration\x18\x04 \x01(\x04H\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x02 \x01(\x0cH\x01\x88\x01\x01\x12\x0b\n\x03key\x18\x05 \x03(\t\x12\x36\n\x04mode\x18\x03 \x01(\x0e\x32#.cln.DatastoreRequest.DatastoreModeH\x02\x88\x01\x01\x12\x13\n\x06string\x18\x06 \x01(\tH\x03\x88\x01\x01\"p\n\rDatastoreMode\x12\x0f\n\x0bMUST_CREATE\x10\x00\x12\x10\n\x0cMUST_REPLACE\x10\x01\x12\x15\n\x11\x43REATE_OR_REPLACE\x10\x02\x12\x0f\n\x0bMUST_APPEND\x10\x03\x12\x14\n\x10\x43REATE_OR_APPEND\x10\x04\x42\r\n\x0b_generationB\x06\n\x04_hexB\x07\n\x05_modeB\t\n\x07_string\"\x82\x01\n\x11\x44\x61tastoreResponse\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x03 \x01(\x0cH\x01\x88\x01\x01\x12\x0b\n\x03key\x18\x05 \x03(\t\x12\x13\n\x06string\x18\x04 \x01(\tH\x02\x88\x01\x01\x42\r\n\x0b_generationB\x06\n\x04_hexB\t\n\x07_string\"J\n\x13\x44\x65ldatastoreRequest\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x0b\n\x03key\x18\x03 \x03(\tB\r\n\x0b_generation\"\x85\x01\n\x14\x44\x65ldatastoreResponse\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x03 \x01(\x0cH\x01\x88\x01\x01\x12\x0b\n\x03key\x18\x05 \x03(\t\x12\x13\n\x06string\x18\x04 \x01(\tH\x02\x88\x01\x01\x42\r\n\x0b_generationB\x06\n\x04_hexB\t\n\x07_string\"H\n\x18\x44\x65lexpiredinvoiceRequest\x12\x1a\n\rmaxexpirytime\x18\x01 \x01(\x04H\x00\x88\x01\x01\x42\x10\n\x0e_maxexpirytime\"\x1b\n\x19\x44\x65lexpiredinvoiceResponse\"\xb6\x01\n\x11\x44\x65linvoiceRequest\x12\x15\n\x08\x64\x65sconly\x18\x03 \x01(\x08H\x00\x88\x01\x01\x12\r\n\x05label\x18\x01 \x01(\t\x12\x37\n\x06status\x18\x02 \x01(\x0e\x32\'.cln.DelinvoiceRequest.DelinvoiceStatus\"5\n\x10\x44\x65linvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x12\n\n\x06UNPAID\x10\x02\x42\x0b\n\t_desconly\"\xc5\x03\n\x12\x44\x65linvoiceResponse\x12%\n\x0b\x61mount_msat\x18\x04 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x03 \x01(\tH\x02\x88\x01\x01\x12\x18\n\x0b\x64\x65scription\x18\x05 \x01(\tH\x03\x88\x01\x01\x12\x12\n\nexpires_at\x18\x08 \x01(\x04\x12\r\n\x05label\x18\x01 \x01(\t\x12\x14\n\x0cpayment_hash\x18\x06 \x01(\x0c\x12\x38\n\x06status\x18\x07 \x01(\x0e\x32(.cln.DelinvoiceResponse.DelinvoiceStatus\x12\x1e\n\x11invreq_payer_note\x18\x0b \x01(\tH\x04\x88\x01\x01\x12\x1b\n\x0elocal_offer_id\x18\t \x01(\x0cH\x05\x88\x01\x01\"5\n\x10\x44\x65linvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x12\n\n\x06UNPAID\x10\x02\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0e\n\x0c_descriptionB\x14\n\x12_invreq_payer_noteB\x11\n\x0f_local_offer_id\"=\n\x11\x44isconnectRequest\x12\x12\n\x05\x66orce\x18\x02 \x01(\x08H\x00\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\x0c\x42\x08\n\x06_force\"\x14\n\x12\x44isconnectResponse\"k\n\x0f\x46\x65\x65ratesRequest\x12\x31\n\x05style\x18\x01 \x01(\x0e\x32\".cln.FeeratesRequest.FeeratesStyle\"%\n\rFeeratesStyle\x12\t\n\x05PERKB\x10\x00\x12\t\n\x05PERKW\x10\x01\"V\n\x10\x46\x65\x65ratesResponse\x12%\n\x18warning_missing_feerates\x18\x01 \x01(\tH\x00\x88\x01\x01\x42\x1b\n\x19_warning_missing_feerates\"\xc1\x01\n\x1d\x46\x65\x65ratesOnchain_fee_estimates\x12\x1d\n\x15htlc_success_satoshis\x18\x05 \x01(\x04\x12\x1d\n\x15htlc_timeout_satoshis\x18\x04 \x01(\x04\x12\x1d\n\x15mutual_close_satoshis\x18\x02 \x01(\x04\x12 \n\x18opening_channel_satoshis\x18\x01 \x01(\x04\x12!\n\x19unilateral_close_satoshis\x18\x03 \x01(\x04\"\xc3\x02\n\rFeeratesPerkb\x12\x1a\n\rdelayed_to_us\x18\x06 \x01(\rH\x00\x88\x01\x01\x12\x1c\n\x0fhtlc_resolution\x18\x07 \x01(\rH\x01\x88\x01\x01\x12\x16\n\x0emax_acceptable\x18\x02 \x01(\r\x12\x16\n\x0emin_acceptable\x18\x01 \x01(\r\x12\x19\n\x0cmutual_close\x18\x04 \x01(\rH\x02\x88\x01\x01\x12\x14\n\x07opening\x18\x03 \x01(\rH\x03\x88\x01\x01\x12\x14\n\x07penalty\x18\x08 \x01(\rH\x04\x88\x01\x01\x12\x1d\n\x10unilateral_close\x18\x05 \x01(\rH\x05\x88\x01\x01\x42\x10\n\x0e_delayed_to_usB\x12\n\x10_htlc_resolutionB\x0f\n\r_mutual_closeB\n\n\x08_openingB\n\n\x08_penaltyB\x13\n\x11_unilateral_close\"\xc3\x02\n\rFeeratesPerkw\x12\x1a\n\rdelayed_to_us\x18\x06 \x01(\rH\x00\x88\x01\x01\x12\x1c\n\x0fhtlc_resolution\x18\x07 \x01(\rH\x01\x88\x01\x01\x12\x16\n\x0emax_acceptable\x18\x02 \x01(\r\x12\x16\n\x0emin_acceptable\x18\x01 \x01(\r\x12\x19\n\x0cmutual_close\x18\x04 \x01(\rH\x02\x88\x01\x01\x12\x14\n\x07opening\x18\x03 \x01(\rH\x03\x88\x01\x01\x12\x14\n\x07penalty\x18\x08 \x01(\rH\x04\x88\x01\x01\x12\x1d\n\x10unilateral_close\x18\x05 \x01(\rH\x05\x88\x01\x01\x42\x10\n\x0e_delayed_to_usB\x12\n\x10_htlc_resolutionB\x0f\n\r_mutual_closeB\n\n\x08_openingB\n\n\x08_penaltyB\x13\n\x11_unilateral_close\"\xe5\x03\n\x12\x46undchannelRequest\x12 \n\x06\x61mount\x18\x01 \x01(\x0b\x32\x10.cln.AmountOrAll\x12\x15\n\x08\x61nnounce\x18\x03 \x01(\x08H\x00\x88\x01\x01\x12\x15\n\x08\x63lose_to\x18\x06 \x01(\tH\x01\x88\x01\x01\x12\x1a\n\rcompact_lease\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\"\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.FeerateH\x03\x88\x01\x01\x12\n\n\x02id\x18\t \x01(\x0c\x12\x14\n\x07minconf\x18\n \x01(\rH\x04\x88\x01\x01\x12\x15\n\x08mindepth\x18\x0c \x01(\rH\x05\x88\x01\x01\x12#\n\tpush_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x06\x88\x01\x01\x12%\n\x0brequest_amt\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x07\x88\x01\x01\x12!\n\x07reserve\x18\r \x01(\x0b\x32\x0b.cln.AmountH\x08\x88\x01\x01\x12\x1c\n\x05utxos\x18\x0b \x03(\x0b\x32\r.cln.OutpointB\x0b\n\t_announceB\x0b\n\t_close_toB\x10\n\x0e_compact_leaseB\n\n\x08_feerateB\n\n\x08_minconfB\x0b\n\t_mindepthB\x0c\n\n_push_msatB\x0e\n\x0c_request_amtB\n\n\x08_reserve\"\x9b\x01\n\x13\x46undchannelResponse\x12\x12\n\nchannel_id\x18\x04 \x01(\x0c\x12\x15\n\x08\x63lose_to\x18\x05 \x01(\x0cH\x00\x88\x01\x01\x12\x15\n\x08mindepth\x18\x06 \x01(\rH\x01\x88\x01\x01\x12\x0e\n\x06outnum\x18\x03 \x01(\r\x12\n\n\x02tx\x18\x01 \x01(\x0c\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\x42\x0b\n\t_close_toB\x0b\n\t_mindepth\"\xbc\x02\n\x0f\x46undpsbtRequest\x12\x1d\n\x10\x65xcess_as_change\x18\x08 \x01(\x08H\x00\x88\x01\x01\x12\x1d\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.Feerate\x12\x15\n\x08locktime\x18\x06 \x01(\rH\x01\x88\x01\x01\x12\x1f\n\x12min_witness_weight\x18\x07 \x01(\rH\x02\x88\x01\x01\x12\x14\n\x07minconf\x18\x04 \x01(\rH\x03\x88\x01\x01\x12\x14\n\x07reserve\x18\x05 \x01(\rH\x04\x88\x01\x01\x12!\n\x07satoshi\x18\x01 \x01(\x0b\x32\x10.cln.AmountOrAll\x12\x13\n\x0bstartweight\x18\x03 \x01(\rB\x13\n\x11_excess_as_changeB\x0b\n\t_locktimeB\x15\n\x13_min_witness_weightB\n\n\x08_minconfB\n\n\x08_reserve\"\xd9\x01\n\x10\x46undpsbtResponse\x12\x1a\n\rchange_outnum\x18\x05 \x01(\rH\x00\x88\x01\x01\x12\x1e\n\x16\x65stimated_final_weight\x18\x03 \x01(\r\x12 \n\x0b\x65xcess_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12\x16\n\x0e\x66\x65\x65rate_per_kw\x18\x02 \x01(\r\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12/\n\x0creservations\x18\x06 \x03(\x0b\x32\x19.cln.FundpsbtReservationsB\x10\n\x0e_change_outnum\"u\n\x14\x46undpsbtReservations\x12\x10\n\x08reserved\x18\x04 \x01(\x08\x12\x19\n\x11reserved_to_block\x18\x05 \x01(\r\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x0c\n\x04vout\x18\x02 \x01(\r\x12\x14\n\x0cwas_reserved\x18\x03 \x01(\x08\"\xec\x01\n\x0fGetrouteRequest\x12 \n\x0b\x61mount_msat\x18\t \x01(\x0b\x32\x0b.cln.Amount\x12\x11\n\x04\x63ltv\x18\x04 \x01(\x01H\x00\x88\x01\x01\x12\x0f\n\x07\x65xclude\x18\x07 \x03(\t\x12\x13\n\x06\x66romid\x18\x05 \x01(\x0cH\x01\x88\x01\x01\x12\x18\n\x0b\x66uzzpercent\x18\x06 \x01(\rH\x02\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x14\n\x07maxhops\x18\x08 \x01(\rH\x03\x88\x01\x01\x12\x12\n\nriskfactor\x18\x03 \x01(\x04\x42\x07\n\x05_cltvB\t\n\x07_fromidB\x0e\n\x0c_fuzzpercentB\n\n\x08_maxhops\"5\n\x10GetrouteResponse\x12!\n\x05route\x18\x01 \x03(\x0b\x32\x12.cln.GetrouteRoute\"\xe9\x01\n\rGetrouteRoute\x12 \n\x0b\x61mount_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\x12\r\n\x05\x64\x65lay\x18\x05 \x01(\r\x12\x11\n\tdirection\x18\x03 \x01(\r\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x15\n\x08msatoshi\x18\x07 \x01(\x04H\x00\x88\x01\x01\x12\x34\n\x05style\x18\x06 \x01(\x0e\x32%.cln.GetrouteRoute.GetrouteRouteStyle\"\x1d\n\x12GetrouteRouteStyle\x12\x07\n\x03TLV\x10\x00\x42\x0b\n\t_msatoshi\"\x10\n\x0eGetinfoRequest\"\xae\x04\n\x0fGetinfoResponse\x12$\n\x07\x61\x64\x64ress\x18\x0e \x03(\x0b\x32\x13.cln.GetinfoAddress\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12$\n\x07\x62inding\x18\x0f \x03(\x0b\x32\x13.cln.GetinfoBinding\x12\x13\n\x0b\x62lockheight\x18\x0b \x01(\r\x12\r\n\x05\x63olor\x18\x03 \x01(\x0c\x12(\n\x13\x66\x65\x65s_collected_msat\x18\r \x01(\x0b\x32\x0b.cln.Amount\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x15\n\rlightning_dir\x18\t \x01(\t\x12$\n\x17msatoshi_fees_collected\x18\x12 \x01(\x04H\x00\x88\x01\x01\x12\x0f\n\x07network\x18\x0c \x01(\t\x12\x1b\n\x13num_active_channels\x18\x06 \x01(\r\x12\x1d\n\x15num_inactive_channels\x18\x07 \x01(\r\x12\x11\n\tnum_peers\x18\x04 \x01(\r\x12\x1c\n\x14num_pending_channels\x18\x05 \x01(\r\x12\x0f\n\x07version\x18\x08 \x01(\t\x12\"\n\x15warning_bitcoind_sync\x18\x10 \x01(\tH\x01\x88\x01\x01\x12$\n\x17warning_lightningd_sync\x18\x11 \x01(\tH\x02\x88\x01\x01\x42\x1a\n\x18_msatoshi_fees_collectedB\x18\n\x16_warning_bitcoind_syncB\x1a\n\x18_warning_lightningd_sync\"\xd3\x01\n\x0eGetinfoAddress\x12\x0c\n\x04port\x18\x02 \x01(\r\x12\x39\n\titem_type\x18\x01 \x01(\x0e\x32&.cln.GetinfoAddress.GetinfoAddressType\x12\x14\n\x07\x61\x64\x64ress\x18\x03 \x01(\tH\x00\x88\x01\x01\"V\n\x12GetinfoAddressType\x12\x07\n\x03\x44NS\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x12\r\n\tWEBSOCKET\x10\x05\x42\n\n\x08_address\"\xfb\x01\n\x0eGetinfoBinding\x12\x14\n\x07\x61\x64\x64ress\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x11\n\x04port\x18\x03 \x01(\rH\x01\x88\x01\x01\x12\x13\n\x06socket\x18\x04 \x01(\tH\x02\x88\x01\x01\x12\x39\n\titem_type\x18\x01 \x01(\x0e\x32&.cln.GetinfoBinding.GetinfoBindingType\"P\n\x12GetinfoBindingType\x12\x10\n\x0cLOCAL_SOCKET\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x42\n\n\x08_addressB\x07\n\x05_portB\t\n\x07_socket\"S\n\x13GetinfoOur_features\x12\x0f\n\x07\x63hannel\x18\x03 \x01(\x0c\x12\x0c\n\x04init\x18\x01 \x01(\x0c\x12\x0f\n\x07invoice\x18\x04 \x01(\x0c\x12\x0c\n\x04node\x18\x02 \x01(\x0c\"\xb8\x02\n\x0eInvoiceRequest\x12%\n\x0b\x61mount_msat\x18\n \x01(\x0b\x32\x10.cln.AmountOrAny\x12\x11\n\x04\x63ltv\x18\x06 \x01(\rH\x00\x88\x01\x01\x12\x19\n\x0c\x64\x65schashonly\x18\t \x01(\x08H\x01\x88\x01\x01\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x13\n\x06\x65xpiry\x18\x07 \x01(\x04H\x02\x88\x01\x01\x12\"\n\x15\x65xposeprivatechannels\x18\x08 \x01(\x08H\x03\x88\x01\x01\x12\x11\n\tfallbacks\x18\x04 \x03(\t\x12\r\n\x05label\x18\x03 \x01(\t\x12\x15\n\x08preimage\x18\x05 \x01(\x0cH\x04\x88\x01\x01\x42\x07\n\x05_cltvB\x0f\n\r_deschashonlyB\t\n\x07_expiryB\x18\n\x16_exposeprivatechannelsB\x0b\n\t_preimage\"\xe7\x02\n\x0fInvoiceResponse\x12\x0e\n\x06\x62olt11\x18\x01 \x01(\t\x12\x12\n\nexpires_at\x18\x04 \x01(\x04\x12\x14\n\x0cpayment_hash\x18\x02 \x01(\x0c\x12\x16\n\x0epayment_secret\x18\x03 \x01(\x0c\x12\x1d\n\x10warning_capacity\x18\x05 \x01(\tH\x00\x88\x01\x01\x12\x1d\n\x10warning_deadends\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x18\n\x0bwarning_mpp\x18\t \x01(\tH\x02\x88\x01\x01\x12\x1c\n\x0fwarning_offline\x18\x06 \x01(\tH\x03\x88\x01\x01\x12#\n\x16warning_private_unused\x18\x08 \x01(\tH\x04\x88\x01\x01\x42\x13\n\x11_warning_capacityB\x13\n\x11_warning_deadendsB\x0e\n\x0c_warning_mppB\x12\n\x10_warning_offlineB\x19\n\x17_warning_private_unused\"\x82\x03\n\x0eKeysendRequest\x12 \n\x0b\x61mount_msat\x18\n \x01(\x0b\x32\x0b.cln.Amount\x12\x13\n\x0b\x64\x65stination\x18\x01 \x01(\x0c\x12#\n\texemptfee\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12&\n\textratlvs\x18\t \x01(\x0b\x32\x0e.cln.TlvStreamH\x01\x88\x01\x01\x12\x12\n\x05label\x18\x03 \x01(\tH\x02\x88\x01\x01\x12\x15\n\x08maxdelay\x18\x06 \x01(\rH\x03\x88\x01\x01\x12\x1a\n\rmaxfeepercent\x18\x04 \x01(\x01H\x04\x88\x01\x01\x12\x16\n\tretry_for\x18\x05 \x01(\rH\x05\x88\x01\x01\x12+\n\nroutehints\x18\x08 \x01(\x0b\x32\x12.cln.RoutehintListH\x06\x88\x01\x01\x42\x0c\n\n_exemptfeeB\x0c\n\n_extratlvsB\x08\n\x06_labelB\x0b\n\t_maxdelayB\x10\n\x0e_maxfeepercentB\x0c\n\n_retry_forB\r\n\x0b_routehints\"\xf2\x02\n\x0fKeysendResponse\x12 \n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12%\n\x10\x61mount_sent_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\x18\n\x0b\x64\x65stination\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x12\r\n\x05parts\x18\x05 \x01(\r\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x18\n\x10payment_preimage\x18\x01 \x01(\x0c\x12\x32\n\x06status\x18\t \x01(\x0e\x32\".cln.KeysendResponse.KeysendStatus\x12\'\n\x1awarning_partial_completion\x18\x08 \x01(\tH\x01\x88\x01\x01\"\x1d\n\rKeysendStatus\x12\x0c\n\x08\x43OMPLETE\x10\x00\x42\x0e\n\x0c_destinationB\x1d\n\x1b_warning_partial_completion\"\x93\x01\n\x13ListchannelsRequest\x12\x18\n\x0b\x64\x65stination\x18\x03 \x01(\x0cH\x00\x88\x01\x01\x12\x1d\n\x10short_channel_id\x18\x01 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06source\x18\x02 \x01(\x0cH\x02\x88\x01\x01\x42\x0e\n\x0c_destinationB\x13\n\x11_short_channel_idB\t\n\x07_source\"C\n\x14ListchannelsResponse\x12+\n\x08\x63hannels\x18\x01 \x03(\x0b\x32\x19.cln.ListchannelsChannels\"\xa0\x03\n\x14ListchannelsChannels\x12\x0e\n\x06\x61\x63tive\x18\x08 \x01(\x08\x12 \n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.Amount\x12\x1d\n\x15\x62\x61se_fee_millisatoshi\x18\n \x01(\r\x12\x15\n\rchannel_flags\x18\x07 \x01(\r\x12\r\n\x05\x64\x65lay\x18\x0c \x01(\r\x12\x13\n\x0b\x64\x65stination\x18\x02 \x01(\x0c\x12\x10\n\x08\x66\x65\x61tures\x18\x0f \x01(\x0c\x12\x19\n\x11\x66\x65\x65_per_millionth\x18\x0b \x01(\r\x12+\n\x11htlc_maximum_msat\x18\x0e \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12&\n\x11htlc_minimum_msat\x18\r \x01(\x0b\x32\x0b.cln.Amount\x12\x13\n\x0blast_update\x18\t \x01(\r\x12\x15\n\rmessage_flags\x18\x06 \x01(\r\x12\x0e\n\x06public\x18\x04 \x01(\x08\x12\x18\n\x10short_channel_id\x18\x03 \x01(\t\x12\x0e\n\x06source\x18\x01 \x01(\x0c\x42\x14\n\x12_htlc_maximum_msat\"#\n\x14ListdatastoreRequest\x12\x0b\n\x03key\x18\x02 \x03(\t\"G\n\x15ListdatastoreResponse\x12.\n\tdatastore\x18\x01 \x03(\x0b\x32\x1b.cln.ListdatastoreDatastore\"\x87\x01\n\x16ListdatastoreDatastore\x12\x17\n\ngeneration\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x10\n\x03hex\x18\x03 \x01(\x0cH\x01\x88\x01\x01\x12\x0b\n\x03key\x18\x01 \x03(\t\x12\x13\n\x06string\x18\x04 \x01(\tH\x02\x88\x01\x01\x42\r\n\x0b_generationB\x06\n\x04_hexB\t\n\x07_string\"\x82\x02\n\x13ListforwardsRequest\x12\x17\n\nin_channel\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0bout_channel\x18\x03 \x01(\tH\x01\x88\x01\x01\x12@\n\x06status\x18\x01 \x01(\x0e\x32+.cln.ListforwardsRequest.ListforwardsStatusH\x02\x88\x01\x01\"L\n\x12ListforwardsStatus\x12\x0b\n\x07OFFERED\x10\x00\x12\x0b\n\x07SETTLED\x10\x01\x12\x10\n\x0cLOCAL_FAILED\x10\x02\x12\n\n\x06\x46\x41ILED\x10\x03\x42\r\n\x0b_in_channelB\x0e\n\x0c_out_channelB\t\n\x07_status\"C\n\x14ListforwardsResponse\x12+\n\x08\x66orwards\x18\x01 \x03(\x0b\x32\x19.cln.ListforwardsForwards\"\xde\x04\n\x14ListforwardsForwards\x12\x12\n\nin_channel\x18\x01 \x01(\t\x12\x17\n\nin_htlc_id\x18\n \x01(\x04H\x00\x88\x01\x01\x12\x1c\n\x07in_msat\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\x12\x18\n\x0bout_channel\x18\x05 \x01(\tH\x01\x88\x01\x01\x12\x18\n\x0bout_htlc_id\x18\x0b \x01(\x04H\x02\x88\x01\x01\x12\x15\n\rreceived_time\x18\x04 \x01(\x01\x12\x44\n\x06status\x18\x03 \x01(\x0e\x32\x34.cln.ListforwardsForwards.ListforwardsForwardsStatus\x12G\n\x05style\x18\t \x01(\x0e\x32\x33.cln.ListforwardsForwards.ListforwardsForwardsStyleH\x03\x88\x01\x01\x12\"\n\x08\x66\x65\x65_msat\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12\"\n\x08out_msat\x18\x08 \x01(\x0b\x32\x0b.cln.AmountH\x05\x88\x01\x01\"T\n\x1aListforwardsForwardsStatus\x12\x0b\n\x07OFFERED\x10\x00\x12\x0b\n\x07SETTLED\x10\x01\x12\x10\n\x0cLOCAL_FAILED\x10\x02\x12\n\n\x06\x46\x41ILED\x10\x03\"0\n\x19ListforwardsForwardsStyle\x12\n\n\x06LEGACY\x10\x00\x12\x07\n\x03TLV\x10\x01\x42\r\n\x0b_in_htlc_idB\x0e\n\x0c_out_channelB\x0e\n\x0c_out_htlc_idB\x08\n\x06_styleB\x0b\n\t_fee_msatB\x0b\n\t_out_msat\"0\n\x10ListfundsRequest\x12\x12\n\x05spent\x18\x01 \x01(\x08H\x00\x88\x01\x01\x42\x08\n\x06_spent\"e\n\x11ListfundsResponse\x12(\n\x08\x63hannels\x18\x02 \x03(\x0b\x32\x16.cln.ListfundsChannels\x12&\n\x07outputs\x18\x01 \x03(\x0b\x32\x15.cln.ListfundsOutputs\"\x83\x02\n\x11ListfundsChannels\x12 \n\x0b\x61mount_msat\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12\x11\n\tconnected\x18\x06 \x01(\x08\x12\x16\n\x0e\x66unding_output\x18\x05 \x01(\r\x12\x14\n\x0c\x66unding_txid\x18\x04 \x01(\x0c\x12$\n\x0four_amount_msat\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\x12\x0f\n\x07peer_id\x18\x01 \x01(\x0c\x12 \n\x05state\x18\x07 \x01(\x0e\x32\x11.cln.ChannelState\x12\x1d\n\x10short_channel_id\x18\x08 \x01(\tH\x00\x88\x01\x01\x42\x13\n\x11_short_channel_id\"\x83\x03\n\x10ListfundsOutputs\x12\x14\n\x07\x61\x64\x64ress\x18\x05 \x01(\tH\x00\x88\x01\x01\x12 \n\x0b\x61mount_msat\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12\x0e\n\x06output\x18\x02 \x01(\r\x12\x19\n\x0credeemscript\x18\x06 \x01(\x0cH\x01\x88\x01\x01\x12\x10\n\x08reserved\x18\t \x01(\x08\x12\x14\n\x0cscriptpubkey\x18\x04 \x01(\x0c\x12<\n\x06status\x18\x07 \x01(\x0e\x32,.cln.ListfundsOutputs.ListfundsOutputsStatus\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x18\n\x0b\x62lockheight\x18\x08 \x01(\rH\x02\x88\x01\x01\"Q\n\x16ListfundsOutputsStatus\x12\x0f\n\x0bUNCONFIRMED\x10\x00\x12\r\n\tCONFIRMED\x10\x01\x12\t\n\x05SPENT\x10\x02\x12\x0c\n\x08IMMATURE\x10\x03\x42\n\n\x08_addressB\x0f\n\r_redeemscriptB\x0e\n\x0c_blockheight\"\xa9\x01\n\x13ListinvoicesRequest\x12\x16\n\tinvstring\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x12\n\x05label\x18\x01 \x01(\tH\x01\x88\x01\x01\x12\x15\n\x08offer_id\x18\x04 \x01(\tH\x02\x88\x01\x01\x12\x19\n\x0cpayment_hash\x18\x03 \x01(\x0cH\x03\x88\x01\x01\x42\x0c\n\n_invstringB\x08\n\x06_labelB\x0b\n\t_offer_idB\x0f\n\r_payment_hash\"C\n\x14ListinvoicesResponse\x12+\n\x08invoices\x18\x01 \x03(\x0b\x32\x19.cln.ListinvoicesInvoices\"\xa2\x05\n\x14ListinvoicesInvoices\x12%\n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x03\x88\x01\x01\x12\x12\n\nexpires_at\x18\x05 \x01(\x04\x12\x1e\n\x11invreq_payer_note\x18\x0f \x01(\tH\x04\x88\x01\x01\x12\r\n\x05label\x18\x01 \x01(\t\x12\x1b\n\x0elocal_offer_id\x18\t \x01(\x0cH\x05\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x44\n\x06status\x18\x04 \x01(\x0e\x32\x34.cln.ListinvoicesInvoices.ListinvoicesInvoicesStatus\x12.\n\x14\x61mount_received_msat\x18\x0c \x01(\x0b\x32\x0b.cln.AmountH\x06\x88\x01\x01\x12\x14\n\x07paid_at\x18\r \x01(\x04H\x07\x88\x01\x01\x12\x16\n\tpay_index\x18\x0b \x01(\x04H\x08\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0e \x01(\x0cH\t\x88\x01\x01\"?\n\x1aListinvoicesInvoicesStatus\x12\n\n\x06UNPAID\x10\x00\x12\x08\n\x04PAID\x10\x01\x12\x0b\n\x07\x45XPIRED\x10\x02\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0e\n\x0c_descriptionB\x14\n\x12_invreq_payer_noteB\x11\n\x0f_local_offer_idB\x17\n\x15_amount_received_msatB\n\n\x08_paid_atB\x0c\n\n_pay_indexB\x13\n\x11_payment_preimage\"*\n\x10ListnodesRequest\x12\x0f\n\x02id\x18\x01 \x01(\x0cH\x00\x88\x01\x01\x42\x05\n\x03_id\"7\n\x11ListnodesResponse\x12\"\n\x05nodes\x18\x01 \x03(\x0b\x32\x13.cln.ListnodesNodes\"\xe1\x01\n\x0eListnodesNodes\x12\x1b\n\x0elast_timestamp\x18\x02 \x01(\rH\x00\x88\x01\x01\x12\x0e\n\x06nodeid\x18\x01 \x01(\x0c\x12/\n\taddresses\x18\x06 \x03(\x0b\x32\x1c.cln.ListnodesNodesAddresses\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x12\n\x05\x63olor\x18\x04 \x01(\x0cH\x02\x88\x01\x01\x12\x15\n\x08\x66\x65\x61tures\x18\x05 \x01(\x0cH\x03\x88\x01\x01\x42\x11\n\x0f_last_timestampB\x08\n\x06_aliasB\x08\n\x06_colorB\x0b\n\t_features\"\xf7\x01\n\x17ListnodesNodesAddresses\x12\x0c\n\x04port\x18\x02 \x01(\r\x12K\n\titem_type\x18\x01 \x01(\x0e\x32\x38.cln.ListnodesNodesAddresses.ListnodesNodesAddressesType\x12\x14\n\x07\x61\x64\x64ress\x18\x03 \x01(\tH\x00\x88\x01\x01\"_\n\x1bListnodesNodesAddressesType\x12\x07\n\x03\x44NS\x10\x00\x12\x08\n\x04IPV4\x10\x01\x12\x08\n\x04IPV6\x10\x02\x12\t\n\x05TORV2\x10\x03\x12\t\n\x05TORV3\x10\x04\x12\r\n\tWEBSOCKET\x10\x05\x42\n\n\x08_address\"\xdb\x01\n\x0fListpaysRequest\x12\x13\n\x06\x62olt11\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0cpayment_hash\x18\x02 \x01(\x0cH\x01\x88\x01\x01\x12\x38\n\x06status\x18\x03 \x01(\x0e\x32#.cln.ListpaysRequest.ListpaysStatusH\x02\x88\x01\x01\"7\n\x0eListpaysStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x42\t\n\x07_bolt11B\x0f\n\r_payment_hashB\t\n\x07_status\"3\n\x10ListpaysResponse\x12\x1f\n\x04pays\x18\x01 \x03(\x0b\x32\x11.cln.ListpaysPays\"\x87\x04\n\x0cListpaysPays\x12\x13\n\x06\x62olt11\x18\x06 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x19\n\x0c\x63ompleted_at\x18\x0c \x01(\x04H\x02\x88\x01\x01\x12\x12\n\ncreated_at\x18\x04 \x01(\x04\x12\x18\n\x0b\x64\x65scription\x18\x0b \x01(\tH\x03\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x03 \x01(\x0cH\x04\x88\x01\x01\x12\x12\n\x05label\x18\x05 \x01(\tH\x05\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\x0c\x12\x34\n\x06status\x18\x02 \x01(\x0e\x32$.cln.ListpaysPays.ListpaysPaysStatus\x12\x1c\n\x0fnumber_of_parts\x18\x0e \x01(\x04H\x06\x88\x01\x01\x12\x15\n\x08preimage\x18\r \x01(\x0cH\x07\x88\x01\x01\x12\x17\n\nerroronion\x18\n \x01(\x0cH\x08\x88\x01\x01\";\n\x12ListpaysPaysStatus\x12\x0b\n\x07PENDING\x10\x00\x12\n\n\x06\x46\x41ILED\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x42\t\n\x07_bolt11B\t\n\x07_bolt12B\x0f\n\r_completed_atB\x0e\n\x0c_descriptionB\x0e\n\x0c_destinationB\x08\n\x06_labelB\x12\n\x10_number_of_partsB\x0b\n\t_preimageB\r\n\x0b_erroronion\"H\n\x10ListpeersRequest\x12\x0f\n\x02id\x18\x01 \x01(\x0cH\x00\x88\x01\x01\x12\x12\n\x05level\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x05\n\x03_idB\x08\n\x06_level\"7\n\x11ListpeersResponse\x12\"\n\x05peers\x18\x01 \x03(\x0b\x32\x13.cln.ListpeersPeers\"\xe2\x01\n\x0eListpeersPeers\x12-\n\x08\x63hannels\x18\x04 \x03(\x0b\x32\x1b.cln.ListpeersPeersChannels\x12\x11\n\tconnected\x18\x02 \x01(\x08\x12\n\n\x02id\x18\x01 \x01(\x0c\x12#\n\x03log\x18\x03 \x03(\x0b\x32\x16.cln.ListpeersPeersLog\x12\x15\n\x08\x66\x65\x61tures\x18\x06 \x01(\x0cH\x00\x88\x01\x01\x12\x0f\n\x07netaddr\x18\x05 \x03(\t\x12\x18\n\x0bremote_addr\x18\x07 \x01(\tH\x01\x88\x01\x01\x42\x0b\n\t_featuresB\x0e\n\x0c_remote_addr\"\x8a\x16\n\x16ListpeersPeersChannels\x12\x17\n\nchannel_id\x18\x06 \x01(\x0cH\x00\x88\x01\x01\x12\x15\n\x08\x63lose_to\x18\x0e \x01(\x0cH\x01\x88\x01\x01\x12%\n\x06\x63loser\x18\x11 \x01(\x0e\x32\x10.cln.ChannelSideH\x02\x88\x01\x01\x12)\n\x0f\x64ust_limit_msat\x18\x1a \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12\x10\n\x08\x66\x65\x61tures\x18\x12 \x03(\t\x12\'\n\rfee_base_msat\x18\x18 \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12(\n\x1b\x66\x65\x65_proportional_millionths\x18\x19 \x01(\rH\x05\x88\x01\x01\x12\x1b\n\x0e\x66unding_outnum\x18\x08 \x01(\rH\x06\x88\x01\x01\x12\x19\n\x0c\x66unding_txid\x18\x07 \x01(\x0cH\x07\x88\x01\x01\x12/\n\x05htlcs\x18. \x03(\x0b\x32 .cln.ListpeersPeersChannelsHtlcs\x12+\n\x11in_fulfilled_msat\x18) \x01(\x0b\x32\x0b.cln.AmountH\x08\x88\x01\x01\x12)\n\x0fin_offered_msat\x18\' \x01(\x0b\x32\x0b.cln.AmountH\t\x88\x01\x01\x12\"\n\x15in_payments_fulfilled\x18( \x01(\x04H\n\x88\x01\x01\x12 \n\x13in_payments_offered\x18& \x01(\x04H\x0b\x88\x01\x01\x12\x35\n\x08inflight\x18\r \x03(\x0b\x32#.cln.ListpeersPeersChannelsInflight\x12\x1c\n\x0finitial_feerate\x18\t \x01(\tH\x0c\x88\x01\x01\x12\x19\n\x0clast_feerate\x18\n \x01(\tH\r\x88\x01\x01\x12\x1f\n\x12max_accepted_htlcs\x18# \x01(\rH\x0e\x88\x01\x01\x12(\n\x0emax_to_us_msat\x18\x16 \x01(\x0b\x32\x0b.cln.AmountH\x0f\x88\x01\x01\x12\x30\n\x16max_total_htlc_in_msat\x18\x1b \x01(\x0b\x32\x0b.cln.AmountH\x10\x88\x01\x01\x12/\n\x15maximum_htlc_out_msat\x18\x31 \x01(\x0b\x32\x0b.cln.AmountH\x11\x88\x01\x01\x12(\n\x0emin_to_us_msat\x18\x15 \x01(\x0b\x32\x0b.cln.AmountH\x12\x88\x01\x01\x12.\n\x14minimum_htlc_in_msat\x18  \x01(\x0b\x32\x0b.cln.AmountH\x13\x88\x01\x01\x12/\n\x15minimum_htlc_out_msat\x18\x30 \x01(\x0b\x32\x0b.cln.AmountH\x14\x88\x01\x01\x12\x1a\n\rnext_fee_step\x18\x0c \x01(\rH\x15\x88\x01\x01\x12\x19\n\x0cnext_feerate\x18\x0b \x01(\tH\x16\x88\x01\x01\x12 \n\x06opener\x18\x10 \x01(\x0e\x32\x10.cln.ChannelSide\x12*\n\x10our_reserve_msat\x18\x1d \x01(\x0b\x32\x0b.cln.AmountH\x17\x88\x01\x01\x12\x1e\n\x11our_to_self_delay\x18\" \x01(\rH\x18\x88\x01\x01\x12,\n\x12out_fulfilled_msat\x18- \x01(\x0b\x32\x0b.cln.AmountH\x19\x88\x01\x01\x12*\n\x10out_offered_msat\x18+ \x01(\x0b\x32\x0b.cln.AmountH\x1a\x88\x01\x01\x12#\n\x16out_payments_fulfilled\x18, \x01(\x04H\x1b\x88\x01\x01\x12!\n\x14out_payments_offered\x18* \x01(\x04H\x1c\x88\x01\x01\x12\x12\n\x05owner\x18\x04 \x01(\tH\x1d\x88\x01\x01\x12\x14\n\x07private\x18\x0f \x01(\x08H\x1e\x88\x01\x01\x12)\n\x0freceivable_msat\x18\x1f \x01(\x0b\x32\x0b.cln.AmountH\x1f\x88\x01\x01\x12\x19\n\x0cscratch_txid\x18\x02 \x01(\x0cH \x88\x01\x01\x12\x1d\n\x10short_channel_id\x18\x05 \x01(\tH!\x88\x01\x01\x12(\n\x0espendable_msat\x18\x1e \x01(\x0b\x32\x0b.cln.AmountH\"\x88\x01\x01\x12\x46\n\x05state\x18\x01 \x01(\x0e\x32\x37.cln.ListpeersPeersChannels.ListpeersPeersChannelsState\x12\x0e\n\x06status\x18% \x03(\t\x12,\n\x12their_reserve_msat\x18\x1c \x01(\x0b\x32\x0b.cln.AmountH#\x88\x01\x01\x12 \n\x13their_to_self_delay\x18! \x01(\rH$\x88\x01\x01\x12$\n\nto_us_msat\x18\x14 \x01(\x0b\x32\x0b.cln.AmountH%\x88\x01\x01\x12$\n\ntotal_msat\x18\x17 \x01(\x0b\x32\x0b.cln.AmountH&\x88\x01\x01\x12\x1a\n\rclose_to_addr\x18/ \x01(\tH\'\x88\x01\x01\"\xa1\x02\n\x1bListpeersPeersChannelsState\x12\x0c\n\x08OPENINGD\x10\x00\x12\x1c\n\x18\x43HANNELD_AWAITING_LOCKIN\x10\x01\x12\x13\n\x0f\x43HANNELD_NORMAL\x10\x02\x12\x1a\n\x16\x43HANNELD_SHUTTING_DOWN\x10\x03\x12\x18\n\x14\x43LOSINGD_SIGEXCHANGE\x10\x04\x12\x15\n\x11\x43LOSINGD_COMPLETE\x10\x05\x12\x17\n\x13\x41WAITING_UNILATERAL\x10\x06\x12\x16\n\x12\x46UNDING_SPEND_SEEN\x10\x07\x12\x0b\n\x07ONCHAIN\x10\x08\x12\x17\n\x13\x44UALOPEND_OPEN_INIT\x10\t\x12\x1d\n\x19\x44UALOPEND_AWAITING_LOCKIN\x10\nB\r\n\x0b_channel_idB\x0b\n\t_close_toB\t\n\x07_closerB\x12\n\x10_dust_limit_msatB\x10\n\x0e_fee_base_msatB\x1e\n\x1c_fee_proportional_millionthsB\x11\n\x0f_funding_outnumB\x0f\n\r_funding_txidB\x14\n\x12_in_fulfilled_msatB\x12\n\x10_in_offered_msatB\x18\n\x16_in_payments_fulfilledB\x16\n\x14_in_payments_offeredB\x12\n\x10_initial_feerateB\x0f\n\r_last_feerateB\x15\n\x13_max_accepted_htlcsB\x11\n\x0f_max_to_us_msatB\x19\n\x17_max_total_htlc_in_msatB\x18\n\x16_maximum_htlc_out_msatB\x11\n\x0f_min_to_us_msatB\x17\n\x15_minimum_htlc_in_msatB\x18\n\x16_minimum_htlc_out_msatB\x10\n\x0e_next_fee_stepB\x0f\n\r_next_feerateB\x13\n\x11_our_reserve_msatB\x14\n\x12_our_to_self_delayB\x15\n\x13_out_fulfilled_msatB\x13\n\x11_out_offered_msatB\x19\n\x17_out_payments_fulfilledB\x17\n\x15_out_payments_offeredB\x08\n\x06_ownerB\n\n\x08_privateB\x12\n\x10_receivable_msatB\x0f\n\r_scratch_txidB\x13\n\x11_short_channel_idB\x11\n\x0f_spendable_msatB\x15\n\x13_their_reserve_msatB\x16\n\x14_their_to_self_delayB\r\n\x0b_to_us_msatB\r\n\x0b_total_msatB\x10\n\x0e_close_to_addr\"[\n\x1bListpeersPeersChannelsAlias\x12\x12\n\x05local\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x13\n\x06remote\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x08\n\x06_localB\t\n\x07_remote\"=\n\x1dListpeersPeersChannelsFeerate\x12\r\n\x05perkb\x18\x02 \x01(\r\x12\r\n\x05perkw\x18\x01 \x01(\r\"\x87\x03\n\x1dListpeersPeersChannelsFunding\x12\'\n\rfee_paid_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\'\n\rfee_rcvd_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12%\n\x10local_funds_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12$\n\nlocal_msat\x18\x01 \x01(\x0b\x32\x0b.cln.AmountH\x02\x88\x01\x01\x12%\n\x0bpushed_msat\x18\x03 \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12&\n\x11remote_funds_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12%\n\x0bremote_msat\x18\x02 \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x42\x10\n\x0e_fee_paid_msatB\x10\n\x0e_fee_rcvd_msatB\r\n\x0b_local_msatB\x0e\n\x0c_pushed_msatB\x0e\n\x0c_remote_msat\"\xd2\x02\n\x1bListpeersPeersChannelsHtlcs\x12 \n\x0b\x61mount_msat\x18\x03 \x01(\x0b\x32\x0b.cln.Amount\x12X\n\tdirection\x18\x01 \x01(\x0e\x32\x45.cln.ListpeersPeersChannelsHtlcs.ListpeersPeersChannelsHtlcsDirection\x12\x0e\n\x06\x65xpiry\x18\x04 \x01(\r\x12\n\n\x02id\x18\x02 \x01(\x04\x12\x1a\n\rlocal_trimmed\x18\x06 \x01(\x08H\x00\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x05 \x01(\x0c\x12\x13\n\x06status\x18\x07 \x01(\tH\x01\x88\x01\x01\"7\n$ListpeersPeersChannelsHtlcsDirection\x12\x06\n\x02IN\x10\x00\x12\x07\n\x03OUT\x10\x01\x42\x10\n\x0e_local_trimmedB\t\n\x07_status\"\xc5\x01\n\x1eListpeersPeersChannelsInflight\x12\x0f\n\x07\x66\x65\x65rate\x18\x03 \x01(\t\x12\x16\n\x0e\x66unding_outnum\x18\x02 \x01(\r\x12\x14\n\x0c\x66unding_txid\x18\x01 \x01(\x0c\x12%\n\x10our_funding_msat\x18\x05 \x01(\x0b\x32\x0b.cln.Amount\x12\x14\n\x0cscratch_txid\x18\x06 \x01(\x0c\x12\'\n\x12total_funding_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\"\xfd\x02\n\x11ListpeersPeersLog\x12?\n\titem_type\x18\x01 \x01(\x0e\x32,.cln.ListpeersPeersLog.ListpeersPeersLogType\x12\x18\n\x0bnum_skipped\x18\x02 \x01(\rH\x00\x88\x01\x01\x12\x10\n\x03log\x18\x05 \x01(\tH\x01\x88\x01\x01\x12\x14\n\x07node_id\x18\x06 \x01(\x0cH\x02\x88\x01\x01\x12\x13\n\x06source\x18\x04 \x01(\tH\x03\x88\x01\x01\x12\x11\n\x04time\x18\x03 \x01(\tH\x04\x88\x01\x01\x12\x11\n\x04\x64\x61ta\x18\x07 \x01(\x0cH\x05\x88\x01\x01\"i\n\x15ListpeersPeersLogType\x12\x0b\n\x07SKIPPED\x10\x00\x12\n\n\x06\x42ROKEN\x10\x01\x12\x0b\n\x07UNUSUAL\x10\x02\x12\x08\n\x04INFO\x10\x03\x12\t\n\x05\x44\x45\x42UG\x10\x04\x12\t\n\x05IO_IN\x10\x05\x12\n\n\x06IO_OUT\x10\x06\x42\x0e\n\x0c_num_skippedB\x06\n\x04_logB\n\n\x08_node_idB\t\n\x07_sourceB\x07\n\x05_timeB\x07\n\x05_data\"\xeb\x01\n\x13ListsendpaysRequest\x12\x13\n\x06\x62olt11\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0cpayment_hash\x18\x02 \x01(\x0cH\x01\x88\x01\x01\x12@\n\x06status\x18\x03 \x01(\x0e\x32+.cln.ListsendpaysRequest.ListsendpaysStatusH\x02\x88\x01\x01\";\n\x12ListsendpaysStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x42\t\n\x07_bolt11B\x0f\n\r_payment_hashB\t\n\x07_status\"C\n\x14ListsendpaysResponse\x12+\n\x08payments\x18\x01 \x03(\x0b\x32\x19.cln.ListsendpaysPayments\"\xd4\x04\n\x14ListsendpaysPayments\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12%\n\x10\x61mount_sent_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12\x13\n\x06\x62olt11\x18\n \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x0b \x01(\tH\x02\x88\x01\x01\x12\x12\n\ncreated_at\x18\x07 \x01(\x04\x12\x18\n\x0b\x64\x65scription\x18\x0e \x01(\tH\x03\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\x06 \x01(\x0cH\x04\x88\x01\x01\x12\x0f\n\x07groupid\x18\x02 \x01(\x04\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x12\n\x05label\x18\t \x01(\tH\x05\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x44\n\x06status\x18\x04 \x01(\x0e\x32\x34.cln.ListsendpaysPayments.ListsendpaysPaymentsStatus\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x06\x88\x01\x01\x12\x17\n\nerroronion\x18\r \x01(\x0cH\x07\x88\x01\x01\"C\n\x1aListsendpaysPaymentsStatus\x12\x0b\n\x07PENDING\x10\x00\x12\n\n\x06\x46\x41ILED\x10\x01\x12\x0c\n\x08\x43OMPLETE\x10\x02\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0e\n\x0c_descriptionB\x0e\n\x0c_destinationB\x08\n\x06_labelB\x13\n\x11_payment_preimageB\r\n\x0b_erroronion\"\x19\n\x17ListtransactionsRequest\"S\n\x18ListtransactionsResponse\x12\x37\n\x0ctransactions\x18\x01 \x03(\x0b\x32!.cln.ListtransactionsTransactions\"\x9a\x02\n\x1cListtransactionsTransactions\x12\x13\n\x0b\x62lockheight\x18\x03 \x01(\r\x12\x14\n\x07\x63hannel\x18\x06 \x01(\tH\x00\x88\x01\x01\x12\x0c\n\x04hash\x18\x01 \x01(\x0c\x12\x37\n\x06inputs\x18\t \x03(\x0b\x32\'.cln.ListtransactionsTransactionsInputs\x12\x10\n\x08locktime\x18\x07 \x01(\r\x12\x39\n\x07outputs\x18\n \x03(\x0b\x32(.cln.ListtransactionsTransactionsOutputs\x12\r\n\x05rawtx\x18\x02 \x01(\x0c\x12\x0f\n\x07txindex\x18\x04 \x01(\r\x12\x0f\n\x07version\x18\x08 \x01(\rB\n\n\x08_channel\"\x84\x04\n\"ListtransactionsTransactionsInputs\x12\x14\n\x07\x63hannel\x18\x05 \x01(\tH\x00\x88\x01\x01\x12\r\n\x05index\x18\x02 \x01(\r\x12\x10\n\x08sequence\x18\x03 \x01(\r\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x66\n\titem_type\x18\x04 \x01(\x0e\x32N.cln.ListtransactionsTransactionsInputs.ListtransactionsTransactionsInputsTypeH\x01\x88\x01\x01\"\x96\x02\n&ListtransactionsTransactionsInputsType\x12\n\n\x06THEIRS\x10\x00\x12\x0b\n\x07\x44\x45POSIT\x10\x01\x12\x0c\n\x08WITHDRAW\x10\x02\x12\x13\n\x0f\x43HANNEL_FUNDING\x10\x03\x12\x18\n\x14\x43HANNEL_MUTUAL_CLOSE\x10\x04\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CLOSE\x10\x05\x12\x11\n\rCHANNEL_SWEEP\x10\x06\x12\x18\n\x14\x43HANNEL_HTLC_SUCCESS\x10\x07\x12\x18\n\x14\x43HANNEL_HTLC_TIMEOUT\x10\x08\x12\x13\n\x0f\x43HANNEL_PENALTY\x10\t\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CHEAT\x10\nB\n\n\x08_channelB\x0c\n\n_item_type\"\xa0\x04\n#ListtransactionsTransactionsOutputs\x12 \n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12\x14\n\x07\x63hannel\x18\x05 \x01(\tH\x00\x88\x01\x01\x12\r\n\x05index\x18\x01 \x01(\r\x12\x14\n\x0cscriptPubKey\x18\x03 \x01(\x0c\x12h\n\titem_type\x18\x04 \x01(\x0e\x32P.cln.ListtransactionsTransactionsOutputs.ListtransactionsTransactionsOutputsTypeH\x01\x88\x01\x01\"\x97\x02\n\'ListtransactionsTransactionsOutputsType\x12\n\n\x06THEIRS\x10\x00\x12\x0b\n\x07\x44\x45POSIT\x10\x01\x12\x0c\n\x08WITHDRAW\x10\x02\x12\x13\n\x0f\x43HANNEL_FUNDING\x10\x03\x12\x18\n\x14\x43HANNEL_MUTUAL_CLOSE\x10\x04\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CLOSE\x10\x05\x12\x11\n\rCHANNEL_SWEEP\x10\x06\x12\x18\n\x14\x43HANNEL_HTLC_SUCCESS\x10\x07\x12\x18\n\x14\x43HANNEL_HTLC_TIMEOUT\x10\x08\x12\x13\n\x0f\x43HANNEL_PENALTY\x10\t\x12\x1c\n\x18\x43HANNEL_UNILATERAL_CHEAT\x10\nB\n\n\x08_channelB\x0c\n\n_item_type\"\x9e\x01\n\x0eNewaddrRequest\x12@\n\x0b\x61\x64\x64resstype\x18\x01 \x01(\x0e\x32&.cln.NewaddrRequest.NewaddrAddresstypeH\x00\x88\x01\x01\":\n\x12NewaddrAddresstype\x12\n\n\x06\x42\x45\x43H32\x10\x00\x12\x0f\n\x0bP2SH_SEGWIT\x10\x01\x12\x07\n\x03\x41LL\x10\x02\x42\x0e\n\x0c_addresstype\"[\n\x0fNewaddrResponse\x12\x13\n\x06\x62\x65\x63h32\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x18\n\x0bp2sh_segwit\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\t\n\x07_bech32B\x0e\n\x0c_p2sh_segwit\"\xda\x03\n\nPayRequest\x12%\n\x0b\x61mount_msat\x18\r \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x0e\n\x06\x62olt11\x18\x01 \x01(\t\x12\x18\n\x0b\x64\x65scription\x18\x0c \x01(\tH\x01\x88\x01\x01\x12\x0f\n\x07\x65xclude\x18\n \x03(\t\x12#\n\texemptfee\x18\x07 \x01(\x0b\x32\x0b.cln.AmountH\x02\x88\x01\x01\x12\x12\n\x05label\x18\x03 \x01(\tH\x03\x88\x01\x01\x12\x1a\n\rlocalinvreqid\x18\x0e \x01(\x0cH\x04\x88\x01\x01\x12\x15\n\x08maxdelay\x18\x06 \x01(\rH\x05\x88\x01\x01\x12 \n\x06maxfee\x18\x0b \x01(\x0b\x32\x0b.cln.AmountH\x06\x88\x01\x01\x12\x1a\n\rmaxfeepercent\x18\x04 \x01(\x01H\x07\x88\x01\x01\x12\x16\n\tretry_for\x18\x05 \x01(\rH\x08\x88\x01\x01\x12\x17\n\nriskfactor\x18\x08 \x01(\x01H\t\x88\x01\x01\x42\x0e\n\x0c_amount_msatB\x0e\n\x0c_descriptionB\x0c\n\n_exemptfeeB\x08\n\x06_labelB\x10\n\x0e_localinvreqidB\x0b\n\t_maxdelayB\t\n\x07_maxfeeB\x10\n\x0e_maxfeepercentB\x0c\n\n_retry_forB\r\n\x0b_riskfactor\"\xfb\x02\n\x0bPayResponse\x12 \n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12%\n\x10\x61mount_sent_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12\x12\n\ncreated_at\x18\x04 \x01(\x01\x12\x18\n\x0b\x64\x65stination\x18\x02 \x01(\x0cH\x00\x88\x01\x01\x12\r\n\x05parts\x18\x05 \x01(\r\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x18\n\x10payment_preimage\x18\x01 \x01(\x0c\x12*\n\x06status\x18\t \x01(\x0e\x32\x1a.cln.PayResponse.PayStatus\x12\'\n\x1awarning_partial_completion\x18\x08 \x01(\tH\x01\x88\x01\x01\"2\n\tPayStatus\x12\x0c\n\x08\x43OMPLETE\x10\x00\x12\x0b\n\x07PENDING\x10\x01\x12\n\n\x06\x46\x41ILED\x10\x02\x42\x0e\n\x0c_destinationB\x1d\n\x1b_warning_partial_completion\"Y\n\x0bPingRequest\x12\n\n\x02id\x18\x01 \x01(\x0c\x12\x10\n\x03len\x18\x02 \x01(\x01H\x00\x88\x01\x01\x12\x16\n\tpongbytes\x18\x03 \x01(\x01H\x01\x88\x01\x01\x42\x06\n\x04_lenB\x0c\n\n_pongbytes\"\x1e\n\x0cPingResponse\x12\x0e\n\x06totlen\x18\x01 \x01(\r\"\xde\x02\n\x10SendonionRequest\x12%\n\x0b\x61mount_msat\x18\x0c \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x18\n\x0b\x64\x65stination\x18\t \x01(\x0cH\x02\x88\x01\x01\x12\x14\n\x07groupid\x18\x0b \x01(\x04H\x03\x88\x01\x01\x12\x12\n\x05label\x18\x04 \x01(\tH\x04\x88\x01\x01\x12\x1a\n\rlocalinvreqid\x18\r \x01(\x0cH\x05\x88\x01\x01\x12\r\n\x05onion\x18\x01 \x01(\x0c\x12\x13\n\x06partid\x18\x06 \x01(\rH\x06\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x16\n\x0eshared_secrets\x18\x05 \x03(\x0c\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\x0e\n\x0c_destinationB\n\n\x08_groupidB\x08\n\x06_labelB\x10\n\x0e_localinvreqidB\t\n\x07_partid\"\x8b\x04\n\x11SendonionResponse\x12%\n\x0b\x61mount_msat\x18\x04 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12%\n\x10\x61mount_sent_msat\x18\x07 \x01(\x0b\x32\x0b.cln.Amount\x12\x13\n\x06\x62olt11\x18\t \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\n \x01(\tH\x02\x88\x01\x01\x12\x12\n\ncreated_at\x18\x06 \x01(\x04\x12\x18\n\x0b\x64\x65stination\x18\x05 \x01(\x0cH\x03\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x12\n\x05label\x18\x08 \x01(\tH\x04\x88\x01\x01\x12\x13\n\x06partid\x18\r \x01(\x04H\x05\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x02 \x01(\x0c\x12\x36\n\x06status\x18\x03 \x01(\x0e\x32&.cln.SendonionResponse.SendonionStatus\x12\x1d\n\x10payment_preimage\x18\x0b \x01(\x0cH\x06\x88\x01\x01\x12\x14\n\x07message\x18\x0c \x01(\tH\x07\x88\x01\x01\",\n\x0fSendonionStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0e\n\x0c_destinationB\x08\n\x06_labelB\t\n\x07_partidB\x13\n\x11_payment_preimageB\n\n\x08_message\"Q\n\x12SendonionFirst_hop\x12 \n\x0b\x61mount_msat\x18\x02 \x01(\x0b\x32\x0b.cln.Amount\x12\r\n\x05\x64\x65lay\x18\x03 \x01(\r\x12\n\n\x02id\x18\x01 \x01(\x0c\"\xdd\x02\n\x0eSendpayRequest\x12%\n\x0b\x61mount_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x05 \x01(\tH\x01\x88\x01\x01\x12\x14\n\x07groupid\x18\t \x01(\x04H\x02\x88\x01\x01\x12\x12\n\x05label\x18\x03 \x01(\tH\x03\x88\x01\x01\x12\x1a\n\rlocalinvreqid\x18\x0b \x01(\x0cH\x04\x88\x01\x01\x12\x13\n\x06partid\x18\x07 \x01(\rH\x05\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x02 \x01(\x0c\x12\x1b\n\x0epayment_secret\x18\x06 \x01(\x0cH\x06\x88\x01\x01\x12 \n\x05route\x18\x01 \x03(\x0b\x32\x11.cln.SendpayRouteB\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\n\n\x08_groupidB\x08\n\x06_labelB\x10\n\x0e_localinvreqidB\t\n\x07_partidB\x11\n\x0f_payment_secret\"\xd1\x04\n\x0fSendpayResponse\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12%\n\x10\x61mount_sent_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12\x13\n\x06\x62olt11\x18\x0b \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x0c \x01(\tH\x02\x88\x01\x01\x12\x19\n\x0c\x63ompleted_at\x18\x0f \x01(\x04H\x03\x88\x01\x01\x12\x12\n\ncreated_at\x18\x07 \x01(\x04\x12\x18\n\x0b\x64\x65stination\x18\x06 \x01(\x0cH\x04\x88\x01\x01\x12\x14\n\x07groupid\x18\x02 \x01(\x04H\x05\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x12\n\x05label\x18\t \x01(\tH\x06\x88\x01\x01\x12\x13\n\x06partid\x18\n \x01(\x04H\x07\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12\x32\n\x06status\x18\x04 \x01(\x0e\x32\".cln.SendpayResponse.SendpayStatus\x12\x1d\n\x10payment_preimage\x18\r \x01(\x0cH\x08\x88\x01\x01\x12\x14\n\x07message\x18\x0e \x01(\tH\t\x88\x01\x01\"*\n\rSendpayStatus\x12\x0b\n\x07PENDING\x10\x00\x12\x0c\n\x08\x43OMPLETE\x10\x01\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0f\n\r_completed_atB\x0e\n\x0c_destinationB\n\n\x08_groupidB\x08\n\x06_labelB\t\n\x07_partidB\x13\n\x11_payment_preimageB\n\n\x08_message\"\\\n\x0cSendpayRoute\x12 \n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.Amount\x12\x0f\n\x07\x63hannel\x18\x04 \x01(\t\x12\r\n\x05\x64\x65lay\x18\x03 \x01(\r\x12\n\n\x02id\x18\x02 \x01(\x0c\"A\n\x0fSendpsbtRequest\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x14\n\x07reserve\x18\x02 \x01(\x08H\x00\x88\x01\x01\x42\n\n\x08_reserve\",\n\x10SendpsbtResponse\x12\n\n\x02tx\x18\x01 \x01(\x0c\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\"\xf8\x01\n\x11SetchannelRequest\x12\x19\n\x0c\x65nforcedelay\x18\x06 \x01(\rH\x00\x88\x01\x01\x12!\n\x07\x66\x65\x65\x62\x61se\x18\x02 \x01(\x0b\x32\x0b.cln.AmountH\x01\x88\x01\x01\x12\x13\n\x06\x66\x65\x65ppm\x18\x03 \x01(\rH\x02\x88\x01\x01\x12!\n\x07htlcmax\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12!\n\x07htlcmin\x18\x04 \x01(\x0b\x32\x0b.cln.AmountH\x04\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\tB\x0f\n\r_enforcedelayB\n\n\x08_feebaseB\t\n\x07_feeppmB\n\n\x08_htlcmaxB\n\n\x08_htlcmin\"?\n\x12SetchannelResponse\x12)\n\x08\x63hannels\x18\x01 \x03(\x0b\x32\x17.cln.SetchannelChannels\"\x94\x03\n\x12SetchannelChannels\x12\x12\n\nchannel_id\x18\x02 \x01(\x0c\x12\"\n\rfee_base_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12#\n\x1b\x66\x65\x65_proportional_millionths\x18\x05 \x01(\r\x12*\n\x15maximum_htlc_out_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12*\n\x15minimum_htlc_out_msat\x18\x06 \x01(\x0b\x32\x0b.cln.Amount\x12\x0f\n\x07peer_id\x18\x01 \x01(\x0c\x12\x1d\n\x10short_channel_id\x18\x03 \x01(\tH\x00\x88\x01\x01\x12%\n\x18warning_htlcmax_too_high\x18\t \x01(\tH\x01\x88\x01\x01\x12$\n\x17warning_htlcmin_too_low\x18\x07 \x01(\tH\x02\x88\x01\x01\x42\x13\n\x11_short_channel_idB\x1b\n\x19_warning_htlcmax_too_highB\x1a\n\x18_warning_htlcmin_too_low\"%\n\x12SignmessageRequest\x12\x0f\n\x07message\x18\x01 \x01(\t\"F\n\x13SignmessageResponse\x12\r\n\x05recid\x18\x02 \x01(\x0c\x12\x11\n\tsignature\x18\x01 \x01(\x0c\x12\r\n\x05zbase\x18\x03 \x01(\t\"1\n\x0fSignpsbtRequest\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x10\n\x08signonly\x18\x02 \x03(\r\"\'\n\x10SignpsbtResponse\x12\x13\n\x0bsigned_psbt\x18\x01 \x01(\t\"\r\n\x0bStopRequest\"\x0e\n\x0cStopResponse\" \n\x10TxdiscardRequest\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\"6\n\x11TxdiscardResponse\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\x12\x13\n\x0bunsigned_tx\x18\x01 \x01(\x0c\"\xa4\x01\n\x10TxprepareRequest\x12\"\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.FeerateH\x00\x88\x01\x01\x12\x14\n\x07minconf\x18\x03 \x01(\rH\x01\x88\x01\x01\x12 \n\x07outputs\x18\x05 \x03(\x0b\x32\x0f.cln.OutputDesc\x12\x1c\n\x05utxos\x18\x04 \x03(\x0b\x32\r.cln.OutpointB\n\n\x08_feerateB\n\n\x08_minconf\"D\n\x11TxprepareResponse\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\x0c\n\x04txid\x18\x03 \x01(\x0c\x12\x13\n\x0bunsigned_tx\x18\x02 \x01(\x0c\"\x1d\n\rTxsendRequest\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\"8\n\x0eTxsendResponse\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12\n\n\x02tx\x18\x02 \x01(\x0c\x12\x0c\n\x04txid\x18\x03 \x01(\x0c\"\xdb\x02\n\x0fUtxopsbtRequest\x12\x1d\n\x10\x65xcess_as_change\x18\t \x01(\x08H\x00\x88\x01\x01\x12\x1d\n\x07\x66\x65\x65rate\x18\x02 \x01(\x0b\x32\x0c.cln.Feerate\x12\x15\n\x08locktime\x18\x06 \x01(\rH\x01\x88\x01\x01\x12\x1f\n\x12min_witness_weight\x18\x07 \x01(\rH\x02\x88\x01\x01\x12\x14\n\x07reserve\x18\x05 \x01(\rH\x03\x88\x01\x01\x12\x17\n\nreservedok\x18\x08 \x01(\x08H\x04\x88\x01\x01\x12\x1c\n\x07satoshi\x18\x01 \x01(\x0b\x32\x0b.cln.Amount\x12\x13\n\x0bstartweight\x18\x03 \x01(\r\x12\x1c\n\x05utxos\x18\x04 \x03(\x0b\x32\r.cln.OutpointB\x13\n\x11_excess_as_changeB\x0b\n\t_locktimeB\x15\n\x13_min_witness_weightB\n\n\x08_reserveB\r\n\x0b_reservedok\"\xd9\x01\n\x10UtxopsbtResponse\x12\x1a\n\rchange_outnum\x18\x05 \x01(\rH\x00\x88\x01\x01\x12\x1e\n\x16\x65stimated_final_weight\x18\x03 \x01(\r\x12 \n\x0b\x65xcess_msat\x18\x04 \x01(\x0b\x32\x0b.cln.Amount\x12\x16\n\x0e\x66\x65\x65rate_per_kw\x18\x02 \x01(\r\x12\x0c\n\x04psbt\x18\x01 \x01(\t\x12/\n\x0creservations\x18\x06 \x03(\x0b\x32\x19.cln.UtxopsbtReservationsB\x10\n\x0e_change_outnum\"u\n\x14UtxopsbtReservations\x12\x10\n\x08reserved\x18\x04 \x01(\x08\x12\x19\n\x11reserved_to_block\x18\x05 \x01(\r\x12\x0c\n\x04txid\x18\x01 \x01(\x0c\x12\x0c\n\x04vout\x18\x02 \x01(\r\x12\x14\n\x0cwas_reserved\x18\x03 \x01(\x08\"g\n\x15WaitanyinvoiceRequest\x12\x1a\n\rlastpay_index\x18\x01 \x01(\x04H\x00\x88\x01\x01\x12\x14\n\x07timeout\x18\x02 \x01(\x04H\x01\x88\x01\x01\x42\x10\n\x0e_lastpay_indexB\n\n\x08_timeout\"\x93\x04\n\x16WaitanyinvoiceResponse\x12%\n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x12\n\nexpires_at\x18\x05 \x01(\x04\x12\r\n\x05label\x18\x01 \x01(\t\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12@\n\x06status\x18\x04 \x01(\x0e\x32\x30.cln.WaitanyinvoiceResponse.WaitanyinvoiceStatus\x12.\n\x14\x61mount_received_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12\x14\n\x07paid_at\x18\x0b \x01(\x04H\x04\x88\x01\x01\x12\x16\n\tpay_index\x18\t \x01(\x04H\x05\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x06\x88\x01\x01\"-\n\x14WaitanyinvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x17\n\x15_amount_received_msatB\n\n\x08_paid_atB\x0c\n\n_pay_indexB\x13\n\x11_payment_preimage\"#\n\x12WaitinvoiceRequest\x12\r\n\x05label\x18\x01 \x01(\t\"\x87\x04\n\x13WaitinvoiceResponse\x12%\n\x0b\x61mount_msat\x18\x06 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12\x13\n\x06\x62olt11\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x12\n\nexpires_at\x18\x05 \x01(\x04\x12\r\n\x05label\x18\x01 \x01(\t\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12:\n\x06status\x18\x04 \x01(\x0e\x32*.cln.WaitinvoiceResponse.WaitinvoiceStatus\x12.\n\x14\x61mount_received_msat\x18\n \x01(\x0b\x32\x0b.cln.AmountH\x03\x88\x01\x01\x12\x14\n\x07paid_at\x18\x0b \x01(\x04H\x04\x88\x01\x01\x12\x16\n\tpay_index\x18\t \x01(\x04H\x05\x88\x01\x01\x12\x1d\n\x10payment_preimage\x18\x0c \x01(\x0cH\x06\x88\x01\x01\"*\n\x11WaitinvoiceStatus\x12\x08\n\x04PAID\x10\x00\x12\x0b\n\x07\x45XPIRED\x10\x01\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x17\n\x15_amount_received_msatB\n\n\x08_paid_atB\x0c\n\n_pay_indexB\x13\n\x11_payment_preimage\"\x8e\x01\n\x12WaitsendpayRequest\x12\x14\n\x07groupid\x18\x04 \x01(\x04H\x00\x88\x01\x01\x12\x13\n\x06partid\x18\x02 \x01(\x04H\x01\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x01 \x01(\x0c\x12\x14\n\x07timeout\x18\x03 \x01(\rH\x02\x88\x01\x01\x42\n\n\x08_groupidB\t\n\x07_partidB\n\n\x08_timeout\"\xb2\x04\n\x13WaitsendpayResponse\x12%\n\x0b\x61mount_msat\x18\x05 \x01(\x0b\x32\x0b.cln.AmountH\x00\x88\x01\x01\x12%\n\x10\x61mount_sent_msat\x18\x08 \x01(\x0b\x32\x0b.cln.Amount\x12\x13\n\x06\x62olt11\x18\x0b \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06\x62olt12\x18\x0c \x01(\tH\x02\x88\x01\x01\x12\x19\n\x0c\x63ompleted_at\x18\x0e \x01(\x01H\x03\x88\x01\x01\x12\x12\n\ncreated_at\x18\x07 \x01(\x04\x12\x18\n\x0b\x64\x65stination\x18\x06 \x01(\x0cH\x04\x88\x01\x01\x12\x14\n\x07groupid\x18\x02 \x01(\x04H\x05\x88\x01\x01\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x12\n\x05label\x18\t \x01(\tH\x06\x88\x01\x01\x12\x13\n\x06partid\x18\n \x01(\x04H\x07\x88\x01\x01\x12\x14\n\x0cpayment_hash\x18\x03 \x01(\x0c\x12:\n\x06status\x18\x04 \x01(\x0e\x32*.cln.WaitsendpayResponse.WaitsendpayStatus\x12\x1d\n\x10payment_preimage\x18\r \x01(\x0cH\x08\x88\x01\x01\"!\n\x11WaitsendpayStatus\x12\x0c\n\x08\x43OMPLETE\x10\x00\x42\x0e\n\x0c_amount_msatB\t\n\x07_bolt11B\t\n\x07_bolt12B\x0f\n\r_completed_atB\x0e\n\x0c_destinationB\n\n\x08_groupidB\x08\n\x06_labelB\t\n\x07_partidB\x13\n\x11_payment_preimage\"\xca\x01\n\x0fWithdrawRequest\x12\x13\n\x0b\x64\x65stination\x18\x01 \x01(\t\x12\"\n\x07\x66\x65\x65rate\x18\x05 \x01(\x0b\x32\x0c.cln.FeerateH\x00\x88\x01\x01\x12\x14\n\x07minconf\x18\x03 \x01(\rH\x01\x88\x01\x01\x12&\n\x07satoshi\x18\x02 \x01(\x0b\x32\x10.cln.AmountOrAllH\x02\x88\x01\x01\x12\x1c\n\x05utxos\x18\x04 \x03(\x0b\x32\r.cln.OutpointB\n\n\x08_feerateB\n\n\x08_minconfB\n\n\x08_satoshi\":\n\x10WithdrawResponse\x12\x0c\n\x04psbt\x18\x03 \x01(\t\x12\n\n\x02tx\x18\x01 \x01(\x0c\x12\x0c\n\x04txid\x18\x02 \x01(\x0c\x32\xb1\x17\n\x04Node\x12<\n\tAddGossip\x12\x15.cln.AddgossipRequest\x1a\x16.cln.AddgossipResponse\"\x00\x12Q\n\x10\x41utoCleanInvoice\x12\x1c.cln.AutocleaninvoiceRequest\x1a\x1d.cln.AutocleaninvoiceResponse\"\x00\x12\x45\n\x0c\x43heckMessage\x12\x18.cln.CheckmessageRequest\x1a\x19.cln.CheckmessageResponse\"\x00\x12\x30\n\x05\x43lose\x12\x11.cln.CloseRequest\x1a\x12.cln.CloseResponse\"\x00\x12:\n\x0b\x43onnectPeer\x12\x13.cln.ConnectRequest\x1a\x14.cln.ConnectResponse\"\x00\x12H\n\rCreateInvoice\x12\x19.cln.CreateinvoiceRequest\x1a\x1a.cln.CreateinvoiceResponse\"\x00\x12\x42\n\x0b\x43reateOnion\x12\x17.cln.CreateonionRequest\x1a\x18.cln.CreateonionResponse\"\x00\x12<\n\tDatastore\x12\x15.cln.DatastoreRequest\x1a\x16.cln.DatastoreResponse\"\x00\x12\x45\n\x0c\x44\x65lDatastore\x12\x18.cln.DeldatastoreRequest\x1a\x19.cln.DeldatastoreResponse\"\x00\x12T\n\x11\x44\x65lExpiredInvoice\x12\x1d.cln.DelexpiredinvoiceRequest\x1a\x1e.cln.DelexpiredinvoiceResponse\"\x00\x12?\n\nDelInvoice\x12\x16.cln.DelinvoiceRequest\x1a\x17.cln.DelinvoiceResponse\"\x00\x12?\n\nDisconnect\x12\x16.cln.DisconnectRequest\x1a\x17.cln.DisconnectResponse\"\x00\x12\x39\n\x08\x46\x65\x65rates\x12\x14.cln.FeeratesRequest\x1a\x15.cln.FeeratesResponse\"\x00\x12\x42\n\x0b\x46undChannel\x12\x17.cln.FundchannelRequest\x1a\x18.cln.FundchannelResponse\"\x00\x12\x39\n\x08\x46undPsbt\x12\x14.cln.FundpsbtRequest\x1a\x15.cln.FundpsbtResponse\"\x00\x12\x39\n\x08GetRoute\x12\x14.cln.GetrouteRequest\x1a\x15.cln.GetrouteResponse\"\x00\x12\x36\n\x07Getinfo\x12\x13.cln.GetinfoRequest\x1a\x14.cln.GetinfoResponse\"\x00\x12\x36\n\x07Invoice\x12\x13.cln.InvoiceRequest\x1a\x14.cln.InvoiceResponse\"\x00\x12\x36\n\x07KeySend\x12\x13.cln.KeysendRequest\x1a\x14.cln.KeysendResponse\"\x00\x12\x45\n\x0cListChannels\x12\x18.cln.ListchannelsRequest\x1a\x19.cln.ListchannelsResponse\"\x00\x12H\n\rListDatastore\x12\x19.cln.ListdatastoreRequest\x1a\x1a.cln.ListdatastoreResponse\"\x00\x12\x45\n\x0cListForwards\x12\x18.cln.ListforwardsRequest\x1a\x19.cln.ListforwardsResponse\"\x00\x12<\n\tListFunds\x12\x15.cln.ListfundsRequest\x1a\x16.cln.ListfundsResponse\"\x00\x12\x45\n\x0cListInvoices\x12\x18.cln.ListinvoicesRequest\x1a\x19.cln.ListinvoicesResponse\"\x00\x12<\n\tListNodes\x12\x15.cln.ListnodesRequest\x1a\x16.cln.ListnodesResponse\"\x00\x12\x39\n\x08ListPays\x12\x14.cln.ListpaysRequest\x1a\x15.cln.ListpaysResponse\"\x00\x12<\n\tListPeers\x12\x15.cln.ListpeersRequest\x1a\x16.cln.ListpeersResponse\"\x00\x12\x45\n\x0cListSendPays\x12\x18.cln.ListsendpaysRequest\x1a\x19.cln.ListsendpaysResponse\"\x00\x12Q\n\x10ListTransactions\x12\x1c.cln.ListtransactionsRequest\x1a\x1d.cln.ListtransactionsResponse\"\x00\x12\x36\n\x07NewAddr\x12\x13.cln.NewaddrRequest\x1a\x14.cln.NewaddrResponse\"\x00\x12*\n\x03Pay\x12\x0f.cln.PayRequest\x1a\x10.cln.PayResponse\"\x00\x12-\n\x04Ping\x12\x10.cln.PingRequest\x1a\x11.cln.PingResponse\"\x00\x12<\n\tSendOnion\x12\x15.cln.SendonionRequest\x1a\x16.cln.SendonionResponse\"\x00\x12\x36\n\x07SendPay\x12\x13.cln.SendpayRequest\x1a\x14.cln.SendpayResponse\"\x00\x12\x39\n\x08SendPsbt\x12\x14.cln.SendpsbtRequest\x1a\x15.cln.SendpsbtResponse\"\x00\x12?\n\nSetChannel\x12\x16.cln.SetchannelRequest\x1a\x17.cln.SetchannelResponse\"\x00\x12\x42\n\x0bSignMessage\x12\x17.cln.SignmessageRequest\x1a\x18.cln.SignmessageResponse\"\x00\x12\x39\n\x08SignPsbt\x12\x14.cln.SignpsbtRequest\x1a\x15.cln.SignpsbtResponse\"\x00\x12-\n\x04Stop\x12\x10.cln.StopRequest\x1a\x11.cln.StopResponse\"\x00\x12<\n\tTxDiscard\x12\x15.cln.TxdiscardRequest\x1a\x16.cln.TxdiscardResponse\"\x00\x12<\n\tTxPrepare\x12\x15.cln.TxprepareRequest\x1a\x16.cln.TxprepareResponse\"\x00\x12\x33\n\x06TxSend\x12\x12.cln.TxsendRequest\x1a\x13.cln.TxsendResponse\"\x00\x12\x39\n\x08UtxoPsbt\x12\x14.cln.UtxopsbtRequest\x1a\x15.cln.UtxopsbtResponse\"\x00\x12K\n\x0eWaitAnyInvoice\x12\x1a.cln.WaitanyinvoiceRequest\x1a\x1b.cln.WaitanyinvoiceResponse\"\x00\x12\x42\n\x0bWaitInvoice\x12\x17.cln.WaitinvoiceRequest\x1a\x18.cln.WaitinvoiceResponse\"\x00\x12\x42\n\x0bWaitSendPay\x12\x17.cln.WaitsendpayRequest\x1a\x18.cln.WaitsendpayResponse\"\x00\x12\x39\n\x08Withdraw\x12\x14.cln.WithdrawRequest\x1a\x15.cln.WithdrawResponse\"\x00\x62\x06proto3')
 
 
 
-_GETINFOREQUEST = DESCRIPTOR.message_types_by_name['GetinfoRequest']
-_GETINFORESPONSE = DESCRIPTOR.message_types_by_name['GetinfoResponse']
-_GETINFOOUR_FEATURES = DESCRIPTOR.message_types_by_name['GetinfoOur_features']
-_GETINFOADDRESS = DESCRIPTOR.message_types_by_name['GetinfoAddress']
-_GETINFOBINDING = DESCRIPTOR.message_types_by_name['GetinfoBinding']
-_LISTPEERSREQUEST = DESCRIPTOR.message_types_by_name['ListpeersRequest']
-_LISTPEERSRESPONSE = DESCRIPTOR.message_types_by_name['ListpeersResponse']
-_LISTPEERSPEERS = DESCRIPTOR.message_types_by_name['ListpeersPeers']
-_LISTPEERSPEERSLOG = DESCRIPTOR.message_types_by_name['ListpeersPeersLog']
-_LISTPEERSPEERSCHANNELS = DESCRIPTOR.message_types_by_name['ListpeersPeersChannels']
-_LISTPEERSPEERSCHANNELSFEERATE = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsFeerate']
-_LISTPEERSPEERSCHANNELSINFLIGHT = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsInflight']
-_LISTPEERSPEERSCHANNELSFUNDING = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsFunding']
-_LISTPEERSPEERSCHANNELSALIAS = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsAlias']
-_LISTPEERSPEERSCHANNELSHTLCS = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsHtlcs']
-_LISTFUNDSREQUEST = DESCRIPTOR.message_types_by_name['ListfundsRequest']
-_LISTFUNDSRESPONSE = DESCRIPTOR.message_types_by_name['ListfundsResponse']
-_LISTFUNDSOUTPUTS = DESCRIPTOR.message_types_by_name['ListfundsOutputs']
-_LISTFUNDSCHANNELS = DESCRIPTOR.message_types_by_name['ListfundsChannels']
-_SENDPAYREQUEST = DESCRIPTOR.message_types_by_name['SendpayRequest']
-_SENDPAYRESPONSE = DESCRIPTOR.message_types_by_name['SendpayResponse']
-_SENDPAYROUTE = DESCRIPTOR.message_types_by_name['SendpayRoute']
-_LISTCHANNELSREQUEST = DESCRIPTOR.message_types_by_name['ListchannelsRequest']
-_LISTCHANNELSRESPONSE = DESCRIPTOR.message_types_by_name['ListchannelsResponse']
-_LISTCHANNELSCHANNELS = DESCRIPTOR.message_types_by_name['ListchannelsChannels']
 _ADDGOSSIPREQUEST = DESCRIPTOR.message_types_by_name['AddgossipRequest']
 _ADDGOSSIPRESPONSE = DESCRIPTOR.message_types_by_name['AddgossipResponse']
 _AUTOCLEANINVOICEREQUEST = DESCRIPTOR.message_types_by_name['AutocleaninvoiceRequest']
@@ -57,28 +32,74 @@ _CONNECTRESPONSE = DESCRIPTOR.message_types_by_name['ConnectResponse']
 _CONNECTADDRESS = DESCRIPTOR.message_types_by_name['ConnectAddress']
 _CREATEINVOICEREQUEST = DESCRIPTOR.message_types_by_name['CreateinvoiceRequest']
 _CREATEINVOICERESPONSE = DESCRIPTOR.message_types_by_name['CreateinvoiceResponse']
-_DATASTOREREQUEST = DESCRIPTOR.message_types_by_name['DatastoreRequest']
-_DATASTORERESPONSE = DESCRIPTOR.message_types_by_name['DatastoreResponse']
 _CREATEONIONREQUEST = DESCRIPTOR.message_types_by_name['CreateonionRequest']
 _CREATEONIONRESPONSE = DESCRIPTOR.message_types_by_name['CreateonionResponse']
 _CREATEONIONHOPS = DESCRIPTOR.message_types_by_name['CreateonionHops']
+_DATASTOREREQUEST = DESCRIPTOR.message_types_by_name['DatastoreRequest']
+_DATASTORERESPONSE = DESCRIPTOR.message_types_by_name['DatastoreResponse']
 _DELDATASTOREREQUEST = DESCRIPTOR.message_types_by_name['DeldatastoreRequest']
 _DELDATASTORERESPONSE = DESCRIPTOR.message_types_by_name['DeldatastoreResponse']
 _DELEXPIREDINVOICEREQUEST = DESCRIPTOR.message_types_by_name['DelexpiredinvoiceRequest']
 _DELEXPIREDINVOICERESPONSE = DESCRIPTOR.message_types_by_name['DelexpiredinvoiceResponse']
 _DELINVOICEREQUEST = DESCRIPTOR.message_types_by_name['DelinvoiceRequest']
 _DELINVOICERESPONSE = DESCRIPTOR.message_types_by_name['DelinvoiceResponse']
+_DISCONNECTREQUEST = DESCRIPTOR.message_types_by_name['DisconnectRequest']
+_DISCONNECTRESPONSE = DESCRIPTOR.message_types_by_name['DisconnectResponse']
+_FEERATESREQUEST = DESCRIPTOR.message_types_by_name['FeeratesRequest']
+_FEERATESRESPONSE = DESCRIPTOR.message_types_by_name['FeeratesResponse']
+_FEERATESONCHAIN_FEE_ESTIMATES = DESCRIPTOR.message_types_by_name['FeeratesOnchain_fee_estimates']
+_FEERATESPERKB = DESCRIPTOR.message_types_by_name['FeeratesPerkb']
+_FEERATESPERKW = DESCRIPTOR.message_types_by_name['FeeratesPerkw']
+_FUNDCHANNELREQUEST = DESCRIPTOR.message_types_by_name['FundchannelRequest']
+_FUNDCHANNELRESPONSE = DESCRIPTOR.message_types_by_name['FundchannelResponse']
+_FUNDPSBTREQUEST = DESCRIPTOR.message_types_by_name['FundpsbtRequest']
+_FUNDPSBTRESPONSE = DESCRIPTOR.message_types_by_name['FundpsbtResponse']
+_FUNDPSBTRESERVATIONS = DESCRIPTOR.message_types_by_name['FundpsbtReservations']
+_GETROUTEREQUEST = DESCRIPTOR.message_types_by_name['GetrouteRequest']
+_GETROUTERESPONSE = DESCRIPTOR.message_types_by_name['GetrouteResponse']
+_GETROUTEROUTE = DESCRIPTOR.message_types_by_name['GetrouteRoute']
+_GETINFOREQUEST = DESCRIPTOR.message_types_by_name['GetinfoRequest']
+_GETINFORESPONSE = DESCRIPTOR.message_types_by_name['GetinfoResponse']
+_GETINFOADDRESS = DESCRIPTOR.message_types_by_name['GetinfoAddress']
+_GETINFOBINDING = DESCRIPTOR.message_types_by_name['GetinfoBinding']
+_GETINFOOUR_FEATURES = DESCRIPTOR.message_types_by_name['GetinfoOur_features']
 _INVOICEREQUEST = DESCRIPTOR.message_types_by_name['InvoiceRequest']
 _INVOICERESPONSE = DESCRIPTOR.message_types_by_name['InvoiceResponse']
+_KEYSENDREQUEST = DESCRIPTOR.message_types_by_name['KeysendRequest']
+_KEYSENDRESPONSE = DESCRIPTOR.message_types_by_name['KeysendResponse']
+_LISTCHANNELSREQUEST = DESCRIPTOR.message_types_by_name['ListchannelsRequest']
+_LISTCHANNELSRESPONSE = DESCRIPTOR.message_types_by_name['ListchannelsResponse']
+_LISTCHANNELSCHANNELS = DESCRIPTOR.message_types_by_name['ListchannelsChannels']
 _LISTDATASTOREREQUEST = DESCRIPTOR.message_types_by_name['ListdatastoreRequest']
 _LISTDATASTORERESPONSE = DESCRIPTOR.message_types_by_name['ListdatastoreResponse']
 _LISTDATASTOREDATASTORE = DESCRIPTOR.message_types_by_name['ListdatastoreDatastore']
+_LISTFORWARDSREQUEST = DESCRIPTOR.message_types_by_name['ListforwardsRequest']
+_LISTFORWARDSRESPONSE = DESCRIPTOR.message_types_by_name['ListforwardsResponse']
+_LISTFORWARDSFORWARDS = DESCRIPTOR.message_types_by_name['ListforwardsForwards']
+_LISTFUNDSREQUEST = DESCRIPTOR.message_types_by_name['ListfundsRequest']
+_LISTFUNDSRESPONSE = DESCRIPTOR.message_types_by_name['ListfundsResponse']
+_LISTFUNDSCHANNELS = DESCRIPTOR.message_types_by_name['ListfundsChannels']
+_LISTFUNDSOUTPUTS = DESCRIPTOR.message_types_by_name['ListfundsOutputs']
 _LISTINVOICESREQUEST = DESCRIPTOR.message_types_by_name['ListinvoicesRequest']
 _LISTINVOICESRESPONSE = DESCRIPTOR.message_types_by_name['ListinvoicesResponse']
 _LISTINVOICESINVOICES = DESCRIPTOR.message_types_by_name['ListinvoicesInvoices']
-_SENDONIONREQUEST = DESCRIPTOR.message_types_by_name['SendonionRequest']
-_SENDONIONRESPONSE = DESCRIPTOR.message_types_by_name['SendonionResponse']
-_SENDONIONFIRST_HOP = DESCRIPTOR.message_types_by_name['SendonionFirst_hop']
+_LISTNODESREQUEST = DESCRIPTOR.message_types_by_name['ListnodesRequest']
+_LISTNODESRESPONSE = DESCRIPTOR.message_types_by_name['ListnodesResponse']
+_LISTNODESNODES = DESCRIPTOR.message_types_by_name['ListnodesNodes']
+_LISTNODESNODESADDRESSES = DESCRIPTOR.message_types_by_name['ListnodesNodesAddresses']
+_LISTPAYSREQUEST = DESCRIPTOR.message_types_by_name['ListpaysRequest']
+_LISTPAYSRESPONSE = DESCRIPTOR.message_types_by_name['ListpaysResponse']
+_LISTPAYSPAYS = DESCRIPTOR.message_types_by_name['ListpaysPays']
+_LISTPEERSREQUEST = DESCRIPTOR.message_types_by_name['ListpeersRequest']
+_LISTPEERSRESPONSE = DESCRIPTOR.message_types_by_name['ListpeersResponse']
+_LISTPEERSPEERS = DESCRIPTOR.message_types_by_name['ListpeersPeers']
+_LISTPEERSPEERSCHANNELS = DESCRIPTOR.message_types_by_name['ListpeersPeersChannels']
+_LISTPEERSPEERSCHANNELSALIAS = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsAlias']
+_LISTPEERSPEERSCHANNELSFEERATE = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsFeerate']
+_LISTPEERSPEERSCHANNELSFUNDING = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsFunding']
+_LISTPEERSPEERSCHANNELSHTLCS = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsHtlcs']
+_LISTPEERSPEERSCHANNELSINFLIGHT = DESCRIPTOR.message_types_by_name['ListpeersPeersChannelsInflight']
+_LISTPEERSPEERSLOG = DESCRIPTOR.message_types_by_name['ListpeersPeersLog']
 _LISTSENDPAYSREQUEST = DESCRIPTOR.message_types_by_name['ListsendpaysRequest']
 _LISTSENDPAYSRESPONSE = DESCRIPTOR.message_types_by_name['ListsendpaysResponse']
 _LISTSENDPAYSPAYMENTS = DESCRIPTOR.message_types_by_name['ListsendpaysPayments']
@@ -87,74 +108,46 @@ _LISTTRANSACTIONSRESPONSE = DESCRIPTOR.message_types_by_name['ListtransactionsRe
 _LISTTRANSACTIONSTRANSACTIONS = DESCRIPTOR.message_types_by_name['ListtransactionsTransactions']
 _LISTTRANSACTIONSTRANSACTIONSINPUTS = DESCRIPTOR.message_types_by_name['ListtransactionsTransactionsInputs']
 _LISTTRANSACTIONSTRANSACTIONSOUTPUTS = DESCRIPTOR.message_types_by_name['ListtransactionsTransactionsOutputs']
-_PAYREQUEST = DESCRIPTOR.message_types_by_name['PayRequest']
-_PAYRESPONSE = DESCRIPTOR.message_types_by_name['PayResponse']
-_LISTNODESREQUEST = DESCRIPTOR.message_types_by_name['ListnodesRequest']
-_LISTNODESRESPONSE = DESCRIPTOR.message_types_by_name['ListnodesResponse']
-_LISTNODESNODES = DESCRIPTOR.message_types_by_name['ListnodesNodes']
-_LISTNODESNODESADDRESSES = DESCRIPTOR.message_types_by_name['ListnodesNodesAddresses']
-_WAITANYINVOICEREQUEST = DESCRIPTOR.message_types_by_name['WaitanyinvoiceRequest']
-_WAITANYINVOICERESPONSE = DESCRIPTOR.message_types_by_name['WaitanyinvoiceResponse']
-_WAITINVOICEREQUEST = DESCRIPTOR.message_types_by_name['WaitinvoiceRequest']
-_WAITINVOICERESPONSE = DESCRIPTOR.message_types_by_name['WaitinvoiceResponse']
-_WAITSENDPAYREQUEST = DESCRIPTOR.message_types_by_name['WaitsendpayRequest']
-_WAITSENDPAYRESPONSE = DESCRIPTOR.message_types_by_name['WaitsendpayResponse']
 _NEWADDRREQUEST = DESCRIPTOR.message_types_by_name['NewaddrRequest']
 _NEWADDRRESPONSE = DESCRIPTOR.message_types_by_name['NewaddrResponse']
-_WITHDRAWREQUEST = DESCRIPTOR.message_types_by_name['WithdrawRequest']
-_WITHDRAWRESPONSE = DESCRIPTOR.message_types_by_name['WithdrawResponse']
-_KEYSENDREQUEST = DESCRIPTOR.message_types_by_name['KeysendRequest']
-_KEYSENDRESPONSE = DESCRIPTOR.message_types_by_name['KeysendResponse']
-_FUNDPSBTREQUEST = DESCRIPTOR.message_types_by_name['FundpsbtRequest']
-_FUNDPSBTRESPONSE = DESCRIPTOR.message_types_by_name['FundpsbtResponse']
-_FUNDPSBTRESERVATIONS = DESCRIPTOR.message_types_by_name['FundpsbtReservations']
+_PAYREQUEST = DESCRIPTOR.message_types_by_name['PayRequest']
+_PAYRESPONSE = DESCRIPTOR.message_types_by_name['PayResponse']
+_PINGREQUEST = DESCRIPTOR.message_types_by_name['PingRequest']
+_PINGRESPONSE = DESCRIPTOR.message_types_by_name['PingResponse']
+_SENDONIONREQUEST = DESCRIPTOR.message_types_by_name['SendonionRequest']
+_SENDONIONRESPONSE = DESCRIPTOR.message_types_by_name['SendonionResponse']
+_SENDONIONFIRST_HOP = DESCRIPTOR.message_types_by_name['SendonionFirst_hop']
+_SENDPAYREQUEST = DESCRIPTOR.message_types_by_name['SendpayRequest']
+_SENDPAYRESPONSE = DESCRIPTOR.message_types_by_name['SendpayResponse']
+_SENDPAYROUTE = DESCRIPTOR.message_types_by_name['SendpayRoute']
 _SENDPSBTREQUEST = DESCRIPTOR.message_types_by_name['SendpsbtRequest']
 _SENDPSBTRESPONSE = DESCRIPTOR.message_types_by_name['SendpsbtResponse']
+_SETCHANNELREQUEST = DESCRIPTOR.message_types_by_name['SetchannelRequest']
+_SETCHANNELRESPONSE = DESCRIPTOR.message_types_by_name['SetchannelResponse']
+_SETCHANNELCHANNELS = DESCRIPTOR.message_types_by_name['SetchannelChannels']
+_SIGNMESSAGEREQUEST = DESCRIPTOR.message_types_by_name['SignmessageRequest']
+_SIGNMESSAGERESPONSE = DESCRIPTOR.message_types_by_name['SignmessageResponse']
 _SIGNPSBTREQUEST = DESCRIPTOR.message_types_by_name['SignpsbtRequest']
 _SIGNPSBTRESPONSE = DESCRIPTOR.message_types_by_name['SignpsbtResponse']
-_UTXOPSBTREQUEST = DESCRIPTOR.message_types_by_name['UtxopsbtRequest']
-_UTXOPSBTRESPONSE = DESCRIPTOR.message_types_by_name['UtxopsbtResponse']
-_UTXOPSBTRESERVATIONS = DESCRIPTOR.message_types_by_name['UtxopsbtReservations']
+_STOPREQUEST = DESCRIPTOR.message_types_by_name['StopRequest']
+_STOPRESPONSE = DESCRIPTOR.message_types_by_name['StopResponse']
 _TXDISCARDREQUEST = DESCRIPTOR.message_types_by_name['TxdiscardRequest']
 _TXDISCARDRESPONSE = DESCRIPTOR.message_types_by_name['TxdiscardResponse']
 _TXPREPAREREQUEST = DESCRIPTOR.message_types_by_name['TxprepareRequest']
 _TXPREPARERESPONSE = DESCRIPTOR.message_types_by_name['TxprepareResponse']
 _TXSENDREQUEST = DESCRIPTOR.message_types_by_name['TxsendRequest']
 _TXSENDRESPONSE = DESCRIPTOR.message_types_by_name['TxsendResponse']
-_DISCONNECTREQUEST = DESCRIPTOR.message_types_by_name['DisconnectRequest']
-_DISCONNECTRESPONSE = DESCRIPTOR.message_types_by_name['DisconnectResponse']
-_FEERATESREQUEST = DESCRIPTOR.message_types_by_name['FeeratesRequest']
-_FEERATESRESPONSE = DESCRIPTOR.message_types_by_name['FeeratesResponse']
-_FEERATESPERKB = DESCRIPTOR.message_types_by_name['FeeratesPerkb']
-_FEERATESPERKW = DESCRIPTOR.message_types_by_name['FeeratesPerkw']
-_FEERATESONCHAIN_FEE_ESTIMATES = DESCRIPTOR.message_types_by_name['FeeratesOnchain_fee_estimates']
-_FUNDCHANNELREQUEST = DESCRIPTOR.message_types_by_name['FundchannelRequest']
-_FUNDCHANNELRESPONSE = DESCRIPTOR.message_types_by_name['FundchannelResponse']
-_GETROUTEREQUEST = DESCRIPTOR.message_types_by_name['GetrouteRequest']
-_GETROUTERESPONSE = DESCRIPTOR.message_types_by_name['GetrouteResponse']
-_GETROUTEROUTE = DESCRIPTOR.message_types_by_name['GetrouteRoute']
-_LISTFORWARDSREQUEST = DESCRIPTOR.message_types_by_name['ListforwardsRequest']
-_LISTFORWARDSRESPONSE = DESCRIPTOR.message_types_by_name['ListforwardsResponse']
-_LISTFORWARDSFORWARDS = DESCRIPTOR.message_types_by_name['ListforwardsForwards']
-_LISTPAYSREQUEST = DESCRIPTOR.message_types_by_name['ListpaysRequest']
-_LISTPAYSRESPONSE = DESCRIPTOR.message_types_by_name['ListpaysResponse']
-_LISTPAYSPAYS = DESCRIPTOR.message_types_by_name['ListpaysPays']
-_PINGREQUEST = DESCRIPTOR.message_types_by_name['PingRequest']
-_PINGRESPONSE = DESCRIPTOR.message_types_by_name['PingResponse']
-_SETCHANNELREQUEST = DESCRIPTOR.message_types_by_name['SetchannelRequest']
-_SETCHANNELRESPONSE = DESCRIPTOR.message_types_by_name['SetchannelResponse']
-_SETCHANNELCHANNELS = DESCRIPTOR.message_types_by_name['SetchannelChannels']
-_SIGNMESSAGEREQUEST = DESCRIPTOR.message_types_by_name['SignmessageRequest']
-_SIGNMESSAGERESPONSE = DESCRIPTOR.message_types_by_name['SignmessageResponse']
-_STOPREQUEST = DESCRIPTOR.message_types_by_name['StopRequest']
-_STOPRESPONSE = DESCRIPTOR.message_types_by_name['StopResponse']
-_GETINFOADDRESS_GETINFOADDRESSTYPE = _GETINFOADDRESS.enum_types_by_name['GetinfoAddressType']
-_GETINFOBINDING_GETINFOBINDINGTYPE = _GETINFOBINDING.enum_types_by_name['GetinfoBindingType']
-_LISTPEERSPEERSLOG_LISTPEERSPEERSLOGTYPE = _LISTPEERSPEERSLOG.enum_types_by_name['ListpeersPeersLogType']
-_LISTPEERSPEERSCHANNELS_LISTPEERSPEERSCHANNELSSTATE = _LISTPEERSPEERSCHANNELS.enum_types_by_name['ListpeersPeersChannelsState']
-_LISTPEERSPEERSCHANNELSHTLCS_LISTPEERSPEERSCHANNELSHTLCSDIRECTION = _LISTPEERSPEERSCHANNELSHTLCS.enum_types_by_name['ListpeersPeersChannelsHtlcsDirection']
-_LISTFUNDSOUTPUTS_LISTFUNDSOUTPUTSSTATUS = _LISTFUNDSOUTPUTS.enum_types_by_name['ListfundsOutputsStatus']
-_SENDPAYRESPONSE_SENDPAYSTATUS = _SENDPAYRESPONSE.enum_types_by_name['SendpayStatus']
+_UTXOPSBTREQUEST = DESCRIPTOR.message_types_by_name['UtxopsbtRequest']
+_UTXOPSBTRESPONSE = DESCRIPTOR.message_types_by_name['UtxopsbtResponse']
+_UTXOPSBTRESERVATIONS = DESCRIPTOR.message_types_by_name['UtxopsbtReservations']
+_WAITANYINVOICEREQUEST = DESCRIPTOR.message_types_by_name['WaitanyinvoiceRequest']
+_WAITANYINVOICERESPONSE = DESCRIPTOR.message_types_by_name['WaitanyinvoiceResponse']
+_WAITINVOICEREQUEST = DESCRIPTOR.message_types_by_name['WaitinvoiceRequest']
+_WAITINVOICERESPONSE = DESCRIPTOR.message_types_by_name['WaitinvoiceResponse']
+_WAITSENDPAYREQUEST = DESCRIPTOR.message_types_by_name['WaitsendpayRequest']
+_WAITSENDPAYRESPONSE = DESCRIPTOR.message_types_by_name['WaitsendpayResponse']
+_WITHDRAWREQUEST = DESCRIPTOR.message_types_by_name['WithdrawRequest']
+_WITHDRAWRESPONSE = DESCRIPTOR.message_types_by_name['WithdrawResponse']
 _CLOSERESPONSE_CLOSETYPE = _CLOSERESPONSE.enum_types_by_name['CloseType']
 _CONNECTRESPONSE_CONNECTDIRECTION = _CONNECTRESPONSE.enum_types_by_name['ConnectDirection']
 _CONNECTADDRESS_CONNECTADDRESSTYPE = _CONNECTADDRESS.enum_types_by_name['ConnectAddressType']
@@ -162,201 +155,33 @@ _CREATEINVOICERESPONSE_CREATEINVOICESTATUS = _CREATEINVOICERESPONSE.enum_types_b
 _DATASTOREREQUEST_DATASTOREMODE = _DATASTOREREQUEST.enum_types_by_name['DatastoreMode']
 _DELINVOICEREQUEST_DELINVOICESTATUS = _DELINVOICEREQUEST.enum_types_by_name['DelinvoiceStatus']
 _DELINVOICERESPONSE_DELINVOICESTATUS = _DELINVOICERESPONSE.enum_types_by_name['DelinvoiceStatus']
+_FEERATESREQUEST_FEERATESSTYLE = _FEERATESREQUEST.enum_types_by_name['FeeratesStyle']
+_GETROUTEROUTE_GETROUTEROUTESTYLE = _GETROUTEROUTE.enum_types_by_name['GetrouteRouteStyle']
+_GETINFOADDRESS_GETINFOADDRESSTYPE = _GETINFOADDRESS.enum_types_by_name['GetinfoAddressType']
+_GETINFOBINDING_GETINFOBINDINGTYPE = _GETINFOBINDING.enum_types_by_name['GetinfoBindingType']
+_KEYSENDRESPONSE_KEYSENDSTATUS = _KEYSENDRESPONSE.enum_types_by_name['KeysendStatus']
+_LISTFORWARDSREQUEST_LISTFORWARDSSTATUS = _LISTFORWARDSREQUEST.enum_types_by_name['ListforwardsStatus']
+_LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTATUS = _LISTFORWARDSFORWARDS.enum_types_by_name['ListforwardsForwardsStatus']
+_LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTYLE = _LISTFORWARDSFORWARDS.enum_types_by_name['ListforwardsForwardsStyle']
+_LISTFUNDSOUTPUTS_LISTFUNDSOUTPUTSSTATUS = _LISTFUNDSOUTPUTS.enum_types_by_name['ListfundsOutputsStatus']
 _LISTINVOICESINVOICES_LISTINVOICESINVOICESSTATUS = _LISTINVOICESINVOICES.enum_types_by_name['ListinvoicesInvoicesStatus']
-_SENDONIONRESPONSE_SENDONIONSTATUS = _SENDONIONRESPONSE.enum_types_by_name['SendonionStatus']
+_LISTNODESNODESADDRESSES_LISTNODESNODESADDRESSESTYPE = _LISTNODESNODESADDRESSES.enum_types_by_name['ListnodesNodesAddressesType']
+_LISTPAYSREQUEST_LISTPAYSSTATUS = _LISTPAYSREQUEST.enum_types_by_name['ListpaysStatus']
+_LISTPAYSPAYS_LISTPAYSPAYSSTATUS = _LISTPAYSPAYS.enum_types_by_name['ListpaysPaysStatus']
+_LISTPEERSPEERSCHANNELS_LISTPEERSPEERSCHANNELSSTATE = _LISTPEERSPEERSCHANNELS.enum_types_by_name['ListpeersPeersChannelsState']
+_LISTPEERSPEERSCHANNELSHTLCS_LISTPEERSPEERSCHANNELSHTLCSDIRECTION = _LISTPEERSPEERSCHANNELSHTLCS.enum_types_by_name['ListpeersPeersChannelsHtlcsDirection']
+_LISTPEERSPEERSLOG_LISTPEERSPEERSLOGTYPE = _LISTPEERSPEERSLOG.enum_types_by_name['ListpeersPeersLogType']
 _LISTSENDPAYSREQUEST_LISTSENDPAYSSTATUS = _LISTSENDPAYSREQUEST.enum_types_by_name['ListsendpaysStatus']
 _LISTSENDPAYSPAYMENTS_LISTSENDPAYSPAYMENTSSTATUS = _LISTSENDPAYSPAYMENTS.enum_types_by_name['ListsendpaysPaymentsStatus']
 _LISTTRANSACTIONSTRANSACTIONSINPUTS_LISTTRANSACTIONSTRANSACTIONSINPUTSTYPE = _LISTTRANSACTIONSTRANSACTIONSINPUTS.enum_types_by_name['ListtransactionsTransactionsInputsType']
 _LISTTRANSACTIONSTRANSACTIONSOUTPUTS_LISTTRANSACTIONSTRANSACTIONSOUTPUTSTYPE = _LISTTRANSACTIONSTRANSACTIONSOUTPUTS.enum_types_by_name['ListtransactionsTransactionsOutputsType']
+_NEWADDRREQUEST_NEWADDRADDRESSTYPE = _NEWADDRREQUEST.enum_types_by_name['NewaddrAddresstype']
 _PAYRESPONSE_PAYSTATUS = _PAYRESPONSE.enum_types_by_name['PayStatus']
-_LISTNODESNODESADDRESSES_LISTNODESNODESADDRESSESTYPE = _LISTNODESNODESADDRESSES.enum_types_by_name['ListnodesNodesAddressesType']
+_SENDONIONRESPONSE_SENDONIONSTATUS = _SENDONIONRESPONSE.enum_types_by_name['SendonionStatus']
+_SENDPAYRESPONSE_SENDPAYSTATUS = _SENDPAYRESPONSE.enum_types_by_name['SendpayStatus']
 _WAITANYINVOICERESPONSE_WAITANYINVOICESTATUS = _WAITANYINVOICERESPONSE.enum_types_by_name['WaitanyinvoiceStatus']
 _WAITINVOICERESPONSE_WAITINVOICESTATUS = _WAITINVOICERESPONSE.enum_types_by_name['WaitinvoiceStatus']
 _WAITSENDPAYRESPONSE_WAITSENDPAYSTATUS = _WAITSENDPAYRESPONSE.enum_types_by_name['WaitsendpayStatus']
-_NEWADDRREQUEST_NEWADDRADDRESSTYPE = _NEWADDRREQUEST.enum_types_by_name['NewaddrAddresstype']
-_KEYSENDRESPONSE_KEYSENDSTATUS = _KEYSENDRESPONSE.enum_types_by_name['KeysendStatus']
-_FEERATESREQUEST_FEERATESSTYLE = _FEERATESREQUEST.enum_types_by_name['FeeratesStyle']
-_GETROUTEROUTE_GETROUTEROUTESTYLE = _GETROUTEROUTE.enum_types_by_name['GetrouteRouteStyle']
-_LISTFORWARDSREQUEST_LISTFORWARDSSTATUS = _LISTFORWARDSREQUEST.enum_types_by_name['ListforwardsStatus']
-_LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTATUS = _LISTFORWARDSFORWARDS.enum_types_by_name['ListforwardsForwardsStatus']
-_LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTYLE = _LISTFORWARDSFORWARDS.enum_types_by_name['ListforwardsForwardsStyle']
-_LISTPAYSREQUEST_LISTPAYSSTATUS = _LISTPAYSREQUEST.enum_types_by_name['ListpaysStatus']
-_LISTPAYSPAYS_LISTPAYSPAYSSTATUS = _LISTPAYSPAYS.enum_types_by_name['ListpaysPaysStatus']
-GetinfoRequest = _reflection.GeneratedProtocolMessageType('GetinfoRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETINFOREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetinfoRequest)
-  })
-_sym_db.RegisterMessage(GetinfoRequest)
-
-GetinfoResponse = _reflection.GeneratedProtocolMessageType('GetinfoResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETINFORESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetinfoResponse)
-  })
-_sym_db.RegisterMessage(GetinfoResponse)
-
-GetinfoOur_features = _reflection.GeneratedProtocolMessageType('GetinfoOur_features', (_message.Message,), {
-  'DESCRIPTOR' : _GETINFOOUR_FEATURES,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetinfoOur_features)
-  })
-_sym_db.RegisterMessage(GetinfoOur_features)
-
-GetinfoAddress = _reflection.GeneratedProtocolMessageType('GetinfoAddress', (_message.Message,), {
-  'DESCRIPTOR' : _GETINFOADDRESS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetinfoAddress)
-  })
-_sym_db.RegisterMessage(GetinfoAddress)
-
-GetinfoBinding = _reflection.GeneratedProtocolMessageType('GetinfoBinding', (_message.Message,), {
-  'DESCRIPTOR' : _GETINFOBINDING,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetinfoBinding)
-  })
-_sym_db.RegisterMessage(GetinfoBinding)
-
-ListpeersRequest = _reflection.GeneratedProtocolMessageType('ListpeersRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersRequest)
-  })
-_sym_db.RegisterMessage(ListpeersRequest)
-
-ListpeersResponse = _reflection.GeneratedProtocolMessageType('ListpeersResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersResponse)
-  })
-_sym_db.RegisterMessage(ListpeersResponse)
-
-ListpeersPeers = _reflection.GeneratedProtocolMessageType('ListpeersPeers', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeers)
-  })
-_sym_db.RegisterMessage(ListpeersPeers)
-
-ListpeersPeersLog = _reflection.GeneratedProtocolMessageType('ListpeersPeersLog', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERSLOG,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersLog)
-  })
-_sym_db.RegisterMessage(ListpeersPeersLog)
-
-ListpeersPeersChannels = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannels', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannels)
-  })
-_sym_db.RegisterMessage(ListpeersPeersChannels)
-
-ListpeersPeersChannelsFeerate = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsFeerate', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSFEERATE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsFeerate)
-  })
-_sym_db.RegisterMessage(ListpeersPeersChannelsFeerate)
-
-ListpeersPeersChannelsInflight = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsInflight', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSINFLIGHT,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsInflight)
-  })
-_sym_db.RegisterMessage(ListpeersPeersChannelsInflight)
-
-ListpeersPeersChannelsFunding = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsFunding', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSFUNDING,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsFunding)
-  })
-_sym_db.RegisterMessage(ListpeersPeersChannelsFunding)
-
-ListpeersPeersChannelsAlias = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsAlias', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSALIAS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsAlias)
-  })
-_sym_db.RegisterMessage(ListpeersPeersChannelsAlias)
-
-ListpeersPeersChannelsHtlcs = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsHtlcs', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSHTLCS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsHtlcs)
-  })
-_sym_db.RegisterMessage(ListpeersPeersChannelsHtlcs)
-
-ListfundsRequest = _reflection.GeneratedProtocolMessageType('ListfundsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFUNDSREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListfundsRequest)
-  })
-_sym_db.RegisterMessage(ListfundsRequest)
-
-ListfundsResponse = _reflection.GeneratedProtocolMessageType('ListfundsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFUNDSRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListfundsResponse)
-  })
-_sym_db.RegisterMessage(ListfundsResponse)
-
-ListfundsOutputs = _reflection.GeneratedProtocolMessageType('ListfundsOutputs', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFUNDSOUTPUTS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListfundsOutputs)
-  })
-_sym_db.RegisterMessage(ListfundsOutputs)
-
-ListfundsChannels = _reflection.GeneratedProtocolMessageType('ListfundsChannels', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFUNDSCHANNELS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListfundsChannels)
-  })
-_sym_db.RegisterMessage(ListfundsChannels)
-
-SendpayRequest = _reflection.GeneratedProtocolMessageType('SendpayRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SENDPAYREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SendpayRequest)
-  })
-_sym_db.RegisterMessage(SendpayRequest)
-
-SendpayResponse = _reflection.GeneratedProtocolMessageType('SendpayResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SENDPAYRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SendpayResponse)
-  })
-_sym_db.RegisterMessage(SendpayResponse)
-
-SendpayRoute = _reflection.GeneratedProtocolMessageType('SendpayRoute', (_message.Message,), {
-  'DESCRIPTOR' : _SENDPAYROUTE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SendpayRoute)
-  })
-_sym_db.RegisterMessage(SendpayRoute)
-
-ListchannelsRequest = _reflection.GeneratedProtocolMessageType('ListchannelsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTCHANNELSREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListchannelsRequest)
-  })
-_sym_db.RegisterMessage(ListchannelsRequest)
-
-ListchannelsResponse = _reflection.GeneratedProtocolMessageType('ListchannelsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTCHANNELSRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListchannelsResponse)
-  })
-_sym_db.RegisterMessage(ListchannelsResponse)
-
-ListchannelsChannels = _reflection.GeneratedProtocolMessageType('ListchannelsChannels', (_message.Message,), {
-  'DESCRIPTOR' : _LISTCHANNELSCHANNELS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListchannelsChannels)
-  })
-_sym_db.RegisterMessage(ListchannelsChannels)
-
 AddgossipRequest = _reflection.GeneratedProtocolMessageType('AddgossipRequest', (_message.Message,), {
   'DESCRIPTOR' : _ADDGOSSIPREQUEST,
   '__module__' : 'node_pb2'
@@ -448,20 +273,6 @@ CreateinvoiceResponse = _reflection.GeneratedProtocolMessageType('CreateinvoiceR
   })
 _sym_db.RegisterMessage(CreateinvoiceResponse)
 
-DatastoreRequest = _reflection.GeneratedProtocolMessageType('DatastoreRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DATASTOREREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.DatastoreRequest)
-  })
-_sym_db.RegisterMessage(DatastoreRequest)
-
-DatastoreResponse = _reflection.GeneratedProtocolMessageType('DatastoreResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DATASTORERESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.DatastoreResponse)
-  })
-_sym_db.RegisterMessage(DatastoreResponse)
-
 CreateonionRequest = _reflection.GeneratedProtocolMessageType('CreateonionRequest', (_message.Message,), {
   'DESCRIPTOR' : _CREATEONIONREQUEST,
   '__module__' : 'node_pb2'
@@ -482,6 +293,20 @@ CreateonionHops = _reflection.GeneratedProtocolMessageType('CreateonionHops', (_
   # @@protoc_insertion_point(class_scope:cln.CreateonionHops)
   })
 _sym_db.RegisterMessage(CreateonionHops)
+
+DatastoreRequest = _reflection.GeneratedProtocolMessageType('DatastoreRequest', (_message.Message,), {
+  'DESCRIPTOR' : _DATASTOREREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.DatastoreRequest)
+  })
+_sym_db.RegisterMessage(DatastoreRequest)
+
+DatastoreResponse = _reflection.GeneratedProtocolMessageType('DatastoreResponse', (_message.Message,), {
+  'DESCRIPTOR' : _DATASTORERESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.DatastoreResponse)
+  })
+_sym_db.RegisterMessage(DatastoreResponse)
 
 DeldatastoreRequest = _reflection.GeneratedProtocolMessageType('DeldatastoreRequest', (_message.Message,), {
   'DESCRIPTOR' : _DELDATASTOREREQUEST,
@@ -525,6 +350,146 @@ DelinvoiceResponse = _reflection.GeneratedProtocolMessageType('DelinvoiceRespons
   })
 _sym_db.RegisterMessage(DelinvoiceResponse)
 
+DisconnectRequest = _reflection.GeneratedProtocolMessageType('DisconnectRequest', (_message.Message,), {
+  'DESCRIPTOR' : _DISCONNECTREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.DisconnectRequest)
+  })
+_sym_db.RegisterMessage(DisconnectRequest)
+
+DisconnectResponse = _reflection.GeneratedProtocolMessageType('DisconnectResponse', (_message.Message,), {
+  'DESCRIPTOR' : _DISCONNECTRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.DisconnectResponse)
+  })
+_sym_db.RegisterMessage(DisconnectResponse)
+
+FeeratesRequest = _reflection.GeneratedProtocolMessageType('FeeratesRequest', (_message.Message,), {
+  'DESCRIPTOR' : _FEERATESREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FeeratesRequest)
+  })
+_sym_db.RegisterMessage(FeeratesRequest)
+
+FeeratesResponse = _reflection.GeneratedProtocolMessageType('FeeratesResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FEERATESRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FeeratesResponse)
+  })
+_sym_db.RegisterMessage(FeeratesResponse)
+
+FeeratesOnchain_fee_estimates = _reflection.GeneratedProtocolMessageType('FeeratesOnchain_fee_estimates', (_message.Message,), {
+  'DESCRIPTOR' : _FEERATESONCHAIN_FEE_ESTIMATES,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FeeratesOnchain_fee_estimates)
+  })
+_sym_db.RegisterMessage(FeeratesOnchain_fee_estimates)
+
+FeeratesPerkb = _reflection.GeneratedProtocolMessageType('FeeratesPerkb', (_message.Message,), {
+  'DESCRIPTOR' : _FEERATESPERKB,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FeeratesPerkb)
+  })
+_sym_db.RegisterMessage(FeeratesPerkb)
+
+FeeratesPerkw = _reflection.GeneratedProtocolMessageType('FeeratesPerkw', (_message.Message,), {
+  'DESCRIPTOR' : _FEERATESPERKW,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FeeratesPerkw)
+  })
+_sym_db.RegisterMessage(FeeratesPerkw)
+
+FundchannelRequest = _reflection.GeneratedProtocolMessageType('FundchannelRequest', (_message.Message,), {
+  'DESCRIPTOR' : _FUNDCHANNELREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FundchannelRequest)
+  })
+_sym_db.RegisterMessage(FundchannelRequest)
+
+FundchannelResponse = _reflection.GeneratedProtocolMessageType('FundchannelResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FUNDCHANNELRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FundchannelResponse)
+  })
+_sym_db.RegisterMessage(FundchannelResponse)
+
+FundpsbtRequest = _reflection.GeneratedProtocolMessageType('FundpsbtRequest', (_message.Message,), {
+  'DESCRIPTOR' : _FUNDPSBTREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FundpsbtRequest)
+  })
+_sym_db.RegisterMessage(FundpsbtRequest)
+
+FundpsbtResponse = _reflection.GeneratedProtocolMessageType('FundpsbtResponse', (_message.Message,), {
+  'DESCRIPTOR' : _FUNDPSBTRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FundpsbtResponse)
+  })
+_sym_db.RegisterMessage(FundpsbtResponse)
+
+FundpsbtReservations = _reflection.GeneratedProtocolMessageType('FundpsbtReservations', (_message.Message,), {
+  'DESCRIPTOR' : _FUNDPSBTRESERVATIONS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.FundpsbtReservations)
+  })
+_sym_db.RegisterMessage(FundpsbtReservations)
+
+GetrouteRequest = _reflection.GeneratedProtocolMessageType('GetrouteRequest', (_message.Message,), {
+  'DESCRIPTOR' : _GETROUTEREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetrouteRequest)
+  })
+_sym_db.RegisterMessage(GetrouteRequest)
+
+GetrouteResponse = _reflection.GeneratedProtocolMessageType('GetrouteResponse', (_message.Message,), {
+  'DESCRIPTOR' : _GETROUTERESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetrouteResponse)
+  })
+_sym_db.RegisterMessage(GetrouteResponse)
+
+GetrouteRoute = _reflection.GeneratedProtocolMessageType('GetrouteRoute', (_message.Message,), {
+  'DESCRIPTOR' : _GETROUTEROUTE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetrouteRoute)
+  })
+_sym_db.RegisterMessage(GetrouteRoute)
+
+GetinfoRequest = _reflection.GeneratedProtocolMessageType('GetinfoRequest', (_message.Message,), {
+  'DESCRIPTOR' : _GETINFOREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetinfoRequest)
+  })
+_sym_db.RegisterMessage(GetinfoRequest)
+
+GetinfoResponse = _reflection.GeneratedProtocolMessageType('GetinfoResponse', (_message.Message,), {
+  'DESCRIPTOR' : _GETINFORESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetinfoResponse)
+  })
+_sym_db.RegisterMessage(GetinfoResponse)
+
+GetinfoAddress = _reflection.GeneratedProtocolMessageType('GetinfoAddress', (_message.Message,), {
+  'DESCRIPTOR' : _GETINFOADDRESS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetinfoAddress)
+  })
+_sym_db.RegisterMessage(GetinfoAddress)
+
+GetinfoBinding = _reflection.GeneratedProtocolMessageType('GetinfoBinding', (_message.Message,), {
+  'DESCRIPTOR' : _GETINFOBINDING,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetinfoBinding)
+  })
+_sym_db.RegisterMessage(GetinfoBinding)
+
+GetinfoOur_features = _reflection.GeneratedProtocolMessageType('GetinfoOur_features', (_message.Message,), {
+  'DESCRIPTOR' : _GETINFOOUR_FEATURES,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.GetinfoOur_features)
+  })
+_sym_db.RegisterMessage(GetinfoOur_features)
+
 InvoiceRequest = _reflection.GeneratedProtocolMessageType('InvoiceRequest', (_message.Message,), {
   'DESCRIPTOR' : _INVOICEREQUEST,
   '__module__' : 'node_pb2'
@@ -538,6 +503,41 @@ InvoiceResponse = _reflection.GeneratedProtocolMessageType('InvoiceResponse', (_
   # @@protoc_insertion_point(class_scope:cln.InvoiceResponse)
   })
 _sym_db.RegisterMessage(InvoiceResponse)
+
+KeysendRequest = _reflection.GeneratedProtocolMessageType('KeysendRequest', (_message.Message,), {
+  'DESCRIPTOR' : _KEYSENDREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.KeysendRequest)
+  })
+_sym_db.RegisterMessage(KeysendRequest)
+
+KeysendResponse = _reflection.GeneratedProtocolMessageType('KeysendResponse', (_message.Message,), {
+  'DESCRIPTOR' : _KEYSENDRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.KeysendResponse)
+  })
+_sym_db.RegisterMessage(KeysendResponse)
+
+ListchannelsRequest = _reflection.GeneratedProtocolMessageType('ListchannelsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LISTCHANNELSREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListchannelsRequest)
+  })
+_sym_db.RegisterMessage(ListchannelsRequest)
+
+ListchannelsResponse = _reflection.GeneratedProtocolMessageType('ListchannelsResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTCHANNELSRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListchannelsResponse)
+  })
+_sym_db.RegisterMessage(ListchannelsResponse)
+
+ListchannelsChannels = _reflection.GeneratedProtocolMessageType('ListchannelsChannels', (_message.Message,), {
+  'DESCRIPTOR' : _LISTCHANNELSCHANNELS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListchannelsChannels)
+  })
+_sym_db.RegisterMessage(ListchannelsChannels)
 
 ListdatastoreRequest = _reflection.GeneratedProtocolMessageType('ListdatastoreRequest', (_message.Message,), {
   'DESCRIPTOR' : _LISTDATASTOREREQUEST,
@@ -560,6 +560,55 @@ ListdatastoreDatastore = _reflection.GeneratedProtocolMessageType('Listdatastore
   })
 _sym_db.RegisterMessage(ListdatastoreDatastore)
 
+ListforwardsRequest = _reflection.GeneratedProtocolMessageType('ListforwardsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LISTFORWARDSREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListforwardsRequest)
+  })
+_sym_db.RegisterMessage(ListforwardsRequest)
+
+ListforwardsResponse = _reflection.GeneratedProtocolMessageType('ListforwardsResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTFORWARDSRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListforwardsResponse)
+  })
+_sym_db.RegisterMessage(ListforwardsResponse)
+
+ListforwardsForwards = _reflection.GeneratedProtocolMessageType('ListforwardsForwards', (_message.Message,), {
+  'DESCRIPTOR' : _LISTFORWARDSFORWARDS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListforwardsForwards)
+  })
+_sym_db.RegisterMessage(ListforwardsForwards)
+
+ListfundsRequest = _reflection.GeneratedProtocolMessageType('ListfundsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LISTFUNDSREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListfundsRequest)
+  })
+_sym_db.RegisterMessage(ListfundsRequest)
+
+ListfundsResponse = _reflection.GeneratedProtocolMessageType('ListfundsResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTFUNDSRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListfundsResponse)
+  })
+_sym_db.RegisterMessage(ListfundsResponse)
+
+ListfundsChannels = _reflection.GeneratedProtocolMessageType('ListfundsChannels', (_message.Message,), {
+  'DESCRIPTOR' : _LISTFUNDSCHANNELS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListfundsChannels)
+  })
+_sym_db.RegisterMessage(ListfundsChannels)
+
+ListfundsOutputs = _reflection.GeneratedProtocolMessageType('ListfundsOutputs', (_message.Message,), {
+  'DESCRIPTOR' : _LISTFUNDSOUTPUTS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListfundsOutputs)
+  })
+_sym_db.RegisterMessage(ListfundsOutputs)
+
 ListinvoicesRequest = _reflection.GeneratedProtocolMessageType('ListinvoicesRequest', (_message.Message,), {
   'DESCRIPTOR' : _LISTINVOICESREQUEST,
   '__module__' : 'node_pb2'
@@ -581,26 +630,124 @@ ListinvoicesInvoices = _reflection.GeneratedProtocolMessageType('ListinvoicesInv
   })
 _sym_db.RegisterMessage(ListinvoicesInvoices)
 
-SendonionRequest = _reflection.GeneratedProtocolMessageType('SendonionRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SENDONIONREQUEST,
+ListnodesRequest = _reflection.GeneratedProtocolMessageType('ListnodesRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LISTNODESREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SendonionRequest)
+  # @@protoc_insertion_point(class_scope:cln.ListnodesRequest)
   })
-_sym_db.RegisterMessage(SendonionRequest)
+_sym_db.RegisterMessage(ListnodesRequest)
 
-SendonionResponse = _reflection.GeneratedProtocolMessageType('SendonionResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SENDONIONRESPONSE,
+ListnodesResponse = _reflection.GeneratedProtocolMessageType('ListnodesResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTNODESRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SendonionResponse)
+  # @@protoc_insertion_point(class_scope:cln.ListnodesResponse)
   })
-_sym_db.RegisterMessage(SendonionResponse)
+_sym_db.RegisterMessage(ListnodesResponse)
 
-SendonionFirst_hop = _reflection.GeneratedProtocolMessageType('SendonionFirst_hop', (_message.Message,), {
-  'DESCRIPTOR' : _SENDONIONFIRST_HOP,
+ListnodesNodes = _reflection.GeneratedProtocolMessageType('ListnodesNodes', (_message.Message,), {
+  'DESCRIPTOR' : _LISTNODESNODES,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SendonionFirst_hop)
+  # @@protoc_insertion_point(class_scope:cln.ListnodesNodes)
   })
-_sym_db.RegisterMessage(SendonionFirst_hop)
+_sym_db.RegisterMessage(ListnodesNodes)
+
+ListnodesNodesAddresses = _reflection.GeneratedProtocolMessageType('ListnodesNodesAddresses', (_message.Message,), {
+  'DESCRIPTOR' : _LISTNODESNODESADDRESSES,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListnodesNodesAddresses)
+  })
+_sym_db.RegisterMessage(ListnodesNodesAddresses)
+
+ListpaysRequest = _reflection.GeneratedProtocolMessageType('ListpaysRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPAYSREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpaysRequest)
+  })
+_sym_db.RegisterMessage(ListpaysRequest)
+
+ListpaysResponse = _reflection.GeneratedProtocolMessageType('ListpaysResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPAYSRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpaysResponse)
+  })
+_sym_db.RegisterMessage(ListpaysResponse)
+
+ListpaysPays = _reflection.GeneratedProtocolMessageType('ListpaysPays', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPAYSPAYS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpaysPays)
+  })
+_sym_db.RegisterMessage(ListpaysPays)
+
+ListpeersRequest = _reflection.GeneratedProtocolMessageType('ListpeersRequest', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersRequest)
+  })
+_sym_db.RegisterMessage(ListpeersRequest)
+
+ListpeersResponse = _reflection.GeneratedProtocolMessageType('ListpeersResponse', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersResponse)
+  })
+_sym_db.RegisterMessage(ListpeersResponse)
+
+ListpeersPeers = _reflection.GeneratedProtocolMessageType('ListpeersPeers', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeers)
+  })
+_sym_db.RegisterMessage(ListpeersPeers)
+
+ListpeersPeersChannels = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannels', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannels)
+  })
+_sym_db.RegisterMessage(ListpeersPeersChannels)
+
+ListpeersPeersChannelsAlias = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsAlias', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSALIAS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsAlias)
+  })
+_sym_db.RegisterMessage(ListpeersPeersChannelsAlias)
+
+ListpeersPeersChannelsFeerate = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsFeerate', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSFEERATE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsFeerate)
+  })
+_sym_db.RegisterMessage(ListpeersPeersChannelsFeerate)
+
+ListpeersPeersChannelsFunding = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsFunding', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSFUNDING,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsFunding)
+  })
+_sym_db.RegisterMessage(ListpeersPeersChannelsFunding)
+
+ListpeersPeersChannelsHtlcs = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsHtlcs', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSHTLCS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsHtlcs)
+  })
+_sym_db.RegisterMessage(ListpeersPeersChannelsHtlcs)
+
+ListpeersPeersChannelsInflight = _reflection.GeneratedProtocolMessageType('ListpeersPeersChannelsInflight', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERSCHANNELSINFLIGHT,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersChannelsInflight)
+  })
+_sym_db.RegisterMessage(ListpeersPeersChannelsInflight)
+
+ListpeersPeersLog = _reflection.GeneratedProtocolMessageType('ListpeersPeersLog', (_message.Message,), {
+  'DESCRIPTOR' : _LISTPEERSPEERSLOG,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.ListpeersPeersLog)
+  })
+_sym_db.RegisterMessage(ListpeersPeersLog)
 
 ListsendpaysRequest = _reflection.GeneratedProtocolMessageType('ListsendpaysRequest', (_message.Message,), {
   'DESCRIPTOR' : _LISTSENDPAYSREQUEST,
@@ -658,90 +805,6 @@ ListtransactionsTransactionsOutputs = _reflection.GeneratedProtocolMessageType('
   })
 _sym_db.RegisterMessage(ListtransactionsTransactionsOutputs)
 
-PayRequest = _reflection.GeneratedProtocolMessageType('PayRequest', (_message.Message,), {
-  'DESCRIPTOR' : _PAYREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.PayRequest)
-  })
-_sym_db.RegisterMessage(PayRequest)
-
-PayResponse = _reflection.GeneratedProtocolMessageType('PayResponse', (_message.Message,), {
-  'DESCRIPTOR' : _PAYRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.PayResponse)
-  })
-_sym_db.RegisterMessage(PayResponse)
-
-ListnodesRequest = _reflection.GeneratedProtocolMessageType('ListnodesRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTNODESREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListnodesRequest)
-  })
-_sym_db.RegisterMessage(ListnodesRequest)
-
-ListnodesResponse = _reflection.GeneratedProtocolMessageType('ListnodesResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTNODESRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListnodesResponse)
-  })
-_sym_db.RegisterMessage(ListnodesResponse)
-
-ListnodesNodes = _reflection.GeneratedProtocolMessageType('ListnodesNodes', (_message.Message,), {
-  'DESCRIPTOR' : _LISTNODESNODES,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListnodesNodes)
-  })
-_sym_db.RegisterMessage(ListnodesNodes)
-
-ListnodesNodesAddresses = _reflection.GeneratedProtocolMessageType('ListnodesNodesAddresses', (_message.Message,), {
-  'DESCRIPTOR' : _LISTNODESNODESADDRESSES,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListnodesNodesAddresses)
-  })
-_sym_db.RegisterMessage(ListnodesNodesAddresses)
-
-WaitanyinvoiceRequest = _reflection.GeneratedProtocolMessageType('WaitanyinvoiceRequest', (_message.Message,), {
-  'DESCRIPTOR' : _WAITANYINVOICEREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WaitanyinvoiceRequest)
-  })
-_sym_db.RegisterMessage(WaitanyinvoiceRequest)
-
-WaitanyinvoiceResponse = _reflection.GeneratedProtocolMessageType('WaitanyinvoiceResponse', (_message.Message,), {
-  'DESCRIPTOR' : _WAITANYINVOICERESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WaitanyinvoiceResponse)
-  })
-_sym_db.RegisterMessage(WaitanyinvoiceResponse)
-
-WaitinvoiceRequest = _reflection.GeneratedProtocolMessageType('WaitinvoiceRequest', (_message.Message,), {
-  'DESCRIPTOR' : _WAITINVOICEREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WaitinvoiceRequest)
-  })
-_sym_db.RegisterMessage(WaitinvoiceRequest)
-
-WaitinvoiceResponse = _reflection.GeneratedProtocolMessageType('WaitinvoiceResponse', (_message.Message,), {
-  'DESCRIPTOR' : _WAITINVOICERESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WaitinvoiceResponse)
-  })
-_sym_db.RegisterMessage(WaitinvoiceResponse)
-
-WaitsendpayRequest = _reflection.GeneratedProtocolMessageType('WaitsendpayRequest', (_message.Message,), {
-  'DESCRIPTOR' : _WAITSENDPAYREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WaitsendpayRequest)
-  })
-_sym_db.RegisterMessage(WaitsendpayRequest)
-
-WaitsendpayResponse = _reflection.GeneratedProtocolMessageType('WaitsendpayResponse', (_message.Message,), {
-  'DESCRIPTOR' : _WAITSENDPAYRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WaitsendpayResponse)
-  })
-_sym_db.RegisterMessage(WaitsendpayResponse)
-
 NewaddrRequest = _reflection.GeneratedProtocolMessageType('NewaddrRequest', (_message.Message,), {
   'DESCRIPTOR' : _NEWADDRREQUEST,
   '__module__' : 'node_pb2'
@@ -756,54 +819,75 @@ NewaddrResponse = _reflection.GeneratedProtocolMessageType('NewaddrResponse', (_
   })
 _sym_db.RegisterMessage(NewaddrResponse)
 
-WithdrawRequest = _reflection.GeneratedProtocolMessageType('WithdrawRequest', (_message.Message,), {
-  'DESCRIPTOR' : _WITHDRAWREQUEST,
+PayRequest = _reflection.GeneratedProtocolMessageType('PayRequest', (_message.Message,), {
+  'DESCRIPTOR' : _PAYREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WithdrawRequest)
+  # @@protoc_insertion_point(class_scope:cln.PayRequest)
   })
-_sym_db.RegisterMessage(WithdrawRequest)
+_sym_db.RegisterMessage(PayRequest)
 
-WithdrawResponse = _reflection.GeneratedProtocolMessageType('WithdrawResponse', (_message.Message,), {
-  'DESCRIPTOR' : _WITHDRAWRESPONSE,
+PayResponse = _reflection.GeneratedProtocolMessageType('PayResponse', (_message.Message,), {
+  'DESCRIPTOR' : _PAYRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.WithdrawResponse)
+  # @@protoc_insertion_point(class_scope:cln.PayResponse)
   })
-_sym_db.RegisterMessage(WithdrawResponse)
+_sym_db.RegisterMessage(PayResponse)
 
-KeysendRequest = _reflection.GeneratedProtocolMessageType('KeysendRequest', (_message.Message,), {
-  'DESCRIPTOR' : _KEYSENDREQUEST,
+PingRequest = _reflection.GeneratedProtocolMessageType('PingRequest', (_message.Message,), {
+  'DESCRIPTOR' : _PINGREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.KeysendRequest)
+  # @@protoc_insertion_point(class_scope:cln.PingRequest)
   })
-_sym_db.RegisterMessage(KeysendRequest)
+_sym_db.RegisterMessage(PingRequest)
 
-KeysendResponse = _reflection.GeneratedProtocolMessageType('KeysendResponse', (_message.Message,), {
-  'DESCRIPTOR' : _KEYSENDRESPONSE,
+PingResponse = _reflection.GeneratedProtocolMessageType('PingResponse', (_message.Message,), {
+  'DESCRIPTOR' : _PINGRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.KeysendResponse)
+  # @@protoc_insertion_point(class_scope:cln.PingResponse)
   })
-_sym_db.RegisterMessage(KeysendResponse)
+_sym_db.RegisterMessage(PingResponse)
 
-FundpsbtRequest = _reflection.GeneratedProtocolMessageType('FundpsbtRequest', (_message.Message,), {
-  'DESCRIPTOR' : _FUNDPSBTREQUEST,
+SendonionRequest = _reflection.GeneratedProtocolMessageType('SendonionRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SENDONIONREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FundpsbtRequest)
+  # @@protoc_insertion_point(class_scope:cln.SendonionRequest)
   })
-_sym_db.RegisterMessage(FundpsbtRequest)
+_sym_db.RegisterMessage(SendonionRequest)
 
-FundpsbtResponse = _reflection.GeneratedProtocolMessageType('FundpsbtResponse', (_message.Message,), {
-  'DESCRIPTOR' : _FUNDPSBTRESPONSE,
+SendonionResponse = _reflection.GeneratedProtocolMessageType('SendonionResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SENDONIONRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FundpsbtResponse)
+  # @@protoc_insertion_point(class_scope:cln.SendonionResponse)
   })
-_sym_db.RegisterMessage(FundpsbtResponse)
+_sym_db.RegisterMessage(SendonionResponse)
 
-FundpsbtReservations = _reflection.GeneratedProtocolMessageType('FundpsbtReservations', (_message.Message,), {
-  'DESCRIPTOR' : _FUNDPSBTRESERVATIONS,
+SendonionFirst_hop = _reflection.GeneratedProtocolMessageType('SendonionFirst_hop', (_message.Message,), {
+  'DESCRIPTOR' : _SENDONIONFIRST_HOP,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FundpsbtReservations)
+  # @@protoc_insertion_point(class_scope:cln.SendonionFirst_hop)
   })
-_sym_db.RegisterMessage(FundpsbtReservations)
+_sym_db.RegisterMessage(SendonionFirst_hop)
+
+SendpayRequest = _reflection.GeneratedProtocolMessageType('SendpayRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SENDPAYREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SendpayRequest)
+  })
+_sym_db.RegisterMessage(SendpayRequest)
+
+SendpayResponse = _reflection.GeneratedProtocolMessageType('SendpayResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SENDPAYRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SendpayResponse)
+  })
+_sym_db.RegisterMessage(SendpayResponse)
+
+SendpayRoute = _reflection.GeneratedProtocolMessageType('SendpayRoute', (_message.Message,), {
+  'DESCRIPTOR' : _SENDPAYROUTE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SendpayRoute)
+  })
+_sym_db.RegisterMessage(SendpayRoute)
 
 SendpsbtRequest = _reflection.GeneratedProtocolMessageType('SendpsbtRequest', (_message.Message,), {
   'DESCRIPTOR' : _SENDPSBTREQUEST,
@@ -819,6 +903,41 @@ SendpsbtResponse = _reflection.GeneratedProtocolMessageType('SendpsbtResponse', 
   })
 _sym_db.RegisterMessage(SendpsbtResponse)
 
+SetchannelRequest = _reflection.GeneratedProtocolMessageType('SetchannelRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SETCHANNELREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SetchannelRequest)
+  })
+_sym_db.RegisterMessage(SetchannelRequest)
+
+SetchannelResponse = _reflection.GeneratedProtocolMessageType('SetchannelResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SETCHANNELRESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SetchannelResponse)
+  })
+_sym_db.RegisterMessage(SetchannelResponse)
+
+SetchannelChannels = _reflection.GeneratedProtocolMessageType('SetchannelChannels', (_message.Message,), {
+  'DESCRIPTOR' : _SETCHANNELCHANNELS,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SetchannelChannels)
+  })
+_sym_db.RegisterMessage(SetchannelChannels)
+
+SignmessageRequest = _reflection.GeneratedProtocolMessageType('SignmessageRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SIGNMESSAGEREQUEST,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SignmessageRequest)
+  })
+_sym_db.RegisterMessage(SignmessageRequest)
+
+SignmessageResponse = _reflection.GeneratedProtocolMessageType('SignmessageResponse', (_message.Message,), {
+  'DESCRIPTOR' : _SIGNMESSAGERESPONSE,
+  '__module__' : 'node_pb2'
+  # @@protoc_insertion_point(class_scope:cln.SignmessageResponse)
+  })
+_sym_db.RegisterMessage(SignmessageResponse)
+
 SignpsbtRequest = _reflection.GeneratedProtocolMessageType('SignpsbtRequest', (_message.Message,), {
   'DESCRIPTOR' : _SIGNPSBTREQUEST,
   '__module__' : 'node_pb2'
@@ -833,26 +952,19 @@ SignpsbtResponse = _reflection.GeneratedProtocolMessageType('SignpsbtResponse', 
   })
 _sym_db.RegisterMessage(SignpsbtResponse)
 
-UtxopsbtRequest = _reflection.GeneratedProtocolMessageType('UtxopsbtRequest', (_message.Message,), {
-  'DESCRIPTOR' : _UTXOPSBTREQUEST,
+StopRequest = _reflection.GeneratedProtocolMessageType('StopRequest', (_message.Message,), {
+  'DESCRIPTOR' : _STOPREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.UtxopsbtRequest)
+  # @@protoc_insertion_point(class_scope:cln.StopRequest)
   })
-_sym_db.RegisterMessage(UtxopsbtRequest)
+_sym_db.RegisterMessage(StopRequest)
 
-UtxopsbtResponse = _reflection.GeneratedProtocolMessageType('UtxopsbtResponse', (_message.Message,), {
-  'DESCRIPTOR' : _UTXOPSBTRESPONSE,
+StopResponse = _reflection.GeneratedProtocolMessageType('StopResponse', (_message.Message,), {
+  'DESCRIPTOR' : _STOPRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.UtxopsbtResponse)
+  # @@protoc_insertion_point(class_scope:cln.StopResponse)
   })
-_sym_db.RegisterMessage(UtxopsbtResponse)
-
-UtxopsbtReservations = _reflection.GeneratedProtocolMessageType('UtxopsbtReservations', (_message.Message,), {
-  'DESCRIPTOR' : _UTXOPSBTRESERVATIONS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.UtxopsbtReservations)
-  })
-_sym_db.RegisterMessage(UtxopsbtReservations)
+_sym_db.RegisterMessage(StopResponse)
 
 TxdiscardRequest = _reflection.GeneratedProtocolMessageType('TxdiscardRequest', (_message.Message,), {
   'DESCRIPTOR' : _TXDISCARDREQUEST,
@@ -896,525 +1008,413 @@ TxsendResponse = _reflection.GeneratedProtocolMessageType('TxsendResponse', (_me
   })
 _sym_db.RegisterMessage(TxsendResponse)
 
-DisconnectRequest = _reflection.GeneratedProtocolMessageType('DisconnectRequest', (_message.Message,), {
-  'DESCRIPTOR' : _DISCONNECTREQUEST,
+UtxopsbtRequest = _reflection.GeneratedProtocolMessageType('UtxopsbtRequest', (_message.Message,), {
+  'DESCRIPTOR' : _UTXOPSBTREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.DisconnectRequest)
+  # @@protoc_insertion_point(class_scope:cln.UtxopsbtRequest)
   })
-_sym_db.RegisterMessage(DisconnectRequest)
+_sym_db.RegisterMessage(UtxopsbtRequest)
 
-DisconnectResponse = _reflection.GeneratedProtocolMessageType('DisconnectResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DISCONNECTRESPONSE,
+UtxopsbtResponse = _reflection.GeneratedProtocolMessageType('UtxopsbtResponse', (_message.Message,), {
+  'DESCRIPTOR' : _UTXOPSBTRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.DisconnectResponse)
+  # @@protoc_insertion_point(class_scope:cln.UtxopsbtResponse)
   })
-_sym_db.RegisterMessage(DisconnectResponse)
+_sym_db.RegisterMessage(UtxopsbtResponse)
 
-FeeratesRequest = _reflection.GeneratedProtocolMessageType('FeeratesRequest', (_message.Message,), {
-  'DESCRIPTOR' : _FEERATESREQUEST,
+UtxopsbtReservations = _reflection.GeneratedProtocolMessageType('UtxopsbtReservations', (_message.Message,), {
+  'DESCRIPTOR' : _UTXOPSBTRESERVATIONS,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FeeratesRequest)
+  # @@protoc_insertion_point(class_scope:cln.UtxopsbtReservations)
   })
-_sym_db.RegisterMessage(FeeratesRequest)
+_sym_db.RegisterMessage(UtxopsbtReservations)
 
-FeeratesResponse = _reflection.GeneratedProtocolMessageType('FeeratesResponse', (_message.Message,), {
-  'DESCRIPTOR' : _FEERATESRESPONSE,
+WaitanyinvoiceRequest = _reflection.GeneratedProtocolMessageType('WaitanyinvoiceRequest', (_message.Message,), {
+  'DESCRIPTOR' : _WAITANYINVOICEREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FeeratesResponse)
+  # @@protoc_insertion_point(class_scope:cln.WaitanyinvoiceRequest)
   })
-_sym_db.RegisterMessage(FeeratesResponse)
+_sym_db.RegisterMessage(WaitanyinvoiceRequest)
 
-FeeratesPerkb = _reflection.GeneratedProtocolMessageType('FeeratesPerkb', (_message.Message,), {
-  'DESCRIPTOR' : _FEERATESPERKB,
+WaitanyinvoiceResponse = _reflection.GeneratedProtocolMessageType('WaitanyinvoiceResponse', (_message.Message,), {
+  'DESCRIPTOR' : _WAITANYINVOICERESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FeeratesPerkb)
+  # @@protoc_insertion_point(class_scope:cln.WaitanyinvoiceResponse)
   })
-_sym_db.RegisterMessage(FeeratesPerkb)
+_sym_db.RegisterMessage(WaitanyinvoiceResponse)
 
-FeeratesPerkw = _reflection.GeneratedProtocolMessageType('FeeratesPerkw', (_message.Message,), {
-  'DESCRIPTOR' : _FEERATESPERKW,
+WaitinvoiceRequest = _reflection.GeneratedProtocolMessageType('WaitinvoiceRequest', (_message.Message,), {
+  'DESCRIPTOR' : _WAITINVOICEREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FeeratesPerkw)
+  # @@protoc_insertion_point(class_scope:cln.WaitinvoiceRequest)
   })
-_sym_db.RegisterMessage(FeeratesPerkw)
+_sym_db.RegisterMessage(WaitinvoiceRequest)
 
-FeeratesOnchain_fee_estimates = _reflection.GeneratedProtocolMessageType('FeeratesOnchain_fee_estimates', (_message.Message,), {
-  'DESCRIPTOR' : _FEERATESONCHAIN_FEE_ESTIMATES,
+WaitinvoiceResponse = _reflection.GeneratedProtocolMessageType('WaitinvoiceResponse', (_message.Message,), {
+  'DESCRIPTOR' : _WAITINVOICERESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FeeratesOnchain_fee_estimates)
+  # @@protoc_insertion_point(class_scope:cln.WaitinvoiceResponse)
   })
-_sym_db.RegisterMessage(FeeratesOnchain_fee_estimates)
+_sym_db.RegisterMessage(WaitinvoiceResponse)
 
-FundchannelRequest = _reflection.GeneratedProtocolMessageType('FundchannelRequest', (_message.Message,), {
-  'DESCRIPTOR' : _FUNDCHANNELREQUEST,
+WaitsendpayRequest = _reflection.GeneratedProtocolMessageType('WaitsendpayRequest', (_message.Message,), {
+  'DESCRIPTOR' : _WAITSENDPAYREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FundchannelRequest)
+  # @@protoc_insertion_point(class_scope:cln.WaitsendpayRequest)
   })
-_sym_db.RegisterMessage(FundchannelRequest)
+_sym_db.RegisterMessage(WaitsendpayRequest)
 
-FundchannelResponse = _reflection.GeneratedProtocolMessageType('FundchannelResponse', (_message.Message,), {
-  'DESCRIPTOR' : _FUNDCHANNELRESPONSE,
+WaitsendpayResponse = _reflection.GeneratedProtocolMessageType('WaitsendpayResponse', (_message.Message,), {
+  'DESCRIPTOR' : _WAITSENDPAYRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.FundchannelResponse)
+  # @@protoc_insertion_point(class_scope:cln.WaitsendpayResponse)
   })
-_sym_db.RegisterMessage(FundchannelResponse)
+_sym_db.RegisterMessage(WaitsendpayResponse)
 
-GetrouteRequest = _reflection.GeneratedProtocolMessageType('GetrouteRequest', (_message.Message,), {
-  'DESCRIPTOR' : _GETROUTEREQUEST,
+WithdrawRequest = _reflection.GeneratedProtocolMessageType('WithdrawRequest', (_message.Message,), {
+  'DESCRIPTOR' : _WITHDRAWREQUEST,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetrouteRequest)
+  # @@protoc_insertion_point(class_scope:cln.WithdrawRequest)
   })
-_sym_db.RegisterMessage(GetrouteRequest)
+_sym_db.RegisterMessage(WithdrawRequest)
 
-GetrouteResponse = _reflection.GeneratedProtocolMessageType('GetrouteResponse', (_message.Message,), {
-  'DESCRIPTOR' : _GETROUTERESPONSE,
+WithdrawResponse = _reflection.GeneratedProtocolMessageType('WithdrawResponse', (_message.Message,), {
+  'DESCRIPTOR' : _WITHDRAWRESPONSE,
   '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetrouteResponse)
+  # @@protoc_insertion_point(class_scope:cln.WithdrawResponse)
   })
-_sym_db.RegisterMessage(GetrouteResponse)
-
-GetrouteRoute = _reflection.GeneratedProtocolMessageType('GetrouteRoute', (_message.Message,), {
-  'DESCRIPTOR' : _GETROUTEROUTE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.GetrouteRoute)
-  })
-_sym_db.RegisterMessage(GetrouteRoute)
-
-ListforwardsRequest = _reflection.GeneratedProtocolMessageType('ListforwardsRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFORWARDSREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListforwardsRequest)
-  })
-_sym_db.RegisterMessage(ListforwardsRequest)
-
-ListforwardsResponse = _reflection.GeneratedProtocolMessageType('ListforwardsResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFORWARDSRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListforwardsResponse)
-  })
-_sym_db.RegisterMessage(ListforwardsResponse)
-
-ListforwardsForwards = _reflection.GeneratedProtocolMessageType('ListforwardsForwards', (_message.Message,), {
-  'DESCRIPTOR' : _LISTFORWARDSFORWARDS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListforwardsForwards)
-  })
-_sym_db.RegisterMessage(ListforwardsForwards)
-
-ListpaysRequest = _reflection.GeneratedProtocolMessageType('ListpaysRequest', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPAYSREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpaysRequest)
-  })
-_sym_db.RegisterMessage(ListpaysRequest)
-
-ListpaysResponse = _reflection.GeneratedProtocolMessageType('ListpaysResponse', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPAYSRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpaysResponse)
-  })
-_sym_db.RegisterMessage(ListpaysResponse)
-
-ListpaysPays = _reflection.GeneratedProtocolMessageType('ListpaysPays', (_message.Message,), {
-  'DESCRIPTOR' : _LISTPAYSPAYS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.ListpaysPays)
-  })
-_sym_db.RegisterMessage(ListpaysPays)
-
-PingRequest = _reflection.GeneratedProtocolMessageType('PingRequest', (_message.Message,), {
-  'DESCRIPTOR' : _PINGREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.PingRequest)
-  })
-_sym_db.RegisterMessage(PingRequest)
-
-PingResponse = _reflection.GeneratedProtocolMessageType('PingResponse', (_message.Message,), {
-  'DESCRIPTOR' : _PINGRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.PingResponse)
-  })
-_sym_db.RegisterMessage(PingResponse)
-
-SetchannelRequest = _reflection.GeneratedProtocolMessageType('SetchannelRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SETCHANNELREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SetchannelRequest)
-  })
-_sym_db.RegisterMessage(SetchannelRequest)
-
-SetchannelResponse = _reflection.GeneratedProtocolMessageType('SetchannelResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SETCHANNELRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SetchannelResponse)
-  })
-_sym_db.RegisterMessage(SetchannelResponse)
-
-SetchannelChannels = _reflection.GeneratedProtocolMessageType('SetchannelChannels', (_message.Message,), {
-  'DESCRIPTOR' : _SETCHANNELCHANNELS,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SetchannelChannels)
-  })
-_sym_db.RegisterMessage(SetchannelChannels)
-
-SignmessageRequest = _reflection.GeneratedProtocolMessageType('SignmessageRequest', (_message.Message,), {
-  'DESCRIPTOR' : _SIGNMESSAGEREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SignmessageRequest)
-  })
-_sym_db.RegisterMessage(SignmessageRequest)
-
-SignmessageResponse = _reflection.GeneratedProtocolMessageType('SignmessageResponse', (_message.Message,), {
-  'DESCRIPTOR' : _SIGNMESSAGERESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.SignmessageResponse)
-  })
-_sym_db.RegisterMessage(SignmessageResponse)
-
-StopRequest = _reflection.GeneratedProtocolMessageType('StopRequest', (_message.Message,), {
-  'DESCRIPTOR' : _STOPREQUEST,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.StopRequest)
-  })
-_sym_db.RegisterMessage(StopRequest)
-
-StopResponse = _reflection.GeneratedProtocolMessageType('StopResponse', (_message.Message,), {
-  'DESCRIPTOR' : _STOPRESPONSE,
-  '__module__' : 'node_pb2'
-  # @@protoc_insertion_point(class_scope:cln.StopResponse)
-  })
-_sym_db.RegisterMessage(StopResponse)
+_sym_db.RegisterMessage(WithdrawResponse)
 
 _NODE = DESCRIPTOR.services_by_name['Node']
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _GETINFOREQUEST._serialized_start=37
-  _GETINFOREQUEST._serialized_end=53
-  _GETINFORESPONSE._serialized_start=56
-  _GETINFORESPONSE._serialized_end=614
-  _GETINFOOUR_FEATURES._serialized_start=616
-  _GETINFOOUR_FEATURES._serialized_end=699
-  _GETINFOADDRESS._serialized_start=702
-  _GETINFOADDRESS._serialized_end=913
-  _GETINFOADDRESS_GETINFOADDRESSTYPE._serialized_start=815
-  _GETINFOADDRESS_GETINFOADDRESSTYPE._serialized_end=901
-  _GETINFOBINDING._serialized_start=916
-  _GETINFOBINDING._serialized_end=1167
-  _GETINFOBINDING_GETINFOBINDINGTYPE._serialized_start=1055
-  _GETINFOBINDING_GETINFOBINDINGTYPE._serialized_end=1135
-  _LISTPEERSREQUEST._serialized_start=1169
-  _LISTPEERSREQUEST._serialized_end=1241
-  _LISTPEERSRESPONSE._serialized_start=1243
-  _LISTPEERSRESPONSE._serialized_end=1298
-  _LISTPEERSPEERS._serialized_start=1301
-  _LISTPEERSPEERS._serialized_end=1527
-  _LISTPEERSPEERSLOG._serialized_start=1530
-  _LISTPEERSPEERSLOG._serialized_end=1911
-  _LISTPEERSPEERSLOG_LISTPEERSPEERSLOGTYPE._serialized_start=1741
-  _LISTPEERSPEERSLOG_LISTPEERSPEERSLOGTYPE._serialized_end=1846
-  _LISTPEERSPEERSCHANNELS._serialized_start=1914
-  _LISTPEERSPEERSCHANNELS._serialized_end=4740
-  _LISTPEERSPEERSCHANNELS_LISTPEERSPEERSCHANNELSSTATE._serialized_start=3644
-  _LISTPEERSPEERSCHANNELS_LISTPEERSPEERSCHANNELSSTATE._serialized_end=3933
-  _LISTPEERSPEERSCHANNELSFEERATE._serialized_start=4742
-  _LISTPEERSPEERSCHANNELSFEERATE._serialized_end=4803
-  _LISTPEERSPEERSCHANNELSINFLIGHT._serialized_start=4806
-  _LISTPEERSPEERSCHANNELSINFLIGHT._serialized_end=5003
-  _LISTPEERSPEERSCHANNELSFUNDING._serialized_start=5006
-  _LISTPEERSPEERSCHANNELSFUNDING._serialized_end=5397
-  _LISTPEERSPEERSCHANNELSALIAS._serialized_start=5399
-  _LISTPEERSPEERSCHANNELSALIAS._serialized_end=5490
-  _LISTPEERSPEERSCHANNELSHTLCS._serialized_start=5493
-  _LISTPEERSPEERSCHANNELSHTLCS._serialized_end=5831
-  _LISTPEERSPEERSCHANNELSHTLCS_LISTPEERSPEERSCHANNELSHTLCSDIRECTION._serialized_start=5747
-  _LISTPEERSPEERSCHANNELSHTLCS_LISTPEERSPEERSCHANNELSHTLCSDIRECTION._serialized_end=5802
-  _LISTFUNDSREQUEST._serialized_start=5833
-  _LISTFUNDSREQUEST._serialized_end=5881
-  _LISTFUNDSRESPONSE._serialized_start=5883
-  _LISTFUNDSRESPONSE._serialized_end=5984
-  _LISTFUNDSOUTPUTS._serialized_start=5987
-  _LISTFUNDSOUTPUTS._serialized_end=6374
-  _LISTFUNDSOUTPUTS_LISTFUNDSOUTPUTSSTATUS._serialized_start=6248
-  _LISTFUNDSOUTPUTS_LISTFUNDSOUTPUTSSTATUS._serialized_end=6329
-  _LISTFUNDSCHANNELS._serialized_start=6377
-  _LISTFUNDSCHANNELS._serialized_end=6636
-  _SENDPAYREQUEST._serialized_start=6639
-  _SENDPAYREQUEST._serialized_end=6988
-  _SENDPAYRESPONSE._serialized_start=6991
-  _SENDPAYRESPONSE._serialized_end=7584
-  _SENDPAYRESPONSE_SENDPAYSTATUS._serialized_start=7405
-  _SENDPAYRESPONSE_SENDPAYSTATUS._serialized_end=7447
-  _SENDPAYROUTE._serialized_start=7586
-  _SENDPAYROUTE._serialized_end=7678
-  _LISTCHANNELSREQUEST._serialized_start=7681
-  _LISTCHANNELSREQUEST._serialized_end=7828
-  _LISTCHANNELSRESPONSE._serialized_start=7830
-  _LISTCHANNELSRESPONSE._serialized_end=7897
-  _LISTCHANNELSCHANNELS._serialized_start=7900
-  _LISTCHANNELSCHANNELS._serialized_end=8316
-  _ADDGOSSIPREQUEST._serialized_start=8318
-  _ADDGOSSIPREQUEST._serialized_end=8353
-  _ADDGOSSIPRESPONSE._serialized_start=8355
-  _ADDGOSSIPRESPONSE._serialized_end=8374
-  _AUTOCLEANINVOICEREQUEST._serialized_start=8376
-  _AUTOCLEANINVOICEREQUEST._serialized_end=8487
-  _AUTOCLEANINVOICERESPONSE._serialized_start=8490
-  _AUTOCLEANINVOICERESPONSE._serialized_end=8619
-  _CHECKMESSAGEREQUEST._serialized_start=8621
-  _CHECKMESSAGEREQUEST._serialized_end=8706
-  _CHECKMESSAGERESPONSE._serialized_start=8708
-  _CHECKMESSAGERESPONSE._serialized_end=8764
-  _CLOSEREQUEST._serialized_start=8767
-  _CLOSEREQUEST._serialized_end=9098
-  _CLOSERESPONSE._serialized_start=9101
-  _CLOSERESPONSE._serialized_end=9272
-  _CLOSERESPONSE_CLOSETYPE._serialized_start=9203
-  _CLOSERESPONSE_CLOSETYPE._serialized_end=9256
-  _CONNECTREQUEST._serialized_start=9274
-  _CONNECTREQUEST._serialized_end=9358
-  _CONNECTRESPONSE._serialized_start=9361
-  _CONNECTRESPONSE._serialized_end=9503
-  _CONNECTRESPONSE_CONNECTDIRECTION._serialized_start=9468
-  _CONNECTRESPONSE_CONNECTDIRECTION._serialized_end=9503
-  _CONNECTADDRESS._serialized_start=9506
-  _CONNECTADDRESS._serialized_end=9757
-  _CONNECTADDRESS_CONNECTADDRESSTYPE._serialized_start=9645
-  _CONNECTADDRESS_CONNECTADDRESSTYPE._serialized_end=9725
-  _CREATEINVOICEREQUEST._serialized_start=9759
-  _CREATEINVOICEREQUEST._serialized_end=9833
-  _CREATEINVOICERESPONSE._serialized_start=9836
-  _CREATEINVOICERESPONSE._serialized_end=10477
-  _CREATEINVOICERESPONSE_CREATEINVOICESTATUS._serialized_start=10270
-  _CREATEINVOICERESPONSE_CREATEINVOICESTATUS._serialized_end=10326
-  _DATASTOREREQUEST._serialized_start=10480
-  _DATASTOREREQUEST._serialized_end=10788
-  _DATASTOREREQUEST_DATASTOREMODE._serialized_start=10633
-  _DATASTOREREQUEST_DATASTOREMODE._serialized_end=10745
-  _DATASTORERESPONSE._serialized_start=10791
-  _DATASTORERESPONSE._serialized_end=10921
-  _CREATEONIONREQUEST._serialized_start=10924
-  _CREATEONIONREQUEST._serialized_end=11081
-  _CREATEONIONRESPONSE._serialized_start=11083
-  _CREATEONIONRESPONSE._serialized_end=11143
-  _CREATEONIONHOPS._serialized_start=11145
-  _CREATEONIONHOPS._serialized_end=11195
-  _DELDATASTOREREQUEST._serialized_start=11197
-  _DELDATASTOREREQUEST._serialized_end=11271
-  _DELDATASTORERESPONSE._serialized_start=11274
-  _DELDATASTORERESPONSE._serialized_end=11407
-  _DELEXPIREDINVOICEREQUEST._serialized_start=11409
-  _DELEXPIREDINVOICEREQUEST._serialized_end=11481
-  _DELEXPIREDINVOICERESPONSE._serialized_start=11483
-  _DELEXPIREDINVOICERESPONSE._serialized_end=11510
-  _DELINVOICEREQUEST._serialized_start=11513
-  _DELINVOICEREQUEST._serialized_end=11695
-  _DELINVOICEREQUEST_DELINVOICESTATUS._serialized_start=11629
-  _DELINVOICEREQUEST_DELINVOICESTATUS._serialized_end=11682
-  _DELINVOICERESPONSE._serialized_start=11698
-  _DELINVOICERESPONSE._serialized_end=12151
-  _DELINVOICERESPONSE_DELINVOICESTATUS._serialized_start=11629
-  _DELINVOICERESPONSE_DELINVOICESTATUS._serialized_end=11682
-  _INVOICEREQUEST._serialized_start=12154
-  _INVOICEREQUEST._serialized_end=12466
-  _INVOICERESPONSE._serialized_start=12469
-  _INVOICERESPONSE._serialized_end=12828
-  _LISTDATASTOREREQUEST._serialized_start=12830
-  _LISTDATASTOREREQUEST._serialized_end=12865
-  _LISTDATASTORERESPONSE._serialized_start=12867
-  _LISTDATASTORERESPONSE._serialized_end=12938
-  _LISTDATASTOREDATASTORE._serialized_start=12941
-  _LISTDATASTOREDATASTORE._serialized_end=13076
-  _LISTINVOICESREQUEST._serialized_start=13079
-  _LISTINVOICESREQUEST._serialized_end=13248
-  _LISTINVOICESRESPONSE._serialized_start=13250
-  _LISTINVOICESRESPONSE._serialized_end=13317
-  _LISTINVOICESINVOICES._serialized_start=13320
-  _LISTINVOICESINVOICES._serialized_end=13994
-  _LISTINVOICESINVOICES_LISTINVOICESINVOICESSTATUS._serialized_start=13764
-  _LISTINVOICESINVOICES_LISTINVOICESINVOICESSTATUS._serialized_end=13827
-  _SENDONIONREQUEST._serialized_start=13997
-  _SENDONIONREQUEST._serialized_end=14347
-  _SENDONIONRESPONSE._serialized_start=14350
-  _SENDONIONRESPONSE._serialized_end=14873
-  _SENDONIONRESPONSE_SENDONIONSTATUS._serialized_start=14721
-  _SENDONIONRESPONSE_SENDONIONSTATUS._serialized_end=14765
-  _SENDONIONFIRST_HOP._serialized_start=14875
-  _SENDONIONFIRST_HOP._serialized_end=14956
-  _LISTSENDPAYSREQUEST._serialized_start=14959
-  _LISTSENDPAYSREQUEST._serialized_end=15194
-  _LISTSENDPAYSREQUEST_LISTSENDPAYSSTATUS._serialized_start=15096
-  _LISTSENDPAYSREQUEST_LISTSENDPAYSSTATUS._serialized_end=15155
-  _LISTSENDPAYSRESPONSE._serialized_start=15196
-  _LISTSENDPAYSRESPONSE._serialized_end=15263
-  _LISTSENDPAYSPAYMENTS._serialized_start=15266
-  _LISTSENDPAYSPAYMENTS._serialized_end=15862
-  _LISTSENDPAYSPAYMENTS_LISTSENDPAYSPAYMENTSSTATUS._serialized_start=15679
-  _LISTSENDPAYSPAYMENTS_LISTSENDPAYSPAYMENTSSTATUS._serialized_end=15746
-  _LISTTRANSACTIONSREQUEST._serialized_start=15864
-  _LISTTRANSACTIONSREQUEST._serialized_end=15889
-  _LISTTRANSACTIONSRESPONSE._serialized_start=15891
-  _LISTTRANSACTIONSRESPONSE._serialized_end=15974
-  _LISTTRANSACTIONSTRANSACTIONS._serialized_start=15977
-  _LISTTRANSACTIONSTRANSACTIONS._serialized_end=16259
-  _LISTTRANSACTIONSTRANSACTIONSINPUTS._serialized_start=16262
-  _LISTTRANSACTIONSTRANSACTIONSINPUTS._serialized_end=16778
-  _LISTTRANSACTIONSTRANSACTIONSINPUTS_LISTTRANSACTIONSTRANSACTIONSINPUTSTYPE._serialized_start=16474
-  _LISTTRANSACTIONSTRANSACTIONSINPUTS_LISTTRANSACTIONSTRANSACTIONSINPUTSTYPE._serialized_end=16752
-  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS._serialized_start=16781
-  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS._serialized_end=17325
-  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS_LISTTRANSACTIONSTRANSACTIONSOUTPUTSTYPE._serialized_start=17020
-  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS_LISTTRANSACTIONSTRANSACTIONSOUTPUTSTYPE._serialized_end=17299
-  _PAYREQUEST._serialized_start=17328
-  _PAYREQUEST._serialized_end=17802
-  _PAYRESPONSE._serialized_start=17805
-  _PAYRESPONSE._serialized_end=18184
-  _PAYRESPONSE_PAYSTATUS._serialized_start=18087
-  _PAYRESPONSE_PAYSTATUS._serialized_end=18137
-  _LISTNODESREQUEST._serialized_start=18186
-  _LISTNODESREQUEST._serialized_end=18228
-  _LISTNODESRESPONSE._serialized_start=18230
-  _LISTNODESRESPONSE._serialized_end=18285
-  _LISTNODESNODES._serialized_start=18288
-  _LISTNODESNODES._serialized_end=18513
-  _LISTNODESNODESADDRESSES._serialized_start=18516
-  _LISTNODESNODESADDRESSES._serialized_end=18763
-  _LISTNODESNODESADDRESSES_LISTNODESNODESADDRESSESTYPE._serialized_start=18656
-  _LISTNODESNODESADDRESSES_LISTNODESNODESADDRESSESTYPE._serialized_end=18751
-  _WAITANYINVOICEREQUEST._serialized_start=18765
-  _WAITANYINVOICEREQUEST._serialized_end=18868
-  _WAITANYINVOICERESPONSE._serialized_start=18871
-  _WAITANYINVOICERESPONSE._serialized_end=19402
-  _WAITANYINVOICERESPONSE_WAITANYINVOICESTATUS._serialized_start=19247
-  _WAITANYINVOICERESPONSE_WAITANYINVOICESTATUS._serialized_end=19292
-  _WAITINVOICEREQUEST._serialized_start=19404
-  _WAITINVOICEREQUEST._serialized_end=19439
-  _WAITINVOICERESPONSE._serialized_start=19442
-  _WAITINVOICERESPONSE._serialized_end=19961
-  _WAITINVOICERESPONSE_WAITINVOICESTATUS._serialized_start=19809
-  _WAITINVOICERESPONSE_WAITINVOICESTATUS._serialized_end=19851
-  _WAITSENDPAYREQUEST._serialized_start=19964
-  _WAITSENDPAYREQUEST._serialized_end=20106
-  _WAITSENDPAYRESPONSE._serialized_start=20109
-  _WAITSENDPAYRESPONSE._serialized_end=20671
-  _WAITSENDPAYRESPONSE_WAITSENDPAYSTATUS._serialized_start=20513
-  _WAITSENDPAYRESPONSE_WAITSENDPAYSTATUS._serialized_end=20546
-  _NEWADDRREQUEST._serialized_start=20674
-  _NEWADDRREQUEST._serialized_end=20832
-  _NEWADDRREQUEST_NEWADDRADDRESSTYPE._serialized_start=20758
-  _NEWADDRREQUEST_NEWADDRADDRESSTYPE._serialized_end=20816
-  _NEWADDRRESPONSE._serialized_start=20834
-  _NEWADDRRESPONSE._serialized_end=20925
-  _WITHDRAWREQUEST._serialized_start=20928
-  _WITHDRAWREQUEST._serialized_end=21130
-  _WITHDRAWRESPONSE._serialized_start=21132
-  _WITHDRAWRESPONSE._serialized_end=21190
-  _KEYSENDREQUEST._serialized_start=21193
-  _KEYSENDREQUEST._serialized_end=21579
-  _KEYSENDRESPONSE._serialized_start=21582
-  _KEYSENDRESPONSE._serialized_end=21952
-  _KEYSENDRESPONSE_KEYSENDSTATUS._serialized_start=21876
-  _KEYSENDRESPONSE_KEYSENDSTATUS._serialized_end=21905
-  _FUNDPSBTREQUEST._serialized_start=21955
-  _FUNDPSBTREQUEST._serialized_end=22271
-  _FUNDPSBTRESPONSE._serialized_start=22274
-  _FUNDPSBTRESPONSE._serialized_end=22491
-  _FUNDPSBTRESERVATIONS._serialized_start=22493
-  _FUNDPSBTRESERVATIONS._serialized_end=22610
-  _SENDPSBTREQUEST._serialized_start=22612
-  _SENDPSBTREQUEST._serialized_end=22677
-  _SENDPSBTRESPONSE._serialized_start=22679
-  _SENDPSBTRESPONSE._serialized_end=22723
-  _SIGNPSBTREQUEST._serialized_start=22725
-  _SIGNPSBTREQUEST._serialized_end=22774
-  _SIGNPSBTRESPONSE._serialized_start=22776
-  _SIGNPSBTRESPONSE._serialized_end=22815
-  _UTXOPSBTREQUEST._serialized_start=22818
-  _UTXOPSBTREQUEST._serialized_end=23165
-  _UTXOPSBTRESPONSE._serialized_start=23168
-  _UTXOPSBTRESPONSE._serialized_end=23385
-  _UTXOPSBTRESERVATIONS._serialized_start=23387
-  _UTXOPSBTRESERVATIONS._serialized_end=23504
-  _TXDISCARDREQUEST._serialized_start=23506
-  _TXDISCARDREQUEST._serialized_end=23538
-  _TXDISCARDRESPONSE._serialized_start=23540
-  _TXDISCARDRESPONSE._serialized_end=23594
-  _TXPREPAREREQUEST._serialized_start=23597
-  _TXPREPAREREQUEST._serialized_end=23761
-  _TXPREPARERESPONSE._serialized_start=23763
-  _TXPREPARERESPONSE._serialized_end=23831
-  _TXSENDREQUEST._serialized_start=23833
-  _TXSENDREQUEST._serialized_end=23862
-  _TXSENDRESPONSE._serialized_start=23864
-  _TXSENDRESPONSE._serialized_end=23920
-  _DISCONNECTREQUEST._serialized_start=23922
-  _DISCONNECTREQUEST._serialized_end=23983
-  _DISCONNECTRESPONSE._serialized_start=23985
-  _DISCONNECTRESPONSE._serialized_end=24005
-  _FEERATESREQUEST._serialized_start=24007
-  _FEERATESREQUEST._serialized_end=24114
-  _FEERATESREQUEST_FEERATESSTYLE._serialized_start=24077
-  _FEERATESREQUEST_FEERATESSTYLE._serialized_end=24114
-  _FEERATESRESPONSE._serialized_start=24116
-  _FEERATESRESPONSE._serialized_end=24202
-  _FEERATESPERKB._serialized_start=24205
-  _FEERATESPERKB._serialized_end=24528
-  _FEERATESPERKW._serialized_start=24531
-  _FEERATESPERKW._serialized_end=24854
-  _FEERATESONCHAIN_FEE_ESTIMATES._serialized_start=24857
-  _FEERATESONCHAIN_FEE_ESTIMATES._serialized_end=25050
-  _FUNDCHANNELREQUEST._serialized_start=25053
-  _FUNDCHANNELREQUEST._serialized_end=25538
-  _FUNDCHANNELRESPONSE._serialized_start=25541
-  _FUNDCHANNELRESPONSE._serialized_end=25696
-  _GETROUTEREQUEST._serialized_start=25699
-  _GETROUTEREQUEST._serialized_end=25935
-  _GETROUTERESPONSE._serialized_start=25937
-  _GETROUTERESPONSE._serialized_end=25990
-  _GETROUTEROUTE._serialized_start=25993
-  _GETROUTEROUTE._serialized_end=26226
-  _GETROUTEROUTE_GETROUTEROUTESTYLE._serialized_start=26184
-  _GETROUTEROUTE_GETROUTEROUTESTYLE._serialized_end=26213
-  _LISTFORWARDSREQUEST._serialized_start=26229
-  _LISTFORWARDSREQUEST._serialized_end=26487
-  _LISTFORWARDSREQUEST_LISTFORWARDSSTATUS._serialized_start=26369
-  _LISTFORWARDSREQUEST_LISTFORWARDSSTATUS._serialized_end=26445
-  _LISTFORWARDSRESPONSE._serialized_start=26489
-  _LISTFORWARDSRESPONSE._serialized_end=26556
-  _LISTFORWARDSFORWARDS._serialized_start=26559
-  _LISTFORWARDSFORWARDS._serialized_end=27165
-  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTATUS._serialized_start=26948
-  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTATUS._serialized_end=27032
-  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTYLE._serialized_start=27034
-  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTYLE._serialized_end=27082
-  _LISTPAYSREQUEST._serialized_start=27168
-  _LISTPAYSREQUEST._serialized_end=27387
-  _LISTPAYSREQUEST_LISTPAYSSTATUS._serialized_start=27293
-  _LISTPAYSREQUEST_LISTPAYSSTATUS._serialized_end=27348
-  _LISTPAYSRESPONSE._serialized_start=27389
-  _LISTPAYSRESPONSE._serialized_end=27440
-  _LISTPAYSPAYS._serialized_start=27443
-  _LISTPAYSPAYS._serialized_end=27962
-  _LISTPAYSPAYS_LISTPAYSPAYSSTATUS._serialized_start=27774
-  _LISTPAYSPAYS_LISTPAYSPAYSSTATUS._serialized_end=27833
-  _PINGREQUEST._serialized_start=27964
-  _PINGREQUEST._serialized_end=28053
-  _PINGRESPONSE._serialized_start=28055
-  _PINGRESPONSE._serialized_end=28085
-  _SETCHANNELREQUEST._serialized_start=28088
-  _SETCHANNELREQUEST._serialized_end=28336
-  _SETCHANNELRESPONSE._serialized_start=28338
-  _SETCHANNELRESPONSE._serialized_end=28401
-  _SETCHANNELCHANNELS._serialized_start=28404
-  _SETCHANNELCHANNELS._serialized_end=28808
-  _SIGNMESSAGEREQUEST._serialized_start=28810
-  _SIGNMESSAGEREQUEST._serialized_end=28847
-  _SIGNMESSAGERESPONSE._serialized_start=28849
-  _SIGNMESSAGERESPONSE._serialized_end=28919
-  _STOPREQUEST._serialized_start=28921
-  _STOPREQUEST._serialized_end=28934
-  _STOPRESPONSE._serialized_start=28936
-  _STOPRESPONSE._serialized_end=28950
+  _ADDGOSSIPREQUEST._serialized_start=37
+  _ADDGOSSIPREQUEST._serialized_end=72
+  _ADDGOSSIPRESPONSE._serialized_start=74
+  _ADDGOSSIPRESPONSE._serialized_end=93
+  _AUTOCLEANINVOICEREQUEST._serialized_start=95
+  _AUTOCLEANINVOICEREQUEST._serialized_end=206
+  _AUTOCLEANINVOICERESPONSE._serialized_start=209
+  _AUTOCLEANINVOICERESPONSE._serialized_end=338
+  _CHECKMESSAGEREQUEST._serialized_start=340
+  _CHECKMESSAGEREQUEST._serialized_end=425
+  _CHECKMESSAGERESPONSE._serialized_start=427
+  _CHECKMESSAGERESPONSE._serialized_end=483
+  _CLOSEREQUEST._serialized_start=486
+  _CLOSEREQUEST._serialized_end=817
+  _CLOSERESPONSE._serialized_start=820
+  _CLOSERESPONSE._serialized_end=991
+  _CLOSERESPONSE_CLOSETYPE._serialized_start=922
+  _CLOSERESPONSE_CLOSETYPE._serialized_end=975
+  _CONNECTREQUEST._serialized_start=993
+  _CONNECTREQUEST._serialized_end=1077
+  _CONNECTRESPONSE._serialized_start=1080
+  _CONNECTRESPONSE._serialized_end=1222
+  _CONNECTRESPONSE_CONNECTDIRECTION._serialized_start=1187
+  _CONNECTRESPONSE_CONNECTDIRECTION._serialized_end=1222
+  _CONNECTADDRESS._serialized_start=1225
+  _CONNECTADDRESS._serialized_end=1476
+  _CONNECTADDRESS_CONNECTADDRESSTYPE._serialized_start=1364
+  _CONNECTADDRESS_CONNECTADDRESSTYPE._serialized_end=1444
+  _CREATEINVOICEREQUEST._serialized_start=1478
+  _CREATEINVOICEREQUEST._serialized_end=1552
+  _CREATEINVOICERESPONSE._serialized_start=1555
+  _CREATEINVOICERESPONSE._serialized_end=2196
+  _CREATEINVOICERESPONSE_CREATEINVOICESTATUS._serialized_start=1989
+  _CREATEINVOICERESPONSE_CREATEINVOICESTATUS._serialized_end=2045
+  _CREATEONIONREQUEST._serialized_start=2199
+  _CREATEONIONREQUEST._serialized_end=2356
+  _CREATEONIONRESPONSE._serialized_start=2358
+  _CREATEONIONRESPONSE._serialized_end=2418
+  _CREATEONIONHOPS._serialized_start=2420
+  _CREATEONIONHOPS._serialized_end=2470
+  _DATASTOREREQUEST._serialized_start=2473
+  _DATASTOREREQUEST._serialized_end=2781
+  _DATASTOREREQUEST_DATASTOREMODE._serialized_start=2626
+  _DATASTOREREQUEST_DATASTOREMODE._serialized_end=2738
+  _DATASTORERESPONSE._serialized_start=2784
+  _DATASTORERESPONSE._serialized_end=2914
+  _DELDATASTOREREQUEST._serialized_start=2916
+  _DELDATASTOREREQUEST._serialized_end=2990
+  _DELDATASTORERESPONSE._serialized_start=2993
+  _DELDATASTORERESPONSE._serialized_end=3126
+  _DELEXPIREDINVOICEREQUEST._serialized_start=3128
+  _DELEXPIREDINVOICEREQUEST._serialized_end=3200
+  _DELEXPIREDINVOICERESPONSE._serialized_start=3202
+  _DELEXPIREDINVOICERESPONSE._serialized_end=3229
+  _DELINVOICEREQUEST._serialized_start=3232
+  _DELINVOICEREQUEST._serialized_end=3414
+  _DELINVOICEREQUEST_DELINVOICESTATUS._serialized_start=3348
+  _DELINVOICEREQUEST_DELINVOICESTATUS._serialized_end=3401
+  _DELINVOICERESPONSE._serialized_start=3417
+  _DELINVOICERESPONSE._serialized_end=3870
+  _DELINVOICERESPONSE_DELINVOICESTATUS._serialized_start=3348
+  _DELINVOICERESPONSE_DELINVOICESTATUS._serialized_end=3401
+  _DISCONNECTREQUEST._serialized_start=3872
+  _DISCONNECTREQUEST._serialized_end=3933
+  _DISCONNECTRESPONSE._serialized_start=3935
+  _DISCONNECTRESPONSE._serialized_end=3955
+  _FEERATESREQUEST._serialized_start=3957
+  _FEERATESREQUEST._serialized_end=4064
+  _FEERATESREQUEST_FEERATESSTYLE._serialized_start=4027
+  _FEERATESREQUEST_FEERATESSTYLE._serialized_end=4064
+  _FEERATESRESPONSE._serialized_start=4066
+  _FEERATESRESPONSE._serialized_end=4152
+  _FEERATESONCHAIN_FEE_ESTIMATES._serialized_start=4155
+  _FEERATESONCHAIN_FEE_ESTIMATES._serialized_end=4348
+  _FEERATESPERKB._serialized_start=4351
+  _FEERATESPERKB._serialized_end=4674
+  _FEERATESPERKW._serialized_start=4677
+  _FEERATESPERKW._serialized_end=5000
+  _FUNDCHANNELREQUEST._serialized_start=5003
+  _FUNDCHANNELREQUEST._serialized_end=5488
+  _FUNDCHANNELRESPONSE._serialized_start=5491
+  _FUNDCHANNELRESPONSE._serialized_end=5646
+  _FUNDPSBTREQUEST._serialized_start=5649
+  _FUNDPSBTREQUEST._serialized_end=5965
+  _FUNDPSBTRESPONSE._serialized_start=5968
+  _FUNDPSBTRESPONSE._serialized_end=6185
+  _FUNDPSBTRESERVATIONS._serialized_start=6187
+  _FUNDPSBTRESERVATIONS._serialized_end=6304
+  _GETROUTEREQUEST._serialized_start=6307
+  _GETROUTEREQUEST._serialized_end=6543
+  _GETROUTERESPONSE._serialized_start=6545
+  _GETROUTERESPONSE._serialized_end=6598
+  _GETROUTEROUTE._serialized_start=6601
+  _GETROUTEROUTE._serialized_end=6834
+  _GETROUTEROUTE_GETROUTEROUTESTYLE._serialized_start=6792
+  _GETROUTEROUTE_GETROUTEROUTESTYLE._serialized_end=6821
+  _GETINFOREQUEST._serialized_start=6836
+  _GETINFOREQUEST._serialized_end=6852
+  _GETINFORESPONSE._serialized_start=6855
+  _GETINFORESPONSE._serialized_end=7413
+  _GETINFOADDRESS._serialized_start=7416
+  _GETINFOADDRESS._serialized_end=7627
+  _GETINFOADDRESS_GETINFOADDRESSTYPE._serialized_start=7529
+  _GETINFOADDRESS_GETINFOADDRESSTYPE._serialized_end=7615
+  _GETINFOBINDING._serialized_start=7630
+  _GETINFOBINDING._serialized_end=7881
+  _GETINFOBINDING_GETINFOBINDINGTYPE._serialized_start=7769
+  _GETINFOBINDING_GETINFOBINDINGTYPE._serialized_end=7849
+  _GETINFOOUR_FEATURES._serialized_start=7883
+  _GETINFOOUR_FEATURES._serialized_end=7966
+  _INVOICEREQUEST._serialized_start=7969
+  _INVOICEREQUEST._serialized_end=8281
+  _INVOICERESPONSE._serialized_start=8284
+  _INVOICERESPONSE._serialized_end=8643
+  _KEYSENDREQUEST._serialized_start=8646
+  _KEYSENDREQUEST._serialized_end=9032
+  _KEYSENDRESPONSE._serialized_start=9035
+  _KEYSENDRESPONSE._serialized_end=9405
+  _KEYSENDRESPONSE_KEYSENDSTATUS._serialized_start=9329
+  _KEYSENDRESPONSE_KEYSENDSTATUS._serialized_end=9358
+  _LISTCHANNELSREQUEST._serialized_start=9408
+  _LISTCHANNELSREQUEST._serialized_end=9555
+  _LISTCHANNELSRESPONSE._serialized_start=9557
+  _LISTCHANNELSRESPONSE._serialized_end=9624
+  _LISTCHANNELSCHANNELS._serialized_start=9627
+  _LISTCHANNELSCHANNELS._serialized_end=10043
+  _LISTDATASTOREREQUEST._serialized_start=10045
+  _LISTDATASTOREREQUEST._serialized_end=10080
+  _LISTDATASTORERESPONSE._serialized_start=10082
+  _LISTDATASTORERESPONSE._serialized_end=10153
+  _LISTDATASTOREDATASTORE._serialized_start=10156
+  _LISTDATASTOREDATASTORE._serialized_end=10291
+  _LISTFORWARDSREQUEST._serialized_start=10294
+  _LISTFORWARDSREQUEST._serialized_end=10552
+  _LISTFORWARDSREQUEST_LISTFORWARDSSTATUS._serialized_start=10434
+  _LISTFORWARDSREQUEST_LISTFORWARDSSTATUS._serialized_end=10510
+  _LISTFORWARDSRESPONSE._serialized_start=10554
+  _LISTFORWARDSRESPONSE._serialized_end=10621
+  _LISTFORWARDSFORWARDS._serialized_start=10624
+  _LISTFORWARDSFORWARDS._serialized_end=11230
+  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTATUS._serialized_start=11013
+  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTATUS._serialized_end=11097
+  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTYLE._serialized_start=11099
+  _LISTFORWARDSFORWARDS_LISTFORWARDSFORWARDSSTYLE._serialized_end=11147
+  _LISTFUNDSREQUEST._serialized_start=11232
+  _LISTFUNDSREQUEST._serialized_end=11280
+  _LISTFUNDSRESPONSE._serialized_start=11282
+  _LISTFUNDSRESPONSE._serialized_end=11383
+  _LISTFUNDSCHANNELS._serialized_start=11386
+  _LISTFUNDSCHANNELS._serialized_end=11645
+  _LISTFUNDSOUTPUTS._serialized_start=11648
+  _LISTFUNDSOUTPUTS._serialized_end=12035
+  _LISTFUNDSOUTPUTS_LISTFUNDSOUTPUTSSTATUS._serialized_start=11909
+  _LISTFUNDSOUTPUTS_LISTFUNDSOUTPUTSSTATUS._serialized_end=11990
+  _LISTINVOICESREQUEST._serialized_start=12038
+  _LISTINVOICESREQUEST._serialized_end=12207
+  _LISTINVOICESRESPONSE._serialized_start=12209
+  _LISTINVOICESRESPONSE._serialized_end=12276
+  _LISTINVOICESINVOICES._serialized_start=12279
+  _LISTINVOICESINVOICES._serialized_end=12953
+  _LISTINVOICESINVOICES_LISTINVOICESINVOICESSTATUS._serialized_start=12723
+  _LISTINVOICESINVOICES_LISTINVOICESINVOICESSTATUS._serialized_end=12786
+  _LISTNODESREQUEST._serialized_start=12955
+  _LISTNODESREQUEST._serialized_end=12997
+  _LISTNODESRESPONSE._serialized_start=12999
+  _LISTNODESRESPONSE._serialized_end=13054
+  _LISTNODESNODES._serialized_start=13057
+  _LISTNODESNODES._serialized_end=13282
+  _LISTNODESNODESADDRESSES._serialized_start=13285
+  _LISTNODESNODESADDRESSES._serialized_end=13532
+  _LISTNODESNODESADDRESSES_LISTNODESNODESADDRESSESTYPE._serialized_start=13425
+  _LISTNODESNODESADDRESSES_LISTNODESNODESADDRESSESTYPE._serialized_end=13520
+  _LISTPAYSREQUEST._serialized_start=13535
+  _LISTPAYSREQUEST._serialized_end=13754
+  _LISTPAYSREQUEST_LISTPAYSSTATUS._serialized_start=13660
+  _LISTPAYSREQUEST_LISTPAYSSTATUS._serialized_end=13715
+  _LISTPAYSRESPONSE._serialized_start=13756
+  _LISTPAYSRESPONSE._serialized_end=13807
+  _LISTPAYSPAYS._serialized_start=13810
+  _LISTPAYSPAYS._serialized_end=14329
+  _LISTPAYSPAYS_LISTPAYSPAYSSTATUS._serialized_start=14141
+  _LISTPAYSPAYS_LISTPAYSPAYSSTATUS._serialized_end=14200
+  _LISTPEERSREQUEST._serialized_start=14331
+  _LISTPEERSREQUEST._serialized_end=14403
+  _LISTPEERSRESPONSE._serialized_start=14405
+  _LISTPEERSRESPONSE._serialized_end=14460
+  _LISTPEERSPEERS._serialized_start=14463
+  _LISTPEERSPEERS._serialized_end=14689
+  _LISTPEERSPEERSCHANNELS._serialized_start=14692
+  _LISTPEERSPEERSCHANNELS._serialized_end=17518
+  _LISTPEERSPEERSCHANNELS_LISTPEERSPEERSCHANNELSSTATE._serialized_start=16422
+  _LISTPEERSPEERSCHANNELS_LISTPEERSPEERSCHANNELSSTATE._serialized_end=16711
+  _LISTPEERSPEERSCHANNELSALIAS._serialized_start=17520
+  _LISTPEERSPEERSCHANNELSALIAS._serialized_end=17611
+  _LISTPEERSPEERSCHANNELSFEERATE._serialized_start=17613
+  _LISTPEERSPEERSCHANNELSFEERATE._serialized_end=17674
+  _LISTPEERSPEERSCHANNELSFUNDING._serialized_start=17677
+  _LISTPEERSPEERSCHANNELSFUNDING._serialized_end=18068
+  _LISTPEERSPEERSCHANNELSHTLCS._serialized_start=18071
+  _LISTPEERSPEERSCHANNELSHTLCS._serialized_end=18409
+  _LISTPEERSPEERSCHANNELSHTLCS_LISTPEERSPEERSCHANNELSHTLCSDIRECTION._serialized_start=18325
+  _LISTPEERSPEERSCHANNELSHTLCS_LISTPEERSPEERSCHANNELSHTLCSDIRECTION._serialized_end=18380
+  _LISTPEERSPEERSCHANNELSINFLIGHT._serialized_start=18412
+  _LISTPEERSPEERSCHANNELSINFLIGHT._serialized_end=18609
+  _LISTPEERSPEERSLOG._serialized_start=18612
+  _LISTPEERSPEERSLOG._serialized_end=18993
+  _LISTPEERSPEERSLOG_LISTPEERSPEERSLOGTYPE._serialized_start=18823
+  _LISTPEERSPEERSLOG_LISTPEERSPEERSLOGTYPE._serialized_end=18928
+  _LISTSENDPAYSREQUEST._serialized_start=18996
+  _LISTSENDPAYSREQUEST._serialized_end=19231
+  _LISTSENDPAYSREQUEST_LISTSENDPAYSSTATUS._serialized_start=19133
+  _LISTSENDPAYSREQUEST_LISTSENDPAYSSTATUS._serialized_end=19192
+  _LISTSENDPAYSRESPONSE._serialized_start=19233
+  _LISTSENDPAYSRESPONSE._serialized_end=19300
+  _LISTSENDPAYSPAYMENTS._serialized_start=19303
+  _LISTSENDPAYSPAYMENTS._serialized_end=19899
+  _LISTSENDPAYSPAYMENTS_LISTSENDPAYSPAYMENTSSTATUS._serialized_start=19716
+  _LISTSENDPAYSPAYMENTS_LISTSENDPAYSPAYMENTSSTATUS._serialized_end=19783
+  _LISTTRANSACTIONSREQUEST._serialized_start=19901
+  _LISTTRANSACTIONSREQUEST._serialized_end=19926
+  _LISTTRANSACTIONSRESPONSE._serialized_start=19928
+  _LISTTRANSACTIONSRESPONSE._serialized_end=20011
+  _LISTTRANSACTIONSTRANSACTIONS._serialized_start=20014
+  _LISTTRANSACTIONSTRANSACTIONS._serialized_end=20296
+  _LISTTRANSACTIONSTRANSACTIONSINPUTS._serialized_start=20299
+  _LISTTRANSACTIONSTRANSACTIONSINPUTS._serialized_end=20815
+  _LISTTRANSACTIONSTRANSACTIONSINPUTS_LISTTRANSACTIONSTRANSACTIONSINPUTSTYPE._serialized_start=20511
+  _LISTTRANSACTIONSTRANSACTIONSINPUTS_LISTTRANSACTIONSTRANSACTIONSINPUTSTYPE._serialized_end=20789
+  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS._serialized_start=20818
+  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS._serialized_end=21362
+  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS_LISTTRANSACTIONSTRANSACTIONSOUTPUTSTYPE._serialized_start=21057
+  _LISTTRANSACTIONSTRANSACTIONSOUTPUTS_LISTTRANSACTIONSTRANSACTIONSOUTPUTSTYPE._serialized_end=21336
+  _NEWADDRREQUEST._serialized_start=21365
+  _NEWADDRREQUEST._serialized_end=21523
+  _NEWADDRREQUEST_NEWADDRADDRESSTYPE._serialized_start=21449
+  _NEWADDRREQUEST_NEWADDRADDRESSTYPE._serialized_end=21507
+  _NEWADDRRESPONSE._serialized_start=21525
+  _NEWADDRRESPONSE._serialized_end=21616
+  _PAYREQUEST._serialized_start=21619
+  _PAYREQUEST._serialized_end=22093
+  _PAYRESPONSE._serialized_start=22096
+  _PAYRESPONSE._serialized_end=22475
+  _PAYRESPONSE_PAYSTATUS._serialized_start=22378
+  _PAYRESPONSE_PAYSTATUS._serialized_end=22428
+  _PINGREQUEST._serialized_start=22477
+  _PINGREQUEST._serialized_end=22566
+  _PINGRESPONSE._serialized_start=22568
+  _PINGRESPONSE._serialized_end=22598
+  _SENDONIONREQUEST._serialized_start=22601
+  _SENDONIONREQUEST._serialized_end=22951
+  _SENDONIONRESPONSE._serialized_start=22954
+  _SENDONIONRESPONSE._serialized_end=23477
+  _SENDONIONRESPONSE_SENDONIONSTATUS._serialized_start=23325
+  _SENDONIONRESPONSE_SENDONIONSTATUS._serialized_end=23369
+  _SENDONIONFIRST_HOP._serialized_start=23479
+  _SENDONIONFIRST_HOP._serialized_end=23560
+  _SENDPAYREQUEST._serialized_start=23563
+  _SENDPAYREQUEST._serialized_end=23912
+  _SENDPAYRESPONSE._serialized_start=23915
+  _SENDPAYRESPONSE._serialized_end=24508
+  _SENDPAYRESPONSE_SENDPAYSTATUS._serialized_start=24329
+  _SENDPAYRESPONSE_SENDPAYSTATUS._serialized_end=24371
+  _SENDPAYROUTE._serialized_start=24510
+  _SENDPAYROUTE._serialized_end=24602
+  _SENDPSBTREQUEST._serialized_start=24604
+  _SENDPSBTREQUEST._serialized_end=24669
+  _SENDPSBTRESPONSE._serialized_start=24671
+  _SENDPSBTRESPONSE._serialized_end=24715
+  _SETCHANNELREQUEST._serialized_start=24718
+  _SETCHANNELREQUEST._serialized_end=24966
+  _SETCHANNELRESPONSE._serialized_start=24968
+  _SETCHANNELRESPONSE._serialized_end=25031
+  _SETCHANNELCHANNELS._serialized_start=25034
+  _SETCHANNELCHANNELS._serialized_end=25438
+  _SIGNMESSAGEREQUEST._serialized_start=25440
+  _SIGNMESSAGEREQUEST._serialized_end=25477
+  _SIGNMESSAGERESPONSE._serialized_start=25479
+  _SIGNMESSAGERESPONSE._serialized_end=25549
+  _SIGNPSBTREQUEST._serialized_start=25551
+  _SIGNPSBTREQUEST._serialized_end=25600
+  _SIGNPSBTRESPONSE._serialized_start=25602
+  _SIGNPSBTRESPONSE._serialized_end=25641
+  _STOPREQUEST._serialized_start=25643
+  _STOPREQUEST._serialized_end=25656
+  _STOPRESPONSE._serialized_start=25658
+  _STOPRESPONSE._serialized_end=25672
+  _TXDISCARDREQUEST._serialized_start=25674
+  _TXDISCARDREQUEST._serialized_end=25706
+  _TXDISCARDRESPONSE._serialized_start=25708
+  _TXDISCARDRESPONSE._serialized_end=25762
+  _TXPREPAREREQUEST._serialized_start=25765
+  _TXPREPAREREQUEST._serialized_end=25929
+  _TXPREPARERESPONSE._serialized_start=25931
+  _TXPREPARERESPONSE._serialized_end=25999
+  _TXSENDREQUEST._serialized_start=26001
+  _TXSENDREQUEST._serialized_end=26030
+  _TXSENDRESPONSE._serialized_start=26032
+  _TXSENDRESPONSE._serialized_end=26088
+  _UTXOPSBTREQUEST._serialized_start=26091
+  _UTXOPSBTREQUEST._serialized_end=26438
+  _UTXOPSBTRESPONSE._serialized_start=26441
+  _UTXOPSBTRESPONSE._serialized_end=26658
+  _UTXOPSBTRESERVATIONS._serialized_start=26660
+  _UTXOPSBTRESERVATIONS._serialized_end=26777
+  _WAITANYINVOICEREQUEST._serialized_start=26779
+  _WAITANYINVOICEREQUEST._serialized_end=26882
+  _WAITANYINVOICERESPONSE._serialized_start=26885
+  _WAITANYINVOICERESPONSE._serialized_end=27416
+  _WAITANYINVOICERESPONSE_WAITANYINVOICESTATUS._serialized_start=27261
+  _WAITANYINVOICERESPONSE_WAITANYINVOICESTATUS._serialized_end=27306
+  _WAITINVOICEREQUEST._serialized_start=27418
+  _WAITINVOICEREQUEST._serialized_end=27453
+  _WAITINVOICERESPONSE._serialized_start=27456
+  _WAITINVOICERESPONSE._serialized_end=27975
+  _WAITINVOICERESPONSE_WAITINVOICESTATUS._serialized_start=27823
+  _WAITINVOICERESPONSE_WAITINVOICESTATUS._serialized_end=27865
+  _WAITSENDPAYREQUEST._serialized_start=27978
+  _WAITSENDPAYREQUEST._serialized_end=28120
+  _WAITSENDPAYRESPONSE._serialized_start=28123
+  _WAITSENDPAYRESPONSE._serialized_end=28685
+  _WAITSENDPAYRESPONSE_WAITSENDPAYSTATUS._serialized_start=28527
+  _WAITSENDPAYRESPONSE_WAITSENDPAYSTATUS._serialized_end=28560
+  _WITHDRAWREQUEST._serialized_start=28688
+  _WITHDRAWREQUEST._serialized_end=28890
+  _WITHDRAWRESPONSE._serialized_start=28892
+  _WITHDRAWRESPONSE._serialized_end=28950
   _NODE._serialized_start=28953
   _NODE._serialized_end=31946
 # @@protoc_insertion_point(module_scope)
