@@ -30,6 +30,9 @@ pub enum Request {
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
 	FundChannel(requests::FundchannelRequest),
+	FundChannelCancel(requests::FundchannelcancelRequest),
+	FundChannelComplete(requests::FundchannelcompleteRequest),
+	FundChannelStart(requests::FundchannelstartRequest),
 	FundPsbt(requests::FundpsbtRequest),
 	GetRoute(requests::GetrouteRequest),
 	Getinfo(requests::GetinfoRequest),
@@ -83,6 +86,9 @@ pub enum Response {
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
 	FundChannel(responses::FundchannelResponse),
+	FundChannelCancel(responses::FundchannelcancelResponse),
+	FundChannelComplete(responses::FundchannelcompleteResponse),
+	FundChannelStart(responses::FundchannelstartResponse),
 	FundPsbt(responses::FundpsbtResponse),
 	GetRoute(responses::GetrouteResponse),
 	Getinfo(responses::GetinfoResponse),
@@ -501,6 +507,66 @@ pub mod requests {
 
 	impl IntoRequest for FundchannelRequest {
 	    type Response = super::responses::FundchannelResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelcancelRequest {
+	    #[serde(alias = "id")]
+	    pub id: PublicKey,
+	}
+
+	impl From<FundchannelcancelRequest> for Request {
+	    fn from(r: FundchannelcancelRequest) -> Self {
+	        Request::FundChannelCancel(r)
+	    }
+	}
+
+	impl IntoRequest for FundchannelcancelRequest {
+	    type Response = super::responses::FundchannelcancelResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelcompleteRequest {
+	    #[serde(alias = "id")]
+	    pub id: PublicKey,
+	    #[serde(alias = "psbt")]
+	    pub psbt: String,
+	}
+
+	impl From<FundchannelcompleteRequest> for Request {
+	    fn from(r: FundchannelcompleteRequest) -> Self {
+	        Request::FundChannelComplete(r)
+	    }
+	}
+
+	impl IntoRequest for FundchannelcompleteRequest {
+	    type Response = super::responses::FundchannelcompleteResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelstartRequest {
+	    #[serde(alias = "amount")]
+	    pub amount: AmountOrAll,
+	    #[serde(alias = "announce", skip_serializing_if = "Option::is_none")]
+	    pub announce: Option<bool>,
+	    #[serde(alias = "close_to", skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(alias = "feerate", skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<Feerate>,
+	    #[serde(alias = "id")]
+	    pub id: PublicKey,
+	    #[serde(alias = "push_msat", skip_serializing_if = "Option::is_none")]
+	    pub push_msat: Option<Amount>,
+	}
+
+	impl From<FundchannelstartRequest> for Request {
+	    fn from(r: FundchannelstartRequest) -> Self {
+	        Request::FundChannelStart(r)
+	    }
+	}
+
+	impl IntoRequest for FundchannelstartRequest {
+	    type Response = super::responses::FundchannelstartResponse;
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1833,6 +1899,67 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::FundChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelcancelResponse {
+	    #[serde(alias = "cancelled")]
+	    pub cancelled: String,
+	}
+
+	impl TryFrom<Response> for FundchannelcancelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FundChannelCancel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelcompleteResponse {
+	    #[serde(alias = "channel_id")]
+	    pub channel_id: String,
+	    #[serde(alias = "commitments_secured")]
+	    pub commitments_secured: bool,
+	}
+
+	impl TryFrom<Response> for FundchannelcompleteResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FundChannelComplete(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct FundchannelstartResponse {
+	    #[serde(alias = "close_to", skip_serializing_if = "Option::is_none")]
+	    pub close_to: Option<String>,
+	    #[serde(alias = "funding_address")]
+	    pub funding_address: String,
+	    #[serde(alias = "mindepth", skip_serializing_if = "Option::is_none")]
+	    pub mindepth: Option<u32>,
+	    #[serde(alias = "scriptpubkey")]
+	    pub scriptpubkey: String,
+	    #[serde(alias = "warning_usage")]
+	    pub warning_usage: String,
+	}
+
+	impl TryFrom<Response> for FundchannelstartResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FundChannelStart(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

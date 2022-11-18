@@ -177,6 +177,38 @@ impl From<responses::FundchannelResponse> for pb::FundchannelResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::FundchannelcancelResponse> for pb::FundchannelcancelResponse {
+    fn from(c: responses::FundchannelcancelResponse) -> Self {
+        Self {
+            cancelled: c.cancelled, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::FundchannelcompleteResponse> for pb::FundchannelcompleteResponse {
+    fn from(c: responses::FundchannelcompleteResponse) -> Self {
+        Self {
+            channel_id: hex::decode(&c.channel_id).unwrap(), // Rule #2 for type hex
+            commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::FundchannelstartResponse> for pb::FundchannelstartResponse {
+    fn from(c: responses::FundchannelstartResponse) -> Self {
+        Self {
+            close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            funding_address: c.funding_address, // Rule #2 for type string
+            mindepth: c.mindepth, // Rule #2 for type u32?
+            scriptpubkey: hex::decode(&c.scriptpubkey).unwrap(), // Rule #2 for type hex
+            warning_usage: c.warning_usage, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::FundpsbtReservations> for pb::FundpsbtReservations {
     fn from(c: responses::FundpsbtReservations) -> Self {
         Self {
@@ -1174,6 +1206,39 @@ impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
             request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type msat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type msat?
             utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::FundchannelcancelRequest> for requests::FundchannelcancelRequest {
+    fn from(c: pb::FundchannelcancelRequest) -> Self {
+        Self {
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::FundchannelcompleteRequest> for requests::FundchannelcompleteRequest {
+    fn from(c: pb::FundchannelcompleteRequest) -> Self {
+        Self {
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            psbt: c.psbt, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::FundchannelstartRequest> for requests::FundchannelstartRequest {
+    fn from(c: pb::FundchannelstartRequest) -> Self {
+        Self {
+            amount: c.amount.unwrap().into(), // Rule #1 for type msat_or_all
+            announce: c.announce, // Rule #1 for type boolean?
+            close_to: c.close_to.map(|v| hex::encode(v)), // Rule #1 for type hex?
+            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
         }
     }
 }

@@ -187,6 +187,29 @@ def fundchannel2py(m):
     })
 
 
+def fundchannelcancel2py(m):
+    return remove_default({
+        "cancelled": m.cancelled,  # PrimitiveField in generate_composite
+    })
+
+
+def fundchannelcomplete2py(m):
+    return remove_default({
+        "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
+        "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+    })
+
+
+def fundchannelstart2py(m):
+    return remove_default({
+        "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
+        "funding_address": m.funding_address,  # PrimitiveField in generate_composite
+        "mindepth": m.mindepth,  # PrimitiveField in generate_composite
+        "scriptpubkey": hexlify(m.scriptpubkey),  # PrimitiveField in generate_composite
+        "warning_usage": m.warning_usage,  # PrimitiveField in generate_composite
+    })
+
+
 def fundpsbt_reservations2py(m):
     return remove_default({
         "reserved": m.reserved,  # PrimitiveField in generate_composite

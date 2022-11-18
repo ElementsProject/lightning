@@ -407,6 +407,35 @@
             "FundChannel.tx": 1,
             "FundChannel.txid": 2
         },
+        "FundchannelcancelRequest": {
+            "FundChannelCancel.id": 1
+        },
+        "FundchannelcancelResponse": {
+            "FundChannelCancel.cancelled": 1
+        },
+        "FundchannelcompleteRequest": {
+            "FundChannelComplete.id": 2,
+            "FundChannelComplete.psbt": 1
+        },
+        "FundchannelcompleteResponse": {
+            "FundChannelComplete.channel_id": 1,
+            "FundChannelComplete.commitments_secured": 2
+        },
+        "FundchannelstartRequest": {
+            "FundChannelStart.amount": 1,
+            "FundChannelStart.announce": 2,
+            "FundChannelStart.close_to": 3,
+            "FundChannelStart.feerate": 4,
+            "FundChannelStart.id": 6,
+            "FundChannelStart.push_msat": 5
+        },
+        "FundchannelstartResponse": {
+            "FundChannelStart.close_to": 1,
+            "FundChannelStart.funding_address": 2,
+            "FundChannelStart.mindepth": 3,
+            "FundChannelStart.scriptpubkey": 4,
+            "FundChannelStart.warning_usage": 5
+        },
         "FundpsbtRequest": {
             "FundPsbt.excess_as_change": 8,
             "FundPsbt.feerate": 2,
