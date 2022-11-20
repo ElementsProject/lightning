@@ -516,9 +516,15 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	int is_encrypted;
 
         is_encrypted = is_hsm_secret_encrypted("hsm_secret");
+	/* While lightningd is performing the first initialization
+	 * this check is always true because the file does not exist.
+	 *
+	 * Maybe the is_hsm_secret_encrypted is performing a not useful
+	 * check at this stage, but the hsm is a delicate part,
+	 * so it is a good information to have inside the log. */
 	if (is_encrypted == -1)
-		return tal_fmt(NULL, "Could not access 'hsm_secret': %s",
-			       strerror(errno));
+		log_info(ld->log, "'hsm_secret' does not exist (%s)",
+			 strerror(errno));
 
 	prompt(ld, "The hsm_secret is encrypted with a password. In order to "
 	       "decrypt it and start the node you must provide the password.");
