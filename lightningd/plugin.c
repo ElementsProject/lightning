@@ -291,6 +291,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->notification_topics = tal_arr(p, const char *, 0);
 	p->subscriptions = NULL;
 	p->dynamic = false;
+	p->non_numeric_ids = false;
 	p->index = plugins->plugin_idx++;
 
 	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s", p->shortname);
@@ -1527,6 +1528,20 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 				    "Custom featurebits already present");
 		}
 	}
+
+	tok = json_get_member(buffer, resulttok, "nonnumericids");
+	if (tok) {
+		if (!json_to_bool(&plugin->non_numeric_ids, buffer, tok))
+			return tal_fmt(plugin,
+				       "Invalid nonnumericids: %.*s",
+				       json_tok_full_len(tok),
+				       json_tok_full(buffer, tok));
+		if (!deprecated_apis && !plugin->non_numeric_ids)
+			return tal_fmt(plugin,
+				       "Plugin does not allow nonnumericids");
+	} else
+		/* Default is false in deprecated mode */
+		plugin->non_numeric_ids = !deprecated_apis;
 
 	err = plugin_notifications_add(buffer, resulttok, plugin);
 	if (!err)

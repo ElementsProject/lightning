@@ -136,6 +136,7 @@ example:
 	  "method": "mycustomnotification"
 	}
   ],
+  "nonnumericids": true,
   "dynamic": true
 }
 ```
@@ -157,6 +158,13 @@ parameter names in `[]`.
 you plan on removing them: this will disable them if the user sets
 `allow-deprecated-apis` to false (which every developer should do,
 right?).
+
+The `nonnumericids` indicates that the plugin can handle
+string JSON request `id` fields: prior to v22.11 lightningd used numbers 
+for these, and the change to strings broke some plugins.  If not set,
+then strings will be used once this feature is removed after v23.05.
+See [the lightning-rpc documentation][lightning-rpc.7.md] for how to handle
+JSON `id` fields!
 
 The `dynamic` indicates if the plugin can be managed after `lightningd`
 has been started using the [plugin][lightning-plugin] JSON-RPC command. Critical plugins that should not be stopped should set it
@@ -1781,3 +1789,4 @@ The plugin must broadcast it and respond with the following fields:
 [bolt9]: https://github.com/lightning/bolts/blob/master/09-features.md
 [lightning-plugin]: lightning-plugin.7.md
 [pyln-client]: ../contrib/pyln-client
+[lightning-rpc.7.md]: lightning-rpc.7.md
