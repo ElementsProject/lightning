@@ -3238,18 +3238,3 @@ def test_block_added_notifications(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l2])
     ret = l2.rpc.call("blockscatched")
     assert len(ret) == 3 and ret[1] == next_l2_base + 1 and ret[2] == next_l2_base + 2
-
-
-def test_numeric_json_ids(node_factory):
-    """Test that we use numeric json IDs when in deprecated mode (unless
-plugin says otherwise!)"""
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True,
-                                        'log-level': 'io'})
-
-    # getmanifest and init
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_logs([r"plugin-commando: [0-9]*\[OUT\]"] * 2)
-
-    # This is in a plugin.
-    l1.rpc.commando_rune()
-    l1.daemon.wait_for_log(r"plugin-commando: [0-9]*\[OUT\]")

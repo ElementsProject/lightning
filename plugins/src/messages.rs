@@ -157,6 +157,7 @@ pub(crate) struct GetManifestResponse {
     pub(crate) subscriptions: Vec<String>,
     pub(crate) hooks: Vec<String>,
     pub(crate) dynamic: bool,
+    pub(crate) nonnumericids: bool,
 }
 
 #[derive(Serialize, Default, Debug)]

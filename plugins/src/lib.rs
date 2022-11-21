@@ -46,6 +46,7 @@ where
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     dynamic: bool,
+    nonnumericids: bool,
 }
 
 /// A plugin that has registered with the lightning daemon, and gotten
@@ -115,6 +116,7 @@ where
             options: vec![],
             rpcmethods: HashMap::new(),
             dynamic: false,
+            nonnumericids: true,
         }
     }
 
@@ -318,6 +320,7 @@ where
             hooks: self.hooks.keys().map(|s| s.clone()).collect(),
             rpcmethods,
             dynamic: self.dynamic,
+	    nonnumericids: true,
         }
     }
 
