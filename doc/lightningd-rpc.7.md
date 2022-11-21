@@ -42,6 +42,38 @@ The lightning-cli(1) tool uses ordered parameters by default, but
 named parameters if explicitly specified or the first parameter
 contains an '='.
 
+JSON IDS
+--------
+
+JSON `id` fields in requests are used to match requests and responses.
+These used to be simple numbers, but with modern plugins that is deprecated:
+we use a specific format, which makes them very useful for debugging
+and tracking the cause of commands:
+
+```EBNF
+JSONID := IDPART ['/' IDPART]*
+IDPART := PREFIX ':' METHOD '#' NUMBER
+```
+
+`PREFIX` is cln for the main daemon, cli for lightning-cli, and should
+be the plugin name for plugins.  `METHOD` is an internal identifier,
+indicating what caused the request: for `cli` it's simply the method
+it's invoking, but for plugins it may be the routine which created the
+request.  And `NUMBER` ensures uniqueness (it's usually a simple
+increment).
+
+Importantly for plugins, incoming requests often trigger outgoing
+requests, and for these, the outgoing request id is created by
+appending a `/` and another id part into the incoming.  This makes the
+chain of responsibility much clearer.  e.g, this shows the JSON `id`
+of a `sendrawtransaction` RPC call, and we can tell that lightning-cli
+has invoked the `withdraw` command, which lightningd passes through
+to the `txprepare` plugin, which called `sendrawtransaction`.
+
+```
+cli:withdraw#123/cln:withdraw#7/txprepare:sendpsbt#1/cln:sendrawtransaction#9
+```
+
 JSON REPLIES
 ------------
 
