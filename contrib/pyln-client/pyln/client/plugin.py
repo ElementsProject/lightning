@@ -917,6 +917,7 @@ class Plugin(object):
             'subscriptions': list(self.subscriptions.keys()),
             'hooks': hooks,
             'dynamic': self.dynamic,
+            'nonnumericids': True,
             'notifications': [
                 {"method": name} for name in self.notification_topics
             ],
