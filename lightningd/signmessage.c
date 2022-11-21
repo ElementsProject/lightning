@@ -211,17 +211,18 @@ static struct command_result *json_checkmessage(struct command *cmd,
 
 		node_id_from_pubkey(&can->id, &reckey);
 		can->cmd = cmd;
-		req = jsonrpc_request_start(cmd, "listnodes",
-					    cmd->id,
-					    command_log(cmd),
-					    NULL, listnodes_done,
-					    can);
-		json_add_node_id(req->stream, "id", &can->id);
-		jsonrpc_request_end(req);
 
 		/* Only works if we have listnodes! */
 		plugin = find_plugin_for_command(cmd->ld, "listnodes");
 		if (plugin) {
+			req = jsonrpc_request_start(cmd, "listnodes",
+						    cmd->id,
+						    plugin->non_numeric_ids,
+						    command_log(cmd),
+						    NULL, listnodes_done,
+						    can);
+			json_add_node_id(req->stream, "id", &can->id);
+			jsonrpc_request_end(req);
 			plugin_request_send(plugin, req);
 			return command_still_pending(cmd);
 		}

@@ -1376,7 +1376,7 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method,
-    const char *id_prefix, struct log *log,
+    const char *id_prefix, bool id_as_string, struct log *log,
     bool add_header,
     void (*notify_cb)(const char *buffer,
 		      const jsmntok_t *methodtok,
@@ -1389,11 +1389,17 @@ struct jsonrpc_request *jsonrpc_request_start_(
 {
 	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
 	static u64 next_request_id = 0;
-	if (id_prefix)
-		r->id = tal_fmt(r, "%s/cln:%s#%"PRIu64,
-				id_prefix, method, next_request_id);
-	else
-		r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
+
+	r->id_is_string = id_as_string;
+	if (r->id_is_string) {
+		if (id_prefix)
+			r->id = tal_fmt(r, "%s/cln:%s#%"PRIu64,
+					id_prefix, method, next_request_id);
+		else
+			r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
+	} else {
+		r->id = tal_fmt(r, "%"PRIu64, next_request_id);
+	}
 	if (taken(id_prefix))
 		tal_free(id_prefix);
 	next_request_id++;
@@ -1409,7 +1415,10 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	if (add_header) {
 		json_object_start(r->stream, NULL);
 		json_add_string(r->stream, "jsonrpc", "2.0");
-		json_add_string(r->stream, "id", r->id);
+		if (r->id_is_string)
+			json_add_string(r->stream, "id", r->id);
+		else
+			json_add_primitive(r->stream, "id", r->id);
 		json_add_string(r->stream, "method", method);
 		json_object_start(r->stream, "params");
 	}

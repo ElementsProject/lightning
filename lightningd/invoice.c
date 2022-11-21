@@ -1241,22 +1241,21 @@ static struct command_result *json_invoice(struct command *cmd,
 	if (fallback_scripts)
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 
+	/* We can't generate routehints without listincoming. */
+	plugin = find_plugin_for_command(cmd->ld, "listincoming");
+	if (!plugin) {
+		return invoice_complete(info, true,
+					false, false, false, false, false);
+	}
+
 	req = jsonrpc_request_start(info, "listincoming",
-				    cmd->id,
+				    cmd->id, plugin->non_numeric_ids,
 				    command_log(cmd),
 				    NULL, listincoming_done,
 				    info);
 	jsonrpc_request_end(req);
-
-	plugin = find_plugin_for_command(cmd->ld, "listincoming");
-	if (plugin) {
-		plugin_request_send(plugin, req);
-		return command_still_pending(cmd);
-	}
-
-	/* We can't generate routehints without listincoming. */
-	return invoice_complete(info, true,
-				false, false, false, false, false);
+	plugin_request_send(plugin, req);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command invoice_command = {
