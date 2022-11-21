@@ -235,6 +235,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 	log_debug(ph_req->ld->log, "Calling %s hook of plugin %s",
 		  ph_req->hook->name, ph_req->plugin->shortname);
 	req = jsonrpc_request_start(NULL, hook->name, ph_req->cmd_id,
+				    ph_req->plugin->non_numeric_ids,
 				    plugin_get_log(ph_req->plugin),
 				    NULL,
 				    plugin_hook_callback, ph_req);
@@ -380,7 +381,9 @@ void plugin_hook_db_sync(struct db *db)
 
 		/* FIXME: id_prefix from caller? */
 		/* FIXME: do IO logging for this! */
-		req = jsonrpc_request_start(NULL, hook->name, NULL, NULL, NULL,
+		req = jsonrpc_request_start(NULL, hook->name, NULL,
+					    dwh_req->plugin->non_numeric_ids,
+					    NULL, NULL,
 					    db_hook_response,
 					    dwh_req);
 
