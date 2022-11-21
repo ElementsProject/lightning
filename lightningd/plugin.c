@@ -1143,7 +1143,8 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	call = tal(plugin, struct plugin_rpccall);
 	call->cmd = cmd;
 
-	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name, cmd->id,
+	req = jsonrpc_request_start_raw(plugin, cmd->json_cmd->name,
+					cmd->id, plugin->non_numeric_ids,
 					plugin->log,
 					plugin_notify_cb,
 					plugin_rpcmethod_cb, call);
@@ -1152,7 +1153,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	list_add_tail(&plugin->pending_rpccalls, &call->list);
 
 	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id,
-				      true);
+				      req->id_is_string);
 	json_stream_double_cr(req->stream);
 	plugin_request_send(plugin, req);
 	req->stream = NULL;
@@ -1531,7 +1532,7 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 
 	tok = json_get_member(buffer, resulttok, "nonnumericids");
 	if (tok) {
-		if (!json_to_bool(&plugin->non_numeric_ids, buffer, tok))
+		if (!json_to_bool(buffer, tok, &plugin->non_numeric_ids))
 			return tal_fmt(plugin,
 				       "Invalid nonnumericids: %.*s",
 				       json_tok_full_len(tok),
@@ -1745,8 +1746,8 @@ const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 	 * write-only on p->stdin */
 	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
 	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
-	req = jsonrpc_request_start(p, "getmanifest", cmd_id, p->log,
-				    NULL, plugin_manifest_cb, p);
+	req = jsonrpc_request_start(p, "getmanifest", cmd_id, p->non_numeric_ids,
+				    p->log, NULL, plugin_manifest_cb, p);
 	json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
 	jsonrpc_request_end(req);
 	plugin_request_send(p, req);
@@ -1926,8 +1927,8 @@ plugin_config(struct plugin *plugin)
 	struct jsonrpc_request *req;
 
 	plugin_set_timeout(plugin);
-	req = jsonrpc_request_start(plugin, "init", NULL, plugin->log,
-	                            NULL, plugin_config_cb, plugin);
+	req = jsonrpc_request_start(plugin, "init", NULL, plugin->non_numeric_ids,
+				    plugin->log, NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
