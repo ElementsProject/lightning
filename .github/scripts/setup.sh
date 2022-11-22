@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-export BITCOIN_VERSION=0.20.1
+export BITCOIN_VERSION=23.0
 export ELEMENTS_VERSION=0.18.1.8
 export RUST_VERSION=stable
 
@@ -56,9 +56,9 @@ sudo chmod 0440 /etc/sudoers.d/tester
 
 (
     cd /tmp/ || exit 1
-    wget https://storage.googleapis.com/c-lightning-tests/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.bz2
+    wget https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz
     wget -q https://storage.googleapis.com/c-lightning-tests/elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2
-    tar -xjf bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.bz2
+    tar -xf bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz
     tar -xjf elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2
     sudo mv bitcoin-$BITCOIN_VERSION/bin/* /usr/local/bin
     sudo mv elements-$ELEMENTS_VERSION/bin/* /usr/local/bin
