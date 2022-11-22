@@ -61,7 +61,7 @@ sudo chmod 0440 /etc/sudoers.d/tester
     tar -xf bitcoin-${BITCOIN_VERSION}rc4-x86_64-linux-gnu.tar.gz
     tar -xjf elements-${ELEMENTS_VERSION}-x86_64-linux-gnu.tar.bz2
     sudo mv bitcoin-${BITCOIN_VERSION}rc4/bin/* /usr/local/bin
-    sudo mv elements-{$ELEMENTS_VERSION}/bin/* /usr/local/bin
+    sudo mv elements-${ELEMENTS_VERSION}/bin/* /usr/local/bin
     rm -rf \
        bitcoin-${BITCOIN_VERSION}rc4-x86_64-linux-gnu.tar.gz \
        bitcoin-${BITCOIN_VERSION}rc4 \
