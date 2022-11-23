@@ -381,8 +381,8 @@ void channel_errmsg(struct channel *channel,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
 	if (warning) {
-		channel_fail_transient_delayreconnect(channel, "%s WARNING: %s",
-						      channel->owner->name, desc);
+		channel_fail_transient(channel, "%s WARNING: %s",
+				       channel->owner->name, desc);
 		return;
 	}
 
@@ -1836,7 +1836,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 										  warning)));
 			/* When we restart channeld, it will be initialized with updated scid
 			 * and also adds it (at least our halve_chan) to rtable. */
-			channel_fail_transient_delayreconnect(channel,
+			channel_fail_transient(channel,
 					       "short_channel_id changed to %s (was %s)",
 					       short_channel_id_to_str(tmpctx, &scid),
 					       short_channel_id_to_str(tmpctx, channel->scid));
