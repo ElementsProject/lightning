@@ -898,7 +898,8 @@ static struct migration dbmigrations[] = {
     /* forwards table outlives the channels, so we move there from old forwarded_payments table;
      * but here the ids are the HTLC numbers, not the internal db ids. */
     {SQL("CREATE TABLE forwards ("
-	 "in_channel_scid BIGINT"
+	 "id BIGSERIAL"
+	 ", in_channel_scid BIGINT"
 	 ", in_htlc_id BIGINT"
 	 ", out_channel_scid BIGINT"
 	 ", out_htlc_id BIGINT"
@@ -909,9 +910,10 @@ static struct migration dbmigrations[] = {
 	 ", resolved_time BIGINT"
 	 ", failcode INTEGER"
 	 ", forward_style INTEGER"
-	 ", PRIMARY KEY(in_channel_scid, in_htlc_id))"), NULL},
-    {SQL("INSERT INTO forwards SELECT"
-	 " in_channel_scid"
+	 ", PRIMARY KEY(id))"), NULL},
+    {SQL("INSERT INTO forwards"
+	 " SELECT NULL"
+	 ", in_channel_scid"
 	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.in_htlc_id)"
 	 ", out_channel_scid"
 	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.out_htlc_id)"
@@ -939,6 +941,52 @@ static struct migration dbmigrations[] = {
 	 ");"), NULL},
     /* A reference into our own invoicerequests table, if it was made from one */
     {SQL("ALTER TABLE payments ADD COLUMN local_invreq_id BLOB DEFAULT NULL REFERENCES invoicerequests(invreq_id);"), NULL},
+    /* We made `in_htlc_id` as primary key in some of the previous migration,
+     * but it can be null for some reason, so to remove this constraint
+     * we should also take care about node that has
+     * already perform this migration */
+    {SQL("CREATE TABLE forwards_copy ("
+	 "id BIGSERIAL"
+	 ", in_channel_scid BIGINT"
+	 ", in_htlc_id BIGINT"
+	 ", out_channel_scid BIGINT"
+	 ", out_htlc_id BIGINT"
+	 ", in_msatoshi BIGINT"
+	 ", out_msatoshi BIGINT"
+	 ", state INTEGER"
+	 ", received_time BIGINT"
+	 ", resolved_time BIGINT"
+	 ", failcode INTEGER"
+	 ", forward_style INTEGER"
+	 ", PRIMARY KEY(id))"), NULL},
+    {SQL("INSERT INTO forwards_copy ("
+	 "id"
+	 ", in_channel_scid"
+	 ", in_htlc_id"
+	 ", out_channel_scid"
+	 ", out_htlc_id"
+	 ", in_msatoshi"
+	 ", out_msatoshi"
+	 ", state"
+	 ", received_time"
+	 ", resolved_time"
+	 ", failcode"
+	 ", forward_style)"
+	 "SELECT id"
+	 ", in_channel_scid"
+	 ", in_htlc_id"
+	 ", out_channel_scid"
+	 ", out_htlc_id"
+	 ", in_msatoshi"
+	 ", out_msatoshi"
+	 ", state"
+	 ", received_time"
+	 ", resolved_time"
+	 ", failcode"
+	 ", forward_style"
+	 " FROM forwards"), NULL},
+    {SQL("DROP TABLE forwards;"), NULL},
+    {SQL("ALTER TABLE forwards_copy RENAME TO forwards"), NULL},
     /* FIXME: Remove payments local_offer_id column! */
 };
 
