@@ -189,6 +189,41 @@ def test_v2_open_sigs_restart(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
 
 
+@pytest.mark.openchannel('v2')
+@pytest.mark.xfail
+def test_v2_fail_second(node_factory, bitcoind):
+    """ Open a channel succeeds; opening a second channel
+    failure should not drop the connection """
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    # Should have one channel between them.
+    only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+
+    amount = 2**24 - 1
+    l1.fundwallet(amount + 10000000)
+
+    # make sure we can generate PSBTs.
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
+
+    # Some random (valid) psbt
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+
+    # We can abort a channel
+    l1.rpc.openchannel_abort(start['channel_id'])
+
+    peer_info = only_one(l1.rpc.listpeers(l2.info['id'])['peers'])
+    # We should have deleted the 'in-progress' channel info
+    only_one(peer_info['channels'])
+
+    # FIXME: check that tx-abort was sent
+    # Should be able to reattempt without reconnecting
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v2')
