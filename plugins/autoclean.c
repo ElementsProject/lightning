@@ -324,6 +324,14 @@ static struct command_result *listforwards_done(struct command *cmd,
 			continue;
 		}
 
+		/* Check if we have a resolved_time, before making a
+		 * decision on it. This is possible in older nodes
+		 * that predate our annotations for forwards.*/
+		if (json_get_member(buf, t, "resolved_time") == NULL) {
+			cinfo->num_uncleaned++;
+			continue;
+		}
+
 		time = *json_get_member(buf, t, "resolved_time");
 		/* This is a float, so truncate at '.' */
 		for (int off = time.start; off < time.end; off++) {
