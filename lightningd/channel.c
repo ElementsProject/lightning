@@ -973,15 +973,6 @@ static void channel_err(struct channel *channel, const char *why)
 	channel_set_owner(channel, NULL);
 }
 
-void channel_fail_transient_delayreconnect(struct channel *channel, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	channel_err(channel, tal_vfmt(tmpctx, fmt, ap));
-	va_end(ap);
-}
-
 void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 {
 	va_list ap;
