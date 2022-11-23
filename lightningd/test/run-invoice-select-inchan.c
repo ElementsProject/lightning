@@ -74,10 +74,6 @@ void channel_fail_permanent(struct channel *channel UNNEEDED,
 void channel_fail_transient(struct channel *channel UNNEEDED,
 			    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_fail_transient called!\n"); abort(); }
-/* Generated stub for channel_fail_transient_delayreconnect */
-void channel_fail_transient_delayreconnect(struct channel *channel UNNEEDED,
-					   const char *fmt UNNEEDED,...)
-{ fprintf(stderr, "channel_fail_transient_delayreconnect called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */
 struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_in called!\n"); abort(); }
