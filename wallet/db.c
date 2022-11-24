@@ -62,6 +62,9 @@ static void fillin_missing_channel_blockheights(struct lightningd *ld,
 static void migrate_channels_scids_as_integers(struct lightningd *ld,
 					       struct db *db,
 					       const struct migration_context *mc);
+static void migrate_forwards_closed_channels(struct lightningd *ld,
+					     struct db *db,
+					     const struct migration_context *mc);
 
 static void migrate_payments_scids_as_integers(struct lightningd *ld,
 					       struct db *db,
@@ -926,7 +929,9 @@ static struct migration dbmigrations[] = {
 	 ", resolved_time"
 	 ", failcode"
 	 ", forward_style"
-	 " FROM forwarded_payments"), NULL},
+	 " FROM forwarded_payments"
+	 " WHERE"
+	 "  in_htlc_id IS NOT NULL"), migrate_forwards_closed_channels},
     {SQL("DROP INDEX forwarded_payments_state;"), NULL},
     {SQL("DROP INDEX forwarded_payments_out_htlc_id;"), NULL},
     {SQL("DROP TABLE forwarded_payments;"), NULL},
@@ -1565,6 +1570,76 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 
 	if (!db->config->delete_columns(db, "payments", colnames, ARRAY_SIZE(colnames)))
 		db_fatal("Could not delete payments.failchannel");
+}
+
+/* In master until v22.11rc3 we didn't have the 'WHERE in_htlc_id IS NOT NULL';
+ * sqlite3 was happy with null primary keys, Postgres (and the SQL standard!)
+ * are not.  So we added this migration function for those: */
+static void migrate_forwards_closed_channels(struct lightningd *ld,
+					     struct db *db,
+					     const struct migration_context *mc)
+{
+	/* We use HTLC_INVALID_ID as -1, so start at -2. */
+	u64 unique_bogus_htlc_id = 0xFFFFFFFFFFFFFFFE;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db,
+			     SQL("SELECT in_channel_scid"
+				 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.in_htlc_id)"
+				 ", out_channel_scid"
+				 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.out_htlc_id)"
+				 ", in_msatoshi"
+				 ", out_msatoshi"
+				 ", state"
+				 ", received_time"
+				 ", resolved_time"
+				 ", failcode"
+				 ", forward_style"
+				 " FROM forwarded_payments"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct db_stmt *insert_stmt;
+		/* Turns out all fields fit into integers! */
+		u64 *vals[11];
+
+		for (size_t i = 0; i < ARRAY_SIZE(vals); i++) {
+			if (stmt->db->config->column_is_null_fn(stmt, i)) {
+				vals[i] = NULL;
+			} else {
+				vals[i] = tal(tmpctx, u64);
+				*vals[i] = stmt->db->config->column_u64_fn(stmt, i);
+			}
+		}
+
+#if DEVELOPER
+		/* We access columns by number not name, so this
+		 * would complain */
+		strset_clear(stmt->cols_used);
+		stmt->cols_used = tal_free(stmt->cols_used);
+#endif
+
+		/* Here we only have to deal with ones where
+		 * in_htlc_id would be NULL */
+		if (vals[1] != NULL)
+			continue;
+
+		/* This is the one we're inserting instead of NULL. */
+		vals[1] = &unique_bogus_htlc_id;
+
+		insert_stmt = db_prepare_v2(db, SQL("INSERT into forwards"
+						    " VALUES("
+						    " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+		for (size_t i = 0; i < ARRAY_SIZE(vals); i++) {
+			if (vals[i])
+				db_bind_u64(insert_stmt, i, *vals[i]);
+			else
+				db_bind_null(insert_stmt, i);
+		}
+		db_exec_prepared_v2(insert_stmt);
+		tal_free(insert_stmt);
+		unique_bogus_htlc_id--;
+	}
+	tal_free(stmt);
 }
 
 /* And this is for sqlite3 nodes upgraded to master between v0.12 and
