@@ -188,6 +188,32 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [22.11rc2]: https://github.com/ElementsProject/lightning/releases/tag/v22.11rc2
 
 
+## [0.12.1] - 2022-09-13: Web-8 init (dot one)
+
+Point release with some bugfixes and patches.
+
+### Removed
+
+- build: `mrkd` and `mistune` not required to build project
+
+### Fixed
+
+- lnprototest: builds for lnprototest tests now use 22.04 LTS, which fixes a problem with loading `mako`. ([#5583])
+- Plugins: topology plugin could crash when it sees duplicate private channel announcements ([#5593])
+- connectd: proper `gossip_store` operation may resolve some previous gossip propagation issues and connectd crashes ([#5591])
+- connectd: Fixed a condition for newly created channels that could trigger a need for reconnect. ([#5601])
+- `peer_control`: getinfo showing unannounced addresses. ([#5584])
+- `peer_control`: getinfo shows the correct port on discovered IPs ([#5585])
+
+
+[#5583]: https://github.com/ElementsProject/lightning/pull/5583
+[#5584]: https://github.com/ElementsProject/lightning/pull/5584
+[#5585]: https://github.com/ElementsProject/lightning/pull/5585
+[#5593]: https://github.com/ElementsProject/lightning/pull/5593
+[#5591]: https://github.com/ElementsProject/lightning/pull/5591
+[#5601]: https://github.com/ElementsProject/lightning/pull/5601
+
+
 ## [0.12.0] - 2022-08-23: Web-8 init
 
 This release named by @adi2011.
