@@ -912,7 +912,10 @@ static struct migration dbmigrations[] = {
 	 ", PRIMARY KEY(in_channel_scid, in_htlc_id))"), NULL},
     {SQL("INSERT INTO forwards SELECT"
 	 " in_channel_scid"
-	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.in_htlc_id)"
+	 ", COALESCE("
+	 "    (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.in_htlc_id),"
+	 "    -_ROWID_"
+	 "  )"
 	 ", out_channel_scid"
 	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.out_htlc_id)"
 	 ", in_msatoshi"

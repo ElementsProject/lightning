@@ -75,6 +75,7 @@ class PostgresRewriter(Rewriter):
 
         typemapping = {
             r'BLOB': 'BYTEA',
+            r'_ROWID_': '(((ctid::text::point)[0]::bigint << 32) | (ctid::text::point)[1]::bigint)',  # Yeah, I know...
             r'CURRENT_TIMESTAMP\(\)': "EXTRACT(epoch FROM now())",
         }
 
