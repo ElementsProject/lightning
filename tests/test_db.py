@@ -508,6 +508,10 @@ def test_db_forward_migrate(bitcoind, node_factory):
     assert l1.rpc.getinfo()['fees_collected_msat'] == 4
     assert len(l1.rpc.listforwards()['forwards']) == 4
 
+    # null in_htlc_id is replaced with bogus entries!
+    assert (set([f['in_htlc_id'] for f in l1.rpc.listforwards()['forwards']])
+            == set([0, 1, 18446744073709551614, 18446744073709551613]))
+
     # Make sure autoclean can handle these!
     l1.stop()
     l1.daemon.opts['autoclean-succeededforwards-age'] = 2

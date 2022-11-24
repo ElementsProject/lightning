@@ -67,6 +67,10 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 					       struct db *db,
 					       const struct migration_context *mc);
 
+static void migrate_bogus_forward_ids(struct lightningd *ld,
+				      struct db *db,
+				      const struct migration_context *mc);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -940,6 +944,8 @@ static struct migration dbmigrations[] = {
     /* A reference into our own invoicerequests table, if it was made from one */
     {SQL("ALTER TABLE payments ADD COLUMN local_invreq_id BLOB DEFAULT NULL REFERENCES invoicerequests(invreq_id);"), NULL},
     /* FIXME: Remove payments local_offer_id column! */
+    /* FIXME: Remove payments local_offer_id column! */
+    {NULL, migrate_bogus_forward_ids},
 };
 
 /* Released versions are of form v{num}[.{num}]* */
@@ -1559,4 +1565,39 @@ static void migrate_payments_scids_as_integers(struct lightningd *ld,
 
 	if (!db->config->delete_columns(db, "payments", colnames, ARRAY_SIZE(colnames)))
 		db_fatal("Could not delete payments.failchannel");
+}
+
+/* And this is for sqlite3 nodes upgraded to master between v0.12 and
+ * v22.11rc3 which didn't run migrate_forwards_closed_channels, so can have
+ * NULLs in the table. */
+static void migrate_bogus_forward_ids(struct lightningd *ld,
+				      struct db *db,
+				      const struct migration_context *mc)
+{
+	/* We use HTLC_INVALID_ID as -1, so start at -2. */
+	u64 unique_bogus_htlc_id = 0xFFFFFFFFFFFFFFFE;
+	bool progress;
+	struct db_stmt *stmt;
+
+	/* UPDATE... LIMIT not supported in all sqlite3 builds!  So
+	 * check if we need to bother *first* before calling this (obscure!)
+	 * case. */
+	stmt = db_prepare_v2(db, SQL("SELECT 1 FROM forwards WHERE in_htlc_id IS NULL"));
+	db_query_prepared(stmt);
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return;
+	}
+	tal_free(stmt);
+
+	do {
+		stmt = db_prepare_v2(db, SQL("UPDATE forwards"
+					     " SET in_htlc_id = ?"
+					     " WHERE in_htlc_id IS NULL"
+					     " LIMIT 1"));
+		db_bind_u64(stmt, 0, unique_bogus_htlc_id--);
+		db_exec_prepared_v2(stmt);
+		progress = (db_count_changes(stmt) == 1);
+		tal_free(stmt);
+	} while (progress);
 }
