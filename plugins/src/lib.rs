@@ -495,6 +495,12 @@ where
             .next()
             .map(|co| co.value.clone().unwrap_or(co.default().clone()))
     }
+
+    /// return the cln configuration send to the
+    /// plugin after the initialization.
+    pub fn configuration(&self) -> Configuration {
+        self.configuration.clone()
+    }
 }
 
 impl<S> PluginDriver<S>
