@@ -1,14 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!--
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [22.11rc2] - 2022-11-18
+## [22.11rc3] - 2022-11-26
 
 ### Added
 
@@ -37,6 +36,7 @@ TODO: Insert version codename, and username of the contributor that named the re
  - Plugins: Added notification topic "block_processed". ([#5581])
  - Plugins: `keysend` now exposes the `extratlvs` field ([#5674])
  - Plugins: The `openchannel` hook may return a custom absolute `reserve` value that the peer must not dip below. ([#5315])
+ - Plugins: `getmanfest` response can contain `nonnumericids` to indicate support for modern string-based JSON request ids. ([#5727])
  - Protocol: We now delay forgetting funding-spent channels for 12 blocks (as per latest BOLTs, to support splicing in future). ([#5592])
  - Protocol: We now set the `dont_forward` bit on private channel_update's message_flags (as per latest BOLTs). ([#5592])
  - cln-plugin: Options are no longer required to have a default value ([#5369])
@@ -69,6 +69,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - JSON-RPC: `delexpiredinvoice`: use `autoclean-once`. ([#5594])
  - JSON-RPC: `commando-rune` restrictions is always an array, each element an array of alternatives.  Replaces a string with `|`-separators, so no escaping necessary except for `\\`. ([#5539])
  - JSON-RPC: `channel_opened` notification `funding_locked` flag (use `channel_ready`: BOLTs namechange). ([#5490])
+ - Plugins: numeric JSON request ids: modern ones will be strings (see doc/lightningd-rpc.7.md!) ([#5727])
 
 
 ### Removed
@@ -90,6 +91,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - onchaind: Witness weight estimations could be slightly lower than the VLS signer ([#5669])
  - Protocol: we now correctly decrypt non-256-length onion errors (we always forwarded them fine, now we actually can parse them). ([#5698])
  - devtools: `mkfunding` command no longer crashes (abort) ([#5677])
+ - plugins: on large/slow nodes we could blame plugins for failing to answer init in time, when we were just slow. ([#5741])
  - Plugins: `funder` now honors lease requests across RBFs ([#5650])
  - Plugins: `keysend` now removes unknown even (technically illegal!) fields, to try to accept more payments. ([#5645])
  - channeld: Channel reinitialization no longer fails when the number of outstanding outgoing HTLCs exceeds `max_accepted_htlcs`. ([#5640])
@@ -185,7 +187,9 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#5650]: https://github.com/ElementsProject/lightning/pull/5650
 [#5621]: https://github.com/ElementsProject/lightning/pull/5621
 [#5715]: https://github.com/ElementsProject/lightning/pull/5715
-[22.11rc2]: https://github.com/ElementsProject/lightning/releases/tag/v22.11rc2
+[#5727]: https://github.com/ElementsProject/lightning/pull/5727
+[#5727]: https://github.com/ElementsProject/lightning/pull/5741
+[22.11rc3]: https://github.com/ElementsProject/lightning/releases/tag/v22.11rc3
 
 
 ## [0.12.1] - 2022-09-13: Web-8 init (dot one)
