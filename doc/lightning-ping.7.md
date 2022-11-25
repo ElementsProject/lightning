@@ -9,8 +9,8 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **ping** command checks if the node with *id* is ready to talk. 
-It currently only works for peers we have a channel with.
+The **ping** command checks if the node with *id* is ready to talk.
+A successful connection with 'connect' is required before ping is possible.
 
 It accepts the following parameters:
 
