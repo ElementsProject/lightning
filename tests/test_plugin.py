@@ -1942,6 +1942,8 @@ def test_plugin_fail(node_factory):
     time.sleep(2)
     # It should clean up!
     assert 'failcmd' not in [h['command'] for h in l1.rpc.help()['help']]
+    # Can happen *before* the 'Server started with public key'
+    l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_log(r': exited during normal operation')
 
     l1.rpc.plugin_start(plugin)
