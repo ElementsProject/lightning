@@ -41,6 +41,7 @@
 #include <openingd/common.h>
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
+#include <wally_psbt_members.h>
 #include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 = hsmd */
@@ -224,6 +225,7 @@ struct state {
  */
 static u8 *psbt_changeset_get_next(const tal_t *ctx,
 				   struct channel_id *cid,
+				   const struct wally_psbt *psbt,
 				   struct psbt_changeset *set)
 {
 	u64 serial_id;
@@ -231,7 +233,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
-		u8 *script;
+		u8 *script = NULL;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
 			abort();
@@ -239,12 +241,16 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 		const u8 *prevtx = linearize_wtx(ctx,
 						 in->input.utxo);
 
-		if (in->input.redeem_script_len)
-			script = tal_dup_arr(ctx, u8,
-					     in->input.redeem_script,
-					     in->input.redeem_script_len, 0);
-		else
-			script = NULL;
+		size_t script_len;
+		if (wally_psbt_get_input_redeem_script_len(psbt, in->idx,
+							   &script_len)
+							   != WALLY_OK ||
+		    script_len == 0 ||
+		    !(script = tal_arr(ctx, u8, script_len)) ||
+		    wally_psbt_get_input_redeem_script(psbt, in->idx, script,
+						       script_len, &script_len)
+						       != WALLY_OK)
+			script = tal_free(script);
 
 		msg = towire_tx_add_input(ctx, cid, serial_id,
 					  prevtx, in->tx_input.index,
@@ -539,12 +545,18 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 				size_t in)
 {
 	size_t weight;
+	size_t redeem_script_len;
+
+	if (wally_psbt_get_input_redeem_script_len(psbt, in,
+						   &redeem_script_len)
+						   != WALLY_OK)
+		abort();
 
 	/* txid + txout + sequence */
 	weight = (32 + 4 + 4) * 4;
 	weight +=
-		(psbt->inputs[in].redeem_script_len +
-			(varint_t) varint_size(psbt->inputs[in].redeem_script_len)) * 4;
+		(redeem_script_len +
+			(varint_t) varint_size(redeem_script_len)) * 4;
 
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #3:
 	 *
@@ -998,7 +1010,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 
 		elem = cast_const2(const struct witness_element **,
 				   ws[j++]->witness_element);
-		psbt_finalize_input(tx_state->psbt, in, elem);
+		psbt_finalize_input(tx_state->psbt, tx_state->psbt, i, elem);
 	}
 
 	tx_state->remote_funding_sigs_rcvd = true;
@@ -1094,7 +1106,7 @@ static bool send_next(struct state *state,
 	struct psbt_changeset *cs = tx_state->changeset;
 
 	/* First we check our cached changes */
-	msg = psbt_changeset_get_next(tmpctx, &state->channel_id, cs);
+	msg = psbt_changeset_get_next(tmpctx, &state->channel_id, *psbt, cs);
 	if (msg)
 		goto sendmsg;
 
@@ -1112,7 +1124,7 @@ static bool send_next(struct state *state,
 	/* We want this old psbt to be cleaned up when the changeset is freed */
 	tal_steal(tx_state->changeset, notleak(*psbt));
 	*psbt = tal_steal(tx_state, updated_psbt);
-	msg = psbt_changeset_get_next(tmpctx, &state->channel_id,
+	msg = psbt_changeset_get_next(tmpctx, &state->channel_id, *psbt,
 				      tx_state->changeset);
 	/*
 	 * If there's no more moves, we send tx_complete

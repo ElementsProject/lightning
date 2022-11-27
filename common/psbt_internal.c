@@ -2,6 +2,7 @@
 #include <bitcoin/script.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
+#include <wally_psbt_members.h>
 #include <wire/peer_wire.h>
 
 static void
@@ -23,10 +24,11 @@ psbt_input_set_final_witness_stack(const tal_t *ctx,
 }
 
 void psbt_finalize_input(const tal_t *ctx,
-			 struct wally_psbt_input *in,
+			 struct wally_psbt *psbt,
+			 size_t in,
 			 const struct witness_element **elements)
 {
-	psbt_input_set_final_witness_stack(ctx, in, elements);
+	psbt_input_set_final_witness_stack(ctx, &psbt->inputs[in], elements);
 
 	/* There's this horrible edgecase where we set the final_witnesses
 	 * directly onto the PSBT, but the input is a P2SH-wrapped input
@@ -35,18 +37,27 @@ void psbt_finalize_input(const tal_t *ctx,
 	 * on these just .. ignores it!? Murder. Anyway, here we do a final
 	 * scriptsig check -- if there's a redeemscript field still around we
 	 * just go ahead and mush it into the final_scriptsig field. */
-	if (in->redeem_script) {
-		u8 *redeemscript = tal_dup_arr(NULL, u8,
-					       in->redeem_script,
-					       in->redeem_script_len, 0);
-		in->final_scriptsig =
-			bitcoin_scriptsig_redeem(NULL,
-						 take(redeemscript));
-		in->final_scriptsig_len =
-			tal_bytelen(in->final_scriptsig);
+	u8 *redeem_script;
+	size_t redeem_script_len;
+	if (wally_psbt_get_input_redeem_script_len(psbt, in,
+						   &redeem_script_len)
+						   == WALLY_OK &&
+	    redeem_script_len &&
+	    !!(redeem_script = tal_arr(tmpctx, u8, redeem_script_len)) &&
+	    wally_psbt_get_input_redeem_script(psbt, in, redeem_script,
+					       redeem_script_len,
+					       &redeem_script_len)
+					       == WALLY_OK) {
+		u8 *final_scriptsig =
+			bitcoin_scriptsig_redeem(tmpctx,
+						 take(redeem_script));
+		if (wally_psbt_set_input_final_scriptsig(psbt, in,
+							 final_scriptsig,
+							 tal_bytelen(final_scriptsig))
+							 != WALLY_OK)
+			abort();
 
-		in->redeem_script = tal_free(in->redeem_script);
-		in->redeem_script_len = 0;
+		wally_psbt_set_input_redeem_script(psbt, in, NULL, 0);
 	}
 }
 

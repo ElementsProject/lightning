@@ -8,6 +8,7 @@
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
+#include <wally_psbt_members.h>
 
 bool psbt_get_serial_id(const struct wally_map *map, u64 *serial_id)
 {
@@ -58,6 +59,56 @@ static int compare_outputs_at(const struct output_set *a,
 			       &b->output.unknowns);
 }
 
+static const u8 *get_redeem_script(const tal_t *ctx,
+				   const struct wally_psbt *psbt,
+				   size_t index)
+{
+	size_t len;
+	u8 *redeem_script;
+
+	if (wally_psbt_get_input_redeem_script_len(psbt, index, &len) != WALLY_OK)
+		return NULL;
+	redeem_script = tal_arr(ctx, u8, len);
+	if (wally_psbt_get_input_redeem_script(psbt, index, redeem_script, len, &len)
+	    != WALLY_OK)
+		return tal_free(redeem_script);
+	assert(len == tal_bytelen(redeem_script));
+	return redeem_script;
+}
+
+/* FIXME: wally_psbt_add_tx_input_at doesn't update the
+ * psbt fields for v0 PSBTs :( */
+static void psbt_input_outpoint(const struct wally_psbt *psbt,
+				size_t index,
+				struct bitcoin_outpoint *outp)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0) {
+		BUILD_ASSERT(sizeof(psbt->tx->inputs[index].txhash)
+			     == sizeof(outp->txid));
+		memcpy(&outp->txid, psbt->tx->inputs[index].txhash,
+		       sizeof(outp->txid));
+		outp->n = psbt->tx->inputs[index].index;
+	} else {
+		BUILD_ASSERT(sizeof(psbt->inputs[index].txhash)
+			     == sizeof(outp->txid));
+		assert(psbt->version == WALLY_PSBT_VERSION_2);
+		memcpy(&outp->txid, psbt->inputs[index].txhash,
+		       sizeof(outp->txid));
+		outp->n = psbt->inputs[index].index;
+	}
+}
+
+static u32 psbt_input_sequence(const struct wally_psbt *psbt,
+			       size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0) {
+		return psbt->tx->inputs[index].sequence;
+	} else {
+		assert(psbt->version == WALLY_PSBT_VERSION_2);
+		return psbt->inputs[index].sequence;
+	}
+}
+
 /*
  * tx_add_input contains:
  *  msgdata,tx_add_input,serial_id,u64,
@@ -81,20 +132,25 @@ static bool input_identical(const struct wally_psbt *a,
 {
 	const struct wally_psbt_input *api = &a->inputs[a_index];
 	const struct wally_psbt_input *bpi = &b->inputs[b_index];
-	const struct wally_tx_input *ai = &a->tx->inputs[a_index];
-	const struct wally_tx_input *bi = &b->tx->inputs[b_index];
 	u64 serial_a, serial_b;
+	const u8 *a_redeem_script, *b_redeem_script;
+	struct bitcoin_outpoint out_a, out_b;
 
-	if (!memeq(ai->txhash, ARRAY_SIZE(ai->txhash),
-		   bi->txhash, ARRAY_SIZE(bi->txhash)))
+	psbt_input_outpoint(a, a_index, &out_a);
+	psbt_input_outpoint(b, b_index, &out_b);
+	if (!bitcoin_outpoint_eq(&out_a, &out_b))
 		return false;
-	if (ai->index != bi->index)
+
+	if (psbt_input_sequence(a, a_index) != psbt_input_sequence(b, b_index))
 		return false;
-	if (ai->sequence != bi->sequence)
+
+	/* If A doesn't have redeem script, B must not either! */
+	a_redeem_script = get_redeem_script(tmpctx, a, a_index);
+	b_redeem_script = get_redeem_script(tmpctx, b, b_index);
+	if (!memeq(a_redeem_script, tal_bytelen(a_redeem_script),
+		   b_redeem_script, tal_bytelen(b_redeem_script)))
 		return false;
-	if (!memeq(api->redeem_script, api->redeem_script_len,
-		   bpi->redeem_script, bpi->redeem_script_len))
-		return false;
+
 	if (!psbt_get_serial_id(&api->unknowns, &serial_a))
 		return !psbt_get_serial_id(&bpi->unknowns, &serial_b);
 	if (!psbt_get_serial_id(&bpi->unknowns, &serial_b))
@@ -102,6 +158,45 @@ static bool input_identical(const struct wally_psbt *a,
 	if (serial_a != serial_b)
 		return false;
 
+	return true;
+}
+
+/* FIXME: wally only uses these fields for v2, v0 must look at
+ * the internal ->tx instead. */
+static const u8 *psbt_output_script(const struct wally_psbt *psbt,
+				   size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->outputs[index].script;
+
+	assert(psbt->version == WALLY_PSBT_VERSION_2);
+	return psbt->outputs[index].script;
+}
+
+static size_t psbt_output_scriptlen(const struct wally_psbt *psbt,
+				   size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->outputs[index].script_len;
+
+	assert(psbt->version == WALLY_PSBT_VERSION_2);
+	return psbt->outputs[index].script_len;
+}
+
+static bool psbt_output_amount(const struct wally_psbt *psbt,
+			       size_t index,
+			       struct amount_sat *sat)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0) {
+		*sat = amount_sat(psbt->tx->outputs[index].satoshi);
+		return true;
+	}
+
+	assert(psbt->version == WALLY_PSBT_VERSION_2);
+	if (!psbt->outputs[index].has_amount)
+		return false;
+
+	*sat = amount_sat(psbt->outputs[index].amount);
 	return true;
 }
 
@@ -121,9 +216,8 @@ static bool output_identical(const struct wally_psbt *a,
 {
 	const struct wally_psbt_output *apo = &a->outputs[a_index];
 	const struct wally_psbt_output *bpo = &b->outputs[b_index];
-	const struct wally_tx_output *ao = &a->tx->outputs[a_index];
-	const struct wally_tx_output *bo = &b->tx->outputs[b_index];
 	u64 serial_a, serial_b;
+	struct amount_sat amount_a, amount_b;
 
 	if (!psbt_get_serial_id(&apo->unknowns, &serial_a))
 		return !psbt_get_serial_id(&bpo->unknowns, &serial_b);
@@ -132,18 +226,20 @@ static bool output_identical(const struct wally_psbt *a,
 	if (serial_a != serial_b)
 		return false;
 
-	if (!memeq(ao->script, ao->script_len,
-		   bo->script, bo->script_len))
+	if (!memeq(psbt_output_script(a, a_index),
+		   psbt_output_scriptlen(a, a_index),
+		   psbt_output_script(b, b_index),
+		   psbt_output_scriptlen(b, b_index)))
 		return false;
 
-#if 0 /* libwally >= 0.8.6 */
 	/* FIXME: Not sure we should ever *not* have an amount here? */
-	if (!apo->has_amount)
-		return !bpo->has_amount;
-	return apo->amount == bpo->amount;
-#else
-	return ao->satoshi == bo->satoshi;
-#endif
+	if (!psbt_output_amount(a, a_index, &amount_a))
+		return !psbt_output_amount(b, b_index, &amount_b);
+
+	if (!psbt_output_amount(b, b_index, &amount_b))
+		return false;
+
+	return amount_sat_eq(amount_a, amount_b);
 }
 
 static void sort_inputs(struct wally_psbt *psbt)
@@ -398,7 +494,10 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 		const u8 *outscript =
 			wally_tx_output_get_script(tmpctx,
 				&input->utxo->outputs[psbt->tx->inputs[i].index]);
-		if (is_p2sh(outscript, NULL) && input->redeem_script_len == 0)
+		size_t redeem_script_len;
+		if (is_p2sh(outscript, NULL) &&
+		    (wally_psbt_get_input_redeem_script_len(psbt, i, &redeem_script_len) != WALLY_OK ||
+		     redeem_script_len == 0))
 			return false;
 
 	}
