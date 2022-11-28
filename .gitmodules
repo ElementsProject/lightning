@@ -16,7 +16,7 @@
 	url = https://github.com/valyala/gheap
 [submodule "external/lnprototest"]
 	path = external/lnprototest
-	url = https://github.com/niftynei/lnprototest.git
+	url = https://github.com/rustyrussell/lnprototest.git
 	branch = nifty/ripemd160-fallback
 [submodule "external/lowdown"]
 	path = external/lowdown
