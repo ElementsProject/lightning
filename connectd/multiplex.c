@@ -104,8 +104,7 @@ static void close_peer_io_timeout(struct peer *peer)
 
 static void close_subd_timeout(struct subd *subd)
 {
-	/* BROKEN means we'll trigger CI if we see it, though it's possible */
-	status_peer_broken(&subd->peer->id, "Subd did not close, forcing close");
+	status_peer_debug(&subd->peer->id, "Subd did not close, forcing close");
 	io_close(subd->conn);
 }
 
