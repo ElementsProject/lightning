@@ -3407,6 +3407,7 @@ def test_pay_disconnect_stress(node_factory, executor):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
+@pytest.mark.xfail(strict=True)
 def test_wumbo_channels(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3,
                                         opts=[{'large-channels': None},
@@ -3465,8 +3466,28 @@ def test_wumbo_channels(node_factory, bitcoind):
     wait_for(lambda: 'CHANNELD_NORMAL' in [c['state'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']])
 
     # Exact amount depends on fees, but it will be wumbo!
-    amount = [c['funding']['local_funds_msat'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'][0]
+    chan = only_one([c for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'])
+    amount = chan['funding']['local_funds_msat']
     assert amount > Millisatoshi(str((1 << 24) - 1) + "sat")
+
+    # We should know we can spend that much!
+    spendable = chan['spendable_msat']
+    assert spendable > Millisatoshi(str((1 << 24) - 1) + "sat")
+
+    # So should peer.
+    chan = only_one([c for c in only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'])
+    assert chan['receivable_msat'] == spendable
+
+    # And we can wumbo pay, right?
+    inv = l2.rpc.invoice(str(1 << 24) + "sat", "test_wumbo_channels", "wumbo payment")
+    # We actually do warn about capacity: l2 sees that *l1* doesn't have
+    # enough incoming to pay (not knowing that l1 is the intended payer).
+    assert 'warning_capacity' in inv
+    assert 'warning_mpp' not in inv
+
+    l1.rpc.pay(inv['bolt11'])
+    # Done in a single shot!
+    assert len(l1.rpc.listsendpays()['payments']) == 1
 
 
 @pytest.mark.openchannel('v1')
