@@ -613,6 +613,7 @@ static void subtract_received_htlcs(const struct channel *channel,
 struct amount_msat channel_amount_spendable(const struct channel *channel)
 {
 	struct amount_msat spendable;
+	bool wumbo;
 
 	/* Compute how much we can send via this channel in one payment. */
 	if (!amount_msat_sub_sat(&spendable,
@@ -636,9 +637,15 @@ struct amount_msat channel_amount_spendable(const struct channel *channel)
 			     channel->channel_info.their_config.htlc_minimum))
 		return AMOUNT_MSAT(0);
 
+	wumbo = feature_negotiated(channel->peer->ld->our_features,
+				   channel->peer->their_features,
+				   OPT_LARGE_CHANNELS);
+
 	/* We can't offer an HTLC over the max payment threshold either. */
-	if (amount_msat_greater(spendable, chainparams->max_payment))
+	if (amount_msat_greater(spendable, chainparams->max_payment)
+	    && !wumbo) {
 		spendable = chainparams->max_payment;
+	}
 
 	return spendable;
 }
@@ -646,6 +653,7 @@ struct amount_msat channel_amount_spendable(const struct channel *channel)
 struct amount_msat channel_amount_receivable(const struct channel *channel)
 {
 	struct amount_msat their_msat, receivable;
+	bool wumbo;
 
 	/* Compute how much we can receive via this channel in one payment */
 	if (!amount_sat_sub_msat(&their_msat,
@@ -672,9 +680,15 @@ struct amount_msat channel_amount_receivable(const struct channel *channel)
 	if (amount_msat_less(receivable, channel->our_config.htlc_minimum))
 		return AMOUNT_MSAT(0);
 
+	wumbo = feature_negotiated(channel->peer->ld->our_features,
+				   channel->peer->their_features,
+				   OPT_LARGE_CHANNELS);
+
 	/* They can't offer an HTLC over the max payment threshold either. */
-	if (amount_msat_greater(receivable, chainparams->max_payment))
+	if (amount_msat_greater(receivable, chainparams->max_payment)
+	    && !wumbo) {
 		receivable = chainparams->max_payment;
+	}
 
 	return receivable;
 }
