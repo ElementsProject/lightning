@@ -3407,7 +3407,6 @@ def test_pay_disconnect_stress(node_factory, executor):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail(strict=True)
 def test_wumbo_channels(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3,
                                         opts=[{'large-channels': None},
