@@ -236,13 +236,21 @@ class LightningConnection(object):
             length, = struct.unpack("!H", length)
             self.rn += 1
 
-            mc = self.connection.recv(length + 16)
-            if len(mc) < length + 16:
-                raise ValueError(
-                    "Short read reading the message: {} != {}".format(
-                        length + 16, len(lc)
+            # Large messages may be split into multiple packets:
+            mc = b''
+            toread = length + 16
+            while len(mc) < length + 16:
+                d = self.connection.recv(toread)
+                if len(d) == 0:
+                    # Not making progress anymore
+                    raise ValueError(
+                        "Short read reading the message: {} != {}".format(
+                            length + 16, len(mc)
+                        )
                     )
-                )
+                mc += d
+                toread -= len(d)
+
             m = decryptWithAD(self.rk, self.nonce(self.rn), b'', mc)
             self.rn += 1
             assert(self.rn % 2 == 0)
