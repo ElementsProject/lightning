@@ -265,8 +265,11 @@ struct command_result *plugin_register_all_complete(struct lightningd *ld,
  * and send them over to the plugin. This finalizes the initialization
  * of the plugins and signals that lightningd is now ready to process
  * incoming JSON-RPC calls and messages.
+ *
+ * It waits for plugins to be initialized, but returns false if we
+ * should exit (an important plugin failed, or we got a shutdown command).
  */
-void plugins_config(struct plugins *plugins);
+bool plugins_config(struct plugins *plugins);
 
 /**
  * This populates the jsonrpc request with the plugin/lightningd specifications
