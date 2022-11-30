@@ -4,6 +4,7 @@ export DEBIAN_FRONTEND=noninteractive
 export BITCOIN_VERSION=0.20.1
 export ELEMENTS_VERSION=0.18.1.8
 export RUST_VERSION=stable
+export PROTOC_VERSION=21.8
 
 sudo useradd -ms /bin/bash tester
 sudo apt-get update -qq
@@ -72,4 +73,8 @@ sudo chmod 0440 /etc/sudoers.d/tester
 if [ "$RUST" == "1" ]; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
       -y --default-toolchain ${RUST_VERSION}
+
+    # If we build with rust, we'll build cln-grpc, which also requires
+    # protoc to compile the grpc stubs.
+    curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
 fi
