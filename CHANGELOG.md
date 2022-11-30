@@ -7,8 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
-## [22.11rc3] - 2022-11-26
+## [22.11] - 2022-11-30: "Alameda Yield Generator"
 
+
+This release named by @endothermicdev.
 ### Added
 
  - Reckless - a Core Lightning plugin manager ([#5647])
@@ -84,6 +86,10 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 
 ### Fixed
+
+ - plugins: `pay` now knows it can use locally-connected wumbo channels for large payments. ([#5746])
+ - lightningd: do not abort while parsing hsm pwd ([#5725])
+ - plugins: on large/slow nodes we could blame plugins for failing to answer init in time, when we were just slow. ([#5741])
  - ld: Reduce identification of own transactions to not slow down over time, reducing block processing time ([#5715])
  - Fixed gossip_store corruption from duplicate private channel updates ([#5661])
  - Fixed a condition for newly created channels that could trigger a need for reconnect. ([#5601])
@@ -112,84 +118,89 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - bolt12: remove "vendor" (use "issuer") and "timestamp" (use "created_at") fields (deprecated v0.10.2). ([#5490])
 
 
-[#5674]: https://github.com/ElementsProject/lightning/pull/5674
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5592]: https://github.com/ElementsProject/lightning/pull/5592
-[#5681]: https://github.com/ElementsProject/lightning/pull/5681
-[#5539]: https://github.com/ElementsProject/lightning/pull/5539
-[#5646]: https://github.com/ElementsProject/lightning/pull/5646
+
 [#5315]: https://github.com/ElementsProject/lightning/pull/5315
+[#5664]: https://github.com/ElementsProject/lightning/pull/5664
 [#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5646]: https://github.com/ElementsProject/lightning/pull/5646
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5550]: https://github.com/ElementsProject/lightning/pull/5550
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5539]: https://github.com/ElementsProject/lightning/pull/5539
-[#5593]: https://github.com/ElementsProject/lightning/pull/5593
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5315]: https://github.com/ElementsProject/lightning/pull/5315
 [#5640]: https://github.com/ElementsProject/lightning/pull/5640
-[#5581]: https://github.com/ElementsProject/lightning/pull/5581
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5681]: https://github.com/ElementsProject/lightning/pull/5681
-[#5584]: https://github.com/ElementsProject/lightning/pull/5584
-[#5493]: https://github.com/ElementsProject/lightning/pull/5493
-[#5601]: https://github.com/ElementsProject/lightning/pull/5601
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5647]: https://github.com/ElementsProject/lightning/pull/5647
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5676]: https://github.com/ElementsProject/lightning/pull/5676
-[#5639]: https://github.com/ElementsProject/lightning/pull/5639
-[#5577]: https://github.com/ElementsProject/lightning/pull/5577
-[#5664]: https://github.com/ElementsProject/lightning/pull/5664
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5592]: https://github.com/ElementsProject/lightning/pull/5592
-[#5369]: https://github.com/ElementsProject/lightning/pull/5369
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5669]: https://github.com/ElementsProject/lightning/pull/5669
-[#5594]: https://github.com/ElementsProject/lightning/pull/5594
-[#5315]: https://github.com/ElementsProject/lightning/pull/5315
-[#5661]: https://github.com/ElementsProject/lightning/pull/5661
-[#5596]: https://github.com/ElementsProject/lightning/pull/5596
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5591]: https://github.com/ElementsProject/lightning/pull/5591
-[#5677]: https://github.com/ElementsProject/lightning/pull/5677
-[#5619]: https://github.com/ElementsProject/lightning/pull/5619
-[#5674]: https://github.com/ElementsProject/lightning/pull/5674
-[#5664]: https://github.com/ElementsProject/lightning/pull/5664
-[#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5619]: https://github.com/ElementsProject/lightning/pull/5619
-[#5698]: https://github.com/ElementsProject/lightning/pull/5698
+[#5398]: https://github.com/ElementsProject/lightning/pull/5398
+[#5585]: https://github.com/ElementsProject/lightning/pull/5585
 [#5594]: https://github.com/ElementsProject/lightning/pull/5594
 [#5587]: https://github.com/ElementsProject/lightning/pull/5587
-[#5444]: https://github.com/ElementsProject/lightning/pull/5444
-[#5509]: https://github.com/ElementsProject/lightning/pull/5509
-[#5592]: https://github.com/ElementsProject/lightning/pull/5592
-[#5650]: https://github.com/ElementsProject/lightning/pull/5650
-[#5681]: https://github.com/ElementsProject/lightning/pull/5681
-[#5487]: https://github.com/ElementsProject/lightning/pull/5487
-[#5398]: https://github.com/ElementsProject/lightning/pull/5398
-[#5639]: https://github.com/ElementsProject/lightning/pull/5639
-[#5619]: https://github.com/ElementsProject/lightning/pull/5619
+[#5584]: https://github.com/ElementsProject/lightning/pull/5584
+[#5674]: https://github.com/ElementsProject/lightning/pull/5674
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5601]: https://github.com/ElementsProject/lightning/pull/5601
+[#5315]: https://github.com/ElementsProject/lightning/pull/5315
+[#5669]: https://github.com/ElementsProject/lightning/pull/5669
 [#5681]: https://github.com/ElementsProject/lightning/pull/5681
 [#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5619]: https://github.com/ElementsProject/lightning/pull/5619
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5645]: https://github.com/ElementsProject/lightning/pull/5645
+[#5619]: https://github.com/ElementsProject/lightning/pull/5619
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5539]: https://github.com/ElementsProject/lightning/pull/5539
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5646]: https://github.com/ElementsProject/lightning/pull/5646
+[#5596]: https://github.com/ElementsProject/lightning/pull/5596
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5677]: https://github.com/ElementsProject/lightning/pull/5677
+[#5287]: https://github.com/ElementsProject/lightning/pull/5287
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5315]: https://github.com/ElementsProject/lightning/pull/5315
+[#5539]: https://github.com/ElementsProject/lightning/pull/5539
+[#5592]: https://github.com/ElementsProject/lightning/pull/5592
+[#5741]: https://github.com/ElementsProject/lightning/pull/5741
+[#5746]: https://github.com/ElementsProject/lightning/pull/5746
+[#5647]: https://github.com/ElementsProject/lightning/pull/5647
+[#5577]: https://github.com/ElementsProject/lightning/pull/5577
+[#5639]: https://github.com/ElementsProject/lightning/pull/5639
+[#5621]: https://github.com/ElementsProject/lightning/pull/5621
+[#5581]: https://github.com/ElementsProject/lightning/pull/5581
+[#5369]: https://github.com/ElementsProject/lightning/pull/5369
+[#5727]: https://github.com/ElementsProject/lightning/pull/5727
+[#5592]: https://github.com/ElementsProject/lightning/pull/5592
+[#5487]: https://github.com/ElementsProject/lightning/pull/5487
+[#5509]: https://github.com/ElementsProject/lightning/pull/5509
+[#5676]: https://github.com/ElementsProject/lightning/pull/5676
+[#5664]: https://github.com/ElementsProject/lightning/pull/5664
+[#5715]: https://github.com/ElementsProject/lightning/pull/5715
+[#5681]: https://github.com/ElementsProject/lightning/pull/5681
+[#5727]: https://github.com/ElementsProject/lightning/pull/5727
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5681]: https://github.com/ElementsProject/lightning/pull/5681
+[#5698]: https://github.com/ElementsProject/lightning/pull/5698
+[#5619]: https://github.com/ElementsProject/lightning/pull/5619
+[#5493]: https://github.com/ElementsProject/lightning/pull/5493
+[#5633]: https://github.com/ElementsProject/lightning/pull/5633
 [#5646]: https://github.com/ElementsProject/lightning/pull/5646
 [#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5646]: https://github.com/ElementsProject/lightning/pull/5646
+[#5593]: https://github.com/ElementsProject/lightning/pull/5593
+[#5674]: https://github.com/ElementsProject/lightning/pull/5674
 [#5490]: https://github.com/ElementsProject/lightning/pull/5490
-[#5633]: https://github.com/ElementsProject/lightning/pull/5633
-[#5585]: https://github.com/ElementsProject/lightning/pull/5585
-[#5645]: https://github.com/ElementsProject/lightning/pull/5645
 [#5650]: https://github.com/ElementsProject/lightning/pull/5650
-[#5621]: https://github.com/ElementsProject/lightning/pull/5621
-[#5715]: https://github.com/ElementsProject/lightning/pull/5715
-[#5727]: https://github.com/ElementsProject/lightning/pull/5727
-[#5727]: https://github.com/ElementsProject/lightning/pull/5741
-[22.11rc3]: https://github.com/ElementsProject/lightning/releases/tag/v22.11rc3
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5592]: https://github.com/ElementsProject/lightning/pull/5592
+[#5639]: https://github.com/ElementsProject/lightning/pull/5639
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5550]: https://github.com/ElementsProject/lightning/pull/5550
+[#5490]: https://github.com/ElementsProject/lightning/pull/5490
+[#5725]: https://github.com/ElementsProject/lightning/pull/5725
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5444]: https://github.com/ElementsProject/lightning/pull/5444
+[#5650]: https://github.com/ElementsProject/lightning/pull/5650
+[#5594]: https://github.com/ElementsProject/lightning/pull/5594
+[#5661]: https://github.com/ElementsProject/lightning/pull/5661
+[#5681]: https://github.com/ElementsProject/lightning/pull/5681
+[#5591]: https://github.com/ElementsProject/lightning/pull/5591
+[22.11]: https://github.com/ElementsProject/lightning/releases/tag/v22.11
 
 
 ## [0.12.1] - 2022-09-13: Web-8 init (dot one)
@@ -212,10 +223,8 @@ Point release with some bugfixes and patches.
 
 [#5583]: https://github.com/ElementsProject/lightning/pull/5583
 [#5584]: https://github.com/ElementsProject/lightning/pull/5584
-[#5585]: https://github.com/ElementsProject/lightning/pull/5585
 [#5593]: https://github.com/ElementsProject/lightning/pull/5593
 [#5591]: https://github.com/ElementsProject/lightning/pull/5591
-[#5601]: https://github.com/ElementsProject/lightning/pull/5601
 
 
 ## [0.12.0] - 2022-08-23: Web-8 init
