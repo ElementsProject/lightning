@@ -196,4 +196,4 @@ doc-clean:
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 doc/index.rst: $(MANPAGES:=.md)
-	@$(call VERBOSE, "genidx $@",(grep -v "^   lightning.*\.[0-9]\.md>$$" $@; for m in $$(cd doc && ls lightningd*.[0-9].md lightning-*.[0-9].md); do echo "   $${m%.[0-9].md} <$$m>"; done |$(SORT)) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@)
+	@$(call VERBOSE, "genidx $@",(grep -v "^   (reckless|lightning).*\.[0-9]\.md>$$" $@; for m in $$(cd doc && ls reckless.7.md lightningd*.[0-9].md lightning-*.[0-9].md); do echo "   $${m%.[0-9].md} <$$m>"; done |$(SORT)) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@)
