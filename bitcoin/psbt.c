@@ -674,7 +674,7 @@ struct wally_tx *psbt_final_tx(const tal_t *ctx, const struct wally_psbt *psbt)
 		return NULL;
 
 	tal_wally_start();
-	if (wally_psbt_extract(psbt, &wtx) == WALLY_OK)
+	if (wally_psbt_extract(psbt, 0, &wtx) == WALLY_OK)
 		tal_add_destructor(wtx, wally_tx_destroy);
 	else
 		wtx = NULL;
