@@ -168,7 +168,7 @@ struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *
 void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
 /* Generated stub for plugins_config */
-void plugins_config(struct plugins *plugins UNNEEDED)
+bool plugins_config(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_config called!\n"); abort(); }
 /* Generated stub for plugins_init */
 void plugins_init(struct plugins *plugins UNNEEDED)

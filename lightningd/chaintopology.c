@@ -968,6 +968,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->feerate_uninitialized = true;
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
+	topo->extend_timer = NULL;
 	topo->stopping = false;
 	list_head_init(topo->sync_waiters);
 
