@@ -13,6 +13,7 @@ jobs:
     env:
       RUST: 1
       COMPAT: 1
+      BOLTDIR: /tmp/bolts
     strategy:
       fail-fast: true
     steps:
@@ -31,6 +32,8 @@ jobs:
           # Export and then use pip to install into the current env
           poetry export -o /tmp/requirements.txt --without-hashes --with dev
           pip install -r /tmp/requirements.txt
+          # We're going to check BOLT quotes, so get the latest version
+          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
       - name: Run checks
         run: |
           ./configure
