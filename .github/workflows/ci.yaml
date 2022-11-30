@@ -97,44 +97,44 @@ jobs:
           ./configure
           make check-doc
 
-  proto-test:
-    name: Protocol Test Config
-    runs-on: ubuntu-22.04
-    timeout-minutes: 300
-    needs: [smoke-test]
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - {compiler: clang, db: sqlite3}
-          - {compiler: gcc, db: postgres}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2.0.0
-      - name: Build and run
-        run: |
-          docker build -f contrib/docker/Dockerfile.ubuntu -t cln-ci-ubuntu .
-          docker run -e ARCH=${{ matrix.arch }} \
-          -e COMPILER=${{ matrix.compiler }} \
-          -e DB=${{ matrix.db }} \
-          -e NETWORK=${{ matrix.network }} \
-          -e TARGET_HOST=${{ matrix.TARGET_HOST }} \
-          -e VALGRIND=${{ matrix.valgrind }} \
-          -e DEVELOPER=1 \
-          -e EXPERIMENTAL_FEATURES=1 \
-          -e COMPAT=0 \
-          -e PYTEST_PAR=2 \
-          -e PYTEST_OPTS="--timeout=300" \
-          -e TEST_CMD="make check-protos" \
-          -e TEST_GROUP=1 \
-          -e TEST_GROUP_COUNT=1 \
-          cln-ci-ubuntu
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: Junit Report ${{ github.run_number }}.{{ matrix.cfg }}
-          path: report.*
+  # proto-test:
+  #   name: Protocol Test Config
+  #   runs-on: ubuntu-22.04
+  #   timeout-minutes: 300
+  #   needs: [smoke-test]
+  #   strategy:
+  #     fail-fast: true
+  #     matrix:
+  #       include:
+  #         - {compiler: clang, db: sqlite3}
+  #         - {compiler: gcc, db: postgres}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v2.0.0
+  #     - name: Build and run
+  #       run: |
+  #         docker build -f contrib/docker/Dockerfile.ubuntu -t cln-ci-ubuntu .
+  #         docker run -e ARCH=${{ matrix.arch }} \
+  #         -e COMPILER=${{ matrix.compiler }} \
+  #         -e DB=${{ matrix.db }} \
+  #         -e NETWORK=${{ matrix.network }} \
+  #         -e TARGET_HOST=${{ matrix.TARGET_HOST }} \
+  #         -e VALGRIND=${{ matrix.valgrind }} \
+  #         -e DEVELOPER=1 \
+  #         -e EXPERIMENTAL_FEATURES=1 \
+  #         -e COMPAT=0 \
+  #         -e PYTEST_PAR=2 \
+  #         -e PYTEST_OPTS="--timeout=300" \
+  #         -e TEST_CMD="make check-protos" \
+  #         -e TEST_GROUP=1 \
+  #         -e TEST_GROUP_COUNT=1 \
+  #         cln-ci-ubuntu
+  #     - name: Upload Unit Test Results
+  #       if: always()
+  #       uses: actions/upload-artifact@v2
+  #       with:
+  #         name: Junit Report ${{ github.run_number }}.{{ matrix.cfg }}
+  #         path: report.*
 
   normal-test:
     name: Normal Test Config ${{ matrix.cfg }}
