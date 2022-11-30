@@ -11,17 +11,17 @@ path = "examples/getinfo.rs"
 
 [dependencies]
 anyhow = "1.0"
-bitcoin_hashes = { version = "0.10", features = [ "serde" ] }
+bitcoin_hashes = { version = "0.11", features = [ "serde" ] }
 bytes = "1.1"
 log = "0.4"
-secp256k1 = { version = "0.22", features = [ "serde" ] }
+secp256k1 = { version = "^0.24", features = [ "serde" ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio-util = { version = "0.6.9", features = ["codec"] }
+tokio-util = { version = "^0.7", features = ["codec"] }
 tokio = { version = "1", features = ["net"]}
 futures-util = { version = "0.3", features = [ "sink" ] }
 hex = "0.4.3"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread"]}
-env_logger = "0.9"
+env_logger = "0.10"

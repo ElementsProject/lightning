@@ -10,8 +10,8 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0"
 log = "0.4"
-prost = "0.8"
-rcgen = { version = "0.8", features = ["pem", "x509-parser"] }
+prost = "0.11"
+rcgen = { version = "^0.10", features = ["pem", "x509-parser"] }
 
 [dependencies.cln-grpc]
 path = "../../cln-grpc"
@@ -28,4 +28,4 @@ version = "1"
 
 [dependencies.tonic]
 features = ["tls", "transport"]
-version = "^0.5"
+version = "^0.8"
