@@ -58,6 +58,7 @@ tests/plugins/test_selfdisable_after_getmanifest
 # Ignore generated files
 devtools/features
 doc/lightning*.[1578]
+doc/reckless*.[1578]
 *_sqlgen.[ch]
 *_wiregen.[ch]
 *_printgen.[ch]

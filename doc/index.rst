@@ -129,3 +129,4 @@ Core Lightning Documentation
    lightningd <lightningd.8.md>
    lightningd-config <lightningd-config.5.md>
    lightningd-rpc <lightningd-rpc.7.md>
+   reckless <reckless.7.md>
