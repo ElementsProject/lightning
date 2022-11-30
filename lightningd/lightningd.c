@@ -876,7 +876,7 @@ int main(int argc, char *argv[])
 	struct htlc_in_map *unconnected_htlcs_in;
 	struct ext_key *bip32_base;
 	int sigchld_rfd;
-	struct io_conn *sigchld_conn;
+	struct io_conn *sigchld_conn = NULL;
 	int exit_code = 0;
 	char **orig_argv;
 	bool try_reexec;
@@ -1104,7 +1104,8 @@ int main(int argc, char *argv[])
 
 	/*~ Now that the rpc path exists, we can start the plugins and they
 	 * can start talking to us. */
-	plugins_config(ld->plugins);
+	if (!plugins_config(ld->plugins))
+		goto stop;
 
 	/*~ Process any HTLCs we were in the middle of when we exited, now
 	 * that plugins (who might want to know via htlc_accepted hook) are
@@ -1201,6 +1202,7 @@ int main(int argc, char *argv[])
 	assert(io_loop_ret == ld);
 	log_debug(ld->log, "io_loop_with_timers: %s", __func__);
 
+stop:
 	/* Stop *new* JSON RPC requests. */
 	jsonrpc_stop_listening(ld->jsonrpc);
 
