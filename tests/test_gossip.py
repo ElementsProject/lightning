@@ -5,7 +5,7 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     DEVELOPER, wait_for, TIMEOUT, only_one, sync_blockheight,
-    expected_node_features,
+    expected_node_features, COMPAT, EXPERIMENTAL_FEATURES,
     mine_funding_to_announce, default_ln_port
 )
 
@@ -124,6 +124,13 @@ def test_announce_address(node_factory, bitcoind):
              '::'],
             'log-level': 'io',
             'dev-allow-localhost': None}
+    if not EXPERIMENTAL_FEATURES:  # BOLT7 DNS RFC #911
+        opts = {'disable-dns': None, 'announce-addr':
+                ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
+                 '1.2.3.4:1234',
+                 '::'],
+                'log-level': 'io',
+                'dev-allow-localhost': None}
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -132,6 +139,14 @@ def test_announce_address(node_factory, bitcoind):
 
     l1.wait_channel_active(scid)
     l2.wait_channel_active(scid)
+
+    if not EXPERIMENTAL_FEATURES:  # BOLT7 DNS RFC #911
+        l1.daemon.wait_for_log(r"\[OUT\] 0101.*47"
+                               "010102030404d2"
+                               "017f000001...."
+                               "0200000000000000000000000000000000...."
+                               "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba5023003....")
+        return
 
     # We should see it send node announce with all addresses (257 = 0x0101)
     # Note: local ephemeral port is masked out.
@@ -158,6 +173,7 @@ def test_announce_address(node_factory, bitcoind):
     assert addresses_dns[0]['port'] == 1236
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
 @pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_announce_and_connect_via_dns(node_factory, bitcoind):
     """ Test that DNS annoucements propagate and can be used when connecting.
@@ -222,6 +238,7 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
         l4.rpc.connect(l1.info['id'])
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
 def test_only_announce_one_dns(node_factory, bitcoind):
     # and test that we can't announce more than one DNS address
     l1 = node_factory.get_node(expect_fail=True, start=False,
@@ -230,6 +247,7 @@ def test_only_announce_one_dns(node_factory, bitcoind):
     wait_for(lambda: l1.daemon.is_in_stderr("Only one DNS can be announced"))
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "BOLT7 DNS RFC #911")
 def test_announce_dns_without_port(node_factory, bitcoind):
     """ Checks that the port of a DNS announcement is set to the corresponding
         network port. In this case regtest 19846

@@ -45,7 +45,6 @@ TODO: Insert version codename, and username of the contributor that named the re
 ### Changed
 
  - Protocol: We now require all channel_update messages include htlc_maximum_msat (as per latest BOLTs) ([#5592])
- - Protocol: Bolt7 #911 DNS annoucenent support is no longer EXPERIMENTAL ([#5487])
  - JSON-RPC: `listfunds` now lists coinbase outputs as 'immature' until they're spendable ([#5664])
  - JSON-RPC: UTXOs aren't spendable while immature ([#5664])
  - Plugins: `openchannel2` now always includes the `channel_max_msat` ([#5650])
