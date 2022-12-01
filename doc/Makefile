@@ -196,4 +196,9 @@ doc-clean:
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 doc/index.rst: $(MANPAGES:=.md)
-	@$(call VERBOSE, "genidx $@",(grep -v "^   (reckless|lightning).*\.[0-9]\.md>$$" $@; for m in $$(cd doc && ls reckless.7.md lightningd*.[0-9].md lightning-*.[0-9].md); do echo "   $${m%.[0-9].md} <$$m>"; done |$(SORT)) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@)
+	@$(call VERBOSE, "genidx $@", \
+	  find doc -maxdepth 1 -name '*\.[0-9]\.md' | \
+	  cut -b 5- | LC_ALL=C sort | \
+	  sed 's/\(.*\)\.\(.*\).*\.md/\1 <\1.\2.md>/' | \
+	  python3 devtools/blockreplace.py doc/index.rst manpages --indent "   " \
+	)
