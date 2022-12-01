@@ -398,20 +398,29 @@ def test_opening_tiny_channel(node_factory):
 
     with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l2, l2_min_capacity + overhead - 1)
-    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    if EXPERIMENTAL_DUAL_FUND:
+        assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
+    else:
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, l2_min_capacity + overhead)
 
     with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l3, l3_min_capacity + overhead - 1)
-    wait_for(lambda: l1.rpc.listpeers(l3.info['id'])['peers'] == [])
-    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    if EXPERIMENTAL_DUAL_FUND:
+        assert only_one(l1.rpc.listpeers(l3.info['id'])['peers'])['connected']
+    else:
+        wait_for(lambda: l1.rpc.listpeers(l3.info['id'])['peers'] == [])
+        l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fundchannel(l3, l3_min_capacity + overhead)
 
     with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l4, l4_min_capacity + overhead - 1)
-    wait_for(lambda: l1.rpc.listpeers(l4.info['id'])['peers'] == [])
-    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    if EXPERIMENTAL_DUAL_FUND:
+        assert only_one(l1.rpc.listpeers(l4.info['id'])['peers'])['connected']
+    else:
+        wait_for(lambda: l1.rpc.listpeers(l4.info['id'])['peers'] == [])
+        l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     l1.fundchannel(l4, l4_min_capacity + overhead)
 
     # Note that this check applies locally too, so you can't open it if
@@ -419,8 +428,12 @@ def test_opening_tiny_channel(node_factory):
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r"channel capacity is .*, which is below .*sat"):
         l3.fundchannel(l2, l3_min_capacity + overhead - 1)
-    wait_for(lambda: l3.rpc.listpeers(l2.info['id'])['peers'] == [])
-    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    if EXPERIMENTAL_DUAL_FUND:
+        assert only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected']
+    else:
+        wait_for(lambda: l3.rpc.listpeers(l2.info['id'])['peers'] == [])
+        l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l3.fundchannel(l2, l3_min_capacity + overhead)
 
 
@@ -1121,9 +1134,10 @@ def test_funding_fail(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'to_self_delay \d+ larger than \d+'):
         l1.rpc.fundchannel(l2.info['id'], int(funds / 10))
 
-    # channels disconnect on failure
-    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
-    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+    # channels disconnect on failure (v1)
+    if not EXPERIMENTAL_DUAL_FUND:
+        wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
+        wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
     # Restart l2 without ridiculous locktime.
     del l2.daemon.opts['watchtime-blocks']
@@ -2028,7 +2042,10 @@ def test_multifunding_wumbo(node_factory):
         l1.rpc.multifundchannel(destinations)
 
     # Make sure it's disconnected from l2 before retrying.
-    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
+    if not EXPERIMENTAL_DUAL_FUND:
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
+    else:
+        assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
 
     # This should succeed.
     destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),

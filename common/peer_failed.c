@@ -11,7 +11,7 @@
 #include <common/wire_error.h>
 
 /* Fatal error here, return peer control to lightningd */
-static void NORETURN
+void NORETURN
 peer_fatal_continue(const u8 *msg TAKES, const struct per_peer_state *pps)
 {
  	int reason = fromwire_peektype(msg);

@@ -2377,9 +2377,33 @@ json_openchannel_bump(struct command *cmd,
 				    type_to_string(tmpctx, struct amount_sat,
 						   &chainparams->max_funding));
 
-	if (!channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				      "Peer not connected.");
+	/* It's possible that the last open failed/was aborted.
+	 * So now we restart the attempt! */
+	if (!channel->owner) {
+		int fds[2];
+		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+			log_broken(channel->log,
+				   "Failed to create socketpair: %s",
+				   strerror(errno));
+			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+					    "Unable to create socket: %s",
+					    strerror(errno));
+		}
+
+		if (!peer_restart_dualopend(channel->peer,
+					    new_peer_fd(tmpctx, fds[0]),
+					    channel)) {
+			close(fds[1]);
+			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+					      "Peer not connected.");
+		}
+		subd_send_msg(cmd->ld->connectd,
+			      take(towire_connectd_peer_connect_subd(NULL,
+								     &channel->peer->id,
+								     channel->peer->connectd_counter,
+								     &channel->cid)));
+		subd_send_fd(cmd->ld->connectd, fds[1]);
+	}
 
 	if (channel->open_attempt)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
