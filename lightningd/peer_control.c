@@ -359,7 +359,7 @@ void channel_errmsg(struct channel *channel,
 
 	if (channel_unsaved(channel)) {
 		log_info(channel->log, "%s", "Unsaved peer failed."
-			 " Disconnecting and deleting channel.");
+			 " Deleting channel.");
 		delete_channel(channel);
 		return;
 	}
@@ -1482,8 +1482,26 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 
 		/* If channel is active, we raced, so ignore this:
 		 * subd will get it soon. */
-		if (channel_active(channel))
+		if (channel_active(channel)) {
+			log_debug(channel->log,
+				  "channel already active");
+			if (!channel->owner &&
+			    channel->state == DUALOPEND_AWAITING_LOCKIN) {
+				if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+					log_broken(ld->log,
+						   "Failed to create socketpair: %s",
+						   strerror(errno));
+					error = towire_warningfmt(tmpctx, &channel_id,
+								  "Trouble in paradise?");
+					goto send_error;
+				}
+				if (peer_restart_dualopend(peer, new_peer_fd(tmpctx, fds[0]), channel))
+					goto tell_connectd;
+				/* FIXME: Send informative error? */
+				close(fds[1]);
+			}
 			return;
+		}
 
 		if (msgtype == WIRE_CHANNEL_REESTABLISH) {
 			log_debug(channel->log,
