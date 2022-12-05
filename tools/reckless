@@ -338,7 +338,7 @@ def _install_plugin(src: InstInfo) -> bool:
     # clone git repository to /tmp/reckless-...
     if ('http' in src.repo[:4]) or ('github.com' in src.repo):
         # Ugly, but interactively handling stderr gets hairy.
-        if IS_VERBOSE:
+        if logging.root.level < logging.WARNING:
             git = Popen(['git', 'clone',  src.repo, str(clone_path)],
                         stdout=PIPE)
         else:
@@ -660,7 +660,9 @@ if __name__ == '__main__':
                         type=str,
                         default=None)
     parser.add_argument('-r', '--regtest', action='store_true')
-    parser.add_argument('-v', '--verbose', action='store_true')
+    # parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-v', '--verbose', action="store_const",
+                        dest="loglevel", const=logging.DEBUG, default=logging.WARNING)
     cmd1 = parser.add_subparsers(dest='cmd1', help='command',
                                  required=True)
 
@@ -724,7 +726,7 @@ if __name__ == '__main__':
     RECKLESS_CONFIG = load_config(reckless_dir=RECKLESS_DIR,
                                   network=NETWORK)
     RECKLESS_SOURCES = loadSources()
-    IS_VERBOSE = bool(args.verbose)
+    logging.root.setLevel(args.loglevel)
 
     if 'targets' in args:
         # FIXME: Catch missing argument
