@@ -170,7 +170,7 @@ class Config():
                             conf_write.write(f'\n{l.strip()}')
                         else:
                             conf_write.write(l.strip())
-                        if addline == l:
+                        if addline.strip() == l.strip():
                             # addline is idempotent
                             line_exists = True
                 if not line_exists:
