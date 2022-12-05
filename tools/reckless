@@ -376,7 +376,11 @@ def _install_plugin(src: InstInfo) -> bool:
     if src.deps is not None:
         logging.debug(f'installing dependencies using {src.deps}')
         procedure = install_methods[src.deps]
-        pip = Popen(procedure, cwd=plugin_path, stdout=PIPE)
+        # Verbose output requested.
+        if logging.root.level < logging.WARNING:
+            pip = Popen(procedure, cwd=plugin_path)
+        else:
+            pip = Popen(procedure, cwd=plugin_path, stdout=PIPE, stderr=PIPE)
         pip.wait()
         if pip.returncode == 0:
             print('dependencies installed successfully')
