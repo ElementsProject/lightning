@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subsystem",
+    "age"
+  ],
+  "properties": {
+    "subsystem": {
+      "type": "string",
+      "enum": [
+        "succeededforwards",
+        "failedforwards",
+        "succeededpays",
+        "failedpays",
+        "paidinvoices",
+        "expiredinvoices"
+      ],
+      "description": "What subsystem to clean"
+    },
+    "age": {
+      "type": "u64",
+      "description": "How many seconds old an entry must be to delete it"
+    }
+  }
+}
