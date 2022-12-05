@@ -1109,6 +1109,8 @@ again:
 							  start_time),
 					 time_from_msec(250))) {
 				db_commit_transaction(jcon->ld->wallet->db);
+				/* Call us back, as if we read nothing new */
+				jcon->len_read = 0;
 				return io_always(conn, read_json, jcon);
 			}
 		}
