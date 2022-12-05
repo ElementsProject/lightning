@@ -200,5 +200,5 @@ doc/index.rst: $(MANPAGES:=.md)
 	  find doc -maxdepth 1 -name '*\.[0-9]\.md' | \
 	  cut -b 5- | LC_ALL=C sort | \
 	  sed 's/\(.*\)\.\(.*\).*\.md/\1 <\1.\2.md>/' | \
-	  python3 devtools/blockreplace.py doc/index.rst manpages --indent "   " \
+	  python3 devtools/blockreplace.py doc/index.rst manpages --language=rst --indent "   " \
 	)
