@@ -31,6 +31,7 @@ Core Lightning Documentation
 
  .. block_start manpages
    lightning-addgossip <lightning-addgossip.7.md>
+   lightning-autoclean-once <lightning-autoclean-once.7.md>
    lightning-autoclean-status <lightning-autoclean-status.7.md>
    lightning-batching <lightning-batching.7.md>
    lightning-bkpr-channelsapy <lightning-bkpr-channelsapy.7.md>
