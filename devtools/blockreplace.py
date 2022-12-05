@@ -6,15 +6,37 @@
 # requiring a separate template. The markers are currently for
 # reStructuredText only, but more can be added.
 
+from enum import Enum
 import argparse
 import os
 import sys
 import textwrap
 
 
-def replace(filename, blockname, content):
-    start = f".. block_start {blockname}"
-    stop = f".. block_end {blockname}"
+class Language(str, Enum):
+    md = 'md'
+    rst = 'rst'
+    c = 'c'
+
+
+comment_style = {
+    Language.md: (
+        "<!-- block_start {blockname} -->",
+        "<!-- block_end {blockname} -->",
+    ),
+    Language.rst: (
+        ".. block_start {blockname}",
+        ".. block_end {blockname}",
+    ),
+    Language.c: (
+        "/* block_start {blockname} */",
+        "/* block_end {blockname} */",
+    ),
+}
+
+
+def replace(filename, blockname, language, content):
+    start, stop = comment_style[language]
 
     tempfile = f"{filename}.tmp"
 
@@ -24,7 +46,7 @@ def replace(filename, blockname, content):
         while lines != []:
             l = lines.pop(0)
             o.write(l)
-            if l.strip() == start:
+            if l.strip() == start.format(blockname=blockname):
                 break
 
         o.write(content)
@@ -32,7 +54,7 @@ def replace(filename, blockname, content):
         # Skip lines until we get the end marker
         while lines != []:
             l = lines.pop(0)
-            if l.strip() == stop:
+            if l.strip() == stop.format(blockname=blockname):
                 o.write(l)
                 break
 
@@ -50,12 +72,13 @@ def main(args):
     )
     parser.add_argument('filename')
     parser.add_argument('blockname')
+    parser.add_argument('--language', type=Language)
     parser.add_argument('--indent', dest="indent", default="")
     args = parser.parse_args()
     content = sys.stdin.read()
     content = textwrap.indent(content, args.indent)
 
-    replace(args.filename, args.blockname, content)
+    replace(args.filename, args.blockname, args.language, content)
 
 
 if __name__ == "__main__":
