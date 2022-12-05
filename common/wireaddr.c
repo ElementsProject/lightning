@@ -380,7 +380,7 @@ bool is_wildcardaddr(const char *arg)
  * - not longer than 255
  * - segments are separated with . dot
  * - segments do not start or end with - hyphen
- * - segments must be longer thant zero
+ * - segments must be longer than zero
  * - lowercase a-z and digits 0-9 and - hyphen
  */
 bool is_dnsaddr(const char *arg)

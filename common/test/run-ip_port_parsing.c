@@ -126,11 +126,13 @@ int main(int argc, char *argv[])
 	assert(is_dnsaddr("123example.com"));
 	assert(is_dnsaddr("example123.com"));
 	assert(is_dnsaddr("is-valid.3hostname123.com"));
+	assert(is_dnsaddr("just-a-hostname-with-dashes"));
 	assert(!is_dnsaddr("UPPERCASE.invalid.com"));
 	assert(!is_dnsaddr("-.invalid.com"));
 	assert(!is_dnsaddr("invalid.-example.com"));
 	assert(!is_dnsaddr("invalid.example-.com"));
 	assert(!is_dnsaddr("invalid..example.com"));
+	assert(!is_dnsaddr("lightningd_dest.issue-5657.underscores.not.allowed"));
 
 	/* Grossly invalid. */
 	assert(!separate_address_and_port(tmpctx, "[", &ip, &port));
