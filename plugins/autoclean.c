@@ -223,7 +223,8 @@ static struct command_result *listinvoices_done(struct command *cmd,
 			json_add_tok(req->js, "label", label, buf);
 			json_add_tok(req->js, "status", status, buf);
 			send_outreq(plugin, req);
-		}
+		} else
+			cinfo->num_uncleaned++;
 	}
 
 	if (cinfo->cleanup_reqs_remaining)
