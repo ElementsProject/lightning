@@ -1161,7 +1161,10 @@ static void proposal_should_rbf(struct tracked_output *out)
 
 static void proposal_meets_depth(struct tracked_output *out)
 {
-	bool is_rbf = false;
+	assert(out->proposal);
+
+	/* Our own penalty transactions are going to be RBFed.  */
+	bool is_rbf = proposal_is_rbfable(out->proposal);
 
 	/* If we simply wanted to ignore it after some depth */
 	if (!out->proposal->tx) {
@@ -1179,10 +1182,6 @@ static void proposal_meets_depth(struct tracked_output *out)
 		     type_to_string(tmpctx, struct bitcoin_tx, out->proposal->tx),
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type));
-
-	if (out->proposal)
-		/* Our own penalty transactions are going to be RBFed.  */
-		is_rbf = proposal_is_rbfable(out->proposal);
 
 	wire_sync_write(
 	    REQ_FD,
