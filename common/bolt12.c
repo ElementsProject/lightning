@@ -432,7 +432,7 @@ bool bolt12_has_prefix(const char *str)
 }
 
 /* Inclusive span of tlv range >= minfield and <= maxfield */
-size_t tlv_span(const u8 *tlvstream, size_t minfield, size_t maxfield,
+size_t tlv_span(const u8 *tlvstream, u64 minfield, u64 maxfield,
 		size_t *startp)
 {
 	const u8 *cursor = tlvstream;

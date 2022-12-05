@@ -135,7 +135,7 @@ bool bolt12_has_prefix(const char *str);
  *
  * Returns length, so 0 means nothing found.
 */
-size_t tlv_span(const u8 *tlvstream, size_t minfield, size_t maxfield,
+size_t tlv_span(const u8 *tlvstream, u64 minfield, u64 maxfield,
 		size_t *start);
 
 /* Get offer_id referred to by various structures. */
