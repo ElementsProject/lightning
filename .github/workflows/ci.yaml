@@ -42,7 +42,7 @@ jobs:
           make -j 4 check-gen-updated
           make -j 4 check-doc
           make -j 4 installcheck
-          
+
   compile:
     name: Compile CLN ${{ matrix.cfg }}
     runs-on: ubuntu-20.04
@@ -87,7 +87,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-          
+
       - name: Build
         env:
           VALGRIND: ${{ matrix.VALGRIND }}
@@ -111,9 +111,89 @@ jobs:
 
           # The above leaves the binaries installed in
           # cln-${matrix.CFG}, let's package it up and store it.
-          
+
           tar -cvzf /tmp/cln-${CFG}.tar.gz cln-${CFG}
       - uses: actions/upload-artifact@v3
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
           path: /tmp/cln-${{ matrix.CFG }}.tar.gz
+
+  integration:
+    name: Test CLN ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    env:
+      COMPAT: 1
+    needs:
+      - compile
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - CFG: gcc-dev1-exp1
+            DEVELOPER: 1
+            EXPERIMENTAL_FEATURES: 1
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: gcc
+          - CFG: gcc-dev1-exp0
+            DEVELOPER: 1
+            EXPERIMENTAL_FEATURES: 0
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: gcc
+          - CFG: gcc-dev0-exp1
+            DEVELOPER: 0
+            EXPERIMENTAL_FEATURES: 1
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: gcc
+          - CFG: gcc-dev0-exp0
+            DEVELOPER: 0
+            EXPERIMENTAL_FEATURES: 0
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: gcc
+          # While we're at it let's try to compile with clang
+          - CFG: gcc-dev1-exp1
+            DEVELOPER: 1
+            EXPERIMENTAL_FEATURES: 1
+            TEST_DB_PROVIDER: sqlite3
+            COMPILER: clang
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: |
+          echo Nothing to do
+
+
+      - name: Download build
+        uses: actions/download-artifact@v3
+        with:
+          name: cln-${{ matrix.CFG }}.tar.gz
+
+      - name: Test
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          COMPILER: ${{ matrix.COMPILER }}
+          COMPAT: 1
+          CFG: ${{ matrix.CFG }}
+          SLOW_MACHINE: 1
+          PYTEST_PAR: 10
+        run: |
+          set -e
+          pip3 install --user pip wheel poetry
+          poetry export -o requirements.txt --with dev --without-hashes
+          python3 -m pip install -r requirements.txt
+
+          # Needed in order to run `make` below.
+          ./configure CC="$COMPILER"
+
+          # Only run the `pytest` tests since these are the ones that
+          # really take time, and unit tests should be run in the
+          # `compile` step.
+          make pytest
