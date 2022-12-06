@@ -493,9 +493,8 @@ precisely control where to bind and what to announce with the
 *bind-addr* and *announce-addr* options. These will **disable** the
 *autolisten* logic, so you must specifiy exactly what you want!
 
-* **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]*
+* **addr**=*\[IPADDRESS\[:PORT\]\]|autotor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]|statictor:TORIPADDRESS\[:SERVICEPORT\]\[/torport=TORPORT\]\[/torblob=\[blob\]\]|DNS\[:PORT\]*
 
-  
   Set an IP address (v4 or v6) or automatic Tor address to listen on and
 (maybe) announce as our node address.
 
@@ -531,10 +530,12 @@ defined by you and possibly different from your local node port assignment.
 
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.  If necessary, and 'always-use-proxy'
-is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
-or 'TORIPADDRESS'.
+is not specified, a DNS lookup may be done to resolve 'DNS' or 'TORIPADDRESS'.
 
-* **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH*
+  If a 'DNS' hostname was given that resolves to a local interface, the daemon
+will bind to that interface and also announce that as type 'DNS'.
+
+* **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|DNS\[:PORT\]|DNS\[:PORT\]*
 
   Set an IP address or UNIX domain socket to listen to, but do not
 announce. A UNIX domain socket is distinguished from an IP address by
@@ -549,7 +550,10 @@ not specified, 9735 is used.
 its use disables autolisten.  If necessary, and 'always-use-proxy'
 is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
 
-* **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]*
+  If a 'DNS' hostname was given and 'always-use-proxy' is not specified,
+a lookup may be done to resolve it and bind to a local interface (if found).
+
+* **announce-addr**=*IPADDRESS\[:PORT\]|TORADDRESS.onion\[:PORT\]|DNS\[:PORT\]*
 
   Set an IP (v4 or v6) address or Tor address to announce; a Tor address
 is distinguished by ending in *.onion*. *PORT* defaults to 9735.
@@ -561,8 +565,9 @@ announced addresses are public (e.g. not localhost).
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.
 
-  If necessary, and 'always-use-proxy' is not specified, a DNS
-lookup may be done to resolve 'IPADDRESS'.
+  Since v22.11 'DNS' hostnames can be used for announcement.
+Please note that a lot of mainnet nodes do not yet use, read or propagate this
+information correctly.
 
 * **offline**
 
