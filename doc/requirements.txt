@@ -1,0 +1,4 @@
+mkdocs-exclude
+mkdocs-material
+mkdocs
+Jinja2==3.1.0

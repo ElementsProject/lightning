@@ -1,0 +1,27 @@
+site_name: Core Lightning
+docs_dir: doc
+  
+plugins:
+  - search
+  - exclude:
+      regex:
+        - ".*\\.[1578]"
+theme:
+  name: material
+  features:
+    - search.suggest
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.tracking
+    - navigation.sections
+    
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+python:
+   install:
+   - requirements: doc/requirements.txt
