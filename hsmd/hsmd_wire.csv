@@ -121,6 +121,16 @@ msgdata,hsmd_preapprove_invoice,invstring,wirestring,
 msgtype,hsmd_preapprove_invoice_reply,138
 msgdata,hsmd_preapprove_invoice_reply,approved,bool,
 
+# Preapprove a keysend payment
+msgtype,hsmd_preapprove_keysend,39
+msgdata,hsmd_preapprove_keysend,destination,node_id,
+msgdata,hsmd_preapprove_keysend,payment_hash,sha256,
+msgdata,hsmd_preapprove_keysend,amount_msat,amount_msat,
+
+# Result is true if approved, declined if false 
+msgtype,hsmd_preapprove_keysend_reply,139
+msgdata,hsmd_preapprove_keysend_reply,approved,bool,
+
 # Give me ECDH(node-id-secret,point)
 msgtype,hsmd_ecdh_req,1
 msgdata,hsmd_ecdh_req,point,pubkey,

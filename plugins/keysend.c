@@ -107,6 +107,59 @@ REGISTER_PAYMENT_MODIFIER(keysend, struct keysend_data *, keysend_init,
  * End of keysend modifier
  *****************************************************************************/
 
+/*****************************************************************************
+ * check_preapprovekeysend
+ *
+ * @desc submit the keysend to the HSM for approval, fail the payment if not approved.
+ *
+ * This paymod checks the keysend for approval with the HSM, which might:
+ * - check with the user for specific approval
+ * - enforce velocity controls
+ * - automatically approve the keysend (default)
+ */
+
+static struct command_result *
+check_preapprovekeysend_allow(struct command *cmd,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      struct payment *p)
+{
+	/* On success, an empty object is returned. */
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static struct command_result *preapprovekeysend_rpc_failure(struct command *cmd,
+							    const char *buffer,
+							    const jsmntok_t *toks,
+							    struct payment *p)
+{
+	payment_abort(p,
+		      "Failing payment due to a failed RPC call: %.*s",
+		      toks->end - toks->start, buffer + toks->start);
+	return command_still_pending(cmd);
+}
+
+static void check_preapprovekeysend_start(void *d UNUSED, struct payment *p)
+{
+	/* Ask the HSM if the keysend is OK to pay */
+	struct out_req *req;
+	req = jsonrpc_request_start(p->plugin, NULL, "preapprovekeysend",
+				    &check_preapprovekeysend_allow,
+				    &preapprovekeysend_rpc_failure, p);
+	json_add_node_id(req->js, "destination", p->destination);
+	json_add_sha256(req->js, "payment_hash", p->payment_hash);
+	json_add_amount_msat_only(req->js, "amount_msat", p->amount);
+	(void) send_outreq(p->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(check_preapprovekeysend, void *, NULL,
+			  check_preapprovekeysend_start);
+
+/*
+ * End of check_preapprovekeysend modifier
+ *****************************************************************************/
+
 static const char *init(struct plugin *p, const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
@@ -123,6 +176,7 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 
 struct payment_modifier *pay_mods[] = {
     &keysend_pay_mod,
+    &check_preapprovekeysend_pay_mod,
     &local_channel_hints_pay_mod,
     &directpay_pay_mod,
     &shadowroute_pay_mod,
