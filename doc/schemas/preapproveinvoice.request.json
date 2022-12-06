@@ -7,7 +7,8 @@
   ],
   "properties": {
     "bolt11": {
-      "type": "string"
+      "type": "string",
+      "added": "v23.02"
     }
   }
 }
