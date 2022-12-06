@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "destination",
+    "payment_hash",
+    "amount_msat"
+  ],
+  "properties": {
+    "destination": {
+      "type": "pubkey",
+      "added": "v23.02"
+    },
+    "payment_hash": {
+      "type": "hex",
+      "added": "v23.02",
+      "description": "the hash of the *payment_preimage* which will prove payment",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "amount_msat": {
+      "type": "msat",
+      "added": "v23.02"
+    }
+  }
+}

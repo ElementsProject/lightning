@@ -120,6 +120,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_SIGN_BOLT12:
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_DERIVE_SECRET:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
@@ -151,6 +152,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 		break;
 	}
@@ -675,6 +677,24 @@ static u8 *handle_preapprove_invoice(struct hsmd_client *c, const u8 *msg_in)
 	approved = true;
 
 	return towire_hsmd_preapprove_invoice_reply(NULL, approved);
+}
+
+/*~ lightningd asks us to approve a keysend payment. This stub implementation
+ * is overriden by fully validating signers that need to track keysend
+ * payments. */
+static u8 *handle_preapprove_keysend(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct node_id destination;
+	struct sha256 payment_hash;
+	struct amount_msat amount_msat;
+	bool approved;
+	if (!fromwire_hsmd_preapprove_keysend(msg_in, &destination, &payment_hash, &amount_msat))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/* This stub always approves */
+	approved = true;
+
+	return towire_hsmd_preapprove_keysend_reply(NULL, approved);
 }
 
 /*~ Lightning invoices, defined by BOLT 11, are signed.  This has been
@@ -1592,6 +1612,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_bolt12(client, msg);
 	case WIRE_HSMD_PREAPPROVE_INVOICE:
 		return handle_preapprove_invoice(client, msg);
+	case WIRE_HSMD_PREAPPROVE_KEYSEND:
+		return handle_preapprove_keysend(client, msg);
 	case WIRE_HSMD_SIGN_MESSAGE:
 		return handle_sign_message(client, msg);
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
@@ -1656,6 +1678,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_REPLY:
+	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 		break;
 	}
 	return hsmd_status_bad_request(client, msg, "Unknown request");

@@ -76,6 +76,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-parsefeerate.7 \
 	doc/lightning-plugin.7 \
 	doc/lightning-preapproveinvoice.7 \
+	doc/lightning-preapprovekeysend.7 \
 	doc/lightning-recoverchannel.7 \
 	doc/lightning-reserveinputs.7 \
 	doc/lightning-sendinvoice.7 \
