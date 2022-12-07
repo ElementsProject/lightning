@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/ccan/endian/endian.h>
 #include <ccan/ccan/mem/mem.h>
@@ -57,107 +58,92 @@ static int compare_outputs_at(const struct output_set *a,
 			       &b->output.unknowns);
 }
 
-static const u8 *linearize_input(const tal_t *ctx,
-				 const struct wally_psbt_input *in,
-				 const struct wally_tx_input *tx_in)
-{
-	struct wally_psbt *psbt = create_psbt(NULL, 1, 0, 0);
-	size_t byte_len;
-
-	tal_wally_start();
-	if (wally_tx_add_input(psbt->tx, tx_in) != WALLY_OK)
-		abort();
-	tal_wally_end(psbt->tx);
-
-	psbt->inputs[0] = *in;
-	psbt->num_inputs++;
-
-
-	/* Sort the inputs, so serializing them is ok */
-	wally_map_sort(&psbt->inputs[0].unknowns, 0);
-
-	/* signatures, keypaths, etc - we dont care if they change */
-	psbt->inputs[0].final_witness = NULL;
-	psbt->inputs[0].final_scriptsig_len = 0;
-	psbt->inputs[0].witness_script = NULL;
-	psbt->inputs[0].witness_script_len = 0;
-	psbt->inputs[0].redeem_script_len = 0;
-	psbt->inputs[0].keypaths.num_items = 0;
-	psbt->inputs[0].signatures.num_items = 0;
-
-	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
-
-	/* Hide the inputs we added, so it doesn't get freed */
-	psbt->num_inputs--;
-	tal_free(psbt);
-	return bytes;
-}
-
-static const u8 *linearize_output(const tal_t *ctx,
-				  const struct wally_psbt_output *out,
-				  const struct wally_tx_output *tx_out)
-{
-	struct wally_psbt *psbt = create_psbt(NULL, 1, 1, 0);
-	size_t byte_len;
-	struct bitcoin_outpoint outpoint;
-
-	/* Add a 'fake' input so this will linearize the tx */
-	memset(&outpoint, 0, sizeof(outpoint));
-	psbt_append_input(psbt, &outpoint, 0, NULL, NULL, NULL);
-
-	tal_wally_start();
-	if (wally_tx_add_output(psbt->tx, tx_out) != WALLY_OK)
-		abort();
-	tal_wally_end(psbt->tx);
-
-	psbt->outputs[0] = *out;
-	psbt->num_outputs++;
-	/* Sort the outputs, so serializing them is ok */
-	wally_map_sort(&psbt->outputs[0].unknowns, 0);
-
-	/* We don't care if the keypaths change */
-	psbt->outputs[0].keypaths.num_items = 0;
-	/* And you can add scripts, no problem */
-	psbt->outputs[0].witness_script_len = 0;
-	psbt->outputs[0].redeem_script_len = 0;
-
-	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
-
-	/* Hide the outputs we added, so it doesn't get freed */
-	psbt->num_outputs--;
-	tal_free(psbt);
-	return bytes;
-}
-
+/*
+ * tx_add_input contains:
+ *  msgdata,tx_add_input,serial_id,u64,
+ *  msgdata,tx_add_input,prevtx_len,u16,
+ *  msgdata,tx_add_input,prevtx,byte,prevtx_len
+ *  msgdata,tx_add_input,prevtx_vout,u32,
+ *  msgdata,tx_add_input,sequence,u32,
+ *  msgdata,tx_add_input,script_sig_len,u16,
+ *  msgdata,tx_add_input,script_sig,byte,script_sig_len
+ *
+ * So, if we compare serial_id, prev txid, prev_vout,
+ * sequence and script_sig, that's everything.
+ *
+ * We already checked: serial_id is identical, but we
+ * do it here for completeness.
+ */
 static bool input_identical(const struct wally_psbt *a,
 			    size_t a_index,
 			    const struct wally_psbt *b,
 			    size_t b_index)
 {
-	const u8 *a_in = linearize_input(tmpctx,
-					 &a->inputs[a_index],
-					 &a->tx->inputs[a_index]);
-	const u8 *b_in = linearize_input(tmpctx,
-					 &b->inputs[b_index],
-					 &b->tx->inputs[b_index]);
+	const struct wally_psbt_input *api = &a->inputs[a_index];
+	const struct wally_psbt_input *bpi = &b->inputs[b_index];
+	const struct wally_tx_input *ai = &a->tx->inputs[a_index];
+	const struct wally_tx_input *bi = &b->tx->inputs[b_index];
+	u64 serial_a, serial_b;
 
-	return memeq(a_in, tal_bytelen(a_in),
-		     b_in, tal_bytelen(b_in));
+	if (!memeq(ai->txhash, ARRAY_SIZE(ai->txhash),
+		   bi->txhash, ARRAY_SIZE(bi->txhash)))
+		return false;
+	if (ai->index != bi->index)
+		return false;
+	if (ai->sequence != bi->sequence)
+		return false;
+	if (!memeq(api->redeem_script, api->redeem_script_len,
+		   bpi->redeem_script, bpi->redeem_script_len))
+		return false;
+	if (!psbt_get_serial_id(&api->unknowns, &serial_a))
+		return !psbt_get_serial_id(&bpi->unknowns, &serial_b);
+	if (!psbt_get_serial_id(&bpi->unknowns, &serial_b))
+		return false;
+	if (serial_a != serial_b)
+		return false;
+
+	return true;
 }
 
+/*
+ * tx_add_output contains:
+ *
+ *  msgdata,tx_add_output,channel_id,channel_id,
+ *  msgdata,tx_add_output,serial_id,u64,
+ *  msgdata,tx_add_output,sats,u64,
+ *  msgdata,tx_add_output,scriptlen,u16,
+ *  msgdata,tx_add_output,script,byte,scriptlen
+ */
 static bool output_identical(const struct wally_psbt *a,
 			     size_t a_index,
 			     const struct wally_psbt *b,
 			     size_t b_index)
 {
-	const u8 *a_out = linearize_output(tmpctx,
-					   &a->outputs[a_index],
-					   &a->tx->outputs[a_index]);
-	const u8 *b_out = linearize_output(tmpctx,
-					   &b->outputs[b_index],
-					   &b->tx->outputs[b_index]);
-	return memeq(a_out, tal_bytelen(a_out),
-		     b_out, tal_bytelen(b_out));
+	const struct wally_psbt_output *apo = &a->outputs[a_index];
+	const struct wally_psbt_output *bpo = &b->outputs[b_index];
+	const struct wally_tx_output *ao = &a->tx->outputs[a_index];
+	const struct wally_tx_output *bo = &b->tx->outputs[b_index];
+	u64 serial_a, serial_b;
+
+	if (!psbt_get_serial_id(&apo->unknowns, &serial_a))
+		return !psbt_get_serial_id(&bpo->unknowns, &serial_b);
+	if (!psbt_get_serial_id(&bpo->unknowns, &serial_b))
+		return false;
+	if (serial_a != serial_b)
+		return false;
+
+	if (!memeq(ao->script, ao->script_len,
+		   bo->script, bo->script_len))
+		return false;
+
+#if 0 /* libwally >= 0.8.6 */
+	/* FIXME: Not sure we should ever *not* have an amount here? */
+	if (!apo->has_amount)
+		return !bpo->has_amount;
+	return apo->amount == bpo->amount;
+#else
+	return ao->satoshi == bo->satoshi;
+#endif
 }
 
 static void sort_inputs(struct wally_psbt *psbt)
