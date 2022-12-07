@@ -49,3 +49,4 @@ nav:
           - "lightning-withdraw": "./lightning-withdraw.7.md"
   - About:
       - Changelog: "CHANGELOG.md"
+      - License: "LICENSE.md"
