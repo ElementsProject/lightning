@@ -26,11 +26,6 @@ markdown_extensions:
   - pymdownx.superfences
   - toc:
       toc_depth: 2
-
-python:
-   install:
-   - requirements: doc/requirements.txt
-
 nav:
   - "Welcome": index.md
   - Users:

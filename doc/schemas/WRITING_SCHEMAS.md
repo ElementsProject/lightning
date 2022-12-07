@@ -45,8 +45,9 @@ are allowed by omitted from the documentation.
 You should always list all fields which are *always* present in
 `"required"`.
 
-We extend the basic types; see
-[fixtures.py][contrib/pyln-testing/pyln/testing/fixtures.py].
+We extend the basic types; see [fixtures.py][fixtures].
+
+[fixtures]: https://github.com/ElementsProject/lightning/blob/master/contrib/pyln-testing/pyln/testing/fixtures.py
 
 In addition, before committing a new schema or a new version of it, make sure that it
 is well formatted. If you don't want do it by hand, use `make fmt-schema` that uses
