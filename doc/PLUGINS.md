@@ -1794,3 +1794,6 @@ The plugin must broadcast it and respond with the following fields:
 [contrib/plugins]: https://github.com/ElementsProject/lightning/tree/master/contrib/plugins
 [tests]: https://github.com/ElementsProject/lightning/tree/master/tests
 [lightning-rpc.7.md]: lightningd-rpc.7.md
+[example-plugin]: https://github.com/ElementsProject/lightning/blob/master/contrib/plugins/helloworld.py
+[cln-tests]: https://github.com/ElementsProject/lightning/tree/master/tests
+[cln-repo]: https://github.com/lightningd/plugins
