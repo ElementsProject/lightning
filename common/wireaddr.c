@@ -378,21 +378,20 @@ bool is_wildcardaddr(const char *arg)
 /* The rules to check for DNS FQDNs, see `man 7 hostname`
  *
  * - not longer than 255
- * - segments are separated with . dot
- * - segments do not start or end with - hyphen
- * - segments must be longer than zero
- * - allow lowercase a-z and digits 0-9 and - hyphen
- * - additionall we allow for an '_' underscore in the hostname part.
+ * - labels are separated with . dot
+ * - labels do not start or end with - hyphen
+ * - labels must be longer than zero
+ * - allow ASCII letters a-z, A-Z, digits 0-9 and - hyphen
+ * - additionally we allow for an '_' underscore in the first hostname label
+ * - other characters must be punycoded rfc3492
  *
- * See issue #5657
- * https://github.com/ElementsProject/lightning/issues/5657
- * https://en.wikipedia.org/wiki/Hostname
+ * See `man 7 hostname` and https://www.rfc-editor.org/rfc/rfc1035
  */
 bool is_dnsaddr(const char *arg)
 {
 	size_t i, arglen;
 	int lastdot;
-	int numdot;
+	int numlabels;
 
 	if (is_ipaddr(arg) || is_toraddr(arg) || is_wildcardaddr(arg))
 		return false;
@@ -402,10 +401,10 @@ bool is_dnsaddr(const char *arg)
 	if (arglen > 255)
 		return false;
 	lastdot = -1;
-	numdot = 0;
+	numlabels = 0;
 	for (i = 0; i < arglen; i++) {
 		if (arg[i] == '.') {
-			numdot++;
+			numlabels++;
 			/* segment must be longer than zero */
 			if (i - lastdot == 1)
 				return false;
@@ -420,12 +419,14 @@ bool is_dnsaddr(const char *arg)
 			return false;
 		if (arg[i] >= 'a' && arg[i] <= 'z')
 			continue;
+		if (arg[i] >= 'A' && arg[i] <= 'Z')
+			continue;
 		if (arg[i] >= '0' && arg[i] <= '9')
 			continue;
 		if (arg[i] == '-')
 			continue;
 		/* allow for _ underscores in the first hostname part */
-		if (arg[i] == '_' && numdot == 0)
+		if (arg[i] == '_' && numlabels == 0)
 			continue;
 		return false;
 	}
