@@ -291,24 +291,11 @@ const u8 *bitcoin_tx_output_get_script(const tal_t *ctx,
 u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *tx,
 				    int outnum)
 {
-	u8 *witness_script = NULL;
-	size_t witness_script_len;
-
 	assert(outnum < tx->psbt->num_outputs);
 
-	if (wally_psbt_get_output_witness_script_len(tx->psbt, outnum,
-						     &witness_script_len)
-						     != WALLY_OK ||
-	    witness_script_len == 0 ||
-	    !(witness_script = tal_arr(ctx, u8, witness_script_len)) ||
-	    wally_psbt_get_output_witness_script(tx->psbt, outnum,
-						 witness_script,
-						 witness_script_len,
-						 &witness_script_len)
-					         != WALLY_OK) {
-		return tal_free(witness_script);
-	}
-	return witness_script;
+	return psbt_get_script(ctx, tx->psbt, outnum,
+			       wally_psbt_get_output_witness_script_len,
+			       wally_psbt_get_output_witness_script);
 }
 
 struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,

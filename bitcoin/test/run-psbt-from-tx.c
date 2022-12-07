@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 
 	/* Witness/scriptsig data is saved down into psbt */
 	assert(tx2->psbt->num_inputs == 1);
+
 	size_t final_scriptsig_len;
 	assert(wally_psbt_get_input_final_scriptsig_len(tx2->psbt, 0,
 							&final_scriptsig_len)
@@ -116,7 +117,7 @@ int main(int argc, char *argv[])
 	assert(wally_psbt_get_input_final_witness_alloc(tx2->psbt, 0,
 							&final_witness)
 							== WALLY_OK &&
-	       final_witness != NULL);
+	       final_witness->num_items > 0);
 	tal_wally_end(tmpctx);
 
 	common_shutdown();

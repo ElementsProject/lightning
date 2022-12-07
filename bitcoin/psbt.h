@@ -228,6 +228,28 @@ struct amount_sat psbt_compute_fee(const struct wally_psbt *psbt);
 bool psbt_has_input(const struct wally_psbt *psbt,
 		    const struct bitcoin_outpoint *outpoint);
 
+
+/**
+ * psbt_get_script: tal-friendly accessor for PSBT script fields.
+ * @ctx: context to allocate return from.
+ * @psbt: psbt to access
+ * @index: input/output number
+ * @getlen: e.g. wally_psbt_get_input_witness_script_len
+ * @getscript: e.g. wally_psbt_get_input_witness_script
+ *
+ * Returns NULL on error, otherwise tal array with tal_bytelen() correct.
+ */
+u8 *psbt_get_script(const tal_t *ctx,
+		    const struct wally_psbt *psbt,
+		    size_t index,
+		    int (*getlen)(const struct wally_psbt *,
+				  size_t, size_t *),
+		    int (*getscript)(const struct wally_psbt *,
+				     size_t,
+				     unsigned char *,
+				     size_t,
+				     size_t *));
+
 struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 				 const char *b64,
 				 size_t b64len);

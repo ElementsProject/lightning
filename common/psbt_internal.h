@@ -33,5 +33,4 @@ const struct witness_stack **
 psbt_to_witness_stacks(const tal_t *ctx,
 		       const struct wally_psbt *psbt,
 		       enum tx_role side_to_stack);
-
 #endif /* LIGHTNING_COMMON_PSBT_INTERNAL_H */

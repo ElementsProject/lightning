@@ -91,6 +91,18 @@ struct wally_tx *psbt_final_tx(const tal_t *ctx UNNEEDED, const struct wally_psb
 /* Generated stub for psbt_finalize */
 bool psbt_finalize(struct wally_psbt *psbt UNNEEDED)
 { fprintf(stderr, "psbt_finalize called!\n"); abort(); }
+/* Generated stub for psbt_get_script */
+u8 *psbt_get_script(const tal_t *ctx UNNEEDED,
+		    const struct wally_psbt *psbt UNNEEDED,
+		    size_t index UNNEEDED,
+		    int (*getlen)(const struct wally_psbt * UNNEEDED,
+				  size_t UNNEEDED, size_t *) UNNEEDED,
+		    int (*getscript)(const struct wally_psbt * UNNEEDED,
+				     size_t UNNEEDED,
+				     unsigned char * UNNEEDED,
+				     size_t UNNEEDED,
+				     size_t *))
+{ fprintf(stderr, "psbt_get_script called!\n"); abort(); }
 /* Generated stub for psbt_input_get_amount */
 struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt UNNEEDED,
 					size_t in UNNEEDED)

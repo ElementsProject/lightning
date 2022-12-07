@@ -233,7 +233,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
-		u8 *script = NULL;
+		u8 *script;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
 			abort();
@@ -241,17 +241,9 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 		const u8 *prevtx = linearize_wtx(ctx,
 						 in->input.utxo);
 
-		size_t script_len;
-		if (wally_psbt_get_input_redeem_script_len(psbt, in->idx,
-							   &script_len)
-							   != WALLY_OK ||
-		    script_len == 0 ||
-		    !(script = tal_arr(ctx, u8, script_len)) ||
-		    wally_psbt_get_input_redeem_script(psbt, in->idx, script,
-						       script_len, &script_len)
-						       != WALLY_OK)
-			script = tal_free(script);
-
+		script = psbt_get_script(tmpctx, psbt, in->idx,
+					 wally_psbt_get_input_redeem_script_len,
+					 wally_psbt_get_input_redeem_script);
 		msg = towire_tx_add_input(ctx, cid, serial_id,
 					  prevtx, in->tx_input.index,
 					  in->tx_input.sequence,

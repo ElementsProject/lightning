@@ -1,4 +1,6 @@
 #include "config.h"
+#include <assert.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
@@ -38,16 +40,11 @@ void psbt_finalize_input(const tal_t *ctx,
 	 * scriptsig check -- if there's a redeemscript field still around we
 	 * just go ahead and mush it into the final_scriptsig field. */
 	u8 *redeem_script;
-	size_t redeem_script_len;
-	if (wally_psbt_get_input_redeem_script_len(psbt, in,
-						   &redeem_script_len)
-						   == WALLY_OK &&
-	    redeem_script_len &&
-	    !!(redeem_script = tal_arr(tmpctx, u8, redeem_script_len)) &&
-	    wally_psbt_get_input_redeem_script(psbt, in, redeem_script,
-					       redeem_script_len,
-					       &redeem_script_len)
-					       == WALLY_OK) {
+
+	redeem_script = psbt_get_script(NULL, psbt, in,
+					wally_psbt_get_input_redeem_script_len,
+					wally_psbt_get_input_redeem_script);
+	if (redeem_script) {
 		u8 *final_scriptsig =
 			bitcoin_scriptsig_redeem(tmpctx,
 						 take(redeem_script));

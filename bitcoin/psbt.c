@@ -617,20 +617,13 @@ bool psbt_finalize(struct wally_psbt *psbt)
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct wally_psbt_input *input = &psbt->inputs[i];
 		struct wally_tx_witness_stack *stack;
-
 		u8 *witness_script;
-		size_t witness_script_len;
-		if (wally_psbt_get_input_witness_script_len(psbt, i,
-							    &witness_script_len)
-							    != WALLY_OK ||
-		    !(witness_script = tal_arr(tmpctx, u8, witness_script_len)) ||
-		    wally_psbt_get_input_witness_script(psbt, i,
-							witness_script,
-							witness_script_len,
-							&witness_script_len)
-							!= WALLY_OK ||
-		    !is_anchor_witness_script(witness_script,
-					      witness_script_len))
+
+		witness_script = psbt_get_script(tmpctx, psbt, i,
+						 wally_psbt_get_input_witness_script_len,
+						 wally_psbt_get_input_witness_script);
+		if (!is_anchor_witness_script(witness_script,
+					      tal_bytelen(witness_script)))
 			continue;
 
 		if (input->signatures.num_items != 1)
@@ -656,7 +649,7 @@ bool psbt_finalize(struct wally_psbt *psbt)
 					   input->signatures.items[0].value_len);
 		wally_tx_witness_stack_add(stack,
 					   witness_script,
-					   witness_script_len);
+					   tal_bytelen(witness_script));
 		wally_psbt_input_set_final_witness(input, stack);
 	}
 
@@ -807,35 +800,26 @@ void psbt_txid(const tal_t *ctx,
 
 	for (size_t i = 0; i < tx->num_inputs; i++) {
 		u8 *script;
-		size_t script_len;
-		if (wally_psbt_get_input_final_scriptsig_len(psbt, i,
-							     &script_len)
-							     == WALLY_OK &&
-		    script_len &&
-		    !!(script = tal_arr(tmpctx, u8, script_len)) &&
-		    wally_psbt_get_input_final_scriptsig(psbt, i,
-							 script,
-							 script_len,
-							 &script_len)
-							 == WALLY_OK) {
-			wally_tx_set_input_script(tx, i,
-						  script, script_len);
-		} else if (wally_psbt_get_input_redeem_script_len(psbt, i,
-								  &script_len)
-								  == WALLY_OK &&
-			   script_len &&
-			   !!(script = tal_arr(tmpctx, u8, script_len)) &&
-			   wally_psbt_get_input_redeem_script(psbt, i,
-							      script,
-							      script_len,
-							      &script_len)
-							      == WALLY_OK) {
-			u8 *tmp;
 
-			/* P2SH requires push of the redeemscript, from libwally src */
-			tmp = tal_arr(tmpctx, u8, 0);
-			script_push_bytes(&tmp, script, script_len);
-			wally_tx_set_input_script(tx, i, tmp, tal_bytelen(tmp));
+		script = psbt_get_script(tmpctx, psbt, i,
+					 wally_psbt_get_input_final_scriptsig_len,
+					 wally_psbt_get_input_final_scriptsig);
+
+		if (tal_bytelen(script) != 0) {
+			wally_tx_set_input_script(tx, i, script,
+						  tal_bytelen(script));
+		} else {
+			script = psbt_get_script(tmpctx, psbt, i,
+						 wally_psbt_get_input_redeem_script_len,
+						 wally_psbt_get_input_redeem_script);
+			if (script) {
+				u8 *tmp;
+
+				/* P2SH requires push of the redeemscript, from libwally src */
+				tmp = tal_arr(tmpctx, u8, 0);
+				script_push_bytes(&tmp, script, tal_bytelen(script));
+				wally_tx_set_input_script(tx, i, tmp, tal_bytelen(tmp));
+			}
 		}
 	}
 	tal_wally_end_onto(ctx, tx, struct wally_tx);
@@ -872,4 +856,28 @@ struct amount_sat psbt_compute_fee(const struct wally_psbt *psbt)
 	}
 
 	return fee;
+}
+
+u8 *psbt_get_script(const tal_t *ctx,
+		    const struct wally_psbt *psbt,
+		    size_t index,
+		    int (*getlen)(const struct wally_psbt *psbt,
+				  size_t index, size_t *written),
+		    int (*getscript)(const struct wally_psbt *psbt,
+				     size_t index,
+				     unsigned char *bytes_out,
+				     size_t len,
+				     size_t *written))
+{
+	u8 *script;
+	size_t len;
+
+	if (getlen(psbt, index, &len) != WALLY_OK)
+		return NULL;
+
+	script = tal_arr(ctx, u8, len);
+	if (getscript(psbt, index, script, len, &len) != WALLY_OK)
+		return tal_free(script);
+	assert(len == tal_bytelen(script));
+	return script;
 }

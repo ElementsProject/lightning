@@ -63,17 +63,9 @@ static const u8 *get_redeem_script(const tal_t *ctx,
 				   const struct wally_psbt *psbt,
 				   size_t index)
 {
-	size_t len;
-	u8 *redeem_script;
-
-	if (wally_psbt_get_input_redeem_script_len(psbt, index, &len) != WALLY_OK)
-		return NULL;
-	redeem_script = tal_arr(ctx, u8, len);
-	if (wally_psbt_get_input_redeem_script(psbt, index, redeem_script, len, &len)
-	    != WALLY_OK)
-		return tal_free(redeem_script);
-	assert(len == tal_bytelen(redeem_script));
-	return redeem_script;
+	return psbt_get_script(ctx, psbt, index,
+			       wally_psbt_get_input_redeem_script_len,
+			       wally_psbt_get_input_redeem_script);
 }
 
 /* FIXME: wally_psbt_add_tx_input_at doesn't update the
