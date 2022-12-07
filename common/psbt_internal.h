@@ -13,15 +13,14 @@ struct witness_element;
  *
  * Sets the given witness elements onto the PSBT. Also finalizes
  * the redeem_script, if any.
- * @ctx - the context to allocate onto
  * @psbt - the PSBT containing the input to set final_witness for
  * @in - index of the input in the PSBT
  * @witness_element - elements to add to witness stack
  */
-void psbt_finalize_input(const tal_t *ctx,
-			 struct wally_psbt *psbt,
+void psbt_finalize_input(struct wally_psbt *psbt,
 			 size_t in,
 			 const struct witness_element **elements);
+
 /* psbt_to_witness_stacks - Take all sigs on a PSBT and copy to a
  * 			    witness_stack
  *

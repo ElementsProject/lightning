@@ -1002,7 +1002,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 
 		elem = cast_const2(const struct witness_element **,
 				   ws[j++]->witness_element);
-		psbt_finalize_input(tx_state->psbt, tx_state->psbt, i, elem);
+		psbt_finalize_input(tx_state->psbt, i, elem);
 	}
 
 	tx_state->remote_funding_sigs_rcvd = true;

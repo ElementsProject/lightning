@@ -8,7 +8,7 @@
 #include <wire/peer_wire.h>
 
 static void
-psbt_input_set_final_witness_stack(const tal_t *ctx,
+psbt_input_set_final_witness_stack(const struct wally_psbt *psbt,
 				   struct wally_psbt_input *in,
 				   const struct witness_element **elements)
 {
@@ -22,15 +22,14 @@ psbt_input_set_final_witness_stack(const tal_t *ctx,
 		wally_tx_witness_stack_add(in->final_witness,
 					   elements[i]->witness,
 					   tal_bytelen(elements[i]->witness));
-	tal_wally_end(ctx);
+	tal_wally_end(psbt);
 }
 
-void psbt_finalize_input(const tal_t *ctx,
-			 struct wally_psbt *psbt,
+void psbt_finalize_input(struct wally_psbt *psbt,
 			 size_t in,
 			 const struct witness_element **elements)
 {
-	psbt_input_set_final_witness_stack(ctx, &psbt->inputs[in], elements);
+	psbt_input_set_final_witness_stack(psbt, &psbt->inputs[in], elements);
 
 	/* There's this horrible edgecase where we set the final_witnesses
 	 * directly onto the PSBT, but the input is a P2SH-wrapped input
