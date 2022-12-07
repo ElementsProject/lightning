@@ -57,6 +57,10 @@ Readiness is indicated by **listpeers** reporting a *state* of
 * *compact\_lease* is a compact represenation of the peer's expected
   channel lease terms. If the peer's terms don't match this set, we will
   fail to open the channel to this destination.
+* *reserve* is the amount we want the peer to maintain on its side of the
+  channel. Default is 1% of the funding amount. It can be a whole number, a
+  whole number ending in *sat*, a whole number ending in *000msat*, or a number
+  with 1 to 8 decimal places ending in *btc*.
 
 There must be at least one entry in *destinations*;
 it cannot be an empty array.
