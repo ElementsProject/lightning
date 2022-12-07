@@ -1,11 +1,12 @@
 site_name: Core Lightning
 docs_dir: doc
-  
+use_directory_urls: false
+
 plugins:
   - search
   - exclude:
       regex:
-        - ".*\\.[1578]"
+        - ".*\\.[1578]$"
 theme:
   name: material
   features:
@@ -14,14 +15,42 @@ theme:
     - navigation.tabs.sticky
     - navigation.tracking
     - navigation.sections
-    
+    - navigation.expand
+    - navigation.indexes
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - toc:
+      toc_depth: 2
 
 python:
    install:
    - requirements: doc/requirements.txt
+
+nav:
+  - "Welcome": index.md
+  - Users:
+      - Installation: "INSTALL.md"
+      - "Frequently Asked Question": "FAQ.md"
+      - "TOR": "TOR.md"
+  - Developers:
+      - dev/index.md
+      - "Developing a plugin": PLUGINS.md
+      - "Contributors":
+          - dev/contributors/index.md
+          - "Writing JSON Schemas": schemas/WRITING_SCHEMAS.md
+          - Fuzzing: FUZZING.md
+          - "Reproducible Builds": REPRODUCIBLE.md
+          - "Coding Style": STYLE.md
+
+  - Reference:
+      - reference/index.md
+      - "Man Pages":
+          - lightningd-rpc: lightningd-rpc.7.md
+          - "lightning-withdraw": "./lightning-withdraw.7.md"
+  - About:
+      - Changelog: "CHANGELOG.md"
