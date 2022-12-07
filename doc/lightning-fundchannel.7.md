@@ -6,6 +6,7 @@ SYNOPSIS
 
 **fundchannel** *id* *amount* [*feerate*] [*announce*] [*minconf*]
 [*utxos*] [*push\_msat*] [*close\_to*] [*request\_amt*] [*compact\_lease*]
+[*reserve*]
 
 DESCRIPTION
 -----------
@@ -71,6 +72,11 @@ much liquidity into the channel. Must also pass in *compact\_lease*.
 *compact\_lease* is a compact represenation of the peer's expected
 channel lease terms. If the peer's terms don't match this set, we will
 fail to open the channel.
+
+*reserve* is the amount we want the peer to maintain on its side of the channel.
+Default is 1% of the funding amount. It can be a whole number, a whole number
+ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8
+decimal places ending in *btc*.
 
 
 
