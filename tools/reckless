@@ -154,13 +154,17 @@ class Config():
                           parent_path)
             raise FileNotFoundError('invalid parent directory')
 
-    def editConfigFile(self, addline: str, removeline: str):
+    def editConfigFile(self, addline: Union[str, None],
+                       removeline: Union[str, None]):
+        """Idempotent function to add and/or remove a single line each."""
         remove_these_lines = []
         with open(self.conf_fp, 'r') as reckless_conf:
             original = reckless_conf.readlines()
             empty_lines = []
+            write_required = False
             for n, l in enumerate(original):
-                if l.strip() == removeline:
+                if removeline and l.strip() == removeline.strip():
+                    write_required = True
                     remove_these_lines.append(n)
                     continue
                 if l.strip() == '':
@@ -169,6 +173,13 @@ class Config():
                         # The white space is getting excessive.
                         remove_these_lines.append(n)
                         continue
+            if not addline:
+                return
+            # No write necessary if addline is already in config.
+            if not write_required:
+                for line in original:
+                    if line.strip() == addline.strip():
+                        return
             with open(self.conf_fp, 'w') as conf_write:
                 # no need to write if passed 'None'
                 line_exists = not bool(addline)
