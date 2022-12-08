@@ -230,6 +230,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	if (is_ipaddr(address)
 	    || is_toraddr(address)
 	    || is_wildcardaddr(address)
+	    || (is_dnsaddr(address) && !ld->announce_dns)
 	    || ala != ADDR_ANNOUNCE) {
 		if (!parse_wireaddr_internal(arg, &wi, ld->portnum,
 					     wildcard_ok, dns_ok, false,
@@ -254,7 +255,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	}
 
 	/* Add ADDR_TYPE_DNS to announce DNS hostnames */
-	if (is_dnsaddr(address) && ala & ADDR_ANNOUNCE) {
+	if (is_dnsaddr(address) && ld->announce_dns && (ala & ADDR_ANNOUNCE)) {
 		/* BOLT-hostnames #7:
 		 * The origin node:
 		 * ...
@@ -1103,6 +1104,10 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
 				 opt_set_shutdown_wrong_funding, ld,
 				 "EXPERIMENTAL: allow shutdown with alternate txids");
+	opt_register_early_arg("--announce-addr-dns",
+			       opt_set_bool_arg, opt_show_bool,
+			       &ld->announce_dns,
+			       "Use DNS entries in --announce-addr and --addr (not widely supported!)");
 
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
