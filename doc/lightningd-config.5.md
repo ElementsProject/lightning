@@ -533,7 +533,7 @@ its use disables autolisten.  If necessary, and 'always-use-proxy'
 is not specified, a DNS lookup may be done to resolve 'DNS' or 'TORIPADDRESS'.
 
   If a 'DNS' hostname was given that resolves to a local interface, the daemon
-will bind to that interface and also announce that as type 'DNS'.
+will bind to that interface: if **announce-addr-dns** is true then it will also announce that as type 'DNS' (rather than announcing the IP address).
 
 * **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|DNS\[:PORT\]|DNS\[:PORT\]*
 
@@ -565,9 +565,12 @@ announced addresses are public (e.g. not localhost).
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.
 
-  Since v22.11 'DNS' hostnames can be used for announcement.
-Please note that a lot of mainnet nodes do not yet use, read or propagate this
-information correctly.
+  Since v22.11 'DNS' hostnames can be used for announcement: see **announce-addr-dns**.
+
+* **announce-addr-dns**=*BOOL*
+
+  Set to *true* (default is *false), this so that names given as arguments to **addr** and **announce-addr** are published in node announcement messages as names, rather than IP addresses.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
+
 
 * **offline**
 
