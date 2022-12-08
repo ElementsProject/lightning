@@ -234,6 +234,9 @@ struct lightningd {
 	/* If they force db upgrade on or off this is set. */
 	bool *db_upgrade_ok;
 
+	/* Announce names in config as DNS records (recently BOLT 7 addition) */
+	bool announce_dns;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon/plugin. */
 	const char *dev_debug_subprocess;

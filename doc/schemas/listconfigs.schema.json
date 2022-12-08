@@ -294,6 +294,10 @@
     "dev-allowdustreserve": {
       "type": "boolean",
       "description": "Whether we allow setting dust reserves"
+    },
+    "announce-addr-dns": {
+      "type": "boolean",
+      "description": "Whether we put DNS entries into node_announcement"
     }
   }
 }
