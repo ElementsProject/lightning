@@ -1341,6 +1341,9 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l2])
 
+    # check if pyln-client '_msat' field Millisatoshi replacement works on events
+    assert not l2.daemon.is_in_log("pyln-client has not replaced _msat field as it should")
+
     stats = l2.rpc.listforwards()['forwards']
     assert len(stats) == 3
     plugin_stats = l2.rpc.call('listforwards_plugin')['forwards']

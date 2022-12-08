@@ -217,13 +217,15 @@ class Plugin(object):
                  dynamic: bool = True,
                  init_features: Optional[Union[int, str, bytes]] = None,
                  node_features: Optional[Union[int, str, bytes]] = None,
-                 invoice_features: Optional[Union[int, str, bytes]] = None):
+                 invoice_features: Optional[Union[int, str, bytes]] = None,
+                 notification_parse_msat: bool = False):
         self.methods = {
             'init': Method('init', self._init, MethodType.RPCMETHOD)
         }
 
         self.options: Dict[str, Dict[str, Any]] = {}
         self.notification_topics: List[str] = []
+        self.notification_parse_msat = notification_parse_msat
 
         def convert_featurebits(
                 bits: Optional[Union[int, str, bytes]]) -> Optional[str]:
@@ -540,8 +542,8 @@ class Plugin(object):
             return f
         return decorator
 
-    @staticmethod
     def _coerce_arguments(
+            self,
             func: Callable[..., Any],
             ba: inspect.BoundArguments) -> inspect.BoundArguments:
         args = OrderedDict()
@@ -550,6 +552,8 @@ class Plugin(object):
             annotations = func.__annotations__
 
         for key, val in ba.arguments.items():
+            if self.notification_parse_msat:
+                val = LightningRpc.LightningJSONDecoder.replace_amounts(val)
             annotation = annotations.get(key, None)
             if annotation is not None and annotation == Millisatoshi:
                 args[key] = Millisatoshi(val)
