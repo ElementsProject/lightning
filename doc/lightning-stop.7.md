@@ -26,6 +26,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, returns a single element (string) (always "Shutdown complete")
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 Once it has returned, the daemon has cleaned up completely, and if
@@ -42,4 +43,5 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:3ad64970d67b1084b6f33bb690ba1dd3744292a60b3efe8a845f88a0ebc61450)
+
+[comment]: # ( SHA256STAMP:2103952683449a5aa313eefa9c850dc0ae1cf4aa65edeb7897a8748a010a9349)
