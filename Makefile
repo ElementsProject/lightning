@@ -589,7 +589,8 @@ CHECK_GEN_ALL = \
 	$(ALL_GEN_HEADERS) \
 	$(ALL_GEN_SOURCES) \
 	wallet/statements_gettextgen.po \
-	.msggen.json
+	.msggen.json \
+	doc/index.rst
 
 check-gen-updated:  $(CHECK_GEN_ALL)
 	@echo "Checking for generated files being changed by make"
