@@ -12,7 +12,7 @@ DESCRIPTION
 The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. Deleting a `pending` payment is an error.  If *partid* and *groupid* are not specified, all payment parts are deleted.
 
 - *payment\_hash*: The unique identifier of a payment.
-- *status*: Expected status of the payment. 
+- *status*: Expected status of the payment.
 - *partid*: Specific partid to delete (must be paired with *groupid*)
 - *groupid*: Specific groupid to delete (must be paired with *partid*)
 
@@ -106,4 +106,5 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:6f1e5f66278e49d10d5556abfabbab6a178f0dbd518b669ce93a32e6763dd458)
+
+[comment]: # ( SHA256STAMP:1ce2241eeae759ed5566342fb7810e62fa2c618f2465314f17376ebe9b6d24f8)

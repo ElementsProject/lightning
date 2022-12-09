@@ -50,7 +50,7 @@ On success, an object containing **transactions** is returned.  It is an array o
 - **channel** (short\_channel\_id, optional): the channel this transaction is associated with (*EXPERIMENTAL\_FEATURES* only)
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
-  
+
 On failure, one of the following error codes may be returned:
 - -32602: Error in given parameters.
 
@@ -105,4 +105,5 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:1a1afbcbcdbd19df28020d48c581dfff6ed4f5beaf557e1423edb6828eb78a07)
+
+[comment]: # ( SHA256STAMP:f7c39908eaa1a2561597c8f97658b873953daab0a68ed2e9b68e434a55d55efe)
