@@ -33,7 +33,7 @@ On success, an object is returned, containing:
 
 - **created\_at** (string): UNIX timestamp with 9 decimal places, when logging was initialized
 - **bytes\_used** (u32): The number of bytes used by logging records
-- **bytes\_max** (u32): The bytes\_used values at which records will be trimmed 
+- **bytes\_max** (u32): The bytes\_used values at which records will be trimmed
 - **log** (array of objects):
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO\_IN", "IO\_OUT")
 
@@ -94,4 +94,5 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:6b925456a06076ba98a04df3ff6931d2cd5d09ccec82829301428493ff824e34)
+
+[comment]: # ( SHA256STAMP:0f6e346c57e59aa8ebe0aee9bcb7ded6f66776752e55c4c125f4a80d98cf90fd)
