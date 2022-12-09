@@ -65,5 +65,7 @@ In order to write a new target:
      repeatedly with mutated data.
  - read about [what makes a good fuzz target](https://github.com/google/fuzzing/blob/master/docs/good-fuzz-target.md).
 
-A simple example is [`fuzz-addr`](tests/fuzz/fuzz-addr.c). It setups the chainparams and
+A simple example is [`fuzz-addr`][tests/fuzz/fuzz-addr.c]. It setups the chainparams and
 context (wally, tmpctx, ..) in `init()` then bruteforces the bech32 encoder in `run()`.
+
+[tests/fuzz/fuzz-addr.c]: https://github.com/ElementsProject/lightning/blob/master/tests/fuzz/fuzz-addr.c
