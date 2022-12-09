@@ -7,6 +7,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 TODO: Insert version codename, and username of the contributor that named the release.
 -->
 
+## [22.11.1] - 2022-12-09: "Alameda Yield Generator II"
+
+### Added
+
+ - JSON-RPC: reverts requirement for "jsonrpc" "2.0" inside requests (still deprecated though, just for a while longer!) ([#5783])
+
+### Changed
+
+ - config: `announce-addr-dns` needs to be set to *true* to put DNS names into node announcements, otherwise they are suppressed.
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - config: `announce-addr-dns` (currently defaults to `false`).  This will default to `true` once enough of the network has upgraded to understand DNS entries. ([#5796])
+
+### Fixed
+
+ - Build: arm32 compiler error in fetchinvoice, due to bad types on 32-bit platforms. ([#5785])
+ - JSON-RPC: `autoclean-once` response `uncleaned` count is now correct. ([#5775])
+ - Plugin: `autoclean` could misperform or get killed due to lightningd's invalid handling of JSON batching. ([#5775])
+ - reckless verbosity properly applied. ([#5781])
+ - wireaddr: #5657 allow '_' underscore in hostname part of DNS FQDN ([#5789])
+
+[#5781]: https://github.com/ElementsProject/lightning/pull/5781
+[#5783]: https://github.com/ElementsProject/lightning/pull/5783
+[#5775]: https://github.com/ElementsProject/lightning/pull/5775
+[#5789]: https://github.com/ElementsProject/lightning/pull/5789
+[#5796]: https://github.com/ElementsProject/lightning/pull/5796
+[#5785]: https://github.com/ElementsProject/lightning/pull/5785
+[#5775]: https://github.com/ElementsProject/lightning/pull/5775
+[22.11.1]: https://github.com/ElementsProject/lightning/releases/tag/v22.11.1
+
+
 ## [22.11] - 2022-11-30: "Alameda Yield Generator"
 
 
