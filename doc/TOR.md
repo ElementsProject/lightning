@@ -281,7 +281,7 @@ to add *two* lines in your lightningd config file:
 
 1. A local address which lightningd can tell Tor to connect to when
    connections come in, e.g. `bind-addr=127.0.0.1:9735`.
-2. After that, a `addr=statictor:127.0.0.1:9051` to tell 
+2. After that, a `addr=statictor:127.0.0.1:9051` to tell
    Core Lightning to set up and announce a Tor onion address (and tell
    Tor to send connections to our real address, above).
 
