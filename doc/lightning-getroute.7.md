@@ -4,17 +4,17 @@ lightning-getroute -- Command for routing a payment (low-level)
 SYNOPSIS
 --------
 
-**getroute** *id* *msatoshi* *riskfactor* [*cltv*] [*fromid*]
+**getroute** *id* *amount\_msat* *riskfactor* [*cltv*] [*fromid*]
 [*fuzzpercent*] [*exclude*] [*maxhops*]
 
 DESCRIPTION
 -----------
 
 The **getroute** RPC command attempts to find the best route for the
-payment of *msatoshi* to lightning node *id*, such that the payment will
+payment of *amount\_msat* to lightning node *id*, such that the payment will
 arrive at *id* with *cltv*-blocks to spare (default 9).
 
-*msatoshi* is in millisatoshi precision; it can be a whole number, or a
+*amount\_msat* is in millisatoshi precision; it can be a whole number, or a
 whole number ending in *msat* or *sat*, or a number with three decimal
 places ending in *sat*, or a number with 1 to 11 decimal places ending
 in *btc*.
@@ -290,7 +290,7 @@ On success, an object containing **route** is returned.  It is an array of objec
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The final *id* will be the destination *id* given in the input. The
-difference between the first *msatoshi* minus the *msatoshi* given in
+difference between the first *amount\_msat* minus the *amount\_msat* given in
 the input is the fee (assuming the first hop is free). The first
 *delay* is the very worst case timeout for the payment failure, in
 blocks.

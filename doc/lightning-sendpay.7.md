@@ -4,7 +4,7 @@ lightning-sendpay -- Low-level command for sending a payment via a route
 SYNOPSIS
 --------
 
-**sendpay** *route* *payment\_hash* [*label*] [*msatoshi*]
+**sendpay** *route* *payment\_hash* [*label*] [*amount\_msat*]
 [*bolt11*] [*payment\_secret*] [*partid*] [*localinvreqid*] [*groupid*]
 [*payment\_metadata*] [*description*]
 
@@ -28,7 +28,7 @@ definite failure.
 The *label* and *bolt11* parameters, if provided, will be returned in
 *waitsendpay* and *listsendpays* results.
 
-The *msatoshi* amount must be provided if *partid* is non-zero, otherwise
+The *amount\_msat* amount must be provided if *partid* is non-zero, otherwise
 it must be equal to the final
 amount to the destination. By default it is in millisatoshi precision; it can be a whole number, or a whole number
 ending in *msat* or *sat*, or a number with three decimal places ending
@@ -40,10 +40,9 @@ and the `s` field in the BOLT 11 invoice format.  It is required if
 *partid* is non-zero.
 
 The *partid* value, if provided and non-zero, allows for multiple parallel
-partial payments with the same *payment\_hash*.  The *msatoshi* amount
+partial payments with the same *payment\_hash*.  The *amount\_msat* amount
 (which must be provided) for each **sendpay** with matching
 *payment\_hash* must be equal, and **sendpay** will fail if there are
-already *msatoshi* worth of payments pending.
 
 The *localinvreqid* value indicates that this payment is being made for a local
 invoice\_request: this ensures that we only send a payment for a single-use
@@ -56,9 +55,9 @@ this to identify one attempt at a MPP payment, for example.
 *payment\_metadata* is placed in the final onion hop TLV.
 
 Once a payment has succeeded, calls to **sendpay** with the same
-*payment\_hash* but a different *msatoshi* or destination will fail;
+*payment\_hash* but a different *amount\_msat* or destination will fail;
 this prevents accidental multiple payments. Calls to **sendpay** with
-the same *payment\_hash*, *msatoshi*, and destination as a previous
+the same *payment\_hash*, *amount\_msat*, and destination as a previous
 successful payment (even if a different route or *partid*) will return immediately
 with success.
 

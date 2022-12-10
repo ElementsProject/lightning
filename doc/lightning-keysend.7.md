@@ -4,7 +4,7 @@ lightning-keysend -- Send funds to a node without an invoice
 SYNOPSIS
 --------
 
-**keysend** *destination* *msatoshi* [*label*] [*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*] [*extratlvs*]
+**keysend** *destination* *amount\_msat* [*label*] [*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*] [*extratlvs*]
 
 DESCRIPTION
 -----------
@@ -23,7 +23,7 @@ sending a payment. Please ensure that this matches your use-case when using
 `keysend`.
 
 `destination` is the 33 byte, hex-encoded, node ID of the node that the payment should go to.
-`msatoshi` is in millisatoshi precision; it can be a whole number, or a whole number with suffix `msat` or `sat`, or a three decimal point number with suffix `sat`, or an 1 to 11 decimal point number suffixed by `btc`.
+`amount\_msat` is in millisatoshi precision; it can be a whole number, or a whole number with suffix `msat` or `sat`, or a three decimal point number with suffix `sat`, or an 1 to 11 decimal point number suffixed by `btc`.
 
 The `label` field is used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7).
 The `maxfeepercent` limits the money paid in fees as percentage of the total amount that is to be transferred, and defaults to *0.5*.
