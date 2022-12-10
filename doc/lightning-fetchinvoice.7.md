@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**fetchinvoice** *offer* [*msatoshi*] [*quantity*] [*recurrence\_counter*] [*recurrence\_start*] [*recurrence\_label*] [*timeout*] [*payer\_note*]
+**fetchinvoice** *offer* [*amount\_msat*] [*quantity*] [*recurrence\_counter*] [*recurrence\_start*] [*recurrence\_label*] [*timeout*] [*payer\_note*]
 
 DESCRIPTION
 -----------
@@ -21,7 +21,7 @@ cannot find a route which supports `option_onion_messages`.
 
 The offer must not contain *send\_invoice*; see lightning-sendinvoice(7).
 
-*msatoshi* is required if the *offer* does not specify
+*amount\_msat* is required if the *offer* does not specify
 an amount at all, otherwise it is not allowed.
 
 *quantity* is is required if the *offer* specifies

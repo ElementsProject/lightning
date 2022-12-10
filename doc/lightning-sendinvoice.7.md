@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**sendinvoice** *offer* *label* [*msatoshi*] [*timeout*] [*quantity*]
+**sendinvoice** *offer* *label* [*amount\_msat*] [*timeout*] [*quantity*]
 
 DESCRIPTION
 -----------
@@ -23,7 +23,7 @@ cannot find a route which supports `option_onion_messages`.
 
 *label* is the unique label to use for this invoice.
 
-*msatoshi* is optional: it is required if the *offer* does not specify
+*amount\_msat* is optional: it is required if the *offer* does not specify
 an amount at all, or specifies it in a different currency.  Otherwise
 you may set it (e.g. to provide a tip), and if not it defaults to the
 amount contained in the offer (multiplied by *quantity* if any).
