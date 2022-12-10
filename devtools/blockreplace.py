@@ -38,7 +38,7 @@ comment_style = {
 def replace(filename, blockname, language, content):
     start, stop = comment_style[language]
 
-    tempfile = f"{filename}.tmp"
+    tempfile = "{}.tmp".format(filename)
 
     with open(filename, 'r') as i, open(tempfile, 'w') as o:
         lines = i.readlines()
