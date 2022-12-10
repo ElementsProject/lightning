@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **sendonion** *onion* *first\_hop* *payment\_hash* [*label*] [*shared\_secrets*] [*partid*] [*bolt11*]
-[*msatoshi*] [*destination*]
+[*amount\_msat*] [*destination*]
 
 DESCRIPTION
 -----------
@@ -84,7 +84,7 @@ The *bolt11* parameter, if provided, will be returned in
 
 The *destination* parameter, if provided, will be returned in **listpays** result.
 
-The *msatoshi* parameter is used to annotate the payment, and is returned by
+The *amount\_msat* parameter is used to annotate the payment, and is returned by
 *waitsendpay* and *listsendpays*.
 
 RETURN VALUE

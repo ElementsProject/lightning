@@ -4,7 +4,7 @@ lightning-pay -- Command for sending a payment to a BOLT11 invoice
 SYNOPSIS
 --------
 
-**pay** *bolt11* [*msatoshi*] [*label*] [*riskfactor*]
+**pay** *bolt11* [*amount\_msat*] [*label*] [*riskfactor*]
 [*maxfeepercent*] [*retry\_for*] [*maxdelay*] [*exemptfee*]
 [*localinvreqid*] [*exclude*] [*maxfee*] [*description*]
 
@@ -13,8 +13,8 @@ DESCRIPTION
 
 The **pay** RPC command attempts to find a route to the given
 destination, and send the funds it asks for. If the *bolt11* does not
-contain an amount, *msatoshi* is required, otherwise if it is specified
-it must be *null*. *msatoshi* is in millisatoshi precision; it can be a
+contain an amount, *amount\_msat* is required, otherwise if it is specified
+it must be *null*. *amount\_msat* is in millisatoshi precision; it can be a
 whole number, or a whole number with suffix *msat* or *sat*, or a three
 decimal point number with suffix *sat*, or an 1 to 11 decimal point
 number suffixed by *btc*.
