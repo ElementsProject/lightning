@@ -1018,56 +1018,6 @@ static struct command_result *param_positive_msat_or_any(struct command *cmd,
 				     "should be positive msat or 'any'");
 }
 
-/* Parse time with optional suffix, return seconds */
-static struct command_result *param_time(struct command *cmd, const char *name,
-					 const char *buffer,
-					 const jsmntok_t *tok,
-					 uint64_t **secs)
-{
-	/* We need to manipulate this, so make copy */
-	jsmntok_t timetok = *tok;
-	u64 mul;
-	char s;
-	struct {
-		char suffix;
-		u64 mul;
-	} suffixes[] = {
-		{ 's', 1 },
-		{ 'm', 60 },
-		{ 'h', 60*60 },
-		{ 'd', 24*60*60 },
-		{ 'w', 7*24*60*60 } };
-
-	if (!deprecated_apis)
-		return param_u64(cmd, name, buffer, tok, secs);
-
-	mul = 1;
-	if (timetok.end == timetok.start)
-		s = '\0';
-	else
-		s = buffer[timetok.end - 1];
-	for (size_t i = 0; i < ARRAY_SIZE(suffixes); i++) {
-		if (s == suffixes[i].suffix) {
-			mul = suffixes[i].mul;
-			timetok.end--;
-			break;
-		}
-	}
-
-	*secs = tal(cmd, uint64_t);
-	if (json_to_u64(buffer, &timetok, *secs)) {
-		if (mul_overflows_u64(**secs, mul)) {
-			return command_fail_badparam(cmd, name, buffer, tok,
-						     "value too large");
-		}
-		**secs *= mul;
-		return NULL;
-	}
-
-	return command_fail_badparam(cmd, name, buffer, tok,
-				     "should be a number");
-}
-
 static struct command_result *param_chanhints(struct command *cmd,
 					      const char *name,
 					      const char *buffer,
@@ -1153,7 +1103,7 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_req("amount_msat|msatoshi", param_positive_msat_or_any, &msatoshi_val),
 		   p_req("label", param_label, &info->label),
 		   p_req("description", param_escaped_string, &desc_val),
-		   p_opt_def("expiry", param_time, &expiry, 3600*24*7),
+		   p_opt_def("expiry", param_u64, &expiry, 3600*24*7),
 		   p_opt("fallbacks", param_array, &fallbacks),
 		   p_opt("preimage", param_preimage, &preimage),
 		   p_opt("exposeprivatechannels", param_chanhints,
