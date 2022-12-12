@@ -1354,10 +1354,6 @@ static struct command_result *param_route_hop_style(struct command *cmd,
 		return NULL;
 	}
 
-	/* We still let you *specify* this, but we ignore it! */
-	if (deprecated_apis && json_tok_streq(buffer, tok, "legacy"))
-		return NULL;
-
 	return command_fail_badparam(cmd, name, buffer, tok,
 			    "should be 'tlv' ('legacy' not supported)");
 }
