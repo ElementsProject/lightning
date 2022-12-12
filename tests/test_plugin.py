@@ -1490,12 +1490,22 @@ def test_libplugin(node_factory):
     plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
     l1 = node_factory.get_node(options={"plugin": plugin,
                                         'allow-deprecated-apis': False,
-                                        'log-level': 'io'})
+                                        'log-level': 'io'},
+                               allow_broken_log=True)
 
     # Test startup
     assert l1.daemon.is_in_log("test_libplugin initialised!")
+    assert l1.daemon.is_in_log("String name from datastore: NOT FOUND")
+    assert l1.daemon.is_in_log("Hex name from datastore: NOT FOUND")
+
+    # This will look on datastore for default, won't find it.
+    assert l1.rpc.call("helloworld") == {"hello": "NOT FOUND"}
+    l1.daemon.wait_for_log("get_ds_bin_done: NOT FOUND")
+
     # Test dynamic startup
     l1.rpc.plugin_stop(plugin)
+    # Non-string datastore value:
+    l1.rpc.datastore(["test_libplugin", "name"], hex="00010203")
     l1.rpc.plugin_start(plugin)
     l1.rpc.check("helloworld")
 
@@ -1505,14 +1515,24 @@ def test_libplugin(node_factory):
     # yet whether strings are allowed:
     l1.daemon.wait_for_log(r"test_libplugin: [0-9]*\[OUT\]")
 
+    l1.daemon.wait_for_log("String name from datastore: NOT FOUND")
+    l1.daemon.wait_for_log("Hex name from datastore: 00010203")
+
     # Test commands
-    assert l1.rpc.call("helloworld") == {"hello": "world"}
+    assert l1.rpc.call("helloworld") == {"hello": "NOT FOUND"}
+    l1.daemon.wait_for_log("get_ds_bin_done: 00010203")
+    l1.daemon.wait_for_log("BROKEN.* Datastore gave nonstring result.*00010203")
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
     l1.stop()
     l1.daemon.opts["plugin"] = plugin
-    l1.daemon.opts["name"] = "test_opt"
+    l1.daemon.opts["somearg"] = "test_opt"
     l1.start()
-    assert l1.rpc.call("helloworld") == {"hello": "test_opt"}
+    assert l1.daemon.is_in_log("somearg = test_opt")
+    l1.rpc.datastore(["test_libplugin", "name"], "foobar", mode="must-replace")
+
+    assert l1.rpc.call("helloworld") == {"hello": "foobar"}
+    l1.daemon.wait_for_log("get_ds_bin_done: 666f6f626172")
+
     # But param takes over!
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
 
@@ -1536,17 +1556,17 @@ def test_libplugin(node_factory):
     with pytest.raises(RpcError, match=r"Deprecated command.*testrpc-deprecated"):
         l1.rpc.help('testrpc-deprecated')
 
-    assert 'name-deprecated' not in str(l1.rpc.listconfigs())
+    assert 'somearg-deprecated' not in str(l1.rpc.listconfigs())
 
     l1.stop()
-    l1.daemon.opts["name-deprecated"] = "test_opt"
+    l1.daemon.opts["somearg-deprecated"] = "test_opt"
 
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
     assert l1.daemon.wait() == 1
-    assert l1.daemon.is_in_stderr(r"name-deprecated: deprecated option")
+    assert l1.daemon.is_in_stderr(r"somearg-deprecated: deprecated option")
 
-    del l1.daemon.opts["name-deprecated"]
+    del l1.daemon.opts["somearg-deprecated"]
     l1.start()
 
 
@@ -1554,10 +1574,10 @@ def test_libplugin_deprecated(node_factory):
     """Sanity checks for plugins made with libplugin using deprecated args"""
     plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
     l1 = node_factory.get_node(options={"plugin": plugin,
-                                        'name-deprecated': 'test_opt depr',
+                                        'somearg-deprecated': 'test_opt depr',
                                         'allow-deprecated-apis': True})
 
-    assert l1.rpc.call("helloworld") == {"hello": "test_opt depr"}
+    assert l1.daemon.is_in_log("somearg = test_opt depr")
     l1.rpc.help('testrpc-deprecated')
     assert l1.rpc.call("testrpc-deprecated") == l1.rpc.getinfo()
 
