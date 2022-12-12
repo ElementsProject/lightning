@@ -97,7 +97,6 @@ def load_jsonrpc_service(schema_dir: str):
         # "sendcustommsg",
         # "sendinvoice",
         # "sendonionmessage",
-        # "setchannelfee",
         "SetChannel",
         "SignMessage",
         # "unreserveinputs",
