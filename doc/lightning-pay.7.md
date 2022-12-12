@@ -44,7 +44,8 @@ implement your own heuristics rather than the primitive ones used
 here.
 
 *description* is only required for bolt11 invoices which do not
-contain a description themselves, but contain a description hash.
+contain a description themselves, but contain a description hash:
+in this case *description* is required.
 *description* is then checked against the hash inside the invoice
 before it will be paid.
 
