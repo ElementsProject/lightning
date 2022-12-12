@@ -48,9 +48,9 @@ static bool is_valid_witnessprog(const u8 *scriptpubkey)
 
 bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
 				 bool anysegwit,
-				 bool anchors)
+				 bool allow_oldstyle)
 {
-	if (!anchors) {
+	if (allow_oldstyle) {
 		if (is_p2pkh(scriptpubkey, NULL)
 		    || is_p2sh(scriptpubkey, NULL))
 			return true;

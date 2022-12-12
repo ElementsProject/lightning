@@ -16,8 +16,11 @@
  *  - if the `scriptpubkey` is not in one of the above forms:
  *    - SHOULD send a `warning`
  */
+
+/* We still allow them to specify an old-style P2PKH or P2SH (though we
+ * never will send such a thing!) if they're not using anchors. */
 bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
 				 bool anysegwit,
-				 bool anchors);
+				 bool allow_oldstyle);
 
 #endif /* LIGHTNING_COMMON_SHUTDOWN_SCRIPTPUBKEY_H */

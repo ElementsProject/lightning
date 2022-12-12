@@ -311,7 +311,7 @@ static void set_remote_upfront_shutdown(struct state *state,
 		= tal_steal(state, shutdown_scriptpubkey);
 
 	if (shutdown_scriptpubkey
-	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit, anchors))
+	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit, !anchors))
 		peer_failed_err(state->pps,
 				&state->channel_id,
 				"Unacceptable upfront_shutdown_script %s",
