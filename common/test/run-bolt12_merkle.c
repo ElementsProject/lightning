@@ -421,7 +421,7 @@ int main(int argc, char *argv[])
 	json_out("],");
 	json_out("\"merkle\": \"%s\",",
 		 type_to_string(tmpctx, struct sha256, m));
-	json_out("\"signature_tag\": \"lightninginvoicerequestsignature\",");
+	json_out("\"signature_tag\": \"lightninginvoice_requestsignature\",");
 	json_out("\"H(signature_tag,merkle)\": \"%s\",", type_to_string(tmpctx, struct sha256, &sha));
 	json_out("\"signature\": \"%s\"", type_to_string(tmpctx, struct bip340sig, invreq->signature));
 	json_out("}]");
