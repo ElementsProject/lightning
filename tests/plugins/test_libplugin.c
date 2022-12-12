@@ -6,10 +6,30 @@
 #include <common/memleak.h>
 #include <plugins/libplugin.h>
 
-
-const char *name_option;
+static const char *somearg;
 static bool self_disable = false;
 static bool dont_shutdown = false;
+
+static struct command_result *get_ds_done(struct command *cmd,
+					  const char *val,
+					  char *arg)
+{
+	if (!val)
+		val = "NOT FOUND";
+	return command_success(cmd, json_out_obj(cmd, arg, val));
+}
+
+static struct command_result *get_ds_bin_done(struct command *cmd,
+					      const u8 *val,
+					      char *arg)
+{
+	plugin_log(cmd->plugin, LOG_INFORM, "get_ds_bin_done: %s",
+		   val ? tal_hex(tmpctx, val) : "NOT FOUND");
+
+	return jsonrpc_get_datastore_string(cmd->plugin, cmd,
+					    "test_libplugin/name",
+					    get_ds_done, arg);
+}
 
 static struct command_result *json_helloworld(struct command *cmd,
 					      const char *buf,
@@ -23,8 +43,12 @@ static struct command_result *json_helloworld(struct command *cmd,
 		return command_param_failed();
 
 	plugin_notify_message(cmd, LOG_INFORM, "Notification from %s", "json_helloworld");
+
 	if (!name)
-		name = name_option ? name_option : tal_strdup(tmpctx, "world");
+		return jsonrpc_get_datastore_binary(cmd->plugin, cmd,
+						    "test_libplugin/name",
+						    get_ds_bin_done,
+						    "hello");
 
 	return command_success(cmd, json_out_obj(cmd, "hello", name));
 }
@@ -103,28 +127,37 @@ static struct command_result *json_testrpc(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-#if DEVELOPER
-static void memleak_mark(struct plugin *p, struct htable *memtable)
-{
-	/* name_option is not a leak! */
-	memleak_ptr(memtable, name_option);
-}
-#endif /* DEVELOPER */
-
 static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
+	const char *name;
+	const u8 *binname;
+
 	plugin_log(p, LOG_DBG, "test_libplugin initialised!");
+	if (somearg)
+		plugin_log(p, LOG_DBG, "somearg = %s", somearg);
+	somearg = tal_free(somearg);
 
 	if (self_disable)
 		return "Disabled via selfdisable option";
 
-#if DEVELOPER
-	plugin_set_memleak_handler(p, memleak_mark);
-#endif
+	/* Test rpc_scan_datastore funcs */
+	if (!rpc_scan_datastore_str(p, "test_libplugin/name",
+				    JSON_SCAN_TAL(tmpctx, json_strdup,
+						  &name)))
+		name = NULL;
+	if (!rpc_scan_datastore_hex(p, "test_libplugin/name",
+				    JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+						  &binname)))
+		binname = NULL;
 
-	return NULL;
+	plugin_log(p, LOG_INFORM, "String name from datastore: %s",
+		   name ? name : "NOT FOUND");
+	plugin_log(p, LOG_INFORM, "Hex name from datastore: %s",
+		   binname ? tal_hex(tmpctx, binname) : "NOT FOUND");
+
+ 	return NULL;
 }
 
 static const struct plugin_command commands[] = { {
@@ -180,14 +213,14 @@ int main(int argc, char *argv[])
 		    commands, ARRAY_SIZE(commands),
 	            notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
 		    NULL, 0,  /* Notification topics we publish */
-		    plugin_option("name",
+		    plugin_option("somearg",
 				  "string",
-				  "Who to say hello to.",
-				  charp_option, &name_option),
-		    plugin_option_deprecated("name-deprecated",
+				  "Argument to print at init.",
+				  charp_option, &somearg),
+		    plugin_option_deprecated("somearg-deprecated",
 					     "string",
-					     "Who to say hello to.",
-					     charp_option, &name_option),
+					     "Deprecated arg for init.",
+					     charp_option, &somearg),
 		    plugin_option("selfdisable",
 				  "flag",
 				  "Whether to disable.",
