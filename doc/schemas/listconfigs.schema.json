@@ -285,7 +285,7 @@
     },
     "accept-htlc-tlv-types": {
       "type": "string",
-      "description": "`accept-extra-tlvs-type` fields from config or cmdline, or not present"
+      "description": "`accept-htlc-tlv-types` fields from config or cmdline, or not present"
     },
     "tor-service-password": {
       "type": "string",

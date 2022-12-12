@@ -98,7 +98,7 @@ On success, an object is returned, containing:
 - **force-feerates** (string, optional): force-feerate configuration setting, if any
 - **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
 - **fetchinvoice-noconnect** (boolean, optional): `fetchinvoice-noconnect` fields from config or cmdline, or default
-- **accept-htlc-tlv-types** (string, optional): `accept-extra-tlvs-type` fields from config or cmdline, or not present
+- **accept-htlc-tlv-types** (string, optional): `accept-htlc-tlv-types` fields from config or cmdline, or not present
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 - **dev-allowdustreserve** (boolean, optional): Whether we allow setting dust reserves
 - **announce-addr-dns** (boolean, optional): Whether we put DNS entries into node\_announcement
