@@ -724,11 +724,11 @@ static struct command_result *json_close(struct command *cmd,
 				       channel->peer->their_features,
 				       OPT_SHUTDOWN_ANYSEGWIT);
 	if (!valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey[LOCAL],
-					 anysegwit, !deprecated_apis)) {
+					 anysegwit, false)) {
 		/* Explicit check for future segwits. */
 		if (!anysegwit &&
 		    valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey
-						[LOCAL], true, !deprecated_apis)) {
+						[LOCAL], true, false)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Peer does not allow v1+ shutdown addresses");
 		}
