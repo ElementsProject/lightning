@@ -603,6 +603,26 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("connect", payload)
 
+    def datastore(self, key, string=None, hex=None, mode=None, generation=None):
+        """
+        Add/replace an entry in the datastore; either string or hex.
+        {key} can be a single string, or a sequence of strings.
+        {mode} defaults to 'must-create', but other options are possible:
+          - 'must-replace': fail it it doesn't already exist.
+          - 'create-or-replace': don't fail.
+          - 'must-append': must exist, and append to existing.
+          - 'create-or-append': set, or append to existing.
+        {generation} only succeeds if the current entry has this generation count (mode must be 'must-replace' or 'must-append').
+        """
+        payload = {
+            "key": key,
+            "string": string,
+            "hex": hex,
+            "mode": mode,
+            "generation": generation,
+        }
+        return self.call("datastore", payload)
+
     def decodepay(self, bolt11, description=None):
         """
         Decode {bolt11}, using {description} if necessary.
@@ -612,6 +632,18 @@ class LightningRpc(UnixDomainSocketRpc):
             "description": description
         }
         return self.call("decodepay", payload)
+
+    def deldatastore(self, key, generation=None):
+        """
+        Remove an existing entry from the datastore.
+        {key} can be a single string, or a sequence of strings.
+        {generation} means delete only succeeds if the current entry has this generation count.
+        """
+        payload = {
+            "key": key,
+            "generation": generation,
+        }
+        return self.call("deldatastore", payload)
 
     def delexpiredinvoice(self, maxexpirytime=None):
         """
@@ -942,6 +974,16 @@ class LightningRpc(UnixDomainSocketRpc):
             "config": config
         }
         return self.call("listconfigs", payload)
+
+    def listdatastore(self, key=None):
+        """
+        Show entries in the heirarchical datastore, or just one from one {key}root.
+        {key} can be a single string, or a sequence of strings.
+        """
+        payload = {
+            "key": key,
+        }
+        return self.call("listdatastore", payload)
 
     def listforwards(self, status=None, in_channel=None, out_channel=None):
         """List all forwarded payments and their information matching
