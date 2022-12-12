@@ -721,6 +721,82 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 	return send_outreq(plugin, req);
 }
 
+struct get_ds_info {
+	struct command_result *(*string_cb)(struct command *command,
+					    const char *val,
+					    void *arg);
+	struct command_result *(*binary_cb)(struct command *command,
+					    const u8 *val,
+					    void *arg);
+	void *arg;
+};
+
+static struct command_result *listdatastore_done(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct get_ds_info *dsi)
+{
+	const jsmntok_t *ds = json_get_member(buf, result, "datastore");
+	void *val;
+
+	if (ds->size == 0)
+		val = NULL;
+	else {
+		/* First element in array is object */
+		ds = ds + 1;
+		if (dsi->string_cb) {
+			const jsmntok_t *s;
+			s = json_get_member(buf, ds, "string");
+			if (!s) {
+				/* Complain loudly, since they
+				 * expected string! */
+				plugin_log(cmd->plugin, LOG_BROKEN,
+					   "Datastore gave nonstring result %.*s",
+					   json_tok_full_len(result),
+					   json_tok_full(buf, result));
+				val = NULL;
+			} else {
+				val = json_strdup(cmd, buf, s);
+			}
+		} else {
+			const jsmntok_t *hex;
+			hex = json_get_member(buf, ds, "hex");
+			val = json_tok_bin_from_hex(cmd, buf, hex);
+		}
+	}
+
+	if (dsi->string_cb)
+		return dsi->string_cb(cmd, val, dsi->arg);
+	return dsi->binary_cb(cmd, val, dsi->arg);
+}
+
+struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
+					      struct command *cmd,
+					      const char *path,
+					      struct command_result *(*string_cb)(struct command *command,
+									   const char *val,
+									   void *arg),
+					      struct command_result *(*binary_cb)(struct command *command,
+									   const u8 *val,
+									   void *arg),
+					      void *arg)
+{
+	struct out_req *req;
+	struct get_ds_info *dsi = tal(NULL, struct get_ds_info);
+
+	dsi->string_cb = string_cb;
+	dsi->binary_cb = binary_cb;
+	dsi->arg = arg;
+
+	/* listdatastore doesn't fail (except API misuse) */
+	req = jsonrpc_request_start(plugin, cmd, "listdatastore",
+				    listdatastore_done, datastore_fail, dsi);
+	tal_steal(req, dsi);
+
+	json_add_keypath(req->js->jout, "key", path);
+	return send_outreq(plugin, req);
+}
+
 static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 {
 	const jsmntok_t *idtok, *contenttok;

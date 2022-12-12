@@ -165,7 +165,7 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 
 /* Helper to jsonrpc_request_start() and send_outreq() to update datastore.
  * NULL cb means ignore, NULL errcb means plugin_error.
-*/
+ */
 struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 					      struct command *cmd,
 					      const char *path,
@@ -209,6 +209,41 @@ struct command_result *jsonrpc_set_datastore_(struct plugin *plugin,
 						   const char *buf,	\
 						   const jsmntok_t *result), \
 			       (arg))
+
+/* Helper to jsonrpc_request_start() and send_outreq() to read datastore.
+ * If the value not found, cb gets NULL @val.
+ */
+struct command_result *jsonrpc_get_datastore_(struct plugin *plugin,
+					      struct command *cmd,
+					      const char *path,
+					      struct command_result *(*string_cb)(struct command *command,
+									   const char *val,
+									   void *arg),
+					      struct command_result *(*binary_cb)(struct command *command,
+									   const u8 *val,
+									   void *arg),
+					      void *arg);
+
+#define jsonrpc_get_datastore_string(plugin, cmd, path, cb, arg)	\
+	jsonrpc_get_datastore_((plugin), (cmd), (path),			\
+			       typesafe_cb_preargs(struct command_result *, \
+						   void *,		\
+						   (cb), (arg),		\
+						   struct command *command, \
+						   const char *val),	\
+			       NULL,				     \
+			       (arg))
+
+#define jsonrpc_get_datastore_binary(plugin, cmd, path, cb, arg)	\
+	jsonrpc_get_datastore_((plugin), (cmd), (path),			\
+			       NULL,					\
+			       typesafe_cb_preargs(struct command_result *, \
+						   void *,		\
+						   (cb), (arg),		\
+						   struct command *command, \
+						   const u8 *val),	\
+			       (arg))
+
 
 /* This command is finished, here's the response (the content of the
  * "result" or "error" field) */
