@@ -32,7 +32,7 @@ You will also need a version of bitcoind with segregated witness and `estimatesm
 To Build on Ubuntu
 ---------------------
 
-OS version: Ubuntu 15.04 or above
+OS version: Ubuntu 16.04 or above
 
 Get dependencies:
 

@@ -8,8 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { OS: alpine }
+        OS: [alpine, ubuntu1604]
     steps:
       - uses: actions/checkout@v2
       - name: Integration testing
