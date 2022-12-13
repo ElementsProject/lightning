@@ -187,7 +187,7 @@ dependencies = [
 
 [[package]]
 name = "cln-grpc"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "bitcoin",
@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "cln-grpc-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "cln-grpc",
@@ -217,7 +217,7 @@ dependencies = [
 
 [[package]]
 name = "cln-plugin"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -234,7 +234,7 @@ dependencies = [
 
 [[package]]
 name = "cln-rpc"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "bitcoin",

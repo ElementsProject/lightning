@@ -1,6 +1,6 @@
 [package]
 name = "cln-grpc"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/ElementsProject/lightning/tree/master/cln-grpc"
