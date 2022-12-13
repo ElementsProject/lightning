@@ -1,14 +1,14 @@
-use std::fmt::{Display, Formatter};
 use anyhow::Context;
 use anyhow::{anyhow, Error, Result};
+use bitcoin::hashes::Hash as BitcoinHash;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
-use bitcoin_hashes::Hash as BitcoinHash;
 
-pub use bitcoin_hashes::sha256::Hash as Sha256;
-pub use secp256k1::PublicKey;
+pub use bitcoin::hashes::sha256::Hash as Sha256;
+pub use bitcoin::secp256k1::PublicKey;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
@@ -62,11 +62,13 @@ pub struct Amount {
 
 impl Amount {
     pub fn from_msat(msat: u64) -> Amount {
-        Amount { msat: msat }
+        Amount { msat }
     }
+
     pub fn from_sat(sat: u64) -> Amount {
         Amount { msat: 1_000 * sat }
     }
+
     pub fn from_btc(btc: u64) -> Amount {
         Amount {
             msat: 100_000_000_000 * btc,
@@ -83,7 +85,7 @@ impl std::ops::Add for Amount {
 
     fn add(self, rhs: Self) -> Self::Output {
         Amount {
-            msat: self.msat + rhs.msat
+            msat: self.msat + rhs.msat,
         }
     }
 }
@@ -93,7 +95,7 @@ impl std::ops::Sub for Amount {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Amount {
-            msat: self.msat - rhs.msat
+            msat: self.msat - rhs.msat,
         }
     }
 }
@@ -234,7 +236,8 @@ impl<'de> Deserialize<'de> for Outpoint {
         let txid_bytes =
             hex::decode(splits[0]).map_err(|_| Error::custom("not a valid hex encoded txid"))?;
 
-        let txid= Sha256::from_slice(&txid_bytes).map_err(|e| Error::custom(format!("Invalid TxId: {}", e)))?;
+        let txid = Sha256::from_slice(&txid_bytes)
+            .map_err(|e| Error::custom(format!("Invalid TxId: {}", e)))?;
 
         let outnum: u32 = splits[1]
             .parse()
@@ -551,14 +554,20 @@ mod test {
 
     #[test]
     fn tlvstream() {
-	let stream = TlvStream {
-	    entries: vec![
-		TlvEntry { typ: 31337, value: vec![1,2,3,4,5]},
-			   TlvEntry { typ: 42, value: vec![]},
-	    ],
-	};
+        let stream = TlvStream {
+            entries: vec![
+                TlvEntry {
+                    typ: 31337,
+                    value: vec![1, 2, 3, 4, 5],
+                },
+                TlvEntry {
+                    typ: 42,
+                    value: vec![],
+                },
+            ],
+        };
 
-	let res = serde_json::to_string(&stream).unwrap();
+        let res = serde_json::to_string(&stream).unwrap();
         assert_eq!(res, "{\"31337\":\"0102030405\",\"42\":\"\"}");
     }
 }

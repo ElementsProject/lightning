@@ -349,8 +349,8 @@ class GrpcConverterGenerator(IGenerator):
         use cln_rpc::model::{responses,requests};
         use crate::pb;
         use std::str::FromStr;
-        use bitcoin_hashes::sha256::Hash as Sha256;
-        use bitcoin_hashes::Hash;
+        use bitcoin::hashes::sha256::Hash as Sha256;
+        use bitcoin::hashes::Hash;
         use cln_rpc::primitives::PublicKey;
 
         """)

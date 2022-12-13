@@ -84,7 +84,7 @@ fn generate_or_load_identity(
         if parent.is_none() {
             params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
         } else {
-            params.is_ca = rcgen::IsCa::SelfSignedOnly;
+            params.is_ca = rcgen::IsCa::NoCa;
         }
         params
             .distinguished_name
