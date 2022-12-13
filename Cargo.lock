@@ -222,7 +222,6 @@ dependencies = [
  "anyhow",
  "bytes",
  "cln-grpc",
- "cln-rpc",
  "env_logger 0.9.3",
  "futures",
  "log",
