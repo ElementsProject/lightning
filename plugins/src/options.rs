@@ -11,6 +11,62 @@ pub enum Value {
     OptBoolean,
 }
 
+impl Value {
+    /// Returns true if the `Value` is a String. Returns false otherwise.
+    ///
+    /// For any Value on which `is_string` returns true, `as_str` is guaranteed
+    /// to return the string slice.
+    pub fn is_string(&self) -> bool {
+        self.as_str().is_some()
+    }
+
+    /// If the `Value` is a String, returns the associated str. Returns None
+    /// otherwise.
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Value::String(s) => Some(s),
+            _ => None,
+        }
+    }
+    
+    /// Returns true if the `Value` is an integer between `i64::MIN` and
+    /// `i64::MAX`.
+    ///
+    /// For any Value on which `is_i64` returns true, `as_i64` is guaranteed to
+    /// return the integer value.
+    pub fn is_i64(&self) -> bool {
+        self.as_i64().is_some()
+            
+        
+    }
+
+    /// If the `Value` is an integer, represent it as i64. Returns
+    /// None otherwise.
+    pub fn as_i64(&self) -> Option<i64> {
+        match *self {
+            Value::Integer(n) => Some(n),
+            _ => None,
+        }
+    }
+
+    /// Returns true if the `Value` is a Boolean. Returns false otherwise.
+    ///
+    /// For any Value on which `is_boolean` returns true, `as_bool` is
+    /// guaranteed to return the boolean value.
+    pub fn is_boolean(&self) -> bool {
+        self.as_bool().is_some()
+    }
+
+    /// If the `Value` is a Boolean, returns the associated bool. Returns None
+    /// otherwise.
+    pub fn as_bool(&self) -> Option<bool> {
+        match *self {
+            Value::Boolean(b) => Some(b),
+            _ => None,
+        }
+    }
+}
+
 /// An stringly typed option that is passed to
 #[derive(Clone, Debug)]
 pub struct ConfigOption {
