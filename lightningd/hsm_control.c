@@ -104,6 +104,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	}
 
 	ld->hsm_fd = fds[0];
+	u32 min_version = 3; /* payment modifiers need hsmd_preapprove_{invoice,keysend} */
 	if (!wire_sync_write(ld->hsm_fd, towire_hsmd_init(tmpctx,
 							 &chainparams->bip32_key_version,
 							 chainparams,
@@ -112,7 +113,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 							 IFDEV(ld->dev_force_bip32_seed, NULL),
 							 IFDEV(ld->dev_force_channel_secrets, NULL),
 							  IFDEV(ld->dev_force_channel_secrets_shaseed, NULL),
-							  HSM_MIN_VERSION,
+							  min_version,
 							  HSM_MAX_VERSION)))
 		err(EXITCODE_HSM_GENERIC_ERROR, "Writing init msg to hsm");
 
