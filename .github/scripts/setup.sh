@@ -69,7 +69,5 @@ sudo chmod 0440 /etc/sudoers.d/tester
        elements-$ELEMENTS_VERSION
 )
 
-if [ "$RUST" == "1" ]; then
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
-      -y --default-toolchain ${RUST_VERSION}
-fi
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
+     -y --default-toolchain ${RUST_VERSION}
