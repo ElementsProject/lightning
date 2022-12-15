@@ -13,7 +13,7 @@ jobs:
     env:
       RUST: 1
       COMPAT: 1
-      BOLTDIR: /tmp/bolts
+      BOLTDIR: bolts
     strategy:
       fail-fast: true
     steps:
@@ -38,14 +38,45 @@ jobs:
         run: ./configure
       - name: Check source
         run: make -j 4 check-source
-      - name: Check units
-        run: make -j 4 check-units
       - name: Check Generated Files have been updated
         run: make -j 4 check-gen-updated
       - name: Check docs
         run: make -j 4 check-doc
-      - name: Check install
-        run: make -j 4 installcheck
+
+  check-units:
+    # The unit test checks are not in the critical path (not dependent
+    # on the integration tests), so run them with `valgrind`
+    name: Run unit tests
+    runs-on: ubuntu-20.04
+    env:
+      COMPAT: 1
+      VALGRIND: 1
+      BOLTDIR: bolts
+    needs:
+      - prebuild
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          pip install -U pip wheel poetry
+          # Export and then use pip to install into the current env
+          poetry export -o /tmp/requirements.txt --without-hashes --with dev
+          pip install -r /tmp/requirements.txt
+          # We're going to check BOLT quotes, so get the latest version
+          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
+
+      - name: Build
+        run: |
+          ./configure
+          make -j $(nproc) check-units installcheck
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
@@ -166,7 +197,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          echo Nothing to do
+          pip3 install --user pip wheel poetry
+          poetry install
 
 
       - name: Download build
@@ -184,12 +216,7 @@ jobs:
           CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
           PYTEST_PAR: 10
+          TEST_DEBUG: 1
         run: |
-          set -e
-          tar -xvf cln-${CFG}.tar
-
-          pip3 install --user pip wheel poetry
-          poetry export -o requirements.txt --with dev --without-hashes
-          python3 -m pip install -r requirements.txt
-
-          poetry run make pytest
+          tar -xf cln-${CFG}.tar
+          poetry run pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
