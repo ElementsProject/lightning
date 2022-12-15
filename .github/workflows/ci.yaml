@@ -34,14 +34,18 @@ jobs:
           pip install -r /tmp/requirements.txt
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
-      - name: Run checks
-        run: |
-          ./configure
-          make -j 4 check-source
-          make -j 4 check-units
-          make -j 4 check-gen-updated
-          make -j 4 check-doc
-          make -j 4 installcheck
+      - name: Configure
+        run: ./configure
+      - name: Check source
+        run: make -j 4 check-source
+      - name: Check units
+        run: make -j 4 check-units
+      - name: Check Generated Files have been updated
+        run: make -j 4 check-gen-updated
+      - name: Check docs
+        run: make -j 4 check-doc
+      - name: Check install
+        run: make -j 4 installcheck
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
