@@ -105,18 +105,14 @@ jobs:
           python3 -m pip install -r requirements.txt
           ./configure CC="$COMPILER"
 
-          # We'll need lowdown, not present on ubuntu:20.04 yet
-          make -j $(nproc) doc-all  # Builds lowdown as a dependency
-          make -j $(nproc) DESTDIR=${GITHUB_WORKSPACE}/cln-${{ matrix.CFG }} install
+          make -j $(nproc) testpack.tar.bz2
 
-          # The above leaves the binaries installed in
-          # cln-${matrix.CFG}, let's package it up and store it.
-
-          tar -cvzf /tmp/cln-${CFG}.tar.gz cln-${CFG}
+          # Rename now so we don't clash
+          mv testpack.tar cln-${CFG}.tar
       - uses: actions/upload-artifact@v3
         with:
-          name: cln-${{ matrix.CFG }}.tar.gz
-          path: /tmp/cln-${{ matrix.CFG }}.tar.gz
+          name: cln-${{ matrix.CFG }}.tar
+          path: cln-${{ matrix.CFG }}.tar
 
   integration:
     name: Test CLN ${{ matrix.cfg }}
@@ -172,7 +168,7 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v3
         with:
-          name: cln-${{ matrix.CFG }}.tar.gz
+          name: cln-${{ matrix.CFG }}.tar
 
       - name: Test
         env:
@@ -186,14 +182,10 @@ jobs:
           PYTEST_PAR: 10
         run: |
           set -e
+          tar -xvf cln-${CFG}.tar
+
           pip3 install --user pip wheel poetry
           poetry export -o requirements.txt --with dev --without-hashes
           python3 -m pip install -r requirements.txt
 
-          # Needed in order to run `make` below.
-          ./configure CC="$COMPILER"
-
-          # Only run the `pytest` tests since these are the ones that
-          # really take time, and unit tests should be run in the
-          # `compile` step.
-          make pytest
+          poetry run make pytest
