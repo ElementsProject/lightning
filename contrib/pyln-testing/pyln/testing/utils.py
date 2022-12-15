@@ -413,7 +413,11 @@ class BitcoinD(TailableProc):
             '-nolisten',
             '-txindex',
             '-nowallet',
-            '-addresstype=bech32'
+            '-addresstype=bech32',
+            '-debug=mempool',
+            '-debug=mempoolrej',
+            '-debug=rpc',
+            '-debug=validation',
         ]
         # For up to and including 0.16.1, this needs to be in main section.
         BITCOIND_CONFIG['rpcport'] = rpcport
