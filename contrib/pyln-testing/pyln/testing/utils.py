@@ -90,7 +90,7 @@ def wait_for(success, timeout=TIMEOUT):
     while not success():
         time_left = start_time + timeout - time.time()
         if time_left <= 0:
-            raise ValueError("Timeout while waiting for {}", success)
+            raise ValueError("Timeout while waiting for {}".format(success))
         time.sleep(min(interval, time_left))
         interval *= 2
         if interval > 5:
