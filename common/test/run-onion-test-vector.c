@@ -197,6 +197,10 @@ int main(int argc, char *argv[])
 	}
 	assert(!op);
 
+	for (size_t j=0; j<ARRAY_SIZE(payloads); j++) {
+		tal_free(payloads[j]);
+	}
+
 out:
 	common_shutdown();
 }
