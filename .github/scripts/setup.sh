@@ -71,3 +71,15 @@ sudo chmod 0440 /etc/sudoers.d/tester
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
      -y --default-toolchain ${RUST_VERSION}
+
+# We also need a relatively recent protobuf-compiler, at least 3.12.0,
+# in order to support the experimental `optional` flag.
+PROTOC_VERSION=3.15.8
+PB_REL="https://github.com/protocolbuffers/protobuf/releases"
+curl -LO $PB_REL/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
+sudo unzip protoc-3.15.8-linux-x86_64.zip -d /usr/local/
+sudo chmod a+x /usr/local/bin/protoc
+export PROTOC=/usr/local/bin/protoc
+export PATH=$PATH:/usr/local/bin
+env
+ls -lha /usr/local/bin
