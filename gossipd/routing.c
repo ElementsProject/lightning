@@ -1797,7 +1797,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			= gossip_store_add(rstate->gs, msg, timestamp,
 					   node_id_eq(&node_id,
 						      &rstate->local_id),
-					   spam, NULL);
+					   false, spam, NULL);
 		if (node->bcast.timestamp > rstate->last_timestamp
 		    && node->bcast.timestamp < time_now().ts.tv_sec)
 			rstate->last_timestamp = node->bcast.timestamp;
@@ -2025,7 +2025,8 @@ bool routing_add_private_channel(struct routing_state *rstate,
 		u8 *msg = towire_gossip_store_private_channel(tmpctx,
 							      capacity,
 							      chan_ann);
-		index = gossip_store_add(rstate->gs, msg, 0, false, false, NULL);
+		index = gossip_store_add(rstate->gs, msg, 0, false, false,
+					 false, NULL);
 	}
 	chan->bcast.index = index;
 	return true;
@@ -2170,7 +2171,7 @@ void routing_channel_spent(struct routing_state *rstate,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, &chan->scid, deadline);
-	index = gossip_store_add(rstate->gs, msg, 0, false, false, NULL);
+	index = gossip_store_add(rstate->gs, msg, 0, false, false, false, NULL);
 
 	/* Remember locally so we can kill it in 12 blocks */
 	status_debug("channel %s closing soon due"
