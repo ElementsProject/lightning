@@ -620,6 +620,9 @@ static bool map_catchup(struct gossmap *map, size_t *num_rejected)
 		if (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_DELETED_BIT)
 			continue;
 
+		if (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_ZOMBIE_BIT)
+			continue;
+
 		/* Partial write, this can happen. */
 		if (map->map_end + reclen > map->map_size)
 			break;

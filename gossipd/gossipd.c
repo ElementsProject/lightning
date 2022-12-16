@@ -322,17 +322,30 @@ static void handle_local_private_channel(struct daemon *daemon, const u8 *msg)
 	u8 *features;
 	struct short_channel_id scid;
 	const u8 *cannounce;
+	struct chan *zombie;
 
 	if (!fromwire_gossipd_local_private_channel(msg, msg,
 						    &id, &capacity, &scid,
 						    &features))
 		master_badmsg(WIRE_GOSSIPD_LOCAL_PRIVATE_CHANNEL, msg);
 
+	status_debug("received private channel announcement from channeld for %s",
+		     type_to_string(tmpctx, struct short_channel_id, &scid));
 	cannounce = private_channel_announcement(tmpctx,
 						 &scid,
 						 &daemon->id,
 						 &id,
 						 features);
+	/* If there is already a zombie announcement for this channel in the
+	 * store we can disregard this one. */
+	zombie = get_channel(daemon->rstate, &scid);
+	if (zombie && (zombie->half[0].zombie || zombie->half[1].zombie)){
+		status_debug("received channel announcement for %s,"
+			     " but it is a zombie; discarding",
+			     type_to_string(tmpctx, struct short_channel_id,
+				            &scid));
+		return;
+	}
 
 	if (!routing_add_private_channel(daemon->rstate, &id, capacity,
 					 cannounce, 0)) {

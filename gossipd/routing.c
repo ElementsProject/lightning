@@ -3,6 +3,7 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/gossip_store.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
@@ -394,6 +395,25 @@ static bool node_has_public_channels(struct node *node)
 	return false;
 }
 
+static bool is_chan_zombie(struct chan *chan)
+{
+	if (chan->half[0].zombie || chan->half[1].zombie)
+		return true;
+	return false;
+}
+
+static bool is_node_zombie(struct node* node)
+{
+	struct chan_map_iter i;
+	struct chan *c;
+
+	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
+		if (!is_chan_zombie(c))
+			return false;
+	}
+	return true;
+}
+
 /* We can *send* a channel_announce for a channel attached to this node:
  * we only send once we have a channel_update. */
 static bool node_has_broadcastable_channels(struct node *node)
@@ -404,8 +424,8 @@ static bool node_has_broadcastable_channels(struct node *node)
 	for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
 		if (!is_chan_public(c))
 			continue;
-		if (is_halfchan_defined(&c->half[0])
-		    || is_halfchan_defined(&c->half[1]))
+		if ((is_halfchan_defined(&c->half[0])
+		    || is_halfchan_defined(&c->half[1])) && !is_chan_zombie(c))
 			return true;
 	}
 	return false;
@@ -444,6 +464,7 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 					     node->bcast.timestamp,
 					     is_local,
 					     false,
+					     false,
 					     NULL);
 	if (node->rgraph.index == initial_bcast_index){
 		node->rgraph.index = node->bcast.index;
@@ -456,6 +477,7 @@ static void force_node_announce_rexmit(struct routing_state *rstate,
 						      announce,
 						      node->rgraph.timestamp,
 						      is_local,
+						      false,
 						      false,
 						      NULL);
 	}
@@ -553,6 +575,7 @@ static void init_half_chan(struct routing_state *rstate,
 	broadcastable_init(&c->bcast);
 	broadcastable_init(&c->rgraph);
 	c->tokens = TOKEN_MAX;
+	c->zombie = false;
 }
 
 static void bad_gossip_order(const u8 *msg,
@@ -824,6 +847,7 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 						     chan->bcast.timestamp,
 						     is_local,
 						     false,
+						     false,
 						     addendum);
 	rstate->local_channel_announced |= is_local;
 }
@@ -859,8 +883,9 @@ static void delete_chan_messages_from_store(struct routing_state *rstate,
 static void remove_channel_from_store(struct routing_state *rstate,
 				      struct chan *chan)
 {
-	/* Put in tombstone marker */
-	gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
+	/* Put in tombstone marker. Zombie channels will have one already. */
+	if (!is_chan_zombie(chan))
+		gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
 
 	/* Now delete old entries. */
 	delete_chan_messages_from_store(rstate, chan);
@@ -1290,6 +1315,31 @@ static void delete_spam_update(struct routing_state *rstate,
 	hc->rgraph.timestamp = hc->bcast.timestamp;
 }
 
+static void resurrect_nannouncements(struct routing_state *rstate,
+				     struct chan *chan)
+{
+	const u8 *zombie_nann = NULL;
+	for (int i = 0; i < 2; i++) {
+		struct node *node = chan->nodes[i];
+		/* Use the most recent announcement (could be spam.) */
+		zombie_nann = gossip_store_get(tmpctx, rstate->gs,
+					       node->rgraph.index);
+		/* If there was a spam entry, delete them both. */
+		if (node->bcast.index != node->rgraph.index)
+			gossip_store_delete(rstate->gs, &node->bcast,
+					    WIRE_NODE_ANNOUNCEMENT);
+		gossip_store_delete(rstate->gs, &node->rgraph,
+				    WIRE_NODE_ANNOUNCEMENT);
+		node->bcast.index = gossip_store_add(rstate->gs, zombie_nann,
+						     node->rgraph.timestamp,
+						     local_direction(rstate,
+								     chan, NULL),
+						     false, false, NULL);
+		node->bcast.timestamp = node->rgraph.timestamp;
+		node->rgraph.index = node->bcast.index;
+	}
+}
+
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
@@ -1312,6 +1362,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	u8 direction;
 	struct amount_sat sat;
 	bool spam;
+	bool zombie;
 
 	/* Make sure we own msg, even if we don't save it. */
 	if (taken(update))
@@ -1332,6 +1383,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (chan) {
 		uc = NULL;
 		sat = chan->sat;
+		zombie = is_chan_zombie(chan);
 	} else {
 		/* Maybe announcement was waiting for this update? */
 		uc = get_unupdated_channel(rstate, &short_channel_id);
@@ -1339,6 +1391,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			return false;
 		}
 		sat = uc->sat;
+		zombie = false;
 	}
 
 	/* Reject update if the `htlc_maximum_msat` is greater
@@ -1468,6 +1521,75 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		return true;
 	}
 
+	/* Handle resurrection of zombie channels if the other side of the
+	 * zombie channel has a recent timestamp. */
+	if (zombie && timestamp_reasonable(rstate,
+		chan->half[!direction].bcast.timestamp)) {
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Resurrecting zombie channel %s.",
+				  type_to_string(tmpctx,
+						 struct short_channel_id,
+						 &chan->scid));
+		const u8 *zombie_announcement = NULL;
+		const u8 *zombie_addendum = NULL;
+		const u8 *zombie_update[2] = {NULL, NULL};
+		/* Resurrection is a careful process. First delete the zombie-
+		 * flagged channel_announcement which has already been
+		 * tombstoned, and re-add to the store without zombie flag. */
+		zombie_announcement = gossip_store_get(tmpctx, rstate->gs,
+						       chan->bcast.index);
+		u32 offset = tal_count(zombie_announcement) +
+			sizeof(struct gossip_hdr);
+		/* The channel_announcement addendum reminds us of its size. */
+		zombie_addendum = gossip_store_get(tmpctx, rstate->gs,
+						   chan->bcast.index + offset);
+		gossip_store_delete(rstate->gs, &chan->bcast,
+				    is_chan_public(chan)
+				    ? WIRE_CHANNEL_ANNOUNCEMENT
+				    : WIRE_GOSSIP_STORE_PRIVATE_CHANNEL);
+		chan->bcast.index =
+			gossip_store_add(rstate->gs, zombie_announcement,
+					 chan->bcast.timestamp,
+					 local_direction(rstate, chan, NULL),
+					 false, false, zombie_addendum);
+		/* Deletion of the old addendum is optional. */
+		/* This opposing channel_update has been stashed away.  Now that
+		 * there are two valid updates, this one gets restored. */
+		/* FIXME: Handle spam case probably needs a helper f'n */
+		zombie_update[0] = gossip_store_get(tmpctx, rstate->gs,
+			chan->half[!direction].bcast.index);
+		if (chan->half[!direction].bcast.index != chan->half[!direction].rgraph.index)
+			/* Don't forget the spam channel_update */
+			zombie_update[1] = gossip_store_get(tmpctx, rstate->gs,
+				chan->half[!direction].rgraph.index);
+		gossip_store_delete(rstate->gs, &chan->half[!direction].bcast,
+				    is_chan_public(chan)
+				    ? WIRE_CHANNEL_UPDATE
+				    : WIRE_GOSSIP_STORE_PRIVATE_UPDATE);
+		chan->half[!direction].bcast.index =
+			gossip_store_add(rstate->gs, zombie_update[0],
+					 chan->half[!direction].bcast.timestamp,
+					 local_direction(rstate, chan, NULL),
+					 false, false, NULL);
+		if (zombie_update[1])
+			chan->half[!direction].rgraph.index =
+				gossip_store_add(rstate->gs, zombie_update[1],
+						 chan->half[!direction].rgraph.timestamp,
+						 local_direction(rstate, chan, NULL),
+						 false, true, NULL);
+		else
+			chan->half[!direction].rgraph.index = chan->half[!direction].bcast.index;
+
+		/* If we caught any node_announcements for fully zombie nodes
+		 * (no remaining active channels) handle those as well. */
+		resurrect_nannouncements(rstate, chan);
+
+		/* It's a miracle! */
+		chan->half[0].zombie = false;
+		chan->half[1].zombie = false;
+		zombie = false;
+	}
+
 	/* If we're loading from store, this means we don't re-add to store. */
 	if (index) {
 		if (!spam)
@@ -1477,7 +1599,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		hc->rgraph.index
 			= gossip_store_add(rstate->gs, update, timestamp,
 					   local_direction(rstate, chan, NULL),
-					   spam, NULL);
+					   zombie, spam, NULL);
 		if (hc->bcast.timestamp > rstate->last_timestamp
 		    && hc->bcast.timestamp < time_now().ts.tv_sec)
 			rstate->last_timestamp = hc->bcast.timestamp;
@@ -1673,7 +1795,8 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 
 	node = get_node(rstate, &node_id);
 
-	if (node == NULL || !node_has_broadcastable_channels(node)) {
+	if (node == NULL || (!node_has_broadcastable_channels(node) &&
+	    !is_node_zombie(node))) {
 		struct pending_node_announce *pna;
 		/* BOLT #7:
 		 *
@@ -1797,7 +1920,7 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 			= gossip_store_add(rstate->gs, msg, timestamp,
 					   node_id_eq(&node_id,
 						      &rstate->local_id),
-					   false, spam, NULL);
+					   is_node_zombie(node), spam, NULL);
 		if (node->bcast.timestamp > rstate->last_timestamp
 		    && node->bcast.timestamp < time_now().ts.tv_sec)
 			rstate->last_timestamp = node->bcast.timestamp;
@@ -1903,6 +2026,43 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	return NULL;
 }
 
+/* Set zombie flags in gossip_store and tombstone the channel for any
+ * gossip_store consumers. Remove any orphaned node_announcements. */
+static void zombify_channel(struct gossip_store *gs, struct chan *channel)
+{
+	struct half_chan *half;
+	assert(!is_chan_zombie(channel));
+	gossip_store_mark_channel_zombie(gs, &channel->bcast);
+	gossip_store_mark_channel_deleted(gs, &channel->scid);
+	for (int i = 0; i < 2; i++) {
+		half = &channel->half[i];
+		half->zombie = true;
+		if (half->bcast.index) {
+			gossip_store_mark_cupdate_zombie(gs, &half->bcast);
+			/* Channel may also have a spam entry */
+			if (half->bcast.index != half->rgraph.index)
+				gossip_store_mark_cupdate_zombie(gs, &half->rgraph);
+		}
+	}
+	status_debug("Channel %s zombified",
+		     type_to_string(tmpctx, struct short_channel_id,
+				    &channel->scid));
+
+	/* If one of the nodes has no remaining active channels, the
+	 * node_announcement should also be stashed. */
+	for (int i = 0; i < 2; i++) {
+		struct node *node = channel->nodes[i];
+		if (!is_node_zombie(node) || !node->bcast.index)
+			continue;
+		if (node->rgraph.index != node->bcast.index)
+			gossip_store_mark_nannounce_zombie(gs, &node->rgraph);
+		gossip_store_mark_nannounce_zombie(gs, &node->bcast);
+		status_debug("Node %s zombified",
+			     type_to_string(tmpctx, struct node_id,
+					    &node->id));
+	}
+}
+
 void route_prune(struct routing_state *rstate)
 {
 	u64 now = gossip_time_now(rstate).ts.tv_sec;
@@ -1917,6 +2077,9 @@ void route_prune(struct routing_state *rstate)
 	     chan = uintmap_after(&rstate->chanmap, &idx)) {
 		/* Local-only?  Don't prune. */
 		if (!is_chan_public(chan))
+			continue;
+		/* These have been pruned already */
+		if (is_chan_zombie(chan))
 			continue;
 
 		/* BOLT #7:
@@ -1953,10 +2116,12 @@ void route_prune(struct routing_state *rstate)
 		}
 	}
 
-	/* Now free all the chans and maybe even nodes. */
+	/* Any channels missing an update are now considered zombies. They may
+	 * come back later, in which case the channel_announcement needs to be
+	 * stashed away for later use. If all remaining channels for a node are
+	 * zombies, the node is zombified too. */
 	for (size_t i = 0; i < tal_count(pruned); i++) {
-		remove_channel_from_store(rstate, pruned[i]);
-		free_chan(rstate, pruned[i]);
+		zombify_channel(rstate->gs, pruned[i]);
 	}
 }
 

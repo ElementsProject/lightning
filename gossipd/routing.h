@@ -29,6 +29,9 @@ struct half_chan {
 
 	/* Token bucket */
 	u8 tokens;
+
+	/* Disabled channel waiting for a channel_update from both sides. */
+	bool zombie;
 };
 
 struct chan {

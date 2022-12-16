@@ -645,6 +645,96 @@ void gossip_store_mark_channel_deleted(struct gossip_store *gs,
 			 0, false, false, false, NULL);
 }
 
+/* Marks the length field of a channel_announcement with the zombie flag bit */
+void gossip_store_mark_channel_zombie(struct gossip_store *gs,
+				      struct broadcastable *bcast)
+{
+	beint32_t belen;
+	u32 index = bcast->index;
+
+	/* Should never get here during loading! */
+	assert(gs->writable);
+
+	assert(index);
+
+#if DEVELOPER
+	const u8 *msg = gossip_store_get(tmpctx, gs, index);
+	assert(fromwire_peektype(msg) == WIRE_CHANNEL_ANNOUNCEMENT);
+#endif
+
+	if (pread(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed reading len to zombie channel @%u: %s",
+			      index, strerror(errno));
+
+	assert((be32_to_cpu(belen) & GOSSIP_STORE_LEN_DELETED_BIT) == 0);
+	belen |= cpu_to_be32(GOSSIP_STORE_LEN_ZOMBIE_BIT);
+	if (pwrite(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing len to zombie channel @%u: %s",
+			      index, strerror(errno));
+}
+
+/* Marks the length field of a channel_update with the zombie flag bit */
+void gossip_store_mark_cupdate_zombie(struct gossip_store *gs,
+				      struct broadcastable *bcast)
+{
+	beint32_t belen;
+	u32 index = bcast->index;
+
+	/* Should never get here during loading! */
+	assert(gs->writable);
+
+	assert(index);
+
+#if DEVELOPER
+	const u8 *msg = gossip_store_get(tmpctx, gs, index);
+	assert(fromwire_peektype(msg) == WIRE_CHANNEL_UPDATE);
+#endif
+
+	if (pread(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed reading len to zombie channel update @%u: %s",
+			      index, strerror(errno));
+
+	assert((be32_to_cpu(belen) & GOSSIP_STORE_LEN_DELETED_BIT) == 0);
+	belen |= cpu_to_be32(GOSSIP_STORE_LEN_ZOMBIE_BIT);
+	if (pwrite(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing len to zombie channel update @%u: %s",
+			      index, strerror(errno));
+}
+
+/* Marks the length field of a node_announcement with the zombie flag bit */
+void gossip_store_mark_nannounce_zombie(struct gossip_store *gs,
+					struct broadcastable *bcast)
+{
+	beint32_t belen;
+	u32 index = bcast->index;
+
+	/* Should never get here during loading! */
+	assert(gs->writable);
+
+	assert(index);
+
+#if DEVELOPER
+	const u8 *msg = gossip_store_get(tmpctx, gs, index);
+	assert(fromwire_peektype(msg) == WIRE_NODE_ANNOUNCEMENT);
+#endif
+
+	if (pread(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed reading len to zombie node announcement @%u: %s",
+			      index, strerror(errno));
+
+	assert((be32_to_cpu(belen) & GOSSIP_STORE_LEN_DELETED_BIT) == 0);
+	belen |= cpu_to_be32(GOSSIP_STORE_LEN_ZOMBIE_BIT);
+	if (pwrite(gs->fd, &belen, sizeof(belen), index) != sizeof(belen))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing len to zombie channel update @%u: %s",
+			      index, strerror(errno));
+}
+
 const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset)
