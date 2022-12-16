@@ -40,6 +40,11 @@ struct gossip_rcvd_filter;
 #define GOSSIP_STORE_LEN_RATELIMIT_BIT 0x20000000U
 
 /**
+ * Bit used to mark a channel announcement as inactive (needs channel updates.)
+ */
+#define GOSSIP_STORE_LEN_ZOMBIE_BIT 0x10000000U
+
+/**
  * Full flags mask
  */
 #define GOSSIP_STORE_FLAGS_MASK 0xFFFF0000U
