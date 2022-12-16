@@ -158,6 +158,8 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       COMPAT: 1
+      BITCOIN_VERSION: 0.20.1
+      ELEMENTS_VERSION: 0.18.1.8
     needs:
       - compile
     strategy:
@@ -204,6 +206,22 @@ jobs:
           pip3 install --user pip wheel poetry
           poetry install
 
+      - name: Install bitcoind
+        run: |
+          (
+            cd /tmp/
+            wget https://storage.googleapis.com/c-lightning-tests/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.bz2
+            wget -q https://storage.googleapis.com/c-lightning-tests/elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2
+            tar -xjf bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.bz2
+            tar -xjf elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2
+            sudo mv bitcoin-$BITCOIN_VERSION/bin/* /usr/local/bin
+            sudo mv elements-$ELEMENTS_VERSION/bin/* /usr/local/bin
+            rm -rf \
+              bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz \
+              bitcoin-$BITCOIN_VERSION \
+              elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2 \
+              elements-$ELEMENTS_VERSION
+          )
 
       - name: Download build
         uses: actions/download-artifact@v3
