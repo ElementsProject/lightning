@@ -66,6 +66,20 @@ void gossip_store_delete(struct gossip_store *gs,
 void gossip_store_mark_channel_deleted(struct gossip_store *gs,
 				       const struct short_channel_id *scid);
 
+/*
+ * Marks the length field of a channel announcement with a zombie flag bit.
+ * This allows the channel_announcement to be retained in the store while
+ * waiting for channel updates to reactivate it.
+ */
+void gossip_store_mark_channel_zombie(struct gossip_store *gs,
+				      struct broadcastable *bcast);
+
+void gossip_store_mark_cupdate_zombie(struct gossip_store *gs,
+				      struct broadcastable *bcast);
+
+void gossip_store_mark_nannounce_zombie(struct gossip_store *gs,
+					struct broadcastable *bcast);
+
 /**
  * Direct store accessor: loads gossip msg back from store.
  *
