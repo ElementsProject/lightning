@@ -51,7 +51,7 @@ jobs:
     # The unit test checks are not in the critical path (not dependent
     # on the integration tests), so run them with `valgrind`
     name: Run unit tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       COMPAT: 1
       VALGRIND: 1
@@ -70,6 +70,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          sudo apt-get install -y -qq lowdown
           pip install -U pip wheel poetry
           # Export and then use pip to install into the current env
           poetry export -o /tmp/requirements.txt --without-hashes --with dev
@@ -84,7 +85,7 @@ jobs:
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       COMPAT: 1
     needs:
@@ -155,7 +156,7 @@ jobs:
 
   integration:
     name: Test CLN ${{ matrix.cfg }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       COMPAT: 1
       BITCOIN_VERSION: 0.20.1
