@@ -76,7 +76,8 @@ static void try_connect(const tal_t *ctx,
 			struct lightningd *ld,
 			const struct node_id *id,
 			u32 seconds_delay,
-			const struct wireaddr_internal *addrhint);
+			const struct wireaddr_internal *addrhint,
+			bool dns_fallback);
 
 struct id_and_addr {
 	struct node_id id;
@@ -226,7 +227,7 @@ static struct command_result *json_connect(struct command *cmd,
 					   &peer->addr);
 	}
 
- 	try_connect(cmd, cmd->ld, &id_addr.id, 0, addr);
+	try_connect(cmd, cmd->ld, &id_addr.id, 0, addr, true);
 
 	/* Leave this here for peer_connected, connect_failed or peer_disconnect_done. */
 	new_connect(cmd->ld, &id_addr.id, cmd);
@@ -248,6 +249,7 @@ struct delayed_reconnect {
 	struct lightningd *ld;
 	struct node_id id;
 	struct wireaddr_internal *addrhint;
+	bool dns_fallback;
 };
 
 static void gossipd_got_addrs(struct subd *subd,
@@ -265,7 +267,8 @@ static void gossipd_got_addrs(struct subd *subd,
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &d->id,
 						     addrs,
-						     d->addrhint);
+						     d->addrhint,
+						     d->dns_fallback);
 	subd_send_msg(d->ld->connectd, take(connectmsg));
 	tal_free(d);
 }
@@ -282,7 +285,8 @@ static void try_connect(const tal_t *ctx,
 			struct lightningd *ld,
 			const struct node_id *id,
 			u32 seconds_delay,
-			const struct wireaddr_internal *addrhint)
+			const struct wireaddr_internal *addrhint,
+			bool dns_fallback)
 {
 	struct delayed_reconnect *d;
 	struct peer *peer;
@@ -291,6 +295,7 @@ static void try_connect(const tal_t *ctx,
 	d->ld = ld;
 	d->id = *id;
 	d->addrhint = tal_dup_or_null(d, struct wireaddr_internal, addrhint);
+	d->dns_fallback = dns_fallback;
 
 	if (!seconds_delay) {
 		do_connect(d);
@@ -347,11 +352,14 @@ void try_reconnect(const tal_t *ctx,
 	} else
 		peer->reconnect_delay = INITIAL_WAIT_SECONDS;
 
+	/* We only do DNS fallback lookups for manual connections, to
+	 * avoid stressing DNS servers for private nodes (sorry!) */
 	try_connect(ctx,
 		    peer->ld,
 		    &peer->id,
 		    peer->reconnect_delay,
-		    addrhint);
+		    addrhint,
+		    false);
 }
 
 /* We were trying to connect, but they disconnected. */
