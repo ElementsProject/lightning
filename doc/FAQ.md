@@ -1,10 +1,4 @@
-# FAQ
-
-## Table of contents
-- [General questions](#general-questions)
-- [Loss of {funds / data}](#loss)
-
-
+# Frequently Asked Questions (FAQ)
 ## General questions
 
 ### I don't know where to start, help me !
