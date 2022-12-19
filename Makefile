@@ -424,6 +424,16 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_openingd \
 	       lightningd/lightning_websocketd
 
+mkdocs.yml: $(MANPAGES:=.md)
+	@$(call VERBOSE, "genidx $@", \
+	  find doc -maxdepth 1 -name '*\.[0-9]\.md' | \
+	  cut -b 5- | LC_ALL=C sort | \
+	  sed 's/\(.*\)\.\(.*\).*\.md/- "\1": "\1.\2.md"/' | \
+	  python3 devtools/blockreplace.py mkdocs.yml manpages --language=yml --indent "          " \
+	)
+
+
+
 # Don't delete these intermediaries.
 .PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
