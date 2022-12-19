@@ -17,6 +17,7 @@ class Language(str, Enum):
     md = 'md'
     rst = 'rst'
     c = 'c'
+    yml = 'yml'
 
 
 comment_style = {
@@ -31,6 +32,10 @@ comment_style = {
     Language.c: (
         "/* block_start {blockname} */",
         "/* block_end {blockname} */",
+    ),
+    Language.yml: (
+        "# block_start {blockname}",
+        "# block_end {blockname}",
     ),
 }
 
