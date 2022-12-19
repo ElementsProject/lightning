@@ -1716,7 +1716,8 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
 			     struct wireaddr *gossip_addrs,
-			     struct wireaddr_internal *addrhint STEALS)
+			     struct wireaddr_internal *addrhint STEALS,
+			     bool dns_fallback)
 {
 	struct wireaddr_internal *addrs;
 	bool use_proxy = daemon->always_use_proxy;
@@ -1762,7 +1763,7 @@ static void try_connect_peer(struct daemon *daemon,
 				                         chainparams_get_ln_port(chainparams));
 				tal_arr_expand(&addrs, unresolved);
 			}
-		} else if (daemon->use_dns) {
+		} else if (daemon->use_dns && dns_fallback) {
 			add_seed_addrs(&addrs, id,
 			               daemon->broken_resolver_response);
 		}
@@ -1804,12 +1805,14 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	struct node_id id;
 	struct wireaddr_internal *addrhint;
 	struct wireaddr *addrs;
+	bool dns_fallback;
 
 	if (!fromwire_connectd_connect_to_peer(tmpctx, msg,
-					       &id, &addrs, &addrhint))
+					       &id, &addrs, &addrhint,
+					       &dns_fallback))
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
-	try_connect_peer(daemon, &id, addrs, addrhint);
+	try_connect_peer(daemon, &id, addrs, addrhint, dns_fallback);
 }
 
 /* lightningd tells us a peer should be disconnected. */
