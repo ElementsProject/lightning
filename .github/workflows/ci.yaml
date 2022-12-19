@@ -243,3 +243,17 @@ jobs:
         run: |
           tar -xf cln-${CFG}.tar
           poetry run pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+
+  gather:
+    # A dummy task that depends on the full matrix of tests, and
+    # signals successful completion. Used for the PR status to pass
+    # before merging.
+    name: CI completion
+    runs-on: ubuntu-20.04
+    needs:
+      - integration
+      - check-units
+    steps:
+      - name: Complete
+        run: |
+          echo CI completed successfully
