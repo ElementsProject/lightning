@@ -808,6 +808,8 @@ static const struct config testnet_config = {
 
 	.use_dns = true,
 
+	/* If true, announce discovered IPs */
+	.ip_discovery = false,
 	/* Turn off IP address announcement discovered via peer `remote_addr` */
 	.disable_ip_discovery = false,
 
@@ -874,6 +876,8 @@ static const struct config mainnet_config = {
 
 	.use_dns = true,
 
+	/* If true, announce discovered IPs */
+	.ip_discovery = false,
 	/* Turn off IP address announcement discovered via peer `remote_addr` */
 	.disable_ip_discovery = false,
 
@@ -1176,9 +1180,13 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--announce-addr", opt_add_announce_addr, NULL,
 			 ld,
 			 "Set an IP address (v4 or v6) or .onion v3 to announce, but not listen on");
+
 	opt_register_noarg("--disable-ip-discovery", opt_set_bool,
 			 &ld->config.disable_ip_discovery,
 			 "Turn off announcement of discovered public IPs");
+	opt_register_arg("--ip-discovery", opt_set_bool_arg, opt_show_bool,
+			 &ld->config.ip_discovery,
+			 "If true, announce discovered IPs");
 
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");

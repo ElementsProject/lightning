@@ -247,6 +247,10 @@
       "type": "boolean",
       "description": "`true` if `disable-ip-discovery` was set in config or cmdline"
     },
+    "ip-discovery": {
+      "type": "boolean",
+      "description": "`true` if `ip-discovery` was set in config or cmdline"
+    },
     "encrypted-hsm": {
       "type": "boolean",
       "description": "`true` if `encrypted-hsm` was set in config or cmdline"

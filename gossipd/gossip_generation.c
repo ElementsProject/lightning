@@ -44,8 +44,8 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		tal_arr_expand(&was, daemon->announceable[i]);
 
 	/* Add discovered IPs v4/v6 verified by peer `remote_addr` feature. */
-	/* Only do that if we don't have addresses announced. */
-	if (count_announceable == 0) {
+	/* Only do that if `config.ip_discovery` is explicitly enabled. */
+	if (daemon->ip_discovery) {
 		if (daemon->discovered_ip_v4 != NULL &&
 		    !wireaddr_arr_contains(was, daemon->discovered_ip_v4))
 			tal_arr_expand(&was, *daemon->discovered_ip_v4);

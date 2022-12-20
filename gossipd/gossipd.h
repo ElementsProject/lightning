@@ -51,6 +51,7 @@ struct daemon {
 	/* verified remote_addr as reported by recent peers */
 	struct wireaddr *discovered_ip_v4;
 	struct wireaddr *discovered_ip_v6;
+	bool ip_discovery;
 
 	/* Timer until we can send an updated node_announcement */
 	struct oneshot *node_announce_timer;
