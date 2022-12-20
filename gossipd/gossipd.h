@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/timer/timer.h>
 #include <common/node_id.h>
+#include <lightningd/options.h>
 #include <wire/peer_wire.h>
 
 /* We talk to `hsmd` to sign our gossip messages with the node key */

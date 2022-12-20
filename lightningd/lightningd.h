@@ -3,6 +3,7 @@
 #include "config.h"
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
+#include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <signal.h>
 #include <sys/stat.h>
