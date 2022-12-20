@@ -245,7 +245,8 @@
     },
     "disable-ip-discovery": {
       "type": "boolean",
-      "description": "`true` if `disable-ip-discovery` was set in config or cmdline"
+      "description": "`true` if `disable-ip-discovery` was set in config or cmdline",
+      "deprecated": "v23.02"
     },
     "announce-addr-discovered": {
       "type": "string",
