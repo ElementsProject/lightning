@@ -89,7 +89,7 @@ On success, an object is returned, containing:
 - **proxy** (string, optional): `proxy` field from config or cmdline, or default
 - **disable-dns** (boolean, optional): `true` if `disable-dns` was set in config or cmdline
 - **disable-ip-discovery** (boolean, optional): `true` if `disable-ip-discovery` was set in config or cmdline (DEPRECATED)
-- **ip-discovery** (string, optional): `true` if `ip-discovery` was set in config or cmdline
+- **announce-addr-discovered** (string, optional): `true`/`false`/`auto` depending on how `announce-addr-discovered` was set in config or cmdline *(added v23.02)*
 - **encrypted-hsm** (boolean, optional): `true` if `encrypted-hsm` was set in config or cmdline
 - **rpc-file-mode** (string, optional): `rpc-file-mode` field from config or cmdline, or default
 - **log-level** (string, optional): `log-level` field from config or cmdline, or default
@@ -221,4 +221,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:bc7c3374ba6609553f431deae62c1e5525e136086b39fffb6c674a58365c0740)
+[comment]: # ( SHA256STAMP:fcf5e537989d9df2cf2031ff6b7589cc1d6acc30a81806e7ecedb3265b8c9b3b)

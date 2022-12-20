@@ -48,9 +48,14 @@ network between you and the Internet, as long as you can use Tor you can
 be connected to.
 
 Note: Core Lightning also support IPv4/6 address discovery behind NAT routers.
-For this to work you need to forward the default TCP port 9735 to your node.
+If your node detects an new public address, it can update its announcement.
+For this to work you need to forward the TCP port 9735 on your NAT router to your node.
 In this case you don't need TOR to punch through your firewall.
-IP discovery is only active if no other addresses are announced.
+
+Note: Per default and for privacy reasons IP discovery will only be active
+if no other addresses would be announced (as kind of a fallback).
+You can set `--announce-addr-discovered=true` to explicitly activate it.
+Your node will then update discovered IP addresses even if it also announces e.g. a TOR address.
 This usually has the benefit of quicker and more stable connections but does not
 offer additional privacy.
 
