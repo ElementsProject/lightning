@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_GOSSIPD_GOSSIPD_H
 #define LIGHTNING_GOSSIPD_GOSSIPD_H
 #include "config.h"
+#include <ccan/ccan/opt/opt.h>
 #include <ccan/timer/timer.h>
 #include <common/node_id.h>
 #include <lightningd/options.h>
@@ -52,6 +53,7 @@ struct daemon {
 	/* verified remote_addr as reported by recent peers */
 	struct wireaddr *discovered_ip_v4;
 	struct wireaddr *discovered_ip_v6;
+	enum opt_autobool ip_discovery;
 
 	/* Timer until we can send an updated node_announcement */
 	struct oneshot *node_announce_timer;

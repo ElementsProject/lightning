@@ -88,7 +88,8 @@ On success, an object is returned, containing:
 - **autolisten** (boolean, optional): `autolisten` field from config or cmdline, or default
 - **proxy** (string, optional): `proxy` field from config or cmdline, or default
 - **disable-dns** (boolean, optional): `true` if `disable-dns` was set in config or cmdline
-- **disable-ip-discovery** (boolean, optional): `true` if `disable-ip-discovery` was set in config or cmdline
+- **disable-ip-discovery** (boolean, optional): `true` if `disable-ip-discovery` was set in config or cmdline (DEPRECATED)
+- **ip-discovery** (string, optional): `true` if `ip-discovery` was set in config or cmdline
 - **encrypted-hsm** (boolean, optional): `true` if `encrypted-hsm` was set in config or cmdline
 - **rpc-file-mode** (string, optional): `rpc-file-mode` field from config or cmdline, or default
 - **log-level** (string, optional): `log-level` field from config or cmdline, or default
