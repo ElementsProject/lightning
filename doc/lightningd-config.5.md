@@ -361,6 +361,14 @@ RPC call lightning-setchannel(7).
 channels. If you want to change the `htlc_maximum_msat` for existing channels,
 use the RPC call lightning-setchannel(7).
 
+* **ip-discovery**=*BOOL*
+
+  Explicitly turn 'on' or 'off' public IP discovery to send `node_announcement`
+  updates that contain the discovered IP with TCP port 9735 as announced address.
+  Default: turned off .
+  Note: You also need to open TCP port 9735 on your router towords your node.
+  Note: Will always be disabled if you use 'always-use-proxy'.
+
 * **disable-ip-discovery**
 
   Turn off public IP discovery to send `node_announcement` updates that contain
