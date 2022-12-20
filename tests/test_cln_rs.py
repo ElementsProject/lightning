@@ -8,12 +8,15 @@ from pyln.testing.utils import env, TEST_NETWORK, wait_for
 import grpc
 import pytest
 import subprocess
+import os
 
 # Skip the entire module if we don't have Rust.
 pytestmark = pytest.mark.skipif(
     env('RUST') != '1',
     reason='RUST is not enabled skipping rust-dependent tests'
 )
+
+RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
 
 
 def wait_for_grpc_start(node):
@@ -23,7 +26,7 @@ def wait_for_grpc_start(node):
 
 def test_rpc_client(node_factory):
     l1 = node_factory.get_node()
-    bin_path = Path.cwd() / "target" / "debug" / "examples" / "cln-rpc-getinfo"
+    bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-rpc-getinfo"
     rpc_path = Path(l1.daemon.lightning_dir) / TEST_NETWORK / "lightning-rpc"
     out = subprocess.check_output([bin_path, rpc_path], stderr=subprocess.STDOUT)
     assert(b'0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518' in out)
@@ -32,7 +35,7 @@ def test_rpc_client(node_factory):
 def test_plugin_start(node_factory):
     """Start a minimal plugin and ensure it is well-behaved
     """
-    bin_path = Path.cwd() / "target" / "debug" / "examples" / "cln-plugin-startup"
+    bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-startup"
     l1 = node_factory.get_node(options={"plugin": str(bin_path), 'test-option': 31337})
     l2 = node_factory.get_node()
 
@@ -75,7 +78,7 @@ def test_plugin_start(node_factory):
 def test_plugin_optional_opts(node_factory):
     """Start a minimal plugin and ensure it is well-behaved
     """
-    bin_path = Path.cwd() / "target" / "debug" / "examples" / "cln-plugin-startup"
+    bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-startup"
     l1 = node_factory.get_node(options={"plugin": str(bin_path), 'opt-option': 31337})
     opts = l1.rpc.testoptions()
     print(opts)

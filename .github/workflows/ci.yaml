@@ -9,7 +9,13 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-  
+
+env:
+  # Makes the upload-artifact work more reliably at the cost
+  # of a bit of compile time.
+  RUST_PROFILE: release
+  SLOW_MACHINE: 1
+
 jobs:
   prebuild:
     name: Pre-build checks
@@ -138,8 +144,6 @@ jobs:
           CFG: ${{ matrix.CFG }}
         run: |
           set -e
-          export SLOW_MACHINE=1
-
           pip3 install --user pip wheel poetry
           poetry export -o requirements.txt --with dev --without-hashes
           python3 -m pip install -r requirements.txt
@@ -148,11 +152,11 @@ jobs:
           make -j $(nproc) testpack.tar.bz2
 
           # Rename now so we don't clash
-          mv testpack.tar cln-${CFG}.tar
+          mv testpack.tar.bz2 cln-${CFG}.tar.bz2
       - uses: actions/upload-artifact@v3
         with:
-          name: cln-${{ matrix.CFG }}.tar
-          path: cln-${{ matrix.CFG }}.tar
+          name: cln-${{ matrix.CFG }}.tar.bz2
+          path: cln-${{ matrix.CFG }}.tar.bz2
 
   integration:
     name: Test CLN ${{ matrix.cfg }}
@@ -161,6 +165,7 @@ jobs:
       COMPAT: 1
       BITCOIN_VERSION: 0.20.1
       ELEMENTS_VERSION: 0.18.1.8
+      RUST_PROFILE: release  # Has to match the one in the compile step
     needs:
       - compile
     strategy:
@@ -227,7 +232,7 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v3
         with:
-          name: cln-${{ matrix.CFG }}.tar
+          name: cln-${{ matrix.CFG }}.tar.bz2
 
       - name: Test
         env:
@@ -241,8 +246,8 @@ jobs:
           PYTEST_PAR: 10
           TEST_DEBUG: 1
         run: |
-          tar -xf cln-${CFG}.tar
-          poetry run pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          tar -xaf cln-${CFG}.tar.bz2
+          poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   gather:
     # A dummy task that depends on the full matrix of tests, and
