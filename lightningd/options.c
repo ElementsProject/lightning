@@ -102,6 +102,41 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
+char *opt_set_autobool_arg(const char *arg, enum opt_autobool *b)
+{
+	if (!strcasecmp(arg, "yes") ||
+	    !strcasecmp(arg, "true")) {
+		*b = OPT_AUTOBOOL_TRUE;
+		return NULL;
+	}
+	if (!strcasecmp(arg, "no") ||
+	    !strcasecmp(arg, "false")) {
+		*b = OPT_AUTOBOOL_FALSE;
+		return NULL;
+	}
+	if (!strcasecmp(arg, "auto") ||
+	    !strcasecmp(arg, "default")) {
+		*b = OPT_AUTOBOOL_AUTO;
+		return NULL;
+	}
+	return opt_invalid_argument(arg);
+}
+
+void opt_show_autobool(char buf[OPT_SHOW_LEN], const enum opt_autobool *b)
+{
+	switch (*b) {
+	case OPT_AUTOBOOL_TRUE:
+		strncpy(buf, "true", OPT_SHOW_LEN);
+		break;
+	case OPT_AUTOBOOL_FALSE:
+		strncpy(buf, "false", OPT_SHOW_LEN);
+		break;
+	case OPT_AUTOBOOL_AUTO:
+	default:
+		strncpy(buf, "auto", OPT_SHOW_LEN);
+	}
+}
+
 static char *opt_set_mode(const char *arg, mode_t *m)
 {
 	char *endp;
