@@ -60,6 +60,7 @@ struct config {
 	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
 	bool ip_discovery;
 	/* Turn off IP address announcement discovered via peer `remote_addr` */
+	/* DEPRECATED does not do anything usefuly by current implementation */
 	bool disable_ip_discovery;
 
 	/* Minimal amount of effective funding_satoshis for accepting channels */

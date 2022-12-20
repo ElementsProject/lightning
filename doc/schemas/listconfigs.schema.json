@@ -245,7 +245,7 @@
     },
     "disable-ip-discovery": {
       "type": "boolean",
-      "description": "`true` if `disable-ip-discovery` was set in config or cmdline"
+      "description": "`true` if `disable-ip-discovery` was set in config or cmdline (DEPRECATED)"
     },
     "ip-discovery": {
       "type": "boolean",
