@@ -380,8 +380,9 @@ static void handle_discovered_ip(struct daemon *daemon, const u8 *msg)
 	return;
 
 update_node_annoucement:
-	status_debug("Update our node_announcement for discovered address: %s",
-		     fmt_wireaddr(tmpctx, &discovered_ip));
+	if (daemon->ip_discovery)
+		status_debug("Update our node_announcement for discovered address: %s",
+			     fmt_wireaddr(tmpctx, &discovered_ip));
 	maybe_send_own_node_announce(daemon, false);
 }
 
@@ -727,7 +728,8 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 				     &daemon->announceable,
 				     &dev_gossip_time,
 				     &dev_fast_gossip,
-				     &dev_fast_gossip_prune)) {
+				     &dev_fast_gossip_prune,
+				     &daemon->ip_discovery)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
@@ -1096,6 +1098,7 @@ int main(int argc, char *argv[])
 	daemon->rates = NULL;
 	daemon->discovered_ip_v4 = NULL;
 	daemon->discovered_ip_v6 = NULL;
+	daemon->ip_discovery = false;
 	list_head_init(&daemon->deferred_updates);
 
 	/* Tell the ecdh() function how to talk to hsmd */
