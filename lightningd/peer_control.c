@@ -1308,7 +1308,8 @@ static void update_remote_addr(struct lightningd *ld,
 	u16 public_port;
 
 	/* failsafe to prevent privacy leakage. */
-	if (ld->always_use_proxy || ld->config.disable_ip_discovery)
+	if (ld->always_use_proxy ||
+	    ld->config.ip_discovery == OPT_AUTOBOOL_FALSE)
 		return;
 
 	/* Peers will have likey reported our dynamic outbound TCP port.
