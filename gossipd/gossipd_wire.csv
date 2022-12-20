@@ -16,6 +16,7 @@ msgdata,gossipd_init,announceable,wireaddr,num_announceable
 msgdata,gossipd_init,dev_gossip_time,?u32,
 msgdata,gossipd_init,dev_fast_gossip,bool,
 msgdata,gossipd_init,dev_fast_gossip_prune,bool,
+msgdata,gossipd_init,ip_discovery,u32,
 
 msgtype,gossipd_init_reply,3100
 

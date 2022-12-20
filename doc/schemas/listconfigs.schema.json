@@ -247,6 +247,11 @@
       "type": "boolean",
       "description": "`true` if `disable-ip-discovery` was set in config or cmdline"
     },
+    "announce-addr-discovered": {
+      "type": "string",
+      "description": "`true`/`false`/`auto` depending on how `announce-addr-discovered` was set in config or cmdline",
+      "added": "v23.02"
+    },
     "encrypted-hsm": {
       "type": "boolean",
       "description": "`true` if `encrypted-hsm` was set in config or cmdline"
