@@ -69,7 +69,6 @@
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
-#include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <lightningd/subd.h>
 #include <sys/resource.h>
