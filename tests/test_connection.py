@@ -73,7 +73,8 @@ def test_remote_addr(node_factory, bitcoind):
     # don't announce anything per se
     opts = {'may_reconnect': True,
             'dev-allow-localhost': None,
-            'dev-no-reconnect': None}
+            'dev-no-reconnect': None,
+            'ip-discovery': True}
     l1, l2, l3 = node_factory.get_nodes(3, opts)
 
     # Disable announcing local autobind addresses with dev-allow-localhost.

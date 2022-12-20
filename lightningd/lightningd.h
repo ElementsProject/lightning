@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #define LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #include "config.h"
+#include <ccan/ccan/opt/opt.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
 #include <lightningd/options.h>
@@ -58,6 +59,8 @@ struct config {
 	/* Are we allowed to use DNS lookup for peers. */
 	bool use_dns;
 
+	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
+	enum opt_autobool ip_discovery;
 	/* Turn off IP address announcement discovered via peer `remote_addr` */
 	bool disable_ip_discovery;
 

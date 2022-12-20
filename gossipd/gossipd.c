@@ -346,6 +346,7 @@ static void handle_local_private_channel(struct daemon *daemon, const u8 *msg)
 static void handle_discovered_ip(struct daemon *daemon, const u8 *msg)
 {
 	struct wireaddr discovered_ip;
+	size_t count_announceable;
 
 	if (!fromwire_gossipd_discovered_ip(msg, &discovered_ip))
 		master_badmsg(WIRE_GOSSIPD_DISCOVERED_IP, msg);
@@ -380,8 +381,11 @@ static void handle_discovered_ip(struct daemon *daemon, const u8 *msg)
 	return;
 
 update_node_annoucement:
-	status_debug("Update our node_announcement for discovered address: %s",
-		     fmt_wireaddr(tmpctx, &discovered_ip));
+	count_announceable = tal_count(daemon->announceable);
+	if ((daemon->ip_discovery == OPT_AUTOBOOL_AUTO && count_announceable == 0) ||
+	     daemon->ip_discovery == OPT_AUTOBOOL_TRUE)
+		status_debug("Update our node_announcement for discovered address: %s",
+			     fmt_wireaddr(tmpctx, &discovered_ip));
 	maybe_send_own_node_announce(daemon, false);
 }
 
@@ -727,7 +731,8 @@ static void gossip_init(struct daemon *daemon, const u8 *msg)
 				     &daemon->announceable,
 				     &dev_gossip_time,
 				     &dev_fast_gossip,
-				     &dev_fast_gossip_prune)) {
+				     &dev_fast_gossip_prune,
+				     &daemon->ip_discovery)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
@@ -1096,6 +1101,7 @@ int main(int argc, char *argv[])
 	daemon->rates = NULL;
 	daemon->discovered_ip_v4 = NULL;
 	daemon->discovered_ip_v6 = NULL;
+	daemon->ip_discovery = OPT_AUTOBOOL_AUTO;
 	list_head_init(&daemon->deferred_updates);
 
 	/* Tell the ecdh() function how to talk to hsmd */
