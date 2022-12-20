@@ -444,6 +444,14 @@ void opt_show_invbool(char buf[OPT_SHOW_LEN], const bool *b);
 /* Sets @b based on !arg: (yes/no/true/false/on/off/1/0). */
 char *opt_set_invbool_arg(const char *arg, bool *b);
 
+enum opt_autobool {
+	OPT_AUTOBOOL_OFF = 0,
+	OPT_AUTOBOOL_ON = 1,
+	OPT_AUTOBOOL_AUTO = 2,
+};
+char *opt_set_autobool_arg(const char *arg, enum opt_autobool *b);
+void opt_show_autobool(char buf[OPT_SHOW_LEN], const enum opt_autobool *b);
+
 /* Set a char *. */
 char *opt_set_charp(const char *arg, char **p);
 void opt_show_charp(char buf[OPT_SHOW_LEN], char *const *p);

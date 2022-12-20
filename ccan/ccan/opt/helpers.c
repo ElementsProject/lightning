@@ -49,6 +49,30 @@ char *opt_set_bool_arg(const char *arg, bool *b)
 	return opt_invalid_argument(arg);
 }
 
+char *opt_set_autobool_arg(const char *arg, enum opt_autobool *b)
+{
+	if (!strcasecmp(arg, "yes") ||
+	    !strcasecmp(arg, "true") ||
+	    !strcasecmp(arg, "on") ||
+	    !strcasecmp(arg, "1")) {
+		*b = OPT_AUTOBOOL_ON;
+		return NULL;
+	}
+	if (!strcasecmp(arg, "no") ||
+	    !strcasecmp(arg, "false") ||
+	    !strcasecmp(arg, "off") ||
+	    !strcasecmp(arg, "0")) {
+		*b = OPT_AUTOBOOL_OFF;
+		return NULL;
+	}
+	if (!strcasecmp(arg, "auto") ||
+	    !strcasecmp(arg, "default")) {
+		*b = OPT_AUTOBOOL_AUTO;
+		return NULL;
+	}
+	return opt_invalid_argument(arg);
+}
+
 char *opt_set_invbool_arg(const char *arg, bool *b)
 {
 	char *err = opt_set_bool_arg(arg, b);
@@ -210,6 +234,21 @@ void opt_show_bool(char buf[OPT_SHOW_LEN], const bool *b)
 void opt_show_invbool(char buf[OPT_SHOW_LEN], const bool *b)
 {
 	strncpy(buf, *b ? "false" : "true", OPT_SHOW_LEN);
+}
+
+void opt_show_autobool(char buf[OPT_SHOW_LEN], const enum opt_autobool *b)
+{
+	switch (*b) {
+	case OPT_AUTOBOOL_ON:
+		strncpy(buf, "true", OPT_SHOW_LEN);
+		break;
+	case OPT_AUTOBOOL_OFF:
+		strncpy(buf, "false", OPT_SHOW_LEN);
+		break;
+	case OPT_AUTOBOOL_AUTO:
+	default:
+		strncpy(buf, "auto", OPT_SHOW_LEN);
+	}
 }
 
 void opt_show_charp(char buf[OPT_SHOW_LEN], char *const *p)
