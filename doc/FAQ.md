@@ -72,9 +72,13 @@ Note that if you already have a channel open to them, you'll need to close it be
 There is no risk to your channels if your IP address changes.
 Other nodes might not be able to connect to you, but your node can still connect to them.
 But Core Lightning also has an integrated IPv4/6 address discovery mechanism.
-If your node detects an new public address, it will update its announcement.
+If your node detects an new public address, it can update its announcement.
 For this to work binhind a NAT router you need to forward the default TCP port 9735 to your node.
-IP discovery is only active if no other addresses are announced.
+
+Note: Per default and for privacy reasons IP discovery will only be active
+if no other addresses would be announced (as kind of a fallback).
+You can set `--announce-addr-discovered=true` to explicitly activate it.
+Your node will then update discovered IP addresses even if it also announces e.g. a TOR address.
 
 Alternatively, you can [setup a TOR hidden service](TOR.md) for your node that
 will also work well behind NAT firewalls.
