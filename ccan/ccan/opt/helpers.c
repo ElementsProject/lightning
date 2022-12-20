@@ -35,9 +35,15 @@ char *opt_set_invbool(bool *b)
 
 char *opt_set_bool_arg(const char *arg, bool *b)
 {
-	if (!strcasecmp(arg, "yes") || !strcasecmp(arg, "true"))
+	if (!strcasecmp(arg, "yes") ||
+	    !strcasecmp(arg, "true") ||
+	    !strcasecmp(arg, "on") ||
+	    !strcasecmp(arg, "1"))
 		return opt_set_bool(b);
-	if (!strcasecmp(arg, "no") || !strcasecmp(arg, "false"))
+	if (!strcasecmp(arg, "no") ||
+	    !strcasecmp(arg, "false") ||
+	    !strcasecmp(arg, "off") ||
+	    !strcasecmp(arg, "0"))
 		return opt_set_invbool(b);
 
 	return opt_invalid_argument(arg);

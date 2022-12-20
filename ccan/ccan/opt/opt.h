@@ -435,13 +435,13 @@ extern const char opt_hidden[];
 /* Standard helpers.  You can write your own: */
 /* Sets the @b to true. */
 char *opt_set_bool(bool *b);
-/* Sets @b based on arg: (yes/no/true/false). */
+/* Sets @b based on arg: (yes/no/true/false/on/off/1/0). */
 char *opt_set_bool_arg(const char *arg, bool *b);
 void opt_show_bool(char buf[OPT_SHOW_LEN], const bool *b);
 /* The inverse */
 char *opt_set_invbool(bool *b);
 void opt_show_invbool(char buf[OPT_SHOW_LEN], const bool *b);
-/* Sets @b based on !arg: (yes/no/true/false). */
+/* Sets @b based on !arg: (yes/no/true/false/on/off/1/0). */
 char *opt_set_invbool_arg(const char *arg, bool *b);
 
 /* Set a char *. */
