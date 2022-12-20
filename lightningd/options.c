@@ -811,6 +811,7 @@ static const struct config testnet_config = {
 	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
 	.ip_discovery = OPT_AUTOBOOL_AUTO,
 	/* Turn off IP address announcement discovered via peer `remote_addr` */
+	/* DEPRECATED does not do anything usefuly by current implementation */
 	.disable_ip_discovery = false,
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
@@ -879,6 +880,7 @@ static const struct config mainnet_config = {
 	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
 	.ip_discovery = OPT_AUTOBOOL_AUTO,
 	/* Turn off IP address announcement discovered via peer `remote_addr` */
+	/* DEPRECATED does not do anything usefuly by current implementation */
 	.disable_ip_discovery = false,
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
@@ -1049,6 +1051,14 @@ static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
 	return opt_set_bool_arg(arg, ld->db_upgrade_ok);
 }
 
+static char *opt_disable_ip_discovery(struct lightningd *ld)
+{
+	log_broken(ld->log, "--disable-ip-discovery has been deprecated, use --ip-discovery");
+	if (!deprecated_apis)
+		return "--disable-ip-discovery has been deprecated, use --ip-discovery";
+	return opt_set_bool(&ld->config.disable_ip_discovery);
+}
+
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
@@ -1181,9 +1191,8 @@ static void register_opts(struct lightningd *ld)
 			 ld,
 			 "Set an IP address (v4 or v6) or .onion v3 to announce, but not listen on");
 
-	opt_register_noarg("--disable-ip-discovery", opt_set_bool,
-			 &ld->config.disable_ip_discovery,
-			 "Turn off announcement of discovered public IPs");
+	opt_register_noarg("--disable-ip-discovery", opt_disable_ip_discovery, ld,
+			 "Turn off announcement of discovered public IPs. (DEPRECATED)");
 	opt_register_arg("--ip-discovery", opt_set_autobool_arg, opt_show_autobool,
 			 &ld->config.ip_discovery,
 			 "Explicitly turns IP discovery 'on' or 'off'.");

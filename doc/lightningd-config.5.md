@@ -375,7 +375,7 @@ use the RPC call lightning-setchannel(7).
 the discovered IP with TCP port 9735 as announced address. If unset and you
 open TCP port 9735 on your router towords your node, your node will remain
 connectable on changing IP addresses.  Note: Will always be disabled if you use
-'always-use-proxy'.
+'always-use-proxy'. (DEPRECATED)
 
 ### Lightning channel and HTLC options
 
