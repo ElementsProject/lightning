@@ -61,8 +61,6 @@ struct config {
 
 	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
 	enum opt_autobool ip_discovery;
-	/* Turn off IP address announcement discovered via peer `remote_addr` */
-	bool disable_ip_discovery;
 
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;

@@ -368,14 +368,6 @@ use the RPC call lightning-setchannel(7).
   Note: You also need to open TCP port 9735 on your router towords your node.
   Note: Will always be disabled if you use 'always-use-proxy'.
 
-* **disable-ip-discovery**
-
-  Turn off public IP discovery to send `node_announcement` updates that contain
-the discovered IP with TCP port 9735 as announced address. If unset and you
-open TCP port 9735 on your router towords your node, your node will remain
-connectable on changing IP addresses.  Note: Will always be disabled if you use
-'always-use-proxy'.
-
 ### Lightning channel and HTLC options
 
 * **large-channels**
