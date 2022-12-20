@@ -155,7 +155,7 @@ def test_remote_addr_disabled(node_factory, bitcoind):
         l1 --> [l2] <-- l3
     """
     opts = {'dev-allow-localhost': None,
-            'disable-ip-discovery': None,
+            'ip-discovery': False,
             'may_reconnect': True,
             'dev-no-reconnect': None}
     l1, l2, l3 = node_factory.get_nodes(3, opts=[opts, opts, opts])
@@ -164,24 +164,26 @@ def test_remote_addr_disabled(node_factory, bitcoind):
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
     l1.fundchannel(l2)
-    bitcoind.generate_block(5)
+    bitcoind.generate_block(6)
     l1.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
     # l2->l3
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.daemon.wait_for_log("Peer says it sees our address as: 127.0.0.1:[0-9]{5}")
     l2.fundchannel(l3)
-    bitcoind.generate_block(5)
+    bitcoind.generate_block(6)
+    l3.daemon.wait_for_log(f"Received node_announcement for node {l2.info['id']}")
 
     # restart both and wait for channels to be ready
     l1.restart()
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.daemon.wait_for_log("Already have funding locked in")
+    l2.daemon.wait_for_log(f"{l1.info['id']}.*Already have funding locked in")
     l3.restart()
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l2.daemon.wait_for_log("Already have funding locked in")
+    l2.daemon.wait_for_log(f"{l3.info['id']}.*Already have funding locked in")
 
     # if ip discovery would have been enabled, we would have send an updated
     # node_annoucement by now. Check we didn't...
+    bitcoind.generate_block(6)  # ugly, but we need to wait for gossip...
     assert not l2.daemon.is_in_log("Update our node_announcement for discovered address")
 
 
