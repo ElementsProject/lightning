@@ -10,7 +10,11 @@ DEFAULT_TARGETS += $(CLN_RPC_EXAMPLES) $(CLN_RPC_GENALL)
 $(CLN_RPC_GENALL): $(JSON_SCHEMAS)
 	PYTHONPATH=contrib/msggen python3 contrib/msggen/msggen/__main__.py
 
-target/debug/examples/cln-rpc-getinfo: $(shell find cln-rpc -name *.rs)
+target/${RUST_PROFILE}/examples/cln-rpc-getinfo: $(shell find cln-rpc -name *.rs)
 	cargo build ${CARGO_OPTS} --example cln-rpc-getinfo
+
+target/${RUST_PROFILE}/examples/cln-plugin-startup: $(shell find cln-rpc -name *.rs)
+	cargo build ${CARGO_OPTS} --example cln-plugin-startup
+
 
 cln-rpc-all: ${CLN_RPC_GEN_ALL} ${CLN_RPC_EXAMPLES}
