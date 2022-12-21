@@ -253,6 +253,11 @@
       "description": "`true`/`false`/`auto` depending on how `announce-addr-discovered` was set in config or cmdline",
       "added": "v23.02"
     },
+    "announce-addr-discovered-port": {
+      "type": "integer",
+      "description": "Sets the announced TCP port for dynamically discovered IPs.",
+      "added": "v23.02"
+    },
     "encrypted-hsm": {
       "type": "boolean",
       "description": "`true` if `encrypted-hsm` was set in config or cmdline"
