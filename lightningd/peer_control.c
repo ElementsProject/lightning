@@ -2286,10 +2286,9 @@ static struct command_result *json_getinfo(struct command *cmd,
 		for (size_t i = 0; i < count_announceable; i++)
 			json_add_address(response, NULL, cmd->ld->announceable+i);
 
-		/* Currently, IP discovery will only be announced by gossipd,
-		 * if we don't already have usable addresses.
-		 * See `create_node_announcement` in `gossip_generation.c`. */
-		if (count_announceable == 0) {
+		/* Add discovered IPs if we announce them.
+		 * Also see `create_node_announcement` in `gossip_generation.c`. */
+		if (cmd->ld->config.ip_discovery) {
 			if (cmd->ld->discovered_ip_v4 != NULL &&
 					!wireaddr_arr_contains(
 						cmd->ld->announceable,
