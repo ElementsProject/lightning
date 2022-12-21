@@ -846,6 +846,9 @@ static const struct config testnet_config = {
 	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
 	.ip_discovery = OPT_AUTOBOOL_AUTO,
 
+	/* Public TCP port assumed for IP discovery. Defaults to chainparams. */
+	.ip_discovery_port = 0,
+
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
 
@@ -911,6 +914,9 @@ static const struct config mainnet_config = {
 
 	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
 	.ip_discovery = OPT_AUTOBOOL_AUTO,
+
+	/* Public TCP port assumed for IP discovery. Defaults to chainparams. */
+	.ip_discovery_port = 0,
 
 	/* Sets min_effective_htlc_capacity - at 1000$/BTC this is 10ct */
 	.min_capacity_sat = 10000,
@@ -1223,6 +1229,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--announce-addr-discovered", opt_set_autobool_arg, opt_show_autobool,
 			 &ld->config.ip_discovery,
 			 "Explicitly turns IP discovery 'on' or 'off'.");
+	opt_register_arg("--announce-addr-discovered-port", opt_set_uintval,
+			 opt_show_uintval, &ld->config.ip_discovery_port,
+			 "Sets the public TCP port to use for announcing discovered IPs.");
 
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
@@ -1426,6 +1435,9 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 		ld->config = testnet_config;
 	else
 		ld->config = mainnet_config;
+
+	/* Set the ln_port given from chainparams */
+	ld->config.ip_discovery_port = chainparams->ln_port;
 
 	/* Now we can initialize wallet_dsn */
 	ld->wallet_dsn = tal_fmt(ld, "sqlite3://%s/lightningd.sqlite3",

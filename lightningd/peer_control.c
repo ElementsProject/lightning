@@ -1305,17 +1305,10 @@ static void update_remote_addr(struct lightningd *ld,
 			       const struct wireaddr *remote_addr,
 			       const struct node_id peer_id)
 {
-	u16 public_port;
-
 	/* failsafe to prevent privacy leakage. */
 	if (ld->always_use_proxy ||
 	    ld->config.ip_discovery == OPT_AUTOBOOL_FALSE)
 		return;
-
-	/* Peers will have likey reported our dynamic outbound TCP port.
-	 * Best guess is that we use default port for the selected network,
-	 * until we add a commandline switch to override this. */
-	public_port = chainparams_get_ln_port(chainparams);
 
 	switch (remote_addr->type) {
 	case ADDR_TYPE_IPV4:
@@ -1334,7 +1327,7 @@ static void update_remote_addr(struct lightningd *ld,
 		if (wireaddr_eq_without_port(ld->remote_addr_v4, remote_addr)) {
 			ld->discovered_ip_v4 = tal_dup(ld, struct wireaddr,
 						       ld->remote_addr_v4);
-			ld->discovered_ip_v4->port = public_port;
+			ld->discovered_ip_v4->port = ld->config.ip_discovery_port;
 			subd_send_msg(ld->gossip, towire_gossipd_discovered_ip(
 							  tmpctx,
 							  ld->discovered_ip_v4));
@@ -1357,7 +1350,7 @@ static void update_remote_addr(struct lightningd *ld,
 		if (wireaddr_eq_without_port(ld->remote_addr_v6, remote_addr)) {
 			ld->discovered_ip_v6 = tal_dup(ld, struct wireaddr,
 						       ld->remote_addr_v6);
-			ld->discovered_ip_v6->port = public_port;
+			ld->discovered_ip_v6->port = ld->config.ip_discovery_port;
 			subd_send_msg(ld->gossip, towire_gossipd_discovered_ip(
 							  tmpctx,
 							  ld->discovered_ip_v6));
