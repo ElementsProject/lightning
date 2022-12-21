@@ -62,6 +62,9 @@ struct config {
 	/* Excplicitly turns 'on' or 'off' IP discovery feature. */
 	enum opt_autobool ip_discovery;
 
+	/* Public TCP port assumed for IP discovery. Defaults to chainparams. */
+	u32 ip_discovery_port;
+
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;
 
