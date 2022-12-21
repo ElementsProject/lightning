@@ -368,6 +368,11 @@ use the RPC call lightning-setchannel(7).
   Note: You also need to open TCP port 9735 on your router towords your node.
   Note: Will always be disabled if you use 'always-use-proxy'.
 
+* **announce-addr-discovered-port**
+  Sets the public TCP port to use for announcing dynamically discovered IPs.
+  If unset, this defaults to the selected networks lightning port,
+  which is 9735 on mainnet.
+
 ### Lightning channel and HTLC options
 
 * **large-channels**
