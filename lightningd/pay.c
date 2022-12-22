@@ -834,19 +834,23 @@ static struct command_result *check_invoice_request_usage(struct command *cmd,
 
 static struct channel *find_channel_for_htlc_add(struct lightningd *ld,
 						 const struct node_id *node,
-						 const struct short_channel_id *scid)
+						 const struct short_channel_id *scid_or_alias)
 {
 	struct channel *channel;
 	struct peer *peer = peer_by_id(ld, node);
 	if (!peer)
 		return NULL;
 
-	channel = find_channel_by_scid(peer, scid);
+	channel = find_channel_by_scid(peer, scid_or_alias);
+	if (channel && channel_can_add_htlc(channel))
+		return channel;
+
+	channel = find_channel_by_alias(peer, scid_or_alias, LOCAL);
 	if (channel && channel_can_add_htlc(channel))
 		return channel;
 
 	/* We used to ignore scid: now all-zero means "any" */
-	if (!channel && (deprecated_apis || memeqzero(scid, sizeof(*scid)))) {
+	if (!channel && (deprecated_apis || memeqzero(scid_or_alias, sizeof(*scid_or_alias)))) {
 		list_for_each(&peer->channels, channel, list) {
 			if (channel_can_add_htlc(channel)) {
 				return channel;
