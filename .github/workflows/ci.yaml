@@ -159,7 +159,7 @@ jobs:
           path: cln-${{ matrix.CFG }}.tar.bz2
 
   integration:
-    name: Test CLN ${{ matrix.cfg }}
+    name: Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
     env:
       COMPAT: 1
@@ -172,28 +172,33 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - CFG: gcc-dev1-exp1
+          - NAME: gcc-dev1-exp1
+            CFG: gcc-dev1-exp1
             DEVELOPER: 1
             EXPERIMENTAL_FEATURES: 1
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
-          - CFG: gcc-dev1-exp0
+          - NAME:  gcc-dev1-exp0
+            CFG: gcc-dev1-exp0
             DEVELOPER: 1
             EXPERIMENTAL_FEATURES: 0
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
-          - CFG: gcc-dev0-exp1
+          - NAME: gcc-dev0-exp1
+            CFG: gcc-dev0-exp1
             DEVELOPER: 0
             EXPERIMENTAL_FEATURES: 1
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
-          - CFG: gcc-dev0-exp0
+          - NAME: gcc-dev0-exp0
+            CFG: gcc-dev0-exp0
             DEVELOPER: 0
             EXPERIMENTAL_FEATURES: 0
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
           # While we're at it let's try to compile with clang
-          - CFG: gcc-dev1-exp1
+          - NAME: clang-dev1-exp1
+            CFG: clang-dev1-exp1
             DEVELOPER: 1
             EXPERIMENTAL_FEATURES: 1
             TEST_DB_PROVIDER: sqlite3
