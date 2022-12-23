@@ -153,7 +153,7 @@ jobs:
 
           # Rename now so we don't clash
           mv testpack.tar.bz2 cln-${CFG}.tar.bz2
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v2.2.4
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
           path: cln-${{ matrix.CFG }}.tar.bz2
