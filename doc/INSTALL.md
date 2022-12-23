@@ -70,7 +70,7 @@ If you can't install `lowdown`, a version will be built in-tree.
 
 If you want to build the Rust plugins (currently, cln-grpc):
 
-	sudo apt-get install -y cargo rustfmt
+	sudo apt-get install -y cargo rustfmt protobuf-compiler
 
 There are two ways to build core lightning, and this depends on how you want use it.
 
