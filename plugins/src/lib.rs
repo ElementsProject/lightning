@@ -1,5 +1,6 @@
 use crate::codec::{JsonCodec, JsonRpcCodec};
-use anyhow::{anyhow, Context};
+pub use anyhow::anyhow;
+use anyhow::Context;
 use futures::sink::SinkExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
