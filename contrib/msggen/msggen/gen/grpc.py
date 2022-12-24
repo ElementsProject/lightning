@@ -210,6 +210,11 @@ class GrpcGenerator(IGenerator):
                 if f.path in overrides:
                     typename = overrides[f.path]
                 self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
+            elif isinstance(f, CompositeField):
+                typename = f.typename
+                if f.path in overrides:
+                    typename = overrides[f.path]
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
 
         self.write(f"""}}
         """)
@@ -256,11 +261,14 @@ class GrpcConverterGenerator(IGenerator):
         for f in field.fields:
             if isinstance(f, ArrayField):
                 self.generate_array(prefix, f)
+            elif isinstance(f, CompositeField):
+                self.generate_composite(prefix, f)
 
+        pbname = self.to_camel_case(field.typename)
         # And now we can convert the current field:
         self.write(f"""\
         #[allow(unused_variables)]
-        impl From<{prefix}::{field.typename}> for pb::{field.typename} {{
+        impl From<{prefix}::{field.typename}> for pb::{pbname} {{
             fn from(c: {prefix}::{field.typename}) -> Self {{
                 Self {{
         """)
@@ -321,12 +329,25 @@ class GrpcConverterGenerator(IGenerator):
 
                 self.write(f"{name}: {rhs}, // Rule #2 for type {typ}\n", numindent=3)
 
+            elif isinstance(f, CompositeField):
+                rhs = ""
+                if f.required:
+                    rhs = f'Some(c.{name}.into())'
+                else:
+                    rhs = f'c.{name}.map(|v| v.into())'
+                self.write(f"{name}: {rhs},\n", numindent=3)
         self.write(f"""\
                 }}
             }}
         }}
 
         """)
+
+    def to_camel_case(self, snake_str):
+        components = snake_str.split('_')
+        # We capitalize the first letter of each component except the first one
+        # with the 'title' method and join them together.
+        return components[0] + ''.join(x.title() for x in components[1:])
 
     def generate_requests(self, service):
         for meth in service.methods:
@@ -380,12 +401,15 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
         for f in field.fields:
             if isinstance(f, ArrayField):
                 self.generate_array(prefix, f)
+            elif isinstance(f, CompositeField):
+                self.generate_composite(prefix, f)
 
+        pbname = self.to_camel_case(field.typename)
         # And now we can convert the current field:
         self.write(f"""\
         #[allow(unused_variables)]
-        impl From<pb::{field.typename}> for {prefix}::{field.typename} {{
-            fn from(c: pb::{field.typename}) -> Self {{
+        impl From<pb::{pbname}> for {prefix}::{field.typename} {{
+            fn from(c: pb::{pbname}) -> Self {{
                 Self {{
         """)
 
@@ -446,6 +470,13 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     f'c.{name}'  # default to just assignment
                 )
                 self.write(f"{name}: {rhs}, // Rule #1 for type {typ}\n", numindent=3)
+            elif isinstance(f, CompositeField):
+                rhs = ""
+                if f.required:
+                    rhs = f'c.{name}.unwrap().into()'
+                else:
+                    rhs = f'c.{name}.map(|v| v.into())'
+                self.write(f"{name}: {rhs},\n", numindent=3)
 
         self.write(f"""\
                 }}

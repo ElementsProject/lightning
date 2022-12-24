@@ -608,6 +608,8 @@ pub mod requests {
 	pub struct SendonionRequest {
 	    #[serde(alias = "onion")]
 	    pub onion: String,
+	    #[serde(alias = "first_hop")]
+	    pub first_hop: SendonionFirst_hop,
 	    #[serde(alias = "payment_hash")]
 	    pub payment_hash: Sha256,
 	    #[serde(alias = "label", skip_serializing_if = "Option::is_none")]
@@ -1455,6 +1457,8 @@ pub mod responses {
 	    pub version: String,
 	    #[serde(alias = "lightning-dir")]
 	    pub lightning_dir: String,
+	    #[serde(alias = "our_features", skip_serializing_if = "Option::is_none")]
+	    pub our_features: Option<GetinfoOur_features>,
 	    #[serde(alias = "blockheight")]
 	    pub blockheight: u32,
 	    #[serde(alias = "network")]
@@ -1695,6 +1699,8 @@ pub mod responses {
 	    pub state: ListpeersPeersChannelsState,
 	    #[serde(alias = "scratch_txid", skip_serializing_if = "Option::is_none")]
 	    pub scratch_txid: Option<String>,
+	    #[serde(alias = "feerate", skip_serializing_if = "Option::is_none")]
+	    pub feerate: Option<ListpeersPeersChannelsFeerate>,
 	    #[serde(alias = "owner", skip_serializing_if = "Option::is_none")]
 	    pub owner: Option<String>,
 	    #[serde(alias = "short_channel_id", skip_serializing_if = "Option::is_none")]
@@ -1726,6 +1732,8 @@ pub mod responses {
 	    pub closer: Option<ChannelSide>,
 	    #[serde(alias = "features")]
 	    pub features: Vec<String>,
+	    #[serde(alias = "funding", skip_serializing_if = "Option::is_none")]
+	    pub funding: Option<ListpeersPeersChannelsFunding>,
 	    #[serde(alias = "to_us_msat", skip_serializing_if = "Option::is_none")]
 	    pub to_us_msat: Option<Amount>,
 	    #[serde(alias = "min_to_us_msat", skip_serializing_if = "Option::is_none")]
@@ -1762,6 +1770,8 @@ pub mod responses {
 	    pub our_to_self_delay: Option<u32>,
 	    #[serde(alias = "max_accepted_htlcs", skip_serializing_if = "Option::is_none")]
 	    pub max_accepted_htlcs: Option<u32>,
+	    #[serde(alias = "alias", skip_serializing_if = "Option::is_none")]
+	    pub alias: Option<ListpeersPeersChannelsAlias>,
 	    #[serde(alias = "state_changes", skip_serializing_if = "crate::is_none_or_empty")]
 	    pub state_changes: Option<Vec<ListpeersPeersChannelsState_changes>>,
 	    #[serde(alias = "status", skip_serializing_if = "crate::is_none_or_empty")]
@@ -2194,6 +2204,8 @@ pub mod responses {
 	    // Path `Connect.direction`
 	    #[serde(rename = "direction")]
 	    pub direction: ConnectDirection,
+	    #[serde(alias = "address")]
+	    pub address: ConnectAddress,
 	}
 
 	impl TryFrom<Response> for ConnectResponse {
@@ -3488,6 +3500,12 @@ pub mod responses {
 	pub struct FeeratesResponse {
 	    #[serde(alias = "warning_missing_feerates", skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_feerates: Option<String>,
+	    #[serde(alias = "perkb", skip_serializing_if = "Option::is_none")]
+	    pub perkb: Option<FeeratesPerkb>,
+	    #[serde(alias = "perkw", skip_serializing_if = "Option::is_none")]
+	    pub perkw: Option<FeeratesPerkw>,
+	    #[serde(alias = "onchain_fee_estimates", skip_serializing_if = "Option::is_none")]
+	    pub onchain_fee_estimates: Option<FeeratesOnchain_fee_estimates>,
 	}
 
 	impl TryFrom<Response> for FeeratesResponse {

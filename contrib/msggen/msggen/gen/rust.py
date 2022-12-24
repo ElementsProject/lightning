@@ -201,7 +201,16 @@ def gen_composite(c) -> Tuple[str, str]:
     r += "".join([f[0] for f in fields])
 
     r += "}\n\n"
-    return ("", r)
+
+    defi = ""
+    if c.deprecated:
+        defi += "    #[deprecated]\n"
+    if c.required:
+        defi += f"    #[serde(alias = \"{c.name.name}\")]\n    pub {c.name}: {c.typename},\n"
+    else:
+        defi += f"    #[serde(alias = \"{c.name.name}\", skip_serializing_if = \"Option::is_none\")]\n    pub {c.name}: Option<{c.typename}>,\n"
+
+    return defi, r
 
 
 class RustGenerator(IGenerator):
