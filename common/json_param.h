@@ -21,14 +21,12 @@
  *
  * 	unsigned *cltv;
  * 	u64 *msatoshi;
- * 	const jsmntok_t *note;
  * 	u64 *expiry;
  *
  * 	if (!param(cmd, buffer, params,
- * 		   p_req("cltv", json_tok_number, &cltv),
- * 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
- * 		   p_opt("note", json_tok_tok, &note),
- * 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
+ * 		   p_req("cltv", param_number, &cltv),
+ * 		   p_opt("msatoshi", param_u64, &msatoshi),
+ * 		   p_opt_def("expiry", param_u64, &expiry, 3600),
  * 		   NULL))
  * 		return;
  *
@@ -36,7 +34,7 @@
  *
  * All the command handlers throughout the code use this system.
  * json_invoice() is a great example.  The common callbacks can be found in
- * common/json_tok.c.  Use them directly or feel free to write your own.
+ * common/json_param.c.  Use them directly or feel free to write your own.
  */
 struct command;
 
