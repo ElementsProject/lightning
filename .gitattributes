@@ -17,4 +17,4 @@ statements_gettextgen.po linguist-generated=true
 cln-grpc/proto/node.proto -text -diff linguist-generated=true
 cln-grpc/src/convert.rs -text -diff linguist-generated=true
 cln-rpc/src/model.rs -text -diff linguist-generated=true
-contrib/pyln-testing/pyln/testing/node_pb2.py -text -diff linguist-generated=true
+contrib/pyln-testing/pyln/testing/node_pb2.py linguist-generated=true
