@@ -52,7 +52,7 @@ then
     export STRIP="$TARGET_HOST"-strip
     export CONFIGURATION_WRAPPER=qemu-"${TARGET_HOST%%-*}"-static
 
-    wget -q https://zlib.net/zlib-1.2.12.tar.gz
+    wget -q https://zlib.net/fossils/zlib-1.2.12.tar.gz
     tar xf zlib-1.2.12.tar.gz
     cd zlib-1.2.12 || exit 1
     ./configure --prefix="$QEMU_LD_PREFIX"

@@ -68,7 +68,7 @@ RUN apt-get update -qq && \
         python3-setuptools \
         wget
 
-RUN wget -q https://zlib.net/zlib-1.2.13.tar.gz \
+RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz \
     && tar xvf zlib-1.2.13.tar.gz \
     && cd zlib-1.2.13 \
     && ./configure \
