@@ -86,7 +86,7 @@ STRIP=${target_host}-strip \
 QEMU_LD_PREFIX=/usr/${target_host} \
 HOST=${target_host}
 
-RUN wget -q https://zlib.net/zlib-1.2.13.tar.gz \
+RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz \
 && tar xvf zlib-1.2.13.tar.gz \
 && cd zlib-1.2.13 \
 && ./configure --prefix=$QEMU_LD_PREFIX \
