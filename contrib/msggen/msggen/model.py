@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 def path2type(path):
     typename = "".join([s.capitalize() for s in path.replace("[]", "").split(".")])
+
     return typename
 
 
@@ -50,9 +51,10 @@ class Field:
 class Service:
     """Top level class that wraps all the RPC methods.
     """
-    def __init__(self, name: str, methods=None):
+    def __init__(self, name: str, methods=None, notifications=None):
         self.name = name
         self.methods = [] if methods is None else methods
+        self.notifications = [] if notifications is None else notifications
 
         # If we require linking with some external files we'll add
         # them here so the generator can use them.
@@ -85,9 +87,16 @@ class Service:
 
 
 class Method:
-    def __init__(self, name: str, request: Field, response: Field):
+    def __init__(self, name: str, request: Field, response: Field): # notification: bool):
         self.name = name
         self.request = request
+        self.response = response
+        #self.notification = notification
+
+
+class Notification:
+    def __init__(self, name: str, response: Field):
+        self.name = name
         self.response = response
 
 

@@ -1,17 +1,14 @@
 import json
 from pathlib import Path
+import re
 
-from msggen.model import Method, CompositeField, Service
+from msggen.model import Method, Notification, CompositeField, Service
 
 
 def load_jsonrpc_method(name, schema_dir: Path):
     """Load a method based on the file naming conventions for the JSON-RPC.
     """
-    base_path = schema_dir
-    req_file = base_path / f"{name.lower()}.request.json"
-    resp_file = base_path / f"{name.lower()}.schema.json"
-    request = CompositeField.from_js(json.load(open(req_file)), path=name)
-    response = CompositeField.from_js(json.load(open(resp_file)), path=name)
+    request, response = load_fields(name, schema_dir)
 
     # Normalize the method request and response typename so they no
     # longer conflict.
@@ -23,6 +20,30 @@ def load_jsonrpc_method(name, schema_dir: Path):
         request=request,
         response=response,
     )
+
+
+def load_jsonrpc_notification(name, schema_dir: Path):
+    """Load a notification based on the file naming conventions for the JSON-RPC.
+    """
+    request, response = load_fields(name, schema_dir)
+
+    return Notification(
+        name,
+        response=response,
+    )
+
+
+def load_fields(name, schema_dir: Path):
+    """Load notification and notification schema from JSON-RPC files.
+    """
+    base_path = schema_dir
+
+    req_file = base_path / f"{name.lower()}.request.json"
+    resp_file = base_path / f"{name.lower()}.schema.json"
+    request = CompositeField.from_js(json.load(open(req_file)), path=name)
+    response = CompositeField.from_js(json.load(open(resp_file)), path=name)
+
+    return request, response;
 
 
 def load_jsonrpc_service(schema_dir: str):
@@ -111,3 +132,9 @@ def load_jsonrpc_service(schema_dir: str):
     service = Service(name="Node", methods=methods)
     service.includes = ['primitives.proto']  # Make sure we have the primitives included.
     return service
+
+
+def convert_to_lower_snake(string):
+    """Convert a string to lowercase and snakecase.
+    """
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', string).lower()

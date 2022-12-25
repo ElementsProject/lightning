@@ -1,6 +1,7 @@
 # A grpc model
 from msggen.model import ArrayField, Field, CompositeField, EnumField, PrimitiveField, Service
 from msggen.gen import IGenerator
+from msggen.utils import convert_to_lower_snake
 from typing import TextIO, List, Dict, Any
 from textwrap import indent, dedent
 import re
@@ -148,6 +149,12 @@ class GrpcGenerator(IGenerator):
                 types.extend(gather_subfields(field))
             for field in method.response.fields:
                 types.extend(gather_subfields(field))
+
+        for notification in service.notifications:
+            types.extend([notification.response])
+            for field in notification.response.fields:
+                types.extend(gather_subfields(field))
+
         return types
 
     def generate_service(self, service: Service) -> None:
@@ -161,6 +168,11 @@ class GrpcGenerator(IGenerator):
                 f"	rpc {mname}({method.request.typename}) returns ({method.response.typename}) {{}}\n",
                 cleanup=False,
             )
+
+        self.write(
+            f"rpc Subscribe(NotificationRequest) returns (stream NotificationResponse) {{}}\n",
+            cleanup=False,
+        )
 
         self.write(f"""}}
         """)
@@ -235,6 +247,26 @@ class GrpcGenerator(IGenerator):
         for message in [f for f in fields if isinstance(f, CompositeField)]:
             self.generate_message(message)
 
+        self.write("""\n\
+message NotificationRequest {
+	repeated string msg_type = 1;
+}
+
+message NotificationResponse {
+        oneof msg {""")
+
+        for notification in service.notifications:
+            name = convert_to_lower_snake(notification.name)
+            # name = re.sub(r'(?<!^)(?=[A-Z])', '_', notification.name).lower()
+            num = 1
+            self.write(f"\n\t\t{notification.response.typename} {name} = {num};", False)
+            num += 1
+
+        self.write("""
+                }
+        }
+        """)
+
 
 class GrpcConverterGenerator(IGenerator):
     def __init__(self, dest: TextIO):
@@ -270,7 +302,8 @@ class GrpcConverterGenerator(IGenerator):
                 continue
 
             name = f.normalized()
-            name = re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+            name = convert_to_lower_snake(name)
+            # name = re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
             if isinstance(f, ArrayField):
                 typ = f.itemtype.typename
                 # The inner conversion applied to each element in the
@@ -464,21 +497,28 @@ class GrpcServerGenerator(GrpcConverterGenerator):
         use anyhow::Result;
         use std::path::{{Path, PathBuf}};
         use cln_rpc::model::requests;
-        use log::{{debug, trace}};
+        use futures::StreamExt;
+        use futures_core::stream::Stream;
+        use log::{{debug, trace, warn}};
+        use std::pin::Pin;
+        use tokio::sync::broadcast;
+        use tokio_stream::wrappers::BroadcastStream;
         use tonic::{{Code, Status}};
 
         #[derive(Clone)]
         pub struct Server
         {{
             rpc_path: PathBuf,
+            event_channel: broadcast::Sender<pb::NotificationResponse>,
         }}
 
         impl Server
         {{
-            pub async fn new(path: &Path) -> Result<Self>
+            pub async fn new(path: &Path, event_channel: broadcast::Sender<pb::NotificationResponse>) -> Result<Self>
             {{
                 Ok(Self {{
                     rpc_path: path.to_path_buf(),
+                    event_channel: event_channel,
                 }})
             }}
         }}
@@ -491,7 +531,7 @@ class GrpcServerGenerator(GrpcConverterGenerator):
         for method in service.methods:
             mname = method_name_overrides.get(method.name, method.name)
             # Tonic will convert to snake-case, so we have to do it here too
-            name = re.sub(r'(?<!^)(?=[A-Z])', '_', mname).lower()
+            name = convert_to_lower_snake(mname)
             self.write(f"""\
             async fn {name}(
                 &self,
@@ -524,6 +564,86 @@ class GrpcServerGenerator(GrpcConverterGenerator):
                 }}
 
             }}\n\n""", numindent=0)
+
+        self.write(f"""\
+        type SubscribeStream = Pin<Box<dyn Stream<Item = Result<pb::NotificationResponse, tonic::Status>> + Send  + 'static + Sync >>;
+
+        async fn subscribe(
+            &self,
+            request: tonic::Request<pb::NotificationRequest>,
+        ) -> Result<tonic::Response<Self::SubscribeStream>, tonic::Status> {{
+            let req = request.into_inner();
+            debug!("Client asked to subscribe to {{:?}} events", req.msg_type);
+
+            let ntfn_types = [""", numindent=0)
+
+        for idx, notification in enumerate(service.notifications):
+            name = convert_to_lower_snake(notification.name)
+            self.write(f"\"{name}\"")
+            if idx != len(service.notifications) - 1:
+                self.write(f", ")
+            else:
+                self.write(f"];")
+
+        self.write(f"""\
+\nfor i in 0..req.msg_type.len() {{
+    let ntfn_type = &req.msg_type[i];
+    if !ntfn_types.contains(&ntfn_type.as_str()) {{
+        return Err(tonic::Status::new(Code::InvalidArgument, format!("Message type {{}} not supported", ntfn_type)))
+    }}
+}}
+        """, numindent=1)
+
+        for notification in service.notifications:
+            name = convert_to_lower_snake(notification.name)
+            self.write(f"""
+let contains_{name} = req.msg_type.contains(&String::from("{name}"));\n""" , numindent=1)
+
+        self.write(f"""\
+let mut rx1 = self.event_channel.subscribe();
+
+// Create a new filtered channel so that we only pass along the messages
+// that the client requested.
+let (filtered_channel, filtered_rx) = broadcast::channel(16);
+
+tokio::spawn(async move {{
+loop {{
+    let event = rx1.recv().await.unwrap();
+    match event.msg {{
+""", numindent=1)
+
+        for notification in service.notifications:
+            upper_name = notification.name
+            name = convert_to_lower_snake(notification.name)
+            self.write(f"""\
+            Some(pb::notification_response::Msg::{upper_name}(ref _msg)) => {{
+                if contains_{name} {{
+                    match filtered_channel.send(event) {{
+                        Ok(_) => (),
+                        Err(e) => warn!("error sending event: {{:?}}", e)
+                    }}
+                }}
+	    """, numindent=1)
+
+        self.write(f"""\
+                        }}
+                        _ => {{
+                            debug!("Skip sending event to client");
+                        }}
+                    }}
+                }}
+            }});
+
+            let bc_stream = BroadcastStream::new(filtered_rx)
+                .filter_map(|event| async move {{
+                        event.ok()
+                }})
+                .map(Ok);
+
+            let stream: Self::SubscribeStream = Box::pin(bc_stream);
+
+            Ok(tonic::Response::new(stream))
+        }}\n\n""", numindent=0)
 
         self.write(f"""\
         }}

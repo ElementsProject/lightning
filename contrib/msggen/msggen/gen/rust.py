@@ -312,7 +312,6 @@ class RustGenerator(IGenerator):
 
         self.write(f"""\
         }}
-
         """)
 
     def generate_request_trait(self):
