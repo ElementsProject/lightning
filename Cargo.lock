@@ -210,10 +210,14 @@ dependencies = [
  "anyhow",
  "bitcoin",
  "cln-rpc",
+ "futures",
+ "futures-core",
  "hex",
  "log",
  "prost",
  "serde_json",
+ "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
 ]
@@ -229,6 +233,7 @@ dependencies = [
  "log",
  "prost",
  "rcgen",
+ "serde_json",
  "tokio",
  "tonic",
 ]
@@ -1325,6 +1330,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

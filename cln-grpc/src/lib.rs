@@ -3,6 +3,7 @@
 
 mod convert;
 pub mod pb;
+mod serde_convert;
 mod server;
 
 pub use crate::server::Server;
