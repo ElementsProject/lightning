@@ -168,13 +168,13 @@ int main(int argc, const char *argv[])
 				   block, strlen(block));
 
 	assert(b);
-	assert(b->hdr.version == CPU_TO_LE32(0x6592a000));
+	assert(b->hdr.version == 0x6592a000);
 	bitcoin_blkid_from_hex("0000000000000f31173e973bc00e452b1fac350066df7db2adec1e3224ea5bc1", strlen("0000000000000f31173e973bc00e452b1fac350066df7db2adec1e3224ea5bc1"), &prev);
 	assert(bitcoin_blkid_eq(&prev, &b->hdr.prev_hash));
 	hex_decode("8a0ee58ded5de949325ebc99583e3ca84f96a6597465c611685413f50f0ead7e", strlen("8a0ee58ded5de949325ebc99583e3ca84f96a6597465c611685413f50f0ead7e"), &merkle, sizeof(merkle));
 	assert(sha256_double_eq(&merkle, &b->hdr.merkle_hash));
-	assert(b->hdr.timestamp == CPU_TO_LE32(1550507183));
-	assert(b->hdr.nonce == CPU_TO_LE32(1226407989));
+	assert(b->hdr.timestamp == 1550507183);
+	assert(b->hdr.nonce == 1226407989);
 
 	assert(tal_count(b->tx) == 3);
 	bitcoin_txid(b->tx[0], &txid);
