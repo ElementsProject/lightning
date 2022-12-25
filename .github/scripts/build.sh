@@ -89,7 +89,7 @@ then
     rm gmp-6.1.2.tar.xz
     rm -rf gmp-6.1.2
 
-    ./configure CC="$TARGET_HOST-gcc" --enable-static
+    ./configure CC="$TARGET_HOST-gcc" --enable-static --disable-rust
 
     make -s -j32 CC="$TARGET_HOST-gcc"
 else
