@@ -128,8 +128,12 @@ def load_jsonrpc_service(schema_dir: str):
         # "notifications",  # No point in mapping this
         # "help",
     ]
+    notification_names = [
+	"InvoiceCreation",
+    ]
     methods = [load_jsonrpc_method(name, schema_dir=schema_dir) for name in method_names]
-    service = Service(name="Node", methods=methods)
+    notifications = [load_jsonrpc_notification(name, schema_dir=schema_dir) for name in notification_names]
+    service = Service(name="Node", methods=methods, notifications=notifications)
     service.includes = ['primitives.proto']  # Make sure we have the primitives included.
     return service
 

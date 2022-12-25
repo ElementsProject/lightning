@@ -4,21 +4,28 @@ use cln_rpc::{Request, Response, ClnRpc};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use cln_rpc::model::requests;
-use log::{debug, trace};
+use futures::StreamExt;
+use futures_core::stream::Stream;
+use log::{debug, trace, warn};
+use std::pin::Pin;
+use tokio::sync::broadcast;
+use tokio_stream::wrappers::BroadcastStream;
 use tonic::{Code, Status};
 
 #[derive(Clone)]
 pub struct Server
 {
     rpc_path: PathBuf,
+    event_channel: broadcast::Sender<pb::NotificationResponse>,
 }
 
 impl Server
 {
-    pub async fn new(path: &Path) -> Result<Self>
+    pub async fn new(path: &Path, event_channel: broadcast::Sender<pb::NotificationResponse>) -> Result<Self>
     {
         Ok(Self {
             rpc_path: path.to_path_buf(),
+            event_channel: event_channel,
         })
     }
 }
@@ -1528,6 +1535,60 @@ async fn stop(
         )),
     }
 
+}
+
+type SubscribeStream = Pin<Box<dyn Stream<Item = Result<pb::NotificationResponse, tonic::Status>> + Send  + 'static + Sync >>;
+
+async fn subscribe(
+    &self,
+    request: tonic::Request<pb::NotificationRequest>,
+) -> Result<tonic::Response<Self::SubscribeStream>, tonic::Status> {
+    let req = request.into_inner();
+    debug!("Client asked to subscribe to {:?} events", req.msg_type);
+
+    let ntfn_types = ["invoice_creation"];
+    for i in 0..req.msg_type.len() {
+        let ntfn_type = &req.msg_type[i];
+        if !ntfn_types.contains(&ntfn_type.as_str()) {
+            return Err(tonic::Status::new(Code::InvalidArgument, format!("Message type {} not supported", ntfn_type)))
+        }
+    }
+        
+    let contains_invoice_creation = req.msg_type.contains(&String::from("invoice_creation"));
+    let mut rx1 = self.event_channel.subscribe();
+
+    // Create a new filtered channel so that we only pass along the messages
+    // that the client requested.
+    let (filtered_channel, filtered_rx) = broadcast::channel(16);
+
+    tokio::spawn(async move {
+    loop {
+        let event = rx1.recv().await.unwrap();
+        match event.msg {
+                Some(pb::notification_response::Msg::InvoiceCreation(ref _msg)) => {
+                    if contains_invoice_creation {
+                        match filtered_channel.send(event) {
+                            Ok(_) => (),
+                            Err(e) => warn!("error sending event: {:?}", e)
+                        }
+                    }
+	                    }
+                _ => {
+                    debug!("Skip sending event to client");
+                }
+            }
+        }
+    });
+
+    let bc_stream = BroadcastStream::new(filtered_rx)
+        .filter_map(|event| async move {
+                event.ok()
+        })
+        .map(Ok);
+
+    let stream: Self::SubscribeStream = Box::pin(bc_stream);
+
+    Ok(tonic::Response::new(stream))
 }
 
 }

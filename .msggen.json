@@ -515,6 +515,11 @@
             "Invoice.warning_offline": 6,
             "Invoice.warning_private_unused": 8
         },
+        "Invoicecreation": {
+            "InvoiceCreation.amount_msat": 3,
+            "InvoiceCreation.label": 1,
+            "InvoiceCreation.preimage": 2
+        },
         "KeysendRequest": {
             "KeySend.amount_msat": 10,
             "KeySend.destination": 1,

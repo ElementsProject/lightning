@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "label",
+    "payment_hash",
+    "amount_msat"
+  ],
+  "properties": {
+    "label": {
+      "type": "string",
+      "description": "unique label supplied at invoice creation"
+    },
+    "preimage": {
+      "type": "secret",
+      "description": "proof of payment",
+      "maxLength": 64,
+      "minLength": 64
+    },
+    "amount_msat": {
+      "type": "msat",
+      "description": "the amount required to pay this invoice"
+    }
+  }
+}
+
