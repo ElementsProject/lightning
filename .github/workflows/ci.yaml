@@ -182,10 +182,10 @@ jobs:
 
           # The cross-compiled versions
           - CFG: "cross-arm32"
-            ARCH: arm32v7
+            ARCH: arm
             TARGET_HOST: arm-linux-gnueabihf
           - CFG: "cross-arm64"
-            ARCH: arm64v8
+            ARCH: aarch64
             TARGET_HOST: aarch64-linux-gnu
 
           # The experimental feature test
@@ -217,6 +217,7 @@ jobs:
           PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
           PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
           NETWORK: ${{ matrix.NETWORK }}
+          TARGET_HOST: ${{ matrix.TARGET_HOST }}
           TEST_CHECK_DBSTMTS: ${{ matrix.TEST_CHECK_DBSTMTS }}
           TEST_CMD: ${{ matrix.TEST_CMD }}
           TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
