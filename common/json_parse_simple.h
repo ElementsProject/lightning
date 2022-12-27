@@ -66,7 +66,7 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 /* Get index'th array member. */
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
 
-/* Helper to get "id" field from object. */
+/* Helper to get "id" field from object (including any quotes!). */
 const char *json_get_id(const tal_t *ctx,
 			const char *buffer, const jsmntok_t *obj);
 
