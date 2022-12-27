@@ -390,4 +390,7 @@ void json_add_psbt(struct json_stream *stream,
  * Note that field names are set */
 void json_add_lease_rates(struct json_stream *result,
 			  const struct lease_rates *rates);
+
+/* Add an id field literally (i.e. it's already a JSON primitive or string!) */
+void json_add_id(struct json_stream *result, const char *id);
 #endif /* LIGHTNING_COMMON_JSON_STREAM_H */

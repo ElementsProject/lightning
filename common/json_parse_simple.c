@@ -206,7 +206,9 @@ const char *json_get_id(const tal_t *ctx,
 	const jsmntok_t *idtok = json_get_member(buffer, obj, "id");
 	if (!idtok)
 		return NULL;
-	return json_strdup(ctx, buffer, idtok);
+	return tal_strndup(ctx,
+			   json_tok_full(buffer, idtok),
+			   json_tok_full_len(idtok));
 }
 
 /*-----------------------------------------------------------------------------
