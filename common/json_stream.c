@@ -239,9 +239,6 @@ void json_add_jsonstr(struct json_stream *js,
 {
 	char *p;
 
-	if (!json_filter_ok(js->filter, fieldname))
-		return;
-
 	/* NOTE: Filtering doesn't really work here! */
 	if (!json_filter_ok(js->filter, fieldname))
 		return;
@@ -690,3 +687,11 @@ void json_add_lease_rates(struct json_stream *result,
 		     rates->channel_fee_max_proportional_thousandths);
 }
 
+void json_add_id(struct json_stream *result, const char *id)
+{
+	char *p;
+
+	/* Bypass escape-required assertion in json_out_add */
+	p = json_member_direct(result, "id", strlen(id));
+	memcpy(p, id, strlen(id));
+}
