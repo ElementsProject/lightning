@@ -59,7 +59,7 @@ Clone lightning:
 
 Checkout a release tag:
 
-    git checkout v0.11.2
+    git checkout v22.11.1
 
 For development or running tests, get additional dependencies:
 
@@ -142,7 +142,7 @@ $ cd lightning
 
 Checkout a release tag:
 ```
-$ git checkout v0.11.2
+$ git checkout v22.11.1
 ```
 
 Build and install lightning:
@@ -287,7 +287,7 @@ Clone lightning:
 
 Checkout a release tag:
 
-    $ git checkout v0.11.2
+    $ git checkout v22.11.1
 
 Build lightning:
 
