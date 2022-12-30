@@ -4,6 +4,9 @@ version = "0.1.2"
 edition = "2021"
 license = "MIT"
 description = "An async RPC client for Core Lightning."
+homepage = "https://github.com/ElementsProject/lightning/tree/master/cln-rpc"
+repository = "https://github.com/ElementsProject/lightning"
+documentation = "https://docs.rs/cln-rpc"
 
 [[example]]
 name = "cln-rpc-getinfo"
