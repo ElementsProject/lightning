@@ -3,8 +3,10 @@ name = "cln-plugin"
 version = "0.1.2"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/ElementsProject/lightning/tree/master/plugins"
 description = "A CLN plugin library. Write your plugin in Rust."
+homepage = "https://github.com/ElementsProject/lightning/tree/master/plugins"
+repository = "https://github.com/ElementsProject/lightning"
+documentation = "https://docs.rs/cln-plugin"
 
 [[example]]
 name = "cln-plugin-startup"
