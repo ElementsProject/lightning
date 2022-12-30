@@ -5460,7 +5460,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.payment_hash"
 					    ", h.hstate"
 					    " FROM channel_htlcs h"
-					    " WHERE channel_id = ?"));
+					    " WHERE channel_id = ?"
+					    " ORDER BY id ASC"));
 		db_bind_u64(i->stmt, 0, chan->dbid);
 	} else {
 		i->scid.u64 = 0;
@@ -5474,7 +5475,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.payment_hash"
 					    ", h.hstate"
 					    " FROM channel_htlcs h"
-					    " JOIN channels ON channels.id = h.channel_id"));
+					    " JOIN channels ON channels.id = h.channel_id"
+					    " ORDER BY h.id ASC"));
 	}
 	/* FIXME: db_prepare should take ctx! */
 	tal_steal(i, i->stmt);
