@@ -305,6 +305,7 @@ static struct node_map *local_connected(const tal_t *ctx,
 	struct node_map *connected = tal(ctx, struct node_map);
 
 	node_map_init(connected);
+	tal_add_destructor(connected, node_map_clear);
 
 	json_for_each_arr(i, t, peers) {
 		const jsmntok_t *chans, *c;
