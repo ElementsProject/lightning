@@ -35,9 +35,9 @@ struct htlc_out *channel_has_htlc_out(struct channel *channel)
 	struct htlc_out *hout;
 	struct lightningd *ld = channel->peer->ld;
 
-	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
 	     hout;
-	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
 		if (hout->key.channel == channel)
 			return hout;
 	}
@@ -51,9 +51,9 @@ struct htlc_in *channel_has_htlc_in(struct channel *channel)
 	struct htlc_in *hin;
 	struct lightningd *ld = channel->peer->ld;
 
-	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
 	     hin;
-	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
 		if (hin->key.channel == channel)
 			return hin;
 	}

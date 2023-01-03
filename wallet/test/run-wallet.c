@@ -1933,8 +1933,10 @@ int main(int argc, const char *argv[])
 	ld->rr_counter = 0;
 	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->id);
 	/* Accessed in peer destructor sanity check */
-	htlc_in_map_init(&ld->htlcs_in);
-	htlc_out_map_init(&ld->htlcs_out);
+	ld->htlcs_in = tal(ld, struct htlc_in_map);
+	htlc_in_map_init(ld->htlcs_in);
+	ld->htlcs_out = tal(ld, struct htlc_out_map);
+	htlc_out_map_init(ld->htlcs_out);
 
 	/* We do a runtime test here, so we still check compile! */
 	if (HAVE_SQLITE3) {
