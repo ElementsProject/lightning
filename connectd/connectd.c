@@ -208,7 +208,7 @@ void destroy_peer(struct peer *peer)
 {
 	assert(!peer->draining);
 
-	if (!peer_htable_del(&peer->daemon->peers, peer))
+	if (!peer_htable_del(peer->daemon->peers, peer))
 		abort();
 
 	/* Tell gossipd to stop asking this peer gossip queries */
@@ -257,7 +257,7 @@ static struct peer *new_peer(struct daemon *daemon,
 
 	/* Now we own it */
 	tal_steal(peer, peer->to_peer);
-	peer_htable_add(&daemon->peers, peer);
+	peer_htable_add(daemon->peers, peer);
 	tal_add_destructor(peer, destroy_peer);
 
 	return peer;
@@ -282,7 +282,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	bool option_gossip_queries;
 
 	/* We remove any previous connection immediately, on the assumption it's dead */
-	peer = peer_htable_get(&daemon->peers, id);
+	peer = peer_htable_get(daemon->peers, id);
 	if (peer)
 		tal_free(peer);
 
@@ -1724,7 +1724,7 @@ static void try_connect_peer(struct daemon *daemon,
 	struct connecting *connect;
 
 	/* Already existing?  Must have crossed over, it'll know soon. */
-	if (peer_htable_get(&daemon->peers, id))
+	if (peer_htable_get(daemon->peers, id))
 		return;
 
 	/* If we're trying to connect it right now, that's OK. */
@@ -1827,7 +1827,7 @@ static void peer_discard(struct daemon *daemon, const u8 *msg)
 
 	/* We should stay in sync with lightningd, but this can happen
 	 * under stress. */
-	peer = peer_htable_get(&daemon->peers, &id);
+	peer = peer_htable_get(daemon->peers, &id);
 	if (!peer)
 		return;
 	/* If it's reconnected already, it will learn soon. */
@@ -1852,7 +1852,7 @@ static void peer_final_msg(struct io_conn *conn,
 
 	/* This can happen if peer hung up on us (or wrong counter
 	 * if it reconnected). */
-	peer = peer_htable_get(&daemon->peers, &id);
+	peer = peer_htable_get(daemon->peers, &id);
 	if (peer && peer->counter == counter)
 		multiplex_final_msg(peer, take(finalmsg));
 }
@@ -1868,7 +1868,7 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
-	memleak_scan_htable(memtable, &daemon->peers.raw);
+	memleak_scan_htable(memtable, &daemon->peers->raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
@@ -1995,7 +1995,7 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 		status_failed(STATUS_FAIL_GOSSIP_IO, "Unknown msg %i",
 			      fromwire_peektype(msg));
 
-	peer = peer_htable_get(&daemon->peers, &dst);
+	peer = peer_htable_get(daemon->peers, &dst);
 	if (peer)
 		inject_peer_msg(peer, take(gossip_msg));
 
@@ -2007,7 +2007,7 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 #if DEVELOPER
 static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
 {
-	memleak_scan_htable(memtable, &daemon->peers.raw);
+	memleak_scan_htable(memtable, &daemon->peers->raw);
 }
 #endif /* DEVELOPER */
 
@@ -2023,7 +2023,8 @@ int main(int argc, char *argv[])
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);
 	daemon->connection_counter = 1;
-	peer_htable_init(&daemon->peers);
+	daemon->peers = tal(daemon, struct peer_htable);
+	peer_htable_init(daemon->peers);
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
 	timers_init(&daemon->timers, time_mono());

@@ -29,7 +29,7 @@ void onionmsg_req(struct daemon *daemon, const u8 *msg)
 
 	/* Even though lightningd checks for valid ids, there's a race
 	 * where it might vanish before we read this command. */
-	peer = peer_htable_get(&daemon->peers, &id);
+	peer = peer_htable_get(daemon->peers, &id);
 	if (peer) {
 		u8 *omsg = towire_onion_message(NULL, &blinding, onionmsg);
 		inject_peer_msg(peer, take(omsg));
@@ -86,7 +86,7 @@ void handle_onion_message(struct daemon *daemon,
 
 		/* FIXME: Handle short_channel_id! */
 		node_id_from_pubkey(&next_node_id, &next_node);
-		next_peer = peer_htable_get(&daemon->peers, &next_node_id);
+		next_peer = peer_htable_get(daemon->peers, &next_node_id);
 		if (!next_peer) {
 			status_peer_debug(&peer->id,
 					  "onion msg: unknown next peer %s",
