@@ -362,7 +362,7 @@ static void try_command(struct node_id *peer,
 			const u8 *msg, size_t msglen)
 {
 	struct commando *incoming = tal(plugin, struct commando);
-	const jsmntok_t *toks, *method, *params, *rune;
+	const jsmntok_t *toks, *method, *params, *rune, *id;
 	const char *buf = (const char *)msg, *failmsg;
 	struct out_req *req;
 
@@ -394,6 +394,12 @@ static void try_command(struct node_id *peer,
 		return;
 	}
 	rune = json_get_member(buf, toks, "rune");
+	id = json_get_member(buf, toks, "id");
+	if (!id && !deprecated_apis) {
+		commando_error(incoming, COMMANDO_ERROR_REMOTE,
+			       "missing id field");
+		return;
+	}
 
 	failmsg = check_rune(tmpctx, incoming, peer, buf, method, params, rune);
 	if (failmsg) {
