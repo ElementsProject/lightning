@@ -365,6 +365,7 @@ static void try_command(struct node_id *peer,
 	const jsmntok_t *toks, *method, *params, *rune, *id;
 	const char *buf = (const char *)msg, *failmsg;
 	struct out_req *req;
+	const char *cmdid_prefix;
 
 	incoming->peer = *peer;
 	incoming->id = idnum;
@@ -395,10 +396,17 @@ static void try_command(struct node_id *peer,
 	}
 	rune = json_get_member(buf, toks, "rune");
 	id = json_get_member(buf, toks, "id");
-	if (!id && !deprecated_apis) {
-		commando_error(incoming, COMMANDO_ERROR_REMOTE,
-			       "missing id field");
-		return;
+	if (!id) {
+		if (!deprecated_apis) {
+			commando_error(incoming, COMMANDO_ERROR_REMOTE,
+				       "missing id field");
+			return;
+		}
+		cmdid_prefix = NULL;
+	} else {
+		cmdid_prefix = tal_fmt(tmpctx, "%.*s/",
+				       id->end - id->start,
+				       buf + id->start);
 	}
 
 	failmsg = check_rune(tmpctx, incoming, peer, buf, method, params, rune);
@@ -412,6 +420,7 @@ static void try_command(struct node_id *peer,
 	req = jsonrpc_request_whole_object_start(plugin, NULL,
 						 json_strdup(tmpctx, buf,
 							     method),
+						 cmdid_prefix,
 						 cmd_done, incoming);
 	if (params) {
 		size_t i;

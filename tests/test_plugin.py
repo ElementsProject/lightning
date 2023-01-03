@@ -2608,7 +2608,8 @@ def test_plugin_shutdown(node_factory):
 
 
 def test_commando(node_factory, executor):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.line_graph(2, fundchannel=False,
+                                     opts={'log-level': 'io'})
 
     # Nothing works until we've issued a rune.
     fut = executor.submit(l2.rpc.call, method='commando',
@@ -2633,6 +2634,11 @@ def test_commando(node_factory, executor):
                                'method': 'listpeers'})
     assert len(res['peers']) == 1
     assert res['peers'][0]['id'] == l2.info['id']
+
+    # Check JSON id is as expected (unfortunately pytest does not use a reliable name
+    # for itself: with -k it calls itself `-c` here, instead of `pytest`).
+    l2.daemon.wait_for_log(r'plugin-commando: "[^:/]*:commando#[0-9]*/cln:commando#[0-9]*"\[OUT\]')
+    l1.daemon.wait_for_log(r'jsonrpc#[0-9]*: "[^:/]*:commando#[0-9]*/cln:commando#[0-9]*/commando:listpeers#[0-9]*"\[IN\]')
 
     res = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
