@@ -152,10 +152,6 @@ static struct command_result *send_response(struct command *command UNUSED,
 	if (msglen > 65000) {
 		msglen = 65000;
 		msgtype = COMMANDO_MSG_REPLY_CONTINUES;
-		/* We need to make a copy first time before we call back, since
-		 * plugin will reuse it! */
-		if (!result)
-			reply->buf = tal_dup_talarr(reply, char, reply->buf);
 	} else {
 		if (msglen == 0) {
 			tal_free(reply);
@@ -188,12 +184,32 @@ static struct command_result *cmd_done(struct command *command,
 {
 	struct reply *reply = tal(plugin, struct reply);
 	reply->incoming = tal_steal(reply, incoming);
-	reply->buf = (char *)buf;
 
-	/* result is contents of "error" or "response": we want top-leve
-	 * object */
-	reply->off = obj->start;
-	reply->len = obj->end;
+	/* We make a copy, but substititing the original id! */
+	if (incoming->json_id) {
+		const char *id_start, *id_end;
+		const jsmntok_t *id = json_get_member(buf, obj, "id");
+		size_t off;
+
+		/* Old id we're going to omit */
+		id_start = json_tok_full(buf, id);
+		id_end = id_start + json_tok_full_len(id);
+
+		reply->len = obj->end - obj->start
+			- (id_end - id_start)
+			+ strlen(incoming->json_id);
+		reply->buf = tal_arr(reply, char, reply->len);
+		memcpy(reply->buf, buf + obj->start,
+		       id_start - (buf + obj->start));
+		off = id_start - (buf + obj->start);
+		memcpy(reply->buf + off, incoming->json_id, strlen(incoming->json_id));
+		off += strlen(incoming->json_id);
+		memcpy(reply->buf + off, id_end, (buf + obj->end) - id_end);
+	} else {
+		reply->len = obj->end - obj->start;
+		reply->buf = tal_strndup(reply, buf + obj->start, reply->len);
+	}
+	reply->off = 0;
 
 	return send_response(command, NULL, NULL, reply);
 }
