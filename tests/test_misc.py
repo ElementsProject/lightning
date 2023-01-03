@@ -937,6 +937,39 @@ def test_cli(node_factory):
     j, _ = json.JSONDecoder().raw_decode(out)
     assert j == {'help': [{'command': 'help [command]'}]}
 
+    # lightningd errors should exit with status 1.
+    ret = subprocess.run(['cli/lightning-cli',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'unknown-command'])
+    assert ret.returncode == 1
+
+    # Can't contact will exit with status code 2.
+    ret = subprocess.run(['cli/lightning-cli',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir=xxx',
+                          'help'])
+    assert ret.returncode == 2
+
+    # Malformed parameter (invalid json) will exit with status code 3.
+    ret = subprocess.run(['cli/lightning-cli',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'listpeers',
+                          '[xxx]'])
+    assert ret.returncode == 3
+
+    # Bad usage should exit with status 3.
+    ret = subprocess.run(['cli/lightning-cli',
+                          '--bad-param',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'help'])
+    assert ret.returncode == 3
+
     # Test missing parameters.
     try:
         # This will error due to missing parameters.

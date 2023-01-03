@@ -601,6 +601,18 @@ static void opt_show_level(char buf[OPT_SHOW_LEN], const enum log_level *level)
 		strncpy(buf, log_level_name(*level), OPT_SHOW_LEN-1);
 }
 
+/* The standard opt_log_stderr_exit exits with status 1 */
+static void opt_log_stderr_exit_usage(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	va_end(ap);
+	exit(ERROR_USAGE);
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -656,8 +668,8 @@ int main(int argc, char *argv[])
 
 	opt_register_version();
 
-	opt_early_parse(argc, argv, opt_log_stderr_exit);
-	opt_parse(&argc, argv, opt_log_stderr_exit);
+	opt_early_parse(argc, argv, opt_log_stderr_exit_usage);
+	opt_parse(&argc, argv, opt_log_stderr_exit_usage);
 
 	method = argv[1];
 	if (!method) {
@@ -872,7 +884,7 @@ int main(int argc, char *argv[])
 		}
 		tal_free(ctx);
 		opt_free_table();
-		return 0;
+		return NO_ERROR;
 	}
 
 	if (format == RAW)
@@ -884,5 +896,5 @@ int main(int argc, char *argv[])
 	}
 	tal_free(ctx);
 	opt_free_table();
-	return 1;
+	return ERROR_FROM_LIGHTNINGD;
 }
