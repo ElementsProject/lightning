@@ -2648,6 +2648,14 @@ def test_commando(node_factory, executor):
     assert len(res['peers']) == 1
     assert res['peers'][0]['id'] == l2.info['id']
 
+    # Filter test
+    res = l2.rpc.call(method='commando',
+                      payload={'peer_id': l1.info['id'],
+                               'rune': rune,
+                               'method': 'listpeers',
+                               'filter': {'peers': [{'id': True}]}})
+    assert res == {'peers': [{'id': l2.info['id']}]}
+
     with pytest.raises(RpcError, match='missing required parameter'):
         l2.rpc.call(method='commando',
                     payload={'peer_id': l1.info['id'],
