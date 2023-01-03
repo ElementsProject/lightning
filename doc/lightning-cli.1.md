@@ -69,7 +69,7 @@ field without parsing JSON.
   If *LEVEL* is 'none', then never print out notifications.  Otherwise,
 print out notifications of *LEVEL* or above (one of `io`, `debug`,
 `info` (the default), `unusual` or `broken`: they are prefixed with `#
-`.
+`.  (Note: currently not supported with `--commando`).
 
 * **--filter**/**-l**=*JSON*
 
@@ -84,11 +84,20 @@ be changed using `-F`, `-R`, `-J`, `-H` etc.
 
   Print version number to standard output and exit.
 
-* **allow-deprecated-apis**=*BOOL*
+* **--allow-deprecated-apis**=*BOOL*
 
   Enable deprecated options. It defaults to *true*, but you should set
 it to *false* when testing to ensure that an upgrade won't break your
 configuration.
+
+* **--commando**/**-c**=**peerid**:**rune**
+
+  Convenience option to indicate that this command should be wrapped
+in a `commando` command to be sent to the connected peer with id
+`peerid`, using rune `rune`.  This also means that any `--filter` is
+handed via commando to the remote peer to reduce its output (which it
+will do it it is v23.02 or newer), rather than trying to do so
+locally.  Note that currently `-N` is not supported by commando.
 
 COMMANDS
 --------
