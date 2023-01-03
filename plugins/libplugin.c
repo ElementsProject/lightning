@@ -172,25 +172,30 @@ static void disable_request_cb(struct command *cmd, struct out_req *out)
 	out->cmd = NULL;
 }
 
-static const char *get_json_id(const tal_t *ctx,
-			       struct plugin *plugin,
-			       const char *cmd_id,
-			       const char *method)
+const char *json_id_prefix(const tal_t *ctx, const struct command *cmd)
 {
-	const char *prefix;
+	if (!cmd)
+		return "";
 
-	if (cmd_id) {
-		/* Strip quotes! */
-		if (strstarts(cmd_id, "\"")) {
-			assert(strlen(cmd_id) >= 2);
-			assert(strends(cmd_id, "\""));
-			prefix = tal_fmt(tmpctx, "%.*s/",
-					 (int)strlen(cmd_id) - 2, cmd_id + 1);
-		} else
-			prefix = tal_fmt(tmpctx, "%s/", cmd_id);
-	} else
-		prefix = "";
+	/* Notifications have no cmd->id, use methodname */
+	if (!cmd->id)
+		return tal_fmt(ctx, "%s/", cmd->methodname);
 
+	/* Strip quotes! */
+	if (strstarts(cmd->id, "\"")) {
+		assert(strlen(cmd->id) >= 2);
+		assert(strends(cmd->id, "\""));
+		return tal_fmt(ctx, "%.*s/",
+			       (int)strlen(cmd->id) - 2, cmd->id + 1);
+	}
+	return tal_fmt(ctx, "%s/", cmd->id);
+}
+
+static const char *append_json_id(const tal_t *ctx,
+				  struct plugin *plugin,
+				  const char *method,
+				  const char *prefix)
+{
 	return tal_fmt(ctx, "\"%s%s:%s#%"PRIu64"\"",
 		       prefix, plugin->id, method, plugin->next_outreq_id++);
 }
@@ -205,6 +210,7 @@ static void destroy_out_req(struct out_req *out_req, struct plugin *plugin)
 struct out_req *
 jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 		       const char *method,
+		       const char *id_prefix,
 		       struct command_result *(*cb)(struct command *command,
 						    const char *buf,
 						    const jsmntok_t *result,
@@ -218,7 +224,7 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	struct out_req *out;
 
 	out = tal(cmd, struct out_req);
-	out->id = get_json_id(out, plugin, cmd ? cmd->id : NULL, method);
+	out->id = append_json_id(out, plugin, method, id_prefix);
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
@@ -556,7 +562,7 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 	const jsmntok_t *contents;
 	int reqlen;
 	struct json_out *jout = json_out_new(tmpctx);
-	const char *id = get_json_id(tmpctx, plugin, "init", method);
+	const char *id = append_json_id(tmpctx, plugin, method, "init/");
 
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");
