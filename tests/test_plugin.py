@@ -2608,7 +2608,7 @@ def test_plugin_shutdown(node_factory):
 
 
 def test_commando(node_factory, executor):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'allow-deprecated-apis': True})
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
     # Nothing works until we've issued a rune.
     fut = executor.submit(l2.rpc.call, method='commando',
@@ -2698,7 +2698,7 @@ def test_commando(node_factory, executor):
 
 
 def test_commando_rune(node_factory):
-    l1, l2 = node_factory.get_nodes(2, opts={'allow-deprecated-apis': True})
+    l1, l2 = node_factory.get_nodes(2)
 
     # Force l1's commando secret
     l1.rpc.datastore(key=['commando', 'secret'], hex='1241faef85297127c2ac9bde95421b2c51e5218498ae4901dc670c974af4284b')
@@ -2933,7 +2933,7 @@ def test_commando_rune(node_factory):
 
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
-    nodes = node_factory.get_nodes(5, opts={'allow-deprecated-apis': True})
+    nodes = node_factory.get_nodes(5)
 
     rune = nodes[0].rpc.commando_rune()['rune']
     for n in nodes[1:]:
@@ -2969,7 +2969,7 @@ def test_commando_stress(node_factory, executor):
 
 def test_commando_badrune(node_factory):
     """Test invalid UTF-8 encodings in rune: used to make us kill the offers plugin which implements decode, as it gave bad utf8!"""
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    l1 = node_factory.get_node()
     l1.rpc.decode('5zi6-ugA6hC4_XZ0R7snl5IuiQX4ugL4gm9BQKYaKUU9gCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl')
     rune = l1.rpc.commando_rune(restrictions="readonly")
 
