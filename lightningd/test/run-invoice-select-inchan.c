@@ -1033,7 +1033,8 @@ int main(int argc, char *argv[])
 	ld = tal(tmpctx, struct lightningd);
 
 	list_head_init(&ld->peers);
-	htlc_in_map_init(&ld->htlcs_in);
+	ld->htlcs_in = tal(ld, struct htlc_in_map);
+	htlc_in_map_init(ld->htlcs_in);
 	chainparams = chainparams_for_network("regtest");
 
 	candidates = tal_arr(tmpctx, struct routehint_candidate, 0);

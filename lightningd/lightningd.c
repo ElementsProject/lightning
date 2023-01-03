@@ -168,12 +168,21 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * list attached to the channel structure itself, or even left them in
 	 * the database rather than making an in-memory version.  Obviously
 	 * I was in a premature optimization mood when I wrote this: */
-	htlc_in_map_init(&ld->htlcs_in);
-	htlc_out_map_init(&ld->htlcs_out);
+	ld->htlcs_in = tal(ld, struct htlc_in_map);
+	htlc_in_map_init(ld->htlcs_in);
+
+	/*~ Note also: we didn't need to use an allocation here!  We could
+	 * have simply made the `struct htlc_out_map` a member.  But we
+	 * override the htable allocation routines to use tal(), and they
+	 * want a tal parent, so we always make our hash table a tallocated
+	 * object. */
+	ld->htlcs_out = tal(ld, struct htlc_out_map);
+	htlc_out_map_init(ld->htlcs_out);
 
 	/*~ For multi-part payments, we need to keep some incoming payments
 	 * in limbo until we get all the parts, or we time them out. */
-	htlc_set_map_init(&ld->htlc_sets);
+	ld->htlc_sets = tal(ld, struct htlc_set_map);
+	htlc_set_map_init(ld->htlc_sets);
 
 	/*~ We have a multi-entry log-book infrastructure: we define a 10MB log
 	 * book to hold all the entries (and trims as necessary), and multiple
@@ -1251,8 +1260,8 @@ stop:
 	ld->wallet->db = tal_free(ld->wallet->db);
 
 	/* Clean our our HTLC maps, since they use malloc. */
-	htlc_in_map_clear(&ld->htlcs_in);
-	htlc_out_map_clear(&ld->htlcs_out);
+	htlc_in_map_clear(ld->htlcs_in);
+	htlc_out_map_clear(ld->htlcs_out);
 
 	remove(ld->pidfile);
 

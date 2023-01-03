@@ -27,9 +27,9 @@ static void onchaind_tell_fulfill(struct channel *channel)
 	u8 *msg;
 	struct lightningd *ld = channel->peer->ld;
 
-	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
 	     hin;
-	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
 		if (hin->key.channel != channel)
 			continue;
 
@@ -76,7 +76,7 @@ static bool tell_if_missing(const struct channel *channel,
 		return false;
 
 	/* Might not be a current HTLC. */
-	hout = find_htlc_out(&channel->peer->ld->htlcs_out, channel, stub->id);
+	hout = find_htlc_out(channel->peer->ld->htlcs_out, channel, stub->id);
 	if (!hout)
 		return false;
 

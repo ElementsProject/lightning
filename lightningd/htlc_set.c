@@ -89,8 +89,8 @@ static struct htlc_set *new_htlc_set(struct lightningd *ld,
 	 */
 	set->timeout = new_reltimer(ld->timers, set, time_from_sec(70),
 				    timeout_htlc_set, set);
-	htlc_set_map_add(&ld->htlc_sets, set);
-	tal_add_destructor2(set, destroy_htlc_set, &ld->htlc_sets);
+	htlc_set_map_add(ld->htlc_sets, set);
+	tal_add_destructor2(set, destroy_htlc_set, ld->htlc_sets);
 	return set;
 }
 
@@ -131,7 +131,7 @@ void htlc_set_add(struct lightningd *ld,
 	 *  - otherwise, if it supports `basic_mpp`:
 	 *    - MUST add it to the HTLC set corresponding to that `payment_hash`.
 	 */
-	set = htlc_set_map_get(&ld->htlc_sets, &hin->payment_hash);
+	set = htlc_set_map_get(ld->htlc_sets, &hin->payment_hash);
 	if (!set)
 		set = new_htlc_set(ld, hin, total_msat);
 	else {

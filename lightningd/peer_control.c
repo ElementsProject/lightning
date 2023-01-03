@@ -440,9 +440,9 @@ static void json_add_htlcs(struct lightningd *ld,
 
 	/* FIXME: Add more fields. */
 	json_array_start(response, "htlcs");
-	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
 	     hin;
-	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
 		if (hin->key.channel != channel)
 			continue;
 
@@ -464,9 +464,9 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_object_end(response);
 	}
 
-	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
 	     hout;
-	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
 		if (hout->key.channel != channel)
 			continue;
 
@@ -528,18 +528,18 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 			     option_anchor_outputs))
 		num_untrimmed_htlcs++;
 
-	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
 	     hin;
-	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
 		if (hin->key.channel != channel)
 			continue;
 		if (!htlc_is_trimmed(!side, hin->msat, feerate, dust_limit,
 				     side, option_anchor_outputs))
 			num_untrimmed_htlcs++;
 	}
-	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
 	     hout;
-	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
 		if (hout->key.channel != channel)
 			continue;
 		if (!htlc_is_trimmed(side, hout->msat, feerate, dust_limit,
@@ -583,9 +583,9 @@ static void subtract_offered_htlcs(const struct channel *channel,
 	struct htlc_out_map_iter outi;
 	struct lightningd *ld = channel->peer->ld;
 
-	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
 	     hout;
-	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
 		if (hout->key.channel != channel)
 			continue;
 		if (!amount_msat_sub(amount, *amount, hout->msat))
@@ -600,9 +600,9 @@ static void subtract_received_htlcs(const struct channel *channel,
 	struct htlc_in_map_iter ini;
 	struct lightningd *ld = channel->peer->ld;
 
-	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
 	     hin;
-	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
 		if (hin->key.channel != channel)
 			continue;
 		if (!amount_msat_sub(amount, *amount, hin->msat))
@@ -2151,14 +2151,14 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 		list_for_each(&peer->channels, channel, list) {
 			if (!wallet_htlcs_load_in_for_channel(ld->wallet,
 							      channel,
-							      &ld->htlcs_in)) {
+							      ld->htlcs_in)) {
 				fatal("could not load htlcs for channel");
 			}
 		}
 	}
 
 	/* Make a copy of the htlc_map: entries removed as they're matched */
-	htlc_in_map_copy(unconnected_htlcs_in, &ld->htlcs_in);
+	htlc_in_map_copy(unconnected_htlcs_in, ld->htlcs_in);
 
 	/* Now we load the outgoing HTLCs, so we can connect them. */
 	list_for_each(&ld->peers, peer, list) {
@@ -2167,7 +2167,7 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 		list_for_each(&peer->channels, channel, list) {
 			if (!wallet_htlcs_load_out_for_channel(ld->wallet,
 							       channel,
-							       &ld->htlcs_out,
+							       ld->htlcs_out,
 							       unconnected_htlcs_in)) {
 				fatal("could not load outgoing htlcs for channel");
 			}

@@ -191,11 +191,11 @@ struct lightningd {
 	u32 blockheight;
 
 	/* HTLCs in flight. */
-	struct htlc_in_map htlcs_in;
-	struct htlc_out_map htlcs_out;
+	struct htlc_in_map *htlcs_in;
+	struct htlc_out_map *htlcs_out;
 
 	/* Sets of HTLCs we are holding onto for MPP. */
-	struct htlc_set_map htlc_sets;
+	struct htlc_set_map *htlc_sets;
 
 	struct wallet *wallet;
 
