@@ -1044,6 +1044,121 @@ def test_cli(node_factory):
     assert [l for l in lines if not re.search(r'^help\[[0-9]*\].', l)] == ['format-hint=simple']
 
 
+def test_cli_commando(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False,
+                                     opts={'log-level': 'io'})
+    rune = l2.rpc.commando_rune()['rune']
+
+    # Invalid peer id.
+    val = subprocess.run(['cli/lightning-cli',
+                          '--commando=00',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'help'])
+    assert val.returncode == 3
+
+    # Valid peer id, but needs rune!
+    val = subprocess.run(['cli/lightning-cli',
+                          '--commando={}'.format(l2.info['id']),
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'help'])
+    assert val.returncode == 1
+
+    # This works!
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--commando={}:{}'.format(l2.info['id'], rune),
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'help']).decode('utf-8')
+    # Test some known output.
+    assert 'help [command]\n    List available commands, or give verbose help on one {command}' in out
+
+    # Check JSON id is as expected
+    l1.daemon.wait_for_log(r'jsonrpc#[0-9]*: "cli:help#[0-9]*"\[IN\]')
+
+    # And through l2...
+    l2.daemon.wait_for_log(r'jsonrpc#[0-9]*: "cli:help#[0-9]*/cln:commando#[0-9]*/commando:help#[0-9]*"\[IN\]')
+
+    # Test keyword input (forced)
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--commando={}:{}'.format(l2.info['id'], rune),
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-J', '-k',
+                                   'help', 'command=help']).decode('utf-8')
+    j, _ = json.JSONDecoder().raw_decode(out)
+    assert 'help [command]' in j['help'][0]['verbose']
+
+    # Test ordered input (forced)
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--commando={}:{}'.format(l2.info['id'], rune),
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-J', '-o',
+                                   'help', 'help']).decode('utf-8')
+    j, _ = json.JSONDecoder().raw_decode(out)
+    assert 'help [command]' in j['help'][0]['verbose']
+
+    # Test filtering
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '-c', '{}:{}'.format(l2.info['id'], rune),
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-J', '--filter={"help":[{"command":true}]}',
+                                   'help', 'help']).decode('utf-8')
+    j, _ = json.JSONDecoder().raw_decode(out)
+    assert j == {'help': [{'command': 'help [command]'}]}
+
+    # Test missing parameters.
+    try:
+        # This will error due to missing parameters.
+        # We want to check if lightningd will crash.
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--commando={}:{}'.format(l2.info['id'], rune),
+                                       '--network={}'.format(TEST_NETWORK),
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       '-J', '-o',
+                                       'sendpay']).decode('utf-8')
+    except Exception:
+        pass
+
+    # Test it escapes JSON completely in both method and params.
+    # cli turns " into \", reply turns that into \\\".
+    out = subprocess.run(['cli/lightning-cli',
+                          '--commando={}:{}'.format(l2.info['id'], rune),
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'x"[]{}'],
+                         stdout=subprocess.PIPE)
+    assert 'Unknown command' in out.stdout.decode('utf-8')
+
+    subprocess.check_output(['cli/lightning-cli',
+                             '--commando={}:{}'.format(l2.info['id'], rune),
+                             '--network={}'.format(TEST_NETWORK),
+                             '--lightning-dir={}'
+                             .format(l1.daemon.lightning_dir),
+                             'invoice', '123000', 'l"[]{}', 'd"[]{}']).decode('utf-8')
+    # Check label is correct, and also that cli's keyword parsing works.
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--commando={}:{}'.format(l2.info['id'], rune),
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-k',
+                                   'listinvoices', 'label=l"[]{}']).decode('utf-8')
+    j = json.loads(out)
+    assert only_one(j['invoices'])['label'] == 'l"[]{}'
+
+
 def test_daemon_option(node_factory):
     """
     Make sure --daemon at least vaguely works!

@@ -12,6 +12,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
+#include <common/node_id.h>
 #include <common/status_levels.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -613,6 +614,29 @@ static void opt_log_stderr_exit_usage(const char *fmt, ...)
 	exit(ERROR_USAGE);
 }
 
+struct commando {
+	const char *peer_id;
+	const char *rune;
+};
+
+static char *opt_set_commando(const char *arg, struct commando **commando)
+{
+	size_t idlen = strcspn(arg, ":");
+	*commando = tal(NULL, struct commando);
+
+	/* We don't use common/node_id.c here, to keep dependencies minimal */
+	if (idlen != PUBKEY_CMPR_LEN * 2)
+		return "Invalid peer id";
+	(*commando)->peer_id = tal_strndup(*commando, arg, idlen);
+
+	if (arg[idlen] == '\0')
+		(*commando)->rune = NULL;
+	else
+		(*commando)->rune = tal_strdup(*commando, arg + idlen + 1);
+
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -633,6 +657,7 @@ int main(int argc, char *argv[])
 	enum log_level notification_level = LOG_INFORM;
 	bool last_was_progress = false;
 	char *command = NULL, *filter = NULL;
+	struct commando *commando = NULL;
 
 	err_set_progname(argv[0]);
 	jsmn_init(&parser);
@@ -665,11 +690,17 @@ int main(int argc, char *argv[])
 	opt_register_arg("-l|--filter", opt_set_charp,
 			 opt_show_charp, &filter,
 			 "Set JSON reply filter");
+	opt_register_arg("-c|--commando", opt_set_commando,
+			 NULL, &commando,
+			 "Send this as a commando command to nodeid:rune");
 
 	opt_register_version();
 
 	opt_early_parse(argc, argv, opt_log_stderr_exit_usage);
 	opt_parse(&argc, argv, opt_log_stderr_exit_usage);
+
+	/* Make sure this is parented correctly if set! */
+	tal_steal(ctx, commando);
 
 	method = argv[1];
 	if (!method) {
@@ -682,7 +713,7 @@ int main(int argc, char *argv[])
 
 	/* Launch a manpage if we have a help command with an argument. We do
 	 * not need to have lightningd running in this case. */
-	if (streq(method, "help") && format == DEFAULT_FORMAT && argc >= 3) {
+	if (streq(method, "help") && format == DEFAULT_FORMAT && argc >= 3 && !commando) {
 		command = argv[2];
 		char *page = tal_fmt(ctx, "lightning-%s", command);
 
@@ -724,15 +755,33 @@ int main(int argc, char *argv[])
 	else
 		idstr = tal_fmt(ctx, "cli:%s#%i", method, getpid());
 
-	if (notification_level <= LOG_LEVEL_MAX)
+	/* FIXME: commando should support notifications! */
+	if (notification_level <= LOG_LEVEL_MAX && !commando)
 		enable_notifications(fd);
 
 	cmd = tal_fmt(ctx,
 		      "{ \"jsonrpc\" : \"2.0\", \"method\" : \"%s\", \"id\" : \"%s\",",
-		      json_escape(ctx, method)->s, idstr);
-	if (filter)
+		      commando ? "commando" : json_escape(ctx, method)->s,
+		      idstr);
+	if (filter && !commando)
 		tal_append_fmt(&cmd, "\"filter\": %s,", filter);
 	tal_append_fmt(&cmd, " \"params\" :");
+
+	if (commando) {
+		tal_append_fmt(&cmd, "{"
+			       " \"peer_id\": \"%s\","
+			       " \"method\": \"%s\",",
+			       commando->peer_id,
+			       json_escape(ctx, method)->s);
+		if (filter) {
+			tal_append_fmt(&cmd, "\"filter\": %s,", filter);
+		}
+		if (commando->rune) {
+			tal_append_fmt(&cmd, " \"rune\": \"%s\",",
+				       commando->rune);
+		}
+		tal_append_fmt(&cmd, " \"params\": ");
+	}
 
 	if (input == DEFAULT_INPUT) {
 		/* Hacky autodetect; only matters if more than single arg */
@@ -763,6 +812,10 @@ int main(int argc, char *argv[])
 			add_input(&cmd, argv[i], i, argc);
 		tal_append_fmt(&cmd, "] }");
 	}
+
+	/* For commando, "params" we just populated is inside real "params" */
+	if (commando)
+		tal_append_fmt(&cmd, "}");
 
 	toks = json_parse_simple(ctx, cmd, strlen(cmd));
 	if (toks == NULL)
