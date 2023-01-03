@@ -30,6 +30,11 @@
     "rune": {
       "type": "string",
       "description": "rune to authorize the command"
+    },
+    "filter": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "filter to peer to apply to any successful result"
     }
   }
 }
