@@ -203,7 +203,9 @@ static struct command_result *json_stop(struct command *cmd,
 	jout = json_out_new(tmpctx);
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");
-	json_out_add(jout, "id", cmd->id_is_string, "%s", cmd->id);
+	/* Copy input id token exactly */
+	memcpy(json_out_member_direct(jout, "id", strlen(cmd->id)),
+	       cmd->id, strlen(cmd->id));
 	json_out_addstr(jout, "result", "Shutdown complete");
 	json_out_end(jout, '}');
 	json_out_finished(jout);
@@ -557,10 +559,7 @@ void json_notify_fmt(struct command *cmd,
 	json_add_string(js, "jsonrpc", "2.0");
 	json_add_string(js, "method", "message");
 	json_object_start(js, "params");
-	if (cmd->id_is_string)
-		json_add_string(js, "id", cmd->id);
-	else
-		json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
+	json_add_id(js, cmd->id);
 	json_add_string(js, "level", log_level_name(level));
 	json_add_string(js, "message", tal_vfmt(tmpctx, fmt, ap));
 	json_object_end(js);
@@ -605,10 +604,7 @@ static struct json_stream *json_start(struct command *cmd)
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	if (cmd->id_is_string)
-		json_add_string(js, "id", cmd->id);
-	else
-		json_add_jsonstr(js, "id", cmd->id, strlen(cmd->id));
+	json_add_id(js, cmd->id);
 	return js;
 }
 
@@ -934,7 +930,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->pending = false;
 	c->json_stream = NULL;
 	c->id_is_string = (id->type == JSMN_STRING);
-	c->id = json_strdup(c, jcon->buffer, id);
+	/* Include "" around string */
+	c->id = tal_strndup(c,
+			    json_tok_full(jcon->buffer, id),
+			    json_tok_full_len(id));
 	c->mode = CMD_NORMAL;
 	c->filter = NULL;
 	list_add_tail(&jcon->commands, &c->list);
@@ -1068,7 +1067,7 @@ again:
 		json_command_malformed(
 		    jcon, "null",
 		    tal_fmt(tmpctx, "Invalid token in json input: '%s'",
-			    tal_strndup(tmpctx, jcon->buffer, jcon->used)));
+			    tal_hexstr(tmpctx, jcon->buffer, jcon->used)));
 		if (in_transaction)
 			db_commit_transaction(jcon->ld->wallet->db);
 		return io_halfclose(conn);
@@ -1400,11 +1399,23 @@ struct jsonrpc_request *jsonrpc_request_start_(
 
 	r->id_is_string = id_as_string;
 	if (r->id_is_string) {
-		if (id_prefix)
-			r->id = tal_fmt(r, "%s/cln:%s#%"PRIu64,
+		if (id_prefix) {
+			/* Strip "" and otherwise sanity-check */
+			if (strstarts(id_prefix, "\"")
+			    && strlen(id_prefix) > 1
+			    && strends(id_prefix, "\"")) {
+				id_prefix = tal_strndup(tmpctx, id_prefix + 1,
+							strlen(id_prefix) - 2);
+			}
+			/* We could try escaping, but TBH they're
+			 * messing with us at this point! */
+			if (json_escape_needed(id_prefix, strlen(id_prefix)))
+				id_prefix = "weird-id";
+
+			r->id = tal_fmt(r, "\"%s/cln:%s#%"PRIu64"\"",
 					id_prefix, method, next_request_id);
-		else
-			r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
+		} else
+			r->id = tal_fmt(r, "\"cln:%s#%"PRIu64"\"", method, next_request_id);
 	} else {
 		r->id = tal_fmt(r, "%"PRIu64, next_request_id);
 	}
@@ -1423,10 +1434,7 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	if (add_header) {
 		json_object_start(r->stream, NULL);
 		json_add_string(r->stream, "jsonrpc", "2.0");
-		if (r->id_is_string)
-			json_add_string(r->stream, "id", r->id);
-		else
-			json_add_primitive(r->stream, "id", r->id);
+		json_add_id(r->stream, r->id);
 		json_add_string(r->stream, "method", method);
 		json_object_start(r->stream, "params");
 	}

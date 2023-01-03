@@ -62,7 +62,7 @@ def test_withdraw(node_factory, bitcoind):
 
     # Side note: sendrawtransaction will trace back to withdrawl
     myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
-    l1.daemon.wait_for_log(r": {}:withdraw#[0-9]*/cln:withdraw#[0-9]*/txprepare:sendpsbt#[0-9]*/cln:sendrawtransaction#[0-9]*\[OUT\]".format(myname))
+    l1.daemon.wait_for_log(r': "{}:withdraw#[0-9]*/cln:withdraw#[0-9]*/txprepare:sendpsbt#[0-9]*/cln:sendrawtransaction#[0-9]*"\[OUT\]'.format(myname))
 
     # Make sure bitcoind received the withdrawal
     unspent = l1.bitcoin.rpc.listunspent(0)
