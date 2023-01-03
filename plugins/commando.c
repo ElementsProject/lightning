@@ -679,9 +679,10 @@ static struct command_result *json_commando(struct command *cmd,
 	tal_arr_expand(&outgoing_commands, ocmd);
 	tal_add_destructor2(ocmd, destroy_commando, &outgoing_commands);
 
+	/* We pass through their JSON id untouched. */
 	json = tal_fmt(tmpctx,
-		       "{\"method\":\"%s\",\"params\":%s", method,
-		       cparams ? cparams : "{}");
+		       "{\"method\":\"%s\",\"id\":%s,\"params\":%s", method,
+		       cmd->id, cparams ? cparams : "{}");
 	if (rune)
 		tal_append_fmt(&json, ",\"rune\":\"%s\"", rune);
 	tal_append_fmt(&json, "}");
