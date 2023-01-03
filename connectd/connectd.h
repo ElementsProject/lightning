@@ -142,7 +142,7 @@ struct daemon {
 
 	/* Peers that we've handed to `lightningd`, which it hasn't told us
 	 * have disconnected. */
-	struct peer_htable peers;
+	struct peer_htable *peers;
 
 	/* Peers we are trying to reach */
 	struct list_head connecting;
