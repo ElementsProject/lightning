@@ -382,7 +382,7 @@ static void try_command(struct node_id *peer,
 			const u8 *msg, size_t msglen)
 {
 	struct commando *incoming = tal(plugin, struct commando);
-	const jsmntok_t *toks, *method, *params, *rune, *id;
+	const jsmntok_t *toks, *method, *params, *rune, *id, *filter;
 	const char *buf = (const char *)msg, *failmsg;
 	struct out_req *req;
 	const char *cmdid_prefix;
@@ -415,6 +415,7 @@ static void try_command(struct node_id *peer,
 		return;
 	}
 	rune = json_get_member(buf, toks, "rune");
+	filter = json_get_member(buf, toks, "filter");
 	id = json_get_member(buf, toks, "id");
 	if (!id) {
 		if (!deprecated_apis) {
@@ -475,6 +476,11 @@ static void try_command(struct node_id *peer,
 	} else {
 		json_object_start(req->js, "params");
 		json_object_end(req->js);
+	}
+	if (filter) {
+		json_add_jsonstr(req->js, "filter",
+				 json_tok_full(buf, filter),
+				 json_tok_full_len(filter));
 	}
 	tal_free(toks);
 	send_outreq(plugin, req);
@@ -700,7 +706,7 @@ static struct command_result *json_commando(struct command *cmd,
 {
 	struct node_id *peer;
 	const char *method, *cparams;
-	const char *rune;
+	const char *rune, *filter;
 	struct commando	*ocmd;
 	struct outgoing *outgoing;
 	char *json;
@@ -711,6 +717,7 @@ static struct command_result *json_commando(struct command *cmd,
 		   p_req("method", param_string, &method),
 		   p_opt("params", param_string, &cparams),
 		   p_opt("rune", param_string, &rune),
+		   p_opt("filter", param_string, &filter),
 		   NULL))
 		return command_param_failed();
 
@@ -731,6 +738,8 @@ static struct command_result *json_commando(struct command *cmd,
 		       ocmd->json_id, cparams ? cparams : "{}");
 	if (rune)
 		tal_append_fmt(&json, ",\"rune\":\"%s\"", rune);
+	if (filter)
+		tal_append_fmt(&json, ",\"filter\":%s", filter);
 	tal_append_fmt(&json, "}");
 
 	outgoing = tal(cmd, struct outgoing);
