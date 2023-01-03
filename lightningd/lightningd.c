@@ -1244,8 +1244,8 @@ stop:
 	/* Get rid of per-channel subdaemons. */
 	subd_shutdown_nonglobals(ld);
 
-	/* Tell plugins we're shutting down, use force if necessary. */
-	shutdown_plugins(ld);
+	/* Tell normal plugins we're shutting down, use force if necessary. */
+	shutdown_plugins(ld, true);
 
 	/* Now kill any remaining connections */
 	jsonrpc_stop_all(ld);
@@ -1258,6 +1258,9 @@ stop:
 
 	/* Now close database */
 	ld->wallet->db = tal_free(ld->wallet->db);
+
+	/* As database is closed we can safely shutdown db_write plugins */
+	shutdown_plugins(ld, false);
 
 	remove(ld->pidfile);
 
