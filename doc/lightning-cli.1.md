@@ -130,6 +130,15 @@ BUGS
 This manpage documents how it should work, not how it does work. The
 pretty printing of results isn't pretty.
 
+EXIT STATUS
+-----------
+
+If the command succeeds, the exit status is 0.  Otherwise:
+
+* `1`: lightningd(7) returned an error reply (which is printed).
+* `2`: we could not talk to lightningd.
+* `3`: usage error, such as bad arguments or malformed JSON in the parameters.
+
 AUTHOR
 ------
 
