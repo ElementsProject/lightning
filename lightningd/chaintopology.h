@@ -90,7 +90,7 @@ struct chain_topology {
 	struct block *root;
 	struct block *tip;
 	struct bitcoin_blkid prev_tip;
-	struct block_map block_map;
+	struct block_map *block_map;
 	u32 feerate[NUM_FEERATES];
 	bool feerate_uninitialized;
 	u32 feehistory[NUM_FEERATES][FEE_HISTORY_NUM];
@@ -116,11 +116,11 @@ struct chain_topology {
 	struct oneshot *extend_timer, *updatefee_timer;
 
 	/* Bitcoin transactions we're broadcasting */
-	struct outgoing_tx_map outgoing_txs;
+	struct outgoing_tx_map *outgoing_txs;
 
 	/* Transactions/txos we are watching. */
-	struct txwatch_hash txwatches;
-	struct txowatch_hash txowatches;
+	struct txwatch_hash *txwatches;
+	struct txowatch_hash *txowatches;
 
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
