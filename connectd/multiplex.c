@@ -592,7 +592,7 @@ void send_custommsg(struct daemon *daemon, const u8 *msg)
 		master_badmsg(WIRE_CONNECTD_CUSTOMMSG_OUT, msg);
 
 	/* Races can happen: this might be gone by now. */
-	peer = peer_htable_get(&daemon->peers, &id);
+	peer = peer_htable_get(daemon->peers, &id);
 	if (peer)
 		inject_peer_msg(peer, take(custommsg));
 }
@@ -1242,7 +1242,7 @@ void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 		master_badmsg(WIRE_CONNECTD_PEER_CONNECT_SUBD, msg);
 
 	/* Races can happen: this might be gone by now (or reconnected!). */
-	peer = peer_htable_get(&daemon->peers, &id);
+	peer = peer_htable_get(daemon->peers, &id);
 	if (!peer || peer->counter != counter) {
 		close(fd);
 		return;
@@ -1276,7 +1276,7 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 	if (!fromwire_connectd_ping(msg, &id, &num_pong_bytes, &len))
 		master_badmsg(WIRE_CONNECTD_PING, msg);
 
-	peer = peer_htable_get(&daemon->peers, &id);
+	peer = peer_htable_get(daemon->peers, &id);
 	if (!peer) {
 		daemon_conn_send(daemon->master,
 				 take(towire_connectd_ping_reply(NULL,
