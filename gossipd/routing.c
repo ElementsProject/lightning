@@ -207,7 +207,7 @@ static void destroy_routing_state(struct routing_state *rstate)
 		free_chan(rstate, chan);
 
 	/* Free up our htables */
-	pending_cannouncement_map_clear(&rstate->pending_cannouncements);
+	pending_cannouncement_map_clear(rstate->pending_cannouncements);
 }
 
 /* We don't check this when loading from the gossip_store: that would break
@@ -234,7 +234,7 @@ static void memleak_help_routing_tables(struct htable *memtable,
 
 	memleak_scan_htable(memtable, &rstate->nodes->raw);
 	memleak_scan_htable(memtable, &rstate->pending_node_map->raw);
-	memleak_scan_htable(memtable, &rstate->pending_cannouncements.raw);
+	memleak_scan_htable(memtable, &rstate->pending_cannouncements->raw);
 	memleak_scan_uintmap(memtable, &rstate->unupdated_chanmap);
 
 	for (n = node_map_first(rstate->nodes, &nit);
@@ -300,7 +300,8 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->last_timestamp = 0;
 	rstate->dying_channels = tal_arr(rstate, struct dying_channel, 0);
 
-	pending_cannouncement_map_init(&rstate->pending_cannouncements);
+	rstate->pending_cannouncements = tal(rstate, struct pending_cannouncement_map);
+	pending_cannouncement_map_init(rstate->pending_cannouncements);
 
 	uintmap_init(&rstate->chanmap);
 	uintmap_init(&rstate->unupdated_chanmap);
@@ -801,7 +802,7 @@ find_pending_cannouncement(struct routing_state *rstate,
 {
 	struct pending_cannouncement *pann;
 
-	pann = pending_cannouncement_map_get(&rstate->pending_cannouncements, scid);
+	pann = pending_cannouncement_map_get(rstate->pending_cannouncements, scid);
 
 	return pann;
 }
@@ -809,7 +810,7 @@ find_pending_cannouncement(struct routing_state *rstate,
 static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 					  struct routing_state *rstate)
 {
-	pending_cannouncement_map_del(&rstate->pending_cannouncements, pending);
+	pending_cannouncement_map_del(rstate->pending_cannouncements, pending);
 }
 
 static void add_channel_announce_to_broadcast(struct routing_state *rstate,
@@ -1111,7 +1112,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	/* Don't add an infinite number of pending announcements.  If we're
 	 * catching up with the bitcoin chain, though, they can definitely
 	 * pile up. */
-	if (pending_cannouncement_map_count(&rstate->pending_cannouncements)
+	if (pending_cannouncement_map_count(rstate->pending_cannouncements)
 	    > 100000) {
 		static bool warned = false;
 		if (!warned) {
@@ -1133,7 +1134,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	catch_node_announcement(pending, rstate, &pending->node_id_1);
 	catch_node_announcement(pending, rstate, &pending->node_id_2);
 
-	pending_cannouncement_map_add(&rstate->pending_cannouncements, pending);
+	pending_cannouncement_map_add(rstate->pending_cannouncements, pending);
 	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
 
 	/* Success */
@@ -1237,7 +1238,7 @@ bool handle_pending_cannouncement(struct daemon *daemon,
 	}
 
 	/* Remove pending now, so below functions don't see it. */
-	pending_cannouncement_map_del(&rstate->pending_cannouncements, pending);
+	pending_cannouncement_map_del(rstate->pending_cannouncements, pending);
 	tal_del_destructor2(pending, destroy_pending_cannouncement, rstate);
 
 	/* Can fail if channel_announcement too old */
@@ -2094,7 +2095,7 @@ void remove_all_gossip(struct routing_state *rstate)
 	while ((uc = uintmap_first(&rstate->unupdated_chanmap, &index)) != NULL)
 		tal_free(uc);
 
-	while ((pca = pending_cannouncement_map_first(&rstate->pending_cannouncements, &pit)) != NULL)
+	while ((pca = pending_cannouncement_map_first(rstate->pending_cannouncements, &pit)) != NULL)
 		tal_free(pca);
 
 	/* Freeing unupdated chanmaps should empty this */

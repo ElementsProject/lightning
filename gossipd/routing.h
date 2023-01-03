@@ -203,7 +203,7 @@ struct routing_state {
 	struct pending_node_map *pending_node_map;
 
 	/* channel_announcement which are pending short_channel_id lookup */
-	struct pending_cannouncement_map pending_cannouncements;
+	struct pending_cannouncement_map *pending_cannouncements;
 
 	/* Gossip store */
 	struct gossip_store *gs;
