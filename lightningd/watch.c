@@ -94,7 +94,7 @@ bool txowatch_eq(const struct txowatch *w, const struct bitcoin_outpoint *out)
 
 static void destroy_txowatch(struct txowatch *w)
 {
-	txowatch_hash_del(&w->topo->txowatches, w);
+	txowatch_hash_del(w->topo->txowatches, w);
 }
 
 const struct bitcoin_txid *txwatch_keyof(const struct txwatch *w)
@@ -115,7 +115,7 @@ bool txwatch_eq(const struct txwatch *w, const struct bitcoin_txid *txid)
 
 static void destroy_txwatch(struct txwatch *w)
 {
-	txwatch_hash_del(&w->topo->txwatches, w);
+	txwatch_hash_del(w->topo->txwatches, w);
 }
 
 struct txwatch *watch_txid(const tal_t *ctx,
@@ -138,7 +138,7 @@ struct txwatch *watch_txid(const tal_t *ctx,
 	w->channel = channel;
 	w->cb = cb;
 
-	txwatch_hash_add(&w->topo->txwatches, w);
+	txwatch_hash_add(w->topo->txwatches, w);
 	tal_add_destructor(w, destroy_txwatch);
 
 	return w;
@@ -153,9 +153,9 @@ struct txwatch *find_txwatch(struct chain_topology *topo,
 
 	/* We could have more than one channel watching same txid, though we
 	 * don't for onchaind. */
-	for (w = txwatch_hash_getfirst(&topo->txwatches, txid, &i);
+	for (w = txwatch_hash_getfirst(topo->txwatches, txid, &i);
 	     w;
-	     w = txwatch_hash_getnext(&topo->txwatches, txid, &i)) {
+	     w = txwatch_hash_getnext(topo->txwatches, txid, &i)) {
 		if (w->channel == channel)
 			break;
 	}
@@ -165,7 +165,7 @@ struct txwatch *find_txwatch(struct chain_topology *topo,
 bool watching_txid(const struct chain_topology *topo,
 		   const struct bitcoin_txid *txid)
 {
-	return txwatch_hash_get(&topo->txwatches, txid) != NULL;
+	return txwatch_hash_get(topo->txwatches, txid) != NULL;
 }
 
 struct txwatch *watch_tx(const tal_t *ctx,
@@ -201,7 +201,7 @@ struct txowatch *watch_txo(const tal_t *ctx,
 	w->channel = channel;
 	w->cb = cb;
 
-	txowatch_hash_add(&w->topo->txowatches, w);
+	txowatch_hash_add(w->topo->txowatches, w);
 	tal_add_destructor(w, destroy_txowatch);
 
 	return w;
@@ -247,7 +247,7 @@ void txwatch_fire(struct chain_topology *topo,
 {
 	struct txwatch *txw;
 
-	txw = txwatch_hash_get(&topo->txwatches, txid);
+	txw = txwatch_hash_get(topo->txwatches, txid);
 
 	if (txw)
 		txw_fire(txw, txid, depth);
@@ -287,9 +287,9 @@ void watch_topology_changed(struct chain_topology *topo)
 	do {
 		/* Iterating a htable during deletes is safe, but might skip entries. */
 		needs_rerun = false;
-		for (w = txwatch_hash_first(&topo->txwatches, &i);
+		for (w = txwatch_hash_first(topo->txwatches, &i);
 		     w;
-		     w = txwatch_hash_next(&topo->txwatches, &i)) {
+		     w = txwatch_hash_next(topo->txwatches, &i)) {
 			u32 depth;
 
 			depth = get_tx_depth(topo, &w->txid);
@@ -309,7 +309,7 @@ void txwatch_inform(const struct chain_topology *topo,
 {
 	struct txwatch *txw;
 
-	txw = txwatch_hash_get(&topo->txwatches, txid);
+	txw = txwatch_hash_get(topo->txwatches, txid);
 
 	if (txw && !txw->tx)
 		txw->tx = tal_steal(txw, tx_may_steal);
