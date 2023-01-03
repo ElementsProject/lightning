@@ -4,6 +4,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
+#include <ccan/mem/mem.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
@@ -36,6 +37,9 @@ struct commando {
 
 	/* This is set to NULL if they seem to be spamming us! */
 	u8 *contents;
+
+	/* Literal JSON token containing JSON id (including "") */
+	const char *json_id;
 };
 
 static struct plugin *plugin;
@@ -403,10 +407,15 @@ static void try_command(struct node_id *peer,
 			return;
 		}
 		cmdid_prefix = NULL;
+		incoming->json_id = NULL;
 	} else {
 		cmdid_prefix = tal_fmt(tmpctx, "%.*s/",
 				       id->end - id->start,
 				       buf + id->start);
+		/* Includes quotes, if any! */
+		incoming->json_id = tal_strndup(incoming,
+						json_tok_full(buf, id),
+						json_tok_full_len(id));
 	}
 
 	failmsg = check_rune(tmpctx, incoming, peer, buf, method, params, rune);
@@ -510,7 +519,7 @@ static struct command_result *handle_reply(struct node_id *peer,
 {
 	struct commando *ocmd;
 	struct json_stream *res;
-	const jsmntok_t *toks, *result, *err;
+	const jsmntok_t *toks, *result, *err, *id;
 	const char *replystr;
 	size_t i;
 	const jsmntok_t *t;
@@ -541,6 +550,17 @@ static struct command_result *handle_reply(struct node_id *peer,
 		return command_fail(ocmd->cmd, COMMANDO_ERROR_LOCAL,
 				    "Reply was unparsable: '%.*s'",
 				    (int)tal_bytelen(ocmd->contents), replystr);
+
+	id = json_get_member(replystr, toks, "id");
+
+	/* Old commando didn't reply with id, but newer should get it right! */
+	if (id && !memeq(json_tok_full(replystr, id), json_tok_full_len(id),
+			 ocmd->json_id, strlen(ocmd->json_id))) {
+		plugin_log(plugin, LOG_BROKEN, "Commando reply with wrong id:"
+			   " I sent %s, they replied with %.*s!",
+			   ocmd->json_id,
+			   json_tok_full_len(id), json_tok_full(replystr, id));
+	}
 
 	err = json_get_member(replystr, toks, "error");
 	if (err) {
@@ -682,6 +702,7 @@ static struct command_result *json_commando(struct command *cmd,
 	ocmd->cmd = cmd;
 	ocmd->peer = *peer;
 	ocmd->contents = tal_arr(ocmd, u8, 0);
+	ocmd->json_id = tal_strdup(ocmd, cmd->id);
 	do {
 		ocmd->id = pseudorand_u64();
 	} while (find_commando(outgoing_commands, NULL, &ocmd->id));
@@ -691,7 +712,7 @@ static struct command_result *json_commando(struct command *cmd,
 	/* We pass through their JSON id untouched. */
 	json = tal_fmt(tmpctx,
 		       "{\"method\":\"%s\",\"id\":%s,\"params\":%s", method,
-		       cmd->id, cparams ? cparams : "{}");
+		       ocmd->json_id, cparams ? cparams : "{}");
 	if (rune)
 		tal_append_fmt(&json, ",\"rune\":\"%s\"", rune);
 	tal_append_fmt(&json, "}");
