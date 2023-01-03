@@ -448,13 +448,16 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 			       "JSON-RPC notify \"id\"-field is not present");
 	}
 
+	/* Include any "" in id */
 	request = strmap_getn(&plugin->plugins->pending_requests,
-			      plugin->buffer + idtok->start,
-			      idtok->end - idtok->start);
+			      json_tok_full(plugin->buffer, idtok),
+			      json_tok_full_len(idtok));
 	if (!request) {
 		return tal_fmt(
 			plugin,
-			"Received a JSON-RPC notify for non-existent request");
+			"Received a JSON-RPC notify for non-existent request '%.*s'",
+			json_tok_full_len(idtok),
+			json_tok_full(plugin->buffer, idtok));
 	}
 
 	/* Ignore if they don't have a callback */
@@ -572,12 +575,14 @@ static const char *plugin_response_handle(struct plugin *plugin,
 	struct jsonrpc_request *request;
 
 	request = strmap_getn(&plugin->plugins->pending_requests,
-			      plugin->buffer + idtok->start,
-			      idtok->end - idtok->start);
+			      json_tok_full(plugin->buffer, idtok),
+			      json_tok_full_len(idtok));
 	if (!request) {
 		return tal_fmt(
 			plugin,
-			"Received a JSON-RPC response for non-existent request");
+			"Received a JSON-RPC response for non-existent request '%.*s'",
+			json_tok_full_len(idtok),
+			json_tok_full(plugin->buffer, idtok));
 	}
 
 	/* We expect the request->cb to copy if needed */
@@ -1028,37 +1033,23 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 					  const char *buffer,
 					  const jsmntok_t *toks,
 					  const jsmntok_t *idtok,
-					  const char *new_id,
-					  bool new_id_is_str)
+					  /* Full token, including "" */
+					  const char *new_id)
 {
 	/* We copy everything, but replace the id. Special care has to
 	 * be taken when the id that is being replaced is a string. If
 	 * we don't crop the quotes off we'll transform a numeric
 	 * new_id into a string, or even worse, quote a string id
 	 * twice. */
-	size_t offset = 0;
-	bool add_quotes = false;
+	const char *id_start, *id_end;
 
-	if (idtok->type == JSMN_STRING) {
-		if (new_id_is_str)
-			add_quotes = false;
-		else
-			offset = 1;
-	} else {
-		if (new_id_is_str)
-			add_quotes = true;
-	}
+	id_start = json_tok_full(buffer, idtok);
+	id_end = id_start + json_tok_full_len(idtok);
 
 	json_stream_append(stream, buffer + toks->start,
-			   idtok->start - toks->start - offset);
-
-	if (add_quotes)
-		json_stream_append(stream, "\"", 1);
+			   id_start - (buffer + toks->start));
 	json_stream_append(stream, new_id, strlen(new_id));
-	if (add_quotes)
-		json_stream_append(stream, "\"", 1);
-	json_stream_append(stream, buffer + idtok->end + offset,
-			   toks->end - idtok->end - offset);
+	json_stream_append(stream, id_end, (buffer + toks->end) - id_end);
 }
 
 static void plugin_rpcmethod_cb(const char *buffer,
@@ -1070,8 +1061,7 @@ static void plugin_rpcmethod_cb(const char *buffer,
 	struct json_stream *response;
 
 	response = json_stream_raw_for_cmd(cmd);
-	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id,
-				      cmd->id_is_string);
+	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id);
 	json_stream_double_cr(response);
 	command_raw_complete(cmd, response);
 
@@ -1097,8 +1087,7 @@ static void plugin_notify_cb(const char *buffer,
 	json_add_tok(response, "method", methodtok, buffer);
 	json_stream_append(response, ",\"params\":", strlen(",\"params\":"));
 	json_stream_forward_change_id(response, buffer,
-				      paramtoks, idtok, cmd->id,
-				      cmd->id_is_string);
+				      paramtoks, idtok, cmd->id);
 	json_object_end(response);
 
 	json_stream_double_cr(response);
@@ -1155,8 +1144,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	call->plugin = plugin;
 	list_add_tail(&plugin->pending_rpccalls, &call->list);
 
-	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id,
-				      req->id_is_string);
+	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id);
 	json_stream_double_cr(req->stream);
 	plugin_request_send(plugin, req);
 	req->stream = NULL;

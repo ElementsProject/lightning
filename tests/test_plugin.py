@@ -1539,7 +1539,7 @@ def test_libplugin(node_factory):
     # Test hooks and notifications (add plugin, so we can test hook id)
     l2 = node_factory.get_node(options={"plugin": plugin, 'log-level': 'io'})
     l2.connect(l1)
-    l2.daemon.wait_for_log(r": {}:connect#[0-9]*/cln:peer_connected#[0-9]*\[OUT\]".format(myname))
+    l2.daemon.wait_for_log(r': "{}:connect#[0-9]*/cln:peer_connected#[0-9]*"\[OUT\]'.format(myname))
 
     l1.daemon.wait_for_log("{} peer_connected".format(l2.info["id"]))
     l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))
