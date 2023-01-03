@@ -16,7 +16,9 @@ enum plugin_state {
 	/* We have to get `init` response */
 	AWAITING_INIT_RESPONSE,
 	/* We have `init` response. */
-	INIT_COMPLETE
+	INIT_COMPLETE,
+	/* Wait for it to self-terminate */
+	SHUTDOWN,
 };
 
 /**
@@ -238,9 +240,16 @@ void plugin_kill(struct plugin *plugin, enum log_level loglevel,
 		 const char *fmt, ...);
 
 /**
- * Tell all the plugins we're shutting down, and free them.
+ * Tell subscribed plugins we're shutting down, wait for them to self-terminate
+ * and free them.
+ *
+ * @keep_db_write_plugins=true: plugins that registered the db_write hook are
+ * kept alive, but still send them a "shutdown" notification when subscribed.
+ *
+ * @keep_db_write_plugins=false: shutdown remaining plugins: send EOF to their
+ * stdin, then wait for them to self-terminate.
  */
-void shutdown_plugins(struct lightningd *ld);
+void shutdown_plugins(struct lightningd *ld, bool keep_db_write_plugins);
 
 /**
  * Returns the plugin which registers the command with name {cmd_name}

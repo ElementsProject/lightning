@@ -65,6 +65,8 @@ static const char *state_desc(const struct plugin *plugin)
 		return "before replying to init";
 	case INIT_COMPLETE:
 		return "during normal operation";
+	case SHUTDOWN:
+		return "in state shutdown";
 	}
 	fatal("Invalid plugin state %i for %s",
 	      plugin->plugin_state, plugin->cmd);
@@ -216,8 +218,10 @@ static void destroy_plugin(struct plugin *p)
 
 	/* Daemon shutdown overrules plugin's importance; aborts init checks */
 	if (p->plugins->ld->state == LD_STATE_SHUTDOWN) {
-		/* But return if this was the last plugin! */
-		if (list_empty(&p->plugins->plugins)) {
+
+		/* But break io_loop if this was the last plugin we waited for */
+		if (p->plugin_state == SHUTDOWN &&
+				    !plugins_any_in_state(p->plugins, SHUTDOWN)) {
 			log_debug(p->plugins->ld->log, "io_break: %s", __func__);
 			io_break(destroy_plugin);
 		}
@@ -2151,41 +2155,91 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				NULL, NULL);
 }
 
-void shutdown_plugins(struct lightningd *ld)
+void shutdown_plugins(struct lightningd *ld, bool keep_db_write_plugins)
 {
 	struct plugin *p, *next;
+	bool need_io = false;
 
-	/* We should *stay* dead when restarting the io_loop */
+	/* Subdaemon should be dead to *stay* dead when restarting the io_loop */
 	assert(list_empty(&ld->subds));
-	assert(!ld->wallet->db);
 
-	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
-		/* Kill immediately, deletes self from list. */
-		if (p->plugin_state != INIT_COMPLETE || !notify_plugin_shutdown(ld, p))
+
+		/* Simply kill uninitialized plugin, freeing removes it from list */
+		if (p->plugin_state < INIT_COMPLETE) {
 			tal_free(p);
+			continue;
+		}
+
+		/* First call: */
+		if (keep_db_write_plugins) {
+
+			/* Send shutdown notifications while jsonrpc still exists */
+			assert(ld->jsonrpc);
+			bool notify = notify_plugin_shutdown(ld, p);
+			need_io = need_io || notify;
+
+			if (plugin_registered_db_write_hook(p))
+				continue;
+
+			/* Mark the plugins we shall wait for, others are killed */
+			if (notify)
+				p->plugin_state = SHUTDOWN;
+			else
+				tal_free(p);
+
+		/* Second call: */
+		} else {
+			assert(!ld->wallet->db);
+
+			/* io_close sends EOF to plugin's stdin, which eventually breaks its
+			 * main io-loop (safely) after subroutines have returned. */
+			io_close(p->stdin_conn);
+			need_io = true;
+
+			/* But we still wait for them to self-terminate. */
+			p->plugin_state = SHUTDOWN;
+		}
 	}
 
-	/* If anyone was interested in shutdown, give them time. */
-	if (!list_empty(&ld->plugins->plugins)) {
+	/* io_loop sends the notifications, waits 30 seconds for marked plugins
+	 * to self-terminate, see also destroy_plugin */
+	if (need_io) {
 		struct timers *timer;
 		struct timer *expired;
 
-		/* 30 seconds should do it, use a clean timers struct */
+		/* But don't wait full 30s to just notify, also use a clean timers
+		 * struct to ignore any existing timers. */
+		int t = plugins_any_in_state(ld->plugins, SHUTDOWN) ? 30000 : 1;
 		timer = tal(NULL, struct timers);
 		timers_init(timer, time_mono());
-		new_reltimer(timer, timer, time_from_sec(30), NULL, NULL);
+		new_reltimer(timer, timer, time_from_msec(t), NULL, NULL);
 
 		void *ret = io_loop(timer, &expired);
 		assert(ret == NULL || ret == destroy_plugin);
 
-		/* Report and free remaining plugins. */
-		while (!list_empty(&ld->plugins->plugins)) {
-			p = list_pop(&ld->plugins->plugins, struct plugin, list);
+		/* Report and free plugins that didn't self-terminate in time */
+		list_for_each_safe(&ld->plugins->plugins, p, next, list) {
+			if (p->plugin_state != SHUTDOWN) {
+				continue;
+			}
+
+			list_del_from(&ld->plugins->plugins, &p->list);
 			log_debug(ld->log,
 				  "%s: failed to self-terminate in time, killing.",
 				  p->shortname);
 			tal_free(p);
 		}
 	}
+
+	if (keep_db_write_plugins)
+		/* Remove JSON-RPC methods of remaining db_write plugins, so we can
+		 * free jsonrpc. */
+		list_for_each(&ld->plugins->plugins, p, list) {
+			for (size_t i=0; i<tal_count(p->methods); i++) {
+				jsonrpc_command_del(ld->jsonrpc, p->methods[i]);
+			}
+		}
+	else
+		assert(list_empty(&ld->plugins->plugins));
 }
