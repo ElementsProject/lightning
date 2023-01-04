@@ -544,7 +544,7 @@ static bool handle_notify(const char *buf, jsmntok_t *toks,
 		snprintf(totstr, sizeof(totstr), "%u", tot);
 		printf("%*u/%s ", (int)strlen(totstr), n+1, totstr);
 		memset(bar, ' ', sizeof(bar)-1);
-		memset(bar, '=', (double)strlen(bar) / (tot-1) * n);
+		memset(bar, '=', (double)(sizeof(bar)-1) / (tot-1) * n);
 		bar[sizeof(bar)-1] = '\0';
 		printf("|%s|", bar);
 		/* Leave bar there if it's finished. */
