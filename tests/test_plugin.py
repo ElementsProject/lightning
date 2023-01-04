@@ -2576,7 +2576,7 @@ plugin.run()
     n.stop()
 
 
-def test_plugin_shutdown(node_factory):
+def test_plugin_shutdown(node_factory, executor):
     """test 'shutdown' notifications, via `plugin stop` or via `stop`"""
 
     p = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
@@ -2599,12 +2599,14 @@ def test_plugin_shutdown(node_factory):
     l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
     l1.daemon.wait_for_log(r"test_libplugin: Timeout on shutdown: killing anyway")
 
-    # Now, should also shutdown or timeout on finish, RPC calls then fail with error code -5
+    # Now, should also shutdown or timeout on finish, RPC calls then fail
     l1.rpc.plugin_start(p, dont_shutdown=True)
-    l1.rpc.stop()
+    f_stop = executor.submit(l1.rpc.stop)
     l1.daemon.wait_for_logs(['test_libplugin: shutdown called',
                              'misc_notifications.py: .* Connection refused',
                              'test_libplugin: failed to self-terminate in time, killing.'])
+
+    f_stop.result()
 
 
 def test_commando(node_factory, executor):
