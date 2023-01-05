@@ -543,7 +543,39 @@ static struct command_result *incoming_listpeers_done(struct command *cmd,
 	struct json_stream *js;
 	struct gossmap_node *me;
 	struct gossmap *gossmap;
+	const jsmntok_t *peers, *peer, *channels, *channel, *scid, *aliases, *remote_alias;
+	size_t i, j;
 
+	/* A list of scid -> remote_alias mappings. */
+	struct short_channel_id **alias =
+	    tal_arr(tmpctx, struct short_channel_id *, 0);
+
+	peers = json_get_member(buf, result, "peers");
+	/* Build an aliases map, so we can present those as well if set. */
+	json_for_each_arr(i, peer, peers) {
+		channels = json_get_member(buf, peer, "channels");
+
+		if (!channels)
+			continue;
+
+		json_for_each_arr(j, channel, channels) {
+			scid = json_get_member(buf, channel, "short_channel_id");
+			aliases = json_get_member(buf, channel, "alias");
+			if (!scid || !aliases)
+				continue;
+
+			remote_alias = json_get_member(buf, aliases, "remote");
+
+			if (!remote_alias)
+				continue;
+
+			struct short_channel_id *tup =
+			    tal_arr(tmpctx, struct short_channel_id, 2);
+			json_to_short_channel_id(buf, scid, &tup[0]);
+			json_to_short_channel_id(buf, remote_alias, &tup[1]);
+			tal_arr_expand(&alias, tup);
+		}
+	}
 
 	gossmap = get_gossmap();
 
@@ -573,6 +605,17 @@ static struct command_result *incoming_listpeers_done(struct command *cmd,
 		gossmap_node_get_id(gossmap, peer, &peer_id);
 		json_add_node_id(js, "id", &peer_id);
 		json_add_short_channel_id(js, "short_channel_id", &scid);
+
+		/* These are likely going to be used as routehints, so
+		 * we should use the `alias[REMOTE]` when creating an
+		 * invoice and the channel is unannounced. */
+		for (size_t i = 0; i < tal_count(alias); i++)
+			if (short_channel_id_eq(&alias[i][0], &scid)) {
+				json_add_short_channel_id(js, "remote_alias",
+							  &alias[i][1]);
+				break;
+			}
+
 		json_add_amount_msat(js, "fee_base_msat",
 				     amount_msat(ourchan->half[!dir].base_fee));
 		json_add_amount_msat(js, "htlc_min_msat",
