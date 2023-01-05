@@ -592,6 +592,7 @@ static struct command_result *incoming_listpeers_done(struct command *cmd,
 		struct gossmap_node *peer;
 		struct short_channel_id scid;
 		const u8 *peer_features;
+		bool skip = false;
 
 		ourchan = gossmap_nth_chan(gossmap, me, i, &dir);
 		/* If its half is disabled, ignore. */
@@ -600,6 +601,15 @@ static struct command_result *incoming_listpeers_done(struct command *cmd,
 
 		peer = gossmap_nth_node(gossmap, ourchan, !dir);
 		scid = gossmap_chan_scid(gossmap, ourchan);
+
+		/* Avoid adding duplicate entries, one for alias and one for the
+		 * variant with the scid. If the scid matches an alias we'd be
+		 * adding a duplicate, so skip it. */
+		for (size_t i = 0; i < tal_count(alias); i++)
+			skip |= short_channel_id_eq(&alias[i][1], &scid);
+
+		if (skip)
+			continue;
 
 		json_object_start(js, NULL);
 		gossmap_node_get_id(gossmap, peer, &peer_id);
