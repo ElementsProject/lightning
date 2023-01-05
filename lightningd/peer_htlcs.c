@@ -1205,18 +1205,42 @@ static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
 		return NULL;
 
 	if (p->forward_channel) {
+		log_debug(hp->channel->log,
+			  "Looking up channel by scid=%s to forward htlc_id=%" PRIu64,
+			  type_to_string(tmpctx, struct short_channel_id,
+					 p->forward_channel),
+			  hp->hin->key.id);
+
 		c = any_channel_by_scid(ld, p->forward_channel, false);
-		if (!c)
+
+		if (!c) {
+			log_unusual(hp->channel->log, "No peer channel with scid=%s",
+				    type_to_string(tmpctx, struct short_channel_id,
+						   p->forward_channel));
 			return NULL;
+		}
+
 		peer = c->peer;
 	} else {
 		struct node_id id;
-		if (!p->forward_node_id)
+		if (!p->forward_node_id) {
+			log_unusual(hp->channel->log,
+				    "Neither forward_channel nor "
+				    "forward_node_id was set in payload");
 			return NULL;
+		}
 		node_id_from_pubkey(&id, p->forward_node_id);
 		peer = peer_by_id(ld, &id);
-		if (!peer)
+
+		log_debug(hp->channel->log, "Looking up peer by node_id=%s",
+			  type_to_string(tmpctx, struct node_id, &id));
+
+		if (!peer) {
+			log_unusual(
+			    hp->channel->log, "No peer with node_id=%s",
+			    type_to_string(tmpctx, struct node_id, &id));
 			return NULL;
+		}
 		c = NULL;
 	}
 
@@ -1238,6 +1262,14 @@ static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
 			  type_to_string(tmpctx, struct short_channel_id,
 					 channel_scid_or_local_alias(best)));
 	}
+
+	log_debug(hp->channel->log,
+		  "Decided to forward htlc_id=%" PRIu64
+		  " over channel with scid=%s with peer %s",
+		  hp->hin->key.id,
+		  type_to_string(tmpctx, struct short_channel_id,
+				 channel_scid_or_local_alias(best)),
+		  type_to_string(tmpctx, struct node_id, &best->peer->id));
 
 	return tal_dup(hp, struct channel_id, &best->cid);
 }
