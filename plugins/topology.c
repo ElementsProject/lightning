@@ -535,16 +535,15 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 	return capacity;
 }
 
-static struct command_result *json_listincoming(struct command *cmd,
-						const char *buffer,
-						const jsmntok_t *params)
+static struct command_result *incoming_listpeers_done(struct command *cmd,
+						      const char *buf,
+						      const jsmntok_t *result,
+						      void *arg UNNEEDED)
 {
 	struct json_stream *js;
 	struct gossmap_node *me;
 	struct gossmap *gossmap;
 
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
 
 	gossmap = get_gossmap();
 
@@ -597,6 +596,23 @@ done:
 	json_array_end(js);
 
 	return command_finished(cmd, js);
+}
+
+static struct command_result *json_listincoming(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	req =
+	    jsonrpc_request_start(cmd->plugin, cmd, "listpeers",
+				  incoming_listpeers_done, forward_error, NULL);
+	return send_outreq(plugin, req);
+
+
 }
 
 #if DEVELOPER
