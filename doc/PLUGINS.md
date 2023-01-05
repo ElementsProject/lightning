@@ -479,6 +479,7 @@ old and new channel states, the type of `cause` and a `message`.
         "peer_id": "03bc9337c7a28bb784d67742ebedd30a93bacdf7e4ca16436ef3798000242b2251",
         "channel_id": "a2d0851832f0e30a0cf778a826d72f077ca86b69f72677e0267f23f63a0599b4",
         "short_channel_id" : "561820x1020x1",
+        "timestamp":"2023-01-05T18:27:12.145Z",
         "old_state": "CHANNELD_NORMAL",
         "new_state": "CHANNELD_SHUTTING_DOWN",
         "cause" : "remote",
