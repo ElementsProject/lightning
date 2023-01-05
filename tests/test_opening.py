@@ -1367,8 +1367,9 @@ def test_zeroconf_open(bitcoind, node_factory):
 
     # Now start the negotiation, l1 should have negotiated zeroconf,
     # and use their own mindepth=6, while l2 uses mindepth=2 from the
-    # plugin
-    l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0)
+    # plugin. Don't announce it, we want to check that `listincoming`
+    # has the alias after confirming.
+    l1.rpc.fundchannel(l2.info['id'], 'all', mindepth=0, announce=False)
 
     assert l1.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
     assert l2.db.query('SELECT minimum_depth FROM channels') == [{'minimum_depth': 0}]
@@ -1404,6 +1405,20 @@ def test_zeroconf_open(bitcoind, node_factory):
     pprint(l2.rpc.listpeers())
     inv = l1.rpc.invoice(10**5, 'lbl', 'desc')['bolt11']
     l2.rpc.pay(inv)
+
+    # Finally we confirm the channel
+    bitcoind.generate_block(6)
+    # `listincoming` should list the `remote_alias`
+    sync_blockheight(bitcoind, [l1, l2])
+    l2.daemon.wait_for_log(r'Got depth change 0->6 for')
+    incoming = l2.rpc.listincoming()["incoming"]
+
+    # No duplicate (alias & real scid) channels returned.
+    assert len(incoming) == 1
+
+    # It must have both fields populated though
+    assert incoming[0]["remote_alias"] is not None
+    assert incoming[0]["short_channel_id"] is not None
 
 
 def test_zeroconf_public(bitcoind, node_factory, chainparams):
