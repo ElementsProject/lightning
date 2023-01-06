@@ -945,14 +945,6 @@ static struct migration dbmigrations[] = {
     /* FIXME: Remove payments local_offer_id column! */
 };
 
-/* Released versions are of form v{num}[.{num}]* */
-static bool is_released_version(void)
-{
-	if (version()[0] != 'v')
-		return false;
-	return strcspn(version()+1, ".0123456789") == strlen(version()+1);
-}
-
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
