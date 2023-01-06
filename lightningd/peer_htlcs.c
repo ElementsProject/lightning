@@ -1,4 +1,6 @@
 #include "config.h"
+#include "lightningd/log.h"
+#include <assert.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
@@ -22,6 +24,8 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -2937,11 +2941,20 @@ static void listforwardings_add_forwardings(struct json_stream *response,
 					    struct wallet *wallet,
 					    enum forward_status status,
 					    const struct short_channel_id *chan_in,
-					    const struct short_channel_id *chan_out)
+					    const struct short_channel_id *chan_out,
+	                                    const char *from_timestamp)
 {
 	const struct forwarding *forwardings;
+	uint32_t *timestamp;
 
-	forwardings = wallet_forwarded_payments_get(wallet, tmpctx, status, chan_in, chan_out);
+	if (from_timestamp) {
+		uint32_t val = ((uint32_t)atof(from_timestamp));
+		timestamp = &val;
+	} else
+		timestamp = NULL;
+
+	forwardings = wallet_forwarded_payments_get(wallet, tmpctx, status,
+						    chan_in, chan_out, timestamp);
 
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {
@@ -2978,17 +2991,21 @@ static struct command_result *json_listforwards(struct command *cmd,
 	struct json_stream *response;
 	struct short_channel_id *chan_in, *chan_out;
 	enum forward_status *status;
+	const char *from_timestamp;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("status", param_forward_status, &status,
 			     FORWARD_ANY),
 		   p_opt("in_channel", param_short_channel_id, &chan_in),
 		   p_opt("out_channel", param_short_channel_id, &chan_out),
+		   p_opt("from_timestamp", param_string, &from_timestamp),
 		   NULL))
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-	listforwardings_add_forwardings(response, cmd->ld->wallet, *status, chan_in, chan_out);
+	listforwardings_add_forwardings(response, cmd->ld->wallet,
+					*status, chan_in, chan_out,
+					from_timestamp);
 
 	return command_success(cmd, response);
 }

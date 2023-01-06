@@ -620,7 +620,11 @@ struct command_result *param_number(struct command *cmd UNNEEDED, const char *na
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    unsigned int **num UNNEEDED)
 { fprintf(stderr, "param_number called!\n"); abort(); }
-/* Generated stub for param_short_channel_id */
+/* Generated stub for param_string */
+struct command_result *param_string(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    const char **res UNNEEDED)
+{ fprintf(stderr, "param_number called!\n"); abort(); }/* Generated stub for param_short_channel_id */
 struct command_result *param_short_channel_id(struct command *cmd UNNEEDED,
 					      const char *name UNNEEDED,
 					      const char *buffer UNNEEDED,
