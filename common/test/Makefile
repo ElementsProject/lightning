@@ -90,4 +90,11 @@ common/test/run-bolt12_merkle-json:			\
 	common/base32.o					\
 	common/wireaddr.o
 
+
+common/test/run-version:				\
+	common/amount.o                                 \
+	wire/fromwire.o					\
+	wire/towire.o
+
+
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
