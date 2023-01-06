@@ -3,6 +3,7 @@
 #include <common/version.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Only common/version.c can safely include this.  */
 # include "version_gen.h"
@@ -19,4 +20,16 @@ char *version_and_exit(const void *unused UNUSED)
 		printf("Built with features: %s\n", BUILD_FEATURES);
 	}
 	exit(0);
+}
+
+static bool cmp_release_version(const char *version) {
+	if (version[0] != 'v')
+		return false;
+	return strspn(version+1, ".0123456789") == strlen(version+1);
+}
+
+/* Released versions are of form v[year].[month]?(.patch)* */
+bool is_released_version(void)
+{
+	return cmp_release_version(version());
 }
