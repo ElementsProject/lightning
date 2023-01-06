@@ -72,7 +72,6 @@ static inline struct htlc *htlc_get(struct htlc_map *htlcs, u64 id, enum side ow
 	return NULL;
 }
 
-/* FIXME: Move these out of the hash! */
 static inline bool htlc_is_dead(const struct htlc *htlc)
 {
 	return htlc->state == RCVD_REMOVE_ACK_REVOCATION

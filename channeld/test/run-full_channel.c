@@ -254,7 +254,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 	struct sha256 rhash;
 	u8 *dummy_routing = tal_arr(channel, u8, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE));
 	bool ret;
-	const struct htlc **changed_htlcs;
+	const struct htlc *htlc, **changed_htlcs;
 
 	memset(&r, 0, sizeof(r));
 	sha256(&rhash, &r, sizeof(r));
@@ -262,6 +262,8 @@ static void send_and_fulfill_htlc(struct channel *channel,
 	assert(channel_add_htlc(channel, sender, 1337, msatoshi, 900, &rhash,
 				dummy_routing, NULL, NULL, NULL, true)
 	       == CHANNEL_ERR_ADD_OK);
+	htlc = channel_get_htlc(channel, sender, 1337);
+	assert(htlc);
 
 	changed_htlcs = tal_arr(channel, const struct htlc *, 0);
 
@@ -285,8 +287,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 		assert(ret);
 		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 		assert(!ret);
-		assert(channel_get_htlc(channel, sender, 1337)->state
-		       == RCVD_REMOVE_ACK_REVOCATION);
+		assert(htlc->state == RCVD_REMOVE_ACK_REVOCATION);
 	} else {
 		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
@@ -306,9 +307,9 @@ static void send_and_fulfill_htlc(struct channel *channel,
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
 		assert(!ret);
-		assert(channel_get_htlc(channel, sender, 1337)->state
-		       == SENT_REMOVE_ACK_REVOCATION);
+		assert(htlc->state == SENT_REMOVE_ACK_REVOCATION);
 	}
+	assert(!channel_get_htlc(channel, sender, 1337));
 }
 
 static void update_feerate(struct channel *channel, u32 feerate)
