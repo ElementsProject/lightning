@@ -1613,8 +1613,10 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersChannelsFunding {
+	    #[deprecated]
 	    #[serde(alias = "local_msat", skip_serializing_if = "Option::is_none")]
 	    pub local_msat: Option<Amount>,
+	    #[deprecated]
 	    #[serde(alias = "remote_msat", skip_serializing_if = "Option::is_none")]
 	    pub remote_msat: Option<Amount>,
 	    #[serde(alias = "pushed_msat", skip_serializing_if = "Option::is_none")]
