@@ -203,3 +203,14 @@ doc/index.rst: $(MANPAGES:=.md)
 	  sed 's/\(.*\)\.\(.*\).*\.md/\1 <\1.\2.md>/' | \
 	  python3 devtools/blockreplace.py doc/index.rst manpages --language=rst --indent "   " \
 	)
+
+# For CI to (very roughly!) check that we only deprecated fields, or labelled added ones
+schema-added-check:
+	@if git diff master doc/schemas | grep -q '^+.*{' && ! git diff master doc/schemas | grep -q '^+.*"added"'; then echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
+
+schema-removed-check:
+	@if git diff master doc/schemas | grep -q '^-.*{' && ! git diff master doc/schemas | grep -q '^-.*"deprecated": "'; then echo 'Schema fields must be deprecated, with version, not removed' >&2; exit 1; fi
+
+schema-diff-check: schema-added-check schema-removed-check
+
+check-source: schema-diff-check
