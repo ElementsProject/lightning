@@ -76,6 +76,21 @@ def fmt_propname(propname):
     return '**{}**'.format(esc_underscores(propname))
 
 
+def deprecated_to_deleted(vername):
+    """We promise a 6 month minumum deprecation period, and versions are every 3 months"""
+    assert vername.startswith('v')
+    base = [int(s) for s in vername[1:].split('.')[0:2]]
+    if base == [0, 12]:
+        base = [22, 8]
+    base[1] += 9
+    if base[1] > 12:
+        base[0] += 1
+        base[1] -= 12
+    # Christian points out versions should sort well lexographically,
+    # so we zero-pad single-digits.
+    return 'v{}.{:0>2}'.format(base[0], base[1])
+
+
 def output_member(propname, properties, is_optional, indent, print_type=True, prefix=None):
     """Generate description line(s) for this member"""
 
@@ -93,6 +108,11 @@ def output_member(propname, properties, is_optional, indent, print_type=True, pr
         output(": {}".format(esc_underscores(properties['description'])))
 
     output_range(properties)
+
+    if 'deprecated' in properties:
+        output(" **deprecated, removal in {}**".format(deprecated_to_deleted(properties['deprecated'])))
+    if 'added' in properties:
+        output(" *(added {})*".format(properties['added']))
 
     if not is_untyped and properties['type'] == 'object':
         output(':\n')
@@ -122,7 +142,7 @@ def has_members(sub):
     for p in list(sub['properties'].keys()):
         if len(sub['properties'][p]) == 0:
             continue
-        if 'deprecated' in sub['properties'][p]:
+        if sub['properties'][p].get('deprecated') is True:
             continue
         return True
     return False
@@ -132,7 +152,7 @@ def output_members(sub, indent=''):
     """Generate lines for these properties"""
     warnings = []
 
-    # Remove deprecated and stub properties, collect warnings
+    # Remove deprecated: True and stub properties, collect warnings
     # (Stubs required to keep additionalProperties: false happy)
 
     # FIXME: It fails for schemas which have only an array type with
@@ -146,7 +166,7 @@ def output_members(sub, indent=''):
     # }
     # Checkout the schema of `staticbackup`.
     for p in list(sub['properties'].keys()):
-        if len(sub['properties'][p]) == 0 or 'deprecated' in sub['properties'][p]:
+        if len(sub['properties'][p]) == 0 or sub['properties'][p].get('deprecated') is True:
             del sub['properties'][p]
         elif p.startswith('warning'):
             warnings.append(p)
