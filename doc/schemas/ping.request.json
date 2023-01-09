@@ -10,10 +10,10 @@
       "type": "pubkey"
     },
     "len": {
-      "type": "number"
+      "type": "u16"
     },
     "pongbytes": {
-      "type": "number"
+      "type": "u16"
     }
   }
 }

@@ -1669,8 +1669,8 @@ impl From<pb::PingRequest> for requests::PingRequest {
     fn from(c: pb::PingRequest) -> Self {
         Self {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
-            len: c.len, // Rule #1 for type number?
-            pongbytes: c.pongbytes, // Rule #1 for type number?
+            len: c.len.map(|v| v as u16), // Rule #1 for type u16?
+            pongbytes: c.pongbytes.map(|v| v as u16), // Rule #1 for type u16?
         }
     }
 }
