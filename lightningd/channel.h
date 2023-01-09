@@ -70,6 +70,7 @@ struct open_attempt {
 	struct command *cmd;
 	struct amount_sat funding;
 	const u8 *our_upfront_shutdown_script;
+	bool req_confirmed_ins;
 
 	/* First msg to send to dualopend (to make it create channel) */
 	const u8 *open_msg;
