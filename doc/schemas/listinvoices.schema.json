@@ -46,7 +46,7 @@
             "description": "UNIX timestamp of when it will become / became unpayable"
           },
           "msatoshi": {
-            "deprecated": "true"
+            "deprecated": true
           },
           "amount_msat": {
             "type": "msat",

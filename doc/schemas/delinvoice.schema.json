@@ -22,7 +22,7 @@
       "description": "BOLT12 string"
     },
     "msatoshi": {
-      "deprecated": "true"
+      "deprecated": true
     },
     "amount_msat": {
       "type": "msat",
@@ -147,7 +147,7 @@
             "description": "how much was actually received"
           },
           "msatoshi_received": {
-            "deprecated": "true"
+            "deprecated": true
           },
           "paid_at": {
             "type": "u64",
