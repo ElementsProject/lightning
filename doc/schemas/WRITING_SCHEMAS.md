@@ -10,6 +10,15 @@ use a subset of the full [JSON Schema Specification](https://json-schema.org/),
 but if you find that limiting it's probably a sign that you should simplify
 your JSON output.
 
+## Updating a Schema
+
+If you add a field, you should add it to the schema, and you must add
+"added": "VERSION" (where VERSION is the next release version!).
+
+Similarly, if you deprecate a field, add "deprecated": "VERSION" (where
+VERSION is the next release version).  They will be removed two versions
+later.
+
 ## How to Write a Schema
 
 Name the schema doc/schemas/`command`.schema.json: the testsuite should
