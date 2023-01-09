@@ -1290,8 +1290,8 @@ message ListpaysPays {
 
 message PingRequest {
 	bytes id = 1;
-	optional double len = 2;
-	optional double pongbytes = 3;
+	optional uint32 len = 2;
+	optional uint32 pongbytes = 3;
 }
 
 message PingResponse {

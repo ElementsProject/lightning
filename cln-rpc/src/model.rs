@@ -1261,9 +1261,9 @@ pub mod requests {
 	    #[serde(alias = "id")]
 	    pub id: PublicKey,
 	    #[serde(alias = "len", skip_serializing_if = "Option::is_none")]
-	    pub len: Option<f64>,
+	    pub len: Option<u16>,
 	    #[serde(alias = "pongbytes", skip_serializing_if = "Option::is_none")]
-	    pub pongbytes: Option<f64>,
+	    pub pongbytes: Option<u16>,
 	}
 
 	impl From<PingRequest> for Request {
