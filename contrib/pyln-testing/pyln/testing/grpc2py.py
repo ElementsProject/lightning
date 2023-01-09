@@ -12,9 +12,6 @@ def hexlify(b):
 def amount2msat(a):
     return a.msat
 
-def amount_or_all2msat(a):
-    breakpoint()
-
 
 def remove_default(d):
     # grpc is really not good at empty values, they get replaced with the type's default value...
