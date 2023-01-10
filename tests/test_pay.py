@@ -5301,3 +5301,20 @@ def test_payerkey(node_factory):
     for n, k in zip(nodes, expected_keys):
         b12 = n.rpc.createinvoicerequest('lnr1qqgz2d7u2smys9dc5q2447e8thjlgq3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy8ssqvepgz5zsjrg3z3vggzvkm2khkgvrxj27r96c00pwl4kveecdktm29jdd6w0uwu5jgtv5v9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pu', False)['bolt12']
         assert n.rpc.decode(b12)['invreq_payer_id'] == k
+
+
+def test_filter_forwards(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5, wait_for_announce=True)
+    inv1 = l3.rpc.invoice(Millisatoshi("123sat"), 'test_filter_forwards inv one', 'description')['bolt11']
+    inv2 = l3.rpc.invoice(Millisatoshi("123sat"), 'test_filter_forwards inv two', 'description')['bolt11']
+
+    assert l2.rpc.listforwards()["forwards"] == []
+    l1.rpc.pay(inv1)
+    forwards = l2.rpc.listforwards()["forwards"]
+    assert len(forwards) == 1
+
+    forward = forwards[0]
+    l1.rpc.pay(inv2)
+    forwards = l2.rpc.listforwards(from_timestamp=str(forward["received_time"]))
+    assert len(forwards) == 1
+    assert len(l2.rpc.listforwards()["forwards"]) == 2
