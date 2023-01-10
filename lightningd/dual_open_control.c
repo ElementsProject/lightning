@@ -2580,7 +2580,14 @@ struct psbt_validator {
 	struct command *cmd;
 	struct channel *channel;
 	struct wally_psbt *psbt;
+	enum tx_role role_to_validate;
 	size_t next_index;
+
+	/* on success */
+	void (*success)(struct psbt_validator *pv);
+
+	/* on invalid psbt input */
+	void (*invalid_input)(struct psbt_validator *pv, const char *err_msg);
 };
 
 static void validate_input_unspent(struct bitcoind *bitcoind,
@@ -2588,7 +2595,7 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 				   void *arg)
 {
 	struct psbt_validator *pv = arg;
-	u8 *msg;
+	char *err;
 
 	/* First time thru bitcoind will be NULL, otherwise is response */
 	if (bitcoind && !txout) {
@@ -2597,15 +2604,15 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 		assert(pv->next_index > 0);
 		wally_tx_input_get_outpoint(&pv->psbt->tx->inputs[pv->next_index - 1],
 					    &outpoint);
-		/* Check cmd is still around? */
-		was_pending(command_fail(pv->cmd,
-					 FUNDING_PSBT_INVALID,
-					 "Peer has requested only confirmed"
-					 " inputs for this open."
-					 " Input %s is not confirmed.",
-					 type_to_string(tmpctx,
-							struct bitcoin_outpoint,
-							&outpoint)));
+
+		err = tal_fmt(pv, "Requested only confirmed"
+			      " inputs for this open."
+			      " Input %s is not confirmed.",
+			      type_to_string(tmpctx,
+					     struct bitcoin_outpoint,
+					     &outpoint));
+		pv->invalid_input(pv, err);
+		return;
 	}
 
 	for (size_t i = pv->next_index; i < pv->psbt->num_inputs; i++) {
@@ -2613,13 +2620,13 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 		u64 serial;
 
 		if (!psbt_get_serial_id(&pv->psbt->inputs[i].unknowns, &serial)) {
-			was_pending(command_fail(pv->cmd, FUNDING_PSBT_INVALID,
-					    "PSBT input at index %"PRIu64
-					    " missing serial id", i));
+			err = tal_fmt(pv, "PSBT input at index %"PRIu64
+				      " missing serial id", i);
+			pv->invalid_input(pv, err);
 			return;
 		}
-		/* Ignore any input that's peer's */
-		if (serial % 2 == TX_ACCEPTER)
+		/* Ignore any input that's not what we're looking for  */
+		if (serial % 2 != pv->role_to_validate)
 			continue;
 
 		wally_tx_input_get_outpoint(&pv->psbt->tx->inputs[i],
@@ -2631,17 +2638,30 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 				   &outpoint,
 				   validate_input_unspent,
 				   pv);
-
-		/* Command is still pending */
 		return;
 	}
 
+	pv->success(pv);
+}
+
+static void openchannel_update_valid_psbt(struct psbt_validator *pv)
+{
+	u8 *msg;
+	assert(pv->cmd);
 	pv->channel->open_attempt->cmd = pv->cmd;
 
 	msg = towire_dualopend_psbt_updated(NULL, pv->psbt);
 	subd_send_msg(pv->channel->owner, take(msg));
-	/* Command is still pending */
 }
+
+static void openchannel_invalid_psbt(struct psbt_validator *pv, const char *err_msg)
+{
+	assert(pv->cmd);
+	was_pending(command_fail(pv->cmd,
+				 FUNDING_PSBT_INVALID,
+				 "%s", err_msg));
+}
+
 
 static struct command_result *json_openchannel_update(struct command *cmd,
 						       const char *buffer,
@@ -2651,7 +2671,8 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	struct wally_psbt *psbt;
 	struct channel_id *cid;
 	struct channel *channel;
-	u8 *msg;
+	struct psbt_validator *pv;
+	struct command_result *ret;
 
 	if (!param(cmd, buffer, params,
 		   p_req("channel_id", param_channel_id, &cid),
@@ -2694,17 +2715,18 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
 
+	/* Set up the psbt-validator, we only validate in the
+	 * case of requiring confirmations */
+	pv = tal(cmd, struct psbt_validator);
+	pv->cmd = cmd;
+	pv->channel = channel;
+	pv->next_index = 0;
+	pv->psbt = psbt;
+	pv->role_to_validate = TX_INITIATOR;
+	pv->success = openchannel_update_valid_psbt;
+	pv->invalid_input = openchannel_invalid_psbt;
+
 	if (channel->req_confirmed_ins) {
-		struct psbt_validator *pv;
-		struct command_result *ret;
-
-		/* Save the info for the next round! */
-		pv = tal(cmd, struct psbt_validator);
-		pv->cmd = cmd;
-		pv->channel = channel;
-		pv->next_index = 0;
-		pv->psbt = psbt;
-
 		/* We might fail/terminate in validate's first call,
 		 * which expects us to be at "command still pending" */
 		ret = command_still_pending(cmd);
@@ -2712,10 +2734,8 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 		return ret;
 	}
 
-	channel->open_attempt->cmd = cmd;
-
-	msg = towire_dualopend_psbt_updated(NULL, psbt);
-	subd_send_msg(channel->owner, take(msg));
+	/* Jump straight to the end here! */
+	openchannel_update_valid_psbt(pv);
 	return command_still_pending(cmd);
 }
 
@@ -2944,29 +2964,61 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static void psbt_request_valid(struct psbt_validator *pv)
+{
+	struct subd *dualopend = pv->channel->owner;
+
+	if (!dualopend)
+		goto done;
+
+	assert(!pv->cmd);
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_validate_inputs_reply(NULL)));
+done:
+	tal_free(pv);
+}
+
+static void psbt_request_invalid(struct psbt_validator *pv, const char *err_msg)
+{
+	struct subd *dualopend = pv->channel->owner;
+
+	if (!dualopend)
+		goto done;
+
+	assert(!pv->cmd);
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_fail(NULL, err_msg)));
+
+done:
+	tal_free(pv);
+}
+
 static void handle_validate_inputs(struct subd *dualopend,
 				   const u8 *msg)
 {
-	struct wally_psbt *psbt;
-	enum tx_role role_to_validate;
+	struct psbt_validator *pv;
+	pv = tal(NULL, struct psbt_validator);
 
-	if (!fromwire_dualopend_validate_inputs(msg, msg,
-						&psbt,
-						&role_to_validate)) {
+	if (!fromwire_dualopend_validate_inputs(pv, msg,
+						&pv->psbt,
+						&pv->role_to_validate)) {
 		channel_internal_error(dualopend->channel,
 				       "Bad DUALOPEND_VALIDATE_INPUTS: %s",
 				       tal_hex(msg, msg));
 		return;
 	}
 
-	/* FIXME: actually validate inputs on psbt */
 	log_debug(dualopend->ld->log,
 		  "validating psbt for role: %s",
-		  role_to_validate == TX_INITIATOR ?
+		  pv->role_to_validate == TX_INITIATOR ?
 			"initiator" : "accepter");
 
-	subd_send_msg(dualopend,
-		      take(towire_dualopend_validate_inputs_reply(NULL)));
+	pv->cmd = NULL;
+	pv->channel = dualopend->channel;
+	pv->next_index = 0;
+	pv->success = psbt_request_valid;
+	pv->invalid_input = psbt_request_invalid;
+	validate_input_unspent(NULL, NULL, pv);
 }
 
 static void
