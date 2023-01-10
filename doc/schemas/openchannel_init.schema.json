@@ -29,6 +29,10 @@
     "funding_serial": {
       "type": "u64",
       "description": "the serial_id of the funding output in the *psbt*"
+    },
+    "requires_confirmed_inputs": {
+      "type": "boolean",
+      "description": "Does peer require confirmed inputs in psbt?"
     }
   }
 }
