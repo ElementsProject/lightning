@@ -3015,9 +3015,10 @@ static void opener_start(struct state *state, u8 *msg)
 		msg = towire_dualopend_dry_run(NULL, &state->channel_id,
 					       tx_state->opener_funding,
 					       tx_state->accepter_funding,
+					       state->require_confirmed_inputs,
 					       a_tlv->will_fund
-						? &a_tlv->will_fund->lease_rates : NULL);
-
+						? &a_tlv->will_fund->lease_rates
+						: NULL);
 
 		wire_sync_write(REQ_FD, take(msg));
 
