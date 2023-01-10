@@ -70,7 +70,6 @@ struct open_attempt {
 	struct command *cmd;
 	struct amount_sat funding;
 	const u8 *our_upfront_shutdown_script;
-	bool req_confirmed_ins;
 
 	/* First msg to send to dualopend (to make it create channel) */
 	const u8 *open_msg;
@@ -119,6 +118,9 @@ struct channel {
 
 	/* Our channel config. */
 	struct channel_config our_config;
+
+	/* Require confirmed inputs for interactive tx */
+	bool req_confirmed_ins;
 
 	/* Minimum funding depth (specified by us if they fund). */
 	u32 minimum_depth;
@@ -284,6 +286,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct log *log STEALS,
 			    const char *transient_billboard TAKES,
 			    u8 channel_flags,
+			    bool req_confirmed_ins_remote,
 			    const struct channel_config *our_config,
 			    u32 minimum_depth,
 			    u64 next_index_local,

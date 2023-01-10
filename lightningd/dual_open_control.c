@@ -2680,7 +2680,7 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
 
-	if (channel->open_attempt->req_confirmed_ins) {
+	if (channel->req_confirmed_ins) {
 		struct psbt_validator *pv;
 		struct command_result *ret;
 
