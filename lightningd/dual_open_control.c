@@ -1714,6 +1714,7 @@ static void handle_dry_run_finished(struct subd *dualopend, const u8 *msg)
 	struct command *cmd;
 	struct lease_rates *rates;
 	struct amount_sat their_funding, our_funding;
+	bool requires_confirms;
 
 	assert(channel->open_attempt);
 	cmd = channel->open_attempt->cmd;
@@ -1722,6 +1723,7 @@ static void handle_dry_run_finished(struct subd *dualopend, const u8 *msg)
 	if (!fromwire_dualopend_dry_run(msg, msg, &c_id,
 					&our_funding,
 					&their_funding,
+					&requires_confirms,
 					&rates)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_DRY_RUN_FINISHED: %s",
@@ -1736,6 +1738,7 @@ static void handle_dry_run_finished(struct subd *dualopend, const u8 *msg)
 	response = json_stream_success(cmd);
 	json_add_amount_sat_msat(response, "our_funding_msat", our_funding);
 	json_add_amount_sat_msat(response, "their_funding_msat", their_funding);
+	json_add_bool(response, "requires_confirmed_inputs", requires_confirms);
 
 	if (rates) {
 		json_add_lease_rates(response, rates);
