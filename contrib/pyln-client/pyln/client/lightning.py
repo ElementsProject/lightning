@@ -983,24 +983,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listconfigs", payload)
 
-    def listdatastore(self, key=None):
-        """
-        Show entries in the heirarchical datastore, or just one from one {key}root.
-        {key} can be a single string, or a sequence of strings.
-        """
-        payload = {
-            "key": key,
-        }
-        return self.call("listdatastore", payload)
-
-    def listforwards(self, status=None, in_channel=None, out_channel=None):
+   def listforwards(self, status=None, in_channel=None, out_channel=None, from_timestamp=None):
         """List all forwarded payments and their information matching
-        forward {status}, {in_channel} and {out_channel}.
+        forward {status}, {in_channel}, {out_channel} and {from_timestamp}.
         """
         payload = {
             "status": status,
             "in_channel": in_channel,
             "out_channel": out_channel,
+            "from_timestamp": from_timestamp,
         }
         return self.call("listforwards", payload)
 
