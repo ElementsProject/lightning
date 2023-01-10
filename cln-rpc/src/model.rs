@@ -1203,6 +1203,8 @@ pub mod requests {
 	    pub in_channel: Option<ShortChannelId>,
 	    #[serde(alias = "out_channel", skip_serializing_if = "Option::is_none")]
 	    pub out_channel: Option<ShortChannelId>,
+	    #[serde(alias = "from_timestamp", skip_serializing_if = "Option::is_none")]
+	    pub from_timestamp: Option<String>,
 	}
 
 	impl From<ListforwardsRequest> for Request {

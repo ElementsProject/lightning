@@ -2945,16 +2945,16 @@ static void listforwardings_add_forwardings(struct json_stream *response,
 	                                    const char *from_timestamp)
 {
 	const struct forwarding *forwardings;
-	uint32_t *timestamp;
+	uint32_t timestamp;
 
 	if (from_timestamp) {
-		uint32_t val = ((uint32_t)atof(from_timestamp));
-		timestamp = &val;
+		timestamp = ((uint32_t)atof(from_timestamp));
 	} else
-		timestamp = NULL;
+		timestamp = 0;
 
 	forwardings = wallet_forwarded_payments_get(wallet, tmpctx, status,
-						    chan_in, chan_out, timestamp);
+						    chan_in, chan_out,
+						    timestamp ? &timestamp : NULL);
 
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {

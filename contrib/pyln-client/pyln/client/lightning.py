@@ -983,7 +983,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listconfigs", payload)
 
-   def listforwards(self, status=None, in_channel=None, out_channel=None, from_timestamp=None):
+    def listforwards(self, status=None, in_channel=None, out_channel=None, from_timestamp=None):
         """List all forwarded payments and their information matching
         forward {status}, {in_channel}, {out_channel} and {from_timestamp}.
         """

@@ -1649,6 +1649,7 @@ impl From<pb::ListforwardsRequest> for requests::ListforwardsRequest {
             status: c.status.map(|v| v.try_into().unwrap()),
             in_channel: c.in_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
             out_channel: c.out_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            from_timestamp: c.from_timestamp, // Rule #1 for type string?
         }
     }
 }

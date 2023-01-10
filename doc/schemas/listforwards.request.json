@@ -17,6 +17,9 @@
     },
     "out_channel": {
       "type": "short_channel_id"
+    },
+    "from_timestamp": {
+      "type": "string"
     }
   }
 }

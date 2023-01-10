@@ -590,6 +590,7 @@
             "ListForwards.forwards[].style": 9
         },
         "ListforwardsRequest": {
+            "ListForwards.from_timestamp": 4,
             "ListForwards.in_channel": 2,
             "ListForwards.out_channel": 3,
             "ListForwards.status": 1
