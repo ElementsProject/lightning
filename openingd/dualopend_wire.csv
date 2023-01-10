@@ -9,6 +9,7 @@
 #include <common/fee_states.h>
 #include <common/htlc_wire.h>
 #include <common/penalty_base.h>
+#include <common/tx_roles.h>
 #include <secp256k1.h>
 #include <wire/peer_wire.h>
 
