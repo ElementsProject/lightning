@@ -57,6 +57,7 @@ On success, an object is returned, containing:
 - **psbt** (string): the (incomplete) PSBT of the funding transaction
 - **commitments\_secured** (boolean): whether the *psbt* is complete (always *false*)
 - **funding\_serial** (u64): the serial\_id of the funding output in the *psbt*
+- **requires\_confirmed\_inputs** (boolean, optional): Does peer require confirmed inputs in psbt?
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -104,4 +105,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d957b5bb745977f93805ddd65943e74acbdc68b01ebd5bb2f13ef2b24463b859)
+[comment]: # ( SHA256STAMP:40121e2e7b0db8c99de12b4fd086f58f63e0d6643b9da1c1697a34dd5057454e)

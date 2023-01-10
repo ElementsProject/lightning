@@ -89,6 +89,7 @@ msgdata,dualopend_got_offer,shutdown_len,u16,
 msgdata,dualopend_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 msgdata,dualopend_got_offer,requested_amt,?amount_sat,
 msgdata,dualopend_got_offer,lease_blockheight_start,u32,
+msgdata,dualopend_got_offer,require_confirmed_inputs,bool,
 
 # master->dualopend: reply back with our first funding info/contribs
 msgtype,dualopend_got_offer_reply,7105
@@ -164,6 +165,7 @@ msgdata,dualopend_commit_rcvd,channel_type,channel_type,
 # dualopend->master: peer updated the psbt
 msgtype,dualopend_psbt_changed,7107
 msgdata,dualopend_psbt_changed,channel_id,channel_id,
+msgdata,dualopend_psbt_changed,requires_confirmed_inputs,bool,
 msgdata,dualopend_psbt_changed,funding_serial,u64,
 msgdata,dualopend_psbt_changed,psbt,wally_psbt,
 

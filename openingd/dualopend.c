@@ -216,6 +216,9 @@ struct state {
 	/* Amount of leased sats requested, persisted across
 	 * RBF attempts, so we know when we've messed up lol */
 	struct amount_sat *requested_lease;
+
+	/* Does this negotation require confirmed inputs? */
+	bool require_confirmed_inputs;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -1133,6 +1136,7 @@ fetch_psbt_changes(struct state *state,
 
 	/* Go ask lightningd what other changes we've got */
 	msg = towire_dualopend_psbt_changed(NULL, &state->channel_id,
+					    state->require_confirmed_inputs,
 					    tx_state->funding_serial,
 					    psbt);
 
@@ -2203,6 +2207,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		open_err_fatal(state, "Parsing open_channel2 %s",
 			       tal_hex(tmpctx, oc2_msg));
 
+	state->require_confirmed_inputs = open_tlv->require_confirmed_inputs != NULL;
+
 	if (open_tlv->upfront_shutdown_script)
 		set_remote_upfront_shutdown(state, open_tlv->upfront_shutdown_script);
 	else
@@ -2319,7 +2325,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 tx_state->tx_locktime,
 					 state->upfront_shutdown_script[REMOTE],
 					 state->requested_lease,
-					 tx_state->blockheight);
+					 tx_state->blockheight,
+					 state->require_confirmed_inputs);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -2988,6 +2995,9 @@ static void opener_start(struct state *state, u8 *msg)
 					type_to_string(msg, struct channel_id, &cid));
 		}
 	}
+
+	/* Set the require confirms from peer's TLVs */
+	state->require_confirmed_inputs = a_tlv->require_confirmed_inputs != NULL;
 
 	if (a_tlv->upfront_shutdown_script)
 		set_remote_upfront_shutdown(state, a_tlv->upfront_shutdown_script);
