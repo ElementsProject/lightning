@@ -245,6 +245,14 @@ msgdata,dualopend_dry_run,their_funding,amount_sat,
 # must go last because of embedded tu32
 msgdata,dualopend_dry_run,lease_rates,?lease_rates,
 
+# dualopend -> master: are inputs in this psbt confirmed?
+msgtype,dualopend_validate_inputs,7029
+msgdata,dualopend_validate_inputs,psbt,wally_psbt,
+msgdata,dualopend_validate_inputs,side,enum tx_role,
+
+# master -> dualopend: confirms inputs are valid
+msgtype,dualopend_validate_inputs_reply,7030
+
 # dualopend -> master:  validate liqudity offer sig
 msgtype,dualopend_validate_lease,7027
 msgdata,dualopend_validate_lease,sig,secp256k1_ecdsa_signature,

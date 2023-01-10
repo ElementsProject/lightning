@@ -3182,6 +3182,23 @@ static void opener_start(struct state *state, u8 *msg)
 		return;
 	}
 
+	/* We need to check that the inputs we've already provided
+	 * via the API are confirmed :/ */
+	if (state->require_confirmed_inputs) {
+		msg = towire_dualopend_validate_inputs(NULL, tx_state->psbt,
+						       state->our_role);
+		wire_sync_write(REQ_FD, take(msg));
+		msg = wire_sync_read(tmpctx, REQ_FD);
+
+		if (!fromwire_dualopend_validate_inputs_reply(msg)) {
+			if (!fromwire_dualopend_fail(msg, msg, &err_reason))
+				master_badmsg(fromwire_peektype(msg), msg);
+			/* We abort, because we don't have valid inputs */
+			open_abort(state, "%s", err_reason);
+			return;
+		}
+	}
+
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The sending node:
 	 * - if is the *opener*:
@@ -3974,6 +3991,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_RBF_VALID:
 	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
+	case WIRE_DUALOPEND_VALIDATE_INPUTS_REPLY:
 
 	/* Messages we send */
 	case WIRE_DUALOPEND_GOT_OFFER:
@@ -3991,6 +4009,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_DRY_RUN:
 	case WIRE_DUALOPEND_VALIDATE_LEASE:
 	case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
+	case WIRE_DUALOPEND_VALIDATE_INPUTS:
 		break;
 	}
 	status_failed(STATUS_FAIL_MASTER_IO,
