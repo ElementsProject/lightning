@@ -87,6 +87,7 @@ COMMON_SRC_NOGEN :=				\
 	common/status_wire.c			\
 	common/subdaemon.c			\
 	common/timeout.c			\
+	common/tx_roles.c			\
 	common/type_to_string.c			\
 	common/utils.c				\
 	common/utxo.c				\
@@ -108,8 +109,7 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/htlc.h					\
 	common/json_command.h				\
 	common/jsonrpc_errors.h				\
-	common/overflows.h				\
-	common/tx_roles.h
+	common/overflows.h
 
 COMMON_HEADERS_GEN := common/htlc_state_names_gen.h common/status_wiregen.h common/peer_status_wiregen.h common/scb_wiregen.h
 
