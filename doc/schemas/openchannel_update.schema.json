@@ -30,6 +30,10 @@
     "close_to": {
       "type": "hex",
       "description": "scriptPubkey which we have to close to if we mutual close"
+    },
+    "requires_confirmed_inputs": {
+      "type": "boolean",
+      "description": "Does peer require confirmed inputs in psbt?"
     }
   }
 }
