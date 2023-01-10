@@ -2941,6 +2941,31 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static void handle_validate_inputs(struct subd *dualopend,
+				   const u8 *msg)
+{
+	struct wally_psbt *psbt;
+	enum tx_role role_to_validate;
+
+	if (!fromwire_dualopend_validate_inputs(msg, msg,
+						&psbt,
+						&role_to_validate)) {
+		channel_internal_error(dualopend->channel,
+				       "Bad DUALOPEND_VALIDATE_INPUTS: %s",
+				       tal_hex(msg, msg));
+		return;
+	}
+
+	/* FIXME: actually validate inputs on psbt */
+	log_debug(dualopend->ld->log,
+		  "validating psbt for role: %s",
+		  role_to_validate == TX_INITIATOR ?
+			"initiator" : "accepter");
+
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_validate_inputs_reply(NULL)));
+}
+
 static void
 channel_fail_fallen_behind(struct subd* dualopend, const u8 *msg)
 {
@@ -3268,6 +3293,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_LOCAL_PRIVATE_CHANNEL:
 			handle_local_private_channel(dualopend, msg);
 			return 0;
+		case WIRE_DUALOPEND_VALIDATE_INPUTS:
+			handle_validate_inputs(dualopend, msg);
+			return 0;
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:
 		case WIRE_DUALOPEND_REINIT:
@@ -3275,6 +3303,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_RBF_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
+		case WIRE_DUALOPEND_VALIDATE_INPUTS_REPLY:
 		case WIRE_DUALOPEND_RBF_VALID:
 		case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:
 		case WIRE_DUALOPEND_FAIL:
