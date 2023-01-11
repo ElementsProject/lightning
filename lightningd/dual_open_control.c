@@ -3636,7 +3636,8 @@ bool peer_start_dualopend(struct peer *peer,
 				    min_effective_htlc_capacity,
 				    &channel->local_basepoints,
 				    &channel->local_funding_pubkey,
-				    channel->minimum_depth);
+				    channel->minimum_depth,
+				    peer->ld->config.require_confirmed_inputs);
 	subd_send_msg(channel->owner, take(msg));
 	return true;
 }
@@ -3744,7 +3745,8 @@ bool peer_restart_dualopend(struct peer *peer,
 				      inflight->lease_chan_max_ppt,
 				      amount_sat_zero(inflight->lease_amt) ?
 					      NULL : &inflight->lease_amt,
-				      channel->type);
+				      channel->type,
+				      false); /* FIXME: use persisted state? */
 
 	subd_send_msg(channel->owner, take(msg));
 	return true;

@@ -28,6 +28,7 @@ msgdata,dualopend_init,our_basepoints,basepoints,
 msgdata,dualopend_init,our_funding_pubkey,pubkey,
 # Constraints in case the other end tries to open a channel.
 msgdata,dualopend_init,minimum_depth,u32,
+msgdata,dualopend_init,require_confirmed_inputs,bool,
 
 # master-dualopend: peer has reconnected
 msgtype,dualopend_reinit,7001
@@ -71,6 +72,7 @@ msgdata,dualopend_reinit,lease_chan_max_msat,u32,
 msgdata,dualopend_reinit,lease_chan_max_ppt,u16,
 msgdata,dualopend_reinit,requested_lease,?amount_sat,
 msgdata,dualopend_reinit,channel_type,channel_type,
+msgdata,dualopend_reinit,we_require_confirmed_inputs,bool,
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
