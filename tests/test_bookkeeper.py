@@ -536,6 +536,7 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
+@pytest.mark.developer("wait for announce times out otherwise")
 def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     """
     Test for a channel that's closed, but whose close tx
