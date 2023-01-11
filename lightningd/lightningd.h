@@ -82,6 +82,9 @@ struct config {
 	 * slight spec incompatibility, but implementations do this
 	 * already. */
 	bool allowdustreserve;
+
+	/* Require peer to send confirmed inputs */
+	bool require_confirmed_inputs;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;
