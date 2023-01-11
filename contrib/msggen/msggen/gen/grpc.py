@@ -322,6 +322,17 @@ class GrpcConverterGenerator(IGenerator):
                     'hash?': f'c.{name}.map(|v| v.to_vec())',
                     'secret': f'c.{name}.to_vec()',
                     'secret?': f'c.{name}.map(|v| v.to_vec())',
+
+                    'msat_or_any': f'Some(c.{name}.into())',
+                    'msat_or_all': f'Some(c.{name}.into())',
+                    'msat_or_all?': f'c.{name}.map(|o|o.into())',
+                    'feerate?': f'c.{name}.map(|o|o.into())',
+                    'feerate': f'Some(c.{name}.into())',
+                    'outpoint?': f'c.{name}.map(|o|o.into())',
+                    'TlvStream?': f'c.{name}.map(|s| s.into())',
+                    'RoutehintList?': f'c.{name}.map(|rl| rl.into())',
+
+
                 }.get(
                     typ,
                     f'c.{name}'  # default to just assignment
@@ -379,6 +390,7 @@ class GrpcConverterGenerator(IGenerator):
         """)
 
         self.generate_responses(service)
+        self.generate_requests(service)
 
     def write(self, text: str, numindent: int = 0) -> None:
         raw = dedent(text)
