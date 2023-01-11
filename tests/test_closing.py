@@ -1301,12 +1301,15 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     if not chainparams['elements']:
         # Also check snapshots
         expected_bals_2 = [
-            {'blockheight': 101, 'accounts': [{'balance_msat': '0msat'}]},
-            {'blockheight': 108, 'accounts': [{'balance_msat': '995433000msat'}, {'balance_msat': '500000000msat'}, {'balance_msat': '499994999msat'}]},
-            # There's a duplicate because we stop and restart l2 twice
-            # (both times at block 108)
-            {'blockheight': 108, 'accounts': [{'balance_msat': '995433000msat'}, {'balance_msat': '500000000msat'}, {'balance_msat': '499994999msat'}]},
-        ]
+            {'blockheight': 101, 'accounts': [
+                {'balance_msat': '0msat', 'account_id': 'wallet'}
+            ]}
+        ] + [
+            {'blockheight': 108, 'accounts': [
+                {'balance_msat': '995433000msat', 'account_id': 'wallet'},
+                {'balance_msat': '500000000msat', 'account_id': first_channel_id(l1, l2)},
+                {'balance_msat': '499994999msat', 'account_id': channel_id}]}
+        ] * 2  # duplicated; we stop and restart l2 twice (both at block 108)
         check_balance_snaps(l2, expected_bals_2)
 
 

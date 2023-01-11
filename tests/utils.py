@@ -109,14 +109,15 @@ def calc_lease_fee(amt, feerate, rates):
     return fee
 
 
+def _dictify(balances):
+    return {b['account_id']: Millisatoshi(b['balance_msat']) for b in balances['accounts']}
+
+
 def check_balance_snaps(n, expected_bals):
     snaps = n.rpc.listsnapshots()['balance_snapshots']
     for snap, exp in zip(snaps, expected_bals):
         assert snap['blockheight'] == exp['blockheight']
-        for acct, exp_acct in zip(snap['accounts'], exp['accounts']):
-            # FIXME: also check 'account_id's (these change every run)
-            for item in ['balance_msat']:
-                assert Millisatoshi(acct[item]) == Millisatoshi(exp_acct[item])
+        assert _dictify(snap) == _dictify(exp)
 
 
 def check_coin_moves(n, account_id, expected_moves, chainparams):
