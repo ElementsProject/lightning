@@ -218,7 +218,7 @@ struct state {
 	struct amount_sat *requested_lease;
 
 	/* Does this negotation require confirmed inputs? */
-	bool require_confirmed_inputs;
+	bool require_confirmed_inputs[NUM_SIDES];
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -515,6 +515,35 @@ static bool is_dust(struct tx_state *tx_state,
 {
 	return !amount_sat_greater(amount, tx_state->localconf.dust_limit)
 		|| !amount_sat_greater(amount, tx_state->remoteconf.dust_limit);
+}
+
+static char *validate_inputs(struct state *state,
+			     struct tx_state *tx_state,
+			     enum tx_role role_to_validate)
+{
+	/* BOLT-18195c86294f503ffd2f11563250c854a50bfa51 #2:
+	 *  Upon receipt of consecutive `tx_complete`s, the receiving node:
+	 *  ...
+	 *  - if it has sent `require_confirmed_inputs` in `open_channel2`
+	 *    or `accept_channel2`:
+	 *    - MUST fail the negotiation if:
+	 *      - one of the inputs added by the other peer is unconfirmed
+      */
+	u8 *msg;
+	char *err_reason;
+
+	msg = towire_dualopend_validate_inputs(NULL, tx_state->psbt,
+					       role_to_validate);
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+
+	if (!fromwire_dualopend_validate_inputs_reply(msg)) {
+		if (!fromwire_dualopend_fail(tmpctx, msg, &err_reason))
+			master_badmsg(fromwire_peektype(msg), msg);
+		return err_reason;
+	}
+
+	return NULL;
 }
 
 static void set_reserve(struct tx_state *tx_state,
@@ -1136,7 +1165,7 @@ fetch_psbt_changes(struct state *state,
 
 	/* Go ask lightningd what other changes we've got */
 	msg = towire_dualopend_psbt_changed(NULL, &state->channel_id,
-					    state->require_confirmed_inputs,
+					    state->require_confirmed_inputs[REMOTE],
 					    tx_state->funding_serial,
 					    psbt);
 
@@ -2207,7 +2236,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		open_err_fatal(state, "Parsing open_channel2 %s",
 			       tal_hex(tmpctx, oc2_msg));
 
-	state->require_confirmed_inputs = open_tlv->require_confirmed_inputs != NULL;
+	state->require_confirmed_inputs[REMOTE] =
+		open_tlv->require_confirmed_inputs != NULL;
 
 	if (open_tlv->upfront_shutdown_script)
 		set_remote_upfront_shutdown(state, open_tlv->upfront_shutdown_script);
@@ -2326,7 +2356,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 state->upfront_shutdown_script[REMOTE],
 					 state->requested_lease,
 					 tx_state->blockheight,
-					 state->require_confirmed_inputs);
+					 state->require_confirmed_inputs[REMOTE]);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -2493,6 +2523,16 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				     state->our_funding_pubkey,
 				     tx_state->blockheight);
 
+	/* BOLT-18195c86294f503ffd2f11563250c854a50bfa51 #2:
+	 *
+	 * The sending node may require the other participant to
+	 * only use confirmed inputs.  This ensures that the sending
+	 * node doesn't end up paying the fees of a low feerate
+	 * unconfirmed ancestor of one of the other participant's inputs.
+	 */
+	if (state->require_confirmed_inputs[LOCAL])
+		a_tlv->require_confirmed_inputs =
+			tal(a_tlv, struct tlv_accept_tlvs_require_confirmed_inputs);
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     /* Our amount w/o the lease fee */
@@ -2526,6 +2566,14 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_ACCEPTER))
 		return;
+
+	if (state->require_confirmed_inputs[LOCAL]) {
+		err_reason = validate_inputs(state, tx_state, TX_INITIATOR);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
+	}
 
 	msg = accepter_commits(state, tx_state, total, &err_reason);
 	if (!msg) {
@@ -2927,6 +2975,17 @@ static void opener_start(struct state *state, u8 *msg)
 		open_tlv->request_funds->blockheight = tx_state->blockheight;
 	}
 
+	/* BOLT-18195c86294f503ffd2f11563250c854a50bfa51 #2:
+	 *
+	 * The sending node may require the other participant to
+	 * only use confirmed inputs.  This ensures that the sending
+	 * node doesn't end up paying the fees of a low feerate
+	 * unconfirmed ancestor of one of the other participant's inputs.
+	 */
+	if (state->require_confirmed_inputs[LOCAL])
+		open_tlv->require_confirmed_inputs =
+			tal(open_tlv, struct tlv_opening_tlvs_require_confirmed_inputs);
+
 	msg = towire_open_channel2(NULL,
 				   &chainparams->genesis_blockhash,
 				   &state->channel_id,
@@ -2997,7 +3056,8 @@ static void opener_start(struct state *state, u8 *msg)
 	}
 
 	/* Set the require confirms from peer's TLVs */
-	state->require_confirmed_inputs = a_tlv->require_confirmed_inputs != NULL;
+	state->require_confirmed_inputs[REMOTE] =
+		a_tlv->require_confirmed_inputs != NULL;
 
 	if (a_tlv->upfront_shutdown_script)
 		set_remote_upfront_shutdown(state, a_tlv->upfront_shutdown_script);
@@ -3015,7 +3075,7 @@ static void opener_start(struct state *state, u8 *msg)
 		msg = towire_dualopend_dry_run(NULL, &state->channel_id,
 					       tx_state->opener_funding,
 					       tx_state->accepter_funding,
-					       state->require_confirmed_inputs,
+					       state->require_confirmed_inputs[REMOTE],
 					       a_tlv->will_fund
 						? &a_tlv->will_fund->lease_rates
 						: NULL);
@@ -3185,16 +3245,9 @@ static void opener_start(struct state *state, u8 *msg)
 
 	/* We need to check that the inputs we've already provided
 	 * via the API are confirmed :/ */
-	if (state->require_confirmed_inputs) {
-		msg = towire_dualopend_validate_inputs(NULL, tx_state->psbt,
-						       state->our_role);
-		wire_sync_write(REQ_FD, take(msg));
-		msg = wire_sync_read(tmpctx, REQ_FD);
-
-		if (!fromwire_dualopend_validate_inputs_reply(msg)) {
-			if (!fromwire_dualopend_fail(msg, msg, &err_reason))
-				master_badmsg(fromwire_peektype(msg), msg);
-			/* We abort, because we don't have valid inputs */
+	if (state->require_confirmed_inputs[REMOTE]) {
+		err_reason = validate_inputs(state, tx_state, state->our_role);
+		if (err_reason) {
 			open_abort(state, "%s", err_reason);
 			return;
 		}
@@ -3238,6 +3291,15 @@ static void opener_start(struct state *state, u8 *msg)
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_INITIATOR))
 		return;
+
+	if (state->require_confirmed_inputs[LOCAL]) {
+		err_reason = validate_inputs(state, tx_state, TX_ACCEPTER);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
+	}
+
 
 	msg = opener_commits(state, tx_state, total, &err_reason);
 	if (!msg) {
@@ -3316,6 +3378,16 @@ static void rbf_wrap_up(struct state *state,
 				&tx_state->psbt,
 				state->our_role)) {
 		return;
+	}
+
+	if (state->require_confirmed_inputs[LOCAL]) {
+		err_reason = validate_inputs(state, tx_state,
+					     state->our_role == TX_INITIATOR ?
+					     TX_ACCEPTER : TX_INITIATOR);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
 	}
 
 	/* Is this an eligible RBF (at least one overlapping input) */
@@ -4156,7 +4228,8 @@ int main(int argc, char *argv[])
 				    &state->min_effective_htlc_capacity,
 				    &state->our_points,
 				    &state->our_funding_pubkey,
-				    &state->minimum_depth)) {
+				    &state->minimum_depth,
+				    &state->require_confirmed_inputs[LOCAL])) {
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
 		memset(&state->channel_id, 0, sizeof(state->channel_id));
@@ -4215,7 +4288,8 @@ int main(int argc, char *argv[])
 					     &state->tx_state->lease_chan_max_msat,
 					     &state->tx_state->lease_chan_max_ppt,
 					     &requested_lease,
-					     &state->channel_type)) {
+					     &state->channel_type,
+					     &state->require_confirmed_inputs[LOCAL])) {
 
 		bool ok;
 
