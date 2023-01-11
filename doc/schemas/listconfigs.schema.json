@@ -308,8 +308,12 @@
     },
     "announce-addr-dns": {
       "type": "boolean",
-      "description": "Whether we put DNS entries into node_announcement",
-      "added": "v22.11.1"
+      "added": "v22.11.1",
+      "description": "Whether we put DNS entries into node_announcement"
+    },
+    "require-confirmed-inputs": {
+      "type": "boolean",
+      "description": "Request peers to only send confirmed inputs (dual-fund only)"
     }
   }
 }

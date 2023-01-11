@@ -858,6 +858,8 @@ static const struct config testnet_config = {
 	.exp_offers = IFEXPERIMENTAL(true, false),
 
 	.allowdustreserve = false,
+
+	.require_confirmed_inputs = false,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -927,6 +929,8 @@ static const struct config mainnet_config = {
 	.exp_offers = IFEXPERIMENTAL(true, false),
 
 	.allowdustreserve = false,
+
+	.require_confirmed_inputs = false,
 };
 
 static void check_config(struct lightningd *ld)
@@ -1180,6 +1184,9 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--funding-confirms", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
 			 "Confirmations required for funding transaction");
+	opt_register_arg("--require-confirmed-inputs", opt_set_bool_arg, opt_show_bool,
+			 &ld->config.require_confirmed_inputs,
+			 "Confirmations required for inputs to funding transaction (v2 opens only)");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
 			 "Number of blocks for cltv_expiry_delta");
