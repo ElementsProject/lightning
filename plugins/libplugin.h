@@ -433,6 +433,8 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					...);
 
 struct listpeers_channel {
+	struct node_id id;
+	bool connected;
 	bool private;
 	struct bitcoin_txid funding_txid;
 	const char *state;
@@ -444,21 +446,10 @@ struct listpeers_channel {
 	/* TODO Add fields as we need them. */
 };
 
-struct listpeers_peer {
-	struct node_id id;
-	bool connected;
-	const char **netaddr;
-	struct feature_set *features;
-	struct listpeers_channel **channels;
-};
-
-struct listpeers_result {
-	struct listpeers_peer **peers;
-};
-
-struct listpeers_result *json_to_listpeers_result(const tal_t *ctx,
-						  const char *buffer,
-						  const jsmntok_t *tok);
+/* Returns an array of listpeers_channel * */
+struct listpeers_channel **json_to_listpeers_channels(const tal_t *ctx,
+						      const char *buffer,
+						      const jsmntok_t *tok);
 
 struct createonion_response {
 	u8 *onion;
