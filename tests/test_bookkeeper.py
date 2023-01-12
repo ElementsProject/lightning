@@ -81,6 +81,9 @@ def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     l1.pay(l2, 222)
     l1.pay(l2, 4000000)
 
+    # Make sure l2 bookkeeper processes event before we stop it!
+    wait_for(lambda: len([e for e in l2.rpc.bkpr_listaccountevents()['events'] if e['tag'] == 'invoice']) == 3)
+
     l2.stop()
     l1.rpc.close(l2.info['id'], 1)
     bitcoind.generate_block(5, wait_for_mempool=1)
