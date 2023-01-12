@@ -3302,11 +3302,10 @@ static struct command_result *direct_pay_listpeers(struct command *cmd,
 		d->chan = tal(d, struct short_channel_id_dir);
 		if (chan->scid) {
 			d->chan->scid = *chan->scid;
-			d->chan->dir = *chan->direction;
 		} else {
 			d->chan->scid = *chan->alias[LOCAL];
-			d->chan->dir = 0; /* Don't care. */
 		}
+		d->chan->dir = chan->direction;
 	}
 
 	direct_pay_override(p);
