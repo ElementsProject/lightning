@@ -151,6 +151,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	const u8 *cursor = rs->raw_payload;
 	size_t max = tal_bytelen(cursor), len;
 
+	p->final = (rs->nextcase == ONION_END);
+
 	/* BOLT-remove-legacy-onion #4:
 	 * 1. type: `hop_payloads`
 	 * 2. data:
@@ -276,7 +278,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 			goto field_bad;
 		}
 
-		if (rs->nextcase == ONION_FORWARD) {
+		if (!p->final) {
 			if (!handle_blinded_forward(p, amount_in, cltv_expiry,
 						    p->tlv, enc, failtlvtype))
 				goto field_bad;
@@ -333,7 +335,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	 *  - For every non-final node:
 	 *    - MUST include `short_channel_id`
 	 */
-	if (rs->nextcase == ONION_FORWARD) {
+	if (!p->final) {
 		if (!p->tlv->short_channel_id) {
 			*failtlvtype = TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID;
 			goto field_bad;
