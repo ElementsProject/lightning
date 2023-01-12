@@ -612,138 +612,123 @@ static bool new_missed_channel_account(struct command *cmd,
 				       u64 timestamp)
 {
 	struct chain_event *chain_ev;
-	size_t i, j;
-	const jsmntok_t *curr_peer, *curr_chan,
-	      *peer_arr_tok, *chan_arr_tok;
+	const char *err;
+	size_t i;
+	const jsmntok_t *curr_chan, *chan_arr_tok;
 
-	peer_arr_tok = json_get_member(buf, result, "peers");
-	assert(peer_arr_tok->type == JSMN_ARRAY);
-	/* There should only be one peer */
-	json_for_each_arr(i, curr_peer, peer_arr_tok) {
-		const char *err;
+	chan_arr_tok = json_get_member(buf, result, "channels");
+	assert(chan_arr_tok && chan_arr_tok->type == JSMN_ARRAY);
+
+	json_for_each_arr(i, curr_chan, chan_arr_tok) {
+	        struct bitcoin_outpoint opt;
+		struct amount_msat amt, remote_amt,
+			push_credit, push_debit;
 		struct node_id peer_id;
+		char *opener, *chan_id;
+		enum mvt_tag *tags;
+		bool ok, is_opener, is_leased;
 
-		err = json_scan(cmd, buf, curr_peer, "{id:%}",
-				JSON_SCAN(json_to_node_id, &peer_id));
-
+		err = json_scan(tmpctx, buf, curr_chan,
+				"{peer_id:%,"
+				"channel_id:%,"
+				"funding_txid:%,"
+				"funding_outnum:%,"
+				"funding:{local_funds_msat:%,"
+					 "remote_funds_msat:%},"
+				"opener:%}",
+				JSON_SCAN(json_to_node_id, &peer_id),
+				JSON_SCAN_TAL(tmpctx, json_strdup, &chan_id),
+				JSON_SCAN(json_to_txid, &opt.txid),
+				JSON_SCAN(json_to_number, &opt.n),
+				JSON_SCAN(json_to_msat, &amt),
+				JSON_SCAN(json_to_msat, &remote_amt),
+				JSON_SCAN_TAL(tmpctx, json_strdup, &opener));
 		if (err)
 			plugin_err(cmd->plugin,
-				   "failure scanning listpeer"
+				   "failure scanning listpeerchannels"
 				   " result: %s", err);
 
-		json_get_member(buf, curr_peer, "id");
-		chan_arr_tok = json_get_member(buf, curr_peer,
-					       "channels");
-		assert(chan_arr_tok->type == JSMN_ARRAY);
-		json_for_each_arr(j, curr_chan, chan_arr_tok) {
-			struct bitcoin_outpoint opt;
-			struct amount_msat amt, remote_amt,
-					   push_credit, push_debit;
-			char *opener, *chan_id;
-			enum mvt_tag *tags;
-			bool ok, is_opener, is_leased;
+		if (!streq(chan_id, acct->name))
+			continue;
 
-			err = json_scan(tmpctx, buf, curr_chan,
-					"{channel_id:%,"
-					"funding_txid:%,"
-					"funding_outnum:%,"
-					"funding:{local_funds_msat:%,"
-						 "remote_funds_msat:%},"
-					"opener:%}",
-					JSON_SCAN_TAL(tmpctx, json_strdup, &chan_id),
-					JSON_SCAN(json_to_txid, &opt.txid),
-					JSON_SCAN(json_to_number, &opt.n),
-					JSON_SCAN(json_to_msat, &amt),
-					JSON_SCAN(json_to_msat, &remote_amt),
-					JSON_SCAN_TAL(tmpctx, json_strdup, &opener));
-			if (err)
-				plugin_err(cmd->plugin,
-					   "failure scanning listpeer"
-					   " result: %s", err);
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Logging channel account from list %s",
+			   acct->name);
 
-			if (!streq(chan_id, acct->name))
-				continue;
+		chain_ev = tal(cmd, struct chain_event);
+		chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
+		chain_ev->debit = AMOUNT_MSAT(0);
+		ok = amount_msat_add(&chain_ev->output_value,
+				     amt, remote_amt);
+		assert(ok);
+		chain_ev->currency = tal_strdup(chain_ev, currency);
+		chain_ev->origin_acct = NULL;
+		/* 2s before the channel opened, minimum */
+		chain_ev->timestamp = timestamp - 2;
+		chain_ev->blockheight = 0;
+		chain_ev->outpoint = opt;
+		chain_ev->spending_txid = NULL;
+		chain_ev->payment_id = NULL;
+		chain_ev->ignored = false;
+		chain_ev->stealable = false;
+		chain_ev->desc = NULL;
 
-			plugin_log(cmd->plugin, LOG_DBG,
-				   "Logging channel account from list %s",
-				   acct->name);
+		/* Update the account info too */
+		tags = tal_arr(chain_ev, enum mvt_tag, 1);
+		tags[0] = CHANNEL_OPEN;
 
-			chain_ev = tal(cmd, struct chain_event);
-			chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
-			chain_ev->debit = AMOUNT_MSAT(0);
-			ok = amount_msat_add(&chain_ev->output_value,
-					     amt, remote_amt);
-			assert(ok);
-			chain_ev->currency = tal_strdup(chain_ev, currency);
-			chain_ev->origin_acct = NULL;
-			/* 2s before the channel opened, minimum */
-			chain_ev->timestamp = timestamp - 2;
-			chain_ev->blockheight = 0;
-			chain_ev->outpoint = opt;
-			chain_ev->spending_txid = NULL;
-			chain_ev->payment_id = NULL;
-			chain_ev->ignored = false;
-			chain_ev->stealable = false;
-			chain_ev->desc = NULL;
+		is_opener = streq(opener, "local");
 
-			/* Update the account info too */
-			tags = tal_arr(chain_ev, enum mvt_tag, 1);
-			tags[0] = CHANNEL_OPEN;
+		/* Leased/pushed channels have some extra work */
+		find_push_amts(buf, curr_chan, is_opener,
+			       &push_credit, &push_debit,
+			       &is_leased);
 
-			is_opener = streq(opener, "local");
+		if (is_leased)
+			tal_arr_expand(&tags, LEASED);
+		if (is_opener)
+			tal_arr_expand(&tags, OPENER);
 
-			/* Leased/pushed channels have some extra work */
-			find_push_amts(buf, curr_chan, is_opener,
-				       &push_credit, &push_debit,
-				       &is_leased);
+		chain_ev->credit = amt;
+		db_begin_transaction(db);
+		if (!log_chain_event(db, acct, chain_ev))
+			goto done;
 
-			if (is_leased)
-				tal_arr_expand(&tags, LEASED);
-			if (is_opener)
-				tal_arr_expand(&tags, OPENER);
+		maybe_update_account(db, acct, chain_ev,
+				     tags, 0, &peer_id);
+		maybe_update_onchain_fees(cmd, db, &opt.txid);
 
-			chain_ev->credit = amt;
-			db_begin_transaction(db);
-			if (!log_chain_event(db, acct, chain_ev))
-				goto done;
+		/* We won't count the close's fees if we're
+		 * *not* the opener, which we didn't know
+		 * until now, so now try to update the
+		 * fees for the close tx's spending_txid..*/
+		if (acct->closed_event_db_id)
+			try_update_open_fees(cmd, acct);
 
-			maybe_update_account(db, acct, chain_ev,
-					     tags, 0, &peer_id);
-			maybe_update_onchain_fees(cmd, db, &opt.txid);
+		/* We log a channel event for the push amt */
+		if (!amount_msat_zero(push_credit)
+		    || !amount_msat_zero(push_debit)) {
+			struct channel_event *chan_ev;
+			char *chan_tag;
 
-			/* We won't count the close's fees if we're
-			 * *not* the opener, which we didn't know
-			 * until now, so now try to update the
-			 * fees for the close tx's spending_txid..*/
-			if (acct->closed_event_db_id)
-				try_update_open_fees(cmd, acct);
-
-			/* We log a channel event for the push amt */
-			if (!amount_msat_zero(push_credit)
-			    || !amount_msat_zero(push_debit)) {
-				struct channel_event *chan_ev;
-				char *chan_tag;
-
-				chan_tag = tal_fmt(tmpctx, "%s",
-						   mvt_tag_str(
-						    is_leased ?
-						      LEASE_FEE : PUSHED));
-
-				chan_ev = new_channel_event(tmpctx,
-							    chan_tag,
-							    push_credit,
-							    push_debit,
-							    AMOUNT_MSAT(0),
-							    currency,
-							    NULL, 0,
-							    timestamp - 1);
-				log_channel_event(db, acct, chan_ev);
-			}
+			chan_tag = tal_fmt(tmpctx, "%s",
+					   mvt_tag_str(
+					    is_leased ?
+					      LEASE_FEE : PUSHED));
+			chan_ev = new_channel_event(tmpctx,
+						    chan_tag,
+						    push_credit,
+						    push_debit,
+						    AMOUNT_MSAT(0),
+						    currency,
+						    NULL, 0,
+						    timestamp - 1);
+			log_channel_event(db, acct, chan_ev);
+	        }
 
 done:
 			db_commit_transaction(db);
 			return true;
-		}
 	}
 
 	return false;
@@ -864,8 +849,7 @@ static struct command_result *log_error(struct command *cmd,
 	return notification_handled(cmd);
 }
 
-static struct command_result *
-listpeers_multi_done(struct command *cmd,
+static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 		     const char *buf,
 		     const jsmntok_t *result,
 		     struct new_account_info **new_accts)
@@ -882,7 +866,7 @@ listpeers_multi_done(struct command *cmd,
 					        info->currency,
 					        info->timestamp)) {
 			plugin_log(cmd->plugin, LOG_BROKEN,
-				   "Unable to find account %s in listpeers",
+				   "Unable to find account %s in listpeerchannels",
 				   info->acct->name);
 			continue;
 		}
@@ -916,7 +900,6 @@ listpeers_multi_done(struct command *cmd,
 				  info->timestamp - 1,
 				  credit_diff, debit_diff);
 	}
-
 	plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
 	return notification_handled(cmd);
 }
@@ -1131,10 +1114,11 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 		struct out_req *req;
 
 		req = jsonrpc_request_start(cmd->plugin, cmd,
-					    "listpeers",
-					    listpeers_multi_done,
+					    "listpeerchannels",
+					    listpeerchannels_multi_done,
 					    log_error,
 					    new_accts);
+		/* FIXME(vicenzopalazzo) require the channel by channel_id to avoid parsing not useful json  */
 		return send_outreq(cmd->plugin, req);
 	}
 
@@ -1318,7 +1302,7 @@ struct event_info {
 };
 
 static struct command_result *
-listpeers_done(struct command *cmd, const char *buf,
+listpeerchannels_done(struct command *cmd, const char *buf,
 	       const jsmntok_t *result, struct event_info *info)
 {
 	struct acct_balance **balances, *bal;
@@ -1560,7 +1544,7 @@ parse_and_log_chain_move(struct command *cmd,
 
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "channel event received but no open for channel %s."
-			   " Calling `listpeers` to fetch missing info",
+			   " Calling `listpeerchannls` to fetch missing info",
 			   acct->name);
 
 		info = tal(cmd, struct event_info);
@@ -1570,8 +1554,8 @@ parse_and_log_chain_move(struct command *cmd,
 				       acct : orig_acct);
 
 		req = jsonrpc_request_start(cmd->plugin, cmd,
-					    "listpeers",
-					    listpeers_done,
+					    "listpeerchannels",
+					    listpeerchannels_done,
 					    log_error,
 					    info);
 		/* FIXME: use the peer_id to reduce work here */
