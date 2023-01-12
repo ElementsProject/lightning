@@ -301,25 +301,23 @@ static struct node_map *local_connected(const tal_t *ctx,
 					const jsmntok_t *result)
 {
 	size_t i;
-	const jsmntok_t *t, *peers = json_get_member(buf, result, "peers");
+	const jsmntok_t *channel, *channels = json_get_member(buf, result, "channels");
 	struct node_map *connected = tal(ctx, struct node_map);
 
 	node_map_init(connected);
 	tal_add_destructor(connected, node_map_clear);
 
-	json_for_each_arr(i, t, peers) {
-		const jsmntok_t *chans, *c;
+	json_for_each_arr(i, channel, channels) {
 		struct node_id id;
 		bool is_connected, normal_chan;
 		const char *err;
-		size_t j;
 
-		err = json_scan(tmpctx, buf, t,
-				"{id:%,connected:%}",
+		err = json_scan(tmpctx, buf, channel,
+				"{peer_id:%,peer_connected:%}",
 				JSON_SCAN(json_to_node_id, &id),
 				JSON_SCAN(json_to_bool, &is_connected));
 		if (err)
-			plugin_err(plugin, "Bad listpeers response (%s): %.*s",
+			plugin_err(plugin, "Bad listpeerchannels response (%s): %.*s",
 				   err,
 				   json_tok_full_len(result),
 				   json_tok_full(buf, result));
@@ -328,14 +326,9 @@ static struct node_map *local_connected(const tal_t *ctx,
 			continue;
 
 		/* Must also have a channel in CHANNELD_NORMAL */
-		normal_chan = false;
-		chans = json_get_member(buf, t, "channels");
-		json_for_each_arr(j, c, chans) {
-			if (json_tok_streq(buf,
-					   json_get_member(buf, c, "state"),
-					   "CHANNELD_NORMAL"))
-				normal_chan = true;
-		}
+		normal_chan = json_tok_streq(buf,
+				   json_get_member(buf, channel, "state"),
+					     "CHANNELD_NORMAL");
 
 		if (normal_chan)
 			node_map_add(connected,
@@ -346,7 +339,7 @@ static struct node_map *local_connected(const tal_t *ctx,
 }
 
 /* We want to combine local knowledge to we know which are actually inactive! */
-static struct command_result *listpeers_done(struct command *cmd,
+static struct command_result *listpeerchannels_done(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *result,
 					     struct listchannels_opts *opts)
@@ -421,8 +414,8 @@ static struct command_result *json_listchannels(struct command *cmd,
 				    "Can only specify one of "
 				    "`short_channel_id`, "
 				    "`source` or `destination`");
-	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeers",
-				    listpeers_done, forward_error, opts);
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeerchannels",
+				    listpeerchannels_done, forward_error, opts);
 	return send_outreq(cmd->plugin, req);
 }
 
