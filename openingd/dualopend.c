@@ -4289,7 +4289,8 @@ int main(int argc, char *argv[])
 					     &state->tx_state->lease_chan_max_ppt,
 					     &requested_lease,
 					     &state->channel_type,
-					     &state->require_confirmed_inputs[LOCAL])) {
+					     &state->require_confirmed_inputs[LOCAL],
+					     &state->require_confirmed_inputs[REMOTE])) {
 
 		bool ok;
 

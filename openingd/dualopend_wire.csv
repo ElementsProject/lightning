@@ -73,6 +73,7 @@ msgdata,dualopend_reinit,lease_chan_max_ppt,u16,
 msgdata,dualopend_reinit,requested_lease,?amount_sat,
 msgdata,dualopend_reinit,channel_type,channel_type,
 msgdata,dualopend_reinit,we_require_confirmed_inputs,bool,
+msgdata,dualopend_reinit,they_require_confirmed_inputs,bool,
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
