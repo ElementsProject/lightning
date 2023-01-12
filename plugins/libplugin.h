@@ -449,7 +449,7 @@ struct listpeers_channel {
 	/* TODO Add fields as we need them. */
 };
 
-/* Returns an array of listpeers_channel * */
+/* Returns an array of listpeers_channel from listpeerchannels * */
 struct listpeers_channel **json_to_listpeers_channels(const tal_t *ctx,
 						      const char *buffer,
 						      const jsmntok_t *tok);
