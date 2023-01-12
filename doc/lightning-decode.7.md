@@ -148,13 +148,14 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - **invoice\_paths** (array of objects): Paths to pay the destination:
     - **first\_node\_id** (pubkey): the (presumably well-known) public key of the start of the path
     - **blinding** (pubkey): blinding factor for this path
+    - **payinfo** (object):
+      - **fee\_base\_msat** (msat): basefee for path
+      - **fee\_proportional\_millionths** (u32): proportional fee for path
+      - **cltv\_expiry\_delta** (u32): CLTV delta for path
+      - **features** (hex): features allowed for path
     - **path** (array of objects): an individual path:
       - **blinded\_node\_id** (pubkey): node\_id of the hop
       - **encrypted\_recipient\_data** (hex): encrypted TLV entry for this hop
-      - **fee\_base\_msat** (msat, optional): basefee for path
-      - **fee\_proportional\_millionths** (u32, optional): proportional fee for path
-      - **cltv\_expiry\_delta** (u32, optional): CLTV delta for path
-      - **features** (hex, optional): features allowed for path
   - **invoice\_created\_at** (u64): the UNIX timestamp of invoice creation
   - **invoice\_payment\_hash** (hex): the hash of the *payment\_preimage* (always 64 characters)
   - **invoice\_amount\_msat** (msat): the amount required to fulfill invoice
@@ -302,4 +303,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:eadd9b06e6cb495a794568f3a9e2371c09718311c0b61ad05b0fca3014c429d3)
+[comment]: # ( SHA256STAMP:a8843027b18a1d54efcf0ca423fc6fbe0c2136d32fa3d8c552a875b6844dd950)

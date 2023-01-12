@@ -249,21 +249,11 @@ static void json_add_chains(struct json_stream *js,
 
 static void json_add_onionmsg_path(struct json_stream *js,
 				   const char *fieldname,
-				   const struct onionmsg_hop *hop,
-				   const struct blinded_payinfo *payinfo)
+				   const struct onionmsg_hop *hop)
 {
 	json_object_start(js, fieldname);
 	json_add_pubkey(js, "blinded_node_id", &hop->blinded_node_id);
 	json_add_hex_talarr(js, "encrypted_recipient_data", hop->encrypted_recipient_data);
-	if (payinfo) {
-		json_add_amount_msat_only(js, "fee_base_msat",
-					  amount_msat(payinfo->fee_base_msat));
-		json_add_u32(js, "fee_proportional_millionths",
-			     payinfo->fee_proportional_millionths);
-		json_add_u32(js, "cltv_expiry_delta",
-			     payinfo->cltv_expiry_delta);
-		json_add_hex_talarr(js, "features", payinfo->features);
-	}
 	json_object_end(js);
 }
 
@@ -273,18 +263,28 @@ static bool json_add_blinded_paths(struct json_stream *js,
 				   struct blinded_path **paths,
 				   struct blinded_payinfo **blindedpay)
 {
-	size_t n = 0;
 	json_array_start(js, fieldname);
 	for (size_t i = 0; i < tal_count(paths); i++) {
 		json_object_start(js, NULL);
 		json_add_pubkey(js, "first_node_id", &paths[i]->first_node_id);
 		json_add_pubkey(js, "blinding", &paths[i]->blinding);
+
+		/* Don't crash if we're short a payinfo! */
+		if (i < tal_count(blindedpay)) {
+			json_object_start(js, "payinfo");
+			json_add_amount_msat_only(js, "fee_base_msat",
+						  amount_msat(blindedpay[i]->fee_base_msat));
+			json_add_u32(js, "fee_proportional_millionths",
+				     blindedpay[i]->fee_proportional_millionths);
+			json_add_u32(js, "cltv_expiry_delta",
+				     blindedpay[i]->cltv_expiry_delta);
+			json_add_hex_talarr(js, "features", blindedpay[i]->features);
+			json_object_end(js);
+		}
+
 		json_array_start(js, "path");
 		for (size_t j = 0; j < tal_count(paths[i]->path); j++) {
-			json_add_onionmsg_path(js, NULL, paths[i]->path[j],
-					       n < tal_count(blindedpay)
-					       ? blindedpay[n] : NULL);
-			n++;
+			json_add_onionmsg_path(js, NULL, paths[i]->path[j]);
 		}
 		json_array_end(js);
 		json_object_end(js);
@@ -295,9 +295,10 @@ static bool json_add_blinded_paths(struct json_stream *js,
 	 * - MUST reject the invoice if `invoice_blindedpay` does not contain
 	 *   exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.
 	 */
-	if (blindedpay && n != tal_count(blindedpay)) {
-		json_add_string(js, "warning_invalid_invoice_blindedpay",
-				"invoice does not have correct number of blinded_payinfo");
+	if (blindedpay && tal_count(blindedpay) != tal_count(paths)) {
+		json_add_str_fmt(js, "warning_invalid_invoice_blindedpay",
+				 "invoice has %zu blinded_payinfo but %zu paths",
+				 tal_count(blindedpay), tal_count(paths));
 		return false;
 	}
 

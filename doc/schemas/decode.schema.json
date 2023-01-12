@@ -927,6 +927,7 @@
               "required": [
                 "first_node_id",
                 "blinding",
+                "payinfo",
                 "path"
               ],
               "additionalProperties": false,
@@ -938,6 +939,34 @@
                 "blinding": {
                   "type": "pubkey",
                   "description": "blinding factor for this path"
+                },
+                "payinfo": {
+                  "type": "object",
+                  "required": [
+                    "fee_base_msat",
+                    "fee_proportional_millionths",
+                    "cltv_expiry_delta",
+                    "features"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "fee_base_msat": {
+                      "type": "msat",
+                      "description": "basefee for path"
+                    },
+                    "fee_proportional_millionths": {
+                      "type": "u32",
+                      "description": "proportional fee for path"
+                    },
+                    "cltv_expiry_delta": {
+                      "type": "u32",
+                      "description": "CLTV delta for path"
+                    },
+                    "features": {
+                      "type": "hex",
+                      "description": "features allowed for path"
+                    }
+                  }
                 },
                 "path": {
                   "type": "array",
@@ -957,22 +986,6 @@
                       "encrypted_recipient_data": {
                         "type": "hex",
                         "description": "encrypted TLV entry for this hop"
-                      },
-                      "fee_base_msat": {
-                        "type": "msat",
-                        "description": "basefee for path"
-                      },
-                      "fee_proportional_millionths": {
-                        "type": "u32",
-                        "description": "proportional fee for path"
-                      },
-                      "cltv_expiry_delta": {
-                        "type": "u32",
-                        "description": "CLTV delta for path"
-                      },
-                      "features": {
-                        "type": "hex",
-                        "description": "features allowed for path"
                       }
                     }
                   }
