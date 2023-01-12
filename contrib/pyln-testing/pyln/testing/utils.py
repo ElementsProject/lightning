@@ -148,8 +148,8 @@ announcement.  Not needed if there are only two nodes.
 
 
 def wait_channel_quiescent(n1, n2):
-    wait_for(lambda: only_one(only_one(n1.rpc.listpeers(n2.info['id'])['peers'])['channels'])['htlcs'] == [])
-    wait_for(lambda: only_one(only_one(n2.rpc.listpeers(n1.info['id'])['peers'])['channels'])['htlcs'] == [])
+    wait_for(lambda: only_one(n1.rpc.listpeerchannels(n2.info['id'])['channels'])['htlcs'] == [])
+    wait_for(lambda: only_one(n2.rpc.listpeerchannels(n1.info['id'])['channels'])['htlcs'] == [])
 
 
 def get_tx_p2wsh_outnum(bitcoind, tx, amount):
@@ -1038,29 +1038,28 @@ class LightningNode(object):
         yet.
 
         """
-        peers = self.rpc.listpeers(other.info['id'])['peers']
-        if not peers or 'channels' not in peers[0]:
+        peerchannels = self.rpc.listpeerchannels(other.info['id'])['channels']
+        if not peerchannels:
             return None
-        channel = peers[0]['channels'][0]
+        channel = peerchannels[0]
         return channel['state']
 
     def get_channel_scid(self, other):
         """Get the short_channel_id for the channel to the other node.
         """
-        peers = self.rpc.listpeers(other.info['id'])['peers']
-        if not peers or 'channels' not in peers[0]:
+        peerchannels = self.rpc.listpeerchannels(other.info['id'])['channels']
+        if not peerchannels:
             return None
-        channel = peers[0]['channels'][0]
+        channel = peerchannels[0]
         return channel['short_channel_id']
 
     def get_channel_id(self, other):
         """Get the channel_id for the channel to the other node.
         """
-        peers = self.rpc.listpeers(other.info['id'])['peers']
-        if not peers or 'channels' not in peers[0]:
+        channels = self.rpc.listpeerchannels(other.info['id'])['channels']
+        if len(channels) == 0:
             return None
-        channel = peers[0]['channels'][0]
-        return channel['channel_id']
+        return channels[0]['channel_id']
 
     def is_channel_active(self, chanid):
         channels = self.rpc.listchannels(chanid)['channels']
@@ -1068,7 +1067,7 @@ class LightningNode(object):
         return (chanid, 0) in active and (chanid, 1) in active
 
     def wait_for_channel_onchain(self, peerid):
-        txid = only_one(only_one(self.rpc.listpeers(peerid)['peers'])['channels'])['scratch_txid']
+        txid = only_one(self.rpc.listpeerchannels(peerid)['channels'])['scratch_txid']
         wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
 
     def wait_channel_active(self, chanid):
@@ -1102,11 +1101,12 @@ class LightningNode(object):
         peers = self.rpc.listpeers()['peers']
         for p, peer in enumerate(peers):
             if 'channels' in peer:
-                for c, channel in enumerate(peer['channels']):
+                channels_peer = self.rpc.listpeerchannels(peer['id'])
+                for c, channel in enumerate(channels_peer['channels']):
                     if scids is not None and channel['short_channel_id'] not in scids:
                         continue
                     if 'htlcs' in channel:
-                        wait_for(lambda: len(self.rpc.listpeers()['peers'][p]['channels'][c]['htlcs']) == 0)
+                        wait_for(lambda: len(self.rpc.listpeerchannels(peer["id"])['channels'][c]['htlcs']) == 0)
 
     # This sends money to a directly connected peer
     def pay(self, dst, amt, label=None):
@@ -1126,7 +1126,7 @@ class LightningNode(object):
         assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
         # Pick first normal channel.
-        scid = [c['short_channel_id'] for c in only_one(self.rpc.listpeers(dst_id)['peers'])['channels']
+        scid = [c['short_channel_id'] for c in self.rpc.listpeerchannels(dst_id)['channels']
                 if c['state'] == 'CHANNELD_NORMAL'][0]
 
         routestep = {
