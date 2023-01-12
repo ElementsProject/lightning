@@ -444,6 +444,8 @@ struct listpeers_channel {
 	int direction;
 	struct amount_msat total_msat;
 	struct amount_msat spendable_msat;
+	u16 max_accepted_htlcs;
+	size_t num_htlcs;
 	/* TODO Add fields as we need them. */
 };
 

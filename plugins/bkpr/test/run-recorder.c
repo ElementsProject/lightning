@@ -170,6 +170,10 @@ bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok 
 bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		  struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "json_to_txid called!\n"); abort(); }
+/* Generated stub for json_to_u16 */
+bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+                 uint16_t *num UNNEEDED)
+{ fprintf(stderr, "json_to_u16 called!\n"); abort(); }
 /* Generated stub for json_tok_bin_from_hex */
 u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
