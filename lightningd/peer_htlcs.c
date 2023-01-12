@@ -1201,17 +1201,16 @@ REGISTER_PLUGIN_HOOK(htlc_accepted,
 
 /* Figures out how to fwd, allocating return off hp */
 static struct channel_id *calc_forwarding_channel(struct lightningd *ld,
-						  struct htlc_accepted_hook_payload *hp,
-						  const struct route_step *rs)
+						  struct htlc_accepted_hook_payload *hp)
 {
 	const struct onion_payload *p = hp->payload;
 	struct peer *peer;
 	struct channel *c, *best;
 
-	if (rs->nextcase != ONION_FORWARD)
+	if (!p)
 		return NULL;
 
-	if (!p)
+	if (p->final)
 		return NULL;
 
 	if (p->forward_channel) {
@@ -1402,7 +1401,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	/* We don't store actual channel as it could vanish while
 	 * we're in hook */
 	hook_payload->fwd_channel_id
-		= calc_forwarding_channel(ld, hook_payload, rs);
+		= calc_forwarding_channel(ld, hook_payload);
 
 	plugin_hook_call_htlc_accepted(ld, NULL, hook_payload);
 

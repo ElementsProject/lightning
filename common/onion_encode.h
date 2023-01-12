@@ -14,6 +14,8 @@ enum onion_payload_type {
 
 struct onion_payload {
 	enum onion_payload_type type;
+	/* Is this the final hop? */
+	bool final;
 
 	struct amount_msat amt_to_forward;
 	u32 outgoing_cltv;
