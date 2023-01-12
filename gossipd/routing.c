@@ -127,7 +127,6 @@ static struct node_map *new_node_map(const tal_t *ctx)
 {
 	struct node_map *map = tal(ctx, struct node_map);
 	node_map_init(map);
-	tal_add_destructor(map, node_map_clear);
 	return map;
 }
 
@@ -204,9 +203,6 @@ static void destroy_routing_state(struct routing_state *rstate)
 	     chan;
 	     chan = uintmap_after(&rstate->chanmap, &idx))
 		free_chan(rstate, chan);
-
-	/* Free up our htables */
-	pending_cannouncement_map_clear(rstate->pending_cannouncements);
 }
 
 /* We don't check this when loading from the gossip_store: that would break
@@ -356,10 +352,6 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 	/* These remove themselves from chans[]. */
 	while ((c = first_chan(node, &i)) != NULL)
 		free_chan(rstate, c);
-
-	/* Free htable if we need. */
-	if (node_uses_chan_map(node))
-		chan_map_clear(node->chan_map);
 }
 
 struct node *get_node(struct routing_state *rstate,
@@ -2077,8 +2069,6 @@ void remove_all_gossip(struct routing_state *rstate)
 	 * manually. */
 	while ((n = node_map_first(rstate->nodes, &nit)) != NULL) {
 		tal_del_destructor2(n, destroy_node, rstate);
-		if (node_uses_chan_map(n))
-			chan_map_clear(n->chan_map);
 		node_map_del(rstate->nodes, n);
 		tal_free(n);
 	}

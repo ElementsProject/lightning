@@ -2824,7 +2824,6 @@ void htlcs_resubmit(struct lightningd *ld,
 	}
 
 	/* Don't leak memory! */
-	htlc_in_map_clear(unconnected_htlcs_in);
 	tal_free(unconnected_htlcs_in);
 }
 

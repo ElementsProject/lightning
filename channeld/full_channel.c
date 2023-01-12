@@ -120,7 +120,6 @@ struct channel *new_full_channel(const tal_t *ctx,
 		channel->htlcs = tal(channel, struct htlc_map);
 		htlc_map_init(channel->htlcs);
 		memleak_add_helper(channel->htlcs, memleak_help_htlcmap);
-		tal_add_destructor(channel->htlcs, htlc_map_clear);
 	}
 	return channel;
 }

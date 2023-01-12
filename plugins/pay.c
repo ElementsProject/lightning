@@ -533,7 +533,6 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		assert(pm != NULL);
 		add_new_entry(ret, buf, pm);
 	}
-	pay_map_clear(pay_map);
 	json_array_end(ret);
 	return command_finished(cmd, ret);
 }
