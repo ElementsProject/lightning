@@ -1915,8 +1915,8 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 			*aliastok = json_get_member(buffer, tok, "alias"),
 			*max_htlcs = json_get_member(buffer, tok, "max_accepted_htlcs"),
 			*htlcstok = json_get_member(buffer, tok, "htlcs"),
-			*idtok = json_get_member(buffer, tok, "id"),
-			*conntok = json_get_member(buffer, tok, "connected");
+			*idtok = json_get_member(buffer, tok, "peer_id"),
+			*conntok = json_get_member(buffer, tok, "peer_connected");
 
 	chan = tal(ctx, struct listpeers_channel);
 
