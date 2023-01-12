@@ -254,6 +254,41 @@ pub enum ChannelSide {
     REMOTE,
 }
 
+impl TryFrom<i32> for ChannelSide {
+    type Error = crate::Error;
+
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(ChannelSide::LOCAL),
+            1 => Ok(ChannelSide::REMOTE),
+            _ => Err(anyhow!(
+                "Invalid ChannelSide mapping, only 0 or 1 are allowed"
+            )),
+        }
+    }
+}
+
+impl TryFrom<i32> for ChannelState {
+    type Error = crate::Error;
+
+    fn try_from(value: i32) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(ChannelState::OPENINGD),
+            1 => Ok(ChannelState::CHANNELD_AWAITING_LOCKIN),
+            2 => Ok(ChannelState::CHANNELD_NORMAL),
+            3 => Ok(ChannelState::CHANNELD_SHUTTING_DOWN),
+            4 => Ok(ChannelState::CLOSINGD_SIGEXCHANGE),
+            5 => Ok(ChannelState::CLOSINGD_COMPLETE),
+            6 => Ok(ChannelState::AWAITING_UNILATERAL),
+            7 => Ok(ChannelState::FUNDING_SPEND_SEEN),
+            8 => Ok(ChannelState::ONCHAIN),
+            9 => Ok(ChannelState::DUALOPEND_OPEN_INIT),
+            10 => Ok(ChannelState::DUALOPEND_AWAITING_LOCKIN),
+            _ => Err(anyhow!("Invalid channel state {}", value)),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for Amount {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
