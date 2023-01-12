@@ -695,7 +695,9 @@ struct amount_msat channel_amount_receivable(const struct channel *channel)
 
 static void json_add_channel(struct lightningd *ld,
 			     struct json_stream *response, const char *key,
-			     const struct channel *channel)
+			     const struct channel *channel,
+			     /* Only set for listpeerchannels */
+			     const struct peer *peer)
 {
 	struct channel_stats channel_stats;
 	struct amount_msat funding_msat;
@@ -704,6 +706,10 @@ static void json_add_channel(struct lightningd *ld,
 	u32 feerate;
 
 	json_object_start(response, key);
+	if (peer) {
+		json_add_node_id(response, "peer_id", &peer->id);
+		json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
+	}
 	json_add_string(response, "state", channel_state_name(channel));
 	if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
 		struct bitcoin_txid txid;
@@ -1936,13 +1942,13 @@ static void json_add_peer(struct lightningd *ld,
 	}
 
 	json_array_start(response, "channels");
-	json_add_uncommitted_channel(response, p->uncommitted_channel);
+	json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
 
 	list_for_each(&p->channels, channel, list) {
 		if (channel_unsaved(channel))
-			json_add_unsaved_channel(response, channel);
+			json_add_unsaved_channel(response, channel, NULL);
 		else
-			json_add_channel(ld, response, NULL, channel);
+			json_add_channel(ld, response, NULL, channel, NULL);
 	}
 	json_array_end(response);
 
