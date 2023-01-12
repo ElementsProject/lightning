@@ -1808,8 +1808,9 @@ pub mod responses {
 	    pub connected: bool,
 	    #[serde(alias = "log", skip_serializing_if = "crate::is_none_or_empty")]
 	    pub log: Option<Vec<ListpeersPeersLog>>,
-	    #[serde(alias = "channels")]
-	    pub channels: Vec<ListpeersPeersChannels>,
+	    #[deprecated]
+	    #[serde(alias = "channels", skip_serializing_if = "crate::is_none_or_empty")]
+	    pub channels: Option<Vec<ListpeersPeersChannels>>,
 	    #[serde(alias = "netaddr", skip_serializing_if = "crate::is_none_or_empty")]
 	    pub netaddr: Option<Vec<String>>,
 	    #[serde(alias = "remote_addr", skip_serializing_if = "Option::is_none")]
