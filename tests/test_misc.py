@@ -1268,7 +1268,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
     bitcoind.generate_block(1)                      # height 106
 
     daemon = 'DUALOPEND' if l1.config('experimental-dual-fund') else 'CHANNELD'
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['status']
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['status']
              == ['{}_AWAITING_LOCKIN:Funding needs 1 more confirmations to be ready.'.format(daemon)])
     bitcoind.generate_block(1)                      # height 107
     l1.wait_channel_active('106x1x0')
@@ -1325,7 +1325,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(r'Peer transient failure .* short_channel_id changed to 104x1x0 \(was 103x1x0\)')
 
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
         'CHANNELD_NORMAL:Channel ready for use. They need our announcement signatures.'])
 
@@ -1335,7 +1335,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     wait_for(lambda: chan_active(l2, '104x1x0', True))
     assert l2.rpc.listchannels('103x1x0')['channels'] == []
 
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
         'CHANNELD_NORMAL:Channel ready for use. Channel announced.'])
 
@@ -2663,7 +2663,7 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     # Once channels are gone, htlcs are gone.
     for n in (l1, l2, l3, l4):
         # They might reconnect, but still will have no channels
-        wait_for(lambda: all(p['channels'] == [] for p in n.rpc.listpeers()['peers']))
+        wait_for(lambda: n.rpc.listpeerchannels()['channels'] == [])
         assert n.rpc.listhtlcs() == {'htlcs': []}
 
     # But forwards are not forgotten!
