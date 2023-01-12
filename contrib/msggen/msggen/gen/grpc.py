@@ -405,6 +405,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
     """
     def generate(self, service: Service):
         self.generate_requests(service)
+        self.generate_responses(service)
 
     def generate_composite(self, prefix, field: CompositeField) -> None:
         # First pass: generate any sub-fields before we generate the
@@ -436,12 +437,22 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     'u32': f's',
                     'secret': f's.try_into().unwrap()'
                 }.get(typ, f's.into()')
+
+                # TODO fix properly
+                if typ in ["ListtransactionsTransactionsType"]:
+                    continue
+                if name == 'state_changes':
+                    self.write(f" state_changes: None,")
+                    continue
+
                 if f.required:
                     self.write(f"{name}: c.{name}.into_iter().map(|s| {mapping}).collect(), // Rule #4\n", numindent=3)
                 else:
                     self.write(f"{name}: Some(c.{name}.into_iter().map(|s| {mapping}).collect()), // Rule #4\n", numindent=3)
 
             elif isinstance(f, EnumField):
+                if f.path == 'ListPeers.peers[].channels[].htlcs[].state':
+                    continue
                 if f.required:
                     self.write(f"{name}: c.{name}.try_into().unwrap(),\n", numindent=3)
                 else:
@@ -453,7 +464,12 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 # types, or have some conversion such as
                 # hex-decoding. Also includes the `Some()` that grpc
                 # requires for non-native types.
+
+                if name == "scriptPubKey":
+                    name = "script_pub_key"
+
                 rhs = {
+                    'u8': f'c.{name} as u8',
                     'u16': f'c.{name} as u16',
                     'u16?': f'c.{name}.map(|v| v as u16)',
                     'hex': f'hex::encode(&c.{name})',
