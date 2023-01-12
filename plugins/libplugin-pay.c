@@ -2350,73 +2350,39 @@ static struct command_result *
 local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			      const jsmntok_t *toks, struct payment *p)
 {
-	const jsmntok_t *peers, *peer, *channels, *channel, *spendsats, *scid,
-	    *dir, *connected, *max_htlc, *htlcs, *state, *alias, *alias_local;
-	size_t i, j;
-	peers = json_get_member(buffer, toks, "peers");
+	struct listpeers_channel **chans;
 
-	if (peers == NULL)
-		goto done;
-        /* cppcheck-suppress uninitvar - cppcheck can't undestand these macros. */
-	json_for_each_arr(i, peer, peers) {
-		channels = json_get_member(buffer, peer, "channels");
-		if (channels == NULL)
-			continue;
+	chans = json_to_listpeers_channels(tmpctx, buffer, toks);
 
-		connected = json_get_member(buffer, peer, "connected");
+	for (size_t i = 0; i < tal_count(chans); i++) {
+		struct short_channel_id scid;
+		bool enabled;
+		u16 htlc_budget;
 
-		json_for_each_arr(j, channel, channels) {
-			struct channel_hint h;
-			spendsats = json_get_member(buffer, channel, "spendable_msat");
-			scid = json_get_member(buffer, channel, "short_channel_id");
+		/* Filter out local channels if they are
+		 * either a) disconnected, or b) not in normal
+		 * state. */
+		enabled = chans[i]->connected && streq(chans[i]->state, "CHANNELD_NORMAL");
 
-			alias = json_get_member(buffer, channel, "alias");
-			if (alias != NULL)
-				alias_local = json_get_member(buffer, alias, "local");
-			else
-				alias_local = NULL;
+		if (chans[i]->scid != NULL)
+			scid = *chans[i]->scid;
+		else
+			scid = *chans[i]->alias[LOCAL];
 
-			dir = json_get_member(buffer, channel, "direction");
-			max_htlc = json_get_member(buffer, channel, "max_accepted_htlcs");
-			htlcs = json_get_member(buffer, channel, "htlcs");
-			state = json_get_member(buffer, channel, "state");
-			if (spendsats == NULL ||
-			    (scid == NULL && alias_local == NULL) ||
-			    dir == NULL || max_htlc == NULL || state == NULL ||
-			    max_htlc->type != JSMN_PRIMITIVE || htlcs == NULL ||
-			    htlcs->type != JSMN_ARRAY)
-				continue;
+		/* Take the configured number of max_htlcs and
+		 * subtract any HTLCs that might already be added to
+		 * the channel. This is a best effort estimate and
+		 * mostly considers stuck htlcs, concurrent payments
+		 * may throw us off a bit. */
+		if (chans[i]->num_htlcs > chans[i]->max_accepted_htlcs)
+			htlc_budget = 0;
+		else
+			htlc_budget = chans[i]->max_accepted_htlcs - chans[i]->num_htlcs;
 
-			/* Filter out local channels if they are
-			 * either a) disconnected, or b) not in normal
-			 * state. */
-			json_to_bool(buffer, connected, &h.enabled);
-			h.enabled &= json_tok_streq(buffer, state, "CHANNELD_NORMAL");
-
-			if (scid != NULL)
-				json_to_short_channel_id(buffer, scid, &h.scid.scid);
-			else
-				json_to_short_channel_id(buffer, alias_local, &h.scid.scid);
-
-			json_to_int(buffer, dir, &h.scid.dir);
-
-			json_to_msat(buffer, spendsats, &h.estimated_capacity);
-
-			/* Take the configured number of max_htlcs and
-			 * subtract any HTLCs that might already be added to
-			 * the channel. This is a best effort estimate and
-			 * mostly considers stuck htlcs, concurrent payments
-			 * may throw us off a bit. */
-			json_to_u16(buffer, max_htlc, &h.htlc_budget);
-			h.htlc_budget -= htlcs->size;
-			h.local = true;
-
-			channel_hints_update(p, h.scid.scid, h.scid.dir,
-					     h.enabled, true, &h.estimated_capacity, &h.htlc_budget);
-		}
+		channel_hints_update(p, scid, chans[i]->direction, enabled, true,
+				     &chans[i]->spendable_msat, &htlc_budget);
 	}
 
-done:
 	payment_continue(p);
 	return command_still_pending(cmd);
 }
