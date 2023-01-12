@@ -177,6 +177,7 @@ static const char *pull_expected_length(struct bolt11 *b11,
  * provides proof of payment
  */
 static const char *decode_p(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_p)
@@ -186,8 +187,7 @@ static const char *decode_p(struct bolt11 *b11,
 	 * A payer... SHOULD use the first `p` field that it did NOT
 	 * skip as the payment hash.
 	 */
-	if (*have_p)
-		return unknown_field(b11, hu5, data, field_len, 'p');
+	assert(!*have_p);
 
 	/* BOLT #11:
 	 *
@@ -205,6 +205,7 @@ static const char *decode_p(struct bolt11 *b11,
  * (UTF-8), e.g. '1 cup of coffee' or 'ナンセンス 1杯'
  */
 static const char *decode_d(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_d)
@@ -212,9 +213,7 @@ static const char *decode_d(struct bolt11 *b11,
 	u8 *desc;
 	const char *err;
 
-	if (*have_d)
-		return unknown_field(b11, hu5, data, field_len, 'd');
-
+	assert(!*have_d);
 	desc = pull_all(NULL, hu5, data, field_len, false, &err);
 	if (!desc)
 		return err;
@@ -235,6 +234,7 @@ static const char *decode_d(struct bolt11 *b11,
  * transport specific and not defined here.
  */
 static const char *decode_h(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_h)
@@ -242,9 +242,7 @@ static const char *decode_h(struct bolt11 *b11,
 	const char *err;
 	struct sha256 hash;
 
-	if (*have_h)
-		return unknown_field(b11, hu5, data, field_len, 'h');
-
+	assert(!*have_h);
 	/* BOLT #11:
 	 *
 	 * A reader... MUST skip over unknown fields, OR an `f` field
@@ -266,14 +264,14 @@ static const char *decode_h(struct bolt11 *b11,
  */
 #define DEFAULT_X 3600
 static const char *decode_x(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_x)
 {
 	const char *err;
 
-	if (*have_x)
-		return unknown_field(b11, hu5, data, field_len, 'x');
+	assert(!*have_x);
 
 	/* FIXME: Put upper limit in bolt 11 */
 	err = pull_uint(hu5, data, field_len, &b11->expiry, *field_len * 5);
@@ -290,6 +288,7 @@ static const char *decode_x(struct bolt11 *b11,
  * last HTLC in the route. Default is 18 if not specified.
  */
 static const char *decode_c(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_c)
@@ -297,8 +296,7 @@ static const char *decode_c(struct bolt11 *b11,
 	u64 c;
 	const char *err;
 
-	if (*have_c)
-		return unknown_field(b11, hu5, data, field_len, 'c');
+	assert(!*have_c);
 
 	/* FIXME: Put upper limit in bolt 11 */
 	err = pull_uint(hu5, data, field_len, &c, *field_len * 5);
@@ -314,13 +312,12 @@ static const char *decode_c(struct bolt11 *b11,
 }
 
 static const char *decode_n(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_n)
 {
-	if (*have_n)
-		return unknown_field(b11, hu5, data, field_len, 'n');
-
+	assert(!*have_n);
 	/* BOLT #11:
 	 *
 	 * A reader... MUST skip over unknown fields, OR an `f` field
@@ -336,6 +333,7 @@ static const char *decode_n(struct bolt11 *b11,
  *    forwarding nodes from probing the payment recipient.
  */
 static const char *decode_s(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_s)
@@ -343,8 +341,7 @@ static const char *decode_s(struct bolt11 *b11,
 	const char *err;
 	struct secret secret;
 
-	if (*have_s)
-		return unknown_field(b11, hu5, data, field_len, 's');
+	assert(!*have_s);
 
 	/* BOLT #11:
 	 *
@@ -365,8 +362,10 @@ static const char *decode_s(struct bolt11 *b11,
  * and contains a witness program or P2PKH or P2SH address.
  */
 static const char *decode_f(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
-			    const u5 **data, size_t *field_len)
+			    const u5 **data, size_t *field_len,
+			    bool *have_f)
 {
 	u64 version;
 	u8 *fallback;
@@ -428,6 +427,7 @@ static const char *decode_f(struct bolt11 *b11,
 
 	b11->fallbacks[tal_count(b11->fallbacks)-1]
 		= tal_steal(b11->fallbacks, fallback);
+	*have_f = true;
 	return NULL;
 }
 
@@ -464,8 +464,10 @@ static void towire_route_info(u8 **pptr, const struct route_info *route_info)
  *   * `cltv_expiry_delta` (16 bits, big-endian)
  */
 static const char *decode_r(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
-			    const u5 **data, size_t *field_len)
+			    const u5 **data, size_t *field_len,
+			    bool *have_r)
 {
 	const u8 *r8;
 	size_t n = 0;
@@ -489,6 +491,7 @@ static const char *decode_r(struct bolt11 *b11,
 
 	/* Append route */
 	tal_arr_expand(&b11->routes, r);
+	*have_r = true;
 	return NULL;
 }
 
@@ -515,12 +518,15 @@ static void shift_bitmap_down(u8 *bitmap, size_t bits)
 static const char *decode_9(struct bolt11 *b11,
 			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
-			    const u5 **data, size_t *field_len)
+			    const u5 **data, size_t *field_len,
+			    bool *have_9)
 {
 	size_t flen = (*field_len * 5 + 7) / 8;
 	int badf;
 	size_t databits = *field_len * 5;
 	const char *err;
+
+	assert(!*have_9);
 
 	b11->features = pull_all(b11, hu5, data, field_len, true, &err);
 	if (!b11->features)
@@ -545,6 +551,7 @@ static const char *decode_9(struct bolt11 *b11,
 			return tal_fmt(b11, "9: unknown feature bit %i", badf);
 	}
 
+	*have_9 = true;
 	return NULL;
 }
 
@@ -556,14 +563,14 @@ static const char *decode_9(struct bolt11 *b11,
  * route length.
  */
 static const char *decode_m(struct bolt11 *b11,
+			    const struct feature_set *our_features,
 			    struct hash_u5 *hu5,
 			    const u5 **data, size_t *field_len,
 			    bool *have_m)
 {
 	const char *err;
 
-	if (*have_m)
-		return unknown_field(b11, hu5, data, field_len, 'm');
+	assert(!*have_m);
 
 	b11->metadata = pull_all(b11, hu5, data, field_len, false, &err);
 	if (!b11->metadata)
@@ -597,6 +604,56 @@ struct bolt11 *new_bolt11(const tal_t *ctx,
 	if (msat)
 		b11->msat = tal_dup(b11, struct amount_msat, msat);
 	return b11;
+}
+
+struct decoder {
+	/* What BOLT11 letter this is */
+	const char letter;
+	/* If false, then any dups get treated as "unknown" fields */
+	bool allow_duplicates;
+	/* Routine to decode: returns NULL if it decodes ok, and
+	 * sets *have_field = true if it is not an unknown form.
+	 * Otherwise returns error string (literal or tal off b11). */
+	const char *(*decode)(struct bolt11 *b11,
+			      const struct feature_set *our_features,
+			      struct hash_u5 *hu5,
+			      const u5 **data, size_t *field_len,
+			      bool *have_field);
+};
+
+static const struct decoder decoders[] = {
+	/* BOLT #11:
+	 *
+	 * A payer... SHOULD use the first `p` field that it did NOT
+	 * skip as the payment hash.
+	 */
+	{ 'p', false, decode_p },
+	{ 'd', false, decode_d },
+	{ 'h', false, decode_h },
+	{ 'x', false, decode_x },
+	{ 'c', false, decode_c },
+	{ 'n', false, decode_n },
+	{ 's', false, decode_s },
+	/* BOLT #11:
+	 *   - MAY include one or more `f` fields.
+	 */
+	{ 'f', true, decode_f },
+	/* BOLT #11:
+	 *
+	 * there may be more than one `r` field
+	 */
+	{ 'r', true, decode_r },
+	{ '9', false, decode_9 },
+	{ 'm', false, decode_m },
+};
+
+static const struct decoder *find_decoder(char c)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(decoders); i++) {
+		if (decoders[i].letter == c)
+			return decoders + i;
+	}
+	return NULL;
 }
 
 static bool bech32_decode_alloc(const tal_t *ctx,
@@ -638,10 +695,10 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	struct bolt11 *b11 = new_bolt11(ctx, NULL);
 	struct hash_u5 hu5;
 	const char *err;
-	bool have_p = false, have_d = false, have_h = false,
-		have_x = false, have_c = false, have_s = false, have_m = false;
+	/* We don't need all of these, but in theory we could have 32 types */
+	bool have_field[32];
 
-	*have_n = false;
+	memset(have_field, 0, sizeof(have_field));
 	b11->routes = tal_arr(b11, struct route_info *, 0);
 
 	/* BOLT #11:
@@ -770,6 +827,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	while (data_len > 520 / 5) {
 		const char *problem = NULL;
 		u64 type, field_len;
+		const struct decoder *decoder;
 
 		/* BOLT #11:
 		 *
@@ -795,60 +853,13 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		/* Do this now: the decode function fixes up the data ptr */
 		data_len -= field_len;
 
-		/* FIXME: We should make decoding table driven, since they
-		 * follow common patterns! */
-		switch (bech32_charset[type]) {
-		case 'p':
-			problem = decode_p(b11, &hu5, &data, &field_len,
-					   &have_p);
-			break;
-
-		case 'd':
-			problem = decode_d(b11, &hu5, &data, &field_len,
-					   &have_d);
-			break;
-
-		case 'h':
-			problem = decode_h(b11, &hu5, &data, &field_len,
-					   &have_h);
-			break;
-
-		case 'n':
-			problem = decode_n(b11, &hu5, &data, &field_len,
-					   have_n);
-			break;
-
-		case 'x':
-			problem = decode_x(b11, &hu5, &data, &field_len,
-					   &have_x);
-			break;
-
-		case 'c':
-			problem = decode_c(b11, &hu5, &data, &field_len,
-					   &have_c);
-			break;
-
-		case 'f':
-			problem = decode_f(b11, &hu5, &data, &field_len);
-			break;
-		case 'r':
-			problem = decode_r(b11, &hu5, &data, &field_len);
-			break;
-		case '9':
-			problem = decode_9(b11, our_features, &hu5,
-					   &data, &field_len);
-			break;
-		case 's':
-			problem = decode_s(b11, &hu5, &data, &field_len,
-					   &have_s);
-			break;
-		case 'm':
-			problem = decode_m(b11, &hu5, &data, &field_len,
-					   &have_m);
-			break;
-		default:
+		decoder = find_decoder(bech32_charset[type]);
+		if (!decoder || (have_field[type] && !decoder->allow_duplicates)) {
 			problem = unknown_field(b11, &hu5, &data, &field_len,
 						bech32_charset[type]);
+		} else {
+			problem = decoder->decode(b11, our_features, &hu5,
+						  &data, &field_len, &have_field[type]);
 		}
 		if (problem)
 			return decode_fail(b11, fail, "%s", problem);
@@ -857,10 +868,10 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 					   bech32_charset[type], field_len);
 	}
 
-	if (!have_p)
+	if (!have_field[bech32_charset_rev['p']])
 		return decode_fail(b11, fail, "No valid 'p' field found");
 
-	if (have_h && description) {
+	if (have_field[bech32_charset_rev['h']] && description) {
 		struct sha256 sha;
 
 		/* BOLT #11:
@@ -877,6 +888,8 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 
 	hash_u5_done(&hu5, hash);
 	*sig = tal_dup_arr(ctx, u5, data, data_len, 0);
+
+	*have_n = have_field[bech32_charset_rev['n']];
 	return b11;
 }
 
