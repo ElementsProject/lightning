@@ -50,5 +50,14 @@ def db_write(plugin, writes, **kwargs):
     return {"result": "continue"}
 
 
+@plugin.subscribe("shutdown")
+def shutdown(plugin, **kwargs):
+    plugin.log("received shutdown notification")
+
+
 plugin.add_option('dblog-file', None, 'The db file to create.')
 plugin.run()
+
+# Because we subscribed 'db_write' hook, lightningd `stop` will wait for us in
+# the 2nd call of shutdown_plugins, after database has been closed!
+plugin.log('reached end of main')

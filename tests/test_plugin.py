@@ -525,7 +525,11 @@ def test_async_rpcmethod(node_factory, executor):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Only sqlite3 implements the db_write_hook currently")
 def test_db_hook(node_factory, executor):
-    """This tests the db hook."""
+    """This tests the db_write hook basics and also:
+       A plugin that registered the hook, is kept alive longer when lightningd
+       is shutdown, which sends it EOF and waits for the plugin to self-terminate.
+       The plugin can still subscribe "shutdown" notification.
+    """
     dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
     l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
                                         'dblog-file': dbfile})
@@ -539,7 +543,12 @@ def test_db_hook(node_factory, executor):
     l1.daemon.wait_for_log('plugin-dblog.py: CREATE TABLE version \\(version INTEGER\\)')
     l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
 
-    l1.stop()
+    # lightningd 'stop' causes EOF, so it can self-terminate at its discretion
+    f_stop = executor.submit(l1.rpc.stop)
+    l1.daemon.wait_for_logs(['plugin-dblog.py: received shutdown notification',
+                             'plugin-dblog.py: reached end of main',
+                             'plugin-dblog.py: Killing plugin: exited in state shutdown'])
+    f_stop.result()
 
     # Databases should be identical.
     db1 = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'lightningd.sqlite3'))
