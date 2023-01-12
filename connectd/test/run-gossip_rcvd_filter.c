@@ -172,9 +172,14 @@ int main(int argc, char *argv[])
 	assert(htable_count(f->cur) == 0);
 	assert(htable_count(f->old) == 0);
 
-	/* They should have no children, and f should only have 2. */
-	assert(!tal_first(f->cur));
-	assert(!tal_first(f->old));
+	/* They should have no children (except htable contents for one!), and
+	 * f should only have 2. */
+	if (tal_first(f->cur) == NULL)
+		assert(tal_first(f->old) == f->old->table);
+	else {
+		assert(tal_first(f->cur) == f->cur->table);
+		assert(tal_first(f->old) == NULL);
+	}
 
 	assert((tal_first(f) == f->cur
 		&& tal_next(f->cur) == f->old

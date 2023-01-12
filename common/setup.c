@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/ccan/err/err.h>
+#include <ccan/ccan/htable/htable.h>
 #include <common/autodata.h>
 #include <common/setup.h>
 #include <common/utils.h>
@@ -24,6 +25,15 @@ static struct wally_operations wally_tal_ops = {
 	.free_fn = wally_free,
 };
 
+static void *htable_tal(struct htable *ht, size_t len)
+{
+	return tal_arrz(ht, u8, len);
+}
+
+static void htable_tal_free(struct htable *ht, void *p)
+{
+	tal_free(p);
+}
 
 void common_setup(const char *argv0)
 {
@@ -46,6 +56,9 @@ void common_setup(const char *argv0)
 	if (wally_ret != WALLY_OK)
 		errx(1, "Error setting libwally operations: %i", wally_ret);
 	secp256k1_ctx = wally_get_secp_context();
+
+	/* Make htable* use tal for the tables themselves. */
+	htable_set_allocator(htable_tal, htable_tal_free);
 
 	setup_tmpctx();
 }
