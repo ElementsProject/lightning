@@ -36,7 +36,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **perkb** (u32): Feerate per 1000 virtual bytes
 - **owner** (string, optional): The current subdaemon controlling this connection
 - **short\_channel\_id** (short\_channel\_id, optional): The short\_channel\_id (once locked in)
-- **channel\_id** (hash, optional): The full channel\_id (always 64 characters)
+- **channel\_id** (hash, optional): The full channel\_id (funding txid Xored with output number) (always 64 characters)
 - **funding\_txid** (txid, optional): ID of the funding transaction
 - **funding\_outnum** (u32, optional): The 0-based output number of the funding transaction which opens the channel
 - **initial\_feerate** (string, optional): For inflight opens, the first feerate used to initiate the channel open
@@ -52,7 +52,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **scratch\_txid** (txid): The commitment transaction txid we would use if we went onchain now
 - **close\_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
 - **private** (boolean, optional): if False, we will not announce this channel
-- **closer** (string, optional): Who initiated the channel close (one of "local", "remote")
+- **closer** (string, optional): Who initiated the channel close (only present if closing) (one of "local", "remote")
 - **funding** (object, optional):
   - **local\_funds\_msat** (msat): Amount of channel we funded
   - **remote\_funds\_msat** (msat): Amount of channel they funded
@@ -61,23 +61,23 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **pushed\_msat** (msat, optional): Amount pushed from opener to peer
   - **fee\_paid\_msat** (msat, optional): Amount we paid peer at open
   - **fee\_rcvd\_msat** (msat, optional): Amount we were paid by peer at open
-- **to\_us\_msat** (msat, optional): how much of channel is owed to us
-- **min\_to\_us\_msat** (msat, optional): least amount owed to us ever
-- **max\_to\_us\_msat** (msat, optional): most amount owed to us ever
+- **to\_us\_msat** (msat, optional): How much of channel is owed to us
+- **min\_to\_us\_msat** (msat, optional): Least amount owed to us ever.  If the peer were to succesfully steal from us, this is the amount we would still retain.
+- **max\_to\_us\_msat** (msat, optional): Most amount owed to us ever.  If we were to successfully steal from the peer, this is the amount we could potentially get.
 - **total\_msat** (msat, optional): total amount in the channel
 - **fee\_base\_msat** (msat, optional): amount we charge to use the channel
 - **fee\_proportional\_millionths** (u32, optional): amount we charge to use the channel in parts-per-million
-- **dust\_limit\_msat** (msat, optional): minimum amount for an output on the channel transactions
-- **max\_total\_htlc\_in\_msat** (msat, optional): max amount accept in a single payment
-- **their\_reserve\_msat** (msat, optional): minimum we insist they keep in channel
-- **our\_reserve\_msat** (msat, optional): minimum they insist we keep in channel
-- **spendable\_msat** (msat, optional): total we could send through channel
-- **receivable\_msat** (msat, optional): total peer could send through channel
-- **minimum\_htlc\_in\_msat** (msat, optional): the minimum amount HTLC we accept
-- **minimum\_htlc\_out\_msat** (msat, optional): the minimum amount HTLC we will send
-- **maximum\_htlc\_out\_msat** (msat, optional): the maximum amount HTLC we will send
-- **their\_to\_self\_delay** (u32, optional): the number of blocks before they can take their funds if they unilateral close
-- **our\_to\_self\_delay** (u32, optional): the number of blocks before we can take our funds if we unilateral close
+- **dust\_limit\_msat** (msat, optional): Minimum amount for an output on the channel transactions
+- **max\_total\_htlc\_in\_msat** (msat, optional): Max amount accept in a single payment
+- **their\_reserve\_msat** (msat, optional): Minimum we insist they keep in channel (default is 1% of the total channel capacity).  If they have less than this in the channel, they cannot send to us on that channel
+- **our\_reserve\_msat** (msat, optional): Minimum they insist we keep in channel. If you have less than this in the channel, you cannot send out via this channel.
+- **spendable\_msat** (msat, optional): An estimate of the total we could send through channel (can be wrong because adding HTLCs requires an increase in fees paid to onchain miners, and onchain fees change dynamically according to onchain activity)
+- **receivable\_msat** (msat, optional): An estimate of the total peer could send through channel
+- **minimum\_htlc\_in\_msat** (msat, optional): The minimum amount HTLC we accept
+- **minimum\_htlc\_out\_msat** (msat, optional): The minimum amount HTLC we will send
+- **maximum\_htlc\_out\_msat** (msat, optional): The maximum amount HTLC we will send
+- **their\_to\_self\_delay** (u32, optional): The number of blocks before they can take their funds if they unilateral close
+- **our\_to\_self\_delay** (u32, optional): The number of blocks before we can take our funds if we unilateral close
 - **max\_accepted\_htlcs** (u32, optional): Maximum number of incoming HTLC we will accept at once
 - **alias** (object, optional):
   - **local** (short\_channel\_id, optional): An alias assigned by this node to this channel, used for outgoing payments
@@ -102,9 +102,9 @@ On success, an object containing **channels** is returned.  It is an array of ob
   - **direction** (string): Whether it came from peer, or is going to peer (one of "in", "out")
   - **id** (u64): Unique ID for this htlc on this channel in this direction
   - **amount\_msat** (msat): Amount send/received for this HTLC
-  - **expiry** (u32): Block this HTLC expires at
+  - **expiry** (u32): Block this HTLC expires at (after which an `in` direction HTLC will be returned to the peer, an `out` returned to us).  If this expiry is too close, lightningd(8) will automatically unilaterally close the channel in order to enforce the timeout onchain.
   - **payment\_hash** (hash): the hash of the payment\_preimage which will prove payment (always 64 characters)
-  - **local\_trimmed** (boolean, optional): if this is too small to enforce onchain (always *true*)
+  - **local\_trimmed** (boolean, optional): If this is too small to enforce onchain; it doesn't appear in the commitment transaction and will not be enforced in a unilateral close.  Generally true if the HTLC (after subtracting onchain fees) is below the `dust_limit_msat` for the channel. (always *true*)
   - **status** (string, optional): set if this HTLC is currently waiting on a hook (and shows what plugin)
 
   If **direction** is "out":
@@ -117,7 +117,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 
 If **close\_to** is present:
 
-  - **close\_to\_addr** (string, optional): The bitcoin address we will close to
+  - **close\_to\_addr** (string, optional): The bitcoin address we will close to (present if close\_to\_addr is a standardized address)
 
 If **scratch\_txid** is present:
 
@@ -125,7 +125,7 @@ If **scratch\_txid** is present:
 
 If **short\_channel\_id** is present:
 
-  - **direction** (u32): 0 if we're the lesser node\_id, 1 if we're the greater
+  - **direction** (u32): 0 if we're the lesser node\_id, 1 if we're the greater (as used in BOLT #7 channel\_update)
 
 If **inflight** is present:
 
@@ -135,20 +135,19 @@ If **inflight** is present:
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
-On success, an object with a "channels" key is returned containing a list
-of 0 or more objects. If *id* and/or *status* are supplied and no matching
-nodes are found, a "channels" object with an empty list is returned.
+The *state* field values (and *old\_state* / *new\_state*) are worth describing further:
 
-The objects in the *channels* array will have at least these fields:
-
-* *state*: Any of these strings:
   * `"OPENINGD"`: The channel funding protocol with the peer is ongoing
     and both sides are negotiating parameters.
-  * `"CHANNELD_AWAITING_LOCKIN"`: The peer and you have agreed on channel
+  * `"DUALOPEND_OPEN_INIT"`: Like `OPENINGD`, but for v2 connections which
+    are using collaborative opens.
+  * `"CHANNELD_AWAITING_LOCKIN"` / `"DUALOPEND\_AWAITING\_LOCKIN"`: The peer and you have agreed on channel
     parameters and are just waiting for the channel funding transaction to
-    be confirmed deeply.
+    be confirmed deeply (original and collaborative open protocols, respectively).
     Both you and the peer must acknowledge the channel funding transaction
     to be confirmed deeply before entering the next state.
+	Also, you can increase the onchain fee for channels in `DUALOPEND\_AWAITING\_LOCKIN`
+	using lightning-openchannel\_bump(7).
   * `"CHANNELD_NORMAL"`: The channel can be used for normal payments.
   * `"CHANNELD_SHUTTING_DOWN"`: A mutual close was requested (by you or
     peer) and both of you are waiting for HTLCs in-flight to be either
@@ -168,156 +167,6 @@ The objects in the *channels* array will have at least these fields:
   * `"ONCHAIN"`: You saw the funding transaction getting spent and now
     know what happened (i.e. if it was a proper unilateral close by the
     peer, or a theft attempt).
-  * `"CLOSED"`: The channel closure has been confirmed deeply.
-    The channel will eventually be removed from this array.
-* *state\_changes*: An array of objects describing prior state change events.
-* *opener*: A string `"local"` or `"remote`" describing which side opened this
-  channel.
-* *closer*: A string `"local"` or `"remote`" describing which side
-  closed this channel or `null` if the channel is not (being) closed yet.
-* *status*: An array of strings containing the most important log messages
-  relevant to this channel.
-  Also known as the "billboard".
-* *owner*: A string describing which particular sub-daemon of `lightningd`
-  currently is responsible for this channel.
-  One of: `"lightning_openingd"`, `"lightning_channeld"`,
-  `"lightning_closingd"`, `"lightning_onchaind"`.
-* *to\_us\_msat*: A string describing how much of the funds is owned by us;
-  a number followed by a string unit.
-* *total\_msat*: A string describing the total capacity of the channel;
-  a number followed by a string unit.
-* *fee\_base\_msat*: The fixed routing fee we charge for forwards going out over
-  this channel, regardless of payment size.
-* *fee\_proportional\_millionths*: The proportional routing fees in ppm (parts-
-  per-millionths) we charge for forwards going out over this channel.
-* *features*: An array of feature names supported by this channel.
-
-These fields may exist if the channel has gotten beyond the `"OPENINGD"`
-state, or in various circumstances:
-
-* *short\_channel\_id*: A string of the short channel ID for the channel;
-  Format is `"BBBBxTTTxOOO"`, where `"BBBB"` is the numeric block height
-  at which the funding transaction was confirmed, `"TTT"` is the numeric
-  funding transaction index within that block, and `"OOO"` is the
-  numeric output index of the transaction output that actually anchors
-  this channel.
-* *direction*: The channel-direction we own, as per  BOLT \#7.
-  We own channel-direction 0 if our node ID is "less than" the peer node ID
-  in a lexicographical ordering of our node IDs, otherwise we own
-  channel-direction 1.
-  Our `channel_update` will use this *direction*.
-* *channel\_id*: The full channel ID of the channel;
-  the funding transaction ID XORed with the output number.
-* *funding\_txid*: The funding transaction ID of the channel.
-* *close\_to*: The raw `scriptPubKey` that was indicated in the starting
-  **fundchannel\_start** command and accepted by the peer.
-  If the `scriptPubKey` encodes a standardized address, an additional
-  *close\_to\_addr* field will be present with the standardized address.
-* *private*: A boolean, true if the channel is unpublished, false if the
-  channel is published.
-* *funding\_msat*: An object, whose field names are the node
-  IDs involved in the channel, and whose values are strings (numbers with
-  a unit suffix) indicating how much that node originally contributed in
-  opening the channel.
-* *min\_to\_us\_msat*: A string describing the historic point at which
-  we owned the least amount of funds in this channel;
-  a number followed by a string unit.
-  If the peer were to succesfully steal from us, this is the amount we
-  would still retain.
-* *max\_to\_us\_msat*: A string describing the historic point at which
-  we owned the most amount of funds in this channel;
-  a number followed by a string unit.
-  If we were to successfully steal from the peer, this is the amount we
-  could potentially get.
-* *dust\_limit\_msat*: A string describing an amount;
-  if an HTLC or the amount wholly-owned by one node is at or below this
-  amount, it will be considered "dusty" and will not appear in a close
-  transaction, and will be donated to miners as fee;
-  a number followed by a string unit.
-* *max\_total\_htlc\_in\_msat*: A string describing an amount;
-  the sum of all HTLCs in the channel cannot exceed this amount;
-  a number followed by a string unit.
-* *their\_reserve\_msat*: A string describing the minimum amount that
-  the peer must keep in the channel when it attempts to send out;
-  if it has less than this in the channel, it cannot send to us on
-  that channel;
-  a number followed by a string unit.
-  We impose this on them, default is 1% of the total channel capacity.
-* *our\_reserve\_msat*: A string describing the minimum amount that
-  you must keep in the channel when you attempt to send out;
-  if you have less than this in the channel, you cannot send out
-  via this channel;
-  a number followed by a string unit.
-  The peer imposes this on us, default is 1% of the total channel capacity.
-* *spendable\_msat* and *receivable\_msat*: A string describing an
-  ***estimate*** of how much we can send or receive over this channel in a
-  single payment (or payment-part for multi-part payments);
-  a number followed by a string unit.
-  This is an ***estimate***, which can be wrong because adding HTLCs requires
-  an increase in fees paid to onchain miners, and onchain fees change
-  dynamically according to onchain activity.
-  For a sufficiently-large channel, this can be limited by the rules imposed
-  under certain blockchains;
-  for example, individual Bitcoin mainnet payment-parts cannot exceed
-  42.94967295 mBTC.
-* *minimum\_htlc\_in\_msat*: A string describing the minimum amount that
-  an HTLC must have before we accept it.
-* *their\_to\_self\_delay*: The number of blocks that the peer must wait
-  to claim their funds, if they close unilaterally.
-* *our\_to\_self\_delay*: The number of blocks that you must wait to claim
-  your funds, if you close unilaterally.
-* *max\_accepted\_htlcs*: The maximum number of HTLCs you will accept on
-  this channel.
-* *in\_payments\_offered*: The number of incoming HTLCs offered over this
-  channel.
-* *in\_offered\_msat*: A string describing the total amount of all incoming
-  HTLCs offered over this channel;
-  a number followed by a string unit.
-* *in\_payments\_fulfilled*: The number of incoming HTLCs offered *and
-  successfully claimed* over this channel.
-* *in\_fulfilled\_msat*: A string describing the total amount of all
-  incoming HTLCs offered *and successfully claimed* over this channel;
-  a number followed by a string unit.
-* *out\_payments\_offered*: The number of outgoing HTLCs offered over
-  this channel.
-* *out\_offered\_msat*: A string describing the total amount of all
-  outgoing HTLCs offered over this channel;
-  a number followed by a string unit.
-* *out\_payments\_fulfilled*: The number of outgoing HTLCs offered *and
-  successfully claimed* over this channel.
-* *out\_fulfilled\_msat*: A string describing the total amount of all
-  outgoing HTLCs offered *and successfully claimed* over this channel;
-  a number followed by a string unit.
-* *scratch\_txid*: The txid of the latest transaction (what we would sign and
-  send to chain if the channel were to fail now).
-* *last\_tx\_fee*: The fee on that latest transaction.
-* *feerate*: An object containing the latest feerate as both *perkw* and *perkb*.
-* *htlcs*: An array of objects describing the HTLCs currently in-flight
-  in the channel.
-
-Objects in the *htlcs* array will contain these fields:
-
-* *direction*: Either the string `"out"` or `"in"`, whether it is an
-  outgoing or incoming HTLC.
-* *id*: A numeric ID uniquely identifying this HTLC.
-* *amount\_msat*: The value of the HTLC.
-* *expiry*: The blockheight at which the HTLC will be forced to return
-  to its offerer: an `"in"` HTLC will be returned to the peer, an
-  `"out"` HTLC will be returned to you.
-  **NOTE** If the *expiry* of any outgoing HTLC will arrive in the next
-  block, `lightningd`(8) will automatically unilaterally close the
-  channel in order to enforce the timeout onchain.
-* *payment\_hash*: The payment hash, whose preimage must be revealed to
-  successfully claim this HTLC.
-* *state*: A string describing whether the HTLC has been communicated to
-  or from the peer, whether it has been signed in a new commitment, whether
-  the previous commitment (that does not contain it) has been revoked, as
-  well as when the HTLC is fulfilled or failed offchain.
-* *local\_trimmed*: A boolean, existing and `true` if the HTLC is not
-  actually instantiated as an output (i.e. "trimmed") on the commitment
-  transaction (and will not be instantiated on a unilateral close).
-  Generally true if the HTLC is below the *dust\_limit\_msat* for the
-  channel.
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
@@ -342,4 +191,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:a9e27c78498192757d4972da091715cadd8dbf2f0c08c288e6c600626567f379)
+[comment]: # ( SHA256STAMP:485344d9d9a47bf3093c8e54fcf80bea14623e2611f2a4e2d2b5c723d8e6094b)
