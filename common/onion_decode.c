@@ -102,8 +102,8 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 	}
 
 	/* BOLT-route-blinding #4:
-	 *   - MUST return an error if `amt_to_forward` or
-	 *     `outgoing_cltv_value` are not present.
+	 *   - MUST return an error if `amt_to_forward`, `outgoing_cltv_value`
+	 *     or `total_amount_msat` are not present.
 	 *   - MUST return an error if `amt_to_forward` is below what it expects
 	 *     for the payment.
 	 */
@@ -114,6 +114,11 @@ static bool handle_blinded_terminal(struct onion_payload *p,
 
 	if (!tlv->outgoing_cltv_value) {
 		*failtlvtype = TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE;
+		return false;
+	}
+
+	if (!tlv->total_amount_msat) {
+		*failtlvtype = TLV_TLV_PAYLOAD_TOTAL_AMOUNT_MSAT;
 		return false;
 	}
 

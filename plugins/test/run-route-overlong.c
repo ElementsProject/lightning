@@ -12,6 +12,7 @@
 u8 **blinded_onion_hops(const tal_t *ctx UNNEEDED,
 			struct amount_msat final_amount UNNEEDED,
 			u32 final_cltv UNNEEDED,
+			struct amount_msat total_amount UNNEEDED,
 			const struct blinded_path *path UNNEEDED)
 { fprintf(stderr, "blinded_onion_hops called!\n"); abort(); }
 /* Generated stub for command_finished */

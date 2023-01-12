@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* FIXME: These amounts / scid should be in test vectors! */
-	onionhops = blinded_onion_hops(tmpctx, AMOUNT_MSAT(200), 700, bpath);
+	onionhops = blinded_onion_hops(tmpctx, AMOUNT_MSAT(200), 700, AMOUNT_MSAT(200), bpath);
 	assert(mk_short_channel_id(&initscid, 0, 0, 10));
 
 	/* Prepend Alice: poor thing doesn't speak blinding! */
