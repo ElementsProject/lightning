@@ -1941,16 +1941,18 @@ static void json_add_peer(struct lightningd *ld,
 		json_add_hex_talarr(response, "features", p->their_features);
 	}
 
-	json_array_start(response, "channels");
-	json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
+	if (deprecated_apis) {
+		json_array_start(response, "channels");
+		json_add_uncommitted_channel(response, p->uncommitted_channel, NULL);
 
-	list_for_each(&p->channels, channel, list) {
-		if (channel_unsaved(channel))
-			json_add_unsaved_channel(response, channel, NULL);
-		else
-			json_add_channel(ld, response, NULL, channel, NULL);
+		list_for_each(&p->channels, channel, list) {
+			if (channel_unsaved(channel))
+				json_add_unsaved_channel(response, channel, NULL);
+			else
+				json_add_channel(ld, response, NULL, channel, NULL);
+		}
+		json_array_end(response);
 	}
-	json_array_end(response);
 
 	if (ll)
 		json_add_log(response, ld->log_book, &p->id, *ll);

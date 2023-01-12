@@ -216,7 +216,7 @@ impl From<responses::ListpeersPeers> for pb::ListpeersPeers {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             connected: c.connected, // Rule #2 for type boolean
             log: c.log.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
-            channels: c.channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeersPeersChannels 
+            channels: c.channels.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             netaddr: c.netaddr.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             remote_addr: c.remote_addr, // Rule #2 for type string?
             features: c.features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
