@@ -546,7 +546,8 @@ static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
 	}
 
 	/* Success!  Copy ordered hooks back. */
-	memcpy(hook->hooks, done, tal_bytelen(hook->hooks));
+	if (hook->hooks)
+		memcpy(hook->hooks, done, tal_bytelen(hook->hooks));
 	return NULL;
 }
 
