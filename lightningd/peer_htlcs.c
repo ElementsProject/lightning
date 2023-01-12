@@ -92,20 +92,33 @@ static bool htlc_out_update_state(struct channel *channel,
 	return true;
 }
 
+/* BOLT-route-blinding #4:
+ *   - if `blinding_point` is set in the incoming `update_add_htlc`:
+ *     - MUST return an `invalid_onion_blinding` error.
+ *   - if `current_blinding_point` is set in the onion payload and it is not the
+ *     final node:
+ *     - MUST return an `invalid_onion_blinding` error.
+ */
+static bool blind_error_return(const struct htlc_in *hin)
+{
+	if (hin->blinding)
+		return true;
+
+	if (hin->payload
+	    && hin->payload->blinding
+	    && !hin->payload->final)
+		return true;
+
+	return false;
+}
+
 static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
 						   const struct htlc_in *hin,
 						   enum onion_wire badonion)
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
-	/* BOLT-route-blinding #4:
-	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
-	 *    - MUST return `invalid_onion_blinding` for any local error or
-	 *      other downstream errors.
-	 */
-	/* FIXME: That's not enough!  Don't leak information about forward
-	 * failures either! */
-	if (hin->blinding || (hin->payload && hin->payload->blinding))
+	if (blind_error_return(hin))
 		badonion = WIRE_INVALID_ONION_BLINDING;
 
 	f->id = hin->key.id;
@@ -123,12 +136,7 @@ static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
-	/* BOLT-route-blinding #4:
-	 * - If `blinding_point` is set in the incoming `update_add_htlc`:
-	 *    - MUST return `invalid_onion_blinding` for any local error or
-	 *      other downstream errors.
-	 */
-	if (hin->blinding) {
+	if (blind_error_return(hin)) {
 		return mk_failed_htlc_badonion(ctx, hin,
 					       WIRE_INVALID_ONION_BLINDING);
 	}

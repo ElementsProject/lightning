@@ -1671,7 +1671,8 @@ static void payment_add_blindedpath(const tal_t *ctx,
 {
 	/* It's a bit of a weird API for us, so we convert it back to
 	 * the struct tlv_tlv_payload */
-	u8 **tlvs = blinded_onion_hops(tmpctx, final_amt, final_cltv, bpath);
+	u8 **tlvs = blinded_onion_hops(tmpctx, final_amt, final_cltv,
+				       final_amt, bpath);
 
 	for (size_t i = 0; i < tal_count(tlvs); i++) {
 		const u8 *cursor = tlvs[i];
