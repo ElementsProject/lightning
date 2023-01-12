@@ -1136,7 +1136,7 @@ static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 	if (!json_scan(ctx, buf, tok, "{bolt11:%}",
 		       JSON_SCAN_TAL(ctx, json_strdup, &bolt))) {
 		struct bolt11 *bolt11;
-		u5 *sigdata;
+		const u5 *sigdata;
 		struct sha256 hash;
 		bool have_n;
 
