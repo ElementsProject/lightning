@@ -79,6 +79,7 @@ static bool get_files(const char *dir, const char *subdir,
 							   e->d_name)));
 		tal_arr_expand(files, bf);
 	}
+	closedir(d);
 	return true;
 }
 
