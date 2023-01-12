@@ -1651,7 +1651,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 	struct json_stream *response;
 	struct bolt11 *b11;
 	struct sha256 hash;
-	u5 *sig;
+	const u5 *sig;
 	bool have_n;
 	char *fail;
 
