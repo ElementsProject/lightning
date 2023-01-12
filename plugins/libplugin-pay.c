@@ -3284,34 +3284,31 @@ static struct command_result *direct_pay_listpeers(struct command *cmd,
 						   const jsmntok_t *toks,
 						   struct payment *p)
 {
-	struct listpeers_result *r =
-	    json_to_listpeers_result(tmpctx, buffer, toks);
+	struct listpeers_channel **channels = json_to_listpeers_channels(tmpctx, buffer, toks);
 	struct direct_pay_data *d = payment_mod_directpay_get_data(p);
 
-	if (r && tal_count(r->peers) == 1) {
-		struct listpeers_peer *peer = r->peers[0];
-		if (!peer->connected)
-			goto cont;
+	for (size_t i=0; i<tal_count(channels); i++) {
+		struct listpeers_channel *chan = channels[i];
 
-		for (size_t i=0; i<tal_count(peer->channels); i++) {
-			struct listpeers_channel *chan = r->peers[0]->channels[i];
-			if (!streq(chan->state, "CHANNELD_NORMAL"))
-			    continue;
+		if (!chan->connected)
+			continue;
 
-			/* Must have either a local alias for zeroconf
-			 * channels or a final scid. */
-			assert(chan->alias[LOCAL] || chan->scid);
-			d->chan = tal(d, struct short_channel_id_dir);
-			if (chan->scid) {
-				d->chan->scid = *chan->scid;
-				d->chan->dir = *chan->direction;
-			} else {
-				d->chan->scid = *chan->alias[LOCAL];
-				d->chan->dir = 0; /* Don't care. */
-			}
+		if (!streq(chan->state, "CHANNELD_NORMAL"))
+			continue;
+
+		/* Must have either a local alias for zeroconf
+		 * channels or a final scid. */
+		assert(chan->alias[LOCAL] || chan->scid);
+		d->chan = tal(d, struct short_channel_id_dir);
+		if (chan->scid) {
+			d->chan->scid = *chan->scid;
+			d->chan->dir = *chan->direction;
+		} else {
+			d->chan->scid = *chan->alias[LOCAL];
+			d->chan->dir = 0; /* Don't care. */
 		}
 	}
-cont:
+
 	direct_pay_override(p);
 	return command_still_pending(cmd);
 
