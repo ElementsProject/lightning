@@ -134,44 +134,43 @@ static struct node_map *new_node_map(const tal_t *ctx)
 /* We use a simple array (with NULL entries) until we have too many. */
 static bool node_uses_chan_map(const struct node *node)
 {
-	/* This is a layering violation: last entry in htable is the table ptr,
-	 * which is never NULL */
-	return node->chans.arr[NUM_IMMEDIATE_CHANS] != NULL;
+	return node->chan_map;
 }
 
 /* When simple array fills, use a htable. */
 static void convert_node_to_chan_map(struct node *node)
 {
-	struct chan *chans[NUM_IMMEDIATE_CHANS];
-
-	memcpy(chans, node->chans.arr, sizeof(chans));
-	chan_map_init_sized(&node->chans.map, NUM_IMMEDIATE_CHANS + 1);
+	assert(!node_uses_chan_map(node));
+	node->chan_map = tal(node, struct chan_map);
+	chan_map_init_sized(node->chan_map, ARRAY_SIZE(node->chan_arr) + 1);
 	assert(node_uses_chan_map(node));
-	for (size_t i = 0; i < ARRAY_SIZE(chans); i++)
-		chan_map_add(&node->chans.map, chans[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(node->chan_arr); i++) {
+		chan_map_add(node->chan_map, node->chan_arr[i]);
+		node->chan_arr[i] = NULL;
+	}
 }
 
 static void add_chan(struct node *node, struct chan *chan)
 {
 	if (!node_uses_chan_map(node)) {
-		for (size_t i = 0; i < NUM_IMMEDIATE_CHANS; i++) {
-			if (node->chans.arr[i] == NULL) {
-				node->chans.arr[i] = chan;
+		for (size_t i = 0; i < ARRAY_SIZE(node->chan_arr); i++) {
+			if (node->chan_arr[i] == NULL) {
+				node->chan_arr[i] = chan;
 				return;
 			}
 		}
 		convert_node_to_chan_map(node);
 	}
 
-	chan_map_add(&node->chans.map, chan);
+	chan_map_add(node->chan_map, chan);
 }
 
 static struct chan *next_chan_arr(const struct node *node,
 				  struct chan_map_iter *i)
 {
-	while (i->i.off < NUM_IMMEDIATE_CHANS) {
-		if (node->chans.arr[i->i.off])
-			return node->chans.arr[i->i.off];
+	while (i->i.off < ARRAY_SIZE(node->chan_arr)) {
+		if (node->chan_arr[i->i.off])
+			return node->chan_arr[i->i.off];
 		i->i.off++;
 	}
 	return NULL;
@@ -184,7 +183,7 @@ struct chan *first_chan(const struct node *node, struct chan_map_iter *i)
 		return next_chan_arr(node, i);
 	}
 
-	return chan_map_first(&node->chans.map, i);
+	return chan_map_first(node->chan_map, i);
 }
 
 struct chan *next_chan(const struct node *node, struct chan_map_iter *i)
@@ -194,7 +193,7 @@ struct chan *next_chan(const struct node *node, struct chan_map_iter *i)
 		return next_chan_arr(node, i);
 	}
 
-	return chan_map_next(&node->chans.map, i);
+	return chan_map_next(node->chan_map, i);
 }
 
 static void destroy_routing_state(struct routing_state *rstate)
@@ -241,7 +240,7 @@ static void memleak_help_routing_tables(struct htable *memtable,
 	     n;
 	     n = node_map_next(rstate->nodes, &nit)) {
 		if (node_uses_chan_map(n))
-			memleak_scan_htable(memtable, &n->chans.map.raw);
+			memleak_scan_htable(memtable, &n->chan_map->raw);
 	}
 }
 #endif /* DEVELOPER */
@@ -360,7 +359,7 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 
 	/* Free htable if we need. */
 	if (node_uses_chan_map(node))
-		chan_map_clear(&node->chans.map);
+		chan_map_clear(node->chan_map);
 }
 
 struct node *get_node(struct routing_state *rstate,
@@ -378,7 +377,8 @@ static struct node *new_node(struct routing_state *rstate,
 
 	n = tal(rstate, struct node);
 	n->id = *id;
-	memset(n->chans.arr, 0, sizeof(n->chans.arr));
+	memset(n->chan_arr, 0, sizeof(n->chan_arr));
+	n->chan_map = NULL;
 	broadcastable_init(&n->bcast);
 	broadcastable_init(&n->rgraph);
 	n->tokens = TOKEN_MAX;
@@ -476,16 +476,16 @@ static void remove_chan_from_node(struct routing_state *rstate,
 
 	if (!node_uses_chan_map(node)) {
 		num_chans = 0;
-		for (size_t i = 0; i < NUM_IMMEDIATE_CHANS; i++) {
-			if (node->chans.arr[i] == chan)
-				node->chans.arr[i] = NULL;
-			else if (node->chans.arr[i] != NULL)
+		for (size_t i = 0; i < ARRAY_SIZE(node->chan_arr); i++) {
+			if (node->chan_arr[i] == chan)
+				node->chan_arr[i] = NULL;
+			else if (node->chan_arr[i] != NULL)
 				num_chans++;
 		}
 	} else {
-		if (!chan_map_del(&node->chans.map, chan))
+		if (!chan_map_del(node->chan_map, chan))
 			abort();
-		num_chans = chan_map_count(&node->chans.map);
+		num_chans = chan_map_count(node->chan_map);
 	}
 
 	/* Last channel?  Simply delete node (and associated announce) */
@@ -2078,7 +2078,7 @@ void remove_all_gossip(struct routing_state *rstate)
 	while ((n = node_map_first(rstate->nodes, &nit)) != NULL) {
 		tal_del_destructor2(n, destroy_node, rstate);
 		if (node_uses_chan_map(n))
-			chan_map_clear(&n->chans.map);
+			chan_map_clear(n->chan_map);
 		node_map_del(rstate->nodes, n);
 		tal_free(n);
 	}

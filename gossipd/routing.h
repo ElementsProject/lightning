@@ -98,11 +98,6 @@ static inline bool chan_eq_scid(const struct chan *c,
 
 HTABLE_DEFINE_TYPE(struct chan, chan_map_scid, hash_scid, chan_eq_scid, chan_map);
 
-/* For a small number of channels (by far the most common) we use a simple
- * array, with empty buckets NULL.  For larger, we use a proper hash table,
- * with the extra allocation that implies. */
-#define NUM_IMMEDIATE_CHANS (sizeof(struct chan_map) / sizeof(struct chan *) - 1)
-
 struct node {
 	struct node_id id;
 
@@ -117,10 +112,15 @@ struct node {
 	u8 tokens;
 
 	/* Channels connecting us to other nodes */
-	union {
-		struct chan_map map;
-		struct chan *arr[NUM_IMMEDIATE_CHANS+1];
-	} chans;
+	/* For a small number of channels (by far the most common) we
+	 * use a simple array, with empty buckets NULL.  For larger, we use a
+	 * proper hash table, with the extra allocations that implies.
+	 *
+	 * As of November 2022, 5 or 6 gives the optimal size.
+	 */
+	struct chan *chan_arr[6];
+	/* If we have more than that, we use a hash. */
+	struct chan_map *chan_map;
 };
 
 const struct node_id *node_map_keyof_node(const struct node *n);
