@@ -438,9 +438,10 @@ struct listpeers_channel {
 	bool private;
 	struct bitcoin_txid funding_txid;
 	const char *state;
+	/* scid or alias[LOCAL] is always non-NULL */
 	struct short_channel_id *alias[NUM_SIDES];
 	struct short_channel_id *scid;
-	int *direction;
+	int direction;
 	struct amount_msat total_msat;
 	struct amount_msat spendable_msat;
 	/* TODO Add fields as we need them. */
