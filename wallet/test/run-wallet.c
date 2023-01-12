@@ -1850,8 +1850,6 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	 * twisted */
 	tal_free(hin);
 	tal_free(hout);
-	htlc_in_map_clear(htlcs_in);
-	htlc_out_map_clear(htlcs_out);
 
 	return true;
 }

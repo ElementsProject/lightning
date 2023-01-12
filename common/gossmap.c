@@ -699,8 +699,6 @@ static void destroy_map(struct gossmap *map)
 {
 	if (map->mmap)
 		munmap(map->mmap, map->map_size);
-	chanidx_htable_clear(map->channels);
-	nodeidx_htable_clear(map->nodes);
 
 	for (size_t i = 0; i < tal_count(map->node_arr); i++)
 		free(map->node_arr[i].chan_idxs);

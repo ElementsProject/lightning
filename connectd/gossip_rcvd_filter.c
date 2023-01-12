@@ -21,17 +21,11 @@ static size_t rehash(const void *key, void *unused)
 	return ptr2int(key);
 }
 
-static void destroy_msg_map(struct htable *ht)
-{
-	htable_clear(ht);
-}
-
 static struct htable *new_msg_map(const tal_t *ctx)
 {
 	struct htable *ht = tal(ctx, struct htable);
 
 	htable_init(ht, rehash, NULL);
-	tal_add_destructor(ht, destroy_msg_map);
 	return ht;
 }
 
