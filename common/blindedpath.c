@@ -205,8 +205,9 @@ struct tlv_encrypted_data_tlv *decrypt_encrypted_data(const tal_t *ctx,
 
 	/* BOLT-onion-message #4:
 	 *
-	 * - if the `enctlv` is not a valid TLV...
-	 *   - MUST drop the message.
+	 * - MUST return an error if `encrypted_recipient_data` does not decrypt
+	 *   using the blinding point as described in
+	 *   [Route Blinding](#route-blinding).
 	 */
 	/* Note: our parser consider nothing is a valid TLV, but decrypt_encmsg_raw
 	 * returns NULL if it couldn't decrypt. */

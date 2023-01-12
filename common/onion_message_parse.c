@@ -50,25 +50,19 @@ static bool decrypt_forwarding_onionmsg(const struct pubkey *blinding,
 		return false;
 
 	/* BOLT-onion-message #4:
-	 *
-	 * The reader:
 	 *  - if it is not the final node according to the onion encryption:
 	 *...
-	 *    - if the `enctlv` ... does not contain
-	 *      `next_node_id`:
-	 *      - MUST drop the message.
+	 *    - if the `encrypted_data_tlv` contains `path_id`:
+	 *      - MUST ignore the message.
 	 */
-	if (!encmsg->next_node_id)
+	if (encmsg->path_id)
 		return false;
 
 	/* BOLT-onion-message #4:
-	 * The reader:
-	 *  - if it is not the final node according to the onion encryption:
-	 *...
-	 *    - if the `enctlv` contains `path_id`:
-	 *      - MUST drop the message.
+	 * - SHOULD forward the message using `onion_message` to the next peer
+	 *   indicated by `next_node_id`.
 	 */
-	if (encmsg->path_id)
+	if (!encmsg->next_node_id)
 		return false;
 
 	*next_node = *encmsg->next_node_id;
@@ -145,7 +139,6 @@ bool onion_message_parse(const tal_t *ctx,
 				  tal_hex(tmpctx, rs->raw_payload));
 		return false;
 	}
-
 	if (rs->nextcase == ONION_END) {
 		*next_onion_msg = NULL;
 		*final_om = tal_steal(ctx, om);
@@ -167,6 +160,18 @@ bool onion_message_parse(const tal_t *ctx,
 
 		*final_om = NULL;
 
+		/* BOLT-onion-message #4:
+		 * - if it is not the final node according to the onion encryption:
+		 *   - if the `onionmsg_tlv` contains other tlv fields than `encrypted_recipient_data`:
+		 *     - MUST ignore the message.
+		 */
+		if (tal_count(om->fields) != 1) {
+			status_peer_debug(peer,
+					  "onion_message_parse: "
+					  "disallowed tlv field");
+			return false;
+		}
+
 		/* This fails as expected if no enctlv. */
 		if (!decrypt_forwarding_onionmsg(blinding, &ss, om->encrypted_recipient_data, next_node_id,
 						 &next_blinding)) {
@@ -175,7 +180,6 @@ bool onion_message_parse(const tal_t *ctx,
 					  tal_hex(tmpctx, om->encrypted_recipient_data));
 			return false;
 		}
-
 		*next_onion_msg = towire_onion_message(ctx,
 						       &next_blinding,
 						       serialize_onionpacket(tmpctx, rs->next));
