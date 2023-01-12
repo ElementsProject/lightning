@@ -65,7 +65,7 @@ static bool usage_eq_id(const struct usage *u, u64 id)
 	return u->id == id;
 }
 HTABLE_DEFINE_TYPE(struct usage, usage_id, id_hash, usage_eq_id, usage_table);
-static struct usage_table usage_table;
+static struct usage_table *usage_table;
 
 /* Every minute we forget entries. */
 static void flush_usage_table(void *unused)
@@ -73,10 +73,10 @@ static void flush_usage_table(void *unused)
 	struct usage *u;
 	struct usage_table_iter it;
 
-	for (u = usage_table_first(&usage_table, &it);
+	for (u = usage_table_first(usage_table, &it);
 	     u;
-	     u = usage_table_next(&usage_table, &it)) {
-		usage_table_delval(&usage_table, &it);
+	     u = usage_table_next(usage_table, &it)) {
+		usage_table_delval(usage_table, &it);
 		tal_free(u);
 	}
 
@@ -243,12 +243,12 @@ static const char *rate_limit_check(const tal_t *ctx,
 
 	/* We cache this: we only add usage counter if whole rune succeeds! */
 	if (!cinfo->usage) {
-		cinfo->usage = usage_table_get(&usage_table, atol(rune->unique_id));
+		cinfo->usage = usage_table_get(usage_table, atol(rune->unique_id));
 		if (!cinfo->usage) {
 			cinfo->usage = tal(plugin, struct usage);
 			cinfo->usage->id = atol(rune->unique_id);
 			cinfo->usage->counter = 0;
-			usage_table_add(&usage_table, cinfo->usage);
+			usage_table_add(usage_table, cinfo->usage);
 		}
 	}
 
@@ -913,10 +913,11 @@ static struct command_result *json_commando_rune(struct command *cmd,
 #if DEVELOPER
 static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
+	memleak_scan_obj(memtable, usage_table);
 	memleak_scan_obj(memtable, outgoing_commands);
 	memleak_scan_obj(memtable, incoming_commands);
 	memleak_scan_obj(memtable, master_rune);
-	memleak_scan_htable(memtable, &usage_table.raw);
+	memleak_scan_htable(memtable, &usage_table->raw);
 	if (rune_counter)
 		memleak_scan_obj(memtable, rune_counter);
 }
@@ -929,7 +930,8 @@ static const char *init(struct plugin *p,
 
 	outgoing_commands = tal_arr(p, struct commando *, 0);
 	incoming_commands = tal_arr(p, struct commando *, 0);
-	usage_table_init(&usage_table);
+	usage_table = tal(p, struct usage_table);
+	usage_table_init(usage_table);
 	plugin = p;
 #if DEVELOPER
 	plugin_set_memleak_handler(p, memleak_mark_globals);
