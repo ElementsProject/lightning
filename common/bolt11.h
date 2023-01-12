@@ -100,7 +100,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 				   const char *description,
 				   const struct chainparams *must_be_chain,
 				   struct sha256 *hash,
-				   u5 **sig,
+				   const u5 **sig,
 				   bool *have_n,
 				   char **fail);
 

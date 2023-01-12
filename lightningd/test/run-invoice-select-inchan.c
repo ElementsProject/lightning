@@ -34,7 +34,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx UNNEEDED, const char *str UN
 				   const char *description UNNEEDED,
 				   const struct chainparams *must_be_chain UNNEEDED,
 				   struct sha256 *hash UNNEEDED,
-				   u5 **sig UNNEEDED,
+				   const u5 **sig UNNEEDED,
 				   bool *have_n UNNEEDED,
 				   char **fail UNNEEDED)
 { fprintf(stderr, "bolt11_decode_nosig called!\n"); abort(); }
