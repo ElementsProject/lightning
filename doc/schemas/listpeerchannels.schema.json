@@ -77,7 +77,7 @@
           },
           "channel_id": {
             "type": "hash",
-            "description": "The full channel_id",
+            "description": "The full channel_id (funding txid Xored with output number)",
             "minLength": 64,
             "maxLength": 64
           },
@@ -169,7 +169,7 @@
               "local",
               "remote"
             ],
-            "description": "Who initiated the channel close"
+            "description": "Who initiated the channel close (only present if closing)"
           },
           "features": {
             "type": "array",
@@ -223,15 +223,15 @@
           },
           "to_us_msat": {
             "type": "msat",
-            "description": "how much of channel is owed to us"
+            "description": "How much of channel is owed to us"
           },
           "min_to_us_msat": {
             "type": "msat",
-            "description": "least amount owed to us ever"
+            "description": "Least amount owed to us ever.  If the peer were to succesfully steal from us, this is the amount we would still retain."
           },
           "max_to_us_msat": {
             "type": "msat",
-            "description": "most amount owed to us ever"
+            "description": "Most amount owed to us ever.  If we were to successfully steal from the peer, this is the amount we could potentially get."
           },
           "total_msat": {
             "type": "msat",
@@ -247,47 +247,47 @@
           },
           "dust_limit_msat": {
             "type": "msat",
-            "description": "minimum amount for an output on the channel transactions"
+            "description": "Minimum amount for an output on the channel transactions"
           },
           "max_total_htlc_in_msat": {
             "type": "msat",
-            "description": "max amount accept in a single payment"
+            "description": "Max amount accept in a single payment"
           },
           "their_reserve_msat": {
             "type": "msat",
-            "description": "minimum we insist they keep in channel"
+            "description": "Minimum we insist they keep in channel (default is 1% of the total channel capacity).  If they have less than this in the channel, they cannot send to us on that channel"
           },
           "our_reserve_msat": {
             "type": "msat",
-            "description": "minimum they insist we keep in channel"
+            "description": "Minimum they insist we keep in channel. If you have less than this in the channel, you cannot send out via this channel."
           },
           "spendable_msat": {
             "type": "msat",
-            "description": "total we could send through channel"
+            "description": "An estimate of the total we could send through channel (can be wrong because adding HTLCs requires an increase in fees paid to onchain miners, and onchain fees change dynamically according to onchain activity)"
           },
           "receivable_msat": {
             "type": "msat",
-            "description": "total peer could send through channel"
+            "description": "An estimate of the total peer could send through channel"
           },
           "minimum_htlc_in_msat": {
             "type": "msat",
-            "description": "the minimum amount HTLC we accept"
+            "description": "The minimum amount HTLC we accept"
           },
           "minimum_htlc_out_msat": {
             "type": "msat",
-            "description": "the minimum amount HTLC we will send"
+            "description": "The minimum amount HTLC we will send"
           },
           "maximum_htlc_out_msat": {
             "type": "msat",
-            "description": "the maximum amount HTLC we will send"
+            "description": "The maximum amount HTLC we will send"
           },
           "their_to_self_delay": {
             "type": "u32",
-            "description": "the number of blocks before they can take their funds if they unilateral close"
+            "description": "The number of blocks before they can take their funds if they unilateral close"
           },
           "our_to_self_delay": {
             "type": "u32",
-            "description": "the number of blocks before we can take our funds if we unilateral close"
+            "description": "The number of blocks before we can take our funds if we unilateral close"
           },
           "max_accepted_htlcs": {
             "type": "u32",
@@ -498,7 +498,7 @@
                 },
                 "expiry": {
                   "type": "u32",
-                  "description": "Block this HTLC expires at"
+                  "description": "Block this HTLC expires at (after which an `in` direction HTLC will be returned to the peer, an `out` returned to us).  If this expiry is too close, lightningd(8) will automatically unilaterally close the channel in order to enforce the timeout onchain."
                 },
                 "payment_hash": {
                   "type": "hash",
@@ -511,7 +511,7 @@
                   "enum": [
                     true
                   ],
-                  "description": "if this is too small to enforce onchain"
+                  "description": "If this is too small to enforce onchain; it doesn't appear in the commitment transaction and will not be enforced in a unilateral close.  Generally true if the HTLC (after subtracting onchain fees) is below the `dust_limit_msat` for the channel."
                 },
                 "status": {
                   "type": "string",
@@ -696,7 +696,7 @@
                 "direction": {},
                 "close_to_addr": {
                   "type": "string",
-                  "description": "The bitcoin address we will close to"
+                  "description": "The bitcoin address we will close to (present if close_to_addr is a standardized address)"
                 }
               }
             }
@@ -872,7 +872,7 @@
                 "last_tx_fee_msat": {},
                 "direction": {
                   "type": "u32",
-                  "description": "0 if we're the lesser node_id, 1 if we're the greater"
+                  "description": "0 if we're the lesser node_id, 1 if we're the greater (as used in BOLT #7 channel_update)"
                 }
               }
             }
