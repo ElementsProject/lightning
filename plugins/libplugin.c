@@ -1914,10 +1914,14 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 			    json_get_member(buffer, tok, "spendable_msat"),
 			*aliastok = json_get_member(buffer, tok, "alias"),
 			*max_htlcs = json_get_member(buffer, tok, "max_accepted_htlcs"),
-			*htlcstok = json_get_member(buffer, tok, "htlcs");
+			*htlcstok = json_get_member(buffer, tok, "htlcs"),
+			*idtok = json_get_member(buffer, tok, "id"),
+			*conntok = json_get_member(buffer, tok, "connected");
 
 	chan = tal(ctx, struct listpeers_channel);
 
+	json_to_node_id(buffer, idtok, &chan->id);
+	json_to_bool(buffer, conntok, &chan->connected);
 	json_to_bool(buffer, privtok, &chan->private);
 	chan->state = json_strdup(chan, buffer, statetok);
 	json_to_txid(buffer, ftxidtok, &chan->funding_txid);
@@ -1966,44 +1970,24 @@ static struct listpeers_channel *json_to_listpeers_channel(const tal_t *ctx,
 	return chan;
 }
 
-/* Append channels for this peer */
-static void json_add_listpeers_peer(struct listpeers_channel ***chans,
-				    const char *buffer,
-				    const jsmntok_t *tok)
-{
-	size_t i;
-	const jsmntok_t *iter;
-	const jsmntok_t *idtok = json_get_member(buffer, tok, "id"),
-			*conntok = json_get_member(buffer, tok, "connected"),
-			*channelstok = json_get_member(buffer, tok, "channels");
-	bool connected;
-	struct node_id id;
-
-	json_to_node_id(buffer, idtok, &id);
-	json_to_bool(buffer, conntok, &connected);
-
-	json_for_each_arr(i, iter, channelstok) {
-		struct listpeers_channel *chan = json_to_listpeers_channel(*chans, buffer, iter);
-		if (!chan)
-			continue;
-		chan->id = id;
-		chan->connected = connected;
-		tal_arr_expand(chans, chan);
-	}
-}
-
 struct listpeers_channel **json_to_listpeers_channels(const tal_t *ctx,
 						      const char *buffer,
 						      const jsmntok_t *tok)
 {
 	size_t i;
 	const jsmntok_t *iter;
-	const jsmntok_t *peerstok = json_get_member(buffer, tok, "peers");
+	const jsmntok_t *channelstok = json_get_member(buffer, tok, "channels");
 	struct listpeers_channel **chans;
 
 	chans = tal_arr(ctx, struct listpeers_channel *, 0);
-	json_for_each_arr(i, iter, peerstok)
-		json_add_listpeers_peer(&chans, buffer, iter);
+	json_for_each_arr(i, iter, channelstok) {
+		struct listpeers_channel *chan;
+
+		chan = json_to_listpeers_channel(chans, buffer, iter);
+		if (!chan)
+			continue;
+		tal_arr_expand(&chans, chan);
+	}
 	return chans;
 }
 

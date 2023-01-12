@@ -2347,8 +2347,8 @@ REGISTER_PAYMENT_MODIFIER(retry, struct retry_mod_data *, retry_data_init,
 			  retry_step_cb);
 
 static struct command_result *
-local_channel_hints_listpeers(struct command *cmd, const char *buffer,
-			      const jsmntok_t *toks, struct payment *p)
+local_channel_hints_listpeerchannels(struct command *cmd, const char *buffer,
+				     const jsmntok_t *toks, struct payment *p)
 {
 	struct listpeers_channel **chans;
 
@@ -2398,9 +2398,9 @@ static void local_channel_hints_cb(void *d UNUSED, struct payment *p)
 	if (p->parent != NULL || p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-	req = jsonrpc_request_start(p->plugin, NULL, "listpeers",
-				    local_channel_hints_listpeers,
-				    local_channel_hints_listpeers, p);
+	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+				    local_channel_hints_listpeerchannels,
+				    local_channel_hints_listpeerchannels, p);
 	send_outreq(p->plugin, req);
 }
 
@@ -3242,13 +3242,13 @@ static void direct_pay_override(struct payment *p) {
 	payment_continue(p);
 }
 
-/* Now that we have the listpeers result for the root payment, let's search
+/* Now that we have the listpeerchannels result for the root payment, let's search
  * for a direct channel that is a) connected and b) in state normal. We will
  * check the capacity based on the channel_hints in the override. */
-static struct command_result *direct_pay_listpeers(struct command *cmd,
-						   const char *buffer,
-						   const jsmntok_t *toks,
-						   struct payment *p)
+static struct command_result *direct_pay_listpeerchannels(struct command *cmd,
+							  const char *buffer,
+							  const jsmntok_t *toks,
+							  struct payment *p)
 {
 	struct listpeers_channel **channels = json_to_listpeers_channels(tmpctx, buffer, toks);
 	struct direct_pay_data *d = payment_mod_directpay_get_data(p);
@@ -3289,8 +3289,9 @@ static void direct_pay_cb(struct direct_pay_data *d, struct payment *p)
 
 
 
-	req = jsonrpc_request_start(p->plugin, NULL, "listpeers",
-				    direct_pay_listpeers, direct_pay_listpeers,
+	req = jsonrpc_request_start(p->plugin, NULL, "listpeerchannels",
+				    direct_pay_listpeerchannels,
+				    direct_pay_listpeerchannels,
 				    p);
 	json_add_node_id(req->js, "id", p->destination);
 	send_outreq(p->plugin, req);
