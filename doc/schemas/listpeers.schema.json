@@ -13,8 +13,7 @@
         "additionalProperties": true,
         "required": [
           "id",
-          "connected",
-          "channels"
+          "connected"
         ],
         "properties": {
           "id": {
@@ -167,6 +166,7 @@
             }
           },
           "channels": {
+            "deprecated": "v23.02",
             "type": "array",
             "items": {
               "type": "object",
