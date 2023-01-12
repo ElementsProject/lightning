@@ -963,7 +963,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 * - MUST set `invoice_created_at` to the number of seconds since
-	 *   Midnight 1 January 1970, UTC when the offer was created.
+	 *   Midnight 1 January 1970, UTC when the invoice was created.
 	 */
 	ir->inv->invoice_created_at = tal(ir->inv, u64);
 	*ir->inv->invoice_created_at = time_now().ts.tv_sec;
