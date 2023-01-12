@@ -103,6 +103,7 @@ u8 *onion_final_hop(const tal_t *ctx,
 
 u8 *onion_blinded_hop(const tal_t *ctx,
 		      const struct amount_msat *amt_to_forward,
+		      const struct amount_msat *total_amount_msat,
 		      const u32 *outgoing_cltv_value,
 		      const u8 *enctlv,
 		      const struct pubkey *blinding)
@@ -113,6 +114,11 @@ u8 *onion_blinded_hop(const tal_t *ctx,
 		tlv->amt_to_forward
 			= cast_const(u64 *,
 				     &amt_to_forward->millisatoshis); /* Raw: TLV convert */
+	}
+	if (total_amount_msat) {
+		tlv->total_amount_msat
+			= cast_const(u64 *,
+				     &total_amount_msat->millisatoshis); /* Raw: TLV convert */
 	}
 	tlv->outgoing_cltv_value = cast_const(u32 *, outgoing_cltv_value);
 	tlv->encrypted_recipient_data = cast_const(u8 *, enctlv);

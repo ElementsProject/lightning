@@ -12,6 +12,7 @@ struct blinded_path;
  * @ctx: context to allocate from
  * @final_amount: amount we want to reach the end
  * @final_cltv: cltv we want to at end
+ * @total_amount: amount of all parts together.
  * @payinfo: fee and other restriction info
  *
  * This calls onion_nonfinal_hop and onion_final_hop to create onion
@@ -20,6 +21,7 @@ struct blinded_path;
 u8 **blinded_onion_hops(const tal_t *ctx,
 			struct amount_msat final_amount,
 			u32 final_cltv,
+			struct amount_msat total_amount,
 			const struct blinded_path *path);
 
 #endif /* LIGHTNING_COMMON_BLINDEDPAY_H */
