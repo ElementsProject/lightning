@@ -739,8 +739,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
     # Make sure l4 has received all the gossip.
     l4.daemon.wait_for_logs(['Received node_announcement for node ' + n.info['id'] for n in (l1, l2, l3)])
 
-    scid12 = only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'][0]['short_channel_id']
-    scid23 = only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels'][0]['short_channel_id']
+    scid12 = l1.rpc.listpeerchannels(l2.info['id'])['channels'][0]['short_channel_id']
+    scid23 = l3.rpc.listpeerchannels(l2.info['id'])['channels'][0]['short_channel_id']
     block12 = int(scid12.split('x')[0])
     block23 = int(scid23.split('x')[0])
 
@@ -1419,7 +1419,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
     node_announcement = l1.daemon.is_in_log(r'\[IN\] 0101').split(' ')[-1][:-1]
 
     txid = l2.rpc.close(l3.info['id'])['txid']
-    wait_for(lambda: only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: l2.rpc.listpeerchannels(l3.info['id'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
     bitcoind.generate_block(13, txid)
 
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])

@@ -13,7 +13,7 @@ import unittest
 
 
 def find_next_feerate(node, peer):
-    chan = only_one(only_one(node.rpc.listpeers(peer.info['id'])['peers'])['channels'])
+    chan = only_one(node.rpc.listpeerchannels(peer.info['id'])['channels'])
     return chan['next_feerate']
 
 
@@ -110,11 +110,8 @@ def test_multifunding_v2_best_effort(node_factory, bitcoind):
         # open again, so multiple channels may remain
         # listed.
         def get_funded_channel_scid(n1, n2):
-            peers = n1.rpc.listpeers(n2.info['id'])['peers']
-            assert len(peers) == 1
-            peer = peers[0]
-            channels = peer['channels']
-            assert channels
+            channels = n1.rpc.listpeerchannels(n2.info['id'])['channels']
+            assert channels and len(channels) != 0
             for c in channels:
                 state = c['state']
                 if state in ('DUALOPEND_AWAITING_LOCKIN', 'CHANNELD_AWAITING_LOCKIN', 'CHANNELD_NORMAL'):
@@ -178,7 +175,7 @@ def test_v2_open_sigs_restart(node_factory, bitcoind):
         pass
 
     l2.daemon.wait_for_log('Broadcasting funding tx')
-    txid = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['funding_txid']
+    txid = l2.rpc.listpeerchannels(l1.info['id'])['channels'][0]['funding_txid']
     bitcoind.generate_block(6, wait_for_mempool=txid)
 
     # Make sure we're ok.
@@ -267,7 +264,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     next_feerate = find_next_feerate(l1, l2)
 
     # Check that feerate info is correct
-    info_1 = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+    info_1 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
     assert info_1['initial_feerate'] == info_1['last_feerate']
     rate = int(info_1['last_feerate'][:-5])
     assert int(info_1['next_feerate'][:-5]) == rate * 65 // 64
@@ -286,7 +283,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     assert update['commitments_secured']
 
     # Check that feerate info has incremented
-    info_2 = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+    info_2 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
     assert info_1['initial_feerate'] == info_2['initial_feerate']
     assert info_1['next_feerate'] == info_2['last_feerate']
 
@@ -301,7 +298,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
         l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # Do it again, with a higher feerate
-    info_2 = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+    info_2 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
     assert info_1['initial_feerate'] == info_2['initial_feerate']
     assert info_1['next_feerate'] == info_2['last_feerate']
     rate = int(info_2['last_feerate'][:-5])
@@ -328,7 +325,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
     # Check that feerate info is gone
-    info_1 = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+    info_1 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
     assert 'initial_feerate' not in info_1
     assert 'last_feerate' not in info_1
     assert 'next_feerate' not in info_1
@@ -375,7 +372,7 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     est_fees = calc_lease_fee(amount, feerate, rates)
 
     # This should be the accepter's amount
-    fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
+    fundings = only_one(l1.rpc.listpeerchannels()['channels'])['funding']
     assert Millisatoshi(amount * 1000) == fundings['remote_funds_msat']
     assert Millisatoshi(est_fees + amount * 1000) == fundings['local_funds_msat']
     assert Millisatoshi(est_fees) == fundings['fee_paid_msat']
@@ -416,9 +413,9 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     assert l2.rpc.listdatastore() == {'datastore': []}
 
     # This should be the accepter's amount
-    fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
-    # The lease is still there!
-    assert Millisatoshi(amount * 1000) == fundings['remote_funds_msat']
+    fundings = only_one(l1.rpc.listpeerchannels()['channels'])['funding']
+    # The is still there!
+    assert Millisatoshi(amount * 1000) == Millisatoshi(fundings['remote_funds_msat'])
 
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
 
@@ -791,8 +788,8 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
     # Check that they have matching funding txid
-    l1_funding_txid = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding_txid']
-    l2_funding_txid = only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['funding_txid']
+    l1_funding_txid = only_one(l1.rpc.listpeerchannels()['channels'])['funding_txid']
+    l2_funding_txid = only_one(l2.rpc.listpeerchannels()['channels'])['funding_txid']
     assert l1_funding_txid == l2_funding_txid
 
 
@@ -858,7 +855,7 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
 
     # Check that we're waiting for lockin
     l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
     def run_retry():
@@ -885,7 +882,7 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
 
     signed_psbt = run_retry()
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
     # Restart and listpeers, used to crash
@@ -895,7 +892,7 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
     # We've restarted. Let's RBF
     signed_psbt = run_retry()
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert len(inflights) == 3
     assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
@@ -903,7 +900,7 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
 
     # Are inflights the same post restart
     prev_inflights = inflights
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert prev_inflights == inflights
     assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
@@ -942,7 +939,7 @@ def test_rbf_broadcast_close_inflights(node_factory, bitcoind, chainparams):
 
     # Check that we're waiting for lockin
     l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
     # Make it such that l1 and l2 cannot broadcast transactions
@@ -970,10 +967,10 @@ def test_rbf_broadcast_close_inflights(node_factory, bitcoind, chainparams):
 
     signed_psbt = run_retry()
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert inflights[-1]['funding_txid'] not in bitcoind.rpc.getrawmempool()
 
-    cmtmt_txid = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['scratch_txid']
+    cmtmt_txid = only_one(l1.rpc.listpeerchannels()['channels'])['scratch_txid']
     assert cmtmt_txid == inflights[-1]['scratch_txid']
 
     # l2 goes offline
@@ -1016,7 +1013,7 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
 
     # Check that we're waiting for lockin
     l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
     def run_retry():
@@ -1056,7 +1053,7 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
 
     # We fetch out our inflights list
-    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
 
     # l2 goes offline
     l2.stop()
@@ -1071,7 +1068,7 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
     l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
 
-    channel = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])
+    channel = only_one(l1.rpc.listpeerchannels()['channels'])
     assert channel['funding_txid'] == inflights[1]['funding_txid']
     assert channel['scratch_txid'] == inflights[1]['scratch_txid']
 
@@ -1113,7 +1110,7 @@ def test_funder_options(node_factory, bitcoind):
     # l2 funds a chanenl with us. We don't contribute
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.fundchannel(l1, 10**6)
-    chan_info = only_one(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'])
+    chan_info = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
     # l1 contributed nothing
     assert chan_info['funding']['remote_funds_msat'] == Millisatoshi('0msat')
     assert chan_info['funding']['local_funds_msat'] != Millisatoshi('0msat')
@@ -1146,7 +1143,7 @@ def test_funder_options(node_factory, bitcoind):
                               {'fund_probability': 100})
     l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l3.fundchannel(l1, 10**6)
-    chan_info = only_one(only_one(l3.rpc.listpeers(l1.info['id'])['peers'])['channels'])
+    chan_info = only_one(l3.rpc.listpeerchannels(l1.info['id'])['channels'])
     # l1 contributed all its funds!
     assert chan_info['funding']['remote_funds_msat'] == Millisatoshi('9994255000msat')
     assert chan_info['funding']['local_funds_msat'] == Millisatoshi('1000000000msat')
@@ -1291,8 +1288,8 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
     bitcoind.generate_block(4)  # Confirm on the l2 side.
     l1.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_READY')
 
-    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
-    wait_for(lambda: l2.rpc.listpeers()['peers'][0]['channels'][0]['state'] == "CHANNELD_NORMAL")
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == "CHANNELD_NORMAL")
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == "CHANNELD_NORMAL")
 
 
 def test_zeroconf_open(bitcoind, node_factory):
@@ -1335,8 +1332,8 @@ def test_zeroconf_open(bitcoind, node_factory):
         r'Peer told us that they\'ll use alias=[0-9x]+ for this channel',
     ])
 
-    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['state'] == 'CHANNELD_NORMAL')
-    wait_for(lambda: l2.rpc.listpeers()['peers'][0]['channels'][0]['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
     wait_for(lambda: l2.rpc.listincoming()['incoming'] != [])
 
     inv = l2.rpc.invoice(10**8, 'lbl', 'desc')['bolt11']
@@ -1344,7 +1341,7 @@ def test_zeroconf_open(bitcoind, node_factory):
     pprint(details)
     assert('routes' in details and len(details['routes']) == 1)
     hop = details['routes'][0][0]  # First (and only) hop of hint 0
-    l1alias = l1.rpc.listpeers()['peers'][0]['channels'][0]['alias']['local']
+    l1alias = only_one(l1.rpc.listpeerchannels()['channels'])['alias']['local']
     assert(hop['pubkey'] == l1.info['id'])  # l1 is the entrypoint
     assert(hop['short_channel_id'] == l1alias)  # Alias has to make sense to entrypoint
     l1.rpc.pay(inv)
@@ -1389,8 +1386,8 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
     l1.daemon.wait_for_log(r'Got WIRE_HSMD_CUPDATE_SIG_REQ')
     l2.daemon.wait_for_log(r'Got WIRE_HSMD_CUPDATE_SIG_REQ')
 
-    l1chan = l1.rpc.listpeers()['peers'][0]['channels'][0]
-    l2chan = l2.rpc.listpeers()['peers'][0]['channels'][0]
+    l1chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    l2chan = only_one(l2.rpc.listpeerchannels()['channels'])
     channel_id = l1chan['channel_id']
 
     # We have no confirmation yet, so no `short_channel_id`
@@ -1421,8 +1418,8 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
     l1.daemon.wait_for_log(r'Funding tx [a-f0-9]{64} depth 1 of 0')
     l2.daemon.wait_for_log(r'Funding tx [a-f0-9]{64} depth 1 of 0')
 
-    l1chan = l1.rpc.listpeers()['peers'][0]['channels'][0]
-    l2chan = l2.rpc.listpeers()['peers'][0]['channels'][0]
+    l1chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    l2chan = only_one(l2.rpc.listpeerchannels()['channels'])
     assert('short_channel_id' in l1chan)
     assert('short_channel_id' in l2chan)
 
@@ -1501,7 +1498,7 @@ def test_zeroconf_forward(node_factory, bitcoind):
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 4)
 
     # Make sure all htlcs completely settled!
-    wait_for(lambda: all(only_one(p['channels'])['htlcs'] == [] for p in l2.rpc.listpeers()['peers']))
+    wait_for(lambda: (p['htlcs'] == [] for p in l2.rpc.listpeerchannels()['channels']))
 
     inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
     l3.rpc.pay(inv)
@@ -1653,9 +1650,9 @@ def test_scid_alias_private(node_factory, bitcoind):
     l2.rpc.fundchannel(l3.info['id'], 'all', announce=False)
 
     bitcoind.generate_block(1, wait_for_mempool=1)
-    wait_for(lambda: only_one(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
 
-    chan = only_one(only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'])
+    chan = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])
     assert chan['private'] is True
     scid23 = chan['short_channel_id']
     alias23 = chan['alias']['local']
@@ -1667,7 +1664,7 @@ def test_scid_alias_private(node_factory, bitcoind):
     bitcoind.generate_block(6, wait_for_mempool=1)
     wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 1)
 
-    chan = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])
+    chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
     assert chan['private'] is False
     scid12 = chan['short_channel_id']
 
@@ -1743,7 +1740,7 @@ def test_zeroconf_multichan_forward(node_factory):
     inv = l3.rpc.invoice(amount_msat=10000, label='lbl1', description='desc')['bolt11']
     l1.rpc.pay(inv)
 
-    for c in only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels']:
+    for c in l2.rpc.listpeerchannels(l3.info['id'])['channels']:
         if c['channel_id'] == zeroconf_cid:
             zeroconf_scid = c['alias']['local']
         else:
@@ -1796,12 +1793,12 @@ def test_zeroreserve(node_factory, bitcoind):
     wait_for(lambda: l3.channel_state(l1) == 'CHANNELD_NORMAL')
 
     # Now make sure we all agree on each others reserves
-    l1c1 = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]
-    l2c1 = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
-    l2c2 = l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
-    l3c2 = l3.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]
-    l3c3 = l3.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
-    l1c3 = l1.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
+    l1c1 = l1.rpc.listpeerchannels(l2.info['id'])['channels'][0]
+    l2c1 = l2.rpc.listpeerchannels(l1.info['id'])['channels'][0]
+    l2c2 = l2.rpc.listpeerchannels(l3.info['id'])['channels'][0]
+    l3c2 = l3.rpc.listpeerchannels(l2.info['id'])['channels'][0]
+    l3c3 = l3.rpc.listpeerchannels(l1.info['id'])['channels'][0]
+    l1c3 = l1.rpc.listpeerchannels(l3.info['id'])['channels'][0]
 
     # l1 imposed a 0sat reserve on l2, while l2 imposed the default 1% reserve on l1
     assert l1c1['their_reserve_msat'] == l2c1['our_reserve_msat'] == Millisatoshi('0sat')
@@ -1821,7 +1818,7 @@ def test_zeroreserve(node_factory, bitcoind):
     l2.drain(l1)
 
     # Remember that this is the reserve l1 imposed on l2, so l2 can drain completely
-    l2c1 = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
+    l2c1 = l2.rpc.listpeerchannels(l1.info['id'])['channels'][0]
 
     # And despite us briefly being above dust (with a to_us output),
     # closing should result in the output being trimmed again since we

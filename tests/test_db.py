@@ -120,8 +120,8 @@ def test_max_channel_id(node_factory, bitcoind):
     l2.wait_for_channel_onchain(l1.info['id'])
 
     bitcoind.generate_block(101)
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'] == [])
-    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] == [])
+    wait_for(lambda: l1.rpc.listpeerchannels()['channels'] == [])
+    wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
 
     # Stop l2, and restart
     l2.stop()
