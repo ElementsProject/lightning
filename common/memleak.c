@@ -319,7 +319,6 @@ struct htable *memleak_start(const tal_t *ctx)
 		call_memleak_helpers(memtable, NULL);
 	}
 
-	tal_add_destructor(memtable, htable_clear);
 	return memtable;
 }
 

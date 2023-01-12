@@ -407,11 +407,6 @@ static void move_broadcast(struct offmap *offmap,
 	offmap_del(offmap, omap);
 }
 
-static void destroy_offmap(struct offmap *offmap)
-{
-	offmap_clear(offmap);
-}
-
 /**
  * Rewrite the on-disk gossip store, compacting it along the way
  *
@@ -453,7 +448,6 @@ bool gossip_store_compact(struct gossip_store *gs)
 	/* Walk old file, copy everything and remember new offsets. */
 	offmap = tal(tmpctx, struct offmap);
 	offmap_init_sized(offmap, gs->count);
-	tal_add_destructor(offmap, destroy_offmap);
 
 	/* Start by writing all channel announcements and updates. */
 	off = 1;
