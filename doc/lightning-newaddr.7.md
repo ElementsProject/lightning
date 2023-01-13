@@ -4,7 +4,7 @@ lightning-newaddr -- Command for generating a new address to be used by Core Lig
 SYNOPSIS
 --------
 
-**newaddr** [ *addresstype* ]
+**newaddr** [*addresstype*]
 
 DESCRIPTION
 -----------
@@ -14,12 +14,10 @@ subsequently be used to fund channels managed by the Core Lightning node.
 
 The funding transaction needs to be confirmed before funds can be used.
 
-*addresstype* specifies the type of address wanted; i.e. *p2sh-segwit*
-(e.g. `2MxaozoqWwiUcuD9KKgUSrLFDafLqimT9Ta` on bitcoin testnet or
-`3MZxzq3jBSKNQ2e7dzneo9hy4FvNzmMmt3` on bitcoin mainnet) or *bech32*
+*addresstype* specifies the type of address wanted; currently *bech32*
 (e.g. `tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg` on bitcoin testnet
 or `bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej` on
-bitcoin mainnet). The special value *all* generates both address types
+bitcoin mainnet). The special value *all* generates all known address types
 for the same underlying key.
 
 If no *addresstype* is specified the address generated is a *bech32* address.
@@ -33,7 +31,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 
 - **bech32** (string, optional): The bech32 (native segwit) address
-- **p2sh-segwit** (string, optional): The p2sh-wrapped address
+- **p2sh-segwit** (string, optional): The p2sh-wrapped address **deprecated, removal in v23.11**
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -58,4 +56,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:8ed49212ffddf29077007efe38a6b6446cc9c351cb24a1454030526c89407175)
+[comment]: # ( SHA256STAMP:9d8dc613c005127a0807f2c8b26b0a96ddc5bf3ebdfa59c3f95a888476c0ce2a)
