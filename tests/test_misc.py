@@ -1856,14 +1856,11 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
 
 def test_newaddr(node_factory, chainparams):
     l1 = node_factory.get_node()
-    p2sh = l1.rpc.newaddr('p2sh-segwit')
-    assert 'bech32' not in p2sh
-    assert p2sh['p2sh-segwit'].startswith(chainparams['p2sh_prefix'])
     bech32 = l1.rpc.newaddr('bech32')
     assert 'p2sh-segwit' not in bech32
     assert bech32['bech32'].startswith(chainparams['bip173_prefix'])
     both = l1.rpc.newaddr('all')
-    assert both['p2sh-segwit'].startswith(chainparams['p2sh_prefix'])
+    assert 'p2sh-segwit' not in both
     assert both['bech32'].startswith(chainparams['bip173_prefix'])
 
 
