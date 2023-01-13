@@ -1706,6 +1706,15 @@ impl From<requests::SetchannelRequest> for pb::SetchannelRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SigninvoiceRequest> for pb::SigninvoiceRequest {
+    fn from(c: requests::SigninvoiceRequest) -> Self {
+        Self {
+            invstring: c.invstring, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::SignmessageRequest> for pb::SignmessageRequest {
     fn from(c: requests::SignmessageRequest) -> Self {
         Self {
@@ -2521,6 +2530,7 @@ impl From<pb::ListpeersPeers> for responses::ListpeersPeers {
         Self {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             connected: c.connected, // Rule #1 for type boolean
+            num_channels: c.num_channels, // Rule #1 for type u32
             log: Some(c.log.into_iter().map(|s| s.into()).collect()), // Rule #4
             channels: Some(c.channels.into_iter().map(|s| s.into()).collect()), // Rule #4
             netaddr: Some(c.netaddr.into_iter().map(|s| s.into()).collect()), // Rule #4
@@ -3403,6 +3413,15 @@ impl From<pb::SetchannelResponse> for responses::SetchannelResponse {
     fn from(c: pb::SetchannelResponse) -> Self {
         Self {
             channels: c.channels.into_iter().map(|s| s.into()).collect(), // Rule #4
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SigninvoiceResponse> for responses::SigninvoiceResponse {
+    fn from(c: pb::SigninvoiceResponse) -> Self {
+        Self {
+            bolt11: c.bolt11, // Rule #1 for type string
         }
     }
 }
