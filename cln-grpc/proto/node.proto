@@ -941,7 +941,6 @@ message NewaddrRequest {
 	// NewAddr.addresstype
 	enum NewaddrAddresstype {
 		BECH32 = 0;
-		P2SH_SEGWIT = 1;
 		ALL = 2;
 	}
 	optional NewaddrAddresstype addresstype = 1;
