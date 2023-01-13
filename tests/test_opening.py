@@ -2005,6 +2005,134 @@ def test_coinbase_unspendable(node_factory, bitcoind):
     assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 1
 
 
+@pytest.mark.openchannel('v2')
+def test_openchannel_no_confirmed_inputs_opener(node_factory, bitcoind):
+    """ If the opener flags 'require-confirmed-inputs' for an open,
+        and accepter sends unconfirmed inputs check that the
+        accepter aborts the open """
+
+    l1_opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
+               'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+               'may_reconnect': True, 'funder-lease-requests-only': False,
+               'allow_warning': True}
+    l2_opts = l1_opts.copy()
+    l1_opts['require-confirmed-inputs'] = True
+    l1, l2 = node_factory.get_nodes(2, opts=[l1_opts, l2_opts])
+    assert l1.rpc.listconfigs()['require-confirmed-inputs']
+
+    amount = 500000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+    utxo_lookups = set()
+
+    def _no_utxo_response(r):
+        utxo_lookups.add(tuple(r['params']))
+        return {'id': r['id'], 'result': None}
+
+    # We mock l1 out such that it thinks no inputs are confirmed
+    l1.daemon.rpcproxy.mock_rpc('gettxout', _no_utxo_response)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l1 should return an error + abort the open as it thinks it's
+    # sending unconfirmed inputs to a peer that's requested only
+    # confirmed inputs
+    with pytest.raises(RpcError, match=r'Input .* is not confirmed'):
+        l1.rpc.fundchannel(l2.info['id'], amount)
+    assert l1.daemon.is_in_log('validating psbt for role: accepter')
+
+    # Verify that the looked up utxo is l2's
+    # Build a set of outpoints for node (l2)
+    outs = {(out['txid'], out['output']) for out in l2.rpc.listfunds()['outputs']}
+    # Confirm that seen utxo lookups are a subset of l2's outpoints
+    assert utxo_lookups <= outs
+
+
+@pytest.mark.openchannel('v2')
+def test_openchannel_no_unconfirmed_inputs_accepter(node_factory, bitcoind):
+    """ If the accepter flags 'require-confirmed-inputs' for an open,
+        and opener send unconfirmed inputs check that the
+        accepter aborts the open """
+    l1_opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
+               'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
+               'may_reconnect': True, 'funder-lease-requests-only': False,
+               'allow_warning': True}
+    l2_opts = l1_opts.copy()
+    l2_opts['require-confirmed-inputs'] = True
+    l1, l2 = node_factory.get_nodes(2, opts=[l1_opts, l2_opts])
+    assert l2.rpc.listconfigs()['require-confirmed-inputs']
+
+    amount = 500000
+    l1.fundwallet(20000000)
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+    utxo_lookups = set()
+
+    def _verify_utxos(n, lookedup):
+        # Build a set of outpoints for node (l2)
+        outs = {(out['txid'], out['output']) for out in n.rpc.listfunds()['outputs']}
+        # Confirm that seen utxo lookups are a subset of l2's outpoints
+        assert lookedup <= outs
+        lookedup.clear()
+
+    def _no_utxo_response(r):
+        utxo_lookups.add(tuple(r['params']))
+        # Check that the utxo belongs to l2
+        return {'id': r['id'], 'result': None}
+
+    l1.daemon.rpcproxy.mock_rpc('gettxout', _no_utxo_response)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 should return an error + abort the open as it thinks it's
+    # sending unconfirmed inputs to a peer that's requested only
+    # confirmed inputs
+    with pytest.raises(RpcError, match=r'Input .* is not confirmed'):
+        l1.rpc.fundchannel(l2.info['id'], amount)
+
+    _verify_utxos(l1, utxo_lookups)
+
+    l1.daemon.rpcproxy.mock_rpc('gettxout', None)
+    l2.daemon.rpcproxy.mock_rpc('gettxout', _no_utxo_response)
+
+    # l2 should return an error + abort the open
+    with pytest.raises(RpcError, match=r'Input .* is not confirmed'):
+        l1.rpc.fundchannel(l2.info['id'], amount)
+
+    _verify_utxos(l1, utxo_lookups)
+
+    # Let's negotiate the open, remove option from l2, and then RBF
+
+    # Turn the txout unconfirmed off, so we can open a channel
+    l2.daemon.rpcproxy.mock_rpc('gettxout', None)
+    res = l1.rpc.fundchannel(l2.info['id'], amount)
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+    l2.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    # Remove option from l2
+    l2.stop()
+    del l2.daemon.opts['require-confirmed-inputs']
+    l2.start()
+    assert not l2.rpc.listconfigs()['require-confirmed-inputs']
+
+    # Turn the mock back on so we pretend everything l1 sends is unconf
+    l2.daemon.rpcproxy.mock_rpc('gettxout', _no_utxo_response)
+
+    # Prep for RBF
+    startweight = 42 + 172  # base weight, funding output
+    next_feerate = find_next_feerate(l1, l2)
+    psbt = l1.rpc.fundpsbt(amount, next_feerate, startweight,
+                           min_witness_weight=110,
+                           excess_as_change=True)['psbt']
+
+    # Attempt bump, fail. L2 should remember required-confirmed-inputs
+    # from original channel negotiation, despite node-wide setting
+    # being flagged off
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    bump = l1.rpc.openchannel_bump(res['channel_id'], amount, psbt)
+    with pytest.raises(RpcError, match=r'Input .* is not confirmed'):
+        l1.rpc.openchannel_update(res['channel_id'], bump['psbt'])
+
+    _verify_utxos(l1, utxo_lookups)
+
+
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "anchors not available")
 @pytest.mark.developer("dev-force-features, dev-queryrates required")
 @pytest.mark.openchannel('v2')
