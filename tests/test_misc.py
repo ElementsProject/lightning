@@ -520,7 +520,6 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     dont_spend_outputs(l1, out['txid'])
 
     # Now send some money to l2.
-    # lightningd uses P2SH-P2WPKH
     waddr = l2.rpc.newaddr('bech32')['bech32']
     out = l1.rpc.withdraw(waddr, amount)
     bitcoind.generate_block(1)
@@ -1199,7 +1198,7 @@ def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr(addresstype='all')['p2sh-segwit']
+    addr = l1.rpc.newaddr(addresstype='all')['bech32']
 
     ######################################################################
     # First failure scenario: rollback on startup doesn't work,
@@ -1214,7 +1213,7 @@ def test_blockchaintrack(node_factory, bitcoind):
     time.sleep(1)  # mempool is still unpredictable
     bitcoind.generate_block(1)
 
-    l1.daemon.wait_for_log(r'Owning output.* \(P2SH\).* CONFIRMED')
+    l1.daemon.wait_for_log(r'Owning output.* CONFIRMED')
     outputs = l1.rpc.listfunds()['outputs']
     assert len(outputs) == 1
 
@@ -2974,7 +2973,7 @@ def test_field_filter(node_factory, chainparams):
     l1, l2 = node_factory.get_nodes(2)
 
     addr1 = l1.rpc.newaddr('bech32')['bech32']
-    addr2 = l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit']
+    addr2 = '2MxqzNANJNAdMjHQq8ZLkwzooxAFiRzXvEz' if not chainparams['elements'] else 'XGx1E2JSTLZLmqYMAo3CGpsco85aS7so33'
     inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
 
     # Simple case: single field
