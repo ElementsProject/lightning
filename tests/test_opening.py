@@ -1145,7 +1145,7 @@ def test_funder_options(node_factory, bitcoind):
     l3.fundchannel(l1, 10**6)
     chan_info = only_one(l3.rpc.listpeerchannels(l1.info['id'])['channels'])
     # l1 contributed all its funds!
-    assert chan_info['funding']['remote_funds_msat'] == Millisatoshi('9994255000msat')
+    assert chan_info['funding']['remote_funds_msat'] == Millisatoshi('9994945000msat')
     assert chan_info['funding']['local_funds_msat'] == Millisatoshi('1000000000msat')
 
 
@@ -1189,7 +1189,7 @@ def test_funder_contribution_limits(node_factory, bitcoind):
                  'fuzz_percent': 0,
                  'leases_only': False})
 
-    # Set our contribution to 50k sat, should only use 7 of 12 available utxos
+    # Set our contribution to 50k sat, should only use 6 of 12 available utxos
     l3.rpc.call('funderupdate',
                 {'policy': 'fixed',
                  'policy_mod': '50000sat',
@@ -1202,13 +1202,13 @@ def test_funder_contribution_limits(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**7)
-    assert l2.daemon.is_in_log('Policy .* returned funding amount of 139020sat')
+    assert l2.daemon.is_in_log('Policy .* returned funding amount of 141780sat')
     assert l2.daemon.is_in_log(r'calling `signpsbt` .* 6 inputs')
 
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fundchannel(l3, 10**7)
     assert l3.daemon.is_in_log('Policy .* returned funding amount of 50000sat')
-    assert l3.daemon.is_in_log(r'calling `signpsbt` .* 7 inputs')
+    assert l3.daemon.is_in_log(r'calling `signpsbt` .* 6 inputs')
 
 
 @pytest.mark.openchannel('v2')
@@ -1395,7 +1395,7 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
     assert('short_channel_id' not in l2chan)
 
     # Channel is "proposed"
-    chan_val = 993198000 if chainparams['elements'] else 995673000
+    chan_val = 993888000 if chainparams['elements'] else 996363000
     l1_mvts = [
         {'type': 'chain_mvt', 'credit_msat': chan_val, 'debit_msat': 0, 'tags': ['channel_proposed', 'opener']},
         {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 20000000, 'tags': ['pushed'], 'fees_msat': '0msat'},

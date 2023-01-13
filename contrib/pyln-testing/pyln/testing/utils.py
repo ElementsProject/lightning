@@ -842,7 +842,7 @@ class LightningNode(object):
     def is_connected(self, remote_node):
         return remote_node.info['id'] in [p['id'] for p in self.rpc.listpeers()['peers']]
 
-    def openchannel(self, remote_node, capacity=FUNDAMOUNT, addrtype="p2sh-segwit", confirm=True, wait_for_announce=True, connect=True):
+    def openchannel(self, remote_node, capacity=FUNDAMOUNT, addrtype="bech32", confirm=True, wait_for_announce=True, connect=True):
         addr, wallettxid = self.fundwallet(10 * capacity, addrtype)
 
         if connect and not self.is_connected(remote_node):
@@ -859,7 +859,7 @@ class LightningNode(object):
 
         return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': res['tx']}
 
-    def fundwallet(self, sats, addrtype="p2sh-segwit", mine_block=True):
+    def fundwallet(self, sats, addrtype="bech32", mine_block=True):
         addr = self.rpc.newaddr(addrtype)[addrtype]
         txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
         if mine_block:
