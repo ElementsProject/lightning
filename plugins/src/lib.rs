@@ -47,6 +47,7 @@ where
     rpcmethods: HashMap<String, RpcMethod<S>>,
     subscriptions: HashMap<String, Subscription<S>>,
     dynamic: bool,
+    #[allow(unused)]
     nonnumericids: bool,
 }
 
