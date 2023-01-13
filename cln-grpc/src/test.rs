@@ -38,7 +38,9 @@ fn test_listpeers() {
               "funding": {
                 "local_msat": "0msat",
                 "remote_msat": "1000000000msat",
-                "pushed_msat": "0msat"
+                "pushed_msat": "0msat",
+                "local_funds_msat": "0msat",
+                "remote_funds_msat": "0msat"
               },
               "msatoshi_to_us": 0,
               "to_us_msat": "0msat",
@@ -137,7 +139,9 @@ fn test_listpeers() {
               "funding": {
                 "local_msat": "1000000000msat",
                 "remote_msat": "0msat",
-                "pushed_msat": "0msat"
+                "pushed_msat": "0msat",
+                "local_funds_msat": "0msat",
+                "remote_funds_msat": "0msat"
               },
               "msatoshi_to_us": 1000000000,
               "to_us_msat": "1000000000msat",
@@ -278,7 +282,7 @@ fn test_keysend() {
                 }],
                 }],
             }),
-	    extratlvs: None,
+            extratlvs: None,
         };
 
     let u: cln_rpc::model::KeysendRequest = g.into();
