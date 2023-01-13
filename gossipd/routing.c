@@ -1559,10 +1559,15 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 				     &htlc_minimum, &fee_base_msat,
 				     &fee_proportional_millionths,
 				     &htlc_maximum)) {
-		warn = towire_warningfmt(rstate, NULL,
-					 "Malformed channel_update %s",
-					 tal_hex(tmpctx, serialized));
-		return warn;
+		/* FIXME: We removed a warning about the
+		 * channel_update being malformed since the warning
+		 * could cause lnd to disconnect (seems they treat
+		 * channel-unrelated warnings as fatal?). This was
+		 * caused by lnd not enforcing the `htlc_maximum`,
+		 * thus the parsing would fail. We can re-add the
+		 * warning once our assumption that `htlc_maximum`
+		 * being set is valid. */
+		return NULL;
 	}
 	direction = channel_flags & 0x1;
 
