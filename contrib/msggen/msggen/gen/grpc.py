@@ -327,6 +327,8 @@ class GrpcConverterGenerator(IGenerator):
                     f'c.{name}'  # default to just assignment
                 )
 
+                if f.deprecated:
+                    self.write(f"#[allow(deprecated)]\n", numindent=3)
                 self.write(f"{name}: {rhs}, // Rule #2 for type {typ}\n", numindent=3)
 
             elif isinstance(f, CompositeField):
