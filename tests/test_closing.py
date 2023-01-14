@@ -289,6 +289,11 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
     l1.pay(l3, 100000000)
     l1.pay(l4, 100000000)
 
+    # Make sure HTLCs completely expired before we mine, so they don't
+    # unilaterally close!
+    for n in l1, l2, l3, l4:
+        wait_for(lambda: all(c['htlcs'] == [] for c in n.rpc.listpeerchannels()['channels']))
+
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
 
     addr = chainparams['example_addr']
