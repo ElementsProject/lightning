@@ -19,6 +19,9 @@ WALLET_HDRS := $(WALLET_LIB_SRC:.c=.h)
 
 WALLET_OBJS := $(WALLET_SRC:.c=.o)
 
+# This really should be a subdir of lightningd/.  We depend on their headers!
+$(WALLET_OBJS): $(LIGHTNINGD_SRC:.c=.h)
+
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(WALLET_SRC) $(WALLET_DB_QUERIES)
 ALL_C_HEADERS += $(WALLET_HDRS)
