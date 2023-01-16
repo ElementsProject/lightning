@@ -423,6 +423,82 @@ def test_pay_plugin(node_factory):
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@pytest.mark.xfail(reason="almost nothing shouldn't be possible during shutdown "
+                          "and definitely not opening channels!")
+def test_openchannel_shutdown(node_factory, executor):
+    """Example to demonstrate why subdaemons really should be dead and stay dead
+       when we are shutting down, i.e. when lightningd's io_loop restarts in
+       shutdown_plugins.
+       Not doing so also triggers db_write's which a backup plugin could miss"""
+
+    dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
+    opts = [{},
+            {'plugin': os.path.join(os.getcwd(), 'tests/plugins/delay_shutdown.py'),
+             'shutdown_delay': 3,
+             'important-plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
+             'dblog-file': dbfile}]
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+
+    f_stop = executor.submit(l2.rpc.stop)
+    l2.daemon.wait_for_log(r'plugin-delay_shutdown.py: delay shutdown')
+    needle = l2.daemon.logsearch_start
+
+    # Custom behaviour injected by plugins via hooks etc. would be dismissed when
+    # those plugins already stopped, for example because they didn't subscribe
+    # the shutdown notification. That would be very inconsistent and kind of
+    # a rug-pull to plugin devs.
+    try:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l1.fundchannel(l2, 10**6, wait_for_active=False)
+    except:
+        pass
+    f_stop.result()
+
+    # channel opending shouldn't be possible in shutdown, at the very least because
+    # it triggers db_write's.
+    assert not l2.daemon.is_in_log(r'connectd: Activating for message WIRE_OPEN_CHANNEL', start=needle)
+    assert not l2.daemon.is_in_log(r'plugin-dblog.py: \[\\\"UPDATE', start=needle)  # escape to match "[\"UPDATE"
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@pytest.mark.xfail(reason="connectd still running when calling shutdown_plugins()")
+def test_connected_hook_shutdown(node_factory, executor):
+    """l1 connects to l2 which is shutting down while handling the connected hook
+    """
+    dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
+    opts = [{'may_reconnect': True},
+            {'may_reconnect': True,
+             'plugin': os.path.join(os.getcwd(), 'tests/plugins/delay_shutdown.py'),
+             'shutdown_delay': 3,
+             'important-plugin': [os.path.join(os.getcwd(), 'tests/plugins/reject.py'),
+                                  # dblog just to if any last check db_wrtie's occur
+                                  os.path.join(os.getcwd(), 'tests/plugins/dblog.py')],
+             'dblog-file': dbfile}]
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+    l2.rpc.reject(l1.info['id'])
+
+    # l2's connected hook will reject l1's connect attempt
+    l1.connect(l2)
+    l1.daemon.wait_for_log(r"You are in reject list")
+    assert not len(l1.rpc.listpeers()['peers'])
+
+    # l2 should still reject it while shutting down
+    f_stop = executor.submit(l2.rpc.stop)
+    l2.daemon.wait_for_log(r'plugin-delay_shutdown.py: delay shutdown')
+    needle = l2.daemon.logsearch_start
+    try:
+        l1.connect(l2)
+    except:
+        pass
+    assert not len(l1.rpc.listpeers()['peers'])
+    f_stop.result()
+    assert not l2.daemon.is_in_log(r'plugin-dblog.py: \[\\\"UPDATE', start=needle)  # escape to match "[\"UPDATE"
+
+
 def test_plugin_connected_hook_chaining(node_factory):
     """ l1 uses the logger_a, reject and logger_b plugin.
 

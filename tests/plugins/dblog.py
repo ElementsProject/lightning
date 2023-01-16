@@ -3,6 +3,8 @@
 """
 from pyln.client import Plugin, RpcError
 import sqlite3
+from time import sleep
+import sys
 
 plugin = Plugin()
 plugin.sqlite_pre_init_cmds = []
@@ -48,6 +50,11 @@ def db_write(plugin, writes, **kwargs):
         plugin.conn.execute("COMMIT;")
 
     return {"result": "continue"}
+
+
+@plugin.subscribe("shutdown")
+def shutdown(plugin, **kwargs):
+    """To see if we got any db_write's during shutdown"""
 
 
 plugin.add_option('dblog-file', None, 'The db file to create.')
