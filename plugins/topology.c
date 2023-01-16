@@ -192,17 +192,6 @@ static struct command_result *json_getroute(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
-static const struct node_id *node_id_keyof(const struct node_id *id)
-{
-	return id;
-}
-
-static size_t node_id_hash(const struct node_id *id)
-{
-	return siphash24(siphash_seed(), id->k, sizeof(id->k));
-}
-
-
 HTABLE_DEFINE_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
 		   node_map);
 

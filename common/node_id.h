@@ -3,6 +3,9 @@
 #define LIGHTNING_COMMON_NODE_ID_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
+#include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/htable/htable_type.h>
+#include <common/pseudorand.h>
 
 struct node_id {
 	u8 k[PUBKEY_CMPR_LEN];
@@ -43,4 +46,21 @@ static inline int node_id_idx(const struct node_id *id1,
 /* marshal/unmarshal functions */
 void towire_node_id(u8 **pptr, const struct node_id *id);
 void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id);
+
+/* Hash table functions for node ids */
+static inline const struct node_id *node_id_keyof(const struct node_id *id)
+{
+	return id;
+}
+
+/* We need to define a hashing function. siphash24 is a fast yet
+ * cryptographic hash in ccan/crypto/siphash24; we might be able to get away
+ * with a slightly faster hash with fewer guarantees, but it's good hygiene to
+ * use this unless it's a proven bottleneck.  siphash_seed() is a function in
+ * common/pseudorand which sets up a seed for our hashing; it's different
+ * every time the program is run. */
+static inline size_t node_id_hash(const struct node_id *id)
+{
+	return siphash24(siphash_seed(), id->k, sizeof(id->k));
+}
 #endif /* LIGHTNING_COMMON_NODE_ID_H */

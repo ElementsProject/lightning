@@ -100,16 +100,8 @@ static const struct node_id *peer_keyof(const struct peer *peer)
 	return &peer->id;
 }
 
-/*~ We also need to define a hashing function. siphash24 is a fast yet
- * cryptographic hash in ccan/crypto/siphash24; we might be able to get away
- * with a slightly faster hash with fewer guarantees, but it's good hygiene to
- * use this unless it's a proven bottleneck.  siphash_seed() is a function in
- * common/pseudorand which sets up a seed for our hashing; it's different
- * every time the program is run. */
-static size_t node_id_hash(const struct node_id *id)
-{
-	return siphash24(siphash_seed(), id->k, sizeof(id->k));
-}
+/*~ We reuse node_id_hash from common/node_id.h, which uses siphash
+ * and a per-run seed. */
 
 /*~ We also define an equality function: is this element equal to this key? */
 static bool peer_eq_node_id(const struct peer *peer,
