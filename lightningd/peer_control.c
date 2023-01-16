@@ -2344,28 +2344,38 @@ static struct command_result *json_getinfo(struct command *cmd,
 	if (cmd->ld->listen) {
 		/* These are the addresses we're announcing */
 		count_announceable = tal_count(cmd->ld->announceable);
-		json_array_start(response, "address");
-		for (size_t i = 0; i < count_announceable; i++)
-			json_add_address(response, NULL, cmd->ld->announceable+i);
 
 		/* Currently, IP discovery will only be announced by gossipd,
 		 * if we don't already have usable addresses.
 		 * See `create_node_announcement` in `gossip_generation.c`. */
 		if (count_announceable == 0) {
-			if (cmd->ld->discovered_ip_v4 != NULL &&
-					!wireaddr_arr_contains(
-						cmd->ld->announceable,
-						cmd->ld->discovered_ip_v4))
+			bool ip_v4 =
+			    cmd->ld->discovered_ip_v4 != NULL &&
+			    !wireaddr_arr_contains(cmd->ld->announceable,
+						   cmd->ld->discovered_ip_v4);
+			bool ip_v6 =
+			    cmd->ld->discovered_ip_v6 != NULL &&
+			    !wireaddr_arr_contains(cmd->ld->announceable,
+						   cmd->ld->discovered_ip_v6);
+			if (ip_v4 || ip_v6) {
+				json_array_start(response, "address");
+				if (ip_v4)
+					json_add_address(
+					    response, NULL,
+					    cmd->ld->discovered_ip_v4);
+				if (ip_v6)
+					json_add_address(
+					    response, NULL,
+					    cmd->ld->discovered_ip_v6);
+				json_array_end(response);
+			}
+		} else {
+			json_array_start(response, "address");
+			for (size_t i = 0; i < count_announceable; i++)
 				json_add_address(response, NULL,
-						 cmd->ld->discovered_ip_v4);
-			if (cmd->ld->discovered_ip_v6 != NULL &&
-					!wireaddr_arr_contains(
-						cmd->ld->announceable,
-						cmd->ld->discovered_ip_v6))
-				json_add_address(response, NULL,
-						 cmd->ld->discovered_ip_v6);
+						 cmd->ld->announceable + i);
+			json_array_end(response);
 		}
-		json_array_end(response);
 
 		/* This is what we're actually bound to. */
 		json_array_start(response, "binding");
