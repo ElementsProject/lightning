@@ -98,11 +98,6 @@ static const struct node_id *node_cache_id(const struct node_id_cache *nc)
 	return &nc->node_id;
 }
 
-static size_t node_id_hash(const struct node_id *id)
-{
-	return siphash24(siphash_seed(), id->k, sizeof(id->k));
-}
-
 static bool node_id_cache_eq(const struct node_id_cache *nc,
 			     const struct node_id *node_id)
 {
