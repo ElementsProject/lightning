@@ -2226,7 +2226,6 @@ def test_gossip_private_updates(node_factory, bitcoind):
 
 
 @pytest.mark.developer("Needs --dev-fast-gossip, --dev-fast-gossip-prune")
-@pytest.mark.xfail(strict=True)
 def test_channel_resurrection(node_factory, bitcoind):
     """When a node goes offline long enough to prune a channel, the
     channel_announcement should be retained in case the node comes back online.
