@@ -344,11 +344,6 @@ def _install_plugin(src: InstInfo) -> bool:
         print('error: reckless install directory unavailable')
         sys.exit(2)
 
-    # FIXME: This request seems rather pointless
-    req = urlopen(src.repo, timeout=10)
-    if not req.status == 200:
-        print('plugin source repository unavailable')
-        sys.exit(1)
     # Use a unique directory for each cloned repo.
     clone_path = 'reckless-{}'.format(str(hash(os.times()))[-9:])
     clone_path = Path(tempfile.gettempdir()) / clone_path
