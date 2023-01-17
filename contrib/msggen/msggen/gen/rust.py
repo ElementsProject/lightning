@@ -133,7 +133,9 @@ def gen_enum(e):
         typename = overrides[e.path]
 
     if e.required:
-        defi = f"    // Path `{e.path}`\n    #[serde(rename = \"{e.name}\")]\n    pub {e.name.normalized()}: {typename},\n"
+        defi = f"    // Path `{e.path}`\n"
+        defi += rename_if_necessary(str(e.name), e.name.normalized())
+        defi += f"    pub {e.name.normalized()}: {typename},\n"
     else:
         defi = f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
         defi += f"    pub {e.name.normalized()}: Option<{typename}>,\n"
@@ -149,12 +151,20 @@ def gen_primitive(p):
 
     if p.deprecated:
         defi += "    #[deprecated]\n"
+    defi += rename_if_necessary(org, p.name.name)
     if p.required:
-        defi += f"    #[serde(alias = \"{org}\")]\n    pub {p.name}: {typename},\n"
+        defi += f"    pub {p.name}: {typename},\n"
     else:
-        defi += f"    #[serde(alias = \"{org}\", skip_serializing_if = \"Option::is_none\")]\n    pub {p.name}: Option<{typename}>,\n"
+        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {p.name}: Option<{typename}>,\n"
 
     return defi, decl
+
+
+def rename_if_necessary(original, name):
+    if original != name:
+        return f"    #[serde(rename = \"{original}\")]\n"
+    else:
+        return f""
 
 
 def gen_array(a):
@@ -180,10 +190,11 @@ def gen_array(a):
     defi = ""
     if a.deprecated:
         defi += "    #[deprecated]\n"
+    defi += rename_if_necessary(alias, name)
     if a.required:
-        defi += f"    #[serde(alias = \"{alias}\")]\n    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
+        defi += f"    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"
     else:
-        defi += f"    #[serde(alias = \"{alias}\", skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
+        defi += f"    #[serde(skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"
 
     return (defi, decl)
 
@@ -206,9 +217,9 @@ def gen_composite(c) -> Tuple[str, str]:
     if c.deprecated:
         defi += "    #[deprecated]\n"
     if c.required:
-        defi += f"    #[serde(alias = \"{c.name.name}\")]\n    pub {c.name}: {c.typename},\n"
+        defi += f"    pub {c.name}: {c.typename},\n"
     else:
-        defi += f"    #[serde(alias = \"{c.name.name}\", skip_serializing_if = \"Option::is_none\")]\n    pub {c.name}: Option<{c.typename}>,\n"
+        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {c.name}: Option<{c.typename}>,\n"
 
     return defi, r
 
