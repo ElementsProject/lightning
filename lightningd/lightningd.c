@@ -1117,8 +1117,11 @@ int main(int argc, char *argv[])
 
 	/*~ Now that the rpc path exists, we can start the plugins and they
 	 * can start talking to us. */
-	if (!plugins_config(ld->plugins))
+	if (!plugins_config(ld->plugins)) {
+		/* Valgrind can complain about this leak! */
+		tal_free(unconnected_htlcs_in);
 		goto stop;
+	}
 
 	/*~ Process any HTLCs we were in the middle of when we exited, now
 	 * that plugins (who might want to know via htlc_accepted hook) are
