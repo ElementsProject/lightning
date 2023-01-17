@@ -65,7 +65,7 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height);
 void fixup_htlcs_out(struct lightningd *ld);
 
 void htlcs_resubmit(struct lightningd *ld,
-		    struct htlc_in_map *unconnected_htlcs_in);
+		    struct htlc_in_map *unconnected_htlcs_in STEALS);
 
 /* For HTLCs which terminate here, invoice payment calls one of these. */
 void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage);

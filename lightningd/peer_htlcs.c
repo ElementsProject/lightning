@@ -2797,7 +2797,7 @@ void fixup_htlcs_out(struct lightningd *ld)
 #endif /* COMPAT_V061 */
 
 void htlcs_resubmit(struct lightningd *ld,
-		    struct htlc_in_map *unconnected_htlcs_in)
+		    struct htlc_in_map *unconnected_htlcs_in STEALS)
 {
 	struct htlc_in *hin;
 	struct htlc_in_map_iter ini;
