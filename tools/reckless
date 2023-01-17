@@ -12,6 +12,7 @@ from typing import Union
 from urllib.parse import urlparse
 from urllib.request import urlopen
 import logging
+import copy
 
 
 logging.basicConfig(
@@ -30,6 +31,51 @@ def py_entry_guesses(name):
 
 def unsupported_entry(name):
     return [f'{name}.go', f'{name}.sh']
+
+
+class Installer:
+    '''
+    The identification of a plugin language, compiler or interpreter
+    availability, and the install procedures.
+    '''
+    def __init__(self, name, mimetype, exe=None, compiler=None, manager=None):
+        self.name = name
+        self.mimetype = mimetype
+        # The required interpreter or compiler if any
+        self.exe = exe            # interpreter (if required)
+        self.compiler = compiler  # compiler bin
+        self.manager = manager    # dependency manager (if required)
+        self.dependency_file = None
+        self.dependency_call = None
+        if self.executable():
+            global INSTALLERS
+            if not INSTALLERS:
+                INSTALLERS = {}
+            INSTALLERS[self.name] = self
+
+    def __repr__(self):
+        return (f'<Installer {self.name}: mimetype: {self.mimetype}, '
+                f'exe: {self.exe}, manager: {self.manager}>')
+
+    def executable(self):
+        '''Validate the necessary executables are available.'''
+        if self.exe:
+            if shutil.which(self.exe):
+                # This should arguably not be checked here.
+                if self.manager:
+                    if shutil.which(self.manager):
+                        return True
+                    return False
+                return True
+            return False
+
+    def installable(self):
+        '''Validate the necessary executables are available.'''
+        if self.compiler and not shutil.which(self.compiler):
+            return False
+        if self.manager and not shutil.which(self.manager):
+            return False
+        return True
 
 
 class InstInfo:
@@ -266,6 +312,38 @@ class InferInstall():
                     self.name = guess
                     return
         raise Exception(f'plugin entrypoint not found in {self.dir}')
+
+
+INSTALLERS = {}
+Installer('python3pip', 'text/x-python', exe='python3',
+          manager='pip', entry='{name}.py')
+INSTALLERS['python3pip'].add_entrypoint('{name}')
+INSTALLERS['python3pip'].add_entrypoint('__init__.py')
+INSTALLERS['python3pip'].add_dependency_file('requirements.txt')
+INSTALLERS['python3pip'].add_dependency_call(['pip', 'install', '-r',
+                                              'requirements.txt'])
+
+# Use pyproject.toml (fallback when requirements.txt is missing)
+INSTALLERS['python3piptoml'] = INSTALLERS['python3pip'].copy()
+INSTALLERS['python3piptoml'].dependency_call = [['pip', 'install', '-e', '.']]
+INSTALLERS['python3piptoml'].dependency_file = 'pyproject.toml'
+
+INSTALLERS['python3pip3'] = INSTALLERS['python3pip'].copy()
+INSTALLERS['python3pip3'].manager = 'pip3'
+INSTALLERS['python3pip3'].dependency_call = [['pip3', 'install', '-r',
+                                              'requirements.txt']]
+
+INSTALLERS['python3pip3toml'] = INSTALLERS['python3pip3'].copy()
+INSTALLERS['python3pip3toml'].dependency_call = [['pip3', 'install',
+                                                  '-e', '.']]
+INSTALLERS['python3pip3toml'].dependency_file = 'pyproject.toml'
+
+# Nodejs plugin installer
+Installer('nodejs', 'application/javascript', exe='node', manager='npm',
+          entry='{name}.js')
+INSTALLERS['nodejs'].add_entrypoint('{name}')
+INSTALLERS['nodejs'].add_dependency_call(['npm', 'install', '--omit=dev'])
+INSTALLERS['nodejs'].add_dependency_file('package.json')
 
 
 def help_alias(targets: list):
