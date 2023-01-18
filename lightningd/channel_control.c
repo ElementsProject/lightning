@@ -113,10 +113,11 @@ static void try_update_blockheight(struct lightningd *ld,
 void notify_feerate_change(struct lightningd *ld)
 {
 	struct peer *peer;
+	struct peer_node_id_map_iter it;
 
-	/* FIXME: We should notify onchaind about NORMAL fee change in case
-	 * it's going to generate more txs. */
-	list_for_each(&ld->peers, peer, list) {
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		struct channel *channel;
 
 		list_for_each(&peer->channels, channel, list)
@@ -932,9 +933,13 @@ void channel_notify_new_block(struct lightningd *ld,
 	struct channel *channel;
 	struct channel **to_forget = tal_arr(NULL, struct channel *, 0);
 	size_t i;
+	struct peer_node_id_map_iter it;
 
-	list_for_each (&ld->peers, peer, list) {
-		list_for_each (&peer->channels, channel, list) {
+	/* FIXME: keep separate block-aware channel structure instead? */
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		list_for_each(&peer->channels, channel, list) {
 			if (channel_unsaved(channel))
 				continue;
 			if (is_fundee_should_forget(ld, channel, block_height)) {

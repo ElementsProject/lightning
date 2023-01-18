@@ -313,6 +313,7 @@ static struct command_result *json_listfunds(struct command *cmd,
 {
 	struct json_stream *response;
 	struct peer *p;
+	struct peer_node_id_map_iter it;
 	struct utxo **utxos, **reserved_utxos, **spent_utxos;
 	bool *spent;
 
@@ -339,7 +340,9 @@ static struct command_result *json_listfunds(struct command *cmd,
 
 	/* Add funds that are allocated to channels */
 	json_array_start(response, "channels");
-	list_for_each(&cmd->ld->peers, p, list) {
+	for (p = peer_node_id_map_first(cmd->ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(cmd->ld->peers, &it)) {
 		struct channel *c;
 		list_for_each(&p->channels, c, list) {
 			/* We don't print out uncommitted channels */
