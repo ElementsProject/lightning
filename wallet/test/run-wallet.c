@@ -1934,6 +1934,8 @@ int main(int argc, const char *argv[])
 	/* Only elements in ld we should access */
 	ld->peers = tal(ld, struct peer_node_id_map);
 	peer_node_id_map_init(ld->peers);
+	ld->peers_by_dbid = tal(ld, struct peer_dbid_map);
+	peer_dbid_map_init(ld->peers_by_dbid);
 	ld->rr_counter = 0;
 	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->id);
 	/* Accessed in peer destructor sanity check */

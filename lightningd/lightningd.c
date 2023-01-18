@@ -181,6 +181,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 *  linked-list as part of the 100k-peers project! */
 	ld->peers = tal(ld, struct peer_node_id_map);
 	peer_node_id_map_init(ld->peers);
+	/*~ And this was done at the same time, for db lookups at startup */
+	ld->peers_by_dbid = tal(ld, struct peer_dbid_map);
+	peer_dbid_map_init(ld->peers_by_dbid);
 
 	/*~ For multi-part payments, we need to keep some incoming payments
 	 * in limbo until we get all the parts, or we time them out. */
