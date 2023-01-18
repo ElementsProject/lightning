@@ -999,7 +999,7 @@ static struct channel *add_peer(struct lightningd *ld, int n,
 
 	memset(&peer->id, n, sizeof(peer->id));
 	list_head_init(&peer->channels);
-	list_add_tail(&ld->peers, &peer->list);
+	peer_node_id_map_add(ld->peers, peer);
 	peer->ld = ld;
 
 	c->state = state;
@@ -1036,7 +1036,8 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 	ld = tal(tmpctx, struct lightningd);
 
-	list_head_init(&ld->peers);
+	ld->peers = tal(ld, struct peer_node_id_map);
+	peer_node_id_map_init(ld->peers);
 	ld->htlcs_in = tal(ld, struct htlc_in_map);
 	htlc_in_map_init(ld->htlcs_in);
 	chainparams = chainparams_for_network("regtest");

@@ -1370,11 +1370,12 @@ static struct channel *wallet_channel_load(struct wallet *w, const u64 dbid)
 {
 	struct peer *peer;
 	struct channel *channel;
+	struct peer_node_id_map_iter it;
 
 	/* We expect only one peer, but reuse same code */
 	if (!wallet_init_channels(w))
 		return NULL;
-	peer = list_top(&w->ld->peers, struct peer, list);
+	peer = peer_node_id_map_first(w->ld->peers, &it);
 	CHECK(peer);
 
 	/* We load lots of identical dbid channels: use last one */
@@ -1931,7 +1932,8 @@ int main(int argc, const char *argv[])
 	ld->config = test_config;
 
 	/* Only elements in ld we should access */
-	list_head_init(&ld->peers);
+	ld->peers = tal(ld, struct peer_node_id_map);
+	peer_node_id_map_init(ld->peers);
 	ld->rr_counter = 0;
 	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->id);
 	/* Accessed in peer destructor sanity check */
