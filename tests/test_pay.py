@@ -2413,7 +2413,10 @@ def test_setchannel_all(node_factory, bitcoind):
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xDEAD, DEF_BASE])
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid3)['channels']] == [0xBEEF, DEF_PPM])
 
+    # Don't assume order!
     assert len(result['channels']) == 2
+    if result['channels'][0]['peer_id'] == l3.info['id']:
+        result['channels'] = [result['channels'][1], result['channels'][0]]
     assert result['channels'][0]['peer_id'] == l2.info['id']
     assert result['channels'][0]['short_channel_id'] == scid2
     assert result['channels'][0]['fee_base_msat'] == 0xDEAD
