@@ -2155,7 +2155,7 @@ static void wallet_peer_save(struct wallet *w, struct peer *peer)
 
 	if (db_step(stmt)) {
 		/* So we already knew this peer, just return its dbid */
-		peer->dbid = db_col_u64(stmt, "id");
+		peer_set_dbid(peer, db_col_u64(stmt, "id"));
 		tal_free(stmt);
 
 		/* Since we're at it update the wireaddr */
@@ -2174,7 +2174,7 @@ static void wallet_peer_save(struct wallet *w, struct peer *peer)
 		db_bind_node_id(stmt, 0, &peer->id);
 		db_bind_text(stmt, 1,addr);
 		db_exec_prepared_v2(stmt);
-		peer->dbid = db_last_insert_id_v2(take(stmt));
+		peer_set_dbid(peer, db_last_insert_id_v2(take(stmt)));
 	}
 }
 

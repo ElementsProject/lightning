@@ -181,6 +181,8 @@ struct lightningd {
 
 	/* All peers we're tracking (by node_id) */
 	struct peer_node_id_map *peers;
+	/* And those in database by dbid */
+	struct peer_dbid_map *peers_by_dbid;
 
 	/* Outstanding connect commands. */
 	struct list_head connects;
