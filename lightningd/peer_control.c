@@ -72,6 +72,8 @@
 static void destroy_peer(struct peer *peer)
 {
 	peer_node_id_map_del(peer->ld->peers, peer);
+	if (peer->dbid)
+		peer_dbid_map_del(peer->ld->peers_by_dbid, peer);
 }
 
 static void peer_update_features(struct peer *peer,
@@ -79,6 +81,14 @@ static void peer_update_features(struct peer *peer,
 {
 	tal_free(peer->their_features);
 	peer->their_features = tal_dup_talarr(peer, u8, their_features);
+}
+
+void peer_set_dbid(struct peer *peer, u64 dbid)
+{
+	assert(!peer->dbid);
+	assert(dbid);
+	peer->dbid = dbid;
+	peer_dbid_map_add(peer->ld->peers_by_dbid, peer);
 }
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
@@ -107,6 +117,8 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 #endif
 
 	peer_node_id_map_add(ld->peers, peer);
+	if (dbid)
+		peer_dbid_map_add(ld->peers_by_dbid, peer);
 	tal_add_destructor(peer, destroy_peer);
 	return peer;
 }
@@ -131,6 +143,7 @@ void maybe_delete_peer(struct peer *peer)
 		/* This isn't sufficient to keep it in db! */
 		if (peer->dbid != 0) {
 			wallet_peer_delete(peer->ld->wallet, peer->dbid);
+			peer_dbid_map_del(peer->ld->peers_by_dbid, peer);
 			peer->dbid = 0;
 		}
 		return;
@@ -177,17 +190,7 @@ static void peer_channels_cleanup(struct lightningd *ld,
 
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)
 {
-	struct peer *p;
-	struct peer_node_id_map_iter it;
-
-	/* FIXME: Support lookup by dbid directly! */
-	for (p = peer_node_id_map_first(ld->peers, &it);
-	     p;
-	     p = peer_node_id_map_next(ld->peers, &it)) {
-		if (p->dbid == dbid)
-			return p;
-	}
-	return NULL;
+	return peer_dbid_map_get(ld->peers_by_dbid, dbid);
 }
 
 struct peer *peer_by_id(struct lightningd *ld, const struct node_id *id)
