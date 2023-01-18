@@ -3,6 +3,7 @@
 #include "config.h"
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
+#include <lightningd/peer_control.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <wallet/wallet.h>
@@ -178,8 +179,8 @@ struct lightningd {
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *connectd;
 
-	/* All peers we're tracking. */
-	struct list_head peers;
+	/* All peers we're tracking (by node_id) */
+	struct peer_node_id_map *peers;
 
 	/* Outstanding connect commands. */
 	struct list_head connects;

@@ -70,7 +70,6 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/plugin.h>
 #include <lightningd/subd.h>
 #include <sys/resource.h>
@@ -139,7 +138,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_no_ping_timer = false;
 #endif
 
-	/*~ These are CCAN lists: an embedded double-linked list.  It's not
+	/*~ This is a CCAN list: an embedded double-linked list.  It's not
 	 * really typesafe, but relies on convention to access the contents.
 	 * It's inspired by the closely-related Linux kernel list.h.
 	 *
@@ -153,7 +152,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 *
 	 * This method of manually declaring the list hooks avoids dynamic
 	 * allocations to put things into a list. */
-	list_head_init(&ld->peers);
 	list_head_init(&ld->subds);
 
 	/*~ These are hash tables of incoming and outgoing HTLCs (contracts),
@@ -178,6 +176,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * object. */
 	ld->htlcs_out = tal(ld, struct htlc_out_map);
 	htlc_out_map_init(ld->htlcs_out);
+
+	/*~ This is the hash table of peers: converted from a
+	 *  linked-list as part of the 100k-peers project! */
+	ld->peers = tal(ld, struct peer_node_id_map);
+	peer_node_id_map_init(ld->peers);
 
 	/*~ For multi-part payments, we need to keep some incoming payments
 	 * in limbo until we get all the parts, or we time them out. */
@@ -533,6 +536,7 @@ static const char *find_daemon_dir(struct lightningd *ld, const char *argv0)
 static void free_all_channels(struct lightningd *ld)
 {
 	struct peer *p;
+	struct peer_node_id_map_iter it;
 
 	/*~ tal supports *destructors* using `tal_add_destructor()`; the most
 	 * common use is for an object to delete itself from a linked list
@@ -549,13 +553,18 @@ static void free_all_channels(struct lightningd *ld)
 
 	/*~ For every peer, we free every channel.  On allocation the peer was
 	 * given a destructor (`destroy_peer`) which removes itself from the
-	 * list.  Thus we use list_top() not list_pop() here. */
-	while ((p = list_top(&ld->peers, struct peer, list)) != NULL) {
+	 * hashtable.
+	 *
+	 * Deletion from a hashtable is allowed, but it does mean we could
+	 * skip entries in iteration.  Hence we repeat until empty!
+	 */
+again:
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
 		struct channel *c;
 
-		/*~ A peer can have multiple channels; we only allow one to be
-		 * open at any time, but we remember old ones for 100 blocks,
-		 * after all the outputs we care about are spent. */
+		/*~ A peer can have multiple channels. */
 		while ((c = list_top(&p->channels, struct channel, list))
 		       != NULL) {
 			/* Removes itself from list as we free it */
@@ -571,9 +580,11 @@ static void free_all_channels(struct lightningd *ld)
 			p->uncommitted_channel = NULL;
 			tal_free(uc);
 		}
-		/* Removes itself from list as we free it */
+		/* Removes itself from htable as we free it */
 		tal_free(p);
 	}
+	if (peer_node_id_map_first(ld->peers, &it))
+		goto again;
 
 	/*~ Commit the transaction.  Note that the db is actually
 	 * single-threaded, so commits never fail and we don't need

@@ -94,6 +94,7 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	struct utxo **utxos;
 	struct channel *chan;
 	struct peer *p;
+	struct peer_node_id_map_iter it;
 	/* Available + reserved utxos are A+, as reserved things have not yet
 	 * been spent */
 	enum output_status utxo_states[] = {OUTPUT_STATE_AVAILABLE,
@@ -125,7 +126,9 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	snap->accts[0] = bal;
 
 	/* Add channel balances */
-	list_for_each(&ld->peers, p, list) {
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
 		list_for_each(&p->channels, chan, list) {
 			if (report_chan_balance(chan)) {
 				bal = tal(snap, struct account_balance);

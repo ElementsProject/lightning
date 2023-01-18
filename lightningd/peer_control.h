@@ -15,10 +15,7 @@ struct peer_fd;
 struct wally_psbt;
 
 struct peer {
-	/* Inside ld->peers. */
-	struct list_node list;
-
-	/* Master context */
+	/* Master context (we're in the hashtable ld->peers) */
 	struct lightningd *ld;
 
 	/* Database ID of the peer */
@@ -142,5 +139,21 @@ command_find_channel(struct command *cmd,
 
 /* Ancient (0.7.0 and before) releases could create invalid commitment txs! */
 bool invalid_last_tx(const struct bitcoin_tx *tx);
+
+static const struct node_id *peer_node_id(const struct peer *peer)
+{
+	return &peer->id;
+}
+
+static bool peer_node_id_eq(const struct peer *peer,
+			    const struct node_id *node_id)
+{
+	return node_id_eq(&peer->id, node_id);
+}
+
+/* Defines struct peer_node_id_map */
+HTABLE_DEFINE_TYPE(struct peer,
+		   peer_node_id, node_id_hash, peer_node_id_eq,
+		   peer_node_id_map);
 
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

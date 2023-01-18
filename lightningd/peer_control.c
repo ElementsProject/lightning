@@ -71,7 +71,7 @@
 
 static void destroy_peer(struct peer *peer)
 {
-	list_del_from(&peer->ld->peers, &peer->list);
+	peer_node_id_map_del(peer->ld->peers, peer);
 }
 
 static void peer_update_features(struct peer *peer,
@@ -106,7 +106,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->ignore_htlcs = false;
 #endif
 
-	list_add_tail(&ld->peers, &peer->list);
+	peer_node_id_map_add(ld->peers, peer);
 	tal_add_destructor(peer, destroy_peer);
 	return peer;
 }
@@ -178,21 +178,21 @@ static void peer_channels_cleanup(struct lightningd *ld,
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)
 {
 	struct peer *p;
+	struct peer_node_id_map_iter it;
 
-	list_for_each(&ld->peers, p, list)
+	/* FIXME: Support lookup by dbid directly! */
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
 		if (p->dbid == dbid)
 			return p;
+	}
 	return NULL;
 }
 
 struct peer *peer_by_id(struct lightningd *ld, const struct node_id *id)
 {
-	struct peer *p;
-
-	list_for_each(&ld->peers, p, list)
-		if (node_id_eq(&p->id, id))
-			return p;
-	return NULL;
+	return peer_node_id_map_get(ld->peers, id);
 }
 
 struct peer *peer_from_json(struct lightningd *ld,
@@ -333,8 +333,11 @@ void resend_closing_transactions(struct lightningd *ld)
 {
 	struct peer *peer;
 	struct channel *channel;
+	struct peer_node_id_map_iter it;
 
-	list_for_each(&ld->peers, peer, list) {
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		list_for_each(&peer->channels, channel, list) {
 			if (channel->state == CLOSINGD_COMPLETE)
 				drop_to_chain(ld, channel, true);
@@ -1982,8 +1985,13 @@ static struct command_result *json_listpeers(struct command *cmd,
 		if (peer)
 			json_add_peer(cmd->ld, response, peer, ll);
 	} else {
-		list_for_each(&cmd->ld->peers, peer, list)
+		struct peer_node_id_map_iter it;
+
+		for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+		     peer;
+		     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 			json_add_peer(cmd->ld, response, peer, ll);
+		}
 	}
 	json_array_end(response);
 
@@ -2021,20 +2029,23 @@ static struct command_result *json_staticbackup(struct command *cmd,
 	struct json_stream *response;
 	struct peer *peer;
 	struct channel *channel;
+	struct peer_node_id_map_iter it;
 
 	if (!param(cmd, buffer, params, NULL))
-        return command_param_failed();
+		return command_param_failed();
 
 	response = json_stream_success(cmd);
 
 	json_array_start(response, "scb");
-
-	list_for_each(&cmd->ld->peers, peer, list)
+	for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 		list_for_each(&peer->channels, channel, list){
 			if (!channel->scb)
 				continue;
 			json_add_scb(cmd, NULL, response, channel);
 		}
+	}
 	json_array_end(response);
 
 	return command_success(cmd, response);
@@ -2087,8 +2098,13 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 		if (peer)
 			json_add_peerchannels(cmd->ld, response, peer);
 	} else {
-		list_for_each(&cmd->ld->peers, peer, list)
+		struct peer_node_id_map_iter it;
+
+		for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+		     peer;
+		     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 			json_add_peerchannels(cmd->ld, response, peer);
+		}
 	}
 
 	json_array_end(response);
@@ -2115,7 +2131,11 @@ command_find_channel(struct command *cmd,
 	struct peer *peer;
 
 	if (json_tok_channel_id(buffer, tok, &cid)) {
-		list_for_each(&ld->peers, peer, list) {
+		struct peer_node_id_map_iter it;
+
+		for (peer = peer_node_id_map_first(ld->peers, &it);
+		     peer;
+		     peer = peer_node_id_map_next(ld->peers, &it)) {
 			list_for_each(&peer->channels, (*channel), list) {
 				if (!channel_active(*channel))
 					continue;
@@ -2189,8 +2209,11 @@ void setup_peers(struct lightningd *ld)
 	struct peer *p;
 	/* Avoid thundering herd: after first five, delay by 1 second. */
 	int delay = -5;
+	struct peer_node_id_map_iter it;
 
-	list_for_each(&ld->peers, p, list) {
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
 		setup_peer(p, delay > 0 ? delay : 0);
 		delay++;
 	}
@@ -2201,13 +2224,16 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 {
 	struct peer *peer;
 	struct htlc_in_map *unconnected_htlcs_in = tal(ld, struct htlc_in_map);
+	struct peer_node_id_map_iter it;
 
 	/* Load channels from database */
 	if (!wallet_init_channels(ld->wallet))
 		fatal("Could not load channels from the database");
 
 	/* First we load the incoming htlcs */
-	list_for_each(&ld->peers, peer, list) {
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		struct channel *channel;
 
 		list_for_each(&peer->channels, channel, list) {
@@ -2223,7 +2249,9 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 	htlc_in_map_copy(unconnected_htlcs_in, ld->htlcs_in);
 
 	/* Now we load the outgoing HTLCs, so we can connect them. */
-	list_for_each(&ld->peers, peer, list) {
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		struct channel *channel;
 
 		list_for_each(&peer->channels, channel, list) {
@@ -2310,6 +2338,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 	unsigned int pending_channels = 0, active_channels = 0,
 		     inactive_channels = 0, num_peers = 0;
 	size_t count_announceable;
+	struct peer_node_id_map_iter it;
 
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
@@ -2320,7 +2349,9 @@ static struct command_result *json_getinfo(struct command *cmd,
 	json_add_hex_talarr(response, "color", cmd->ld->rgb);
 
 	/* Add some peer and channel stats */
-	list_for_each(&cmd->ld->peers, peer, list) {
+	for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 		num_peers++;
 
 		list_for_each(&peer->channels, channel, list) {
@@ -2720,7 +2751,11 @@ static struct command_result *json_setchannel(struct command *cmd,
 
 	/* If the users requested 'all' channels we need to iterate */
 	if (channels == NULL) {
-		list_for_each(&cmd->ld->peers, peer, list) {
+		struct peer_node_id_map_iter it;
+
+		for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+		     peer;
+		     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 			struct channel *channel;
 			list_for_each(&peer->channels, channel, list) {
 				if (channel->state != CHANNELD_NORMAL &&
@@ -3095,8 +3130,11 @@ static void dualopend_memleak_req_done(struct subd *dualopend,
 void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks)
 {
 	struct peer *p;
+	struct peer_node_id_map_iter it;
 
-	list_for_each(&ld->peers, p, list) {
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
 		struct channel *c;
 		if (p->uncommitted_channel && p->uncommitted_channel->open_daemon) {
 			struct subd *openingd = p->uncommitted_channel->open_daemon;
