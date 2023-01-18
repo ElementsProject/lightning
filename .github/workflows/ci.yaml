@@ -178,24 +178,28 @@ jobs:
             EXPERIMENTAL_FEATURES: 1
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
+            TEST_NETWORK: regtest
           - NAME:  gcc-dev1-exp0
             CFG: gcc-dev1-exp0
             DEVELOPER: 1
             EXPERIMENTAL_FEATURES: 0
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
+            TEST_NETWORK: regtest
           - NAME: gcc-dev0-exp1
             CFG: gcc-dev0-exp1
             DEVELOPER: 0
             EXPERIMENTAL_FEATURES: 1
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
+            TEST_NETWORK: regtest
           - NAME: gcc-dev0-exp0
             CFG: gcc-dev0-exp0
             DEVELOPER: 0
             EXPERIMENTAL_FEATURES: 0
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
+            TEST_NETWORK: regtest
           # While we're at it let's try to compile with clang
           - NAME: clang-dev1-exp1
             CFG: clang-dev1-exp1
@@ -203,6 +207,7 @@ jobs:
             EXPERIMENTAL_FEATURES: 1
             TEST_DB_PROVIDER: sqlite3
             COMPILER: clang
+            TEST_NETWORK: regtest
           # And of course we want to test postgres too
           - NAME: postgres
             CFG: gcc-dev1-exp1
@@ -210,7 +215,16 @@ jobs:
             EXPERIMENTAL_FEATURES: 1
             COMPILER: gcc
             TEST_DB_PROVIDER: postgres
-
+            TEST_NETWORK: regtest
+          # And don't forget about elements (like cdecker did when
+          # reworking the CI...)
+          - NAME: liquid
+            CFG: gcc-dev1-exp0
+            DEVELOPER: 1
+            EXPERIMENTAL_FEATURES: 1
+            COMPILER: gcc
+            TEST_NETWORK: liquid-regtest
+            TEST_DB_PROVIDER: postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -245,6 +259,7 @@ jobs:
           PYTEST_PAR: 10
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           tar -xaf cln-${CFG}.tar.bz2
           poetry run pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
