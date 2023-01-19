@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "node_id",
+    "msg"
+  ],
+  "added": "v0.10.1",
+  "additionalProperties": false,
+  "properties": {
+    "node_id": {
+      "type": "pubkey"
+    },
+    "msg": {
+      "type": "hex"
+    }
+  }
+}
