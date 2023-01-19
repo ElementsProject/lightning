@@ -209,11 +209,11 @@ doc/index.rst: $(MANPAGES:=.md)
 
 # So GitHub renamed master to main.  This is painful.
 schema-added-check:
-	@if ! git describe master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff $$MASTER doc/schemas | grep -q '^+.*{' && ! git diff master doc/schemas | grep -q '^+.*"added"'; then echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
+	@if ! git describe master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff $$MASTER doc/schemas | grep -q '^+.*{' && ! git diff master doc/schemas | grep -q '^+.*"added"'; then git diff $$MASTER doc/schemas ; echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
 
 # So GitHub renamed master to main.  This is painful.
 schema-removed-check:
-	@if ! git describe master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff $$MASTER doc/schemas | grep -q '^-.*{' && ! git diff master doc/schemas | grep -q '^-.*"deprecated": "'; then echo 'Schema fields must be deprecated, with version, not removed' >&2; exit 1; fi
+	@if ! git describe master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff $$MASTER doc/schemas | grep -q '^-.*{' && ! git diff master doc/schemas | grep -q '^-.*"deprecated": "'; then git diff $$MASTER doc/schemas ; echo 'Schema fields must be "deprecated", with version, not removed' >&2; exit 1; fi
 
 schema-diff-check: schema-added-check schema-removed-check
 
