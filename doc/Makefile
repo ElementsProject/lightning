@@ -206,14 +206,19 @@ doc/index.rst: $(MANPAGES:=.md)
 	)
 
 # For CI to (very roughly!) check that we only deprecated fields, or labelled added ones
-
-# So GitHub renamed master to main.  This is painful.
+# When running on GitHub (CI=true), we need to fetch origin/master
 schema-added-check:
-	@if ! git describe master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff $$MASTER doc/schemas | grep -q '^+.*{' && ! git diff master doc/schemas | grep -q '^+.*"added"'; then echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
-
-# So GitHub renamed master to main.  This is painful.
+	@if ! test -z $$CI; then git fetch origin master; fi; \
+	if git diff origin/master -- doc/schemas | grep -q '^+.*{' && ! git diff origin/master -- doc/schemas | grep -q '^+.*"added"'; then \
+		git diff origin/master -- doc/schemas; \
+		echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; \
+	fi
 schema-removed-check:
-	@if ! git describe master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff $$MASTER doc/schemas | grep -q '^-.*{' && ! git diff master doc/schemas | grep -q '^-.*"deprecated": "'; then echo 'Schema fields must be deprecated, with version, not removed' >&2; exit 1; fi
+	@if ! test -z $$CI; then git fetch origin master; fi; \
+	if git diff origin/master -- doc/schemas | grep -q '^-.*{' && ! git diff origin/master -- doc/schemas | grep -q '^-.*"deprecated"'; then \
+		git diff origin/master -- doc/schemas ; \
+		echo 'Schema fields must be "deprecated", with version, not removed' >&2; exit 1; \
+	fi
 
 schema-diff-check: schema-added-check schema-removed-check
 
