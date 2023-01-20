@@ -209,15 +209,11 @@ doc/index.rst: $(MANPAGES:=.md)
 
 # So GitHub renamed master to main.  This is painful.
 schema-added-check:
-	@git fetch origin master 2>&1; true
-	@git fetch origin main 2>&1 ; true
-	@if ! git describe origin/master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^+.*{' && ! git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^+.*"added"'; then git diff origin/$$MASTER...HEAD -- doc/schemas ; echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
+	@git fetch origin master 2>&1 ; git fetch origin main 2>&1 ; if ! git describe origin/master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^+.*{' && ! git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^+.*"added"'; then git diff origin/$$MASTER...HEAD -- doc/schemas ; echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
 
 # So GitHub renamed master to main.  This is painful.
 schema-removed-check:
-	@git fetch origin master 2>&1; true
-	@git fetch origin main 2>&1 ; true
-	@if ! git describe origin/master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^-.*{' && ! git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^-.*"deprecated": "'; then git diff origin/$$MASTER...HEAD -- doc/schemas ; echo 'Schema fields must be "deprecated", with version, not removed' >&2; exit 1; fi
+	@git fetch origin master 2>&1; git fetch origin main 2>&1 ; if ! git describe origin/master >/dev/null 2>&1; then MASTER=main; else MASTER=master; fi; if git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^-.*{' && ! git diff origin/$$MASTER...HEAD -- doc/schemas | grep -q '^-.*"deprecated": "'; then git diff origin/$$MASTER...HEAD -- doc/schemas ; echo 'Schema fields must be "deprecated", with version, not removed' >&2; exit 1; fi
 
 schema-diff-check: schema-added-check schema-removed-check
 
