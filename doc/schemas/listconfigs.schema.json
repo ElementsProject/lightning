@@ -247,6 +247,10 @@
       "type": "boolean",
       "description": "`true` if `disable-ip-discovery` was set in config or cmdline"
     },
+    "foobar-test": {
+      "type": "boolean",
+      "description": "`true` if `foorbar-test` was set in config or cmdline"
+    },
     "encrypted-hsm": {
       "type": "boolean",
       "description": "`true` if `encrypted-hsm` was set in config or cmdline"
