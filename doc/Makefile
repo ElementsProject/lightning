@@ -209,7 +209,7 @@ doc/index.rst: $(MANPAGES:=.md)
 # When running on GitHub (CI=true), we need to fetch origin/master
 schema-added-check:
 	@if ! test -z $CI; then git fetch origin master; fi; \
-	MASTER=`git merge-base HEAD origin/master`; \
+	MASTER=$$(git merge-base HEAD origin/master); \
 	echo MASTER=$$MASTER; \
 	git diff $$MASTER -- doc/schemas; \
 	if git diff $$MASTER -- doc/schemas | grep -q '^+.*{' && ! git diff $$MASTER -- doc/schemas | grep -q '^+.*"added"'; then \
