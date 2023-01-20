@@ -209,7 +209,7 @@ doc/index.rst: $(MANPAGES:=.md)
 
 # So GitHub renamed master to main.  This is painful.
 schema-added-check:
-	@git fetch origin master ; if git diff origin/master...HEAD -- doc/schemas | grep -q '^+.*{' && ! git diff origin/master...HEAD -- doc/schemas | grep -q '^+.*"added"'; then git diff origin/master...HEAD -- doc/schemas ; echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
+	@env ; git fetch origin master ; MASTER=`git merge-base HEAD origin/master` ; if git diff $$MASTER...HEAD -- doc/schemas | grep -q '^+.*{' && ! git diff $$MASTER...HEAD -- doc/schemas | grep -q '^+.*"added"'; then git diff $$MASTER...HEAD -- doc/schemas ; echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; fi
 
 # So GitHub renamed master to main.  This is painful.
 schema-removed-check:
