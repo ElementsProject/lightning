@@ -210,6 +210,8 @@ doc/index.rst: $(MANPAGES:=.md)
 schema-added-check:
 	@if ! test -z $CI; then git fetch origin master; fi; \
 	MASTER=`git merge-base HEAD origin/master`; \
+	echo $$MASTER; \
+	echo git diff $$MASTER -- doc/schemas; \
 	if git diff $$MASTER -- doc/schemas | grep -q '^+.*{' && ! git diff $$MASTER -- doc/schemas | grep -q '^+.*"added"'; then \
 		git diff $$MASTER -- doc/schemas; \
 		echo 'New schema fields must have "added": "vNEXTVERSION"' >&2; exit 1; \
