@@ -162,9 +162,11 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	struct db *db = r->db;
 	struct plugin_hook_call_link *last, *it;
 	bool in_transaction = false;
+	struct plugin *from_plugin;
 
 	/* Pop the head off the call chain and continue with the next */
 	last = list_pop(&r->call_chain, struct plugin_hook_call_link, list);
+	from_plugin = last->plugin;
 	assert(last != NULL);
 	tal_del_destructor(last, plugin_hook_killed);
 	tal_free(last);
@@ -172,7 +174,8 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	/* Actually, if it dies during shutdown, *don't* process result! */
 	if (!buffer && r->ld->state == LD_STATE_SHUTDOWN) {
 		log_debug(r->ld->log,
-			  "Abandoning plugin hook call due to shutdown");
+			  "Abandoning hook %s because its plugin %s was killed in shutdown",
+			  r->hook->name, from_plugin->shortname);
 		return;
 	}
 
