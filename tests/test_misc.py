@@ -2796,12 +2796,21 @@ def test_datastore(node_factory):
     assert l1.rpc.listdatastore() == {'datastore': []}
     assert l1.rpc.listdatastore('somekey') == {'datastore': []}
 
+    # Fail on empty array
+    with pytest.raises(RpcError, match='should not be empty'):
+        l1.rpc.listdatastore([])
+
     # Add entries.
     somedata = b'somedata'.hex()
     somedata_expect = {'key': ['somekey'],
                        'generation': 0,
                        'hex': somedata,
                        'string': 'somedata'}
+
+    # We should fail trying to insert into an empty array
+    with pytest.raises(RpcError, match='should not be empty'):
+        l1.rpc.datastore(key=[], hex=somedata)
+
     assert l1.rpc.datastore(key='somekey', hex=somedata) == somedata_expect
 
     assert l1.rpc.listdatastore() == {'datastore': [somedata_expect]}
