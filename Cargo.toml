@@ -7,4 +7,5 @@ members = [
   "cln-grpc",
   "plugins",
   "plugins/grpc-plugin",
+  "plugins/hodlinvoice",
 ]
