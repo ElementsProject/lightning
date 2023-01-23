@@ -66,7 +66,11 @@ static struct command_result *param_list_or_string(struct command *cmd,
 						   const jsmntok_t *tok,
 						   const char ***str)
 {
-	if (tok->type == JSMN_ARRAY) {
+	if (tok->type == JSMN_ARRAY && tok->size <= 0) {
+		return command_fail_badparam(cmd, name,
+								buffer, tok,
+								"should not be empty");
+	} else if (tok->type == JSMN_ARRAY) {
 		size_t i;
 		const jsmntok_t *t;
 		*str = tal_arr(cmd, const char *, tok->size);
