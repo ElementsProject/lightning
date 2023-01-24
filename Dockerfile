@@ -60,6 +60,7 @@ RUN apt-get update -qq && \
         libpq-dev \
         libtool \
         libffi-dev \
+        protobuf-compiler \
         python3 \
         python3-dev \
         python3-mako \
