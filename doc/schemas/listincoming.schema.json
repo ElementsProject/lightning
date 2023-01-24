@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "incoming"
+  ],
+  "properties": {
+    "incoming": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "short_channel_id",
+          "fee_base_msat",
+          "htlc_min_msat",
+          "htlc_max_msat",
+          "fee_proportional_millionths",
+          "cltv_expiry_delta",
+          "incoming_capacity_msat",
+          "public"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey"
+          },
+          "short_channel_id": {
+            "type": "short_channel_id"
+          },
+          "fee_base_msat": {
+            "type": "msat"
+          },
+          "htlc_min_msat": {
+            "type": "msat"
+          },
+          "htlc_max_msat": {
+            "type": "msat"
+          },
+          "fee_proportional_millionths": {
+            "type": "u32"
+          },
+          "cltv_expiry_delta": {
+            "type": "u32"
+          },
+          "incoming_capacity_msat": {
+            "type": "msat"
+          },
+          "public": {
+            "type": "boolean"
+          },
+          "peer_features": {
+            "type": "hex"
+          }
+        }
+      }
+    }
+  }
+}

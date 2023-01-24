@@ -63,6 +63,7 @@ pub enum Request {
 	SetChannel(requests::SetchannelRequest),
 	SignMessage(requests::SignmessageRequest),
 	Stop(requests::StopRequest),
+	ListIncoming(requests::ListincomingRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -116,6 +117,7 @@ pub enum Response {
 	SetChannel(responses::SetchannelResponse),
 	SignMessage(responses::SignmessageResponse),
 	Stop(responses::StopResponse),
+	ListIncoming(responses::ListincomingResponse),
 }
 
 
@@ -1268,6 +1270,20 @@ pub mod requests {
 
 	impl IntoRequest for StopRequest {
 	    type Response = super::responses::StopResponse;
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListincomingRequest {
+	}
+
+	impl From<ListincomingRequest> for Request {
+	    fn from(r: ListincomingRequest) -> Self {
+	        Request::ListIncoming(r)
+	    }
+	}
+
+	impl IntoRequest for ListincomingRequest {
+	    type Response = super::responses::ListincomingResponse;
 	}
 
 }
@@ -3545,6 +3561,47 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Stop(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListincomingIncoming {
+	    #[serde(alias = "id")]
+	    pub id: PublicKey,
+	    #[serde(alias = "short_channel_id")]
+	    pub short_channel_id: ShortChannelId,
+	    #[serde(alias = "fee_base_msat")]
+	    pub fee_base_msat: Amount,
+	    #[serde(alias = "htlc_min_msat")]
+	    pub htlc_min_msat: Amount,
+	    #[serde(alias = "htlc_max_msat")]
+	    pub htlc_max_msat: Amount,
+	    #[serde(alias = "fee_proportional_millionths")]
+	    pub fee_proportional_millionths: u32,
+	    #[serde(alias = "cltv_expiry_delta")]
+	    pub cltv_expiry_delta: u32,
+	    #[serde(alias = "incoming_capacity_msat")]
+	    pub incoming_capacity_msat: Amount,
+	    #[serde(alias = "public")]
+	    pub public: bool,
+	    #[serde(alias = "peer_features", skip_serializing_if = "Option::is_none")]
+	    pub peer_features: Option<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListincomingResponse {
+	    #[serde(alias = "incoming")]
+	    pub incoming: Vec<ListincomingIncoming>,
+	}
+
+	impl TryFrom<Response> for ListincomingResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListIncoming(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

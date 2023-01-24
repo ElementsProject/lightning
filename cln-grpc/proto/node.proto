@@ -55,6 +55,7 @@ service Node {
 	rpc SetChannel(SetchannelRequest) returns (SetchannelResponse) {}
 	rpc SignMessage(SignmessageRequest) returns (SignmessageResponse) {}
 	rpc Stop(StopRequest) returns (StopResponse) {}
+	rpc ListIncoming(ListincomingRequest) returns (ListincomingResponse) {}
 }
 
 message GetinfoRequest {
@@ -1337,4 +1338,24 @@ message StopRequest {
 }
 
 message StopResponse {
+}
+
+message ListincomingRequest {
+}
+
+message ListincomingResponse {
+	repeated ListincomingIncoming incoming = 1;
+}
+
+message ListincomingIncoming {
+	bytes id = 10;
+	string short_channel_id = 1;
+	Amount fee_base_msat = 2;
+	Amount htlc_min_msat = 3;
+	Amount htlc_max_msat = 4;
+	uint32 fee_proportional_millionths = 5;
+	uint32 cltv_expiry_delta = 6;
+	Amount incoming_capacity_msat = 7;
+	bool public = 8;
+	optional bytes peer_features = 9;
 }

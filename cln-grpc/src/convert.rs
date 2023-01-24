@@ -1121,6 +1121,33 @@ impl From<responses::StopResponse> for pb::StopResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListincomingIncoming> for pb::ListincomingIncoming {
+    fn from(c: responses::ListincomingIncoming) -> Self {
+        Self {
+            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            fee_base_msat: Some(c.fee_base_msat.into()), // Rule #2 for type msat
+            htlc_min_msat: Some(c.htlc_min_msat.into()), // Rule #2 for type msat
+            htlc_max_msat: Some(c.htlc_max_msat.into()), // Rule #2 for type msat
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32
+            cltv_expiry_delta: c.cltv_expiry_delta, // Rule #2 for type u32
+            incoming_capacity_msat: Some(c.incoming_capacity_msat.into()), // Rule #2 for type msat
+            public: c.public, // Rule #2 for type boolean
+            peer_features: c.peer_features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListincomingResponse> for pb::ListincomingResponse {
+    fn from(c: responses::ListincomingResponse) -> Self {
+        Self {
+            incoming: c.incoming.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListincomingIncoming 
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
     fn from(c: pb::GetinfoRequest) -> Self {
         Self {
@@ -1702,6 +1729,14 @@ impl From<pb::SignmessageRequest> for requests::SignmessageRequest {
 #[allow(unused_variables)]
 impl From<pb::StopRequest> for requests::StopRequest {
     fn from(c: pb::StopRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListincomingRequest> for requests::ListincomingRequest {
+    fn from(c: pb::ListincomingRequest) -> Self {
         Self {
         }
     }

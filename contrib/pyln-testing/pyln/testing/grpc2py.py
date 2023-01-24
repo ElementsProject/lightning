@@ -8,6 +8,7 @@ import json
 def hexlify(b):
     return b if b is None else b.hex()
 
+
 def amount2msat(a):
     return a.msat
 
@@ -881,4 +882,25 @@ def signmessage2py(m):
 
 def stop2py(m):
     return remove_default({
+    })
+
+
+def listincoming_incoming2py(m):
+    return remove_default({
+        "id": hexlify(m.id),  # PrimitiveField in generate_composite
+        "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
+        "htlc_min_msat": amount2msat(m.htlc_min_msat),  # PrimitiveField in generate_composite
+        "htlc_max_msat": amount2msat(m.htlc_max_msat),  # PrimitiveField in generate_composite
+        "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "cltv_expiry_delta": m.cltv_expiry_delta,  # PrimitiveField in generate_composite
+        "incoming_capacity_msat": amount2msat(m.incoming_capacity_msat),  # PrimitiveField in generate_composite
+        "public": m.public,  # PrimitiveField in generate_composite
+        "peer_features": hexlify(m.peer_features),  # PrimitiveField in generate_composite
+    })
+
+
+def listincoming2py(m):
+    return remove_default({
+        "incoming": [listincoming_incoming2py(i) for i in m.incoming],  # ArrayField[composite] in generate_composite
     })

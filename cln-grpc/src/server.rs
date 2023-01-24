@@ -1530,4 +1530,36 @@ async fn stop(
 
 }
 
+async fn list_incoming(
+    &self,
+    request: tonic::Request<pb::ListincomingRequest>,
+) -> Result<tonic::Response<pb::ListincomingResponse>, tonic::Status> {
+    let req = request.into_inner();
+    let req: requests::ListincomingRequest = req.into();
+    debug!("Client asked for list_incoming");
+    trace!("list_incoming request: {:?}", req);
+    let mut rpc = ClnRpc::new(&self.rpc_path)
+        .await
+        .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+    let result = rpc.call(Request::ListIncoming(req))
+        .await
+        .map_err(|e| Status::new(
+           Code::Unknown,
+           format!("Error calling method ListIncoming: {:?}", e)))?;
+    match result {
+        Response::ListIncoming(r) => {
+           trace!("list_incoming response: {:?}", r);
+           Ok(tonic::Response::new(r.into()))
+        },
+        r => Err(Status::new(
+            Code::Internal,
+            format!(
+                "Unexpected result {:?} to method call ListIncoming",
+                r
+            )
+        )),
+    }
+
+}
+
 }

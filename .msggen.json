@@ -626,6 +626,21 @@
             "ListFunds.channels[]": 2,
             "ListFunds.outputs[]": 1
         },
+        "ListincomingIncoming": {
+            "ListIncoming.incoming[].cltv_expiry_delta": 6,
+            "ListIncoming.incoming[].fee_base_msat": 2,
+            "ListIncoming.incoming[].fee_proportional_millionths": 5,
+            "ListIncoming.incoming[].htlc_max_msat": 4,
+            "ListIncoming.incoming[].htlc_min_msat": 3,
+            "ListIncoming.incoming[].id": 10,
+            "ListIncoming.incoming[].incoming_capacity_msat": 7,
+            "ListIncoming.incoming[].peer_features": 9,
+            "ListIncoming.incoming[].public": 8,
+            "ListIncoming.incoming[].short_channel_id": 1
+        },
+        "ListincomingResponse": {
+            "ListIncoming.incoming[]": 1
+        },
         "ListinvoicesInvoices": {
             "ListInvoices.invoices[].amount_msat": 6,
             "ListInvoices.invoices[].amount_received_msat": 12,
