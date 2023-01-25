@@ -367,7 +367,7 @@ pub mod requests {
 	    type Response = super::responses::CreateinvoiceResponse;
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum DatastoreMode {
 	    #[serde(rename = "must-create")]
 	    MUST_CREATE,
@@ -476,7 +476,7 @@ pub mod requests {
 	    type Response = super::responses::DelexpiredinvoiceResponse;
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
 	    PAID,
@@ -621,7 +621,7 @@ pub mod requests {
 	    type Response = super::responses::SendonionResponse;
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListsendpaysStatus {
 	    #[serde(rename = "pending")]
 	    PENDING,
@@ -783,7 +783,7 @@ pub mod requests {
 	    type Response = super::responses::WaitsendpayResponse;
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum NewaddrAddresstype {
 	    #[serde(rename = "bech32")]
 	    BECH32,
@@ -1097,7 +1097,7 @@ pub mod requests {
 	    type Response = super::responses::DisconnectResponse;
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum FeeratesStyle {
 	    #[serde(rename = "perkb")]
 	    PERKB,
@@ -1194,7 +1194,7 @@ pub mod requests {
 	    type Response = super::responses::GetrouteResponse;
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListforwardsStatus {
 	    #[serde(rename = "offered")]
 	    OFFERED,
@@ -1238,7 +1238,7 @@ pub mod requests {
 	    type Response = super::responses::ListforwardsResponse;
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListpaysStatus {
 	    #[serde(rename = "pending")]
 	    PENDING,
@@ -1438,7 +1438,7 @@ pub mod responses {
 	}
 
 	/// Type of connection (until 23.08, `websocket` was also allowed)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum GetinfoAddressType {
 	    #[serde(rename = "dns")]
 	    DNS,
@@ -1476,7 +1476,7 @@ pub mod responses {
 	}
 
 	/// Type of connection
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum GetinfoBindingType {
 	    #[serde(rename = "local socket")]
 	    LOCAL_SOCKET,
@@ -1558,7 +1558,7 @@ pub mod responses {
 	    }
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListpeersPeersLogType {
 	    #[serde(rename = "SKIPPED")]
 	    SKIPPED,
@@ -1611,7 +1611,7 @@ pub mod responses {
 	}
 
 	/// the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListpeersPeersChannelsState {
 	    #[serde(rename = "OPENINGD")]
 	    OPENINGD,
@@ -1693,7 +1693,7 @@ pub mod responses {
 	}
 
 	/// Whether it came from peer, or is going to peer
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListpeersPeersChannelsHtlcsDirection {
 	    #[serde(rename = "in")]
 	    IN,
@@ -1863,7 +1863,7 @@ pub mod responses {
 	    }
 	}
 
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListfundsOutputsStatus {
 	    #[serde(rename = "unconfirmed")]
 	    UNCONFIRMED,
@@ -1938,7 +1938,7 @@ pub mod responses {
 	}
 
 	/// status of the payment (could be complete if already sent previously)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum SendpayStatus {
 	    #[serde(rename = "pending")]
 	    PENDING,
@@ -2087,7 +2087,7 @@ pub mod responses {
 	}
 
 	/// Whether we successfully negotiated a mutual close, closed without them, or discarded not-yet-opened channel
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum CloseType {
 	    #[serde(rename = "mutual")]
 	    MUTUAL,
@@ -2131,7 +2131,7 @@ pub mod responses {
 	}
 
 	/// Whether they initiated connection or we did
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ConnectDirection {
 	    #[serde(rename = "in")]
 	    IN,
@@ -2150,7 +2150,7 @@ pub mod responses {
 	    }
 	}
 	/// Type of connection (*torv2*/*torv3* only if **direction** is *out*)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ConnectAddressType {
 	    #[serde(rename = "local socket")]
 	    LOCAL_SOCKET,
@@ -2211,7 +2211,7 @@ pub mod responses {
 	}
 
 	/// Whether it has been paid, or can no longer be paid
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum CreateinvoiceStatus {
 	    #[serde(rename = "paid")]
 	    PAID,
@@ -2348,7 +2348,7 @@ pub mod responses {
 	}
 
 	/// State of invoice
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum DelinvoiceStatus {
 	    #[serde(rename = "paid")]
 	    PAID,
@@ -2458,7 +2458,7 @@ pub mod responses {
 	}
 
 	/// Whether it's paid, unpaid or unpayable
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListinvoicesInvoicesStatus {
 	    #[serde(rename = "unpaid")]
 	    UNPAID,
@@ -2525,7 +2525,7 @@ pub mod responses {
 	}
 
 	/// status of the payment (could be complete if already sent previously)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum SendonionStatus {
 	    #[serde(rename = "pending")]
 	    PENDING,
@@ -2581,7 +2581,7 @@ pub mod responses {
 	}
 
 	/// status of the payment
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListsendpaysPaymentsStatus {
 	    #[serde(rename = "pending")]
 	    PENDING,
@@ -2691,7 +2691,7 @@ pub mod responses {
 	}
 
 	/// status of payment
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum PayStatus {
 	    #[serde(rename = "complete")]
 	    COMPLETE,
@@ -2740,7 +2740,7 @@ pub mod responses {
 	}
 
 	/// Type of connection (until 23.08, `websocket` was also allowed)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListnodesNodesAddressesType {
 	    #[serde(rename = "dns")]
 	    DNS,
@@ -2809,7 +2809,7 @@ pub mod responses {
 	}
 
 	/// Whether it's paid or expired
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum WaitanyinvoiceStatus {
 	    #[serde(rename = "paid")]
 	    PAID,
@@ -2863,7 +2863,7 @@ pub mod responses {
 	}
 
 	/// Whether it's paid or expired
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum WaitinvoiceStatus {
 	    #[serde(rename = "paid")]
 	    PAID,
@@ -2917,7 +2917,7 @@ pub mod responses {
 	}
 
 	/// status of the payment
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum WaitsendpayStatus {
 	    #[serde(rename = "complete")]
 	    COMPLETE,
@@ -3011,7 +3011,7 @@ pub mod responses {
 	}
 
 	/// status of payment
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum KeysendStatus {
 	    #[serde(rename = "complete")]
 	    COMPLETE,
@@ -3204,7 +3204,7 @@ pub mod responses {
 	}
 
 	/// the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListpeerchannelsChannelsState {
 	    #[serde(rename = "OPENINGD")]
 	    OPENINGD,
@@ -3296,7 +3296,7 @@ pub mod responses {
 	}
 
 	/// Whether it came from peer, or is going to peer
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListpeerchannelsChannelsHtlcsDirection {
 	    #[serde(rename = "in")]
 	    IN,
@@ -3464,7 +3464,7 @@ pub mod responses {
 	}
 
 	/// What caused the channel to close
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListclosedchannelsClosedchannelsClose_cause {
 	    #[serde(rename = "unknown")]
 	    UNKNOWN,
@@ -3549,7 +3549,7 @@ pub mod responses {
 	}
 
 	/// the address type (if known)
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum DecodepayFallbacksType {
 	    #[serde(rename = "P2PKH")]
 	    P2PKH,
@@ -3628,7 +3628,7 @@ pub mod responses {
 	}
 
 	/// what kind of object it decoded to
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum DecodeType {
 	    #[serde(rename = "bolt12 offer")]
 	    BOLT12_OFFER,
@@ -3985,7 +3985,7 @@ pub mod responses {
 	}
 
 	/// The features understood by the destination node
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum GetrouteRouteStyle {
 	    #[serde(rename = "tlv")]
 	    TLV,
@@ -4028,7 +4028,7 @@ pub mod responses {
 	}
 
 	/// still ongoing, completed, failed locally, or failed after forwarding
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListforwardsForwardsStatus {
 	    #[serde(rename = "offered")]
 	    OFFERED,
@@ -4053,7 +4053,7 @@ pub mod responses {
 	    }
 	}
 	/// Either a legacy onion format or a modern tlv format
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListforwardsForwardsStyle {
 	    #[serde(rename = "legacy")]
 	    LEGACY,
@@ -4109,7 +4109,7 @@ pub mod responses {
 	}
 
 	/// status of the payment
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 	pub enum ListpaysPaysStatus {
 	    #[serde(rename = "pending")]
 	    PENDING,
