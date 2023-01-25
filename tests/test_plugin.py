@@ -423,6 +423,30 @@ def test_pay_plugin(node_factory):
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
 
 
+def test_rpc_command_hook_chain_shutdown(node_factory, executor):
+    """Demonstrate why JSON-RPC request responses should be ignored in shutdown.
+       Otherwise we may trigger _customizable_ behavior when an interested
+       plugin, in this case a link in a hook chain, was already stopped."""
+
+    opt = {"plugin": [os.path.join(os.getcwd(), "tests/plugins/rpc_cmd_hook_1.py"),
+                      os.path.join(os.getcwd(), "tests/plugins/rpc_cmd_hook_2.py"),
+                      os.path.join(os.getcwd(), 'tests/plugins/delay_shutdown.py')],
+                      'shutdown_delay': 3,
+                      'getinfo_delay': 1}
+    l1 = node_factory.get_node(options=opt)
+
+    l1.rpc.getinfo()
+    l1.daemon.wait_for_log(r'plugin-rpc_cmd_hook_1.py: delay getinfo')
+    l1.daemon.wait_for_log(r'plugin-rpc_cmd_hook_2.py: getinfo called')
+
+    # now shutdown while halve way the rpc_commandhook chain
+    l1.daemon.wait_for_log(r'plugin-rpc_cmd_hook_1.py: delay getinfo')
+    f_stop = executor.submit(l1.rpc.stop)
+    l1.daemon.wait_for_log(r'plugin-delay_shutdown.py: delay shutdown')
+    needle = l1.daemon.logsearch_start
+    import ipdb; ipdb.set_trace()
+
+
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @pytest.mark.xfail(reason="almost nothing shouldn't be possible during shutdown "
