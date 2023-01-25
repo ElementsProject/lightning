@@ -423,6 +423,50 @@ def test_pay_plugin(node_factory):
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
 
 
+def test_invoice_payment_hook_chain_shutdown(node_factory, executor):
+    """ l1 has two plugins hooked to reject certain invoices. When we shutdown while
+        handling the hook and plugins die, the safe default is be to at least
+        not accept the payment.
+    """
+    opts = [{}, {'plugin': [os.path.join(os.getcwd(), 'tests/plugins/reject_some_invoices.py'),
+                            os.path.join(os.getcwd(), 'tests/plugins/reject_some_invoices_2.py'),
+                            os.path.join(os.getcwd(), 'tests/plugins/delay_shutdown.py')],
+                            'shutdown_delay': 3,
+                            'hook_delay': 1}]
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    # This one will be rejected by 2nd plugin in the hook chain
+    inv1 = l2.rpc.invoice(1230, 'label2', 'description', preimage='1' * 64)
+    with pytest.raises(RpcError):
+        l1.rpc.pay(inv1['bolt11'])
+
+    pstatus1 = l1.rpc.call('paystatus', [inv1['bolt11']])['pay'][0]
+    assert pstatus1['attempts'][-1]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_CHANNEL_FAILURE'
+    l2.daemon.wait_for_log(r'plugin-reject_some_invoices.py: delay hook')
+
+    # Now try another invoice, but shutdown l2 when hook call is just between the plugins
+
+    # The pay cmd hangs here somehow, use sendpay + waitsendpay instead
+    route = l1.rpc.getroute(l2.info['id'], 1230, 0)['route']
+    l1.rpc.sendpay(route, inv1['payment_hash'], bolt11=inv1['bolt11'], payment_secret=inv1['payment_secret'])
+    l2.daemon.wait_for_log(r'plugin-reject_some_invoices.py: delay hook')
+    needle = l2.daemon.logsearch_start
+
+    l2.rpc.stop()
+    # When first plugin is killed by shutdown, the unfinished hook chain is abandoned completely
+    # and the 2nd plugin shouldn't see it
+    assert not l2.daemon.is_in_log(r'Calling invoice_payment hook of plugin reject_some_invoices_2.py', start=needle)
+
+    # but log entries are shows for each destroyed plugin (incorrect?)
+    assert l2.daemon.is_in_log(r'Abandoning hook .* because its plugin reject_some_invoices.py was killed in shutdown', start=needle)
+    assert l2.daemon.is_in_log(r'Abandoning hook .* because its plugin reject_some_invoices_2.py was killed in shutdown', start=needle)
+
+    # Whatever, the hook is abandoned, which means the payment is not accepted
+    with pytest.raises(RpcError, match=r"Timed out while waiting"):
+        l1.rpc.waitsendpay(inv1['payment_hash'], timeout=1)
+
+
+@pytest.mark.skipif(True, reason="WIP")
 def test_rpc_command_hook_chain_shutdown(node_factory, executor):
     """Demonstrate why JSON-RPC request responses should be ignored in shutdown.
        Otherwise we may trigger _customizable_ behavior when an interested
