@@ -1148,6 +1148,138 @@ impl From<responses::ListincomingResponse> for pb::ListincomingResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsFeerate> for pb::ListpeerchannelsChannelsFeerate {
+    fn from(c: responses::ListpeerchannelsChannelsFeerate) -> Self {
+        Self {
+            perkw: c.perkw, // Rule #2 for type u32
+            perkb: c.perkb, // Rule #2 for type u32
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsInflight> for pb::ListpeerchannelsChannelsInflight {
+    fn from(c: responses::ListpeerchannelsChannelsInflight) -> Self {
+        Self {
+            funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
+            funding_outnum: c.funding_outnum, // Rule #2 for type u32
+            feerate: c.feerate, // Rule #2 for type string
+            total_funding_msat: Some(c.total_funding_msat.into()), // Rule #2 for type msat
+            our_funding_msat: Some(c.our_funding_msat.into()), // Rule #2 for type msat
+            scratch_txid: hex::decode(&c.scratch_txid).unwrap(), // Rule #2 for type txid
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsFunding> for pb::ListpeerchannelsChannelsFunding {
+    fn from(c: responses::ListpeerchannelsChannelsFunding) -> Self {
+        Self {
+            local_msat: c.local_msat.map(|f| f.into()), // Rule #2 for type msat?
+            remote_msat: c.remote_msat.map(|f| f.into()), // Rule #2 for type msat?
+            pushed_msat: c.pushed_msat.map(|f| f.into()), // Rule #2 for type msat?
+            local_funds_msat: Some(c.local_funds_msat.into()), // Rule #2 for type msat
+            remote_funds_msat: Some(c.remote_funds_msat.into()), // Rule #2 for type msat
+            fee_paid_msat: c.fee_paid_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_rcvd_msat: c.fee_rcvd_msat.map(|f| f.into()), // Rule #2 for type msat?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsAlias> for pb::ListpeerchannelsChannelsAlias {
+    fn from(c: responses::ListpeerchannelsChannelsAlias) -> Self {
+        Self {
+            local: c.local.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            remote: c.remote.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannelsHtlcs> for pb::ListpeerchannelsChannelsHtlcs {
+    fn from(c: responses::ListpeerchannelsChannelsHtlcs) -> Self {
+        Self {
+            direction: c.direction as i32,
+            id: c.id, // Rule #2 for type u64
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            expiry: c.expiry, // Rule #2 for type u32
+            payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
+            local_trimmed: c.local_trimmed, // Rule #2 for type boolean?
+            status: c.status, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels {
+    fn from(c: responses::ListpeerchannelsChannels) -> Self {
+        Self {
+            peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
+            peer_connected: c.peer_connected, // Rule #2 for type boolean
+            state: c.state as i32,
+            scratch_txid: c.scratch_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            feerate: c.feerate.map(|v| v.into()),
+            owner: c.owner, // Rule #2 for type string?
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            channel_id: c.channel_id.map(|v| v.to_vec()), // Rule #2 for type hash?
+            funding_txid: c.funding_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            funding_outnum: c.funding_outnum, // Rule #2 for type u32?
+            initial_feerate: c.initial_feerate, // Rule #2 for type string?
+            last_feerate: c.last_feerate, // Rule #2 for type string?
+            next_feerate: c.next_feerate, // Rule #2 for type string?
+            next_fee_step: c.next_fee_step, // Rule #2 for type u32?
+            inflight: c.inflight.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            private: c.private, // Rule #2 for type boolean?
+            opener: c.opener as i32,
+            closer: c.closer.map(|v| v as i32),
+            features: c.features.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeerchannelsChannelsFeatures 
+            funding: c.funding.map(|v| v.into()),
+            to_us_msat: c.to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
+            min_to_us_msat: c.min_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
+            max_to_us_msat: c.max_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
+            total_msat: c.total_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
+            fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
+            dust_limit_msat: c.dust_limit_msat.map(|f| f.into()), // Rule #2 for type msat?
+            max_total_htlc_in_msat: c.max_total_htlc_in_msat.map(|f| f.into()), // Rule #2 for type msat?
+            their_reserve_msat: c.their_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
+            our_reserve_msat: c.our_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
+            spendable_msat: c.spendable_msat.map(|f| f.into()), // Rule #2 for type msat?
+            receivable_msat: c.receivable_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_htlc_in_msat: c.minimum_htlc_in_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_htlc_out_msat: c.minimum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
+            maximum_htlc_out_msat: c.maximum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
+            their_to_self_delay: c.their_to_self_delay, // Rule #2 for type u32?
+            our_to_self_delay: c.our_to_self_delay, // Rule #2 for type u32?
+            max_accepted_htlcs: c.max_accepted_htlcs, // Rule #2 for type u32?
+            alias: c.alias.map(|v| v.into()),
+            status: c.status.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            in_payments_offered: c.in_payments_offered, // Rule #2 for type u64?
+            in_offered_msat: c.in_offered_msat.map(|f| f.into()), // Rule #2 for type msat?
+            in_payments_fulfilled: c.in_payments_fulfilled, // Rule #2 for type u64?
+            in_fulfilled_msat: c.in_fulfilled_msat.map(|f| f.into()), // Rule #2 for type msat?
+            out_payments_offered: c.out_payments_offered, // Rule #2 for type u64?
+            out_offered_msat: c.out_offered_msat.map(|f| f.into()), // Rule #2 for type msat?
+            out_payments_fulfilled: c.out_payments_fulfilled, // Rule #2 for type u64?
+            out_fulfilled_msat: c.out_fulfilled_msat.map(|f| f.into()), // Rule #2 for type msat?
+            htlcs: c.htlcs.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            close_to_addr: c.close_to_addr, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListpeerchannelsResponse> for pb::ListpeerchannelsResponse {
+    fn from(c: responses::ListpeerchannelsResponse) -> Self {
+        Self {
+            channels: c.channels.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListpeerchannelsChannels 
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
     fn from(c: pb::GetinfoRequest) -> Self {
         Self {
@@ -1738,6 +1870,15 @@ impl From<pb::StopRequest> for requests::StopRequest {
 impl From<pb::ListincomingRequest> for requests::ListincomingRequest {
     fn from(c: pb::ListincomingRequest) -> Self {
         Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListpeerchannelsRequest> for requests::ListpeerchannelsRequest {
+    fn from(c: pb::ListpeerchannelsRequest) -> Self {
+        Self {
+            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
         }
     }
 }

@@ -42,6 +42,13 @@ overrides = {
     'ListPeers.peers[].channels[].opener': "ChannelSide",
     'ListPeers.peers[].channels[].closer': "ChannelSide",
     'ListPeers.peers[].channels[].features[]': "string",
+
+    'ListPeerChannels.channels[].state_changes[]': None,
+    'ListPeerChannels.channels[].htlcs[].state': None,
+    'ListPeerChannels.channels[].opener': "ChannelSide",
+    'ListPeerChannels.channels[].closer': "ChannelSide",
+    'ListPeerChannels.channels[].features[]': "string",
+
     'ListFunds.channels[].state': 'ChannelState',
     'ListTransactions.transactions[].type[]': None,
 }

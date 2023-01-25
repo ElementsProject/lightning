@@ -103,6 +103,57 @@
             "failed": 2,
             "pending": 0
         },
+        "ListpeerchannelsChannelsHtlcsDirection": {
+            "in": 0,
+            "out": 1
+        },
+        "ListpeerchannelsChannelsState": {
+            "AWAITING_UNILATERAL": 6,
+            "CHANNELD_AWAITING_LOCKIN": 1,
+            "CHANNELD_NORMAL": 2,
+            "CHANNELD_SHUTTING_DOWN": 3,
+            "CLOSINGD_COMPLETE": 5,
+            "CLOSINGD_SIGEXCHANGE": 4,
+            "DUALOPEND_AWAITING_LOCKIN": 10,
+            "DUALOPEND_OPEN_INIT": 9,
+            "FUNDING_SPEND_SEEN": 7,
+            "ONCHAIN": 8,
+            "OPENINGD": 0
+        },
+        "ListpeerchannelsChannelsState_changesCause": {
+            "local": 1,
+            "onchain": 5,
+            "protocol": 4,
+            "remote": 3,
+            "unknown": 0,
+            "user": 2
+        },
+        "ListpeerchannelsChannelsState_changesNew_state": {
+            "AWAITING_UNILATERAL": 6,
+            "CHANNELD_AWAITING_LOCKIN": 1,
+            "CHANNELD_NORMAL": 2,
+            "CHANNELD_SHUTTING_DOWN": 3,
+            "CLOSINGD_COMPLETE": 5,
+            "CLOSINGD_SIGEXCHANGE": 4,
+            "DUALOPEND_AWAITING_LOCKIN": 10,
+            "DUALOPEND_OPEN_INIT": 9,
+            "FUNDING_SPEND_SEEN": 7,
+            "ONCHAIN": 8,
+            "OPENINGD": 0
+        },
+        "ListpeerchannelsChannelsState_changesOld_state": {
+            "AWAITING_UNILATERAL": 6,
+            "CHANNELD_AWAITING_LOCKIN": 1,
+            "CHANNELD_NORMAL": 2,
+            "CHANNELD_SHUTTING_DOWN": 3,
+            "CLOSINGD_COMPLETE": 5,
+            "CLOSINGD_SIGEXCHANGE": 4,
+            "DUALOPEND_AWAITING_LOCKIN": 10,
+            "DUALOPEND_OPEN_INIT": 9,
+            "FUNDING_SPEND_SEEN": 7,
+            "ONCHAIN": 8,
+            "OPENINGD": 0
+        },
         "ListpeersPeersChannelsHtlcsDirection": {
             "in": 0,
             "out": 1
@@ -709,6 +760,108 @@
         },
         "ListpaysResponse": {
             "ListPays.pays[]": 1
+        },
+        "ListpeerchannelsChannels": {
+            "ListPeerChannels.channels[].alias": 40,
+            "ListPeerChannels.channels[].channel_id": 8,
+            "ListPeerChannels.channels[].close_to": 16,
+            "ListPeerChannels.channels[].close_to_addr": 52,
+            "ListPeerChannels.channels[].closer": 19,
+            "ListPeerChannels.channels[].dust_limit_msat": 28,
+            "ListPeerChannels.channels[].features[]": 20,
+            "ListPeerChannels.channels[].fee_base_msat": 26,
+            "ListPeerChannels.channels[].fee_proportional_millionths": 27,
+            "ListPeerChannels.channels[].feerate": 5,
+            "ListPeerChannels.channels[].funding": 21,
+            "ListPeerChannels.channels[].funding_outnum": 10,
+            "ListPeerChannels.channels[].funding_txid": 9,
+            "ListPeerChannels.channels[].htlcs[]": 51,
+            "ListPeerChannels.channels[].in_fulfilled_msat": 46,
+            "ListPeerChannels.channels[].in_offered_msat": 44,
+            "ListPeerChannels.channels[].in_payments_fulfilled": 45,
+            "ListPeerChannels.channels[].in_payments_offered": 43,
+            "ListPeerChannels.channels[].inflight[]": 15,
+            "ListPeerChannels.channels[].initial_feerate": 11,
+            "ListPeerChannels.channels[].last_feerate": 12,
+            "ListPeerChannels.channels[].max_accepted_htlcs": 39,
+            "ListPeerChannels.channels[].max_to_us_msat": 24,
+            "ListPeerChannels.channels[].max_total_htlc_in_msat": 29,
+            "ListPeerChannels.channels[].maximum_htlc_out_msat": 36,
+            "ListPeerChannels.channels[].min_to_us_msat": 23,
+            "ListPeerChannels.channels[].minimum_htlc_in_msat": 34,
+            "ListPeerChannels.channels[].minimum_htlc_out_msat": 35,
+            "ListPeerChannels.channels[].next_fee_step": 14,
+            "ListPeerChannels.channels[].next_feerate": 13,
+            "ListPeerChannels.channels[].opener": 18,
+            "ListPeerChannels.channels[].our_reserve_msat": 31,
+            "ListPeerChannels.channels[].our_to_self_delay": 38,
+            "ListPeerChannels.channels[].out_fulfilled_msat": 50,
+            "ListPeerChannels.channels[].out_offered_msat": 48,
+            "ListPeerChannels.channels[].out_payments_fulfilled": 49,
+            "ListPeerChannels.channels[].out_payments_offered": 47,
+            "ListPeerChannels.channels[].owner": 6,
+            "ListPeerChannels.channels[].peer_connected": 2,
+            "ListPeerChannels.channels[].peer_id": 1,
+            "ListPeerChannels.channels[].private": 17,
+            "ListPeerChannels.channels[].receivable_msat": 33,
+            "ListPeerChannels.channels[].scratch_txid": 4,
+            "ListPeerChannels.channels[].short_channel_id": 7,
+            "ListPeerChannels.channels[].spendable_msat": 32,
+            "ListPeerChannels.channels[].state": 3,
+            "ListPeerChannels.channels[].state_changes[]": 41,
+            "ListPeerChannels.channels[].status[]": 42,
+            "ListPeerChannels.channels[].their_reserve_msat": 30,
+            "ListPeerChannels.channels[].their_to_self_delay": 37,
+            "ListPeerChannels.channels[].to_us_msat": 22,
+            "ListPeerChannels.channels[].total_msat": 25
+        },
+        "ListpeerchannelsChannelsAlias": {
+            "ListPeerChannels.channels[].alias.local": 1,
+            "ListPeerChannels.channels[].alias.remote": 2
+        },
+        "ListpeerchannelsChannelsFeerate": {
+            "ListPeerChannels.channels[].feerate.perkb": 2,
+            "ListPeerChannels.channels[].feerate.perkw": 1
+        },
+        "ListpeerchannelsChannelsFunding": {
+            "ListPeerChannels.channels[].funding.fee_paid_msat": 6,
+            "ListPeerChannels.channels[].funding.fee_rcvd_msat": 7,
+            "ListPeerChannels.channels[].funding.local_funds_msat": 4,
+            "ListPeerChannels.channels[].funding.local_msat": 1,
+            "ListPeerChannels.channels[].funding.pushed_msat": 3,
+            "ListPeerChannels.channels[].funding.remote_funds_msat": 5,
+            "ListPeerChannels.channels[].funding.remote_msat": 2
+        },
+        "ListpeerchannelsChannelsHtlcs": {
+            "ListPeerChannels.channels[].htlcs[].amount_msat": 3,
+            "ListPeerChannels.channels[].htlcs[].direction": 1,
+            "ListPeerChannels.channels[].htlcs[].expiry": 4,
+            "ListPeerChannels.channels[].htlcs[].id": 2,
+            "ListPeerChannels.channels[].htlcs[].local_trimmed": 6,
+            "ListPeerChannels.channels[].htlcs[].payment_hash": 5,
+            "ListPeerChannels.channels[].htlcs[].state": 8,
+            "ListPeerChannels.channels[].htlcs[].status": 7
+        },
+        "ListpeerchannelsChannelsInflight": {
+            "ListPeerChannels.channels[].inflight[].feerate": 3,
+            "ListPeerChannels.channels[].inflight[].funding_outnum": 2,
+            "ListPeerChannels.channels[].inflight[].funding_txid": 1,
+            "ListPeerChannels.channels[].inflight[].our_funding_msat": 5,
+            "ListPeerChannels.channels[].inflight[].scratch_txid": 6,
+            "ListPeerChannels.channels[].inflight[].total_funding_msat": 4
+        },
+        "ListpeerchannelsChannelsState_changes": {
+            "ListPeerChannels.channels[].state_changes[].cause": 4,
+            "ListPeerChannels.channels[].state_changes[].message": 5,
+            "ListPeerChannels.channels[].state_changes[].new_state": 3,
+            "ListPeerChannels.channels[].state_changes[].old_state": 2,
+            "ListPeerChannels.channels[].state_changes[].timestamp": 1
+        },
+        "ListpeerchannelsRequest": {
+            "ListPeerChannels.id": 1
+        },
+        "ListpeerchannelsResponse": {
+            "ListPeerChannels.channels[]": 1
         },
         "ListpeersPeers": {
             "ListPeers.peers[].channels[]": 4,

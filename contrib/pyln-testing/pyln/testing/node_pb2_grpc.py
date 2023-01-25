@@ -254,6 +254,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListincomingRequest.SerializeToString,
                 response_deserializer=node__pb2.ListincomingResponse.FromString,
                 )
+        self.ListPeerChannels = channel.unary_unary(
+                '/cln.Node/ListPeerChannels',
+                request_serializer=node__pb2.ListpeerchannelsRequest.SerializeToString,
+                response_deserializer=node__pb2.ListpeerchannelsResponse.FromString,
+                )
 
 
 class NodeServicer(object):
@@ -547,6 +552,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListPeerChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -789,6 +800,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListIncoming,
                     request_deserializer=node__pb2.ListincomingRequest.FromString,
                     response_serializer=node__pb2.ListincomingResponse.SerializeToString,
+            ),
+            'ListPeerChannels': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListPeerChannels,
+                    request_deserializer=node__pb2.ListpeerchannelsRequest.FromString,
+                    response_serializer=node__pb2.ListpeerchannelsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -1613,5 +1629,22 @@ class Node(object):
         return grpc.experimental.unary_unary(request, target, '/cln.Node/ListIncoming',
             node__pb2.ListincomingRequest.SerializeToString,
             node__pb2.ListincomingResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListPeerChannels(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/cln.Node/ListPeerChannels',
+            node__pb2.ListpeerchannelsRequest.SerializeToString,
+            node__pb2.ListpeerchannelsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

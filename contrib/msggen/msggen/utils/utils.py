@@ -106,6 +106,7 @@ def load_jsonrpc_service(schema_dir: str):
         # "notifications",  # No point in mapping this
         # "help",
         "ListIncoming",
+        "ListPeerChannels",
     ]
     methods = [load_jsonrpc_method(name, schema_dir=schema_dir) for name in method_names]
     service = Service(name="Node", methods=methods)

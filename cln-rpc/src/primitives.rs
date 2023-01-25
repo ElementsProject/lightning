@@ -80,6 +80,12 @@ impl Amount {
     }
 }
 
+impl ToString for Amount {
+    fn to_string(&self) -> String {
+        format!("{}msat", self.msat)
+    }
+}
+
 impl std::ops::Add for Amount {
     type Output = Amount;
 
