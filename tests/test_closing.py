@@ -957,7 +957,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     inv = l2.rpc.invoice(10**4, '3', 'no_3')
     l3.rpc.pay(inv['bolt11'])
 
-    bitcoind.generate_block(6)
+    bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l1, l2, l3])
     # make sure we're at the right place for the csv lock
     l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 110')
