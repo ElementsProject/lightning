@@ -247,9 +247,17 @@ class GrpcConverterGenerator(IGenerator):
                 self.generate_composite(prefix, f)
 
         pbname = self.to_camel_case(field.typename)
+
+        # If any of the field accesses would result in a deprecated
+        # warning we mark the construction here to allow deprecated
+        # fields being access.
+
+        has_deprecated = any([f.deprecated for f in field.fields])
+        deprecated = ",deprecated" if has_deprecated else ""
+
         # And now we can convert the current field:
         self.write(f"""\
-        #[allow(unused_variables,deprecated)]
+        #[allow(unused_variables{deprecated})]
         impl From<{prefix}::{field.typename}> for pb::{pbname} {{
             fn from(c: {prefix}::{field.typename}) -> Self {{
                 Self {{
@@ -406,10 +414,13 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
             elif isinstance(f, CompositeField):
                 self.generate_composite(prefix, f)
 
+        has_deprecated = any([f.deprecated for f in field.fields])
+        deprecated = ",deprecated" if has_deprecated else ""
+
         pbname = self.to_camel_case(field.typename)
         # And now we can convert the current field:
         self.write(f"""\
-        #[allow(unused_variables,deprecated)]
+        #[allow(unused_variables{deprecated})]
         impl From<pb::{pbname}> for {prefix}::{field.typename} {{
             fn from(c: pb::{pbname}) -> Self {{
                 Self {{
