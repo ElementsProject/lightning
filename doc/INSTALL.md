@@ -306,9 +306,9 @@ need to include `testnet=1`
     ./cli/lightning-cli help
 
 
-To install the built binaries into your system, you'll need to run `make install`:
+To install the built binaries into your system, you'll need to run `sudo make install`:
 
-    make install
+    sudo make install
 
 On an M1 mac you may need to use this command instead:
 
