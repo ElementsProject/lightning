@@ -267,8 +267,8 @@ If you need Python 3.x for mako (or get a mako build error):
     $ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
     $ source ~/.bash_profile
     $ pyenv install 3.7.8
-    $ pip install --upgrade pip
-    $ pip install poetry
+    $ pip3 install --upgrade pip
+    $ pip3 install poetry
 
 If you don't have bitcoind installed locally you'll need to install that
 as well:
