@@ -2146,7 +2146,7 @@ void shutdown_plugins(struct lightningd *ld)
 
 	/* We should *stay* dead when restarting the io_loop */
 	assert(list_empty(&ld->subds));
-	assert(!ld->wallet->db);
+//	assert(!ld->wallet->db);
 
 	/* Tell them all to shutdown; if they care. */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {

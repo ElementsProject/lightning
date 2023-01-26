@@ -1267,6 +1267,9 @@ stop:
 	/* Get rid of major subdaemons. */
 	shutdown_global_subdaemons(ld);
 
+	/* Tell plugins we're shutting down, use force if necessary. */
+	shutdown_plugins(ld);
+
 	/* Clean up internal peer/channel/htlc structures. */
 	free_all_channels(ld);
 
@@ -1275,9 +1278,6 @@ stop:
 	 * trigger any such customizable behavior. Ideally we would like to close
 	 * the database now so that we can safely stop db_write plugins. */
 	ld->wallet->db = tal_free(ld->wallet->db);
-
-	/* Tell plugins we're shutting down, use force if necessary. */
-	shutdown_plugins(ld);
 
 	/* Now kill any remaining connections */
 	jsonrpc_stop_all(ld);
