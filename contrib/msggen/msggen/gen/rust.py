@@ -111,6 +111,24 @@ def gen_enum(e):
             }}
         }}
     }}
+
+    """)
+
+    # Implement ToString for enums so we can print them nicely as they
+    # appear in the schemas.
+    decl += dedent(f"""\
+    impl ToString for {e.typename} {{
+        fn to_string(&self) -> String {{
+            match self {{
+    """)
+    for v in e.variants:
+        norm = v.normalized()
+        decl += f"            {e.typename}::{norm} => \"{norm}\",\n"
+    decl += dedent(f"""\
+            }}.to_string()
+        }}
+    }}
+
     """)
 
     typename = e.typename
@@ -124,7 +142,7 @@ def gen_enum(e):
         defi += rename_if_necessary(str(e.name), e.name.normalized())
         defi += f"    pub {e.name.normalized()}: {typename},\n"
     else:
-        defi = f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
+        defi = f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n"
         defi += f"    pub {e.name.normalized()}: Option<{typename}>,\n"
 
     return defi, decl
