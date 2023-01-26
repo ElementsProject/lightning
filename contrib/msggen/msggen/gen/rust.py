@@ -85,7 +85,7 @@ def gen_enum(e):
 
     if e.deprecated:
         decl += "#[deprecated]\n"
-    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]\npub enum {e.typename} {{\n"
+    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]\npub enum {e.typename} {{\n"
     for v in e.variants:
         if v is None:
             continue
