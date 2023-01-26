@@ -423,7 +423,6 @@ def test_pay_plugin(node_factory):
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
 
 
-@pytest.mark.xfail(reason="restarting channeld shouldn't be possible during shutdown")
 def test_invoice_payment_hook_chain_shutdown(node_factory, executor):
     """ l1 has two plugins hooked to reject certain invoices. When we shutdown while
         handling the hook and plugins die, the safe default is be to at least
@@ -508,8 +507,6 @@ def test_rpc_command_hook_chain_shutdown(node_factory, executor):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail(reason="almost nothing shouldn't be possible during shutdown "
-                          "and definitely not opening channels!")
 def test_openchannel_shutdown(node_factory, executor):
     """Example to demonstrate why subdaemons really should be dead and stay dead
        when we are shutting down, i.e. when lightningd's io_loop restarts in
@@ -547,7 +544,6 @@ def test_openchannel_shutdown(node_factory, executor):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail(reason="connectd still running when calling shutdown_plugins()")
 def test_connected_hook_shutdown(node_factory, executor):
     """l1 connects to l2 which is shutting down while handling the connected hook
     """

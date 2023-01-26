@@ -1264,20 +1264,23 @@ stop:
 	/* Get rid of per-channel subdaemons. */
 	subd_shutdown_nonglobals(ld);
 
-	/* Tell plugins we're shutting down, use force if necessary. */
-	shutdown_plugins(ld);
-
-	/* Now kill any remaining connections */
-	jsonrpc_stop_all(ld);
-
 	/* Get rid of major subdaemons. */
 	shutdown_global_subdaemons(ld);
 
 	/* Clean up internal peer/channel/htlc structures. */
 	free_all_channels(ld);
 
-	/* Now close database */
+	/* We should be dead by now and *stay* dead, because we are removing custom
+	 * behavior that was injected by plugins via hooks and we don't want to
+	 * trigger any such customizable behavior. Ideally we would like to close
+	 * the database now so that we can safely stop db_write plugins. */
 	ld->wallet->db = tal_free(ld->wallet->db);
+
+	/* Tell plugins we're shutting down, use force if necessary. */
+	shutdown_plugins(ld);
+
+	/* Now kill any remaining connections */
+	jsonrpc_stop_all(ld);
 
 	remove(ld->pidfile);
 
