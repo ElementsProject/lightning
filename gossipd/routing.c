@@ -1848,10 +1848,12 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		 *    - MAY close the connection.
 		 *    - MUST NOT process the message further.
 		 */
-		u8 *warn = towire_warningfmt(rstate, NULL,
-					    "Malformed node_announcement %s",
-					    tal_hex(tmpctx, node_ann));
-		return warn;
+		/* FIXME: We removed a warning about the
+		 * node_announcement being malformed since the warning
+		 * could cause lnd to disconnect (seems they treat
+		 * channel-unrelated warnings as fatal?).
+		 */
+		return NULL;
 	}
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
