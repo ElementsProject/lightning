@@ -13,17 +13,17 @@ pub use bitcoin::secp256k1::PublicKey;
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[allow(non_camel_case_types)]
 pub enum ChannelState {
-    OPENINGD,
-    CHANNELD_AWAITING_LOCKIN,
-    CHANNELD_NORMAL,
-    CHANNELD_SHUTTING_DOWN,
-    CLOSINGD_SIGEXCHANGE,
-    CLOSINGD_COMPLETE,
-    AWAITING_UNILATERAL,
-    FUNDING_SPEND_SEEN,
-    ONCHAIN,
-    DUALOPEND_OPEN_INIT,
-    DUALOPEND_AWAITING_LOCKIN,
+    OPENINGD = 0,
+    CHANNELD_AWAITING_LOCKIN = 1,
+    CHANNELD_NORMAL = 2,
+    CHANNELD_SHUTTING_DOWN = 3,
+    CLOSINGD_SIGEXCHANGE = 4,
+    CLOSINGD_COMPLETE = 5,
+    AWAITING_UNILATERAL = 6,
+    FUNDING_SPEND_SEEN = 7,
+    ONCHAIN = 8,
+    DUALOPEND_OPEN_INIT = 9,
+    DUALOPEND_AWAITING_LOCKIN = 10,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
