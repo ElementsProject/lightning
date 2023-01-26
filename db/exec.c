@@ -44,7 +44,11 @@ u32 db_data_version_get(struct db *db)
 	struct db_stmt *stmt;
 	u32 version;
 	stmt = db_prepare_v2(db, SQL("SELECT intval FROM vars WHERE name = 'data_version'"));
-	db_query_prepared(stmt);
+	/* postgres will act upset if the table doesn't exist yet. */
+	if (!db_query_prepared(stmt)) {
+		tal_free(stmt);
+		return 0;
+	}
 	/* This fails on uninitialized db, so "0" */
 	if (db_step(stmt))
 		version = db_col_int(stmt, "intval");
