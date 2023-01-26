@@ -394,6 +394,19 @@ pub mod requests {
 	        }
 	    }
 	}
+
+	impl ToString for DatastoreMode {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DatastoreMode::MUST_CREATE => "MUST_CREATE",
+	            DatastoreMode::MUST_REPLACE => "MUST_REPLACE",
+	            DatastoreMode::CREATE_OR_REPLACE => "CREATE_OR_REPLACE",
+	            DatastoreMode::MUST_APPEND => "MUST_APPEND",
+	            DatastoreMode::CREATE_OR_APPEND => "CREATE_OR_APPEND",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DatastoreRequest {
 	    pub key: Vec<String>,
@@ -497,6 +510,17 @@ pub mod requests {
 	        }
 	    }
 	}
+
+	impl ToString for DelinvoiceStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DelinvoiceStatus::PAID => "PAID",
+	            DelinvoiceStatus::EXPIRED => "EXPIRED",
+	            DelinvoiceStatus::UNPAID => "UNPAID",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DelinvoiceRequest {
 	    pub label: String,
@@ -642,6 +666,17 @@ pub mod requests {
 	        }
 	    }
 	}
+
+	impl ToString for ListsendpaysStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListsendpaysStatus::PENDING => "PENDING",
+	            ListsendpaysStatus::COMPLETE => "COMPLETE",
+	            ListsendpaysStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListsendpaysRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -801,6 +836,16 @@ pub mod requests {
 	        }
 	    }
 	}
+
+	impl ToString for NewaddrAddresstype {
+	    fn to_string(&self) -> String {
+	        match self {
+	            NewaddrAddresstype::BECH32 => "BECH32",
+	            NewaddrAddresstype::ALL => "ALL",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct NewaddrRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1115,6 +1160,16 @@ pub mod requests {
 	        }
 	    }
 	}
+
+	impl ToString for FeeratesStyle {
+	    fn to_string(&self) -> String {
+	        match self {
+	            FeeratesStyle::PERKB => "PERKB",
+	            FeeratesStyle::PERKW => "PERKW",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FeeratesRequest {
 	    // Path `Feerates.style`
@@ -1218,6 +1273,18 @@ pub mod requests {
 	        }
 	    }
 	}
+
+	impl ToString for ListforwardsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListforwardsStatus::OFFERED => "OFFERED",
+	            ListforwardsStatus::SETTLED => "SETTLED",
+	            ListforwardsStatus::LOCAL_FAILED => "LOCAL_FAILED",
+	            ListforwardsStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListforwardsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1259,6 +1326,17 @@ pub mod requests {
 	        }
 	    }
 	}
+
+	impl ToString for ListpaysStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpaysStatus::PENDING => "PENDING",
+	            ListpaysStatus::COMPLETE => "COMPLETE",
+	            ListpaysStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpaysRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -1465,6 +1543,19 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for GetinfoAddressType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            GetinfoAddressType::DNS => "DNS",
+	            GetinfoAddressType::IPV4 => "IPV4",
+	            GetinfoAddressType::IPV6 => "IPV6",
+	            GetinfoAddressType::TORV2 => "TORV2",
+	            GetinfoAddressType::TORV3 => "TORV3",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoAddress {
 	    // Path `Getinfo.address[].type`
@@ -1506,6 +1597,20 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for GetinfoBindingType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            GetinfoBindingType::LOCAL_SOCKET => "LOCAL_SOCKET",
+	            GetinfoBindingType::WEBSOCKET => "WEBSOCKET",
+	            GetinfoBindingType::IPV4 => "IPV4",
+	            GetinfoBindingType::IPV6 => "IPV6",
+	            GetinfoBindingType::TORV2 => "TORV2",
+	            GetinfoBindingType::TORV3 => "TORV3",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoBinding {
 	    // Path `Getinfo.binding[].type`
@@ -1591,6 +1696,21 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListpeersPeersLogType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpeersPeersLogType::SKIPPED => "SKIPPED",
+	            ListpeersPeersLogType::BROKEN => "BROKEN",
+	            ListpeersPeersLogType::UNUSUAL => "UNUSUAL",
+	            ListpeersPeersLogType::INFO => "INFO",
+	            ListpeersPeersLogType::DEBUG => "DEBUG",
+	            ListpeersPeersLogType::IO_IN => "IO_IN",
+	            ListpeersPeersLogType::IO_OUT => "IO_OUT",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersLog {
 	    // Path `ListPeers.peers[].log[].type`
@@ -1656,6 +1776,25 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListpeersPeersChannelsState {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpeersPeersChannelsState::OPENINGD => "OPENINGD",
+	            ListpeersPeersChannelsState::CHANNELD_AWAITING_LOCKIN => "CHANNELD_AWAITING_LOCKIN",
+	            ListpeersPeersChannelsState::CHANNELD_NORMAL => "CHANNELD_NORMAL",
+	            ListpeersPeersChannelsState::CHANNELD_SHUTTING_DOWN => "CHANNELD_SHUTTING_DOWN",
+	            ListpeersPeersChannelsState::CLOSINGD_SIGEXCHANGE => "CLOSINGD_SIGEXCHANGE",
+	            ListpeersPeersChannelsState::CLOSINGD_COMPLETE => "CLOSINGD_COMPLETE",
+	            ListpeersPeersChannelsState::AWAITING_UNILATERAL => "AWAITING_UNILATERAL",
+	            ListpeersPeersChannelsState::FUNDING_SPEND_SEEN => "FUNDING_SPEND_SEEN",
+	            ListpeersPeersChannelsState::ONCHAIN => "ONCHAIN",
+	            ListpeersPeersChannelsState::DUALOPEND_OPEN_INIT => "DUALOPEND_OPEN_INIT",
+	            ListpeersPeersChannelsState::DUALOPEND_AWAITING_LOCKIN => "DUALOPEND_AWAITING_LOCKIN",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersChannelsFeerate {
 	    pub perkw: u32,
@@ -1711,6 +1850,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListpeersPeersChannelsHtlcsDirection {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpeersPeersChannelsHtlcsDirection::IN => "IN",
+	            ListpeersPeersChannelsHtlcsDirection::OUT => "OUT",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeersPeersChannelsHtlcs {
 	    // Path `ListPeers.peers[].channels[].htlcs[].direction`
@@ -1887,6 +2036,18 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListfundsOutputsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListfundsOutputsStatus::UNCONFIRMED => "UNCONFIRMED",
+	            ListfundsOutputsStatus::CONFIRMED => "CONFIRMED",
+	            ListfundsOutputsStatus::SPENT => "SPENT",
+	            ListfundsOutputsStatus::IMMATURE => "IMMATURE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListfundsOutputs {
 	    pub txid: String,
@@ -1956,6 +2117,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for SendpayStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            SendpayStatus::PENDING => "PENDING",
+	            SendpayStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayResponse {
 	    pub id: u64,
@@ -2108,6 +2279,17 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for CloseType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            CloseType::MUTUAL => "MUTUAL",
+	            CloseType::UNILATERAL => "UNILATERAL",
+	            CloseType::UNOPENED => "UNOPENED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CloseResponse {
 	    // Path `Close.type`
@@ -2149,6 +2331,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ConnectDirection {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ConnectDirection::IN => "IN",
+	            ConnectDirection::OUT => "OUT",
+	        }.to_string()
+	    }
+	}
+
 	/// Type of connection (*torv2*/*torv3* only if **direction** is *out*)
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ConnectAddressType {
@@ -2177,6 +2369,19 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ConnectAddressType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ConnectAddressType::LOCAL_SOCKET => "LOCAL_SOCKET",
+	            ConnectAddressType::IPV4 => "IPV4",
+	            ConnectAddressType::IPV6 => "IPV6",
+	            ConnectAddressType::TORV2 => "TORV2",
+	            ConnectAddressType::TORV3 => "TORV3",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ConnectAddress {
 	    // Path `Connect.address.type`
@@ -2232,6 +2437,17 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for CreateinvoiceStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            CreateinvoiceStatus::PAID => "PAID",
+	            CreateinvoiceStatus::EXPIRED => "EXPIRED",
+	            CreateinvoiceStatus::UNPAID => "UNPAID",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct CreateinvoiceResponse {
 	    pub label: String,
@@ -2369,6 +2585,17 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for DelinvoiceStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DelinvoiceStatus::PAID => "PAID",
+	            DelinvoiceStatus::EXPIRED => "EXPIRED",
+	            DelinvoiceStatus::UNPAID => "UNPAID",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DelinvoiceResponse {
 	    pub label: String,
@@ -2479,6 +2706,17 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListinvoicesInvoicesStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListinvoicesInvoicesStatus::UNPAID => "UNPAID",
+	            ListinvoicesInvoicesStatus::PAID => "PAID",
+	            ListinvoicesInvoicesStatus::EXPIRED => "EXPIRED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListinvoicesInvoices {
 	    pub label: String,
@@ -2543,6 +2781,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for SendonionStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            SendonionStatus::PENDING => "PENDING",
+	            SendonionStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendonionResponse {
 	    pub id: u64,
@@ -2602,6 +2850,17 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListsendpaysPaymentsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListsendpaysPaymentsStatus::PENDING => "PENDING",
+	            ListsendpaysPaymentsStatus::FAILED => "FAILED",
+	            ListsendpaysPaymentsStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListsendpaysPayments {
 	    pub id: u64,
@@ -2712,6 +2971,17 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for PayStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            PayStatus::COMPLETE => "COMPLETE",
+	            PayStatus::PENDING => "PENDING",
+	            PayStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct PayResponse {
 	    pub payment_preimage: Secret,
@@ -2767,6 +3037,19 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListnodesNodesAddressesType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListnodesNodesAddressesType::DNS => "DNS",
+	            ListnodesNodesAddressesType::IPV4 => "IPV4",
+	            ListnodesNodesAddressesType::IPV6 => "IPV6",
+	            ListnodesNodesAddressesType::TORV2 => "TORV2",
+	            ListnodesNodesAddressesType::TORV3 => "TORV3",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesNodesAddresses {
 	    // Path `ListNodes.nodes[].addresses[].type`
@@ -2827,6 +3110,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for WaitanyinvoiceStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitanyinvoiceStatus::PAID => "PAID",
+	            WaitanyinvoiceStatus::EXPIRED => "EXPIRED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitanyinvoiceResponse {
 	    pub label: String,
@@ -2881,6 +3174,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for WaitinvoiceStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitinvoiceStatus::PAID => "PAID",
+	            WaitinvoiceStatus::EXPIRED => "EXPIRED",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitinvoiceResponse {
 	    pub label: String,
@@ -2932,6 +3235,15 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for WaitsendpayStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitsendpayStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitsendpayResponse {
 	    pub id: u64,
@@ -3026,6 +3338,15 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for KeysendStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            KeysendStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct KeysendResponse {
 	    pub payment_preimage: Secret,
@@ -3249,6 +3570,25 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListpeerchannelsChannelsState {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpeerchannelsChannelsState::OPENINGD => "OPENINGD",
+	            ListpeerchannelsChannelsState::CHANNELD_AWAITING_LOCKIN => "CHANNELD_AWAITING_LOCKIN",
+	            ListpeerchannelsChannelsState::CHANNELD_NORMAL => "CHANNELD_NORMAL",
+	            ListpeerchannelsChannelsState::CHANNELD_SHUTTING_DOWN => "CHANNELD_SHUTTING_DOWN",
+	            ListpeerchannelsChannelsState::CLOSINGD_SIGEXCHANGE => "CLOSINGD_SIGEXCHANGE",
+	            ListpeerchannelsChannelsState::CLOSINGD_COMPLETE => "CLOSINGD_COMPLETE",
+	            ListpeerchannelsChannelsState::AWAITING_UNILATERAL => "AWAITING_UNILATERAL",
+	            ListpeerchannelsChannelsState::FUNDING_SPEND_SEEN => "FUNDING_SPEND_SEEN",
+	            ListpeerchannelsChannelsState::ONCHAIN => "ONCHAIN",
+	            ListpeerchannelsChannelsState::DUALOPEND_OPEN_INIT => "DUALOPEND_OPEN_INIT",
+	            ListpeerchannelsChannelsState::DUALOPEND_AWAITING_LOCKIN => "DUALOPEND_AWAITING_LOCKIN",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsFeerate {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3314,6 +3654,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListpeerchannelsChannelsHtlcsDirection {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpeerchannelsChannelsHtlcsDirection::IN => "IN",
+	            ListpeerchannelsChannelsHtlcsDirection::OUT => "OUT",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsChannelsHtlcs {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3494,6 +3844,20 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListclosedchannelsClosedchannelsClose_cause {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListclosedchannelsClosedchannelsClose_cause::UNKNOWN => "UNKNOWN",
+	            ListclosedchannelsClosedchannelsClose_cause::LOCAL => "LOCAL",
+	            ListclosedchannelsClosedchannelsClose_cause::USER => "USER",
+	            ListclosedchannelsClosedchannelsClose_cause::REMOTE => "REMOTE",
+	            ListclosedchannelsClosedchannelsClose_cause::PROTOCOL => "PROTOCOL",
+	            ListclosedchannelsClosedchannelsClose_cause::ONCHAIN => "ONCHAIN",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListclosedchannelsClosedchannels {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -3573,6 +3937,18 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for DecodepayFallbacksType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DecodepayFallbacksType::P2PKH => "P2PKH",
+	            DecodepayFallbacksType::P2SH => "P2SH",
+	            DecodepayFallbacksType::P2WPKH => "P2WPKH",
+	            DecodepayFallbacksType::P2WSH => "P2WSH",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodepayFallbacks {
 	    // Path `DecodePay.fallbacks[].type`
@@ -3655,6 +4031,19 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for DecodeType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            DecodeType::BOLT12_OFFER => "BOLT12_OFFER",
+	            DecodeType::BOLT12_INVOICE => "BOLT12_INVOICE",
+	            DecodeType::BOLT12_INVOICE_REQUEST => "BOLT12_INVOICE_REQUEST",
+	            DecodeType::BOLT11_INVOICE => "BOLT11_INVOICE",
+	            DecodeType::RUNE => "RUNE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DecodeOffer_paths {
 	    pub first_node_id: PublicKey,
@@ -4000,6 +4389,15 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for GetrouteRouteStyle {
+	    fn to_string(&self) -> String {
+	        match self {
+	            GetrouteRouteStyle::TLV => "TLV",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetrouteRoute {
 	    pub id: PublicKey,
@@ -4052,6 +4450,18 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListforwardsForwardsStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListforwardsForwardsStatus::OFFERED => "OFFERED",
+	            ListforwardsForwardsStatus::SETTLED => "SETTLED",
+	            ListforwardsForwardsStatus::LOCAL_FAILED => "LOCAL_FAILED",
+	            ListforwardsForwardsStatus::FAILED => "FAILED",
+	        }.to_string()
+	    }
+	}
+
 	/// Either a legacy onion format or a modern tlv format
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	pub enum ListforwardsForwardsStyle {
@@ -4071,6 +4481,16 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListforwardsForwardsStyle {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListforwardsForwardsStyle::LEGACY => "LEGACY",
+	            ListforwardsForwardsStyle::TLV => "TLV",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListforwardsForwards {
 	    pub in_channel: ShortChannelId,
@@ -4130,6 +4550,17 @@ pub mod responses {
 	        }
 	    }
 	}
+
+	impl ToString for ListpaysPaysStatus {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListpaysPaysStatus::PENDING => "PENDING",
+	            ListpaysPaysStatus::FAILED => "FAILED",
+	            ListpaysPaysStatus::COMPLETE => "COMPLETE",
+	        }.to_string()
+	    }
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpaysPays {
 	    pub payment_hash: Sha256,
