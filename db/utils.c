@@ -217,14 +217,16 @@ void db_report_changes(struct db *db, const char *final, size_t min)
 {
 	assert(db->changes);
 	assert(tal_count(db->changes) >= min);
-
 	/* Having changes implies that we have a dirty TX. The opposite is
 	 * currently not true, e.g., the postgres driver doesn't record
 	 * changes yet. */
 	assert(!tal_count(db->changes) || db->dirty);
 
-	if (tal_count(db->changes) > min && db->report_changes_fn)
+	if (tal_count(db->changes) > min && db->report_changes_fn) {
+		if (*db->shutdown)
+			db_fatal("sivr db_write during shutdown");
 		db->report_changes_fn(db);
+	}
 	db->changes = tal_free(db->changes);
 }
 

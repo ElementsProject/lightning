@@ -318,6 +318,7 @@ struct lightningd {
 	alt_subdaemon_map alt_subdaemons;
 
 	enum lightningd_state state;
+	bool shutdown;
 
 	/* Total number of coin moves we've seen, since
 	 * coin move tracking was cool */

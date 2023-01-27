@@ -46,6 +46,7 @@ struct db {
 	/* List of statements that have been created but not executed yet. */
 	struct list_head pending_statements;
 	char *error;
+	bool *shutdown;
 
 	/* Were there any modifying statements in the current transaction?
 	 * Used to bump the data_version in the DB.*/

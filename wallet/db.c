@@ -1017,6 +1017,7 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 
 	db->report_changes_fn = plugin_hook_db_sync;
 
+	db->shutdown = &ld->shutdown;
 	db_begin_transaction(db);
 	db->data_version = db_data_version_get(db);
 

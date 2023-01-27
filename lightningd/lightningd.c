@@ -977,6 +977,7 @@ int main(int argc, char *argv[])
 	 * variables. */
 	ld = new_lightningd(NULL);
 	ld->state = LD_STATE_RUNNING;
+	ld->shutdown = false;
 
 	/*~ We store an copy of our arguments before parsing mangles them, so
 	 * we can re-exec if versions of subdaemons change.  Note the use of
@@ -1240,7 +1241,8 @@ stop:
 	jsonrpc_stop_listening(ld->jsonrpc);
 
 	/* Give permission for things to get destroyed without getting upset.
-	 * Also ignore responses to JSON-RPC requests in upcoming main io_loop. */
+	 * Also ignore responses to JSON-RPC requests in upcoming main io_loop.*/
+	/* Fail JSON RPC requests and ignore plugin's responses */
 	ld->state = LD_STATE_SHUTDOWN;
 
 	stop_fd = -1;
@@ -1269,6 +1271,7 @@ stop:
 	shutdown_global_subdaemons(ld);
 
 	/* Tell normal plugins we're shutting down, use force if necessary. */
+	ld->shutdown = true;
 	shutdown_plugins(ld, true);
 
 	/* Clean up internal peer/channel/htlc structures. */

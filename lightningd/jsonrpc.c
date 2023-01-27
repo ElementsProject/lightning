@@ -973,9 +973,14 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    json_tok_full(jcon->buffer, method));
 	}
 
-	if (c->ld->state == LD_STATE_SHUTDOWN)
+	if (c->ld->state == LD_STATE_SHUTDOWN) {
+		log_debug(jcon->ld->log, "sivr method=%s id=%s\n",
+						method ? json_strdup(tmpctx, jcon->buffer, method) : "",
+						id ? json_strdup(tmpctx, jcon->buffer, id) : "");
 		return command_fail(c, LIGHTNINGD_SHUTDOWN,
 						   "lightningd is shutting down");
+	}
+
 
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;

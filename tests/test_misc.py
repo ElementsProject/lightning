@@ -318,7 +318,10 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     disconnects = ['-WIRE_REVOKE_AND_ACK']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               options={'dev-no-reconnect': None},
+                               options={'dev-no-reconnect': None,
+                                        # 'debugger': None,
+                                        'log-level': ['debug', 'io:pay'],
+                                        },
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node()
 
