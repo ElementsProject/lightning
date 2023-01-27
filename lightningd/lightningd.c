@@ -1115,7 +1115,7 @@ int main(int argc, char *argv[])
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
 	 *  topology is initialized since some decisions rely on being able to
 	 *  know the blockheight. */
-	unconnected_htlcs_in = load_channels_from_wallet(ld);
+	unconnected_htlcs_in = notleak(load_channels_from_wallet(ld));
 	db_commit_transaction(ld->wallet->db);
 
  	/*~ The gossip daemon looks after the routing gossip;
