@@ -592,8 +592,12 @@ static const char *plugin_response_handle(struct plugin *plugin,
 	/* In this state we're shutting down and in the process of unwinding the
 	 * custom behavior injected by plugins via hooks etc.. We want to stay dead
 	 * now, because otherwise (other) plugins that are already destroyed would
-	 * miss the action, which wouldn't be consistent. */
-	if (plugin->plugins->ld->state == LD_STATE_SHUTDOWN) {
+	 * miss the action, which wouldn't be consistent.
+	 * An exception is a db_write plugin. Ideally db_write's never happen in
+	 * this state but that is hard to proof, so we keep db_write plugins alive
+	 * longer and still allow db_write hook responses. */
+	if (plugin->plugins->ld->state == LD_STATE_SHUTDOWN &&
+			       strcmp(request->method, "db_write") != 0) {
 		log_debug(plugin->plugins->ld->log,
 			  "Ignoring response of method %s from plugin %s due to shutdown",
 			  request->method, plugin->shortname);
