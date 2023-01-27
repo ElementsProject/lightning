@@ -973,6 +973,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 				    json_tok_full(jcon->buffer, method));
 	}
 
+	if (c->ld->state == LD_STATE_SHUTDOWN)
+		return command_fail(c, LIGHTNINGD_SHUTDOWN,
+						   "lightningd is shutting down");
+
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
