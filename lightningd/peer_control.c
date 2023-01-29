@@ -2220,7 +2220,7 @@ void setup_peers(struct lightningd *ld)
 struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 {
 	struct peer *peer;
-	struct htlc_in_map *unconnected_htlcs_in = tal(ld, struct htlc_in_map);
+	struct htlc_in_map *unconnected_htlcs_in;
 	struct peer_node_id_map_iter it;
 
 	/* Load channels from database */
@@ -2242,6 +2242,7 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 		}
 	}
 
+	unconnected_htlcs_in = tal(ld, struct htlc_in_map);
 	/* Make a copy of the htlc_map: entries removed as they're matched */
 	htlc_in_map_copy(unconnected_htlcs_in, ld->htlcs_in);
 
@@ -2256,6 +2257,7 @@ struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld)
 							       channel,
 							       ld->htlcs_out,
 							       unconnected_htlcs_in)) {
+				tal_free(unconnected_htlcs_in);
 				fatal("could not load outgoing htlcs for channel");
 			}
 		}
