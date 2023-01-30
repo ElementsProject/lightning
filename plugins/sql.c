@@ -71,7 +71,8 @@ static const struct fieldtypemap fieldtypemap[] = {
 };
 
 struct column {
-	/* We rename some fields to avoid sql keywords! */
+	/* We rename some fields to avoid sql keywords!
+	 * And jsonname is NULL if this is a simple array. */
 	const char *dbname, *jsonname;
 	enum fieldtype ftype;
 
@@ -366,8 +367,13 @@ static struct command_result *process_json_obj(struct command *cmd,
 		/* This can happen if subobject does not exist in output! */
 		if (!t)
 			coltok = NULL;
-		else
-			coltok = json_get_member(buf, t, col->jsonname);
+		else {
+			/* Array of primitives? */
+			if (!col->jsonname)
+				coltok = t;
+			else
+				coltok = json_get_member(buf, t, col->jsonname);
+		}
 
 		if (!coltok) {
 			if (td->parent)
@@ -622,14 +628,6 @@ static bool ignore_column(const struct table_desc *td, const jsmntok_t *t)
 	 * ask for it in listpeers, and it's not very useful. */
 	if (streq(td->name, "peers") && json_tok_streq(schemas, t, "log"))
 		return true;
-	/* FIXME: peers.netaddr is an array of strings, which we don't handle. */
-	if (streq(td->name, "peers") && json_tok_streq(schemas, t, "netaddr"))
-		return true;
-	/* FIXME: peers.channels.features is an array of strings, which we don't handle. */
-	if (streq(td->name, "peers_channels") && json_tok_streq(schemas, t, "features"))
-		return true;
-	if (streq(td->name, "peers_channels") && json_tok_streq(schemas, t, "status"))
-		return true;
 	return false;
 }
 
@@ -777,6 +775,27 @@ static bool find_column(const struct table_desc *td,
 /* Recursion */
 static void add_table_object(struct table_desc *td, const jsmntok_t *tok);
 
+/* Simple case for arrays of a simple type. */
+static void add_table_singleton(struct table_desc *td,
+				const jsmntok_t *name,
+				const jsmntok_t *tok)
+{
+	struct column col;
+	const jsmntok_t *type;
+
+	/* FIXME: We would need to return false here and delete table! */
+	assert(!ignore_column(td, tok));
+	type = json_get_member(schemas, tok, "type");
+
+	col.ftype = find_fieldtype(type);
+	col.sub = NULL;
+	/* We name column after the JSON parent field; but jsonname is NULL so we
+	 * know to expect an array not a member. */
+	col.dbname = db_column_name(td->columns, td, name);
+	col.jsonname = NULL;
+	tal_arr_expand(&td->columns, col);
+}
+
 static void add_table_properties(struct table_desc *td,
 				 const jsmntok_t *properties)
 {
@@ -799,10 +818,13 @@ static void add_table_properties(struct table_desc *td,
 
 			items = json_get_member(schemas, t+1, "items");
 			type = json_get_member(schemas, items, "type");
-			assert(json_tok_streq(schemas, type, "object"));
 
 			col.sub = new_table_desc(td, t, t, false);
-			add_table_object(col.sub, items);
+			/* Array of primitives?  Treat as single-entry obj */
+			if (!json_tok_streq(schemas, type, "object"))
+				add_table_singleton(col.sub, t, items);
+			else
+				add_table_object(col.sub, items);
 		} else if (json_tok_streq(schemas, type, "object")) {
 			col.sub = new_table_desc(td, t, t, true);
 			add_table_object(col.sub, t+1);
