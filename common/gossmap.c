@@ -611,16 +611,16 @@ static bool map_catchup(struct gossmap *map, size_t *num_rejected)
 	     map->map_end += reclen) {
 		struct gossip_hdr ghdr;
 		size_t off;
-		u16 type;
+		u16 type, flags;
 
 		map_copy(map, map->map_end, &ghdr, sizeof(ghdr));
-		reclen = (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_MASK)
-			+ sizeof(ghdr);
+		reclen = be16_to_cpu(ghdr.len) + sizeof(ghdr);
 
-		if (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_DELETED_BIT)
+		flags = be16_to_cpu(ghdr.flags);
+		if (flags & GOSSIP_STORE_DELETED_BIT)
 			continue;
 
-		if (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_ZOMBIE_BIT)
+		if (flags & GOSSIP_STORE_ZOMBIE_BIT)
 			continue;
 
 		/* Partial write, this can happen. */
@@ -1014,7 +1014,7 @@ bool gossmap_chan_get_capacity(const struct gossmap *map,
 	/* Skip over this record to next; expect a gossip_store_channel_amount */
 	off = c->cann_off - sizeof(ghdr);
 	map_copy(map, off, &ghdr, sizeof(ghdr));
-	off += sizeof(ghdr) + (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_MASK);
+	off += sizeof(ghdr) + be16_to_cpu(ghdr.len);
 
 	/* Partial write, this can happen. */
 	if (off + sizeof(ghdr) + 2 > map->map_size)
@@ -1128,7 +1128,7 @@ u8 *gossmap_chan_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_chan *c)
 {
-	u32 len;
+	u16 len;
 	u8 *msg;
 	u32 pre_off;
 
@@ -1137,7 +1137,8 @@ u8 *gossmap_chan_get_announce(const tal_t *ctx,
 		pre_off = 2 + 8 + 2 + sizeof(struct gossip_hdr);
 	else
 		pre_off = sizeof(struct gossip_hdr);
-	len = (map_be32(map, c->cann_off - pre_off) & GOSSIP_STORE_LEN_MASK);
+	len = map_be16(map, c->cann_off - pre_off
+		       + offsetof(struct gossip_hdr, len));
 
 	msg = tal_arr(ctx, u8, len);
 	map_copy(map, c->cann_off, msg, len);
@@ -1149,14 +1150,14 @@ u8 *gossmap_node_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_node *n)
 {
-	u32 len;
+	u16 len;
 	u8 *msg;
 
 	if (n->nann_off == 0)
 		return NULL;
 
-	len = (map_be32(map, n->nann_off - sizeof(struct gossip_hdr))
-	       & GOSSIP_STORE_LEN_MASK);
+	len = map_be16(map, n->nann_off - sizeof(struct gossip_hdr)
+		       + offsetof(struct gossip_hdr, len));
 	msg = tal_arr(ctx, u8, len);
 
 	map_copy(map, n->nann_off, msg, len);

@@ -118,7 +118,8 @@ u8 *gossip_store_next(const tal_t *ctx,
 
 	while (!msg) {
 		struct gossip_hdr hdr;
-		u32 msglen, checksum, timestamp;
+		u16 msglen, flags;
+		u32 checksum, timestamp;
 		bool push, ratelimited;
 		int type, r;
 
@@ -126,13 +127,13 @@ u8 *gossip_store_next(const tal_t *ctx,
 		if (r != sizeof(hdr))
 			return NULL;
 
-		msglen = be32_to_cpu(hdr.len);
-		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
-		ratelimited = (msglen & GOSSIP_STORE_LEN_RATELIMIT_BIT);
-		msglen &= GOSSIP_STORE_LEN_MASK;
+		msglen = be16_to_cpu(hdr.len);
+		flags = be16_to_cpu(hdr.flags);
+		push = (flags & GOSSIP_STORE_PUSH_BIT);
+		ratelimited = (flags & GOSSIP_STORE_RATELIMIT_BIT);
 
 		/* Skip any deleted entries. */
-		if (be32_to_cpu(hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT) {
+		if (flags & GOSSIP_STORE_DELETED_BIT) {
 			*off += r + msglen;
 			continue;
 		}
@@ -145,14 +146,6 @@ u8 *gossip_store_next(const tal_t *ctx,
 			*off += r + msglen;
 			continue;
 		}
-
-		/* Messages can be up to 64k, but we also have internal ones:
-		 * 128k is plenty. */
-		if (msglen > 128 * 1024)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "gossip_store: oversize msg len %u at"
-				      " offset %zu (was at %zu)",
-				      msglen, *off, initial_off);
 
 		checksum = be32_to_cpu(hdr.crc);
 		msg = tal_arr(ctx, u8, msglen);
@@ -201,7 +194,7 @@ size_t find_gossip_store_end(int gossip_store_fd, size_t off)
 	while ((r = pread(gossip_store_fd, &buf,
 			 sizeof(buf.hdr) + sizeof(buf.type), off))
 	       == sizeof(buf.hdr) + sizeof(buf.type)) {
-		u32 msglen = be32_to_cpu(buf.hdr.len) & GOSSIP_STORE_LEN_MASK;
+		u16 msglen = be16_to_cpu(buf.hdr.len);
 
 		/* Don't swallow end marker! */
 		if (buf.type == CPU_TO_BE16(WIRE_GOSSIP_STORE_ENDED))
@@ -227,7 +220,8 @@ size_t find_gossip_store_by_timestamp(int gossip_store_fd,
 	while ((r = pread(gossip_store_fd, &buf,
 			  sizeof(buf.hdr) + sizeof(buf.type), off))
 	       == sizeof(buf.hdr) + sizeof(buf.type)) {
-		u32 msglen = be32_to_cpu(buf.hdr.len) & GOSSIP_STORE_LEN_MASK;
+		u16 msglen = be16_to_cpu(buf.hdr.len);
+		u16 flags = be16_to_cpu(buf.hdr.flags);
 		u16 type = be16_to_cpu(buf.type);
 
 		/* Don't swallow end marker!  Reset, as they will call
@@ -236,7 +230,7 @@ size_t find_gossip_store_by_timestamp(int gossip_store_fd,
 			return 1;
 
 		/* Only to-be-broadcast types have valid timestamps! */
-		if (!(be32_to_cpu(buf.hdr.len) & GOSSIP_STORE_LEN_DELETED_BIT)
+		if (!(flags & GOSSIP_STORE_DELETED_BIT)
 		    && public_msg_type(type)
 		    && be32_to_cpu(buf.hdr.timestamp) >= timestamp) {
 			break;
