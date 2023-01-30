@@ -10,7 +10,6 @@
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
-#include <common/gossip_store.h>
 #include <common/memleak.h>
 #include <common/per_peer_state.h>
 #include <common/ping.h>
@@ -23,6 +22,7 @@
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <connectd/connectd_wiregen.h>
 #include <connectd/gossip_rcvd_filter.h>
+#include <connectd/gossip_store.h>
 #include <connectd/multiplex.h>
 #include <connectd/onion_message.h>
 #include <errno.h>
