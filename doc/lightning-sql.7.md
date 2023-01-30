@@ -353,6 +353,104 @@ The object may contain **warning\_db\_failure** if the database fails partway th
 
 On failure, an error is returned.
 
+EXAMPLES
+--------
+Here are some example using lightning-cli.  Note that you may need to
+use `-o` if you use queries which contain `=` (which make
+lightning-cli(1) default to keyword style):
+
+A simple peer selection query:
+
+```
+$ lightning-cli sql "SELECT id FROM peers"
+{
+   "rows": [
+      [
+         "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+      ]
+   ]
+}
+```
+
+A statement containing using `=` needs `-o`:
+
+```
+$ lightning-cli sql -o "SELECT node_id,last_timestamp FROM nodes WHERE last_timestamp>=1669578892"
+{
+   "rows": [
+      [
+         "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00",
+         1669601603
+      ]
+   ]
+}
+```
+
+If you want to compare a BLOB column, `x'hex'` or `X'hex'` are needed:
+
+```
+$ lightning-cli sql -o "SELECT nodeid FROM nodes WHERE nodeid != x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1';"
+{
+   "rows": [
+      [
+         "0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a"
+      ],
+      [
+         "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+      ]
+   ]
+}
+$ lightning-cli sql -o "SELECT nodeid FROM nodes WHERE nodeid IN (x'03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1', x'02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00')"
+{
+   "rows": [
+      [
+         "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00"
+      ],
+      [
+         "03c9d25b6c0ce4bde5ad97d7ab83f00ae8bd3800a98ccbee36f3c3205315147de1"
+      ]
+   ]
+}
+```
+
+Related tables are usually referenced by JOIN:
+
+```
+$ lightning-cli sql -o "SELECT nodeid, alias, nodes_addresses.type, nodes_addresses.port, nodes_addresses.address FROM nodes INNER JOIN nodes_addresses ON nodes_addresses.row = nodes.rowid"
+{
+   "rows": [
+      [
+         "02ba9965e3db660385bd1dd2c09dd032e0f2179a94fc5db8917b60adf0b363da00",
+         "YELLOWWATCH-22.11rc2-31-gcd7593b",
+         "dns",
+         7272,
+         "localhost"
+      ],
+      [
+         "0214739d625944f8fdc0da9d2ef44dbd7af58443685e494117b51410c5c3ff973a",
+         "HOPPINGSQUIRREL-1rc2-31-gcd7593b",
+         "dns",
+         7171,
+         "localhost"
+      ]
+   ]
+}
+```
+
+Simple function usage, in this case COUNT.  Strings inside arrays need
+", and ' to protect them from the shell:
+
+```
+$ lightning-cli sql 'SELECT COUNT(*) FROM nodes"
+{
+   "rows": [
+      [
+         3
+      ]
+   ]
+}
+```
+
 AUTHOR
 ------
 
