@@ -79,6 +79,36 @@ TABLES
 ------
 [comment]: # (GENERATE-DOC-START)
 The following tables are currently supported:
+- `bkpr_accountevents` (see lightning-bkpr-listaccountevents(7))
+  - `account` (type `string`, sqltype `TEXT`)
+  - `type` (type `string`, sqltype `TEXT`)
+  - `tag` (type `string`, sqltype `TEXT`)
+  - `credit_msat` (type `msat`, sqltype `INTEGER`)
+  - `debit_msat` (type `msat`, sqltype `INTEGER`)
+  - `currency` (type `string`, sqltype `TEXT`)
+  - `timestamp` (type `u32`, sqltype `INTEGER`)
+  - `outpoint` (type `string`, sqltype `TEXT`)
+  - `blockheight` (type `u32`, sqltype `INTEGER`)
+  - `origin` (type `string`, sqltype `TEXT`)
+  - `payment_id` (type `hex`, sqltype `BLOB`)
+  - `txid` (type `txid`, sqltype `BLOB`)
+  - `description` (type `string`, sqltype `TEXT`)
+  - `fees_msat` (type `msat`, sqltype `INTEGER`)
+  - `is_rebalance` (type `boolean`, sqltype `INTEGER`)
+  - `part_id` (type `u32`, sqltype `INTEGER`)
+
+- `bkpr_income` (see lightning-bkpr-listincome(7))
+  - `account` (type `string`, sqltype `TEXT`)
+  - `tag` (type `string`, sqltype `TEXT`)
+  - `credit_msat` (type `msat`, sqltype `INTEGER`)
+  - `debit_msat` (type `msat`, sqltype `INTEGER`)
+  - `currency` (type `string`, sqltype `TEXT`)
+  - `timestamp` (type `u32`, sqltype `INTEGER`)
+  - `description` (type `string`, sqltype `TEXT`)
+  - `outpoint` (type `string`, sqltype `TEXT`)
+  - `txid` (type `txid`, sqltype `BLOB`)
+  - `payment_id` (type `hex`, sqltype `BLOB`)
+
 - `channels` indexed by `short_channel_id` (see lightning-listchannels(7))
   - `source` (type `pubkey`, sqltype `BLOB`)
   - `destination` (type `pubkey`, sqltype `BLOB`)
@@ -334,4 +364,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:93309f8c45ea3aa153bfd8822f2748c1254812d41a408de39bacefa292e11374)
+[comment]: # ( SHA256STAMP:dbb9286cf31dc82b33143d5274b1c4eecc75c5ba1dfc18bdf21b4baab585bd45)
