@@ -3275,3 +3275,22 @@ def test_block_added_notifications(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l2])
     ret = l2.rpc.call("blockscatched")
     assert len(ret) == 3 and ret[1] == next_l2_base + 1 and ret[2] == next_l2_base + 2
+
+
+def test_sql(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    ret = l2.rpc.sql("SELECT * FROM forwards;")
+    assert ret == {'rows': []}
+
+    # This should create a forward through l2
+    l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
+
+    ret = l2.rpc.sql("SELECT in_htlc_id,out_msat,status,out_htlc_id FROM forwards;")
+    assert only_one(ret['rows'])[0] == 0
+    assert only_one(ret['rows'])[1] == 12300
+    assert only_one(ret['rows'])[2] == 'settled'
+    assert only_one(ret['rows'])[3] == 0
+
+    with pytest.raises(RpcError, match='Unauthorized'):
+        l2.rpc.sql("DELETE FROM forwards;")
