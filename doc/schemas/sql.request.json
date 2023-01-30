@@ -4,6 +4,7 @@
   "required": [
     "query"
   ],
+  "added": "v23.02",
   "properties": {
     "query": {
       "type": "string"
