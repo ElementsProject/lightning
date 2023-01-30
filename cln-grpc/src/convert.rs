@@ -65,7 +65,7 @@ impl From<responses::GetinfoResponse> for pb::GetinfoResponse {
             network: c.network, // Rule #2 for type string
             msatoshi_fees_collected: c.msatoshi_fees_collected, // Rule #2 for type u64?
             fees_collected_msat: Some(c.fees_collected_msat.into()), // Rule #2 for type msat
-            address: c.address.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
+            address: c.address.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetinfoAddress 
             binding: c.binding.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3 
             warning_bitcoind_sync: c.warning_bitcoind_sync, // Rule #2 for type string?
             warning_lightningd_sync: c.warning_lightningd_sync, // Rule #2 for type string?
