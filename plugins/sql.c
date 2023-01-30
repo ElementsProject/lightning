@@ -27,7 +27,6 @@ static const char schemas[] =
 
 /* TODO:
  * 2. Refresh time in API.
- * 5. documentation.
  * 6. test on mainnet.
  * 7. Some cool query for documentation.
  * 8. time_msec fields.
