@@ -819,6 +819,7 @@
             "ListSendPays.payments[].groupid": 2,
             "ListSendPays.payments[].id": 1,
             "ListSendPays.payments[].label": 9,
+            "ListSendPays.payments[].partid": 15,
             "ListSendPays.payments[].payment_hash": 3,
             "ListSendPays.payments[].payment_preimage": 12,
             "ListSendPays.payments[].status": 4
