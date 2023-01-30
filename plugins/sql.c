@@ -65,6 +65,11 @@ static const struct fieldtypemap fieldtypemap[] = {
 	{ "short_channel_id", "TEXT" }, /* FIELD_SCID */
 };
 
+struct column {
+	const char *name;
+	enum fieldtype ftype;
+};
+
 struct db_query {
 	sqlite3_stmt *stmt;
 	struct table_desc **tables;
@@ -74,9 +79,8 @@ struct db_query {
 struct table_desc {
 	/* e.g. peers for listpeers */
 	const char *name;
-	const char **columns;
+	struct column *columns;
 	char *update_stmt;
-	enum fieldtype *fieldtypes;
 };
 static STRMAP(struct table_desc *) tablemap;
 static size_t max_dbmem = 500000000;
@@ -272,16 +276,165 @@ static struct command_result *refresh_complete(struct command *cmd,
 static struct command_result *refresh_tables(struct command *cmd,
 					     struct db_query *dbq);
 
-static struct command_result *list_done(struct command *cmd,
-					const char *buf,
-					const jsmntok_t *result,
-					struct db_query *dbq)
+static struct command_result *one_refresh_done(struct command *cmd,
+					       struct db_query *dbq)
 {
-	const struct table_desc *td = dbq->tables[0];
+	/* Remove that, iterate */
+	tal_arr_remove(&dbq->tables, 0);
+	return refresh_tables(cmd, dbq);
+}
+
+/* Returns NULL on success, otherwise has failed cmd. */
+static struct command_result *process_json_obj(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *t,
+					       const struct table_desc *td,
+					       size_t row,
+					       const u64 *rowid,
+					       size_t *sqloff,
+					       sqlite3_stmt *stmt)
+{
+	int err;
+
+	/* FIXME: This is O(n^2): hash td->columns and look up the other way. */
+	for (size_t i = 0; i < tal_count(td->columns); i++) {
+		const struct column *col = &td->columns[i];
+		const jsmntok_t *coltok;
+
+		if (!t)
+			coltok = NULL;
+		else
+			coltok = json_get_member(buf, t, col->name);
+
+		if (!coltok)
+			sqlite3_bind_null(stmt, (*sqloff)++);
+		else {
+			u64 val64;
+			struct amount_msat valmsat;
+			u8 *valhex;
+			double valdouble;
+			bool valbool;
+
+			switch (col->ftype) {
+			case FIELD_U8:
+			case FIELD_U16:
+			case FIELD_U32:
+			case FIELD_U64:
+			case FIELD_INTEGER:
+				if (!json_to_u64(buf, coltok, &val64)) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "column %zu row %zu not a u64: %.*s",
+							    i, row,
+							    json_tok_full_len(coltok),
+							    json_tok_full(buf, coltok));
+				}
+				sqlite3_bind_int64(stmt, (*sqloff)++, val64);
+				break;
+			case FIELD_BOOL:
+				if (!json_to_bool(buf, coltok, &valbool)) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "column %zu row %zu not a boolean: %.*s",
+							    i, row,
+							    json_tok_full_len(coltok),
+							    json_tok_full(buf, coltok));
+				}
+				sqlite3_bind_int(stmt, (*sqloff)++, valbool);
+				break;
+			case FIELD_NUMBER:
+				if (!json_to_double(buf, coltok, &valdouble)) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "column %zu row %zu not a double: %.*s",
+							    i, row,
+							    json_tok_full_len(coltok),
+							    json_tok_full(buf, coltok));
+				}
+				sqlite3_bind_double(stmt, (*sqloff)++, valdouble);
+				break;
+			case FIELD_MSAT:
+				if (!json_to_msat(buf, coltok, &valmsat)) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "column %zu row %zu not an msat: %.*s",
+							    i, row,
+							    json_tok_full_len(coltok),
+							    json_tok_full(buf, coltok));
+				}
+				sqlite3_bind_int64(stmt, (*sqloff)++, valmsat.millisatoshis /* Raw: db */);
+				break;
+			case FIELD_SCID:
+			case FIELD_STRING:
+				sqlite3_bind_text(stmt, (*sqloff)++, buf + coltok->start,
+						  coltok->end - coltok->start,
+						  SQLITE_STATIC);
+				break;
+			case FIELD_HEX:
+			case FIELD_HASH:
+			case FIELD_SECRET:
+			case FIELD_PUBKEY:
+			case FIELD_TXID:
+				valhex = json_tok_bin_from_hex(tmpctx, buf, coltok);
+				if (!valhex) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "column %zu row %zu not valid hex: %.*s",
+							    i, row,
+							    json_tok_full_len(coltok),
+							    json_tok_full(buf, coltok));
+				}
+				sqlite3_bind_blob(stmt, (*sqloff)++, valhex, tal_count(valhex),
+						  SQLITE_STATIC);
+				break;
+			}
+		}
+	}
+
+	err = sqlite3_step(stmt);
+	if (err != SQLITE_DONE) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Error executing %s on row %zu: %s",
+				    td->update_stmt,
+				    row,
+				    sqlite3_errmsg(db));
+	}
+	return NULL;
+}
+
+static struct command_result *process_json_list(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						const struct table_desc *td)
+{
 	size_t i;
 	const jsmntok_t *t, *arr = json_get_member(buf, result, td->name);
 	int err;
 	sqlite3_stmt *stmt;
+	struct command_result *ret = NULL;
+
+	err = sqlite3_prepare_v2(db, td->update_stmt, -1, &stmt, NULL);
+	if (err != SQLITE_OK) {
+		return command_fail(cmd, LIGHTNINGD, "preparing '%s' failed: %s",
+				    td->update_stmt,
+				    sqlite3_errmsg(db));
+	}
+
+ 	json_for_each_arr(i, t, arr) {
+		/* sqlite3 columns are 1-based! */
+		size_t off = 1;
+		ret = process_json_obj(cmd, buf, t, td, i, NULL, &off, stmt);
+		if (ret)
+			break;
+		sqlite3_reset(stmt);
+	}
+	sqlite3_finalize(stmt);
+	return ret;
+}
+
+static struct command_result *default_list_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct db_query *dbq)
+{
+	const struct table_desc *td = dbq->tables[0];
+	struct command_result *ret;
+	int err;
 	char *errmsg;
 
 	/* FIXME: this is where a wait / pagination API is useful! */
@@ -292,131 +445,35 @@ static struct command_result *list_done(struct command *cmd,
 				    td->name, errmsg);
 	}
 
-	err = sqlite3_prepare_v2(db, td->update_stmt, -1, &stmt, NULL);
-	if (err != SQLITE_OK) {
-		return command_fail(cmd, LIGHTNINGD, "preparing '%s' failed: %s",
-				    td->update_stmt,
-				    sqlite3_errmsg(db));
-	}
+	ret = process_json_list(cmd, buf, result, td);
+	if (ret)
+		return ret;
 
-	json_for_each_arr(i, t, arr) {
-		size_t c;
-		/* FIXME: This is O(n^2): hash td->columns and look up
-		 * the other way. */
-		for (c = 0; c < tal_count(td->columns); c++) {
-			const jsmntok_t *col = json_get_member(buf, t, td->columns[c]);
-			if (!col)
-				sqlite3_bind_null(stmt, c + 1);
-			else {
-				u64 val64;
-				struct amount_msat valmsat;
-				u8 *valhex;
-				double valdouble;
-				bool valbool;
+	return one_refresh_done(cmd, dbq);
+}
 
-				switch (td->fieldtypes[c]) {
-				case FIELD_U8:
-				case FIELD_U16:
-				case FIELD_U32:
-				case FIELD_U64:
-				case FIELD_INTEGER:
-					if (!json_to_u64(buf, col, &val64)) {
-						return command_fail(cmd, LIGHTNINGD,
-								    "column %zu row %zu not a u64: %.*s",
-								    c, i,
-								    json_tok_full_len(col),
-								    json_tok_full(buf, col));
-					}
-					sqlite3_bind_int64(stmt, c + 1, val64);
-					break;
-				case FIELD_BOOL:
-					if (!json_to_bool(buf, col, &valbool)) {
-						return command_fail(cmd, LIGHTNINGD,
-								    "column %zu row %zu not a boolean: %.*s",
-								    c, i,
-								    json_tok_full_len(col),
-								    json_tok_full(buf, col));
-					}
-					sqlite3_bind_int(stmt, c + 1, valbool);
-					break;
-				case FIELD_NUMBER:
-					if (!json_to_double(buf, col, &valdouble)) {
-						return command_fail(cmd, LIGHTNINGD,
-								    "column %zu row %zu not a double: %.*s",
-								    c, i,
-								    json_tok_full_len(col),
-								    json_tok_full(buf, col));
-					}
-					sqlite3_bind_double(stmt, c + 1, valdouble);
-					break;
-				case FIELD_MSAT:
-					if (!json_to_msat(buf, col, &valmsat)) {
-						return command_fail(cmd, LIGHTNINGD,
-								    "column %zu row %zu not an msat: %.*s",
-								    c, i,
-								    json_tok_full_len(col),
-								    json_tok_full(buf, col));
-					}
-					sqlite3_bind_int64(stmt, c + 1, valmsat.millisatoshis /* Raw: db */);
-					break;
-				case FIELD_SCID:
-				case FIELD_STRING:
-					sqlite3_bind_text(stmt, c + 1, buf + col->start,
-							  col->end - col->start, SQLITE_STATIC);
-					break;
-				case FIELD_HEX:
-				case FIELD_HASH:
-				case FIELD_SECRET:
-				case FIELD_PUBKEY:
-				case FIELD_TXID:
-					valhex = json_tok_bin_from_hex(tmpctx, buf, col);
-					if (!valhex) {
-						return command_fail(cmd, LIGHTNINGD,
-								    "column %zu row %zu not valid hex: %.*s",
-								    c, i,
-								    json_tok_full_len(col),
-								    json_tok_full(buf, col));
-					}
-					sqlite3_bind_blob(stmt, c + 1, valhex, tal_count(valhex),
-							  SQLITE_STATIC);
-					break;
-				}
-			}
-		}
-		err = sqlite3_step(stmt);
-
-		if (err != SQLITE_DONE) {
-			const char *emsg = sqlite3_errmsg(db);
-			sqlite3_finalize(stmt);
-			return command_fail(cmd, LIGHTNINGD,
-					    "Error executing %s on column %zu row %zu: %s",
-					    td->update_stmt,
-					    c, i, emsg);
-		}
-		sqlite3_reset(stmt);
-	}
-	sqlite3_finalize(stmt);
-
-	/* Remove that, iterate */
-	tal_arr_remove(&dbq->tables, 0);
-	return refresh_tables(cmd, dbq);
+static struct command_result *default_refresh(struct command *cmd,
+					      const struct table_desc *td,
+					      struct db_query *dbq)
+{
+	struct out_req *req;
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    tal_fmt(tmpctx, "list%s", td->name),
+				    default_list_done, forward_error,
+				    dbq);
+	return send_outreq(cmd->plugin, req);
 }
 
 static struct command_result *refresh_tables(struct command *cmd,
 					    struct db_query *dbq)
 {
-	struct out_req *req;
 	const struct table_desc *td;
 
 	if (tal_count(dbq->tables) == 0)
 		return refresh_complete(cmd, dbq);
 
 	td = dbq->tables[0];
-	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    tal_fmt(tmpctx, "list%s", td->name),
-				    list_done, forward_error,
-				    dbq);
-	return send_outreq(cmd->plugin, req);
+	return default_refresh(cmd, td, dbq);
 }
 
 static struct command_result *json_sql(struct command *cmd,
@@ -462,36 +519,47 @@ static void init_tablemap(struct plugin *plugin)
 	char *create_stmt;
 	int err;
 	char *errmsg;
+	struct column col;
 
 	strmap_init(&tablemap);
 
 	/* FIXME: Load from schemas! */
 	td = tal(NULL, struct table_desc);
 	td->name = "forwards";
-	td->columns = tal_arr(td, const char *, 11);
-	td->fieldtypes = tal_arr(td, enum fieldtype, 11);
-	td->columns[0] = "in_htlc_id";
-	td->fieldtypes[0] = FIELD_U64;
-	td->columns[1] = "in_channel";
-	td->fieldtypes[1] = FIELD_SCID;
-	td->columns[2] = "in_msat";
-	td->fieldtypes[2] = FIELD_MSAT;
-	td->columns[3] = "status";
-	td->fieldtypes[3] = FIELD_STRING;
-	td->columns[4] = "received_time";
-	td->fieldtypes[4] = FIELD_NUMBER;
-	td->columns[5] = "out_channel";
-	td->fieldtypes[5] = FIELD_SCID;
-	td->columns[6] = "out_htlc_id";
-	td->fieldtypes[6] = FIELD_U64;
-	td->columns[7] = "style";
-	td->fieldtypes[7] = FIELD_STRING;
-	td->columns[8] = "fee_msat";
-	td->fieldtypes[8] = FIELD_MSAT;
-	td->columns[9] = "out_msat";
-	td->fieldtypes[9] = FIELD_MSAT;
-	td->columns[10] = "resolved_time";
-	td->fieldtypes[10] = FIELD_NUMBER;
+	td->columns = tal_arr(td, struct column, 0);
+	col.name = "in_htlc_id";
+	col.ftype = FIELD_U64;
+	tal_arr_expand(&td->columns, col);
+	col.name = "in_channel";
+	col.ftype = FIELD_SCID;
+	tal_arr_expand(&td->columns, col);
+	col.name = "in_msat";
+	col.ftype = FIELD_MSAT;
+	tal_arr_expand(&td->columns, col);
+	col.name = "status";
+	col.ftype = FIELD_STRING;
+	tal_arr_expand(&td->columns, col);
+	col.name = "received_time";
+	col.ftype = FIELD_NUMBER;
+	tal_arr_expand(&td->columns, col);
+	col.name = "out_channel";
+	col.ftype = FIELD_SCID;
+	tal_arr_expand(&td->columns, col);
+	col.name = "out_htlc_id";
+	col.ftype = FIELD_U64;
+	tal_arr_expand(&td->columns, col);
+	col.name = "style";
+	col.ftype = FIELD_STRING;
+	tal_arr_expand(&td->columns, col);
+	col.name = "fee_msat";
+	col.ftype = FIELD_MSAT;
+	tal_arr_expand(&td->columns, col);
+	col.name = "out_msat";
+	col.ftype = FIELD_MSAT;
+	tal_arr_expand(&td->columns, col);
+	col.name = "resolved_time";
+	col.ftype = FIELD_NUMBER;
+	tal_arr_expand(&td->columns, col);
 
 	/* FIXME: Primary key from schema? */
 	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (", td->name);
@@ -501,8 +569,8 @@ static void init_tablemap(struct plugin *plugin)
 			       i == 0 ? "" : ",");
 		tal_append_fmt(&create_stmt, "%s%s %s",
 			       i == 0 ? "" : ",",
-			       td->columns[i],
-			       fieldtypemap[td->fieldtypes[i]].sqltype);
+			       td->columns[i].name,
+			       fieldtypemap[td->columns[i].ftype].sqltype);
 	}
 	tal_append_fmt(&create_stmt, ");");
 	tal_append_fmt(&td->update_stmt, ");");
