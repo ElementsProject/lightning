@@ -826,7 +826,8 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 
 	while (data_len > 520 / 5) {
 		const char *problem = NULL;
-		u64 type, field_len;
+		u64 type, field_len64;
+		size_t field_len;
 		const struct decoder *decoder;
 
 		/* BOLT #11:
@@ -841,15 +842,21 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		if (err)
 			return decode_fail(b11, fail,
 					   "Can't get tag: %s", err);
-		err = pull_uint(&hu5, &data, &data_len, &field_len, 10);
+		err = pull_uint(&hu5, &data, &data_len, &field_len64, 10);
 		if (err)
 			return decode_fail(b11, fail,
 					   "Can't get length: %s", err);
 
 		/* Can't exceed total data remaining. */
-		if (field_len > data_len)
+		if (field_len64 > data_len)
 			return decode_fail(b11, fail, "%c: truncated",
 					   bech32_charset[type]);
+
+		/* These are different types on 32 bit!  But since data_len is
+		 * also size_t, above check ensures this will fit. */
+		field_len = field_len64;
+		assert(field_len == field_len64);
+
 		/* Do this now: the decode function fixes up the data ptr */
 		data_len -= field_len;
 
