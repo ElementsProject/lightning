@@ -39,6 +39,10 @@ PLUGIN_FETCHINVOICE_SRC := plugins/fetchinvoice.c
 PLUGIN_FETCHINVOICE_OBJS := $(PLUGIN_FETCHINVOICE_SRC:.c=.o)
 PLUGIN_FETCHINVOICE_HEADER :=
 
+PLUGIN_SQL_SRC := plugins/sql.c
+PLUGIN_SQL_HEADER := 
+PLUGIN_SQL_OBJS := $(PLUGIN_SQL_SRC:.c=.o)
+
 PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/fundchannel.c		\
 	plugins/spender/main.c			\
@@ -97,6 +101,7 @@ C_PLUGINS :=					\
 	plugins/offers				\
 	plugins/pay				\
 	plugins/txprepare			\
+	plugins/sql				\
 	plugins/spenderp
 
 PLUGINS := $(C_PLUGINS)
@@ -198,6 +203,8 @@ plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) c
 plugins/fetchinvoice: $(PLUGIN_FETCHINVOICE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) common/bolt12.o common/bolt12_merkle.o common/iso4217.o $(WIRE_OBJS) $(WIRE_BOLT12_OBJS) bitcoin/block.o common/channel_id.o bitcoin/preimage.o $(JSMN_OBJS) common/gossmap.o common/fp16.o common/dijkstra.o common/route.o common/blindedpath.o common/hmac.o common/blinding.o
 
 plugins/funder: bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+
+plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
