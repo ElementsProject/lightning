@@ -8,10 +8,8 @@
   "additionalProperties": false,
   "properties": {
     "payment_hash": {
-      "type": "hex",
-      "description": "the hash of the *payment_preimage* which will prove payment",
-      "maxLength": 64,
-      "minLength": 64
+      "type": "hash",
+      "description": "the hash of the *payment_preimage* which will prove payment"
     },
     "status": {
       "type": "string",

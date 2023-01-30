@@ -42,7 +42,7 @@ payments will be returned -- one payment object for each partid.
 On success, an object containing **payments** is returned.  It is an array of objects, where each object contains:
 
 - **id** (u64): unique ID for this payment attempt
-- **payment\_hash** (hex): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
 - **amount\_sent\_msat** (msat): the amount we actually sent, including fees
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
@@ -51,7 +51,7 @@ On success, an object containing **payments** is returned.  It is an array of ob
 - **amount\_msat** (msat, optional): the amount the destination received, if known
 - **completed\_at** (u64, optional): the UNIX timestamp showing when this payment was completed
 - **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment\_hash
-- **payment\_preimage** (hex, optional): proof of payment (always 64 characters)
+- **payment\_preimage** (secret, optional): proof of payment
 - **label** (string, optional): the label, if given to sendpay
 - **bolt11** (string, optional): the bolt11 string (if pay supplied one)
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
@@ -107,4 +107,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c6d248396e04a0ef3506dbd5319231cf8d4cb2522a4e039d5e3622aed5ab4496)
+[comment]: # ( SHA256STAMP:04fdf8931ea040a3433df9e25b1db1e808e733ad3a5b2586f6edd030ae6f165a)
