@@ -574,6 +574,7 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
         Self {
             id: c.id, // Rule #2 for type u64
             groupid: c.groupid, // Rule #2 for type u64
+            partid: c.partid, // Rule #2 for type u64?
             payment_hash: c.payment_hash.to_vec(), // Rule #2 for type hash
             status: c.status as i32,
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?

@@ -28,6 +28,10 @@
             "type": "u64",
             "description": "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash"
           },
+          "partid": {
+            "type": "u64",
+            "description": "Part number (for multiple parts to a single payment)"
+          },
           "payment_hash": {
             "type": "hash",
             "description": "the hash of the *payment_preimage* which will prove payment",
