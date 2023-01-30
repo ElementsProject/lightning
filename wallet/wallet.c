@@ -4863,14 +4863,17 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 			struct tx_annotation *ann;
 
 			/* Select annotation from array to fill in. */
-			if (loc == OUTPUT_ANNOTATION)
+			switch (loc) {
+			case OUTPUT_ANNOTATION:
 				ann = &cur->output_annotations[idx];
-			else if (loc == INPUT_ANNOTATION)
+				goto got_ann;
+			case INPUT_ANNOTATION:
 				ann = &cur->input_annotations[idx];
-			else
-				fatal("Transaction annotations are only available for inputs and outputs. Value %d", loc);
+				goto got_ann;
+			}
+			fatal("Transaction annotations are only available for inputs and outputs. Value %d", loc);
 
-			/* cppcheck-suppress uninitvar - false positive on fatal() above */
+		got_ann:
 			ann->type = db_col_int(stmt, "annotation_type");
 			if (!db_col_is_null(stmt, "c.scid"))
 				db_col_scid(stmt, "c.scid", &ann->channel);
