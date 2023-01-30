@@ -380,8 +380,12 @@ static void channel_hints_update(struct payment *p,
 	if (estimated_capacity != NULL)
 		newhint.estimated_capacity = *estimated_capacity;
 
+	/* This happens if we get a temporary channel failure: we don't know
+	 * htlc capacity here, so assume it's not a problem. */
 	if (htlc_budget != NULL)
 		newhint.htlc_budget = *htlc_budget;
+	else
+		newhint.htlc_budget = 20;
 
 	tal_arr_expand(&root->channel_hints, newhint);
 
