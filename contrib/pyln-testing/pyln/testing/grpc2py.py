@@ -258,6 +258,7 @@ def listchannels_channels2py(m):
         "source": hexlify(m.source),  # PrimitiveField in generate_composite
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "short_channel_id": m.short_channel_id,  # PrimitiveField in generate_composite
+        "direction": m.direction,  # PrimitiveField in generate_composite
         "public": m.public,  # PrimitiveField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "message_flags": m.message_flags,  # PrimitiveField in generate_composite

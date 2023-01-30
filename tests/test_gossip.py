@@ -425,6 +425,10 @@ def test_gossip_jsonrpc(node_factory):
     channels2 = l2.rpc.listchannels(source=l1.info['id'])['channels']
     assert only_one(channels1)['source'] == l1.info['id']
     assert only_one(channels1)['destination'] == l2.info['id']
+    if l1.info['id'] > l2.info['id']:
+        assert only_one(channels1)['direction'] == 1
+    else:
+        assert only_one(channels1)['direction'] == 0
     assert channels1 == channels2
 
     # Test listchannels-by-destination
@@ -432,6 +436,10 @@ def test_gossip_jsonrpc(node_factory):
     channels2 = l2.rpc.listchannels(destination=l1.info['id'])['channels']
     assert only_one(channels1)['destination'] == l1.info['id']
     assert only_one(channels1)['source'] == l2.info['id']
+    if l2.info['id'] > l1.info['id']:
+        assert only_one(channels1)['direction'] == 1
+    else:
+        assert only_one(channels1)['direction'] == 0
     assert channels1 == channels2
 
     # Test only one of short_channel_id, source or destination can be supplied
