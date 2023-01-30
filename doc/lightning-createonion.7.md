@@ -93,7 +93,7 @@ On success, an object is returned, containing:
 
 - **onion** (hex): the onion packet (*onion\_size* bytes)
 - **shared\_secrets** (array of secrets): one shared secret for each node in the *hops* parameter:
-  - the shared secret with this hop (always 64 characters)
+  - the shared secret with this hop
 
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -132,4 +132,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:31882493866e2d3fea36ab68e610637609967fc1095bc926da9bdfbd578de08b)
+[comment]: # ( SHA256STAMP:08d376f24ca65df41645bd82fa8c8d19fa8610fb5e41f252f001845334b68fbb)

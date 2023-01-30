@@ -27,7 +27,7 @@ On success, an object containing **payments** is returned.  It is an array of ob
 
 - **id** (u64): unique ID for this payment attempt
 - **groupid** (u64): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment\_hash
-- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
 - **status** (string): status of the payment (one of "pending", "failed", "complete")
 - **created\_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **amount\_sent\_msat** (msat): The amount sent
@@ -41,7 +41,7 @@ On success, an object containing **payments** is returned.  It is an array of ob
 
 If **status** is "complete":
 
-  - **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash** (always 64 characters)
+  - **payment\_preimage** (secret): the proof of payment: SHA256 of this **payment\_hash**
 
 If **status** is "failed":
 
@@ -65,4 +65,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:c00443620140062eadf4ccdc32f08102d8278c80975437a708e1b4913b6ab85a)
+[comment]: # ( SHA256STAMP:9de82a239bae09bf777bdb988170c7ec43946ea49c9dfa908430f65d0a42fdbb)
