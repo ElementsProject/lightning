@@ -3293,6 +3293,7 @@ def test_sql(node_factory, bitcoind):
 
     expected_schemas = {
         'channels': {
+            'indices': [['short_channel_id']],
             'columns': [{'name': 'source',
                          'type': 'pubkey'},
                         {'name': 'destination',
@@ -3326,6 +3327,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'features',
                          'type': 'hex'}]},
         'nodes': {
+            'indices': [['nodeid']],
             'columns': [{'name': 'nodeid',
                          'type': 'pubkey'},
                         {'name': 'last_timestamp',
@@ -3361,6 +3363,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'address',
                          'type': 'string'}]},
         'forwards': {
+            'indices': [['in_channel', 'in_htlc_id']],
             'columns': [{'name': 'in_channel',
                          'type': 'short_channel_id'},
                         {'name': 'in_htlc_id',
@@ -3388,6 +3391,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'failreason',
                          'type': 'string'}]},
         'htlcs': {
+            'indices': [['short_channel_id', 'id']],
             'columns': [{'name': 'short_channel_id',
                          'type': 'short_channel_id'},
                         {'name': 'id',
@@ -3403,6 +3407,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'state',
                          'type': 'string'}]},
         'invoices': {
+            'indices': [['payment_hash']],
             'columns': [{'name': 'label',
                          'type': 'string'},
                         {'name': 'description',
@@ -3432,6 +3437,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'payment_preimage',
                          'type': 'secret'}]},
         'offers': {
+            'indices': [['offer_id']],
             'columns': [{'name': 'offer_id',
                          'type': 'hex'},
                         {'name': 'active',
@@ -3445,6 +3451,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'label',
                          'type': 'string'}]},
         'peers': {
+            'indices': [['id']],
             'columns': [{'name': 'id',
                          'type': 'pubkey'},
                         {'name': 'connected',
@@ -3461,6 +3468,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'netaddr',
                          'type': 'string'}]},
         'sendpays': {
+            'indices': [['payment_hash']],
             'columns': [{'name': 'id',
                          'type': 'u64'},
                         {'name': 'groupid',
@@ -3492,6 +3500,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'erroronion',
                          'type': 'hex'}]},
         'peerchannels': {
+            'indices': [['peer_id']],
             'columns': [{'name': 'peer_id',
                          'type': 'pubkey'},
                         {'name': 'peer_connected',
@@ -3674,6 +3683,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'message',
                          'type': 'string'}]},
         'transactions': {
+            'indices': [['hash']],
             'columns': [{'name': 'hash',
                          'type': 'txid'},
                         {'name': 'rawtx',

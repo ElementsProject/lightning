@@ -23,7 +23,6 @@ static const char schemas[] =
  * 6. test on mainnet.
  * 7. Some cool query for documentation.
  * 8. time_msec fields.
- * 9. Primary key in schema?
  * 10. Pagination API
  */
 enum fieldtype {
@@ -108,6 +107,56 @@ static STRMAP(struct table_desc *) tablemap;
 static size_t max_dbmem = 500000000;
 static struct sqlite3 *db;
 static const char *dbfilename;
+
+/* It was tempting to put these in the schema, but they're really
+ * just for our usage.  Though that would allow us to autogen the
+ * documentation, too. */
+struct index {
+	const char *tablename;
+	const char *fields[2];
+};
+static const struct index indices[] = {
+	{
+		"channels",
+		{ "short_channel_id", NULL },
+	},
+	{
+		"forwards",
+		{ "in_channel", "in_htlc_id" },
+	},
+	{
+		"htlcs",
+		{ "short_channel_id", "id" },
+	},
+	{
+		"invoices",
+		{ "payment_hash", NULL },
+	},
+	{
+		"nodes",
+		{ "nodeid", NULL },
+	},
+	{
+		"offers",
+		{ "offer_id", NULL },
+	},
+	{
+		"peers",
+		{ "id", NULL },
+	},
+	{
+		"peerchannels",
+		{ "peer_id", NULL },
+	},
+	{
+		"sendpays",
+		{ "payment_hash", NULL },
+	},
+	{
+		"transactions",
+		{ "hash", NULL },
+	},
+};
 
 static enum fieldtype find_fieldtype(const jsmntok_t *name)
 {
@@ -643,7 +692,6 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 	if (td->is_subobject)
 		return;
 
-	/* FIXME: Primary key from schema? */
 	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (", td->name);
 	td->update_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
 
@@ -896,6 +944,25 @@ static void init_tablemap(struct plugin *plugin)
 	}
 }
 
+static void init_indices(struct plugin *plugin)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(indices); i++) {
+		char *errmsg, *cmd;
+		int err;
+
+		cmd = tal_fmt(tmpctx, "CREATE INDEX %s_%zu_idx ON %s (%s",
+			      indices[i].tablename, i,
+			      indices[i].tablename,
+			      indices[i].fields[0]);
+		if (indices[i].fields[1])
+			tal_append_fmt(&cmd, ", %s", indices[i].fields[1]);
+		tal_append_fmt(&cmd, ");");
+		err = sqlite3_exec(db, cmd, NULL, NULL, &errmsg);
+		if (err != SQLITE_OK)
+			plugin_err(plugin, "Failed '%s': %s", cmd, errmsg);
+	}
+}
+
 #if DEVELOPER
 static void memleak_mark_tablemap(struct plugin *p, struct htable *memtable)
 {
@@ -909,6 +976,7 @@ static const char *init(struct plugin *plugin,
 {
 	db = sqlite_setup(plugin);
 	init_tablemap(plugin);
+	init_indices(plugin);
 
 #if DEVELOPER
 	plugin_set_memleak_handler(plugin, memleak_mark_tablemap);
