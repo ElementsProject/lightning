@@ -244,6 +244,7 @@ static void json_add_halfchan(struct json_stream *response,
 		json_add_node_id(response, "source", &node_id[dir]);
 		json_add_node_id(response, "destination", &node_id[!dir]);
 		json_add_short_channel_id(response, "short_channel_id", &scid);
+		json_add_num(response, "direction", dir);
 		json_add_bool(response, "public", !c->private);
 
 		gossmap_chan_get_update_details(gossmap, c, dir,

@@ -362,6 +362,7 @@ message ListchannelsChannels {
 	bytes source = 1;
 	bytes destination = 2;
 	string short_channel_id = 3;
+	uint32 direction = 16;
 	bool public = 4;
 	Amount amount_msat = 5;
 	uint32 message_flags = 6;

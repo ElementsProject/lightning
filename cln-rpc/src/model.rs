@@ -1869,6 +1869,7 @@ pub mod responses {
 	    pub source: PublicKey,
 	    pub destination: PublicKey,
 	    pub short_channel_id: ShortChannelId,
+	    pub direction: u32,
 	    pub public: bool,
 	    pub amount_msat: Amount,
 	    pub message_flags: u8,

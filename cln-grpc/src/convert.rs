@@ -306,6 +306,7 @@ impl From<responses::ListchannelsChannels> for pb::ListchannelsChannels {
             source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
             destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
             short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            direction: c.direction, // Rule #2 for type u32
             public: c.public, // Rule #2 for type boolean
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             message_flags: c.message_flags.into(), // Rule #2 for type u8
