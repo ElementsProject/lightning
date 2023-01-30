@@ -29,9 +29,6 @@
       ],
       "description": "status of the payment"
     },
-    "msatoshi": {
-      "deprecated": true
-    },
     "amount_msat": {
       "type": "msat",
       "description": "The amount delivered to destination (if known)"
@@ -47,9 +44,6 @@
     "completed_at": {
       "type": "number",
       "description": "the UNIX timestamp showing when this payment was completed"
-    },
-    "msatoshi_sent": {
-      "deprecated": true
     },
     "amount_sent_msat": {
       "type": "msat",
