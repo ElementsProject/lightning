@@ -101,6 +101,22 @@ bool json_str_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 	return json_to_u64(buffer, &temp, num);
 }
 
+bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
+{
+	char *end;
+
+	errno = 0;
+	*num = strtod(buffer + tok->start, &end);
+	if (end != buffer + tok->end)
+		return false;
+
+	/* Check for overflow */
+	if (errno == ERANGE)
+		return false;
+
+	return true;
+}
+
 bool json_to_u32(const char *buffer, const jsmntok_t *tok, u32 *num)
 {
 	uint64_t u64;
