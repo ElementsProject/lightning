@@ -84,7 +84,7 @@ On success, an object containing **schemas** is returned.  It is an array of obj
 
 - **tablename** (string): the name of the table
 - **columns** (array of objects): the columns, in database order:
-  - **name** (string): the name the column
+  - **name** (string): the name of the column
   - **type** (string): the SQL type of the column (one of "INTEGER", "BLOB", "TEXT", "REAL")
 - **indices** (array of arrays, optional): Any index we created to speed lookups:
   - The columns for this index:
@@ -106,4 +106,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:3ac985dd8ef6959b327e6e6a79079db3ad51423bc4e469799a12ae74b2e75697)
+[comment]: # ( SHA256STAMP:29ce2ff3f7cab8a4a90d09fa02fa8176008413272d46c0fe7faa6216f11bb2c6)
