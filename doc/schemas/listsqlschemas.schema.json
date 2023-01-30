@@ -33,7 +33,7 @@
               "properties": {
                 "name": {
                   "type": "string",
-                  "description": "the name the column"
+                  "description": "the name of the column"
                 },
                 "type": {
                   "type": "string",

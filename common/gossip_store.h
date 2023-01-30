@@ -50,7 +50,7 @@ struct gossip_rcvd_filter;
  */
 struct gossip_hdr {
 	beint16_t flags; /* Length of message after header. */
-	beint16_t len; /* Length of message after header. */
+	beint16_t len; /* GOSSIP_STORE_xxx_BIT flags. */
 	beint32_t crc; /* crc of message of timestamp, after header. */
 	beint32_t timestamp; /* timestamp of msg. */
 };
