@@ -218,7 +218,7 @@ plugins/sql-schema_gen.h: plugins/Makefile $(SQL_LISTRPCS_SCHEMAS)
 	@$(call VERBOSE,GEN $@, (SEP=""; echo -n '"{'; for f in $(SQL_LISTRPCS); do echo -n "$$SEP\\\"$$f\\\":"; sed -e s/\"description\":\ *\".\*\"/\"\":\"\"/ -e s/\".*\":\ *{}/\"\":{}/ -e s/\"/\\\\\"/g < doc/schemas/$$f.schema.json | tr -d ' \n'; SEP=","; done; echo '}"') > $@)
 
 plugins/sql.o: plugins/sql-schema_gen.h
-plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossip_store.o gossipd/gossip_store_wiregen.o
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
