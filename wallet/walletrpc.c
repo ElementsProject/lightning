@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <common/addr.h>
 #include <common/bech32.h>
@@ -483,28 +484,18 @@ struct {
     {TX_CHANNEL_HTLC_TIMEOUT, "channel_htlc_timeout"},
     {TX_CHANNEL_PENALTY, "channel_penalty"},
     {TX_CHANNEL_CHEAT, "channel_unilateral_cheat"},
-    {0, NULL}
 };
 
 #if EXPERIMENTAL_FEATURES
 static const char *txtype_to_string(enum wallet_tx_type t)
 {
-	for (size_t i = 0; wallet_tx_type_display_names[i].name != NULL; i++)
+	for (size_t i = 0; i < ARRAY_SIZE(wallet_tx_type_display_names); i++)
 		if (t == wallet_tx_type_display_names[i].t)
 			return wallet_tx_type_display_names[i].name;
 	return NULL;
 }
-
-static void json_add_txtypes(struct json_stream *result, const char *fieldname, enum wallet_tx_type value)
-{
-	json_array_start(result, fieldname);
-	for (size_t i = 0; wallet_tx_type_display_names[i].name != NULL; i++) {
-		if (value & wallet_tx_type_display_names[i].t)
-			json_add_string(result, NULL, wallet_tx_type_display_names[i].name);
-	}
-	json_array_end(result);
-}
 #endif
+
 static void json_transaction_details(struct json_stream *response,
 				     const struct wallet_transaction *tx)
 {
@@ -515,13 +506,6 @@ static void json_transaction_details(struct json_stream *response,
 		json_add_hex_talarr(response, "rawtx", tx->rawtx);
 		json_add_num(response, "blockheight", tx->blockheight);
 		json_add_num(response, "txindex", tx->txindex);
-#if EXPERIMENTAL_FEATURES
-		if (tx->annotation.type != 0)
-			json_add_txtypes(response, "type", tx->annotation.type);
-
-		if (tx->annotation.channel.u64 != 0)
-			json_add_short_channel_id(response, "channel", &tx->annotation.channel);
-#endif
 		json_add_u32(response, "locktime", wtx->locktime);
 		json_add_u32(response, "version", wtx->version);
 

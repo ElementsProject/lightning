@@ -1067,10 +1067,8 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 
 	/* Check if we broadcast the transaction. (We store the transaction
 	 * type into DB before broadcast). */
-	enum wallet_tx_type type;
-	if (wallet_transaction_type(cmd->ld->wallet,
-				   &cancel_channel->funding.txid,
-				   &type))
+	if (wallet_transaction_get(tmpctx, cmd->ld->wallet,
+				   &cancel_channel->funding.txid))
 		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
 				    "Has the funding transaction been"
 				    " broadcast? Please use `close` or"

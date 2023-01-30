@@ -157,7 +157,6 @@ struct channel {
 
 	/* Last tx they gave us. */
 	struct bitcoin_tx *last_tx;
-	enum wallet_tx_type last_tx_type;
 	struct bitcoin_signature last_sig;
 	const struct bitcoin_signature *last_htlc_sigs;
 
@@ -435,8 +434,7 @@ struct channel *find_channel_by_alias(const struct peer *peer,
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
-			 const struct bitcoin_signature *sig,
-			 enum wallet_tx_type type);
+			 const struct bitcoin_signature *sig);
 
 static inline bool channel_can_add_htlc(const struct channel *channel)
 {

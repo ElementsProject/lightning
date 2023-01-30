@@ -744,7 +744,6 @@ message ListtransactionsTransactions {
 	bytes rawtx = 2;
 	uint32 blockheight = 3;
 	uint32 txindex = 4;
-	optional string channel = 6;
 	uint32 locktime = 7;
 	uint32 version = 8;
 	repeated ListtransactionsTransactionsInputs inputs = 9;

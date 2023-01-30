@@ -1149,8 +1149,7 @@ wallet_update_channel(struct lightningd *ld,
 
 	channel_set_last_tx(channel,
 			    tal_steal(channel, remote_commit),
-			    remote_commit_sig,
-			    TX_CHANNEL_UNILATERAL);
+			    remote_commit_sig);
 
 	/* Update in database */
 	wallet_channel_save(ld->wallet, channel);
@@ -1238,7 +1237,6 @@ wallet_commit_channel(struct lightningd *ld,
 
 	channel->last_tx = tal_steal(channel, remote_commit);
 	channel->last_sig = *remote_commit_sig;
-	channel->last_tx_type = TX_CHANNEL_UNILATERAL;
 
 	channel->channel_info = *channel_info;
 	channel->fee_states = new_fee_states(channel,

@@ -632,7 +632,6 @@ impl From<responses::ListtransactionsTransactions> for pb::ListtransactionsTrans
             rawtx: hex::decode(&c.rawtx).unwrap(), // Rule #2 for type hex
             blockheight: c.blockheight, // Rule #2 for type u32
             txindex: c.txindex, // Rule #2 for type u32
-            channel: c.channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             locktime: c.locktime, // Rule #2 for type u32
             version: c.version, // Rule #2 for type u32
             inputs: c.inputs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListtransactionsTransactionsInputs 
