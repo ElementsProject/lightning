@@ -70,6 +70,27 @@ u8 *gossip_store_next(const tal_t *ctx,
 		      size_t *off, size_t *end);
 
 /**
+ * Direct store accessor: read gossip msg hdr from store.
+ * @gossip_store_fd: the readable file descriptor
+ * @off: the offset to read
+ * @len (out): the length of the message (not including header)
+ * @timestamp (out): if non-NULL, set to the timestamp.
+ * @flags (out): if non-NULL, set to the flags.
+ * @type (out): if non-NULL, set to the msg type.
+ *
+ * Returns false if there are no more gossip msgs.  If you
+ * want to read the message, use gossip_store_next, if you
+ * want to skip, simply add sizeof(gossip_hdr) + *len to *off.
+ * Note: it's possible that entire record isn't there yet,
+ * so gossip_store_next can fail.
+ */
+bool gossip_store_readhdr(int gossip_store_fd, size_t off,
+			  size_t *len,
+			  u32 *timestamp,
+			  u16 *flags,
+			  u16 *type);
+
+/**
  * Gossipd will be writing to this, and it's not atomic!  Safest
  * way to find the "end" is to walk through.
  * @old_end: 1 if no previous end.
