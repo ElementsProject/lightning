@@ -77,9 +77,7 @@
           },
           "channel_id": {
             "type": "hash",
-            "description": "The full channel_id (funding txid Xored with output number)",
-            "minLength": 64,
-            "maxLength": 64
+            "description": "The full channel_id (funding txid Xored with output number)"
           },
           "funding_txid": {
             "type": "txid",
@@ -502,9 +500,7 @@
                 },
                 "payment_hash": {
                   "type": "hash",
-                  "description": "the hash of the payment_preimage which will prove payment",
-                  "maxLength": 64,
-                  "minLength": 64
+                  "description": "the hash of the payment_preimage which will prove payment"
                 },
                 "local_trimmed": {
                   "type": "boolean",

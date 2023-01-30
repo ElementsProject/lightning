@@ -79,8 +79,8 @@ RETURN VALUE
 On success, an object is returned, containing:
 
 - **bolt11** (string): the bolt11 string
-- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment (always 64 characters)
-- **payment\_secret** (secret): the *payment\_secret* to place in the onion (always 64 characters)
+- **payment\_hash** (hash): the hash of the *payment\_preimage* which will prove payment
+- **payment\_secret** (secret): the *payment\_secret* to place in the onion
 - **expires\_at** (u64): UNIX timestamp of when invoice expires
 
 The following warnings may also be returned:
@@ -119,4 +119,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:49fea13084112f78db0e63ad61c1771be94b87d6fa3c34ac77466db638f327cb)
+[comment]: # ( SHA256STAMP:095393c4a1050a9a458eba1033162e99283019329747a66b6461a5bb13fa7a2f)
