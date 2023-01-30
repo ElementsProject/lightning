@@ -3783,6 +3783,34 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'payment_id',
                          'type': 'hex'}]}}
 
+    sqltypemap = {'string': 'TEXT',
+                  'boolean': 'INTEGER',
+                  'u8': 'INTEGER',
+                  'u16': 'INTEGER',
+                  'u32': 'INTEGER',
+                  'u64': 'INTEGER',
+                  'msat': 'INTEGER',
+                  'hex': 'BLOB',
+                  'hash': 'BLOB',
+                  'txid': 'BLOB',
+                  'pubkey': 'BLOB',
+                  'secret': 'BLOB',
+                  'number': 'REAL',
+                  'short_channel_id': 'TEXT'}
+
+    # Check schemas match.
+    for table, schema in expected_schemas.items():
+        res = only_one(l2.rpc.listsqlschemas(table)['schemas'])
+        assert res['tablename'] == table
+        assert res.get('indices') == schema.get('indices')
+        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in schema['columns']]
+        assert res['columns'] == sqlcolumns
+
+    # Make sure we didn't miss any
+    assert (sorted([s['tablename'] for s in l1.rpc.listsqlschemas()['schemas']])
+            == sorted(expected_schemas.keys()))
+    assert len(l1.rpc.listsqlschemas()['schemas']) == len(expected_schemas)
+
     # Very rough checks of other list commands (make sure l2 has one of each)
     l2.rpc.offer(1, 'desc')
     l2.rpc.invoice(1, 'label', 'desc')

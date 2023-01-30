@@ -1001,6 +1001,111 @@ static bool ignore_column(const struct table_desc *td, const jsmntok_t *t)
 	return false;
 }
 
+static struct command_result *param_tablename(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct table_desc **td)
+{
+	*td = strmap_getn(&tablemap, buffer + tok->start,
+			  tok->end - tok->start);
+	if (!*td)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Unknown table");
+	return NULL;
+}
+
+static void json_add_column(struct json_stream *js,
+			    const char *dbname,
+			    const char *sqltypename)
+{
+	json_object_start(js, NULL);
+	json_add_string(js, "name", dbname);
+	json_add_string(js, "type", sqltypename);
+	json_object_end(js);
+}
+
+static void json_add_columns(struct json_stream *js,
+			     const struct table_desc *td)
+{
+	for (size_t i = 0; i < tal_count(td->columns); i++) {
+		if (td->columns[i].sub) {
+			if (td->columns[i].sub->is_subobject)
+				json_add_columns(js, td->columns[i].sub);
+			continue;
+		}
+		json_add_column(js, td->columns[i].dbname,
+				fieldtypemap[td->columns[i].ftype].sqltype);
+	}
+}
+
+static void json_add_schema(struct json_stream *js,
+			    const struct table_desc *td)
+{
+	bool have_indices;
+
+	json_object_start(js, NULL);
+	json_add_string(js, "tablename", td->name);
+	/* This needs to be an array, not a dictionary, since dicts
+	 * are often treated as unordered, and order is critical! */
+	json_array_start(js, "columns");
+	if (td->parent) {
+		json_add_column(js, "row", "INTEGER");
+		json_add_column(js, "arrindex", "INTEGER");
+	}
+	json_add_columns(js, td);
+	json_array_end(js);
+
+	/* Don't print indices entry unless we have an index! */
+	have_indices = false;
+	for (size_t i = 0; i < ARRAY_SIZE(indices); i++) {
+		if (!streq(indices[i].tablename, td->name))
+			continue;
+		if (!have_indices) {
+			json_array_start(js, "indices");
+			have_indices = true;
+		}
+		json_array_start(js, NULL);
+		for (size_t j = 0; j < ARRAY_SIZE(indices[i].fields); j++) {
+			if (indices[i].fields[j])
+				json_add_string(js, NULL, indices[i].fields[j]);
+		}
+		json_array_end(js);
+	}
+	if (have_indices)
+		json_array_end(js);
+	json_object_end(js);
+}
+
+static bool add_one_schema(const char *member, struct table_desc *td,
+			   struct json_stream *js)
+{
+	json_add_schema(js, td);
+	return true;
+}
+
+static struct command_result *json_listsqlschemas(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *params)
+{
+	struct table_desc *td;
+	struct json_stream *ret;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("table", param_tablename, &td),
+		   NULL))
+		return command_param_failed();
+
+	ret = jsonrpc_stream_success(cmd);
+	json_array_start(ret, "schemas");
+	if (td)
+		json_add_schema(ret, td);
+	else
+		strmap_iterate(&tablemap, add_one_schema, ret);
+	json_array_end(ret);
+	return command_finished(cmd, ret);
+}
+
 /* Creates sql statements, initializes table */
 static void finish_td(struct plugin *plugin, struct table_desc *td)
 {
@@ -1352,6 +1457,13 @@ static const struct plugin_command commands[] = { {
 	"Run {query} and return result",
 	"This is the greatest plugin command ever!",
 	json_sql,
+	},
+	{
+		"listsqlschemas",
+		"misc",
+		"Display schemas for internal sql tables, or just {table}",
+		"This is the greatest plugin command ever!",
+		json_listsqlschemas,
 	},
 };
 

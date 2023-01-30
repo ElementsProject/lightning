@@ -19,6 +19,9 @@ cache `listnodes` and `listchannels`) which then processes the results.
 It is, however faster for remote access if the result of the query is
 much smaller than the list commands would be.
 
+Note that queries like "SELECT *" are fragile, as columns will
+change across releases; see lightning-listsqlschemas(7).
+
 TREATMENT OF TYPES
 ------------------
 
