@@ -492,6 +492,8 @@ static struct migration dbmigrations[] = {
     /* remote signatures for channel announcement */
     {SQL("ALTER TABLE channels ADD remote_ann_node_sig BLOB;"), NULL},
     {SQL("ALTER TABLE channels ADD remote_ann_bitcoin_sig BLOB;"), NULL},
+    /* FIXME: We now use the transaction_annotations table to type each
+     * input and output instead of type and channel_id! */
     /* Additional information for transaction tracking and listing */
     {SQL("ALTER TABLE transactions ADD type BIGINT;"), NULL},
     /* Not a foreign key on purpose since we still delete channels from

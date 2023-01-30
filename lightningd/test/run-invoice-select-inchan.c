@@ -97,8 +97,7 @@ u32 channel_last_funding_feerate(const struct channel *channel UNNEEDED)
 /* Generated stub for channel_set_last_tx */
 void channel_set_last_tx(struct channel *channel UNNEEDED,
 			 struct bitcoin_tx *tx UNNEEDED,
-			 const struct bitcoin_signature *sig UNNEEDED,
-			 enum wallet_tx_type type UNNEEDED)
+			 const struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "channel_set_last_tx called!\n"); abort(); }
 /* Generated stub for channel_state_name */
 const char *channel_state_name(const struct channel *channel UNNEEDED)
@@ -946,11 +945,6 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx UNNEEDED,
 			    const u32 blockheight UNNEEDED, const u32 txindex UNNEEDED)
 { fprintf(stderr, "wallet_transaction_add called!\n"); abort(); }
-/* Generated stub for wallet_transaction_annotate */
-void wallet_transaction_annotate(struct wallet *w UNNEEDED,
-				 const struct bitcoin_txid *txid UNNEEDED,
-				 enum wallet_tx_type type UNNEEDED, u64 channel_id UNNEEDED)
-{ fprintf(stderr, "wallet_transaction_annotate called!\n"); abort(); }
 /* Generated stub for wallet_transaction_locate */
 struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 					    const struct bitcoin_txid *txid UNNEEDED)

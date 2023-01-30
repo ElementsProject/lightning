@@ -239,7 +239,6 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->shutdown_scriptpubkey[REMOTE] = NULL;
 	channel->last_was_revoke = false;
 	channel->last_sent_commit = NULL;
-	channel->last_tx_type = TX_UNKNOWN;
 
 	channel->feerate_base = feerate_base;
 	channel->feerate_ppm = feerate_ppm;
@@ -452,7 +451,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
         channel->last_tx = tal_steal(channel, last_tx);
 	if (channel->last_tx) {
 		channel->last_tx->chainparams = chainparams;
-		channel->last_tx_type = TX_UNKNOWN;
 	}
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
@@ -723,14 +721,12 @@ struct channel *find_channel_by_alias(const struct peer *peer,
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
-			 const struct bitcoin_signature *sig,
-			 enum wallet_tx_type txtypes)
+			 const struct bitcoin_signature *sig)
 {
 	assert(tx->chainparams);
 	channel->last_sig = *sig;
 	tal_free(channel->last_tx);
 	channel->last_tx = tal_steal(channel, tx);
-	channel->last_tx_type = txtypes;
 }
 
 void channel_set_state(struct channel *channel,
