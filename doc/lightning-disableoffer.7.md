@@ -36,7 +36,7 @@ Note: the returned object is the same format as **listoffers**.
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 
-- **offer\_id** (hex): the merkle hash of the offer (always 64 characters)
+- **offer\_id** (hash): the merkle hash of the offer
 - **active** (boolean): Whether the offer can produce invoices/payments (always *false*)
 - **single\_use** (boolean): Whether the offer is disabled after first successful use
 - **bolt12** (string): The bolt12 string representing this offer
@@ -74,4 +74,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:339f2e5a5a587414ba6ad3e312c6cff5525bae86addb76bb5656665eeeef3dd6)
+[comment]: # ( SHA256STAMP:e03f739fb57f18205421785604ea542e931db42b1accfcb196dfc147a7c8bf75)

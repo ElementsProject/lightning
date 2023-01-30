@@ -31,7 +31,7 @@ On success, an object containing **invoices** is returned.  It is an array of ob
 - **amount\_msat** (msat, optional): the amount required to pay this invoice
 - **bolt11** (string, optional): the BOLT11 string (always present unless *bolt12* is)
 - **bolt12** (string, optional): the BOLT12 string (always present unless *bolt11* is)
-- **local\_offer\_id** (hex, optional): the *id* of our offer which created this invoice (**experimental-offers** only). (always 64 characters)
+- **local\_offer\_id** (hash, optional): the *id* of our offer which created this invoice (**experimental-offers** only).
 - **invreq\_payer\_note** (string, optional): the optional *invreq\_payer\_note* from invoice\_request which created this invoice (**experimental-offers** only).
 
 If **status** is "paid":
@@ -58,4 +58,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:258d690221dce5a8811f361e59a5c0059190f140e420c65cd37cfd0987efea3a)
+[comment]: # ( SHA256STAMP:1b31938109207decabf1e0f25cc9607dc03de7f043f4e5fcfbfb8c85ffacec8c)
