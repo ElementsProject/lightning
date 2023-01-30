@@ -46,10 +46,8 @@
             "description": "out if we offered this to the peer, in if they offered it"
           },
           "payment_hash": {
-            "type": "hex",
-            "description": "payment hash sought by HTLC",
-            "maxLength": 64,
-            "minLength": 64
+            "type": "hash",
+            "description": "payment hash sought by HTLC"
           },
           "state": {
             "type": "string",
