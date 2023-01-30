@@ -65,17 +65,17 @@ int main(int argc, char *argv[])
 	while (read(fd, &hdr, sizeof(hdr)) == sizeof(hdr)) {
 		struct amount_sat sat;
 		struct short_channel_id scid;
-		u32 msglen = be32_to_cpu(hdr.len);
+		u16 flags = be16_to_cpu(hdr.flags);
+		u16 msglen = be16_to_cpu(hdr.len);
 		u8 *msg, *inner;
 		bool deleted, push, ratelimit, zombie;
 		u32 blockheight;
 
-		deleted = (msglen & GOSSIP_STORE_LEN_DELETED_BIT);
-		push = (msglen & GOSSIP_STORE_LEN_PUSH_BIT);
-		ratelimit = (msglen & GOSSIP_STORE_LEN_RATELIMIT_BIT);
-		zombie = (msglen & GOSSIP_STORE_LEN_ZOMBIE_BIT);
+		deleted = (flags & GOSSIP_STORE_DELETED_BIT);
+		push = (flags & GOSSIP_STORE_PUSH_BIT);
+		ratelimit = (flags & GOSSIP_STORE_RATELIMIT_BIT);
+		zombie = (msglen & GOSSIP_STORE_ZOMBIE_BIT);
 
-		msglen &= GOSSIP_STORE_LEN_MASK;
 		msg = tal_arr(NULL, u8, msglen);
 		if (read(fd, msg, msglen) != msglen)
 			errx(1, "%zu: Truncated file?", off);

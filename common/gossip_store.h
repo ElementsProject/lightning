@@ -25,39 +25,32 @@ struct gossip_rcvd_filter;
 #define GOSSIP_STORE_MINOR_VERSION(verbyte) ((verbyte) & GOSSIP_STORE_MINOR_VERSION_MASK)
 
 /**
- * Bit of length we use to mark a deleted record.
+ * Bit of flags we use to mark a deleted record.
  */
-#define GOSSIP_STORE_LEN_DELETED_BIT 0x80000000U
+#define GOSSIP_STORE_DELETED_BIT 0x8000U
 
 /**
- * Bit of length we use to mark an important record.
+ * Bit of flags we use to mark an important record.
  */
-#define GOSSIP_STORE_LEN_PUSH_BIT 0x40000000U
+#define GOSSIP_STORE_PUSH_BIT 0x4000U
 
 /**
- * Bit of length used to define a rate-limited record (do not rebroadcast)
+ * Bit of flags used to define a rate-limited record (do not rebroadcast)
  */
-#define GOSSIP_STORE_LEN_RATELIMIT_BIT 0x20000000U
+#define GOSSIP_STORE_RATELIMIT_BIT 0x2000U
 
 /**
- * Bit used to mark a channel announcement as inactive (needs channel updates.)
+ * Bit of flags used to mark a channel announcement as inactive (needs channel updates.)
  */
-#define GOSSIP_STORE_LEN_ZOMBIE_BIT 0x10000000U
+#define GOSSIP_STORE_ZOMBIE_BIT 0x1000U
 
-/**
- * Full flags mask
- */
-#define GOSSIP_STORE_FLAGS_MASK 0xFFFF0000U
-
-/* Mask for extracting just the length part of len field */
-#define GOSSIP_STORE_LEN_MASK \
-	(~(GOSSIP_STORE_FLAGS_MASK))
 
 /**
  * gossip_hdr -- On-disk format header.
  */
 struct gossip_hdr {
-	beint32_t len; /* Length of message after header. */
+	beint16_t flags; /* Length of message after header. */
+	beint16_t len; /* Length of message after header. */
 	beint32_t crc; /* crc of message of timestamp, after header. */
 	beint32_t timestamp; /* timestamp of msg. */
 };

@@ -44,7 +44,8 @@ static void write_to_store(int store_fd, const u8 *msg)
 {
 	struct gossip_hdr hdr;
 
-	hdr.len = cpu_to_be32(tal_count(msg));
+	hdr.flags = cpu_to_be16(0);
+	hdr.len = cpu_to_be16(tal_count(msg));
 	/* We don't actually check these! */
 	hdr.crc = 0;
 	hdr.timestamp = 0;
