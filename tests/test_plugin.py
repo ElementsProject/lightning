@@ -3302,6 +3302,9 @@ def test_sql(node_factory, bitcoind):
     ret = l3.rpc.sql("SELECT * FROM peers;")
     assert len(only_one(ret['rows'])) == 4
 
+    ret = l3.rpc.sql("SELECT * FROM peerchannels;")
+    assert len(only_one(ret['rows'])) == 57
+
     l3.rpc.offer(1, 'desc')
     ret = l3.rpc.sql("SELECT * FROM offers;")
     assert len(only_one(ret['rows'])) == 6
