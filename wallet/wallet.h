@@ -408,8 +408,6 @@ struct wallet_transaction {
 	/* Fully parsed transaction */
 	const struct bitcoin_tx *tx;
 
-	struct tx_annotation annotation;
-
 	/* tal_arr containing the annotation types, if any, for the respective
 	 * inputs and outputs. 0 if there are no annotations for the
 	 * element. */
@@ -1290,28 +1288,6 @@ void wallet_annotate_txout(struct wallet *w,
 
 void wallet_annotate_txin(struct wallet *w, const struct bitcoin_txid *txid,
 			  int innum, enum wallet_tx_type type, u64 channel);
-
-/**
- * Annotate a transaction in the DB with its type and channel referemce.
- *
- * We add transactions when filtering the block, but often know its type only
- * when we trigger the txwatches, at which point we've already discarded the
- * full transaction. This function can be used to annotate the transactions
- * after the fact with a channel number for grouping and a type for filtering.
- */
-void wallet_transaction_annotate(struct wallet *w,
-				 const struct bitcoin_txid *txid,
-				 enum wallet_tx_type type, u64 channel_id);
-
-/**
- * Get the type of a transaction we are watching by its
- * txid.
- *
- * Returns false if the transaction was not stored in DB.
- * Returns true if the transaction exists and sets the `type` parameter.
- */
-bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
-			     enum wallet_tx_type *type);
 
 /**
  * Get the transaction from the database

@@ -4133,66 +4133,6 @@ void wallet_annotate_txin(struct wallet *w, const struct bitcoin_txid *txid,
 	wallet_annotation_add(w, txid, innum, INPUT_ANNOTATION, type, channel);
 }
 
-void wallet_transaction_annotate(struct wallet *w,
-				 const struct bitcoin_txid *txid, enum wallet_tx_type type,
-				 u64 channel_id)
-{
-	struct db_stmt *stmt = db_prepare_v2(
-	    w->db, SQL("SELECT type, channel_id FROM transactions WHERE id=?"));
-	db_bind_txid(stmt, 0, txid);
-	db_query_prepared(stmt);
-
-	if (!db_step(stmt))
-		fatal("Attempting to annotate a transaction we don't have: %s",
-		      type_to_string(tmpctx, struct bitcoin_txid, txid));
-
-	if (!db_col_is_null(stmt, "type"))
-		type |= db_col_u64(stmt, "type");
-
-	if (channel_id == 0 && !db_col_is_null(stmt, "channel_id"))
-		channel_id = db_col_u64(stmt, "channel_id");
-	else
-		db_col_ignore(stmt, "channel_id");
-
-	tal_free(stmt);
-
-	stmt = db_prepare_v2(w->db, SQL("UPDATE transactions "
-					"SET type = ?"
-					", channel_id = ? "
-					"WHERE id = ?"));
-
-	db_bind_u64(stmt, 0, type);
-
-	if (channel_id)
-		db_bind_int(stmt, 1, channel_id);
-	else
-		db_bind_null(stmt, 1);
-
-	db_bind_txid(stmt, 2, txid);
-	db_exec_prepared_v2(take(stmt));
-}
-
-bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
-			     enum wallet_tx_type *type)
-{
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT type FROM transactions WHERE id=?"));
-	db_bind_sha256(stmt, 0, &txid->shad.sha);
-	db_query_prepared(stmt);
-
-	if (!db_step(stmt)) {
-		tal_free(stmt);
-		return false;
-	}
-
-	if (!db_col_is_null(stmt, "type"))
-		*type = db_col_u64(stmt, "type");
-	else
-		*type = 0;
-
-	tal_free(stmt);
-	return true;
-}
-
 struct bitcoin_tx *wallet_transaction_get(const tal_t *ctx, struct wallet *w,
 					  const struct bitcoin_txid *txid)
 {
@@ -4794,8 +4734,6 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		", t.rawtx"
 		", t.blockheight"
 		", t.txindex"
-		", t.type as txtype"
-		", c2.scid as txchan"
 		", a.location"
 		", a.idx as ann_idx"
 		", a.type as annotation_type"
@@ -4803,8 +4741,7 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		" FROM"
 		"  transactions t LEFT JOIN"
 		"  transaction_annotations a ON (a.txid = t.id) LEFT JOIN"
-		"  channels c ON (a.channel = c.id) LEFT JOIN"
-		"  channels c2 ON (t.channel_id = c2.id) "
+		"  channels c ON (a.channel = c.id) "
 		"ORDER BY t.blockheight, t.txindex ASC"));
 	db_query_prepared(stmt);
 
@@ -4836,16 +4773,6 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 				cur->blockheight = 0;
 				cur->txindex = 0;
 			}
-			if (!db_col_is_null(stmt, "txtype"))
-				cur->annotation.type
-					= db_col_u64(stmt, "txtype");
-			else
-				cur->annotation.type = 0;
-			if (!db_col_is_null(stmt, "txchan"))
-				db_col_scid(stmt, "txchan", &cur->annotation.channel);
-			else
-				cur->annotation.channel.u64 = 0;
-
 			cur->output_annotations = tal_arrz(txs, struct tx_annotation, cur->tx->wtx->num_outputs);
 			cur->input_annotations = tal_arrz(txs, struct tx_annotation, cur->tx->wtx->num_inputs);
 		}

@@ -329,20 +329,16 @@ static void handle_onchain_broadcast_tx(struct channel *channel,
 {
 	struct bitcoin_tx *tx;
 	struct wallet *w = channel->peer->ld->wallet;
-	struct bitcoin_txid txid;
-	enum wallet_tx_type type;
 	bool is_rbf;
 
-	if (!fromwire_onchaind_broadcast_tx(msg, msg, &tx, &type, &is_rbf)) {
+	if (!fromwire_onchaind_broadcast_tx(msg, msg, &tx, &is_rbf)) {
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
 		return;
 	}
 
 	tx->chainparams = chainparams;
 
-	bitcoin_txid(tx, &txid);
 	wallet_transaction_add(w, tx->wtx, 0, 0);
-	wallet_transaction_annotate(w, &txid, type, channel->dbid);
 
 	/* We don't really care if it fails, we'll respond via watch. */
 	/* If the onchaind signals this as RBF-able, then we also

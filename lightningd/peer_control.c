@@ -283,9 +283,6 @@ static void sign_and_send_last(struct lightningd *ld,
 	sign_last_tx(channel, last_tx, last_sig);
 	bitcoin_txid(last_tx, &txid);
 	wallet_transaction_add(ld->wallet, last_tx->wtx, 0, 0);
-	wallet_transaction_annotate(ld->wallet, &txid,
-				    channel->last_tx_type,
-				    channel->dbid);
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
@@ -1739,8 +1736,7 @@ static void update_channel_from_inflight(struct lightningd *ld,
 	psbt_copy = clone_psbt(channel, inflight->last_tx->psbt);
 	channel_set_last_tx(channel,
 			    bitcoin_tx_with_psbt(channel, psbt_copy),
-			    &inflight->last_sig,
-			    TX_CHANNEL_UNILATERAL);
+			    &inflight->last_sig);
 
 	/* Update the reserve */
 	channel_update_reserve(channel,
