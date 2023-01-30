@@ -88,6 +88,7 @@ Core Lightning Documentation
    lightning-listpeerchannels <lightning-listpeerchannels.7.md>
    lightning-listpeers <lightning-listpeers.7.md>
    lightning-listsendpays <lightning-listsendpays.7.md>
+   lightning-listsqlschemas <lightning-listsqlschemas.7.md>
    lightning-listtransactions <lightning-listtransactions.7.md>
    lightning-makesecret <lightning-makesecret.7.md>
    lightning-multifundchannel <lightning-multifundchannel.7.md>
