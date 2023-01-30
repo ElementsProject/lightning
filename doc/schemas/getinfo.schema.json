@@ -95,7 +95,7 @@
     },
     "msatoshi_fees_collected": {
       "type": "u64",
-      "deprecated": true
+      "deprecated": "v0.12.0"
     },
     "fees_collected_msat": {
       "type": "msat",

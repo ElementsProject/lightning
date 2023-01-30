@@ -32,15 +32,9 @@
       "type": "u32",
       "description": "how many attempts this took"
     },
-    "msatoshi": {
-      "deprecated": true
-    },
     "amount_msat": {
       "type": "msat",
       "description": "Amount the recipient received"
-    },
-    "msatoshi_sent": {
-      "deprecated": true
     },
     "amount_sent_msat": {
       "type": "msat",
