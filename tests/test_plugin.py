@@ -3539,10 +3539,6 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'closer',
                          'type': 'string'},
-                        {'name': 'funding_local_msat',
-                         'type': 'msat'},
-                        {'name': 'funding_remote_msat',
-                         'type': 'msat'},
                         {'name': 'funding_pushed_msat',
                          'type': 'msat'},
                         {'name': 'funding_local_funds_msat',
@@ -3787,3 +3783,26 @@ def test_sql(node_factory, bitcoind):
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
     assert len(l3.rpc.sql("SELECT * FROM channels;")['rows']) == 2
     l3.daemon.wait_for_log("Deleting channel: {}".format(scid))
+
+    # No deprecated fields!
+    with pytest.raises(RpcError, match='query failed with no such column: funding_local_msat'):
+        l2.rpc.sql("SELECT funding_local_msat FROM peerchannels;")
+
+    with pytest.raises(RpcError, match='query failed with no such column: funding_remote_msat'):
+        l2.rpc.sql("SELECT funding_remote_msat FROM peerchannels;")
+
+    with pytest.raises(RpcError, match='query failed with no such table: peers_channels'):
+        l2.rpc.sql("SELECT * FROM peers_channels;")
+
+
+def test_sql_deprecated(node_factory, bitcoind):
+    # deprecated-apis breaks schemas...
+    l1 = node_factory.get_node(start=False, options={'allow-deprecated-apis': True})
+    l1.rpc.check_request_schemas = False
+    l1.start()
+
+    # FIXME: we have no fields which have been deprecated since sql plugin was
+    # introduced.  When we do, add them here! (I manually tested a fake one)
+
+    #  ret = l1.rpc.sql("SELECT funding_local_msat, funding_remote_msat FROM peerchannels;")
+    #  assert ret == {'rows': []}
