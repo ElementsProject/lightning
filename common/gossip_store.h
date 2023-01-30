@@ -56,20 +56,6 @@ struct gossip_hdr {
 };
 
 /**
- * Direct store accessor: loads gossip msg from store.
- *
- * Returns NULL if there are no more gossip msgs.
- * Updates *end if the known end of file has moved.
- * Updates *gossip_store_fd if file has been compacted.
- */
-u8 *gossip_store_next(const tal_t *ctx,
-		      int *gossip_store_fd,
-		      u32 timestamp_min, u32 timestamp_max,
-		      bool push_only,
-		      bool with_spam,
-		      size_t *off, size_t *end);
-
-/**
  * Direct store accessor: read gossip msg hdr from store.
  * @gossip_store_fd: the readable file descriptor
  * @off: the offset to read
@@ -96,11 +82,4 @@ bool gossip_store_readhdr(int gossip_store_fd, size_t off,
  * @old_end: 1 if no previous end.
  */
 size_t find_gossip_store_end(int gossip_store_fd, size_t old_end);
-
-/**
- * Return offset of first entry >= this timestamp.
- */
-size_t find_gossip_store_by_timestamp(int gossip_store_fd,
-				      size_t off,
-				      u32 timestamp);
 #endif /* LIGHTNING_COMMON_GOSSIP_STORE_H */

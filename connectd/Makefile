@@ -5,6 +5,7 @@ CONNECTD_HEADERS := connectd/connectd_wiregen.h		\
 	connectd/connectd.h				\
 	connectd/peer_exchange_initmsg.h		\
 	connectd/handshake.h				\
+	connectd/gossip_store.h				\
 	connectd/gossip_rcvd_filter.h			\
 	connectd/multiplex.h				\
 	connectd/netaddress.h				\
