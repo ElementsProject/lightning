@@ -53,6 +53,28 @@ represented as an integer in the database, so a query will return 0 or
   * JSON: string
   * sqlite3: TEXT
 
+PERMITTED SQLITE3 FUNCTIONS
+---------------------------
+Writing to the database is not permitted, and limits are placed
+on various other query parameters.
+
+Additionally, only the following functions are allowed:
+
+* abs
+* avg
+* coalesce
+* count
+* hex
+* quote
+* length
+* like
+* lower
+* upper
+* min
+* max
+* sum
+* total
+
 TABLES
 ------
 [comment]: # (GENERATE-DOC-START)
