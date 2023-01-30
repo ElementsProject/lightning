@@ -1138,6 +1138,27 @@ static void add_table_singleton(struct table_desc *td,
 	tal_arr_expand(&td->columns, col);
 }
 
+static bool is_deprecated(const jsmntok_t *deprecated_tok)
+{
+	const char *deprstr;
+
+	if (!deprecated_tok)
+		return false;
+
+	/* If deprecated APIs are globally disabled, we don't want them! */
+	if (!deprecated_apis)
+		return true;
+
+	/* If it was deprecated before our release, we don't want it; older ones
+	 * were simply 'deprecated: true' */
+	deprstr = json_strdup(tmpctx, schemas, deprecated_tok);
+	assert(strstarts(deprstr, "v"));
+	if (streq(deprstr, "v0.12.0") || streq(deprstr, "v23.02"))
+		return true;
+
+	return false;
+}
+
 static void add_table_properties(struct table_desc *td,
 				 const jsmntok_t *properties)
 {
@@ -1145,7 +1166,7 @@ static void add_table_properties(struct table_desc *td,
 	size_t i;
 
 	json_for_each_obj(i, t, properties) {
-		const jsmntok_t *type;
+		const jsmntok_t *type, *deprecated_tok;
 		struct column col;
 
 		if (ignore_column(td, t))
@@ -1155,6 +1176,13 @@ static void add_table_properties(struct table_desc *td,
 		 * another branch with actual types, so ignore this */
 		if (!type)
 			continue;
+
+		/* Depends on when it was deprecated, and whether deprecations
+		 * are enabled! */
+		deprecated_tok = json_get_member(schemas, t+1, "deprecated");
+		if (is_deprecated(deprecated_tok))
+			continue;
+
 		if (json_tok_streq(schemas, type, "array")) {
 			const jsmntok_t *items;
 
