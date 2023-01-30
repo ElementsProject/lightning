@@ -80,4 +80,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:78f59780528ae5cd33c3607ed11b128cc94e1e0a5e2babd59cb99574a3f5f956)
+[comment]: # ( SHA256STAMP:097b3909247d033ccdc82b5b5bbf222ca391140b4fa160c1d5fae714d06c8dce)

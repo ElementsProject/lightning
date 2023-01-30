@@ -260,7 +260,7 @@ def generate_from_schema(schema):
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
         sub = props[toplevels[0]]
-    elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'array':
+    elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'array' and props[toplevels[0]]['items']['type'] == 'object':
         output('On success, an object containing {} is returned.  It is an array of objects, where each object contains:\n\n'.format(fmt_propname(toplevels[0])))
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
