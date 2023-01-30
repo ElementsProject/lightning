@@ -2473,6 +2473,8 @@ pub mod responses {
 	pub struct ListsendpaysPayments {
 	    pub id: u64,
 	    pub groupid: u64,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub partid: Option<u64>,
 	    pub payment_hash: Sha256,
 	    // Path `ListSendPays.payments[].status`
 	    pub status: ListsendpaysPaymentsStatus,

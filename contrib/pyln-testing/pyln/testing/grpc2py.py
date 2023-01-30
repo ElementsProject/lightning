@@ -465,6 +465,7 @@ def listsendpays_payments2py(m):
     return remove_default({
         "id": m.id,  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
+        "partid": m.partid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "status": str(m.status),  # EnumField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
